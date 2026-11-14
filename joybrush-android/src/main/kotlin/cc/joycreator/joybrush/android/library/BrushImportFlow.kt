@@ -32,6 +32,9 @@ class BrushImportFlow(
         private set
     @Volatile private var destroyed = false
 
+    /** The tip pictures of a brush from the person's folder, or null (not one of ours, or it has none). */
+    fun imagesFor(p: BrushPreset): FrozenBrushPngs? = images[p.id]?.takeIf { it.paths.isNotEmpty() }
+
     /** True for a brush that came from the person's folder. */
     fun owns(p: BrushPreset?): Boolean = p != null && p.id in images
 
@@ -100,6 +103,7 @@ class BrushImportFlow(
         } ?: return "That file could not be opened."
         val outcome = BrushFileImport.run(name, bytes)
         outcome.reasons.forEach { Log.i(TAG, "left out: $it") }
+        outcome.brushes.forEach { b -> b.warnings.forEach { Log.i(TAG, "${b.preset.name}: $it") } }
         if (outcome.brushes.isEmpty()) return outcome.sentence
         val jf = JoyFolderHome.open(activity)
             ?: return "JoyBrush keeps brushes in your Joy Creator folder. Choose the folder in Setup, then try again."

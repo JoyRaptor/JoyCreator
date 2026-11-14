@@ -37,6 +37,7 @@ import cc.joycreator.joybrush.android.chrome.BitmapPreviewCodec
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.BrushPreviewCache
 import cc.joycreator.joybrush.android.chrome.PreviewMaker
+import cc.joycreator.joybrush.android.chrome.PreviewSource
 import cc.joycreator.joybrush.android.chrome.UnibrushHostController
 import cc.joycreator.joybrush.android.chrome.UnibrushActivation
 import cc.joycreator.joybrush.androidkit.UnibrushCanvasPort
@@ -379,6 +380,20 @@ class JoyBrushActivity : Activity() {
 
     /** The brushes as the owner has tuned them: what the drawer shows and what the canvas draws with. */
     private fun tunedBrushes(): List<BrushPreset> = brushes.map { BrushTuning.apply(it, tuning) }
+
+    /**
+     * The drawer's pictures. A brush from the person's folder that has tip pictures hands them to the preview with its
+     * request (the engines need them to draw it); without them the request threw and closed the app (tablet, 11-13).
+     */
+    private fun drawerPreviewSource(): PreviewSource<android.graphics.Bitmap> {
+        val base = unibrush?.drawerPreviews ?: brushPreviews
+        return PreviewSource { p, w, h, style, onReady ->
+            val images = brushImports.imagesFor(p)
+            if (images == null) base.request(p, w, h, style, onReady)
+            else brushPreviews.request(cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.snapshot(
+                p, w, h, style, pngs = images), onReady)
+        }
+    }
 
     /** The drawer's list: the catalogue (shipped and Unibrush), then the person's own from their folder. */
     private fun rebuildBrushList() {
@@ -1082,7 +1097,7 @@ class JoyBrushActivity : Activity() {
             chooseDrawerBrush(picked, settings = false)
         }, onSettings = { held ->
             chooseDrawerBrush(held, settings = true)
-        }, previews = unibrush?.drawerPreviews ?: brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) },
+        }, previews = drawerPreviewSource(), editableLines = { BrushLinePreferences(prefs).enabled(it) },
             onImport = { popovers.close(); brushImports.ask() })
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)

@@ -53,7 +53,7 @@ class BrushDrawerView(
      * Null keeps the ordinary drawer.
      */
     private val swap: Swap? = null,
-    /** BRUSH-IMPORT: "Import brushes…" at the end of the All and Imported shelves. Null leaves the row out. */
+    /** BRUSH-IMPORT: "Import…" under the shelf names. Null leaves it out. */
     private val onImport: (() -> Unit)? = null,
 ) : LinearLayout(kit.context) {
 
@@ -107,6 +107,20 @@ class BrushDrawerView(
             kinds.addView(t, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ChromeKit.TOUCH_DP)))
             kindViews[kind] = t
         }
+        // BRUSH-IMPORT: the way in sits under the shelf names, always in view whichever shelf is open (at the end of
+        // the All list it was out of reach on the tablet, behind every brush and its loading picture).
+        if (onImport != null && swap == null) {
+            kinds.addView(TextView(context).apply {
+                text = "Import…"
+                textSize = 13f
+                setTextColor(kit.p.drawerInk)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(kit.dpi(10f), 0, kit.dpi(6f), 0)
+                setSingleLine()
+                kit.label(this, "Import brushes: Photoshop, Procreate, Krita or MyPaint brushes from a file")
+                setOnClickListener { onImport.invoke() }
+            }, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ChromeKit.TOUCH_DP)))
+        }
         // Tall shelves scroll rather than push the drawer off the screen.
         kindScroll.layoutParams.height = LayoutParams.WRAP_CONTENT
         doOnLayout {
@@ -138,17 +152,6 @@ class BrushDrawerView(
             }
             strokes.addView(row(p), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
         }
-        if (onImport != null && swap == null && (kind == BrushShelf.Kind.ALL || kind == BrushShelf.Kind.IMPORTED)) {
-            strokes.addView(TextView(context).apply {
-                text = "Import brushes…"
-                textSize = 13f
-                setTextColor(kit.p.drawerInk)
-                gravity = android.view.Gravity.CENTER_VERTICAL
-                setPadding(kit.dpi(8f), 0, kit.dpi(8f), 0)
-                kit.label(this, "Bring in Photoshop, Procreate, Krita or MyPaint brushes from a file")
-                setOnClickListener { onImport.invoke() }
-            }, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ChromeKit.TOUCH_DP)))
-        }
         swap?.let { s ->
             strokes.addView(TextView(context).apply {
                 text = s.footer
@@ -172,9 +175,14 @@ class BrushDrawerView(
             val row = slot.img.parent as? View ?: continue
             if (row.bottom < top || row.top > bottom) continue
             slot.asked = true
-            asks += source.request(slot.preset, slot.img.width, slot.img.height, previewStyle) { bitmap ->
-                // A shelf that has been swapped out, or a drawer that has closed, takes no picture.
-                if (slot.shelf == shelfShowing && slot.img.isAttachedToWindow) slot.img.setImageBitmap(bitmap)
+            // A picture that cannot be asked for leaves its row as it is; a drawer row never closes the app.
+            asks += try {
+                source.request(slot.preset, slot.img.width, slot.img.height, previewStyle) { bitmap ->
+                    // A shelf that has been swapped out, or a drawer that has closed, takes no picture.
+                    if (slot.shelf == shelfShowing && slot.img.isAttachedToWindow) slot.img.setImageBitmap(bitmap)
+                }
+            } catch (e: Exception) {
+                android.util.Log.w("JoyBrushDrawer", "no preview for ${slot.preset.name}", e); PreviewCancel { }
             }
         }
     }
@@ -251,7 +259,12 @@ class BrushDrawerView(
     private fun sample(p: BrushPreset, w: Int, h: Int): Bitmap {
         val layer = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val lc = Canvas(layer)
-        val dabs = SampleStroke.dabs(p, w.toFloat(), h.toFloat(), displaySize = h * 0.55f)
+        // The stand-in is soft discs only, so a picture tip (an imported Photoshop or Krita brush) is drawn as its disc
+        // here: the tip pictures are not at hand in the drawer, and asking for them threw and closed the app (tablet,
+        // 11-13, the owner's Photoshop set). A row that still cannot be drawn stays empty; it never takes the app down.
+        val shown = p.copy(tip = p.tip.copy(sampled = null, dual = null))
+        val dabs = try { SampleStroke.dabs(shown, w.toFloat(), h.toFloat(), displaySize = h * 0.55f) }
+            catch (e: Exception) { android.util.Log.w("JoyBrushDrawer", "no stand-in for ${p.name}", e); emptyList() }
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val soft = 1f - p.tip.hardness.base.coerceIn(0f, 1f)
         for (d in dabs) {

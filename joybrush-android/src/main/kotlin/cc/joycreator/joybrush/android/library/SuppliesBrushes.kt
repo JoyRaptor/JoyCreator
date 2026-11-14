@@ -27,9 +27,10 @@ object SuppliesBrushes {
 
     private fun dir(jf: JoyFolder): String = jf.prepareDir(Placement.What.SUPPLY, null, null, FileKind.BRUSH)
 
-    /** Every readable brush in `Supplies/Brushes/`, in name order. */
+    /** Every readable brush in `Supplies/Brushes/`, in name order. Reading never creates a folder. */
     fun load(jf: JoyFolder): List<Brush> {
-        val dir = dir(jf)
+        val dir = Placement.dirFor(Placement.What.SUPPLY, null, null, FileKind.BRUSH, jf.roles).dir
+        if (dir.isEmpty() || jf.fs.stat(dir)?.dir != true) return emptyList()
         val out = ArrayList<Brush>()
         for (e in jf.fs.list(dir).sortedBy { it.name.lowercase() }) {
             if (e.dir || !e.name.lowercase().endsWith(BrushFile.ENDING)) continue

@@ -59,6 +59,12 @@ class SuppliesBrushesTest {
         assertEquals(listOf("Good"), back.map { it.preset.name })
     }
 
+    @Test fun readingAFolderWithNoBrushesCreatesNothing() {
+        val back = SuppliesBrushes.load(JoyFolder.open(FileJoyFs(tmp.root)))
+        assertTrue(back.isEmpty())
+        assertTrue(!java.io.File(tmp.root, "Supplies").exists())
+    }
+
     @Test fun aRenamedFileIsARenamedBrush() {
         val a = SuppliesBrushes.named(BrushPreset(id = "x", name = "Old", size = Param(4f)), "New name.brush.json")
         assertEquals("New name", a.name)

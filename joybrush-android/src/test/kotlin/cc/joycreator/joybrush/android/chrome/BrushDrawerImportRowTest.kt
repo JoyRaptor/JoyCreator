@@ -13,14 +13,14 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
-/** BRUSH-IMPORT: the drawer's way in, "Import brushes…", with a hover label, on the All shelf; absent without a handler. */
+/** BRUSH-IMPORT: the drawer's way in, "Import…" under the shelf names, with a hover label; absent without a handler. */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], qualifiers = "mdpi")
 class BrushDrawerImportRowTest {
     private fun descendants(view: View): List<View> = listOf(view) +
         if (view is ViewGroup) (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) } else emptyList()
 
-    private fun row(drawer: View) = descendants(drawer).filterIsInstance<TextView>().filter { it.text.toString() == "Import brushes…" }
+    private fun row(drawer: View) = descendants(drawer).filterIsInstance<TextView>().filter { it.text.toString() == "Import…" }
 
     @Test fun theImportRowOpensThePickerAndHasAHoverLabel() {
         val kit = ChromeKit(RuntimeEnvironment.getApplication())
@@ -32,6 +32,20 @@ class BrushDrawerImportRowTest {
         assertTrue(rows.single().contentDescription.toString().contains("Procreate"))
         rows.single().performClick()
         assertEquals(1, asked)
+    }
+
+    @Test fun aPictureTipBrushWithoutItsPicturesStillGetsARowAndNeverThrows() {
+        // Tablet 11-13: an imported Photoshop brush's stand-in asked for tip pictures the drawer does not have and the app
+        // closed. The stand-in draws the disc instead.
+        val kit = ChromeKit(RuntimeEnvironment.getApplication())
+        val tipped = testBrush("supplies.clod", name = "CLOD 1").let {
+            it.copy(tip = it.tip.copy(sampled = cc.joycreator.joybrush.core.brush.SampledTipSpec(listOf("tips/a.png"))))
+        }
+        val drawer = BrushDrawerView(kit, listOf(tipped), BrushShelf.Kind.ALL, null, onPick = {})
+        drawer.measure(View.MeasureSpec.makeMeasureSpec(1000, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.AT_MOST))
+        drawer.layout(0, 0, drawer.measuredWidth, drawer.measuredHeight)
+        assertTrue(descendants(drawer).filterIsInstance<android.widget.ImageView>().isNotEmpty())
     }
 
     @Test fun noHandlerNoRow() {

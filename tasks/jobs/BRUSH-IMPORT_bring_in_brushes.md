@@ -1,6 +1,6 @@
 # BRUSH-IMPORT (JBX-18): bring Photoshop, Procreate, Krita and MyPaint brushes into JoyBrush
 
-**Milestone:** M2  ·  **State:** 🔨  ·  **Owner:** JoyBrush screens lane (Claude Opus 5.5, `claude/joybrush-screens-20261113-1a6f0b`)  ·  **Checked:** 2026-11-13 against `02c782894`
+**Milestone:** M2  ·  **State:** 🟡  ·  **Owner:** JoyBrush screens lane (Claude Opus 5.5, `claude/joybrush-screens-20261113-1a6f0b`)  ·  **Checked:** 2026-11-13 against `02c782894`
 
 ## Why it matters (for the user)
 An artist arrives with brushes they already love. Today JoyBrush can convert four kinds of brush file, but there is no
@@ -46,9 +46,23 @@ the choice between embedding and a side picture file goes back to the lead, not 
   folder to a scratch folder outside the repo; never committed). First run on the PC: the whole file was refused
   because its pattern section (33.9 MB of textures) was over the 32 MB per-section cap, although nothing reads that
   section. Fixed in `AbrReader` (the cap now guards only the parsed tip and brush sections; patterns are still skipped
-  and not imported). After the fix, on the PC: **17 of 19 brushes convert**; the 2 left out are "Flat Point 22" and "Flat Point 11", Photoshop bristle brushes (a hair simulation JoyBrush has no equivalent for). Dropped for every brush: the pattern textures. Device run and file sizes still owed.
-- **Krita packs** (owner said yes, three named threads on krita-artists.org): not downloaded yet; asked the owner in
-  this session to confirm the downloads (files, source) first.
+  and not imported). After the fix, on the PC: **17 of 19 brushes convert**; the 2 left out are "Flat Point 22" and "Flat Point 11", Photoshop bristle brushes (a hair simulation JoyBrush has no equivalent for). Dropped for every brush: the pattern textures. **Test tablet 11-13 19:47** (the build with every fix below): "Import…" → picker → the set → "Added 17 brushes
+  from "Battle_demo_brushes". 2 could not come across: Flat Point 22, Flat Point 11." → 17 files in the tablet's
+  `Joy Creator/Supplies/Brushes/` (4 KB to 277 KB each, so embedding stays well under 1 MB) → the Imported shelf
+  shows all 17 with their own tip pictures → "CLOD 1" paints its cloud tip. Left installed on the tablet (owner's
+  wish). Two app closes found and fixed on the way: the drawer's stand-in and its real preview both asked for tip
+  pictures they were not given (now the stand-in draws the disc, the preview is handed the pictures, and a row that
+  still cannot draw stays empty instead of closing the app). Note 9: the same set is owed (the phone was held by
+  another lane); the MyPaint charcoal is there since 13:59.
+- **What the Photoshop importer drops, seen so far:** the pattern textures (never imported) and the two bristle
+  brushes. Each converted brush also carries the importer's own per-brush warnings (`ImportResult.warnings`); the app
+  does not show them (owner bar) and logs them under `JoyBrushImport` from 11-13 20:30; the per-setting list for this set is
+  still to be copied here from the next import's log.
+- **Krita packs** (owner said yes, three named threads on krita-artists.org: Memileo impasto, Metallics by
+  Draneria, Val's realistic ink pen): not downloaded yet. Downloads wait for the owner's own yes in this session
+  (file names and sources first); licences and dates go here when fetched.
+- Entry point moved 11-13: "Import…" sits under the shelf names (always in view); at the end of the All list it was
+  out of reach on the tablet.
 
 ## What is left
 1. [ ] Self-contained brush file: `BrushFile` (androidkit) = `BrushJson` recipe plus an `"assets"` object (path → PNG,

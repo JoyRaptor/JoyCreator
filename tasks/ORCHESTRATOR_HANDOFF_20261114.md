@@ -41,10 +41,11 @@ ones. A fresh orchestrator should recount by reading each card, not trust this e
    before any engine edit (Codex handback section 3).
 3. **Editable watercolour lines acceptance** (Sonnet or Opus): verify the existing sampled-line path through
    selected edits, save/reopen, recovery, appearance on the Note 9 (Codex handback section 2).
-4. **History scrub of the public repo**: ON HOLD by the owner (building first). Plan and failed rehearsals in
-   `D:/JoyCreator-scrub-20261114/RUNBOOK.md` (outside the repo). Needs: rehearsal on a GitHub mirror, his yes
-   to moving `.githooks/_patterns` private, a tested re-sync of local branches and worktrees. Guard hooks
-   were off from 10-27 to 11-13 (fixed). Never force-push without him.
+4. **History scrub of the public repo**: now OWNED by the repo-privacy lane (started 11-14, Opus), with the owner's go:
+   a new guard (private pattern list on the PC, hashed fallback in the repo, never locks anyone out), a tested
+   re-sync, then the scrub at the first safe moment (no session working, no locks, all pushed). It sends the owner a
+   plain summary before the first real run. The GitHub-mirror rehearsal of 11-14 was clean on history
+   (`D:/JoyCreator-scrub-20261114/RUNBOOK.md`). Do not run the scrub yourself; check on that lane.
 5. **Thread hygiene**: archive Library-files and UI-1 lanes (finished); have the Studio lane write a handoff
    and clear it (history since 11-10); then this orchestrator.
 6. **Owner decisions still open**: S1 app ID, S18 front door pick, the brush-editor design pick, the puppet
@@ -59,3 +60,25 @@ ones. A fresh orchestrator should recount by reading each card, not trust this e
 - Compaction vs clear: clear with a written handoff is better whenever the work's state lives in files
   (cards, BOARD, this file). Compact only mid-task when the in-head detail (a half-finished diagnosis,
   numbers not yet written down) cannot be written out cheaply first.
+
+## 5. Waiting on the owner, added 11-14
+- A Smart Detection test clip (20 to 60 s, camera still): a person in and out, a cat or dog, a passing car or bike, a few
+  seconds of an empty room, one object not on the list; daylight plus dim if possible. When he names the file, the
+  launch-docs lane compares the old detector with the MediaPipe switch (branch `claude/mediapipe-detector-20261114`,
+  not merged until detection is confirmed). Detector groups: Person; Pet (cat, dog, bird, horse, sheep, cow);
+  Vehicle (bicycle, car, motorcycle, bus, truck, train, airplane, boat); Object.
+- The brush-editor design page pick (sent by the JoyBrush screens lane).
+- Downloading the Memileo Impasto and Metallics Krita packs into `D:/JoyCreator-brush-samples/`.
+- The test tablet's PIN lock: asked to set Swipe or None (sessions cannot pass a PIN).
+
+## 6. First moves for a fresh orchestrator
+1. Read this file, the memory note `orchestrator-handoff-20261114`, and `BOARD.md`; fetch `origin/joy-creator`.
+2. Fast-forward the owner's main folder when it has no tracked changes (it drifts behind as lanes land).
+3. From the desktop app (not Remote Control, which cannot start sessions), start the never-started lanes in
+   section 3: TAB-1 (Opus), Select on pixels design (Opus), editable watercolour lines acceptance (Sonnet).
+4. Thread hygiene: archive the UI-1 and Library-files sessions; ask the Studio lane for a handoff in its card, then
+   clear it and send it its next job fresh.
+5. Unlanded branches to watch: Studio `claude/studio-lane-20261114`; brushes `claude/brush-set-20261113-81446f`
+   (test stroke from his drawing, oil taper, slider end pictures: waiting on tests and the Note 9); Joybot sprites
+   branch (recording owed, he must watch it before landing); the detector switch above.
+6. Keep model choice by the job (section 2, A13) and keep turns short: every turn re-reads history.

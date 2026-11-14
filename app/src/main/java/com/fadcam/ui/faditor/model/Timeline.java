@@ -960,6 +960,15 @@ public class Timeline {
     }
 
     /**
+     * Put {@code clips} into the list at {@code index} (clamped), in order. The audio rows are
+     * ordered by where each layer first appears in this list, so an edit that swaps one clip for
+     * others keeps its row only by inserting them where the original was.
+     */
+    public void insertAudioClips(int index, @NonNull List<AudioClip> clips) {
+        audioClips.addAll(Math.max(0, Math.min(index, audioClips.size())), clips);
+    }
+
+    /**
      * Remove an audio clip from the audio track.
      */
     public void removeAudioClip(@NonNull AudioClip audioClip) {

@@ -46,3 +46,10 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 - ✅ **AN-09 bend (partly):** selected a sprite, Bend on, dragged the centre point and the top-left corner point with a finger: the sprite bent in the preview each time, one undo step per drag, two undo taps put it back flat. Screens: `tasks/screens/anim-labs-20261113/`. **Not checked:** preview equals an exported frame; the yellow corner-pin squares; a drag started within ~20 px of the screen edge opens the phone's camera (Samsung edge gesture, not the app).
 - ✅ **VisLab lobby hero sheet (c32a62808):** leaving the room after ~9 s wrote `hero-<t>.jpg` and `hero-<t>.5x4.sprite.webp` (135 KB, 1280x576, 20 distinct moving frames), old pair gone. Lobby playback not seen: the lobby side (`LobbyHeroMotion`) had not landed.
 - ❌ Not yet run (no rigged picture project found; needs one made): AN-06 pins, key, live take, tape drags, bone tap; AN-07 tail swing; AN-08 grab bar.
+
+### Note 9, 11-13 evening (same throwaway project, own test picture of a figure with a tail)
+- ✅ **Where the puppet lives:** hold a picture in the preview, Image drawer, person-icon "Puppet" tab (Grab, Pin, Stiff, Dangle, Free, Bone; Selected / Character / Recording).
+- ✅ **Place pins:** two Pin-type pins placed by tapping the picture, auto-named "Waist" and "R.Hand", one undo step each (undo counter 3 after pins).
+- ✅ **Key a pin:** the diamond made a key on R.Hand at 0.844 s (diamond turned green, undo counter 4, a key mark on the tape).
+- ❌ Not proven: moving a pin and playing it back, live take, tape drags, bone tap, dangle tail swing (AN-07), grab bar (AN-08), rotated-picture pins, hole/depth sliders. The drawer re-lays-out after the first pin (tool row moves down ~180 px), so scripted taps by fixed coordinates missed; a second pass should screenshot between steps.
+- Found, not fixed: none a bug yet. A drag from the screen's right edge opens the camera (Samsung edge gesture).

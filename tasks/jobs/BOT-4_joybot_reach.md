@@ -36,9 +36,21 @@ SpriteLab: grid, names, animations, sequences.
       (no `MainActivity` change); Avatar with no project opens standalone on the character library; help `remote_lan`
       and new `smart_detection` carry the route, the Remote tip too. IdeaEngineTest now checks that every route a
       tip, help topic or `open_room` names has a `case` in `route()` (911/911; removing the remote case fails it).
-      Not yet tried on a phone.
-- [ ] **Capture**: start, pause, stop a recording; webcam bubble; floating visualiser with it. Android
-      permission screens stay the person's tap.
+      **Device ✅ 11-13 19:20 (agent, the test tablet, the installed 13:58 build):** "where is smart detection" answers
+      and its Take me there opens the Smart Detection screen ([answer](../joybot/evidence/help_smart_detection_tablet_20261113.png),
+      [screen](../joybot/evidence/route_smart_detection_tablet_20261113.png)). That build still said "the lobby's Finder" and
+      used the tab route. **Device ✅ 11-13 20:25 (agent, the test tablet, my build of `joy-creator` a6cdd3ea4):** the answer
+      says "Detect in the lobby" and Take me there opens Smart Detection through the shell's door (the tab now reads
+      Detect); the pack answer's Take me there opens the Library on Fonts and supplies
+      ([1](../joybot/evidence/route_detect_door_tablet_20261113.png), [2](../joybot/evidence/route_supplies_tablet_20261113.png)).
+- [~] **Capture** (11-13, audit BOT-A29): `recording` (app-wide family "capture"): status, start (back / front / dual),
+      pause, resume, stop, each through a door the app already has (the shortcut's `RecordingStartActivity`, the
+      service intents the Remote Studio page sends, `RecordingStopActivity`). The camera starts only on the person's
+      own words asking to record (a model's guess or a computer on the bridge can't; `joybot/CaptureRules`); missing
+      camera / microphone permission is reported, never worked round; dual can't pause. Ideas 1020/1020 (12 rule
+      checks); bench `capture-not-asked` (the refusal is the rule's own, checked in its log), bench 63/63. **Not on a
+      device** (a start really films). Left: screen recording, the webcam bubble; the floating visualiser already has
+      `vislab_float`.
 - [ ] **JoyBrush, deeper**: Select (move, scale, recolour a selection), symmetry, paper, undo/redo by voice,
       export a drawing or board, Send to Studio. With the JoyBrush lead.
 - [ ] **Cross-wing jobs** (F6): sprite sheet → animation → placed in the video; a JoyBrush region → picture
@@ -50,6 +62,11 @@ SpriteLab: grid, names, animations, sequences.
       - [x] **Cell tags** (audit AN-05, 11-13): `tag_sprite_cells` (add / set / remove, `joybot/CellTags` rules, the
             SpriteLab spelling); `describe_sprite_sheet` reads names and tags first. Bench fixture `studio-sprite` +
             `tasks/sprite.json` 3/3 (tag, untag keeping the name, out-of-range refused and not claimed). Not on a phone.
+      - [x] **Pivot, background key, mouth shapes** (11-13, audit BOT-A31): `set_sprite_options` through the sheet's own
+            setters; mouth shapes in the lip-sync's names (REST AA EE OO CLOSURE FRIC) plus everyday spellings
+            (`joybot/SpriteOptions`); all checked before anything changes. Bench `sprite-options` and
+            `sprite-options-bad-shape` (refused whole), bench 62/62; ideas 1008/1008. Not on a phone.
+            Left of this row: auto-centre / per-cell alignment, background bake, dope sheet, export.
 - [ ] **Avatar**: pose matrix, mic lip-sync, the .avatar library (Avatar is hidden for launch).
 - [ ] **Recipes with triggers** ("every new recording: transcribe, cut ums, captions, export a draft").
 - [ ] **Model routing per step** (a cheap model for simple steps, a seeing one for `look`, a strong one for plans).

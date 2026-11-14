@@ -264,7 +264,7 @@ public final class AudioDrawerTabs {
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser && !bar.isFineDriving()) return;
                 writePan(clip, host, panOf(p));
-                value.setText(fmtPan(panAt(clip)));
+                value.setText(fmtPan(value.getContext(), panAt(clip)));
                 host.onChanged();
             }
             @Override public void onStartTrackingTouch(SeekBar s) {
@@ -298,7 +298,7 @@ public final class AudioDrawerTabs {
 
         selfRefresh[0] = () -> {
             float cur = panAt(clip);
-            value.setText(fmtPan(cur));
+            value.setText(fmtPan(value.getContext(), cur));
             bar.setProgress(progressOfPan(cur));
         };
         return selfRefresh[0];
@@ -413,7 +413,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             @Override public void onProgressChanged(SeekBar s, int p, boolean fromUser) {
                 if (!fromUser && !bar.isFineDriving()) return;
                 setFade(clip, fadeIn, fadeMsOf(p, maxFade));
-                value.setText(fmtMs(readFade(clip, fadeIn)));
+                value.setText(fmtMs(value.getContext(), readFade(clip, fadeIn)));
                 host.onChanged();
             }
             // ONE undo step per gesture (§0 rule 7).
@@ -443,7 +443,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
 
         selfRefresh[0] = () -> {
             long cur = readFade(clip, fadeIn);
-            value.setText(fmtMs(cur));
+            value.setText(fmtMs(value.getContext(), cur));
             bar.setProgress(fadeProgressOf(cur, maxFade));
         };
         return selfRefresh[0];
@@ -480,6 +480,20 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         return BAKING_CLIP_IDS.contains(clipId);
     }
 
+    /**
+     * After the clip changes the file it plays: repaint and save, and re-read the clip's stored
+     * waveform from the new file (an audio clip's own picture; a film clip's audio has none).
+     */
+    private static void afterSourceSwap(@NonNull Context ctx, @NonNull AudioParams clip,
+                                        @NonNull Host host) {
+        host.onChanged();
+        host.onVoiceFxChanged(); // the preview players hold the old file until rebuilt
+        if (clip instanceof com.fadcam.ui.faditor.model.AudioClip) {
+            com.fadcam.ui.faditor.audio.SourceWaveform.refresh(ctx,
+                    (com.fadcam.ui.faditor.model.AudioClip) clip, host::onChanged);
+        }
+    }
+
     @NonNull
     public static View cleanTab(@NonNull Context ctx, @NonNull AudioParams clip,
                                 @NonNull Host host, @NonNull java.io.File projectDir,
@@ -506,6 +520,9 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         // Holder, not a plain local: the row's own listeners re-run this refresh, and a
         // lambda may not capture itself before its initializer completes.
         final Runnable[] refreshHolder = new Runnable[1];
+        // The two process chips are built further down; the refresh puts them back each time
+        // it rebuilds the row (it used to clear them for good after the first Revert).
+        final java.util.List<View> applyChips = new java.util.ArrayList<>();
         final Runnable refresh = () -> {
             actions.removeAllViews();
             if (baking[0]) {
@@ -528,26 +545,33 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                         bakedPath == null ? null : new java.io.File(bakedPath);
                 clip.setSourceUri(android.net.Uri.parse(origUri));
                 clip.setBakedFrom(null, null);
+                // redo = revert again; undo = back to the processed file. These two were swapped
+                // (Undo of a Revert left the original playing), and the processed file was a bare
+                // path rather than a file link. The processed file is KEPT: Undo needs it, and a
+                // later Fix or Clean of the same span reuses it (STU-B2, 11-13).
+                final android.net.Uri bakedUri = bakedFile != null
+                        ? android.net.Uri.fromFile(bakedFile) : android.net.Uri.parse(origUri);
                 host.recordUndo(ctx.getString(R.string.lane_b_audio_revert),
-                        () -> {
-                            clip.setSourceUri(android.net.Uri.parse(
-                                    bakedPath != null ? bakedPath : origUri));
-                            clip.setBakedFrom(origUri, bakedPath);
-                            host.onChanged();
-                        },
                         () -> {
                             clip.setSourceUri(android.net.Uri.parse(origUri));
                             clip.setBakedFrom(null, null);
-                            host.onChanged();
+                            afterSourceSwap(ctx, clip, host);
+                        },
+                        () -> {
+                            clip.setSourceUri(bakedUri);
+                            clip.setBakedFrom(origUri, bakedPath);
+                            afterSourceSwap(ctx, clip, host);
                         });
-                // The artifact goes when we revert away from it.
-                if (bakedFile != null) {
-                    com.fadcam.ui.faditor.audio.BakedAudioCache.discardBake(bakedFile);
-                }
-                host.onChanged();
+                afterSourceSwap(ctx, clip, host);
                 if (refreshHolder[0] != null) refreshHolder[0].run();
             });
             actions.addView(revert);
+            if (!clip.isBakedSource()) {
+                for (View c : applyChips) {
+                    if (c.getParent() instanceof android.view.ViewGroup) ((android.view.ViewGroup) c.getParent()).removeView(c);
+                    actions.addView(c);
+                }
+            }
         };
         refresh.run();
         refreshHolder[0] = refresh;
@@ -586,21 +610,21 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                             android.net.Uri baked = android.net.Uri.fromFile(bakedFile);
                             clip.setSourceUri(baked);
                             clip.setBakedFrom(origUri, bakedFile.getAbsolutePath());
+                            // Undo keeps the processed file: Redo plays it again (it used to be
+                            // deleted here, and Redo then pointed at a missing file).
                             host.recordUndo(label,
                                     () -> {
                                         clip.setSourceUri(baked);
                                         clip.setBakedFrom(origUri,
                                                 bakedFile.getAbsolutePath());
-                                        host.onChanged();
+                                        afterSourceSwap(ctx, clip, host);
                                     },
                                     () -> {
                                         clip.setSourceUri(android.net.Uri.parse(origUri));
                                         clip.setBakedFrom(null, null);
-                                        com.fadcam.ui.faditor.audio.BakedAudioCache
-                                                .discardBake(bakedFile);
-                                        host.onChanged();
+                                        afterSourceSwap(ctx, clip, host);
                                     });
-                            host.onChanged();
+                            afterSourceSwap(ctx, clip, host);
                             refresh.run();
                         }));
             }
@@ -610,16 +634,28 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         dn.setOnClickListener(v -> new Apply(
                 com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_DENOISE,
                 ctx.getString(R.string.lane_b_audio_denoise)).run());
-        actions.addView(dn);
+        applyChips.add(dn);
         TextView ln = chip(ctx, ctx.getString(R.string.lane_b_audio_normalize));
         hoverLabel(ln, ctx.getString(R.string.lane_b_audio_normalize_desc));
         ln.setOnClickListener(v -> new Apply(
                 com.fadcam.ui.faditor.audio.BakedAudioCache.CHAIN_LOUDNORM,
                 ctx.getString(R.string.lane_b_audio_normalize)).run());
-        actions.addView(ln);
+        applyChips.add(ln);
+        refresh.run();
+        // Undo/Redo change the clip behind this tab: the drawer's row tick re-checks it and
+        // rebuilds only when processed/original/busy actually changed.
+        final int[] shown = {stateOf(clip, baking[0])};
+        root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
+            int now = stateOf(clip, baking[0]);
+            if (now != shown[0]) { shown[0] = now; refresh.run(); }
+        });
 
         root.addView(note(ctx, ctx.getString(R.string.lane_b_audio_bake_note)));
         return root;
+    }
+
+    private static int stateOf(@NonNull AudioParams clip, boolean baking) {
+        return baking ? 2 : clip.isBakedSource() ? 1 : 0;
     }
 
     // ── Tab 3: FX ────────────────────────────────────────────────────────────────────────
@@ -741,7 +777,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             float gr = reportedGainReductionDb;
             boolean live = !Float.isNaN(gr);
             bar.setLevelDb(live ? Math.max(0f, -gr) : 0f);
-            value.setText(live ? fmtGr(gr) : fmtGr(0f));
+            value.setText(fmtGr(value.getContext(), live ? gr : 0f));
             note.setText(fxChainBypassed
                     ? R.string.lane_b_audio_comp_bypassed
                     : live ? R.string.lane_b_audio_comp_live
@@ -755,8 +791,8 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     }
 
     @NonNull
-    private static String fmtGr(float negativeDb) {
-        return String.format(java.util.Locale.US, "%.1f dB", negativeDb);
+    private static String fmtGr(@NonNull Context ctx, float negativeDb) {
+        return ctx.getString(R.string.audio_readout_db, negativeDb);
     }
 
     /**
@@ -1252,15 +1288,17 @@ private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioCli
     }
 
     @NonNull
-    private static String fmtPan(float pan) {
-        if (pan == 0f) return "C";
-        return (pan > 0 ? "R" : "L") + Math.round(Math.abs(pan) * 100f) + "%";
+    private static String fmtPan(@NonNull Context ctx, float pan) {
+        if (pan == 0f) return ctx.getString(R.string.audio_readout_pan_centre);
+        int pct = Math.round(Math.abs(pan) * 100f);
+        return ctx.getString(pan > 0 ? R.string.audio_readout_pan_right
+                : R.string.audio_readout_pan_left, pct);
     }
 
     @NonNull
-    private static String fmtMs(long ms) {
-        if (ms < 1000) return ms + "ms";
-        return String.format(java.util.Locale.US, "%.2fs", ms / 1000f);
+    private static String fmtMs(@NonNull Context ctx, long ms) {
+        if (ms < 1000) return ctx.getString(R.string.audio_readout_ms, ms);
+        return ctx.getString(R.string.audio_readout_seconds, ms / 1000f);
     }
 
     /** "500" not "500.0"; keeps decimals only when they carry information. */

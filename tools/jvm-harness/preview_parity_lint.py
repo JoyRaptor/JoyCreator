@@ -96,6 +96,16 @@ EXPECTED = {}
 COMMENT_RE = re.compile(r"//[^\n]*|/\*.*?\*/", re.S)
 
 
+# Predicates the preview routes on that are made of other routing props (TextOverlayItem).
+COMPOSITE_ROUTING = ["wantsGlExport"]
+
+
+def composite_body(model_text, name):
+    """The body of `public boolean <name>()` in the model source ('' when absent)."""
+    m = re.search(r"boolean\s+" + name + r"\s*\(\s*\)\s*\{(.*?)\n    \}", model_text, re.S)
+    return m.group(1) if m else ""
+
+
 def norm(p):
     return p.replace("\\", "/")
 
@@ -177,6 +187,17 @@ def run_check(sources):
         checked += 1
         # Routing to GL must be read by a preview renderer, not just the shared builder.
         covered = re.search(r"\b" + prop + r"\b", preview_text) is not None
+        # ...or through a composite predicate the preview routes on, when the MODEL's own body of
+        # that predicate reads this prop. a549c113d moved the preview from filtering on
+        # wantsExportBlend() to wantsGlExport() on purpose (filtering on the former broke z
+        # order once masks went GL); wantsGlExport() ORs wantsExportBlend(). Checked against the
+        # model's code, not trusted: drop the prop from the composite and this fails again.
+        if not covered:
+            for composite in COMPOSITE_ROUTING:
+                if (re.search(r"\b" + composite + r"\b", preview_text) is not None
+                        and prop in composite_body(text_overlay_builder, composite)):
+                    covered = True
+                    break
         if not covered:
             gaps.append(prop + " (routing: preview must read it, not just the model)")
 

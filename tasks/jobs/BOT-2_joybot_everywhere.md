@@ -37,14 +37,16 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
         added), `studio_marks` (bookmarks, regions, loop, region export, "ask me to drop a mark"), `studio_title_rename`,
         `studio_arrange_tools`, `studio_drawer_back`, `export_safety` (Cancel, too-full warning, "name 2"), and `silence`
         now names an audio clip's Cut gaps. Words read from the code (strings, `JoyBrushActivity.layerPanel`,
-        `LayerColumnView`). Ideas 843/843 (18 new question checks). Not yet asked in the app on a phone.
+        `LayerColumnView`). Ideas 843/843 (18 new question checks). **Device ✅ 11-13 19:20 (agent, the test tablet, Tab S8 Ultra, offline helper, the installed 13:58 build):** "how do I lock a layer" and "how do I drop a bookmark" answer with the new topics and a Take me there ([1](../joybot/evidence/help_lock_layer_tablet_20261113.png), [2](../joybot/evidence/help_bookmarks_tablet_20261113.png)).
   - [x] **11-13 (BOT-A7): the 45 STATE rows marked help pending** (list: `tasks/audits/help_pending_20261113.md`).
         All mapped: 5 new topics (`library_item`, `vislab_words_look`, `joybrush_watercolour`, `joybrush_knife`,
         `name_layers`), `textlab_pack` rewritten (packs now reach VisLab and Studio), `library_find` names the
         Recordings row; 16 rows marked "not needed" with the reason (automatic safety, crash fixes, look-only polish);
         frame tweens kept out on purpose (not reachable yet); one owed: Link to a pin of a bent sprite (its
         chooser's words not read yet). The 7 JoyBrush board/paper rows already named topics (their "pending" is
-        acceptance). Ideas 951/951. Not asked on a phone.
+        acceptance). Ideas 951/951. **Device ✅ 11-13 20:25 (agent, the test tablet, build a6cdd3ea4):** `textlab_pack`,
+        `name_layers` and `joybrush_knife` answer as written ([evidence](../joybot/evidence/help_pack_name_knife_tablet_20261113.png));
+        the other new topics not asked on a device.
   - [ ] Capture: STATE gives no entry point for photo/screenshot capture, dual camera, Remote (LAN streaming) or the
         watermark switch, so no topics (the record, record_screen, record_webcam, record_background topics stand).
         Settings hub v2, Home recorder, About: also no entry-point text in STATE. Needs the rows filled first (HYG-5).

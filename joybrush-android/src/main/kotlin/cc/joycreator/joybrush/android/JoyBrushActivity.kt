@@ -37,6 +37,7 @@ import cc.joycreator.joybrush.android.chrome.BitmapPreviewCodec
 import cc.joycreator.joybrush.android.chrome.BrushDrawerView
 import cc.joycreator.joybrush.android.chrome.BrushPreviewCache
 import cc.joycreator.joybrush.android.chrome.PreviewMaker
+import cc.joycreator.joybrush.android.chrome.PreviewSource
 import cc.joycreator.joybrush.android.chrome.UnibrushHostController
 import cc.joycreator.joybrush.android.chrome.UnibrushActivation
 import cc.joycreator.joybrush.androidkit.UnibrushCanvasPort
@@ -355,6 +356,19 @@ class JoyBrushActivity : Activity() {
         it.extensions["unibrush.family"] in setOf("builtin", "user")
     }
     private var brushes: List<BrushPreset> = shippedBrushes
+    /** The library the Unibrush controller last published (null: it has not started), before the folder's brushes. */
+    private var catalogBrushes: List<BrushPreset>? = null
+    /** BRUSH-IMPORT: brushes the person brought in, kept in their folder's Supplies/Brushes. */
+    private val brushImports = cc.joycreator.joybrush.android.library.BrushImportFlow(this,
+        changed = { rebuildBrushList(); restoreImportedTool(); applyTool() }, say = { toast(it) })
+    /**
+     * The tools as saved when the screen opened, kept until the folder's brushes are in: a tool holding one of them
+     * is restored then. Until that moment the saved tools are not written over, so a slow folder never loses the
+     * person's pick.
+     */
+    private var toolsAtStart: String? = null
+    private val importsPending: Boolean
+        get() = !brushImports.loaded && toolsAtStart?.contains(cc.joycreator.joybrush.android.library.SuppliesBrushes.ID_PREFIX) == true
     private var unibrush: UnibrushHostController? = null
     private var catalogToolsPending = false
     private var restoreCatalogTools = true
@@ -366,6 +380,36 @@ class JoyBrushActivity : Activity() {
 
     /** The brushes as the owner has tuned them: what the drawer shows and what the canvas draws with. */
     private fun tunedBrushes(): List<BrushPreset> = brushes.map { BrushTuning.apply(it, tuning) }
+
+    /**
+     * The drawer's pictures. A brush from the person's folder that has tip pictures hands them to the preview with its
+     * request (the engines need them to draw it); without them the request threw and closed the app (tablet, 11-13).
+     */
+    private fun drawerPreviewSource(): PreviewSource<android.graphics.Bitmap> {
+        val base = unibrush?.drawerPreviews ?: brushPreviews
+        return PreviewSource { p, w, h, style, onReady ->
+            val images = brushImports.imagesFor(p)
+            if (images == null) base.request(p, w, h, style, onReady)
+            else brushPreviews.request(cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.snapshot(
+                p, w, h, style, pngs = images), onReady)
+        }
+    }
+
+    /** The drawer's list: the catalogue (shipped and Unibrush), then the person's own from their folder. */
+    private fun rebuildBrushList() {
+        val catalog = catalogBrushes ?: shippedBrushes
+        val ids = catalog.mapTo(HashSet()) { it.id }
+        brushes = catalog + brushImports.brushes.filter { it.id !in ids }
+    }
+
+    /** Once, when the folder's brushes first arrive: the saved tools again, now that their brushes exist. */
+    private fun restoreImportedTool() {
+        val saved = toolsAtStart ?: return
+        if (!brushImports.loaded) return
+        toolsAtStart = null
+        if (!restoreCatalogTools || !saved.contains(cc.joycreator.joybrush.android.library.SuppliesBrushes.ID_PREFIX)) return
+        tools = ToolMemory.decode(saved, brushes)
+    }
 
     // JB-0.06: the hidden pen probe. GONE until the owner holds the ⋯ button.
     private lateinit var diag: PenDiagnosticsView
@@ -504,6 +548,7 @@ class JoyBrushActivity : Activity() {
         applyWashTaste()
         // Each tool as the person left it; the first shipped brush of each kind on a first visit (JB-1.05b, JB-2.01).
         pendingCatalogTools = prefs.getString(PREF_TOOLS, null)
+        toolsAtStart = pendingCatalogTools
         catalogToolsPending = UnibrushActivation.SHIPPING_ENABLED || pendingCatalogTools?.contains("unibrush.") == true
         tools = ToolMemory.decode(pendingCatalogTools, brushes)
         tuning = BrushTuning.decode(prefs.getString(PREF_TUNING, null))
@@ -604,6 +649,7 @@ class JoyBrushActivity : Activity() {
         setContentView(root)
         initializeUnibrush()
         applyTool()
+        brushImports.load()
         restoreReference()
         // Four fingers tap: the chrome goes, the picture stays (JB-2.02's gesture, JB-2.01's one toggle).
         canvas.onToggleUi = { toggleChrome() }
@@ -729,6 +775,7 @@ class JoyBrushActivity : Activity() {
         activeBench?.abortSelect(); activeBench = null
         JoybotHands.detach(joybotEnv)
         unibrush?.close(); unibrush = null
+        brushImports.destroy()
         selection?.detach(); selection = null
         boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
@@ -966,7 +1013,7 @@ class JoyBrushActivity : Activity() {
         val port = (canvas as Any) as? UnibrushCanvasPort ?: return
         val controller = UnibrushHostController(this, kit, canvas, port, prefs, popovers, brushPreviews,
             shippedBrushes, { placement.edge == StripPlacement.Edge.RIGHT },
-            libraryChanged = { brushes = it },
+            libraryChanged = { catalogBrushes = it; rebuildBrushList() },
             takeUp = { picked ->
                 val before = tools
                 try { tools = tools.pick(picked); applyTool() }
@@ -1012,12 +1059,14 @@ class JoyBrushActivity : Activity() {
             return // Keep the current canvas pair until its replacement is fully prepared.
         }
         if (wanted != null && controller != null && !controller.isFamily(wanted)) controller.cancelSelection()
+        // A brush from the person's folder brings its own tip pictures; any other lookup stays behind it.
+        if (brushImports.owns(wanted)) canvas.brushPngs = brushImports.pngs(canvas.brushPngs)
         canvas.preset = wanted
         canvas.editableLines = BrushLinePreferences(prefs).enabled(canvas.preset)
         strip.showTools(tools.slots.keys, if (selectInHand) null else tools.active)
         showStripValues()
         // Do not erase a saved user ID while its catalog/PNG owner is still loading (or refused).
-        if (!catalogToolsPending) prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
+        if (!catalogToolsPending && !importsPending) prefs.edit().putString(PREF_TOOLS, tools.encode()).apply()
     }
 
     private fun showStripValues() {
@@ -1048,7 +1097,8 @@ class JoyBrushActivity : Activity() {
             chooseDrawerBrush(picked, settings = false)
         }, onSettings = { held ->
             chooseDrawerBrush(held, settings = true)
-        }, previews = unibrush?.drawerPreviews ?: brushPreviews, editableLines = { BrushLinePreferences(prefs).enabled(it) })
+        }, previews = drawerPreviewSource(), editableLines = { BrushLinePreferences(prefs).enabled(it) },
+            onImport = { popovers.close(); brushImports.ask() })
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
     }
@@ -2883,6 +2933,7 @@ class JoyBrushActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (unibrush?.onActivityResult(requestCode, resultCode, data) == true) return
+        if (brushImports.onActivityResult(requestCode, resultCode, data)) return
         val pngTarget = if (requestCode == REQUEST_EXPORT_PNG) pendingPng.also { pendingPng = null } else null
         val boardTarget = if(requestCode == REQUEST_BOARD_EXPORT) pendingBoardExport.also { pendingBoardExport = null } else null
         if (resultCode != Activity.RESULT_OK) return

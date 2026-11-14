@@ -1,7 +1,5 @@
 package com.fadcam.ui.faditor.transform.mesh;
 
-import androidx.annotation.NonNull;
-
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 
 /**
@@ -23,7 +21,7 @@ public final class MeshPinPose {
     private MeshPinPose() {}
 
     /** How many pins this picture has (0 = no bend or puppet yet). */
-    public static int pinCount(@NonNull TextOverlayItem o) {
+    public static int pinCount(TextOverlayItem o) {
         MeshWarpSpec m = o.getMesh();
         return m == null || m.topology() == null || !o.hasMesh() ? 0 : m.topology().handleCount();
     }
@@ -37,7 +35,7 @@ public final class MeshPinPose {
      */
     public static void pinToFrame(float u, float v, float cx, float cy, float wNorm, float hNorm,
                                   float mirrorX, float mirrorY, float rotDeg, float a,
-                                  @NonNull float[] out) {
+                                  float[] out) {
         float x = mirrorX * (u - 0.5f) * wNorm * a;      // frame-height units
         float y = mirrorY * (v - 0.5f) * hNorm;
         double r = Math.toRadians(rotDeg);
@@ -50,8 +48,8 @@ public final class MeshPinPose {
      * Pin {@code pin} of {@code o} at timeline time {@code t}, into {@code out} (x, y).
      * False when there is no such pin (the caller falls back to the picture's centre).
      */
-    public static boolean pin(@NonNull TextOverlayItem o, int pin, long t, float frameAspect,
-                              float imageAspect, @NonNull float[] out) {
+    public static boolean pin(TextOverlayItem o, int pin, long t, float frameAspect,
+                              float imageAspect, float[] out) {
         if (!o.hasMesh()) return false;
         float a = frameAspect > 0.01f ? frameAspect : 1f;
         float ia = imageAspect > 0.01f ? imageAspect : 1f;
@@ -62,13 +60,13 @@ public final class MeshPinPose {
     }
 
     /** A sprite's pin: its cell is {@code cellAspect} wide per unit of height, flips mirror it. */
-    public static int pinCount(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
+    public static int pinCount(com.fadcam.ui.faditor.sprite.SpriteOverlayItem s) {
         MeshWarpSpec m = s.getMesh();
         return m == null || m.topology() == null || !s.hasMesh() ? 0 : m.topology().handleCount();
     }
 
-    public static boolean pin(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem s, int pin, long t,
-                              float frameAspect, @NonNull float[] out) {
+    public static boolean pin(com.fadcam.ui.faditor.sprite.SpriteOverlayItem s, int pin, long t,
+                              float frameAspect, float[] out) {
         if (!s.hasMesh()) return false;
         float a = frameAspect > 0.01f ? frameAspect : 1f;
         float ca = s.getCellAspect() > 0.01f ? s.getCellAspect() : 1f;
@@ -79,9 +77,9 @@ public final class MeshPinPose {
     }
 
     /** The shared maths: pin {@code pin} of {@code m} at local time, carried into the frame. */
-    private static boolean pin(@NonNull MeshWarpSpec m, int pin, long localMs, float cx, float cy,
+    private static boolean pin(MeshWarpSpec m, int pin, long localMs, float cx, float cy,
                                float wNorm, float hNorm, float mirrorX, float mirrorY, float rotDeg,
-                               float a, @NonNull float[] out) {
+                               float a, float[] out) {
         if (m.topology() == null) return false;
         MeshTopology topo = m.topology();
         if (pin < 0 || pin >= topo.handleCount()) return false;

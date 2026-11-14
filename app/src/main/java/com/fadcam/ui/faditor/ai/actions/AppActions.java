@@ -42,6 +42,7 @@ public final class AppActions {
         add(r, "vislab", VisLabActions::register);
         add(r, "textlab", TextLabActions::register);
         add(r, "joybrush", JoyBrushActions::register);
+        add(r, "capture", CaptureActions::register);
         return r;
     }
 

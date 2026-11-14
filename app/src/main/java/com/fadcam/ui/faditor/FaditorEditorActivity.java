@@ -1391,7 +1391,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             ring.setCornerRadius(dp(10));
             ring.setStroke(dp(2), Studio.ARMED);
             cell.setForeground(ring);
-            Toast.makeText(this, "Tap " + label + " in the tool strip", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.studio_d3_tap_in_tool_strip, label), Toast.LENGTH_SHORT).show();
             if (reduced) {
                 ring.setAlpha(255);
                 cell.postDelayed(() -> cell.setForeground(null), SHOW_HOW_MS);
@@ -1637,6 +1637,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
         setContentView(R.layout.activity_faditor_editor);
+        // Every named control shows its name on hover (stylus, mouse), drawers included (STU-D1).
+        com.fadcam.ui.faditor.util.HoverLabels.watch(getWindow().getDecorView());
 
         // fitsSystemWindows handles safe area automatically on topBar
 
@@ -3952,6 +3954,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void continueLoadFromSavedProject() {
         // Project is already set from saved data, refresh time display
         refreshTotalTimeDisplay();
+        repairEarlyBakes();
         updateEditorTitle();
         selectedClipIndex = Math.max(0, Math.min(selectedClipIndex,
                 project.getTimeline().getClipCount() - 1));
@@ -6655,6 +6658,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
             prepareAudioPlayer();
             updateAudioToolUI();
+            refreshTotalTimeDisplay(); // an audio-only project's length comes from these
         }
 
         // An audio-only project has no clip (this log line alone crashed its reopening).
@@ -11043,7 +11047,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * Should be called whenever clips are added, removed, trimmed, or speed-changed.
      */
     private void refreshTotalTimeDisplay() {
-        if (project == null || project.getTimeline().isEmpty()) return;
+        if (project == null) return;
+        if (project.getTimeline().isEmpty()) {
+            // An audio-only project (no film): its length is where its last sound ends. This
+            // returned early, so a reopened audio project read 00:00 (STU-E1, 11-13).
+            long end = 0;
+            for (AudioClip ac : project.getTimeline().getAudioClips()) {
+                end = Math.max(end, ac.getEndOnTimelineMs());
+            }
+            if (timeTotal != null) timeTotal.setText(TimeFormatter.formatAuto(end));
+            return;
+        }
         // Show the EFFECTIVE (post-edit) length — what the export will be — using
         // "≈" when blacked-out spans shorten it from the raw timeline length.
         long effective = 0;
@@ -13571,7 +13585,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         com.fadcam.ui.faditor.markers.RegionExportPlan.create(
                                 namedRegions, totalDurationMs, project.getName());
                 if (plan.getJobs().isEmpty()) {
-                    Toast.makeText(this, "Select at least one region for export", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, R.string.studio_d3_select_a_region, Toast.LENGTH_LONG).show();
                     return;
                 }
                 StringBuilder summary = new StringBuilder()
@@ -13648,7 +13662,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             fnInputLp.topMargin = (int) (4 * getResources().getDisplayMetrics().density);
             fileNameInput.setLayoutParams(fnInputLp);
             if (namedRegionExport) {
-                fileNameInput.setText("Uses each region's name");
+                fileNameInput.setText(R.string.studio_d3_uses_region_names);
                 fileNameInput.setEnabled(false);
                 fileNameInput.setAlpha(0.6f);
             }
@@ -14770,7 +14784,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean undone = undoManager.undo();
         endStructuralEditUnlessRestored(openedOn, anchorsBefore, "undo");
         if (undone && !snapshotRestoreFailed) announceHistoryStep("Undid", what);
-        else announceHistoryFailed("undo");
+        else announceHistoryFailed(true);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -14790,7 +14804,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean redone = undoManager.redo();
         endStructuralEditUnlessRestored(openedOn, anchorsBefore, "redo");
         if (redone && !snapshotRestoreFailed) announceHistoryStep("Redid", what);
-        else announceHistoryFailed("redo");
+        else announceHistoryFailed(false);
         clipMembershipChanged = !idsBefore.equals(masterClipIds());
         refreshEditorAfterUndoRedo();
         scheduleAutoSave();
@@ -14813,9 +14827,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private boolean snapshotRestoreFailed;
 
     /** The step could not be restored: say so, instead of claiming it was undone. */
-    private void announceHistoryFailed(@NonNull String verb) {
+    private void announceHistoryFailed(boolean undo) {
         if (historyToast != null) historyToast.cancel();
-        historyToast = Toast.makeText(this, "Could not " + verb + " that step", Toast.LENGTH_SHORT);
+        historyToast = Toast.makeText(this, undo ? R.string.studio_d3_could_not_undo
+                : R.string.studio_d3_could_not_redo, Toast.LENGTH_SHORT);
         historyToast.show();
     }
 
@@ -15288,6 +15303,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshEditorAfterUndoRedo() {
         // A history step from before a MOVE may bring back the original's link: point it at the copy.
         healMovedInEditor();
+        // An open drawer's rows read the model on the playhead tick, which does not run while
+        // paused: after an undo its rows (e.g. the Clean tab's "processed / original" line) stayed
+        // on the old state until play (Note 9, 11-13). Read them again now.
+        if (objectDrawer != null && objectDrawer.isShowing()) {
+            com.fadcam.ui.faditor.tools.PipDrawerTabs.refreshRows(objectDrawer.currentTabContent());
+        }
         // Clamp selected index in case clip count changed (e.g. after snapshot restore)
         int clipCount = project.getTimeline().getClipCount();
         if (clipCount == 0) {
@@ -18205,12 +18226,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSelectedItemTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (isWordSyncActive()) return;
+                boolean wasShowing = objectDrawer != null && objectDrawer.isShowing();
                 if (item.getTextOverlay() != null) reopenOverlayDrawerOnTap(item.getTextOverlay());
+                if (!wasShowing && objectDrawer != null && objectDrawer.isShowing()) {
+                    drawerOpenedByTapAt = android.os.SystemClock.uptimeMillis();
+                }
             }
 
             @Override
             public void onItemDoubleTapped(@NonNull com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (isWordSyncActive()) return;
+                // S12 (owner 08-23, "double tap like the audio drawer"): a double-tap on the object
+                // whose drawer is ALREADY open closes it. Only when it was open before this
+                // double-tap began: if its first tap selected the object (the drawer retargeted to
+                // it) or reopened the drawer, the double-tap means "open", as before.
+                long now = android.os.SystemClock.uptimeMillis();
+                if (objectDrawer != null && objectDrawer.isShowing()
+                        && now - lastLayerSelectionChangeAt > DOUBLE_TAP_GRACE_MS
+                        && now - drawerOpenedByTapAt > DOUBLE_TAP_GRACE_MS
+                        // Only kinds whose double-tap opens this drawer: audio has its own toggle
+                        // (G3), a PiP's opens its sound strip, captions their own drawer.
+                        && (item.getTextOverlay() != null || item.getSprite() != null
+                            || item.getWaveform() != null || item.getAdjustment() != null)) {
+                    objectDrawer.hide();
+                    return;
+                }
                 // G1 (gesture contract §1): double-tap a layer-row item = the express lane
                 // to that object's type editor / power-tools drawer. The item is already
                 // selected (first tap); here we just open the right editor per payload type.
@@ -18288,6 +18328,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Nullable com.fadcam.ui.faditor.layers.Track track,
                     @Nullable com.fadcam.ui.faditor.layers.TimedItem item) {
                 if (isWordSyncActive()) return; // §3.1 lockout — selecting other objects is locked out
+                lastLayerSelectionChangeAt = android.os.SystemClock.uptimeMillis();
                 // ARMED LINK: this tap is the choice of what to follow (SPEC_20260924_LINKING).
                 if (linkTool != null && linkTool.isArmed() && item != null
                         && !item.getId().equals(linkTool.armedSource())) {
@@ -21144,7 +21185,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 byte[] buf = new byte[64*1024]; int n;
                 while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
                 tmp.delete();
-                runOnUiThread(() -> android.widget.Toast.makeText(this, "Exported " + r.manifest.fileCount + " file(s), " + r.manifest.totalBytes + " bytes", android.widget.Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_d3_exported_files, r.manifest.fileCount, android.text.format.Formatter.formatShortFileSize(this, r.manifest.totalBytes)), android.widget.Toast.LENGTH_LONG).show());
             } catch (Exception e) {
                 runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_fmt_export_copy_failed_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show());
             }
@@ -21164,7 +21205,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 if (!r.ok) android.widget.Toast.makeText(this, getString(R.string.studio_fmt_import_failed_1_s, r.error), android.widget.Toast.LENGTH_LONG).show();
                 else {
-                    android.widget.Toast.makeText(this, "Imported " + r.project.getName() + " (" + r.newProjectId + ")", android.widget.Toast.LENGTH_LONG).show();
+                    android.widget.Toast.makeText(this, getString(R.string.studio_d3_imported_project, r.project.getName()), android.widget.Toast.LENGTH_LONG).show();
                     // Optionally open it — for now just toast. Project appears in list.
                 }
             });
@@ -21885,8 +21926,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 int hostIdx = tl.getClips().indexOf(host) + 1;
                 desc = "Attach visualizer";
-                Toast.makeText(this, "Attached to clip " + hostIdx
-                        + " — rides its trims and moves", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.studio_d3_attached_to_clip, hostIdx),
+                        Toast.LENGTH_SHORT).show();
             }
             final String afterId = wo.getAttachedClipId();
             final long afterOff = wo.getAttachOffsetMs(), afterDur = wo.getAttachDurationMs();
@@ -32424,6 +32465,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // C6: the FX tab — compressor gain-reduction bar. Tuning blind is guesswork.
         // Carries the per-clip voice-chain switch (the clip IS the real AudioClip here).
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24, ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.fxTab(ctx, host, ac)));
+        // CLEAN: Reduce noise, Normalize loudness, and Revert to original (which also undoes
+        // Fix audio: its message says "Revert in Clean tab"). Built in C2.U and never added to
+        // the drawer until 11-13 (STU-B2), so that message pointed at nothing.
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_clean), 0,
+                ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.cleanTab(ctx, ac, host,
+                        projectStorage.projectDir(project.getId()),
+                        new com.fadcam.ui.faditor.audio.BakedAudioCache(this))));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -36677,6 +36725,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 o.setTextLook(t == null ? null : t.copy());
                 refreshOverlayPreview();
                 scheduleAutoSave();
+                if (lookSlidersPill != null) {
+                    lookSlidersPill.setVisibility(o.getTextLook() != null ? View.VISIBLE : View.GONE);
+                }
             }
 
             @Override
@@ -36740,6 +36791,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 setLookHoldCatcher(down, up, hint);
             }
         };
+    }
+
+    /** The text drawer's "Look sliders" pill (TX-01); shown only while the title wears a look. */
+    @androidx.annotation.Nullable private TextView lookSlidersPill;
+
+    @NonNull
+    private View buildLookSlidersPill(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
+        int d = (int) getResources().getDisplayMetrics().density;
+        TextView pill = new TextView(this);
+        pill.setText(R.string.tx01_pill);
+        pill.setTextColor(Studio.INK);
+        pill.setTextSize(13);
+        pill.setGravity(android.view.Gravity.CENTER);
+        pill.setPadding(14 * d, 0, 14 * d, 0);
+        pill.setMinHeight(34 * d);
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setCornerRadius(17 * d);
+        bg.setColor(Studio.RAISED);
+        pill.setBackground(bg);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(pill, getString(R.string.tx01_pill_hover));
+        pill.setContentDescription(getString(R.string.tx01_pill_hover));
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+        lp.topMargin = 4 * d;
+        lp.bottomMargin = 4 * d;
+        pill.setLayoutParams(lp);
+        pill.setVisibility(o.getTextLook() != null ? View.VISIBLE : View.GONE);
+        pill.setOnClickListener(v -> com.fadcam.ui.faditor.text.LookSlidersSheet.show(this, o,
+                new com.fadcam.ui.faditor.text.LookSlidersSheet.Host() {
+                    private void apply(@NonNull cc.joycreator.textlab.TitleLook t) {
+                        o.setTextLook(t.copy());
+                        refreshOverlayPreview();
+                        scheduleAutoSave();
+                    }
+
+                    @Override public void put(@NonNull cc.joycreator.textlab.TitleLook look) {
+                        o.setTextLook(look.copy());
+                        refreshOverlayPreview();
+                    }
+
+                    @Override public void record(@NonNull String label,
+                                                 @NonNull cc.joycreator.textlab.TitleLook before,
+                                                 @NonNull cc.joycreator.textlab.TitleLook after) {
+                        scheduleAutoSave();
+                        undoManager.recordAction(new EditActions.LambdaAction(label,
+                                () -> apply(after), () -> apply(before)));
+                    }
+                }));
+        lookSlidersPill = pill;
+        return pill;
     }
 
     /** While "Record tilt" is armed: a see-through sheet over the picture that turns a hold into a take. */
@@ -36822,6 +36924,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // LOOK (TEXT-1): a TextLab look by its picture, its light (Still / Sway / Record tilt) and progress.
         root.addView(new cc.joycreator.textlab.TextLookRow(this, item, textLookHost(item)));
+        // TX-01: the worn look's own sliders and colours (TextLab's panel), only while there is a look.
+        root.addView(buildLookSlidersPill(item));
 
         // Motion range (Start/Span/End) · selection status (Whole/Clear) · trash — one line.
         root.addView(buildTextMotionRangeSection(item, session));
@@ -37891,6 +37995,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Which text object the drawer is showing, or null. */
     @Nullable private String textDrawerItemId;
+
+    /** S12: when the timeline selection last changed, and when a tap last reopened a drawer. */
+    private long lastLayerSelectionChangeAt;
+    private long drawerOpenedByTapAt;
+    /** A double-tap's two taps fall inside this; a change this recent belongs to the double-tap. */
+    private static final long DOUBLE_TAP_GRACE_MS = 700;
 
     /**
      * A tap on a text or picture that is ALREADY selected (its box in the preview, or its tape
@@ -41073,15 +41183,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (preferAudio) {
                     AudioClip ac = project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex());
                     if (ac != null && ac.hasTranscript()) {
-                        ac.setCaptionStyleId(s.id);
-                        ac.setCaptionsEnabled(true);
-                        activeCaptionIsAudio = true;
-                        audioCaptionClipId = ac.getId();
-                        bindAudioCaptionData(ac);
-                        audioCaptionOverlay.setStyle(s);
-                        audioCaptionOverlay.setVisibility(View.VISIBLE);
+                        // One press, one undo step (owner rule): neither branch recorded one.
+                        final String beforeId = ac.getCaptionStyleId();
+                        final boolean beforeOn = ac.isCaptionsEnabled();
+                        final Runnable apply = () -> {
+                            ac.setCaptionStyleId(s.id);
+                            ac.setCaptionsEnabled(true);
+                            activeCaptionIsAudio = true;
+                            audioCaptionClipId = ac.getId();
+                            bindAudioCaptionData(ac);
+                            audioCaptionOverlay.setStyle(s);
+                            audioCaptionOverlay.setVisibility(View.VISIBLE);
+                            scheduleAutoSave();
+                        };
+                        final Runnable revert = () -> {
+                            ac.setCaptionStyleId(beforeId);
+                            ac.setCaptionsEnabled(beforeOn);
+                            bindAudioCaptionData(ac);
+                            com.fadcam.ui.faditor.transcript.CaptionStyle b = beforeId == null ? null
+                                    : com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeId);
+                            if (b != null) audioCaptionOverlay.setStyle(b);
+                            audioCaptionOverlay.setVisibility(beforeOn ? View.VISIBLE : View.GONE);
+                            scheduleAutoSave();
+                        };
+                        apply.run();
                         if (captionStyleBar != null) { captionStyleBarRequested = true; captionStyleBar.setVisibility(View.VISIBLE); }
-                        scheduleAutoSave();
+                        if (!s.id.equals(beforeId) || !beforeOn) {
+                            undoManager.recordAction(new EditActions.LambdaAction(
+                                    getString(R.string.studio_d3_caption_style), apply, revert));
+                        }
                     }
                 } else {
                     Clip cc = getSelectedClip();
@@ -41106,13 +41236,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                             ? getString(R.string.studio_opt_keyframe_style_replaced) : getString(R.string.studio_opt_style_keyframe_dropped),
                                     Toast.LENGTH_SHORT).show();
                         } else if (cc.hasTranscript()) {
-                            cc.setCaptionStyleId(s.id);
-                            cc.setCaptionsEnabled(true);
-                            activeCaptionIsAudio = false;
-                            bindCaptionData(cc);
-                            captionOverlay.setStyle(s);
-                            captionOverlay.setVisibility(View.VISIBLE);
-                            scheduleAutoSave();
+                            // One press, one undo step (PACK-1 report 11-13: this was none).
+                            final Clip fc = cc;
+                            final String beforeId = fc.getCaptionStyleId();
+                            final boolean beforeOn = fc.isCaptionsEnabled();
+                            final Runnable apply = () -> {
+                                fc.setCaptionStyleId(s.id);
+                                fc.setCaptionsEnabled(true);
+                                activeCaptionIsAudio = false;
+                                bindCaptionData(fc);
+                                captionOverlay.setStyle(s);
+                                captionOverlay.setVisibility(View.VISIBLE);
+                                scheduleAutoSave();
+                            };
+                            final Runnable revert = () -> {
+                                fc.setCaptionStyleId(beforeId);
+                                fc.setCaptionsEnabled(beforeOn);
+                                bindCaptionData(fc);
+                                com.fadcam.ui.faditor.transcript.CaptionStyle b = beforeId == null ? null
+                                        : com.fadcam.ui.faditor.transcript.CaptionStyle.byId(beforeId);
+                                if (b != null) captionOverlay.setStyle(b);
+                                captionOverlay.setVisibility(beforeOn ? View.VISIBLE : View.GONE);
+                                scheduleAutoSave();
+                            };
+                            apply.run();
+                            if (!s.id.equals(beforeId) || !beforeOn) {
+                                undoManager.recordAction(new EditActions.LambdaAction(
+                                        getString(R.string.studio_d3_caption_style), apply, revert));
+                            }
                         }
                     }
                 }
@@ -43649,7 +43800,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         final int n = seq.cellCount();
         if (n <= 0) return;
-        Toast.makeText(this, "Packing " + n + " frames…", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, getString(R.string.studio_d3_packing_frames, n), Toast.LENGTH_SHORT).show();
 
         final String seqId = seq.getId();
         thumbnailExecutorRun(() -> {
@@ -43695,9 +43846,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         new EditActions.LambdaAction(getString(R.string.studio_label_convert_to_sprite_sheet), apply, undo));
                 scheduleAutoSave();
                 if (spriteOverlayView != null) spriteOverlayView.invalidate();
-                Toast.makeText(this, "Packed into a "
-                        + result.getCols() + "×" + result.getRows() + " sheet",
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.studio_d3_packed_sheet,
+                        result.getCols(), result.getRows()), Toast.LENGTH_SHORT).show();
             });
         });
     }
@@ -45215,7 +45365,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         if (newest != null) wireNewCaptionTrack(newest.id);
                     }
-                    Toast.makeText(this, "Imported " + parsed.words.size() + " words",
+                    Toast.makeText(this, getString(R.string.studio_d3_imported_words, parsed.words.size()),
                             Toast.LENGTH_SHORT).show();
                 })
                 .show();
@@ -45687,6 +45837,38 @@ public class FaditorEditorActivity extends AppCompatActivity {
         previewSilenceCandidates(0.5f, preview);
     }
 
+    /**
+     * STU-B4: audio clips still playing an old-style (before 11-10) Fix/Clean file, which started
+     * at 0 and so played early on a trimmed or split clip, get correctly timed sound back (see
+     * EarlyBakeRepair). The file lengths are read off the main thread.
+     */
+    private void repairEarlyBakes() {
+        if (project == null) return;
+        final java.util.List<AudioClip> clips =
+                new java.util.ArrayList<>(project.getTimeline().getAudioClips());
+        final java.io.File projectDir = projectStorage.projectDir(project.getId());
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            for (AudioClip c : clips) {
+                try {
+                    if (!com.fadcam.ui.faditor.audio.EarlyBakeRepair.isEarly(c)) continue;
+                } catch (Throwable t) {
+                    continue;
+                }
+                com.fadcam.ui.faditor.audio.EarlyBakeRepair.repair(app, projectDir, c, clip -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    com.fadcam.ui.faditor.audio.SourceWaveform.refresh(this, clip, () -> {
+                        if (editorTimeline != null) editorTimeline.invalidate();
+                    });
+                    syncTimelineOverlays();
+                    if (editorTimeline != null) editorTimeline.invalidate();
+                    prepareAudioPlayer();
+                    scheduleAutoSave();
+                });
+            }
+        }, "EarlyBakeRepair").start();
+    }
+
     /** The audio clip the timeline has selected, or null (nothing, or something else). */
     @Nullable
     private AudioClip selectedAudioClipOrNull() {
@@ -45786,14 +45968,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         playerManager.pause();
+        // Same place in the list both ways, so the clip keeps its row (Note 9, 11-13: the
+        // pieces, and the undo, landed in a new bottom row).
+        final int at = timeline.getAudioClips().indexOf(original);
         final Runnable cut = () -> {
             timeline.removeAudioClip(original);
-            for (AudioClip p : pieces) timeline.addAudioClip(p, false);
+            timeline.insertAudioClips(at, pieces);
             afterAudioClipsReplaced(pieces.get(0).getId());
         };
         final Runnable uncut = () -> {
             for (AudioClip p : pieces) timeline.removeAudioClip(p);
-            timeline.addAudioClip(original, false);
+            timeline.insertAudioClips(at, java.util.Collections.singletonList(original));
             afterAudioClipsReplaced(original.getId());
         };
         undoManager.recordAction(new EditActions.LambdaAction(
@@ -45865,7 +46050,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }), (result, error) -> runOnUiThread(() -> {
             pd.dismiss();
             if (result == null) {
-                Toast.makeText(this, "Fix failed: " + (error != null ? error : "unknown"), Toast.LENGTH_LONG).show();
+                // Plain words for the person; the ffmpeg detail goes to the log only.
+                FLog.w(TAG, "Fix audio failed: " + error);
+                Toast.makeText(this, R.string.studio_d3_fix_audio_failed, Toast.LENGTH_LONG).show();
                 return;
             }
             // Swap clip to baked file — one undo step (like Clean tab).
@@ -47267,7 +47454,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 .setMessage(getString(R.string.studio_dual_stream_prompt, screen.shortLabel(), webcam.displayName))
                 .setPositiveButton(R.string.studio_ui_add_as_linked_pair,
                         (d, w) -> addDualStreamLinkedPair(screen, webcam))
-                .setNeutralButton("Add “" + tapped.shortLabel() + "” only",
+                .setNeutralButton(getString(R.string.studio_d3_add_only, tapped.shortLabel()),
                         (d, w) -> insertAssetAtPlayhead(tapped))
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .show();
@@ -48336,7 +48523,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 () -> { for (com.fadcam.ui.faditor.model.TextOverlayItem it : fCreated) tl.removeTextOverlay(it); refreshAfterOverlayLayerChange(); }));
                         refreshAfterOverlayLayerChange();
                         saveProjectNow();
-                        Toast.makeText(this, "Added " + fCreated.size() + " image(s)", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, getResources().getQuantityString(R.plurals.studio_d3_added_images, fCreated.size(), fCreated.size()), Toast.LENGTH_SHORT).show();
                     }
                 } else {
                     // Video multi-select: insert clips in selection order at successive indices.
@@ -48530,7 +48717,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         undoManager.recordAction(new EditActions.AddAudioClipAction(project.getTimeline(), ac, null, false, 1f));
         prepareAudioPlayer();
         scheduleAutoSave();
-        android.widget.Toast.makeText(this, "Voiceover added (" + (durationMs / 1000f) + "s) at " + (startMs / 1000f) + "s", android.widget.Toast.LENGTH_SHORT).show();
+        android.widget.Toast.makeText(this, getString(R.string.studio_d3_voiceover_added, durationMs / 1000f, startMs / 1000f), android.widget.Toast.LENGTH_SHORT).show();
     }
 
     // ── AI slide: copy-a-prompt / paste-HTML import (API-less path) ──────

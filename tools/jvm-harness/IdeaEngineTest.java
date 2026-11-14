@@ -1059,6 +1059,68 @@ public class IdeaEngineTest {
             }
         }
 
+        // ── CaptureRules: the camera starts only on the person's own words (BOT-A29, 11-13) ──
+        {
+            com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict GO = com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.GO;
+            eq("capture: start when asked, allowed, idle", GO, com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide(
+                    "start", false, false, false, true, "start recording with the front camera"));
+            eq("capture: a computer on the bridge (no words) can't start it",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NOT_ASKED,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, true, ""));
+            eq("capture: a request that isn't about recording can't start it",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NOT_ASKED,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, true, "make the title red"));
+            eq("capture: 'stop recording' is no start",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NOT_ASKED,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, true, "stop recording"));
+            eq("capture: no permission is reported, not worked round",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NO_PERMISSION,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, false, "film me"));
+            eq("capture: start while recording is the wrong state",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", true, false, false, true, "record"));
+            eq("capture: pause a running recording", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("pause", true, false, false, true, ""));
+            eq("capture: no dual pause", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NO_DUAL_PAUSE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("pause", true, false, true, true, ""));
+            eq("capture: resume only when paused", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("resume", true, false, false, true, ""));
+            eq("capture: stop needs something recording", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", false, false, false, true, ""));
+            eq("capture: stop works with no words (a computer may stop it)", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", true, true, true, true, ""));
+            check("capture: 'start recording' wakes the capture tools",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("start recording please").contains("capture"), "");
+        }
+
+        // ── SpriteOptions: mouth shapes and key colours as SpriteLab names them (BOT-A31, 11-13) ──
+        {
+            String[][] shapes = {{"AA", "AA"}, {"ah", "AA"}, {"mbp", "CLOSURE"}, {"m/b/p", "CLOSURE"}, {"f-v", "FRIC"},
+                    {"oo", "OO"}, {"rest", "REST"}, {"Ee", "EE"}};
+            for (String[] s : shapes) {
+                eq("sprite: mouth '" + s[0] + "'", s[1], com.fadcam.ui.faditor.ai.joybot.SpriteOptions.viseme(s[0]));
+            }
+            eq("sprite: a yawn is no mouth shape", null, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.viseme("yawn"));
+            check("sprite: the six names match the lip-sync's (SpectralVisemeAnalyzer)", java.util.Arrays.equals(
+                    com.fadcam.ui.faditor.ai.joybot.SpriteOptions.VISEMES,
+                    new String[]{"REST", "AA", "EE", "OO", "CLOSURE", "FRIC"}), "");
+            eq("sprite: green", (Integer) 0xFF00FF00, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("green"));
+            eq("sprite: #ff00ff", (Integer) 0xFFFF00FF, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("#ff00ff"));
+            eq("sprite: none is no key", (Integer) 0, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("none"));
+            eq("sprite: an unreadable colour is refused", null, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.keyColour("greenish"));
+            eq("sprite: tolerance 15% is 0.15", 0.15f, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(15.0, 0f));
+            eq("sprite: tolerance capped at 50%", 0.5f, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(90.0, 0f));
+            eq("sprite: no tolerance keeps the sheet's", 0.2f, com.fadcam.ui.faditor.ai.joybot.SpriteOptions.tolerance(null, 0.2f));
+            try {
+                String lip = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                        "app/src/main/java/com/fadcam/ui/faditor/avatar/SpectralVisemeAnalyzer.java")), "UTF-8");
+                check("sprite: SpectralVisemeAnalyzer still names these six",
+                        lip.replaceAll("\\s+", " ").contains("\"REST\", \"AA\", \"EE\", \"OO\", \"CLOSURE\", \"FRIC\""), "");
+            } catch (java.io.IOException ex) {
+                check("sprite: analyzer readable", false, ex.toString());
+            }
+        }
+
         // ── CellTags: Joybot's sprite cell tags, spelled as SpriteLab spells them (AN-05, 11-13) ──
         {
             java.util.List<String> parsed = com.fadcam.ui.faditor.ai.joybot.CellTags.parse(

@@ -77,9 +77,9 @@ public final class GradientRampEditorView extends LinearLayout {
         checks.setOrientation(HORIZONTAL);
         checks.setGravity(Gravity.CENTER_VERTICAL);
         checks.setPadding(0, Math.round(4 * d), 0, 0);
-        mirrorBox = checkRow(ctx, checks, "Mirror", d);
-        flipBox = checkRow(ctx, checks, "Flip", d);
-        solidBox = checkRow(ctx, checks, "Solid bands", d);
+        mirrorBox = checkRow(ctx, checks, ctx.getString(com.fadcam.R.string.gradient_mirror), d);
+        flipBox = checkRow(ctx, checks, ctx.getString(com.fadcam.R.string.faditor_tool_flip), d);
+        solidBox = checkRow(ctx, checks, ctx.getString(com.fadcam.R.string.gradient_solid_bands), d);
         addView(checks);
 
         mirrorBox.setOnCheckedChangeListener((v, on) -> { ramp.mirror = on; fire(); });
@@ -152,6 +152,7 @@ public final class GradientRampEditorView extends LinearLayout {
             strokePaint.setStyle(Paint.Style.STROKE);
             strokePaint.setStrokeWidth(1.4f * d);
             fillPaint.setStyle(Paint.Style.FILL);
+            setContentDescription(ctx.getString(com.fadcam.R.string.a11y_gradient_stops));
         }
 
         // Row geometry, top to bottom.
@@ -390,7 +391,7 @@ public final class GradientRampEditorView extends LinearLayout {
             if (index < 0 || index >= ramp.colorStops.size()) return;
             GradientRamp.ColorStop stop = ramp.colorStops.get(index);
             int initial = Studio.GROUND | (stop.color & 0x00FFFFFF);
-            ColorPickerDialog.show(getContext(), "Stop color", initial, false,
+            ColorPickerDialog.show(getContext(), getContext().getString(com.fadcam.R.string.gradient_stop_color), initial, false,
                     live -> {
                         if (live != null) { stop.color = live; fire(); }
                     },

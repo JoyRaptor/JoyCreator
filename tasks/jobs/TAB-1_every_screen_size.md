@@ -32,11 +32,22 @@ two-thirds empty, one button across the whole width.
 ## What is left
 - [ ] Survey: each lane lists its screens' problems on the tablet in its own card (the UI leftovers and lobby
       sessions started 11-13; Studio, JoyBrush, VisLab, TextLab, SpriteLab, Library, Settings to follow).
+      Studio (11-13, test tablet, landscape): see [STU-4](STU-4_studio_sweep_leftovers.md) "11-13 afternoon":
+      the tool row fits; text drawer rows sit over the preview's upper third; bottom sheets open only peeking;
+      the floating pencil covers the first tool cell.
 - [ ] Shared size-class helper and a maximum content width for the simple screens (onboarding, Settings,
       Library lists, dialogs): cheap, no design call needed.
 - [ ] Design page: Studio drawers as side panels (which side, how wide, one or two at once, where the
       timeline goes), the lobby on a wide screen (with DOOR-2), JoyBrush chrome on a tablet with the S Pen.
 - [ ] Build the picked designs, wing by wing; phone-check that nothing moved on the Note 9.
+
+## Survey notes from the UI leftovers lane (Tab S8 Ultra, 2960 x 1848, 11-13)
+Shots in `tasks/screens/tablet/`.
+- Onboarding welcome: phone layout stretched (words bottom-left, one full-width button, empty glow above). Fixed for width >= 600dp with a centred 560dp column; not yet seen on the tablet.
+- Onboarding permissions page: rows and the "Allow what's missing" bar run the full width; text is phone-size. Needs the same column.
+- Choose-a-folder screen: stock grey, unthemed, content top-left. Needs the Joy Creator look and a centred column.
+- Lobby: headline strip, row of four buttons across the whole width, empty lower third.
+- Settings hub: rows run edge to edge (2900 px wide); tab chips and search bar fine.
 
 ## Files and traps
 - Studio drawers: `app/.../ui/faditor/**` (ObjectDrawer, TextOverlayDrawer and their Kit); the editor is one

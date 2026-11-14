@@ -458,7 +458,19 @@ public class LibraryFragment extends BaseFragment {
             }
             @Override public void onClassic() { leaveFor(TAB_RECORDS); }
             @Override public void onClassicStudio() { leaveFor(TAB_STUDIO); }
+            @Override public void onPastePicture() { pastePicture(); }
         });
+    }
+
+    /** A picture copied in another app goes where a share goes; with none, say what to do instead. */
+    private void pastePicture() {
+        android.net.Uri u = ClipboardPicture.find(requireContext());
+        if (u == null) {
+            android.widget.Toast.makeText(requireContext(), R.string.library_paste_nothing,
+                    android.widget.Toast.LENGTH_LONG).show();
+            return;
+        }
+        ClipboardPicture.fileIt(requireActivity(), u);
     }
 
     /** Out to a classic screen: the overlay closes and its tab shows. */

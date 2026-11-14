@@ -37,7 +37,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 /**
  * DebugLogBottomSheetFragment
- * Full-screen style bottom sheet to Preview/Search/Share/Delete the FADCAM_debug.html log.
+ * Full-screen style bottom sheet to Preview/Search/Share/Delete the JoyCreator_debug.html log.
  */
 public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
     private static final int MAX_LINES = 1000; // viewer cap

@@ -174,7 +174,7 @@ public final class ToolRouter {
         legacy("media", "list_broll", "add_broll_overlay", "tag_broll_assets", "rename_asset");
         legacy("story", "analyze_narrative_structure", "apply_narrative_proposal", "suggest_broll_placements",
                 "apply_broll_proposal");
-        legacy("sprites", "describe_sprite_sheet", "set_sprite_grid", "label_sprite_cells", "tag_sprite_cells", "set_sprite_options",
+        legacy("sprites", "describe_sprite_sheet", "set_sprite_grid", "label_sprite_cells", "tag_sprite_cells", "set_sprite_options", "align_sprite_cells",
                 "author_sprite_animation", "apply_sprite_proposal", "describe_sequence", "edit_sequence");
         legacy("avatar", "author_avatar_rig", "apply_avatar_rig");
         legacy("project", "set_canvas_preset", "export_project", "health_check");

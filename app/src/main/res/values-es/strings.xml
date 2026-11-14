@@ -756,7 +756,7 @@
     <string name="torch_both">Ambas linternas</string>
     <string name="setting_debug_title">Registro de depuración</string>
     <string name="note_debug">Habilitar generación de archivos de registro de depuración \n(Predeterminado: Desactivado)</string>
-    <string name="note_debug_detailed">Cuando está habilitado, FadCam escribe un archivo HTML de registro de depuración (FADCAM_debug.html) en la carpeta pública Downloads/FadCam/. Comparte este archivo al reportar problemas. Desactívalo para detener escrituras futuras.\nNota: El registro de depuración puede agregar sobrecarga de rendimiento durante la grabación — mantenlo desactivado a menos que estés solucionando problemas.</string>
+    <string name="note_debug_detailed">Cuando está habilitado, FadCam escribe un archivo HTML de registro de depuración (JoyCreator_debug.html) en la carpeta pública Downloads/FadCam/. Comparte este archivo al reportar problemas. Desactívalo para detener escrituras futuras.\nNota: El registro de depuración puede agregar sobrecarga de rendimiento durante la grabación — mantenlo desactivado a menos que estés solucionando problemas.</string>
     <string name="note_debug_extra">Cuando está habilitado, se creará un archivo de registro de depuración en la carpeta Downloads/FadCam. Esto puede ayudar a diagnosticar problemas de la app.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Vista previa</string>
@@ -1819,8 +1819,8 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
 
     <!-- Debug Log Tools -->
     <string name="debug_log_tools_title">Registro de depuración</string>
-    <string name="debug_log_tools_subtitle">Vista previa, búsqueda, compartir o eliminar FADCAM_debug.html</string>
-    <string name="debug_log_tools_helper">Muestra el archivo de registro de depuración (FADCAM_debug.html). Habilitar el registro de depuración puede agregar sobrecarga de rendimiento — no lo habilites a menos que enfrentes un error y necesites compartir el registro. Usa el cuadro de búsqueda para filtrar.</string>
+    <string name="debug_log_tools_subtitle">Vista previa, búsqueda, compartir o eliminar JoyCreator_debug.html</string>
+    <string name="debug_log_tools_helper">Muestra el archivo de registro de depuración (JoyCreator_debug.html). Habilitar el registro de depuración puede agregar sobrecarga de rendimiento — no lo habilites a menos que enfrentes un error y necesites compartir el registro. Usa el cuadro de búsqueda para filtrar.</string>
     <string name="debug_log_share_title">Compartir registro de depuración</string>
     <string name="debug_log_share_subtitle">Abrir el panel de compartición del sistema</string>
     <string name="debug_log_delete_title">Eliminar registro de depuración</string>

@@ -1516,7 +1516,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="delete_single_video_subtitle">Remove this recording</string>
 
-<string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (FADCAM_debug.html) into the public Downloads/FadCam/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
+<string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/FadCam/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
 
 <string name="watermark_preview_heading">Preview</string>
 
@@ -2914,9 +2914,9 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="debug_log_tools_title">Debug Log</string>
 
-<string name="debug_log_tools_subtitle">Preview, search, share or delete FADCAM_debug.html</string>
+<string name="debug_log_tools_subtitle">Preview, search, share or delete JoyCreator_debug.html</string>
 
-<string name="debug_log_tools_helper">Shows the debug log file (FADCAM_debug.html). Enabling debug logging may add performance overhead—don’t enable it unless you’re facing a bug and need to share the log. Use the search box to filter.</string>
+<string name="debug_log_tools_helper">Shows the debug log file (JoyCreator_debug.html). Enabling debug logging may add performance overhead—don’t enable it unless you’re facing a bug and need to share the log. Use the search box to filter.</string>
 
 <string name="debug_log_share_title">Share Debug Log</string>
 

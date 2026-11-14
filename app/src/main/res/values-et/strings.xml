@@ -754,7 +754,7 @@
     <string name="torch_both">Mõlemad taskulambid</string>
     <string name="setting_debug_title">Silumislogi</string>
     <string name="note_debug">Luba silumislogifailide genereerimine \n(vaikimisi: keelatud)</string>
-    <string name="note_debug_detailed">Kui lubatud, kirjutab FadCam silumislogi HTML-faili (FADCAM_debug.html) avalikku Allalaadimised/FadCam/ kausta. Jaga seda faili probleemidest teatamisel. Lülita välja, et lõpetada tulevased kirjutamised.\nMärkus: Silumislogi võib salvestamise ajal lisada jõudluskulu — hoia see välja, kui sa ei tõrkeotsi.</string>
+    <string name="note_debug_detailed">Kui lubatud, kirjutab FadCam silumislogi HTML-faili (JoyCreator_debug.html) avalikku Allalaadimised/FadCam/ kausta. Jaga seda faili probleemidest teatamisel. Lülita välja, et lõpetada tulevased kirjutamised.\nMärkus: Silumislogi võib salvestamise ajal lisada jõudluskulu — hoia see välja, kui sa ei tõrkeotsi.</string>
     <string name="note_debug_extra">Kui lubatud, luuakse silumislogifail Allalaadimised/FadCam kausta. See aitab diagnoosida rakenduse probleeme.</string>
     <string name="watermark_preview_heading">Eelvaade</string>
     <string name="watermark_options_heading">Valikud</string>
@@ -1724,8 +1724,8 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="fix_video_saf_success">Video parandatud! Salvestatud kui: %1$s.</string>
     <string name="fix_video_saf_export">Ekspordi või jaga parandatud faili rakenduse mälust, kui vaja.</string>
     <string name="debug_log_tools_title">Silumislogi</string>
-    <string name="debug_log_tools_subtitle">Eelvaade, otsing, jagamine või kustutamine FADCAM_debug.html</string>
-    <string name="debug_log_tools_helper">Kuvab silumislogifaili (FADCAM_debug.html). Silumislogi lubamine võib lisada jõudluskulu — ära luba seda, kui ei kohta viga ja vaja logi jagada. Kasuta otsingukasti filtreerimiseks.</string>
+    <string name="debug_log_tools_subtitle">Eelvaade, otsing, jagamine või kustutamine JoyCreator_debug.html</string>
+    <string name="debug_log_tools_helper">Kuvab silumislogifaili (JoyCreator_debug.html). Silumislogi lubamine võib lisada jõudluskulu — ära luba seda, kui ei kohta viga ja vaja logi jagada. Kasuta otsingukasti filtreerimiseks.</string>
     <string name="debug_log_share_title">Jaga silumislogi</string>
     <string name="debug_log_share_subtitle">Ava süsteemi jagamisleht</string>
     <string name="debug_log_delete_title">Kustuta silumislogi</string>

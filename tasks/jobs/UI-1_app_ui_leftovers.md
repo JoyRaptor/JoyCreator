@@ -21,7 +21,8 @@ Smart Detection, the new About, 36 renamed strings, lobby placeholders. Handoffs
 `UI-Five-front-doors-options.html`, `UI-The-swatch-room_pill.html`, `UI-The Art Order.html`.
 
 ## What is left
-- [ ] Restyle: fullscreen camera preview, the Studio classic list leftovers. (Home sidebar done and seen 11-10; Records sidebar layout re-tokened, not seen on the phone.)
+- [x] Restyle (11-14 closing note): Home sidebar, Records sidebar, fullscreen camera preview (theme, bars, zzz; the amber/green button tints are on/off state set in code, kept on purpose), Studio classic list (already on tokens). Remaining user-visible "FadCam" text in English is real folder paths (FREE-2) and the credits line.
+- [ ] Still open here: Home recorder landscape (colour tokens only; structure is the old layout and has not been seen: needs the phone rotated, which is not allowed, so it wants an owner or tablet pass); the Menu switch with overlay permission revoked, the screen-recording watermark and the Beta/Pro update sheets (each needs a person at a system prompt or a settings change); a translated screen; wide-screen onboarding permissions page (TAB-1).
 - [ ] Eyeball on the phone: the mode popup (looked teal on an old build), What's New, the Beta/Pro update sheets.
 - [x] Legacy themes: FadCam Pro, Cloud Account and WebView screens no longer exist (S19 cut; the only WebView is a headless slide renderer); What's New was already on the Joy Creator theme; Onboarding moved to it 11-10 (theme, human slide colours, page dots). Not yet looked at on a phone.
 - [x] Burned-in watermark: the FadCam/Rec logo pictures are replaced by the text "Joy Creator" in the video, photo and screen-recording drawers and the settings preview (11-10, compiled; no phone recording yet).

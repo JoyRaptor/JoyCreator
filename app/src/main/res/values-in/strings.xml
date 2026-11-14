@@ -759,7 +759,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="torch_both">Kedua Senter</string>
     <string name="setting_debug_title">Pencatatan Debug</string>
     <string name="note_debug">Aktifkan pembuatan file log debug \n(Default: Dinonaktifkan)</string>
-    <string name="note_debug_detailed">Saat diaktifkan, FadCam menulis file HTML log debug (FADCAM_debug.html) ke folder Downloads/FadCam/ publik. Bagikan file ini saat melaporkan masalah. Matikan untuk menghentikan penulisan di masa mendatang.\nCatatan: Pencatatan debug dapat menambah beban kinerja selama perekaman — biarkan nonaktif kecuali Anda sedang memecahkan masalah.</string>
+    <string name="note_debug_detailed">Saat diaktifkan, FadCam menulis file HTML log debug (JoyCreator_debug.html) ke folder Downloads/FadCam/ publik. Bagikan file ini saat melaporkan masalah. Matikan untuk menghentikan penulisan di masa mendatang.\nCatatan: Pencatatan debug dapat menambah beban kinerja selama perekaman — biarkan nonaktif kecuali Anda sedang memecahkan masalah.</string>
     <string name="note_debug_extra">Saat diaktifkan, file log debug akan dibuat di folder Downloads/FadCam. Ini dapat membantu mendiagnosis masalah aplikasi.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Pratinjau</string>
@@ -1870,8 +1870,8 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
 
     <!-- Debug Log Tools -->
     <string name="debug_log_tools_title">Log Debug</string>
-    <string name="debug_log_tools_subtitle">Pratinjau, cari, bagikan, atau hapus FADCAM_debug.html</string>
-    <string name="debug_log_tools_helper">Menampilkan file log debug (FADCAM_debug.html). Mengaktifkan pencatatan debug dapat menambah beban kinerja — jangan aktifkan kecuali Anda menghadapi bug dan perlu berbagi log. Gunakan kotak pencarian untuk memfilter.</string>
+    <string name="debug_log_tools_subtitle">Pratinjau, cari, bagikan, atau hapus JoyCreator_debug.html</string>
+    <string name="debug_log_tools_helper">Menampilkan file log debug (JoyCreator_debug.html). Mengaktifkan pencatatan debug dapat menambah beban kinerja — jangan aktifkan kecuali Anda menghadapi bug dan perlu berbagi log. Gunakan kotak pencarian untuk memfilter.</string>
     <string name="debug_log_share_title">Bagikan Log Debug</string>
     <string name="debug_log_share_subtitle">Buka lembar berbagi sistem</string>
     <string name="debug_log_delete_title">Hapus Log Debug</string>

@@ -59,6 +59,8 @@ class UnibrushSettingsView(
     }
     private val tabRow = LinearLayout(context).apply { orientation = HORIZONTAL }
     private val pen = PenReadingView(kit)
+    /** The tip seen edge-on, beside the pen pad (BRUSH-UI item 4). */
+    private val tipSection = TipSectionView(kit)
     private val input = LinearLayout(context).apply { orientation = HORIZONTAL }
     private val scroll = ScrollView(context)
 
@@ -78,6 +80,7 @@ class UnibrushSettingsView(
             pen.show(pressure, tilt, 0f)
             try { onPreviewInput(pressure, tilt) } catch (e: Exception) { showError(e.message ?: "The preview could not be updated") }
         }, LayoutParams(0, kit.dpi(92f), 1f).apply { marginStart = kit.dpi(8f) })
+        input.addView(tipSection, LayoutParams(kit.dpi(72f), kit.dpi(92f)).apply { marginStart = kit.dpi(8f) })
         addView(tabRow, LayoutParams(MATCH, WRAP))
         addView(error, LayoutParams(MATCH, WRAP))
         scroll.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
@@ -155,6 +158,7 @@ class UnibrushSettingsView(
                 grainControls(tip = true); grainControls(tip = false); endsControls(); stabilizerControls()
             }
         }
+        tipSection.show(model.tip.profile, model.tip.hardness.base)
         scroll.post { if (!closed) scroll.scrollTo(0, oldScroll) }
     }
 
@@ -180,7 +184,24 @@ class UnibrushSettingsView(
     }
 
     private fun refreshControls(forceThumb: Boolean = false) {
+        tipSection.show(model.tip.profile, model.tip.hardness.base)
         refreshers.toList().forEach { it() }; rows.toList().forEach { it.refresh(forceThumb) }
+    }
+
+    /**
+     * BRUSH-UI item 4 (owner 11-14: "Softness shows nothing and does nothing"): the Hard tip profile draws a hard rim
+     * and ignores hardness, so on Hard and every mode built on it the slider moved and nothing changed. A Hard tip reads
+     * as 0% soft, and moving Softness above zero switches the tip to the Smooth profile, which honours hardness.
+     */
+    private fun softnessOf(p: BrushPreset): Float =
+        if (p.tip.profile?.kind == cc.joycreator.joybrush.core.brush.TipProfile.hard) 0f else 1f - p.tip.hardness.base
+
+    private fun withSoftness(p: BrushPreset, v: Float): BrushPreset {
+        var tip = p.tip.copy(hardness = p.tip.hardness.copy(base = 1f - v))
+        val profile = tip.profile
+        if (v > 0.005f && profile?.kind == cc.joycreator.joybrush.core.brush.TipProfile.hard)
+            tip = tip.copy(profile = profile.copy(kind = cc.joycreator.joybrush.core.brush.TipProfile.smooth))
+        return p.copy(tip = tip)
     }
 
     private fun structural(transform: (BrushPreset) -> BrushPreset) {
@@ -244,7 +265,7 @@ class UnibrushSettingsView(
             }
         }
         number("Size", .25f, 4096f, { it.size.base }, { p, v -> p.copy(size = p.size.copy(base = v)) }, logarithmic = true)
-        number("Softness", 0f, 1f, { 1f - it.tip.hardness.base }, { p, v -> p.copy(tip = p.tip.copy(hardness = p.tip.hardness.copy(base = 1f - v))) }, format = ::percent)
+        number("Softness", 0f, 1f, { softnessOf(it) }, { p, v -> withSoftness(p, v) }, format = ::percent)
         number("Opacity", 0f, 1f, { it.opacity.base }, { p, v -> p.copy(opacity = p.opacity.copy(base = v)) }, format = ::percent)
         number("Ink per dab", 0f, 1f, { it.flow.base }, { p, v -> p.copy(flow = p.flow.copy(base = v)) }, format = ::percent)
         number("Spacing", .005f, 5f, { it.spacing }, { p, v -> p.copy(spacing = v) }, logarithmic = true)

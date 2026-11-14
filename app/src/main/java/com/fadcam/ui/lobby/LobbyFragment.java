@@ -424,6 +424,7 @@ public class LobbyFragment extends BaseFragment {
 
         View libraryDoor = v.findViewById(R.id.lobby_library_door);
         libraryDoor.setOnClickListener(b -> openLibrary(false));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(libraryDoor, getString(R.string.hover_lobby_library));
         Motion.press(libraryDoor);
         Motion.press(v.findViewById(R.id.lobby_search));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(v.findViewById(R.id.lobby_search), getString(R.string.lobbyv2_search));
@@ -815,6 +816,7 @@ public class LobbyFragment extends BaseFragment {
             if (roomIndex == active) { enterRoom(); return; }
             scrollToWord(v, true);
         });
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(t, getString(R.string.hover_lobby_room, title));
         return t;
     }
 
@@ -1220,6 +1222,8 @@ public class LobbyFragment extends BaseFragment {
         // The biggest control on the screen announced NOTHING: it is a FrameLayout whose
         // children are pictures and whose text lives in siblings. Everything the eye gets
         // from it — which room, which item, what pressing it does — now has words.
+        View heroNewView = getView() == null ? null : getView().findViewById(R.id.lobby_hero_new);
+        if (heroNewView != null) androidx.appcompat.widget.TooltipCompat.setTooltipText(heroNewView, getString(R.string.hover_lobby_hero_new, r.title));
         hero.setContentDescription(hasContent
                 ? getString(R.string.lobby_a11y_hero, tag, name, r.action)
                 : getString(R.string.lobby_a11y_hero_empty, r.title));
@@ -1231,6 +1235,7 @@ public class LobbyFragment extends BaseFragment {
         heroAction.setText(lastDrawing != null || vizShown != null || tlShown != null ? getString(R.string.lobby_act_carry_on)
                 : hasContent || r.id == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));
         heroAction.setTextColor(r.onGrad);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(heroAction, getString(R.string.hover_lobby_hero_action, heroAction.getText(), r.title));
         heroAction.setBackground(pillGradient(r.gradA, r.gradB, dp(999)));
         heroAction.setOnClickListener(v -> enterRoom());
         Motion.press(heroAction);
@@ -1667,6 +1672,7 @@ public class LobbyFragment extends BaseFragment {
         // separate announcements. Name, what kind of thing it is, and how long ago.
         card.setContentDescription(getString(R.string.lobby_a11y_recent,
                 item.name, getString(item.kind.label), ago(item.when)));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(card, card.getContentDescription());
         card.setOnClickListener(v -> {
             if (item.drawingFile != null) { openDrawing(item.drawingFile); return; }
             if (item.libraryItem != null) {
@@ -2003,6 +2009,7 @@ public class LobbyFragment extends BaseFragment {
         // The chip is ONE control, so it speaks once, as itself. Without this the two
         // children are announced separately and the row reads as eight items, not four.
         cell.setContentDescription(getString(spokenRes));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(cell, getString(spokenRes));   // SHELL-06: every button a hover label
         cell.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         cell.setOnClickListener(v -> { Motion.press(v); onTap.run(); });
         newRow.addView(cell);
@@ -2232,6 +2239,7 @@ public class LobbyFragment extends BaseFragment {
         botLineYes.setText(yesLabel);
         final Runnable action = onYes;
         botLineYes.setOnClickListener(v -> { if (action != null) action.run(); });
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(botLineYes, botLineYes.getText());
         Motion.press(botLineYes);
         if (botLine.getVisibility() != View.VISIBLE) {
             botLine.setVisibility(View.VISIBLE);

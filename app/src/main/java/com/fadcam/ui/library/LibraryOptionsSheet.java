@@ -20,6 +20,8 @@ final class LibraryOptionsSheet {
         void onTrash();
         void onClassic();
         void onClassicStudio();
+        /** Paste a picture copied in another app (SHELL-25). */
+        void onPastePicture();
     }
 
     private LibraryOptionsSheet() {}
@@ -35,6 +37,11 @@ final class LibraryOptionsSheet {
         header.addTrailing(SheetKit.closeButton(c, d::dismiss));
         root.addView(header.view);
 
+        root.addView(SheetKit.sectionLabel(c, c.getString(R.string.library_add), 0));
+        SheetKit.Row paste = SheetKit.row(c, "content_paste", c.getString(R.string.library_paste_picture),
+                false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onPastePicture(); });
+        SheetKit.label(paste.view, c.getString(R.string.hover_library_paste_picture));
+        root.addView(paste.view);
         root.addView(SheetKit.sectionLabel(c, c.getString(R.string.library_more), 0));
         root.addView(SheetKit.row(c, "delete_outline", c.getString(R.string.library_open_trash),
                 false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onTrash(); }).view);

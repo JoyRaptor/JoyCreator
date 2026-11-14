@@ -201,4 +201,8 @@
         <item quantity="one">Nothing to save: the file of the %d video you chose is no longer on the phone.</item>
         <item quantity="other">Nothing to save: the files of the %d videos you chose are no longer on the phone.</item>
     </plurals>
+    <!-- SHELL-25: paste a copied picture into the folder. -->
+    <string name="library_add">Add</string>
+    <string name="library_paste_picture">Paste a picture</string>
+    <string name="library_paste_nothing">Nothing to paste. Copy a picture in another app first (hold it and choose Copy), then come back here.</string>
 </resources>

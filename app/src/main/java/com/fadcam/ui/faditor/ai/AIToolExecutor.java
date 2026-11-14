@@ -152,6 +152,7 @@ public class AIToolExecutor {
                 case "label_sprite_cells": return toolLabelSpriteCells(args);
                 case "tag_sprite_cells": return toolTagSpriteCells(args);
                 case "set_sprite_options": return toolSetSpriteOptions(args);
+                case "align_sprite_cells": return toolAlignSpriteCells(args);
                 case "author_sprite_animation": return toolAuthorSpriteAnimation(args);
                 case "apply_sprite_proposal": return toolApplySpriteProposal(args);
                 case "author_avatar_rig": return toolAuthorAvatarRig(args);
@@ -405,6 +406,13 @@ public class AIToolExecutor {
                 occupancy and bounding boxes to decide. An empty name clears one.
                 Out-of-range cells are reported back, never silently skipped.
                 args: {"sheetId":"...","labels":{"0":"idle","1":"walk_01","2":""}}
+
+            33i. align_sprite_cells — Line the drawings up, as SpriteLab's Auto-centre and Feet
+                buttons do: mode "centre" puts each cell's drawing on the pivot; mode "feet" lines up
+                every drawing's bottom edge (use it for walks and runs: centring a walk makes it
+                skate) and centres only across. cells: which (default all with a drawing). Sets each
+                cell's offset outright, so running it twice changes nothing more.
+                args: {"sheetId":"...","mode":"feet","cells":[0,1,2,3]}
 
             33h. set_sprite_options — A sheet's PIVOT (the point it turns and stands on, 0..1 of a
                 cell: 0.5,1 = bottom centre, for feet on the ground), its BACKGROUND KEY (a colour made
@@ -2032,6 +2040,110 @@ public class AIToolExecutor {
                .append(rejected).append('.');
         }
         return out.toString();
+    }
+
+    /**
+     * BOT-A31: line up the drawings in a sheet's cells, the arithmetic of SpriteLab's Auto-centre /
+     * Feet ({@link com.fadcam.ui.faditor.ai.joybot.InkAlign}). The drawing in each cell is measured
+     * on the sheet's own picture (decoded small, measured back in source pixels) and the cell's
+     * offset is SET, not added to, so the result is the same however often it runs.
+     */
+    private String toolAlignSpriteCells(@NonNull JSONObject args) {
+        String sheetId = args.optString("sheetId", "");
+        if (sheetId.isEmpty()) return "Error: 'sheetId' is required.";
+        Boolean feet = com.fadcam.ui.faditor.ai.joybot.InkAlign.feetMode(args.optString("mode", "centre"));
+        if (feet == null) return "Error: mode is \"centre\" or \"feet\".";
+        FaditorProject proj = storage.load(projectId);
+        if (proj == null) return "Error: project not found";
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = proj.spriteSheetById(sheetId);
+        if (sheet == null) {
+            return "Error: no sprite sheet with id '" + sheetId + "'. " + availableSheetsLine(proj);
+        }
+        if (sheet.isSequence()) return "Error: '" + sheet.getName() + "' is a picture sequence; line it up in SpriteLab.";
+        int count = sheet.cellCount();
+        java.util.List<Integer> cells = new java.util.ArrayList<>();
+        JSONArray want = args.optJSONArray("cells");
+        if (want != null) {
+            for (int i = 0; i < want.length(); i++) {
+                int c = want.optInt(i, -1);
+                if (c < 0 || c >= count) return "Error: cell " + want.opt(i) + " is outside 0.." + (count - 1) + ". Nothing changed.";
+                if (!cells.contains(c)) cells.add(c);
+            }
+        } else {
+            for (int i = 0; i < count; i++) cells.add(i);
+        }
+        android.graphics.Bitmap bmp = null;
+        try {
+            android.net.Uri uri = android.net.Uri.parse(sheet.getSheetUri());
+            android.graphics.BitmapFactory.Options bounds = new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                android.graphics.BitmapFactory.decodeStream(in, null, bounds);
+            }
+            int trueW = bounds.outWidth, trueH = bounds.outHeight;
+            if (trueW <= 0 || trueH <= 0) return "Error: the sheet's picture couldn't be read. Nothing changed.";
+            int sample = 1;
+            while (Math.max(trueW, trueH) / (sample * 2) >= 2048) sample *= 2;
+            android.graphics.BitmapFactory.Options opts = new android.graphics.BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            try (java.io.InputStream in = context.getContentResolver().openInputStream(uri)) {
+                bmp = android.graphics.BitmapFactory.decodeStream(in, null, opts);
+            }
+            if (bmp == null) return "Error: the sheet's picture couldn't be read. Nothing changed.";
+            float toSrc = trueW / (float) bmp.getWidth();
+            java.util.Map<Integer, com.fadcam.ui.faditor.ai.joybot.InkAlign.Box> boxes = new java.util.LinkedHashMap<>();
+            for (int c : cells) {
+                android.graphics.Rect src = com.fadcam.ui.faditor.sprite.SpriteSheetRenderer.cellRectSource(sheet, c, trueW, trueH);
+                float[] ink = inkBox(bmp, Math.round(src.left / toSrc), Math.round(src.top / toSrc),
+                        Math.round(src.right / toSrc), Math.round(src.bottom / toSrc));
+                if (ink == null) continue;   // an empty cell stays where it is
+                boxes.put(c, new com.fadcam.ui.faditor.ai.joybot.InkAlign.Box(ink[0] * toSrc, ink[1] * toSrc,
+                        ink[2] * toSrc, ink[3] * toSrc, src.width(), src.height()));
+            }
+            if (boxes.isEmpty()) return "Error: those cells have no drawing to line up. Nothing changed.";
+            java.util.Map<Integer, float[]> moves = com.fadcam.ui.faditor.ai.joybot.InkAlign.shifts(
+                    boxes, sheet.getPivotX(), sheet.getPivotY(), feet);
+            for (java.util.Map.Entry<Integer, float[]> e : moves.entrySet()) {
+                com.fadcam.ui.faditor.sprite.SpriteSheet.CellXf t = sheet.cellTransform(e.getKey());
+                com.fadcam.ui.faditor.sprite.SpriteSheet.CellXf xf = t == null
+                        ? new com.fadcam.ui.faditor.sprite.SpriteSheet.CellXf() : t.copy();
+                xf.dx = e.getValue()[0];
+                xf.dy = e.getValue()[1];
+                sheet.setCellTransform(e.getKey(), xf);
+            }
+            storage.save(proj);
+            AIChatState.signalModified(projectId);
+            return (feet ? "Lined up the feet of " : "Centred ") + moves.size() + " cell(s) on '" + sheet.getName() + "'"
+                    + (cells.size() > moves.size() ? " (" + (cells.size() - moves.size()) + " empty left as they were)." : ".");
+        } catch (Exception e) {
+            FLog.e(TAG, "align_sprite_cells failed", e);
+            return "Error: couldn't line the cells up: " + e.getMessage();
+        } finally {
+            if (bmp != null) bmp.recycle();
+        }
+    }
+
+    /** {left, top, right, bottom} of the non-transparent pixels in a rectangle of {@code bmp}, cell-local; null when empty. */
+    @Nullable
+    private static float[] inkBox(@NonNull android.graphics.Bitmap bmp, int left, int top, int right, int bottom) {
+        int x0 = Math.max(0, left), y0 = Math.max(0, top);
+        int x1 = Math.min(bmp.getWidth(), right), y1 = Math.min(bmp.getHeight(), bottom);
+        int w = x1 - x0, h = y1 - y0;
+        if (w <= 0 || h <= 0) return null;
+        int[] px = new int[w];
+        int minX = w, minY = h, maxX = -1, maxY = -1;
+        for (int y = 0; y < h; y++) {
+            bmp.getPixels(px, 0, w, x0, y0 + y, w, 1);
+            for (int x = 0; x < w; x++) {
+                if (((px[x] >>> 24) & 0xFF) <= 16) continue;
+                if (x < minX) minX = x;
+                if (x > maxX) maxX = x;
+                if (y < minY) minY = y;
+                if (y > maxY) maxY = y;
+            }
+        }
+        if (maxX < 0) return null;
+        return new float[]{minX + (x0 - left), minY + (y0 - top), maxX + 1 + (x0 - left), maxY + 1 + (y0 - top)};
     }
 
     /**

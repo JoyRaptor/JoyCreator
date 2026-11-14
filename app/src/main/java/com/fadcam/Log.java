@@ -22,7 +22,7 @@ public class Log {
     private static File logFile;
 
     private static final String TAG = "Log";
-    private static final String DEBUG_FILE_NAME = "FADCAM_debug.html";
+    private static final String DEBUG_FILE_NAME = "JoyCreator_debug.html";
     private static final int MAX_LOG_LINES = 5000;
 
     // Async logging internals (batched, low-overhead)

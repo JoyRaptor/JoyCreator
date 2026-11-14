@@ -558,7 +558,7 @@
     <string name="torch_cancel">取消</string>
     <string name="torch_recording_note">录制过程中无法切换手电筒</string>
     <string name="torch_both">前后手电筒同时开启</string>
-    <string name="note_debug_detailed">启用后，我们会在您的“Downloads/FadCam/”目录中生成调试日志文件 (FADCAM_debug.html)。当您需要报告问题时，请分享此文件以协助我们排查。关闭本选项将不再记录。\n请注意：开启调试日志可能会在录制时拖慢应用。如非必要，请保持关闭。</string>
+    <string name="note_debug_detailed">启用后，我们会在您的“Downloads/FadCam/”目录中生成调试日志文件 (JoyCreator_debug.html)。当您需要报告问题时，请分享此文件以协助我们排查。关闭本选项将不再记录。\n请注意：开启调试日志可能会在录制时拖慢应用。如非必要，请保持关闭。</string>
     <string name="watermark_preview_heading">预览</string>
     <string name="watermark_options_heading">选项</string>
     <string name="watermark_style_row_title">水印样式</string>
@@ -829,8 +829,8 @@
     <string name="camera_error_service">相机服务错误</string>
     <string name="camera_error_unknown">未知相机错误</string>
     <string name="debug_log_tools_title">调试日志</string>
-    <string name="debug_log_tools_subtitle">预览、搜索、共享或删除 FADCAM_debug.html</string>
-    <string name="debug_log_tools_helper">显示调试日志文件 (FADCAM_debug.html)。启用调试日志记录可能会增加性能开销——除非您正面临程序错误且需要共享日志，否则请勿启用。请使用搜索框进行过滤。</string>
+    <string name="debug_log_tools_subtitle">预览、搜索、共享或删除 JoyCreator_debug.html</string>
+    <string name="debug_log_tools_helper">显示调试日志文件 (JoyCreator_debug.html)。启用调试日志记录可能会增加性能开销——除非您正面临程序错误且需要共享日志，否则请勿启用。请使用搜索框进行过滤。</string>
     <string name="debug_log_share_title">共享调试日志</string>
     <string name="debug_log_share_subtitle">打开系统分享界面</string>
     <string name="debug_log_delete_title">删除调试日志</string>

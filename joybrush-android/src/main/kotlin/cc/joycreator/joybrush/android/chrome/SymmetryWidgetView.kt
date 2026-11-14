@@ -146,6 +146,13 @@ class SymmetryWidgetView(private val kit: ChromeKit) : LinearLayout(kit.context)
      * Puts the widget beside the point ([x], [y]) on the screen, kept inside the window (the same clamp
      * [cc.joycreator.joybrush.android.chrome.Popovers] uses for a panel).
      */
+    /**
+     * How far down from the host's top the widget must stay: the bottom of the top bar while it shows (BRUSH-UI item 7,
+     * owner 11-14: with the line's middle near the top, the pill sat on the top bar and "Overlap"/"Symmetry" covered
+     * its buttons). Zero when the chrome is hidden.
+     */
+    var topClearance: () -> Int = { 0 }
+
     fun placeBeside(x: Float, y: Float) {
         anchorX = x
         anchorY = y
@@ -163,7 +170,7 @@ class SymmetryWidgetView(private val kit: ChromeKit) : LinearLayout(kit.context)
         val gap = kit.dpi(GAP_DP).toFloat()
         val minX = host.paddingLeft + gap
         val maxX = host.width - host.paddingRight - gap - width
-        val minY = host.paddingTop + gap
+        val minY = maxOf(host.paddingTop + gap, topClearance() + gap)
         val maxY = host.height - host.paddingBottom - gap - height
         val wantX = anchorX + kit.dp(OFFSET_DP)
         val wantY = anchorY - height / 2f

@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>One Brush Editor — options</title>
+<style>
+:root{--ground:#000;--surface:#0D0D10;--panel:#111114;--raised:#1C1C22;--pressed:#26262E;--line:#2C2C35;
+--ink:#E4E4E7;--dim:#A1A1AA;--faint:#71717A;--off:#4B4B55;--armed:#22D3EE;--go:#35F6BF;--go2:#97FE8B}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:14px/1.5 system-ui,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1240px;margin:0 auto;padding:0 18px}
+.mast{padding:40px 0 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0b0b10,var(--ground))}
+.kick{font:11px ui-monospace,Menlo,monospace;color:var(--faint);letter-spacing:.18em}
+h1{font-size:clamp(30px,5vw,52px);font-weight:900;margin:6px 0}
+h1 em{font-style:normal;background:linear-gradient(100deg,var(--go),var(--go2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.dek{color:var(--dim);max-width:76ch}.dek b{color:var(--ink)}
+section{padding:30px 0;border-bottom:1px solid var(--line)}
+h2{font-size:24px;font-weight:800;margin:0 0 4px}h2 span{font:11px ui-monospace,monospace;color:var(--off);margin-right:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px;margin-top:16px}
+.opt{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;cursor:pointer;transition:border-color .15s}
+.opt:hover{border-color:#44444f}
+.opt.on{border-color:var(--armed);box-shadow:0 0 0 1px var(--armed)}
+.opt header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}
+.opt header b{font-size:14px}.opt header i{font-style:normal;font:10px ui-monospace,monospace;color:var(--faint);margin-left:auto}
+.opt p{margin:0;padding:8px 12px 12px;font-size:12px;color:var(--dim)}
+.pick{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--off);flex:none}
+.opt.on .pick{background:var(--armed);border-color:var(--armed);box-shadow:inset 0 0 0 4px var(--panel)}
+canvas{display:block;width:100%;touch-action:none}
+.swatches{display:flex;height:28px}.swatches div{flex:1}
+.picks{position:sticky;bottom:0;background:rgba(10,10,13,.92);backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:12px 0;z-index:5}
+.picks .wrap{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.picks code{flex:1;min-width:260px;font:13px ui-monospace,Menlo,monospace;color:var(--go);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 12px}
+.btn{font:inherit;font-size:13px;font-weight:700;padding:9px 16px;border-radius:999px;border:0;background:var(--armed);color:#00151a;cursor:pointer}
+.btn.ghost{background:var(--raised);color:var(--dim);border:1px solid var(--line)}
+.lab{display:grid;grid-template-columns:minmax(300px,1.4fr) minmax(260px,1fr);gap:18px;margin-top:16px}
+@media(max-width:760px){.lab{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px}
+.row{display:flex;align-items:center;gap:10px;margin:10px 0}
+.row label{width:96px;font-size:12px;color:var(--dim)}
+.row input[type=range]{flex:1;accent-color:var(--armed)}
+.row output{width:44px;text-align:right;font:12px ui-monospace,monospace;color:var(--ink)}
+.ends{display:flex;align-items:center;gap:8px;flex:1}
+.ends canvas{width:46px;height:22px;border-radius:5px;background:#16161b;flex:none}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:inherit;font-size:12px;font-weight:600;padding:7px 12px;border-radius:999px;border:1px solid var(--line);background:var(--raised);color:var(--dim);cursor:pointer}
+.chip.on{background:var(--armed);color:#00151a;border-color:var(--armed)}
+.note{font-size:12px;color:var(--faint);margin-top:8px}
+.phones{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;margin-top:16px}
+.phonebox{display:flex;flex-direction:column;align-items:center;gap:8px}
+.phone{width:411px;height:846px;border-radius:30px;border:1px solid #3a3a46;background:#0a0a0c;overflow:hidden;position:relative;box-shadow:0 18px 50px rgba(0,0,0,.6);transform-origin:top center}
+@media(max-width:900px){.phone{transform:scale(.78);margin-bottom:-186px}}
+.paper{position:absolute;inset:0;background:#e9e3d8}
+.sheet{position:absolute;left:8px;right:8px;bottom:8px;border-radius:16px;background:rgba(17,17,20,.72);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.06);padding:10px;color:var(--ink);font-size:12px}
+.sheet h4{margin:0 0 6px;font-size:15px;display:flex;align-items:center}
+.sheet h4 .done{margin-left:auto;font-size:12px;padding:6px 12px;border-radius:999px;background:var(--raised);color:var(--ink)}
+.mini{display:flex;gap:8px;align-items:stretch}
+.box{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px}
+.mrow{display:flex;align-items:center;gap:6px;margin:7px 0;font-size:11.5px;color:var(--dim)}
+.mrow .t{width:62px}.mrow .bar{flex:1;height:4px;border-radius:2px;background:#2a2a32;position:relative}
+.mrow .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--armed)}
+.mrow .bar b{position:absolute;top:-5px;width:14px;height:14px;border-radius:50%;background:var(--armed)}
+.mrow canvas{width:34px;height:16px;border-radius:4px;background:#16161b;flex:none}
+.tabs{display:flex;gap:4px;margin:6px 0}.tabs span{flex:1;text-align:center;padding:6px 0;border-radius:999px;background:rgba(255,255,255,.06);color:var(--dim);font-weight:600}
+.tabs span.on{background:var(--armed);color:#00151a}
+.legend{font:10px ui-monospace,monospace;color:var(--faint)}
+</style>
+</head>
+<body>
+<header class="mast"><div class="wrap">
+  <div class="kick">JOYBRUSH · BRUSH-UI · OPTIONS FOR JOYRAPTOR · 2026-11-14</div>
+  <h1>One brush editor that <em>shows</em> what a brush does</h1>
+  <p class="dek">Every brush, every engine, the same editor. <b>Seeing replaces reading</b>: one gorgeous test stroke that crosses
+  a set of colours, redrawn while a slider moves; the tip seen from the side; slider ends drawn as tiny strokes. Everything
+  here is live: drag sliders, draw on the test area with a mouse or pen, and tap an option to pick it. Your picks build the
+  line at the bottom; copy it and send it to me.</p>
+</div></header>
+
+<main class="wrap">
+
+<section>
+  <h2><span>A</span>The test stroke</h2>
+  <p class="dek">One shape for every brush, made to show the most in one pass: it starts feather-light and presses harder,
+  the pen tilts along it, it <b>crosses itself</b> (so you see how paint builds on paint), and it ends with a
+  <b>sudden lift</b>, not a fade. Pick the shape.</p>
+  <div class="grid" id="shapes"></div>
+</section>
+
+<section>
+  <h2><span>B</span>The colours it crosses</h2>
+  <p class="dek">Painted bands under the stroke show <b>pickup and smudging</b>: a wet brush drags colour out of them, a glaze
+  darkens through them, a dry pencil skips over them. Each set is built on a colour-theory rule, so they sit together like a
+  designer's palette, never like a flag.</p>
+  <div class="grid" id="palettes"></div>
+</section>
+
+<section>
+  <h2><span>C</span>Try it: a brush you can tune</h2>
+  <p class="dek">A stand-in brush (not the real engine yet) so you can feel the idea: move any slider and the stroke redraws
+  <b>while you drag</b>. Draw on the test area to try your own marks. The cross-section beside it is the tip seen edge-on;
+  the footprint shows the tip lying down as the pen tilts.</p>
+  <div class="lab">
+    <div class="panel">
+      <canvas id="test" height="260"></canvas>
+      <div class="row" style="margin-top:12px">
+        <span class="legend">DRAW ON THE TEST AREA ↑</span>
+        <span style="flex:1"></span>
+        <button class="chip" id="clearDraw">Clear my marks</button>
+      </div>
+      <div class="mini" style="margin-top:6px">
+        <div class="box" style="flex:1;padding:6px"><div class="legend">CROSS-SECTION</div><canvas id="section" height="70"></canvas></div>
+        <div class="box" style="flex:1;padding:6px"><div class="legend">FOOTPRINT · TILT 0° → 70°</div><canvas id="footprint" height="70"></canvas></div>
+        <div class="box" style="flex:1;padding:6px"><div class="legend">PRESSURE → SIZE</div><canvas id="curve" height="70"></canvas></div>
+      </div>
+    </div>
+    <div class="panel" id="sliders">
+      <div class="row"><label>Paint</label><div class="chips" id="modes"></div></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span>D</span>Slider ends</h2>
+  <p class="dek">Every slider shows what its two ends look like, so you don't have to guess what "Spacing" or "Flow" means.
+  Pick how the ends are drawn.</p>
+  <div class="grid" id="endstyles"></div>
+</section>
+
+<section>
+  <h2><span>E</span>The editor, at true size</h2>
+  <p class="dek">Three layouts for the one editor, drawn at the Note 9's real size (411 × 846). All three keep the drawer
+  see-through, put the pen pad, the tip's cross-section and the test stroke together at the top, and use the same controls for
+  every brush; a setting a brush doesn't have is simply left out.</p>
+  <div class="grid" id="layouts" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
+  <div class="phones" id="phones"></div>
+</section>
+</main>
+
+<div class="picks"><div class="wrap">
+  <code id="pickline">Picks: …</code>
+  <button class="btn" id="copy">Copy my picks</button>
+</div></div>
+
+<script>
+// ───────── data ─────────
+const SHAPES=[
+ {id:'S1',name:'Loop & S',why:'Swoops in, one loop, an S on the way out, then a sudden lift. Shows overlap once and both curve directions.'},
+ {id:'S2',name:'Scribble to loop',why:'Four quick zigzags (speed and sharp turns), then a big slow loop. Shows how the brush takes corners.'},
+ {id:'S3',name:'Ribbon',why:'A figure-eight that crosses itself twice, then an S tail. The most overlap: glazes and wet paint show best.'},
+ {id:'S4',name:'Signature',why:'A long cursive swash with two small loops and a flick. Elegant, and tilt changes are easy to read.'},
+];
+const PALETTES=[
+ {id:'P1',name:'Dusk',rule:'Split-complementary around a warm coral',c:['#3D405B','#81B29A','#F2CC8F','#E07A5F']},
+ {id:'P2',name:'Kiln',rule:'Earth triad: clay, ochre and a cool sage to rest the eye',c:['#2F4858','#7E9C82','#E3B66B','#C4673F']},
+ {id:'P3',name:'Tidepool',rule:'Analogous blues and greens, with one warm accent',c:['#0F4C5C','#5F9EA0','#E9C46A','#F4A261']},
+ {id:'P4',name:'Plum & moss',rule:'Muted complements: plum against moss, softened by blush',c:['#5B3758','#A26769','#D5B9B2','#6D8A60']},
+];
+const ENDSTYLES=[
+ {id:'E1',name:'Tiny strokes',why:'A short stroke at each end of the slider, drawn by the real brush at that setting.'},
+ {id:'E2',name:'Dabs',why:'A single dab at each end: best for Size, Softness and Shape.'},
+ {id:'E3',name:'Words + strokes',why:'A one-word end label ("Thin", "Thick") over a tiny stroke, for people who like both.'},
+];
+const LAYOUTS=[
+ {id:'L1',name:'Stage',why:'A tall test strip across the top; pen pad, cross-section and footprint in one row under it; sliders below in three tabs (Quick, Shape, Feel).'},
+ {id:'L2',name:'Bench',why:'Test strip on top, and a row of four behaviour tiles (tilt, pressure, colour, overlap) that each redraw live; one scrolling list of sliders.'},
+ {id:'L3',name:'Split',why:'Test strip and tools stay pinned; sliders slide in from the right in groups, so the stroke is never covered.'},
+];
+const picks={shape:'S1',palette:'P1',ends:'E1',layout:'L1'};
+
+// ───────── stroke geometry ─────────
+// t in 0..1 → {x,y} in a 0..1 box, plus pressure p and tilt k.
+function pathFn(id){
+  return t=>{
+    let x,y;
+    if(id==='S1'){
+      if(t<.45){const u=t/.45;x=.05+.42*u;y=.62-.18*Math.sin(u*Math.PI*.9);}
+      else if(t<.7){const u=(t-.45)/.25,a=-Math.PI/2+u*Math.PI*2;x=.47+.11*Math.cos(a);y=.48+.14*Math.sin(a)+.02*u;}
+      else{const u=(t-.7)/.3;x=.47+.48*u;y=.5+.16*Math.sin(u*Math.PI*2)*(1-u*.3);}
+    }else if(id==='S2'){
+      if(t<.45){const u=t/.45;x=.05+.4*u;const tooth=(u*4)%1;y=.45+.18*(tooth<.5?tooth*2:2-tooth*2)*Math.sin(Math.PI*u)+.05;}
+      else{const u=(t-.45)/.55,a=Math.PI+u*Math.PI*2.15;x=.62+.2*Math.cos(a)+.18*u;y=.5+.24*Math.sin(a);}
+    }else if(id==='S3'){
+      if(t<.7){const u=t/.7,a=u*Math.PI*2;x=.1+.55*u+.1*Math.sin(a*2);y=.5+.26*Math.sin(a);}
+      else{const u=(t-.7)/.3;x=.65+.3*u;y=.5-.14*Math.sin(u*Math.PI*2);}
+    }else{
+      const u=t;x=.05+.9*u;y=.58-.12*Math.sin(u*Math.PI*1.2);
+      const loop=(c,r,w)=>{const d=(u-c)/w;if(Math.abs(d)<1){const a=(d+1)*Math.PI;x+=r*.7*Math.sin(a)*.35;y-=r*(1-Math.cos(a))*.5;}};
+      loop(.38,.18,.07);loop(.56,.14,.06);
+    }
+    const p=t<.88?Math.pow(.08+.92*(t/.88),1.25):1;          // light start, harder across, full at the lift
+    const k=.15+.65*(.5+.5*Math.sin(t*Math.PI*1.6));           // tilt varies along the stroke
+    return {x,y,p,k};
+  };
+}
+
+// ───────── a stand-in brush ─────────
+const brush={size:16,soft:.35,flow:.55,spacing:.12,taper:.6,pickup:.0,tiltShape:.6,pressureSize:.8,mode:'Ink'};
+const MODES={Ink:{pickup:0,flow:.8,soft:.15},Wet:{pickup:.45,flow:.35,soft:.6},Glaze:{pickup:0,flow:.25,soft:.4},Pencil:{pickup:0,flow:.4,soft:.05}};
+const INK='#1d1b22';
+function hexRgb(h){const n=parseInt(h.slice(1),16);return[(n>>16)&255,(n>>8)&255,n&255];}
+
+function drawBands(ctx,w,h,pal){
+  ctx.fillStyle='#efe9df';ctx.fillRect(0,0,w,h);
+  const n=pal.length;
+  for(let i=0;i<n;i++){
+    const x0=w*(.08+i*.22);
+    ctx.save();ctx.globalAlpha=.88;ctx.fillStyle=pal[i];
+    ctx.beginPath();ctx.moveTo(x0,0);ctx.lineTo(x0+w*.12,0);ctx.lineTo(x0+w*.12-h*.18,h);ctx.lineTo(x0-h*.18,h);ctx.closePath();ctx.fill();
+    ctx.restore();
+  }
+}
+
+function dab(ctx,x,y,r,angle,aspect,alpha,rgb,soft){
+  if(r<.3||alpha<=0)return;
+  ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.scale(1,aspect);
+  const g=ctx.createRadialGradient(0,0,0,0,0,r);
+  const c=`rgba(${rgb[0]},${rgb[1]},${rgb[2]},`;
+  g.addColorStop(0,c+alpha+')');g.addColorStop(Math.max(.01,1-soft),c+alpha+')');g.addColorStop(1,c+'0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.restore();
+}
+
+function strokeOn(ctx,w,h,shapeId,b,scale=1){
+  const f=pathFn(shapeId);const inset=.06;
+  const P=t=>{const s=f(t);return{x:(inset+s.x*(1-2*inset))*w,y:(s.y)*h,p:s.p,k:s.k};};
+  let prev=P(0),acc=0;const ink=hexRgb(INK);let carried=null;
+  const N=900;
+  ctx.save();
+  if(b.mode==='Glaze')ctx.globalCompositeOperation='multiply';
+  for(let i=1;i<=N;i++){
+    const t=i/N,cur=P(t);
+    const dx=cur.x-prev.x,dy=cur.y-prev.y,d=Math.hypot(dx,dy);acc+=d;
+    const pr=cur.p;
+    const sizeK=1-b.pressureSize*(1-pr);
+    const endTaper=t<.05?Math.max(.15,t/.05*(1-b.taper)+b.taper*t/.05):1;
+    const r=Math.max(.6,b.size*scale*sizeK*endTaper*.5);
+    const step=Math.max(.6,r*2*b.spacing);
+    if(acc>=step){acc=0;
+      const ang=Math.atan2(dy,dx);
+      const aspect=1-b.tiltShape*cur.k*.75;
+      let rgb=ink;
+      if(b.pickup>0){
+        const px=ctx.getImageData(Math.max(0,Math.min(w-1,cur.x|0)),Math.max(0,Math.min(h-1,cur.y|0)),1,1).data;
+        carried=carried||[px[0],px[1],px[2]];
+        carried=carried.map((v,j)=>v+(px[j]-v)*b.pickup*.35);
+        rgb=ink.map((v,j)=>Math.round(v+(carried[j]-v)*b.pickup*1.6));
+        rgb=rgb.map(v=>Math.max(0,Math.min(255,v)));
+      }
+      const pencilGrain=b.mode==='Pencil'?(.55+.45*Math.random()):1;
+      dab(ctx,cur.x,cur.y,r,ang+Math.PI/2,aspect,Math.min(1,b.flow*(.35+.65*pr))*pencilGrain,rgb,b.soft);
+    }
+    prev=cur;
+  }
+  ctx.restore();
+}
+
+function fitCanvas(cv){const dpr=window.devicePixelRatio||1;const w=cv.clientWidth,h=cv.height/(cv._dpr||1);
+  if(!cv._h)cv._h=cv.getAttribute('height')|0; const H=cv._h;
+  cv.width=Math.round(w*dpr);cv.height=Math.round(H*dpr);cv.style.height=H+'px';cv._dpr=dpr;
+  const ctx=cv.getContext('2d',{willReadFrequently:true});ctx.setTransform(dpr,0,0,dpr,0,0);return{ctx,w,h:H};}
+
+function renderTest(cv,shapeId,palId,b,scale=1){
+  const {ctx,w,h}=fitCanvas(cv);
+  drawBands(ctx,w,h,PALETTES.find(p=>p.id===palId).c);
+  strokeOn(ctx,w,h,shapeId,b,scale);
+  return ctx;
+}
+
+// ───────── option cards ─────────
+function card(host,item,group,body,metaText){
+  const el=document.createElement('div');el.className='opt';el.dataset.id=item.id;
+  el.innerHTML=`<header><span class="pick"></span><b>${item.name}</b><i>${item.id}</i></header>`;
+  el.appendChild(body);
+  const p=document.createElement('p');p.textContent=metaText;el.appendChild(p);
+  el.onclick=()=>{picks[group]=item.id;refreshPicks();};
+  host.appendChild(el);return el;
+}
+function mkCanvas(h){const c=document.createElement('canvas');c.setAttribute('height',h);return c;}
+
+const shapeCanvases=[],paletteCanvases=[];
+SHAPES.forEach(s=>{const c=mkCanvas(150);shapeCanvases.push([c,s.id]);card(document.getElementById('shapes'),s,'shape',c,s.why);});
+PALETTES.forEach(p=>{
+  const box=document.createElement('div');
+  const sw=document.createElement('div');sw.className='swatches';sw.innerHTML=p.c.map(c=>`<div style="background:${c}"></div>`).join('');
+  const c=mkCanvas(130);paletteCanvases.push([c,p.id]);box.appendChild(sw);box.appendChild(c);
+  card(document.getElementById('palettes'),p,'palette',box,p.rule+' · '+p.c.join(' '));
+});
+ENDSTYLES.forEach(e=>{
+  const box=document.createElement('div');box.style.padding='10px 12px 0';
+  box.innerHTML=['Size','Spacing','Softness'].map(n=>`<div class="mrow"><span class="t">${n}</span><canvas data-end="${e.id}" data-k="${n}" data-side="a"></canvas><div class="bar"><i style="width:55%"></i><b style="left:52%"></b></div><canvas data-end="${e.id}" data-k="${n}" data-side="b"></canvas></div>`).join('');
+  card(document.getElementById('endstyles'),e,'ends',box,e.why);
+});
+LAYOUTS.forEach(l=>{const d=document.createElement('div');card(document.getElementById('layouts'),l,'layout',d,l.why);});
+
+// ───────── live lab ─────────
+const SL=[
+ {k:'size',name:'Size',min:2,max:48,step:.5,fmt:v=>v.toFixed(0)+' px',a:{size:4},b:{size:40}},
+ {k:'soft',name:'Softness',min:0,max:1,step:.01,fmt:v=>Math.round(v*100)+'%',a:{soft:0},b:{soft:1}},
+ {k:'flow',name:'Ink per dab',min:.05,max:1,step:.01,fmt:v=>Math.round(v*100)+'%',a:{flow:.1},b:{flow:1}},
+ {k:'spacing',name:'Spacing',min:.03,max:1.2,step:.01,fmt:v=>v.toFixed(2),a:{spacing:.05},b:{spacing:1}},
+ {k:'pressureSize',name:'Pressure → size',min:0,max:1,step:.01,fmt:v=>Math.round(v*100)+'%',a:{pressureSize:0},b:{pressureSize:1}},
+ {k:'tiltShape',name:'Tilt flattens',min:0,max:1,step:.01,fmt:v=>Math.round(v*100)+'%',a:{tiltShape:0},b:{tiltShape:1}},
+ {k:'taper',name:'Taper in',min:0,max:1,step:.01,fmt:v=>Math.round(v*100)+'%',a:{taper:0},b:{taper:1}},
+ {k:'pickup',name:'Picks up colour',min:0,max:1,step:.01,fmt:v=>Math.round(v*100)+'%',a:{pickup:0},b:{pickup:1}},
+];
+const sliderHost=document.getElementById('sliders');
+const modeHost=document.getElementById('modes');
+Object.keys(MODES).forEach(m=>{const b=document.createElement('button');b.className='chip'+(m===brush.mode?' on':'');b.textContent=m;
+  b.onclick=()=>{brush.mode=m;Object.assign(brush,MODES[m]);syncSliders();[...modeHost.children].forEach(x=>x.classList.toggle('on',x===b));renderLab();};modeHost.appendChild(b);});
+const endCanvases=[];
+SL.forEach(s=>{
+  const r=document.createElement('div');r.className='row';
+  r.innerHTML=`<label>${s.name}</label><div class="ends"><canvas data-s="${s.k}" data-side="a"></canvas><input type="range" min="${s.min}" max="${s.max}" step="${s.step}"><canvas data-s="${s.k}" data-side="b"></canvas></div><output></output>`;
+  const inp=r.querySelector('input'),out=r.querySelector('output');
+  inp.value=brush[s.k];out.textContent=s.fmt(brush[s.k]);
+  inp.oninput=()=>{brush[s.k]=+inp.value;out.textContent=s.fmt(brush[s.k]);renderLab();};
+  s.input=inp;s.out=out;sliderHost.appendChild(r);
+  r.querySelectorAll('canvas').forEach(c=>{c.setAttribute('height',22);endCanvases.push([c,s]);});
+});
+function syncSliders(){SL.forEach(s=>{s.input.value=brush[s.k];s.out.textContent=s.fmt(brush[s.k]);});}
+
+const test=document.getElementById('test');let myMarks=[];
+function renderLab(){
+  const ctx=renderTest(test,picks.shape,picks.palette,brush);
+  // the artist's own marks, redrawn with the current brush
+  myMarks.forEach(m=>drawMark(ctx,m));
+  renderSection();renderFootprint();renderCurve();
+  endCanvases.forEach(([c,s])=>miniStroke(c,Object.assign({},brush,c.dataset.side==='a'?s.a:s.b),.45));
+}
+function miniStroke(c,b,scale){
+  const {ctx,w,h}=fitCanvas(c);ctx.fillStyle='#16161b';ctx.fillRect(0,0,w,h);
+  const ink=[228,228,231];const N=60;let acc=0,px=0;
+  for(let i=0;i<=N;i++){const t=i/N,x=3+t*(w-6),y=h/2+Math.sin(t*Math.PI*2)*h*.18,pr=.2+.8*t;
+    const r=Math.max(.5,b.size*scale*(1-b.pressureSize*(1-pr))*.5*(h/28));
+    acc+=Math.abs(x-px);px=x;if(acc<Math.max(.5,r*2*b.spacing)&&i)continue;acc=0;
+    dab(ctx,x,y,r,Math.PI/2,1-b.tiltShape*.4,Math.min(1,b.flow*(.4+.6*pr)),ink,b.soft);}
+}
+function renderSection(){
+  const c=document.getElementById('section');const {ctx,w,h}=fitCanvas(c);ctx.clearRect(0,0,w,h);
+  const pad=6,base=h-pad;ctx.beginPath();ctx.moveTo(pad,base);
+  for(let i=0;i<=80;i++){const u=i/80,d=Math.abs(u*2-1),inner=1-brush.soft;
+    const cov=d<=inner?1:Math.max(0,1-((d-inner)/Math.max(1e-3,1-inner)));const s=cov*cov*(3-2*cov);
+    ctx.lineTo(pad+(w-2*pad)*u,base-(h-2*pad)*s*Math.min(1,brush.flow*1.3));}
+  ctx.lineTo(w-pad,base);ctx.closePath();ctx.fillStyle='rgba(228,228,231,.22)';ctx.fill();ctx.strokeStyle='#22D3EE';ctx.lineWidth=1.5;ctx.stroke();
+}
+function renderFootprint(){
+  const c=document.getElementById('footprint');const {ctx,w,h}=fitCanvas(c);ctx.clearRect(0,0,w,h);
+  [0,35,70].forEach((deg,i)=>{const cx=w*(.2+.3*i),cy=h/2,r=Math.min(h*.38,6+brush.size*.5);
+    const flat=1-brush.tiltShape*(deg/70)*.75;
+    ctx.save();ctx.translate(cx,cy);ctx.scale(1+brush.tiltShape*(deg/70)*.5,flat);
+    ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.restore();
+    ctx.fillStyle='rgba(228,228,231,.18)';ctx.fill();ctx.strokeStyle=i===2?'#22D3EE':'rgba(228,228,231,.6)';ctx.lineWidth=1.2;ctx.stroke();
+    ctx.fillStyle='#71717A';ctx.font='9px ui-monospace,monospace';ctx.fillText(deg+'°',cx-7,h-3);});
+}
+function renderCurve(){
+  const c=document.getElementById('curve');const {ctx,w,h}=fitCanvas(c);ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='#2C2C35';ctx.strokeRect(6,6,w-12,h-12);ctx.beginPath();
+  for(let i=0;i<=40;i++){const p=i/40;const s=1-brush.pressureSize*(1-p);ctx.lineTo(6+(w-12)*p,h-6-(h-12)*s);}
+  ctx.strokeStyle='#22D3EE';ctx.lineWidth=1.5;ctx.stroke();
+}
+// drawing on the test area
+let drawing=null;
+function drawMark(ctx,m){
+  const ink=hexRgb(INK);for(let i=1;i<m.length;i++){const a=m[i-1],b=m[i];const d=Math.hypot(b.x-a.x,b.y-a.y),n=Math.max(1,d/Math.max(.6,brush.size*.5*brush.spacing));
+    for(let j=0;j<n;j++){const t=j/n,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t,p=a.p+(b.p-a.p)*t;
+      dab(ctx,x,y,Math.max(.6,brush.size*.5*(1-brush.pressureSize*(1-p))),Math.atan2(b.y-a.y,b.x-a.x)+Math.PI/2,1-brush.tiltShape*.3,Math.min(1,brush.flow*(.35+.65*p)),ink,brush.soft);}}
+}
+test.addEventListener('pointerdown',e=>{test.setPointerCapture(e.pointerId);drawing=[];myMarks.push(drawing);add(e);});
+test.addEventListener('pointermove',e=>{if(drawing)add(e);});
+test.addEventListener('pointerup',()=>{drawing=null;});
+function add(e){const r=test.getBoundingClientRect();drawing.push({x:e.clientX-r.left,y:e.clientY-r.top,p:e.pressure&&e.pointerType!=='mouse'?e.pressure:.7});
+  const ctx=test.getContext('2d');if(drawing.length>1)drawMark(ctx,drawing.slice(-2));}
+document.getElementById('clearDraw').onclick=()=>{myMarks=[];renderLab();};
+
+// ───────── slider-end styles ─────────
+function renderEnds(){
+  document.querySelectorAll('canvas[data-end]').forEach(c=>{
+    const style=c.dataset.end,k=c.dataset.k,side=c.dataset.side;
+    const b=Object.assign({},brush);
+    if(k==='Size')b.size=side==='a'?4:30; if(k==='Spacing')b.spacing=side==='a'?.05:1; if(k==='Softness')b.soft=side==='a'?0:1;
+    const {ctx,w,h}=fitCanvas(c);ctx.fillStyle='#16161b';ctx.fillRect(0,0,w,h);
+    if(style==='E2'){dab(ctx,w/2,h/2,Math.min(h*.42,b.size*.22+2),0,1,1,[228,228,231],b.soft);return;}
+    miniStroke(c,b,.35);
+    if(style==='E3'){const words={Size:['Thin','Thick'],Spacing:['Solid','Dots'],Softness:['Crisp','Soft']}[k];
+      ctx.fillStyle='rgba(0,0,0,.55)';ctx.fillRect(0,0,w,9);ctx.fillStyle='#E4E4E7';ctx.font='8px system-ui';ctx.fillText(words[side==='a'?0:1],3,8);}
+  });
+}
+
+// ───────── true-size layouts ─────────
+function phoneFor(l){
+  const box=document.createElement('div');box.className='phonebox';
+  const ph=document.createElement('div');ph.className='phone';
+  const sl=(t,v,e=true)=>`<div class="mrow"><span class="t">${t}</span>${e?'<canvas data-mini="a" data-t="'+t+'"></canvas>':''}<div class="bar"><i style="width:${v}%"></i><b style="left:calc(${v}% - 7px)"></b></div>${e?'<canvas data-mini="b" data-t="'+t+'"></canvas>':''}</div>`;
+  let sheet='';
+  if(l.id==='L1'){
+    sheet=`<h4>Ink pen <span class="done">Done</span></h4><canvas class="tstrip" height="118" style="border-radius:10px"></canvas>
+    <div class="mini" style="margin-top:8px"><div class="box" style="width:96px;height:92px;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:10px">PEN PAD</div>
+    <div class="box" style="flex:1;padding:4px"><div class="legend">CROSS-SECTION</div><canvas class="xsec" height="66"></canvas></div>
+    <div class="box" style="flex:1;padding:4px"><div class="legend">FOOTPRINT</div><canvas class="fprint" height="66"></canvas></div></div>
+    <div class="tabs"><span class="on">Quick</span><span>Shape</span><span>Feel</span></div>
+    ${sl('Size',55)}${sl('Softness',30)}${sl('Ink',70)}${sl('Spacing',15)}${sl('Taper',60)}${sl('Pressure',80)}`;
+  }else if(l.id==='L2'){
+    sheet=`<h4>Ink pen <span class="done">Done</span></h4><canvas class="tstrip" height="108" style="border-radius:10px"></canvas>
+    <div class="mini" style="margin-top:8px">${['TILT','PRESSURE','COLOUR','OVERLAP'].map(n=>`<div class="box" style="flex:1;padding:4px"><div class="legend">${n}</div><canvas class="tile" data-tile="${n}" height="46"></canvas></div>`).join('')}</div>
+    <div class="mini" style="margin-top:6px"><div class="box" style="flex:1;padding:4px"><div class="legend">CROSS-SECTION · PEN PAD</div><canvas class="xsec" height="44"></canvas></div></div>
+    ${sl('Size',55)}${sl('Softness',30)}${sl('Ink',70)}${sl('Spacing',15)}${sl('Taper',60)}`;
+  }else{
+    sheet=`<h4>Ink pen <span class="done">Done</span></h4><canvas class="tstrip" height="130" style="border-radius:10px"></canvas>
+    <div class="mini" style="margin-top:8px"><div class="box" style="width:90px;height:84px;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:10px">PEN PAD</div>
+    <div class="box" style="flex:1;padding:4px"><div class="legend">CROSS-SECTION</div><canvas class="xsec" height="58"></canvas></div></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><div style="width:96px;display:flex;flex-direction:column;gap:4px">${['Quick','Shape','Pressure','Tilt','Colour','Wet','Ends'].map((n,i)=>`<span style="padding:6px 10px;border-radius:999px;${i==0?'background:var(--armed);color:#00151a':'background:rgba(255,255,255,.06);color:var(--dim)'};font-weight:600">${n}</span>`).join('')}</div>
+    <div style="flex:1">${sl('Size',55)}${sl('Softness',30)}${sl('Ink',70)}${sl('Spacing',15)}${sl('Taper',60)}</div></div>`;
+  }
+  ph.innerHTML=`<div class="paper"></div><div class="sheet">${sheet}</div>`;
+  const cap=document.createElement('div');cap.className='legend';cap.textContent=`${l.id} · ${l.name} · 411 × 846, the Note 9's real size`;
+  box.appendChild(ph);box.appendChild(cap);return box;
+}
+const phonesHost=document.getElementById('phones');
+function renderPhones(){
+  phonesHost.innerHTML='';
+  LAYOUTS.filter(l=>l.id===picks.layout).forEach(l=>phonesHost.appendChild(phoneFor(l)));
+  phonesHost.querySelectorAll('canvas.tstrip').forEach(c=>renderTest(c,picks.shape,picks.palette,brush,.75));
+  phonesHost.querySelectorAll('canvas.xsec').forEach(c=>{const s=document.getElementById('section');const {ctx,w,h}=fitCanvas(c);ctx.drawImage(s,0,0,w,h);});
+  phonesHost.querySelectorAll('canvas.fprint').forEach(c=>{const s=document.getElementById('footprint');const {ctx,w,h}=fitCanvas(c);ctx.drawImage(s,0,0,w,h);});
+  phonesHost.querySelectorAll('canvas.tile').forEach(c=>{const n=c.dataset.tile;const b=Object.assign({},brush);
+    if(n==='TILT')b.tiltShape=1; if(n==='PRESSURE')b.pressureSize=1; if(n==='COLOUR')b.pickup=.6; if(n==='OVERLAP')b.flow=.5;
+    renderTest(c,n==='OVERLAP'?'S3':picks.shape,picks.palette,b,.4);});
+  phonesHost.querySelectorAll('canvas[data-mini]').forEach(c=>{c.setAttribute('height',16);const t=c.dataset.t,a=c.dataset.mini==='a';const b=Object.assign({},brush);
+    if(t==='Size')b.size=a?4:30; if(t==='Softness')b.soft=a?0:1; if(t==='Ink')b.flow=a?.15:1; if(t==='Spacing')b.spacing=a?.05:1; if(t==='Taper')b.taper=a?0:1; if(t==='Pressure')b.pressureSize=a?0:1;
+    if(picks.ends==='E2'){const {ctx,w,h}=fitCanvas(c);ctx.fillStyle='#16161b';ctx.fillRect(0,0,w,h);dab(ctx,w/2,h/2,Math.min(h*.42,b.size*.2+2),0,1,1,[228,228,231],b.soft);} else miniStroke(c,b,.3);});
+}
+
+// ───────── picks ─────────
+function refreshPicks(){
+  ['shapes','palettes','endstyles','layouts'].forEach((h,i)=>{const g=['shape','palette','ends','layout'][i];
+    document.querySelectorAll('#'+h+' .opt').forEach(o=>o.classList.toggle('on',o.dataset.id===picks[g]));});
+  const name=(arr,id)=>arr.find(x=>x.id===id).name;
+  document.getElementById('pickline').textContent=`BRUSH-UI picks: stroke ${picks.shape} (${name(SHAPES,picks.shape)}) · colours ${picks.palette} (${name(PALETTES,picks.palette)}) · slider ends ${picks.ends} (${name(ENDSTYLES,picks.ends)}) · layout ${picks.layout} (${name(LAYOUTS,picks.layout)})`;
+  renderAll();
+}
+function renderAll(){
+  shapeCanvases.forEach(([c,id])=>renderTest(c,id,picks.palette,brush,.7));
+  paletteCanvases.forEach(([c,id])=>renderTest(c,picks.shape,id,Object.assign({},brush,{pickup:.4,mode:'Wet',flow:.45,soft:.55}),.7));
+  renderLab();renderEnds();renderPhones();
+}
+document.getElementById('copy').onclick=()=>{const t=document.getElementById('pickline').textContent;
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>{document.getElementById('copy').textContent='Copied';setTimeout(()=>document.getElementById('copy').textContent='Copy my picks',1500);}).catch(()=>{});};
+let rz;window.addEventListener('resize',()=>{clearTimeout(rz);rz=setTimeout(renderAll,150);});
+refreshPicks();
+</script>
+</body>
+</html>

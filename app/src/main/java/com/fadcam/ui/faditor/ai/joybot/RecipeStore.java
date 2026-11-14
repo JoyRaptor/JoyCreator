@@ -108,6 +108,21 @@ public final class RecipeStore {
         return file;
     }
 
+    /** Write a changed recipe back over its own file (the "offer for new recordings" switch). */
+    @WorkerThread
+    public static synchronized void rewrite(@NonNull Context c, @NonNull String file, @NonNull Recipe recipe) throws IOException {
+        Home h = home(c);
+        byte[] data = toJson(recipe).getBytes(StandardCharsets.UTF_8);
+        String rel = h.dir + "/" + file;
+        if (h.folder != null) {
+            h.folder.writeAtomic(rel, data);
+        } else {
+            try (OutputStream out = h.fs.create(rel)) {
+                out.write(data);
+            }
+        }
+    }
+
     /**
      * Every recipe that reads cleanly, by name. A file that doesn't parse (or is missing a field) is
      * skipped with a log line, never an error. Empty when there are none or nothing can be read.
@@ -165,6 +180,8 @@ public final class RecipeStore {
             steps.add(so);
         }
         o.add("steps", steps);
+        // Written only when on, so older recipe files stay exactly as they were.
+        if (r.forNewRecordings) o.addProperty("offerForNewRecordings", true);
         return GSON.toJson(o) + "\n";
     }
 
@@ -186,7 +203,10 @@ public final class RecipeStore {
             steps.add(new Idea.Step(tool, toMap(args.getAsJsonObject())));
         }
         if (steps.isEmpty()) throw new IllegalArgumentException("no steps");
-        return new Recipe(name, request, steps);
+        JsonElement offer = o.get("offerForNewRecordings");
+        boolean forNew = offer != null && offer.isJsonPrimitive() && offer.getAsJsonPrimitive().isBoolean()
+                && offer.getAsBoolean();
+        return new Recipe(name, request, steps, forNew);
     }
 
     @NonNull

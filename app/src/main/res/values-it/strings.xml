@@ -757,7 +757,7 @@
     <string name="setting_debug_title">Logging debug</string>
     <string name="note_debug">Abilita generazione file log debug
 (Predefinito: Disabilitato)</string>
-    <string name="note_debug_detailed">Quando abilitato, FadCam scrive un file log debug HTML (FADCAM_debug.html) nella cartella pubblica Downloads/FadCam/. Condividi questo file per aiutare a diagnosticare i bug. La registrazione dettagliata aggiunge overhead quindi tienilo spento se non stai affrontando un problema.</string>
+    <string name="note_debug_detailed">Quando abilitato, FadCam scrive un file log debug HTML (JoyCreator_debug.html) nella cartella pubblica Downloads/FadCam/. Condividi questo file per aiutare a diagnosticare i bug. La registrazione dettagliata aggiunge overhead quindi tienilo spento se non stai affrontando un problema.</string>
     <string name="note_debug_extra">Quando abilitato, un file di log debug verrà creato nella cartella Downloads/FadCam. Questo può aiutare a diagnosticare problemi dell\'app.</string>
     <string name="watermark_preview_heading">Anteprima</string>
     <string name="watermark_options_heading">Opzioni</string>

@@ -957,6 +957,9 @@ public class PuppetOverlayView extends View {
         // one dropped on the strip never reach commitPose: before 2026-11-12 the take then stayed open (playback
         // rolling, "recording" still set) until the next touch. A gesture that already committed is a no-op here.
         if (host != null) host.endPose(true);
+        // The magnifier and the drag ghost are drawn only while dragPin is set: without a redraw
+        // here the last drag frame (loupe included) stays on screen after the finger lifts.
+        invalidate();
     }
 
     private void structureChanged() {

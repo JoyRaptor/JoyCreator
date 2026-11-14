@@ -27,11 +27,24 @@ public final class Recipe {
     /** What the person asked, in their words. */
     @NonNull public final String request;
     @NonNull public final List<Idea.Step> steps;
+    /** Joybot offers it when a project gets a new recording ({@link RecipeTrigger}); never runs it by itself. */
+    public final boolean forNewRecordings;
 
     public Recipe(@NonNull String name, @NonNull String request, @NonNull List<Idea.Step> steps) {
+        this(name, request, steps, false);
+    }
+
+    public Recipe(@NonNull String name, @NonNull String request, @NonNull List<Idea.Step> steps, boolean forNewRecordings) {
         this.name = name.trim().isEmpty() ? "My recipe" : name.trim();
         this.request = request;
         this.steps = Collections.unmodifiableList(new ArrayList<>(steps));
+        this.forNewRecordings = forNewRecordings;
+    }
+
+    /** The same recipe, offered for new recordings or not. */
+    @NonNull
+    public Recipe withNewRecordings(boolean on) {
+        return new Recipe(name, request, steps, on);
     }
 
     /** Runs as recorded, with no model, on any project. */

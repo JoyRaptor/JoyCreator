@@ -861,12 +861,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         String did = com.fadcam.ui.faditor.ai.joybot.TipBook.said(tip);
         if (!AiService.ready(this, apiKey)) {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
-            addBotMessage("Hi, I'm Joybot. " + did + "\n\nRight here on the phone I can transcribe, "
-                    + "add captions, cut the ums and silences, add transitions and make slides — tap a "
-                    + "button below. Connect an AI (there's a free one) and I can take on anything you "
-                    + "can describe: tap “Connect an AI” and I'll walk you through it.");
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.Greeting.offline(did));
         } else {
-            addBotMessage("Hi, I'm Joybot. " + did + "\n\nTap a button below, or tell me what you'd like to make.");
+            // The owner's 9-09 words (BOT-A10): who he is talking to, and that costs are the provider's alone.
+            String account = null;
+            try { account = AiAccounts.active(this).name; } catch (Exception ignored) { }
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.Greeting.connected(did, account, model));
         }
         addTakeMeThere(tip);
     }
@@ -1565,14 +1565,87 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** Reads the saved recipes on the worker; shows or hides the My recipes chip when that changed. */
     private void checkRecipes() {
+        final String pid = projectId;
+        final boolean studio = room == IdeaEngine.Room.STUDIO;
         aiExecutor.execute(() -> {
-            boolean any = !RecipeStore.list(this).isEmpty();
+            List<RecipeStore.Saved> all = RecipeStore.list(this);
+            boolean any = !all.isEmpty();
+            // A recipe marked for new recordings, and a recording here it hasn't been offered for (BOT-A33).
+            com.fadcam.ui.faditor.ai.joybot.RecipeTrigger.Offer offer = null;
+            Recipe offered = null;
+            if (studio && pid != null) {
+                List<String> flagged = new ArrayList<>();
+                for (RecipeStore.Saved s : all) if (s.recipe.forNewRecordings) flagged.add(s.file);
+                if (!flagged.isEmpty()) {
+                    com.fadcam.ui.faditor.model.FaditorProject p = new com.fadcam.ui.faditor.ai.joybot.JoybotStorage(this).load(pid);
+                    List<String> recs = com.fadcam.ui.faditor.ai.joybot.ProjectFactsReader.recordingClips(this,
+                            p == null ? null : p.getTimeline());
+                    offer = com.fadcam.ui.faditor.ai.joybot.RecipeTrigger.next(flagged, recs, answeredOffers(), pid);
+                    if (offer != null) {
+                        for (RecipeStore.Saved s : all) if (s.file.equals(offer.recipeFile)) offered = s.recipe;
+                    }
+                }
+            }
+            final com.fadcam.ui.faditor.ai.joybot.RecipeTrigger.Offer o = offer;
+            final Recipe r = offered;
             runOnUiThread(() -> {
-                if (isFinishing() || isDestroyed() || any == haveRecipes) return;
+                if (isFinishing() || isDestroyed()) return;
+                if (o != null && r != null && pid.equals(projectId)) addRecipeOfferCard(pid, o, r);
+                if (any == haveRecipes) return;
                 haveRecipes = any;
                 if (chipsScroll.getVisibility() == View.VISIBLE) showChips(shownIdeas);
             });
         });
+    }
+
+    /** The house's ON look: solid cyan with dark ink; off is the raised grey pill. */
+    private void showSwitch(@NonNull TextView t, boolean on) {
+        android.graphics.drawable.GradientDrawable bg = new android.graphics.drawable.GradientDrawable();
+        bg.setColor(on ? Studio.ARMED : Studio.RAISED);
+        bg.setCornerRadius(dp(18));
+        t.setBackground(bg);
+        t.setTextColor(on ? Studio.ON_GO : Studio.INK);
+        t.setSelected(on);
+        t.setContentDescription((on ? "On: " : "Off: ") + t.getText());
+    }
+
+    private static final String RECIPE_OFFERS = "joybot_recipe_offers";
+    /** This screen already shows a new-recording offer: one at a time. */
+    private boolean recipeOfferShown;
+
+    @NonNull
+    private java.util.Set<String> answeredOffers() {
+        return new java.util.HashSet<>(getSharedPreferences(RECIPE_OFFERS, MODE_PRIVATE)
+                .getStringSet("answered", java.util.Collections.<String>emptySet()));
+    }
+
+    private void markOfferAnswered(@NonNull String key) {
+        java.util.Set<String> s = answeredOffers();
+        s.add(key);
+        getSharedPreferences(RECIPE_OFFERS, MODE_PRIVATE).edit().putStringSet("answered", s).apply();
+    }
+
+    /** "“Clip 3” is a new recording: run “Clean my talk” on it?" Asked once per recording and recipe. */
+    private void addRecipeOfferCard(@NonNull String pid, @NonNull com.fadcam.ui.faditor.ai.joybot.RecipeTrigger.Offer o,
+                                    @NonNull Recipe recipe) {
+        if (recipeOfferShown) return;
+        recipeOfferShown = true;
+        final String key = com.fadcam.ui.faditor.ai.joybot.RecipeTrigger.key(o.recipeFile, pid, o.recordingUri);
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "This project has a new recording. Run your recipe “" + recipe.name + "” on it?", null);
+        card.buttons.addView(primaryCardButton("Run it", "Run “" + recipe.name + "” on this project", v -> {
+            if (!idleOrSay()) return;
+            markOfferAnswered(key);
+            card.retire("Running it.");
+            runRecipe(recipe);
+        }));
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Not this time", "Don't run it on this recording", v -> {
+            markOfferAnswered(key);
+            card.retire("Left it.");
+        }));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        scrollToBottom();
     }
 
     /** After a request that changed the project: offer to keep its steps as a recipe. */
@@ -1665,6 +1738,21 @@ public class ChatAssistantActivity extends AppCompatActivity {
             buttons.setPadding(0, dp(6), 0, 0);
             buttons.addView(JoybotChatViews.cardButton(this, "Run", "Run “" + recipe.name + "” again",
                     v -> runRecipe(recipe)));
+            // Offer it whenever a project gets a new recording (BOT-A33); Joybot asks, never runs it alone.
+            final boolean[] on = {recipe.forNewRecordings};
+            final TextView offer = JoybotChatViews.cardButton(this, "For new recordings",
+                    "Ask to run this recipe when a project gets a new recording", v -> { });
+            showSwitch(offer, on[0]);
+            offer.setOnClickListener(v -> {
+                on[0] = !on[0];
+                showSwitch(offer, on[0]);
+                final Recipe changed = recipe.withNewRecordings(on[0]);
+                aiExecutor.execute(() -> {
+                    try { RecipeStore.rewrite(this, s.file, changed); }
+                    catch (Exception e) { com.fadcam.FLog.w(TAG, "couldn't save the recipe switch: " + e.getMessage()); }
+                });
+            });
+            buttons.addView(offer);
             TextView delete = JoybotChatViews.cardButton(this, "Delete", "Delete the recipe “" + recipe.name + "”",
                     v -> confirmDeleteRecipe(s, row));
             delete.setTextSize(11);

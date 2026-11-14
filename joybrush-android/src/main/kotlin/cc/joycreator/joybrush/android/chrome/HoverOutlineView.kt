@@ -46,8 +46,16 @@ class HoverOutlineView(context: Context) : View(context) {
     fun show(x: Float, y: Float, tilt: Float, orientation: Float, zoom: Float, preset: BrushPreset?) {
         px = x; py = y; this.tilt = tilt; this.orientation = orientation; this.zoom = zoom; this.preset = preset
         shown = preset != null
+        // BRUSH-UI item 2: does this pen report its lean while hovering, or only on contact? (The Note 9's digitiser has
+        // tilt X/Y and Android derives orientation from them.) At most twice a second, under JoyBrushHover.
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastLog > 500) {
+            lastLog = now
+            android.util.Log.i("JoyBrushHover", "tilt=%.3f orientation=%.3f".format(tilt, orientation))
+        }
         invalidate()
     }
+    private var lastLog = 0L
 
     fun hide() { if (shown) { shown = false; invalidate() } }
 

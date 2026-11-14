@@ -611,6 +611,7 @@ class JoyBrushActivity : Activity() {
             }
         }
         root.addView(symmetryWidget, FrameLayout.LayoutParams(WRAP, WRAP, Gravity.TOP or Gravity.START))
+        symmetryWidget.topClearance = { if (::topBar.isInitialized && topBar.visibility == View.VISIBLE && topBar.alpha > 0f) topBar.bottom else 0 }
         boardOverlay = FrameLayout(this)
         root.addView(boardOverlay, FrameLayout.LayoutParams(MATCH, MATCH))
         boardController = BoardRuntimeController(this, boardOverlay, object : BoardRuntimeController.Host {

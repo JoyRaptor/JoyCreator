@@ -51,7 +51,9 @@ internal class UnibrushSheetChip(
         val saved = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
         paint.style = Paint.Style.FILL
         paint.color = if (isSelected) kit.p.stateSelected else kit.ink(if (isPressed) .2f else .08f)
-        paint.alpha = if (isEnabled) 255 else 90
+        // Scale the fill's OWN alpha. Setting it to 255 turned the faint 8% unselected fill solid white, under white
+        // words: the unreadable white chips of the owner's 11-14 screenshot.
+        if (!isEnabled) paint.alpha = paint.alpha * 90 / 255
         canvas.drawRoundRect(inset, inset, width - inset, height - inset, kit.dp(6f), kit.dp(6f), paint)
         glyph.color = kit.p.drawerInk
         glyph.alpha = if (isEnabled) 255 else 90

@@ -605,8 +605,8 @@ Would you like to switch to H.264 and start recording?</string>
     <string name="debug_log_share_fail">Share Ka failed</string>
     <string name="debug_log_share_subtitle">Khola the system share sheet</string>
     <string name="debug_log_share_title">Debug Log Share Ka</string>
-    <string name="debug_log_tools_helper">Da debug log file woyai (FADCAM_debug.html). Debug logging faal kol performance bandi asar achi shi - faal ya kri kala che ta da bug sara makh wi aw log share kol gware. Search box istemal ka che filter kae.</string>
-    <string name="debug_log_tools_subtitle">Preview, search, share or delete FADCAM_debug.html</string>
+    <string name="debug_log_tools_helper">Da debug log file woyai (JoyCreator_debug.html). Debug logging faal kol performance bandi asar achi shi - faal ya kri kala che ta da bug sara makh wi aw log share kol gware. Search box istemal ka che filter kae.</string>
+    <string name="debug_log_tools_subtitle">Preview, search, share or delete JoyCreator_debug.html</string>
     <string name="debug_log_tools_title">Debug Log</string>
     <string name="delete">Delete Ka</string>
     <string name="delete_all">Tol Delete Ka</string>
@@ -1317,7 +1317,7 @@ Intent-based automation support (Tasker, MacroDroid, etc.) da Mini Apps programm
     <string name="new_project">Nawai Project</string>
     <string name="next">Bela</string>
     <string name="note_cam_dual_unsupported">Sta device dual camera recording support nadi kai.</string>
-    <string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (FADCAM_debug.html) into the public Downloads/FadCam/ folder. Share Ka da file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
+    <string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/FadCam/ folder. Share Ka da file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
     <string name="note_from_developer_subtitle">README, links &amp; updates</string>
     <string name="note_from_developer_title">Da Developer Note</string>
     <string name="note_zoom_ratio">Intikhab Ka zoom ratio\n(Default: %1$.1fx - no zoom)</string>

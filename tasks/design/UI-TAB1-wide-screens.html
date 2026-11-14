@@ -431,19 +431,37 @@ function panelBody(x, y, w, h, name, side, extra){
    ========================================================================================= */
 /* ---------- Joybot's chat, drawn in whatever region it is given ---------- */
 function joybotChat(x, y, w, h, side){
+  /* Insides follow the Joybot lane's chat page (UI-Joybot-chat-arrival-options.html, its section 03; not yet
+     picked): Joybot's aqua-to-lime bubbles on the left with a tail pointing down at him, yours grey on the
+     right, Joybot lower left, an input bar with picture / mic / green send. */
   let s = box(x, y, w, h, 'drw' + (side ? ' side' : ''), '');
-  s += box(x + 14, y + 12, 34, 34, '', 'border-radius:50%;background:radial-gradient(circle at 40% 35%,#E879F9,#9333EA);box-shadow:0 0 12px #CC27FF88');
-  s += text(x + 56, y + 12, w - 110, 34, 'JOYBOT', 'font-family:var(--display);font-weight:800;font-size:15px;color:#F2F2F5');
-  s += box(x + w - 40, y + 14, 28, 28, 'ico', 'line-height:28px;font-size:16px', '×');
+  s += text(x + 16, y + 12, w - 80, 30, 'JOYBOT', 'font-family:var(--display);font-weight:800;font-size:15px;color:#F2F2F5');
+  s += box(x + w - 40, y + 13, 28, 28, 'ico', 'line-height:28px;font-size:16px', '×');
   const lines = [['me','Make the title glow like neon'],['bot','Done: "Golden hour" wears the Neon Bar look. One Undo takes it back.'],['me','Softer'],['bot','Glow down to 40. Look sliders are open under Text if you want to steer it.']];
-  let by = y + 60;
-  lines.forEach(([who, t]) => {
-    const bw = Math.min(w - 60, 26 + t.length * 6.6), rows = Math.ceil((t.length * 6.6) / (bw - 24)), bh = 14 + rows * 18;
-    if (by + bh > y + h - 60) return;
-    s += box(who === 'me' ? x + w - 14 - bw : x + 14, by, bw, bh, '', `border-radius:14px;padding:7px 12px;font-size:13px;line-height:18px;white-space:normal;${who === 'me' ? 'background:#22D3EE;color:#050507' : 'background:rgba(28,28,34,.9);color:#E4E4E7'}`, esc(t));
-    by += bh + 10;
-  });
-  s += box(x + 12, y + h - 52, w - 24, 40, '', 'border-radius:999px;background:rgba(28,28,34,.9);color:#71717A;font-size:13px;line-height:40px;padding-left:16px', 'Ask Joybot');
+  const BAR = 52, BOT = 64;
+  /* lay bubbles out from the bottom up, so the newest sits just above Joybot */
+  const laid = lines.map(([who, t]) => { const bw = Math.min(w - 80, 26 + t.length * 6.6), rows = Math.ceil((t.length * 6.6) / (bw - 24)); return [who, t, bw, 14 + rows * 18]; });
+  let by = y + h - BAR - BOT - 8;
+  for (let i = laid.length - 1; i >= 0; i--) {
+    const [who, t, bw, bh] = laid[i];
+    by -= bh;
+    if (by < y + 50) break;
+    const bot = who === 'bot';
+    const bx = bot ? x + 14 : x + w - 14 - bw;
+    s += box(bx, by, bw, bh, '', `border-radius:14px;${bot ? 'border-bottom-left-radius:4px;' : ''}padding:7px 12px;font-size:13px;line-height:18px;white-space:normal;${bot ? 'background:linear-gradient(90deg,#35F6BF,#97FE8B);color:#050507' : 'background:rgba(44,44,53,.92);color:#E4E4E7'}`, esc(t));
+    if (bot && i === laid.length - 1) s += box(bx + 6, by + bh, 12, 10, '', 'background:#35F6BF;clip-path:polygon(0 0,100% 0,15% 100%)');
+    by -= 10;
+  }
+  /* Joybot himself, lower left of the panel */
+  const jy = y + h - BAR - BOT;
+  s += box(x + 14, jy, 52, 52, '', 'border-radius:50%;background:radial-gradient(circle at 40% 35%,#E879F9,#9333EA);box-shadow:0 0 14px #CC27FF88',
+    box(14, 18, 8, 10, '', 'background:#fff;border-radius:4px') + box(30, 18, 8, 10, '', 'background:#fff;border-radius:4px'));
+  /* the input bar */
+  const iy = y + h - BAR + 6;
+  s += box(x + 10, iy, 36, 36, 'ico', 'line-height:36px;font-size:16px', '▣');
+  s += box(x + 50, iy, w - 140, 36, '', 'border-radius:999px;background:rgba(44,44,53,.92);color:#71717A;font-size:13px;line-height:36px;padding-left:14px', 'Ask Joybot');
+  s += box(x + w - 84, iy, 36, 36, 'ico', 'line-height:36px;font-size:15px', '\u{1F399}︎');
+  s += box(x + w - 44, iy, 36, 36, '', 'border-radius:50%;background:linear-gradient(135deg,#35F6BF,#97FE8B);color:#050507;text-align:center;line-height:36px;font-size:16px;font-weight:700', '↑');
   return s;
 }
 

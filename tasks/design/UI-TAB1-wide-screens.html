@@ -325,7 +325,11 @@ function studioDrawerBody(x, y, w, h, name, side){
 function renderStudio(p, W, H){
   const top = STATUS, bottom = H - NAV;
   const sideOK = p.S6 === 'B' ? W >= WIDTH_MEDIUM : W >= WIDTH_EXPANDED;   /* C starts as A */
-  const open = STUDIO_OPEN.slice(p.S3 === 'A' ? -1 : -2);
+  const chatOpen = STUDIO_OPEN.includes('Joybot');
+  const chatWhole = chatOpen && (p.S7 === 'B' || !sideOK);
+  const pool = chatWhole ? STUDIO_OPEN.filter(x => x !== 'Joybot') : STUDIO_OPEN;
+  const chatBeside = chatOpen && !chatWhole && p.S7 === 'C';
+  const open = pool.slice(p.S3 === 'A' && !chatBeside ? -1 : -2);
   const TOP = 48, TIME = 34, TOOLS = 62, TRACK = 44, RULER = 20;
   const short = (bottom - top) < 500;
   const tracks = short ? 2 : 3;
@@ -334,13 +338,14 @@ function renderStudio(p, W, H){
   /* panel geometry */
   const right = p.S1 !== 'B';
   let pw = p.S2 === 'B' ? 420 : p.S2 === 'C' ? Math.max(360, Math.round(W / 3)) : 360;
-  const sideBySide = sideOK && open.length === 2 && p.S3 === 'B';
+  const sideBySide = sideOK && open.length === 2 && (p.S3 === 'B' || (chatBeside && p.S3 !== 'C'));
   const colW = sideBySide ? pw * 2 : pw;
   const usePanel = sideOK && open.length > 0;
   /* the app's own top bar */
   s += box(0, top, W, TOP, '', 'background:#0D0D10');
   s += box(8, top + 6, 36, 36, 'ico', 'line-height:36px;font-size:18px', '←');
   s += text(50, top, 260, TOP, 'Sunset walk', 'font-family:var(--display);font-weight:800;font-size:17px;text-transform:uppercase');
+  s += box(W - 148, top + 8, 34, 32, '', `border-radius:50%;cursor:pointer;background:radial-gradient(circle at 40% 35%,#E879F9,#9333EA);${chatOpen?'outline:2px solid #22D3EE':''}`, '', 'data-tool="Joybot" role="button" tabindex="0" title="Joybot: open or close the chat"');
   s += box(W - 104, top + 8, 92, 32, '', 'border-radius:999px;background:linear-gradient(90deg,#35F6BF,#97FE8B);color:#050507;font-weight:700;font-size:13px;text-align:center;line-height:32px', 'Export');
   const contentTop = top + TOP;
   const toolsY = bottom - TOOLS;
@@ -393,37 +398,276 @@ function renderStudio(p, W, H){
       if (sideBySide) {
         open.forEach((name, i) => {
           const x = panelX + i * pw;
-          s += box(x, panelTop, pw, panelBottom - panelTop, 'drw side', i ? 'border-left:1px solid rgba(255,255,255,.06)' : '');
-          s += studioDrawerBody(x, panelTop, pw, panelBottom - panelTop, name, true);
+          s += panelBody(x, panelTop, pw, panelBottom - panelTop, name, true, i ? 'border-left:1px solid rgba(255,255,255,.06)' : '');
         });
       } else if (p.S3 === 'C' && open.length === 2) {
         const hh = (panelBottom - panelTop) / 2;
         open.forEach((name, i) => {
-          s += box(panelX, panelTop + i * hh, pw, hh, 'drw side', i ? 'border-top:1px solid rgba(255,255,255,.06)' : '');
-          s += studioDrawerBody(panelX, panelTop + i * hh, pw, hh, name, true);
+          s += panelBody(panelX, panelTop + i * hh, pw, hh, name, true, i ? 'border-top:1px solid rgba(255,255,255,.06)' : '');
         });
       } else {
         const name = open[open.length - 1];
-        s += box(panelX, panelTop, pw, panelBottom - panelTop, 'drw side', '');
-        s += studioDrawerBody(panelX, panelTop, pw, panelBottom - panelTop, name, true);
+        s += panelBody(panelX, panelTop, pw, panelBottom - panelTop, name, true, '');
       }
       s += callout(panelX + 10, panelBottom - 26, `${p.S1 === 'C' ? 'right (flips for left hands)' : right ? 'right' : 'left'} · ${pw} dp${sideBySide ? ' × 2' : ''}`);
     } else {
       /* the phone drawer: rises from the bottom over the picture, full width, above the tool row */
       const name = open[open.length - 1];
       const dh = Math.round((toolsY - contentTop) * 0.62);
-      s += box(0, toolsY - dh, W, dh, 'drw', '');
-      s += studioDrawerBody(0, toolsY - dh, W, dh, name, false);
+      s += panelBody(0, toolsY - dh, W, dh, name, false, '');
       s += callout(12, toolsY - dh - 24, sideOK ? 'phone drawer' : `phone drawer: window under ${p.S6 === 'B' ? WIDTH_MEDIUM : WIDTH_EXPANDED} dp`);
     }
   }
+  if (chatWhole) s += joybotChat(0, top, W, bottom - top, true) + callout(12, bottom - 30, 'Joybot as on the phone: whole screen');
   return s;
+}
+function panelBody(x, y, w, h, name, side, extra){
+  if (name === 'Joybot') return joybotChat(x, y, w, h, side);
+  return box(x, y, w, h, 'drw' + (side ? ' side' : ''), extra || '') + studioDrawerBody(x, y, w, h, name, side);
 }
 
 /* =========================================================================================
    JOYBRUSH and LOBBY: filled in below
    ========================================================================================= */
-/* BRUSH-LOBBY */
+/* ---------- Joybot's chat, drawn in whatever region it is given ---------- */
+function joybotChat(x, y, w, h, side){
+  let s = box(x, y, w, h, 'drw' + (side ? ' side' : ''), '');
+  s += box(x + 14, y + 12, 34, 34, '', 'border-radius:50%;background:radial-gradient(circle at 40% 35%,#E879F9,#9333EA);box-shadow:0 0 12px #CC27FF88');
+  s += text(x + 56, y + 12, w - 110, 34, 'JOYBOT', 'font-family:var(--display);font-weight:800;font-size:15px;color:#F2F2F5');
+  s += box(x + w - 40, y + 14, 28, 28, 'ico', 'line-height:28px;font-size:16px', '×');
+  const lines = [['me','Make the title glow like neon'],['bot','Done: "Golden hour" wears the Neon Bar look. One Undo takes it back.'],['me','Softer'],['bot','Glow down to 40. Look sliders are open under Text if you want to steer it.']];
+  let by = y + 60;
+  lines.forEach(([who, t]) => {
+    const bw = Math.min(w - 60, 26 + t.length * 6.6), rows = Math.ceil((t.length * 6.6) / (bw - 24)), bh = 14 + rows * 18;
+    if (by + bh > y + h - 60) return;
+    s += box(who === 'me' ? x + w - 14 - bw : x + 14, by, bw, bh, '', `border-radius:14px;padding:7px 12px;font-size:13px;line-height:18px;white-space:normal;${who === 'me' ? 'background:#22D3EE;color:#050507' : 'background:rgba(28,28,34,.9);color:#E4E4E7'}`, esc(t));
+    by += bh + 10;
+  });
+  s += box(x + 12, y + h - 52, w - 24, 40, '', 'border-radius:999px;background:rgba(28,28,34,.9);color:#71717A;font-size:13px;line-height:40px;padding-left:16px', 'Ask Joybot');
+  return s;
+}
+
+/* =========================================================================================
+   JOYBRUSH
+   ========================================================================================= */
+let JB_OPEN = null;   /* 'layers' | 'brushes' | null */
+function jbToggle(k){ JB_OPEN = JB_OPEN === k ? null : k; }
+PARTS.brush = [
+  {k:'J1', q:'The tool rail', why:'Pen, brush, eraser, select, colour, size: the short rail on the phone’s left edge.', opts:[
+    {k:'A', n:'Left edge, as on the phone', d:'The same rail at the same size, by the hand that is not drawing.'},
+    {k:'B', n:'Right edge', d:'Next to the layers, so everything sits on one side.'},
+    {k:'C', n:'Follows the hand', d:'Left by default; the left-hand switch in Settings mirrors it, with Studio’s panel.'}]},
+  {k:'J2', q:'The layers', why:'On the phone: a thin strip at the top right; tap to open the list.', opts:[
+    {k:'A', n:'As on the phone', d:'The thin strip; the list opens over the paper when asked.'},
+    {k:'B', n:'Always out', d:'A narrow list with thumbnails and names stays beside the paper (200 dp).'},
+    {k:'C', n:'Opens in the side panel', d:'The full layer list opens in the same panel region as Studio’s drawers and Joybot.'}]},
+  {k:'J3', q:'Brushes and colours', why:'On the phone the brush drawer rises from the bottom over the paper.', opts:[
+    {k:'A', n:'As on the phone', d:'From the bottom, over the paper, see-through.'},
+    {k:'B', n:'In the side panel', d:'The brush drawer and its live preview stand beside the paper instead.'},
+    {k:'C', n:'Favourites on the rail', d:'A column of your eight latest brushes hangs off the rail; the drawer opens as A.'}]},
+  {k:'J4', q:'The paper', why:'What happens to the drawing area when panels are out.', opts:[
+    {k:'A', n:'Fills the screen', d:'Panels float over the paper, as on the phone. Pan to see under them.'},
+    {k:'B', n:'Steps aside', d:'The paper’s view ends where a docked panel begins; nothing covers your drawing.'}]}
+];
+DIRS.brush = [
+  {n:'Phone, bigger', d:'Everything as on the phone; the tablet simply shows more paper.', p:{J1:'A',J2:'A',J3:'A',J4:'A'}},
+  {n:'Studio desk', d:'Layers, brushes and Joybot all open in the one side panel; the paper steps aside.', p:{J1:'C',J2:'C',J3:'B',J4:'B'}},
+  {n:'Always out', d:'Layers stay out beside the paper; favourite brushes hang off the rail.', p:{J1:'A',J2:'B',J3:'C',J4:'B'}}
+];
+function renderBrush(p, W, H){
+  const top = STATUS, bottom = H - NAV, TOP = 36;
+  const wide = W >= WIDTH_EXPANDED;
+  const P = PICKS;   /* shares Studio's side, width and Joybot picks */
+  const panelRight = P.S1 !== 'B';
+  const pw = P.S2 === 'B' ? 420 : P.S2 === 'C' ? Math.max(360, Math.round(W / 3)) : 360;
+  const panel = wide && ((JB_OPEN === 'layers' && p.J2 === 'C') || (JB_OPEN === 'brushes' && p.J3 === 'B') || (JB_OPEN === 'joybot' && P.S7 !== 'B'));
+  const dockLayers = wide && p.J2 === 'B';
+  const railRight = p.J1 === 'B';
+  let paperX = 0, paperW = W;
+  if (p.J4 === 'B' && wide) {
+    if (dockLayers) { paperW -= 200; if (!panelRight || false) {} }
+    if (panel) { paperW -= pw; if (!panelRight) paperX += pw; }
+  }
+  let s = box(paperX, top, paperW, bottom - top, '', 'background:#C9AE8E;background-image:radial-gradient(rgba(0,0,0,.05) 1px,transparent 1px);background-size:5px 5px');
+  /* a drawing on the paper */
+  const cx = paperX + paperW * 0.42, cy = top + (bottom - top) * 0.45;
+  s += box(cx - 160, cy - 70, 320, 120, '', 'border-radius:60px;background:radial-gradient(ellipse at 40% 40%,#4a3f35,#2b241e);opacity:.85;transform:rotate(18deg)');
+  s += box(cx + 40, cy - 150, 150, 150, '', 'border-radius:50%;background:radial-gradient(circle,#d9643a88,#d9643a00 70%)');
+  /* top bar icons float on the paper */
+  const ic = (x, g, extra) => box(x, top + 4, 30, 28, 'ico', 'line-height:28px;font-size:15px;color:#2b241e;' + (extra||''), g, extra && extra.includes('cursor') ? '' : '');
+  s += ic(paperX + 8, '⌂') + ic(paperX + 40, '↶') + ic(paperX + 72, '↷');
+  const rx = paperX + paperW - (dockLayers && panelRight ? 0 : 0);
+  s += box(rx - 158, top + 4, 30, 28, 'ico', 'line-height:28px;font-size:15px;color:#9333EA;cursor:pointer', '◉', 'data-jb="joybot" role="button" tabindex="0" title="Joybot"');
+  s += ic(rx - 126, '◺') + ic(rx - 94, '⌖');
+  s += box(rx - 62, top + 4, 30, 28, 'ico', `line-height:28px;font-size:15px;cursor:pointer;border-radius:50%;${JB_OPEN==='layers'?'background:#22D3EE;color:#050507':'color:#2b241e'}`, '≡', 'data-jb="layers" role="button" tabindex="0" title="Layers"');
+  s += ic(rx - 32, '⋯');
+  /* the thin layer strip (phone) */
+  if (!dockLayers) s += box(rx - 44, top + 40, 36, 104, '', 'background:#111114;border-radius:10px', text(0, 4, 36, 18, '+', 'text-align:center;color:#E4E4E7;font-size:16px') + text(0, 22, 36, 12, '1/40', 'text-align:center;font-size:8px;color:#A1A1AA;font-family:var(--mono)') + box(7, 38, 22, 40, '', 'border:2px solid #E4E4E7;border-radius:11px') + box(10, 82, 16, 16, '', 'border-radius:50%;background:#E4E4E7'));
+  /* docked layer list */
+  if (dockLayers) {
+    const lx = panelRight ? paperX + paperW : paperX - 200;
+    const x0 = p.J4 === 'B' ? (panelRight ? paperX + paperW : 0) : W - 200 - (panel && panelRight ? pw : 0);
+    s += box(x0, top, 200, bottom - top, 'drw side', '');
+    s += text(x0 + 14, top + 8, 120, 28, 'LAYERS', 'font-family:var(--display);font-weight:800;font-size:14px;color:#F2F2F5');
+    ['Ink','Shading','Colour','Paper wash'].forEach((n, i) => {
+      const yy = top + 44 + i * 58;
+      s += box(x0 + 10, yy, 180, 50, 'rowline', i === 0 ? 'outline:2px solid #22D3EE' : '');
+      s += box(x0 + 16, yy + 6, 50, 38, '', 'background:#C9AE8E;border-radius:4px');
+      s += text(x0 + 74, yy + 6, 110, 20, n, 'font-size:12px;color:#E4E4E7');
+      s += text(x0 + 74, yy + 24, 110, 18, i === 2 ? 'Multiply' : 'Normal', 'font-size:10px;color:#71717A;font-family:var(--mono)');
+    });
+  }
+  /* the tool rail */
+  const railX = railRight ? (paperX + paperW - 42 - (dockLayers || panel ? 0 : 0)) : paperX + 6;
+  const railY = top + (bottom - top) * 0.52;
+  s += box(railX, railY, 36, 176, '', 'background:#111114;border-radius:12px');
+  ['✎','❧','⌫','⭜'].forEach((g, i) => s += box(railX + 3, railY + 8 + i * 30, 30, 28, 'ico', `line-height:28px;font-size:14px;${i===1?'color:#22D3EE':''}`, g));
+  s += box(railX + 9, railY + 128, 18, 18, '', `border-radius:50%;background:#C26A3A;border:2px solid #E4E4E7;cursor:pointer`, '', 'data-jb="brushes" role="button" tabindex="0" title="Brushes and colours"');
+  s += box(railX + 9, railY + 152, 18, 18, '', 'border-radius:50%;border:2px solid #E4E4E7');
+  if (p.J3 === 'C') ['#2b241e','#C26A3A','#3D8BFA','#E4E4E7','#6B8E23','#9333EA','#F9F462','#FA3D5D'].forEach((c, i) => s += box(railRight ? railX - 34 : railX + 42, railY - 60 + i * 32, 28, 28, '', `border-radius:8px;background:#111114;border:1px solid #2C2C35`, box(6, 6, 16, 16, '', `border-radius:50%;background:${c}`)));
+  /* panels */
+  if (JB_OPEN && !panel && !(JB_OPEN === 'layers' && dockLayers)) {
+    if (JB_OPEN === 'joybot') s += joybotChat(0, top, W, bottom - top, true) + callout(12, bottom - 30, 'Joybot as on the phone: whole screen');
+    else {
+      const dh = Math.round((bottom - top) * 0.55);
+      s += box(0, bottom - dh, W, dh, 'drw', '');
+      s += studioDrawerBodyNamed(0, bottom - dh, W, dh, JB_OPEN === 'layers' ? 'Layers' : 'Brushes', false);
+      s += callout(12, bottom - dh - 24, wide ? 'phone drawer' : 'phone drawer: window under 840 dp');
+    }
+  }
+  if (panel) {
+    const x = panelRight ? W - pw - (dockLayers && p.J4 !== 'B' ? 0 : 0) : 0;
+    const px = panelRight ? W - pw : 0;
+    if (JB_OPEN === 'joybot') s += joybotChat(px, top, pw, bottom - top, true);
+    else { s += box(px, top, pw, bottom - top, 'drw side', ''); s += studioDrawerBodyNamed(px, top, pw, bottom - top, JB_OPEN === 'layers' ? 'Layers' : 'Brushes', true); }
+    s += callout(px + 10, bottom - 30, `side panel · ${pw} dp`);
+  }
+  if (!JB_OPEN) s += callout(paperX + paperW / 2 - 110, bottom - 34, 'tap the layers, the colour dot or Joybot');
+  return s;
+}
+STUDIO_DRAWERS.Layers = {tabs:['Layers','Blend'], rows:['Ink','Shading','Colour','Paper wash','Opacity','Blend','Lock']};
+STUDIO_DRAWERS.Brushes = {tabs:['Pencil','Ink','Water','Oil','Mine'], rows:['Proto Pencil','6B','Fine liner','Round wash','Oil round','Size','Opacity','Colour']};
+function studioDrawerBodyNamed(x, y, w, h, name, side){ return studioDrawerBody(x, y, w, h, name, side); }
+
+/* =========================================================================================
+   LOBBY
+   ========================================================================================= */
+const ROOMS = [['STUDIO','#35F6BF'],['CAPTURE','#FA3D5D'],['SPRITE LAB','#FF008C'],['AVATAR','#CC27FF'],['VIZ LAB','#FAA03D'],['TEXTLAB','#38A3FF'],['JOY BRUSH','#F9F462']];
+const NEWS = [['Recording','#FA3D5D','#FF008C'],['Project','#35F6BF','#97FE8B'],['Character','#CC27FF','#9333EA'],['Import','#38A3FF','#22D3EE']];
+const WORK = ['Drawing 1','Untitled','Drawing 3','Drawing 2','Sunset walk','Star guy','Neon bar','Sprite pang','Voice memo','Beach clip','Look: Aurora','Drawing 4','Avatar','Park run','Title test','Drawing 5','Dog walk','Rain loop','Drawing 6','Beat test','Sketch 7','Gallop','Interview','Sky wash','Drawing 8','Birthday','Logo','Sketch 9','Snow','Garden'];
+let LOBBY_CHAT = false;
+PARTS.lobby = [
+  {k:'L1', q:'The layout', why:'How the lobby’s pieces share a wide window.', opts:[
+    {k:'A', n:'Two columns', d:'Left: the last project, Carry on and New. Right: your recent work as a grid of phone-size cards.'},
+    {k:'B', n:'Stage', d:'The last project as a 16:9 picture at a sensible height, recent work as one long row under it.'},
+    {k:'C', n:'Rooms rail', d:'The rooms become a list down the left edge; the project and your work fill the rest.'}]},
+  {k:'L2', q:'The room names', why:'Today they repeat across the top because more than one lap fits.', opts:[
+    {k:'A', n:'One lap', d:'Each room once, spread across the strip, still sliding to the current one.'},
+    {k:'B', n:'Door tiles', d:'A row of small tiles in each room’s colour, one tap each.'},
+    {k:'C', n:'Down the side', d:'A list on the left edge (goes with the rooms rail).'}]},
+  {k:'L3', q:'The New buttons', why:'Today they stretch to about 290 dp each.', opts:[
+    {k:'A', n:'Phone size, in a row', d:'Four slanted pills at their phone width, under the last project.'},
+    {k:'B', n:'A 2 × 2 block', d:'Bottom left, in the thumb’s reach.'}]},
+  {k:'L4', q:'Your recent work', why:'Cards keep their phone size; the window decides how many show.', opts:[
+    {k:'A', n:'As many as fit', d:'A grid that fills the room, every card at its phone size.'},
+    {k:'B', n:'One row', d:'One row only, as many as fit across.'}]},
+  {k:'L5', q:'The floor words', why:'Detect, Remote, Bits, Packs, Setup: spread thin across the bottom today.', opts:[
+    {k:'A', n:'Grouped bottom left', d:'Together, near the thumb, at their phone spacing.'},
+    {k:'B', n:'In the header', d:'Small words beside search and Joybot.'},
+    {k:'C', n:'Spread as now', d:'Across the full width.'}]}
+];
+DIRS.lobby = [
+  {n:'Two columns', d:'Project and New on the left, a grid of your work on the right.', p:{L1:'A',L2:'A',L3:'A',L4:'A',L5:'A'}},
+  {n:'Stage', d:'A proper 16:9 picture of your last project, one long row of work underneath.', p:{L1:'B',L2:'B',L3:'A',L4:'B',L5:'B'}},
+  {n:'Rooms rail', d:'Rooms down the left like a building directory; your work fills the rest.', p:{L1:'C',L2:'C',L3:'B',L4:'A',L5:'A'}}
+];
+function workCard(x, y, name, i){
+  const pics = ['linear-gradient(#fff,#fff)','linear-gradient(90deg,#f00 0 20%,#0c0 20% 40%,#ff0 40% 60%,#00f 60% 80%,#f0f 80%)','linear-gradient(135deg,#ddd,#555)','linear-gradient(#1C1C22,#1C1C22)','linear-gradient(180deg,#1b1240,#f08a4b)','radial-gradient(circle,#F9F462,#1C1C22 70%)'];
+  return box(x, y, 68, 68, '', `border-radius:8px;overflow:hidden;background:#111114`, box(0, 0, 68, 40, '', `background:${pics[i % pics.length]}`) + text(6, 42, 60, 14, name, 'font-size:9px;font-weight:700') + text(6, 54, 60, 10, 'DRAWING', 'font-size:7px;color:#71717A;font-family:var(--mono)'));
+}
+function renderLobby(p, W, H){
+  const top = STATUS, bottom = H - NAV;
+  const wide = W >= WIDTH_MEDIUM;
+  let s = '';
+  /* header */
+  s += text(12, top + 6, 200, 34, 'Joy CREATOR', 'font-family:var(--display);font-weight:800;font-style:italic;font-size:22px;color:#FF5FD2;text-shadow:0 0 10px #FF008C');
+  const floorInHeader = wide && p.L5 === 'B';
+  let hx = W - 44;
+  s += box(hx, top + 6, 34, 34, '', 'border-radius:50%;background:radial-gradient(circle at 40% 35%,#E879F9,#9333EA);cursor:pointer', '', 'data-lobby="chat" role="button" tabindex="0" title="Joybot"');
+  s += box(hx - 36, top + 8, 30, 30, 'ico', 'line-height:30px;font-size:15px', '⌕');
+  s += text(hx - 220, top + 8, 180, 30, '~5h 56m of video left', 'font-family:var(--mono);font-size:10px;color:#A1A1AA;text-align:right');
+  const FLOOR = ['Detect','Remote','Bits','Packs','Setup'];
+  if (floorInHeader) FLOOR.forEach((f, i) => s += text(hx - 230 - (FLOOR.length - i) * 64, top + 8, 60, 30, f, 'font-size:12px;color:#71717A;text-align:center'));
+  let y = top + 46;
+  const railW = wide && p.L1 === 'C' ? 170 : 0;
+  /* rooms */
+  if (!wide) {
+    let rx = 12; ROOMS.forEach(([n], i) => { const w = (i ? 9 : 12) * n.length + 10; s += text(rx, y, w, 36, n, `font-family:var(--display);font-weight:${i?500:800};font-size:${i?15:24}px;color:${i?'#71717A':'#fff'}`); rx += w + 6; });
+    y += 40;
+  } else if (p.L1 === 'C' || p.L2 === 'C') {
+    ROOMS.forEach(([n, c], i) => { s += box(0, y + i * 44, 4, 36, '', `background:${c}`); s += text(14, y + i * 44, 150, 36, n, `font-family:var(--display);font-weight:${i?500:800};font-size:${i?15:20}px;color:${i?'#A1A1AA':'#fff'}`); });
+  } else if (p.L2 === 'B') {
+    const tw = Math.min(150, (W - 24 - 6 * 8) / 7);
+    ROOMS.forEach(([n, c], i) => s += box(12 + i * (tw + 8), y, tw, 40, '', `border-radius:10px;background:${c}22;border:1px solid ${c}66;color:${i?'#E4E4E7':'#fff'};font-family:var(--display);font-weight:800;font-size:12px;text-align:center;line-height:40px`, esc(n)));
+    y += 52;
+  } else {
+    const gap = (W - 24) / ROOMS.length;
+    ROOMS.forEach(([n, c], i) => s += text(12 + i * gap, y, gap, 40, n, `font-family:var(--display);font-weight:${i?500:800};font-size:${i?16:26}px;color:${i?'#71717A':'#fff'}`));
+    y += 44;
+  }
+  if (!wide || p.L1 !== 'C') s += box(0, y, W, 3, '', 'background:linear-gradient(90deg,#FA3D5D,#35F6BF,#F9F462,#38A3FF,#FF008C,#22D3EE)');
+  y += 6;
+  const x0 = railW + 12, avail = W - x0 - 12;
+  const hero = (hx0, hy, hw, hh) => box(hx0, hy, hw, hh, '', 'border-radius:12px;overflow:hidden', picture(0, 0, hw, hh, '') + box(10, 10, 92, 20, '', 'border-radius:999px;background:#000a;font-family:var(--mono);font-size:9px;letter-spacing:.08em;line-height:20px;text-align:center;color:#E4E4E7', 'LAST PROJECT'));
+  const nameRow = (nx, ny, nw) => text(nx, ny, 200, 26, 'Sunset walk', 'font-family:var(--display);font-weight:800;font-size:18px') + text(nx, ny + 24, 200, 14, '3 LAYERS · 1:05 · 5M AGO', 'font-family:var(--mono);font-size:9px;color:#71717A') + box(nx + nw - 170, ny + 4, 60, 32, '', 'border-radius:999px;border:1px solid #4B4B55;font-size:13px;text-align:center;line-height:30px', 'New') + box(nx + nw - 104, ny + 4, 104, 32, '', 'border-radius:999px;background:linear-gradient(90deg,#35F6BF,#97FE8B);color:#050507;font-size:13px;font-weight:700;text-align:center;line-height:32px', 'Carry on');
+  const news = (nx, ny, cols, cw) => NEWS.map(([n, a, b], i) => box(nx + (i % cols) * (cw + 8), ny + Math.floor(i / cols) * 40, cw, 32, '', `background:linear-gradient(90deg,${a},${b});clip-path:polygon(4% 0,100% 0,96% 100%,0 100%);color:#050507;font-size:12px;font-weight:700;text-align:center;line-height:32px`, esc(n))).join('');
+  const grid = (gx, gy, gw, gh, oneRow) => { let g = text(gx, gy, 200, 24, 'LIBRARY', 'font-family:var(--display);font-weight:800;font-size:17px') + text(gx + 86, gy + 6, 80, 16, '23 ITEMS', 'font-family:var(--mono);font-size:9px;color:#71717A'); const per = Math.max(1, Math.floor((gw + 6) / 74)); const rowsN = oneRow ? 1 : Math.max(1, Math.floor((gh - 30) / 74)); let n = 0; for (let r = 0; r < rowsN; r++) for (let c = 0; c < per && n < WORK.length; c++, n++) g += workCard(gx + c * 74, gy + 30 + r * 74, WORK[n], n); return g; };
+  if (!wide) {
+    const hh = Math.round((W - 24) * 9 / 16 * 0.8);
+    s += hero(12, y, W - 24, hh); y += hh + 8;
+    s += nameRow(12, y, W - 24); y += 52;
+    s += grid(12, y, W - 24, 104, true); y += 110;
+    s += news(12, y, 2, (W - 32) / 2); y += 88;
+  } else if (p.L1 === 'A') {
+    const lw = Math.min(520, Math.round(avail * 0.42));
+    const hh = Math.round(lw * 9 / 16);
+    s += hero(x0, y, lw, hh);
+    s += nameRow(x0, y + hh + 8, lw);
+    s += p.L3 === 'B' ? news(x0, bottom - 120, 2, 150) : news(x0, y + hh + 60, 4, Math.min(124, (lw - 24) / 4));
+    s += grid(x0 + lw + 24, y, avail - lw - 24, (bottom - 60) - y, p.L4 === 'B');
+  } else {
+    const hw = Math.min(avail, 760), hh = Math.round(Math.min(hw * 9 / 16, (bottom - y) * 0.42));
+    const hwr = Math.round(hh * 16 / 9);
+    const hx0 = x0 + (avail - hwr) / 2 * (p.L1 === 'C' ? 0 : 1);
+    s += hero(hx0, y, hwr, hh);
+    s += nameRow(hx0, y + hh + 8, hwr);
+    y += hh + 56;
+    if (p.L3 === 'B') s += news(x0, bottom - 120, 2, 150);
+    else { s += news(hx0, y, 4, Math.min(160, (hwr - 24) / 4)); y += 44; }
+    s += grid(p.L3 === 'B' ? x0 + 330 : x0, y, p.L3 === 'B' ? avail - 330 : avail, (bottom - 50) - y, p.L4 === 'B');
+  }
+  /* floor words */
+  if (!floorInHeader) {
+    const fy = bottom - 34;
+    if (wide && p.L5 === 'A') FLOOR.forEach((f, i) => s += text(x0 + i * 74, fy, 70, 28, f, 'font-size:12px;color:#71717A'));
+    else FLOOR.forEach((f, i) => s += text(i * W / FLOOR.length, fy, W / FLOOR.length, 28, f, 'font-size:12px;color:#71717A;text-align:center'));
+  }
+  if (LOBBY_CHAT) {
+    const pw = PICKS.S2 === 'B' ? 420 : PICKS.S2 === 'C' ? Math.max(360, Math.round(W / 3)) : 360;
+    if (W >= WIDTH_EXPANDED && PICKS.S7 !== 'B') { const px = PICKS.S1 === 'B' ? 0 : W - pw; s += joybotChat(px, top, pw, bottom - top, true) + callout(px + 10, bottom - 30, `Joybot · side panel · ${pw} dp`); }
+    else s += joybotChat(0, top, W, bottom - top, true) + callout(12, bottom - 30, 'Joybot as on the phone: whole screen');
+  } else s += callout(W - 150, top + 44, 'tap Joybot to talk');
+  return s;
+}
+
+/* Joybot's chat shares the side-panel region (owner, 11-14) */
+PARTS.studio.push({k:'S7', q:'Joybot’s chat', why:'The owner asked for the chat to cover the same region as these panels on a tablet, not the whole screen. It is drawn here in JoyBrush and the lobby too.', opts:[
+  {k:'A', n:'In the panel region', d:'Same side, width and height as a drawer; opening it replaces the open drawer.'},
+  {k:'C', n:'Beside a drawer', d:'Counts as the second panel, so Text and the chat can be out together.'},
+  {k:'B', n:'Whole screen, as now', d:'The old way, kept selectable.'}]});
+DIRS.studio.forEach(d => d.p.S7 = 'A');
+DIRS.studio[1].p.S7 = 'C';
+STUDIO_DRAWERS.Joybot = {tabs:[], rows:[]};
 
 /* ---------- the page machinery ---------- */
 const RENDER = { studio: renderStudio, brush: (p,W,H)=>renderBrush(p,W,H), lobby: (p,W,H)=>renderLobby(p,W,H) };
@@ -447,7 +691,7 @@ function draw(sec){
   let k = 1;
   if (SCALE === 'fit') {
     const avail = fit.parentElement.clientWidth - 32;
-    k = Math.min(1, avail / (W + 16), (window.innerHeight * 0.82) / (H + 16));
+    k = Math.min(1, (avail - 24) / (W + 24), (window.innerHeight * 0.82) / (H + 24));
   }
   dev.style.transform = k < 1 ? `scale(${k})` : '';
   fit.style.width = (W * k + 16) + 'px'; fit.style.height = (H * k + 16) + 'px';
@@ -487,7 +731,7 @@ function updCode(){
 }
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('button,[data-tool]');
+  const t = e.target.closest('button,[data-tool],[data-jb],[data-lobby]');
   if (!t) return;
   if (t.dataset.size) { SIZE = t.dataset.size; renderUI(); drawAll(); save(); return; }
   if (t.id === 'fit' || t.id === 'true') { SCALE = t.id; renderUI(); drawAll(); return; }
@@ -497,10 +741,11 @@ document.addEventListener('click', e => {
   if (t.dataset.tool) {
     const name = t.dataset.tool;
     if (STUDIO_OPEN.includes(name)) STUDIO_OPEN = STUDIO_OPEN.filter(x => x !== name);
-    else STUDIO_OPEN = STUDIO_OPEN.concat(name).slice(-2);
+    else STUDIO_OPEN = STUDIO_OPEN.concat(name).slice(-3);
     draw('studio'); return;
   }
   if (t.dataset.jb) { jbToggle(t.dataset.jb); draw('brush'); return; }
+  if (t.dataset.lobby) { LOBBY_CHAT = !LOBBY_CHAT; draw('lobby'); return; }
   if (t.id === 'copy') {
     updCode();
     const txt = document.getElementById('code').textContent;
@@ -510,7 +755,7 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('keydown', e => {
-  if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && (e.target.dataset.tool || e.target.dataset.jb)) { e.preventDefault(); e.target.click(); }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && (e.target.dataset.tool || e.target.dataset.jb || e.target.dataset.lobby)) { e.preventDefault(); e.target.click(); }
 });
 document.getElementById('noteta').addEventListener('input', () => { updCode(); save(); });
 if (saved && saved.notes) document.getElementById('noteta').value = saved.notes;

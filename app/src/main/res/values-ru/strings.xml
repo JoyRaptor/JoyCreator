@@ -409,7 +409,7 @@
     <string name="torch_both">Оба фонарика</string>
     <string name="setting_debug_title">Отладочное логирование</string>
     <string name="note_debug">Включить генерацию файла отладочного журнала \n(По умолчанию: Отключено)</string>
-    <string name="note_debug_detailed">При включении FadCam записывает файл отладочного журнала HTML (FADCAM_debug.html) в общедоступную папку Downloads/FadCam/. Поделитесь этим файлом при сообщении о проблемах. Выключите, чтобы остановить будущие записи.\nПримечание: Отладочное логирование может добавить накладные расходы на производительность во время записи — держите выключенным, если не устраняете неисправности.</string>
+    <string name="note_debug_detailed">При включении FadCam записывает файл отладочного журнала HTML (JoyCreator_debug.html) в общедоступную папку Downloads/FadCam/. Поделитесь этим файлом при сообщении о проблемах. Выключите, чтобы остановить будущие записи.\nПримечание: Отладочное логирование может добавить накладные расходы на производительность во время записи — держите выключенным, если не устраняете неисправности.</string>
     <string name="note_debug_extra">При включении файл отладочного журнала будет создан в папке Downloads/FadCam. Это может помочь диагностировать проблемы с приложением.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Предпросмотр</string>
@@ -1138,8 +1138,8 @@
 
     <!-- Debug Log Tools -->
     <string name="debug_log_tools_title">Журнал отладки</string>
-    <string name="debug_log_tools_subtitle">Предпросмотр, поиск, поделиться или удалить FADCAM_debug.html</string>
-    <string name="debug_log_tools_helper">Показывает файл журнала отладки (FADCAM_debug.html). Включение логирования отладки может добавить накладные расходы на производительность—не включайте его, если вы не сталкиваетесь с ошибкой и не нуждаетесь в поделиться логом. Используйте поле поиска для фильтрации.</string>
+    <string name="debug_log_tools_subtitle">Предпросмотр, поиск, поделиться или удалить JoyCreator_debug.html</string>
+    <string name="debug_log_tools_helper">Показывает файл журнала отладки (JoyCreator_debug.html). Включение логирования отладки может добавить накладные расходы на производительность—не включайте его, если вы не сталкиваетесь с ошибкой и не нуждаетесь в поделиться логом. Используйте поле поиска для фильтрации.</string>
     <string name="debug_log_share_title">Поделиться журналом отладки</string>
     <string name="debug_log_share_subtitle">Открыть системный лист поделиться</string>
     <string name="debug_log_delete_title">Удалить журнал отладки</string>

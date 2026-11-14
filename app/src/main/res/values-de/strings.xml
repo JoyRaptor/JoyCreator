@@ -1150,7 +1150,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="row_noise_suppression_title">Rauschunterdrückung</string>
     <string name="settings_location_watermark_title">Standort-Wasserzeichen</string>
     <string name="delete_single_video_subtitle">Diese Aufnahme entfernen</string>
-    <string name="note_debug_detailed">Wenn aktiviert, schreibt FadCam eine Debug-Protokoll-HTML-Datei (FADCAM_debug.html) im öffentlichen Ordner Downloads/FadCam/. Teile diese Datei beim Melden von Problemen. Deaktivieren, um zukünftige Schreibvorgänge zu stoppen.\nHinweis: Debug-Protokollierung kann während der Aufnahme Performance-Overhead hinzufügen – deaktiviert lassen, außer zur Fehlersuche.</string>
+    <string name="note_debug_detailed">Wenn aktiviert, schreibt FadCam eine Debug-Protokoll-HTML-Datei (JoyCreator_debug.html) im öffentlichen Ordner Downloads/FadCam/. Teile diese Datei beim Melden von Problemen. Deaktivieren, um zukünftige Schreibvorgänge zu stoppen.\nHinweis: Debug-Protokollierung kann während der Aufnahme Performance-Overhead hinzufügen – deaktiviert lassen, außer zur Fehlersuche.</string>
     <string name="watermark_preview_heading">Vorschau</string>
     <string name="watermark_options_heading">Optionen</string>
     <string name="watermark_style_row_title">Wasserzeichen-Stil</string>
@@ -1328,8 +1328,8 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="debug_log_share_fail">Teilen fehlgeschlagen</string>
     <string name="debug_log_share_subtitle">System-Share-Blatt öffnen</string>
     <string name="debug_log_share_title">Debug-Protokoll teilen</string>
-    <string name="debug_log_tools_helper">Zeigt die Debug-Protokolldatei (FADCAM_debug.html). Die Aktivierung der Debug-Protokollierung kann die Leistung beeinträchtigen – aktiviere sie nur, wenn du auf einen Fehler stößt und das Protokoll teilen möchtest. Verwende das Suchfeld zum Filtern.</string>
-    <string name="debug_log_tools_subtitle">FADCAM_debug.html anzeigen, durchsuchen, teilen oder löschen</string>
+    <string name="debug_log_tools_helper">Zeigt die Debug-Protokolldatei (JoyCreator_debug.html). Die Aktivierung der Debug-Protokollierung kann die Leistung beeinträchtigen – aktiviere sie nur, wenn du auf einen Fehler stößt und das Protokoll teilen möchtest. Verwende das Suchfeld zum Filtern.</string>
+    <string name="debug_log_tools_subtitle">JoyCreator_debug.html anzeigen, durchsuchen, teilen oder löschen</string>
     <string name="debug_log_tools_title">Debug-Protokoll</string>
     <string name="delete">Löschen</string>
     <string name="delete_all">Alle löschen</string>

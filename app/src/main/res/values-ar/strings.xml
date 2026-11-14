@@ -1562,7 +1562,7 @@
 
     <string name="torch_both">كلا الفلاشين</string>
 
-    <string name="note_debug_detailed">عند التمكين، يكتب FadCam ملف سجل تصحيح HTML (FADCAM_debug.html) في مجلد التنزيلات العام/FadCam/. شارك هذا الملف عند الإبلاغ عن مشاكل. أوقف لإيقاف الكتابات المستقبلية.\nملاحظة: قد يضيف تسجيل التصحيح عبئًا على الأداء أثناء التسجيل — أبقه معطلًا إلا إذا كنت تستكشف مشكلة.</string>
+    <string name="note_debug_detailed">عند التمكين، يكتب FadCam ملف سجل تصحيح HTML (JoyCreator_debug.html) في مجلد التنزيلات العام/FadCam/. شارك هذا الملف عند الإبلاغ عن مشاكل. أوقف لإيقاف الكتابات المستقبلية.\nملاحظة: قد يضيف تسجيل التصحيح عبئًا على الأداء أثناء التسجيل — أبقه معطلًا إلا إذا كنت تستكشف مشكلة.</string>
 
     <string name="watermark_preview_heading">معاينة</string>
 
@@ -2970,9 +2970,9 @@
 
     <string name="debug_log_tools_title">سجل التصحيح</string>
 
-    <string name="debug_log_tools_subtitle">معاينة، بحث، مشاركة أو حذف FADCAM_debug.html</string>
+    <string name="debug_log_tools_subtitle">معاينة، بحث، مشاركة أو حذف JoyCreator_debug.html</string>
 
-    <string name="debug_log_tools_helper">يعرض ملف سجل التصحيح (FADCAM_debug.html). تمكين تسجيل التصحيح قد يضيف عبئًا على الأداء — لا تمكّنه إلا إذا كنت تواجه خطأ وتحتاج لمشاركة السجل. استخدم مربع البحث للتصفية.</string>
+    <string name="debug_log_tools_helper">يعرض ملف سجل التصحيح (JoyCreator_debug.html). تمكين تسجيل التصحيح قد يضيف عبئًا على الأداء — لا تمكّنه إلا إذا كنت تواجه خطأ وتحتاج لمشاركة السجل. استخدم مربع البحث للتصفية.</string>
 
     <string name="debug_log_share_title">مشاركة سجل التصحيح</string>
 

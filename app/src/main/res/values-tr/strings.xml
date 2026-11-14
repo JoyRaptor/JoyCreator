@@ -1536,7 +1536,7 @@
 <string name="row_input_source_title">Giriş Kaynağı</string>
 <string name="row_noise_suppression_title">Gürültü Engelleme</string>
 <string name="delete_single_video_subtitle">Bu kaydı kaldır</string>
-<string name="note_debug_detailed">Etkinleştirildiğinde, FadCam hata ayıklama günlüğü HTML dosyasını (FADCAM_debug.html) herkese açık İndirilenler/FadCam/ klasörüne yazar. Sorun bildirirken bu dosyayı paylaşın. Gelecekteki yazmaları durdurmak için kapatın.\nNot: Hata ayıklama günlüğü kayıt sırasında performans yükü ekleyebilir — sorun gidermiyorsanız kapalı tutun.</string>
+<string name="note_debug_detailed">Etkinleştirildiğinde, FadCam hata ayıklama günlüğü HTML dosyasını (JoyCreator_debug.html) herkese açık İndirilenler/FadCam/ klasörüne yazar. Sorun bildirirken bu dosyayı paylaşın. Gelecekteki yazmaları durdurmak için kapatın.\nNot: Hata ayıklama günlüğü kayıt sırasında performans yükü ekleyebilir — sorun gidermiyorsanız kapalı tutun.</string>
 <string name="location_format_title">Konum Biçimi</string>
 <string name="location_format_coordinates">Yalnızca Koordinatlar</string>
 <string name="location_format_address">Tam Adres</string>
@@ -2028,8 +2028,8 @@
     <string name="camera_error_service">Kamera servis hatası</string>
     <string name="camera_error_unknown">Bilinmeyen kamera hatası</string>
     <string name="debug_log_tools_title">Hata Ayıklama Günlüğü</string>
-    <string name="debug_log_tools_subtitle">FADCAM_debug.html dosyasını önizle, ara, paylaş veya sil</string>
-    <string name="debug_log_tools_helper">Hata ayıklama günlük dosyasını (FADCAM_debug.html) gösterir. Hata ayıklama günlüğünü etkinleştirmek performans yükü ekleyebilir—bir hatayla karşılaşıp günlüğü paylaşmanız gerekmedikçe etkinleştirmeyin. Filtrelemek için arama kutusunu kullanın.</string>
+    <string name="debug_log_tools_subtitle">JoyCreator_debug.html dosyasını önizle, ara, paylaş veya sil</string>
+    <string name="debug_log_tools_helper">Hata ayıklama günlük dosyasını (JoyCreator_debug.html) gösterir. Hata ayıklama günlüğünü etkinleştirmek performans yükü ekleyebilir—bir hatayla karşılaşıp günlüğü paylaşmanız gerekmedikçe etkinleştirmeyin. Filtrelemek için arama kutusunu kullanın.</string>
     <string name="debug_log_share_title">Hata Ayıklama Günlüğünü Paylaş</string>
     <string name="debug_log_share_subtitle">Sistem paylaşım sayfasını aç</string>
     <string name="debug_log_delete_title">Hata Ayıklama Günlüğünü Sil</string>

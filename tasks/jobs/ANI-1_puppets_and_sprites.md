@@ -53,3 +53,8 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 - ✅ **Key a pin:** the diamond made a key on R.Hand at 0.844 s (diamond turned green, undo counter 4, a key mark on the tape).
 - ❌ Not proven: moving a pin and playing it back, live take, tape drags, bone tap, dangle tail swing (AN-07), grab bar (AN-08), rotated-picture pins, hole/depth sliders. The drawer re-lays-out after the first pin (tool row moves down ~180 px), so scripted taps by fixed coordinates missed; a second pass should screenshot between steps.
 - Found, not fixed: none a bug yet. A drag from the screen's right edge opens the camera (Samsung edge gesture).
+
+### Tablet (Tab S8 Ultra, landscape), 11-13 night, own build of this worktree, same figure picture in the old "Untitled" project
+- ✅ Image add via the picker, Puppet tab, one Pin-tool pin ("Waist") placed: works on the tablet as on the Note 9. The tablet's picker opened the Files app straight away, no chooser.
+- ❓ **Possible bug, not confirmed:** after the first pin, choosing **Free** and then **Dangle** and tapping the figure (a hand, then the tail tip) placed no pin (undo count stayed 7). The Free tap landed on the depth slider (the drawer's controls sit over the picture on the tablet), the Dangle taps on empty picture area did nothing visible. Needs a re-run with the drawer pulled down, or a check whether Dangle/Free need a pin selected to hang from. Screenshot: `tasks/screens/anim-labs-20261113/tablet_puppet_dangle_tap_no_pin.png`.
+- ❌ Still not run: moving a pin and playing it back, live take, tape drags, bone tap, dangle swing (AN-07), grab bar (AN-08), VL-01/03/04 and the merged VisLab fixes. The folder-choice step was already done on the tablet (it opened straight to the lobby).

@@ -16,7 +16,8 @@ import java.security.MessageDigest
 object BrushPreviewKey {
 
     /** Bump when the renderer's pictures change (a new reference paper, a new canned stroke): every stored preview is then stale. */
-    const val RENDERER_VERSION = 2
+    // 3 (2026-11-14): previews drawn while the media engine's empty texture held junk (lilac pencils and oils) are replaced.
+    const val RENDERER_VERSION = 3
 
     /** The test stroke every preview draws: a new stroke makes every stored preview stale too (core TestStroke.VERSION). */
     private val STROKE = "stroke${cc.joycreator.joybrush.core.brush.TestStroke.VERSION}"

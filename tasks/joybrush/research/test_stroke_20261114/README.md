@@ -31,3 +31,20 @@ landed at a3b1c0175, which he saw and rejected: "it just won't do."
 Trace the curve's path from drawing A as normalised points (the box is about 4.3 : 1, as drawn). Pressure and
 tilt along it are read from the mark's width and edge in his drawing; where unclear, follow the list above.
 Keep the drawing as the visual check: our stroke rendered with a comparable brush should read like his.
+
+## Ours beside his (brush lane, 2026-11-14)
+
+![his drawing A above, ours below](ours_vs_owner_lab_20261114.png)
+
+- **Path:** traced from drawing A as 49 points with pressure and tilt (`core/brush/TestStroke.kt`, `PATH`); every
+  engine draws the same pen samples. The lab's twin is `testStroke()` in `joybrush/lab/media/js/tests.js`
+  (sheet `teststroke`, `?medium=dry|wet|paste&tools=...`).
+- **Marks:** the swatch and three lines at one angle (`TestStroke.marks`), each lighter and more upright.
+- **Stripes:** `TestStroke.STRIPES`, where he drew them, in a dusty rose, a sea teal and a straw yellow (the
+  screens lane's design page may choose others). In the app's previews they are painted under the stroke; in the
+  lab they are watercolour under pencils and watercolour, oil paint under oils.
+- **Proof level:** PC lab render (the phone's own shaders in a browser) with Proto Pencil and 6B. Not yet seen on
+  the Note 9. Drawing B (more room at the end for brushes that grow) is not used yet: the preview sizes the brush
+  to the box, so A's end is kept.
+- **Found on the way:** graphite drawn over a heavy coloured-pencil band barely shows: the coloured pencil has filled
+  the paper's tooth. Real waxy pencils do the same, but it is harsher than paper.

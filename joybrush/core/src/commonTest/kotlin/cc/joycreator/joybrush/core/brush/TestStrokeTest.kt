@@ -1,85 +1,106 @@
 package cc.joycreator.joybrush.core.brush
 
 import kotlin.math.abs
+import kotlin.math.hypot
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
-/** The owner's test stroke (2026-11-14, job BRUSH-UI): each thing he asked of it, held by a test. */
+/** The owner's test stroke, traced from his drawing of 2026-11-14: each thing he asked of it, held by a test. */
 class TestStrokeTest {
-    private val s = TestStroke.pen(900, 120, 12f)
+    private val w = 1150
+    private val h = 280
+    private val size = 12f
+    private val s = TestStroke.pen(w, h, size)
+    private val inset = TestStroke.inset(size)
 
     @Test fun theSameBoxGivesTheSameSamplesEveryTime() {
         assertEquals(TestStroke.pen(900, 120, 12f), TestStroke.pen(900, 120, 12f))
+        assertEquals(TestStroke.marks(900, 120, 12f), TestStroke.marks(900, 120, 12f))
     }
 
     @Test fun itStaysInsideTheBrushsInsetOnEverySide() {
-        for ((w, h, size) in listOf(Triple(1000, 100, 30f), Triple(300, 96, 8f), Triple(2048, 60, 10f), Triple(120, 300, 20f))) {
-            val inset = TestStroke.inset(size)
-            for (p in TestStroke.pen(w, h, size)) {
-                assertTrue(p.x >= inset - 0.01f && p.x <= w - inset + 0.01f, "x ${p.x} in $w x $h")
-                assertTrue(p.y >= inset - 0.01f && p.y <= h - inset + 0.01f, "y ${p.y} in $w x $h")
+        for ((bw, bh, sz) in listOf(Triple(1000, 100, 30f), Triple(300, 96, 8f), Triple(2048, 60, 10f), Triple(120, 300, 20f), Triple(500, 10, 40f))) {
+            val i = TestStroke.inset(sz)
+            for (p in TestStroke.pen(bw, bh, sz) + TestStroke.marks(bw, bh, sz).flatten()) {
+                assertTrue(p.x >= i - 0.01f && p.x <= bw - i + 0.01f, "x ${p.x} in $bw x $bh")
+                assertTrue(p.y >= minOf(i, bh / 2f) - 0.01f && p.y <= bh - minOf(i, bh / 2f) + 0.01f, "y ${p.y} in $bw x $bh")
             }
         }
     }
 
-    @Test fun itStartsEverSoLightAndGetsHarderAllTheWay() {
-        assertEquals(TestStroke.P_START, s.first().pressure, 1e-4f)
-        assertTrue(s.first().pressure < 0.05f, "a feather touch")
-        assertTrue(s.zipWithNext().all { (a, b) -> b.pressure >= a.pressure - 1e-6f }, "pressure never eases")
-        // Slow at first: a third of the way across it is still a light touch.
-        assertTrue(s[s.size / 4].pressure < 0.2f, "still light a quarter in: ${s[s.size / 4].pressure}")
+    @Test fun itStartsAsAHairlineAtTheLowerLeft() {
+        assertTrue(s.first().pressure <= 0.03f, "as light as possible")
+        assertTrue(s.first().x < inset + 0.05f * (w - 2 * inset), "starts at the left")
+        assertTrue(s.first().y > inset + 0.7f * (h - 2 * inset), "starts low")
+        assertTrue(s.take(s.size / 8).all { it.pressure < 0.1f }, "the start stays a hairline for a while")
     }
 
-    @Test fun theLiftIsSuddenNotAFade() {
-        assertEquals(1f, s.last().pressure, 1e-4f)
-        assertTrue(s.takeLast(8).all { it.pressure > 0.95f }, "the end is pressed hard to the last sample")
+    @Test fun maximumAndMinimumOfPressureAndTiltAllInOneLine() {
+        assertTrue(s.minOf { it.pressure } < 0.05f && s.maxOf { it.pressure } > 0.97f)
+        assertTrue(s.minOf { it.tilt } < 0.15f && s.maxOf { it.tilt } > 1.05f)
+        assertTrue(abs(s.last().azimuth - s.first().azimuth) > 1f, "the lean swings round with the hand")
     }
 
-    @Test fun theSwooshRunsLeftToRightAndTheCurlComesBackOverIt() {
-        val swoosh = s.take((s.size * TestStroke.SWOOSH).toInt() - 1)
-        assertTrue(swoosh.zipWithNext().all { (a, b) -> b.x > a.x }, "the swoosh goes right")
-        val farRight = s.maxOf { it.x }
-        assertTrue(s.last().x < farRight - 4f, "the curl turns back: ends at ${s.last().x}, reached $farRight")
-        val top = s.minOf { it.y }
-        assertTrue(top < s.first().y, "the curl rises above the swoosh")
+    @Test fun theLiftIsQuickNotALongFade() {
+        // The end flicks off over the last few samples; until just before it the pen is pressed.
+        val n = s.size
+        assertTrue(s[n - n / 12].pressure > 0.5f, "still pressed just before the end: ${s[n - n / 12].pressure}")
+        assertTrue(s.last().pressure < 0.2f, "and lifted at the end")
     }
 
-    @Test fun theTiltVariesAndIsGreatestInTheCurl() {
-        assertTrue(s.all { it.hasTilt && it.hasAzimuth })
-        assertEquals(TestStroke.TILT_START, s.first().tilt, 1e-4f)
-        assertEquals(TestStroke.TILT_CURL_END, s.last().tilt, 1e-3f)
-        assertTrue(s.last().tilt - s.first().tilt > 0.8f, "upright to laid over")
-        assertTrue(abs(s.last().azimuth - s.first().azimuth) > 1f, "the lean swings round in the curl")
+    @Test fun theCurveCrossesItself() {
+        fun cross(a: Int, b: Int, c: Int, d: Int): Boolean {
+            fun o(p: Int, q: Int, r: Int) = (s[q].x - s[p].x) * (s[r].y - s[p].y) - (s[q].y - s[p].y) * (s[r].x - s[p].x)
+            return o(a, b, c) * o(a, b, d) < 0 && o(c, d, a) * o(c, d, b) < 0
+        }
+        var crossings = 0
+        val step = 3
+        var i = 0
+        while (i + step < s.size) {
+            var j = i + 2 * step
+            while (j + step < s.size) { if (cross(i, i + step, j, j + step)) crossings++; j += step }
+            i += step
+        }
+        assertTrue(crossings >= 1, "the loop crosses over itself")
     }
 
-    @Test fun theClockOnlyMovesForwardAndTheCurlIsSlower() {
-        assertEquals(0.0, s.first().timeMs)
-        assertTrue(s.zipWithNext().all { (a, b) -> b.timeMs > a.timeMs })
+    @Test fun ithasConcaveAndConvexTurns() {
+        var left = 0; var right = 0
+        for (i in 4 until s.size - 4 step 4) {
+            val ax = s[i].x - s[i - 4].x; val ay = s[i].y - s[i - 4].y
+            val bx = s[i + 4].x - s[i].x; val by = s[i + 4].y - s[i].y
+            val c = ax * by - ay * bx
+            if (hypot(ax, ay) > 1f && hypot(bx, by) > 1f) { if (c > 0) left++ else if (c < 0) right++ }
+        }
+        assertTrue(left > 5 && right > 5, "turns both ways: $left / $right")
+    }
+
+    @Test fun theCurvePassesThroughEveryStripe() {
+        assertEquals(3, TestStroke.STRIPES.size)
+        assertEquals(3, TestStroke.STRIPES.map { it.argb }.toSet().size)
+        for (st in TestStroke.STRIPES) {
+            val x0 = inset + (w - 2 * inset) * (st.x - st.half)
+            val x1 = inset + (w - 2 * inset) * (st.x + st.half)
+            assertTrue(s.count { it.x in x0..x1 } > 3, "the curve passes through the stripe at ${st.x}")
+        }
+    }
+
+    @Test fun theMarksAreAtOneAngleAndGetLighter() {
+        val m = TestStroke.marks(w, h, size)
+        assertEquals(4, m.size)
+        assertTrue(m.all { it.size >= 8 })
+        val lines = m.drop(1)
+        val slopes = lines.map { (it.last().y - it.first().y) / (it.last().x - it.first().x) }
+        assertTrue(slopes.all { it < 0f }, "up and to the right")
+        assertTrue(lines.zipWithNext().all { (a, b) -> b.first().pressure < a.first().pressure && b.first().tilt < a.first().tilt })
     }
 
     @Test fun theSampleCountFollowsTheLengthButStaysBounded() {
-        assertTrue(TestStroke.pen(300, 60, 10f).size < TestStroke.pen(1200, 60, 10f).size)
-        assertEquals(24, TestStroke.pen(40, 60, 10f).size)
-        assertEquals(600, TestStroke.pen(2048, 60, 10f, pitchPx = 1f).size)
-    }
-
-    @Test fun theSwooshCrossesEveryColourLine() {
-        assertEquals(3, TestStroke.LINES.size)
-        assertEquals(3, TestStroke.LINES.map { it.argb }.toSet().size, "three set colours")
-        val w = 900; val h = 120; val size = 12f
-        val inset = TestStroke.inset(size)
-        for (line in TestStroke.LINES) {
-            val x = inset + (w - 2 * inset) * (line.x0 + line.x1) / 2f
-            val y0 = inset + (h - 2 * inset) * line.y0
-            val y1 = inset + (h - 2 * inset) * line.y1
-            val at = s.minByOrNull { abs(it.x - x) }!!
-            assertTrue(abs(at.x - x) < 4f && at.y > y0 && at.y < y1, "the swoosh passes through the line at x $x: (${at.x}, ${at.y}) in $y0..$y1")
-            val pen = TestStroke.linePen(line, w, h, size)
-            assertTrue(pen.all { it.pressure == TestStroke.LINE_PRESSURE } && pen.first().y < pen.last().y)
-        }
-        // The lines sit where the swoosh is still building: light over the first, firmer over the last.
-        fun pressureAt(line: TestStroke.Line) = s.minByOrNull { abs(it.x - (inset + (w - 2 * inset) * (line.x0 + line.x1) / 2f)) }!!.pressure
-        assertTrue(pressureAt(TestStroke.LINES[0]) < pressureAt(TestStroke.LINES[2]))
+        assertTrue(TestStroke.pen(300, 80, 10f).size < TestStroke.pen(1200, 280, 10f).size)
+        assertEquals(48, TestStroke.pen(40, 20, 10f).size)
+        assertEquals(900, TestStroke.pen(4000, 900, 10f, pitchPx = 1f).size)
+        assertEquals(0.0, s.first().timeMs)
+        assertTrue(s.zipWithNext().all { (a, b) -> b.timeMs >= a.timeMs })
     }
 }

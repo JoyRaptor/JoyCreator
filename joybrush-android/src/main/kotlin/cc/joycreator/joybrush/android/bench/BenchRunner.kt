@@ -103,7 +103,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val pasteVary: Double? = null,
                /** `jb_paste_pull`: how much a hair brush or the trowel pulls wet paint along, whatever the brush says (PasteBrush.pull). */
                val pastePull: Double? = null,
-               /** `jb_symmetry`: a radial symmetry of this many copies about the middle of the view (2 = a mirror), for the whole run. */
+               /** `jb_symmetry`: a radial symmetry of this many copies about the middle of the view (2 = a mirror), for the whole run;
+                *  0 = none for the run, whatever the drawing's own guide says (the canvas only: saved settings are never touched). */
                val symmetry: Int? = null,
                /** Strokes kept as editable lines on or off for this run (`jb_lines`); none = as the canvas has it. */
                val lines: Boolean? = null,
@@ -138,7 +139,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 */
                val then: List<String> = emptyList(),
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
-               val sizeOverridePx: Float? = null) {
+               val sizeOverridePx: Float? = null,
+               /** `jb_bench_under`: the brush that draws the test stroke's colour stripes (cases `tstripe*`), e.g. a soft airbrush. */
+               val under: String? = null) {
         init {
             BenchBrushOverride.requireSize(sizeOverridePx)
             require(sizeOverridePx == null || cases.all { it in setOf("turns", "fastC", "slowC", "scribble", "spiral", "topScribble", "blue1", "blue2", "blue3", "lineParity") }) {
@@ -236,7 +239,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             val effective = BenchBrushOverride.resolve(p, spec.sizeOverridePx)
             // The contact sheet (BrushSetCases): `setA` / `setB` draw in the cell of the brush's place in the list.
             val cell = spec.brushes.indexOf(b)
-            for (c in spec.cases) for (r in 1..spec.runs) jobs.addLast(Triple(effective, if (c == "setA" || c == "setB") c + cell else c, r))
+            // The test stroke's stripes are laid by `jb_bench_under` when given (paint already on the paper), the rest by this brush.
+            val under = spec.under?.let { u -> all.firstOrNull { it.id.equals(u, true) } ?: all.firstOrNull { it.name.equals(u, true) } }
+            for (c in spec.cases) for (r in 1..spec.runs)
+                jobs.addLast(Triple(if (c.startsWith("tstripe") && under != null) under else effective, if (c == "setA" || c == "setB") c + cell else c, r))
         }
         // Texture, Dry and Sparkle draw from PNGs the host controller hands the canvas; it is not running here, so the bench does.
         if (unibrush) canvas.brushPngs = UnibrushResources()::pngs
@@ -246,6 +252,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     /** `jb_symmetry`: a radial symmetry of that many copies about the middle of the view, set on the canvas as the guide widget would. */
     private fun applySymmetry() {
         val n = spec.symmetry ?: return
+        if (n == 0) { if (canvas.symmetryGuide != null) Log.i(TAG, "symmetry: none for this run"); canvas.symmetryGuide = null; return }
         val c = canvas.view.screenToDoc(canvas.width / 2f, canvas.height / 2f)
         val guide = cc.joycreator.joybrush.core.guide.Guide.Symmetry(
             cc.joycreator.joybrush.core.shape.Pt(c.first.toDouble(), c.second.toDouble()),
@@ -801,6 +808,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 gpuHogMb = intent.getIntExtra("jb_gpu_hog_mb", -1).takeIf { it > 0 },
                 sheetCut = if (intent.hasExtra("jb_sheet_cut")) intent.getBooleanExtra("jb_sheet_cut", true) else null,
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
+                under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
@@ -817,7 +825,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 pasteSoft = intent.getStringExtra("jb_paste_soft")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pasteVary = intent.getStringExtra("jb_paste_vary")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
                 pastePull = intent.getStringExtra("jb_paste_pull")?.toDoubleOrNull()?.coerceIn(0.0, 1.0),
-                symmetry = intent.getIntExtra("jb_symmetry", -1).takeIf { it in 2..16 },
+                symmetry = intent.getIntExtra("jb_symmetry", -1).takeIf { it == 0 || it in 2..16 },
                 lines = if (intent.hasExtra("jb_lines")) intent.getBooleanExtra("jb_lines", false) else null,
                 failLiftRedraw = intent.getBooleanExtra("jb_lift_fail", false),
                 sizeOverridePx = if (intent.hasExtra("jb_bench_size_px")) intent.getFloatExtra("jb_bench_size_px", Float.NaN) else null,

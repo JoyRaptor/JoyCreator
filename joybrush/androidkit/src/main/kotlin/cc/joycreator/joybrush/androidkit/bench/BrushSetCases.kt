@@ -88,6 +88,9 @@ object BrushSetCases {
         index(name, "pcol")?.let { return colour(it, w, h) }
         index(name, "setA")?.let { return cell(it, w, h, first = true) }
         index(name, "setB")?.let { return cell(it, w, h, first = false) }
+        index(name, "tstripe")?.let { return testStripe(it, w, h) }
+        index(name, "tmark")?.let { return testMark(it, w, h) }
+        if (name == "tcurve") return testCurve(w, h)
         return null
     }
 
@@ -129,6 +132,45 @@ object BrushSetCases {
         15 -> sheet(w, h, 400.0, line(120.0, 760.0, 520.0, 460.0), flat(0.7), tilt(74.0), LEAN)
         16 -> sheet(w, h, 400.0, line(120.0, 460.0, 520.0, 760.0), flat(0.7), tilt(74.0), LEAN_ACROSS)
         else -> null
+    }
+
+    // ---- The owner's test stroke (core TestStroke, 2026-11-14) on the phone: `tstripe0..8` (three passes down each colour
+    // stripe; lay them with a soft airbrush via `jb_bench_under`), `tmark0..3` (the swatch and the three lines), `tcurve`.
+    // One box, about 4 : 1, across the middle of the screen, clear of the tool strip.
+
+    private fun testBox(w: Int, h: Int): FloatArray {
+        val bw = w * 0.84f
+        val bh = bw / 4.1f
+        return floatArrayOf(w * 0.13f, h * 0.42f - bh / 2f, bw, bh)
+    }
+
+    /** The bench's orientation for an engine lean of [azimuth] (radians, y down): a quarter turn back (see [StrokeReplay]). */
+    private fun orientOf(azimuth: Float): Float = (azimuth - PI / 2).toFloat()
+
+    private fun fromPen(pen: List<cc.joycreator.joybrush.core.input.PenSample>, ox: Float, oy: Float): List<Sample> =
+        pen.map { Sample(ox + it.x, oy + it.y, it.pressure, it.tilt, orientOf(it.azimuth), it.timeMs) }
+
+    private fun testCurve(w: Int, h: Int): List<Sample> {
+        val b = testBox(w, h)
+        return fromPen(cc.joycreator.joybrush.core.brush.TestStroke.pen(b[2].toInt(), b[3].toInt(), 20f), b[0], b[1])
+    }
+
+    private fun testMark(i: Int, w: Int, h: Int): List<Sample>? {
+        val b = testBox(w, h)
+        val m = cc.joycreator.joybrush.core.brush.TestStroke.marks(b[2].toInt(), b[3].toInt(), 20f).getOrNull(i) ?: return null
+        return fromPen(m, b[0], b[1])
+    }
+
+    private fun testStripe(i: Int, w: Int, h: Int): List<Sample>? {
+        val st = cc.joycreator.joybrush.core.brush.TestStroke.STRIPES.getOrNull(i / 3) ?: return null
+        val b = testBox(w, h)
+        val inset = cc.joycreator.joybrush.core.brush.TestStroke.inset(20f)
+        val sw = b[2] - 2 * inset
+        val sh = b[3] - 2 * inset
+        val x = b[0] + inset + sw * (st.x + st.half * 0.55f * (i % 3 - 1))
+        return build(500.0, flat(0.8), 0.3f, orientOf(cc.joycreator.joybrush.core.brush.TestStroke.LEAN)) { u ->
+            x to (b[1] + inset + sh * (st.y0 + (st.y1 - st.y0) * u.toFloat()))
+        }
     }
 
     /** Cell [i] of the contact sheet, three across and up to twelve down, clear of the tool strip and the top bar. */

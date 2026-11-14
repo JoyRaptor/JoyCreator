@@ -35,7 +35,7 @@ const val STICK_GREY_CHROMA = 0.02
  * (jb_media_render.frag), cap being [STICK_LOOK_CAP_MM]; this makes a coloured deposit hide the paper about as fast.
  */
 const val STICK_LOOK_CAP_MM = 0.004
-const val STICK_INK_S_PER_MM = 1.2 / (0.18 * STICK_LOOK_CAP_MM)
+const val STICK_INK_S_PER_MM = 1.2 / (0.18 * STICK_LOOK_CAP_MM)   // 1666.67: jb_media_render.frag subtracts dry.a times this from the hide
 
 private fun linear(c: Double): Double = if (c <= 0.04045) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
 

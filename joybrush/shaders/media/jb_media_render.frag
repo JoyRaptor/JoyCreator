@@ -211,7 +211,9 @@ void main() {
     // sit on top of transparent washes but are hidden under opaque paint.
     float cover = 1.0 - exp(-dry.g / max(0.18 * u_capMm, 1e-7));
     float flake = dry.g > 1e-8 ? dry.b / dry.g : 0.0;
-    float hide = 1.0 - exp(-0.6 * (p1.r + wp.a));
+    // Opaque paint hides the flakes; a coloured pencil's film (StickInk: dry.a mm of it, 1666.7 S per mm) does not, so
+    // graphite drawn over coloured pencil still shows (brush lane, 2026-11-14).
+    float hide = 1.0 - exp(-0.6 * (max(p1.r - dry.a * 1666.6667, 0.0) + wp.a));
     // A coloured stick's deposit is a pigment film in p0 / p1 (jb_media_apply.frag), already in R: only the graphite
     // share of the deposit shows as flakes. A layer drawn before pencils took colour has none tinted.
     float graphite = 1.0 - clamp(dry.a / max(dry.g, 1e-8), 0.0, 1.0);

@@ -51,49 +51,68 @@ const zig = (x0, x1, y, amp, n) => u => {
 };
 
 
-// The owner's test stroke (2026-11-14, job BRUSH-UI), twin of core/brush/TestStroke.kt: a swoosh from a feather touch to a
-// hard press, a curl at the end with the pen laid over, a sudden lift; and the three colour lines it crosses. The box is
-// [x0, yTop] (doc px, y UP here) w wide and h tall. Tilt: the app's radians over the pen's reach (68 degrees) are the
-// lab's 0..90; the lean is up and to the left, swinging round in the curl.
-const TEST_LINES = [[0.30, 0.14, 0.33, 0.86, [0.78, 0.165, 0.133]], [0.43, 0.14, 0.46, 0.86, [0.141, 0.251, 0.659]], [0.56, 0.14, 0.59, 0.86, [0.851, 0.604, 0.122]]];
+// The owner's test stroke (2026-11-14, job BRUSH-UI), twin of core/brush/TestStroke.kt: the curve traced from his own
+// drawing (tasks/joybrush/research/test_stroke_20261114), the three colour stripes it passes through, and the swatch and
+// straight lines at the top left. The box is [x0, yTop] (doc px, y UP here) w wide and h tall. Tilt: the app's radians
+// over the pen's reach (68 degrees) are the lab's 0..90; the lean is up and to the left, swinging round through the loop.
+const TEST_PATH = [[0.0177, 0.7734, 0.02, 0.10], [0.0779, 0.7770, 0.02, 0.10], [0.1398, 0.7734, 0.03, 0.12], [0.2018, 0.7410, 0.06, 0.16], [0.2549, 0.6763, 0.12, 0.22], [0.2991, 0.5863, 0.20, 0.28], [0.3345, 0.4964, 0.28, 0.34], [0.3566, 0.4640, 0.32, 0.38], [0.3673, 0.5072, 0.34, 0.42], [0.3681, 0.6115, 0.34, 0.45], [0.3717, 0.7086, 0.34, 0.45], [0.3832, 0.7482, 0.34, 0.42], [0.4053, 0.7086, 0.36, 0.40], [0.4407, 0.5755, 0.38, 0.40], [0.4761, 0.4424, 0.40, 0.42], [0.5071, 0.3633, 0.42, 0.46], [0.5248, 0.3705, 0.42, 0.52], [0.5292, 0.4496, 0.42, 0.58], [0.5159, 0.5647, 0.42, 0.62], [0.4938, 0.6583, 0.42, 0.62], [0.4850, 0.7302, 0.44, 0.58], [0.5009, 0.7662, 0.46, 0.54], [0.5336, 0.7086, 0.48, 0.52], [0.5779, 0.5504, 0.50, 0.55], [0.6195, 0.3849, 0.54, 0.62], [0.6575, 0.2770, 0.60, 0.70], [0.6929, 0.2554, 0.66, 0.78], [0.7221, 0.3129, 0.72, 0.86], [0.7327, 0.4496, 0.76, 0.92], [0.7283, 0.6115, 0.80, 0.96], [0.7080, 0.7662, 0.82, 0.98], [0.6752, 0.8381, 0.84, 0.98], [0.6425, 0.8094, 0.84, 0.96], [0.6239, 0.6835, 0.84, 0.94], [0.6265, 0.5216, 0.86, 0.94], [0.6487, 0.3705, 0.88, 0.98], [0.6841, 0.2698, 0.90, 1.02], [0.7239, 0.2338, 0.92, 1.06], [0.7858, 0.2122, 0.96, 1.12], [0.8522, 0.2050, 1.00, 1.15], [0.9097, 0.2410, 1.00, 1.15], [0.9504, 0.3345, 1.00, 1.12], [0.9681, 0.4712, 0.98, 1.05], [0.9628, 0.6223, 0.94, 0.95], [0.9398, 0.7230, 0.90, 0.85], [0.9053, 0.7950, 0.86, 0.75], [0.8566, 0.8094, 0.82, 0.65], [0.8212, 0.7914, 0.55, 0.55], [0.7965, 0.7806, 0.12, 0.50]];
+const TEST_STRIPES = [[0.458, 0.036, [0.871, 0.561, 0.651]], [0.572, 0.036, [0.435, 0.765, 0.745]], [0.657, 0.034, [0.914, 0.812, 0.431]]];
+const testTilt = rad => Math.min(90, rad * 180 / Math.PI / 68 * 90) * D2R;
 function testStroke(tool, x0, yTop, w, h, pitch = 3) {
-  const r = Math.min(h * 0.4, w * 0.12), cx = x0 + w - r, yStart = h * 0.38, yEnd = h * 0.5 + r, cy = yEnd - r, TURN = 1.85 * Math.PI;
-  const n = Math.min(600, Math.max(24, Math.round((Math.hypot(cx - x0, yEnd - yStart) + r * TURN) / pitch))), ns = Math.max(2, Math.round(n * 0.72));
-  const deg = rad => Math.min(90, rad * 180 / Math.PI / 68 * 90);
-  const samples = [];
-  let t = 0, px = 0, py = 0;
+  const cr = (a, b, c, d, t) => 0.5 * (2 * b + (c - a) * t + (2 * a - 5 * b + 4 * c - d) * t * t + (3 * b - a - 3 * c + d) * t * t * t);
+  const P = TEST_PATH, FINE = 12, fine = [];
+  for (let i = 0; i < P.length - 1; i++) {
+    const a = P[Math.max(0, i - 1)], b = P[i], c = P[i + 1], d = P[Math.min(P.length - 1, i + 2)], last = i === P.length - 2 ? FINE : FINE - 1;
+    for (let k = 0; k <= last; k++) { const t = k / FINE; fine.push([x0 + w * cr(a[0], b[0], c[0], d[0], t), h * cr(a[1], b[1], c[1], d[1], t), b[2] + (c[2] - b[2]) * t, b[3] + (c[3] - b[3]) * t, (i + t) / (P.length - 1)]); }
+  }
+  const along = [0];
+  for (let i = 1; i < fine.length; i++) along.push(along[i - 1] + Math.hypot(fine[i][0] - fine[i - 1][0], fine[i][1] - fine[i - 1][1]));
+  const length = along[along.length - 1], n = Math.min(900, Math.max(48, Math.round(length / pitch))), samples = [];
+  let j = 0;
   for (let i = 0; i < n; i++) {
-    let x, y, p, tilt, az, v;
-    if (i < ns) { const k = i / (ns - 1); x = x0 + (cx - x0) * k; y = yStart + (yEnd - yStart) * k * k; p = 0.03 + 0.87 * Math.pow(k, 1.7); tilt = 0.12 + 0.38 * k; az = 135; v = 1.4; }
-    else { const k = (i - ns + 1) / (n - ns), a = TURN * k; x = cx + r * Math.sin(a); y = cy + r * Math.cos(a); p = 0.9 + 0.1 * k; tilt = 0.5 + 0.6 * k; az = 135 + 80 * k; v = 0.7; }
-    if (i > 0) t += Math.hypot(x - px, y - py) / v;
-    px = x; py = y;
-    samples.push({ x, y: yTop - y, p, tilt: deg(tilt) * D2R, az: az * D2R, t });
+    const s = length * i / (n - 1);
+    while (j < fine.length - 2 && along[j + 1] < s) j++;
+    const span = along[j + 1] - along[j], t = span > 0 ? Math.min(1, Math.max(0, (s - along[j]) / span)) : 0, a = fine[j], b = fine[j + 1], mix = k => a[k] + (b[k] - a[k]) * t;
+    const swing = Math.min(1, Math.max(0, (mix(4) - 0.55) / 0.45));
+    samples.push({ x: mix(0), y: yTop - mix(1), p: Math.min(1, Math.max(0, mix(2))), tilt: testTilt(mix(3)), az: (135 + 69 * swing) * D2R, t: s / 1.2 });
   }
   return { tool, samples };
 }
-function testLine(tool, line, x0, yTop, w, h) {
-  const n = 40, samples = [];
-  for (let i = 0; i < n; i++) { const k = i / (n - 1); samples.push({ x: x0 + w * (line[0] + (line[2] - line[0]) * k), y: yTop - h * (line[1] + (line[3] - line[1]) * k), p: 0.7, tilt: 26 * D2R, az: 135 * D2R, t: i * 6 }); }
-  return { tool, samples, color: line[4] };
+// A stripe as strokes of the brush itself: three passes down the band, firm and plain.
+function testStripe(tool, stripe, x0, yTop, w, h) {
+  const out = [];
+  for (const dx of [-0.5, 0, 0.5]) {
+    const n = 40, samples = [];
+    for (let i = 0; i < n; i++) { const k = i / (n - 1); samples.push({ x: x0 + w * (stripe[0] + stripe[1] * dx), y: yTop - h * (0.07 + 0.9 * k), p: 0.7, tilt: 26 * D2R, az: 135 * D2R, t: i * 6 }); }
+    out.push({ tool, samples, color: stripe[2] });
+  }
+  return out;
+}
+function testMarks(tool, x0, yTop, w, h) {
+  const M = [[0.010, 0.34, 0.050, 0.09, 0.75, 0.85, 1.05], [0.058, 0.37, 0.126, 0.05, 0.55, 0.04, 0.60], [0.120, 0.37, 0.184, 0.05, 0.25, 0.02, 0.30], [0.176, 0.37, 0.250, 0.00, 0.10, 0.01, 0.10]];
+  return M.map(m => { const n = 40, samples = []; for (let i = 0; i < n; i++) { const k = i / (n - 1); samples.push({ x: x0 + w * (m[0] + (m[2] - m[0]) * k), y: yTop - h * (m[1] + (m[3] - m[1]) * k), p: m[4] + (m[5] - m[4]) * k, tilt: testTilt(m[6]), az: 135 * D2R, t: i * 6 }); } return { tool, samples }; });
 }
 
 export const SHEETS = {
-  // The test stroke, one cell a brush (?tools=a,b,c with ?medium=dry|wet|paste, default the pencils): the three colour lines
-  // laid with the brush itself, then the swoosh in a dark ink. What the editor preview, the drawer and the contact sheets draw.
+  // The test stroke, one cell a brush (?tools=a,b,c with ?medium=dry|wet|paste, default the pencils), each 1150 x 300 as
+  // he drew it: the three colour stripes laid with the brush itself, the swatch and lines, then the curve in a dark ink.
   teststroke: {
-    size: [1700, 2600],
+    size: [1250, 2800],
     paper: 'drawing_tooth',
     strokes() {
       const q = new URLSearchParams(location.search), kind = q.get('medium') || 'dry', s = [];
-      const names = (q.get('tools') || Object.keys(SET_TOOLS[kind]).join(',')).split(','), cw = 850, ch = 320;
-      const H = Math.ceil(names.length / 2) * ch, INK = [0.18, 0.2, 0.27];
+      const names = (q.get('tools') || Object.keys(SET_TOOLS[kind]).join(',')).split(','), ch = 340;
+      const H = names.length * ch, INK = [0.18, 0.2, 0.27];
       names.forEach((n, i) => {
-        const x0 = (i % 2) * cw + 50, yTop = H - Math.floor(i / 2) * ch - 30, w = cw - 100, h = ch - 60;
-        const as = st => (kind === 'dry' ? st : { ...st, kind, tool: n, wetness: 3 });
-        for (const l of TEST_LINES) s.push(as(testLine(n, l, x0, yTop, w, h)));
-        if (kind === 'wet') s.push({ wait: 3 });
-        s.push(as({ ...testStroke(n, x0, yTop, w, h), color: kind === 'dry' ? undefined : INK }));
+        const x0 = 50, yTop = H - i * ch - 20, w = 1150, h = ch - 40;
+        const as = st => (kind === 'dry' ? st : { ...st, kind, tool: n, wetness: 3, color: st.color || INK });
+        // The stripes are paint already on the paper, as in his drawing: a watercolour wash under pencils and watercolour, oil
+        // paint under oils (so the brush shows what it picks up, smears or blurs).
+        for (const st of TEST_STRIPES) for (const pass of testStripe(n, st, x0, yTop, w, h))
+          s.push(kind === 'paste' ? { ...pass, kind: 'paste', tool: 'Oil flat' } : { ...pass, kind: 'wet', tool: 'Round', wetness: 1 });
+        if (kind !== 'paste') s.push({ wait: 6 });
+        for (const m of testMarks(n, x0, yTop, w, h)) s.push(as(m));
+        s.push(as(testStroke(n, x0, yTop, w, h)));
       });
       if (kind === 'wet') s.push({ wait: Number(q.get('dryS') || 15) });
       return s;

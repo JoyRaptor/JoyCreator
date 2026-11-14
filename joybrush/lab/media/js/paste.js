@@ -231,6 +231,13 @@ export class PasteStroke {
       halfW = b.widthMm / 2 * (b.shape === 0 ? 0.55 + 0.45 * Math.sqrt(P) : 0.9 + 0.1 * P) * (1 + 0.2 * tiltFrac) * onCorner;
       lenFull = b.lenMm * (0.25 + 0.75 * Math.pow(P, 0.8)) * (1 + 0.4 * tiltFrac);
     }
+    // Taper (the app's PasteBrush.taper, 2026-11-14): narrower and thinner at the start and wherever the pen eases off.
+    if ((b.taper ?? 0) > 0) {
+      const t = Math.min(1, Math.max(0, b.taper)), start = smooth(0, t * 2.5 * Math.max(b.widthMm, 1), tr);
+      const k = (1 - 0.85 * t * (1 - start)) * (1 - 0.85 * t * lift);
+      halfW *= k;
+      thick = (thick ?? b.thickMm) * k;
+    }
     // On touchdown a round is a dot and a flat its pressed chisel; the hairs trail out behind only as far as
     // the brush has actually travelled.
     const minLen = b.shape === 0 ? 2 * halfW : 0.5 * halfW;

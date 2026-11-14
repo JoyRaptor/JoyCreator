@@ -1666,6 +1666,8 @@ public class SharedPreferencesManager {
     public static final String PREF_PRIVACY_BLACK_LONG_PRESS = "privacy_black_long_press";
 
     public boolean isPrivacyBlackModeEnabled() {
+        // SHOW-1: the Play build leaves out the privacy black screen (its activity is removed from that manifest).
+        if (BuildConfig.PLAY_BUILD) return false;
         return sharedPreferences.getBoolean(PREF_PRIVACY_BLACK_MODE_ENABLED, false);
     }
 

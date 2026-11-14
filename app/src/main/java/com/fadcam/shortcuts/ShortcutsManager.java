@@ -286,8 +286,8 @@ public class ShortcutsManager {
                 ctx.getString(com.fadcam.R.string.shortcut_take_photo_front)
             )
         );
-        // Screenshot
-        list.add(
+        // Screenshot (not in the Play build: it needs the accessibility service that build leaves out, SHOW-1)
+        if (!com.fadcam.BuildConfig.PLAY_BUILD) list.add(
             buildShortcut(
                 ID_SCREENSHOT,
                 new Intent(Intent.ACTION_VIEW).setClassName(
@@ -430,7 +430,7 @@ public class ShortcutsManager {
                         ctx.getString(com.fadcam.R.string.shortcut_take_photo_front)
                     )
                 );
-                pinned.add(
+                if (!com.fadcam.BuildConfig.PLAY_BUILD) pinned.add(
                     buildShortcutForPin(
                         ID_SCREENSHOT,
                         new Intent(Intent.ACTION_VIEW).setClassName(

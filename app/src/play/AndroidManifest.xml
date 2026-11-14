@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SHOW-1, the Play build: this file is merged over src/main/AndroidManifest.xml for the `play` flavour only and
+  removes the FadCam-era parts Google Play treats as stalkerware or permission misuse
+  (tasks/LAUNCH_STRATEGY.md section 3, tasks/STATE.md "must leave the Play build"). The `default` flavour,
+  the side-loaded build, keeps all of them. The matching settings rows are hidden by BuildConfig.PLAY_BUILD.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- All-files access: never requested in code; the Joy Creator folder uses Android's folder picker. -->
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" tools:node="remove" />
+
+    <application>
+        <!-- FadCam's static launcher shortcuts (start recording, screenshot): they name the old app ID. -->
+        <meta-data android:name="android.app.shortcuts" tools:node="remove" />
+
+        <!-- Screenshots through the Accessibility API: a policy violation for a non-accessibility use. -->
+        <service android:name=".service.FadRecScreenshotAccessibilityService" tools:node="remove" />
+        <activity android:name=".ScreenShotCaptureActivity" tools:node="remove" />
+
+        <!-- The privacy black screen. -->
+        <activity android:name=".ui.PrivacyBlackActivity" tools:node="remove" />
+
+        <!-- The disguise icons (FadCam's launcher aliases: Calculator, Notes, Weather, r00t, ...). -->
+        <activity-alias android:name=".MainActivity.AlternativeIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.FadedIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.PakistanIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.NoorIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.BatIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.RedBinaryIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.NotesIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.CalculatorIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.ClockIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.WeatherIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.FootballIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.CarIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.JetIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.MinimalIcon" tools:node="remove" />
+        <activity-alias android:name=".MainActivity.BlackIcon" tools:node="remove" />
+    </application>
+</manifest>

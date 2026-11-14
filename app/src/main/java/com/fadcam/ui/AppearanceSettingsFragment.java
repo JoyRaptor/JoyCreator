@@ -432,6 +432,11 @@ public class AppearanceSettingsFragment extends Fragment implements com.fadcam.u
         View row = root.findViewById(R.id.row_app_icon);
         TextView value = root.findViewById(R.id.value_app_icon);
         if (row == null || value == null) return;
+        // SHOW-1: the Play build has no disguise icons (their launcher aliases are removed from its manifest).
+        if (com.fadcam.BuildConfig.PLAY_BUILD) {
+            row.setVisibility(View.GONE);
+            return;
+        }
         String currentIcon =
             sharedPreferencesManager.sharedPreferences.getString(
                 Constants.PREF_APP_ICON,

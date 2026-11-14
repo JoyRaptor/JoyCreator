@@ -10,4 +10,5 @@
     <string name="hover_lobby_floor_packs">Packs: your installed packs, looks, brushes and fonts</string>
     <string name="hover_lobby_floor_setup">Setup: all settings</string>
     <string name="hover_lobby_stat">Space: what is using room on this phone</string>
+    <string name="hover_library_paste_picture">Put a picture you copied in another app into your Joy Creator folder</string>
 </resources>

@@ -24,7 +24,7 @@ import kotlin.math.roundToInt
  */
 object TestStroke {
     /** Bumped whenever the stroke, its marks or its stripes change: stored brush previews drawn with an older one are stale. */
-    const val VERSION = 4
+    const val VERSION = 5
 
     /** One traced point of the curve: [x], [y] as shares of the box (0..1), the pen's [pressure] and [tilt] (radians from upright) there. */
     class P(val x: Float, val y: Float, val pressure: Float, val tilt: Float)
@@ -56,20 +56,22 @@ object TestStroke {
         P(0.5336f, 0.7086f, 0.48f, 0.52f),
         P(0.5779f, 0.5504f, 0.50f, 0.55f),
         P(0.6195f, 0.3849f, 0.54f, 0.62f),
-        P(0.6531f, 0.2842f, 0.60f, 0.70f),
-        P(0.6796f, 0.2626f, 0.63f, 0.74f),
-        P(0.6885f, 0.2914f, 0.66f, 0.78f),
-        P(0.6708f, 0.3633f, 0.69f, 0.82f),
-        P(0.6460f, 0.5072f, 0.72f, 0.86f),
-        P(0.6283f, 0.6583f, 0.75f, 0.90f),
-        P(0.6336f, 0.7806f, 0.78f, 0.94f),
-        P(0.6549f, 0.8381f, 0.81f, 0.97f),
-        P(0.6814f, 0.8022f, 0.84f, 1.00f),
-        P(0.7044f, 0.6835f, 0.87f, 1.03f),
-        P(0.7310f, 0.5504f, 0.90f, 1.06f),
-        P(0.7664f, 0.4137f, 0.93f, 1.09f),
-        P(0.8053f, 0.3058f, 0.96f, 1.12f),
-        P(0.8522f, 0.2338f, 1.00f, 1.15f),
+        P(0.6531f, 0.2842f, 0.58f, 0.68f),
+        P(0.6814f, 0.2482f, 0.61f, 0.72f),
+        P(0.7044f, 0.2842f, 0.64f, 0.76f),
+        P(0.7186f, 0.3921f, 0.67f, 0.80f),
+        P(0.7150f, 0.5396f, 0.70f, 0.84f),
+        P(0.6991f, 0.6942f, 0.73f, 0.88f),
+        P(0.6761f, 0.8022f, 0.76f, 0.91f),
+        P(0.6513f, 0.8165f, 0.79f, 0.94f),
+        P(0.6336f, 0.7302f, 0.82f, 0.97f),
+        P(0.6354f, 0.5863f, 0.85f, 1.00f),
+        P(0.6496f, 0.4353f, 0.88f, 1.03f),
+        P(0.6735f, 0.2878f, 0.91f, 1.06f),
+        P(0.7062f, 0.2050f, 0.94f, 1.09f),
+        P(0.7504f, 0.1691f, 0.97f, 1.12f),
+        P(0.8080f, 0.1691f, 1.00f, 1.15f),
+        P(0.8655f, 0.2050f, 1.00f, 1.15f),
         P(0.9097f, 0.2410f, 1.00f, 1.15f),
         P(0.9504f, 0.3345f, 1.00f, 1.12f),
         P(0.9681f, 0.4712f, 0.98f, 1.05f),

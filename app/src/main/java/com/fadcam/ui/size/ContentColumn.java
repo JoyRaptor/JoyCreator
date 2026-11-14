@@ -81,6 +81,8 @@ public final class ContentColumn {
         int maxPx;
         /** The padding this class added on EACH side last time; the rest belongs to the view. */
         int added;
+        /** The side paddings as this class last left them, to notice someone else resetting them. */
+        int setL = -1, setR = -1;
 
         State(int maxPx) { this.maxPx = maxPx; }
 
@@ -91,14 +93,21 @@ public final class ContentColumn {
         }
 
         void fit(View v, int width) {
-            int baseL = v.getPaddingLeft() - added;
-            int baseR = v.getPaddingRight() - added;
+            // If an insets listener (or anyone) set a side since we did, what is there now is
+            // entirely theirs; otherwise ours is the part we added on top of theirs.
+            int baseL = v.getPaddingLeft() == setL ? setL - added : v.getPaddingLeft();
+            int baseR = v.getPaddingRight() == setR ? setR - added : v.getPaddingRight();
             int want = SizeClass.sideInset(width, baseL, baseR, maxPx);
-            if (want == added) return;
+            if (baseL + want == v.getPaddingLeft() && baseR + want == v.getPaddingRight()) {
+                added = want; setL = baseL + want; setR = baseR + want;
+                return;
+            }
             added = want;
+            setL = baseL + want;
+            setR = baseR + want;
             // Inside a layout pass: Android runs a second pass before drawing, so the full-width
             // frame is never shown.
-            v.setPadding(baseL + want, v.getPaddingTop(), baseR + want, v.getPaddingBottom());
+            v.setPadding(setL, v.getPaddingTop(), setR, v.getPaddingBottom());
         }
     }
 }

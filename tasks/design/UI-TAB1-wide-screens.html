@@ -1,0 +1,519 @@
+<title>Joy Creator Wide Screens</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sticky size bar, then one section per screen. Each section = directions (whole looks)
+   + a true-size mock (1 CSS px = 1 dp on the tablet's own browser) + per-part swaps.
+   Joy Creator's own language: old black, zinc greys, flat pills, cyan only for "chosen".
+   Single dark look on purpose: it is the app's look. */
+:root {
+  color-scheme: dark;
+  --ground: #000000;
+  --surface: #0D0D10;
+  --panel: #111114;
+  --raised: #1C1C22;
+  --pressed: #26262E;
+  --line: #2C2C35;
+  --ink: #E4E4E7;
+  --ink-dim: #A1A1AA;
+  --ink-faint: #71717A;
+  --ink-off: #4B4B55;
+  --armed: #22D3EE;
+  --on-armed: #050507;
+  --live: #F43F8E;
+  --go: #35F6BF;
+  --go-end: #97FE8B;
+  --careful: #FBBF24;
+  --guide: #A78BFA;
+  --room-studio: #35F6BF;
+  --room-capture: #FA3D5D;
+  --room-sprite: #FF008C;
+  --room-avatar: #CC27FF;
+  --room-viz: #FAA03D;
+  --room-text: #38A3FF;
+  --room-brush: #F9F462;
+  --drawer: rgba(17, 17, 20, 0.55);
+  --display: "Archivo", "Atkinson Hyperlegible", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--body); font-size: 16px; line-height: 1.55; }
+.wrap { max-width: 1520px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 80px; display: grid; gap: 48px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.02; font-weight: 800; text-transform: uppercase; }
+h2 { font-size: 26px; font-weight: 800; text-transform: uppercase; }
+h3 { font-size: 16px; font-weight: 700; }
+p { margin: 0; max-width: 70ch; }
+.lede { color: var(--ink-dim); font-size: 17px; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+section { display: grid; gap: 18px; min-width: 0; }
+.head { display: grid; gap: 10px; }
+.rules { display: flex; flex-wrap: wrap; gap: 8px; }
+.rule { background: var(--raised); border-radius: 999px; padding: 6px 12px; font-size: 14px; color: var(--ink-dim); }
+
+/* the size bar */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: rgba(0,0,0,0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding-block: 10px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-bottom: 1px solid var(--line); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 30; background: #000; }
+.bar .lbl { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); margin-right: 4px; }
+.chip { font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--raised); border: 0; border-radius: 999px; padding: 7px 13px; cursor: pointer; white-space: nowrap; }
+.chip:hover { background: var(--pressed); }
+.chip[aria-pressed="true"] { background: var(--armed); color: var(--on-armed); }
+.chip:focus-visible, .opt:focus-visible, .dir:focus-visible, button:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+.bar .sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+.bar .dims { font-family: var(--mono); font-size: 12px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+/* directions */
+.dirs { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+.dir { text-align: left; font: inherit; color: var(--ink); background: var(--panel); border: 0; border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; cursor: pointer; min-width: 0; }
+.dir:hover { background: var(--raised); }
+.dir b { font-family: var(--display); font-size: 17px; font-weight: 800; text-transform: uppercase; letter-spacing: -0.01em; }
+.dir span { font-size: 14px; color: var(--ink-dim); }
+.dir .code { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.dir[aria-pressed="true"] { background: var(--armed); color: var(--on-armed); }
+.dir[aria-pressed="true"] span, .dir[aria-pressed="true"] .code { color: var(--on-armed); }
+
+/* the device */
+.stage { overflow-x: auto; background: var(--surface); border-radius: 16px; padding: 16px; }
+.stage .cap { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; }
+.fitbox { position: relative; }
+.dev { position: relative; background: var(--ground); border-radius: 18px; outline: 8px solid #1a1a1f; overflow: hidden; transform-origin: 0 0; font-family: var(--body); color: var(--ink); }
+.dev * { position: absolute; }
+.dev .flow, .dev .flow * { position: static; }
+
+/* parts */
+.parts { display: grid; gap: 14px; }
+.part { background: var(--panel); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; min-width: 0; }
+.part .q { display: grid; gap: 2px; }
+.part .q b { font-size: 16px; }
+.part .q b i { font-style: normal; font-family: var(--mono); font-size: 12px; color: var(--ink-faint); margin-right: 8px; }
+.part .q span { font-size: 14px; color: var(--ink-dim); }
+.opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.opt { text-align: left; font: inherit; color: var(--ink); background: var(--raised); border: 0; border-radius: 10px; padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; min-width: 0; }
+.opt:hover { background: var(--pressed); }
+.opt b { font-size: 15px; }
+.opt b i { font-style: normal; font-family: var(--mono); font-size: 12px; margin-right: 6px; opacity: 0.7; }
+.opt span { font-size: 13.5px; color: var(--ink-dim); }
+.opt em { font-style: normal; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.opt[aria-pressed="true"] { background: var(--armed); color: var(--on-armed); }
+.opt[aria-pressed="true"] span, .opt[aria-pressed="true"] em { color: var(--on-armed); }
+
+/* picks line */
+.picks { background: var(--panel); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+.picks pre { margin: 0; font-family: var(--mono); font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; background: var(--ground); border-radius: 10px; padding: 12px; }
+.picks textarea { width: 100%; min-height: 84px; font: inherit; font-size: 15px; color: var(--ink); background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; resize: vertical; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.go { font: inherit; font-weight: 700; font-size: 15px; color: #050507; background: linear-gradient(90deg, var(--go), var(--go-end)); border: 0; border-radius: 999px; padding: 10px 18px; cursor: pointer; }
+.ok { font-size: 14px; color: var(--go); }
+.note { font-size: 14px; color: var(--ink-dim); }
+.note b { color: var(--ink); }
+.split { display: grid; gap: 18px; }
+@media (prefers-reduced-motion: no-preference) { .dev .anim { transition: left .18s ease, top .18s ease, width .18s ease, height .18s ease; } }
+
+/* ---- pieces drawn inside a mock (all absolutely placed, sizes in dp) ---- */
+.dev .sb { background: var(--surface); }
+.dev .txt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dev .ico { font-family: var(--mono); color: var(--ink-dim); text-align: center; }
+.dev .pill { border-radius: 999px; background: var(--raised); color: var(--ink); text-align: center; font-weight: 700; font-size: 12px; }
+.dev .cell { background: transparent; color: var(--ink-dim); text-align: center; font-size: 10px; }
+.dev .drw { background: var(--drawer); border-radius: 14px 14px 0 0; }
+.dev .drw.side { border-radius: 0; }
+.dev.frost .drw { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.dev .rowline { background: rgba(255,255,255,0.04); border-radius: 8px; }
+.dev .lab { font-size: 12px; color: #C4C4CE; }
+.dev .val { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); text-align: right; }
+.dev .knob { border-radius: 999px; background: var(--line); }
+.dev .knob i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--ink-dim); }
+.dev .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); }
+.dev .callout { font-family: var(--mono); font-size: 11px; color: var(--on-armed); background: var(--armed); border-radius: 6px; padding: 3px 7px; white-space: nowrap; z-index: 9; }
+</style>
+
+<div class="bar" role="toolbar" aria-label="Screen size">
+  <span class="lbl">Window</span>
+  <span id="sizes" class="row" style="gap:6px"></span>
+  <span class="sep"></span>
+  <span class="lbl">Scale</span>
+  <button class="chip" id="fit" type="button" aria-pressed="true" title="Shrink the mock to fit this browser">Fit</button>
+  <button class="chip" id="true" type="button" aria-pressed="false" title="One CSS pixel per dp: true size on the tablet's own browser">True size</button>
+  <span class="sep"></span>
+  <button class="chip" id="frost" type="button" aria-pressed="false" title="Drawers stay see-through; Frost adds blur only">Frost</button>
+  <span class="dims" id="dims"></span>
+</div>
+
+<div class="wrap">
+  <header class="head">
+    <span class="eyebrow">TAB-1 · every screen size · pick per part</span>
+    <h1>Wide screens</h1>
+    <p class="lede">Three screens need your eye before anyone builds them for a tablet: Studio's drawers, JoyBrush, and the lobby. Each has a few whole directions to start from, then every part can be swapped on its own. The mock follows the size bar at the top: try the tablet both ways, half a tablet in split-screen, and a phone on its side. Open this on the tablet and press <b>True size</b> to see it at the real size.</p>
+    <div class="rules">
+      <span class="rule">The phone stays exactly as drawn</span>
+      <span class="rule">dp stay as drawn: more room means more content, never bigger controls</span>
+      <span class="rule">Drawers about 55% see-through; Frost adds blur only</span>
+      <span class="rule">Decided by the window's size, so split-screen and a phone on its side behave the same</span>
+      <span class="rule">The old way stays selectable</span>
+    </div>
+    <p class="note"><b>Already done without a design call:</b> Settings, the intro pages and What's New sit in a centred column on a wide window; the Library shows more cards across at their phone size; pop-up sheets stop at 640 dp wide. Those need no pick.</p>
+  </header>
+
+  <section id="sec-studio" aria-labelledby="h-studio">
+    <div class="head">
+      <span class="eyebrow">Studio · drawers</span>
+      <h2 id="h-studio">Drawers beside the picture</h2>
+      <p class="lede">On the phone a drawer rises from the bottom and covers part of the picture. On a wide window it can stand beside the picture instead, so you see the whole frame while you change a title or a sound. The drawer's rows stay exactly the phone's size. Tap a tool cell in the mock to open its drawer; tap it again to close.</p>
+    </div>
+    <div class="dirs" data-dirs="studio"></div>
+    <div class="stage"><div class="cap"><span data-cap="studio"></span><span>dp, true size</span></div><div class="fitbox" data-fit="studio"><div class="dev" data-dev="studio"></div></div></div>
+    <div class="parts" data-parts="studio"></div>
+  </section>
+
+  <section id="sec-brush" aria-labelledby="h-brush">
+    <div class="head">
+      <span class="eyebrow">JoyBrush · tablet and S Pen</span>
+      <h2 id="h-brush">JoyBrush on a tablet</h2>
+      <p class="lede">A tablet is where painting with the S Pen feels best. The question is what stays hidden until called, as on the phone, and what can stay out for good now that there is room: the layers, the colours, the brushes, the frames.</p>
+    </div>
+    <div class="dirs" data-dirs="brush"></div>
+    <div class="stage"><div class="cap"><span data-cap="brush"></span><span>dp, true size</span></div><div class="fitbox" data-fit="brush"><div class="dev" data-dev="brush"></div></div></div>
+    <div class="parts" data-parts="brush"></div>
+  </section>
+
+  <section id="sec-lobby" aria-labelledby="h-lobby">
+    <div class="head">
+      <span class="eyebrow">Lobby · with DOOR-2</span>
+      <h2 id="h-lobby">The lobby on a wide screen</h2>
+      <p class="lede">Today the tablet shows the phone lobby stretched: the room names repeat across the top, the picture is a thin letterbox, the New buttons grow to about 290 dp each and the lower third is empty. Each direction below keeps every piece at its phone size and uses the room for more of your work.</p>
+    </div>
+    <div class="dirs" data-dirs="lobby"></div>
+    <div class="stage"><div class="cap"><span data-cap="lobby"></span><span>dp, true size</span></div><div class="fitbox" data-fit="lobby"><div class="dev" data-dev="lobby"></div></div></div>
+    <div class="parts" data-parts="lobby"></div>
+  </section>
+
+  <section class="picks" id="picks" aria-labelledby="picks-h">
+    <h2 id="picks-h">Your picks</h2>
+    <p class="note">Copy this line and send it back. Notes are welcome: anything you say there wins over the line.</p>
+    <pre id="code"></pre>
+    <label for="noteta" class="note">Notes</label>
+    <textarea id="noteta" placeholder="For example: S2 B but a little narrower; lobby like L-B with the rooms from L-C"></textarea>
+    <div class="row"><button class="go" id="copy" type="button" title="Copy your picks and notes">Copy my picks</button><span class="ok" id="copied" aria-live="polite"></span></div>
+  </section>
+</div>
+
+<script>
+'use strict';
+/* ---------- sizes: dp of the whole window, then the app area inside the system bars ---------- */
+const SIZES = [
+  {k:'tl', n:'Tablet sideways', w:1480, h:924},
+  {k:'tp', n:'Tablet upright', w:924, h:1480},
+  {k:'half', n:'Half tablet', w:736, h:924, tip:'Split-screen: the app gets half of the tablet sideways'},
+  {k:'ps', n:'Phone sideways', w:846, h:411},
+  {k:'pu', n:'Note 9 upright', w:411, h:846}
+];
+const STATUS = 24, NAV = 20;
+const WIDTH_MEDIUM = 600, WIDTH_EXPANDED = 840;   /* the app's SizeClass, same numbers */
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem(k)); } catch(e){ return null; } },
+  set(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+};
+let SIZE = 'tl', SCALE = 'fit', FROST = false;
+const sizeOf = () => SIZES.find(s => s.k === SIZE);
+
+/* ---------- drawing helpers: every piece is a box placed in dp ---------- */
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function box(x, y, w, h, cls, style, inner, attrs){
+  return `<div class="${cls||''}" style="left:${x}px;top:${y}px;width:${Math.max(0,w)}px;height:${Math.max(0,h)}px;${style||''}" ${attrs||''}>${inner||''}</div>`;
+}
+function text(x, y, w, h, s, style, cls){ return box(x, y, w, h, 'txt ' + (cls||''), `line-height:${h}px;${style||''}`, esc(s)); }
+function frame(W, H, body){
+  /* status bar and gesture bar, as the tablet draws them */
+  return box(0, 0, W, STATUS, 'sb', '', text(16, 0, 80, STATUS, '10:42', 'font-size:12px;color:#A1A1AA;font-family:var(--mono)'))
+    + body
+    + box(0, H - NAV, W, NAV, '', 'background:#000', box(W/2 - 54, 8, 108, 4, '', 'background:#71717A;border-radius:2px'));
+}
+function callout(x, y, s){ return box(x, y, 0, 0, '', 'overflow:visible', `<div class="callout" style="left:0;top:0">${esc(s)}</div>`); }
+
+/* ---------- the picture shown in Studio's preview (a sunset scene, drawn with gradients) ---------- */
+function picture(x, y, w, h, title){
+  const sun = Math.min(w, h) * 0.22;
+  return box(x, y, w, h, '', 'overflow:hidden;background:linear-gradient(180deg,#1b1240 0%,#6b2a5a 45%,#f08a4b 78%,#2a1a24 79%,#120d14 100%)',
+      box(w*0.62, h*0.52, sun, sun, '', 'border-radius:50%;background:radial-gradient(circle,#ffd27a,#f59e4b 70%)')
+    + box(0, h*0.74, w, h*0.26, '', 'background:linear-gradient(180deg,#24151f,#0b0710)')
+    + (title ? box(w*0.08, h*0.16, w*0.84, Math.max(18, h*0.14), '', `display:flex;align-items:center;justify-content:center;font-family:var(--display);font-weight:800;font-size:${Math.max(14, Math.round(h*0.1))}px;letter-spacing:-0.02em;color:#fff;text-transform:uppercase;text-shadow:0 2px 12px rgba(0,0,0,.5)`, esc(title)) : ''));
+}
+
+/* =========================================================================================
+   STUDIO
+   ========================================================================================= */
+const STUDIO_TOOLS = ['1x','Split','Text','Audio','Look','FX','Crop','Speed','Stickers','Voice'];
+const STUDIO_DRAWERS = {
+  Text:  {tabs:['Style','Look','Motion','Timing'], rows:['Words','Font','Size','Colour','Outline','Shadow','Box','Place']},
+  Audio: {tabs:['Clean','Volume','Fades','Beat'], rows:['Reduce noise','Normalize','Volume','Fade in','Fade out','Duck under voice']},
+  Look:  {tabs:['Grade','Light','Colour'], rows:['Grade','Strength','Exposure','Contrast','Warmth','Tint','Grain']},
+  FX:    {tabs:['Effects','Keys'], rows:['Glow','Blur','Shake','Chroma key','Vignette']},
+  Crop:  {tabs:['Crop','Turn'], rows:['Shape','Zoom','Turn','Flip']},
+  Speed: {tabs:['Speed','Curve'], rows:['Speed','Keep pitch','Smooth']},
+  Stickers: {tabs:['Mine','Packs'], rows:['Recent','Shapes','Arrows']},
+  Voice: {tabs:['Record','Effects'], rows:['Input','Level','Count-in']},
+  Split: {tabs:['Split'], rows:['At playhead','Into pieces']},
+  '1x':  {tabs:['Zoom'], rows:['Timeline zoom']}
+};
+let STUDIO_OPEN = ['Text'];   /* drawers open in the mock, oldest first */
+
+const PARTS = {
+  studio: [
+    {k:'S1', q:'Which side', why:'Where the panel stands. The picture moves to the other side.', opts:[
+      {k:'A', n:'Right', d:'The right hand reaches it; the picture sits left, where a timeline reads from.'},
+      {k:'B', n:'Left', d:'Mirror of A: picture on the right, panel by the left thumb.'},
+      {k:'C', n:'Right, flips for left hands', d:'Right by default; a left-hand switch in Settings mirrors it (and JoyBrush with it).'}]},
+    {k:'S2', q:'How wide', why:'Rows inside keep their phone size either way; width only decides how long a row is.', opts:[
+      {k:'A', n:'360 dp', d:'A phone’s width: the drawer exactly as you know it.'},
+      {k:'B', n:'420 dp', d:'A little more room for long names and two sliders side by side.'},
+      {k:'C', n:'A third of the window', d:'Grows with the screen: 490 dp on the tablet sideways, never under 360.'}]},
+    {k:'S3', q:'One drawer or two', why:'For example Text with its Look sliders, or Audio beside Voice.', opts:[
+      {k:'A', n:'One at a time', d:'Opening another drawer replaces the one that is open, as on the phone.'},
+      {k:'B', n:'Two side by side', d:'A second drawer opens beside the first; a third replaces the older one.'},
+      {k:'C', n:'Two stacked', d:'Both in one column, each half the height; the picture keeps its width.'}]},
+    {k:'S4', q:'Where the timeline goes', why:'The timeline is the long strip of clips under the picture.', opts:[
+      {k:'A', n:'Full width at the bottom', d:'The panel stops above the timeline, so clips keep the whole width.'},
+      {k:'B', n:'Under the picture only', d:'The panel runs the full height; the timeline is as wide as the picture.'}]},
+    {k:'S5', q:'What the picture does', why:'Drawers are never solid: the picture always shows through them.', opts:[
+      {k:'A', n:'Moves aside', d:'The picture shrinks to the room left beside the panel: nothing is covered.'},
+      {k:'B', n:'Stays put', d:'The picture keeps its size; the see-through panel stands over its edge.'}]},
+    {k:'S6', q:'When the panel appears', why:'Below this, drawers rise from the bottom as on the phone. Try the size bar.', opts:[
+      {k:'A', n:'Wide windows only', d:'840 dp and up: the tablet either way. Half a tablet and a phone on its side keep the phone drawer.'},
+      {k:'B', n:'Any window 600 dp and up', d:'Also half a tablet and a phone on its side.'},
+      {k:'C', n:'A switch in Settings', d:'"Drawers: rise from the bottom / stand beside", starting as A. Keeps the old way one tap away.'}]}
+  ]
+};
+const DIRS = {
+  studio: [
+    {n:'Editing desk', d:'One phone-width panel on the right, the picture moves aside, timeline full width. Tablet only.', p:{S1:'C',S2:'A',S3:'A',S4:'A',S5:'A',S6:'C'}},
+    {n:'Two drawers', d:'Two phone-width drawers side by side, so Text and its Look sliders are both out.', p:{S1:'A',S2:'A',S3:'B',S4:'A',S5:'A',S6:'A'}},
+    {n:'Tall column', d:'A wider panel running the full height; the timeline sits under the picture.', p:{S1:'A',S2:'B',S3:'C',S4:'B',S5:'A',S6:'B'}},
+    {n:'Over the edge', d:'The picture never moves; a see-through panel stands over its right edge.', p:{S1:'A',S2:'A',S3:'A',S4:'A',S5:'B',S6:'A'}}
+  ]
+};
+
+function studioDrawerBody(x, y, w, h, name, side){
+  const d = STUDIO_DRAWERS[name] || STUDIO_DRAWERS.Text;
+  let s = '';
+  /* grab handle on the phone drawer only */
+  if (!side) s += box(x + w/2 - 18, y + 6, 36, 4, '', 'background:#4B4B55;border-radius:2px');
+  const hy = y + (side ? 8 : 14);
+  s += text(x + 14, hy, w - 60, 28, name.toUpperCase(), 'font-family:var(--display);font-weight:800;font-size:15px;letter-spacing:-0.01em;color:#F2F2F5');
+  s += box(x + w - 40, hy, 28, 28, 'ico', 'line-height:28px;font-size:16px', '×');
+  let tx = x + 12; const ty = hy + 34;
+  d.tabs.forEach((t, i) => {
+    const tw = 14 + t.length * 7.2;
+    if (tx + tw < x + w - 8) s += box(tx, ty, tw, 26, 'pill', `line-height:26px;font-size:12px;${i===0?'background:#22D3EE;color:#050507':''}`, esc(t));
+    tx += tw + 6;
+  });
+  let ry = ty + 38;
+  d.rows.forEach((r, i) => {
+    if (ry + 40 > y + h - 6) return;
+    s += box(x + 10, ry, w - 20, 40, 'rowline', '');
+    s += text(x + 22, ry, 110, 40, r, 'font-size:13px;color:#C4C4CE');
+    if (i % 3 === 0) s += box(x + w - 22 - 66, ry + 8, 66, 24, 'pill', 'line-height:24px;font-size:11px;font-weight:400;color:#A1A1AA', i===0 ? 'Edit' : 'Pick');
+    else { const kw = Math.max(60, w - 22 - 140 - 60); s += box(x + 140, ry + 18, kw, 4, 'knob', '', `<i style="width:${30 + (i*23)%60}%"></i>`); s += text(x + 140 + kw + 8, ry, 40, 40, (i*17)%100 + '', 'font-family:var(--mono);font-size:11px;color:#71717A;text-align:right'); }
+    ry += 46;
+  });
+  return s;
+}
+
+function renderStudio(p, W, H){
+  const top = STATUS, bottom = H - NAV;
+  const sideOK = p.S6 === 'B' ? W >= WIDTH_MEDIUM : W >= WIDTH_EXPANDED;   /* C starts as A */
+  const open = STUDIO_OPEN.slice(p.S3 === 'A' ? -1 : -2);
+  const TOP = 48, TIME = 34, TOOLS = 62, TRACK = 44, RULER = 20;
+  const short = (bottom - top) < 500;
+  const tracks = short ? 2 : 3;
+  const TL = RULER + tracks * TRACK + 8;
+  let s = '';
+  /* panel geometry */
+  const right = p.S1 !== 'B';
+  let pw = p.S2 === 'B' ? 420 : p.S2 === 'C' ? Math.max(360, Math.round(W / 3)) : 360;
+  const sideBySide = sideOK && open.length === 2 && p.S3 === 'B';
+  const colW = sideBySide ? pw * 2 : pw;
+  const usePanel = sideOK && open.length > 0;
+  /* the app's own top bar */
+  s += box(0, top, W, TOP, '', 'background:#0D0D10');
+  s += box(8, top + 6, 36, 36, 'ico', 'line-height:36px;font-size:18px', '←');
+  s += text(50, top, 260, TOP, 'Sunset walk', 'font-family:var(--display);font-weight:800;font-size:17px;text-transform:uppercase');
+  s += box(W - 104, top + 8, 92, 32, '', 'border-radius:999px;background:linear-gradient(90deg,#35F6BF,#97FE8B);color:#050507;font-weight:700;font-size:13px;text-align:center;line-height:32px', 'Export');
+  const contentTop = top + TOP;
+  const toolsY = bottom - TOOLS;
+  const tlY = toolsY - TL;
+  /* where the panel column sits */
+  const panelTop = usePanel ? (p.S4 === 'B' ? contentTop : contentTop) : 0;
+  const panelBottom = usePanel ? (p.S4 === 'B' ? bottom : tlY) : 0;
+  const panelX = right ? W - colW : 0;
+  /* the picture area and the timeline width */
+  const reserve = usePanel && p.S5 === 'A';
+  const areaX = reserve && !right ? colW : 0;
+  const areaW = reserve ? W - colW : W;
+  const tlX = usePanel && p.S4 === 'B' ? (right ? 0 : colW) : 0;
+  const tlW = usePanel && p.S4 === 'B' ? W - colW : W;
+  const timeY = tlY - TIME;
+  const prevTop = contentTop + 8, prevH = timeY - prevTop - 6;
+  let pvw = areaW - 24, pvh = pvw * 9 / 16;
+  if (pvh > prevH) { pvh = prevH; pvw = pvh * 16 / 9; }
+  const pvx = areaX + (areaW - pvw) / 2, pvy = prevTop + (prevH - pvh) / 2;
+  s += picture(pvx, pvy, pvw, pvh, 'Golden hour');
+  /* transport */
+  s += box(tlX, timeY, tlW, TIME, '', 'background:#000');
+  s += text(tlX + 14, timeY, 140, TIME, '0:12.4 / 1:05', 'font-family:var(--mono);font-size:12px;color:#A1A1AA');
+  s += box(tlX + tlW/2 - 16, timeY + 2, 32, 30, 'ico', 'line-height:30px;font-size:16px;color:#E4E4E7', '▶');
+  /* timeline */
+  s += box(tlX, tlY, tlW, TL, '', 'background:#000');
+  for (let i = 0; i * 80 < tlW; i++) s += text(tlX + 8 + i * 80, tlY, 40, RULER, '0:' + String(i*2).padStart(2,'0'), 'font-family:var(--mono);font-size:9px;color:#4B4B55');
+  const lanes = [['#1C1C22','video'],['#17171C','text'],['#17171C','audio']].slice(0, tracks);
+  lanes.forEach((l, i) => {
+    const ly = tlY + RULER + i * TRACK;
+    s += box(tlX, ly, tlW, TRACK, '', `background:${i%2?'#17171C':'transparent'}`);
+    if (i === 0) for (let c = 0; c * 150 < tlW - 20; c++) s += box(tlX + 10 + c * 150, ly + 5, 144, TRACK - 10, '', 'border-radius:6px;overflow:hidden', picture(0, 0, 144, TRACK - 10, ''));
+    if (i === 1) s += box(tlX + 180, ly + 9, 260, TRACK - 18, '', 'border-radius:6px;background:#22D3EE;color:#050507;font-size:11px;font-weight:700;line-height:' + (TRACK-18) + 'px;padding-left:8px', 'Golden hour');
+    if (i === 2) s += box(tlX + 10, ly + 9, Math.min(tlW - 20, 900), TRACK - 18, '', 'border-radius:6px;background:repeating-linear-gradient(90deg,#35F6BF55 0 2px,transparent 2px 5px)');
+  });
+  s += box(tlX + Math.min(tlW * 0.42, 420), tlY + 4, 2, TL - 8, '', 'background:#F43F8E');
+  /* tool row */
+  s += box(tlX, toolsY, tlW, TOOLS, '', 'background:#0D0D10');
+  const cellW = 62;
+  const fit = Math.max(1, Math.floor((tlW - 8) / cellW));
+  STUDIO_TOOLS.slice(0, fit).forEach((t, i) => {
+    const on = open.includes(t);
+    s += box(tlX + 4 + i * cellW, toolsY + 4, cellW - 4, TOOLS - 8, 'cell', `border-radius:10px;cursor:pointer;${on?'background:#22D3EE;color:#050507':''}`,
+      box(0, 8, cellW - 4, 22, 'ico', `font-size:15px;line-height:22px;${on?'color:#050507':''}`, ({'1x':'1x',Split:'✂',Text:'T',Audio:'♪',Look:'◐',FX:'✦',Crop:'⬚',Speed:'⏩',Stickers:'☆',Voice:'●'})[t]) + text(0, 32, cellW - 4, 16, t, `font-size:10px;text-align:center;${on?'color:#050507':''}`),
+      `data-tool="${t}" role="button" tabindex="0" title="${t}: ${on?'close':'open'} its drawer"`);
+  });
+  /* drawers */
+  if (open.length) {
+    if (usePanel) {
+      if (sideBySide) {
+        open.forEach((name, i) => {
+          const x = panelX + i * pw;
+          s += box(x, panelTop, pw, panelBottom - panelTop, 'drw side', i ? 'border-left:1px solid rgba(255,255,255,.06)' : '');
+          s += studioDrawerBody(x, panelTop, pw, panelBottom - panelTop, name, true);
+        });
+      } else if (p.S3 === 'C' && open.length === 2) {
+        const hh = (panelBottom - panelTop) / 2;
+        open.forEach((name, i) => {
+          s += box(panelX, panelTop + i * hh, pw, hh, 'drw side', i ? 'border-top:1px solid rgba(255,255,255,.06)' : '');
+          s += studioDrawerBody(panelX, panelTop + i * hh, pw, hh, name, true);
+        });
+      } else {
+        const name = open[open.length - 1];
+        s += box(panelX, panelTop, pw, panelBottom - panelTop, 'drw side', '');
+        s += studioDrawerBody(panelX, panelTop, pw, panelBottom - panelTop, name, true);
+      }
+      s += callout(panelX + 10, panelBottom - 26, `${p.S1 === 'C' ? 'right (flips for left hands)' : right ? 'right' : 'left'} · ${pw} dp${sideBySide ? ' × 2' : ''}`);
+    } else {
+      /* the phone drawer: rises from the bottom over the picture, full width, above the tool row */
+      const name = open[open.length - 1];
+      const dh = Math.round((toolsY - contentTop) * 0.62);
+      s += box(0, toolsY - dh, W, dh, 'drw', '');
+      s += studioDrawerBody(0, toolsY - dh, W, dh, name, false);
+      s += callout(12, toolsY - dh - 24, sideOK ? 'phone drawer' : `phone drawer: window under ${p.S6 === 'B' ? WIDTH_MEDIUM : WIDTH_EXPANDED} dp`);
+    }
+  }
+  return s;
+}
+
+/* =========================================================================================
+   JOYBRUSH and LOBBY: filled in below
+   ========================================================================================= */
+/* BRUSH-LOBBY */
+
+/* ---------- the page machinery ---------- */
+const RENDER = { studio: renderStudio, brush: (p,W,H)=>renderBrush(p,W,H), lobby: (p,W,H)=>renderLobby(p,W,H) };
+const SECTION_KEYS = ['studio','brush','lobby'];
+let PICKS = {};
+SECTION_KEYS.forEach(sec => (PARTS[sec]||[]).forEach(pt => { PICKS[pt.k] = (DIRS[sec] && DIRS[sec][0]) ? DIRS[sec][0].p[pt.k] : pt.opts[0].k; }));
+const saved = store.get('tab1-wide-v1');
+if (saved && saved.picks) Object.keys(saved.picks).forEach(k => { if (k in PICKS) PICKS[k] = saved.picks[k]; });
+if (saved && saved.size && SIZES.some(s => s.k === saved.size)) SIZE = saved.size;
+if (saved && typeof saved.frost === 'boolean') FROST = saved.frost;
+function save(){ store.set('tab1-wide-v1', {picks: PICKS, size: SIZE, frost: FROST, notes: document.getElementById('noteta').value}); }
+
+function sectionPicks(sec){ const o = {}; (PARTS[sec]||[]).forEach(pt => o[pt.k] = PICKS[pt.k]); return o; }
+function draw(sec){
+  const dev = document.querySelector(`[data-dev="${sec}"]`), fit = document.querySelector(`[data-fit="${sec}"]`);
+  if (!dev || !(PARTS[sec]||[]).length) return;
+  const z = sizeOf(), W = z.w, H = z.h;
+  dev.className = 'dev' + (FROST ? ' frost' : '');
+  dev.style.width = W + 'px'; dev.style.height = H + 'px';
+  dev.innerHTML = frame(W, H, RENDER[sec](sectionPicks(sec), W, H));
+  let k = 1;
+  if (SCALE === 'fit') {
+    const avail = fit.parentElement.clientWidth - 32;
+    k = Math.min(1, avail / (W + 16), (window.innerHeight * 0.82) / (H + 16));
+  }
+  dev.style.transform = k < 1 ? `scale(${k})` : '';
+  fit.style.width = (W * k + 16) + 'px'; fit.style.height = (H * k + 16) + 'px';
+  dev.style.left = '8px'; dev.style.top = '8px';
+  document.querySelector(`[data-cap="${sec}"]`).textContent = `${z.n} · ${W} × ${H} dp` + (k < 1 ? ` · shown at ${Math.round(k*100)}%` : ' · true size');
+}
+function drawAll(){ SECTION_KEYS.forEach(draw); }
+
+function renderUI(){
+  document.getElementById('sizes').innerHTML = SIZES.map(z => `<button class="chip" type="button" data-size="${z.k}" aria-pressed="${z.k===SIZE}" title="${esc(z.tip || z.n)}: ${z.w} × ${z.h} dp">${esc(z.n)}</button>`).join('');
+  const z = sizeOf();
+  const cls = z.w >= WIDTH_EXPANDED ? 'expanded' : z.w >= WIDTH_MEDIUM ? 'medium' : 'compact';
+  document.getElementById('dims').textContent = `${z.w} × ${z.h} dp · ${cls} width`;
+  document.getElementById('fit').setAttribute('aria-pressed', SCALE === 'fit');
+  document.getElementById('true').setAttribute('aria-pressed', SCALE === 'true');
+  document.getElementById('frost').setAttribute('aria-pressed', FROST);
+  SECTION_KEYS.forEach(sec => {
+    const parts = PARTS[sec] || [];
+    const dirs = DIRS[sec] || [];
+    const dEl = document.querySelector(`[data-dirs="${sec}"]`);
+    if (dEl) dEl.innerHTML = dirs.map((d, i) => {
+      const on = parts.every(pt => PICKS[pt.k] === d.p[pt.k]);
+      const code = parts.map(pt => pt.k + ' ' + d.p[pt.k]).join(' · ');
+      return `<button class="dir" type="button" data-sec="${sec}" data-dir="${i}" aria-pressed="${on}" title="Set every ${sec} part to this direction"><b>${esc(d.n)}</b><span>${esc(d.d)}</span><span class="code">${code}</span></button>`;
+    }).join('');
+    const pEl = document.querySelector(`[data-parts="${sec}"]`);
+    if (pEl) pEl.innerHTML = parts.map(pt => `<div class="part"><div class="q"><b><i>${pt.k}</i>${esc(pt.q)}</b><span>${esc(pt.why)}</span></div><div class="opts">${pt.opts.map(o => `<button class="opt" type="button" data-part="${pt.k}" data-opt="${o.k}" aria-pressed="${PICKS[pt.k]===o.k}" title="${pt.k} ${o.k}: ${esc(o.n)}"><b><i>${o.k}</i>${esc(o.n)}</b><span>${esc(o.d)}</span>${o.no ? `<em>${esc(o.no)}</em>` : ''}</button>`).join('')}</div></div>`).join('');
+  });
+  updCode();
+}
+function picksLine(){
+  return 'TAB-1 wide screens: ' + SECTION_KEYS.map(sec => (PARTS[sec]||[]).map(pt => pt.k + ' ' + PICKS[pt.k]).join(' · ')).filter(Boolean).join(' | ');
+}
+function updCode(){
+  const n = document.getElementById('noteta').value.trim();
+  document.getElementById('code').textContent = picksLine() + (n ? '\nNotes: ' + n : '');
+}
+
+document.addEventListener('click', e => {
+  const t = e.target.closest('button,[data-tool]');
+  if (!t) return;
+  if (t.dataset.size) { SIZE = t.dataset.size; renderUI(); drawAll(); save(); return; }
+  if (t.id === 'fit' || t.id === 'true') { SCALE = t.id; renderUI(); drawAll(); return; }
+  if (t.id === 'frost') { FROST = !FROST; renderUI(); drawAll(); save(); return; }
+  if (t.dataset.dir !== undefined && t.dataset.sec) { const d = DIRS[t.dataset.sec][+t.dataset.dir]; Object.assign(PICKS, d.p); renderUI(); draw(t.dataset.sec); save(); return; }
+  if (t.dataset.part) { PICKS[t.dataset.part] = t.dataset.opt; renderUI(); drawAll(); save(); return; }
+  if (t.dataset.tool) {
+    const name = t.dataset.tool;
+    if (STUDIO_OPEN.includes(name)) STUDIO_OPEN = STUDIO_OPEN.filter(x => x !== name);
+    else STUDIO_OPEN = STUDIO_OPEN.concat(name).slice(-2);
+    draw('studio'); return;
+  }
+  if (t.dataset.jb) { jbToggle(t.dataset.jb); draw('brush'); return; }
+  if (t.id === 'copy') {
+    updCode();
+    const txt = document.getElementById('code').textContent;
+    const done = () => { document.getElementById('copied').textContent = 'Copied'; };
+    const fall = () => { const r = document.createRange(); r.selectNodeContents(document.getElementById('code')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); document.getElementById('copied').textContent = 'Selected: press copy'; };
+    try { navigator.clipboard.writeText(txt).then(done, fall); } catch (err) { fall(); }
+  }
+});
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.dataset && (e.target.dataset.tool || e.target.dataset.jb)) { e.preventDefault(); e.target.click(); }
+});
+document.getElementById('noteta').addEventListener('input', () => { updCode(); save(); });
+if (saved && saved.notes) document.getElementById('noteta').value = saved.notes;
+let rz; window.addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(drawAll, 120); });
+renderUI(); drawAll();
+</script>

@@ -46,6 +46,15 @@ public final class JoybotFilm {
     @Nullable private final Rect[] cellRects;
     @Nullable private final int[] holds;
     private final int totalTicks;
+    /** Ticks played once before the loop starts (the way INTO an action); 0 for a plain film. */
+    private int introTicks = 0;
+    /**
+     * Where the character's body sits inside a cell, as fractions (left, top, right, bottom), when
+     * the cell is bigger than he is to leave room for what he holds. Null = the whole cell is him.
+     */
+    @Nullable private RectF focus;
+    /** True for the full-colour character: never tinted, and he leaves his orb while it plays. */
+    private boolean actor = false;
 
     private final Rect src = new Rect();
     private final RectF dst = new RectF();
@@ -103,6 +112,43 @@ public final class JoybotFilm {
         this.totalTicks = Math.max(1, sum);
     }
 
+    /**
+     * Play the first {@code frames} frames once, then loop the rest: the way into an action and
+     * then the action. Only meaningful on a looping film.
+     */
+    @NonNull
+    public JoybotFilm withIntro(int frames) {
+        int t = 0;
+        if (holds != null) for (int i = 0; i < Math.min(frames, holds.length - 1); i++) t += holds[i];
+        introTicks = Math.max(0, Math.min(t, totalTicks - 1));
+        return this;
+    }
+
+    /** Mark this as the full-colour character and say where his body is inside a cell. */
+    @NonNull
+    public JoybotFilm asActor(@Nullable RectF bodyInCell) {
+        actor = true;
+        focus = bodyInCell;
+        return this;
+    }
+
+    /** Something to do once a non-looping film has played out (the next link of a chain). */
+    @Nullable private Runnable onEnd;
+    /** Which frame the last draw showed; -1 before the first. Lets the view react to a new pose. */
+    private int shown = -1;
+
+    @NonNull
+    public JoybotFilm thenRun(@Nullable Runnable r) { onEnd = r; return this; }
+
+    /** Hands over the end action, once. */
+    @Nullable
+    public Runnable takeOnEnd() { Runnable r = onEnd; onEnd = null; return r; }
+
+    public int shownFrame() { return shown; }
+
+    public boolean isActor() { return actor; }
+    @Nullable public RectF focus() { return focus; }
+
     public void start(long nowMs) {
         startedAtMs = nowMs;
         finished = false;
@@ -129,7 +175,7 @@ public final class JoybotFilm {
         int tick = (int) (elapsed / framePeriodMs);
         if (tick >= totalTicks) {
             if (loop) {
-                tick %= totalTicks;
+                tick = introTicks + (tick - introTicks) % (totalTicks - introTicks);
             } else {
                 tick = totalTicks - 1;
                 finished = true;
@@ -139,8 +185,10 @@ public final class JoybotFilm {
             int i = 0;
             while (i < holds.length - 1 && tick >= holds[i]) { tick -= holds[i]; i++; }
             src.set(cellRects[i]);
+            shown = i;
         } else {
             int i = tick;
+            shown = i;
             int cx = i % cols, cy = i / cols;
             src.set(cx * cellW, cy * cellH, (cx + 1) * cellW, (cy + 1) * cellH);
         }

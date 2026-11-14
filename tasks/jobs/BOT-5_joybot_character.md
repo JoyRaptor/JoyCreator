@@ -16,6 +16,14 @@ stills; a sheet loader exists and maps animations by name. The owner is drawing 
 
 ## 11-14: Report this reply
 - A flag on Joybot's answers saves the reply and question to `Joybot/Reports/` and opens a prefilled email (Play's AI-content rule, [OWNER_CLICKS](../store/OWNER_CLICKS.md) section 6). Contact address is the stand-in `studio@joycreator.cc`.
+## 11-13: the sheet arrived and is wired (not yet built or seen on a phone)
+- The owner's sheets were aligned and packed: `art/Joybot-sprite-assets/aligned_v2_20261113/` (untracked art) holds the big sheet,
+  `joybot.animations.json` (edit this) and previews. `python tools/joybot/pack_joybot.py <that folder>` remakes `assets/joybot/`.
+- `JoybotActs` (catalogue + picture cache), `JoybotDirector` (which animation, way in / out, idle drift, flourish, job hints),
+  `JoybotFilm` (intro-then-loop, body box, end action), `JoybotView` (Director hook, sway / bob / squash, flight lean).
+- Branch `claude/joybot-sheet-20261113`. **Type-checked only.** Next: build, then check every mood on the Note 9.
+- Owner asks still open (11-13): he wants the corner to be LOWER LEFT (it is lower right); a pointing frame for "show me where";
+  about 22 free cells on the sheet for the actions left off (presenting-player, organizing-files, greeting).
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)

@@ -410,8 +410,15 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         forgetInput()
     }
 
+    /**
+     * One texel of zeros, read wherever a store this window does not have is asked for (no water, no bake, no pending
+     * input). Given its zeros when made: a texture made without data holds whatever the driver left, and for a month that
+     * happened to be zeros. On 2026-11-13 it was not: the look read it as the water's pigment, so brush previews of
+     * pencils came out blank and lilac and oil previews salmon on lilac on the Note 9, some in a batch and not others.
+     */
     private fun emptyTex(): Int {
-        if (empty == 0) empty = MediaTex.make(1, 1, GLES30.GL_RGBA16F, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, GLES30.GL_NEAREST)
+        if (empty == 0) empty = MediaTex.make(1, 1, GLES30.GL_RGBA16F, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, GLES30.GL_NEAREST,
+            java.nio.ByteBuffer.allocateDirect(8).order(java.nio.ByteOrder.nativeOrder()))
         return empty
     }
 

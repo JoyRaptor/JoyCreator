@@ -16,7 +16,8 @@ import java.security.MessageDigest
 object BrushPreviewKey {
 
     /** Bump when the renderer's pictures change (a new reference paper, a new canned stroke): every stored preview is then stale. */
-    const val RENDERER_VERSION = 2
+    // 3 (2026-11-14): previews drawn while the media engine's empty texture held junk (lilac pencils and oils) are replaced.
+    const val RENDERER_VERSION = 3
 
     private const val ID_MAX = 48
     private val HASH = Regex("[0-9a-f]{16}")

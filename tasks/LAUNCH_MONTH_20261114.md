@@ -73,7 +73,21 @@ Joybot the brush maker, FOLD-1 Story Board and auto-markers (Remote Studio and D
 selling, paper portfolio, Palette knife 3, Proto Pencil 2 unless ready by week 2, M3 beyond what Play flags,
 HYG-3 cleanup.
 
-## 6. Usage budget
+## 6. The barometer (11-14, from the 11-13 audit)
+
+Points: S=1, M=2, L=4, XL=8. One week of usage (owner's measure) took the audit from 0 to about 77-109 of 863
+points (57 rows done, 8 large ones "done?"), nearly all small and medium. Remaining usage: about three weeks, so
+about 230-330 points at that pace (big items go slower per point, so plan for the low end).
+
+[Triage](audits/launch_triage_20261114.md) of what is left: **LAUNCH 42 rows / 105 points** (some double-counted,
+so about 95), POLISH 75 / 165, AFTER 105 / 484. LAUNCH plus the owner's picked designs (brush editor, Joybot arrival,
+tablet panels: roughly 60 more) fits in about two weeks of usage, leaving about one week for polish and tester
+reports. AFTER waits for after launch. Riskiest: the Play build (L10/L11/SHELL-43), the app ID (SHELL-45), signing
+(L15), permissions asked up front (SHELL-36), the lobby front door (SHELL-17/18), streaming saves (JBX-36), strokes
+surviving recreation (JBX-37), FadCam folder names (SHELL-44/L16), the website plus data safety (L30/L09), and the
+owner's long watercolour session (JBX-40).
+
+## 7. Usage budget
 
 On 11-14 about ten lanes used a whole 5-hour window in about four hours. So:
 - **At most four or five lanes at once**; idle lanes cost nothing and stay idle until their week comes.

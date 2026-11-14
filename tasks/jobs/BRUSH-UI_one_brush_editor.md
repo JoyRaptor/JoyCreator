@@ -51,3 +51,25 @@ terrible"; a screenshot of it is at `D:/JoyCreator-brush-samples/owner_feedback_
   redraw-on-lift) are fixed first, without waiting.
 - The paint engine's files belong to the paint-engine session: agree any engine change (oil taper, hover
   footprint from tilt) with it first.
+
+## Progress 11-14 (JoyBrush screens lane)
+- **Unreadable Unibrush chips: fixed, seen on the Note 9.** Cause: the unselected chip's faint 8% fill had its alpha reset to
+  255, so it drew solid white under white words (`UnibrushSheetChip`). No other JoyBrush sheet has the pattern (all
+  checked). Test `UnibrushSheetChipTest`. c8e193fa6.
+- **Top bar overlap: fixed, not yet seen on a device.** The symmetry pill (x2 / Mirror / Overlap / Symmetry) is placed beside
+  the line's middle and was only kept on screen; it now stays below the top bar while the bar shows.
+- **Preview redraw on lift: fixed in code.** Each slider move cancelled the picture being drawn, so none finished mid-drag;
+  now one stays in flight and the newest settings follow at once. On the Note 9 the stroke itself is hard to see: it is
+  drawn in black on the dark sheet. A paper strip behind it is on the design page.
+- **Softness doing nothing: fixed, seen on the Note 9.** The Hard tip profile ignores hardness in the shader; Hard now reads
+  0% soft and moving Softness switches the tip to the Smooth profile. Mid-drag on the Note 9 the cross-section changed live.
+- **Tip cross-section beside the pen pad: built, seen on the Note 9** (`TipSectionView`, same rules as `jb_profile.glsl`).
+- **Design page: sent to the owner** (`tasks/design/UI-Brush-editor-options.html`): four stroke shapes, four colour sets
+  built on colour theory (as bands the stroke crosses, with a wet pickup mode), live sliders with A/B end pictures,
+  cross-section, tilt footprint, three layouts at the Note 9's true size, and a line of picks to copy. Waiting for his pick.
+- **"Pattern has to be set": not found yet.** The nearest text in the code is the validator's "source is image but no
+  image path is set: …"; no shipped, Unibrush or imported brush in this checkout trips it on the PC. Owed: the
+  every-brush sweep on the Note 9 with a screen dump of any refusal.
+- **Hover outline:** waiting for the paint-engine session's footprint function (asked 11-14 with a proposed signature).
+- Found for the brush lane: the drawer keeps old cached previews after the test stroke changed (the cache key lacks a
+  stroke version).

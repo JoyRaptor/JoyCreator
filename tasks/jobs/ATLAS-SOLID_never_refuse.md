@@ -98,6 +98,25 @@ Still to prove or build is in "What is left".
 | 7 | The 10-31 lost squares | The Engine Lead's 11-01 fix is the likely cure: a slept engine's textures were deleted twice (`MediaLayerEngine.release`). New: every tile failure is written to `files/joybrush-incidents.log` with what the engine held (`TileIncidents`), and a bench takes graphics memory away first (`jb_gpu_hog_mb`) | 2 and 3 GB of noise held (and 1 to 3 GB of flat colour on the morning build), then oil strokes and a save: no failed frame, no incident line. All 23 realistic-paint brushes, two strokes each: none. Not reproduced |
 | 8 | Symmetry for realistic paint in the atlas | Works: every copy is its own lane, nothing is pinned or refused | Note 9 pictures: Oil round, 6B pencil and watercolour on the wet sheet, six copies each |
 
+### Found 11-14: a reopened drawing's paint is a picture, not paint (ordinary layers' paint stores are not saved)
+
+Seen on the Note 9 while checking a save change: after oil, knife and pencil strokes a save held 35 picture tiles and **0
+paint store tiles**. Cause, by reading: `GlPaintEngine.mediaPlaneOfCel` (10-11, JB-2.40 slice 3a) is
+`layers[layerId]?.let { planeOf(it, celId) } ?: celId`. For a layer's shared cel `planeOf` answers null (the shared
+plane), the `?:` takes that for "no such layer" and hands back the cel id, and the save then lists the stores of a frame
+plane that does not exist. So since 10-11 only animation frames have saved their pencil, watercolour and oil state;
+on every ordinary layer the picture is saved and the paint under it is not. Reopened, the drawing looks the same and its
+old paint is set: it cannot be blended, lifted or scraped, new paint goes over it as over dry paint. Nothing is lost
+that can be seen. Opening is right (`writeMediaTile` maps the shared cel itself); `MediaSaveTest` and
+`JbArchiveMediaTest` pass because they feed the archive by hand and never go through this function.
+
+**Not fixed yet, on purpose.** The fix is one line, and it switches on what nobody has run on a phone: saves that carry
+the whole paint room (up to 315 MB on the Note 9, in the app's 512 MB heap, deflated on the save thread every time the
+autosave fires). Before it lands: measure a save and an open of a drawing with about 50, 150 and 246 oil tiles on the
+Note 9 (time, heap, the 15 s watchdog), decide whether old set-far-away paint should be saved as paint at all, and
+build streaming step 2 if the full room does not fit. The reused readback buffers (step 1 below, built 11-13, branch
+`claude/atlas-save-buffers-20261113`) wait for the same test: with no stores saved, the phone check of them read nothing.
+
 ### Streaming saves: what the code does today and the order to build it (read 11-13; not started)
 
 Why the room is 256 MB for every 6 GB of phone memory (`LayerBudget.MEDIA_RAM_SHARE`, `core/layers/LayerNames.kt`): a save

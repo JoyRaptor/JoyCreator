@@ -1,6 +1,6 @@
 # BRUSH-IMPORT (JBX-18): bring Photoshop, Procreate, Krita and MyPaint brushes into JoyBrush
 
-**Milestone:** M2  ·  **State:** 🟡  ·  **Owner:** JoyBrush screens lane (Claude Opus 5.5, `claude/joybrush-screens-20261113-1a6f0b`)  ·  **Checked:** 2026-11-13 against `02c782894`
+**Milestone:** M2  ·  **State:** 🟡  ·  **Owner:** JoyBrush screens lane (Claude Opus 5.5, `claude/joybrush-screens-20261113-1a6f0b`)  ·  **Checked:** 2026-11-13 against `e79a2e216`
 
 ## Why it matters (for the user)
 An artist arrives with brushes they already love. Today JoyBrush can convert four kinds of brush file, but there is no
@@ -70,16 +70,16 @@ the choice between embedding and a side picture file goes back to the lead, not 
   out of reach on the tablet.
 
 ## What is left
-1. [ ] Self-contained brush file: `BrushFile` (androidkit) = `BrushJson` recipe plus an `"assets"` object (path → PNG,
-       base64), read back through `FrozenBrushPngs` with its existing size limits. Round-trip tests.
-2. [ ] `SuppliesBrushes` (joybrush-android/library): list, read and write `Supplies/Brushes/*.brush.json` through the
-       studiokit folder (`JoyFs`, SAF tree; never by path), on the folder thread. Name clashes get " 2", " 3".
-3. [ ] Drawer row + picker + toast; the activity adds the shelf's brushes to its list and gives the canvas their
-       pictures (the `brushPngs` lookup the Unibrush store already feeds).
+1. [x] Self-contained brush file (`androidkit/brush/BrushFile`), round-trip tests. 11-13.
+2. [x] `library/SuppliesBrushes`: read and write `Supplies/Brushes/*.brush.json` through the folder; reading creates
+       nothing; name clashes get " 2". 11-13.
+3. [x] Drawer "Import…" + picker + sentence; brushes merged into the list; tip pictures handed to the canvas and the
+       previews. Tablet and Note 9, 11-13.
 4. [ ] Packs: the same reader also lists `PackShelf.installed(fs, "brush")` under each pack's name (JBX-48, step 2 of
-       the PACK-1 spec), so packs come almost for free.
-5. [ ] Sample files (MyPaint and Krita brushes are freely licensed; Photoshop and Procreate samples need the owner's
-       own files or freely licensed ones), Note 9 run, STATE + roadmap rows.
+       the PACK-1 spec).
+5. [ ] Krita packs (waiting for the owner's own yes in the screens session) and a Procreate file; the per-setting
+       drop list for each.
+6. [ ] Help mapping for the STATE row (Joybot HelpBook) with the Joybot lane.
 
 ## Specs, handoffs and evidence
 - Audit row JBX-18 in `tasks/audits/remaining_work_20261113.md`; folder kinds `studiokit/.../joyfolder/FileKind.java`;

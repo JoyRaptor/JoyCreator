@@ -96,6 +96,15 @@ class TestStrokeTest {
         assertTrue(lines.zipWithNext().all { (a, b) -> b.first().pressure < a.first().pressure && b.first().tilt < a.first().tilt })
     }
 
+    @Test fun theSwooshAloneFillsATinyPictureWithTheWholePressureRange() {
+        val t = TestStroke.pen(80, 40, 4f, pitchPx = 1f, part = TestStroke.Part.SWOOSH)
+        val i = TestStroke.inset(4f)
+        assertTrue(t.all { it.x >= i - 0.01f && it.x <= 80 - i + 0.01f && it.y >= i - 0.01f && it.y <= 40 - i + 0.01f })
+        assertTrue(t.maxOf { it.x } - t.minOf { it.x } > 0.9f * (80 - 2 * i), "spans the width")
+        assertTrue(t.minOf { it.pressure } < 0.05f && t.maxOf { it.pressure } > 0.95f, "feather to full")
+        assertTrue(t.first().pressure < t.last().pressure, "light to heavy")
+    }
+
     @Test fun theSampleCountFollowsTheLengthButStaysBounded() {
         assertTrue(TestStroke.pen(300, 80, 10f).size < TestStroke.pen(1200, 280, 10f).size)
         assertEquals(48, TestStroke.pen(40, 20, 10f).size)

@@ -123,9 +123,25 @@ object TestStroke {
     private fun cr(a: Float, b: Float, c: Float, d: Float, t: Float): Float =
         0.5f * (2f * b + (c - a) * t + (2f * a - 5f * b + 4f * c - d) * t * t + (3f * b - a - 3f * c + d) * t * t * t)
 
+    /** Which part of the curve to draw: all of it, or ([SWOOSH]) the light-to-heavy S-turns alone, for a picture too small for the loop. */
+    enum class Part { WHOLE, SWOOSH }
+
+    /**
+     * The S-turns, from the hairline start through both turns to where the loop begins, stretched to fill the box, its pressure
+     * spread from a feather touch to a full press so a tiny picture (a slider's end, about 40 x 20 dp) still shows the range.
+     */
+    val SWOOSH: List<P> by lazy {
+        val part = PATH.subList(2, 27)
+        val x0 = part.minOf { it.x }; val x1 = part.maxOf { it.x }
+        val y0 = part.minOf { it.y }; val y1 = part.maxOf { it.y }
+        val p0 = part.minOf { it.pressure }; val p1 = part.maxOf { it.pressure }
+        part.map { P((it.x - x0) / (x1 - x0), (it.y - y0) / (y1 - y0), 0.03f + 0.97f * (it.pressure - p0) / (p1 - p0), it.tilt) }
+    }
+
     /** The curve for a [width] x [height] picture and a brush [sizePx] wide, a sample about every [pitchPx] along it. */
-    fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f): List<PenSample> {
+    fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f, part: Part = Part.WHOLE): List<PenSample> {
         val box = Box(width, height, sizePx)
+        val PATH = if (part == Part.SWOOSH) SWOOSH else PATH
         // A fine polyline through the traced points, with pressure and tilt carried along it.
         val fine = ArrayList<FloatArray>(PATH.size * FINE)
         for (i in 0 until PATH.size - 1) {

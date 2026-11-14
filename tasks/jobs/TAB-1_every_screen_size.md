@@ -41,6 +41,14 @@ two-thirds empty, one button across the whole width.
       timeline goes), the lobby on a wide screen (with DOOR-2), JoyBrush chrome on a tablet with the S Pen.
 - [ ] Build the picked designs, wing by wing; phone-check that nothing moved on the Note 9.
 
+## Survey notes from the UI leftovers lane (Tab S8 Ultra, 2960 x 1848, 11-13)
+Shots in `tasks/screens/tablet/`.
+- Onboarding welcome: phone layout stretched (words bottom-left, one full-width button, empty glow above). Fixed for width >= 600dp with a centred 560dp column; not yet seen on the tablet.
+- Onboarding permissions page: rows and the "Allow what's missing" bar run the full width; text is phone-size. Needs the same column.
+- Choose-a-folder screen: stock grey, unthemed, content top-left. Needs the Joy Creator look and a centred column.
+- Lobby: headline strip, row of four buttons across the whole width, empty lower third.
+- Settings hub: rows run edge to edge (2900 px wide); tab chips and search bar fine.
+
 ## Files and traps
 - Studio drawers: `app/.../ui/faditor/**` (ObjectDrawer, TextOverlayDrawer and their Kit); the editor is one
   ~36k-line activity: add the panel host beside the existing drawer host, do not rewrite the drawers.

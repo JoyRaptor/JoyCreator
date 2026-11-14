@@ -60,6 +60,10 @@ Shots in `tasks/screens/tablet/`. Agent-run; I did not grant any system permissi
 - **Page 3 (consent), folder step, What's New, lobby on the tablet:** not seen (they sit behind permissions and consent ticks, which need a person).
 - Still to do for item 20 elsewhere: every wide screen needs a column or a two-pane layout; this card only covers onboarding.
 
+**Tablet, 11-13 evening (build of origin/joy-creator at the time, installed on the Tab S8 Ultra):**
+- The choose-a-folder step **now appears** after the 0c5a597dc fix (`ui1_tablet_folder_step_20261113.png`). It is a plain stock-grey screen (system font, flat #2D2D30 background rather than the Joy Creator black), with the heading, paragraph and two small buttons all stuck top-left and the rest of the 2960 px screen empty. Not themed like the rest of the app; the folder lane's screen (`JoyFolderSetupActivity`). Choosing a folder needs the system picker, so the walk stops there; the welcome column, status-bar fix, pages after the folder, What's New and the translated screen on the tablet are still not seen.
+- A relaunch from the launcher once left the tablet on its home screen instead of the app (taps then landed on empty launcher space); a second launch worked.
+
 ## Files and traps
 - New screens follow the benchmark packages `ui/library`, `ui/settingshub`, `ui/trash`: thin fragment, bottom dock,
   small classes, tests, own strings file. Keep the legacy screen reachable ("Classic …") until the new one is proven.

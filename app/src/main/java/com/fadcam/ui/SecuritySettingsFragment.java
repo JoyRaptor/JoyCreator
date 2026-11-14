@@ -28,7 +28,7 @@ import java.util.List; // legacy leftover (may not be used)
  * SecuritySettingsFragment
  * EXACT migration of legacy AppLock (Tab Lock) logic from monolithic SettingsFragment.
  */
-public class SecuritySettingsFragment extends Fragment {
+public class SecuritySettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private SharedPreferencesManager sharedPreferencesManager;
     private TextView valueTabLock;

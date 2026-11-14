@@ -78,6 +78,8 @@ public class OnboardingActivity extends AppIntro {
             getDelegate().setLocalNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES);
         }
         super.onCreate(savedInstanceState);
+        // TAB-1: the permissions and consent pages keep a centred column on a wide window.
+        com.fadcam.ui.size.ContentColumn.watch(getSupportFragmentManager());
 
         // Make sure we don't have duplicate slides when changing language
         // Clear any existing slides by removing them all first

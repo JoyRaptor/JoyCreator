@@ -15,7 +15,7 @@ import com.fadcam.R;
  * AdvancedSettingsFragment
  * Hosts power-user settings entry points.
  */
-public class AdvancedSettingsFragment extends Fragment {
+public class AdvancedSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     @Nullable
     @Override

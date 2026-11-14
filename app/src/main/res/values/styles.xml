@@ -2,6 +2,9 @@
     <style name="CustomBottomSheetStyle" parent="Widget.MaterialComponents.BottomSheet.Modal">
         <item name="background">@drawable/picker_bottom_sheet_gradient_bg_dynamic</item>
         <item name="backgroundTint">@null</item>
+        <!-- TAB-1: on a wide window the sheet stops at 640dp and sits centred, instead of a
+             bar across a whole tablet. Phones upright are narrower, so nothing changes there. -->
+        <item name="android:maxWidth">@dimen/sheet_max_width</item>
     </style>
 
     <style name="CustomBottomSheetDialogTheme" parent="Theme.MaterialComponents.BottomSheetDialog">

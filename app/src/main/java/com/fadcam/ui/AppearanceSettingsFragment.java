@@ -31,7 +31,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
  * Extracted subset from monolithic SettingsFragment for theme/icon/language.
  * Logic will be migrated incrementally; placeholder layout now.
  */
-public class AppearanceSettingsFragment extends Fragment {
+public class AppearanceSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private SharedPreferencesManager sharedPreferencesManager;
 

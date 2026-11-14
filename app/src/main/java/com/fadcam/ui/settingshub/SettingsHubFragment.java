@@ -43,7 +43,7 @@ import java.util.Map;
  * finds, {@link SettingsLines} lays out, {@link SettingsHubAdapter} draws, {@link SettingsStatus}
  * reads the live values, {@link SettingsSearchDock} takes the thumb's input.</p>
  */
-public class SettingsHubFragment extends BaseFragment {
+public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     public static final String TAG = "settings_hub";
     private static final String ARG_SEARCH = "focus_search";

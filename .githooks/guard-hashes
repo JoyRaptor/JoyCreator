@@ -1,0 +1,10 @@
+# Joy Creator guard, for machines without the owner's private list (see .githooks/guard.pl).
+# Salted SHA-256 hashes of the guarded words: sha256(salt + lowercase word). Not the words.
+# A hash marked "word" matches a whole word only; an unmarked one also inside longer names.
+# Regenerate with: bash tools/joyguard/make-hashes.sh
+salt a6a6e611337e641ba300367b3c44be1a
+38ea4380faca71c8e330673748830d08fff7156763aaee734eb784cfed65df1a
+61d15844d4a6824bd9e08383fe30634c8f8dce3956d1173b5bd77d7af8d1ebcb
+910c44516f9f53033a09050f8ca3acad17cd1612be736c55741309cee708244e word
+b5ecc281f8a315492e50fbf04bbb62791edf77084aba2d9a6f40c2c14f781156 word
+e11d8cecc5ffa3805e2c9328aac34bf9883792c7fc6edf36c5ef484095426da3

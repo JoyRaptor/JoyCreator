@@ -40,7 +40,7 @@ import java.util.Locale;
  *   <li>Appearance settings: PiP Border, Rounded Corners, PiP Margin</li>
  * </ul>
  */
-public class DualCameraSettingsFragment extends Fragment {
+public class DualCameraSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private static final String TAG = "DualCamSettings";
 

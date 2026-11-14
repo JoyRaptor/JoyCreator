@@ -1251,3 +1251,6 @@ SCALE LOCK (owner correction): Keep Joybot at the earlier approved full scale co
 
 ## 2026-11-13 - Never put a timeout around a build that holds the shared lock
 A `timeout` around a script that waits for `jb-gradle.lock`, takes it and runs Gradle killed Gradle mid-build and left the lock file behind, blocking every lane until removed by hand. Run lock-holding builds in the background with no timeout and wait on their completion; if a run is cut anyway, check the lock file and remove it only if its text is yours.
+
+## 2026-11-14 - A phone command chain must stop when the claim is refused
+One shell line ran `phone.ps1 claim`, then Home, `adb install` and a relaunch, without checking the claim. The claim was refused (another session held the Note 9 for its before/after shots), and the install still went over its build. Rule: claim in its own step; go on only if the output says "claimed", e.g. `phone.ps1 claim ... | grep -q claimed || exit 1` at the start of any chain that touches the phone. Raw adb never replaces the claim.

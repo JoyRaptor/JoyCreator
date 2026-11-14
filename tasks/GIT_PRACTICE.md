@@ -30,9 +30,25 @@ phone is attached is how a build once landed on the phone holding real projects.
 
 ### The guard
 
-`.githooks/pre-commit` and `.githooks/commit-msg` block these strings from staged content
-and from commit messages. They are wired up with `core.hooksPath = .githooks`, so they
-travel with the repo — but **a fresh clone must run this once:**
+`.githooks/pre-commit`, `.githooks/commit-msg` and `.githooks/pre-push` block these words
+from staged files, file names, commit messages and outgoing commits (all three call
+`.githooks/guard.pl`). Since 2026-11-14 **the list of words is not in the repository**:
+
+- On the owner's PC it lives in a private file outside the repo
+  (`git config joyguard.patternsFile` points at it; a backup sits with the other private
+  backups on D:). Never commit, print or upload it.
+- Anywhere else (a fresh clone, another machine) the guard uses `.githooks/guard-hashes`:
+  salted hashes of the words, checked word by word. The words themselves are not published.
+  Honest limit: a determined person with a list of names could test names against those
+  hashes; they stop casual reading and search engines, not a targeted attack.
+  After editing the private list, run `bash tools/joyguard/make-hashes.sh` and commit the file.
+- The guard prints only where it found something (file and line), never the word.
+- If the guard itself cannot run (no list, no perl) it warns and lets the work through:
+  it blocks only on a real hit, so it never locks anyone out.
+- The old base64 list `.githooks/_patterns` is retired; the guard refuses to commit it again.
+
+On this PC every work folder uses the main folder's hooks (`core.hooksPath` is the absolute
+path `C:/+Projects/JoyCreator/.githooks`). **A fresh clone must run this once:**
 
 ```bash
 git config core.hooksPath .githooks

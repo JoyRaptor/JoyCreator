@@ -523,7 +523,12 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         // The two process chips are built further down; the refresh puts them back each time
         // it rebuilds the row (it used to clear them for good after the first Revert).
         final java.util.List<View> applyChips = new java.util.ArrayList<>();
+        // The state the row was last DRAWN for. Every redraw records it (a Revert tap redraws
+        // too), so the drawer tick below sees a later undo as a change (Note 9, 11-14: after
+        // Revert then Undo the row stayed on "original").
+        final int[] shown = {-1};
         final Runnable refresh = () -> {
+            shown[0] = stateOf(clip, baking[0]);
             actions.removeAllViews();
             if (baking[0]) {
                 state.setText(R.string.lane_b_audio_bake_processing);
@@ -644,10 +649,9 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
         refresh.run();
         // Undo/Redo change the clip behind this tab: the drawer's row tick re-checks it and
         // rebuilds only when processed/original/busy actually changed.
-        final int[] shown = {stateOf(clip, baking[0])};
         root.setTag(R.id.faditor_tag_row_refresh, (Runnable) () -> {
             int now = stateOf(clip, baking[0]);
-            if (now != shown[0]) { shown[0] = now; refresh.run(); }
+            if (now != shown[0]) refresh.run();
         });
 
         root.addView(note(ctx, ctx.getString(R.string.lane_b_audio_bake_note)));

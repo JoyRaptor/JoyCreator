@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Two checks before anything leaves this machine:
+#  1. Old history. After a history scrub, the commits from before it are listed (privately,
+#     never in the repo) in <git dir>/joyguard/old-commits. Pushing any of them would put the
+#     scrubbed history back on GitHub, so that push is refused. Fix: bash tools/joyguard/resync.sh
+#  2. The owner's private words in the outgoing commits (messages, authors, added lines),
+#     the same check as pre-commit, in case a commit skipped the hooks.
+# It never prints a private word, only the commit and file.
+remote="$1"
+here="$(dirname "$0")"
+z=0000000000000000000000000000000000000000
+common=$(git rev-parse --git-common-dir 2>/dev/null)
+old="$common/joyguard/old-commits"
+fail=0
+while read -r lref lsha rref rsha; do
+  [ -z "$lsha" ] && continue
+  case "$lsha" in *[!0]*) ;; *) continue ;; esac          # a branch deletion pushes nothing
+  if [ -s "$old" ]; then
+    hit=$(git rev-list "$lsha" 2>/dev/null | grep -m1 -F -x -f "$old")
+    if [ -n "$hit" ]; then
+      echo "BLOCKED: $lref still sits on the history from before the privacy scrub" >&2
+      echo "  (commit $(echo "$hit" | cut -c1-10)). Pushing it would publish that history again." >&2
+      echo "  Fix: bash tools/joyguard/resync.sh   (moves branches to the scrubbed history," >&2
+      echo "  keeping uncommitted work), then push again. Never use --no-verify." >&2
+      fail=1; continue
+    fi
+  fi
+  if command -v "${JOYGUARD_PERL:-perl}" > /dev/null 2>&1; then
+    case "$rsha" in *[!0]*) has_r=1 ;; *) has_r=0 ;; esac
+    if [ "$has_r" = 1 ] && git cat-file -e "$rsha^{commit}" 2>/dev/null; then
+      range=("$rsha..$lsha")
+    else
+      range=("$lsha" --not "--remotes=$remote")
+    fi
+    git log --no-color --no-ext-diff --no-textconv -p \
+        --format='commit %H%n%an <%ae>%n%cn <%ce>%n%B' "${range[@]}" -- 2>/dev/null \
+      | "${JOYGUARD_PERL:-perl}" "$here/guard.pl" stream "$lref:" || fail=1
+  fi
+done
+exit $fail

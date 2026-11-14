@@ -33,7 +33,7 @@ import com.google.android.material.button.MaterialButton;
  * buttons wired to nothing. "Add it now" opens Joybot's connect-an-AI settings; "Later, from
  * chat" folds the card away, since its words already say where to find it again.</p>
  */
-public class OnboardingHumanFragment extends Fragment {
+public class OnboardingHumanFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
     private MaterialButton continueButton;
     private TextView label1, label2, label3;
     private TextView titleText, descText;

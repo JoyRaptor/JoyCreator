@@ -29,7 +29,7 @@ import com.fadcam.SharedPreferencesManager;
  * Provides single row summary + dialogs keeping same preference semantics &
  * broadcast.
  */
-public class StorageSettingsFragment extends Fragment {
+public class StorageSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private static final String TAG = "StorageSettingsFragment";
 

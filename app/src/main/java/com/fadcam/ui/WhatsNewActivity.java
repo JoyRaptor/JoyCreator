@@ -47,6 +47,8 @@ public class WhatsNewActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_whats_new);
+        // TAB-1: words and the Got it button in a centred column on a wide window.
+        com.fadcam.ui.size.ContentColumn.keep(findViewById(R.id.whatsNewRoot));
 
         // Set edge-to-edge display and status bar color
         // Use AndroidX wrapper for Android 10+ compatibility

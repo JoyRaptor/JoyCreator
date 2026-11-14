@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Any window 600dp wide or more (tablet, split-screen half, phone sideways): the welcome
+         words sit in a centred column instead of hugging the left edge. -->
+    <dimen name="welcome_column_w">560dp</dimen>
+</resources>

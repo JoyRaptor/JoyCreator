@@ -182,10 +182,10 @@ public final class HelpBook {
                             + "project is open, dropped at the playhead.", null, null),
             new Topic("folder", "folder|storage|where are my files|backup|sd card",
                     "Everything lives in your Joy Creator folder, a folder you chose — so nothing is lost if "
-                            + "the app is uninstalled. Change it in Setup → Storage Location.", "setup", null),
+                            + "the app is uninstalled. Change it in Settings → Joy Creator folder.", "setup", null),
             new Topic("space", "free up|free some|free space|how much space|space left|clear cache|clear the cache"
                             + "|storage full|out of space|takes room|biggest files|room on",
-                    "Setup → Storage Location has a Space row. It shows what takes room on the phone, lets you clear the "
+                    "Settings → Space shows what takes room on the phone, lets you clear the "
                             + "app's rebuildable caches, and lists your biggest files so an unused one can go to Trash.",
                     "space", null),
             new Topic("trash", "trash|deleted|bin|recover",
@@ -273,7 +273,7 @@ public final class HelpBook {
                     "library", null),
             new Topic("trash_restore", "restore a|restore something|restore my|restore|put back|bring back"
                             + "|recently deleted|get back|undo delete|undo a delete",
-                    "Open Setup, then Storage Location, and tap Recently deleted. Pick what you want back and tap restore.",
+                    "Open Settings → Recently deleted. Pick what you want back and tap restore.",
                     "setup", null),
             new Topic("chroma", "green screen|greenscreen|chroma|blue screen|key out|remove the green",
                     "Double-tap a picture or video overlay, open its Chroma key tab, and turn on Key out a colour. "

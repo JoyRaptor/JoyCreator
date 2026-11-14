@@ -22,7 +22,7 @@ import com.fadcam.ui.picker.PickerBottomSheetFragment;
 
 import java.util.ArrayList;
 
-public class DigitalForensicsSettingsFragment extends Fragment {
+public class DigitalForensicsSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private SharedPreferencesManager prefs;
 

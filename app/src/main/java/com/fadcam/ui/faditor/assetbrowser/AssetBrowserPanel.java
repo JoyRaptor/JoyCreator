@@ -741,7 +741,7 @@ public class AssetBrowserPanel extends FrameLayout {
                                 try {
                                     int n = com.fadcam.joyfolder.studio.StudioMirror.trashFiles(app, chosen);
                                     msg = (n == 1 ? "1 file moved to Trash. Put it back" : n + " files moved to Trash. Put them back")
-                                            + " from Settings → Storage Location → Recently deleted.";
+                                            + " from Settings → Recently deleted.";
                                 } catch (Exception e) {
                                     msg = "Couldn't move them all: " + e.getMessage() + ". Nothing was lost.";
                                 }

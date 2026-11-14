@@ -144,7 +144,7 @@
         <!-- Joy Brush drawing screen (JB-0.05) -->
         <!-- Reached from the lobby's Joy Brush room (JB-0.09). Not exported: `adb shell am start -n` can still open it. -->
         <activity android:name=".joyfolder.studio.SpaceActivity"
-            android:theme="@style/Theme.FadCam.FaditorEditor"
+            android:theme="@style/Theme.FadCam.JoyCreator"
             android:exported="false" />
         <activity android:name="cc.joycreator.joybrush.android.library.DrawingsActivity"
             android:theme="@style/Theme.FadCam.FaditorEditor"
@@ -162,7 +162,7 @@
 
         <!-- The Joy Creator folder: choose, reconnect, bring projects back (SPEC_20261013_FILE_MANAGEMENT). -->
         <activity android:name="com.fadcam.joyfolder.studio.JoyFolderSetupActivity"
-            android:theme="@style/Theme.FadCam.FaditorEditor"
+            android:theme="@style/Theme.FadCam.JoyCreator"
             android:exported="false" />
 
         <!-- "Share to Joy Creator": pictures, clips and sounds from any app land in the Joy Creator folder. -->

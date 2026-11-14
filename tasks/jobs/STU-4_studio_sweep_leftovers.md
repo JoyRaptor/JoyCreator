@@ -1,6 +1,6 @@
 # STU-4: Studio sweep leftovers
 
-**Milestone:** M1  ·  **State:** 🟡 11-10: the 10-28 red items fixed and built, partly phone-checked (see "Fixed 11-10"); was 🔨 re-checked 10-28 (code scout + Note 9 agent pass 4): most items already fixed; three new bugs found  ·  **Owner:** lead  ·  **Checked:** 2026-11-10
+**Milestone:** M1  ·  **State:** 🟡 11-10: the 10-28 red items fixed and built, partly phone-checked (see "Fixed 11-10"); was 🔨 re-checked 10-28 (code scout + Note 9 agent pass 4): most items already fixed; three new bugs found  ·  **Owner:** lead  ·  **Checked:** 2026-11-14
 
 ## Why it matters
 Small rough edges the device sweeps found. Each one is the kind of thing that makes an app feel unfinished.
@@ -21,6 +21,33 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - ✅ Undo of a sprite Bend leaves it crisp again (fabedb713, agent-checked 10-28).
 - ✅ (fixed 11-10, below) ~~**Open:**~~ after a Fix audio cache hit the waveform keeps the unfixed look; Clean acts on the video clip because selecting an audio clip leaves the video clip selected too; the editor title's tap does not open Rename (hold does).
 - ✅ (fixed 11-10, below) ~~**New:**~~ the toolbar's last button "Edit" toggles to "Done" with no visible effect; after closing a text drawer, tapping the clip or preview doesn't reopen it (hold does, since 10-28).
+
+## HANDOFF 11-14 (Studio lane session, cleared after this): read this first
+**Landed on `joy-creator`:** every STU-4 item, the Clean tab, look sliders (TX-01), double-tap closes a drawer (S12),
+caption-style undo, D7 seek on a cut, relinked clip keeps fades, strings + TalkBack names (D2/D3), hover labels
+(`util/HoverLabels`), `run-studio-all.sh` (H1), row open/close no undo step, Clean tab redraw after Revert+Undo.
+The old branch `claude/studio-bugs-20261110-f15370` is fully superseded (its 3 commits landed as 0bdee8191,
+708be234c, 1548aa873); `claude/studio-lane-20261113` and `-20261114` are landed too.
+
+**Tests:** all 52 Studio suites pass (`bash tools/jvm-harness/run-studio-all.sh`). The 9 that had failed on clean
+joy-creator (caption, fx, mesh, motionrange, preview-parity, puppet, specq, specr, spect) were fixed 11-13 evening
+(1c6dc0ea2). Never wrap a lock-holding build in `timeout` (lessons 11-13).
+
+**Device checks owed** (each with the device it must run on):
+- Note 9: Clean tab status line after Revert then Undo (fix 5bd110c2e built, not seen); caption-style chip undo on a
+  clip with captions; a tap exactly on a cut (D7); Text Fit (width chip to "Fit to width"); old pre-11-10 Fix audio
+  file re-timed on open (needs such a project); audio-only project shows its clip and length on reopen.
+- Tablet (landscape): look sliders sheet opens fully (fix built, not seen); hover labels with a stylus or mouse.
+- Joybot `add_marker` then one Undo: needs the computer bridge, never tried.
+
+**Open, not done:**
+- STU-B3 (diagnosed above): struck transcript words and cut silences still play in EXPORTS (film and audio). Needs the
+  owner to decide whether a struck word stays re-instatable; the smaller fix is to cut into pieces like Clean does.
+- STU-B5 (diagnosed above, save side): chat's Step.before lacks marks; multi-step add_marker undo limit.
+- Hover labels: controls with no spoken name at all still need one each (recount owed); dialogs not covered.
+- Tablet layout (TAB-1): bottom sheets open peeking, floating pencil covers the first tool, text drawer covers the
+  preview's top third. Not built; TAB-1 owns the design.
+- Audit rows not started: STU-C1..C3 phone backlog, E2 (D9 rounding, D10/D11), E3/E4, F2..F8, G*.
 
 ## Fixed 11-10 (Studio bugs session, commits 99f8b3ad5 + 3422a7a5a on `claude/studio-bugs-20261110-f15370`)
 - ✅ **Fix audio waveform stays unfixed.** Root cause was bigger than the waveform: a Fix/Clean bake wrote only
@@ -123,6 +150,13 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - ⚠️ With the Clean tab open and paused, Undo changed the clip but the tab's status line stayed on the old state
   (drawer rows only re-read on the playback tick). Fixed: undo/redo re-reads the open drawer's rows. Not re-seen.
 - Seen in passing, not fixed: expanding a collapsed audio row is recorded as an undo step (8 → 9).
+
+## 11-14 morning (Studio lane), Note 9
+- ✅ Opening or closing a timeline row is no longer an undo step (undo count stayed 10); hide, lock, mute still are.
+- ⚠️ Clean tab after Revert then Undo still showed "original": its row remembered only the state it was BUILT with,
+  not each redraw. Fixed on `claude/studio-lane-20261114` (not built yet; build + re-check next turn).
+- STU-F1: Text "Fit" is built (width chip cycles Auto width → Wrap → Fit to width; preview and export both read it).
+  FUTURE_PLANS S9 "Fit not built" is stale. Phone look still owed.
 
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.

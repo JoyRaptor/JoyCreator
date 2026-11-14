@@ -46,7 +46,7 @@ import java.util.Set;
  *
  * Orientation: isolated from FadCam camera recording. Each mode remembers its own.
  */
-public class ScreenRecordingSettingsFragment extends Fragment {
+public class ScreenRecordingSettingsFragment extends Fragment implements com.fadcam.ui.size.ContentColumn.Page {
 
     private static final String TAG = "ScreenRecordingSettings";
 

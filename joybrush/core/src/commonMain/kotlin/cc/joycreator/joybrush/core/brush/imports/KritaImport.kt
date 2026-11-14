@@ -419,7 +419,10 @@ object KritaImport {
 
         // The parse happens in the constructor, so a hostile document throws before a single field exists
         // and the caller turns that into a [RefusedBrush] naming the brush.
-        private val root = parseKritaXml(file.presetXml, "this .kpp's preset XML")
+        // Real Krita presets (`<Preset paintopid=…>` + `<param>` list) are translated into the layout below first
+        // (KritaRealPreset, 11-13); anything else is read as it always was.
+        private val root = parseKritaXml(KritaRealPreset.translate(file.presetXml) ?: file.presetXml,
+            "this .kpp's preset XML")
 
         private val warnings = ArrayList<String>()
         private val extensions = LinkedHashMap<String, String>()
@@ -842,7 +845,10 @@ object KritaImport {
             // accident — "the last" is also deterministic, and picking one out loud is the whole of it.
             val top = sizeInputs.firstOrNull()?.curve?.maxByOrNull { it[0] }
             var from = pixelSize
-            if (top != null) {
+            // A real Krita size curve runs 0..1: it scales the diameter, it is not one. With a PixelSize to scale,
+            // a curve that tops out at 1 or less is that multiplier and the diameter stays PixelSize (11-13: Val's
+            // ink pen would otherwise have come in 1 px wide).
+            if (top != null && !(pixelSize != null && top[1] <= 1f)) {
                 val v = top[1]
                 if (!(v > 0f) || v > BrushValidate.MAX_SIZE_PX) {
                     warn(

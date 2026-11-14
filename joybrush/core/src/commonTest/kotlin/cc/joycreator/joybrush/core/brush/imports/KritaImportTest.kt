@@ -41,6 +41,47 @@ class KritaImportTest {
      * the deflated run is the one that could not happen at all: this row exists so that a real `.bundle`,
      * which Krita writes with method 8, opens.
      */
+    /** The form Krita really writes: `<Preset paintopid>` and a flat `<param>` list, written here by hand. 11-13. */
+    private fun realPreset(engine: String = "paintbrush") = """<Preset embedded_resources="0" name="Hand Ink" paintopid="$engine">""" +
+        """<param type="string" name="CompositeOp"><![CDATA[multiply]]></param>""" +
+        """<param type="internal" name="PressureSize">true</param>""" +
+        """<param type="string" name="SizeSensor"><![CDATA[<!DOCTYPE params> <params id="sensorslist"> """ +
+        """<ChildSensor id="pressure"> <curve>0,0.25;1,1;</curve> </ChildSensor> <ChildSensor id="speed"/> </params>]]></param>""" +
+        """<param type="internal" name="PressureOpacity">true</param>""" +
+        """<param type="string" name="OpacitySensor"><![CDATA[<!DOCTYPE params> <params id="pressure"> <curve>0,0.5;1,1;</curve> </params>]]></param>""" +
+        """<param type="internal" name="PressureFlow">false</param>""" +
+        """<param type="string" name="FlowSensor"><![CDATA[<!DOCTYPE params> <params id="pressure"/>]]></param>""" +
+        """<param type="string" name="brush_definition"><![CDATA[<Brush type="auto_brush" spacing="0.1" angle="0">""" +
+        """<MaskGenerator diameter="12" ratio="0.5" hfade="1" vfade="1" type="circle"/></Brush>]]></param>""" +
+        """<param type="string" name="paintop"><![CDATA[$engine]]></param></Preset>"""
+
+    @Test
+    fun aRealKritaPixelPresetConverts() {
+        val library = KritaImport.convertBundle(
+            bundleOf(ZipEntry("paintoppresets/Hand Ink.kpp", ZIP_DEFLATED, kpp(realPreset()))), "Real Pack")
+        assertEquals(0, library.refused.size, "${library.refused}")
+        val result = library.brushes.single()
+        val p = result.preset
+        assertEquals("stamp", p.engine)
+        assertEquals(12f, p.size.base, "diameter, not the size curve's top")
+        assertEquals(0.1f, p.spacing)
+        assertEquals(0.5f, p.tip.aspect)
+        assertEquals(listOf(BrushInput.pressure, BrushInput.speed), p.size.inputs.map { it.input })
+        assertEquals(listOf(listOf(0f, 0.25f), listOf(1f, 1f)), p.size.inputs.first().curve)
+        assertEquals(listOf(BrushInput.pressure), p.opacity.inputs.map { it.input })
+        assertTrue(p.flow.inputs.isEmpty(), "flow's sensor is off in the file")
+        assertTrue(p.extensions.values.any { it == "multiply" }, "CompositeOp kept raw: ${p.extensions.keys}")
+        assertEquals(emptyList(), BrushValidate.validate(p), "${result.warnings}")
+    }
+
+    @Test
+    fun aRealKritaPresetOfAnEngineWithNoStampIsRefusedByName() {
+        val library = KritaImport.convertBundle(
+            bundleOf(ZipEntry("paintoppresets/Hair.kpp", ZIP_DEFLATED, kpp(realPreset("hairybrush")))), "Real Pack")
+        assertEquals(0, library.brushes.size)
+        assertTrue(library.refused.single().reason.contains("Hairy"), library.refused.single().reason)
+    }
+
     /** A CDATA section in the preset's XML (real Krita bundles carry them) is read, not a crash. 11-13. */
     @Test
     fun aPresetWithACdataSectionConverts() {

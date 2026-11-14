@@ -124,6 +124,13 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
   (drawer rows only re-read on the playback tick). Fixed: undo/redo re-reads the open drawer's rows. Not re-seen.
 - Seen in passing, not fixed: expanding a collapsed audio row is recorded as an undo step (8 → 9).
 
+## 11-14 morning (Studio lane), Note 9
+- ✅ Opening or closing a timeline row is no longer an undo step (undo count stayed 10); hide, lock, mute still are.
+- ⚠️ Clean tab after Revert then Undo still showed "original": its row remembered only the state it was BUILT with,
+  not each redraw. Fixed on `claude/studio-lane-20261114` (not built yet; build + re-check next turn).
+- STU-F1: Text "Fit" is built (width chip cycles Auto width → Wrap → Fit to width; preview and export both read it).
+  FUTURE_PLANS S9 "Fit not built" is stale. Phone look still owed.
+
 ## What is left (from `tasks/todo.md` on 10-16/17; may already be fixed)
 - [ ] Caption motion "Type – word" stuck.
 - [ ] Caption hide-eye and outline swatch show no visible response.

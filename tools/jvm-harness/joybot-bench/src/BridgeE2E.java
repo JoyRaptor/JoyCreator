@@ -86,6 +86,25 @@ public final class BridgeE2E {
         JSONObject bad = call("set_text_style", new JSONObject().put("text", "no-such-title").put("color", "#00FF00"));
         check("a refusal comes back as isError", bad.getBoolean("isError"), text(bad));
 
+        // BOT-A20: the burst leaves a labelled trail for the chat, with its changes for a Review card.
+        String key = com.fadcam.ui.faditor.ai.joybot.JoybotAgent.conversationKey(pid, IdeaEngine.Room.STUDIO);
+        long now = android.os.SystemClock.uptimeMillis();
+        check("trail: not shown while the burst may go on",
+                com.fadcam.ui.faditor.ai.joybot.JoybotAgent.takeTrails(key, now).isEmpty(), "");
+        java.util.List<com.fadcam.ui.faditor.ai.joybot.JoybotAgent.BridgeTrail> trails =
+                com.fadcam.ui.faditor.ai.joybot.JoybotAgent.takeTrails(key, now + com.fadcam.ui.faditor.ai.joybot.JoybotAgent.Bridged.BURST_MS + 1000);
+        check("trail: one burst, one trail", trails.size() == 1, String.valueOf(trails.size()));
+        com.fadcam.ui.faditor.ai.joybot.JoybotAgent.BridgeTrail tr = trails.isEmpty() ? null : trails.get(0);
+        check("trail: says who (Claude Code)", tr != null && "Claude Code".equals(tr.who), tr == null ? "" : tr.who);
+        check("trail: two changes and the refusal, no line for the read", tr != null && tr.lines.size() == 3
+                && tr.lines.get(2).startsWith("✗"), tr == null ? "" : tr.lines.toString());
+        check("trail: both changes are reviewable", tr != null && tr.changes.size() == 2
+                && tr.changes.get(0).canRevert(), tr == null ? "" : String.valueOf(tr.changes.size()));
+        check("trail: shown once only", com.fadcam.ui.faditor.ai.joybot.JoybotAgent.takeTrails(key,
+                now + com.fadcam.ui.faditor.ai.joybot.JoybotAgent.Bridged.BURST_MS + 2000).isEmpty(), "");
+        check("trail: its Review is registered (Undo from here keeps its safety check)",
+                com.fadcam.ui.faditor.ai.joybot.JoybotAgent.pendingReview(pid) != null, "");
+
         // Locks: nothing the computer sends counts as the person's yes (this fixture has the same id)
         String lockedPid = load(st, "studio-locked");
         BridgeServer locked = new BridgeServer(ctx, 0, new BridgeAuth("482913"), lockedPid, IdeaEngine.Room.STUDIO, "test",

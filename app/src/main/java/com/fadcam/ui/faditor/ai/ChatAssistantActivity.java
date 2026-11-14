@@ -276,6 +276,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (lastReview != null && !reviewCardShown && projectId != null && JoybotAgent.liveFor(chatKey) == null) {
             addReviewCard(projectId, lastReview);
         }
+        showBridgeTrails();
         refreshIdeas(true);
     }
 
@@ -1930,6 +1931,32 @@ public class ChatAssistantActivity extends AppCompatActivity {
         messageViews.add(card.root);
         addTickerTick(false);
         scrollToBottom();
+    }
+
+    /**
+     * What an AI on the person's computer did here since the chat last showed (BOT-A20): one
+     * labelled card per burst ("Claude Code on your computer"), its lines, and a Review card when
+     * it made two or more changes. Joybot's own conversation gets a note too, so he knows.
+     */
+    private void showBridgeTrails() {
+        for (JoybotAgent.BridgeTrail t : JoybotAgent.takeTrails(chatKey, android.os.SystemClock.uptimeMillis())) {
+            StringBuilder b = new StringBuilder();
+            synchronized (t.lines) {
+                for (String l : t.lines) b.append(l).append('\n');
+            }
+            String body = b.toString().trim();
+            JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                    t.who + " on your computer worked here:\n" + body, null);
+            card.root.removeView(card.buttons);
+            messagesContainer.addView(card.root);
+            messageViews.add(card.root);
+            try {
+                conversationHistory.add(new JSONObject().put("role", "user")
+                        .put("content", "[" + t.who + " on the person's computer used Joybot's tools here:\n" + body + "]"));
+            } catch (Exception ignored) { }
+            if (t.changes.size() >= 2) addReviewCard(projectId, t.changes);
+            scrollToBottom();
+        }
     }
 
     /** The room's name as the person sees it, for "One Undo in VisLab…". */

@@ -142,8 +142,12 @@ the phone's code); the PC path stays code + one copyable line until the desktop 
       Not tried: a real key end to end (an agent never types one).
 - [ ] The talk half: Joybot's chat sending to the computer's AI (OpenCode's `opencode serve` first; Claude
       Code waits for S17; meanwhile Claude Code's own Remote Control lets the person talk from the Claude app).
-- [ ] Bridged requests show in Joybot's chat as "Claude Code: …" only when the chat is open for that project;
-      a Review card for a bridged burst is not built.
+- [x] **A bridged burst always leaves a trail** (11-13, audit BOT-A20): each burst (calls closer than 30 s) keeps who
+      sent it, a line per change or failure (reads left out) and its changes; the next time the chat opens on that
+      project or room it shows "Claude Code on your computer worked here:" with the lines, adds a note to Joybot's own
+      conversation, and a Review card when there were two or more changes. Its "Undo from here" keeps the safety check
+      (refuses once the project moved after the burst). Proof: `run-joybot-bench.sh --bridge` 26/26 (7 new trail checks);
+      bench 60/60. Not seen on a phone with a real Claude Code.
 - [ ] Phone + PC test with Claude Code and with Codex. STATE row and help topic: done 10-28.
 
 ## Files and traps

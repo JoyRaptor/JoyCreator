@@ -423,6 +423,58 @@ public final class JoybotAgent {
      * things stay locked and deletes ask on the phone, because nothing the computer sends counts as
      * the person's own words ({@code PersonSaid}). Calls run one at a time on Joybot's worker.
      */
+    /**
+     * What one burst of calls from the person's computer did (BOT-A20): who sent it, a line per
+     * change or failure, and the changes for a Review card. The chat shows it, labelled, the next
+     * time it opens on that project or room, so a bridged burst never passes unseen.
+     */
+    public static final class BridgeTrail {
+        @NonNull public final String key;
+        @NonNull public final String who;
+        @NonNull public final List<String> lines = Collections.synchronizedList(new ArrayList<>());
+        @NonNull public final List<Change> changes;
+        @Nullable final String projectId;
+        /** The project's fingerprint after the burst's last call: "Undo from here" refuses once it moved. */
+        @Nullable volatile String end;
+        volatile long lastCall;
+        volatile boolean shown;
+
+        BridgeTrail(@NonNull String key, @Nullable String projectId, @NonNull String who, @NonNull List<Change> changes) {
+            this.key = key;
+            this.projectId = projectId;
+            this.who = who;
+            this.changes = changes;
+        }
+    }
+
+    private static final List<BridgeTrail> TRAILS = Collections.synchronizedList(new ArrayList<>());
+
+    /**
+     * Finished bursts for this conversation not shown yet (a burst is finished once no call came for
+     * {@link Bridged#BURST_MS}), marked shown. {@code nowUptime}: {@code SystemClock.uptimeMillis()}.
+     */
+    @NonNull
+    public static List<BridgeTrail> takeTrails(@NonNull String key, long nowUptime) {
+        List<BridgeTrail> out = new ArrayList<>();
+        synchronized (TRAILS) {
+            for (BridgeTrail t : TRAILS) {
+                if (t.shown || !t.key.equals(key) || t.lines.isEmpty()) continue;
+                if (nowUptime - t.lastCall <= Bridged.BURST_MS) continue;
+                t.shown = true;
+                out.add(t);
+                // Its Review card puts things back only while the project is as the burst left it.
+                if (t.projectId != null && t.changes.size() >= 2) REVIEWS.put(t.projectId, new Review(t.changes, t.end));
+            }
+            // Keep the store small: shown trails and old empty ones go.
+            java.util.Iterator<BridgeTrail> it = TRAILS.iterator();
+            while (it.hasNext()) {
+                BridgeTrail t = it.next();
+                if (t.shown || (t.lines.isEmpty() && nowUptime - t.lastCall > Bridged.BURST_MS)) it.remove();
+            }
+        }
+        return out;
+    }
+
     public static final class Bridged {
         /** Calls closer together than this are one request: one undo step. */
         public static final long BURST_MS = 30_000;
@@ -450,6 +502,7 @@ public final class JoybotAgent {
         @NonNull private final IdeaEngine.Room room;
         @NonNull private final String who;
         @Nullable private Run run;
+        @Nullable private BridgeTrail trail;
         private long lastCall;
 
         public Bridged(@NonNull Context context, @Nullable String projectId, @NonNull IdeaEngine.Room room,
@@ -508,10 +561,15 @@ public final class JoybotAgent {
                 Situation s = new Situation();
                 s.room = room;
                 Ask ask = new Ask(projectId, who, "bridge", "", who, s);
+                // Tracked like a Director run, so its changes can be reviewed (BOT-A20).
+                ask.director = true;
                 run = new Run(app, ask, new Finished(projectId, who));
                 run.bridged = true;
+                trail = new BridgeTrail(ask.key(), projectId, who, run.out.changes);
+                TRAILS.add(trail);
             }
             lastCall = now;
+            if (trail != null) trail.lastCall = now;
             // Nothing the computer sends is the person's own yes: a lock or a delete waits for the phone.
             AIChatState.liveAsk = "";
             AIChatState.liveReplyBefore = "";
@@ -519,6 +577,11 @@ public final class JoybotAgent {
             String line = run.runTool(new JSONObject().put("tool", name).put("args", args));
             if (line == null) return new Answer("Error: that call could not be read, so nothing ran.", null, null, true);
             String text = run.lastResult;
+            // The trail keeps what changed and what failed; reads are not worth a line.
+            if (trail != null && (!AgentTools.isRead(name) || DirectRunner.isFailure(text))) {
+                trail.lines.add((DirectRunner.isFailure(text) ? "✗ " : "• ") + shortOf(line));
+                if (projectId != null && !run.out.changes.isEmpty()) trail.end = fingerprint(liveSnapshot(app, projectId));
+            }
             JoybotEyes.Sight sight = run.sight;
             run.sight = null;
             String data = null, mime = null;

@@ -127,7 +127,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         col.addView(title);
         TextView why = text("Everything you make is kept in one folder you choose: projects, drawings, recordings and "
                 + "exports. Removing the app never loses your work. You can open it in any file manager, back it up, "
-                + "or move it to a new phone." + (required ? " You can move it later in Settings → Storage Location." : ""),
+                + "or move it to a new phone." + (required ? " You can move it later in Settings → Joy Creator folder." : ""),
                 15, MUTED, false);
         why.setPadding(0, dp(8), 0, dp(16));
         col.addView(why);

@@ -207,7 +207,7 @@ public class SpaceActivity extends AppCompatActivity {
             }
             if (r.trash > 0) {
                 folder.addView(row("In Trash", size(r.trash)));
-                folder.addView(line("Empty it in Settings → Storage Location → Recently deleted."));
+                folder.addView(line("Empty it in Settings → Recently deleted."));
             }
         }
         col.addView(folder);
@@ -308,7 +308,7 @@ public class SpaceActivity extends AppCompatActivity {
         String name = Placement.nameOf(it.path);
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Move “" + name + "” to Trash?")
-                .setMessage("No project uses it. You can put it back from Settings → Storage Location → Recently deleted.")
+                .setMessage("No project uses it. You can put it back from Settings → Recently deleted.")
                 .setPositiveButton("Move to Trash", (d, w) -> {
                     final Context app = getApplicationContext();
                     JoyFolderHome.io().execute(() -> {
@@ -358,7 +358,7 @@ public class SpaceActivity extends AppCompatActivity {
                         try {
                             int n = StudioMirror.trashFiles(app, paths);
                             msg = (n == 1 ? "1 file" : n + " files")
-                                    + " moved to Trash. Put them back from Settings → Storage Location → Recently deleted.";
+                                    + " moved to Trash. Put them back from Settings → Recently deleted.";
                         } catch (Exception e) {
                             msg = "Couldn't move them all: " + e.getMessage() + ". Nothing was lost.";
                         }

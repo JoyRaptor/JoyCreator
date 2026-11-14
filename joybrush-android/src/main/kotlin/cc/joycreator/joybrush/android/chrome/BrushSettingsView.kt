@@ -45,6 +45,8 @@ class BrushSettingsView(
 ) : LinearLayout(kit.context) {
 
     private var positions = start
+    /** As the sheet opened, for the cancel button. */
+    private val opened = start
     private val rows = ArrayList<Triple<BrushKnobs.Knob, SeekBar, TextView>>()
     private val checks = ArrayList<Pair<BrushKnobs.Knob, android.widget.CheckBox>>()
     /** True while Reset sets the controls, so it is not heard as the owner ticking them. */
@@ -52,6 +54,12 @@ class BrushSettingsView(
     private val penDot = PenReadingView(kit)
     private val pressureCurve = CurveEditorView(kit, "Pressure", BrushKnobs.curveHandles(tuned(), "pressure")) { h, done -> curveMoved("pressure", h, done) }
     private val tiltCurve = CurveEditorView(kit, "Tilt", BrushKnobs.curveHandles(tuned(), "tilt")) { h, done -> curveMoved("tilt", h, done) }
+    /** BRUSH-UI: the tip seen from the side, for brushes whose tip is a dab (stamp, smudge, push). */
+    private val tipSection: TipSectionView? = if (base.engine in setOf("stamp", "smudge", "push")) TipSectionView(kit) else null
+    /** BRUSH-UI section K: each group's first row, for the top bar's round buttons to jump to. */
+    private val groupStarts = LinkedHashMap<cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group, View>()
+    private lateinit var header: BrushEditorHeader
+    private lateinit var scroll: ScrollView
 
     /**
      * What the pen reads now, from the drawing or the preview: the pen dot, and the markers on the two curves. [tilt] in
@@ -82,21 +90,28 @@ class BrushSettingsView(
     init {
         orientation = VERTICAL
 
-        val head = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        head.addView(text(base.name, 14f), LayoutParams(0, WRAP, 1f))
-        head.addView(button("Reset", "Put every slider back to how this brush ships") {
+        // BRUSH-UI section K.1: Studio's drawer header. Name, the setting groups as round buttons, Done and cancel.
+        val sliderKnobs = BrushKnobs.forBrush(base).filter { it.slider || it.toggle }
+        val groups = sliderKnobs.map { cc.joycreator.joybrush.core.chrome.BrushKnobGroups.groupOf(it.key) }.distinct().sortedBy { it.ordinal }
+        header = BrushEditorHeader(kit, base.name, groups,
+            onGroup = { g -> groupStarts[g]?.let { v -> scroll.smoothScrollTo(0, v.top) } },
+            onDone = { onDone() },
+            onCancel = { positions = opened; onChange(positions, true); refresh(); onDone() })
+        addView(header, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(2f), 0, 0, kit.dpi(2f)) })
+
+        kit.label(preview, "Live preview of ${base.name}: a swoosh, then pressure, tilt, speed and turn one at a time, redrawn as " +
+            "you move a slider. Draw on it too: your strokes are redrawn with every change")
+        addView(preview, LayoutParams(MATCH, kit.dpi(PREVIEW_DP)).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(2f)) })
+        // The stage's own actions, small, under it: nothing from the old title row is lost.
+        val stageActions = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.END }
+        stageActions.addView(button("Reset", "Put every slider back to how this brush ships") {
             positions = emptyMap()
             onReset()
             refresh()
         })
-        onClear?.let { clear -> head.addView(button("Clear", "Wipe what you drew on the preview; the sample strokes stay") { clear() }) }
-        head.addView(button("Test", "Draw a sheet of test strokes on the drawing with this brush. One undo removes them") { onTest() })
-        head.addView(button("Done", "Close the brush settings") { onDone() })
-        addView(head, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(6f), 0, 0, kit.dpi(2f)) })
-
-        kit.label(preview, "Live preview of ${base.name}: a swoosh, then pressure, tilt, speed and turn one at a time, redrawn as " +
-            "you move a slider. Draw on it too: your strokes are redrawn with every change")
-        addView(preview, LayoutParams(MATCH, kit.dpi(PREVIEW_DP)).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(4f)) })
+        onClear?.let { clear -> stageActions.addView(button("Clear", "Wipe what you drew on the preview; the sample strokes stay") { clear() }) }
+        stageActions.addView(button("Test", "Draw a sheet of test strokes on the drawing with this brush. One undo removes them") { onTest() })
+        addView(stageActions, LayoutParams(MATCH, WRAP))
 
         val list = LinearLayout(context).apply { orientation = VERTICAL }
         if (editableLines == null) {
@@ -120,11 +135,24 @@ class BrushSettingsView(
         hearing.addView(penDot, LayoutParams(0, WRAP, 0.8f))
         hearing.addView(pressureCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
         hearing.addView(tiltCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
+        tipSection?.let { hearing.addView(it, LayoutParams(0, kit.dpi(92f), 0.7f).apply { marginStart = kit.dpi(6f) }) }
         list.addView(hearing, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(6f)) })
-        for (knob in BrushKnobs.forBrush(base)) {
-            if (knob.toggle) list.addView(checkRow(knob)) else if (knob.slider) list.addView(row(knob))
+        // Grouped, in the top bar's order; each group opens with its name, and its first row is where its button jumps.
+        for (g in groups) {
+            val title = text(g.label.uppercase(), 10.5f).apply {
+                setTextColor(kit.p.drawerDim); letterSpacing = .08f
+                setPadding(kit.dpi(6f), kit.dpi(10f), kit.dpi(6f), kit.dpi(2f))
+            }
+            list.addView(title, LayoutParams(MATCH, WRAP))
+            groupStarts[g] = title
+            for (knob in sliderKnobs.filter { cc.joycreator.joybrush.core.chrome.BrushKnobGroups.groupOf(it.key) == g }) {
+                if (knob.toggle) list.addView(checkRow(knob)) else list.addView(row(knob))
+            }
         }
-        val scroll = ScrollView(context).apply { addView(list, ViewGroup.LayoutParams(MATCH, WRAP)) }
+        scroll = ScrollView(context).apply { addView(list, ViewGroup.LayoutParams(MATCH, WRAP)) }
+        scroll.setOnScrollChangeListener { _, _, y, _, _ ->
+            header.active = groupStarts.entries.lastOrNull { it.value.top <= y + kit.dpi(12f) }?.key ?: groups.firstOrNull()
+        }
         // Preview + sliders take at most ~55% of the screen, so the drawing above stays free for test strokes.
         val maxH = (context.resources.displayMetrics.heightPixels * 0.55f).toInt() - kit.dpi(PREVIEW_DP + 48f)
         addView(object : LinearLayout(context) {
@@ -132,10 +160,12 @@ class BrushSettingsView(
                 super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxH, MeasureSpec.AT_MOST))
             }
         }.apply { addView(scroll, LayoutParams(MATCH, WRAP)) }, LayoutParams(MATCH, WRAP))
+        tipSection?.show(tuned().tip.profile, tuned().tip.hardness.base)
     }
 
     private fun refresh() {
         val p = tuned()
+        tipSection?.show(p.tip.profile, p.tip.hardness.base)
         refreshing = true
         for ((knob, box) in checks) box.isChecked = knob.get(p) >= 0.5f
         refreshing = false
@@ -178,7 +208,18 @@ class BrushSettingsView(
         }
         rows.add(Triple(knob, seek, value))
         box.addView(head, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(6f), kit.dpi(2f), kit.dpi(6f), 0) })
-        box.addView(seek, LayoutParams(MATCH, kit.dpi(34f)))
+        // BRUSH-UI section K.3: what each end does, in words, always (the end pictures join them once the preview can
+        // draw a short piece of the test stroke).
+        val ends = cc.joycreator.joybrush.core.chrome.BrushKnobGroups.endsOf(knob.key)
+        val track = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        fun endWord(word: String, alignEnd: Boolean) = text(word, 10.5f).apply {
+            setTextColor(kit.p.drawerDim); gravity = if (alignEnd) Gravity.END else Gravity.START
+            minWidth = kit.dpi(44f); maxWidth = kit.dpi(64f)
+        }
+        track.addView(endWord(ends.low, false), LayoutParams(WRAP, WRAP).apply { marginStart = kit.dpi(6f) })
+        track.addView(seek, LayoutParams(0, kit.dpi(34f), 1f))
+        track.addView(endWord(ends.high, true), LayoutParams(WRAP, WRAP).apply { marginEnd = kit.dpi(6f) })
+        box.addView(track, LayoutParams(MATCH, WRAP))
         return box
     }
 

@@ -37,7 +37,7 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
         added), `studio_marks` (bookmarks, regions, loop, region export, "ask me to drop a mark"), `studio_title_rename`,
         `studio_arrange_tools`, `studio_drawer_back`, `export_safety` (Cancel, too-full warning, "name 2"), and `silence`
         now names an audio clip's Cut gaps. Words read from the code (strings, `JoyBrushActivity.layerPanel`,
-        `LayerColumnView`). Ideas 843/843 (18 new question checks). Not yet asked in the app on a phone.
+        `LayerColumnView`). Ideas 843/843 (18 new question checks). **Device ✅ 11-13 19:20 (agent, the test tablet, Tab S8 Ultra, offline helper, the installed 13:58 build):** "how do I lock a layer" and "how do I drop a bookmark" answer with the new topics and a Take me there ([1](../joybot/evidence/help_lock_layer_tablet_20261113.png), [2](../joybot/evidence/help_bookmarks_tablet_20261113.png)).
   - [x] **11-13 (BOT-A7): the 45 STATE rows marked help pending** (list: `tasks/audits/help_pending_20261113.md`).
         All mapped: 5 new topics (`library_item`, `vislab_words_look`, `joybrush_watercolour`, `joybrush_knife`,
         `name_layers`), `textlab_pack` rewritten (packs now reach VisLab and Studio), `library_find` names the

@@ -36,7 +36,10 @@ SpriteLab: grid, names, animations, sequences.
       (no `MainActivity` change); Avatar with no project opens standalone on the character library; help `remote_lan`
       and new `smart_detection` carry the route, the Remote tip too. IdeaEngineTest now checks that every route a
       tip, help topic or `open_room` names has a `case` in `route()` (911/911; removing the remote case fails it).
-      Not yet tried on a phone.
+      **Device ✅ 11-13 19:20 (agent, the test tablet, the installed 13:58 build):** "where is smart detection" answers
+      and its Take me there opens the Smart Detection screen ([answer](../joybot/evidence/help_smart_detection_tablet_20261113.png),
+      [screen](../joybot/evidence/route_smart_detection_tablet_20261113.png)). That build still said "the lobby's Finder" and
+      used the tab route; 9d04a03e3 (Remote Studio / Detect names, the shell's own doors) is not on a device yet.
 - [ ] **Capture**: start, pause, stop a recording; webcam bubble; floating visualiser with it. Android
       permission screens stay the person's tap.
 - [ ] **JoyBrush, deeper**: Select (move, scale, recolour a selection), symmetry, paper, undo/redo by voice,

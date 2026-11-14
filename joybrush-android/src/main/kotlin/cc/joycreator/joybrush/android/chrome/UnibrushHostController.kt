@@ -44,6 +44,9 @@ class UnibrushHostController(
     @Volatile private var destroyed=false
     private var sheet:UnibrushSettingsView?=null
     private var previewAsk:PreviewCancel?=null
+    /** BRUSH-UI item 4 (owner 11-14: "the preview only redraws when I lift"): one preview in flight at a time. */
+    private var previewInFlightSince=0L
+    private var previewWanted=false
     private var previewPen=PreviewPenOverride(.7f,0f)
     private var previewImage:ImageView?=null
     private var picker:Pick?=null
@@ -108,7 +111,7 @@ class UnibrushHostController(
         val revision=++selectionRevision
         selectionWork?.cancel(true);selectionWork=null
         popovers.close()
-        cancelPick();sheetRevision++;previewAsk?.cancel();sheet=null;previewImage=null
+        cancelPick();sheetRevision++;previewAsk?.cancel();previewAsk=null;previewWanted=false;sheet=null;previewImage=null
         val current=session?.current()?.takeIf{it.recipe.id==p.id&&it.resources.paths==BrushAssetPaths.required(p).toSet()}
         selectionWork=worker.submit {
             try {
@@ -207,10 +210,25 @@ class UnibrushHostController(
         val image=previewImage?:return
         if(epoch!=sheetRevision||image.width<=0||image.height<=0)return
         val pair=session?.current()?:return
+        // Every slider move used to cancel the picture still being drawn and ask for a new one, so while a slider was
+        // dragged no picture ever finished and the preview changed only after the pen lifted. Now the one in flight
+        // is allowed to land, and the newest settings are drawn the moment it does. A picture that never comes back
+        // (over PREVIEW_PATIENCE_MS) is given up on, so the preview cannot stall.
+        val now=android.os.SystemClock.uptimeMillis()
+        if(previewAsk!=null&&now-previewInFlightSince<PREVIEW_PATIENCE_MS){previewWanted=true;return}
         previewAsk?.cancel()
-        try{previewAsk=requestPreview(pair.recipe,image.width,image.height,BrushPreviewStyle(ink=canvas.strokeColor,secondaryInk=port.secondaryColorArgb?:0xFFFFFFFF.toInt()),previewPen){bitmap->
-            if(epoch==sheetRevision&&previewImage===image)image.setImageBitmap(bitmap)
-        }}catch(error:Exception){say(error)}
+        previewWanted=false
+        previewInFlightSince=now
+        try{
+            var landed=false
+            val ask=requestPreview(pair.recipe,image.width,image.height,BrushPreviewStyle(ink=canvas.strokeColor,secondaryInk=port.secondaryColorArgb?:0xFFFFFFFF.toInt()),previewPen){bitmap->
+                landed=true
+                if(epoch==sheetRevision&&previewImage===image)image.setImageBitmap(bitmap)
+                previewAsk=null
+                if(previewWanted&&epoch==sheetRevision)image.post{redrawPreview(epoch)}
+            }
+            if(!landed)previewAsk=ask
+        }catch(error:Exception){previewAsk=null;say(error)}
     }
     private fun admitPreviewContext(pair:BrushImagePair,preference:StabilizerPreference=port.stabilizerPreference) {
         val p=pair.recipe
@@ -370,5 +388,5 @@ class UnibrushHostController(
         cancelPick();saveDialog?.dismiss();saveDialog=null
         sheet=null;previewImage=null;canvas.onPenReading=null;worker.shutdownNow()
     }
-    companion object {const val REQUEST_PNG=4191}
+    companion object {const val REQUEST_PNG=4191; const val PREVIEW_PATIENCE_MS=1500L}
 }

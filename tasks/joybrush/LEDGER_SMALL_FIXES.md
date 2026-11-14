@@ -62,6 +62,15 @@ Card: `tasks/jobs/OIL-KNIFE_real_knife_and_glop.md`. The lab draws oil on the PC
 | E1 | Palette knife 1 (the trowel) still leaves a hard line where it crosses wet paint; the hair brushes now pull the colour along | Its pull costs 17 % a step on the Note 9 as written (two more surface reads a pixel). Try reading the pulled paint only where the trowel's cover is above a threshold, or at half the rate, and measure `paste.frame / paste.steps` before and after | `jb_paste_dab.frag` (`u_pull`), `Paste.kt` Palette knife 1 |
 | E2 | The pull moves colour only; thick paint is not heaped up ahead of the brush or left in a ridge where it stops | Owner's words 11-11: "if thick the paint would be pulled as something went across". Moving thickness with the colour flattened every ridge to the canvas weave (tried 11-13). A bow wave needs its own small term: a share of the thickness above the brush's underside pushed ahead along the travel, kept off the canvas grain | `jb_paste_dab.frag`, lab sheets `oilover`, `oildirty` |
 
+## F. Found 2026-11-14
+
+| # | What the person meets | State |
+|---|---|---|
+| F1 | Brush drawer previews of pencils blank and lilac, oils salmon on lilac (Note 9) | **Fixed 11-14**: the media engine's empty texture is given its zeros (`MediaLayerEngine.emptyTex`); stored pictures replaced (`BrushPreviewKey.RENDERER_VERSION` 3). [Before and after](evidence/preview-lilac-20261114/README.md) |
+| F2 | A reopened drawing's pencil, watercolour and oil are a picture: old paint cannot be blended, lifted or scraped | **Open, not small**: ordinary layers' paint stores are not saved since 10-11 (`GlPaintEngine.mediaPlaneOfCel`). Why it is not simply fixed, and what to measure first: [ATLAS-SOLID](../jobs/ATLAS-SOLID_never_refuse.md), "Found 11-14". The engine session holds it |
+| F3 | The hover outline under the pen: knives and oil brushes now have their real shape (`core/media/HoverFootprint`); pencils and watercolour still a circle | Give `HoverFootprint.outline` the stick's contact (the lead's side at a tilt) and the watercolour brush's belly |
+| F4 | `Paste.kt` has one stray line ending (`) {` then CR CR LF, about line 131) and is stored with CRLF; cleaning it makes git rewrite every line (`* text=auto`) | Normalise the file on a quiet day, announced on the BOARD, in a commit of its own; until then edit it byte for byte |
+
 ## D. Paused work passed on by the launch-push session (2026-11-10)
 
 Not this session's, recorded so it is not lost; the BOARD's "Paused work" table is the place of record.

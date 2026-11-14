@@ -1,6 +1,6 @@
 # TAB-1: Every screen size: tablets, landscape and wide screens
 
-**Milestone:** M1 (feeds M2)  ·  **State:** ⬜ card written 11-13  ·  **Owner:** open  ·  **Checked:** 2026-11-13 (first tablet install today)
+**Milestone:** M1 (feeds M2)  ·  **State:** 🟡 helper + simple screens built, Note 9-checked; design page with the owner  ·  **Owner:** TAB-1 sizes lane (11-14)  ·  **Checked:** 2026-11-14
 
 ## Why it matters
 Owner, 11-13: the UI must be "optimized for tablets and different aspect ratios so they look awesome in
@@ -35,10 +35,26 @@ two-thirds empty, one button across the whole width.
       Studio (11-13, test tablet, landscape): see [STU-4](STU-4_studio_sweep_leftovers.md) "11-13 afternoon":
       the tool row fits; text drawer rows sit over the preview's upper third; bottom sheets open only peeking;
       the floating pencil covers the first tool cell.
-- [ ] Shared size-class helper and a maximum content width for the simple screens (onboarding, Settings,
-      Library lists, dialogs): cheap, no design call needed.
-- [ ] Design page: Studio drawers as side panels (which side, how wide, one or two at once, where the
-      timeline goes), the lobby on a wide screen (with DOOR-2), JoyBrush chrome on a tablet with the S Pen.
+- [x] Shared size-class helper (11-14): `ui/size/SizeClass` (pure; AndroidX's breakpoints 600/840 wide,
+      480/900 tall; JVM test `tools/jvm-harness/run-sizeclass.sh`), `WindowSize` (the window's classes, never
+      "is a tablet"), `ContentColumn` (centred column measured from the view itself; keeps padding an insets
+      listener sets). XML side: `values-w600dp` / `values-w840dp`, never `sw600dp` (the welcome column moved).
+      **Use these for every wide-screen change** (Joybot's chat panel already plans to).
+- [x] Maximum content width for the simple screens (11-14, built): Settings hub and all 19 settings pages,
+      the intro's permissions and consent pages, What's New sit in a 640 dp centred column on a window wider than
+      that (`ContentColumn.Page` marker, `ContentColumn.watch` in MainActivity and OnboardingActivity). The
+      Library fits more cards across at phone size on a window 600 dp or more (cards >= 168 dp, list rows
+      >= 360 dp); under 600 dp it keeps the phone's 2 / 1. Bottom sheets stop at 640 dp (`CustomBottomSheetStyle`
+      maxWidth; the Material 3 theme already did). The folder step already had its own column (5a390fa4d).
+      **Note 9 (548 dp wide at the owner's dense setting, 1127 dp sideways):** Settings and Library pixel-identical
+      before/after; the first build showed 3 Library cards there, fixed by the under-600 rule. Shots
+      `tasks/screens/tab1-20261114/`. **Tablet: not yet seen** (off Wi-Fi debugging 11-14 afternoon).
+      Open: sheets still open only peeking in tablet landscape (Material's auto peek uses the window's width);
+      dialog widths on the tablet not looked at.
+- [x] Design page (11-14): [UI-TAB1-wide-screens.html](../design/UI-TAB1-wide-screens.html), sent to the
+      orchestrator for the owner. Studio side panels S1-S7 (S7 = Joybot's chat in the same panel region, the
+      owner's 11-14 ask), JoyBrush J1-J4, lobby L1-L5 (with DOOR-2). Provisional rule agreed with the Joybot sprites
+      lane until he picks: 360 dp, right, full height, from 840 dp. **Waiting on his picks line.**
 - [ ] Build the picked designs, wing by wing; phone-check that nothing moved on the Note 9.
 
 ## Survey notes from the UI leftovers lane (Tab S8 Ultra, 2960 x 1848, 11-13)

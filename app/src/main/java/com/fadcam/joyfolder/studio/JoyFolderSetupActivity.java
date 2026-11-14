@@ -38,12 +38,16 @@ import com.fadcam.joyfolder.android.JoyFolderHome;
  */
 public class JoyFolderSetupActivity extends AppCompatActivity {
 
-    private static final int GROUND = 0xFF050507;
-    private static final int PANEL = 0xFF111114;
-    private static final int PANEL_2 = 0xFF1C1C22;
-    private static final int TEXT = 0xFFE9E9EE;
-    private static final int MUTED = 0xFFA1A1AC;
-    private static final int CAREFUL = 0xFFFBBF24;
+    // The house tokens (Studio), so this screen reads as Joy Creator and follows any change to them
+    // (app-shell lane 11-14: the tablet showed it as a flat stock-grey screen with system type).
+    private static final int GROUND = com.fadcam.ui.faditor.Studio.GROUND;
+    private static final int PANEL = com.fadcam.ui.faditor.Studio.PANEL;
+    private static final int PANEL_2 = com.fadcam.ui.faditor.Studio.RAISED;
+    private static final int TEXT = com.fadcam.ui.faditor.Studio.INK;
+    private static final int MUTED = com.fadcam.ui.faditor.Studio.INK_DIM;
+    private static final int CAREFUL = com.fadcam.ui.faditor.Studio.CAREFUL;
+    /** A wide screen (tablet, landscape) gets a centred column this wide, not a page-wide stretch. */
+    private static final int COLUMN_MAX_DP = 560;
 
     private TextView where, detail, progress;
     private LinearLayout consent, actions;
@@ -80,13 +84,25 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         getWindow().setStatusBarColor(GROUND);
+        getWindow().setNavigationBarColor(GROUND);
+        getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(GROUND));
         ScrollView scroll = new ScrollView(this);
         scroll.setBackgroundColor(GROUND);
         scroll.setFillViewport(true);
+        // A frame that centres the column; on a phone the column is the full width, as before.
+        android.widget.FrameLayout frame = new android.widget.FrameLayout(this);
+        frame.setBackgroundColor(GROUND);
+        scroll.addView(frame, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT));
         LinearLayout col = new LinearLayout(this);
         col.setOrientation(LinearLayout.VERTICAL);
         col.setPadding(dp(20), dp(20), dp(20), dp(32));
-        scroll.addView(col);
+        int screenDp = getResources().getConfiguration().screenWidthDp;
+        android.widget.FrameLayout.LayoutParams colLp = new android.widget.FrameLayout.LayoutParams(
+                screenDp > COLUMN_MAX_DP ? dp(COLUMN_MAX_DP) : ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL);
+        if (screenDp > COLUMN_MAX_DP) colLp.topMargin = dp(48);
+        frame.addView(col, colLp);
 
         required = getIntent().getBooleanExtra(EXTRA_REQUIRED, false);
         if (required) {
@@ -106,7 +122,9 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             col.addView(close);
         }
 
-        col.addView(text(required ? "First, choose where your work lives" : "Your Joy Creator folder", 26, TEXT, true));
+        TextView title = text(required ? "First, choose where your work lives" : "Your Joy Creator folder", 26, TEXT, true);
+        com.fadcam.ui.type.Type.display(title, com.fadcam.ui.type.Type.EXTRA);
+        col.addView(title);
         TextView why = text("Everything you make is kept in one folder you choose: projects, drawings, recordings and "
                 + "exports. Removing the app never loses your work. You can open it in any file manager, back it up, "
                 + "or move it to a new phone." + (required ? " You can move it later in Settings → Storage Location." : ""),
@@ -521,7 +539,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
         t.setTextColor(color);
         t.setLineSpacing(0, 1.2f);
-        if (bold) t.setTypeface(Typeface.DEFAULT_BOLD);
+        if (bold) com.fadcam.ui.type.Type.display(t, com.fadcam.ui.type.Type.SEMIBOLD);
         return t;
     }
 
@@ -554,15 +572,22 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         return v;
     }
 
-    /** A flat pill. Primary is light on dark; secondary is a zinc grey. */
+    /**
+     * A flat pill. Primary is the app's own "go" pill (the aqua the intro's Let me in wears, dark ink on it);
+     * secondary is a zinc grey.
+     */
     private TextView pill(String label, boolean primary, View.OnClickListener onClick) {
-        TextView b = text(label, 15, primary ? GROUND : TEXT, true);
+        TextView b = text(label, 15, primary ? com.fadcam.ui.faditor.Studio.ON_GO : TEXT, true);
         b.setGravity(Gravity.CENTER);
         b.setPadding(dp(18), dp(12), dp(18), dp(12));
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(primary ? TEXT : PANEL_2);
-        bg.setCornerRadius(dp(999));
-        b.setBackground(bg);
+        if (primary) {
+            b.setBackgroundResource(com.fadcam.R.drawable.studio_action_pill);
+        } else {
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(PANEL_2);
+            bg.setCornerRadius(dp(999));
+            b.setBackground(bg);
+        }
         b.setOnClickListener(v -> {
             if (!busy) onClick.onClick(v);
         });

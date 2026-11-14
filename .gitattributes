@@ -3,3 +3,7 @@
 # A patch file must reach git apply with LF endings whatever the checkout's core.autocrlf is. With CRLF it is
 # refused outright ("corrupt patch"), which is how tasks/joybrush/held/ patches stop applying on Windows.
 *.patch -text
+
+# Hook and guard scripts run under bash/perl: CRLF endings would break them (and every commit with them)
+.githooks/* text eol=lf
+tools/joyguard/* text eol=lf

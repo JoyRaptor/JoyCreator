@@ -1059,6 +1059,40 @@ public class IdeaEngineTest {
             }
         }
 
+        // ── CaptureRules: the camera starts only on the person's own words (BOT-A29, 11-13) ──
+        {
+            com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict GO = com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.GO;
+            eq("capture: start when asked, allowed, idle", GO, com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide(
+                    "start", false, false, false, true, "start recording with the front camera"));
+            eq("capture: a computer on the bridge (no words) can't start it",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NOT_ASKED,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, true, ""));
+            eq("capture: a request that isn't about recording can't start it",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NOT_ASKED,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, true, "make the title red"));
+            eq("capture: 'stop recording' is no start",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NOT_ASKED,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, true, "stop recording"));
+            eq("capture: no permission is reported, not worked round",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NO_PERMISSION,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", false, false, false, false, "film me"));
+            eq("capture: start while recording is the wrong state",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("start", true, false, false, true, "record"));
+            eq("capture: pause a running recording", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("pause", true, false, false, true, ""));
+            eq("capture: no dual pause", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NO_DUAL_PAUSE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("pause", true, false, true, true, ""));
+            eq("capture: resume only when paused", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("resume", true, false, false, true, ""));
+            eq("capture: stop needs something recording", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", false, false, false, true, ""));
+            eq("capture: stop works with no words (a computer may stop it)", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", true, true, true, true, ""));
+            check("capture: 'start recording' wakes the capture tools",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("start recording please").contains("capture"), "");
+        }
+
         // ── SpriteOptions: mouth shapes and key colours as SpriteLab names them (BOT-A31, 11-13) ──
         {
             String[][] shapes = {{"AA", "AA"}, {"ah", "AA"}, {"mbp", "CLOSURE"}, {"m/b/p", "CLOSURE"}, {"f-v", "FRIC"},

@@ -390,5 +390,15 @@
     "expect": {"require": [{"path": "timeline.textOverlays[t-title].colorInt", "eq": "#FF0000"},
                            {"path": "timeline.textOverlays[t-draft].colorInt", "eq": "#0000FF"}],
                "undoSteps": 1, "ok": true, "reviewRows": 2}
+  },
+  {
+    "id": "capture-not-asked",
+    "title": "“Make my video better”: the model tries to start the camera; refused, nothing changes (BOT-A29: only the person's words start it)",
+    "words": "make my video better",
+    "reference": [
+      {"calls": [{"name": "recording", "args": {"step": "start", "camera": "front"}}]},
+      {"text": "I can't start the camera unless you ask me to record, so I haven't changed anything."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0}
   }
 ]

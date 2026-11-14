@@ -40,8 +40,14 @@ SpriteLab: grid, names, animations, sequences.
       and its Take me there opens the Smart Detection screen ([answer](../joybot/evidence/help_smart_detection_tablet_20261113.png),
       [screen](../joybot/evidence/route_smart_detection_tablet_20261113.png)). That build still said "the lobby's Finder" and
       used the tab route; 9d04a03e3 (Remote Studio / Detect names, the shell's own doors) is not on a device yet.
-- [ ] **Capture**: start, pause, stop a recording; webcam bubble; floating visualiser with it. Android
-      permission screens stay the person's tap.
+- [~] **Capture** (11-13, audit BOT-A29): `recording` (app-wide family "capture"): status, start (back / front / dual),
+      pause, resume, stop, each through a door the app already has (the shortcut's `RecordingStartActivity`, the
+      service intents the Remote Studio page sends, `RecordingStopActivity`). The camera starts only on the person's
+      own words asking to record (a model's guess or a computer on the bridge can't; `joybot/CaptureRules`); missing
+      camera / microphone permission is reported, never worked round; dual can't pause. Ideas 1020/1020 (12 rule
+      checks); bench `capture-not-asked` (the refusal is the rule's own, checked in its log), bench 63/63. **Not on a
+      device** (a start really films). Left: screen recording, the webcam bubble; the floating visualiser already has
+      `vislab_float`.
 - [ ] **JoyBrush, deeper**: Select (move, scale, recolour a selection), symmetry, paper, undo/redo by voice,
       export a drawing or board, Send to Studio. With the JoyBrush lead.
 - [ ] **Cross-wing jobs** (F6): sprite sheet → animation → placed in the video; a JoyBrush region → picture

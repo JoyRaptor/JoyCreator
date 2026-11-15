@@ -5392,6 +5392,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateMarkerAudioOnlyClock() {
         if (!audioTailActive || project == null || !project.getTimeline().isEmpty()) return;
         long ms = Math.min(markerDurationMs(), audioTailStartMs + android.os.SystemClock.elapsedRealtime() - audioTailStartWall);
+        ms = Math.min(markerDurationMs(), jumpAudioClockOverCut(ms));
         editorTimeline.setPlayheadPositionMs(ms); lastPlayheadAbsoluteMs = ms;
         timeCurrent.setText(TimeFormatter.formatAuto(ms)); setTextOverlayPlayhead(ms);
         if (ms >= markerDurationMs()) {
@@ -10416,8 +10417,80 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * frame-level precision, plain seekTo on older builds.
      */
     private void seekAudioPlayersToPlayhead() {
+        seekAudioPlayersTo(editorTimeline.getPlayheadPositionMs());
+    }
+
+    // ── Cut jumps in playback (STU-B3) ───────────────────────────────────────────────
+    /** How close to a jump's end counts as landed, so a seek in flight is not repeated. */
+    private static final long CUT_JUMP_SETTLE_MS = 30L;
+
+    /**
+     * Playing film clip {@code clip} at player position {@code position} (source ms from the
+     * in-point; on a gapless looped clip, the clip's own visual clock): when that moment lies
+     * inside a cut jump, seek past it and bring the sound lanes along. A jump that runs to or
+     * past the clip's end seeks to the end, and the next clip takes over as at any seam (a
+     * jump that continues into it is met again there). Returns true when it seeked.
+     */
+    private boolean jumpOverCutIfInside(@NonNull Clip clip, long position) {
+        Timeline tl = project.getTimeline();
+        com.fadcam.ui.faditor.model.CutJumps jumps = com.fadcam.ui.faditor.model.CutJumps.of(tl);
+        if (jumps.isEmpty()) { pendingSkipSeekTarget = -1; return false; }
+        int ci = tl.indexOfClip(clip);
+        if (ci < 0) return false;
+        long clipStart = 0L;
+        for (int i = 0; i < ci; i++) clipStart += tl.getClip(i).getVisualDurationMs();
+        double speed = Math.max(0.1f, clip.getSpeedMultiplier());
+        boolean visualClock = clip.hasLoopExtension() && clip.getLoopMode() == Clip.LOOP_MODE_NORMAL
+                && playerManager.isGapless();
+        long loopBefore = clip.hasLoopExtension() && !clip.isImageClip() ? clip.getLoopBeforeMs() : 0L;
+        long mainStart = clipStart + loopBefore;
+        long mainEnd = mainStart + clip.getTrimmedDurationMs();
+        long editorMs = visualClock ? clipStart + position
+                : mainStart + Math.round(position / speed);
+        int j = jumps.indexAt(editorMs);
+        if (j < 0 || editorMs >= jumps.endMs(j) - CUT_JUMP_SETTLE_MS) {
+            pendingSkipSeekTarget = -1;
+            return false;
+        }
+        long landing = Math.min(jumps.endMs(j), mainEnd);
+        long target = visualClock ? landing - clipStart
+                : Math.round((landing - mainStart) * speed);
+        if (landing >= mainEnd) {
+            // To the end of this clip's main pass; a hair short so the player still has a frame.
+            long endTarget = visualClock ? mainEnd - clipStart
+                    : clip.getOutPointMs() - clip.getInPointMs();
+            target = Math.max(0L, endTarget - 20L);
+        }
+        if (pendingSkipSeekTarget != target) {
+            pendingSkipSeekTarget = target;
+            playerManager.setExactSeek(true);
+            playerManager.seekTo(target);
+            seekAudioPlayersTo(landing);
+            FLog.d(TAG, "cut jump: " + editorMs + " -> " + landing + " ms (clip " + ci + ")");
+        }
+        return true;
+    }
+
+    /**
+     * The audio-only and audio-tail clock (wall time from audioTailStartMs): inside a cut jump
+     * it restarts at the jump's end and the sound lanes are seeked there. Returns the clock.
+     */
+    private long jumpAudioClockOverCut(long ms) {
+        if (project == null) return ms;
+        com.fadcam.ui.faditor.model.CutJumps jumps =
+                com.fadcam.ui.faditor.model.CutJumps.of(project.getTimeline());
+        long landing = jumps.landingMs(ms);
+        if (landing == ms) return ms;
+        audioTailStartMs = landing;
+        audioTailStartWall = android.os.SystemClock.elapsedRealtime();
+        seekAudioPlayersTo(landing);
+        FLog.d(TAG, "cut jump (sound clock): " + ms + " -> " + landing + " ms");
+        return landing;
+    }
+
+    /** Seek every sound lane under {@code playheadMs} there (the playhead itself is not moved). */
+    private void seekAudioPlayersTo(long playheadMs) {
         if (project == null || !project.getTimeline().hasAudioClips()) return;
-        long playheadMs = editorTimeline.getPlayheadPositionMs();
         java.util.List<AudioClip> clips = project.getTimeline().getAudioClips();
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
             if (readyAudioPlayer(i) == null) continue;
@@ -11887,7 +11960,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── Audio-tail mode: playhead continues past video end ───────
         if (audioTailActive) {
             long elapsed = android.os.SystemClock.elapsedRealtime() - audioTailStartWall;
-            long playheadMs = audioTailStartMs + elapsed;
+            long playheadMs = jumpAudioClockOverCut(audioTailStartMs + elapsed);
             long timelineEndMs = editorTimeline.getTimelineEndMs();
 
             if (playheadMs >= timelineEndMs) {
@@ -12320,30 +12393,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             long position = playerManager.getCurrentPosition(); // 0-based within trim
             long absoluteMs = clip.getInPointMs() + position;
 
-            // Live skip: if playback entered a transcript-removed span, jump past it
-            if (clip.hasRemovedSpans()) {
-                boolean inSpan = false;
-                for (long[] span : clip.getRemovedSpans()) {
-                    if (absoluteMs >= span[0] && absoluteMs < span[1] - 30) {
-                        inSpan = true;
-                        long target = span[1] - clip.getInPointMs();
-                        long trimDur = clip.getOutPointMs() - clip.getInPointMs();
-                        if (target >= trimDur - 30) {
-                            playerManager.pause();
-                            updatePlayPauseButton(false);
-                            pendingSkipSeekTarget = -1;
-                        } else if (pendingSkipSeekTarget != target) {
-                            pendingSkipSeekTarget = target;
-                            playerManager.setExactSeek(true);
-                            playerManager.seekTo(target);
-                        }
-                        return;
-                    }
-                }
-                if (!inSpan) {
-                    pendingSkipSeekTarget = -1;
-                }
-            }
+            // CUT JUMPS (STU-B3, owner 11-15): struck words and cut silences stay on the
+            // timeline, and playback jumps over them, picture and every sound lane together,
+            // exactly where the export does (model/CutJumps is the one list for both).
+            if (playerManager.isPlaying() && jumpOverCutIfInside(clip, position)) return;
 
             // For clips with loop extension, directly set the absolute timeline
             // position instead of going through setPlayheadFraction (which clamps

@@ -3133,6 +3133,7 @@ public class EditorTimelineView extends View {
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
+        cutMarks.clear();
 
         // Reorder mode draws its own UI over everything
         if (isReorderMode) {
@@ -5195,9 +5196,46 @@ if (sd.clip.hasVolumeKeyframes()) {
             float x1 = rect.left + (Math.min(sd.outPointMs, span[1]) - sd.inPointMs) * pxPerMs;
             if (x1 > x0) {
                 canvas.drawRect(x0, rect.top, x1, rect.bottom, segmentPaint);
+                long skipped = Math.round((Math.min(sd.outPointMs, span[1])
+                        - Math.max(sd.inPointMs, span[0])) / (double) Math.max(0.1f, sd.speed));
+                CutMarkPainter.draw(canvas, x0, rect.top, rect.bottom, density);
+                cutMarks.add(new float[]{x0, rect.top, rect.bottom, skipped});
             }
         }
         canvas.restore();
+    }
+
+    // ── Cut marks (STU-B3): where playback and export jump over a struck word or a cut
+    // silence. Recorded as they are drawn (content x), so a hovering stylus or mouse can be
+    // told what the mark is. Cleared at the start of every frame.
+    private final java.util.List<float[]> cutMarks = new java.util.ArrayList<>();
+    private CharSequence tooltipBeforeCutMark;
+    private boolean showingCutMarkTip;
+
+    @Override
+    public boolean onHoverEvent(android.view.MotionEvent event) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            float[] hit = null;
+            if (event.getActionMasked() != android.view.MotionEvent.ACTION_HOVER_EXIT) {
+                float cx = event.getX() + scrollOffsetPx;
+                float slop = 10f * density;
+                for (float[] m : cutMarks) {
+                    if (Math.abs(cx - m[0]) <= slop && event.getY() >= m[1] && event.getY() <= m[2]) {
+                        hit = m;
+                        break;
+                    }
+                }
+            }
+            if (hit != null) {
+                if (!showingCutMarkTip) tooltipBeforeCutMark = getTooltipText();
+                showingCutMarkTip = true;
+                setTooltipText(CutMarkPainter.label(getContext(), (long) hit[3]));
+            } else if (showingCutMarkTip) {
+                showingCutMarkTip = false;
+                setTooltipText(tooltipBeforeCutMark);
+            }
+        }
+        return super.onHoverEvent(event);
     }
 
     /** Draws detected-silence candidates as translucent yellow bands. */

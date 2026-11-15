@@ -120,7 +120,9 @@ public class ImageViewerActivity extends AppCompatActivity {
         itemDisplayName = getIntent().getStringExtra("item_display_name");
 
         if (metaView != null) {
-            metaView.setText(buildInlineMeta());
+            String meta = buildInlineMeta();
+            metaView.setText(meta);
+            metaView.setVisibility(TextUtils.isEmpty(meta) ? android.view.View.GONE : android.view.View.VISIBLE);
         }
         if (more != null) {
             androidx.appcompat.widget.TooltipCompat.setTooltipText(more, more.getContext().getString(R.string.video_menu_info));
@@ -278,18 +280,20 @@ public class ImageViewerActivity extends AppCompatActivity {
 
     @NonNull
     private String buildInlineMeta() {
-        String classLabel = !TextUtils.isEmpty(className)
-                ? className
-                : (!TextUtils.isEmpty(eventType) ? eventType : "Evidence");
         String when = capturedAt > 0L
                 ? DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Locale.getDefault())
                 .format(new Date(capturedAt))
-                : getString(R.string.forensics_unknown_time);
+                : null;
+        boolean detected = !TextUtils.isEmpty(className) || !TextUtils.isEmpty(eventType) || confidence > 0f;
+        if (!detected) return when != null ? when : "";
+        String classLabel = !TextUtils.isEmpty(className) ? className : eventType;
+        if (TextUtils.isEmpty(classLabel)) classLabel = "Found";
+        if (when == null) when = getString(R.string.forensics_unknown_time);
         return String.format(
                 Locale.US,
-                "%s • conf %.2f • %s",
+                "%s • %d%% sure • %s",
                 classLabel.toUpperCase(Locale.US),
-                confidence,
+                Math.round(confidence * 100f),
                 when
         );
     }

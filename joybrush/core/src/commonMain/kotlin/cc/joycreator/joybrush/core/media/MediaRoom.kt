@@ -53,4 +53,21 @@ object MediaRoom {
         }
         return out
     }
+    /**
+     * Which of [tiles] a save keeps as workable paint when together they hold more than [budgetBytes]: the most recently
+     * painted first, until the budget is spent (a tile that does not fit is passed over for a smaller, older one). Null =
+     * all of them fit. The rest are saved as their picture and open as set paint. Tiles with no time ([Tile.written] 0:
+     * painted before the drawing was opened) are the oldest.
+     */
+    fun newestWithin(tiles: List<Tile>, budgetBytes: Long): Set<Triple<String, String?, Long>>? {
+        if (tiles.sumOf { it.bytes } <= budgetBytes) return null
+        val keep = HashSet<Triple<String, String?, Long>>()
+        var used = 0L
+        for (t in tiles.sortedByDescending { it.written }) {
+            if (used + t.bytes > budgetBytes) continue
+            used += t.bytes
+            keep += Triple(t.layerId, t.plane, t.key)
+        }
+        return keep
+    }
 }

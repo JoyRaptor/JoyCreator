@@ -132,6 +132,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val gpuHogMb: Int? = null,
                /** `jb_sheet_cut`: false = a wash too wide for the new view sets whole, as before 2026-11-13 (WetSheet.cutOnMove). */
                val sheetCut: Boolean? = null,
+               /** `jb_save_level`: the deflate level of paint store tiles in a save (ArchiveMediaDeflate), to compare. */
+               val saveLevel: Int? = null,
+               /** `jb_save_paint_mb`: how much paint state a save keeps as paint (JbCanvasView.savePaintBudgetBytes). */
+               val savePaintMb: Int? = null,
                /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
                val sheetWave: Double? = null,
                /**
@@ -190,6 +194,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.debugPlain = spec.sheetPlain
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.cutOnMove = spec.sheetCut ?: true
+        spec.saveLevel?.let { cc.joycreator.joybrush.androidkit.io.ArchiveMediaDeflate.level = it.coerceIn(0, 9) }
+        spec.savePaintMb?.let { canvas.savePaintBudgetBytes = it.toLong() shl 20 }
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
         applySymmetry()
@@ -278,6 +284,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
             "savefile" -> benchSaveFile()
+            // Between two "savefile" steps of one run: the paint a save keeps (MB), the deflate level of its store tiles.
+            "savepaint" -> arg.toLongOrNull()?.let { canvas.savePaintBudgetBytes = it shl 20 }
+            "savelevel" -> arg.toIntOrNull()?.let { cc.joycreator.joybrush.androidkit.io.ArchiveMediaDeflate.level = it.coerceIn(0, 9) }
             // Save, open what was saved, save again: every paint store tile must come back byte for byte (opening uploads
             // them through the same reused buffers; the pictures are counted apart, an open may redraw them).
             "reload" -> canvas.snapshot({ a ->
@@ -918,6 +927,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetPlain = intent.getBooleanExtra("jb_sheet_plain", false),
                 gpuHogMb = intent.getIntExtra("jb_gpu_hog_mb", -1).takeIf { it > 0 },
                 sheetCut = if (intent.hasExtra("jb_sheet_cut")) intent.getBooleanExtra("jb_sheet_cut", true) else null,
+                saveLevel = intent.getIntExtra("jb_save_level", -1).takeIf { it >= 0 },
+                savePaintMb = intent.getIntExtra("jb_save_paint_mb", -1).takeIf { it > 0 },
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),

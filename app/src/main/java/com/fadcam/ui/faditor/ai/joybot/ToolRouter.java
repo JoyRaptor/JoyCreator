@@ -157,7 +157,9 @@ public final class ToolRouter {
                 {"looks", "looks"}, {"transform", "looks"}, {"motion", "motion"}, {"organise", "organise"},
                 {"slides", "slides"}, {"sources", "media"}, {"transitions", "transitions"},
                 {"text_look", "text"}, {"clip_shape", "clips"}, {"sprite_video", "sprites"}, {"director", CORE}, {"vislab", "vislab"},
-                {"joybrush", "joybrush"}, {"capture", "capture"}};
+                {"joybrush", "joybrush"}, {"capture", "capture"},
+                // BOT-7: making something new is the lobby's own job, so it is always to hand.
+                {"create", CORE}};
         for (String[] p : spec) SPEC_FAMILY.put(p[0], p[1]);
 
         legacy("transcript", "generate_transcript", "detect_silence", "get_transcript", "correct_transcript",

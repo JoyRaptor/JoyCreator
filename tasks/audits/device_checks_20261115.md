@@ -17,9 +17,9 @@ the Joy Creator folder's `JC big video.mp4`, `JC test photo.jpg`, projects "Unti
 | 1d | Studio: Clean tab status after Revert then Undo | ⬜ not reached: Fix audio applied (one tap, one undo step) but I did not find the Clean tab in the audio drawer on this screen (F4) | `studio-audio-lane-after-collapse.png` |
 | 1e | Studio: caption-style chip undo | ⬜ not run: needs captions, which need the on-device speech model download (a dialog offers 40 to 128 MB) | |
 | 1f | Studio: old Fix audio file re-timed on open | ⬜ not run: no old-style project exists on a fresh device | |
-| 2a | Joybot: "drop a marker here" then one Undo | ⬜ blocked: without an AI key Joybot is "offline helper" and answers with a how-to text (no crash, no marker) | `joybot-marker-*.png` |
-| 2b | Joybot: a cut through Joybot | ⬜ blocked: same | |
-| 2c | Joybot: free-model fallback, add media, relink, ducking | ⬜ blocked: the settings dialog asks for an API key first (F5) | `joybot-settings.png` |
+| 2a | Joybot: "drop a marker here" then one Undo | ⬜ waits on a key (S14), skip until the owner supplies one: without an AI key Joybot is "offline helper" and answers with a how-to text (no crash, no marker) | `joybot-marker-*.png` |
+| 2b | Joybot: a cut through Joybot | ⬜ waits on a key (S14), skip until the owner supplies one: same | |
+| 2c | Joybot: free-model fallback, add media, relink, ducking | ⬜ waits on a key (S14), skip until the owner supplies one: the settings dialog asks for an API key first (F5) | `joybot-settings.png` |
 | 3a | SHELL-10 watermark in a saved video, photo, screen recording | ⬜ not run on the phone. Code reads "Captured by Joy Creator" in all three writers (`WatermarkManager`, `DigitalForensicsEventRecorder`); the watermark is OFF by default, so a real proof needs it switched on plus a camera recording | |
 | 3b | SHELL-12 photo item's Library sheet | ✅ no crash; sheet shows Open / Share / Move to Trash. ❌ tapping the card opens a viewer with a leftover strip "EVIDENCE • conf 0.00 • Unknown time" (F6) | `shell12-photo-*.png` |
 | 3c | SHELL-12 missing-file item | ✅ no crash. The sheet opens (still showing the old size), Open shows a blank black player with no message (F7); the card was gone from the Library after returning | `shell12-missing-*.png` |

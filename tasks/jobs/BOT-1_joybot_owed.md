@@ -66,5 +66,5 @@ Ledger: [plan B6](../joybot/JOYBOT_PLAN_20261014.md), [audit fixes](../audits/20
   save in the main folder, which closes whatever room is open mid-test.
 
 ## 11-15 device check (test Fold; [report](../audits/device_checks_20261115.md))
-- BOT-A1 / BOT-A12 **blocked, not failed**: with no AI key Joybot is the offline helper (how-to text for 'drop a marker here', no crash); Settings asks for an API key (model pre-filled openrouter/free), so marker undo, cut, free-model fallback, add_media, relink and ducking need an owner-supplied key. The first message says 'Connect an AI (there is a free one)' but a keyless tester cannot get an AI answer: owner decision (keyless free path, or reword).
+- BOT-A1 / BOT-A12 **waits on a key (S14: the owner gives the PC an AI key); skip until then**. Blocked, not failed: with no AI key Joybot is the offline helper (how-to text for 'drop a marker here', no crash); Settings asks for an API key (model pre-filled openrouter/free), so marker undo, cut, free-model fallback, add_media, relink and ducking need an owner-supplied key. The first message says 'Connect an AI (there is a free one)' but a keyless tester cannot get an AI answer: owner decision (keyless free path, or reword).
 - The offline helper's large-file Copy / Move / Leave card works (see FILE-1).

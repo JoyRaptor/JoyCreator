@@ -10,9 +10,10 @@ Fold), then seven read-only reviewers, one per area, whose claims I re-read in t
 - **READ**: I followed it in the code myself, line by line. Not seen on a device.
 - **REVIEWER**: a reviewer traced it; I have not re-read every step. Treat as "very likely", check before a big fix.
 
-**Not covered:** the Studio editor screen itself (`FaditorEditorActivity` and its drawers). Its reviewer was cut
-off by the usage limit before reporting; it can be resumed. Also not read: most of `RecordsFragment`, the
-playback seek code, the Library's folder index internals, the 3,000 lines of JoyBrush Select.
+**Not covered:** in the Studio editor, the insides of the drawers and tools (dead buttons there), the timeline's
+touch code and the overlay / player / captions folders: section E is the editor's opening, undo and sheets only.
+Also not read: most of `RecordsFragment`, the playback seek code, the Library's folder index internals, the
+3,000 lines of JoyBrush Select.
 
 **What is proven about my fixes:** see "Fixes on this branch" at the end. Read that before trusting a ✅.
 
@@ -73,6 +74,24 @@ playback seek code, the Library's folder index internals, the 3,000 lines of Joy
 | C16 | Screen recorder adds the microphone in a second step that can be refused (Android 14) after the file is open. `ScreenRecordingService` :744. | REVIEWER, unsure | Small |
 | C17 | Closing What's New restarts the whole app on the lobby; the Capture permission step can show "blocked, open Settings" after a tap outside Android's question. | REVIEWER | Small. Shell-lobby lane |
 | C18 | Known and still open: the "Soon" cards in Classic settings and the Home side panel (SHELL-15, owner decision). | REVIEWER | Owner |
+
+## E. Studio editor (added after the main list; E1 to E4 belong up beside A5 for a tester who makes podcasts)
+
+All in `FaditorEditorActivity.java` unless named. Nothing here is fixed on this branch: several lanes are editing
+that file, so these go to the orchestrator.
+
+| # | What happens | Sure? | Size |
+|---|---|---|---|
+| E1 | **A new "Blank audio project" opens with Play, Export, Volume, Speed and Canvas dead** until you leave and reopen it. `startBlankAudioProject` (:1908) never runs the set-up that wires those buttons (`initPlayer`, `initTimeline`, `initToolbar`, `initExport`, `initBackHandler`, :3965-3983). | READ | Small |
+| E2 | **An audio project with nothing left in it can never be opened again** ("No video selected", editor closes): delete the last audio clip, or start a blank audio project and leave before adding sound. Its titles, sprites and undo history are stranded. `hasLoadableContent` :1932, :1880. | READ | Small |
+| E3 | **Add → Video / Image → "Browse files" always fails in an audio-only project** ("could not add"): inserts at position 1 of an empty row. `onVideoAssetPicked` :49268, `onImageAssetPicked` :49196. | READ | Small (clamp, as the multi-add path does) |
+| E4 | **Undo / Redo in a project with no video leaves the timeline and the sound showing the old clips**; later edits can land on a different clip than the one shown selected. `refreshEditorAfterUndoRedo` :15317 returns early. | READ (the early return), REVIEWER (the knock-on) | Small |
+| E5 | **A project whose first video is missing stays covered by "Opening project…"** if you close the Relink sheet: every tap is swallowed, only Back works. :1859, :5832, `checkMissingMedia` :4392. | REVIEWER | Small |
+| E6 | **Open sheets come back dead** (Volume, Speed, Canvas, Crop, Flip, Add, Relink, Video source, Settings) after Android rebuilds the editor: unfolding the Fold, dark mode switching at sunset, a font-size change. Their buttons then do nothing. Manifest :133 lacks `uiMode` and `smallestScreenSize`. | REVIEWER (certain in code) | Small each: a restored sheet with no owner closes itself |
+| E7 | **After "Open last backup", a rebuild of the screen loads the backup again and saves it over newer work.** :26985, :1697, `ProjectStorage.loadBackupOnly` :657. Rare path, real loss. | REVIEWER | Small |
+| E8 | **A drawer left open across an Undo edits a copy that is no longer saved** (after reopening a project, or after a Joybot change): Level and Mute changes do not stick. `showAudioDrawer` :32601, :15239. | REVIEWER | Small: close or re-bind the drawer on a restore |
+| E9 | **Tapping the export notification after leaving the editor opens nothing** ("No video selected"): the notification carries no project. `ExportService` :1111, :1211. | REVIEWER | Small |
+| E10 | Leaving the editor writes the whole undo history on the main thread every time; possible multi-second hang on Home for big projects. `saveProjectNow(true)` :2345, `ProjectStorage` :1152. Not measured. | REVIEWER, unsure | Medium |
 
 ## D. Old crash records, checked: already fixed
 

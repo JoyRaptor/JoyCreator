@@ -136,6 +136,17 @@ save and reopen, TextLab, VisLab, SpriteLab, Library, Joybot transcription, fold
 rows checked absent). Not owner-tested; the upload bundle is rebuilt after the Smart Detection switch lands. Report:
 `tasks/launch/PLAY_BUILD_REPORT_20261114.md`. Help: not a user feature (no help cell); store and data-safety copy is SHOW-2's.
 
+**FadCam folder names on the phone (SHELL-44 / L16, 11-14, steps 1-2 of 4):** new files a person can see in a file
+manager now use Joy Creator names: `Download/Joy Creator` (saved copies, Trash restores, the debug log),
+`Pictures/Joy Creator/assets` (B-roll; an existing `Pictures/FadCam/assets` stays in use), `Documents/Joy Creator/Screen
+drawings` (screen-drawing projects, named `Screen_drawing_<date time>`), unnamed exports `JoyCreator_<time>`; the
+texts in 13 languages say so. Every old FadCam folder and name is still read, and the Library now also lists
+FadCam-named recordings inside the Joy Creator folder. **Proof:** cloud debug build installed over the Note 9 sandbox
+app: Library 259 items before and after, old folders untouched, no crash; the new-name writes were not exercised on
+the phone. Still to come: moving old files (step 3, with the orchestrator's four conditions) and the app ID move
+(step 4). Design and inventory: `tasks/jobs/FREE-2_names_and_ids.md`, `tasks/launch/FADCAM_NAMES_INVENTORY_20261114.md`.
+Help: not owed (no new control).
+
 ---
 
 ## 2. THE EDITOR — core timeline

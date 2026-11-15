@@ -60,4 +60,19 @@ Note 9 against a COPY of its sandbox Joy Creator folder (made with `cp -r` on th
 folder is never written by two apps.
 
 **Order:** 1 and 2 first (no file moves, no risk to old work); then 3, phone-tested on the Note 9 sandbox; then 4.
+
+**Progress 11-14:** 1 and 2 are on joy-creator (commit ad19f0570 and its landing): the writers in section A of the
+inventory that make shared folders (Download, Pictures, Documents) and the export fallback name use Joy Creator
+names; the Library also lists FadCam-named recordings inside the Joy Creator folder; strings in 13 languages.
+Cloud debug build installed over the Note 9 sandbox app: Library 259 items before and after, old folders untouched.
+**Not yet renamed (row 4 of the table):** the fallback and internal-mode recording names (`FadCam_`, `FadRec_`,
+`FadShot_`, `Faditor_Std_/Merge_`, `AppData/FadCam/...`), the QR scanner and Forensics snapshot names; these sit in
+the recording pipeline and go with step 3's tests. Screenshots: `tasks/screens/shell44-20261114/`.
+
+**Orchestrator's conditions for 3 (2026-11-14, binding):** (a) two phases: copy, verify and repoint on one launch;
+the old files are deleted only on a LATER launch, after every repointed project has opened and found its media; a
+crash between phases leaves both copies, never neither. (b) A readable move log in the Joy Creator folder, one line
+per file: old path, new path, hash, state, so any file can be found or put back by hand. (c) A dry run first that
+lists what it would move and changes nothing; test only against a copy on the Note 9, never the Note 20. (d) Any
+failed check stops and keeps the old file; no technical error is ever shown to the person.
 Translations: the 13 locale files say `Downloads/FadCam` too; they change with 1.

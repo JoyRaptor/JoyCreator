@@ -222,7 +222,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     }
 
     /** The name, opacity and buttons beside one cell while the column is pulled out. */
-    private inner class RowInfo(private val id: String, buttons: Boolean) : LinearLayout(context) {
+    private inner class RowInfo(private val layerId: String, buttons: Boolean) : LinearLayout(context) {
         private val name = android.widget.TextView(context).apply {
             setTextColor(kit.ink(0.92f)); textSize = 13f; maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -251,7 +251,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
                         val pad = kit.dpi(5f)
                         setPadding(pad, pad, pad, pad)
                         background = null
-                        setOnClickListener { host.layerAction(id, action) }
+                        setOnClickListener { host.layerAction(layerId, action) }
                     }
                     kit.label(iv, words)
                     icons[action] = iv
@@ -263,7 +263,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         }
 
         fun refresh() {
-            val layer = stack?.get(id) ?: return
+            val layer = stack?.get(layerId) ?: return
             name.text = layer.name
             sub.text = "${Math.round(layer.opacity * 100)}%  ${BlendNames.name(layer.blend)}"
             for ((action, iv) in icons) {

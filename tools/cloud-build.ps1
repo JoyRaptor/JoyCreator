@@ -13,7 +13,7 @@
 # The GitHub login is the one `git push` already uses, read with `git credential fill`. It stays in memory:
 # never printed, never written. Nothing is ever signed on GitHub; no key or password goes there.
 # Signing reads JOY_KEYSTORE_PASSWORD / JOY_KEY_PASSWORD (and optional JOY_KEYSTORE_FILE / JOY_KEY_ALIAS) from
-# the environment, else the main folder's git-ignored local.properties; jarsigner reads them by name (:env),
+# the environment, else your worktree's (then the main folder's) git-ignored local.properties; jarsigner reads them by name (:env),
 # so they never appear on a command line or in output.
 
 param(
@@ -211,12 +211,14 @@ function Sign-Bundle([string] $aab) {
             Where-Object { $_.Name -notlike "*-signed.aab" } | Sort-Object LastWriteTime | Select-Object -Last 1 -ExpandProperty FullName
     }
     if (-not $aab -or -not (Test-Path $aab)) { throw "no .aab to sign: fetch a playRelease build first" }
-    # Settings: environment first, else the main folder's local.properties (the Play lane's setup). Kept in this
-    # process's environment only, where jarsigner reads them by name.
+    # Settings: environment first, else this worktree's git-ignored local.properties, else the main folder's (the
+    # same order the Gradle build uses). Kept in this process's environment only, where jarsigner reads them by name.
     $mainLp = Join-Path (Split-Path (& git rev-parse --path-format=absolute --git-common-dir)) "local.properties"
     $lp = @{}
-    if (Test-Path $mainLp) {
-        foreach ($l in Get-Content $mainLp) { if ($l -match '^\s*([A-Z_]+)\s*=\s*(.*)$') { $lp[$Matches[1]] = $Matches[2].Trim() } }
+    foreach ($file in @($mainLp, (Join-Path $root "local.properties"))) {   # later file wins: this worktree's
+        if (Test-Path $file) {
+            foreach ($l in Get-Content $file) { if ($l -match '^\s*([A-Z_]+)\s*=\s*(.*)$') { $lp[$Matches[1]] = $Matches[2].Trim() } }
+        }
     }
     foreach ($k in "KEYSTORE_FILE", "KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD") {
         $e = "JOY_$k"
@@ -226,7 +228,7 @@ function Sign-Bundle([string] $aab) {
     if (-not $env:JOY_KEY_ALIAS) { $env:JOY_KEY_ALIAS = "upload" }
     if (-not $env:JOY_KEY_PASSWORD) { $env:JOY_KEY_PASSWORD = $env:JOY_KEYSTORE_PASSWORD }
     if (-not (Test-Path $env:JOY_KEYSTORE_FILE)) { throw "upload key not found (see tasks/launch/PLAY_UPLOAD_KEY.md)" }
-    if (-not $env:JOY_KEYSTORE_PASSWORD) { throw "set JOY_KEYSTORE_PASSWORD (or KEYSTORE_PASSWORD in the main folder's local.properties)" }
+    if (-not $env:JOY_KEYSTORE_PASSWORD) { throw "set JOY_KEYSTORE_PASSWORD (or KEYSTORE_PASSWORD in this worktree's local.properties)" }
     $signed = $aab -replace '\.aab$', '-signed.aab'
     $js = Find-Tool "jarsigner.exe"
     & $js -keystore $env:JOY_KEYSTORE_FILE -storepass:env JOY_KEYSTORE_PASSWORD -keypass:env JOY_KEY_PASSWORD `

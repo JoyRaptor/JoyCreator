@@ -41,9 +41,13 @@ object BrushPreviewKey {
     /** Key retains digests and scalar text only, never a PNG owner or request. */
     fun of(request: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest): Key {
         val text = BrushJson.encode(request.preset)
-        val payload = "v$RENDERER_VERSION|$STROKE|${request.style.key}|$text|${request.resourceFingerprint}|${request.actualStabilizerKey}|${request.penOverride?.key ?: "canned"}|${request.part}|${request.stripes}"
+        val payload = "v$RENDERER_VERSION|$STROKE|${request.style.key}|$text|${request.resourceFingerprint}|${request.actualStabilizerKey}|${request.penOverride?.key ?: "canned"}${partKey(request)}"
         return Key(idPart(request.preset.id), hash(payload), request.width, request.height)
     }
+
+    /** Only a picture that is not the whole stroke over its colour lines names its part, so the usual one keeps the legacy key. */
+    private fun partKey(request: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest): String =
+        if (request.part == cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE && request.stripes) "" else "|${request.part}|${request.stripes}"
 
     /**
      * The brush's part of the file name: the readable [sanitize]d id, then 8 hex digits of the hash of the FULL id. The

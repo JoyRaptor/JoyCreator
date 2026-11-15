@@ -28,6 +28,26 @@ stills; a sheet loader exists and maps animations by name. The owner is drawing 
 - Owner asks still open: a pointing frame for "show me where" (he is generating pointing and display gestures);
   about 22 free cells on the sheet for the actions left off (presenting-player, organizing-files, greeting).
 
+## 11-15: the arrival, building the owner's picks
+Picks (design page `tasks/design/UI-Joybot-chat-arrival-options.html`, owner 11-15): direction 2; full sheet on a phone; no bar,
+big JOYBOT title; title out of the button; drawer opens out of the button; flight: his 6 paths plus Claude's dive and skim (7);
+final approach any of rocket / plop / skim; his seat at the start of the bottom row; double-bounce landing; later opens: the whole
+show, a different path every time; tablet: floating card; frost on.
+Owner's settings (Joybot settings, "how the chat opens"): drawer opening (out of the button / curtain / in his wake; tablet
+default curtain), title (out of the button / with the drawer / letters land after him; tablet default with the drawer), later
+opens (whole show / shorter / quick hop), phone framing (full sheet / inset card, resizable), tablet floating card (resizable,
+placeable, shorter than the screen so the button shows), frost.
+Owner, 11-15: effects are GL (VisLab's plumbing), not stock Android; the turn is a texture flip or a turn drawing, never a
+squeeze of the container; afterimages must sell as a light trail.
+Build steps (branch `claude/joybot-sheet-20261113`):
+- [x] 7th path packed into `assets/joybot/paths.json` (`tools/joybot/pack_paths.py`, both SVGs).
+- [ ] `JoybotArrivalPrefs`: the settings above, defaults by `WindowSize.isExpanded`.
+- [ ] Chat drawer: big title, round close / settings, seat in the bottom row, reveals (button / curtain / wake), title transitions,
+      phone inset card and tablet floating card with drag and resize.
+- [ ] Joybot's GL stage over the chat: the flight on the 7 paths, rocket / plop / skim, thruster rings, sparks, light trail,
+      heat haze from a snapshot of the screen, landing flash; hands over to his seat and stops drawing when he is still.
+- [ ] Settings rows; cloud build; check on the tablet and the Note 9; STATE row; land.
+
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
 - [ ] Fly-to-corner and show-off moves.

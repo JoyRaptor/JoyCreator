@@ -8,7 +8,7 @@ app maps u, v back with  x = start.x + u * (end.x - start.x),  y = start.y + v *
 (Owner, 11-14: "they can be just scaled from point A to point B, whether it be a large horizontal or
 vertical alignment".)
 
-    python tools/joybot/pack_paths.py "<drawing>.svg"   ->  app/src/main/assets/joybot/paths.json
+    python tools/joybot/pack_paths.py "<drawing>.svg" ["<more>.svg" ...]   ->  app/src/main/assets/joybot/paths.json
 
 A path drawn the other way round (landing to button) is turned round. Strokes with fewer than two
 points are skipped. Pure standard library.
@@ -86,11 +86,11 @@ def resample(pts, n):
 def main():
     if len(sys.argv) < 2:
         sys.exit(__doc__)
-    svg = sys.argv[1]
-    root = ET.parse(svg).getroot()
     ns = "{http://www.w3.org/2000/svg}"
     paths = []
-    for el in root.iter(ns + "path"):
+    for svg in sys.argv[1:]:
+      root = ET.parse(svg).getroot()
+      for el in root.iter(ns + "path"):
         pts = parse_d(el.get("d", ""))
         if len(pts) < 2:
             continue
@@ -103,12 +103,12 @@ def main():
         if abs(dx) < 1e-6 or abs(dy) < 1e-6:
             continue
         uv = [[round((x - sx) / dx, 4), round((y - sy) / dy, 4)] for x, y in pts]
-        paths.append({"colour": el.get("stroke", ""), "uv": uv,
+        paths.append({"colour": el.get("stroke", ""), "name": el.get("id", "") if not el.get("id", "").startswith("STROKE_") else "", "uv": uv,
                       "drawnFrom": [round(sx, 1), round(sy, 1)], "drawnTo": [round(ex, 1), round(ey, 1)],
                       "lengthOverDirect": round(length / math.hypot(dx, dy), 2)})
     repo = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     out = os.path.join(repo, "app", "src", "main", "assets", "joybot", "paths.json")
-    doc = {"about": "Joybot's flight paths, drawn by the owner (" + os.path.basename(svg) + "), packed by tools/joybot/pack_paths.py. "
+    doc = {"about": "Joybot's flight paths (" + ", ".join(os.path.basename(a) for a in sys.argv[1:]) + "), packed by tools/joybot/pack_paths.py. "
                     "Each path is stretched so its start is (0,0) and its end (1,1); map it to any start and end. Do not edit by hand.",
            "paths": paths}
     with open(out, "w", encoding="utf-8", newline="\n") as fh:

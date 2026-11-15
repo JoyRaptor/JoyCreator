@@ -2401,10 +2401,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="battery_estimate_title">Estimated Streaming Time Remaining</string>
     <string name="battery_estimate_disclaimer" formatted="false">Based on real-world test: 8 hours continuous streaming with 61% battery drain on a 5000mAh device. Update your device capacity below for personalized estimates.</string>
     <string name="remote_security_title">Access</string>
-    <string name="remote_security_enable">Enable Authentication</string>
-    <string name="remote_security_enable_desc">Require password to access remote web interface</string>
-    <string name="remote_security_password">Set Password</string>
-    <string name="remote_security_password_desc">Change your remote access password</string>
+    <string name="remote_security_enable">Lock Remote Studio</string>
+    <string name="remote_security_enable_desc">A browser needs the pairing code or your password to watch or control this phone</string>
+    <string name="remote_security_password">Your own password</string>
+    <string name="remote_security_password_desc">Optional: works as well as the pairing code</string>
     <string name="remote_security_password_hint">Enter new password</string>
     <string name="remote_security_auto_lock">Auto-Lock Timeout</string>
     <string name="remote_security_auto_lock_desc">Automatically lock after inactivity</string>

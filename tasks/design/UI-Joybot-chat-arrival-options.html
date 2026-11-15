@@ -203,6 +203,7 @@ section{padding-block:52px 0}
   background:radial-gradient(70% 90% at 50% 100%,rgba(204,39,255,.28),transparent 70%);box-shadow:inset 0 -2px 0 rgba(204,39,255,.55)}
 
 /* Joybot */
+.fx{position:absolute;left:0;top:0;z-index:4;pointer-events:none}
 .jb{position:absolute;left:0;top:0;width:80px;height:80px;z-index:5;transform-origin:38.2px 45.4px;will-change:transform;pointer-events:none}
 .jb .spr{position:absolute;inset:0;background-repeat:no-repeat;transform-origin:38.2px 77.3px;image-rendering:auto}
 .tablet .jb{width:80px;height:80px}
@@ -334,7 +335,7 @@ footer b{color:var(--dim)}
 <!-- ========== 01b YOUR PATHS ========== -->
 <section>
   <div class="h2"><span>01b</span><h2>Your six paths</h2></div>
-  <p class="dek">The paths you drew on 14 Nov, read straight from your SVG. Each is <b>stretched</b> so it always starts on the Joybot button and ends on his spot, on any screen: a phone, a tablet panel, sideways. Every open picks one he has not just flown. He pivots on <b>his body</b>, not his hover peg, so he swivels. All three directions now use them; the old tumble, loop and skim are still under "Flight" to compare.</p>
+  <p class="dek">The paths you drew on 14 Nov, read straight from your SVG. Each is <b>stretched</b> so it always starts on the Joybot button and ends on his spot, on any screen: a phone, a tablet panel, sideways. Every open picks one he has not just flown. He pivots on <b>his body</b>, not his hover peg, so he swivels. Near the ground he always rights himself. His thruster puffs <b>plasma rings</b> sized by how hard he has to push: almost none in a dive, big ones in a braking burn, small steady ones while he hovers; they drift off his bottom and fade to pink smoke. All three directions now use them; the old tumble, loop and skim are still under "Flight" to compare.</p>
   <div class="fit"><div class="scale" id="ownHost"></div></div>
   <div class="ctrls" style="justify-content:center">
     <button type="button" class="mini" data-act="replay" data-for="own" title="Fly another of your paths"><svg class="ic"><use href="#i-play"></use></svg>Another path</button>
@@ -698,6 +699,7 @@ Mock.prototype.build = function(){
     (cfg.pad === 'seat' ? '<div class="seat" style="left:' + E.x + 'px;top:' + (E.y + 4) + 'px"></div>' : '') +
     (cfg.pad === 'shadow' || cfg.pad === 'ring' || cfg.pad === 'seat' ? '<div class="shadow" style="left:' + E.x + 'px;top:' + (E.y + 2) + 'px"></div>' : '') +
     '<svg class="path" viewBox="0 0 ' + G.W + ' ' + G.H + '" width="' + G.W + '" height="' + G.H + '"></svg>' +
+    '<canvas class="fx" width="' + G.W * 2 + '" height="' + G.H * 2 + '" style="width:' + G.W + 'px;height:' + G.H + 'px"></canvas>' +
     '<div class="jb"><div class="spr"></div></div></div>';
   this.host.innerHTML = html;
   var root = this.root = this.host.firstChild;
@@ -707,6 +709,8 @@ Mock.prototype.build = function(){
   this.shock = root.querySelector('.shock'); this.shadow = root.querySelector('.shadow');
   this.press = root.querySelector('.lorb .press'); this.lorb = root.querySelector('.lorb');
   this.title = root.querySelector('.bar .tt'); this.letters = root.querySelectorAll('.bar .tt b .l');
+  this.fxc = root.querySelector('.fx'); this.fxg = this.fxc.getContext('2d'); this.fxg.setTransform(2, 0, 0, 2, 0, 0);
+  this.rings = []; this.fxT = null;
   var lo = this.lorb.getBoundingClientRect(); /* not laid out at scale yet; use fixed geometry */
   this.pick();
   this.qpath = flightPath(G, cfg, R, E, true);
@@ -734,6 +738,65 @@ Mock.prototype.pick = function(){
     '<circle class="e" cx="' + E.x + '" cy="' + E.y + '" r="4"/><text x="' + (E.x + 10) + '" y="' + (E.y + 14) + '">lands here</text>' +
     '<text x="' + (G.orb.x - 74) + '" y="' + (G.orb.y + 34) + '">from the button</text>';
 };
+/* ---- his hover thruster: plasma push rings ----
+   Owner, 14 Nov: the thruster under him puffs rings that grow by how hard he has to push, drift
+   away from his bottom and fade into hot-pink smoke rings. Thrust here is the push a hovering body
+   needs: his acceleration minus gravity, so a free-falling dive puffs almost nothing, a hover puffs
+   small steady rings and a braking burn throws big ones. They leave a trail as he flies. */
+var GRAV = 900;   /* dp / s^2 */
+Mock.prototype.fx = function(t, cx, cy, rot, idle){
+  var g = this.fxg; if (!g) return;
+  if (this.fxT === null || t < this.fxT || t - this.fxT > 400){
+    this.rings = []; this.fxT = t; this.fxP = null; this.fxV = null; this.fxA = {x:0, y:0}; this.fxAcc = 0;
+  }
+  var dt = Math.max(1, t - this.fxT) / 1000; this.fxT = t;
+  var th = rot * Math.PI / 180, dn = {x:-Math.sin(th), y:Math.cos(th)};
+  var peg = {x:cx + dn.x * PEG_UP, y:cy + dn.y * PEG_UP};
+  if (this.fxP && dt > 0){
+    var v = {x:(cx - this.fxP.x) / dt, y:(cy - this.fxP.y) / dt};
+    if (this.fxV){ var a = {x:(v.x - this.fxV.x) / dt, y:(v.y - this.fxV.y) / dt}, k = Math.min(1, dt * 14);
+      this.fxA.x += (a.x - this.fxA.x) * k; this.fxA.y += (a.y - this.fxA.y) * k; }
+    this.fxV = v;
+  }
+  this.fxP = {x:cx, y:cy};
+  /* push needed along his body axis (his thruster only pushes up through his body) */
+  var push = Math.max(0, -( (this.fxA.x) * dn.x + (this.fxA.y - GRAV) * dn.y )) / GRAV;   /* 1 = a plain hover */
+  push = Math.min(push, 4);
+  var every = idle ? 340 : (push < .25 ? 1e9 : 150 / (0.6 + push));
+  this.fxAcc += dt * 1000;
+  if (this.fxAcc >= every){
+    this.fxAcc = 0;
+    if (this.rings.length < 48){
+      var sz = idle ? 1 : push;
+      this.rings.push({x:peg.x, y:peg.y, vx:dn.x * (40 + 55 * sz) + (this.fxV ? this.fxV.x * .08 : 0), vy:dn.y * (40 + 55 * sz) + (this.fxV ? this.fxV.y * .08 : 0),
+        age:0, life:520 + 260 * Math.min(sz, 2.5), r0:4 + 1.2 * sz, grow:9 + 8 * Math.min(sz, 3), rot:th});
+    }
+  }
+  var W = this.G.W, H = this.G.H;
+  g.clearRect(0, 0, W, H);
+  var keep = [];
+  for (var i = 0; i < this.rings.length; i++){
+    var r = this.rings[i];
+    r.age += dt * 1000; if (r.age >= r.life) continue;
+    var f = r.age / r.life;
+    r.x += r.vx * dt; r.y += r.vy * dt; r.vx *= Math.pow(.25, dt); r.vy *= Math.pow(.25, dt);
+    var rad = r.r0 + r.grow * (1 - Math.pow(1 - f, 2));
+    var alpha = Math.pow(1 - f, 1.6);
+    /* hot plasma first, cooling to a soft pink smoke ring */
+    var hot = Math.max(0, 1 - f * 2.2);
+    g.save(); g.translate(r.x, r.y); g.rotate(r.rot);
+    g.beginPath(); g.ellipse(0, 0, rad, rad * .3, 0, 0, Math.PI * 2);
+    g.lineWidth = 2.2 * (1 - f * .6) + 2.5 * f;
+    g.strokeStyle = 'rgba(' + Math.round(255) + ',' + Math.round(70 + 90 * hot) + ',' + Math.round(200 + 40 * hot) + ',' + (alpha * (.55 + .4 * hot)).toFixed(3) + ')';
+    g.shadowColor = 'rgba(255,40,190,' + (alpha * .9).toFixed(3) + ')'; g.shadowBlur = 6 + 8 * f;
+    g.stroke();
+    if (f > .35){ g.lineWidth = 6 + 6 * f; g.strokeStyle = 'rgba(240,120,200,' + (alpha * .12).toFixed(3) + ')'; g.shadowBlur = 0; g.stroke(); }
+    g.restore();
+    keep.push(r);
+  }
+  this.rings = keep;
+};
+Mock.prototype.fxClear = function(){ if (this.fxg){ this.fxg.clearRect(0, 0, this.G.W, this.G.H); } this.rings = []; this.fxT = null; };
 Mock.prototype.setSprite = function(name, k){
   var s = SPR[name]; if (!s) return;
   if (this._sn !== name){ this.spr.style.backgroundImage = 'url(' + s.src + ')'; this.spr.style.backgroundSize = (s.n * SP) + 'px ' + SP + 'px'; this._sn = name; }
@@ -798,14 +861,14 @@ Mock.prototype.frame = function(t, still){
   /* Joybot */
   var E = this.E, sh = this.shadow;
   if (still){
-    this.setSprite('idle', 0); this.place(E.x, E.y - PEG_UP, 0, 1, 1, 1);
+    this.setSprite('idle', 0); this.place(E.x, E.y - PEG_UP, 0, 1, 1, 1); this.fxClear();
     this.bub.style.opacity = 1; this.bub.style.transform = ''; this.chips.style.opacity = 1;
     if (sh) sh.style.opacity = cfg.pad === 'shadow' ? .9 : .5;
     if (this.shock) this.shock.style.opacity = 0;
     return;
   }
   if (t < T0){
-    this.bot.style.opacity = 0;
+    this.bot.style.opacity = 0; this.fxClear();
   } else this.bot.style.opacity = 1;
   if (t < tLand){
     var u = clamp((t - T0) / dur, 0, 1), ue = quick ? easeIO(u) : u * u * (1.6 - .6 * u) / 1;
@@ -815,6 +878,11 @@ Mock.prototype.frame = function(t, still){
       ue = u < .65 ? (u < .1 ? easeOut(u / .1) * .06 : .06 + (u - .1) / .55 * .82) : .88 + .12 * easeOut((u - .65) / .35);
     }
     var p = at(path, ue), r = rotAt(cfg, path, ue, quick, ap);
+    if (!quick && cfg.flight === 'yours' && ue > .3){
+      /* owner, 14 Nov: any time he is close to the ground he rights himself */
+      var gap = E.y - (p.y + PEG_UP), near2 = smooth(1 - clamp((gap - 20) / 130, 0, 1));
+      r = lerp(r, Math.round(r / 360) * 360, near2);
+    }
     var pop = clamp((t - T0) / 160, 0, 1), sc = lerp(.35, 1, easeOut(pop));
     var spd = Math.sin(Math.PI * ue), sx = 1 - .07 * spd, sy = 1 + .10 * spd;
     var tumbling = !quick && ((cfg.flight === 'tumble' && ue < .36) || (cfg.flight === 'skim' && ue < .12) || (cfg.flight === 'yours' && ue < .1));
@@ -822,6 +890,7 @@ Mock.prototype.frame = function(t, still){
     if (tumbling) this.setSprite('spin', Math.floor((t - T0) / 55));
     else this.setSprite('idle', 0);
     this.place(p.x, p.y, r, sx, sy, sc);
+    if (t >= T0 + 60) this.fx(t, p.x, p.y, r, false);
     if (sh){ var near = clamp(1 - Math.hypot(p.x - E.x, p.y + PEG_UP - E.y) / 180, 0, 1); sh.style.opacity = near * (cfg.pad === 'shadow' ? .9 : .5); sh.style.transform = 'scale(' + lerp(.4, 1, near) + ')'; }
     this.bub.style.opacity = 0; this.chips.style.opacity = 0;
     if (this.shock) this.shock.style.opacity = 0;
@@ -850,6 +919,7 @@ Mock.prototype.frame = function(t, still){
   if (lt2 > talkStart && lt2 < talkEnd) this.setSprite('talk', Math.floor((lt2 - talkStart) / 166));
   else this.setSprite('idle', Math.floor(Math.max(0, lt2 - talkEnd) / 125));
   this.place(E.x + scootX, E.y - PEG_UP + L.dy + bob, rot + sway, L.sx, L.sy, 1);
+  this.fx(t, E.x + scootX, E.y - PEG_UP + L.dy + bob, rot + sway, lt2 > 700 && scootX < 1);
   if (sh){ sh.style.opacity = cfg.pad === 'shadow' ? .9 : .5; sh.style.transform = 'scale(' + (L.sx * (1 - L.dy / -60)) + ')'; }
   if (this.shock){ var k = clamp(lt2 / 420, 0, 1); this.shock.style.opacity = (1 - k) * .9; this.shock.style.transform = 'scale(' + lerp(1, 2.4, easeOut(k)) + ')'; }
   var bt = clamp((lt2 - talkStart) / 220, 0, 1);

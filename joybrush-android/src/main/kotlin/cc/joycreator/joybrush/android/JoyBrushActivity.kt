@@ -1356,6 +1356,8 @@ class JoyBrushActivity : Activity() {
             keepDrawnStrokes = true
             // Pencil, watercolour and oil here in a small atlas and off the wet sheet: a second canvas, never a drawing's memory.
             smallMediaPreview = true
+            // A stroke the preview could not lay is not said over the sheet, but it is written down (never silent).
+            onRefused = { why -> android.util.Log.w("JoyBrushSheet", "settings preview refused a stroke: $why") }
         }
         // The sheet's groups named under them (pressure, tilt, speed, turn): views over the preview's surface.
         val framed = FrameLayout(this).apply {

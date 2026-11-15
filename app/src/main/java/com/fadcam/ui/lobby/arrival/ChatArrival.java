@@ -124,7 +124,8 @@ public final class ChatArrival {
             @Override
             public void getOutline(View v, Outline o) {
                 if (cr < 0f) { o.setRect(0, 0, v.getWidth(), v.getHeight()); return; }
-                int r = Math.round(cr);
+                // never an empty outline: some phones clip nothing for one instead of everything
+                int r = Math.max(1, Math.round(cr));
                 o.setOval(Math.round(cx) - r, Math.round(cy) - r, Math.round(cx) + r, Math.round(cy) + r);
             }
         });
@@ -161,9 +162,9 @@ public final class ChatArrival {
         panel.setBackground(bg);
         panel.setClipToOutline(card);
         grip.setVisibility(card ? View.VISIBLE : View.GONE);
-        frame.setEnabled(card);
+        frame.setEnabled(card && opened);          // not while he is flying to the seat
         if (!card) reveal.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        androidx.appcompat.widget.TooltipCompat.setTooltipText(grip, "Drag to size the chat");
+        // No hover label on the grip: it lies over the whole card, so one would follow the pointer everywhere.
         if (card) androidx.appcompat.widget.TooltipCompat.setTooltipText(titleBlock, "Drag to move the chat");
     }
 
@@ -385,6 +386,7 @@ public final class ChatArrival {
             opened = true;
             running = false;
             rest();
+            frame.setEnabled(card);
             maybeWindow();
         }
     }
@@ -394,6 +396,7 @@ public final class ChatArrival {
         handT = t;
         // He has just made his entrance in the flight: no second arrival spin from his director.
         if (flew) actor.markArrived();
+        actor.setCalmThruster(true);
         actor.setVisibility(View.VISIBLE);
     }
 

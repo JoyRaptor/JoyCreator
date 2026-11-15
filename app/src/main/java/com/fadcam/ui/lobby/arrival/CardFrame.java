@@ -186,17 +186,21 @@ final class CardFrame {
         });
         grip.setOnTouchListener(new View.OnTouchListener() {
             float sx, sy;
+            int edges;
 
             @Override
             public boolean onTouch(View v, MotionEvent e) {
                 if (!enabled) return false;
                 switch (e.getActionMasked()) {
                     case MotionEvent.ACTION_DOWN:
+                        edges = v instanceof CardGrip ? ((CardGrip) v).edgesAt(e.getX(), e.getY()) : (2 | 4);
+                        if (edges == 0) return false;          // not an edge: the chat underneath takes it
                         sx = e.getRawX();
                         sy = e.getRawY();
                         return true;
                     case MotionEvent.ACTION_MOVE:
-                        moveBy(Math.round(e.getRawX() - sx), Math.round(e.getRawY() - sy), true);
+                        if (edges == 0) return false;
+                        resize(edges, Math.round(e.getRawX() - sx), Math.round(e.getRawY() - sy));
                         sx = e.getRawX();
                         sy = e.getRawY();
                         return true;
@@ -211,17 +215,24 @@ final class CardFrame {
         });
     }
 
-    /** Move the card (or, with {@code size}, its bottom-right corner) by {@code dx, dy} pixels. */
-    private void moveBy(int dx, int dy, boolean size) {
+    /** Move the card by {@code dx, dy} pixels. */
+    private void moveBy(int dx, int dy, boolean unused) {
         Rect c = current();
-        int W = ref.width(), H = ref.height();
-        if (size) {
-            c.right = Math.min(W, Math.max(c.left + Math.round(MIN_W * d), c.right + dx));
-            c.bottom = Math.min(H, Math.max(c.top + Math.round(MIN_H * d), c.bottom + dy));
-        } else {
-            c.offset(dx, dy);
-            c = clamp(c, W, H);
-        }
+        c.offset(dx, dy);
+        apply(clamp(c, ref.width(), ref.height()));
+    }
+
+    /** Move the grabbed edges ({@link CardGrip#edgesAt}) by {@code dx, dy} pixels, never below the smallest card. */
+    private void resize(int edges, int dx, int dy) {
+        Rect c = current();
+        int W = ref.width(), H = ref.height(), minW = Math.round(MIN_W * d), minH = Math.round(MIN_H * d);
+        if ((edges & 1) != 0) c.left = Math.max(0, Math.min(c.right - minW, c.left + dx));
+        if ((edges & 2) != 0) c.right = Math.min(W, Math.max(c.left + minW, c.right + dx));
+        if ((edges & 4) != 0) c.bottom = Math.min(H, Math.max(c.top + minH, c.bottom + dy));
+        apply(c);
+    }
+
+    private void apply(@NonNull Rect c) {
         if (windowed) {
             Window w = a.getWindow();
             if (w == null) return;

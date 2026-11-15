@@ -320,19 +320,12 @@
                 android:visibility="invisible" />
         </FrameLayout>
 
-        <!-- Card only: drag this corner to size the card. -->
-        <TextView
+        <!-- Card only: drag an edge or the bottom-right corner to size the card; other touches pass through. -->
+        <com.fadcam.ui.lobby.arrival.CardGrip
             android:id="@+id/chat_grip"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
-            android:layout_gravity="bottom|end"
-            android:gravity="center"
-            android:fontFamily="@font/materialicons"
-            android:text="drag_handle"
-            android:rotation="-45"
-            android:textSize="16sp"
-            android:textColor="@color/s_ink_faint"
-            android:contentDescription="Drag to size the chat"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:contentDescription="Drag an edge to size the chat"
             android:visibility="gone" />
     </FrameLayout>
 </FrameLayout>

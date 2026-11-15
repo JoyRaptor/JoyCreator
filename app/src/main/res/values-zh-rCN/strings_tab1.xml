@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">抽屉放在图片旁边（关闭：从顶部落下）</string>
+    <string name="tab1_drawer_column">高栏：时间线只在图片下方</string>
+    <string name="tab1_settings_place_title">宽屏上的抽屉</string>
+    <string name="tab1_settings_place_auto">自动：旁边有位置就放图片旁边，否则从顶部落下</string>
+    <string name="tab1_settings_place_drop">始终像在手机上一样，从顶部落下</string>
+    <string name="tab1_settings_place_beside">始终放在图片旁边</string>
+    <string name="tab1_settings_column_title">高栏</string>
+    <string name="tab1_settings_column">抽屉在图片旁边，占满整个高度，时间线只在图片下方。关闭：编辑台，时间线占满整个宽度。</string>
+    <string name="tab1_settings_left_title">左手抽屉</string>
+    <string name="tab1_settings_left">抽屉放在图片左边，而不是右边。</string>
+</resources>

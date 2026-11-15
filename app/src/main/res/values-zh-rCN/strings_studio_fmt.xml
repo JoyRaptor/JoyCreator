@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">已导入 %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">无法渲染幻灯片：%1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">整合失败：%1$s</string>
+    <string name="studio_fmt_export_failed_1_s">导出失败：%1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">导出副本失败：%1$s</string>
+    <string name="studio_fmt_import_failed_1_s">导入失败：%1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">调整顺序失败：%1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">调整顺序出错：%1$s</string>
+    <string name="studio_fmt_align_failed_1_s">对齐失败：%1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">这看起来不是 Studio 幻灯片：%1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">幻灯片导入失败：%1$s</string>
+</resources>

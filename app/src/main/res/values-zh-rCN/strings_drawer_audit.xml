@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">点按输入精确数值</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">还没有蒙版。添加一个，只显示这个对象的一部分。</string>
+    <string name="lane_a_mask_mode_add">相加</string>
+    <string name="lane_a_mask_mode_subtract">相减</string>
+    <string name="lane_a_mask_mode_intersect">相交</string>
+    <string name="faditor_mask_link_object">随对象移动</string>
+    <string name="faditor_mask_link_hint">关：蒙版不动，对象在它下面移动。开：蒙版跟着对象一起走。</string>
+    <string name="lane_a_mask_animated">有动画</string>
+    <string name="lane_a_mask_static">无动画</string>
+    <string name="lane_a_mask_key_chip">◆ 在播放头处打关键帧</string>
+    <string name="lane_a_mask_key_here">在播放头处为这个形状打关键帧</string>
+    <string name="lane_a_mask_clear_keys">清除所有蒙版关键帧</string>
+    <string name="lane_a_mask_keyed_toast">形状 %1$d 已在 %2$.1f 秒处打关键帧</string>
+    <string name="faditor_fx_empty_layer">这个图层目前什么都不改变。添加一个效果，图层下方的所有内容都会应用它。</string>
+    <string name="faditor_fx_empty_object">这个对象上还没有效果。添加一个，它会跟着这个对象走，只影响这一个对象。</string>
+    <string name="faditor_fx_position">在预览里定位</string>
+    <string name="faditor_fx_position_done">正在预览里定位，点按完成</string>
+    <string name="faditor_fx_blend">混合</string>
+    <string name="faditor_fx_vertices">顶点</string>
+    <string name="faditor_fx_edit_gradient">编辑这个渐变</string>
+    <string name="faditor_fx_curve_edit">在预览里编辑</string>
+    <string name="faditor_fx_curve_edit_done">正在预览里编辑，点按完成</string>
+    <string name="faditor_fx_straighten">拉直</string>
+    <string name="faditor_fx_save_look">保存风格</string>
+    <string name="faditor_fx_look_name_hint">给这个风格起个名字</string>
+    <string name="faditor_fx_look_save">保存</string>
+    <string name="faditor_fx_saved_looks">已保存的风格</string>
+    <string name="faditor_fx_look_desc">载入 %1$s。长按可删除</string>
+    <string name="faditor_fx_load">载入</string>
+    <string name="faditor_fx_load_confirm">载入\'%1$s\'？</string>
+    <string name="faditor_fx_delete_look_confirm">删除\'%1$s\'？</string>
+    <string name="faditor_fx_add">＋ 添加效果</string>
+    <string name="faditor_fx_needs_pass_title">%1$s 需要单独处理一遍</string>
+    <string name="faditor_fx_needs_pass_body">%1$s 要读取相邻的像素，所以需要一张已经画好的完整图像。对象是一次画出来的，所以现在还没有这样的图像。\n\n把它放到这个对象上方的调整图层上，就会作用于这个对象和它下面的所有内容。</string>
+    <string name="faditor_fx_toast_keys_cleared">%1$s 的关键帧已清除</string>
+    <string name="faditor_fx_toast_saved">已保存\'%1$s\'</string>
+    <string name="faditor_fx_toast_load_failed">无法载入\'%1$s\'</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="other">这会替换这个图层上的 %1$d 个效果。</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="other">%1$d 个效果</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">绕过效果</string>
+    <string name="faditor_undo_fx_enable">启用效果</string>
+    <string name="faditor_undo_fx_delete">删除 %1$s</string>
+    <string name="faditor_undo_fx_add">添加 %1$s</string>
+    <string name="faditor_undo_fx_opacity">%1$s 不透明度</string>
+    <string name="faditor_undo_fx_blend">%1$s 混合</string>
+    <string name="faditor_undo_fx_vertices">曲线顶点</string>
+    <string name="faditor_undo_fx_straighten">拉直曲线</string>
+    <string name="faditor_undo_fx_reorder">调整效果顺序</string>
+    <string name="faditor_undo_fx_key">给 %1$s 打关键帧</string>
+    <string name="faditor_undo_fx_clear_keys">清除 %1$s 的关键帧</string>
+    <string name="faditor_undo_fx_apply_look">应用风格\'%1$s\'</string>
+    <string name="lane_b_audio_fade_in_short">淡入</string>
+    <string name="lane_b_audio_fade_out_short">淡出</string>
+    <string name="lane_b_audio_env_flat">增益平直，点按 ◇ 会放下第一个包络点</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="other">包络 · %1$d 个点，滑块控制 ▶︎ 所在的点</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">处理中…</string>
+    <string name="lane_b_audio_bake_in_use">正在使用处理后的音频，原件已保留。</string>
+    <string name="lane_b_audio_bake_offline">离线渲染，绝不会改动原始文件。</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">失败：%1$s</string>
+    <string name="lane_b_audio_bake_note">会对这个片段声音的副本进行处理，并改为播放副本。“还原”可回到原件。</string>
+    <string name="lane_b_audio_revert">还原为原件</string>
+    <string name="lane_b_audio_revert_desc">回到未经处理的原始音频文件</string>
+    <string name="lane_b_audio_denoise">降噪</string>
+    <string name="lane_b_audio_denoise_desc">渲染一份降低了背景噪音的片段副本</string>
+    <string name="lane_b_audio_normalize">统一响度</string>
+    <string name="lane_b_audio_normalize_desc">渲染一份响度均匀的片段副本</string>
+    <string name="lane_b_audio_voice">增强人声</string>
+    <string name="lane_b_audio_voice_undo">增强人声</string>
+    <string name="lane_b_audio_voice_on">人声处理链已开，仅限这个片段</string>
+    <string name="lane_b_audio_voice_off">人声处理链已关，仅限这个片段</string>
+    <string name="lane_b_audio_voice_note">去嗡声、门限、去齿音、临场感、压缩器、限幅器，专为说话设计。会重建这个片段的预览声音。</string>
+    <string name="lane_b_audio_beat_link_chip">◆ 节拍联动…</string>
+    <string name="lane_b_audio_beat_link_note">用这个片段的某个频段驱动叠层的缩放、不透明度或旋转。会写入普通关键帧，之后你仍可拖动调整。</string>
+    <string name="lane_b_audio_comp">压缩器</string>
+    <string name="lane_b_audio_comp_bypassed">效果链已绕过，听到的是未经处理的混音。</string>
+    <string name="lane_b_audio_comp_live">增益衰减，实时来自压缩器。</string>
+    <string name="lane_b_audio_comp_idle">项目播放时，电平表会跳动。</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">音量 (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">声像 (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s（秒）</string>
+    <string name="lane_b_audio_undo_level">音频音量</string>
+    <string name="lane_b_audio_undo_clear_envelope">清除包络</string>
+    <string name="lane_b_audio_undo_envelope_point">包络点</string>
+    <string name="lane_b_audio_undo_delete_point">删除包络点</string>
+    <string name="lane_b_puppet_swatch">%1$s 图钉。点按更改类型。</string>
+    <string name="lane_b_puppet_undo_pin_type">图钉类型</string>
+    <string name="lane_b_puppet_rec_on">触碰图钉时会录制。点按停止。</string>
+    <string name="lane_b_puppet_rec_off">触碰时不录制。点按启用。</string>
+    <string name="lane_b_puppet_sim">模拟</string>
+    <string name="lane_b_puppet_tool_grab">抓取</string>
+    <string name="lane_b_puppet_tool_pin">图钉</string>
+    <string name="lane_b_puppet_tool_stiff">僵硬</string>
+    <string name="lane_b_puppet_tool_dangle">晃荡</string>
+    <string name="lane_b_puppet_tool_free">自由</string>
+    <string name="lane_b_puppet_tool_bone">骨骼</string>
+    <string name="lane_b_puppet_scope_selected">所选</string>
+    <string name="lane_b_puppet_scope_character">角色</string>
+    <string name="lane_b_puppet_scope_recording">录制</string>
+    <string name="lane_b_puppet_hint_first_pin">点按图片，放下第一个图钉</string>
+    <string name="lane_b_puppet_hint_tap_pin">点按图钉进行编辑</string>
+    <string name="lane_b_puppet_hint_dangle">模拟中，没有可编辑的关键帧。它已有的关键帧都会原样保留，等它不再晃荡时就会回来。</string>
+    <string name="lane_b_puppet_hint_free">自由图钉可以朝任意方向移动。转动和缩放需要引擎支持每个图钉的旋转，详见规格说明。</string>
+    <string name="lane_b_puppet_hint_anchor">锚点没有别的可设置，这正是它的用处</string>
+    <string name="lane_b_puppet_hint_tape">下方的时间条显示的是 %1$s 的关键帧。点按另一个图钉或上方的标签，就能看它的关键帧。</string>
+    <string name="lane_b_puppet_hint_rigid">刚性骨骼会让手伸不够远，还会拽住肩膀。卡通通常要把“可拉伸”打开。</string>
+    <string name="lane_b_puppet_hint_limits_off">默认关闭，大多数卡通骨架都不需要它们。</string>
+    <string name="lane_b_puppet_hint_bone_keys">骨骼自己没有关键帧。移动它会写入 %1$s 和 %2$s。</string>
+    <string name="lane_b_puppet_hint_put_away">点按图片上的木偶，就能收起图钉</string>
+    <string name="lane_b_puppet_hint_punch_in">推近从上一个动作结束的地方开始，最后缓缓回落</string>
+    <string name="lane_b_puppet_pin_depth">深度：在后面 / 在前面</string>
+    <string name="lane_b_puppet_pin_muted">已静音</string>
+    <string name="lane_b_puppet_pin_active">已启用</string>
+    <string name="lane_b_puppet_pin_reach_ring">触及范围圈</string>
+    <string name="lane_b_puppet_pin_auto_pull">自动牵引</string>
+    <string name="lane_b_puppet_pin_pull">这个图钉的牵引力度</string>
+    <string name="lane_b_puppet_pin_spring">弹性</string>
+    <string name="lane_b_puppet_pin_settle">回稳</string>
+    <string name="lane_b_puppet_pin_mass">质量</string>
+    <string name="lane_b_puppet_pin_max_stretch">最大拉伸</string>
+    <string name="lane_b_puppet_pin_stiff_area">僵硬范围</string>
+    <string name="lane_b_puppet_pin_strength">强度</string>
+    <string name="lane_b_puppet_reset">重新开始</string>
+    <string name="lane_b_puppet_reset_desc">移除 %1$s 和所有关键帧</string>
+    <string name="lane_b_puppet_reset_hover">%1$s。%2$s。</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="other">%1$d 个图钉</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="other">%1$d 根骨骼</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s，%2$s</string>
+    <string name="lane_b_puppet_bone">骨骼</string>
+    <string name="lane_b_puppet_bone_from">起点</string>
+    <string name="lane_b_puppet_bone_to">终点</string>
+    <string name="lane_b_puppet_bone_length">长度</string>
+    <string name="lane_b_puppet_bone_rest_angle">静止角度</string>
+    <string name="lane_b_puppet_bone_rest_length">静止长度</string>
+    <string name="lane_b_puppet_bone_stretchy">可拉伸</string>
+    <string name="lane_b_puppet_bone_flip_elbow">翻转肘部</string>
+    <string name="lane_b_puppet_bone_reach">触及</string>
+    <string name="lane_b_puppet_bone_stretch">最多能拉伸多远</string>
+    <string name="lane_b_puppet_bone_joint_limits">关节限位</string>
+    <string name="lane_b_puppet_bone_fold_back">向后折叠最多到</string>
+    <string name="lane_b_puppet_bone_fold_forward">向前折叠最多到</string>
+    <string name="lane_b_puppet_rig_softness">柔软度</string>
+    <string name="lane_b_puppet_rig_mesh_detail">网格细节</string>
+    <string name="lane_b_puppet_rig_gravity">重力</string>
+    <string name="lane_b_puppet_rig_wind">风</string>
+    <string name="lane_b_puppet_rig_wind_dir">风向</string>
+    <string name="lane_b_puppet_rig_show_pins">图钉</string>
+    <string name="lane_b_puppet_rig_show_bones">骨骼</string>
+    <string name="lane_b_puppet_rig_show_mesh">网格</string>
+    <string name="lane_b_puppet_rig_rarely">很少用到</string>
+    <string name="lane_b_puppet_rig_edge_threshold">边缘阈值</string>
+    <string name="lane_b_puppet_rig_edge_expansion">边缘扩展</string>
+    <string name="lane_b_puppet_record_on_touch">触碰时录制</string>
+    <string name="lane_b_puppet_record_snap">吸附到关键帧</string>
+    <string name="lane_b_puppet_record_detail">录制动作的细节</string>
+    <string name="lane_b_puppet_record_blend_out">渐出融合</string>
+    <string name="faditor_text_underline">下划线</string>
+    <string name="faditor_text_case_first">首字母大写</string>
+    <string name="faditor_text_case_all">全部大写</string>
+    <string name="faditor_text_case_small">小型大写字母</string>
+    <string name="faditor_text_align">对齐方式：%1$s。点按更改</string>
+    <string name="faditor_text_align_left">左对齐</string>
+    <string name="faditor_text_align_center">居中</string>
+    <string name="faditor_text_align_right">右对齐</string>
+    <string name="faditor_text_align_justify">两端对齐</string>
+    <string name="faditor_text_color">文字颜色</string>
+    <string name="faditor_text_shadow_distance">距离</string>
+    <string name="faditor_text_shadow_direction">阴影方向</string>
+    <string name="faditor_text_shadow_angle">阴影角度</string>
+    <string name="faditor_text_anim_label">动画</string>
+    <string name="lane_b_caption_hide">隐藏这条字幕轨</string>
+    <string name="lane_b_caption_show">显示这条字幕轨</string>
+    <string name="lane_b_caption_add_track">添加字幕轨</string>
+    <string name="caption_size">字幕大小</string>
+    <string name="caption_highlight">高亮</string>
+    <string name="caption_style_save">存为我的样式</string>
+    <string name="caption_style_delete">删除这个自定义样式</string>
+    <string name="caption_style_copy">把样式复制为文本</string>
+    <string name="caption_style_import">从文本导入样式</string>
+    <string name="caption_anim_pop">弹出</string>
+    <string name="caption_anim_zoom">缩放</string>
+    <string name="caption_anim_bounce">弹跳</string>
+    <string name="caption_box">文字框</string>
+    <string name="caption_box_more">文字框…</string>
+    <string name="caption_box_more_desc">更多文字框选项</string>
+    <string name="caption_drawer_empty">没有选中带字幕的片段</string>
+    <string name="caption_fit_uniform">统一</string>
+    <string name="caption_fit_per_cue">逐句</string>
+    <string name="caption_fit_truncate">截断</string>
+    <string name="caption_fit_words">词数</string>
+    <string name="caption_fit_words_desc">每条字幕的词数</string>
+    <string name="caption_fit_lines">最多行数</string>
+    <string name="caption_fit_lines_prompt">最多行数（0 = 不限）</string>
+    <string name="caption_fit_floor">下限</string>
+    <string name="caption_group_slide">分组：滑动</string>
+    <string name="caption_group_karaoke">分组：卡拉 OK</string>
+    <string name="caption_group_desc">词语怎样组成字幕。点按切换</string>
+    <string name="caption_grow_center">扩展：居中</string>
+    <string name="caption_grow_down">扩展：向下</string>
+    <string name="caption_grow_up">扩展：向上</string>
+    <string name="caption_grow_desc">字幕朝哪个方向扩展。点按循环切换</string>
+    <string name="caption_align_center">对齐：居中</string>
+    <string name="caption_align_left">对齐：靠左</string>
+    <string name="caption_align_right">对齐：靠右</string>
+    <string name="caption_align_desc">行的对齐方式。点按循环切换</string>
+    <string name="caption_copy_all">复制到全部</string>
+    <string name="caption_copy_all_desc">把这条轨道的扩展和对齐方式复制到每条字幕轨</string>
+    <string name="caption_copy_all_done">锚点和对齐已应用到所有轨道</string>
+    <string name="caption_position">字幕位置</string>
+    <string name="caption_timing">时间</string>
+    <string name="caption_timing_hint">应用到每一行字幕，按占该行的比例计算</string>
+    <string name="caption_timing_readout">每行 入 %1$d%%   出 %2$d%%</string>
+    <string name="caption_timing_readout_meet">每行 入 %1$d%%   出 %2$d%%  ·  入场结束时出场开始</string>
+    <string name="caption_timing_in_desc">入场时间</string>
+    <string name="caption_timing_out_desc">出场时间</string>
+    <string name="faditor_prop_pos_x">位置 X</string>
+    <string name="faditor_prop_pos_y">位置 Y</string>
+    <string name="faditor_prop_scale">缩放</string>
+    <string name="faditor_prop_scale_x">缩放 X</string>
+    <string name="faditor_prop_scale_y">缩放 Y</string>
+    <string name="drawer_title_visualizer">可视化</string>
+    <string name="drawer_tab_puppet">木偶</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="other">%1$d 段音频</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>关</item>
+        <item>YouTube -14 LUFS</item>
+        <item>播客 -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>广播 -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>原始</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG（无额外损失）</item>
+        <item>JPG（更小）</item>
+    </string-array>
+    <string name="export_loudness">响度目标</string>
+    <string name="export_loudness_readout">实测：%1$s LUFS → 目标：%2$s</string>
+    <string name="export_quality">画质</string>
+    <string name="export_format">格式</string>
+    <string name="export_audio_only">只导出音频（.m4a）</string>
+    <string name="export_audio_only_desc">把片段音频和音乐混成一个音频文件，没有视频轨</string>
+    <string name="export_audio_only_project">这个项目没有视频，会导出为音频</string>
+    <string name="export_frame">导出单帧（图片）</string>
+    <string name="export_frame_desc">保存合成后的一帧（包含叠层），分辨率与导出一致。这一帧和导出用的是同一个视频编码器，所以会受“画质”影响：PNG 完整保留这一帧，JPG 更小（不含透明，画面不透明）</string>
+    <string name="export_frame_time">帧时间（已按播放头预填，输入可修改）</string>
+    <string name="export_time_hint">m:ss.t 或秒数</string>
+    <string name="export_range_hint">m:ss.t</string>
+    <string name="export_frame_error_format">请输入类似 01:23.4 的时间（或用 4.5 表示 4.5 秒）</string>
+    <string name="export_frame_error_past">这个时间已超出项目结尾（%1$s）。请选一个更早的时间。</string>
+</resources>

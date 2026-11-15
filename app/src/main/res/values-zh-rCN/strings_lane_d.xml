@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">变速时让人声保持自然</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">关闭所有工具</string>
+    <string name="lane_d_asset_close">关闭素材浏览器</string>
+    <string name="lane_d_asset_prev">上一个固定文件夹</string>
+    <string name="lane_d_asset_next">下一个固定文件夹</string>
+    <string name="lane_d_asset_filter">显示全部、使用中或未使用的文件</string>
+    <string name="lane_d_asset_forget">把这个文件夹从固定历史中移除</string>
+    <string name="lane_d_asset_resize">拖动以调整素材浏览器的大小</string>
+</resources>

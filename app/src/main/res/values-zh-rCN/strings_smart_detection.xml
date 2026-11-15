@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">故事板是空的</string>
+    <string name="smart_detection_empty_hint">相机标记的画面会出现在这里</string>
+    <string name="smart_detection_empty_glyph_desc">还没有检测到任何东西</string>
+    <string name="smart_detection_tip_close">关闭</string>
+    <string name="smart_detection_tip_back">返回</string>
+    <string name="smart_detection_tip_menu">智能检测菜单</string>
+    <string name="smart_detection_tip_select_all">全选</string>
+    <string name="smart_detection_tip_sort">排序</string>
+    <string name="smart_detection_tip_grid">更改网格布局</string>
+    <string name="smart_detection_tip_scroll">回到顶部</string>
+</resources>

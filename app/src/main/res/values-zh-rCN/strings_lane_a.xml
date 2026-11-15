@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">拖动调整大小，点按关闭</string>
+    <string name="lane_a_toggle_mute">静音</string>
+    <string name="lane_a_toggle_hide">隐藏</string>
+    <string name="lane_a_toggle_lock">锁定</string>
+    <string name="lane_a_toggle_pass_through">让点按穿透</string>
+    <string name="lane_a_toggle_start_here">从这里开始</string>
+    <string name="lane_a_toggle_end_here">到这里结束</string>
+    <string name="lane_a_toggle_split">在播放头处分割</string>
+    <string name="lane_a_toggle_fx_bypass">绕过效果（A/B 对比）</string>
+    <string name="lane_a_mask_add_shape">添加蒙版形状</string>
+    <string name="lane_a_mask_remove_shape">移除这个形状</string>
+    <string name="lane_a_mask_shape_n">形状 %1$d</string>
+    <string name="lane_a_step_down">减一步</string>
+    <string name="lane_a_step_up">加一步</string>
+    <string name="lane_a_key_green">抠掉绿色</string>
+    <string name="lane_a_key_blue">抠掉蓝色</string>
+    <string name="lane_a_key_black">抠掉黑色</string>
+    <string name="lane_a_key_white">抠掉白色</string>
+    <string name="lane_a_pivot_title">旋转轴心</string>
+    <string name="lane_a_pivot_top_left">轴心：左上</string>
+    <string name="lane_a_pivot_top">轴心：上</string>
+    <string name="lane_a_pivot_top_right">轴心：右上</string>
+    <string name="lane_a_pivot_left">轴心：左</string>
+    <string name="lane_a_pivot_centre">轴心：中心</string>
+    <string name="lane_a_pivot_right">轴心：右</string>
+    <string name="lane_a_pivot_bottom_left">轴心：左下</string>
+    <string name="lane_a_pivot_bottom">轴心：下</string>
+    <string name="lane_a_pivot_bottom_right">轴心：右下</string>
+    <string name="lane_a_sprite_prev_key">把关键帧提前一点</string>
+    <string name="lane_a_sprite_key">删除播放头处的关键帧</string>
+    <string name="lane_a_sprite_next_key">把关键帧延后一点</string>
+    <string name="lane_a_sprite_open_lab">在 Sprite Lab 中打开</string>
+    <string name="lane_a_sprite_flip_h">水平翻转</string>
+    <string name="lane_a_sprite_flip_v">垂直翻转</string>
+    <string name="lane_a_sprite_end">播到结尾时：播一次、循环或往返</string>
+    <string name="lane_a_sprite_record">录制表演</string>
+    <string name="lane_a_sprite_stop">停止录制</string>
+    <string name="lane_a_sprite_sweep">跟随下方视频进行追踪</string>
+    <string name="lane_a_sprite_more">更多</string>
+    <string name="lane_a_sprite_dope">摄影表</string>
+    <string name="lane_a_sprite_manage">精灵图集</string>
+    <string name="lane_a_sprite_grip">向上拖显示更多行，向下拖显示更少</string>
+</resources>

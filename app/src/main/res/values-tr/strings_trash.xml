@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Son silinenler</string>
+    <string name="trash_close">Son silinenler\'i kapat</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d öğe</item>
+        <item quantity="other">%d öğe</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d seçili</item>
+        <item quantity="other">%d seçili</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · klasör okunuyor</string>
+    <string name="trash_notice_unreachable">Joy Creator klasörüne şu an ulaşılamıyor, bu yüzden yalnızca uygulamanın içinde silinenler gösteriliyor.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">%d gün kaldı</item>
+        <item quantity="other">%d gün kaldı</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">%d saat kaldı</item>
+        <item quantity="other">%d saat kaldı</item>
+    </plurals>
+    <string name="trash_left_soon">çok yakında gidiyor</string>
+    <string name="trash_left_kept">saklanıyor</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Seçili.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">%d gün saklanır, sonra tamamen silinir.</item>
+        <item quantity="other">%d gün saklanır, sonra tamamen silinir.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">%d saat saklanır, sonra tamamen silinir.</item>
+        <item quantity="other">%d saat saklanır, sonra tamamen silinir.</item>
+    </plurals>
+    <string name="trash_rule_never">Sen silene kadar saklanır.</string>
+    <string name="trash_rule_now">Hemen tamamen silinir.</string>
+    <string name="trash_hold_hint">Geri yüklemek ya da silmek istediklerini seçmek için basılı tut.</string>
+    <string name="trash_stop_selecting">Seçmeyi bırak</string>
+    <string name="trash_restore">Geri yükle</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">%d öğeyi geri yükle</item>
+        <item quantity="other">%d öğeyi geri yükle</item>
+    </plurals>
+    <string name="trash_delete_forever">Sonsuza dek sil</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">%d öğeyi sonsuza dek sil</item>
+        <item quantity="other">%d öğeyi sonsuza dek sil</item>
+    </plurals>
+    <string name="trash_open_failed">Bu açılamadı.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">%d öğe sonsuza dek silinsin mi?</item>
+        <item quantity="other">%d öğe sonsuza dek silinsin mi?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Çöp kutusu boşaltılsın mı? %d öğe sonsuza dek gider.</item>
+        <item quantity="other">Çöp kutusu boşaltılsın mı? %d öğenin hepsi sonsuza dek gider.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d öğe bundan daha eski ve şimdi sonsuza dek gider.</item>
+        <item quantity="other">%d öğe bundan daha eski ve şimdi sonsuza dek gider.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Bu geri alınamaz.</string>
+    <string name="trash_confirm_keep">Sakla</string>
+    <string name="trash_confirm_empty_button">Çöp kutusunu boşalt</string>
+    <string name="trash_confirm_rule_button">Değiştir ve sil</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">%d öğeyi geri yükle</item>
+        <item quantity="other">%d öğeyi geri yükle</item>
+    </plurals>
+    <string name="trash_restore_where">Kayıtların nereye gideceğini seç.</string>
+    <string name="trash_restore_where_mixed">Kayıtların nereye gideceğini seç. Projeler, çizimler ve diğer dosyalar Joy Creator klasöründe eski yerlerine döner.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">%d öğe geri yüklendi.</item>
+        <item quantity="other">%d öğe geri yüklendi.</item>
+    </plurals>
+    <string name="trash_done_restored_part">%2$d öğeden %1$d tanesi geri yüklendi. Gerisi geri yüklenemedi.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">%d öğe sonsuza dek silindi.</item>
+        <item quantity="other">%d öğe sonsuza dek silindi.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Bazı öğeler silinemedi.</string>
+    <string name="trash_done_emptied">Çöp kutusu boşaltıldı.</string>
+    <string name="trash_done_empty_failed">Çöp kutusu tamamen boşaltılamadı.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d eski öğe tamamen silindi.</item>
+        <item quantity="other">%d eski öğe tamamen silindi.</item>
+    </plurals>
+    <string name="trash_options">Seç, boşalt ve daha fazlası</string>
+    <string name="trash_options_title">Son silinenler</string>
+    <string name="trash_opt_select_all">Tümünü seç</string>
+    <string name="trash_opt_rule">Şu süre sonra tamamen sil · %1$s</string>
+    <string name="trash_opt_empty">Çöp kutusunu boşalt</string>
+    <string name="trash_opt_classic">Klasik çöp kutusu</string>
+    <string name="trash_rule_title">Şu süre sonra tamamen sil</string>
+    <string name="trash_empty_all">Çöp kutusunda hiçbir şey yok. Sildiklerin tamamen gitmeden önce burada bekler.</string>
+    <string name="trash_empty_projects">Silinmiş proje yok.</string>
+    <string name="trash_empty_drawings">Silinmiş çizim yok.</string>
+    <string name="trash_empty_recordings">Silinmiş kayıt ya da video yok.</string>
+    <string name="trash_empty_photos">Silinmiş fotoğraf ya da resim yok.</string>
+    <string name="trash_empty_other">Çöp kutusunda başka bir şey yok.</string>
+    <string name="trash_empty_show_all">Hepsini göster</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">Yeni proje</string>
+    <string name="projects_new_a11y">Telefonundaki bir videodan, kayıtlarından birinden veya boş bir ses kanalından yeni proje başlat</string>
+    <string name="projects_classic_list">Klasik Studio listesi</string>
+    <plurals name="projects_layers">
+        <item quantity="one">%d katman</item>
+        <item quantity="other">%d katman</item>
+    </plurals>
+    <string name="projects_open_failed">Proje açılamadı.</string>
+    <string name="projects_open_failed_access">Proje açılamadı — kaynak videoya erişim kaybolmuş olabilir.</string>
+    <string name="projects_untitled">Adsız</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">Bilmen gereken üç şey var, sonra uygulama senin.</string>
+    <string name="onboarding_promise_1">Çalışmaların telefonunda, seçtiğin Joy Creator klasöründe kalır.</string>
+    <string name="onboarding_promise_2">Hesap yok, reklam yok, takip yok. Hakkında hiçbir şey satılmaz ya da paylaşılmaz.</string>
+    <string name="onboarding_promise_3">Telefonundan bir şey yalnızca internet gerektiren bir özelliği kullandığında çıkar, bağladığın bir AI gibi.</string>
+    <string name="hover_intro_ai_add">Kendi AI\'ını şimdi Joybot\'a bağla</string>
+    <string name="hover_intro_ai_later">Bunu gizle; AI\'ı sonra Joybot\'un sohbetinden bağlayabilirsin</string>
+</resources>

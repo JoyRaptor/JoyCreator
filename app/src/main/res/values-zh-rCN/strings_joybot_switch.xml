@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">开</string>
+    <string name="joybotswitch_state_off">关</string>
+    <string name="joybotswitch_tip_on">已开。点按关闭。</string>
+    <string name="joybotswitch_tip_off">已关。点按开启。</string>
+    <string name="joybotswitch_tip_on_named">%1$s已开。点按关闭。</string>
+    <string name="joybotswitch_tip_off_named">%1$s已关。点按开启。</string>
+</resources>

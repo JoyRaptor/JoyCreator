@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Şekil</string>
+    <string name="studio_viz_sec_colour">Renk</string>
+    <string name="studio_viz_sec_look">Görünüm</string>
+    <string name="studio_viz_sec_motion">Hareket</string>
+    <string name="studio_viz_opacity">Opaklık</string>
+    <string name="studio_viz_softness">Yumuşaklık</string>
+    <string name="studio_viz_gain">Kazanç</string>
+    <string name="studio_viz_spread">Yayılma</string>
+    <string name="studio_viz_blend">Karışım</string>
+    <string name="studio_viz_mirror">Ayna</string>
+    <string name="studio_viz_trails">İzler</string>
+    <string name="studio_viz_phase">Faz</string>
+    <string name="studio_viz_attack">Atak</string>
+    <string name="studio_viz_release">Bırakma</string>
+    <string name="studio_viz_glow">Parıltı</string>
+    <string name="studio_viz_radius">Yarıçap</string>
+    <string name="studio_viz_count">Sayı</string>
+    <string name="studio_viz_speed">Hız</string>
+    <string name="studio_viz_hover_attack">Atak: ne kadar hızlı yükseldiği, ms cinsinden</string>
+    <string name="studio_viz_hover_release">Bırakma: ne kadar hızlı düştüğü, ms cinsinden</string>
+    <string name="studio_viz_hover_radius">Parıltı yarıçapı</string>
+    <string name="studio_viz_hover_count">Parçacık sayısı</string>
+    <string name="studio_viz_hover_speed">Parçacık hızı</string>
+    <string name="studio_viz_value_ms">%1$d ms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

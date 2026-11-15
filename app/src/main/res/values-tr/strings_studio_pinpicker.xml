@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">Neyi takip etsin?</string>
+    <string name="studio_pinpick_hint">Numaralı bir noktaya dokun ya da listeden seç.</string>
+    <string name="studio_pinpick_whole">Resmin kendisi</string>
+    <string name="studio_pinpick_pin_n">Raptiye %1$d</string>
+    <string name="studio_pinpick_diagram">Her raptiyenin resimde durduğu yer. O raptiyeyi takip etmek için bir noktaya dokun.</string>
+    <string name="studio_pinpick_dot_n">%1$d. raptiyeyi takip et</string>
+    <string name="studio_pinpick_cancel">İptal</string>
+</resources>

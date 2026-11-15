@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">Birkaç izin</string>
+    <string name="onboardingv2_perm_why">Joy Creator\'ın film çekmek, sesini kaydetmek ve çalışmalarını telefonunda saklamak için bunlara ihtiyacı var. Hiçbir şey telefondan çıkmaz.</string>
+    <string name="onboardingv2_perm_camera">Kamera</string>
+    <string name="onboardingv2_perm_camera_why">Film çekmek ve çektiğini görmek için.</string>
+    <string name="onboardingv2_perm_mic">Mikrofon</string>
+    <string name="onboardingv2_perm_mic_why">Sesini görüntüyle birlikte kaydetmek için.</string>
+    <string name="onboardingv2_perm_files">Dosyalar ve bildirimler</string>
+    <string name="onboardingv2_perm_files_why">Videolarını kaydetmek ve kayıt bildirimini göstermek için.</string>
+    <string name="onboardingv2_perm_battery">Kaydı açık tut</string>
+    <string name="onboardingv2_perm_battery_why">İsteğe bağlı: uzun çekimler yarıda kesilmesin diye pil optimizasyonunu kapat.</string>
+    <string name="onboardingv2_perm_battery_done">İsteğe bağlı: pil optimizasyonu zaten kapalı.</string>
+    <string name="onboardingv2_perm_allow">Eksikleri etkinleştir</string>
+    <string name="onboardingv2_perm_all_set">Hepsi tamam</string>
+    <string name="onboardingv2_perm_open_settings">Ayarları aç</string>
+    <string name="onboardingv2_perm_nudge">Devam etmek için lütfen yukarıdaki üçüne izin ver.</string>
+    <string name="onboardingv2_perm_state_granted">izin verildi</string>
+    <string name="onboardingv2_perm_state_missing">henüz izin verilmedi</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Hâlâ eksik olan izinleri iste</string>
+    <string name="onboardingv2_perm_all_set_cd">Tüm izinler verildi. Sonraki sayfaya kaydır.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Reddettiğin izinlere izin vermek için bu uygulamanın sistem ayarlarını aç</string>
+    <string name="onboardingv2_perm_battery_cd">Joy Creator için pil optimizasyonunu kapatacak sistem ekranını aç</string>
+</resources>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">Her şeyde ara</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot, yardımcın — projen için bir fikri olunca yeşil parlar</string>
+    <string name="lobbyv2_dismiss">Kapat</string>
+    <string name="lobbyv2_tag_last_project">SON PROJE</string>
+    <string name="lobbyv2_tag_ready">HAZIR</string>
+    <string name="lobbyv2_tag_last_sheet">SON SAYFA</string>
+    <string name="lobbyv2_tag_last_character">SON KARAKTER</string>
+    <string name="lobbyv2_tag_last_visualiser">SON GÖRSELLEŞTİRİCİ</string>
+    <string name="lobbyv2_tag_last_look">SON GÖRÜNÜM</string>
+    <string name="lobbyv2_tag_new_drawing">YENİ ÇİZİM</string>
+    <string name="lobbyv2_tag_last_drawing">SON ÇİZİM</string>
+    <string name="lobbyv2_camera_back">Arka kamera</string>
+    <string name="lobbyv2_camera_front">Ön kamera</string>
+    <string name="lobbyv2_camera_dual">İki kamera</string>
+    <string name="lobbyv2_capture_ready">Kayda hazır</string>
+    <string name="lobbyv2_capture_sub">HAZIR · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">HAZIR</string>
+    <string name="lobbyv2_in_project">%1$s İÇİNDE</string>
+    <string name="lobbyv2_avatar_library">AVATAR KİTAPLIĞI</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">ÇİZİM · %2$s</item>
+        <item quantity="other">%1$d ÇİZİM · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d KATMAN</item>
+        <item quantity="other">%d KATMAN</item>
+    </plurals>
+    <string name="lobbyv2_drawings">Çizimler</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d çizim</item>
+        <item quantity="other">%d çizim</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Henüz bir şey yok. Bir şey yap, burada belirir.</string>
+    <string name="lobbyv2_new_card">+ Yeni</string>
+    <string name="lobbyv2_new_drawing">Yeni çizim</string>
+    <string name="lobbyv2_no_room_for_drawing">Bu telefonda bir çizimi saklayacak yer yok.</string>
+    <string name="lobbyv2_kind_project">PROJE</string>
+    <string name="lobbyv2_kind_drawing">ÇİZİM</string>
+    <string name="lobbyv2_kind_export">DIŞA AKTARIM</string>
+    <string name="lobbyv2_kind_screen">EKRAN</string>
+    <string name="lobbyv2_kind_photo">FOTOĞRAF</string>
+    <string name="lobbyv2_kind_stream">YAYIN</string>
+    <string name="lobbyv2_kind_recording">KAYIT</string>
+    <string name="lobbyv2_kind_mini_app">MİNİ UYGULAMA</string>
+    <string name="lobbyv2_kind_video">VİDEO</string>
+    <string name="lobbyv2_kind_picture">RESİM</string>
+    <string name="lobbyv2_kind_sheet">SPRITE SAYFASI</string>
+    <string name="lobbyv2_kind_character">KARAKTER</string>
+    <string name="lobbyv2_kind_look">VISLAB GÖRÜNÜMÜ</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">En yeni kaydın son düzenlemenden sonra geldi.</string>
+    <string name="lobbyv2_bot_open_library">Library\'yi aç</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d kayıt var, henüz proje yok.</item>
+        <item quantity="other">%d kayıt var, henüz proje yok.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">%1$s kaldı</string>
+    <string name="lobbyv2_stat_free">%1$s boş</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d proje</item>
+        <item quantity="other">%d proje</item>
+    </plurals>
+    <string name="lobbyv2_time_left">~%1$s video kaldı</string>
+    <string name="lobbyv2_time_left_short">~%1$s kaldı</string>
+    <string name="lobbyv2_dur_days">%1$dg %2$dsa</string>
+    <string name="lobbyv2_dur_hours">%1$dsa %2$ddk</string>
+    <string name="lobbyv2_dur_minutes">%1$ddk</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">az önce</string>
+    <string name="lobbyv2_ago_minutes">%1$d dk önce</string>
+    <string name="lobbyv2_ago_hours">%1$d sa önce</string>
+    <string name="lobbyv2_ago_days">%1$d g önce</string>
+    <string name="lobbyv2_ago_months">%1$d ay önce</string>
+</resources>

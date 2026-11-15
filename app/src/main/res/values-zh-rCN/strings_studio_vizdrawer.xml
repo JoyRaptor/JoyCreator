@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">形状</string>
+    <string name="studio_viz_sec_colour">颜色</string>
+    <string name="studio_viz_sec_look">外观</string>
+    <string name="studio_viz_sec_motion">动态</string>
+    <string name="studio_viz_opacity">不透明度</string>
+    <string name="studio_viz_softness">柔和度</string>
+    <string name="studio_viz_gain">增益</string>
+    <string name="studio_viz_spread">扩散</string>
+    <string name="studio_viz_blend">混合</string>
+    <string name="studio_viz_mirror">镜像</string>
+    <string name="studio_viz_trails">拖尾</string>
+    <string name="studio_viz_phase">相位</string>
+    <string name="studio_viz_attack">起音</string>
+    <string name="studio_viz_release">释放</string>
+    <string name="studio_viz_glow">光晕</string>
+    <string name="studio_viz_radius">半径</string>
+    <string name="studio_viz_count">数量</string>
+    <string name="studio_viz_speed">速度</string>
+    <string name="studio_viz_hover_attack">起音：上升有多快，单位毫秒</string>
+    <string name="studio_viz_hover_release">释放：回落有多快，单位毫秒</string>
+    <string name="studio_viz_hover_radius">光晕半径</string>
+    <string name="studio_viz_hover_count">粒子数量</string>
+    <string name="studio_viz_hover_speed">粒子速度</string>
+    <string name="studio_viz_value_ms">%1$d 毫秒</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

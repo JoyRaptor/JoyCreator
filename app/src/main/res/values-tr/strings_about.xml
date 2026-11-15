@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">Hakkında</string>
+    <string name="aboutjoy_back">Geri</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">Yaptığın her şey için tek bir stüdyo.</string>
+    <string name="aboutjoy_tagline_sub">Düzenle, boya, canlandır ve kaydet, hepsi telefonunda.</string>
+    <string name="aboutjoy_version_label">Sürüm</string>
+    <string name="aboutjoy_build">Derleme %1$s · %2$s</string>
+    <string name="aboutjoy_check">Güncellemeleri denetle</string>
+    <string name="aboutjoy_check_hint">Daha yeni bir Joy Creator için çevrimiçi bak</string>
+    <string name="aboutjoy_checking">Denetleniyor…</string>
+    <string name="aboutjoy_up_to_date">En yeni sürüm sende.</string>
+    <string name="aboutjoy_update_ready">%1$s sürümü hazır.</string>
+    <string name="aboutjoy_beta_ready">En yeni sürüm sende. Bir de beta çıktı: %1$s.</string>
+    <string name="aboutjoy_get_beta">Betayı al</string>
+    <string name="aboutjoy_update_failed">Şu an denetlenemedi. Biraz sonra tekrar dene.</string>
+    <string name="aboutjoy_wings_label">Kanatlar</string>
+    <string name="aboutjoy_wing_studio">Videoyu ve sesi zaman çizelgesinde kes</string>
+    <string name="aboutjoy_wing_joybrush">Kare kare boya ve canlandır</string>
+    <string name="aboutjoy_wing_sprites">Sprite sayfaları ve karakterler yap</string>
+    <string name="aboutjoy_wing_capture">Kamerayı veya ekranı kaydet</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Yardımcın, her odada</string>
+    <string name="aboutjoy_wing_viz">Sesi hareketli resimlere dönüştür</string>
+    <string name="aboutjoy_soon">Yakında</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">Gizlilik</string>
+    <string name="aboutjoy_privacy_toggle">Gizlilik yanıtlarını göster veya gizle</string>
+    <string name="aboutjoy_open_label">Açık kaynak</string>
+    <string name="aboutjoy_based_on">FadSec Lab\'ın FadCam\'i üzerine kuruldu</string>
+    <string name="aboutjoy_source_hint">Kaynak kodunu tarayıcında aç</string>
+    <string name="aboutjoy_made_by">Yapan</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Klasik Hakkında</string>
+    <string name="aboutjoy_classic_hint">Eski Hakkında ekranını aç</string>
+    <string name="aboutjoy_no_browser">Bu bağlantıyı açacak tarayıcı yok</string>
+</resources>

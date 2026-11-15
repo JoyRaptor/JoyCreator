@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">移动关键帧</string>
+    <string name="studio_tail_add_adjustment_layer">添加调整图层</string>
+    <string name="studio_tail_add_linked_pair">添加关联的屏幕加摄像头一对</string>
+    <string name="studio_tail_insert_at_playhead">插入到播放头处</string>
+    <string name="studio_tail_split_linked_pair">分割关联的一对</string>
+    <string name="studio_tail_delete_linked_pair">删除关联的一对</string>
+    <string name="studio_tail_duplicate">复制一份</string>
+    <string name="studio_tail_link_clips_pair">链接片段（屏幕加摄像头）</string>
+</resources>

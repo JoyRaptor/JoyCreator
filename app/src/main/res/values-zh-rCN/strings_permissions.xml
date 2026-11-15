@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">录制需要相机和麦克风</string>
+    <string name="access_capture_why">为了拍摄和录音，Android 会请你允许使用相机和麦克风。Joy Creator 还会申请显示录制通知，让你随时知道它正在录制。任何内容都不会离开你的手机。</string>
+    <string name="access_allow">允许</string>
+    <string name="access_not_now">暂不</string>
+    <string name="access_capture_declined">在允许相机和麦克风之前，录制功能会保持关闭。你随时可以再点按“录制”。</string>
+    <string name="access_capture_blocked">Android 不会再次询问相机或麦克风的权限。请到 Joy Creator 的设置页面，在“权限”里打开它们，然后再回来。</string>
+    <string name="access_open_settings">打开设置</string>
+</resources>

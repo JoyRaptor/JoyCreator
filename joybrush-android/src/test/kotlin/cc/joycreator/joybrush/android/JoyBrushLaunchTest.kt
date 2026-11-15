@@ -35,6 +35,21 @@ class JoyBrushLaunchTest {
         assertEquals(9 to 16, JoyBrushLaunch.Preset(board = "image", aspect = "9:16").aspectParts())
     }
 
+    /** Joybot's own extra names work, and anything JoyBrush cannot use is left out quietly (a plain drawing at worst). */
+    @Test fun joybotsNamesWorkAndBadValuesAreDropped() {
+        val i = Intent().putExtra("jb_new_kind", "sprite").putExtra("jb_grid", "8x2").putExtra("jb_cell_px", 64)
+            .putExtra("jb_perspective", 2).putExtra("jb_fps", "12")
+        val p = JoyBrushLaunch.presetOf(i)!!
+        assertEquals("sprite", p.board); assertEquals(8, p.columns); assertEquals(2, p.rows); assertEquals(64, p.cellPx)
+        assertEquals("perspective-2", p.guide); assertEquals(12, p.fps)
+        val bad = JoyBrushLaunch.presetOf(Intent().putExtra("jb_new_kind", "comic").putExtra("jb_ratio", "wide")
+            .putExtra("jb_tile_px", 99999).putExtra("jb_fps", 500))!!
+        assertNull(bad.board); assertNull(bad.aspect); assertNull(bad.tilePx); assertNull(bad.fps)
+        assertTrue(bad.isEmpty())
+        assertEquals(512, JoyBrushLaunch.presetOf(Intent().putExtra("jb_new_kind", "tile").putExtra("jb_tile_px", 512))!!.tilePx)
+        assertEquals(BoardPresetRect.centred(0f, 0f, 1000f, 1000f, 512, 512), cc.joycreator.joybrush.core.doc.RectPx(244, 244, 512, 512))
+    }
+
     @Test fun theBoardIsCentredAtItsShapeAndASpriteIsAWholeGrid() {
         val r = BoardPresetRect.fit(0f, 0f, 1000f, 800f, 16, 9)
         assertEquals(16.0 / 9.0, r.w.toDouble() / r.h, 0.02)

@@ -14,6 +14,10 @@ object BoardPresetRect {
     /** Never smaller than this, so a board made while zoomed far in can still be drawn on. */
     const val MIN_SIDE = 64
 
+    /** A board of exactly [w] x [h] px, centred on what the screen shows (a tile of a chosen size, a sprite's cells). */
+    fun centred(left: Float, top: Float, right: Float, bottom: Float, w: Int, h: Int): RectPx =
+        RectPx(((left + right) / 2f - w / 2f).roundToInt(), ((top + bottom) / 2f - h / 2f).roundToInt(), w, h)
+
     /**
      * [left], [top], [right], [bottom]: the document area the screen shows. [aspectW]:[aspectH] is the board's shape, or
      * each cell's for a sprite of [columns] x [rows].

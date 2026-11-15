@@ -869,14 +869,16 @@ class BoardRuntimeController(private val context: Context, private val parent: F
      * [rows]), with [fps] for an animation and tiling on for [tile]. One Undo step, then selected like a dragged one.
      */
     fun createPreset(kind: BoardKind, name: String, aspectW: Int, aspectH: Int, fps: Float? = null,
-                     columns: Int = 1, rows: Int = 1, tile: Boolean = false) {
+                     columns: Int = 1, rows: Int = 1, tile: Boolean = false, exact: Pair<Int, Int>? = null) {
         host.ensureDocument { d ->
             if (doc == null || doc?.id != d.id) documentChanged(d)
             cancelInteractions()
             val t = host.transform()
             val a = t.screenToDoc(0f, 0f); val b = t.screenToDoc(parent.width.toFloat(), parent.height.toFloat())
-            val rect = BoardPresetRect.fit(minOf(a.first, b.first), minOf(a.second, b.second), maxOf(a.first, b.first),
-                maxOf(a.second, b.second), aspectW, aspectH, if (kind == BoardKind.SPRITE) columns else 1, if (kind == BoardKind.SPRITE) rows else 1)
+            val l = minOf(a.first, b.first); val tp = minOf(a.second, b.second); val r = maxOf(a.first, b.first); val bt = maxOf(a.second, b.second)
+            // An exact size when the caller chose one (a 512 px tile, 64 px sprite cells), else fitted to the screen.
+            val rect = if (exact != null) BoardPresetRect.centred(l, tp, r, bt, exact.first, exact.second)
+                else BoardPresetRect.fit(l, tp, r, bt, aspectW, aspectH, if (kind == BoardKind.SPRITE) columns else 1, if (kind == BoardKind.SPRITE) rows else 1)
             val id = UUID.randomUUID().toString(); pendingSelection = id; pendingClipHint = kind == BoardKind.ANIMATION
             if (tile) pendingTile = id
             edit { doc -> var first = true; val ids = { if (first) { first = false; id } else UUID.randomUUID().toString() }

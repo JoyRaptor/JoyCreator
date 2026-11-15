@@ -2237,7 +2237,6 @@ class JoyBrushActivity : Activity() {
     private fun applyLaunchPreset() {
         val p = JoyBrushLaunch.presetOf(intent) ?: return
         JoyBrushLaunch.clear(intent)
-        p.problem()?.let { toast(it); return }
         p.guide?.let { guides = guideOf(it); guidesChanged() }
         val board = p.board ?: return
         val (w, h) = p.aspectParts() ?: return
@@ -2247,8 +2246,15 @@ class JoyBrushActivity : Activity() {
             else -> cc.joycreator.joybrush.core.doc.BoardKind.CANVAS
         }
         val name = p.name?.takeIf { it.isNotBlank() } ?: board.replaceFirstChar { it.uppercase() }
-        boardController?.createPreset(kind, name, w, h, p.fps?.toFloat(),
-            columns = p.columns ?: if (board == "sprite") 4 else 1, rows = p.rows ?: 1, tile = board == "tile")
+        val columns = p.columns ?: if (board == "sprite") 4 else 1
+        val rows = p.rows ?: 1
+        // A chosen pixel size: a tile's side, or a sprite's cells (kept to a board of at most 8192 px a side).
+        val exact = when {
+            board == "tile" && p.tilePx != null -> p.tilePx to p.tilePx
+            board == "sprite" && p.cellPx != null && columns * p.cellPx <= 8192 && rows * p.cellPx <= 8192 -> columns * p.cellPx to rows * p.cellPx
+            else -> null
+        }
+        boardController?.createPreset(kind, name, w, h, p.fps?.toFloat(), columns = columns, rows = rows, tile = board == "tile", exact = exact)
     }
 
     // ── the pinned reference (owner decision 3) ──

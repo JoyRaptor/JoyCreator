@@ -294,6 +294,9 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         addSwitchRow(parent, dp, getString(R.string.tab1_settings_left_title), getString(R.string.tab1_settings_left),
                 com.fadcam.ui.faditor.tools.DrawerPlace.left(ctx),
                 on -> com.fadcam.ui.faditor.tools.DrawerPlace.setLeft(ctx, on));
+        addSwitchRow(parent, dp, getString(R.string.tab1_settings_split_title), getString(R.string.tab1_settings_split),
+                com.fadcam.ui.faditor.tools.DrawerPlace.split(ctx),
+                on -> com.fadcam.ui.faditor.tools.DrawerPlace.setSplit(ctx, on));
     }
 
     /** The TextView in {@code root} showing {@code text}, or null. */

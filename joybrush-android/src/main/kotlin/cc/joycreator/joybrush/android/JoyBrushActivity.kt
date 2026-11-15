@@ -130,6 +130,9 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val BRUSH_DOCK_FROM_DP = 840
 private const val BRUSH_DOCK_DP = 360
 private const val BRUSH_DOCK_RAIL_GAP = 52
+private const val BRUSH_SETTINGS_DOCK_DP = 420
+/** TAB-1 K11: the drawing steps aside for the standing panels instead of lying under them (off = as before). */
+private const val PREF_PAPER_ASIDE = "tab1_paper_aside"
 
 // JB-0.08b. The working file and its folder are the spec's decisions (1) and (3).
 private const val WORKING_DIR = "joybrush"
@@ -1162,11 +1165,12 @@ class JoyBrushActivity : Activity() {
      */
     private fun toggleBrushDock(start: BrushShelf.Kind, current: String?) {
         val host = topBar.parent as? FrameLayout ?: return
-        brushDock?.let { host.removeView(it); brushDock = null; return }
+        brushDock?.let { host.removeView(it); brushDock = null; closeSettingsDock(); return }
         popovers.close()
         lateinit var drawer: BrushDrawerView
         drawer = BrushDrawerView(kit, tunedBrushes(), start, current, onPick = { picked ->
-            chooseDrawerBrush(picked, settings = false)
+            // Settings standing open follow the brush now in the hand.
+            chooseDrawerBrush(picked, settings = settingsDock != null)
             drawer.markCurrent(picked.id)
         }, onSettings = { held ->
             chooseDrawerBrush(held, settings = true)
@@ -1183,7 +1187,7 @@ class JoyBrushActivity : Activity() {
         val close = drawerText("\u00d7", 18f).apply {
             gravity = Gravity.CENTER
             kit.label(this, "Put the brushes away")
-            setOnClickListener { brushDock?.let { host.removeView(it) }; brushDock = null }
+            setOnClickListener { brushDock?.let { host.removeView(it) }; brushDock = null; closeSettingsDock() }
         }
         head.addView(close, LinearLayout.LayoutParams(dp(40), dp(40)))
         dock.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -1197,6 +1201,7 @@ class JoyBrushActivity : Activity() {
             if (right) marginEnd = dp(BRUSH_DOCK_RAIL_GAP) else marginStart = dp(BRUSH_DOCK_RAIL_GAP)
         })
         brushDock = dock
+        fitPaperBesidePanels()
     }
 
     /** Size on a slider: a log scale, so a 2 px pen and a 400 px wash are both easy to set. */
@@ -1344,6 +1349,16 @@ class JoyBrushActivity : Activity() {
         unibrush?.let { controller ->
             box.addView(menuRow("Stabilizer…", "Choose each brush's suggestion or your own canvas stabilizer") {
                 controller.openStabilizer()
+            })
+        }
+        // TAB-1 K11: only where the brush panels can stand open (a wide window).
+        if (resources.configuration.screenWidthDp >= BRUSH_DOCK_FROM_DP) {
+            val aside = prefs.getBoolean(PREF_PAPER_ASIDE, false)
+            box.addView(menuRow("Paper beside panels: ${if (aside) "On" else "Off"}",
+                "On: the drawing steps aside for the standing brush panels instead of lying under them") {
+                prefs.edit().putBoolean(PREF_PAPER_ASIDE, !aside).apply()
+                popovers.close()
+                fitPaperBesidePanels()
             })
         }
 
@@ -1595,8 +1610,85 @@ class JoyBrushActivity : Activity() {
         val reading: (Float, Float, Float) -> Unit = { p, t, o -> view.showReading(p, t, o) }
         canvas.onPenReading = reading
         preview.onPenReading = reading
+        // TAB-1 K10: with the brush panel standing open on a wide window, the settings stand beside it and stay
+        // open while you paint, until their own close.
+        if (brushDock != null) {
+            dockBrushSettings(view)
+            return
+        }
         popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
             onClosed = { canvas.onPenReading = null }, modal = false)
+    }
+
+    /** TAB-1 K10: the brush settings standing beside the brush panel; null while closed. */
+    private var settingsDock: LinearLayout? = null
+
+    private fun closeSettingsDock() {
+        val dock = settingsDock
+        if (dock != null) {
+            (dock.parent as? android.view.ViewGroup)?.removeView(dock)
+            settingsDock = null
+            canvas.onPenReading = null
+        }
+        fitPaperBesidePanels()
+    }
+
+    /**
+     * TAB-1 K11 (owner: "that should just be an option in settings"): with "Paper beside panels" on, the drawing's
+     * view ends where the standing brush panels begin, so they never lie over the drawing. Off (the default) keeps
+     * the drawing full screen under them, exactly as before.
+     */
+    private fun fitPaperBesidePanels() {
+        val lp = canvas.layoutParams as? FrameLayout.LayoutParams ?: return
+        val on = prefs.getBoolean(PREF_PAPER_ASIDE, false)
+        val inset = when {
+            !on -> 0
+            settingsDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP + 8 + BRUSH_SETTINGS_DOCK_DP)
+            brushDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP)
+            else -> 0
+        }
+        val right = placement.edge == StripPlacement.Edge.RIGHT
+        val l = if (right) 0 else inset
+        val r = if (right) inset else 0
+        if (lp.leftMargin == l && lp.rightMargin == r) return
+        lp.leftMargin = l
+        lp.rightMargin = r
+        canvas.layoutParams = lp
+    }
+
+    /** The settings view in a tall panel beside the brush panel, on the same side of the screen. */
+    private fun dockBrushSettings(view: View) {
+        val host = topBar.parent as? FrameLayout ?: return
+        closeSettingsDock()
+        popovers.close()
+        val dock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val r = dp(14).toFloat()
+            kit.chromeSurface(this, floatArrayOf(r, r, r, r, r, r, r, r))
+            setPadding(dp(4), dp(2), dp(4), dp(6))
+        }
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        head.addView(drawerText("Brush settings", 13f).apply { setPadding(dp(10), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        head.addView(drawerText("\u00d7", 18f).apply {
+            gravity = Gravity.CENTER
+            kit.label(this, "Put the brush settings away")
+            setOnClickListener { closeSettingsDock() }
+        }, LinearLayout.LayoutParams(dp(40), dp(40)))
+        dock.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
+        (view.parent as? android.view.ViewGroup)?.removeView(view)
+        dock.addView(android.widget.ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(view) },
+            LinearLayout.LayoutParams(MATCH, 0, 1f))
+        val right = placement.edge == StripPlacement.Edge.RIGHT
+        host.addView(dock, FrameLayout.LayoutParams(dp(BRUSH_SETTINGS_DOCK_DP), MATCH,
+            Gravity.TOP or (if (right) Gravity.END else Gravity.START)).apply {
+            topMargin = topBar.height.coerceAtLeast(dp(44))
+            bottomMargin = dp(12)
+            // Beside the brush panel, which stands beside the rail.
+            val inset = dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP + 8)
+            if (right) marginEnd = inset else marginStart = inset
+        })
+        settingsDock = dock
+        fitPaperBesidePanels()
     }
 
     /** The preview's crossing stroke: the colour in hand turned well round the wheel, so it reads against it (and dark on light). */

@@ -185,7 +185,7 @@
     <string name="vl_style_copies_one">It copies at least one: pick Nothing to stop following</string>
     <string name="vl_style_undo_copy">Copy it</string>
     <string name="vl_style_undo_stop_copy">Stop copying it</string>
-    <string name="vl_style_no_objects">No objects yet: add a dummy or a picture</string>
+    <string name="vl_style_no_objects">No objects yet: add a proxy or a picture</string>
     <string name="vl_style_undo_stop_follow">Stop following</string>
     <string name="vl_style_undo_follow">Follow an object</string>
 

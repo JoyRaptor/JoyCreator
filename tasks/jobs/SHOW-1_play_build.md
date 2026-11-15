@@ -1,6 +1,27 @@
 # SHOW-1: The Play build
 
-**Milestone:** M4  ·  **State:** ⬜  ·  **Owner:** open  ·  **Checked:** 2026-10-27 against STATE §1 and LAUNCH_STRATEGY.md
+**Milestone:** M4 (launch week 1)  ·  **State:** 🟡 candidate bundle built and phone-tested  ·  **Owner:** Play build lane (Claude Opus 5.5, 11-14)  ·  **Checked:** 2026-11-14 against the built bundle and the Note 9
+
+## 11-14: where it stands (read this first)
+
+Full report: [PLAY_BUILD_REPORT_20261114.md](../launch/PLAY_BUILD_REPORT_20261114.md). Owner's key backup:
+[PLAY_UPLOAD_KEY.md](../launch/PLAY_UPLOAD_KEY.md).
+
+- [x] `play` flavour without the disguise icons, the accessibility screenshot service, all-files access and the
+      privacy black screen (manifest overlay `app/src/play/` plus four hidden settings rows); FadCam's cloud was
+      already gone (S19); LAN Remote stays (owner 10-17). The `default` debug build is unchanged.
+- [x] App ID from one property (`joycreator.playApplicationId` in `gradle.properties`, now `cc.joycreator.app`,
+      **owner's S1 still owed**: permanent once uploaded).
+- [x] Upload key made outside the repository (`D:\JoyCreator-keys\`), signing reads passwords from git-ignored
+      `local.properties` or `JOY_*` environment variables. **Owner's backup owed.**
+- [x] First R8 release build: two duplicate-class fixes, keep rules, no renaming. Signed bundle 106 MB; phone
+      download 145.2 MB (limit 200); 21 of 21 native libraries 16 KB aligned.
+- [x] Installed beside the debug app on the Note 9; every wing smoke-tested ✅ (table in the report).
+- [ ] **The upload bundle**: rebuild from `joy-creator` after the launch-docs lane merges the Smart Detection
+      switch (`claude/mediapipe-detector-20261114`); the 11-14 bundle is a candidate built with that branch merged
+      locally (`claude/play-candidate-20261114`, not pushed). Without the switch Play refuses one library.
+- [ ] Owner: S1 app ID, Play Console account, key backup, then the upload to a closed test.
+- [ ] Not tested: Smart Detection on a live subject, speech with words, avatar face tracking, LAN Remote.
 
 ## Why it matters
 Google Play rejects apps that look like stalkerware or misuse permissions. These FadCam-era parts must leave

@@ -77,6 +77,8 @@ The launch list, in order:
    the centred column and the Joybot panel first; Studio side panels if they fit)
 4. **Studio**: struck transcript words still in exports (STU-B3, owner ruling owed), the owed device checks
 5. **Tester feedback**, triaged daily into these rows
+5b. **A "report this AI reply" control in Joybot** (Google Play's AI-content rule expects one; found by the store lane
+    11-14, `tasks/store/OWNER_CLICKS.md` §6): small, for whichever lane holds the Joybot chat
 6. **Sizzle video, part 1** (week 3): shot list, showcase projects, screen recordings on the phone; edited in
    Joy Creator's own Studio (the video shows the app making itself)
 

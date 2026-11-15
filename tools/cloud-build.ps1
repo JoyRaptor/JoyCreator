@@ -6,7 +6,7 @@
 #   .\tools\cloud-build.ps1 fetch [runId]           downloads the APK/AAB into build\cloud\<artifact>\ of this worktree
 #   .\tools\cloud-build.ps1 sign  [aab]             release only: signs the bundle with the Play upload key, on this PC
 #   .\tools\cloud-build.ps1 run   <ref> [variant]   start + wait + fetch in one go
-# runId defaults to the last run started from this worktree (build\cloud\last-run.json).
+# runId defaults to the last run started from this worktree (build\cloud\last-run.json); "latest" = the newest run anyone started.
 #
 # Then:  .\tools\phone.ps1 install build\cloud\<artifact>\app-default-arm64-v8a-debug.apk   (under the phone lock)
 #
@@ -93,6 +93,12 @@ function Save-State($o) {
 }
 function Get-RunId {
     if ($Rest.Count -ge 1 -and $Rest[0] -match '^\d+$') { return $Rest[0] }
+    if ($Rest.Count -ge 1 -and $Rest[0] -eq "latest") {   # the newest cloud build anyone started
+        $r = (Api GET "/actions/workflows/$Workflow/runs?per_page=1").workflow_runs | Select-Object -First 1
+        if (-not $r) { throw "no cloud builds yet" }
+        Write-Host "latest run $($r.id): $($r.display_title)"
+        return $r.id
+    }
     if (Test-Path $stateFile) { return (Get-Content $stateFile -Raw | ConvertFrom-Json).run_id }
     throw "no run id given and no build\cloud\last-run.json here: start one first"
 }
@@ -103,7 +109,8 @@ function Start-Build([string] $ref, [string] $variant) {
     # The runner can only see what is on GitHub: warn if this branch has unpushed commits.
     $localSha = (& git rev-parse --verify --quiet "$ref^{commit}" 2>$null)
     $remoteSha = (& git rev-parse --verify --quiet "origin/$ref^{commit}" 2>$null)
-    if ($localSha -and $remoteSha -and $localSha -ne $remoteSha) {
+    if ($localSha -and $remoteSha -and $localSha -ne $remoteSha) { & git merge-base --is-ancestor $localSha $remoteSha 2>$null }
+    if ($localSha -and $remoteSha -and $localSha -ne $remoteSha -and $LASTEXITCODE -ne 0) {
         Write-Host "WARNING: your $ref is not the same as origin/$ref; the cloud builds origin's. Push first if you meant yours."
     }
     $rid = "cb-" + [Guid]::NewGuid().ToString("N").Substring(0, 8)
@@ -112,7 +119,7 @@ function Start-Build([string] $ref, [string] $variant) {
     for ($i = 0; $i -lt 24; $i++) {
         Start-Sleep -Seconds 5
         $runs = Api GET "/actions/workflows/$Workflow/runs?event=workflow_dispatch&per_page=30"
-        $run = $runs.workflow_runs | Where-Object { $_.display_title -like "*[$rid]*" } | Select-Object -First 1
+        $run = $runs.workflow_runs | Where-Object { "$($_.display_title)".Contains("[$rid]") } | Select-Object -First 1
         if ($run) {
             Save-State ([ordered]@{ run_id = $run.id; ref = $ref; variant = $variant; request_id = $rid; url = $run.html_url; started = (Get-Date).ToString("s") })
             Write-Host "started run $($run.id): $variant @ $ref"
@@ -167,9 +174,25 @@ function Get-Build([string] $id) {
     Write-Host "fetched $($a.name) into build\cloud\$($a.name):"
     Get-ChildItem $dest | ForEach-Object { Write-Host ("  {0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }
     $apk = Get-ChildItem $dest -Filter *.apk | Select-Object -First 1
+    if ($apk -and $apk.Name -like "*debug*") { Resign-Debug $apk.FullName }
     if ($apk) { Write-Host "install: .\tools\phone.ps1 install build\cloud\$($a.name)\$($apk.Name)" }
     $aab = Get-ChildItem $dest -Filter *.aab | Select-Object -First 1
     if ($aab) { Write-Host "unsigned bundle; sign it here: .\tools\cloud-build.ps1 sign build\cloud\$($a.name)\$($aab.Name)" }
+}
+
+function Resign-Debug([string] $apk) {
+    # Each GitHub runner makes its own throwaway debug key, and Android refuses to update an app signed with a
+    # different key (the only way round is an uninstall, which wipes the owner's projects: never). So a debug APK
+    # is re-signed here with this PC's debug key, the one every local build uses. Nothing goes to GitHub.
+    $ks = if ($env:ANDROID_USER_HOME) { Join-Path $env:ANDROID_USER_HOME "debug.keystore" } else { Join-Path $env:USERPROFILE ".android\debug.keystore" }
+    if (-not (Test-Path $ks)) { Write-Host "no debug key on this PC: this APK keeps GitHub's key and will not update an installed copy"; return }
+    $bt = Get-ChildItem (Join-Path $env:LOCALAPPDATA "Android\Sdk\build-tools") -Directory |
+        Sort-Object { [version](($_.Name -replace '[^0-9.].*$', '') + ".0.0" -replace '^(\d+\.\d+\.\d+).*$', '$1') } | Select-Object -Last 1
+    $signer = Join-Path $bt.FullName "apksigner.bat"
+    # The standard Android debug key and its well-known password "android": not a secret.
+    & $signer sign --ks $ks --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android $apk | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "re-signing the debug APK failed" }
+    Write-Host "re-signed with this PC's debug key, so it installs over the existing app (no uninstall)"
 }
 
 function Find-Tool([string] $exe) {

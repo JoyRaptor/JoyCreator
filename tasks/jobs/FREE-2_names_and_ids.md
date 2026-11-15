@@ -69,6 +69,29 @@ Cloud debug build installed over the Note 9 sandbox app: Library 259 items befor
 `FadShot_`, `Faditor_Std_/Merge_`, `AppData/FadCam/...`), the QR scanner and Forensics snapshot names; these sit in
 the recording pipeline and go with step 3's tests. Screenshots: `tasks/screens/shell44-20261114/`.
 
+### Step 3 brief (for whoever builds it; read the conditions above first)
+
+- **What moves (side-load build only, `!BuildConfig.PLAY_BUILD`):** `Download/FadCam/*` → `Download/Joy Creator/`;
+  `Pictures/FadCam/assets/**` (fonts, `.broll_tags.json`) → `Pictures/Joy Creator/assets/` (then `BRollBucket` stops
+  preferring the old folder by itself: it only does so while the new one does not exist); `Documents/FadRec/Projects/*/`
+  → `Documents/Joy Creator/Screen drawings/` (`ProjectFileManager` already finds a project in either place). The
+  Note 9 sandbox today: one video in `Download/FadCam`, `Pictures/FadCam/assets/fonts`, an empty `Documents/FadRec/Projects`.
+- **Reuse, do not rebuild:** `StudioMirror.rememberMoved(old→new)` (every project load then heals links to the old
+  file through `healMovedOriginals`), `StudioMirror.repointOthers(moved, null)` (rewrites saved projects now),
+  `OriginalsRemover` (deletes originals, MediaStore delete where needed). The move log goes in the Joy Creator folder
+  (`.joycreator/` is the folder's hidden home; a readable `Moved from FadCam folders.txt` at its top is easier to
+  find by hand: owner taste, pick one and say which).
+- **Phase 1 (one launch):** per file: copy to `<name>.partial` beside the destination, compare size and SHA-256 with
+  the original, rename to the final name (clash → " 2"), `rememberMoved` + `repointOthers`, log line `copied`.
+  Phase 2 (a later launch): for each `copied` line, re-hash the copy; delete the original only if it matches and no
+  saved project still names the old path (scan `ProjectStorage` JSON for it), log `removed`. Any failure: log
+  `kept`, leave both, say nothing to the person. Leftover `*.partial` files are removed at the start of phase 1.
+- **Dry run:** a debug-only entry (an `adb shell am start` extra, like `DecoderBudgetProbeActivity`) that writes the
+  plan to the log as `would-move` lines and changes nothing. Test against a copy made on the phone
+  (`cp -r /sdcard/Download/FadCam /sdcard/Download/FadCam-testcopy` etc.), never the Note 20.
+- **Tests:** a JVM test like `tools/joyfolder-tests` for the planner and the kill-midway cases (partial copy,
+  copy done but not logged, logged but original still there, run twice).
+
 **Orchestrator's conditions for 3 (2026-11-14, binding):** (a) two phases: copy, verify and repoint on one launch;
 the old files are deleted only on a LATER launch, after every repointed project has opened and found its media; a
 crash between phases leaves both copies, never neither. (b) A readable move log in the Joy Creator folder, one line

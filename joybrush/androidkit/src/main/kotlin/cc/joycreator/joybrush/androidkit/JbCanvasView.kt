@@ -2642,14 +2642,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     /**
      * A brush's settings preview only: pencil and oil in the smallest atlas a drawing gets ([PREVIEW_SLOTS]), never one sized
-     * by the phone's memory. Watercolour goes on the wet sheet as in a drawing; the sheet is the size of THIS view (the small
-     * stage), not the screen (11-15: in the atlas a big watercolour's test curve did not fit even at 6 x 4). Set before its
+     * by the phone's memory. Watercolour goes on the wet sheet as in a drawing, a small one ([PREVIEW_SHEET_LONG_CELLS]) laid
+     * over THIS view (the small stage), not the screen (11-15: in the atlas a big watercolour's test curve did not fit even at 6 x 4). Set before its
      * first stroke. Off for the drawing.
      */
     var smallMediaPreview = false
         set(v) {
             field = v
             mediaCanvas.slotGrid = if (v) PREVIEW_SLOTS else null
+            mediaCanvas.sheetLongCells = if (v) PREVIEW_SHEET_LONG_CELLS else null
         }
 
     val drawnStrokes = ArrayList<List<PenSample>>()
@@ -4404,6 +4405,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
          * big watercolour (its water reached 19 areas of 16, Fold 4, 11-15). About 15 MB a slot, let go when the sheet closes.
          */
         val PREVIEW_SLOTS = 6 to 4
+
+        /**
+         * A settings preview's wet sheet: 512 cells along its long side, not a drawing's 1280. The sheet's grid follows the
+         * Water detail switch, not the view, so the small stage got a full-screen sheet (257 MB, Fold 4, 11-15); at 512 it
+         * is about 43 MB, cells of about 1.6 stage px.
+         */
+        const val PREVIEW_SHEET_LONG_CELLS = 512
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
         private const val PEN_PREFS = "joybrush.canvas"

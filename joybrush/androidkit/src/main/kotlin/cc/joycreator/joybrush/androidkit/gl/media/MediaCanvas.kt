@@ -85,6 +85,11 @@ class MediaCanvas(
      * MediaAtlasLedgerProbe) and a brush settings preview (JbCanvasView.smallMediaPreview), which must stay small.
      */
     internal var slotGrid: Pair<Int, Int>? = null
+    /**
+     * Cells along the wet sheet's long side instead of the owner's Water detail switch ([WetSheet.longCells]): a brush
+     * settings preview (JbCanvasView.smallMediaPreview), whose stage is small on screen. Set before the first wet stroke.
+     */
+    internal var sheetLongCells: Int? = null
     /** The atlas in use, if the engine places tiles freely (probe counters: parked tiles, admission misses, blocks). */
     internal val atlas: MediaAtlas? get() = window as? MediaAtlas
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
@@ -406,7 +411,7 @@ class MediaCanvas(
                              symmetry: Guide.Symmetry?): String? {
         if (preset.mediaScale() <= 0.0) return "This brush has no size."
         val (avail, threshold) = memory()
-        val s = sheet ?: WetSheet(paint, shaders).also { sheet = it }
+        val s = sheet ?: WetSheet(paint, shaders).also { sheet = it; it.ownLongCells = sheetLongCells }
         look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
         s.begin(layerId, plane, x, y, sheetView, paint.mediaPaper(), look, avail, threshold)?.let { return it }
         val scaled = spec.scaled(preset.mediaScale())

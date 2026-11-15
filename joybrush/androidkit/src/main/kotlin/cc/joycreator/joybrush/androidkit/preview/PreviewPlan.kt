@@ -58,8 +58,15 @@ object PreviewPlan {
     /** A single dab ([cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB]) may fill this share of the picture's height. */
     const val DAB_SHARE = 0.8f
 
-    /** As [shown], for [part]: a dab may be larger, up to [DAB_SHARE] of the height. */
-    fun shown(p: BrushPreset, heightPx: Int, part: cc.joycreator.joybrush.core.brush.TestStroke.Part): BrushPreset =
-        if (part != cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB) shown(p, heightPx)
-        else ToolMemory.sized(p, min(p.size.base, heightPx * DAB_SHARE).coerceAtLeast(1f), p.opacity.base)
+    /**
+     * As [shown], for [part]. A dab is scaled to be read: it fills [DAB_SHARE] of the height whatever the brush's size, or,
+     * given [dabScalePx], a brush of that size fills it and this one is drawn in proportion (the size slider's two ends).
+     */
+    fun shown(p: BrushPreset, heightPx: Int, part: cc.joycreator.joybrush.core.brush.TestStroke.Part,
+              dabScalePx: Float? = null): BrushPreset {
+        if (part != cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB) return shown(p, heightPx)
+        val full = heightPx * DAB_SHARE
+        val size = if (dabScalePx == null) full else p.size.base * full / dabScalePx
+        return ToolMemory.sized(p, size.coerceIn(1f, full), p.opacity.base)
+    }
 }

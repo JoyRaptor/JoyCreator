@@ -40,6 +40,12 @@ class BrushPreviewRequest private constructor(
     val part: cc.joycreator.joybrush.core.brush.TestStroke.Part = cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE,
     /** Whether the test stroke's colour stripes are painted under it (off for a slider's end picture). */
     val stripes: Boolean = true,
+    /**
+     * For a [cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB] only: the brush size (px) that fills the picture. Null:
+     * the dab fills it whatever its size (softness, shape). The size slider passes its larger end's size for both ends, so
+     * the two dabs share one scale and differ.
+     */
+    val dabScalePx: Float? = null,
 ) {
     val requiresResourceAwareMaker: Boolean
         get() = pngs != null || actualStabilizer != null || penOverride != null ||
@@ -65,7 +71,9 @@ class BrushPreviewRequest private constructor(
             penOverride: PreviewPenOverride? = null,
             part: cc.joycreator.joybrush.core.brush.TestStroke.Part = cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE,
             stripes: Boolean = true,
+            dabScalePx: Float? = null,
         ): BrushPreviewRequest {
+            dabScalePx?.let { require(it > 0f && it.isFinite()) { "dabScalePx must be a positive size" } }
             // Detach lists/maps from the editable sheet before a queued IO or GL operation can run.
             val frozen = BrushJson.decodeChecked(BrushJson.encode(preset))
             val required = BrushAssetPaths.required(frozen)
@@ -84,7 +92,7 @@ class BrushPreviewRequest private constructor(
                 }
             }
             return BrushPreviewRequest(frozen, width, height, style.copy(), pngs,
-                actualStabilizer?.copy(), penOverride?.copy(), PreviewResourceFingerprint.of(pngs), part, stripes)
+                actualStabilizer?.copy(), penOverride?.copy(), PreviewResourceFingerprint.of(pngs), part, stripes, dabScalePx)
         }
     }
 }

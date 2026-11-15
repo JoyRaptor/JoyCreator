@@ -47,7 +47,7 @@ object BrushPreviewKey {
 
     /** Only a picture that is not the whole stroke over its colour lines names its part, so the usual one keeps the legacy key. */
     private fun partKey(request: cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest): String =
-        if (request.part == cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE && request.stripes) "" else "|${request.part}|${request.stripes}"
+        if (request.part == cc.joycreator.joybrush.core.brush.TestStroke.Part.WHOLE && request.stripes) "" else "|${request.part}|${request.stripes}" + (request.dabScalePx?.let { "|dab${it.toRawBits()}" } ?: "")
 
     /**
      * The brush's part of the file name: the readable [sanitize]d id, then 8 hex digits of the hash of the FULL id. The

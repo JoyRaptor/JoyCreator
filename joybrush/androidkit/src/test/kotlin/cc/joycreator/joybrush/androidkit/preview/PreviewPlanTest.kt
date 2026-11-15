@@ -81,10 +81,14 @@ class PreviewPlanTest {
         assertEquals(3f, PreviewPlan.shown(brush(size = 3f), 110).size.base, 0.001f)
     }
 
-    @Test fun aDabMayFillMostOfThePictureButNoMoreThanTheBrush() {
+    @Test fun aDabFillsThePictureWhateverItsSizeUnlessTwoShareAScale() {
         val dab = cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB
-        assertEquals(110f * PreviewPlan.DAB_SHARE, PreviewPlan.shown(brush(size = 300f), 110, dab).size.base, 0.001f)
-        assertEquals(3f, PreviewPlan.shown(brush(size = 3f), 110, dab).size.base, 0.001f)
+        val full = 110f * PreviewPlan.DAB_SHARE
+        assertEquals(full, PreviewPlan.shown(brush(size = 300f), 110, dab).size.base, 0.001f)
+        assertEquals(full, PreviewPlan.shown(brush(size = 3f), 110, dab).size.base, 0.001f)
+        // The size slider's ends: the larger fills the picture, the smaller is drawn in proportion.
+        assertEquals(full, PreviewPlan.shown(brush(size = 40f), 110, dab, dabScalePx = 40f).size.base, 0.001f)
+        assertEquals(full / 4, PreviewPlan.shown(brush(size = 10f), 110, dab, dabScalePx = 40f).size.base, 0.001f)
     }
 
     @Test fun showingABrushChangesOnlyItsBaseSize() {

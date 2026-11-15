@@ -225,7 +225,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
     private fun renderStroke(req: Request, kind: PreviewKind): Bitmap? {
         val w = req.width
         val h = req.height
-        val shown = PreviewPlan.shown(req.preset, h, req.snapshot.part)
+        val shown = PreviewPlan.shown(req.preset, h, req.snapshot.part, req.snapshot.dabScalePx)
         val onPaper = kind == PreviewKind.WATERCOLOUR
         val e = engine(paperOf(kind))
         val ink = if (onPaper) req.style.mediaInk else req.style.ink

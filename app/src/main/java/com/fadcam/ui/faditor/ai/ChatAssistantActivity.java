@@ -3528,8 +3528,86 @@ public class ChatAssistantActivity extends AppCompatActivity {
         });
         wrapper.addView(copyBtn);
 
+        // Report this reply (Google Play's AI-content rule): a flag beside Copy on Joybot's answers.
+        if (!isUser) {
+            TextView flag = new TextView(this);
+            flag.setTypeface(materialIcons);
+            flag.setText("outlined_flag");
+            flag.setTextColor(Studio.alpha(Studio.ON_GO, 0x66));
+            flag.setTextSize(13);
+            flag.setPadding(dp(6), dp(6), dp(6), dp(6));
+            FrameLayout.LayoutParams flp = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT);
+            flp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
+            flp.setMargins(0, 0, dp(30), dp(2));
+            flag.setLayoutParams(flp);
+            flag.setContentDescription("Report this reply");
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(flag, "Report this reply");
+            flag.setOnClickListener(v -> confirmReport(text));
+            wrapper.addView(flag);
+        }
+
         wrapper.setPadding(0, 0, 0, dp(4));
         return wrapper;
+    }
+
+    /**
+     * Report one of Joybot's answers. Saves the answer and the question before it in the Joy Creator
+     * folder (Joybot/Reports) and opens an email to the studio with both filled in; nothing is sent
+     * unless the person sends that email themself.
+     */
+    private void confirmReport(@NonNull String reply) {
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("Report this reply?")
+                .setMessage("Joybot's answers can come from an AI, and an AI can be wrong or say something it "
+                        + "shouldn't. Reporting keeps this reply and your question in your Joy Creator folder "
+                        + "(Joybot/Reports) and opens an email to us with both filled in. Nothing is sent until "
+                        + "you press send in your email app.")
+                .setPositiveButton("Report", (d, w) -> sendReport(reply))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void sendReport(@NonNull String reply) {
+        final String question = questionBefore(reply);
+        final String helper = AiService.ready(this, apiKey)
+                ? (model == null || model.isEmpty() ? DEFAULT_MODEL : model) : "offline helper";
+        final android.content.Context app = getApplicationContext();
+        com.fadcam.joyfolder.android.JoyFolderHome.io().execute(() -> {
+            com.fadcam.ui.faditor.ai.joybot.ReplyReport.Saved saved =
+                    com.fadcam.ui.faditor.ai.joybot.ReplyReport.save(app, question, reply, helper);
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                android.content.Intent mail =
+                        com.fadcam.ui.faditor.ai.joybot.ReplyReport.email(question, reply, helper, this);
+                String kept = saved != null ? "Saved in " + saved.where + "." : "Could not save a copy.";
+                try {
+                    startActivity(mail);
+                    Toast.makeText(this, kept, Toast.LENGTH_LONG).show();
+                } catch (android.content.ActivityNotFoundException e) {
+                    Toast.makeText(this, kept + " No email app here: send it to "
+                            + com.fadcam.ui.faditor.ai.joybot.ReplyReport.CONTACT + ".", Toast.LENGTH_LONG).show();
+                }
+            });
+        });
+    }
+
+    /** The person's last message before this reply, from the chat's own log. */
+    @androidx.annotation.Nullable
+    private String questionBefore(@NonNull String reply) {
+        synchronized (messageLog) {
+            int at = -1;
+            for (int i = messageLog.size() - 1; i >= 0; i--) {
+                String[] m = messageLog.get(i);
+                if (m != null && m.length > 1 && "bot".equals(m[0]) && reply.equals(m[1])) { at = i; break; }
+            }
+            for (int i = (at < 0 ? messageLog.size() : at) - 1; i >= 0; i--) {
+                String[] m = messageLog.get(i);
+                if (m != null && m.length > 1 && "user".equals(m[0])) return m[1];
+            }
+        }
+        return null;
     }
 
     // ── Proposal confirmation cards (narrative reorder / b-roll) ─────

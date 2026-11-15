@@ -70,6 +70,14 @@ public class WebcamEncoderPipeline {
     private Surface encoderInputSurface;
     private MediaCodec audioEncoder;
     private FragmentedMp4MuxerWrapper muxer;
+    private volatile Runnable writeFailureListener;
+
+    /** Ask to be told when the webcam file can no longer be written (work-loss audit F5). */
+    public void setWriteFailureListener(Runnable listener) {
+        this.writeFailureListener = listener;
+        FragmentedMp4MuxerWrapper m = muxer;
+        if (m != null) m.setWriteFailureListener(listener);
+    }
     private int videoTrackIndex = -1;
     private int audioTrackIndex = -1;
     private boolean muxerStarted = false;
@@ -193,6 +201,7 @@ public class WebcamEncoderPipeline {
         muxer = outputFd != null
                 ? new FragmentedMp4MuxerWrapper(outputFd)
                 : new FragmentedMp4MuxerWrapper(outputFilePath);
+        muxer.setWriteFailureListener(writeFailureListener);
         if (orientationHint != 0) {
             muxer.setOrientationHint(orientationHint);
         }

@@ -190,6 +190,15 @@ class UnibrushHostController(
             chooseAssets={request,done->chooseImages(request,done,epoch)},
             editProfilePoints={profile,done->UnibrushProfileDialogs.show(kit,profile,done)},
             onChooseSecondaryColour={chooseSecondaryColour(epoch)},
+            // BRUSH-UI section K.3: slider ends from the shared preview cache. A mode with PNG tips needs its images
+            // prepared through the host's lane, so its sliders keep their words only.
+            endPicture={p,w,h,part,dabScale,onReady->
+                if(BrushAssetPaths.required(p).isNotEmpty())throw BrushException("This mode's images are not prepared for small pictures")
+                val checked=BrushJson.decodeChecked(BrushJson.encode(p))
+                val ask=cache.request(BrushPreviewRequest.snapshot(checked,w,h,BrushPreviewStyle(ink=kit.p.drawerInk),
+                    part=part,stripes=false,dabScalePx=dabScale),onReady)
+                ({ask.cancel()})
+            },
         )
         sheet=view
         canvas.onPenReading={p,t,o->if(epoch==sheetRevision)view.showReading(p,t,o)}

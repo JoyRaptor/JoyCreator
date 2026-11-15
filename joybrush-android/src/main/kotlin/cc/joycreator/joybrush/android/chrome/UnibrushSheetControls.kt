@@ -88,7 +88,11 @@ internal class UnibrushSheetSlider(
     private val power: Float = 1f,
     /** BRUSH-UI section K.3: what each end does, in words (null: none). */
     ends: Pair<String, String>? = null,
+    /** With [ends]: a small picture over each word, filled by the sheet ([lowPicture], [highPicture]). */
+    pictures: Boolean = false,
 ) : LinearLayout(kit.context) {
+    var lowPicture: android.widget.ImageView? = null; private set
+    var highPicture: android.widget.ImageView? = null; private set
     private val value = TextView(context).apply { setTextColor(kit.p.drawerInk); textSize = 12f; gravity = Gravity.END }
     private val endWords = ends
     private var dragging = false
@@ -118,9 +122,24 @@ internal class UnibrushSheetSlider(
                 minWidth = kit.dpi(40f); maxWidth = kit.dpi(64f)
                 importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
             }
-            track.addView(word(words.first, false), LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            // Each end: its picture (when the sheet can draw one) over its word, as in the paint brushes' editor.
+            fun end(w: String, alignEnd: Boolean): Pair<View, android.widget.ImageView?> {
+                if (!pictures) return word(w, alignEnd) to null
+                val col = LinearLayout(context).apply { orientation = VERTICAL; gravity = if (alignEnd) Gravity.END else Gravity.START }
+                val pic = android.widget.ImageView(context).apply {
+                    scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                    importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+                }
+                col.addView(pic, LayoutParams(kit.dpi(46f), kit.dpi(22f)))
+                col.addView(word(w, alignEnd), LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+                return col to pic
+            }
+            val (lowView, lowPic) = end(words.first, false)
+            val (highView, highPic) = end(words.second, true)
+            lowPicture = lowPic; highPicture = highPic
+            track.addView(lowView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
             track.addView(seek, LayoutParams(0, kit.dpi(44f), 1f))
-            track.addView(word(words.second, true), LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            track.addView(highView, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
             addView(track, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
         }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {

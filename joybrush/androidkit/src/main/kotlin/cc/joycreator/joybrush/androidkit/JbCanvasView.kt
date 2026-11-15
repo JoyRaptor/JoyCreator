@@ -1407,6 +1407,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     /** The document's own name, so a file that is opened and saved again keeps the name it had. */
     @Volatile private var documentName = "Joy Brush"
+
+    /**
+     * JBX-14: the drawing's name as the Library shows it, so a rename there reaches the file (and exports, Studio
+     * hand-offs) with the next save. Blank names are ignored.
+     */
+    fun setDocumentName(name: String) {
+        if (name.isBlank()) return
+        documentName = name
+        // A drawing with boards saves from the engine's board document, which keeps the name it was opened with.
+        // A stroke already under way refuses a board change: then the name waits for the next open, nothing breaks.
+        onGl(allowLost = true) {
+            try { engine.boardDocument?.let { if (it.name != name) engine.setBoardDocument(it.copy(name = name)) } }
+            catch (e: Exception) { android.util.Log.w("JoyBrushName", "name not given to the boards yet", e) }
+        }
+    }
     private val whitePaper = 0xFFFFFFFF.toInt()
 
     /** Every touch that is not drawing (JB-2.02). Owns pan, zoom, rotate and the tap gestures. */

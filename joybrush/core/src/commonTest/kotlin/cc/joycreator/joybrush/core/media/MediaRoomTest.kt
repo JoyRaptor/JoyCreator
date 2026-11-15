@@ -42,4 +42,18 @@ class MediaRoomTest {
         val tiles = listOf(tile(10, 10, 0, layer = "under"), tile(30, 30, 0, layer = "a"))
         assertEquals(listOf(30 to 30), at(MediaRoom.choose(tiles, near = listOf(Tiles.key(10, 10)), needBytes = mb)))
     }
+    @Test fun aSaveKeepsAllThePaintWhileItFits() {
+        val tiles = listOf(tile(0, 0, written = 1), tile(1, 0, written = 2), tile(2, 0, written = 3))
+        assertEquals(null, MediaRoom.newestWithin(tiles, budgetBytes = 3 * mb))
+        assertEquals(null, MediaRoom.newestWithin(emptyList(), budgetBytes = 0))
+    }
+
+    @Test fun pastItsBudgetASaveKeepsTheNewestPaintAndPassesOverWhatDoesNotFit() {
+        val tiles = listOf(tile(0, 0, written = 1), tile(1, 0, written = 9), tile(2, 0, written = 5, bytes = 3 * mb), tile(3, 0, written = 4),
+            tile(4, 0, written = 0, layer = "under"))
+        val keep = MediaRoom.newestWithin(tiles, budgetBytes = 2 * mb)!!
+        // Newest first: (1,0) at 9 fits; (2,0) at 5 is 3 MB and does not; (3,0) at 4 fits; then the budget is spent.
+        assertEquals(setOf(Triple("a", null, Tiles.key(1, 0)), Triple("a", null, Tiles.key(3, 0))), keep)
+        assertEquals(emptySet(), MediaRoom.newestWithin(tiles, budgetBytes = 0))
+    }
 }

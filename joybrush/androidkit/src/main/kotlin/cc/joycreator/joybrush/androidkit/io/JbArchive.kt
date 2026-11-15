@@ -52,6 +52,13 @@ const val TILE_BYTES = TILE_SIZE * TILE_SIZE * 4
  */
 const val ARCHIVE_DEFLATE_LEVEL = 6
 
+/**
+ * The deflate level of a paint store tile (`.f16`, `.g.rgba`): half floats of paint, a megabyte and more a painted tile.
+ * At level 6 a full paint room (262 MB of stores) took 19 s to write on the Note 9, past the save's 15 s watchdog
+ * (2026-11-15); the pictures and everything else keep [ARCHIVE_DEFLATE_LEVEL]. Any level reads back the same.
+ */
+object ArchiveMediaDeflate { @Volatile var level: Int = java.util.zip.Deflater.BEST_SPEED }
+
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
 class JbArchiveException(message: String) : Exception(message)
 
@@ -456,11 +463,13 @@ object JbArchive {
                 zos.write(entry.second)
                 zos.closeEntry()
             }
+            zos.setLevel(ArchiveMediaDeflate.level)
             for (entry in entries.media) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
+            zos.setLevel(ARCHIVE_DEFLATE_LEVEL)
             for (entry in entries.strokes) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)

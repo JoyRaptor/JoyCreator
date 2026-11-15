@@ -215,6 +215,9 @@ public class LobbyFragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        // TAB-1 §K: two columns on a wide window (the same views, moved). Phones unchanged.
+        wideLobby = LobbyWide.wanted(requireContext());
+        if (wideLobby) LobbyWide.apply(v);
 
         iconFont = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
         projectStorage = new ProjectStorage(requireContext());
@@ -579,6 +582,23 @@ public class LobbyFragment extends BaseFragment {
      * list by three, so the carousel WRAPS rather than scrolling to an end and stopping —
      * which is what makes it feel like a dial rather than a list.
      */
+    /** TAB-1: the lobby was laid out in two columns for a wide window. */
+    private boolean wideLobby;
+
+    /**
+     * TAB-1: the host keeps this view across a resize (the activity handles size changes itself),
+     * so crossing between a phone-wide and a wide window rebuilds the view in the other layout.
+     */
+    @Override
+    public void onConfigurationChanged(@NonNull android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (getView() == null || !isAdded()) return;
+        if (LobbyWide.wanted(requireContext()) != wideLobby) {
+            getParentFragmentManager().beginTransaction().detach(this).commitNowAllowingStateLoss();
+            getParentFragmentManager().beginTransaction().attach(this).commitNowAllowingStateLoss();
+        }
+    }
+
     /** How many copies of the room list the strip holds, so it can wrap without an end. */
     private static final int MARQUEE_COPIES = 3;
     /** Settle delay after the last scroll event before the carousel snaps. */
@@ -868,6 +888,12 @@ public class LobbyFragment extends BaseFragment {
             sc[i] = MARQUEE_MIN_SCALE + (1f - MARQUEE_MIN_SCALE) * near;
             t.setScaleX(sc[i]);
             t.setScaleY(sc[i]);
+            // TAB-1 (owner pick L2 A): on a wide window more than one lap of the list fits and the
+            // strip read as the rooms twice over. Show each room once from the front word on;
+            // the copies past one lap stay laid out (the wrap still works) but are not shown.
+            int lap = marquee.getWidth() / MARQUEE_COPIES;
+            int show = (lap <= 0 || d < lap - dp(4)) ? View.VISIBLE : View.INVISIBLE;
+            if (t.getVisibility() != show) t.setVisibility(show);
             t.setTextColor(blend(DIMMEST, INK, near));
             setWeight(t, Math.round(200 + 700 * near));
         }

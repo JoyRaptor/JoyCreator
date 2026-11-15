@@ -117,6 +117,18 @@ public class ScreenRecordingPipeline {
     private int previewSurfaceWidth = -1;
     private int previewSurfaceHeight = -1;
     private FragmentedMp4MuxerWrapper mediaMuxer;
+    private volatile Runnable writeFailureListener;
+
+    /**
+     * Ask to be told when the file being recorded can no longer be written (storage full or gone;
+     * work-loss audit F5). It is carried to every muxer this pipeline makes, including the next
+     * segment's. The file keeps everything up to its last whole piece.
+     */
+    public void setWriteFailureListener(Runnable listener) {
+        this.writeFailureListener = listener;
+        FragmentedMp4MuxerWrapper m = mediaMuxer;
+        if (m != null) m.setWriteFailureListener(listener);
+    }
     private int videoTrackIndex = -1;
     
     // OpenGL watermarking pipeline: GLWatermarkRenderer handles watermarks + preview for all Android versions
@@ -427,6 +439,7 @@ public class ScreenRecordingPipeline {
         } else {
             mediaMuxer = new FragmentedMp4MuxerWrapper(currentOutputFilePath);
         }
+        mediaMuxer.setWriteFailureListener(writeFailureListener);
         // FLog.d(TAG, "FragmentedMp4Muxer created");
     }
     

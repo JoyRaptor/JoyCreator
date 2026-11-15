@@ -75,9 +75,19 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
      * only where Android has no folder picker (some TVs and watches): work then stays in the app.
      */
     public static void requireChoice(android.app.Activity from) {
-        if (JoyFolderHome.isChosen(from)) return;
-        if (JoyFolderHome.pickerIntent().resolveActivity(from.getPackageManager()) == null) return;
-        from.startActivity(new Intent(from, JoyFolderSetupActivity.class).putExtra(EXTRA_REQUIRED, true));
+        Intent required = requiredIntent(from);
+        if (required != null) from.startActivity(required);
+    }
+
+    /**
+     * The required folder step, or null when it is not due (a folder is chosen, or this device has no folder picker).
+     * The intro uses it to go straight on to the folder step, so the lobby never flashes between them (SHELL-37).
+     */
+    @androidx.annotation.Nullable
+    public static Intent requiredIntent(Context c) {
+        if (JoyFolderHome.isChosen(c)) return null;
+        if (JoyFolderHome.pickerIntent().resolveActivity(c.getPackageManager()) == null) return null;
+        return new Intent(c, JoyFolderSetupActivity.class).putExtra(EXTRA_REQUIRED, true);
     }
 
     @Override

@@ -777,7 +777,16 @@ public class OnboardingActivity extends AppIntro {
         // with nothing to read.
         Intent intent = new Intent(this, com.fadcam.MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
+        // SHELL-37 (11-14): one continuous first run. When the folder is still to be chosen, the folder step opens
+        // straight after the intro, above the app, so the lobby is never drawn in between (it used to flash before
+        // the folder step slid over it). Back on the folder step still leaves the app, as it always has.
+        Intent folder = com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requiredIntent(this);
+        if (folder != null) {
+            startActivities(new Intent[]{intent, folder});
+        } else {
+            startActivity(intent);
+        }
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         finish();
     }
 

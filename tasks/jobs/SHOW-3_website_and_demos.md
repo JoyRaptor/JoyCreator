@@ -15,6 +15,11 @@ so the app's look (M2) has to be settled first, or every recording goes stale.
 - Icons in the repo root: `JoyCreator-icon-director-512.png`, `JoyCreator-icon-expanse-512.png`; branding assets
   in the main folder's untracked `JoyCreator new branding assets/` (the owner's; not in git).
 
+## Plan (L29 prep, 2026-11-15)
+Sizzle storyboard, shot list, Play store pictures and lobby room reels are planned in `tasks/show/`:
+[SIZZLE_STORYBOARD](../show/SIZZLE_STORYBOARD.md), [SHOT_LIST](../show/SHOT_LIST.md), [STORE_SHOTS](../show/STORE_SHOTS.md), [REEL_PER_ROOM](../show/REEL_PER_ROOM.md).
+Nothing filmed yet; filming is week 3.
+
 ## What is left
 - [ ] Wait for M2's front door.
 - [ ] A shot list from STATE's best 🟢 features; the owner records; agents cut snippets and build pages.

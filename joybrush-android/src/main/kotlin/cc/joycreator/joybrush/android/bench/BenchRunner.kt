@@ -27,6 +27,8 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  */
 class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     private val clips: cc.joycreator.joybrush.android.board.BoardRuntimeController? = null,
+    /** The lifecycle gate's steps that only the screen can do (`recreate`, `cover`); none outside it. */
+    private val life: ((String) -> Unit)? = null,
     private val finished: () -> Unit) {
     // The atlas switch is process-wide: a run that changed it puts it back, so the app after a bench draws as shipped.
     private val atlasBefore = canvas.mediaAtlasEnabled
@@ -283,6 +285,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
+            // The lifecycle gate (jb_bench_life, JBX-37). digest: what the drawing holds now, as two checksums in the log.
+            // cover: another screen over this one (pause, stop, save; Back returns). recreate: Android builds the screen
+            // again; this runner ends with the old screen and the new one logs its own digest.
+            "digest" -> LifeDigest.log(canvas, arg.ifEmpty { "now" })
+            "cover" -> life?.invoke("cover") ?: Log.w(TAG, "then: cover needs jb_bench_life")
+            "recreate" -> { if (life != null) { life.invoke("recreate"); return } else Log.w(TAG, "then: recreate needs jb_bench_life") }
             "savefile" -> benchSaveFile()
             "savecarry" -> benchSaveCarry()
             // Between two "savefile" steps of one run: the paint a save keeps (MB), the deflate level of its store tiles.

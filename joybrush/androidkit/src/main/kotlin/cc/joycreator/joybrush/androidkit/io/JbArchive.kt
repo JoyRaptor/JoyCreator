@@ -205,12 +205,16 @@ object JbArchive {
         source.inputStream().use { it.copyTo(out) }
     }
 
+    /** Tests only: called with the `.tmp` once it is written and before it replaces anything, to fail a save there. */
+    @Volatile internal var beforeCommit: ((File) -> Unit)? = null
+
     private fun atomicWrite(file: File, writeBytes: (FileOutputStream) -> Unit) {
         val tmp = File(file.path + ".tmp")
         val bak = File(file.path + ".bak")
         try {
             FileOutputStream(tmp).use { out ->
                 writeBytes(out)
+                beforeCommit?.invoke(tmp)
                 // A rename that beats a buffered write to the platter loses the last edit. This is
                 // the whole reason the dance above exists, so it is not optional and not caught.
                 out.fd.sync()
@@ -239,6 +243,12 @@ object JbArchive {
             tmp.delete()
             if (e is JbArchiveException) throw e
             throw JbArchiveException("could not save ${file.name}: ${brief(e)}")
+        } catch (e: Error) {
+            // Out of memory while compressing is an Error, not an Exception: the same promise holds (the older file is
+            // untouched, nothing was renamed yet) and the half-written `.tmp` must not be left to fill the phone (a 26 MB
+            // one was found beside a drawing on the Note 9, 2026-11-15). The caller still hears the Error.
+            tmp.delete()
+            throw e
         }
     }
 

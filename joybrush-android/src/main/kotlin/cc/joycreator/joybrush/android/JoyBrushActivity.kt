@@ -246,6 +246,11 @@ private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "applicatio
  * An idle thread costs nothing on a phone, and the process ends with the app.
  */
 private val fileIo = Executors.newSingleThreadExecutor()
+/**
+ * The pinned reference photo is read here, never on [fileIo]: a photo that lives only in the cloud takes as long as the
+ * network likes, and on the save thread it held up opening the drawing and every save behind it (bug hunt C7, 2026-11-15).
+ */
+private val referenceIo = Executors.newSingleThreadExecutor()
 private val workingSaves = WorkingSaveBarrier()
 
 /**
@@ -476,6 +481,14 @@ class JoyBrushActivity : Activity() {
     private var unopenedDialog: android.app.AlertDialog? = null
     /** The debug stroke replay owns this screen: it never saves the working file, and says nothing about not saving. */
     private var benchMode = false
+    /**
+     * Debug only (`jb_bench_life`): the stroke replay runs as a REAL drawing on this file of its own (the cache folder,
+     * never the Library), so the saves, the pause, a rebuilt screen and lost graphics all take the paths a person's
+     * drawing takes, and what comes back can be compared with what was painted (bench/LifeDigest; JBX-37).
+     */
+    private var benchLifeFile: File? = null
+    private var benchLifeSpec: cc.joycreator.joybrush.android.bench.BenchRunner.Spec? = null
+    private var benchLifeReported = false
     private var destroyed = false
     private var recoveringDrawing = false
     private var drawingLoadVersion = 0
@@ -716,7 +729,17 @@ class JoyBrushActivity : Activity() {
 
         // Debug stroke replay: a fresh unsaved drawing; the working file is neither read nor ever written (bench/BenchRunner).
         val bench = cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
-        if (bench != null) {
+        val life = if (bench != null) intent.getStringExtra("jb_bench_life")?.takeIf { it.matches(Regex("[a-z0-9]{1,16}")) } else null
+        if (bench != null && life != null) {
+            // Not bench mode: every save is real. A first start begins from no file and paints; a screen Android built
+            // again (a saved state came with it) opens the file as any screen would and reports what it holds.
+            val f = File(cacheDir, "bench-life-$life.joybrush")
+            benchLifeFile = f
+            if (savedInstanceState == null) {
+                benchLifeSpec = bench
+                f.delete(); File(f.path + ".bak").delete(); File(f.path + ".tmp").delete()
+            }
+        } else if (bench != null) {
             benchMode = true
             finishStartup(false)
             activeBench = cc.joycreator.joybrush.android.bench.BenchRunner(canvas, bench, boardController) { finish() }.also { it.start() }
@@ -2317,9 +2340,12 @@ class JoyBrushActivity : Activity() {
 
     /** Decoded on the writer thread, at most [REFERENCE_MAX_PX] on its long side, turned the right way up. */
     private fun loadReference(uri: Uri, place: FloatArray?, shown: Boolean, quietIfGone: Boolean = false) {
-        fileIo.execute {
-            val bmp = try { decodeReference(uri) } catch (e: Exception) { null }
+        // Only the newest ask is shown: a slow photo must not land over one chosen after it, or after the pin was taken off.
+        val ask = ++referenceAsk
+        referenceIo.execute {
+            val bmp = try { decodeReference(uri) } catch (e: Exception) { null } catch (e: OutOfMemoryError) { null }
             ui.post {
+                if (destroyed || ask != referenceAsk) return@post
                 if (bmp == null) {
                     if (!quietIfGone) toast("That picture could not be opened")
                     else removeReference()
@@ -2357,7 +2383,10 @@ class JoyBrushActivity : Activity() {
         prefs.edit().putString(PREF_REF_PLACE, reference.placement().joinToString(" ")).apply()
     }
 
+    private var referenceAsk = 0
+
     private fun removeReference() {
+        referenceAsk++
         prefs.getString(PREF_REF_URI, null)?.let { old ->
             try {
                 contentResolver.releasePersistableUriPermission(Uri.parse(old), Intent.FLAG_GRANT_READ_URI_PERMISSION)
@@ -2540,6 +2569,7 @@ class JoyBrushActivity : Activity() {
      * documents move to the vault later. Never `adb uninstall` this app (START_HERE rule 3).
      */
     private fun workingFile(): File? {
+        benchLifeFile?.let { return it }
         openedDrawing?.let { return it }
         val dir = getExternalFilesDir(WORKING_DIR) ?: return null
         if (!dir.isDirectory && !dir.mkdirs()) return null
@@ -2690,7 +2720,7 @@ class JoyBrushActivity : Activity() {
                                 "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
                             recovery.rememberWorking(file)
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)
+                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
@@ -2821,7 +2851,7 @@ class JoyBrushActivity : Activity() {
         // The reason is for the log. On the screen it would be a technical sentence nobody can act on.
         android.util.Log.w("JoyBrush", "the drawing was not opened: $detail")
         finishStartup(false)
-        if (destroyed || benchMode) return
+        if (destroyed || benchMode || benchLifeFile != null) return
         showDrawingDidNotOpen(file, lastSaveFailed)
     }
 
@@ -2906,6 +2936,28 @@ class JoyBrushActivity : Activity() {
         loadingDrawing = false
         strokeSaveClock.reset(android.os.SystemClock.elapsedRealtime())
         saves.drain()
+        if (benchLifeFile != null) benchLifeStarted(loaded)
+    }
+
+    /** The lifecycle gate ([benchLifeFile]): a first start paints; a rebuilt screen says what it opened. */
+    private fun benchLifeStarted(loaded: Boolean) {
+        val tag = cc.joycreator.joybrush.android.bench.BenchRunner.TAG
+        val spec = benchLifeSpec
+        benchLifeSpec = null
+        if (spec != null && loaded) {
+            activeBench = cc.joycreator.joybrush.android.bench.BenchRunner(canvas, spec, boardController, life = { step ->
+                when (step) {
+                    "recreate" -> recreate()
+                    // Another screen of the app over this one: this one is paused and stopped as Android does it, saves,
+                    // and its graphics go when `joybrush_test_recreate_context` is set. Back returns to it.
+                    "cover" -> startActivity(Intent(this, cc.joycreator.joybrush.android.library.DrawingsActivity::class.java))
+                }
+            }) { finish() }.also { it.start() }
+        } else if (!benchLifeReported) {
+            benchLifeReported = true
+            android.util.Log.i(tag, "life: the screen was built again; the drawing ${if (loaded) "opened" else "DID NOT OPEN"}")
+            if (loaded) ui.postDelayed({ if (!destroyed) cc.joycreator.joybrush.android.bench.LifeDigest.log(canvas, "rebuilt") }, 2500)
+        }
     }
 
     private fun historyDirectory(): File = File(

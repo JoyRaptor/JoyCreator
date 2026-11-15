@@ -65,6 +65,33 @@ His notes overrule the line where they differ (S5 especially). In his words, sum
 row, recent work as one row, floor words grouped bottom left. He will rethink the lobby later: it can show all the
 cool things at once and none of the options used the room well.
 
+## §K built (11-15, branch `claude/tab1-sizes-20261114-7011d5`)
+Tablet-checked 11-15 on the Tab S8 Ultra sideways (shots `tasks/screens/tab1-20261114/k_*`):
+- [x] **Studio K1-K4, K6:** on a window 600 dp or wider the object drawers (Text, Image, Sprite, Audio, PiP, FX,
+      Caption, Puppet: everything built on `ObjectDrawer`) stand beside the picture as the **Editing desk** (360 dp,
+      from under the header to the timeline) or the **Tall column** (full height; the timeline and tool row narrow to
+      the picture's side while it is open). The picture slides aside only as far as the panel covers it and its own
+      room allows, never shrinks; the see-through panel overlaps the rest. **Automatic** (the default) picks beside
+      or drop-down from the free room (16:9 on an upright tablet still drops down). Two header switches (beside /
+      drop down; desk / tall column) and Studio Settings rows (Drawers on a wide screen: Automatic / Drop down /
+      Beside; Tall column; Left-hand drawers). Source `tools/DrawerPlace` (JVM test `run-drawerplace.sh`),
+      `ObjectDrawer.setSide/PlaceSwitch`, `FaditorEditorActivity.placeObjectDrawer/reflowBesidePanel`.
+      Tablet: desk, column and drop-down each seen, the switches flip live.
+- [x] **Lobby (L1 A, L2 A, L3 A, L4 B, L5 A):** two columns on a window 840 dp or wider (`ui/lobby/LobbyWide`, the
+      same views moved); room names shown once. Tablet-seen; the once-only room names fixed after a second look
+      (62f94949e; not re-seen on the tablet yet).
+- [x] **JoyBrush K9:** on a window 600 dp or wider a grip on the layer column's left edge pulls it out (tap:
+      out / in; drag sideways: width; drag up or down: moves it): names, opacity and blend, then hide, lock,
+      duplicate, merge down, delete. Tablet: pull-out, move and hide/show each seen.
+- [x] **JoyBrush K10:** on a window 840 dp or wider the brush drawer stands as a panel beside the rail that stays
+      open while you work: "Mine" (starred first, then the latest picks) above the kinds, a star on every row; hold a
+      brush for its settings as before. Tablet: panel, star, Mine seen. **Note 9 (548 dp):** lobby still one column; JoyBrush's layer column and brush drawer pixel-identical before/after (`note9_k_before_*` / `note9_k_after_*`, main line 4bc535455 vs this branch 62f94949e); Studio's drawer not opened there (its phone path is unchanged code).
+- [ ] Not built yet: two drawers at once (K5: stacked, or left and right); the inline top drawers (volume, opacity,
+      loop, move, caption keyframes, transitions) still drop from the top; Joybot's chat as a panel (K7, the Joybot
+      lane's, rule agreed: 360 dp, right, full height, from 840 dp); brush settings that stay open beside the panel
+      (K10 second half); paper steps aside as a JoyBrush setting (K11); the layer column floating anywhere (it moves
+      along its edge only).
+
 ## What is left
 - [ ] Survey: each lane lists its screens' problems on the tablet in its own card (the UI leftovers and lobby
       sessions started 11-13; Studio, JoyBrush, VisLab, TextLab, SpriteLab, Library, Settings to follow).

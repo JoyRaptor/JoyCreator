@@ -157,6 +157,7 @@ Help: not owed (no new control).
 
 | Feature | Level | Notes |
 |---|---|---|
+| Studio drawers beside the picture on a tablet: Editing desk or Tall column, the picture slides aside without shrinking; Automatic picks beside or drop-down from the project's shape (TAB-1 §K) | 🟡 | 11-15, the owner's picks. Where: open any object drawer (Text, Image, Sprite, Audio...) on a window 600 dp or wider; the two switches in the drawer's header; Studio Settings → Drawers on a wide screen, Tall column, Left-hand drawers. Tablet-checked (desk, column, drop-down, the switches). Phones held upright keep the old drawer: on a window under 600 dp the code takes the old path (JVM `run-drawerplace.sh`); not re-seen on the Note 9 (no drawer opened there, to leave its projects alone). Not yet: two drawers at once, the inline top drawers (volume, opacity, loop...) still drop down. Source `faditor/tools/DrawerPlace`, `ObjectDrawer.setSide`, `FaditorEditorActivity.placeObjectDrawer`. Help: pending (Joybot topic owed). |
 | Multi-clip timeline, split/trim/reorder | 🟢 ~ | The spine |
 | Tapping exactly on a cut shows the later clip (code review D7) | 🟡 | 11-13 (3cd4eeca8): the picture now agrees with the selection and the exported file at a cut. Built; not recorded as seen on a device. Help: not needed. |
 | Multi-track layers | 🟢 ~ | road_map "Phase 5 KEYSTONE" — reported complete |
@@ -494,6 +495,7 @@ Test totals before the merge: core 2548, androidkit 1056, Android 330, all passi
 
 | Feature | Level | Notes |
 |---|---|---|
+| JoyBrush on a tablet: pull the layer column out for each layer's name, opacity and buttons (hide, lock, duplicate, merge down, delete) and drag it along the edge; the brushes stand in a panel that stays open while you work, with starred brushes and your latest picks on top (TAB-1 §K K9, K10) | 🟡 | 11-15. Where: the grip on the layer column's left edge (window 600 dp or wider); the brush button on the rail (840 dp or wider), ☆ on a row stars it, ★ Mine lists them. Tablet-checked; Note 9 pixel-identical before/after (layer column and brush drawer, `note9_k_*`). Not yet: brush settings kept open beside the panel, the column floating anywhere, paper stepping aside. Source `chrome/LayerColumnView` (pull-out), `chrome/BrushMarks`, `BrushDrawerView(marks, tall)`, `JoyBrushActivity.toggleBrushDock`. Help: pending. |
 | A clip only animates the layer you are on; overlapping clips on one layer are refused with the clips' names (C1/C2) | 🟡 ✔ | `RegionDocumentOps`, `BoardDocumentOps.createAnimation`; unit-tested, hint shown when creating |
 | "When it ends" chips on a clip: Loop, Ping-pong, Hold, Blank, saved with the drawing; selected = solid cyan with cut-out icon, hover labels (C3/U1) | 🟡 ✔ | Document version 12 (`Board.end`); screenshots from the Note 9 10-22; unknown value reads as Loop |
 | Play all / Stop all: every clip plays at once on its own clock, one tap to stop; Hold/Blank end frames stay until Stop (C4/U2) | 🟡 ✔ | `ClipPlaybackScheduler`; Note 9: ~59 fps, frame work p50 5.5 ms, p95 8-9 ms (budget 16.7) with three overlapping clips of 256/512/1024 px. Help `joybrush_clips` (Joybot HelpBook) covers this section's clip rows |
@@ -613,6 +615,7 @@ Design records 01–07 (artifacts). Backup before any of it: tag
 
 | Feature | Level | Notes |
 |---|---|---|
+| The lobby in two columns on a wide window: last project, New and the floor words on the left, Library and recent work on the right; room names once (TAB-1 §K, "for now": the owner will rethink the wide lobby) | 🟡 | 11-15. Automatic on a window 840 dp or wider (`ui/lobby/LobbyWide`). Tablet-checked; Note 9 still the one-column phone lobby (before/after `note9_k_*_lobby.png`). Help: not needed. |
 | **The lobby** | 🟢 | `ui/lobby/LobbyFragment`. Tab position **6** — deliberately last, so every existing tab keeps its index and nothing switching on a position was touched. A ROUTER over existing screens: it cannot lose a feature and it is one constant from being reverted. The app lands on it; the bottom bar hides there and the house icon is the way back from every room. |
 | Marquee carousel | 🟢 | Wrap-around room titles, heavy white → thin grey. **A new room costs one entry in `buildRooms()`** — that is the whole reason it exists rather than a sixth nav icon. |
 | Hero with real frames | 🟢 | MediaMetadataRetriever at 1s in (frame 0 of a recording is usually black), off-thread, LruCached, tag-guarded against a room switch mid-decode. |

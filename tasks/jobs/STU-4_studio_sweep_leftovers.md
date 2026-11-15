@@ -41,13 +41,43 @@ joy-creator (caption, fx, mesh, motionrange, preview-parity, puppet, specq, spec
 - Joybot `add_marker` then one Undo: needs the computer bridge, never tried.
 
 **Open, not done:**
-- STU-B3 (diagnosed above): struck transcript words and cut silences still play in EXPORTS (film and audio). Needs the
-  owner to decide whether a struck word stays re-instatable; the smaller fix is to cut into pieces like Clean does.
+- STU-B3: owner ruled 11-15 (jump over cuts, keep them restorable, black marks); built 11-15, see "STU-B3 cut jumps" below.
 - STU-B5 (diagnosed above, save side): chat's Step.before lacks marks; multi-step add_marker undo limit.
 - Hover labels: controls with no spoken name at all still need one each (recount owed); dialogs not covered.
 - Tablet layout (TAB-1): bottom sheets open peeking, floating pencil covers the first tool, text drawer covers the
   preview's top third. Not built; TAB-1 owns the design.
 - Audit rows not started: STU-C1..C3 phone backlog, E2 (D9 rounding, D10/D11), E3/E4, F2..F8, G*.
+
+## STU-B3 cut jumps (11-15, "Studio cuts" session, branch `claude/studio-cuts-20261115-c5a8f6`)
+**The owner's ruling, 11-15:** struck words stay restorable exactly as today (tap the word to bring it back).
+Playback and export **jump over** every cut span. On the timeline each jump shows as **a small black mark**
+where it happens. No cutting the clip into pieces.
+
+**Built (commit 89b24bc65):**
+- [x] One list of jumps on the editor's clock, `model/CutJumps`: every film clip's spans (inside its main pass,
+      at its speed) and every sound clip's spans, merged; never under a transition. A struck word on a sound
+      clip jumps the whole program too (picture included), so nothing drifts.
+- [x] `model/TimeMap` subtracts the jumps: the file is the timeline less transitions less jumps, and anything
+      placed on the editor's clock lands after each jump where its picture is. The export dialog's length uses it.
+- [x] Export: a clip's main body is built as its kept pieces, each starting its own clip clock where its source
+      starts, so titles, stickers, captions, fades and volume curves read the editor's clock after each jump
+      (`pieceCutShiftMs` rides every overlay clock beside `chunkBaseMs`). Sound lanes, picture-in-picture sound,
+      the master sound (audio-only export and the long-export sound pass) and the black tail are laid as the
+      same pieces. A single-frame export still shows the uncut moment it was asked for.
+- [x] Preview: the playback tick jumps the film over a cut (a cut running to the clip's end now goes on to the
+      next clip; it used to pause there), the audio-only and audio-tail clock jumps, and the sound lanes are
+      seeked to the landing point. Seek-on-tick (50 ms), as before, so a jump may show a short hitch.
+- [x] Timeline: a small black mark (stem + tab, faint zinc edge) at each jump on the film track and the sound
+      rows (`timeline/CutMarkPainter`); hovering a film-track mark shows "Cut: 0.8 s skipped, tap the word to
+      restore" (`hover_studio_cut_mark`).
+- [x] Un-striking a word: the jump list is rebuilt every tick and at every export, so the word plays again at
+      once. Undo is unchanged (the span edits were already one press, one step).
+- [ ] Tests: `CutJumpsTest` (run-cutjumps.sh, in run-studio-all) and the whole Studio run.
+- [ ] Cloud build; Note 9: a talking clip with three struck words and one Clean pass, exported, the file
+      played back; exported length against expected.
+
+**Limits:** the hover label is on the film track's marks only (sound rows draw the mark, no hover); a jump over
+a still picture is not skipped in the preview (stills play on their own clock), it is in the export.
 
 ## Fixed 11-10 (Studio bugs session, commits 99f8b3ad5 + 3422a7a5a on `claude/studio-bugs-20261110-f15370`)
 - ✅ **Fix audio waveform stays unfixed.** Root cause was bigger than the waveform: a Fix/Clean bake wrote only

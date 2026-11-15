@@ -3288,13 +3288,6 @@ public class ExportManager {
     }
 
     /**
-     * Build an audio-only {@link Composition}: one sequence of the master clips' audio
-     * (image / muted / loop segments → silence, preserving timing) plus the {@link AudioClip}
-     * track (via {@link #buildAudioSequences}), mixed. Reuses the existing per-clip audio
-     * treatment (Sonic speed, volume envelope/static, mute) without touching the video path.
-     */
-    @NonNull
-    /**
      * One master clip's sound, source window [{@code clipInMs}, {@code endMs}), as an audio-only
      * item with its speed, volume and volume curve (the curve read from where the window starts
      * on the clip's own clock: after a transition's head, or past a jump, STU-5 D6 / STU-B3).
@@ -3349,6 +3342,13 @@ public class ExportManager {
         return eb.build();
     }
 
+    /**
+     * Build an audio-only {@link Composition}: one sequence of the master clips' audio
+     * (image / muted / loop segments → silence, preserving timing) plus the {@link AudioClip}
+     * track (via {@link #buildAudioSequences}), mixed. Reuses the existing per-clip audio
+     * treatment (Sonic speed, volume envelope/static, mute) without touching the video path.
+     */
+    @NonNull
     private Composition buildAudioOnlyComposition(@NonNull FaditorProject project) {
         Timeline timeline = project.getTimeline();
         File silenceFile = getOrCreateSilenceFile();

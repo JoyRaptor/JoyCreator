@@ -1,6 +1,6 @@
 # FOLD-1: Fold FadCam's features in under Joy Creator names
 
-**Milestone:** M3 (alongside M1/M2)  ·  **State:** ⬜ planned; the owner's direction is settled  ·  **Owner:** open (lead assigns per piece)  ·  **Checked:** 2026-10-28
+**Milestone:** M3 (alongside M1/M2)  ·  **State:** 🔨 Remote Studio restyled and locked (11-15); Smart Detection restyle next  ·  **Owner:** open (lead assigns per piece)  ·  **Checked:** 2026-11-15
 
 ## Why it matters
 The owner, 10-28: "we were actually going to rebrand a lot of those features and fold it in, because multi-camera and
@@ -28,6 +28,8 @@ DECISIONS"): Remote / Server Room and Smart Detection are launch features. Plann
 
 ## Progress
 - 11-13 (app-shell lane): names only. The Remote screen and its Settings row say **Remote Studio**; the old Lab tab and the lobby word say **Detect** (Smart Detection); no "forensics" or "evidence" wording is left in the English strings. Seen on the Note 9. Restyles, auto-markers, Story Board and multi-camera untouched.
+
+- 11-15 (capture-rooms lane): **Remote Studio** restyled and locked. The web page is Joy Creator's (Joybot instead of FadCam's robot, house tokens, local fonts and icons, same-Wi-Fi wording); the level rings use the owner's pick **rings B** (green, amber, red in house colours, flat); Remote is **locked by default** with a pairing code on the phone (bug hunt B3), proven on the test Fold. Before/after shots `tasks/screens/capture-20261115/`.
 
 ## What is left
 - [ ] Order with the owner: suggest Remote Studio restyle first (it ships), then Auto-markers (cheap now that marks exist),

@@ -83,6 +83,11 @@ colours); joybot bench 65/65 incl. `host-lobby-transition` (asks, changes nothin
   [tasks/screens/bot7-20261115](../screens/bot7-20261115/README.md). Found and fixed after it (bacc368ed, not yet re-seen
   on a device): the new project's first open had no picture (now the card is drawn first), the model's own "open your
   last one?" got no button, restored messages lost their room colour, the lobby's best button was Studio green.
+- **Note 9 re-check, 11-15 18:18 (build bacc368ed):** ✅ "new blank studio project 3 by 1" → "Untitled 3:1 2" opens
+  with its 3:1 picture at once and the title card plays; ✅ the lobby's best button in Joybot's purple; ✅ colours kept
+  after closing and reopening the chat; ✅ bubbles in this person's order (Video, made twice, first). The free model
+  then answered "make a transition" with "Which cut?" (honest, nothing changed, but about a project nobody could see):
+  since 09d3b60b8 the lobby asks "in the last project you had open?" BEFORE any AI reads such a request.
 - Not checked: the image / tile / sprite / perspective landings and sprite-edit / find on a device; the no-AI run;
   icons are placeholders until ICON-1; Joybot's own colours (his orb's purple) await the owner's OK.
 

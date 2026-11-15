@@ -106,6 +106,33 @@ public final class Preflight {
         return new Verdict(Verdict.Kind.ASK, say, "studio", "Open it", projectId, null, "studio");
     }
 
+    /** Things that live inside a Studio project. */
+    private static final java.util.regex.Pattern PROJECT_THING = java.util.regex.Pattern.compile(
+            "\\b(transitions?|crossfades?|clips?|cuts?|captions?|subtitles?|titles?|music|audio|sound|volume|fades?"
+                    + "|transcri\\w*|ums|uhs|fillers?|silences?|pauses|text|slides?|speed|trim|split|crop|zoom|b-?roll"
+                    + "|keyframes?|layers?|timeline|intro|outro|voice ?over|visuali[sz]er|the video|my video|this video)\\b");
+
+    /**
+     * In the lobby: words asking to change something inside a project ("make a transition", "add
+     * captions"), answered with the "in the last project you had open?" question at once, before
+     * any AI is asked (a free model answered "Which cut should it go on?" about a project no one
+     * could see, Note 9 11-15). Not a request for something NEW (the create tree has those).
+     */
+    public static boolean lobbyProjectChange(@Nullable String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase(Locale.US);
+        if (CreateTree.Words.start(t) != null || CreateTree.Words.anything(t)) return false;
+        return HelpBook.wantsChange(t) && PROJECT_THING.matcher(t).find();
+    }
+
+    /** The lobby's question for {@code asked}, about the last project; null when there is none. */
+    @Nullable
+    public static Verdict lobbyAsk(@NonNull String asked, @Nullable String lastId, @Nullable String lastName) {
+        if (lastId == null) return null;
+        return check(new What("lobby_request", "STUDIO", false, null),
+                new Here(IdeaEngine.Room.LOBBY, false, lastId, lastName), asked);
+    }
+
     /** The model's own reply offers to open {@code lastName} (it names it and asks). */
     public static boolean offersToOpen(@Nullable String reply, @Nullable String lastName) {
         if (reply == null || lastName == null || lastName.trim().isEmpty()) return false;

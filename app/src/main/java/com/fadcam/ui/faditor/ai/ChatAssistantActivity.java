@@ -1096,6 +1096,18 @@ public class ChatAssistantActivity extends AppCompatActivity {
             startTour();
             return;
         }
+        // In the lobby a change to a project ("make a transition") gets the "in the last project you
+        // had open?" question at once, before any AI reads it (Note 9 11-15: a free model asked
+        // "which cut?" about a project nobody could see).
+        if (room == IdeaEngine.Room.LOBBY && com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyProjectChange(text)) {
+            com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict ask =
+                    com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyAsk(text, lastProjectId, lastProjectName());
+            if (ask != null) {
+                addBotMessageIn(ask.say, "studio");
+                showHeld(ask, text);
+                return;
+            }
+        }
         if (room == IdeaEngine.Room.LOBBY && com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(text)) {
             showWhat();
             return;

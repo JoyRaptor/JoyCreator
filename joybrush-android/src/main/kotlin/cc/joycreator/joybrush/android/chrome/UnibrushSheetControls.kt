@@ -86,8 +86,11 @@ internal class UnibrushSheetSlider(
     private val logarithmic: Boolean = false,
     private val integer: Boolean = false,
     private val power: Float = 1f,
+    /** BRUSH-UI section K.3: what each end does, in words (null: none). */
+    ends: Pair<String, String>? = null,
 ) : LinearLayout(kit.context) {
     private val value = TextView(context).apply { setTextColor(kit.p.drawerInk); textSize = 12f; gravity = Gravity.END }
+    private val endWords = ends
     private var dragging = false
     private var refreshing = false
     private val seek = SeekBar(context)
@@ -105,7 +108,21 @@ internal class UnibrushSheetSlider(
         seek.thumbTintList = ColorStateList.valueOf(kit.p.stateSelected)
         seek.progressBackgroundTintList = ColorStateList.valueOf(kit.ink(.18f))
         kit.label(seek, "$title. $description")
-        addView(seek, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(44f)))
+        val words = endWords
+        if (words == null) addView(seek, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(44f)))
+        else {
+            val track = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            fun word(w: String, end: Boolean) = TextView(context).apply {
+                text = w; textSize = 10.5f; setTextColor(kit.p.drawerDim)
+                gravity = if (end) Gravity.END else Gravity.START
+                minWidth = kit.dpi(40f); maxWidth = kit.dpi(64f)
+                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            }
+            track.addView(word(words.first, false), LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            track.addView(seek, LayoutParams(0, kit.dpi(44f), 1f))
+            track.addView(word(words.second, true), LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            addView(track, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+        }
         seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onStartTrackingTouch(bar: SeekBar) { dragging = true }
             override fun onStopTrackingTouch(bar: SeekBar) { finishEditing() }

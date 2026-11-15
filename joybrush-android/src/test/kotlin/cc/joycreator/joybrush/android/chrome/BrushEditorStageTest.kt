@@ -28,8 +28,8 @@ class BrushEditorStageTest {
             onChange = { p, done -> changes += p to done }, onReset = {}, onTest = {}, onDone = { closed++ })
         val all = descendants(view)
         val labels = all.mapNotNull { it.contentDescription?.toString() }
-        assertTrue(labels.toString(), labels.contains("Shape"))
-        assertTrue(labels.toString(), labels.contains("Spacing & scatter"))
+        assertTrue(labels.toString(), labels.contains("Go to Shape settings"))
+        assertTrue(labels.toString(), labels.contains("Go to Spacing & scatter settings"))
         val cancel = all.first { it.contentDescription?.toString()?.startsWith("Cancel") == true }
         cancel.performClick()
         assertEquals(start to true, changes.last())

@@ -30,19 +30,44 @@ class UnibrushSettingsViewTest {
         UnibrushSettingsView(ChromeKit(context), recipe, StabilizerPreference(), View(context),
             change, {}, save, {}, { _, _ -> }, pick)
 
-    @Test fun everyModeOpensEveryPageWithinTheScreenHeightBudget() {
+    @Test fun everyModeOpensWithinTheScreenHeightBudget() {
         for (recipe in UnibrushModes.presets()) {
             val view = sheet(recipe)
-            for (page in listOf("quick", "tip", "all")) {
-                click(view, "Show $page brush settings")
-                view.measure(View.MeasureSpec.makeMeasureSpec(420, View.MeasureSpec.EXACTLY),
-                    View.MeasureSpec.makeMeasureSpec(900, View.MeasureSpec.AT_MOST))
-                view.layout(0, 0, view.measuredWidth, view.measuredHeight)
-                assertTrue(recipe.name, view.measuredHeight <= minOf(900, (context.resources.displayMetrics.heightPixels * .70f).toInt()))
-                assertEquals(recipe, view.currentRecipe())
-                assertTrue(descendants(view).filter { it.isClickable }.all { !it.contentDescription.isNullOrBlank() })
-            }
+            view.measure(View.MeasureSpec.makeMeasureSpec(420, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(900, View.MeasureSpec.AT_MOST))
+            view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+            assertTrue(recipe.name, view.measuredHeight <= minOf(900, (context.resources.displayMetrics.heightPixels * .70f).toInt()))
+            assertEquals(recipe, view.currentRecipe())
+            assertTrue(descendants(view).filter { it.isClickable }.all { !it.contentDescription.isNullOrBlank() })
         }
+    }
+
+    /** BRUSH-UI section K.1: the shared top bar, no tabs, and every group button has somewhere to go. */
+    @Test fun oneListUnderTheSharedTopBar() {
+        val view = sheet()
+        val labels = descendants(view).mapNotNull { it.contentDescription?.toString() }
+        assertTrue(labels.none { it.startsWith("Show ") && it.endsWith(" brush settings") })
+        for (g in listOf("Shape", "Pressure & tilt", "Colour", "Paper", "Stroke ends", "Feel")) click(view, "Go to $g settings")
+        click(view, "Keep these settings and close")
+    }
+
+    @Test fun cancelPutsTheModeBackAsItOpened() {
+        val original = UnibrushModes.presets().first()
+        var last: BrushPreset? = null
+        var closed = 0
+        val view = UnibrushSettingsView(ChromeKit(context), original, StabilizerPreference(), View(context),
+            { p, _ -> last = p }, {}, {}, { closed++ }, { _, _ -> })
+        click(view, "Shape A: Square")
+        assertEquals(0f, last!!.tip.quad!!.a.roundness, 0f)
+        click(view, "Cancel: put the brush back as it was and close")
+        assertEquals(original, last)
+        assertEquals(1, closed)
+    }
+
+    @Test fun slidersSayWhatEachEndDoes() {
+        val view = sheet()
+        val words = descendants(view).filterIsInstance<android.widget.TextView>().map { it.text.toString() }
+        assertTrue(words.containsAll(listOf("Small", "Large", "Crisp", "Soft")))
     }
 
     @Test fun hostRefusalKeepsThePreviousRecipeAndAllowsTheNextValidEdit() {
@@ -76,26 +101,22 @@ class UnibrushSettingsViewTest {
             assertEquals(UnibrushAssetSlot.sampledTips, request.slot)
             complete = done
         })
-        click(view, "Show all brush settings")
         click(view, "Choose one to sixteen ordered PNG tip images")
         assertNotNull(complete)
-        click(view, "Show quick brush settings")
+        click(view, "Shape A: Square")   // a structural edit rebuilds the panel the picker belonged to
         val before = view.currentRecipe()
         complete!!(listOf("picked/safe/tip.png"))
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(before, view.currentRecipe())
         assertNull(view.currentRecipe().tip.sampled)
     }
-    @Test fun secondColourPickerIsAvailableInQuickAndAllWithoutChangingTheRecipe() {
+    @Test fun secondColourPickerIsAvailableWithoutChangingTheRecipe() {
         val recipe=UnibrushModes.presets().first()
         var picked=0
         val view=UnibrushSettingsView(ChromeKit(context), recipe, StabilizerPreference(), View(context),
             {_,_->}, {}, {}, {}, {_,_->}, onChooseSecondaryColour={picked++})
-        for(page in listOf("quick", "all")) {
-            click(view, "Show $page brush settings")
-            click(view, "Choose the background colour used by Secondary colour mix")
-        }
-        assertEquals(2,picked)
+        click(view, "Choose the background colour used by Secondary colour mix")
+        assertEquals(1,picked)
         assertEquals(recipe,view.currentRecipe())
     }
 }

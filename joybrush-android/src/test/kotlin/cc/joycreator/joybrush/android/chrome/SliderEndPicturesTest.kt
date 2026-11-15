@@ -24,11 +24,12 @@ class SliderEndPicturesTest {
         host.measure(0, 0); host.layout(0, 0, 400, 400); views.forEach { it.layout(0, 0, 40, 20) }
         val asked = ArrayList<String>()
         val pending = ArrayList<(Bitmap) -> Unit>()
-        val q = SliderEndPictures { p, _, _, ready -> asked += p.name; pending += ready; {} }
+        val parts = ArrayList<cc.joycreator.joybrush.core.brush.TestStroke.Part>()
+        val q = SliderEndPictures { p, _, _, part, ready -> asked += p.name; parts += part; pending += ready; {} }
         q.ask(views[0], testBrush("a", name = "A"))
         q.ask(views[1], testBrush("b", name = "B"))
         q.ask(views[1], testBrush("b2", name = "B2"))   // replaces the waiting B
-        q.ask(views[2], testBrush("c", name = "C"))
+        q.ask(views[2], testBrush("c", name = "C"), cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB)
         assertEquals(listOf("A"), asked)                 // only one in flight
         pending.removeAt(0)(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
         shadowOf(Looper.getMainLooper()).idle()
@@ -36,5 +37,6 @@ class SliderEndPicturesTest {
         pending.removeAt(0)(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888))
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(listOf("A", "B2", "C"), asked)
+        assertEquals(cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB, parts.last())
     }
 }

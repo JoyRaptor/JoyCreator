@@ -37,10 +37,13 @@ class UnibrushSettingsView(
     private val editProfilePoints: ((TipProfileSpec, (TipProfileSpec?) -> Unit) -> Unit)? = null,
     private val onChooseSecondaryColour: (() -> Unit)? = null,
 ) : LinearLayout(kit.context) {
-    private enum class Page { Quick, Tip, All }
     private var model = initial
     private var preference = initialPreference
-    private var page = Page.Quick
+    // BRUSH-UI section K.1: no tabs under the stage; every setting in one list, the top bar's group buttons jump.
+    /** For the cancel button: the mode as the sheet opened. */
+    private val opened = initial
+    private val groupStarts = LinkedHashMap<cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group, View>()
+    private lateinit var header: BrushEditorHeader
     private var endpointB = false
     private var closed = false
     private var finishing = false
@@ -57,7 +60,6 @@ class UnibrushSettingsView(
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
         kit.label(this, "Settings could not be applied. The previous valid brush is kept")
     }
-    private val tabRow = LinearLayout(context).apply { orientation = HORIZONTAL }
     private val pen = PenReadingView(kit)
     /** The tip seen edge-on, beside the pen pad (BRUSH-UI item 4). */
     private val tipSection = TipSectionView(kit)
@@ -68,10 +70,13 @@ class UnibrushSettingsView(
         orientation = VERTICAL
         setPadding(kit.dpi(8f), kit.dpi(4f), kit.dpi(8f), kit.dpi(4f))
         kit.surface(this, 12f)
-        val heading = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        heading.addView(label("Unibrush", 16f), LayoutParams(0, WRAP, 1f))
-        heading.addView(chip("Done", "Finish the current edit and close settings") { close() })
-        addView(heading, LayoutParams(MATCH, WRAP))
+        // BRUSH-UI section K.1: the same top bar as every other brush (Studio's drawer header).
+        header = BrushEditorHeader(kit, initial.name.ifBlank { "Unibrush" }, GROUPS,
+            // Shape is the top of the list, with the pen pad and the tip seen edge-on.
+            onGroup = { g -> if (g == GROUPS.first()) scroll.smoothScrollTo(0, 0) else groupStarts[g]?.let { v -> scroll.smoothScrollTo(0, v.top) } },
+            onDone = { close() },
+            onCancel = { cancel() })
+        addView(header, LayoutParams(MATCH, WRAP))
         require(preview.parent == null) { "Supply an unattached real-engine preview View" }
         kit.label(preview, "Live brush stroke drawn by the painting engine")
         addView(preview, LayoutParams(MATCH, kit.dpi(84f)))
@@ -81,7 +86,6 @@ class UnibrushSettingsView(
             try { onPreviewInput(pressure, tilt) } catch (e: Exception) { showError(e.message ?: "The preview could not be updated") }
         }, LayoutParams(0, kit.dpi(92f), 1f).apply { marginStart = kit.dpi(8f) })
         input.addView(tipSection, LayoutParams(kit.dpi(72f), kit.dpi(92f)).apply { marginStart = kit.dpi(8f) })
-        addView(tabRow, LayoutParams(MATCH, WRAP))
         addView(error, LayoutParams(MATCH, WRAP))
         scroll.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
         addView(scroll, LayoutParams(MATCH, 0, 1f))
@@ -97,7 +101,10 @@ class UnibrushSettingsView(
             require(preference.mine.problems().isEmpty()) { preference.mine.problems().joinToString("; ") }
             initialValid = true
         } catch (e: Exception) { showError(e.message ?: "This brush cannot be edited") }
-        buildTabs(); rebuild()
+        scroll.setOnScrollChangeListener { _, _, y, _, _ ->
+            header.active = groupStarts.entries.lastOrNull { it.value.top <= y + kit.dpi(12f) }?.key ?: GROUPS.first()
+        }
+        rebuild()
     }
 
     fun currentRecipe(): BrushPreset = snapshot(model)
@@ -136,28 +143,24 @@ class UnibrushSettingsView(
         super.onDetachedFromWindow()
     }
 
-    private fun buildTabs() {
-        tabRow.removeAllViews()
-        for (p in Page.entries) tabRow.addView(chip(p.name, "Show ${p.name.lowercase()} brush settings") {
-            if (page != p) { finishEditing(); page = p; buildTabs(); rebuild(resetScroll = true) }
-        }.apply { isSelected = page == p }, LayoutParams(0, kit.dpi(44f), 1f))
+    /** ✕: the mode goes back to how the sheet opened, then the sheet closes. */
+    private fun cancel() {
+        if (closed) return
+        finishEditing()
+        if (initialValid && model != opened) edit(true, refresh = false) { snapshot(opened) }
+        close()
     }
 
     private fun rebuild(resetScroll: Boolean = false) {
         assetRequest++ // A/B, tab and optional-panel changes invalidate callbacks bound to the old panel.
         val oldScroll = if (resetScroll) 0 else scroll.scrollY
-        body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear()
+        body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear(); groupStarts.clear()
         body.addView(input, LayoutParams(MATCH, kit.dpi(92f)))
         if (!initialValid) { info("The brush has not changed. Close this sheet and choose a valid Unibrush mode."); return }
-        when (page) {
-            Page.Quick -> { quick(); behaviors(); colorLife() }
-            Page.Tip -> { shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) }); fadeControls() }
-            Page.All -> {
-                quick(); shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
-                fadeControls(); behaviors(); dynamics(); colorControls(); sampledControls(); dualControls()
-                grainControls(tip = true); grainControls(tip = false); endsControls(); stabilizerControls()
-            }
-        }
+        quick(); shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
+        // In the top bar's order: shape, pressure & tilt, colour, paper, stroke ends, feel.
+        fadeControls(); sampledControls(); dualControls(); behaviors(); dynamics(); colorControls()
+        grainControls(tip = true); grainControls(tip = false); endsControls(); stabilizerControls()
         tipSection.show(model.tip.profile, model.tip.hardness.base)
         scroll.post { if (!closed) scroll.scrollTo(0, oldScroll) }
     }
@@ -213,7 +216,11 @@ class UnibrushSettingsView(
     private fun label(value: String, sp: Float = 13f) = TextView(context).apply {
         text = value; textSize = sp; setTextColor(kit.p.drawerInk); kit.label(this, value)
     }
-    private fun section(title: String) { body.addView(label(title, 14f), LayoutParams(MATCH, WRAP).apply { topMargin = kit.dpi(12f) }) }
+    private fun section(title: String) {
+        val heading = label(title, 14f)
+        body.addView(heading, LayoutParams(MATCH, WRAP).apply { topMargin = kit.dpi(12f) })
+        groupStarts.putIfAbsent(SECTION_GROUPS[title] ?: cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE, heading)
+    }
     private fun info(message: String) { body.addView(label(message, 11f), LayoutParams(MATCH, WRAP)) }
     private fun chip(caption: String, description: String, action: () -> Unit) = UnibrushSheetChip(kit, caption, description, action)
 
@@ -238,7 +245,7 @@ class UnibrushSettingsView(
                        write: (BrushPreset, Float) -> BrushPreset, logarithmic: Boolean = false,
                        integer: Boolean = false, power: Float = 1f, format: (Float) -> String = ::numberText) {
         val row = UnibrushSheetSlider(kit, title, "Adjust $title", low, high, { read(model) },
-            { value, done -> edit(done) { write(it, value) } }, format, logarithmic, integer, power)
+            { value, done -> edit(done) { write(it, value) } }, format, logarithmic, integer, power, endWordsOf(title))
         rows += row; body.addView(row, LayoutParams(MATCH, WRAP))
     }
 
@@ -396,13 +403,6 @@ class UnibrushSettingsView(
             finishEditing()
             if (!closed) try { choose() } catch (error: Exception) { showError(error.message ?: "The second colour could not be chosen") }
         })
-    }
-    private fun colorLife() {
-        section("Colour life"); secondaryColourControl()
-        number("Colour life", 0f, 1f, { maxOf((it.color.dynamics?.hueRangeDegrees ?: 0f) / 30f, (it.color.dynamics?.saturationRange ?: 0f) / .2f) }, { p, v ->
-            val c = p.color.dynamics ?: ColorDynamicsSpec()
-            p.copy(color = p.color.copy(dynamics = c.copy(hueRangeDegrees = v * 30f, saturationRange = v * .2f)))
-        }, format = ::percent)
     }
     private fun colorControls() {
         section("Colour"); secondaryColourControl()
@@ -583,6 +583,35 @@ class UnibrushSettingsView(
             p.tip.aspectDynamics?.inputs?.any { it.input == BrushInput.tilt } == true -> TiltBehavior.flatten
             p.size.inputs.any { it.input == BrushInput.tilt } -> TiltBehavior.size
             else -> TiltBehavior.none
+        }
+        val GROUPS = listOf(cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE, cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PRESSURE, cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.COLOUR,
+            cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PAPER, cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.ENDS, cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.FEEL)
+        /** Each section of the list, by its heading, to the top bar's group it belongs to. */
+        val SECTION_GROUPS = mapOf(
+            "Quick" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE, "Tip" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE, "Directional softness" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE,
+            "Sample images" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE, "Dual tip" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE,
+            "Pen behavior" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PRESSURE, "Dynamics" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PRESSURE,
+            "Colour" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.COLOUR, "Colour life" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.COLOUR,
+            "Tip texture" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PAPER, "Stroke texture" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PAPER,
+            "Stroke ends" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.ENDS, "Stabilizer" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.FEEL,
+        )
+        /** The words at each end of a slider, by its title. */
+        fun endWordsOf(title: String): Pair<String, String> = when (title) {
+            "Size" -> "Small" to "Large"
+            "Softness" -> "Crisp" to "Soft"
+            "Opacity" -> "Faint" to "Full"
+            "Ink per dab" -> "Faint" to "Full"
+            "Spacing" -> "Smooth" to "Dotted"
+            "Tip taper" -> "Even" to "Tapered"
+            "Texture depth" -> "Smooth" to "Deep"
+            "Texture scale" -> "Fine" to "Coarse"
+            "Paper" -> "Ignores" to "Catches"
+            "Direction" -> "Any way" to "Along"
+            "Wet" -> "Dry" to "Wet"
+            "Secondary scale" -> "Small" to "Large"
+            "Secondary spacing" -> "Close" to "Apart"
+            "Secondary scatter" -> "Tight" to "Scattered"
+            else -> "Less" to "More"
         }
     }
 }

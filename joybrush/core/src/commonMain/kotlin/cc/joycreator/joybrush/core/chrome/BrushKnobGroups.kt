@@ -47,7 +47,7 @@ object BrushKnobGroups {
         return when {
             has(k, "hardness") -> dab("Soft", "Crisp")
             has(k, "paste.soft") -> stroke("Hard", "Soft")
-            has(k, "thinnest") -> dab("Thin", "Full")
+            has(k, "thinnest") -> stroke("Thin", "Full")   // light pressure: a full-press dab cannot show it
             has(k, "tippx") -> dab("Fine", "Broad")
             has(k, "face") -> dab("Edge", "Face")
             has(k, "orient", "edge") -> dab("Across", "Along")

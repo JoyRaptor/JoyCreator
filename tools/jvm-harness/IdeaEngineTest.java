@@ -1463,6 +1463,10 @@ public class IdeaEngineTest {
                 pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, null, null, null));
         check("honest: model told it didn't run", told.startsWith("Error: not run:"), told);
         check("honest: model told never 'doing it'", told.contains("never say it's done"), told);
+        check("honest: model's own offer to open gets the button", com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(
+                "There's no project open right now. Want me to open your last one, “Untitled 3:1”?", "Untitled 3:1"), "");
+        check("honest: a mention without a question gets none", !com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(
+                "Untitled 3:1 is your newest project.", "Untitled 3:1"), "");
         // A long request isn't parroted into the question.
         v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, "p1", "Holiday",
                 "please could you go through every single cut and put a gentle crossfade on each of them");

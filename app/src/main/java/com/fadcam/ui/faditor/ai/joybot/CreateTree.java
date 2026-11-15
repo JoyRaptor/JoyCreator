@@ -157,8 +157,8 @@ public final class CreateTree {
                 c.add(new Choice("3", "3-point", "Three: looking up at a tower or down from one"));
                 return new Question(a, "Which perspective?", c, null);
             case FPS:
-                c.add(new Choice("8", "8 a second", "Choppy and hand-made, few drawings"));
                 c.add(new Choice("12", "12 a second", "Classic hand animation (\"on twos\")"));
+                c.add(new Choice("8", "8 a second", "Choppy and hand-made, few drawings"));
                 c.add(new Choice("24", "24 a second", "Film-smooth, a drawing for every frame"));
                 c.add(new Choice("30", "30 a second", "Video-smooth"));
                 return new Question(a, "How many frames a second?", c, "A number from 1 to 60");

@@ -97,6 +97,23 @@ public final class Preflight {
         @Override public String toString() { return kind + (say.isEmpty() ? "" : ": " + say); }
     }
 
+    /**
+     * The lobby's "open your last project?" when the model asked it in its own words (no tool was
+     * held back): the same Open it / Not now buttons, so the answer is one tap.
+     */
+    @NonNull
+    public static Verdict askProject(@NonNull String projectId, @NonNull String say) {
+        return new Verdict(Verdict.Kind.ASK, say, "studio", "Open it", projectId, null, "studio");
+    }
+
+    /** The model's own reply offers to open {@code lastName} (it names it and asks). */
+    public static boolean offersToOpen(@Nullable String reply, @Nullable String lastName) {
+        if (reply == null || lastName == null || lastName.trim().isEmpty()) return false;
+        String r = reply.toLowerCase(Locale.US);
+        return r.contains(lastName.trim().toLowerCase(Locale.US)) && r.contains("?")
+                && (r.contains("open") || r.contains("go to") || r.contains("take you"));
+    }
+
     private static final Verdict GO = new Verdict(Verdict.Kind.GO, "", null, null, null, null, "");
 
     /** The check. */

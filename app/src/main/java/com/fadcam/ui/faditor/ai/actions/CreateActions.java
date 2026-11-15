@@ -78,6 +78,23 @@ final class CreateActions {
         } catch (Exception e) {
             throw new ActionError("the new project's first card couldn't be made: " + e.getMessage());
         }
+        // Draw the card now, before the Studio opens: a project whose only clip isn't drawn yet opened
+        // with no picture at all (Note 9, 11-15), and only showed one when reopened. A failure here is
+        // not the end: the editor draws undrawn cards itself.
+        try {
+            FaditorProject made = storage.load(p.getId());
+            java.io.File dir = storage.projectDir(p.getId());
+            if (made != null) {
+                java.util.List<com.fadcam.ui.faditor.model.Clip> pending =
+                        com.fadcam.ui.faditor.slides.SlideRenderer.collectUnrendered(dir, made);
+                if (!pending.isEmpty()
+                        && com.fadcam.ui.faditor.slides.SlideRenderer.renderAll(ctx.app, dir, pending) == null) {
+                    storage.save(made);
+                }
+            }
+        } catch (Throwable t) {
+            com.fadcam.FLog.w("CreateActions", "title card not drawn ahead; the editor will draw it", t);
+        }
         ctx.route = ROUTE_PROJECT + p.getId();
         return ActionResult.changed("Made a new " + shape.words() + " Studio project, “" + p.getName()
                 + "”, with a title card to start, and I'm opening it.", java.util.Collections.<String>emptyList());

@@ -313,6 +313,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 addUserMessage(msg[1]);
             } else if ("tool".equals(msg[0])) {
                 addToolResultMessage(msg[1]);   // a quiet tool line again, not a speech bubble
+            } else if (msg.length > 2 && msg[2] != null) {
+                addBotMessageIn(msg[1], msg[2]);   // BOT-7: it keeps the room colour it was said in
             } else {
                 addBotMessage(msg[1]);
             }
@@ -1320,6 +1322,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
             doneTalking(f.ok);
             renderFinishedExtras(f);
             if (f.held != null) showHeld(f.held, f.asked);
+            else if (room == IdeaEngine.Room.LOBBY && lastProjectId != null
+                    && com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(f.reply, lastProjectName())) {
+                showHeld(com.fadcam.ui.faditor.ai.joybot.Preflight.askProject(lastProjectId, f.reply), f.asked);
+            }
             return true;
         }
     };
@@ -1512,6 +1518,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
             @Override public void onTap(@NonNull Idea idea) { runIdea(idea, true); }
             @Override public void onDismiss(@NonNull Idea idea) { dismissIdea(idea); }
         });
+        // BOT-7: in the lobby the green "best" button is Joybot's own: no one room's colours.
+        if (room == IdeaEngine.Room.LOBBY && chipsRow.getChildCount() > 0 && chipsRow.getChildAt(0) instanceof TextView
+                && !ideas.isEmpty() && ideas.get(0).kind != Idea.Kind.TYPE) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.pill((TextView) chipsRow.getChildAt(0),
+                    com.fadcam.ui.faditor.ai.joybot.RoomColours.of(com.fadcam.ui.faditor.ai.joybot.RoomColours.JOYBOT));
+        }
         chipsScroll.scrollTo(0, 0);
         if (chipsScroll.getVisibility() != View.VISIBLE) {
             chipsScroll.setVisibility(View.VISIBLE);
@@ -3098,6 +3110,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** Joybot's words in a room's colours (BOT-7: the colour says where it happens). */
     private void addBotMessageIn(@NonNull String text, @NonNull String inRoom) {
         addBotMessage(text);
+        // Remember the room with the words, so a reopened chat shows them in the same colours.
+        synchronized (messageLog) {
+            int last = messageLog.size() - 1;
+            if (last >= 0 && "bot".equals(messageLog.get(last)[0]) && text.equals(messageLog.get(last)[1])) {
+                messageLog.set(last, new String[]{"bot", text, inRoom});
+            }
+        }
         View last = messageViews.isEmpty() ? null : messageViews.get(messageViews.size() - 1);
         if (last instanceof FrameLayout && ((FrameLayout) last).getChildAt(0) instanceof TextView) {
             com.fadcam.ui.faditor.ai.joybot.RoomTint.bubble((TextView) ((FrameLayout) last).getChildAt(0),

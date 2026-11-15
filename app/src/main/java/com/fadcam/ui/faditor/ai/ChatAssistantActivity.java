@@ -181,6 +181,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // It closes the way it opened (ChatArrival), then really finishes, with no window animation.
         if (arrival != null && !reallyFinishing && arrival.close(() -> { reallyFinishing = true; finish(); })) return;
         super.finish();
+        // Closed: his button may open a new chat at once (onDestroy can come seconds later for a see-through screen).
+        AIChatState.chatActive = false;
         overridePendingTransition(0, 0);
     }
 
@@ -267,6 +269,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         JoybotAgent.attach(agentListener);
         JoybotAgent.Ask running = JoybotAgent.liveFor(chatKey);
         if (running != null) {
+            waitingOnAgent = true;
             setBusy(true);
             actor.setMood(JoybotView.Mood.WORK);
             addBotMessage("Still working on \u201c" + JoybotAgent.shortOf(running.text) + "\u201d\u2026");
@@ -1211,6 +1214,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         ask.imageH = imgH;
         ask.director = director;
         ask.maxSteps = maxSteps;
+        waitingOnAgent = true;
         JoybotAgent.ask(this, ask);
     }
 
@@ -1308,6 +1312,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         @Override public boolean onFinished(@NonNull JoybotAgent.Finished f) {
             if (gone() || !java.util.Objects.equals(projectId, f.projectId)) return false;
+            waitingOnAgent = false;
             // Stopped (reply null): stopWorking already said so, but a stopped Director run still
             // made changes that the Review card should offer to put back.
             if (f.reply == null) { endHandsFree(); renderFinishedExtras(f); return true; }
@@ -1356,6 +1361,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         });
         // The drawer opening, the title and his flight in (owner's picks, 15 Nov): ChatArrival.
         arrival = new com.fadcam.ui.lobby.arrival.ChatArrival(this, actor);
+        // Over a room where work is edited the card is modal: that room is paused under it and skips its saves, so
+        // edits made beside a floating card were lost (bug hunt A10). The lobby and the Library keep it floating.
+        arrival.setModal(room != IdeaEngine.Room.LOBBY && room != IdeaEngine.Room.LIBRARY);
         arrival.install();
     }
 
@@ -3224,6 +3232,26 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        AIChatState.chatActive = true;
+        // The chat in front gets the updates. A second chat opened over this one took them, and closing it used to leave
+        // this one saying "Thinking…" forever (bug hunt A11, 11-15): take them back, and show what finished meanwhile.
+        JoybotJobs.attach(jobListener);
+        JoybotAgent.attach(agentListener);
+        if (waitingOnAgent && JoybotAgent.liveFor(chatKey) == null) {
+            waitingOnAgent = false;
+            showFinishedWhileAway();
+            setBusy(false);
+            if (actor != null) actor.setMood(JoybotView.Mood.IDLE);
+            refreshIdeas(false);
+        }
+    }
+
+    /** A request to the model is under way for this chat (set by askAgent, cleared when it finishes). */
+    private boolean waitingOnAgent;
+
+    @Override
     protected void onPause() {
         super.onPause();
         stopDictation();
@@ -4201,7 +4229,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (arrival != null) arrival.onDestroy();
         super.onDestroy();
         AIChatState.chatActive = false;
-        JoybotJobs.attach(null);
+        JoybotJobs.detach(jobListener);
         JoybotAgent.detach(agentListener);
         handsFreeClock.removeCallbacksAndMessages(null);
         if (voice != null) voice.release();

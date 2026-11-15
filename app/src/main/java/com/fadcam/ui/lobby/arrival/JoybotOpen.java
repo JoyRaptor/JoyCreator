@@ -36,8 +36,18 @@ public final class JoybotOpen {
     private static final Rect backOnScreen = new Rect();
     private static long backAt;
 
+    /**
+     * When the last open started (uptime ms). A double tap on his button opened two chats, and closing the top one took
+     * the request updates from the one underneath, which then said "Thinking…" forever (bug hunt A10/A11, 11-15).
+     */
+    private static long lastOpen = -10_000L;
+    private static final long TAP_GUARD_MS = 1200L;
+
     /** Open the chat from {@code button} (null: from where his button usually is, top right). */
     public static void start(@NonNull Activity from, @Nullable View button, @NonNull Intent intent) {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (now - lastOpen < TAP_GUARD_MS || com.fadcam.ui.faditor.ai.AIChatState.chatActive) return;   // one chat
+        lastOpen = now;
         if (button != null && button.isAttachedToWindow() && button.getWidth() > 0) {
             int[] at = new int[2];
             button.getLocationOnScreen(at);

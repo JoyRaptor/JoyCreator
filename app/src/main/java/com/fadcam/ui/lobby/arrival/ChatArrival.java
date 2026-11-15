@@ -81,6 +81,12 @@ public final class ChatArrival {
     private final float[] tmp = new float[4];
 
     private boolean card;
+    /**
+     * The card stays inside the full chat window and the screen beside it can't be touched: the room under it is paused
+     * and skips its saves, so edits made beside a floating card were lost (bug hunt A10, 11-15). A tap beside it closes
+     * the chat. Only the lobby and the Library keep the free-floating card.
+     */
+    private boolean modal;
     private boolean placed, started, running, handedOff, opened, stageOver, closing;
     private long t0, handT, waitUntil;
     @Nullable private Flight flight;
@@ -118,6 +124,9 @@ public final class ChatArrival {
 
     // ── set up ──────────────────────────────────────────────────────────────
 
+    /** Opened over a room where work is edited (not the lobby or the Library): the card is modal there. Before install. */
+    public void setModal(boolean modal) { this.modal = modal; }
+
     /** Call once, after the chat's views are set up. The show starts by itself once laid out. */
     public void install() {
         Window w = a.getWindow();
@@ -141,6 +150,10 @@ public final class ChatArrival {
         row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeActor());
         frame.attach(titleBlock, grip);
         frame.watchKeyboard(root);
+        // A modal card: a tap beside it closes the chat; touches on the card that nothing on it takes stay on the card.
+        reveal.setOnTouchListener((v, e) -> true);
+        root.setOnClickListener(v -> { if (card && modal && opened) a.finish(); });
+        root.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         loadSprites();
         waitUntil = SystemClock.uptimeMillis() + SPRITE_WAIT_MS;
         root.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -302,7 +315,8 @@ public final class ChatArrival {
         // the picture of the screen it opened over: taken every time, so it never lingers in memory
         Rect bs = new Rect();
         Bitmap back = JoybotOpen.takeBackdrop(bs);
-        if (back != null && frostOn() && !blurOffered(a)) frost.setPicture(back, bs);
+        // a modal card is never its own window, so the window's blur would frost the whole screen: blur the card's own picture
+        if (back != null && frostOn() && (!blurOffered(a) || (card && modal))) frost.setPicture(back, bs);
         if (idle != null) startStage(r, f, ro, back, bs);
         reveal.setVisibility(View.VISIBLE);
         running = true;
@@ -451,7 +465,7 @@ public final class ChatArrival {
 
     /** A card becomes its own window once he has arrived and the stage has gone. */
     private void maybeWindow() {
-        if (!card || closing || !opened || (gl != null && !stageOver)) return;
+        if (!card || modal || closing || !opened || (gl != null && !stageOver)) return;
         frame.enterWindow(frostOn());
     }
 

@@ -151,6 +151,14 @@ final class CardFrame {
         if (Build.VERSION.SDK_INT >= 31) ChatArrival.blur(a, 0);
     }
 
+    /** Lift the card so its bottom stays inside a window {@code h} pixels tall (never above the top). */
+    private void keepInside(int h) {
+        if (card.getHeight() == 0) return;
+        int over = card.getBottom() - h;
+        float ty = over > 0 ? -Math.min(over, card.getTop()) : 0f;
+        if (card.getTranslationY() != ty) card.setTranslationY(ty);
+    }
+
     /** Back to a full-screen window with the card left where it is on the screen (he flies home out of it). */
     void leaveWindowInPlace() {
         if (!windowed) return;
@@ -171,6 +179,9 @@ final class CardFrame {
 
     /** Follow the keyboard (call once, with the window's content root). */
     void watchKeyboard(@NonNull View root) {
+        // A card inside the full window (a modal card, over a room with work) rides up when the window gets shorter for
+        // the keyboard, and back down when it closes.
+        root.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> { if (!windowed && enabled) keepInside(v.getHeight()); });
         androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
             boolean shown = insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime());
             int overlap = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;

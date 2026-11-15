@@ -151,6 +151,17 @@ final class CardFrame {
         if (Build.VERSION.SDK_INT >= 31) ChatArrival.blur(a, 0);
     }
 
+    /** Back to a full-screen window with the card left where it is on the screen (he flies home out of it). */
+    void leaveWindowInPlace() {
+        if (!windowed) return;
+        int[] at = new int[2];
+        card.getLocationOnScreen(at);
+        int w = card.getWidth(), h = card.getHeight();
+        leaveWindow();
+        int l = at[0] - ref.left, t = at[1] - ref.top;
+        place(new Rect(l, t, l + w, t + h));
+    }
+
     // ── the keyboard ────────────────────────────────────────────────────────
     // A floating window is not resized for the keyboard: on the test tablet (11-15) the keyboard covered the card's
     // typing box and Joybot. So while the keyboard is up the card lifts above it (and gets shorter only if there is not

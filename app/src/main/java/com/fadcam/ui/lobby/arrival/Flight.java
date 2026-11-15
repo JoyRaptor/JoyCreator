@@ -30,6 +30,14 @@ public final class Flight {
     /** He leaves the button this long after the show starts. */
     public static final long T0 = 80L;
 
+    /**
+     * Depth (owner, 11-15 midday: "vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us.
+     * On the ground, or scooting along it, he is exactly his resting size"): where his path turns back against the way
+     * he is travelling overall (the top of a loop) he swings toward us, up to this much bigger; it fades to nothing as
+     * he nears the ground, so he touches down at his own size.
+     */
+    public static final float DEPTH = .3f;
+
     /** Where he is, how he is turned and what picture to show. Reused; never kept. */
     public static final class Pose {
         /** Body centre, dp. */
@@ -143,6 +151,13 @@ public final class Flight {
     public final long dur;
     final Line line;
     @Nullable final Leg leg;
+    /** The way he travels overall, button to seat, as a heading (degrees, 0 = up). */
+    final float chord;
+    /**
+     * How far his heading has turned back against {@link #chord} along the path (0 = with it, 1 = the opposite way),
+     * smoothed along the path so his size swells and settles rather than jumping in a tight turn.
+     */
+    private final float[] back;
     private final float[] warp;
     private final float warpTotal;
 
@@ -160,6 +175,7 @@ public final class Flight {
         this.quick = uv == null;
         this.approach = quick ? Approach.SCOOT : approach;
         this.landing = landing;
+        this.chord = (float) Math.toDegrees(Math.atan2(ey - sy, ex - sx)) + 90f;
         if (quick) {
             line = catmull(new float[]{sx, sy, lerp(sx, ex, .55f), Math.min(sy, ey) + 40f, ex, ey}, 26);
         } else {
@@ -176,6 +192,7 @@ public final class Flight {
         if (quick || approach == Approach.SCOOT) leg = null;
         else if (approach == Approach.ROCKET) leg = new Leg(.7f, .95f, false);
         else leg = lastSteepLeg(line, ey + pegUp, sy, pegUp);
+        back = backProfile(line, chord, 200, 14);
         int N = 240;
         warp = new float[N + 1];
         for (int i = 1; i <= N; i++) warp[i] = warp[i - 1] + (1f / N) / speedAt((i - .5f) / N);
@@ -184,6 +201,34 @@ public final class Flight {
         if (quick) dur = Math.round(clamp(line.tot / 1.2f, 440f, 650f));
         else if (short_) dur = Math.round(800f * warpTotal);
         else dur = Math.round(clamp(line.tot / 1.55f, 650f, 1700f) * warpTotal);
+    }
+
+    /** {@link #back} sampled at {@code n + 1} points, box-smoothed twice over {@code half} samples either side. */
+    @NonNull
+    static float[] backProfile(@NonNull Line line, float chord, int n, int half) {
+        float[] raw = new float[n + 1], p = new float[3];
+        for (int i = 0; i <= n; i++) {
+            line.at(i / (float) n, p);
+            raw[i] = .5f - .5f * (float) Math.cos(Math.toRadians(p[2] - chord));
+        }
+        for (int pass = 0; pass < 2; pass++) {
+            float[] out = new float[n + 1];
+            for (int i = 0; i <= n; i++) {
+                float sum = 0f;
+                int c = 0;
+                for (int k = Math.max(0, i - half); k <= Math.min(n, i + half); k++) { sum += raw[k]; c++; }
+                out[i] = sum / c;
+            }
+            raw = out;
+        }
+        return raw;
+    }
+
+    /** {@link #back} at fraction {@code u} of the path. */
+    float backAt(float u) {
+        float f = clamp(u, 0f, 1f) * (back.length - 1);
+        int i = Math.min(back.length - 2, (int) f);
+        return lerp(back[i], back[i + 1], f - i);
     }
 
     /** Touchdown, ms after the show starts. */
@@ -357,6 +402,11 @@ public final class Flight {
             if (upW > .5f && Math.abs(vx) > 60f) face = vx < 0f ? -1 : 1;
             float pop = clamp((t - T0) / 160f, 0f, 1f);
             float spd = (float) Math.sin(Math.PI * ue);
+            float depth = 1f;
+            if (!f.quick) {
+                float away = smooth((ue - .1f) / .1f) * (1f - Math.max(near2, burnUp));
+                depth = 1f + DEPTH * f.backAt(ue) * away;
+            }
             o.x = p[0];
             o.y = p[1];
             o.rot = r;
@@ -364,7 +414,7 @@ public final class Flight {
             o.sy = 1f + .10f * spd;
             if (inBurst) { o.sx = 1.04f; o.sy = .96f; }
             else if (afterBurst && f.approach != Approach.ROCKET && !info.hover) { o.sx = .95f; o.sy = 1.07f; }
-            o.scale = lerp(.35f, 1f, easeOut(pop));
+            o.scale = lerp(.35f, 1f, easeOut(pop)) * depth;
             o.face = face;
             o.spinning = !f.quick && ue < .1f;
             o.spinFrame = (int) ((t - T0) / 55L);

@@ -104,6 +104,88 @@ public final class JoybotDirector implements JoybotView.Director {
     @Override
     public boolean flourishing() { return chainTo != null; }
 
+    // ── touch and tricks (owner, 11-15 midday) ──────────────────────────────
+    // "Asleep, tap or double-tap: he wakes with a scramble or an 'oopsies'. Awake, tap: one of many different actions,
+    // and he moves around while doing it. Asked 'do a backflip': a backflip, then confetti or a bow. A directional poke
+    // nudges him. A flick flings him round the screen: he bounces off the edges, comes back and settles."
+
+    /** The flourish about to play was asked for by a tap: he moves about while he does it. */
+    private boolean flourishLively;
+    private long wokeAt = -10_000L, lastTap = -10_000L;
+    private static final String[] TAP_WORDS = {"boop!", "hehe!", "hi!", "wheee!", "ta-da!"};
+
+    @Nullable
+    private static JoybotDirector of(@NonNull JoybotView bot) {
+        JoybotView.Director d = bot.getDirector();
+        return d instanceof JoybotDirector ? (JoybotDirector) d : null;
+    }
+
+    /** True while he is asleep (the last of his idle drifts). */
+    public static boolean asleep(@NonNull JoybotView bot) {
+        JoybotDirector d = of(bot);
+        return d != null && d.now != null && "sleeping".equals(d.now.name);
+    }
+
+    /** A tap on him: asleep, he wakes up with a start; awake, one of many actions (now and then with a backflip). */
+    public static void tapped(@NonNull JoybotView bot) {
+        JoybotDirector d = of(bot);
+        if (d == null) { bot.react(); return; }
+        long t = android.os.SystemClock.uptimeMillis();
+        // the second tap of the double-tap that woke him, or a tap on a tap
+        if (t - d.wokeAt < 900L || t - d.lastTap < 380L) return;
+        d.lastTap = t;
+        if (asleep(bot)) {
+            d.wokeAt = t;
+            bot.say(d.dice.nextInt(3) == 0 ? "huh?!" : "oopsies!");
+            moment(bot, "wake");
+            return;
+        }
+        if (d.dice.nextInt(5) == 0) bot.backflip();
+        if (d.dice.nextInt(3) == 0) bot.say(TAP_WORDS[d.dice.nextInt(TAP_WORDS.length)]);
+        moment(bot, "tap");
+    }
+
+    /** A poke ({@code dx, dy} px, the way the finger went): he is nudged that way and springs back. */
+    public static void poked(@NonNull JoybotView bot, float dx, float dy) {
+        bot.nudge(dx, dy);
+        JoybotDirector d = of(bot);
+        if (d == null) return;
+        if (asleep(bot)) { tapped(bot); return; }
+        if (d.dice.nextInt(4) == 0) bot.say(d.dice.nextBoolean() ? "hey!" : "oof!");
+    }
+
+    /** A flick ({@code vx, vy} px/s): flung round the chat in a scramble, then dizzy or a bow once he is back. */
+    public static void flung(@NonNull JoybotView bot, float vx, float vy) {
+        JoybotDirector d = of(bot);
+        if (d != null) d.wokeAt = android.os.SystemClock.uptimeMillis();
+        bot.say("wheee!");
+        moment(bot, "flung");
+        bot.fling(vx, vy, () -> {
+            if (d == null || !bot.isAttachedToWindow()) return;
+            int r = d.dice.nextInt(4);
+            if (r < 2) moment(bot, "dizzy");
+            else if (r == 2) moment(bot, "bow");
+        });
+    }
+
+    /** "Do a backflip" (asked in the chat): a backflip, then confetti or a bow. */
+    public static void backflip(@NonNull JoybotView bot) {
+        JoybotDirector d = of(bot);
+        bot.backflip();
+        bot.say("hup!");
+        boolean confetti = d == null || d.dice.nextBoolean();
+        bot.postDelayed(() -> { if (bot.isAttachedToWindow()) moment(bot, confetti ? "confetti" : "bow"); }, 560L);
+    }
+
+    /** "Do a backflip", "can you do a flip?": asked for one, in a short message. */
+    public static boolean asksForBackflip(@Nullable String text) {
+        if (text == null) return false;
+        String t = " " + text.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z ]", " ").replaceAll("\\s+", " ").trim() + " ";
+        if (t.trim().split(" ").length > 9) return false;
+        return t.contains(" backflip") || t.contains(" back flip") || t.contains(" do a flip") || t.contains(" flip for me")
+                || t.equals(" flip ") || t.contains(" somersault");
+    }
+
     /** "Thanks", "great job", "love it": the person thanked or praised him (he takes a bow). */
     public static boolean isThanks(@Nullable String text) {
         if (text == null) return false;
@@ -149,7 +231,7 @@ public final class JoybotDirector implements JoybotView.Director {
         JoybotActs.Act a = reopened;
         reopened = null;
         final boolean fresh = a == null;
-        if (fresh) { chainTo = null; chainMood = null; flourishMirror = false; }
+        if (fresh) { chainTo = null; chainMood = null; flourishMirror = false; flourishLively = false; }
         if (m == JoybotView.Mood.IDLE) {
             if (a == null) {
                 if (drift == null) idleStep = 0;
@@ -186,6 +268,7 @@ public final class JoybotDirector implements JoybotView.Director {
                 chainMood = m;
                 a = (JoybotActs.Act) f[0];
                 flourishMirror = (Boolean) f[1];
+                flourishLively = "tap".equals(asked) || "wake".equals(asked);
             }
         }
         Bitmap p = acts.opened(a);
@@ -209,7 +292,7 @@ public final class JoybotDirector implements JoybotView.Director {
             // and each of those used to count as the greeting before a frame of it had played.
             if (m == JoybotView.Mood.IDLE) greeted = true;
             boolean mir = flourishMirror ^ (a.mirrorable && dice.nextInt(3) == 0);
-            return acts.onceFilm(a, p, mir, dice.nextFloat() < a.flipChance).thenRun(() -> {
+            return acts.onceFilm(a, p, mir, dice.nextFloat() < a.flipChance, flourishLively).thenRun(() -> {
                 if (chainTo != next) return;
                 chainTo = null;
                 chainMood = null;

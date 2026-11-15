@@ -236,7 +236,9 @@
    "uses": {
     "moods": [],
     "moments": [
-     "cheer"
+     "cheer",
+     "confetti",
+     "tap"
     ],
     "words": []
    },
@@ -282,7 +284,8 @@
    "uses": {
     "moods": [],
     "moments": [
-     "present"
+     "present",
+     "tap"
     ],
     "words": []
    },
@@ -325,8 +328,13 @@
    ],
    "play": "stutter",
    "uses": {
-    "moods": [],
-    "moments": [],
+    "moods": [
+     "nervous"
+    ],
+    "moments": [
+     "wake",
+     "flung"
+    ],
     "words": []
    },
    "moves": {
@@ -336,7 +344,7 @@
   {
    "name": "reading",
    "mood": "idle-variety",
-   "general": false,
+   "general": true,
    "fps": 6,
    "file": "reading.webp",
    "cols": 8,
@@ -377,7 +385,9 @@
    ],
    "play": "stutter",
    "uses": {
-    "moods": [],
+    "moods": [
+     "read"
+    ],
     "moments": [],
     "words": []
    },
@@ -465,7 +475,8 @@
     "moods": [],
     "moments": [
      "cheer",
-     "you-did-it"
+     "you-did-it",
+     "tap"
     ],
     "words": []
    },
@@ -826,7 +837,11 @@
    "play": "stutter",
    "uses": {
     "moods": [],
-    "moments": [],
+    "moments": [
+     "wake",
+     "dizzy",
+     "tap"
+    ],
     "words": []
    },
    "moves": {
@@ -956,7 +971,8 @@
    "uses": {
     "moods": [],
     "moments": [
-     "tip"
+     "tip",
+     "tap"
     ],
     "words": [
      "idea",
@@ -1360,7 +1376,8 @@
     "moods": [],
     "moments": [
      "you-did-it",
-     "cheer"
+     "cheer",
+     "tap"
     ],
     "words": []
    },
@@ -1410,7 +1427,8 @@
     "moods": [],
     "moments": [
      "greet",
-     "on-it"
+     "on-it",
+     "tap"
     ],
     "words": []
    },
@@ -1453,7 +1471,8 @@
    "uses": {
     "moods": [],
     "moments": [
-     "point-left"
+     "point-left",
+     "tap"
     ],
     "words": []
    },
@@ -1594,7 +1613,8 @@
      "talk"
     ],
     "moments": [
-     "present"
+     "present",
+     "tap"
     ],
     "words": []
    },
@@ -1636,7 +1656,9 @@
     "moments": [
      "thanks",
      "done",
-     "greet"
+     "greet",
+     "bow",
+     "tap"
     ],
     "words": []
    },
@@ -1743,7 +1765,8 @@
     ],
     "moments": [
      "point-right",
-     "present"
+     "present",
+     "tap"
     ],
     "words": []
    },

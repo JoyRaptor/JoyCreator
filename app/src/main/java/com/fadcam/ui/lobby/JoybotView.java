@@ -248,14 +248,17 @@ public final class JoybotView extends FrameLayout {
             if (mv == null) return;
             float dp = getResources().getDisplayMetrics().density;
             long t = Math.max(0L, now - f.startedAt());
+            // A one-shot drifts out and comes back, so it hands over to the next pose where it began (no jump).
+            long once = f.onceMs();
+            float env = once > 0L ? (float) Math.sin(Math.PI * Math.min(1.0, t / (double) once)) : 1f;
             if (mv.driftDp > 0f && mv.driftMs > 0f) {
                 double ph = t / (double) mv.driftMs * Math.PI * 2.0;
-                canvas.translate((float) Math.sin(ph) * mv.driftDp * dp, 0f);
+                canvas.translate((float) Math.sin(ph) * mv.driftDp * dp * env, 0f);
                 f.turnForDrift(Math.cos(ph) < 0.0);          // he faces the way he is moving
             }
             if (mv.hopDp > 0f && mv.hopMs > 0f) {
                 float ph = (t % (long) mv.hopMs) / mv.hopMs;
-                canvas.translate(0f, -4f * ph * (1f - ph) * mv.hopDp * dp);
+                canvas.translate(0f, -4f * ph * (1f - ph) * mv.hopDp * dp * env);
                 float q = ph < .1f ? (1f - ph / .1f) * .08f : ph > .92f ? (ph - .92f) / .08f * .05f : 0f;
                 canvas.scale(1f + q, 1f - q, px, py);
                 if (mv.sparks && ph < .1f && t > 200L && now - lastSpark > 40L) {   // a few off each landing
@@ -263,17 +266,65 @@ public final class JoybotView extends FrameLayout {
                     spark(px, py, 2, dp);
                 }
             }
-            if (mv.flip && t < FLIP_MS) {
-                float u = t / (float) FLIP_MS;
-                float e = u < .5f ? 4f * u * u * u : 1f - (float) Math.pow(-2f * u + 2f, 3) / 2f;
-                canvas.translate(0f, -4f * u * (1f - u) * 34f * dp);
-                canvas.rotate(-360f * e, px, cy);
-            }
+            if (mv.flip && t < FLIP_MS) flip(canvas, t / (float) FLIP_MS, px, cy, dp);
             if (mv.scale != 1f) canvas.scale(mv.scale, mv.scale, px, py);
             if (mv.sparks && t < 2600L && now - lastSpark > 70L) {
                 lastSpark = now;
                 spark(px, cy, 1, dp);
             }
+        }
+
+        /** A backflip at fraction {@code u}: up, over backwards about his body centre, and down again. */
+        private static void flip(@NonNull Canvas canvas, float u, float px, float cy, float dp) {
+            float e = u < .5f ? 4f * u * u * u : 1f - (float) Math.pow(-2f * u + 2f, 3) / 2f;
+            canvas.translate(0f, -4f * u * (1f - u) * 34f * dp);
+            canvas.rotate(-360f * e, px, cy);
+        }
+
+        // -- tricks on top of whatever plays (owner, 11-15 midday): a backflip when asked or tapped, and a word that pops
+        // above his head and floats away ("oopsies!" when a tap wakes him, "wheee!" when he is flung) --
+        /** When the backflip started (uptime ms), 0 for none. */
+        long trickAt = 0L;
+        private boolean trickSparked;
+        @Nullable String word;
+        long wordAt;
+        private static final long WORD_MS = 1300L;
+        @Nullable private android.graphics.Paint wordPaint;
+
+        /** A squash that springs back, as if he had been bumped. */
+        void pop() {
+            popAt = android.os.SystemClock.uptimeMillis();
+            popBig = true;
+            invalidate();
+        }
+
+        private void drawWord(@NonNull Canvas canvas, long now, float headTop) {
+            if (word == null) return;
+            long age = now - wordAt;
+            if (age >= WORD_MS) { word = null; return; }
+            float dp = getResources().getDisplayMetrics().density;
+            if (wordPaint == null) {
+                wordPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                wordPaint.setTextAlign(android.graphics.Paint.Align.CENTER);
+                wordPaint.setTextSize(15f * getResources().getDisplayMetrics().scaledDensity);
+                android.graphics.Typeface tf = null;
+                try { tf = androidx.core.content.res.ResourcesCompat.getFont(getContext(), R.font.archivo_variable); }
+                catch (RuntimeException ignored) { /* the system bold */ }
+                wordPaint.setTypeface(android.graphics.Typeface.create(tf != null ? tf : android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD));
+                wordPaint.setShadowLayer(6f * dp, 0f, 0f, 0xCCFF2FB8);
+            }
+            float u = age / (float) WORD_MS;
+            float x = Math.min(1f, age / 170f) - 1f;
+            float grow = 1f + 2.70158f * x * x * x + 1.70158f * x * x;          // overshoots a little, then settles
+            float rise = 16f * dp * (1f - (1f - u) * (1f - u));
+            float alpha = u < .7f ? 1f : 1f - (u - .7f) / .3f;
+            wordPaint.setColor(android.graphics.Color.argb(Math.round(255 * alpha), 255, 244, 251));
+            int s = canvas.save();
+            canvas.translate(getWidth() / 2f, headTop - 4f * dp - rise);
+            canvas.scale(grow, grow);
+            canvas.rotate(-6f);
+            canvas.drawText(word, 0f, 0f, wordPaint);
+            canvas.restoreToCount(s);
         }
 
         // a few of his plasma sparks and glints: white-hot cooling to pink, made of the same stuff as his thruster
@@ -421,11 +472,23 @@ public final class JoybotView extends FrameLayout {
                 canvas.translate(0f, (float) Math.sin(t * 2.0 + 0.6) * getHeight() * BOB_FRACTION);
                 canvas.rotate((float) Math.sin(t) * SWAY_DEG, px, py);
                 canvas.scale(1f + k, 1f - k, px, py);
-                choreograph(canvas, f, px, py, box.top + box.height() * body.centerY(), now);
+                float cy = box.top + box.height() * body.centerY();
+                choreograph(canvas, f, px, py, cy, now);
+                long ft = now - trickAt;
+                if (trickAt != 0L && ft < FLIP_MS) {
+                    float dp = getResources().getDisplayMetrics().density;
+                    flip(canvas, ft / (float) FLIP_MS, px, cy, dp);
+                    if (!trickSparked && ft > FLIP_MS * .4f) { trickSparked = true; spark(px, cy, 10, dp); }
+                } else {
+                    trickAt = 0L;
+                }
             }
             f.draw(canvas, box, f.isActor() ? plain : paint, now);
             canvas.restoreToCount(saved);
-            if (f.isActor() && body != null) drawSparks(canvas, now);
+            if (f.isActor() && body != null) {
+                drawSparks(canvas, now);
+                drawWord(canvas, now, box.top + box.height() * body.top);
+            }
             if (f.shownFrame() != lastShown) {
                 if (lastShown != -1) { popAt = now; popBig = false; }
                 lastShown = f.shownFrame();
@@ -603,7 +666,11 @@ public final class JoybotView extends FrameLayout {
 
     public enum Mood {
         IDLE("idle"), LISTEN("listen"), THINK("think"), WORK("work"),
-        TALK("talk"), EXCITED("excited"), SHOW("show"), OOPS("oops");
+        TALK("talk"), EXCITED("excited"), SHOW("show"), OOPS("oops"),
+        /** Looking it up in the handbook (owner, 11-15: while he checks the help). */
+        READ("read"),
+        /** He can't help, or says he can't do something (owner, 11-15). */
+        NERVOUS("nervous");
 
         /** The animation name to look for in his sprite sheet. */
         public final String sheetName;
@@ -746,23 +813,25 @@ public final class JoybotView extends FrameLayout {
                 moodAnim.start();
                 break;
             case THINK:
+            case READ:
             case WORK:
                 stopSmiling();
                 if (still) break;
                 // A slow tilt while he thinks, a quicker one while he works.
                 moodAnim = ValueAnimator.ofFloat(-1f, 1f);
-                moodAnim.setDuration(m == Mood.THINK ? 1400L : 700L);
+                moodAnim.setDuration(m == Mood.WORK ? 700L : 1400L);
                 moodAnim.setRepeatCount(ValueAnimator.INFINITE);
                 moodAnim.setRepeatMode(ValueAnimator.REVERSE);
                 moodAnim.setInterpolator(Motion.EASE_IN_OUT);
                 moodAnim.addUpdateListener(a -> {
-                    float r = (float) a.getAnimatedValue() * (m == Mood.THINK ? 6f : 3f);
+                    float r = (float) a.getAnimatedValue() * (m == Mood.WORK ? 3f : 6f);
                     neutral.setRotation(r);
                     smile.setRotation(r);
                 });
                 moodAnim.start();
                 break;
             case OOPS:
+            case NERVOUS:
                 stopSmiling();
                 if (still) break;
                 moodAnim = ValueAnimator.ofFloat(0f, 1f);
@@ -780,8 +849,8 @@ public final class JoybotView extends FrameLayout {
                 stopSmiling();
                 break;
         }
-        if (m != Mood.THINK && m != Mood.WORK) { neutral.setRotation(0f); smile.setRotation(0f); }
-        if (m != Mood.OOPS) { neutral.setTranslationX(0f); smile.setTranslationX(0f); }
+        if (m != Mood.THINK && m != Mood.READ && m != Mood.WORK) { neutral.setRotation(0f); smile.setRotation(0f); }
+        if (m != Mood.OOPS && m != Mood.NERVOUS) { neutral.setTranslationX(0f); smile.setTranslationX(0f); }
         if (m != Mood.TALK && !smiling) { neutral.setAlpha(1f); smile.setAlpha(0f); }
     }
 
@@ -841,6 +910,176 @@ public final class JoybotView extends FrameLayout {
 
     /** Counts flights, so a new one replaces one still under way. */
     private int flight = 0;
+
+    // ── tricks and touch (owner, 11-15 midday) ──────────────────────────────
+    // "He can do a flip"; "asleep, tap: he wakes with a scramble or an 'oopsies'"; "a directional poke nudges him (he's
+    // a little guy)"; "a flick flings him round the screen: he bounces off the edges, comes back and settles". All on
+    // the clock like his flights, so they play with "remove animations" on.
+
+    /** A backflip on top of whatever he is doing. */
+    public void backflip() {
+        if (film == null) return;
+        film.trickAt = android.os.SystemClock.uptimeMillis();
+        film.trickSparked = false;
+        film.invalidate();
+    }
+
+    /** A word that pops above his head and floats away ("oopsies!", "wheee!"). */
+    public void say(@NonNull String word) {
+        if (film == null) return;
+        film.word = word;
+        film.wordAt = android.os.SystemClock.uptimeMillis();
+        film.invalidate();
+    }
+
+    /** Pushed by a poke: a little way along it ({@code dx, dy} px, any length), leaning, then he springs back. */
+    public void nudge(float dx, float dy) {
+        float len = (float) Math.hypot(dx, dy);
+        if (len < 1f) return;
+        final float dp = getResources().getDisplayMetrics().density;
+        final float push = Math.max(10f * dp, Math.min(26f * dp, len * .5f));
+        final float ux = dx / len, uy = dy / len;
+        final float sx = getTranslationX(), sy = getTranslationY();
+        final int turn = ++flight;
+        final long start = android.os.SystemClock.uptimeMillis();
+        if (film != null) film.pop();
+        postOnAnimation(new Runnable() {
+            @Override public void run() {
+                if (turn != flight) return;
+                float t = android.os.SystemClock.uptimeMillis() - start;
+                float k;
+                if (t < 110f) {
+                    float u = t / 110f;
+                    k = 1f - (1f - u) * (1f - u) * (1f - u);
+                } else {
+                    float b = Math.min(1f, (t - 110f) / 520f);
+                    k = (float) (Math.exp(-4.2 * b) * Math.cos(b * Math.PI * 2.6));   // springs back, a wobble past
+                }
+                if (t >= 630f) {
+                    setTranslationX(sx);
+                    setTranslationY(sy);
+                    setRotation(0f);
+                    return;
+                }
+                setTranslationX(sx + ux * push * k);
+                setTranslationY(sy + uy * push * k);
+                setRotation(ux * 12f * k);
+                postOnAnimation(this);
+            }
+        });
+    }
+
+    /** True while he is being flung about (a flick), until he is back on his seat. */
+    public boolean tossed() { return toss != null && toss.turn == flight; }
+
+    @Nullable private Toss toss;
+
+    /**
+     * Flung by a flick ({@code vx, vy} px/s): he flies off, bounces off the edges of what he is in (the chat), slows, then
+     * comes home and rights himself; {@code settled} runs once he is back on his seat.
+     */
+    public void fling(float vx, float vy, @Nullable Runnable settled) {
+        if (!(getParent() instanceof View)) return;
+        float dp = getResources().getDisplayMetrics().density;
+        float sp = (float) Math.hypot(vx, vy), cap = 4200f * dp;
+        if (sp > cap) { vx *= cap / sp; vy *= cap / sp; }
+        toss = new Toss(++flight, (View) getParent(), vx, vy, settled);
+        postOnAnimation(toss);
+    }
+
+    private final class Toss implements Runnable {
+        final int turn;
+        final View parent;
+        @Nullable final Runnable settled;
+        float x, y, vx, vy, rot, spin;
+        final long start;
+        long last, hitAt = -1L, homeAt = -1L;
+        boolean hitSide;
+        float hx, hy, hr;
+
+        Toss(int turn, @NonNull View parent, float vx, float vy, @Nullable Runnable settled) {
+            this.turn = turn;
+            this.parent = parent;
+            this.settled = settled;
+            this.vx = vx;
+            this.vy = vy;
+            x = getTranslationX();
+            y = getTranslationY();
+            rot = getRotation();
+            float dp = getResources().getDisplayMetrics().density;
+            spin = Math.max(-720f, Math.min(720f, vx / dp * .35f));
+            start = last = android.os.SystemClock.uptimeMillis();
+        }
+
+        @Override
+        public void run() {
+            if (turn != flight) return;
+            long now = android.os.SystemClock.uptimeMillis();
+            float dt = Math.min(.034f, (now - last) / 1000f);
+            last = now;
+            float dp = getResources().getDisplayMetrics().density;
+            if (homeAt < 0L) {
+                vy += 340f * dp * dt;                                   // a little weight, so he arcs
+                float drag = (float) Math.exp(-1.2 * dt);
+                vx *= drag;
+                vy *= drag;
+                x += vx * dt;
+                y += vy * dt;
+                float minX = -getLeft(), maxX = parent.getWidth() - getLeft() - getWidth();
+                float minY = -getTop(), maxY = parent.getHeight() - getTop() - getHeight();
+                if (x < minX) { x = minX; hit(now, true, -1, dp, Math.abs(vx)); vx = Math.abs(vx) * .72f; }
+                else if (x > maxX) { x = maxX; hit(now, true, 1, dp, Math.abs(vx)); vx = -Math.abs(vx) * .72f; }
+                if (y < minY) { y = minY; hit(now, false, -1, dp, Math.abs(vy)); vy = Math.abs(vy) * .72f; }
+                else if (y > maxY) { y = maxY; hit(now, false, 1, dp, Math.abs(vy)); vy = -Math.abs(vy) * .62f; vx *= .9f; }
+                spin *= (float) Math.exp(-1.0 * dt);
+                rot += spin * dt;
+                float speed = (float) Math.hypot(vx, vy) / dp;
+                if ((now - start > 700L && speed < 150f) || now - start > 3200L) {
+                    homeAt = now;
+                    hx = x;
+                    hy = y;
+                    hr = rot - Math.round(rot / 360f) * 360f;            // the short way upright
+                }
+                setTranslationX(x);
+                setTranslationY(y);
+                setRotation(rot);
+                float a = hitAt < 0L ? 0f : .2f * Math.max(0f, 1f - (now - hitAt) / 220f);
+                setScaleX(hitSide ? 1f - a : 1f + a * .7f);
+                setScaleY(hitSide ? 1f + a * .7f : 1f - a);
+                postOnAnimation(this);
+                return;
+            }
+            // home: an arc back to his seat, righting himself on the way
+            float k = Math.min(1f, (now - homeAt) / 560f);
+            float e = Motion.EASE_IN_OUT.getInterpolation(k);
+            float arc = (float) Math.sin(Math.PI * e);
+            float lift = -Math.min(getHeight(), Math.abs(hx) * .2f + getHeight() * .3f);
+            setTranslationX(hx * (1f - e));
+            setTranslationY(hy * (1f - e) + lift * arc);
+            setRotation(hr * (1f - e));
+            setScaleX(1f);
+            setScaleY(1f);
+            if (k < 1f) { postOnAnimation(this); return; }
+            setTranslationX(0f);
+            setTranslationY(0f);
+            setRotation(0f);
+            toss = null;
+            if (film != null) film.pop();
+            if (settled != null) settled.run();
+        }
+
+        /** A bounce off an edge: a squash against it and a few sparks on that side. */
+        private void hit(long now, boolean side, int dir, float dp, float impact) {
+            if (now - hitAt < 60L || impact < 220f * dp) return;           // resting against an edge is not a bounce
+            hitAt = now;
+            hitSide = side;
+            spin = -spin * .8f + (side ? 0f : vx / dp * .15f);
+            if (film == null) return;
+            float px = getWidth() / 2f + (side ? dir * getWidth() * .45f : 0f);
+            float py = getHeight() / 2f + (side ? 0f : dir * getHeight() * .45f);
+            film.spark(px, py, 5, dp);
+        }
+    }
 
     /** Back to where his layout put him. */
     public void flyHome(@Nullable Runnable then) {

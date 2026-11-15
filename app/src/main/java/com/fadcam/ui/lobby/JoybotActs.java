@@ -326,12 +326,26 @@ public final class JoybotActs {
 
     @NonNull
     JoybotFilm onceFilm(@NonNull Act a, @NonNull Bitmap picture, boolean mirror, boolean flip) {
+        return onceFilm(a, picture, mirror, flip, false);
+    }
+
+    /**
+     * {@code lively}: played because he was tapped, so he moves around while he does it (owner, 11-15: "one of many
+     * different actions, and he moves around while doing it"): a drift side to side and a little hop, if it has none.
+     */
+    @NonNull
+    JoybotFilm onceFilm(@NonNull Act a, @NonNull Bitmap picture, boolean mirror, boolean flip, boolean lively) {
         Rect[] r = new Rect[a.in.length + a.loop.length + a.out.length];
         int k = 0;
         for (int i : a.in) r[k++] = cell(a, picture, i);
         for (int i : a.loop) r[k++] = cell(a, picture, i);
         for (int i : a.out) r[k++] = cell(a, picture, i);
-        return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus).withMoves(a.moves(flip), mirror);
+        JoybotFilm.Moves m = a.moves(flip);
+        if (lively) {
+            if (m.driftDp <= 0f) { m.driftDp = 10f + taskDice.nextInt(9); m.driftMs = 1500f + taskDice.nextInt(900); }
+            if (m.hopDp <= 0f && taskDice.nextBoolean()) { m.hopDp = 4f + taskDice.nextInt(5); m.hopMs = 460f + taskDice.nextInt(200); }
+        }
+        return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus).withMoves(m, mirror);
     }
 
     /** The way out (played once), or null when this animation has none. */

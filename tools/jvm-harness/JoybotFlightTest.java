@@ -50,6 +50,7 @@ public class JoybotFlightTest {
         float[][] windows = {{330, 52, 42, 684}, {1450, 60, 1110, 900}};
         float peg = 32f;
         int flights = 0;
+        float deepest = 1f;
         for (float[] w : windows) {
             float ex = w[2], ey = w[3] - 4f - peg;
             for (int i = 0; i <= paths.size(); i++) {
@@ -63,7 +64,7 @@ public class JoybotFlightTest {
                         float px = Float.NaN, py = 0f;
                         long lastBurst = -1;
                         boolean nan = false;
-                        float maxStep = 0f;
+                        float maxStep = 0f, maxScale = 0f, scaleStep = 0f, landedOff = 0f, ps = Float.NaN;
                         for (long t = 0; t <= f.tSettle() + 200; t += 8) {
                             pl.pose(t, o);
                             if (!o.visible) continue;
@@ -72,7 +73,20 @@ public class JoybotFlightTest {
                             if (!Float.isNaN(px)) maxStep = Math.max(maxStep, (float) Math.hypot(o.x - px, o.y - py));
                             px = o.x;
                             py = o.y;
+                            if (t > Flight.T0 + 200) {                       // past the pop out of the button
+                                maxScale = Math.max(maxScale, o.scale);
+                                if (!Float.isNaN(ps)) scaleStep = Math.max(scaleStep, Math.abs(o.scale - ps));
+                            }
+                            ps = o.scale;
+                            if (o.down) landedOff = Math.max(landedOff, Math.abs(o.scale - 1f));
                         }
+                        // depth (owner, 11-15 midday): closer to us in the loops, exactly his own size on the ground
+                        check(maxScale <= 1f + Flight.DEPTH + .001f, name + ": swells to " + maxScale);
+                        check(scaleStep < .06f, name + ": his size jumps " + scaleStep + " in 8 ms");
+                        check(landedOff == 0f, name + ": not his own size on the ground");
+                        pl.pose(f.tLand() - 8, o);
+                        check(Math.abs(o.scale - 1f) < .03f, name + ": touches down at size " + o.scale);
+                        deepest = Math.max(deepest, maxScale);
                         check(!nan, name + ": a NaN in his pose");
                         check(maxStep < 40f, name + ": jumps " + maxStep + " dp in 8 ms");
                         check(f.dur >= 400 && f.dur <= 4000, name + ": flight " + f.dur + " ms");
@@ -90,6 +104,8 @@ public class JoybotFlightTest {
                 }
             }
         }
+        check(deepest > 1.15f, "no flight swings toward us (deepest " + deepest + ")");
+        System.out.println("deepest swing toward us: " + deepest);
         System.out.println(flights + " flights, " + (fails == 0 ? "all pass" : fails + " FAILED"));
         if (fails > 0) System.exit(1);
     }

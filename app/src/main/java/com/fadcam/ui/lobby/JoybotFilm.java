@@ -195,6 +195,9 @@ public final class JoybotFilm {
     /** When this play started (uptime ms). */
     public long startedAt() { return startedAtMs; }
 
+    /** How long a one-shot plays, ms; 0 for a loop (it never ends). */
+    public long onceMs() { return loop ? 0L : totalTicks * framePeriodMs; }
+
     private int loopFrames(int introFrames) { return cellRects == null ? 0 : cellRects.length - introFrames; }
 
     /** The loop's frame at loop tick {@code k}, writing the plan ahead as needed (and forgetting what has played). */

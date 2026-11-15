@@ -1039,6 +1039,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
             undoByWords();
             return;
         }
+        // "Do a backflip": he does one right here, then confetti or a bow (owner, 11-15 midday). Free, instant, offline.
+        if (com.fadcam.ui.lobby.JoybotDirector.asksForBackflip(text)) {
+            String[] says = {"Hup! Ta-da!", "Wheee! Stuck the landing.", "One backflip, coming right up!"};
+            String said = says[(int) (Math.random() * says.length)];
+            addBotMessage(said);
+            voice.speak(said);
+            com.fadcam.ui.lobby.JoybotDirector.backflip(actor);
+            return;
+        }
         // "Connect an AI", "I have Claude Pro": Joybot walks them through it, here in the chat.
         if (com.fadcam.ui.faditor.ai.joybot.SetupTalk.asksToConnect(text)) {
             setupFlow.start();
@@ -1122,8 +1131,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         synchronized (messageLog) { messageLog.add(new String[]{"bot", t.answer}); trimMessageLog(); }
         // A question asked by voice is answered by voice, and then Joybot listens (hands-free).
         if (handsFree) handsFreeSay(t.answer); else voice.speak(t.answer);
-        actor.setMood(JoybotView.Mood.TALK);
-        actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 1200L);
+        // He looked it up in the handbook (owner, 11-15 midday), then tells you.
+        actor.setMood(JoybotView.Mood.READ);
+        actor.postDelayed(() -> { if (!busy && actor.getMood() == JoybotView.Mood.READ) actor.setMood(JoybotView.Mood.TALK); }, 2200L);
+        actor.postDelayed(() -> { if (!busy && actor.getMood() == JoybotView.Mood.TALK) actor.setMood(JoybotView.Mood.IDLE); }, 3600L);
         try {
             conversationHistory.add(new JSONObject().put("role", "user").put("content", text));
             conversationHistory.add(new JSONObject().put("role", "assistant").put("content", t.answer));
@@ -1138,8 +1149,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         addBotMessage("I can't work that one out without an AI connected. Right here I can do "
                 + "anything on the buttons below, and answer “how do I…” questions about "
                 + "the app. Connect an AI in ⚙ (there's a free one) for everything else.");
-        actor.setMood(JoybotView.Mood.OOPS);
-        actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
+        nervous();
     }
 
     // ── Online AI query ────────────────────────────────────────────
@@ -1178,6 +1188,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
         cancelled = false;
         setBusy(true);
         actor.setMood(JoybotView.Mood.THINK);
+        // A question: he checks the help, thinking and looking it up in the handbook in turns (owner, 11-15 midday).
+        actor.removeCallbacks(helpLook);
+        if (HelpBook.isQuestion(text)) actor.postDelayed(helpLook, 1500L);
         JoybotAgent.Situation where = new JoybotAgent.Situation();
         where.room = room;
         where.playheadMs = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1);
@@ -1196,6 +1209,31 @@ public class ChatAssistantActivity extends AppCompatActivity {
         ask.director = director;
         ask.maxSteps = maxSteps;
         JoybotAgent.ask(this, ask);
+    }
+
+    /** While a question is answered: thinking, then the handbook, in turns, until a tool starts or he answers. */
+    private final Runnable helpLook = new Runnable() {
+        @Override public void run() {
+            if (!busy || actor == null || isFinishing()) return;
+            JoybotView.Mood m = actor.getMood();
+            if (m != JoybotView.Mood.THINK && m != JoybotView.Mood.READ) return;
+            boolean read = m == JoybotView.Mood.THINK;
+            actor.setMood(read ? JoybotView.Mood.READ : JoybotView.Mood.THINK);
+            actor.postDelayed(this, read ? 7000L : 3000L);
+        }
+    };
+
+    /**
+     * He can't help, or says he can't do something: the nervous one (owner, 11-15 midday), held long enough to be seen,
+     * then he settles.
+     */
+    private void nervous() {
+        if (actor == null) return;
+        actor.removeCallbacks(helpLook);
+        actor.setMood(JoybotView.Mood.NERVOUS);
+        actor.postDelayed(() -> {
+            if (!busy && actor.getMood() == JoybotView.Mood.NERVOUS) actor.setMood(JoybotView.Mood.IDLE);
+        }, 2600L);
     }
 
     /** The agent's request, shown while this screen is open (attached in onCreate). */
@@ -1261,7 +1299,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 endHandsFree();
                 if (f.ok) voice.speak(f.reply);
             }
-            doneTalking(f.ok);
+            // "I can't do that" is an answer too, and he is nervous saying it (owner, 11-15 midday).
+            doneTalking(f.ok, f.ok && HelpBook.saysItCant(f.reply));
             renderFinishedExtras(f);
             return true;
         }
@@ -1284,14 +1323,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** He flies out of the button the chat was opened from and lands on his seat in the bottom row. */
     private void setupActor() {
         actor.setOrb(com.fadcam.ui.faditor.Studio.ROOM_AVATAR, com.fadcam.ui.faditor.Studio.ORB_DEEP);
-        androidx.appcompat.widget.TooltipCompat.setTooltipText(actor, "Joybot: tap for ideas");
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(actor, "Joybot: tap him, poke him or flick him");
         JoybotPulse.actWhenReady(actor);
+        // Touch him (owner, 11-15 midday): a tap wakes him or plays one of many actions, a poke nudges him, a flick
+        // flings him round the chat (JoybotTouch, JoybotDirector). A tap also brings his ideas up to date, quietly.
         actor.setOnClickListener(v -> {
             actor.react();
-            if (busy) return;
-            LAST_OPENER.remove(projectId == null ? "" : projectId);
-            refreshIdeas(true);
+            com.fadcam.ui.lobby.JoybotDirector.tapped(actor);
+            if (!busy && slideFlow == null) refreshIdeas(false);
         });
+        com.fadcam.ui.lobby.JoybotTouch.attach(actor);
         inputField.setOnFocusChangeListener((v, has) -> {
             if (has && inputField.getText().length() == 0) pointAtInput();
         });
@@ -2213,8 +2254,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (changed && r.error == null) {
             showOff(card.root);
         } else if (r.error != null) {
-            actor.setMood(JoybotView.Mood.OOPS);
-            actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
+            nervous();
         } else {
             actor.setMood(JoybotView.Mood.IDLE);
         }
@@ -2910,8 +2950,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 if (e != null) {
                     addBotMessage(e);
                     voice.speak(e);
-                    actor.setMood(JoybotView.Mood.OOPS);
-                    actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
+                    nervous();
                     refreshIdeas(false);
                     return;
                 }
@@ -3036,17 +3075,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
         refreshIdeas(false);
     }
 
-    /** End of a model reply (or chain): buttons back, Joybot settles. */
-    private void doneTalking(boolean ok) {
+    /** End of a model reply (or chain): buttons back, Joybot settles; nervous if it failed or he said he can't. */
+    private void doneTalking(boolean ok, boolean cant) {
         runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) return;
             setBusy(false);
-            if (ok) {
-                actor.setMood(JoybotView.Mood.IDLE);
-            } else {
-                actor.setMood(JoybotView.Mood.OOPS);
-                actor.postDelayed(() -> actor.setMood(JoybotView.Mood.IDLE), 700L);
-            }
+            actor.removeCallbacks(helpLook);
+            if (ok && !cant) actor.setMood(JoybotView.Mood.IDLE);
+            else nervous();
             refreshIdeas(false);
         });
     }
@@ -4402,7 +4438,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (!on) voice.hush();
             paint.run();
         });
-        bar.addView(speaker, bar.indexOfChild(settings), new LinearLayout.LayoutParams(dp(40), dp(40)));
+        // after the cog: the cog is on the far left, over Joybot (owner, 11-15 midday)
+        bar.addView(speaker, bar.indexOfChild(settings) + 1, new LinearLayout.LayoutParams(dp(40), dp(40)));
     }
 
     /**

@@ -121,6 +121,12 @@ public class RemoteStreamService extends Service {
         return START_STICKY;
     }
     
+    /** Android 15: this kind of service may run six hours a day; told to stop, it must, or the app is closed. */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        stopSelf();   // onDestroy stops the server
+    }
+
     @Override
     public void onDestroy() {
         FLog.i(TAG, "Service stopping");

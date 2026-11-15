@@ -348,7 +348,13 @@ public final class JoybotAgent {
                 return;
             }
             current = ask;
-            AIJobService.start(app, "Joybot: " + shortOf(ask.text));
+            try {
+                AIJobService.start(app, "Joybot: " + shortOf(ask.text));
+            } catch (RuntimeException refused) {
+                // Android may refuse the "Joybot is working" notice (app in the background, or the day's
+                // allowance used up). The request itself can still run; without this the app closed.
+                FLog.w(TAG, "job notice refused: " + refused);
+            }
             Finished f = new Finished(ask.projectId, ask.text);
             f.director = ask.director;
             Run run = new Run(app, ask, f);

@@ -1727,6 +1727,9 @@ public class SharedPreferencesManager {
      * @return The preset key, default is "default"
      */
     public String getNotificationPreset() {
+        // Play build: a recording never hides behind "System Update" / "Downloading" / a made-up title
+        // (Google Play's stalkerware rule; the same switch as the privacy black screen below).
+        if (BuildConfig.PLAY_BUILD) return NOTIFICATION_PRESET_DEFAULT;
         return sharedPreferences.getString(
             PREF_NOTIFICATION_PRESET,
             NOTIFICATION_PRESET_DEFAULT
@@ -1796,6 +1799,7 @@ public class SharedPreferencesManager {
      * @return true if button should be hidden, false otherwise
      */
     public boolean isNotificationStopButtonHidden() {
+        if (BuildConfig.PLAY_BUILD) return false;
         return sharedPreferences.getBoolean(
             PREF_HIDE_NOTIFICATION_STOP_BUTTON,
             false

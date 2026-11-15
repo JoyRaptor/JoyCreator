@@ -2,6 +2,7 @@ package com.fadcam.ui.settingshub;
 
 import android.content.Context;
 
+import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 
@@ -30,12 +31,19 @@ final class SettingsCatalog {
     static final class Row {
         final SettingsKey key;
         final String glyph;
+        /** A picture shown instead of the font glyph (white art, tinted like a glyph), or 0. */
+        @DrawableRes final int art;
         @StringRes final int title, summary, names;
         final Trail trail;
 
         Row(SettingsKey key, String glyph, int title, int summary, int names, Trail trail) {
+            this(key, glyph, 0, title, summary, names, trail);
+        }
+
+        Row(SettingsKey key, String glyph, @DrawableRes int art, int title, int summary, int names, Trail trail) {
             this.key = key;
             this.glyph = glyph;
+            this.art = art;
             this.title = title;
             this.summary = summary;
             this.names = names;
@@ -73,8 +81,9 @@ final class SettingsCatalog {
                             R.string.settingshub_editor_desc, R.string.settingshub_editor_names),
                     row(SettingsKey.VIDEO_PLAYER, "smart_display", R.string.settingshub_video_player,
                             R.string.settingshub_video_player_desc, R.string.settingshub_video_player_names),
-                    row(SettingsKey.AI_JOYBOT, "smart_toy", R.string.settingshub_ai_joybot,
-                            R.string.settingshub_ai_joybot_desc, R.string.settingshub_ai_joybot_names)),
+                    // Joybot himself, the flat line-art face, not a generic robot glyph (owner, 11-15).
+                    new Row(SettingsKey.AI_JOYBOT, "smart_toy", R.drawable.joybot_neutral, R.string.settingshub_ai_joybot,
+                            R.string.settingshub_ai_joybot_desc, R.string.settingshub_ai_joybot_names, Trail.OPEN)),
             new Section(R.string.settingshub_section_recording, R.string.settingshub_chip_recording, "videocam",
                     row(SettingsKey.CAMERA_VIDEO, "videocam", R.string.settingshub_camera_video,
                             R.string.settingshub_camera_video_desc, R.string.settingshub_camera_video_names),

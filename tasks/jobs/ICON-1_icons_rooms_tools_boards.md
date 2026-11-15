@@ -26,12 +26,22 @@ radial symmetry). Use them as direction and inspiration, not as files to ship.
 - **JoyBrush Tools → Rulers and guides** (its own section): grid, isometric grid, 1/2/3-point perspective, ruler,
   symmetry, radial symmetry.
 
+## Owner's additions (11-15, later)
+- **Settings hub: Joybot is Joybot.** The "Joybot" row showed a generic robot glyph (`smart_toy`). It now shows his
+  flat face (`drawable-xxxhdpi/joybot_neutral`, the white line art the lobby and chat use), in proportion and tinted
+  like the other row glyphs: `SettingsCatalog.Row.art` + `SettingsRowView.bindGlyph`. The Settings screen is the
+  shell-lobby lane's; it was told.
+- **The mascot everywhere, where it fits.** Joybot helps with the thing in the icon (holds the ruler, peeks from a
+  folder, cranks the film camera), drawn from his flat 2D face, with simple **clamp hands** (never the gloved
+  four-finger hands of the sprite sheets). On the options page this is direction **E "With Joybot"**: all 28 icons,
+  so the owner can take him everywhere, nowhere, or swap him in icon by icon.
+
 ## Done when
 - [x] A mix-and-match page at true size (phone dp, on the dark house background): every icon in 3 or 4 creative
       directions, per-icon swaps, and a "copy my picks" line. As before, the owner picks and his pick becomes the spec.
-      **Built 11-15:** [design/UI-Icons-options.html](../design/UI-Icons-options.html). 28 drawings in four directions
+      **Built 11-15:** [design/UI-Icons-options.html](../design/UI-Icons-options.html). 28 drawings in five directions
       (A Line, the TextLab pen; B Cut-out, solid with details punched through; C Two-weight, outline plus one solid
-      meaning piece; D Pixel, 16x16), each shown at 48 dp, 24 dp in a 40 dp button, and chosen. Things to make that are
+      meaning piece; D Pixel, 16x16; E With Joybot, his mini flat self helping, things in the Line pen), each shown at 48 dp, 24 dp in a 40 dp button, and chosen. Things to make that are
       the same idea as a room, board or guide share its drawing and its pick (titles = TextLab, music visuals = VisLab,
       character = Avatar Studio, hand animation / tile / sprite = their boards, the three perspectives = the guides).
       Picks, per-icon notes and the copy line live in the page; a "your picks in place" block shows the lobby rooms,

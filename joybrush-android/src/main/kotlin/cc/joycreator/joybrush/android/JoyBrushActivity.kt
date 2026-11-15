@@ -3090,6 +3090,7 @@ class JoyBrushActivity : Activity() {
         canvas.cancelInterruptedStroke()
         val attempt = ++recoveryVersion
         val loadVersion = drawingLoadVersion
+        android.util.Log.i("JoyBrushSave", "the graphics were lost: restoring the drawing from its last save (attempt $attempt)")
         recoveryTimeout?.let { ui.removeCallbacks(it) }
         recoveryTimeout = Runnable {
             if (!destroyed && attempt == recoveryVersion && recoveringDrawing) {
@@ -3118,6 +3119,7 @@ class JoyBrushActivity : Activity() {
                     uploadContents(contents) { loaded ->
                         if (attempt != recoveryVersion) return@uploadContents
                         finishGraphicsRecovery()
+                        android.util.Log.i("JoyBrushSave", "after lost graphics the drawing ${if (loaded) "is back" else "COULD NOT BE SHOWN"}; unsaved marks at the time: $unsaved")
                         if (loaded) toast(if (unsaved)
                             "Recovered your last saved drawing. Recent unsaved marks may be missing; undo history restarted."
                             else "Drawing restored; undo history restarted.")

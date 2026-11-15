@@ -34,14 +34,6 @@ public final class LobbyGuide {
                 + " and you can also just tell me what you'd like in your own words.");
     }
 
-    /** His very first words, the lobby's first run after the intro (the first walkthrough). */
-    @NonNull
-    public static String welcome(boolean online) {
-        return "Welcome to Joy Creator! I'm Joybot, your guide. Tell me what you'd like to make and I'll set it up"
-                + " in the right room for you, or I can show you around first. Tap a button to start: no typing needed."
-                + (online ? "" : " All of this works with no AI and no account.");
-    }
-
     /** The first buttons: Create something · Help · Show me around · What can I do. */
     @NonNull
     public static List<Idea> firstButtons() {

@@ -223,8 +223,8 @@ public final class HelpBook {
                             + " room wears that room's colours, so you can tell where “Take me there” goes before you tap it.",
                     null, null),
             new Topic("joybot_tour", "show me around|tour|guided tour|walk me through|first time",
-                    "Tap Joybot in the lobby, then Show me around: the lobby dims and I light up each part in turn and"
-                            + " say what it's for. Tap Next, or Skip any time.",
+                    "Tap Joybot in the lobby, then Show me around: I take you through the rooms one at a time and say"
+                            + " what each is for. Tap Next, Take me there to step inside, or Stop the tour.",
                     null, null),
 
             // ── Wing help (G3, 2026-10-15): every answer names a control confirmed in the code or strings ──

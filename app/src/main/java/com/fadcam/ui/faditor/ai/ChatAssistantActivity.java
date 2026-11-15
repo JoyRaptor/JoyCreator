@@ -89,8 +89,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
     public static final String EXTRA_PROJECT_ID = "chat_project_id";
     /** Where Joybot was opened from: an {@link IdeaEngine.Room} name ("LOBBY", "STUDIO", …). */
     public static final String EXTRA_ROOM = "chat_room";
-    /** BOT-7: the lobby's first run after the intro: Joybot's welcome is the first walkthrough. */
-    public static final String EXTRA_FIRST_RUN = "chat_first_run";
     /** Open with the AI settings dialog showing (the Settings hub's "AI and Joybot" row). */
     public static final String EXTRA_OPEN_SETTINGS = "chat_open_settings";
     /** Id of what was selected in the editor (a layer item, else the spine clip), or absent. */
@@ -325,6 +323,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         messagesContainer = findViewById(R.id.chat_messages);
         inputField = findViewById(R.id.chat_input);
         sendButton = findViewById(R.id.chat_send);
+        // BOT-7 (split agreed with the sprites lane 11-15): the send arrow wears Joybot's colours in
+        // the lobby and the room's inside a room.
+        if (sendButton instanceof android.widget.ImageView) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.send((android.widget.ImageView) sendButton,
+                    com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, com.fadcam.ui.faditor.ai.joybot.RoomColours.home(room)));
+        }
         scrollContainer = findViewById(R.id.chat_scroll);
         tickerContainer = findViewById(R.id.chat_ticker);
         rebuildTicker();
@@ -874,9 +878,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         String did = com.fadcam.ui.faditor.ai.joybot.TipBook.said(tip);
         if (room == IdeaEngine.Room.LOBBY) {
             // BOT-7: in the lobby he is your guide: make, find, show around.
-            addBotMessage(getIntent().getBooleanExtra(EXTRA_FIRST_RUN, false)
-                    ? com.fadcam.ui.faditor.ai.joybot.LobbyGuide.welcome(AiService.ready(this, apiKey))
-                    : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.greeting(did, AiService.ready(this, apiKey)));
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.greeting(did, AiService.ready(this, apiKey)));
         } else if (!AiService.ready(this, apiKey)) {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
             addBotMessage(com.fadcam.ui.faditor.ai.joybot.Greeting.offline(did));
@@ -3415,13 +3417,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void startTour() {
         createFlow = null;
-        if (room == IdeaEngine.Room.LOBBY) {
-            // The lobby is right behind the chat: light its controls one at a time (Spotlight).
-            addBotMessage("Let's look around the lobby.");
-            com.fadcam.ui.tour.LobbyTour.request();
-            messagesContainer.postDelayed(() -> { if (!gone()) finish(); }, 600L);
-            return;
-        }
         com.fadcam.launch.LaunchGate.hiddenKeys(this);   // make sure the launch list has been read
         tourStops = com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(com.fadcam.launch.LaunchList::hiddenRoute);
         tourAt = 0;

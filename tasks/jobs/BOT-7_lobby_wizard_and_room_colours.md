@@ -61,8 +61,9 @@ a connected AI only makes it more flexible.
       sprites lane's (`JoybotDirector.trickFor` in sendMessage). Owed here: a `do_trick` tool for "anything close" with an AI,
       once `JoybotDirector.trick` is on joy-creator.
 - [x] **Jokes, offline:** 66 (`joybot/JokeBook`), none back until most have had a turn. The owner judges the wit.
-- [x] **First run v1:** the first time the lobby shows after the intro, Joybot opens with a welcome and his buttons. Tour
-      engine generic (`ui/tour/Spotlight`), only the lobby scripted (`LobbyTour`).
+- **First run v1 and the spotlight tour engine: the owner's own job** (owner 11-15, via the orchestrator: he makes the
+  intro, welcome and getting-started himself with his own footage). Built briefly 11-15 and removed before landing. The
+  create tree is offered whenever Joybot opens in the lobby, not as a first-run step.
 
 ## Where it stands (11-15, BOT-7 lane, branch `claude/joybot-brain-20261115-43c4fd`)
 Built, all offline; tests: IdeaEngineTest 1,189 pass (new: honesty in every room, shapes, the tree, lobby guide, jokes,
@@ -74,7 +75,7 @@ colours); joybot bench 65/65 incl. `host-lobby-transition` (asks, changes nothin
 - Lobby scope: the chat opened from the lobby treats its project as "last project" only; `CarriedAsk` offers the request
   once in the project.
 - Buttons + tree: `LobbyGuide`, `CreateTree` (+ `CreateBubbles`, `CreateUsage`, `CreateLanding` → `JoyBrushLaunch`).
-- Colours: `RoomColours` (pure) + `RoomTint` (views). Split agreed with the sprites lane: the send arrow is theirs to wire
-  (`RoomTint.send(chat_send, RoomTint.forRoom(this, RoomColours.home(room)))`). Joybot's own = his orb pair: owner to OK.
+- Colours: `RoomColours` (pure) + `RoomTint` (views). Split agreed with the sprites lane: they own the drawables and layout;
+  the send arrow is tinted from initViews (`RoomTint.send`), at their request. Joybot's own = his orb pair: owner to OK.
 - Not done / not checked: on a device (see below); icons are placeholders until ICON-1; the AI-connected check (no PC key).
 

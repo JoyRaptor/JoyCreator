@@ -680,7 +680,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     /** Bench only: paint store tiles read back and uploaded with the reused buffers ([GlPaintEngine.reuseMediaStaging]) or with new ones a tile. */
-    fun benchReuseMediaStaging(on: Boolean) { onGl(allowLost = true) { engine.reuseMediaStaging = on } }
+    fun benchReuseMediaStaging(on: Boolean) { onGl(allowLost = true) { engine.reuseMediaStaging = on; engine.readMediaAsHalves = on } }
 
     /**
      * How much pencil, watercolour and oil state (bytes of store tiles, uncompressed) a save keeps as workable paint; past

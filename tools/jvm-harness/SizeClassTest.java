@@ -52,6 +52,16 @@ public class SizeClassTest {
         int w = 2960, base = 24, max = 1280, add = SizeClass.sideInset(w, base, base, max);
         eq("content width is exactly the column", max, w - 2 * (base + add));
 
+        // Intro page vs the page-dot bar drawn over its bottom (gap = covered height + margin), in dp.
+        eq("tall phone page already clear: padding unchanged", 32, SizeClass.clearBottomPadding(32, 560, 32, 1080, 72));
+        eq("no bar: unchanged", 32, SizeClass.clearBottomPadding(32, 640, 32, 600, 0));
+        int pt = 16, c = 560, vh = 690, g = 72, pb = SizeClass.clearBottomPadding(pt, c, 16, vh, g);
+        int h = pt + c + pb;
+        truth("Fold sideways: fits, centred, last line above the bar", h <= vh && (vh - h) / 2 + pt + c <= vh - g);
+        int pb2 = SizeClass.clearBottomPadding(16, 700, 16, 690, 72);
+        truth("too tall to fit: scrolling to the end clears the bar", pb2 >= 72);
+        eq("never shrinks the drawn padding", 48, SizeClass.clearBottomPadding(16, 700, 48, 690, 40));
+
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
     }

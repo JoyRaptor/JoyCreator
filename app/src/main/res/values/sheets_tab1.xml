@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TAB-1 (2026-11-14): bottom sheets open fully on a landscape window.
+     Material's automatic first height is (window height - window width x 9/16); on the tablet
+     sideways (1480 x 880 dp) that left about 60 dp, so sheets opened as a sliver to drag up.
+     values-land/sheets_tab1.xml gives these two bases a first height larger than any screen, so a
+     sheet opens straight to its own content's height (it still drags down to close). Upright
+     windows keep Material's own behaviour, unchanged. The app's sheet styles sit on these bases:
+     CustomBottomSheetStyle (Material Components themes) and JoySheet.M3 (Material 3 themes). -->
+<resources>
+    <style name="Base.JoySheet.MC" parent="Widget.MaterialComponents.BottomSheet.Modal" />
+    <style name="Base.JoySheet.M3" parent="Widget.Material3.BottomSheet.Modal" />
+    <style name="JoySheet.M3" parent="Base.JoySheet.M3" />
+    <style name="JoySheetDialog.M3" parent="ThemeOverlay.Material3.BottomSheetDialog">
+        <item name="bottomSheetStyle">@style/JoySheet.M3</item>
+    </style>
+    <!-- Larger than any screen: Material caps it at the sheet's own height. -->
+    <dimen name="sheet_first_height_full">4000dp</dimen>
+</resources>

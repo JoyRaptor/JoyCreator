@@ -1,5 +1,5 @@
 <resources>
-    <style name="CustomBottomSheetStyle" parent="Widget.MaterialComponents.BottomSheet.Modal">
+    <style name="CustomBottomSheetStyle" parent="Base.JoySheet.MC">
         <item name="background">@drawable/picker_bottom_sheet_gradient_bg_dynamic</item>
         <item name="backgroundTint">@null</item>
         <!-- TAB-1: on a wide window the sheet stops at 640dp and sits centred, instead of a
@@ -190,6 +190,7 @@
          because the theme said so. Changing this one line changes all of them.
          ═══════════════════════════════════════════════════════════════════════ -->
     <style name="Theme.FadCam.FaditorEditor" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="bottomSheetDialogTheme">@style/JoySheetDialog.M3</item>
         <item name="colorSurface">@color/s_panel</item>
         <item name="colorSurfaceVariant">@color/s_raised</item>
         <item name="colorOnSurface">@color/s_ink</item>

@@ -1254,3 +1254,5 @@ A `timeout` around a script that waits for `jb-gradle.lock`, takes it and runs G
 
 ## 2026-11-14 - A phone command chain must stop when the claim is refused
 One shell line ran `phone.ps1 claim`, then Home, `adb install` and a relaunch, without checking the claim. The claim was refused (another session held the Note 9 for its before/after shots), and the install still went over its build. Rule: claim in its own step; go on only if the output says "claimed", e.g. `phone.ps1 claim ... | grep -q claimed || exit 1` at the start of any chain that touches the phone. Raw adb never replaces the claim.
+
+Repeated 11-14 23:01 by the brush lane (a PowerShell line pressed Home after a refused claim; the press landed between another lane's taps and opened the phone's email app). Also check the lock's first line is your name right before EACH input, launch or install, not only at a script's start: a helper like `mine() { [ "$(head -1 $LOCK)" = "<you>" ] || exit 3; }` in front of every `adb shell input`.

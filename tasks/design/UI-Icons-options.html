@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Joy Creator Icons</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="ICON-1: every room, every thing you can make, and JoyBrush's boards and guides, each drawn in four directions; pick a whole direction, swap single icons, copy your picks.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* True size: 1 CSS px = 1 dp. The app's own dark ground and zinc greys; cyan only for "chosen". */
+:root{
+  color-scheme:dark;
+  --ground:#000;--surface:#0d0d10;--panel:#111114;--raised:#1c1c22;--pressed:#26262e;--line:#2c2c35;
+  --ink:#e4e4e7;--dim:#a1a1aa;--faint:#71717a;--off:#4b4b55;
+  --sel:#22d3ee;--sel28:rgba(34,211,238,.28);
+  --f-disp:"Archivo","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  --cut:var(--surface);
+}
+*{box-sizing:border-box}
+html,body{background:var(--ground)}
+body{margin:0;color:var(--ink);font:14px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sel);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 120px}
+h1,h2,h3{font-family:var(--f-disp);margin:0;text-wrap:balance}
+p{margin:0}
+.eyebrow{font:500 10px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+header{padding:40px 0 24px}
+header h1{font-size:34px;font-weight:900;letter-spacing:-.01em;margin:8px 0 10px}
+.lede{max-width:70ch;color:var(--dim);font-size:15px}
+.lede b{color:var(--ink);font-weight:600}
+section{margin-top:44px}
+section>h2{font-size:22px;font-weight:800;margin-bottom:4px}
+section>.sub{color:var(--dim);max-width:76ch;margin-bottom:16px}
+
+/* ---- the glyph itself ---- */
+svg.ic{display:block;overflow:visible}
+.ln{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.so{fill:currentColor;stroke:none}
+.ic .f{fill:currentColor;stroke:none}
+.ic .s{fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.ic .t{stroke-width:1.15}
+.ic .r{stroke-width:1.4}
+.ic .w{stroke-width:2.2}
+.ic .d{stroke-dasharray:1.6 2.2}
+.ic .c{fill:none;stroke:var(--cut);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.ic .cw{stroke-width:1.9}
+.ic .cf{fill:var(--cut);stroke:none}
+.ic .co{fill:var(--cut);stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.ic .gap{fill:currentColor;stroke:var(--cut);stroke-width:1.6;stroke-linejoin:round}
+
+/* ---- directions ---- */
+.dirs{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.dir{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;--cut:var(--panel);text-align:left}
+.dir.picked{border-color:var(--sel);box-shadow:0 0 0 1px var(--sel)}
+.dir h3{font-size:18px;font-weight:800;display:flex;align-items:baseline;gap:8px}
+.dir h3 .k{font:600 11px/1 var(--f-mono);color:var(--faint)}
+.dir p{color:var(--dim);font-size:13px}
+.strip{display:grid;grid-template-columns:repeat(auto-fill,24px);gap:10px 10px;color:var(--ink);padding:4px 0}
+.dir .use{align-self:flex-start;font:600 12px/1 var(--f-body);padding:9px 12px;border-radius:999px;background:var(--raised);color:var(--ink)}
+.dir.picked .use{background:var(--sel);color:#000}
+
+/* ---- per-icon rows ---- */
+.row{display:grid;grid-template-columns:170px 1fr;gap:12px;padding:14px 0;border-top:1px solid var(--line)}
+.row .name{display:flex;flex-direction:column;gap:3px}
+.row .name b{font:700 15px/1.25 var(--f-body)}
+.row .name span{color:var(--faint);font-size:12px;line-height:1.4}
+.row .name .file{font:500 10.5px/1.3 var(--f-mono);color:var(--off)}
+.opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.opt{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 8px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;--cut:var(--surface);color:var(--ink);min-width:0}
+.opt:hover{border-color:#3a3a45}
+.opt.picked{border-color:var(--sel);box-shadow:0 0 0 1px var(--sel)}
+.opt .tag{position:absolute;top:6px;left:8px;font:600 10px/1 var(--f-mono);color:var(--faint)}
+.opt.picked .tag{color:var(--sel)}
+.opt .sizes{display:flex;align-items:center;gap:10px}
+.btn{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;background:var(--raised);--cut:var(--raised);color:var(--ink);flex:none}
+.btn.on{background:var(--sel);--cut:var(--sel);color:#000}
+.opt .idea{font-size:11.5px;line-height:1.35;color:var(--dim);text-align:center;min-height:2.7em}
+.note{grid-column:2;display:flex;gap:8px;align-items:center}
+.note input{flex:1;min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:8px;color:var(--ink);font:13px var(--f-body);padding:7px 10px}
+.note input::placeholder{color:var(--off)}
+.same{grid-column:2;color:var(--dim);font-size:13px;display:flex;align-items:center;gap:12px;background:var(--surface);border:1px dashed var(--line);border-radius:12px;padding:10px 12px;--cut:var(--surface)}
+.same a{color:var(--sel);text-decoration:none}
+
+/* ---- in place ---- */
+.places{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px;align-items:start}
+.phone{width:360px;max-width:100%;background:#050507;border:1px solid var(--line);border-radius:22px;padding:14px 12px;--cut:#050507}
+.phone .ttl{font:600 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--faint);margin:4px 4px 10px}
+.drawer{background:rgba(17,17,20,.92);border-radius:16px;padding:10px;--cut:var(--raised)}
+.drawer .hd{font:600 12px/1 var(--f-body);color:var(--dim);margin:6px 4px 8px}
+.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:8px 4px;margin-bottom:6px}
+.tool{display:flex;flex-direction:column;align-items:center;gap:5px;font-size:10.5px;line-height:1.2;color:var(--dim);text-align:center}
+.rooms{display:grid;grid-template-columns:repeat(5,1fr);gap:12px 4px}
+.list{display:flex;flex-direction:column;gap:6px}
+.li{display:flex;align-items:center;gap:12px;padding:6px 8px;border-radius:12px;background:var(--panel);--cut:var(--raised);font-size:13px}
+
+/* ---- picks bar ---- */
+.bar{position:fixed;left:0;right:0;bottom:0;background:rgba(10,10,13,.94);backdrop-filter:blur(10px);border-top:1px solid var(--line);z-index:5}
+.bar .in{max-width:1180px;margin:0 auto;padding:10px 16px;display:flex;gap:12px;align-items:center}
+.bar code{flex:1;min-width:0;font:12px/1.4 var(--f-mono);color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar button{flex:none;font:700 13px/1 var(--f-body);padding:11px 16px;border-radius:999px;background:var(--sel);color:#000}
+.bar .reset{background:var(--raised);color:var(--ink)}
+.legend{display:flex;flex-wrap:wrap;gap:16px;color:var(--faint);font-size:12px;margin-top:14px}
+.legend span{display:flex;align-items:center;gap:6px}
+
+@media (max-width:760px){
+  .row{grid-template-columns:1fr}
+  .note,.same{grid-column:1}
+  .opts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="eyebrow">ICON-1 · Joy Creator · options for the owner · 2026-11-15</div>
+  <h1>Icons for every room, every thing you make, and JoyBrush's boards and guides</h1>
+  <p class="lede">Four directions, each drawn as one family so you can <b>take a whole direction</b> and stop there.
+  Below that, every icon on its own row: <b>tap any drawing to swap just that one</b>, and type a note if you like an idea
+  but want it changed. Each option shows the icon big (48&nbsp;dp), at real button size (24&nbsp;dp in a 40&nbsp;dp button), and
+  <b>chosen</b> (solid cyan, icon punched out). At the bottom: your picks in place, and a line to copy back to me.</p>
+  <div class="legend">
+    <span>Sizes are true: 1 pixel here = 1 dp on the phone.</span>
+    <span>Things to make that are the same idea as a room, board or guide share one drawing (one pick covers both).</span>
+  </div>
+</header>
+
+<section id="dirs">
+  <div class="eyebrow">Step 1</div>
+  <h2>Pick a direction for the whole set</h2>
+  <p class="sub">Each card shows all 28 drawings at 24&nbsp;dp in that direction. The ideas differ too, not only the
+  style: a direction may use a clapperboard where another uses a timeline.</p>
+  <div class="dirs" id="dirGrid"></div>
+</section>
+
+<div id="groups"></div>
+
+<section id="inplace">
+  <div class="eyebrow">Step 3</div>
+  <h2>Your picks in place</h2>
+  <p class="sub">The same picks in the screens that will use them, at true size. Changes above show here at once.</p>
+  <div class="places">
+    <div class="phone"><div class="ttl">Lobby rooms</div><div class="rooms" id="pRooms"></div></div>
+    <div class="phone"><div class="ttl">JoyBrush · Tools</div><div class="drawer" id="pTools"></div></div>
+    <div class="phone"><div class="ttl">Joybot · make something</div><div class="list" id="pMake"></div></div>
+  </div>
+</section>
+</div>
+
+<div class="bar"><div class="in">
+  <code id="pickLine"></code>
+  <button class="reset" id="reset" type="button" title="Clear every pick and note">Start over</button>
+  <button id="copy" type="button" title="Copy your picks so you can paste them back">Copy my picks</button>
+</div></div>
+
+<script type="application/json" id="icons">
+{
+"directions":[
+ {"id":"A","name":"Line","blurb":"Thin even outline with round ends, the same pen as TextLab's 46 tab icons, so the whole app reads as one family. Lightest and calmest."},
+ {"id":"B","name":"Cut-out","blurb":"Solid shapes with the details punched through, like a stencil. The boldest at 24 dp, and closest to the weight of your ChatGPT sheets, but flat."},
+ {"id":"C","name":"Two-weight","blurb":"Outline, plus one solid piece that carries the meaning: the brush tip, the eye, the playhead, the half you draw before the mirror copies it."},
+ {"id":"D","name":"Pixel","blurb":"Drawn on a 16 by 16 grid, square pixels, game-studio feel. On the Note 9 each pixel is five screen dots, so it stays crisp and hand-made."}
+],
+"groups":[
+{"id":"rooms","name":"Rooms","sub":"The lobby doors and anywhere a room is named.","items":[
+ {"id":"room_lobby","name":"Lobby","what":"the front hall, home of the studio",
+  "A":"<rect x='3' y='3.5' width='18' height='6.5' rx='1.6'/><circle class='f' cx='7.5' cy='6.75' r='1'/><circle class='f' cx='12' cy='6.75' r='1'/><circle class='f' cx='16.5' cy='6.75' r='1'/><path d='M5 10v11M19 10v11M10 21v-5.5h4V21M2.5 21h19'/>",
+  "Ai":"a marquee sign with bulbs over the door",
+  "B":"<path d='M5 21V11a7 7 0 0 1 14 0v10Z'/><path class='cf' d='M12 6.3Q12.55 9.05 15.3 9.6Q12.55 10.15 12 12.9Q11.45 10.15 8.7 9.6Q11.45 9.05 12 6.3Z'/><circle class='cf' cx='15.4' cy='16' r='1.25'/><rect x='2.5' y='20' width='19' height='2' rx='1'/>",
+  "Bi":"a tall arched front door with a star in its window",
+  "C":"<path d='M3 11.2 12 3.6l9 7.6'/><path d='M5.2 9.6v11h13.6v-11'/><rect class='f' x='9.6' y='13.6' width='4.8' height='7' rx='1'/>",
+  "Ci":"home: a house whose door is the solid part",
+  "D":["................",".##############.",".#............#.",".#.##.####.##.#.",".#............#.",".##############.","....#......#....","..############..","..#..........#..","..#..######..#..","..#..#....#..#..","..#..#....#..#..","..#..#..#.#..#..","..#..#....#..#..","..#..#....#..#..","################"],
+  "Di":"a pixel marquee over the theatre door"},
+ {"id":"room_joybrush","name":"JoyBrush","what":"the painting and animation room",
+  "A":"<path d='M20.6 3.4 13.4 10.6'/><path d='M11.7 10.3l2 2-1.3 1.3-2-2Z'/><path d='M10.4 11.6c-2.6.4-3.3 2.4-3.6 4-.3 1.4-1.6 1.9-3.3 1.9 1.9 2.2 5.6 2.4 7.4.2 1-1.3 1.4-2.8 1.5-4.1'/><path d='M14 21.2c1.6-.9 3.3-.9 4.9 0 .9.5 1.8.5 2.6 0'/>",
+  "Ai":"a round brush, its stroke trailing off",
+  "B":"<path d='M12 3C6.5 3 2.5 6.8 2.5 11.5S6.3 21 10.5 21c1.6 0 2.2-1 2.2-2.2 0-1.4-1.3-1.8-1.3-3.2 0-1.3 1-2.1 2.4-2.1h3.2c2.8 0 4.5-2 4.5-4.8C21.5 5.5 17.3 3 12 3Z'/><circle class='cf' cx='7.4' cy='9.6' r='1.55'/><circle class='cf' cx='11.6' cy='6.9' r='1.55'/><circle class='cf' cx='16.1' cy='8' r='1.55'/><circle class='cf' cx='6.9' cy='14.4' r='1.55'/>",
+  "Bi":"a palette, its paint wells punched out",
+  "C":"<path d='M19.8 2.8a1.6 1.6 0 0 1 1.4 1.4L15 12.5 11.5 9Z'/><path class='f' d='M10.5 10l3.5 3.5c-.4 3.6-3 6.6-8.5 7.5-1 .2-2.3-.2-2.5-.9 2.4-1.2 2.6-3.2 3-5.6.4-2.3 2.2-4.2 4.5-4.5Z'/>",
+  "Ci":"a brush whose loaded tip is the solid part",
+  "D":["..............##",".............###","............###.","...........###..","..........###...","........#####...",".......#####....","......#####.....",".....####.......","....#####.......","...#####........","...####.........","..####..........","..###...........",".##.............","#..............."],
+  "Di":"a chunky pixel brush"},
+ {"id":"room_studio","name":"Studio","what":"the video editing room",
+  "A":"<rect x='3' y='9.4' width='18' height='11' rx='1.6'/><path d='M2.9 8.9 2.4 6.1 19.5 3l.5 2.8Z'/><path d='M7 5.5l2 2.8M12 4.6l2 2.8M3 13h18'/>",
+  "Ai":"a clapperboard",
+  "B":"<rect x='2' y='4.5' width='20' height='15' rx='2.2'/><rect class='cf' x='4.3' y='6.2' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='8.6' y='6.2' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='13.1' y='6.2' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='17.4' y='6.2' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='4.3' y='16.1' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='8.6' y='16.1' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='13.1' y='16.1' width='2.2' height='1.7' rx='.4'/><rect class='cf' x='17.4' y='16.1' width='2.2' height='1.7' rx='.4'/><path class='cf' d='M10 9.6v4.8l4.2-2.4Z'/>",
+  "Bi":"a strip of film with a play button cut through",
+  "C":"<rect x='3' y='5.2' width='10' height='3.8' rx='1.1'/><rect x='7' y='10.4' width='13.5' height='3.8' rx='1.1'/><rect x='3' y='15.6' width='8.5' height='3.8' rx='1.1'/><path class='f' d='M14.3 2.2h4l-2 2.6Z'/><path class='w' d='M16.3 4.4v17'/>",
+  "Ci":"clips on a timeline, the playhead solid",
+  "D":["................",".##############.",".#..##..##..##.#",".##############.",".##.............",".##############.",".#..##..##..##.#",".##############.",".#............#.",".#............#.",".#............#.",".#............#.",".#............#.",".#............#.",".##############.","................"],
+  "Di":"a pixel clapperboard"},
+ {"id":"room_vislab","name":"VisLab","what":"music visuals; also 'make music visuals'",
+  "A":"<path d='M4.5 17c1.8-2.6 9.2-2.6 11 0-1.8 2.6-9.2 2.6-11 0Z'/><circle class='f' cx='10' cy='17' r='1.6'/><path d='M15.5 16.6V3.5c1 2.5 4.5 3 4.5 6.5'/>",
+  "Ai":"a music note whose head is an eye",
+  "B":"<ellipse cx='6.3' cy='17.6' rx='3.8' ry='2.9'/><ellipse cx='16.8' cy='15.6' rx='3.8' ry='2.9'/><rect x='8.5' y='5.4' width='1.8' height='12'/><rect x='19' y='3.4' width='1.8' height='12'/><path d='M8.5 5.4 20.8 3.2v3.1L8.5 8.5Z'/><ellipse class='cf' cx='6.1' cy='17.6' rx='2.5' ry='1.75'/><ellipse class='cf' cx='16.6' cy='15.6' rx='2.5' ry='1.75'/><circle cx='6.5' cy='17.6' r='1.05'/><circle cx='17' cy='15.6' r='1.05'/>",
+  "Bi":"a double note with two eyes for heads",
+  "C":"<path d='M2.5 12c2.6-4.4 6-6.5 9.5-6.5s6.9 2.1 9.5 6.5c-2.6 4.4-6 6.5-9.5 6.5S5.1 16.4 2.5 12Z'/><circle class='f' cx='12' cy='12' r='4.3'/><path class='c' d='M10.2 10.6v2.8M12 9.4v5.2M13.8 10.9v2.2'/>",
+  "Ci":"an eye whose iris is a sound meter: seeing music",
+  "D":["...........####.","...........#...#","...........#...#","...........#..#.","...........#.#..","...........#....","...........#....","...........#....","...........#....","....########....","..##...##...##..",".#....####....#.",".#....####....#.","..##...##...##..","....########....","................"],
+  "Di":"a pixel note with an eye"},
+ {"id":"room_textlab","name":"TextLab","what":"poster titles; also 'make titles'",
+  "A":"<path d='M4.5 20L10.5 5L16.5 20M6.9 15H14.1'/><path class='f' d='M18.5 2.3Q19.27 4.73 21.7 5.5Q19.27 6.27 18.5 8.7Q17.73 6.27 15.3 5.5Q17.73 4.73 18.5 2.3Z'/>",
+  "Ai":"the A with a sparkle TextLab already uses (ic_tl_look)",
+  "B":"<path d='M8.6 4h4.2l6.6 16.5h-4.3l-1.4-3.7H8.2l-1.4 3.7H2.5Z'/><path class='cf' d='M9.4 13.6h3.9l-1.95-5.3Z'/><path d='M19.2 2.2Q19.95 4.65 22.4 5.4Q19.95 6.15 19.2 8.6Q18.45 6.15 16 5.4Q18.45 4.65 19.2 2.2Z'/>",
+  "Bi":"a heavy poster A with a sparkle",
+  "C":"<path class='f' d='M5.5 6.5h14v4h-5v11.5h-4V10.5h-5Z'/><path class='co' d='M3 4h14v4h-5v11.5H8V8H3Z'/>",
+  "Ci":"a block T with its solid shadow: lettering with depth",
+  "D":["............#...","...........###..","............#...","......##........","......##........",".....####.......",".....#..#.......","....##..##......","....#....#......","...##....##.....","...########.....","..##......##....","..#........#....",".##........##...",".#..........#...","................"],
+  "Di":"a pixel A with a twinkle"},
+ {"id":"room_spritelab","name":"SpriteLab","what":"sprite sheets for games",
+  "A":"<path d='M3 7V3h4M17 3h4v4M21 17v4h-4M7 21H3v-4'/><path d='M7.5 17.2c0-3.6 2-6.2 4.5-6.2s4.5 2.6 4.5 6.2Z'/><path d='M9.4 11.7 8.6 8.6l2.3 1.6M14.6 11.7l.8-3.1-2.3 1.6'/><circle class='f' cx='10.5' cy='14.4' r='.9'/><circle class='f' cx='13.5' cy='14.4' r='.9'/>",
+  "Ai":"a little critter inside its sprite bounds",
+  "B":"<path d='M3.5 3h3.5v2h2v2h6V5h2V3h3.5v13.5h-2v2.5h-2.5v2H8v-2H5.5v-2.5h-2Z'/><rect class='cf' x='7' y='10' width='2.6' height='3.2'/><rect class='cf' x='14.4' y='10' width='2.6' height='3.2'/><rect class='cf' x='10.8' y='15' width='2.4' height='1.6'/>",
+  "Bi":"a blocky game cat, face punched out",
+  "C":"<rect x='2.5' y='6' width='19' height='12' rx='1.6'/><path d='M8.8 6v12M15.2 6v12'/><circle class='r' cx='5.65' cy='14.2' r='1.5'/><circle class='r' cx='12' cy='10.4' r='1.5'/><path class='f' d='M15.2 6h4.7a1.6 1.6 0 0 1 1.6 1.6v8.8a1.6 1.6 0 0 1-1.6 1.6h-4.7Z'/><circle class='cf' cx='18.35' cy='14.2' r='1.6'/>",
+  "Ci":"a strip of frames, the newest one solid",
+  "D":["................","...##......##...","...###....###...","...##########...","..############..","..###..##..###..","..###..##..###..","..############..","..#####..#####..","..############..","...##########...","...##########...","...###....###...","...###....###...","................","................"],
+  "Di":"a pixel cat-bot"},
+ {"id":"room_avatar","name":"Avatar Studio","what":"the character animator; also 'make a character'",
+  "A":"<circle class='t' cx='12' cy='12' r='9.3'/><rect class='t' x='4.6' y='4.6' width='14.8' height='14.8'/><circle class='f' cx='12' cy='6.9' r='1.6'/><path d='M12 9v5.6M5 10.6h14M12 14.6l-3.4 5.2M12 14.6l3.4 5.2'/>",
+  "Ai":"a Vitruvian figure: arms out, in a circle and a square",
+  "B":"<circle cx='12' cy='12' r='10'/><circle class='cf' cx='12' cy='6.6' r='1.9'/><path class='c cw' d='M5.4 10.6h13.2M12 9.4v5.4M12 14.8l-3.5 4.8M12 14.8l3.5 4.8'/>",
+  "Bi":"a disc with the figure cut out of it",
+  "C":"<circle class='t' cx='12' cy='12' r='9.3'/><circle class='f' cx='12' cy='6.8' r='2.1'/><path class='w' d='M12 9.3v5.5M4.8 11h14.4'/><path class='t' d='M12 10.4 6 5.6M12 10.4l6-4.8'/><path d='M12 14.8l-3.3 5.4M12 14.8l3.3 5.4'/>",
+  "Ci":"the figure with a second, raised pose ghosted: a pose being animated",
+  "D":[".....######.....","...##......##...","..#....##....#..",".#.....##.....#.",".#............#.","#.############.#","#......##......#","#......##......#","#......##......#","#......##......#",".#....#..#....#.",".#...#....#...#.","..#.#......#.#..","...##......##...",".....######.....","................"],
+  "Di":"a pixel figure in its circle"},
+ {"id":"room_capture","name":"Capture","what":"recording camera and screen",
+  "A":"<path d='M3 7.5V3.5h4M17 3.5h4v4M21 16.5v4h-4M7 20.5H3v-4'/><circle cx='12' cy='12' r='4.4'/><circle class='f' cx='12' cy='12' r='2.2'/>",
+  "Ai":"a viewfinder with the record dot",
+  "B":"<rect x='2' y='6.5' width='14' height='11' rx='2.5'/><path d='M16.8 10.4 22 7.6v8.8l-5.2-2.8Z'/><circle class='cf' cx='9' cy='12' r='3'/><circle cx='9' cy='12' r='1.5'/>",
+  "Bi":"a solid camcorder, lens punched through",
+  "C":"<rect x='6' y='2.5' width='12' height='19' rx='2.6'/><path d='M10.5 18.6h3'/><circle class='f' cx='12' cy='10.8' r='3.3'/>",
+  "Ci":"a phone with a solid record dot: camera and screen",
+  "D":["................","................",".###........###.",".#............#.",".#....####....#.",".....######.....","....########....","....########....","....########....","....########....",".....######.....",".#....####....#.",".#............#.",".###........###.","................","................"],
+  "Di":"a pixel record dot in its frame"},
+ {"id":"room_library","name":"Library","what":"every file you made",
+  "A":"<rect x='3' y='4' width='4.2' height='16' rx='1'/><rect x='8.6' y='6.4' width='4.2' height='13.6' rx='1'/><path d='M14.3 8.4 18.3 7.3l3.3 12.4-4 1.1Z'/><path d='M2.5 21.4h19M4.9 7.6v2.4M10.7 9.6v2'/>",
+  "Ai":"books on a shelf, one leaning",
+  "B":"<rect x='3' y='3' width='18' height='8.2' rx='2'/><rect x='3' y='12.8' width='18' height='8.2' rx='2'/><path class='c cw' d='M9.6 7.1h4.8M9.6 16.9h4.8'/>",
+  "Bi":"a two-drawer cabinet, handles cut out",
+  "C":"<path d='M12 6.5C9.8 4.9 6.5 4.5 3 5v13.5c3.5-.5 6.8 0 9 1.5 2.2-1.5 5.5-2 9-1.5V5c-3.5-.5-6.8-.1-9 1.5ZM12 6.5V20'/><path class='f' d='M15.3 4.4v6.4l1.8-1.4 1.8 1.4V4.1Z'/>",
+  "Ci":"an open book with a solid ribbon",
+  "D":["................",".###............",".#.#.....###....",".#.#.....#.#....",".#.#.###.#.#....",".###.#.#.#.#.###",".#.#.#.#.###.#.#",".#.#.###.#.#.#.#",".#.#.#.#.#.#.###",".#.#.#.#.#.#.#.#",".#.#.#.#.#.#.#.#",".#.#.#.#.#.#.#.#",".###.###.###.###","################","................","................"],
+  "Di":"a pixel bookshelf"},
+ {"id":"room_joybot","name":"Joybot","what":"the helper (his own sprite stays his face; this is the button)",
+  "A":"<rect x='4' y='7.5' width='16' height='12' rx='5'/><path d='M12 7.5V4.6'/><circle class='f' cx='12' cy='3.6' r='1.2'/><circle class='f' cx='9' cy='13' r='1.35'/><circle class='f' cx='15' cy='13' r='1.35'/><path d='M10.4 16.3h3.2'/>",
+  "Ai":"a round robot head with an antenna",
+  "B":"<path d='M4.5 3.5h15a2.5 2.5 0 0 1 2.5 2.5v9.5a2.5 2.5 0 0 1-2.5 2.5h-7.3L7 22v-4H4.5A2.5 2.5 0 0 1 2 15.5V6a2.5 2.5 0 0 1 2.5-2.5Z'/><rect class='cf' x='7.6' y='7.8' width='2.7' height='4.4' rx='1.35'/><rect class='cf' x='13.7' y='7.8' width='2.7' height='4.4' rx='1.35'/>",
+  "Bi":"a speech bubble with Joybot's eyes cut in",
+  "C":"<circle cx='12' cy='12.5' r='8.6'/><rect class='f' x='5.6' y='9.4' width='12.8' height='6' rx='3'/><circle class='cf' cx='9.5' cy='12.4' r='1.2'/><circle class='cf' cx='14.5' cy='12.4' r='1.2'/><path d='M12 3.9V2'/>",
+  "Ci":"an orb with a solid visor, two eyes glowing",
+  "D":[".......##.......",".......##.......",".......#........","...##########...","..#..........#..",".#............#.",".#..##....##..#.","##..##....##..##",".#............#.",".#...######...#.",".#............#.","..#..........#..","...##########...","................","................","................"],
+  "Di":"a pixel robot head"}
+]},
+{"id":"make","name":"Things to make","sub":"Joybot's 'make something' tree (BOT-7). Where a thing to make is the same idea as a room, a board or a guide, it uses that drawing, so 'new tile' looks like the tile board everywhere.","items":[
+ {"id":"make_paint","name":"Drawing or painting","what":"start a new picture",
+  "A":"<rect x='5' y='3.5' width='14' height='10' rx='1'/><path d='M8.2 13.5 5.6 21M15.8 13.5l2.6 7.5M12 13.5V21M7.6 9.8c1.6-2.2 3.2-2.4 4.4-1s2.8 1.2 4.4-1'/>",
+  "Ai":"an easel with a stroke on the canvas",
+  "B":"<rect x='4' y='3' width='16' height='11' rx='1.6'/><path class='c' d='M7 10.5c2-3 4-3 5-1s3 2 5-1.5'/><path class='s' d='M8.5 14.2 6 21.5M15.5 14.2l2.5 7.3M12 14.2v7.3'/>",
+  "Bi":"a solid canvas on its easel, the stroke punched out",
+  "C":"<rect x='4' y='3' width='16' height='11' rx='1.6'/><path class='f' d='M6.8 10.2c1.4-2.6 3.6-3.4 5.2-2.4 1.4.9 2.4 1.2 4.8-1.4.6 2.9-1.8 5.2-4.5 5-1.8-.1-2.8-.9-4.2-.3Z'/><path d='M8.5 14 6.5 21M15.5 14l2 7M12 14v7'/>",
+  "Ci":"an easel with one fat solid brush stroke",
+  "D":["................","........#.......","..############..","..#..........#..","..#.......##.#..","..#..#....##.#..","..#.###..#...#..","..#.####.###.#..","..############..","..#....#.....#..","..#....#.....#..",".#.....#......#.",".#.....#......#.","#..............#","#..............#","................"],
+  "Di":"a pixel easel"},
+ {"id":"make_persp1","name":"Drawing in 1-point perspective","same":"tool_persp1"},
+ {"id":"make_persp2","name":"Drawing in 2-point perspective","same":"tool_persp2"},
+ {"id":"make_persp3","name":"Drawing in 3-point perspective","same":"tool_persp3"},
+ {"id":"make_animation","name":"Hand animation","same":"board_animation"},
+ {"id":"make_tile","name":"Tile","same":"board_tile"},
+ {"id":"make_sprite","name":"Sprite (make)","same":"board_sprite"},
+ {"id":"make_sprite_edit","name":"Sprite (load and edit)","what":"bring a sprite sheet in and work on it",
+  "A":"<rect x='3' y='3' width='12.5' height='12.5' rx='1.5'/><path d='M9.25 3v12.5M3 9.25h12.5'/><path d='M20.6 12.4l-7.9 7.9L9.8 21l.7-2.9 7.9-7.9Z'/><path d='M17 11.8l2.4 2.4'/>",
+  "Ai":"a sprite sheet with a pencil on it",
+  "B":"<rect x='2.5' y='2.5' width='13' height='13' rx='2'/><path class='c' d='M9 2.5v13M2.5 9h13'/><path class='gap' d='M21.4 12.2l-8.6 8.6-3.8 1 1-3.8 8.6-8.6Z'/>",
+  "Bi":"a solid sheet, the pencil cut clear of it",
+  "C":"<rect x='3' y='9' width='18' height='12' rx='1.6'/><path d='M9 9v12M15 9v12'/><path class='f' d='M10.6 1.8h2.8v3.6h2.4L12 9.4 8.2 5.4h2.4Z'/>",
+  "Ci":"a solid arrow dropping into a sheet",
+  "D":["................",".#########......",".#...#...#......",".#...#...#......",".#...#...#......",".#########......",".#...#...#....##",".#...#...#...###",".#...#...#..###.",".#########.###..","..........###...",".........###....","........###.....",".......##.......",".......#........","................"],
+  "Di":"a pixel sheet and pencil"},
+ {"id":"make_video","name":"Video","what":"a Studio film",
+  "A":"<rect x='3' y='10' width='13' height='9.5' rx='1.6'/><circle cx='6.6' cy='6.4' r='2.8'/><circle cx='12.8' cy='6.4' r='2.8'/><path d='M16 13.2l5-2.6v8.3l-5-2.6'/>",
+  "Ai":"an old film camera with two reels",
+  "B":"<rect x='2.5' y='10' width='13.5' height='10' rx='2'/><circle cx='6.4' cy='6' r='3.3'/><circle cx='12.6' cy='6' r='3.3'/><circle class='cf' cx='6.4' cy='6' r='1'/><circle class='cf' cx='12.6' cy='6' r='1'/><path d='M16.8 12.8 22 10v9l-5.2-2.8Z'/><rect class='cf' x='5' y='13' width='5' height='1.6' rx='.8'/>",
+  "Bi":"the same camera solid, reel hubs punched",
+  "C":"<rect x='4' y='8.6' width='12' height='7.2' rx='1.4'/><circle class='f' cx='7.2' cy='5.4' r='2.5'/><circle class='f' cx='12.8' cy='5.4' r='2.5'/><path d='M16 10.6l4.5-2v7l-4.5-2M10 15.8l-3 5.7M10 15.8l3 5.7M10 15.8v5.7'/>",
+  "Ci":"a camera on a tripod, reels solid",
+  "D":["................","..###....###....",".#...#..#...#...",".#.#.#..#.#.#...",".#...#..#...#...","..###....###....",".###########....",".#.........#..##",".#.........#.###",".#.........#####",".#.........#####",".#.........#.###",".#.........#..##",".###########....","................","................"],
+  "Di":"a pixel reel camera"},
+ {"id":"make_audio","name":"Audio project","what":"music and sound, not visuals",
+  "A":"<ellipse class='f' cx='7' cy='17.6' rx='2.6' ry='2'/><ellipse class='f' cx='16.6' cy='15.6' rx='2.6' ry='2'/><path d='M9.5 17.2V5.6l9.6-2v11.6'/><path d='M9.5 9l9.6-2'/>",
+  "Ai":"two plain beamed notes",
+  "B":"<ellipse cx='8' cy='17.6' rx='3.9' ry='3'/><rect x='10.1' y='3.2' width='2' height='14.4'/><path d='M12.1 3.2c1 2.8 6 3.5 6 8.6-1-1.8-3-3-6-3Z'/><path class='c' d='M6.2 16.6c.6-.5 1.3-.7 2-.6'/>",
+  "Bi":"one big solid note with a glint",
+  "C":"<path d='M3.5 10.5v3M7 8v8M14 7v10M17.5 9.5v5M21 11v2'/><rect class='f' x='9.4' y='3.5' width='2.2' height='17' rx='1.1'/>",
+  "Ci":"a sound wave, its loudest beat solid",
+  "D":["................",".....##########.",".....##########.",".....#........#.",".....#........#.",".....#........#.",".....#........#.",".....#........#.",".....#........#.",".....#........#.","...###......###.","..####.....####.",".####.....####..",".###......###...","................","................"],
+  "Di":"a pixel double note"},
+ {"id":"make_visuals","name":"Music visuals","same":"room_vislab"},
+ {"id":"make_titles","name":"Titles","same":"room_textlab"},
+ {"id":"make_character","name":"Character","same":"room_avatar"},
+ {"id":"make_find","name":"Find and tidy","what":"search your files and put them in order",
+  "A":"<path d='M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z'/><circle cx='11.6' cy='12.6' r='2.9'/><path d='M13.7 14.7l2.6 2.6'/>",
+  "Ai":"a folder with a magnifier on it",
+  "B":"<path d='M2.5 6.5A2 2 0 0 1 4.5 4.5h4.6l2 2h8.4a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-15a2 2 0 0 1-2-2Z'/><circle class='c cw' cx='11.4' cy='12.8' r='3.1'/><path class='c cw' d='M13.7 15.1l3 3'/>",
+  "Bi":"your idea: a folder with the magnifier punched out",
+  "C":"<circle cx='10' cy='10' r='6.6'/><path class='w' d='M14.8 14.8l5.7 5.7'/><path class='f' d='M6.8 7.6h2.3l1 1h3.1a.8.8 0 0 1 .8.8v3.4a.8.8 0 0 1-.8.8H6.8a.8.8 0 0 1-.8-.8V8.4a.8.8 0 0 1 .8-.8Z'/>",
+  "Ci":"a magnifier with a solid folder in its lens",
+  "D":["................","................",".#####..........",".######.........",".##############.",".##############.",".#####....#####.",".####.####.####.",".####.####.####.",".####.####.####.",".#####....#####.",".#########..###.",".##########..##.",".##############.","................","................"],
+  "Di":"a pixel folder, magnifier punched out"}
+]},
+{"id":"boards","name":"JoyBrush Tools: Boards","sub":"Its own section in Tools, out of the ⋯ menu. 'New image', 'new animation', 'new sprite' and 'new tile' in Joybot use these same drawings.","items":[
+ {"id":"board_all","name":"Boards","what":"all your boards; add one",
+  "A":"<path d='M7 6.8V4.6A1.6 1.6 0 0 1 8.6 3h10.8A1.6 1.6 0 0 1 21 4.6v10.8a1.6 1.6 0 0 1-1.6 1.6h-2.2'/><rect x='3' y='7' width='14' height='14' rx='1.8'/><path d='M10 11v6M7 14h6'/>",
+  "Ai":"two boards stacked, a plus on the front one",
+  "B":"<rect x='8.2' y='2.5' width='13.3' height='13.3' rx='2'/><rect class='gap' x='5.35' y='5.35' width='13.3' height='13.3' rx='2'/><rect class='gap' x='2.5' y='8.2' width='13.3' height='13.3' rx='2'/><path class='c cw' d='M9.15 11.6v6.5M5.9 14.85h6.5'/>",
+  "Bi":"three solid boards fanned, plus cut through",
+  "C":"<rect x='3' y='3' width='8' height='8' rx='1.6'/><rect x='13' y='3' width='8' height='8' rx='1.6'/><rect x='3' y='13' width='8' height='8' rx='1.6'/><rect class='f' x='13' y='13' width='8' height='8' rx='1.6'/><path class='c' d='M17 15.2v3.6M15.2 17h3.6'/>",
+  "Ci":"four boards, the new one solid with a plus",
+  "D":["................",".....##########.",".....#........#.","...##########.#.","...#........#.#.",".##########.#.#.",".#........#.#.#.",".#........#.#.#.",".#...##...#.#.#.",".#.######.#.#.#.",".#.######.#.###.",".#...##...#.#...",".#........###...",".#........#.....",".##########.....","................"],
+  "Di":"pixel boards stacked with a plus"},
+ {"id":"board_image","name":"Image board","what":"a still picture; also 'new image'",
+  "A":"<rect x='3' y='4' width='18' height='16' rx='2'/><circle cx='15.6' cy='9' r='1.7'/><path d='M3.6 17.6l5-5.4 4 4 2.4-2.4 5.4 5.2'/>",
+  "Ai":"a picture: hills and a sun",
+  "B":"<rect x='2.5' y='3.5' width='19' height='17' rx='2.4'/><path class='cf' d='M5 18l5-6 3.5 3.8 2.2-2.4L19 18Z'/><circle class='cf' cx='15.8' cy='8.4' r='1.9'/>",
+  "Bi":"a solid card, hills and sun punched out",
+  "C":"<path d='M3 7V3h4M17 3h4v4M21 17v4h-4M7 21H3v-4'/><path class='f' d='M5.5 18l4.3-6 3.2 4 2-2.4 3.5 4.4Z'/><circle cx='15.5' cy='8.5' r='1.8'/>",
+  "Ci":"a board on the canvas (corner marks), solid hills",
+  "D":["................","................","................",".##############.",".#............#.",".#........##..#.",".#........##..#.",".#....#.......#.",".#...###...#..#.",".#..#####.###.#.",".#.##########.#.",".##############.","................","................","................","................"],
+  "Di":"a pixel landscape"},
+ {"id":"board_animation","name":"Animation board","what":"frames to flip; also 'hand animation'",
+  "A":"<rect x='3' y='2.5' width='18' height='19' rx='2'/><path d='M7 2.5v19M17 2.5v19'/><path class='f' d='M4.3 5h1.4v1.6H4.3ZM4.3 9.5h1.4v1.6H4.3ZM4.3 14h1.4v1.6H4.3ZM4.3 18.4h1.4V20H4.3ZM18.3 5h1.4v1.6h-1.4ZM18.3 9.5h1.4v1.6h-1.4ZM18.3 14h1.4v1.6h-1.4ZM18.3 18.4h1.4V20h-1.4Z'/><circle class='f' cx='13.1' cy='6.3' r='1.45'/><path class='r' d='M12.5 8.6l-1.2 4.4M12.3 9.2l2.3 1.5 1-1.3M12.3 9.2l-2 .9-.8 1.6M11.3 13l2.1 1.9-.4 2.9M11.3 13l-1.3 2.5-1.6.6'/>",
+  "Ai":"a film frame with sprockets and a running man",
+  "B":"<rect x='3' y='2' width='18' height='20' rx='2'/><path class='cf' d='M4.4 4.4h1.6v1.8H4.4ZM4.4 9h1.6v1.8H4.4ZM4.4 13.6h1.6v1.8H4.4ZM4.4 18.1h1.6v1.8H4.4ZM18 4.4h1.6v1.8H18ZM18 9h1.6v1.8H18ZM18 13.6h1.6v1.8H18ZM18 18.1h1.6v1.8H18Z'/><circle class='cf' cx='13.1' cy='6' r='1.6'/><path class='c' d='M12.5 8.5l-1.2 4.5M12.3 9.2l2.4 1.5 1-1.4M12.3 9.2l-2.1.9-.8 1.7M11.3 13l2.2 2-.4 3M11.3 13l-1.4 2.6-1.7.6'/>",
+  "Bi":"a solid film frame, runner and sprockets cut out",
+  "C":"<path d='M3 7V3h4M17 3h4v4M21 17v4h-4M7 21H3v-4'/><path class='t' d='M9.6 19.8h10'/><circle class='t' cx='7.4' cy='7.6' r='1.6'/><circle class='t' cx='10.9' cy='12.4' r='1.6'/><ellipse class='f' cx='15.4' cy='17.7' rx='2.9' ry='1.9'/>",
+  "Ci":"a ball falling and squashing, earlier frames ghosted (onion skin)",
+  "D":[".##############.",".#.#........#.#.",".###.....##.###.",".#.#.....##.#.#.",".###...###..###.",".#.#..#.##.##.#.",".###.#..##..###.",".#.#....##..#.#.",".###...#..#.###.",".#.#..#....##.#.",".###.#.....####.",".#.##.......#.#.",".###........###.",".#.#........#.#.",".##############.","................"],
+  "Di":"a pixel film frame with a runner"},
+ {"id":"board_sprite","name":"Sprite board","what":"a sheet of sprite frames; also 'make a sprite'",
+  "A":"<rect x='3' y='3' width='18' height='18' rx='2'/><path d='M14.5 3v18M14.5 9h6.5M14.5 15h6.5'/><path d='M5.6 17.2c0-3.6 1.4-6 3.2-6S12 13.6 12 17.2Z'/><path d='M7.1 11.7l-.6-2.6 1.6 1.4M10.5 11.7l.6-2.6-1.6 1.4'/><circle class='f' cx='17.75' cy='6' r='1.1'/><circle class='f' cx='17.75' cy='12' r='1.1'/><circle class='f' cx='17.75' cy='18' r='1.1'/>",
+  "Ai":"one big critter, its little frames beside it",
+  "B":"<rect x='2.5' y='2.5' width='19' height='19' rx='2.4'/><path class='c' d='M12 2.5v19M2.5 12h19'/><path class='cf' d='M4.9 10c0-2.6 1.1-4.2 2.4-4.2S9.7 7.4 9.7 10Z'/><path class='cf' d='M14.3 9.2c0-2.6 1.1-4.2 2.4-4.2s2.4 1.6 2.4 4.2Z'/><path class='cf' d='M4.9 19.4c0-2.6 1.1-4.2 2.4-4.2s2.4 1.6 2.4 4.2Z'/><path class='cf' d='M14.3 18.8c0-2.6 1.1-4.2 2.4-4.2s2.4 1.6 2.4 4.2Z'/>",
+  "Bi":"a solid sheet of four frames, critters punched out, bobbing",
+  "C":"<path d='M3 7V3h4M17 3h4v4M21 17v4h-4M7 21H3v-4'/><circle class='f' cx='12' cy='9.4' r='4.4'/><path class='f' d='M8.4 19v-2.6a3.6 3.6 0 0 1 7.2 0V19Z'/><circle class='cf' cx='10.4' cy='9.8' r='.95'/><circle class='cf' cx='13.6' cy='9.8' r='.95'/>",
+  "Ci":"a board on the canvas, a solid little game hero",
+  "D":["###############.","#......#.#..#.#.","#.#..#.#.####.#.","#.####.#.#..#.#.","#.#..#.#.####.#.","#.####.#......#.","#......#......#.","###############.","#......#......#.","#.#..#.#......#.","#.####.#.#..#.#.","#.#..#.#.####.#.","#.####.#.#..#.#.","#......#.####.#.","###############.","................"],
+  "Di":"a pixel sheet of four critters"},
+ {"id":"board_tile","name":"Tile board","what":"a pattern that repeats; also 'make a tile'",
+  "A":"<rect x='3' y='3' width='18' height='18' rx='2'/><path class='t' d='M12 3v18M3 12h18'/><path d='M12 8.4l3.6 3.6-3.6 3.6-3.6-3.6ZM3 6.6 6.6 3M17.4 3 21 6.6M21 17.4 17.4 21M6.6 21 3 17.4'/>",
+  "Ai":"four tiles, the pattern running over the seams",
+  "B":"<rect x='2.5' y='2.5' width='19' height='19' rx='2.4'/><path class='cf' d='M12 6.5Q13 11 17.5 12Q13 13 12 17.5Q11 13 6.5 12Q11 11 12 6.5Z'/><path class='cf' d='M2.5 6Q4.6 5.2 5.6 2.5H2.5ZM21.5 6Q19.4 5.2 18.4 2.5h3.1ZM2.5 18Q4.6 18.8 5.6 21.5H2.5ZM21.5 18Q19.4 18.8 18.4 21.5h3.1Z'/>",
+  "Bi":"a solid tile, a star in the middle and quarter stars at the corners",
+  "C":"<rect x='3' y='3' width='18' height='18' rx='1.6'/><path class='t' d='M9 3v18M15 3v18M3 9h18M3 15h18'/><rect class='f' x='9' y='9' width='6' height='6'/><circle class='cf' cx='12' cy='12' r='1.4'/>",
+  "Ci":"one solid tile among its repeats",
+  "D":["................",".##############.",".##....##....##.",".#.....##.....#.",".#..#..##..#..#.",".#....####....#.",".#...######...#.",".##############.",".##############.",".#...######...#.",".#....####....#.",".#..#..##..#..#.",".#.....##.....#.",".##....##....##.",".##############.","................"],
+  "Di":"a pixel tile, pattern over the seams"}
+]},
+{"id":"guides","name":"JoyBrush Tools: Rulers and guides","sub":"Its own section in Tools. The perspective three also start 'drawing in perspective' from Joybot.","items":[
+ {"id":"tool_grid","name":"Grid","what":"a square grid to draw on",
+  "A":"<rect x='3' y='3' width='18' height='18' rx='1.6'/><path class='t' d='M9 3v18M15 3v18M3 9h18M3 15h18'/>",
+  "Ai":"a plain square grid",
+  "B":"<rect x='2.5' y='2.5' width='19' height='19' rx='2.4'/><path class='c' d='M8.8 2.5v19M15.2 2.5v19M2.5 8.8h19M2.5 15.2h19'/>",
+  "Bi":"a solid plate with the grid cut in",
+  "C":"<rect class='t' x='3' y='3' width='18' height='18' rx='1.6'/><path class='t' d='M9 3v18M15 3v18M3 9h18M3 15h18'/><circle class='f' cx='9' cy='9' r='1.5'/><circle class='f' cx='15' cy='9' r='1.5'/><circle class='f' cx='9' cy='15' r='1.5'/><circle class='f' cx='15' cy='15' r='1.5'/>",
+  "Ci":"a grid with solid snap points",
+  "D":["................","..#############.","..#...#...#...#.","..#...#...#...#.","..#...#...#...#.","..#############.","..#...#...#...#.","..#...#...#...#.","..#...#...#...#.","..#############.","..#...#...#...#.","..#...#...#...#.","..#...#...#...#.","..#############.","................","................"],
+  "Di":"a pixel grid"},
+ {"id":"tool_isogrid","name":"Isometric grid","what":"a grid at 30 degrees for boxes and rooms",
+  "A":"<path d='M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9Z'/><path d='M12 12v9M12 12 4.2 7.5M12 12l7.8-4.5'/><path class='t' d='M8.1 5.25l7.8 4.5M15.9 5.25l-7.8 4.5M8.1 9.75v9M15.9 9.75v9'/>",
+  "Ai":"an isometric cube with its grid lines",
+  "B":"<path d='M12 4l10 5.8-10 5.8L2 9.8Z'/><path d='M2 11.6l10 5.8 10-5.8v2.6L12 20l-10-5.8Z'/><path class='c' d='M5.33 11.73 15.33 5.93M8.67 13.67l10-5.8M5.33 7.87l10 5.8M8.67 5.93l10 5.8'/>",
+  "Bi":"a solid isometric slab, grid cut into its top",
+  "C":"<path d='M12 3l7.8 4.5v9L12 21l-7.8-4.5v-9Z'/><path d='M12 12v9'/><path class='f' d='M12 3l7.8 4.5L12 12 4.2 7.5Z'/>",
+  "Ci":"a cube with its top face solid",
+  "D":["......####......","....##....##....","..##........##..","##............##","#.##........##.#","#...##....##...#","#.....####.....#","#......##......#","#......##......#","#......##......#","#......##......#","##.....##.....##","..##...##...##..","....##.##.##....","......####......","................"],
+  "Di":"a pixel isometric cube"},
+ {"id":"tool_persp1","name":"1-point perspective","what":"one vanishing point; also 'draw in 1-point'",
+  "A":"<rect class='t' x='3' y='3' width='18' height='18' rx='1'/><rect x='8.6' y='8.6' width='6.8' height='6.8'/><path class='t' d='M3 3l5.6 5.6M21 3l-5.6 5.6M3 21l5.6-5.6M21 21l-5.6-5.6M2 12h6.6M15.4 12H22'/>",
+  "Ai":"a corridor running back to its point",
+  "B":"<path d='M2 21L12 9.5 22 21Z'/><path class='c' d='M12 9.5 8.6 21M12 9.5 15.4 21M5.6 16.8h12.8'/><path class='s' d='M2 9.5h20'/><circle cx='12' cy='9.5' r='1.7'/>",
+  "Bi":"a solid floor running to the horizon",
+  "C":"<path class='t' d='M2 6h20'/><circle class='f' cx='18.5' cy='6' r='1.6'/><rect class='f' x='3.5' y='12' width='8.5' height='8.5'/><path d='M3.5 12 10 9.3h4.7V14L12 20.5M12 12l2.7-2.7'/><path class='t d' d='M14.7 9.3 18.5 6'/>",
+  "Ci":"a solid box face, its edges meeting one solid point",
+  "D":["#..............#",".#............#.","..#..........#..","...#........#...","....#......#....",".....######.....",".....#....#.....","######....######",".....#....#.....",".....#....#.....",".....######.....","....#......#....","...#........#...","..#..........#..",".#............#.","#..............#"],
+  "Di":"a pixel corridor"},
+ {"id":"tool_persp2","name":"2-point perspective","what":"two vanishing points; also 'draw in 2-point'",
+  "A":"<path class='t' d='M2 9h20'/><circle class='f' cx='2.5' cy='9' r='1.2'/><circle class='f' cx='21.5' cy='9' r='1.2'/><path d='M7 7.1 12 5l5 2.1v6.16L12 18l-5-4.74ZM12 5v13'/><path class='t' d='M2.5 9 7 7.1M2.5 9 7 13.26M21.5 9 17 7.1M21.5 9 17 13.26'/>",
+  "Ai":"a box at eye level, two points on the horizon",
+  "B":"<path d='M5.5 6.53 12 5.58l6.5.95v5.44L12 21.05 5.5 11.97Z'/><path class='c' d='M5.5 6.53 12 9.55l6.5-3.02M12 9.55v11.5'/><circle cx='1.7' cy='3.8' r='1.3'/><circle cx='22.3' cy='3.8' r='1.3'/><path class='s t' d='M1.7 3.8 5.5 6.53M22.3 3.8 18.5 6.53'/>",
+  "Bi":"a solid box, its faces cut apart, edges running to two points",
+  "C":"<path class='t' d='M2 5h20'/><circle class='f' cx='2.5' cy='5' r='1.5'/><circle class='f' cx='21.5' cy='5' r='1.5'/><path class='f' d='M12 10 7 7.37 12 6.55 17 7.37Z'/><path d='M7 7.37v4.73L12 20l5-7.9V7.37M12 10v10M7 7.37 12 10l5-2.63'/><path class='t' d='M2.5 5 7 7.37M21.5 5 17 7.37M2.5 5 7 12.1M21.5 5 17 12.1'/>",
+  "Ci":"a box seen from above, solid top and points",
+  "D":["................","................","......####......","....##.##.##....","..##...##...##..","#.#....##....#.#","..#....##....#..","..#....##....#..","..#....##....#..","..#....##....#..","..##...##...##..","....##.##.##....","......####......","................","................","................"],
+  "Di":"a pixel box between two points"},
+ {"id":"tool_persp3","name":"3-point perspective","what":"three vanishing points; also 'draw in 3-point'",
+  "A":"<path class='t' d='M2 5h20'/><circle class='f' cx='2.5' cy='5' r='1.15'/><circle class='f' cx='21.5' cy='5' r='1.15'/><circle class='f' cx='12' cy='22' r='1.15'/><path d='M12 8 6.5 6.6 8.8 14.2 12 17l3.2-2.8 2.3-7.6ZM12 8v9'/><path class='t' d='M2.5 5l4 1.6M21.5 5l-4 1.6M8.8 14.2 12 22M15.2 14.2 12 22'/>",
+  "Ai":"a box whose sides also lean to a third point below",
+  "B":"<path d='M12 21 4 16.5 8.8 3.5 12 5.5l3.2-2L20 16.5Z'/><path class='c' d='M12 21V5.5M6.4 14.1 12 16.6M7.5 10.3 12 12.4M8.5 6.9 12 8.7M17.6 14.1 12 16.6M16.5 10.3 12 12.4M15.5 6.9 12 8.7'/>",
+  "Bi":"a solid tower seen from the street, narrowing up",
+  "C":"<path class='t' d='M2 5h20'/><circle class='f' cx='2.5' cy='5' r='1.5'/><circle class='f' cx='21.5' cy='5' r='1.5'/><circle class='f' cx='12' cy='22' r='1.5'/><path class='f' d='M12 8 6.5 6.6 12 5.4l5.5 1.2Z'/><path d='M6.5 6.6 8.8 14.2 12 17l3.2-2.8 2.3-7.6M12 8v9M6.5 6.6 12 8l5.5-1.4'/><path class='t' d='M8.8 14.2 12 22M15.2 14.2 12 22'/>",
+  "Ci":"the same box with solid top and three solid points",
+  "D":[".......##.......","................","......#..#......",".....#.##.#.....",".....#.##.#.....","....#..##..#....","....#..##..#....","...#...##...#...","...#...##...#...","..#....##....#..","#.#....##....#.#",".##....##....##.","...##..##..##...",".....######.....","................","................"],
+  "Di":"a pixel tower narrowing to a point"},
+ {"id":"tool_ruler","name":"Ruler","what":"straight lines; set square and protractor shown as ideas",
+  "A":"<path d='M3.5 15.5 15.5 3.5l5 5-12 12Z'/><path d='M6.5 12.5 8 14M9.5 9.5l2.4 2.4M12.5 6.5 14 8'/>",
+  "Ai":"a ruler on the slant with its marks",
+  "B":"<path d='M3 21V3l18 18Z'/><path class='cf' d='M6.4 17.6v-6.2l6.2 6.2Z'/><path class='c' d='M3 6.8h2.2M3 10.4h1.4M3 14h2.2'/>",
+  "Bi":"a solid set square with its marks notched in",
+  "C":"<path d='M2.5 17a9.5 9.5 0 0 1 19 0Z'/><path class='t' d='M12 7.5v2M5.3 10.3l1.4 1.4M18.7 10.3l-1.4 1.4'/><path d='M12 17l4-6.4'/><circle class='f' cx='12' cy='17' r='1.7'/>",
+  "Ci":"a protractor with a solid hub",
+  "D":["................","................","................","................","................","################","#.#.#.#.#.#.#..#","#.#...#...#....#","#.#.......#....#","#..............#","################","................","................","................","................","................"],
+  "Di":"a pixel ruler"},
+ {"id":"tool_symmetry","name":"Symmetry","what":"draw one side, it mirrors",
+  "A":"<path class='d' d='M12 2.5v19'/><path d='M9.6 6c-4 1-6.1 4.5-5.6 9 3-1 5.1-4 5.6-9ZM14.4 6c4 1 6.1 4.5 5.6 9-3-1-5.1-4-5.6-9Z'/><path d='M8.6 18.4c-1.2.2-2.2.9-2.8 2M15.4 18.4c1.2.2 2.2.9 2.8 2'/>",
+  "Ai":"a pair of mirrored strokes either side of the line",
+  "B":"<path d='M10.8 5.4C6.3 2.4 1.6 5 3 10c.6 2 2.3 3 4 3-2 1-3 3.3-1.7 5.6 1.5 2.5 4.6 1 5.5-2Z'/><path d='M13.2 5.4c4.5-3 9.2-.4 7.8 4.6-.6 2-2.3 3-4 3 2 1 3 3.3 1.7 5.6-1.5 2.5-4.6 1-5.5-2Z'/><path class='s d' d='M12 2v20'/>",
+  "Bi":"solid wings either side of a dotted line",
+  "C":"<path class='f' d='M12 20S3 14.5 3 8.6A4.6 4.6 0 0 1 12 7Z'/><path d='M12 7a4.6 4.6 0 0 1 9 1.6C21 14.5 12 20 12 20'/><path class='t d' d='M12 2v20'/>",
+  "Ci":"half a heart drawn solid, the mirror's half outlined",
+  "D":[".......##.......","................","..####....####..",".######..######.","#######..#######","#######..#######","#######..#######",".######..######.","..#####..#####..","...####..####...","....###..###....",".....##..##.....","......#..#......","................",".......##.......",".......##......."],
+  "Di":"a pixel heart split by the line"},
+ {"id":"tool_radial","name":"Radial symmetry","what":"draw one petal, it repeats round",
+  "A":"<ellipse cx='12' cy='6.6' rx='2.1' ry='3.3'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(60 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(120 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(180 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(240 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(300 12 12)'/><circle class='f' cx='12' cy='12' r='1.3'/>",
+  "Ai":"six petals round a centre",
+  "B":"<circle cx='12' cy='12' r='10'/><path class='c' d='M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93 4.93 19.07'/><circle class='cf' cx='12' cy='12' r='2.6'/><circle cx='12' cy='12' r='1.1'/>",
+  "Bi":"a solid wheel, spokes cut in",
+  "C":"<circle class='t d' cx='12' cy='12' r='9.6'/><ellipse class='f' cx='12' cy='6.6' rx='2.1' ry='3.3'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(60 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(120 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(180 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(240 12 12)'/><ellipse cx='12' cy='6.6' rx='2.1' ry='3.3' transform='rotate(300 12 12)'/>",
+  "Ci":"one petal drawn solid, the rest its copies",
+  "D":[".......##.......",".......##.......","..#....##....#..","...#...##...#...","....#..##..#....",".....#.##.#.....","......####......","################","################","......####......",".....#.##.#.....","....#..##..#....","...#...##...#...","..#....##....#..",".......##.......",".......##......."],
+  "Di":"a pixel star of spokes"}
+]}
+]}
+</script>
+
+<script>
+(function(){
+const DATA = JSON.parse(document.getElementById('icons').textContent);
+const DIRS = DATA.directions;
+const items = []; DATA.groups.forEach(g => g.items.forEach(i => items.push(i)));
+const byId = Object.fromEntries(items.map(i => [i.id, i]));
+const unique = items.filter(i => !i.same);
+const KEY = 'icon1-picks-v1';
+
+let state = {base: '', per: {}, notes: {}};
+try { const s = JSON.parse(localStorage.getItem(KEY) || 'null'); if (s && s.per) state = s; } catch (e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }
+
+function pxRects(rows){
+  let s = '';
+  rows.forEach((r, y) => { let x = 0; while (x < 16) { if (r[x] === '#') { const x0 = x; while (x < 16 && r[x] === '#') x++; s += `<rect x="${x0}" y="${y}" width="${x - x0}" height="1"/>`; } else x++; } });
+  return s;
+}
+function src(id){ const it = byId[id]; return it.same ? byId[it.same] : it; }
+function glyph(id, dir, size){
+  const it = src(id), v = it[dir];
+  const t = it.name + ' (' + DIRS.find(d => d.id === dir).name + ')';
+  if (dir === 'D') return `<svg class="ic" viewBox="-1 -1 18 18" width="${size}" height="${size}" shape-rendering="crispEdges" fill="currentColor" role="img" aria-label="${t}">${pxRects(v)}</svg>`;
+  const cls = dir === 'B' ? 'so' : 'ln';
+  return `<svg class="ic" viewBox="0 0 24 24" width="${size}" height="${size}" role="img" aria-label="${t}"><g class="${cls}">${v}</g></svg>`;
+}
+function pick(id){ const t = byId[id].same || id; return state.per[t] || state.base || 'A'; }
+
+/* step 1: directions */
+const dirGrid = document.getElementById('dirGrid');
+function drawDirs(){
+  dirGrid.innerHTML = DIRS.map(d => `
+    <div class="dir${state.base === d.id ? ' picked' : ''}" data-dir="${d.id}">
+      <h3><span class="k">${d.id}</span>${d.name}</h3>
+      <p>${d.blurb}</p>
+      <div class="strip">${unique.map(i => `<span title="${i.name}">${glyph(i.id, d.id, 24)}</span>`).join('')}</div>
+      <button class="use" type="button" title="Use ${d.name} for every icon (swaps below still win)">${state.base === d.id ? 'Whole set: ' + d.name : 'Use ' + d.name + ' for everything'}</button>
+    </div>`).join('');
+  dirGrid.querySelectorAll('.use').forEach(b => b.addEventListener('click', e => {
+    state.base = e.target.closest('.dir').dataset.dir; save(); drawAll();
+  }));
+}
+
+/* step 2: each icon */
+const groupsEl = document.getElementById('groups');
+function drawGroups(){
+  groupsEl.innerHTML = DATA.groups.map((g, gi) => `
+    <section id="${g.id}">
+      <div class="eyebrow">Step 2${gi ? '' : ' · swap single icons'}</div>
+      <h2>${g.name}</h2><p class="sub">${g.sub}</p>
+      ${g.items.map(i => i.same ? `
+        <div class="row"><div class="name"><b>${i.name}</b><span>same drawing as ${byId[i.same].name}</span></div>
+          <div class="same" data-same="${i.id}">${glyph(i.same, pick(i.same), 48)}<div class="btn on">${glyph(i.same, pick(i.same), 24)}</div>
+          <span>Uses the <a href="#row-${i.same}">${byId[i.same].name}</a> pick, so the two always match.</span></div></div>` : `
+        <div class="row" id="row-${i.id}">
+          <div class="name"><b>${i.name}</b><span>${i.what}</span><span class="file">ic_${i.id}</span></div>
+          <div class="opts">${DIRS.map(d => `
+            <button class="opt${pick(i.id) === d.id ? ' picked' : ''}" type="button" data-id="${i.id}" data-dir="${d.id}" title="${i.name}: ${d.name}, ${i[d.id + 'i']}">
+              <span class="tag">${d.id}</span>
+              <div class="sizes">${glyph(i.id, d.id, 48)}
+                <div class="btn">${glyph(i.id, d.id, 24)}</div>
+                <div class="btn on">${glyph(i.id, d.id, 24)}</div></div>
+              <div class="idea">${i[d.id + 'i']}</div>
+            </button>`).join('')}</div>
+          <div class="note"><input type="text" data-note="${i.id}" placeholder="Note for ${i.name} (optional): an idea to change or combine" value="${(state.notes[i.id] || '').replace(/"/g, '&quot;')}"></div>
+        </div>`).join('')}
+    </section>`).join('');
+  groupsEl.querySelectorAll('.opt').forEach(b => b.addEventListener('click', () => {
+    const id = b.dataset.id, dir = b.dataset.dir;
+    if ((state.base || 'A') === dir) delete state.per[id]; else state.per[id] = dir;
+    save(); drawAll(true);
+  }));
+  groupsEl.querySelectorAll('input[data-note]').forEach(inp => inp.addEventListener('input', () => {
+    const v = inp.value.trim(); if (v) state.notes[inp.dataset.note] = v; else delete state.notes[inp.dataset.note];
+    save(); drawLine();
+  }));
+}
+
+/* step 3: in place */
+function drawPlaces(){
+  const rooms = DATA.groups[0].items;
+  document.getElementById('pRooms').innerHTML = rooms.map((i, n) => `
+    <div class="tool"><div class="btn${n === 1 ? ' on' : ''}" style="--cut:${n === 1 ? 'var(--sel)' : 'var(--raised)'}">${glyph(i.id, pick(i.id), 24)}</div>${i.name}</div>`).join('');
+  const sec = (g, onIdx) => `<div class="hd">${g.name.replace('JoyBrush Tools: ', '')}</div><div class="tools">${g.items.map((i, n) => `
+    <div class="tool"><div class="btn${n === onIdx ? ' on' : ''}">${glyph(i.id, pick(i.id), 24)}</div>${i.name.replace(' perspective', '').replace(' board', '')}</div>`).join('')}</div>`;
+  document.getElementById('pTools').innerHTML = sec(DATA.groups[2], 1) + sec(DATA.groups[3], 3);
+  document.getElementById('pMake').innerHTML = DATA.groups[1].items.map(i => `
+    <div class="li">${glyph(i.same || i.id, pick(i.id), 24)}<span>${i.name}</span></div>`).join('');
+}
+
+/* the line to copy */
+function line(){
+  const base = state.base ? DIRS.find(d => d.id === state.base).name : 'none picked (A shown)';
+  const swaps = Object.entries(state.per).map(([id, d]) => `${byId[id].name} ${DIRS.find(x => x.id === d).name}`);
+  const notes = Object.entries(state.notes).map(([id, n]) => `${byId[id].name}: "${n}"`);
+  return `ICON-1 picks: whole set ${base}` + (swaps.length ? `; swaps: ${swaps.join(', ')}` : '; no swaps') + (notes.length ? `; notes: ${notes.join('; ')}` : '');
+}
+function drawLine(){ document.getElementById('pickLine').textContent = line(); }
+function drawAll(keepScroll){
+  const y = window.scrollY;
+  drawDirs(); drawGroups(); drawPlaces(); drawLine();
+  if (keepScroll) window.scrollTo(0, y);
+}
+document.getElementById('copy').addEventListener('click', async e => {
+  const t = line(), b = e.target;
+  try { await navigator.clipboard.writeText(t); b.textContent = 'Copied'; }
+  catch (err) { const r = document.createRange(); r.selectNodeContents(document.getElementById('pickLine')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = 'Selected: copy it'; }
+  setTimeout(() => b.textContent = 'Copy my picks', 1800);
+});
+document.getElementById('reset').addEventListener('click', () => { state = {base: '', per: {}, notes: {}}; save(); drawAll(); });
+drawAll();
+})();
+</script>
+</body>
+</html>

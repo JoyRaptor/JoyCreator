@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">Tre cose da sapere, e poi l\'app è tua.</string>
+    <string name="onboarding_promise_1">Il tuo lavoro resta sul tuo telefono, nella cartella Joy Creator che scegli tu.</string>
+    <string name="onboarding_promise_2">Niente account, niente pubblicità, niente tracciamento. Nulla di te viene venduto o condiviso.</string>
+    <string name="onboarding_promise_3">Qualcosa lascia il telefono solo quando usi una funzione che ha bisogno di internet, come un\'AI che colleghi tu.</string>
+    <string name="hover_intro_ai_add">Collega ora la tua AI a Joybot</string>
+    <string name="hover_intro_ai_later">Nascondi questo; puoi collegare un\'AI più tardi dalla chat di Joybot</string>
+</resources>

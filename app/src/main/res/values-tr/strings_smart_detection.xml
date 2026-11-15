@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">Story Board boş</string>
+    <string name="smart_detection_empty_hint">Kameranın işaretlediği kareler burada görünecek</string>
+    <string name="smart_detection_empty_glyph_desc">Henüz bir şey algılanmadı</string>
+    <string name="smart_detection_tip_close">Kapat</string>
+    <string name="smart_detection_tip_back">Geri</string>
+    <string name="smart_detection_tip_menu">Akıllı Algılama menüsü</string>
+    <string name="smart_detection_tip_select_all">Tümünü seç</string>
+    <string name="smart_detection_tip_sort">Sırala</string>
+    <string name="smart_detection_tip_grid">Izgara düzenini değiştir</string>
+    <string name="smart_detection_tip_scroll">En üste kaydır</string>
+</resources>

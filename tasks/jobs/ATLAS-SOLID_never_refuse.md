@@ -98,52 +98,111 @@ Still to prove or build is in "What is left".
 | 7 | The 10-31 lost squares | The Engine Lead's 11-01 fix is the likely cure: a slept engine's textures were deleted twice (`MediaLayerEngine.release`). New: every tile failure is written to `files/joybrush-incidents.log` with what the engine held (`TileIncidents`), and a bench takes graphics memory away first (`jb_gpu_hog_mb`) | 2 and 3 GB of noise held (and 1 to 3 GB of flat colour on the morning build), then oil strokes and a save: no failed frame, no incident line. All 23 realistic-paint brushes, two strokes each: none. Not reproduced |
 | 8 | Symmetry for realistic paint in the atlas | Works: every copy is its own lane, nothing is pinned or refused | Note 9 pictures: Oil round, 6B pencil and watercolour on the wet sheet, six copies each |
 
-### Found 11-14: a reopened drawing's paint is a picture, not paint (ordinary layers' paint stores are not saved)
+### 11-14 and 11-15: a reopened drawing keeps its paint again (the paint-store save)
 
-Seen on the Note 9 while checking a save change: after oil, knife and pencil strokes a save held 35 picture tiles and **0
-paint store tiles**. Cause, by reading: `GlPaintEngine.mediaPlaneOfCel` (10-11, JB-2.40 slice 3a) is
-`layers[layerId]?.let { planeOf(it, celId) } ?: celId`. For a layer's shared cel `planeOf` answers null (the shared
-plane), the `?:` takes that for "no such layer" and hands back the cel id, and the save then lists the stores of a frame
-plane that does not exist. So since 10-11 only animation frames have saved their pencil, watercolour and oil state;
-on every ordinary layer the picture is saved and the paint under it is not. Reopened, the drawing looks the same and its
-old paint is set: it cannot be blended, lifted or scraped, new paint goes over it as over dry paint. Nothing is lost
-that can be seen. Opening is right (`writeMediaTile` maps the shared cel itself); `MediaSaveTest` and
-`JbArchiveMediaTest` pass because they feed the archive by hand and never go through this function.
+**Found 11-14.** After oil, knife and pencil strokes a save on the Note 9 held 35 picture tiles and 0 paint store
+tiles. `GlPaintEngine.mediaPlaneOfCel` (10-11, JB-2.40 slice 3a) was `layers[layerId]?.let { planeOf(it, celId) } ?: celId`:
+for a layer's shared cel `planeOf` answers null (the shared plane), the `?:` took that for "no such layer" and handed back
+the cel id, and the save listed the stores of a frame plane that does not exist. From 10-11 to 11-15 only animation
+frames saved their pencil, watercolour and oil state; every ordinary layer saved its picture alone. **Drawings saved in
+that time open as pictures with their paint set** (they look the same; old paint cannot be blended, lifted or scraped).
+Opening was always right. The archive's unit tests feed it by hand and never went through that function.
 
-**Not fixed yet, on purpose.** The fix is one line, and it switches on what nobody has run on a phone: saves that carry
-the whole paint room (up to 315 MB on the Note 9, in the app's 512 MB heap, deflated on the save thread every time the
-autosave fires). Before it lands: measure a save and an open of a drawing with about 50, 150 and 246 oil tiles on the
-Note 9 (time, heap, the 15 s watchdog), decide whether old set-far-away paint should be saved as paint at all, and
-build streaming step 2 if the full room does not fit. The reused readback buffers (step 1 below, built 11-13, branch
-`claude/atlas-save-buffers-20261113`) wait for the same test: with no stores saved, the phone check of them read nothing.
+**Fixed 11-15, measured first** (bench then-step `savefile`: readback, `JbArchive.save` to a scratch file, open, every
+store tile compared, loaded onto the canvas, read back again). Note 9, a page of Oil flat zigzags:
 
-### Streaming saves: what the code does today and the order to build it (read 11-13; not started)
+| What a save carried | Picture tiles | Store tiles (raw) | Pen waits (readback) | Written in | On disk | Heap (of 512 MB) | Read again | Shown again |
+|---|---|---|---|---|---|---|---|---|
+| All of it, deflate 6 | 50 | 100 (50 MB) | 0.4 s | 4.5 s | 21 MB | 80 MB | 1.7 s | 0.6 s |
+| All of it, deflate 6 | 136 | 272 (136 MB) | 1.1 s | 11.3 s | 55 MB | 191 MB | 4.6 s | 1.5 s |
+| All of it, deflate 6 (a full room) | 262 | 524 (262 MB) | 2.0 s | 19.4 s | 94 MB | 347 MB | 7.8 s | 2.8 s |
+| All of it, deflate 1 | 264 | 528 (264 MB) | 1.9 s | 14.1 s | 98 MB | 352 MB | 8.1 s | 3.1 s |
+| The newest 128 MB, deflate 1 (**as shipped**) | 264 | 256 (128 MB) | 1.1 s | 8.8 s | 53 MB | 211 MB | 4.4 s | 1.4 s |
+| The newest 64 MB, deflate 1 | 264 | 128 (64 MB) | 0.6 s | 6.8 s | 31 MB | 147 MB | 2.8 s | 0.8 s |
 
-Why the room is 256 MB for every 6 GB of phone memory (`LayerBudget.MEDIA_RAM_SHARE`, `core/layers/LayerNames.kt`): a save
-reads the whole drawing back from the graphics chip into the app's 512 MB heap and holds all of it until the zip is closed
-(`JbCanvasView.snapshot` -> `readContents` -> `BoardSnapshot.capture` -> `JbArchive.save`); opening a file holds all of it
-again (`JbArchive.read`, then `JbCanvasView.load` uploads in one go). A painted oil tile is 1.5 MB there (its picture, two
-paint stores, its ground); with water 2.5 MB. Measured on the Note 9: reading 31 oil tiles back takes 0.11 s, so a full
-room is about a second with the pen waiting. The save itself is safe today (`.tmp`, sync, `.bak`, rename; refusals happen
-before any byte is written): this job is about room, not about a risk of losing work.
+In every row all store tiles and all picture tiles came back byte for byte after save, open and save again.
 
-1. **No more waste per tile** (small, safe): `GlPaintEngine.readMediaTile` makes a new 1 MB native buffer and a new 1 MB
-   float array for every store tile; one of each, reused, removes about 2 MB of garbage a tile. `DrawingLibrary`'s
-   after-save task keeps the whole snapshot alive only to read its id.
-2. **Write as it is read**: the tiles go from the readback to the zip through a bounded queue instead of a map
-   (`BoardSnapshot.capture`'s callbacks; `JbArchive.write`). `document.json` then has to be written last (blank tiles are
-   only known once read); every reader tolerates that order. The hard part is one consistent picture while painting goes
-   on: the read is one go on the graphics thread today, so nothing can change under it. Read across several frames, the
-   tile textures of that moment must be held (undo already works copy-on-write on textures), the wet sheet's stamp held
-   with them, and a lost graphics context must fail the save cleanly. The 15 s watchdog must cancel the writer and delete
-   the `.tmp`. `writeCopy` and `DrawingHistory.preserve` take the same path.
-3. **Open as it is read**: list the entries first (`ZipFile`), then inflate and upload in batches.
-4. **Then** raise `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB, `MAX_ENTRIES` 20,000), or a bigger save
-   would not open.
+What landed with it:
+- `mediaPlaneOfCel` answers null for the shared cel.
+- **A save keeps the newest paint as paint, within a budget** (`LayerBudget.savePaintBudgetBytes`: a quarter of the app's
+  heap, at most 128 MB; `MediaRoom.newestWithin`, `GlPaintEngine.mediaTilesToSave`, `JbCanvasView.savePaintBudgetBytes`).
+  Older paint is saved as its picture and opens as set paint, exactly as paint the room has set. 128 MB is about 100
+  painted oil tiles (two and a half Note 9 screens at 100 %).
+- Paint store tiles deflate at best speed (`ArchiveMediaDeflate`); pictures as before. Any level reads back the same,
+  so old and new files and old and new builds open each other's.
+- One staging buffer and one float array for every store tile read back or uploaded (`reuseMediaStaging`): a save of 31
+  oil tiles had left 124 MB of garbage behind it.
+- The save's 15 s limit (`SNAPSHOT_TIMEOUT_MS`) covers the readback only; the write has none. A long write keeps the
+  one save thread busy, and the working copy's recovery copy and folder copy are each the file's size.
 
-Tests that guard it today: `JbArchiveTest` (34), `JbArchiveCompletenessTest` (refusals before any output: step 2 changes
-what "before any output" can mean), `JbArchiveMediaTest`, `MediaSaveTest`, `BoardSnapshotTest`, `WorkingSaveBarrierTest`.
-Second review E4 asks for the same and for exports to skip the paint stores.
+### 11-15 later: the pen waits half as long, and a save that rewrites only what changed
+
+Both measured on the Note 9 on a full page of oil (264 picture tiles, 256 store tiles, 128 MB of stores) and on a small
+page of a dried wash, oil, knife and pencil (33 picture tiles, 111 store tiles):
+
+| | Full page | Small mixed page |
+|---|---|---|
+| Readback, store tiles read as full floats and rounded (before) | 1.46 to 1.48 s | 0.46 s |
+| Readback, store tiles read as the half floats they are (`readMediaAsHalves`; the driver names RGBA / HALF_FLOAT as its own format) | 0.55 to 0.58 s | 0.22 s |
+| The same bytes? (bench `savecmp`) | byte for byte | byte for byte |
+| `JbArchive.saveCarrying`, first save (everything compressed) | 6.9 s | 1.3 s |
+| the same drawing saved again (521 of 522 entries carried) | **0.69 s** | 0.35 s |
+| after one undo (83 entries changed, 412 carried) | **1.28 s** | 0.58 s |
+| Opened again and compared (bench `savecarry`) | all tiles exact, three times | all tiles exact, three times |
+
+`ZipCarry` (io/ZipCarry.kt) is the zip writer that carries an entry from the older file as its compressed bytes lie;
+`JbArchive.saveCarrying(file, contents, memo)` is the save built on it. An entry is carried only when the memo of the
+last save knows it, its bytes have the same length, CRC-32 and Adler-32, the file's directory agrees, and the
+compressed bytes read from the file have the checksum they had when written; a file the memo does not remember, or
+bytes that went bad on the disk, are written afresh (`JbArchiveCarryTest`, `ZipCarryTest`: 11 tests). The file is the
+archive `save` makes, entry for entry, through the same `.tmp` and rename.
+
+### Streaming saves: what is left, in the order to build it (handoff, 11-15)
+
+Where it stands: the paint is saved again, within a budget (above). What is left is making a save cost what CHANGED
+instead of what the drawing holds, so the budget can rise to the whole room and the room itself can grow
+(`LayerBudget.MEDIA_RAM_SHARE`, 256 MB for every 6 GB: it is that size because a save and an open each hold everything in
+the 512 MB heap: `JbCanvasView.snapshot` -> `readContents` -> `BoardSnapshot.capture` -> `JbArchive.save`, and
+`JbArchive.read` -> `JbCanvasView.load`). The save is safe as it is (`.tmp`, sync, `.bak`, rename; refusals before any
+byte is written): this is about room and time, not about losing work.
+
+Where the time goes (the table above): reading a store tile back is about 4 ms with the pen waiting; deflating it at
+best speed about 36 ms a megabyte on the save thread; the pictures of a full page about 4.5 s at level 6; reading a
+file again 30 ms a megabyte; showing it 11 ms a megabyte. A stroke changes five to twenty tiles; a save redoes all of
+them.
+
+1. **A save that rewrites only what changed: built (above).** Left of it: (a) the screen's working save calling it
+   (`JoyBrushActivity`, `SaveDest.Working`; `ArchiveCarrying.on` is the way back), proven by painting, waiting for two
+   autosaves, leaving and reopening on the phone; (b) the recovery copy and the Joy Creator folder copy are still whole
+   byte copies of the file after every save; (c) **rereading only what changed**, which is what the pen still waits
+   for (0.55 s for a full page): the engine stamps every paint tile it writes (`GlPaintEngine.mediaWritten`), picture
+   tiles need the same stamp set at every place a tile is put, and a tile whose stamp has not moved can be taken from
+   the file without being read back at all. A texture's id is NOT such a stamp: ids come back out of the pools. Until
+   (c), the budget (`LayerBudget.savePaintBudgetBytes`) is set by the readback and the heap, not by the write.
+2. **Open as it is read**: list the entries (`ZipFile`), then inflate and upload in batches, so opening holds a batch
+   and not the drawing. `JbCanvasView.load` uploads everything in one GL task today.
+3. **Then** raise the save's budget to the room, then `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB,
+   `MAX_ENTRIES` 20,000), and count the atlas's own memory in the admission check (second review E3).
+4. Small and separate: `DrawingLibrary`'s after-save task keeps the whole snapshot alive only to read its id; exports
+   read the paint stores they never use (second review E4).
+
+Tests that guard the save today: `JbArchiveTest` (34), `JbArchiveCompletenessTest` (refusals before any output),
+`JbArchiveMediaTest`, `MediaSaveTest`, `BoardSnapshotTest`, `WorkingSaveBarrierTest`, `MediaRoomTest` (the budget's
+choice), `MediaBudgetTest`.
+
+How to measure (anyone, about ten minutes on the Note 9): install a debug build, then start the bench with
+`--es jb_bench band0,...,band9 --es jb_bench_brushes "media:paste:Oil flat" --ez jb_media_atlas true --ez jb_wet_sheet true
+--ez jb_bench_clear false --es jb_bench_zoom 0.36 --es jb_bench_then 'wait 1500;savefile;wait 40000'` and read the three
+`then: savefile` lines in logcat (tag `JoyBrushPerf`). `savepaint <MB>` and `savelevel <0-9>` between two `savefile`
+steps change the budget and the deflate level; `jb_bench_zoom` 0.87 / 0.5 / 0.36 gives about 50 / 136 / 264 tiles.
+
+### Also found by the incident recorder (11-14), fixed 11-15
+
+`files/joybrush-incidents.log` on the Note 9 held one line: "a media frame failed ... A board cannot change during a
+stroke", from `reportMediaHistory` -> `reportHistory` -> `setBoardDocument`. A wash dried and printed itself (the undo
+stack changed) while a plain stroke was being drawn; republishing the board under that stroke was refused, the refusal
+was caught as a failed media frame, and the water's engine was let go. `reportMediaHistory` now waits for the stroke to
+end. Found by reading; not reproduced on the phone.
 
 Pictures and the numbers behind this table: [evidence/atlas-2to8-20261113](../joybrush/evidence/atlas-2to8-20261113/README.md).
 

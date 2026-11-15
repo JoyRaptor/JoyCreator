@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Boyutlandırmak için sürükle, kapatmak için dokun</string>
+    <string name="lane_a_toggle_mute">Sessize al</string>
+    <string name="lane_a_toggle_hide">Gizle</string>
+    <string name="lane_a_toggle_lock">Kilitle</string>
+    <string name="lane_a_toggle_pass_through">Dokunuşlar içinden geçsin</string>
+    <string name="lane_a_toggle_start_here">Buradan başla</string>
+    <string name="lane_a_toggle_end_here">Burada bitir</string>
+    <string name="lane_a_toggle_split">Oynatma imlecinde böl</string>
+    <string name="lane_a_toggle_fx_bypass">Efektleri atla (A/B)</string>
+    <string name="lane_a_mask_add_shape">Maske şekli ekle</string>
+    <string name="lane_a_mask_remove_shape">Bu şekli kaldır</string>
+    <string name="lane_a_mask_shape_n">Şekil %1$d</string>
+    <string name="lane_a_step_down">Bir adım azalt</string>
+    <string name="lane_a_step_up">Bir adım artır</string>
+    <string name="lane_a_key_green">Yeşili sil</string>
+    <string name="lane_a_key_blue">Maviyi sil</string>
+    <string name="lane_a_key_black">Siyahı sil</string>
+    <string name="lane_a_key_white">Beyazı sil</string>
+    <string name="lane_a_pivot_title">Dönüş ekseni</string>
+    <string name="lane_a_pivot_top_left">Eksen: sol üst</string>
+    <string name="lane_a_pivot_top">Eksen: üst</string>
+    <string name="lane_a_pivot_top_right">Eksen: sağ üst</string>
+    <string name="lane_a_pivot_left">Eksen: sol</string>
+    <string name="lane_a_pivot_centre">Eksen: orta</string>
+    <string name="lane_a_pivot_right">Eksen: sağ</string>
+    <string name="lane_a_pivot_bottom_left">Eksen: sol alt</string>
+    <string name="lane_a_pivot_bottom">Eksen: alt</string>
+    <string name="lane_a_pivot_bottom_right">Eksen: sağ alt</string>
+    <string name="lane_a_sprite_prev_key">Anahtarı biraz öne al</string>
+    <string name="lane_a_sprite_key">Oynatma imlecinin altındaki anahtarı sil</string>
+    <string name="lane_a_sprite_next_key">Anahtarı biraz geriye al</string>
+    <string name="lane_a_sprite_open_lab">Sprite Lab\'da aç</string>
+    <string name="lane_a_sprite_flip_h">Yatay çevir</string>
+    <string name="lane_a_sprite_flip_v">Dikey çevir</string>
+    <string name="lane_a_sprite_end">Sonunda: bir kez, döngü veya ping-pong</string>
+    <string name="lane_a_sprite_record">Performansı kaydet</string>
+    <string name="lane_a_sprite_stop">Kaydı durdur</string>
+    <string name="lane_a_sprite_sweep">Altındaki videodan takip et</string>
+    <string name="lane_a_sprite_more">Daha fazla</string>
+    <string name="lane_a_sprite_dope">Zamanlama tablosu</string>
+    <string name="lane_a_sprite_manage">Sprite sayfaları</string>
+    <string name="lane_a_sprite_grip">Daha çok satır için yukarı, daha az için aşağı sürükle</string>
+</resources>

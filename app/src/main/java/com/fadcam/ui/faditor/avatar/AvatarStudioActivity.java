@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.avatar;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.Manifest;
@@ -194,7 +196,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         String[] items = new String[entries.size() + 1];
         for (int i = 0; i < entries.size(); i++) items[i] = entries.get(i).rig.getName();
         items[entries.size()] = "+ New avatar from image…";
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Avatar Studio — library")
                 .setItems(items, (d, which) -> {
                     if (which == entries.size()) {
@@ -525,7 +527,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         }
         String[] items = new String[sheets.size()];
         for (int i = 0; i < sheets.size(); i++) items[i] = sheets.get(i).getName();
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.avatar_studio_pick_sheet)
                 .setItems(items, (d, which) -> promptPartName(sheets.get(which).getId()))
                 .show();
@@ -535,7 +537,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         EditText input = new EditText(this);
         input.setHint(R.string.avatar_studio_part_name_hint);
         input.setSingleLine(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.avatar_studio_add_part)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
@@ -560,7 +562,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 getString(R.string.avatar_studio_part_menu_parent),
                 getString(R.string.avatar_studio_part_menu_unparent),
                 getString(R.string.avatar_studio_part_menu_remove)};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(part.id)
                 .setItems(items, (d, which) -> {
                     if (which == 0) pickParent(part);
@@ -576,7 +578,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
             if (!p.id.equals(part.id)) candidates.add(p.id);
         }
         if (candidates.isEmpty()) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(getString(R.string.avatar_studio_parent_pick_title, part.id))
                 .setItems(candidates.toArray(new String[0]), (d, which) -> {
                     // Cycle guard: walking up from the chosen parent must not reach us.

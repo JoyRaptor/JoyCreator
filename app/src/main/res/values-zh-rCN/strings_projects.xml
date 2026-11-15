@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">新建项目</string>
+    <string name="projects_new_a11y">用手机上的视频、你的某个录制文件或一条空白音轨，开始一个新项目</string>
+    <string name="projects_classic_list">经典 Studio 列表</string>
+    <plurals name="projects_layers">
+        <item quantity="other">%d 个图层</item>
+    </plurals>
+    <string name="projects_open_failed">无法打开项目。</string>
+    <string name="projects_open_failed_access">无法打开项目，源视频的访问权限可能已丢失。</string>
+    <string name="projects_untitled">未命名</string>
+</resources>

@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">Otsi kõikjalt</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot, sinu abiline — ta hõõgub roheliselt, kui tal on sinu projekti jaoks idee</string>
+    <string name="lobbyv2_dismiss">Sulge</string>
+    <string name="lobbyv2_tag_last_project">VIIMANE PROJEKT</string>
+    <string name="lobbyv2_tag_ready">VALMIS</string>
+    <string name="lobbyv2_tag_last_sheet">VIIMANE LEHT</string>
+    <string name="lobbyv2_tag_last_character">VIIMANE TEGELANE</string>
+    <string name="lobbyv2_tag_last_visualiser">VIIMANE VISUALISEERIJA</string>
+    <string name="lobbyv2_tag_last_look">VIIMANE VÄLIMUS</string>
+    <string name="lobbyv2_tag_new_drawing">UUS JOONISTUS</string>
+    <string name="lobbyv2_tag_last_drawing">VIIMANE JOONISTUS</string>
+    <string name="lobbyv2_camera_back">Tagakaamera</string>
+    <string name="lobbyv2_camera_front">Esikaamera</string>
+    <string name="lobbyv2_camera_dual">Mõlemad kaamerad</string>
+    <string name="lobbyv2_capture_ready">Salvestamiseks valmis</string>
+    <string name="lobbyv2_capture_sub">VALMIS · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">VALMIS</string>
+    <string name="lobbyv2_in_project">PROJEKTIS %1$s</string>
+    <string name="lobbyv2_avatar_library">AVATARIKOGU</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">JOONISTUS · %2$s</item>
+        <item quantity="other">%1$d JOONISTUST · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d KIHT</item>
+        <item quantity="other">%d KIHTI</item>
+    </plurals>
+    <string name="lobbyv2_drawings">Joonistused</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d joonistus</item>
+        <item quantity="other">%d joonistust</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Siin pole veel midagi. Tee midagi ja see jõuab siia.</string>
+    <string name="lobbyv2_new_card">+ Uus</string>
+    <string name="lobbyv2_new_drawing">Uus joonistus</string>
+    <string name="lobbyv2_no_room_for_drawing">Sellel telefonil pole kohta, kuhu joonistust hoida.</string>
+    <string name="lobbyv2_kind_project">PROJEKT</string>
+    <string name="lobbyv2_kind_drawing">JOONISTUS</string>
+    <string name="lobbyv2_kind_export">EKSPORT</string>
+    <string name="lobbyv2_kind_screen">EKRAAN</string>
+    <string name="lobbyv2_kind_photo">FOTO</string>
+    <string name="lobbyv2_kind_stream">VOOG</string>
+    <string name="lobbyv2_kind_recording">SALVESTIS</string>
+    <string name="lobbyv2_kind_mini_app">MINIAPP</string>
+    <string name="lobbyv2_kind_video">VIDEO</string>
+    <string name="lobbyv2_kind_picture">PILT</string>
+    <string name="lobbyv2_kind_sheet">SPRAIDILEHT</string>
+    <string name="lobbyv2_kind_character">TEGELANE</string>
+    <string name="lobbyv2_kind_look">VISLABI VÄLIMUS</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">Sinu uusim salvestis jõudis pärast sinu viimast muudatust.</string>
+    <string name="lobbyv2_bot_open_library">Ava Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d salvestis ja projekte veel pole.</item>
+        <item quantity="other">%d salvestist ja projekte veel pole.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">%1$s alles</string>
+    <string name="lobbyv2_stat_free">%1$s vaba</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d projekt</item>
+        <item quantity="other">%d projekti</item>
+    </plurals>
+    <string name="lobbyv2_time_left">~%1$s videot alles</string>
+    <string name="lobbyv2_time_left_short">~%1$s alles</string>
+    <string name="lobbyv2_dur_days">%1$dp %2$dt</string>
+    <string name="lobbyv2_dur_hours">%1$dt %2$dmin</string>
+    <string name="lobbyv2_dur_minutes">%1$dmin</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">just praegu</string>
+    <string name="lobbyv2_ago_minutes">%1$d min tagasi</string>
+    <string name="lobbyv2_ago_hours">%1$d t tagasi</string>
+    <string name="lobbyv2_ago_days">%1$d p tagasi</string>
+    <string name="lobbyv2_ago_months">%1$d k tagasi</string>
+</resources>

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">Video</string>
+    <string name="home_rec_label_used">Terpakai</string>
+    <string name="home_rec_shot_label">Foto</string>
+    <string name="home_rec_shot_desc">Ambil foto</string>
+    <string name="home_rec_full_label">Penuh</string>
+    <string name="home_rec_full_desc">Pratinjau layar penuh</string>
+    <string name="home_rec_paused">Rekaman dijeda</string>
+    <string name="home_rec_mirror">Cerminkan kamera depan</string>
+    <string name="home_rec_sound_source">Sumber suara</string>
+    <string name="home_rec_live_viz">Visualizer langsung (tahan untuk mengganti gaya)</string>
+    <string name="home_rec_dismiss_gps">Tutup peringatan lokasi</string>
+</resources>

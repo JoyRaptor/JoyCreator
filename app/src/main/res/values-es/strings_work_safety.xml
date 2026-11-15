@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Cambios hechos en otro lugar</string>
+    <string name="studio_undo_transcription">Transcripción</string>
+    <string name="studio_consolidate_some_failed">Se copiaron %1$d archivo(s), pero estos no se pudieron copiar y siguen usando el original: %2$s. Conserva esos originales; ejecútalo otra vez para reintentar.</string>
+    <string name="studio_toast_changed_elsewhere">Se incorporaron cambios hechos en otro lugar a este proyecto</string>
+</resources>

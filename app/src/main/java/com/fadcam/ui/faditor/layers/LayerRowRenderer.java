@@ -3844,6 +3844,11 @@ public final class LayerRowRenderer {
                 canvas.drawLine(hx, top, hx + 4f * density, bottom, dark);
             }
             dark.setColor(Studio.alpha(Studio.GROUND, 0xAA));
+            // STU-B3: the small black mark where playback and export jump.
+            float jumpX = timeToX.map(clipStart + (s - inPoint));
+            if (jumpX >= x0 && jumpX <= x1) {
+                com.fadcam.ui.faditor.timeline.CutMarkPainter.draw(canvas, jumpX, top, bottom, density);
+            }
         }
     }
 

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_lane_b.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_b_audio_level_slider">Level</string>
+    <string name="lane_b_audio_pan_slider">Pan</string>
+    <string name="lane_b_audio_fade_in_slider">Pudar masuk</string>
+    <string name="lane_b_audio_fade_out_slider">Pudar keluar</string>
+    <string name="lane_b_audio_level_value">Level. Ketuk untuk mengetik persentase pasti.</string>
+    <string name="lane_b_audio_pan_value">Pan. Ketuk untuk mengetik posisi pasti.</string>
+    <string name="lane_b_audio_fade_in_value">Pudar masuk. Ketuk untuk mengetiknya dalam detik.</string>
+    <string name="lane_b_audio_fade_out_value">Pudar keluar. Ketuk untuk mengetiknya dalam detik.</string>
+    <string name="lane_b_audio_clear_envelope">Hapus envelope volume dan kembali ke gain rata</string>
+    <string name="lane_b_audio_beat_link">Tautkan overlay ke beat klip ini</string>
+    <string name="lane_b_audio_gain_meter">Pengurangan gain kompresor</string>
+    <string name="lane_b_puppet_name">Nama pin</string>
+    <string name="lane_b_puppet_tool">Alat %1$s</string>
+    <string name="lane_b_puppet_tool_on">Alat %1$s, sedang dipakai</string>
+    <string name="lane_b_puppet_chip">Pin %1$s. Ketuk untuk mengeditnya.</string>
+    <string name="lane_b_puppet_chip_on">Pin %1$s, sedang diedit</string>
+    <string name="lane_b_puppet_scope">Pengaturan %1$s</string>
+    <string name="lane_b_puppet_scope_on">Pengaturan %1$s, sedang tampil</string>
+    <string name="lane_b_puppet_toggle_on">%1$s: aktif. Ketuk untuk mematikan.</string>
+    <string name="lane_b_puppet_toggle_off">%1$s: mati. Ketuk untuk menyalakan.</string>
+    <string name="lane_b_puppet_eye_on">Cincin jangkauan selalu tampil. Ketuk agar tampil hanya saat menyeret.</string>
+    <string name="lane_b_puppet_eye_off">Cincin jangkauan tampil saat menyeret. Ketuk agar selalu tampil.</string>
+    <string name="lane_b_puppet_key_position">Key posisi untuk pin ini</string>
+    <string name="lane_b_transcript_panel">Transkrip. Ketuk kata untuk melompat ke sana, tahan untuk memperbaiki atau mencoretnya.</string>
+    <string name="lane_b_wave_swatch">Warna %1$s. Ketuk untuk memilih.</string>
+    <string name="lane_b_wave_lane_top">Jalur %1$s: di atas. Ketuk untuk memindah ke bawah.</string>
+    <string name="lane_b_wave_lane_below">Jalur %1$s: di bawah. Ketuk untuk memindah ke atas.</string>
+    <string name="lane_b_wave_band_show">Tampilkan pita %1$s</string>
+    <string name="lane_b_wave_preset">Warna %1$d dari %2$d</string>
+    <string name="lane_b_wave_preset_on">Warna %1$d dari %2$d, sedang dipakai</string>
+</resources>

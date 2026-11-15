@@ -25,6 +25,11 @@ import androidx.annotation.Nullable;
  * The result never goes backwards, so a sound placed in that fold starts where the next
  * clip's own picture starts.</p>
  *
+ * <p><b>Cut jumps</b> (STU-B3, 2026-11-15): struck words and cut silences stay on the editor
+ * timeline but the file jumps over them ({@link CutJumps}). Every jump before {@code t} is taken
+ * away too; inside a jump the time folds onto the jump's end. No jump lies under a transition,
+ * so the two never overlap and the map still never goes backwards.</p>
+ *
  * <p>Pure: no Android, no media. Built once per export from the timeline as it is then.</p>
  */
 public final class TimeMap {
@@ -33,10 +38,13 @@ public final class TimeMap {
     private final long[] clipStartMs;
     /** Effective transition at seam s (after clip s), 0 where there is none. */
     private final long[] seamMs;
+    /** Where the file jumps over struck words and cut silences (editor clock). */
+    @NonNull private final CutJumps cuts;
 
-    private TimeMap(@NonNull long[] clipStartMs, @NonNull long[] seamMs) {
+    private TimeMap(@NonNull long[] clipStartMs, @NonNull long[] seamMs, @NonNull CutJumps cuts) {
         this.clipStartMs = clipStartMs;
         this.seamMs = seamMs;
+        this.cuts = cuts;
     }
 
     @NonNull
@@ -54,8 +62,12 @@ public final class TimeMap {
             Transition t = transitionAtSeam(timeline, s);
             seams[s] = t == null ? 0L : effectiveTransitionMs(timeline, t, s);
         }
-        return new TimeMap(starts, seams);
+        return new TimeMap(starts, seams, CutJumps.of(timeline));
     }
+
+    /** The jumps this map takes away (never null; empty when nothing is struck or cut). */
+    @NonNull
+    public CutJumps cuts() { return cuts; }
 
     public int clipCount() { return clipStartMs.length - 1; }
 
@@ -90,9 +102,18 @@ public final class TimeMap {
         return off;
     }
 
+    /**
+     * Editor time minus file time at editor moment {@code editorMs} inside master clip
+     * {@code i}: the transitions before the clip plus every jump before the moment. What an
+     * export piece adds to its composition clock to read the editor's clock (STU-B3).
+     */
+    public long offsetAt(int i, long editorMs) {
+        return offsetBeforeClip(i) + cuts.cutBeforeMs(editorMs);
+    }
+
     /** Where editor time {@code editorMs} lands in the exported file. */
     public long editorToFileMs(long editorMs) {
-        long out = editorMs;
+        long out = editorMs - cuts.cutBeforeMs(editorMs);
         for (int s = 0; s < seamMs.length; s++) {
             long t = seamMs[s];
             if (t <= 0L) continue;

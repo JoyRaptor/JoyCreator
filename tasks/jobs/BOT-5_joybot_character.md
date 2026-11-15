@@ -95,7 +95,51 @@ effects ... when he's searching, he can be kind of searching around".
       praise, bow or "you the man" when a job is done, cheer flourish (spin, double point, the confetti set), present
       new ideas (every 30 s at most), point at what he shows off, point down at the box when you tap into it; a moment
       plays to its end before the chat's next mood.
-- [ ] Cloud build; seen on a device; land.
+- [x] Cloud build (d259969c1); test tablet: the bow greeting after landing, flight 60 fps with no gaps.
+- [ ] Seen on a device: point down at the box, the thank-you bow; the owner OKs the clips; land.
+
+## 11-15 midday: the owner's asks after watching it (do these before the arrival lands)
+Told to the orchestrator in the owner's words; each is a requirement.
+- [ ] **Way back home.** He flies back into the button he came out of when the chat closes, not just out.
+      *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* `arrival/HomeFlight` (head first, thruster trail, a little toward us, tumbles small into the
+      button, a pink ring) over the whole window; the drawer folds under him; a card first goes back to a full window in place.
+- [ ] **X and cog swap (full-screen phone mode at least).** After he flies out, the X sits where he came out (upper right,
+      under the thumb that opened him) and the cog sits over Joybot. No colour backing behind either: remove it or make it
+      fully transparent. Tapping X flies him straight back to where he started.
+      *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* X top right, moved onto the button he came out of (`ChatArrival.placeClose`); cog and speaker top
+      left; borderless ripple only (`chat_round_ghost` deleted).
+- [ ] **Depth in flight.** Vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us. On the
+      ground, or scooting along it, he is exactly his resting size.
+      *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* `Flight.DEPTH` 0.3 by how far his heading turns back, smoothed along the path, faded out near the
+      ground; `run-joybot-flight.sh` checks it (88 flights pass; deepest 1.24, his own size on the ground).
+- [ ] **Moods that mean something.** While he checks the help documents: a thinking animation and a *reading* one (looking
+      in the handbook). Whenever he can't help or says he can't do something: the nervous animation.
+      *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* moods READ (`reading`, the book) and NERVOUS (`oops`: sweat, gritted teeth); a question
+      alternates think and read; a help-book answer reads first; offline "can't", failed runs and replies that say they
+      can't (`HelpBook.saysItCant`) are nervous.
+- [ ] **Soft top edge.** The conversation scrolls up into a very soft gradient that darkens upward, never a hard line.
+      *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* fading edge on the scroll + `chat_scroll_fade` carrying on `chat_header_fade`'s shade.
+- [ ] **Touch him.**
+  - Asleep, tap or double-tap: he wakes with a scramble or an "oopsies".
+  - Awake, tap: one of many different actions, and he moves around while doing it.
+  - Asked "do a backflip": he does a backflip in the chat, then confetti or a bow.
+  - A directional poke nudges him (he's a little guy).
+  - A flick flings him round the screen: he bounces off the edges, comes back and settles.
+  *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* `JoybotTouch` (tap through the click, poke, flick by speed), `JoybotDirector.tapped / poked / flung`,
+  `JoybotView.nudge / fling / say` (a word above his head); "oopsies!" on waking; tap moments from the data ("tap").
+- [ ] **Tricks on command** (owner via the orchestrator, 11-15): go to sleep; hop on one foot (springy squash and
+      stretch); backflip; beg (built from the frames we have); roll over; shake, with little electric zaps.
+      *Built in 5af3bf65b, not yet seen on a device:* `JoybotDirector.trick(bot, name)` with names `TRICKS` = sleep, hop,
+      backflip, beg, roll-over, shake; `trickFor(text)` for typed commands (the chat does them instantly, offline). Agreed
+      with the Joybot brain lane (BOT-7), which calls `trick()` from its own words. Beg = the confetti set's hands-clasped
+      frame held, with bounces; roll over = the spin frames rolling right and back; shake = the nervous frames, shaking,
+      with zaps drawn round him.
+- [x] **How big before he looks blurry** (owner via the orchestrator, 11-15): measured, see the shared note
+      `joybot-sharpness-20261115.md`. The app's pictures (240 px cells from the 4560 sheet, his height 181 px) stay sharp up
+      to 92 dp on the Note 9 (dense), 90 dp on the tablet, 69 dp on the Fold; everywhere he is shown today (26-83 dp) is
+      within that and uses the full sheet. The first-run guide (DOOR-3) needs a double-size pack of its own animations
+      from the owner's 418 px sets (sharp to about 185 dp), built with the guide.
+- [ ] Cloud build of all of it; seen on a device; clips to the owner; the owner OKs; land.
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)

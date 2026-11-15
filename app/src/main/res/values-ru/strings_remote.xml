@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Remote Studio</string>
+    <string name="remote_chip_on_air">В ЭФИРЕ</string>
+    <string name="remote_chip_off_air">НЕ В ЭФИРЕ</string>
+    <string name="remote_section_on_air">В эфире</string>
+    <string name="remote_section_connection">Подключение</string>
+    <string name="remote_section_health">Состояние</string>
+    <string name="remote_section_security">Шифрование</string>
+    <string name="remote_section_help">Помощь</string>
+    <string name="remote_quality_default">Высокое (1080p) • 30 к/с • 8 Мбит/с</string>
+    <string name="remote_usage_title">Отчёт об использовании облака</string>
+    <string name="remote_usage_retrying">Повторное подключение…</string>
+    <string name="remote_usage_bytes">Передано байт</string>
+    <string name="remote_usage_failures">Сбоев</string>
+    <string name="remote_usage_action">Действие</string>
+    <string name="remote_usage_retry">Повторить</string>
+    <string name="remote_usage_retry_toast">Повторяю отправку отчёта…</string>
+    <string name="remote_usage_title_active">Использование облака (работает)</string>
+    <string name="remote_usage_title_error">Использование облака (ошибка)</string>
+    <string name="remote_usage_title_retrying">Использование облака (повтор)</string>
+    <string name="remote_usage_title_plain">Использование облака</string>
+    <string name="remote_usage_no_errors">Ошибок нет</string>
+    <string name="remote_usage_errors_fmt">Ошибок: %1$d/50</string>
+    <string name="remote_toast_stream_starting">Сервер трансляции запускается…</string>
+    <string name="remote_toast_stream_stopped">Сервер трансляции остановлен</string>
+    <string name="remote_toast_mode_stream_only">Режим «Только трансляция»</string>
+    <string name="remote_toast_mode_stream_save">Режим «Трансляция и сохранение»</string>
+    <string name="remote_toast_no_clients">Никто не подключён</string>
+    <string name="remote_toast_password_empty">Пароль не может быть пустым</string>
+    <string name="remote_toast_link_account">Сначала привяжи свой аккаунт Joy Creator ID</string>
+    <string name="remote_toast_wrong_password">Неверный пароль — попробуй ещё раз</string>
+    <string name="remote_toast_setup_failed">Не удалось настроить: %1$s</string>
+    <string name="remote_toast_autolock_set">Автоблокировка через: %1$s</string>
+    <string name="remote_toast_device_id_copied">ID устройства скопирован</string>
+    <string name="remote_password_hint">Введи новый пароль</string>
+    <string name="remote_password_helper">Смени здесь пароль доступа. Минимум 4 символа. Это простая HTTP-аутентификация — не очень надёжная, но лучше, чем ничего. При смене пароля все остальные устройства автоматически выйдут из системы.</string>
+    <string name="remote_lock_never">Никогда</string>
+    <string name="remote_lock_never_desc">Держать сеансы активными без ограничения</string>
+    <string name="remote_lock_30min">30 минут</string>
+    <string name="remote_lock_30min_desc">Блокировать после 30 минут бездействия</string>
+    <string name="remote_lock_1hr">1 час</string>
+    <string name="remote_lock_1hr_desc">Блокировать после 1 часа бездействия</string>
+    <string name="remote_lock_3hr">3 часа</string>
+    <string name="remote_lock_3hr_desc">Блокировать после 3 часов бездействия</string>
+    <string name="remote_lock_6hr">6 часов</string>
+    <string name="remote_lock_6hr_desc">Блокировать после 6 часов бездействия</string>
+</resources>

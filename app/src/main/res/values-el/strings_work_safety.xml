@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Αλλαγές που έγιναν αλλού</string>
+    <string name="studio_undo_transcription">Απομαγνητοφώνηση</string>
+    <string name="studio_consolidate_some_failed">Αντιγράφηκαν %1$d αρχεία, αλλά αυτά δεν μπόρεσαν να αντιγραφούν μέσα και χρησιμοποιούν ακόμα το πρωτότυπο: %2$s. Κράτα αυτά τα πρωτότυπα· τρέξε το ξανά για να δοκιμάσεις πάλι.</string>
+    <string name="studio_toast_changed_elsewhere">Μπήκαν οι αλλαγές που έγιναν σε αυτό το έργο αλλού</string>
+</resources>

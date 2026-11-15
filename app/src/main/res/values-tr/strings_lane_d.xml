@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Hız değişince sesler doğal kalsın</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Tüm araçları kapat</string>
+    <string name="lane_d_asset_close">Öğe gezginini kapat</string>
+    <string name="lane_d_asset_prev">Önceki sabit klasör</string>
+    <string name="lane_d_asset_next">Sonraki sabit klasör</string>
+    <string name="lane_d_asset_filter">Tüm, kullanımdaki veya kullanılmayan dosyaları göster</string>
+    <string name="lane_d_asset_forget">Bu klasörü sabit geçmişinden kaldır</string>
+    <string name="lane_d_asset_resize">Öğe gezginini boyutlandırmak için sürükle</string>
+</resources>

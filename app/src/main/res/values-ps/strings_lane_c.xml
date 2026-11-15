@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">نور ⌄</string>
+    <string name="faditor_lc_drawer_grip">د دراز دسته. د اندازې بدلولو لپاره وکاږئ، د نورو ښودلو یا بندولو لپاره کېکاږئ</string>
+    <string name="faditor_lc_fx_expand">د دې اغېزې تنظیمات وښایه</string>
+    <string name="faditor_lc_fx_collapse">د دې اغېزې تنظیمات پټ کړئ</string>
+    <string name="faditor_lc_fx_bypass">اغېزه تېره کړئ</string>
+    <string name="faditor_lc_fx_enable">اغېزه چارنه کړئ</string>
+    <string name="faditor_lc_fx_delete">اغېزه ړنګه کړئ</string>
+    <string name="faditor_lc_fx_reorder">د بیا ترتیبولو لپاره ونیسئ او وکاږئ</string>
+    <string name="faditor_lc_key_prev">تېر کیفریم</string>
+    <string name="faditor_lc_key_next">راتلونکی کیفریم</string>
+    <string name="faditor_lc_key_diamond">کیفریم. د زیاتولو یا لرې کولو لپاره کېکاږئ، د ټولو پاکولو لپاره ونیسئ</string>
+    <string name="faditor_lc_ease_need_keys">لومړی کیفریمونه کېږدئ</string>
+    <string name="faditor_lc_motion_title">حرکت</string>
+    <string name="faditor_lc_motion_by">متحرک کړئ په</string>
+    <string name="faditor_lc_gran_letter">توری</string>
+    <string name="faditor_lc_gran_word">ټکی</string>
+    <string name="faditor_lc_gran_sentence">جمله</string>
+    <string name="faditor_lc_gran_block">بلاک</string>
+    <string name="faditor_lc_sheet_grip">د پاڼې دسته. د ټولو تنظیماتو لپاره کېکاږئ یا پورته وکاږئ، د بندولو لپاره ښکته وکاږئ</string>
+    <string name="faditor_lc_sheet_legend">د کیفریم شکلونو معنی</string>
+    <string name="faditor_lc_sheet_more">نور…</string>
+    <string name="faditor_lc_sheet_move_to">ته حرکت</string>
+    <string name="faditor_lc_sheet_jump">د ټوپ لپاره وخت ولیکئ</string>
+    <string name="faditor_lc_sheet_push">تېرول</string>
+    <string name="faditor_lc_sheet_snap">نښلول</string>
+    <string name="faditor_lc_sheet_static_hint">ثابت — د متحرک کولو لپاره ♦ کېکاږئ</string>
+</resources>

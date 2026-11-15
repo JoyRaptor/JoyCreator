@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Tiroir à côté de l\'image (désactivé : il descend du haut)</string>
+    <string name="tab1_drawer_column">Colonne haute : la chronologie est seulement sous l\'image</string>
+    <string name="tab1_settings_place_title">Tiroirs sur un grand écran</string>
+    <string name="tab1_settings_place_auto">Automatique : à côté de l\'image s\'il y a la place, sinon il descend du haut</string>
+    <string name="tab1_settings_place_drop">Toujours descendre du haut, comme sur un téléphone</string>
+    <string name="tab1_settings_place_beside">Toujours à côté de l\'image</string>
+    <string name="tab1_settings_column_title">Colonne haute</string>
+    <string name="tab1_settings_column">À côté de l\'image, le tiroir prend toute la hauteur et la chronologie est seulement sous l\'image. Désactivé : la table de montage, avec la chronologie sur toute la largeur.</string>
+    <string name="tab1_settings_left_title">Tiroirs à gauche</string>
+    <string name="tab1_settings_left">Le tiroir se place à gauche de l\'image au lieu de la droite.</string>
+</resources>

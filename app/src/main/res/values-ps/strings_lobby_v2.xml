@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">هر څه ولټوئ</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot، ستاسو مرستندوی — کله چې ستاسو د پروژې لپاره فکر ولري شین ځلېږي</string>
+    <string name="lobbyv2_dismiss">لرې کړئ</string>
+    <string name="lobbyv2_tag_last_project">وروستۍ پروژه</string>
+    <string name="lobbyv2_tag_ready">چمتو</string>
+    <string name="lobbyv2_tag_last_sheet">وروستۍ پاڼه</string>
+    <string name="lobbyv2_tag_last_character">وروستی کرکټر</string>
+    <string name="lobbyv2_tag_last_visualiser">وروستی لیدونکی</string>
+    <string name="lobbyv2_tag_last_look">وروستۍ بڼه</string>
+    <string name="lobbyv2_tag_new_drawing">نوی رسم</string>
+    <string name="lobbyv2_tag_last_drawing">وروستی رسم</string>
+    <string name="lobbyv2_camera_back">شاته کامره</string>
+    <string name="lobbyv2_camera_front">مخکینۍ کامره</string>
+    <string name="lobbyv2_camera_dual">دواړه کامرې</string>
+    <string name="lobbyv2_capture_ready">د ثبت لپاره چمتو</string>
+    <string name="lobbyv2_capture_sub">چمتو · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">چمتو</string>
+    <string name="lobbyv2_in_project">په %1$s کې</string>
+    <string name="lobbyv2_avatar_library">د اواتار کتابتون</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">رسم · %2$s</item>
+        <item quantity="other">%1$d رسمونه · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d پرت</item>
+        <item quantity="other">%d پرتونه</item>
+    </plurals>
+    <string name="lobbyv2_drawings">رسمونه</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d رسم</item>
+        <item quantity="other">%d رسمونه</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">تر اوسه هیڅ نشته. یو څه جوړ کړئ او دلته به راشي.</string>
+    <string name="lobbyv2_new_card">+ نوی</string>
+    <string name="lobbyv2_new_drawing">نوی رسم</string>
+    <string name="lobbyv2_no_room_for_drawing">په دې تلیفون کې د رسم د ساتلو لپاره ځای نشته.</string>
+    <string name="lobbyv2_kind_project">پروژه</string>
+    <string name="lobbyv2_kind_drawing">رسم</string>
+    <string name="lobbyv2_kind_export">صادر</string>
+    <string name="lobbyv2_kind_screen">پرده</string>
+    <string name="lobbyv2_kind_photo">عکس</string>
+    <string name="lobbyv2_kind_stream">ځغلونه</string>
+    <string name="lobbyv2_kind_recording">ثبت</string>
+    <string name="lobbyv2_kind_mini_app">کوچنی اپ</string>
+    <string name="lobbyv2_kind_video">ویډیو</string>
+    <string name="lobbyv2_kind_picture">انځور</string>
+    <string name="lobbyv2_kind_sheet">د سپرایټ پاڼه</string>
+    <string name="lobbyv2_kind_character">کرکټر</string>
+    <string name="lobbyv2_kind_look">د VisLab بڼه</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">ستاسو نوی ثبت ستاسو د وروستي سمون وروسته راغی.</string>
+    <string name="lobbyv2_bot_open_library">Library خلاص کړئ</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d ثبت او تر اوسه هیڅ پروژه نشته.</item>
+        <item quantity="other">%d ثبتونه او تر اوسه هیڅ پروژه نشته.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">%1$s پاتې</string>
+    <string name="lobbyv2_stat_free">%1$s وړیا</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d پروژه</item>
+        <item quantity="other">%d پروژې</item>
+    </plurals>
+    <string name="lobbyv2_time_left">~%1$s ویډیو پاتې</string>
+    <string name="lobbyv2_time_left_short">~%1$s پاتې</string>
+    <string name="lobbyv2_dur_days">%1$d ورځې %2$d ساعت</string>
+    <string name="lobbyv2_dur_hours">%1$d ساعت %2$d دقیقې</string>
+    <string name="lobbyv2_dur_minutes">%1$d دقیقې</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">همدا اوس</string>
+    <string name="lobbyv2_ago_minutes">%1$d دقیقې مخکې</string>
+    <string name="lobbyv2_ago_hours">%1$d ساعتونه مخکې</string>
+    <string name="lobbyv2_ago_days">%1$d ورځې مخکې</string>
+    <string name="lobbyv2_ago_months">%1$d میاشتې مخکې</string>
+</resources>

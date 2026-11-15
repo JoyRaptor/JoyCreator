@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Imporditud %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Slaidi ei saanud renderdada: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Koondamine nurjus: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Eksport nurjus: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Ekspordikoopia nurjus: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Import nurjus: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Ümberjärjestamine nurjus: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Ümberjärjestamise viga: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Joondamine nurjus: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">See ei näe välja nagu Studio slaid: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Slaidi import nurjus: %1$s</string>
+</resources>

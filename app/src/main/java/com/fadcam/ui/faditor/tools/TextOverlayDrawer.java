@@ -60,7 +60,7 @@ public final class TextOverlayDrawer {
         /** {@code --dring}: the 1dp ring an unselected control wears. */
         public static final int RING  = ObjectDrawer.Kit.RING;
         /** {@code --edge}: the only border a drawer surface has. */
-        public static final int EDGE  = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+        public static final int EDGE  = ObjectDrawer.Kit.EDGE;
         /** {@code .dsl .tr}: an empty slider track. */
         public static final int TRACK = ObjectDrawer.Kit.TRACK;
         /** {@code .dgrab span}: the grab pill. */

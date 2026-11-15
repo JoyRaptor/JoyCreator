@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Veel ⌄</string>
+    <string name="faditor_lc_drawer_grip">Sahtli käepide. Lohista suuruse muutmiseks, puuduta, et näha rohkem või sulgeda</string>
+    <string name="faditor_lc_fx_expand">Näita selle efekti seadeid</string>
+    <string name="faditor_lc_fx_collapse">Peida selle efekti seaded</string>
+    <string name="faditor_lc_fx_bypass">Jäta efekt vahele</string>
+    <string name="faditor_lc_fx_enable">Lülita efekt sisse</string>
+    <string name="faditor_lc_fx_delete">Kustuta efekt</string>
+    <string name="faditor_lc_fx_reorder">Järjekorra muutmiseks hoia all ja lohista</string>
+    <string name="faditor_lc_key_prev">Eelmine võtmekaader</string>
+    <string name="faditor_lc_key_next">Järgmine võtmekaader</string>
+    <string name="faditor_lc_key_diamond">Võtmekaader. Puuduta lisamiseks või eemaldamiseks, hoia all kõigi tühjendamiseks</string>
+    <string name="faditor_lc_ease_need_keys">Pane esmalt võtmekaadrid</string>
+    <string name="faditor_lc_motion_title">Liikumine</string>
+    <string name="faditor_lc_motion_by">Animeeri kaupa</string>
+    <string name="faditor_lc_gran_letter">Täht</string>
+    <string name="faditor_lc_gran_word">Sõna</string>
+    <string name="faditor_lc_gran_sentence">Lause</string>
+    <string name="faditor_lc_gran_block">Plokk</string>
+    <string name="faditor_lc_sheet_grip">Lehe käepide. Puuduta või lohista üles kõigi seadete jaoks, lohista alla sulgemiseks</string>
+    <string name="faditor_lc_sheet_legend">Mida võtmekaadri kujud tähendavad</string>
+    <string name="faditor_lc_sheet_more">Veel…</string>
+    <string name="faditor_lc_sheet_move_to">Liiguta kohta</string>
+    <string name="faditor_lc_sheet_jump">Kirjuta aeg, kuhu hüpata</string>
+    <string name="faditor_lc_sheet_push">Lükka läbi</string>
+    <string name="faditor_lc_sheet_snap">Haakimine</string>
+    <string name="faditor_lc_sheet_static_hint">Liikumatu — animeerimiseks puuduta ♦</string>
+</resources>

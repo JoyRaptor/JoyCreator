@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">Kolm asja, mida teada, ja siis on rakendus sinu oma.</string>
+    <string name="onboarding_promise_1">Sinu looming jääb sinu telefoni, sinu valitud Joy Creatori kausta.</string>
+    <string name="onboarding_promise_2">Ei mingit kontot, reklaami ega jälgimist. Sinu kohta ei müüda ega jagata midagi.</string>
+    <string name="onboarding_promise_3">Midagi lahkub su telefonist ainult siis, kui kasutad funktsiooni, mis vajab internetti, näiteks ühendatud AI-d.</string>
+    <string name="hover_intro_ai_add">Ühenda oma AI Joyboti külge kohe</string>
+    <string name="hover_intro_ai_later">Peida see; AI saad hiljem ühendada Joyboti vestlusest</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">الدرج بجانب الصورة (عند الإيقاف: ينزل من الأعلى)</string>
+    <string name="tab1_drawer_column">عمود طويل: الخط الزمني تحت الصورة فقط</string>
+    <string name="tab1_settings_place_title">الأدراج على الشاشة العريضة</string>
+    <string name="tab1_settings_place_auto">تلقائي: بجانب الصورة إن وُجد مكان، وإلا ينزل من الأعلى</string>
+    <string name="tab1_settings_place_drop">ينزل دائمًا من الأعلى، كما في الهاتف</string>
+    <string name="tab1_settings_place_beside">دائمًا بجانب الصورة</string>
+    <string name="tab1_settings_column_title">العمود الطويل</string>
+    <string name="tab1_settings_column">بجانب الصورة، يمتد الدرج بكامل الارتفاع ويقع الخط الزمني تحت الصورة فقط. عند الإيقاف: مكتب التحرير، والخط الزمني بالعرض الكامل.</string>
+    <string name="tab1_settings_left_title">أدراج جهة اليسار</string>
+    <string name="tab1_settings_left">يقف الدرج على يسار الصورة بدل اليمين.</string>
+</resources>

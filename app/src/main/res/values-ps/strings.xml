@@ -2,7 +2,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_icon_description">Da khpal app lapara yao icon aw num entekhab ka. Da ba staso pa home screen bandi da shakaridalo tarika badla ki.</string>
     <string name="check_for_updates">Updates kho nesta?</string>
-    <string name="fadsec_info">Joy Creator app da FadSec Lab suite yo hissa da. Nur maloomat da paara, laandi \'Source Code ogorai\' bandi click kai.</string>
+    <string name="fadsec_info">Joy Creator وړیا او خلاص‌کوډ دی. د نورو معلوماتو لپاره لاندې پر \'سرچینه کوډ وګورئ\' کېکاږئ.</string>
     <string name="app_description">
     <![CDATA[
     Joy Creator yao ad-free, open-source video recording app da che privacy ta tarjeeh warkawi aw sta data na track kai aw na ye jama kai. Da sirf pa GitHub aw pa README ke che kam official links di, sirf alta dastiyab de.
@@ -93,48 +93,43 @@
         <item>Sta da Bugatti kam rung de?</item>
         <item>Za de dapara na ym program shwe sa che rasara ta ke lagya. Yo minute, ta ma hack ke kho na?</item>
     </string-array>
-    <string-array name="questions_array" tools:ignore="InconsistentArrays">
-        <item>DISCLAIMER</item>
-        <item>Joy Creator da user data jama kai zan sara?</item>
-        <item>Di app ki ishtehar am shta?</item>
-        <item>Joy Creator da location access wali gwari?</item>
-        <item>Da internet permission walae zarurat de?</item>
-        <item>Hes runga data pa external servers bande store kegi?</item>
-        <item>Zama videos sara sa kegi record kolo na pas?</item>
-        <item>Joy Creator zama data third party services ta legi?</item>
-        <item> </item>
-        <item> </item>
-        <item>General</item>
-        <item>Da watermarking dumra der wakh wali akhli?</item>
-        <item>Za video quality sanga badlole sham?</item>
-        <item>Za da preview video band kole sham?</item>
-        <item>Za location sanga pa watermark ki achole sham?</item>
-        <item>Zama preferences de app ki save kegi?</item>
-        <item>Za scheduled recordings kole sham?</item>
-        <item>Da app za sanga update kole sham?</item>
-        <item> </item>
+    <string-array name="questions_array">
+        <item>خبرتیا</item>
+        <item>ایا Joy Creator د کارونکي کومه معلومات راټولوي؟</item>
+        <item>ایا په Joy Creator کې اعلانات شته؟</item>
+        <item>Joy Creator ولې د موقعیت لاسرسی غواړي؟</item>
+        <item>د انټرنېټ اجازې ته ولې اړتیا ده؟</item>
+        <item>ایا کومه معلومات په بهرنیو سرورونو کې ساتل کېږي؟</item>
+        <item>د ثبت وروسته زما ویډیوګانو ته څه کېږي؟</item>
+        <item>ایا Joy Creator زما معلومات له درېیمو خواوو سره شریکوي؟</item>
+        <item></item>
+        <item></item>
+        <item>عمومي</item>
+        <item>ایا زه کولای شم مخکتنه بنده کړم؟</item>
+        <item>څنګه کولای شم خپل موقعیت په واټرمارک کې ځای کړم؟</item>
+        <item>ایا زما غوره توبونه خوندي کېږي؟</item>
+        <item>ایا کولای شم ثبتونه مهالویش کړم؟</item>
+        <item>اپ څنګه تازه کړم؟</item>
+        <item></item>
     </string-array>
-    <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>Joy Creator hes am ghair akhlaqi ya illegal istemal la nade. Misuse, da cha surveillance ya privacy ki da dakhal, zamung da guidelines khilaf di. Da de app authors hes qisam am misuse jawabgar na di.
-</item>
-        <item>Na, Joy Creator hes kisam user data na jama kai.</item>
-        <item>Na, Joy Creator bilkul ad-free dai.</item>
-        <item>Da location info watermark ke shaamil kawalo dapara.</item>
-        <item>Da automatic update checking da para.</item>
-        <item>Na, tola data sta pa device bandi store kigi.</item>
-        <item>Sta videos sta pa device ki internal app storage ke save kigi.</item>
-        <item>Na, Joy Creator hes data na share kai ao na jama kai, hatta crash logs hum na.</item>
-        <item> </item>
-        <item> </item>
-        <item> </item>
-        <item>Watermark har frame ke shaamil kigi. Ogad video we nu, zyat wakh ba akhli.</item>
-        <item>Video quality settings ke badal kideshi: HD, SD, or FHD.</item>
-        <item>Preview wala zay bandi, disable kawalo dapara, long press okai.</item>
-        <item>Location settings ke enable kae, che watermark ke da location data shaamil she. Da precise longitude aw latitude data shaamil kai.</item>
-        <item>Ao, preferences aw tol settings save kegi ao pakhpala apply kigi.</item>
-        <item>Da feature ba bad ki razi, In Sha Allah.</item>
-        <item>Updates dapara, official GitHub repo check kae.</item>
-        <item> </item>
+    <string-array name="answers_array">
+        <item>Joy Creator د دې سافټویر هیڅ ډول ناوړه یا غیرقانوني کارونه نه منی او نه یې ملاتړ کوي. بدکارول، لکه بې اجازې څارنه یا د شخصي ژوند ماتول، زموږ د لارښوونو خلاف دي. لیکوال د اپ د هیڅ ډول بدکارونې مسؤل نه دی.</item>
+        <item>نه، Joy Creator د کارونکي هیڅ معلومات نه راټولوي.</item>
+        <item>نه، Joy Creator بشپړ بې اعلانه دی.</item>
+        <item>ستاسو د واټرمارکونو ته د موقعیت معلوماتو اضافه کولو لپاره.</item>
+        <item>د اتومات تازه کېدو د کتلو لپاره.</item>
+        <item>نه، ټول معلومات ستاسو په وسیله کې ساتل کېږي.</item>
+        <item>ستاسو ویډیوګانې په ځایي ډول ستاسو په وسیله کې خوندي کېږي.</item>
+        <item>نه، Joy Creator هیڅ معلومات نه شریکوي او نه راټولوي، حتی د ټکر لاګونه هم نه.</item>
+        <item></item>
+        <item></item>
+        <item></item>
+        <item>د مخکتنې ساحه اوږد ونیسئ چې بنده شي.</item>
+        <item>په واټرمارک کې د موقعیت معلوماتو لپاره په تنظیماتو کې موقعیت چارن کړئ. دا دقیق عرض البلد او طول البلد ځای کوي.</item>
+        <item>هو، ټول غوره توبونه او تنظیمات په اسانۍ سره خوندي او پلي کېږي.</item>
+        <item>دا ځانګړتیا ډېر ژر راځي.</item>
+        <item>د تازه کېدو لپاره رسمي GitHub پاڼه وګورئ.</item>
+        <item></item>
     </string-array>
     <string name="dialog_welcome_title">Pa Khair raghle!</string>
     <string name="note_under_dev">Zaruri khabara: Da app la development ki de. Nawi features wakh sara add kegi.</string>
@@ -169,7 +164,7 @@
     <string name="up_to_date_description">Stasu pehla na latest version bandi de.</string>
     <string name="up_to_date_loading">Updates check kegi sabr…</string>
     <string name="update_available_title">Update Mojood de</string>
-    <string name="update_available_message">Yo nawe version (%1$s) milaoshu. Update kolo dapara, F-Droid store ya GitHub repository na download kae. </string>
+    <string name="update_available_message">یو نوی تازه شوی نسخه چمتو ده! تاسو په v%1$s یاست، وروستی v%2$s دی. له نوو ځانګړتیاوو او ښه والیو څخه خوند واخلئ.</string>
     <string name="visit_fdroid">F-Droid kolao ka</string>
     <string name="visit_github">GitHub kolao ka</string>
     <string name="delete_all_videos_title">Tol Videos pa Daz Ola</string>
@@ -215,9 +210,7 @@
     <string name="setting_framerate_title">Da Video Framerate</string>
     <string name="note_framerate">Framerate entekhab ka\n(Default: %1$d)</string>
     <string name="setting_codec_title">Video Codec</string>
-    <string name="note_codec">Codec entekhab ka
-(Default: %1$s)
-Yadona: da H.265 (HEVC) sara, taso kawalai shai da H.264 pa nisbatan neema bitrate warkaawi ao quality ba hum agha we. Misal: da FHD lapara, 8 Mbps warkaawi pr zay da 16 Mbps.</string>
+    <string name="note_codec">کوډک غوره کړئ\n(ډیفالټ: %1$s)\nلارښوونه: د H.265 (HEVC) سره د H.264 په پرتله د ورته کیفیت لپاره شاوخوا نیمایي بټریټ بسنه کوي. بېلګه: د FHD لپاره د 16 Mbps پر ځای 8 Mbps وکاروئ.</string>
     <string name="setting_video_bitrate_title">Da Video Bitrate</string>
     <string name="button_video_bitrate_settings">Bitrate Tanzim Ka</string>
     <string name="bitrate_mode_default">Default</string>
@@ -476,7 +469,7 @@ Tawsiya shwee: 192000 bps, 48000 Hz da aksar karwonko lapara.</string>
     <string name="fix_video_saf_write_fail">Repaired file SAF folder ta likh nashu. Da app storage ki save sho.</string>
     <string name="fix_video_saf_success">Video repair sho! Save sho da num sara: %1$s.</string>
     <string name="fix_video_saf_export">Repaired file da app storage na export ya share kawalai shay.</string>
-    <string name="full_changelog_info">For full changelog, head to the Home tab and open the hamburger menu, then select "What's New".</string>
+    <string name="full_changelog_info">For full changelog, head to the Home tab and open the hamburger menu, then select \"What\'s New\".</string>
 <!-- ================================================ -->
     <!-- Auto-generated Roman Pashto translations         -->
     <!-- Total entries: 1663                        -->
@@ -582,11 +575,7 @@ Tawsiya shwee: 192000 bps, 48000 Hz da aksar karwonko lapara.</string>
     <string name="chooser_open_with">Sara khola</string>
     <string name="close">Band Ka</string>
     <string name="codec_go_to_settings">Go to Tanzimaat</string>
-    <string name="codec_hevc_incompatible_message">📡 Live streaming via HLS requires H.264 codec.
-
-H.265 is not compatible with browser players.
-
-Would you like to switch to H.264 and start recording?</string>
+    <string name="codec_hevc_incompatible_message">📡 د HLS له لارې ژوندی ځغلول H.264 کوډک ته اړتیا لري.\n\nH.265 د براوزر پلیرونو سره نه جوړېږي.\n\nغواړئ H.264 ته واوړئ او ثبت پیل کړئ؟</string>
     <string name="codec_hevc_incompatible_title">H.265 Codec Not Supported for Live Streaming</string>
     <string name="codec_switch_and_record">Switch to H.264 &amp; Record</string>
     <string name="codec_switch_cancelled">Codec switch cancelled</string>
@@ -718,7 +707,7 @@ Would you like to switch to H.264 and start recording?</string>
     <string name="dual_cameras_swapped">Cameras swapped</string>
     <string name="dual_recording_started">Dual camera recording started</string>
     <string name="dual_recording_stopped">Dual camera recording stopped</string>
-    <string name="edit_with_faditorx">Tabdeel Ka with Faditor Mini</string>
+    <string name="edit_with_faditorx">په Studio کې سم کړئ</string>
     <string name="enable_annotations">Annotashun Faal Ka</string>
     <string name="enabled">Faal de</string>
     <string name="essential_permissions_missing">Zaruri ejazato mojood nadi. Mehrbani oka agha werka che jari shi.</string>
@@ -738,7 +727,6 @@ Would you like to switch to H.264 and start recording?</string>
     <string name="eye_color_teal" translatable="false">Cyan</string>
     <string name="eye_color_violet" translatable="false">Violet</string>
     <string name="eye_color_white" translatable="false">White</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="faditor_add_asset_image">Image (5s still)</string>
     <string name="faditor_add_asset_title">Asset Zaat Ka</string>
     <string name="faditor_add_asset_video">Video clip</string>
@@ -772,7 +760,7 @@ Would you like to switch to H.264 and start recording?</string>
     <string name="faditor_delete_last_segment">Cannot delete the only segment</string>
     <string name="faditor_delete_projects_message">Delete Ka Ka %1$d project(s)? This cannot be undone.</string>
     <string name="faditor_delete_projects_title">Projects delete ka?</string>
-    <string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
     <string name="faditor_empty_desc">Tap "New Project" to pick a video and begin editing</string>
     <string name="faditor_empty_title">Tarto project nedi</string>
     <string name="faditor_error_no_video">Kho video intikhab na shwa</string>
@@ -785,8 +773,7 @@ Would you like to switch to H.264 and start recording?</string>
     <string name="faditor_export_complete_title">Export Mukammal</string>
     <string name="faditor_export_completed">Export Mukammal</string>
     <string name="faditor_export_confirm_action">Os Export ka</string>
-    <string name="faditor_export_confirm_helper">%1$s • %2$d clip(s)%3$s
-Export runs as a background service — you can close the app and it will keep exporting.</string>
+    <string name="faditor_export_confirm_helper">%1$s • %2$d کلیپونه%3$s\nصادرول د شاته خدمت په توګه چلېږي — کولای شئ اپ بند کړئ او ادامه به ورکوي.</string>
     <string name="faditor_export_confirm_subtitle">Export ka will continue in background</string>
     <string name="faditor_export_confirm_title">Export ka Video</string>
     <string name="faditor_export_done">Mukammal</string>
@@ -795,7 +782,7 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="faditor_export_failed">Export Fail Sho</string>
     <string name="faditor_export_in_progress">Export ka already in progress</string>
     <string name="faditor_export_info">%1$s • %2$d clip(s)%3$s • H.264 + AAC</string>
-    <string name="faditor_export_notif_channel">Faditor Export ka</string>
+    <string name="faditor_export_notif_channel">د Studio صادرول</string>
     <string name="faditor_export_notif_channel_desc">Notifications for ongoing video exports</string>
     <string name="faditor_export_notif_error_title">Export Fail Sho</string>
     <string name="faditor_export_notif_title">Video export kigi…</string>
@@ -817,7 +804,7 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="faditor_feature_trim_desc">Khpal videos exact frame ta cut ka che ta gware</string>
     <string name="faditor_flip_title">Aina Ka</string>
     <string name="faditor_home_tagline">Lightweight video editor</string>
-    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means sta / khpal footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store sta / khpal videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export ka. The converted standard MP4 will appear in sta / khpal Records tab, ready to save to sta / khpal gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
+    <string name="faditor_info_convert_desc">Joy Creator د ټکر-خوندي بڼه چې ټوټه شوی MP4 (fMP4) ورته ویل کېږي کې ثبتوي. د عادي MP4 برعکس چې یو بشپړ شوی کانټینر لري، fMP4 ویډیو په وړو خپلواکو ټوټو کې لیکي. دا پدې معنی ده چې ستاسو انځورونه حتی که اپ ټکر وکړي یا ثبت ناڅاپه ودرېږي، بشپړ پاتې کېږي.\n\nخو بهرني ویډیو پلیرونه، ګالري اپونه، او فایل مدیران نه شي کولای د دې فایلونو سم موده وښیي یا پرې وګرځي. دا ستونزه نه ده — د باور لپاره قصدي انتخاب دی.\n\nکه تاسو غواړئ خپلې ویډیوګانې د Joy Creator بهر وساتئ — په Google Drive، کمپیوټر، یا بل هر ځای کې — باید لومړی یې بدل کړئ. که نه فایلونه د عادي غږولو لپاره د کارونې وړ نه وي.\n\nد بدلولو لپاره: یوازې ویډیو دلته په Studio کې خلاصه کړئ او صادرول کېکاږئ. بدل شوی عادي MP4 به ستاسو د ثبتونو ټب کې راښکاره شي، چمتو چې ګالري ته خوندي شي یا هرچېرې شریک شي. بهیر سمدلاسه او بې ضایع دی — بیا کوډولو یا د کیفیت له لاسه ورکولو پرته.</string>
     <string name="faditor_info_convert_title">Smart conversion</string>
     <string name="faditor_info_export_desc">Exported videos are saved to sta / khpal active storage location (the same one configured in Tanzimaat) with the prefix \"JoyCreator_\" followed by a timestamp. They appear in the Records tab alongside sta / khpal original recordings.</string>
     <string name="faditor_info_export_title">Exported files</string>
@@ -826,13 +813,13 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="faditor_info_projects_desc">All sta / khpal editing sessions are shown for quick access. Each project is stored as a small JSON file on sta / khpal device containing the video URI, trim points, and timestamps — no copies of sta / khpal videos are made. Projects are auto-saved every few seconds, so sta / khpal progress is never lost.\n\nYou can delete projects you no longer need using the multi-select checklist icon. Deleting a project only removes the editing session data; sta / khpal original video files remain untouched.</string>
     <string name="faditor_info_projects_title">Recent projects</string>
     <string name="faditor_info_subtitle">Har shay che ta da built-in editor dapara poho lari gware</string>
-    <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" — a fast conversion agha adds seeking markers without re-encoding. Remuxed files are cached on sta / khpal device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If sta / khpal device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from da tab.</string>
+    <string name="faditor_info_temp_desc">کله چې د سمولو لپاره fMP4 ویډیو پورته کوئ، Studio پیدا کوي چې ایا فایل \"ریمکس\" ته اړتیا لري — یو چټک بدلون چې پرته له بیا کوډولو د لټولو نښې زیاتوي. ریمکس شوي فایلونه ستاسو په وسیله کې کېش کېږي ترڅو که همدا ویډیو بیا سموئ بیا وکارول شي، وخت او پروسس ساتي.\n\nتاسو کولای شئ د هرې پروژې د کېش اندازه د هغې د بدلون نېټې تر څنګ وګورئ. که ستاسو د وسیلې ځای ټیټ شي، کولای شئ ناکارول شوې پروژې ړنګې کړئ ترڅو د هغوی ریمکس شوي کېش فایلونه پاک شي.\n\nدا لنډمهاله کېش فایلونه په اتومات ډول پاکېږي کله چې تاسو له دې ټب نه پروژه ړنګوئ.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
-    <string name="faditor_info_title">Maloomat Faditor Mini</string>
+    <string name="faditor_info_title">د Studio په اړه</string>
     <string name="faditor_mini_coming_soon">Zur razee — lightweight editor</string>
     <string name="faditor_mini_subtitle">Khpal videos precision sara trim aw export ka</string>
-    <string name="faditor_mini_title">Faditor Mini</string>
-    <string name="faditor_mini_toast">Faditor Mini — coming soon</string>
+    <string name="faditor_mini_title">Studio</string>
+    <string name="faditor_mini_toast">Studio — ډېر ژر راځي</string>
     <string name="faditor_new_project">Nawai Project</string>
     <string name="faditor_no_recordings">No recordings found yet. Recording shuru ka with Joy Creator to see sta / khpal videos here.</string>
     <string name="faditor_play_pause">Play or pause</string>
@@ -868,7 +855,7 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="faditor_tool_split">Bel Ka</string>
     <string name="faditor_tool_volume">Aawaz</string>
     <string name="faditor_undo">Wrusta</string>
-    <string name="faditor_version_info">Faditor Mini · Phase 1 · Trim + Export</string>
+    <string name="faditor_version_info">Studio · لومړی پړاو · غوڅول + صادرول</string>
     <string name="faditor_video_count">%1$d video(s)</string>
     <string name="faditor_volume_mute">Khamosh Ghag</string>
     <string name="faditor_volume_title">Aawaz</string>
@@ -909,7 +896,7 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="file_operation_processed">%1$s process sho</string>
     <string name="file_operation_restored">%1$s restore sho</string>
     <string name="floating_controls_permission_grant">Ejazat Werka</string>
-    <string name="floating_controls_permission_message">Floating quick menu da noro appo pa sar overlay ke zaher kai, cherta na recording controls ta osani rasai warkawi. Da feature faalolo dapara, "Display over other apps" ejazat darkar de.</string>
+    <string name="floating_controls_permission_message">لامبو چټک مېنو د نورو اپونو پر سر ښکاري او له هرځایه د ثبت کنټرولونو ته ژر لاسرسی درکوي.\n\nد دې ځانګړتیا د چارنولو لپاره باید په راتلونکې پرده کې د \"د نورو اپونو پر سر ښودل\" اجازه ورکړئ.</string>
     <string name="floating_controls_permission_needed">Overlay ejazat pakar de</string>
     <string name="floating_controls_permission_title">Overlay Ejazat Pakar De</string>
     <string name="floating_controls_title">Menu</string>
@@ -979,11 +966,7 @@ Export runs as a background service — you can close the app and it will keep e
     <string name="forensics_grid_option">Grid Layout</string>
     <string name="forensics_heatmap_cd">Activity heatmap</string>
     <string name="forensics_heatmap_legend">Roghan dage da tayar harkat meaning lari. Dim dage da kam activity meaning lari.</string>
-    <string name="forensics_info_body">Evidence Gallery pa chalu recording sessions ke akhestali shwi snapshots store kai.
-
-Snapshots khpali evidence files di aw wuwiny keda shi hatta che source video move ya delete shi.
-
-Da video-linked items dapara, photo viewer ke evidence details istemal ka che source footage ta wruzi kala che mojood wi.</string>
+    <string name="forensics_info_body">د سنیپ‌شاټ ګالري هغه سنیپ‌شاټونه ساتي چې د فعال ثبت پر مهال نیول شوي.\n\nسنیپ‌شاټونه جلا فایلونه دي او حتی که سرچینه ویډیو حرکت شي یا ړنګ شي هم لیدل کېږي.\n\nد ویډیو سره تړلو توکو لپاره، د انځور لیدونکي دننه د سنیپ‌شاټ توضیحات وکاروئ ترڅو کله چې شته وي سرچینې انځورونو ته ورشئ.</string>
     <string name="forensics_info_helper">Evidence dalta zaher kai os kala che recording wakht ke snapshots akhestali shi.</string>
     <string name="forensics_info_line_1">Source video actions sirf os wakht mojood di kala che original video link mojood wi.</string>
     <string name="forensics_info_line_2">Che video badla ya lere shi, snapshots ba khpali evidence ke mojood pati shi.</string>
@@ -1055,9 +1038,7 @@ Da video-linked items dapara, photo viewer ke evidence details istemal ka che so
     <string name="helper_noise_suppression">Experimental filter to reduce background noise.</string>
     <string name="helper_record_audio">Toggle capturing microphone audio in videos.</string>
     <string name="helper_theme_option">Intikhab Ka a theme. Applies instantly.</string>
-    <string name="helper_watermark_custom_text">Custom text line zaat ka che timestamp aw location landi (ke faal wi) sta watermark ki zaher shi.
-
-Misaluna: ABC-1234 (dashcam), Camera #3, Conference Hall A</string>
+    <string name="helper_watermark_custom_text">د متن یوه ځانګړې کرښه زیاته کړئ چې ستاسو په واټرمارک کې د وخت نښې او موقعیت (که چارن وي) لاندې ښکاره شي.\n\nبېلګې: ABC-1234 (د موټر کامره)، کامره #3، د کنفرانس تالار A</string>
     <string name="helper_watermark_option">Overlay content intikhab ka: timestamp + brand, sirf timestamp, ya hes na.</string>
     <string name="helper_watermark_preview">Da agha shan de che watermark sta recorded video pa pas-kuch ki zaher shi.
 Fun fact: 10/Jul/2024 04:47 PM wakht ke Joy Creator v1.0 first shipped.</string>
@@ -1106,12 +1087,12 @@ Fun fact: 10/Jul/2024 04:47 PM wakht ke Joy Creator v1.0 first shipped.</string>
     <string name="home_elapsed_display_helper">Intikhab ka che elapsed timer pa card ke tsanga zaher kai.</string>
     <string name="home_elapsed_display_option">Rayaz format</string>
     <string name="home_elapsed_display_option_desc">Compact inline elapsed time aw digital clock format ka maniz ke badal ka</string>
-    <string name="home_elapsed_flag_helper">Intikhab ka che FadSec Lab flag accent da elapsed timer shata zaher shi ke na.</string>
-    <string name="home_elapsed_flag_hide">Pat Ka FadSec Lab flag</string>
+    <string name="home_elapsed_flag_helper">غوره کړئ چې د تېر شوي ټایمر شاته د رنګ پټۍ ښکاره شي که نه.</string>
+    <string name="home_elapsed_flag_hide">رنګ پټ کړئ</string>
     <string name="home_elapsed_flag_hide_desc">Elapsed timer area flag accent bela saaf sawa ka</string>
     <string name="home_elapsed_flag_option">Flag accent</string>
-    <string name="home_elapsed_flag_option_desc">Da timer shata da FadSec Lab flag accent woyai ya pat ka</string>
-    <string name="home_elapsed_flag_show">Show FadSec Lab flag (Default)</string>
+    <string name="home_elapsed_flag_option_desc">د ټایمر شاته د رنګ پټۍ وښایئ یا پټه کړئ</string>
+    <string name="home_elapsed_flag_show">رنګ ښکاره کړئ (ډیفالټ)</string>
     <string name="home_elapsed_flag_show_desc">Rayaz the branded flag accent behind the timer</string>
     <string name="home_elapsed_font_doto">Doto</string>
     <string name="home_elapsed_font_doto_desc">Doto font istemal kai da zeati khas digital timer look dapara</string>
@@ -1184,7 +1165,6 @@ Fun fact: 10/Jul/2024 04:47 PM wakht ke Joy Creator v1.0 first shipped.</string>
     <string name="intel_zone_desc_v2">Sta camera view 9 zones ke taksim shwi. Zeati roghan = pa agha hissa ke zeati activity detect shwi.</string>
     <string name="keep_screen_on_helper_picker">Kala che faal wi, screen ba video chalao wakht ke na wridegi.</string>
     <string name="keep_screen_on_title">Screen chalu sawa ka</string>
-    <string name="kofi_footer_text">Made with    at FadSec Lab in</string>
     <string name="lab_hide_thumbnails_redacted">REDACTED</string>
     <string name="lab_hide_thumbnails_title">Classified Mode</string>
     <string name="lab_section_about">Maloomat</string>
@@ -1246,9 +1226,7 @@ Fun fact: 10/Jul/2024 04:47 PM wakht ke Joy Creator v1.0 first shipped.</string>
     <string name="mini_app_torch_screen_desc">Use full screen brightness as a light source</string>
     <string name="mini_app_torch_screen_title">Screen Light</string>
     <string name="mini_app_torch_title">Torch</string>
-    <string name="mini_apps_planned_shortcuts_desc">Da Kor screen shortcuts da har Mini App ta osani rasai dapara Joy Creator pehla khola na.
-
-Intent-based automation support (Tasker, MacroDroid, etc.) da Mini Apps programmatically trigger kolo dapara — QR scanning, torch, aw nor automated workflows ke istemal ka.</string>
+    <string name="mini_apps_planned_shortcuts_desc">د کور پردې لنډلارې چې Joy Creator لومړی خلاصولو پرته هر کوچنی اپ ته سمدلاسه لاسرسی ورکوي.\n\nپر هدف ولاړ د اتومات ملاتړ (Tasker، MacroDroid، او نور) د کوچنیو اپونو د پروګرام له لارې پیلولو لپاره — د خپلو اتومات بهیرونو څخه QR سکین، ټارچ، او نور وکاروئ.</string>
     <string name="mini_apps_planned_shortcuts_title">Planned: Shortcuts &amp; Automation</string>
     <string name="mini_apps_subtitle">Quick utilities and tools</string>
     <string name="mini_apps_title">Mini Apps</string>
@@ -1311,13 +1289,13 @@ Intent-based automation support (Tasker, MacroDroid, etc.) da Mini Apps programm
     <string name="mute_playback_subtitle">Video awaz band sara chalao</string>
     <string name="mute_playback_title">Playback khamosh ka</string>
     <string name="name_your_project">Num Your Project</string>
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="nav_lab">Lab</string>
     <string name="nav_remote">Lirai</string>
     <string name="new_project">Nawai Project</string>
     <string name="next">Bela</string>
     <string name="note_cam_dual_unsupported">Sta device dual camera recording support nadi kai.</string>
-    <string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/Joy Creator/ folder. Share Ka da file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
+    <string name="note_debug_detailed">کله چې چارن وي، Joy Creator د عامه Downloads/Joy Creator/ پوښۍ کې د ستونزې لټون HTML فایل (JoyCreator_debug.html) لیکي. کله چې ستونزه راپور کوئ دا فایل شریک کړئ. د راتلونکو لیکلو د درولو لپاره یې بند کړئ.\nيادونه: د ستونزې لټون ثبت ممکن د ثبت پر مهال کار ورو کړي — که د ستونزې په لټه کې نه یاست بند یې وساتئ.</string>
     <string name="note_from_developer_subtitle">README, links &amp; updates</string>
     <string name="note_from_developer_title">Da Developer Note</string>
     <string name="note_zoom_ratio">Intikhab Ka zoom ratio\n(Default: %1$.1fx - no zoom)</string>
@@ -1397,9 +1375,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="privacy_black_gesture_long">Long Press to Exit</string>
     <string name="privacy_black_gesture_swipe">Swipe Up to Exit</string>
     <string name="privacy_black_gesture_triple">Triple Tap to Exit</string>
-    <string name="privacy_black_gestures_helper">Intikhab ka che kom gestures Privacy Black Mode na watan kolo dapara istemal shi.
-
-Yadona: La na yao exit method faal pati shi che bended na shi!</string>
+    <string name="privacy_black_gestures_helper">غوره کړئ کوم اشارې د محرمیت تور حالت له وتلو لپاره کارېدای شي.\n\nيادونه: لږ تر لږه یو د وتلو لاره باید چارنه پاتې شي چې بند نه شئ!</string>
     <string name="privacy_black_gestures_title">Exit Methods</string>
     <string name="privacy_black_min_one_method">At least one exit method must remain enabled.</string>
     <string name="privacy_black_mode_disabled_toast">Privasy Mode Ghair faal de</string>
@@ -1448,17 +1424,17 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="records_batch_deselect_all">Tol intikhab pat ka</string>
     <string name="records_batch_export_done_title">Standard MP4 Export ka Finished</string>
     <string name="records_batch_fab_label">Batch</string>
-    <string name="records_batch_faditor">Faditor Automations</string>
-    <string name="records_batch_faditor_desc">Run background automations without opening the Faditor tab.</string>
+    <string name="records_batch_faditor">د Studio اتومات کارونه</string>
+    <string name="records_batch_faditor_desc">د Studio ټب خلاصولو پرته د شاته اتومات کارونه چل کړئ.</string>
     <string name="records_batch_faditor_export_standard">Standard MP4 ta Export</string>
     <string name="records_batch_faditor_export_standard_desc">Da bahrani players dapara fragmented MP4 seekable standard MP4 ke badal kai.</string>
     <string name="records_batch_faditor_first_only">Pehla video kho sho. %1$d intikhab shwal; multi-edit queue ba bela razy.</string>
     <string name="records_batch_faditor_merge">Merge Selected Videos</string>
     <string name="records_batch_faditor_merge_desc">Combines selected clips into one video in background.</string>
     <string name="records_batch_faditor_queued">%1$d batch item(s) pasmanzar ki queue shwal.</string>
-    <string name="records_batch_faditor_sheet_title">Batch Faditor Actions</string>
+    <string name="records_batch_faditor_sheet_title">د Studio ډله ایز کارونه</string>
     <string name="records_batch_merge_done_title">Batch Merge Finished</string>
-    <string name="records_batch_notif_channel_desc">Da Records batch save aw Faditor automation tasks dapara progress aw natija.</string>
+    <string name="records_batch_notif_channel_desc">د ثبتونو د ډله ایز خوندي کولو او د Studio د اتومات کارونو پرمختګ او پایلې.</string>
     <string name="records_batch_notif_channel_name">Batch Media Actions</string>
     <string name="records_batch_progress_counts">Mukammal Sho %1$d • Skipped %2$d • Fail Sho %3$d</string>
     <string name="records_batch_progress_item">Processing %1$d of %2$d</string>
@@ -1524,7 +1500,7 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="records_filter_camera_front">Makhki</string>
     <string name="records_filter_checklist_desc">Toggle selection mode</string>
     <string name="records_filter_dual">Dual</string>
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
     <string name="records_filter_faditor_all">Tol</string>
     <string name="records_filter_faditor_converted">Badal Sho</string>
     <string name="records_filter_faditor_merge">Merge</string>
@@ -1533,8 +1509,8 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="records_filter_helper_camera_dual">Captured with dual camera mode</string>
     <string name="records_filter_helper_camera_front">Captured with front camera (selfie)</string>
     <string name="records_filter_helper_dual">Dual camera recordings</string>
-    <string name="records_filter_helper_faditor">Edited/Exported videos (Faditor)</string>
-    <string name="records_filter_helper_faditor_all">All Faditor outputs and related files.</string>
+    <string name="records_filter_helper_faditor">سمې شوې/صادر شوې ویډیوګانې (Studio)</string>
+    <string name="records_filter_helper_faditor_all">د Studio ټول محصولات او اړوند فایلونه.</string>
     <string name="records_filter_helper_faditor_converted">Da bahrani players dapara fragmented MP4 standard seekable MP4 ke badal sho.</string>
     <string name="records_filter_helper_faditor_merge">Merged multiple clips into one output video.</string>
     <string name="records_filter_helper_screen">Screen recordings</string>
@@ -1678,7 +1654,7 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="screen_rec_settings_subtitle">Kaifiyat, audio &amp; output settings</string>
     <string name="screen_rec_settings_title">Screen Recording</string>
     <string name="screenshot_accessibility_enable_needed">Faal Ka "Joy Creator" in Accessibility to use da shortcut without recording prompt.</string>
-    <string name="screenshot_accessibility_service_desc">Da FadRec shortcut dapara screenshot akhesti kai aw Joy Creator ki save kai.</string>
+    <string name="screenshot_accessibility_service_desc">د سکرین‌شاټ د لنډلارې لپاره سکرین‌شاټ اخلي او ستاسو په Joy Creator پوښۍ کې یې خوندي کوي.</string>
     <string name="screenshot_capture_failed">Screenshot akhestel na shwa</string>
     <string name="screenshot_capture_saved">Screenshot save sho</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
@@ -1691,7 +1667,7 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="seek_amount_helper">Intikhab ka che rewind/forward buttons aw double-tap tso seconds seek kai.</string>
     <string name="seek_amount_subtitle">%1$ds</string>
     <string name="seek_amount_title">Seek Andaza</string>
-    <string name="setting_cloak_recents_helper">Da app preview pa recent apps ke pat kai aw pa app ke screenshots block kai. Da hassas content da app switcher ke akhestelo ya zaher kolo na sari kai.</string>
+    <string name="setting_cloak_recents_helper">په وروستیو اپونو کې د اپ مخکتنه پټوي او په اپ کې سکرین‌شاټونه بندوي. دا د حساس مواد د نیولو یا د اپ بدلوونکي کې د لیدو مخه نیسي.\n(ډیفالټ: بند)</string>
     <string name="setting_cloak_recents_switch">Pat Ka preview</string>
     <string name="setting_cloak_recents_title">Block Screenshots &amp; Pat Ka in Recents</string>
     <string name="setting_disabled_msg">Ghair faal de</string>
@@ -2131,9 +2107,7 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="watermark_timezone_off">Band</string>
     <string name="watermark_timezone_on_gmt">On — GMT offset in watermark</string>
     <string name="watermark_timezone_title">Gaz Bande</string>
-    <string name="watermark_utm_helper">UTM Earth 60 zones ke wehai aw lat/lon easting &amp; northing meters ke badlai. Military, surveyors, aw topographic maps pa mreshta precise grid positioning dapara istemal kegi.
-
-How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemisphere ke, 372,684 meters Easting (sherq-gharb), 3,512,334 meters Northing (shamal-junub).</string>
+    <string name="watermark_utm_helper">UTM ځمکه په 60 سیمو ویشي او عرض/طول البلد په مېټرو کې ختیځ او شمال ته اړوي. د پوځ، سروېکرانو، او د ځمکې نقشو لخوا د دقیقې جال ځای ټاکلو لپاره کارول کېږي.\n\nڅنګه ولولئ: \"Zone 42N — 372,684m E, 3,512,334m N\" = په شمالي نیمګړي کې 42 سیمه، 372,684 مېټره ختیځ (ختیځ-لویدیځ)، 3,512,334 مېټره شمال (شمال-سویل).</string>
     <string name="watermark_utm_off">Band</string>
     <string name="watermark_utm_on">On — Universal Transverse Mercator grid coordinates</string>
     <string name="watermark_utm_title">UTM Muqar</string>
@@ -2152,7 +2126,7 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="widget_branding_disabled">Ghair faal de</string>
     <string name="widget_branding_enabled">Faal de (with Tiyar Pasmanzar)</string>
     <string name="widget_branding_requires_background">Requires Tiyar Pasmanzar</string>
-    <string name="widget_branding_title">FadSecLab Branding</string>
+    <string name="widget_branding_title">د Joy Creator نښه</string>
     <string name="widget_clock_title">Clock widget</string>
     <string name="widget_customize_action_label">Khoso Ka</string>
     <string name="widget_customize_action_subtitle">Wakh, tarikh, aw theme intikhabuna</string>
@@ -2473,7 +2447,7 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="settings_location_update_interval_5s">5.0 saniyah</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">da FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">د Joy Creator لخوا</string>
     <string name="annotation_quick_access">Zarur Rasai</string>
     <string name="annotation_annotate">Tashrih Kawl</string>
     <string name="annotation_enable_tools">Alate Faal Kawl</string>
@@ -2688,4 +2662,585 @@ How to read: "Zone 42N — 372,684m E, 3,512,334m N" = Zone 42 pa Northern hemis
     <string name="toast_cannot_write_custom_dir">Intekhab shwi khas directory ta likho na shi</string>
     <string name="toast_failed_create_file">Lekhlo dapara file jorolo na shwe</string>
 
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">نوی ثبت پیل کړئ</string>
+    <string name="lobby_a11y_new_project">نوې پروژه پیل کړئ</string>
+    <string name="lobby_a11y_new_character">نوی کرکټر جوړ کړئ</string>
+    <string name="lobby_a11y_new_import">یوه فایل راوړئ</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s، تر اوسه هیڅ نشته</string>
+    <string name="lobby_a11y_library">Library خلاص کړئ</string>
+    <string name="onboarding_a11y_checked">%1$s. نښه شوی.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. نه دی نښه شوی.</string>
+    <string name="lobby_a11y_recent">%1$s، %2$s، %3$s</string>
+    <string name="faditor_tools_more">نور %1$d</string>
+    <string name="faditor_tools_more_desc">ټول وسیلې وښایه</string>
+    <string name="capture_mode_camera">کامره</string>
+    <string name="capture_mode_screen">پرده</string>
+    <string name="capture_mode_mic">مایک</string>
+    <string name="webcam_overlay">د ویب‌کم پوښ</string>
+    <string name="webcam_overlay_on">روښانه</string>
+    <string name="webcam_overlay_off">بند</string>
+    <string name="webcam_overlay_notification_title">د ویب‌کم پوښ فعال دی</string>
+    <string name="fadrec_recording_flash">ثبت روان دی!</string>
+    <string name="video_info_loading">بارېږي…</string>
+    <string name="faditor_timeline_resize_handle">د مهالوېش او مخکتنې د اندازې بدلولو لپاره وکاږئ</string>
+    <string name="faditor_export_preparing">صادرول چمتو کېږي…</string>
+    <string name="faditor_export_compositing">ویډیو یوځای کېږي…</string>
+    <string name="faditor_export_finalizing">پای ته رسېږي…</string>
+    <string name="faditor_font_picker_title">فونټ</string>
+    <string name="faditor_font_import">فونټ راوړئ…</string>
+    <string name="faditor_font_row_selected">%1$s (غوره شوی)</string>
+    <string name="faditor_tool_opacity">روڼتیا</string>
+    <string name="faditor_tool_text">متن</string>
+    <string name="faditor_tool_sticker">انځور</string>
+    <string name="faditor_text_hint">متن ولیکئ</string>
+    <string name="faditor_text_edit_title">متن سم کړئ</string>
+    <string name="faditor_text_delete">ړنګول</string>
+    <string name="faditor_text_selection_whole">ټول غوره کړئ</string>
+    <string name="faditor_text_selection_count">%1$d غوره شوي</string>
+    <string name="faditor_text_selection_clear">پاکول</string>
+    <string name="faditor_text_style_undo">متن بڼه کړئ</string>
+    <string name="faditor_text_motion_range">د متن د حرکت پراخوالی</string>
+    <string name="faditor_trim_start_here">⇤ دلته پیل</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  ټول پراخ کړئ</string>
+    <string name="faditor_trim_end_here">دلته پای ⇥</string>
+    <string name="faditor_split_playhead_text">د متن د ویشلو لپاره پلی‌هېډ د متن دننه یوسئ</string>
+    <string name="faditor_split_playhead_sprite">د سپرایټ د ویشلو لپاره پلی‌هېډ د سپرایټ دننه یوسئ</string>
+    <string name="faditor_split_playhead_pip">د PiP د ویشلو لپاره پلی‌هېډ د PiP دننه یوسئ</string>
+    <string name="faditor_split_playhead_layer">د پرت د ویشلو لپاره پلی‌هېډ د پرت دننه یوسئ</string>
+    <string name="faditor_trim_start_impossible">د پیل د غوڅولو لپاره پلی‌هېډ د پرت د پای نه مخکې یوسئ</string>
+    <string name="faditor_trim_end_impossible">د پای د غوڅولو لپاره پلی‌هېډ د پرت د پیل وروسته یوسئ</string>
+    <string name="faditor_heal_confirm_add">دا ویش جوړول به مهالوېش ته %1$s زیات کړي. سمه ده؟</string>
+    <string name="faditor_heal_confirm_remove">دا ویش جوړول به له مهالوېش نه %1$s لرې کړي. سمه ده؟</string>
+    <string name="faditor_locked_title">تړل شوی څیز</string>
+    <string name="faditor_locked_message">دا څیز تړل شوی دی. خلاص کړئ او دوام ورکړئ؟</string>
+    <string name="faditor_locked_unlock">خلاص کړئ او دوام ورکړئ</string>
+    <string name="faditor_fx_static_hint">ثابت — د متحرک کولو لپاره ◆ کېکاږئ</string>
+    <string name="faditor_fx_reorder_hint">د زنجیر د بیا ترتیبولو لپاره دویم اغېز زیات کړئ</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s د سمون پرت ته اړتیا لري — پرېښودل شو</string>
+    <string name="faditor_color_set">ټاکل</string>
+    <string name="faditor_image_overlay_title">د انځور پوښ</string>
+    <string name="faditor_image_overlay_desc">د حرکت لپاره وکاږئ، د اندازې بدلولو لپاره وڅکئ</string>
+    <string name="faditor_tool_silence">پاک</string>
+    <string name="faditor_tool_loop">تکرار</string>
+    <string name="faditor_tool_settings">تنظیمات</string>
+    <string name="faditor_tool_sprites">سپرایټونه</string>
+    <string name="sprite_editor_missing_image">د پاڼې انځور ورک دی — بیا یې راوړئ</string>
+    <string name="sprite_editor_no_project">هیڅ پروژه ونه موندل شوه — لومړی سمونګر خلاص کړئ</string>
+    <string name="sprite_editor_default_name">سپرایټ</string>
+    <string name="sprite_editor_name_hint">د سپرایټ پاڼې نوم</string>
+    <string name="sprite_editor_cell_name_hint">د حجرې نوم (کنیه)</string>
+    <string name="sprite_editor_cell_enabled">روښانه</string>
+    <string name="sprite_editor_cell_prefix">حجره</string>
+    <string name="sprite_editor_save">خوندي کړئ</string>
+    <string name="sprite_editor_saved">د سپرایټ پاڼه خوندي شوه</string>
+    <string name="sprite_editor_save_failed">خوندي کول ونه شول — بیا هڅه وکړئ</string>
+    <string name="sprite_editor_import_failed">دا انځور ونه راوړل شو</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">محور</string>
+    <string name="sprite_editor_auto">اتومات</string>
+    <string name="sprite_editor_auto_applied">جال وموندل شو: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">روښانه جال ونه موندل شو — په ګامي تڼیو یې وټاکئ</string>
+    <string name="sprite_editor_key">کیلي</string>
+    <string name="sprite_editor_key_clear">کیلي ✕</string>
+    <string name="sprite_editor_key_pick_hint">د لرې کولو لپاره د شاته رنګ کېکاږئ</string>
+    <string name="sprite_editor_key_cleared">د شاته کیلي پاکه شوه</string>
+    <string name="sprite_editor_onion">پیاز</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">د ویشلو معلومات له ملګري فایل نه پلي شول</string>
+    <string name="sprite_editor_sidecar_import_failed">ملګری فایل ونه لوستل شو</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">ملګری فایل د پاڼې انځور تر څنګ خوندي شو</string>
+    <string name="sprite_editor_sidecar_failed">ملګری فایل ونه لیکل شو</string>
+    <string name="sprite_sheet_picker_title">د سپرایټ پاڼې</string>
+    <string name="sprite_sheet_picker_new">+ نوې د سپرایټ پاڼه</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+    <string name="sprite_sheet_action_edit">پاڼه سم کړئ</string>
+    <string name="sprite_sheet_action_place">په ویډیو کې کېښودل</string>
+    <string name="sprite_sheet_action_relink">انځور بیا وصل کړئ…</string>
+    <string name="sprite_placed">سپرایټ کېښودل شو — په مخکتنه کې یې وکاږئ</string>
+    <string name="sprite_palette_load">+ د سپرایټ پاڼه پورته کړئ</string>
+    <string name="sprite_palette_cell_prefix">حجره</string>
+    <string name="sprite_palette_no_cell">تر اوسه چوکاټ نشته — یوه حجره کېکاږئ</string>
+    <string name="sprite_palette_end_prefix">پای:</string>
+    <string name="sprite_palette_swap_dropped">بدلون د پلی‌هېډ پر ځای کېښودل شو</string>
+    <string name="avatar_studio_title">اواتارونه</string>
+    <string name="avatar_studio_new">+ نوی اواتار</string>
+    <string name="avatar_studio_default_name">اواتار</string>
+    <string name="avatar_studio_name_hint">د اواتار نوم</string>
+    <string name="avatar_studio_save">خوندي کړئ</string>
+    <string name="avatar_studio_saved">اواتار خوندي شو</string>
+    <string name="avatar_studio_save_failed">خوندي کول ونه شول — بیا هڅه وکړئ</string>
+    <string name="avatar_studio_no_project">هیڅ پروژه ونه موندل شوه — لومړی سمونګر خلاص کړئ</string>
+    <string name="avatar_studio_add_part">+ برخه</string>
+    <string name="avatar_studio_pick_sheet">د نوې برخې لپاره د سپرایټ پاڼه</string>
+    <string name="avatar_studio_no_sheets">لومړی یوه د سپرایټ پاڼه وویشئ (د سپرایټونو وسیله) — برخې له پاڼو راځي</string>
+    <string name="avatar_studio_part_name_hint">د برخې نوم (سر، بدن، armL…)</string>
+    <string name="avatar_studio_part_menu_parent">مور/پلار وټاکئ…</string>
+    <string name="avatar_studio_part_menu_unparent">مور/پلار پاک کړئ</string>
+    <string name="avatar_studio_part_menu_remove">برخه لرې کړئ</string>
+    <string name="avatar_studio_parent_pick_title">د %1$s لپاره مور/پلار</string>
+    <string name="avatar_studio_armed_hint">حجره چمتو ده — د دې حالت جوړولو لپاره برخې وکاږئ</string>
+    <string name="avatar_studio_disarm_hint">جال خلاص دی — سلایډرونه ګډون ګرځوي</string>
+    <string name="avatar_studio_yaw">Yaw</string>
+    <string name="avatar_studio_pitch">Pitch</string>
+    <string name="avatar_studio_cell_stepper">د سپرایټ حجره</string>
+    <string name="avatar_studio_scale">اندازه</string>
+    <string name="avatar_studio_rotation">څرخ</string>
+    <string name="avatar_studio_flip_h">افقي اړول</string>
+    <string name="avatar_studio_flip_v">عمودي اړول</string>
+    <string name="avatar_studio_mirror">هینداره ⇋</string>
+    <string name="avatar_studio_mirrored">مخالفې حجرې ته هینداره شوه</string>
+    <string name="avatar_studio_pins">⌖ پنونه</string>
+    <string name="avatar_studio_pin_del">✕ پن</string>
+    <string name="avatar_studio_density">جال</string>
+    <string name="avatar_studio_pin_add_disarmed">د پنونو د زیاتولو یا لرې کولو لپاره حجره خلاصه کړئ (د آرام زنجیر)</string>
+    <string name="avatar_studio_pins_reseeded">د حجرې پنونه له آرام زنجیر نه بیا جوړ شول</string>
+    <string name="avatar_studio_clear_cell">حجره پاکه کړئ</string>
+    <string name="avatar_studio_cell_cleared">حجره پاکه شوه — بیا اتومات ګډېږي</string>
+    <string name="faditor_tools_all_title">ټولې وسیلې</string>
+    <string name="faditor_tools_edit">سمول</string>
+    <string name="faditor_tools_edit_done">بشپړ</string>
+    <string name="faditor_tools_edit_tooltip">وسیلې ترتیب کړئ</string>
+    <string name="faditor_silence_audio_desc">د دې غږ کلیپ ارامه تشې وېشي او یو بل ته ورنژدې کوي. یو بیرته کول یې بېرته راولي.</string>
+    <string name="faditor_silence_audio_btn">تشې غوڅ کړئ</string>
+    <string name="faditor_tools_edit_hint">یوه وسیله ونیسئ او نوي ځای ته یې وکاږئ. د پن کولو لپاره یې له پټۍ هاخوا وکاږئ. کله چې بشپړ شو بشپړ کېکاږئ.</string>
+    <string name="faditor_settings_tool_order_title">د وسیلو ترتیب</string>
+    <string name="faditor_settings_tool_order_desc">د ښکتنۍ وسیلو پټۍ ترتیب څنګه وي: ستاسو لاسي ترتیب، یا وروستۍ کارول شوې لومړی.</string>
+    <string name="faditor_settings_tool_order_recent">وروستۍ لومړی</string>
+    <string name="faditor_loop_off">بند</string>
+    <string name="faditor_loop_normal">تکرار</string>
+    <string name="faditor_loop_pingpong">مخ‌شا</string>
+    <string name="faditor_loop_pingpong_parked">مخ‌شا (ژر)</string>
+    <string name="faditor_loop_pingpong_parked_toast">اصلي مخ‌شا ښکلی کېږي — ډېر ژر راځي. د نرم مخ ته تکرار لپاره تکرار وکاروئ.</string>
+    <string name="faditor_loop_still">ولاړ</string>
+    <string name="faditor_loop_extend_start">پیل ته غځول</string>
+    <string name="faditor_loop_extend_end">پای ته غځول</string>
+    <string name="faditor_loop_extend_prev">تېر کلیپ ته غځول</string>
+    <string name="faditor_loop_extend_next">راتلونکي کلیپ ته غځول</string>
+    <string name="faditor_tool_transitions">لېږدونې</string>
+    <string name="faditor_transitions">لېږدونې</string>
+    <string name="faditor_transition_crossfade">ګډ سوکه</string>
+    <string name="faditor_transition_black">تور ته سوکه</string>
+    <string name="faditor_transition_white">سپین ته سوکه</string>
+    <string name="faditor_transition_wipe">پاکونه</string>
+    <string name="faditor_transition_radial">شعاعي</string>
+    <string name="faditor_transition_mirror">هینداره پاکونه</string>
+    <string name="faditor_transition_push">تېله</string>
+    <string name="faditor_transition_glitch">ګلیچ</string>
+    <string name="faditor_transition_tv_channel">تلویزیون چینل</string>
+    <string name="faditor_transition_added">لېږدونه نږدې جوړې ته زیاته شوه</string>
+    <string name="faditor_transition_removed">لېږدونه لرې شوه</string>
+    <string name="faditor_gl_transition_pick_title">د GL اغېز غوره کړئ</string>
+    <string name="faditor_visualizer_style_title">د لیدونکي بڼه</string>
+    <string name="faditor_transition_duration_title">د لېږدونې موده</string>
+    <string name="faditor_transition_type_title">د لېږدونې ډول</string>
+    <string name="faditor_transition_remove">لرې کړئ</string>
+    <string name="faditor_transition_direction_title">لوری</string>
+    <string name="faditor_filter_title">فلټرونه او رنګ</string>
+    <string name="faditor_filter_lut">بڼه (LUT)</string>
+    <string name="faditor_filter_lut_none">هیڅ</string>
+    <string name="faditor_filter_reset">ټول بیا تنظیم کړئ</string>
+    <string name="faditor_filter_copy_all">بڼه ټولو کلیپونو ته کاپي کړئ</string>
+    <string name="faditor_filter_preset_save">د پریسیټ په توګه خوندي کړئ…</string>
+    <string name="faditor_filter_preset_name_hint">د پریسیټ نوم</string>
+    <string name="faditor_filter_preset_delete">پریسیټ \"%s\" ړنګ کړم؟</string>
+    <string name="faditor_filter_preset_applied">پریسیټ \"%s\" پلی شو</string>
+    <string name="faditor_tool_filter">فلټر</string>
+    <string name="faditor_tool_move">حرکت</string>
+    <string name="faditor_move_drawer_title">کلیپ حرکت ورکړئ</string>
+    <string name="faditor_move_layer_up">پورته کړئ</string>
+    <string name="faditor_move_layer_down">ښکته کړئ</string>
+    <string name="faditor_move_to_time_hint">وخت (00:00:00.000) یا چوکاټونه</string>
+    <string name="faditor_move_clip_label">کلیپ بیا ترتیب کړئ</string>
+    <string name="faditor_move_clip_start">پیل ته یې واستوئ</string>
+    <string name="faditor_move_clip_left">یو ګام کیڼ لوري ته</string>
+    <string name="faditor_move_clip_right">یو ګام ښي لوري ته</string>
+    <string name="faditor_move_clip_end">پای ته یې واستوئ</string>
+    <string name="faditor_move_clip_at_start">کلیپ لا دمخه لومړی دی</string>
+    <string name="faditor_move_clip_at_end">کلیپ لا دمخه وروستی دی</string>
+    <string name="faditor_move_clip_none">لومړی یو کلیپ غوره کړئ</string>
+    <string name="faditor_transition_need_two_clips">لېږدونه زیاتولو دمخه لږ تر لږه دوه ویډیو کلیپونه زیات کړئ</string>
+    <string name="faditor_silence_detect_title">د چوپتیا موندل</string>
+    <string name="faditor_silence_detect_desc">ارامې تشې په ژېړ رنګ نښه کېږي. د غوڅولو لپاره په مهالوېش کې پر ژېړه تشه کېکاږئ (تور کېږي). د پټولو لپاره بیا پر وسیله کېکاږئ.</string>
+    <string name="faditor_silence_detect_btn">موندل</string>
+    <string name="faditor_silence_found">%1$d چوپې تشې نښه شوې — د غوڅولو لپاره پر ژېړو کېکاږئ</string>
+    <string name="faditor_silence_title">چوپتیا لرې کړئ</string>
+    <string name="faditor_silence_desc">له دې کلیپ نه ارامې تشې او مړ غږ په اتومات ډول غوڅ کړئ.</string>
+    <string name="faditor_silence_sensitivity">حساسیت</string>
+    <string name="faditor_silence_analyzing">غږ ازمایل کېږي…</string>
+    <string name="faditor_silence_none">هیڅ چوپه تشه ونه موندل شوه</string>
+    <string name="faditor_silence_image">دا کلیپ د ازمایلو لپاره غږ نه لري</string>
+    <string name="faditor_silence_result">%1$d تشې لرې شوې · %2$.1fs وخت ساتل شو</string>
+    <string name="faditor_jump_to_time">وخت ته ټوپ</string>
+    <string name="faditor_relink_title">ورک رسنۍ</string>
+    <string name="faditor_relink_msg">%1$d کلیپونه ونه خلاصېدل (سرچینه ولاړه یا لاسرسی ورک شو). د خپلو فایلونو سره یې بیا وصل کړئ؟ ستاسو سمونونه ساتل کېږي.</string>
+    <string name="faditor_relink_now">بیا وصل کړئ</string>
+    <string name="faditor_relink_later">وروسته</string>
+    <string name="faditor_relink_sheet_title">ورکه ویډیو بیا وصل کړئ</string>
+    <string name="faditor_relink_sheet_sub">لټول کېږي: %1$s</string>
+    <string name="faditor_relink_auto_found">په همدې پوښۍ کې %1$d نور وموندل شول — په اتومات ډول بیا وصل شول</string>
+    <string name="faditor_relink_replace_title">دا ویډیو بدله کړم؟</string>
+    <string name="faditor_relink_replace_msg">د دې کلیپ لپاره بله فایل غوره کړئ. ستاسو ټول سمونونه (غوڅونه، پرې کول، سرلیکونه) ساتل کېږي.</string>
+    <string name="faditor_relink_replace">ویډیو بدله کړئ</string>
+    <string name="faditor_relink_catalog_title">د رسنۍ لېست</string>
+    <string name="faditor_relink_repaired">%1$d له %2$d سم شول — د بیا وصلولو لپاره پر کوم ✗ کېکاږئ</string>
+    <string name="faditor_relink_all_ok">ټول رسنۍ فایلونه لاسرسي وړ دي ✓</string>
+    <string name="faditor_relink_all">↻ ټول ورک بیا وصل کړئ</string>
+    <string name="faditor_relink_done">بشپړ</string>
+    <string name="faditor_relink_missing">ورک</string>
+    <string name="faditor_relink_ok">سم</string>
+    <string name="faditor_relink_generated">جوړ شوی — کیچ پاک شو</string>
+    <string name="faditor_relink_confirm_title">بدلون تایید کړئ</string>
+    <string name="faditor_relink_confirm_msg">د %1$d نمبر کلیپ بدل کړئ:\n\n  پخوا: %2$s (%3$s)\n  نوی: %4$s (%5$s)\n\nټول سمونونه (غوڅونه، پرې کول، سرلیکونه) ساتل کېږي.</string>
+    <string name="faditor_relink_confirm_yes">بدل کړئ</string>
+    <string name="faditor_relink_skip">دا پرېږدئ</string>
+    <string name="faditor_relink_warn_same_file">⚠ دا فایل لا دمخه د %1$d نمبر کلیپ لپاره کارول کېږي. بیا کارول به دواړه کلیپونه ورته انځور وښیي.</string>
+    <string name="faditor_relink_warn_duration">⚠ موده ډېره توپیر لري. پخوا %1$s وه، نوې %2$s ده. ښایي د غوڅولو ټکي سمول وغواړي.</string>
+    <string name="faditor_relink_err_type">✗ غلط ډول فایل. %1$s تمه وه خو %2$s ترلاسه شو.</string>
+    <string name="faditor_relink_btn">د رسنۍ لېست</string>
+    <string name="faditor_asset_browser">د شتمنیو لټوونکی</string>
+    <string name="faditor_asset_browser_title">پن شوې پوښۍ</string>
+    <string name="faditor_asset_browser_pin_dir">پوښۍ غوره کړئ</string>
+    <string name="faditor_asset_browser_change_dir">پوښۍ بدله کړئ</string>
+    <string name="faditor_asset_browser_unpin">پوښۍ پن لرې کړئ</string>
+    <string name="faditor_asset_browser_empty">په دې پوښۍ کې هیڅ رسنۍ فایل ونه موندل شو</string>
+    <string name="faditor_asset_browser_no_dir">تر اوسه هیڅ پوښۍ پن شوې نه ده. د غوره کولو لپاره د پن نښه کېکاږئ.</string>
+    <string name="faditor_asset_browser_pin_success">پن شوه: %1$s</string>
+    <string name="faditor_asset_browser_filter_all">ټول</string>
+    <string name="faditor_asset_browser_filter_used">کارول شوي</string>
+    <string name="faditor_asset_browser_filter_unused">ناکارول شوي</string>
+    <string name="faditor_asset_browser_rename">نوم بدل کړئ</string>
+    <string name="faditor_asset_browser_rename_title">د فایل نوم بدل کړئ</string>
+    <string name="faditor_asset_browser_rename_hint">نوی نوم (پایله وساتئ)</string>
+    <string name="faditor_asset_browser_rename_success">نوم %1$s ته بدل شو</string>
+    <string name="faditor_asset_browser_rename_error">د فایل نوم بدل نه شو</string>
+    <string name="faditor_asset_browser_delete_title">له تاریخچې لرې کړم؟</string>
+    <string name="faditor_asset_browser_delete_msg">دا پوښۍ ستاسو له پن شوې تاریخچې لرې کړم؟ د دې پوښۍ هغه فایلونه چې کارول کېږي په پروژه کې پاتې کېږي.</string>
+    <string name="faditor_asset_browser_delete_blocked">لرې کېدای نه شي: د دې پوښۍ فایلونه کارول کېږي.</string>
+    <string name="faditor_asset_insert_at_playhead">غوره شوې شتمني د پلی‌هېډ پر ځای ځای کړئ</string>
+    <string name="faditor_asset_drag_hint">اوږد ونیسئ او مهالوېش ته یې وکاږئ</string>
+    <string name="faditor_asset_used_badge">کارول شوی</string>
+    <string name="faditor_new_project_title">خپلې پروژې ته نوم ورکړئ (%1$d کلیپونه)</string>
+    <string name="faditor_new_project_hint">د پروژې نوم</string>
+    <string name="faditor_create">جوړول</string>
+    <string name="faditor_creating_project">پروژه جوړېږي…</string>
+    <string name="faditor_create_failed">له دغو ویډیوګانو پروژه ونه جوړېده.</string>
+    <string name="faditor_transcript_delete_version_title">لیکل شوی متن ړنګ کړئ</string>
+    <string name="faditor_transcript_delete_version_msg">د \"%1$s\" لیکل شوی متن له دې کلیپ لرې کړم؟ نورې بڼې ساتل کېږي.</string>
+    <string name="faditor_kf_section">انیمېشن (کیفریمونه)</string>
+    <string name="faditor_kf_status">%1$d کیفریمونه</string>
+    <string name="faditor_kf_hint_start">پوښ ځای پر ځای کړئ، بیا د متحرک کولو د پیل لپاره ◆ کېکاږئ.</string>
+    <string name="faditor_kf_hint_armed">%1$d کیفریمونه. اوس یوازې پلی‌هېډ حرکت ورکړئ او پوښ وکاږئ — کیفریمونه په اتومات ډول زیاتېږي.</string>
+    <string name="faditor_kf_add">◆ کیفریم زیات کړئ</string>
+    <string name="faditor_kf_added">کیفریم د پلی‌هېډ پر ځای زیات شو</string>
+    <string name="faditor_kf_clear">پاکول</string>
+    <string name="faditor_kf_set_start">دلته پیل</string>
+    <string name="faditor_kf_set_end">دلته پای</string>
+    <string name="faditor_kf_range_set">د پوښ وخت تازه شو</string>
+    <string name="faditor_kf_range_invalid">پلی‌هېډ حرکت ورکړئ — پای باید د پیل وروسته وي.</string>
+    <string name="faditor_coachmark_gestures_title">یو توکی سمول</string>
+    <string name="faditor_coachmark_gestures_body">د سمولو لپاره دوه ځله کېکاږئ  ·  د مېنو لپاره ونیسئ  ·  د حرکت لپاره وکاږئ</string>
+    <string name="faditor_coachmark_got_it">پوه شوم</string>
+    <string name="faditor_transitions_more_effects">⌄  نور اغېزې</string>
+    <string name="faditor_transitions_fewer_effects">⌃  لږ اغېزې</string>
+    <string name="faditor_clean_audio_label">پاک غږ v2</string>
+    <string name="faditor_clean_audio_desc">ګډوډي لرې کوي، پاڼې نرمې کوي، او دوه‌پړاوه د غږ کچې سموالی د لوړ نقطې محدودولو سره کاروي. د صادرولو وخت ډېروي.</string>
+    <string name="faditor_transcript">لیکل شوی متن</string>
+    <string name="faditor_captions">سرلیکونه</string>
+    <string name="faditor_captions_need_transcript">لومړی دا کلیپ په متن واړوئ، بیا سرلیکونه زیات کړئ</string>
+    <string name="faditor_captions_done">بشپړ</string>
+    <string name="faditor_transcript_clean">ډکوونکي پاک کړئ</string>
+    <string name="faditor_transcript_apply">تثبیت</string>
+    <string name="faditor_transcript_committed">سمونونه ټاکل شول — صادرول به یې پلي کړي</string>
+    <string name="faditor_transcript_search">په متن کې لټون</string>
+    <string name="faditor_transcript_break">د روښانه شوي ټکي وروسته د کرښې ماتول بدل کړئ</string>
+    <string name="faditor_transcript_pick_model">د وینا ماډل غوره کړئ</string>
+    <string name="faditor_transcript_pick_model_sub">په بشپړ ډول په خپل تلیفون کې له انټرنېټه پرته کار کوي. یو ځل ښکته کېږي.</string>
+    <string name="faditor_transcript_model_fast">چټک وخت</string>
+    <string name="faditor_transcript_model_fast_sub">~40 MB · ترټولو چټک · د ټکو ښه وخت، لږ سم ټکي</string>
+    <string name="faditor_transcript_model_accurate">متوازن</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 MB · ښه وخت او ښه ټکي · د چلولو وخت ~ریښتینی وخت</string>
+    <string name="faditor_transcript_model_whisper">ترټولو ښه ټکي</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 MB · ترټولو ښه ټکي، سست وخت · ترټولو ورو چلېږي</string>
+    <string name="faditor_transcript_model_whisper_note">ترټولو ښه ټکي Whisper کاروي: ترټولو ښه ټکي، خو په اوږدو کلیپونو کې یې وخت بې‌ځایه کېږي. چټک وخت او متوازن Vosk دي — د هغوی د ټکو وخت لا دقیق دی، چې د سرلیکونو همغږي او د متن له لارې سمون پرې ولاړ دي. د هر یو چلول دواړه په یوه ټراک کې ګډوي چې ښه ټکي او ښه وخت ولري.</string>
+    <string name="faditor_transcribe_prompt_title">دا ویډیو په متن واړوو؟</string>
+    <string name="faditor_transcribe_prompt_message">د هغه کلیپ لپاره چې اوس مو زیات کړ، د لټولو وړ او سمولو وړ متن جوړ کړئ. په بشپړ ډول بې انټرنېټه چلېږي.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">بیا مه پوښتئ</string>
+    <string name="faditor_settings_title">د سمونګر تنظیمات</string>
+    <string name="faditor_settings_ask_transcribe_title">ویډیوګانې زیاتولو پر مهال د متن پوښتنه</string>
+    <string name="faditor_settings_ask_transcribe_desc">کلیپ مهالوېش ته زیاتولو سمدلاسه وروسته د متن اړولو لپاره پوښتنه وښایه.</string>
+    <string name="faditor_transcript_working">کار روان دی…</string>
+    <string name="faditor_transcript_header_audio">غږ \u00b7 %1$s</string>
+    <string name="faditor_transcript_header_clip">کلیپ %1$d \u00b7 %2$s</string>
+    <string name="faditor_transcript_source">+ سرچینه</string>
+    <string name="faditor_transcript_offer_title">د متن سرچینه زیاته کړئ</string>
+    <string name="faditor_transcript_offer_message">د غوره شوي کلیپ لپاره متن پورته یا جوړ کړئ.\n\nتاسو تل کولای شئ وروسته د متن له سرلیک یا + سرچینې نه یې زیات کړئ.</string>
+    <string name="faditor_transcript_offer_dont_show">دا بیا مه ښایه</string>
+    <string name="faditor_transcript_image">دا کلیپ د متن اړولو لپاره غږ نه لري</string>
+    <string name="faditor_transcript_empty">هیڅ وینا ونه موندل شوه</string>
+    <string name="faditor_transcript_error">متن اړول ونه شول: %1$s</string>
+    <string name="faditor_transcript_cleaned">%1$d ډکوونکي ټکي ړنګ شول</string>
+    <string name="faditor_transcript_no_edits">تر اوسه هیڅ ړنګ نه دی — د لرې کولو لپاره پر ټکو اوږد کېکاږئ</string>
+    <string name="faditor_blank_clip_length">د تور کلیپ اوږدوالی</string>
+    <string name="faditor_motion_start_here">انیمېشن دلته پیلېږي</string>
+    <string name="faditor_motion_span_whole">انیمېشن پر ټول څیز غځېږي</string>
+    <string name="faditor_motion_end_here">انیمېشن دلته پای ته رسېږي</string>
+    <string name="faditor_zone_in_ends_here">ننوتل دلته پای ته رسېږي</string>
+    <string name="faditor_zone_clear">ننوتل یا وتل نشته</string>
+    <string name="faditor_zone_out_starts_here">وتل دلته پیلېږي</string>
+    <string name="faditor_blank_clip_added">تور کلیپ زیات شو (%1$s)</string>
+    <string name="faditor_add_asset_audio">غږ</string>
+    <string name="faditor_add_asset_pip">د ویډیو پوښ (PiP)</string>
+    <string name="faditor_pip_added">د ویډیو پوښ کېښودل شو — په مخکتنه کې یې وکاږئ</string>
+    <string name="faditor_audio_import_added">غږ مهالوېش ته زیات شو</string>
+    <string name="faditor_audio_import_error">دا غږیز فایل ونه لوستل شو</string>
+    <string name="faditor_undo_ai_edits">د AI سمونونه</string>
+    <string name="faditor_heal_success">تشه پرته له ورانولو ډکه شوه</string>
+    <string name="faditor_heal_error">دلته ډکول نه شي کېدای - له څنډې ډېره نژدې ده</string>
+    <string name="faditor_heal_title">د پلی‌هېډ شاوخوا تشه ډکه کړم؟</string>
+    <string name="faditor_heal_msg">د پلی‌هېډ شاوخوا %1$s د نه ورانوونکي غوڅونې په توګه لرې کړئ. کولای شئ بیرته یې کړئ.</string>
+    <string name="faditor_delete_last_segments">یوازینۍ برخه نه شي ړنګېدای</string>
+    <string name="faditor_crop_custom_ratio_title">ځانګړې نسبت (W:H)</string>
+    <string name="faditor_canvas_custom_res_title">ځانګړی ریزولوشن (W×H)</string>
+    <string name="faditor_settings_safe_zone_title">د 9:16 خوندي سیمې لارښود</string>
+    <string name="faditor_settings_safe_zone_desc">په 9:16 کینوسونو کې د ټولنیزو رسنیو خوندي ساحه (د پلاتفورم UI خالي ساحه) نښه کولو لپاره یو یوازې د مخکتنې لارښود وښایئ. هېڅکله پر صادرولو اغېز نه کوي.</string>
+    <string name="faditor_crop_snap_on">د مرکز نښلول چارن دی</string>
+    <string name="faditor_crop_snap_off">د مرکز نښلول بند دی</string>
+    <string name="faditor_crop_auto_applied">اتومات پرې کول پلی شول</string>
+    <string name="faditor_crop_no_black_bars">هیڅ تورې پټۍ ونه موندل شوې؛ د اړخ نسبت پرې کول کارول کېږي</string>
+    <string name="faditor_crop_error">د پرې کولو لپاره یو ویډیو کلیپ غوره کړئ</string>
+    <string name="faditor_soft_snap_on">نرم نښلول چارن دی</string>
+    <string name="faditor_soft_snap_off">نرم نښلول بند دی</string>
+    <string name="faditor_export_complete_summary_audio">ستاسو غږ ستاسو په Joy Creator پوښۍ کې خوندي دی. په Library کې یې ومومئ.</string>
+    <string name="faditor_reverse_long_loop_later">د اوږدو تکرارونو لپاره شاته کول وروسته راځي — دا تکرار اوس د خپل پای برخه مخته غږوي.</string>
+    <string name="faditor_export_filename_label">د فایل نوم</string>
+    <string name="faditor_export_result_play">هغه ویډیو چې اوس مو صادره کړه وغږوئ</string>
+    <string name="faditor_export_result_open_records">د غږولو لپاره کېکاږئ · په ثبتونو کې وګورئ</string>
+    <string name="faditor_export_no_room">په دې تلیفون کې د دې صادرولو لپاره بسنه وړیا ځای نشته. شاوخوا %1$s خالي کړئ (زاړه صادرات یا هغه ویډیوګانې چې نه یې غواړئ ړنګ کړئ) او بیا هڅه وکړئ. ستاسو پروژه خوندي ده.</string>
+    <string name="faditor_export_prepare_failed">صادرول چمتو نه شو، ډېر احتمال دا چې تلیفون په حافظه یا ځای کې کم شو. نور اپونه بند کړئ، یو څه ځای خالي کړئ او بیا هڅه وکړئ. ستاسو پروژه خوندي ده.</string>
+    <string name="faditor_export_snapshot_unreadable">صادرول پیل نه شو ځکه چې ستاسو پروژه ونه لوستل شوه. مهرباني وکړئ بیا هڅه وکړئ. ستاسو پروژه خوندي ده.</string>
+    <string name="faditor_export_copy_failed_title">صادرول پای ته ورسېد، خو ستاسو په پوښۍ کې نه دی</string>
+    <string name="faditor_export_copy_failed_summary">ستاسو ټاکل شوې پوښۍ ته کاپي کول ونه شول (تلیفون ښایي ډک وي). ستاسو ویډیو %1$s د Joy Creator دننه خوندي ده: په Library کې یې ومومئ.</string>
+    <string name="faditor_export_copy_failed_toast">ستاسو ویډیو پای ته ورسېده، خو ستاسو ټاکل شوې پوښۍ ته کاپي نه شوه (تلیفون ښایي ډک وي). د Joy Creator دننه خوندي ده: په Library کې یې ومومئ.</string>
+    <string name="battery_optimization_off">د بټرۍ اصلاح بنده ده</string>
+    <string name="stream_notes_cellular">⚠️ یوازې Wi-Fi: د تلیفون شبکې راتلونکې اړیکې بندوي، نو لیدونکی او دا تلیفون باید په ورته Wi-Fi کې وي.</string>
+    <string name="torchtimer_label">اتومات بندونکی ټایمر</string>
+    <string name="torchtimer_desc">فلش د ټاکل شوي وخت وروسته په اتومات ډول بندېږي</string>
+    <string name="torchtimer_off">بند</string>
+    <string name="torchtimer_picker_helper">ټایمر یوازې هغه وخت پیلېږي چې فلش فعال وي</string>
+    <string name="torchtimer_cancel">ټایمر لغوه کړئ</string>
+    <string name="torchtimer_30s">30 ثانیې</string>
+    <string name="torchtimer_1m">1 دقیقه</string>
+    <string name="torchtimer_2m">2 دقیقې</string>
+    <string name="torchtimer_5m">5 دقیقې</string>
+    <string name="torchtimer_10m">10 دقیقې</string>
+    <string name="torchtimer_15m">15 دقیقې</string>
+    <string name="torchtimer_30m">30 دقیقې</string>
+    <string name="torchtimer_1h">1 ساعت</string>
+    <string name="torchtimer_custom_title">ځانګړی ټایمر وټاکئ</string>
+    <string name="torchtimer_custom_unit_helper">د وخت واحد غوره کړئ</string>
+    <string name="torchtimer_custom_hint">موده ولیکئ</string>
+    <string name="torchtimer_custom_minutes_example">بېلګه: د 5 دقیقو لپاره 5</string>
+    <string name="torchtimer_custom_hours_example">بېلګه: د 2 ساعتونو لپاره 2</string>
+    <string name="torchtimer_custom_apply">پلي کړئ</string>
+    <string name="torchtimer_custom_error_positive">موده باید له 0 نه ډېره وي</string>
+    <string name="torchtimer_custom_error_invalid">ناسم شمېر</string>
+    <string name="setting_on">چارن</string>
+    <string name="menu_auto_pause_title">کله چې مېنو خلاصه وي اتومات ودرول</string>
+    <string name="button_state_tint_title">د لامبو تڼۍ د ثبت رنګ</string>
+    <string name="record_no_room_to_start">په دې تلیفون کې د ثبت لپاره بسنه ځای نشته. یو څه ځای خالي کړئ او بیا هڅه وکړئ.</string>
+    <string name="record_stopped_low_space">تلیفون نژدې ډک دی، نو ثبت ودرېد. هر څه چې تر اوسه ثبت شوي خوندي دي.</string>
+    <string name="record_stopped_write_problem">ثبت نور نه شو خوندي کېدای، نو ودرېد. هر څه چې تر هغه وخته ثبت شوي ساتل شوي دي.</string>
+    <string name="faditor_m12_select_clip_first">لومړی په اصلي ټراک کې یو کلیپ غوره کړئ</string>
+    <string name="faditor_m12_select_object_first">لومړی په یوه پرت کې یو څیز غوره کړئ</string>
+    <string name="faditor_m12_only_video_images">په اصلي ټراک کې یوازې ویډیوګانې او انځورونه ځای کېدای شي</string>
+    <string name="faditor_m12_need_one_clip">اصلي ټراک لږ تر لږه یو کلیپ ته اړتیا لري</string>
+    <string name="faditor_m12_moved_to_layer">پرت ته لېږدول شو</string>
+    <string name="faditor_m12_moved_to_main">اصلي ټراک ته لېږدول شو</string>
+    <string name="faditor_m12_undo_to_layer">پرت ته ولېږدئ</string>
+    <string name="faditor_m12_undo_to_main">اصلي ټراک ته ولېږدئ</string>
+    <string name="faditor_text_decor_section">بڼه</string>
+    <string name="faditor_text_decor_stroke">کرښه</string>
+    <string name="faditor_text_decor_glow">ځلا</string>
+    <string name="faditor_text_decor_shadow">سیوری</string>
+    <string name="faditor_text_decor_plate">شاته</string>
+    <string name="faditor_mask_action">ماسک</string>
+    <string name="faditor_mask_title">ماسک</string>
+    <string name="faditor_mask_remove">لرې کړئ</string>
+    <string name="faditor_mask_x">مرکز X</string>
+    <string name="faditor_mask_y">مرکز Y</string>
+    <string name="faditor_mask_w">پلنوالی</string>
+    <string name="faditor_mask_h">لوړوالی</string>
+    <string name="faditor_mask_round">ګردوالی</string>
+    <string name="faditor_mask_rotate">څرخېدل</string>
+    <string name="faditor_mask_soften">څنډې نرمې کړئ</string>
+    <string name="faditor_mask_only_inside">یوازې د بکس دننه وښایه</string>
+    <string name="faditor_mask_section_shape">شکل</string>
+    <string name="faditor_kf_outside_span">د کیفریم زیاتولو لپاره پلی‌هېډ د دې کلیپ پر سر یوسئ</string>
+    <string name="faditor_key_section">کروما کیلي</string>
+    <string name="faditor_key_enable">یو رنګ لرې کړئ</string>
+    <string name="faditor_key_color">د کیلي رنګ</string>
+    <string name="faditor_key_eyedropper">له ویډیو نه غوره کړئ</string>
+    <string name="faditor_key_eyedropper_failed">دا پکسل ونه لوستل شو — بیا هڅه وکړئ کله چې کلیپ ښکاري</string>
+    <string name="faditor_key_tap_prompt">د لرې کولو لپاره پر رنګ کېکاږئ</string>
+    <string name="faditor_key_tolerance">زغم</string>
+    <string name="faditor_key_softness">د څنډې نرموالی</string>
+    <string name="faditor_key_spill">ټینګول / خپرول</string>
+    <string name="faditor_blend_action">د ګډولو حالت</string>
+    <string name="faditor_blend_title">د ګډولو حالت</string>
+    <string name="faditor_blend_export_note">د ګډولو حالتونه کله چې صادرول کوئ پلي کېږي. مخکتنه پرت په عادي ډول ښیي.</string>
+    <string name="faditor_image_inert_mask">تر اوسه د انځور پوښونو ته نه پلي کېږي — ستاسو شکل خوندي دی، خو پر مخکتنه یا صادرولو اغېز نه لري.</string>
+    <string name="faditor_image_inert_key">تر اوسه د انځور پوښونو ته نه پلي کېږي — ستاسو کیلي خوندي ده، خو پر مخکتنه یا صادرولو اغېز نه لري.</string>
+    <string name="faditor_image_inert_fx">تر اوسه د انځور پوښونو ته نه پلي کېږي — ستاسو اغېزې خوندي دي، خو پر مخکتنه یا صادرولو اغېز نه لري.</string>
+    <string name="faditor_image_fx_export_note">تیاره کول او نورې اغېزې چې خپل ځانګړی پړاو غواړي پرېښودل کېږي — په صادرولو کې او دلته هم.</string>
+    <string name="faditor_image_mask_export_note">په انځور کې ماسکونه کله چې صادرول کوئ پلي کېږي. مخکتنه ټول انځور ښیي، مګر که انځور اغېزه، کروما کیلي یا د ګډولو حالت هم ولري — بیا دلته هم ماسک کېږي.</string>
+    <string name="faditor_blend_normal">عادي</string>
+    <string name="faditor_blend_multiply">ضرب</string>
+    <string name="faditor_blend_screen">پرده</string>
+    <string name="faditor_blend_overlay">پوښ</string>
+    <string name="faditor_blend_add">جمع</string>
+    <string name="faditor_blend_difference">توپیر</string>
+    <string name="faditor_blend_color">رنګ</string>
+    <string name="faditor_blend_darken">تیاره</string>
+    <string name="faditor_blend_lighten">روښانه</string>
+    <string name="faditor_blend_color_dodge">رنګ ډوج</string>
+    <string name="faditor_blend_color_burn">رنګ سوځېدل</string>
+    <string name="faditor_blend_linear_burn">خطي سوځېدل</string>
+    <string name="faditor_blend_hard_light">کلکه رڼا</string>
+    <string name="faditor_blend_soft_light">نرمه رڼا</string>
+    <string name="faditor_blend_vivid_light">ژوندۍ رڼا</string>
+    <string name="faditor_blend_linear_light">خطي رڼا</string>
+    <string name="faditor_blend_pin_light">پن رڼا</string>
+    <string name="faditor_blend_hard_mix">کلک ګډون</string>
+    <string name="faditor_blend_exclusion">وټل</string>
+    <string name="faditor_blend_subtract">منفي</string>
+    <string name="faditor_blend_divide">ویش</string>
+    <string name="faditor_blend_darker_color">تیاره رنګ</string>
+    <string name="faditor_blend_lighter_color">روښانه رنګ</string>
+    <string name="faditor_blend_hue">رنګ‌مایه</string>
+    <string name="faditor_blend_saturation">ګډېدا</string>
+    <string name="faditor_blend_luminosity">رڼښت</string>
+    <string name="faditor_blend_group_normal">عادي</string>
+    <string name="faditor_blend_group_darken">تیاره</string>
+    <string name="faditor_blend_group_lighten">روښانه</string>
+    <string name="faditor_blend_group_contrast">ټکر</string>
+    <string name="faditor_blend_group_comparative">پرتله‌ییز</string>
+    <string name="faditor_blend_group_color">رنګ</string>
+    <string name="faditor_orphan_title">پر دې کلیپ توکي</string>
+    <string name="faditor_orphan_body">%1$d د پرت توکي په هغه کلیپ پیلېږي چې تاسو ړنګ کړ. وساتم یې او راتلونکي کلیپ ته یې ونښلوم، که ورسره ړنګ کړم؟</string>
+    <string name="faditor_orphan_keep">وساتئ یې</string>
+    <string name="faditor_orphan_delete">ړنګ یې کړئ</string>
+    <string name="faditor_orphan_remember">زما انتخاب په یاد ولرئ</string>
+    <string name="faditor_orphan_undo">د پرت توکي ړنګ کړئ</string>
+    <string name="faditor_orphan_removed">%1$d د پرت توکي لرې شول</string>
+    <string name="faditor_settings_orphan_title">په ړنګ شوي کلیپ کې توکي</string>
+    <string name="faditor_settings_orphan_desc">کله چې هغه کلیپ ړنګ کړئ چې د پرت توکي پرې ولاړ دي، هغوی ته څه کېږي. اوس: %1$s</string>
+    <string name="faditor_settings_orphan_ask">تل وپوښتئ</string>
+    <string name="mini_apps_customize_title">کوچني اپونه ځانګړي کړئ</string>
+    <string name="mini_apps_show_count">شمېر وښایه</string>
+    <string name="mini_apps_show_count_desc">د ښودلو لپاره د کوچنیو اپونو شمېر</string>
+    <string name="desc_mini_apps_count_minus">شمېر کم کړئ</string>
+    <string name="desc_mini_apps_count_plus">شمېر زیات کړئ</string>
+    <string name="mini_apps_reorder_footer">د بیا ترتیبولو لپاره وکاږئ</string>
+    <string name="quick_timer_desc">د چټک ټایمر توضیح</string>
+    <string name="quick_timer_label">ټایمر</string>
+    <string name="quick_mute_label">بې‌غږه</string>
+    <string name="grid_lines_title">د جال کرښې</string>
+    <string name="grid_lines_subtitle">د جال کرښې وښایه</string>
+    <string name="desc_mini_apps_edit">کوچني اپونه سم کړئ</string>
+    <string name="records_repair_banner_title">د سمولو بینر</string>
+    <string name="records_repair_banner_dismiss">لرې کړئ</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">هر هغه څه ته چې لاس مو ور وړی دوام ورکړئ</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">نیول</string>
+    <string name="lobby_room_sprites">SpriteLab</string>
+    <string name="lobby_room_avatar">اواتار</string>
+    <string name="lobby_room_viz">VisLab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">JoyBrush</string>
+    <string name="lobby_hero_new">نوی</string>
+    <string name="lobby_new_recording">ثبت</string>
+    <string name="lobby_new_project">پروژه</string>
+    <string name="lobby_new_character">کرکټر</string>
+    <string name="lobby_new_import">راوړل</string>
+    <string name="lobby_floor_finder">موندل</string>
+    <string name="lobby_floor_remote">لرې کنټرول</string>
+    <string name="lobby_floor_bits">ټوټې</string>
+    <string name="lobby_floor_packs">بستې</string>
+    <string name="lobby_floor_setup">جوړښت</string>
+    <string name="lobby_empty_studio">تر اوسه هیڅ سمون نشته. یوه پروژه پیل کړئ او دلته به ستاسو په تمه وي.</string>
+    <string name="lobby_empty_sprites">تر اوسه هیڅ پاڼې نشته. یو انځور راوړئ او په چوکاټونو یې وویشئ.</string>
+    <string name="lobby_empty_avatar">تر اوسه هیڅ کرکټر نشته. یو انځور ترتیب کړئ او حرکت به وکړي.</string>
+    <string name="lobby_empty_viz">تر اوسه هیڅ ویژوالایزر نشته. له هر غږ نه چې لرئ یو جوړ کړئ.</string>
+    <string name="lobby_empty_textlab">ټکي چې د فلم پوسټر په څېر ښکاري: کروم، سره زر، نیون، اور. یوه بڼه غوره کړئ او ولیکئ.</string>
+    <string name="lobby_empty_joybrush">یو څه رسم کړئ. پخپله خوندي کېږي.</string>
+    <string name="lobby_act_carry_on">دوام ورکړئ</string>
+    <string name="lobby_act_open">خلاص کړئ</string>
+    <string name="lobby_act_record">ثبت</string>
+    <string name="lobby_act_start">یو پیل کړئ</string>
+    <string name="lobby_act_new_drawing">رسم</string>
+    <string name="intro_line_capture">د پردې نیول د خپل مخ سره</string>
+    <string name="intro_line_record">د ویډیو ثبت، حتی کله چې پرده بنده وي</string>
+    <string name="intro_line_editor">ریښتینی سمونګر — پرتونه، ماسکونه، کیفریمونه</string>
+    <string name="intro_line_animation">انیمېشن — سپرایټونه، ترتیبونه، لوبۍ</string>
+    <string name="intro_line_transcribe">متن اړول چې ستاسو له تلیفون نه نه وځي</string>
+    <string name="intro_line_secondcam">دویم تلیفون د کامرې په توګه، ستاسو په خپل Wi-Fi کې</string>
+    <string name="intro_line_ai">AI چې رښتینی مهالوېش سموي</string>
+    <string name="intro_start_creating">جوړول پیل کړئ</string>
+    <string name="intro_promise">هیڅ اعلان نشته. هیڅ ګډون نشته.\nهیڅ واټرمارک نشته.</string>
+    <string name="intro_promise_ever">د صادرولو لپاره هیڅ پیسې نشته. هېڅکله.</string>
+    <string name="intro_story">ما دا د خپلو درېیو کوچنیانو د ساتنې په منځ کې د خوبونو په وختونو کې جوړ کړ. زما د کورنۍ د ملاتړ لاره ده. که له دې څخه څه ترلاسه کوئ، کولای شئ مرسته وکړئ چې نورو ټولو ته وړیا پاتې شي.</string>
+    <string name="intro_cta_start">جوړول پیل کړئ</string>
+    <string name="intro_ai_note">Joy Creator هیڅ سرور نه چلوي. که یو AI وصل کړئ، ستاسو پوښتنې هغه چمتو کوونکي ته ځي چې تاسو غوره کړی — موږ هېڅکله نه ګورو او هیڅ ونډه نه اخلو.</string>
+    <string name="intro_ai_have_key">لا دمخه کیلي لرئ؟</string>
+    <string name="intro_ai_add_now">اوس یې زیاته کړئ</string>
+    <string name="intro_ai_later">وروسته، له چټ نه</string>
+    <string name="desc_select_mode">د غوره کولو حالت</string>
+    <string name="desc_delete_selected">غوره شوي ړنګ کړئ</string>
+    <string name="desc_cancel_selection">غوره کول لغوه کړئ</string>
+    <string name="desc_select_month">دا میاشت غوره کړئ</string>
+    <string name="desc_watch_remote_toggle">ځغلول پیل یا بند کړئ</string>
+    <string name="desc_back">شاته</string>
+    <string name="desc_decrease_named">%1$s کم کړئ</string>
+    <string name="desc_increase_named">%1$s زیات کړئ</string>
+    <string name="desc_pip_expand">مخکتنه لویه کړئ</string>
+    <string name="desc_pip_undock">جلا کړئ: مخکتنه بیا لامبو کړئ</string>
+    <string name="desc_keyframe_toggle">د پلی‌هېډ پر ځای کیفریم: د زیاتولو یا لرې کولو لپاره کېکاږئ</string>
+    <string name="desc_transcript_show">متن وښایه</string>
+    <string name="desc_transcript_resize">د متن د پینل د اندازې بدلولو لپاره وکاږئ</string>
+    <string name="desc_transcript_search">په متن کې لټون</string>
+    <string name="desc_transcript_hide">متن پټ کړئ</string>
+    <string name="desc_transcript_add_pass">بل د متن اړولو پړاو زیات کړئ</string>
+    <string name="desc_search_prev">د لټون تېره پایله</string>
+    <string name="desc_search_next">د لټون راتلونکې پایله</string>
+    <string name="desc_crop_auto">تورې پټۍ په اتومات ډول پرې کړئ</string>
+    <string name="desc_crop_snap_center">پرې کول مرکز ته ونښلوئ</string>
+    <string name="desc_volume_keyframe">د غږ کیفریمونه چارن یا بند</string>
+    <string name="desc_volume_mute">غوره شوی غږ بې‌غږه یا غږ لرونکی کړئ</string>
+    <string name="desc_opacity_keyframe">د روڼتیا کیفریمونه چارن یا بند</string>
+    <string name="desc_caption_keyframe">د سرلیک بڼې کیفریمونه چارن یا بند</string>
+    <string name="desc_keyframe_prev">تېر کیفریم</string>
+    <string name="desc_keyframe_next">راتلونکی کیفریم</string>
+    <string name="desc_keyframe_delete">کیفریم ړنګ کړئ</string>
+    <string name="desc_keyframe_playhead">د پلی‌هېډ پر ځای کیفریم زیات کړئ، تازه کړئ یا لرې کړئ</string>
+    <string name="desc_move_go">کلیپ لیکل شوي ځای ته ولېږدئ</string>
+    <string name="desc_word_earlier">ټکی یو چوکاټ مخکې کړئ</string>
+    <string name="desc_word_later">ټکی یو چوکاټ وروسته کړئ</string>
+    <string name="desc_word_center">پر دې ټکي مرکز کړئ</string>
+    <string name="desc_hide_captions_clip">د سرلیکونه یوازې د دې کلیپ لپاره پټ کړئ</string>
+    <string name="desc_insert_playhead">غوره شوې شتمني د پلی‌هېډ پر ځای ځای کړئ</string>
+    <string name="desc_layer_colour">د پرت رنګ وټاکئ</string>
+    <string name="desc_visualizer_save">دا د لیدونکي بڼه خوندي کړئ</string>
+    <string name="desc_visualizer_export">دا د لیدونکي بڼه فایل ته صادر کړئ</string>
+    <string name="desc_visualizer_import">د لیدونکي بڼه له فایل نه راوړئ</string>
+    <string name="desc_wave_justify">عمودي همغږي</string>
+    <string name="desc_wave_data_mode">د معلوماتو حالت</string>
+    <string name="desc_wave_mirror">افقي هینداره</string>
+    <string name="desc_wave_center_mode">د مرکز حالت</string>
+    <string name="desc_wave_render_mode">د رسمولو حالت</string>
+    <string name="desc_wave_attach">کلیپ سره ونښلوئ یا جلا کړئ</string>
 </resources>

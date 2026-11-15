@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.ai;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.ClipData;
@@ -548,7 +550,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void showAttachChooser() {
         if (projectId == null || projectId.isEmpty()) { pickImage(); return; }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Show the assistant…")
                 .setItems(new String[]{"🎞  This frame (at the playhead)", "🖼  Pick an image…"},
                         (d, which) -> {
@@ -1728,7 +1730,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         LinearLayout box = new LinearLayout(this);
         box.setPadding(dp(20), dp(8), dp(20), 0);
         box.addView(field);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Name this recipe")
                 .setView(box)
                 .setPositiveButton("Save", (d, w) -> saveRecipe(f, field.getText().toString(), card))
@@ -1841,7 +1843,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void confirmDeleteRecipe(@NonNull RecipeStore.Saved s, @NonNull View row) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle("Delete “" + s.recipe.name + "”?")
                 .setMessage("Its steps will be gone from My recipes.")
                 .setPositiveButton("Delete", (d, w) -> aiExecutor.execute(() -> {
@@ -2121,7 +2123,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int after = changes.size() - index - 1;
         String rest = after == 0 ? "This change will go."
                 : "This change and " + (after == 1 ? "the one after it" : "the " + after + " after it") + " will go.";
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Undo from here?")
                 .setMessage("Put the project back how it was before this? " + rest)
                 .setNegativeButton("Cancel", null)
@@ -3418,14 +3420,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
         titleRow.addView(titleText);
 
         com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.dangerNeutral(this)
                 .setCustomTitle(titleRow)
                 .setView(scrolling(root))
                 .setPositiveButton("Save", null)
                 .setNegativeButton("Cancel", null);
         if (accountCount > 1) {
             builder.setNeutralButton("Remove account", (d, w) ->
-                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    StudioDialog.danger(this)
                             .setMessage("Forget the " + account.name + " account and its key on this phone?")
                             .setPositiveButton("Forget it", (d2, w2) -> {
                                 AiAccounts.remove(this, account.id);
@@ -3617,7 +3619,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
      * unless the person sends that email themself.
      */
     private void confirmReport(@NonNull String reply) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Report this reply?")
                 .setMessage("Joybot's answers can come from an AI, and an AI can be wrong or say something it "
                         + "shouldn't. Reporting keeps this reply and your question in your Joy Creator folder "
@@ -4285,7 +4287,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             reloadAccount();
             showSettingsDialog();
         });
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Talk to\u2026")
                 .setItems(labels.toArray(new String[0]), (d, w) -> actions.get(w).run())
                 .show();

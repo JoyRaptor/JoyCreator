@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Diimpor: %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Slide tidak bisa dirender: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Gagal menggabungkan: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Ekspor gagal: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Gagal menyalin hasil ekspor: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Impor gagal: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Gagal mengurutkan ulang: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Kesalahan saat mengurutkan ulang: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Gagal menyelaraskan: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Itu tidak tampak seperti slide Studio: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Gagal mengimpor slide: %1$s</string>
+</resources>

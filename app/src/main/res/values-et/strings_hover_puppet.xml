@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Veerge üle lehe. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_rows">Ridu mööda lehte. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_margin_x">Ruum lehe vasakus ja paremas servas. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_margin_y">Ruum lehe ülemises ja alumises servas. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_spacing_x">Vahe lahtrite vahel küljelt küljele. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_spacing_y">Vahe lahtrite vahel ülalt alla. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_tolerance">Kui lähedal võtmevärvile loetakse taustaks. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_move_x">Liiguta seda kaadrit vasakule või paremale. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_move_y">Liiguta seda kaadrit üles või alla. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_scale">Tee see kaader suuremaks või väiksemaks. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_rotate">Pööra seda kaadrit kraadides. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_pivot_x">Pöördepunkt vasakult paremale. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_pivot_y">Pöördepunkt ülalt alla. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_bake_pad">Ruum iga kaadri ümber küpsetamisel. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_onion_strength">Kui tugevad on sibulakihi kummitused. Lohista muutmiseks, puuduta sisestamiseks</string>
+    <string name="hover_sprite_onion_past">Varasemate kaadrite kummitused. Lohista, et muuta, mitu neid on, puuduta värvi valimiseks</string>
+    <string name="hover_sprite_onion_future">Hilisemate kaadrite kummitused. Lohista, et muuta, mitu neid on, puuduta värvi valimiseks</string>
+    <string name="hover_sprite_divider">Lohista, et teha tööriistapaneel kõrgemaks või madalamaks</string>
+    <string name="hover_puppet_badge">Nuku nõelad. Puuduta poseerimiseks, hoia nõelasahtli avamiseks</string>
+</resources>

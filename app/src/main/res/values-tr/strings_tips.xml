@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_tips.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string-array name="tips_joycreator">
+        <item>Yaptığın her şey Joy Creator klasöründe, görebileceğin, kopyalayabileceğin ve yedekleyebileceğin sıradan dosyalar olarak saklanır.</item>
+        <item>Yanlışlıkla bir şeyi mi sildin? Son silinenler\'i açmak için ana sayfanın üstündeki Joy Creator logosuna basılı tut.</item>
+        <item>Library\'deki herhangi bir proje, kayıt, çizim ya da resmi bulmak için ana sayfadaki arama büyüteçine dokun.</item>
+        <item>Library\'deki herhangi bir şeye basılı tutarak onunla yapabileceğin her şeyi gör.</item>
+        <item>Herhangi bir uygulamadan bir video, resim ya da sesi Joy Creator\'a paylaş; klasörüne düşer ve Studio için hazır olur.</item>
+        <item>Üzerinde çalıştığın şey hakkında bir fikir için Joybot\'a dokun. Kendi AI\'nla sohbet etmek için onu Ayarlar, AI ve Joybot bölümünden bağla.</item>
+        <item>TextLab, film afişi tadında başlıklar yapar. Studio\'da, bir başlığın görünümünü orada değiştirmek için yanındaki TextLab\'de düzenle\'ye dokun.</item>
+        <item>Yeni görünümler ve yazı tipleri eklemek için bir .joypack dosyası aç. Neler olduğunu görmek için ana sayfanın altındaki Paketler\'e dokun.</item>
+        <item>Telefonunda neyin yer kapladığını görmek ve biraz yer geri kazanmak için ana sayfadaki depolama satırına dokun.</item>
+        <item>Değiştirmek istediğini Ayarlar\'da ara, örneğin \"filigran\" ya da \"tema\".</item>
+        <item>Viz Lab müziğini, karıştırıp ayarlayabileceğin parçalardan yapılmış hareketli görüntülere dönüştürür.</item>
+    </string-array>
+</resources>

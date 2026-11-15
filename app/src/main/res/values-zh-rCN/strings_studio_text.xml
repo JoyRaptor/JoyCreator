@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">点按重新链接</string>
+    <string name="studio_text_keyframe">关键帧</string>
+    <string name="studio_text_lane_1">通道 1</string>
+    <string name="studio_text_current_position">当前位置</string>
+    <string name="studio_text_tap_the_time_to_type">点按时间可输入精确数值 · ◄ ► 微调 ±1 帧</string>
+    <string name="studio_text_one">整块</string>
+    <string name="studio_text_snap">吸附</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">条数</string>
+    <string name="studio_text_width">宽度</string>
+    <string name="studio_text_gap">间距</string>
+    <string name="studio_text_lanes">通道</string>
+    <string name="studio_text_karaoke_one_word_per_line">卡拉OK：每行一个词（逐词计时）：</string>
+    <string name="studio_text_copy_example">复制示例</string>
+    <string name="studio_text_slide_one_block_per_timestamp">幻灯片：每个时间戳一块（整段诗句一起显示）：</string>
+    <string name="studio_text_none">无</string>
+    <string name="studio_text_backing_box">底框</string>
+    <string name="studio_text_hide_this_track">隐藏这条轨道</string>
+    <string name="studio_text_no_animation_reset_centred_cover">无动画（重置）— 居中、铺满、静止</string>
+    <string name="studio_text_also_apply_caption_position_to">同时把字幕位置用于所有片段</string>
+    <string name="studio_text_also_apply_caption_size_to">同时把字幕大小用于所有片段</string>
+    <string name="studio_text_sensitivity">灵敏度</string>
+    <string name="studio_text_snap_to_beats">吸附到节拍</string>
+    <string name="studio_text_reference_clip_stays">参照片段（不动）</string>
+    <string name="studio_text_clip_to_move">要移动的片段</string>
+    <string name="studio_text_release_the_slider_to_preview">松开滑块，就能在时间线上预览空隙</string>
+    <string name="studio_text_scanning">正在扫描…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">没能扫描音频</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; 插入</string>
+    <string name="studio_text_insert_2">插入 &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">为时间线选择图片（点按选择，带编号，作为片段）</string>
+    <string name="studio_text_browse_files">浏览文件…</string>
+    <string name="studio_text_add_0">添加 (0)</string>
+</resources>

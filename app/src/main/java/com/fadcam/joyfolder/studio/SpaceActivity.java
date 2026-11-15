@@ -1,5 +1,7 @@
 package com.fadcam.joyfolder.studio;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Typeface;
@@ -306,7 +308,7 @@ public class SpaceActivity extends AppCompatActivity {
 
     private void confirmTrash(FolderIndex.Item it) {
         String name = Placement.nameOf(it.path);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Move “" + name + "” to Trash?")
                 .setMessage("No project uses it. You can put it back from Settings → Recently deleted.")
                 .setPositiveButton("Move to Trash", (d, w) -> {
@@ -340,7 +342,7 @@ public class SpaceActivity extends AppCompatActivity {
             labels[i] = Placement.nameOf(it.path) + " · " + size(it.size);
             ticked[i] = true;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Files no project uses")
                 .setMultiChoiceItems(labels, ticked, (d, which, isChecked) -> ticked[which] = isChecked)
                 .setPositiveButton("Move to Trash", (d, w) -> {

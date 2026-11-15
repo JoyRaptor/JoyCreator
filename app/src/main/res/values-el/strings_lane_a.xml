@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Σύρε για αλλαγή μεγέθους, πάτα για κλείσιμο</string>
+    <string name="lane_a_toggle_mute">Σίγαση</string>
+    <string name="lane_a_toggle_hide">Απόκρυψη</string>
+    <string name="lane_a_toggle_lock">Κλείδωμα</string>
+    <string name="lane_a_toggle_pass_through">Άσε τα πατήματα να περνούν</string>
+    <string name="lane_a_toggle_start_here">Αρχή εδώ</string>
+    <string name="lane_a_toggle_end_here">Τέλος εδώ</string>
+    <string name="lane_a_toggle_split">Διαχωρισμός στον δείκτη αναπαραγωγής</string>
+    <string name="lane_a_toggle_fx_bypass">Παράκαμψη εφέ (A/B)</string>
+    <string name="lane_a_mask_add_shape">Πρόσθεσε σχήμα μάσκας</string>
+    <string name="lane_a_mask_remove_shape">Αφαίρεση αυτού του σχήματος</string>
+    <string name="lane_a_mask_shape_n">Σχήμα %1$d</string>
+    <string name="lane_a_step_down">Βήμα κάτω</string>
+    <string name="lane_a_step_up">Βήμα πάνω</string>
+    <string name="lane_a_key_green">Αφαίρεση πράσινου</string>
+    <string name="lane_a_key_blue">Αφαίρεση μπλε</string>
+    <string name="lane_a_key_black">Αφαίρεση μαύρου</string>
+    <string name="lane_a_key_white">Αφαίρεση λευκού</string>
+    <string name="lane_a_pivot_title">Άξονας περιστροφής</string>
+    <string name="lane_a_pivot_top_left">Άξονας: πάνω αριστερά</string>
+    <string name="lane_a_pivot_top">Άξονας: πάνω</string>
+    <string name="lane_a_pivot_top_right">Άξονας: πάνω δεξιά</string>
+    <string name="lane_a_pivot_left">Άξονας: αριστερά</string>
+    <string name="lane_a_pivot_centre">Άξονας: κέντρο</string>
+    <string name="lane_a_pivot_right">Άξονας: δεξιά</string>
+    <string name="lane_a_pivot_bottom_left">Άξονας: κάτω αριστερά</string>
+    <string name="lane_a_pivot_bottom">Άξονας: κάτω</string>
+    <string name="lane_a_pivot_bottom_right">Άξονας: κάτω δεξιά</string>
+    <string name="lane_a_sprite_prev_key">Μετακίνηση καρέ-κλειδιού νωρίτερα</string>
+    <string name="lane_a_sprite_key">Διαγραφή του καρέ-κλειδιού κάτω από τον δείκτη αναπαραγωγής</string>
+    <string name="lane_a_sprite_next_key">Μετακίνηση καρέ-κλειδιού αργότερα</string>
+    <string name="lane_a_sprite_open_lab">Άνοιγμα στο Sprite Lab</string>
+    <string name="lane_a_sprite_flip_h">Οριζόντια αναστροφή</string>
+    <string name="lane_a_sprite_flip_v">Κάθετη αναστροφή</string>
+    <string name="lane_a_sprite_end">Στο τέλος: μία φορά, επανάληψη ή πινγκ-πονγκ</string>
+    <string name="lane_a_sprite_record">Εγγραφή παράστασης</string>
+    <string name="lane_a_sprite_stop">Διακοπή εγγραφής</string>
+    <string name="lane_a_sprite_sweep">Παρακολούθηση από το βίντεο από κάτω</string>
+    <string name="lane_a_sprite_more">Περισσότερα</string>
+    <string name="lane_a_sprite_dope">Dope sheet</string>
+    <string name="lane_a_sprite_manage">Φύλλα sprite</string>
+    <string name="lane_a_sprite_grip">Σύρε πάνω για περισσότερες γραμμές, κάτω για λιγότερες</string>
+</resources>

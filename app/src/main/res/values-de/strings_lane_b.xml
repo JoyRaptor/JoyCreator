@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_lane_b.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_b_audio_level_slider">Pegel</string>
+    <string name="lane_b_audio_pan_slider">Panorama</string>
+    <string name="lane_b_audio_fade_in_slider">Einblenden</string>
+    <string name="lane_b_audio_fade_out_slider">Ausblenden</string>
+    <string name="lane_b_audio_level_value">Pegel. Tippen, um einen genauen Prozentwert einzugeben.</string>
+    <string name="lane_b_audio_pan_value">Panorama. Tippen, um eine genaue Position einzugeben.</string>
+    <string name="lane_b_audio_fade_in_value">Einblenden. Tippen, um es in Sekunden einzugeben.</string>
+    <string name="lane_b_audio_fade_out_value">Ausblenden. Tippen, um es in Sekunden einzugeben.</string>
+    <string name="lane_b_audio_clear_envelope">Die Lautstärke-Hüllkurve löschen und zum gleichbleibenden Pegel zurückkehren</string>
+    <string name="lane_b_audio_beat_link">Ein Overlay mit dem Beat dieses Clips koppeln</string>
+    <string name="lane_b_audio_gain_meter">Pegelabsenkung des Kompressors</string>
+    <string name="lane_b_puppet_name">Pin-Name</string>
+    <string name="lane_b_puppet_tool">Werkzeug %1$s</string>
+    <string name="lane_b_puppet_tool_on">Werkzeug %1$s, in Benutzung</string>
+    <string name="lane_b_puppet_chip">%1$s-Pin. Tippen zum Bearbeiten.</string>
+    <string name="lane_b_puppet_chip_on">%1$s-Pin, wird bearbeitet</string>
+    <string name="lane_b_puppet_scope">Einstellungen für %1$s</string>
+    <string name="lane_b_puppet_scope_on">Einstellungen für %1$s, werden angezeigt</string>
+    <string name="lane_b_puppet_toggle_on">%1$s: an. Tippen zum Ausschalten.</string>
+    <string name="lane_b_puppet_toggle_off">%1$s: aus. Tippen zum Einschalten.</string>
+    <string name="lane_b_puppet_eye_on">Reichweitenring immer sichtbar. Tippen, um ihn nur beim Ziehen zu zeigen.</string>
+    <string name="lane_b_puppet_eye_off">Reichweitenring zeigt sich beim Ziehen. Tippen, um ihn dauerhaft zu zeigen.</string>
+    <string name="lane_b_puppet_key_position">Position für diesen Pin keyen</string>
+    <string name="lane_b_transcript_panel">Transkript. Tippe auf ein Wort, um dorthin zu springen, halte es, um es zu korrigieren oder zu streichen.</string>
+    <string name="lane_b_wave_swatch">Farbe für %1$s. Tippen zum Wählen.</string>
+    <string name="lane_b_wave_lane_top">Spur %1$s: oben. Tippen, um sie nach unten zu setzen.</string>
+    <string name="lane_b_wave_lane_below">Spur %1$s: unten. Tippen, um sie nach oben zu setzen.</string>
+    <string name="lane_b_wave_band_show">Das Band %1$s zeigen</string>
+    <string name="lane_b_wave_preset">Farbe %1$d von %2$d</string>
+    <string name="lane_b_wave_preset_on">Farbe %1$d von %2$d, in Benutzung</string>
+</resources>

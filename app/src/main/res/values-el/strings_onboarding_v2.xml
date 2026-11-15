@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">Μερικές άδειες</string>
+    <string name="onboardingv2_perm_why">Το Joy Creator τις χρειάζεται για να βιντεοσκοπεί, να καταγράφει τη φωνή σου και να κρατά τη δουλειά σου στο κινητό. Τίποτα δεν φεύγει από αυτό.</string>
+    <string name="onboardingv2_perm_camera">Κάμερα</string>
+    <string name="onboardingv2_perm_camera_why">Για να βιντεοσκοπείς και να βλέπεις τι βιντεοσκοπείς.</string>
+    <string name="onboardingv2_perm_mic">Μικρόφωνο</string>
+    <string name="onboardingv2_perm_mic_why">Για να καταγράφεις τη φωνή σου μαζί με την εικόνα.</string>
+    <string name="onboardingv2_perm_files">Αρχεία και ειδοποιήσεις</string>
+    <string name="onboardingv2_perm_files_why">Για να αποθηκεύονται τα βίντεό σου και να φαίνεται η ειδοποίηση εγγραφής.</string>
+    <string name="onboardingv2_perm_battery">Η εγγραφή να μένει ζωντανή</string>
+    <string name="onboardingv2_perm_battery_why">Προαιρετικό: απενεργοποίησε τη βελτιστοποίηση μπαταρίας για να μη διακόπτονται οι μεγάλες λήψεις.</string>
+    <string name="onboardingv2_perm_battery_done">Προαιρετικό: η βελτιστοποίηση μπαταρίας είναι ήδη απενεργοποιημένη.</string>
+    <string name="onboardingv2_perm_allow">Επίτρεψε όσα λείπουν</string>
+    <string name="onboardingv2_perm_all_set">Όλα έτοιμα</string>
+    <string name="onboardingv2_perm_open_settings">Άνοιγμα ρυθμίσεων</string>
+    <string name="onboardingv2_perm_nudge">Επίτρεψε τις τρεις παραπάνω για να συνεχίσεις.</string>
+    <string name="onboardingv2_perm_state_granted">επιτρέπεται</string>
+    <string name="onboardingv2_perm_state_missing">δεν επιτρέπεται ακόμα</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Ζήτησε τις άδειες που λείπουν ακόμα</string>
+    <string name="onboardingv2_perm_all_set_cd">Όλες οι άδειες είναι δοσμένες. Σύρε στην επόμενη σελίδα.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Άνοιξε τις ρυθμίσεις συστήματος αυτής της εφαρμογής για να επιτρέψεις άδειες που είχες απορρίψει</string>
+    <string name="onboardingv2_perm_battery_cd">Άνοιξε την οθόνη συστήματος για να απενεργοποιήσεις τη βελτιστοποίηση μπαταρίας για το Joy Creator</string>
+</resources>

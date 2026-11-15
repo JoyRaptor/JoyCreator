@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">Cari semuanya</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot, pembantumu — ia menyala hijau saat punya ide untuk proyekmu</string>
+    <string name="lobbyv2_dismiss">Tutup</string>
+    <string name="lobbyv2_tag_last_project">PROYEK TERAKHIR</string>
+    <string name="lobbyv2_tag_ready">SIAP</string>
+    <string name="lobbyv2_tag_last_sheet">SHEET TERAKHIR</string>
+    <string name="lobbyv2_tag_last_character">KARAKTER TERAKHIR</string>
+    <string name="lobbyv2_tag_last_visualiser">VISUALIZER TERAKHIR</string>
+    <string name="lobbyv2_tag_last_look">TAMPILAN TERAKHIR</string>
+    <string name="lobbyv2_tag_new_drawing">GAMBAR BARU</string>
+    <string name="lobbyv2_tag_last_drawing">GAMBAR TERAKHIR</string>
+    <string name="lobbyv2_camera_back">Kamera belakang</string>
+    <string name="lobbyv2_camera_front">Kamera depan</string>
+    <string name="lobbyv2_camera_dual">Kedua kamera</string>
+    <string name="lobbyv2_capture_ready">Siap merekam</string>
+    <string name="lobbyv2_capture_sub">SIAP · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">SIAP</string>
+    <string name="lobbyv2_in_project">DI %1$s</string>
+    <string name="lobbyv2_avatar_library">PUSTAKA AVATAR</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="other">%1$d GAMBAR · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="other">%d LAYER</item>
+    </plurals>
+    <string name="lobbyv2_drawings">Gambar</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="other">%d gambar</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Belum ada apa-apa. Buat sesuatu dan ia akan mendarat di sini.</string>
+    <string name="lobbyv2_new_card">+ Baru</string>
+    <string name="lobbyv2_new_drawing">Gambar baru</string>
+    <string name="lobbyv2_no_room_for_drawing">Ponsel ini tidak punya tempat untuk menyimpan gambar.</string>
+    <string name="lobbyv2_kind_project">PROYEK</string>
+    <string name="lobbyv2_kind_drawing">GAMBAR</string>
+    <string name="lobbyv2_kind_export">EKSPOR</string>
+    <string name="lobbyv2_kind_screen">LAYAR</string>
+    <string name="lobbyv2_kind_photo">FOTO</string>
+    <string name="lobbyv2_kind_stream">SIARAN</string>
+    <string name="lobbyv2_kind_recording">REKAMAN</string>
+    <string name="lobbyv2_kind_mini_app">MINI APP</string>
+    <string name="lobbyv2_kind_video">VIDEO</string>
+    <string name="lobbyv2_kind_picture">GAMBAR</string>
+    <string name="lobbyv2_kind_sheet">SPRITE SHEET</string>
+    <string name="lobbyv2_kind_character">KARAKTER</string>
+    <string name="lobbyv2_kind_look">TAMPILAN VISLAB</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">Rekaman terbarumu masuk setelah editan terakhirmu.</string>
+    <string name="lobbyv2_bot_open_library">Buka Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="other">%d rekaman dan belum ada proyek.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">Sisa %1$s</string>
+    <string name="lobbyv2_stat_free">%1$s kosong</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="other">%d proyek</item>
+    </plurals>
+    <string name="lobbyv2_time_left">Sisa ~%1$s video</string>
+    <string name="lobbyv2_time_left_short">Sisa ~%1$s</string>
+    <string name="lobbyv2_dur_days">%1$d hr %2$d jam</string>
+    <string name="lobbyv2_dur_hours">%1$d jam %2$d mnt</string>
+    <string name="lobbyv2_dur_minutes">%1$d mnt</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">baru saja</string>
+    <string name="lobbyv2_ago_minutes">%1$d mnt lalu</string>
+    <string name="lobbyv2_ago_hours">%1$d jam lalu</string>
+    <string name="lobbyv2_ago_days">%1$d hr lalu</string>
+    <string name="lobbyv2_ago_months">%1$d bln lalu</string>
+</resources>

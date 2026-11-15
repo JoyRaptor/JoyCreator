@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">د ځغلولو سرور پیل یا بند کړئ</string>
+    <string name="hover_remote_password_toggle">د پټنوم ساتنه چارنه یا بنده کړئ</string>
+    <string name="hover_lobby_floor_detect">هوښیار موندنه: هغه خلک او شیان چې کامرې ستاسو په ثبتونو کې وموندل</string>
+    <string name="hover_lobby_floor_remote">لرې Studio: د خپل Wi-Fi له براوزر نه د دې تلیفون کامره وګورئ او کنټرول یې کړئ</string>
+    <string name="hover_lobby_floor_bits">ټوټې: ټارچ، QR سکینر او د کور پردې لنډلارې</string>
+    <string name="hover_lobby_floor_packs">بستې: ستاسو نصب شوې بستې، بڼې، برشونه او فونټونه</string>
+    <string name="hover_lobby_floor_setup">جوړښت: ټول تنظیمات</string>
+    <string name="hover_lobby_stat">ځای: په دې تلیفون کې څه ځای نیسي</string>
+    <string name="hover_library_paste_picture">هغه انځور چې په بل اپ کې مو کاپي کړی ستاسو په Joy Creator پوښۍ کې کېږدئ</string>
+    <string name="hover_lobby_room">%1$s ته لاړ شئ</string>
+    <string name="hover_lobby_hero_action">%1$s په %2$s کې</string>
+    <string name="hover_lobby_hero_new">په %1$s کې یو نوی څه پیل کړئ</string>
+    <string name="hover_lobby_library">Library خلاص کړئ: هر څه چې جوړ کړي مو دي</string>
+    <string name="hover_studio_cut_mark">غوڅ: %1$s s پرېښودل شو، د بیا راګرځولو لپاره پر ټکي کېکاږئ</string>
+</resources>

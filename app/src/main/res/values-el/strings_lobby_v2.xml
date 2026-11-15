@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">Αναζήτηση παντού</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Ο Joybot, ο βοηθός σου — πρασινίζει όταν έχει μια ιδέα για το έργο σου</string>
+    <string name="lobbyv2_dismiss">Κλείσιμο</string>
+    <string name="lobbyv2_tag_last_project">ΤΕΛΕΥΤΑΙΟ ΕΡΓΟ</string>
+    <string name="lobbyv2_tag_ready">ΕΤΟΙΜΟ</string>
+    <string name="lobbyv2_tag_last_sheet">ΤΕΛΕΥΤΑΙΟ ΦΥΛΛΟ</string>
+    <string name="lobbyv2_tag_last_character">ΤΕΛΕΥΤΑΙΟΣ ΧΑΡΑΚΤΗΡΑΣ</string>
+    <string name="lobbyv2_tag_last_visualiser">ΤΕΛΕΥΤΑΙΟΣ ΟΠΤΙΚΟΠΟΙΗΤΗΣ</string>
+    <string name="lobbyv2_tag_last_look">ΤΕΛΕΥΤΑΙΟ LOOK</string>
+    <string name="lobbyv2_tag_new_drawing">ΝΕΟ ΣΧΕΔΙΟ</string>
+    <string name="lobbyv2_tag_last_drawing">ΤΕΛΕΥΤΑΙΟ ΣΧΕΔΙΟ</string>
+    <string name="lobbyv2_camera_back">Πίσω κάμερα</string>
+    <string name="lobbyv2_camera_front">Μπροστινή κάμερα</string>
+    <string name="lobbyv2_camera_dual">Και οι δύο κάμερες</string>
+    <string name="lobbyv2_capture_ready">Έτοιμο για εγγραφή</string>
+    <string name="lobbyv2_capture_sub">ΕΤΟΙΜΟ · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">ΕΤΟΙΜΟ</string>
+    <string name="lobbyv2_in_project">ΣΤΟ %1$s</string>
+    <string name="lobbyv2_avatar_library">ΒΙΒΛΙΟΘΗΚΗ AVATAR</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">ΣΧΕΔΙΟ · %2$s</item>
+        <item quantity="other">%1$d ΣΧΕΔΙΑ · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d ΕΠΙΠΕΔΟ</item>
+        <item quantity="other">%d ΕΠΙΠΕΔΑ</item>
+    </plurals>
+    <string name="lobbyv2_drawings">Σχέδια</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d σχέδιο</item>
+        <item quantity="other">%d σχέδια</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Τίποτα ακόμα. Φτιάξε κάτι και θα εμφανιστεί εδώ.</string>
+    <string name="lobbyv2_new_card">+ Νέο</string>
+    <string name="lobbyv2_new_drawing">Νέο σχέδιο</string>
+    <string name="lobbyv2_no_room_for_drawing">Αυτό το κινητό δεν έχει πού να κρατήσει ένα σχέδιο.</string>
+    <string name="lobbyv2_kind_project">ΕΡΓΟ</string>
+    <string name="lobbyv2_kind_drawing">ΣΧΕΔΙΟ</string>
+    <string name="lobbyv2_kind_export">ΕΞΑΓΩΓΗ</string>
+    <string name="lobbyv2_kind_screen">ΟΘΟΝΗ</string>
+    <string name="lobbyv2_kind_photo">ΦΩΤΟ</string>
+    <string name="lobbyv2_kind_stream">ΜΕΤΑΔΟΣΗ</string>
+    <string name="lobbyv2_kind_recording">ΕΓΓΡΑΦΗ</string>
+    <string name="lobbyv2_kind_mini_app">ΜΙΝΙ ΕΦΑΡΜΟΓΗ</string>
+    <string name="lobbyv2_kind_video">ΒΙΝΤΕΟ</string>
+    <string name="lobbyv2_kind_picture">ΕΙΚΟΝΑ</string>
+    <string name="lobbyv2_kind_sheet">ΦΥΛΛΟ SPRITE</string>
+    <string name="lobbyv2_kind_character">ΧΑΡΑΚΤΗΡΑΣ</string>
+    <string name="lobbyv2_kind_look">LOOK VISLAB</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">Η πιο πρόσφατη εγγραφή σου ήρθε μετά την τελευταία σου επεξεργασία.</string>
+    <string name="lobbyv2_bot_open_library">Άνοιγμα Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d εγγραφή και κανένα έργο ακόμα.</item>
+        <item quantity="other">%d εγγραφές και κανένα έργο ακόμα.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">Απομένουν %1$s</string>
+    <string name="lobbyv2_stat_free">%1$s ελεύθερα</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d έργο</item>
+        <item quantity="other">%d έργα</item>
+    </plurals>
+    <string name="lobbyv2_time_left">Απομένουν ~%1$s βίντεο</string>
+    <string name="lobbyv2_time_left_short">Απομένουν ~%1$s</string>
+    <string name="lobbyv2_dur_days">%1$dημ %2$dω</string>
+    <string name="lobbyv2_dur_hours">%1$dω %2$dλ</string>
+    <string name="lobbyv2_dur_minutes">%1$dλ</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">μόλις τώρα</string>
+    <string name="lobbyv2_ago_minutes">πριν %1$dλ</string>
+    <string name="lobbyv2_ago_hours">πριν %1$dω</string>
+    <string name="lobbyv2_ago_days">πριν %1$dημ</string>
+    <string name="lobbyv2_ago_months">πριν %1$dμην</string>
+</resources>

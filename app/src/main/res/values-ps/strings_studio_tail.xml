@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">کیفریم وخوځوئ</string>
+    <string name="studio_tail_add_adjustment_layer">د سمولو پرت زیات کړئ</string>
+    <string name="studio_tail_add_linked_pair">د تړلې پرده + ویب کامرې جوړه زیاته کړئ</string>
+    <string name="studio_tail_insert_at_playhead">د غږولو سر کې دننه کړئ</string>
+    <string name="studio_tail_split_linked_pair">تړلې جوړه ووېشئ</string>
+    <string name="studio_tail_delete_linked_pair">تړلې جوړه ړنګه کړئ</string>
+    <string name="studio_tail_duplicate">دوه چنده کړئ</string>
+    <string name="studio_tail_link_clips_pair">کلیپونه ونښلوئ (پرده + ویب کامره)</string>
+</resources>

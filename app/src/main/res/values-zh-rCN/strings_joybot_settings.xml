@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI 与 Joybot</string>
+    <string name="settingshub_ai_joybot_desc">连接 AI（有免费的），设置你的密钥、模型和服务，以及你电脑上的 Claude Code 或 Codex</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, api key, key, model, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, assistant, chat, connect, computer, mcp, 人工智能, 密钥, 模型, 助手, 聊天, 连接, 电脑</string>
+</resources>

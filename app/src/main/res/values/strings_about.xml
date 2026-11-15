@@ -54,5 +54,14 @@
     <string name="aboutjoy_maker">JoyRaptor</string>
     <string name="aboutjoy_classic">Classic About</string>
     <string name="aboutjoy_classic_hint">Open the old About screen</string>
+    <string name="aboutjoy_support">Support Joy Creator</string>
+    <string name="aboutjoy_support_hint">Open the maker\'s support page in your browser</string>
+    <!-- THE ONE SUPPORT LINK (L32 / SHELL-60, 11-15). JoyRaptor fills this in: a Ko-fi, GitHub
+         Sponsors, Liberapay or Patreon page of their own. While it is empty the "Support Joy Creator"
+         pill on the About page sign-off is not shown at all; filled in, it appears there and
+         nowhere else. No prompt, no pop-up, and it unlocks nothing (Play allows an outside
+         donation link only while it unlocks nothing). It used to be https://ko-fi.com/fadedx,
+         the Ko-fi of FadCam's developer, on a welcome-screen button: money went to someone else. -->
+    <string name="support_url" translatable="false"></string>
     <string name="aboutjoy_no_browser">No browser to open this link</string>
 </resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">关于</string>
+    <string name="aboutjoy_back">返回</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">你所有创作的一站式工作室。</string>
+    <string name="aboutjoy_tagline_sub">编辑、绘画、做动画、录制，全在你的手机上。</string>
+    <string name="aboutjoy_version_label">版本</string>
+    <string name="aboutjoy_build">构建 %1$s · %2$s</string>
+    <string name="aboutjoy_check">检查更新</string>
+    <string name="aboutjoy_check_hint">联网看看有没有更新的 Joy Creator</string>
+    <string name="aboutjoy_checking">检查中…</string>
+    <string name="aboutjoy_up_to_date">你已经是最新版本。</string>
+    <string name="aboutjoy_update_ready">%1$s 版本已就绪。</string>
+    <string name="aboutjoy_beta_ready">你已经是最新版本。另外还有一个测试版 %1$s 可以试用。</string>
+    <string name="aboutjoy_get_beta">获取测试版</string>
+    <string name="aboutjoy_update_failed">现在无法检查，请过一会儿再试。</string>
+    <string name="aboutjoy_wings_label">各个分区</string>
+    <string name="aboutjoy_wing_studio">在时间轴上剪辑视频和声音</string>
+    <string name="aboutjoy_wing_joybrush">绘画和做动画，一帧一帧来</string>
+    <string name="aboutjoy_wing_sprites">制作精灵图集和角色</string>
+    <string name="aboutjoy_wing_capture">录制相机或屏幕</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">你的小帮手，每个房间都在</string>
+    <string name="aboutjoy_wing_viz">把声音变成会动的画面</string>
+    <string name="aboutjoy_soon">即将推出</string>
+    <string name="aboutjoy_wing_spoken">%1$s：%2$s</string>
+    <string name="aboutjoy_privacy_label">隐私</string>
+    <string name="aboutjoy_privacy_toggle">显示或隐藏隐私解答</string>
+    <string name="aboutjoy_open_label">开源</string>
+    <string name="aboutjoy_based_on">基于 FadSec Lab 的 FadCam 构建</string>
+    <string name="aboutjoy_source_hint">在浏览器中打开源代码</string>
+    <string name="aboutjoy_made_by">作者</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">经典关于页面</string>
+    <string name="aboutjoy_classic_hint">打开旧版关于页面</string>
+    <string name="aboutjoy_no_browser">没有可以打开这个链接的浏览器</string>
+    <string name="aboutjoy_support">支持 Joy Creator</string>
+    <string name="aboutjoy_support_hint">在浏览器中打开作者的支持页面</string>
+</resources>

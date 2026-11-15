@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_lane_b.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_b_audio_level_slider">Niveau</string>
+    <string name="lane_b_audio_pan_slider">Panoramique</string>
+    <string name="lane_b_audio_fade_in_slider">Fondu d\'entrée</string>
+    <string name="lane_b_audio_fade_out_slider">Fondu de sortie</string>
+    <string name="lane_b_audio_level_value">Niveau. Touche pour saisir un pourcentage exact.</string>
+    <string name="lane_b_audio_pan_value">Panoramique. Touche pour saisir une position exacte.</string>
+    <string name="lane_b_audio_fade_in_value">Fondu d\'entrée. Touche pour le saisir en secondes.</string>
+    <string name="lane_b_audio_fade_out_value">Fondu de sortie. Touche pour le saisir en secondes.</string>
+    <string name="lane_b_audio_clear_envelope">Effacer l\'enveloppe de volume et revenir à un gain constant</string>
+    <string name="lane_b_audio_beat_link">Lier une incrustation au rythme de ce clip</string>
+    <string name="lane_b_audio_gain_meter">Réduction de gain du compresseur</string>
+    <string name="lane_b_puppet_name">Nom de l\'épingle</string>
+    <string name="lane_b_puppet_tool">Outil %1$s</string>
+    <string name="lane_b_puppet_tool_on">Outil %1$s, en cours d\'utilisation</string>
+    <string name="lane_b_puppet_chip">Épingle %1$s. Touche pour la modifier.</string>
+    <string name="lane_b_puppet_chip_on">Épingle %1$s, en cours de modification</string>
+    <string name="lane_b_puppet_scope">Réglages de %1$s</string>
+    <string name="lane_b_puppet_scope_on">Réglages de %1$s, affichés</string>
+    <string name="lane_b_puppet_toggle_on">%1$s : activé. Touche pour désactiver.</string>
+    <string name="lane_b_puppet_toggle_off">%1$s : désactivé. Touche pour activer.</string>
+    <string name="lane_b_puppet_eye_on">Cercle de portée toujours affiché. Touche pour l\'afficher seulement pendant le glissement.</string>
+    <string name="lane_b_puppet_eye_off">Le cercle de portée s\'affiche pendant le glissement. Touche pour le garder affiché.</string>
+    <string name="lane_b_puppet_key_position">Poser une clé de position pour cette épingle</string>
+    <string name="lane_b_transcript_panel">Transcription. Touche un mot pour y aller, maintiens pour le corriger ou le barrer.</string>
+    <string name="lane_b_wave_swatch">Couleur %1$s. Touche pour choisir.</string>
+    <string name="lane_b_wave_lane_top">Piste %1$s : au-dessus. Touche pour la mettre dessous.</string>
+    <string name="lane_b_wave_lane_below">Piste %1$s : dessous. Touche pour la mettre au-dessus.</string>
+    <string name="lane_b_wave_band_show">Afficher la bande %1$s</string>
+    <string name="lane_b_wave_preset">Couleur %1$d sur %2$d</string>
+    <string name="lane_b_wave_preset_on">Couleur %1$d sur %2$d, utilisée</string>
+</resources>

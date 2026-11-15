@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">%1$s importiert</string>
+    <string name="studio_fmt_could_not_render_slide_1">Folie konnte nicht erstellt werden: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Zusammenführen fehlgeschlagen: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Export fehlgeschlagen: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Exportkopie fehlgeschlagen: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Import fehlgeschlagen: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Umsortieren fehlgeschlagen: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Fehler beim Umsortieren: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Ausrichten fehlgeschlagen: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Das sieht nicht nach einer Studio-Folie aus: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Folienimport fehlgeschlagen: %1$s</string>
+</resources>

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">Mõned load</string>
+    <string name="onboardingv2_perm_why">Joy Creator vajab neid, et filmida, salvestada sinu häält ja hoida sinu loomingut sinu telefonis. Midagi ei lahku sellest.</string>
+    <string name="onboardingv2_perm_camera">Kaamera</string>
+    <string name="onboardingv2_perm_camera_why">Et filmida ja näha, mida filmid.</string>
+    <string name="onboardingv2_perm_mic">Mikrofon</string>
+    <string name="onboardingv2_perm_mic_why">Et salvestada sinu häält pildiga kaasa.</string>
+    <string name="onboardingv2_perm_files">Failid ja teavitused</string>
+    <string name="onboardingv2_perm_files_why">Et salvestada sinu videod ja näidata salvestuse teavitust.</string>
+    <string name="onboardingv2_perm_battery">Hoia salvestus elus</string>
+    <string name="onboardingv2_perm_battery_why">Valikuline: lülita akuoptimeerimine välja, et pikad võtted ei katkeks.</string>
+    <string name="onboardingv2_perm_battery_done">Valikuline: akuoptimeerimine on juba väljas.</string>
+    <string name="onboardingv2_perm_allow">Luba puuduvad</string>
+    <string name="onboardingv2_perm_all_set">Kõik korras</string>
+    <string name="onboardingv2_perm_open_settings">Ava seaded</string>
+    <string name="onboardingv2_perm_nudge">Jätkamiseks luba palun ülalolevad kolm.</string>
+    <string name="onboardingv2_perm_state_granted">lubatud</string>
+    <string name="onboardingv2_perm_state_missing">veel lubamata</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Küsi veel puuduvaid lube</string>
+    <string name="onboardingv2_perm_all_set_cd">Kõik load on antud. Pühi järgmisele lehele.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Ava selle rakenduse süsteemiseaded, et lubada load, millest keeldusid</string>
+    <string name="onboardingv2_perm_battery_cd">Ava süsteemiekraan, et lülitada Joy Creatori akuoptimeerimine välja</string>
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_timeline_marks_host.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="markers_host_bookmark_number">Penanda %1$d</string>
+    <string name="markers_host_add_bookmark">Tambah penanda</string>
+    <string name="markers_host_save_failed">Penanda timeline tidak bisa disimpan. Penanda sebelumnya tetap aman.</string>
+    <string name="markers_host_export_named">%1$d wilayah bernama akan diekspor sebagai file terpisah.</string>
+    <string name="markers_host_region_filenames">Pakai nama tiap wilayah</string>
+    <string name="markers_host_export_invalid">Wilayah tidak bisa diekspor: %1$s</string>
+    <string name="markers_host_export_queued">%1$d ekspor wilayah masuk antrean</string>
+    <string name="markers_host_bookmark_hint">Ketuk untuk menaruh penanda; tahan untuk penanda dan wilayah</string>
+</resources>

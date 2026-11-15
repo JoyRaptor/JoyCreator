@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Потяни, чтобы изменить размер, нажми, чтобы закрыть</string>
+    <string name="lane_a_toggle_mute">Без звука</string>
+    <string name="lane_a_toggle_hide">Скрыть</string>
+    <string name="lane_a_toggle_lock">Заблокировать</string>
+    <string name="lane_a_toggle_pass_through">Пропускать касания</string>
+    <string name="lane_a_toggle_start_here">Начало здесь</string>
+    <string name="lane_a_toggle_end_here">Конец здесь</string>
+    <string name="lane_a_toggle_split">Разрезать на маркере</string>
+    <string name="lane_a_toggle_fx_bypass">Обойти эффекты (A/B)</string>
+    <string name="lane_a_mask_add_shape">Добавить форму маски</string>
+    <string name="lane_a_mask_remove_shape">Убрать эту форму</string>
+    <string name="lane_a_mask_shape_n">Форма %1$d</string>
+    <string name="lane_a_step_down">Шаг вниз</string>
+    <string name="lane_a_step_up">Шаг вверх</string>
+    <string name="lane_a_key_green">Убрать зелёный</string>
+    <string name="lane_a_key_blue">Убрать синий</string>
+    <string name="lane_a_key_black">Убрать чёрный</string>
+    <string name="lane_a_key_white">Убрать белый</string>
+    <string name="lane_a_pivot_title">Точка вращения</string>
+    <string name="lane_a_pivot_top_left">Опора: вверху слева</string>
+    <string name="lane_a_pivot_top">Опора: вверху</string>
+    <string name="lane_a_pivot_top_right">Опора: вверху справа</string>
+    <string name="lane_a_pivot_left">Опора: слева</string>
+    <string name="lane_a_pivot_centre">Опора: центр</string>
+    <string name="lane_a_pivot_right">Опора: справа</string>
+    <string name="lane_a_pivot_bottom_left">Опора: внизу слева</string>
+    <string name="lane_a_pivot_bottom">Опора: внизу</string>
+    <string name="lane_a_pivot_bottom_right">Опора: внизу справа</string>
+    <string name="lane_a_sprite_prev_key">Сдвинуть ключ раньше</string>
+    <string name="lane_a_sprite_key">Удалить ключ под маркером</string>
+    <string name="lane_a_sprite_next_key">Сдвинуть ключ позже</string>
+    <string name="lane_a_sprite_open_lab">Открыть в SpriteLab</string>
+    <string name="lane_a_sprite_flip_h">Отразить по горизонтали</string>
+    <string name="lane_a_sprite_flip_v">Отразить по вертикали</string>
+    <string name="lane_a_sprite_end">В конце: один раз, повтор или туда и обратно</string>
+    <string name="lane_a_sprite_record">Записать выступление</string>
+    <string name="lane_a_sprite_stop">Остановить запись</string>
+    <string name="lane_a_sprite_sweep">Следить за видео под спрайтом</string>
+    <string name="lane_a_sprite_more">Ещё</string>
+    <string name="lane_a_sprite_dope">Таблица анимации</string>
+    <string name="lane_a_sprite_manage">Спрайт-листы</string>
+    <string name="lane_a_sprite_grip">Потяни вверх — больше строк, вниз — меньше</string>
+</resources>

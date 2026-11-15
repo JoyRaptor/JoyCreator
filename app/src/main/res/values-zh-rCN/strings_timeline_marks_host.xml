@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_timeline_marks_host.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="markers_host_bookmark_number">书签 %1$d</string>
+    <string name="markers_host_add_bookmark">添加书签</string>
+    <string name="markers_host_save_failed">没能保存时间线标记。你之前的标记仍然保留着。</string>
+    <string name="markers_host_export_named">%1$d 个已命名的区域会导出为单独的文件。</string>
+    <string name="markers_host_region_filenames">使用每个区域的名称</string>
+    <string name="markers_host_export_invalid">没能导出区域：%1$s</string>
+    <string name="markers_host_export_queued">已将 %1$d 个区域加入导出队列</string>
+    <string name="markers_host_bookmark_hint">点按可放下书签；长按可打开书签和区域</string>
+</resources>

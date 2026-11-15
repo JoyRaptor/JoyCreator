@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">شکل</string>
+    <string name="studio_viz_sec_colour">رنګ</string>
+    <string name="studio_viz_sec_look">ښکارېدنه</string>
+    <string name="studio_viz_sec_motion">حرکت</string>
+    <string name="studio_viz_opacity">شفافیت</string>
+    <string name="studio_viz_softness">نرمښت</string>
+    <string name="studio_viz_gain">زیاتوالی</string>
+    <string name="studio_viz_spread">خپرېدل</string>
+    <string name="studio_viz_blend">ګډول</string>
+    <string name="studio_viz_mirror">هېنداره</string>
+    <string name="studio_viz_trails">لړۍ</string>
+    <string name="studio_viz_phase">مرحله</string>
+    <string name="studio_viz_attack">پیل</string>
+    <string name="studio_viz_release">خوشې کول</string>
+    <string name="studio_viz_glow">ځلا</string>
+    <string name="studio_viz_radius">وړانګه</string>
+    <string name="studio_viz_count">شمېر</string>
+    <string name="studio_viz_speed">سرعت</string>
+    <string name="studio_viz_hover_attack">پیل: څومره چټک پورته کېږي، په ms</string>
+    <string name="studio_viz_hover_release">خوشې کول: څومره چټک ښکته کېږي، په ms</string>
+    <string name="studio_viz_hover_radius">د ځلا وړانګه</string>
+    <string name="studio_viz_hover_count">د ذراتو شمېر</string>
+    <string name="studio_viz_hover_speed">د ذراتو سرعت</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

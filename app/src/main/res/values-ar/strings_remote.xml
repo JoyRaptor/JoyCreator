@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Studio عن بُعد</string>
+    <string name="remote_chip_on_air">على الهواء</string>
+    <string name="remote_chip_off_air">خارج الهواء</string>
+    <string name="remote_section_on_air">على الهواء</string>
+    <string name="remote_section_connection">الاتصال</string>
+    <string name="remote_section_health">الحالة</string>
+    <string name="remote_section_security">التشفير</string>
+    <string name="remote_section_help">مساعدة</string>
+    <string name="remote_quality_default">عالية (1080p) • 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">تقرير استخدام السحابة</string>
+    <string name="remote_usage_retrying">جارٍ إعادة محاولة الاتصال...</string>
+    <string name="remote_usage_bytes">البايتات المُبلَّغ عنها</string>
+    <string name="remote_usage_failures">الإخفاقات</string>
+    <string name="remote_usage_action">الإجراء</string>
+    <string name="remote_usage_retry">إعادة المحاولة</string>
+    <string name="remote_usage_retry_toast">جارٍ إعادة محاولة إرسال تقرير الاستخدام...</string>
+    <string name="remote_usage_title_active">استخدام السحابة (نشط)</string>
+    <string name="remote_usage_title_error">استخدام السحابة (خطأ)</string>
+    <string name="remote_usage_title_retrying">استخدام السحابة (إعادة محاولة)</string>
+    <string name="remote_usage_title_plain">استخدام السحابة</string>
+    <string name="remote_usage_no_errors">لا أخطاء</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 أخطاء</string>
+    <string name="remote_toast_stream_starting">جارٍ تشغيل خادم البث...</string>
+    <string name="remote_toast_stream_stopped">توقف خادم البث</string>
+    <string name="remote_toast_mode_stream_only">وضع البث فقط</string>
+    <string name="remote_toast_mode_stream_save">وضع البث والحفظ</string>
+    <string name="remote_toast_no_clients">لا أجهزة متصلة</string>
+    <string name="remote_toast_password_empty">لا يمكن أن تكون كلمة المرور فارغة</string>
+    <string name="remote_toast_link_account">اربط حساب Joy Creator ID الخاص بك أولًا</string>
+    <string name="remote_toast_wrong_password">كلمة المرور غير صحيحة — حاول مرة أخرى</string>
+    <string name="remote_toast_setup_failed">فشل الإعداد: %1$s</string>
+    <string name="remote_toast_autolock_set">مهلة القفل التلقائي: %1$s</string>
+    <string name="remote_toast_device_id_copied">نُسخ معرّف الجهاز</string>
+    <string name="remote_password_hint">أدخل كلمة مرور جديدة</string>
+    <string name="remote_password_helper">غيّر كلمة مرور المصادقة هنا. 4 أحرف على الأقل. هذه مصادقة HTTP أساسية — ليست عالية الأمان لكنها أفضل من لا شيء. عند تغيير كلمة المرور، تُسجَّل خروج كل الأجهزة الأخرى تلقائيًا.</string>
+    <string name="remote_lock_never">أبدًا</string>
+    <string name="remote_lock_never_desc">أبقِ الجلسات نشطة إلى أجل غير مسمى</string>
+    <string name="remote_lock_30min">30 دقيقة</string>
+    <string name="remote_lock_30min_desc">قفل بعد 30 دقيقة من عدم النشاط</string>
+    <string name="remote_lock_1hr">ساعة واحدة</string>
+    <string name="remote_lock_1hr_desc">قفل بعد ساعة من عدم النشاط</string>
+    <string name="remote_lock_3hr">3 ساعات</string>
+    <string name="remote_lock_3hr_desc">قفل بعد 3 ساعات من عدم النشاط</string>
+    <string name="remote_lock_6hr">6 ساعات</string>
+    <string name="remote_lock_6hr_desc">قفل بعد 6 ساعات من عدم النشاط</string>
+</resources>

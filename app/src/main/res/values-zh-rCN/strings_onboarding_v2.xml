@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">几项权限</string>
+    <string name="onboardingv2_perm_why">Joy Creator 需要这些权限来拍摄、录下你的声音，并把作品保存在你的手机里。任何内容都不会离开手机。</string>
+    <string name="onboardingv2_perm_camera">相机</string>
+    <string name="onboardingv2_perm_camera_why">用来拍摄，并看到你正在拍的画面。</string>
+    <string name="onboardingv2_perm_mic">麦克风</string>
+    <string name="onboardingv2_perm_mic_why">用来把你的声音和画面一起录下来。</string>
+    <string name="onboardingv2_perm_files">文件和通知</string>
+    <string name="onboardingv2_perm_files_why">用来保存你的视频，并显示录制通知。</string>
+    <string name="onboardingv2_perm_battery">让录制保持运行</string>
+    <string name="onboardingv2_perm_battery_why">可选：关闭电池优化，这样长时间的录制就不会被中途打断。</string>
+    <string name="onboardingv2_perm_battery_done">可选：电池优化已经关闭。</string>
+    <string name="onboardingv2_perm_allow">允许缺少的权限</string>
+    <string name="onboardingv2_perm_all_set">全部就绪</string>
+    <string name="onboardingv2_perm_open_settings">打开设置</string>
+    <string name="onboardingv2_perm_nudge">请允许上面三项，才能继续。</string>
+    <string name="onboardingv2_perm_state_granted">已允许</string>
+    <string name="onboardingv2_perm_state_missing">尚未允许</string>
+    <string name="onboardingv2_perm_row_cd">%1$s，%2$s。%3$s</string>
+    <string name="onboardingv2_perm_allow_cd">申请仍缺少的权限</string>
+    <string name="onboardingv2_perm_all_set_cd">所有权限都已允许。滑动到下一页。</string>
+    <string name="onboardingv2_perm_open_settings_cd">打开这个应用的系统设置，允许你拒绝过的权限</string>
+    <string name="onboardingv2_perm_battery_cd">打开系统页面，关闭 Joy Creator 的电池优化</string>
+</resources>

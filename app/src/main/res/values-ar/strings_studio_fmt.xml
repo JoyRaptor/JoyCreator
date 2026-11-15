@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">تم استيراد %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">تعذّر عرض الشريحة: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">تعذّر التجميع: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">تعذّر التصدير: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">تعذّر نسخ التصدير: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">تعذّر الاستيراد: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">تعذّرت إعادة الترتيب: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">خطأ في إعادة الترتيب: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">تعذّرت المحاذاة: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">لا يبدو هذا كشريحة Studio: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">تعذّر استيراد الشريحة: %1$s</string>
+</resources>

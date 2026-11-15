@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Bentuk</string>
+    <string name="studio_viz_sec_colour">Warna</string>
+    <string name="studio_viz_sec_look">Tampilan</string>
+    <string name="studio_viz_sec_motion">Gerak</string>
+    <string name="studio_viz_opacity">Opasitas</string>
+    <string name="studio_viz_softness">Kelembutan</string>
+    <string name="studio_viz_gain">Penguatan</string>
+    <string name="studio_viz_spread">Sebaran</string>
+    <string name="studio_viz_blend">Campuran</string>
+    <string name="studio_viz_mirror">Cermin</string>
+    <string name="studio_viz_trails">Jejak</string>
+    <string name="studio_viz_phase">Fase</string>
+    <string name="studio_viz_attack">Serangan</string>
+    <string name="studio_viz_release">Pelepasan</string>
+    <string name="studio_viz_glow">Pendar</string>
+    <string name="studio_viz_radius">Radius</string>
+    <string name="studio_viz_count">Jumlah</string>
+    <string name="studio_viz_speed">Kecepatan</string>
+    <string name="studio_viz_hover_attack">Serangan: seberapa cepat naik, dalam md</string>
+    <string name="studio_viz_hover_release">Pelepasan: seberapa cepat turun, dalam md</string>
+    <string name="studio_viz_hover_radius">Radius pendar</string>
+    <string name="studio_viz_hover_count">Jumlah partikel</string>
+    <string name="studio_viz_hover_speed">Kecepatan partikel</string>
+    <string name="studio_viz_value_ms">%1$dmd</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

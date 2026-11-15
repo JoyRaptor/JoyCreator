@@ -66,3 +66,17 @@ Not checked: any AI-dependent Joybot path, captions, Clean tab, watermark, real 
 Left on the tablet (mine, safe to delete): project "Untitled 2", `Download/TEST JC *`, `Joy Creator/Camera 2026-11-15 03.02.mp4`, `Photo 2026-11-15 03.02.jpg`. **Its Watermark Style was left on "Time with Joy Creator"** (the default is No Watermark): switch it back in Settings > Recording > Watermark if another test needs a clean recording.
 Other note: Settings > "AI and Joybot" repeats "Connect an AI (there's a free one)", same wording issue as F5.
 Still open: caption-style chip undo, screen-recording watermark, old-style Fix audio re-time; the AI-dependent Joybot checks wait on a key (S14).
+
+## Update 3, same day, on the test Fold (cover screen, adb only; same build 4bc535455)
+
+| # | Check | Result | Proof |
+|---|---|---|---|
+| 3a | SHELL-10 watermark in a **screen recording** | ✅ Watermark Style "Time with Joy Creator" on; a 20 s screen recording (Screen tab, whole-screen consent, 1088x1920) reads **"Recorded by Joy Creator - 15/Nov/2026 05:24:14 AM"** at the top-left; no FadCam/Rec logo. Note: it overlaps the status bar and the logo, and says "Recorded by" where video and photo say "Captured by" (fine, but not one wording) | `shell10-saved-screenrec-frame.png` |
+| 3a | so SHELL-10 is now ✅ for video, photo and screen recording. Not tried: the Menu switch with the overlay permission revoked | | |
+| F8 | First Capture visit asks three permissions in a row: camera, microphone, then **photos and videos**. A plain explainer sheet comes first ("Capture needs the camera and microphone ... Nothing leaves your phone"), good, but it does not mention photos and videos. Declining photos still opens the recorder. A tester may refuse the photo one; worth asking only when it is needed | `fold-capture-permission-explainer.png`, `fold-capture-photos-permission-asked.png` |
+| F9 | The speech-model download (Transcript > Fast timing, ~40 MB) shows only an animated bar and the words "Downloading speech model (one time)...", with no percentage or size; on a fast Wi-Fi link (864 Mbps link, ping 55 ms) it ran for over 10 minutes without finishing. A tester cannot tell stalled from slow | `fold-*` / see below |
+| 1e | Caption-style chip undo | ⬜ still not run: waiting for the model download to finish (see F9) | |
+
+Left on the Fold (mine, safe to delete): projects "Untitled", "Untitled 2", "Untitled 3", "Untitled audio"; `Joy Creator/` test files and `Screen recording 2026-11-15 05.24.mp4`; `Download/JC *`. Its Watermark Style is on "Time with Joy Creator". Camera, microphone permissions granted, photos denied.
+
+Fold released 11-15 for the Studio polish lane's dialog shots, with the speech-model download (F9) still unfinished and watched no further, because their APK install restarts the app. **Caption-style chip undo is the one check still owed**: it needs the model downloaded once (about 40 MB, Transcript > Fast timing) and then Captions on a spoken clip (JC speech video.mp4 is in the Fold's Download folder).

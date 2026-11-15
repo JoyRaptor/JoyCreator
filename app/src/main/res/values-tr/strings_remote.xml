@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Remote Studio</string>
+    <string name="remote_chip_on_air">YAYINDA</string>
+    <string name="remote_chip_off_air">YAYIN KAPALI</string>
+    <string name="remote_section_on_air">Yayında</string>
+    <string name="remote_section_connection">Bağlantı</string>
+    <string name="remote_section_health">Durum</string>
+    <string name="remote_section_security">Şifreleme</string>
+    <string name="remote_section_help">Yardım</string>
+    <string name="remote_quality_default">Yüksek (1080p) • 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">Bulut Kullanım Raporu</string>
+    <string name="remote_usage_retrying">Bağlantı yeniden deneniyor...</string>
+    <string name="remote_usage_bytes">Bildirilen Bayt</string>
+    <string name="remote_usage_failures">Hatalar</string>
+    <string name="remote_usage_action">İşlem</string>
+    <string name="remote_usage_retry">Yeniden dene</string>
+    <string name="remote_usage_retry_toast">Kullanım raporu yeniden deneniyor...</string>
+    <string name="remote_usage_title_active">Bulut Kullanımı (Etkin)</string>
+    <string name="remote_usage_title_error">Bulut Kullanımı (Hata)</string>
+    <string name="remote_usage_title_retrying">Bulut Kullanımı (Yeniden deneniyor)</string>
+    <string name="remote_usage_title_plain">Bulut Kullanımı</string>
+    <string name="remote_usage_no_errors">Hata yok</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 hata</string>
+    <string name="remote_toast_stream_starting">Yayın sunucusu başlıyor...</string>
+    <string name="remote_toast_stream_stopped">Yayın sunucusu durdu</string>
+    <string name="remote_toast_mode_stream_only">Yalnızca Yayın modu</string>
+    <string name="remote_toast_mode_stream_save">Yayın ve Kayıt modu</string>
+    <string name="remote_toast_no_clients">Bağlı istemci yok</string>
+    <string name="remote_toast_password_empty">Parola boş olamaz</string>
+    <string name="remote_toast_link_account">Önce Joy Creator ID hesabını bağla</string>
+    <string name="remote_toast_wrong_password">Parola yanlış — lütfen tekrar dene</string>
+    <string name="remote_toast_setup_failed">Kurulum başarısız: %1$s</string>
+    <string name="remote_toast_autolock_set">Otomatik kilit süresi şuna ayarlandı: %1$s</string>
+    <string name="remote_toast_device_id_copied">Cihaz kimliği kopyalandı</string>
+    <string name="remote_password_hint">Yeni parolayı gir</string>
+    <string name="remote_password_helper">Kimlik doğrulama parolanı buradan değiştir. En az 4 karakter. Bu, temel HTTP kimlik doğrulamasıdır — çok güvenli değil ama hiç olmamasından iyi. Parolayı değiştirdiğinde diğer tüm cihazların oturumu otomatik olarak kapanır.</string>
+    <string name="remote_lock_never">Hiçbir zaman</string>
+    <string name="remote_lock_never_desc">Oturumları süresiz açık tut</string>
+    <string name="remote_lock_30min">30 Dakika</string>
+    <string name="remote_lock_30min_desc">30 dakika işlem yapılmazsa kilitle</string>
+    <string name="remote_lock_1hr">1 Saat</string>
+    <string name="remote_lock_1hr_desc">1 saat işlem yapılmazsa kilitle</string>
+    <string name="remote_lock_3hr">3 Saat</string>
+    <string name="remote_lock_3hr_desc">3 saat işlem yapılmazsa kilitle</string>
+    <string name="remote_lock_6hr">6 Saat</string>
+    <string name="remote_lock_6hr_desc">6 saat işlem yapılmazsa kilitle</string>
+</resources>

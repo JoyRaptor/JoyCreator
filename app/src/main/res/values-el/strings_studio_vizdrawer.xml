@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Σχήμα</string>
+    <string name="studio_viz_sec_colour">Χρώμα</string>
+    <string name="studio_viz_sec_look">Εμφάνιση</string>
+    <string name="studio_viz_sec_motion">Κίνηση</string>
+    <string name="studio_viz_opacity">Αδιαφάνεια</string>
+    <string name="studio_viz_softness">Απαλότητα</string>
+    <string name="studio_viz_gain">Ενίσχυση</string>
+    <string name="studio_viz_spread">Εξάπλωση</string>
+    <string name="studio_viz_blend">Συνδυασμός</string>
+    <string name="studio_viz_mirror">Καθρέφτης</string>
+    <string name="studio_viz_trails">Ίχνη</string>
+    <string name="studio_viz_phase">Φάση</string>
+    <string name="studio_viz_attack">Επίθεση</string>
+    <string name="studio_viz_release">Απελευθέρωση</string>
+    <string name="studio_viz_glow">Λάμψη</string>
+    <string name="studio_viz_radius">Ακτίνα</string>
+    <string name="studio_viz_count">Πλήθος</string>
+    <string name="studio_viz_speed">Ταχύτητα</string>
+    <string name="studio_viz_hover_attack">Επίθεση: πόσο γρήγορα ανεβαίνει, σε ms</string>
+    <string name="studio_viz_hover_release">Απελευθέρωση: πόσο γρήγορα πέφτει, σε ms</string>
+    <string name="studio_viz_hover_radius">Ακτίνα λάμψης</string>
+    <string name="studio_viz_hover_count">Πλήθος σωματιδίων</string>
+    <string name="studio_viz_hover_speed">Ταχύτητα σωματιδίων</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

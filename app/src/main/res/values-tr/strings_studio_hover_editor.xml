@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_studio_hover_editor.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_hover_export_progress">Dışa aktarma ilerlemesini göster</string>
+    <string name="studio_hover_viz_add_layer">Katman ekle</string>
+    <string name="studio_hover_viz_duplicate_layer">Katmanı çoğalt</string>
+    <string name="studio_hover_viz_delete_layer">Katmanı sil</string>
+    <string name="studio_hover_viz_move_layer_left">Katmanı sola taşı</string>
+    <string name="studio_hover_viz_move_layer_right">Katmanı sağa taşı</string>
+    <string name="studio_hover_bold">Kalın</string>
+    <string name="studio_hover_underline">Altı çizili</string>
+    <string name="studio_hover_italic">İtalik</string>
+    <string name="studio_hover_text_motion">Hareket</string>
+    <string name="studio_hover_pivot">Döndürme merkezi</string>
+</resources>

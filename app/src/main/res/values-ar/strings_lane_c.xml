@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">المزيد ⌄</string>
+    <string name="faditor_lc_drawer_grip">مقبض الدرج. اسحب لتغيير الحجم، اضغط لإظهار المزيد أو الإغلاق</string>
+    <string name="faditor_lc_fx_expand">أظهر إعدادات هذا التأثير</string>
+    <string name="faditor_lc_fx_collapse">أخفِ إعدادات هذا التأثير</string>
+    <string name="faditor_lc_fx_bypass">تجاوز التأثير</string>
+    <string name="faditor_lc_fx_enable">تفعيل التأثير</string>
+    <string name="faditor_lc_fx_delete">حذف التأثير</string>
+    <string name="faditor_lc_fx_reorder">اضغط مطولًا واسحب لإعادة الترتيب</string>
+    <string name="faditor_lc_key_prev">الإطار الرئيسي السابق</string>
+    <string name="faditor_lc_key_next">الإطار الرئيسي التالي</string>
+    <string name="faditor_lc_key_diamond">إطار رئيسي. اضغط للإضافة أو الإزالة، واضغط مطولًا لمسح الكل</string>
+    <string name="faditor_lc_ease_need_keys">ضع إطارات رئيسية أولًا</string>
+    <string name="faditor_lc_motion_title">الحركة</string>
+    <string name="faditor_lc_motion_by">تحريك حسب</string>
+    <string name="faditor_lc_gran_letter">حرف</string>
+    <string name="faditor_lc_gran_word">كلمة</string>
+    <string name="faditor_lc_gran_sentence">جملة</string>
+    <string name="faditor_lc_gran_block">كتلة</string>
+    <string name="faditor_lc_sheet_grip">مقبض اللوحة. اضغط أو اسحب للأعلى لكل الإعدادات، واسحب للأسفل للإغلاق</string>
+    <string name="faditor_lc_sheet_legend">ماذا تعني أشكال الإطارات الرئيسية</string>
+    <string name="faditor_lc_sheet_more">المزيد…</string>
+    <string name="faditor_lc_sheet_move_to">انتقل إلى</string>
+    <string name="faditor_lc_sheet_jump">اكتب وقتًا للانتقال إليه</string>
+    <string name="faditor_lc_sheet_push">دفع</string>
+    <string name="faditor_lc_sheet_snap">التصاق</string>
+    <string name="faditor_lc_sheet_static_hint">ثابت — اضغط ♦ للتحريك</string>
+</resources>

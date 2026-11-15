@@ -825,7 +825,7 @@ class JoyBrushActivity : Activity() {
         val home = TopButton(kit, JbIcon.HOME, "Home — your drawing is kept").apply { setOnClickListener { finish() } }
         undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
         redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
-        guidesBtn = TopButton(kit, JbIcon.GUIDES, "Guides — grid, perspective, ruler").apply { setOnClickListener { guidesPanel(this) } }
+        guidesBtn = TopButton(kit, JbIcon.GUIDES, "Tools — boards, rulers and guides").apply { setOnClickListener { toolsPanel(this) } }
         joybotBtn = TopButton(kit, JbIcon.GUIDES, "Joybot — ask it to add layers, frames, set the brush or draw a shape").apply {
             // Joybot's own art lives in the app (the Studio's button uses it): regular face, smiling while pressed.
             fun face(name: String) = resources.getIdentifier(name, "drawable", packageName).takeIf { it != 0 }?.let { androidx.core.content.ContextCompat.getDrawable(this@JoyBrushActivity, it)?.mutate() }
@@ -1254,9 +1254,47 @@ class JoyBrushActivity : Activity() {
             when (prefs.getString(PREF_WASH_LIFT, "little")) { "hardly" -> 0.03; "more" -> 0.5; "full" -> 1.0; else -> 0.2 }
     }
 
+    /**
+     * A tall menu (the ⋯ menu, Tools) scrolls inside the room below its button instead of running off the edge of a
+     * phone held sideways or a tablet's landscape screen.
+     */
+    private fun scrollingBelow(box: View, anchor: View): View {
+        val at = IntArray(2).also { anchor.getLocationOnScreen(it) }
+        val room = resources.displayMetrics.heightPixels - (at[1] + anchor.height) - dp(48)
+        return object : android.widget.ScrollView(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) =
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxOf(room, dp(200)), MeasureSpec.AT_MOST))
+        }.apply { isVerticalScrollBarEnabled = true; addView(box) }
+    }
+
+    /** A small grey heading over a group of menu rows. */
+    private fun menuHeading(box: LinearLayout, title: String) = box.addView(drawerText(title.uppercase(), 10.5f).apply {
+        setTextColor(kit.p.drawerDim); letterSpacing = .08f
+    }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(10), dp(10), dp(2)) })
+
+    /** JBX-11: whether the ⋯ menu's Advanced fold is open (kept while the menu redraws itself). */
+    private var moreAdvancedOpen = false
+
+    /**
+     * The ⋯ menu (JBX-11, launch triage): about 25 rows grouped under small headings, Drawing, Files, Pen,
+     * Watercolour and Layers, with the switches kept only to compare old and new engines behind a closed Advanced
+     * fold. No row was dropped; the destructive row stays last.
+     */
     private fun moreMenu(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
+        fun heading(title: String) = box.addView(drawerText(title.uppercase(), 10.5f).apply {
+            setTextColor(kit.p.drawerDim); letterSpacing = .08f
+        }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(10), dp(10), dp(2)) })
+        val wetSheet = prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET)
+        heading("Drawing")
+        // Every brush's advanced settings (also: hold the brush in the drawer).
+        val inHand = tools.current?.brushId?.let { id -> brushes.firstOrNull { it.id == id } }
+        if (inHand != null) {
+            box.addView(menuRow("${inHand.name} settings…", "Adjust how this brush behaves, with a live preview; you can keep drawing while it is open") {
+                openSettings(inHand)
+            })
+        }
+
         val linesOn = canvas.editableLines
         val linesBrushId = canvas.preset?.id
         if (BrushLinePreferences.canSwitch(canvas.preset)) box.addView(menuRow(if (linesOn) "Brush makes lines  ✓" else "Brush makes lines",
@@ -1264,30 +1302,51 @@ class JoyBrushActivity : Activity() {
             else "This brush uses pixels. Tap to keep eligible strokes as editable lines") {
             if (canvas.preset?.id == linesBrushId) setEditableLines(!linesOn)
         })
-        val flattenPref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
-        box.addView(menuRow("Hidden layers on Flatten: ${mapOf("ask" to "Ask", "keep" to "Keep", "discard" to "Discard")[flattenPref]}",
-            "What Flatten does with hidden layers. Tap to change: Ask, Keep, Discard") {
-            val next = when (flattenPref) { "ask" -> "keep"; "keep" -> "discard"; else -> "ask" }
-            prefs.edit().putString(PREF_FLATTEN_HIDDEN, next).apply()
-            popovers.close(); moreMenu(anchor)
-        })
-        // The owner's watercolour comparison (October 18): steps through the ways the water trades work for speed.
-        val water = WaterTest.of(prefs.getString(PREF_WATER_TEST, null))
-        box.addView(menuRow("Water test: ${water.label}", "${water.about} Tap for the next one") {
-            val next = WaterTest.next(water.id)
-            prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
-            canvas.mediaWaterAB = next.ab
-            popovers.close(); moreMenu(anchor)
-        })
-        // Watercolour's engine (2026-11-10): the wet sheet, or the layer's own squares as before, kept to compare.
-        val wetSheet = prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET)
-        box.addView(menuRow(if (wetSheet) "Watercolour: Wet sheet (new)" else "Watercolour: In the layer (old)",
-            if (wetSheet) "Wet watercolour floats on one sheet over the paper and sets into it as it dries: no squares, and it keeps the clock's pace. Tap for the old way"
-            else "Wet watercolour lives in the layer's squares, as before. Tap for the new wet sheet") {
-            prefs.edit().putBoolean(PREF_WET_SHEET, !wetSheet).apply()
-            canvas.setWetSheet(!wetSheet)
-            popovers.close(); moreMenu(anchor)
-        })
+        unibrush?.let { controller ->
+            box.addView(menuRow("Stabilizer…", "Choose each brush's suggestion or your own canvas stabilizer") {
+                controller.openStabilizer()
+            })
+        }
+
+        // Smoothing lives here now: set once, rarely touched.
+        val smoothHead = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val smoothValue = drawerText("${Math.round(canvas.smoothing * 100)}%", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
+        smoothHead.addView(drawerText("Smoothing", 14f), LinearLayout.LayoutParams(0, WRAP, 1f))
+        smoothHead.addView(smoothValue, LinearLayout.LayoutParams(WRAP, WRAP))
+        box.addView(smoothHead, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(8), dp(10), 0) })
+        box.addView(SeekBar(this).apply {
+            tintSlider(this)
+            max = 100
+            progress = Math.round(canvas.smoothing * 100)
+            kit.label(this, "Stroke smoothing")
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
+                    if (!fromUser) return
+                    canvas.smoothing = progress / 100f
+                    // JB-1.05b: only a real move of the slider takes smoothing away from the brush file.
+                    canvas.smoothingFromUser = true
+                    smoothValue.text = "$progress%"
+                }
+
+                override fun onStartTrackingTouch(bar: SeekBar) {
+                    // nothing to do
+                }
+
+                override fun onStopTrackingTouch(bar: SeekBar) {
+                    // nothing to do
+                }
+            })
+        }, LinearLayout.LayoutParams(MATCH, dp(40)))
+
+        heading("Files")
+        box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
+        box.addView(menuRow("Open…", "Bring a drawing in from your files as a new drawing; this one stays as it is") { askWhichToOpen() })
+        box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
+        box.addView(menuRow("Export…", "Export this board or the whole drawing, as a flat picture or a layered file") { exportMenu(anchor) })
+
+        heading("Pen")
+        addTiltRows(box)
+        heading("Watercolour")
         // The wash's two tastes (2026-11-11), wet sheet only: how even it is laid and how much paper grain shows in it.
         if (wetSheet) {
             if (canvas.washIsWet) box.addView(menuRow("Dry the wash now",
@@ -1325,71 +1384,59 @@ class JoyBrushActivity : Activity() {
             canvas.setMediaFastWater(!fastWater)
             popovers.close(); moreMenu(anchor)
         })
-        // The paint engine (October 20): the atlas paints pencil, watercolour and oil on the whole layer, with no window edge;
-        // the window is the old engine, kept so the two can be compared on the same drawing.
-        val atlasOn = prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas"
-        box.addView(menuRow(if (atlasOn) "Paint engine: Atlas (new)" else "Paint engine: Window (old)",
-            if (atlasOn) "Pencil, watercolour and oil work on the whole layer: no edge where the water stops. Tap for the old window"
-            else "Pencil, watercolour and oil work in a patch near the pen (water stops at its edge). Tap for the new atlas") {
-            prefs.edit().putString(PREF_PAINT_ENGINE, if (atlasOn) "window" else "atlas").apply()
-            canvas.setMediaAtlas(!atlasOn)
+        heading("Layers")
+        val flattenPref = prefs.getString(PREF_FLATTEN_HIDDEN, "ask") ?: "ask"
+        box.addView(menuRow("Hidden layers on Flatten: ${mapOf("ask" to "Ask", "keep" to "Keep", "discard" to "Discard")[flattenPref]}",
+            "What Flatten does with hidden layers. Tap to change: Ask, Keep, Discard") {
+            val next = when (flattenPref) { "ask" -> "keep"; "keep" -> "discard"; else -> "ask" }
+            prefs.edit().putString(PREF_FLATTEN_HIDDEN, next).apply()
             popovers.close(); moreMenu(anchor)
         })
-        addTiltRows(box)
-        box.addView(menuRow("Save a copy…", "Save a copy of this drawing where you choose") { askWhereToSave() })
-        box.addView(menuRow("Open…", "Open a drawing from your files") { askWhichToOpen() })
-        box.addView(menuRow("Recent drawings…", "Recover one of the last drawings kept before Open") { recentDrawings(anchor) })
-        box.addView(menuRow("Export…", "Export this board or the whole drawing, as a flat picture or a layered file") { exportMenu(anchor) })
-
-        unibrush?.let { controller ->
-            box.addView(menuRow("Stabilizer…", "Choose each brush's suggestion or your own canvas stabilizer") {
-                controller.openStabilizer()
-            })
+        // Kept to compare the old engines with the new ones; not for every day.
+        box.addView(menuRow(if (moreAdvancedOpen) "Advanced  ⌄" else "Advanced  ›",
+            if (moreAdvancedOpen) "Hide the switches kept to compare old and new engines" else "Show the switches kept to compare old and new engines") {
+            moreAdvancedOpen = !moreAdvancedOpen
+            popovers.close(); moreMenu(anchor)
+        })
+        if (moreAdvancedOpen) {
+            val outer = box
+            val advanced = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            run {
+                @Suppress("NAME_SHADOWING") val box = advanced
+                // The paint engine (October 20): the atlas paints pencil, watercolour and oil on the whole layer, with no window edge;
+                // the window is the old engine, kept so the two can be compared on the same drawing.
+                val atlasOn = prefs.getString(PREF_PAINT_ENGINE, DEFAULT_PAINT_ENGINE) == "atlas"
+                box.addView(menuRow(if (atlasOn) "Paint engine: Atlas (new)" else "Paint engine: Window (old)",
+                    if (atlasOn) "Pencil, watercolour and oil work on the whole layer: no edge where the water stops. Tap for the old window"
+                    else "Pencil, watercolour and oil work in a patch near the pen (water stops at its edge). Tap for the new atlas") {
+                    prefs.edit().putString(PREF_PAINT_ENGINE, if (atlasOn) "window" else "atlas").apply()
+                    canvas.setMediaAtlas(!atlasOn)
+                    popovers.close(); moreMenu(anchor)
+                })
+                // Watercolour's engine (2026-11-10): the wet sheet, or the layer's own squares as before, kept to compare.
+                box.addView(menuRow(if (wetSheet) "Watercolour: Wet sheet (new)" else "Watercolour: In the layer (old)",
+                    if (wetSheet) "Wet watercolour floats on one sheet over the paper and sets into it as it dries: no squares, and it keeps the clock's pace. Tap for the old way"
+                    else "Wet watercolour lives in the layer's squares, as before. Tap for the new wet sheet") {
+                    prefs.edit().putBoolean(PREF_WET_SHEET, !wetSheet).apply()
+                    canvas.setWetSheet(!wetSheet)
+                    popovers.close(); moreMenu(anchor)
+                })
+                // The owner's watercolour comparison (October 18): steps through the ways the water trades work for speed.
+                val water = WaterTest.of(prefs.getString(PREF_WATER_TEST, null))
+                box.addView(menuRow("Water test: ${water.label}", "${water.about} Tap for the next one") {
+                    val next = WaterTest.next(water.id)
+                    prefs.edit().putString(PREF_WATER_TEST, next.id).apply()
+                    canvas.mediaWaterAB = next.ab
+                    popovers.close(); moreMenu(anchor)
+                })
+            }
+            outer.addView(advanced, LinearLayout.LayoutParams(MATCH, WRAP).apply { marginStart = dp(8) })
         }
-
-        // Smoothing lives here now: set once, rarely touched.
-        val smoothHead = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val smoothValue = drawerText("${Math.round(canvas.smoothing * 100)}%", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE }
-        smoothHead.addView(drawerText("Smoothing", 14f), LinearLayout.LayoutParams(0, WRAP, 1f))
-        smoothHead.addView(smoothValue, LinearLayout.LayoutParams(WRAP, WRAP))
-        box.addView(smoothHead, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(8), dp(10), 0) })
-        box.addView(SeekBar(this).apply {
-            tintSlider(this)
-            max = 100
-            progress = Math.round(canvas.smoothing * 100)
-            kit.label(this, "Stroke smoothing")
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(bar: SeekBar, progress: Int, fromUser: Boolean) {
-                    if (!fromUser) return
-                    canvas.smoothing = progress / 100f
-                    // JB-1.05b: only a real move of the slider takes smoothing away from the brush file.
-                    canvas.smoothingFromUser = true
-                    smoothValue.text = "$progress%"
-                }
-
-                override fun onStartTrackingTouch(bar: SeekBar) {
-                    // nothing to do
-                }
-
-                override fun onStopTrackingTouch(bar: SeekBar) {
-                    // nothing to do
-                }
-            })
-        }, LinearLayout.LayoutParams(MATCH, dp(40)))
-
-        // Every brush's advanced settings (also: hold the brush in the drawer).
-        val inHand = tools.current?.brushId?.let { id -> brushes.firstOrNull { it.id == id } }
-        if (inHand != null) {
-            box.addView(menuRow("${inHand.name} settings…", "Adjust how this brush behaves, with a live preview; you can keep drawing while it is open") {
-                openSettings(inHand)
-            })
-        }
-
         box.addView(menuRow("Put everything back", "Move the tool strip and the reference picture back to where they started") { putEverythingBack() })
         // The one destructive row carries the one colour allowed to mean "something is lost", as a dot: red TEXT over a
         // see-through panel was hard to read on the Note 9. Undo brings the drawing back.
         box.addView(menuRow("Clear drawing", "Clear the drawing — Undo brings it back", dot = kit.p.stateDestroy) { endSelection(); canvas.clearCanvas() })
-        popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 240f)
+        popovers.show(scrollingBelow(box, anchor), anchor, Popovers.Side.BELOW, widthDp = 240f)
     }
 
     /**
@@ -1822,6 +1869,7 @@ class JoyBrushActivity : Activity() {
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
         canvas.mediaBudgetBytes = LayerBudget.mediaBudgetBytes(info.totalMem)
+        canvas.savePaintBudgetBytes = LayerBudget.savePaintBudgetBytes(Runtime.getRuntime().maxMemory())
         return LayerBudget.maxLayers(info.totalMem, canvas.pageWidth, canvas.pageHeight)
     }
 
@@ -2058,8 +2106,24 @@ class JoyBrushActivity : Activity() {
         else -> listOf(screenOnPage(-0.4f, 0.4f), screenOnPage(1.4f, 0.4f), screenOnPage(0.5f, 2.2f))
     })
 
-    private fun guidesPanel(anchor: View) {
+    /**
+     * Tools (owner 11-15): two sections of its own. Boards (moved out of the ⋯ menu): the Boards list, and a new Image,
+     * Animation, Sprite or Tile board, dragged out as before. Rulers and guides: grid, isometric, perspective, ruler,
+     * symmetry and radial symmetry. Icons come later from ICON-1.
+     */
+    private fun toolsPanel(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        menuHeading(box, "Boards")
+        box.addView(menuRow("Boards…", "Every board in this drawing: select one, play the clips, export") { popovers.close(); boardController?.showMenu() })
+        for ((name, kind, tile) in listOf(
+            Triple("Image board", cc.joycreator.joybrush.core.doc.BoardKind.CANVAS, false),
+            Triple("Animation board", cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION, false),
+            Triple("Sprite board", cc.joycreator.joybrush.core.doc.BoardKind.SPRITE, false),
+            Triple("Tile board", cc.joycreator.joybrush.core.doc.BoardKind.CANVAS, true),
+        )) box.addView(menuRow(name, "New ${name.lowercase()}: drag out where it goes") {
+            popovers.close(); boardController?.startPlacing(kind, tile)
+        })
+        menuHeading(box, "Rulers and guides")
         val g = guides
         box.addView(menuRow(if (g.grid != null) "Grid  ✓" else "Grid", "A square grid over the drawing") {
             guides = guides.copy(grid = if (guides.grid != null) null else GuideSettings.DEFAULT_GRID)
@@ -2117,11 +2181,18 @@ class JoyBrushActivity : Activity() {
             if (!hasRuler) setAdjustingGuides(true)
         })
         // Symmetry: a line the brush is copied across. It is live at once — no hoops, pick it and paint.
-        val hasSymmetry = g.symmetry != null
+        val hasSymmetry = g.symmetry != null && (g.symmetry?.count ?: 0) < 3
         box.addView(menuRow(if (hasSymmetry) "Symmetry  ✓" else "Symmetry",
             "A line the brush is mirrored across — drag its ends, drag its body, or turn it with two fingers") {
-            guides = if (hasSymmetry) guides.copy(symmetry = null)
-            else guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.15f), screenOnPage(0.5f, 0.85f), count = 2))
+            guides = if (hasSymmetry) guides.copy(symmetry = null) else guides.copy(symmetry = guideOf("symmetry").symmetry)
+            guidesChanged()
+        })
+        // Radial symmetry (owner 11-15): copies turned around the line's middle, six to start; the +/- on the line's
+        // widget sets how many, as for any symmetry.
+        val hasRadial = (g.symmetry?.count ?: 0) >= 3
+        box.addView(menuRow(if (hasRadial) "Radial symmetry  ✓" else "Radial symmetry",
+            "The brush copied around a centre, like a flower or a mandala — drag the line to move the centre") {
+            guides = if (hasRadial) guides.copy(symmetry = null) else guides.copy(symmetry = guideOf("radial").symmetry)
             guidesChanged()
         })
         if (!g.isEmpty) {
@@ -2139,7 +2210,51 @@ class JoyBrushActivity : Activity() {
                 guidesChanged()
             })
         }
-        popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 230f)
+        popovers.show(scrollingBelow(box, anchor), anchor, Popovers.Side.BELOW, widthDp = 230f)
+    }
+
+    /**
+     * The guides with one more turned on by its launch name ([JoyBrushLaunch.GUIDES]): the same guide the Tools rows
+     * put down.
+     */
+    private fun guideOf(name: String): GuideSettings = when (name) {
+        "grid" -> guides.copy(grid = guides.grid ?: GuideSettings.DEFAULT_GRID)
+        "isometric" -> guides.copy(isometric = guides.isometric ?: Guide.Isometric(60.0))
+        "perspective-1" -> guides.copy(perspective = perspectiveOf(1))
+        "perspective-2" -> guides.copy(perspective = perspectiveOf(2))
+        "perspective-3" -> guides.copy(perspective = perspectiveOf(3))
+        "ruler" -> if (guides.tracers.any { it is Guide.Ruler }) guides
+            else guides.copy(tracers = guides.tracers + Guide.Ruler(screenOnPage(0.2f, 0.5f), screenOnPage(0.8f, 0.5f)))
+        "symmetry" -> guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.15f), screenOnPage(0.5f, 0.85f), count = 2))
+        "radial" -> guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.35f), screenOnPage(0.5f, 0.65f), count = 6))
+        else -> guides
+    }
+
+    /**
+     * BOT-7: a drawing opened with a board preset ([JoyBrushLaunch]) gets its board and guide once it is on screen.
+     * Taken from the Intent once, so a screen rebuilt later does not make a second board.
+     */
+    private fun applyLaunchPreset() {
+        val p = JoyBrushLaunch.presetOf(intent) ?: return
+        JoyBrushLaunch.clear(intent)
+        p.guide?.let { guides = guideOf(it); guidesChanged() }
+        val board = p.board ?: return
+        val (w, h) = p.aspectParts() ?: return
+        val kind = when (board) {
+            "animation" -> cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION
+            "sprite" -> cc.joycreator.joybrush.core.doc.BoardKind.SPRITE
+            else -> cc.joycreator.joybrush.core.doc.BoardKind.CANVAS
+        }
+        val name = p.name?.takeIf { it.isNotBlank() } ?: board.replaceFirstChar { it.uppercase() }
+        val columns = p.columns ?: if (board == "sprite") 4 else 1
+        val rows = p.rows ?: 1
+        // A chosen pixel size: a tile's side, or a sprite's cells (kept to a board of at most 8192 px a side).
+        val exact = when {
+            board == "tile" && p.tilePx != null -> p.tilePx to p.tilePx
+            board == "sprite" && p.cellPx != null && columns * p.cellPx <= 8192 && rows * p.cellPx <= 8192 -> columns * p.cellPx to rows * p.cellPx
+            else -> null
+        }
+        boardController?.createPreset(kind, name, w, h, p.fps?.toFloat(), columns = columns, rows = rows, tile = board == "tile", exact = exact)
     }
 
     // ── the pinned reference (owner decision 3) ──
@@ -2746,6 +2861,15 @@ class JoyBrushActivity : Activity() {
 
     private fun finishStartup(loaded: Boolean) {
         workingSaveAllowed = loaded
+        if (loaded) ui.post { if (!destroyed) applyLaunchPreset() }
+        // JBX-14: the Library's name for this drawing (renames happen there) goes into the file at the next save.
+        if (loaded) workingFile()?.let { f ->
+            fileIo.execute {
+                val name = try { cc.joycreator.joybrush.android.library.DrawingLibrary.list(this).firstOrNull { it.file == f.name }?.name } catch (_: Exception) { null }
+                android.util.Log.i("JoyBrushName", "library name for ${f.name}: $name")
+                if (name != null) ui.post { if (!destroyed) canvas.setDocumentName(name) }
+            }
+        }
         loadingDrawing = false
         strokeSaveClock.reset(android.os.SystemClock.elapsedRealtime())
         saves.drain()
@@ -2761,19 +2885,60 @@ class JoyBrushActivity : Activity() {
     }
 
     /** "Open…": the person picks a file, and it replaces whatever is on the canvas. */
+    /**
+     * "Open…" (JBX-16, launch triage): the chosen file comes in as a NEW drawing in the Library, named after the file,
+     * and opens on a screen of its own. The drawing on the canvas now is saved as it closes and stays as it was, so
+     * opening a file never costs anything. A file that is not a drawing is refused before anything is made.
+     */
     private fun openFrom(uri: Uri) {
         fileIo.execute {
-            val selection = try {
-                val input = contentResolver.openInputStream(uri)
-                    ?: throw JbArchiveException("the file could not be opened")
-                input.use { StagedDrawing.stage(cacheDir, it) }
-            } catch (e: Exception) {
-                ui.post { if (!destroyed) toast("That drawing could not be opened: ${e.message}") }
+            val made = try { importAsNewDrawing(uri) } catch (e: Exception) {
+                android.util.Log.w("JoyBrush", "Open: not brought in", e)
+                ui.post { if (!destroyed) toast("That file isn't a drawing Joy Brush can open") }
                 null
             }
-            if (selection != null) ui.post { requestOpen(selection) }
+            if (made != null) ui.post {
+                if (destroyed) return@post
+                startActivity(cc.joycreator.joybrush.android.library.DrawingLibrary.openIntent(this, made))
+                finish()
+            }
         }
     }
+
+    /** File thread: copies [uri] in as a new Library drawing and returns its file name. */
+    private fun importAsNewDrawing(uri: Uri): String {
+        // A drawing is a zip with its document inside; anything else is refused before a Library entry is made.
+        val isDrawing = contentResolver.openInputStream(uri)?.use { input ->
+            java.util.zip.ZipInputStream(input.buffered()).use { zip ->
+                generateSequence { zip.nextEntry }.take(64).any { it.name == "document.json" }
+            }
+        } ?: false
+        if (!isDrawing) throw JbArchiveException("not a Joy Brush drawing")
+        val library = cc.joycreator.joybrush.android.library.DrawingLibrary
+        val fresh = library.create(this) ?: throw JbArchiveException("a new drawing could not be made")
+        val target = library.fileToOpen(this, library.openIntent(this, fresh))
+            ?: throw JbArchiveException("this device has no drawing folder")
+        val part = File(target.parentFile, target.name + ".part")
+        try {
+            (contentResolver.openInputStream(uri) ?: throw JbArchiveException("the file could not be read")).use { input ->
+                part.outputStream().use { input.copyTo(it) }
+            }
+            if (!part.renameTo(target)) throw JbArchiveException("the drawing could not be put in place")
+        } catch (e: Exception) {
+            part.delete()
+            try { library.delete(this, fresh) } catch (_: Exception) { }
+            throw e
+        }
+        // Named after the file it came from ("Dino walk.joybrush" -> "Dino walk"), else it keeps "Drawing n".
+        displayNameOf(uri)?.substringBeforeLast('.')?.takeIf { it.isNotBlank() }?.let { library.rename(this, fresh, it) }
+        return fresh
+    }
+
+    private fun displayNameOf(uri: Uri): String? = try {
+        contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
+        }
+    } catch (_: Exception) { null }
 
     /**
      * Puts a drawing on the canvas, or says why it cannot go there and leaves the drawing that is

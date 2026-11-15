@@ -132,11 +132,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val gpuHogMb: Int? = null,
                /** `jb_sheet_cut`: false = a wash too wide for the new view sets whole, as before 2026-11-13 (WetSheet.cutOnMove). */
                val sheetCut: Boolean? = null,
+               /** `jb_save_level`: the deflate level of paint store tiles in a save (ArchiveMediaDeflate), to compare. */
+               val saveLevel: Int? = null,
+               /** `jb_save_paint_mb`: how much paint state a save keeps as paint (JbCanvasView.savePaintBudgetBytes). */
+               val savePaintMb: Int? = null,
                /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
                val sheetWave: Double? = null,
                /**
                 * `jb_bench_then`: what to do after the last stroke and before the hold, in order, separated by ';':
-                * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "zoom 0.5", "dry" (the wet
+                * "wait 3000", "undo", "redo", "save" (a snapshot, as the autosave takes one), "savecmp" (two, compared), "savefile" (a real save and open, timed), "savecarry" (the same with a save that rewrites only what changed; repeat it in one run), "reload" (save, open it, save again, compared), "zoom 0.5", "dry" (the wet
                 * sheet's water dries where it lies; with `jb_sheet_print_hold_ms` its print waits that long after).
                 */
                val then: List<String> = emptyList(),
@@ -190,6 +194,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.printHoldMs = spec.sheetPrintHoldMs
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.debugPlain = spec.sheetPlain
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.cutOnMove = spec.sheetCut ?: true
+        spec.saveLevel?.let { cc.joycreator.joybrush.androidkit.io.ArchiveMediaDeflate.level = it.coerceIn(0, 9) }
+        spec.savePaintMb?.let { canvas.savePaintBudgetBytes = it.toLong() shl 20 }
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
         applySymmetry()
@@ -277,6 +283,40 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
+            "savefile" -> benchSaveFile()
+            "savecarry" -> benchSaveCarry()
+            // Between two "savefile" steps of one run: the paint a save keeps (MB), the deflate level of its store tiles.
+            "savepaint" -> arg.toLongOrNull()?.let { canvas.savePaintBudgetBytes = it shl 20 }
+            "savelevel" -> arg.toIntOrNull()?.let { cc.joycreator.joybrush.androidkit.io.ArchiveMediaDeflate.level = it.coerceIn(0, 9) }
+            // Save, open what was saved, save again: every paint store tile must come back byte for byte (opening uploads
+            // them through the same reused buffers; the pictures are counted apart, an open may redraw them).
+            "reload" -> canvas.snapshot({ a ->
+                try {
+                    canvas.load(a) {
+                        canvas.snapshot({ b ->
+                            val stores = a.mediaTiles.count { (k, v) -> b.mediaTiles[k]?.contentEquals(v) != true } + b.mediaTiles.keys.count { it !in a.mediaTiles }
+                            val looks = a.tiles.count { (k, v) -> b.tiles[k]?.contentEquals(v) != true } + b.tiles.keys.count { it !in a.tiles }
+                            Log.i(TAG, "then: reload: after open and save again, $stores of ${a.mediaTiles.size} paint store tiles differ, $looks of ${a.tiles.size} picture tiles differ")
+                        }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+                    }
+                } catch (x: Exception) { Log.w(TAG, "then: reload refused: ${x.message}") }
+            }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            // Two saves of the same drawing, the paint stores read back with the reused buffers and then with new ones for
+            // every tile: the bytes must be the same (GlPaintEngine.reuseMediaStaging, 2026-11-13).
+            "savecmp" -> {
+                val t0 = android.os.SystemClock.elapsedRealtime()
+                canvas.snapshot({ a ->
+                    val t1 = android.os.SystemClock.elapsedRealtime()
+                    canvas.benchReuseMediaStaging(false)
+                    canvas.snapshot({ b ->
+                        val t2 = android.os.SystemClock.elapsedRealtime()
+                        canvas.benchReuseMediaStaging(true)
+                        val same = a.mediaTiles.size == b.mediaTiles.size && a.mediaTiles.all { (k, v) -> b.mediaTiles[k]?.contentEquals(v) == true } &&
+                            a.tiles.size == b.tiles.size && a.tiles.all { (k, v) -> b.tiles[k]?.contentEquals(v) == true }
+                        Log.i(TAG, "then: savecmp: ${a.tiles.size} tiles and ${a.mediaTiles.size} paint store tiles, ${if (same) "byte for byte the same" else "DIFFERENT"} with reused and with new buffers; ${t1 - t0} ms reused, ${t2 - t1} ms new")
+                    }, { why -> canvas.benchReuseMediaStaging(true); Log.w(TAG, "then: snapshot failed: $why") })
+                }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
+            }
             // As the autosave does while the person paints: the wet sheet's wash is in the save and stays wet. The tiles'
             // bytes are summed so two saves can be compared in the log.
             "savewet" -> canvas.snapshot({ c ->
@@ -287,6 +327,129 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             else -> Log.w(TAG, "then: unknown step '$op'")
         }
         ui.postDelayed({ runThen(ops, onEnd) }, delay)
+    }
+
+    /**
+     * `savefile`: a real save and a real open of what is on the canvas, timed (the paint-store save, 2026-11-15): the
+     * readback on the GL thread, the archive written to a scratch file, read again and compared store tile by store tile,
+     * loaded onto the canvas, and read back once more. The numbers a save's size is judged by: milliseconds, bytes on disk,
+     * and the Java heap at each point (sampled, so a peak between two points is not seen: read the GC lines beside it).
+     * Each stage runs after the one before has let go of its copy (the tiles are compared by checksum), so the heap is
+     * what a real save and a real open hold, not both at once.
+     */
+    private fun benchSaveFile() {
+        val file = java.io.File(canvas.context.cacheDir, "bench-savefile.joybrush")
+        val h0 = benchHeapMb()
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        canvas.snapshot({ a ->
+            val t1 = android.os.SystemClock.elapsedRealtime()
+            val h1 = benchHeapMb()
+            Thread({
+                try {
+                    cc.joycreator.joybrush.androidkit.io.JbArchive.save(file, a)
+                    val t2 = android.os.SystemClock.elapsedRealtime()
+                    val h2 = benchHeapMb()
+                    val sums = SaveSums(a)
+                    val line = "savefile: ${a.tiles.size} picture tiles, ${a.mediaTiles.size} paint store tiles ${sums.byStore} (${sums.rawStores shr 20} MB raw); " +
+                        "read back from the screen ${t1 - t0} ms; written ${t2 - t1} ms, ${file.length() shr 10} KB on disk; heap $h0 -> $h1 -> $h2 MB of ${Runtime.getRuntime().maxMemory() shr 20}"
+                    // The open starts from the UI thread's next turn, on a thread of its own: this one, and the copy it holds, is gone by then.
+                    ui.post { Log.i(TAG, "then: $line"); ui.postDelayed({ benchOpenFile(file, sums) }, 400) }
+                } catch (x: Throwable) {
+                    ui.post { Log.w(TAG, "then: savefile: the save failed: ${x.javaClass.simpleName}: ${x.message}; heap ${benchHeapMb()} MB") }
+                }
+            }, "bench-savefile").start()
+        }, { why -> Log.w(TAG, "then: savefile: snapshot failed: $why") })
+    }
+
+    /** The memo of this run's last `savecarry` step: the next one carries from the file it wrote. */
+    private var benchCarryMemo: cc.joycreator.joybrush.androidkit.io.JbArchive.SaveMemo? = null
+
+    /**
+     * `savecarry`: a save that rewrites only what changed (JbArchive.saveCarrying), timed, then the file opened and every
+     * tile compared with what was on the canvas. The first one of a run writes everything; one after an `undo` or with
+     * nothing changed carries the rest from the file the step before wrote.
+     */
+    private fun benchSaveCarry() {
+        val file = java.io.File(canvas.context.cacheDir, "bench-savecarry.joybrush")
+        if (benchCarryMemo == null) { file.delete(); java.io.File(file.path + ".bak").delete() }
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        canvas.snapshot({ a ->
+            val t1 = android.os.SystemClock.elapsedRealtime()
+            val memoBefore = benchCarryMemo
+            Thread({
+                try {
+                    val memo = cc.joycreator.joybrush.androidkit.io.JbArchive.saveCarrying(file, a, memoBefore)
+                    val t2 = android.os.SystemClock.elapsedRealtime()
+                    val sums = SaveSums(a)
+                    val line = "savecarry: ${a.tiles.size} picture tiles, ${a.mediaTiles.size} paint store tiles (${sums.rawStores shr 20} MB raw); read back from the screen ${t1 - t0} ms; " +
+                        "written ${t2 - t1} ms, ${memo.carried} entries carried and ${memo.fresh} compressed, ${file.length() shr 10} KB on disk; heap ${benchHeapMb()} MB"
+                    ui.post {
+                        benchCarryMemo = memo
+                        Log.i(TAG, "then: $line")
+                        ui.postDelayed({
+                            Thread({
+                                try {
+                                    val t3 = android.os.SystemClock.elapsedRealtime()
+                                    val back = SaveSums(cc.joycreator.joybrush.androidkit.io.JbArchive.open(file))
+                                    val t4 = android.os.SystemClock.elapsedRealtime()
+                                    ui.post { Log.i(TAG, "then: savecarry: read again in ${t4 - t3} ms; ${sums.storesDiffering(back)} of ${sums.stores.size} paint store tiles differ, " +
+                                        "${sums.looksDiffering(back)} of ${sums.looks.size} picture tiles differ") }
+                                } catch (x: Throwable) { ui.post { Log.w(TAG, "then: savecarry: reading the file failed: ${x.javaClass.simpleName}: ${x.message}") } }
+                            }, "bench-opencarry").start()
+                        }, 300)
+                    }
+                } catch (x: Throwable) {
+                    ui.post { Log.w(TAG, "then: savecarry: the save failed: ${x.javaClass.simpleName}: ${x.message}; heap ${benchHeapMb()} MB") }
+                }
+            }, "bench-savecarry").start()
+        }, { why -> Log.w(TAG, "then: savecarry: snapshot failed: $why") })
+    }
+
+    private fun benchHeapMb(): Long = Runtime.getRuntime().let { (it.totalMemory() - it.freeMemory()) shr 20 }
+
+    /** What a snapshot held, small enough to keep: a checksum a tile, the counts and the stores' raw size. */
+    private class SaveSums(c: cc.joycreator.joybrush.androidkit.io.JbContents) {
+        val stores: Map<cc.joycreator.joybrush.androidkit.io.MediaTileKey, Long> = c.mediaTiles.mapValues { sum(it.value) }
+        val looks: Map<Triple<String, String, String>, Long> = c.tiles.mapValues { sum(it.value) }
+        val byStore: Map<String, Int> = c.mediaTiles.keys.groupingBy { it.store }.eachCount().toSortedMap()
+        val rawStores: Long = c.mediaTiles.values.sumOf { it.size.toLong() }
+        fun storesDiffering(o: SaveSums) = stores.count { (k, v) -> o.stores[k] != v } + o.stores.keys.count { it !in stores }
+        fun looksDiffering(o: SaveSums) = looks.count { (k, v) -> o.looks[k] != v } + o.looks.keys.count { it !in looks }
+        private companion object { fun sum(b: ByteArray): Long = java.util.zip.CRC32().also { it.update(b) }.value }
+    }
+
+    private fun benchOpenFile(file: java.io.File, saved: SaveSums) {
+        System.gc()
+        val h0 = benchHeapMb()
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        Thread({
+            try {
+                val back = cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)
+                val t1 = android.os.SystemClock.elapsedRealtime()
+                val h1 = benchHeapMb()
+                val differ = saved.storesDiffering(SaveSums(back))
+                ui.post {
+                    Log.i(TAG, "then: savefile: read again in ${t1 - t0} ms, $differ store tiles differ; heap $h0 -> $h1 MB, native ${android.os.Debug.getNativeHeapAllocatedSize() shr 20} MB")
+                    val t2 = android.os.SystemClock.elapsedRealtime()
+                    try {
+                        canvas.load(back) {
+                            val t3 = android.os.SystemClock.elapsedRealtime()
+                            ui.postDelayed({
+                                System.gc()
+                                canvas.snapshot({ c ->
+                                    val again = SaveSums(c)
+                                    Log.i(TAG, "then: savefile: opened on the canvas in ${t3 - t2} ms; saved again, ${saved.storesDiffering(again)} of ${saved.stores.size} paint store tiles differ, " +
+                                        "${saved.looksDiffering(again)} of ${saved.looks.size} picture tiles differ; heap ${benchHeapMb()} MB")
+                                    file.delete(); java.io.File(file.path + ".bak").delete()
+                                }, { why -> Log.w(TAG, "then: savefile: the second snapshot failed: $why") })
+                            }, 400)
+                        }
+                    } catch (x: Exception) { Log.w(TAG, "then: savefile: the open was refused: ${x.message}") }
+                }
+            } catch (x: Throwable) {
+                ui.post { Log.w(TAG, "then: savefile: reading the file failed: ${x.javaClass.simpleName}: ${x.message}; heap ${benchHeapMb()} MB of ${Runtime.getRuntime().maxMemory() shr 20}") }
+            }
+        }, "bench-openfile").start()
     }
 
     private fun waitForSurface() {
@@ -809,6 +972,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetPlain = intent.getBooleanExtra("jb_sheet_plain", false),
                 gpuHogMb = intent.getIntExtra("jb_gpu_hog_mb", -1).takeIf { it > 0 },
                 sheetCut = if (intent.hasExtra("jb_sheet_cut")) intent.getBooleanExtra("jb_sheet_cut", true) else null,
+                saveLevel = intent.getIntExtra("jb_save_level", -1).takeIf { it >= 0 },
+                savePaintMb = intent.getIntExtra("jb_save_paint_mb", -1).takeIf { it > 0 },
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),

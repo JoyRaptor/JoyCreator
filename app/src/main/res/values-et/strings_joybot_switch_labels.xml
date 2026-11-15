@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_joybot_switch_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_label_preview">Eelvaade</string>
+    <string name="joybotswitch_label_torch">Taskulamp</string>
+    <string name="joybotswitch_label_record">Salvesta</string>
+    <string name="joybotswitch_label_visible">Nähtav</string>
+    <string name="joybotswitch_label_locked">Lukus</string>
+    <string name="joybotswitch_label_pinned">Kinnitatud</string>
+</resources>

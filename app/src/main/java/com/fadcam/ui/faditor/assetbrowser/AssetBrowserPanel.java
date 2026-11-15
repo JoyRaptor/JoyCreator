@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.assetbrowser;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.SheetKit;
 import com.fadcam.ui.faditor.Studio;
 import com.fadcam.ui.type.Type;
@@ -729,7 +731,7 @@ public class AssetBrowserPanel extends FrameLayout {
                 }
                 final boolean[] ticked = new boolean[paths.size()];
                 java.util.Arrays.fill(ticked, true);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
+                StudioDialog.builder(getContext())
                         .setTitle("Files no project uses")
                         .setMultiChoiceItems(names.toArray(new String[0]), ticked, (d, which, on) -> ticked[which] = on)
                         .setPositiveButton("Move to Trash", (d, w) -> {
@@ -766,7 +768,7 @@ public class AssetBrowserPanel extends FrameLayout {
         input.setHint(R.string.faditor_asset_browser_rename_hint);
         input.setSelectAllOnFocus(true);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
+        StudioDialog.builder(getContext())
                 .setTitle(R.string.faditor_asset_browser_rename_title)
                 .setView(input)
                 .setPositiveButton(R.string.faditor_asset_browser_rename, (d, w) -> {
@@ -786,7 +788,7 @@ public class AssetBrowserPanel extends FrameLayout {
             return;
         }
         String currentDir = dirHistory.get(historyIndex);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
+        StudioDialog.danger(getContext())
                 .setTitle(R.string.faditor_asset_browser_delete_title)
                 .setMessage(R.string.faditor_asset_browser_delete_msg)
                 .setPositiveButton(R.string.faditor_delete_confirm, (d, w) -> {

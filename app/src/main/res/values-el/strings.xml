@@ -4,7 +4,7 @@
     <string name="app_icon_description">Επιλέξτε ένα εικονίδιο και όνομα για την εφαρμογή σας. Αυτό θα αλλάξει την εμφάνισή της στην αρχική σας οθόνη.</string>
     <string name="check_for_updates">Έλεγχος για Ενημερώσεις</string>
     <string name="accessibility_thumbnail_progress">%1$d%% παρακολουθήθηκε</string>
-    <string name="fadsec_info">Το Joy Creator είναι μέρος της σουίτας FadSec Lab. Για περισσότερες πληροφορίες, κάντε κλικ στην επιλογή «προβολή πηγαίου κώδικα» παρακάτω.</string>
+    <string name="fadsec_info">Το Joy Creator είναι δωρεάν και ανοιχτού κώδικα. Για περισσότερες πληροφορίες, πάτα «προβολή πηγαίου κώδικα» παρακάτω.</string>
     <string name="app_description">        <![CDATA[    Το Joy Creator είναι μια εφαρμογή εγγραφής βίντεο ανοιχτού κώδικα, χωρίς διαφημίσεις, που δίνει προτεραιότητα στην ιδιωτικότητα, καθώς δεν παρακολουθεί ούτε συλλέγει δεδομένα. Είναι διαθέσιμο αποκλειστικά στο GitHub και μέσω των επίσημων συνδέσμων που αναφέρονται στο README.    <br/><br/>    Το Joy Creator έχει παρουσιαστεί σε δημοφιλή κανάλια YouTube όπως τα <font color="#cfbafd">HowToMen</font> και <font color="#cfbafd">Xtream Droid</font>, καθώς και συζητήθηκε στα <font color="#cfbafd">GrapheneOS</font> και σε 55+ άλλα αξιόλογα σημεία.    ]]>    </string>
     <string name="view_source_code">Προβολή Πηγαίου Κώδικα</string>
     <string name="contact">Επικοινωνία</string>
@@ -138,11 +138,11 @@
     <string name="home_elapsed_font_doto">Doto</string>
     <string name="home_elapsed_font_doto_desc">Χρησιμοποιεί τη γραμματοσειρά Doto για πιο διακριτική εμφάνιση ψηφιακού χρονοδιακόπτη</string>
     <string name="home_elapsed_flag_option">Σημαία έμφασης</string>
-    <string name="home_elapsed_flag_option_desc">Εμφάνιση ή απόκρυψη της σημαίας έμφασης FadSec Lab πίσω από τον χρονοδιακόπτη</string>
-    <string name="home_elapsed_flag_helper">Επιλέξτε αν η σημαία έμφασης FadSec Lab εμφανίζεται πίσω από τον χρονοδιακόπτη.</string>
-    <string name="home_elapsed_flag_show">Εμφάνιση σημαίας FadSec Lab (Προεπιλογή)</string>
+    <string name="home_elapsed_flag_option_desc">Εμφάνιση ή απόκρυψη της έγχρωμης μπάρας πίσω από το χρονόμετρο</string>
+    <string name="home_elapsed_flag_helper">Διάλεξε αν θα φαίνεται η έγχρωμη μπάρα πίσω από το χρονόμετρο.</string>
+    <string name="home_elapsed_flag_show">Εμφάνιση χρώματος (Προεπιλογή)</string>
     <string name="home_elapsed_flag_show_desc">Εμφάνιση της σημαίας έμφασης πίσω από τον χρονοδιακόπτη</string>
-    <string name="home_elapsed_flag_hide">Απόκρυψη σημαίας FadSec Lab</string>
+    <string name="home_elapsed_flag_hide">Απόκρυψη χρώματος</string>
     <string name="home_elapsed_flag_hide_desc">Διατήρηση της περιοχής του χρονοδιακόπτη καθαρή χωρίς σημαία έμφασης</string>
     <string name="home_elapsed_background_option">Φόντο</string>
     <string name="home_elapsed_background_option_desc">Επιλέξτε αν ο χρονοδιακόπτης βρίσκεται σε μαύρη, λευκή ή διαφανή κάρτα</string>
@@ -278,8 +278,8 @@
     <string name="records_delete_header_working">Επεξεργασία…</string>
     <string name="records_delete_header_finishing">Ολοκλήρωση…</string>
     <string name="records_delete_header_dismiss_hint">Πατήστε OK για απόρριψη</string>
-    <string name="records_delete_header_eta_seconds">Εκτ. %1$δδ</string>
-    <string name="records_delete_header_eta_minutes">Εκτ. %1$δλ %2$02δδ</string>
+    <string name="records_delete_header_eta_seconds">Σε %1$dδ</string>
+    <string name="records_delete_header_eta_minutes">Σε %1$dλ %2$02dδ</string>
     <string name="records_delete_header_summary">%1$d από %2$d ολοκληρώθηκαν • %3$d απέτυχαν</string>
     <string name="records_delete_header_running_summary">%1$d ολοκληρώθηκαν • %2$d απέτυχαν</string>
     <string name="records_delete_header_issue_prefix">Ζήτημα: %1$s</string>
@@ -357,7 +357,7 @@
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
     <string name="records_filter_screen">Οθόνη</string>
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
     <string name="records_filter_stream">Stream</string>
     <string name="records_filter_shot">Φωτογραφίες</string>
     <string name="records_filter_camera_all">Όλα</string>
@@ -379,8 +379,8 @@
     <string name="records_filter_helper_camera_dual">Καταγράφηκε με λειτουργία dual κάμερας</string>
     <string name="records_filter_helper_dual">Εγγραφές dual κάμερας</string>
     <string name="records_filter_helper_screen">Εγγραφές οθόνης</string>
-    <string name="records_filter_helper_faditor">Επεξεργασμένα/Εξαγόμενα βίντεο (Faditor)</string>
-    <string name="records_filter_helper_faditor_all">Όλα τα αρχεία εξόδου Faditor και σχετικά αρχεία.</string>
+    <string name="records_filter_helper_faditor">Βίντεο που επεξεργάστηκες ή εξήγαγες (Studio)</string>
+    <string name="records_filter_helper_faditor_all">Όλα τα αποτελέσματα του Studio και τα σχετικά αρχεία.</string>
     <string name="records_filter_helper_faditor_converted">Μετατροπή κατακερματισμένου MP4 σε τυπικό MP4 με δυνατότητα αναζήτησης για εξωτερικούς players.</string>
     <string name="records_filter_helper_faditor_merge">Συγχώνευση πολλαπλών κλιπ σε ένα βίντεο εξόδου.</string>
     <string name="records_filter_helper_stream">Αποθηκευμένες εγγραφές stream</string>
@@ -392,7 +392,7 @@
     <string name="records_batch_select_all">Επιλογή όλων</string>
     <string name="records_batch_deselect_all">Αποεπιλογή όλων</string>
     <string name="records_batch_save">Αποθήκευση στη Συλλογή</string>
-    <string name="records_batch_faditor">Αυτοματισμοί Faditor</string>
+    <string name="records_batch_faditor">Αυτοματισμοί Studio</string>
     <string name="records_batch_delete">Διαγραφή</string>
     <string name="records_batch_coming_soon">Αυτή η ενέργεια δέσμης θα προστεθεί στη συνέχεια.</string>
     <string name="records_batch_select_items_first">Επιλέξτε πρώτα ένα ή περισσότερα βίντεο.</string>
@@ -400,7 +400,7 @@
     <string name="records_batch_fab_label">Δέσμη</string>
     <string name="records_batch_select_all_desc">Επιλογή ή εκκαθάριση όλων των βίντεο στο τρέχον φίλτρο.</string>
     <string name="records_batch_save_desc">Αντιγραφή, μετακίνηση ή εξαγωγή επιλεγμένων βίντεο σε άλλο φάκελο.</string>
-    <string name="records_batch_faditor_desc">Εκτέλεση αυτοματισμών στο παρασκήνιο χωρίς άνοιγμα της καρτέλας Faditor.</string>
+    <string name="records_batch_faditor_desc">Εκτέλεσε αυτοματισμούς στο παρασκήνιο χωρίς να ανοίξεις το Studio.</string>
     <string name="records_batch_delete_desc">Μετακίνηση επιλεγμένων βίντεο στον Κάδο.</string>
     <string name="records_batch_save_queued">%1$d εργασία(ες) αποθήκευσης προστέθηκαν στην ουρά.</string>
     <string name="records_batch_faditor_first_only">Άνοιγμα πρώτου βίντεο. %1$d επιλέχθηκαν· η ουρά πολλαπλής επεξεργασίας έρχεται στη συνέχεια.</string>
@@ -411,7 +411,7 @@
     <string name="records_batch_custom_export_started">Εξαγωγή %1$d βίντεο στον επιλεγμένο φάκελο…</string>
     <string name="records_batch_custom_export_invalid_folder">Ο επιλεγμένος φάκελος δεν είναι εγγράψιμος.</string>
     <string name="records_batch_custom_export_done">Η εξαγωγή ολοκληρώθηκε. Επιτυχία: %1$d • Αποτυχία: %2$d</string>
-    <string name="records_batch_faditor_sheet_title">Ενέργειες Faditor Δέσμης</string>
+    <string name="records_batch_faditor_sheet_title">Μαζικές ενέργειες Studio</string>
     <string name="records_batch_faditor_export_standard">Εξαγωγή σε Τυπικό MP4</string>
     <string name="records_batch_faditor_export_standard_desc">Μετατροπή κατακερματισμένου MP4 σε τυπικό MP4 με δυνατότητα αναζήτησης για εξωτερικούς players.</string>
     <string name="records_batch_faditor_merge">Συγχώνευση Επιλεγμένων Βίντεο</string>
@@ -419,7 +419,7 @@
     <string name="records_batch_faditor_queued">%1$d στοιχεί(α) δέσμης σε ουρά στο παρασκήνιο.</string>
     <string name="records_batch_completed">Η λειτουργία δέσμης ολοκληρώθηκε.</string>
     <string name="records_batch_notif_channel_name">Ενέργειες Δέσμης Πολυμέσων</string>
-    <string name="records_batch_notif_channel_desc">Πρόοδος και αποτελέσματα για εργασίες αποθήκευσης δέσμης Εγγραφών και αυτοματισμού Faditor.</string>
+    <string name="records_batch_notif_channel_desc">Πρόοδος και αποτελέσματα για τη μαζική αποθήκευση εγγραφών και τους αυτοματισμούς του Studio.</string>
     <string name="records_batch_starting">Προετοιμασία λειτουργίας δέσμης…</string>
     <string name="records_batch_progress_item">Επεξεργασία %1$d από %2$d</string>
     <string name="records_batch_progress_counts">Ολοκληρώθηκαν %1$d • Παραλείφθηκαν %2$d • Απέτυχαν %3$d</string>
@@ -432,7 +432,7 @@
     <string name="nav_settings">Ρυθμίσεις</string>
     <string name="nav_about">Σχετικά</string>
     <string name="nav_remote">Απομακρυσμένη</string>
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="nav_lab">Εργαστήριο</string>
     <string name="setting_cam_title">Επιλογή Κάμερας</string>
     <string name="note_cam_sele">Επιλέξτε κάμερα\n(Προεπιλογή: Πίσω)</string>
@@ -489,9 +489,7 @@
     <string name="dual_cam_info_supported_unconfirmed">⚠ Η συσκευή σας διαθέτει και τις δύο κάμερες, αλλά η ταυτόχρονη υποστήριξη δεν έχει επιβεβαιωθεί. Μπορεί να λειτουργήσει ή όχι.</string>
     <string name="dual_cam_info_unsupported_status">✗ Η συσκευή σας δεν υποστηρίζει εγγραφή dual κάμερας.</string>
     <string name="dual_cam_info_why_unsupported">Γιατί δεν υποστηρίζεται η dual κάμερα;</string>
-    <string name="dual_cam_info_unsupported_explanation">Η εγγραφή dual κάμερας απαιτεί η συσκευή σας να λειτουργεί ταυτόχρονα την μπροστινή και την πίσω κάμερα. Αυτή είναι μια δυνατότητα υλικού που εξαρτάται από τον επεξεργαστή και τον εξοπλισμό κάμερας της συσκευής σας. Τα περισσότερα κορυφαία smartphone από το 2020 και μετά υποστηρίζουν αυτήν τη λειτουργία. Οι μεσαίες και παλαιότερες συσκευές συνήθως όχι.
-
-Αυτό ΔΕΝ είναι σφάλμα — είναι περιορισμός υλικού της συσκευής σας.</string>
+    <string name="dual_cam_info_unsupported_explanation">Η εγγραφή με διπλή κάμερα απαιτεί η συσκευή σου να λειτουργεί ταυτόχρονα την μπροστινή και την πίσω κάμερα. Αυτό εξαρτάται από τον επεξεργαστή και το υλικό της κάμεράς σου. Τα περισσότερα κορυφαία κινητά από το 2020 και μετά το υποστηρίζουν. Οι μεσαίες και οι παλιότερες συσκευές συνήθως όχι.\n\nΑυτό ΔΕΝ είναι σφάλμα — είναι όριο του υλικού της συσκευής σου.</string>
     <string name="dual_cam_info_which_devices">Ποιες συσκευές το υποστηρίζουν;</string>
     <string name="dual_cam_info_devices_explanation">Συσκευές με Qualcomm Snapdragon 855 ή νεότερο, Google Tensor, Samsung Exynos 990 ή νεότερο, και MediaTek Dimensity 1000 ή νεότερο συνήθως υποστηρίζουν ταυτόχρονη πρόσβαση κάμερας.</string>
     <!-- Dual Camera row in Video Settings -->
@@ -504,29 +502,19 @@
     <string name="zoom_slider_title">Αναλογία Ζουμ</string>
     <string name="zoom_slider_helper">Ρυθμίστε το επίπεδο ζουμ για εγγραφή. Για εγγραφές με εξαιρετικά ευρυγώνιο φακό, χρησιμοποιήστε την επιλογή 0.5x για εγγραφή με ευρυγώνιο οπτικό πεδίο.</string>
     <string name="icon_zoom_in_ligature">zoom_in</string>
-    <string name="note_quailty">Επιλέξτε ποιότητα
-(Προεπιλογή: HD)</string>
-    <string name="note_framerate">Επιλέξτε ρυθμό καρέ
-(Προεπιλογή: %1$d)</string>
-    <string name="note_zoom_ratio">Επιλέξτε αναλογία ζουμ
-(Προεπιλογή: %1$.1fx - χωρίς ζουμ)</string>
+    <string name="note_quailty">Διάλεξε ποιότητα\n(Προεπιλογή: HD)</string>
+    <string name="note_framerate">Διάλεξε ρυθμό καρέ\n(Προεπιλογή: %1$d)</string>
+    <string name="note_zoom_ratio">Διάλεξε ζουμ\n(Προεπιλογή: %1$.1fx - χωρίς ζουμ)</string>
     <string name="setting_codec_title">Κωδικοποιητής Βίντεο</string>
-    <string name="note_codec">Επιλέξτε κωδικοποιητή
-(Προεπιλογή: %1$s)
-Συμβουλή: Με H.265 (HEVC), μπορείτε να χρησιμοποιήσετε περίπου τη μισή ταχύτητα μετάδοσης του H.264 για την ίδια ποιότητα. Παράδειγμα: Για FHD, χρησιμοποιήστε 8 Mbps αντί για 16 Mbps.</string>
+    <string name="note_codec">Διάλεξε κωδικοποιητή\n(Προεπιλογή: %1$s)\nΣυμβουλή: Με το H.265 (HEVC) χρειάζεσαι περίπου το μισό bitrate του H.264 για την ίδια ποιότητα. Παράδειγμα: για FHD, χρησιμοποίησε 8 Mbps αντί για 16 Mbps.</string>
     <string name="setting_watermark">Υδατογράφημα</string>
-    <string name="note_watermark">Επιλέξτε επιλογή υδατογραφήματος
-(Προεπιλογή: Χρονική σήμανση με Joy Creator)</string>
+    <string name="note_watermark">Διάλεξε επιλογή υδατογραφήματος\n(Προεπιλογή: Χρονοσφραγίδα με Joy Creator)</string>
     <string name="note_watermark_extra">Για γρήγορη αποθήκευση, επιλέξτε «Χωρίς Υδατογράφημα». Προσθέτετε υδατογράφημα; Αξίζει η αναμονή, λίγη υπομονή για την επεξεργασία!</string>
     <string name="setting_location_title">Δεδομένα Τοποθεσίας</string>
-    <string name="note_location">Συμπερίληψη δεδομένων τοποθεσίας στο υδατογράφημα. 
-Απαιτεί ενεργοποιημένο GPS 
-(Προεπιλογή: Απενεργοποιημένο)</string>
+    <string name="note_location">Συμπερίλαβε τοποθεσία στο υδατογράφημα. \nΑπαιτεί ενεργό GPS \n(Προεπιλογή: Ανενεργό)</string>
     <string name="note_location_extra">Ενεργοποιήστε το GPS για προσθήκη δεδομένων γεωγραφικού πλάτους και μήκους στο υδατογράφημα.</string>
     <string name="setting_location_embed_title">Ενσωμάτωση Τοποθεσίας σε Βίντεο</string>
-    <string name="note_location_embed">Προσθήκη συντεταγμένων GPS στα μεταδεδομένα βίντεο (γεωσήμανση). 
-Απαιτεί ενεργοποιημένο GPS 
-(Προεπιλογή: Απενεργοποιημένο)</string>
+    <string name="note_location_embed">Πρόσθεσε συντεταγμένες GPS στα μεταδεδομένα του βίντεο (geotags). \nΑπαιτεί ενεργό GPS \n(Προεπιλογή: Ανενεργό)</string>
     <string name="note_location_embed_extra">Προσθέτει δεδομένα τοποθεσίας απευθείας στα αρχεία βίντεο, τα οποία μπορούν να χρησιμοποιηθούν από εφαρμογές συλλογής/χάρτη για να δείξουν πού τραβήχτηκαν τα βίντεο.</string>
     <string name="button_setting_review">Γράψτε μια Κριτική 🌟</string>
     <string name="dialog_clock_title">Επιλογή Εμφάνισης Ρολογιού</string>
@@ -602,8 +590,7 @@
     <string name="array_watermark_time_fadcam">Ώρα με Joy Creator</string>
     <string name="array_watermark_timeonly">Χρονική Σήμανση</string>
     <string name="array_watermark_nomark">Χωρίς Υδατογράφημα</string>
-    <string name="watermark_preview_funny">Αλήθεια; :( 
-    ＞﹏＜</string>
+    <string name="watermark_preview_funny">Αλήθεια; :( \n    ＞﹏＜</string>
     <string name="toast_video_not_found">Σφάλμα: Το βίντεο δεν βρέθηκε</string>
     <string name="quick_speed_title">Γρήγορη Ταχύτητα</string>
     <string name="quick_speed_option_default">2x (Προεπιλογή)</string>
@@ -666,8 +653,7 @@
     <string name="dialog_multi_video_del_yes">Διαγραφή</string>
     <string name="dialog_multi_video_del_no">Αφαίρεση επιλεγμένων εγγραφών</string>
     <string name="setting_language_title">Γλώσσα Εφαρμογής</string>
-    <string name="note_language">Επιλέξτε από το αναπτυσσόμενο μενού.
-(Προεπιλογή: Αγγλικά)</string>
+    <string name="note_language">Διάλεξε από τη λίστα.\n(Προεπιλογή: Αγγλικά)</string>
     <string name="location_permission_title">Άδεια Τοποθεσίας</string>
     <string name="location_permission_description">Αυτή η εφαρμογή χρειάζεται άδεια τοποθεσίας για να προσθέσει δεδομένα τοποθεσίας στα βίντεο. Παρακαλούμε παραχωρήστε την άδεια.</string>
     <string name="location_permission_denied">Η άδεια τοποθεσίας απορρίφθηκε. Οι λειτουργίες τοποθεσίας θα απενεργοποιηθούν.</string>
@@ -714,10 +700,8 @@
     <string name="torch_recording_note">Δεν είναι δυνατή η αλλαγή φακού κατά την εγγραφή</string>
     <string name="torch_both">Και οι δύο Φακοί</string>
     <string name="setting_debug_title">Αποσφαλμάτωση</string>
-    <string name="note_debug">Ενεργοποίηση δημιουργίας αρχείου καταγραφής αποσφαλμάτωσης 
-(Προεπιλογή: Απενεργοποιημένο)</string>
-    <string name="note_debug_detailed">Όταν είναι ενεργοποιημένο, το FadCam γράφει ένα αρχείο καταγραφής αποσφαλμάτωσης HTML (JoyCreator_debug.html) στον φάκελο Downloads/Joy Creator/. Μοιραστείτε αυτό το αρχείο όταν αναφέρετε προβλήματα. Απενεργοποιήστε το για να σταματήσετε μελλοντικές εγγραφές.
-Σημείωση: Η καταγραφή αποσφαλμάτωσης μπορεί να επιβαρύνει την απόδοση κατά την εγγραφή — κρατήστε την απενεργοποιημένη εκτός αν αντιμετωπίζετε πρόβλημα.</string>
+    <string name="note_debug">Ενεργοποίηση δημιουργίας αρχείου καταγραφής για αποσφαλμάτωση \n(Προεπιλογή: Ανενεργό)</string>
+    <string name="note_debug_detailed">Όταν είναι ενεργό, το Joy Creator γράφει ένα αρχείο καταγραφής HTML (JoyCreator_debug.html) στον δημόσιο φάκελο Downloads/Joy Creator/. Στείλε αυτό το αρχείο όταν αναφέρεις πρόβλημα. Απενεργοποίησέ το για να σταματήσει η εγγραφή.\nΣημείωση: Η καταγραφή μπορεί να επιβραδύνει την εγγραφή — κράτα την απενεργοποιημένη, εκτός αν ψάχνεις κάποιο πρόβλημα.</string>
     <string name="note_debug_extra">Όταν είναι ενεργοποιημένο, θα δημιουργηθεί ένα αρχείο καταγραφής αποσφαλμάτωσης στον φάκελο Downloads/Joy Creator. Αυτό μπορεί να βοηθήσει στη διάγνωση προβλημάτων εφαρμογής.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Προεπισκόπηση</string>
@@ -747,9 +731,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="watermark_custom_text_title">Προσαρμοσμένο Κείμενο Υδατογραφήματος</string>
     <string name="watermark_custom_text_hint">Εισαγάγετε προσαρμοσμένο κείμενο</string>
     <string name="watermark_custom_text_empty">Δεν έχει οριστεί</string>
-    <string name="helper_watermark_custom_text">Προσθέστε μια προσαρμοσμένη γραμμή κειμένου που θα εμφανίζεται κάτω από τη χρονική σήμανση και την τοποθεσία (αν είναι ενεργοποιημένη) στο υδατογράφημά σας.
-
-Παραδείγματα: ΑΒΓ-1234 (dashcam), Κάμερα #3, Αίθουσα Συνεδρίων Α</string>
+    <string name="helper_watermark_custom_text">Πρόσθεσε μια δική σου γραμμή κειμένου που θα εμφανίζεται κάτω από τη χρονοσφραγίδα και την τοποθεσία (αν είναι ενεργή) στο υδατογράφημά σου.\n\nΠαραδείγματα: ABC-1234 (κάμερα αυτοκινήτου), Κάμερα #3, Αίθουσα Συνεδρίων Α</string>
     <string name="helper_app_icon_option" translatable="false">Select an alternative launcher icon.</string>
     <!-- End watermark unified strings -->
     <string name="torch_shortcut_short_label">Φακός</string>
@@ -768,7 +750,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="widget_black_background_title">Μαύρο Φόντο</string>
     <string name="widget_arabic_date_title">Αραβική Ημερομηνία</string>
     <string name="widget_arabic_date_format_title">Μορφή Αραβικής Ημερομηνίας</string>
-    <string name="widget_branding_title">Επωνυμία FadSecLab</string>
+    <string name="widget_branding_title">Επωνυμία Joy Creator</string>
     <!-- Widget Option Descriptions -->
     <string name="widget_time_format_12h">12 ωρών (3:30 ΜΜ)</string>
     <string name="widget_time_format_24h">24 ωρών (15:30)</string>
@@ -931,7 +913,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="screenshot_capture_failed">Δεν ήταν δυνατή η λήψη στιγμιότυπου οθόνης</string>
     <string name="screenshot_capture_system_saved">Το στιγμιότυπο οθόνης λήφθηκε από το σύστημα.</string>
     <string name="screenshot_accessibility_enable_needed">Ενεργοποιήστε το «Joy Creator Στιγμιότυπο Οθόνης» στην Προσβασιμότητα.</string>
-    <string name="screenshot_accessibility_service_desc">Λαμβάνει στιγμιότυπο οθόνης για τη συντόμευση FadRec.</string>
+    <string name="screenshot_accessibility_service_desc">Τραβάει στιγμιότυπο οθόνης για τη συντόμευση στιγμιοτύπου και το αποθηκεύει στον φάκελο Joy Creator.</string>
     <string name="shortcuts_video_category">Εγγραφή Βίντεο</string>
     <string name="shortcuts_picture_category">Φωτογραφία</string>
     <string name="preview_quick_actions_title">Γρήγορες ενέργειες προεπισκόπησης</string>
@@ -947,8 +929,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 ]]></string>
     <string name="recording_already_active">Υπάρχει ήδη εγγραφή σε εξέλιξη ή σε παύση.</string>
     <string name="setting_back_lens_title">Φακός Πίσω Κάμερας</string>
-    <string name="setting_back_lens_note">Επιλέξτε συγκεκριμένο φακό αν είναι διαθέσιμος, π.χ. Ευρυγώνιος Φακός
-(Προεπιλογή: Κύριος (0))</string>
+    <string name="setting_back_lens_note">Διάλεξε συγκεκριμένο φακό, αν υπάρχει, π.χ. ευρυγώνιο\n(Προεπιλογή: Κύριος (0))</string>
     <string name="setting_back_lens_info_single">Μόνο κύριος φακός</string>
     <string name="setting_back_lens_info_single_v2">Εντοπίστηκε μόνο κύρια πίσω κάμερα</string>
     <string-array name="theme_options" translatable="false">
@@ -984,12 +965,12 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="coming_soon_toast">Σύντομα! In Sha Allah</string>
     <string name="remote_coming_soon">Ο απομακρυσμένος έλεγχος για το Joy Creator έρχεται σύντομα.</string>
     <string name="remote_feature_description">Συνδέστε πελάτες Joy Creator χρησιμοποιώντας κωδικό QR για ασφαλή απομακρυσμένο έλεγχο τοπικού δικτύου.</string>
-    <string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
     <string name="faditor_mini_coming_soon">Σύντομα — ελαφρύς επεξεργαστής</string>
     <string name="faditor_mini_subtitle">Κόψτε και εξάγετε τα βίντεό σας με ακρίβεια</string>
-    <string name="faditor_mini_toast">Faditor Mini — σύντομα</string>
+    <string name="faditor_mini_toast">Studio — έρχεται σύντομα</string>
     <string name="faditor_select_video">Επιλογή Βίντεο</string>
-    <string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
     <string name="faditor_close">Κλείσιμο επεξεργαστή</string>
     <string name="faditor_undo">Αναίρεση</string>
     <string name="faditor_redo">Επανάληψη</string>
@@ -1002,7 +983,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_export_error">Η εξαγωγή απέτυχε: %1$s</string>
     <string name="faditor_export_in_progress">Υπάρχει ήδη εξαγωγή σε εξέλιξη</string>
     <string name="faditor_remuxing">Βελτιστοποίηση για προεπισκόπηση…</string>
-    <string name="faditor_remuxing_percent">Βελτιστοποίηση… %1$s δευτ. επεξεργασίας</string>
+    <string name="faditor_remuxing_percent">Βελτιστοποίηση… επεξεργάστηκαν %1$dδ</string>
     <string name="faditor_error_no_video">Δεν επιλέχθηκε βίντεο</string>
     <string name="faditor_error_picker">Δεν ήταν δυνατό το άνοιγμα του επιλογέα αρχείων</string>
     <string name="faditor_tool_speed">1x</string>
@@ -1064,10 +1045,9 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_export_confirm_title">Εξαγωγή Βίντεο</string>
     <string name="faditor_export_confirm_action">Εξαγωγή Τώρα</string>
     <string name="faditor_export_confirm_subtitle">Η εξαγωγή θα συνεχιστεί στο παρασκήνιο</string>
-    <string name="faditor_export_confirm_helper">%1$s • %2$d κλιπ%3$s
-Η εξαγωγή εκτελείται στο παρασκήνιο.</string>
+    <string name="faditor_export_confirm_helper">%1$s • %2$d κλιπ%3$s\nΗ εξαγωγή τρέχει ως υπηρεσία παρασκηνίου — μπορείς να κλείσεις την εφαρμογή και θα συνεχίσει.</string>
     <!-- Export notification -->
-    <string name="faditor_export_notif_channel">Faditor Εξαγωγή</string>
+    <string name="faditor_export_notif_channel">Εξαγωγή Studio</string>
     <string name="faditor_export_notif_channel_desc">Ειδοποιήσεις για εξαγωγές βίντεο σε εξέλιξη</string>
     <string name="faditor_export_notif_title">Εξαγωγή βίντεο…</string>
     <string name="faditor_export_notif_error_title">Η Εξαγωγή Απέτυχε</string>
@@ -1106,22 +1086,22 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_delete_projects_title">Διαγραφή έργων;</string>
     <string name="faditor_delete_projects_message">Διαγραφή %1$d έργων; Αυτή η ενέργεια δεν μπορεί να αναιρεθεί.</string>
     <string name="faditor_delete_confirm">Διαγραφή</string>
-    <string name="faditor_version_info">Faditor Mini · Φάση 1 · Περικοπή + Εξαγωγή</string>
+    <string name="faditor_version_info">Studio · Φάση 1 · Κόψιμο + Εξαγωγή</string>
     <!-- Faditor Info Bottom Sheet -->
     <string name="faditor_empty_title">Κανένα έργο ακόμα</string>
     <string name="faditor_empty_desc">Πατήστε «Έναρξη Νέου Έργου» για να ξεκινήσετε</string>
-    <string name="faditor_info_title">Σχετικά με το Faditor Mini</string>
+    <string name="faditor_info_title">Σχετικά με το Studio</string>
     <string name="faditor_info_subtitle">Όλα όσα πρέπει να γνωρίζετε</string>
     <string name="faditor_info_how_title">Πώς λειτουργεί</string>
-    <string name="faditor_info_how_desc">Επιλέξτε οποιοδήποτε βίντεο από τη συσκευή σας ή τις εγγραφές Joy Creator. Κόψτε το καρέ-καρέ και εξάγετε. Όλη η επεξεργασία γίνεται τοπικά.</string>
+    <string name="faditor_info_how_desc">Διάλεξε οποιοδήποτε βίντεο από τη συσκευή σου ή από τις εγγραφές σου στο Joy Creator. Κόψε το καρέ-καρέ με το χρονοδιάγραμμα και μετά εξήγαγέ το. Όλη η επεξεργασία γίνεται τοπικά στη συσκευή σου — τίποτα δεν ανεβαίνει πουθενά.\n\nΗ πρόοδός σου αποθηκεύεται αυτόματα κάθε λίγα δευτερόλεπτα και κάθε φορά που φεύγεις από τον επεξεργαστή, ώστε να μη χαθεί δουλειά αν κλείσει απρόσμενα η εφαρμογή.</string>
     <string name="faditor_info_convert_title">Έξυπνη μετατροπή</string>
-    <string name="faditor_info_convert_desc">Το Joy Creator καταγράφει σε κατακερματισμένο MP4 (fMP4). Για χρήση εκτός Joy Creator, πρέπει πρώτα να μετατρέψετε τα αρχεία.</string>
+    <string name="faditor_info_convert_desc">Το Joy Creator γράφει σε μια μορφή που αντέχει σε κρασαρίσματα, το fragmented MP4 (fMP4). Αντίθετα με ένα κανονικό MP4 που έχει ένα ολοκληρωμένο δοχείο, το fMP4 γράφει το βίντεο σε μικρά ανεξάρτητα κομμάτια. Έτσι το υλικό σου μένει άθικτο ακόμα κι αν η εφαρμογή κρασάρει ή η εγγραφή σταματήσει απότομα.\n\nΌμως εξωτερικές εφαρμογές αναπαραγωγής, εφαρμογές γκαλερί και διαχειριστές αρχείων δεν θα μπορούν να κάνουν μετάβαση σε σημείο ή να δείξουν τη σωστή διάρκεια αυτών των αρχείων. Αυτό δεν είναι σφάλμα — είναι σκόπιμος συμβιβασμός για την αξιοπιστία.\n\nΑν σκοπεύεις να αποθηκεύσεις τα βίντεό σου έξω από το Joy Creator — στο Google Drive, σε υπολογιστή ή οπουδήποτε αλλού — πρέπει πρώτα να τα μετατρέψεις. Αλλιώς τα αρχεία δεν θα παίζουν κανονικά.\n\nΓια μετατροπή: άνοιξε το βίντεο εδώ στο Studio και πάτα Εξαγωγή. Το κανονικό MP4 θα εμφανιστεί στην καρτέλα Εγγραφές, έτοιμο για αποθήκευση στη γκαλερί ή κοινοποίηση παντού. Η διαδικασία είναι άμεση και χωρίς απώλειες — χωρίς νέα κωδικοποίηση ή χειροτέρευση ποιότητας.</string>
     <string name="faditor_info_export_title">Εξαγόμενα αρχεία</string>
     <string name="faditor_info_export_desc">Τα εξαγόμενα βίντεο αποθηκεύονται στην ενεργή τοποθεσία αποθήκευσης με το πρόθεμα «JoyCreator_».</string>
     <string name="faditor_info_temp_title">Προσωρινά αρχεία και cache</string>
-    <string name="faditor_info_temp_desc">Τα προσωρινά αρχεία cache καθαρίζονται αυτόματα όταν διαγράφετε ένα έργο.</string>
+    <string name="faditor_info_temp_desc">Όταν φορτώνεις βίντεο fMP4 για επεξεργασία, το Studio ελέγχει αν το αρχείο χρειάζεται «remuxing» — μια γρήγορη μετατροπή που προσθέτει σημάδια για μετάβαση χωρίς νέα κωδικοποίηση. Τα αρχεία που προκύπτουν κρατιούνται προσωρινά στη συσκευή σου, ώστε να ξαναχρησιμοποιηθούν αν επεξεργαστείς ξανά το ίδιο βίντεο, κερδίζοντας χρόνο και επεξεργασία.\n\nΜπορείς να δεις το μέγεθος της προσωρινής μνήμης κάθε έργου δίπλα στην ημερομηνία τροποποίησής του. Αν ο χώρος της συσκευής σου λιγοστεύει, διάγραψε έργα που δεν χρησιμοποιείς για να καθαρίσουν τα αρχεία τους.\n\nΑυτά τα προσωρινά αρχεία καθαρίζονται αυτόματα όταν διαγράφεις ένα έργο από αυτή την καρτέλα.</string>
     <string name="faditor_info_projects_title">Πρόσφατα έργα</string>
-    <string name="faditor_info_projects_desc">Όλες οι συνεδρίες επεξεργασίας εμφανίζονται για γρήγορη πρόσβαση.</string>
+    <string name="faditor_info_projects_desc">Όλες οι συνεδρίες επεξεργασίας φαίνονται εδώ για γρήγορη πρόσβαση. Κάθε έργο αποθηκεύεται ως ένα μικρό αρχείο JSON στη συσκευή σου με τη διεύθυνση του βίντεο, τα σημεία κοψίματος και τις χρονοσφραγίδες — δεν γίνονται αντίγραφα των βίντεό σου. Τα έργα αποθηκεύονται αυτόματα κάθε λίγα δευτερόλεπτα, οπότε η πρόοδός σου δεν χάνεται ποτέ.\n\nΜπορείς να διαγράψεις έργα που δεν χρειάζεσαι με το εικονίδιο πολλαπλής επιλογής. Η διαγραφή ενός έργου αφαιρεί μόνο τα δεδομένα της επεξεργασίας· τα αρχικά βίντεό σου μένουν άθικτα.</string>
     <string name="faditor_your_recordings">Οι Εγγραφές σας</string>
     <string name="faditor_browse_device">Περιήγηση Συσκευής</string>
     <string name="faditor_no_recordings">Δεν βρέθηκαν ακόμα εγγραφές.</string>
@@ -1133,8 +1113,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_source_chooser_desc">Επιλέξτε ένα βίντεο από τη συλλογή σας ή από τις εγγραφές Joy Creator</string>
     <string name="faditor_recordings_helper">Βίντεο που καταγράφηκαν με το Joy Creator</string>
     <string name="setting_audio_title">Εγγραφή Ήχου</string>
-    <string name="note_audio">Ενεργοποίηση ή απενεργοποίηση εγγραφής ήχου για βίντεο.
-(Προεπιλογή: Ενεργοποιημένο)</string>
+    <string name="note_audio">Ενεργοποίηση ή απενεργοποίηση εγγραφής ήχου στα βίντεο.\n(Προεπιλογή: Ενεργό)</string>
     <string name="button_audio_settings">Ρυθμίσεις Ήχου</string>
     <string name="dialog_audio_settings_title">Ρυθμίσεις Ήχου</string>
     <string name="dialog_audio_bitrate_label">Ρυθμός Μετάδοσης Ήχου (bps)</string>
@@ -1249,8 +1228,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <!-- Fix Start: Cloak Recents strings -->
     <string name="setting_cloak_recents_title">Αποκλεισμός Στιγμιότυπων &amp; Απόκρυψη σε Πρόσφατα</string>
     <string name="setting_cloak_recents_switch">Απόκρυψη προεπισκόπησης</string>
-    <string name="setting_cloak_recents_helper">Αποκρύπτει την προεπισκόπηση εφαρμογής και αποκλείει στιγμιότυπα οθόνης.
-(Προεπιλογή: Απενεργοποιημένο)</string>
+    <string name="setting_cloak_recents_helper">Κρύβει την προεπισκόπηση της εφαρμογής στις πρόσφατες εφαρμογές και μπλοκάρει τα στιγμιότυπα οθόνης μέσα στην εφαρμογή. Έτσι το ευαίσθητο περιεχόμενο δεν καταγράφεται και δεν φαίνεται στην εναλλαγή εφαρμογών.\n(Προεπιλογή: Ανενεργό)</string>
     <string name="setting_enabled_msg">Ενεργοποιημένο</string>
     <string name="setting_disabled_msg">Απενεργοποιημένο</string>
     <!-- Fix End: Cloak Recents strings -->
@@ -1301,7 +1279,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="video_split_size_summary_gb">Τρέχον: %1$s GB</string>
     <string name="video_splitting_title">Ενεργοποίηση Διαχωρισμού Βίντεο</string>
     <string name="video_splitting_description">Αυτόματος διαχωρισμός εγγραφών σε μικρότερα αρχεία.</string>
-    <string name="kofi_footer_text">Φτιαγμένο με στο FadSec Lab</string>
     <string name="setting_audio_input_source_title">Πηγή Εισόδου Ήχου</string>
     <string name="setting_audio_input_source_status_default">Μικρόφωνο Τηλεφώνου</string>
     <string name="setting_audio_input_source_status_wired">Ενσύρματο Μικρόφωνο</string>
@@ -1351,7 +1328,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
 
     <!-- App Lock Strings -->
     <string name="setting_applock_title">Κλείδωμα Καρτέλας</string>
-    <string name="setting_applock_desc">Ασφαλίστε τα βίντεό σας με PIN για την καρτέλα Εγγραφές.</string>
+    <string name="setting_applock_desc">Κλείδωσε τα βίντεό σου με PIN στην καρτέλα Εγγραφές. \nΓια την ασφάλειά σου, η καρτέλα Εγγραφές κλειδώνει αυτόματα όταν η εφαρμογή πάει στο παρασκήνιο ή κλείσει. Θα χρειαστεί να την ξεκλειδώσεις ξανά όταν επιστρέψεις</string>
     <string name="setting_applock_configure">Διαμόρφωση</string>
     <string name="applock_dialog_title">Επιλογές Κλειδώματος Καρτέλας</string>
     <string name="applock_enable">Ενεργοποίηση Κλειδώματος Καρτέλας</string>
@@ -1373,7 +1350,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="applock_verify_to_remove">Επαλήθευση PIN για Αφαίρεση</string>
     <string name="applock_verification_canceled">Η επαλήθευση ακυρώθηκε</string>
     <string name="version_format">v%s</string>
-    <string name="edit_with_faditorx">Επεξεργασία με Faditor Mini</string>
+    <string name="edit_with_faditorx">Επεξεργασία με Studio</string>
     <string name="remote_coming_soon_badge">Σύντομα</string>
     <!-- Update Bottom Sheet Strings -->
     <string name="update_sarcastic_heading">📦 Ω, κοίτα, άλλη μια ενημέρωση…</string>
@@ -1427,8 +1404,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="changelog_label">Τι Νέο</string>
     <!-- Fix Start: Add auto update check toggle strings -->
     <string name="setting_auto_update_check_title">Αυτόματος Έλεγχος Ενημερώσεων</string>
-    <string name="note_auto_update_check">Αν ενεργοποιημένο, το Joy Creator θα ελέγχει για ενημερώσεις.
-(Προεπιλογή: Ενεργό)</string>
+    <string name="note_auto_update_check">Αν είναι ενεργό, το Joy Creator θα ελέγχει για ενημερώσεις κάθε φορά που ανοίγεις την εφαρμογή. Απενεργοποίησέ το για να σταματήσουν οι αυτόματοι έλεγχοι στην εκκίνηση.\n(Προεπιλογή: Ενεργό)</string>
     <!-- Fix End: Add auto update check toggle strings -->
 
     <!-- Storage Location Settings -->
@@ -1511,7 +1487,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="intel_vehicles">ΟΧΗΜΑΤΑ</string>
     <string name="intel_animals">ΖΩΑ</string>
     <string name="intel_objects">ΑΝΤΙΚΕΙΜΕΝΑ</string>
-    <string name="intel_no_data">Δεν υπάρχουν διαθέσιμα δεδομένα.</string>
+    <string name="intel_no_data">Δεν υπάρχουν δεδομένα δραστηριότητας.\nΗ παρακολούθηση δραστηριότητας είναι ενεργή.</string>
     <string name="intel_time_window">Παράθυρο παρακολούθησης 24 ωρών</string>
     <string name="intel_range_24h">24Ω</string>
     <string name="intel_range_7d">7 ΗΜΕΡΕΣ</string>
@@ -1537,7 +1513,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="forensics_source_label">Πηγή: %1$s</string>
     <string name="forensics_gallery_title">Συλλογή Αποδείξεων</string>
     <string name="forensics_gallery_selected_count">%1$d επιλεγμένα</string>
-    <string name="forensics_gallery_deleted_toast">%1$d μετακινήθηκαν στον κάδο</string>
+    <string name="forensics_gallery_deleted_toast">%1$d μετακινήθηκαν στον κάδο • %2$d αφαιρέθηκαν</string>
     <plurals name="forensics_gallery_selected_count_plural">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
@@ -1554,7 +1530,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="forensics_grid_5">5 στήλες</string>
     <string name="forensics_serial_strip">απόδειξη</string>
     <string name="forensics_info_title">Πληροφορίες Απόδειξης</string>
-    <string name="forensics_info_body">Η Συλλογή Αποδείξεων αποθηκεύει στιγμιότυπα.</string>
+    <string name="forensics_info_body">Η Γκαλερί Στιγμιοτύπων αποθηκεύει στιγμιότυπα που τραβήχτηκαν κατά τη διάρκεια ενεργών εγγραφών.\n\nΤα στιγμιότυπα είναι αυτόνομα αρχεία και φαίνονται ακόμα κι αν το αρχικό βίντεο μετακινηθεί ή διαγραφεί.\n\nΓια στοιχεία που συνδέονται με βίντεο, χρησιμοποίησε τις λεπτομέρειες του στιγμιοτύπου στην προβολή φωτογραφίας για να πας στο αρχικό υλικό, όταν υπάρχει.</string>
     <string name="forensics_info_helper">Οι αποδείξεις εμφανίζονται εδώ.</string>
     <string name="forensics_info_line_1">Οι ενέργειες πηγαίου βίντεο είναι διαθέσιμες.</string>
     <string name="forensics_info_line_2">Τα στιγμιότυπα παραμένουν ως αυτόνομες αποδείξεις.</string>
@@ -1715,11 +1691,9 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <!-- Additional Notification Customization Strings -->
     <!-- Adding notification appearance strings -->
     <string name="setting_notification_appearance">Εμφάνιση Ειδοποίησης</string>
-    <string name="note_notification_appearance">Προσαρμογή ειδοποίησης εγγραφής
-(Προεπιλογή: Joy Creator)</string>
+    <string name="note_notification_appearance">Άλλαξε την εμφάνιση της ειδοποίησης εγγραφής\n(Προεπιλογή: Joy Creator)</string>
     <string name="hide_stop_button">Απόκρυψη κουμπιού διακοπής</string>
-    <string name="note_hide_stop_button">Απόκρυψη κουμπιού διακοπής
-(Προεπιλογή: Απενεργοποιημένο)</string>
+    <string name="note_hide_stop_button">Απόκρυψη του κουμπιού διακοπής στην ειδοποίηση\n(Προεπιλογή: Ανενεργό)</string>
     <string name="notification_preview">Προεπισκόπηση ειδοποίησης</string>
     <string name="notification_stop">ΔΙΑΚΟΠΗ</string>
     <!-- Unified notification style customization -->
@@ -1767,7 +1741,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="fix_video_internal_only">Η επιδιόρθωση υποστηρίζεται μόνο για εσωτερικά αρχεία.</string>
     <string name="fix_video_saf_copy_fail">Αποτυχία αντιγραφής SAF βίντεο.</string>
     <string name="fix_video_saf_write_fail">Δεν είναι δυνατή η εγγραφή.</string>
-    <string name="fix_video_saf_success">Το βίντεο επιδιορθώθηκε!</string>
+    <string name="fix_video_saf_success">Το βίντεο επισκευάστηκε! Αποθηκεύτηκε ως: %1$s.</string>
     <string name="fix_video_saf_export">Εξαγωγή ή κοινή χρήση του επιδιορθωμένου αρχείου.</string>
     <!-- Debug Log Tools -->
     <string name="debug_log_tools_title">Αρχείο Καταγραφής</string>
@@ -1797,7 +1771,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="restore_confirm_title">Επιβεβαίωση Επαναφοράς</string>
     <string name="restore_confirm_message">Επαναφορά %1$d στοιχείων στο %2$s;</string>
     <string name="restore_progress_title">Επαναφορά Αρχείων</string>
-    <string name="restore_success_message">Επιτυχής επαναφορά %1$d στοιχείων</string>
+    <string name="restore_success_message">Επαναφέρθηκαν με επιτυχία %1$d στοιχεία στο %2$s</string>
     <string name="restore_error_message">Αποτυχία επαναφοράς</string>
     <string name="restore_cancelled">Η επαναφορά ακυρώθηκε</string>
     <string name="restore_confirm_button">Επαναφορά</string>
@@ -1821,8 +1795,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="delete_all">Διαγραφή Όλων</string>
     <string name="new_project">Νέο Έργο</string>
     <string name="delete">Διαγραφή</string>
-    <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_header_button">Pro</string>
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">Σχετικά με τον Αναπαραγωγέα Βίντεο</string>
     <string name="player_info_content"><![CDATA[
@@ -1834,11 +1806,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     ]]></string>
     <!-- Codec Compatibility Strings -->
     <string name="codec_hevc_incompatible_title">Ο Κωδικοποιητής H.265 δεν Υποστηρίζεται για Ζωντανή Ροή</string>
-    <string name="codec_hevc_incompatible_message">📡 Η ζωντανή ροή μέσω HLS απαιτεί H.264.
-
-Το H.265 δεν είναι συμβατό με προγράμματα περιήγησης.
-
-Θα θέλατε να μεταβείτε σε H.264 και να ξεκινήσετε εγγραφή;</string>
+    <string name="codec_hevc_incompatible_message">📡 Η ζωντανή μετάδοση μέσω HLS απαιτεί κωδικοποιητή H.264.\n\nΤο H.265 δεν είναι συμβατό με τους προγράμματα αναπαραγωγής στον browser.\n\nΘες να αλλάξεις σε H.264 και να ξεκινήσεις την εγγραφή;</string>
     <string name="codec_switch_and_record">Μετάβαση σε H.264 &amp; Εγγραφή</string>
     <string name="codec_switch_cancelled">Η αλλαγή κωδικοποιητή ακυρώθηκε</string>
     <string name="codec_switched_to_h264">✓ Αλλαγή σε H.264. Έναρξη εγγραφής…</string>
@@ -1996,14 +1964,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="motion_lab_debug_metrics_value">Περιοχή %1$.3f, Ισχυρό %2$.3f, Μέσο %3$.3f, BG %4$.3f, Μέγιστο %5$.3f, Global %6$s</string>
     <string name="motion_lab_info_cd">Πληροφορίες Motion Lab</string>
     <string name="motion_lab_info_title">Αυτόματη Εγγραφή σε Κίνηση</string>
-    <string name="motion_lab_info_body">Αυτή είναι η λειτουργία Αυτόματης Εγγραφής σε Κίνηση του Joy Creator.
-
-Πώς λειτουργεί:
-- Η κάμερα παραμένει ενεργή και αναλύει καρέ σε πραγματικό χρόνο στη συσκευή.
-- Όταν ανιχνεύεται έγκυρη κίνηση, η εγγραφή ξεκινά/συνεχίζεται.
-- Η εγγραφή συνεχίζεται όσο υπάρχει κίνηση.
-- Αφού σταματήσει η κίνηση, η Μετα-εγγραφή συνεχίζει για τα επιλεγμένα δευτερόλεπτα.
-- Στη συνέχεια, η εγγραφή τίθεται σε παύση και περιμένει το επόμενο συμβάν κίνησης.</string>
+    <string name="motion_lab_info_body">Αυτή είναι η λειτουργία Αυτόματης Εγγραφής με Κίνηση του Joy Creator.\n\nΠώς δουλεύει με απλά λόγια:\n- Η κάμερά σου μένει ενεργή και αναλύει καρέ στη συσκευή σε πραγματικό χρόνο.\n- Το μοντέλο μηχανικής μάθησης στη συσκευή και η λογική κίνησης ψάχνουν για κίνηση.\n- Όταν εντοπιστεί έγκυρη κίνηση, η εγγραφή ξεκινά ή συνεχίζεται.\n- Η εγγραφή συνεχίζεται όσο υπάρχει κίνηση.\n- Όταν σταματήσει η κίνηση, το Post-roll συνεχίζει την εγγραφή για τα επιπλέον δευτερόλεπτα που διάλεξες.\n- Μετά η εγγραφή κάνει παύση και περιμένει την επόμενη κίνηση.\n\nΌταν η εγγραφή είναι σε παύση, η εφαρμογή συνεχίζει να αναλύει καρέ στη μνήμη, αλλά δεν γράφει νέο βίντεο μέχρι να εντοπιστεί ξανά κίνηση.\n\nΠώς να τη χρησιμοποιήσεις (οι περισσότεροι):\n- Άφησε όλες τις επιλογές στις προεπιλεγμένες τιμές.\n- Ενεργοποίησε τον Αισθητήρα Κίνησης σε αυτή την οθόνη.\n- Πήγαινε στην αρχική και ξεκίνα κανονικά την εγγραφή.\n- Η αυτόματη εγγραφή με κίνηση θα τρέξει μόνη της.\n\nΕύκολη δοκιμή από μακριά:\n- Ενεργοποίησε τον Αυτόματο Φακό σε αυτή την οθόνη.\n- Ξεκίνα την εγγραφή από την αρχική.\n- Άφησε το κινητό λίγο γερμένο σε τραπέζι ή ράφι, προς το δωμάτιο.\n- Βγες από το δωμάτιο και μετά μπες και περπάτα μέσα.\n- Όταν ανάψει ο φακός, καταλαβαίνεις αμέσως από μακριά ότι ξεκίνησε η εγγραφή.\n- Η εγγραφή θα συνεχιστεί για τη διάρκεια Post-roll που διάλεξες αφού σταματήσει η κίνηση.\n\nΣυμβουλή: Αυτή η λειτουργία τρέχει συνεχώς, οπότε πολύ υψηλές προχωρημένες τιμές μπορεί να ανεβάσουν τη θερμοκρασία και να φθείρουν τη συσκευή με τον καιρό. Για μεγάλες συνεδρίες, κράτα τις προεπιλογές αν δεν έχεις συγκεκριμένο λόγο.</string>
     <string name="motion_lab_percent_value">%1$d%%</string>
     <string name="motion_lab_fps_value">%1$d fps</string>
     <string name="motion_lab_ms_value">%1$d ms</string>
@@ -2017,16 +1978,12 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="home_sidebar_copyright" translatable="false">© FadSec Lab 2024 – 2026</string>
     <!-- Privacy Black Mode Settings -->
     <string name="privacy_black_mode_title">Μαύρη Οθόνη Απορρήτου</string>
-    <string name="privacy_black_mode_helper">Αν η συσκευή σας κλείνει την εφαρμογή στο παρασκήνιο, μπορείτε να χρησιμοποιήσετε αυτήν τη λειτουργία για να τη διατηρήσετε σε λειτουργία στο προσκήνιο.
-
-Εμφανίζεται μια μαύρη επικάλυψη οθόνης, κάνοντας την να μοιάζει σαν η οθόνη να είναι κλειστή ενώ η εγγραφή συνεχίζεται.
-
-Πατήστε το εικονίδιο Joy Creator στην κεφαλίδα της καρτέλας Αρχική για ενεργοποίηση.</string>
+    <string name="privacy_black_mode_helper">Αν η συσκευή σου κλείνει την εφαρμογή στο παρασκήνιο, μπορείς να χρησιμοποιήσεις αυτή τη λειτουργία για να μένει η εφαρμογή ενεργή στο προσκήνιο.\n\nΕμφανίζεται μια μαύρη επικάλυψη, που κάνει την οθόνη να μοιάζει σβηστή ενώ η εγγραφή συνεχίζεται.\n\nΠάτα το εικονίδιο Joy Creator στην πάνω κεφαλίδα της αρχικής καρτέλας για να την ενεργοποιήσεις.</string>
     <string name="privacy_black_mode_enable_title">Ενεργοποίηση Μαύρης Οθόνης Απορρήτου</string>
     <string name="privacy_black_mode_enabled_toast">Η Λειτουργία Απορρήτου Ενεργοποιήθηκε</string>
     <string name="privacy_black_mode_disabled_toast">Η Λειτουργία Απορρήτου Απενεργοποιήθηκε</string>
     <string name="privacy_black_gestures_title">Μέθοδοι Εξόδου</string>
-    <string name="privacy_black_gestures_helper">Επιλέξτε ποιες κινήσεις μπορούν να χρησιμοποιηθούν για έξοδο από τη Μαύρη Οθόνη Απορρήτου.</string>
+    <string name="privacy_black_gestures_helper">Διάλεξε ποιες χειρονομίες βγάζουν από τη Μαύρη Λειτουργία Απορρήτου.\n\nΣημείωση: Άφησε τουλάχιστον έναν τρόπο εξόδου ενεργό για να μη κολλήσεις!</string>
     <string name="privacy_black_gesture_swipe">Σάρωση προς τα Πάνω για Έξοδο</string>
     <string name="privacy_black_gesture_triple">Τριπλό Πάτημα για Έξοδο</string>
     <string name="privacy_black_gesture_long">Παρατεταμένο Πάτημα για Έξοδο</string>
@@ -2228,7 +2185,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="watermark_utm_title">Συντεταγμένες UTM</string>
     <string name="watermark_utm_off">Απενεργοποιημένο</string>
     <string name="watermark_utm_on">Ενεργοποιημένο — Συντεταγμένες UTM</string>
-    <string name="watermark_utm_helper">Το UTM χωρίζει τη Γη σε 60 ζώνες και μετατρέπει γεωγραφικό μήκος/πλάτος σε ανατολική &amp; βόρεια κατεύθυνση σε μέτρα.</string>
+    <string name="watermark_utm_helper">Το UTM χωρίζει τη Γη σε 60 ζώνες και μετατρέπει γεωγραφικό πλάτος/μήκος σε ανατολικές και βόρειες συντεταγμένες σε μέτρα. Το χρησιμοποιούν ο στρατός, οι τοπογράφοι και οι τοπογραφικοί χάρτες για ακριβή τοποθέτηση σε πλέγμα.\n\nΠώς διαβάζεται: «Zone 42N — 372,684m E, 3,512,334m N» = Ζώνη 42 στο βόρειο ημισφαίριο, 372,684 μέτρα ανατολικά (ανατολή-δύση), 3,512,334 μέτρα βόρεια (βορράς-νότος).</string>
     <string name="mini_app_speedometer_title">Ταχύμετρο</string>
     <string name="mini_app_speedometer_desc">Πραγματικό ταχύμετρο αυτοκινήτου με παρακολούθηση ταχύτητας GPS</string>
     <string name="mini_app_clinometer_title">Κλινόμετρο</string>
@@ -2245,7 +2202,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="mini_app_qr_generator_desc">Δημιουργία κωδικών QR από κείμενο, URLs και επαφές</string>
     <!-- Mini Apps Info Sheet -->
     <string name="mini_apps_planned_shortcuts_title">Προγραμματισμένο: Συντομεύσεις &amp; Αυτοματισμός</string>
-    <string name="mini_apps_planned_shortcuts_desc">Συντομεύσεις αρχικής οθόνης για άμεση πρόσβαση σε οποιαδήποτε Mini App.</string>
+    <string name="mini_apps_planned_shortcuts_desc">Συντομεύσεις στην αρχική οθόνη για άμεση πρόσβαση σε οποιαδήποτε Μίνι Εφαρμογή χωρίς να ανοίξεις πρώτα το Joy Creator.\n\nΥποστήριξη αυτοματισμών με intents (Tasker, MacroDroid κ.λπ.) για να ενεργοποιείς Μίνι Εφαρμογές προγραμματιστικά — χρησιμοποίησε σάρωση QR, φακό και άλλα από τις αυτοματοποιημένες ροές σου.</string>
 
     <string name="export_center">Κέντρο Εξαγωγής</string>
 
@@ -2550,7 +2507,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="settings_location_update_interval_5s">5.0 δευτερόλεπτα</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">από FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">από το Joy Creator</string>
     <string name="annotation_quick_access">Γρήγορη Πρόσβαση</string>
     <string name="annotation_annotate">Σχολιασμός</string>
     <string name="annotation_enable_tools">Ενεργοποίηση εργαλείων</string>
@@ -2764,4 +2721,585 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="toast_failed_open_file">Αποτυχία ανοίγματος αρχείου για εγγραφή</string>
     <string name="toast_cannot_write_custom_dir">Δεν είναι δυνατή η εγγραφή στον επιλεγμένο προσαρμοσμένο κατάλογο</string>
     <string name="toast_failed_create_file">Αποτυχία δημιουργίας αρχείου για εγγραφή</string>
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">Ξεκίνα νέα εγγραφή</string>
+    <string name="lobby_a11y_new_project">Ξεκίνα νέο έργο</string>
+    <string name="lobby_a11y_new_character">Φτιάξε νέο χαρακτήρα</string>
+    <string name="lobby_a11y_new_import">Εισαγωγή αρχείου</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s, δεν έχει τίποτα ακόμα</string>
+    <string name="lobby_a11y_library">Άνοιγμα της Library</string>
+    <string name="onboarding_a11y_checked">%1$s. Επιλεγμένο.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. Μη επιλεγμένο.</string>
+    <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
+    <string name="faditor_tools_more">Ακόμα %1$d</string>
+    <string name="faditor_tools_more_desc">Εμφάνιση όλων των εργαλείων</string>
+    <string name="capture_mode_camera">Κάμερα</string>
+    <string name="capture_mode_screen">Οθόνη</string>
+    <string name="capture_mode_mic">Μικρόφωνο</string>
+    <string name="webcam_overlay">Επικάλυψη webcam</string>
+    <string name="webcam_overlay_on">Ενεργό</string>
+    <string name="webcam_overlay_off">Ανενεργό</string>
+    <string name="webcam_overlay_notification_title">Η επικάλυψη webcam είναι ενεργή</string>
+    <string name="fadrec_recording_flash">Γίνεται εγγραφή!</string>
+    <string name="video_info_loading">Φόρτωση…</string>
+    <string name="faditor_timeline_resize_handle">Σύρε για αλλαγή μεγέθους χρονοδιαγράμματος και προεπισκόπησης</string>
+    <string name="faditor_export_preparing">Προετοιμασία εξαγωγής…</string>
+    <string name="faditor_export_compositing">Συνδυασμός βίντεο…</string>
+    <string name="faditor_export_finalizing">Ολοκλήρωση…</string>
+    <string name="faditor_font_picker_title">Γραμματοσειρά</string>
+    <string name="faditor_font_import">Εισαγωγή γραμματοσειράς…</string>
+    <string name="faditor_font_row_selected">%1$s (επιλεγμένη)</string>
+    <string name="faditor_tool_opacity">Αδιαφάνεια</string>
+    <string name="faditor_tool_text">Κείμενο</string>
+    <string name="faditor_tool_sticker">Εικόνα</string>
+    <string name="faditor_text_hint">Γράψε κείμενο</string>
+    <string name="faditor_text_edit_title">Επεξεργασία κειμένου</string>
+    <string name="faditor_text_delete">Διαγραφή</string>
+    <string name="faditor_text_selection_whole">Επιλογή όλων</string>
+    <string name="faditor_text_selection_count">%1$d επιλεγμένα</string>
+    <string name="faditor_text_selection_clear">Εκκαθάριση</string>
+    <string name="faditor_text_style_undo">Μορφοποίηση κειμένου</string>
+    <string name="faditor_text_motion_range">Εύρος κίνησης κειμένου</string>
+    <string name="faditor_trim_start_here">⇤ Αρχή εδώ</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  Όλη η διάρκεια</string>
+    <string name="faditor_trim_end_here">Τέλος εδώ ⇥</string>
+    <string name="faditor_split_playhead_text">Μετακίνησε τον δείκτη αναπαραγωγής μέσα στο κείμενο για να το χωρίσεις</string>
+    <string name="faditor_split_playhead_sprite">Μετακίνησε τον δείκτη αναπαραγωγής μέσα στο sprite για να το χωρίσεις</string>
+    <string name="faditor_split_playhead_pip">Μετακίνησε τον δείκτη αναπαραγωγής μέσα στο PiP για να το χωρίσεις</string>
+    <string name="faditor_split_playhead_layer">Μετακίνησε τον δείκτη αναπαραγωγής μέσα στο επίπεδο για να το χωρίσεις</string>
+    <string name="faditor_trim_start_impossible">Μετακίνησε τον δείκτη αναπαραγωγής πριν από το τέλος του επιπέδου για να κόψεις την αρχή</string>
+    <string name="faditor_trim_end_impossible">Μετακίνησε τον δείκτη αναπαραγωγής μετά την αρχή του επιπέδου για να κόψεις το τέλος</string>
+    <string name="faditor_heal_confirm_add">Αν ενώσεις ξανά αυτόν τον διαχωρισμό, θα προστεθεί %1$s στο χρονοδιάγραμμα. Εντάξει;</string>
+    <string name="faditor_heal_confirm_remove">Αν ενώσεις ξανά αυτόν τον διαχωρισμό, θα αφαιρεθεί %1$s από το χρονοδιάγραμμα. Εντάξει;</string>
+    <string name="faditor_locked_title">Κλειδωμένο αντικείμενο</string>
+    <string name="faditor_locked_message">Αυτό το αντικείμενο είναι κλειδωμένο. Να ξεκλειδωθεί και να συνεχίσεις;</string>
+    <string name="faditor_locked_unlock">Ξεκλείδωμα και συνέχεια</string>
+    <string name="faditor_fx_static_hint">Στατικό — πάτα ◆ για κίνηση</string>
+    <string name="faditor_fx_reorder_hint">Πρόσθεσε δεύτερο εφέ για να αλλάξεις τη σειρά της αλυσίδας</string>
+    <string name="faditor_fx_layer_only_left_out">Το %1$s χρειάζεται επίπεδο προσαρμογής — παραλείφθηκε</string>
+    <string name="faditor_color_set">Ορισμός</string>
+    <string name="faditor_image_overlay_title">Επικάλυψη εικόνας</string>
+    <string name="faditor_image_overlay_desc">Σύρε για μετακίνηση, τσίμπημα για αλλαγή μεγέθους</string>
+    <string name="faditor_tool_silence">Καθαρισμός</string>
+    <string name="faditor_tool_loop">Επανάληψη</string>
+    <string name="faditor_tool_settings">Ρυθμίσεις</string>
+    <string name="faditor_tool_sprites">Sprites</string>
+    <string name="sprite_editor_missing_image">Λείπει η εικόνα του φύλλου — εισήγαγέ την ξανά</string>
+    <string name="sprite_editor_no_project">Δεν βρέθηκε έργο — άνοιξε πρώτα τον επεξεργαστή</string>
+    <string name="sprite_editor_default_name">Sprite</string>
+    <string name="sprite_editor_name_hint">Όνομα φύλλου sprite</string>
+    <string name="sprite_editor_cell_name_hint">Όνομα κελιού (ψευδώνυμο)</string>
+    <string name="sprite_editor_cell_enabled">Ενεργό</string>
+    <string name="sprite_editor_cell_prefix">Κελί</string>
+    <string name="sprite_editor_save">Αποθήκευση</string>
+    <string name="sprite_editor_saved">Το φύλλο sprite αποθηκεύτηκε</string>
+    <string name="sprite_editor_save_failed">Η αποθήκευση δεν πέτυχε — δοκίμασε ξανά</string>
+    <string name="sprite_editor_import_failed">Δεν μπόρεσα να εισαγάγω αυτή την εικόνα</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">Άξονας</string>
+    <string name="sprite_editor_auto">Αυτόματα</string>
+    <string name="sprite_editor_auto_applied">Βρέθηκε πλέγμα: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">Δεν βρέθηκε καθαρό πλέγμα — όρισέ το με τα κουμπιά +/−</string>
+    <string name="sprite_editor_key">Κλειδί</string>
+    <string name="sprite_editor_key_clear">Κλειδί ✕</string>
+    <string name="sprite_editor_key_pick_hint">Πάτα το χρώμα του φόντου που θέλεις να αφαιρεθεί</string>
+    <string name="sprite_editor_key_cleared">Το κλειδί φόντου αφαιρέθηκε</string>
+    <string name="sprite_editor_onion">Onion</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">Οι πληροφορίες κοπής εφαρμόστηκαν από το συνοδευτικό αρχείο</string>
+    <string name="sprite_editor_sidecar_import_failed">Δεν μπόρεσα να διαβάσω το συνοδευτικό αρχείο</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">Το συνοδευτικό αρχείο αποθηκεύτηκε δίπλα στην εικόνα του φύλλου</string>
+    <string name="sprite_editor_sidecar_failed">Δεν μπόρεσα να γράψω το συνοδευτικό αρχείο</string>
+    <string name="sprite_sheet_picker_title">Φύλλα sprite</string>
+    <string name="sprite_sheet_picker_new">+ Νέο φύλλο sprite</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+    <string name="sprite_sheet_action_edit">Επεξεργασία φύλλου</string>
+    <string name="sprite_sheet_action_place">Τοποθέτηση στο βίντεο</string>
+    <string name="sprite_sheet_action_relink">Επανασύνδεση εικόνας…</string>
+    <string name="sprite_placed">Το sprite μπήκε — σύρε το πάνω στην προεπισκόπηση</string>
+    <string name="sprite_palette_load">+ Φόρτωση φύλλου sprite</string>
+    <string name="sprite_palette_cell_prefix">κελί</string>
+    <string name="sprite_palette_no_cell">κανένα καρέ ακόμα — πάτα ένα κελί</string>
+    <string name="sprite_palette_end_prefix">τέλος:</string>
+    <string name="sprite_palette_swap_dropped">Η εναλλαγή μπήκε στον δείκτη αναπαραγωγής</string>
+    <string name="avatar_studio_title">Avatars</string>
+    <string name="avatar_studio_new">+ Νέο avatar</string>
+    <string name="avatar_studio_default_name">Avatar</string>
+    <string name="avatar_studio_name_hint">Όνομα avatar</string>
+    <string name="avatar_studio_save">Αποθήκευση</string>
+    <string name="avatar_studio_saved">Το avatar αποθηκεύτηκε</string>
+    <string name="avatar_studio_save_failed">Η αποθήκευση δεν πέτυχε — δοκίμασε ξανά</string>
+    <string name="avatar_studio_no_project">Δεν βρέθηκε έργο — άνοιξε πρώτα τον επεξεργαστή</string>
+    <string name="avatar_studio_add_part">+ Μέρος</string>
+    <string name="avatar_studio_pick_sheet">Φύλλο sprite για το νέο μέρος</string>
+    <string name="avatar_studio_no_sheets">Κόψε πρώτα ένα φύλλο sprite (εργαλείο Sprites) — τα μέρη παίρνουν εικόνα από τα φύλλα</string>
+    <string name="avatar_studio_part_name_hint">Όνομα μέρους (κεφάλι, κορμός, χέρι Α…)</string>
+    <string name="avatar_studio_part_menu_parent">Ορισμός γονέα…</string>
+    <string name="avatar_studio_part_menu_unparent">Αφαίρεση γονέα</string>
+    <string name="avatar_studio_part_menu_remove">Αφαίρεση μέρους</string>
+    <string name="avatar_studio_parent_pick_title">Γονέας για το %1$s</string>
+    <string name="avatar_studio_armed_hint">Το κελί είναι οπλισμένο — σύρε τα μέρη για να στήσεις αυτή την ακραία πόζα</string>
+    <string name="avatar_studio_disarm_hint">Ελεύθερο πλέγμα — τα ρυθμιστικά κινούν το ανακάτεμα</string>
+    <string name="avatar_studio_yaw">Στροφή</string>
+    <string name="avatar_studio_pitch">Κλίση</string>
+    <string name="avatar_studio_cell_stepper">Κελί sprite</string>
+    <string name="avatar_studio_scale">Κλίμακα</string>
+    <string name="avatar_studio_rotation">Περιστρ.</string>
+    <string name="avatar_studio_flip_h">Αναστροφή Ο</string>
+    <string name="avatar_studio_flip_v">Αναστροφή Κ</string>
+    <string name="avatar_studio_mirror">Καθρέφτης ⇋</string>
+    <string name="avatar_studio_mirrored">Αντικαθρεφτίστηκε στο απέναντι κελί</string>
+    <string name="avatar_studio_pins">⌖ Καρφίτσες</string>
+    <string name="avatar_studio_pin_del">✕ καρφίτσα</string>
+    <string name="avatar_studio_density">Πλέγμα</string>
+    <string name="avatar_studio_pin_add_disarmed">Αφόπλισε το κελί για να προσθέσεις ή να αφαιρέσεις καρφίτσες (αλυσίδα ηρεμίας)</string>
+    <string name="avatar_studio_pins_reseeded">Οι καρφίτσες του κελιού ξαναφτιάχτηκαν από την αλυσίδα ηρεμίας</string>
+    <string name="avatar_studio_clear_cell">Καθάρισμα κελιού</string>
+    <string name="avatar_studio_cell_cleared">Το κελί καθαρίστηκε — ξαναγίνεται αυτόματο ανακάτεμα</string>
+    <string name="faditor_tools_all_title">Όλα τα εργαλεία</string>
+    <string name="faditor_tools_edit">Επεξεργασία</string>
+    <string name="faditor_tools_edit_done">Τέλος</string>
+    <string name="faditor_tools_edit_tooltip">Τακτοποίηση εργαλείων</string>
+    <string name="faditor_silence_audio_desc">Κόβει τα σιωπηλά κενά από αυτό το κλιπ ήχου και τα κλείνει. Μία Αναίρεση τα φέρνει πίσω.</string>
+    <string name="faditor_silence_audio_btn">Κόψιμο κενών</string>
+    <string name="faditor_tools_edit_hint">Κράτα πατημένο ένα εργαλείο και σύρε το σε νέα θέση. Σύρε το πέρα από τη μπάρα για να το καρφιτσώσεις. Πάτα Τέλος όταν ετοιμάσεις.</string>
+    <string name="faditor_settings_tool_order_title">Σειρά εργαλείων</string>
+    <string name="faditor_settings_tool_order_desc">Πώς τακτοποιούνται τα εργαλεία κάτω: με τη δική σου σειρά ή πρώτα τα πιο πρόσφατα.</string>
+    <string name="faditor_settings_tool_order_recent">Πρώτα τα πρόσφατα</string>
+    <string name="faditor_loop_off">Ανενεργό</string>
+    <string name="faditor_loop_normal">Επανάληψη</string>
+    <string name="faditor_loop_pingpong">Πινγκ-πονγκ</string>
+    <string name="faditor_loop_pingpong_parked">Πινγκ-πονγκ (σύντομα)</string>
+    <string name="faditor_loop_pingpong_parked_toast">Το αληθινό πινγκ-πονγκ βελτιώνεται ακόμα — έρχεται σύντομα. Χρησιμοποίησε την Επανάληψη για ομαλή επανάληψη προς τα εμπρός.</string>
+    <string name="faditor_loop_still">Ακίνητο</string>
+    <string name="faditor_loop_extend_start">Επέκταση ως την αρχή</string>
+    <string name="faditor_loop_extend_end">Επέκταση ως το τέλος</string>
+    <string name="faditor_loop_extend_prev">Επέκταση ως το προηγούμενο κλιπ</string>
+    <string name="faditor_loop_extend_next">Επέκταση ως το επόμενο κλιπ</string>
+    <string name="faditor_tool_transitions">Μεταβάσεις</string>
+    <string name="faditor_transitions">Μεταβάσεις</string>
+    <string name="faditor_transition_crossfade">Σταδιακή αλλαγή</string>
+    <string name="faditor_transition_black">Σβήσιμο σε μαύρο</string>
+    <string name="faditor_transition_white">Σβήσιμο σε λευκό</string>
+    <string name="faditor_transition_wipe">Σκούπισμα</string>
+    <string name="faditor_transition_radial">Ακτινωτό</string>
+    <string name="faditor_transition_mirror">Σκούπισμα καθρέφτη</string>
+    <string name="faditor_transition_push">Ώθηση</string>
+    <string name="faditor_transition_glitch">Glitch</string>
+    <string name="faditor_transition_tv_channel">Κανάλι τηλεόρασης</string>
+    <string name="faditor_transition_added">Η μετάβαση μπήκε στην πλησιέστερη ένωση</string>
+    <string name="faditor_transition_removed">Η μετάβαση αφαιρέθηκε</string>
+    <string name="faditor_gl_transition_pick_title">Διάλεξε εφέ GL</string>
+    <string name="faditor_visualizer_style_title">Στυλ οπτικοποίησης</string>
+    <string name="faditor_transition_duration_title">Διάρκεια μετάβασης</string>
+    <string name="faditor_transition_type_title">Είδος μετάβασης</string>
+    <string name="faditor_transition_remove">Αφαίρεση</string>
+    <string name="faditor_transition_direction_title">Κατεύθυνση</string>
+    <string name="faditor_filter_title">Φίλτρα και χρώμα</string>
+    <string name="faditor_filter_lut">Look (LUT)</string>
+    <string name="faditor_filter_lut_none">Κανένα</string>
+    <string name="faditor_filter_reset">Επαναφορά όλων</string>
+    <string name="faditor_filter_copy_all">Αντιγραφή του look σε όλα τα κλιπ</string>
+    <string name="faditor_filter_preset_save">Αποθήκευση ως προεπιλογή…</string>
+    <string name="faditor_filter_preset_name_hint">Όνομα προεπιλογής</string>
+    <string name="faditor_filter_preset_delete">Διαγραφή της προεπιλογής \"%s\";</string>
+    <string name="faditor_filter_preset_applied">Η προεπιλογή \"%s\" εφαρμόστηκε</string>
+    <string name="faditor_tool_filter">Φίλτρο</string>
+    <string name="faditor_tool_move">Μετακίνηση</string>
+    <string name="faditor_move_drawer_title">Μετακίνηση κλιπ</string>
+    <string name="faditor_move_layer_up">Μετακίνηση πάνω</string>
+    <string name="faditor_move_layer_down">Μετακίνηση κάτω</string>
+    <string name="faditor_move_to_time_hint">Χρονοσφραγίδα (00:00:00.000) ή καρέ</string>
+    <string name="faditor_move_clip_label">Αλλαγή σειράς κλιπ</string>
+    <string name="faditor_move_clip_start">Στην αρχή</string>
+    <string name="faditor_move_clip_left">Μία θέση αριστερά</string>
+    <string name="faditor_move_clip_right">Μία θέση δεξιά</string>
+    <string name="faditor_move_clip_end">Στο τέλος</string>
+    <string name="faditor_move_clip_at_start">Το κλιπ είναι ήδη πρώτο</string>
+    <string name="faditor_move_clip_at_end">Το κλιπ είναι ήδη τελευταίο</string>
+    <string name="faditor_move_clip_none">Διάλεξε πρώτα ένα κλιπ</string>
+    <string name="faditor_transition_need_two_clips">Πρόσθεσε τουλάχιστον δύο κλιπ βίντεο πριν βάλεις μετάβαση</string>
+    <string name="faditor_silence_detect_title">Εντοπισμός σιωπής</string>
+    <string name="faditor_silence_detect_desc">Τα σιωπηλά κενά σημειώνονται με κίτρινο. Πάτα ένα κίτρινο κενό στο χρονοδιάγραμμα για να το κόψεις (γίνεται μαύρο). Πάτα ξανά το εργαλείο για να κρυφτούν.</string>
+    <string name="faditor_silence_detect_btn">Εντοπισμός</string>
+    <string name="faditor_silence_found">Σημειώθηκαν %1$d σιωπηλά κενά — πάτα τα κίτρινα για να τα κόψεις</string>
+    <string name="faditor_silence_title">Αφαίρεση σιωπής</string>
+    <string name="faditor_silence_desc">Κόβει αυτόματα τα σιωπηλά κενά και τις νεκρές στιγμές από αυτό το κλιπ.</string>
+    <string name="faditor_silence_sensitivity">Ευαισθησία</string>
+    <string name="faditor_silence_analyzing">Ανάλυση ήχου…</string>
+    <string name="faditor_silence_none">Δεν βρέθηκαν σιωπηλά κενά</string>
+    <string name="faditor_silence_image">Αυτό το κλιπ δεν έχει ήχο για ανάλυση</string>
+    <string name="faditor_silence_result">Αφαιρέθηκαν %1$d κενά · κερδίθηκαν %2$.1fδ</string>
+    <string name="faditor_jump_to_time">Μετάβαση σε χρόνο</string>
+    <string name="faditor_relink_title">Λείπουν αρχεία</string>
+    <string name="faditor_relink_msg">Δεν άνοιξαν %1$d κλιπ (η πηγή μετακινήθηκε ή χάθηκε η πρόσβαση). Να τα συνδέσεις ξανά με τα αρχεία σου; Οι αλλαγές σου μένουν.</string>
+    <string name="faditor_relink_now">Επανασύνδεση</string>
+    <string name="faditor_relink_later">Αργότερα</string>
+    <string name="faditor_relink_sheet_title">Επανασύνδεση βίντεο που λείπει</string>
+    <string name="faditor_relink_sheet_sub">Ψάχνω για: %1$s</string>
+    <string name="faditor_relink_auto_found">Βρέθηκαν %1$d ακόμα στον ίδιο φάκελο — συνδέθηκαν αυτόματα</string>
+    <string name="faditor_relink_replace_title">Αντικατάσταση αυτού του βίντεο;</string>
+    <string name="faditor_relink_replace_msg">Διάλεξε άλλο αρχείο για αυτό το κλιπ. Όλες οι αλλαγές σου (κόψιμο, κοψίματα, υπότιτλοι) μένουν.</string>
+    <string name="faditor_relink_replace">Αντικατάσταση βίντεο</string>
+    <string name="faditor_relink_catalog_title">Κατάλογος αρχείων</string>
+    <string name="faditor_relink_repaired">Διορθώθηκαν %1$d από %2$d — πάτα ένα ✗ για επανασύνδεση</string>
+    <string name="faditor_relink_all_ok">Όλα τα αρχεία είναι προσβάσιμα ✓</string>
+    <string name="faditor_relink_all">↻ Επανασύνδεση όλων που λείπουν</string>
+    <string name="faditor_relink_done">Τέλος</string>
+    <string name="faditor_relink_missing">ΛΕΙΠΕΙ</string>
+    <string name="faditor_relink_ok">OK</string>
+    <string name="faditor_relink_generated">δημιουργήθηκε — η προσωρινή μνήμη καθαρίστηκε</string>
+    <string name="faditor_relink_confirm_title">Επιβεβαίωση αντικατάστασης</string>
+    <string name="faditor_relink_confirm_msg">Αντικατάσταση κλιπ #%1$d:\n\n  Πριν: %2$s (%3$s)\n  Νέο: %4$s (%5$s)\n\nΌλες οι αλλαγές (κόψιμο, κοψίματα, υπότιτλοι) διατηρούνται.</string>
+    <string name="faditor_relink_confirm_yes">Αντικατάσταση</string>
+    <string name="faditor_relink_skip">Παράλειψη αυτού</string>
+    <string name="faditor_relink_warn_same_file">⚠ Αυτό το αρχείο χρησιμοποιείται ήδη στο κλιπ #%1$d. Αν το ξαναχρησιμοποιήσεις, και τα δύο κλιπ θα δείχνουν το ίδιο υλικό.</string>
+    <string name="faditor_relink_warn_duration">⚠ Η διάρκεια διαφέρει αρκετά. Πριν ήταν %1$s, τώρα είναι %2$s. Ίσως χρειαστεί να προσαρμόσεις τα σημεία κοψίματος.</string>
+    <string name="faditor_relink_err_type">✗ Λάθος είδος αρχείου. Περίμενα %1$s αλλά πήρα %2$s.</string>
+    <string name="faditor_relink_btn">Κατάλογος αρχείων</string>
+    <string name="faditor_asset_browser">Περιήγηση αρχείων</string>
+    <string name="faditor_asset_browser_title">Καρφιτσωμένος φάκελος</string>
+    <string name="faditor_asset_browser_pin_dir">Επιλογή φακέλου</string>
+    <string name="faditor_asset_browser_change_dir">Αλλαγή φακέλου</string>
+    <string name="faditor_asset_browser_unpin">Ξεκαρφίτσωμα φακέλου</string>
+    <string name="faditor_asset_browser_empty">Δεν βρέθηκαν αρχεία πολυμέσων σε αυτόν τον φάκελο</string>
+    <string name="faditor_asset_browser_no_dir">Δεν έχει καρφιτσωθεί φάκελος ακόμα. Πάτα το εικονίδιο καρφίτσας για να διαλέξεις.</string>
+    <string name="faditor_asset_browser_pin_success">Καρφιτσώθηκε: %1$s</string>
+    <string name="faditor_asset_browser_filter_all">Όλα</string>
+    <string name="faditor_asset_browser_filter_used">Σε χρήση</string>
+    <string name="faditor_asset_browser_filter_unused">Αχρησιμοποίητα</string>
+    <string name="faditor_asset_browser_rename">Μετονομασία</string>
+    <string name="faditor_asset_browser_rename_title">Μετονομασία αρχείου</string>
+    <string name="faditor_asset_browser_rename_hint">Νέο όνομα (κράτα την κατάληξη)</string>
+    <string name="faditor_asset_browser_rename_success">Μετονομάστηκε σε %1$s</string>
+    <string name="faditor_asset_browser_rename_error">Δεν μπόρεσα να μετονομάσω το αρχείο</string>
+    <string name="faditor_asset_browser_delete_title">Αφαίρεση από το ιστορικό;</string>
+    <string name="faditor_asset_browser_delete_msg">Να αφαιρεθεί αυτός ο φάκελος από το ιστορικό των καρφιτσωμένων; Τα αρχεία του που χρησιμοποιούνται θα μείνουν στο έργο.</string>
+    <string name="faditor_asset_browser_delete_blocked">Δεν γίνεται αφαίρεση: χρησιμοποιούνται αρχεία από αυτόν τον φάκελο.</string>
+    <string name="faditor_asset_insert_at_playhead">Εισαγωγή του επιλεγμένου αρχείου στον δείκτη αναπαραγωγής</string>
+    <string name="faditor_asset_drag_hint">Πάτα παρατεταμένα και σύρε στο χρονοδιάγραμμα</string>
+    <string name="faditor_asset_used_badge">Σε χρήση</string>
+    <string name="faditor_new_project_title">Δώσε όνομα στο έργο σου (%1$d κλιπ)</string>
+    <string name="faditor_new_project_hint">Όνομα έργου</string>
+    <string name="faditor_create">Δημιουργία</string>
+    <string name="faditor_creating_project">Δημιουργία έργου…</string>
+    <string name="faditor_create_failed">Δεν μπόρεσα να φτιάξω έργο από αυτά τα βίντεο.</string>
+    <string name="faditor_transcript_delete_version_title">Διαγραφή απομαγνητοφώνησης</string>
+    <string name="faditor_transcript_delete_version_msg">Να αφαιρεθεί η απομαγνητοφώνηση \"%1$s\" από αυτό το κλιπ; Οι άλλες εκδόσεις μένουν.</string>
+    <string name="faditor_kf_section">Κίνηση (καρέ-κλειδιά)</string>
+    <string name="faditor_kf_status">%1$d καρέ-κλειδιά</string>
+    <string name="faditor_kf_hint_start">Βάλε την επικάλυψη στη θέση της και πάτα ◆ για να αρχίσεις την κίνηση.</string>
+    <string name="faditor_kf_hint_armed">%1$d καρέ-κλειδιά. Τώρα μετακίνησε τον δείκτη αναπαραγωγής και σύρε την επικάλυψη — τα καρέ-κλειδιά προστίθενται μόνα τους.</string>
+    <string name="faditor_kf_add">◆ Προσθήκη καρέ-κλειδιού</string>
+    <string name="faditor_kf_added">Προστέθηκε καρέ-κλειδί στον δείκτη αναπαραγωγής</string>
+    <string name="faditor_kf_clear">Εκκαθάριση</string>
+    <string name="faditor_kf_set_start">Αρχή εδώ</string>
+    <string name="faditor_kf_set_end">Τέλος εδώ</string>
+    <string name="faditor_kf_range_set">Ο χρόνος της επικάλυψης ενημερώθηκε</string>
+    <string name="faditor_kf_range_invalid">Μετακίνησε τον δείκτη αναπαραγωγής — το τέλος πρέπει να έρχεται μετά την αρχή.</string>
+    <string name="faditor_coachmark_gestures_title">Επεξεργασία στοιχείου</string>
+    <string name="faditor_coachmark_gestures_body">Διπλό πάτημα για επεξεργασία  ·  Παρατεταμένο για το μενού του  ·  Σύρσιμο για μετακίνηση</string>
+    <string name="faditor_coachmark_got_it">Κατάλαβα</string>
+    <string name="faditor_transitions_more_effects">⌄  Περισσότερα εφέ</string>
+    <string name="faditor_transitions_fewer_effects">⌃  Λιγότερα εφέ</string>
+    <string name="faditor_clean_audio_label">Καθαρός ήχος v2</string>
+    <string name="faditor_clean_audio_desc">Αφαιρεί τον θόρυβο, εξομαλύνει τις εντάσεις και διορθώνει την ένταση σε δύο περάσματα με περιορισμό κορυφών. Η εξαγωγή παίρνει περισσότερο χρόνο.</string>
+    <string name="faditor_transcript">Απομαγνητοφώνηση</string>
+    <string name="faditor_captions">Υπότιτλοι</string>
+    <string name="faditor_captions_need_transcript">Απομαγνητοφώνησε πρώτα αυτό το κλιπ και μετά πρόσθεσε υπότιτλους</string>
+    <string name="faditor_captions_done">Τέλος</string>
+    <string name="faditor_transcript_clean">Καθάρισμα φρασεολογίας</string>
+    <string name="faditor_transcript_apply">Οριστικοποίηση</string>
+    <string name="faditor_transcript_committed">Οι αλλαγές κλείδωσαν — η εξαγωγή θα τις εφαρμόσει</string>
+    <string name="faditor_transcript_search">Αναζήτηση στην απομαγνητοφώνηση</string>
+    <string name="faditor_transcript_break">Αλλαγή γραμμής μετά την επισημασμένη λέξη</string>
+    <string name="faditor_transcript_pick_model">Διάλεξε μοντέλο ομιλίας</string>
+    <string name="faditor_transcript_pick_model_sub">Τρέχει εντελώς χωρίς σύνδεση στο κινητό σου. Κατεβαίνει μία φορά.</string>
+    <string name="faditor_transcript_model_fast">Γρήγορος χρονισμός</string>
+    <string name="faditor_transcript_model_fast_sub">~40 MB · το πιο γρήγορο · άριστος ΧΡΟΝΙΣΜΟΣ λέξεων, πιο τραχιές λέξεις</string>
+    <string name="faditor_transcript_model_accurate">Ισορροπημένο</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 MB · καλός χρονισμός ΚΑΙ καλές λέξεις · τρέχει περίπου σε πραγματικό χρόνο</string>
+    <string name="faditor_transcript_model_whisper">Καλύτερη διατύπωση</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 MB · οι καλύτερες ΛΕΞΕΙΣ, πιο χαλαρός χρονισμός · το πιο αργό</string>
+    <string name="faditor_transcript_model_whisper_note">Η καλύτερη διατύπωση χρησιμοποιεί το Whisper: τις καλύτερες λέξεις, αλλά ο χρονισμός του ξεφεύγει σε μεγάλα κλιπ. Ο γρήγορος χρονισμός και το Ισορροπημένο είναι Vosk — ο χρονισμός των λέξεων είναι πιο ακριβής, και αυτόν χρειάζονται ο συγχρονισμός υποτίτλων και η επεξεργασία μέσω κειμένου. Αν τρέξεις ένα από κάθε είδος, μπορούν να συγχωνευτούν σε ένα κομμάτι με καλές λέξεις ΚΑΙ καλό χρονισμό.</string>
+    <string name="faditor_transcribe_prompt_title">Να γίνει απομαγνητοφώνηση του βίντεο;</string>
+    <string name="faditor_transcribe_prompt_message">Φτιάξε μια απομαγνητοφώνηση με δυνατότητα αναζήτησης και επεξεργασίας για το κλιπ που μόλις πρόσθεσες. Τρέχει εντελώς χωρίς σύνδεση.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">Να μην ρωτήσεις ξανά</string>
+    <string name="faditor_settings_title">Ρυθμίσεις επεξεργαστή</string>
+    <string name="faditor_settings_ask_transcribe_title">Ερώτηση για απομαγνητοφώνηση όταν προσθέτεις βίντεο</string>
+    <string name="faditor_settings_ask_transcribe_desc">Εμφάνιση ερώτησης για απομαγνητοφώνηση ενός κλιπ αμέσως μόλις το προσθέσεις στο χρονοδιάγραμμα.</string>
+    <string name="faditor_transcript_working">Δουλεύω…</string>
+    <string name="faditor_transcript_header_audio">Ήχος · %1$s</string>
+    <string name="faditor_transcript_header_clip">Κλιπ %1$d · %2$s</string>
+    <string name="faditor_transcript_source">+ Πηγή</string>
+    <string name="faditor_transcript_offer_title">Πρόσθεσε πηγή απομαγνητοφώνησης</string>
+    <string name="faditor_transcript_offer_message">Φόρτωσε ή φτιάξε μια απομαγνητοφώνηση για το επιλεγμένο κλιπ.\n\nΜπορείς πάντα να προσθέσεις πηγή αργότερα από την κεφαλίδα της απομαγνητοφώνησης ή από το κουμπί + Πηγή.</string>
+    <string name="faditor_transcript_offer_dont_show">Να μην το δείξεις ξανά</string>
+    <string name="faditor_transcript_image">Αυτό το κλιπ δεν έχει ήχο για απομαγνητοφώνηση</string>
+    <string name="faditor_transcript_empty">Δεν εντοπίστηκε ομιλία</string>
+    <string name="faditor_transcript_error">Η απομαγνητοφώνηση απέτυχε: %1$s</string>
+    <string name="faditor_transcript_cleaned">Διαγράφηκαν %1$d λέξεις-γέμισμα</string>
+    <string name="faditor_transcript_no_edits">Δεν έχει διαγραφεί τίποτα ακόμα — πάτα παρατεταμένα λέξεις για να τις αφαιρέσεις</string>
+    <string name="faditor_blank_clip_length">Διάρκεια μαύρου κλιπ</string>
+    <string name="faditor_motion_start_here">Η κίνηση ξεκινά εδώ</string>
+    <string name="faditor_motion_span_whole">Η κίνηση καλύπτει όλο το αντικείμενο</string>
+    <string name="faditor_motion_end_here">Η κίνηση τελειώνει εδώ</string>
+    <string name="faditor_zone_in_ends_here">Η είσοδος τελειώνει εδώ</string>
+    <string name="faditor_zone_clear">Χωρίς είσοδο ή έξοδο</string>
+    <string name="faditor_zone_out_starts_here">Η έξοδος ξεκινά εδώ</string>
+    <string name="faditor_blank_clip_added">Προστέθηκε μαύρο κλιπ (%1$s)</string>
+    <string name="faditor_add_asset_audio">Ήχος</string>
+    <string name="faditor_add_asset_pip">Επικάλυψη βίντεο (PiP)</string>
+    <string name="faditor_pip_added">Η επικάλυψη βίντεο μπήκε — σύρε την πάνω στην προεπισκόπηση</string>
+    <string name="faditor_audio_import_added">Ο ήχος προστέθηκε στο χρονοδιάγραμμα</string>
+    <string name="faditor_audio_import_error">Δεν μπόρεσα να διαβάσω αυτό το αρχείο ήχου</string>
+    <string name="faditor_undo_ai_edits">Αλλαγές του AI</string>
+    <string name="faditor_heal_success">Το κενό έκλεισε χωρίς να χαθεί τίποτα</string>
+    <string name="faditor_heal_error">Δεν γίνεται να κλείσει εδώ - πολύ κοντά στην άκρη</string>
+    <string name="faditor_heal_title">Να κλείσει το κενό γύρω από τον δείκτη αναπαραγωγής;</string>
+    <string name="faditor_heal_msg">Αφαίρεση %1$s γύρω από τον δείκτη αναπαραγωγής με κόψιμο που δεν χαλάει το υλικό. Μπορείς να το αναιρέσεις.</string>
+    <string name="faditor_delete_last_segments">Δεν γίνεται να διαγραφεί το μοναδικό τμήμα</string>
+    <string name="faditor_crop_custom_ratio_title">Δική σου αναλογία (Π:Υ)</string>
+    <string name="faditor_canvas_custom_res_title">Δική σου ανάλυση (Π×Υ)</string>
+    <string name="faditor_settings_safe_zone_title">Οδηγός ασφαλούς ζώνης 9:16</string>
+    <string name="faditor_settings_safe_zone_desc">Εμφανίζει στην προεπισκόπηση έναν οδηγό που δείχνει την ασφαλή περιοχή των social media σε καμβάδες 9:16 (ζώνη χωρίς τα κουμπιά της πλατφόρμας). Δεν επηρεάζει ποτέ την εξαγωγή.</string>
+    <string name="faditor_crop_snap_on">Κεντράρισμα ενεργό</string>
+    <string name="faditor_crop_snap_off">Κεντράρισμα ανενεργό</string>
+    <string name="faditor_crop_auto_applied">Εφαρμόστηκε αυτόματη περικοπή</string>
+    <string name="faditor_crop_no_black_bars">Δεν βρέθηκαν μαύρες μπάρες· χρησιμοποιώ περικοπή αναλογίας</string>
+    <string name="faditor_crop_error">Διάλεξε ένα κλιπ βίντεο για περικοπή</string>
+    <string name="faditor_soft_snap_on">Απαλό κούμπωμα ενεργό</string>
+    <string name="faditor_soft_snap_off">Απαλό κούμπωμα ανενεργό</string>
+    <string name="faditor_export_complete_summary_audio">Ο ήχος σου αποθηκεύτηκε στον φάκελο Joy Creator. Θα τον βρεις στη Library.</string>
+    <string name="faditor_reverse_long_loop_later">Η αναπαραγωγή ανάποδα για μεγάλες επαναλήψεις έρχεται αργότερα — προς το παρόν η επανάληψη παίζει την ουρά της κανονικά.</string>
+    <string name="faditor_export_filename_label">Όνομα αρχείου</string>
+    <string name="faditor_export_result_play">Αναπαραγωγή του βίντεο που μόλις εξήγαγες</string>
+    <string name="faditor_export_result_open_records">Πάτα για αναπαραγωγή · Προβολή στις Εγγραφές</string>
+    <string name="faditor_export_no_room">Δεν υπάρχει αρκετός ελεύθερος χώρος στο κινητό για αυτή την εξαγωγή. Άδειασε περίπου %1$s (διάγραψε παλιές εξαγωγές ή βίντεο που δεν χρειάζεσαι) και δοκίμασε ξανά. Το έργο σου είναι ασφαλές.</string>
+    <string name="faditor_export_prepare_failed">Η εξαγωγή δεν μπόρεσε να ετοιμαστεί, πιθανότατα επειδή το κινητό ξέμεινε από μνήμη ή χώρο. Κλείσε άλλες εφαρμογές, άδειασε λίγο χώρο και δοκίμασε ξανά. Το έργο σου είναι ασφαλές.</string>
+    <string name="faditor_export_snapshot_unreadable">Η εξαγωγή δεν μπόρεσε να ξεκινήσει γιατί δεν διάβασε το έργο σου. Δοκίμασε ξανά. Το έργο σου είναι ασφαλές.</string>
+    <string name="faditor_export_copy_failed_title">Η εξαγωγή τελείωσε, αλλά όχι στον φάκελό σου</string>
+    <string name="faditor_export_copy_failed_summary">Η αντιγραφή στον φάκελο που διάλεξες δεν δούλεψε (ίσως το κινητό είναι γεμάτο). Το βίντεό σου %1$s είναι ασφαλές μέσα στο Joy Creator: θα το βρεις στη Library.</string>
+    <string name="faditor_export_copy_failed_toast">Το βίντεό σου είναι έτοιμο, αλλά δεν αντιγράφηκε στον φάκελο που διάλεξες (ίσως το κινητό είναι γεμάτο). Είναι ασφαλές μέσα στο Joy Creator: θα το βρεις στη Library.</string>
+    <string name="battery_optimization_off">Η βελτιστοποίηση μπαταρίας είναι απενεργοποιημένη</string>
+    <string name="stream_notes_cellular">⚠️ Μόνο Wi-Fi: τα δίκτυα κινητής μπλοκάρουν τις εισερχόμενες συνδέσεις, οπότε ο θεατής και αυτό το κινητό πρέπει να είναι στο ίδιο Wi-Fi.</string>
+    <string name="torchtimer_label">Χρονοδιακόπτης αυτόματου σβησίματος</string>
+    <string name="torchtimer_desc">Το φλας σβήνει αυτόματα μετά τον χρόνο που όρισες</string>
+    <string name="torchtimer_off">Ανενεργό</string>
+    <string name="torchtimer_picker_helper">Ο χρονοδιακόπτης ξεκινά μόνο όταν το φλας είναι αναμμένο</string>
+    <string name="torchtimer_cancel">Ακύρωση χρονοδιακόπτη</string>
+    <string name="torchtimer_30s">30 δευτερόλεπτα</string>
+    <string name="torchtimer_1m">1 λεπτό</string>
+    <string name="torchtimer_2m">2 λεπτά</string>
+    <string name="torchtimer_5m">5 λεπτά</string>
+    <string name="torchtimer_10m">10 λεπτά</string>
+    <string name="torchtimer_15m">15 λεπτά</string>
+    <string name="torchtimer_30m">30 λεπτά</string>
+    <string name="torchtimer_1h">1 ώρα</string>
+    <string name="torchtimer_custom_title">Ορισμός δικού σου χρονοδιακόπτη</string>
+    <string name="torchtimer_custom_unit_helper">Διάλεξε μονάδα χρόνου</string>
+    <string name="torchtimer_custom_hint">Γράψε διάρκεια</string>
+    <string name="torchtimer_custom_minutes_example">Παράδειγμα: 5 για 5 λεπτά</string>
+    <string name="torchtimer_custom_hours_example">Παράδειγμα: 2 για 2 ώρες</string>
+    <string name="torchtimer_custom_apply">Εφαρμογή</string>
+    <string name="torchtimer_custom_error_positive">Η διάρκεια πρέπει να είναι μεγαλύτερη από 0</string>
+    <string name="torchtimer_custom_error_invalid">Μη έγκυρος αριθμός</string>
+    <string name="setting_on">Ενεργό</string>
+    <string name="menu_auto_pause_title">Αυτόματη παύση όσο είναι ανοιχτό το μενού</string>
+    <string name="button_state_tint_title">Χρώμα κουμπιού που αιωρείται κατά την εγγραφή</string>
+    <string name="record_no_room_to_start">Δεν υπάρχει αρκετός χώρος στο κινητό για εγγραφή. Άδειασε λίγο χώρο και δοκίμασε ξανά.</string>
+    <string name="record_stopped_low_space">Το κινητό είναι σχεδόν γεμάτο, γι\' αυτό η εγγραφή σταμάτησε. Ό,τι έχει γραφτεί μέχρι τώρα είναι αποθηκευμένο.</string>
+    <string name="record_stopped_write_problem">Η εγγραφή δεν μπορούσε να αποθηκευτεί άλλο, γι\' αυτό σταμάτησε. Ό,τι γράφτηκε μέχρι τότε διατηρήθηκε.</string>
+    <string name="faditor_m12_select_clip_first">Διάλεξε πρώτα ένα κλιπ στο κύριο κομμάτι</string>
+    <string name="faditor_m12_select_object_first">Διάλεξε πρώτα ένα αντικείμενο σε ένα επίπεδο</string>
+    <string name="faditor_m12_only_video_images">Στο κύριο κομμάτι μπαίνουν μόνο βίντεο και εικόνες</string>
+    <string name="faditor_m12_need_one_clip">Το κύριο κομμάτι χρειάζεται τουλάχιστον ένα κλιπ</string>
+    <string name="faditor_m12_moved_to_layer">Μετακινήθηκε σε επίπεδο</string>
+    <string name="faditor_m12_moved_to_main">Μετακινήθηκε στο κύριο κομμάτι</string>
+    <string name="faditor_m12_undo_to_layer">Μετακίνηση σε επίπεδο</string>
+    <string name="faditor_m12_undo_to_main">Μετακίνηση στο κύριο κομμάτι</string>
+    <string name="faditor_text_decor_section">Στυλ</string>
+    <string name="faditor_text_decor_stroke">Περίγραμμα</string>
+    <string name="faditor_text_decor_glow">Λάμψη</string>
+    <string name="faditor_text_decor_shadow">Σκιά</string>
+    <string name="faditor_text_decor_plate">Φόντο</string>
+    <string name="faditor_mask_action">Μάσκα</string>
+    <string name="faditor_mask_title">Μάσκα</string>
+    <string name="faditor_mask_remove">Αφαίρεση</string>
+    <string name="faditor_mask_x">Κέντρο Χ</string>
+    <string name="faditor_mask_y">Κέντρο Υ</string>
+    <string name="faditor_mask_w">Πλάτος</string>
+    <string name="faditor_mask_h">Ύψος</string>
+    <string name="faditor_mask_round">Στρογγυλότητα</string>
+    <string name="faditor_mask_rotate">Περιστροφή</string>
+    <string name="faditor_mask_soften">Απαλές άκρες</string>
+    <string name="faditor_mask_only_inside">Εμφάνιση μόνο μέσα στο πλαίσιο</string>
+    <string name="faditor_mask_section_shape">Σχήμα</string>
+    <string name="faditor_kf_outside_span">Μετακίνησε τον δείκτη αναπαραγωγής πάνω σε αυτό το κλιπ για να προσθέσεις καρέ-κλειδί</string>
+    <string name="faditor_key_section">Chroma key</string>
+    <string name="faditor_key_enable">Αφαίρεση ενός χρώματος</string>
+    <string name="faditor_key_color">Χρώμα κλειδιού</string>
+    <string name="faditor_key_eyedropper">Επιλογή από το βίντεο</string>
+    <string name="faditor_key_eyedropper_failed">Δεν μπόρεσα να διαβάσω αυτό το pixel — δοκίμασε ξανά όσο φαίνεται το κλιπ</string>
+    <string name="faditor_key_tap_prompt">Πάτα το χρώμα που θέλεις να αφαιρεθεί</string>
+    <string name="faditor_key_tolerance">Ανοχή</string>
+    <string name="faditor_key_softness">Απαλότητα άκρων</string>
+    <string name="faditor_key_spill">Στένεμα / άπλωμα</string>
+    <string name="faditor_blend_action">Τρόπος ανάμειξης</string>
+    <string name="faditor_blend_title">Τρόπος ανάμειξης</string>
+    <string name="faditor_blend_export_note">Οι τρόποι ανάμειξης εφαρμόζονται όταν κάνεις εξαγωγή. Η προεπισκόπηση δείχνει το επίπεδο κανονικά.</string>
+    <string name="faditor_image_inert_mask">Δεν εφαρμόζεται ακόμα σε επικαλύψεις εικόνας — το σχήμα σου αποθηκεύεται, αλλά δεν θα επηρεάσει την προεπισκόπηση ή την εξαγωγή.</string>
+    <string name="faditor_image_inert_key">Δεν εφαρμόζεται ακόμα σε επικαλύψεις εικόνας — το κλειδί σου αποθηκεύεται, αλλά δεν θα επηρεάσει την προεπισκόπηση ή την εξαγωγή.</string>
+    <string name="faditor_image_inert_fx">Δεν εφαρμόζεται ακόμα σε επικαλύψεις εικόνας — τα εφέ σου αποθηκεύονται, αλλά δεν θα επηρεάσουν την προεπισκόπηση ή την εξαγωγή.</string>
+    <string name="faditor_image_fx_export_note">Το θόλωμα και άλλα εφέ που θέλουν δικό τους πέρασμα παραλείπονται — και στην εξαγωγή και εδώ.</string>
+    <string name="faditor_image_mask_export_note">Οι μάσκες σε εικόνα εφαρμόζονται όταν κάνεις εξαγωγή. Η προεπισκόπηση δείχνει ολόκληρη την εικόνα, εκτός αν η εικόνα έχει και εφέ, chroma key ή τρόπο ανάμειξης — τότε μασκάρεται και εδώ.</string>
+    <string name="faditor_blend_normal">Κανονικό</string>
+    <string name="faditor_blend_multiply">Πολλαπλασιασμός</string>
+    <string name="faditor_blend_screen">Οθόνη</string>
+    <string name="faditor_blend_overlay">Επικάλυψη</string>
+    <string name="faditor_blend_add">Πρόσθεση</string>
+    <string name="faditor_blend_difference">Διαφορά</string>
+    <string name="faditor_blend_color">Χρώμα</string>
+    <string name="faditor_blend_darken">Σκούρυνση</string>
+    <string name="faditor_blend_lighten">Φώτιση</string>
+    <string name="faditor_blend_color_dodge">Υπερέκθεση χρώματος</string>
+    <string name="faditor_blend_color_burn">Καύση χρώματος</string>
+    <string name="faditor_blend_linear_burn">Γραμμική καύση</string>
+    <string name="faditor_blend_hard_light">Σκληρό φως</string>
+    <string name="faditor_blend_soft_light">Απαλό φως</string>
+    <string name="faditor_blend_vivid_light">Έντονο φως</string>
+    <string name="faditor_blend_linear_light">Γραμμικό φως</string>
+    <string name="faditor_blend_pin_light">Φως καρφίτσας</string>
+    <string name="faditor_blend_hard_mix">Σκληρή ανάμειξη</string>
+    <string name="faditor_blend_exclusion">Αποκλεισμός</string>
+    <string name="faditor_blend_subtract">Αφαίρεση</string>
+    <string name="faditor_blend_divide">Διαίρεση</string>
+    <string name="faditor_blend_darker_color">Πιο σκούρο χρώμα</string>
+    <string name="faditor_blend_lighter_color">Πιο φωτεινό χρώμα</string>
+    <string name="faditor_blend_hue">Απόχρωση</string>
+    <string name="faditor_blend_saturation">Κορεσμός</string>
+    <string name="faditor_blend_luminosity">Φωτεινότητα</string>
+    <string name="faditor_blend_group_normal">Κανονικό</string>
+    <string name="faditor_blend_group_darken">Σκούρυνση</string>
+    <string name="faditor_blend_group_lighten">Φώτιση</string>
+    <string name="faditor_blend_group_contrast">Αντίθεση</string>
+    <string name="faditor_blend_group_comparative">Συγκριτικά</string>
+    <string name="faditor_blend_group_color">Χρώμα</string>
+    <string name="faditor_orphan_title">Αντικείμενα σε αυτό το κλιπ</string>
+    <string name="faditor_orphan_body">%1$d αντικείμενα επιπέδων ξεκινούν πάνω στο κλιπ που διέγραψες. Να τα κρατήσεις και να τα συνδέσεις με το επόμενο κλιπ ή να τα διαγράψεις κι αυτά;</string>
+    <string name="faditor_orphan_keep">Κράτησέ τα</string>
+    <string name="faditor_orphan_delete">Διάγραψέ τα</string>
+    <string name="faditor_orphan_remember">Να θυμάσαι την επιλογή μου</string>
+    <string name="faditor_orphan_undo">Διαγραφή αντικειμένων επιπέδων</string>
+    <string name="faditor_orphan_removed">Αφαιρέθηκαν %1$d αντικείμενα επιπέδων</string>
+    <string name="faditor_settings_orphan_title">Αντικείμενα σε διαγραμμένο κλιπ</string>
+    <string name="faditor_settings_orphan_desc">Τι γίνεται με τα αντικείμενα επιπέδων όταν διαγράφεις το κλιπ πάνω στο οποίο βρίσκονται. Τώρα: %1$s</string>
+    <string name="faditor_settings_orphan_ask">Να ρωτάει πάντα</string>
+    <string name="mini_apps_customize_title">Προσαρμογή Μίνι Εφαρμογών</string>
+    <string name="mini_apps_show_count">Πόσες να φαίνονται</string>
+    <string name="mini_apps_show_count_desc">Αριθμός μίνι εφαρμογών που θα φαίνονται</string>
+    <string name="desc_mini_apps_count_minus">Μείωση αριθμού</string>
+    <string name="desc_mini_apps_count_plus">Αύξηση αριθμού</string>
+    <string name="mini_apps_reorder_footer">Σύρε για αλλαγή σειράς</string>
+    <string name="quick_timer_desc">Περιγραφή γρήγορου χρονοδιακόπτη</string>
+    <string name="quick_timer_label">Χρονόμετρο</string>
+    <string name="quick_mute_label">Σίγαση</string>
+    <string name="grid_lines_title">Γραμμές πλέγματος</string>
+    <string name="grid_lines_subtitle">Εμφάνιση γραμμών πλέγματος</string>
+    <string name="desc_mini_apps_edit">Επεξεργασία μίνι εφαρμογών</string>
+    <string name="records_repair_banner_title">Μπάνερ επισκευής</string>
+    <string name="records_repair_banner_dismiss">Κλείσιμο</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">συνέχισε ό,τι άγγιξες τελευταίο</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">Λήψη</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">Avatar</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">Joy Brush</string>
+    <string name="lobby_hero_new">Νέο</string>
+    <string name="lobby_new_recording">Εγγραφή</string>
+    <string name="lobby_new_project">Έργο</string>
+    <string name="lobby_new_character">Χαρακτήρας</string>
+    <string name="lobby_new_import">Εισαγωγή</string>
+    <string name="lobby_floor_finder">Εντοπισμός</string>
+    <string name="lobby_floor_remote">Τηλεχειριστήριο</string>
+    <string name="lobby_floor_bits">Κομμάτια</string>
+    <string name="lobby_floor_packs">Πακέτα</string>
+    <string name="lobby_floor_setup">Ρύθμιση</string>
+    <string name="lobby_empty_studio">Δεν έχεις επεξεργαστεί τίποτα ακόμα. Ξεκίνα ένα έργο και θα σε περιμένει εδώ.</string>
+    <string name="lobby_empty_sprites">Κανένα φύλλο ακόμα. Φέρε ένα σχέδιο και κόψε το σε καρέ.</string>
+    <string name="lobby_empty_avatar">Κανένας χαρακτήρας ακόμα. Στήσε μια εικόνα και θα κινηθεί.</string>
+    <string name="lobby_empty_viz">Κανένας οπτικοποιητής ακόμα. Φτιάξε έναν από οποιονδήποτε ήχο έχεις.</string>
+    <string name="lobby_empty_textlab">Λέξεις που μοιάζουν με αφίσα ταινίας: χρώμιο, χρυσός, νέον, φωτιά. Διάλεξε ένα look και γράψε.</string>
+    <string name="lobby_empty_joybrush">Ζωγράφισε κάτι. Αποθηκεύεται μόνο του.</string>
+    <string name="lobby_act_carry_on">Συνέχεια</string>
+    <string name="lobby_act_open">Άνοιγμα</string>
+    <string name="lobby_act_record">Εγγραφή</string>
+    <string name="lobby_act_start">Ξεκίνα ένα</string>
+    <string name="lobby_act_new_drawing">Ζωγράφισε</string>
+    <string name="intro_line_capture">εγγραφή οθόνης με το πρόσωπό σου πάνω της</string>
+    <string name="intro_line_record">εγγραφή βίντεο, ακόμα και με σβηστή οθόνη</string>
+    <string name="intro_line_editor">ένας αληθινός επεξεργαστής — επίπεδα, μάσκες, καρέ-κλειδιά</string>
+    <string name="intro_line_animation">animation — sprites, rigs, μαριονέτες</string>
+    <string name="intro_line_transcribe">απομαγνητοφώνηση που δεν φεύγει ποτέ από το κινητό σου</string>
+    <string name="intro_line_secondcam">ένα δεύτερο κινητό ως κάμερα, μέσω του δικού σου Wi-Fi</string>
+    <string name="intro_line_ai">AI που επεξεργάζεται το πραγματικό χρονοδιάγραμμα</string>
+    <string name="intro_start_creating">Ξεκίνα να δημιουργείς</string>
+    <string name="intro_promise">Χωρίς διαφημίσεις. Χωρίς συνδρομή.\nΧωρίς υδατογράφημα.</string>
+    <string name="intro_promise_ever">Χωρίς πληρωμή για εξαγωγή. Ποτέ.</string>
+    <string name="intro_story">Το έφτιαξα ανάμεσα σε υπνάκους, φροντίζοντας τα τρία μικρά μου παιδιά. Έτσι στηρίζω την οικογένειά μου. Αν κερδίζεις κάτι από αυτό, μπορείς να βοηθήσεις να μένει δωρεάν για όλους τους άλλους.</string>
+    <string name="intro_cta_start">Ξεκίνα να δημιουργείς</string>
+    <string name="intro_ai_note">Το Joy Creator δεν τρέχει δικούς του διακομιστές. Αν συνδέσεις ένα AI, οι εντολές σου πάνε στον πάροχο που διάλεξες — εμείς δεν τις βλέπουμε ποτέ και δεν παίρνουμε μερίδιο.</string>
+    <string name="intro_ai_have_key">Έχεις ήδη κλειδί;</string>
+    <string name="intro_ai_add_now">Πρόσθεσέ το τώρα</string>
+    <string name="intro_ai_later">Αργότερα, από το chat</string>
+    <string name="desc_select_mode">Λειτουργία επιλογής</string>
+    <string name="desc_delete_selected">Διαγραφή επιλεγμένων</string>
+    <string name="desc_cancel_selection">Ακύρωση επιλογής</string>
+    <string name="desc_select_month">Επιλογή αυτού του μήνα</string>
+    <string name="desc_watch_remote_toggle">Έναρξη ή διακοπή μετάδοσης</string>
+    <string name="desc_back">Πίσω</string>
+    <string name="desc_decrease_named">Μείωση: %1$s</string>
+    <string name="desc_increase_named">Αύξηση: %1$s</string>
+    <string name="desc_pip_expand">Μεγάλωσε την προεπισκόπηση</string>
+    <string name="desc_pip_undock">Αποδέσμευση: η προεπισκόπηση πλέει ξανά</string>
+    <string name="desc_keyframe_toggle">Καρέ-κλειδί στον δείκτη αναπαραγωγής: πάτα για προσθήκη ή αφαίρεση</string>
+    <string name="desc_transcript_show">Εμφάνιση απομαγνητοφώνησης</string>
+    <string name="desc_transcript_resize">Σύρε για αλλαγή μεγέθους του πίνακα απομαγνητοφώνησης</string>
+    <string name="desc_transcript_search">Αναζήτηση στην απομαγνητοφώνηση</string>
+    <string name="desc_transcript_hide">Απόκρυψη απομαγνητοφώνησης</string>
+    <string name="desc_transcript_add_pass">Πρόσθεσε άλλο πέρασμα απομαγνητοφώνησης</string>
+    <string name="desc_search_prev">Προηγούμενο αποτέλεσμα αναζήτησης</string>
+    <string name="desc_search_next">Επόμενο αποτέλεσμα αναζήτησης</string>
+    <string name="desc_crop_auto">Αυτόματη περικοπή μαύρων μπαρών</string>
+    <string name="desc_crop_snap_center">Κεντράρισμα περικοπής</string>
+    <string name="desc_volume_keyframe">Καρέ-κλειδιά έντασης ενεργά ή ανενεργά</string>
+    <string name="desc_volume_mute">Σίγαση ή άρση σίγασης του επιλεγμένου ήχου</string>
+    <string name="desc_opacity_keyframe">Καρέ-κλειδιά αδιαφάνειας ενεργά ή ανενεργά</string>
+    <string name="desc_caption_keyframe">Καρέ-κλειδιά στυλ υποτίτλων ενεργά ή ανενεργά</string>
+    <string name="desc_keyframe_prev">Προηγούμενο καρέ-κλειδί</string>
+    <string name="desc_keyframe_next">Επόμενο καρέ-κλειδί</string>
+    <string name="desc_keyframe_delete">Διαγραφή καρέ-κλειδιού</string>
+    <string name="desc_keyframe_playhead">Πρόσθεση, ενημέρωση ή αφαίρεση καρέ-κλειδιού στον δείκτη αναπαραγωγής</string>
+    <string name="desc_move_go">Μετακίνηση του κλιπ στη θέση που έγραψες</string>
+    <string name="desc_word_earlier">Μετακίνηση της λέξης ένα καρέ νωρίτερα</string>
+    <string name="desc_word_later">Μετακίνηση της λέξης ένα καρέ αργότερα</string>
+    <string name="desc_word_center">Κεντράρισμα σε αυτή τη λέξη</string>
+    <string name="desc_hide_captions_clip">Απόκρυψη υποτίτλων μόνο για αυτό το κλιπ</string>
+    <string name="desc_insert_playhead">Εισαγωγή του επιλεγμένου αρχείου στον δείκτη αναπαραγωγής</string>
+    <string name="desc_layer_colour">Ορισμός χρώματος επιπέδου</string>
+    <string name="desc_visualizer_save">Αποθήκευση αυτού του στυλ οπτικοποίησης</string>
+    <string name="desc_visualizer_export">Εξαγωγή αυτού του στυλ οπτικοποίησης σε αρχείο</string>
+    <string name="desc_visualizer_import">Εισαγωγή στυλ οπτικοποίησης από αρχείο</string>
+    <string name="desc_wave_justify">Κάθετη στοίχιση</string>
+    <string name="desc_wave_data_mode">Λειτουργία δεδομένων</string>
+    <string name="desc_wave_mirror">Οριζόντιος καθρέφτης</string>
+    <string name="desc_wave_center_mode">Λειτουργία κέντρου</string>
+    <string name="desc_wave_render_mode">Λειτουργία απόδοσης</string>
+    <string name="desc_wave_attach">Σύνδεση με κλιπ ή αποσύνδεση</string>
 </resources>

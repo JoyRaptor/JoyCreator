@@ -125,6 +125,20 @@ object LayerBudget {
     fun mediaBudgetBytes(totalRamBytes: Long): Long =
         if (totalRamBytes <= 0L) MIN_MEDIA_BYTES else maxOf(MIN_MEDIA_BYTES, (totalRamBytes * MEDIA_RAM_SHARE).toLong())
 
+    /**
+     * How much pencil, watercolour and oil state (bytes of store tiles, uncompressed) a save keeps as workable paint: a
+     * quarter of the app's heap, and no more than [SAVE_PAINT_MAX_BYTES]. A save reads all of it back with the pen waiting
+     * and holds it in the heap until the file is written, and so does opening the file. Measured on the Note 9 (512 MB
+     * heap, 2026-11-15, a full page of oil, 264 picture tiles): 128 MB of stores read back in 1.1 s and written in 8.8 s
+     * (53 MB on disk, heap 211 MB); 64 MB 0.6 s and 6.8 s; all 264 MB 1.9 s and 14.1 s (98 MB on disk, heap 352 MB).
+     * Past the budget the newest paint is kept as paint and the rest as its picture ([cc.joycreator.joybrush.core.media.MediaRoom.newestWithin]).
+     * It can grow when a save rereads and rewrites only the tiles that changed.
+     */
+    fun savePaintBudgetBytes(heapMaxBytes: Long): Long =
+        if (heapMaxBytes <= 0L) SAVE_PAINT_MAX_BYTES / 2 else minOf(SAVE_PAINT_MAX_BYTES, heapMaxBytes / 4)
+
+    const val SAVE_PAINT_MAX_BYTES = 128L shl 20
+
     /** The floor, for a phone that does not say how much memory it has: room for one 5 cm square of every store. */
     const val MIN_MEDIA_BYTES = 64L shl 20
 

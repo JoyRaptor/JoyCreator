@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Jäädvustus vajab kaamerat ja mikrofoni</string>
+    <string name="access_capture_why">Filmimiseks ja heli salvestamiseks palub Android lubada kaamera ja mikrofoni. Joy Creator palub ka luba näidata salvestuse teavitust, et sa alati teaksid, millal salvestatakse. Midagi ei lahku sinu telefonist.</string>
+    <string name="access_allow">Luba</string>
+    <string name="access_not_now">Mitte praegu</string>
+    <string name="access_capture_declined">Jäädvusta jääb suletuks, kuni kaamera ja mikrofon on lubatud. Puuduta Jäädvusta uuesti, millal tahes.</string>
+    <string name="access_capture_blocked">Android ei küsi kaamera ega mikrofoni luba enam uuesti. Lülita need sisse Joy Creatori seadete lehel jaotises Load ja tule siis tagasi.</string>
+    <string name="access_open_settings">Ava seaded</string>
+</resources>

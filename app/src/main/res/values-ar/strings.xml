@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools">
     <string name="check_for_updates">التحقق من التحديثات</string>
-    <string name="fadsec_info">Joy Creator هو جزء من مجموعة أدوات FadSec. لمزيد من التفاصيل، يرجى النقر على زر "عرض الشيفرة المصدرية" أدناه</string>
-    <string name="app_description">\n    <![CDATA[
-    Joy Creator هو برنامج تسجيل فيديو مفتوح المصدر يركز على الخصوصية ولا يحتوي على إعلانات. يمكن الحصول على البرنامج من خلال روابط GitHub وREADME الرسمية.
-    <br/><br/>
-    تم عرض Joy Creator في قنوات يوتيوب الشهيرة <font color="#cfbafd">HowToMen</font> و <font color="#cfbafd">Xtream Droid</font>، وتم ذكره أيضًا في أنظمة <font color="#cfbafd">GrapheneOS</font> و+55 من الأنظمة الأخرى المعروفة.
-    ]]>\n</string>
+    <string name="fadsec_info">Joy Creator مجاني ومفتوح المصدر. لمزيد من المعلومات، اضغط على \'عرض الشيفرة المصدرية\' أدناه.</string>
+    <string name="app_description">Joy Creator تطبيق لتسجيل الفيديو بلا إعلانات ومفتوح المصدر، يضع الخصوصية أولًا فلا يتتبع ولا يجمع أي بيانات. وهو متاح حصريًا على GitHub ومن خلال الروابط الرسمية المذكورة في ملف README. &lt;br/&gt;&lt;br/&gt; ظهر Joy Creator في قنوات يوتيوب شهيرة مثل &lt;font color=\"#cfbafd\"&gt;HowToMen&lt;/font&gt; و&lt;font color=\"#cfbafd\"&gt;Xtream Droid&lt;/font&gt;، وجرى الحديث عنه في &lt;font color=\"#cfbafd\"&gt;GrapheneOS&lt;/font&gt; وأكثر من 55 مكانًا بارزًا آخر.</string>
     <string name="view_source_code">عرض الشيفرة المصدرية</string>
     <string name="contact">جهة الاتصال</string>
     <string name="send_email">إرسال بريد إلكتروني</string>
@@ -78,49 +74,43 @@
         <item>ما هو لون بوغاتي الخاصة بك؟ (❁´◡`❁) </item>
         <item>لم أكتب الكود بهذه الطريقة. هل تحاول أن تخترقني؟</item>
     </string-array>
-    <string-array name="questions_array" tools:ignore="InconsistentArrays">
-        <item>إخلاء المسؤولية</item>
-        <item>هل يجمع Joy Creator بيانات المستخدمين؟</item>
-        <item>هل يحتوي Joy Creator على إعلانات؟</item>
-        <item>لماذا يطلب Joy Creator الوصول إلى بيانات الموقع؟</item>
-        <item>هل يتصل Joy Creator بالإنترنت؟</item>
-        <item>هل سيتم تخزين البيانات على خوادم خارجية؟</item>
-        <item>ماذا يحدث بعد تسجيل الفيديو؟</item>
-        <item>هل يشارك Joy Creator بياناتي مع أطراف ثالثة؟</item>
-        <item> </item>
-        <item> </item>
-        <item>أسئلة الاستخدام</item>
-        <item>لماذا يستغرق الأمر وقتًا طويلاً لإضافة العلامة المائية؟</item>
-        <item>لماذا يوجد فيديو "مؤقت"؟</item>
-        <item>كيف أغير جودة التسجيل؟</item>
-        <item>كيف يمكنني إيقاف عرض المعاينة أثناء التسجيل؟</item>
-        <item>كيف أدمج بيانات الموقع كعلامة مائية في الفيديو؟</item>
-        <item>هل سيتم تسجيل تفضيلاتي؟</item>
-        <item>كيف يمكنني التسجيل تلقائيًا (جدولة)؟</item>
-        <item>كيف أحدث البرنامج؟</item>
-        <item> </item>
+    <string-array name="questions_array">
+        <item>تنبيه</item>
+        <item>هل يجمع Joy Creator أي بيانات عن المستخدم؟</item>
+        <item>هل توجد إعلانات في Joy Creator؟</item>
+        <item>لماذا يطلب Joy Creator الوصول إلى الموقع؟</item>
+        <item>لماذا يلزم إذن الإنترنت؟</item>
+        <item>هل تُخزَّن أي بيانات على خوادم خارجية؟</item>
+        <item>ماذا يحدث لفيديوهاتي بعد التسجيل؟</item>
+        <item>هل يشارك Joy Creator بياناتي مع جهات خارجية؟</item>
+        <item></item>
+        <item></item>
+        <item>عام</item>
+        <item>هل يمكنني إيقاف المعاينة؟</item>
+        <item>كيف أضيف موقعي إلى العلامة المائية؟</item>
+        <item>هل تُحفظ تفضيلاتي؟</item>
+        <item>هل يمكنني جدولة التسجيلات؟</item>
+        <item>كيف أحدّث التطبيق؟</item>
+        <item></item>
     </string-array>
-    <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>لا يدعم Joy Creator أي استخدام غير أخلاقي أو غير قانوني للبرنامج. تتعارض التصرفات مثل المراقبة غير المصرح بها أو انتهاك الخصوصية مع مبادئنا بشدة. لا يتحمل مؤلفو Joy Creator أي مسؤولية عن أي إساءة استخدام للبرنامج والنتائج التي تترتب عليها.</item>
-        <item>لا، Joy Creator لا يجمع أي بيانات للمستخدمين.</item>
-        <item>لا، Joy Creator خالٍ من الإعلانات.</item>
-        <item>لاستخدام وظيفة إضافة علامة مائية لبيانات الموقع.</item>
-        <item>لا، Joy Creator لا يتصل بالإنترنت.</item>
-        <item>لا، جميع البيانات تُخزن على جهازك.</item>
-        <item>الفيديوهات التي تسجلها سيتم تخزينها فقط على هاتفك.</item>
-        <item>لا، Joy Creator لا يخزن أو يشارك أي معلومات.</item>
-        <item> </item>
-        <item> </item>
-        <item> </item>
-        <item>يتم إضافة العلامة المائية إلى كل إطار من الفيديو المسجل. كلما طال الفيديو، زاد الوقت المطلوب.</item>
-        <item>الفيديو "المؤقت" هو في الواقع الفيديو الأصلي الذي سجلته. سيتم حذفه تلقائيًا بعد إضافة العلامة المائية. إذا حدث خطأ في إضافة العلامة المائية، سيظل هذا الملف "المؤقت" كنسخة احتياطية.</item>
-        <item>يمكنك تغييرها في الإعدادات: HD، SD، أو FHD.</item>
-        <item>اضغط طويلاً على منطقة المعاينة لإيقاف تشغيلها.</item>
-        <item>قم بتمكين ميزة الموقع لاستخدام علامة مائية لمعلومات الموقع. ستتم إضافة معلومات الموقع الجغرافية الدقيقة إلى الفيديو.</item>
-        <item>نعم، سيتم حفظ جميع التفضيلات دون أي أثر.</item>
-        <item>ستتوفر هذه الميزة في المستقبل.</item>
-        <item>انتقل إلى مستودع GitHub الرسمي لدينا للحصول على التحديثات.</item>
-        <item> </item>
+    <string-array name="answers_array">
+        <item>لا يقر Joy Creator ولا يدعم أي استخدام غير أخلاقي أو غير قانوني لهذا البرنامج. إساءة الاستخدام، مثل المراقبة دون إذن أو انتهاك الخصوصية، مخالفة تمامًا لإرشاداتنا. والمطوّر غير مسؤول عن أي إساءة لاستخدام التطبيق.</item>
+        <item>لا، Joy Creator لا يجمع أي بيانات عن المستخدم.</item>
+        <item>لا، Joy Creator خالٍ تمامًا من الإعلانات.</item>
+        <item>لإضافة معلومات الموقع إلى علاماتك المائية.</item>
+        <item>للتحقق التلقائي من التحديثات.</item>
+        <item>لا، كل البيانات مخزّنة على جهازك.</item>
+        <item>تُحفظ فيديوهاتك محليًا على جهازك.</item>
+        <item>لا، Joy Creator لا يشارك ولا يجمع أي بيانات، ولا حتى سجلات الأعطال.</item>
+        <item></item>
+        <item></item>
+        <item></item>
+        <item>اضغط مطولًا على منطقة المعاينة لإيقافها.</item>
+        <item>فعّل الموقع في الإعدادات لتظهر بيانات الموقع في العلامة المائية. سيضيف خط الطول وخط العرض بدقة.</item>
+        <item>نعم، تُحفظ التفضيلات وكل الإعدادات وتُطبَّق بسلاسة.</item>
+        <item>هذه الميزة قادمة قريبًا.</item>
+        <item>تحقق من مستودع GitHub الرسمي للحصول على التحديثات.</item>
+        <item></item>
     </string-array>
     <string name="dialog_welcome_title">مرحبًا بك في Joy Creator!</string>
     <string name="note_under_dev">تنبيه هام: هذا البرنامج لا يزال في مرحلة التطوير. سيتم إضافة ميزات جديدة تدريجياً</string>
@@ -155,7 +145,7 @@
     <string name="up_to_date_description">أنت تستخدم بالفعل أحدث إصدار.</string>
     <string name="up_to_date_loading">التحقق من وجود تحديثات...</string>
     <string name="update_available_title">تحديث متاح</string>
-    <string name="update_available_message">إصدار جديد (%1$s) متاح. للتحديث، يرجى زيارة متجر F-Droid أو مستودع GitHub الخاص بنا لمزيد من التفاصيل.</string>
+    <string name="update_available_message">تحديث جديد طازج جاهز! أنت على الإصدار v%1$s وأحدث إصدار هو v%2$s. استمتع بالميزات والتحسينات الجديدة.</string>
     <string name="visit_fdroid">زيارة F-Droid</string>
     <string name="visit_github">زيارة GitHub</string>
     <string name="delete_all_videos_title">حذف جميع مقاطع الفيديو</string>
@@ -200,9 +190,7 @@
     <string name="setting_framerate_title">معدل إطارات الفيديو</string>
     <string name="note_framerate">اختر معدل الإطارات\n(الافتراضي: %1$d)</string>
     <string name="setting_codec_title">ترميز الفيديو</string>
-    <string name="note_codec">اختر الترميز
-(الافتراضي: %1$s)
-ملاحظة: مع H.265 (HEVC)، يمكنك استخدام نصف معدل البت تقريبًا مقارنةً بـ H.264 لنفس الجودة. مثال: للفيديو FHD، استخدم 8 ميجابت/ثانية بدلاً من 16 ميجابت/ثانية.</string>
+    <string name="note_codec">اختر الترميز\n(الافتراضي: %1$s)\nنصيحة: مع H.265 (HEVC) يمكنك استخدام نصف معدل البت تقريبًا مقارنة بـ H.264 للجودة نفسها. مثال: لدقة FHD استخدم 8 Mbps بدلًا من 16 Mbps.</string>
     <string name="setting_video_bitrate_title">معدل البت للفيديو</string>
     <string name="button_video_bitrate_settings">تعيين معدل البت</string>
     <string name="bitrate_mode_default">افتراضي</string>
@@ -712,15 +700,15 @@
 
     <string name="home_elapsed_flag_option">علامة اللون</string>
 
-    <string name="home_elapsed_flag_option_desc">إظهار أو إخفاء علامة FadSec Lab خلف المؤقت</string>
+    <string name="home_elapsed_flag_option_desc">إظهار الشريط الملون خلف المؤقت أو إخفاؤه</string>
 
-    <string name="home_elapsed_flag_helper">اختر ما إذا كانت علامة FadSec Lab تظهر خلف مؤقت الوقت المنقضي.</string>
+    <string name="home_elapsed_flag_helper">اختر هل يظهر الشريط الملون خلف مؤقت الوقت المنقضي.</string>
 
-    <string name="home_elapsed_flag_show">إظهار علامة FadSec Lab (افتراضي)</string>
+    <string name="home_elapsed_flag_show">إظهار اللون (الافتراضي)</string>
 
     <string name="home_elapsed_flag_show_desc">عرض العلامة المميزة خلف المؤقت</string>
 
-    <string name="home_elapsed_flag_hide">إخفاء علامة FadSec Lab</string>
+    <string name="home_elapsed_flag_hide">إخفاء اللون</string>
 
     <string name="home_elapsed_flag_hide_desc">إبقاء منطقة مؤقت الوقت المنقضي نظيفة بدون العلامة</string>
 
@@ -1015,48 +1003,54 @@
     <string name="records_save_header_done_body_failed">فشل %1$d عنصر.</string>
 
     <plurals name="records_delete_header_running_title">
-        <item quantity="one">جارٍ حذف عنصر واحد</item>
-        <item quantity="two">جارٍ حذف عنصرين</item>
+        <item quantity="zero">جارٍ حذف %d عنصر</item>
+        <item quantity="one">جارٍ حذف %d عنصر</item>
+        <item quantity="two">جارٍ حذف %d عنصر</item>
         <item quantity="few">جارٍ حذف %d عناصر</item>
         <item quantity="many">جارٍ حذف %d عنصرًا</item>
         <item quantity="other">جارٍ حذف %d عنصر</item>
     </plurals>
 
     <plurals name="records_delete_header_progress_title">
+        <item quantity="zero">جارٍ حذف %1$d من %2$d عنصر</item>
         <item quantity="one">جارٍ حذف %1$d من %2$d عنصر</item>
-        <item quantity="two">جارٍ حذف %1$d من %2$d عنصرين</item>
-        <item quantity="few">جارٍ حذف %1$d من %2$d عناصر</item>
-        <item quantity="many">جارٍ حذف %1$d من %2$d عنصرًا</item>
+        <item quantity="two">جارٍ حذف %1$d من %2$d عنصر</item>
+        <item quantity="few">جارٍ حذف %1$d من %2$d عنصر</item>
+        <item quantity="many">جارٍ حذف %1$d من %2$d عنصر</item>
         <item quantity="other">جارٍ حذف %1$d من %2$d عنصر</item>
     </plurals>
 
     <plurals name="records_save_copy_header_progress_title">
+        <item quantity="zero">جارٍ حفظ %1$d من %2$d عنصر</item>
         <item quantity="one">جارٍ حفظ %1$d من %2$d عنصر</item>
-        <item quantity="two">جارٍ حفظ %1$d من %2$d عنصرين</item>
-        <item quantity="few">جارٍ حفظ %1$d من %2$d عناصر</item>
-        <item quantity="many">جارٍ حفظ %1$d من %2$d عنصرًا</item>
+        <item quantity="two">جارٍ حفظ %1$d من %2$d عنصر</item>
+        <item quantity="few">جارٍ حفظ %1$d من %2$d عنصر</item>
+        <item quantity="many">جارٍ حفظ %1$d من %2$d عنصر</item>
         <item quantity="other">جارٍ حفظ %1$d من %2$d عنصر</item>
     </plurals>
 
     <plurals name="records_save_move_header_progress_title">
+        <item quantity="zero">جارٍ نقل %1$d من %2$d عنصر</item>
         <item quantity="one">جارٍ نقل %1$d من %2$d عنصر</item>
-        <item quantity="two">جارٍ نقل %1$d من %2$d عنصرين</item>
-        <item quantity="few">جارٍ نقل %1$d من %2$d عناصر</item>
-        <item quantity="many">جارٍ نقل %1$d من %2$d عنصرًا</item>
+        <item quantity="two">جارٍ نقل %1$d من %2$d عنصر</item>
+        <item quantity="few">جارٍ نقل %1$d من %2$d عنصر</item>
+        <item quantity="many">جارٍ نقل %1$d من %2$d عنصر</item>
         <item quantity="other">جارٍ نقل %1$d من %2$d عنصر</item>
     </plurals>
 
     <plurals name="records_save_export_header_progress_title">
+        <item quantity="zero">جارٍ تصدير %1$d من %2$d عنصر</item>
         <item quantity="one">جارٍ تصدير %1$d من %2$d عنصر</item>
-        <item quantity="two">جارٍ تصدير %1$d من %2$d عنصرين</item>
-        <item quantity="few">جارٍ تصدير %1$d من %2$d عناصر</item>
-        <item quantity="many">جارٍ تصدير %1$d من %2$d عنصرًا</item>
+        <item quantity="two">جارٍ تصدير %1$d من %2$d عنصر</item>
+        <item quantity="few">جارٍ تصدير %1$d من %2$d عنصر</item>
+        <item quantity="many">جارٍ تصدير %1$d من %2$d عنصر</item>
         <item quantity="other">جارٍ تصدير %1$d من %2$d عنصر</item>
     </plurals>
 
     <plurals name="records_delete_queued_toast">
+        <item quantity="zero">جارٍ حذف %d عنصر في الخلفية.</item>
         <item quantity="one">جارٍ حذف عنصر واحد في الخلفية.</item>
-        <item quantity="two">جارٍ حذف عنصرين في الخلفية.</item>
+        <item quantity="two">جارٍ حذف %d عنصر في الخلفية.</item>
         <item quantity="few">جارٍ حذف %d عناصر في الخلفية.</item>
         <item quantity="many">جارٍ حذف %d عنصرًا في الخلفية.</item>
         <item quantity="other">جارٍ حذف %d عنصر في الخلفية.</item>
@@ -1128,7 +1122,7 @@
 
     <string name="records_filter_screen">الشاشة</string>
 
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
 
     <string name="records_filter_stream">بث</string>
 
@@ -1172,9 +1166,9 @@
 
     <string name="records_filter_helper_screen">تسجيلات الشاشة</string>
 
-    <string name="records_filter_helper_faditor">فيديوهات محررة/مصدرة (Faditor)</string>
+    <string name="records_filter_helper_faditor">الفيديوهات المعدّلة/المصدّرة (Studio)</string>
 
-    <string name="records_filter_helper_faditor_all">جميع مخرجات Faditor والملفات ذات الصلة.</string>
+    <string name="records_filter_helper_faditor_all">كل مخرجات Studio والملفات المرتبطة بها.</string>
 
     <string name="records_filter_helper_faditor_converted">تحويل MP4 المجزأ إلى MP4 قياسي قابل للبحث لمشغلات خارجية.</string>
 
@@ -1198,7 +1192,7 @@
 
     <string name="records_batch_save">حفظ في المعرض</string>
 
-    <string name="records_batch_faditor">أتمتة Faditor</string>
+    <string name="records_batch_faditor">أتمتة Studio</string>
 
     <string name="records_batch_delete">حذف</string>
 
@@ -1214,7 +1208,7 @@
 
     <string name="records_batch_save_desc">نسخ أو نقل أو تصدير الفيديوهات المحددة إلى مجلد آخر.</string>
 
-    <string name="records_batch_faditor_desc">تشغيل أتمتة الخلفية بدون فتح تبويب Faditor.</string>
+    <string name="records_batch_faditor_desc">شغّل المهام الآلية في الخلفية دون فتح تبويب Studio.</string>
 
     <string name="records_batch_delete_desc">نقل الفيديوهات المحددة إلى سلة المهملات.</string>
 
@@ -1236,7 +1230,7 @@
 
     <string name="records_batch_custom_export_done">انتهى التصدير. نجح: %1$d • فشل: %2$d</string>
 
-    <string name="records_batch_faditor_sheet_title">إجراءات Faditor للدفعة</string>
+    <string name="records_batch_faditor_sheet_title">إجراءات Studio الجماعية</string>
 
     <string name="records_batch_faditor_export_standard">تصدير إلى MP4 قياسي</string>
 
@@ -1252,7 +1246,7 @@
 
     <string name="records_batch_notif_channel_name">إجراءات وسائط الدفعة</string>
 
-    <string name="records_batch_notif_channel_desc">التقدم والنتائج لمهام حفظ الدفعة وأتمتة Faditor.</string>
+    <string name="records_batch_notif_channel_desc">التقدم والنتائج لحفظ التسجيلات الجماعي ومهام أتمتة Studio.</string>
 
     <string name="records_batch_starting">جارٍ تحضير عملية الدفعة…</string>
 
@@ -1270,7 +1264,7 @@
 
     <string name="nav_remote">عن بعد</string>
 
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
 
     <string name="nav_lab">المختبر</string>
 
@@ -1562,7 +1556,7 @@
 
     <string name="torch_both">كلا الفلاشين</string>
 
-    <string name="note_debug_detailed">عند التمكين، يكتب FadCam ملف سجل تصحيح HTML (JoyCreator_debug.html) في مجلد التنزيلات العام/Joy Creator/. شارك هذا الملف عند الإبلاغ عن مشاكل. أوقف لإيقاف الكتابات المستقبلية.\nملاحظة: قد يضيف تسجيل التصحيح عبئًا على الأداء أثناء التسجيل — أبقه معطلًا إلا إذا كنت تستكشف مشكلة.</string>
+    <string name="note_debug_detailed">عند التفعيل، يكتب Joy Creator ملف سجل تصحيح بصيغة HTML (JoyCreator_debug.html) في مجلد Downloads/Joy Creator/ العام. شارك هذا الملف عند الإبلاغ عن مشكلة. أوقفه لإيقاف الكتابة لاحقًا.\nملاحظة: قد يبطّئ تسجيل التصحيح الأداء أثناء التسجيل، لذا أبقِه متوقفًا إلا عند البحث عن مشكلة.</string>
 
     <string name="watermark_preview_heading">معاينة</string>
 
@@ -1582,7 +1576,7 @@
 
     <string name="watermark_style_none_label">بدون علامة مائية</string>
 
-    <string name="helper_watermark_preview">هكذا ستظهر العلامة المائية في أعلى يسار الفيديو المسجل.\nحقيقة ممتعة: 10/يوليو/2024 04:47 م هو تاريخ إطلاق Joy Creator v1.0 لأول مرة.</string>
+    <string name="helper_watermark_preview">هكذا ستظهر العلامة المائية في أعلى يسار الفيديو المسجّل.</string>
 
     <string name="helper_location_watermark_option">تبديل إضافة موقع جهازك كطبقة. يتطلب إذن الموقع.</string>
 
@@ -1650,7 +1644,7 @@
 
     <string name="widget_arabic_date_format_title">تنسيق التاريخ العربي</string>
 
-    <string name="widget_branding_title">علامة FadSecLab التجارية</string>
+    <string name="widget_branding_title">هوية Joy Creator</string>
 
     <string name="widget_time_format_12h">12 ساعة (3:30 م)</string>
 
@@ -1934,7 +1928,7 @@
 
     <string name="screenshot_accessibility_enable_needed">فعّل \"لقطة شاشة Joy Creator\" في إمكانية الوصول لاستخدام هذا الاختصار بدون مطالبة التسجيل.</string>
 
-    <string name="screenshot_accessibility_service_desc">يلتقط لقطة شاشة لاختصار FadRec ويحفظها في Joy Creator.</string>
+    <string name="screenshot_accessibility_service_desc">يلتقط لقطة شاشة لاختصار لقطة الشاشة ويحفظها في مجلد Joy Creator الخاص بك.</string>
 
     <string name="shortcuts_video_category">تسجيل الفيديو</string>
 
@@ -2012,17 +2006,17 @@
 
     <string name="coming_soon_toast">قريباً! إن شاء الله</string>
 
-    <string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
 
     <string name="faditor_mini_coming_soon">قريباً — محرر خفيف</string>
 
     <string name="faditor_mini_subtitle">قص وتصدير فيديوهاتك بدقة</string>
 
-    <string name="faditor_mini_toast">Faditor Mini — قريباً</string>
+    <string name="faditor_mini_toast">Studio — قريبًا</string>
 
     <string name="faditor_select_video">اختر فيديو</string>
 
-    <string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
 
     <string name="faditor_close">إغلاق المحرر</string>
 
@@ -2173,7 +2167,7 @@
 
     <string name="faditor_export_confirm_helper">%1$s • %2$d مقطع%3$s\nيعمل التصدير كخدمة خلفية — يمكنك إغلاق التطبيق وسيستمر التصدير.</string>
 
-    <string name="faditor_export_notif_channel">تصدير Faditor</string>
+    <string name="faditor_export_notif_channel">تصدير Studio</string>
 
     <string name="faditor_export_notif_channel_desc">إشعارات لتصديرات الفيديو الجارية</string>
 
@@ -2247,13 +2241,13 @@
 
     <string name="faditor_delete_confirm">حذف</string>
 
-    <string name="faditor_version_info">Faditor Mini · المرحلة 1 · قص + تصدير</string>
+    <string name="faditor_version_info">Studio · المرحلة 1 · قص + تصدير</string>
 
     <string name="faditor_empty_title">لا توجد مشاريع بعد</string>
 
     <string name="faditor_empty_desc">اضغط \"بدء مشروع جديد\" لاختيار فيديو وبدء التحرير</string>
 
-    <string name="faditor_info_title">حول Faditor Mini</string>
+    <string name="faditor_info_title">حول Studio</string>
 
     <string name="faditor_info_subtitle">كل ما تحتاج معرفته حول المحرر المدمج</string>
 
@@ -2263,7 +2257,7 @@
 
     <string name="faditor_info_convert_title">التحويل الذكي</string>
 
-    <string name="faditor_info_convert_desc">يسجل Joy Creator بتنسيق آمن من الأعطال يسمى MP4 المجزأ (fMP4). على عكس MP4 القياسي الذي يحتوي على حاوية واحدة نهائية، يكتب fMP4 الفيديو في قطع صغيرة مستقلة. هذا يعني أن لقطاتك تبقى سليمة حتى لو تعطل التطبيق أو توقف التسجيل فجأة.\n\nومع ذلك، لن تتمكن مشغلات الفيديو الخارجية وتطبيقات المعرض ومديري الملفات من البحث أو التقديم أو عرض المدة الصحيحة لهذه الملفات. هذا ليس خطأ — إنه مقايضة تصميم متعمدة للموثوقية.\n\nإذا كنت تخطط لتخزين فيديوهاتك خارج Joy Creator — على Google Drive أو جهاز كمبيوتر أو أي موقع آخر — يجب تحويلها أولاً. وإلا ستكون الملفات غير قابلة للاستخدام للتشغيل العادي.\n\nللتحويل: افتح الفيديو هنا في Faditor Mini واضغط تصدير ببساطة. سيظهر MP4 القياسي المحول في تبويب التسجيلات، جاهزًا للحفظ في المعرض أو المشاركة في أي مكان. العملية فورية وبدون فقدان — بدون إعادة ترميز أو فقدان جودة.</string>
+    <string name="faditor_info_convert_desc">يسجّل Joy Creator بصيغة آمنة من الأعطال تسمى MP4 المجزّأ (fMP4). على عكس MP4 العادي الذي له حاوية نهائية واحدة، يكتب fMP4 الفيديو في أجزاء صغيرة مستقلة. هذا يعني أن لقطاتك تبقى سليمة حتى لو تعطل التطبيق أو توقف التسجيل فجأة.\n\nلكن مشغّلات الفيديو الخارجية وتطبيقات المعرض ومديرات الملفات لن تتمكن من التنقل في هذه الملفات أو عرض مدتها الصحيحة. هذا ليس عطلًا، بل مقايضة مقصودة من أجل الموثوقية.\n\nإذا كنت تخطط لحفظ فيديوهاتك خارج Joy Creator — على Google Drive أو حاسوب أو أي مكان آخر — فعليك تحويلها أولًا. وإلا فلن تصلح الملفات للتشغيل العادي.\n\nللتحويل: افتح الفيديو هنا في Studio واضغط تصدير. سيظهر MP4 العادي المحوّل في تبويب التسجيلات، جاهزًا للحفظ في معرضك أو المشاركة في أي مكان. العملية فورية ودون فقدان — لا إعادة ترميز ولا خسارة في الجودة.</string>
 
     <string name="faditor_info_export_title">الملفات المصدرة</string>
 
@@ -2271,7 +2265,7 @@
 
     <string name="faditor_info_temp_title">الملفات المؤقتة وذاكرة التخزين المؤقت</string>
 
-    <string name="faditor_info_temp_desc">عند تحميل فيديو fMP4 للتحرير، يكتشف Faditor إذا كان الملف يحتاج \"إعادة تحويل\" — تحويل سريع يضيف علامات بحث بدون إعادة ترميز. يتم تخزين الملفات المحولة مؤقتًا على جهازك لإعادة استخدامها إذا حررت نفس الفيديو مرة أخرى، مما يوفر الوقت والمعالجة.\n\nيمكنك رؤية حجم ذاكرة التخزين المؤقت لكل مشروع مدرج بجانب تاريخ التعديل. إذا كانت مساحة تخزين جهازك منخفضة، يمكنك حذف المشاريع غير المستخدمة لمسح ملفات إعادة التحويل المخزنة مؤقتًا.\n\nيتم تنظيف هذه الملفات المؤقتة تلقائيًا عند حذف مشروع من هذا التبويب.</string>
+    <string name="faditor_info_temp_desc">عندما تحمّل فيديو fMP4 للتعديل، يكتشف Studio إن كان الملف يحتاج إلى \"إعادة تغليف\" — وهو تحويل سريع يضيف علامات التنقل دون إعادة ترميز. تُخزَّن الملفات المعاد تغليفها مؤقتًا على جهازك ليُعاد استخدامها إن عدّلت الفيديو نفسه مرة أخرى، فتوفر الوقت والمعالجة.\n\nيمكنك رؤية حجم الذاكرة المؤقتة لكل مشروع بجانب تاريخ تعديله. إذا قلّت مساحة جهازك، يمكنك حذف المشاريع غير المستخدمة لمسح ملفاتها المعاد تغليفها.\n\nتُنظَّف هذه الملفات المؤقتة تلقائيًا عند حذف مشروع من هذا التبويب.</string>
 
     <string name="faditor_info_projects_title">المشاريع الحديثة</string>
 
@@ -2402,7 +2396,6 @@
 
 
 
-    <string name="kofi_footer_text">صُنع بـ    في FadSec Lab في   </string>
 
     <string name="choose_language">اختر اللغة</string>
 
@@ -2418,7 +2411,7 @@
 
     <string name="version_format">v%s</string>
 
-    <string name="edit_with_faditorx">تحرير بـ Faditor Mini</string>
+    <string name="edit_with_faditorx">تعديل في Studio</string>
 
     <string name="remote_coming_soon_badge">قريباً</string>
 
@@ -2690,11 +2683,12 @@
     <string name="forensics_gallery_deleted_toast">تم نقل %1$d إلى سلة المهملات • تم إزالة %2$d</string>
 
     <plurals name="forensics_gallery_selected_count_plural">
-        <item quantity="one">تم تحديد %1$d</item>
-        <item quantity="two">تم تحديد %1$d</item>
-        <item quantity="few">تم تحديد %1$d</item>
-        <item quantity="many">تم تحديد %1$d</item>
-        <item quantity="other">تم تحديد %1$d</item>
+        <item quantity="zero">%1$d محدد</item>
+        <item quantity="one">%1$d محدد</item>
+        <item quantity="two">%1$d محددان</item>
+        <item quantity="few">%1$d محددة</item>
+        <item quantity="many">%1$d محددًا</item>
+        <item quantity="other">%1$d محدد</item>
     </plurals>
 
     <string name="forensics_delete_selected_title">حذف %1$d عنصر أدلة محدد؟</string>
@@ -3085,7 +3079,6 @@
 
 
 
-    <string name="fadcam_pro_header_button">Pro</string>
 
     <string name="player_info_title">حول مشغل الفيديو</string>
 
@@ -4157,7 +4150,7 @@
     <string name="settings_location_update_interval_5s">5.0 ثوانٍ</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">بواسطة FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">من Joy Creator</string>
     <string name="annotation_quick_access">الوصول السريع</string>
     <string name="annotation_annotate">تعليق توضيحي</string>
     <string name="annotation_enable_tools">تمكين الأدوات</string>
@@ -4372,4 +4365,585 @@
     <string name="toast_cannot_write_custom_dir">لا يمكن الكتابة إلى المجلد المخصص المحدد</string>
     <string name="toast_failed_create_file">فشل إنشاء الملف للكتابة</string>
 
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">ابدأ تسجيلًا جديدًا</string>
+    <string name="lobby_a11y_new_project">ابدأ مشروعًا جديدًا</string>
+    <string name="lobby_a11y_new_character">اصنع شخصية جديدة</string>
+    <string name="lobby_a11y_new_import">استيراد ملف</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s، لا شيء فيه بعد</string>
+    <string name="lobby_a11y_library">افتح المكتبة</string>
+    <string name="onboarding_a11y_checked">%1$s. محدد.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. غير محدد.</string>
+    <string name="lobby_a11y_recent">%1$s، %2$s، %3$s</string>
+    <string name="faditor_tools_more">%1$d أخرى</string>
+    <string name="faditor_tools_more_desc">إظهار كل الأدوات</string>
+    <string name="capture_mode_camera">الكاميرا</string>
+    <string name="capture_mode_screen">الشاشة</string>
+    <string name="capture_mode_mic">الميكروفون</string>
+    <string name="webcam_overlay">طبقة كاميرا الويب</string>
+    <string name="webcam_overlay_on">مفعّلة</string>
+    <string name="webcam_overlay_off">متوقفة</string>
+    <string name="webcam_overlay_notification_title">طبقة كاميرا الويب تعمل</string>
+    <string name="fadrec_recording_flash">جارٍ التسجيل!</string>
+    <string name="video_info_loading">جارٍ التحميل…</string>
+    <string name="faditor_timeline_resize_handle">اسحب لتغيير حجم الخط الزمني والمعاينة</string>
+    <string name="faditor_export_preparing">جارٍ تجهيز التصدير…</string>
+    <string name="faditor_export_compositing">جارٍ دمج الفيديو…</string>
+    <string name="faditor_export_finalizing">جارٍ الإنهاء…</string>
+    <string name="faditor_font_picker_title">الخط</string>
+    <string name="faditor_font_import">استيراد خط…</string>
+    <string name="faditor_font_row_selected">%1$s (محدد)</string>
+    <string name="faditor_tool_opacity">الشفافية</string>
+    <string name="faditor_tool_text">نص</string>
+    <string name="faditor_tool_sticker">صورة</string>
+    <string name="faditor_text_hint">اكتب نصًا</string>
+    <string name="faditor_text_edit_title">تعديل النص</string>
+    <string name="faditor_text_delete">حذف</string>
+    <string name="faditor_text_selection_whole">تحديد الكل</string>
+    <string name="faditor_text_selection_count">%1$d محدد</string>
+    <string name="faditor_text_selection_clear">مسح</string>
+    <string name="faditor_text_style_undo">تنسيق النص</string>
+    <string name="faditor_text_motion_range">مدى حركة النص</string>
+    <string name="faditor_trim_start_here">⇤ ابدأ هنا</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  امتداد كامل</string>
+    <string name="faditor_trim_end_here">انتهِ هنا ⇥</string>
+    <string name="faditor_split_playhead_text">حرّك رأس التشغيل إلى داخل النص لتقسيمه</string>
+    <string name="faditor_split_playhead_sprite">حرّك رأس التشغيل إلى داخل الشخصية المتحركة لتقسيمها</string>
+    <string name="faditor_split_playhead_pip">حرّك رأس التشغيل إلى داخل نافذة PiP لتقسيمها</string>
+    <string name="faditor_split_playhead_layer">حرّك رأس التشغيل إلى داخل الطبقة لتقسيمها</string>
+    <string name="faditor_trim_start_impossible">حرّك رأس التشغيل قبل نهاية الطبقة لقص البداية</string>
+    <string name="faditor_trim_end_impossible">حرّك رأس التشغيل بعد بداية الطبقة لقص النهاية</string>
+    <string name="faditor_heal_confirm_add">سيؤدي إصلاح هذا التقسيم إلى إضافة %1$s إلى الخط الزمني. موافق؟</string>
+    <string name="faditor_heal_confirm_remove">سيؤدي إصلاح هذا التقسيم إلى إزالة %1$s من الخط الزمني. موافق؟</string>
+    <string name="faditor_locked_title">عنصر مقفل</string>
+    <string name="faditor_locked_message">هذا العنصر مقفل. هل تريد فتح القفل والمتابعة؟</string>
+    <string name="faditor_locked_unlock">افتح القفل وتابع</string>
+    <string name="faditor_fx_static_hint">ثابت — اضغط ◆ للتحريك</string>
+    <string name="faditor_fx_reorder_hint">أضف تأثيرًا ثانيًا لإعادة ترتيب السلسلة</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s يحتاج إلى طبقة ضبط — تم تركه</string>
+    <string name="faditor_color_set">تعيين</string>
+    <string name="faditor_image_overlay_title">صورة فوق الفيديو</string>
+    <string name="faditor_image_overlay_desc">اسحب للتحريك، واضغط بإصبعين لتغيير الحجم</string>
+    <string name="faditor_tool_silence">تنظيف</string>
+    <string name="faditor_tool_loop">تكرار</string>
+    <string name="faditor_tool_settings">الإعدادات</string>
+    <string name="faditor_tool_sprites">الشخصيات المتحركة</string>
+    <string name="sprite_editor_missing_image">صورة اللوحة مفقودة — استوردها من جديد</string>
+    <string name="sprite_editor_no_project">لا يوجد مشروع — افتح المحرر أولًا</string>
+    <string name="sprite_editor_default_name">شخصية متحركة</string>
+    <string name="sprite_editor_name_hint">اسم لوحة الشخصيات</string>
+    <string name="sprite_editor_cell_name_hint">اسم الخلية (اسم مستعار)</string>
+    <string name="sprite_editor_cell_enabled">مفعّل</string>
+    <string name="sprite_editor_cell_prefix">خلية</string>
+    <string name="sprite_editor_save">حفظ</string>
+    <string name="sprite_editor_saved">تم حفظ لوحة الشخصيات</string>
+    <string name="sprite_editor_save_failed">تعذر الحفظ — حاول مرة أخرى</string>
+    <string name="sprite_editor_import_failed">تعذر استيراد هذه الصورة</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">نقطة الارتكاز</string>
+    <string name="sprite_editor_auto">تلقائي</string>
+    <string name="sprite_editor_auto_applied">تم اكتشاف الشبكة: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">لم تُعثر على شبكة واضحة — اضبطها بالأزرار</string>
+    <string name="sprite_editor_key">إزالة اللون</string>
+    <string name="sprite_editor_key_clear">إزالة اللون ✕</string>
+    <string name="sprite_editor_key_pick_hint">اضغط على لون الخلفية لإزالته</string>
+    <string name="sprite_editor_key_cleared">تم مسح إزالة لون الخلفية</string>
+    <string name="sprite_editor_onion">ظل الإطارات</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">تم تطبيق بيانات التقطيع من الملف المرافق</string>
+    <string name="sprite_editor_sidecar_import_failed">تعذرت قراءة الملف المرافق</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">تم حفظ الملف المرافق بجانب صورة اللوحة</string>
+    <string name="sprite_editor_sidecar_failed">تعذرت كتابة الملف المرافق</string>
+    <string name="sprite_sheet_picker_title">لوحات الشخصيات</string>
+    <string name="sprite_sheet_picker_new">+ لوحة شخصيات جديدة</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+    <string name="sprite_sheet_action_edit">تعديل اللوحة</string>
+    <string name="sprite_sheet_action_place">ضع على الفيديو</string>
+    <string name="sprite_sheet_action_relink">إعادة ربط الصورة…</string>
+    <string name="sprite_placed">تم وضع الشخصية — اسحبها على المعاينة</string>
+    <string name="sprite_palette_load">+ تحميل لوحة شخصيات</string>
+    <string name="sprite_palette_cell_prefix">خلية</string>
+    <string name="sprite_palette_no_cell">لا إطار بعد — اضغط على خلية</string>
+    <string name="sprite_palette_end_prefix">النهاية:</string>
+    <string name="sprite_palette_swap_dropped">تم وضع التبديل عند رأس التشغيل</string>
+    <string name="avatar_studio_title">الأفاتار</string>
+    <string name="avatar_studio_new">+ أفاتار جديد</string>
+    <string name="avatar_studio_default_name">أفاتار</string>
+    <string name="avatar_studio_name_hint">اسم الأفاتار</string>
+    <string name="avatar_studio_save">حفظ</string>
+    <string name="avatar_studio_saved">تم حفظ الأفاتار</string>
+    <string name="avatar_studio_save_failed">تعذر الحفظ — حاول مرة أخرى</string>
+    <string name="avatar_studio_no_project">لا يوجد مشروع — افتح المحرر أولًا</string>
+    <string name="avatar_studio_add_part">+ جزء</string>
+    <string name="avatar_studio_pick_sheet">لوحة الشخصيات للجزء الجديد</string>
+    <string name="avatar_studio_no_sheets">قطّع لوحة شخصيات أولًا (أداة الشخصيات المتحركة) — فالأجزاء تُؤخذ من اللوحات</string>
+    <string name="avatar_studio_part_name_hint">اسم الجزء (رأس، جسم، ذراع…)</string>
+    <string name="avatar_studio_part_menu_parent">تعيين الأصل…</string>
+    <string name="avatar_studio_part_menu_unparent">إزالة الأصل</string>
+    <string name="avatar_studio_part_menu_remove">إزالة الجزء</string>
+    <string name="avatar_studio_parent_pick_title">أصل %1$s</string>
+    <string name="avatar_studio_armed_hint">الخلية جاهزة — اسحب الأجزاء لضبط هذه الوضعية</string>
+    <string name="avatar_studio_disarm_hint">الشبكة حرة — المنزلقات تحرّك الدمج</string>
+    <string name="avatar_studio_yaw">الدوران الأفقي</string>
+    <string name="avatar_studio_pitch">الميلان</string>
+    <string name="avatar_studio_cell_stepper">خلية الشخصية</string>
+    <string name="avatar_studio_scale">الحجم</string>
+    <string name="avatar_studio_rotation">تدوير</string>
+    <string name="avatar_studio_flip_h">قلب أفقي</string>
+    <string name="avatar_studio_flip_v">قلب رأسي</string>
+    <string name="avatar_studio_mirror">مرآة ⇋</string>
+    <string name="avatar_studio_mirrored">تم عكسها إلى الخلية المقابلة</string>
+    <string name="avatar_studio_pins">⌖ الدبابيس</string>
+    <string name="avatar_studio_pin_del">✕ دبوس</string>
+    <string name="avatar_studio_density">الشبكة</string>
+    <string name="avatar_studio_pin_add_disarmed">أوقف جاهزية الخلية لإضافة الدبابيس أو إزالتها (سلسلة الراحة)</string>
+    <string name="avatar_studio_pins_reseeded">أُعيدت دبابيس الخلية من سلسلة الراحة</string>
+    <string name="avatar_studio_clear_cell">مسح الخلية</string>
+    <string name="avatar_studio_cell_cleared">تم مسح الخلية — يعود الدمج التلقائي</string>
+    <string name="faditor_tools_all_title">كل الأدوات</string>
+    <string name="faditor_tools_edit">تعديل</string>
+    <string name="faditor_tools_edit_done">تم</string>
+    <string name="faditor_tools_edit_tooltip">رتّب الأدوات</string>
+    <string name="faditor_silence_audio_desc">يقص الفجوات الهادئة من هذا المقطع الصوتي ويضم ما حولها. ضغطة تراجع واحدة تعيدها.</string>
+    <string name="faditor_silence_audio_btn">قص الفجوات</string>
+    <string name="faditor_tools_edit_hint">اضغط مطولًا على أداة واسحبها إلى مكان جديد. اسحبها خارج الشريط لتثبيتها. اضغط تم عند الانتهاء.</string>
+    <string name="faditor_settings_tool_order_title">ترتيب الأدوات</string>
+    <string name="faditor_settings_tool_order_desc">كيف يُرتَّب شريط الأدوات السفلي: ترتيبك اليدوي، أو الأحدث استخدامًا أولًا.</string>
+    <string name="faditor_settings_tool_order_recent">الأحدث أولًا</string>
+    <string name="faditor_loop_off">متوقف</string>
+    <string name="faditor_loop_normal">تكرار</string>
+    <string name="faditor_loop_pingpong">ذهاب وإياب</string>
+    <string name="faditor_loop_pingpong_parked">ذهاب وإياب (قريبًا)</string>
+    <string name="faditor_loop_pingpong_parked_toast">الذهاب والإياب الحقيقي قيد الصقل — قريبًا. استخدم التكرار لإعادة سلسة إلى الأمام.</string>
+    <string name="faditor_loop_still">ثابت</string>
+    <string name="faditor_loop_extend_start">مدّ إلى البداية</string>
+    <string name="faditor_loop_extend_end">مدّ إلى النهاية</string>
+    <string name="faditor_loop_extend_prev">مدّ إلى المقطع السابق</string>
+    <string name="faditor_loop_extend_next">مدّ إلى المقطع التالي</string>
+    <string name="faditor_tool_transitions">الانتقالات</string>
+    <string name="faditor_transitions">الانتقالات</string>
+    <string name="faditor_transition_crossfade">تلاشٍ متقاطع</string>
+    <string name="faditor_transition_black">تلاشٍ إلى الأسود</string>
+    <string name="faditor_transition_white">تلاشٍ إلى الأبيض</string>
+    <string name="faditor_transition_wipe">مسح</string>
+    <string name="faditor_transition_radial">دائري</string>
+    <string name="faditor_transition_mirror">مسح مرآة</string>
+    <string name="faditor_transition_push">دفع</string>
+    <string name="faditor_transition_glitch">خلل</string>
+    <string name="faditor_transition_tv_channel">قناة تلفاز</string>
+    <string name="faditor_transition_added">أُضيف الانتقال عند أقرب نقطة التقاء</string>
+    <string name="faditor_transition_removed">أُزيل الانتقال</string>
+    <string name="faditor_gl_transition_pick_title">اختر تأثير GL</string>
+    <string name="faditor_visualizer_style_title">نمط المصوّر الصوتي</string>
+    <string name="faditor_transition_duration_title">مدة الانتقال</string>
+    <string name="faditor_transition_type_title">نوع الانتقال</string>
+    <string name="faditor_transition_remove">إزالة</string>
+    <string name="faditor_transition_direction_title">الاتجاه</string>
+    <string name="faditor_filter_title">المرشحات واللون</string>
+    <string name="faditor_filter_lut">المظهر (LUT)</string>
+    <string name="faditor_filter_lut_none">بلا</string>
+    <string name="faditor_filter_reset">إعادة ضبط الكل</string>
+    <string name="faditor_filter_copy_all">انسخ المظهر إلى كل المقاطع</string>
+    <string name="faditor_filter_preset_save">حفظ كإعداد مسبق…</string>
+    <string name="faditor_filter_preset_name_hint">اسم الإعداد المسبق</string>
+    <string name="faditor_filter_preset_delete">حذف الإعداد المسبق \"%s\"؟</string>
+    <string name="faditor_filter_preset_applied">تم تطبيق الإعداد المسبق \"%s\"</string>
+    <string name="faditor_tool_filter">مرشح</string>
+    <string name="faditor_tool_move">نقل</string>
+    <string name="faditor_move_drawer_title">نقل المقطع</string>
+    <string name="faditor_move_layer_up">أعلى</string>
+    <string name="faditor_move_layer_down">أسفل</string>
+    <string name="faditor_move_to_time_hint">الوقت (00:00:00.000) أو الإطارات</string>
+    <string name="faditor_move_clip_label">إعادة ترتيب المقطع</string>
+    <string name="faditor_move_clip_start">إلى البداية</string>
+    <string name="faditor_move_clip_left">خطوة لليسار</string>
+    <string name="faditor_move_clip_right">خطوة لليمين</string>
+    <string name="faditor_move_clip_end">إلى النهاية</string>
+    <string name="faditor_move_clip_at_start">المقطع هو الأول بالفعل</string>
+    <string name="faditor_move_clip_at_end">المقطع هو الأخير بالفعل</string>
+    <string name="faditor_move_clip_none">اختر مقطعًا أولًا</string>
+    <string name="faditor_transition_need_two_clips">أضف مقطعي فيديو على الأقل قبل إضافة انتقال</string>
+    <string name="faditor_silence_detect_title">اكتشاف الصمت</string>
+    <string name="faditor_silence_detect_desc">تُعلَّم الفجوات الهادئة باللون الأصفر. اضغط على فجوة صفراء في الخط الزمني لقصها (تصبح سوداء). اضغط الأداة مرة أخرى للإخفاء.</string>
+    <string name="faditor_silence_detect_btn">اكتشاف</string>
+    <string name="faditor_silence_found">تم تعليم %1$d فجوات صامتة — اضغط على الصفراء لقصها</string>
+    <string name="faditor_silence_title">إزالة الصمت</string>
+    <string name="faditor_silence_desc">اقطع الفجوات الهادئة والصمت الميت من هذا المقطع تلقائيًا.</string>
+    <string name="faditor_silence_sensitivity">الحساسية</string>
+    <string name="faditor_silence_analyzing">جارٍ تحليل الصوت…</string>
+    <string name="faditor_silence_none">لم تُعثر على فجوات صامتة</string>
+    <string name="faditor_silence_image">لا يحتوي هذا المقطع على صوت لتحليله</string>
+    <string name="faditor_silence_result">أُزيلت %1$d فجوات · وُفّر %2$.1f ث</string>
+    <string name="faditor_jump_to_time">انتقل إلى وقت</string>
+    <string name="faditor_relink_title">وسائط مفقودة</string>
+    <string name="faditor_relink_msg">تعذر فتح %1$d من المقاطع (نُقل المصدر أو فُقد الوصول إليه). هل تريد إعادة ربطها بملفاتك؟ تعديلاتك محفوظة.</string>
+    <string name="faditor_relink_now">إعادة الربط</string>
+    <string name="faditor_relink_later">لاحقًا</string>
+    <string name="faditor_relink_sheet_title">إعادة ربط الفيديو المفقود</string>
+    <string name="faditor_relink_sheet_sub">نبحث عن: %1$s</string>
+    <string name="faditor_relink_auto_found">وُجد %1$d آخر في المجلد نفسه — أُعيد ربطه تلقائيًا</string>
+    <string name="faditor_relink_replace_title">استبدال هذا الفيديو؟</string>
+    <string name="faditor_relink_replace_msg">اختر ملفًا آخر لهذا المقطع. كل تعديلاتك (القص والقطع والتسميات) محفوظة.</string>
+    <string name="faditor_relink_replace">استبدال الفيديو</string>
+    <string name="faditor_relink_catalog_title">فهرس الوسائط</string>
+    <string name="faditor_relink_repaired">أُصلح %1$d من %2$d — اضغط على أي ✗ لإعادة الربط</string>
+    <string name="faditor_relink_all_ok">كل ملفات الوسائط متاحة ✓</string>
+    <string name="faditor_relink_all">↻ إعادة ربط كل المفقود</string>
+    <string name="faditor_relink_done">تم</string>
+    <string name="faditor_relink_missing">مفقود</string>
+    <string name="faditor_relink_ok">جيد</string>
+    <string name="faditor_relink_generated">مولَّد — تم مسح الذاكرة المؤقتة</string>
+    <string name="faditor_relink_confirm_title">تأكيد الاستبدال</string>
+    <string name="faditor_relink_confirm_msg">استبدال المقطع رقم %1$d:\n\n  كان: %2$s (%3$s)\n  الجديد: %4$s (%5$s)\n\nكل التعديلات (القص والقطع والتسميات) محفوظة.</string>
+    <string name="faditor_relink_confirm_yes">استبدال</string>
+    <string name="faditor_relink_skip">تخطَّ هذا</string>
+    <string name="faditor_relink_warn_same_file">⚠ هذا الملف مستخدم بالفعل للمقطع رقم %1$d. استخدامه مرة أخرى سيجعل المقطعين يعرضان اللقطات نفسها.</string>
+    <string name="faditor_relink_warn_duration">⚠ المدة تختلف كثيرًا. كانت %1$s والجديدة %2$s. قد تحتاج نقاط القص إلى ضبط.</string>
+    <string name="faditor_relink_err_type">✗ نوع ملف خاطئ. كان المتوقع %1$s لكن وُجد %2$s.</string>
+    <string name="faditor_relink_btn">فهرس الوسائط</string>
+    <string name="faditor_asset_browser">مستعرض الملفات</string>
+    <string name="faditor_asset_browser_title">المجلد المثبّت</string>
+    <string name="faditor_asset_browser_pin_dir">اختر مجلدًا</string>
+    <string name="faditor_asset_browser_change_dir">غيّر المجلد</string>
+    <string name="faditor_asset_browser_unpin">إلغاء تثبيت المجلد</string>
+    <string name="faditor_asset_browser_empty">لا توجد ملفات وسائط في هذا المجلد</string>
+    <string name="faditor_asset_browser_no_dir">لم يُثبَّت أي مجلد بعد. اضغط على أيقونة الدبوس لاختيار مجلد.</string>
+    <string name="faditor_asset_browser_pin_success">تم التثبيت: %1$s</string>
+    <string name="faditor_asset_browser_filter_all">الكل</string>
+    <string name="faditor_asset_browser_filter_used">قيد الاستخدام</string>
+    <string name="faditor_asset_browser_filter_unused">غير مستخدم</string>
+    <string name="faditor_asset_browser_rename">إعادة تسمية</string>
+    <string name="faditor_asset_browser_rename_title">إعادة تسمية الملف</string>
+    <string name="faditor_asset_browser_rename_hint">الاسم الجديد (أبقِ الامتداد)</string>
+    <string name="faditor_asset_browser_rename_success">تمت إعادة التسمية إلى %1$s</string>
+    <string name="faditor_asset_browser_rename_error">تعذرت إعادة تسمية الملف</string>
+    <string name="faditor_asset_browser_delete_title">إزالة من السجل؟</string>
+    <string name="faditor_asset_browser_delete_msg">هل تريد إزالة هذا المجلد من سجل المجلدات المثبّتة؟ ستبقى ملفات هذا المجلد المستخدمة في المشروع.</string>
+    <string name="faditor_asset_browser_delete_blocked">لا يمكن الإزالة: ملفات من هذا المجلد قيد الاستخدام.</string>
+    <string name="faditor_asset_insert_at_playhead">أدرج الملف المحدد عند رأس التشغيل</string>
+    <string name="faditor_asset_drag_hint">اضغط مطولًا واسحب إلى الخط الزمني</string>
+    <string name="faditor_asset_used_badge">قيد الاستخدام</string>
+    <string name="faditor_new_project_title">سمِّ مشروعك (%1$d مقاطع)</string>
+    <string name="faditor_new_project_hint">اسم المشروع</string>
+    <string name="faditor_create">إنشاء</string>
+    <string name="faditor_creating_project">جارٍ إنشاء المشروع…</string>
+    <string name="faditor_create_failed">تعذر إنشاء المشروع من هذه الفيديوهات.</string>
+    <string name="faditor_transcript_delete_version_title">حذف النص المفرّغ</string>
+    <string name="faditor_transcript_delete_version_msg">هل تريد إزالة النص المفرّغ \"%1$s\" من هذا المقطع؟ تبقى النسخ الأخرى.</string>
+    <string name="faditor_kf_section">الحركة (إطارات رئيسية)</string>
+    <string name="faditor_kf_status">%1$d إطار رئيسي</string>
+    <string name="faditor_kf_hint_start">ضع العنصر في مكانه ثم اضغط ◆ لتبدأ تحريكه.</string>
+    <string name="faditor_kf_hint_armed">%1$d إطار رئيسي. الآن حرّك رأس التشغيل واسحب العنصر — تُضاف الإطارات الرئيسية تلقائيًا.</string>
+    <string name="faditor_kf_add">◆ إضافة إطار رئيسي</string>
+    <string name="faditor_kf_added">أُضيف إطار رئيسي عند رأس التشغيل</string>
+    <string name="faditor_kf_clear">مسح</string>
+    <string name="faditor_kf_set_start">ابدأ هنا</string>
+    <string name="faditor_kf_set_end">انتهِ هنا</string>
+    <string name="faditor_kf_range_set">تم تحديث توقيت العنصر</string>
+    <string name="faditor_kf_range_invalid">حرّك رأس التشغيل — يجب أن تأتي النهاية بعد البداية.</string>
+    <string name="faditor_coachmark_gestures_title">تعديل عنصر</string>
+    <string name="faditor_coachmark_gestures_body">اضغط مرتين للتعديل  ·  اضغط مطولًا لقائمته  ·  اسحب للتحريك</string>
+    <string name="faditor_coachmark_got_it">فهمت</string>
+    <string name="faditor_transitions_more_effects">⌄  تأثيرات أكثر</string>
+    <string name="faditor_transitions_fewer_effects">⌃  تأثيرات أقل</string>
+    <string name="faditor_clean_audio_label">صوت نقي v2</string>
+    <string name="faditor_clean_audio_desc">يزيل الضوضاء ويهذّب التفاوت في الصوت ويصحح مستوى الجهارة بمرورين مع تحديد لذروة الصوت. يزيد وقت التصدير.</string>
+    <string name="faditor_transcript">النص المفرّغ</string>
+    <string name="faditor_captions">الترجمة</string>
+    <string name="faditor_captions_need_transcript">فرّغ هذا المقطع أولًا ثم أضف الترجمة</string>
+    <string name="faditor_captions_done">تم</string>
+    <string name="faditor_transcript_clean">حذف الحشو</string>
+    <string name="faditor_transcript_apply">اعتماد</string>
+    <string name="faditor_transcript_committed">تم تثبيت التعديلات — سيطبّقها التصدير</string>
+    <string name="faditor_transcript_search">ابحث في النص المفرّغ</string>
+    <string name="faditor_transcript_break">تبديل فاصل السطر بعد الكلمة المحددة</string>
+    <string name="faditor_transcript_pick_model">اختر نموذج الكلام</string>
+    <string name="faditor_transcript_pick_model_sub">يعمل بالكامل دون إنترنت على هاتفك. يُنزَّل مرة واحدة.</string>
+    <string name="faditor_transcript_model_fast">توقيت سريع</string>
+    <string name="faditor_transcript_model_fast_sub">~40 MB · الأسرع · أفضل توقيت للكلمات، وكلمات أقل دقة</string>
+    <string name="faditor_transcript_model_accurate">متوازن</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 MB · توقيت جيد وكلمات جيدة · يعمل بسرعة الزمن الحقيقي تقريبًا</string>
+    <string name="faditor_transcript_model_whisper">أفضل صياغة</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 MB · أفضل كلمات وتوقيت أقل دقة · الأبطأ في التشغيل</string>
+    <string name="faditor_transcript_model_whisper_note">أفضل صياغة يستخدم Whisper: أفضل الكلمات، لكن توقيته ينحرف في المقاطع الطويلة. التوقيت السريع والمتوازن يستخدمان Vosk، وتوقيت كلماتهما أدق، وهذا ما تعتمد عليه مزامنة الترجمة والتعديل بالنص. تشغيل واحد من كل نوع يتيح دمجهما في مسار بكلمات جيدة وتوقيت جيد.</string>
+    <string name="faditor_transcribe_prompt_title">تفريغ هذا الفيديو؟</string>
+    <string name="faditor_transcribe_prompt_message">أنشئ نصًا مفرّغًا قابلًا للبحث والتعديل للمقطع الذي أضفته للتو. يعمل بالكامل دون إنترنت.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">لا تسألني مرة أخرى</string>
+    <string name="faditor_settings_title">إعدادات المحرر</string>
+    <string name="faditor_settings_ask_transcribe_title">اسأل عن التفريغ عند إضافة فيديو</string>
+    <string name="faditor_settings_ask_transcribe_desc">اعرض سؤالًا لتفريغ المقطع فور إضافته إلى الخط الزمني.</string>
+    <string name="faditor_transcript_working">جارٍ العمل…</string>
+    <string name="faditor_transcript_header_audio">صوت · %1$s</string>
+    <string name="faditor_transcript_header_clip">مقطع %1$d · %2$s</string>
+    <string name="faditor_transcript_source">+ مصدر</string>
+    <string name="faditor_transcript_offer_title">أضف مصدر نص مفرّغ</string>
+    <string name="faditor_transcript_offer_message">حمّل نصًا مفرّغًا للمقطع المحدد أو أنشئه.\n\nيمكنك دائمًا إضافة مصدر لاحقًا من رأس النص المفرّغ أو من زر + مصدر.</string>
+    <string name="faditor_transcript_offer_dont_show">لا تُظهر هذا مرة أخرى</string>
+    <string name="faditor_transcript_image">لا يحتوي هذا المقطع على صوت لتفريغه</string>
+    <string name="faditor_transcript_empty">لم يُكتشف أي كلام</string>
+    <string name="faditor_transcript_error">فشل التفريغ: %1$s</string>
+    <string name="faditor_transcript_cleaned">شُطبت %1$d كلمات حشو</string>
+    <string name="faditor_transcript_no_edits">لم يُشطب شيء بعد — اضغط مطولًا على الكلمات لإزالتها</string>
+    <string name="faditor_blank_clip_length">مدة المقطع الأسود</string>
+    <string name="faditor_motion_start_here">تبدأ الحركة هنا</string>
+    <string name="faditor_motion_span_whole">تمتد الحركة على العنصر كله</string>
+    <string name="faditor_motion_end_here">تنتهي الحركة هنا</string>
+    <string name="faditor_zone_in_ends_here">ينتهي الدخول هنا</string>
+    <string name="faditor_zone_clear">بلا دخول أو خروج</string>
+    <string name="faditor_zone_out_starts_here">يبدأ الخروج هنا</string>
+    <string name="faditor_blank_clip_added">أُضيف مقطع أسود (%1$s)</string>
+    <string name="faditor_add_asset_audio">صوت</string>
+    <string name="faditor_add_asset_pip">فيديو فوق الفيديو (PiP)</string>
+    <string name="faditor_pip_added">وُضع الفيديو الإضافي — اسحبه على المعاينة</string>
+    <string name="faditor_audio_import_added">أُضيف الصوت إلى الخط الزمني</string>
+    <string name="faditor_audio_import_error">تعذرت قراءة ملف الصوت هذا</string>
+    <string name="faditor_undo_ai_edits">تعديلات AI</string>
+    <string name="faditor_heal_success">أُصلحت الفجوة دون إتلاف</string>
+    <string name="faditor_heal_error">لا يمكن الإصلاح هنا — قريب جدًا من الحافة</string>
+    <string name="faditor_heal_title">إصلاح الفجوة حول رأس التشغيل؟</string>
+    <string name="faditor_heal_msg">أزل %1$s حول رأس التشغيل كقص غير مُتلِف. يمكنك التراجع عنه.</string>
+    <string name="faditor_delete_last_segments">لا يمكن حذف الجزء الوحيد</string>
+    <string name="faditor_crop_custom_ratio_title">نسبة مخصصة (العرض:الارتفاع)</string>
+    <string name="faditor_canvas_custom_res_title">دقة مخصصة (العرض×الارتفاع)</string>
+    <string name="faditor_settings_safe_zone_title">دليل المنطقة الآمنة 9:16</string>
+    <string name="faditor_settings_safe_zone_desc">اعرض دليلًا في المعاينة فقط يحدد المنطقة الآمنة للتواصل الاجتماعي على لوحات 9:16 (المنطقة الخالية من واجهة المنصة). لا يؤثر على التصدير أبدًا.</string>
+    <string name="faditor_crop_snap_on">الالتصاق بالمركز مفعّل</string>
+    <string name="faditor_crop_snap_off">الالتصاق بالمركز متوقف</string>
+    <string name="faditor_crop_auto_applied">تم تطبيق القص التلقائي</string>
+    <string name="faditor_crop_no_black_bars">لم تُوجد أشرطة سوداء؛ يُستخدم قص حسب النسبة</string>
+    <string name="faditor_crop_error">اختر مقطع فيديو لقصه</string>
+    <string name="faditor_soft_snap_on">الالتصاق الناعم مفعّل</string>
+    <string name="faditor_soft_snap_off">الالتصاق الناعم متوقف</string>
+    <string name="faditor_export_complete_summary_audio">صوتك محفوظ في مجلد Joy Creator الخاص بك. ستجده في المكتبة.</string>
+    <string name="faditor_reverse_long_loop_later">العكس للتكرارات الطويلة قادم لاحقًا — يشغّل هذا التكرار ذيله للأمام حاليًا.</string>
+    <string name="faditor_export_filename_label">اسم الملف</string>
+    <string name="faditor_export_result_play">شغّل الفيديو الذي صدّرته للتو</string>
+    <string name="faditor_export_result_open_records">اضغط للتشغيل · عرض في التسجيلات</string>
+    <string name="faditor_export_no_room">لا توجد مساحة فارغة كافية على هذا الهاتف لهذا التصدير. حرّر نحو %1$s (احذف التصديرات القديمة أو الفيديوهات التي لا تحتاجها) وحاول مرة أخرى. مشروعك بأمان.</string>
+    <string name="faditor_export_prepare_failed">تعذر تجهيز التصدير، غالبًا لأن الهاتف نفدت ذاكرته أو مساحته. أغلق التطبيقات الأخرى وحرّر بعض المساحة وحاول مرة أخرى. مشروعك بأمان.</string>
+    <string name="faditor_export_snapshot_unreadable">تعذر بدء التصدير لأن مشروعك لم يُقرأ. حاول مرة أخرى. مشروعك بأمان.</string>
+    <string name="faditor_export_copy_failed_title">انتهى التصدير، لكن ليس في مجلدك</string>
+    <string name="faditor_export_copy_failed_summary">لم ينجح النسخ إلى المجلد الذي اخترته (ربما امتلأ الهاتف). فيديو %1$s بأمان داخل Joy Creator: ستجده في المكتبة.</string>
+    <string name="faditor_export_copy_failed_toast">فيديوك جاهز، لكن تعذر نسخه إلى المجلد الذي اخترته (ربما امتلأ الهاتف). هو بأمان داخل Joy Creator: ستجده في المكتبة.</string>
+    <string name="battery_optimization_off">تحسين البطارية متوقف</string>
+    <string name="stream_notes_cellular">⚠️ Wi-Fi فقط: شبكات الهاتف تحجب الاتصالات الواردة، لذا يجب أن يكون المشاهد وهذا الهاتف على شبكة Wi-Fi نفسها.</string>
+    <string name="torch_timer_label">مؤقت الإطفاء التلقائي</string>
+    <string name="torch_timer_desc">يُطفأ المصباح تلقائيًا بعد المدة المحددة</string>
+    <string name="torch_timer_off">متوقف</string>
+    <string name="torch_timer_picker_helper">يبدأ المؤقت فقط عندما يكون المصباح مضيئًا</string>
+    <string name="torch_timer_cancel">إلغاء المؤقت</string>
+    <string name="torch_timer_30s">30 ثانية</string>
+    <string name="torch_timer_1m">دقيقة واحدة</string>
+    <string name="torch_timer_2m">دقيقتان</string>
+    <string name="torch_timer_5m">5 دقائق</string>
+    <string name="torch_timer_10m">10 دقائق</string>
+    <string name="torch_timer_15m">15 دقيقة</string>
+    <string name="torch_timer_30m">30 دقيقة</string>
+    <string name="torch_timer_1h">ساعة واحدة</string>
+    <string name="torch_timer_custom_title">تعيين مؤقت مخصص</string>
+    <string name="torch_timer_custom_unit_helper">اختر وحدة الوقت</string>
+    <string name="torch_timer_custom_hint">أدخل المدة</string>
+    <string name="torch_timer_custom_minutes_example">مثلًا 5 لمدة 5 دقائق</string>
+    <string name="torch_timer_custom_hours_example">مثلًا 2 لمدة ساعتين</string>
+    <string name="torch_timer_custom_apply">تطبيق</string>
+    <string name="torch_timer_custom_error_positive">يجب أن تكون المدة أكبر من 0</string>
+    <string name="torch_timer_custom_error_invalid">رقم غير صالح</string>
+    <string name="setting_on">مفعّل</string>
+    <string name="menu_auto_pause_title">إيقاف مؤقت تلقائي أثناء فتح القائمة</string>
+    <string name="button_state_tint_title">لون الزر العائم أثناء التسجيل</string>
+    <string name="record_no_room_to_start">لا توجد مساحة كافية على هذا الهاتف للتسجيل. حرّر بعض المساحة وحاول مرة أخرى.</string>
+    <string name="record_stopped_low_space">الهاتف شبه ممتلئ، فتوقف التسجيل. كل ما سُجّل حتى الآن محفوظ.</string>
+    <string name="record_stopped_write_problem">تعذر حفظ التسجيل بعد الآن فتوقف. كل ما سُجّل حتى تلك اللحظة محفوظ.</string>
+    <string name="faditor_m12_select_clip_first">اختر مقطعًا على المسار الرئيسي أولًا</string>
+    <string name="faditor_m12_select_object_first">اختر عنصرًا على طبقة أولًا</string>
+    <string name="faditor_m12_only_video_images">لا يمكن وضع غير الفيديو والصور على المسار الرئيسي</string>
+    <string name="faditor_m12_need_one_clip">يحتاج المسار الرئيسي إلى مقطع واحد على الأقل</string>
+    <string name="faditor_m12_moved_to_layer">نُقل إلى طبقة</string>
+    <string name="faditor_m12_moved_to_main">نُقل إلى المسار الرئيسي</string>
+    <string name="faditor_m12_undo_to_layer">نقل إلى طبقة</string>
+    <string name="faditor_m12_undo_to_main">نقل إلى المسار الرئيسي</string>
+    <string name="faditor_text_decor_section">النمط</string>
+    <string name="faditor_text_decor_stroke">حدود</string>
+    <string name="faditor_text_decor_glow">توهج</string>
+    <string name="faditor_text_decor_shadow">ظل</string>
+    <string name="faditor_text_decor_plate">خلفية</string>
+    <string name="faditor_mask_action">قناع</string>
+    <string name="faditor_mask_title">قناع</string>
+    <string name="faditor_mask_remove">إزالة</string>
+    <string name="faditor_mask_x">المركز X</string>
+    <string name="faditor_mask_y">المركز Y</string>
+    <string name="faditor_mask_w">العرض</string>
+    <string name="faditor_mask_h">الارتفاع</string>
+    <string name="faditor_mask_round">الاستدارة</string>
+    <string name="faditor_mask_rotate">التدوير</string>
+    <string name="faditor_mask_soften">تنعيم الحواف</string>
+    <string name="faditor_mask_only_inside">أظهر داخل الصندوق فقط</string>
+    <string name="faditor_mask_section_shape">الشكل</string>
+    <string name="faditor_kf_outside_span">حرّك رأس التشغيل فوق هذا المقطع لإضافة إطار رئيسي</string>
+    <string name="faditor_key_section">مفتاح اللون</string>
+    <string name="faditor_key_enable">إزالة لون</string>
+    <string name="faditor_key_color">لون الإزالة</string>
+    <string name="faditor_key_eyedropper">اختر من الفيديو</string>
+    <string name="faditor_key_eyedropper_failed">تعذرت قراءة تلك النقطة — حاول مرة أخرى والمقطع ظاهر</string>
+    <string name="faditor_key_tap_prompt">اضغط على اللون المراد إزالته</string>
+    <string name="faditor_key_tolerance">التسامح</string>
+    <string name="faditor_key_softness">نعومة الحواف</string>
+    <string name="faditor_key_spill">تضييق / توسيع</string>
+    <string name="faditor_blend_action">وضع المزج</string>
+    <string name="faditor_blend_title">وضع المزج</string>
+    <string name="faditor_blend_export_note">تُطبَّق أوضاع المزج عند التصدير. تعرض المعاينة الطبقة عاديةً.</string>
+    <string name="faditor_image_inert_mask">لا يُطبَّق على الصور فوق الفيديو بعد — شكلك محفوظ لكنه لن يؤثر على المعاينة أو التصدير.</string>
+    <string name="faditor_image_inert_key">لا يُطبَّق على الصور فوق الفيديو بعد — مفتاحك محفوظ لكنه لن يؤثر على المعاينة أو التصدير.</string>
+    <string name="faditor_image_inert_fx">لا يُطبَّق على الصور فوق الفيديو بعد — تأثيراتك محفوظة لكنها لن تؤثر على المعاينة أو التصدير.</string>
+    <string name="faditor_image_fx_export_note">يُتخطى التمويه والتأثيرات الأخرى التي تحتاج مرورًا خاصًا بها — عند التصدير وهنا أيضًا.</string>
+    <string name="faditor_image_mask_export_note">تُطبَّق الأقنعة على الصورة عند التصدير. تعرض المعاينة الصورة كاملة، إلا إذا كانت الصورة تحمل أيضًا تأثيرًا أو مفتاح لون أو وضع مزج — فيُطبَّق القناع هنا كذلك.</string>
+    <string name="faditor_blend_normal">عادي</string>
+    <string name="faditor_blend_multiply">ضرب</string>
+    <string name="faditor_blend_screen">شاشة</string>
+    <string name="faditor_blend_overlay">تراكب</string>
+    <string name="faditor_blend_add">إضافة</string>
+    <string name="faditor_blend_difference">فرق</string>
+    <string name="faditor_blend_color">لون</string>
+    <string name="faditor_blend_darken">تغميق</string>
+    <string name="faditor_blend_lighten">تفتيح</string>
+    <string name="faditor_blend_color_dodge">مراوغة اللون</string>
+    <string name="faditor_blend_color_burn">حرق اللون</string>
+    <string name="faditor_blend_linear_burn">حرق خطي</string>
+    <string name="faditor_blend_hard_light">ضوء قاسٍ</string>
+    <string name="faditor_blend_soft_light">ضوء ناعم</string>
+    <string name="faditor_blend_vivid_light">ضوء ساطع</string>
+    <string name="faditor_blend_linear_light">ضوء خطي</string>
+    <string name="faditor_blend_pin_light">ضوء مركّز</string>
+    <string name="faditor_blend_hard_mix">مزج قاسٍ</string>
+    <string name="faditor_blend_exclusion">استبعاد</string>
+    <string name="faditor_blend_subtract">طرح</string>
+    <string name="faditor_blend_divide">قسمة</string>
+    <string name="faditor_blend_darker_color">لون أغمق</string>
+    <string name="faditor_blend_lighter_color">لون أفتح</string>
+    <string name="faditor_blend_hue">تدرج اللون</string>
+    <string name="faditor_blend_saturation">التشبع</string>
+    <string name="faditor_blend_luminosity">السطوع</string>
+    <string name="faditor_blend_group_normal">عادي</string>
+    <string name="faditor_blend_group_darken">تغميق</string>
+    <string name="faditor_blend_group_lighten">تفتيح</string>
+    <string name="faditor_blend_group_contrast">تباين</string>
+    <string name="faditor_blend_group_comparative">مقارنة</string>
+    <string name="faditor_blend_group_color">لون</string>
+    <string name="faditor_orphan_title">عناصر على هذا المقطع</string>
+    <string name="faditor_orphan_body">%1$d من عناصر الطبقات تبدأ على المقطع الذي حذفته. هل تبقيها وتربطها بالمقطع التالي، أم تحذفها أيضًا؟</string>
+    <string name="faditor_orphan_keep">أبقِها</string>
+    <string name="faditor_orphan_delete">احذفها</string>
+    <string name="faditor_orphan_remember">تذكّر اختياري</string>
+    <string name="faditor_orphan_undo">حذف عناصر الطبقات</string>
+    <string name="faditor_orphan_removed">أُزيل %1$d من عناصر الطبقات</string>
+    <string name="faditor_settings_orphan_title">عناصر على مقطع محذوف</string>
+    <string name="faditor_settings_orphan_desc">ما يحدث لعناصر الطبقات عند حذف المقطع الذي تقف عليه. الآن: %1$s</string>
+    <string name="faditor_settings_orphan_ask">اسأل دائمًا</string>
+    <string name="mini_apps_customize_title">تخصيص التطبيقات المصغرة</string>
+    <string name="mini_apps_show_count">عدد الظاهر</string>
+    <string name="mini_apps_show_count_desc">عدد التطبيقات المصغرة الظاهرة</string>
+    <string name="desc_mini_apps_count_minus">أنقص العدد</string>
+    <string name="desc_mini_apps_count_plus">زد العدد</string>
+    <string name="mini_apps_reorder_footer">اسحب لإعادة الترتيب</string>
+    <string name="quick_timer_desc">وصف المؤقت السريع</string>
+    <string name="quick_timer_label">المؤقت</string>
+    <string name="quick_mute_label">كتم</string>
+    <string name="grid_lines_title">خطوط الشبكة</string>
+    <string name="grid_lines_subtitle">إظهار خطوط الشبكة</string>
+    <string name="desc_mini_apps_edit">تعديل التطبيقات المصغرة</string>
+    <string name="records_repair_banner_title">شريط الإصلاح</string>
+    <string name="records_repair_banner_dismiss">إغلاق</string>
+    <string name="lobby_library">المكتبة</string>
+    <string name="lobby_carry_on">واصل أي شيء لمسته</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">التقاط</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">أفاتار</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">Joy Brush</string>
+    <string name="lobby_hero_new">جديد</string>
+    <string name="lobby_new_recording">تسجيل</string>
+    <string name="lobby_new_project">مشروع</string>
+    <string name="lobby_new_character">شخصية</string>
+    <string name="lobby_new_import">استيراد</string>
+    <string name="lobby_floor_finder">اكتشاف</string>
+    <string name="lobby_floor_remote">عن بُعد</string>
+    <string name="lobby_floor_bits">قطع</string>
+    <string name="lobby_floor_packs">حِزم</string>
+    <string name="lobby_floor_setup">الإعداد</string>
+    <string name="lobby_empty_studio">لا شيء معدَّل بعد. ابدأ مشروعًا وسينتظرك هنا.</string>
+    <string name="lobby_empty_sprites">لا لوحات بعد. أحضر رسمة وقطّعها إلى إطارات.</string>
+    <string name="lobby_empty_avatar">لا شخصيات بعد. ركّب هيكلًا لصورة وستتحرك.</string>
+    <string name="lobby_empty_viz">لا مؤثرات بصرية بعد. اصنع واحدًا من أي صوت لديك.</string>
+    <string name="lobby_empty_textlab">كلمات تبدو كملصق فيلم: كروم وذهب ونيون ونار. اختر مظهرًا واكتب.</string>
+    <string name="lobby_empty_joybrush">ارسم شيئًا. يُحفظ من تلقاء نفسه.</string>
+    <string name="lobby_act_carry_on">واصل</string>
+    <string name="lobby_act_open">فتح</string>
+    <string name="lobby_act_record">سجّل</string>
+    <string name="lobby_act_start">ابدأ واحدًا</string>
+    <string name="lobby_act_new_drawing">ارسم</string>
+    <string name="intro_line_capture">تصوير الشاشة مع وجهك عليها</string>
+    <string name="intro_line_record">تسجيل فيديو، حتى والشاشة مطفأة</string>
+    <string name="intro_line_editor">محرر حقيقي — طبقات وأقنعة وإطارات رئيسية</string>
+    <string name="intro_line_animation">رسوم متحركة — شخصيات وهياكل ودمى</string>
+    <string name="intro_line_transcribe">تفريغ نصي لا يغادر هاتفك</string>
+    <string name="intro_line_secondcam">هاتف ثانٍ ككاميرا، عبر شبكة Wi-Fi الخاصة بك</string>
+    <string name="intro_line_ai">AI يعدّل الخط الزمني نفسه</string>
+    <string name="intro_start_creating">ابدأ الإبداع</string>
+    <string name="intro_promise">بلا إعلانات. بلا اشتراك.\nبلا علامة مائية.</string>
+    <string name="intro_promise_ever">لا جدار دفع للتصدير. أبدًا.</string>
+    <string name="intro_story">بنيت هذا بين قيلولة وأخرى، وأنا أرعى أطفالي الثلاثة الصغار. هذا مصدر رزق عائلتي. إن أفادك، يمكنك أن تساعد في إبقائه مجانيًا للجميع.</string>
+    <string name="intro_cta_start">ابدأ الإبداع</string>
+    <string name="intro_ai_note">Joy Creator لا يشغّل أي خوادم. إذا ربطت AI، تذهب رسائلك إلى المزوّد الذي اخترته — نحن لا نراها ولا نأخذ أي عمولة.</string>
+    <string name="intro_ai_have_key">لديك مفتاح بالفعل؟</string>
+    <string name="intro_ai_add_now">أضِفه الآن</string>
+    <string name="intro_ai_later">لاحقًا، من الدردشة</string>
+    <string name="desc_select_mode">وضع التحديد</string>
+    <string name="desc_delete_selected">حذف المحدد</string>
+    <string name="desc_cancel_selection">إلغاء التحديد</string>
+    <string name="desc_select_month">تحديد هذا الشهر</string>
+    <string name="desc_watch_remote_toggle">بدء البث أو إيقافه</string>
+    <string name="desc_back">رجوع</string>
+    <string name="desc_decrease_named">أنقص %1$s</string>
+    <string name="desc_increase_named">زد %1$s</string>
+    <string name="desc_pip_expand">كبّر المعاينة</string>
+    <string name="desc_pip_undock">فك التثبيت: اجعل المعاينة عائمة مرة أخرى</string>
+    <string name="desc_keyframe_toggle">إطار رئيسي عند رأس التشغيل: اضغط للإضافة أو الإزالة</string>
+    <string name="desc_transcript_show">إظهار النص المفرّغ</string>
+    <string name="desc_transcript_resize">اسحب لتغيير حجم لوحة النص المفرّغ</string>
+    <string name="desc_transcript_search">ابحث في النص المفرّغ</string>
+    <string name="desc_transcript_hide">إخفاء النص المفرّغ</string>
+    <string name="desc_transcript_add_pass">إضافة مرور تفريغ آخر</string>
+    <string name="desc_search_prev">نتيجة البحث السابقة</string>
+    <string name="desc_search_next">نتيجة البحث التالية</string>
+    <string name="desc_crop_auto">قص الأشرطة السوداء تلقائيًا</string>
+    <string name="desc_crop_snap_center">ألصق القص بالمركز</string>
+    <string name="desc_volume_keyframe">تشغيل أو إيقاف إطارات مستوى الصوت الرئيسية</string>
+    <string name="desc_volume_mute">كتم الصوت المحدد أو إلغاء كتمه</string>
+    <string name="desc_opacity_keyframe">تشغيل أو إيقاف إطارات الشفافية الرئيسية</string>
+    <string name="desc_caption_keyframe">تشغيل أو إيقاف إطارات نمط الترجمة الرئيسية</string>
+    <string name="desc_keyframe_prev">الإطار الرئيسي السابق</string>
+    <string name="desc_keyframe_next">الإطار الرئيسي التالي</string>
+    <string name="desc_keyframe_delete">حذف الإطار الرئيسي</string>
+    <string name="desc_keyframe_playhead">أضف إطارًا رئيسيًا أو حدّثه أو أزله عند رأس التشغيل</string>
+    <string name="desc_move_go">انقل المقطع إلى الموضع المكتوب</string>
+    <string name="desc_word_earlier">قدّم الكلمة إطارًا واحدًا</string>
+    <string name="desc_word_later">أخّر الكلمة إطارًا واحدًا</string>
+    <string name="desc_word_center">ركّز على هذه الكلمة</string>
+    <string name="desc_hide_captions_clip">أخفِ الترجمة لهذا المقطع فقط</string>
+    <string name="desc_insert_playhead">أدرج الملف المحدد عند رأس التشغيل</string>
+    <string name="desc_layer_colour">تعيين لون الطبقة</string>
+    <string name="desc_visualizer_save">احفظ نمط المصوّر الصوتي هذا</string>
+    <string name="desc_visualizer_export">صدّر نمط المصوّر الصوتي هذا إلى ملف</string>
+    <string name="desc_visualizer_import">استورد نمط مصوّر صوتي من ملف</string>
+    <string name="desc_wave_justify">المحاذاة الرأسية</string>
+    <string name="desc_wave_data_mode">وضع البيانات</string>
+    <string name="desc_wave_mirror">عكس أفقي</string>
+    <string name="desc_wave_center_mode">وضع المركز</string>
+    <string name="desc_wave_render_mode">وضع العرض</string>
+    <string name="desc_wave_attach">اربط بمقطع أو افصل</string>
 </resources>

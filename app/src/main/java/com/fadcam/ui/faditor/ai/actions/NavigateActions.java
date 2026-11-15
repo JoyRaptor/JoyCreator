@@ -45,6 +45,11 @@ final class NavigateActions {
     private static ActionResult openRoom(@NonNull AppCtx ctx, @NonNull Args a) throws ActionError {
         String room = a.choice("room", ROOMS);
         if (room == null) throw new ActionError("open_room needs a room: " + ROOMS + ".");
+        // L37: a place on the launch list (com.fadcam.launch.LaunchGate) has no door, Joybot's included.
+        com.fadcam.launch.LaunchGate.hiddenKeys(ctx.app);   // make sure the list has been read
+        if (com.fadcam.launch.LaunchList.hiddenRoute(room)) {
+            return ActionResult.unchanged(words(room) + " isn't in this version of Joy Creator yet.");
+        }
         // Without a project these two would open on nothing; the chat's route() sends them to the
         // Studio then, and saying so here keeps the model's next sentence honest.
         boolean needsProject = "spritelab".equals(room);

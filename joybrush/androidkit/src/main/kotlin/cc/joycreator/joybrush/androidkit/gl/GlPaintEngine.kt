@@ -239,6 +239,12 @@ class GlPaintEngine(
     private val boardSnapshotAllowanceBytes = undoBudgetBytes.coerceAtLeast(0L)
     // GL-thread only. Reuse staging storage while a large snapshot fills its output arrays.
     private val tileReadback by lazy { ByteBuffer.allocateDirect(size * size * 4).order(ByteOrder.nativeOrder()) }
+    // The same for a paint store tile ([readMediaTile], [writeMediaTile]): its full floats in native memory and as an array.
+    // Made new for every tile, a save of 31 oil tiles left 124 MB of garbage behind it (2026-11-13). GL thread only.
+    private val mediaStaging by lazy { ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder()) }
+    private val mediaFloats by lazy { FloatArray(size * size * 4) }
+    /** Bench only: false makes both new for every tile, as before, so the bytes of the two ways can be compared. */
+    var reuseMediaStaging = true
 
     private lateinit var dabProg: GlProgram
     private lateinit var commitProg: GlProgram
@@ -6881,8 +6887,17 @@ class GlPaintEngine(
      */
     private fun planeOf(layer: Layer, celId: String?): String? = if (celId == null || celId == layer.sharedCel) null else celId
 
-    /** The plane a document cel of [layerId] is: null for its shared cel, else the cel id (saving and loading address cels). */
-    fun mediaPlaneOfCel(layerId: String, celId: String): String? = layers[layerId]?.let { planeOf(it, celId) } ?: celId
+    /**
+     * The plane a document cel of [layerId] is: null for its shared cel, else the cel id (saving and loading address cels).
+     *
+     * From 2026-10-11 to 11-15 this read `layers[layerId]?.let { planeOf(it, celId) } ?: celId`: the shared plane's null was
+     * taken for "no such layer" and the cel id handed back, so a save listed the paint stores of a frame plane that does not
+     * exist and wrote none for any ordinary layer. Drawings saved in that time open as pictures with their paint set.
+     */
+    fun mediaPlaneOfCel(layerId: String, celId: String): String? {
+        val layer = layers[layerId] ?: return celId
+        return planeOf(layer, celId)
+    }
 
     private fun floatsOf(layer: Layer, plane: String?): HashMap<String, HashMap<Long, Int>> =
         if (plane == null) layer.floats else layer.celFloats.getOrPut(plane) { HashMap() }
@@ -6962,6 +6977,23 @@ class GlPaintEngine(
     }
 
     private fun forgetAgreements(layerId: String) { agreedLook.keys.removeAll { it.first == layerId } }
+
+    /**
+     * The tiles (layer, plane, key) whose pencil, watercolour and oil state a save should keep, when all of it is more than
+     * [budgetBytes]: the most recently painted first, until the budget is spent. Null = all of it fits. The others are saved
+     * as their picture alone and open as set paint, as paint the room has set does ([setOldMedia]): what a save reads back
+     * and writes has to stay small enough to finish (a full room took 2 s of readback and 19 s of writing on the Note 9,
+     * 2026-11-15). Tiles painted before this drawing was opened carry no time and count as oldest.
+     */
+    fun mediaTilesToSave(budgetBytes: Long): Set<Triple<String, String?, Long>>? {
+        val all = ArrayList<MediaRoom.Tile>()
+        for (l in layers.values) for ((plane, stores) in l.planes()) {
+            val bytes = HashMap<Long, Long>()
+            for ((store, tiles) in stores) for (k in tiles.keys) bytes[k] = (bytes[k] ?: 0L) + MediaStores.tileBytes(size, store)
+            for ((k, b) in bytes) all += MediaRoom.Tile(l.id, plane, k, b, mediaWritten[Triple(l.id, plane, k)] ?: 0L)
+        }
+        return MediaRoom.newestWithin(all, budgetBytes)
+    }
 
     /** After a load: every payload agrees with the look the file put beside it. */
     fun agreeAllPayloads() {
@@ -7286,21 +7318,59 @@ class GlPaintEngine(
         val tex = mediaTile(layerId, store, key, plane) ?: return null
         // The ground is RGBA8 like a look tile, and is read like one.
         if (store == MediaStores.GROUND) return readTextureTile(tex)
-        val buf = ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
+        val buf = if (reuseMediaStaging) mediaStaging.also { it.clear() } else ByteBuffer.allocateDirect(size * size * 4 * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
         attach(tex)
         try {
             check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "media tile framebuffer is unavailable" }
+            // The store is half floats and the file wants half floats. Where the driver hands a half-float buffer back as
+            // half floats (its own readback format for this attachment says so), they are read as they lie: the same
+            // bytes the float readback rounds to, without a megabyte of floats and 262,144 conversions a tile.
+            if (readMediaAsHalves && halfReadbackOffered()) {
+                buf.limit(size * size * 4 * 2)
+                GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, buf)
+                if (GLES30.glGetError() == GLES30.GL_NO_ERROR) {
+                    val out = ByteArray(size * size * 4 * 2)
+                    buf.rewind()
+                    buf.get(out)
+                    return out
+                }
+                // Refused after all: never asked again on this context, and this tile is read the old way.
+                halfReadback = false
+                buf.clear()
+            }
             GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, buf)
             val error = GLES30.glGetError()
             check(error == GLES30.GL_NO_ERROR) { "media tile readback failed (GL $error)" }
         } finally {
             GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         }
-        val floats = FloatArray(size * size * 4)
+        val floats = if (reuseMediaStaging) mediaFloats else FloatArray(size * size * 4)
         buf.rewind()
         buf.asFloatBuffer().get(floats)
         return HalfFloat.encode(floats)
+    }
+
+    /** Bench only: false reads every store tile back as full floats, as before 2026-11-15, to compare the bytes and the time. */
+    var readMediaAsHalves = true
+    /** Whether this context reads a half-float attachment back as half floats: asked once ([halfReadbackOffered]), null until then. */
+    private var halfReadback: Boolean? = null
+
+    /**
+     * True when the framebuffer now bound (a half-float store tile attached) offers RGBA / HALF_FLOAT as its own readback
+     * format (GL_IMPLEMENTATION_COLOR_READ_FORMAT / TYPE: the one pair besides RGBA / FLOAT that ES 3 lets a driver name).
+     * Little-endian only: the file's half floats are, and the buffer is read in the machine's order.
+     */
+    private fun halfReadbackOffered(): Boolean {
+        halfReadback?.let { return it }
+        val v = IntArray(2)
+        GLES30.glGetIntegerv(GLES30.GL_IMPLEMENTATION_COLOR_READ_FORMAT, v, 0)
+        GLES30.glGetIntegerv(GLES30.GL_IMPLEMENTATION_COLOR_READ_TYPE, v, 1)
+        val offered = GLES30.glGetError() == GLES30.GL_NO_ERROR && v[0] == GLES30.GL_RGBA && v[1] == GLES30.GL_HALF_FLOAT &&
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
+        android.util.Log.i("JoyBrushSave", "paint store readback: the driver's own format is ${v[0]} / ${v[1]}; " + if (offered) "read as half floats" else "read as floats and rounded")
+        halfReadback = offered
+        return offered
     }
 
     /** Sets a float tile (same layout as [readMediaTile]). For loading a document: NOT undoable. Creates what is missing. */
@@ -7312,8 +7382,9 @@ class GlPaintEngine(
         val tex = payload(layer, store, planeOf(layer, plane)).getOrPut(key) { newPayloadTile(store) }
         if (store == MediaStores.GROUND) { uploadTile(tex, bytes); return }
         // Uploaded as full floats (ES 3 takes FLOAT data for an RGBA16F texture) so the rounding is the one [HalfFloat] did.
-        val floats = HalfFloat.decode(bytes)
-        val buf = ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
+        // A store tile is always size x size x 4 values (the require above), which is what the reused pair holds.
+        val floats = if (reuseMediaStaging) mediaFloats.also { HalfFloat.decodeInto(bytes, it) } else HalfFloat.decode(bytes)
+        val buf = if (reuseMediaStaging) mediaStaging.also { it.clear() } else ByteBuffer.allocateDirect(floats.size * 4).order(ByteOrder.nativeOrder())
         buf.asFloatBuffer().put(floats)
         buf.rewind()
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)

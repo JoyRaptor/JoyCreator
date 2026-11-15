@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI وJoybot</string>
+    <string name="settingshub_ai_joybot_desc">اربط AI (يوجد واحد مجاني)، ومفتاحك ونموذجك وخدمتك، وClaude Code أو Codex على حاسوبك</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, api key, مفتاح, نموذج, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, مساعد, دردشة, ربط, حاسوب, mcp</string>
+</resources>

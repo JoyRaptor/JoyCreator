@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/media_strings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="universal_rewind">Keri tagasi</string>
+    <string name="universal_forward">Keri edasi</string>
+</resources>

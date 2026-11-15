@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_lane_b.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_b_audio_level_slider">Nivel</string>
+    <string name="lane_b_audio_pan_slider">Balance</string>
+    <string name="lane_b_audio_fade_in_slider">Fundido de entrada</string>
+    <string name="lane_b_audio_fade_out_slider">Fundido de salida</string>
+    <string name="lane_b_audio_level_value">Nivel. Toca para escribir un porcentaje exacto.</string>
+    <string name="lane_b_audio_pan_value">Balance. Toca para escribir una posición exacta.</string>
+    <string name="lane_b_audio_fade_in_value">Fundido de entrada. Toca para escribirlo en segundos.</string>
+    <string name="lane_b_audio_fade_out_value">Fundido de salida. Toca para escribirlo en segundos.</string>
+    <string name="lane_b_audio_clear_envelope">Borrar la envolvente de volumen y volver a la ganancia plana</string>
+    <string name="lane_b_audio_beat_link">Vincular una superposición al ritmo de este clip</string>
+    <string name="lane_b_audio_gain_meter">Reducción de ganancia del compresor</string>
+    <string name="lane_b_puppet_name">Nombre del pin</string>
+    <string name="lane_b_puppet_tool">Herramienta %1$s</string>
+    <string name="lane_b_puppet_tool_on">Herramienta %1$s, en uso</string>
+    <string name="lane_b_puppet_chip">Pin %1$s. Toca para editarlo.</string>
+    <string name="lane_b_puppet_chip_on">Pin %1$s, en edición</string>
+    <string name="lane_b_puppet_scope">Ajustes de %1$s</string>
+    <string name="lane_b_puppet_scope_on">Ajustes de %1$s, a la vista</string>
+    <string name="lane_b_puppet_toggle_on">%1$s: activado. Toca para desactivar.</string>
+    <string name="lane_b_puppet_toggle_off">%1$s: desactivado. Toca para activar.</string>
+    <string name="lane_b_puppet_eye_on">El anillo de alcance se ve siempre. Toca para verlo solo al arrastrar.</string>
+    <string name="lane_b_puppet_eye_off">El anillo de alcance se ve al arrastrar. Toca para dejarlo siempre visible.</string>
+    <string name="lane_b_puppet_key_position">Fotograma clave de posición para este pin</string>
+    <string name="lane_b_transcript_panel">Transcripción. Toca una palabra para ir a ella, mantén pulsado para corregirla o tacharla.</string>
+    <string name="lane_b_wave_swatch">Color de %1$s. Toca para elegir.</string>
+    <string name="lane_b_wave_lane_top">Carril de %1$s: arriba. Toca para bajarlo.</string>
+    <string name="lane_b_wave_lane_below">Carril de %1$s: abajo. Toca para subirlo.</string>
+    <string name="lane_b_wave_band_show">Mostrar la banda de %1$s</string>
+    <string name="lane_b_wave_preset">Color %1$d de %2$d</string>
+    <string name="lane_b_wave_preset_on">Color %1$d de %2$d, en uso</string>
+</resources>

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Kolom di sepanjang sheet. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_rows">Baris ke bawah sheet. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_margin_x">Ruang di tepi kiri dan kanan sheet. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_margin_y">Ruang di tepi atas dan bawah sheet. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_spacing_x">Jarak antar sel, kiri ke kanan. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_spacing_y">Jarak antar sel, atas ke bawah. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_tolerance">Seberapa dekat dengan warna key yang dianggap latar. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_move_x">Geser frame ini ke kiri atau kanan. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_move_y">Geser frame ini ke atas atau bawah. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_scale">Perbesar atau perkecil frame ini. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_rotate">Putar frame ini, dalam derajat. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_pivot_x">Titik poros, kiri ke kanan. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_pivot_y">Titik poros, atas ke bawah. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_bake_pad">Ruang di sekeliling tiap frame saat dipanggang. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_onion_strength">Sekuat apa bayangan onion-skin terlihat. Seret untuk mengubah, ketuk untuk mengetik</string>
+    <string name="hover_sprite_onion_past">Bayangan frame sebelumnya. Seret untuk mengubah jumlahnya, ketuk untuk memilih warna</string>
+    <string name="hover_sprite_onion_future">Bayangan frame sesudahnya. Seret untuk mengubah jumlahnya, ketuk untuk memilih warna</string>
+    <string name="hover_sprite_divider">Seret untuk membuat panel alat lebih tinggi atau lebih pendek</string>
+    <string name="hover_puppet_badge">Pin boneka. Ketuk untuk berpose, tahan untuk membuka laci pin</string>
+</resources>

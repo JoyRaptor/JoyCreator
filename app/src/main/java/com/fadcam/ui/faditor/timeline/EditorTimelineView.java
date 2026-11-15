@@ -3133,6 +3133,7 @@ public class EditorTimelineView extends View {
     @Override
     protected void onDraw(@NonNull Canvas canvas) {
         super.onDraw(canvas);
+        cutMarks.clear();
 
         // Reorder mode draws its own UI over everything
         if (isReorderMode) {
@@ -4212,10 +4213,20 @@ public class EditorTimelineView extends View {
         ordered.addAll(layerTracks);
         ordered.addAll(audioLayerTracks);
 
+        // STU-F9 (S5): audio lanes in their OWN colour. The flat audio green (#4ADE80) sat
+        // beside the video aqua and at 1.2dp the two read as one green. Sound is warm in this
+        // system, so a line here takes the audio tape's own colour (the middle of its
+        // yellow-green to gold ramp), and an audio lane's empty rail is tinted the same.
+        int[] audioRamp = ObjectPalette.gradientFor(com.fadcam.ui.faditor.layers.TrackKind.AUDIO);
+        int audioTape = blendColors(audioRamp[0], audioRamp[1], 0.5f);
+        int firstAudioLane = layerTracks.size();
+
         for (int i = 0; i < lines; i++) {
             com.fadcam.ui.faditor.layers.Track t = ordered.get(i);
+            boolean audioLane = i >= firstAudioLane;
             // Faint rail so an EMPTY layer still reads as a layer that exists.
-            minimapBlockPaint.setColor(Studio.alpha(Studio.INK, 0x1A));
+            minimapBlockPaint.setColor(audioLane
+                    ? Studio.alpha(audioTape, 0x2E) : Studio.alpha(Studio.INK, 0x1A));
             canvas.drawRect(margin, y, margin + stripW, y + thickness, minimapBlockPaint);
 
             for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
@@ -4229,6 +4240,7 @@ public class EditorTimelineView extends View {
                 float x0 = margin + (s / (float) totalEffectiveMs) * stripW;
                 float x1 = margin + (e / (float) totalEffectiveMs) * stripW;
                 int color = ObjectPalette.forItem(item, t.getKind());
+                if (audioLane || color == ObjectPalette.AUDIO) color = audioTape;
                 if (selectedId != null && selectedId.equals(item.getId())) {
                     color = blendColors(color, Studio.INK, pulse);
                     minimapMetersAnimating = true; // keep the blink repainting
@@ -5195,9 +5207,46 @@ if (sd.clip.hasVolumeKeyframes()) {
             float x1 = rect.left + (Math.min(sd.outPointMs, span[1]) - sd.inPointMs) * pxPerMs;
             if (x1 > x0) {
                 canvas.drawRect(x0, rect.top, x1, rect.bottom, segmentPaint);
+                long skipped = Math.round((Math.min(sd.outPointMs, span[1])
+                        - Math.max(sd.inPointMs, span[0])) / (double) Math.max(0.1f, sd.speed));
+                CutMarkPainter.draw(canvas, x0, rect.top, rect.bottom, density);
+                cutMarks.add(new float[]{x0, rect.top, rect.bottom, skipped});
             }
         }
         canvas.restore();
+    }
+
+    // ── Cut marks (STU-B3): where playback and export jump over a struck word or a cut
+    // silence. Recorded as they are drawn (content x), so a hovering stylus or mouse can be
+    // told what the mark is. Cleared at the start of every frame.
+    private final java.util.List<float[]> cutMarks = new java.util.ArrayList<>();
+    private CharSequence tooltipBeforeCutMark;
+    private boolean showingCutMarkTip;
+
+    @Override
+    public boolean onHoverEvent(android.view.MotionEvent event) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            float[] hit = null;
+            if (event.getActionMasked() != android.view.MotionEvent.ACTION_HOVER_EXIT) {
+                float cx = event.getX() + scrollOffsetPx;
+                float slop = 10f * density;
+                for (float[] m : cutMarks) {
+                    if (Math.abs(cx - m[0]) <= slop && event.getY() >= m[1] && event.getY() <= m[2]) {
+                        hit = m;
+                        break;
+                    }
+                }
+            }
+            if (hit != null) {
+                if (!showingCutMarkTip) tooltipBeforeCutMark = getTooltipText();
+                showingCutMarkTip = true;
+                setTooltipText(CutMarkPainter.label(getContext(), (long) hit[3]));
+            } else if (showingCutMarkTip) {
+                showingCutMarkTip = false;
+                setTooltipText(tooltipBeforeCutMark);
+            }
+        }
+        return super.onHoverEvent(event);
     }
 
     /** Draws detected-silence candidates as translucent yellow bands. */

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">Aktif</string>
+    <string name="joybotswitch_state_off">Mati</string>
+    <string name="joybotswitch_tip_on">Aktif. Ketuk untuk mematikan.</string>
+    <string name="joybotswitch_tip_off">Mati. Ketuk untuk menyalakan.</string>
+    <string name="joybotswitch_tip_on_named">%1$s aktif. Ketuk untuk mematikan.</string>
+    <string name="joybotswitch_tip_off_named">%1$s mati. Ketuk untuk menyalakan.</string>
+</resources>

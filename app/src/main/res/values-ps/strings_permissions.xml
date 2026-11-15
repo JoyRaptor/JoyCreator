@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">نیول کامره او مایکروفون ته اړتیا لري</string>
+    <string name="access_capture_why">د فلم اخیستلو او غږ ثبتولو لپاره، Android غواړي چې کامره او مایکروفون اجازه ورکړئ. Joy Creator د ثبت خبرتیا ښودلو اجازه هم غواړي، نو تاسو تل پوهېږئ کله چې ثبتوي. هیڅ ستاسو له تلیفون نه نه وځي.</string>
+    <string name="access_allow">اجازه ورکړئ</string>
+    <string name="access_not_now">اوس نه</string>
+    <string name="access_capture_declined">نیول بند پاتې کېږي تر څو چې کامره او مایکروفون اجازه ونه ورکړل شي. هر وخت بیا پر نیول کېکاږئ.</string>
+    <string name="access_capture_blocked">Android به نور د کامرې یا مایکروفون لپاره ونه پوښتي. په Joy Creator د تنظیماتو پاڼه کې د اجازو لاندې یې چارن کړئ، بیا بېرته راشئ.</string>
+    <string name="access_open_settings">تنظیمات خلاص کړئ</string>
+</resources>

@@ -165,7 +165,7 @@
                 android:fontFamily="@font/joy_body"
                 android:layout_marginTop="12dp" />
 
-            <!-- ── THE TWO CONTROLS ────────────────────────────────────────────
+            <!-- ── THE CONTROL (there were two; see the note below) ────────────
                  One filled, one quiet. Both are ways forward, but only one of them is
                  what the reader came here to do, and a screen with two equal buttons
                  makes them choose before they have been told what the choice is. -->
@@ -189,22 +189,10 @@
                     android:textStyle="bold"
                     android:textFontWeight="800"
                     android:background="@drawable/studio_action_pill" />
-
-                <TextView
-                    android:id="@+id/welcome_support"
-                    android:layout_width="wrap_content"
-                    android:layout_height="52dp"
-                    android:gravity="center"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp"
-                    android:layout_marginStart="10dp"
-                    android:text="@string/intro_support"
-                    android:textSize="14sp"
-                    android:textColor="@color/s_ink_dim"
-                    android:fontFamily="@font/joy_display"
-                    android:textStyle="bold"
-                    android:textFontWeight="600"
-                    android:background="@drawable/intro_secondary_pill" />
+                <!-- The quiet "Support" pill that sat here moved to the About page's sign-off
+                     (L32 / SHELL-60, 11-15): nothing asks for money before the person has made
+                     anything (LAUNCH_STRATEGY.md, Tier 0), and the link stays hidden there
+                     until support_url is filled in. -->
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

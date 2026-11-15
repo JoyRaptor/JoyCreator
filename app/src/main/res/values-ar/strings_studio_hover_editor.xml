@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_studio_hover_editor.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_hover_export_progress">عرض تقدّم التصدير</string>
+    <string name="studio_hover_viz_add_layer">إضافة طبقة</string>
+    <string name="studio_hover_viz_duplicate_layer">تكرار الطبقة</string>
+    <string name="studio_hover_viz_delete_layer">حذف الطبقة</string>
+    <string name="studio_hover_viz_move_layer_left">نقل الطبقة لليسار</string>
+    <string name="studio_hover_viz_move_layer_right">نقل الطبقة لليمين</string>
+    <string name="studio_hover_bold">غامق</string>
+    <string name="studio_hover_underline">تسطير</string>
+    <string name="studio_hover_italic">مائل</string>
+    <string name="studio_hover_text_motion">حركة</string>
+    <string name="studio_hover_pivot">محور الدوران</string>
+</resources>

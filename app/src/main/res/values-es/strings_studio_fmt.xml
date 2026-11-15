@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Se importó %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">No se pudo mostrar la diapositiva: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Error al consolidar: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Error al exportar: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Error al copiar la exportación: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Error al importar: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Error al reordenar: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Error de reorden: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Error al alinear: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Eso no parece una diapositiva de Studio: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Error al importar la diapositiva: %1$s</string>
+</resources>

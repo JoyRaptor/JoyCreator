@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_tips.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string-array name="tips_joycreator">
+        <item>Tout ce que tu crées est enregistré dans ton dossier Joy Creator sous forme de fichiers ordinaires que tu peux voir, copier et sauvegarder.</item>
+        <item>Supprimé quelque chose par erreur ? Maintiens le logo Joy Creator en haut de l\'accueil pour ouvrir Récemment supprimés.</item>
+        <item>Touche la loupe dans l\'accueil pour retrouver n\'importe quel projet, enregistrement, dessin ou image de ta Library.</item>
+        <item>Maintiens n\'importe quel élément de la Library pour voir tout ce que tu peux en faire.</item>
+        <item>Partage une vidéo, une image ou un son vers Joy Creator depuis n\'importe quelle app : il arrive dans ton dossier, prêt pour Studio.</item>
+        <item>Touche Joybot pour une idée sur ce que tu fais. Pour discuter avec ta propre IA, connecte-la dans Options, IA et Joybot.</item>
+        <item>TextLab crée des titres dignes d\'affiches de cinéma. Dans Studio, touche Modifier dans TextLab à côté du look d\'un titre pour le changer là-bas.</item>
+        <item>Ouvre un fichier .joypack pour ajouter de nouveaux looks et de nouvelles polices. Touche Packs en bas de l\'accueil pour voir ce que tu as.</item>
+        <item>Touche la ligne de stockage dans l\'accueil pour voir ce qui prend de la place sur ton téléphone et en récupérer.</item>
+        <item>Cherche dans les Options ce que tu veux changer, comme \"filigrane\" ou \"thème\".</item>
+        <item>Viz Lab transforme ta musique en visuels animés, construits avec des parties que tu peux mélanger et ajuster.</item>
+    </string-array>
+</resources>

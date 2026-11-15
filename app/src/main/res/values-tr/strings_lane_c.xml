@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Daha fazla ⌄</string>
+    <string name="faditor_lc_drawer_grip">Çekmece tutamacı. Boyutlandırmak için sürükle, daha fazlasını göstermek veya kapatmak için dokun</string>
+    <string name="faditor_lc_fx_expand">Bu efektin ayarlarını göster</string>
+    <string name="faditor_lc_fx_collapse">Bu efektin ayarlarını gizle</string>
+    <string name="faditor_lc_fx_bypass">Efekti atla</string>
+    <string name="faditor_lc_fx_enable">Efekti aç</string>
+    <string name="faditor_lc_fx_delete">Efekti sil</string>
+    <string name="faditor_lc_fx_reorder">Sıralamak için basılı tutup sürükle</string>
+    <string name="faditor_lc_key_prev">Önceki anahtar kare</string>
+    <string name="faditor_lc_key_next">Sonraki anahtar kare</string>
+    <string name="faditor_lc_key_diamond">Anahtar kare. Eklemek veya kaldırmak için dokun, hepsini temizlemek için basılı tut</string>
+    <string name="faditor_lc_ease_need_keys">Önce anahtar kareleri bırak</string>
+    <string name="faditor_lc_motion_title">Hareket</string>
+    <string name="faditor_lc_motion_by">Canlandırma birimi</string>
+    <string name="faditor_lc_gran_letter">Harf</string>
+    <string name="faditor_lc_gran_word">Kelime</string>
+    <string name="faditor_lc_gran_sentence">Cümle</string>
+    <string name="faditor_lc_gran_block">Blok</string>
+    <string name="faditor_lc_sheet_grip">Sayfa tutamacı. Tüm ayarlar için dokun veya yukarı sürükle, kapatmak için aşağı sürükle</string>
+    <string name="faditor_lc_sheet_legend">Anahtar kare şekilleri ne demek</string>
+    <string name="faditor_lc_sheet_more">Daha fazla…</string>
+    <string name="faditor_lc_sheet_move_to">Şuraya taşı</string>
+    <string name="faditor_lc_sheet_jump">Gitmek için bir zaman yaz</string>
+    <string name="faditor_lc_sheet_push">Ötele</string>
+    <string name="faditor_lc_sheet_snap">Yapış</string>
+    <string name="faditor_lc_sheet_static_hint">Sabit — canlandırmak için ♦ simgesine dokun</string>
+</resources>

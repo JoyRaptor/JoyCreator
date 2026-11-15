@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Форма</string>
+    <string name="studio_viz_sec_colour">Цвет</string>
+    <string name="studio_viz_sec_look">Вид</string>
+    <string name="studio_viz_sec_motion">Движение</string>
+    <string name="studio_viz_opacity">Прозрачность</string>
+    <string name="studio_viz_softness">Мягкость</string>
+    <string name="studio_viz_gain">Усиление</string>
+    <string name="studio_viz_spread">Разброс</string>
+    <string name="studio_viz_blend">Смешивание</string>
+    <string name="studio_viz_mirror">Зеркало</string>
+    <string name="studio_viz_trails">Шлейфы</string>
+    <string name="studio_viz_phase">Фаза</string>
+    <string name="studio_viz_attack">Атака</string>
+    <string name="studio_viz_release">Спад</string>
+    <string name="studio_viz_glow">Свечение</string>
+    <string name="studio_viz_radius">Радиус</string>
+    <string name="studio_viz_count">Количество</string>
+    <string name="studio_viz_speed">Скорость</string>
+    <string name="studio_viz_hover_attack">Атака: как быстро растёт, в мс</string>
+    <string name="studio_viz_hover_release">Спад: как быстро падает, в мс</string>
+    <string name="studio_viz_hover_radius">Радиус свечения</string>
+    <string name="studio_viz_hover_count">Количество частиц</string>
+    <string name="studio_viz_hover_speed">Скорость частиц</string>
+    <string name="studio_viz_value_ms">%1$dмс</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

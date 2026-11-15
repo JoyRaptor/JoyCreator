@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">Story Board پاک دی</string>
+    <string name="smart_detection_empty_hint">هغه چوکاټونه چې کامره یې په نښه کوي دلته به ښکاره شي</string>
+    <string name="smart_detection_empty_glyph_desc">تر اوسه هیڅ نه دی موندل شوی</string>
+    <string name="smart_detection_tip_close">بندول</string>
+    <string name="smart_detection_tip_back">شاته</string>
+    <string name="smart_detection_tip_menu">د هوښیار کشف مېنو</string>
+    <string name="smart_detection_tip_select_all">ټول غوره کړئ</string>
+    <string name="smart_detection_tip_sort">ترتیب</string>
+    <string name="smart_detection_tip_grid">د جال ترتیب بدل کړئ</string>
+    <string name="smart_detection_tip_scroll">سر ته ورشئ</string>
+</resources>

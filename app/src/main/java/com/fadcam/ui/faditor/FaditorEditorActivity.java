@@ -4375,7 +4375,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     selectSegment(selectedClipIndex);
                     // Offer Consolidate so the same break cannot recur (spec 2.4)
                     if (!ProjectBundle.isConsolidated(FaditorEditorActivity.this, project)) {
-                        new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                        StudioDialog.builder(FaditorEditorActivity.this)
                                 .setTitle(R.string.studio_ui_relink_complete)
                                 .setMessage(R.string.studio_ui_media_is_linked_again_consolidate_the)
                                 .setPositiveButton(R.string.studio_ui_consolidate, (d2,w2) -> showConsolidateDialog())
@@ -4553,7 +4553,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final long fnDur = newDuration;
         final int fnIdx = entry.timelineIndex;
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_relink_confirm_title)
                 .setMessage(msg.toString())
                 .setPositiveButton(R.string.faditor_relink_confirm_yes, (d, w) -> {
@@ -5392,6 +5392,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void updateMarkerAudioOnlyClock() {
         if (!audioTailActive || project == null || !project.getTimeline().isEmpty()) return;
         long ms = Math.min(markerDurationMs(), audioTailStartMs + android.os.SystemClock.elapsedRealtime() - audioTailStartWall);
+        ms = Math.min(markerDurationMs(), jumpAudioClockOverCut(ms));
         editorTimeline.setPlayheadPositionMs(ms); lastPlayheadAbsoluteMs = ms;
         timeCurrent.setText(TimeFormatter.formatAuto(ms)); setTextOverlayPlayhead(ms);
         if (ms >= markerDurationMs()) {
@@ -5672,7 +5673,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setHint(R.string.studio_ui_project_name);
         root.addView(input);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_rename_project)
                 .setView(root)
                 .setPositiveButton(R.string.studio_ui_rename, (d, w) -> {
@@ -5986,7 +5987,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void consolidateProjectMedia() {
         if (project == null) return;
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_make_project_self_contained)
                 .setMessage(R.string.studio_project_consolidate_message)
                 .setNegativeButton(android.R.string.cancel, null)
@@ -6028,7 +6029,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 : (r.copied == 0
                                         ? getString(R.string.studio_opt_already_self_contained_nothing_to) : getString(R.string.studio_opt_copied) + r.copied + " file(s). This project no longer "
                                                 + "depends on anything outside itself.");
-                new androidx.appcompat.app.AlertDialog.Builder(FaditorEditorActivity.this)
+                StudioDialog.builder(FaditorEditorActivity.this)
                         .setTitle(R.string.studio_ui_consolidate)
                         .setMessage(msg)
                         .setPositiveButton(android.R.string.ok, null)
@@ -6104,7 +6105,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** The missing-media warning (see ProjectIntegrity). Reports; never repairs. */
     private void showIntegrityWarning(int n, @NonNull String body) {
         if (isFinishing() || isDestroyed()) return;
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        StudioDialog.builder(this)
                 .setTitle(n == 1 ? getString(R.string.studio_integrity_one_file_missing)
                         : getString(R.string.studio_integrity_n_files_missing, n))
                 .setMessage(getString(R.string.studio_integrity_missing_message, body))
@@ -6400,7 +6401,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final boolean[] answered = {false};
         androidx.appcompat.app.AlertDialog dlg =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                 .setTitle(R.string.faditor_orphan_title)
                 .setMessage(getString(R.string.faditor_orphan_body, ids.size()))
                 .setView(remember)
@@ -9130,7 +9131,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hField.setLayoutParams(hLp);
         rowLayout.addView(hField);
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_crop_custom_ratio_title)
                 .setView(rowLayout)
                 .setPositiveButton(android.R.string.ok, (d, which) -> {
@@ -9936,7 +9937,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         final com.fadcam.ui.faditor.waveform.TapeWaveformStyle style = editorTimeline.getTapeStyle();
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_analyze_audio_waveforms)
                 .setMessage(R.string.studio_waveform_analyze_message)
                 .setCancelable(false)
@@ -10416,8 +10417,87 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * frame-level precision, plain seekTo on older builds.
      */
     private void seekAudioPlayersToPlayhead() {
+        seekAudioPlayersTo(editorTimeline.getPlayheadPositionMs());
+    }
+
+    // ── Cut jumps in playback (STU-B3) ───────────────────────────────────────────────
+    /** How close to a jump's end counts as landed, so a seek in flight is not repeated. */
+    private static final long CUT_JUMP_SETTLE_MS = 30L;
+
+    /**
+     * Playing film clip {@code clip} at player position {@code position} (source ms from the
+     * in-point; on a gapless looped clip, the clip's own visual clock): when that moment lies
+     * inside a cut jump, seek past it and bring the sound lanes along. A jump that runs to or
+     * past the clip's end seeks to the end, and the next clip takes over as at any seam (a
+     * jump that continues into it is met again there). Returns true when it seeked.
+     */
+    private boolean jumpOverCutIfInside(@NonNull Clip clip, long position) {
+        Timeline tl = project.getTimeline();
+        com.fadcam.ui.faditor.model.CutJumps jumps = com.fadcam.ui.faditor.model.CutJumps.of(tl);
+        if (jumps.isEmpty()) { pendingSkipSeekTarget = -1; return false; }
+        int ci = tl.indexOfClip(clip);
+        if (ci < 0) return false;
+        long clipStart = 0L;
+        for (int i = 0; i < ci; i++) clipStart += tl.getClip(i).getVisualDurationMs();
+        double speed = Math.max(0.1f, clip.getSpeedMultiplier());
+        boolean visualClock = clip.hasLoopExtension() && clip.getLoopMode() == Clip.LOOP_MODE_NORMAL
+                && playerManager.isGapless();
+        long loopBefore = clip.hasLoopExtension() && !clip.isImageClip() ? clip.getLoopBeforeMs() : 0L;
+        long mainStart = clipStart + loopBefore;
+        long mainEnd = mainStart + clip.getTrimmedDurationMs();
+        long editorMs = visualClock ? clipStart + position
+                : mainStart + Math.round(position / speed);
+        // A player can report a few ms past its clip's end before the seam. That moment belongs
+        // to the NEXT clip, which meets its own jumps itself; read here it seeked back (Note 9,
+        // 11-15: the picture held ~0.7 s at the end of a clip before one that is all cut).
+        if (editorMs < mainStart || editorMs >= mainEnd - CUT_JUMP_SETTLE_MS) {
+            pendingSkipSeekTarget = -1;
+            return false;
+        }
+        int j = jumps.indexAt(editorMs);
+        if (j < 0 || editorMs >= jumps.endMs(j) - CUT_JUMP_SETTLE_MS) {
+            pendingSkipSeekTarget = -1;
+            return false;
+        }
+        long landing = Math.min(jumps.endMs(j), mainEnd);
+        long target = visualClock ? landing - clipStart
+                : Math.round((landing - mainStart) * speed);
+        if (landing >= mainEnd) {
+            // To the end of this clip's main pass; a hair short so the player still has a frame.
+            long endTarget = visualClock ? mainEnd - clipStart
+                    : clip.getOutPointMs() - clip.getInPointMs();
+            target = Math.max(0L, endTarget - 20L);
+        }
+        if (pendingSkipSeekTarget != target) {
+            pendingSkipSeekTarget = target;
+            playerManager.setExactSeek(true);
+            playerManager.seekTo(target);
+            seekAudioPlayersTo(landing);
+            FLog.d(TAG, "cut jump: " + editorMs + " -> " + landing + " ms (clip " + ci + ")");
+        }
+        return true;
+    }
+
+    /**
+     * The audio-only and audio-tail clock (wall time from audioTailStartMs): inside a cut jump
+     * it restarts at the jump's end and the sound lanes are seeked there. Returns the clock.
+     */
+    private long jumpAudioClockOverCut(long ms) {
+        if (project == null) return ms;
+        com.fadcam.ui.faditor.model.CutJumps jumps =
+                com.fadcam.ui.faditor.model.CutJumps.of(project.getTimeline());
+        long landing = jumps.landingMs(ms);
+        if (landing == ms) return ms;
+        audioTailStartMs = landing;
+        audioTailStartWall = android.os.SystemClock.elapsedRealtime();
+        seekAudioPlayersTo(landing);
+        FLog.d(TAG, "cut jump (sound clock): " + ms + " -> " + landing + " ms");
+        return landing;
+    }
+
+    /** Seek every sound lane under {@code playheadMs} there (the playhead itself is not moved). */
+    private void seekAudioPlayersTo(long playheadMs) {
         if (project == null || !project.getTimeline().hasAudioClips()) return;
-        long playheadMs = editorTimeline.getPlayheadPositionMs();
         java.util.List<AudioClip> clips = project.getTimeline().getAudioClips();
         for (int i = 0; i < clips.size() && i < audioPlayers.size(); i++) {
             if (readyAudioPlayer(i) == null) continue;
@@ -10842,7 +10922,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             }
                         }
                         com.google.android.material.dialog.MaterialAlertDialogBuilder b =
-                                new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                                StudioDialog.builder(FaditorEditorActivity.this)
                                         .setTitle(R.string.studio_ui_export_failed)
                                         .setMessage(userMsg)
                                         .setCancelable(false)
@@ -10854,7 +10934,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         // Details disclosure: raw engine text demoted but not deleted — what makes a bug report useful
                         b.setNeutralButton(R.string.studio_ui_details, (dlg, w) -> {
-                            new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                            StudioDialog.builder(FaditorEditorActivity.this)
                                     .setTitle(R.string.studio_ui_export_error_details)
                                     .setMessage(rawClass + ":\n" + raw)
                                     .setPositiveButton(R.string.studio_ui_copy, (d2, w2) -> {
@@ -11887,7 +11967,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // ── Audio-tail mode: playhead continues past video end ───────
         if (audioTailActive) {
             long elapsed = android.os.SystemClock.elapsedRealtime() - audioTailStartWall;
-            long playheadMs = audioTailStartMs + elapsed;
+            long playheadMs = jumpAudioClockOverCut(audioTailStartMs + elapsed);
             long timelineEndMs = editorTimeline.getTimelineEndMs();
 
             if (playheadMs >= timelineEndMs) {
@@ -12320,30 +12400,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             long position = playerManager.getCurrentPosition(); // 0-based within trim
             long absoluteMs = clip.getInPointMs() + position;
 
-            // Live skip: if playback entered a transcript-removed span, jump past it
-            if (clip.hasRemovedSpans()) {
-                boolean inSpan = false;
-                for (long[] span : clip.getRemovedSpans()) {
-                    if (absoluteMs >= span[0] && absoluteMs < span[1] - 30) {
-                        inSpan = true;
-                        long target = span[1] - clip.getInPointMs();
-                        long trimDur = clip.getOutPointMs() - clip.getInPointMs();
-                        if (target >= trimDur - 30) {
-                            playerManager.pause();
-                            updatePlayPauseButton(false);
-                            pendingSkipSeekTarget = -1;
-                        } else if (pendingSkipSeekTarget != target) {
-                            pendingSkipSeekTarget = target;
-                            playerManager.setExactSeek(true);
-                            playerManager.seekTo(target);
-                        }
-                        return;
-                    }
-                }
-                if (!inSpan) {
-                    pendingSkipSeekTarget = -1;
-                }
-            }
+            // CUT JUMPS (STU-B3, owner 11-15): struck words and cut silences stay on the
+            // timeline, and playback jumps over them, picture and every sound lane together,
+            // exactly where the export does (model/CutJumps is the one list for both).
+            if (playerManager.isPlaying() && jumpOverCutIfInside(clip, position)) return;
 
             // For clips with loop extension, directly set the absolute timeline
             // position instead of going through setPlayheadFraction (which clamps
@@ -13948,7 +14008,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // SPEC_C: the positive button is INTERCEPTED rather than set as a listener, so
             // an invalid frame time keeps the dialog open with an inline error instead of
             // clamping the typed time silently (spec acceptance #4).
-            androidx.appcompat.app.AlertDialog exportDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            androidx.appcompat.app.AlertDialog exportDialog = StudioDialog.builder(this)
                     .setTitle(R.string.faditor_export_confirm_title)
                     .setView(root)
                     .setPositiveButton(R.string.faditor_export_confirm_action, null)
@@ -14749,7 +14809,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void showCloseConfirmation() {
         try {
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle(R.string.faditor_close_confirm_title)
                     .setMessage(R.string.faditor_close_confirm_helper)
                     .setPositiveButton(R.string.faditor_close_confirm_action, (d, w) -> handleClose())
@@ -16260,7 +16320,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             handlers.add(() -> unlinkDualStreamPair(linkedInSel));
         }
         final Runnable[] h = handlers.toArray(new Runnable[0]);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(getString(R.string.studio_marquee_objects_selected, items.size()))
                 .setItems(labels.toArray(new CharSequence[0]), (d, w) -> h[w].run())
                 .setNegativeButton(R.string.studio_ui_cancel, null)
@@ -16269,7 +16329,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     private void confirmMarqueeBatchDelete(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(getString(R.string.studio_marquee_delete_title, items.size()))
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_ui_delete, (d, w) -> performMarqueeBatchDelete(items))
@@ -16385,7 +16445,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void showLinkCreationDialog(@NonNull java.util.List<
             com.fadcam.ui.faditor.layers.LayerRowRenderer.ItemHit> items) {
         final boolean[] checked = {true, false}; // Timing on by default
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_link_objects)
                 .setMultiChoiceItems(new CharSequence[]{
                         getString(R.string.studio_link_axis_timing_option),
@@ -16579,7 +16639,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final com.fadcam.ui.faditor.layers.LinkGroup g = owner;
             final String axes = describeLinkAxes(g);
             actions.add(new ObjectMenuSheet.Action(getString(R.string.studio_label_unlink) + axes + "…", false, () ->
-                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    StudioDialog.builder(this)
                             .setTitle(getString(R.string.studio_link_unlink_title, axes))
                             .setItems(new CharSequence[]{
                                     getString(R.string.studio_link_unlink_this_object_only),
@@ -17107,7 +17167,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String n = keys.get(i).getName();
             names[i] = (n == null || n.isEmpty()) ? keys.get(i).getId() : n;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_duck_under_which_lane)
                 .setItems(names, (d, w) -> applyDuck(target, keys.get(w)))
                 .setNegativeButton(android.R.string.cancel, null)
@@ -17209,7 +17269,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         final String[] bands = reactiveBandNames();
         final int[] bandIdx = {com.fadcam.ui.faditor.model.BandedWaveformData.BAND_BASS};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_react_to_which_band)
                 .setSingleChoiceItems(bands, 0, (d, w) -> bandIdx[0] = w)
                 .setPositiveButton(android.R.string.ok, (d, w) -> pickReactiveProperty(src, overlays, bandIdx[0]))
@@ -17229,7 +17289,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final String[] props = {getString(R.string.studio_react_prop_scale),
                 getString(R.string.studio_react_prop_opacity), getString(R.string.studio_react_prop_rotation)};
         final int[] propIdx = {0};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_drive_which_property)
                 .setSingleChoiceItems(props, 0, (d, w) -> propIdx[0] = w)
                 .setPositiveButton(android.R.string.ok, (d, w) -> pickReactiveTarget(src, overlays, band, propIdx[0]))
@@ -17246,7 +17306,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String n = overlays.get(i).getDisplayName();
             names[i] = (n == null || n.isEmpty()) ? "Overlay " + (i + 1) : n;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_drive_which_clip)                              // TODO(strings)
                 .setItems(names, (d, w) -> applyAudioReactiveLink(src, overlays.get(w), band, prop))
                 .setNegativeButton(android.R.string.cancel, null)
@@ -17520,7 +17580,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (itemCount == 0) {
             doDelete.run();
         } else {
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.danger(this)
                     .setTitle(R.string.studio_ui_delete_lane)
                     .setMessage(getString(R.string.studio_lane_delete_message, itemCount))
                     .setNegativeButton(android.R.string.cancel, null)
@@ -19029,7 +19089,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             refreshAfterMarqueeBatchDelete();
             scheduleAutoSave();
         })) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(o.isGeneratedSlide() ? getString(R.string.studio_opt_remove_slide_overlay)
                         : o.isImage() ? getString(R.string.studio_opt_remove_image_overlay) : getString(R.string.studio_opt_remove_text_overlay))
                 .setNegativeButton(R.string.studio_ui_cancel, null)
@@ -19063,7 +19123,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Timeline timeline = project.getTimeline();
         int index = timeline.getAudioClips().indexOf(clip);
         if (index < 0) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_remove_audio_clip)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_ui_remove, (d, w) -> {
@@ -19092,7 +19152,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             confirmDeleteLinkedPair(linkPartner, timeline.indexOfClip(linkPartner), clip);
             return;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_remove_video_overlay)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_ui_remove, (d, w) -> {
@@ -19115,7 +19175,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void deleteVisualizerWithConfirmation(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance wv) {
         if (project == null) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_remove_visualizer)
                 .setMessage(R.string.studio_ui_this_removes_the_visualizer_overlay_from)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
@@ -19249,7 +19309,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         hint.setPadding(0, (int) (8 * dp), 0, 0);
         col.addView(hint);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_edit_word)
                 .setView(col)
                 .setPositiveButton(R.string.studio_ui_save, (d, w) -> {
@@ -19328,7 +19388,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         row.addView(tin, lp);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_exact_start_time)
                 .setView(row)
                 .setPositiveButton(R.string.studio_ui_set, (d, which) -> {
@@ -20950,7 +21010,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String[] opts = {getString(R.string.studio_sheet_link_selected), getString(R.string.studio_sheet_link_unlink_selected), getString(R.string.studio_sheet_link_relink_media),
                 getString(joy ? R.string.studio_sheet_link_gather : R.string.studio_sheet_link_consolidate),
                 getString(R.string.studio_sheet_link_export_bundle), getString(R.string.studio_sheet_link_import_bundle)};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.studio_ui_project).setItems(opts, (d,which)-> {
+        StudioDialog.builder(this).setTitle(R.string.studio_ui_project).setItems(opts, (d,which)-> {
             if (which==0) android.widget.Toast.makeText(this, R.string.studio_toast_pick_target_to_link, android.widget.Toast.LENGTH_SHORT).show();
             else if (which==1) android.widget.Toast.makeText(this, R.string.studio_toast_unlinked, android.widget.Toast.LENGTH_SHORT).show();
             else if (which==2) showRelinkCatalog();
@@ -21024,7 +21084,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     shared.check(first.hasAssets ? assets.getId() : leave.getId());
                     box.addView(shared);
                 }
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(getString(R.string.studio_sheet_gather_title, first.projectName))
                         .setView(box)
                         .setPositiveButton(R.string.studio_sheet_gather_button, (d, w) -> {
@@ -21072,7 +21132,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // (the ". Originals stay. Continue?" tail lives in the string resource)
         if (est.fileCount == 0) msg = getString(R.string.studio_sheet_consolidate_nothing,
                 est.alreadyInside > 0 ? getString(R.string.studio_sheet_consolidate_inside_paren, est.alreadyInside) : "");
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_consolidate_project)
                 .setMessage(msg)
                 .setPositiveButton(est.fileCount == 0 ? getString(R.string.studio_opt_ok) : getString(R.string.studio_opt_consolidate), (d,w) -> {
@@ -21122,7 +21182,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     if (res.failed > 0) {
                         // A dialog, not a toast: it names files the person must not delete.
-                        new androidx.appcompat.app.AlertDialog.Builder(this)
+                        StudioDialog.builder(this)
                                 .setTitle(R.string.studio_ui_consolidate)
                                 .setMessage(getString(R.string.studio_consolidate_some_failed, res.copied,
                                         android.text.TextUtils.join(", ", res.failedNames)))
@@ -21155,7 +21215,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void startBundleExport() {
         if (project == null) return;
         if (!ProjectBundle.isConsolidated(this, project)) {
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle(R.string.studio_ui_not_consolidated)
                     .setMessage(R.string.studio_ui_export_would_produce_dead_pointers_consolidate)
                     .setPositiveButton(R.string.studio_ui_consolidate, (d,w) -> showConsolidateDialog())
@@ -23257,7 +23317,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             items.add(nt.label + " (" + nt.engine + ")");
         }
         items.add("Import timestamped text…");
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_wire_caption_track)
                 .setItems(items.toArray(new String[0]), (d, which) -> {
                     if (which < versions.size()) {
@@ -23367,7 +23427,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant"));
         col.addView(sCopy);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_import_format)
                 .setView(col)
                 .setPositiveButton(android.R.string.ok, null)
@@ -23379,14 +23439,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.EditText input = new android.widget.EditText(this);
         input.setText(b.label);
         input.setSelectAllOnFocus(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.dangerNeutral(this)
                 .setTitle(R.string.studio_ui_caption_track)
                 .setView(input)
                 .setPositiveButton(R.string.studio_ui_rename, (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setNeutralButton(R.string.studio_ui_delete, (d,w) -> {
                     if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, R.string.studio_toast_at_least_one_track_required, android.widget.Toast.LENGTH_SHORT).show(); return; }
-                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.studio_ui_delete_track).setMessage(getString(R.string.studio_caption_track_delete_message, b.label)).setPositiveButton(R.string.studio_ui_delete, (dd,ww) -> {
+                    StudioDialog.danger(this).setTitle(R.string.studio_ui_delete_track).setMessage(getString(R.string.studio_caption_track_delete_message, b.label)).setPositiveButton(R.string.studio_ui_delete, (dd,ww) -> {
                         clip.removeCaptionBinding(idx);
                         if (activeCaptionBindingIndex >= clip.getCaptionBindings().size()) activeCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
                         rebuildCaptionOverlays(clip);
@@ -23402,14 +23462,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.EditText input = new android.widget.EditText(this);
         input.setText(b.label);
         input.setSelectAllOnFocus(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.dangerNeutral(this)
                 .setTitle(R.string.studio_ui_caption_track)
                 .setView(input)
                 .setPositiveButton(R.string.studio_ui_rename, (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setNeutralButton(R.string.studio_ui_delete, (d,w) -> {
                     if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, R.string.studio_toast_at_least_one_track_required, android.widget.Toast.LENGTH_SHORT).show(); return; }
-                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this).setTitle(R.string.studio_ui_delete_track).setMessage(getString(R.string.studio_caption_track_delete_message, b.label)).setPositiveButton(R.string.studio_ui_delete, (dd,ww) -> {
+                    StudioDialog.danger(this).setTitle(R.string.studio_ui_delete_track).setMessage(getString(R.string.studio_caption_track_delete_message, b.label)).setPositiveButton(R.string.studio_ui_delete, (dd,ww) -> {
                         clip.removeCaptionBinding(idx);
                         if (activeAudioCaptionBindingIndex >= clip.getCaptionBindings().size()) activeAudioCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
                         rebuildAudioCaptionOverlays(clip);
@@ -23425,7 +23485,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String[] labels = new String[clip.getTranscripts().size()];
         for (int i = 0; i < clip.getTranscripts().size(); i++) labels[i] = clip.getTranscripts().get(i).label + " (" + clip.getTranscripts().get(i).engine + ")";
         final int[] picked = {0};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_choose_transcript_for_new_track)
                 .setSingleChoiceItems(labels, 0, (d,w) -> picked[0] = w)
                 .setPositiveButton(R.string.studio_ui_add, (d,w) -> {
@@ -23456,7 +23516,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String[] labels = new String[clip.getTranscripts().size()];
         for (int i = 0; i < clip.getTranscripts().size(); i++) labels[i] = clip.getTranscripts().get(i).label + " (" + clip.getTranscripts().get(i).engine + ")";
         final int[] picked = {0};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_choose_transcript_for_new_track)
                 .setSingleChoiceItems(labels, 0, (d,w) -> picked[0] = w)
                 .setPositiveButton(R.string.studio_ui_add, (d,w) -> {
@@ -23882,7 +23942,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         input.setText(String.valueOf(currentCaptionStyle().maxWords));
         input.setSelectAllOnFocus(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.caption_fit_words_desc)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (dlg, w) -> {
@@ -23959,7 +24019,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
         input.setText(String.valueOf(currentCaptionStyle().fitMaxLines));
         input.setSelectAllOnFocus(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.caption_fit_lines_prompt)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (dlg, w) -> {
@@ -24597,7 +24657,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(hideRow);
 
         androidx.appcompat.app.AlertDialog dlg =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(R.string.studio_ui_caption_box)
                         .setView(root)
                         .setPositiveButton(R.string.studio_ui_done, null)
@@ -24687,7 +24747,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final android.widget.EditText input = new android.widget.EditText(this);
         input.setHint(R.string.studio_ui_style_name);
         input.setSingleLine(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_save_caption_style)
                 .setView(input)
                 .setNegativeButton(R.string.faditor_cancel, null)
@@ -24713,7 +24773,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         final String id = cur.id;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(getString(R.string.studio_caption_track_delete_message, cur.label))
                 .setMessage(R.string.studio_ui_clips_using_it_fall_back_to)
                 .setNegativeButton(R.string.faditor_cancel, null)
@@ -24744,7 +24804,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setHint(R.string.studio_ui_paste_a_copied_caption_style);
         input.setMinLines(3);
         input.setGravity(android.view.Gravity.TOP);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_import_caption_style)
                 .setView(input)
                 .setNegativeButton(R.string.faditor_cancel, null)
@@ -26612,7 +26672,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wrap.setPadding(padPx, padPx, padPx, 0);
         wrap.addView(bar);
         androidx.appcompat.app.AlertDialog dialog =
-                new androidx.appcompat.app.AlertDialog.Builder(this)
+                StudioDialog.builder(this)
                         .setTitle(R.string.studio_ui_tracking_face_in_video)
                         .setView(wrap)
                         .setCancelable(false)
@@ -26928,7 +26988,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void warnIfProjectIsReadOnly(@NonNull FaditorProject p) {
         if (!p.isLoadedFromNewerVersion()) return;
         FLog.w(TAG, "Opened read-only (newer schema v" + p.getSchemaVersion() + "): " + p.getName());
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_read_only_project)
                 .setMessage(R.string.studio_project_read_only_message)
                 .setPositiveButton(R.string.studio_ui_got_it, null)
@@ -26969,7 +27029,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         loadSkipDialogPending = true;
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         com.google.android.material.dialog.MaterialAlertDialogBuilder b =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(R.string.studio_ui_some_parts_couldn_t_be_loaded)
                         .setMessage(sb.toString())
                         .setCancelable(false)
@@ -27153,7 +27213,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Small chooser so the gesture is not hidden and the two paths stay discoverable.
         // Reuses the SAME clip insertion as AddAssetBottomSheet's demoted row.
         com.google.android.material.dialog.MaterialAlertDialogBuilder b =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+                StudioDialog.builder(this);
         b.setTitle(R.string.studio_ui_image);
         b.setItems(new CharSequence[]{
                 getString(R.string.studio_image_add_as_overlay),
@@ -30341,7 +30401,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             syncTimelineOverlays(); refreshSpritePreviewData(); }));
             scheduleAutoSave();
         })) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_remove_sprite)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_ui_remove, (d, w) -> {
@@ -30362,7 +30422,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void deleteAdjustmentLayerWithConfirmation(
             @NonNull com.fadcam.ui.faditor.model.AdjustmentLayer a) {
         if (project == null) return;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_remove_adjustment_layer)
                 .setMessage(R.string.studio_ui_everything_under_it_goes_back_to)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
@@ -35008,7 +35068,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         msg.append(" from this picture, and puts it back the way it was before you rigged it.")
            .append("\n\nThe picture itself is not touched. One undo press brings it all back.");
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_start_over)                               // TODO(strings)
                 .setMessage(msg.toString())
                 .setPositiveButton(R.string.studio_ui_delete_it_all, (d, w) -> puppetResetRig(o))
@@ -36578,7 +36638,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             if (!allPreset) break;
                         }
                         if (!allPreset) {
-                            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                            StudioDialog.builder(this)
                                 .setTitle(R.string.studio_ui_replace_animation)
                                 .setMessage(getString(R.string.studio_image_preset_replace_message, kind.name()))
                                 .setPositiveButton(R.string.studio_ui_replace, (d2,w) -> applyImagePresetWithUndo(o, kind))
@@ -37910,7 +37970,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             dlg[0].getButton(android.app.AlertDialog.BUTTON_POSITIVE)
                     .setText(getString(R.string.link_delete_confirm, n, total));
         };
-        dlg[0] = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        dlg[0] = StudioDialog.danger(this)
                 .setTitle(getResources().getQuantityString(R.plurals.link_delete_title,
                         followers.size(), parentName, followers.size()))
                 .setMultiChoiceItems(names, with, (d, which, checked) -> {
@@ -38912,7 +38972,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scroll.addView(list);
 
         final androidx.appcompat.app.AlertDialog dlg =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(R.string.faditor_font_picker_title)
                         .setView(scroll)
                         .setNegativeButton(android.R.string.cancel, null)
@@ -39923,7 +39983,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             in.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
                     | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED);
             in.setText(String.valueOf(Math.round(item.getShadowAngleDeg())));
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle(R.string.faditor_text_shadow_angle)
                     .setView(in)
                     .setPositiveButton(android.R.string.ok, (dlg, w) -> {
@@ -40887,7 +40947,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 input.setHint(R.string.studio_ui_chapter_title);
                 input.setSingleLine(true);
                 input.selectAll();
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                StudioDialog.builder(FaditorEditorActivity.this)
                         .setTitle(paraIndex + 1 + ". Rename paragraph — becomes a chapter")
                         .setView(input)
                         .setNegativeButton(android.R.string.cancel, null)
@@ -40922,7 +40982,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 input.setSingleLine(true);
                 input.selectAll();
                 final String beforeSpeaker = currentTranscript.getParagraphSpeaker(pIdx);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(FaditorEditorActivity.this)
+                StudioDialog.builder(FaditorEditorActivity.this)
                         .setTitle(getString(R.string.studio_transcript_speaker_title, paraIndex + 1))
                         .setView(input)
                         .setNegativeButton(android.R.string.cancel, null)
@@ -41017,7 +41077,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 input.selectAll();
                 final int pIdx = para;
                 final String beforeSpeaker2 = currentTranscript.getParagraphSpeaker(pIdx);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(getString(R.string.studio_transcript_speaker_title, para + 1))
                         .setView(input)
                         .setNegativeButton(android.R.string.cancel, null)
@@ -41504,7 +41564,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         java.util.List<AudioClip> audioClips = project.getTimeline().getAudioClips();
         if (clips.isEmpty() && audioClips.isEmpty()) return;
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_hide_captions_on_all_clips)
                 .setMessage(R.string.studio_caption_hide_all_message)
                 .setPositiveButton(android.R.string.ok, (d, w) -> hideCaptionsOnAllClips())
@@ -41644,7 +41704,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         copySize.setLayoutParams(sizeLp);
         root.addView(copySize);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_apply_style_to_all_clips)
                 .setView(root)
                 .setPositiveButton(android.R.string.ok, (d, w) -> applyCaptionStyleToAllClips(
@@ -43015,7 +43075,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             labels[i] = TimeFormatter.formatAuto(presets[i]);
             if (presets[i] == transition.durationMs) checked = i;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_transition_duration_title)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     transition.durationMs = presets[which];
@@ -43044,7 +43104,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < types.length; i++) {
             if (types[i] == transition.type) checked = i;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_transition_type_title)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     Transition.Type picked = types[which];
@@ -43081,7 +43141,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < types.length; i++) {
             if (types[i] == transition.type) checked = i;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_transition_direction_title)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     transition.type = types[which];
@@ -43107,7 +43167,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             labels[i] = e.displayName + "  ·  " + e.category;
             if (e.id.equals(transition.glTransitionId)) checked = i;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_gl_transition_pick_title)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     transition.glTransitionId = entries.get(which).id;
@@ -43286,7 +43346,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         };
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.sprite_sheet_picker_title)
                 .setAdapter(adapter, (d, which) -> {
                     if (which == avatarsIdx) {
@@ -43321,7 +43381,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         getString(R.string.sprite_sheet_action_edit),
                         getString(R.string.sprite_sheet_action_place),
                         relinkLabel};
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(sheet.getName() + (seq ? "  ·  " + sheet.cellCount() + " frames" : ""))
                 .setItems(actions, (d, which) -> {
                     if (seq) { placeSpriteOnVideo(sheet); return; }
@@ -43522,7 +43582,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (uris.size() == 1) {
             // One image is a still, not a sequence. Say so and point at the route that can
             // actually find the rest, rather than silently importing a one-frame "animation".
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle(R.string.studio_ui_only_one_image)
                     .setMessage(R.string.studio_sequence_one_frame_message)
                     .setPositiveButton(R.string.studio_ui_pick_folder, (d, w) -> pickSequenceFolder())
@@ -43570,7 +43630,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         final java.util.List<String> finalOrdered = ordered;
         final String name = suggestSequenceName(names.get(0));
         if (dropped > 0) {
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle(getString(R.string.studio_sequence_left_out_title, dropped, uris.size()))
                     .setMessage(getString(R.string.studio_sequence_left_out_message, ordered.size(), name))
                     .setPositiveButton(getString(R.string.studio_sequence_import_n, ordered.size()), (d, w) -> offerSequenceImport(
@@ -44154,7 +44214,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < lib.size(); i++) {
             items[rigs.size() + 1 + i] = "⇓ Insert \"" + lib.get(i).rig.getName() + "\"";
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.avatar_studio_title)
                 .setItems(items, (d, which) -> {
                     if (which > rigs.size()) {
@@ -44507,7 +44567,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Build dialog
         final int[] selectedIdx = {0};
         final java.util.List<Object> finalTargets = targets;
-        com.google.android.material.dialog.MaterialAlertDialogBuilder builder = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        com.google.android.material.dialog.MaterialAlertDialogBuilder builder = StudioDialog.builder(this);
         builder.setTitle(R.string.studio_ui_select_a_transcript);
         builder.setSingleChoiceItems(labels.toArray(new String[0]), -1, (dialog, which) -> selectedIdx[0] = which);
         builder.setPositiveButton(android.R.string.ok, (dialog, which) -> {
@@ -44557,7 +44617,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         msg.setTextSize(13);
         wrap.addView(msg);
         wrap.addView(cb);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_transcript_offer_title)
                 .setView(wrap)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
@@ -45336,7 +45396,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 "Import timestamped text…",
                 "Delete version…"
         };
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setCustomTitle(buildTranscriptRenameTitle(versions.get(index)))
                 .setItems(items, (d, which) -> {
                     switch (which) {
@@ -45457,7 +45517,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         input.setHint(R.string.studio_ui_paste_srt_webvtt_or_mm_ss);
         input.setMinLines(6);
         input.setGravity(android.view.Gravity.TOP);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_import_timestamped_text)
                 .setView(input)
                 .setNegativeButton(R.string.faditor_cancel, null)
@@ -45611,7 +45671,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String label = versions.get(index).label;
         String title = getString(R.string.faditor_transcript_delete_version_title);
         String msg = getString(R.string.faditor_transcript_delete_version_msg, label);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(title)
                 .setMessage(msg)
                 .setNegativeButton(R.string.faditor_cancel, null)
@@ -45869,16 +45929,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long inMs = isAudio ? ac.getInPointMs() : clip.getInPointMs();
         long outMs = isAudio ? ac.getOutPointMs() : clip.getOutPointMs();
         List<long[]> raw = new ArrayList<>();
+        List<long[]> allWords = new ArrayList<>();
         for (com.fadcam.ui.faditor.transcript.TranscriptWord w : currentTranscript.words) {
             // Only words fully inside this clip's trim window contribute cuts (defensive: once the
             // transcript-windowing rework lands, a clip keeps the full source transcript). Mirrors
             // the timeline's word filter. See tasks/PLAN_transcript_windowing.md.
             if (w.startMs < inMs || w.endMs > outMs) continue;
-            if (w.struck) {
-                long s = Math.max(inMs, w.startMs - 70);
-                long e = Math.min(outMs, w.endMs + 50);
-                raw.add(new long[]{s, e});
-            }
+            long s = Math.max(inMs, w.startMs - 70);
+            long e = Math.min(outMs, w.endMs + 50);
+            allWords.add(new long[]{s, e});
+            if (w.struck) raw.add(new long[]{s, e});
         }
         java.util.Collections.sort(raw, (a, b) -> Long.compare(a[0], b[0]));
 
@@ -45892,6 +45952,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 merged.add(new long[]{s[0], s[1]});
             }
         }
+        // STU-B3: keep the silence gaps cut with Clean; only the word half is rebuilt (one strike
+        // used to wipe every Clean cut on the clip).
+        merged = com.fadcam.ui.faditor.model.CutSpanMerge.rebuild(
+                isAudio ? ac.getRemovedSpans() : clip.getRemovedSpans(), merged, allWords);
         if (isAudio) ac.setRemovedSpans(merged); else clip.setRemovedSpans(merged);
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();
@@ -45990,7 +46054,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(seek);
         android.widget.TextView preview = attachSilenceLivePreview(root, seek);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_silence_detect_title)
                 .setMessage(R.string.faditor_silence_detect_desc)
                 .setView(root)
@@ -46083,7 +46147,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void onStartTrackingTouch(android.widget.SeekBar sb) { }
             @Override public void onStopTrackingTouch(android.widget.SeekBar sb) { scan.run(); }
         });
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_silence_detect_title)
                 .setMessage(R.string.faditor_silence_audio_desc)
                 .setView(root)
@@ -46321,7 +46385,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         snapSwitch.setOnCheckedChangeListener((btn, on) ->
                 com.fadcam.ui.faditor.tools.SnapSettings.setKindOn(
                         this, com.fadcam.ui.faditor.tools.SnapSettings.Kind.BEATS, on));
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(getString(R.string.studio_beats_title, clip.getLabel() != null ? clip.getLabel() : getString(R.string.studio_beats_default_label)))
                 .setView(root)
                 .setPositiveButton(R.string.studio_ui_find_beats, (d,w) -> {
@@ -46392,7 +46456,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         targetSpinner.setAdapter(targetAdapter);
         if (clips.size() > 1) targetSpinner.setSelection(1);
         root.addView(targetSpinner);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_align_clips_by_clap)
                 .setView(root)
                 .setPositiveButton(R.string.studio_ui_align, (d,w) -> {
@@ -46657,7 +46721,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(seek);
         android.widget.TextView preview = attachSilenceLivePreview(root, seek);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_silence_title)
                 .setMessage(R.string.faditor_silence_desc)
                 .setView(root)
@@ -46796,7 +46860,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wrap.setPadding(pad, pad / 2, pad, 0);
         wrap.addView(input);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.faditor_jump_to_time)
                 .setView(wrap)
                 .setNegativeButton(android.R.string.cancel, null)
@@ -46863,7 +46927,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         wrap.addView(input);
         wrap.addView(hint);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(titleRes)
                 .setView(wrap)
                 .setNegativeButton(android.R.string.cancel, null)
@@ -47613,7 +47677,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ? tapped : partner;
         final com.fadcam.ui.faditor.assetbrowser.AssetItem screen =
                 (webcam == tapped) ? partner : tapped;
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_linked_recording_detected)
                 .setMessage(getString(R.string.studio_dual_stream_prompt, screen.shortLabel(), webcam.displayName))
                 .setPositiveButton(R.string.studio_ui_add_as_linked_pair,
@@ -48286,7 +48350,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bottomBar.addView(btnAdd);
         root.addView(bottomBar);
 
-        com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b = StudioDialog.builder(this);
         b.setView(root);
         b.setCancelable(true);
         androidx.appcompat.app.AlertDialog dlg = b.create();
@@ -48499,7 +48563,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         bottomBar.addView(btnAdd);
         root.addView(bottomBar);
 
-        com.google.android.material.dialog.MaterialAlertDialogBuilder b = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this);
+        com.google.android.material.dialog.MaterialAlertDialogBuilder b = StudioDialog.builder(this);
         b.setView(root);
         // We handle Cancel/Add ourselves so the dialog stays open for multi-select — no auto-dismiss buttons.
         b.setCancelable(true);
@@ -49361,7 +49425,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         root.addView(cbDontAsk);
 
         androidx.appcompat.app.AlertDialog dialog =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(R.string.faditor_transcribe_prompt_title)
                         .setView(root)
                         .setCancelable(true)
@@ -49597,7 +49661,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 ? getString(R.string.faditor_heal_confirm_add)
                                 : getString(R.string.faditor_heal_confirm_remove),
                         TimeFormatter.formatAuto(Math.abs(gap)));
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle(R.string.faditor_heal_title)
                         .setMessage(msg)
                         .setPositiveButton(android.R.string.ok, (dialog, which) -> rejoin.run())
@@ -49664,7 +49728,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             final long finalStart = start;
             final long finalEnd = end;
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle(R.string.faditor_heal_title)
                     .setMessage(getString(R.string.faditor_heal_msg,
                             TimeFormatter.formatAuto(finalEnd - finalStart)))
@@ -50063,7 +50127,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // the clips undoes neither. Snapshot before touching anything.
         final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBefore =
                 timeline.snapshotTransitions();
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle(R.string.studio_ui_delete_linked_pair)
                 .setMessage(partnerIsOverlay ? R.string.studio_linked_delete_message_overlay
                         : R.string.studio_linked_delete_message_partner)
@@ -50273,7 +50337,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void confirmLockedThen(boolean locked, @Nullable Runnable unlock,
                                    @NonNull Runnable action) {
         if (!locked) { action.run(); return; }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle(getString(R.string.faditor_locked_title))
                 .setMessage(getString(R.string.faditor_locked_message))
                 .setPositiveButton(getString(R.string.faditor_locked_unlock), (d, w) -> {

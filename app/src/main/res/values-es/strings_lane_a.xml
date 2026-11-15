@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Arrastra para cambiar el tamaño, toca para cerrar</string>
+    <string name="lane_a_toggle_mute">Silenciar</string>
+    <string name="lane_a_toggle_hide">Ocultar</string>
+    <string name="lane_a_toggle_lock">Bloquear</string>
+    <string name="lane_a_toggle_pass_through">Dejar pasar los toques</string>
+    <string name="lane_a_toggle_start_here">Empezar aquí</string>
+    <string name="lane_a_toggle_end_here">Terminar aquí</string>
+    <string name="lane_a_toggle_split">Dividir en el cabezal</string>
+    <string name="lane_a_toggle_fx_bypass">Saltar efectos (A/B)</string>
+    <string name="lane_a_mask_add_shape">Añadir una forma de máscara</string>
+    <string name="lane_a_mask_remove_shape">Quitar esta forma</string>
+    <string name="lane_a_mask_shape_n">Forma %1$d</string>
+    <string name="lane_a_step_down">Bajar un paso</string>
+    <string name="lane_a_step_up">Subir un paso</string>
+    <string name="lane_a_key_green">Quitar el verde</string>
+    <string name="lane_a_key_blue">Quitar el azul</string>
+    <string name="lane_a_key_black">Quitar el negro</string>
+    <string name="lane_a_key_white">Quitar el blanco</string>
+    <string name="lane_a_pivot_title">Pivote de rotación</string>
+    <string name="lane_a_pivot_top_left">Pivote: arriba a la izquierda</string>
+    <string name="lane_a_pivot_top">Pivote: arriba</string>
+    <string name="lane_a_pivot_top_right">Pivote: arriba a la derecha</string>
+    <string name="lane_a_pivot_left">Pivote: izquierda</string>
+    <string name="lane_a_pivot_centre">Pivote: centro</string>
+    <string name="lane_a_pivot_right">Pivote: derecha</string>
+    <string name="lane_a_pivot_bottom_left">Pivote: abajo a la izquierda</string>
+    <string name="lane_a_pivot_bottom">Pivote: abajo</string>
+    <string name="lane_a_pivot_bottom_right">Pivote: abajo a la derecha</string>
+    <string name="lane_a_sprite_prev_key">Adelantar un poco el fotograma clave</string>
+    <string name="lane_a_sprite_key">Eliminar el fotograma clave bajo el cabezal</string>
+    <string name="lane_a_sprite_next_key">Retrasar un poco el fotograma clave</string>
+    <string name="lane_a_sprite_open_lab">Abrir en SpriteLab</string>
+    <string name="lane_a_sprite_flip_h">Voltear en horizontal</string>
+    <string name="lane_a_sprite_flip_v">Voltear en vertical</string>
+    <string name="lane_a_sprite_end">Al final: una vez, bucle o ida y vuelta</string>
+    <string name="lane_a_sprite_record">Grabar interpretación</string>
+    <string name="lane_a_sprite_stop">Detener grabación</string>
+    <string name="lane_a_sprite_sweep">Seguir desde el video de debajo</string>
+    <string name="lane_a_sprite_more">Más</string>
+    <string name="lane_a_sprite_dope">Hoja de tiempos</string>
+    <string name="lane_a_sprite_manage">Hojas de sprites</string>
+    <string name="lane_a_sprite_grip">Arrastra hacia arriba para ver más filas, hacia abajo para menos</string>
+</resources>

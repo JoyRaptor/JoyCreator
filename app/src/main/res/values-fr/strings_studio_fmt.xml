@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">%1$s importé</string>
+    <string name="studio_fmt_could_not_render_slide_1">Impossible d\'afficher la diapo : %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Échec du regroupement : %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Échec de l\'export : %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Échec de la copie d\'export : %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Échec de l\'import : %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Échec du réordonnancement : %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Erreur de réordonnancement : %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Échec de l\'alignement : %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Cela ne ressemble pas à une diapo Studio : %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Échec de l\'import de la diapo : %1$s</string>
+</resources>

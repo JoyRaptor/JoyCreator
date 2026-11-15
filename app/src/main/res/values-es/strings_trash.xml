@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Eliminado recientemente</string>
+    <string name="trash_close">Cerrar Eliminado recientemente</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d elemento</item>
+        <item quantity="other">%d elementos</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d seleccionado</item>
+        <item quantity="other">%d seleccionados</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · leyendo la carpeta</string>
+    <string name="trash_notice_unreachable">Ahora no se puede acceder a tu carpeta de Joy Creator, así que solo se muestra lo que eliminaste dentro de la app.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">queda %d día</item>
+        <item quantity="other">quedan %d días</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">queda %d hora</item>
+        <item quantity="other">quedan %d horas</item>
+    </plurals>
+    <string name="trash_left_soon">se va muy pronto</string>
+    <string name="trash_left_kept">guardado</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Seleccionado.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">Se conserva %d día y luego se elimina para siempre.</item>
+        <item quantity="other">Se conservan %d días y luego se eliminan para siempre.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Se conserva %d hora y luego se elimina para siempre.</item>
+        <item quantity="other">Se conservan %d horas y luego se eliminan para siempre.</item>
+    </plurals>
+    <string name="trash_rule_never">Se conserva hasta que lo elimines.</string>
+    <string name="trash_rule_now">Se elimina para siempre de inmediato.</string>
+    <string name="trash_hold_hint">Mantén pulsado para elegir qué restaurar o eliminar.</string>
+    <string name="trash_stop_selecting">Dejar de elegir</string>
+    <string name="trash_restore">Restaurar</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Restaurar %d elemento</item>
+        <item quantity="other">Restaurar %d elementos</item>
+    </plurals>
+    <string name="trash_delete_forever">Eliminar para siempre</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Eliminar %d elemento para siempre</item>
+        <item quantity="other">Eliminar %d elementos para siempre</item>
+    </plurals>
+    <string name="trash_open_failed">No se pudo abrir esto.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">¿Eliminar %d elemento para siempre?</item>
+        <item quantity="other">¿Eliminar %d elementos para siempre?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">¿Vaciar la papelera? %d elemento se elimina para siempre.</item>
+        <item quantity="other">¿Vaciar la papelera? Los %d elementos se eliminan para siempre.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d elemento es más antiguo que eso y se elimina para siempre ahora.</item>
+        <item quantity="other">%d elementos son más antiguos que eso y se eliminan para siempre ahora.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Esto no se puede deshacer.</string>
+    <string name="trash_confirm_keep">Conservar</string>
+    <string name="trash_confirm_empty_button">Vaciar papelera</string>
+    <string name="trash_confirm_rule_button">Cambiar y eliminar</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">Restaurar %d elemento</item>
+        <item quantity="other">Restaurar %d elementos</item>
+    </plurals>
+    <string name="trash_restore_where">Elige adónde van las grabaciones.</string>
+    <string name="trash_restore_where_mixed">Elige adónde van las grabaciones. Los proyectos, dibujos y otros archivos vuelven a donde estaban en tu carpeta de Joy Creator.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">Se restauró %d elemento.</item>
+        <item quantity="other">Se restauraron %d elementos.</item>
+    </plurals>
+    <string name="trash_done_restored_part">Se restauraron %1$d de %2$d. El resto no se pudo restaurar.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">Se eliminó %d elemento para siempre.</item>
+        <item quantity="other">Se eliminaron %d elementos para siempre.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">No se pudieron eliminar algunos elementos.</string>
+    <string name="trash_done_emptied">Papelera vaciada.</string>
+    <string name="trash_done_empty_failed">No se pudo vaciar la papelera por completo.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">Se eliminó para siempre %d elemento antiguo.</item>
+        <item quantity="other">Se eliminaron para siempre %d elementos antiguos.</item>
+    </plurals>
+    <string name="trash_options">Seleccionar, vaciar y más</string>
+    <string name="trash_options_title">Eliminado recientemente</string>
+    <string name="trash_opt_select_all">Seleccionar todo</string>
+    <string name="trash_opt_rule">Eliminar para siempre después de · %1$s</string>
+    <string name="trash_opt_empty">Vaciar papelera</string>
+    <string name="trash_opt_classic">Papelera clásica</string>
+    <string name="trash_rule_title">Eliminar para siempre después de</string>
+    <string name="trash_empty_all">No hay nada en la papelera. Lo que eliminas espera aquí antes de irse para siempre.</string>
+    <string name="trash_empty_projects">No hay proyectos eliminados.</string>
+    <string name="trash_empty_drawings">No hay dibujos eliminados.</string>
+    <string name="trash_empty_recordings">No hay grabaciones ni videos eliminados.</string>
+    <string name="trash_empty_photos">No hay fotos ni imágenes eliminadas.</string>
+    <string name="trash_empty_other">No hay nada más en la papelera.</string>
+    <string name="trash_empty_show_all">Mostrar todo</string>
+</resources>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Mantiene las voces naturales cuando cambia la velocidad</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Cerrar todas las herramientas</string>
+    <string name="lane_d_asset_close">Cerrar el explorador de recursos</string>
+    <string name="lane_d_asset_prev">Carpeta fijada anterior</string>
+    <string name="lane_d_asset_next">Carpeta fijada siguiente</string>
+    <string name="lane_d_asset_filter">Mostrar todos los archivos, los usados o los sin usar</string>
+    <string name="lane_d_asset_forget">Quitar esta carpeta del historial de fijadas</string>
+    <string name="lane_d_asset_resize">Arrastra para cambiar el tamaño del explorador de recursos</string>
+</resources>

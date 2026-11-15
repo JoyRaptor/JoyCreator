@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Trascina per ridimensionare, tocca per chiudere</string>
+    <string name="lane_a_toggle_mute">Muto</string>
+    <string name="lane_a_toggle_hide">Nascondi</string>
+    <string name="lane_a_toggle_lock">Blocca</string>
+    <string name="lane_a_toggle_pass_through">Lascia passare i tocchi</string>
+    <string name="lane_a_toggle_start_here">Inizio qui</string>
+    <string name="lane_a_toggle_end_here">Fine qui</string>
+    <string name="lane_a_toggle_split">Dividi alla testina</string>
+    <string name="lane_a_toggle_fx_bypass">Salta gli effetti (A/B)</string>
+    <string name="lane_a_mask_add_shape">Aggiungi una forma alla maschera</string>
+    <string name="lane_a_mask_remove_shape">Rimuovi questa forma</string>
+    <string name="lane_a_mask_shape_n">Forma %1$d</string>
+    <string name="lane_a_step_down">Diminuisci</string>
+    <string name="lane_a_step_up">Aumenta</string>
+    <string name="lane_a_key_green">Rimuovi il verde</string>
+    <string name="lane_a_key_blue">Rimuovi il blu</string>
+    <string name="lane_a_key_black">Rimuovi il nero</string>
+    <string name="lane_a_key_white">Rimuovi il bianco</string>
+    <string name="lane_a_pivot_title">Perno di rotazione</string>
+    <string name="lane_a_pivot_top_left">Perno: in alto a sinistra</string>
+    <string name="lane_a_pivot_top">Perno: in alto</string>
+    <string name="lane_a_pivot_top_right">Perno: in alto a destra</string>
+    <string name="lane_a_pivot_left">Perno: a sinistra</string>
+    <string name="lane_a_pivot_centre">Perno: al centro</string>
+    <string name="lane_a_pivot_right">Perno: a destra</string>
+    <string name="lane_a_pivot_bottom_left">Perno: in basso a sinistra</string>
+    <string name="lane_a_pivot_bottom">Perno: in basso</string>
+    <string name="lane_a_pivot_bottom_right">Perno: in basso a destra</string>
+    <string name="lane_a_sprite_prev_key">Anticipa il keyframe</string>
+    <string name="lane_a_sprite_key">Elimina il keyframe sotto la testina</string>
+    <string name="lane_a_sprite_next_key">Ritarda il keyframe</string>
+    <string name="lane_a_sprite_open_lab">Apri in Sprite Lab</string>
+    <string name="lane_a_sprite_flip_h">Ribalta in orizzontale</string>
+    <string name="lane_a_sprite_flip_v">Ribalta in verticale</string>
+    <string name="lane_a_sprite_end">Alla fine: una volta, ciclo o ping-pong</string>
+    <string name="lane_a_sprite_record">Registra l\'interpretazione</string>
+    <string name="lane_a_sprite_stop">Ferma la registrazione</string>
+    <string name="lane_a_sprite_sweep">Segui dal video sotto</string>
+    <string name="lane_a_sprite_more">Altro</string>
+    <string name="lane_a_sprite_dope">Dope sheet</string>
+    <string name="lane_a_sprite_manage">Sprite sheet</string>
+    <string name="lane_a_sprite_grip">Trascina in su per più righe, in giù per meno</string>
+</resources>

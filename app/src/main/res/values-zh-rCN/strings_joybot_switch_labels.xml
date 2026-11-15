@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_joybot_switch_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_label_preview">预览</string>
+    <string name="joybotswitch_label_torch">手电筒</string>
+    <string name="joybotswitch_label_record">录制</string>
+    <string name="joybotswitch_label_visible">可见</string>
+    <string name="joybotswitch_label_locked">已锁定</string>
+    <string name="joybotswitch_label_pinned">已固定</string>
+</resources>

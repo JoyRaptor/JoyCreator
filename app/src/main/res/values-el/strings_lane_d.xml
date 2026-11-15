@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Κράτα τις φωνές φυσικές όταν αλλάζει η ταχύτητα</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Κλείσιμο όλων των εργαλείων</string>
+    <string name="lane_d_asset_close">Κλείσιμο της περιήγησης αρχείων</string>
+    <string name="lane_d_asset_prev">Προηγούμενος καρφιτσωμένος φάκελος</string>
+    <string name="lane_d_asset_next">Επόμενος καρφιτσωμένος φάκελος</string>
+    <string name="lane_d_asset_filter">Εμφάνιση όλων των αρχείων, αυτών που χρησιμοποιούνται ή αυτών που δεν χρησιμοποιούνται</string>
+    <string name="lane_d_asset_forget">Αφαίρεση αυτού του φακέλου από το ιστορικό των καρφιτσωμένων</string>
+    <string name="lane_d_asset_resize">Σύρε για αλλαγή μεγέθους της περιήγησης αρχείων</string>
+</resources>

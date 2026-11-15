@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_timeline_marks_host.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="markers_host_bookmark_number">Marque-page %1$d</string>
+    <string name="markers_host_add_bookmark">Ajouter un marque-page</string>
+    <string name="markers_host_save_failed">Impossible d\'enregistrer les repères de la chronologie. Tes repères précédents sont conservés.</string>
+    <string name="markers_host_export_named">%1$d régions nommées seront exportées en fichiers séparés.</string>
+    <string name="markers_host_region_filenames">Utilise le nom de chaque région</string>
+    <string name="markers_host_export_invalid">Impossible d\'exporter les régions : %1$s</string>
+    <string name="markers_host_export_queued">%1$d exports de région en attente</string>
+    <string name="markers_host_bookmark_hint">Touche pour poser un marque-page ; maintiens pour les marque-pages et régions</string>
+</resources>

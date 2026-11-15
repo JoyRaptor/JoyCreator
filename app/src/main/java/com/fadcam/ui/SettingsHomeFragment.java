@@ -430,6 +430,8 @@ public class SettingsHomeFragment extends Fragment {
         setupMiniCard(root, R.id.group_mini_qr_generator, R.string.mini_app_qr_generator_title,
                 R.string.mini_app_qr_generator_desc, "qr_code_2", R.string.mini_app_coming_soon,
                 () -> HomeSidebarFragment.showMiniAppComingSoon(this, "qr_generator"));
+        // L37 / SHELL-15: "coming soon" gadgets on the launch list lose their rows (code untouched).
+        com.fadcam.launch.LaunchGate.hideGadgetRows(root);
     }
 
     private void bindRow(View root, int id, Runnable action) {

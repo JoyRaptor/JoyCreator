@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Yayın sunucusunu başlat veya durdur</string>
+    <string name="hover_remote_password_toggle">Parola korumasını aç veya kapat</string>
+    <string name="hover_lobby_floor_detect">Akıllı Algılama: kameranın kayıtlarında bulduğu kişiler ve nesneler</string>
+    <string name="hover_lobby_floor_remote">Remote Studio: bu telefonun kamerasını Wi-Fi\'ındaki bir tarayıcıdan izle ve yönet</string>
+    <string name="hover_lobby_floor_bits">Parçalar: fener, QR tarayıcı ve ana ekran kısayolları</string>
+    <string name="hover_lobby_floor_packs">Paketler: kurduğun paketler, görünümler, fırçalar ve yazı tipleri</string>
+    <string name="hover_lobby_floor_setup">Kurulum: tüm ayarlar</string>
+    <string name="hover_lobby_stat">Alan: bu telefonda yeri neyin kapladığı</string>
+    <string name="hover_library_paste_picture">Başka bir uygulamada kopyaladığın resmi Joy Creator klasörüne koy</string>
+    <string name="hover_lobby_room">%1$s odasına git</string>
+    <string name="hover_lobby_hero_action">%2$s içinde %1$s</string>
+    <string name="hover_lobby_hero_new">%1$s içinde yeni bir şey başlat</string>
+    <string name="hover_lobby_library">Library\'yi aç: yaptığın her şey</string>
+    <string name="hover_studio_cut_mark">Kesim: %1$s sn atlandı, geri getirmek için kelimeye dokun</string>
+</resources>

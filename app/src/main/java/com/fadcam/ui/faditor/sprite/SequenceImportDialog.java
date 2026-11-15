@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import android.content.Context;
 import android.text.Editable;
 import android.text.InputType;
@@ -163,7 +165,7 @@ public final class SequenceImportDialog {
 
         render.run();
 
-        new MaterialAlertDialogBuilder(ctx)
+        StudioDialog.builder(ctx)
                 .setTitle("Import image sequence")
                 .setView(root)
                 .setPositiveButton("Import", (d, w) -> cb.onImport(SequenceTiming.clampFps(fps[0])))

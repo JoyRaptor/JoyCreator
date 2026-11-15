@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">Yang Baru</string>
+    <string name="legacyv2_whatsnew_intro">Fitur baru, peningkatan, dan perbaikan bug di versi ini.</string>
+    <string name="legacyv2_whatsnew_reenable">Aktifkan lagi di Pengaturan → tombol \'Tampilkan Intro\'</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="other">Siap dalam %d detik...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">Sekarang kamu bisa menutup ini</string>
+    <string name="legacyv2_whatsnew_got_it">Mengerti</string>
+    <string name="legacyv2_whatsnew_progress_desc">Sejauh mana kamu menggulir catatan</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">Baru di versi ini</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">Memperbarui dari versi %1$s ke versi %2$s</string>
+    <string name="legacyv2_mode_option_desc">Tampilkan pengaturan %1$s</string>
+</resources>

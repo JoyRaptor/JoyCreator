@@ -694,7 +694,7 @@ class JoyBrushActivity : Activity() {
         // Undo, redo, a frame change and a board edit all change the lines under a selection: it ends first.
         canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview(); selection?.beforeHistoryChange() }
         canvas.onPaperBackdropChanged = { checkIcons() }
-        canvas.onPaperChanged = { p -> refreshPaper(p); checkIcons() }
+        canvas.onPaperChanged = { p -> refreshPaper(p); checkIcons(); fitPaperBesidePanels() }
         refreshPaper(canvas.documentPaper)
         canvas.onTilesLost = { count -> toast("$count squares of this drawing were lost by the graphics chip and are blank now. Everything else is saved.") }
         canvas.onHistoryChanged = { canUndo, canRedo ->
@@ -1646,6 +1646,11 @@ class JoyBrushActivity : Activity() {
             settingsDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP + 8 + BRUSH_SETTINGS_DOCK_DP)
             brushDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP)
             else -> 0
+        }
+        // The strip the drawing leaves is paper-coloured, so the top bar's icons (drawn for the paper) stay
+        // readable over it (Fold check 11-15: they vanished on the bare black window).
+        (canvas.parent as? View)?.let { host ->
+            if (inset > 0) host.setBackgroundColor(canvas.paperArgb) else host.background = null
         }
         val right = placement.edge == StripPlacement.Edge.RIGHT
         val l = if (right) 0 else inset

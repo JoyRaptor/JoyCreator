@@ -10447,6 +10447,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long mainEnd = mainStart + clip.getTrimmedDurationMs();
         long editorMs = visualClock ? clipStart + position
                 : mainStart + Math.round(position / speed);
+        // A player can report a few ms past its clip's end before the seam. That moment belongs
+        // to the NEXT clip, which meets its own jumps itself; read here it seeked back (Note 9,
+        // 11-15: the picture held ~0.7 s at the end of a clip before one that is all cut).
+        if (editorMs < mainStart || editorMs >= mainEnd - CUT_JUMP_SETTLE_MS) {
+            pendingSkipSeekTarget = -1;
+            return false;
+        }
         int j = jumps.indexAt(editorMs);
         if (j < 0 || editorMs >= jumps.endMs(j) - CUT_JUMP_SETTLE_MS) {
             pendingSkipSeekTarget = -1;

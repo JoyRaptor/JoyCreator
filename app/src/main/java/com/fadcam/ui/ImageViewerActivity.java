@@ -123,6 +123,8 @@ public class ImageViewerActivity extends AppCompatActivity {
             String meta = buildInlineMeta();
             metaView.setText(meta);
             metaView.setVisibility(TextUtils.isEmpty(meta) ? android.view.View.GONE : android.view.View.VISIBLE);
+            android.view.View dock = findViewById(R.id.imageViewerBottomDock);
+            if (dock != null) dock.setVisibility(TextUtils.isEmpty(meta) ? android.view.View.GONE : android.view.View.VISIBLE);
         }
         if (more != null) {
             androidx.appcompat.widget.TooltipCompat.setTooltipText(more, more.getContext().getString(R.string.video_menu_info));

@@ -1,5 +1,29 @@
 [
   {
+    "id": "host-lobby-transition",
+    "title": "BOT-7 (owner 11-15): “make a transition” in the lobby must ASK about the last project, never change it unseen",
+    "live": false,
+    "room": "lobby",
+    "words": "make a transition",
+    "reference": [
+      {"calls": [{"name": "set_transition", "args": {"seam": "1", "type": "FADE"}}]},
+      {"text": "I made a transition."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "reply": {"asks": true, "mentions": ["last project you had open"]}}
+  },
+  {
+    "id": "host-lobby-new-project",
+    "title": "BOT-7 (owner 11-15): “a new blank Studio project, 3:1” makes one, honestly, and touches no other project",
+    "live": false,
+    "room": "lobby",
+    "words": "a new blank Studio project, 3:1",
+    "reference": [
+      {"calls": [{"name": "new_studio_project", "args": {"shape": "3:1"}}]},
+      {"text": "Done: a new 3:1 project."}
+    ],
+    "expect": {"unchanged": true, "undoSteps": 0, "ok": true}
+  },
+  {
     "id": "host-malformed-args",
     "title": "J1: the model's arguments arrive broken ({\"seams\":[0) for remove_transitions, then it claims success",
     "live": false,

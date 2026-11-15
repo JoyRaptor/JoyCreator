@@ -34,9 +34,15 @@ public final class SlideFiles {
      */
     @NonNull
     public static int[] dimensionsFor(@NonNull FaditorProject project) {
-        String preset = normalizePreset(project.getCanvasPreset());
+        String raw = project.getCanvasPreset() == null ? "" : project.getCanvasPreset();
+        String preset = normalizePreset(raw);
         int ratioW, ratioH;
-        switch (preset) {
+        int[] custom = customRatio(raw);
+        if (custom != null) {
+            // A custom canvas ("custom_1920_640", a 3:1 banner): its own shape, never the
+            // portrait default (BOT-7: Joybot's new 3:1 project got a tall slide).
+            ratioW = custom[0]; ratioH = custom[1];
+        } else switch (preset) {
             case "16:9": ratioW = 16; ratioH = 9; break;
             case "1:1":  ratioW = 1;  ratioH = 1; break;
             case "4:3":  ratioW = 4;  ratioH = 3; break;
@@ -58,6 +64,20 @@ public final class SlideFiles {
         w = (w / 2) * 2;
         h = (h / 2) * 2;
         return new int[]{Math.max(2, w), Math.max(2, h)};
+    }
+
+    /** "custom_W_H" (CanvasPickerBottomSheet's custom size) as {W, H}, or null. */
+    @androidx.annotation.Nullable
+    static int[] customRatio(@NonNull String preset) {
+        if (!preset.startsWith("custom_")) return null;
+        String[] p = preset.substring(7).split("_");
+        if (p.length != 2) return null;
+        try {
+            int w = Integer.parseInt(p[0].trim()), h = Integer.parseInt(p[1].trim());
+            return w > 0 && h > 0 ? new int[]{w, h} : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @NonNull

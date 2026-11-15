@@ -1321,9 +1321,256 @@ public class IdeaEngineTest {
             check("recipe: describe says offline when portable", r.describe().contains("offline"), r.describe());
         }
 
+        bot7Honesty();
+        bot7Shapes();
+        bot7CreateTree();
+        bot7Guide();
+
         System.out.println();
         System.out.println(pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
+    }
+
+    // ── BOT-7: lobby guide, jokes, room colours ─────────────────────────────
+
+    static void bot7Guide() {
+        // First buttons: no typing needed.
+        StringBuilder l = new StringBuilder();
+        for (Idea i : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.firstButtons()) l.append(i.label).append(" | ");
+        eq("lobby: first buttons", "Create something | Help | Show me around | What can I do? | ", l.toString());
+        for (Idea i : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.firstButtons()) {
+            check("lobby: " + i.label + " has a hover label", !i.hint.isEmpty(), "");
+            check("lobby: " + i.label + " never quietened", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.isLobbyIdea(i), i.key);
+        }
+        check("lobby: what-can-I-do names the last project",
+                com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatCanIDo(false, "Holiday").contains("“Holiday”"), "");
+        check("lobby: offline offers Connect an AI", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatButtons(false, null)
+                .stream().anyMatch(i -> i.label.equals("Connect an AI")), "");
+        check("lobby: online doesn't", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatButtons(true, null)
+                .stream().noneMatch(i -> i.label.equals("Connect an AI")), "");
+        // Help's questions are all answered offline by the help book.
+        for (String q : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.HELP_QUESTIONS) {
+            check("lobby help answers: " + q, com.fadcam.ui.faditor.ai.joybot.HelpBook.find(q) != null, "");
+        }
+        check("lobby: 'show me around' is a tour", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour("Show me around"), "");
+        check("lobby: 'give me a tour please' is a tour", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour("give me a tour please"), "");
+        check("lobby: 'tour the clips' isn't", !com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour("show me around the clips"), "");
+        helpIs("how do I make something new", "joybot_create");
+        helpIs("why is joybot purple", "joybot_colours");
+        // The tour leaves out rooms this version doesn't have.
+        java.util.List<com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop> all =
+                com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(r -> false);
+        java.util.List<com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop> some =
+                com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(r -> r.equals("avatar"));
+        eq("tour: one fewer stop without Avatar", all.size() - 1, some.size());
+        // Jokes: plenty, clean wording, never twice running.
+        check("jokes: at least 60", com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.size() >= 60,
+                "" + com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.size());
+        check("jokes: no duplicates", new java.util.HashSet<>(com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES).size()
+                == com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.size(), "");
+        for (String a : new String[]{"tell me a joke", "Tell me another joke!", "joke", "make me laugh", "got any jokes?", "Joybot, tell me a joke please"}) {
+            check("jokes: asks “" + a + "”", com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(a), "");
+        }
+        for (String a : new String[]{"add a joke as a title", "is this a joke", "make the joke text red"}) {
+            check("jokes: not “" + a + "”", !com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(a), "");
+        }
+        java.util.List<Integer> told = new java.util.ArrayList<>();
+        java.util.Random r = new java.util.Random(7);
+        boolean repeat = false;
+        for (int n = 0; n < 500; n++) {
+            int i = com.fadcam.ui.faditor.ai.joybot.JokeBook.pick(told, r);
+            int back = Math.min(told.size(), com.fadcam.ui.faditor.ai.joybot.JokeBook.memory());
+            if (told.subList(told.size() - back, told.size()).contains(i)) repeat = true;
+            told.add(i);
+            while (told.size() > com.fadcam.ui.faditor.ai.joybot.JokeBook.memory()) told.remove(0);
+        }
+        check("jokes: none back before most others have had a turn (500 draws)", !repeat, "");
+        // Room colours: Studio keeps its greens; lobby wears Joybot's orb; one room named → that room.
+        com.fadcam.ui.faditor.ai.joybot.RoomColours.Pair p = com.fadcam.ui.faditor.ai.joybot.RoomColours.of("studio");
+        eq("colour: Studio is aqua to lime", "#35F6BF #97FE8B", String.format("#%06X #%06X", p.start & 0xFFFFFF, p.end & 0xFFFFFF));
+        eq("colour: lobby home is Joybot", "joybot", com.fadcam.ui.faditor.ai.joybot.RoomColours.home(IdeaEngine.Room.LOBBY));
+        eq("colour: Studio home is Studio", "studio", com.fadcam.ui.faditor.ai.joybot.RoomColours.home(IdeaEngine.Room.STUDIO));
+        eq("colour: unknown → Joybot", "joybot", com.fadcam.ui.faditor.ai.joybot.RoomColours.of("nowhere").room);
+        eq("colour: route 'record' → Capture", "capture", com.fadcam.ui.faditor.ai.joybot.RoomColours.of("record").room);
+        eq("colour: 'send this to VisLab?' wears VisLab", "vislab",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("studio", "Send this to VisLab?"));
+        eq("colour: two rooms keep home", "studio",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("studio", "Send it to VisLab or TextLab?"));
+        eq("colour: Avatar Studio isn't the Studio", "avatar",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("joybot", "Opening Avatar Studio."));
+        eq("colour: a new Studio project → Studio", "studio",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("joybot", "Making a new 3:1 (wide) Studio project."));
+        eq("colour: nothing named keeps home", "joybot",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("joybot", "Hi, I'm Joybot."));
+        for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind k : com.fadcam.ui.faditor.ai.joybot.CreateTree.KINDS) {
+            check("colour: bubble " + k.id + " has its room's colours",
+                    !com.fadcam.ui.faditor.ai.joybot.RoomColours.of(k.room).room.equals("joybot"), k.room);
+        }
+    }
+
+    // ── BOT-7: honesty before action (Preflight) ─────────────────────────────
+
+    static com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict pf(String tool, String wing, boolean reads,
+            String title, IdeaEngine.Room room, boolean open, String lastId, String lastName, String asked) {
+        return com.fadcam.ui.faditor.ai.joybot.Preflight.check(
+                new com.fadcam.ui.faditor.ai.joybot.Preflight.What(tool, wing, reads, title),
+                new com.fadcam.ui.faditor.ai.joybot.Preflight.Here(room, open, lastId, lastName), asked);
+    }
+
+    static void bot7Honesty() {
+        com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict v;
+        // The owner's case, 11-15: "make a transition" in the lobby.
+        v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, "p1", "Holiday", "make a transition");
+        eq("honest: lobby transition asks first", "ASK", v.kind);
+        eq("honest: lobby ask in their words", "Make a transition in “Holiday”, the last project you had open? I'll open it so we can look at it together.", v.say);
+        eq("honest: lobby ask opens that project", "p1", v.projectId);
+        eq("honest: lobby ask wears Studio's colour", "studio", v.room);
+        // Same, older tool (no spec), no name read yet.
+        v = pf("add_transition", "", false, null, IdeaEngine.Room.LOBBY, false, "p1", null, null);
+        eq("honest: older tool asks too", "ASK", v.kind);
+        check("honest: no name → 'the last project you had open'", v.say.contains("the last project you had open"), v.say);
+        // No project anywhere: can't, and offers a new one.
+        v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, null, null, null);
+        eq("honest: no project at all → can't", "CANT", v.kind);
+        eq("honest: no project sentence", "No Studio project is open, so I can't set a transition here.", v.say);
+        eq("honest: no project → offers a new video", "video", v.createKind);
+        // In the Studio with the project open: go.
+        v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.STUDIO, true, null, null, null);
+        check("honest: Studio with a project → go", v.go(), v.toString());
+        // VisLab from the lobby: ask; inside VisLab: go; a read from anywhere: go.
+        v = pf("vislab_set_knob", "APP", false, "Turn a knob", IdeaEngine.Room.LOBBY, false, null, null, null);
+        eq("honest: VisLab from lobby asks", "ASK", v.kind);
+        eq("honest: VisLab ask opens VisLab", "vislab", v.nearestRoute);
+        check("honest: VisLab in VisLab goes", pf("vislab_set_knob", "APP", false, "Turn a knob", IdeaEngine.Room.VISLAB, false, null, null, null).go(), "");
+        check("honest: VisLab read goes anywhere", pf("vislab_describe", "APP", true, "Describe", IdeaEngine.Room.STUDIO, true, null, null, null).go(), "");
+        v = pf("textlab_set_words", "APP", false, "Set the words", IdeaEngine.Room.STUDIO, true, null, null, null);
+        eq("honest: TextLab from Studio asks", "ASK", v.kind);
+        eq("honest: TextLab ask wears TextLab", "textlab", v.room);
+        // JoyBrush's hands: only in JoyBrush.
+        v = pf("joybrush_layers", "APP", false, "Change layers", IdeaEngine.Room.LOBBY, false, "p1", "Holiday", null);
+        eq("honest: JoyBrush outside JoyBrush can't", "CANT", v.kind);
+        eq("honest: JoyBrush nearest", "Open JoyBrush", v.nearestLabel);
+        check("honest: JoyBrush drawings list reads anywhere", pf("joybrush_drawings", "APP", true, "List drawings", IdeaEngine.Room.LOBBY, false, null, null, null).go(), "");
+        check("honest: JoyBrush in JoyBrush goes", pf("joybrush_layers", "APP", false, "Change layers", IdeaEngine.Room.JOYBRUSH, false, null, null, null).go(), "");
+        // App-wide actions go anywhere (a new project, open a room).
+        check("honest: new project goes from the lobby", pf("new_studio_project", "APP", false, "Start a new Studio project", IdeaEngine.Room.LOBBY, false, null, null, null).go(), "");
+        check("honest: open_room goes", pf("open_room", "APP", false, "Open a part of the app", IdeaEngine.Room.LOBBY, false, null, null, null).go(), "");
+        // In VisLab, a Studio tool with no project can't (never runs on a hidden one).
+        v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.VISLAB, false, "p1", "Holiday", null);
+        eq("honest: Studio tool inside VisLab can't", "CANT", v.kind);
+        // What the model is told: never a "done".
+        String told = com.fadcam.ui.faditor.ai.joybot.Preflight.toolAnswer(
+                pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, null, null, null));
+        check("honest: model told it didn't run", told.startsWith("Error: not run:"), told);
+        check("honest: model told never 'doing it'", told.contains("never say it's done"), told);
+        check("honest: model's own offer to open gets the button", com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(
+                "There's no project open right now. Want me to open your last one, “Untitled 3:1”?", "Untitled 3:1"), "");
+        check("honest: a mention without a question gets none", !com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(
+                "Untitled 3:1 is your newest project.", "Untitled 3:1"), "");
+        // A long request isn't parroted into the question.
+        v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, "p1", "Holiday",
+                "please could you go through every single cut and put a gentle crossfade on each of them");
+        check("honest: long request → the action's title", v.say.startsWith("Set a transition in"), v.say);
+    }
+
+    static void bot7Shapes() {
+        java.util.function.Function<String, String> s = t -> {
+            com.fadcam.ui.faditor.ai.joybot.Shape x = com.fadcam.ui.faditor.ai.joybot.Shape.parse(t);
+            return x == null ? null : x.ratio();
+        };
+        eq("shape: 3:1", "3:1", s.apply("a new blank Studio project, 3:1"));
+        eq("shape: voice '3.1'", "3:1", s.apply("new blank studio project 3.1"));
+        eq("shape: 3 by 1", "3:1", s.apply("3 by 1"));
+        eq("shape: 1920x640", "3:1", s.apply("1920x640"));
+        eq("shape: 2.35:1", "47:20", s.apply("2.35:1"));
+        eq("shape: square", "1:1", s.apply("make it square"));
+        eq("shape: vertical", "9:16", s.apply("a vertical video"));
+        eq("shape: none", null, s.apply("make a transition"));
+        com.fadcam.ui.faditor.ai.joybot.Shape three = com.fadcam.ui.faditor.ai.joybot.Shape.of(3, 1);
+        eq("shape: 3:1 canvas is custom", "custom_1920_640", three.studioCanvas());
+        eq("shape: 16:9 canvas is Studio's own", "16_9", com.fadcam.ui.faditor.ai.joybot.Shape.of(1920, 1080).studioCanvas());
+        eq("shape: 9:16 pixels", "1080x1920", com.fadcam.ui.faditor.ai.joybot.Shape.of(9, 16).pixels(1920)[0] + "x"
+                + com.fadcam.ui.faditor.ai.joybot.Shape.of(9, 16).pixels(1920)[1]);
+    }
+
+    static void bot7CreateTree() {
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind k;
+        java.util.Map<String, Integer> none = new java.util.HashMap<>();
+        // The bubbles: the owner's order for a new person, then most-made first.
+        StringBuilder ids = new StringBuilder();
+        for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind x : com.fadcam.ui.faditor.ai.joybot.CreateTree.ordered(none)) ids.append(x.id).append(' ');
+        eq("tree: owner's order", "paint perspective animation tile sprite_new sprite_edit video audio music_visuals titles character find", ids.toString().trim());
+        java.util.Map<String, Integer> used = new java.util.HashMap<>();
+        used.put("video", 5); used.put("titles", 2); used.put("tile", 2);
+        ids.setLength(0);
+        for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind x : com.fadcam.ui.faditor.ai.joybot.CreateTree.ordered(used)) ids.append(x.id).append(' ');
+        check("tree: most made first, ties in the owner's order", ids.toString().startsWith("video tile titles paint "), ids.toString());
+        // Words that start it.
+        check("tree: 'I want to make something'", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.anything("I want to make something"), "");
+        check("tree: 'Create something'", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.anything("Create something"), "");
+        check("tree: 'make the title red' is not 'create'", !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.anything("make the title red"), "");
+        k = com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("a new blank Studio project, 3:1");
+        eq("tree: the owner's 3:1 → video", "video", k);
+        eq("tree: 'make the title red' starts nothing", null, com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("make the title red"));
+        eq("tree: 'make a transition' starts nothing", null, com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("make a transition"));
+        eq("tree: new podcast → audio", "audio", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("start a new podcast"));
+        eq("tree: perspective", "perspective", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("I want to draw a street in 2-point perspective"));
+        eq("tree: animation", "animation", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("new animation at 12 fps"));
+        eq("tree: sprite new", "sprite_new", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("make a sprite"));
+        eq("tree: tile", "tile", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("make a seamless tile"));
+        eq("tree: painting", "paint", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("I want to paint a picture"));
+        check("tree: a new video starts from any room", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("video")), "");
+        check("tree: a new title in the Studio stays a title there", !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("titles")), "");
+        // The owner's request walks straight through: the shape was in his words.
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>())
+                .startingWith(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("video"), "new blank studio project 3.1");
+        check("tree: 3.1 needs no question", f.done(), String.valueOf(f.question() == null ? "" : f.question().text));
+        eq("tree: 3.1 lands as 3:1", "3:1", f.landing().get("shape"));
+        eq("tree: 3:1 sentence", "Making a new 3:1 (wide) Studio project.", f.landing().say);
+        // Animation: shape and speed asked, a typed answer counts.
+        f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>());
+        check("tree: starts picking", f.picking(), "");
+        check("tree: pick by id", f.answer("animation"), "");
+        eq("tree: animation asks shape first", "What shape should the board be?", f.question().text);
+        check("tree: shape buttons + type your own", f.question().choices.size() >= 4 && f.question().typeHint != null, "");
+        check("tree: typed 2:3", f.answer("2:3"), "");
+        eq("tree: then speed", "How many frames a second?", f.question().text);
+        check("tree: a nonsense speed is asked again", !f.answer("lots"), "");
+        check("tree: 12", f.answer("12"), "");
+        eq("tree: animation lands", "Opening JoyBrush for animation: a 2:3 (tall) board at 12 frames a second.", f.landing().say);
+        // A sentence with everything in it.
+        f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>())
+                .startingWith(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("animation"), "new 16:9 animation at 24 fps");
+        eq("tree: 16:9 not read as 16 fps", "24", f.landing().get("fps"));
+        f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>())
+                .startingWith(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("perspective"), "a 3:1 board with 2-point perspective");
+        eq("tree: 3 of 3:1 not read as 3-point", "2", f.landing().get("perspective"));
+        // Grid, tile.
+        eq("tree: grid typed", "6x2@48", com.fadcam.ui.faditor.ai.joybot.CreateTree.read(com.fadcam.ui.faditor.ai.joybot.CreateTree.Ask.GRID, "6x2 48"));
+        eq("tree: grid default px", "4x4@64", com.fadcam.ui.faditor.ai.joybot.CreateTree.read(com.fadcam.ui.faditor.ai.joybot.CreateTree.Ask.GRID, "4 by 4"));
+        eq("tree: tile 300x200", "300x200", com.fadcam.ui.faditor.ai.joybot.CreateTree.read(com.fadcam.ui.faditor.ai.joybot.CreateTree.Ask.TILE, "300x200"));
+        eq("tree: tile too big", null, com.fadcam.ui.faditor.ai.joybot.CreateTree.read(com.fadcam.ui.faditor.ai.joybot.CreateTree.Ask.TILE, "9000"));
+        // Kinds with no questions land at once; every kind has a room and an icon.
+        f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>());
+        f.answer("music_visuals");
+        check("tree: music visuals asks nothing", f.done(), "");
+        eq("tree: music visuals → VisLab", "vislab", f.landing().kind.room);
+        for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind x : com.fadcam.ui.faditor.ai.joybot.CreateTree.KINDS) {
+            check("tree: " + x.id + " has a room and an icon", !x.room.isEmpty() && !x.icon.isEmpty(), "");
+        }
+        // Edit a sprite: the person's own sheets as buttons.
+        java.util.List<com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice> sheets = new java.util.ArrayList<>();
+        sheets.add(new com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice("item42", "Fox walk", "In “Holiday”"));
+        f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, sheets);
+        f.answer("sprite_edit");
+        eq("tree: sheet buttons", "Fox walk | Show all my sheets", f.question().choices.get(0).label + " | " + f.question().choices.get(1).label);
+        check("tree: pick a sheet", f.answer("item42"), "");
+        eq("tree: sheet landing", "item42", f.landing().get("sheet"));
+        // Find: typed words become a search.
+        f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>());
+        f.answer("find");
+        f.answer("beach");
+        eq("tree: find typed", "Looking in the Library for “beach”.", f.landing().say);
     }
 
     static int indexOf(IdeaEngine.Offer o, String label) {

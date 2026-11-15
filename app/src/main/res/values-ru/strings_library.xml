@@ -128,7 +128,7 @@
     <string name="library_trashed">Перемещено в корзину. Вернуть можно из корзины.</string>
     <string name="library_trash_failed">Не получилось переместить в корзину: %1$s</string>
     <string name="library_trash_in_use">Это используется в проекте, поэтому останется. Сначала убери это из проекта.</string>
-    <string name="library_trash_no_copy">У этого проекта пока нет копии в твоей папке Joy Creator, и потом его не получилось бы вернуть. Я его не тронул.</string>
+    <string name="library_trash_no_copy">Этот проект или часть его картинок и клипов не удалось скопировать в твою папку Joy Creator, и потом его нельзя было бы вернуть. Он оставлен как есть.</string>
     <string name="library_trash_no_folder">Твоя папка Joy Creator недоступна, и потом это не получилось бы вернуть. Я не стал это трогать.</string>
     <string name="library_renamed">Переименовано.</string>
     <string name="library_rename_failed">Не получилось переименовать.</string>

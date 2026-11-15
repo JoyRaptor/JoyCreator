@@ -147,7 +147,7 @@
     <string name="library_trashed">Moved to Trash. You can put it back from Trash.</string>
     <string name="library_trash_failed">Couldn\'t move it to Trash: %1$s</string>
     <string name="library_trash_in_use">A project uses this, so it stays. Take it out of the project first.</string>
-    <string name="library_trash_no_copy">This project has no copy in your Joy Creator folder yet, so it could not be put back later. It was left alone.</string>
+    <string name="library_trash_no_copy">This project, or some of its pictures and clips, couldn\'t be copied to your Joy Creator folder, so it could not be put back later. It was left alone.</string>
     <string name="library_trash_no_folder">Your Joy Creator folder can\'t be reached, so this could not be put back later. It was left alone.</string>
     <string name="library_renamed">Renamed.</string>
     <string name="library_rename_failed">Couldn\'t rename it.</string>

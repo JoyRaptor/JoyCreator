@@ -376,7 +376,7 @@
             android:taskAffinity=""
             android:launchMode="singleInstance" />
         
-        <activity android:name=".TorchToggleActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false">
+        <activity android:name=".TorchToggleActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="false" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" android:documentLaunchMode="never" android:clearTaskOnLaunch="true" android:taskAffinity="" android:allowTaskReparenting="false">
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -433,14 +433,17 @@
             </intent-filter>
         </receiver>
 
-        <activity android:name=".RecordingStartActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
-        <activity android:name=".RecordingStopActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="true" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
+        <!-- Recording, photo, torch and alarm doors: NOT exported (launch bug hunt 11-15, B2). Exported, any app on the
+             phone could start a recording or take a silent photo through them. The app's own buttons, widgets and
+             home-screen shortcuts still reach them: Android starts a shortcut on the app's behalf. -->
+        <activity android:name=".RecordingStartActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="false" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
+        <activity android:name=".RecordingStopActivity" android:theme="@android:style/Theme.Translucent.NoTitleBar" android:excludeFromRecents="true" android:noHistory="true" android:exported="false" android:configChanges="keyboardHidden|orientation|screenSize" android:windowSoftInputMode="stateAlwaysHidden" android:screenOrientation="portrait" />
         <activity
             android:name=".PhotoCaptureActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:exported="true"
+            android:exported="false"
             android:configChanges="keyboardHidden|orientation|screenSize"
             android:windowSoftInputMode="stateAlwaysHidden"
             android:screenOrientation="portrait"
@@ -518,13 +521,13 @@
         <!-- Privacy Black Screen Activity -->
         <activity android:name=".ui.PrivacyBlackActivity" android:theme="@android:style/Theme.NoTitleBar.Fullscreen" android:screenOrientation="portrait" android:excludeFromRecents="true" android:exported="false" />
 
-        <service android:name=".services.TorchService" android:foregroundServiceType="camera" android:exported="true">
+        <service android:name=".services.TorchService" android:foregroundServiceType="camera" android:exported="false">
         </service>
         
-        <service android:name=".services.AlarmService" android:foregroundServiceType="mediaPlayback" android:exported="true">
+        <service android:name=".services.AlarmService" android:foregroundServiceType="mediaPlayback" android:exported="false">
         </service>
         
-        <receiver android:name=".receivers.TorchToggleReceiver" android:exported="true">
+        <receiver android:name=".receivers.TorchToggleReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="com.fadcam.TOGGLE_TORCH"/>
                 <category android:name="android.intent.category.DEFAULT"/>

@@ -132,7 +132,7 @@
     <string name="library_trashed">نُقل إلى سلة المهملات. يمكنك إعادته منها.</string>
     <string name="library_trash_failed">تعذر نقله إلى سلة المهملات: %1$s</string>
     <string name="library_trash_in_use">مشروع يستخدم هذا، لذا يبقى. أخرجه من المشروع أولًا.</string>
-    <string name="library_trash_no_copy">ليس لهذا المشروع نسخة في مجلد Joy Creator بعد، فلا يمكن إعادته لاحقًا. تُرك كما هو.</string>
+    <string name="library_trash_no_copy">تعذّر نسخ هذا المشروع، أو بعض صوره ومقاطعه، إلى مجلد Joy Creator، فلا يمكن إعادته لاحقًا. تُرك كما هو.</string>
     <string name="library_trash_no_folder">تعذر الوصول إلى مجلد Joy Creator الخاص بك، فلا يمكن إعادته لاحقًا. تُرك كما هو.</string>
     <string name="library_renamed">تمت إعادة التسمية.</string>
     <string name="library_rename_failed">تعذرت إعادة التسمية.</string>

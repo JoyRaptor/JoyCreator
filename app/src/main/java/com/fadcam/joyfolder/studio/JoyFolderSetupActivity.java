@@ -293,7 +293,11 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
                     showConsent(atRisk, true);
                     progress.setText("");
                 } else {
-                    startSync(JoyFolderHome.copyMediaAllowed(this));
+                    // Nothing at risk yet (a new person, or every file already in the folder): there was
+                    // nothing to say no to, so the pictures and clips they make from now on are copied too.
+                    // This used to save "no" here, so every new person's media stayed only inside the app
+                    // for good (launch bug hunt 11-15, A5).
+                    startSync(atRisk == 0 || JoyFolderHome.copyMediaAllowed(this));
                 }
             });
         });

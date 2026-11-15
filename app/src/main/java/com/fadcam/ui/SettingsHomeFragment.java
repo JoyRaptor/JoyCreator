@@ -528,7 +528,11 @@ public class SettingsHomeFragment extends Fragment {
         View rowOnboarding = root.findViewById(R.id.group_onboarding);
         if (rowOnboarding != null) { rowOnboarding.setOnClickListener(v -> showOnboardingSwitchSheet()); }
         View rowAutoUpdate = root.findViewById(R.id.group_auto_update);
-        if (rowAutoUpdate != null) { rowAutoUpdate.setOnClickListener(v -> showAutoUpdateSwitchSheet()); }
+        if (rowAutoUpdate != null) {
+            rowAutoUpdate.setOnClickListener(v -> showAutoUpdateSwitchSheet());
+            // Play updates a Play install; no GitHub check there (launch bug hunt 11-15, B4).
+            if (com.fadcam.BuildConfig.PLAY_BUILD) rowAutoUpdate.setVisibility(View.GONE);
+        }
         View rowDebug = root.findViewById(R.id.group_debug_logging);
         if (rowDebug != null) {
             rowDebug.setOnClickListener(v -> {

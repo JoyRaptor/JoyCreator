@@ -122,7 +122,7 @@
     <string name="library_trashed">Dipindahkan ke Sampah. Kamu bisa mengembalikannya dari Sampah.</string>
     <string name="library_trash_failed">Tidak bisa dipindahkan ke Sampah: %1$s</string>
     <string name="library_trash_in_use">Sebuah proyek memakai ini, jadi tetap di sini. Keluarkan dulu dari proyek.</string>
-    <string name="library_trash_no_copy">Proyek ini belum punya salinan di folder Joy Creator-mu, jadi tidak bisa dikembalikan nanti. Dibiarkan saja.</string>
+    <string name="library_trash_no_copy">Proyek ini, atau sebagian gambar dan klipnya, tidak bisa disalin ke folder Joy Creator-mu, jadi tidak bisa dikembalikan nanti. Dibiarkan saja.</string>
     <string name="library_trash_no_folder">Folder Joy Creator-mu tidak bisa dijangkau, jadi ini tidak bisa dikembalikan nanti. Dibiarkan saja.</string>
     <string name="library_renamed">Nama diganti.</string>
     <string name="library_rename_failed">Nama tidak bisa diganti.</string>

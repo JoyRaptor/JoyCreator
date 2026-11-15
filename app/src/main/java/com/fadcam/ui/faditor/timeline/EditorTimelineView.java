@@ -4213,10 +4213,20 @@ public class EditorTimelineView extends View {
         ordered.addAll(layerTracks);
         ordered.addAll(audioLayerTracks);
 
+        // STU-F9 (S5): audio lanes in their OWN colour. The flat audio green (#4ADE80) sat
+        // beside the video aqua and at 1.2dp the two read as one green. Sound is warm in this
+        // system, so a line here takes the audio tape's own colour (the middle of its
+        // yellow-green to gold ramp), and an audio lane's empty rail is tinted the same.
+        int[] audioRamp = ObjectPalette.gradientFor(com.fadcam.ui.faditor.layers.TrackKind.AUDIO);
+        int audioTape = blendColors(audioRamp[0], audioRamp[1], 0.5f);
+        int firstAudioLane = layerTracks.size();
+
         for (int i = 0; i < lines; i++) {
             com.fadcam.ui.faditor.layers.Track t = ordered.get(i);
+            boolean audioLane = i >= firstAudioLane;
             // Faint rail so an EMPTY layer still reads as a layer that exists.
-            minimapBlockPaint.setColor(Studio.alpha(Studio.INK, 0x1A));
+            minimapBlockPaint.setColor(audioLane
+                    ? Studio.alpha(audioTape, 0x2E) : Studio.alpha(Studio.INK, 0x1A));
             canvas.drawRect(margin, y, margin + stripW, y + thickness, minimapBlockPaint);
 
             for (com.fadcam.ui.faditor.layers.TimedItem item : t.getItems()) {
@@ -4230,6 +4240,7 @@ public class EditorTimelineView extends View {
                 float x0 = margin + (s / (float) totalEffectiveMs) * stripW;
                 float x1 = margin + (e / (float) totalEffectiveMs) * stripW;
                 int color = ObjectPalette.forItem(item, t.getKind());
+                if (audioLane || color == ObjectPalette.AUDIO) color = audioTape;
                 if (selectedId != null && selectedId.equals(item.getId())) {
                     color = blendColors(color, Studio.INK, pulse);
                     minimapMetersAnimating = true; // keep the blink repainting

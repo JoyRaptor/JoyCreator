@@ -24,7 +24,7 @@ import kotlin.math.roundToInt
  */
 object TestStroke {
     /** Bumped whenever the stroke, its marks or its stripes change: stored brush previews drawn with an older one are stale. */
-    const val VERSION = 8
+    const val VERSION = 9
 
     /** One traced point of the curve: [x], [y] as shares of the box (0..1), the pen's [pressure] and [tilt] (radians from upright) there. */
     class P(val x: Float, val y: Float, val pressure: Float, val tilt: Float)
@@ -156,20 +156,32 @@ object TestStroke {
         fun xAt(y: Float): Float = xTop + (xBottom - xTop) * y
     }
 
+    /**
+     * The brush that lays the colour lines: never the brush being shown (owner, 11-14). The lines are paint already on the
+     * paper, thin and the same for every brush, so the curve shows what this brush does to colour it meets (pick-up,
+     * smear, a second colour in the belly, cover). Wet paint under pencils and watercolour, oil paint under oils, a plain
+     * marker under everything else. Ids of shipped brushes.
+     */
+    fun lineBrushId(shown: BrushPreset): String = when {
+        shown.engine != ENGINE_MEDIA -> "joybrush.marker"
+        shown.media?.medium == MEDIUM_PASTE -> "media:paste:Oil flat"
+        else -> "media:wet:Round"
+    }
+
     /** How far the colour lines run past the box's top and bottom, as a share of its height. */
     const val OVERSHOOT = 0.25f
 
     /**
      * The colour lines the curve crosses, painted first, underneath it (the owner's rulings, BRUSH-UI K.5 and his 11-14
-     * note): the print colours cyan, magenta, yellow, black and white, one line each, a tenth of the width apart, leaning
+     * note): the print colours cyan, magenta, yellow, black and white, one thin line each, a tenth of the width apart, leaning
      * with his italic (the top to the right) and running off the box. The loop crosses the black line three times.
      */
     val STRIPES: List<Stripe> = listOf(
-        Stripe(0.40f, 0.26f, 0.018f, 0xFF00AEEF.toInt()),   // cyan
-        Stripe(0.50f, 0.36f, 0.018f, 0xFFEC008C.toInt()),   // magenta
-        Stripe(0.60f, 0.46f, 0.018f, 0xFFFFF200.toInt()),   // yellow
-        Stripe(0.70f, 0.56f, 0.018f, 0xFF231F20.toInt()),   // black
-        Stripe(0.80f, 0.66f, 0.018f, 0xFFFFFFFF.toInt()),   // white
+        Stripe(0.40f, 0.26f, 0.009f, 0xFF00AEEF.toInt()),   // cyan
+        Stripe(0.50f, 0.36f, 0.009f, 0xFFEC008C.toInt()),   // magenta
+        Stripe(0.60f, 0.46f, 0.009f, 0xFFFFF200.toInt()),   // yellow
+        Stripe(0.70f, 0.56f, 0.009f, 0xFF231F20.toInt()),   // black
+        Stripe(0.80f, 0.66f, 0.009f, 0xFFFFFFFF.toInt()),   // white
     )
 
     /** The pen leans up and to the left as a right hand holds it (radians, 0 = +x, y grows down); it swings round with the hand through the loop and the arc. */

@@ -1380,12 +1380,26 @@ class JoyBrushActivity : Activity() {
         }
         val redraw = Runnable {
             if (preview.width > 0 && preview.height > 0) {
-                preview.preset = previewBrush()
-                // The specimen sheet, its crossing stroke in a second colour, then everything the owner drew here, in his colour.
+                val shownBrush = previewBrush()
+                // The test stroke's colour lines first, laid by their own thin brush (never this one: they are paint
+                // already on the paper, TestStroke.lineBrushId), then the swatch, the lines and his curve with this brush,
+                // then everything the owner drew here, in his colour.
                 val sheet = BrushPreviewStrokes.sheet(preview.width.toFloat(), preview.height.toFloat())
+                val (lines, rest) = sheet.partition { it.argb != null }
+                val lineBrush = brushes.firstOrNull { it.id == cc.joycreator.joybrush.core.brush.TestStroke.lineBrushId(shownBrush) }
                 val second = secondColour(canvas.strokeColor)
-                preview.replaceWithStrokes(sheet.map { it.samples } + preview.drawnStrokes,
-                    sheet.map { it.argb ?: if (it.second) second else null })
+                if (lineBrush != null && preview.surfaceReady) {
+                    val sw = preview.width - 2 * cc.joycreator.joybrush.core.brush.TestStroke.inset(12f)
+                    val thin = (2 * sw * cc.joycreator.joybrush.core.brush.TestStroke.STRIPES.first().half).coerceAtLeast(2f)
+                    preview.preset = cc.joycreator.joybrush.core.chrome.ToolMemory.sized(lineBrush, thin, 1f)
+                    preview.replaceWithStrokes(lines.map { it.samples }, lines.map { it.argb })
+                    preview.preset = shownBrush
+                    preview.drawStrokes(rest.map { it.samples } + preview.drawnStrokes, rest.map { if (it.second) second else null })
+                } else {
+                    preview.preset = shownBrush
+                    preview.replaceWithStrokes(sheet.map { it.samples } + preview.drawnStrokes,
+                        sheet.map { it.argb ?: if (it.second) second else null })
+                }
             }
         }
         fun redrawSoon() {

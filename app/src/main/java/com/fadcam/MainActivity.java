@@ -1430,6 +1430,8 @@ public class MainActivity extends AppCompatActivity {
         com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requireChoice(this);
         // Folder copies that were still owed when the app last closed (once per run; see StudioMirror).
         com.fadcam.joyfolder.studio.StudioMirror.catchUpOwed(this);
+        // FadCam's old shared folders moved to their Joy Creator names, side-load build only (once per run; SHELL-44).
+        com.fadcam.joyfolder.studio.FadCamFolderMove.runOnce(this);
         // Fonts, grades and caption styles from Joy packs, copied where Studio draws from (once per run).
         com.fadcam.joyfolder.studio.PackSuppliesSync.syncOnce(this);
         // state)-----------

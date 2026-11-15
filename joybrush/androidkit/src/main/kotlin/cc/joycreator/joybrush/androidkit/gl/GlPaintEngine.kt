@@ -6887,8 +6887,17 @@ class GlPaintEngine(
      */
     private fun planeOf(layer: Layer, celId: String?): String? = if (celId == null || celId == layer.sharedCel) null else celId
 
-    /** The plane a document cel of [layerId] is: null for its shared cel, else the cel id (saving and loading address cels). */
-    fun mediaPlaneOfCel(layerId: String, celId: String): String? = layers[layerId]?.let { planeOf(it, celId) } ?: celId
+    /**
+     * The plane a document cel of [layerId] is: null for its shared cel, else the cel id (saving and loading address cels).
+     *
+     * From 2026-10-11 to 11-15 this read `layers[layerId]?.let { planeOf(it, celId) } ?: celId`: the shared plane's null was
+     * taken for "no such layer" and the cel id handed back, so a save listed the paint stores of a frame plane that does not
+     * exist and wrote none for any ordinary layer. Drawings saved in that time open as pictures with their paint set.
+     */
+    fun mediaPlaneOfCel(layerId: String, celId: String): String? {
+        val layer = layers[layerId] ?: return celId
+        return planeOf(layer, celId)
+    }
 
     private fun floatsOf(layer: Layer, plane: String?): HashMap<String, HashMap<Long, Int>> =
         if (plane == null) layer.floats else layer.celFloats.getOrPut(plane) { HashMap() }

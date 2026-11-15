@@ -288,18 +288,19 @@ public final class ChatArrival {
         titleX = (tb[0] - ro[0]) / d;
         titleY = (tb[1] - ro[1]) / d;
         t0 = System.nanoTime();
-        if (idle != null) startStage(r, f, ro);
+        // the picture of the screen it opened over: taken every time, so it never lingers in memory
+        Rect bs = new Rect();
+        Bitmap back = JoybotOpen.takeBackdrop(bs);
+        if (idle != null) startStage(r, f, ro, back, bs);
         reveal.setVisibility(View.VISIBLE);
         running = true;
         apply(0L);
         Choreographer.getInstance().postFrameCallback(tick);
     }
 
-    private void startStage(@NonNull Reveal r, @NonNull Flight f, @NonNull int[] ro) {
+    private void startStage(@NonNull Reveal r, @NonNull Flight f, @NonNull int[] ro, @Nullable Bitmap back, @NonNull Rect bs) {
         try {
             Show show = new Show(f, r, d, t0, idle, idleCols, idleRows, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
-            Rect bs = new Rect();
-            Bitmap back = JoybotOpen.takeBackdrop(bs);
             if (back != null) {
                 show.back = back;
                 show.backRect.set((bs.left - ro[0]) / d, (bs.top - ro[1]) / d, (bs.right - ro[0]) / d, (bs.bottom - ro[1]) / d);

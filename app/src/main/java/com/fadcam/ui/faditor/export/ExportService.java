@@ -1166,7 +1166,6 @@ public class ExportService extends Service {
         }
     }
 
-    @NonNull
     /**
      * E9 (bug hunt 11-15): the notice's tap opens the editor ON the exported project. It carried
      * no project, so after leaving the editor a tap opened a screen that closed at once with

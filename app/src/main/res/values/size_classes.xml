@@ -4,6 +4,8 @@
 <resources>
     <!-- ContentColumn keeps its bookkeeping on the view under this tag. -->
     <item name="content_column_state" type="id"/>
+    <!-- Studio's Tall column keeps each timeline row's own side margins under this tag. -->
+    <item name="tab1_margin_base" type="id"/>
     <!-- Bottom sheets stop at this width on a wide window (Material 3's own figure). -->
     <dimen name="sheet_max_width">640dp</dimen>
 </resources>

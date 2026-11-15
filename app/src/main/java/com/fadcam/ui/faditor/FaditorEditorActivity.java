@@ -490,6 +490,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private float transcriptReflowShiftX = 0f;
     /** The vertical twin, for the same reason — H1's animator carries this as its Y target. */
     private float drawerReflowShiftY = 0f;
+    /** TAB-1: the picture's sideways slide away from a side-panel drawer (negative = left). */
+    private float panelReflowShiftX = 0f;
+    /** TAB-1: where the object drawer stands now (DrawerPlace decides; DROP on a phone). */
+    private com.fadcam.ui.faditor.tools.DrawerPlace.Place drawerPlace = com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP;
     private boolean transitionPanelOpen = false;
     private View transitionPanel;
     /** The collapsible GL-transitions row + its "More effects" affordance label (pull-down to reveal). */
@@ -32057,10 +32061,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
             objectDrawer.setFrostSource(this::paintBehindDrawer);
             objectDrawer.setUndoSink((label, redo, undo) ->
                     undoManager.recordAction(new EditActions.LambdaAction(label, redo, undo)));
+            objectDrawer.setPlaceSwitch(drawerPlaceSwitch());
+            // TAB-1: a new window size (rotation, split-screen, the timeline dragged taller) can
+            // change where the drawer belongs and how far the picture may slide.
+            View slot = findViewById(R.id.player_container);
+            if (slot != null) slot.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
+                if (r - l == or - ol && b - t == ob - ot) return;
+                if (objectDrawer != null && objectDrawer.isShowing()) v.post(this::replaceObjectDrawer);
+            });
             objectDrawer.setHeightListener(h -> {
                 objectDrawerHeightPx = h;
                 if (masterMeter != null) syncMasterMeterVisibility(masterMeter);
-                reflowPreviewUnderDrawer(h);
+                if (objectDrawer.side() != 0) reflowBesidePanel(h > 0);
+                else reflowPreviewUnderDrawer(h);
                 syncTransformChromeInset();
                 if (puppetHelper != null) puppetHelper.post(this::parkPuppetHelper);
                 // One place that knows the drawer's visibility, so the tool light
@@ -32069,7 +32082,152 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 setAdjustToolActive(objectDrawer.isLightAdjust() && h > 0);
             });
         }
+        placeObjectDrawer();
         return objectDrawer;
+    }
+
+    // ── TAB-1 §K: the object drawer beside the picture on a wide window ─────────────────────
+
+    /**
+     * Stand the object drawer where {@link com.fadcam.ui.faditor.tools.DrawerPlace} says: dropping from the top (the phone drawer,
+     * unchanged), or a 360 dp panel beside the picture as the Editing desk (down to the timeline)
+     * or the Tall column (to the bottom of the screen, the timeline narrowed to the picture's side
+     * while it is open). Called on every open, so a new window size or a changed setting takes
+     * effect the next time any drawer opens.
+     */
+    private void placeObjectDrawer() {
+        if (objectDrawer == null) return;
+        View editor = findViewById(R.id.editor_root);
+        View slot = findViewById(R.id.player_container);
+        View topBar = findViewById(R.id.editor_top_bar);
+        if (editor == null || slot == null) return;
+        float slackX = 0f, slackY = 0f;
+        android.graphics.RectF pic = computeCanvasRect();
+        if (pic != null && pic.width() > 0 && slot.getWidth() > 0) {
+            slackX = slot.getWidth() - pic.width();
+            slackY = slot.getHeight() - pic.height();
+        }
+        com.fadcam.ui.faditor.tools.DrawerPlace.Place place = com.fadcam.ui.faditor.tools.DrawerPlace.choose(com.fadcam.ui.faditor.tools.DrawerPlace.mode(this), com.fadcam.ui.faditor.tools.DrawerPlace.column(this),
+                getResources().getConfiguration().screenWidthDp, slackX, slackY);
+        drawerPlace = place;
+        android.widget.FrameLayout.LayoutParams lp =
+                (android.widget.FrameLayout.LayoutParams) objectDrawer.getLayoutParams();
+        if (place == com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP) {
+            lp.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT;
+            lp.height = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+            lp.gravity = android.view.Gravity.TOP;
+            lp.topMargin = 0;
+            objectDrawer.setLayoutParams(lp);
+            objectDrawer.setSide(0, 0);
+            return;
+        }
+        boolean left = com.fadcam.ui.faditor.tools.DrawerPlace.left(this);
+        // Below the app's own header, which stays in place beside a panel (it is not covered).
+        int top = editor.getTop() + (topBar != null ? topBar.getTop() + topBar.getHeight() : 0);
+        View root = (View) editor.getParent();
+        int bottom = place == com.fadcam.ui.faditor.tools.DrawerPlace.Place.COLUMN
+                ? root.getHeight() - root.getPaddingBottom()
+                : editor.getTop() + slot.getBottom();
+        lp.width = dp(com.fadcam.ui.faditor.tools.DrawerPlace.PANEL_DP);
+        lp.height = Math.max(dp(160), bottom - top);
+        lp.gravity = android.view.Gravity.TOP
+                | (left ? android.view.Gravity.LEFT : android.view.Gravity.RIGHT);
+        lp.topMargin = top;
+        objectDrawer.setLayoutParams(lp);
+        objectDrawer.setSide(left ? -1 : 1, lp.height);
+    }
+
+    /** Re-place an OPEN drawer after a change (window size, the header switch) and reflow. */
+    private void replaceObjectDrawer() {
+        if (objectDrawer == null) return;
+        int before = objectDrawer.side();
+        placeObjectDrawer();
+        objectDrawer.refreshPlaceToggles();
+        boolean open = objectDrawer.isShowing();
+        if (objectDrawer.side() != 0) {
+            drawerReflowShiftY = 0f;
+            reflowBesidePanel(open);
+        } else {
+            if (before != 0) reflowBesidePanel(false);
+            objectDrawer.post(() -> reflowPreviewUnderDrawer(open ? objectDrawer.getHeight() : 0));
+        }
+    }
+
+    /**
+     * Beside the picture: slide the picture away from the panel as far as its own room allows
+     * (never shrink it; the see-through panel overlaps the rest), keep the header in place, and in
+     * the Tall column narrow the timeline to the picture's side while the panel is open.
+     */
+    private void reflowBesidePanel(boolean open) {
+        int edge = objectDrawer != null ? objectDrawer.side() : 0;
+        int panelW = dp(com.fadcam.ui.faditor.tools.DrawerPlace.PANEL_DP);
+        setTimelineBesidePanel(open && edge != 0 && drawerPlace == com.fadcam.ui.faditor.tools.DrawerPlace.Place.COLUMN
+                ? edge * panelW : 0);
+        float shift = 0f;
+        View slot = findViewById(R.id.player_container);
+        android.graphics.RectF pic = computeCanvasRect();
+        if (open && edge != 0 && slot != null && pic != null && pic.width() > 0) {
+            shift = com.fadcam.ui.faditor.tools.DrawerPlace.panelShift(edge, slot.getWidth(), panelW, pic.left, pic.right);
+        }
+        panelReflowShiftX = shift;
+        drawerReflowShiftY = 0f;
+        applyPictureReflow(true);
+        setTopBarHiddenForDrawer(false);
+    }
+
+    /**
+     * Tall column: the rows under the picture (the timeline's grab bar and the controls) stop at
+     * the panel's edge, so the column runs to the bottom of the screen beside them. {@code signedPx}
+     * is the panel's width on the right (positive) or left (negative); 0 gives the width back.
+     */
+    private void setTimelineBesidePanel(int signedPx) {
+        android.view.ViewGroup editor = findViewById(R.id.editor_root);
+        View slot = findViewById(R.id.player_container);
+        if (editor == null || slot == null) return;
+        int from = editor.indexOfChild(slot) + 1;
+        for (int i = from; i < editor.getChildCount(); i++) {
+            View child = editor.getChildAt(i);
+            if (!(child.getLayoutParams() instanceof android.view.ViewGroup.MarginLayoutParams)) {
+                continue;
+            }
+            android.view.ViewGroup.MarginLayoutParams mlp =
+                    (android.view.ViewGroup.MarginLayoutParams) child.getLayoutParams();
+            Object tag = child.getTag(R.id.tab1_margin_base);
+            int[] base;
+            if (tag instanceof int[]) {
+                base = (int[]) tag;
+            } else {
+                base = new int[]{mlp.leftMargin, mlp.rightMargin};
+                child.setTag(R.id.tab1_margin_base, base);
+            }
+            int l = base[0] + (signedPx < 0 ? -signedPx : 0);
+            int r = base[1] + (signedPx > 0 ? signedPx : 0);
+            if (mlp.leftMargin == l && mlp.rightMargin == r) continue;
+            mlp.leftMargin = l;
+            mlp.rightMargin = r;
+            child.setLayoutParams(mlp);
+        }
+    }
+
+    /** The drawer header's one-touch switch: beside or dropping down, desk or tall column. */
+    @NonNull
+    private com.fadcam.ui.faditor.tools.ObjectDrawer.PlaceSwitch drawerPlaceSwitch() {
+        return new com.fadcam.ui.faditor.tools.ObjectDrawer.PlaceSwitch() {
+            @Override public boolean available() {
+                return com.fadcam.ui.faditor.tools.DrawerPlace.switchable(getResources().getConfiguration().screenWidthDp);
+            }
+            @Override public boolean beside() { return drawerPlace != com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP; }
+            @Override public boolean column() { return drawerPlace == com.fadcam.ui.faditor.tools.DrawerPlace.Place.COLUMN; }
+            @Override public void toggleBeside() {
+                com.fadcam.ui.faditor.tools.DrawerPlace.setMode(FaditorEditorActivity.this, beside() ? com.fadcam.ui.faditor.tools.DrawerPlace.DROP : com.fadcam.ui.faditor.tools.DrawerPlace.BESIDE);
+                // After the tap's own icon refresh, which walks the header row being rebuilt.
+                if (objectDrawer != null) objectDrawer.post(FaditorEditorActivity.this::replaceObjectDrawer);
+            }
+            @Override public void toggleColumn() {
+                com.fadcam.ui.faditor.tools.DrawerPlace.setColumn(FaditorEditorActivity.this, !column());
+                if (objectDrawer != null) objectDrawer.post(FaditorEditorActivity.this::replaceObjectDrawer);
+            }
+        };
     }
 
     /**
@@ -45552,7 +45710,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void applyPictureReflow(boolean animate) {
         View container = findViewById(R.id.player_container);
         if (!(container instanceof ViewGroup)) return;
-        final float dx = -transcriptReflowShiftX;   // drawer on the right: picture moves LEFT
+        // Transcript on the right: picture moves LEFT. A side-panel drawer (TAB-1) adds its own
+        // signed slide; the two are never both large, and each is already capped to the room.
+        final float dx = -transcriptReflowShiftX + panelReflowShiftX;
         final float dy = drawerReflowShiftY;        // drawer on top: picture moves DOWN
         if (animate) {
             container.animate().translationX(0f).translationY(0f)

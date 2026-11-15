@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TAB-1: Studio drawers on a wide screen (the owner's 11-15 picks, card §K). -->
+<resources>
+    <!-- Drawer header switches (also their hover labels) -->
+    <string name="tab1_drawer_beside">Drawer beside the picture (off: drops down from the top)</string>
+    <string name="tab1_drawer_column">Tall column: the timeline sits under the picture only</string>
+    <!-- Studio settings -->
+    <string name="tab1_settings_place_title">Drawers on a wide screen</string>
+    <string name="tab1_settings_place_auto">Automatic: beside the picture when there is room there, else drop down</string>
+    <string name="tab1_settings_place_drop">Always drop down from the top, as on a phone</string>
+    <string name="tab1_settings_place_beside">Always beside the picture</string>
+    <string name="tab1_settings_column_title">Tall column</string>
+    <string name="tab1_settings_column">Beside the picture, the drawer runs the full height and the timeline sits under the picture only. Off: the editing desk, with the timeline full width.</string>
+    <string name="tab1_settings_left_title">Left-hand drawers</string>
+    <string name="tab1_settings_left">The drawer stands on the left of the picture instead of the right.</string>
+</resources>

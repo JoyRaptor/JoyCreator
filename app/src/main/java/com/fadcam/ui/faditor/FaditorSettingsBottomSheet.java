@@ -141,6 +141,10 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         // can strike. Drawers repaint live as the slider moves.
         addSeeThroughRow(content);
 
+        // TAB-1 §K (the owner's 11-15 picks): where drawers open on a wide screen. Only rows
+        // here; the drawer's own header carries the same choice as a one-touch switch.
+        addPlaceRows(content, dp);
+
         // AV4: opens the quad-band tape "Waveform visualizer" settings sheet (crossovers,
         // per-band colors/lanes, shaping, FX, and eager/lazy analysis timing). Inline literals
         // because strings.xml is owned by another lane.
@@ -248,6 +252,40 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         int side = SheetKit.dp(ctx, 16);
         lp.setMargins(side, 0, side, SheetKit.dp(ctx, 8));
         parent.addView(slider, lp);
+    }
+
+    /**
+     * TAB-1: drawers on a wide screen. The first row cycles Automatic, Drop down, Beside on a tap
+     * (its description says which is on); the switches pick the side layout and the hand.
+     */
+    private void addPlaceRows(@NonNull LinearLayout parent, float dp) {
+        final android.content.Context ctx = requireContext();
+        final String[] modes = {com.fadcam.ui.faditor.tools.DrawerPlace.AUTO,
+                com.fadcam.ui.faditor.tools.DrawerPlace.DROP,
+                com.fadcam.ui.faditor.tools.DrawerPlace.BESIDE};
+        final int[] words = {R.string.tab1_settings_place_auto, R.string.tab1_settings_place_drop,
+                R.string.tab1_settings_place_beside};
+        String cur = com.fadcam.ui.faditor.tools.DrawerPlace.mode(ctx);
+        int at = 0;
+        for (int i = 0; i < modes.length; i++) if (modes[i].equals(cur)) at = i;
+        final int[] now = {at};
+        final String first = getString(words[at]);
+        LinearLayout row = SheetKit.detailRow(ctx, null, 0,
+                getString(R.string.tab1_settings_place_title), first,
+                SheetKit.chevron(ctx), true);
+        final TextView desc = findDescription(row, first);
+        row.setOnClickListener(v -> {
+            now[0] = (now[0] + 1) % modes.length;
+            com.fadcam.ui.faditor.tools.DrawerPlace.setMode(ctx, modes[now[0]]);
+            if (desc != null) desc.setText(words[now[0]]);
+        });
+        parent.addView(row);
+        addSwitchRow(parent, dp, getString(R.string.tab1_settings_column_title), getString(R.string.tab1_settings_column),
+                com.fadcam.ui.faditor.tools.DrawerPlace.column(ctx),
+                on -> com.fadcam.ui.faditor.tools.DrawerPlace.setColumn(ctx, on));
+        addSwitchRow(parent, dp, getString(R.string.tab1_settings_left_title), getString(R.string.tab1_settings_left),
+                com.fadcam.ui.faditor.tools.DrawerPlace.left(ctx),
+                on -> com.fadcam.ui.faditor.tools.DrawerPlace.setLeft(ctx, on));
     }
 
     /** The TextView in {@code root} showing {@code text}, or null. */

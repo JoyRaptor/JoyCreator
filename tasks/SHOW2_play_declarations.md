@@ -84,14 +84,15 @@ future SHOW-1 build; "keep" means it stays.
 | ACCESS_FINE_LOCATION, ACCESS_COARSE_LOCATION | Optional place name or weather on a recording | keep (foreground use only; the in-app switch is off by default; PRIVACY.md says so) |
 | INTERNET, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE | Joybot, model downloads, updates, LAN Remote | keep |
 | SYSTEM_ALERT_WINDOW | Floating record controls and the floating visualiser over other apps | keep with justification; Play checks this one. Tell reviewers it is optional and the person turns it on in Android settings |
-| REQUEST_IGNORE_BATTERY_OPTIMIZATIONS | Keep a long background recording alive | **Play restricts this permission to apps whose core function breaks without it.** Recommend removing it in the play flavour and linking Android's own setting instead |
+| REQUEST_IGNORE_BATTERY_OPTIMIZATIONS | Keep a long background recording alive | **Play restricts this permission to apps whose core function breaks without it.** **Removed in the play flavour (SHOW-1, 11-14)**: the battery rows open Android's own battery-optimisation list instead (`BatterySettingsIntent`) |
 | WAKE_LOCK, VIBRATE, MODIFY_AUDIO_SETTINGS | Recording and haptics | keep |
-| BLUETOOTH_CONNECT, BLUETOOTH_SCAN (and the old BLUETOOTH, BLUETOOTH_ADMIN) | Bluetooth microphone selection (audio code mentions Bluetooth). Not verified which calls need SCAN | keep CONNECT; **recommend dropping SCAN** unless the code is found to scan; Play asks why |
+| BLUETOOTH_CONNECT, BLUETOOTH_SCAN (and the old BLUETOOTH, BLUETOOTH_ADMIN) | Bluetooth microphone selection (audio code mentions Bluetooth). Not verified which calls need SCAN | keep CONNECT (the screen-recording audio code reads whether a Bluetooth headset is attached); **SCAN removed in the play flavour** (SHOW-1, 11-14: no scanning call exists) |
 | USE_BIOMETRIC, USE_FINGERPRINT | Optional app lock (`SecuritySettingsFragment`) | keep or drop with the app lock |
 | HIGH_SAMPLING_RATE_SENSORS | High-rate sensors (tilt, puppets); not verified | owner/Play lane to confirm or drop |
 | FOREGROUND_SERVICE and the types below | Long jobs must be foreground services | keep, see next table |
-| BIND_ACCESSIBILITY_SERVICE (`FadRecScreenshotAccessibilityService`) | A FadCam screenshot helper | **remove** (accessibility use is tightly policed; a creative app cannot justify it) |
-| 15 `activity-alias` disguise launcher icons | FadCam's hidden-app feature | **remove** (looks like stalkerware to reviewers) |
+| BIND_ACCESSIBILITY_SERVICE (`FadRecScreenshotAccessibilityService`) | A FadCam screenshot helper | **removed in the play flavour** (SHOW-1, 11-14), with its shortcut |
+| 15 `activity-alias` disguise launcher icons | FadCam's hidden-app feature | **removed in the play flavour** (SHOW-1, 11-14), with the icon chooser |
+| WRITE_MEDIA_VIDEO, MANAGE_EXTERNAL_STORAGE | A FadCam leftover that is not an Android permission; all-files access | **both removed in the play flavour** (SHOW-1, 11-14); the folder works through Android's picker (phone-checked) |
 
 | Foreground service type | Used by | Draft justification |
 |---|---|---|
@@ -99,7 +100,7 @@ future SHOW-1 build; "keep" means it stays.
 | mediaProjection (with microphone) | `ScreenRecordingService`, the VisLab overlay | Screen recording the person starts, with Android's own consent dialog |
 | mediaPlayback | playback services, `AlarmService` | Playing a recording or sound in the background |
 | dataSync | export (`ExportService`), file copy/move/delete jobs, Joybot jobs, LAN Remote and the bridge | Long jobs the person started that must not stop when the screen turns off |
-| specialUse | `AnnotationService`, the VisLab overlay | Drawing on screen during a recording. **Play requires a written explanation and may ask for a demo video**: record one in week 3 or fold this into mediaProjection and drop `specialUse` |
+| specialUse | `AnnotationService`, the VisLab overlay | Drawing on screen during a recording (`AnnotationService`); a music visualiser floating over other apps (VisLab overlay). Both kept: the play manifest names each use in Android's `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` (SHOW-1, 11-14) with the same words to paste into Play Console. **Play may ask for a demo video**: record one in week 3 |
 
 ## 5. Other declarations
 
@@ -112,7 +113,7 @@ future SHOW-1 build; "keep" means it stays.
 | **Generative AI content** | Play's AI-generated-content policy expects apps with generative AI to give users a way to report offensive output. **No "report this reply" control was found in the code (grep of the strings, 11-14).** Options: add one to Joybot's chat (small), or explain that Joybot is a thin client to the user's own chosen service. **Owner / Joybot lane** |
 | Export rules, encryption | The app uses standard encryption only (HTTPS, encrypted key storage); answer the US export question accordingly, to be read live |
 | App signing | Play App Signing; upload key kept off git (job SHOW-1) |
-| Exported components | The manifest has 32 `exported="true"` entries (activities, aliases, services). The play build lane should check each is intentional before upload (Play's pre-launch report flags it) |
+| Exported components | The manifest has 32 `exported="true"` entries (activities, aliases, services). SHOW-1 (11-14): the play flavour removes the 15 aliases and the screenshot activity and closes four developer entry points (`ApplyEditsActivity`, which let any app apply edits to a project; `SlideRenderActivity`; `WaveformDebugActivity`; `TextLabDebugActivity`). Still exported on purpose: the launcher activity, the shortcut targets (record start/stop, photo, torch), `ShareInActivity` (files shared from other apps), `TextLabActivity`, `PackOpenActivity` (opens shared packs), the torch and alarm services, the torch receiver, the clock widget |
 
 ## 6. What was not checked
 - Play's current form wording and policy text (written from memory of the forms, not re-read).

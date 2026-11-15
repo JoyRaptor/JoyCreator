@@ -135,6 +135,11 @@ public class ShortcutsSettingsFragment extends Fragment implements com.fadcam.ui
     private void wireShortcutRow(View root, int rowId, int iconId, int iconRes, String title, Intent intent,
             String shortcutId) {
         LinearLayout row = root.findViewById(rowId);
+        // SHOW-1: the screenshot shortcut needs the accessibility service, which the Play build leaves out.
+        if (com.fadcam.BuildConfig.PLAY_BUILD && rowId == R.id.cell_screenshot) {
+            if (row != null) row.setVisibility(View.GONE);
+            return;
+        }
         ImageView icon = root.findViewById(iconId);
         TextView label = root.findViewById(titleIdFor(rowId));
         // Also show immutable codename/purpose under the label if a dedicated subtitle

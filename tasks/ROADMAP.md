@@ -164,7 +164,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 
 | ID | Job | State | Owner | Next step | Checked |
 |---|---|---|---|---|---|
-| [SHOW-1](jobs/SHOW-1_play_build.md) | Play build: remove the disguise icons, the accessibility screenshot service, all-files storage access, cloud and streaming | ⬜ | open | Needs a build the watcher doesn't make | 10-27 |
+| [SHOW-1](jobs/SHOW-1_play_build.md) | Play build: remove the disguise icons, the accessibility screenshot service, all-files storage access, cloud and streaming | 🟡 | Play build lane | Candidate signed bundle built and Note 9 smoke-tested (145 MB download, 21/21 aligned); upload bundle after the detector switch lands; owner: S1 app ID, key backup, Play account | 11-14 |
 | [SHOW-2](jobs/SHOW-2_store_and_legal.md) | Store and legal: privacy policy hosted, README, listing, closed test | ⛔ S4, S6 | owner + lead | | 10-27 |
 | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | Website, screenshots, demo video, recordings of building things | ⬜ after M2 | open | The website design record is now in git | 10-27 |
 

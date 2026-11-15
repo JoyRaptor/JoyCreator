@@ -63,18 +63,23 @@ android {
     }
 
     signingConfigs {
+        // The Play upload key (SHOW-1). It lives OUTSIDE the repository (D:/JoyCreator-keys/) and its passwords
+        // come from environment variables or the git-ignored local.properties, never from a tracked file.
+        // How to set it up and back it up: tasks/launch/PLAY_UPLOAD_KEY.md
         create("release") {
             val props = Properties()
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream().use { stream ->
                 stream?.let { props.load(it) }
             }
-            val keystoreFile = props.getProperty("KEYSTORE_FILE", "")
+            fun secret(name: String): String =
+                providers.environmentVariable("JOY_$name").orNull ?: props.getProperty(name, "")
+            val keystoreFile = secret("KEYSTORE_FILE")
             // Only set storeFile if keystore file path is provided and exists
             if (keystoreFile.isNotEmpty() && file(keystoreFile).exists()) {
                 storeFile = file(keystoreFile)
-                storePassword = props.getProperty("KEYSTORE_PASSWORD", "")
-                keyAlias = props.getProperty("KEY_ALIAS", "")
-                keyPassword = props.getProperty("KEY_PASSWORD", "")
+                storePassword = secret("KEYSTORE_PASSWORD")
+                keyAlias = secret("KEY_ALIAS")
+                keyPassword = secret("KEY_PASSWORD")
             }
         }
     }
@@ -98,7 +103,9 @@ android {
                 "proguard-rules.pro"
             )
             isDebuggable = false
-            signingConfig = signingConfigs.getByName("release")
+            // Signed only where the upload key is (this PC). Elsewhere (the GitHub cloud build) the release comes
+            // out unsigned and is signed afterwards on the PC; an empty signing config made the bundle task crash.
+            signingConfig = if (releaseSigningConfigValid) signingConfigs.getByName("release") else null
         }
         
     }
@@ -106,8 +113,18 @@ android {
     flavorDimensions += "pro"
 
     productFlavors {
+        // The side-loaded build: everything, under the old app ID.
         create("default") {
             dimension = "pro"
+            buildConfigField("boolean", "PLAY_BUILD", "false")
+        }
+        // The Google Play build (SHOW-1): src/play/AndroidManifest.xml removes the disguise icons, the
+        // accessibility screenshot service, all-files access and the privacy black screen; BuildConfig.PLAY_BUILD
+        // hides their settings rows. Its app ID is the one property in gradle.properties.
+        create("play") {
+            dimension = "pro"
+            applicationId = providers.gradleProperty("joycreator.playApplicationId").get()
+            buildConfigField("boolean", "PLAY_BUILD", "true")
         }
     }
 

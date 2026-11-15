@@ -85,9 +85,7 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
         if (batteryRow != null) {
             batteryRow.setOnClickListener(v3 -> {
                 if (batteryOk) return;
-                Intent intent = new Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
-                intent.setData(android.net.Uri.parse("package:" + requireContext().getPackageName()));
-                startActivity(intent);
+                startActivity(com.fadcam.utils.BatterySettingsIntent.forThisApp(requireContext()));
             });
         }
         return view;

@@ -138,9 +138,8 @@
     public static *** d(...);
     public static *** v(...);
     public static *** i(...);
-    public static *** w(...);
-    public static *** e(...);
 }
+# (SHOW-1: warnings and errors stay in the release build, so tester reports and Play's crash logs keep them.)
 
 # Remove System.out/err
 -assumenosideeffects class java.io.PrintStream {
@@ -163,7 +162,42 @@
 -keep public class com.fadcam.ui.OnboardingActivity { *; }
 -keep public class com.fadcam.FadCamApplication { *; }
 
-# Aggressive optimization settings
--repackageclasses ''
-# -flattenpackagehierarchy '' # Removed: conflicts with -repackageclasses
--mergeinterfacesaggressively
+# SHOW-1 (2026-11-14), the first minified build of Joy Creator. FadCam's "-repackageclasses ''" and
+# "-mergeinterfacesaggressively" are gone with renaming: the app is open source (GPLv3), so renaming hides
+# nothing, while it breaks reflection, JNI callbacks, saved JSON field names and readable crash reports.
+# R8 still removes unused library code. Our own code is kept whole: it uses Gson on many model classes outside
+# com.fadcam.model/data, Joybot's tool registry and EditScripts by name, and JoyBrush's kotlinx.serialization.
+-dontobfuscate
+-keep class com.fadcam.** { *; }
+-keep class cc.joycreator.** { *; }
+
+# Native libraries that call back into Java by class and method name (JNI)
+-keep class org.opencv.** { *; }
+-keep class com.arthenica.** { *; }
+-keep class org.vosk.** { *; }
+-keep class com.sun.jna.** { *; }
+-keep class * implements com.sun.jna.** { *; }
+-dontwarn java.awt.**
+-dontwarn com.sun.jna.**
+# MediaPipe Tasks (Smart Detection, the avatar's face tracking): JNI plus protobuf-lite messages by reflection
+-keep class com.google.mediapipe.** { *; }
+-keep class com.google.protobuf.** { *; }
+-dontwarn com.google.mediapipe.**
+-dontwarn com.google.protobuf.**
+-dontwarn com.google.auto.value.**
+-dontwarn javax.annotation.**
+# TensorFlow Lite (until the MediaPipe detector switch lands)
+-keep class org.tensorflow.** { *; }
+-dontwarn org.tensorflow.**
+# mp4parser finds its box classes by name from a properties file
+-keep class com.coremedia.iso.** { *; }
+-keep class com.googlecode.mp4parser.** { *; }
+-keep class com.mp4parser.** { *; }
+-dontwarn com.googlecode.mp4parser.**
+-dontwarn org.aspectj.**
+# NanoHTTPD (LAN Remote)
+-keep class fi.iki.elonen.** { *; }
+# Media3 modules not covered above (transformer, effect, muxer, session, container)
+-keep class androidx.media3.** { *; }
+# AppLockLibrary (app lock screen)
+-keep class com.guardanis.applock.** { *; }

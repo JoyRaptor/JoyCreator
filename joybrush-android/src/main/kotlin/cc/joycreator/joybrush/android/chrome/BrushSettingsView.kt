@@ -42,7 +42,12 @@ class BrushSettingsView(
     /** Null means this engine always makes pixels and must not offer a switch. */
     editableLines: Boolean? = null,
     private val onEditableLinesChanged: (Boolean) -> Unit = {},
+    /** BRUSH-UI section K.3: draws a slider's end picture (null: words only). */
+    endPicture: ((BrushPreset, Int, Int, (android.graphics.Bitmap) -> Unit) -> (() -> Unit))? = null,
 ) : LinearLayout(kit.context) {
+    private val endPictures = endPicture?.let { SliderEndPictures(it) }
+    /** Each slider's two end pictures, redrawn when the settings settle. */
+    private val endViews = ArrayList<Triple<BrushKnobs.Knob, android.widget.ImageView, android.widget.ImageView>>()
 
     private var positions = start
     /** As the sheet opened, for the cancel button. */
@@ -163,6 +168,23 @@ class BrushSettingsView(
         tipSection?.show(tuned().tip.profile, tuned().tip.hardness.base)
     }
 
+    /** The two end pictures of [knob]'s slider, for the brush as it is now with only that setting moved. */
+    private fun askEnds(knob: BrushKnobs.Knob, low: android.widget.ImageView, high: android.widget.ImageView) {
+        val q = endPictures ?: return
+        val now = tuned()
+        try {
+            q.ask(low, knob.set(now, 0f))
+            q.ask(high, knob.set(now, 1f))
+        } catch (e: Exception) {
+            android.util.Log.w("JoyBrushEnds", "no end pictures for ${knob.key}", e)
+        }
+    }
+
+    /** After a setting settles, every slider's ends follow (they depend on the other settings). */
+    private fun refreshEnds() { for ((k, a, b) in endViews) askEnds(k, a, b) }
+
+    override fun onDetachedFromWindow() { endPictures?.close(); super.onDetachedFromWindow() }
+
     private fun refresh() {
         val p = tuned()
         tipSection?.show(p.tip.profile, p.tip.hardness.base)
@@ -203,7 +225,7 @@ class BrushSettingsView(
                     // nothing to do
                 }
 
-                override fun onStopTrackingTouch(bar: SeekBar) = onChange(positions, true)
+                override fun onStopTrackingTouch(bar: SeekBar) { onChange(positions, true); refreshEnds() }
             })
         }
         rows.add(Triple(knob, seek, value))
@@ -212,14 +234,31 @@ class BrushSettingsView(
         // draw a short piece of the test stroke).
         val ends = cc.joycreator.joybrush.core.chrome.BrushKnobGroups.endsOf(knob.key)
         val track = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        fun endWord(word: String, alignEnd: Boolean) = text(word, 10.5f).apply {
-            setTextColor(kit.p.drawerDim); gravity = if (alignEnd) Gravity.END else Gravity.START
-            minWidth = kit.dpi(44f); maxWidth = kit.dpi(64f)
+        // Each end: its picture (when the host can draw one) over its word.
+        fun end(word: String, alignEnd: Boolean): Pair<LinearLayout, android.widget.ImageView?> {
+            val col = LinearLayout(context).apply { orientation = VERTICAL; gravity = if (alignEnd) Gravity.END else Gravity.START }
+            val pic = if (endPictures != null) android.widget.ImageView(context).apply {
+                scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            } else null
+            pic?.let { col.addView(it, LayoutParams(kit.dpi(46f), kit.dpi(22f))) }
+            col.addView(text(word, 10.5f).apply {
+                setTextColor(kit.p.drawerDim); gravity = if (alignEnd) Gravity.END else Gravity.START
+                minWidth = kit.dpi(44f); maxWidth = kit.dpi(64f)
+            }, LayoutParams(WRAP, WRAP))
+            kit.label(col, "${knob.label} at its ${if (alignEnd) "highest" else "lowest"}: $word")
+            return col to pic
         }
-        track.addView(endWord(ends.low, false), LayoutParams(WRAP, WRAP).apply { marginStart = kit.dpi(6f) })
+        val (lowCol, lowPic) = end(ends.low, false)
+        val (highCol, highPic) = end(ends.high, true)
+        track.addView(lowCol, LayoutParams(WRAP, WRAP).apply { marginStart = kit.dpi(6f) })
         track.addView(seek, LayoutParams(0, kit.dpi(34f), 1f))
-        track.addView(endWord(ends.high, true), LayoutParams(WRAP, WRAP).apply { marginEnd = kit.dpi(6f) })
+        track.addView(highCol, LayoutParams(WRAP, WRAP).apply { marginEnd = kit.dpi(6f) })
         box.addView(track, LayoutParams(MATCH, WRAP))
+        if (lowPic != null && highPic != null) {
+            endViews += Triple(knob, lowPic, highPic)
+            lowPic.post { askEnds(knob, lowPic, highPic) }
+        }
         return box
     }
 

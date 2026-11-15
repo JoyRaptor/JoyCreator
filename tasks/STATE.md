@@ -126,6 +126,16 @@ from compilation, an isolated branch, synthetic checks or agent-only device test
 
 All of these **stay in the website / F-Droid build.** Decision already made and documented.
 
+**The Play build (SHOW-1, 11-14):** a `play` build variant leaves the first four out (manifest overlay
+`app/src/play/AndroidManifest.xml` plus their settings rows hidden by `BuildConfig.PLAY_BUILD`); the side-loaded
+`default` build keeps them. App ID from one property (`cc.joycreator.app`, owner's S1 owed); signed with an upload
+key kept outside the repository (owner's backup steps: `tasks/launch/PLAY_UPLOAD_KEY.md`). First release build with
+code shrinking: bundle 106 MB, phone download 145.2 MB (limit 200), 21 of 21 native libraries 16 KB aligned.
+**Proof:** agent smoke test of the release build on the Note 9, every wing ✅ (lobby, Capture, Studio export, JoyBrush
+save and reopen, TextLab, VisLab, SpriteLab, Library, Joybot transcription, folder without all-files access; removed
+rows checked absent). Not owner-tested; the upload bundle is rebuilt after the Smart Detection switch lands. Report:
+`tasks/launch/PLAY_BUILD_REPORT_20261114.md`. Help: not a user feature (no help cell); store and data-safety copy is SHOW-2's.
+
 ---
 
 ## 2. THE EDITOR — core timeline

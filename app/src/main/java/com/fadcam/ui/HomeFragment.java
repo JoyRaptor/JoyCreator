@@ -584,11 +584,7 @@ public class HomeFragment extends BaseFragment {
 
         if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
             if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                Intent intent = new Intent(
-                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                );
-                intent.setData(Uri.parse("package:" + packageName));
-                startActivity(intent);
+                startActivity(com.fadcam.utils.BatterySettingsIntent.forThisApp(requireActivity()));
             }
         }
     }

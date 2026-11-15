@@ -501,10 +501,7 @@ public final class ObjectDrawer extends LinearLayout {
         moreHint.setVisibility(GONE);
         grip.addView(moreHint, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         View pill = new View(ctx);
-        GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(Kit.GRAB);
-        pillBg.setCornerRadius(999f * density);
-        pill.setBackground(pillBg);
+        pill.setBackground(Kit.pill(ctx, Kit.GRAB, 0));
         grip.addView(pill, new LayoutParams(dp(38), Math.max(1, Math.round(3.5f * density))));
         Kit.describe(grip, ctx.getString(com.fadcam.R.string.lane_a_drawer_grip));
         wireGrip(grip);
@@ -1550,6 +1547,8 @@ public final class ObjectDrawer extends LinearLayout {
         public static final int TRACK = SliderFace.TRACK;
         /** {@code .dgrab span} rgba(255,255,255,.30): the grab pill. */
         public static final int GRAB = Studio.alpha(Studio.DRAWER_INK, 0x4D);
+        /** {@code --edge}: the only border a drawer surface has (a top or side hairline). */
+        public static final int EDGE = Studio.alpha(Studio.DRAWER_INK, 0x1A);
         /** An ON control is the object's accent at 70% (record 06 {@code .dchip.on}). */
         public static final int ON_ALPHA = 0xB3;
         /** Record 06 §04: press is 140ms to scale .97. */

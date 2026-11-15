@@ -1703,7 +1703,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             FaditorProject loaded = openBackup
                     ? projectStorage.loadBackupOnly(projectId)
                     : projectStorage.load(projectId);
-            if (loaded != null) {   // E2: any saved project opens, even one with nothing left in it                initViews();
+            if (loaded != null) {                initViews();   // E2: any saved project opens, even one with nothing left in it
                 project = loaded;
                 warnIfProjectIsReadOnly(loaded);
                 warnIfItemsSkipped(loaded, projectId, openBackup);

@@ -37,7 +37,11 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 function Get-GitHubToken {
     # Never prompt (a hidden dialog would hang a background lane); never print the result.
-    # A PowerShell pipe can prepend a byte-order mark that git rejects, so talk to git directly.
+    # git rejects a byte-order mark in front of "protocol=". A PowerShell pipe adds one, and so does
+    # Process.StandardInput when the console's input encoding is UTF-8 (as in Claude's PowerShell tool); .NET
+    # Framework has no StandardInputEncoding, and Process.Start writes that BOM at once (its writer auto-flushes).
+    # So switch the console input encoding to BOM-free UTF-8 just for the start, then write plain bytes to the raw
+    # stream and close that stream itself.
     $env:GCM_INTERACTIVE = "Never"
     $env:GIT_TERMINAL_PROMPT = "0"
     $psi = New-Object System.Diagnostics.ProcessStartInfo("git", "credential fill")
@@ -45,9 +49,15 @@ function Get-GitHubToken {
     $psi.RedirectStandardInput = $true
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $p.StandardInput.Write("protocol=https`nhost=github.com`n`n")
-    $p.StandardInput.Close()
+    $oldIn = $null
+    try { $oldIn = [Console]::InputEncoding; [Console]::InputEncoding = New-Object System.Text.UTF8Encoding($false) } catch { }
+    try { $p = [System.Diagnostics.Process]::Start($psi) }
+    finally { if ($oldIn) { try { [Console]::InputEncoding = $oldIn } catch { } } }
+    $req = [Text.Encoding]::ASCII.GetBytes("protocol=https`nhost=github.com`n`n")
+    $raw = $p.StandardInput.BaseStream
+    $raw.Write($req, 0, $req.Length)
+    $raw.Flush()
+    $raw.Close()
     $text = $p.StandardOutput.ReadToEnd()
     $why = $p.StandardError.ReadToEnd().Trim()
     $p.WaitForExit()

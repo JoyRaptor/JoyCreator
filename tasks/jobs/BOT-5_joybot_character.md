@@ -141,6 +141,11 @@ Told to the orchestrator in the owner's words; each is a requirement.
       pictures are 4.23 MB on joy-creator, 5.12 MB with this branch's nine new sets (+0.89 MB, all WebP); no big frames
       ship. The first-run intro is the owner's own work: no big pack here. A large moment, if ever, gets a double-size
       copy of only its own animations (about 0.3-0.5 MB each).
+- [ ] **Bug hunt A10 / A11** (Fable bug hunt, `claude/bughunt-20261115`), *fixed in 518f3e7d4, not yet seen on a device:*
+      A10 lost work: over a room where work is edited the card is modal (no own window; the paused room under it can't be
+      touched; a tap beside it closes the chat; it rides up for the keyboard); only the lobby and the Library keep the
+      free-floating card. A11 two chats: `JoybotOpen.start` ignores a second open within 1.2 s or while a chat is open;
+      a closing chat detaches only its own listeners; the chat in front re-attaches in `onResume` and shows what finished.
 - [ ] Cloud build of all of it; seen on a device; clips to the owner; the owner OKs; land.
 
 ## What is left

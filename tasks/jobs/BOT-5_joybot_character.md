@@ -65,7 +65,18 @@ Build steps (branch `claude/joybot-sheet-20261113`):
       Found: Frost never showed: this tablet has Android's window blur off (`mBlurEnabled=false`, no SurfaceFlinger blur), as
       Samsungs commonly do, so Frost is now a CPU blur of the screen picture taken at open (`FrostView`, 52d26da17), like
       Studio's drawers. The old corner grip sat over Send: replaced by edge sizing (`CardGrip`).
-- [ ] Frost and edge sizing seen on the tablet; the Note 9 (full sheet, out of the button); STATE row; land.
+- [x] Frost and edge sizing seen on the test tablet (52d26da17): the lobby behind the card blurred and lined up with the real
+      one after a move and a resize; dragging the left and right edges sized the card; Send untouched. The tablet's missing
+      blur is the device, not a setting: `disable_window_blurs` unset, no reduce-transparency, no battery saver, but
+      `ro.surface_flinger.supports_background_blur` unset (`mBlurEnabled=false`).
+- [x] Note 9 (Android 10, 622f9cd94), full sheet: opens as a circle out of the button, JOYBOT grows out of the button, frosted
+      lobby behind, he lands on his seat with his ideas after him. Frost measured (4 opens each, no screen recording; gfxinfo
+      counts the lobby behind too, which keeps animating): **Frost on** janky 2.2 / 2.0 / 1.4 / 1.8 %, p50 8-9 ms, p90 11-12 ms,
+      p99 20-23 ms; **Frost off** janky 1.2 / 21.3 / 5.7 / 1.0 %, p50 7-9 ms, p90 9-24 ms, p99 15-31 ms (noisy; the GL stage had
+      no gaps in the 21 % run, so it was the lobby). The blur itself: 3.2-3.5 ms once per open, off the main thread. The GL
+      stage: 239-319 frames per arrival, draw+swap 3.0-3.7 ms average, no gap over 20 ms except the first open after an
+      install (one 67 ms gap, shader compile). CPU zone 34.8-37.4 C throughout. Verdict: Frost costs no frames; kept on.
+- [ ] The owner sees it play (clips sent 11-15), then land on `joy-creator`.
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)

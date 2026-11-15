@@ -57,4 +57,9 @@
     <string name="remote_lock_3hr_desc">Lock after 3 hours of inactivity</string>
     <string name="remote_lock_6hr">6 Hours</string>
     <string name="remote_lock_6hr_desc">Lock after 6 hours of inactivity</string>
+    <!-- Remote Studio's lock (B3, 11-15): on by default, opened with a pairing code -->
+    <string name="remote_pairing_title">Pairing code</string>
+    <string name="remote_pairing_desc">Type it on the Remote Studio page in your browser. Tap for a new code; browsers already in will need the new one.</string>
+    <string name="remote_pairing_new">New code: browsers already in will need it</string>
+    <string name="hover_remote_pairing_new">Make a new pairing code</string>
 </resources>

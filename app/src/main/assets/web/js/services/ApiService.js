@@ -85,7 +85,12 @@ class ApiService {
             
             const fetchTime = performance.now() - startTime;
             console.log(`📡 [/status] Response received in ${fetchTime.toFixed(2)}ms, status: ${response.status}`);
-            
+
+            if (response.status === 401) {
+                // The phone's lock (B3): ask for the pairing code.
+                if (typeof showLockScreen === 'function') showLockScreen();
+                throw new Error('Locked: enter the pairing code shown on the phone');
+            }
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -243,7 +248,12 @@ class ApiService {
                 headers: this.getHeaders(),
                 body: JSON.stringify(data)
             });
-            
+
+            if (response.status === 401) {
+                // The phone's lock (B3): ask for the pairing code.
+                if (typeof showLockScreen === 'function') showLockScreen();
+                throw new Error('Locked: enter the pairing code shown on the phone');
+            }
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }

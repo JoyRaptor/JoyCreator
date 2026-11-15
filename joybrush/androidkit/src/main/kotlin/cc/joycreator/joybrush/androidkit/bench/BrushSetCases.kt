@@ -134,8 +134,8 @@ object BrushSetCases {
         else -> null
     }
 
-    // ---- The owner's test stroke (core TestStroke, 2026-11-14) on the phone: `tstripe0..8` (three passes down each colour
-    // stripe; lay them with a soft airbrush via `jb_bench_under`), `tmark0..3` (the swatch and the three lines), `tcurve`.
+    // ---- The owner's test stroke (core TestStroke, 2026-11-14) on the phone: `tstripe0..4` (one slanted stroke a colour
+    // line; lay them with a soft airbrush via `jb_bench_under`), `tmark0..3` (the swatch and the three lines), `tcurve`.
     // One box, about 4 : 1, across the middle of the screen, clear of the tool strip.
 
     private fun testBox(w: Int, h: Int): FloatArray {
@@ -162,14 +162,16 @@ object BrushSetCases {
     }
 
     private fun testStripe(i: Int, w: Int, h: Int): List<Sample>? {
-        val st = cc.joycreator.joybrush.core.brush.TestStroke.STRIPES.getOrNull(i / 3) ?: return null
+        val ts = cc.joycreator.joybrush.core.brush.TestStroke
+        val st = ts.STRIPES.getOrNull(i) ?: return null
         val b = testBox(w, h)
-        val inset = cc.joycreator.joybrush.core.brush.TestStroke.inset(20f)
+        val inset = ts.inset(20f)
         val sw = b[2] - 2 * inset
         val sh = b[3] - 2 * inset
-        val x = b[0] + inset + sw * (st.x + st.half * 0.55f * (i % 3 - 1))
-        return build(500.0, flat(0.8), 0.3f, orientOf(cc.joycreator.joybrush.core.brush.TestStroke.LEAN)) { u ->
-            x to (b[1] + inset + sh * (st.y0 + (st.y1 - st.y0) * u.toFloat()))
+        // One slanted stroke a line, running OVERSHOOT past the box's top and bottom.
+        return build(500.0, flat(0.8), 0.3f, orientOf(ts.LEAN)) { u ->
+            val y = -ts.OVERSHOOT + (1 + 2 * ts.OVERSHOOT) * u.toFloat()
+            (b[0] + inset + sw * st.xAt(y)) to (b[1] + inset + sh * y)
         }
     }
 

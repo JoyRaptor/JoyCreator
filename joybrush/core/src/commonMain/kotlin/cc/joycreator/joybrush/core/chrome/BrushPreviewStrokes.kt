@@ -118,7 +118,7 @@ object BrushPreviewStrokes {
 
     /**
      * The settings stage's strokes: the owner's test stroke (BRUSH-UI K.5, [TestStroke]: one stroke everywhere). First its
-     * colour lines, cyan, magenta, yellow, black and white, each a few firm passes in its own colour, so they lie UNDER the
+     * colour lines, cyan, magenta, yellow, black and white, each one slanted stroke edge to edge in its own colour, UNDER the
      * curve; then the swatch and the three lines at one angle; then his curve in the colour in hand. This is a live canvas
      * with one brush, so the lines are laid by the brush itself (the drawer's pictures paint them as plain bands).
      *
@@ -131,10 +131,11 @@ object BrushPreviewStrokes {
         val inset = TestStroke.inset(sizePx)
         val sw = w - 2 * inset
         val sh = (h - 2 * inset).coerceAtLeast(0f)
-        for (st in TestStroke.STRIPES) for (dx in listOf(-0.6f, 0f, 0.6f)) {
-            val x = inset + sw * (st.x + st.half * dx)
-            out += Specimen(path(n = (sh * 0.5f).toInt().coerceAtLeast(8), x = { x }, y = { t -> inset + sh * (st.y0 + (st.y1 - st.y0) * t) },
-                pressure = { 0.8f }, tilt = { 0.3f }, speed = { 1.2f }), argb = st.argb)
+        // One stroke a line, from the top edge of the stage to the bottom: it runs off both, as the owner asked.
+        for (st in TestStroke.STRIPES) {
+            val share = { t: Float -> (-inset + h * t) / sh.coerceAtLeast(1f) }
+            out += Specimen(path(n = (h * 0.5f).toInt().coerceAtLeast(8), x = { t -> (inset + sw * st.xAt(share(t))).coerceIn(0f, w.toFloat()) },
+                y = { t -> h * t }, pressure = { 0.8f }, tilt = { 0.3f }, speed = { 1.2f }), argb = st.argb)
         }
         for (m in TestStroke.marks(w, h, sizePx)) out += Specimen(m)
         out += Specimen(TestStroke.pen(w, h, sizePx))

@@ -239,14 +239,18 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         } else if (erase) {
             PreviewRaster.fillRect(ground, 0, (h * STRIP_INSET).toInt(), w, h - (h * STRIP_INSET).toInt(), req.style.strip)
         }
-        // The test stroke's colour stripes (TestStroke.STRIPES): painted bands the curve passes through, to show pick-up,
-        // smear and blur. A smudge has its own two bands, an eraser its strip.
+        // The test stroke's colour lines (TestStroke.STRIPES): slanted lines the curve crosses, to show pick-up, smear and
+        // blur, painted from the top edge to the bottom so they run off the picture. A smudge has its own two bands, an
+        // eraser its strip.
         else if (req.snapshot.stripes) for (stripe in cc.joycreator.joybrush.core.brush.TestStroke.STRIPES) {
             val inset = CannedStroke.inset(shown.size.base)
             val sw = w - 2 * inset
-            val sh = h - 2 * inset
-            PreviewRaster.fillRect(ground, (inset + sw * (stripe.x - stripe.half)).toInt(), (inset + sh * stripe.y0).toInt(),
-                (inset + sw * (stripe.x + stripe.half)).toInt() + 1, (inset + sh * stripe.y1).toInt(), stripe.argb)
+            val sh = (h - 2 * inset).coerceAtLeast(1f)
+            for (y in 0 until h step 2) {
+                val mid = inset + sw * stripe.xAt((y + 1 - inset) / sh)
+                val half = sw * stripe.half
+                PreviewRaster.fillRect(ground, (mid - half).toInt(), y, (mid + half).toInt() + 1, minOf(y + 2, h), stripe.argb)
+            }
         }
         for ((key, bytes) in ground) e.writeTile(LAYER, key, bytes)
 

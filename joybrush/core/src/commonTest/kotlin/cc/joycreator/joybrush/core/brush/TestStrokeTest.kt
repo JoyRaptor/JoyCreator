@@ -79,11 +79,13 @@ class TestStrokeTest {
     @Test fun theCurvePassesThroughEveryStripe() {
         assertEquals(5, TestStroke.STRIPES.size)
         assertEquals(5, TestStroke.STRIPES.map { it.argb }.toSet().size)
-        assertTrue(TestStroke.STRIPES.zipWithNext().all { (a, b) -> b.x - b.half > a.x + a.half }, "a little space between each")
+        assertTrue(TestStroke.STRIPES.zipWithNext().all { (a, b) -> b.xTop - b.half > a.xTop + a.half + 0.05f }, "well apart")
+        assertTrue(TestStroke.STRIPES.all { it.xTop > it.xBottom }, "leaning with his italic, the top to the right")
+        val sw = w - 2 * inset; val sh = h - 2 * inset
         for (st in TestStroke.STRIPES) {
-            val x0 = inset + (w - 2 * inset) * (st.x - st.half)
-            val x1 = inset + (w - 2 * inset) * (st.x + st.half)
-            assertTrue(s.count { it.x in x0..x1 } > 3, "the curve passes through the stripe at ${st.x}")
+            // The curve crosses the line: the samples change side of it.
+            val side = s.map { it.x - (inset + sw * st.xAt((it.y - inset) / sh)) }
+            assertTrue(side.zipWithNext().count { (a, b) -> a * b < 0 } >= 1, "the curve crosses the line at ${st.xTop}")
         }
     }
 

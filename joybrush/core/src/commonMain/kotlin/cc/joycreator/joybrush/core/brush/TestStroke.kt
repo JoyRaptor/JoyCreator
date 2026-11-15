@@ -17,14 +17,14 @@ import kotlin.math.roundToInt
  * What the test area holds, left to right in a box drawn about 4 : 1 (y grows down):
  *  - [marks]: a short fat swatch and three straight lines at one angle, up and to the right, each lighter and more
  *    upright than the last, the last running off the box;
- *  - [STRIPES]: three bands of colour laid first, which the curve passes through (pick-up, smear, blur);
+ *  - [STRIPES]: five slanted colour lines laid first, which the curve crosses (pick-up, smear, blur, cover);
  *  - [pen], the curve ([PATH]): a hairline start "as light as possible" at the lower left, light getting heavier, two
  *    S-turns through the stripes, a loop that crosses itself, a broad arc over the top and down the right at full
  *    pressure with the pen laid over, and a hook back to the left that ends in a quick flick: a sudden lift, not a fade.
  */
 object TestStroke {
     /** Bumped whenever the stroke, its marks or its stripes change: stored brush previews drawn with an older one are stale. */
-    const val VERSION = 7
+    const val VERSION = 8
 
     /** One traced point of the curve: [x], [y] as shares of the box (0..1), the pen's [pressure] and [tilt] (radians from upright) there. */
     class P(val x: Float, val y: Float, val pressure: Float, val tilt: Float)
@@ -146,19 +146,30 @@ object TestStroke {
     )
 
     /** A band of colour the curve passes through: its middle [x] and half-width [half] as shares of the box's width, [y0]..[y1] of its height, opaque ARGB. */
-    class Stripe(val x: Float, val half: Float, val y0: Float, val y1: Float, val argb: Int)
+    /**
+     * One colour line: a single straight stroke on a slant, its middle at [xTop] where the box's top edge is and at [xBottom]
+     * where its bottom edge is (shares of the box inside the inset), [half] wide each side. It runs on past both edges
+     * ([OVERSHOOT]), so wherever the picture is cropped it goes off the edge instead of ending in a cap.
+     */
+    class Stripe(val xTop: Float, val xBottom: Float, val half: Float, val argb: Int) {
+        /** The line's middle (share of the box's width) at height [y] (share of its height, 0 = top). */
+        fun xAt(y: Float): Float = xTop + (xBottom - xTop) * y
+    }
+
+    /** How far the colour lines run past the box's top and bottom, as a share of its height. */
+    const val OVERSHOOT = 0.25f
 
     /**
-     * The colour lines the curve crosses, painted first, underneath it (the owner's ruling, BRUSH-UI section K.5): the print
-     * colours cyan, magenta, yellow, black and white, close together with a little space between each, where his three
-     * bands were, so each shows what the brush does with it (pick-up, smear, blur, cover).
+     * The colour lines the curve crosses, painted first, underneath it (the owner's rulings, BRUSH-UI K.5 and his 11-14
+     * note): the print colours cyan, magenta, yellow, black and white, one line each, a tenth of the width apart, leaning
+     * with his italic (the top to the right) and running off the box. The loop crosses the black line three times.
      */
     val STRIPES: List<Stripe> = listOf(
-        Stripe(0.430f, 0.025f, 0.07f, 0.97f, 0xFF00AEEF.toInt()),   // cyan
-        Stripe(0.492f, 0.025f, 0.07f, 0.97f, 0xFFEC008C.toInt()),   // magenta
-        Stripe(0.554f, 0.025f, 0.07f, 0.97f, 0xFFFFF200.toInt()),   // yellow
-        Stripe(0.616f, 0.025f, 0.07f, 0.97f, 0xFF231F20.toInt()),   // black
-        Stripe(0.678f, 0.025f, 0.07f, 0.97f, 0xFFFFFFFF.toInt()),   // white
+        Stripe(0.40f, 0.26f, 0.018f, 0xFF00AEEF.toInt()),   // cyan
+        Stripe(0.50f, 0.36f, 0.018f, 0xFFEC008C.toInt()),   // magenta
+        Stripe(0.60f, 0.46f, 0.018f, 0xFFFFF200.toInt()),   // yellow
+        Stripe(0.70f, 0.56f, 0.018f, 0xFF231F20.toInt()),   // black
+        Stripe(0.80f, 0.66f, 0.018f, 0xFFFFFFFF.toInt()),   // white
     )
 
     /** The pen leans up and to the left as a right hand holds it (radians, 0 = +x, y grows down); it swings round with the hand through the loop and the arc. */

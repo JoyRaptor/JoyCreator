@@ -1039,13 +1039,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             undoByWords();
             return;
         }
-        // "Do a backflip": he does one right here, then confetti or a bow (owner, 11-15 midday). Free, instant, offline.
-        if (com.fadcam.ui.lobby.JoybotDirector.asksForBackflip(text)) {
-            String[] says = {"Hup! Ta-da!", "Wheee! Stuck the landing.", "One backflip, coming right up!"};
-            String said = says[(int) (Math.random() * says.length)];
+        // Tricks on command (owner, 11-15): "go to sleep", "hop on one foot", "do a backflip", "beg", "roll over",
+        // "shake". He does it right here. Free, instant, offline.
+        String trick = com.fadcam.ui.lobby.JoybotDirector.trickFor(text);
+        if (trick != null) {
+            String said = trickLine(trick);
             addBotMessage(said);
             voice.speak(said);
-            com.fadcam.ui.lobby.JoybotDirector.backflip(actor);
+            com.fadcam.ui.lobby.JoybotDirector.trick(actor, trick);
             return;
         }
         // "Connect an AI", "I have Claude Pro": Joybot walks them through it, here in the chat.
@@ -1209,6 +1210,21 @@ public class ChatAssistantActivity extends AppCompatActivity {
         ask.director = director;
         ask.maxSteps = maxSteps;
         JoybotAgent.ask(this, ask);
+    }
+
+    /** What he says as he does a trick. */
+    @NonNull
+    private static String trickLine(@NonNull String trick) {
+        String[] says;
+        switch (trick) {
+            case "sleep": says = new String[]{"Zzz… tap me to wake me.", "Nap time. Tap me when you need me."}; break;
+            case "hop": says = new String[]{"Hop, hop, hop!", "Look, one foot!"}; break;
+            case "beg": says = new String[]{"Pleeease?", "Pretty please?"}; break;
+            case "roll-over": says = new String[]{"Rolling over!", "Roll over… and back!"}; break;
+            case "shake": says = new String[]{"Bzzzt! Whoa, that tickles.", "Shake, shake… bzzt!"}; break;
+            default: says = new String[]{"Hup! Ta-da!", "Wheee! Stuck the landing.", "One backflip, coming right up!"}; break;
+        }
+        return says[(int) (Math.random() * says.length)];
     }
 
     /** While a question is answered: thinking, then the handbook, in turns, until a tool starts or he answers. */

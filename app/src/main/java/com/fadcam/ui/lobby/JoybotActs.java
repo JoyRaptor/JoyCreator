@@ -348,6 +348,19 @@ public final class JoybotActs {
         return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus).withMoves(m, mirror);
     }
 
+    /**
+     * A pose built from the frames we have (owner, 11-15: "beg, built from the frames we have"): chosen frames of an
+     * animation, each held {@code holds[i]} ticks, played once, drawn at the animation's own size.
+     */
+    @NonNull
+    JoybotFilm framesFilm(@NonNull Act a, @NonNull Bitmap picture, @NonNull int[] frames, @Nullable int[] holds) {
+        Rect[] r = new Rect[frames.length];
+        for (int i = 0; i < frames.length; i++) r[i] = cell(a, picture, frames[i]);
+        JoybotFilm.Moves m = new JoybotFilm.Moves();
+        m.scale = a.scale;
+        return new JoybotFilm(picture, r, holds, a.fps, false).asActor(focus).withMoves(m, false);
+    }
+
     /** The way out (played once), or null when this animation has none. */
     @Nullable
     JoybotFilm outFilm(@NonNull Act a, @NonNull Bitmap picture) { return outFilm(a, picture, false); }

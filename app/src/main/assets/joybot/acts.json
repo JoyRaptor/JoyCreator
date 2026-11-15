@@ -333,7 +333,8 @@
     ],
     "moments": [
      "wake",
-     "flung"
+     "flung",
+     "shake"
     ],
     "words": []
    },
@@ -476,7 +477,8 @@
     "moments": [
      "cheer",
      "you-did-it",
-     "tap"
+     "tap",
+     "roll"
     ],
     "words": []
    },

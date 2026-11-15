@@ -177,13 +177,114 @@ public final class JoybotDirector implements JoybotView.Director {
         bot.postDelayed(() -> { if (bot.isAttachedToWindow()) moment(bot, confetti ? "confetti" : "bow"); }, 560L);
     }
 
+    // ── tricks on command (owner, 11-15) ────────────────────────────────────
+    // "Go to sleep; hop on one foot (hopping around, moving up and down with springy squash and stretch); backflip; beg
+    // (built from the frames we have); roll over; shake, with little electric zaps on him for a joke." Each is a named
+    // action, so the Joybot brain (BOT-7) can trigger one from words as well as the chat.
+
+    /** Every trick he knows, by the name {@link #trick} takes. */
+    public static final String[] TRICKS = {"sleep", "hop", "backflip", "beg", "roll-over", "shake"};
+
+    /** Do a trick by name (one of {@link #TRICKS}). False for a name he doesn't know. */
+    public static boolean trick(@NonNull JoybotView bot, @NonNull String name) {
+        JoybotDirector d = of(bot);
+        if (!"sleep".equals(name) && asleep(bot)) moment(bot, "wake");          // woken up to do it
+        switch (name) {
+            case "sleep":
+                if (d != null) d.sleepNow();
+                bot.say("zzz…");
+                return true;
+            case "hop":
+                bot.trick(JoybotView.TRICK_HOP);
+                bot.say("hop!");
+                return true;
+            case "backflip":
+                backflip(bot);
+                return true;
+            case "beg":
+                if (d != null) d.beg();
+                bot.trick(JoybotView.TRICK_BEG);
+                bot.say("pleeease?");
+                return true;
+            case "roll-over":
+                moment(bot, "roll");
+                bot.trick(JoybotView.TRICK_ROLL);
+                return true;
+            case "shake":
+                moment(bot, "shake");
+                bot.trick(JoybotView.TRICK_SHAKE);
+                bot.say("bzzzt!");
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * The trick a short message asks for ("go to sleep", "can you hop on one foot?", "roll over please"), or null. Only
+     * the whole message as a command counts, so "trim the sleep scene" is not a trick.
+     */
+    @Nullable
+    public static String trickFor(@Nullable String text) {
+        if (text == null) return null;
+        String t = text.toLowerCase(java.util.Locale.ROOT).replace('’', '\'').replaceAll("[^a-z' ]", " ")
+                .replaceAll("\\s+", " ").trim();
+        t = t.replaceFirst("^(hey )?(joybot )?(please )?(can you |could you |will you |would you |now )?(please )?", "");
+        t = t.replaceFirst("( for me)?( please)?( joybot)?( now)?$", "").trim();
+        if (t.matches("(go to sleep|go to bed|take a nap|have a nap|nap|nap time|sleep|bedtime|bed time|go night night)")) return "sleep";
+        if (t.matches("(do a |do the )?(hop|hop on one foot|hop around|hop hop|bunny hop|jump|jump around)")) return "hop";
+        if (t.matches("(do a |do another |do the )?(backflip|back flip|flip|somersault)")) return "backflip";
+        if (t.matches("(beg|do the beg|say please|puppy eyes|do puppy eyes)")) return "beg";
+        if (t.matches("(roll over|roll|do a roll|barrel roll|do a barrel roll)")) return "roll-over";
+        if (t.matches("(shake|shake it|shake it off|shake yourself|do a shake|shake shake)")) return "shake";
+        return null;
+    }
+
     /** "Do a backflip", "can you do a flip?": asked for one, in a short message. */
     public static boolean asksForBackflip(@Nullable String text) {
-        if (text == null) return false;
-        String t = " " + text.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z ]", " ").replaceAll("\\s+", " ").trim() + " ";
-        if (t.trim().split(" ").length > 9) return false;
-        return t.contains(" backflip") || t.contains(" back flip") || t.contains(" do a flip") || t.contains(" flip for me")
-                || t.equals(" flip ") || t.contains(" somersault");
+        return "backflip".equals(trickFor(text));
+    }
+
+    /** Asleep now, until tapped or asked to do something (his last idle drift, played on command). */
+    private void sleepNow() {
+        JoybotActs.Act s = acts.named("sleeping");
+        if (s == null) return;
+        drift = s;
+        idleStep = acts.idleSteps();                     // nothing comes after sleep
+        bot.setMood(JoybotView.Mood.IDLE);
+    }
+
+    /** Begging: his excited clasp held (hands together under his chin), the bounces are the trick on top. */
+    private void beg() {
+        final JoybotActs.Act a = acts.named("excited");
+        if (a == null) return;
+        Bitmap p = acts.opened(a);
+        if (p != null) { playOnce(acts.framesFilm(a, p, new int[]{0, 1, 0}, new int[]{1, 15, 1})); return; }
+        acts.open(a, bot, got -> {
+            if (got != null && bot.isAttachedToWindow() && bot.getDirector() == this) {
+                playOnce(acts.framesFilm(a, got, new int[]{0, 1, 0}, new int[]{1, 15, 1}));
+            }
+        });
+    }
+
+    /** A film played once as a flourish, then back to what he was doing. */
+    private void playOnce(@NonNull JoybotFilm film) {
+        final JoybotView.Mood m = bot.getMood();
+        final JoybotActs.Act next = now != null ? now : pick(m.sheetName);
+        if (next == null) return;
+        chainTo = next;
+        chainMood = m;
+        now = null;
+        nowMood = null;
+        bot.setFilm(film.thenRun(() -> {
+            if (chainTo != next) return;
+            chainTo = null;
+            chainMood = null;
+            if (!bot.isAttachedToWindow() || bot.getDirector() != this) return;
+            if (bot.getMood() != m || bot.hasMoment()) { bot.refreshMood(); return; }
+            reopened = next;
+            bot.setMood(m);
+        }));
     }
 
     /** "Thanks", "great job", "love it": the person thanked or praised him (he takes a bow). */

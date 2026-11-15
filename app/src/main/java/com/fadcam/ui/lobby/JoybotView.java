@@ -281,11 +281,127 @@ public final class JoybotView extends FrameLayout {
             canvas.rotate(-360f * e, px, cy);
         }
 
-        // -- tricks on top of whatever plays (owner, 11-15 midday): a backflip when asked or tapped, and a word that pops
-        // above his head and floats away ("oopsies!" when a tap wakes him, "wheee!" when he is flung) --
-        /** When the backflip started (uptime ms), 0 for none. */
+        // -- tricks on top of whatever plays (owner, 11-15): a backflip, hopping on one foot, begging, rolling over and
+        // shaking with electric zaps, asked for in words or by a tap; and a word that pops above his head and floats away
+        // ("oopsies!" when a tap wakes him, "wheee!" when he is flung) --
+        /** Which trick is playing ({@link JoybotView#TRICK_FLIP} ...), 0 for none, and when it started (uptime ms). */
+        int trick;
         long trickAt = 0L;
         private boolean trickSparked;
+        private long lastHopLand = -1L, zapAt = -1L;
+        private final float[] zaps = new float[3 * 12];
+        private int zapCount;
+        @Nullable private android.graphics.Paint zapCore, zapGlow;
+        private final android.graphics.Path zapPath = new android.graphics.Path();
+
+        static long trickMs(int k) {
+            switch (k) {
+                case TRICK_FLIP: return FLIP_MS;
+                case TRICK_HOP: return 2400L;
+                case TRICK_ROLL: return 1700L;
+                case TRICK_SHAKE: return 1500L;
+                case TRICK_BEG: return 2300L;
+                default: return 0L;
+            }
+        }
+
+        /** The trick's motion at {@code ft} ms, about his peg ({@code px, py}) and body centre ({@code cy}). */
+        private void applyTrick(@NonNull Canvas canvas, long ft, float px, float py, float cy, float dp) {
+            float total = trickMs(trick), env = (float) Math.sin(Math.PI * Math.min(1f, ft / total));
+            switch (trick) {
+                case TRICK_FLIP:
+                    flip(canvas, ft / (float) FLIP_MS, px, cy, dp);
+                    if (!trickSparked && ft > FLIP_MS * .4f) { trickSparked = true; spark(px, cy, 10, dp); }
+                    break;
+                case TRICK_HOP: {
+                    // on one foot: springy hops that lean one way then the other, wandering side to side
+                    long period = 340L;
+                    int n = (int) (ft / period);
+                    float ph = (ft % period) / (float) period;
+                    float h = 15f * dp * (.55f + .45f * env);
+                    canvas.translate((float) Math.sin(ft / 1200.0 * Math.PI * 2.0) * 16f * dp * env, -4f * ph * (1f - ph) * h);
+                    canvas.rotate((n % 2 == 0 ? 9f : -9f) * (float) Math.sin(Math.PI * ph), px, py);
+                    float q = ph < .12f ? .2f * (1f - ph / .12f) : 0f, st = ph >= .12f && ph < .35f ? .12f * (float) Math.sin(Math.PI * (ph - .12f) / .23f) : 0f;
+                    canvas.scale(1f + q - st * .6f, 1f - q + st, px, py);
+                    if (ph < .1f && n != lastHopLand) { lastHopLand = n; spark(px, py, 2, dp); }
+                    break;
+                }
+                case TRICK_ROLL: {
+                    // a roll along the floor and back: down, over to the right, a breath, back over to the left
+                    float a, x;
+                    if (ft < 200L) { a = 0f; x = 0f; canvas.scale(1.12f, .88f, px, py); }
+                    else if (ft < 900L) { float u = easeIO((ft - 200L) / 700f); a = 360f * u; x = 72f * dp * u; }
+                    else if (ft < 1000L) { a = 360f; x = 72f * dp; }
+                    else { float u = easeIO((ft - 1000L) / 700f); a = 360f * (1f - u); x = 72f * dp * (1f - u); }
+                    canvas.translate(x, 0f);
+                    canvas.rotate(a, px, cy);
+                    break;
+                }
+                case TRICK_SHAKE:
+                    canvas.translate((float) Math.sin(ft / 1000.0 * Math.PI * 2.0 * 16.0) * 4f * dp * env, 0f);
+                    canvas.rotate((float) Math.sin(ft / 1000.0 * Math.PI * 2.0 * 13.0) * 7f * env, px, cy);
+                    break;
+                case TRICK_BEG: {
+                    // eager little bounces and a pleading wiggle
+                    float b = (float) Math.abs(Math.sin(ft / 380.0 * Math.PI));
+                    canvas.translate(0f, -b * 6f * dp * env);
+                    canvas.rotate((float) Math.sin(ft / 760.0 * Math.PI * 2.0) * 5f * env, px, py);
+                    canvas.scale(1f + .04f * (1f - b) * env, 1f - .04f * (1f - b) * env, px, py);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+
+        private static float easeIO(float t) {
+            t = Math.max(0f, Math.min(1f, t));
+            return t < .5f ? 4f * t * t * t : 1f - (float) Math.pow(-2f * t + 2f, 3) / 2f;
+        }
+
+        /** Little electric zaps crackling round him while he shakes: jagged, white-blue, a new set every 70 ms. */
+        private void drawZaps(@NonNull Canvas canvas, long now, float cx, float cy, float r) {
+            if (trick != TRICK_SHAKE || now - trickAt >= trickMs(TRICK_SHAKE)) return;
+            float dp = getResources().getDisplayMetrics().density;
+            if (zapCore == null) {
+                zapCore = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                zapCore.setStyle(android.graphics.Paint.Style.STROKE);
+                zapCore.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+                zapCore.setStrokeWidth(1.6f * dp);
+                zapCore.setColor(0xFFEAFBFF);
+                zapGlow = new android.graphics.Paint(zapCore);
+                zapGlow.setStrokeWidth(5f * dp);
+                zapGlow.setColor(0x663AB8FF);
+            }
+            if (zapAt < 0L || now - zapAt > 70L) {
+                zapAt = now;
+                zapCount = 2 + dice.nextInt(2);
+                for (int i = 0; i < zapCount; i++) {
+                    zaps[i * 3] = (float) (dice.nextDouble() * Math.PI * 2.0);
+                    zaps[i * 3 + 1] = r * (.75f + .3f * dice.nextFloat());
+                    zaps[i * 3 + 2] = dice.nextLong();
+                }
+                if (dice.nextBoolean()) spark(cx, cy, 1, dp);
+            }
+            java.util.Random jag = new java.util.Random();
+            for (int i = 0; i < zapCount; i++) {
+                jag.setSeed((long) zaps[i * 3 + 2]);
+                double a = zaps[i * 3];
+                float x = cx + (float) Math.cos(a) * zaps[i * 3 + 1], y = cy + (float) Math.sin(a) * zaps[i * 3 + 1];
+                zapPath.reset();
+                zapPath.moveTo(x, y);
+                double dir = a + Math.PI / 2 * (jag.nextBoolean() ? 1 : -1);
+                for (int k = 0; k < 4; k++) {
+                    double turn = dir + (jag.nextDouble() - .5) * 1.6;
+                    float len = (4f + 3f * jag.nextFloat()) * dp;
+                    x += (float) Math.cos(turn) * len;
+                    y += (float) Math.sin(turn) * len;
+                    zapPath.lineTo(x, y);
+                }
+                canvas.drawPath(zapPath, zapGlow);
+                canvas.drawPath(zapPath, zapCore);
+            }
+        }
         @Nullable String word;
         long wordAt;
         private static final long WORD_MS = 1300L;
@@ -475,17 +591,14 @@ public final class JoybotView extends FrameLayout {
                 float cy = box.top + box.height() * body.centerY();
                 choreograph(canvas, f, px, py, cy, now);
                 long ft = now - trickAt;
-                if (trickAt != 0L && ft < FLIP_MS) {
-                    float dp = getResources().getDisplayMetrics().density;
-                    flip(canvas, ft / (float) FLIP_MS, px, cy, dp);
-                    if (!trickSparked && ft > FLIP_MS * .4f) { trickSparked = true; spark(px, cy, 10, dp); }
-                } else {
-                    trickAt = 0L;
-                }
+                if (trick != 0 && ft < trickMs(trick)) applyTrick(canvas, ft, px, py, cy, getResources().getDisplayMetrics().density);
+                else if (trick != 0 && trick != TRICK_SHAKE) trick = 0;
             }
             f.draw(canvas, box, f.isActor() ? plain : paint, now);
             canvas.restoreToCount(saved);
             if (f.isActor() && body != null) {
+                drawZaps(canvas, now, getWidth() / 2f, box.top + box.height() * body.centerY(), box.width() * body.width() * .62f);
+                if (trick == TRICK_SHAKE && now - trickAt >= trickMs(TRICK_SHAKE)) trick = 0;
                 drawSparks(canvas, now);
                 drawWord(canvas, now, box.top + box.height() * body.top);
             }
@@ -916,12 +1029,22 @@ public final class JoybotView extends FrameLayout {
     // a little guy)"; "a flick flings him round the screen: he bounces off the edges, comes back and settles". All on
     // the clock like his flights, so they play with "remove animations" on.
 
+    /** Tricks played on top of whatever he is doing ({@link #trick}). */
+    public static final int TRICK_FLIP = 1, TRICK_HOP = 2, TRICK_ROLL = 3, TRICK_SHAKE = 4, TRICK_BEG = 5;
+
     /** A backflip on top of whatever he is doing. */
-    public void backflip() {
-        if (film == null) return;
+    public void backflip() { trick(TRICK_FLIP); }
+
+    /** Play a trick ({@link #TRICK_FLIP} ...) on top of whatever he is doing; how long it lasts, ms. */
+    public long trick(int kind) {
+        if (film == null) return 0L;
+        film.trick = kind;
         film.trickAt = android.os.SystemClock.uptimeMillis();
         film.trickSparked = false;
+        film.lastHopLand = -1L;
+        film.zapAt = -1L;
         film.invalidate();
+        return FilmView.trickMs(kind);
     }
 
     /** A word that pops above his head and floats away ("oopsies!", "wheee!"). */

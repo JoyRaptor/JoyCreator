@@ -180,7 +180,7 @@ final class CardFrame {
                 int over = top - y;
                 shortenedBy = Math.min(over, Math.max(0, h - Math.round(MIN_H * d)));
                 h -= shortenedBy;
-                y = top + (over - shortenedBy > 0 ? 0 : 0);
+                y = top;
             }
             liftedBy = lp.y - y;
             lp.y = y;

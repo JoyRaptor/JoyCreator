@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
@@ -1270,7 +1272,7 @@ private static void promptForFadeSeconds(@NonNull Context ctx, @NonNull AudioCli
 
     private static void confirmDialog(@NonNull Context ctx, @NonNull String title,
                                       @NonNull View body, @NonNull Runnable onOk) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+        StudioDialog.builder(ctx)
                 .setTitle(title)
                 .setView(body)
                 .setNegativeButton(android.R.string.cancel, null)

@@ -1,5 +1,7 @@
 package com.fadcam.joyfolder.studio;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import android.app.Activity;
 import android.widget.ScrollView;
 
@@ -50,7 +52,7 @@ public final class BringInDialog {
         panel.view.setPadding(pad, dp(a, 4), pad, 0);
         ScrollView scroll = new ScrollView(a);
         scroll.addView(panel.view);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+        StudioDialog.builder(a)
                 .setTitle(refs.size() == 1 ? "1 file is outside your folder" : refs.size() + " files are outside your folder")
                 .setView(scroll)
                 .setPositiveButton("Do it", (d, w) -> done.onChosen(panel.choices))

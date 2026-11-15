@@ -326,7 +326,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             labels[i + 1] = presets.get(i).displayName;
             if (presets.get(i).id.equals(stack.getLutId())) checked = i + 1;
         }
-        new MaterialAlertDialogBuilder(requireContext())
+        StudioDialog.builder(requireContext())
                 .setTitle(R.string.faditor_filter_lut)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
                     if (which == 0) {
@@ -354,7 +354,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
         int pad = (int) (20 * dp);
         input.setPadding(pad, (int) (8 * dp), pad, 0);
 
-        new MaterialAlertDialogBuilder(requireContext())
+        StudioDialog.builder(requireContext())
                 .setTitle(R.string.faditor_filter_preset_save)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
@@ -467,7 +467,7 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
     }
 
     private void confirmDeletePreset(@NonNull String name, float dp) {
-        new MaterialAlertDialogBuilder(requireContext())
+        StudioDialog.builder(requireContext())
                 .setTitle(String.format(
                         getString(R.string.faditor_filter_preset_delete), name))
                 .setPositiveButton(android.R.string.ok, (d, w) -> {

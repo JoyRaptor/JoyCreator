@@ -1,7 +1,8 @@
 package com.fadcam.ui.faditor.sprite;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+import androidx.appcompat.app.AlertDialog;
+import com.fadcam.ui.faditor.StudioDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -51,7 +52,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             final String[] labels=new String[list.size()+1];
             labels[0]="New project";
             for(int i=0;i<list.size();i++) labels[i+1]=list.get(i).name.isEmpty() ? "Untitled" : list.get(i).name;
-            AlertDialog dialog=new AlertDialog.Builder(this).setTitle("Send to Studio")
+            AlertDialog dialog=StudioDialog.builder(this).setTitle("Send to Studio")
                 .setItems(labels,(d,which) -> {
                     final String target=which == 0 ? null : list.get(which-1).id;
                     new Thread(() -> receive(path,true,target),"joybrush-board-import").start();

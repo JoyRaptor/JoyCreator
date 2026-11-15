@@ -1,5 +1,7 @@
 package com.fadcam.ui.studio;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import android.app.Activity;
 import android.content.ClipData;
 import android.content.Context;
@@ -202,7 +204,7 @@ public final class NewProjectFlow {
         wrap.setPadding(pad, pad / 2, pad, 0);
         wrap.addView(input);
 
-        new MaterialAlertDialogBuilder(c)
+        StudioDialog.builder(c)
                 .setTitle(c.getString(R.string.faditor_new_project_title, uris.size()))
                 .setView(wrap)
                 .setNegativeButton(R.string.faditor_cancel, null)

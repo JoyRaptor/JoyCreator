@@ -239,7 +239,7 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
         hField.setLayoutParams(hLp);
         rowLayout.addView(hField);
 
-        new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+        StudioDialog.builder(requireContext())
                 .setTitle(R.string.faditor_canvas_custom_res_title)
                 .setView(rowLayout)
                 .setPositiveButton(android.R.string.ok, (d, which) -> {

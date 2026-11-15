@@ -211,7 +211,7 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
             labels[i] = orphanPolicyLabel(values[i]);
             if (values[i].equals(cur)) current = i;
         }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+        StudioDialog.builder(requireContext())
                 .setTitle(R.string.faditor_settings_orphan_title)
                 .setSingleChoiceItems(labels, current, (d, which) -> {
                     prefs.setFaditorOrphanAnchorPolicy(values[which]);

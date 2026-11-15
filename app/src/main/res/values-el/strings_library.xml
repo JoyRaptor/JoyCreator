@@ -124,7 +124,7 @@
     <string name="library_trashed">Μετακινήθηκε στον Κάδο. Μπορείς να το επαναφέρεις από τον Κάδο.</string>
     <string name="library_trash_failed">Δεν μπόρεσα να το μετακινήσω στον Κάδο: %1$s</string>
     <string name="library_trash_in_use">Ένα έργο το χρησιμοποιεί, γι\' αυτό μένει. Βγάλε το πρώτα από το έργο.</string>
-    <string name="library_trash_no_copy">Αυτό το έργο δεν έχει ακόμα αντίγραφο στον φάκελο Joy Creator, οπότε δεν θα μπορούσε να επαναφερθεί αργότερα. Έμεινε όπως ήταν.</string>
+    <string name="library_trash_no_copy">Αυτό το έργο, ή μερικές από τις εικόνες και τα κλιπ του, δεν μπόρεσαν να αντιγραφούν στον φάκελο Joy Creator, οπότε δεν θα μπορούσε να επανέλθει αργότερα. Έμεινε ως είχε.</string>
     <string name="library_trash_no_folder">Ο φάκελος Joy Creator δεν είναι προσβάσιμος, οπότε αυτό δεν θα μπορούσε να επαναφερθεί αργότερα. Έμεινε όπως ήταν.</string>
     <string name="library_renamed">Μετονομάστηκε.</string>
     <string name="library_rename_failed">Δεν μπόρεσα να το μετονομάσω.</string>

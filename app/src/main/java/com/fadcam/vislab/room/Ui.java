@@ -75,6 +75,11 @@ public final class Ui {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.setTooltipText(what);
     }
 
+    /** The same hover label, from a string resource (strings_vislab.xml). */
+    public static void label(@NonNull View v, @androidx.annotation.StringRes int what) {
+        label(v, v.getContext().getString(what));
+    }
+
     @NonNull
     public static GradientDrawable round(int color, float radiusPx) {
         GradientDrawable g = new GradientDrawable();

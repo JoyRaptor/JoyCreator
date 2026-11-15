@@ -125,6 +125,8 @@ final class AboutVersion {
                 ViewGroup.LayoutParams.WRAP_CONTENT, AboutKit.dp(c, 40));
         bLp.topMargin = AboutKit.dp(c, 18);
         view.addView(button, bLp);
+        // A Play install updates through Play: no button to look elsewhere (launch bug hunt 11-15, B4).
+        if (com.fadcam.BuildConfig.PLAY_BUILD) button.setVisibility(View.GONE);
 
         // ── the answer, said in place ──
         status = new LinearLayout(c);

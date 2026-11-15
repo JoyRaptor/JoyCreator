@@ -121,6 +121,12 @@ public class RemoteStreamService extends Service {
         return START_STICKY;
     }
     
+    /** Android 15: this kind of service may run six hours a day; told to stop, it must, or the app is closed. */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        stopSelf();   // onDestroy stops the server
+    }
+
     @Override
     public void onDestroy() {
         FLog.i(TAG, "Service stopping");
@@ -157,6 +163,13 @@ public class RemoteStreamService extends Service {
      * Start HTTP server on a free port.
      */
     private boolean startHttpServer() {
+        // The Play build never listens (launch bug hunt 11-15, B3): the phone does not yet check the Remote
+        // password, so anyone on the same Wi-Fi could watch, listen and record. Its doors are hidden there too
+        // (LaunchGate.PLAY_HIDDEN); this is the backstop if one is ever missed. Lift both once the guard lands.
+        if (com.fadcam.BuildConfig.PLAY_BUILD) {
+            FLog.w(TAG, "Remote is off in the Play build until its password guard lands");
+            return false;
+        }
         // Find free port
         int port = findFreePort(DEFAULT_PORT);
         if (port == -1) {

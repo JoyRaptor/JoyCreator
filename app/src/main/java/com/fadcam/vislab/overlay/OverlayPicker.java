@@ -55,7 +55,7 @@ final class OverlayPicker extends ScrollView {
             t.setPadding(h, 0, h, 0);
             t.setMinHeight(Ui.dp(c, 38));
             if (on) t.setBackground(Ui.round(Studio.ARMED, Ui.dp(c, 999)));   // ON = solid cyan (the owner's rule)
-            Ui.label(t, "Show " + names.get(i));
+            Ui.label(t, c.getString(com.fadcam.R.string.vl_ov_show_look, names.get(i)));
             t.setOnClickListener(v -> {
                 Motion.press(v);
                 actions.pickLook(id);

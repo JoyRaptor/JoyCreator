@@ -507,7 +507,7 @@ public final class PuppetDrawerTabs {
         // glyph and word go dark. That fill IS the "what am I doing" signal. It replaces the
         // 4dp-cornered outlined box, which read as a form field rather than a control.
         // Glyph over word stays — five pin types are not self-evident as glyphs (see above).
-        cell.setBackground(pill(ctx, on ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL,
+        cell.setBackground(pill(ctx, on ? ObjectDrawer.Kit.onFill(hue) : CTL_FILL,
                 on ? 0 : CTL_RING));
 
         ImageView glyph = new ImageView(ctx);
@@ -751,7 +751,7 @@ public final class PuppetDrawerTabs {
             chip.setGravity(Gravity.CENTER_VERTICAL);
             int inset = pad(d, 5);
             chip.setBackground(new android.graphics.drawable.InsetDrawable(
-                    pill(ctx, hot ? Studio.alpha(hue, ON_ALPHA) : CTL_FILL, hot ? 0 : CTL_RING),
+                    pill(ctx, hot ? ObjectDrawer.Kit.onFill(hue) : CTL_FILL, hot ? 0 : CTL_RING),
                     0, inset, 0, inset));
             chip.setPadding(pad(d, 13), pad(d, 7) + inset, pad(d, 13), pad(d, 7) + inset);
             chip.setMinimumHeight(pad(d, 40));

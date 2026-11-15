@@ -4399,8 +4399,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     companion object {
-        /** A settings preview's atlas: 6 x 3 slots of 256 px (its stage is about 1000 x 330 px); a drawing gets 24 to 48. */
-        val PREVIEW_SLOTS = 6 to 3
+        /**
+         * A settings preview's atlas: 6 x 4 slots of 256 px, the floor a drawing gets (24 to 48). 6 x 3 refused the test curve of a
+         * big watercolour (its water reached 19 areas of 16, Fold 4, 11-15). About 15 MB a slot, let go when the sheet closes.
+         */
+        val PREVIEW_SLOTS = 6 to 4
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
         private const val PEN_PREFS = "joybrush.canvas"

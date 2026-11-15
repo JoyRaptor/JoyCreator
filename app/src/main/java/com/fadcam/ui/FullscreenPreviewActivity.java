@@ -839,17 +839,12 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         btnTapFocusToggle.setIconResource(R.drawable.ic_focus_target);
         if (tapToFocusEnabled) {
             btnTapFocusToggle.setText(R.string.fullscreen_focus_on);
-            btnTapFocusToggle.setIconTint(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
-            btnTapFocusToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0x66101418));
-            btnTapFocusToggle.setStrokeColor(android.content.res.ColorStateList.valueOf(0x33FFFFFF));
-            btnTapFocusToggle.setTextColor(0xFFFFFFFF);
+            com.fadcam.ui.home.FullscreenSkin.on(btnTapFocusToggle, null);
         } else {
             btnTapFocusToggle.setText(R.string.fullscreen_focus_off);
-            btnTapFocusToggle.setIconTint(android.content.res.ColorStateList.valueOf(0xFFE0E0E0));
-            btnTapFocusToggle.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0x5A0D1015));
-            btnTapFocusToggle.setStrokeColor(android.content.res.ColorStateList.valueOf(0x2AFFFFFF));
-            btnTapFocusToggle.setTextColor(0xFFE0E0E0);
+            com.fadcam.ui.home.FullscreenSkin.off(btnTapFocusToggle, null);
         }
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(btnTapFocusToggle, btnTapFocusToggle.getText());
     }
 
     private void setupSystemInsets() {
@@ -934,12 +929,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     private void updateTorchIcon() {
         if (btnFullscreenTorch == null) return;
         btnFullscreenTorch.setIconResource(R.drawable.ic_flashlight_on);
-        btnFullscreenTorch.setIconTint(android.content.res.ColorStateList.valueOf(
-                isTorchOn ? 0xFFFFC107 : 0xFFFFFFFF));
-        btnFullscreenTorch.setStrokeColor(android.content.res.ColorStateList.valueOf(
-                isTorchOn ? 0x66FFC107 : 0x2AFFFFFF));
-        btnFullscreenTorch.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                isTorchOn ? 0x40210F00 : 0x5A0D1015));
+        if (isTorchOn) com.fadcam.ui.home.FullscreenSkin.on(btnFullscreenTorch, null);
+        else com.fadcam.ui.home.FullscreenSkin.off(btnFullscreenTorch, null);
     }
 
     private void registerTorchReceiver() {
@@ -1041,16 +1032,11 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         if (!front) return;
 
         boolean enabled = prefs.isFrontVideoMirrorEnabled();
-        btnFullscreenMirror.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                enabled ? 0x405B1212 : 0x5A0D1015));
-        btnFullscreenMirror.setStrokeColor(android.content.res.ColorStateList.valueOf(
-                enabled ? 0x66FFC107 : 0x2AFFFFFF));
+        if (enabled) com.fadcam.ui.home.FullscreenSkin.on(btnFullscreenMirror, labelFullscreenMirror);
+        else com.fadcam.ui.home.FullscreenSkin.off(btnFullscreenMirror, labelFullscreenMirror);
         btnFullscreenMirror.setContentDescription(getString(
                 enabled ? R.string.front_video_mirror_disable : R.string.front_video_mirror_enable));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenMirror, getString(enabled ? R.string.front_video_mirror_disable : R.string.front_video_mirror_enable));
-        if (labelFullscreenMirror != null) {
-            labelFullscreenMirror.setTextColor(enabled ? 0xFFFFC107 : 0xB3FFFFFF);
-        }
     }
 
     private void setupPauseResumeButton() {
@@ -1123,17 +1109,12 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
             labelRes = isRecordingPaused ? R.string.button_resume : R.string.button_pause;
         }
         btnFullscreenPauseResume.setIconResource(iconRes);
-        btnFullscreenPauseResume.setIconTint(android.content.res.ColorStateList.valueOf(0xFFFFFFFF));
         btnFullscreenPauseResume.setContentDescription(getString(labelRes));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(btnFullscreenPauseResume, getString(labelRes));
-        btnFullscreenPauseResume.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
-                !isRecordingActive ? 0x404CAF50 : (isRecordingPaused ? 0x40210F00 : 0x5A0D1015)));
-        btnFullscreenPauseResume.setStrokeColor(android.content.res.ColorStateList.valueOf(
-                !isRecordingActive ? 0x664CAF50 : (isRecordingPaused ? 0x66FFC107 : 0x2AFFFFFF)));
-        if (labelPauseResume != null) {
-            labelPauseResume.setText(labelRes);
-            labelPauseResume.setTextColor(!isRecordingActive ? 0xFF8DE28D : (isRecordingPaused ? 0xFFFFC107 : 0xB3FFFFFF));
-        }
+        if (labelPauseResume != null) labelPauseResume.setText(labelRes);
+        if (!isRecordingActive) com.fadcam.ui.home.FullscreenSkin.start(btnFullscreenPauseResume, labelPauseResume);
+        else if (isRecordingPaused) com.fadcam.ui.home.FullscreenSkin.paused(btnFullscreenPauseResume, labelPauseResume);
+        else com.fadcam.ui.home.FullscreenSkin.off(btnFullscreenPauseResume, labelPauseResume);
     }
 
     private void switchCamera() {
@@ -1201,7 +1182,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         }
 
         // Make tiles white for dark fullscreen background
-        int tileColor = 0xFFFFFFFF;
+        int tileColor = com.fadcam.ui.home.FullscreenSkin.GLYPH_OFF;
         if (tileAfToggle != null) tileAfToggle.setTextColor(tileColor);
         if (tileExp != null) tileExp.setTextColor(tileColor);
         if (tileZoom != null) tileZoom.setTextColor(tileColor);
@@ -1777,10 +1758,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
     private void updateExpTileTint() {
         if (tileExp == null) return;
         boolean modified = currentEvIndex != 0 || aeLocked;
-        tileExp.setTextColor(modified ? 0xFFFF9800 : 0xFFFFFFFF);
-        if (labelExp != null) {
-            labelExp.setTextColor(modified ? 0xFFFFC107 : 0xB3FFFFFF);
-        }
+        com.fadcam.ui.home.FullscreenSkin.tile(tileExp, labelExp, modified);
     }
 
     private void updateZoomTileTint() {
@@ -1788,10 +1766,7 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
         CameraType cam = prefs.getCameraSelection();
         float zoom = prefs.getSpecificZoomRatio(cam);
         boolean modified = Math.abs(zoom - 1.0f) >= 0.01f;
-        tileZoom.setTextColor(modified ? 0xFFFF9800 : 0xFFFFFFFF);
-        if (labelZoom != null) {
-            labelZoom.setTextColor(modified ? 0xFFFFC107 : 0xB3FFFFFF);
-        }
+        com.fadcam.ui.home.FullscreenSkin.tile(tileZoom, labelZoom, modified);
     }
 
     private int dp(int value) {
@@ -1883,8 +1858,8 @@ public class FullscreenPreviewActivity extends AppCompatActivity {
 
             GradientDrawable drawable = new GradientDrawable();
             drawable.setShape(GradientDrawable.OVAL);
-            drawable.setStroke(8, 0xFFFF0000);   // Bright red ring
-            drawable.setColor(0x44FF0000);         // Semi-transparent red fill
+            drawable.setStroke(8, com.fadcam.ui.home.FullscreenSkin.FOCUS_RING);
+            drawable.setColor(com.fadcam.ui.home.FullscreenSkin.FOCUS_FILL);
             focusView.setBackground(drawable);
             focusView.setLayoutParams(params);
             focusView.setAlpha(0f);

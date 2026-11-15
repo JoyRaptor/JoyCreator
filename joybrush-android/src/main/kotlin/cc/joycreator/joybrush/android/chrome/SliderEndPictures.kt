@@ -14,19 +14,23 @@ import cc.joycreator.joybrush.core.brush.TestStroke
  * stripes, or a single dab for the softness, shape and size sliders) and returns a cancel.
  */
 class SliderEndPictures(
-    private val render: (preset: BrushPreset, widthPx: Int, heightPx: Int, part: TestStroke.Part, onReady: (Bitmap) -> Unit) -> (() -> Unit),
+    private val render: (preset: BrushPreset, widthPx: Int, heightPx: Int, part: TestStroke.Part, dabScalePx: Float?,
+                         onReady: (Bitmap) -> Unit) -> (() -> Unit),
 ) {
-    private class Job(val view: ImageView, val preset: BrushPreset, val part: TestStroke.Part)
+    private class Job(val view: ImageView, val preset: BrushPreset, val part: TestStroke.Part, val dabScalePx: Float?)
 
     private val queue = ArrayDeque<Job>()
     private var running: (() -> Unit)? = null
     private var closed = false
 
-    /** Asks for [view] to show [preset]; replaces any waiting job for the same view. */
-    fun ask(view: ImageView, preset: BrushPreset, part: TestStroke.Part = TestStroke.Part.SWOOSH) {
+    /**
+     * Asks for [view] to show [preset]; replaces any waiting job for the same view. [dabScalePx]: for a dab, the brush size
+     * that fills the picture, so two ends that differ in size share one scale (null: the dab fills it).
+     */
+    fun ask(view: ImageView, preset: BrushPreset, part: TestStroke.Part = TestStroke.Part.SWOOSH, dabScalePx: Float? = null) {
         if (closed) return
         queue.removeAll { it.view === view }
-        queue.addLast(Job(view, preset, part))
+        queue.addLast(Job(view, preset, part, dabScalePx))
         if (running == null) next()
     }
 
@@ -38,7 +42,7 @@ class SliderEndPictures(
         var done = false
         running = {}
         val cancel = try {
-            render(job.preset, w, h, job.part) { bitmap ->
+            render(job.preset, w, h, job.part, job.dabScalePx) { bitmap ->
                 if (done) return@render
                 done = true
                 if (!closed && job.view.isAttachedToWindow) job.view.setImageBitmap(bitmap)

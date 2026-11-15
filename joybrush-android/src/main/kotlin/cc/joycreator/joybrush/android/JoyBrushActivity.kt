@@ -1424,10 +1424,10 @@ class JoyBrushActivity : Activity() {
                 if (canvas.preset?.id == brush.id) setEditableLines(on)
             },
             // BRUSH-UI section K.3: the slider ends, the test stroke's S-turns with no stripes, from the shared cache.
-            endPicture = { p, w, h, part, onReady ->
+            endPicture = { p, w, h, part, dabScale, onReady ->
                 val ask = brushPreviews.request(cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.snapshot(p, w, h,
                     cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle(ink = kit.p.drawerInk),
-                    part = part, stripes = false), onReady)
+                    part = part, stripes = false, dabScalePx = dabScale), onReady)
                 ({ ask.cancel() })
             }
         )

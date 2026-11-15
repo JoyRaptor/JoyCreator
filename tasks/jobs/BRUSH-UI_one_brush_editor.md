@@ -131,9 +131,11 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   drawn one at a time, redrawn when a setting settles. Softness, shape and size show **one dab** (brush lane's
   `TestStroke.Part.DAB`); everything else the test stroke's S-turns. "Thinnest" shows the stroke, not a dab: it is
   about the lightest press and a full-press dab looked the same at both ends.
-- **Limits:** dabs are small for thin brushes (about 10 dp in the box, capped at the brush's real size); asked the
-  brush lane for dabs that fill the picture, with one shared scale for the size slider's two ends. Pencil, watercolour
-  and oil ends still show the whole stroke until the brush lane wires the part into the media preview.
+- **Dabs fill the picture** (brush lane d096e4122, wired here; seen on the Note 9: Marker's Hardness ends now read as a
+  fuzzy blob and a crisp square, `after_marker_dab_ends_filled.png`). A dab setting that changes the brush's size draws
+  both ends at the larger end's scale (`dabScalePx`), so they still differ; no shipped paint slider changes the size
+  today, so that path is unit-tested only. Pencil, watercolour and oil ends still show the whole stroke until the
+  brush lane wires the part into the media preview.
 - **Unibrush on the one editor, seen on the Note 9:** the same top bar (name, Shape / Pressure & tilt / Colour / Paper /
   Stroke ends / Feel, Done, ✕ puts the mode back as it opened), the Quick / Tip / All tabs replaced by one list in the
   top bar's order, words at both ends of every slider. Screens: `after_unibrush_hard_one_editor.png`,

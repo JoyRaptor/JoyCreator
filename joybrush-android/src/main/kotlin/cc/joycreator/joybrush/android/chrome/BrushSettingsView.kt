@@ -43,7 +43,7 @@ class BrushSettingsView(
     editableLines: Boolean? = null,
     private val onEditableLinesChanged: (Boolean) -> Unit = {},
     /** BRUSH-UI section K.3: draws a slider's end picture (null: words only). */
-    endPicture: ((BrushPreset, Int, Int, cc.joycreator.joybrush.core.brush.TestStroke.Part, (android.graphics.Bitmap) -> Unit) -> (() -> Unit))? = null,
+    endPicture: ((BrushPreset, Int, Int, cc.joycreator.joybrush.core.brush.TestStroke.Part, Float?, (android.graphics.Bitmap) -> Unit) -> (() -> Unit))? = null,
 ) : LinearLayout(kit.context) {
     private val endPictures = endPicture?.let { SliderEndPictures(it) }
     /** Each slider's two end pictures, redrawn when the settings settle. */
@@ -176,8 +176,12 @@ class BrushSettingsView(
             // Softness, shape and size show one dab; everything else the S-turns (core/chrome/BrushKnobGroups).
             val part = if (cc.joycreator.joybrush.core.chrome.BrushKnobGroups.endsOf(knob.key).picture ==
                 cc.joycreator.joybrush.core.chrome.BrushKnobGroups.EndPicture.DAB) cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB else cc.joycreator.joybrush.core.brush.TestStroke.Part.SWOOSH
-            q.ask(low, knob.set(now, 0f), part)
-            q.ask(high, knob.set(now, 1f), part)
+            val lo = knob.set(now, 0f); val hi = knob.set(now, 1f)
+            // A dab setting that changes the size (Size itself) draws both ends at the larger end's scale, so they differ.
+            val scale = if (part == cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB && lo.size.base != hi.size.base)
+                maxOf(lo.size.base, hi.size.base).takeIf { it > 0f && it.isFinite() } else null
+            q.ask(low, lo, part, scale)
+            q.ask(high, hi, part, scale)
         } catch (e: Exception) {
             android.util.Log.w("JoyBrushEnds", "no end pictures for ${knob.key}", e)
         }

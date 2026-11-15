@@ -891,7 +891,11 @@ public class LobbyFragment extends BaseFragment {
             // TAB-1 (owner pick L2 A): on a wide window more than one lap of the list fits and the
             // strip read as the rooms twice over. Show each room once from the front word on;
             // the copies past one lap stay laid out (the wrap still works) but are not shown.
-            int lap = marquee.getWidth() / MARQUEE_COPIES;
+            // One lap measured from the words: the strip's own width also holds its end padding,
+            // which counted the next copy's first room as part of this lap (tablet, 11-15).
+            int per = n / MARQUEE_COPIES;
+            int lap = per > 0 && n > per
+                    ? marquee.getChildAt(per).getLeft() - marquee.getChildAt(0).getLeft() : 0;
             int show = (lap <= 0 || d < lap - dp(4)) ? View.VISIBLE : View.INVISIBLE;
             if (t.getVisibility() != show) t.setVisibility(show);
             t.setTextColor(blend(DIMMEST, INK, near));

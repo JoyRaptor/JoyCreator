@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Klassikaline Teave</string>
     <string name="aboutjoy_classic_hint">Ava vana Teabe ekraan</string>
     <string name="aboutjoy_no_browser">Selle lingi avamiseks pole brauserit</string>
+    <string name="aboutjoy_support">Toeta Joy Creatorit</string>
+    <string name="aboutjoy_support_hint">Ava looja toetusleht brauseris</string>
 </resources>

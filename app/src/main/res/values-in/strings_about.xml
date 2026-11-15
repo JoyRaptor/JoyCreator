@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Tentang versi klasik</string>
     <string name="aboutjoy_classic_hint">Buka layar Tentang yang lama</string>
     <string name="aboutjoy_no_browser">Tidak ada browser untuk membuka tautan ini</string>
+    <string name="aboutjoy_support">Dukung Joy Creator</string>
+    <string name="aboutjoy_support_hint">Buka halaman dukungan pembuatnya di browser</string>
 </resources>

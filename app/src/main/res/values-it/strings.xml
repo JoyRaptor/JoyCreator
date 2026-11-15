@@ -1276,7 +1276,6 @@
     <string name="video_split_size_summary_gb">Attuale: %1$s GB</string>
     <string name="video_splitting_title">Divisione video</string>
     <string name="video_splitting_description">Divide automaticamente i video in segmenti più piccoli quando raggiungono una dimensione specificata. Questo aiuta la gestione dei file.</string>
-    <string name="kofi_footer_text">Grazie per il tuo supporto!</string>
     <string name="setting_audio_input_source_title">Sorgente ingresso audio</string>
     <string name="setting_audio_input_source_status_default">Usando sorgente predefinita</string>
     <string name="setting_audio_input_source_status_wired">Cuffie collegate</string>
@@ -1723,7 +1722,6 @@
     <string name="delete_all">Elimina tutto</string>
     <string name="new_project">Nuovo progetto</string>
     <string name="delete">Elimina</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Info lettore video</string>
     <string name="player_info_content">Codec supportati, risoluzione, bitrate, FPS.</string>
     <string name="codec_hevc_incompatible_title">H.265 non supportato per live streaming</string>
@@ -3176,12 +3174,10 @@
     <string name="intro_line_secondcam">un secondo telefono come fotocamera, sul tuo Wi-Fi</string>
     <string name="intro_line_ai">AI che modifica la vera timeline</string>
     <string name="intro_start_creating">Inizia a creare</string>
-    <string name="intro_support">Sostienici</string>
     <string name="intro_promise">Niente pubblicità. Niente abbonamento.\nNiente filigrana.</string>
     <string name="intro_promise_ever">Mai un blocco a pagamento sull\'esportazione.</string>
     <string name="intro_story">L\'ho costruita tra un pisolino e l\'altro, badando ai miei tre bambini piccoli. È il modo in cui mantengo la mia famiglia. Se ti è utile, puoi aiutare a tenerla gratuita per tutti gli altri.</string>
     <string name="intro_cta_start">Inizia a creare</string>
-    <string name="intro_cta_support">Sostienici</string>
     <string name="intro_ai_note">Joy Creator non usa nessun server. Se colleghi un\'AI, le tue richieste vanno al fornitore che hai scelto — noi non le vediamo mai e non prendiamo nessuna percentuale.</string>
     <string name="intro_ai_have_key">Hai già una chiave?</string>
     <string name="intro_ai_add_now">Aggiungila ora</string>

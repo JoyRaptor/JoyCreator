@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">经典关于页面</string>
     <string name="aboutjoy_classic_hint">打开旧版关于页面</string>
     <string name="aboutjoy_no_browser">没有可以打开这个链接的浏览器</string>
+    <string name="aboutjoy_support">支持 Joy Creator</string>
+    <string name="aboutjoy_support_hint">在浏览器中打开作者的支持页面</string>
 </resources>

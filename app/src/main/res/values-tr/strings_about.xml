@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Klasik Hakkında</string>
     <string name="aboutjoy_classic_hint">Eski Hakkında ekranını aç</string>
     <string name="aboutjoy_no_browser">Bu bağlantıyı açacak tarayıcı yok</string>
+    <string name="aboutjoy_support">Joy Creator\'ı destekle</string>
+    <string name="aboutjoy_support_hint">Yapımcının destek sayfasını tarayıcıda aç</string>
 </resources>

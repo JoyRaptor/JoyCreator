@@ -741,7 +741,6 @@
     <string name="saf_permission_missing_dialog_message_for_start_recording">为将录制内容保存到自定义位置，Joy Creator 需要权限以访问您所选的文件夹。请在系统提示时授予访问权限。</string>
     <string name="grant_permission_button">授予权限</string>
     <string name="trash_auto_delete_picker_helper">选择何时自动删除垃圾箱中的项目。</string>
-    <string name="kofi_footer_text">用    为创作者制作，来自</string>
     <string name="choose_language">选择语言</string>
     <string name="onboarding_human_checkbox3">我同意隐私政策</string>
     <string name="applock_set_pin_enable">设置PIN码并启用</string>
@@ -1475,15 +1474,6 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 
 <!-- export_status -->
 <string name="export_status">导出状态</string>
-
-<!-- fadcam_pro_column_label -->
-
-<!-- fadcam_pro_header_button -->
-<string name="fadcam_pro_header_button">专业版</string>
-
-<!-- fadcam_pro_plus_label -->
-
-<!-- fadcam_pro_proplus_label -->
 
 <!-- faditor_add_asset_image -->
 <string name="faditor_add_asset_image">图片（5秒静态）</string>
@@ -5034,12 +5024,10 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
     <string name="intro_line_secondcam">用第二部手机当摄像头，通过你自己的 Wi-Fi</string>
     <string name="intro_line_ai">能直接编辑真实时间轴的 AI</string>
     <string name="intro_start_creating">开始创作</string>
-    <string name="intro_support">支持</string>
     <string name="intro_promise">没有广告，没有订阅，\n没有水印。</string>
     <string name="intro_promise_ever">导出永不收费。</string>
     <string name="intro_story">我是在照顾三个幼儿的间隙，趁他们午睡做出了这个应用。它也是我养家的方式。如果它对你有帮助，你可以帮忙让它继续对所有人免费。</string>
     <string name="intro_cta_start">开始创作</string>
-    <string name="intro_cta_support">支持</string>
     <string name="intro_ai_note">Joy Creator 不运行任何服务器。如果你连接 AI，你的提示词会发给你选的服务商，我们看不到，也不抽成。</string>
     <string name="intro_ai_have_key">已经有密钥了？</string>
     <string name="intro_ai_add_now">现在添加</string>

@@ -1297,7 +1297,6 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="video_split_size_summary_gb">Praegune: %1$s GB</string>
     <string name="video_splitting_title">Luba video tükeldamine</string>
     <string name="video_splitting_description">Jagab salvestised automaatselt väiksemateks failideks (vaikimisi keelatud). Soovitatav: 2 GB tasakaalu jaoks. Eelseadistused kuni 4 GB ja kohandatud suurused on saadaval. See aitab hallata suuri salvestisi ja väldib seadme failisuuruse piiranguid.</string>
-    <string name="kofi_footer_text">Tehtud    loojatele riigis</string>
     <string name="setting_audio_input_source_title">Heli sisendallikas</string>
     <string name="setting_audio_input_source_status_default">Telefoni mikrofon</string>
     <string name="setting_audio_input_source_status_wired">Juhtmega mikrofon</string>
@@ -1770,7 +1769,6 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="delete_all">Kustuta kõik</string>
     <string name="new_project">Uus projekt</string>
     <string name="delete">Kustuta</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Videoesitaja teave</string>
     <string name="player_info_content"><![CDATA[
 <b>Killustatud MP4 vorming</b><br/><br/>
@@ -3196,12 +3194,10 @@ Sujuvama esitamise kogemuse jaoks saad kasutada välist esitajat nagu VLC. Siisk
     <string name="intro_line_secondcam">teine telefon kaamerana, sinu enda Wi-Fi kaudu</string>
     <string name="intro_line_ai">AI, mis muudab päris ajatelge</string>
     <string name="intro_start_creating">Hakka looma</string>
-    <string name="intro_support">Toeta</string>
     <string name="intro_promise">Ei mingeid reklaame. Ei mingit tellimust.\nEi mingit vesimärki.</string>
     <string name="intro_promise_ever">Ei mingit tasulist eksporti. Iial.</string>
     <string name="intro_story">Ehitasin selle uinakute vahel, hoides oma kolme väikelast. Nii ma oma peret toetan. Kui sa sellest midagi kasu saad, võid aidata seda kõigile teistele tasuta hoida.</string>
     <string name="intro_cta_start">Hakka looma</string>
-    <string name="intro_cta_support">Toeta</string>
     <string name="intro_ai_note">Joy Creator ei kasuta ühtegi serverit. Kui ühendad AI, lähevad sinu päringud sinu valitud pakkujale — meie ei näe neid ega võta mingit osa.</string>
     <string name="intro_ai_have_key">Sul on juba võti?</string>
     <string name="intro_ai_add_now">Lisa see kohe</string>

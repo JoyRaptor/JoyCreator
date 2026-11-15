@@ -1781,7 +1781,6 @@
 <string name="saf_permission_missing_dialog_message_for_start_recording">Kayıtları özel bir konuma kaydetmek için Joy Creator\'in seçilen klasöre erişmesi gerekir. İstendiğinde erişim izni verin.</string>
 <string name="grant_permission_button">İzin Ver</string>
 <string name="trash_auto_delete_picker_helper">Çöp\'teki öğelerin ne zaman otomatik silineceğini seçin.</string>
-    <string name="kofi_footer_text">Yaratıcılar için    ile yapıldı, konum:</string>
 <string name="choose_language">Dil Seç</string>
 <string name="onboarding_human_checkbox3">Gizlilik Politikası\'nı kabul ediyorum</string>
 <string name="applock_set_pin_enable">PIN Belirle &amp; Etkinleştir</string>
@@ -2063,7 +2062,6 @@
     <string name="delete_all">Tümünü Sil</string>
     <string name="new_project">Yeni Proje</string>
     <string name="delete">Sil</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Video Oynatıcı Hakkında</string>
     <string name="player_info_content"><![CDATA[
 <b>Parçalı MP4 Formatı</b><br/><br/>
@@ -3093,12 +3091,10 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="intro_line_secondcam">kendi Wi-Fi\'ın üzerinden kamera olarak ikinci bir telefon</string>
     <string name="intro_line_ai">gerçek zaman çizelgesini düzenleyen AI</string>
     <string name="intro_start_creating">Yaratmaya başla</string>
-    <string name="intro_support">Destek ol</string>
     <string name="intro_promise">Reklam yok. Abonelik yok.\nFiligran yok.</string>
     <string name="intro_promise_ever">Dışa aktarma için ödeme duvarı yok. Asla.</string>
     <string name="intro_story">Bunu üç miniğime bakarken, uyku aralarında yaptım. Ailemi bununla geçindiriyorum. Senin için işe yarıyorsa, herkes için ücretsiz kalmasına yardım edebilirsin.</string>
     <string name="intro_cta_start">Yaratmaya başla</string>
-    <string name="intro_cta_support">Destek ol</string>
     <string name="intro_ai_note">Joy Creator hiç sunucu çalıştırmaz. Bir AI bağlarsan yazdıkların seçtiğin sağlayıcıya gider — biz onları asla görmeyiz ve pay almayız.</string>
     <string name="intro_ai_have_key">Zaten anahtarın var mı?</string>
     <string name="intro_ai_add_now">Şimdi ekle</string>

@@ -2869,7 +2869,7 @@
         /**
          * Update controls disabled state based on server connectivity (Step 6.11.3.2)
          * When offline, gray out ALL interactive elements to prevent user confusion
-         * Footer buttons (API, FadCam Pro, social links) remain always enabled
+         * Footer buttons (the API link) remain always enabled
          * @param {boolean} disabled - Whether controls should be disabled
          */
         function updateControlsDisabledState(disabled) {
@@ -2895,8 +2895,7 @@
             controlSelectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach(btn => {
                     // Skip footer elements - they should always be clickable
-                    if (btn.closest('.footer') || btn.closest('.fadcam-pro-btn') || 
-                        btn.classList.contains('footer-link') || btn.classList.contains('fadcam-pro-btn')) {
+                    if (btn.closest('.footer') || btn.classList.contains('footer-link')) {
                         return;
                     }
                     

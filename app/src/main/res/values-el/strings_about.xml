@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Κλασικό Σχετικά</string>
     <string name="aboutjoy_classic_hint">Άνοιγμα της παλιάς οθόνης Σχετικά</string>
     <string name="aboutjoy_no_browser">Δεν υπάρχει browser για να ανοίξει αυτός ο σύνδεσμος</string>
+    <string name="aboutjoy_support">Υποστήριξε το Joy Creator</string>
+    <string name="aboutjoy_support_hint">Άνοιγμα της σελίδας υποστήριξης του δημιουργού στο πρόγραμμα περιήγησης</string>
 </resources>

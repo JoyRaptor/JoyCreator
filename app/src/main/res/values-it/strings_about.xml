@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Info classica</string>
     <string name="aboutjoy_classic_hint">Apri la vecchia schermata Info</string>
     <string name="aboutjoy_no_browser">Nessun browser per aprire questo link</string>
+    <string name="aboutjoy_support">Sostieni Joy Creator</string>
+    <string name="aboutjoy_support_hint">Apri la pagina di supporto dell\'autore nel browser</string>
 </resources>

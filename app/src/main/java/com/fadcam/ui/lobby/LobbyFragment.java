@@ -1386,7 +1386,8 @@ public class LobbyFragment extends BaseFragment {
         // Tapped while glowing: he opens by saying the idea he had.
         i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_FROM_PULSE, joybot.hasIdea());
         joybot.setHasIdea(false);
-        startActivity(i);
+        // He flies out of this button (owner's arrival picks, 15 Nov).
+        com.fadcam.ui.lobby.arrival.JoybotOpen.start(requireActivity(), joybot, i);
     }
 
     /** Joybot breathes when he has an idea about your newest project that you haven't seen. */

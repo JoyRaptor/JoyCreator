@@ -487,6 +487,13 @@ public final class JoybotView extends FrameLayout {
 
     @Nullable private Director director;
     private int moodTurn = 0;
+    private boolean arrived;
+
+    /** He has just flown in and landed on his seat (the chat's arrival): that was his entrance. */
+    public void markArrived() { arrived = true; }
+
+    /** True once {@link #markArrived} has been called: his director skips its own entrance flourish. */
+    public boolean arrived() { return arrived; }
 
     public void setDirector(@Nullable Director d) {
         director = d;
@@ -611,37 +618,35 @@ public final class JoybotView extends FrameLayout {
         final float sx = getTranslationX(), sy = getTranslationY();
         final float tx = sx + (x - (getLeft() + sx + getWidth() / 2f));
         final float ty = sy + (y - (getTop() + sy + getHeight() / 2f));
-        if (Motion.reduced(getContext())) {
-            setTranslationX(tx);
-            setTranslationY(ty);
-            if (then != null) then.run();
-            return;
-        }
         final float lift = -Math.min(getHeight() * 1.2f, Math.abs(tx - sx) * 0.25f + getHeight() * 0.3f);
-        ValueAnimator fly = ValueAnimator.ofFloat(0f, 1f);
-        fly.setDuration(560L);
-        fly.setInterpolator(Motion.EASE_IN_OUT);
         // He leans into the flight and stretches along it, then rights himself as he lands.
         final float lean = Math.max(-14f, Math.min(14f, (tx - sx) / Math.max(1f, getWidth()) * 5f));
-        fly.addUpdateListener(a -> {
-            float t = (float) a.getAnimatedValue();
-            setTranslationX(sx + (tx - sx) * t);
-            setTranslationY(sy + (ty - sy) * t + lift * (float) Math.sin(Math.PI * t));
-            float arc = (float) Math.sin(Math.PI * t);
-            setRotation(lean * arc);
-            setScaleX(1f - 0.06f * arc);
-            setScaleY(1f + 0.08f * arc);
-        });
-        fly.addListener(new android.animation.AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(android.animation.Animator animation) {
+        final int turn = ++flight;
+        final long start = android.os.SystemClock.uptimeMillis();
+        // On the clock, not a system animator: he flies even with "remove animations" on (owner, 11-14).
+        Runnable step = new Runnable() {
+            @Override public void run() {
+                if (turn != flight) return;
+                float k = Math.min(1f, (android.os.SystemClock.uptimeMillis() - start) / 560f);
+                float t = Motion.EASE_IN_OUT.getInterpolation(k);
+                float arc = (float) Math.sin(Math.PI * t);
+                setTranslationX(sx + (tx - sx) * t);
+                setTranslationY(sy + (ty - sy) * t + lift * arc);
+                setRotation(lean * arc);
+                setScaleX(1f - 0.06f * arc);
+                setScaleY(1f + 0.08f * arc);
+                if (k < 1f) { postOnAnimation(this); return; }
                 setRotation(0f);
                 setScaleX(1f);
                 setScaleY(1f);
                 if (then != null) then.run();
             }
-        });
-        fly.start();
+        };
+        postOnAnimation(step);
     }
+
+    /** Counts flights, so a new one replaces one still under way. */
+    private int flight = 0;
 
     /** Back to where his layout put him. */
     public void flyHome(@Nullable Runnable then) {

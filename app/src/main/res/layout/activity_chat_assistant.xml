@@ -1,180 +1,309 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- The Joybot chat (owner's picks, 15 Nov 2026; design record tasks/design/UI-Joybot-chat-arrival-options.html):
+     no top bar, two round buttons and a big JOYBOT title; Joybot's seat at the start of the bottom row,
+     his suggestions after him; a see-through drawer (Frost only adds blur). A full sheet on a phone, a
+     floating card he can size and place on a tablet. ChatArrival sizes chat_reveal and opens it. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/chat_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#80000000">
+    android:clipChildren="false">
 
-    <!-- Top bar -->
-    <LinearLayout
+    <!-- The drawer, clipped to its opening circle while it opens. -->
+    <FrameLayout
+        android:id="@+id/chat_reveal"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@color/s_raised"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp">
-
-        <ImageButton
-            android:id="@+id/chat_back"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_close_clear_cancel"
-            android:tint="@color/s_ink"
-            android:contentDescription="Close" />
-
-        <!-- AI mascot, 30% larger than the toolbar icon (40dp -> 52dp), horizontally
-             flipped so he faces inward (toward the title text) — he's asymmetric and
-             always drawn facing the same relative direction as his position on screen. -->
-        <ImageView
-            android:id="@+id/chat_header_ai_icon"
-            android:layout_width="52dp"
-            android:layout_height="52dp"
-            android:layout_marginStart="4dp"
-            android:padding="4dp"
-            android:scaleType="fitCenter"
-            android:src="@drawable/joybot_neutral"
-            app:tint="@color/s_ink"
-            android:contentDescription="" />
+        android:layout_height="match_parent">
 
         <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:layout_marginStart="8dp">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/assistant_title"
-                android:textColor="@color/s_ink"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/chat_model_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text=""
-                android:textColor="@color/s_ink_faint"
-                android:textSize="10sp"
-                android:singleLine="true"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <ImageButton
-            android:id="@+id/chat_settings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_preferences"
-            android:tint="@color/s_ink"
-            android:contentDescription="Settings" />
-    </LinearLayout>
-
-    <!-- Status bar (shows current tool + progress, fades when idle) -->
-    <LinearLayout
-        android:id="@+id/chat_status_bar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="@color/s_raised"
-        android:padding="6dp"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <ProgressBar
-                android:id="@+id/chat_status_spinner"
-                style="?android:attr/progressBarStyleSmall"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_marginEnd="6dp" />
-
-            <TextView
-                android:id="@+id/chat_status_text"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:textColor="@color/s_ink_dim"
-                android:textSize="12sp"
-                android:singleLine="true" />
-
-            <TextView
-                android:id="@+id/chat_status_percent"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@color/s_ink_faint"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <ProgressBar
-            android:id="@+id/chat_status_progress"
-            style="?android:attr/progressBarStyleHorizontal"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:layout_marginTop="4dp"
-            android:max="100"
-            android:progress="0"
-            android:visibility="gone" />
-
-        <!-- Task checklist -->
-        <LinearLayout
-            android:id="@+id/chat_checklist"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:layout_marginTop="4dp"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <!-- Messages + ticker -->
-    <RelativeLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <ScrollView
-            android:id="@+id/chat_scroll"
+            android:id="@+id/chat_panel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:fillViewport="true"
-            android:scrollbarStyle="insideOverlay">
+            android:orientation="vertical">
 
-            <!-- paddingBottom leaves room for Joybot hovering in the corner, so the newest
-                 message never sits under him. -->
+            <!-- No bar, big title: close on the left, settings on the right, JOYBOT under them. -->
+            <FrameLayout
+                android:id="@+id/chat_header"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/chat_header_fade"
+                android:paddingStart="16dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="10dp">
+
+                <ImageButton
+                    android:id="@+id/chat_back"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:layout_gravity="top|start"
+                    android:layout_marginStart="-8dp"
+                    android:background="@drawable/chat_round_ghost"
+                    android:padding="8dp"
+                    android:scaleType="fitCenter"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    android:tint="@color/s_ink"
+                    android:contentDescription="Close" />
+
+                <LinearLayout
+                    android:id="@+id/chat_header_buttons"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_gravity="top|end"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageButton
+                        android:id="@+id/chat_settings"
+                        android:layout_width="36dp"
+                        android:layout_height="36dp"
+                        android:background="@drawable/chat_round_ghost"
+                        android:padding="8dp"
+                        android:scaleType="fitCenter"
+                        android:src="@drawable/ic_settings"
+                        android:tint="@color/s_ink"
+                        android:contentDescription="Settings" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/chat_title_block"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="38dp"
+                    android:orientation="vertical">
+
+                    <!-- JOYBOT, one view per letter so the letters can land one by one. -->
+                    <LinearLayout
+                        android:id="@+id/chat_title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:clipChildren="false"
+                        android:clipToPadding="false"
+                        android:orientation="horizontal"
+                        android:contentDescription="@string/assistant_title" />
+
+                    <TextView
+                        android:id="@+id/chat_model_label"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:drawableStart="@drawable/chat_status_dot"
+                        android:drawablePadding="5dp"
+                        android:fontFamily="@font/joy_mono"
+                        android:gravity="center_vertical"
+                        android:singleLine="true"
+                        android:text=""
+                        android:textColor="@color/s_ink_faint"
+                        android:textSize="10sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- Status bar (shows current tool + progress, fades when idle) -->
             <LinearLayout
-                android:id="@+id/chat_messages"
+                android:id="@+id/chat_status_bar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:paddingStart="8dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="80dp" />
-        </ScrollView>
+                android:background="#B31C1C22"
+                android:padding="6dp"
+                android:visibility="gone">
 
-        <LinearLayout
-            android:id="@+id/chat_ticker"
-            android:layout_width="18dp"
-            android:layout_height="match_parent"
-            android:layout_alignParentEnd="true"
-            android:orientation="vertical"
-            android:gravity="center_horizontal"
-            android:background="#44000000"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
 
-        <!-- Joybot's stage: he flies down from the header into the LOWER LEFT corner and hovers there
-             (owner, 11-14: lower right is you, by the send button; lower left is him),
-             and flies to whatever he just made to show it off (owner, 2026-10-14). -->
+                    <ProgressBar
+                        android:id="@+id/chat_status_spinner"
+                        style="?android:attr/progressBarStyleSmall"
+                        android:layout_width="16dp"
+                        android:layout_height="16dp"
+                        android:layout_marginEnd="6dp" />
+
+                    <TextView
+                        android:id="@+id/chat_status_text"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:textColor="@color/s_ink_dim"
+                        android:textSize="12sp"
+                        android:singleLine="true" />
+
+                    <TextView
+                        android:id="@+id/chat_status_percent"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textColor="@color/s_ink_faint"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <ProgressBar
+                    android:id="@+id/chat_status_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="3dp"
+                    android:layout_marginTop="4dp"
+                    android:max="100"
+                    android:progress="0"
+                    android:visibility="gone" />
+
+                <!-- Task checklist -->
+                <LinearLayout
+                    android:id="@+id/chat_checklist"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="4dp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <!-- Messages + ticker -->
+            <RelativeLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <ScrollView
+                    android:id="@+id/chat_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
+                    android:scrollbarStyle="insideOverlay">
+
+                    <!-- paddingBottom leaves room for his head, which rises above his seat in the row below. -->
+                    <LinearLayout
+                        android:id="@+id/chat_messages"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:paddingStart="8dp"
+                        android:paddingTop="8dp"
+                        android:paddingEnd="8dp"
+                        android:paddingBottom="30dp" />
+                </ScrollView>
+
+                <LinearLayout
+                    android:id="@+id/chat_ticker"
+                    android:layout_width="18dp"
+                    android:layout_height="match_parent"
+                    android:layout_alignParentEnd="true"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal"
+                    android:background="#44000000"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp" />
+            </RelativeLayout>
+
+            <!-- The bottom row: his seat at the start, his idea buttons after him (owner, 15 Nov:
+                 "a seat at the bottom row is best"). -->
+            <FrameLayout
+                android:id="@+id/chat_row"
+                android:layout_width="match_parent"
+                android:layout_height="44dp">
+
+                <View
+                    android:id="@+id/chat_seat"
+                    android:layout_width="66dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="bottom|start"
+                    android:layout_marginStart="9dp" />
+
+                <HorizontalScrollView
+                    android:id="@+id/chat_chips_scroll"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginStart="76dp"
+                    android:scrollbars="none"
+                    android:overScrollMode="never"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:id="@+id/chat_chips"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:paddingStart="2dp"
+                        android:paddingEnd="8dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp" />
+                </HorizontalScrollView>
+            </FrameLayout>
+
+            <!-- Input bar -->
+            <LinearLayout
+                android:id="@+id/chat_input_bar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#DB111114"
+                android:padding="8dp">
+
+                <ImageButton
+                    android:id="@+id/chat_attach"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_gallery"
+                    android:tint="@color/s_ink_faint"
+                    android:contentDescription="Attach image" />
+
+                <EditText
+                    android:id="@+id/chat_input"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Ask anything..."
+                    android:textColorHint="@color/s_ink_off"
+                    android:textColor="@color/s_ink"
+                    android:background="@android:color/transparent"
+                    android:padding="12dp"
+                    android:maxLines="4"
+                    android:inputType="textMultiLine|textCapSentences" />
+
+                <ImageButton
+                    android:id="@+id/chat_mic"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_btn_speak_now"
+                    android:tint="@color/s_ink_dim"
+                    android:contentDescription="Voice input" />
+
+                <!-- Shown instead of mic + send while Joybot is answering or working. -->
+                <TextView
+                    android:id="@+id/chat_stop"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:gravity="center"
+                    android:fontFamily="@font/materialicons"
+                    android:text="stop_circle"
+                    android:textSize="26sp"
+                    android:textColor="@color/s_ink"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Stop"
+                    android:visibility="gone" />
+
+                <ImageButton
+                    android:id="@+id/chat_send"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="4dp"
+                    android:padding="9dp"
+                    android:scaleType="fitCenter"
+                    android:background="@drawable/studio_action_pill"
+                    android:src="@android:drawable/ic_menu_send"
+                    android:tint="@color/s_on_go"
+                    android:contentDescription="Send" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Joybot's stage: the whole drawer, so he can fly to whatever he wants to show you
+             (owner, 2026-10-14). He sits on his seat in the bottom row; ChatArrival places him. -->
         <FrameLayout
             android:id="@+id/chat_stage"
             android:layout_width="match_parent"
@@ -186,98 +315,24 @@
                 android:id="@+id/chat_actor"
                 android:layout_width="64dp"
                 android:layout_height="64dp"
-                android:layout_gravity="bottom|start"
-                android:layout_marginStart="10dp"
-                android:layout_marginBottom="8dp"
+                android:layout_gravity="top|start"
                 android:contentDescription="Joybot"
                 android:visibility="invisible" />
         </FrameLayout>
-    </RelativeLayout>
 
-    <!-- Joybot's idea buttons: the next likely step, a tap away. -->
-    <HorizontalScrollView
-        android:id="@+id/chat_chips_scroll"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none"
-        android:overScrollMode="never"
-        android:visibility="gone">
-
-        <LinearLayout
-            android:id="@+id/chat_chips"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingTop="6dp"
-            android:paddingBottom="6dp" />
-    </HorizontalScrollView>
-
-    <!-- Input bar -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:background="@color/s_raised"
-        android:padding="8dp">
-
-        <ImageButton
-            android:id="@+id/chat_attach"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_gallery"
-            android:tint="@color/s_ink_faint"
-            android:contentDescription="Attach image" />
-
-        <EditText
-            android:id="@+id/chat_input"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:hint="Ask anything..."
-            android:textColorHint="@color/s_ink_off"
-            android:textColor="@color/s_ink"
-            android:background="@android:color/transparent"
-            android:padding="12dp"
-            android:maxLines="4"
-            android:inputType="textMultiLine|textCapSentences" />
-
-        <ImageButton
-            android:id="@+id/chat_mic"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_btn_speak_now"
-            android:tint="@color/s_ink_dim"
-            android:contentDescription="Voice input" />
-
-        <!-- Shown instead of mic + send while Joybot is answering or working. -->
+        <!-- Card only: drag this corner to size the card. -->
         <TextView
-            android:id="@+id/chat_stop"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:id="@+id/chat_grip"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:layout_gravity="bottom|end"
             android:gravity="center"
             android:fontFamily="@font/materialicons"
-            android:text="stop_circle"
-            android:textSize="26sp"
-            android:textColor="@color/s_ink"
-            android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Stop"
+            android:text="drag_handle"
+            android:rotation="-45"
+            android:textSize="16sp"
+            android:textColor="@color/s_ink_faint"
+            android:contentDescription="Drag to size the chat"
             android:visibility="gone" />
-
-        <ImageButton
-            android:id="@+id/chat_send"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:padding="9dp"
-            android:scaleType="fitCenter"
-            android:background="@drawable/studio_action_pill"
-            android:src="@android:drawable/ic_menu_send"
-            android:tint="@color/s_on_go"
-            android:contentDescription="Send" />
-    </LinearLayout>
-</LinearLayout>
+    </FrameLayout>
+</FrameLayout>

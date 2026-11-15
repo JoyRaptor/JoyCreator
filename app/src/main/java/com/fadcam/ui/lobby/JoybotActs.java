@@ -62,6 +62,16 @@ public final class JoybotActs {
             out = ints(o.optJSONArray("out"));
             if (loop.length == 0) throw new IllegalArgumentException("no loop: " + name);
         }
+
+        public int cols() { return cols; }
+        public int rows() { return rows; }
+
+        /** How many cells of its picture it uses (the highest frame number it plays, plus one). */
+        public int frames() {
+            int m = 0;
+            for (int[] part : new int[][]{in, loop, out}) for (int i : part) m = Math.max(m, i);
+            return Math.min(cols * rows, m + 1);
+        }
     }
 
     public interface Ready { void onReady(@Nullable Bitmap picture); }
@@ -122,6 +132,10 @@ public final class JoybotActs {
         }
         return instance;
     }
+
+    /** His body inside a cell, as fractions (left, top, right, bottom), or null when not given. */
+    @Nullable
+    public RectF focus() { return focus != null ? new RectF(focus) : null; }
 
     @Nullable
     public Act named(@NonNull String name) {

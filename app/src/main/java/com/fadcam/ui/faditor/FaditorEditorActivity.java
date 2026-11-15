@@ -3843,7 +3843,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             intent.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_FROM_PULSE,
                     com.fadcam.ui.faditor.ai.joybot.JoybotPulse.isBreathing(v));
             com.fadcam.ui.faditor.ai.joybot.JoybotPulse.breathe(v, false);
-            startActivity(intent);
+            com.fadcam.ui.lobby.arrival.JoybotOpen.start(this, v, intent);
         });
         androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.btn_ai_assistant),
                 "Joybot, your helper — he glows green when he has an idea for this project,"

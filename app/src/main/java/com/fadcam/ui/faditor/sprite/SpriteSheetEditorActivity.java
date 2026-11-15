@@ -497,7 +497,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (labDirty) save(true);
             joybotOpen = true;
             joybotWritesAtOpen = com.fadcam.ui.faditor.ai.joybot.JoybotStorage.writes();
-            startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
+            com.fadcam.ui.lobby.arrival.JoybotOpen.start(this, v, new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID, project.getId())
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "SPRITELAB"));
         });

@@ -60,6 +60,7 @@ public final class JoybotDirector implements JoybotView.Director {
 
     @Override
     public void shown() {
+        if (bot.arrived()) greeted = true;      // his flight in was the entrance (ChatArrival)
         if (greeted || bot.getMood() != JoybotView.Mood.IDLE) return;
         now = null;
         nowMood = null;
@@ -109,6 +110,7 @@ public final class JoybotDirector implements JoybotView.Director {
             // A flourish first: when he arrives, and one time in three when he is excited.
             // Only while he can be seen: the chat keeps him hidden until he leaves his seat in the
             // header, and a spin played then was a spin nobody saw (test tablet, 11-14).
+            if (bot.arrived()) greeted = true;
             boolean arrive = m == JoybotView.Mood.IDLE && !greeted && bot.isShown();
             boolean cheer = m == JoybotView.Mood.EXCITED && dice.nextInt(3) == 0;
             JoybotActs.Act f = arrive || cheer ? acts.named(FLOURISH) : null;

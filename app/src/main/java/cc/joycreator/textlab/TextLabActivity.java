@@ -190,7 +190,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         joy.setPadding(jp, jp, jp, jp);
         label(joy, getString(R.string.textlab_hover_joybot));
         joy.setOnClickListener(v -> {
-            startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
+            com.fadcam.ui.lobby.arrival.JoybotOpen.start(this, v, new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "TEXTLAB"));
             com.fadcam.ui.faditor.ai.joybot.JoybotPulse.breathe(v, false);
         });

@@ -1,0 +1,528 @@
+package com.fadcam.ui.lobby.arrival;
+
+import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Outline;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Build;
+import android.os.SystemClock;
+import android.util.Log;
+import android.util.TypedValue;
+import android.view.Choreographer;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
+import android.view.ViewTreeObserver;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.core.content.res.ResourcesCompat;
+
+import com.fadcam.R;
+import com.fadcam.ui.lobby.JoybotActs;
+import com.fadcam.ui.lobby.JoybotArrival;
+import com.fadcam.ui.lobby.JoybotView;
+import com.fadcam.ui.lobby.arrival.stage.StageView;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/**
+ * Opens the Joybot chat the way the owner picked (15 Nov 2026) and brings Joybot in.
+ *
+ * <p>The drawer opens out of the button (phone) or drops like a curtain (tablet), or opens in his
+ * wake; its JOYBOT title grows out of the button, comes with the drawer, or lands letter by letter
+ * after him; Joybot flies one of the owner's seven paths from the button to his seat at the start of
+ * the bottom row, comes down by rocket, plop or skim, and lands with a double bounce. The chat's own
+ * Joybot then takes over on the seat. The first open of the day is always the whole show; later
+ * opens follow the "later opens" setting. On a tablet (or when chosen on a phone) the chat is a card
+ * that can be moved and sized.</p>
+ *
+ * <p>Everything runs on the clock (Choreographer), never on system animators: the owner's Note 9 has
+ * "remove animations" on, and he ruled that Joybot always animates (11-14).</p>
+ */
+public final class ChatArrival {
+
+    private static final String TAG = "ChatArrival";
+    /** The chat's Joybot is 64 dp (activity_chat_assistant.xml chat_actor). */
+    private static final float ACTOR_DP = 64f;
+    /** His body inside a cell, until acts.json is read (the same numbers). */
+    private static final RectF DEFAULT_FOCUS = new RectF(.2583f, .1708f, .6958f, .9667f);
+    private static final float CELL = 240f;
+    /** The longest the open waits for his pictures before going without the flight. */
+    private static final long SPRITE_WAIT_MS = 260L;
+    private static final ExecutorService IO = Executors.newSingleThreadExecutor();
+
+    private final Activity a;
+    private final float d;
+    private final FrameLayout root, reveal, stage;
+    private final LinearLayout panel, title;
+    private final View header, titleBlock, seat, row, grip, chips;
+    private final JoybotView actor;
+    private final Random dice = new Random();
+    private final CardFrame frame;
+    private final List<TextView> letters = new ArrayList<>();
+    private final float[] tmp = new float[4];
+
+    private boolean card;
+    private boolean placed, started, running, handedOff, opened, stageOver, closing;
+    private long t0, handT, waitUntil;
+    @Nullable private Flight flight;
+    @Nullable private Reveal rev;
+    @Nullable private StageView gl;
+    @Nullable private Bitmap idle, spin;
+    private int idleCols = 8, idleRows = 2, spinCols = 8, spinRows = 2, spinCount = 10;
+    @NonNull private RectF focus = DEFAULT_FOCUS;
+    private volatile boolean spritesDone;
+    private float titleX, titleY;
+    private int lastBlur = -1;
+    // the opening circle, px in chat_reveal's own coordinates
+    private float cx, cy, cr = -1f;
+
+    public ChatArrival(@NonNull Activity a, @NonNull JoybotView actor) {
+        this.a = a;
+        this.actor = actor;
+        this.d = a.getResources().getDisplayMetrics().density;
+        root = a.findViewById(R.id.chat_root);
+        reveal = a.findViewById(R.id.chat_reveal);
+        stage = a.findViewById(R.id.chat_stage);
+        panel = a.findViewById(R.id.chat_panel);
+        title = a.findViewById(R.id.chat_title);
+        header = a.findViewById(R.id.chat_header);
+        titleBlock = a.findViewById(R.id.chat_title_block);
+        seat = a.findViewById(R.id.chat_seat);
+        row = a.findViewById(R.id.chat_row);
+        grip = a.findViewById(R.id.chat_grip);
+        chips = a.findViewById(R.id.chat_chips);
+        frame = new CardFrame(a, root, reveal);
+    }
+
+    // ── set up ──────────────────────────────────────────────────────────────
+
+    /** Call once, after the chat's views are set up. The show starts by itself once laid out. */
+    public void install() {
+        Window w = a.getWindow();
+        if (w != null) w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        card = JoybotArrival.isCard(a);
+        buildTitle();
+        seat.setBackground(new SeatDrawable(d));
+        style();
+        reveal.setOutlineProvider(new ViewOutlineProvider() {
+            @Override
+            public void getOutline(View v, Outline o) {
+                if (cr < 0f) { o.setRect(0, 0, v.getWidth(), v.getHeight()); return; }
+                int r = Math.round(cr);
+                o.setOval(Math.round(cx) - r, Math.round(cy) - r, Math.round(cx) + r, Math.round(cy) + r);
+            }
+        });
+        reveal.setVisibility(View.INVISIBLE);
+        chips.setAlpha(0f);
+        row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeActor());
+        frame.attach(titleBlock, grip);
+        loadSprites();
+        waitUntil = SystemClock.uptimeMillis() + SPRITE_WAIT_MS;
+        root.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override
+            public void onGlobalLayout() {
+                if (root.getWidth() == 0) return;
+                if (card && !placed) {
+                    placed = true;
+                    frame.place(frame.bounds(a.getIntent().getSourceBounds()));
+                    return;                                   // wait for the card's own layout
+                }
+                root.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                placeActor();
+                root.post(ChatArrival.this::tryStart);
+            }
+        });
+    }
+
+    /** The drawer's fill and frame: see-through always (owner: drawers never opaque; Frost only adds blur). */
+    private void style() {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(0x8C09090C);
+        if (card) {
+            bg.setCornerRadius(24f * d);
+            bg.setStroke(Math.max(1, Math.round(d)), 0x1AFFFFFF);
+        }
+        panel.setBackground(bg);
+        panel.setClipToOutline(card);
+        grip.setVisibility(card ? View.VISIBLE : View.GONE);
+        frame.setEnabled(card);
+        if (!card) reveal.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(grip, "Drag to size the chat");
+        if (card) androidx.appcompat.widget.TooltipCompat.setTooltipText(titleBlock, "Drag to move the chat");
+    }
+
+    /** JOYBOT, one view a letter, the way a Studio room is titled. */
+    private void buildTitle() {
+        title.removeAllViews();
+        letters.clear();
+        if (titleBlock instanceof ViewGroup) ((ViewGroup) titleBlock).setClipChildren(false);
+        String word = a.getString(R.string.assistant_title).toUpperCase(Locale.ROOT);
+        Typeface tf = null;
+        try { tf = ResourcesCompat.getFont(a, R.font.archivo_variable); } catch (RuntimeException ignored) { /* system bold */ }
+        float sp = 38f;
+        float px = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, sp, a.getResources().getDisplayMetrics());
+        for (int i = 0; i < word.length(); i++) {
+            TextView t = new TextView(a);
+            t.setText(String.valueOf(word.charAt(i)));
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+            t.setTextColor(0xFFEFE9FF);
+            t.setIncludeFontPadding(false);
+            if (tf != null) t.setTypeface(tf, Typeface.BOLD);
+            else t.setTypeface(Typeface.DEFAULT_BOLD);
+            if (Build.VERSION.SDK_INT >= 26 && tf != null) t.setFontVariationSettings("'wght' 900");
+            t.setShadowLayer(9f * d, 0f, 0f, 0x73CC27FF);
+            t.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            if (i < word.length() - 1) lp.setMarginEnd(Math.round(-.05f * px));
+            title.addView(t, lp);
+            letters.add(t);
+        }
+    }
+
+    /** His pictures for the flight: his home pose and his tumble. Off the main thread. */
+    private void loadSprites() {
+        final android.content.Context app = a.getApplicationContext();
+        IO.execute(() -> {
+            JoybotActs acts = JoybotActs.get(app);
+            if (acts == null) { spritesDone = true; return; }
+            JoybotActs.Act ia = acts.named("idle"), sa = acts.named("spin");
+            actor.post(() -> {
+                if (ia == null) { spritesDone = true; return; }
+                RectF f = acts.focus();
+                if (f != null) focus = f;
+                idleCols = ia.cols();
+                idleRows = ia.rows();
+                if (sa != null) { spinCols = sa.cols(); spinRows = sa.rows(); spinCount = sa.frames(); }
+                Bitmap got = acts.opened(ia);
+                if (got != null) { idle = got; openSpin(acts, sa); return; }
+                acts.open(ia, actor, b -> { idle = b; openSpin(acts, sa); });
+            });
+        });
+    }
+
+    private void openSpin(@NonNull JoybotActs acts, @Nullable JoybotActs.Act sa) {
+        if (sa == null) { spritesDone = true; return; }
+        Bitmap got = acts.opened(sa);
+        if (got != null) { spin = got; spritesDone = true; return; }
+        acts.open(sa, actor, b -> { spin = b; spritesDone = true; });
+    }
+
+    /** His seat: body centre over the seat, his hover peg 4 dp above the row's floor. */
+    private void placeActor() {
+        if (seat.getWidth() == 0 || stage.getWidth() == 0) return;
+        int[] s = seatInStage();
+        float peg = Show.pegUp(CELL, CELL, focus, ACTOR_DP) * d;
+        int aw = Math.round(ACTOR_DP * d);
+        int left = s[0] - aw / 2, top = Math.round(s[1] - 4f * d - peg - aw / 2f);
+        ViewGroup.LayoutParams p = actor.getLayoutParams();
+        if (!(p instanceof FrameLayout.LayoutParams)) return;
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) p;
+        if (lp.leftMargin == left && lp.topMargin == top) return;
+        lp.gravity = android.view.Gravity.TOP | android.view.Gravity.START;
+        lp.leftMargin = left;
+        lp.topMargin = top;
+        actor.setLayoutParams(lp);
+    }
+
+    /** The seat's centre x and its floor y, in chat_stage pixels. */
+    @NonNull
+    private int[] seatInStage() {
+        int[] a1 = new int[2], a2 = new int[2];
+        seat.getLocationInWindow(a1);
+        stage.getLocationInWindow(a2);
+        // the curtain may be holding the drawer up: positions are taken without its slide
+        return new int[]{a1[0] - a2[0] + seat.getWidth() / 2, a1[1] - a2[1] + seat.getHeight()};
+    }
+
+    // ── the show ────────────────────────────────────────────────────────────
+
+    private void tryStart() {
+        if (started || closing || a.isFinishing()) return;
+        if (!spritesDone && SystemClock.uptimeMillis() < waitUntil) { root.postDelayed(this::tryStart, 16L); return; }
+        begin();
+    }
+
+    private void begin() {
+        started = true;
+        int[] ro = new int[2];
+        root.getLocationOnScreen(ro);
+        float W = root.getWidth() / d;
+        Rect sb = a.getIntent().getSourceBounds();
+        float bx = sb != null ? (sb.exactCenterX() - ro[0]) / d : W - 30f;
+        float by = sb != null ? (sb.exactCenterY() - ro[1]) / d : 30f;
+        RectF pr = new RectF(reveal.getLeft() / d, reveal.getTop() / d, reveal.getRight() / d, reveal.getBottom() / d);
+        int[] s = seatInStage();
+        float pegUp = Show.pegUp(CELL, CELL, focus, ACTOR_DP);
+        float ex = pr.left + s[0] / d, ey = pr.top + s[1] / d - 4f - pegUp;
+
+        boolean full = JoybotArrival.fullShowNow(a);
+        JoybotArrival.Later later = JoybotArrival.later(a);
+        List<float[]> paths = FlightPaths.get(a);
+        boolean hop = paths.isEmpty() || (!full && later == JoybotArrival.Later.HOP);
+        boolean shorter = !full && later == JoybotArrival.Later.SHORT;
+        float[] uv = hop ? null : paths.get(JoybotArrival.nextPath(a, paths.size(), dice));
+        Flight.Approach ap = Flight.Approach.values()[JoybotArrival.nextApproach(a, 3, dice)];
+        Flight f = new Flight(bx, by, ex, ey, pegUp, uv, ap, Flight.Landing.DOUBLE, shorter);
+        Reveal r = new Reveal(JoybotArrival.reveal(a), JoybotArrival.title(a), hop, bx, by, pr, f);
+        flight = f;
+        rev = r;
+        int[] tb = new int[2];
+        titleBlock.getLocationOnScreen(tb);
+        titleX = (tb[0] - ro[0]) / d;
+        titleY = (tb[1] - ro[1]) / d;
+        t0 = System.nanoTime();
+        if (idle != null) startStage(r, f, ro);
+        reveal.setVisibility(View.VISIBLE);
+        running = true;
+        apply(0L);
+        Choreographer.getInstance().postFrameCallback(tick);
+    }
+
+    private void startStage(@NonNull Reveal r, @NonNull Flight f, @NonNull int[] ro) {
+        try {
+            Show show = new Show(f, r, d, t0, idle, idleCols, idleRows, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
+            Rect bs = new Rect();
+            Bitmap back = JoybotOpen.takeBackdrop(bs);
+            if (back != null) {
+                show.back = back;
+                show.backRect.set((bs.left - ro[0]) / d, (bs.top - ro[1]) / d, (bs.right - ro[0]) / d, (bs.bottom - ro[1]) / d);
+                show.panelPic = snapshot();
+                show.frostBias = frostOn() && Build.VERSION.SDK_INT >= 31 ? 3f : 0f;
+            }
+            StageView v = new StageView(a);
+            root.addView(v, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            gl = v;
+            v.play(show, this::stageDone);
+        } catch (RuntimeException | OutOfMemoryError e) {
+            Log.w(TAG, "no flight this time", e);
+            gl = null;
+        }
+    }
+
+    /** The drawer fully open, drawn small, for the heat haze to bend. */
+    @Nullable
+    private Bitmap snapshot() {
+        try {
+            int w = Math.max(1, reveal.getWidth() / 2), h = Math.max(1, reveal.getHeight() / 2);
+            Bitmap b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            Canvas c = new Canvas(b);
+            c.scale(.5f, .5f);
+            reveal.draw(c);
+            return b;
+        } catch (RuntimeException | OutOfMemoryError e) {
+            return null;
+        }
+    }
+
+    private final Choreographer.FrameCallback tick = new Choreographer.FrameCallback() {
+        @Override
+        public void doFrame(long nanos) {
+            if (!running) return;
+            long t = Math.max(0L, (nanos - t0) / 1_000_000L);
+            apply(t);
+            if (running) Choreographer.getInstance().postFrameCallback(this);
+        }
+    };
+
+    private void apply(long t) {
+        Reveal r = rev;
+        Flight f = flight;
+        if (r == null || f == null) return;
+        // the drawer
+        float rad = r.radius(t);
+        if (rad >= 0f) {
+            cx = r.bx * d - reveal.getLeft();
+            cy = r.by * d - reveal.getTop();
+            cr = rad * d;
+            if (!reveal.getClipToOutline()) reveal.setClipToOutline(true);
+            reveal.invalidateOutline();
+        } else if (cr >= 0f) {
+            cr = -1f;
+            reveal.setClipToOutline(false);
+            reveal.invalidateOutline();
+        }
+        reveal.setTranslationY(r.shift(t) * d);
+        // the title
+        if (r.title == JoybotArrival.Title.LETTERS) {
+            for (int j = 0; j < letters.size(); j++) {
+                r.letter(t, j, tmp);
+                letters.get(j).setAlpha(tmp[0]);
+                letters.get(j).setTranslationY(tmp[1] * d);
+            }
+        } else if (r.title == JoybotArrival.Title.BUTTON) {
+            r.titleOut(t, titleX, titleY, tmp);
+            titleBlock.setPivotX(0f);
+            titleBlock.setPivotY(titleBlock.getHeight() / 2f);
+            titleBlock.setAlpha(tmp[0]);
+            titleBlock.setTranslationX(tmp[1] * d);
+            titleBlock.setTranslationY(tmp[2] * d);
+            titleBlock.setScaleX(tmp[3]);
+            titleBlock.setScaleY(tmp[3]);
+        }
+        // frost follows the opening on a full sheet (a card gets its blur when the window becomes the card)
+        if (!card && frostOn()) blurTo(Math.round(14f * d * r.openness(t)));
+        // Joybot takes his seat
+        long settle = gl != null ? f.tSettle() : r.openedBy();
+        if (!handedOff && t >= settle) handOff(t, gl != null);
+        if (handedOff) chips.setAlpha(Flight.clamp((t - handT) / 220f, 0f, 1f));
+        if (!opened && handedOff && t >= r.openedBy() && t >= handT + 240L) {
+            opened = true;
+            running = false;
+            rest();
+            maybeWindow();
+        }
+    }
+
+    private void handOff(long t, boolean flew) {
+        handedOff = true;
+        handT = t;
+        // He has just made his entrance in the flight: no second arrival spin from his director.
+        if (flew) actor.markArrived();
+        actor.setVisibility(View.VISIBLE);
+    }
+
+    /** Everything at rest: no clip, no slide, the title in place. */
+    private void rest() {
+        cr = -1f;
+        reveal.setClipToOutline(false);
+        reveal.invalidateOutline();
+        reveal.setTranslationY(0f);
+        reveal.setAlpha(1f);
+        reveal.setScaleX(1f);
+        reveal.setScaleY(1f);
+        titleBlock.setAlpha(1f);
+        titleBlock.setTranslationX(0f);
+        titleBlock.setTranslationY(0f);
+        titleBlock.setScaleX(1f);
+        titleBlock.setScaleY(1f);
+        for (TextView l : letters) { l.setAlpha(1f); l.setTranslationY(0f); }
+        chips.setAlpha(1f);
+        if (!card && frostOn()) blurTo(Math.round(14f * d));
+    }
+
+    private void stageDone(boolean drew) {
+        StageView v = gl;
+        gl = null;
+        if (v != null) root.removeView(v);
+        stageOver = true;
+        if (!handedOff) {
+            long t = started ? (System.nanoTime() - t0) / 1_000_000L : 0L;
+            handOff(t, false);
+        }
+        maybeWindow();
+    }
+
+    /** A card becomes its own window once he has arrived and the stage has gone. */
+    private void maybeWindow() {
+        if (!card || closing || !opened || (gl != null && !stageOver)) return;
+        frame.enterWindow(frostOn());
+    }
+
+    // ── closing ─────────────────────────────────────────────────────────────
+
+    /**
+     * Close the way it opened, quickly, then run {@code done} (the activity's real finish). Returns
+     * false when there is nothing to animate.
+     */
+    public boolean close(@NonNull Runnable done) {
+        if (closing) return true;
+        closing = true;
+        running = false;
+        StageView v = gl;
+        if (v != null) v.stop();
+        if (!started || reveal.getWidth() == 0) return false;
+        final JoybotArrival.Reveal kind = rev != null ? rev.kind : JoybotArrival.reveal(a);
+        final float bxp = rev != null ? rev.bx * d - reveal.getLeft() : reveal.getWidth();
+        final float byp = rev != null ? rev.by * d - reveal.getTop() : 0f;
+        final float maxR = (float) Math.hypot(Math.max(bxp, reveal.getWidth() - bxp), Math.max(byp, reveal.getHeight() - byp)) + 20f * d;
+        final long start = System.nanoTime();
+        final long dur = 200L;
+        final boolean windowed = frame.windowed();
+        Choreographer.getInstance().postFrameCallback(new Choreographer.FrameCallback() {
+            @Override
+            public void doFrame(long nanos) {
+                float k = Flight.clamp((nanos - start) / 1e6f / dur, 0f, 1f);
+                float e = k * k;
+                if (windowed) {
+                    reveal.setAlpha(1f - e);
+                    reveal.setScaleX(1f - .04f * e);
+                    reveal.setScaleY(1f - .04f * e);
+                } else if (kind == JoybotArrival.Reveal.CURTAIN) {
+                    reveal.setTranslationY(-e * (reveal.getHeight() + reveal.getTop()));
+                } else {
+                    cx = bxp;
+                    cy = byp;
+                    cr = Math.max(0f, maxR * (1f - e));
+                    if (!reveal.getClipToOutline()) reveal.setClipToOutline(true);
+                    reveal.invalidateOutline();
+                }
+                if (!card && frostOn()) blurTo(Math.round(14f * d * (1f - e)));
+                if (k < 1f) Choreographer.getInstance().postFrameCallback(this);
+                else done.run();
+            }
+        });
+        return true;
+    }
+
+    /** The window turned or changed size: end any show, and lay the chat out for the new window. */
+    public void onConfigurationChanged() {
+        StageView v = gl;
+        if (v != null) v.stop();
+        if (started && !handedOff) handOff(0L, false);
+        running = false;
+        opened = true;
+        rest();
+        frame.leaveWindow();
+        card = JoybotArrival.isCard(a);
+        style();
+        root.post(() -> {
+            if (card) frame.place(frame.bounds(null));
+            root.post(() -> { placeActor(); maybeWindow(); });
+        });
+    }
+
+    public void onDestroy() {
+        running = false;
+        StageView v = gl;
+        if (v != null) v.stop();
+    }
+
+    // ── frost ───────────────────────────────────────────────────────────────
+
+    private boolean frostOn() { return JoybotArrival.frost(a); }
+
+    private void blurTo(int px) {
+        if (px == lastBlur) return;
+        lastBlur = px;
+        blur(a, px);
+    }
+
+    /** Window background blur (Android 12 and up, when the phone allows it); a no-op otherwise. */
+    static void blur(@NonNull Activity a, int px) {
+        if (Build.VERSION.SDK_INT < 31) return;
+        try {
+            WindowManager wm = a.getSystemService(WindowManager.class);
+            if (wm == null || !wm.isCrossWindowBlurEnabled()) return;
+            Window w = a.getWindow();
+            if (w != null) w.setBackgroundBlurRadius(Math.max(0, px));
+        } catch (RuntimeException ignored) {
+            // Blur is a nicety; never an error.
+        }
+    }
+}

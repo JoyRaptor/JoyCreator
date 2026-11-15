@@ -825,7 +825,7 @@ class JoyBrushActivity : Activity() {
         val home = TopButton(kit, JbIcon.HOME, "Home — your drawing is kept").apply { setOnClickListener { finish() } }
         undoBtn = TopButton(kit, JbIcon.UNDO, "Undo (or tap with two fingers)").apply { setOnClickListener { canvas.undo() } }
         redoBtn = TopButton(kit, JbIcon.REDO, "Redo (or tap with three fingers)").apply { setOnClickListener { canvas.redo() } }
-        guidesBtn = TopButton(kit, JbIcon.GUIDES, "Guides — grid, perspective, ruler").apply { setOnClickListener { guidesPanel(this) } }
+        guidesBtn = TopButton(kit, JbIcon.GUIDES, "Tools — boards, rulers and guides").apply { setOnClickListener { toolsPanel(this) } }
         joybotBtn = TopButton(kit, JbIcon.GUIDES, "Joybot — ask it to add layers, frames, set the brush or draw a shape").apply {
             // Joybot's own art lives in the app (the Studio's button uses it): regular face, smiling while pressed.
             fun face(name: String) = resources.getIdentifier(name, "drawable", packageName).takeIf { it != 0 }?.let { androidx.core.content.ContextCompat.getDrawable(this@JoyBrushActivity, it)?.mutate() }
@@ -1254,6 +1254,24 @@ class JoyBrushActivity : Activity() {
             when (prefs.getString(PREF_WASH_LIFT, "little")) { "hardly" -> 0.03; "more" -> 0.5; "full" -> 1.0; else -> 0.2 }
     }
 
+    /**
+     * A tall menu (the ⋯ menu, Tools) scrolls inside the room below its button instead of running off the edge of a
+     * phone held sideways or a tablet's landscape screen.
+     */
+    private fun scrollingBelow(box: View, anchor: View): View {
+        val at = IntArray(2).also { anchor.getLocationOnScreen(it) }
+        val room = resources.displayMetrics.heightPixels - (at[1] + anchor.height) - dp(48)
+        return object : android.widget.ScrollView(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) =
+                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxOf(room, dp(200)), MeasureSpec.AT_MOST))
+        }.apply { isVerticalScrollBarEnabled = true; addView(box) }
+    }
+
+    /** A small grey heading over a group of menu rows. */
+    private fun menuHeading(box: LinearLayout, title: String) = box.addView(drawerText(title.uppercase(), 10.5f).apply {
+        setTextColor(kit.p.drawerDim); letterSpacing = .08f
+    }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(10), dp(10), dp(2)) })
+
     /** JBX-11: whether the ⋯ menu's Advanced fold is open (kept while the menu redraws itself). */
     private var moreAdvancedOpen = false
 
@@ -1269,7 +1287,6 @@ class JoyBrushActivity : Activity() {
         }, LinearLayout.LayoutParams(MATCH, WRAP).apply { setMargins(dp(10), dp(10), dp(10), dp(2)) })
         val wetSheet = prefs.getBoolean(PREF_WET_SHEET, DEFAULT_WET_SHEET)
         heading("Drawing")
-        box.addView(menuRow("Boards…", "Create or select an Image, Animation or Sprite board") { popovers.close(); boardController?.showMenu() })
         // Every brush's advanced settings (also: hold the brush in the drawer).
         val inHand = tools.current?.brushId?.let { id -> brushes.firstOrNull { it.id == id } }
         if (inHand != null) {
@@ -1419,15 +1436,7 @@ class JoyBrushActivity : Activity() {
         // The one destructive row carries the one colour allowed to mean "something is lost", as a dot: red TEXT over a
         // see-through panel was hard to read on the Note 9. Undo brings the drawing back.
         box.addView(menuRow("Clear drawing", "Clear the drawing — Undo brings it back", dot = kit.p.stateDestroy) { endSelection(); canvas.clearCanvas() })
-        // About 25 rows and their headings are taller than a phone held sideways or a tablet's landscape screen: the
-        // menu scrolls inside the room below the ⋯ button instead of running off the edge.
-        val at = IntArray(2).also { anchor.getLocationOnScreen(it) }
-        val room = resources.displayMetrics.heightPixels - (at[1] + anchor.height) - dp(48)
-        val scroller = object : android.widget.ScrollView(this) {
-            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) =
-                super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(maxOf(room, dp(200)), MeasureSpec.AT_MOST))
-        }.apply { isVerticalScrollBarEnabled = true; addView(box) }
-        popovers.show(scroller, anchor, Popovers.Side.BELOW, widthDp = 240f)
+        popovers.show(scrollingBelow(box, anchor), anchor, Popovers.Side.BELOW, widthDp = 240f)
     }
 
     /**
@@ -2097,8 +2106,24 @@ class JoyBrushActivity : Activity() {
         else -> listOf(screenOnPage(-0.4f, 0.4f), screenOnPage(1.4f, 0.4f), screenOnPage(0.5f, 2.2f))
     })
 
-    private fun guidesPanel(anchor: View) {
+    /**
+     * Tools (owner 11-15): two sections of its own. Boards (moved out of the ⋯ menu): the Boards list, and a new Image,
+     * Animation, Sprite or Tile board, dragged out as before. Rulers and guides: grid, isometric, perspective, ruler,
+     * symmetry and radial symmetry. Icons come later from ICON-1.
+     */
+    private fun toolsPanel(anchor: View) {
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        menuHeading(box, "Boards")
+        box.addView(menuRow("Boards…", "Every board in this drawing: select one, play the clips, export") { popovers.close(); boardController?.showMenu() })
+        for ((name, kind, tile) in listOf(
+            Triple("Image board", cc.joycreator.joybrush.core.doc.BoardKind.CANVAS, false),
+            Triple("Animation board", cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION, false),
+            Triple("Sprite board", cc.joycreator.joybrush.core.doc.BoardKind.SPRITE, false),
+            Triple("Tile board", cc.joycreator.joybrush.core.doc.BoardKind.CANVAS, true),
+        )) box.addView(menuRow(name, "New ${name.lowercase()}: drag out where it goes") {
+            popovers.close(); boardController?.startPlacing(kind, tile)
+        })
+        menuHeading(box, "Rulers and guides")
         val g = guides
         box.addView(menuRow(if (g.grid != null) "Grid  ✓" else "Grid", "A square grid over the drawing") {
             guides = guides.copy(grid = if (guides.grid != null) null else GuideSettings.DEFAULT_GRID)
@@ -2156,11 +2181,18 @@ class JoyBrushActivity : Activity() {
             if (!hasRuler) setAdjustingGuides(true)
         })
         // Symmetry: a line the brush is copied across. It is live at once — no hoops, pick it and paint.
-        val hasSymmetry = g.symmetry != null
+        val hasSymmetry = g.symmetry != null && (g.symmetry?.count ?: 0) < 3
         box.addView(menuRow(if (hasSymmetry) "Symmetry  ✓" else "Symmetry",
             "A line the brush is mirrored across — drag its ends, drag its body, or turn it with two fingers") {
-            guides = if (hasSymmetry) guides.copy(symmetry = null)
-            else guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.15f), screenOnPage(0.5f, 0.85f), count = 2))
+            guides = if (hasSymmetry) guides.copy(symmetry = null) else guides.copy(symmetry = guideOf("symmetry").symmetry)
+            guidesChanged()
+        })
+        // Radial symmetry (owner 11-15): copies turned around the line's middle, six to start; the +/- on the line's
+        // widget sets how many, as for any symmetry.
+        val hasRadial = (g.symmetry?.count ?: 0) >= 3
+        box.addView(menuRow(if (hasRadial) "Radial symmetry  ✓" else "Radial symmetry",
+            "The brush copied around a centre, like a flower or a mandala — drag the line to move the centre") {
+            guides = if (hasRadial) guides.copy(symmetry = null) else guides.copy(symmetry = guideOf("radial").symmetry)
             guidesChanged()
         })
         if (!g.isEmpty) {
@@ -2178,7 +2210,45 @@ class JoyBrushActivity : Activity() {
                 guidesChanged()
             })
         }
-        popovers.show(box, anchor, Popovers.Side.BELOW, widthDp = 230f)
+        popovers.show(scrollingBelow(box, anchor), anchor, Popovers.Side.BELOW, widthDp = 230f)
+    }
+
+    /**
+     * The guides with one more turned on by its launch name ([JoyBrushLaunch.GUIDES]): the same guide the Tools rows
+     * put down.
+     */
+    private fun guideOf(name: String): GuideSettings = when (name) {
+        "grid" -> guides.copy(grid = guides.grid ?: GuideSettings.DEFAULT_GRID)
+        "isometric" -> guides.copy(isometric = guides.isometric ?: Guide.Isometric(60.0))
+        "perspective-1" -> guides.copy(perspective = perspectiveOf(1))
+        "perspective-2" -> guides.copy(perspective = perspectiveOf(2))
+        "perspective-3" -> guides.copy(perspective = perspectiveOf(3))
+        "ruler" -> if (guides.tracers.any { it is Guide.Ruler }) guides
+            else guides.copy(tracers = guides.tracers + Guide.Ruler(screenOnPage(0.2f, 0.5f), screenOnPage(0.8f, 0.5f)))
+        "symmetry" -> guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.15f), screenOnPage(0.5f, 0.85f), count = 2))
+        "radial" -> guides.copy(symmetry = Guide.Symmetry(screenOnPage(0.5f, 0.35f), screenOnPage(0.5f, 0.65f), count = 6))
+        else -> guides
+    }
+
+    /**
+     * BOT-7: a drawing opened with a board preset ([JoyBrushLaunch]) gets its board and guide once it is on screen.
+     * Taken from the Intent once, so a screen rebuilt later does not make a second board.
+     */
+    private fun applyLaunchPreset() {
+        val p = JoyBrushLaunch.presetOf(intent) ?: return
+        JoyBrushLaunch.clear(intent)
+        p.problem()?.let { toast(it); return }
+        p.guide?.let { guides = guideOf(it); guidesChanged() }
+        val board = p.board ?: return
+        val (w, h) = p.aspectParts() ?: return
+        val kind = when (board) {
+            "animation" -> cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION
+            "sprite" -> cc.joycreator.joybrush.core.doc.BoardKind.SPRITE
+            else -> cc.joycreator.joybrush.core.doc.BoardKind.CANVAS
+        }
+        val name = p.name?.takeIf { it.isNotBlank() } ?: board.replaceFirstChar { it.uppercase() }
+        boardController?.createPreset(kind, name, w, h, p.fps?.toFloat(),
+            columns = p.columns ?: if (board == "sprite") 4 else 1, rows = p.rows ?: 1, tile = board == "tile")
     }
 
     // ── the pinned reference (owner decision 3) ──
@@ -2785,6 +2855,7 @@ class JoyBrushActivity : Activity() {
 
     private fun finishStartup(loaded: Boolean) {
         workingSaveAllowed = loaded
+        if (loaded) ui.post { if (!destroyed) applyLaunchPreset() }
         // JBX-14: the Library's name for this drawing (renames happen there) goes into the file at the next save.
         if (loaded) workingFile()?.let { f ->
             fileIo.execute {

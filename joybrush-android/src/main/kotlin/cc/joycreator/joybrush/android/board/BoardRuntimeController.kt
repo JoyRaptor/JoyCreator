@@ -855,6 +855,43 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             } }
         }
     }
+    /** Tools → Boards (owner 11-15): drag out a new board of this kind, exactly as the Boards menu's New rows do. */
+    fun startPlacing(kind: BoardKind, tile: Boolean = false) {
+        host.ensureDocument { d ->
+            if (doc == null || doc?.id != d.id) documentChanged(d)
+            beginPlacement(kind, tile)
+        }
+    }
+
+    /**
+     * A board from a preset (BOT-7: Joybot opens JoyBrush with a board ready): no rectangle to drag, it is made in the
+     * middle of the screen ([BoardPresetRect]) at [aspectW]:[aspectH] (each cell's shape for a sprite of [columns] x
+     * [rows]), with [fps] for an animation and tiling on for [tile]. One Undo step, then selected like a dragged one.
+     */
+    fun createPreset(kind: BoardKind, name: String, aspectW: Int, aspectH: Int, fps: Float? = null,
+                     columns: Int = 1, rows: Int = 1, tile: Boolean = false) {
+        host.ensureDocument { d ->
+            if (doc == null || doc?.id != d.id) documentChanged(d)
+            cancelInteractions()
+            val t = host.transform()
+            val a = t.screenToDoc(0f, 0f); val b = t.screenToDoc(parent.width.toFloat(), parent.height.toFloat())
+            val rect = BoardPresetRect.fit(minOf(a.first, b.first), minOf(a.second, b.second), maxOf(a.first, b.first),
+                maxOf(a.second, b.second), aspectW, aspectH, if (kind == BoardKind.SPRITE) columns else 1, if (kind == BoardKind.SPRITE) rows else 1)
+            val id = UUID.randomUUID().toString(); pendingSelection = id; pendingClipHint = kind == BoardKind.ANIMATION
+            if (tile) pendingTile = id
+            edit { doc -> var first = true; val ids = { if (first) { first = false; id } else UUID.randomUUID().toString() }
+                val made = when (kind) {
+                    BoardKind.CANVAS -> BoardDocumentOps.createImage(doc, name, rect, ids)
+                    BoardKind.ANIMATION -> BoardDocumentOps.createAnimation(doc, name, rect, ids)
+                    BoardKind.SPRITE -> BoardDocumentOps.createSprite(doc, name, rect, SpriteGrid(columns, rows, rect.w / columns, rect.h / rows), ids)
+                    else -> throw DocException("This board kind is not available for placement")
+                }
+                if (fps == null || kind != BoardKind.ANIMATION) made
+                else made.copy(doc = made.doc.copy(boards = made.doc.boards.map { if (it.id == id) it.copy(fps = fps.coerceIn(1f, 60f)) else it }))
+            }
+        }
+    }
+
     private fun beginPlacement(kind: BoardKind, tile: Boolean=false) {
         cancelInteractions()
         val placement = placementEpoch

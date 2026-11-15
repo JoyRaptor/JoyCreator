@@ -100,6 +100,9 @@ Tablet-checked 11-15 on the Tab S8 Ultra sideways (shots `tasks/screens/tab1-202
 - Checked 11-15 on the test Fold at a forced wide window (wm size 2176x1812, density 360 = 967 x 805 dp; shots
   `tasks/screens/tab1-20261114/fold-k5-*`, `fold-k10-*`, `fold-k11-*`): small drawer beside, stacked above the
   Text drawer, left/right split, settings beside the brush panel and following a new pick, paper aside on.
+  The paper-coloured strip re-checked on acf18715e (`fold-k11-02-paper-strip.png`). Then at the Fold's own phone
+  width (344 dp, size and density reset and checked): the lobby one column, Studio's Opacity drops from the top full
+  width, JoyBrush's brush drawer is the old phone drawer (no Mine, no stars) (`fold-phone-*`).
   **Tablet look owed** (the true size; the tablet was offline). Small things seen: the brush settings show two
   closes (the panel's x and the settings' own Done/x); Opacity's drawer is see-through by its own design, so beside
   the picture it reads faint.

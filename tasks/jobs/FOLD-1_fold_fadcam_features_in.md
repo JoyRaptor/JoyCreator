@@ -31,6 +31,8 @@ DECISIONS"): Remote / Server Room and Smart Detection are launch features. Plann
 
 - 11-15 (capture-rooms lane): **Remote Studio** restyled and locked. The web page is Joy Creator's (Joybot instead of FadCam's robot, house tokens, local fonts and icons, same-Wi-Fi wording); the level rings use the owner's pick **rings B** (green, amber, red in house colours, flat); Remote is **locked by default** with a pairing code on the phone (bug hunt B3), proven on the test Fold. Before/after shots `tasks/screens/capture-20261115/`.
 
+- 11-15 (capture-rooms lane): **Smart Detection** pass 1: house colours on every screen, activity levels and heat map in the house language, the photo viewer's leftover "EVIDENCE" strip gone (seen on the Fold). Left: the evidence-board decor (binder clip, tape, torn paper) needs a design page; chip colours wait on the owner (S9).
+
 ## What is left
 - [ ] Order with the owner: suggest Remote Studio restyle first (it ships), then Auto-markers (cheap now that marks exist),
       then Smart Detection restyle, then Story Board, then Multi-camera.

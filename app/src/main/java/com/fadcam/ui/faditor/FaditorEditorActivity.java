@@ -15397,6 +15397,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshEditorAfterUndoRedo() {
         // A history step from before a MOVE may bring back the original's link: point it at the copy.
         healMovedInEditor();
+        rebindAudioDrawerToModel();   // E8
         // An open drawer's rows read the model on the playhead tick, which does not run while
         // paused: after an undo its rows (e.g. the Clean tab's "processed / original" line) stayed
         // on the old state until play (Note 9, 11-13). Read them again now.
@@ -32055,6 +32056,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private android.widget.LinearLayout captionHeaderPills;
     // G3: remember which audio clip the drawer is showing so double-tap can toggle
     @Nullable private String lastAudioDrawerId;
+    /** E8: the clip object the open audio drawer's rows write to (see rebindAudioDrawerToModel). */
+    @Nullable private AudioClip audioDrawerClip;
+
+    /**
+     * E8 (bug hunt 11-15): an undo that restores a snapshot (and a Joybot change) replaces the
+     * project's clip objects. An audio drawer left open kept writing to the old object, which is
+     * no longer saved, so its Level and Mute changes did not stick. Re-open it on the clip the
+     * project now holds, or close it if that clip is gone.
+     */
+    private void rebindAudioDrawerToModel() {
+        if (lastAudioDrawerId == null || objectDrawer == null || !objectDrawer.isShowing()) return;
+        AudioClip now = findAudioClipById(lastAudioDrawerId);
+        if (now == audioDrawerClip) return;
+        lastAudioDrawerId = null;   // so showAudioDrawer opens rather than toggling closed
+        if (now != null) {
+            showAudioDrawer(now);
+        } else {
+            objectDrawer.hide();
+        }
+    }
     @Nullable private String lastClipAudioDrawerId;
 
     /**
@@ -32714,6 +32735,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         lastAudioDrawerId = ac.getId();
+        audioDrawerClip = ac;
         lastClipAudioDrawerId = null;
         com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host host = new com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host() {
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }

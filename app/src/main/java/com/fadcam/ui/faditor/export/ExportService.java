@@ -183,6 +183,8 @@ public class ExportService extends Service {
     private volatile boolean terminal = false;
     /** C1 (bug hunt 11-15): the muxer is done and the file is being finished (loudness, copy). */
     private volatile boolean finalizing = false;
+    /** E9: the project the running (or last) export belongs to, for the notice's tap. */
+    @Nullable private volatile String runningProjectId;
 
     /**
      * Keeps the CPU running while an export is in flight. A foreground service keeps the
@@ -463,6 +465,7 @@ public class ExportService extends Service {
 
         terminal = false;
         finalizing = false;
+        runningProjectId = project.getId();
         // Show initial foreground notification. C2: guarded. A queued export starts while the
         // service is still foreground (see leaveForegroundUnlessQueued), so this only updates
         // the notice; if Android refuses anyway, say so in plain words instead of crashing.
@@ -1164,6 +1167,22 @@ public class ExportService extends Service {
     }
 
     @NonNull
+    /**
+     * E9 (bug hunt 11-15): the notice's tap opens the editor ON the exported project. It carried
+     * no project, so after leaving the editor a tap opened a screen that closed at once with
+     * "No video selected". When the editor is already open it simply comes to the front.
+     */
+    @NonNull
+    private PendingIntent openEditorPendingIntent() {
+        Intent openIntent = new Intent(this, FaditorEditorActivity.class);
+        openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        if (runningProjectId != null) {
+            openIntent.putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID, runningProjectId);
+        }
+        return PendingIntent.getActivity(this, 0, openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
     private Notification buildProgressNotification(int percent, boolean indeterminate) {
         // Cancel action
         Intent cancelIntent = new Intent(this, ExportService.class);
@@ -1172,10 +1191,7 @@ public class ExportService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         // Tap to open editor
-        Intent openIntent = new Intent(this, FaditorEditorActivity.class);
-        openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent openPi = PendingIntent.getActivity(this, 0, openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent openPi = openEditorPendingIntent();
 
         String title = getString(R.string.faditor_export_notif_title);
         String text;
@@ -1273,10 +1289,7 @@ public class ExportService extends Service {
     private void showCompletionNotification(boolean audioOnly, @Nullable String outputPath,
                                             boolean copyFailed) {
         // Tap to open editor
-        Intent openIntent = new Intent(this, FaditorEditorActivity.class);
-        openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent openPi = PendingIntent.getActivity(this, 0, openIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent openPi = openEditorPendingIntent();
 
         // FIX-7: terminal notices go to the DEFAULT-importance alerts channel (the old
         // channel is frozen at LOW on this device) and name the finished file.

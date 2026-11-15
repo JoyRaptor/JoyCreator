@@ -22,7 +22,7 @@ does not happen, those rows become real problems.
 | Contact email | [CONTACT EMAIL: OWNER TO CONFIRM, roadmap S4] |
 | Privacy policy URL | the GitHub Pages address of `docs/privacy.html`, once Pages is on and the owner has reviewed it: [PAGES URL] |
 | Website | [WEBSITE URL, week 4] |
-| Free or paid | Free; no in-app purchases, no ads (so answer "No" to both "contains ads" and "in-app purchases") |
+| Free or paid | Free; no in-app purchases, no ads (so answer "No" to both "contains ads" and "in-app purchases"). Donations: the app has **one** outside support link, a quiet "Support Joy Creator" pill on the About page, shown only once the owner fills in `support_url` (`res/values/strings_about.xml`; empty today, so nothing shows). It unlocks nothing, which is what lets it be an ordinary web link rather than Play Billing; keep it that way. No prompt, no pop-up; FadCam's Pro page, Ko-fi and Patreon links are gone (L32, 11-15) |
 | Screenshots / feature graphic | week 4 (see the launch plan); `featureGraphic.jpg` in fastlane is the old FadCam one and must be replaced |
 
 ## 2. Content rating (IARC questionnaire)

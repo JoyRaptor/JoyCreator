@@ -7,6 +7,8 @@
 # - The repo is public, so these logs are public: print nothing from the PC, no tokens, no paths.
 # - The two outside sources the app needs are pinned here (bump the SHA when the PC's copy moves):
 #   whisper.cpp, and Media3 at the fork's base plus tools/cloud/media3-fadcam.patch (our three fixes).
+# - Variant "tests" builds nothing to install: it runs test suites (tools/cloud/run-tests.sh) and uploads only a
+#   short summary (times, pass counts, the failing tests' own output), never the full logs.
 name: Build app
 
 on:
@@ -24,6 +26,11 @@ on:
         options:
           - defaultDebug
           - playRelease
+          - tests
+      suites:
+        description: "tests only: all, or any of jb-core jb-androidkit jb-android studio joybot (comma or space separated)"
+        required: false
+        default: all
       request_id:
         description: Tag that tools/cloud-build.ps1 uses to find its run (any short text)
         required: false
@@ -49,7 +56,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - name: Check out ${{ inputs.ref }}
         uses: actions/checkout@v4
@@ -118,6 +125,7 @@ jobs:
 
       - name: Build
         id: build
+        if: inputs.variant != 'tests'
         run: |
           V="${{ inputs.variant }}"
           CAP="$(echo "${V:0:1}" | tr a-z A-Z)${V:1}"
@@ -130,7 +138,53 @@ jobs:
           ./gradlew "$TASK" --stacktrace
           echo "minutes=$(( ($(date +%s) - START + 59) / 60 ))" >> "$GITHUB_OUTPUT"
 
+      - name: Tests (variant tests)
+        id: tests
+        if: inputs.variant == 'tests'
+        env:
+          SUITES_IN: ${{ inputs.suites }}
+          TESTS_REF: ${{ inputs.ref }}
+          TESTS_SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          # The jvm-harness scripts were written on Windows: ';' class paths (java/javac stand-ins swap them) and
+          # cygpath. The build lock they take is a file under TEMP, which this runner has to itself.
+          chmod +x tools/cloud/linux-shims/* tools/cloud/run-tests.sh
+          export PATH="$GITHUB_WORKSPACE/tools/cloud/linux-shims:$PATH"
+          export TEMP="$RUNNER_TEMP"
+          S="${SUITES_IN:-all}"
+          # The harnesses compile against the app's own build output (R.jar, BuildConfig, the patched Media3 and
+          # JoyBrush jars), so build that first when a harness suite is asked for.
+          if [ "$S" = all ] || echo "$S" | grep -q -E 'studio|joybot'; then
+            START=$(date +%s)
+            ./gradlew :app:compileDefaultDebugJavaWithJavac :joybrush-android:bundleLibCompileToJarDebug \
+              :studiokit:compileDebugJavaWithJavac > "$RUNNER_TEMP/prebuild.log" 2>&1 \
+              || { tail -60 "$RUNNER_TEMP/prebuild.log"; exit 1; }
+            ./gradlew -p joybrush :core:jvmJar > "$RUNNER_TEMP/prebuild-core.log" 2>&1 \
+              || { tail -60 "$RUNNER_TEMP/prebuild-core.log"; exit 1; }
+            echo "harness prebuild: $(( $(date +%s) - START )) s"
+          fi
+          code=0
+          tools/cloud/run-tests.sh $S || code=$?
+          echo "failed=$code" >> "$GITHUB_OUTPUT"
+          cat cloud-out/tests-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the test summary (kept 3 days)
+        if: always() && inputs.variant == 'tests'
+        uses: actions/upload-artifact@v4
+        with:
+          name: joycreator-tests-${{ steps.meta.outputs.sha }}
+          path: cloud-out/tests-summary.md
+          retention-days: 3
+          if-no-files-found: warn
+
+      - name: Fail the run when a suite failed
+        if: inputs.variant == 'tests' && steps.tests.outputs.failed != '0'
+        run: |
+          echo "${{ steps.tests.outputs.failed }} suite(s) failed; see the summary"
+          exit 1
+
       - name: Collect outputs
+        if: inputs.variant != 'tests'
         env:
           REF_IN: ${{ inputs.ref }}
         run: |
@@ -155,6 +209,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload (kept 3 days)
+        if: inputs.variant != 'tests'
         uses: actions/upload-artifact@v4
         with:
           name: joycreator-${{ inputs.variant }}-${{ steps.meta.outputs.sha }}

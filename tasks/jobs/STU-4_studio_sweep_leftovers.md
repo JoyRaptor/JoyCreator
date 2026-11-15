@@ -15,7 +15,7 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - ✅ Invert on a picture shows in the preview (it acts as an adjustment layer: everything beneath inverts).
 - ✅ `OverlayNavUtil` child-overlay close (7ffd27e4b, 10-16).
 - ✅ Sprite bend net sits on the sprite.
-- ✅ Colour picker hex is one line (d1655f38a); "#FF000B" touches the column edge (report only).
+- ✅ Colour picker hex is one line (d1655f38a); "#FF000B" touched the column edge: 11-15 (d1e53617b, STU-D6) it keeps 5dp of air and steps down a size instead. Not yet device-seen.
 - ❓ Not reachable by the agent: puppet RECORDING tab (no Puppet tab found from Studio drawers), sprite Lanes tab, audio envelope (see the audio bug).
 - ✅ Add → Audio with a real song (`vislab_demo.m4a`) works (the WAV failure was that test file). **Found on the way and fixed 10-28:** Fix audio never baked on a phone (file name from the raw URI, then no output format); now passes.
 - ✅ Undo of a sprite Bend leaves it crisp again (fabedb713, agent-checked 10-28).
@@ -215,7 +215,7 @@ voiceover lane jumps the film under it too (one rule: a jump is a jump of the wh
 - [ ] `OverlayNavUtil.dismiss` hides the whole overlay but pops one level (Library → Trash close path).
       The 10-17 UI handoff says this was fixed for child overlays: confirm.
 - [ ] Sprite warp net looks detached from the sprite (owner report 10-15).
-- [ ] Drawer helper duplicates (top 10 in `tasks/audits/studio_tools_audit.md`).
+- [ ] Drawer helper duplicates (top 10 in `tasks/audits/studio_tools_audit.md`). 11-15 (8048674a6, STU-D5): same-pixel ones done (fix 5 edge/fill/grab aliases, fix 9 grab pill, fix 7 puppet on-fill). Left, each a visible change for the owner: fix 6 (one popover sheet face), fix 7 puppet chip ink (`Kit.inkOn` vs always-dark), fix 8 hand-built rows in Audio/Puppet tabs.
 - [ ] Colour picker hex field wraps on the phone. **The owner said do not touch the colour helper**: report only.
 
 ## Files and traps

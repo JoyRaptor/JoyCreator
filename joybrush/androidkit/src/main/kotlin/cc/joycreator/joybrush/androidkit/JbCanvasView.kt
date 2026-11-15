@@ -3222,7 +3222,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     override fun surfaceCreated(holder: android.view.SurfaceHolder) { surfaceGone = false; super.surfaceCreated(holder) }
-    override fun surfaceDestroyed(holder: android.view.SurfaceHolder) { surfaceGone = true; super.surfaceDestroyed(holder) }
+    override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
+        // The window stopped and its surface goes NOW, on the UI thread, in the same breath as the pause (seen on the
+        // Note 9 when Android built the screen again: pause, stop, surface destroyed within 15 ms). A save asked for in
+        // that pause has its read queued and no frame has run it yet; after this no frame will. So the frames already
+        // owed run first, while there is still a surface to make the graphics current on.
+        awaitQueuedGl(3000L)
+        surfaceGone = true
+        super.surfaceDestroyed(holder)
+    }
 
     /**
      * Puts [contents] on the canvas, replacing what is there, then calls [onDone] on the UI thread.

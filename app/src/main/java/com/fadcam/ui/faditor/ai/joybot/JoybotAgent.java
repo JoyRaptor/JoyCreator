@@ -133,6 +133,12 @@ public final class JoybotAgent {
         @Nullable public String selectedId;
         /** The idea buttons on screen, so "do the second one" resolves. */
         @NonNull public final List<String> suggestions = new ArrayList<>();
+        /**
+         * The lobby's "last project you had open" (BOT-7): NOT worked on (no project is open in the
+         * lobby), only named in "do it in this one?" ({@link Preflight}).
+         */
+        @Nullable public String lastProjectId;
+        @Nullable public String lastProjectName;
     }
 
     /** One request. */
@@ -198,6 +204,11 @@ public final class JoybotAgent {
          * keeps (gap F7). Reads and failures are left out.
          */
         @NonNull public final List<Idea.Step> calls = new ArrayList<>();
+        /**
+         * A call that was held back because it can't run here, or can only run after a yes
+         * ({@link Preflight}, BOT-7): the chat shows its question or its nearest way forward.
+         */
+        @Nullable public Preflight.Verdict held;
         /** Tool rounds used. */
         public int steps;
         /** What the service reported using; -1 = it didn't say. */
@@ -284,6 +295,19 @@ public final class JoybotAgent {
     @Nullable private static volatile okhttp3.Call call;
 
     public static synchronized void attach(@Nullable Listener l) { listener = l; }
+
+    /** What a tool is, as the action lists describe it, for {@link Preflight} (BOT-7). */
+    @NonNull
+    public static Preflight.What whatOf(@NonNull String tool) {
+        com.fadcam.ui.faditor.ai.actions.ActionSpec s =
+                com.fadcam.ui.faditor.ai.actions.StudioActions.registry().spec(tool);
+        if (s == null) s = com.fadcam.ui.faditor.ai.actions.AppActions.registry().spec(tool);
+        if (s != null) {
+            return new Preflight.What(tool, s.wing, s.effect == com.fadcam.ui.faditor.ai.actions.ActionSpec.Effect.READ, s.title);
+        }
+        // The older tools (AIToolExecutor's own list) all work on one Studio project.
+        return new Preflight.What(tool, "", AgentTools.isRead(tool), null);
+    }
 
     /** Detach only if {@code l} is still the one attached (a newer chat may have replaced it). */
     public static synchronized void detach(@NonNull Listener l) {
@@ -619,6 +643,8 @@ public final class JoybotAgent {
         boolean navigated;
         /** The last tool only put a confirm card on screen (export…): nothing has happened yet. */
         boolean cardWaiting;
+        /** The last runTool was held back by {@link Preflight}: its line is not shown as a tool line. */
+        boolean lastHeld;
         /** The tool round in progress (0-based). */
         int round;
         /** Joybot's write counts when this request began, and the last tool error, for honesty. */
@@ -765,7 +791,11 @@ public final class JoybotAgent {
                     history.add(new JSONObject().put("role", "assistant")
                             .put("content", aiText.isEmpty() ? JSONObject.NULL : aiText).put("tool_calls", tc));
                     String prose = proseOf(aiText);
-                    text(prose.isEmpty() ? (round == 0 ? "On it…" : "Next step…") : prose);
+                    // BOT-7: never "On it…" (or the model's "Sure, doing it!") for calls that can't
+                    // run here: those end in one plain sentence instead.
+                    boolean anyRuns = false;
+                    for (ToolCall k : c.calls) if (preflight(k.name).go()) { anyRuns = true; break; }
+                    if (anyRuns) text(prose.isEmpty() ? (round == 0 ? "On it…" : "Next step…") : prose);
                     // Why the rest of this batch must not run (audit J1/J5): the reply was cut off, a
                     // plan is waiting for Go ahead, the chat is leaving, or a card waits for a tap.
                     String stopReason = c.cutOff() ? "your reply was cut off before it ended, so none of"
@@ -795,13 +825,15 @@ public final class JoybotAgent {
                         }
                         final String line = runTool(new JSONObject().put("tool", k.name).put("args", args));
                         // more_tools is plumbing (which tools are loaded), not something done for them.
-                        if (line != null && !ToolRouter.MORE_TOOLS.equals(k.name)) {
+                        if (line != null && !lastHeld && !ToolRouter.MORE_TOOLS.equals(k.name)) {
                             out.toolLines.add(line);
                             post(ask.key(), l -> l.onToolLine(line));
                         }
                         history.add(new JSONObject().put("role", "tool").put("tool_call_id", k.id)
                                 .put("content", line == null ? "Error: that call could not run." : lastResult));
-                        if (planShown) stopReason = "a plan is on the person's screen waiting for Go ahead; do"
+                        if (out.held != null) stopReason = "Joybot held that request back (" + out.held.say
+                                + "), so nothing else runs.";
+                        else if (planShown) stopReason = "a plan is on the person's screen waiting for Go ahead; do"
                                 + " nothing until they answer.";
                         else if (navigated) stopReason = "the chat is leaving for another part of the app.";
                         else if (cardWaiting) stopReason = "a card is waiting for the person to tap it; carry"
@@ -810,6 +842,7 @@ public final class JoybotAgent {
                     // Saved now, so a phone that kills the app here resumes knowing these calls ran
                     // (audit J10: it used to resume from before them and could repeat an edit).
                     JobFile.save(app, ask, round + 1, history);
+                    if (out.held != null && !changedSomething()) { finish(true, out.held.say); return; }
                     if (planShown) { finish(true, PLAN_SHOWN); return; }
                     if (navigated) {
                         // The chat is leaving for another room: anything the model said next would
@@ -831,9 +864,12 @@ public final class JoybotAgent {
                 JSONObject toolCall = findToolCall(aiText);
                 if (toolCall != null) {
                     String prose = proseOf(aiText);
-                    text(prose.isEmpty() ? (round == 0 ? "On it…" : "Next step…") : prose);
+                    if (preflight(toolCall.optString("tool", "")).go()) {
+                        text(prose.isEmpty() ? (round == 0 ? "On it…" : "Next step…") : prose);
+                    }
                     String line = runTool(toolCall);
                     if (line == null) { finish(false, "That step didn't work, so I stopped."); return; }
+                    if (lastHeld && out.held != null && !changedSomething()) { finish(true, out.held.say); return; }
                     if (planShown) {
                         history.add(new JSONObject().put("role", "user").put("content", "Tool result:\n" + lastResult));
                         finish(true, PLAN_SHOWN);
@@ -867,7 +903,7 @@ public final class JoybotAgent {
                     // 2026-10-15). Ask once for the tool that does it.
                     nudged = true;
                     requireTool = true;   // with native tools, the next reply MUST be a call
-                    text("Doing it…");
+                    text("Let me check I can do that…");
                     history.add(new JSONObject().put("role", "user").put("content",
                             "Nothing has changed yet (reading or looking changes nothing), but the person asked for a change: \""
                                     + ask.text + "\". Make it now: call the tool that does it"
@@ -906,6 +942,22 @@ public final class JoybotAgent {
             }
         }
 
+        /** {@link Preflight} for one tool of this request. */
+        @NonNull
+        Preflight.Verdict preflight(@NonNull String name) {
+            if (name.isEmpty() || "look".equals(name) || AgentTools.PROPOSE_PLAN.equals(name)
+                    || ToolRouter.MORE_TOOLS.equals(name)) {
+                return Preflight.check(new Preflight.What(name, "APP", true, null), here());
+            }
+            return Preflight.check(whatOf(name), here(), ask.text);
+        }
+
+        @NonNull
+        Preflight.Here here() {
+            return new Preflight.Here(ask.situation.room, ask.projectId != null,
+                    ask.situation.lastProjectId, ask.situation.lastProjectName);
+        }
+
         /** Show words: into the open bubble, or a new one. */
         void text(@NonNull String shown) {
             final boolean fresh = !opened;
@@ -932,6 +984,7 @@ public final class JoybotAgent {
             } catch (Exception e) {
                 return null;
             }
+            lastHeld = false;
             if ("look".equals(name)) return look(args);
             if (AgentTools.PROPOSE_PLAN.equals(name)) return plan(args);
             if (ToolRouter.MORE_TOOLS.equals(name)) {
@@ -942,6 +995,15 @@ public final class JoybotAgent {
                     families.add(f);
                     lastResult = "Loaded the " + f + " tools (" + ToolRouter.FAMILIES.get(f) + "). Use them now.";
                 }
+                return name + " → " + lastResult;
+            }
+            // BOT-7: can it run HERE, on something the person can see? Checked before it runs.
+            Preflight.Verdict pv = preflight(name);
+            if (!pv.go()) {
+                lastHeld = true;
+                if (out.held == null) out.held = pv;
+                lastResult = Preflight.toolAnswer(pv);
+                if (pv.kind == Preflight.Verdict.Kind.CANT) lastError = lastResult;
                 return name + " → " + lastResult;
             }
             toolRan = true;
@@ -1534,7 +1596,15 @@ public final class JoybotAgent {
             if (s.room == IdeaEngine.Room.JOYBRUSH) sb.append(joyBrushNow());
             if (s.room == IdeaEngine.Room.TEXTLAB) sb.append(textLabNow());
             String pid = ask.projectId;
-            if (pid == null) return sb.append("No project is open.\n").toString();
+            if (pid == null) {
+                sb.append("No project is open.\n");
+                if (s.lastProjectName != null) {
+                    sb.append("The last project the person had open is “").append(s.lastProjectName)
+                            .append("”, but it is NOT open and they can't see it. Don't act on it: a tool that"
+                                    + " changes a project asks them first whether to open it.\n");
+                }
+                return sb.toString();
+            }
             try {
                 // JoybotStorage: with the editor on screen this is the project open there, edits
                 // made since the chat closed included.

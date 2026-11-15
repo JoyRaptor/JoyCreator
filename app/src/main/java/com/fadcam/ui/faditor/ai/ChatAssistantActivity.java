@@ -154,6 +154,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private int stagedW, stagedH;
     private String model;
     private String projectId;
+    /** BOT-7: in the lobby, the last project the person had open (named, never worked on unasked). */
+    @Nullable private String lastProjectId;
 
     private final ExecutorService aiExecutor = Executors.newSingleThreadExecutor();
 
@@ -209,6 +211,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             String r = getIntent().getStringExtra(EXTRA_ROOM);
             if (r != null) room = IdeaEngine.Room.valueOf(r);
         } catch (IllegalArgumentException ignored) { }
+        // BOT-7 (owner 11-15): in the lobby no project is open. The lobby hands over its newest
+        // project; Joybot only NAMES it ("in the last project you had open?") and never works on
+        // it unseen. Its job there is to guide, tour, create and find.
+        if (room == IdeaEngine.Room.LOBBY && projectId != null) {
+            lastProjectId = projectId;
+            projectId = null;
+        }
+        readLastProjectName();
         ideaMemory = new IdeaMemory(this);
         com.fadcam.ui.faditor.ai.joybot.TipUsage.openedIn(this, room);
         // The conversation is kept while the app is open, one per project (or room): opening
@@ -274,6 +284,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         showFinishedWhileAway();
         offerCarryOn();
         offerBringIn();
+        offerCarried();
         // A plan still waiting for Go ahead: its card isn't in the saved words, so show it again.
         JoybotAgent.Plan waitingPlan = JoybotAgent.pendingPlan(projectId);
         if (waitingPlan != null && !planCardShown && JoybotAgent.liveFor(chatKey) == null) addPlanCard(waitingPlan);
@@ -1182,6 +1193,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         where.room = room;
         where.playheadMs = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1);
         where.selectedId = getIntent().getStringExtra(EXTRA_SELECTED_ID);
+        where.lastProjectId = lastProjectId;
+        where.lastProjectName = lastProjectName();
         IdeaEngine.Offer o = currentOffer;
         if (o != null && o.hasIdea()) {
             for (Idea i : o.ideas) if (i.kind != Idea.Kind.TYPE) where.suggestions.add(i.label);
@@ -1263,6 +1276,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             }
             doneTalking(f.ok);
             renderFinishedExtras(f);
+            if (f.held != null) showHeld(f.held, f.asked);
             return true;
         }
     };
@@ -2324,6 +2338,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** "Take me there": a tab of the main screen, or a screen that opens on its own. */
     private void route(@NonNull String where) {
+        // BOT-7: a project Joybot just made ("new_studio_project") opens in the editor.
+        if (where.startsWith("project:")) { openProject(where.substring("project:".length())); return; }
+        if ("studio_audio".equals(where)) {
+            startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_START_BLANK_AUDIO, true));
+            finish();
+            return;
+        }
         int tab;
         switch (where) {
             case IdeaEngine.ROUTE_RECORD: tab = 0; break;
@@ -3008,6 +3030,103 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     /** End of a model reply (or chain): buttons back, Joybot settles. */
+    // ── BOT-7: held back before it ran (Preflight) ────────────────────────────
+
+    /** The lobby's last project's name, read once off the main thread; null until read or when none. */
+    @Nullable private volatile String lastProjectNameRead;
+
+    @Nullable
+    private String lastProjectName() {
+        return lastProjectNameRead;
+    }
+
+    /** Reads the last project's name for "in “Holiday”, the last project you had open?". */
+    private void readLastProjectName() {
+        final String id = lastProjectId;
+        if (id == null) return;
+        aiExecutor.execute(() -> {
+            try {
+                com.fadcam.ui.faditor.model.FaditorProject p =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(getApplicationContext()).load(id);
+                if (p != null) lastProjectNameRead = p.getName();
+            } catch (Throwable t) {
+                com.fadcam.FLog.w(TAG, "last project name unread", t);
+            }
+        });
+    }
+
+    /**
+     * Joybot held a request back ({@link com.fadcam.ui.faditor.ai.joybot.Preflight}): his one
+     * sentence is already in the chat; this adds its buttons. ASK: "Open it" (the request is carried
+     * there and offered again) or "Not now" (nothing happens). CANT: the nervous look and the
+     * nearest thing he can do.
+     */
+    private void showHeld(@NonNull com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict v, @Nullable String asked) {
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, "", null);
+        card.root.removeView(card.title);
+        boolean ask = v.kind == com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict.Kind.ASK;
+        if (ask) {
+            String label = v.nearestLabel != null ? v.nearestLabel : "Open it";
+            card.buttons.addView(JoybotChatViews.cardButton(this, label,
+                    "Go there; I'll offer to do it once we're there", b -> {
+                        com.fadcam.ui.faditor.ai.joybot.CarriedAsk.save(this, v.projectId != null
+                                ? com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forProject(v.projectId)
+                                : com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forRoom(v.room), asked);
+                        if (v.projectId != null) openProject(v.projectId);
+                        else if (v.nearestRoute != null) route(v.nearestRoute);
+                    }));
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Not now", "Leave it; nothing changes", b -> {
+                card.retire("");
+                addBotMessage("OK, I've left it as it was.");
+            }));
+        } else {
+            nervous();
+            if (v.nearestRoute != null && v.nearestLabel != null) {
+                final String where = v.nearestRoute;
+                card.buttons.addView(JoybotChatViews.cardButton(this, v.nearestLabel, "Go there", b -> route(where)));
+            }
+        }
+        if (card.buttons.getChildCount() == 0) return;
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        scrollToBottom();
+    }
+
+    /** A request carried here from where it couldn't run (the lobby): offered once, run only on "Do it". */
+    private void offerCarried() {
+        String key = projectId != null ? com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forProject(projectId)
+                : com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forRoom(room.name());
+        final String asked = com.fadcam.ui.faditor.ai.joybot.CarriedAsk.take(this, key);
+        if (asked == null) return;
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "You asked me to “" + JoybotAgent.shortOf(asked) + "”. Shall I do it here now?", null);
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Do it", "Do what you asked, here", b -> {
+            card.retire("Doing what you asked.");
+            inputField.setText(asked);
+            sendMessage();
+        }));
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Not now", "Leave it", b -> card.retire("Left for now.")));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        scrollToBottom();
+    }
+
+    /** Opens one Studio project in the editor and closes the chat. */
+    private void openProject(@NonNull String id) {
+        startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id));
+        finish();
+    }
+
+    /**
+     * The nervous look, whenever Joybot can't do something (owner 11-15, BOT-5 "moods that mean
+     * something"). The sheet's OOPS for now; the sprites lane maps it to the nervous animation.
+     */
+    private void nervous() {
+        actor.setMood(JoybotView.Mood.OOPS);
+        actor.postDelayed(() -> { if (!busy) actor.setMood(JoybotView.Mood.IDLE); }, 1400L);
+    }
+
     private void doneTalking(boolean ok) {
         runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) return;

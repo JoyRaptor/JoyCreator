@@ -57,6 +57,8 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
 
 ## Building
 
+- **Build in the cloud** (the default since 11-14): push your branch, then `.\tools\cloud-build.ps1 run <branch>` (or `start`, `wait`, `fetch` as separate steps; run `wait` in the background). It builds on GitHub's free runners (about 16 GB of RAM, no queue on this PC), and `fetch` puts the APK in your worktree's `build\cloud\<name>\`; install it with `.\tools\phone.ps1 install build\cloud\<name>\<apk>`. Play bundles: variant `playRelease`, then `cloud-build.ps1 sign` signs it on this PC. Nothing is ever signed on GitHub, and the logs there are public. Builds are kept 3 days.
+- **A local Gradle build only when you must** (unpushed code, tests, a quick loop), and only under `jb-gradle.lock` (below).
 - The owner's watcher (`watch-build.ps1`) builds the main folder into `build.log` (UTF-16).
 - **One heavy job on the machine at a time.** Take `C:/Users/JoyRaptor/AppData/Local/Temp/jb-gradle.lock`
   (create-new; if it exists, someone is building: wait or do something else). Check free RAM first:

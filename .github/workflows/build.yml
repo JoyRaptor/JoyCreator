@@ -1,0 +1,164 @@
+# Cloud build: builds the Joy Creator app on GitHub's free runners so lanes stop queueing for the
+# PC's one Gradle lock. Started by tools/cloud-build.ps1 (or the Actions tab, "Run workflow").
+#
+# Rules (tasks/AGENT_START.md, "Building"):
+# - NEVER signs. Release outputs are unsigned; signing happens on the PC (cloud-build.ps1 sign).
+#   No secret is used or needed here, and none may be added.
+# - The repo is public, so these logs are public: print nothing from the PC, no tokens, no paths.
+# - The two outside sources the app needs are pinned here (bump the SHA when the PC's copy moves):
+#   whisper.cpp, and Media3 at the fork's base plus tools/cloud/media3-fadcam.patch (our three fixes).
+name: Build app
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag or commit to build
+        required: true
+        default: joy-creator
+      variant:
+        description: "defaultDebug = the debug APK lanes install; a *Release variant = an unsigned Play bundle (.aab)"
+        required: true
+        default: defaultDebug
+        type: choice
+        options:
+          - defaultDebug
+          - playRelease
+      request_id:
+        description: Tag that tools/cloud-build.ps1 uses to find its run (any short text)
+        required: false
+        default: manual
+
+run-name: "build ${{ inputs.variant }} @ ${{ inputs.ref }} [${{ inputs.request_id }}]"
+
+concurrency:
+  group: cloud-build-${{ inputs.ref }}-${{ inputs.variant }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: 27.2.12479018
+  CMAKE_VERSION: 3.22.1
+  WHISPER_REPO: https://github.com/ggml-org/whisper.cpp.git
+  WHISPER_SHA: df7638d8229a243af8a4b5a8ae557e0d74e0a0ae
+  MEDIA3_REPO: https://github.com/anonfaded/media3-patched.git
+  MEDIA3_SHA: 0bdf7e73051142f3d5dd5eb8fefce39178fe8a10
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out ${{ inputs.ref }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Note the commit
+        id: meta
+        run: |
+          echo "sha=$(git rev-parse --short=9 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building $(git rev-parse HEAD) for ${{ inputs.variant }}"
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h / | tail -1
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK parts (platform 36, NDK, CMake)
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-36" "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" > /dev/null
+          ls "$ANDROID_HOME/ndk"
+
+      - name: Outside sources (whisper.cpp, patched Media3)
+        run: |
+          fetch_at() {  # repo sha dir
+            git init -q "$3"
+            git -C "$3" fetch -q --depth 1 "$1" "$2"
+            git -C "$3" checkout -q FETCH_HEAD
+          }
+          fetch_at "$WHISPER_REPO" "$WHISPER_SHA" "$RUNNER_TEMP/whisper.cpp"
+          fetch_at "$MEDIA3_REPO" "$MEDIA3_SHA" "$RUNNER_TEMP/media3-patched"
+          git -C "$RUNNER_TEMP/media3-patched" apply --whitespace=nowarn "$GITHUB_WORKSPACE/tools/cloud/media3-fadcam.patch"
+          echo "Media3 patch applied:"
+          git -C "$RUNNER_TEMP/media3-patched" diff --stat | tail -1
+
+      - name: Point the build at them (local.properties, no keys)
+        run: |
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "media3.patched.path=$RUNNER_TEMP/media3-patched"
+            echo "whisper.cpp.path=$RUNNER_TEMP/whisper.cpp"
+          } > local.properties
+
+      - name: Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Gradle settings for this runner
+        run: |
+          # The repo's gradle.properties points temp files at C:/Temp (a Windows-only fix) and caps the
+          # heap at 2 GB for the crowded PC. This file overrides both for the 16 GB runner.
+          mkdir -p ~/.gradle
+          {
+            echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.workers.max=4"
+            echo "kotlin.daemon.jvmargs=-Xmx3g"
+          } >> ~/.gradle/gradle.properties
+
+      - name: Build
+        id: build
+        run: |
+          V="${{ inputs.variant }}"
+          CAP="$(echo "${V:0:1}" | tr a-z A-Z)${V:1}"
+          case "$V" in
+            *Release) TASK=":app:bundle$CAP" ;;
+            *)        TASK=":app:assemble$CAP" ;;
+          esac
+          echo "task=$TASK" >> "$GITHUB_OUTPUT"
+          START=$(date +%s)
+          ./gradlew "$TASK" --stacktrace
+          echo "minutes=$(( ($(date +%s) - START + 59) / 60 ))" >> "$GITHUB_OUTPUT"
+
+      - name: Collect outputs
+        env:
+          REF_IN: ${{ inputs.ref }}
+        run: |
+          V="${{ inputs.variant }}"
+          mkdir -p cloud-out
+          case "$V" in
+            *Release)
+              find app/build/outputs/bundle -name '*.aab' -exec cp {} cloud-out/ \;
+              find app/build/outputs/mapping -name mapping.txt -exec cp {} cloud-out/ \; || true ;;
+            *)
+              find app/build/outputs/apk -name '*arm64-v8a*.apk' -exec cp {} cloud-out/ \; ;;
+          esac
+          git rev-parse HEAD > cloud-out/COMMIT.txt
+          ls -l cloud-out
+          [ "$(find cloud-out -name '*.apk' -o -name '*.aab' | wc -l)" -gt 0 ] || { echo "no APK or AAB was made"; exit 1; }
+          {
+            echo "### ${{ inputs.variant }} @ $REF_IN (${{ steps.meta.outputs.sha }})"
+            echo "Gradle: ${{ steps.build.outputs.task }}, ${{ steps.build.outputs.minutes }} min"
+            echo '```'
+            ls -l cloud-out
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload (kept 3 days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: joycreator-${{ inputs.variant }}-${{ steps.meta.outputs.sha }}
+          path: cloud-out/
+          retention-days: 3
+          compression-level: 0
+          if-no-files-found: error

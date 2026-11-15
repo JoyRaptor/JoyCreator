@@ -8,7 +8,7 @@
 # Usage:
 #   .\tools\phone.ps1 devices             list attached devices
 #   .\tools\phone.ps1 size                physical AND override size (tap against OVERRIDE)
-#   .\tools\phone.ps1 install             install the current debug APK
+#   .\tools\phone.ps1 install [apk]       install the current debug APK (or the APK given)
 #   .\tools\phone.ps1 launch              force-stop + launch the app
 #   .\tools\phone.ps1 shot out.png        screenshot to that path
 #   .\tools\phone.ps1 tap 628 2110        tap (device pixels, per `size`)
@@ -44,6 +44,11 @@
 # current one, then `adb connect <address>`.
 # Rules there: throwaway projects and drawings only, named "TEST ..."; never open, edit, move or
 # delete anything that was already on it; never uninstall or clear data. See tasks/BOARD.md.
+#
+# TEST FOLD (owner, 2026-11-14): a Galaxy Z Fold 4, free to test (install, create, delete your own
+# test files). Its screen is broken, so the owner cannot touch it: drive it only by adb input, and
+# never leave it needing a tap to recover. Wi-Fi debugging, paired with this PC. To use it:
+#   $env:PHONE_SLOT = "fold"       (finds it by model; lock %TEMP%\jb-phone4.lock)
 
 param(
     [Parameter(Position = 0)][string]$Cmd = "help",
@@ -68,6 +73,7 @@ $apk = "app\build\outputs\apk\default\debug\app-default-arm64-v8a-debug.apk"
 $modelNote9 = "SM_N960U"      # the sandbox phone: the default for everything
 $modelNote20 = "SM_N986U"     # the owner's REAL projects: only ever by PHONE_SLOT = "note20"
 $modelTablet = "SM_X900"      # the Tab S8 Ultra, a blank test tablet: PHONE_SLOT = "tablet"
+$modelFold = "SM_F936U"       # the Galaxy Z Fold 4, a test device with a broken screen: PHONE_SLOT = "fold"
 
 # Serials of attached, ready devices of one model ("" = any model).
 function Find-ByModel([string]$model) {
@@ -83,7 +89,7 @@ function Get-Serial {
     $n9 = @(Find-ByModel $modelNote9)
     if ($n9.Count -ge 1) { return $n9[0] }
     # No Note 9: use a lone unknown device, but never fall through to the Note 20 or the tablet.
-    $named = @(Find-ByModel $modelNote20) + @(Find-ByModel $modelTablet)
+    $named = @(Find-ByModel $modelNote20) + @(Find-ByModel $modelTablet) + @(Find-ByModel $modelFold)
     $others = @(Find-ByModel "" | Where-Object { $named -notcontains $_ })
     if ($others.Count -eq 1) { return $others[0] }
     return $null
@@ -117,6 +123,15 @@ if ($env:PHONE_SLOT -eq "note20" -or (@(Find-ByModel $modelNote20) -contains (Ge
 }
 if ($env:PHONE_SLOT -eq "tablet" -or (@(Find-ByModel $modelTablet) -contains (Get-Serial))) {
     $phoneLock = Join-Path $env:TEMP "jb-phone3.lock"
+}
+if ($env:PHONE_SLOT -eq "fold") {
+    if (-not $env:PHONE) {
+        $fold = @(Find-ByModel $modelFold)            # Wi-Fi, same adb server as the Note 9
+        $env:PHONE = if ($fold.Count -ge 1) { $fold[0] } else { "fold-not-attached" }
+    }
+}
+if ($env:PHONE_SLOT -eq "fold" -or (@(Find-ByModel $modelFold) -contains (Get-Serial))) {
+    $phoneLock = Join-Path $env:TEMP "jb-phone4.lock"
 }
 
 function Get-PhoneLock {
@@ -185,6 +200,8 @@ switch ($Cmd) {
 
     "install" {
         Assert-PhoneFree
+        # Optional path: a cloud build fetched by tools\cloud-build.ps1 lands under build\cloud\<sha>\.
+        if ($Rest.Count -ge 1) { $apk = $Rest[0] }
         if (-not (Test-Path $apk)) { Write-Output "no APK at $apk - has the watcher built yet?"; exit 1 }
         Adb install -r $apk
         Adb shell dumpsys package $pkg | Select-String "lastUpdateTime" | Select-Object -First 1

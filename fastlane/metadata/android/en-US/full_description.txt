@@ -1,1 +1,37 @@
-<p><b>Joy Creator</b> is a creative studio for your phone. Paint and animate, cut video, make music visuals and film-poster titles, build characters, and keep all of it in one folder you choose.</p><p><b>Free, with nothing hidden:</b> no ads, no subscription, no watermark, no export paywall, no account. Your work stays on your phone, in your own folder, and removing the app never deletes it.</p><p><b>What is inside</b></p><p>&bull; <b>JoyBrush</b>: paint and animate with pencil, oil, watercolour and other brushes made to feel like the real thing, with layers and frames.<br>&bull; <b>Studio</b>: edit video and audio on a timeline with titles, effects, transitions, speech captions and export.<br>&bull; <b>VisLab</b>: build music visualisers from parts you can mix and tweak, and use them in your videos.<br>&bull; <b>TextLab</b>: title text with looks like chrome, gold, neon or fire, ready to use in your videos.<br>&bull; <b>SpriteLab</b>: sprite sheets, characters and puppets you can move.<br>&bull; <b>Capture</b>: record with the camera or the screen.<br>&bull; <b>Joybot</b>: an AI helper who knows the whole app. Bring your own key from the AI service you like (or none at all: the app works without it). Joybot only changes your project in steps you can undo.</p><p><b>Made for one hand.</b> Everything is built for a phone first.</p><p><b>Private by design.</b> No analytics and no tracking. Something leaves your phone only when you choose a feature that needs the internet, such as asking Joybot with your own key. The privacy policy lists each case.</p><p>Joy Creator is open source (GPL v3) and is built on FadCam by FadSec Lab.</p><p><i>Joy Creator is in beta: some features are newer than others and are still being tried on real phones.</i></p>
+Joy Creator is a whole creative studio on your phone, and it is free. No ads. No subscription. No watermark. No account. I made it because I wanted one place to paint, animate, cut video and make music visuals without paying a monthly fee for each.
+
+Everything you make is kept in one folder that you choose. Open it with any file manager, back it up, move it. Removing the app never deletes your work.
+
+WHAT IS INSIDE
+
+JoyBrush: paint and animate
+Pencil, oil and watercolour brushes made to feel like the real thing, with pressure and tilt from a stylus. Layers, frames and animation clips. Watercolour runs on a wet sheet that you can watch dry. It is built for a phone first, so it works one-handed.
+
+Studio: edit video and sound
+A timeline with several tracks, split, trim and reorder, keyframes with easing, masks, green screen, speed, crop and zoom, titles, effects and transitions. Record a voice-over. Put your music visuals and your title looks right into a video. Export it in the background, to the folder you chose.
+
+Captions that stay on your phone
+Speech to text runs entirely on your phone, with no key and no upload. Turn what people say into animated captions.
+
+VisLab: music visuals you build
+Forty-odd looks that move with the music, and a lab where you build your own from parts you can mix and tweak. Use them as layers in a video, or float one over other apps while you play music. Words can be part of the art.
+
+TextLab: film-poster titles
+Title text with looks such as chrome, gold, neon and fire, drawn live on your own words and ready to drop into a video.
+
+SpriteLab: characters and puppets
+Cut sprite sheets into frames, line them up, build animations, and puppeteer a character on your timeline.
+
+Capture
+Record with the camera, or record your screen, with your own face in a floating bubble on top.
+
+Joybot: an AI helper who knows the whole app
+Ask it how to do something, or ask it to do the job for you. Joybot uses your own key from the AI service you like, so the rest of the app never needs one. It changes your project only in steps you can undo.
+
+PRIVATE BY DESIGN
+There are no analytics and no tracking, and I never receive your work. Something leaves your phone only when you choose a feature that needs the internet, such as asking Joybot with your own key. The privacy policy lists every case.
+
+THIS IS A BETA
+Some parts are newer than others and are still being tried on real phones. If something confuses you or breaks, I want to hear about it.
+
+Joy Creator is open source (GPL v3) and is built on FadCam by FadSec Lab.

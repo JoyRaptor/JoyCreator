@@ -97,3 +97,19 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
 - **Hover outline:** waiting for the paint-engine session's footprint function (asked 11-14 with a proposed signature).
 - Found for the brush lane: the drawer keeps old cached previews after the test stroke changed (the cache key lacks a
   stroke version).
+
+## Section K build, step 1 (11-14 afternoon, screens lane; joy-creator caf3f90a6)
+- **Built, seen on the Note 9:** the paint brushes' settings in the Stage layout. A Studio-drawer top bar: the brush's
+  name, round group buttons (Shape, Ink, Pressure & tilt, Spacing & scatter, Colour, Water, Stroke ends, Paper, Feel;
+  only the groups the brush has; the open one fills cyan with its name; tapping jumps the list there and scrolling
+  lights the group you are in), then Done and ✕ (cancel puts every slider back as the sheet opened). Reset / Clear /
+  Test moved under the stage. Settings come in their groups, each with a small heading. Every slider has **words at
+  both ends** (e.g. Spacing "Smooth"/"Dotted", Point "Sharp"/"Blunt"), with each setting's picture kind already chosen
+  (dab for softness, shape and size; stroke for the rest; `core/chrome/BrushKnobGroups`).
+- **Kept as they were:** the pen readout, the pressure and tilt curves with the live pressure marker.
+- **Added:** the tip's cross-section beside the curves for dab brushes (stamp, smudge, push).
+- **Not yet:** the end *pictures* (they wait for the brush lane's short-stroke preview option), the footprint stacked
+  under the tilt (waits for the engine session's footprint function), tapping the footprint to open Unibrush's shape
+  editor, and the Unibrush sheet moved onto this same editor.
+- **Found on the Note 9:** the stage preview of pencil brushes is blank (it was blank before this change too); told
+  the brush lane. Before shots in `tasks/screens/brush-editor-20261114/`.

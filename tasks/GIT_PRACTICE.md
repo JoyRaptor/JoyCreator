@@ -110,6 +110,20 @@ can be undone if something turns out to be wrong. It contains personal informati
 
 **Keep it. Do not upload it. Do not delete it without asking the owner.**
 
+### A history scrub of the public repository (tools/joyguard)
+
+- `bash tools/joyguard/scrub-run.sh --check` says whether this is a safe moment (no build or
+  phone lock, no git activity for 20 minutes, GitHub reachable). `--go` runs the whole scrub:
+  private backups on D: (verified), the rewrite of a copy (`rewrite.sh`), verification counts,
+  the force-push (only after every count passes; a refused push is never retried another way),
+  the local re-sync and an all-clear line on BOARD.md. It stops at the first surprise.
+  Run it only with the owner's go.
+- After a scrub, pushing a branch from the old history is refused by the pre-push hook.
+  Fix: `bash tools/joyguard/resync.sh --apply` (moves branches and work folders to the
+  rewritten commits and keeps uncommitted work; folders mid-merge or with a conflicting edit
+  are left as they are and listed).
+- Recovery notes sit with the private backups (`D:/JoyCreator-private/RECOVERY.md`).
+
 ---
 
 ## 6. The documents an agent must keep current

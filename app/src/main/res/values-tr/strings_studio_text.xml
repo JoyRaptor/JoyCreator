@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Yeniden bağlamak için dokun</string>
+    <string name="studio_text_keyframe">Anahtar kare</string>
+    <string name="studio_text_lane_1">Şerit 1</string>
+    <string name="studio_text_current_position">Geçerli konum</string>
+    <string name="studio_text_tap_the_time_to_type">Tam değer yazmak için zamana dokun · ◄ ► ±1 kare it</string>
+    <string name="studio_text_one">TEK</string>
+    <string name="studio_text_snap">YAPIŞ</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Çubuklar</string>
+    <string name="studio_text_width">Genişlik</string>
+    <string name="studio_text_gap">Boşluk</string>
+    <string name="studio_text_lanes">Şeritler</string>
+    <string name="studio_text_karaoke_one_word_per_line">Karaoke: satır başına bir kelime (kelime kelime zamanlama):</string>
+    <string name="studio_text_copy_example">Örneği kopyala</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Slayt: zaman damgası başına bir blok (tüm dize aynı anda görünür):</string>
+    <string name="studio_text_none">Yok</string>
+    <string name="studio_text_backing_box">Arka kutu</string>
+    <string name="studio_text_hide_this_track">Bu izi gizle</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Animasyon yok (sıfırla): ortalı, kaplayacak şekilde ölçekli, sabit</string>
+    <string name="studio_text_also_apply_caption_position_to">Altyazı konumunu tüm kliplere de uygula</string>
+    <string name="studio_text_also_apply_caption_size_to">Altyazı boyutunu tüm kliplere de uygula</string>
+    <string name="studio_text_sensitivity">Hassasiyet</string>
+    <string name="studio_text_snap_to_beats">Vuruşlara yapış</string>
+    <string name="studio_text_reference_clip_stays">Referans klip (yerinde kalır)</string>
+    <string name="studio_text_clip_to_move">Taşınacak klip</string>
+    <string name="studio_text_release_the_slider_to_preview">Zaman çizelgesindeki boşlukları önizlemek için kaydırıcıyı bırak</string>
+    <string name="studio_text_scanning">Taranıyor…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Ses taranamadı</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Ekle</string>
+    <string name="studio_text_insert_2">Ekle &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Zaman çizelgesi için görsel seç (seçmek için dokun, numaralı: klip olarak)</string>
+    <string name="studio_text_browse_files">Dosyalara göz at…</string>
+    <string name="studio_text_add_0">Ekle (0)</string>
+</resources>

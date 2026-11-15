@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">Videolar</string>
+    <string name="home_rec_label_used">Kullanılan</string>
+    <string name="home_rec_shot_label">Fotoğraf</string>
+    <string name="home_rec_shot_desc">Fotoğraf çek</string>
+    <string name="home_rec_full_label">Tam</string>
+    <string name="home_rec_full_desc">Tam ekran önizleme</string>
+    <string name="home_rec_paused">Kayıt duraklatıldı</string>
+    <string name="home_rec_mirror">Ön kamerayı yansıt</string>
+    <string name="home_rec_sound_source">Ses kaynağı</string>
+    <string name="home_rec_live_viz">Canlı görselleştirici (stili değiştirmek için basılı tut)</string>
+    <string name="home_rec_dismiss_gps">Konum uyarısını kapat</string>
+</resources>

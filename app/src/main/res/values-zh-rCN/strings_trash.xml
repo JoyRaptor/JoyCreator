@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">最近删除</string>
+    <string name="trash_close">关闭“最近删除”</string>
+    <plurals name="trash_count">
+        <item quantity="other">%d 项</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="other">已选 %d 项</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · 正在读取文件夹</string>
+    <string name="trash_notice_unreachable">暂时访问不到你的 Joy Creator 文件夹，所以只显示在应用里删除的东西。</string>
+    <plurals name="trash_days_left">
+        <item quantity="other">还剩 %d 天</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="other">还剩 %d 小时</item>
+    </plurals>
+    <string name="trash_left_soon">马上就要清除</string>
+    <string name="trash_left_kept">保留中</string>
+    <string name="trash_a11y_card">%1$s。%2$s，%3$s。</string>
+    <string name="trash_a11y_selected">已选中。</string>
+    <plurals name="trash_rule_days">
+        <item quantity="other">保留 %d 天，然后永久删除。</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="other">保留 %d 小时，然后永久删除。</item>
+    </plurals>
+    <string name="trash_rule_never">保留到你自己删除为止。</string>
+    <string name="trash_rule_now">立刻永久删除。</string>
+    <string name="trash_hold_hint">长按可选择要恢复或删除的东西。</string>
+    <string name="trash_stop_selecting">停止选择</string>
+    <string name="trash_restore">恢复</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="other">恢复 %d 项</item>
+    </plurals>
+    <string name="trash_delete_forever">永久删除</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="other">永久删除 %d 项</item>
+    </plurals>
+    <string name="trash_open_failed">打不开这个。</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="other">永久删除 %d 项？</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="other">清空垃圾箱？全部 %d 项都会被永久删除。</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="other">有 %d 项比这个期限更早，现在就会被永久删除。</item>
+    </plurals>
+    <string name="trash_confirm_undone">这个操作无法撤销。</string>
+    <string name="trash_confirm_keep">保留</string>
+    <string name="trash_confirm_empty_button">清空垃圾箱</string>
+    <string name="trash_confirm_rule_button">更改并删除</string>
+    <plurals name="trash_restore_title">
+        <item quantity="other">恢复 %d 项</item>
+    </plurals>
+    <string name="trash_restore_where">选择录制文件要放到哪里。</string>
+    <string name="trash_restore_where_mixed">选择录制文件要放到哪里。项目、绘画和其他文件会回到它们在 Joy Creator 文件夹里原来的位置。</string>
+    <plurals name="trash_done_restored">
+        <item quantity="other">已恢复 %d 项。</item>
+    </plurals>
+    <string name="trash_done_restored_part">已恢复 %2$d 项中的 %1$d 项。其余的没能恢复。</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="other">已永久删除 %d 项。</item>
+    </plurals>
+    <string name="trash_done_delete_failed">有些项目没能删除。</string>
+    <string name="trash_done_emptied">垃圾箱已清空。</string>
+    <string name="trash_done_empty_failed">垃圾箱没能完全清空。</string>
+    <plurals name="trash_done_swept">
+        <item quantity="other">%d 个旧项目已被永久删除。</item>
+    </plurals>
+    <string name="trash_options">选择、清空和更多</string>
+    <string name="trash_options_title">最近删除</string>
+    <string name="trash_opt_select_all">全选</string>
+    <string name="trash_opt_rule">多久后永久删除 · %1$s</string>
+    <string name="trash_opt_empty">清空垃圾箱</string>
+    <string name="trash_opt_classic">经典垃圾箱</string>
+    <string name="trash_rule_title">多久后永久删除</string>
+    <string name="trash_empty_all">垃圾箱里没有东西。你删除的东西会先放在这里，然后才永久消失。</string>
+    <string name="trash_empty_projects">没有已删除的项目。</string>
+    <string name="trash_empty_drawings">没有已删除的绘画。</string>
+    <string name="trash_empty_recordings">没有已删除的录制文件或视频。</string>
+    <string name="trash_empty_photos">没有已删除的照片或图片。</string>
+    <string name="trash_empty_other">垃圾箱里没有其他东西了。</string>
+    <string name="trash_empty_show_all">显示全部</string>
+</resources>

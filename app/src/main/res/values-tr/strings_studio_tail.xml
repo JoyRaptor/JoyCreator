@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Anahtar kareyi taşı</string>
+    <string name="studio_tail_add_adjustment_layer">Ayar katmanı ekle</string>
+    <string name="studio_tail_add_linked_pair">Bağlı ekran + web kamerası çifti ekle</string>
+    <string name="studio_tail_insert_at_playhead">Oynatma başlığına ekle</string>
+    <string name="studio_tail_split_linked_pair">Bağlı çifti böl</string>
+    <string name="studio_tail_delete_linked_pair">Bağlı çifti sil</string>
+    <string name="studio_tail_duplicate">Çoğalt</string>
+    <string name="studio_tail_link_clips_pair">Klipleri bağla (ekran + web kamerası)</string>
+</resources>

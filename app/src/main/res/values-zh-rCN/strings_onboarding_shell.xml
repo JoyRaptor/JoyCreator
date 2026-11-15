@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">三件要知道的事，然后这款应用就是你的了。</string>
+    <string name="onboarding_promise_1">你的作品留在你的手机里，放在你选的 Joy Creator 文件夹中。</string>
+    <string name="onboarding_promise_2">不用账号，没有广告，不追踪。关于你的任何信息都不会被出售或分享。</string>
+    <string name="onboarding_promise_3">只有当你使用需要联网的功能（比如你连接的 AI）时，才会有内容离开你的手机。</string>
+    <string name="hover_intro_ai_add">现在就把你自己的 AI 连接到 Joybot</string>
+    <string name="hover_intro_ai_later">隐藏这一项；之后你也可以在 Joybot 的聊天里连接 AI</string>
+</resources>

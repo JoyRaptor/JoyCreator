@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">新功能</string>
+    <string name="legacyv2_whatsnew_intro">这个版本的新功能、改进和问题修复。</string>
+    <string name="legacyv2_whatsnew_reenable">可在“设置”→“显示介绍”开关中重新开启</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="other">%d 秒后就绪...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">现在可以关闭了</string>
+    <string name="legacyv2_whatsnew_got_it">知道了</string>
+    <string name="legacyv2_whatsnew_progress_desc">你已经滚动到说明的哪个位置</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">这个版本的新内容</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">正在从 %1$s 版本更新到 %2$s 版本</string>
+    <string name="legacyv2_mode_option_desc">显示%1$s设置</string>
+</resources>

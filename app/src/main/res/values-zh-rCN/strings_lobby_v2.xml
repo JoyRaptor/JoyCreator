@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">搜索全部内容</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot 是你的小帮手，他对你的项目有主意时会发出绿光</string>
+    <string name="lobbyv2_dismiss">忽略</string>
+    <string name="lobbyv2_tag_last_project">上一个项目</string>
+    <string name="lobbyv2_tag_ready">准备就绪</string>
+    <string name="lobbyv2_tag_last_sheet">上一个图集</string>
+    <string name="lobbyv2_tag_last_character">上一个角色</string>
+    <string name="lobbyv2_tag_last_visualiser">上一个可视化</string>
+    <string name="lobbyv2_tag_last_look">上一个风格</string>
+    <string name="lobbyv2_tag_new_drawing">新绘画</string>
+    <string name="lobbyv2_tag_last_drawing">上一幅绘画</string>
+    <string name="lobbyv2_camera_back">后置摄像头</string>
+    <string name="lobbyv2_camera_front">前置摄像头</string>
+    <string name="lobbyv2_camera_dual">两个摄像头</string>
+    <string name="lobbyv2_capture_ready">随时可以录制</string>
+    <string name="lobbyv2_capture_sub">准备就绪 · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">准备就绪</string>
+    <string name="lobbyv2_in_project">在 %1$s 中</string>
+    <string name="lobbyv2_avatar_library">头像库</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="other">%1$d 幅绘画 · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="other">%d 个图层</item>
+    </plurals>
+    <string name="lobbyv2_drawings">绘画</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="other">%d 幅绘画</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">还什么都没有。做点什么，它就会出现在这里。</string>
+    <string name="lobbyv2_new_card">+ 新建</string>
+    <string name="lobbyv2_new_drawing">新建绘画</string>
+    <string name="lobbyv2_no_room_for_drawing">这部手机没有地方存放绘画了。</string>
+    <string name="lobbyv2_kind_project">项目</string>
+    <string name="lobbyv2_kind_drawing">绘画</string>
+    <string name="lobbyv2_kind_export">导出</string>
+    <string name="lobbyv2_kind_screen">屏幕</string>
+    <string name="lobbyv2_kind_photo">照片</string>
+    <string name="lobbyv2_kind_stream">推流</string>
+    <string name="lobbyv2_kind_recording">录制</string>
+    <string name="lobbyv2_kind_mini_app">小应用</string>
+    <string name="lobbyv2_kind_video">视频</string>
+    <string name="lobbyv2_kind_picture">图片</string>
+    <string name="lobbyv2_kind_sheet">精灵图集</string>
+    <string name="lobbyv2_kind_character">角色</string>
+    <string name="lobbyv2_kind_look">VisLab 风格</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">你最新的录制是在上次编辑之后完成的。</string>
+    <string name="lobbyv2_bot_open_library">打开 Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="other">有 %d 个录制文件，还没有项目。</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">剩余 %1$s</string>
+    <string name="lobbyv2_stat_free">可用 %1$s</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="other">%d 个项目</item>
+    </plurals>
+    <string name="lobbyv2_time_left">还能录约 %1$s 视频</string>
+    <string name="lobbyv2_time_left_short">约剩 %1$s</string>
+    <string name="lobbyv2_dur_days">%1$d 天 %2$d 小时</string>
+    <string name="lobbyv2_dur_hours">%1$d 小时 %2$d 分</string>
+    <string name="lobbyv2_dur_minutes">%1$d 分</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">刚刚</string>
+    <string name="lobbyv2_ago_minutes">%1$d 分钟前</string>
+    <string name="lobbyv2_ago_hours">%1$d 小时前</string>
+    <string name="lobbyv2_ago_days">%1$d 天前</string>
+    <string name="lobbyv2_ago_months">%1$d 个月前</string>
+</resources>

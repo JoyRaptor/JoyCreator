@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">远程 Studio</string>
+    <string name="remote_chip_on_air">直播中</string>
+    <string name="remote_chip_off_air">未直播</string>
+    <string name="remote_section_on_air">直播中</string>
+    <string name="remote_section_connection">连接</string>
+    <string name="remote_section_health">运行状况</string>
+    <string name="remote_section_security">加密</string>
+    <string name="remote_section_help">帮助</string>
+    <string name="remote_quality_default">高（1080p）• 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">云端用量上报</string>
+    <string name="remote_usage_retrying">正在重试连接...</string>
+    <string name="remote_usage_bytes">已上报字节数</string>
+    <string name="remote_usage_failures">失败次数</string>
+    <string name="remote_usage_action">操作</string>
+    <string name="remote_usage_retry">重试</string>
+    <string name="remote_usage_retry_toast">正在重试用量上报...</string>
+    <string name="remote_usage_title_active">云端用量（正常）</string>
+    <string name="remote_usage_title_error">云端用量（出错）</string>
+    <string name="remote_usage_title_retrying">云端用量（重试中）</string>
+    <string name="remote_usage_title_plain">云端用量</string>
+    <string name="remote_usage_no_errors">没有错误</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 个错误</string>
+    <string name="remote_toast_stream_starting">推流服务器正在启动...</string>
+    <string name="remote_toast_stream_stopped">推流服务器已停止</string>
+    <string name="remote_toast_mode_stream_only">仅推流模式</string>
+    <string name="remote_toast_mode_stream_save">推流并保存模式</string>
+    <string name="remote_toast_no_clients">没有已连接的客户端</string>
+    <string name="remote_toast_password_empty">密码不能为空</string>
+    <string name="remote_toast_link_account">请先关联你的 Joy Creator ID 账号</string>
+    <string name="remote_toast_wrong_password">密码不对，请再试一次</string>
+    <string name="remote_toast_setup_failed">设置失败：%1$s</string>
+    <string name="remote_toast_autolock_set">自动锁定时间已设为：%1$s</string>
+    <string name="remote_toast_device_id_copied">设备 ID 已复制</string>
+    <string name="remote_password_hint">输入新密码</string>
+    <string name="remote_password_helper">在这里更改你的验证密码，至少 4 个字符。这是基本的 HTTP 验证，安全性不算高，但总比没有强。更改密码后，所有其他设备会自动退出登录。</string>
+    <string name="remote_lock_never">从不</string>
+    <string name="remote_lock_never_desc">让会话一直保持有效</string>
+    <string name="remote_lock_30min">30 分钟</string>
+    <string name="remote_lock_30min_desc">闲置 30 分钟后锁定</string>
+    <string name="remote_lock_1hr">1 小时</string>
+    <string name="remote_lock_1hr_desc">闲置 1 小时后锁定</string>
+    <string name="remote_lock_3hr">3 小时</string>
+    <string name="remote_lock_3hr_desc">闲置 3 小时后锁定</string>
+    <string name="remote_lock_6hr">6 小时</string>
+    <string name="remote_lock_6hr_desc">闲置 6 小时后锁定</string>
+</resources>

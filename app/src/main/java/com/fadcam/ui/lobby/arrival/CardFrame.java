@@ -52,6 +52,11 @@ final class CardFrame {
 
     boolean windowed() { return windowed; }
 
+    @Nullable private Runnable onMoved;
+
+    /** Told after every move or resize (the frost redraws to stay lined up with the screen). */
+    void setOnMoved(@Nullable Runnable r) { onMoved = r; }
+
     /** Only a card moves and sizes; a full sheet ignores the drags. */
     private boolean enabled;
 
@@ -245,6 +250,7 @@ final class CardFrame {
         } else {
             place(c);
         }
+        if (onMoved != null) onMoved.run();
     }
 
     /** The card now, in the reference (full-screen root) pixels. */

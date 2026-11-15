@@ -74,6 +74,8 @@ public final class ChatArrival {
     private final JoybotView actor;
     private final Random dice = new Random();
     private final CardFrame frame;
+    /** Frost where Android's window blur is not offered (the owner's Samsungs): a blurred picture of the screen. */
+    private final FrostView frost;
     private final List<TextView> letters = new ArrayList<>();
     private final float[] tmp = new float[4];
 
@@ -108,6 +110,8 @@ public final class ChatArrival {
         grip = a.findViewById(R.id.chat_grip);
         chips = a.findViewById(R.id.chat_chips);
         frame = new CardFrame(a, root, reveal);
+        frost = new FrostView(a);
+        frame.setOnMoved(() -> { frost.invalidate(); frost.postOnAnimation(frost::invalidate); frost.postDelayed(frost::invalidate, 60L); });
     }
 
     // ── set up ──────────────────────────────────────────────────────────────
@@ -123,12 +127,13 @@ public final class ChatArrival {
         reveal.setOutlineProvider(new ViewOutlineProvider() {
             @Override
             public void getOutline(View v, Outline o) {
-                if (cr < 0f) { o.setRect(0, 0, v.getWidth(), v.getHeight()); return; }
+                if (cr < 0f) { o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), card ? 24f * d : 0f); return; }
                 // never an empty outline: some phones clip nothing for one instead of everything
                 int r = Math.max(1, Math.round(cr));
                 o.setOval(Math.round(cx) - r, Math.round(cy) - r, Math.round(cx) + r, Math.round(cy) + r);
             }
         });
+        reveal.addView(frost, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         reveal.setVisibility(View.INVISIBLE);
         chips.setAlpha(0f);
         row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeActor());
@@ -291,6 +296,7 @@ public final class ChatArrival {
         // the picture of the screen it opened over: taken every time, so it never lingers in memory
         Rect bs = new Rect();
         Bitmap back = JoybotOpen.takeBackdrop(bs);
+        if (back != null && frostOn() && !blurOffered(a)) frost.setPicture(back, bs);
         if (idle != null) startStage(r, f, ro, back, bs);
         reveal.setVisibility(View.VISIBLE);
         running = true;
@@ -305,7 +311,7 @@ public final class ChatArrival {
                 show.back = back;
                 show.backRect.set((bs.left - ro[0]) / d, (bs.top - ro[1]) / d, (bs.right - ro[0]) / d, (bs.bottom - ro[1]) / d);
                 show.panelPic = snapshot();
-                show.frostBias = frostOn() && Build.VERSION.SDK_INT >= 31 ? 3f : 0f;
+                show.frostBias = frostOn() ? 3f : 0f;
             }
             StageView v = new StageView(a);
             root.addView(v, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
@@ -356,10 +362,11 @@ public final class ChatArrival {
             reveal.invalidateOutline();
         } else if (cr >= 0f) {
             cr = -1f;
-            reveal.setClipToOutline(false);
+            reveal.setClipToOutline(card);
             reveal.invalidateOutline();
         }
         reveal.setTranslationY(r.shift(t) * d);
+        if (frost.hasPicture()) frost.invalidate();          // the blurred screen stays put while the drawer moves
         // the title
         if (r.title == JoybotArrival.Title.LETTERS) {
             for (int j = 0; j < letters.size(); j++) {
@@ -404,7 +411,7 @@ public final class ChatArrival {
     /** Everything at rest: no clip, no slide, the title in place. */
     private void rest() {
         cr = -1f;
-        reveal.setClipToOutline(false);
+        reveal.setClipToOutline(card);                       // a card's frost keeps the card's round corners
         reveal.invalidateOutline();
         reveal.setTranslationY(0f);
         reveal.setAlpha(1f);
@@ -515,6 +522,17 @@ public final class ChatArrival {
         if (px == lastBlur) return;
         lastBlur = px;
         blur(a, px);
+    }
+
+    /** True when the phone offers Android's own window blur (Android 12 and up, and switched on). */
+    static boolean blurOffered(@NonNull Activity a) {
+        if (Build.VERSION.SDK_INT < 31) return false;
+        try {
+            WindowManager wm = a.getSystemService(WindowManager.class);
+            return wm != null && wm.isCrossWindowBlurEnabled();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** Window background blur (Android 12 and up, when the phone allows it); a no-op otherwise. */

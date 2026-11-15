@@ -7323,6 +7323,22 @@ class GlPaintEngine(
         attach(tex)
         try {
             check(GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE) { "media tile framebuffer is unavailable" }
+            // The store is half floats and the file wants half floats. Where the driver hands a half-float buffer back as
+            // half floats (its own readback format for this attachment says so), they are read as they lie: the same
+            // bytes the float readback rounds to, without a megabyte of floats and 262,144 conversions a tile.
+            if (readMediaAsHalves && halfReadbackOffered()) {
+                buf.limit(size * size * 4 * 2)
+                GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_HALF_FLOAT, buf)
+                if (GLES30.glGetError() == GLES30.GL_NO_ERROR) {
+                    val out = ByteArray(size * size * 4 * 2)
+                    buf.rewind()
+                    buf.get(out)
+                    return out
+                }
+                // Refused after all: never asked again on this context, and this tile is read the old way.
+                halfReadback = false
+                buf.clear()
+            }
             GLES30.glReadPixels(0, 0, size, size, GLES30.GL_RGBA, GLES30.GL_FLOAT, buf)
             val error = GLES30.glGetError()
             check(error == GLES30.GL_NO_ERROR) { "media tile readback failed (GL $error)" }
@@ -7333,6 +7349,28 @@ class GlPaintEngine(
         buf.rewind()
         buf.asFloatBuffer().get(floats)
         return HalfFloat.encode(floats)
+    }
+
+    /** Bench only: false reads every store tile back as full floats, as before 2026-11-15, to compare the bytes and the time. */
+    var readMediaAsHalves = true
+    /** Whether this context reads a half-float attachment back as half floats: asked once ([halfReadbackOffered]), null until then. */
+    private var halfReadback: Boolean? = null
+
+    /**
+     * True when the framebuffer now bound (a half-float store tile attached) offers RGBA / HALF_FLOAT as its own readback
+     * format (GL_IMPLEMENTATION_COLOR_READ_FORMAT / TYPE: the one pair besides RGBA / FLOAT that ES 3 lets a driver name).
+     * Little-endian only: the file's half floats are, and the buffer is read in the machine's order.
+     */
+    private fun halfReadbackOffered(): Boolean {
+        halfReadback?.let { return it }
+        val v = IntArray(2)
+        GLES30.glGetIntegerv(GLES30.GL_IMPLEMENTATION_COLOR_READ_FORMAT, v, 0)
+        GLES30.glGetIntegerv(GLES30.GL_IMPLEMENTATION_COLOR_READ_TYPE, v, 1)
+        val offered = GLES30.glGetError() == GLES30.GL_NO_ERROR && v[0] == GLES30.GL_RGBA && v[1] == GLES30.GL_HALF_FLOAT &&
+            ByteOrder.nativeOrder() == ByteOrder.LITTLE_ENDIAN
+        android.util.Log.i("JoyBrushSave", "paint store readback: the driver's own format is ${v[0]} / ${v[1]}; " + if (offered) "read as half floats" else "read as floats and rounded")
+        halfReadback = offered
+        return offered
     }
 
     /** Sets a float tile (same layout as [readMediaTile]). For loading a document: NOT undoable. Creates what is missing. */

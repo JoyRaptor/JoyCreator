@@ -135,6 +135,28 @@ What landed with it:
 - The save's 15 s limit (`SNAPSHOT_TIMEOUT_MS`) covers the readback only; the write has none. A long write keeps the
   one save thread busy, and the working copy's recovery copy and folder copy are each the file's size.
 
+### 11-15 later: the pen waits half as long, and a save that rewrites only what changed
+
+Both measured on the Note 9 on a full page of oil (264 picture tiles, 256 store tiles, 128 MB of stores) and on a small
+page of a dried wash, oil, knife and pencil (33 picture tiles, 111 store tiles):
+
+| | Full page | Small mixed page |
+|---|---|---|
+| Readback, store tiles read as full floats and rounded (before) | 1.46 to 1.48 s | 0.46 s |
+| Readback, store tiles read as the half floats they are (`readMediaAsHalves`; the driver names RGBA / HALF_FLOAT as its own format) | 0.55 to 0.58 s | 0.22 s |
+| The same bytes? (bench `savecmp`) | byte for byte | byte for byte |
+| `JbArchive.saveCarrying`, first save (everything compressed) | 6.9 s | 1.3 s |
+| the same drawing saved again (521 of 522 entries carried) | **0.69 s** | 0.35 s |
+| after one undo (83 entries changed, 412 carried) | **1.28 s** | 0.58 s |
+| Opened again and compared (bench `savecarry`) | all tiles exact, three times | all tiles exact, three times |
+
+`ZipCarry` (io/ZipCarry.kt) is the zip writer that carries an entry from the older file as its compressed bytes lie;
+`JbArchive.saveCarrying(file, contents, memo)` is the save built on it. An entry is carried only when the memo of the
+last save knows it, its bytes have the same length, CRC-32 and Adler-32, the file's directory agrees, and the
+compressed bytes read from the file have the checksum they had when written; a file the memo does not remember, or
+bytes that went bad on the disk, are written afresh (`JbArchiveCarryTest`, `ZipCarryTest`: 11 tests). The file is the
+archive `save` makes, entry for entry, through the same `.tmp` and rename.
+
 ### Streaming saves: what is left, in the order to build it (handoff, 11-15)
 
 Where it stands: the paint is saved again, within a budget (above). What is left is making a save cost what CHANGED
@@ -149,18 +171,14 @@ best speed about 36 ms a megabyte on the save thread; the pictures of a full pag
 file again 30 ms a megabyte; showing it 11 ms a megabyte. A stroke changes five to twenty tiles; a save redoes all of
 them.
 
-1. **A save that rereads and rewrites only what changed.** The engine already stamps every paint tile it writes
-   (`GlPaintEngine.mediaWritten`, `mediaClock`); picture tiles need the same stamp. Keep, from the last save of this
-   drawing, an index of each entry (name, stamp, crc, sizes, where it lies in the working file). A new save reads back
-   only tiles whose stamp moved, deflates those, and copies every other entry's compressed bytes straight from the old
-   working file into the new one: a zip's local entries can be copied byte for byte, but `java.util.zip` cannot do it,
-   so this needs a small zip writer of our own (local header, data, central directory; no zip64 below 4 GB and 65,535
-   entries, and `MAX_ENTRIES` is 20,000). Same file format, same readers. The new file is still written whole to `.tmp`
-   and renamed, so the atomic rule holds. `JbContents` today means "every tile as bytes" to its users
-   (`recovery.rememberWorking`, `DrawingLibrary.onSaved` for the thumbnail, `writeCopy`, `DrawingHistory.preserve`,
-   exports): give the working save its own narrower path and leave those on the full snapshot.
-   Prove it with: `JbArchiveTest`'s corpus read by the stock `ZipInputStream` and `ZipFile`; a save, a stroke, a save,
-   an open compared tile for tile (bench `savefile`); a writer killed half-way leaving the old file (JBX-37's test).
+1. **A save that rewrites only what changed: built (above).** Left of it: (a) the screen's working save calling it
+   (`JoyBrushActivity`, `SaveDest.Working`; `ArchiveCarrying.on` is the way back), proven by painting, waiting for two
+   autosaves, leaving and reopening on the phone; (b) the recovery copy and the Joy Creator folder copy are still whole
+   byte copies of the file after every save; (c) **rereading only what changed**, which is what the pen still waits
+   for (0.55 s for a full page): the engine stamps every paint tile it writes (`GlPaintEngine.mediaWritten`), picture
+   tiles need the same stamp set at every place a tile is put, and a tile whose stamp has not moved can be taken from
+   the file without being read back at all. A texture's id is NOT such a stamp: ids come back out of the pools. Until
+   (c), the budget (`LayerBudget.savePaintBudgetBytes`) is set by the readback and the heap, not by the write.
 2. **Open as it is read**: list the entries (`ZipFile`), then inflate and upload in batches, so opening holds a batch
    and not the drawing. `JbCanvasView.load` uploads everything in one GL task today.
 3. **Then** raise the save's budget to the room, then `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB,

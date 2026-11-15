@@ -181,6 +181,8 @@ public class ExportService extends Service {
      * "88%" that told the editor an export was still going and hid the failure from the user.
      */
     private volatile boolean terminal = false;
+    /** C1 (bug hunt 11-15): the muxer is done and the file is being finished (loudness, copy). */
+    private volatile boolean finalizing = false;
 
     /**
      * Keeps the CPU running while an export is in flight. A foreground service keeps the
@@ -325,6 +327,35 @@ public class ExportService extends Service {
         return null;
     }
 
+    /**
+     * C3 (bug hunt 11-15, Android 15): a dataSync service may run six hours a day; when Android
+     * says time is up it must stop at once, or the app is closed. Stop the way Cancel does
+     * (the queue goes too) and tell the person in plain words.
+     */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        FLog.w(TAG, "System time limit reached: stopping the export");
+        queue.clear();
+        terminal = true;
+        finalizing = false;
+        exportGeneration++;
+        boolean wasRunning = isExporting || preparing;
+        if (exportManager != null && exportManager.isExporting()) exportManager.cancel();
+        isExporting = false;
+        preparing = false;
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+        if (wasRunning) {
+            String msg = getString(R.string.faditor_export_time_limit);
+            recordTerminalResult("error", null, msg, null);
+            showErrorNotification(msg);
+            Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
+            broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
+            sendExportBroadcast(broadcast);
+        }
+        stopSelf();
+    }
+
     @Override
     public void onDestroy() {
         super.onDestroy();
@@ -431,8 +462,18 @@ public class ExportService extends Service {
         final int gen = ++exportGeneration;
 
         terminal = false;
-        // Show initial foreground notification
-        startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
+        finalizing = false;
+        // Show initial foreground notification. C2: guarded. A queued export starts while the
+        // service is still foreground (see leaveForegroundUnlessQueued), so this only updates
+        // the notice; if Android refuses anyway, say so in plain words instead of crashing.
+        try {
+            startForeground(NOTIFICATION_ID, buildProgressNotification(0, true));
+        } catch (RuntimeException e) {
+            FLog.w(TAG, "Could not go foreground for this export", e);
+            failExportBeforeStart(getString(R.string.faditor_export_needs_app_open),
+                    e.getClass().getName());
+            return;
+        }
 
         // E15: refuse in plain words when the phone clearly cannot hold the export, before any
         // work (a long export used to run for an hour and then die on a full phone).
@@ -517,6 +558,7 @@ public class ExportService extends Service {
             @Override
             public void onExportFinalizing() {
                 if (terminal) return;
+                finalizing = true;
                 // FIX-6: the muxer is done; loudness/SAF still run. The notification must
                 // say so instead of sitting at a stuck percent or vanishing.
                 progressTextOverride = getString(R.string.faditor_export_finalizing);
@@ -529,6 +571,7 @@ public class ExportService extends Service {
             public void onExportCompleted(@NonNull String outputPath,
                                           @NonNull androidx.media3.transformer.ExportResult result) {
                 terminal = true;
+                finalizing = false;
                 FLog.d(TAG, "Export completed: " + outputPath);
                 isExporting = false;
                 // E7: the copy into the person's chosen folder failed; the file is safe in the
@@ -553,8 +596,7 @@ public class ExportService extends Service {
                 }
                 // Remove the ongoing 3001 (it doubles as the isRunning() truth) and re-post
                 // the completion under its own id.
-                stopForeground(STOP_FOREGROUND_REMOVE);
-                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+                leaveForegroundUnlessQueued();
                 showCompletionNotification(audioOnly, outputPath, copyFailed);
                 Intent broadcast = new Intent(ACTION_EXPORT_COMPLETED);
                 broadcast.putExtra(EXTRA_OUTPUT_PATH, outputPath);
@@ -567,12 +609,12 @@ public class ExportService extends Service {
             @Override
             public void onExportError(@NonNull Exception error) {
                 terminal = true;
+                finalizing = false;
                 FLog.e(TAG, "Export failed", error);
                 isExporting = false;
                 recordTerminalResult("error", null, error.getMessage(),
                         error.getClass().getName());
-                stopForeground(STOP_FOREGROUND_REMOVE);
-                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+                leaveForegroundUnlessQueued();
                 showErrorNotification(error.getMessage());
                 Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                 broadcast.putExtra(EXTRA_ERROR_MESSAGE, error.getMessage());
@@ -733,8 +775,7 @@ public class ExportService extends Service {
                     FLog.e(TAG, "Export pre-flight probe failed: " + msg
                             + " codec=" + probeFailed.codecName
                             + " costMs=" + probeFailed.costMs);
-                    stopForeground(STOP_FOREGROUND_REMOVE);
-                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+                    leaveForegroundUnlessQueued();
                     showErrorNotification(msg);
                     Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                     broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
@@ -750,8 +791,7 @@ public class ExportService extends Service {
                             + " could not be prepared — free up space and retry,"
                             + " your project is safe";
                     FLog.e(TAG, "Export preparation failed: " + msg);
-                    stopForeground(STOP_FOREGROUND_REMOVE);
-                if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+                    leaveForegroundUnlessQueued();
                     showErrorNotification(msg);
                     Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
                     broadcast.putExtra(EXTRA_ERROR_MESSAGE, msg);
@@ -790,14 +830,26 @@ public class ExportService extends Service {
         progressTextOverride = null;
         FLog.e(TAG, "Export did not start: " + message);
         recordTerminalResult("error", null, message, errorClass);
-        stopForeground(STOP_FOREGROUND_REMOVE);
-        if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
+        leaveForegroundUnlessQueued();
         showErrorNotification(message);
         Intent broadcast = new Intent(ACTION_EXPORT_ERROR);
         broadcast.putExtra(EXTRA_ERROR_MESSAGE, message);
         broadcast.putExtra(EXTRA_ERROR_CLASS, errorClass);
         sendExportBroadcast(broadcast);
         finishOrRunNext();
+    }
+
+    /**
+     * C2 (bug hunt 11-15): an export ended. Leave the foreground only when nothing waits: the
+     * next queued export starts at once, and on Android 12+ a service that has left the
+     * foreground cannot come back while the phone is locked (startForeground is refused), so
+     * named-region batches died after the first file. Staying foreground keeps the ongoing
+     * notice up; the next export's own progress replaces it.
+     */
+    private void leaveForegroundUnlessQueued() {
+        if (!queue.isEmpty()) return;
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        if (notificationManager != null) notificationManager.cancel(NOTIFICATION_ID);
     }
 
     /** Android's rule for a foreground service: show the notification now. Main thread. */
@@ -1048,6 +1100,19 @@ public class ExportService extends Service {
         if (!queue.isEmpty()) {
             FLog.i(TAG, "Cancel also drops " + queue.size() + " queued export(s)");
             queue.clear();
+        }
+        if (finalizing && !terminal) {
+            // C1 (bug hunt 11-15): during "Finalizing" the video is already made and is being
+            // finished (loudness pass, copy into the chosen folder). Nothing here can stop that,
+            // and dropping the foreground and wake lock (as this used to) let Android close the
+            // app mid-copy, leaving a cut-off video under the finished name. So the file is
+            // finished; the queue behind it is dropped; the notice says why it kept going.
+            FLog.i(TAG, "Cancel during Finalizing: finishing the file instead of cutting it off");
+            progressTextOverride = getString(R.string.faditor_export_finishing_cannot_stop);
+            if (notificationManager != null) {
+                notificationManager.notify(NOTIFICATION_ID, buildProgressNotification(100, false));
+            }
+            return;
         }
         terminal = true;
         exportGeneration++;   // anything still preparing stands down (E8)

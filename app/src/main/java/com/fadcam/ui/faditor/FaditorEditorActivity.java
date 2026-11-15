@@ -10808,6 +10808,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (exportProgressStripe != null) {
                             exportProgressStripe.setProgress(1f);
                         }
+                        // C1 (bug hunt 11-15): the video is made and is being finished; Cancel
+                        // cannot stop that (the service finishes the file rather than leave it
+                        // half-written), so the button rests instead of claiming to cancel.
+                        View cancelBtn = findViewById(R.id.btn_cancel_export);
+                        if (cancelBtn != null) {
+                            cancelBtn.setEnabled(false);
+                            cancelBtn.setAlpha(0.4f);
+                            androidx.appcompat.widget.TooltipCompat.setTooltipText(cancelBtn,
+                                    getString(R.string.faditor_export_finishing_cannot_stop));
+                        }
                     });
     }
 
@@ -14754,7 +14764,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (backBtn != null) backBtn.setVisibility(View.VISIBLE);
 
         View cancelBtn = findViewById(R.id.btn_cancel_export);
-        if (cancelBtn != null) cancelBtn.setVisibility(View.VISIBLE);
+        if (cancelBtn != null) {
+            cancelBtn.setVisibility(View.VISIBLE);
+            cancelBtn.setEnabled(true);   // rested during the last export's Finalizing (C1)
+            cancelBtn.setAlpha(1f);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(cancelBtn, null);
+        }
 
         exportProgressOverlay.setVisibility(View.VISIBLE);
         exportProgressOverlay.setAlpha(0f);

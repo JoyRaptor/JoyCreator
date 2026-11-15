@@ -1089,6 +1089,9 @@
     <string name="faditor_export_preparing">Preparing export…</string>
     <string name="faditor_export_compositing">Compositing video…</string>
     <string name="faditor_export_finalizing">Finalizing…</string>
+    <string name="faditor_export_finishing_cannot_stop">Almost done: finishing the file so it is not left half-written</string>
+    <string name="faditor_export_needs_app_open">The next export could not start in the background. Open Joy Creator and export again; your project is safe.</string>
+    <string name="faditor_export_time_limit">Android stopped the export after its daily time limit. Open Joy Creator and export again; your project is safe.</string>
     <string name="faditor_font_picker_title">Font</string>
     <string name="faditor_font_import">Import font…</string>
     <string name="faditor_font_row_selected">%1$s (selected)</string>

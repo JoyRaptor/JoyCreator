@@ -1856,10 +1856,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="update_visit_github">Visit GitHub</string>
     <string name="update_version_arrow">  >>  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">Still on &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>? That\'s... nostalgic.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is out there making waves. Time to catch up!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> is so last season.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
-    <string name="update_variation_3">Your app is living in the past with &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is the future—faster, smarter, and shinier. Why not join in?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> has served you well, but &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is calling!&lt;br>Enjoy the latest improvements and a smoother experience—just a tap away.</string>
+    <string name="update_variation_1">Still on &lt;font color=\'#71717A\'>v%1$s&lt;/font>? That\'s... nostalgic.&lt;br>Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is out there making waves. Time to catch up!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font> is so last season.&lt;br>Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
+    <string name="update_variation_3">Your app is living in the past with &lt;font color=\'#71717A\'>v%1$s&lt;/font>.&lt;br>Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is the future—faster, smarter, and shinier. Why not join in?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font> has served you well, but &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is calling!&lt;br>Enjoy the latest improvements and a smoother experience—just a tap away.</string>
 
 
 

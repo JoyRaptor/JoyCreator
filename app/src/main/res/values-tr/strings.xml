@@ -731,10 +731,10 @@
     <string name="version_format">v%s</string>
     <string name="update_sarcastic_heading">📦 Bakın hele, yine bir güncelleme...</string>
     <string name="update_version_arrow">  &gt;&gt;  </string>
-    <string name="update_variation_1">Hâlâ &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;\'de misiniz? Bu... nostaljik.&lt;br&gt;Bu arada, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; dalgalar yaratıyor. Yetişin!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; geçen sezonda kaldı.&lt;br&gt;&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; yeni özellikler ve hata düzeltmeleriyle etkilemeye hazır. Daha iyi bir sürüş için yükseltin!</string>
-    <string name="update_variation_3">Uygulamanız &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; ile geçmişte yaşıyor.&lt;br&gt;&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; ise gelecek—daha hızlı, daha akıllı ve daha parlak. Neden katılmıyorsunuz?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; size iyi hizmet etti ama &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; sizi çağırıyor!&lt;br&gt;En son iyileştirmelerin ve daha akıcı bir deneyimin tadını çıkarın—sadece bir tık uzakta.</string>
+    <string name="update_variation_1">Hâlâ &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;\'de misiniz? Bu... nostaljik.&lt;br&gt;Bu arada, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; dalgalar yaratıyor. Yetişin!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; geçen sezonda kaldı.&lt;br&gt;&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; yeni özellikler ve hata düzeltmeleriyle etkilemeye hazır. Daha iyi bir sürüş için yükseltin!</string>
+    <string name="update_variation_3">Uygulamanız &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; ile geçmişte yaşıyor.&lt;br&gt;&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; ise gelecek—daha hızlı, daha akıllı ve daha parlak. Neden katılmıyorsunuz?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; size iyi hizmet etti ama &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; sizi çağırıyor!&lt;br&gt;En son iyileştirmelerin ve daha akıcı bir deneyimin tadını çıkarın—sadece bir tık uzakta.</string>
     <string name="setting_eye_color_title">Göz Rengi</string>
     <string name="setting_eye_color_desc">Avatar gözü parlaklık rengini seçin</string>
     <string name="eye_color_white">Beyaz</string>

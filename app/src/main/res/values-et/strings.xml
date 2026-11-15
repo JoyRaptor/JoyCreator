@@ -1357,10 +1357,10 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="update_sarcastic_heading">📦 Oh vaata, järjekordne uuendus...</string>
     <string name="update_visit_github">Külasta GitHubi</string>
     <string name="update_version_arrow">  >>  </string>
-    <string name="update_variation_1">Ikka veel &lt;font color=\'#E43C3C\'>v%1$s&lt;/font> peal? See on... nostalgiline.&lt;br>Vahepeal on &lt;font color=\'#77DD77\'>v%2$s&lt;/font> väljas ja laineid löömas. Aeg järele jõuda!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> on nii eelmisel hooajal.&lt;br>Vahepeal on &lt;font color=\'#77DD77\'>v%2$s&lt;/font> valmis muljet avaldama uute funktsioonide ja veaparandustega. Uuenda parema kogemuse jaoks!</string>
-    <string name="update_variation_3">Sinu rakendus elab minevikus &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>-ga.&lt;br>Vahepeal on &lt;font color=\'#77DD77\'>v%2$s&lt;/font> tulevik — kiirem, targem ja läikivam. Miks mitte liituda?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> on sind hästi teeninud, kuid &lt;font color=\'#77DD77\'>v%2$s&lt;/font> kutsub!&lt;br>Naudi viimaseid parendusi ja sujuvamat kogemust — vaid puudutuse kaugusel.</string>
+    <string name="update_variation_1">Ikka veel &lt;font color=\'#71717A\'>v%1$s&lt;/font> peal? See on... nostalgiline.&lt;br>Vahepeal on &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> väljas ja laineid löömas. Aeg järele jõuda!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font> on nii eelmisel hooajal.&lt;br>Vahepeal on &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> valmis muljet avaldama uute funktsioonide ja veaparandustega. Uuenda parema kogemuse jaoks!</string>
+    <string name="update_variation_3">Sinu rakendus elab minevikus &lt;font color=\'#71717A\'>v%1$s&lt;/font>-ga.&lt;br>Vahepeal on &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> tulevik — kiirem, targem ja läikivam. Miks mitte liituda?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font> on sind hästi teeninud, kuid &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> kutsub!&lt;br>Naudi viimaseid parendusi ja sujuvamat kogemust — vaid puudutuse kaugusel.</string>
     <string name="setting_app_icon_title">Rakenduse ikoon</string>
     <string name="setting_eye_color_title">Silmavärv</string>
     <string name="setting_eye_color_desc">Vali avatar silmade helenduse värv</string>

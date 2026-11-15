@@ -1419,10 +1419,10 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
     <string name="update_sarcastic_heading">📦 Oh mira, otra actualización...</string>
     <string name="update_visit_github">Visitar GitHub</string>
     <string name="update_version_arrow">  >>  </string>
-    <string name="update_variation_1">¿Sigues en &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>? Eso es... nostálgico.&lt;br>Mientras tanto, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> está ahí fuera causando olas. ¡Hora de ponerse al día!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> es de la temporada pasada.&lt;br>Mientras tanto, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> está listo para impresionar con nuevas funciones y correcciones de errores. ¡Actualiza para un mejor viaje!</string>
-    <string name="update_variation_3">Tu app está viviendo en el pasado con &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Mientras tanto, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> es el futuro — más rápido, más inteligente y más brillante. ¿Por qué no unirte?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> te ha servido bien, pero &lt;font color=\'#77DD77\'>v%2$s&lt;/font> está llamando!&lt;br>Disfruta las últimas mejoras y una experiencia más fluida — solo un toque de distancia.</string>
+    <string name="update_variation_1">¿Sigues en &lt;font color=\'#71717A\'>v%1$s&lt;/font>? Eso es... nostálgico.&lt;br>Mientras tanto, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> está ahí fuera causando olas. ¡Hora de ponerse al día!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font> es de la temporada pasada.&lt;br>Mientras tanto, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> está listo para impresionar con nuevas funciones y correcciones de errores. ¡Actualiza para un mejor viaje!</string>
+    <string name="update_variation_3">Tu app está viviendo en el pasado con &lt;font color=\'#71717A\'>v%1$s&lt;/font>.&lt;br>Mientras tanto, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> es el futuro — más rápido, más inteligente y más brillante. ¿Por qué no unirte?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font> te ha servido bien, pero &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> está llamando!&lt;br>Disfruta las últimas mejoras y una experiencia más fluida — solo un toque de distancia.</string>
 
     <!-- App Icon Strings -->
     <string name="setting_app_icon_title">Ícono de la app</string>

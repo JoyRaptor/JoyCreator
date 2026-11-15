@@ -503,10 +503,10 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="update_visit_github">GitHub besuchen</string>
     <string name="update_version_arrow"> → </string>
     <!-- Update variations -->
-    <string name="update_variation_1">Immer noch auf &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;? Das ist... nostalgisch.&lt;br&gt;In der Zwischenzeit schlägt &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; Wellen. Zeit, aufzuholen!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; ist so was von letzter Saison.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; bereit, mit neuen Funktionen und Fehlerbehebungen zu beeindrucken. Aktualisiere für eine bessere Fahrt!</string>
-    <string name="update_variation_3">Deine App lebt mit &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; in der Vergangenheit.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; die Zukunft – schneller, intelligenter und glänzender. Warum nicht mitmachen?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; hat dir gute Dienste geleistet, aber &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; ruft!&lt;br&gt;Genieße die neuesten Verbesserungen und ein reibungsloseres Erlebnis – nur einen Fingertipp entfernt.</string>
+    <string name="update_variation_1">Immer noch auf &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;? Das ist... nostalgisch.&lt;br&gt;In der Zwischenzeit schlägt &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; Wellen. Zeit, aufzuholen!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; ist so was von letzter Saison.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; bereit, mit neuen Funktionen und Fehlerbehebungen zu beeindrucken. Aktualisiere für eine bessere Fahrt!</string>
+    <string name="update_variation_3">Deine App lebt mit &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; in der Vergangenheit.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; die Zukunft – schneller, intelligenter und glänzender. Warum nicht mitmachen?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; hat dir gute Dienste geleistet, aber &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; ruft!&lt;br&gt;Genieße die neuesten Verbesserungen und ein reibungsloseres Erlebnis – nur einen Fingertipp entfernt.</string>
     <!-- App Icon Strings -->
     <string name="setting_app_icon_title">App-Symbol</string>
     <string name="setting_app_icon_desc">Ändere das Start-Symbol und den Namen der App</string>

@@ -296,10 +296,10 @@
     <string name="update_visit_github">زيارة GitHub</string>
     <string name="update_version_arrow">  ←  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">ما زلت تستخدم &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;؟ هذا... يبعث على الحنين.&lt;br&gt;بينما &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; يثير ضجة. حان وقت اللحاق!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; أصبح قديمًا.&lt;br&gt;بينما &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; جاهز للإعجاب بميزات جديدة وإصلاحات للأخطاء. قم بالترقية للحصول على تجربة أفضل!</string>
-    <string name="update_variation_3">تطبيقك يعيش في الماضي مع &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;بينما &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; هو المستقبل - أسرع، أذكى، وأكثر لمعانًا. لماذا لا تنضم؟</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; قدم لك خدمة جيدة، لكن &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; يناديك!&lt;br&gt;استمتع بأحدث التحسينات وتجربة أكثر سلاسة - بنقرة واحدة.</string>
+    <string name="update_variation_1">ما زلت تستخدم &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;؟ هذا... يبعث على الحنين.&lt;br&gt;بينما &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; يثير ضجة. حان وقت اللحاق!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; أصبح قديمًا.&lt;br&gt;بينما &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; جاهز للإعجاب بميزات جديدة وإصلاحات للأخطاء. قم بالترقية للحصول على تجربة أفضل!</string>
+    <string name="update_variation_3">تطبيقك يعيش في الماضي مع &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;بينما &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; هو المستقبل - أسرع، أذكى، وأكثر لمعانًا. لماذا لا تنضم؟</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; قدم لك خدمة جيدة، لكن &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; يناديك!&lt;br&gt;استمتع بأحدث التحسينات وتجربة أكثر سلاسة - بنقرة واحدة.</string>
     <!-- Onboarding Strings -->
     <string name="onboarding_swipe_instruction">اسحب لليمين للمتابعة</string>
     <string name="onboarding_select_language">اختر لغة التطبيق المفضلة لديك.</string>

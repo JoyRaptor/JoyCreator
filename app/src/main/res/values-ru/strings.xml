@@ -916,10 +916,10 @@
     <string name="update_visit_github">Посетить GitHub</string>
     <string name="update_version_arrow">  →  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">Всё ещё на &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>? Это... ностальгично.&lt;br>Тем временем, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> создаёт волны. Пора догонять!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> вышел из моды.&lt;br>Тем временем, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> готов впечатлить новыми функциями и исправлениями ошибок. Обновитесь для лучшей поездки!</string>
-    <string name="update_variation_3">Ваше приложение живёт в прошлом с &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Тем временем, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> - это будущее — быстрее, умнее и ярче. Почему бы не присоединиться?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> послужил вам хорошо, но &lt;font color=\'#77DD77\'>v%2$s&lt;/font> зовёт!&lt;br>Наслаждайтесь последними улучшениями и более плавным опытом — всего в одном касании.</string>
+    <string name="update_variation_1">Всё ещё на &lt;font color=\'#71717A\'>v%1$s&lt;/font>? Это... ностальгично.&lt;br>Тем временем, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> создаёт волны. Пора догонять!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font> вышел из моды.&lt;br>Тем временем, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> готов впечатлить новыми функциями и исправлениями ошибок. Обновитесь для лучшей поездки!</string>
+    <string name="update_variation_3">Ваше приложение живёт в прошлом с &lt;font color=\'#71717A\'>v%1$s&lt;/font>.&lt;br>Тем временем, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> - это будущее — быстрее, умнее и ярче. Почему бы не присоединиться?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font> послужил вам хорошо, но &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> зовёт!&lt;br>Наслаждайтесь последними улучшениями и более плавным опытом — всего в одном касании.</string>
 
 
 

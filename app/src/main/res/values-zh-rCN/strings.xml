@@ -295,10 +295,10 @@
     <string name="update_visit_github">访问 GitHub</string>
     <string name="update_version_arrow">  →  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">还在使用&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;？这很...怀旧。&lt;br&gt;与此同时，&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;已经引起了轰动。是时候更新了！</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;已经过时了。&lt;br&gt;而&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;带着新功能和错误修复等待您的体验。升级以获得更好的体验！</string>
-    <string name="update_variation_3">您的应用正在使用过去的&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;版本。&lt;br&gt;而&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;代表着未来——更快、更智能、更闪亮。何不加入呢？</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;已经很好地为您服务，但&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;正在召唤您！&lt;br&gt;享受最新的改进和更流畅的体验——只需点击一下。</string>
+    <string name="update_variation_1">还在使用&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;？这很...怀旧。&lt;br&gt;与此同时，&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;已经引起了轰动。是时候更新了！</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;已经过时了。&lt;br&gt;而&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;带着新功能和错误修复等待您的体验。升级以获得更好的体验！</string>
+    <string name="update_variation_3">您的应用正在使用过去的&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;版本。&lt;br&gt;而&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;代表着未来——更快、更智能、更闪亮。何不加入呢？</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;已经很好地为您服务，但&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;正在召唤您！&lt;br&gt;享受最新的改进和更流畅的体验——只需点击一下。</string>
     <!-- Onboarding Strings -->
     <string name="onboarding_swipe_instruction">右滑继续</string>
     <string name="onboarding_select_language">选择您偏好的应用语言。</string>

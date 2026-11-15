@@ -1455,10 +1455,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="update_visit_github">Kunjungi GitHub</string>
     <string name="update_version_arrow">→</string>
     <!-- Update variations -->
-    <string name="update_variation_1">Masih di &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;? Itu... nostalgia.&lt;br&gt;Sementara itu, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; sudah hadir membuat gebrakan. Saatnya ikut!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; sudah ketinggalan zaman.&lt;br&gt;Sementara itu, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; siap memukau dengan fitur baru dan perbaikan bug. Upgrade untuk pengalaman lebih baik!</string>
-    <string name="update_variation_3">Aplikasi Anda hidup di masa lalu dengan &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;Sementara itu, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; adalah masa depan—lebih cepat, lebih pintar, dan lebih keren. Bergabunglah?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; telah melayani Anda dengan baik, tapi &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; sudah memanggil!&lt;br&gt;Nikmati peningkatan terbaru dan pengalaman lebih lancar—tinggal satu ketukan.</string>
+    <string name="update_variation_1">Masih di &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;? Itu... nostalgia.&lt;br&gt;Sementara itu, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; sudah hadir membuat gebrakan. Saatnya ikut!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; sudah ketinggalan zaman.&lt;br&gt;Sementara itu, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; siap memukau dengan fitur baru dan perbaikan bug. Upgrade untuk pengalaman lebih baik!</string>
+    <string name="update_variation_3">Aplikasi Anda hidup di masa lalu dengan &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;Sementara itu, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; adalah masa depan—lebih cepat, lebih pintar, dan lebih keren. Bergabunglah?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; telah melayani Anda dengan baik, tapi &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; sudah memanggil!&lt;br&gt;Nikmati peningkatan terbaru dan pengalaman lebih lancar—tinggal satu ketukan.</string>
 
 
 

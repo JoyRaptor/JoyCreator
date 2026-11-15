@@ -1968,10 +1968,10 @@ Yadona: La na yao exit method faal pati shi che bended na shi!</string>
     <string name="universal_stop">Band</string>
     <string name="untitled_project">Untitled Project</string>
     <string name="update_sarcastic_heading">📦 Oh look, another update...</string>
-    <string name="update_variation_1">Still on &lt;font color=\'#E43C3C\'>v%1$s&lt;/font&gt;? Nostalgic da.&lt;br&gt;Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font&gt; is out there making waves. Time to catch up!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font&gt; is so last season.&lt;br&gt;Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font&gt; is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
-    <string name="update_variation_3">Sta app da ter shwi wakht ke &lt;font color=\'#E43C3C\'>v%1$s&lt;/font&gt; sara de.&lt;br&gt;Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font&gt; is the future — faster, smarter, and shinier. Why not join in?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font&gt; has served you well, but &lt;font color=\'#77DD77\'>v%2$s&lt;/font&gt; is calling!&lt;br&gt;Enjoy the latest improvements and a smoother experience — just a tap away.</string>
+    <string name="update_variation_1">Still on &lt;font color=\'#71717A\'>v%1$s&lt;/font&gt;? Nostalgic da.&lt;br&gt;Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font&gt; is out there making waves. Time to catch up!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font&gt; is so last season.&lt;br&gt;Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font&gt; is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
+    <string name="update_variation_3">Sta app da ter shwi wakht ke &lt;font color=\'#71717A\'>v%1$s&lt;/font&gt; sara de.&lt;br&gt;Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font&gt; is the future — faster, smarter, and shinier. Why not join in?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font&gt; has served you well, but &lt;font color=\'#35F6BF\'>v%2$s&lt;/font&gt; is calling!&lt;br&gt;Enjoy the latest improvements and a smoother experience — just a tap away.</string>
     <string name="update_version_arrow">>></string>
     <string name="update_visit_github">GitHub Kolao Ka</string>
     <string name="version_format">v%s</string>

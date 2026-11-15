@@ -151,6 +151,52 @@ final class CardFrame {
         if (Build.VERSION.SDK_INT >= 31) ChatArrival.blur(a, 0);
     }
 
+    // ── the keyboard ────────────────────────────────────────────────────────
+    // A floating window is not resized for the keyboard: on the test tablet (11-15) the keyboard covered the card's
+    // typing box and Joybot. So while the keyboard is up the card lifts above it (and gets shorter only if there is not
+    // room), and goes back down when it closes. Keyed on the keyboard being SHOWN, not on how much it overlaps: once
+    // lifted the overlap is zero, and keying on that would drop the card back and bounce it.
+    private int liftedBy = 0, shortenedBy = 0;
+
+    /** Follow the keyboard (call once, with the window's content root). */
+    void watchKeyboard(@NonNull View root) {
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root, (v, insets) -> {
+            boolean shown = insets.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime());
+            int overlap = insets.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom;
+            onKeyboard(shown, overlap);
+            return insets;
+        });
+    }
+
+    private void onKeyboard(boolean shown, int overlap) {
+        if (!windowed) return;
+        Window w = a.getWindow();
+        if (w == null) return;
+        WindowManager.LayoutParams lp = w.getAttributes();
+        if (shown && overlap > 0 && liftedBy == 0 && shortenedBy == 0) {
+            int y = lp.y - overlap, top = ref.top;
+            int h = lp.height > 0 ? lp.height : card.getHeight();
+            if (y < top) {
+                int over = top - y;
+                shortenedBy = Math.min(over, Math.max(0, h - Math.round(MIN_H * d)));
+                h -= shortenedBy;
+                y = top + (over - shortenedBy > 0 ? 0 : 0);
+            }
+            liftedBy = lp.y - y;
+            lp.y = y;
+            lp.height = h;
+            w.setAttributes(lp);
+            if (onMoved != null) onMoved.run();
+        } else if (!shown && (liftedBy != 0 || shortenedBy != 0)) {
+            lp.y += liftedBy;
+            if (lp.height > 0) lp.height += shortenedBy;
+            liftedBy = 0;
+            shortenedBy = 0;
+            w.setAttributes(lp);
+            if (onMoved != null) onMoved.run();
+        }
+    }
+
     // ── moving and sizing ───────────────────────────────────────────────────
 
     /** Drag {@code handle} (the title) to move the card; drag {@code grip} (its corner) to size it. */

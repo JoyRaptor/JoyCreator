@@ -138,6 +138,7 @@ public final class ChatArrival {
         chips.setAlpha(0f);
         row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeActor());
         frame.attach(titleBlock, grip);
+        frame.watchKeyboard(root);
         loadSprites();
         waitUntil = SystemClock.uptimeMillis() + SPRITE_WAIT_MS;
         root.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {

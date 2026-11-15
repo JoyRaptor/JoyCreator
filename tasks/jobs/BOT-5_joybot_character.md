@@ -78,6 +78,25 @@ Build steps (branch `claude/joybot-sheet-20261113`):
       install (one 67 ms gap, shader compile). CPU zone 34.8-37.4 C throughout. Verdict: Frost costs no frames; kept on.
 - [ ] The owner sees it play (clips sent 11-15), then land on `joy-creator`.
 
+## 11-15 (later): the owner's nine new sets, loop styles, moments and choreography
+Owner, 11-15: double point ("you the man"), salute (greeting; "understood" before a job), point left / right / down,
+present right, painting (loop and ping-pong), bow (greeting, thanks, praise, job done), checklists; winks, blinks,
+tongue and smiles held for nuance; "a lot of these are things that can have multiple uses" (typing for any writing,
+the big list for any reading); "get loops to look less loopy by varying the frames that are next to each other";
+painting "swiping one direction, or swiping, mirror, then swiping another direction, or ping-ponging"; "choreography
+... squash and stretch, pacing, moving around ... mirror those sprite animations ... he can do a flip ... particle
+effects ... when he's searching, he can be kind of searching around".
+- [x] Sheet v3 (`art/Joybot-sprite-assets/aligned_v3_20261115`, README there): 348 frames, the new sets on home by least
+      difference, the bow mirrored to face the chat, crop 466 to 490 source px so the lower cones fit (old cell numbers kept).
+- [x] `joybot.animations.json` / `acts.json`: `play` (stutter / strokes / pingpong / loop), `uses` (moods, moments, words),
+      `moves` (scale, hop, flip, drift with facing, sparks, mirror); `JoybotFilm` plays the styles and mirrors a play,
+      `JoybotView` draws the moves and sparks, `JoybotActs` picks by words and moments from the data.
+- [x] Director moments: greet after the flight lands, salute before a job (not twice within 20 s), bow on thanks or
+      praise, bow or "you the man" when a job is done, cheer flourish (spin, double point, the confetti set), present
+      new ideas (every 30 s at most), point at what he shows off, point down at the box when you tap into it; a moment
+      plays to its end before the chat's next mood.
+- [ ] Cloud build; seen on a device; land.
+
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
 - [ ] Fly-to-corner and show-off moves.

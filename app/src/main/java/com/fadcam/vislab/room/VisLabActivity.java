@@ -113,7 +113,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         askMic = registerForActivityResult(new ActivityResultContracts.RequestPermission(), ok -> {
             if (ok) useSource(SRC_MIC, null);
             else {
-                Toast.makeText(this, "VisLab needs the microphone to listen to the room.", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(R.string.vl_room_mic_needed), Toast.LENGTH_LONG).show();
                 sources.setSelected(sourceKind);
             }
         });
@@ -224,7 +224,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         int g = Ui.dp(this, 14);
         top.setPadding(g, Ui.dp(this, 8), g, Ui.dp(this, 6));
         TextView back = Ui.icon(this, "arrow_back", 22, Studio.INK);
-        Ui.label(back, "Back to the lobby");
+        Ui.label(back, R.string.vl_room_back);
         back.setOnClickListener(v -> finish());
         top.addView(back, new LinearLayout.LayoutParams(Ui.dp(this, 36), Ui.dp(this, 36)));
         TextView mark = Ui.text(this, "VisLab", 17, Studio.INK, true, 800);
@@ -240,20 +240,20 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         nlp.setMarginStart(Ui.dp(this, 10));
         top.addView(lookName, nlp);
         pauseBtn = Ui.icon(this, "pause", 22, Studio.INK);
-        Ui.label(pauseBtn, "Pause or play");
+        Ui.label(pauseBtn, R.string.vl_room_pause_play);
         pauseBtn.setOnClickListener(v -> {
             Motion.press(v);
             setPaused(!paused);
         });
         top.addView(pauseBtn, new LinearLayout.LayoutParams(Ui.dp(this, 38), Ui.dp(this, 38)));
-        TextView edit = Ui.text(this, "Edit", 12.5f, Studio.GROUND, true, 700);
+        TextView edit = Ui.text(this, getString(R.string.vl_room_edit), 12.5f, Studio.GROUND, true, 700);
         edit.setGravity(Gravity.CENTER);
         edit.setPadding(Ui.dp(this, 14), 0, Ui.dp(this, 14), 0);
         android.graphics.drawable.GradientDrawable editBg = new android.graphics.drawable.GradientDrawable(
                 android.graphics.drawable.GradientDrawable.Orientation.LEFT_RIGHT, new int[]{Ui.VIZ_A, Ui.VIZ_B});
         editBg.setCornerRadius(Ui.dp(this, 999));
         edit.setBackground(editBg);
-        Ui.label(edit, "Open the editor");
+        Ui.label(edit, R.string.vl_room_edit_tip);
         edit.setOnClickListener(v -> {
             Motion.press(v);
             setDrawer(!drawerOpen);
@@ -268,9 +268,8 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         joy.setImageTintList(android.content.res.ColorStateList.valueOf(Studio.INK));
         int jp = Ui.dp(this, 7);
         joy.setPadding(jp, jp, jp, jp);
-        joy.setContentDescription("Joybot");
-        androidx.appcompat.widget.TooltipCompat.setTooltipText(joy,
-                "Joybot, your helper — he glows green when he has an idea, amber when something needs your attention");
+        joy.setContentDescription(getString(R.string.vl_room_joybot));
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(joy, getString(R.string.vl_room_joybot_tip));
         joy.setOnClickListener(v -> {
             com.fadcam.ui.lobby.arrival.JoybotOpen.start(this, v, new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "VISLAB"));
@@ -282,9 +281,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         chrome.addView(top);
 
         sources = new SlantRow(this, Ui.VIZ_A, Ui.VIZ_B);
-        sources.add("music_note", "Demo song", "Play the built-in demo song");
-        sources.add("mic", "Microphone", "Listen to the room through the microphone");
-        sources.add("library_music", "A song", "Pick a song, a MIDI file or a tracker module (.mod) from this phone");
+        sources.add("music_note", getString(R.string.vl_room_src_demo), getString(R.string.vl_room_src_demo_tip));
+        sources.add("mic", getString(R.string.vl_room_src_mic), getString(R.string.vl_room_src_mic_tip));
+        sources.add("library_music", getString(R.string.vl_room_src_song), getString(R.string.vl_room_src_song_tip));
         sources.setSelected(SRC_DEMO);
         sources.setOnPick(i -> {
             if (i == SRC_MIC) {
@@ -542,9 +541,9 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         if (s == null) return;
         com.google.gson.JsonElement n = layer.get("name");
         String base = n != null && n.isJsonPrimitive() ? n.getAsString() : "My part";
-        LookSheets.askName(this, "Save as a part", base + " (" + s.name() + ")", "Save", name -> {
+        LookSheets.askName(this, getString(R.string.vl_room_part_title), base + " (" + s.name() + ")", getString(R.string.vl_room_part_save), name -> {
             session.savePart(layer, name, s);
-            android.widget.Toast.makeText(this, "Saved with your looks as " + name + ".vispart.json", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, getString(R.string.vl_room_part_saved, name), android.widget.Toast.LENGTH_SHORT).show();
             panel.rebuild();
         });
     }
@@ -553,7 +552,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void duplicateLook() {
         VisScene s = scene();
         if (s == null) return;
-        LookSheets.askName(this, "Duplicate " + s.name(), s.name() + " copy", "Duplicate",
+        LookSheets.askName(this, getString(R.string.vl_room_dup_title, s.name()), s.name() + " copy", getString(R.string.vl_room_dup_go),
                 name -> session.duplicate(name, "Duplicate", null));
     }
 
@@ -561,7 +560,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void renameLook() {
         VisScene s = scene();
         if (s == null) return;
-        LookSheets.askName(this, "Rename " + s.name(), s.name(), "Rename",
+        LookSheets.askName(this, getString(R.string.vl_room_rename_title, s.name()), s.name(), getString(R.string.vl_room_rename_go),
                 name -> session.rename(s.id(), name, "Rename", null));
     }
 
@@ -569,18 +568,18 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
     public void revertLook() {
         VisScene s = scene();
         if (s == null) return;
-        LookSheets.confirm(this, "Revert " + s.name() + " to default?",
-                "This will override any customisations you have made to this look. Undo can still bring them back.",
-                "Revert", () -> session.revertToDefault(s.id(), "Revert to default", null));
+        LookSheets.confirm(this, getString(R.string.vl_room_revert_title, s.name()),
+                getString(R.string.vl_room_revert_body),
+                getString(R.string.vl_room_revert_go), () -> session.revertToDefault(s.id(), "Revert to default", null));
     }
 
     @Override
     public void deleteLook() {
         VisScene s = scene();
         if (s == null) return;
-        LookSheets.confirm(this, "Delete " + s.name() + "?",
-                "Its file goes to the Trash in your Joy Creator folder. Undo brings it back.",
-                "Delete", () -> session.deleteLook(s.id(), "Delete look", null));
+        LookSheets.confirm(this, getString(R.string.vl_room_delete_title, s.name()),
+                getString(R.string.vl_room_delete_body),
+                getString(R.string.vl_room_delete_go), () -> session.deleteLook(s.id(), "Delete look", null));
     }
 
     @Override
@@ -605,7 +604,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 if (isFinishing() || isDestroyed()) return;
                 LookSheets.chooseTextLook(this, looks, now != null ? now.look.key : null, it -> {
                     String start = now != null ? now.words : it.look.optString("sample", "JOY");
-                    LookSheets.askText(this, "Words in " + it.name, start, "Use", "Your words", words -> {
+                    LookSheets.askText(this, getString(R.string.vl_room_words_title, it.name), start, getString(R.string.vl_room_words_use), getString(R.string.vl_room_words_hint), words -> {
                         beginEdit("Words");
                         cc.joycreator.textlab.TitleLook t = cc.joycreator.textlab.TitleLook.of(it.key, it.name, it.look.toString());
                         layer.addProperty("image", WordsPicture.ref(words, t));
@@ -646,10 +645,10 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             }
         });
         if (knobs[0] == null) {
-            android.widget.Toast.makeText(this, "This look's sliders can't be shown on this phone", android.widget.Toast.LENGTH_SHORT).show();
+            android.widget.Toast.makeText(this, getString(R.string.vl_room_sliders_unavailable), android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
-        LookSheets.lookSliders(this, "Sliders · " + t.name, knobs[0], () -> {
+        LookSheets.lookSliders(this, getString(R.string.vl_room_sliders_title, t.name), knobs[0], () -> {
             if (!cc.joycreator.textlab.LookKnobs.changed(t)) return;
             beginEdit("Look as it came");
             cc.joycreator.textlab.LookKnobs.reset(t);
@@ -727,7 +726,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             else s = SongPlayer.ofUri(ring, song);
         } else s = SongPlayer.ofAsset(ring, DEMO);
         if (!s.start(this)) {
-            Toast.makeText(this, kind == SRC_MIC ? "The microphone is busy or not allowed." : "That song could not be opened.",
+            Toast.makeText(this, getString(kind == SRC_MIC ? R.string.vl_room_mic_busy : R.string.vl_room_song_failed),
                     Toast.LENGTH_LONG).show();
             sources.setSelected(sourceKind);
             return;
@@ -744,7 +743,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         paused = p;
         view.setPaused(p);
         if (source != null) source.setPaused(p);
-        pauseBtn.setText(p ? "play_arrow" : "pause");
+        pauseBtn.setText(p ? "play_arrow" : "pause");   // icon ligature names, not words
         keepAwake(!p);
         if (panel != null) panel.refreshMusicDim();   // music-only knobs dim the moment it pauses
     }

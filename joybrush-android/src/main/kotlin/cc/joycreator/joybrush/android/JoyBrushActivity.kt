@@ -2566,6 +2566,9 @@ class JoyBrushActivity : Activity() {
      * are R11's own: a person who picked a destination and watched it fail has to be told that their
      * drawing survived FIRST and the reason second.
      */
+    /** What the last working save wrote (JbArchive.SaveMemo), for the next one to carry from. Read and written on the save thread only. */
+    @Volatile private var workingSaveMemo: JbArchive.SaveMemo? = null
+
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
         if (destroyed) {
             if (dest is SaveDest.Open) dest.selection.close()
@@ -2658,7 +2661,16 @@ class JoyBrushActivity : Activity() {
                 val problem = try {
                     when (dest) {
                         is SaveDest.Working -> {
-                            JbArchive.save(file!!, contents)
+                            // Only what changed since this screen's last save of this file is compressed again; the rest
+                            // is carried from the file as it lies (JbArchive.saveCarrying: a full page of oil took 9 s to
+                            // write when all of it was compressed every time, Note 9 2026-11-15). The memo belongs to
+                            // this one save thread; a file it does not remember is simply written whole.
+                            val began = android.os.SystemClock.elapsedRealtime()
+                            if (cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on) workingSaveMemo = JbArchive.saveCarrying(file!!, contents, workingSaveMemo)
+                            else { workingSaveMemo = null; JbArchive.save(file!!, contents) }
+                            // One line a save, for whoever reads the log after a slow or odd one: what it carried and how long it took.
+                            android.util.Log.i("JoyBrushSave", "working save: ${workingSaveMemo?.carried ?: 0} entries carried, ${workingSaveMemo?.fresh ?: -1} compressed, " +
+                                "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
                             recovery.rememberWorking(file)
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
                             cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)

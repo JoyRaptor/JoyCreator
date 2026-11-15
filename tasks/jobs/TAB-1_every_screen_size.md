@@ -29,6 +29,42 @@ two-thirds empty, one button across the whole width.
 - One mechanism, app-wide: decide by the window's width and height classes (not by "is a tablet"), in one
   shared helper, so split-screen and landscape phones get the same treatment.
 
+## §K The owner's picks (11-15): the wide-screen spec
+Picks line from the design page: `S1 C · S2 A · S3 C · S4 A · S5 B · S6 C · S7 C | J1 A · J2 A · J3 B · J4 B | L1 A · L2 A · L3 A · L4 B · L5 A`.
+His notes overrule the line where they differ (S5 especially). In his words, summarised:
+
+**Studio drawers on a wide window**
+- K1. **Editing desk** (side panel, timeline full width under picture and panel) and **Tall column** (panel full
+  height, timeline under the picture only) are the two everyday layouts for a tablet sideways. Both must exist and
+  be one touch-friendly switch apart in Studio, and be a choice in Settings: effects work wants the tall column,
+  cutting wants the wide timeline.
+- K2. **Where a drawer goes follows the free space**, which comes from the project's shape against the window's
+  shape: a 16:9 piece on an upright tablet leaves room below, so drawers drop down from the bottom (two can stack
+  there); a 9:16 piece leaves room beside, so a side panel. Easy to change by hand, because the project decides.
+- K3. **The picture moves out of the way as far as the free space allows, never shrinks; where there is no room,
+  the see-through drawer overlaps it** (as the transcript panel already does). This replaces pick S5 B.
+- K4. Side: right, mirrored by a left-hand switch (S1 C). Width 360 dp, the phone drawer as drawn (S2 A).
+- K5. Two drawers: stacked in the one column (S3 C), with a Settings option for **one left and one right**
+  (After Effects feel). Small drawers (blend mode: one line) should not waste a tall slot; tall drawers (sprite
+  animation) may use the extra room.
+- K6. The panel mode is a Settings switch, starting from "wide windows (840 dp and up)" (S6 C). The phone drawer
+  stays the default on a phone.
+- K7. Joybot's chat stands beside a drawer as the second panel (S7 C).
+
+**JoyBrush on a tablet**
+- K8. Tool rail on the left as on the phone (J1 A).
+- K9. Layers: the phone's compact strip by default, but **grab its edge and pull it wider** to show each layer's
+  name, opacity, lock, duplicate, delete, merge down (what a double-tap opens today); pull it down and **move it
+  around**: as much room as you want for layers, never a fixed slice of the screen (J2 A + his note).
+- K10. Brushes: a **side panel that can stay open**, brushes listed vertically, most recent first with **starred
+  favourites always on top**, filter by category; **hold a brush to keep its settings open** in a drawer or side
+  tab while painting (an option) (J3 B). Favourites-on-the-rail: my call.
+- K11. Paper fills the screen or steps aside: a Settings option (J4 B; Atlas makes it matter less).
+
+**Lobby** (L1 A · L2 A · L3 A · L4 B · L5 A for now): two columns, room names once, New buttons at phone size in a
+row, recent work as one row, floor words grouped bottom left. He will rethink the lobby later: it can show all the
+cool things at once and none of the options used the room well.
+
 ## What is left
 - [ ] Survey: each lane lists its screens' problems on the tablet in its own card (the UI leftovers and lobby
       sessions started 11-13; Studio, JoyBrush, VisLab, TextLab, SpriteLab, Library, Settings to follow).

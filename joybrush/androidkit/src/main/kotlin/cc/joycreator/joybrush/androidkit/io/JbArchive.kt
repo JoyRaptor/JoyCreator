@@ -54,8 +54,9 @@ const val ARCHIVE_DEFLATE_LEVEL = 6
 
 /**
  * The deflate level of a paint store tile (`.f16`, `.g.rgba`): half floats of paint, a megabyte and more a painted tile.
- * At level 6 a full paint room (262 MB of stores) took 19 s to write on the Note 9, past the save's 15 s watchdog
- * (2026-11-15); the pictures and everything else keep [ARCHIVE_DEFLATE_LEVEL]. Any level reads back the same.
+ * At level 6 a full paint room (262 MB of stores) took 19 s to write on the Note 9 (2026-11-15), with the one save
+ * thread busy all that time and the working copy, its recovery copy and the folder copy each that size. The pictures and
+ * everything else keep [ARCHIVE_DEFLATE_LEVEL]. Any level reads back the same.
  */
 object ArchiveMediaDeflate { @Volatile var level: Int = java.util.zip.Deflater.BEST_SPEED }
 

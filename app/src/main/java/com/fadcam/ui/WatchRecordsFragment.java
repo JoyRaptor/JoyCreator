@@ -263,7 +263,7 @@ public class WatchRecordsFragment extends Fragment {
             try {
                 final File downloadsDir = new File(
                         Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
-                        "FadCam");
+                        com.fadcam.Constants.PUBLIC_FOLDER_NAME);
                 if (!downloadsDir.exists()) downloadsDir.mkdirs();
                 final File destFile = new File(downloadsDir, entry.file.getName());
 

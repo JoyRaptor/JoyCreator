@@ -701,8 +701,8 @@ public class AnnotationService extends Service {
             FLog.d(TAG, "No current project to save — starting fresh");
         }
 
-        // Generate new project name with timestamp - using FadRec prefix
-        String newProjectName = "FadRec_"
+        // New project name: "Screen_drawing_<date time>" (was FadRec_; SHELL-44)
+        String newProjectName = "Screen_drawing_"
                 + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(new java.util.Date());
         currentProjectName = newProjectName;
 
@@ -932,7 +932,7 @@ public class AnnotationService extends Service {
                 annotationView.requestLayout();
             });
         }
-        String freshName = "FadRec_"
+        String freshName = "Screen_drawing_"
                 + new java.text.SimpleDateFormat("yyyyMMdd_HHmmss", java.util.Locale.US).format(new java.util.Date());
         android.content.SharedPreferences prefs = getSharedPreferences("fadrec_prefs", MODE_PRIVATE);
         prefs.edit().putString("current_project", freshName).apply();

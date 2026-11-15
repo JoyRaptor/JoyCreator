@@ -367,7 +367,7 @@
     <!-- Debug Settings -->
     <string name="setting_debug_title">Hata Ayıklama Günlüğü</string>
     <string name="note_debug">Hata ayıklama günlüğü dosyası oluşturmayı etkinleştir \n(Varsayılan: Devre Dışı)</string>
-    <string name="note_debug_extra">Etkinleştirildiğinde, İndirilenler/FadCam klasöründe bir hata ayıklama günlüğü dosyası oluşturulur. Bu, uygulama sorunlarını teşhis etmeye yardımcı olabilir.</string>
+    <string name="note_debug_extra">Etkinleştirildiğinde, İndirilenler/Joy Creator klasöründe bir hata ayıklama günlüğü dosyası oluşturulur. Bu, uygulama sorunlarını teşhis etmeye yardımcı olabilir.</string>
     <!-- Onboarding Settings -->
     <string name="setting_onboarding_title">Sonraki Başlatmada Karşılama Ekranını Göster</string>
     <string name="note_onboarding">Joy Creator\'i bir sonraki açışınızda uygulama tanıtımını ve izin kılavuzunu görmek için etkinleştirin.</string>
@@ -444,7 +444,7 @@
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">Seçili öğe yok.</string>
     <string name="trash_dialog_restore_title">Seçilenleri Geri Yükle?</string>
-    <string name="trash_dialog_restore_message">%1$d öğeyi Downloads/FadCam/ klasörüne geri yüklensin mi?</string>
+    <string name="trash_dialog_restore_message">%1$d öğeyi Downloads/Joy Creator/ klasörüne geri yüklensin mi?</string>
     <string name="trash_restore_success_toast">%1$d öğe geri yüklendi.</string>
     <string name="trash_restore_fail_toast">Öğeleri geri yüklerken hata oluştu. Bazı dosyalar geri yüklenmemiş veya galeri güncellenememiş olabilir. Depolama izinlerini kontrol edin.</string>
     <string name="trash_restore_cancelled_toast">Geri yükleme iptal edildi.</string>
@@ -551,7 +551,7 @@
     <string name="tips_subtitle">Yardımcı kullanım ipuçları</string>
     <string name="whats_new_title">Yenilikler</string>
     <string name="whats_new_subtitle">En son özellikleri ve güncellemeleri görün</string>
-    <string name="watch_video_saved_toast">Downloads/FadCam klasörüne kaydedildi</string>
+    <string name="watch_video_saved_toast">Downloads/Joy Creator klasörüne kaydedildi</string>
     <string name="video_menu_info">Bilgi</string>
     <string name="video_menu_copy_filename">Dosya Adını Kopyala</string>
     <string name="video_info_file_name">Dosya Adı</string>
@@ -672,8 +672,8 @@
     <string name="shortcut_purpose_start_dual">Bu kısayol, çift kamera kaydını başlatır (PiP).</string>
     <string name="shortcut_purpose_stop">Bu kısayol, mevcut kaydı durdurur.</string>
     <string name="shortcut_purpose_torch">Bu kısayol, feneri açar/kapatır.</string>
-    <string name="shortcut_purpose_photo">Bu kısayol, arka kameradan bir fotoğraf çeker ve FadCam/FadShot konumuna kaydeder.</string>
-    <string name="shortcut_purpose_screenshot">Bu kısayol, bir ekran görüntüsü alır ve FadCam/FadShot konumuna kaydeder (Ayarlar &gt; Gizlilik &gt; Erişilebilirlik\'ten Erişilebilirlik iznini etkinleştirin).</string>
+    <string name="shortcut_purpose_photo">Bu kısayol, arka kameradan bir fotoğraf çeker ve Joy Creator konumuna kaydeder.</string>
+    <string name="shortcut_purpose_screenshot">Bu kısayol, bir ekran görüntüsü alır ve Joy Creator konumuna kaydeder (Ayarlar &gt; Gizlilik &gt; Erişilebilirlik\'ten Erişilebilirlik iznini etkinleştirin).</string>
     <string name="widget_customize_action_label">Özelleştir</string>
     <string name="widget_customize_action_subtitle">Saat, tarih, tema seçenekleri</string>
     <string name="shortcut_start_current">Mevcut ile Başlat</string>
@@ -684,7 +684,7 @@
     <string name="screenshot_capture_failed">Ekran görüntüsü alınamadı</string>
     <string name="screenshot_capture_system_saved">Ekran görüntüsü sistem tarafından alındı. Sistem ekran görüntülerine kaydedildi.</string>
     <string name="screenshot_accessibility_enable_needed">Kayıt istemi olmadan bu kısayolu kullanmak için Erişilebilirlik\'te &quot;Joy Creator Ekran Görüntüsü&quot;nü etkinleştirin.</string>
-    <string name="screenshot_accessibility_service_desc">FadRec kısayolu için ekran görüntüsü alır ve FadCam/FadShot\'a kaydeder.</string>
+    <string name="screenshot_accessibility_service_desc">FadRec kısayolu için ekran görüntüsü alır ve Joy Creator\'a kaydeder.</string>
     <string name="shortcuts_video_category">Video Kaydı</string>
     <string name="shortcuts_picture_category">Resim</string>
     <string name="theme_red">Crimson Bloom</string>
@@ -1226,12 +1226,12 @@
     <string name="home_options_title">Ana Sayfa Seçenekleri</string>
     <string name="help_section">Yardım</string>
     <string name="display_settings_title">Görüntü</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Video, Downloads/FadCam konumuna kaydedilecek</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Video, Downloads/Joy Creator konumuna kaydedilecek</string>
     <string name="video_menu_save_copy_or_move_title">Galeriye Kaydet</string>
     <string name="video_menu_save_copy">Galeriye Kopyala</string>
-    <string name="video_menu_save_copy_desc">Downloads/FadCam içinde bir kopya oluştur (orijinal dosya korunur)</string>
+    <string name="video_menu_save_copy_desc">Downloads/Joy Creator içinde bir kopya oluştur (orijinal dosya korunur)</string>
     <string name="video_menu_save_move">Galeriye Taşı</string>
-    <string name="video_menu_save_move_desc">Dosyayı Downloads/FadCam konumuna taşı (depolama alanından tasarruf sağlar)</string>
+    <string name="video_menu_save_move_desc">Dosyayı Downloads/Joy Creator konumuna taşı (depolama alanından tasarruf sağlar)</string>
     <string name="video_menu_save_longpress_helper">\"Galeriye Kaydet\"e uzun basarak kopyalama veya taşıma arasında seçim yapın</string>
     <string name="watch_delete_confirm_title">Çöp Kutusuna Taşınsın mı?</string>
     <string name="watch_delete_confirm_msg">\"%s\" çöp kutusuna taşınacak.</string>
@@ -1536,7 +1536,7 @@
 <string name="row_input_source_title">Giriş Kaynağı</string>
 <string name="row_noise_suppression_title">Gürültü Engelleme</string>
 <string name="delete_single_video_subtitle">Bu kaydı kaldır</string>
-<string name="note_debug_detailed">Etkinleştirildiğinde, FadCam hata ayıklama günlüğü HTML dosyasını (JoyCreator_debug.html) herkese açık İndirilenler/FadCam/ klasörüne yazar. Sorun bildirirken bu dosyayı paylaşın. Gelecekteki yazmaları durdurmak için kapatın.\nNot: Hata ayıklama günlüğü kayıt sırasında performans yükü ekleyebilir — sorun gidermiyorsanız kapalı tutun.</string>
+<string name="note_debug_detailed">Etkinleştirildiğinde, FadCam hata ayıklama günlüğü HTML dosyasını (JoyCreator_debug.html) herkese açık İndirilenler/Joy Creator/ klasörüne yazar. Sorun bildirirken bu dosyayı paylaşın. Gelecekteki yazmaları durdurmak için kapatın.\nNot: Hata ayıklama günlüğü kayıt sırasında performans yükü ekleyebilir — sorun gidermiyorsanız kapalı tutun.</string>
 <string name="location_format_title">Konum Biçimi</string>
 <string name="location_format_coordinates">Yalnızca Koordinatlar</string>
 <string name="location_format_address">Tam Adres</string>
@@ -1610,7 +1610,7 @@
 <string name="shortcuts_choose_from_app_icons">Uygulama simgelerinden seç</string>
 <string name="shortcuts_choose_from_gallery">Galeriden seç</string>
 <string name="shortcut_purpose_start_front">Bu kısayol, ön kamera ile kaydı başlatır.</string>
-<string name="shortcut_purpose_photo_front">Bu kısayol, ön kamera fotoğrafı çeker ve FadCam/FadShot konumuna kaydeder.</string>
+<string name="shortcut_purpose_photo_front">Bu kısayol, ön kamera fotoğrafı çeker ve Joy Creator konumuna kaydeder.</string>
 <string name="shortcut_start_back">Arkadan Başlat</string>
 <string name="shortcut_start_front">Önden Başlat</string>
 <string name="shortcut_take_photo_front">Selfie</string>
@@ -1746,7 +1746,7 @@
 <string name="faditor_info_convert_title">Akıllı dönüştürme</string>
 <string name="faditor_info_convert_desc">Joy Creator, çökmeye dayanıklı bir biçim olan parçalanmış MP4 (fMP4) formatında kayıt yapar. Standart bir MP4\'ün tek bir sonlandırılmış kapsayıcısı varken, fMP4 videoyu küçük bağımsız parçalar halinde yazar. Bu, uygulama çökse veya kayıt aniden dursa bile görüntülerinizin bozulmadan kalması anlamına gelir.\n\nAncak, harici video oynatıcılar, galeri uygulamaları ve dosya yöneticileri bu dosyalarda arama, ilerletme veya doğru süreyi görüntüleme yapamaz. Bu bir hata değil — güvenilirlik için kasıtlı bir tasarım ödünleşimidir.\n\nVideolarınızı Joy Creator dışında — Google Drive, bir bilgisayar veya başka bir konumda — saklamayı planlıyorsanız, önce dönüştürmelisiniz. Aksi takdirde dosyalar normal oynatma için kullanılamaz.\n\nDönüştürmek için: videoyu burada Faditor Mini\'de açın ve Dışa Aktar\'a dokunun. Dönüştürülen standart MP4, Kayıtlar sekmenizde görünecek, galerinize kaydetmeye veya herhangi bir yerde paylaşmaya hazır olacaktır. İşlem anlık ve kayıpsızdır — yeniden kodlama veya kalite kaybı yoktur.</string>
 <string name="faditor_info_export_title">Dışa aktarılan dosyalar</string>
-<string name="faditor_info_export_desc">Dışa aktarılan videolar, "Faditor_" öneki ve ardından bir zaman damgası ile aktif depolama konumunuza (Ayarlar\'da yapılandırılanla aynı) kaydedilir. Orijinal kayıtlarınızla birlikte Kayıtlar sekmesinde görünürler.</string>
+<string name="faditor_info_export_desc">Dışa aktarılan videolar, "JoyCreator_" öneki ve ardından bir zaman damgası ile aktif depolama konumunuza (Ayarlar\'da yapılandırılanla aynı) kaydedilir. Orijinal kayıtlarınızla birlikte Kayıtlar sekmesinde görünürler.</string>
 <string name="faditor_info_temp_title">Geçici dosyalar ve önbellek</string>
 <string name="faditor_info_temp_desc">Düzenleme için bir fMP4 videosu yüklediğinizde, Faditor dosyanın "remuxing" gerektirip gerektirmediğini algılar — yeniden kodlama olmadan arama işaretçileri ekleyen hızlı bir dönüştürme. Remuxlanmış dosyalar cihazınızda önbelleğe alınır, böylece aynı videoyu tekrar düzenlerseniz yeniden kullanılabilir, zamandan ve işlemden tasarruf edilir.\n\nHer proje için önbellek boyutunu, değiştirilme tarihinin yanında görebilirsiniz. Cihaz depolama alanınız azalıyorsa, kullanılmayan projeleri silerek önbelleğe alınmış remuxlanmış dosyalarını temizleyebilirsiniz.\n\nBu geçici önbellek dosyaları, bu sekmeden bir proje sildiğinizde otomatik olarak temizlenir.</string>
 <string name="faditor_info_projects_title">Son projeler</string>
@@ -2042,7 +2042,7 @@
     <string name="debug_log_open_fail">Açma başarısız</string>
     <string name="restore_destination_title">Geri Yükleme Konumu Seç</string>
     <string name="restore_destination_downloads">İndirilenler Klasörü</string>
-    <string name="restore_destination_downloads_desc">Genel Downloads/FadCam/ klasörü</string>
+    <string name="restore_destination_downloads_desc">Genel Downloads/Joy Creator/ klasörü</string>
     <string name="restore_destination_internal">Dahili Depolama</string>
     <string name="restore_destination_internal_desc">Uygulamanın özel depolaması</string>
     <string name="restore_destination_original">Orijinal Konum</string>

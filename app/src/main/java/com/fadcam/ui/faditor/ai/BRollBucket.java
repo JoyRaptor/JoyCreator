@@ -36,8 +36,13 @@ public class BRollBucket {
      */
     @NonNull
     public File getDefaultAssetsDir() {
-        File dir = new File(android.os.Environment.getExternalStoragePublicDirectory(
-                android.os.Environment.DIRECTORY_PICTURES), "FadCam/assets");
+        // Pictures/Joy Creator/assets (SHELL-44). FadCam's Pictures/FadCam/assets stays in use where it already
+        // exists, so nobody's assets, fonts or tags disappear; the side-load build's one-time move brings it over.
+        File pictures = android.os.Environment.getExternalStoragePublicDirectory(
+                android.os.Environment.DIRECTORY_PICTURES);
+        File legacy = new File(pictures, com.fadcam.Constants.RECORDING_DIRECTORY + "/assets");
+        File dir = new File(pictures, com.fadcam.Constants.PUBLIC_FOLDER_NAME + "/assets");
+        if (!dir.exists() && legacy.isDirectory()) return legacy;
         if (!dir.exists()) dir.mkdirs();
         return dir;
     }

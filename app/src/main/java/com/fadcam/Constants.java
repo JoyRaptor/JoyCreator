@@ -438,6 +438,9 @@ public abstract class Constants {
         "com.fadcam.EXTRA_CAMERA_TYPE_SWITCH";
 
     public static final String RECORDING_DIRECTORY = "FadCam";
+    /** The folder name people see in Downloads, Pictures and Documents for new files (SHELL-44; FadCam's
+     *  "FadCam" folders are still read). Not the user's chosen Joy Creator folder, which they name themselves. */
+    public static final String PUBLIC_FOLDER_NAME = "Joy Creator";
     public static final String RECORDING_SUBDIR_CAMERA = "Camera";
     public static final String RECORDING_SUBDIR_CAMERA_BACK = "Back";
     public static final String RECORDING_SUBDIR_CAMERA_FRONT = "Front";

@@ -295,7 +295,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
     <!-- Debug Settings -->
     <string name="setting_debug_title">Journalisation de Débogage</string>
     <string name="note_debug">Activer la génération de fichiers journaux de débogage \n(Par défaut: Désactivé)</string>
-    <string name="note_debug_extra">Lorsqu\'activé, un fichier journal de débogage sera créé dans le dossier Téléchargements/FadCam. Cela peut aider à diagnostiquer les problèmes de l\'application.</string>
+    <string name="note_debug_extra">Lorsqu\'activé, un fichier journal de débogage sera créé dans le dossier Téléchargements/Joy Creator. Cela peut aider à diagnostiquer les problèmes de l\'application.</string>
     <!-- Onboarding Strings -->
     <string name="setting_onboarding_title">Afficher l\'Introduction</string>
     <string name="note_onboarding">Activez pour voir la présentation de l\'application et le guide des permissions la prochaine fois que vous ouvrirez Joy Creator.</string>
@@ -370,7 +370,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">Aucun élément sélectionné.</string>
     <string name="trash_dialog_restore_title">Restaurer la sélection ?</string>
-    <string name="trash_dialog_restore_message">Restaurer %1$d élément(s) dans le dossier public Downloads/FadCam/ ?</string>
+    <string name="trash_dialog_restore_message">Restaurer %1$d élément(s) dans le dossier public Downloads/Joy Creator/ ?</string>
     <string name="trash_restore_success_toast">%1$d élément(s) restauré(s).</string>
     <string name="trash_restore_fail_toast">Erreur lors de la restauration des éléments. Certains fichiers peuvent ne pas avoir été restaurés ou la galerie peut ne pas être mise à jour. Vérifiez les autorisations de stockage de l\'application.</string>
     <string name="trash_restore_cancelled_toast">Restauration annulée.</string>
@@ -842,21 +842,21 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="display_settings_title">Display</string>
 
-<string name="video_menu_save_helper_downloads_fadcam">Video will be saved to Downloads/FadCam</string>
+<string name="video_menu_save_helper_downloads_fadcam">Video will be saved to Downloads/Joy Creator</string>
 
 <string name="video_menu_save_copy_or_move_title">Save to Gallery</string>
 
 <string name="video_menu_save_copy">Copy to Gallery</string>
 
-<string name="video_menu_save_copy_desc">Create a copy in Downloads/FadCam (original file kept)</string>
+<string name="video_menu_save_copy_desc">Create a copy in Downloads/Joy Creator (original file kept)</string>
 
 <string name="video_menu_save_move">Move to Gallery</string>
 
-<string name="video_menu_save_move_desc">Move file to Downloads/FadCam (saves storage space)</string>
+<string name="video_menu_save_move_desc">Move file to Downloads/Joy Creator (saves storage space)</string>
 
 <string name="video_menu_save_longpress_helper">Long press "Save to Gallery" to choose between copy or move</string>
 
-<string name="watch_video_saved_toast">Saved to Downloads/FadCam</string>
+<string name="watch_video_saved_toast">Saved to Downloads/Joy Creator</string>
 
 <string name="watch_delete_confirm_title">Move to Trash?</string>
 
@@ -1516,7 +1516,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="delete_single_video_subtitle">Remove this recording</string>
 
-<string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/FadCam/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
+<string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/Joy Creator/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
 
 <string name="watermark_preview_heading">Preview</string>
 
@@ -1844,11 +1844,11 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="shortcut_purpose_torch">This shortcut toggles the torch.</string>
 
-<string name="shortcut_purpose_photo">This shortcut captures a back camera photo and saves it to FadCam/FadShot location.</string>
+<string name="shortcut_purpose_photo">This shortcut captures a back camera photo and saves it to Joy Creator location.</string>
 
-<string name="shortcut_purpose_photo_front">This shortcut captures a front camera photo and saves it to FadCam/FadShot location.</string>
+<string name="shortcut_purpose_photo_front">This shortcut captures a front camera photo and saves it to Joy Creator location.</string>
 
-<string name="shortcut_purpose_screenshot">This shortcut captures a screen shot and saves it to FadCam/FadShot location (Enable the Accessibility permission from Settings > Privacy > Accessibility).</string>
+<string name="shortcut_purpose_screenshot">This shortcut captures a screen shot and saves it to Joy Creator location (Enable the Accessibility permission from Settings > Privacy > Accessibility).</string>
 
 <string name="widget_customize_action_label">Customize</string>
 
@@ -1888,7 +1888,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="screenshot_accessibility_enable_needed">Enable "Joy Creator" in Accessibility to use this shortcut without recording prompt.</string>
 
-<string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in FadCam/FadShot.</string>
+<string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in Joy Creator.</string>
 
 <string name="shortcuts_video_category">Video Recording</string>
 
@@ -2221,7 +2221,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="faditor_info_export_title">Exported files</string>
 
-<string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"Faditor_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
+<string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"JoyCreator_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
 
 <string name="faditor_info_temp_title">Temporary files and cache</string>
 
@@ -2946,7 +2946,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="restore_destination_downloads">Downloads Folder</string>
 
-<string name="restore_destination_downloads_desc">Public Downloads/FadCam/ folder</string>
+<string name="restore_destination_downloads_desc">Public Downloads/Joy Creator/ folder</string>
 
 <string name="restore_destination_internal">Internal Storage</string>
 

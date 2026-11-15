@@ -145,12 +145,12 @@
     <string name="front">Фронтальная</string>
     <string name="video_menu_del">Удалить</string>
     <string name="video_menu_save">Сохранить в галерею</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Видео будет сохранено в Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Видео будет сохранено в Downloads/Joy Creator</string>
     <string name="video_menu_save_copy_or_move_title">Сохранить в галерею</string>
     <string name="video_menu_save_copy">Копировать в галерею</string>
-    <string name="video_menu_save_copy_desc">Создать копию в Downloads/FadCam (оригинальный файл сохранён)</string>
+    <string name="video_menu_save_copy_desc">Создать копию в Downloads/Joy Creator (оригинальный файл сохранён)</string>
     <string name="video_menu_save_move">Переместить в галерею</string>
-    <string name="video_menu_save_move_desc">Переместить файл в Downloads/FadCam (экономит место)</string>
+    <string name="video_menu_save_move_desc">Переместить файл в Downloads/Joy Creator (экономит место)</string>
     <string name="video_menu_save_longpress_helper">Длительное нажатие "Сохранить в галерею" для выбора между копированием или перемещением</string>
 
     <!-- File Operation Completion Messages -->
@@ -409,8 +409,8 @@
     <string name="torch_both">Оба фонарика</string>
     <string name="setting_debug_title">Отладочное логирование</string>
     <string name="note_debug">Включить генерацию файла отладочного журнала \n(По умолчанию: Отключено)</string>
-    <string name="note_debug_detailed">При включении FadCam записывает файл отладочного журнала HTML (JoyCreator_debug.html) в общедоступную папку Downloads/FadCam/. Поделитесь этим файлом при сообщении о проблемах. Выключите, чтобы остановить будущие записи.\nПримечание: Отладочное логирование может добавить накладные расходы на производительность во время записи — держите выключенным, если не устраняете неисправности.</string>
-    <string name="note_debug_extra">При включении файл отладочного журнала будет создан в папке Downloads/FadCam. Это может помочь диагностировать проблемы с приложением.</string>
+    <string name="note_debug_detailed">При включении FadCam записывает файл отладочного журнала HTML (JoyCreator_debug.html) в общедоступную папку Downloads/Joy Creator/. Поделитесь этим файлом при сообщении о проблемах. Выключите, чтобы остановить будущие записи.\nПримечание: Отладочное логирование может добавить накладные расходы на производительность во время записи — держите выключенным, если не устраняете неисправности.</string>
+    <string name="note_debug_extra">При включении файл отладочного журнала будет создан в папке Downloads/Joy Creator. Это может помочь диагностировать проблемы с приложением.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Предпросмотр</string>
     <string name="watermark_options_heading">Параметры</string>
@@ -759,7 +759,7 @@
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">Элементы не выбраны.</string>
     <string name="trash_dialog_restore_title">Восстановить выбранные?</string>
-    <string name="trash_dialog_restore_message">Восстановить %1$d элементов в общедоступную папку Downloads/FadCam/?</string>
+    <string name="trash_dialog_restore_message">Восстановить %1$d элементов в общедоступную папку Downloads/Joy Creator/?</string>
     <string name="trash_restore_success_toast">%1$d элементов восстановлено.</string>
     <string name="trash_restore_fail_toast">Ошибка восстановления элементов. Некоторые файлы могут не быть восстановлены или галерея не обновлена. Проверьте разрешения приложения на хранение.</string>
     <string name="trash_restore_cancelled_toast">Восстановление отменено.</string>
@@ -1158,7 +1158,7 @@
     <!-- Trash Restore Destination Strings -->
     <string name="restore_destination_title">Выбрать место восстановления</string>
     <string name="restore_destination_downloads">Папка Загрузки</string>
-    <string name="restore_destination_downloads_desc">Публичная папка Downloads/FadCam/</string>
+    <string name="restore_destination_downloads_desc">Публичная папка Downloads/Joy Creator/</string>
     <string name="restore_destination_internal">Внутреннее хранилище</string>
     <string name="restore_destination_internal_desc">Приватное хранилище приложения</string>
     <string name="restore_destination_original">Исходное место</string>
@@ -1511,7 +1511,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="home_cards_fold_toggle">Свернуть/развернуть карточки главной</string>
 
-    <string name="watch_video_saved_toast">Сохранено в Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Сохранено в Downloads/Joy Creator</string>
 
     <string name="watch_delete_confirm_title">Переместить в корзину?</string>
 
@@ -1971,11 +1971,11 @@ Joy Creator использует фрагментированный формат
 
     <string name="shortcut_purpose_start_dual">Этот ярлык начинает запись с двойной камеры (PiP).</string>
 
-    <string name="shortcut_purpose_photo">Этот ярлык делает фото задней камерой и сохраняет в FadCam/FadShot.</string>
+    <string name="shortcut_purpose_photo">Этот ярлык делает фото задней камерой и сохраняет в Joy Creator.</string>
 
-    <string name="shortcut_purpose_photo_front">Этот ярлык делает фото фронтальной камерой и сохраняет в FadCam/FadShot.</string>
+    <string name="shortcut_purpose_photo_front">Этот ярлык делает фото фронтальной камерой и сохраняет в Joy Creator.</string>
 
-    <string name="shortcut_purpose_screenshot">Этот ярлык делает скриншот и сохраняет в FadCam/FadShot (включите разрешение специальных возможностей в Настройки > Конфиденциальность > Специальные возможности).</string>
+    <string name="shortcut_purpose_screenshot">Этот ярлык делает скриншот и сохраняет в Joy Creator (включите разрешение специальных возможностей в Настройки > Конфиденциальность > Специальные возможности).</string>
 
     <string name="shortcut_start_back">Старт задняя</string>
 
@@ -1999,7 +1999,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="screenshot_accessibility_enable_needed">Включите «Joy Creator» в специальных возможностях для использования этого ярлыка без запроса записи.</string>
 
-    <string name="screenshot_accessibility_service_desc">Делает скриншот для ярлыка FadRec и сохраняет в FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_service_desc">Делает скриншот для ярлыка FadRec и сохраняет в Joy Creator.</string>
 
     <string name="shortcuts_video_category">Запись видео</string>
 
@@ -2272,7 +2272,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_info_export_title">Экспортированные файлы</string>
 
-    <string name="faditor_info_export_desc">Экспортированные видео сохраняются в активное место хранения (то же, что настроено в Настройках) с префиксом «Faditor_» и меткой времени. Они появляются во вкладке Записи рядом с оригинальными записями.</string>
+    <string name="faditor_info_export_desc">Экспортированные видео сохраняются в активное место хранения (то же, что настроено в Настройках) с префиксом «JoyCreator_» и меткой времени. Они появляются во вкладке Записи рядом с оригинальными записями.</string>
 
     <string name="faditor_info_temp_title">Временные файлы и кэш</string>
 

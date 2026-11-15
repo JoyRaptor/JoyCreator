@@ -110,7 +110,8 @@ final class StageRenderer {
         GLES30.glBindVertexArray(0);
         GLES30.glBindBuffer(GLES30.GL_ARRAY_BUFFER, 0);
 
-        texIdle = upload(show.idle, false);
+        // a single sharp home pose (joybot/hi/home.webp, for his zoom toward us) is shown much smaller most of the time: mips
+        texIdle = upload(show.idle, show.idleCols == 1 && show.idleRows == 1);
         texSpin = show.spin != null ? upload(show.spin, false) : 0;
         texBack = show.back != null ? upload(show.back, true) : 0;
         texPanel = show.panelPic != null ? upload(show.panelPic, false) : 0;
@@ -259,7 +260,7 @@ final class StageRenderer {
             }
             flush(ringP, px2, normalBlend());
             // the thruster's light
-            float g = fx.glow, gr = 12f + 22f * g;
+            float g = fx.glow, gr = (12f + 22f * g) * fx.scale;
             light(fx.pegX, fx.pegY, gr, gr, 0f, 1f, 235f / 255f, 250f / 255f, .5f * g, 1f, 60f / 255f, 200f / 255f, .35f * g, .3f, 0f);
             // sparks: white-hot, cooling to pink
             for (Fx.Spark s : fx.sparks) {

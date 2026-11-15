@@ -75,14 +75,14 @@ public class JoybotFlightTest {
                             py = o.y;
                             if (t > Flight.T0 + 200) {                       // past the pop out of the button
                                 maxScale = Math.max(maxScale, o.scale);
-                                if (!Float.isNaN(ps)) scaleStep = Math.max(scaleStep, Math.abs(o.scale - ps));
+                                if (!Float.isNaN(ps)) scaleStep = Math.max(scaleStep, Math.abs(o.scale / ps - 1f));
                             }
                             ps = o.scale;
                             if (o.down) landedOff = Math.max(landedOff, Math.abs(o.scale - 1f));
                         }
                         // depth (owner, 11-15 midday): closer to us in the loops, exactly his own size on the ground
                         check(maxScale <= 1f + Flight.DEPTH + .001f, name + ": swells to " + maxScale);
-                        check(scaleStep < .06f, name + ": his size jumps " + scaleStep + " in 8 ms");
+                        check(scaleStep < .06f, name + ": his size jumps " + Math.round(scaleStep * 100f) + "% in 8 ms");
                         check(landedOff == 0f, name + ": not his own size on the ground");
                         pl.pose(f.tLand() - 8, o);
                         check(Math.abs(o.scale - 1f) < .03f, name + ": touches down at size " + o.scale);
@@ -104,7 +104,7 @@ public class JoybotFlightTest {
                 }
             }
         }
-        check(deepest > 1.15f, "no flight swings toward us (deepest " + deepest + ")");
+        check(deepest > 2f, "no flight zooms toward us (deepest " + deepest + ")");
         System.out.println("deepest swing toward us: " + deepest);
         System.out.println(flights + " flights, " + (fails == 0 ? "all pass" : fails + " FAILED"));
         if (fails > 0) System.exit(1);

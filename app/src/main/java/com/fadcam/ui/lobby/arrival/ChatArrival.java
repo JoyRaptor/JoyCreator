@@ -92,7 +92,7 @@ public final class ChatArrival {
     @Nullable private Flight flight;
     @Nullable private Reveal rev;
     @Nullable private StageView gl;
-    @Nullable private Bitmap idle, spin;
+    @Nullable private Bitmap idle, spin, homeSharp;
     private int idleCols = 8, idleRows = 2, spinCols = 8, spinRows = 2, spinCount = 10;
     @NonNull private RectF focus = DEFAULT_FOCUS;
     private volatile boolean spritesDone;
@@ -224,7 +224,15 @@ public final class ChatArrival {
             JoybotActs acts = JoybotActs.get(app);
             if (acts == null) { spritesDone = true; return; }
             JoybotActs.Act ia = acts.named("idle"), sa = acts.named("spin");
+            // His home pose at 480 px for the flight: he zooms up to about 3x toward us (Flight.DEPTH), where the 240 px
+            // cell would be stretched. Only this one picture is big (owner: keep big frames to the moments he is shown large).
+            Bitmap sharp = null;
+            try (java.io.InputStream in = app.getAssets().open("joybot/hi/home.webp")) {
+                sharp = android.graphics.BitmapFactory.decodeStream(in);
+            } catch (java.io.IOException | RuntimeException | OutOfMemoryError ignored) { /* the 240 px home will do */ }
+            final Bitmap hi = sharp;
             actor.post(() -> {
+                homeSharp = hi;
                 if (ia == null) { spritesDone = true; return; }
                 RectF f = acts.focus();
                 if (f != null) focus = f;
@@ -326,7 +334,9 @@ public final class ChatArrival {
 
     private void startStage(@NonNull Reveal r, @NonNull Flight f, @NonNull int[] ro, @Nullable Bitmap back, @NonNull Rect bs) {
         try {
-            Show show = new Show(f, r, d, t0, idle, idleCols, idleRows, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
+            Bitmap home = homeSharp != null ? homeSharp : idle;
+            int hc = homeSharp != null ? 1 : idleCols, hr = homeSharp != null ? 1 : idleRows;
+            Show show = new Show(f, r, d, t0, home, hc, hr, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
             if (back != null) {
                 show.back = back;
                 show.backRect.set((bs.left - ro[0]) / d, (bs.top - ro[1]) / d, (bs.right - ro[0]) / d, (bs.bottom - ro[1]) / d);

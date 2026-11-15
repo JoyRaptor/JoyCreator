@@ -32,11 +32,13 @@ public final class Flight {
 
     /**
      * Depth (owner, 11-15 midday: "vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us.
-     * On the ground, or scooting along it, he is exactly his resting size"): where his path turns back against the way
-     * he is travelling overall (the top of a loop) he swings toward us, up to this much bigger; it fades to nothing as
-     * he nears the ground, so he touches down at his own size.
+     * On the ground, or scooting along it, he is exactly his resting size"; then, seeing 20%: "rookie numbers ... grow 2
+     * to 3 times bigger and it would just look like he's zooming at you and away"): where his path turns back against
+     * the way he is travelling overall (the top of a loop) he zooms toward us, by up to this much more than his size before
+     * the zoom is smoothed in time (so about 2 to 2.8 times his size at the top of a loop); it fades to nothing as he
+     * nears the ground, so he touches down at his own size. Drawn from a sharp 480 px home pose (assets/joybot/hi).
      */
-    public static final float DEPTH = .3f;
+    public static final float DEPTH = 2.5f;
 
     /** Where he is, how he is turned and what picture to show. Reused; never kept. */
     public static final class Pose {
@@ -201,6 +203,55 @@ public final class Flight {
         if (quick) dur = Math.round(clamp(line.tot / 1.2f, 440f, 650f));
         else if (short_) dur = Math.round(800f * warpTotal);
         else dur = Math.round(clamp(line.tot / 1.55f, 650f, 1700f) * warpTotal);
+        depthT = quick ? null : depthProfile();
+    }
+
+    /** His zoom toward us through the flight ({@link #DEPTH}), sampled every {@link #DEPTH_STEP_MS} from {@link #T0}. */
+    @Nullable private final float[] depthT;
+    private static final int DEPTH_STEP_MS = 4;
+
+    /**
+     * How big he is at each moment: bigger where the path turns back on itself, fading to his own size well before the
+     * ground (by 40 dp above it) and before a braking burn; then smoothed in time (twice over 70 ms either side), so a
+     * fast dive zooms rather than pops.
+     */
+    @NonNull
+    private float[] depthProfile() {
+        int n = (int) (dur / DEPTH_STEP_MS) + 1;
+        float[] raw = new float[n], p = new float[3];
+        for (int i = 0; i < n; i++) {
+            float ue = progress(T0 + (long) i * DEPTH_STEP_MS);
+            line.at(ue, p);
+            float near = smooth(1f - clamp(((ey - p[1]) - 40f) / 220f, 0f, 1f));
+            float burn = leg != null ? smooth((ue - (leg.a - .14f)) / .1f) : 0f;
+            float away = smooth((ue - .1f) / .12f) * (1f - Math.max(near, burn));
+            raw[i] = DEPTH * backAt(ue) * away;
+        }
+        int half = 70 / DEPTH_STEP_MS;
+        for (int pass = 0; pass < 2; pass++) {
+            float[] out = new float[n];
+            for (int i = 0; i < n; i++) {
+                float sum = 0f;
+                int c = 0;
+                for (int k = Math.max(0, i - half); k <= Math.min(n - 1, i + half); k++) { sum += raw[k]; c++; }
+                out[i] = sum / c;
+            }
+            raw = out;
+        }
+        // ends exactly at his own size: the last 100 ms ease to it whatever the smoothing left
+        int tail = Math.min(n, 100 / DEPTH_STEP_MS);
+        for (int i = n - tail; i < n; i++) raw[i] *= smooth((n - 1 - i) / (float) Math.max(1, tail - 1));
+        for (int i = 0; i < n; i++) raw[i] += 1f;
+        return raw;
+    }
+
+    /** His zoom at {@code t} ms into the show (1 = his own size). */
+    float depthAt(long t) {
+        if (depthT == null) return 1f;
+        float f = clamp((t - T0) / (float) DEPTH_STEP_MS, 0f, depthT.length - 1);
+        int i = Math.min(depthT.length - 2, (int) f);
+        if (i < 0) return depthT[0];
+        return lerp(depthT[i], depthT[i + 1], f - i);
     }
 
     /** {@link #back} sampled at {@code n + 1} points, box-smoothed twice over {@code half} samples either side. */
@@ -402,11 +453,7 @@ public final class Flight {
             if (upW > .5f && Math.abs(vx) > 60f) face = vx < 0f ? -1 : 1;
             float pop = clamp((t - T0) / 160f, 0f, 1f);
             float spd = (float) Math.sin(Math.PI * ue);
-            float depth = 1f;
-            if (!f.quick) {
-                float away = smooth((ue - .1f) / .1f) * (1f - Math.max(near2, burnUp));
-                depth = 1f + DEPTH * f.backAt(ue) * away;
-            }
+            float depth = f.depthAt(t);
             o.x = p[0];
             o.y = p[1];
             o.rot = r;

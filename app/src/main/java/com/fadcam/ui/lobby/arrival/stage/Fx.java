@@ -40,6 +40,8 @@ final class Fx {
     float glow;
     /** His peg (where the thruster is) and the way his thrust points, this frame. */
     float pegX, pegY, dnX, dnY;
+    /** How big he is drawn this frame (his zoom toward us, {@link Flight#DEPTH}): his thruster's light and rings follow. */
+    float scale = 1f;
     float speed;
     Flight.Mode mode = Flight.Mode.FLY;
 
@@ -68,8 +70,10 @@ final class Fx {
         double th = Math.toRadians(pose.rot);
         dnX = (float) -Math.sin(th);
         dnY = (float) Math.cos(th);
-        pegX = pose.x + dnX * pegUp;
-        pegY = pose.y + dnY * pegUp;
+        // his thruster is where his drawn peg is: further out when he zooms toward us (Flight.DEPTH)
+        scale = pose.scale;
+        pegX = pose.x + dnX * pegUp * scale;
+        pegY = pose.y + dnY * pegUp * scale;
         if (!Float.isNaN(px)) {
             float vx = (pose.x - px) / dt, vy = (pose.y - py) / dt, kk = Math.min(1f, dt * 18f);
             vX += (vx - vX) * kk;
@@ -99,8 +103,8 @@ final class Fx {
             r.vy = dnY * (10f + 14f * base) + vY * .02f;
             r.calm = mode == Flight.Mode.CALM;
             r.life = r.calm ? 1300f : 560f + 300f * Math.min(base, 2.5f);
-            r.r0 = (3f + 1.6f * base) * f0;
-            r.grow = (9f + 9f * Math.min(base, 3f)) * f0;
+            r.r0 = (3f + 1.6f * base) * f0 * scale;
+            r.grow = (9f + 9f * Math.min(base, 3f)) * f0 * scale;
             r.rot = (float) th;
             rings.add(r);
         }

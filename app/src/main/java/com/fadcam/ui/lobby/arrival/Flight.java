@@ -180,7 +180,8 @@ public final class Flight {
         warp = new float[N + 1];
         for (int i = 1; i <= N; i++) warp[i] = warp[i - 1] + (1f / N) / speedAt((i - .5f) / N);
         warpTotal = warp[N];
-        if (quick) dur = 440L;
+        // The hop: quick, but never so quick across a big window that he skips (about 1.2 dp/ms).
+        if (quick) dur = Math.round(clamp(line.tot / 1.2f, 440f, 650f));
         else if (short_) dur = Math.round(800f * warpTotal);
         else dur = Math.round(clamp(line.tot / 1.55f, 650f, 1700f) * warpTotal);
     }
@@ -198,8 +199,11 @@ public final class Flight {
     /** Fraction of the path he has covered at {@code t} ms (UI thread uses this for the wake reveal). */
     public float progress(long t) {
         float u = clamp((t - T0) / (float) dur, 0f, 1f);
-        return quick ? easeIO(u) : warpInv(u);
+        return quick ? hopEase(u) : warpInv(u);
     }
+
+    /** The hop's ease: a sine in and out, gentle enough at its fastest to stay one figure, not a skip. */
+    static float hopEase(float u) { return (float) (.5 - .5 * Math.cos(Math.PI * clamp(u, 0f, 1f))); }
 
     /** His body centre at fraction {@code ue} of the path: {x, y, heading}. */
     public void at(float ue, @NonNull float[] out) { line.at(ue, out); }

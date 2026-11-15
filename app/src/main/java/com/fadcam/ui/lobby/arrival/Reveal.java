@@ -59,7 +59,7 @@ public final class Reveal {
         long tLand = flight.tLand();
         if (t > tLand + 200L) return -1f;
         float pu = Flight.clamp((t - Flight.T0) / (float) flight.dur, 0f, 1f);
-        flight.at(flight.quick ? Flight.easeIO(pu) : pu, p);
+        flight.at(flight.quick ? Flight.hopEase(pu) : pu, p);
         float rad = Math.max((float) Math.hypot(p[0] - bx, p[1] - by) + 70f, 30f);
         if (t > tLand) rad = Flight.lerp(rad, maxR, Flight.smooth((t - tLand) / 200f));
         return rad;

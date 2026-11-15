@@ -41,12 +41,22 @@ Owner, 11-15: effects are GL (VisLab's plumbing), not stock Android; the turn is
 squeeze of the container; afterimages must sell as a light trail.
 Build steps (branch `claude/joybot-sheet-20261113`):
 - [x] 7th path packed into `assets/joybot/paths.json` (`tools/joybot/pack_paths.py`, both SVGs).
-- [ ] `JoybotArrivalPrefs`: the settings above, defaults by `WindowSize.isExpanded`.
-- [ ] Chat drawer: big title, round close / settings, seat in the bottom row, reveals (button / curtain / wake), title transitions,
-      phone inset card and tablet floating card with drag and resize.
-- [ ] Joybot's GL stage over the chat: the flight on the 7 paths, rocket / plop / skim, thruster rings, sparks, light trail,
-      heat haze from a snapshot of the screen, landing flash; hands over to his seat and stops drawing when he is still.
-- [ ] Settings rows; cloud build; check on the tablet and the Note 9; STATE row; land.
+- [x] Settings: `ui/lobby/JoybotArrival` (defaults by `WindowSize.isExpanded`: tablet curtain + title with the drawer + card;
+      phone out of the button + full sheet); a different path and approach each open (`nextPath`, `nextApproach`).
+- [x] Chat drawer (`res/layout/activity_chat_assistant.xml`, `ui/lobby/arrival/ChatArrival`): no bar, round close / settings,
+      big JOYBOT (one view a letter), seat at the start of the bottom row (`SeatDrawable`), reveals (button / curtain / wake,
+      `Reveal`), title transitions, closes the way it opened; card (`CardFrame`, `CardGrip`): move by the title, size by the
+      edges, remembered; once he has landed the window becomes the card so the screen beside it stays usable.
+- [x] GL stage (`ui/lobby/arrival/stage/`, shaders `assets/joybot/stage/`): built on VisLab's `GlProgram` / `GlTarget`, one
+      small program per effect; flight maths `Flight` (checked on the PC: all 7 paths x 3 approaches end on the seat upright,
+      no NaN), light trail (duotone, Screen), rings, sparks, glints, thruster light, landing flash, heat haze from a picture of
+      the screen taken as it opened (`JoybotOpen`, PixelCopy) with the drawer drawn over it as far as it has opened; hands over
+      to the chat's own Joybot on the seat, keeps a calm glow 1.6 s, then shuts its GL down. Calm rings on the seat after that
+      come from `JoybotView` itself (no GPU while the chat sits still).
+- [x] Settings rows (`ArrivalSettings`, in Joybot's settings): drawer opening, title, later opens, phone card, frost.
+- [x] Openers pass their button (`JoybotOpen.start`): lobby, Studio, TextLab, VisLab, SpriteLab, Library (no button: top right).
+      JoyBrush (`JoyBrushActivity.kt`, JoyBrush lane) still opens without one: he comes from the top right there.
+- [ ] Cloud build; check on the tablet and the Note 9; STATE row; land.
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
@@ -60,4 +70,6 @@ Build steps (branch `claude/joybot-sheet-20261113`):
 - [Plan A, "Joybot as a character"](../joybot/JOYBOT_PLAN_20261014.md), [INBOX 9-09 and 9-12](../INBOX.md).
 
 ## Files and traps
-- `ui/lobby/JoybotView`, `JoybotFilm`, `ai/joybot/JoybotPulse`. Reduced motion → a still tint, never a breath.
+- `ui/lobby/JoybotView`, `JoybotFilm`, `ai/joybot/JoybotPulse`, `ui/lobby/arrival/**`. He ALWAYS animates, whatever the
+  phone's animation setting (owner, 11-14): his flights and the chat's opening run on Choreographer, never on system
+  animators (the owner's Note 9 has "remove animations" on, which makes a ValueAnimator jump to its end).

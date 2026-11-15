@@ -72,12 +72,27 @@ where it happens. No cutting the clip into pieces.
       restore" (`hover_studio_cut_mark`).
 - [x] Un-striking a word: the jump list is rebuilt every tick and at every export, so the word plays again at
       once. Undo is unchanged (the span edits were already one press, one step).
-- [ ] Tests: `CutJumpsTest` (run-cutjumps.sh, in run-studio-all) and the whole Studio run.
-- [ ] Cloud build; Note 9: a talking clip with three struck words and one Clean pass, exported, the file
-      played back; exported length against expected.
+- [x] Tests: `CutJumpsTest` (run-cutjumps.sh, in run-studio-all, 1233 checks) and the whole Studio run (53/53).
+- [x] Cloud build; Note 9 (agent, 11-15): a test clip of ten spoken words with the source time burned into
+      the picture (`stu-b3-talk.mp4`, left in the Note 9's Downloads); Clean, then "two", "four", "nine" struck;
+      exported. Expected 4078 ms (the kept pieces, 5375 ms, less the struck words, 1297 ms); the file's picture
+      runs 4081 ms (one frame of rounding), its sound 4139 ms (normal AAC padding). Frames: 2.43 s of source,
+      then straight to 4.10 s (the struck "two" skipped); the piece holding only "four" is gone; seven word
+      bursts in the sound, the struck three absent. Preview: the playhead jumped at each cut (logged).
+- [x] Found on the phone and fixed: striking a word wiped every silence gap cut on that clip
+      (`syncRemovedSpansFromTranscript` rebuilt the whole list; `model/CutSpanMerge` keeps the gaps). Re-checked
+      on the Note 9: gap cut, "three" struck, both cut; "three" restored, the gap stays.
+- [x] Found on the phone and fixed: a clip's tick read a position a few ms past its end as inside the next,
+      fully cut clip and seeked back, holding the picture ~0.7 s (f035d14a5).
+
+**Also seen, not fixed (other jobs):** right after transcribing, the transcript panel stayed blank until the
+Transcript tool was closed and opened again; Clean's second tap applies the cut at once (Clean on a film clip
+makes pieces, as built), it does not reopen the dialog.
 
 **Limits:** the hover label is on the film track's marks only (sound rows draw the mark, no hover); a jump over
-a still picture is not skipped in the preview (stills play on their own clock), it is in the export.
+a still picture is not skipped in the preview (stills play on their own clock), it is in the export; the preview
+jumps on its 50 ms tick, so the first moment of a struck word can be heard before the jump; a struck word on a
+voiceover lane jumps the film under it too (one rule: a jump is a jump of the whole program).
 
 ## Fixed 11-10 (Studio bugs session, commits 99f8b3ad5 + 3422a7a5a on `claude/studio-bugs-20261110-f15370`)
 - ✅ **Fix audio waveform stays unfixed.** Root cause was bigger than the waveform: a Fix/Clean bake wrote only

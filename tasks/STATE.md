@@ -237,6 +237,7 @@ Help: not owed (no new control).
 | whisper.cpp base.en (~57MB) — best wording | 🟢 ~ | ✔ native build, arm64 only |
 | LCS merge of Vosk timing + Whisper words | 🟢 ✔ | TranscriptSynthesizer — genuinely novel |
 | Filler-word detection and strike | 🟢 ✔ | |
+| **Struck words and cut silences really leave the video** (STU-B3) | 🟡 ✔ | Built 2026-11-15 (owner ruling 11-15). Strike a word in the transcript (hold, then drag across it) or tap a yellow silence gap, and playback and the exported video jump over it, picture and every sound lane together; titles, stickers and captions stay in step. The word stays on the timeline, darkened, with a small black mark where the jump happens (hover it: "Cut: 0.8 s skipped, tap the word to restore"); strike it again to bring it back. Note 9 agent check 11-15: an 18 s talking clip, Clean, three struck words: file 4.08 s against 4.078 s expected, the picture jumps from 2.43 s to 4.10 s of the source, the three words are gone from the sound. Before, struck words still played in every export. Limits: the preview jumps on its 1/20 s tick, so a jump can start a moment late; a jump over a still picture is skipped in the export only. Engine: `model/CutJumps` + `model/TimeMap` (one list for preview, export and the marks). Help: pending (`transcript_cut`). |
 | Word-level retiming and scrubbing | 🟢 ~ | WordScrubView |
 | Captions with 5 animated styles | 🟢 ~ | pop / zoom / bounce / boxed / hot |
 

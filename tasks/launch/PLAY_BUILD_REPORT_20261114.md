@@ -7,7 +7,7 @@ Card: [SHOW-1](../jobs/SHOW-1_play_build.md). Key backup steps for the owner: [P
 
 | What | Where | Numbers |
 |---|---|---|
-| Signed Play app bundle (the file to upload) | `D:\JoyCreator-builds\joycreator-play-v37-candidate-20261114.aab` (outside the repository) | 106.0 MB file; version code 37, version name 4.0.0; app ID `cc.joycreator.app` |
+| Signed Play app bundle (the file to upload) | `D:\JoyCreator-builds\joycreator-play-v37-candidate2-20261114.aab` (outside the repository; built on GitHub from commit 14cae42ed with the second-round changes, signed on this PC, `check_play_bundle.py` RESULT OK; R8 mapping beside it). The first local candidate is renamed `...-SUPERSEDED.aab` | 106.1 MB file; version code 37, version name 4.0.0; app ID `cc.joycreator.app` |
 | What a phone downloads | measured on the matching release APK (arm64), an upper bound: Play's own split APKs are smaller | **145.2 MB** against Play's 200 MB limit (the debug APK was 172-177 MB) |
 | 16 KB alignment (Play rule for Android 15+) | every native library in the bundle, checked by reading each library's ELF headers; zip offsets also checked with `zipalign -c -P 16` on the APK | **21 of 21 aligned** |
 | Signature | `jarsigner -verify` on the bundle, `apksigner verify` on the APK | signed with the upload key, SHA-256 `C7:60:CD:...:A9:A6:93` |

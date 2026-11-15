@@ -48,6 +48,8 @@ class UnibrushSettingsViewTest {
         val labels = descendants(view).mapNotNull { it.contentDescription?.toString() }
         assertTrue(labels.none { it.startsWith("Show ") && it.endsWith(" brush settings") })
         for (g in listOf("Shape", "Pressure & tilt", "Colour", "Paper", "Stroke ends", "Feel")) click(view, "Go to $g settings")
+        // K.4: the footprint opens the tip's shape editor.
+        click(view, "Footprint: the mark this brush leaves as the pen tilts. Tap to edit the tip's shape")
         click(view, "Keep these settings and close")
     }
 

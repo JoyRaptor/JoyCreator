@@ -140,6 +140,14 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   Stroke ends / Feel, Done, ✕ puts the mode back as it opened), the Quick / Tip / All tabs replaced by one list in the
   top bar's order, words at both ends of every slider. Screens: `after_unibrush_hard_one_editor.png`,
   `after_unibrush_groups_in_order.png`, `after_marker_dab_ends.png` in `tasks/screens/brush-editor-20261114/`.
-- **Still owed:** the footprint stacked under the tilt and tapping it to open the shape editor (wait for the engine
-  session's `HoverFootprint`, not on joy-creator yet); Unibrush's stage still shows the stripes with its own preview
-  rather than the shared stage.
+- **Footprint, seen on the Note 9 (11-14 night):** the mark a brush leaves seen from above, upright, at 35° and laid
+  over at 70° (one mark and "same at any tilt" for a brush that ignores tilt). Made from the brush's own code
+  (`core/chrome/Footprint`): oils and knives from `HoverFootprint`, every dab brush from the dab `BrushDabber` would
+  lay, traced with `TipMath.coverage`; pencil, watercolour and Sable are a circle of their size for now. Paint brushes:
+  stacked under the tilt curve. Unibrush: under the tip's side view, and **tapping it jumps to the tip's shape editor**
+  (or the switch that turns four-point shapes on), which blinks. The pen's tilt lights the nearest mark. Screens:
+  `after_knife3_footprint_under_tilt.png`, `after_unibrush_calligraphy_footprint.png`,
+  `after_footprint_tap_opens_shape_editor.png`.
+- **Still owed:** Unibrush's stage still shows the stripes with its own preview rather than the shared stage; the
+  hover outline under the pen still draws its own shapes (it can now use `Footprint`), and nobody has seen it with a
+  real S Pen since the atlas batch landed (agents cannot inject a hover on either device).

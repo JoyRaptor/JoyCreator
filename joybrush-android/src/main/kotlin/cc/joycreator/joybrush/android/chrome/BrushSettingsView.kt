@@ -61,6 +61,8 @@ class BrushSettingsView(
     private val tiltCurve = CurveEditorView(kit, "Tilt", BrushKnobs.curveHandles(tuned(), "tilt")) { h, done -> curveMoved("tilt", h, done) }
     /** BRUSH-UI: the tip seen from the side, for brushes whose tip is a dab (stamp, smudge, push). */
     private val tipSection: TipSectionView? = if (base.engine in setOf("stamp", "smudge", "push")) TipSectionView(kit) else null
+    /** BRUSH-UI section K.4: the mark it leaves seen from above, upright to laid over; stacked under the tilt curve. */
+    private val footprint = FootprintView(kit)
     /** BRUSH-UI section K: each group's first row, for the top bar's round buttons to jump to. */
     private val groupStarts = LinkedHashMap<cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group, View>()
     private lateinit var header: BrushEditorHeader
@@ -74,6 +76,7 @@ class BrushSettingsView(
         penDot.show(pressure, tilt, orientation)
         pressureCurve.showReading(if (pressure > 0f) pressure else Float.NaN)
         tiltCurve.showReading(BrushKnobs.tiltCurveInput(tuned(), tilt))
+        footprint.showTilt(tilt)
     }
 
     private fun curveMoved(curve: String, handles: List<Float>, done: Boolean) {
@@ -139,7 +142,11 @@ class BrushSettingsView(
         val hearing = LinearLayout(context).apply { orientation = HORIZONTAL; gravity = Gravity.TOP }
         hearing.addView(penDot, LayoutParams(0, WRAP, 0.8f))
         hearing.addView(pressureCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
-        hearing.addView(tiltCurve, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
+        // The tilt curve with the footprint under it: how the brush hears tilt, and what that does to its mark.
+        val tiltColumn = LinearLayout(context).apply { orientation = VERTICAL }
+        tiltColumn.addView(tiltCurve, LayoutParams(MATCH, WRAP))
+        tiltColumn.addView(footprint, LayoutParams(MATCH, kit.dpi(58f)).apply { topMargin = kit.dpi(4f) })
+        hearing.addView(tiltColumn, LayoutParams(0, WRAP, 1f).apply { marginStart = kit.dpi(6f) })
         tipSection?.let { hearing.addView(it, LayoutParams(0, kit.dpi(92f), 0.7f).apply { marginStart = kit.dpi(6f) }) }
         list.addView(hearing, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(6f)) })
         // Grouped, in the top bar's order; each group opens with its name, and its first row is where its button jumps.
@@ -166,6 +173,7 @@ class BrushSettingsView(
             }
         }.apply { addView(scroll, LayoutParams(MATCH, WRAP)) }, LayoutParams(MATCH, WRAP))
         tipSection?.show(tuned().tip.profile, tuned().tip.hardness.base)
+        footprint.show(tuned())
     }
 
     /** The two end pictures of [knob]'s slider, for the brush as it is now with only that setting moved. */
@@ -195,6 +203,7 @@ class BrushSettingsView(
     private fun refresh() {
         val p = tuned()
         tipSection?.show(p.tip.profile, p.tip.hardness.base)
+        footprint.show(p)
         refreshing = true
         for ((knob, box) in checks) box.isChecked = knob.get(p) >= 0.5f
         refreshing = false

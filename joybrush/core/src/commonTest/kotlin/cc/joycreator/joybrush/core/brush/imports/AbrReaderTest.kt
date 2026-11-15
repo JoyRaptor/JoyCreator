@@ -599,12 +599,18 @@ internal val RAMP = byteArrayOf(0.toByte(), 85.toByte(), 170.toByte(), 255.toByt
 
 /** A growable big-endian byte sink. */
 internal class Bytes {
-    private val out = ArrayList<Byte>()
+    // A plain growing array: the over-the-cap fixtures run to tens of MB, which boxed bytes in a list made a heap risk.
+    private var out = ByteArray(1024)
+    var size: Int = 0
+        private set
 
-    val size: Int get() = out.size
+    private fun room(n: Int) {
+        if (size + n <= out.size) return
+        out = out.copyOf(maxOf(out.size * 2, size + n))
+    }
 
     fun u8(v: Int) {
-        out.add((v and 0xFF).toByte())
+        room(1); out[size++] = (v and 0xFF).toByte()
     }
 
     fun u16(v: Int) {
@@ -629,10 +635,10 @@ internal class Bytes {
     }
 
     fun raw(b: ByteArray) {
-        for (x in b) out.add(x)
+        room(b.size); b.copyInto(out, size); size += b.size
     }
 
-    fun toByteArray(): ByteArray = ByteArray(size) { out[it] }
+    fun toByteArray(): ByteArray = out.copyOf(size)
 }
 
 /**

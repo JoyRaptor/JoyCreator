@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Cloud tests only (Linux runner): the jvm-harness scripts were written on Windows, where a class path is split
+# with ';'. On Linux that is ':'. This stands in front of the real java/javac and swaps ';' for ':' in class-path
+# and source-path values, given directly or in an @argfile. Nothing else changes. Not used on the PC.
+real="${JAVA_HOME:?JAVA_HOME not set}/bin/$(basename "$0")"
+pathopt='^(-cp|-classpath|--class-path|-sourcepath|--source-path|-processorpath|--processor-path|--module-path)$'
+fixfile() {   # an argfile: rewrite only the lines that carry a path option
+    sed -E '/^[[:space:]]*(-cp|-classpath|--class-path|-sourcepath|--source-path|-processorpath|--processor-path|--module-path)([[:space:]]|$)/ s/;/:/g' "$1"
+}
+args=()
+prev=""
+for a in "$@"; do
+    if [[ "$a" == @* && -f "${a#@}" ]]; then
+        t=$(mktemp)
+        fixfile "${a#@}" > "$t"
+        args+=("@$t")
+    elif [[ "$prev" =~ $pathopt ]]; then
+        args+=("${a//;/:}")
+    else
+        args+=("$a")
+    fi
+    prev="$a"
+done
+exec "$real" "${args[@]}"

@@ -39,6 +39,10 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Preflight.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/Shape.java \
   app/src/main/java/com/fadcam/ui/faditor/ai/joybot/CreateTree.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/LobbyGuide.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/JokeBook.java \
+  app/src/main/java/com/fadcam/ui/faditor/ai/joybot/RoomColours.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/Studio.java \
   app/src/main/java/com/fadcam/ui/faditor/slides/SlideContract.java \
   app/src/main/java/com/fadcam/ui/faditor/slides/SlideDesigns.java \
   tools/jvm-harness/IdeaEngineTest.java || exit 1

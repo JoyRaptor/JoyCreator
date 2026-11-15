@@ -1324,10 +1324,88 @@ public class IdeaEngineTest {
         bot7Honesty();
         bot7Shapes();
         bot7CreateTree();
+        bot7Guide();
 
         System.out.println();
         System.out.println(pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
+    }
+
+    // ── BOT-7: lobby guide, jokes, room colours ─────────────────────────────
+
+    static void bot7Guide() {
+        // First buttons: no typing needed.
+        StringBuilder l = new StringBuilder();
+        for (Idea i : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.firstButtons()) l.append(i.label).append(" | ");
+        eq("lobby: first buttons", "Create something | Help | Show me around | What can I do? | ", l.toString());
+        for (Idea i : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.firstButtons()) {
+            check("lobby: " + i.label + " has a hover label", !i.hint.isEmpty(), "");
+            check("lobby: " + i.label + " never quietened", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.isLobbyIdea(i), i.key);
+        }
+        check("lobby: what-can-I-do names the last project",
+                com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatCanIDo(false, "Holiday").contains("“Holiday”"), "");
+        check("lobby: offline offers Connect an AI", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatButtons(false, null)
+                .stream().anyMatch(i -> i.label.equals("Connect an AI")), "");
+        check("lobby: online doesn't", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatButtons(true, null)
+                .stream().noneMatch(i -> i.label.equals("Connect an AI")), "");
+        // Help's questions are all answered offline by the help book.
+        for (String q : com.fadcam.ui.faditor.ai.joybot.LobbyGuide.HELP_QUESTIONS) {
+            check("lobby help answers: " + q, com.fadcam.ui.faditor.ai.joybot.HelpBook.find(q) != null, "");
+        }
+        check("lobby: 'show me around' is a tour", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour("Show me around"), "");
+        check("lobby: 'give me a tour please' is a tour", com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour("give me a tour please"), "");
+        check("lobby: 'tour the clips' isn't", !com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour("show me around the clips"), "");
+        helpIs("how do I make something new", "joybot_create");
+        helpIs("why is joybot purple", "joybot_colours");
+        // The tour leaves out rooms this version doesn't have.
+        java.util.List<com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop> all =
+                com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(r -> false);
+        java.util.List<com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop> some =
+                com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(r -> r.equals("avatar"));
+        eq("tour: one fewer stop without Avatar", all.size() - 1, some.size());
+        // Jokes: plenty, clean wording, never twice running.
+        check("jokes: at least 60", com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.size() >= 60,
+                "" + com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.size());
+        check("jokes: no duplicates", new java.util.HashSet<>(com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES).size()
+                == com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.size(), "");
+        for (String a : new String[]{"tell me a joke", "Tell me another joke!", "joke", "make me laugh", "got any jokes?", "Joybot, tell me a joke please"}) {
+            check("jokes: asks “" + a + "”", com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(a), "");
+        }
+        for (String a : new String[]{"add a joke as a title", "is this a joke", "make the joke text red"}) {
+            check("jokes: not “" + a + "”", !com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(a), "");
+        }
+        java.util.List<Integer> told = new java.util.ArrayList<>();
+        java.util.Random r = new java.util.Random(7);
+        boolean repeat = false;
+        for (int n = 0; n < 500; n++) {
+            int i = com.fadcam.ui.faditor.ai.joybot.JokeBook.pick(told, r);
+            int back = Math.min(told.size(), com.fadcam.ui.faditor.ai.joybot.JokeBook.memory());
+            if (told.subList(told.size() - back, told.size()).contains(i)) repeat = true;
+            told.add(i);
+            while (told.size() > com.fadcam.ui.faditor.ai.joybot.JokeBook.memory()) told.remove(0);
+        }
+        check("jokes: none back before most others have had a turn (500 draws)", !repeat, "");
+        // Room colours: Studio keeps its greens; lobby wears Joybot's orb; one room named → that room.
+        com.fadcam.ui.faditor.ai.joybot.RoomColours.Pair p = com.fadcam.ui.faditor.ai.joybot.RoomColours.of("studio");
+        eq("colour: Studio is aqua to lime", "#35F6BF #97FE8B", String.format("#%06X #%06X", p.start & 0xFFFFFF, p.end & 0xFFFFFF));
+        eq("colour: lobby home is Joybot", "joybot", com.fadcam.ui.faditor.ai.joybot.RoomColours.home(IdeaEngine.Room.LOBBY));
+        eq("colour: Studio home is Studio", "studio", com.fadcam.ui.faditor.ai.joybot.RoomColours.home(IdeaEngine.Room.STUDIO));
+        eq("colour: unknown → Joybot", "joybot", com.fadcam.ui.faditor.ai.joybot.RoomColours.of("nowhere").room);
+        eq("colour: route 'record' → Capture", "capture", com.fadcam.ui.faditor.ai.joybot.RoomColours.of("record").room);
+        eq("colour: 'send this to VisLab?' wears VisLab", "vislab",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("studio", "Send this to VisLab?"));
+        eq("colour: two rooms keep home", "studio",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("studio", "Send it to VisLab or TextLab?"));
+        eq("colour: Avatar Studio isn't the Studio", "avatar",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("joybot", "Opening Avatar Studio."));
+        eq("colour: a new Studio project → Studio", "studio",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("joybot", "Making a new 3:1 (wide) Studio project."));
+        eq("colour: nothing named keeps home", "joybot",
+                com.fadcam.ui.faditor.ai.joybot.RoomColours.about("joybot", "Hi, I'm Joybot."));
+        for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind k : com.fadcam.ui.faditor.ai.joybot.CreateTree.KINDS) {
+            check("colour: bubble " + k.id + " has its room's colours",
+                    !com.fadcam.ui.faditor.ai.joybot.RoomColours.of(k.room).room.equals("joybot"), k.room);
+        }
     }
 
     // ── BOT-7: honesty before action (Preflight) ─────────────────────────────

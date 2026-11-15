@@ -34,6 +34,14 @@ public final class LobbyGuide {
                 + " and you can also just tell me what you'd like in your own words.");
     }
 
+    /** His very first words, the lobby's first run after the intro (the first walkthrough). */
+    @NonNull
+    public static String welcome(boolean online) {
+        return "Welcome to Joy Creator! I'm Joybot, your guide. Tell me what you'd like to make and I'll set it up"
+                + " in the right room for you, or I can show you around first. Tap a button to start: no typing needed."
+                + (online ? "" : " All of this works with no AI and no account.");
+    }
+
     /** The first buttons: Create something · Help · Show me around · What can I do. */
     @NonNull
     public static List<Idea> firstButtons() {
@@ -91,7 +99,7 @@ public final class LobbyGuide {
 
     /** Questions people ask first, each answered by the help book with no AI. */
     public static final List<String> HELP_QUESTIONS = Collections.unmodifiableList(Arrays.asList(
-            "How do I make a video?",
+            "How do I edit a video?",
             "How do I start a drawing?",
             "How do I record my screen?",
             "Where are my things?",
@@ -139,6 +147,14 @@ public final class LobbyGuide {
         List<Stop> out = new ArrayList<>();
         for (Stop s : STOPS) if (!hidden.test(s.route)) out.add(s);
         return out;
+    }
+
+    /** "Show me around", "give me a tour". */
+    public static boolean asksTour(@Nullable String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase(java.util.Locale.US).replaceAll("[.!?,]", " ").replaceAll("\\s+", " ").trim();
+        return t.matches("(please |joybot |can you |could you )*(show me around|give me a tour|take me on a tour|"
+                + "show me the app|tour|guided tour|walk me through the app)( please)?");
     }
 
     @NonNull

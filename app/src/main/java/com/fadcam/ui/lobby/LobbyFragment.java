@@ -447,6 +447,8 @@ public class LobbyFragment extends BaseFragment {
     @Override
     public void onResume() {
         super.onResume();
+        // BOT-7: the lobby's first run (Joybot's welcome) and a "Show me around" asked from the chat.
+        com.fadcam.ui.tour.LobbyTour.onLobbyShown(requireActivity(), getView());
         // The lobby's ground is true black. A maroon status bar above it is the single most
         // visible piece of the old identity left on the front door.
         try {

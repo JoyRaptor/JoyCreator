@@ -356,6 +356,12 @@ public final class CreateTree {
             return this;
         }
 
+        /** The person's sprite sheets (read from the Library after the walk began). */
+        public void setSheets(@NonNull List<Choice> s) {
+            sheets.clear();
+            sheets.addAll(s);
+        }
+
         /** The kinds, in this person's order (the bubbles). */
         @NonNull public List<Kind> kinds() { return order; }
 

@@ -208,6 +208,25 @@ public final class HelpBook {
                             + "connected I can take on anything you describe, look at pictures, and make new ones.",
                     null, null),
 
+            // ── BOT-7 (11-15): Joybot in the lobby ──
+            new Topic("joybot_create", "make something new|create something|start something new|new blank project|"
+                            + "blank project|new project at|custom aspect|3:1 project|banner video|what can i make",
+                    "Tap Joybot in the lobby, then Create something. Pick what to make (a drawing, perspective, an"
+                            + " animation, a tile, a sprite, a video, an audio project, music visuals, titles, a character),"
+                            + " answer a question or two with the buttons (or type your own, like 3:1), and I open the right"
+                            + " room already set up. It works with no AI, and the things you make most come first.",
+                    null, null),
+            new Topic("joybot_colours", "joybot colou?rs?|bubble colou?rs?|why is joybot purple|why are the bubbles|"
+                            + "colou?rs? mean|message colou?r",
+                    "My colours say where something will happen. In the lobby I wear my own purple; inside a room I wear"
+                            + " that room's colours (the Studio's greens in the Studio). A message or button about another"
+                            + " room wears that room's colours, so you can tell where “Take me there” goes before you tap it.",
+                    null, null),
+            new Topic("joybot_tour", "show me around|tour|guided tour|walk me through|first time",
+                    "Tap Joybot in the lobby, then Show me around: the lobby dims and I light up each part in turn and"
+                            + " say what it's for. Tap Next, or Skip any time.",
+                    null, null),
+
             // ── Wing help (G3, 2026-10-15): every answer names a control confirmed in the code or strings ──
             new Topic("sprite_open", "open sprite|sprite lab|new sprite sheet|make a sprite sheet",
                     "Open Sprite Lab from the lobby's Sprite Lab room. Or in the Studio, tap Sprites in the tool strip, "

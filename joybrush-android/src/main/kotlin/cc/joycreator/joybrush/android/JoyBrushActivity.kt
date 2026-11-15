@@ -730,6 +730,15 @@ class JoyBrushActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        // Back in front after a newer screen had this drawing: what this one shows is older than the file. Start again
+        // from the file, which claims it for this screen.
+        if (workingSaveAllowed && !benchMode && workingPath()?.let { WorkingFileOwners.takenOver(it, this) } == true) {
+            android.util.Log.i("JoyBrushSave", "a newer screen saved this drawing: loading it again")
+            workingSaveAllowed = false
+            workingPath()?.let { WorkingFileOwners.claim(it, this) }
+            recreate()
+            return
+        }
         viewPausePending = false
         ui.removeCallbacks(pauseView)
         canvas.onResume()
@@ -777,6 +786,7 @@ class JoyBrushActivity : Activity() {
     }
 
     override fun onDestroy() {
+        WorkingFileOwners.release(this)
         activeBench?.abortSelect(); activeBench = null
         JoybotHands.detach(joybotEnv)
         unibrush?.close(); unibrush = null
@@ -2577,6 +2587,13 @@ class JoyBrushActivity : Activity() {
         }
         // The bench screen's drawing is a disposable test: never saved, and no "autosave did not work" toast for it.
         if (dest is SaveDest.Working && benchMode) { finished(null); return }
+        // Another screen opened this drawing after this one (two screens on one file): that one holds the newer picture
+        // and saves it. This one's older picture must not go over it (lost work, bug hunt 2026-11-15).
+        if (dest is SaveDest.Working && workingPath()?.let { WorkingFileOwners.takenOver(it, this) } == true) {
+            android.util.Log.w("JoyBrushSave", "working save skipped: a newer screen has this drawing")
+            finished(null)
+            return
+        }
         if (dest is SaveDest.Working && !workingSaveAllowed) {
             finished("the previous drawing needs recovery before autosave can replace it")
             return
@@ -2871,8 +2888,12 @@ class JoyBrushActivity : Activity() {
         }
     }
 
+    /** This screen's working file as [WorkingFileOwners] names it, or null when the phone has nowhere to keep one. */
+    private fun workingPath(): String? = workingFile()?.absoluteFile?.normalize()?.path
+
     private fun finishStartup(loaded: Boolean) {
         workingSaveAllowed = loaded
+        if (loaded) workingPath()?.let { WorkingFileOwners.claim(it, this) }
         if (loaded) ui.post { if (!destroyed) applyLaunchPreset() }
         // JBX-14: the Library's name for this drawing (renames happen there) goes into the file at the next save.
         if (loaded) workingFile()?.let { f ->
@@ -3001,6 +3022,7 @@ class JoyBrushActivity : Activity() {
             changes = 0
             ui.removeCallbacks(idleSave)
             workingSaveAllowed = true
+            workingPath()?.let { WorkingFileOwners.claim(it, this) }
             strokeSaveClock.reset(android.os.SystemClock.elapsedRealtime())
             onLoaded(!destroyed)
         }

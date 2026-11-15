@@ -146,9 +146,17 @@ jobs:
           TESTS_REF: ${{ inputs.ref }}
           TESTS_SHA: ${{ steps.meta.outputs.sha }}
         run: |
-          # The jvm-harness scripts were written on Windows: ';' class paths (java/javac stand-ins swap them) and
-          # cygpath. The build lock they take is a file under TEMP, which this runner has to itself.
+          # The test runner itself comes from this workflow's own commit, so a branch made before it existed can
+          # still be tested; only these tool files are swapped, never the code under test.
+          git fetch -q --depth 1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD -- tools/cloud/run-tests.sh tools/cloud/linux-shims
+          # The jvm-harness scripts were written on Windows: ';' class paths (java/javac stand-ins swap them),
+          # cygpath and `python`. The build lock they take is a file under TEMP, which this runner has to itself.
           chmod +x tools/cloud/linux-shims/* tools/cloud/run-tests.sh
+          if [ "${SUITES_IN:-all}" = all ] || echo "$SUITES_IN" | grep -q studio; then
+            # frame-parity's checks; Ubuntu's own Python refuses pip without the second flag (this runner is throwaway)
+            python3 -m pip install --quiet --disable-pip-version-check --user --break-system-packages numpy pillow
+          fi
           export PATH="$GITHUB_WORKSPACE/tools/cloud/linux-shims:$PATH"
           export TEMP="$RUNNER_TEMP"
           S="${SUITES_IN:-all}"

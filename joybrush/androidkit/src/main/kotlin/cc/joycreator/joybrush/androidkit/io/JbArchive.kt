@@ -60,6 +60,13 @@ const val ARCHIVE_DEFLATE_LEVEL = 6
  */
 object ArchiveMediaDeflate { @Volatile var level: Int = java.util.zip.Deflater.BEST_SPEED }
 
+/**
+ * Whether the screen's working save rewrites only what changed ([JbArchive.saveCarrying]) or everything, as before
+ * 2026-11-15 ([JbArchive.save]). The file made is the same archive either way; off is the way back if a phone's storage
+ * ever disagrees with the carrying.
+ */
+object ArchiveCarrying { @Volatile var on: Boolean = true }
+
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
 class JbArchiveException(message: String) : Exception(message)
 

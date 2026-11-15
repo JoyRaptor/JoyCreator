@@ -53,6 +53,8 @@ internal object MediaFailureProbe {
         if (names.getInt("survived") != names.getInt("made")) pass = false
         // JBX-35: whether this driver hands a deleted name out again at all (reported, never a pass or a fail).
         o.put("nameReuse", runCatching { TextureNameReuseProbe.measure() }.getOrElse { JSONObject().put("failed", it.toString()) })
+        // JBX-35: the 10-31 lost tiles made to happen on purpose, and shown not to happen the way the code is now (reported).
+        o.put("doubleDelete", runCatching { DoubleDeleteProbe.run() }.getOrElse { JSONObject().put("failed", it.toString()) })
         val glError = GLES30.glGetError()
         return o.put("glError", glError).put("pass", pass && glError == GLES30.GL_NO_ERROR).toString()
     }

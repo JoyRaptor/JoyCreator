@@ -129,11 +129,28 @@ public final class TipBook {
      * = no idea yet, so every wing alike). About one time in four it's from a wing they haven't
      * touched, so they find it. Tips already seen are skipped until every tip has been seen.
      */
+    /** True when the tip is about a place on the launch list (com.fadcam.launch.LaunchList). */
+    static boolean launchHidden(@NonNull Tip t) {
+        if (com.fadcam.launch.LaunchList.hiddenRoute(t.route)) return true;
+        switch (t.wing) {
+            case VISLAB:    return com.fadcam.launch.LaunchList.hiddenRoute("vislab");
+            case JOYBRUSH:  return com.fadcam.launch.LaunchList.hiddenRoute("joybrush");
+            case SPRITELAB: return com.fadcam.launch.LaunchList.hiddenRoute("spritelab");
+            case CAPTURE:   return com.fadcam.launch.LaunchList.hiddenRoute("record");
+            case TEXTLAB:   return com.fadcam.launch.LaunchList.hiddenRoute("textlab");
+            default:        return false;
+        }
+    }
+
     @NonNull
     public static Tip pick(@NonNull Map<Wing, Integer> uses, @NonNull Set<String> seen, @NonNull Random rnd) {
+        // L37: no tip about a place on the launch list (its wing or where "Take me there" goes).
+        List<Tip> open = new ArrayList<>();
+        for (Tip x : TIPS) if (!launchHidden(x)) open.add(x);
+        if (open.isEmpty()) open = new ArrayList<>(TIPS);
         List<Tip> fresh = new ArrayList<>();
-        for (Tip x : TIPS) if (!seen.contains(x.id)) fresh.add(x);
-        if (fresh.isEmpty()) fresh = new ArrayList<>(TIPS);
+        for (Tip x : open) if (!seen.contains(x.id)) fresh.add(x);
+        if (fresh.isEmpty()) fresh = new ArrayList<>(open);
 
         int total = 0;
         for (Integer n : uses.values()) total += Math.max(0, n == null ? 0 : n);

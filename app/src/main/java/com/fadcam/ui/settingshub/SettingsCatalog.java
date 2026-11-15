@@ -164,6 +164,8 @@ final class SettingsCatalog {
             List<SettingsKey> keys = new ArrayList<>(s.rows.size());
             for (Row r : s.rows) {
                 if (watch && r.key == SettingsKey.WHATS_NEW) continue;
+                // L37: a row on the launch list (setting_<key>) is not shown, nor found by search.
+                if (com.fadcam.launch.LaunchGate.hidden(c, "setting_" + r.key.name().toLowerCase(java.util.Locale.ROOT))) continue;
                 keys.add(r.key);
             }
             out.add(keys);

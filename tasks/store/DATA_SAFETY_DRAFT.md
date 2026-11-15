@@ -93,6 +93,10 @@ These are not Data safety answers but they decide whether the form stays true.
 2. **Contact email on the policy** is `studio@joycreator.cc` until he confirms the mailbox receives mail.
 3. **Target audience.** See [CONTENT_RATING_DRAFT.md](CONTENT_RATING_DRAFT.md). If "13 and over" is not chosen, Play's Families
    rules change this whole form.
-4. **A "report this reply" control for Joybot** (Play's AI-content policy): none exists in the code (checked
-   `res/values/strings.xml` and the Joybot sources, 11-14). Not a Data safety item; recorded here because the form's AI question
-   leads to it.
+4. **"Report this reply" for Joybot** (Play's AI-content policy): **now exists** (landed 11-14, commit `959bbd3d9`, after the first draft
+   of this file). A flag beside Copy on every Joybot answer, asking first; it saves the reply and the question before it as JSON in the
+   person's Joy Creator folder (`Joybot/Reports/`, `ui/faditor/ai/joybot/ReplyReport.java:38`) and opens the person's own email app
+   with a prefilled message to `studio@joycreator.cc` (`ReplyReport.java:37,100-101`, an `ACTION_SENDTO` `mailto:` intent; UI at
+   `ui/faditor/ai/ChatAssistantActivity.java:3547,3560`). **Data safety reading:** the app transmits nothing; the content reaches the
+   developer only if the person presses send in their own mail app, so it is not "collected" by the app. Optionally mention it in
+   the form's free text. PRIVACY.md now says this in "What can leave your phone".

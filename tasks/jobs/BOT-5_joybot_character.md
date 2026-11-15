@@ -78,6 +78,24 @@ Build steps (branch `claude/joybot-sheet-20261113`):
       install (one 67 ms gap, shader compile). CPU zone 34.8-37.4 C throughout. Verdict: Frost costs no frames; kept on.
 - [ ] The owner sees it play (clips sent 11-15), then land on `joy-creator`.
 
+## 11-15 midday: the owner's asks after watching it (do these before the arrival lands)
+Told to the orchestrator in the owner's words; each is a requirement.
+- [ ] **Way back home.** He flies back into the button he came out of when the chat closes, not just out.
+- [ ] **X and cog swap (full-screen phone mode at least).** After he flies out, the X sits where he came out (upper right,
+      under the thumb that opened him) and the cog sits over Joybot. No colour backing behind either: remove it or make it
+      fully transparent. Tapping X flies him straight back to where he started.
+- [ ] **Depth in flight.** Vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us. On the
+      ground, or scooting along it, he is exactly his resting size.
+- [ ] **Moods that mean something.** While he checks the help documents: a thinking animation and a *reading* one (looking
+      in the handbook). Whenever he can't help or says he can't do something: the nervous animation.
+- [ ] **Soft top edge.** The conversation scrolls up into a very soft gradient that darkens upward, never a hard line.
+- [ ] **Touch him.**
+  - Asleep, tap or double-tap: he wakes with a scramble or an "oopsies".
+  - Awake, tap: one of many different actions, and he moves around while doing it.
+  - Asked "do a backflip": he does a backflip in the chat, then confetti or a bow.
+  - A directional poke nudges him (he's a little guy).
+  - A flick flings him round the screen: he bounces off the edges, comes back and settles.
+
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
 - [ ] Fly-to-corner and show-off moves.

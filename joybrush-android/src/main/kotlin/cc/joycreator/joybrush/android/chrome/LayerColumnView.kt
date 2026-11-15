@@ -54,7 +54,12 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         fun openPaper(anchor: View) {}
         /** K9: the selected animation board owns this layer's held/animated state. */
         fun setLayerHeld(boardId: String, layerId: String, held: Boolean) {}
+        /** TAB-1 K9: a button on a pulled-out row (the same actions the layer's own panel has). */
+        fun layerAction(id: String, action: LayerAction) {}
     }
+
+    /** TAB-1 K9: what the buttons on a pulled-out row do. */
+    enum class LayerAction { TOGGLE_VISIBLE, TOGGLE_LOCK, DUPLICATE, MERGE_DOWN, DELETE }
 
     private val plus = PlusCell()
     private val paper = PaperCell()
@@ -127,7 +132,161 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
     }
 
     /** The column's width, for the screen to keep other things clear of it. */
-    val widthPx: Int get() = kit.dpi(WIDTH_DP + if (animationBoardId != null) MARKER_COLUMN_DP else 0f)
+    val widthPx: Int get() = kit.dpi(WIDTH_DP + (if (animationBoardId != null) MARKER_COLUMN_DP else 0f) + pulledDp)
+
+    // ── TAB-1 K9 (owner, 11-15): pull the column out for more ─────────────────────────────────
+    // Compact by default, exactly as on the phone. On a window 600 dp or wider a grip on the
+    // column's left edge pulls it wider: each row then shows the layer's name and opacity, and
+    // further out the buttons its own panel has (hide, lock, duplicate, merge down, delete). Dragging
+    // the grip up or down moves the column along the edge. Only as much room as you want for layers.
+
+    /** Width pulled out past the compact column, dp. 0 = compact. */
+    private var pulledDp = 0f
+    private val infos = linkedMapOf<String, RowInfo>()
+    private var gripMode = 0          // 0 none, 1 undecided, 2 width, 3 move
+    private var gripX = 0f
+    private var gripY = 0f
+    private var gripStartPull = 0f
+    private var gripStartTy = 0f
+    private val slop = ViewConfiguration.get(context).scaledTouchSlop
+    private val gripPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+    /** The grip exists only where a phone held upright is not (TAB-1: the phone stays as drawn). */
+    private val pullable: Boolean
+        get() = resources.configuration.screenWidthDp >= PULL_FROM_WINDOW_DP
+
+    private fun setPulled(dp: Float) {
+        val next = dp.coerceIn(0f, MAX_PULL_DP)
+        val stageBefore = pullStage()
+        pulledDp = next
+        layoutParams?.let { it.width = widthPx; layoutParams = it }
+        if (pullStage() != stageBefore) rebuild()
+        requestLayout()
+    }
+
+    /** 0 compact, 1 names, 2 names and buttons. */
+    private fun pullStage(): Int = when {
+        pulledDp >= ACTIONS_FROM_DP -> 2
+        pulledDp >= INFO_FROM_DP -> 1
+        else -> 0
+    }
+
+    override fun onInterceptTouchEvent(ev: MotionEvent): Boolean {
+        if (!pullable) return super.onInterceptTouchEvent(ev)
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN && ev.x <= kit.dp(GRIP_DP)) {
+            gripMode = 1
+            gripX = ev.rawX; gripY = ev.rawY
+            gripStartPull = pulledDp; gripStartTy = translationY
+            return true
+        }
+        return super.onInterceptTouchEvent(ev)
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(ev: MotionEvent): Boolean {
+        if (gripMode == 0) return super.onTouchEvent(ev)
+        val dx = ev.rawX - gripX
+        val dy = ev.rawY - gripY
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_MOVE -> {
+                if (gripMode == 1 && (Math.abs(dx) > slop || Math.abs(dy) > slop)) {
+                    gripMode = if (Math.abs(dx) >= Math.abs(dy)) 2 else 3
+                }
+                if (gripMode == 2) setPulled(gripStartPull - dx / resources.displayMetrics.density)
+                if (gripMode == 3) {
+                    val parentH = (parent as? View)?.height ?: 0
+                    val room = (parentH - height - top).coerceAtLeast(0)
+                    // Down from its place under the top bar, never above it.
+                    translationY = (gripStartTy + dy).coerceIn(0f, room.toFloat())
+                }
+            }
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                // A tap on the grip pulls the column out to show names and buttons, or back in.
+                if (gripMode == 1 && ev.actionMasked == MotionEvent.ACTION_UP) {
+                    setPulled(if (pulledDp > 0f) 0f else ACTIONS_FROM_DP + 20f)
+                } else if (gripMode == 2 && pulledDp < SNAP_IN_DP) setPulled(0f)
+                gripMode = 0
+            }
+        }
+        return true
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (!pullable) return
+        // The grip: a short pill on the left edge, so the pull reads as possible.
+        gripPaint.color = kit.ink(0.35f)
+        val w = kit.dp(3f); val h = kit.dp(28f)
+        val cx = kit.dp(GRIP_DP) / 2f; val cy = height / 2f
+        canvas.drawRoundRect(cx - w / 2f, cy - h / 2f, cx + w / 2f, cy + h / 2f, w, w, gripPaint)
+    }
+
+    /** The name, opacity and buttons beside one cell while the column is pulled out. */
+    private inner class RowInfo(private val layerId: String, buttons: Boolean) : LinearLayout(context) {
+        private val name = android.widget.TextView(context).apply {
+            setTextColor(kit.ink(0.92f)); textSize = 13f; maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        private val sub = android.widget.TextView(context).apply {
+            setTextColor(kit.ink(0.55f)); textSize = 10.5f; maxLines = 1
+            typeface = Typeface.MONOSPACE
+        }
+        private val icons = linkedMapOf<LayerAction, android.widget.ImageView>()
+
+        init {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(kit.dpi(GRIP_DP), 0, kit.dpi(4f), 0)
+            addView(name, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+            addView(sub, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+            if (buttons) {
+                val bar = LinearLayout(context).apply { orientation = HORIZONTAL }
+                for ((action, words) in listOf(
+                    LayerAction.TOGGLE_VISIBLE to "Hide or show this layer",
+                    LayerAction.TOGGLE_LOCK to "Lock or unlock this layer",
+                    LayerAction.DUPLICATE to "Duplicate this layer",
+                    LayerAction.MERGE_DOWN to "Merge this layer into the one under it",
+                    LayerAction.DELETE to "Delete this layer (Undo brings it back)")) {
+                    val iv = android.widget.ImageView(context).apply {
+                        val pad = kit.dpi(5f)
+                        setPadding(pad, pad, pad, pad)
+                        background = null
+                        setOnClickListener { host.layerAction(layerId, action) }
+                    }
+                    kit.label(iv, words)
+                    icons[action] = iv
+                    bar.addView(iv, LayoutParams(kit.dpi(28f), kit.dpi(28f)))
+                }
+                addView(bar, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
+            }
+            refresh()
+        }
+
+        fun refresh() {
+            val layer = stack?.get(layerId) ?: return
+            name.text = layer.name
+            sub.text = "${Math.round(layer.opacity * 100)}%  ${BlendNames.name(layer.blend)}"
+            for ((action, iv) in icons) {
+                val on = when (action) {
+                    LayerAction.TOGGLE_VISIBLE -> !layer.visible
+                    LayerAction.TOGGLE_LOCK -> layer.locked
+                    else -> false
+                }
+                val tint = when {
+                    action == LayerAction.DELETE -> kit.p.stateDestroy
+                    on -> kit.p.stateSelected
+                    else -> kit.ink(0.75f)
+                }
+                iv.setImageDrawable(when (action) {
+                    LayerAction.TOGGLE_VISIBLE -> JbIcon.EYE
+                    LayerAction.TOGGLE_LOCK -> JbIcon.LOCK
+                    LayerAction.DUPLICATE -> JbIcon.DUPLICATE
+                    LayerAction.MERGE_DOWN -> JbIcon.MERGE_DOWN
+                    LayerAction.DELETE -> JbIcon.DELETE
+                }.drawable(tint))
+            }
+        }
+    }
 
     val paperAnchor: View get() = paper
 
@@ -147,6 +306,7 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         if (sameList && rows.childCount == s.size) {
             cells.values.forEach { it.invalidate() }
             markers.values.forEach { it.refresh() }
+            infos.values.forEach { it.refresh() }
         } else {
             rebuild()
         }
@@ -182,13 +342,15 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
         rows.removeAllViews()
         cells.clear()
         markers.clear()
+        infos.clear()
+        val stage = pullStage()
         val ids = s.layers.map { it.id }.toSet()
         thumbs.keys.retainAll(ids)
         maskThumbs.keys.retainAll(s.layers.filter { it.hasMask }.map { it.id }.toSet())
         for (layer in s.layers.asReversed()) {
             val cell = Cell(layer.id)
             cells[layer.id] = cell
-            val h = thumbSize().second + kit.dpi(8f)
+            val h = maxOf(thumbSize().second + kit.dpi(8f), if (stage == 2) kit.dpi(64f) else 0)
             val row = LinearLayout(context).apply {
                 orientation = HORIZONTAL
                 clipChildren = false
@@ -200,7 +362,12 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
                 marker.refresh()
                 row.addView(marker, LayoutParams(kit.dpi(MARKER_COLUMN_DP), LayoutParams.MATCH_PARENT))
             }
-            row.addView(cell, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+            if (stage > 0) {
+                val info = RowInfo(layer.id, buttons = stage == 2)
+                infos[layer.id] = info
+                row.addView(info, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
+                row.addView(cell, LayoutParams(kit.dpi(WIDTH_DP - 8f), LayoutParams.MATCH_PARENT))
+            } else row.addView(cell, LayoutParams(0, LayoutParams.MATCH_PARENT, 1f))
             rows.addView(row, LayoutParams(LayoutParams.MATCH_PARENT, h))
         }
     }
@@ -551,6 +718,13 @@ class LayerColumnView(private val kit: ChromeKit, private val host: Host) : Line
 
     companion object {
         const val WIDTH_DP = 60f
+        /** TAB-1 K9: the pull-out. Grip strip on the left edge, and the widths where rows grow. */
+        const val GRIP_DP = 14f
+        const val INFO_FROM_DP = 110f
+        const val ACTIONS_FROM_DP = 170f
+        const val MAX_PULL_DP = 300f
+        const val SNAP_IN_DP = 40f
+        const val PULL_FROM_WINDOW_DP = 600
         const val MARKER_COLUMN_DP = 16f
         const val MARKER_GLYPH_DP = 13f
         const val CELL_W_DP = 44f

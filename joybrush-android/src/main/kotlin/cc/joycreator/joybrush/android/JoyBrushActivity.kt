@@ -126,6 +126,10 @@ private const val OVERLAY_FILL = 0x1AFFFFFF
 private const val OVERLAY_RING = 0x1FFFFFFF
 private const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
 private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+/** TAB-1 K10: the brush panel stands open from this window width (the tablet either way up), 360 dp wide, beside the rail. */
+private const val BRUSH_DOCK_FROM_DP = 840
+private const val BRUSH_DOCK_DP = 360
+private const val BRUSH_DOCK_RAIL_GAP = 52
 
 // JB-0.08b. The working file and its folder are the spec's decisions (1) and (3).
 private const val WORKING_DIR = "joybrush"
@@ -1094,6 +1098,11 @@ class JoyBrushActivity : Activity() {
         // A shelf of one is a nearly empty drawer (seen on the Note 9): open on All until the tool's own shelf has a choice.
         val ownCount = BrushShelf.shelves(brushes).firstOrNull { it.first == own }?.second?.size ?: 0
         val start = if (ownCount >= 2) own else BrushShelf.Kind.ALL
+        // TAB-1 K10 (owner, 11-15): on a wide window the brushes stand in a panel that stays open while you paint.
+        if (resources.configuration.screenWidthDp >= BRUSH_DOCK_FROM_DP) {
+            toggleBrushDock(start, current)
+            return
+        }
         val drawer = BrushDrawerView(kit, tunedBrushes(), start, current, onPick = { picked ->
             chooseDrawerBrush(picked, settings = false)
         }, onSettings = { held ->
@@ -1102,6 +1111,53 @@ class JoyBrushActivity : Activity() {
             onImport = { popovers.close(); brushImports.ask() })
         // Full width on a phone (the Note 9 at its dense setting is ~548 dp); capped on a tablet so strokes stay readable.
         popovers.showSheet(drawer, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT)
+    }
+
+    /** TAB-1 K10: the brush panel standing beside the tool rail; null while closed. */
+    private var brushDock: LinearLayout? = null
+
+    /**
+     * TAB-1 K10: the brushes as a tall panel beside the rail that stays open while you paint: starred brushes and the
+     * latest picks on top (Mine), the kinds down its left, hold a brush for its settings. The same brush button, or its
+     * close, puts it away. Only on a wide window; the phone keeps its drawer.
+     */
+    private fun toggleBrushDock(start: BrushShelf.Kind, current: String?) {
+        val host = topBar.parent as? FrameLayout ?: return
+        brushDock?.let { host.removeView(it); brushDock = null; return }
+        popovers.close()
+        lateinit var drawer: BrushDrawerView
+        drawer = BrushDrawerView(kit, tunedBrushes(), start, current, onPick = { picked ->
+            chooseDrawerBrush(picked, settings = false)
+            drawer.markCurrent(picked.id)
+        }, onSettings = { held ->
+            chooseDrawerBrush(held, settings = true)
+        }, previews = drawerPreviewSource(), editableLines = { BrushLinePreferences(prefs).enabled(it) },
+            onImport = { brushImports.ask() }, marks = cc.joycreator.joybrush.android.chrome.BrushMarks(this), tall = true)
+        val dock = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            val r = dp(14).toFloat()
+            kit.chromeSurface(this, floatArrayOf(r, r, r, r, r, r, r, r))
+            setPadding(dp(4), dp(2), dp(4), dp(6))
+        }
+        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        head.addView(drawerText("Brushes", 13f).apply { setPadding(dp(10), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP, 1f))
+        val close = drawerText("\u00d7", 18f).apply {
+            gravity = Gravity.CENTER
+            kit.label(this, "Put the brushes away")
+            setOnClickListener { brushDock?.let { host.removeView(it) }; brushDock = null }
+        }
+        head.addView(close, LinearLayout.LayoutParams(dp(40), dp(40)))
+        dock.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
+        dock.addView(drawer, LinearLayout.LayoutParams(MATCH, 0, 1f))
+        val right = placement.edge == StripPlacement.Edge.RIGHT
+        host.addView(dock, FrameLayout.LayoutParams(dp(BRUSH_DOCK_DP), MATCH,
+            Gravity.TOP or (if (right) Gravity.END else Gravity.START)).apply {
+            topMargin = topBar.height.coerceAtLeast(dp(44))
+            bottomMargin = dp(12)
+            // Beside the rail, not over it.
+            if (right) marginEnd = dp(BRUSH_DOCK_RAIL_GAP) else marginStart = dp(BRUSH_DOCK_RAIL_GAP)
+        })
+        brushDock = dock
     }
 
     /** Size on a slider: a log scale, so a 2 px pen and a 400 px wash are both easy to set. */
@@ -1595,6 +1651,18 @@ class JoyBrushActivity : Activity() {
         override fun selectLayer(id: String) = canvas.selectLayer(id)
         override fun openLayer(id: String, anchor: View) = layerPanel(id, anchor)
         override fun moveLayer(id: String, toIndex: Int) = canvas.moveLayer(id, toIndex)
+
+        /** TAB-1 K9: the buttons on a pulled-out row do what the layer's own panel does. */
+        override fun layerAction(id: String, action: LayerColumnView.LayerAction) {
+            val layer = canvas.layers[id] ?: return
+            when (action) {
+                LayerColumnView.LayerAction.TOGGLE_VISIBLE -> canvas.setLayerVisible(id, !layer.visible)
+                LayerColumnView.LayerAction.TOGGLE_LOCK -> canvas.setLayerLocked(id, !layer.locked)
+                LayerColumnView.LayerAction.DUPLICATE -> canvas.duplicateLayer(id)
+                LayerColumnView.LayerAction.MERGE_DOWN -> canvas.mergeDown(id, boardController?.selectedBoardId)
+                LayerColumnView.LayerAction.DELETE -> canvas.deleteLayer(id)
+            }
+        }
 
         override fun setLayerHeld(boardId: String, layerId: String, held: Boolean) {
             if(boardController?.selectedBoardId != boardId) return

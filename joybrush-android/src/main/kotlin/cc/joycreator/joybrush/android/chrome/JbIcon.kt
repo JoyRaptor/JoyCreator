@@ -41,6 +41,10 @@ enum class JbIcon(val path: String, private val evenOdd: Boolean = false) {
     PAPERCLIP("M15.6 6.9V16.6A3.6 3.6 0 0 1 8.4 16.6V5.9A2.4 2.4 0 0 1 13.2 5.9V15.4A1.2 1.2 0 0 1 10.8 15.4V7.4H12.4V15.4H11.6V5.9A0.8 0.8 0 0 0 10 5.9V16.6A2 2 0 0 0 14 16.6V6.9Z"),
     /** JB-5.20e: Lock. */
     LOCK("M5.5 10.5H18.5V21.5H5.5ZM8 10.5V7.5A4 4 0 0 1 16 7.5V10.5H13.8V7.5A1.8 1.8 0 0 0 10.2 7.5V10.5Z"),
+    /** TAB-1 K9: hide or show a layer (an eye with its pupil). */
+    EYE("M12 5C6.5 5 2.5 12 2.5 12S6.5 19 12 19 21.5 12 21.5 12 17.5 5 12 5ZM12 8.5A3.5 3.5 0 1 1 12 15.5A3.5 3.5 0 1 1 12 8.5Z", evenOdd = true),
+    /** TAB-1 K9: merge down (a layer, an arrow, the layer under it). */
+    MERGE_DOWN("M5 3H19V8H5ZM11 9.5H13V13.5H16L12 17.5 8 13.5H11ZM5 19H19V21H5Z"),
     /** JB-5.20e: Adjust colour: a half-filled disc. */
     ADJUST("M3 12A9 9 0 1 0 21 12A9 9 0 1 0 3 12ZM5.4 12A6.6 6.6 0 1 0 18.6 12A6.6 6.6 0 1 0 5.4 12ZM12 5.4A6.6 6.6 0 0 0 12 18.6Z", evenOdd = true),
     /** JB-5.20e: Rasterize Down: a line becoming pixels. */

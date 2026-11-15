@@ -173,3 +173,11 @@ joy-creator (caption, fx, mesh, motionrange, preview-parity, puppet, specq, spec
 
 ## Files and traps
 - Check git log for each before fixing; several were worked on after the list was written.
+
+## 11-15 device checks (test Fold, cloud build of joy-creator 4bc535455; full table in [device_checks_20261115](../audits/device_checks_20261115.md))
+- ✅ D7: a seek at/after a cut shows the later clip. ❌ F1: a TAP on the trim handle at the cut makes the clock read double and the preview jump to frame 0 (reproduced twice; a swipe recovers).
+- ✅ Text Fit chip reaches 'Fit to width' and the title fills the width.
+- 🟡 Audio-only project: length 0:06 right on the card and in the editor, but the clip is not drawn on the timeline (the file holds it). On the Fold the audio lane also hid below the pane until the empty top lane was collapsed. Re-look on the Note 9 / tablet.
+- ⬜ Not reached: Clean tab after Revert+Undo (could not find the tab in the drawer on this screen), caption-style chip undo (needs the speech model), old-style Fix audio re-time (no such project).
+
+- 11-15 later (tablet): ✅ Clean tab status line after Revert then Undo; ❌ F1 (tap on a cut handle) and F3 (audio clip undrawn until a lane is toggled) both reproduce on the tablet; ✅ SHELL-10 watermark in a saved video and photo (screen recording not run). Details: [device_checks_20261115](../audits/device_checks_20261115.md).

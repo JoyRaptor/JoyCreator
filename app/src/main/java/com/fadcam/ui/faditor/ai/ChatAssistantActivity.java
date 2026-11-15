@@ -981,6 +981,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
             return;
         }
+        // Thanked or praised: he takes a bow (owner, 11-15).
+        if (com.fadcam.ui.lobby.JoybotDirector.isThanks(text)) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "thanks");
         // Hands-free: dictated and sent unedited = sent by voice; so is a voice answer's new request.
         boolean bySpeech = follow || (dictatedText != null && dictatedText.equals(text));
         if (!follow) handsFreeUsed = false;
@@ -1290,6 +1292,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
             LAST_OPENER.remove(projectId == null ? "" : projectId);
             refreshIdeas(true);
         });
+        inputField.setOnFocusChangeListener((v, has) -> {
+            if (has && inputField.getText().length() == 0) pointAtInput();
+        });
         // The drawer opening, the title and his flight in (owner's picks, 15 Nov): ChatArrival.
         arrival = new com.fadcam.ui.lobby.arrival.ChatArrival(this, actor);
         arrival.install();
@@ -1450,6 +1455,25 @@ public class ChatAssistantActivity extends AppCompatActivity {
             chipsScroll.setVisibility(View.VISIBLE);
             com.fadcam.ui.motion.Motion.enter(chipsScroll, 0);
         }
+        presentIdeas();
+    }
+
+    private long lastPresent = 0L, lastPointDown = 0L;
+
+    /** New ideas beside him: now and then he presents them with an open hand (owner, 11-15). */
+    private void presentIdeas() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (busy || actor == null || actor.getVisibility() != View.VISIBLE || now - lastPresent < 30_000L) return;
+        lastPresent = now;
+        actor.postDelayed(() -> { if (!busy) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "present"); }, 400L);
+    }
+
+    /** The box to type in: he points down at it when you tap into it (owner, 11-15: "pointing down below him"). */
+    private void pointAtInput() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (busy || actor == null || actor.getVisibility() != View.VISIBLE || now - lastPointDown < 60_000L) return;
+        lastPointDown = now;
+        com.fadcam.ui.lobby.JoybotDirector.moment(actor, "point-down");
     }
 
     private void hideChips() {
@@ -2225,8 +2249,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
             float x = t[0] - s[0] + target.getWidth() - actor.getWidth() * 0.15f;
             float y = Math.max(actor.getHeight() / 2f, t[1] - s[1] + actor.getHeight() * 0.1f);
             actor.setMood(JoybotView.Mood.SHOW);
-            actor.flyTo(Math.min(x, stage.getWidth() - actor.getWidth() / 2f), y, () ->
-                    actor.postDelayed(() -> actor.flyHome(() -> actor.setMood(JoybotView.Mood.IDLE)), 900L));
+            // He lands at its right edge, so it is to his left: he points at it, flies home, and takes a bow for a job
+            // done, or gives you a "you're the man" now and then (owner, 11-15).
+            actor.flyTo(Math.min(x, stage.getWidth() - actor.getWidth() / 2f), y, () -> {
+                boolean pointed = com.fadcam.ui.lobby.JoybotDirector.moment(actor, "point-left");
+                actor.postDelayed(() -> actor.flyHome(() -> {
+                    actor.setMood(JoybotView.Mood.IDLE);
+                    com.fadcam.ui.lobby.JoybotDirector.moment(actor, Math.random() < .67 ? "done" : "you-did-it");
+                }), pointed ? 1700L : 900L);
+            });
         });
     }
 

@@ -51,12 +51,69 @@ public final class JoybotDirector implements JoybotView.Director {
         if (d instanceof JoybotDirector) ((JoybotDirector) d).hinted = ((JoybotDirector) d).acts.forTask(task);
     }
 
-    /** The flourish he does when he first arrives, and now and then before cheering. */
+    /** The flourish he does when he first arrives with no flight in, if no greeting is packed. */
     private static final String FLOURISH = "spin";
     private boolean greeted = false;
     /** While a flourish plays: what he settles into after it, and for which mood. */
     @Nullable private JoybotActs.Act chainTo;
     @Nullable private JoybotView.Mood chainMood;
+    /** This play of {@link #now} faces the other way (owner, 11-15: mirror them "so he's facing different directions"). */
+    private boolean nowMirror;
+    /** The flourish about to play is mirrored (kept across a picture that has to open first). */
+    private boolean flourishMirror;
+    /** When he last saluted before a job, so back-to-back jobs do not get a salute each. */
+    private long lastOnIt = 0L;
+    @Nullable private String lastMomentAct;
+
+    /**
+     * A moment (owner, 11-15): greet, on-it, thanks, done, you-did-it, cheer, present, tip, point-left, point-right,
+     * point-down. He plays a fitting animation once, then carries on with what he was doing. False when nothing fits.
+     */
+    public static boolean moment(@NonNull JoybotView bot, @NonNull String what) {
+        JoybotView.Director d = bot.getDirector();
+        if (!(d instanceof JoybotDirector) || !((JoybotDirector) d).hasMoment(what)) return false;
+        bot.playMoment(what);
+        return true;
+    }
+
+    private boolean hasMoment(@NonNull String what) {
+        return acts.forMoment(what, null, dice) != null || acts.forMoment(opposite(what), null, dice) != null;
+    }
+
+    /** "point-left" can also be a point to the right played mirrored, and the other way round. */
+    @NonNull
+    private static String opposite(@NonNull String what) {
+        if (what.endsWith("-left")) return what.substring(0, what.length() - 5) + "-right";
+        if (what.endsWith("-right")) return what.substring(0, what.length() - 6) + "-left";
+        return what;
+    }
+
+    /** The animation for a moment and whether to mirror it: {act, Boolean}. */
+    @Nullable
+    private Object[] resolve(@NonNull String what) {
+        JoybotActs.Act straight = acts.forMoment(what, lastMomentAct, dice);
+        String other = opposite(what);
+        JoybotActs.Act turned = other.equals(what) ? null : acts.forMoment(other, lastMomentAct, dice);
+        if (straight == null && turned == null) return null;
+        boolean useTurned = straight == null || (turned != null && dice.nextInt(3) == 0);
+        JoybotActs.Act a = useTurned ? turned : straight;
+        lastMomentAct = a.name;
+        return new Object[]{a, useTurned};
+    }
+
+    @Override
+    public boolean flourishing() { return chainTo != null; }
+
+    /** "Thanks", "great job", "love it": the person thanked or praised him (he takes a bow). */
+    public static boolean isThanks(@Nullable String text) {
+        if (text == null) return false;
+        String t = " " + text.toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z' ]", " ") + " ";
+        String[] words = {" thank", " thanks", " thx", " ty ", " cheers ", " great job", " good job", " nice work", " nice job",
+                " well done", " awesome", " amazing", " perfect", " love it", " love this", " you rock", " brilliant",
+                " fantastic", " excellent", " good boy", " good bot", " nailed it", " bravo"};
+        for (String w : words) if (t.contains(w)) return true;
+        return false;
+    }
 
     @Override
     public void shown() {
@@ -69,7 +126,8 @@ public final class JoybotDirector implements JoybotView.Director {
 
     @Override
     public boolean keeps(@NonNull JoybotView.Mood m) {
-        if (chainTo != null && chainMood == m) return true;
+        // A flourish (a bow, a salute, a point) plays to its end; the chat's next mood follows it.
+        if (chainTo != null) return true;
         if (now == null || nowMood != m) return false;
         if (m == JoybotView.Mood.IDLE) return drift == null || drift == now;
         return hinted == null || hinted == now;
@@ -80,7 +138,7 @@ public final class JoybotDirector implements JoybotView.Director {
     public JoybotFilm leave() {
         if (now == null) return null;
         Bitmap p = acts.opened(now);
-        return p == null ? null : acts.outFilm(now, p);
+        return p == null ? null : acts.outFilm(now, p, nowMirror);
     }
 
     @Nullable
@@ -91,7 +149,7 @@ public final class JoybotDirector implements JoybotView.Director {
         JoybotActs.Act a = reopened;
         reopened = null;
         final boolean fresh = a == null;
-        if (fresh) { chainTo = null; chainMood = null; }
+        if (fresh) { chainTo = null; chainMood = null; flourishMirror = false; }
         if (m == JoybotView.Mood.IDLE) {
             if (a == null) {
                 if (drift == null) idleStep = 0;
@@ -107,14 +165,28 @@ public final class JoybotDirector implements JoybotView.Director {
         }
         if (a == null) { now = null; nowMood = null; return null; }
         if (fresh) {
-            // A flourish first: when he arrives, and one time in three when he is excited.
-            // Only while he can be seen: the chat keeps him hidden until he leaves his seat in the
-            // header, and a spin played then was a spin nobody saw (test tablet, 11-14).
+            // A flourish first: a moment someone asked for (a thank-you, a job done, pointing at something);
+            // a greeting when he arrives; a salute before he starts a job ("understood, on it"); a cheer one time in
+            // two when he is excited. Only while he can be seen: a flourish nobody saw is a flourish wasted (11-14).
             if (bot.arrived()) greeted = true;
+            String asked = bot.takeMoment();
             boolean arrive = m == JoybotView.Mood.IDLE && !greeted && bot.isShown();
-            boolean cheer = m == JoybotView.Mood.EXCITED && dice.nextInt(3) == 0;
-            JoybotActs.Act f = arrive || cheer ? acts.named(FLOURISH) : null;
-            if (f != null && f != a) { chainTo = a; chainMood = m; a = f; }
+            boolean cheer = m == JoybotView.Mood.EXCITED && dice.nextInt(2) == 0;
+            long t = android.os.SystemClock.uptimeMillis();
+            boolean onIt = m == JoybotView.Mood.WORK && nowMood != JoybotView.Mood.WORK && t - lastOnIt > 20_000L;
+            Object[] f = asked != null ? resolve(asked)
+                    : arrive ? resolve("greet")
+                    : cheer ? resolve("cheer")
+                    : onIt ? resolve("on-it")
+                    : null;
+            if (f == null && arrive) f = acts.named(FLOURISH) != null ? new Object[]{acts.named(FLOURISH), false} : null;
+            if (f != null && f[0] != a) {
+                if (onIt) lastOnIt = t;
+                chainTo = a;
+                chainMood = m;
+                a = (JoybotActs.Act) f[0];
+                flourishMirror = (Boolean) f[1];
+            }
         }
         Bitmap p = acts.opened(a);
         if (p == null) {
@@ -136,11 +208,14 @@ public final class JoybotDirector implements JoybotView.Director {
             // Only now has he really done it: the chat changes his mood several times as it opens,
             // and each of those used to count as the greeting before a frame of it had played.
             if (m == JoybotView.Mood.IDLE) greeted = true;
-            return acts.onceFilm(a, p).thenRun(() -> {
+            boolean mir = flourishMirror ^ (a.mirrorable && dice.nextInt(3) == 0);
+            return acts.onceFilm(a, p, mir, dice.nextFloat() < a.flipChance).thenRun(() -> {
                 if (chainTo != next) return;
                 chainTo = null;
                 chainMood = null;
-                if (!bot.isAttachedToWindow() || bot.getMood() != m || bot.getDirector() != this) return;
+                if (!bot.isAttachedToWindow() || bot.getDirector() != this) return;
+                // The mood moved on while he did it, or another moment is waiting: go to that.
+                if (bot.getMood() != m || bot.hasMoment()) { bot.refreshMood(); return; }
                 reopened = next;
                 bot.setMood(m);
             });
@@ -150,7 +225,8 @@ public final class JoybotDirector implements JoybotView.Director {
         now = a;
         nowMood = m;
         lastName = a.name;
-        return acts.film(a, p);
+        nowMirror = a.mirrorable && dice.nextInt(3) == 0;
+        return acts.film(a, p, nowMirror, dice.nextFloat() < a.flipChance);
     }
 
     @Nullable private JoybotActs.Act reopened;

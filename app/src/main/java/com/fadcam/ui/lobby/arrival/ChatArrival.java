@@ -60,7 +60,7 @@ public final class ChatArrival {
     /** The chat's Joybot is 64 dp (activity_chat_assistant.xml chat_actor). */
     private static final float ACTOR_DP = 64f;
     /** His body inside a cell, until acts.json is read (the same numbers). */
-    private static final RectF DEFAULT_FOCUS = new RectF(.2583f, .1708f, .6958f, .9667f);
+    private static final RectF DEFAULT_FOCUS = new RectF(.2667f, .1625f, .6833f, .9167f);
     private static final float CELL = 240f;
     /** The longest the open waits for his pictures before going without the flight. */
     private static final long SPRITE_WAIT_MS = 260L;
@@ -409,6 +409,9 @@ public final class ChatArrival {
         if (flew) actor.markArrived();
         actor.setCalmThruster(true);
         actor.setVisibility(View.VISIBLE);
+        // On his seat he greets you: a salute or a bow (owner, 11-15). Both start from his home pose, the pose the
+        // flight ends on, so the hand-over stays seamless.
+        if (flew) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "greet");
     }
 
     /** Everything at rest: no clip, no slide, the title in place. */

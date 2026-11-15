@@ -236,6 +236,102 @@ public final class JoybotView extends FrameLayout {
         private final android.graphics.Paint ringGlow = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
         private final android.graphics.RectF ringBox = new android.graphics.RectF();
 
+        // -- choreography on top of the frames (owner, 11-15: "squash and stretch, pacing, moving around to add extra
+        // depth ... he can do a flip. He can have his particle effects and things going off ... when he's searching, he
+        // can be kind of searching around"), from the animation's acts.json "moves" --
+        private static final long FLIP_MS = 650L;
+
+        /** Drift, hop (with a squash on landing), a backflip as it starts, and size; all about his peg or body. */
+        private void choreograph(@NonNull Canvas canvas, @NonNull JoybotFilm f, float px, float py, float cy, long now) {
+            JoybotFilm.Moves mv = f.moves();
+            f.turnForDrift(false);
+            if (mv == null) return;
+            float dp = getResources().getDisplayMetrics().density;
+            long t = Math.max(0L, now - f.startedAt());
+            if (mv.driftDp > 0f && mv.driftMs > 0f) {
+                double ph = t / (double) mv.driftMs * Math.PI * 2.0;
+                canvas.translate((float) Math.sin(ph) * mv.driftDp * dp, 0f);
+                f.turnForDrift(Math.cos(ph) < 0.0);          // he faces the way he is moving
+            }
+            if (mv.hopDp > 0f && mv.hopMs > 0f) {
+                float ph = (t % (long) mv.hopMs) / mv.hopMs;
+                canvas.translate(0f, -4f * ph * (1f - ph) * mv.hopDp * dp);
+                float q = ph < .1f ? (1f - ph / .1f) * .08f : ph > .92f ? (ph - .92f) / .08f * .05f : 0f;
+                canvas.scale(1f + q, 1f - q, px, py);
+                if (mv.sparks && ph < .1f && t > 200L && now - lastSpark > 40L) {   // a few off each landing
+                    lastSpark = now;
+                    spark(px, py, 2, dp);
+                }
+            }
+            if (mv.flip && t < FLIP_MS) {
+                float u = t / (float) FLIP_MS;
+                float e = u < .5f ? 4f * u * u * u : 1f - (float) Math.pow(-2f * u + 2f, 3) / 2f;
+                canvas.translate(0f, -4f * u * (1f - u) * 34f * dp);
+                canvas.rotate(-360f * e, px, cy);
+            }
+            if (mv.scale != 1f) canvas.scale(mv.scale, mv.scale, px, py);
+            if (mv.sparks && t < 2600L && now - lastSpark > 70L) {
+                lastSpark = now;
+                spark(px, cy, 1, dp);
+            }
+        }
+
+        // a few of his plasma sparks and glints: white-hot cooling to pink, made of the same stuff as his thruster
+        private static final int SPARKS = 40;
+        private final float[] sx = new float[SPARKS], sy = new float[SPARKS], svx = new float[SPARKS], svy = new float[SPARKS];
+        private final long[] sBorn = new long[SPARKS];
+        private final boolean[] sGlint = new boolean[SPARKS];
+        private int sNext;
+        private long lastSpark, lastSparkDraw;
+        private final android.graphics.Paint sparkPaint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Path glintPath = new android.graphics.Path();
+
+        private void spark(float x, float y, int n, float dp) {
+            long now = android.os.SystemClock.uptimeMillis();
+            for (int i = 0; i < n; i++) {
+                int k = sNext;
+                sNext = (sNext + 1) % SPARKS;
+                double a = dice.nextDouble() * Math.PI * 2.0;
+                float r = (14f + dice.nextFloat() * 22f) * dp;
+                sx[k] = x + (float) Math.cos(a) * r;
+                sy[k] = y + (float) Math.sin(a) * r * .8f;
+                float sp = (40f + dice.nextFloat() * 90f) * dp;
+                svx[k] = (float) Math.cos(a) * sp;
+                svy[k] = (float) Math.sin(a) * sp - 60f * dp;
+                sBorn[k] = now;
+                sGlint[k] = dice.nextInt(4) == 0;
+            }
+        }
+
+        private void drawSparks(@NonNull Canvas canvas, long now) {
+            float dt = lastSparkDraw == 0L ? 0f : Math.min(.05f, (now - lastSparkDraw) / 1000f);
+            lastSparkDraw = now;
+            float dp = getResources().getDisplayMetrics().density;
+            for (int k = 0; k < SPARKS; k++) {
+                if (sBorn[k] == 0L) continue;
+                float age = (now - sBorn[k]) / 520f;
+                if (age >= 1f) { sBorn[k] = 0L; continue; }
+                svy[k] += 260f * dp * dt;
+                svx[k] *= (float) Math.pow(.4, dt);
+                sx[k] += svx[k] * dt;
+                sy[k] += svy[k] * dt;
+                float a = (1f - age) * (1f - age), core = Math.max(0f, 1f - age * 2.5f);
+                if (sGlint[k]) {
+                    float s1 = (float) Math.sin(Math.PI * age), L = 5f * dp * s1;
+                    sparkPaint.setColor(android.graphics.Color.argb(Math.round(230 * s1), 255, 220, 245));
+                    glintPath.reset();
+                    glintPath.moveTo(sx[k], sy[k] - L * 1.6f); glintPath.lineTo(sx[k] + L * .22f, sy[k]);
+                    glintPath.lineTo(sx[k], sy[k] + L * 1.6f); glintPath.lineTo(sx[k] - L * .22f, sy[k]); glintPath.close();
+                    glintPath.moveTo(sx[k] - L * 1.6f, sy[k]); glintPath.lineTo(sx[k], sy[k] + L * .22f);
+                    glintPath.lineTo(sx[k] + L * 1.6f, sy[k]); glintPath.lineTo(sx[k], sy[k] - L * .22f); glintPath.close();
+                    canvas.drawPath(glintPath, sparkPaint);
+                } else {
+                    sparkPaint.setColor(android.graphics.Color.argb(Math.round(255 * a), 255, Math.round(80 + 170 * core), Math.round(200 + 50 * core)));
+                    canvas.drawCircle(sx[k], sy[k], Math.max(.6f, 1.8f * (1f - age * .5f)) * dp, sparkPaint);
+                }
+            }
+        }
+
         private void drawCalmRings(@NonNull Canvas canvas, float px, float py, long now) {
             View host = (View) getParent();
             boolean home = host != null && Math.abs(host.getTranslationX()) < 1f && Math.abs(host.getTranslationY()) < 1f
@@ -325,9 +421,11 @@ public final class JoybotView extends FrameLayout {
                 canvas.translate(0f, (float) Math.sin(t * 2.0 + 0.6) * getHeight() * BOB_FRACTION);
                 canvas.rotate((float) Math.sin(t) * SWAY_DEG, px, py);
                 canvas.scale(1f + k, 1f - k, px, py);
+                choreograph(canvas, f, px, py, box.top + box.height() * body.centerY(), now);
             }
             f.draw(canvas, box, f.isActor() ? plain : paint, now);
             canvas.restoreToCount(saved);
+            if (f.isActor() && body != null) drawSparks(canvas, now);
             if (f.shownFrame() != lastShown) {
                 if (lastShown != -1) { popAt = now; popBig = false; }
                 lastShown = f.shownFrame();
@@ -537,6 +635,8 @@ public final class JoybotView extends FrameLayout {
         @Nullable JoybotFilm enter(@NonNull Mood m);
         /** He has just come into view (the chat hides him until he leaves his seat in the header). */
         default void shown() {}
+        /** True while a short flourish (a bow, a salute, a point) is playing. */
+        default boolean flourishing() { return false; }
     }
 
     @Nullable private Director director;
@@ -564,8 +664,40 @@ public final class JoybotView extends FrameLayout {
 
     @Nullable public Director getDirector() { return director; }
 
+    @Nullable private String pendingMoment;
+    private boolean forceMood;
+
+    /**
+     * Play a moment (greet, thanks, done, present, point-left...) once, then carry on with the current mood. Asked of
+     * the director; see {@link JoybotDirector#moment}.
+     */
+    public void playMoment(@NonNull String moment) {
+        if (director == null) return;
+        pendingMoment = moment;
+        if (director.flourishing()) return;                 // after the one playing now
+        refreshMood();
+    }
+
+    public boolean hasMoment() { return pendingMoment != null; }
+
+    /** Enter the current mood again even if the director would keep what is playing (a moment is waiting). */
+    public void refreshMood() {
+        forceMood = true;
+        setMood(mood);
+    }
+
+    /** The moment asked for, once (the director takes it). */
+    @Nullable
+    public String takeMoment() {
+        String m = pendingMoment;
+        pendingMoment = null;
+        return m;
+    }
+
     public void setMood(@NonNull Mood m) {
-        if (director != null && film != null && director.keeps(m)) { mood = m; return; }
+        boolean force = forceMood;
+        forceMood = false;
+        if (!force && director != null && film != null && director.keeps(m)) { mood = m; return; }
         mood = m;
         if (moodAnim != null) { moodAnim.cancel(); moodAnim = null; }
         if (director != null) {

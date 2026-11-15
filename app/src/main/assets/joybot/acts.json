@@ -2,10 +2,10 @@
  "about": "Made by tools/joybot/pack_joybot.py. Do not edit by hand: edit joybot.animations.json and pack again.",
  "cell": 240,
  "focus": [
-  0.2583,
-  0.1708,
-  0.6958,
-  0.9667
+  0.2667,
+  0.1625,
+  0.6833,
+  0.9167
  ],
  "idleAfterSeconds": {
   "45": "reading",
@@ -33,7 +33,16 @@
     8,
     9
    ],
-   "out": []
+   "out": [],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "listen",
@@ -64,7 +73,16 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "think",
@@ -92,7 +110,18 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [
+     "think"
+    ],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "work",
@@ -120,7 +149,18 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [
+     "work"
+    ],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "talk",
@@ -146,7 +186,18 @@
     2,
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [
+     "talk"
+    ],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "excited",
@@ -180,7 +231,25 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "cheer"
+    ],
+    "words": []
+   },
+   "moves": {
+    "scale": 1.18,
+    "hop": [
+     12,
+     480
+    ],
+    "flip": 0.35,
+    "sparks": true,
+    "mirror": "random"
+   }
   },
   {
    "name": "show",
@@ -208,7 +277,18 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "present"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "oops",
@@ -242,7 +322,16 @@
     2,
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "reading",
@@ -285,7 +374,16 @@
     2,
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "sleeping",
@@ -329,7 +427,16 @@
     2,
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
   },
   {
    "name": "spin",
@@ -352,7 +459,23 @@
     8,
     9
    ],
-   "out": []
+   "out": [],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "cheer",
+     "you-did-it"
+    ],
+    "words": []
+   },
+   "moves": {
+    "hop": [
+     8,
+     700
+    ],
+    "sparks": true
+   }
   },
   {
    "name": "adjusting-colors",
@@ -380,7 +503,25 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "colour",
+     "color",
+     "bright",
+     "contrast",
+     "saturat",
+     "exposure",
+     "warm",
+     "cool"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "arranging-clips",
@@ -408,7 +549,23 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "arrang",
+     "reorder",
+     "order",
+     "move",
+     "slide",
+     "swap"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "brainstorming",
@@ -438,7 +595,24 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "brainstorm",
+     "idea",
+     "suggest",
+     "inspir",
+     "creative",
+     "title idea",
+     "name idea"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "checking-errors",
@@ -466,7 +640,20 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "drift": [
+     10,
+     2600
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "choosing-video",
@@ -494,7 +681,25 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "choos",
+     "pick",
+     "select",
+     "which"
+    ]
+   },
+   "moves": {
+    "drift": [
+     8,
+     3200
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "color-grading",
@@ -528,7 +733,22 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "grade",
+     "lut",
+     "look",
+     "film look",
+     "mood"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "comparing-videos",
@@ -556,7 +776,25 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "compar",
+     "before and after",
+     "versus",
+     " vs "
+    ]
+   },
+   "moves": {
+    "drift": [
+     8,
+     3400
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "confused",
@@ -584,7 +822,16 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "cutting-film",
@@ -618,7 +865,21 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "trim",
+     "split",
+     "cut",
+     "shorten"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "discarding-clip",
@@ -646,7 +907,23 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "delet",
+     "remov",
+     "discard",
+     "trash",
+     "clear",
+     "bin"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "having-idea",
@@ -674,7 +951,26 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "tip"
+    ],
+    "words": [
+     "idea",
+     "suggest",
+     "tip"
+    ]
+   },
+   "moves": {
+    "hop": [
+     3,
+     900
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "inspecting-files",
@@ -702,7 +998,26 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "file",
+     "import",
+     "librar",
+     "folder",
+     "browse"
+    ]
+   },
+   "moves": {
+    "drift": [
+     12,
+     2800
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "inspecting-video",
@@ -730,7 +1045,27 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "check",
+     "scan",
+     "analy",
+     "detect",
+     "scene",
+     "quality"
+    ]
+   },
+   "moves": {
+    "drift": [
+     10,
+     3000
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "joining-film",
@@ -758,7 +1093,21 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "join",
+     "merg",
+     "stitch",
+     "combin"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "listening",
@@ -784,7 +1133,16 @@
     2,
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": []
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "reading-transcript",
@@ -812,7 +1170,44 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [
+     "work",
+     "think"
+    ],
+    "moments": [],
+    "words": [
+     "transcript",
+     "read",
+     "review",
+     "check",
+     "look through",
+     "look over",
+     "search",
+     "find",
+     "scan",
+     "explain",
+     "summar",
+     "help",
+     "manual",
+     "document",
+     "setting",
+     "log",
+     "histor",
+     "project",
+     "list of",
+     "inventor"
+    ]
+   },
+   "moves": {
+    "drift": [
+     6,
+     3600
+    ],
+    "mirror": "random"
+   }
   },
   {
    "name": "showcasing-video",
@@ -838,7 +1233,23 @@
     2,
     1,
     0
-   ]
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "present"
+    ],
+    "words": [
+     "play",
+     "preview",
+     "watch",
+     "export"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
   },
   {
    "name": "transcribing-audio",
@@ -866,7 +1277,479 @@
    "out": [
     1,
     0
-   ]
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [
+     "work",
+     "think",
+     "talk"
+    ],
+    "moments": [],
+    "words": [
+     "transcrib",
+     "caption",
+     "subtitle",
+     "speech",
+     "writ",
+     "type",
+     "typing",
+     "text",
+     "title",
+     "rename",
+     "name",
+     "label",
+     "describ",
+     "prompt",
+     "note",
+     "message",
+     "script",
+     "lyric",
+     "word",
+     "spell",
+     "translat",
+     "reply",
+     "answer",
+     "email"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
+  },
+  {
+   "name": "double-point",
+   "mood": "excited",
+   "general": false,
+   "fps": 8,
+   "file": "double-point.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "loop": [
+    4,
+    4,
+    5,
+    5,
+    5,
+    6,
+    4,
+    7,
+    7,
+    8,
+    9,
+    9,
+    9,
+    8,
+    7
+   ],
+   "out": [
+    3,
+    2,
+    1,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "you-did-it",
+     "cheer"
+    ],
+    "words": []
+   },
+   "moves": {
+    "hop": [
+     4,
+     560
+    ],
+    "mirror": "random"
+   }
+  },
+  {
+   "name": "salute",
+   "mood": "listen",
+   "general": false,
+   "fps": 8,
+   "file": "salute.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    5,
+    6,
+    6,
+    6,
+    7,
+    7,
+    8,
+    9,
+    3
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "greet",
+     "on-it"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
+  },
+  {
+   "name": "point-left",
+   "mood": "show",
+   "general": false,
+   "fps": 8,
+   "file": "point-left.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    5,
+    6,
+    7,
+    7,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "point-left"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
+  },
+  {
+   "name": "painting",
+   "mood": "work",
+   "general": true,
+   "fps": 8,
+   "file": "painting.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ],
+   "play": "strokes",
+   "uses": {
+    "moods": [],
+    "moments": [],
+    "words": [
+     "paint",
+     "draw",
+     "brush",
+     "sketch",
+     "art",
+     "illustrat",
+     "picture",
+     "image",
+     "sprite",
+     "style",
+     "decorat",
+     "design",
+     "colour",
+     "color",
+     "look",
+     "pretty"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
+  },
+  {
+   "name": "point-down",
+   "mood": "show",
+   "general": false,
+   "fps": 8,
+   "file": "point-down.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    3,
+    4,
+    5,
+    5,
+    6,
+    7,
+    8,
+    9,
+    9
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "point-down"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
+  },
+  {
+   "name": "present-right",
+   "mood": "show",
+   "general": true,
+   "fps": 8,
+   "file": "present-right.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 9,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    5,
+    6,
+    7,
+    8,
+    4
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [
+     "show",
+     "talk"
+    ],
+    "moments": [
+     "present"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
+  },
+  {
+   "name": "bow",
+   "mood": "talk",
+   "general": false,
+   "fps": 8,
+   "file": "bow.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "loop": [
+    4,
+    5,
+    6,
+    6,
+    6,
+    7
+   ],
+   "out": [
+    8,
+    9,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [],
+    "moments": [
+     "thanks",
+     "done",
+     "greet"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
+  },
+  {
+   "name": "checklists",
+   "mood": "work",
+   "general": true,
+   "fps": 8,
+   "file": "checklists.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ],
+   "play": "stutter",
+   "uses": {
+    "moods": [
+     "work",
+     "think"
+    ],
+    "moments": [],
+    "words": [
+     "plan",
+     "step",
+     "list",
+     "organi",
+     "tidy",
+     "todo",
+     "to-do",
+     "sort",
+     "batch",
+     "every",
+     "several",
+     "clean up",
+     "sweep",
+     "schedul",
+     "checklist",
+     "task",
+     "queue",
+     "all the",
+     "many"
+    ]
+   },
+   "moves": {
+    "mirror": "random"
+   }
+  },
+  {
+   "name": "point-right",
+   "mood": "show",
+   "general": true,
+   "fps": 8,
+   "file": "point-right.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    6,
+    6,
+    6,
+    7,
+    8,
+    9,
+    9
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ],
+   "play": "loop",
+   "uses": {
+    "moods": [
+     "show"
+    ],
+    "moments": [
+     "point-right",
+     "present"
+    ],
+    "words": []
+   },
+   "moves": {
+    "mirror": "never"
+   }
   }
  ]
 }

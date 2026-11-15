@@ -48,6 +48,14 @@ public final class JoybotActs {
         public final float fps;
         final int cols, rows;
         final int[] in, loop, out;
+        /** How its loop plays (acts.json "play"): loop, pingpong, stutter, strokes. */
+        @NonNull final JoybotFilm.Style style;
+        /** Moods it can also stand in for, moments it serves, words in a job that fit it (acts.json "uses"). */
+        @NonNull final String[] moods, moments, words;
+        /** Choreography (acts.json "moves"): scale, hop, drift, sparks, flip chance, and whether a play may face the other way. */
+        final float scale, hopDp, hopMs, driftDp, driftMs, flipChance;
+        final boolean sparks;
+        public final boolean mirrorable;
 
         Act(JSONObject o) throws Exception {
             name = o.getString("name");
@@ -61,6 +69,50 @@ public final class JoybotActs {
             loop = ints(o.optJSONArray("loop"));
             out = ints(o.optJSONArray("out"));
             if (loop.length == 0) throw new IllegalArgumentException("no loop: " + name);
+            String play = o.optString("play", "loop");
+            style = "stutter".equals(play) ? JoybotFilm.Style.STUTTER : "strokes".equals(play) ? JoybotFilm.Style.STROKES
+                    : "pingpong".equals(play) ? JoybotFilm.Style.PINGPONG : JoybotFilm.Style.LOOP;
+            JSONObject u = o.optJSONObject("uses");
+            moods = strings(u != null ? u.optJSONArray("moods") : null);
+            moments = strings(u != null ? u.optJSONArray("moments") : null);
+            words = strings(u != null ? u.optJSONArray("words") : null);
+            JSONObject mv = o.optJSONObject("moves");
+            scale = mv != null ? (float) mv.optDouble("scale", 1.0) : 1f;
+            JSONArray hop = mv != null ? mv.optJSONArray("hop") : null;
+            hopDp = hop != null && hop.length() == 2 ? (float) hop.optDouble(0, 0) : 0f;
+            hopMs = hop != null && hop.length() == 2 ? (float) hop.optDouble(1, 500) : 500f;
+            JSONArray drift = mv != null ? mv.optJSONArray("drift") : null;
+            driftDp = drift != null && drift.length() == 2 ? (float) drift.optDouble(0, 0) : 0f;
+            driftMs = drift != null && drift.length() == 2 ? (float) drift.optDouble(1, 3000) : 3000f;
+            flipChance = mv != null ? (float) mv.optDouble("flip", 0) : 0f;
+            sparks = mv != null && mv.optBoolean("sparks", false);
+            mirrorable = mv != null && "random".equals(mv.optString("mirror", "never"));
+        }
+
+        /** The motion for one play of it ({@code flip}: start this one with a backflip). */
+        @NonNull
+        JoybotFilm.Moves moves(boolean flip) {
+            JoybotFilm.Moves m = new JoybotFilm.Moves();
+            m.scale = scale;
+            m.hopDp = hopDp;
+            m.hopMs = hopMs;
+            m.driftDp = driftDp;
+            m.driftMs = driftMs;
+            m.sparks = sparks;
+            m.flip = flip;
+            return m;
+        }
+
+        /** True when it may stand in for {@code m}: its own mood or one of its "uses" moods. */
+        boolean suits(@NonNull String m) {
+            if (mood.equals(m)) return true;
+            for (String x : moods) if (x.equals(m)) return true;
+            return false;
+        }
+
+        boolean serves(@NonNull String moment) {
+            for (String x : moments) if (x.equals(moment)) return true;
+            return false;
         }
 
         public int cols() { return cols; }
@@ -143,12 +195,27 @@ public final class JoybotActs {
         return null;
     }
 
-    /** Every animation he may choose by himself for this mood. */
+    /** Every animation he may choose by himself for this mood (its own, or one it also stands in for). */
     @NonNull
     public List<Act> generalFor(@NonNull String mood) {
         List<Act> out = new ArrayList<>();
-        for (Act a : acts) if (a.general && a.mood.equals(mood)) out.add(a);
+        for (Act a : acts) if (a.general && a.suits(mood)) out.add(a);
         return out;
+    }
+
+    /**
+     * An animation for a moment (greet, on-it, thanks, done, you-did-it, cheer, present, tip, point-left, point-right,
+     * point-down), never {@code notThis} when another fits; null when none serves it.
+     */
+    @Nullable
+    public Act forMoment(@NonNull String moment, @Nullable String notThis, @NonNull java.util.Random dice) {
+        List<Act> pool = new ArrayList<>();
+        for (Act a : acts) if (a.serves(moment)) pool.add(a);
+        if (pool.isEmpty()) return null;
+        if (pool.size() > 1 && notThis != null) {
+            for (int i = pool.size() - 1; i >= 0; i--) if (pool.get(i).name.equals(notThis)) pool.remove(i);
+        }
+        return pool.get(dice.nextInt(pool.size()));
     }
 
     int idleSteps() { return idleAt.size(); }
@@ -162,7 +229,23 @@ public final class JoybotActs {
     @Nullable
     public Act forTask(@Nullable String task) {
         if (task == null) return null;
-        String t = task.toLowerCase(Locale.US);
+        String t = " " + task.toLowerCase(Locale.US) + " ";
+        // The words each animation fits come from acts.json "uses" (owner, 11-15: one animation, many uses); several
+        // can fit one job, so he picks one of them, not the one he played last.
+        List<Act> fit = new ArrayList<>();
+        for (Act a : acts) {
+            for (String w : a.words) {
+                if (!w.isEmpty() && t.contains(w)) { fit.add(a); break; }
+            }
+        }
+        if (!fit.isEmpty()) {
+            if (fit.size() > 1 && lastTask != null) {
+                for (int i = fit.size() - 1; i >= 0; i--) if (fit.get(i) == lastTask) fit.remove(i);
+            }
+            lastTask = fit.get(taskDice.nextInt(fit.size()));
+            return lastTask;
+        }
+        // An older pack without "uses": the table this used before.
         String[][] table = {
                 {"discarding-clip", "delet", "remov", "discard", "trash", "clear"},
                 {"cutting-film", "trim", "split", "cut", "shorten"},
@@ -213,34 +296,55 @@ public final class JoybotActs {
         });
     }
 
+    @Nullable private Act lastTask;
+    private final java.util.Random taskDice = new java.util.Random();
+
+    @NonNull
+    private static String[] strings(@Nullable JSONArray a) {
+        if (a == null) return new String[0];
+        String[] out = new String[a.length()];
+        for (int i = 0; i < out.length; i++) out[i] = a.optString(i, "").toLowerCase(Locale.US);
+        return out;
+    }
+
     /** The way in, then the loop. */
     @NonNull
-    JoybotFilm film(@NonNull Act a, @NonNull Bitmap picture) {
+    JoybotFilm film(@NonNull Act a, @NonNull Bitmap picture) { return film(a, picture, false, false); }
+
+    @NonNull
+    JoybotFilm film(@NonNull Act a, @NonNull Bitmap picture, boolean mirror, boolean flip) {
         Rect[] r = new Rect[a.in.length + a.loop.length];
         for (int i = 0; i < a.in.length; i++) r[i] = cell(a, picture, a.in[i]);
         for (int i = 0; i < a.loop.length; i++) r[a.in.length + i] = cell(a, picture, a.loop[i]);
-        return new JoybotFilm(picture, r, null, a.fps, true).withIntro(a.in.length).asActor(focus);
+        return new JoybotFilm(picture, r, null, a.fps, true).withIntro(a.in.length).asActor(focus).withStyle(a.style)
+                .withMoves(a.moves(flip), mirror);
     }
 
     /** The whole animation once through (in, loop, out), for an entrance or a flourish before something else. */
     @NonNull
-    JoybotFilm onceFilm(@NonNull Act a, @NonNull Bitmap picture) {
+    JoybotFilm onceFilm(@NonNull Act a, @NonNull Bitmap picture) { return onceFilm(a, picture, false, false); }
+
+    @NonNull
+    JoybotFilm onceFilm(@NonNull Act a, @NonNull Bitmap picture, boolean mirror, boolean flip) {
         Rect[] r = new Rect[a.in.length + a.loop.length + a.out.length];
         int k = 0;
         for (int i : a.in) r[k++] = cell(a, picture, i);
         for (int i : a.loop) r[k++] = cell(a, picture, i);
         for (int i : a.out) r[k++] = cell(a, picture, i);
-        return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus);
+        return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus).withMoves(a.moves(flip), mirror);
     }
 
     /** The way out (played once), or null when this animation has none. */
     @Nullable
-    JoybotFilm outFilm(@NonNull Act a, @NonNull Bitmap picture) {
+    JoybotFilm outFilm(@NonNull Act a, @NonNull Bitmap picture) { return outFilm(a, picture, false); }
+
+    @Nullable
+    JoybotFilm outFilm(@NonNull Act a, @NonNull Bitmap picture, boolean mirror) {
         if (a.out.length == 0) return null;
         Rect[] r = new Rect[a.out.length];
         for (int i = 0; i < r.length; i++) r[i] = cell(a, picture, a.out[i]);
         float fps = a.out.length > LONG_OUT ? a.fps * 2f : a.fps;
-        return new JoybotFilm(picture, r, null, fps, false).asActor(focus);
+        return new JoybotFilm(picture, r, null, fps, false).asActor(focus).withMoves(a.moves(false), mirror);
     }
 
     private static Rect cell(Act a, Bitmap picture, int i) {

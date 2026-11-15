@@ -225,6 +225,6 @@ public final class OnboardingWelcomeFragment extends Fragment {
                 .setInterpolator(Motion.EASE_OUT).start();
         showingA = !showingA;
 
-        Motion.swap(line, TEXT_SWAP_MS, () -> line.setText(getString(b.line)));
+        Motion.swap(line, TEXT_SWAP_MS, () -> line.setText(line.getContext().getString(b.line)));   // the end action can run after the page has gone (Fold crash 11-14)
     }
 }

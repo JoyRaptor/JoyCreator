@@ -267,7 +267,10 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
         if (pos < 0) return;
         pinnedSection = section;
         dock.chips.setCurrent(section);
-        LinearSmoothScroller to = new LinearSmoothScroller(requireContext()) {
+        // Reached from list.post (openAt): the hub may have closed by then (Note 9 crash 11-15). The list's own context
+        // is always there while the list is.
+        if (!isAdded() || list == null) return;
+        LinearSmoothScroller to = new LinearSmoothScroller(list.getContext()) {
             @Override protected int getVerticalSnapPreference() { return SNAP_TO_START; }
         };
         to.setTargetPosition(pos);

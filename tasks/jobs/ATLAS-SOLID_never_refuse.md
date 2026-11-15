@@ -171,9 +171,17 @@ best speed about 36 ms a megabyte on the save thread; the pictures of a full pag
 file again 30 ms a megabyte; showing it 11 ms a megabyte. A stroke changes five to twenty tiles; a save redoes all of
 them.
 
-1. **A save that rewrites only what changed: built (above).** Left of it: (a) the screen's working save calling it
-   (`JoyBrushActivity`, `SaveDest.Working`; `ArchiveCarrying.on` is the way back), proven by painting, waiting for two
-   autosaves, leaving and reopening on the phone; (b) the recovery copy and the Joy Creator folder copy are still whole
+1. **A save that rewrites only what changed: built (above), and since 11-15 evening the screen's working save calls
+   it** (`JoyBrushActivity`, `SaveDest.Working`, one `SaveMemo` per screen; `ArchiveCarrying.on = false` is the way
+   back; logcat tag `JoyBrushSave` says how many entries were carried). Checked on the Note 9 in the real screen, on a
+   new drawing given a copy of a heavy painted page (59 MB, 1,190 entries): first autosave 18.0 s (nothing to carry
+   from yet), the next 0.85 s (1,188 carried), the save on Home 1.8 s. The owner then drew on it with the pencil and
+   an oil brush: the file grew to 1,532 entries (140 picture tiles, 67/67/68 paint-store tiles), every entry reads, and
+   all 1,188 old entries are bit for bit what they were (same CRC, same packed size) against the page they were copied
+   from. Not checked: the picture compared by eye after reopening. In the same change, **two screens on one drawing**
+   (bug hunt 11-15): `WorkingFileOwners`, the screen that showed a file last is the one that writes it, the older one
+   skips its save and loads the file again when it comes back; unit-tested (`WorkingFileOwnersTest`), NOT reproduced
+   on a phone. Left: (b) the recovery copy and the Joy Creator folder copy are still whole
    byte copies of the file after every save; (c) **rereading only what changed**, which is what the pen still waits
    for (0.55 s for a full page): the engine stamps every paint tile it writes (`GlPaintEngine.mediaWritten`), picture
    tiles need the same stamp set at every place a tile is put, and a tile whose stamp has not moved can be taken from

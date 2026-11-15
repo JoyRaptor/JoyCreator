@@ -122,12 +122,21 @@ build_log_tail() {
 }
 
 cmd="${1:-}"; shift || true
+
+# Everything that CHANGES a device goes through phone.ps1, the one place that finds each device by
+# model (Note 9 / tablet / Fold / Note 20 via PHONE_SLOT) and refuses unless the caller HOLDS that
+# device's lock (JB_PHONE_HOLDER). This script's own device picking is "first USB device", which has
+# typed into phones other lanes were driving, and its old launch used monkey (rotation lock off).
+ps1() { powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/phone.ps1 "$@"; }
+case "$cmd" in
+  install|launch|start|tap|swipe|key|text|shell-write|restore|holds|claim|release|who|serial)
+    ps1 "$cmd" "$@"; exit $? ;;
+esac
+
 case "$cmd" in
   devices) "$ADB" devices -l ;;
   size)    "$ADB" $(dev) shell wm size
            echo "NOTE: if an Override size is printed, compute ALL taps against the OVERRIDE." ;;
-  install) ensure_device || { echo "no phone reachable"; exit 1; }
-           "$ADB" $(dev) install -r "${1:-$APK}" ;;   # optional path, e.g. a cloud build under build/cloud/<sha>/
 
   # ── THE ONE TO USE ──────────────────────────────────────────────────────────
   #
@@ -183,7 +192,9 @@ case "$cmd" in
              echo "  Run: bash tools/phone.sh doctor"
              exit 1
            }
-           sel=$(pick_serial)
+           ps1 holds || exit 3   # REFUSED unless you hold this device's lock
+           sel=$(ps1 serial | tr -d '\r')
+           [ -n "$sel" ] || { echo "REFUSING: the device phone.ps1 picks is not attached"; exit 1; }
            echo "installing onto $(nameof "$sel")"
            "$ADB" -s "$sel" install -r "$APK" || { echo "INSTALL FAILED"; exit 1; }
 
@@ -256,13 +267,8 @@ case "$cmd" in
            else
              echo "  MISSING at $APK"
            fi ;;
-  launch)  "$ADB" $(dev) shell am force-stop $PKG
-           "$ADB" $(dev) shell monkey -p $PKG -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
-           echo "launched; wait ~8s before the first screenshot" ;;
   shot)    out="${1:?usage: shot <file.png>}"
            "$ADB" $(dev) exec-out screencap -p > "$out" && echo "wrote $out" ;;
-  tap)     "$ADB" $(dev) shell input tap "${1:?x}" "${2:?y}" ;;
-  swipe)   "$ADB" $(dev) shell input swipe "${1:?x1}" "${2:?y1}" "${3:?x2}" "${4:?y2}" "${5:-300}" ;;
   log)     "$ADB" $(dev) logcat -d -s "${1:?usage: log <TAG>}" ;;
   audio)   p=$("$ADB" $(dev) shell pidof $PKG | tr -d '\r')
            echo "pid=$p"

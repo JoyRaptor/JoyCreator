@@ -13,6 +13,11 @@
 #   .\tools\phone.ps1 shot out.png        screenshot to that path
 #   .\tools\phone.ps1 tap 628 2110        tap (device pixels, per `size`)
 #   .\tools\phone.ps1 swipe 500 1200 500 600 [ms]
+#   .\tools\phone.ps1 key KEYCODE_HOME    key event(s)
+#   .\tools\phone.ps1 text hello there    type into the focused field
+#   .\tools\phone.ps1 start <pkg/activity | pkg>   am start (never monkey)
+#   .\tools\phone.ps1 shell-write <cmd>   any shell command that changes the device
+#   .\tools\phone.ps1 holds               exit 0 if you hold this device, else REFUSED + exit 3
 #   .\tools\phone.ps1 log AudioLayerSync  dump logcat for one tag
 #   .\tools\phone.ps1 audio               our app's AudioTracks + allocation count
 #   .\tools\phone.ps1 build               last BUILD line from build.log, with its date
@@ -22,8 +27,10 @@
 #
 # ONE AGENT DRIVES THE PHONE AT A TIME (owner, 2026-10-14). The lock is the file
 # %TEMP%\jb-phone.lock (beside Codex's jb-gradle.lock): line 1 the holder, line 2 when, line 3 why.
-# install / launch / tap / swipe refuse while someone else holds it; set $env:PHONE_OWNER to the
-# name you claimed with. A lock untouched for 30 minutes is stale and may be taken over.
+# install / launch / start / tap / swipe / key / text / shell-write / restore run ONLY for the lock's
+# holder: set $env:JB_PHONE_HOLDER (or the older $env:PHONE_OWNER) to the name you claimed with.
+# Anyone else gets "REFUSED, nothing sent" and exit 3. Each such action refreshes your claim.
+# A lock untouched for 30 minutes is stale and may be taken over (by claiming it).
 # Screenshots, logcat and dumpsys only look, so they don't need the lock.
 #
 # Multi-device: the Note 9 (the sandbox phone) is ALWAYS the default, never "the first device".
@@ -144,14 +151,31 @@ function Get-PhoneLock {
     }
 }
 
-function Assert-PhoneFree {
+$deviceName = switch -Wildcard (Split-Path $phoneLock -Leaf) {
+    "jb-phone2.lock" { "the Note 20" }
+    "jb-phone3.lock" { "the test tablet" }
+    "jb-phone4.lock" { "the test Fold" }
+    default { "the Note 9" }
+}
+
+# Who is calling: the name they claimed with.
+function Get-Caller { if ($env:JB_PHONE_HOLDER) { $env:JB_PHONE_HOLDER } else { $env:PHONE_OWNER } }
+
+# Anything that CHANGES a device (taps, keys, text, installs, am start, shell writes) needs the caller
+# to HOLD that device's lock: not merely "nobody else has it". Three times lanes typed into a phone
+# another lane was driving (11-13, 11-14) because a free or stale lock let them through.
+function Assert-Holder {
+    $me = Get-Caller
     $l = Get-PhoneLock
-    if ($l -and -not $l.Stale -and $l.Holder -ne $env:PHONE_OWNER) {
-        Write-Output "PHONE IN USE by $($l.Holder):"
-        Write-Output $l.Text
-        Write-Output "Wait for 'phone.ps1 who' to say free, or ask on tasks/joybrush/AGENT_BOARD.md."
-        exit 3
+    $why = $null
+    if (-not $me) { $why = "no caller name: claim $deviceName, then set `$env:JB_PHONE_HOLDER to the name you claimed with" }
+    elseif ($null -eq $l) { $why = "$deviceName is not claimed: run phone.ps1 claim $me `"<why>`" first" }
+    elseif ($l.Holder -ne $me) {
+        $why = "$deviceName is held by $($l.Holder), not $me"
+        if ($l.Stale) { $why += " (their claim is stale: claim it yourself to take over)" }
     }
+    if ($why) { Write-Output "REFUSED, nothing sent: $why"; exit 3 }
+    (Get-Item $phoneLock).LastWriteTime = Get-Date   # every action refreshes the holder's claim
 }
 
 switch ($Cmd) {
@@ -171,7 +195,7 @@ switch ($Cmd) {
         }
         $why = ($Rest | Select-Object -Skip 1) -join " "
         Set-Content -Path $phoneLock -Encoding utf8 -Value @($name, (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $why)
-        Write-Output "phone claimed by $name. Set `$env:PHONE_OWNER = '$name' for install/launch/tap/swipe."
+        Write-Output "$deviceName claimed by $name. Set `$env:JB_PHONE_HOLDER = '$name' for install/launch/start/tap/swipe/key/text/shell-write."
     }
 
     "release" {
@@ -198,8 +222,11 @@ switch ($Cmd) {
         Write-Output "NOTE: if an Override size is printed, compute ALL taps against the OVERRIDE."
     }
 
+    # Exit 0 when the caller holds this device, else the REFUSED line and exit 3 (for scripts such as phone.sh deploy).
+    "holds" { Assert-Holder; Write-Output "$(Get-Caller) holds $deviceName" }
+
     "install" {
-        Assert-PhoneFree
+        Assert-Holder
         # Optional path: a cloud build fetched by tools\cloud-build.ps1 lands under build\cloud\<sha>\.
         if ($Rest.Count -ge 1) { $apk = $Rest[0] }
         if (-not (Test-Path $apk)) { Write-Output "no APK at $apk - has the watcher built yet?"; exit 1 }
@@ -208,7 +235,7 @@ switch ($Cmd) {
     }
 
     "launch" {
-        Assert-PhoneFree
+        Assert-Holder
         Adb shell am force-stop $pkg
         # SplashActivity is the ONLY launchable entry point; the editor is not exported.
         Adb shell am start -n "$pkg/com.fadcam.SplashActivity" | Out-Null
@@ -239,12 +266,49 @@ switch ($Cmd) {
         }
     }
 
-    "tap" { Assert-PhoneFree; Adb shell input tap $Rest[0] $Rest[1] }
+    "tap" { Assert-Holder; Adb shell input tap $Rest[0] $Rest[1] }
 
     "swipe" {
-        Assert-PhoneFree
+        Assert-Holder
         $ms = if ($Rest.Count -ge 5) { $Rest[4] } else { "300" }
         Adb shell input swipe $Rest[0] $Rest[1] $Rest[2] $Rest[3] $ms
+    }
+
+    # key KEYCODE_HOME | 3 | KEYCODE_BACK ...   (one or more key events)
+    "key" {
+        if ($Rest.Count -lt 1) { Write-Output "usage: phone.ps1 key <keycode> [more keycodes]"; exit 1 }
+        Assert-Holder
+        Adb shell input keyevent @Rest
+    }
+
+    # text <words>: typed into the focused field (spaces become %s, which `input text` needs).
+    "text" {
+        $t = $Rest -join " "
+        if (-not $t) { Write-Output "usage: phone.ps1 text <words>"; exit 1 }
+        if ($t -match "'") { Write-Output "REFUSED, nothing sent: a single quote cannot pass through adb's shell intact"; exit 1 }
+        Assert-Holder
+        Adb shell "input text '$($t -replace ' ', '%s')'"
+    }
+
+    # start <package/activity | package> [am start options]: am start, never monkey (monkey turns the
+    # owner's rotation lock off). A bare package is resolved to its launcher activity.
+    "start" {
+        $c = if ($Rest.Count -ge 1) { $Rest[0] } else { "" }
+        if (-not $c) { Write-Output "usage: phone.ps1 start <package/activity | package> [am start options]"; exit 1 }
+        Assert-Holder
+        if ($c -notlike "*/*") {
+            $c = ([string](Adb shell cmd package resolve-activity --brief $c | Select-Object -Last 1)).Trim()
+            if ($c -notlike "*/*") { Write-Output "no launchable activity for $($Rest[0])"; exit 1 }
+        }
+        Adb shell am start -n $c @($Rest | Select-Object -Skip 1)
+    }
+
+    # shell-write <command>: any adb shell command that changes the device (settings, pm, wm, setprop,
+    # run-as writes, rm ...). Looking (dumpsys, getprop, logcat, screencap) needs no lock: use raw adb -s.
+    "shell-write" {
+        if ($Rest.Count -lt 1) { Write-Output "usage: phone.ps1 shell-write <command>"; exit 1 }
+        Assert-Holder
+        Adb shell @Rest
     }
 
     "log" { Adb logcat -d -s $Rest[0] }
@@ -308,6 +372,7 @@ switch ($Cmd) {
         # tar listing first and be sure it is the one you want.
         $in = $Rest[0]
         if (-not (Test-Path $in)) { Write-Output "no such file: $in"; exit 1 }
+        Assert-Holder
         $s = Get-Serial
         if ($null -eq $s) { Write-Output "no device attached"; exit 1 }
         & $adb -s $s push $in /data/local/tmp/restore.tar | Out-Null
@@ -329,6 +394,6 @@ switch ($Cmd) {
     }
 
     default {
-        Get-Content $PSCommandPath | Select-Object -Skip 1 -First 20 | ForEach-Object { $_ -replace '^# ?', '' }
+        Get-Content $PSCommandPath | Select-Object -Skip 1 -First 31 | ForEach-Object { $_ -replace '^# ?', '' }
     }
 }

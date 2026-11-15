@@ -79,8 +79,12 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
 | **Test tablet** (Tab S8 Ultra) | A blank test device for tablet layouts and checks | Throwaway "TEST ..." projects only; no rotation or system-settings changes; never uninstall or clear data. `$env:PHONE_SLOT = "tablet"`. |
 
 - Several devices can be on one adb server, so **raw `adb` must always name one**: `adb -s (.\tools\phone.ps1 serial)`. The tool finds each device by model; never write a serial in a tracked file (rule 1). Each device has its own lock file: `jb-phone.lock` (Note 9), `jb-phone2.lock` (Note 20, `PHONE_SLOT=note20`), `jb-phone3.lock` (tablet, `PHONE_SLOT=tablet`).
-- **One agent drives a phone at a time:** `.\tools\phone.ps1 claim <name> "<why>"`, refresh it while you
-  work, `.\tools\phone.ps1 release <name>` when done. Looking (screenshots, logcat) needs no lock.
+- **One agent drives a phone at a time:** `.\tools\phone.ps1 claim <name> "<why>"`, then `$env:JB_PHONE_HOLDER = "<name>"`,
+  and `.\tools\phone.ps1 release <name>` when done. Looking (screenshots, logcat, dumpsys) needs no lock.
+- **Never raw `adb ... input`, `am`, `install`, `pm` or `settings`: anything that changes a device goes through `phone.ps1`**
+  (`tap`, `swipe`, `key`, `text`, `start`, `install`, `launch`, `shell-write`). It refuses with "REFUSED, nothing sent" (exit 3)
+  unless you hold THAT device's lock, and each action refreshes your claim. Raw `adb -s` is for looking only.
+  `phone.sh` hands these commands to `phone.ps1`, so the rule is the same in bash.
 - **Never launch with `adb shell monkey`**: it turns his rotation lock off. Use `am start -n <activity>`.
 - If JoyBrush is in front with a drawing open, press Home first: an install kills an unsaved drawing.
 - Log the phone's temperature every 30 seconds while testing and say if it throttled.

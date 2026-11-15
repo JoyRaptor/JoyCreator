@@ -76,7 +76,7 @@ public final class JoybotArrival {
     /** True when the chat is a card rather than a full sheet. */
     public static boolean isCard(@NonNull Context c) { return wide(c) || phoneCard(c); }
 
-    /** Frost (owner's rule: the drawer stays see-through; Frost only adds blur, on Android 12 and up). On by default. */
+    /** Frost (owner's rule: the drawer stays see-through; Frost only adds blur). On by default. See {@code FrostView}. */
     public static boolean frost(@NonNull Context c) { return p(c).getBoolean("frost", true); }
 
     public static void setFrost(@NonNull Context c, boolean on) { p(c).edit().putBoolean("frost", on).apply(); }

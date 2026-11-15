@@ -54,6 +54,9 @@ public final class StageView extends TextureView implements TextureView.SurfaceT
     @Nullable private Show show;
     private boolean running;
     private final int[] wh = new int[1];
+    // frame timing, logged when the show ends (owner: extras must not cost frames)
+    private long lastFrameNs, renderNsSum, renderNsMax, gapNsMax;
+    private int frames, slowGaps;
 
     public StageView(@NonNull Context c) { this(c, null); }
 
@@ -110,6 +113,13 @@ public final class StageView extends TextureView implements TextureView.SurfaceT
             StageRenderer r = renderer;
             if (s == null || r == null || !EGL14.eglMakeCurrent(display, surface, surface, context)) { finish(false); return; }
             long t = Math.max(0L, (frameTimeNanos - s.startNanos) / 1_000_000L);
+            if (lastFrameNs != 0L) {
+                long gap = frameTimeNanos - lastFrameNs;
+                gapNsMax = Math.max(gapNsMax, gap);
+                if (gap > 20_000_000L) slowGaps++;
+            }
+            lastFrameNs = frameTimeNanos;
+            long r0 = System.nanoTime();
             boolean more;
             try {
                 EGL14.eglQuerySurface(display, surface, EGL14.EGL_WIDTH, wh, 0);
@@ -123,6 +133,10 @@ public final class StageView extends TextureView implements TextureView.SurfaceT
                 return;
             }
             EGL14.eglSwapBuffers(display, surface);
+            long rn = System.nanoTime() - r0;
+            renderNsSum += rn;
+            renderNsMax = Math.max(renderNsMax, rn);
+            frames++;
             if (more) Choreographer.getInstance().postFrameCallback(this);
             else finish(true);
         }
@@ -131,6 +145,10 @@ public final class StageView extends TextureView implements TextureView.SurfaceT
     /** GL thread: clear the layer, free GL, tell the main thread. */
     private void finish(boolean drew) {
         if (!running && renderer == null) { report(drew); return; }
+        if (frames > 0) {
+            Log.i(TAG, "stage " + frames + " frames, gaps over 20 ms " + slowGaps + ", worst gap " + gapNsMax / 100_000 / 10f
+                    + " ms, draw+swap avg " + renderNsSum / frames / 100_000 / 10f + " ms, worst " + renderNsMax / 100_000 / 10f + " ms");
+        }
         running = false;
         Choreographer.getInstance().removeFrameCallback(frame);
         if (surface != EGL14.EGL_NO_SURFACE && EGL14.eglMakeCurrent(display, surface, surface, context)) {

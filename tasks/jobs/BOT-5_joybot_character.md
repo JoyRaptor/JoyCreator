@@ -56,7 +56,16 @@ Build steps (branch `claude/joybot-sheet-20261113`):
 - [x] Settings rows (`ArrivalSettings`, in Joybot's settings): drawer opening, title, later opens, phone card, frost.
 - [x] Openers pass their button (`JoybotOpen.start`): lobby, Studio, TextLab, VisLab, SpriteLab, Library (no button: top right).
       JoyBrush (`JoyBrushActivity.kt`, JoyBrush lane) still opens without one: he comes from the top right there.
-- [ ] Cloud build; check on the tablet and the Note 9; STATE row; land.
+- [x] Cloud build (fa1c34c77, 9272e643a: both compile). Test tablet 11-15 01:24, screen recordings: the card drops like a curtain at
+      the right under the button (button still in sight), the title comes with it, he flies out of the button with his light
+      trail, rocket landing with the braking rings and the landing flash, lands on his seat, "Something else?" after him, calm
+      ring under him; the window then becomes the card (840x1644 px at 2088,172) and a swipe beside it turned the lobby dial
+      (STUDIO to TEXTLAB); dragging the title moved it; it reopened where it was left, on a different path, with a skim landing
+      (sparks and rings along the floor); the close button closed it. No errors in the log.
+      Found: Frost never showed: this tablet has Android's window blur off (`mBlurEnabled=false`, no SurfaceFlinger blur), as
+      Samsungs commonly do, so Frost is now a CPU blur of the screen picture taken at open (`FrostView`, 52d26da17), like
+      Studio's drawers. The old corner grip sat over Send: replaced by edge sizing (`CardGrip`).
+- [ ] Frost and edge sizing seen on the tablet; the Note 9 (full sheet, out of the button); STATE row; land.
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)

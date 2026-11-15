@@ -64,7 +64,7 @@ public final class ArrivalSettings {
                     "Drag its title to move it and its corner to size it; you can still use the screen beside it");
             root.addView(cardBox);
         }
-        CheckBox frost = check(a, "Frost: blur what is behind the chat (Android 12 and up)", JoybotArrival.frost(a));
+        CheckBox frost = check(a, "Frost: blur what is behind the chat", JoybotArrival.frost(a));
         frost.setOnCheckedChangeListener((b, on) -> JoybotArrival.setFrost(a, on));
         root.addView(frost);
     }

@@ -38,23 +38,44 @@ final class FrostView extends View {
 
     boolean hasPicture() { return blurred != null; }
 
-    /** Blur {@code screen} (a picture of the screen at {@code where}, px) and show it. */
+    private static final java.util.concurrent.ExecutorService WORK = java.util.concurrent.Executors.newSingleThreadExecutor();
+    /** When the blurred picture arrived: it fades in over {@link #FADE_MS}. */
+    private long shownAt;
+    private static final long FADE_MS = 220L;
+
+    /**
+     * Blur {@code screen} (a picture of the screen at {@code where}, px) off the main thread, once, and fade
+     * it in: the main thread pays nothing (owner: extras stay cheap, no frame-rate cost).
+     */
     void setPicture(@NonNull Bitmap screen, @NonNull Rect where) {
-        try {
+        final Rect at0 = new Rect(where);
+        WORK.execute(() -> {
+            long t0 = android.os.SystemClock.elapsedRealtimeNanos();
+            Bitmap out = null;
             int w = Math.max(8, screen.getWidth() / 4), h = Math.max(8, screen.getHeight() / 4);
-            Bitmap small = Bitmap.createScaledBitmap(screen, w, h, true);
-            Bitmap b = small.isMutable() ? small : small.copy(Bitmap.Config.ARGB_8888, true);
-            int[] px = new int[w * h], tmp = new int[w * h];
-            b.getPixels(px, 0, w, 0, 0, w, h);
-            boxBlur(px, tmp, w, h, 3);
-            boxBlur(px, tmp, w, h, 3);
-            b.setPixels(px, 0, w, 0, 0, w, h);
-            blurred = b;
-            onScreen.set(where);
-        } catch (RuntimeException | OutOfMemoryError e) {
-            blurred = null;
-        }
-        invalidate();
+            try {
+                Bitmap small = Bitmap.createScaledBitmap(screen, w, h, true);
+                Bitmap b = small.isMutable() ? small : small.copy(Bitmap.Config.ARGB_8888, true);
+                int[] px = new int[w * h], tmp = new int[w * h];
+                b.getPixels(px, 0, w, 0, 0, w, h);
+                boxBlur(px, tmp, w, h, 3);
+                boxBlur(px, tmp, w, h, 3);
+                b.setPixels(px, 0, w, 0, 0, w, h);
+                out = b;
+            } catch (RuntimeException | OutOfMemoryError ignored) {
+                // no frost this time; never an error
+            }
+            android.util.Log.i("ChatArrival", "frost blur " + (android.os.SystemClock.elapsedRealtimeNanos() - t0) / 100_000 / 10f
+                    + " ms for " + w + "x" + h + " (off the main thread)");
+            final Bitmap done = out;
+            post(() -> {
+                if (done == null) return;
+                onScreen.set(at0);
+                blurred = done;
+                shownAt = android.os.SystemClock.uptimeMillis();
+                invalidate();
+            });
+        });
     }
 
     @Override
@@ -63,7 +84,10 @@ final class FrostView extends View {
         if (b == null) return;
         getLocationOnScreen(at);
         dst.set(onScreen.left - at[0], onScreen.top - at[1], onScreen.right - at[0], onScreen.bottom - at[1]);
+        float k = Math.min(1f, (android.os.SystemClock.uptimeMillis() - shownAt) / (float) FADE_MS);
+        paint.setAlpha(Math.round(255 * k));
         c.drawBitmap(b, null, dst, paint);
+        if (k < 1f) postInvalidateOnAnimation();
     }
 
     /** One horizontal then one vertical box pass of radius {@code r}, in place (as ObjectDrawer's). */

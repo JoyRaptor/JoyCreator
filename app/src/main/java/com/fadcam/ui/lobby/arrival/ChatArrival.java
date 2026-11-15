@@ -285,6 +285,9 @@ public final class ChatArrival {
         float[] uv = hop ? null : paths.get(JoybotArrival.nextPath(a, paths.size(), dice));
         Flight.Approach ap = Flight.Approach.values()[JoybotArrival.nextApproach(a, 3, dice)];
         Flight f = new Flight(bx, by, ex, ey, pegUp, uv, ap, Flight.Landing.DOUBLE, shorter);
+        Log.i(TAG, "arrival: " + (hop ? "hop" : shorter ? "shorter show" : "whole show") + ", " + ap
+                + ", " + JoybotArrival.reveal(a) + " / " + JoybotArrival.title(a) + (card ? ", card" : ", sheet")
+                + ", flight " + f.dur + " ms, frost " + frostOn());
         Reveal r = new Reveal(JoybotArrival.reveal(a), JoybotArrival.title(a), hop, bx, by, pr, f);
         flight = f;
         rev = r;

@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Klassisches Über</string>
     <string name="aboutjoy_classic_hint">Den alten Über-Bildschirm öffnen</string>
     <string name="aboutjoy_no_browser">Kein Browser, der diesen Link öffnen kann</string>
+    <string name="aboutjoy_support">Joy Creator unterstützen</string>
+    <string name="aboutjoy_support_hint">Die Unterstützungsseite des Machers im Browser öffnen</string>
 </resources>

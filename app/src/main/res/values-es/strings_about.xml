@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Acerca de clásico</string>
     <string name="aboutjoy_classic_hint">Abre la pantalla Acerca de de siempre</string>
     <string name="aboutjoy_no_browser">No hay navegador para abrir este enlace</string>
+    <string name="aboutjoy_support">Apoyar Joy Creator</string>
+    <string name="aboutjoy_support_hint">Abrir la página de apoyo del creador en el navegador</string>
 </resources>

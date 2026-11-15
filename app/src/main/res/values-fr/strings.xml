@@ -2345,7 +2345,6 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 
 
-    <string name="kofi_footer_text">Fait avec    pour les créateurs en</string>
 
 <string name="choose_language">Choose Language</string>
 
@@ -3014,7 +3013,6 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 
 
-<string name="fadcam_pro_header_button">Pro</string>
 
 <string name="player_info_title">About the Video Player</string>
 
@@ -4828,12 +4826,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="intro_line_secondcam">un deuxième téléphone comme caméra, sur ton propre Wi-Fi</string>
     <string name="intro_line_ai">une IA qui modifie la vraie timeline</string>
     <string name="intro_start_creating">Commencer à créer</string>
-    <string name="intro_support">Soutenir</string>
     <string name="intro_promise">Sans pub. Sans abonnement.\nSans filigrane.</string>
     <string name="intro_promise_ever">Jamais d\'export payant.</string>
     <string name="intro_story">J\'ai construit ça entre deux siestes, en m\'occupant de mes trois tout-petits. C\'est comme ça que je fais vivre ma famille. Si ça te sert à quelque chose, tu peux aider à le garder gratuit pour tout le monde.</string>
     <string name="intro_cta_start">Commencer à créer</string>
-    <string name="intro_cta_support">Soutenir</string>
     <string name="intro_ai_note">Joy Creator n\'utilise aucun serveur. Si tu connectes une IA, tes requêtes vont au fournisseur que tu as choisi — nous ne les voyons jamais et ne prélevons rien.</string>
     <string name="intro_ai_have_key">Tu as déjà une clé ?</string>
     <string name="intro_ai_add_now">L\'ajouter maintenant</string>

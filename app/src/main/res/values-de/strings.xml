@@ -423,7 +423,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="video_split_size_summary_gb">Aktuell: %1$s GB</string>
     <string name="video_splitting_title">Video-Aufteilung aktivieren</string>
     <string name="video_splitting_description">Aufnahmen automatisch in kleinere Dateien aufteilen (standardmäßig deaktiviert). Empfohlen: 2 GB für eine gute Balance. Voreinstellungen bis zu 4 GB und benutzerdefinierte Größen sind verfügbar. Dies hilft bei der Verwaltung großer Aufnahmen und vermeidet Dateigrößenbeschränkungen des Geräts.</string>
-    <string name="kofi_footer_text">Gemacht mit    für Kreative in</string>
     <string name="setting_audio_input_source_title">Audio-Eingangsquelle</string>
     <string name="setting_audio_input_source_status_default">Aktuell verwendet: Telefonmikrofon</string>
     <string name="setting_audio_input_source_status_wired">Aktuell verwendet: Kabelmikrofon</string>
@@ -1390,7 +1389,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="eye_color_violet" translatable="false">Violet</string>
     <string name="eye_color_white" translatable="false">White</string>
 
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="faditor_add_asset_image">Bild (5s Standbild)</string>
     <string name="faditor_add_asset_title">Asset hinzufügen</string>
     <string name="faditor_add_asset_video">Videoclip</string>
@@ -3131,12 +3129,10 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="intro_line_secondcam">ein zweites Handy als Kamera, über dein eigenes WLAN</string>
     <string name="intro_line_ai">KI, die die echte Zeitleiste bearbeitet</string>
     <string name="intro_start_creating">Los geht\'s</string>
-    <string name="intro_support">Unterstützen</string>
     <string name="intro_promise">Keine Werbung. Kein Abo.\nKein Wasserzeichen.</string>
     <string name="intro_promise_ever">Keine Export-Bezahlschranke. Nie.</string>
     <string name="intro_story">Ich habe das zwischen den Nickerchen gebaut, während ich auf meine drei Kleinkinder aufgepasst habe. Davon ernähre ich meine Familie. Wenn du etwas damit anfangen kannst, hilfst du mit, dass es für alle anderen kostenlos bleibt.</string>
     <string name="intro_cta_start">Los geht\'s</string>
-    <string name="intro_cta_support">Unterstützen</string>
     <string name="intro_ai_note">Joy Creator betreibt keine Server. Wenn du eine KI verbindest, gehen deine Eingaben an den Anbieter, den du gewählt hast — wir sehen sie nie und verdienen nichts daran.</string>
     <string name="intro_ai_have_key">Schon einen Schlüssel?</string>
     <string name="intro_ai_add_now">Jetzt hinzufügen</string>

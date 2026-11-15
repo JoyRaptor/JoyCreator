@@ -830,7 +830,6 @@
     <string name="video_split_size_summary_gb">Текущий: %1$s ГБ</string>
     <string name="video_splitting_title">Включить разделение видео</string>
     <string name="video_splitting_description">Автоматически разделять записи на меньшие файлы (Отключено по умолчанию). Рекомендуется: 2 ГБ для баланса. Доступны предустановки до 4 ГБ и пользовательские размеры. Это помогает управлять большими записями и избегает ограничений размера файлов устройства.</string>
-    <string name="kofi_footer_text">Сделано с    для творцов в</string>
 
     <string name="setting_audio_input_source_title">Источник аудиовхода</string>
     <string name="setting_audio_input_source_status_default">Микрофон телефона</string>
@@ -1201,8 +1200,6 @@
     <string name="new_project">Новый проект</string>
     <string name="delete">Удалить</string>
 
-    <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">О видеоплеере</string>
@@ -3877,12 +3874,10 @@ Joy Creator использует фрагментированный формат
     <string name="intro_line_secondcam">второй телефон как камера, по твоему же Wi-Fi</string>
     <string name="intro_line_ai">AI, который правит настоящий таймлайн</string>
     <string name="intro_start_creating">Начать творить</string>
-    <string name="intro_support">Поддержать</string>
     <string name="intro_promise">Без рекламы. Без подписки.\nБез водяных знаков.</string>
     <string name="intro_promise_ever">Никакой платы за экспорт. Никогда.</string>
     <string name="intro_story">Я сделал это в перерывах между детскими снами, пока растил троих малышей. Так я кормлю семью. Если тебе это пригодилось, ты можешь помочь сохранить приложение бесплатным для всех остальных.</string>
     <string name="intro_cta_start">Начать творить</string>
-    <string name="intro_cta_support">Поддержать</string>
     <string name="intro_ai_note">У Joy Creator нет своих серверов. Если подключишь AI, твои запросы уходят выбранному тобой провайдеру — мы их не видим и ничего не берём.</string>
     <string name="intro_ai_have_key">Уже есть ключ?</string>
     <string name="intro_ai_add_now">Добавить сейчас</string>

@@ -2396,7 +2396,6 @@
 
 
 
-    <string name="kofi_footer_text">صُنع بـ    للمبدعين في</string>
 
     <string name="choose_language">اختر اللغة</string>
 
@@ -3080,7 +3079,6 @@
 
 
 
-    <string name="fadcam_pro_header_button">Pro</string>
 
     <string name="player_info_title">حول مشغل الفيديو</string>
 
@@ -4896,12 +4894,10 @@
     <string name="intro_line_secondcam">هاتف ثانٍ ككاميرا، عبر شبكة Wi-Fi الخاصة بك</string>
     <string name="intro_line_ai">AI يعدّل الخط الزمني نفسه</string>
     <string name="intro_start_creating">ابدأ الإبداع</string>
-    <string name="intro_support">ادعم</string>
     <string name="intro_promise">بلا إعلانات. بلا اشتراك.\nبلا علامة مائية.</string>
     <string name="intro_promise_ever">لا جدار دفع للتصدير. أبدًا.</string>
     <string name="intro_story">بنيت هذا بين قيلولة وأخرى، وأنا أرعى أطفالي الثلاثة الصغار. هذا مصدر رزق عائلتي. إن أفادك، يمكنك أن تساعد في إبقائه مجانيًا للجميع.</string>
     <string name="intro_cta_start">ابدأ الإبداع</string>
-    <string name="intro_cta_support">ادعم</string>
     <string name="intro_ai_note">Joy Creator لا يشغّل أي خوادم. إذا ربطت AI، تذهب رسائلك إلى المزوّد الذي اخترته — نحن لا نراها ولا نأخذ أي عمولة.</string>
     <string name="intro_ai_have_key">لديك مفتاح بالفعل؟</string>
     <string name="intro_ai_add_now">أضِفه الآن</string>

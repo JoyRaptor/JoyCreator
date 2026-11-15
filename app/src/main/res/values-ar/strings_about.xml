@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">حول الكلاسيكية</string>
     <string name="aboutjoy_classic_hint">افتح شاشة حول القديمة</string>
     <string name="aboutjoy_no_browser">لا يوجد متصفح لفتح هذا الرابط</string>
+    <string name="aboutjoy_support">ادعم Joy Creator</string>
+    <string name="aboutjoy_support_hint">افتح صفحة دعم صانع التطبيق في متصفحك</string>
 </resources>

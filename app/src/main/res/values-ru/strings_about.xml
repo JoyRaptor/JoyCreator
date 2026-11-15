@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">Классический экран «О приложении»</string>
     <string name="aboutjoy_classic_hint">Открыть старый экран «О приложении»</string>
     <string name="aboutjoy_no_browser">Нет браузера, чтобы открыть эту ссылку</string>
+    <string name="aboutjoy_support">Поддержать Joy Creator</string>
+    <string name="aboutjoy_support_hint">Открыть страницу поддержки автора в браузере</string>
 </resources>

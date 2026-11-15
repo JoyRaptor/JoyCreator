@@ -1351,7 +1351,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="video_split_size_summary_gb">Saat ini: %1$s GB</string>
     <string name="video_splitting_title">Aktifkan Pemisahan Video</string>
     <string name="video_splitting_description">Secara otomatis memisahkan rekaman menjadi file yang lebih kecil (Dinonaktifkan secara default). Direkomendasikan: 2 GB untuk keseimbangan. Tersedia preset hingga 4 GB dan ukuran kustom. Ini membantu mengelola rekaman besar dan menghindari batasan ukuran file perangkat.</string>
-    <string name="kofi_footer_text">Dibuat dengan    untuk para kreator di</string>
 
     <string name="setting_audio_input_source_title">Sumber Input Audio</string>
     <string name="setting_audio_input_source_status_default">Saat ini menggunakan: Mikrofon Ponsel</string>
@@ -1910,8 +1909,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="new_project">Proyek Baru</string>
     <string name="delete">Hapus</string>
 
-    <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">Tentang Pemutar Video</string>
@@ -3400,12 +3397,10 @@ Untuk pengalaman pemutaran paling mulus, Anda dapat menggunakan pemutar eksterna
     <string name="intro_line_secondcam">ponsel kedua sebagai kamera, lewat Wi-Fi milikmu sendiri</string>
     <string name="intro_line_ai">AI yang mengedit timeline sungguhan</string>
     <string name="intro_start_creating">Mulai berkarya</string>
-    <string name="intro_support">Dukung</string>
     <string name="intro_promise">Tanpa iklan. Tanpa langganan.\nTanpa watermark.</string>
     <string name="intro_promise_ever">Tanpa paywall ekspor. Selamanya.</string>
     <string name="intro_story">Aku membuat ini di sela waktu tidur, sambil menjaga ketiga balitaku. Dari sinilah aku menghidupi keluargaku. Kalau kamu merasa terbantu, kamu bisa ikut menjaganya tetap gratis untuk semua orang.</string>
     <string name="intro_cta_start">Mulai berkarya</string>
-    <string name="intro_cta_support">Dukung</string>
     <string name="intro_ai_note">Joy Creator tidak menjalankan server. Kalau kamu menyambungkan AI, perintahmu dikirim ke penyedia yang kamu pilih — kami tidak pernah melihatnya dan tidak mengambil bagian apa pun.</string>
     <string name="intro_ai_have_key">Sudah punya kunci?</string>
     <string name="intro_ai_add_now">Tambahkan sekarang</string>

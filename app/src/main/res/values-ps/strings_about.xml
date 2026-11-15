@@ -37,4 +37,6 @@
     <string name="aboutjoy_classic">کلاسیک په اړه</string>
     <string name="aboutjoy_classic_hint">زوړه د «په اړه» پاڼه خلاصه کړئ</string>
     <string name="aboutjoy_no_browser">دا لینک خلاصولو لپاره براوزر نشته</string>
+    <string name="aboutjoy_support">د Joy Creator ملاتړ وکړئ</string>
+    <string name="aboutjoy_support_hint">د جوړونکي د ملاتړ پاڼه په براوزر کې پرانیزئ</string>
 </resources>

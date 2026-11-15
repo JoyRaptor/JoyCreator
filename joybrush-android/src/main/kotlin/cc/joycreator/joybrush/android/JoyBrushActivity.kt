@@ -1423,6 +1423,13 @@ class JoyBrushActivity : Activity() {
             onEditableLinesChanged = { on ->
                 if (canvas.preset?.id == brush.id) setEditableLines(on)
             },
+            // BRUSH-UI section K.3: the slider ends, the test stroke's S-turns with no stripes, from the shared cache.
+            endPicture = { p, w, h, onReady ->
+                val ask = brushPreviews.request(cc.joycreator.joybrush.androidkit.preview.BrushPreviewRequest.snapshot(p, w, h,
+                    cc.joycreator.joybrush.androidkit.preview.BrushPreviewStyle(ink = kit.p.drawerInk),
+                    part = cc.joycreator.joybrush.core.brush.TestStroke.Part.SWOOSH, stripes = false), onReady)
+                ({ ask.cancel() })
+            }
         )
         // The pen dot and the curves' markers follow the pen on the drawing and on the preview alike.
         val reading: (Float, Float, Float) -> Unit = { p, t, o -> view.showReading(p, t, o) }

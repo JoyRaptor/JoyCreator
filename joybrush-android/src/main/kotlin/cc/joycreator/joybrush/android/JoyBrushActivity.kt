@@ -1754,6 +1754,7 @@ class JoyBrushActivity : Activity() {
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
         canvas.mediaBudgetBytes = LayerBudget.mediaBudgetBytes(info.totalMem)
+        canvas.savePaintBudgetBytes = LayerBudget.savePaintBudgetBytes(Runtime.getRuntime().maxMemory())
         return LayerBudget.maxLayers(info.totalMem, canvas.pageWidth, canvas.pageHeight)
     }
 

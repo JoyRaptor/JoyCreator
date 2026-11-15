@@ -116,6 +116,15 @@ function Get-RunId {
 function Start-Build([string] $ref, [string] $variant) {
     if (-not $ref) { throw "usage: start <ref> [variant]" }
     if (-not $variant) { $variant = "defaultDebug" }
+    # A commit: the runner's checkout can only fetch a FULL 40-character commit id, and only one that is on GitHub.
+    if ($ref -match '^[0-9a-fA-F]{7,40}$' -and -not (& git rev-parse --verify --quiet "refs/remotes/origin/$ref" 2>$null)) {
+        $full = (& git rev-parse --verify --quiet "$ref^{commit}" 2>$null)
+        if (-not $full) { throw "commit $ref is not known in this worktree (typo, or fetch first)" }
+        try { Api GET "/commits/$full" | Out-Null }
+        catch { throw "commit $ref is not on GitHub yet: push the branch that has it, then start again" }
+        if ($full -ne $ref) { Write-Host "commit $ref = $full" }
+        $ref = $full
+    }
     # The runner can only see what is on GitHub: warn if this branch has unpushed commits.
     $localSha = (& git rev-parse --verify --quiet "$ref^{commit}" 2>$null)
     $remoteSha = (& git rev-parse --verify --quiet "origin/$ref^{commit}" 2>$null)

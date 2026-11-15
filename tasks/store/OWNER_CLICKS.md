@@ -101,7 +101,7 @@ Do this only after step 1 works. It is separate for a reason: a broken DNS chang
 | **Who the app is for** | 13 and over; not a children's app, even though your children use JoyBrush at home | Playing it for under-13s brings Google's Families rules (more checks, stricter AI treatment) |
 | **Data safety: how to count the AI helper** | Declare it: Joybot's messages and pictures go to the AI service you choose, optional | Google may exempt it; declaring is harmless, a wrong "nothing" is not |
 | **Category** | Video Players & Editors (alternative: Art & Design) | Taste |
-| **A "report this AI reply" button in Joybot** | Does not exist yet; Google's AI-content rule expects one | It is a small feature to schedule, or a sentence in the form explaining Joybot is a thin client to the person's own service |
+| **A "report this AI reply" button in Joybot** | **Exists now** (11-14): a flag beside Copy on every answer; it opens the person's email app with the reply prefilled to your contact address. Nothing is sent unless they press send. Mention it where Play asks how users can report AI content | Only that the contact address (`studio@joycreator.cc`) must really receive mail; it is a stand-in until you confirm |
 | **The Google feedback form** | Questions are drafted in `tasks/SHOW2_closed_test_kit.md` | You create the Form (forms.google.com) so replies go to you; paste its link into the tester page next to `[FEEDBACK FORM LINK]` |
 
 ## 7. Still needs an agent, not a click

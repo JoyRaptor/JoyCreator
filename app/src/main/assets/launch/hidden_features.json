@@ -2,5 +2,9 @@
   "_what": "The launch switch (L37). Features listed under hidden lose every door to them (lobby, Settings, Joybot ideas and help); their code stays, so removing a line brings the feature back. hide_unproven false shows everything. Keys and the proposed list: tasks/audits/launch_hide_list_20261115.md. Empty until the owner picks.",
   "hide_unproven": true,
   "hidden": [
+    "room_avatar",
+    {"key": "setting_motion_lab", "why": "test"},
+    "gadget_stubs",
+    "floor_bits"
   ]
 }

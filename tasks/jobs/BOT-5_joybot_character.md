@@ -137,8 +137,10 @@ Told to the orchestrator in the owner's words; each is a requirement.
 - [x] **How big before he looks blurry** (owner via the orchestrator, 11-15): measured, see the shared note
       `joybot-sharpness-20261115.md`. The app's pictures (240 px cells from the 4560 sheet, his height 181 px) stay sharp up
       to 92 dp on the Note 9 (dense), 90 dp on the tablet, 69 dp on the Fold; everywhere he is shown today (26-83 dp) is
-      within that and uses the full sheet. The first-run guide (DOOR-3) needs a double-size pack of its own animations
-      from the owner's 418 px sets (sharp to about 185 dp), built with the guide.
+      within that and uses the full sheet. Size (owner's caution: Play limit, about 20 MB for all new art): Joybot's
+      pictures are 4.23 MB on joy-creator, 5.12 MB with this branch's nine new sets (+0.89 MB, all WebP); no big frames
+      ship. The first-run intro is the owner's own work: no big pack here. A large moment, if ever, gets a double-size
+      copy of only its own animations (about 0.3-0.5 MB each).
 - [ ] Cloud build of all of it; seen on a device; clips to the owner; the owner OKs; land.
 
 ## What is left

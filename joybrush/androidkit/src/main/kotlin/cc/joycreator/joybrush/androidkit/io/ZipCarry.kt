@@ -113,13 +113,16 @@ internal object ZipCarry {
         /** How many bytes have gone to the stream so far. */
         val bytesWritten: Long get() = written
 
-        /** An entry made from [bytes]: deflated at [level] (0..9), or stored as it is when [level] is negative. */
-        fun fresh(name: String, bytes: ByteArray, level: Int) {
+        /**
+         * An entry made from [bytes]: deflated at [level] (0..9), or stored as it is when [level] is negative. Answers the
+         * CRC-32 of the bytes written for it (the compressed ones), which a later save checks before carrying them.
+         */
+        fun fresh(name: String, bytes: ByteArray, level: Int): Long {
             val crc = CRC32().also { it.update(bytes) }.value
             if (level < 0) {
                 begin(name, STORED, crc, bytes.size.toLong(), bytes.size.toLong())
                 put(bytes, bytes.size)
-                return
+                return crc
             }
             val d = deflater ?: Deflater(level, true).also { deflater = it }
             d.reset()
@@ -131,6 +134,18 @@ internal object ZipCarry {
             begin(name, DEFLATED, crc, scratch.size().toLong(), bytes.size.toLong())
             scratch.writeTo(out)
             written += scratch.size()
+            val made = scratch.toByteArray()
+            return CRC32().also { it.update(made) }.value
+        }
+
+        /**
+         * An entry whose compressed bytes the caller already holds (read from an older zip and checked): the first [n] of
+         * [compressed], with what the older zip's directory said of it.
+         */
+        fun packed(kept: Kept, compressed: ByteArray, n: Int) {
+            require(n.toLong() == kept.compressedSize) { "${kept.name}: $n bytes given for ${kept.compressedSize}" }
+            begin(kept.name, kept.method, kept.crc, kept.compressedSize, kept.size)
+            put(compressed, n)
         }
 
         /** An entry carried from another zip: [kept]'s compressed bytes, copied from [from] as they lie there. */

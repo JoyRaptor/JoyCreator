@@ -2099,7 +2099,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // The common refusals come BEFORE any layer is made (the Lead, 4c review): a GPU that cannot, a phone without the
         // free memory for the window. Said in words; nothing changes.
         mediaCanvas.unsupported?.let { drawing = false; onRefused?.invoke(it); return }
-        val wet = p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
+        // A settings preview lays watercolour only, on its own small wet sheet. Pencil and oil would need an atlas beside the
+        // drawing's (about 600 MB at 6 x 4 on the Fold): not until it is small by construction or kept inside the media budget
+        // (the atlas session, 11-15). Off for the drawing.
+        if (smallMediaPreview && p.media?.medium != MEDIUM_WET) {
+            drawing = false
+            android.util.Log.i("JoyBrushSheet", "settings preview: pencil and oil are not laid here yet (no preview atlas)")
+            return
+        }
+        val wet =p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
@@ -2641,8 +2649,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     var keepDrawnStrokes = false
 
     /**
-     * A brush's settings preview only: pencil and oil in the smallest atlas a drawing gets ([PREVIEW_SLOTS]), never one sized
-     * by the phone's memory. Watercolour goes on the wet sheet as in a drawing, a small one ([PREVIEW_SHEET_LONG_CELLS]) laid
+     * A brush's settings preview only: pencil and oil are not laid (startMediaStroke; their atlas, [PREVIEW_SLOTS] if ever
+     * built, is never one sized by the phone's memory). Watercolour goes on the wet sheet as in a drawing, a small one ([PREVIEW_SHEET_LONG_CELLS]) laid
      * over THIS view (the small stage), not the screen (11-15: in the atlas a big watercolour's test curve did not fit even at 6 x 4). Set before its
      * first stroke. Off for the drawing.
      */

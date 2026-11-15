@@ -42,11 +42,12 @@ public class StorageProgressRingView extends View {
     private boolean invertColors = false;
     private float strokeWidthPx;
     private float barCornerRadiusPx;
-    private int trackColor = Color.parseColor("#66D7E4F2");
-    private int gradientStartColor = Color.parseColor("#7BED9F");
-    private int gradientMidColor = Color.parseColor("#F7DC6F");
-    private int gradientEndColor = Color.parseColor("#FF6B6B");
-    private int textColor = Color.parseColor("#EAF4FF");
+    // Owner's pick 11-15 (SHELL-49, "rings B"): traffic light in the house colours, flat, no shine.
+    private int trackColor = com.fadcam.ui.faditor.Studio.LINE;
+    private int gradientStartColor = com.fadcam.ui.faditor.Studio.GO;
+    private int gradientMidColor = com.fadcam.ui.faditor.Studio.GO;
+    private int gradientEndColor = com.fadcam.ui.faditor.Studio.GO;
+    private int textColor = com.fadcam.ui.faditor.Studio.INK;
     private SweepGradient sweepGradient;
     private LinearGradient barGradient;
     private LinearGradient verticalGradient;
@@ -135,19 +136,13 @@ public class StorageProgressRingView extends View {
 
     private void updateGradientColors() {
         float colorProgress = invertColors ? (1f - progress) : progress;
-        int baseColor;
-        if (colorProgress >= 0.5f) {
-            float t = (colorProgress - 0.5f) / 0.5f;
-            baseColor = blendColors(Color.parseColor("#F5B041"), Color.parseColor("#2ECC71"), t);
-        } else {
-            float t = colorProgress / 0.5f;
-            baseColor = blendColors(Color.parseColor("#E74C3C"), Color.parseColor("#F5B041"), t);
-        }
-
-        gradientStartColor = lighten(baseColor, 0.22f);
+        int baseColor = ringColour(colorProgress);
+        gradientStartColor = baseColor;
         gradientMidColor = baseColor;
-        gradientEndColor = darken(baseColor, 0.20f);
+        gradientEndColor = baseColor;
         sweepGradient = null;
+        barGradient = null;
+        verticalGradient = null;
     }
 
     @Override
@@ -217,11 +212,11 @@ public class StorageProgressRingView extends View {
     private void drawMicroPillBar(Canvas canvas) {
         trackPaint.setShader(null);
         trackPaint.setStyle(Paint.Style.FILL);
-        trackPaint.setColor(Color.parseColor("#7AA9B9C4"));
+        trackPaint.setColor(trackColor);
         canvas.drawRoundRect(barTrackBounds, barCornerRadiusPx, barCornerRadiusPx, trackPaint);
 
         if (progress <= 0f) {
-            drawCenterText(canvas, Color.parseColor("#F5FBFF"), dpToPx(5.1f));
+            drawCenterText(canvas, textColor, dpToPx(5.1f));
             progressPaint.setStyle(Paint.Style.STROKE);
             trackPaint.setStyle(Paint.Style.STROKE);
             return;
@@ -260,7 +255,7 @@ public class StorageProgressRingView extends View {
     private void drawVerticalBar(Canvas canvas) {
         trackPaint.setShader(null);
         trackPaint.setStyle(Paint.Style.FILL);
-        trackPaint.setColor(Color.parseColor("#7AA9B9C4"));
+        trackPaint.setColor(trackColor);
         canvas.drawRoundRect(verticalTrackBounds, barCornerRadiusPx, barCornerRadiusPx, trackPaint);
 
         if (progress > 0f) {
@@ -292,7 +287,17 @@ public class StorageProgressRingView extends View {
         progressPaint.setShader(null);
         progressPaint.setStyle(Paint.Style.STROKE);
         trackPaint.setStyle(Paint.Style.STROKE);
-        drawCenterText(canvas, progress > 0f ? resolveOverlayTextColor(gradientMidColor) : Color.parseColor("#F5FBFF"), dpToPx(4.9f));
+        drawCenterText(canvas, progress > 0f ? resolveOverlayTextColor(gradientMidColor) : textColor, dpToPx(4.9f));
+    }
+
+    /**
+     * Rings B (owner 11-15): healthy is green, half-way down is amber, nearly out is red, in steps
+     * rather than a blend, so the colour says one clear thing.
+     */
+    static int ringColour(float goodFraction) {
+        if (goodFraction < 0.15f) return com.fadcam.ui.faditor.Studio.DANGER;
+        if (goodFraction < 0.5f) return com.fadcam.ui.faditor.Studio.CAREFUL;
+        return com.fadcam.ui.faditor.Studio.GO;
     }
 
     private void drawCenterText(Canvas canvas, int color, float sizePx) {
@@ -330,7 +335,7 @@ public class StorageProgressRingView extends View {
                 + (0.587 * Color.green(backgroundColor))
                 + (0.114 * Color.blue(backgroundColor))) / 255d;
         return luminance > 0.58d
-                ? Color.parseColor("#12202A")
-                : Color.parseColor("#F5FBFF");
+                ? com.fadcam.ui.faditor.Studio.ON_GO
+                : textColor;
     }
 }

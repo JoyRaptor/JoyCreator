@@ -69,7 +69,32 @@ Cloud debug build installed over the Note 9 sandbox app: Library 259 items befor
 `FadShot_`, `Faditor_Std_/Merge_`, `AppData/FadCam/...`), the QR scanner and Forensics snapshot names; these sit in
 the recording pipeline and go with step 3's tests. Screenshots: `tasks/screens/shell44-20261114/`.
 
-### Step 3 brief (for whoever builds it; read the conditions above first)
+### Step 3: built 11-15 (Play build lane)
+
+`studiokit/.../joyfolder/LegacyFolderMove.java` (the rules, plain Java) + `app/.../joyfolder/studio/FadCamFolderMove.java`
+(the phone side: called once per start from `MainActivity.onResume`, side-load build only, needs file access and a
+reachable Joy Creator folder). Log: `<Joy Creator folder>/.joycreator/Moved from FadCam folders.txt`; dry-run plan
+beside it (`FadCam folders move plan.txt`). The four conditions are met as follows: (a) originals go only on a start
+after the one that copied them, and only if the copy's SHA-256 still matches and no saved project names the original;
+(b) one tab-separated line per file: state, old path, new path, SHA-256, time, note; (c) the first start that finds old
+folders only writes the plan; (d) any failed check logs `kept` and leaves the old file, nothing is shown.
+
+**Proof:** `bash tools/joyfolder-tests/run.sh`: 35 move tests pass (two starts, dry run touches nothing, killed
+mid-copy, copied-but-unlogged, run twice, damaged copy, still-referenced original, name clash, folder units and
+resume); a deliberately broken "later start" rule makes 2 of them fail. **Note 9, test mode only** (debug builds
+work only inside `Download/FadCam-move-test/` while it exists; copies of the sandbox's real folders plus a clash file
+and a screen-drawing project): start 1 wrote the plan and moved nothing; start 2 copied 3 files, fingerprints equal,
+originals kept, the clash became `clash 2.txt`, the other file untouched; start 3 removed the 3 originals and the
+empty `FadCam`/`FadRec` folders; no crash; the real `Download/FadCam` and `Pictures/FadCam` untouched.
+**Not exercised on the phone:** a project pointing at a moved file (no sandbox project links to the old folders, so
+`repoint` and the "still referenced" wait are proven only by the tests and by the Bring-in tool's earlier phone test).
+
+**Before the owner installs the next debug build on the Note 20:** it will move his real old folders (plan on the
+first start, copies on the second, originals removed on the third). His Note 20 backup is on D:. On Android 11+ it
+needs "all files access" granted to the debug app, otherwise it does nothing. The Note 9 keeps
+`Download/FadCam-move-test/` so its real sandbox folders stay put; delete that folder to let the real move run there.
+
+### Step 3 brief (as written before building; kept for reference)
 
 - **What moves (side-load build only, `!BuildConfig.PLAY_BUILD`):** `Download/FadCam/*` → `Download/Joy Creator/`;
   `Pictures/FadCam/assets/**` (fonts, `.broll_tags.json`) → `Pictures/Joy Creator/assets/` (then `BRollBucket` stops

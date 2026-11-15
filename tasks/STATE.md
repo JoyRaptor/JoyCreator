@@ -143,8 +143,12 @@ drawings` (screen-drawing projects, named `Screen_drawing_<date time>`), unnamed
 texts in 13 languages say so. Every old FadCam folder and name is still read, and the Library now also lists
 FadCam-named recordings inside the Joy Creator folder. **Proof:** cloud debug build installed over the Note 9 sandbox
 app: Library 259 items before and after, old folders untouched, no crash; the new-name writes were not exercised on
-the phone. Still to come: moving old files (step 3, with the orchestrator's four conditions) and the app ID move
-(step 4). Design and inventory: `tasks/jobs/FREE-2_names_and_ids.md`, `tasks/launch/FADCAM_NAMES_INVENTORY_20261114.md`.
+the phone. **Step 3 (11-15): the side-loaded build moves old FadCam folders** (`Download/FadCam`, `Pictures/FadCam/assets`,
+`Documents/FadRec/Projects`) to the Joy Creator names on its own: a plan first, then checked copies (SHA-256) with
+projects pointed at them, then the originals removed on a later start; a readable move log in the Joy Creator
+folder's `.joycreator/`; any failed check keeps the old file. Proof: 35 off-phone tests; a test-mode run on copies on
+the Note 9 (plan, copy, remove, all fingerprints equal, no crash). Not the Play build (Android keeps it out of those
+folders). Still to come: the app ID move (step 4, after the owner's S1). Design and inventory: `tasks/jobs/FREE-2_names_and_ids.md`, `tasks/launch/FADCAM_NAMES_INVENTORY_20261114.md`.
 Help: not owed (no new control).
 
 ---

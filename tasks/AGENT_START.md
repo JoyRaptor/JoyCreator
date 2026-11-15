@@ -83,7 +83,9 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
   and `.\tools\phone.ps1 release <name>` when done. Looking (screenshots, logcat, dumpsys) needs no lock.
 - **Never raw `adb ... input`, `am`, `install`, `pm` or `settings`: anything that changes a device goes through `phone.ps1`**
   (`tap`, `swipe`, `key`, `text`, `start`, `install`, `launch`, `shell-write`). It refuses with "REFUSED, nothing sent" (exit 3)
-  unless you hold THAT device's lock, and each action refreshes your claim. Raw `adb -s` is for looking only.
+  unless you hold THAT device's lock, and each action refreshes your claim. For anything else use
+  `phone.ps1 adb <adb arguments>`: looking (screencap, logcat, pull, dumpsys, getprop ...) runs for everyone, any change
+  needs the lock. Raw `adb -s` is for looking only.
   `phone.sh` hands these commands to `phone.ps1`, so the rule is the same in bash.
 - **Never launch with `adb shell monkey`**: it turns his rotation lock off. Use `am start -n <activity>`.
 - If JoyBrush is in front with a drawing open, press Home first: an install kills an unsaved drawing.

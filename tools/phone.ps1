@@ -18,6 +18,7 @@
 #   .\tools\phone.ps1 start <pkg/activity | pkg>   am start (never monkey)
 #   .\tools\phone.ps1 shell-write <cmd>   any shell command that changes the device
 #   .\tools\phone.ps1 holds               exit 0 if you hold this device, else REFUSED + exit 3
+#   .\tools\phone.ps1 adb <args>          any adb call on this slot's device; looking is open, changes need the lock
 #   .\tools\phone.ps1 log AudioLayerSync  dump logcat for one tag
 #   .\tools\phone.ps1 audio               our app's AudioTracks + allocation count
 #   .\tools\phone.ps1 build               last BUILD line from build.log, with its date
@@ -57,10 +58,10 @@
 # never leave it needing a tap to recover. Wi-Fi debugging, paired with this PC. To use it:
 #   $env:PHONE_SLOT = "fold"       (finds it by model; lock %TEMP%\jb-phone4.lock)
 
-param(
-    [Parameter(Position = 0)][string]$Cmd = "help",
-    [Parameter(Position = 1, ValueFromRemainingArguments = $true)][string[]]$Rest
-)
+# Arguments are read by hand, not through param(): PowerShell would otherwise take adb flags such as
+# `-c` (logcat -c) or `-r` (install -r) as abbreviations of this script's own parameter names.
+$Cmd = if ($args.Count -ge 1) { [string]$args[0] } else { "help" }
+$Rest = [string[]]@($args | Select-Object -Skip 1)
 
 $ErrorActionPreference = "Continue"
 Set-Location (Split-Path $PSScriptRoot -Parent)
@@ -156,6 +157,35 @@ $deviceName = switch -Wildcard (Split-Path $phoneLock -Leaf) {
     "jb-phone3.lock" { "the test tablet" }
     "jb-phone4.lock" { "the test Fold" }
     default { "the Note 9" }
+}
+
+# True only for adb calls that just LOOK: screenshots to the PC, logcat without -c, pull, and shell reads
+# (dumpsys, getprop, ls, cat ... optionally piped into grep/head/tail/wc/sort/uniq). Anything chained or
+# redirected, `wm size <value>`, and run-as other than cat/ls count as changes and need the lock.
+function Test-ReadOnly([string[]]$a) {
+    $all = " " + ($a -join " ") + " "
+    switch ($a[0]) {
+        "exec-out" { return ($a.Count -ge 2 -and $a[1] -eq "screencap") }
+        "logcat" { return ($all -notmatch ' -c ' -and $all -notmatch ' --clear ') }
+        "pull" { return $true }
+        "shell" {
+            $line = ($a | Select-Object -Skip 1) -join " "
+            if (-not $line -or $line -match ';|&&|\|\||>|<|`|\$\(') { return $false }
+            $look = @("dumpsys", "getprop", "getevent", "ls", "cat", "pidof", "ps", "df", "uptime", "date", "id")
+            $filters = @("grep", "head", "tail", "wc", "sort", "uniq")
+            $parts = $line -split '\|'
+            for ($i = 0; $i -lt $parts.Count; $i++) {
+                $w = @($parts[$i].Trim() -split '\s+')
+                if ($i -gt 0) { if ($filters -notcontains $w[0]) { return $false }; continue }
+                if ($look -contains $w[0]) { continue }
+                if ($w[0] -eq "wm" -and $w.Count -le 2) { continue }                         # wm size / wm density: read
+                if ($w[0] -eq "run-as" -and $w.Count -ge 3 -and @("cat", "ls") -contains $w[2]) { continue }
+                return $false
+            }
+            return $true
+        }
+    }
+    return $false
 }
 
 # Who is calling: the name they claimed with.
@@ -301,6 +331,14 @@ switch ($Cmd) {
             if ($c -notlike "*/*") { Write-Output "no launchable activity for $($Rest[0])"; exit 1 }
         }
         Adb shell am start -n $c @($Rest | Select-Object -Skip 1)
+    }
+
+    # adb <anything>: any adb call on THIS slot's device. Looking runs for everyone; everything else needs
+    # the lock (allowlist after the JoyBrush screens lane's nadb.sh).
+    "adb" {
+        if ($Rest.Count -lt 1) { Write-Output "usage: phone.ps1 adb <adb arguments>"; exit 1 }
+        if (-not (Test-ReadOnly $Rest)) { Assert-Holder }
+        Adb @Rest
     }
 
     # shell-write <command>: any adb shell command that changes the device (settings, pm, wm, setprop,

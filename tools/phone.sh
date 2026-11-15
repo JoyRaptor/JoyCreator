@@ -129,7 +129,7 @@ cmd="${1:-}"; shift || true
 # typed into phones other lanes were driving, and its old launch used monkey (rotation lock off).
 ps1() { powershell.exe -NoProfile -ExecutionPolicy Bypass -File tools/phone.ps1 "$@"; }
 case "$cmd" in
-  install|launch|start|tap|swipe|key|text|shell-write|restore|holds|claim|release|who|serial)
+  install|launch|start|tap|swipe|key|text|shell-write|adb|restore|holds|claim|release|who|serial)
     ps1 "$cmd" "$@"; exit $? ;;
 esac
 

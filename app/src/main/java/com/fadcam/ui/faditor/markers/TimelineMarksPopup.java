@@ -55,7 +55,7 @@ public final class TimelineMarksPopup {
     private final Context context;
     private final Host host;
     private PopupWindow popup;
-    private android.app.AlertDialog editorDialog;
+    private androidx.appcompat.app.AlertDialog editorDialog;
     private LinearLayout rows;
     private ScrollView scroller;
     private TextView status;
@@ -520,7 +520,7 @@ public final class TimelineMarksPopup {
             colors.addView(chip, lp);
         }
         form.addView(colors);
-        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(context, android.R.style.Theme_Material_Dialog_Alert)
+        androidx.appcompat.app.AlertDialog dialog = com.fadcam.ui.faditor.StudioDialog.dangerNeutral(context)
                 .setTitle(region ? R.string.timeline_marks_edit_region : R.string.timeline_marks_edit_bookmark)
                 .setView(form)
                 .setNegativeButton(R.string.timeline_marks_cancel, null)
@@ -533,7 +533,7 @@ public final class TimelineMarksPopup {
             refresh();
         });
         dialog.setOnShowListener(d -> {
-            Button save = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE);
+            Button save = dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE);
             save.setOnClickListener(v -> {
                 final long a;
                 final long b;
@@ -555,7 +555,7 @@ public final class TimelineMarksPopup {
                 dialog.dismiss();
             });
             if (targetId != null) {
-                dialog.getButton(android.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+                dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
                     deleteItem(targetId, region);
                     dialog.dismiss();
                 });

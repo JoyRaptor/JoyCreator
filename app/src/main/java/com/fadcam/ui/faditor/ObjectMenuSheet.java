@@ -643,7 +643,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         in.setInputType(android.text.InputType.TYPE_CLASS_TEXT);
         in.setText(fmtTime(scrubDisplayMs));
         in.setSelectAllOnFocus(true);
-        new android.app.AlertDialog.Builder(getContext())
+        StudioDialog.builder(getContext())
                 .setTitle(R.string.studio_object_jump_to_time_title)
                 .setView(in)
                 .setPositiveButton(R.string.studio_object_jump_go, (d, w) -> {
@@ -791,7 +791,7 @@ public final class ObjectMenuSheet extends LinearLayout {
         hint.setPadding(0, dp(12), 0, 0);
         sheet.addView(hint);
 
-        new android.app.AlertDialog.Builder(ctx)
+        StudioDialog.builder(ctx)
                 .setView(sheet)
                 .setPositiveButton(R.string.studio_ui_got_it, null)
                 .show();

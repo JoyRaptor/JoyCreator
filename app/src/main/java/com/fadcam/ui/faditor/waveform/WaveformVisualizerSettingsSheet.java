@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.waveform;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.app.Dialog;
@@ -487,7 +489,7 @@ public class WaveformVisualizerSettingsSheet extends BottomSheetDialogFragment {
             grid.addView(cell);
         }
 
-        holder[0] = new MaterialAlertDialogBuilder(requireContext())
+        holder[0] = StudioDialog.builder(requireContext())
                 .setTitle(BAND_LABELS[band] + " color")
                 .setView(grid)
                 .setNegativeButton(android.R.string.cancel, null)

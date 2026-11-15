@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
@@ -972,7 +974,7 @@ public final class FxPanel {
         int pad = Math.round(12 * d);
         FrameLayoutPad wrap = new FrameLayoutPad(ctx, pad);
         wrap.addView(editor);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+        StudioDialog.builder(ctx)
                 .setTitle(param.label)
                 .setView(wrap)
                 .setPositiveButton(com.fadcam.R.string.done, (dlg, w) ->
@@ -1697,7 +1699,7 @@ public final class FxPanel {
             save.setOnClickListener(v -> {
                 final android.widget.EditText input = new android.widget.EditText(ctx);
                 input.setHint(com.fadcam.R.string.faditor_fx_look_name_hint);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                StudioDialog.builder(ctx)
                         .setTitle(com.fadcam.R.string.faditor_fx_save_look)
                         .setView(input)
                         .setPositiveButton(com.fadcam.R.string.faditor_fx_look_save, (dlg, w) -> {
@@ -1735,7 +1737,7 @@ public final class FxPanel {
                     applyPreset(ctx, stack, name, host, rebuild, subject);
                     return;
                 }
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                StudioDialog.builder(ctx)
                         .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_load_confirm, name))
                         .setMessage(ctx.getResources().getQuantityString(
                                 com.fadcam.R.plurals.faditor_fx_load_replaces,
@@ -1746,7 +1748,7 @@ public final class FxPanel {
                         .show();
             });
             c.setOnLongClickListener(v -> {
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+                StudioDialog.danger(ctx)
                         .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_delete_look_confirm, name))
                         .setPositiveButton(com.fadcam.R.string.universal_delete, (dlg, w) -> {
                             FxPresetStore.delete(ctx, name);
@@ -1869,8 +1871,8 @@ public final class FxPanel {
                             ObjectDrawer.Kit.pill(ctx, Studio.alpha(Studio.GROUND, 0),
                                     ObjectDrawer.Kit.RING), 0, inset, 0, inset));
                     c.setTextColor(TXT_DIM);
-                    c.setOnClickListener(v -> new com.google.android.material.dialog
-                            .MaterialAlertDialogBuilder(ctx)
+                    c.setOnClickListener(v -> StudioDialog
+                            .builder(ctx)
                             .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_title,
                                     def.displayName))
                             .setMessage(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_body,

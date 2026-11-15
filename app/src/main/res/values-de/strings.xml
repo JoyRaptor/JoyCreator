@@ -254,7 +254,7 @@
     <string name="torch_both">Beide Taschenlampen</string>
     <string name="setting_debug_title">Debug-Protokollierung</string>
     <string name="note_debug">Debug-Protokolldateierzeugung aktivieren\n(Standard: Deaktiviert)</string>
-    <string name="note_debug_extra">Wenn aktiviert, wird eine Debug-Protokolldatei im Ordner Downloads/FadCam erstellt. Dies kann bei der Diagnose von App-Problemen helfen.</string>
+    <string name="note_debug_extra">Wenn aktiviert, wird eine Debug-Protokolldatei im Ordner Downloads/Joy Creator erstellt. Dies kann bei der Diagnose von App-Problemen helfen.</string>
     <string name="torch_shortcut_short_label">Taschenlampe</string>
     <string name="torch_shortcut_long_label">Taschenlampe umschalten</string>
     <string name="torch_shortcut_disabled">Taschenlampen-Umschaltung ist derzeit nicht verfügbar</string>
@@ -378,7 +378,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">Keine Elemente ausgewählt.</string>
     <string name="trash_dialog_restore_title">Ausgewählte wiederherstellen?</string>
-    <string name="trash_dialog_restore_message">%1$d Element(e) in den öffentlichen Ordner Downloads/FadCam/ wiederherstellen?</string>
+    <string name="trash_dialog_restore_message">%1$d Element(e) in den öffentlichen Ordner Downloads/Joy Creator/ wiederherstellen?</string>
     <string name="trash_restore_success_toast">%1$d Element(e) wiederhergestellt.</string>
     <string name="trash_restore_fail_toast">Fehler beim Wiederherstellen der Elemente. Einige Dateien wurden möglicherweise nicht wiederhergestellt oder die Galerie wurde nicht aktualisiert. Überprüfe die App-Berechtigungen für den Speicher.</string>
     <string name="trash_restore_cancelled_toast">Wiederherstellung abgebrochen.</string>
@@ -503,10 +503,10 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="update_visit_github">GitHub besuchen</string>
     <string name="update_version_arrow"> → </string>
     <!-- Update variations -->
-    <string name="update_variation_1">Immer noch auf &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;? Das ist... nostalgisch.&lt;br&gt;In der Zwischenzeit schlägt &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; Wellen. Zeit, aufzuholen!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; ist so was von letzter Saison.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; bereit, mit neuen Funktionen und Fehlerbehebungen zu beeindrucken. Aktualisiere für eine bessere Fahrt!</string>
-    <string name="update_variation_3">Deine App lebt mit &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; in der Vergangenheit.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; die Zukunft – schneller, intelligenter und glänzender. Warum nicht mitmachen?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; hat dir gute Dienste geleistet, aber &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; ruft!&lt;br&gt;Genieße die neuesten Verbesserungen und ein reibungsloseres Erlebnis – nur einen Fingertipp entfernt.</string>
+    <string name="update_variation_1">Immer noch auf &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;? Das ist... nostalgisch.&lt;br&gt;In der Zwischenzeit schlägt &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; Wellen. Zeit, aufzuholen!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; ist so was von letzter Saison.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; bereit, mit neuen Funktionen und Fehlerbehebungen zu beeindrucken. Aktualisiere für eine bessere Fahrt!</string>
+    <string name="update_variation_3">Deine App lebt mit &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; in der Vergangenheit.&lt;br&gt;In der Zwischenzeit ist &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; die Zukunft – schneller, intelligenter und glänzender. Warum nicht mitmachen?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; hat dir gute Dienste geleistet, aber &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; ruft!&lt;br&gt;Genieße die neuesten Verbesserungen und ein reibungsloseres Erlebnis – nur einen Fingertipp entfernt.</string>
     <!-- App Icon Strings -->
     <string name="setting_app_icon_title">App-Symbol</string>
     <string name="setting_app_icon_desc">Ändere das Start-Symbol und den Namen der App</string>
@@ -813,14 +813,14 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="home_options_title">Home-Optionen</string>
     <string name="help_section">Hilfe</string>
     <string name="display_settings_title">Anzeige</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Video wird unter Downloads/FadCam gespeichert</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Video wird unter Downloads/Joy Creator gespeichert</string>
     <string name="video_menu_save_copy_or_move_title">In Galerie speichern</string>
     <string name="video_menu_save_copy">In Galerie kopieren</string>
-    <string name="video_menu_save_copy_desc">Eine Kopie in Downloads/FadCam erstellen (Originaldatei bleibt erhalten)</string>
+    <string name="video_menu_save_copy_desc">Eine Kopie in Downloads/Joy Creator erstellen (Originaldatei bleibt erhalten)</string>
     <string name="video_menu_save_move">In Galerie verschieben</string>
-    <string name="video_menu_save_move_desc">Datei nach Downloads/FadCam verschieben (spart Speicherplatz)</string>
+    <string name="video_menu_save_move_desc">Datei nach Downloads/Joy Creator verschieben (spart Speicherplatz)</string>
     <string name="video_menu_save_longpress_helper">Langes Drücken von „In Galerie speichern" wählt zwischen Kopieren oder Verschieben</string>
-    <string name="watch_video_saved_toast">Gespeichert unter Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Gespeichert unter Downloads/Joy Creator</string>
     <string name="watch_delete_confirm_title">In Papierkorb verschieben?</string>
     <string name="watch_delete_confirm_msg">„%s" wird in den Papierkorb verschoben.</string>
     <string name="watch_delete_confirm_action">In Papierkorb verschieben</string>
@@ -1150,7 +1150,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="row_noise_suppression_title">Rauschunterdrückung</string>
     <string name="settings_location_watermark_title">Standort-Wasserzeichen</string>
     <string name="delete_single_video_subtitle">Diese Aufnahme entfernen</string>
-    <string name="note_debug_detailed">Wenn aktiviert, schreibt FadCam eine Debug-Protokoll-HTML-Datei (JoyCreator_debug.html) im öffentlichen Ordner Downloads/FadCam/. Teile diese Datei beim Melden von Problemen. Deaktivieren, um zukünftige Schreibvorgänge zu stoppen.\nHinweis: Debug-Protokollierung kann während der Aufnahme Performance-Overhead hinzufügen – deaktiviert lassen, außer zur Fehlersuche.</string>
+    <string name="note_debug_detailed">Wenn aktiviert, schreibt FadCam eine Debug-Protokoll-HTML-Datei (JoyCreator_debug.html) im öffentlichen Ordner Downloads/Joy Creator/. Teile diese Datei beim Melden von Problemen. Deaktivieren, um zukünftige Schreibvorgänge zu stoppen.\nHinweis: Debug-Protokollierung kann während der Aufnahme Performance-Overhead hinzufügen – deaktiviert lassen, außer zur Fehlersuche.</string>
     <string name="watermark_preview_heading">Vorschau</string>
     <string name="watermark_options_heading">Optionen</string>
     <string name="watermark_style_row_title">Wasserzeichen-Stil</string>
@@ -1477,7 +1477,7 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="faditor_home_tagline">Leichter Video-Editor</string>
     <string name="faditor_info_convert_desc">Joy Creator zeichnet in einem absturzsicheren Format namens fragmentiertes MP4 (fMP4) auf. Im Gegensatz zu einem standard MP4 mit einem finalisierten Container schreibt fMP4 Video in kleinen unabhängigen Blöcken. Das bedeutet, dass dein Filmmaterial intakt bleibt, selbst wenn die App abstürzt oder die Aufnahme plötzlich stoppt.\n\nExterne Videoplayer, Galerie-Apps und Dateimanager können jedoch nicht in diesen Dateien suchen, durchspulen oder die korrekte Dauer anzeigen. Dies ist kein Fehler – es ist ein bewusster Design-Kompromiss für Zuverlässigkeit.\n\nWenn du deine Videos außerhalb von Joy Creator speichern möchtest – auf Google Drive, einem Computer oder einem anderen Ort – musst du sie zuerst konvertieren. Andernfalls sind die Dateien für die normale Wiedergabe unbrauchbar.\n\nSo konvertierst du: öffne das Video einfach hier im Faditor Mini und tippe auf Exportieren. Das konvertierte Standard-MP4 erscheint in deinem Aufnahmen-Tab und kann in deiner Galerie gespeichert oder überall geteilt werden. Der Vorgang ist sofort und verlustfrei – keine Neucodierung oder Qualitätsverlust.</string>
     <string name="faditor_info_convert_title">Intelligente Konvertierung</string>
-    <string name="faditor_info_export_desc">Exportierte Videos werden an deinem aktiven Speicherort gespeichert (dem gleichen, der in den Einstellungen konfiguriert ist) mit dem Präfix „Faditor_", gefolgt von einem Zeitstempel. Sie erscheinen im Aufnahmen-Tab neben deinen Originalaufnahmen.</string>
+    <string name="faditor_info_export_desc">Exportierte Videos werden an deinem aktiven Speicherort gespeichert (dem gleichen, der in den Einstellungen konfiguriert ist) mit dem Präfix „JoyCreator_", gefolgt von einem Zeitstempel. Sie erscheinen im Aufnahmen-Tab neben deinen Originalaufnahmen.</string>
     <string name="faditor_info_export_title">Exportierte Dateien</string>
     <string name="faditor_info_how_desc">Wähle ein beliebiges Video von deinem Gerät oder deinen Joy Creator-Aufnahmen aus. Schneide es Frame für Frame mit der Zeitleiste zu und exportiere es dann. Die gesamte Verarbeitung erfolgt lokal auf deinem Gerät – es wird nichts hochgeladen.\n\nDein Bearbeitungsfortschritt wird alle paar Sekunden automatisch gespeichert, auch wenn du den Editor verlässt, damit keine Arbeit verloren geht, falls die App unerwartet geschlossen wird.</string>
     <string name="faditor_info_how_title">So funktioniert es</string>
@@ -1877,7 +1877,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="restore_confirm_message">%1$d Element(e) nach %2$s wiederherstellen?</string>
     <string name="restore_confirm_title">Wiederherstellung bestätigen</string>
     <string name="restore_destination_downloads">Downloads-Ordner</string>
-    <string name="restore_destination_downloads_desc">Öffentlicher Ordner Downloads/FadCam/</string>
+    <string name="restore_destination_downloads_desc">Öffentlicher Ordner Downloads/Joy Creator/</string>
     <string name="restore_destination_internal">Interner Speicher</string>
     <string name="restore_destination_internal_desc">Privater Speicher der App</string>
     <string name="restore_destination_original">Ursprünglicher Ort</string>
@@ -1901,7 +1901,7 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="screen_rec_settings_subtitle">Qualität, Audio &amp; Ausgabeeinstellungen</string>
     <string name="screen_rec_settings_title">Bildschirmaufnahme</string>
     <string name="screenshot_accessibility_enable_needed">Aktiviere „Joy Creator" in den Bedienungshilfen, um diesen Shortcut ohne Aufnahmeaufforderung zu verwenden.</string>
-    <string name="screenshot_accessibility_service_desc">Erfasst einen Screenshot für den FadRec-Shortcut und speichert ihn in FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_service_desc">Erfasst einen Screenshot für den FadRec-Shortcut und speichert ihn in Joy Creator.</string>
     <string name="screenshot_capture_failed">Screenshot konnte nicht erfasst werden</string>
     <string name="screenshot_capture_saved">Screenshot gespeichert</string>
     <string name="screenshot_capture_system_saved">Screenshot vom System erfasst. In System-Screenshots gespeichert.</string>
@@ -1923,9 +1923,9 @@ Für die flüssigste Wiedergabe kannst du einen externen Player wie VLC verwende
     <string name="settings_security_title">Sicherheit</string>
     <string name="settings_watermark_subtitle">Overlay-Branding-Modus</string>
     <string name="share_feedback">Feedback teilen</string>
-    <string name="shortcut_purpose_photo">Dieser Shortcut erfasst ein Foto mit der Rückkamera und speichert es unter FadCam/FadShot.</string>
-    <string name="shortcut_purpose_photo_front">Dieser Shortcut erfasst ein Foto mit der Frontkamera und speichert es unter FadCam/FadShot.</string>
-    <string name="shortcut_purpose_screenshot">Dieser Shortcut erfasst einen Screenshot und speichert ihn unter FadCam/FadShot (aktiviere die Bedienungshilfen-Berechtigung unter Einstellungen > Datenschutz > Bedienungshilfen).</string>
+    <string name="shortcut_purpose_photo">Dieser Shortcut erfasst ein Foto mit der Rückkamera und speichert es unter Joy Creator.</string>
+    <string name="shortcut_purpose_photo_front">Dieser Shortcut erfasst ein Foto mit der Frontkamera und speichert es unter Joy Creator.</string>
+    <string name="shortcut_purpose_screenshot">Dieser Shortcut erfasst einen Screenshot und speichert ihn unter Joy Creator (aktiviere die Bedienungshilfen-Berechtigung unter Einstellungen > Datenschutz > Bedienungshilfen).</string>
     <string name="shortcut_purpose_start">Dieser Shortcut startet die Aufnahme mit der Rückkamera.</string>
     <string name="shortcut_purpose_start_current">Dieser Shortcut startet die Aufnahme mit dem aktuell ausgewählten Kameramodus.</string>
     <string name="shortcut_purpose_start_dual">Dieser Shortcut startet die Dual-Kamera-Aufnahme (PiP).</string>

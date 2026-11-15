@@ -52,8 +52,14 @@ public class ProjectFileManager {
     private static final String PREFS_NAME = "FadRecProjects";
     private static final String KEY_CURRENT_PROJECT = "current_project";
     
+    /** New projects are named "Screen_drawing_<date time>" (was "FadRec_<date time>"; SHELL-44). */
+    private static final String NEW_PROJECT_PREFIX = "Screen_drawing_";
+
     private final Context context;
+    /** Where new projects go: Documents/Joy Creator/Screen drawings/ (SHELL-44). */
     private final File projectsDir;
+    /** FadCam's old place, Documents/FadRec/Projects/: still read, never created. */
+    private final File legacyProjectsDir;
     private final SharedPreferences prefs;
     
     public static class ProjectSummary {
@@ -70,15 +76,21 @@ public class ProjectFileManager {
         this.context = context;
         this.prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         
-        // Create projects directory: ~/Documents/FadRec/Projects/
+        // Projects directory: ~/Documents/Joy Creator/Screen drawings/ (SHELL-44). Projects in FadCam's old
+        // ~/Documents/FadRec/Projects/ keep opening from there: every lookup checks both.
         File documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
-        File fadrecDir = new File(documentsDir, "FadRec");
-        this.projectsDir = new File(fadrecDir, "Projects");
-        
+        this.projectsDir = new File(new File(documentsDir, "Joy Creator"), "Screen drawings");
+        this.legacyProjectsDir = new File(new File(documentsDir, "FadRec"), "Projects");
+
         if (!projectsDir.exists()) {
             projectsDir.mkdirs();
-            FLog.i(TAG, "Created FadRec projects directory: " + projectsDir.getAbsolutePath());
+            FLog.i(TAG, "Created screen drawings directory: " + projectsDir.getAbsolutePath());
         }
+    }
+
+    /** A project folder name already used in the new or the old place. */
+    private boolean nameTaken(String sanitized) {
+        return new File(projectsDir, sanitized).exists() || new File(legacyProjectsDir, sanitized).exists();
     }
     
     /**
@@ -109,7 +121,12 @@ public class ProjectFileManager {
      */
     private File getProjectFolder(String projectName) {
         String sanitized = sanitizeProjectName(projectName);
-        return new File(projectsDir, sanitized);
+        File current = new File(projectsDir, sanitized);
+        if (!current.exists()) {
+            File legacy = new File(legacyProjectsDir, sanitized);
+            if (legacy.isDirectory()) return legacy;
+        }
+        return current;
     }
     
     /**
@@ -418,7 +435,7 @@ public class ProjectFileManager {
         // No existing projects, create new one with timestamp
         String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
                 .format(new Date());
-        String projectName = "FadRec_" + timestamp;
+        String projectName = NEW_PROJECT_PREFIX + timestamp;
         
         // Save as current project
         prefs.edit().putString(KEY_CURRENT_PROJECT, projectName).apply();
@@ -433,7 +450,7 @@ public class ProjectFileManager {
     public String createNewProject() {
         String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
                 .format(new Date());
-        String projectName = "FadRec_" + timestamp;
+        String projectName = NEW_PROJECT_PREFIX + timestamp;
         
         // Save as current project
         prefs.edit().putString(KEY_CURRENT_PROJECT, projectName).apply();
@@ -448,7 +465,7 @@ public class ProjectFileManager {
     public boolean autoSave(AnnotationState state) {
         String timestamp = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US)
                 .format(new Date());
-        String projectName = "FadRec_" + timestamp;
+        String projectName = NEW_PROJECT_PREFIX + timestamp;
         return saveProject(state, projectName);
     }
     
@@ -456,11 +473,17 @@ public class ProjectFileManager {
      * Get all project folders
      */
     public File[] listProjects() {
-        File[] folders = projectsDir.listFiles(File::isDirectory);
-        if (folders == null) {
-            return new File[0];
+        java.util.List<File> all = new java.util.ArrayList<>();
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        for (File dir : new File[] { projectsDir, legacyProjectsDir }) {
+            File[] folders = dir.listFiles(File::isDirectory);
+            if (folders == null) continue;
+            for (File f : folders) {
+                // The new place wins when both hold the same name (matches getProjectFolder).
+                if (seen.add(f.getName())) all.add(f);
+            }
         }
-        return folders;
+        return all.toArray(new File[0]);
     }
     
     /**
@@ -519,7 +542,7 @@ public class ProjectFileManager {
             return false;
         }
         
-        if (newFolder.exists()) {
+        if (nameTaken(sanitizedNewName)) {
             FLog.e(TAG, "❌ Cannot rename: new folder already exists: " + newFolder.getAbsolutePath());
             return false;
         }

@@ -63,6 +63,10 @@ class UnibrushSettingsView(
     private val pen = PenReadingView(kit)
     /** The tip seen edge-on, beside the pen pad (BRUSH-UI item 4). */
     private val tipSection = TipSectionView(kit)
+    /** BRUSH-UI section K.4: the mark it leaves from above; tapping it opens the tip's shape editor. */
+    private val footprint = FootprintView(kit) { openShapeEditor() }
+    /** Where "Tip" starts in the list (the shape editor, or the switch that turns it on). */
+    private var tipStart: View? = null
     private val input = LinearLayout(context).apply { orientation = HORIZONTAL }
     private val scroll = ScrollView(context)
 
@@ -85,7 +89,11 @@ class UnibrushSettingsView(
             pen.show(pressure, tilt, 0f)
             try { onPreviewInput(pressure, tilt) } catch (e: Exception) { showError(e.message ?: "The preview could not be updated") }
         }, LayoutParams(0, kit.dpi(92f), 1f).apply { marginStart = kit.dpi(8f) })
-        input.addView(tipSection, LayoutParams(kit.dpi(72f), kit.dpi(92f)).apply { marginStart = kit.dpi(8f) })
+        // The tip from the side over its footprint from above, stacked to keep the row narrow.
+        val tipColumn = LinearLayout(context).apply { orientation = VERTICAL }
+        tipColumn.addView(tipSection, LayoutParams(MATCH, kit.dpi(40f)))
+        tipColumn.addView(footprint, LayoutParams(MATCH, kit.dpi(48f)).apply { topMargin = kit.dpi(4f) })
+        input.addView(tipColumn, LayoutParams(kit.dpi(96f), kit.dpi(92f)).apply { marginStart = kit.dpi(8f) })
         addView(error, LayoutParams(MATCH, WRAP))
         scroll.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
         addView(scroll, LayoutParams(MATCH, 0, 1f))
@@ -111,6 +119,15 @@ class UnibrushSettingsView(
     fun currentPreference(): StabilizerPreference = preference
     fun showReading(pressure: Float, tiltRadians: Float, orientationRadians: Float) {
         pen.show(pressure, tiltRadians, orientationRadians)
+        footprint.showTilt(tiltRadians)
+    }
+
+    /** Tapping the footprint: the list goes to the tip's shape editor (or the switch that turns it on), and it blinks. */
+    private fun openShapeEditor() {
+        val target = editors.firstOrNull() ?: tipStart ?: return
+        header.active = cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.SHAPE
+        scroll.smoothScrollTo(0, target.top)
+        target.animate().alpha(.35f).setDuration(140).withEndAction { target.animate().alpha(1f).setDuration(220).start() }.start()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -154,7 +171,7 @@ class UnibrushSettingsView(
     private fun rebuild(resetScroll: Boolean = false) {
         assetRequest++ // A/B, tab and optional-panel changes invalidate callbacks bound to the old panel.
         val oldScroll = if (resetScroll) 0 else scroll.scrollY
-        body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear(); groupStarts.clear()
+        body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear(); groupStarts.clear(); tipStart = null
         body.addView(input, LayoutParams(MATCH, kit.dpi(92f)))
         if (!initialValid) { info("The brush has not changed. Close this sheet and choose a valid Unibrush mode."); return }
         quick(); shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
@@ -162,6 +179,7 @@ class UnibrushSettingsView(
         fadeControls(); sampledControls(); dualControls(); behaviors(); dynamics(); colorControls()
         grainControls(tip = true); grainControls(tip = false); endsControls(); stabilizerControls()
         tipSection.show(model.tip.profile, model.tip.hardness.base)
+        footprint.show(model)
         scroll.post { if (!closed) scroll.scrollTo(0, oldScroll) }
     }
 
@@ -188,6 +206,7 @@ class UnibrushSettingsView(
 
     private fun refreshControls(forceThumb: Boolean = false) {
         tipSection.show(model.tip.profile, model.tip.hardness.base)
+        footprint.show(model)
         refreshers.toList().forEach { it() }; rows.toList().forEach { it.refresh(forceThumb) }
     }
 
@@ -299,6 +318,7 @@ class UnibrushSettingsView(
     }
     private fun shapeControls() {
         section("Tip")
+        tipStart = body.getChildAt(body.childCount - 1)
         toggle("Four-point shape", { model.tip.quad != null }) { value -> finishEditing(); endpointB = false; structural { p ->
             p.copy(tip = p.tip.copy(quad = if (value) TipQuadSpec() else null))
         } }

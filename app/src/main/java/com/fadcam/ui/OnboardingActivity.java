@@ -110,7 +110,10 @@ public class OnboardingActivity extends AppIntro {
         // anything to do with the thing they installed it to make. Settings keeps
         // the picker for the case the detection is wrong.
         addSlide(new OnboardingWelcomeFragment());
-        addSlide(new OnboardingPermissionsFragment());
+        // SHELL-36 (11-14): no permission page in the intro. Each permission is asked where it is first needed
+        // (Capture asks for the camera and microphone on the way in: ui/permission/CaptureAccess). The page is
+        // kept, unused, in case the owner wants an optional "allow now" step back.
+        // addSlide(new OnboardingPermissionsFragment());
         addSlide(new OnboardingHumanFragment());
 
         // Hide only the Done button while keeping navigation buttons
@@ -774,7 +777,16 @@ public class OnboardingActivity extends AppIntro {
         // with nothing to read.
         Intent intent = new Intent(this, com.fadcam.MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
+        // SHELL-37 (11-14): one continuous first run. When the folder is still to be chosen, the folder step opens
+        // straight after the intro, above the app, so the lobby is never drawn in between (it used to flash before
+        // the folder step slid over it). Back on the folder step still leaves the app, as it always has.
+        Intent folder = com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requiredIntent(this);
+        if (folder != null) {
+            startActivities(new Intent[]{intent, folder});
+        } else {
+            startActivity(intent);
+        }
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         finish();
     }
 

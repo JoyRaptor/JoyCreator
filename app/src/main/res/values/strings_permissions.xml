@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SHELL-36 (11-14): permissions asked where they are first needed. English first; translations pending. -->
+    <string name="access_capture_title">Capture needs the camera and microphone</string>
+    <string name="access_capture_why">To film and to record sound, Android asks you to allow the camera and the microphone. Joy Creator also asks to show the recording notice, so you always know when it is recording. Nothing leaves your phone.</string>
+    <string name="access_allow">Allow</string>
+    <string name="access_not_now">Not now</string>
+    <string name="access_capture_declined">Capture stays closed until the camera and microphone are allowed. Tap Capture again any time.</string>
+    <string name="access_capture_blocked">Android will not ask again for the camera or microphone. Turn them on in Joy Creator\'s settings page under Permissions, then come back.</string>
+    <string name="access_open_settings">Open settings</string>
+</resources>

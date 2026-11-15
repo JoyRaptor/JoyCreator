@@ -1,6 +1,7 @@
 <resources>
     <!-- Base application theme. -->
     <style name="Base.Theme.FadCam" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="bottomSheetDialogTheme">@style/JoySheetDialog.M3</item>
         <!-- Customize your light theme here. -->
         <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
         <item name="android:fontFamily">@font/ubuntu_regular</item>
@@ -192,6 +193,7 @@
          product. Crimson Bloom is still there for anyone who wants it.
          ═══════════════════════════════════════════════════════════════════════════ -->
     <style name="Theme.FadCam.JoyCreator" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="bottomSheetDialogTheme">@style/JoySheetDialog.M3</item>
         <!-- Said out loud: left to the parent, the bar can come back green (colorPrimaryVariant)
              after the app returns from another screen. -->
         <item name="android:statusBarColor">@color/s_surface</item>

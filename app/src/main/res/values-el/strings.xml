@@ -209,14 +209,14 @@
     <string name="front">Μπροστά</string>
     <string name="video_menu_del">Διαγραφή</string>
     <string name="video_menu_save">Αποθήκευση στη Συλλογή</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Το βίντεο θα αποθηκευτεί στο Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Το βίντεο θα αποθηκευτεί στο Downloads/Joy Creator</string>
     <string name="video_menu_save_copy_or_move_title">Αποθήκευση στη Συλλογή</string>
     <string name="video_menu_save_copy">Αντιγραφή στη Συλλογή</string>
-    <string name="video_menu_save_copy_desc">Δημιουργία αντιγράφου στο Downloads/FadCam (το αρχικό αρχείο διατηρείται)</string>
+    <string name="video_menu_save_copy_desc">Δημιουργία αντιγράφου στο Downloads/Joy Creator (το αρχικό αρχείο διατηρείται)</string>
     <string name="video_menu_save_move">Μετακίνηση στη Συλλογή</string>
-    <string name="video_menu_save_move_desc">Μετακίνηση αρχείου στο Downloads/FadCam (εξοικονομεί χώρο αποθήκευσης)</string>
+    <string name="video_menu_save_move_desc">Μετακίνηση αρχείου στο Downloads/Joy Creator (εξοικονομεί χώρο αποθήκευσης)</string>
     <string name="video_menu_save_longpress_helper">Πατήστε παρατεταμένα το «Αποθήκευση στη Συλλογή» για να επιλέξετε μεταξύ αντιγραφής ή μετακίνησης</string>
-    <string name="watch_video_saved_toast">Αποθηκεύτηκε στο Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Αποθηκεύτηκε στο Downloads/Joy Creator</string>
     <string name="watch_delete_confirm_title">Μετακίνηση στον Κάδο;</string>
     <string name="watch_delete_confirm_msg">«%s» θα μετακινηθεί στον κάδο.</string>
     <string name="watch_delete_confirm_action">Μετακίνηση στον Κάδο</string>
@@ -716,9 +716,9 @@
     <string name="setting_debug_title">Αποσφαλμάτωση</string>
     <string name="note_debug">Ενεργοποίηση δημιουργίας αρχείου καταγραφής αποσφαλμάτωσης 
 (Προεπιλογή: Απενεργοποιημένο)</string>
-    <string name="note_debug_detailed">Όταν είναι ενεργοποιημένο, το FadCam γράφει ένα αρχείο καταγραφής αποσφαλμάτωσης HTML (JoyCreator_debug.html) στον φάκελο Downloads/FadCam/. Μοιραστείτε αυτό το αρχείο όταν αναφέρετε προβλήματα. Απενεργοποιήστε το για να σταματήσετε μελλοντικές εγγραφές.
+    <string name="note_debug_detailed">Όταν είναι ενεργοποιημένο, το FadCam γράφει ένα αρχείο καταγραφής αποσφαλμάτωσης HTML (JoyCreator_debug.html) στον φάκελο Downloads/Joy Creator/. Μοιραστείτε αυτό το αρχείο όταν αναφέρετε προβλήματα. Απενεργοποιήστε το για να σταματήσετε μελλοντικές εγγραφές.
 Σημείωση: Η καταγραφή αποσφαλμάτωσης μπορεί να επιβαρύνει την απόδοση κατά την εγγραφή — κρατήστε την απενεργοποιημένη εκτός αν αντιμετωπίζετε πρόβλημα.</string>
-    <string name="note_debug_extra">Όταν είναι ενεργοποιημένο, θα δημιουργηθεί ένα αρχείο καταγραφής αποσφαλμάτωσης στον φάκελο Downloads/FadCam. Αυτό μπορεί να βοηθήσει στη διάγνωση προβλημάτων εφαρμογής.</string>
+    <string name="note_debug_extra">Όταν είναι ενεργοποιημένο, θα δημιουργηθεί ένα αρχείο καταγραφής αποσφαλμάτωσης στον φάκελο Downloads/Joy Creator. Αυτό μπορεί να βοηθήσει στη διάγνωση προβλημάτων εφαρμογής.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Προεπισκόπηση</string>
     <string name="watermark_options_heading">Επιλογές</string>
@@ -1117,7 +1117,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="faditor_info_convert_title">Έξυπνη μετατροπή</string>
     <string name="faditor_info_convert_desc">Το Joy Creator καταγράφει σε κατακερματισμένο MP4 (fMP4). Για χρήση εκτός Joy Creator, πρέπει πρώτα να μετατρέψετε τα αρχεία.</string>
     <string name="faditor_info_export_title">Εξαγόμενα αρχεία</string>
-    <string name="faditor_info_export_desc">Τα εξαγόμενα βίντεο αποθηκεύονται στην ενεργή τοποθεσία αποθήκευσης με το πρόθεμα «Faditor_».</string>
+    <string name="faditor_info_export_desc">Τα εξαγόμενα βίντεο αποθηκεύονται στην ενεργή τοποθεσία αποθήκευσης με το πρόθεμα «JoyCreator_».</string>
     <string name="faditor_info_temp_title">Προσωρινά αρχεία και cache</string>
     <string name="faditor_info_temp_desc">Τα προσωρινά αρχεία cache καθαρίζονται αυτόματα όταν διαγράφετε ένα έργο.</string>
     <string name="faditor_info_projects_title">Πρόσφατα έργα</string>
@@ -1241,7 +1241,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">Δεν επιλέχθηκαν στοιχεία.</string>
     <string name="trash_dialog_restore_title">Επαναφορά Επιλεγμένων;</string>
-    <string name="trash_dialog_restore_message">Επαναφορά %1$d στοιχείων στο Downloads/FadCam/;</string>
+    <string name="trash_dialog_restore_message">Επαναφορά %1$d στοιχείων στο Downloads/Joy Creator/;</string>
     <string name="trash_restore_success_toast">%1$d στοιχεία επαναφέρθηκαν.</string>
     <string name="trash_restore_fail_toast">Σφάλμα επαναφοράς στοιχείων.</string>
     <string name="trash_restore_cancelled_toast">Η επαναφορά ακυρώθηκε.</string>
@@ -1789,7 +1789,7 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <!-- Trash Restore Destination Strings -->
     <string name="restore_destination_title">Επιλογή Τοποθεσίας Επαναφοράς</string>
     <string name="restore_destination_downloads">Φάκελος Λήψεων</string>
-    <string name="restore_destination_downloads_desc">Δημόσιος φάκελος Downloads/FadCam/</string>
+    <string name="restore_destination_downloads_desc">Δημόσιος φάκελος Downloads/Joy Creator/</string>
     <string name="restore_destination_internal">Εσωτερική Αποθήκευση</string>
     <string name="restore_destination_internal_desc">Ιδιωτική αποθήκευση εφαρμογής</string>
     <string name="restore_destination_original">Αρχική Τοποθεσία</string>

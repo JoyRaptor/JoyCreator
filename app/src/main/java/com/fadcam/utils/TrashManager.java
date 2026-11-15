@@ -1025,10 +1025,10 @@ public class TrashManager {
     private static File getRestoreTargetDirectory(Context context, RestoreDestination destination) {
         switch (destination) {
             case DOWNLOADS_FOLDER:
-                // Public Downloads/FadCam/ folder
+                // Public Downloads/Joy Creator/ folder (was Downloads/FadCam/; SHELL-44)
                 File publicDownloadsDir = Environment
                         .getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-                return new File(publicDownloadsDir, Constants.RECORDING_DIRECTORY);
+                return new File(publicDownloadsDir, Constants.PUBLIC_FOLDER_NAME);
 
             case INTERNAL_STORAGE:
                 // App's private external files directory

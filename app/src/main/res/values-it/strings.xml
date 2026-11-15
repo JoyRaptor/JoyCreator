@@ -254,14 +254,14 @@
     <string name="front">Frontale</string>
     <string name="video_menu_del">Elimina</string>
     <string name="video_menu_save">Salva nella galleria</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Il video verrà salvato in Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Il video verrà salvato in Downloads/Joy Creator</string>
     <string name="video_menu_save_copy_or_move_title">Salva nella galleria</string>
     <string name="video_menu_save_copy">Copia nella galleria</string>
-    <string name="video_menu_save_copy_desc">Crea una copia in Downloads/FadCam (file originale mantenuto)</string>
+    <string name="video_menu_save_copy_desc">Crea una copia in Downloads/Joy Creator (file originale mantenuto)</string>
     <string name="video_menu_save_move">Sposta nella galleria</string>
-    <string name="video_menu_save_move_desc">Sposta il file in Downloads/FadCam (risparmia spazio di archiviazione)</string>
+    <string name="video_menu_save_move_desc">Sposta il file in Downloads/Joy Creator (risparmia spazio di archiviazione)</string>
     <string name="video_menu_save_longpress_helper">Tieni premuto \"Salva nella galleria\" per scegliere tra copia o spostamento</string>
-    <string name="watch_video_saved_toast">Salvato in Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Salvato in Downloads/Joy Creator</string>
     <string name="watch_delete_confirm_title">Spostare nel cestino?</string>
     <string name="watch_delete_confirm_msg">\"%s\" verrà spostato nel cestino.</string>
     <string name="watch_delete_confirm_action">Sposta nel cestino</string>
@@ -757,8 +757,8 @@
     <string name="setting_debug_title">Logging debug</string>
     <string name="note_debug">Abilita generazione file log debug
 (Predefinito: Disabilitato)</string>
-    <string name="note_debug_detailed">Quando abilitato, FadCam scrive un file log debug HTML (JoyCreator_debug.html) nella cartella pubblica Downloads/FadCam/. Condividi questo file per aiutare a diagnosticare i bug. La registrazione dettagliata aggiunge overhead quindi tienilo spento se non stai affrontando un problema.</string>
-    <string name="note_debug_extra">Quando abilitato, un file di log debug verrà creato nella cartella Downloads/FadCam. Questo può aiutare a diagnosticare problemi dell\'app.</string>
+    <string name="note_debug_detailed">Quando abilitato, FadCam scrive un file log debug HTML (JoyCreator_debug.html) nella cartella pubblica Downloads/Joy Creator/. Condividi questo file per aiutare a diagnosticare i bug. La registrazione dettagliata aggiunge overhead quindi tienilo spento se non stai affrontando un problema.</string>
+    <string name="note_debug_extra">Quando abilitato, un file di log debug verrà creato nella cartella Downloads/Joy Creator. Questo può aiutare a diagnosticare problemi dell\'app.</string>
     <string name="watermark_preview_heading">Anteprima</string>
     <string name="watermark_options_heading">Opzioni</string>
     <string name="watermark_style_row_title">Stile filigrana</string>
@@ -1120,7 +1120,7 @@
     <string name="faditor_info_convert_title">Perché convertire?</string>
     <string name="faditor_info_convert_desc">I video frammentati (fMP4) non sono riproducibili su tutti i lettori. Faditor li converte in MP4 standard seekable.</string>
     <string name="faditor_info_export_title">Opzioni esportazione</string>
-    <string name="faditor_info_export_desc">Scegli tra salvataggio in archivio interno o cartella Download/FadCam/ condivisibile.</string>
+    <string name="faditor_info_export_desc">Scegli tra salvataggio in archivio interno o cartella Download/Joy Creator/ condivisibile.</string>
     <string name="faditor_info_temp_title">File temporanei</string>
     <string name="faditor_info_temp_desc">I file temporanei vengono puliti automaticamente. I progetti salvati rimangono fino all\'eliminazione manuale.</string>
     <string name="faditor_info_projects_title">Progetti</string>
@@ -1698,7 +1698,7 @@
     <string name="scroll_to_bottom">Scorri giù</string>
     <string name="restore_destination_title">Scegli posizione ripristino</string>
     <string name="restore_destination_downloads">Cartella Download</string>
-    <string name="restore_destination_downloads_desc">Downloads/FadCam/</string>
+    <string name="restore_destination_downloads_desc">Downloads/Joy Creator/</string>
     <string name="restore_destination_internal">Archiviazione interna</string>
     <string name="restore_destination_internal_desc">Archivio privato app</string>
     <string name="restore_destination_original">Posizione originale</string>

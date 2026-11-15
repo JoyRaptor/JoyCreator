@@ -18,6 +18,7 @@
              the leftover space split evenly above and below, which is what the eye reads as
              a composed page rather than as a page that ran out. -->
         <LinearLayout
+            android:id="@+id/onboarding_block"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"

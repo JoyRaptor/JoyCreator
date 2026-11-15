@@ -254,14 +254,14 @@
     <string name="front">Frontal</string>
     <string name="video_menu_del">Eliminar</string>
     <string name="video_menu_save">Guardar en Galería</string>
-    <string name="video_menu_save_helper_downloads_fadcam">El video se guardará en Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">El video se guardará en Downloads/Joy Creator</string>
     <string name="video_menu_save_copy_or_move_title">Guardar en Galería</string>
     <string name="video_menu_save_copy">Copiar a Galería</string>
-    <string name="video_menu_save_copy_desc">Crear una copia en Downloads/FadCam (archivo original conservado)</string>
+    <string name="video_menu_save_copy_desc">Crear una copia en Downloads/Joy Creator (archivo original conservado)</string>
     <string name="video_menu_save_move">Mover a Galería</string>
-    <string name="video_menu_save_move_desc">Mover archivo a Downloads/FadCam (ahorra espacio de almacenamiento)</string>
+    <string name="video_menu_save_move_desc">Mover archivo a Downloads/Joy Creator (ahorra espacio de almacenamiento)</string>
     <string name="video_menu_save_longpress_helper">Mantén presionado \"Guardar en Galería\" para elegir entre copiar o mover</string>
-    <string name="watch_video_saved_toast">Guardado en Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Guardado en Downloads/Joy Creator</string>
     <string name="watch_delete_confirm_title">¿Mover a la papelera?</string>
     <string name="watch_delete_confirm_msg">"%s" se moverá a la papelera.</string>
     <string name="watch_delete_confirm_action">Mover a la papelera</string>
@@ -756,8 +756,8 @@
     <string name="torch_both">Ambas linternas</string>
     <string name="setting_debug_title">Registro de depuración</string>
     <string name="note_debug">Habilitar generación de archivos de registro de depuración \n(Predeterminado: Desactivado)</string>
-    <string name="note_debug_detailed">Cuando está habilitado, FadCam escribe un archivo HTML de registro de depuración (JoyCreator_debug.html) en la carpeta pública Downloads/FadCam/. Comparte este archivo al reportar problemas. Desactívalo para detener escrituras futuras.\nNota: El registro de depuración puede agregar sobrecarga de rendimiento durante la grabación — mantenlo desactivado a menos que estés solucionando problemas.</string>
-    <string name="note_debug_extra">Cuando está habilitado, se creará un archivo de registro de depuración en la carpeta Downloads/FadCam. Esto puede ayudar a diagnosticar problemas de la app.</string>
+    <string name="note_debug_detailed">Cuando está habilitado, FadCam escribe un archivo HTML de registro de depuración (JoyCreator_debug.html) en la carpeta pública Downloads/Joy Creator/. Comparte este archivo al reportar problemas. Desactívalo para detener escrituras futuras.\nNota: El registro de depuración puede agregar sobrecarga de rendimiento durante la grabación — mantenlo desactivado a menos que estés solucionando problemas.</string>
+    <string name="note_debug_extra">Cuando está habilitado, se creará un archivo de registro de depuración en la carpeta Downloads/Joy Creator. Esto puede ayudar a diagnosticar problemas de la app.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Vista previa</string>
     <string name="watermark_options_heading">Opciones</string>
@@ -934,9 +934,9 @@
     <string name="shortcut_purpose_start_dual">Este acceso directo inicia grabación de cámara dual (PiP).</string>
     <string name="shortcut_purpose_stop">Este acceso directo detiene la grabación actual.</string>
     <string name="shortcut_purpose_torch">Este acceso directo alterna la linterna.</string>
-    <string name="shortcut_purpose_photo">Este acceso directo captura una foto con la cámara trasera y la guarda en la ubicación FadCam/FadShot.</string>
-    <string name="shortcut_purpose_photo_front">Este acceso directo captura una foto con la cámara frontal y la guarda en la ubicación FadCam/FadShot.</string>
-    <string name="shortcut_purpose_screenshot">Este acceso directo captura una captura de pantalla y la guarda en la ubicación FadCam/FadShot (Habilita el permiso de Accesibilidad desde Ajustes > Privacidad > Accesibilidad).</string>
+    <string name="shortcut_purpose_photo">Este acceso directo captura una foto con la cámara trasera y la guarda en la ubicación Joy Creator.</string>
+    <string name="shortcut_purpose_photo_front">Este acceso directo captura una foto con la cámara frontal y la guarda en la ubicación Joy Creator.</string>
+    <string name="shortcut_purpose_screenshot">Este acceso directo captura una captura de pantalla y la guarda en la ubicación Joy Creator (Habilita el permiso de Accesibilidad desde Ajustes > Privacidad > Accesibilidad).</string>
     <!-- Widget sheet action labels (avoid hardcoded) -->
     <string name="widget_customize_action_label">Personalizar</string>
     <string name="widget_customize_action_subtitle">Hora, fecha, opciones de tema</string>
@@ -967,7 +967,7 @@
     <string name="screenshot_capture_failed">No se pudo capturar la captura de pantalla</string>
     <string name="screenshot_capture_system_saved">Captura de pantalla capturada por el sistema. Guardada en capturas del sistema.</string>
     <string name="screenshot_accessibility_enable_needed">Habilita \"Joy Creator\" en Accesibilidad para usar este acceso directo sin aviso de grabación.</string>
-    <string name="screenshot_accessibility_service_desc">Captura una captura de pantalla para el acceso directo FadRec y la guarda en FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_service_desc">Captura una captura de pantalla para el acceso directo FadRec y la guarda en Joy Creator.</string>
     <string name="shortcuts_video_category">Grabación de video</string>
     <string name="shortcuts_picture_category">Imagen</string>
     <string name="preview_quick_actions_title">Acciones rápidas de vista previa</string>
@@ -1162,7 +1162,7 @@
     <string name="faditor_info_convert_title">Conversión inteligente</string>
     <string name="faditor_info_convert_desc">Joy Creator graba en un formato a prueba de fallos llamado MP4 fragmentado (fMP4). A diferencia de un MP4 estándar que tiene un contenedor finalizado, fMP4 escribe video en pequeños fragmentos independientes. Esto significa que tu material permanece intacto incluso si la app falla o la grabación se detiene repentinamente.\n\nSin embargo, reproductores de video externos, apps de galería y administradores de archivos no podrán buscar, desplazarse o mostrar la duración correcta de estos archivos. Esto no es un error — es una compensación de diseño deliberada para confiabilidad.\n\nSi planeas almacenar tus videos fuera de Joy Creator — en Google Drive, una computadora o cualquier otra ubicación — debes convertirlos primero. De lo contrario, los archivos serán inutilizables para reproducción normal.\n\nPara convertir: simplemente abre el video aquí en Faditor Mini y toca Exportar. El MP4 estándar convertido aparecerá en tu pestaña Registros, listo para guardar en tu galería o compartir en cualquier lugar. El proceso es instantáneo y sin pérdida — sin recodificación ni pérdida de calidad.</string>
     <string name="faditor_info_export_title">Archivos exportados</string>
-    <string name="faditor_info_export_desc">Los videos exportados se guardan en tu ubicación de almacenamiento activa (la misma configurada en Ajustes) con el prefijo \"Faditor_\" seguido de una marca de tiempo. Aparecen en la pestaña Registros junto a tus grabaciones originales.</string>
+    <string name="faditor_info_export_desc">Los videos exportados se guardan en tu ubicación de almacenamiento activa (la misma configurada en Ajustes) con el prefijo \"JoyCreator_\" seguido de una marca de tiempo. Aparecen en la pestaña Registros junto a tus grabaciones originales.</string>
     <string name="faditor_info_temp_title">Archivos temporales y caché</string>
     <string name="faditor_info_temp_desc">Cuando cargas un video fMP4 para edición, Faditor detecta si el archivo necesita \"remuxing\" — una conversión rápida que agrega marcadores de búsqueda sin recodificar. Los archivos remuxed se almacenan en caché en tu dispositivo para que puedan reutilizarse si editas el mismo video de nuevo, ahorrando tiempo y procesamiento.\n\nPuedes ver el tamaño de caché para cada proyecto listado junto a su fecha de modificación. Si el almacenamiento de tu dispositivo está bajo, puedes eliminar proyectos no usados para limpiar sus archivos remuxed en caché.\n\nEstos archivos temporales de caché se limpian automáticamente cuando eliminas un proyecto de esta pestaña.</string>
     <string name="faditor_info_projects_title">Proyectos recientes</string>
@@ -1282,7 +1282,7 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">No hay elementos seleccionados.</string>
     <string name="trash_dialog_restore_title">¿Restaurar seleccionados?</string>
-    <string name="trash_dialog_restore_message">¿Restaurar %1$d elemento(s) a la carpeta pública Downloads/FadCam/?</string>
+    <string name="trash_dialog_restore_message">¿Restaurar %1$d elemento(s) a la carpeta pública Downloads/Joy Creator/?</string>
     <string name="trash_restore_success_toast">%1$d elemento(s) restaurado(s).</string>
     <string name="trash_restore_fail_toast">Error al restaurar elementos. Algunos archivos pueden no haberse restaurado o la galería puede no estar actualizada. Verifica los permisos de almacenamiento de la app.</string>
     <string name="trash_restore_cancelled_toast">Restauración cancelada.</string>
@@ -1419,10 +1419,10 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
     <string name="update_sarcastic_heading">📦 Oh mira, otra actualización...</string>
     <string name="update_visit_github">Visitar GitHub</string>
     <string name="update_version_arrow">  >>  </string>
-    <string name="update_variation_1">¿Sigues en &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>? Eso es... nostálgico.&lt;br>Mientras tanto, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> está ahí fuera causando olas. ¡Hora de ponerse al día!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> es de la temporada pasada.&lt;br>Mientras tanto, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> está listo para impresionar con nuevas funciones y correcciones de errores. ¡Actualiza para un mejor viaje!</string>
-    <string name="update_variation_3">Tu app está viviendo en el pasado con &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Mientras tanto, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> es el futuro — más rápido, más inteligente y más brillante. ¿Por qué no unirte?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> te ha servido bien, pero &lt;font color=\'#77DD77\'>v%2$s&lt;/font> está llamando!&lt;br>Disfruta las últimas mejoras y una experiencia más fluida — solo un toque de distancia.</string>
+    <string name="update_variation_1">¿Sigues en &lt;font color=\'#71717A\'>v%1$s&lt;/font>? Eso es... nostálgico.&lt;br>Mientras tanto, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> está ahí fuera causando olas. ¡Hora de ponerse al día!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font> es de la temporada pasada.&lt;br>Mientras tanto, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> está listo para impresionar con nuevas funciones y correcciones de errores. ¡Actualiza para un mejor viaje!</string>
+    <string name="update_variation_3">Tu app está viviendo en el pasado con &lt;font color=\'#71717A\'>v%1$s&lt;/font>.&lt;br>Mientras tanto, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> es el futuro — más rápido, más inteligente y más brillante. ¿Por qué no unirte?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font> te ha servido bien, pero &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> está llamando!&lt;br>Disfruta las últimas mejoras y una experiencia más fluida — solo un toque de distancia.</string>
 
     <!-- App Icon Strings -->
     <string name="setting_app_icon_title">Ícono de la app</string>
@@ -1839,7 +1839,7 @@ Recomendado: 192000 bps, 48000 Hz para la mayoría de usuarios.</string>
     <!-- Trash Restore Destination Strings -->
     <string name="restore_destination_title">Elegir ubicación de restauración</string>
     <string name="restore_destination_downloads">Carpeta de Descargas</string>
-    <string name="restore_destination_downloads_desc">Carpeta pública Downloads/FadCam/</string>
+    <string name="restore_destination_downloads_desc">Carpeta pública Downloads/Joy Creator/</string>
     <string name="restore_destination_internal">Almacenamiento interno</string>
     <string name="restore_destination_internal_desc">Almacenamiento privado de la app</string>
     <string name="restore_destination_original">Ubicación original</string>

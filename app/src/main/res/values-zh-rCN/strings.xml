@@ -271,7 +271,7 @@
     <!-- Debug Settings -->
     <string name="setting_debug_title">调试日志</string>
     <string name="note_debug">启用调试日志文件生成\n(默认: 已禁用)</string>
-    <string name="note_debug_extra">启用后，将在Downloads/FadCam文件夹中创建调试日志文件。这有助于诊断应用问题。</string>
+    <string name="note_debug_extra">启用后，将在Downloads/Joy Creator文件夹中创建调试日志文件。这有助于诊断应用问题。</string>
     <!-- Onboarding Settings -->
     <string name="setting_onboarding_title">下次启动时显示引导</string>
     <string name="note_onboarding">启用后，下次打开FadCam时将看到应用介绍和权限指南。</string>
@@ -295,10 +295,10 @@
     <string name="update_visit_github">访问 GitHub</string>
     <string name="update_version_arrow">  →  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">还在使用&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;？这很...怀旧。&lt;br&gt;与此同时，&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;已经引起了轰动。是时候更新了！</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;已经过时了。&lt;br&gt;而&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;带着新功能和错误修复等待您的体验。升级以获得更好的体验！</string>
-    <string name="update_variation_3">您的应用正在使用过去的&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;版本。&lt;br&gt;而&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;代表着未来——更快、更智能、更闪亮。何不加入呢？</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;已经很好地为您服务，但&lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt;正在召唤您！&lt;br&gt;享受最新的改进和更流畅的体验——只需点击一下。</string>
+    <string name="update_variation_1">还在使用&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;？这很...怀旧。&lt;br&gt;与此同时，&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;已经引起了轰动。是时候更新了！</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;已经过时了。&lt;br&gt;而&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;带着新功能和错误修复等待您的体验。升级以获得更好的体验！</string>
+    <string name="update_variation_3">您的应用正在使用过去的&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;版本。&lt;br&gt;而&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;代表着未来——更快、更智能、更闪亮。何不加入呢？</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;已经很好地为您服务，但&lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt;正在召唤您！&lt;br&gt;享受最新的改进和更流畅的体验——只需点击一下。</string>
     <!-- Onboarding Strings -->
     <string name="onboarding_swipe_instruction">右滑继续</string>
     <string name="onboarding_select_language">选择您偏好的应用语言。</string>
@@ -355,7 +355,7 @@
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">未选择任何项目。</string>
     <string name="trash_dialog_restore_title">恢复所选项目？</string>
-    <string name="trash_dialog_restore_message">将%1$d个项目恢复到公共Downloads/FadCam/文件夹？</string>
+    <string name="trash_dialog_restore_message">将%1$d个项目恢复到公共Downloads/Joy Creator/文件夹？</string>
     <string name="trash_restore_success_toast">已恢复%1$d个项目。</string>
     <string name="trash_restore_fail_toast">恢复项目时出错。某些文件可能未被恢复或相册可能未更新。请检查应用的存储权限。</string>
     <string name="trash_restore_cancelled_toast">已取消恢复。</string>
@@ -474,9 +474,9 @@
     <string name="shortcut_purpose_start">此快捷方式使用后置摄像头开始录制。</string>
     <string name="video_menu_save_copy_or_move_title">保存至图库</string>
     <string name="video_menu_save_copy">复制至图库</string>
-    <string name="video_menu_save_helper_downloads_fadcam">将视频保存至 Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">将视频保存至 Downloads/Joy Creator</string>
     <string name="video_menu_save_move">移动到图库</string>
-    <string name="video_menu_save_move_desc">将文件移动到 Downloads/FadCam（节省存储空间）</string>
+    <string name="video_menu_save_move_desc">将文件移动到 Downloads/Joy Creator（节省存储空间）</string>
     <string name="video_menu_save_longpress_helper">长按保存到图库以选择复制或移动</string>
     <string name="video_info_codec">编解码器</string>
     <string name="video_info_file_name">文件名</string>
@@ -558,7 +558,7 @@
     <string name="torch_cancel">取消</string>
     <string name="torch_recording_note">录制过程中无法切换手电筒</string>
     <string name="torch_both">前后手电筒同时开启</string>
-    <string name="note_debug_detailed">启用后，我们会在您的“Downloads/FadCam/”目录中生成调试日志文件 (JoyCreator_debug.html)。当您需要报告问题时，请分享此文件以协助我们排查。关闭本选项将不再记录。\n请注意：开启调试日志可能会在录制时拖慢应用。如非必要，请保持关闭。</string>
+    <string name="note_debug_detailed">启用后，我们会在您的“Downloads/Joy Creator/”目录中生成调试日志文件 (JoyCreator_debug.html)。当您需要报告问题时，请分享此文件以协助我们排查。关闭本选项将不再记录。\n请注意：开启调试日志可能会在录制时拖慢应用。如非必要，请保持关闭。</string>
     <string name="watermark_preview_heading">预览</string>
     <string name="watermark_options_heading">选项</string>
     <string name="watermark_style_row_title">水印样式</string>
@@ -851,7 +851,7 @@
     <string name="restore_destination_original_desc">恢复至原始的 SAF 位置</string>
     <string name="restore_confirm_title">确认恢复</string>
     <string name="restore_confirm_message">是否将%1$d个项目还原为%2$s？</string>
-    <string name="restore_destination_downloads_desc">公共 Downloads/FadCam/ folder</string>
+    <string name="restore_destination_downloads_desc">公共 Downloads/Joy Creator/ folder</string>
     <string name="restore_progress_title">恢复文件</string>
     <string name="restore_success_message">已成功将%1$d个项目还原到%2$s</string>
     <string name="restore_error_message">部分项目恢复失败</string>
@@ -876,7 +876,7 @@
     <string name="display_settings_title">显示设置</string>
     <string name="back">后置</string>
     <string name="front">前置</string>
-    <string name="video_menu_save_copy_desc">在 Downloads/FadCam 文件夹中创建副本（保留原始文件）</string>
+    <string name="video_menu_save_copy_desc">在 Downloads/Joy Creator 文件夹中创建副本（保留原始文件）</string>
     <string name="file_operation_copied_to_gallery">%1$s已复制到图库</string>
     <string name="file_operation_moved_to_gallery">%1$s已移至图库</string>
     <string name="file_operation_deleted">%1$s已删除</string>
@@ -1743,7 +1743,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_info_convert_title">智能转换</string>
 
 <!-- faditor_info_export_desc -->
-<string name="faditor_info_export_desc">导出的视频将保存到您的活跃存储位置（与设置中配置的相同），前缀为"Faditor_"后跟时间戳。它们会出现在记录选项卡中，与原始录制文件并列。</string>
+<string name="faditor_info_export_desc">导出的视频将保存到您的活跃存储位置（与设置中配置的相同），前缀为"JoyCreator_"后跟时间戳。它们会出现在记录选项卡中，与原始录制文件并列。</string>
 
 <!-- faditor_info_export_title -->
 <string name="faditor_info_export_title">导出的文件</string>
@@ -3599,7 +3599,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="screenshot_accessibility_enable_needed">在无障碍中启用"Joy Creator截图"以在无录制提示的情况下使用此快捷方式。</string>
 
 <!-- screenshot_accessibility_service_desc -->
-<string name="screenshot_accessibility_service_desc">为FadRec快捷方式捕获截图并保存到FadCam/FadShot。</string>
+<string name="screenshot_accessibility_service_desc">为FadRec快捷方式捕获截图并保存到Joy Creator。</string>
 
 <!-- screenshot_capture_failed -->
 <string name="screenshot_capture_failed">无法捕获截图</string>
@@ -3626,13 +3626,13 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="settings_advanced_subtitle">Motion Lab和高级用户控制</string>
 
 <!-- shortcut_purpose_photo -->
-<string name="shortcut_purpose_photo">此快捷方式捕获后置摄像头照片并保存到FadCam/FadShot位置。</string>
+<string name="shortcut_purpose_photo">此快捷方式捕获后置摄像头照片并保存到Joy Creator位置。</string>
 
 <!-- shortcut_purpose_photo_front -->
-<string name="shortcut_purpose_photo_front">此快捷方式捕获前置摄像头照片并保存到FadCam/FadShot位置。</string>
+<string name="shortcut_purpose_photo_front">此快捷方式捕获前置摄像头照片并保存到Joy Creator位置。</string>
 
 <!-- shortcut_purpose_screenshot -->
-<string name="shortcut_purpose_screenshot">此快捷方式捕获屏幕截图并保存到FadCam/FadShot位置（请在设置 > 隐私 > 无障碍中启用无障碍权限）。</string>
+<string name="shortcut_purpose_screenshot">此快捷方式捕获屏幕截图并保存到Joy Creator位置（请在设置 > 隐私 > 无障碍中启用无障碍权限）。</string>
 
 <!-- shortcut_purpose_start_current -->
 <string name="shortcut_purpose_start_current">此快捷方式使用当前选择的摄像头模式开始录制。</string>
@@ -4048,7 +4048,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="watch_video_menu_desc">视频选项</string>
 
 <!-- watch_video_saved_toast -->
-<string name="watch_video_saved_toast">已保存到下载s/FadCam</string>
+<string name="watch_video_saved_toast">已保存到下载s/Joy Creator</string>
 
 <!-- watermark_accuracy_off -->
 <string name="watermark_accuracy_off">关</string>

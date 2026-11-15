@@ -7877,7 +7877,7 @@ public class ExportManager {
     private String generateOutputPath(@NonNull FaditorProject project, @NonNull String extension) {
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
                 .format(new Date());
-        String defaultBaseName = "Faditor_" + timestamp;
+        String defaultBaseName = "JoyCreator_" + timestamp; // was Faditor_ (SHELL-44); the export dialog already uses JoyCreator_
 
         String customBaseName = null;
         if (project.getExportSettings() != null) {

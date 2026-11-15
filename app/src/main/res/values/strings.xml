@@ -289,14 +289,14 @@
     <string name="front">Front</string>
     <string name="video_menu_del">Delete</string>
     <string name="video_menu_save">Save to Gallery</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Video will be saved to Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Video will be saved to Downloads/Joy Creator</string>
     <string name="video_menu_save_copy_or_move_title">Save to Gallery</string>
     <string name="video_menu_save_copy">Copy to Gallery</string>
-    <string name="video_menu_save_copy_desc">Create a copy in Downloads/FadCam (original file kept)</string>
+    <string name="video_menu_save_copy_desc">Create a copy in Downloads/Joy Creator (original file kept)</string>
     <string name="video_menu_save_move">Move to Gallery</string>
-    <string name="video_menu_save_move_desc">Move file to Downloads/FadCam (saves storage space)</string>
+    <string name="video_menu_save_move_desc">Move file to Downloads/Joy Creator (saves storage space)</string>
     <string name="video_menu_save_longpress_helper">Long press "Save to Gallery" to choose between copy or move</string>
-    <string name="watch_video_saved_toast">Saved to Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Saved to Downloads/Joy Creator</string>
     <string name="watch_delete_confirm_title">Move to Trash?</string>
     <string name="watch_delete_confirm_msg">"%s" will be moved to trash.</string>
     <string name="watch_delete_confirm_action">Move to Trash</string>
@@ -792,8 +792,8 @@
     <string name="torch_both">Both Torches</string>
     <string name="setting_debug_title">Debug Logging</string>
     <string name="note_debug">Enable debug log file generation \n(Default: Disabled)</string>
-    <string name="note_debug_detailed">When enabled, Joy Creator writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/FadCam/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
-    <string name="note_debug_extra">When enabled, a debug log file will be created in the Downloads/FadCam folder. This can help diagnose app issues.</string>
+    <string name="note_debug_detailed">When enabled, Joy Creator writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/Joy Creator/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
+    <string name="note_debug_extra">When enabled, a debug log file will be created in the Downloads/Joy Creator folder. This can help diagnose app issues.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Preview</string>
     <string name="watermark_options_heading">Options</string>
@@ -974,9 +974,9 @@
     <string name="shortcut_purpose_start_dual">This shortcut starts dual camera recording (PiP).</string>
     <string name="shortcut_purpose_stop">This shortcut stops the current recording.</string>
     <string name="shortcut_purpose_torch">This shortcut toggles the torch.</string>
-    <string name="shortcut_purpose_photo">This shortcut captures a back camera photo and saves it to FadCam/FadShot location.</string>
-    <string name="shortcut_purpose_photo_front">This shortcut captures a front camera photo and saves it to FadCam/FadShot location.</string>
-    <string name="shortcut_purpose_screenshot">This shortcut captures a screen shot and saves it to FadCam/FadShot location (Enable the Accessibility permission from Settings > Privacy > Accessibility).</string>
+    <string name="shortcut_purpose_photo">This shortcut captures a back camera photo and saves it in your Joy Creator folder.</string>
+    <string name="shortcut_purpose_photo_front">This shortcut captures a front camera photo and saves it in your Joy Creator folder.</string>
+    <string name="shortcut_purpose_screenshot">This shortcut captures a screen shot and saves it to Joy Creator location (Enable the Accessibility permission from Settings > Privacy > Accessibility).</string>
     <!-- Widget sheet action labels (avoid hardcoded) -->
     <string name="widget_customize_action_label">Customize</string>
     <string name="widget_customize_action_subtitle">Time, date, theme options</string>
@@ -1008,7 +1008,7 @@
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
     <string name="screenshot_accessibility_enable_needed">Enable Joy Creator in Accessibility to use this shortcut without recording prompt.</string>
-    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the screenshot shortcut and saves it in FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the screenshot shortcut and saves it in your Joy Creator folder.</string>
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
@@ -1567,7 +1567,7 @@
     <string name="faditor_info_convert_title">Smart conversion</string>
     <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Studio and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
     <string name="faditor_info_export_title">Exported files</string>
-    <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"Faditor_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
+    <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) named after the project (or \"JoyCreator_\" and the time when it has no name). They appear in the Records tab alongside your original recordings.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
     <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Studio detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
     <string name="faditor_info_projects_title">Recent projects</string>
@@ -1695,7 +1695,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">No items selected.</string>
     <string name="trash_dialog_restore_title">Restore Selected?</string>
-    <string name="trash_dialog_restore_message">Restore %1$d item(s) to the public Downloads/FadCam/ folder?</string>
+    <string name="trash_dialog_restore_message">Restore %1$d item(s) to the public Downloads/Joy Creator/ folder?</string>
     <string name="trash_restore_success_toast">%1$d item(s) restored.</string>
     <string name="trash_restore_fail_toast">Error restoring items. Some files might not have been restored or gallery might not be updated. Check app permissions for storage.</string>
     <string name="trash_restore_cancelled_toast">Restore cancelled.</string>
@@ -1856,10 +1856,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="update_visit_github">Visit GitHub</string>
     <string name="update_version_arrow">  >>  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">Still on &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>? That\'s... nostalgic.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is out there making waves. Time to catch up!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> is so last season.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
-    <string name="update_variation_3">Your app is living in the past with &lt;font color=\'#E43C3C\'>v%1$s&lt;/font>.&lt;br>Meanwhile, &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is the future—faster, smarter, and shinier. Why not join in?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'>v%1$s&lt;/font> has served you well, but &lt;font color=\'#77DD77\'>v%2$s&lt;/font> is calling!&lt;br>Enjoy the latest improvements and a smoother experience—just a tap away.</string>
+    <string name="update_variation_1">Still on &lt;font color=\'#71717A\'>v%1$s&lt;/font>? That\'s... nostalgic.&lt;br>Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is out there making waves. Time to catch up!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'>v%1$s&lt;/font> is so last season.&lt;br>Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is ready to impress with new features and bug fixes. Upgrade for a better ride!</string>
+    <string name="update_variation_3">Your app is living in the past with &lt;font color=\'#71717A\'>v%1$s&lt;/font>.&lt;br>Meanwhile, &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is the future—faster, smarter, and shinier. Why not join in?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'>v%1$s&lt;/font> has served you well, but &lt;font color=\'#35F6BF\'>v%2$s&lt;/font> is calling!&lt;br>Enjoy the latest improvements and a smoother experience—just a tap away.</string>
 
 
 
@@ -2286,7 +2286,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- Trash Restore Destination Strings -->
     <string name="restore_destination_title">Choose Restore Location</string>
     <string name="restore_destination_downloads">Downloads Folder</string>
-    <string name="restore_destination_downloads_desc">Public Downloads/FadCam/ folder</string>
+    <string name="restore_destination_downloads_desc">Public Downloads/Joy Creator/ folder</string>
     <string name="restore_destination_internal">Internal Storage</string>
     <string name="restore_destination_internal_desc">App\'s private storage</string>
     <string name="restore_destination_original">Original Location</string>

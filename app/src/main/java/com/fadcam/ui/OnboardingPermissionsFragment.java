@@ -51,6 +51,9 @@ public class OnboardingPermissionsFragment extends Fragment implements SlidePoli
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.onboarding_permissions_slide, container, false);
+        // TAB-1: on a short window, keep "Allow what's missing" clear of the page dots drawn over the page.
+        com.fadcam.ui.size.BarClearance.keep((android.widget.ScrollView) view,
+                view.findViewById(R.id.onboarding_block), com.github.appintro.R.id.bottom);
         root = view;
         grantButton = view.findViewById(R.id.permissions_grant_button);
         permissionStatusText = view.findViewById(R.id.permission_status_text);

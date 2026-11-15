@@ -131,13 +131,23 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   drawn one at a time, redrawn when a setting settles. Softness, shape and size show **one dab** (brush lane's
   `TestStroke.Part.DAB`); everything else the test stroke's S-turns. "Thinnest" shows the stroke, not a dab: it is
   about the lightest press and a full-press dab looked the same at both ends.
-- **Limits:** dabs are small for thin brushes (about 10 dp in the box, capped at the brush's real size); asked the
-  brush lane for dabs that fill the picture, with one shared scale for the size slider's two ends. Pencil, watercolour
-  and oil ends still show the whole stroke until the brush lane wires the part into the media preview.
+- **Dabs fill the picture** (brush lane d096e4122, wired here; seen on the Note 9: Marker's Hardness ends now read as a
+  fuzzy blob and a crisp square, `after_marker_dab_ends_filled.png`). A dab setting that changes the brush's size draws
+  both ends at the larger end's scale (`dabScalePx`), so they still differ; no shipped paint slider changes the size
+  today, so that path is unit-tested only. Pencil, watercolour and oil ends still show the whole stroke until the
+  brush lane wires the part into the media preview.
 - **Unibrush on the one editor, seen on the Note 9:** the same top bar (name, Shape / Pressure & tilt / Colour / Paper /
   Stroke ends / Feel, Done, ✕ puts the mode back as it opened), the Quick / Tip / All tabs replaced by one list in the
   top bar's order, words at both ends of every slider. Screens: `after_unibrush_hard_one_editor.png`,
   `after_unibrush_groups_in_order.png`, `after_marker_dab_ends.png` in `tasks/screens/brush-editor-20261114/`.
-- **Still owed:** the footprint stacked under the tilt and tapping it to open the shape editor (wait for the engine
-  session's `HoverFootprint`, not on joy-creator yet); Unibrush's stage still shows the stripes with its own preview
-  rather than the shared stage.
+- **Footprint, seen on the Note 9 (11-14 night):** the mark a brush leaves seen from above, upright, at 35° and laid
+  over at 70° (one mark and "same at any tilt" for a brush that ignores tilt). Made from the brush's own code
+  (`core/chrome/Footprint`): oils and knives from `HoverFootprint`, every dab brush from the dab `BrushDabber` would
+  lay, traced with `TipMath.coverage`; pencil, watercolour and Sable are a circle of their size for now. Paint brushes:
+  stacked under the tilt curve. Unibrush: under the tip's side view, and **tapping it jumps to the tip's shape editor**
+  (or the switch that turns four-point shapes on), which blinks. The pen's tilt lights the nearest mark. Screens:
+  `after_knife3_footprint_under_tilt.png`, `after_unibrush_calligraphy_footprint.png`,
+  `after_footprint_tap_opens_shape_editor.png`.
+- **Still owed:** Unibrush's stage still shows the stripes with its own preview rather than the shared stage; the
+  hover outline under the pen still draws its own shapes (it can now use `Footprint`), and nobody has seen it with a
+  real S Pen since the atlas batch landed (agents cannot inject a hover on either device).

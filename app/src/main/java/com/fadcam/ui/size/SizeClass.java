@@ -73,4 +73,23 @@ public final class SizeClass {
         int room = width - baseStart - baseEnd - maxContent;
         return room > 0 ? room / 2 : 0;
     }
+
+    /**
+     * Bottom padding for a block centred in a scrolling viewport whose bottom {@code gap} is covered
+     * (a bar of page dots drawn over it), so the block's last line never sits under that bar.
+     *
+     * <p>Returns {@code padBottom} unchanged whenever the block already clears the bar: every page
+     * on an upright phone. Otherwise, if the content can fit above the bar, just enough extra to
+     * lift it clear while staying centred; if it cannot fit at all, enough that scrolling to the end
+     * brings the last line above the bar. All values in the same unit (px).
+     */
+    public static int clearBottomPadding(int padTop, int content, int padBottom, int viewport, int gap) {
+        if (gap <= 0) return padBottom;
+        int h = padTop + content + padBottom;
+        if (h <= viewport && (viewport - h) / 2 + padTop + content <= viewport - gap) return padBottom;
+        if (padTop + content <= viewport - gap) {
+            return Math.max(padBottom, padTop + content - viewport + 2 * gap);
+        }
+        return Math.max(padBottom, gap);
+    }
 }

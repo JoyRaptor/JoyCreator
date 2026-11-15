@@ -123,7 +123,7 @@ public class FileOperationManager {
     private void executeCopyToGallery(FileOperationTask task, boolean moveFile) throws Exception {
         // Create destination directory
         File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File fadCamDir = new File(downloadsDir, Constants.RECORDING_DIRECTORY);
+        File fadCamDir = new File(downloadsDir, Constants.PUBLIC_FOLDER_NAME);
         if (!fadCamDir.exists() && !fadCamDir.mkdirs()) {
             throw new Exception("Cannot create directory: " + fadCamDir.getAbsolutePath());
         }

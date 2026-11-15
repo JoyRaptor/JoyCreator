@@ -195,7 +195,7 @@ public class Log {
                     ContentValues contentValues = new ContentValues();
                     contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, debugFileName);
                     contentValues.put(MediaStore.MediaColumns.MIME_TYPE, "text/html");
-                    contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/FadCam");
+                    contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + Constants.PUBLIC_FOLDER_NAME);
                     fileUri = context.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues);
                 } catch (Exception mediaStoreEx) {
                     // Some OEMs (e.g., Huawei EMUI 10) can deny inserts unpredictably

@@ -272,7 +272,7 @@
     <!-- Debug Settings -->
     <string name="setting_debug_title">تسجيل التصحيح</string>
     <string name="note_debug">تفعيل إنشاء ملف سجل التصحيح \n(الافتراضي: معطل)</string>
-    <string name="note_debug_extra">عند التفعيل، سيتم إنشاء ملف سجل تصحيح في مجلد التنزيلات/FadCam. يمكن أن يساعد ذلك في تشخيص مشاكل التطبيق.</string>
+    <string name="note_debug_extra">عند التفعيل، سيتم إنشاء ملف سجل تصحيح في مجلد التنزيلات/Joy Creator. يمكن أن يساعد ذلك في تشخيص مشاكل التطبيق.</string>
     <!-- Onboarding Settings -->
     <string name="setting_onboarding_title">عرض التوجيه عند التشغيل التالي</string>
     <string name="note_onboarding">قم بالتفعيل لرؤية مقدمة التطبيق ودليل الأذونات في المرة القادمة التي تفتح فيها Joy Creator.</string>
@@ -296,10 +296,10 @@
     <string name="update_visit_github">زيارة GitHub</string>
     <string name="update_version_arrow">  ←  </string>
     <!-- Update variations -->
-    <string name="update_variation_1">ما زلت تستخدم &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;؟ هذا... يبعث على الحنين.&lt;br&gt;بينما &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; يثير ضجة. حان وقت اللحاق!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; أصبح قديمًا.&lt;br&gt;بينما &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; جاهز للإعجاب بميزات جديدة وإصلاحات للأخطاء. قم بالترقية للحصول على تجربة أفضل!</string>
-    <string name="update_variation_3">تطبيقك يعيش في الماضي مع &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;بينما &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; هو المستقبل - أسرع، أذكى، وأكثر لمعانًا. لماذا لا تنضم؟</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; قدم لك خدمة جيدة، لكن &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; يناديك!&lt;br&gt;استمتع بأحدث التحسينات وتجربة أكثر سلاسة - بنقرة واحدة.</string>
+    <string name="update_variation_1">ما زلت تستخدم &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;؟ هذا... يبعث على الحنين.&lt;br&gt;بينما &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; يثير ضجة. حان وقت اللحاق!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; أصبح قديمًا.&lt;br&gt;بينما &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; جاهز للإعجاب بميزات جديدة وإصلاحات للأخطاء. قم بالترقية للحصول على تجربة أفضل!</string>
+    <string name="update_variation_3">تطبيقك يعيش في الماضي مع &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;بينما &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; هو المستقبل - أسرع، أذكى، وأكثر لمعانًا. لماذا لا تنضم؟</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; قدم لك خدمة جيدة، لكن &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; يناديك!&lt;br&gt;استمتع بأحدث التحسينات وتجربة أكثر سلاسة - بنقرة واحدة.</string>
     <!-- Onboarding Strings -->
     <string name="onboarding_swipe_instruction">اسحب لليمين للمتابعة</string>
     <string name="onboarding_select_language">اختر لغة التطبيق المفضلة لديك.</string>
@@ -356,7 +356,7 @@
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">لم يتم تحديد أي عناصر.</string>
     <string name="trash_dialog_restore_title">استعادة المحدد؟</string>
-    <string name="trash_dialog_restore_message">استعادة %1$d عنصر إلى مجلد Downloads/FadCam/ العام؟</string>
+    <string name="trash_dialog_restore_message">استعادة %1$d عنصر إلى مجلد Downloads/Joy Creator/ العام؟</string>
     <string name="trash_restore_success_toast">تم استعادة %1$d عنصر.</string>
     <string name="trash_restore_fail_toast">خطأ في استعادة العناصر. قد لا تكون بعض الملفات قد تمت استعادتها أو قد لا يتم تحديث المعرض. تحقق من أذونات التطبيق للتخزين.</string>
     <string name="trash_restore_cancelled_toast">تم إلغاء الاستعادة.</string>
@@ -850,21 +850,21 @@
 
     <string name="front">أمامي</string>
 
-    <string name="video_menu_save_helper_downloads_fadcam">سيتم حفظ الفيديو في Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">سيتم حفظ الفيديو في Downloads/Joy Creator</string>
 
     <string name="video_menu_save_copy_or_move_title">حفظ في المعرض</string>
 
     <string name="video_menu_save_copy">نسخ إلى المعرض</string>
 
-    <string name="video_menu_save_copy_desc">إنشاء نسخة في Downloads/FadCam (يحتفظ بالملف الأصلي)</string>
+    <string name="video_menu_save_copy_desc">إنشاء نسخة في Downloads/Joy Creator (يحتفظ بالملف الأصلي)</string>
 
     <string name="video_menu_save_move">نقل إلى المعرض</string>
 
-    <string name="video_menu_save_move_desc">نقل الملف إلى Downloads/FadCam (يوفر مساحة التخزين)</string>
+    <string name="video_menu_save_move_desc">نقل الملف إلى Downloads/Joy Creator (يوفر مساحة التخزين)</string>
 
     <string name="video_menu_save_longpress_helper">اضغط مطولاً على \"حفظ في المعرض\" للاختيار بين النسخ أو النقل</string>
 
-    <string name="watch_video_saved_toast">تم الحفظ في Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">تم الحفظ في Downloads/Joy Creator</string>
 
     <string name="watch_delete_confirm_title">نقل إلى سلة المهملات؟</string>
 
@@ -1562,7 +1562,7 @@
 
     <string name="torch_both">كلا الفلاشين</string>
 
-    <string name="note_debug_detailed">عند التمكين، يكتب FadCam ملف سجل تصحيح HTML (JoyCreator_debug.html) في مجلد التنزيلات العام/FadCam/. شارك هذا الملف عند الإبلاغ عن مشاكل. أوقف لإيقاف الكتابات المستقبلية.\nملاحظة: قد يضيف تسجيل التصحيح عبئًا على الأداء أثناء التسجيل — أبقه معطلًا إلا إذا كنت تستكشف مشكلة.</string>
+    <string name="note_debug_detailed">عند التمكين، يكتب FadCam ملف سجل تصحيح HTML (JoyCreator_debug.html) في مجلد التنزيلات العام/Joy Creator/. شارك هذا الملف عند الإبلاغ عن مشاكل. أوقف لإيقاف الكتابات المستقبلية.\nملاحظة: قد يضيف تسجيل التصحيح عبئًا على الأداء أثناء التسجيل — أبقه معطلًا إلا إذا كنت تستكشف مشكلة.</string>
 
     <string name="watermark_preview_heading">معاينة</string>
 
@@ -1890,11 +1890,11 @@
 
     <string name="shortcut_purpose_torch">يبدّل هذا الاختصار الفلاش.</string>
 
-    <string name="shortcut_purpose_photo">يلتقط هذا الاختصار صورة بالكاميرا الخلفية ويحفظها في موقع FadCam/FadShot.</string>
+    <string name="shortcut_purpose_photo">يلتقط هذا الاختصار صورة بالكاميرا الخلفية ويحفظها في موقع Joy Creator.</string>
 
-    <string name="shortcut_purpose_photo_front">يلتقط هذا الاختصار صورة بالكاميرا الأمامية ويحفظها في موقع FadCam/FadShot.</string>
+    <string name="shortcut_purpose_photo_front">يلتقط هذا الاختصار صورة بالكاميرا الأمامية ويحفظها في موقع Joy Creator.</string>
 
-    <string name="shortcut_purpose_screenshot">يلتقط هذا الاختصار لقطة شاشة ويحفظها في موقع FadCam/FadShot (فعّل إذن إمكانية الوصول من الإعدادات &gt; الخصوصية &gt; إمكانية الوصول).</string>
+    <string name="shortcut_purpose_screenshot">يلتقط هذا الاختصار لقطة شاشة ويحفظها في موقع Joy Creator (فعّل إذن إمكانية الوصول من الإعدادات &gt; الخصوصية &gt; إمكانية الوصول).</string>
 
     <string name="widget_customize_action_label">تخصيص</string>
 
@@ -1934,7 +1934,7 @@
 
     <string name="screenshot_accessibility_enable_needed">فعّل \"لقطة شاشة Joy Creator\" في إمكانية الوصول لاستخدام هذا الاختصار بدون مطالبة التسجيل.</string>
 
-    <string name="screenshot_accessibility_service_desc">يلتقط لقطة شاشة لاختصار FadRec ويحفظها في FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_service_desc">يلتقط لقطة شاشة لاختصار FadRec ويحفظها في Joy Creator.</string>
 
     <string name="shortcuts_video_category">تسجيل الفيديو</string>
 
@@ -2267,7 +2267,7 @@
 
     <string name="faditor_info_export_title">الملفات المصدرة</string>
 
-    <string name="faditor_info_export_desc">يتم حفظ الفيديوهات المصدرة في موقع التخزين النشط (نفس الموقع المُعد في الإعدادات) بالبادئة \"Faditor_\" متبوعة بطابع زمني. تظهر في تبويب التسجيلات بجانب تسجيلاتك الأصلية.</string>
+    <string name="faditor_info_export_desc">يتم حفظ الفيديوهات المصدرة في موقع التخزين النشط (نفس الموقع المُعد في الإعدادات) بالبادئة \"JoyCreator_\" متبوعة بطابع زمني. تظهر في تبويب التسجيلات بجانب تسجيلاتك الأصلية.</string>
 
     <string name="faditor_info_temp_title">الملفات المؤقتة وذاكرة التخزين المؤقت</string>
 
@@ -3002,7 +3002,7 @@
 
     <string name="restore_destination_downloads">مجلد التنزيلات</string>
 
-    <string name="restore_destination_downloads_desc">مجلد Downloads/FadCam/ العام</string>
+    <string name="restore_destination_downloads_desc">مجلد Downloads/Joy Creator/ العام</string>
 
     <string name="restore_destination_internal">التخزين الداخلي</string>
 

@@ -42,6 +42,9 @@ public class OnboardingHumanFragment extends Fragment implements com.fadcam.ui.s
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container,
                              @Nullable Bundle savedInstanceState) {
         View v = inflater.inflate(R.layout.onboarding_human_slide, container, false);
+        // TAB-1: on a short window, keep LET ME IN clear of the page dots drawn over the page.
+        com.fadcam.ui.size.BarClearance.keep((android.widget.ScrollView) v,
+                v.findViewById(R.id.onboarding_block), com.github.appintro.R.id.bottom);
 
         label1 = v.findViewById(R.id.checkbox_label_1);
         label2 = v.findViewById(R.id.checkbox_label_2);

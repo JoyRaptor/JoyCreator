@@ -124,14 +124,14 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
             fetchAndDisplayChangelog(tvUpdateDescription);
         }
 
-        // Version row: current version (red), arrow, new version (green)
+        // Version row: current version (faded grey), arrow, new version (the go aqua): the house rule, 11-14
         TextView tvCurrentVersion = view.findViewById(R.id.tvCurrentVersion);
         TextView tvArrow = view.findViewById(R.id.tvArrow);
         TextView tvNewVersion = view.findViewById(R.id.tvNewVersion);
         String currentVersion = getCurrentAppVersion();
         if (tvCurrentVersion != null) {
             tvCurrentVersion.setText(getString(R.string.update_version_prefix) + currentVersion);
-            tvCurrentVersion.setTextColor(Color.parseColor("#E43C3C"));
+            tvCurrentVersion.setTextColor(com.fadcam.ui.faditor.Studio.INK_FAINT);   // greys fade: the old one
         }
         if (tvArrow != null) {
             tvArrow.setText(getString(R.string.update_version_arrow));
@@ -139,7 +139,7 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
         }
         if (tvNewVersion != null) {
             tvNewVersion.setText(getString(R.string.update_version_prefix) + version);
-            tvNewVersion.setTextColor(Color.parseColor("#77DD77"));
+            tvNewVersion.setTextColor(com.fadcam.ui.faditor.Studio.GO);   // colour guides: the one to get
         }
 
         // Use the Lottie animation for update icon
@@ -178,7 +178,7 @@ public class UpdateAvailableBottomSheet extends BottomSheetDialogFragment {
                     String cleanChangelogHtml = ChangelogParser.parseChangelogForTextView(changelogHtml);
                     // Use the original HTML string we stored earlier
                     String updatedText = originalVariationHtml + 
-                        "<br><br><font color='#E43C3C'><b>" + 
+                        "<br><br><font color='#E4E4E7'><b>" + 
                         getString(R.string.changelog_label) + 
                         ":</b></font><br>" + cleanChangelogHtml;
                     tvUpdateDescription.setText(fromHtml(updatedText));

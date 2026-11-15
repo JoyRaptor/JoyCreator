@@ -513,10 +513,14 @@ public class FastFileScanner {
                 VideoItem.CameraSubtype effectiveCam = cameraSubtype;
                 VideoItem.FaditorSubtype effectiveFad = faditorSubtype;
 
-                if (joyMode && legacyInfer && category == VideoItem.Category.UNKNOWN && name != null) {
+                if (joyMode && legacyInfer && category == VideoItem.Category.UNKNOWN && name != null
+                        && inferCategoryFromLegacyName(name) == VideoItem.Category.UNKNOWN) {
                     // The Joy Creator folder: recordings are known by their readable names, exports by
                     // the app's own record of them. Anything else there (pictures and clips copied in
                     // for projects, files the user dropped in) is not a recording, so it stays out.
+                    // A FadCam-era recording moved into the folder keeps its old name (FadCam_, FadRec_,
+                    // FadShot_, Faditor_...): it skips this branch and is classified by that name below
+                    // (SHELL-44: old names are read forever).
                     com.fadcam.utils.RecordingStoragePaths.JoyKind kind = com.fadcam.utils.RecordingStoragePaths.JoyKind.ofName(name);
                     java.util.Set<String> exports = joyExportNames;
                     if (kind != null) {

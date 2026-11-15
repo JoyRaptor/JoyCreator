@@ -722,10 +722,10 @@ public class RecordsDeletionService extends Service {
     @Nullable
     private File resolveUniqueGalleryDestination(@Nullable String displayName) {
         String safeName = (displayName == null || displayName.trim().isEmpty())
-                ? ("FadCam_" + System.currentTimeMillis() + ".mp4")
+                ? ("JoyCreator_" + System.currentTimeMillis() + ".mp4")
                 : displayName;
         File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
-        File fadCamDir = new File(downloadsDir, Constants.RECORDING_DIRECTORY);
+        File fadCamDir = new File(downloadsDir, Constants.PUBLIC_FOLDER_NAME);
         if (!fadCamDir.exists() && !fadCamDir.mkdirs()) {
             return null;
         }

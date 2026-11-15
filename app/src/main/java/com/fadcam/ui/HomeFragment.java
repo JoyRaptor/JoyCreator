@@ -5167,6 +5167,17 @@ public class HomeFragment extends BaseFragment {
                 isDualRecordingActive = false;
             }
 
+            // SHELL-36: ask for the camera and microphone BEFORE the button turns into Stop (it changes first and
+            // records after). With them allowed, the tap is replayed; with "Not now" the button stays Start.
+            if (recordingState.equals(RecordingState.NONE)
+                    && getActivity() instanceof com.fadcam.MainActivity
+                    && !((com.fadcam.MainActivity) getActivity()).captureReady()) {
+                ((com.fadcam.MainActivity) getActivity()).askForCapture(() -> {
+                    if (buttonStartStop != null && isAdded()) buttonStartStop.performClick();
+                });
+                return;
+            }
+
             // Temporarily disable button to prevent rapid clicks
             buttonStartStop.setEnabled(false);
             
@@ -5332,7 +5343,13 @@ public class HomeFragment extends BaseFragment {
             return;
         }
         performHapticFeedback();
-        // Permission checks removed; handled by onboarding
+        // SHELL-36: the intro no longer asks for the camera and microphone; Capture asks on the way in. If either was
+        // turned off since (Android settings), ask again here rather than failing silently.
+        if (getActivity() instanceof com.fadcam.MainActivity
+                && !((com.fadcam.MainActivity) getActivity()).captureReady()) {
+            ((com.fadcam.MainActivity) getActivity()).askForCapture(this::startRecording);
+            return;
+        }
 
         // ── Dual Camera path ──────────────────────────────────────────
         CameraType selectedCam = sharedPreferencesManager.getCameraSelection();

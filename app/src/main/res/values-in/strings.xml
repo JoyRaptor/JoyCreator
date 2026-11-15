@@ -253,14 +253,14 @@
     <string name="front">Depan</string>
     <string name="video_menu_del">Hapus</string>
     <string name="video_menu_save">Simpan ke Galeri</string>
-    <string name="video_menu_save_helper_downloads_fadcam">Video akan disimpan ke Downloads/FadCam</string>
+    <string name="video_menu_save_helper_downloads_fadcam">Video akan disimpan ke Downloads/Joy Creator</string>
     <string name="video_menu_save_copy_or_move_title">Simpan ke Galeri</string>
     <string name="video_menu_save_copy">Salin ke Galeri</string>
-    <string name="video_menu_save_copy_desc">Buat salinan di Downloads/FadCam (file asli tetap ada)</string>
+    <string name="video_menu_save_copy_desc">Buat salinan di Downloads/Joy Creator (file asli tetap ada)</string>
     <string name="video_menu_save_move">Pindahkan ke Galeri</string>
-    <string name="video_menu_save_move_desc">Pindahkan file ke Downloads/FadCam (menghemat ruang penyimpanan)</string>
+    <string name="video_menu_save_move_desc">Pindahkan file ke Downloads/Joy Creator (menghemat ruang penyimpanan)</string>
     <string name="video_menu_save_longpress_helper">Tekan lama Simpan ke Galeri untuk memilih antara salin atau pindah</string>
-    <string name="watch_video_saved_toast">Disimpan ke Downloads/FadCam</string>
+    <string name="watch_video_saved_toast">Disimpan ke Downloads/Joy Creator</string>
     <string name="watch_delete_confirm_title">Pindahkan ke Sampah?</string>
     <string name="watch_delete_confirm_msg">"%s" akan dipindahkan ke sampah.</string>
     <string name="watch_delete_confirm_action">Pindahkan ke Sampah</string>
@@ -759,8 +759,8 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="torch_both">Kedua Senter</string>
     <string name="setting_debug_title">Pencatatan Debug</string>
     <string name="note_debug">Aktifkan pembuatan file log debug \n(Default: Dinonaktifkan)</string>
-    <string name="note_debug_detailed">Saat diaktifkan, FadCam menulis file HTML log debug (JoyCreator_debug.html) ke folder Downloads/FadCam/ publik. Bagikan file ini saat melaporkan masalah. Matikan untuk menghentikan penulisan di masa mendatang.\nCatatan: Pencatatan debug dapat menambah beban kinerja selama perekaman — biarkan nonaktif kecuali Anda sedang memecahkan masalah.</string>
-    <string name="note_debug_extra">Saat diaktifkan, file log debug akan dibuat di folder Downloads/FadCam. Ini dapat membantu mendiagnosis masalah aplikasi.</string>
+    <string name="note_debug_detailed">Saat diaktifkan, FadCam menulis file HTML log debug (JoyCreator_debug.html) ke folder Downloads/Joy Creator/ publik. Bagikan file ini saat melaporkan masalah. Matikan untuk menghentikan penulisan di masa mendatang.\nCatatan: Pencatatan debug dapat menambah beban kinerja selama perekaman — biarkan nonaktif kecuali Anda sedang memecahkan masalah.</string>
+    <string name="note_debug_extra">Saat diaktifkan, file log debug akan dibuat di folder Downloads/Joy Creator. Ini dapat membantu mendiagnosis masalah aplikasi.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Pratinjau</string>
     <string name="watermark_options_heading">Opsi</string>
@@ -941,9 +941,9 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="shortcut_purpose_start_dual">Pintasan ini memulai perekaman kamera dual (PiP).</string>
     <string name="shortcut_purpose_stop">Pintasan ini menghentikan perekaman saat ini.</string>
     <string name="shortcut_purpose_torch">Pintasan ini mengaktifkan/menonaktifkan senter.</string>
-    <string name="shortcut_purpose_photo">Pintasan ini mengambil foto kamera belakang dan menyimpannya ke lokasi FadCam/FadShot.</string>
-    <string name="shortcut_purpose_photo_front">Pintasan ini mengambil foto kamera depan dan menyimpannya ke lokasi FadCam/FadShot.</string>
-    <string name="shortcut_purpose_screenshot">Pintasan ini mengambil tangkapan layar dan menyimpannya ke lokasi FadCam/FadShot (Aktifkan izin Aksesibilitas dari Pengaturan > Privasi > Aksesibilitas).</string>
+    <string name="shortcut_purpose_photo">Pintasan ini mengambil foto kamera belakang dan menyimpannya ke lokasi Joy Creator.</string>
+    <string name="shortcut_purpose_photo_front">Pintasan ini mengambil foto kamera depan dan menyimpannya ke lokasi Joy Creator.</string>
+    <string name="shortcut_purpose_screenshot">Pintasan ini mengambil tangkapan layar dan menyimpannya ke lokasi Joy Creator (Aktifkan izin Aksesibilitas dari Pengaturan > Privasi > Aksesibilitas).</string>
     <!-- Widget sheet action labels (avoid hardcoded) -->
     <string name="widget_customize_action_label">Kustomisasi</string>
     <string name="widget_customize_action_subtitle">Opsi waktu, tanggal, tema</string>
@@ -975,7 +975,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
     <string name="screenshot_accessibility_enable_needed">Enable "Joy Creator" in Accessibility to use this shortcut without recording prompt.</string>
-    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in FadCam/FadShot.</string>
+    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in Joy Creator.</string>
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
@@ -1170,7 +1170,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_info_convert_title">Smart conversion</string>
     <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
     <string name="faditor_info_export_title">Exported files</string>
-    <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"Faditor_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
+    <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"JoyCreator_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
     <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
     <string name="faditor_info_projects_title">Recent projects</string>
@@ -1298,7 +1298,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <!-- For TrashFragment - Restore Action -->
     <string name="trash_no_items_selected_toast">Tidak ada item yang dipilih.</string>
     <string name="trash_dialog_restore_title">Kembalikan yang Dipilih?</string>
-    <string name="trash_dialog_restore_message">Kembalikan %1$d item ke folder publik Downloads/FadCam/?</string>
+    <string name="trash_dialog_restore_message">Kembalikan %1$d item ke folder publik Downloads/Joy Creator/?</string>
     <string name="trash_restore_success_toast">%1$d item berhasil dikembalikan.</string>
     <string name="trash_restore_fail_toast">Kesalahan mengembalikan item. Beberapa file mungkin tidak berhasil dikembalikan atau galeri mungkin tidak diperbarui. Periksa izin penyimpanan aplikasi.</string>
     <string name="trash_restore_cancelled_toast">Pengembalian dibatalkan.</string>
@@ -1455,10 +1455,10 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="update_visit_github">Kunjungi GitHub</string>
     <string name="update_version_arrow">→</string>
     <!-- Update variations -->
-    <string name="update_variation_1">Masih di &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;? Itu... nostalgia.&lt;br&gt;Sementara itu, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; sudah hadir membuat gebrakan. Saatnya ikut!</string>
-    <string name="update_variation_2">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; sudah ketinggalan zaman.&lt;br&gt;Sementara itu, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; siap memukau dengan fitur baru dan perbaikan bug. Upgrade untuk pengalaman lebih baik!</string>
-    <string name="update_variation_3">Aplikasi Anda hidup di masa lalu dengan &lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;Sementara itu, &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; adalah masa depan—lebih cepat, lebih pintar, dan lebih keren. Bergabunglah?</string>
-    <string name="update_variation_4">&lt;font color=\'#E43C3C\'&gt;v%1$s&lt;/font&gt; telah melayani Anda dengan baik, tapi &lt;font color=\'#77DD77\'&gt;v%2$s&lt;/font&gt; sudah memanggil!&lt;br&gt;Nikmati peningkatan terbaru dan pengalaman lebih lancar—tinggal satu ketukan.</string>
+    <string name="update_variation_1">Masih di &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;? Itu... nostalgia.&lt;br&gt;Sementara itu, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; sudah hadir membuat gebrakan. Saatnya ikut!</string>
+    <string name="update_variation_2">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; sudah ketinggalan zaman.&lt;br&gt;Sementara itu, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; siap memukau dengan fitur baru dan perbaikan bug. Upgrade untuk pengalaman lebih baik!</string>
+    <string name="update_variation_3">Aplikasi Anda hidup di masa lalu dengan &lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt;.&lt;br&gt;Sementara itu, &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; adalah masa depan—lebih cepat, lebih pintar, dan lebih keren. Bergabunglah?</string>
+    <string name="update_variation_4">&lt;font color=\'#71717A\'&gt;v%1$s&lt;/font&gt; telah melayani Anda dengan baik, tapi &lt;font color=\'#35F6BF\'&gt;v%2$s&lt;/font&gt; sudah memanggil!&lt;br&gt;Nikmati peningkatan terbaru dan pengalaman lebih lancar—tinggal satu ketukan.</string>
 
 
 
@@ -1890,7 +1890,7 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <!-- Trash Restore Destination Strings -->
     <string name="restore_destination_title">Pilih Lokasi Pemulihan</string>
     <string name="restore_destination_downloads">Folder Unduhan</string>
-    <string name="restore_destination_downloads_desc">Folder Downloads/FadCam/ publik</string>
+    <string name="restore_destination_downloads_desc">Folder Downloads/Joy Creator/ publik</string>
     <string name="restore_destination_internal">Penyimpanan Internal</string>
     <string name="restore_destination_internal_desc">Penyimpanan privat aplikasi</string>
     <string name="restore_destination_original">Lokasi Asli</string>

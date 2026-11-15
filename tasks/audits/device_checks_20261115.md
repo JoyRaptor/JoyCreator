@@ -52,3 +52,17 @@ the Joy Creator folder's `JC big video.mp4`, `JC test photo.jpg`, projects "Unti
   to coordinates there.
 
 Not checked: any AI-dependent Joybot path, captions, Clean tab, watermark, real S Pen / touch feel (adb taps only).
+
+## Update, same day, on the test tablet (Tab S8 Ultra, landscape; same build 4bc535455; supersedes the Fold rows above where they differ)
+
+| # | Check | Result | Proof |
+|---|---|---|---|
+| 1a | Tap on a cut's trim handle (F1) | ❌ **reproduced on the tablet**: cut at 8.630, tap the handle, clock reads 00:17 (double), preview on source frame 0, pill still 8.630 | `tablet-f1-*.png` |
+| 1c | Audio clip not drawn (F3) | ❌ **reproduced on the tablet, so not a Fold-only layout problem**: after Add > Audio the audio lane shows empty; collapsing and expanding the film lane (the small arrow) makes the clip and its waveform appear. A redraw problem on adding audio | `tablet-audio-added.png`, `tablet-audio-after-lane-toggle.png` |
+| 1d | Clean tab: status after Revert then Undo | ✅ Fix audio, then the drawer's **Clean** tab (tab strip: Level, A/V Sync, FX, Clean; the Fold's narrow drawer had hidden it) reads "Processed audio in use — original kept."; Revert shows "Offline renders — the original file is never modified." with Reduce noise and Normalize back; **Undo returns the status to "Processed audio in use — original kept."** | `tablet-clean-*.png` |
+| 1e | Caption-style chip undo | ⬜ not run: the Captions drawer says "No captioned clip selected"; captions need a spoken clip plus the speech model download (a spoken test file can be made with Windows speech; not done) | `tablet-captions-drawer.png` |
+| 3a | SHELL-10 watermark | ✅ **saved video and saved photo** (camera, rear, via the Home recorder; Watermark Style set to "Time with Joy Creator") both read "Captured by Joy Creator - 15/Nov/2026 03:02:44 AM" top-left, no FadCam/Rec logo. ⬜ **screen recording not run**: its consent opens the system "share or record an app" picker listing every app on the tablet; I backed out and the app showed "Screen recording permission denied" with no crash. ⬜ the Menu switch with overlay permission revoked not tried | `shell10-saved-video-frame.png`, `shell10-saved-photo.jpg`, `tablet-watermark-style-set.png` |
+
+Left on the tablet (mine, safe to delete): project "Untitled 2", `Download/TEST JC *`, `Joy Creator/Camera 2026-11-15 03.02.mp4`, `Photo 2026-11-15 03.02.jpg`. **Its Watermark Style was left on "Time with Joy Creator"** (the default is No Watermark): switch it back in Settings > Recording > Watermark if another test needs a clean recording.
+Other note: Settings > "AI and Joybot" repeats "Connect an AI (there's a free one)", same wording issue as F5.
+Still open: caption-style chip undo, screen-recording watermark, old-style Fix audio re-time; the AI-dependent Joybot checks wait on a key (S14).

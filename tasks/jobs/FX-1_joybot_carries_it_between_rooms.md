@@ -15,6 +15,9 @@ visualiser to Studio, a title from TextLab) should be a moment people remember, 
 4. He slaps the item exactly where it lands (on the timeline, the canvas, the sheet). It flashes.
 5. You are now in the new room. The item glows and is selected, ready to work on. Joybot flies back up to his place.
 
+**Owner, 11-15 (later):** this is Fable work, and there should be **several different transitions**, not one: the
+owner will talk it through with the Fable session himself before it builds.
+
 ## Done when
 - [ ] One route first, end to end: **JoyBrush → Studio** ("Send to Studio", including into an existing project). On the
       Note 9 it runs smoothly, and the real room is live underneath the moment the effect ends.

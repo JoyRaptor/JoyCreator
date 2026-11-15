@@ -3,6 +3,7 @@ package cc.joycreator.joybrush.android.chrome
 import android.graphics.Bitmap
 import android.widget.ImageView
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.TestStroke
 
 /**
  * BRUSH-UI section K.3: the small pictures at each end of a brush editor slider, the brush with that one setting pushed
@@ -10,22 +11,22 @@ import cc.joycreator.joybrush.core.brush.BrushPreset
  * sliders), newest settings first; a picture still waiting when the settings change again is replaced, never stacked.
  *
  * [render] draws one picture (the editor's host asks the shared preview cache for the test stroke's S-turns with no
- * stripes) and returns a cancel.
+ * stripes, or a single dab for the softness, shape and size sliders) and returns a cancel.
  */
 class SliderEndPictures(
-    private val render: (preset: BrushPreset, widthPx: Int, heightPx: Int, onReady: (Bitmap) -> Unit) -> (() -> Unit),
+    private val render: (preset: BrushPreset, widthPx: Int, heightPx: Int, part: TestStroke.Part, onReady: (Bitmap) -> Unit) -> (() -> Unit),
 ) {
-    private class Job(val view: ImageView, val preset: BrushPreset)
+    private class Job(val view: ImageView, val preset: BrushPreset, val part: TestStroke.Part)
 
     private val queue = ArrayDeque<Job>()
     private var running: (() -> Unit)? = null
     private var closed = false
 
     /** Asks for [view] to show [preset]; replaces any waiting job for the same view. */
-    fun ask(view: ImageView, preset: BrushPreset) {
+    fun ask(view: ImageView, preset: BrushPreset, part: TestStroke.Part = TestStroke.Part.SWOOSH) {
         if (closed) return
         queue.removeAll { it.view === view }
-        queue.addLast(Job(view, preset))
+        queue.addLast(Job(view, preset, part))
         if (running == null) next()
     }
 
@@ -37,7 +38,7 @@ class SliderEndPictures(
         var done = false
         running = {}
         val cancel = try {
-            render(job.preset, w, h) { bitmap ->
+            render(job.preset, w, h, job.part) { bitmap ->
                 if (done) return@render
                 done = true
                 if (!closed && job.view.isAttachedToWindow) job.view.setImageBitmap(bitmap)

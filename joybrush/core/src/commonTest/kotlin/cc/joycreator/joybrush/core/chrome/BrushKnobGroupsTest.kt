@@ -14,7 +14,9 @@ class BrushKnobGroupsTest {
     @Test fun theOwnersExamplesLandWhereHeSaid() {
         // Dabs for softness, shape and size; tiny strokes for spacing, taper, pickup and blending.
         assertEquals(EndPicture.DAB, BrushKnobGroups.endsOf("stamp.hardness").picture)
-        assertEquals(EndPicture.DAB, BrushKnobGroups.endsOf("stamp.thinnest").picture)
+        assertEquals(EndPicture.DAB, BrushKnobGroups.endsOf("stamp.size").picture)
+        // Thinnest is the lightest press: a full-press dab looks the same at both ends, so it shows the stroke.
+        assertEquals(EndPicture.STROKE, BrushKnobGroups.endsOf("stamp.thinnest").picture)
         assertEquals(EndPicture.STROKE, BrushKnobGroups.endsOf("stamp.spacing").picture)
         assertEquals(EndPicture.STROKE, BrushKnobGroups.endsOf("media.paste.ends").picture)
         assertEquals(EndPicture.STROKE, BrushKnobGroups.endsOf("smudge.pickup").picture)

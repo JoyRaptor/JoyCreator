@@ -126,3 +126,18 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   editor, and the Unibrush sheet moved onto this same editor.
 - **Found on the Note 9:** the stage preview of pencil brushes is blank (it was blank before this change too); told
   the brush lane. Before shots in `tasks/screens/brush-editor-20261114/`.
+## Section K build, step 2 (11-14 night, screens lane)
+- **Slider-end pictures, seen on the Note 9** (4cd03822d): each end shows the brush with only that setting at its end,
+  drawn one at a time, redrawn when a setting settles. Softness, shape and size show **one dab** (brush lane's
+  `TestStroke.Part.DAB`); everything else the test stroke's S-turns. "Thinnest" shows the stroke, not a dab: it is
+  about the lightest press and a full-press dab looked the same at both ends.
+- **Limits:** dabs are small for thin brushes (about 10 dp in the box, capped at the brush's real size); asked the
+  brush lane for dabs that fill the picture, with one shared scale for the size slider's two ends. Pencil, watercolour
+  and oil ends still show the whole stroke until the brush lane wires the part into the media preview.
+- **Unibrush on the one editor, seen on the Note 9:** the same top bar (name, Shape / Pressure & tilt / Colour / Paper /
+  Stroke ends / Feel, Done, ✕ puts the mode back as it opened), the Quick / Tip / All tabs replaced by one list in the
+  top bar's order, words at both ends of every slider. Screens: `after_unibrush_hard_one_editor.png`,
+  `after_unibrush_groups_in_order.png`, `after_marker_dab_ends.png` in `tasks/screens/brush-editor-20261114/`.
+- **Still owed:** the footprint stacked under the tilt and tapping it to open the shape editor (wait for the engine
+  session's `HoverFootprint`, not on joy-creator yet); Unibrush's stage still shows the stripes with its own preview
+  rather than the shared stage.

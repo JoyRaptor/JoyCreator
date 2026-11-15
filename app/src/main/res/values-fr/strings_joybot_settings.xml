@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">IA et Joybot</string>
+    <string name="settingshub_ai_joybot_desc">Connecte une IA (il y en a une gratuite), ta clé, ton modèle et ton service, ainsi que Claude Code ou Codex sur ton ordinateur</string>
+    <string name="settingshub_ai_joybot_names">ia, joybot, clé api, clé, modèle, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, assistant, chat, connecter, ordinateur, mcp</string>
+</resources>

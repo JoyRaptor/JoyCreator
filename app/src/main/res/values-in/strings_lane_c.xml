@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Lainnya ⌄</string>
+    <string name="faditor_lc_drawer_grip">Pegangan laci. Seret untuk mengubah ukuran, ketuk untuk melihat lebih banyak atau menutup</string>
+    <string name="faditor_lc_fx_expand">Tampilkan pengaturan efek ini</string>
+    <string name="faditor_lc_fx_collapse">Sembunyikan pengaturan efek ini</string>
+    <string name="faditor_lc_fx_bypass">Lewati efek</string>
+    <string name="faditor_lc_fx_enable">Aktifkan efek</string>
+    <string name="faditor_lc_fx_delete">Hapus efek</string>
+    <string name="faditor_lc_fx_reorder">Tahan dan seret untuk mengatur urutan</string>
+    <string name="faditor_lc_key_prev">Keyframe sebelumnya</string>
+    <string name="faditor_lc_key_next">Keyframe berikutnya</string>
+    <string name="faditor_lc_key_diamond">Keyframe. Ketuk untuk menambah atau menghapus, tahan untuk menghapus semua</string>
+    <string name="faditor_lc_ease_need_keys">Taruh keyframe dulu</string>
+    <string name="faditor_lc_motion_title">Gerakan</string>
+    <string name="faditor_lc_motion_by">Animasikan per</string>
+    <string name="faditor_lc_gran_letter">Huruf</string>
+    <string name="faditor_lc_gran_word">Kata</string>
+    <string name="faditor_lc_gran_sentence">Kalimat</string>
+    <string name="faditor_lc_gran_block">Blok</string>
+    <string name="faditor_lc_sheet_grip">Pegangan lembar. Ketuk atau seret ke atas untuk semua pengaturan, seret ke bawah untuk menutup</string>
+    <string name="faditor_lc_sheet_legend">Arti bentuk-bentuk keyframe</string>
+    <string name="faditor_lc_sheet_more">Lainnya…</string>
+    <string name="faditor_lc_sheet_move_to">Pindah ke</string>
+    <string name="faditor_lc_sheet_jump">Ketik waktu untuk melompat</string>
+    <string name="faditor_lc_sheet_push">Dorong</string>
+    <string name="faditor_lc_sheet_snap">Tarik</string>
+    <string name="faditor_lc_sheet_static_hint">Diam — ketuk ♦ untuk menganimasikan</string>
+</resources>

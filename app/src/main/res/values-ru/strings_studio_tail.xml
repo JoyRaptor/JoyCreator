@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Переместить ключевой кадр</string>
+    <string name="studio_tail_add_adjustment_layer">Добавить корректирующий слой</string>
+    <string name="studio_tail_add_linked_pair">Добавить связанную пару «экран + веб-камера»</string>
+    <string name="studio_tail_insert_at_playhead">Вставить на позиции воспроизведения</string>
+    <string name="studio_tail_split_linked_pair">Разделить связанную пару</string>
+    <string name="studio_tail_delete_linked_pair">Удалить связанную пару</string>
+    <string name="studio_tail_duplicate">Дублировать</string>
+    <string name="studio_tail_link_clips_pair">Связать клипы (экран + веб-камера)</string>
+</resources>

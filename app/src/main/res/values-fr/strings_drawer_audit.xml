@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">Touche pour saisir une valeur exacte</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">Pas de masque. Ajoutes-en un pour n\'afficher qu\'une partie de cet objet.</string>
+    <string name="lane_a_mask_mode_add">Ajouter</string>
+    <string name="lane_a_mask_mode_subtract">Soustraire</string>
+    <string name="lane_a_mask_mode_intersect">Intersection</string>
+    <string name="faditor_mask_link_object">Suivre l\'objet</string>
+    <string name="faditor_mask_link_hint">Désactivé : le masque reste en place et l\'objet bouge dessous. Activé : le masque suit l\'objet.</string>
+    <string name="lane_a_mask_animated">animé</string>
+    <string name="lane_a_mask_static">non animé</string>
+    <string name="lane_a_mask_key_chip">◆ Clé à la tête de lecture</string>
+    <string name="lane_a_mask_key_here">Poser une clé de cette forme à la tête de lecture</string>
+    <string name="lane_a_mask_clear_keys">Effacer toutes les images clés du masque</string>
+    <string name="lane_a_mask_keyed_toast">Forme %1$d clée à %2$.1f s</string>
+    <string name="faditor_fx_empty_layer">Ce calque ne change encore rien. Ajoute un effet et tout ce qui est en dessous le prendra.</string>
+    <string name="faditor_fx_empty_object">Pas encore d\'effets sur cet objet. Ajoutes-en un : il suit l\'objet et n\'affecte que lui.</string>
+    <string name="faditor_fx_position">Positionner dans l\'aperçu</string>
+    <string name="faditor_fx_position_done">Positionnement dans l\'aperçu — terminé</string>
+    <string name="faditor_fx_blend">Fusion</string>
+    <string name="faditor_fx_vertices">Sommets</string>
+    <string name="faditor_fx_edit_gradient">Modifier ce dégradé</string>
+    <string name="faditor_fx_curve_edit">Modifier dans l\'aperçu</string>
+    <string name="faditor_fx_curve_edit_done">Modification dans l\'aperçu — terminé</string>
+    <string name="faditor_fx_straighten">Redresser</string>
+    <string name="faditor_fx_save_look">Enregistrer le look</string>
+    <string name="faditor_fx_look_name_hint">Nomme ce look</string>
+    <string name="faditor_fx_look_save">Enregistrer</string>
+    <string name="faditor_fx_saved_looks">Looks enregistrés</string>
+    <string name="faditor_fx_look_desc">Charger %1$s. Maintiens pour supprimer</string>
+    <string name="faditor_fx_load">Charger</string>
+    <string name="faditor_fx_load_confirm">Charger \'%1$s\' ?</string>
+    <string name="faditor_fx_delete_look_confirm">Supprimer \'%1$s\' ?</string>
+    <string name="faditor_fx_add">＋ Ajouter un effet</string>
+    <string name="faditor_fx_needs_pass_title">%1$s a besoin de sa propre passe</string>
+    <string name="faditor_fx_needs_pass_body">%1$s lit les pixels voisins, il lui faut donc une image terminée pour travailler. Un objet est dessiné en une seule passe, il n\'y en a donc pas encore.\n\nPlace-le sur un calque de réglage au-dessus de cet objet et il s\'appliquera à cet objet et à tout ce qui est dessous.</string>
+    <string name="faditor_fx_toast_keys_cleared">Clés de %1$s effacées</string>
+    <string name="faditor_fx_toast_saved">\'%1$s\' enregistré</string>
+    <string name="faditor_fx_toast_load_failed">Impossible de charger \'%1$s\'</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">Cela remplace l\'effet (%1$d) de ce calque.</item>
+        <item quantity="other">Cela remplace les %1$d effets de ce calque.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d effet</item>
+        <item quantity="other">%1$d effets</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">Contourner l\'effet</string>
+    <string name="faditor_undo_fx_enable">Activer l\'effet</string>
+    <string name="faditor_undo_fx_delete">Supprimer %1$s</string>
+    <string name="faditor_undo_fx_add">Ajouter %1$s</string>
+    <string name="faditor_undo_fx_opacity">Opacité de %1$s</string>
+    <string name="faditor_undo_fx_blend">Fusion de %1$s</string>
+    <string name="faditor_undo_fx_vertices">Sommets de la courbe</string>
+    <string name="faditor_undo_fx_straighten">Redresser la courbe</string>
+    <string name="faditor_undo_fx_reorder">Réorganiser les effets</string>
+    <string name="faditor_undo_fx_key">Clé %1$s</string>
+    <string name="faditor_undo_fx_clear_keys">Effacer les clés %1$s</string>
+    <string name="faditor_undo_fx_apply_look">Appliquer le look \'%1$s\'</string>
+    <string name="lane_b_audio_fade_in_short">Entrée</string>
+    <string name="lane_b_audio_fade_out_short">Sortie</string>
+    <string name="lane_b_audio_env_flat">Gain constant — ◇ retire le premier point de l\'enveloppe</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">Enveloppe · %1$d pt — le curseur pilote le point sous ▶︎</item>
+        <item quantity="other">Enveloppe · %1$d pts — le curseur pilote le point sous ▶︎</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">Traitement…</string>
+    <string name="lane_b_audio_bake_in_use">Audio traité utilisé — l\'original est conservé.</string>
+    <string name="lane_b_audio_bake_offline">Rendus hors ligne — le fichier d\'origine n\'est jamais modifié.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Échec : %1$s</string>
+    <string name="lane_b_audio_bake_note">Travaille sur une copie du son de ce clip et la joue à la place. Revenir à l\'original rétablit le son d\'origine.</string>
+    <string name="lane_b_audio_revert">Revenir à l\'original</string>
+    <string name="lane_b_audio_revert_desc">Revenir au fichier audio d\'origine, non traité</string>
+    <string name="lane_b_audio_denoise">Réduire le bruit</string>
+    <string name="lane_b_audio_denoise_desc">Crée une copie de ce clip avec moins de bruit de fond</string>
+    <string name="lane_b_audio_normalize">Égaliser le volume</string>
+    <string name="lane_b_audio_normalize_desc">Crée une copie de ce clip à volume régulier</string>
+    <string name="lane_b_audio_voice">Améliorer la voix</string>
+    <string name="lane_b_audio_voice_undo">Amélioration de la voix</string>
+    <string name="lane_b_audio_voice_on">Chaîne voix ACTIVÉE — ce clip seulement</string>
+    <string name="lane_b_audio_voice_off">Chaîne voix DÉSACTIVÉE — ce clip seulement</string>
+    <string name="lane_b_audio_voice_note">Anti-ronflement, gate, dé-esseur, présence, compresseur, limiteur — pour la parole. Reconstruit le son d\'aperçu de ce clip.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Lien au rythme…</string>
+    <string name="lane_b_audio_beat_link_note">Pilote l\'échelle, l\'opacité ou la rotation d\'une incrustation à partir d\'une bande de ce clip. Crée de vraies images clés que tu peux ensuite déplacer.</string>
+    <string name="lane_b_audio_comp">Compresseur</string>
+    <string name="lane_b_audio_comp_bypassed">Chaîne d\'effets CONTOURNÉE — tu entends le mix brut.</string>
+    <string name="lane_b_audio_comp_live">Réduction de gain, en direct depuis le compresseur.</string>
+    <string name="lane_b_audio_comp_idle">L\'indicateur bouge pendant la lecture du projet.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Niveau (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Panoramique (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (s)</string>
+    <string name="lane_b_audio_undo_level">Niveau audio</string>
+    <string name="lane_b_audio_undo_clear_envelope">Effacer l\'enveloppe</string>
+    <string name="lane_b_audio_undo_envelope_point">Point d\'enveloppe</string>
+    <string name="lane_b_audio_undo_delete_point">Supprimer le point d\'enveloppe</string>
+    <string name="lane_b_puppet_swatch">Épingle %1$s. Touche pour changer le type.</string>
+    <string name="lane_b_puppet_undo_pin_type">Type d\'épingle</string>
+    <string name="lane_b_puppet_rec_on">Enregistre quand tu touches une épingle. Touche pour arrêter.</string>
+    <string name="lane_b_puppet_rec_off">N\'enregistre pas au toucher. Touche pour armer.</string>
+    <string name="lane_b_puppet_sim">sim</string>
+    <string name="lane_b_puppet_tool_grab">Saisir</string>
+    <string name="lane_b_puppet_tool_pin">Épingle</string>
+    <string name="lane_b_puppet_tool_stiff">Rigide</string>
+    <string name="lane_b_puppet_tool_dangle">Pendre</string>
+    <string name="lane_b_puppet_tool_free">Libre</string>
+    <string name="lane_b_puppet_tool_bone">Os</string>
+    <string name="lane_b_puppet_scope_selected">Sélection</string>
+    <string name="lane_b_puppet_scope_character">Personnage</string>
+    <string name="lane_b_puppet_scope_recording">Enregistrement</string>
+    <string name="lane_b_puppet_hint_first_pin">Touche l\'image pour placer ta première épingle</string>
+    <string name="lane_b_puppet_hint_tap_pin">Touche une épingle pour la modifier</string>
+    <string name="lane_b_puppet_hint_dangle">Simulé — pas de clés à modifier. Les clés déjà présentes sont gardées intactes et reviennent dès qu\'il arrête de pendre.</string>
+    <string name="lane_b_puppet_hint_free">Une épingle libre bouge dans toutes les directions. Tourner et redimensionner demandent une rotation par épingle dans le moteur — voir la spécification.</string>
+    <string name="lane_b_puppet_hint_anchor">Une ancre n\'a rien d\'autre à régler — c\'est son but</string>
+    <string name="lane_b_puppet_hint_tape">La bande ci-dessous montre les clés de %1$s. Touche une autre épingle, ou une puce au-dessus, pour voir ses clés.</string>
+    <string name="lane_b_puppet_hint_rigid">Un os rigide arrête la main court et casse l\'épaule. Pour un dessin animé, mieux vaut garder l\'élasticité.</string>
+    <string name="lane_b_puppet_hint_limits_off">Désactivées par défaut — la plupart des squelettes de dessin animé n\'en veulent pas.</string>
+    <string name="lane_b_puppet_hint_bone_keys">Un os ne garde aucune clé à lui. Le déplacer écrit dans %1$s et %2$s.</string>
+    <string name="lane_b_puppet_hint_put_away">Touche la marionnette sur l\'image pour ranger les épingles</string>
+    <string name="lane_b_puppet_hint_punch_in">Un coup de zoom part de là où était l\'ancien mouvement et revient en douceur à la fin</string>
+    <string name="lane_b_puppet_pin_depth">Profondeur — derrière / devant</string>
+    <string name="lane_b_puppet_pin_muted">Coupée</string>
+    <string name="lane_b_puppet_pin_active">Active</string>
+    <string name="lane_b_puppet_pin_reach_ring">Cercle de portée</string>
+    <string name="lane_b_puppet_pin_auto_pull">Traction automatique</string>
+    <string name="lane_b_puppet_pin_pull">Force de traction de cette épingle</string>
+    <string name="lane_b_puppet_pin_spring">Élasticité</string>
+    <string name="lane_b_puppet_pin_settle">Stabilisation</string>
+    <string name="lane_b_puppet_pin_mass">Masse</string>
+    <string name="lane_b_puppet_pin_max_stretch">Étirement max</string>
+    <string name="lane_b_puppet_pin_stiff_area">Zone rigide</string>
+    <string name="lane_b_puppet_pin_strength">Force</string>
+    <string name="lane_b_puppet_reset">Repartir de zéro</string>
+    <string name="lane_b_puppet_reset_desc">Retire %1$s et toutes les images clés</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d épingle</item>
+        <item quantity="other">%1$d épingles</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d os</item>
+        <item quantity="other">%1$d os</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Os</string>
+    <string name="lane_b_puppet_bone_from">De</string>
+    <string name="lane_b_puppet_bone_to">À</string>
+    <string name="lane_b_puppet_bone_length">Longueur</string>
+    <string name="lane_b_puppet_bone_rest_angle">Angle de repos</string>
+    <string name="lane_b_puppet_bone_rest_length">Longueur au repos</string>
+    <string name="lane_b_puppet_bone_stretchy">Élastique</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Inverser le coude</string>
+    <string name="lane_b_puppet_bone_reach">Portée</string>
+    <string name="lane_b_puppet_bone_stretch">Jusqu\'où il peut s\'étirer</string>
+    <string name="lane_b_puppet_bone_joint_limits">Limites d\'articulation</string>
+    <string name="lane_b_puppet_bone_fold_back">Ne pas plier plus en arrière que</string>
+    <string name="lane_b_puppet_bone_fold_forward">Ne pas plier plus en avant que</string>
+    <string name="lane_b_puppet_rig_softness">Souplesse</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Détail du maillage</string>
+    <string name="lane_b_puppet_rig_gravity">Gravité</string>
+    <string name="lane_b_puppet_rig_wind">Vent</string>
+    <string name="lane_b_puppet_rig_wind_dir">Direction du vent</string>
+    <string name="lane_b_puppet_rig_show_pins">Épingles</string>
+    <string name="lane_b_puppet_rig_show_bones">Os</string>
+    <string name="lane_b_puppet_rig_show_mesh">Maillage</string>
+    <string name="lane_b_puppet_rig_rarely">Rarement utile</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Seuil des bords</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Expansion des bords</string>
+    <string name="lane_b_puppet_record_on_touch">Enregistrer au toucher</string>
+    <string name="lane_b_puppet_record_snap">Aimanter aux clés</string>
+    <string name="lane_b_puppet_record_detail">Détail des mouvements enregistrés</string>
+    <string name="lane_b_puppet_record_blend_out">Fondu de sortie</string>
+    <string name="faditor_text_underline">Souligné</string>
+    <string name="faditor_text_case_first">Majuscule aux premières lettres</string>
+    <string name="faditor_text_case_all">Tout en majuscules</string>
+    <string name="faditor_text_case_small">Petites capitales</string>
+    <string name="faditor_text_align">Alignement : %1$s. Touche pour changer</string>
+    <string name="faditor_text_align_left">à gauche</string>
+    <string name="faditor_text_align_center">au centre</string>
+    <string name="faditor_text_align_right">à droite</string>
+    <string name="faditor_text_align_justify">justifié</string>
+    <string name="faditor_text_color">Couleur du texte</string>
+    <string name="faditor_text_shadow_distance">Distance</string>
+    <string name="faditor_text_shadow_direction">Direction de l\'ombre</string>
+    <string name="faditor_text_shadow_angle">Angle de l\'ombre</string>
+    <string name="faditor_text_anim_label">Animation</string>
+    <string name="lane_b_caption_hide">Masquer cette piste de sous-titres</string>
+    <string name="lane_b_caption_show">Afficher cette piste de sous-titres</string>
+    <string name="lane_b_caption_add_track">Ajouter une piste de sous-titres</string>
+    <string name="caption_size">Taille des sous-titres</string>
+    <string name="caption_highlight">Surbrillance</string>
+    <string name="caption_style_save">Enregistrer comme mon style</string>
+    <string name="caption_style_delete">Supprimer ce style perso</string>
+    <string name="caption_style_copy">Copier le style en texte</string>
+    <string name="caption_style_import">Importer un style depuis du texte</string>
+    <string name="caption_anim_pop">Pop</string>
+    <string name="caption_anim_zoom">Zoom</string>
+    <string name="caption_anim_bounce">Rebond</string>
+    <string name="caption_box">Boîte</string>
+    <string name="caption_box_more">Boîte…</string>
+    <string name="caption_box_more_desc">Plus d\'options de boîte</string>
+    <string name="caption_drawer_empty">Aucun clip sous-titré sélectionné</string>
+    <string name="caption_fit_uniform">Uniforme</string>
+    <string name="caption_fit_per_cue">Par réplique</string>
+    <string name="caption_fit_truncate">Tronquer</string>
+    <string name="caption_fit_words">Mots</string>
+    <string name="caption_fit_words_desc">Mots par sous-titre</string>
+    <string name="caption_fit_lines">Lignes max</string>
+    <string name="caption_fit_lines_prompt">Lignes max (0 = illimité)</string>
+    <string name="caption_fit_floor">Plancher</string>
+    <string name="caption_group_slide">Regroupement : Défilant</string>
+    <string name="caption_group_karaoke">Regroupement : Karaoké</string>
+    <string name="caption_group_desc">Comment les mots se regroupent en sous-titres. Touche pour changer</string>
+    <string name="caption_grow_center">Croissance : centre</string>
+    <string name="caption_grow_down">Croissance : vers le bas</string>
+    <string name="caption_grow_up">Croissance : vers le haut</string>
+    <string name="caption_grow_desc">Dans quel sens le sous-titre grandit. Touche pour alterner</string>
+    <string name="caption_align_center">Alignement : centre</string>
+    <string name="caption_align_left">Alignement : gauche</string>
+    <string name="caption_align_right">Alignement : droite</string>
+    <string name="caption_align_desc">Alignement des lignes. Touche pour alterner</string>
+    <string name="caption_copy_all">Copier sur tout</string>
+    <string name="caption_copy_all_desc">Copier la croissance et l\'alignement de cette piste sur toutes les pistes de sous-titres</string>
+    <string name="caption_copy_all_done">Ancrage + alignement appliqués à toutes les pistes</string>
+    <string name="caption_position">Position des sous-titres</string>
+    <string name="caption_timing">Timing</string>
+    <string name="caption_timing_hint">Appliqué à chaque ligne de sous-titre, en part de cette ligne</string>
+    <string name="caption_timing_readout">Entrée %1$d%%   Sortie %2$d%%   de chaque ligne</string>
+    <string name="caption_timing_readout_meet">Entrée %1$d%%   Sortie %2$d%%   de chaque ligne  ·  l\'entrée finit quand la sortie commence</string>
+    <string name="caption_timing_in_desc">Timing d\'entrée</string>
+    <string name="caption_timing_out_desc">Timing de sortie</string>
+    <string name="faditor_prop_pos_x">Pos X</string>
+    <string name="faditor_prop_pos_y">Pos Y</string>
+    <string name="faditor_prop_scale">Échelle</string>
+    <string name="faditor_prop_scale_x">Échelle X</string>
+    <string name="faditor_prop_scale_y">Échelle Y</string>
+    <string name="drawer_title_visualizer">Visualiseur</string>
+    <string name="drawer_tab_puppet">Marionnette</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d audio</item>
+        <item quantity="other">%1$d audio</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>Désactivé</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Diffusion -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Original</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (sans perte supplémentaire)</item>
+        <item>JPG (plus léger)</item>
+    </string-array>
+    <string name="export_loudness">Volume cible</string>
+    <string name="export_loudness_readout">Mesuré : %1$s LUFS → Cible : %2$s</string>
+    <string name="export_quality">Qualité</string>
+    <string name="export_format">Format</string>
+    <string name="export_audio_only">Exporter l\'audio seulement (.m4a)</string>
+    <string name="export_audio_only_desc">Mélange l\'audio des clips et la musique en un seul fichier audio — sans piste vidéo</string>
+    <string name="export_audio_only_project">Ce projet n\'a pas de vidéo — il s\'exporte en audio</string>
+    <string name="export_frame">Exporter une seule image (image fixe)</string>
+    <string name="export_frame_desc">Enregistre une image composée — incrustations comprises — à la résolution d\'export. L\'image sort du même encodeur vidéo qu\'un export, donc la Qualité compte : PNG garde l\'image telle quelle, JPG est plus léger (pas de transparence, les images sont opaques)</string>
+    <string name="export_frame_time">Instant de l\'image (pré-rempli depuis la tête de lecture — saisis pour changer)</string>
+    <string name="export_time_hint">m:ss.t ou secondes</string>
+    <string name="export_range_hint">m:ss.t</string>
+    <string name="export_frame_error_format">Saisis un instant comme 01:23.4 (ou 4.5 pour 4,5 secondes)</string>
+    <string name="export_frame_error_past">Cet instant dépasse la fin du projet (%1$s). Choisis un instant plus tôt.</string>
+</resources>

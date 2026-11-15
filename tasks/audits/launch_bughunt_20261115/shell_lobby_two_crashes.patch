@@ -1,0 +1,36 @@
+diff --git a/app/src/main/java/com/fadcam/ui/OnboardingWelcomeFragment.java b/app/src/main/java/com/fadcam/ui/OnboardingWelcomeFragment.java
+index 452565451..cf8c3a6cf 100644
+--- a/app/src/main/java/com/fadcam/ui/OnboardingWelcomeFragment.java
++++ b/app/src/main/java/com/fadcam/ui/OnboardingWelcomeFragment.java
+@@ -225,6 +225,8 @@ public final class OnboardingWelcomeFragment extends Fragment {
+                 .setInterpolator(Motion.EASE_OUT).start();
+         showingA = !showingA;
+ 
+-        Motion.swap(line, TEXT_SWAP_MS, () -> line.setText(getString(b.line)));
++        // The swap runs after a fade: by then the page may be gone (Skip, back, a fold or a turn),
++        // and a fragment that has left has no words to give. The view still has its own.
++        Motion.swap(line, TEXT_SWAP_MS, () -> line.setText(line.getContext().getString(b.line)));
+     }
+ }
+diff --git a/app/src/main/java/com/fadcam/ui/settingshub/SettingsHubFragment.java b/app/src/main/java/com/fadcam/ui/settingshub/SettingsHubFragment.java
+index 1803d98ea..bf308b628 100644
+--- a/app/src/main/java/com/fadcam/ui/settingshub/SettingsHubFragment.java
++++ b/app/src/main/java/com/fadcam/ui/settingshub/SettingsHubFragment.java
+@@ -242,7 +242,7 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
+         if (list == null) return;
+         int bottom = dockHeight + lift;
+         list.setPadding(list.getPaddingLeft(), list.getPaddingTop(), list.getPaddingRight(),
+-                bottom + SettingsViews.dp(requireContext(), 8));
++                bottom + SettingsViews.dp(list.getContext(), 8));
+         empty.setPadding(empty.getPaddingLeft(), empty.getPaddingTop(), empty.getPaddingRight(), bottom);
+     }
+ 
+@@ -265,7 +265,7 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
+         if (pos < 0) return;
+         pinnedSection = section;
+         dock.chips.setCurrent(section);
+-        LinearSmoothScroller to = new LinearSmoothScroller(requireContext()) {
++        LinearSmoothScroller to = new LinearSmoothScroller(list.getContext()) {
+             @Override protected int getVerticalSnapPreference() { return SNAP_TO_START; }
+         };
+         to.setTargetPosition(pos);

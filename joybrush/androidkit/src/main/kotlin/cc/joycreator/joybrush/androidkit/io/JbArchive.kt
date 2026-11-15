@@ -52,6 +52,21 @@ const val TILE_BYTES = TILE_SIZE * TILE_SIZE * 4
  */
 const val ARCHIVE_DEFLATE_LEVEL = 6
 
+/**
+ * The deflate level of a paint store tile (`.f16`, `.g.rgba`): half floats of paint, a megabyte and more a painted tile.
+ * At level 6 a full paint room (262 MB of stores) took 19 s to write on the Note 9 (2026-11-15), with the one save
+ * thread busy all that time and the working copy, its recovery copy and the folder copy each that size. The pictures and
+ * everything else keep [ARCHIVE_DEFLATE_LEVEL]. Any level reads back the same.
+ */
+object ArchiveMediaDeflate { @Volatile var level: Int = java.util.zip.Deflater.BEST_SPEED }
+
+/**
+ * Whether the screen's working save rewrites only what changed ([JbArchive.saveCarrying]) or everything, as before
+ * 2026-11-15 ([JbArchive.save]). The file made is the same archive either way; off is the way back if a phone's storage
+ * ever disagrees with the carrying.
+ */
+object ArchiveCarrying { @Volatile var on: Boolean = true }
+
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
 class JbArchiveException(message: String) : Exception(message)
 
@@ -416,24 +431,7 @@ object JbArchive {
 
     /** Encoded PNG framing/CRC is always checked; this callback also fully decodes before writing. */
     fun write(out: OutputStream, contents: JbContents, pngVerifier: FrozenBrushAssets.PngVerifier?) {
-        val entries = prepareStructure(contents, retainEntries = true, pngVerifier = pngVerifier)
-        // The codec writes v4. Upgrade only the prepared output header of stroke-bearing saves,
-        // never caller metadata or ordinary raster/media-only legacy archives. Historical regional
-        // null-source records cannot be relabelled as v11 physical truth by this upgrade.
-        val doc = if(contents.strokes.isNotEmpty() && contents.doc.version < 11)
-            contents.doc.copy(version = 11) else contents.doc
-        val sourceProblems = lineProblems(doc, contents.strokes, contents.brushes.keys, null)
-        if(sourceProblems.isNotEmpty()) throw JbArchiveException(sourceProblems.joinToString("; "))
-        // Save-only geometry remains outside structural admission: this may replay CPU-supported
-        // lines, and is deliberately not called by requireStructure or the reader.
-        val lookProblems = ArrayList<String>()
-        for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
-            lookProblems += LineRules.lookProblems(layer.id, cel,
-                contents.strokes[Pair(layer.id, cel.id)].orEmpty()) { contents.brushes[it] }
-        }
-        if (lookProblems.isNotEmpty()) {
-            throw JbArchiveException("the lines in this document cannot be saved: " + lookProblems.joinToString("; "))
-        }
+        val (doc, entries) = prepareWrite(contents, pngVerifier)
 
         // STORED, because a reader can identify the file by the first bytes without inflating, and
         // because that is what OpenRaster does and what the reader expects.
@@ -456,11 +454,13 @@ object JbArchive {
                 zos.write(entry.second)
                 zos.closeEntry()
             }
+            zos.setLevel(ArchiveMediaDeflate.level)
             for (entry in entries.media) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
                 zos.closeEntry()
             }
+            zos.setLevel(ARCHIVE_DEFLATE_LEVEL)
             for (entry in entries.strokes) {
                 zos.putNextEntry(ZipEntry(entry.first))
                 zos.write(entry.second)
@@ -491,6 +491,126 @@ object JbArchive {
             throw e
         } catch (e: Exception) {
             throw JbArchiveException("the archive could not be written: ${brief(e)}")
+        }
+    }
+
+    /** Everything [write] checks and gathers before the first byte goes out: the document as it will be written, and its entries. */
+    private fun prepareWrite(contents: JbContents, pngVerifier: FrozenBrushAssets.PngVerifier?): Pair<JbDocument, PreparedEntries> {
+        val entries = prepareStructure(contents, retainEntries = true, pngVerifier = pngVerifier)
+        // The codec writes v4. Upgrade only the prepared output header of stroke-bearing saves,
+        // never caller metadata or ordinary raster/media-only legacy archives. Historical regional
+        // null-source records cannot be relabelled as v11 physical truth by this upgrade.
+        val doc = if(contents.strokes.isNotEmpty() && contents.doc.version < 11)
+            contents.doc.copy(version = 11) else contents.doc
+        val sourceProblems = lineProblems(doc, contents.strokes, contents.brushes.keys, null)
+        if(sourceProblems.isNotEmpty()) throw JbArchiveException(sourceProblems.joinToString("; "))
+        // Save-only geometry remains outside structural admission: this may replay CPU-supported
+        // lines, and is deliberately not called by requireStructure or the reader.
+        val lookProblems = ArrayList<String>()
+        for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
+            lookProblems += LineRules.lookProblems(layer.id, cel,
+                contents.strokes[Pair(layer.id, cel.id)].orEmpty()) { contents.brushes[it] }
+        }
+        if (lookProblems.isNotEmpty()) {
+            throw JbArchiveException("the lines in this document cannot be saved: " + lookProblems.joinToString("; "))
+        }
+        return doc to entries
+    }
+
+    /**
+     * What the last [saveCarrying] of a file wrote, kept in memory by whoever saves that file next: for every entry, a
+     * checksum of the bytes it stood for and of the compressed bytes that went to the file. Nothing in it comes from the
+     * disk afterwards, so a file changed or damaged since is noticed, and what cannot be trusted is written afresh.
+     */
+    class SaveMemo internal constructor(
+        internal val path: String, internal val length: Long, internal val modified: Long,
+        internal val raw: Map<String, Long>, internal val packed: Map<String, Long>,
+        /** How many entries the save that made this memo carried from the older file, and how many it compressed anew. */
+        val carried: Int, val fresh: Int,
+    )
+
+    /**
+     * [save], rewriting only what changed: an entry whose bytes are the ones the save that made [memo] wrote is copied
+     * from the file as its compressed bytes lie there ([ZipCarry]); everything else is compressed anew. The file made is
+     * the same archive [save] would make, entry for entry, and it is written whole to `.tmp` and moved into place by the
+     * same steps, so the older file is intact until the new one is. With no [memo], or a file that is not the one the
+     * memo remembers (another path, another length or time), every entry is written anew. Returns the memo for the next
+     * save of this file.
+     *
+     * An entry is carried only when all of these hold: the memo knows it; its bytes have the same length, CRC-32 and
+     * Adler-32 as then; the file's directory lists it with that length and CRC-32; and the compressed bytes read from
+     * the file have the CRC-32 they had when they were written. On a Note 9 a full page of oil took 9 s to write when
+     * all of it was compressed every time (2026-11-15); a stroke changes a handful of tiles.
+     */
+    fun saveCarrying(file: File, contents: JbContents, memo: SaveMemo?): SaveMemo {
+        var made: SaveMemo? = null
+        atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo) }
+        val m = made ?: throw JbArchiveException("could not save ${file.name}")
+        return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
+    }
+
+    private fun writeCarrying(out: OutputStream, contents: JbContents, old: File, memo: SaveMemo?): SaveMemo {
+        val (doc, entries) = prepareWrite(contents, null)
+        class Item(val name: String, val bytes: ByteArray, val level: Int)
+        val items = ArrayList<Item>()
+        items += Item(MIMETYPE_NAME, JB_MIMETYPE.toByteArray(Charsets.US_ASCII), -1)
+        items += Item(DOCUMENT_NAME, DocJson.encode(doc).toByteArray(Charsets.UTF_8), ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.tiles) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.slabs + entries.looks) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.media) items += Item(e.first, e.second, ArchiveMediaDeflate.level)
+        for (e in entries.strokes) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.brushes) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
+        for (e in entries.brushAssets) items += Item(e.first, e.second, ARCHIVE_DEFLATE_LEVEL)
+        contents.thumbnailPng?.let { items += Item(THUMBNAIL_NAME, it, ARCHIVE_DEFLATE_LEVEL) }
+
+        val trusted = memo != null && old.isFile && memo.path == old.path && memo.length == old.length() && memo.modified == old.lastModified()
+        val raf = if (trusted) try { java.io.RandomAccessFile(old, "r") } catch (e: java.io.IOException) { null } else null
+        try {
+            val index = raf?.let { try { ZipCarry.index(it) } catch (e: Exception) { null } }
+            val buffered = java.io.BufferedOutputStream(out, 1 shl 16)
+            val w = ZipCarry.Writer(buffered)
+            val raw = HashMap<String, Long>(items.size * 2)
+            val packed = HashMap<String, Long>(items.size * 2)
+            var carried = 0
+            var fresh = 0
+            var hold = ByteArray(1 shl 20)
+            val crc = CRC32()
+            val adler = java.util.zip.Adler32()
+            for (item in items) {
+                crc.reset(); crc.update(item.bytes)
+                adler.reset(); adler.update(item.bytes)
+                val sum = (crc.value shl 32) or adler.value
+                raw[item.name] = sum
+                val kept = index?.get(item.name)
+                var done = false
+                // The first entry stays the stored mimetype whatever the older file held; it is 22 bytes.
+                if (kept != null && raf != null && memo != null && item.level >= 0 && memo.raw[item.name] == sum &&
+                    kept.size == item.bytes.size.toLong() && kept.crc == crc.value && kept.method == ZipCarry.DEFLATED &&
+                    kept.compressedSize <= Int.MAX_VALUE / 2) {
+                    val n = kept.compressedSize.toInt()
+                    if (hold.size < n) hold = ByteArray(n)
+                    val read = try { raf.seek(kept.dataOffset); raf.readFully(hold, 0, n); true } catch (e: java.io.IOException) { false }
+                    if (read) {
+                        crc.reset(); crc.update(hold, 0, n)
+                        if (crc.value == memo.packed[item.name]) {
+                            w.packed(kept, hold, n)
+                            packed[item.name] = crc.value
+                            carried++
+                            done = true
+                        }
+                    }
+                }
+                if (!done) { packed[item.name] = w.fresh(item.name, item.bytes, item.level); fresh++ }
+            }
+            w.finish()
+            buffered.flush()
+            return SaveMemo(old.path, 0L, 0L, raw, packed, carried, fresh)
+        } catch (e: JbArchiveException) {
+            throw e
+        } catch (e: Exception) {
+            throw JbArchiveException("the archive could not be written: ${brief(e)}")
+        } finally {
+            try { raf?.close() } catch (_: java.io.IOException) { }
         }
     }
 

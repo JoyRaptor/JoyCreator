@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  THE STUDIO DIALOG FRAME (STU-D4, 11-15).
+
+  Studio's theme never named a dialog style, so every confirm, picker and question the
+  editor asks fell back to stock Material 3: a lavender-grey slab, 28dp corners, a 24sp
+  Roboto title and purple-ish text buttons. That is the FadCam look the owner called
+  unfinished.
+
+  This overlay draws the dialog from the house record (UI-The-swatch-room_pill.html,
+  the pill language's .dialog): panel #111114, a 1dp hairline, 14dp corners, an Archivo
+  title at 16, Plex body at 13 in the dim grey, and flat pill buttons, right-aligned:
+  the one action that matters filled with the Studio aqua, Cancel a ghost pill, a third
+  choice a raised grey pill. Destructive dialogs fill their action in s_danger instead.
+
+  Values are as drawn (dp stays dp). Colours come only from studio_tokens.xml.
+  Build dialogs with StudioDialog.builder(ctx); Theme.FadCam.FaditorEditor also names
+  this overlay, so a dialog that still says new MaterialAlertDialogBuilder(ctx) gets
+  everything except the hairline ring.
+-->
+<resources>
+
+    <style name="ThemeOverlay.Studio.Dialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@color/s_panel</item>
+        <item name="colorSurfaceContainerHigh">@color/s_panel</item>
+        <item name="colorOnSurface">@color/s_ink</item>
+        <item name="colorOnSurfaceVariant">@color/s_label</item>
+        <!-- Chosen = cyan: radios and checkboxes in a list, a text cursor in a field. -->
+        <item name="colorPrimary">@color/s_armed</item>
+        <item name="colorOnPrimary">@color/s_on_go</item>
+        <item name="colorSecondary">@color/s_armed</item>
+        <item name="colorControlActivated">@color/s_armed</item>
+        <item name="colorControlNormal">@color/s_ink_faint</item>
+        <item name="android:textColorPrimary">@color/s_ink</item>
+        <item name="android:textColorSecondary">@color/s_ink_dim</item>
+        <item name="android:textColorHint">@color/s_ink_faint</item>
+        <item name="elevationOverlayEnabled">false</item>
+        <item name="android:backgroundDimAmount">0.6</item>
+        <item name="alertDialogStyle">@style/Studio.Dialog</item>
+        <item name="materialAlertDialogTitleTextStyle">@style/Studio.Dialog.Title</item>
+        <item name="materialAlertDialogBodyTextStyle">@style/Studio.Dialog.Body</item>
+        <item name="textAppearanceBodyLarge">@style/TextAppearance.Studio.Dialog.Item</item>
+        <item name="textAppearanceSubtitle1">@style/TextAppearance.Studio.Dialog.Item</item>
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Studio.Dialog.Button.Go</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Studio.Dialog.Button.Ghost</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Studio.Dialog.Button.Raised</item>
+    </style>
+
+    <!-- The action that loses something (Delete, Remove, Forget) is the positive button. -->
+    <style name="ThemeOverlay.Studio.Dialog.Danger">
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Studio.Dialog.Button.Danger</item>
+    </style>
+
+    <!-- The action that loses something is the third (neutral) button. -->
+    <style name="ThemeOverlay.Studio.Dialog.DangerNeutral">
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Studio.Dialog.Button.Danger</item>
+    </style>
+
+    <style name="Studio.Dialog" parent="MaterialAlertDialog.Material3">
+        <item name="shapeAppearance">@style/ShapeAppearance.Studio.Dialog</item>
+        <item name="shapeAppearanceOverlay">@null</item>
+        <item name="backgroundTint">@color/s_panel</item>
+    </style>
+
+    <style name="ShapeAppearance.Studio.Dialog" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">14dp</item>
+    </style>
+
+    <style name="Studio.Dialog.Title" parent="MaterialAlertDialog.Material3.Title.Text">
+        <item name="android:textAppearance">@style/TextAppearance.Studio.Dialog.Title</item>
+        <item name="android:textColor">@color/s_ink</item>
+    </style>
+
+    <style name="TextAppearance.Studio.Dialog.Title" parent="TextAppearance.Material3.HeadlineSmall">
+        <item name="android:fontFamily">@font/joy_display</item>
+        <item name="fontFamily">@font/joy_display</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">-0.01</item>
+        <item name="android:textColor">@color/s_ink</item>
+    </style>
+
+    <style name="Studio.Dialog.Body" parent="MaterialAlertDialog.Material3.Body.Text">
+        <item name="android:textAppearance">@style/TextAppearance.Studio.Dialog.Body</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+        <item name="android:lineSpacingMultiplier">1.25</item>
+    </style>
+
+    <style name="TextAppearance.Studio.Dialog.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="fontFamily">@font/joy_body</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+    </style>
+
+    <!-- A row in a list or choice dialog. -->
+    <style name="TextAppearance.Studio.Dialog.Item" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="fontFamily">@font/joy_body</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- Flat pill, record .btn: 13.5sp, 10 x 18 padding, no border, fully round.
+         The 4dp insets are the gap between pills (the record draws 9). -->
+    <style name="Widget.Studio.Dialog.Button" parent="Widget.Material3.Button">
+        <item name="android:fontFamily">@font/joy_body</item>
+        <item name="android:textSize">13.5sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:letterSpacing">0</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:minHeight">38dp</item>
+        <item name="android:paddingStart">18dp</item>
+        <item name="android:paddingEnd">18dp</item>
+        <item name="android:insetTop">4dp</item>
+        <item name="android:insetBottom">4dp</item>
+        <item name="android:insetLeft">4dp</item>
+        <item name="android:insetRight">4dp</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.Material3.Corner.Full</item>
+        <item name="shapeAppearanceOverlay">@null</item>
+        <item name="elevation">0dp</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="backgroundTint">@color/s_raised</item>
+        <item name="android:textColor">@color/s_ink</item>
+        <item name="rippleColor">@color/s_ink_33</item>
+    </style>
+
+    <style name="Widget.Studio.Dialog.Button.Raised" />
+
+    <style name="Widget.Studio.Dialog.Button.Go">
+        <item name="backgroundTint">@color/s_go</item>
+        <item name="android:textColor">@color/s_on_go</item>
+        <item name="android:textStyle">bold</item>
+        <item name="rippleColor">@color/s_scrim_20</item>
+    </style>
+
+    <style name="Widget.Studio.Dialog.Button.Danger">
+        <item name="backgroundTint">@color/s_danger</item>
+        <item name="android:textColor">@color/s_on_go</item>
+        <item name="android:textStyle">bold</item>
+        <item name="rippleColor">@color/s_scrim_20</item>
+    </style>
+
+    <!-- Cancel: record .btn.ghost, transparent with the card's hairline, dim ink. -->
+    <style name="Widget.Studio.Dialog.Button.Ghost">
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="strokeColor">@color/s_line</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="android:textColor">@color/s_ink_dim</item>
+    </style>
+
+</resources>

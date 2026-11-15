@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_timeline_marks_host.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="markers_host_bookmark_number">Järjehoidja %1$d</string>
+    <string name="markers_host_add_bookmark">Lisa järjehoidja</string>
+    <string name="markers_host_save_failed">Ajajoone märke ei saanud salvestada. Sinu eelmised märgid jäid alles.</string>
+    <string name="markers_host_export_named">%1$d nimega piirkonda eksporditakse eraldi failidena.</string>
+    <string name="markers_host_region_filenames">Kasuta iga piirkonna nime</string>
+    <string name="markers_host_export_invalid">Piirkondi ei saanud eksportida: %1$s</string>
+    <string name="markers_host_export_queued">%1$d piirkonna eksporti järjekorras</string>
+    <string name="markers_host_bookmark_hint">Puuduta, et järjehoidja panna; hoia all järjehoidjate ja piirkondade jaoks</string>
+</resources>

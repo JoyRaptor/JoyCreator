@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">بعض الأذونات</string>
+    <string name="onboardingv2_perm_why">يحتاج Joy Creator إلى هذه ليصوّر ويسجّل صوتك ويحفظ عملك على هاتفك. لا شيء يغادره.</string>
+    <string name="onboardingv2_perm_camera">الكاميرا</string>
+    <string name="onboardingv2_perm_camera_why">للتصوير ولترى ما تصوّره.</string>
+    <string name="onboardingv2_perm_mic">الميكروفون</string>
+    <string name="onboardingv2_perm_mic_why">لتسجيل صوتك مع الصورة.</string>
+    <string name="onboardingv2_perm_files">الملفات والإشعارات</string>
+    <string name="onboardingv2_perm_files_why">لحفظ فيديوهاتك ولإظهار إشعار التسجيل.</string>
+    <string name="onboardingv2_perm_battery">إبقاء التسجيل يعمل</string>
+    <string name="onboardingv2_perm_battery_why">اختياري: أوقف تحسين البطارية حتى لا تنقطع اللقطات الطويلة.</string>
+    <string name="onboardingv2_perm_battery_done">اختياري: تحسين البطارية متوقف بالفعل.</string>
+    <string name="onboardingv2_perm_allow">اسمح بما ينقص</string>
+    <string name="onboardingv2_perm_all_set">كل شيء جاهز</string>
+    <string name="onboardingv2_perm_open_settings">فتح الإعدادات</string>
+    <string name="onboardingv2_perm_nudge">اسمح بالثلاثة أعلاه من فضلك لتتابع.</string>
+    <string name="onboardingv2_perm_state_granted">مسموح</string>
+    <string name="onboardingv2_perm_state_missing">غير مسموح بعد</string>
+    <string name="onboardingv2_perm_row_cd">%1$s، %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">اطلب الأذونات التي لا تزال ناقصة</string>
+    <string name="onboardingv2_perm_all_set_cd">كل الأذونات مسموحة. مرّر إلى الصفحة التالية.</string>
+    <string name="onboardingv2_perm_open_settings_cd">افتح إعدادات النظام لهذا التطبيق لتسمح بالأذونات التي رفضتها</string>
+    <string name="onboardingv2_perm_battery_cd">افتح شاشة النظام لإيقاف تحسين البطارية لـ Joy Creator</string>
+</resources>

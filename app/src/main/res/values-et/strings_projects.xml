@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">Uus projekt</string>
+    <string name="projects_new_a11y">Alusta uut projekti oma telefoni videost, ühest oma salvestisest või tühjast helirajast</string>
+    <string name="projects_classic_list">Klassikaline Studio loend</string>
+    <plurals name="projects_layers">
+        <item quantity="one">%d kiht</item>
+        <item quantity="other">%d kihti</item>
+    </plurals>
+    <string name="projects_open_failed">Projekti ei saanud avada.</string>
+    <string name="projects_open_failed_access">Projekti ei saanud avada — lähtevideo juurdepääs võib olla kadunud.</string>
+    <string name="projects_untitled">Nimetu</string>
+</resources>

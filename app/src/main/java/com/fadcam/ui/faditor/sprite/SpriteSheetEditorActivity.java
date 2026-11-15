@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.annotation.SuppressLint;
@@ -497,7 +499,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (labDirty) save(true);
             joybotOpen = true;
             joybotWritesAtOpen = com.fadcam.ui.faditor.ai.joybot.JoybotStorage.writes();
-            startActivity(new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
+            com.fadcam.ui.lobby.arrival.JoybotOpen.start(this, v, new Intent(this, com.fadcam.ui.faditor.ai.ChatAssistantActivity.class)
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID, project.getId())
                     .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "SPRITELAB"));
         });
@@ -1233,7 +1235,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             final EditText in = new EditText(this);
             in.setSingleLine(true);
             in.setHint("mouth, hand, blink\u2026");
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle("New tag")
                     .setView(in)
                     .setPositiveButton("Add", (dl, w) -> {
@@ -1544,7 +1546,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         show.run();
         field.setOnEditorActionListener((v, action, e) -> { step.run(); return true; });
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Name the cells")
                 .setView(box)
                 // "Next" keeps the dialog open by design — that is the whole point of it.
@@ -1646,7 +1648,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             preview.invalidate();
         });
         bgSwatch.setOnLongClickListener(v -> {
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle("Preview background")
                     .setItems(BG_NAMES, (dl, which) -> {
                         previewBg = which;
@@ -1739,7 +1741,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         row.setGravity(Gravity.CENTER);
         int pad = (int) (16 * d);
         row.setPadding(pad, pad, pad, pad);
-        final androidx.appcompat.app.AlertDialog dlg = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        final androidx.appcompat.app.AlertDialog dlg = StudioDialog.builder(this)
                 .setTitle(past ? "Past ghosts" : "Future ghosts")
                 .setView(row)
                 .setNegativeButton("Close", null)
@@ -1984,6 +1986,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         float tx = (target[0] + target[2]) * 0.5f, ty = (target[1] + target[3]) * 0.5f;
         java.util.Map<Integer, float[]> boxes = inkBoxes(alignTargets());
+        // Both boxes are measured on the untouched sheet picture, so a cell's offset is the gap between
+        // the two inks plus wherever the reference frame itself has been moved to. Adding the gap to the
+        // cell's old offset moved every frame again on a second press.
+        SpriteSheet.CellXf refXf = sheet.cellTransform(ref);
+        float refDx = refXf == null ? 0f : refXf.dx, refDy = refXf == null ? 0f : refXf.dy;
         int n = 0;
         for (java.util.Map.Entry<Integer, float[]> e : boxes.entrySet()) {
             int c = e.getKey();
@@ -1991,8 +1998,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float[] box = e.getValue();
             SpriteSheet.CellXf t = sheet.cellTransform(c);
             SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
-            xf.dx += (tx - (box[0] + box[2]) * 0.5f) * toSource;
-            xf.dy += (ty - (box[1] + box[3]) * 0.5f) * toSource;
+            xf.dx = (tx - (box[0] + box[2]) * 0.5f) * toSource + refDx;
+            xf.dy = (ty - (box[1] + box[3]) * 0.5f) * toSource + refDy;
             sheet.setCellTransform(c, xf);
             n++;
         }
@@ -2074,7 +2081,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         t.setPadding(pad, pad, pad, pad);
         android.widget.ScrollView sv = new android.widget.ScrollView(this);
         sv.addView(t);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Drift")
                 .setView(sv)
                 .setPositiveButton("Close", null)
@@ -2246,7 +2253,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             in.setSingleLine(true);
             in.setText(rollName == null ? "" : rollName);
             in.setSelectAllOnFocus(true);
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            StudioDialog.builder(this)
                     .setTitle("Name this sequence")
                     .setView(in)
                     .setPositiveButton("Set", (dl, w) -> {
@@ -2314,7 +2321,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         input.setSingleLine(true);
         input.setText(rollName == null || rollName.isEmpty()
                 ? "clip" + (sheet.getPresets().size() + 1) : rollName);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Name this animation")
                 .setView(input)
                 .setPositiveButton("Save", (dl, w) -> {
@@ -2507,7 +2514,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             acts.addView(edit);
 
             TextView del = ichip("x", "Delete");
-            del.setOnClickListener(v -> new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            del.setOnClickListener(v -> StudioDialog.danger(this)
                     .setTitle("Delete \u201c" + pick.name + "\u201d?")
                     .setPositiveButton("Delete", (dl, w) -> {
                         sheet.getPresets().remove(pick);
@@ -2557,7 +2564,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         fps.setText(String.valueOf((int) (pr.fps > 0 ? pr.fps : sheet.getFps())));
         box.addView(fps);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Edit clip")
                 .setView(box)
                 .setPositiveButton("Save", (dl, w) -> {
@@ -2818,7 +2825,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         in.setSingleLine(true);
         in.setText(target.getName());
         in.setSelectAllOnFocus(true);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Rename sheet")
                 .setView(in)
                 .setPositiveButton("Rename", (dl, w) -> {
@@ -2836,7 +2843,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     private void confirmRemoveSheet(@NonNull SpriteSheet target) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle("Remove \u201c" + target.getName() + "\u201d?")
                 .setMessage("It leaves this project's sheet list. The image file stays on disk, "
                         + "but the slicing, the names, the alignment and the animations on it "
@@ -3117,7 +3124,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 project.getSpriteSheets().add(made);
                 labDirty = true;
                 save(true);
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.builder(this)
                         .setTitle("Baked")
                         .setMessage(msg + " \u00b7 "
                                 + count(made.getPresets().size(), "animation")
@@ -3143,7 +3150,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         t.setTextColor(SpriteTheme.INK);
         int pad = (int) (26 * d);
         t.setPadding(pad, pad, pad, pad);
-        android.app.Dialog dl = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        android.app.Dialog dl = StudioDialog.builder(this)
                 .setView(t)
                 .setCancelable(false)
                 .create();
@@ -3508,8 +3515,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float cx = (box[0] + box[2]) * 0.5f;
             SpriteSheet.CellXf t = sheet.cellTransform(c);
             SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
-            xf.dx += (targetX - cx) * toSource;
-            xf.dy += (feet ? (avgBottom - box[3]) : (sheet.getPivotY() * ch - (box[1] + box[3]) * 0.5f))
+            // The ink is measured on the untouched sheet picture, so this is the cell's WHOLE offset.
+            // Adding it to the offset already there moved every cell again on a second press.
+            xf.dx = (targetX - cx) * toSource;
+            xf.dy = (feet ? (avgBottom - box[3]) : (sheet.getPivotY() * ch - (box[1] + box[3]) * 0.5f))
                     * toSource;
             sheet.setCellTransform(c, xf);
         }
@@ -3978,7 +3987,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             in.setText(integral ? String.valueOf(Math.round(get.get()))
                                 : String.format(java.util.Locale.US, "%.2f", get.get()));
             in.setSelectAllOnFocus(true);
-            new com.google.android.material.dialog.MaterialAlertDialogBuilder(SpriteSheetEditorActivity.this)
+            StudioDialog.builder(SpriteSheetEditorActivity.this)
                     .setTitle(key.isEmpty() ? "Value" : key)
                     .setView(in)
                     .setPositiveButton("Set", (dl, w) -> {
@@ -4311,7 +4320,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (t != null && !t.isIdentity()) moved++;
         }
         if (moved == 0) { exportSidecar(); return; }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Alignment travels as numbers")
                 .setMessage(count(moved, "frame") + " on this sheet " + (moved == 1 ? "has" : "have")
                         + " alignment on "

@@ -326,6 +326,10 @@ public final class ColorPickerDialog {
         hex.setMaxLines(1);
         androidx.core.widget.TextViewCompat.setAutoSizeTextTypeUniformWithConfiguration(
                 hex, 9, 14, 1, android.util.TypedValue.COMPLEX_UNIT_SP);
+        // Air at the end (STU-D6): a wide value like "#FF000B" filled the 112dp column to its
+        // last pixel and read as touching the edge. Autosize fits inside the padding, so the
+        // text steps down a size instead of meeting the column's edge.
+        hex.setPadding(0, 0, Math.round(5 * d), 0);
         hexRow.addView(hex, new LinearLayout.LayoutParams(
                 0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         leftCol.addView(hexRow);

@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Kürzlich gelöscht</string>
+    <string name="trash_close">Kürzlich gelöscht schließen</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d Element</item>
+        <item quantity="other">%d Elemente</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d ausgewählt</item>
+        <item quantity="other">%d ausgewählt</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · Ordner wird gelesen</string>
+    <string name="trash_notice_unreachable">Dein Joy-Creator-Ordner ist gerade nicht erreichbar, deshalb werden nur Dinge gezeigt, die in der App gelöscht wurden.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">noch %d Tag</item>
+        <item quantity="other">noch %d Tage</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">noch %d Stunde</item>
+        <item quantity="other">noch %d Stunden</item>
+    </plurals>
+    <string name="trash_left_soon">bald weg</string>
+    <string name="trash_left_kept">behalten</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Ausgewählt.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">%d Tag aufbewahrt, dann endgültig gelöscht.</item>
+        <item quantity="other">%d Tage aufbewahrt, dann endgültig gelöscht.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">%d Stunde aufbewahrt, dann endgültig gelöscht.</item>
+        <item quantity="other">%d Stunden aufbewahrt, dann endgültig gelöscht.</item>
+    </plurals>
+    <string name="trash_rule_never">Aufbewahrt, bis du es löschst.</string>
+    <string name="trash_rule_now">Sofort endgültig gelöscht.</string>
+    <string name="trash_hold_hint">Gedrückt halten, um Dinge zum Wiederherstellen oder Löschen auszuwählen.</string>
+    <string name="trash_stop_selecting">Auswahl beenden</string>
+    <string name="trash_restore">Wiederherstellen</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">%d Element wiederherstellen</item>
+        <item quantity="other">%d Elemente wiederherstellen</item>
+    </plurals>
+    <string name="trash_delete_forever">Für immer löschen</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">%d Element für immer löschen</item>
+        <item quantity="other">%d Elemente für immer löschen</item>
+    </plurals>
+    <string name="trash_open_failed">Das ließ sich nicht öffnen.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">%d Element für immer löschen?</item>
+        <item quantity="other">%d Elemente für immer löschen?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Papierkorb leeren? %d Element ist für immer weg.</item>
+        <item quantity="other">Papierkorb leeren? Alle %d Elemente sind für immer weg.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d Element ist älter und wird jetzt für immer gelöscht.</item>
+        <item quantity="other">%d Elemente sind älter und werden jetzt für immer gelöscht.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Das lässt sich nicht rückgängig machen.</string>
+    <string name="trash_confirm_keep">Behalten</string>
+    <string name="trash_confirm_empty_button">Papierkorb leeren</string>
+    <string name="trash_confirm_rule_button">Ändern und löschen</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">%d Element wiederherstellen</item>
+        <item quantity="other">%d Elemente wiederherstellen</item>
+    </plurals>
+    <string name="trash_restore_where">Wähle, wohin die Aufnahmen kommen.</string>
+    <string name="trash_restore_where_mixed">Wähle, wohin die Aufnahmen kommen. Projekte, Zeichnungen und andere Dateien kommen zurück an ihren Platz in deinem Joy-Creator-Ordner.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">%d Element wiederhergestellt.</item>
+        <item quantity="other">%d Elemente wiederhergestellt.</item>
+    </plurals>
+    <string name="trash_done_restored_part">%1$d von %2$d wiederhergestellt. Der Rest ließ sich nicht wiederherstellen.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">%d Element für immer gelöscht.</item>
+        <item quantity="other">%d Elemente für immer gelöscht.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Einige Elemente ließen sich nicht löschen.</string>
+    <string name="trash_done_emptied">Papierkorb geleert.</string>
+    <string name="trash_done_empty_failed">Der Papierkorb ließ sich nicht ganz leeren.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d altes Element wurde endgültig gelöscht.</item>
+        <item quantity="other">%d alte Elemente wurden endgültig gelöscht.</item>
+    </plurals>
+    <string name="trash_options">Auswählen, leeren und mehr</string>
+    <string name="trash_options_title">Kürzlich gelöscht</string>
+    <string name="trash_opt_select_all">Alle auswählen</string>
+    <string name="trash_opt_rule">Endgültig löschen nach · %1$s</string>
+    <string name="trash_opt_empty">Papierkorb leeren</string>
+    <string name="trash_opt_classic">Klassischer Papierkorb</string>
+    <string name="trash_rule_title">Endgültig löschen nach</string>
+    <string name="trash_empty_all">Der Papierkorb ist leer. Was du löschst, wartet hier, bevor es endgültig verschwindet.</string>
+    <string name="trash_empty_projects">Keine gelöschten Projekte.</string>
+    <string name="trash_empty_drawings">Keine gelöschten Zeichnungen.</string>
+    <string name="trash_empty_recordings">Keine gelöschten Aufnahmen oder Videos.</string>
+    <string name="trash_empty_photos">Keine gelöschten Fotos oder Bilder.</string>
+    <string name="trash_empty_other">Sonst nichts im Papierkorb.</string>
+    <string name="trash_empty_show_all">Alles zeigen</string>
+</resources>

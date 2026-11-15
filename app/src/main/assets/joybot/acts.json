@@ -1,0 +1,872 @@
+{
+ "about": "Made by tools/joybot/pack_joybot.py. Do not edit by hand: edit joybot.animations.json and pack again.",
+ "cell": 240,
+ "focus": [
+  0.2583,
+  0.1708,
+  0.6958,
+  0.9667
+ ],
+ "idleAfterSeconds": {
+  "45": "reading",
+  "180": "sleeping"
+ },
+ "acts": [
+  {
+   "name": "idle",
+   "mood": "idle",
+   "general": true,
+   "fps": 8,
+   "file": "idle.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [],
+   "loop": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": []
+  },
+  {
+   "name": "listen",
+   "mood": "listen",
+   "general": true,
+   "fps": 8,
+   "file": "listen.webp",
+   "cols": 8,
+   "rows": 1,
+   "count": 8,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    7,
+    6,
+    5,
+    4,
+    3
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "think",
+   "mood": "think",
+   "general": true,
+   "fps": 8,
+   "file": "think.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "work",
+   "mood": "work",
+   "general": true,
+   "fps": 8,
+   "file": "work.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "talk",
+   "mood": "talk",
+   "general": true,
+   "fps": 6,
+   "file": "talk.webp",
+   "cols": 7,
+   "rows": 1,
+   "count": 7,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    6
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "excited",
+   "mood": "excited",
+   "general": true,
+   "fps": 8,
+   "file": "excited.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    8,
+    7,
+    6,
+    5,
+    4,
+    3
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "show",
+   "mood": "show",
+   "general": true,
+   "fps": 8,
+   "file": "show.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "oops",
+   "mood": "oops",
+   "general": true,
+   "fps": 8,
+   "file": "oops.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "loop": [
+    6,
+    7,
+    8,
+    9,
+    8,
+    7
+   ],
+   "out": [
+    5,
+    4,
+    3,
+    2,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "reading",
+   "mood": "idle-variety",
+   "general": false,
+   "fps": 6,
+   "file": "reading.webp",
+   "cols": 8,
+   "rows": 3,
+   "count": 18,
+   "in": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "loop": [
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "out": [
+    8,
+    7,
+    6,
+    5,
+    4,
+    3,
+    2,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "sleeping",
+   "mood": "idle-variety",
+   "general": false,
+   "fps": 6,
+   "file": "sleeping.webp",
+   "cols": 8,
+   "rows": 3,
+   "count": 19,
+   "in": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8
+   ],
+   "loop": [
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18
+   ],
+   "out": [
+    8,
+    7,
+    6,
+    5,
+    4,
+    3,
+    2,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "spin",
+   "mood": "excited",
+   "general": true,
+   "fps": 10,
+   "file": "spin.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [],
+   "loop": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": []
+  },
+  {
+   "name": "adjusting-colors",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "adjusting-colors.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "arranging-clips",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "arranging-clips.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "brainstorming",
+   "mood": "think",
+   "general": true,
+   "fps": 8,
+   "file": "brainstorming.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    8,
+    7
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "checking-errors",
+   "mood": "oops",
+   "general": false,
+   "fps": 8,
+   "file": "checking-errors.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "choosing-video",
+   "mood": "think",
+   "general": false,
+   "fps": 8,
+   "file": "choosing-video.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "color-grading",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "color-grading.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    8,
+    7,
+    6,
+    5,
+    4,
+    3
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "comparing-videos",
+   "mood": "think",
+   "general": false,
+   "fps": 8,
+   "file": "comparing-videos.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "confused",
+   "mood": "oops",
+   "general": true,
+   "fps": 8,
+   "file": "confused.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "cutting-film",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "cutting-film.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    8,
+    7,
+    6,
+    5,
+    4,
+    3
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "discarding-clip",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "discarding-clip.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "having-idea",
+   "mood": "talk",
+   "general": true,
+   "fps": 8,
+   "file": "having-idea.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "inspecting-files",
+   "mood": "work",
+   "general": true,
+   "fps": 8,
+   "file": "inspecting-files.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "inspecting-video",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "inspecting-video.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "joining-film",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "joining-film.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "listening",
+   "mood": "listen",
+   "general": true,
+   "fps": 6,
+   "file": "listening.webp",
+   "cols": 7,
+   "rows": 1,
+   "count": 7,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    6
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "reading-transcript",
+   "mood": "work",
+   "general": false,
+   "fps": 8,
+   "file": "reading-transcript.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  },
+  {
+   "name": "showcasing-video",
+   "mood": "show",
+   "general": true,
+   "fps": 6,
+   "file": "showcasing-video.webp",
+   "cols": 6,
+   "rows": 1,
+   "count": 6,
+   "in": [
+    0,
+    1,
+    2
+   ],
+   "loop": [
+    3,
+    4,
+    5,
+    4
+   ],
+   "out": [
+    2,
+    1,
+    0
+   ]
+  },
+  {
+   "name": "transcribing-audio",
+   "mood": "work",
+   "general": true,
+   "fps": 8,
+   "file": "transcribing-audio.webp",
+   "cols": 8,
+   "rows": 2,
+   "count": 10,
+   "in": [
+    0,
+    1
+   ],
+   "loop": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ],
+   "out": [
+    1,
+    0
+   ]
+  }
+ ]
+}

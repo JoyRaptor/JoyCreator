@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Plus ⌄</string>
+    <string name="faditor_lc_drawer_grip">Poignée du tiroir. Glisse pour redimensionner, touche pour en voir plus ou fermer</string>
+    <string name="faditor_lc_fx_expand">Afficher les réglages de cet effet</string>
+    <string name="faditor_lc_fx_collapse">Masquer les réglages de cet effet</string>
+    <string name="faditor_lc_fx_bypass">Contourner l\'effet</string>
+    <string name="faditor_lc_fx_enable">Activer l\'effet</string>
+    <string name="faditor_lc_fx_delete">Supprimer l\'effet</string>
+    <string name="faditor_lc_fx_reorder">Maintiens et glisse pour réorganiser</string>
+    <string name="faditor_lc_key_prev">Image clé précédente</string>
+    <string name="faditor_lc_key_next">Image clé suivante</string>
+    <string name="faditor_lc_key_diamond">Image clé. Touche pour ajouter ou retirer, maintiens pour tout effacer</string>
+    <string name="faditor_lc_ease_need_keys">Pose d\'abord des images clés</string>
+    <string name="faditor_lc_motion_title">Mouvement</string>
+    <string name="faditor_lc_motion_by">Animer par</string>
+    <string name="faditor_lc_gran_letter">Lettre</string>
+    <string name="faditor_lc_gran_word">Mot</string>
+    <string name="faditor_lc_gran_sentence">Phrase</string>
+    <string name="faditor_lc_gran_block">Bloc</string>
+    <string name="faditor_lc_sheet_grip">Poignée de la feuille. Touche ou glisse vers le haut pour tous les réglages, glisse vers le bas pour fermer</string>
+    <string name="faditor_lc_sheet_legend">Ce que veulent dire les formes des images clés</string>
+    <string name="faditor_lc_sheet_more">Plus…</string>
+    <string name="faditor_lc_sheet_move_to">Aller à</string>
+    <string name="faditor_lc_sheet_jump">Saisis un instant où aller</string>
+    <string name="faditor_lc_sheet_push">Pousser</string>
+    <string name="faditor_lc_sheet_snap">Aimanter</string>
+    <string name="faditor_lc_sheet_static_hint">Fixe — touche ♦ pour animer</string>
+</resources>

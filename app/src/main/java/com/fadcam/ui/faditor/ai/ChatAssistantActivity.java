@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.ai;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.ClipData;
@@ -96,7 +98,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     // ── Joybot's own parts of the chat (plan B2) ──────────────────────────────
     private JoybotView actor;
-    @Nullable private View headerIcon;
     private android.widget.HorizontalScrollView chipsScroll;
     private LinearLayout chipsRow;
     private TextView stopButton;
@@ -177,24 +178,30 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     @Override
     public void finish() {
+        // It closes the way it opened (ChatArrival), then really finishes, with no window animation.
+        if (arrival != null && !reallyFinishing && arrival.close(() -> { reallyFinishing = true; finish(); })) return;
         super.finish();
-        overridePendingTransition(R.anim.fade_out_quick, R.anim.fade_out_quick);
+        overridePendingTransition(0, 0);
+    }
+
+    /** How the chat opens and Joybot arrives (owner's picks, 15 Nov 2026). */
+    @Nullable private com.fadcam.ui.lobby.arrival.ChatArrival arrival;
+    private boolean reallyFinishing;
+
+    @Override
+    public void onConfigurationChanged(@NonNull android.content.res.Configuration c) {
+        super.onConfigurationChanged(c);
+        if (arrival != null) arrival.onConfigurationChanged();
     }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // Make the window translucent so the editor is faintly visible behind
-        // the chat — keeps the user mentally "in" the editor.
-        getWindow().setFlags(
-                WindowManager.LayoutParams.FLAG_DIM_BEHIND,
-                WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        WindowManager.LayoutParams params = getWindow().getAttributes();
-        params.dimAmount = 0.75f;
-        getWindow().setAttributes(params);
+        // The window stays see-through and undimmed: the drawer itself is the ~55% see-through
+        // layer (owner: drawers never opaque; Frost only adds blur). ChatArrival opens it.
         setContentView(R.layout.activity_chat_assistant);
-        overridePendingTransition(R.anim.slide_down_in, R.anim.fade_out_quick);
+        overridePendingTransition(0, 0);
 
         projectId = getIntent().getStringExtra(EXTRA_PROJECT_ID);
         if (projectId != null && projectId.isEmpty()) projectId = null;
@@ -356,21 +363,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
         androidx.appcompat.widget.TooltipCompat.setTooltipText(findViewById(R.id.chat_back), "Close Joybot");
         androidx.appcompat.widget.TooltipCompat.setTooltipText(stopButton, "Stop what Joybot is doing");
 
-        // Mascot bounces in when the chat window lands. scaleX animates 0 -> -1 (not
-        // 0 -> 1) to preserve the inward-facing horizontal flip set in the layout.
-        View headerIcon = findViewById(R.id.chat_header_ai_icon);
-        this.headerIcon = headerIcon;
-        if (headerIcon != null) {
-            headerIcon.setScaleX(0f);
-            headerIcon.setScaleY(0f);
-            headerIcon.animate()
-                    .scaleX(-1f)
-                    .scaleY(1f)
-                    .setStartDelay(120)
-                    .setDuration(500)
-                    .setInterpolator(new android.view.animation.OvershootInterpolator(2.2f))
-                    .start();
-        }
+    }
+
+    /** The settings column in a scroller: with the arrival choices it is taller than a phone held sideways. */
+    @NonNull
+    private View scrolling(@NonNull View column) {
+        android.widget.ScrollView sv = new android.widget.ScrollView(this);
+        sv.addView(column);
+        return sv;
     }
 
     /** Resolve a theme color attribute (e.g. colorPrimary) so icon tints genuinely follow the theme. */
@@ -550,7 +550,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void showAttachChooser() {
         if (projectId == null || projectId.isEmpty()) { pickImage(); return; }
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Show the assistant…")
                 .setItems(new String[]{"🎞  This frame (at the playhead)", "🖼  Pick an image…"},
                         (d, which) -> {
@@ -1219,6 +1219,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             if (percent < 0) showStatus(task);
             else showStatusProgress(task, percent);
             markChecklistFromTask(task);
+            com.fadcam.ui.lobby.JoybotDirector.hint(actor, task);
             actor.setMood(JoybotView.Mood.WORK);
         }
 
@@ -1280,44 +1281,20 @@ public class ChatAssistantActivity extends AppCompatActivity {
     // local decision tree (IdeaEngine) — instant, free, honest — and a tapped idea that can run on
     // the phone does so without the model at all.
 
-    /** He flies down from his seat in the header into the corner, and hovers there. */
+    /** He flies out of the button the chat was opened from and lands on his seat in the bottom row. */
     private void setupActor() {
         actor.setOrb(com.fadcam.ui.faditor.Studio.ROOM_AVATAR, com.fadcam.ui.faditor.Studio.ORB_DEEP);
         androidx.appcompat.widget.TooltipCompat.setTooltipText(actor, "Joybot: tap for ideas");
-        JoybotPulse.dressWhenReady(actor);
+        JoybotPulse.actWhenReady(actor);
         actor.setOnClickListener(v -> {
             actor.react();
             if (busy) return;
             LAST_OPENER.remove(projectId == null ? "" : projectId);
             refreshIdeas(true);
         });
-        // He drops in from the top edge of the message area, under his seat in the header. Not from
-        // the header itself: that needs clipping switched off up the tree, and then the message
-        // list scrolls over the title bar (seen on the Note 9, 2026-10-14).
-        View stage = (View) actor.getParent();
-
-        actor.post(() -> {
-            if (isFinishing() || isDestroyed()) return;
-            if (headerIcon == null || com.fadcam.ui.motion.Motion.reduced(this)) {
-                actor.setVisibility(View.VISIBLE);
-                if (headerIcon != null) headerIcon.setAlpha(0f);
-                return;
-            }
-            int[] h = new int[2], s = new int[2];
-            headerIcon.getLocationInWindow(h);
-            stage.getLocationInWindow(s);
-            float hx = Math.max(actor.getWidth() / 2f, h[0] - s[0] + headerIcon.getWidth() / 2f);
-            float hy = actor.getHeight() / 2f;
-            actor.setTranslationX(hx - (actor.getLeft() + actor.getWidth() / 2f));
-            actor.setTranslationY(hy - (actor.getTop() + actor.getHeight() / 2f));
-            // Wait for the header's own bounce, then he leaves his seat.
-            actor.postDelayed(() -> {
-                if (isFinishing() || isDestroyed()) return;
-                headerIcon.animate().alpha(0f).setDuration(160L).start();
-                actor.setVisibility(View.VISIBLE);
-                actor.flyHome(null);
-            }, 640L);
-        });
+        // The drawer opening, the title and his flight in (owner's picks, 15 Nov): ChatArrival.
+        arrival = new com.fadcam.ui.lobby.arrival.ChatArrival(this, actor);
+        arrival.install();
     }
 
     /**
@@ -1672,7 +1649,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         LinearLayout box = new LinearLayout(this);
         box.setPadding(dp(20), dp(8), dp(20), 0);
         box.addView(field);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Name this recipe")
                 .setView(box)
                 .setPositiveButton("Save", (d, w) -> saveRecipe(f, field.getText().toString(), card))
@@ -1785,7 +1762,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     private void confirmDeleteRecipe(@NonNull RecipeStore.Saved s, @NonNull View row) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.danger(this)
                 .setTitle("Delete “" + s.recipe.name + "”?")
                 .setMessage("Its steps will be gone from My recipes.")
                 .setPositiveButton("Delete", (d, w) -> aiExecutor.execute(() -> {
@@ -1816,6 +1793,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (projectId == null) return;
         setBusy(true);
         cancelled = false;
+        com.fadcam.ui.lobby.JoybotDirector.hint(actor, idea.label);
         actor.setMood(JoybotView.Mood.WORK);
         showStatus(idea.label);
         // On the app-wide worker, not this screen's: closing the chat must not stop a long job.
@@ -2064,7 +2042,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         int after = changes.size() - index - 1;
         String rest = after == 0 ? "This change will go."
                 : "This change and " + (after == 1 ? "the one after it" : "the " + after + " after it") + " will go.";
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Undo from here?")
                 .setMessage("Put the project back how it was before this? " + rest)
                 .setNegativeButton("Cancel", null)
@@ -3328,6 +3306,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 "Joybot speaks his answers with the phone's voice");
         root.addView(readAloud);
 
+        // How the chat opens and Joybot arrives (owner, 15 Nov): applies the next time it opens.
+        com.fadcam.ui.lobby.arrival.ArrivalSettings.addTo(this, root);
+
         // Custom title: mascot icon (flipped inward, facing right toward the label) + text.
         int titlePad = (int) (16 * getResources().getDisplayMetrics().density);
         LinearLayout titleRow = new LinearLayout(this);
@@ -3356,14 +3337,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
         titleRow.addView(titleText);
 
         com.google.android.material.dialog.MaterialAlertDialogBuilder builder =
-                new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                StudioDialog.dangerNeutral(this)
                 .setCustomTitle(titleRow)
-                .setView(root)
+                .setView(scrolling(root))
                 .setPositiveButton("Save", null)
                 .setNegativeButton("Cancel", null);
         if (accountCount > 1) {
             builder.setNeutralButton("Remove account", (d, w) ->
-                    new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                    StudioDialog.danger(this)
                             .setMessage("Forget the " + account.name + " account and its key on this phone?")
                             .setPositiveButton("Forget it", (d2, w2) -> {
                                 AiAccounts.remove(this, account.id);
@@ -3490,13 +3471,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // Joybot's answer carries the colour; your own words fade back (owner, 10-28).
         tv.setTextColor(isUser ? Studio.INK_DIM : Studio.ON_GO);
         tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_joybot);
-        // Tail side (bottom for user, top for bot — see chat_bubble_user/bot.xml) gets extra
-        // padding so text clears the reserved tail-nub band baked into the background drawable.
-        if (isUser) {
-            tv.setPadding(dp(14), dp(10), dp(14), dp(17));
-        } else {
-            tv.setPadding(dp(14), dp(17), dp(14), dp(10));
-        }
+        // Both tails are at the bottom now: yours drops to the send button on the right, Joybot's
+        // drops to Joybot himself in the lower left (owner, 11-14). The padding clears the band
+        // the tail is drawn in.
+        tv.setPadding(dp(14), dp(10), dp(14), dp(17));
         tv.setLayoutParams(new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT));
@@ -3515,7 +3493,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT);
         clp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
-        clp.setMargins(0, 0, dp(2), isUser ? dp(9) : dp(2));
+        clp.setMargins(0, 0, dp(2), dp(9));
         copyBtn.setLayoutParams(clp);
         copyBtn.setTag(text);
         androidx.appcompat.widget.TooltipCompat.setTooltipText(copyBtn, "Copy this message");
@@ -3544,7 +3522,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
             flag.setLayoutParams(flp);
             flag.setContentDescription("Report this reply");
             androidx.appcompat.widget.TooltipCompat.setTooltipText(flag, "Report this reply");
-            flag.setOnClickListener(v -> confirmReport(text));
+            // The bubble is born saying "Thinking…" and the answer is written into it later
+            // (updateLastBotMessage), so the report reads the words the bubble holds when the flag is tapped.
+            flag.setTag(text);
+            flag.setOnClickListener(v -> confirmReport(String.valueOf(v.getTag())));
             wrapper.addView(flag);
         }
 
@@ -3558,7 +3539,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
      * unless the person sends that email themself.
      */
     private void confirmReport(@NonNull String reply) {
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Report this reply?")
                 .setMessage("Joybot's answers can come from an AI, and an AI can be wrong or say something it "
                         + "shouldn't. Reporting keeps this reply and your question in your Joy Creator folder "
@@ -4056,6 +4037,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 if (fl.getChildCount() > 1) {
                     fl.getChildAt(1).setTag(text);
                 }
+                if (fl.getChildCount() > 2) {
+                    fl.getChildAt(2).setTag(text);   // the report flag
+                }
             } else if (last instanceof TextView) {
                 ((TextView) last).setText(text);
             }
@@ -4137,6 +4121,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (arrival != null) arrival.onDestroy();
         super.onDestroy();
         AIChatState.chatActive = false;
         JoybotJobs.attach(null);
@@ -4225,7 +4210,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             reloadAccount();
             showSettingsDialog();
         });
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+        StudioDialog.builder(this)
                 .setTitle("Talk to\u2026")
                 .setItems(labels.toArray(new String[0]), (d, w) -> actions.get(w).run())
                 .show();

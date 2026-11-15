@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Iniciar o detener el servidor de transmisión</string>
+    <string name="hover_remote_password_toggle">Activar o desactivar la protección con contraseña</string>
+    <string name="hover_lobby_floor_detect">Detección inteligente: personas y cosas que la cámara encontró en tus grabaciones</string>
+    <string name="hover_lobby_floor_remote">Studio remoto: mira y controla la cámara de este teléfono desde un navegador en tu Wi-Fi</string>
+    <string name="hover_lobby_floor_bits">Bits: linterna, escáner de QR y atajos de la pantalla de inicio</string>
+    <string name="hover_lobby_floor_packs">Packs: tus packs, aspectos, pinceles y fuentes instalados</string>
+    <string name="hover_lobby_floor_setup">Configurar: todos los ajustes</string>
+    <string name="hover_lobby_stat">Espacio: qué está ocupando sitio en este teléfono</string>
+    <string name="hover_library_paste_picture">Pon en tu carpeta de Joy Creator una imagen que copiaste en otra app</string>
+    <string name="hover_lobby_room">Ir a %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s en %2$s</string>
+    <string name="hover_lobby_hero_new">Empezar algo nuevo en %1$s</string>
+    <string name="hover_lobby_library">Abrir Library: todo lo que has hecho</string>
+    <string name="hover_studio_cut_mark">Corte: %1$s s omitidos, toca la palabra para restaurarla</string>
+</resources>

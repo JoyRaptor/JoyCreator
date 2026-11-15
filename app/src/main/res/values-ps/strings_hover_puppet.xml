@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">د پاڼې په اوږدو کې ستنې. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_rows">د پاڼې په اوږدو کې کتارونه. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_margin_x">د پاڼې په کیڼ او ښي څنډه کې ځای. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_margin_y">د پاڼې په پورتنۍ او ښکتنۍ څنډه کې ځای. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_spacing_x">د حجرو تر منځ واټن، له اړخ نه اړخ ته. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_spacing_y">د حجرو تر منځ واټن، له پورته نه ښکته. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_tolerance">د کیلي رنګ ته څومره نژدې شاته ګڼل کېږي. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_move_x">دا چوکاټ کیڼ یا ښي ته حرکت ورکړئ. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_move_y">دا چوکاټ پورته یا ښکته حرکت ورکړئ. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_scale">دا چوکاټ لوی یا کوچنی کړئ. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_rotate">دا چوکاټ په درجو وګرځوئ. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_pivot_x">د محور ټکی، له کیڼ نه ښي ته. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_pivot_y">د محور ټکی، له پورته نه ښکته. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_bake_pad">د پخولو پر مهال د هر چوکاټ شاوخوا ځای. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_onion_strength">د پیاز پوستکي ارواګانې څومره پیاوړې ښکاري. د بدلولو لپاره وکاږئ، د لیکلو لپاره کېکاږئ</string>
+    <string name="hover_sprite_onion_past">د مخکینیو چوکاټونو ارواګانې. د شمېر بدلولو لپاره وکاږئ، د رنګ غوره کولو لپاره کېکاږئ</string>
+    <string name="hover_sprite_onion_future">د وروستیو چوکاټونو ارواګانې. د شمېر بدلولو لپاره وکاږئ، د رنګ غوره کولو لپاره کېکاږئ</string>
+    <string name="hover_sprite_divider">د وسیلو پینل لوړ یا ټیټ کولو لپاره وکاږئ</string>
+    <string name="hover_puppet_badge">د لوبۍ پنونه. د ترتیب لپاره کېکاږئ، د پن دراز خلاصولو لپاره ونیسئ</string>
+</resources>

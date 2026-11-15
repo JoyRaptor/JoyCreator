@@ -189,6 +189,12 @@ public class BridgeService extends Service {
         stopSelf();
     }
 
+    /** Android 15: this kind of service may run six hours a day; told to stop, it must, or the app is closed. */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        shutDown();
+    }
+
     private void foreground(@NonNull String text) {
         NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && nm != null && nm.getNotificationChannel(CHANNEL) == null) {
@@ -209,10 +215,17 @@ public class BridgeService extends Service {
                 .addAction(0, "Stop", stop)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(NOTE_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-        } else {
-            startForeground(NOTE_ID, n);
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTE_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+            } else {
+                startForeground(NOTE_ID, n);
+            }
+        } catch (RuntimeException refused) {
+            // Refused by Android (background start, or the day's allowance used up): close the door
+            // rather than the app.
+            android.util.Log.w("BridgeService", "foreground refused", refused);
+            MAIN.post(this::shutDown);
         }
     }
 

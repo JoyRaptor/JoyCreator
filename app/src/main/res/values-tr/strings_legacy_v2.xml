@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">Yenilikler</string>
+    <string name="legacyv2_whatsnew_intro">Bu sürümdeki yeni özellikler, iyileştirmeler ve hata düzeltmeleri.</string>
+    <string name="legacyv2_whatsnew_reenable">Ayarlar → \'Girişi Göster\' düğmesinden yeniden aç</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">%d saniye içinde hazır...</item>
+        <item quantity="other">%d saniye içinde hazır...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">Artık kapatabilirsin</string>
+    <string name="legacyv2_whatsnew_got_it">Anladım</string>
+    <string name="legacyv2_whatsnew_progress_desc">Notlarda ne kadar ilerlediğin</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">Bu sürümde yeni</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">%1$s sürümünden %2$s sürümüne güncelleniyor</string>
+    <string name="legacyv2_mode_option_desc">%1$s ayarlarını göster</string>
+</resources>

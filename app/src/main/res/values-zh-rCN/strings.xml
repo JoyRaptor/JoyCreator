@@ -4,12 +4,8 @@
     <string name="trash_auto_delete_info_immediate">项目将立即删除。</string>
     <string name="app_icon_description">为您的应用选择图标和名称。这将更改其在主屏幕上的显示方式。</string>
     <string name="check_for_updates">检查更新</string>
-    <string name="fadsec_info">FadCam是FadSec实验室套件的一部分。欲了解更多详情，请点击下方查看源码按钮。</string>
-    <string name="app_description"><![CDATA[
-    FadCam是一个以隐私为首要重心的开源无广告的视频录制软件. 此软件能通过Github和README中的官方链接获取.
-    <br/><br/>
-    Joy Creator 已在热门的 YouTube 频道中亮相，如 <font color="#cfbafd">HowToMen</font> 和 <font color="#cfbafd">Xtream Droid</font>，还在 <font color="#cfbafd">GrapheneOS</font> 及其他 55+ 著名平台上被讨论。
-    ]]></string>
+    <string name="fadsec_info">Joy Creator 免费且开源。想了解更多，请点击下方的“查看源代码”。</string>
+    <string name="app_description">Joy Creator 是一款无广告的开源视频录制应用，注重隐私，不追踪也不收集任何数据。它只在 GitHub 以及 README 中提到的官方链接上提供。&lt;br/&gt;&lt;br/&gt;Joy Creator 曾被 &lt;font color=\"#cfbafd\"&gt;HowToMen&lt;/font&gt; 和 &lt;font color=\"#cfbafd\"&gt;Xtream Droid&lt;/font&gt; 等热门 YouTube 频道介绍，也在 &lt;font color=\"#cfbafd\"&gt;GrapheneOS&lt;/font&gt; 等 55 多处地方被讨论过。</string>
     <string name="view_source_code">查看源码</string>
     <string name="contact">联系方式</string>
     <string name="send_email">发送邮件</string>
@@ -81,56 +77,49 @@
         <item>你的布加迪是什么颜色的？(❁´◡`❁)</item>
         <item>我的代码不是这么写的. 桥豆麻袋, 你想黑了我?</item>
     </string-array>
-    <string-array name="questions_array" tools:ignore="InconsistentArrays">
+    <string-array name="questions_array">
         <item>免责声明</item>
-        <item>FadCam会收集用户数据吗?</item>
-        <item>FadCam是否有广告?</item>
-        <item>为什么FadCam会请求访问位置信息?</item>
-        <item>为什么需要互联网权限？</item>
-        <item>是否会有数据存储在外部服务器?</item>
-        <item>视频录制完后会发生什么?</item>
-        <item>FadCam有没有将我的数据分享给第三方?</item>
-        <item> </item>
-        <item> </item>
-        <item>使用问题</item>
-        <item>为什么打水印要这么久?</item>
-        <item>为什么会有一个\'临时\' 视频?</item>
-        <item>我如何更改录像质量?</item>
-        <item>如何关闭录制时的预览图?</item>
-        <item>怎样才能将位置信息作为水印嵌入视频?</item>
-        <item>我的使用偏好会被记录吗?</item>
-        <item>怎么样才能自动（计划）录像?</item>
-        <item>怎样更新软件?</item>
-        <item> </item>
+        <item>Joy Creator 会收集用户数据吗？</item>
+        <item>Joy Creator 里有广告吗？</item>
+        <item>为什么 Joy Creator 要获取位置权限？</item>
+        <item>为什么需要网络权限？</item>
+        <item>数据会存到外部服务器吗？</item>
+        <item>录制完成后我的视频会怎样？</item>
+        <item>Joy Creator 会和第三方分享我的数据吗？</item>
+        <item></item>
+        <item></item>
+        <item>常规</item>
+        <item>可以关闭预览吗？</item>
+        <item>怎样把位置嵌入水印？</item>
+        <item>我的偏好设置会保存吗？</item>
+        <item>可以定时录制吗？</item>
+        <item>怎样更新应用？</item>
+        <item></item>
     </string-array>
-    <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>FadCam不支持任何不道德或非法使用本软件的行为。未经允许的监视或侵犯隐私等滥用行为均严重违反我们的原则. FadCam作者对任何滥用本应用程序的行为以及导致的结果概不负责.
-        </item>
-        <item>不, FadCam不收集任何用户数据.</item>
-        <item>不, FadCam无广告.</item>
-        <item>用于添加位置信息水印的功能.</item>
-        <item>用于自动检查更新。</item>
-        <item>不, 所有数据都会存储在你的设备上.</item>
-        <item>你录制的视频都只会存储在手机里.</item>
-        <item>不，Joy Creator 不会共享或收集任何数据，甚至不会收集崩溃日志。</item>
-        <item> </item>
-        <item> </item>
-        <item> </item>
-        <item>录制视频的每一帧都会加入水印. 录制的视频越长, 所需的时间就越长.</item>
-        <item>这个\'临时\' 视频其实是你原本录制的视频. 在加入水印后就会自动删除. 如果加入水印这一步出现了差错, 此时这个\'临时\'文件就会作为备份继续保留下去.</item>
-        <item>在设置里更改就行: HD, SD, or FHD.</item>
-        <item>长按预览区即可关闭.</item>
-        <item>开启位置信息功能即可使用位置信息水印. 它会将准确的经纬度信息嵌入其中.</item>
-        <item>是的, 所有的偏好设置都会没有痕迹地保存下来</item>
-        <item>这个功能以后会有的.</item>
-        <item>去看看我们的官方GitHub仓库获取更新.</item>
-        <item> </item>
+    <string-array name="answers_array">
+        <item>Joy Creator 不认可也不支持任何不道德或违法的使用方式。滥用（例如未经授权的监控或侵犯隐私）严重违反我们的准则。作者对应用的任何滥用行为概不负责。</item>
+        <item>不会，Joy Creator 不收集任何用户数据。</item>
+        <item>没有，Joy Creator 完全无广告。</item>
+        <item>用来给水印添加位置信息。</item>
+        <item>用来自动检查更新。</item>
+        <item>不会，所有数据都保存在你的设备上。</item>
+        <item>你的视频会保存在你的设备本地。</item>
+        <item>不会，Joy Creator 不分享也不收集任何数据，连崩溃日志也不收集。</item>
+        <item></item>
+        <item></item>
+        <item></item>
+        <item>长按预览区域即可关闭预览。</item>
+        <item>在设置中开启位置功能，水印里就会带上位置数据，包含精确的经纬度。</item>
+        <item>会的，偏好设置和所有设置都会保存并顺利生效。</item>
+        <item>这个功能即将推出。</item>
+        <item>请查看官方 GitHub 仓库获取更新。</item>
+        <item></item>
     </string-array>
-    <string name="dialog_welcome_title">欢迎使用FadCam！</string>
+    <string name="dialog_welcome_title">欢迎使用 Joy Creator！</string>
     <string name="note_under_dev">重要提示: 本软件仍处于开发阶段，新功能会逐步加入。</string>
     <string name="stay_updated_title">保持更新：</string>
     <string name="community_title">加入官方社区:</string>
-    <string name="thankyou_msg">感谢你使用FadCam!</string>
+    <string name="thankyou_msg">感谢你使用 Joy Creator！</string>
     <string name="settings_title">设置</string>
     <string name="array_watermark_time_fadcam">时间与\"Joy Creator\"字样</string>
     <string name="array_watermark_timeonly">仅时间</string>
@@ -266,7 +255,7 @@
     <string name="dialog_audio_invalid_bitrate">比特率无效。请输入64000至384000之间的值。</string>
     <string name="dialog_audio_invalid_sampling_rate">采样率无效。请输入44100或48000。</string>
     <string name="dialog_audio_settings_summary">配置音频比特率和采样率以获得最佳质量。默认值：192000 bps，48000 Hz，立体声。</string>
-    <string name="dialog_audio_info_text">• 比特率 (bps) 控制音频质量和文件大小。较高的值意味着更好的质量但文件更大。192000对大多数用途来说是一个很好的默认值。\n• 采样率 (Hz) 是每秒捕获音频的次数。48000 Hz是视频的标准，44100 Hz是音频常用的。\n推荐大多数用户使用：192000 bps，48000 Hz。</string>
+    <string name="dialog_audio_info_text">• 比特率（bps）决定音质和文件大小。数值越高音质越好，文件也越大。192000 适合大多数情况。• 采样率（Hz）是每秒采集声音的次数。视频常用 48000 Hz，音频常用 44100 Hz。  大多数人推荐：192000 bps、48000 Hz。</string>
     <string name="dialog_audio_noise_suppression_label">降噪</string>
     <!-- Debug Settings -->
     <string name="setting_debug_title">调试日志</string>
@@ -274,17 +263,17 @@
     <string name="note_debug_extra">启用后，将在Downloads/Joy Creator文件夹中创建调试日志文件。这有助于诊断应用问题。</string>
     <!-- Onboarding Settings -->
     <string name="setting_onboarding_title">下次启动时显示引导</string>
-    <string name="note_onboarding">启用后，下次打开FadCam时将看到应用介绍和权限指南。</string>
+    <string name="note_onboarding">开启后，下次打开 Joy Creator 时会再次显示应用介绍和权限指南。</string>
     <!-- Auto Update Settings -->
     <string name="setting_auto_update_check_title">启动时自动检查更新</string>
-    <string name="note_auto_update_check">如果启用，FadCam将在您每次打开应用时检查更新。关闭以禁用启动时自动检查更新。\n(默认: 开)</string>
+    <string name="note_auto_update_check">开启后，每次打开应用时 Joy Creator 都会检查更新。关闭则不再在启动时自动检查。\n（默认：开）</string>
     <!-- Storage Location Settings -->
     <string name="storage_location_title">存储位置</string>
     <string name="storage_location_description">选择保存录像的位置。</string>
     <string name="storage_location_internal">内部应用存储（默认，私有）</string>
     <string name="storage_location_custom">自定义位置（SD卡/其他，相册可见）</string>
     <string name="storage_location_choose_folder">选择文件夹</string>
-    <string name="storage_location_note">注意：使用自定义位置会使视频可被其他应用访问（例如，相册）。内部存储使视频对FadCam保持私有。</string>
+    <string name="storage_location_note">注意：使用自定义位置后，其他应用（例如相册）也能访问这些视频。内部存储则只有 Joy Creator 能访问。</string>
     <string name="storage_icon_description">存储图标</string>
     <string name="location_icon_description">位置图标</string>
     <string name="location_embedding_icon_description">位置嵌入图标</string>
@@ -313,16 +302,16 @@
     <string name="onboarding_intro_line3">为您而设计，而非广告商。</string>
     <string name="language_change_later_note">您可以稍后在设置中更改此项。</string>
     <string name="permissions_required">需要权限</string>
-    <string name="permissions_description">FadCam需要访问您的相机、麦克风和存储空间来录制和保存视频。</string>
+    <string name="permissions_description">Joy Creator 需要使用你的相机、麦克风和存储空间，才能录制和保存视频。</string>
     <string name="grant_permissions">授予权限</string>
     <string name="permissions_note">您必须授予所有权限才能继续。</string>
     <string name="permissions_granted">所有权限已授予！</string>
     <string name="open_settings">打开设置</string>
     <string name="disable_battery_optimization">禁用电池优化</string>
     <string name="onboarding_human_title">验证您是否为人类</string>
-    <string name="onboarding_human_desc">嗯... 好吧。这些规则是不可协商的。如果您不能同意，请立即卸载FadCam。</string>
-    <string name="onboarding_human_checkbox1">我不会使用FadCam违反任何法律、侵犯他人隐私或做令人不适的事情。如果我犯错，开发者概不负责。（那是我的责任。）</string>
-    <string name="onboarding_human_checkbox2">我在使用前就已经爱上了FadCam。（非可选）</string>
+    <string name="onboarding_human_desc">三件小事，然后这款应用就是你的了。</string>
+    <string name="onboarding_human_checkbox1">我会用 Joy Creator 做自己的作品，并尊重他人的隐私。</string>
+    <string name="onboarding_human_checkbox2">我已经爱上 Joy Creator 了，虽然还没打开过。（必选）</string>
     <string name="onboarding_human_button">让我进入！</string>
     <!-- Records Options and Empty State Strings -->
     <string name="sort_by">排序方式</string>
@@ -335,8 +324,8 @@
     <!-- Remote Tab Strings -->
     <string name="remote_access_title">远程访问/控制</string>
     <string name="remote_toast_coming_soon">即将推出！In Sha Allah</string>
-    <string name="remote_coming_soon">FadCam的远程控制功能即将推出。</string>
-    <string name="remote_feature_description">使用二维码配对FadCam客户端，实现安全的本地网络远程控制：开始/停止录制、预览、缩放、切换摄像头等功能—全部采用端到端加密。</string>
+    <string name="remote_coming_soon">Joy Creator 的远程控制即将推出。</string>
+    <string name="remote_feature_description">用二维码配对 Joy Creator 客户端，通过本地网络安全地远程控制：开始/停止录制、预览、变焦、切换摄像头等，全程端到端加密。</string>
     <!-- Strings for TrashFragment -->
     <string name="trash_auto_deleted_toast">已自动删除%1$d个旧项目。</string>
     <string name="trash_empty_toast_message">没有项目可删除。</string>
@@ -566,7 +555,7 @@
     <string name="watermark_style_timeonly_label">时间戳</string>
     <string name="watermark_style_badge_label">仅品牌标签</string>
     <string name="watermark_style_none_label">无水印</string>
-    <string name="helper_watermark_preview">水印将以此样式显示在录制视频的左上角。\n冷知识：Joy Creator v1.0 的首发时间为 2024年7月10日 下午04:47。</string>
+    <string name="helper_watermark_preview">水印会像这样显示在录制视频的左上角。</string>
     <string name="helper_location_watermark_option">切换是否将设备位置信息叠加在视频上，需要位置权限。</string>
     <string name="location_watermark_sheet_title">位置叠加</string>
     <string name="location_watermark_switch_label">位置叠加</string>
@@ -588,7 +577,7 @@
     <string name="widget_black_background_title">黑色背景</string>
     <string name="widget_arabic_date_title">阿拉伯历日期</string>
     <string name="widget_arabic_date_format_title">阿拉伯历日期格式</string>
-    <string name="widget_branding_title">FadSecLab 品牌标识</string>
+    <string name="widget_branding_title">Joy Creator 标识</string>
     <string name="widget_time_format_12h">12小时制 (3:30 PM)</string>
     <string name="widget_time_format_24h">24小时制 (15:30)</string>
     <string name="widget_option_enabled">已启用</string>
@@ -708,7 +697,7 @@
         ]]></string>
     <string name="recording_already_active">录制已在进行中或已暂停。</string>
     <string name="faditor_mini_coming_soon">即将推出——轻量级编辑器</string>
-    <string name="faditor_mini_toast">Faditor Mini—— 即将到来</string>
+    <string name="faditor_mini_toast">Studio，即将推出</string>
     <string name="helper_record_audio">切换视频中是否录制麦克风音频。</string>
     <string name="helper_audio_input_source">选择要使用的已连接麦克风/输入源。</string>
     <string name="helper_noise_suppression">实验性滤镜，用于降低背景噪音。</string>
@@ -752,14 +741,13 @@
     <string name="saf_permission_missing_dialog_message_for_start_recording">为将录制内容保存到自定义位置，Joy Creator 需要权限以访问您所选的文件夹。请在系统提示时授予访问权限。</string>
     <string name="grant_permission_button">授予权限</string>
     <string name="trash_auto_delete_picker_helper">选择何时自动删除垃圾箱中的项目。</string>
-    <string name="kofi_footer_text">匠心打造于 FadSecLab</string>
     <string name="choose_language">选择语言</string>
     <string name="onboarding_human_checkbox3">我同意隐私政策</string>
     <string name="applock_set_pin_enable">设置PIN码并启用</string>
     <string name="applock_helper_create">使用4位数字PIN码、密码或指纹为“录制”标签页创建保护。当应用进入后台时，该标签页将自动锁定。</string>
     <string name="applock_helper_manage_disabled">标签页锁定PIN码已设置。开启切换开关，即可在返回应用时要求输入PIN码。</string>
     <string name="applock_helper_enabled">标签页锁定已激活。离开应用后，当再次打开“录制”标签页时将需要输入PIN码。</string>
-    <string name="edit_with_faditorx">使用 Faditor X 编辑</string>
+    <string name="edit_with_faditorx">用 Studio 编辑</string>
     <string name="remote_coming_soon_badge">即将推出</string>
     <string name="changelog_label">更新日志</string>
     <string name="general">通用设置</string>
@@ -909,7 +897,7 @@
     <string name="settings_section_app">App</string>
     <string name="storage_helper_current_custom_uri_prefix">URI:</string>
     <string name="icon_zoom_in_ligature">zoom_in</string>
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="arabic_date_sample_full_arabic">٧ صفر ١٤٤٧</string>
     <string name="arabic_date_sample_mixed">7 صفر 1447</string>
     <string name="arabic_date_sample_english">7 Safar 1447</string>
@@ -920,7 +908,7 @@
     <string name="theme_pookiepink">软糯粉甜</string>
     <string name="theme_snowveil">雪色薄纱</string>
     <string name="coming_soon_toast">即将到来！因沙安拉。</string>
-    <string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
     <string name="full_changelog_info">完整的更新日志请前往首页：打开汉堡菜单，然后选择「更新内容」。</string>
     <string name="fadrec_start_screen_recording">开始屏幕录制</string>
     <string name="fadrec_stop_screen_recording">停止屏幕录制</string>
@@ -1204,7 +1192,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="digital_forensics_enable">启用数字取证</string>
 
 <!-- digital_forensics_enable_helper -->
-<string name="digital_forensics_enable_helper">将此视为您的智能证据传感器。启用后，FadCam会保存检测活动的时间线，方便您稍后跳转到重要时刻。</string>
+    <string name="digital_forensics_enable_helper">把它当作你的智能活动感应器。开启后，Joy Creator 会记录检测到的活动时间线，方便你之后跳到重要的时刻。</string>
 
 <!-- digital_forensics_event_dangerous_object -->
 <string name="digital_forensics_event_dangerous_object">危险物体标签</string>
@@ -1360,9 +1348,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="dual_cam_info_title">设备兼容性</string>
 
 <!-- dual_cam_info_unsupported_explanation -->
-<string name="dual_cam_info_unsupported_explanation">双摄像头录制需要您的设备同时运行前置和后置摄像头。这是一项硬件能力，取决于您设备的处理器和摄像头硬件。大多数2020年后的旗舰手机支持此功能。中端和旧设备通常不支持。
-
-这不是一个缺陷 — 这是您设备的硬件限制。</string>
+    <string name="dual_cam_info_unsupported_explanation">双摄录制需要你的设备同时使用前后两个摄像头。这取决于设备的处理器和摄像头硬件。2020 年以后的大多数旗舰手机都支持，中端和较旧的设备通常不支持。\n\n这不是故障，而是你的设备硬件所限。</string>
 
 <!-- dual_cam_info_unsupported_status -->
 <string name="dual_cam_info_unsupported_status">✗ 您的设备不支持双摄像头录制。</string>
@@ -1489,15 +1475,6 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <!-- export_status -->
 <string name="export_status">导出状态</string>
 
-<!-- fadcam_pro_column_label -->
-
-<!-- fadcam_pro_header_button -->
-<string name="fadcam_pro_header_button">专业版</string>
-
-<!-- fadcam_pro_plus_label -->
-
-<!-- fadcam_pro_proplus_label -->
-
 <!-- faditor_add_asset_image -->
 <string name="faditor_add_asset_image">图片（5秒静态）</string>
 
@@ -1598,7 +1575,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_delete_projects_title">删除项目？</string>
 
 <!-- faditor_editor_title -->
-<string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
 
 <!-- faditor_empty_desc -->
 <string name="faditor_empty_desc">点击"开始新项目"选择视频并开始编辑</string>
@@ -1637,8 +1614,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_export_confirm_action">立即导出</string>
 
 <!-- faditor_export_confirm_helper -->
-<string name="faditor_export_confirm_helper">%1$s • %2$d 个片段%3$s
-导出以后台服务运行 — 您可以关闭应用，导出将继续。</string>
+    <string name="faditor_export_confirm_helper">%1$s • %2$d 个片段%3$s\n导出在后台服务中运行，你可以关闭应用，它会继续导出。</string>
 
 <!-- faditor_export_confirm_subtitle -->
 <string name="faditor_export_confirm_subtitle">导出将在后台继续</string>
@@ -1665,7 +1641,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_export_info">%1$s • %2$d 个片段%3$s • H.264 + AAC</string>
 
 <!-- faditor_export_notif_channel -->
-<string name="faditor_export_notif_channel">Faditor导出</string>
+    <string name="faditor_export_notif_channel">Studio 导出</string>
 
 <!-- faditor_export_notif_channel_desc -->
 <string name="faditor_export_notif_channel_desc">正在进行的视频导出的通知</string>
@@ -1731,13 +1707,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_home_tagline">轻量级视频编辑器</string>
 
 <!-- faditor_info_convert_desc -->
-<string name="faditor_info_convert_desc">FadCam以防崩溃格式（称为分段MP4即fMP4）录制。与具有一个最终容器的标准MP4不同，fMP4将视频写入小的独立块。这意味着即使应用崩溃或录制突然停止，您的录像也能保持完整。
-
-然而，外部视频播放器、相册应用和文件管理器将无法拖动、预览或显示这些文件的正确时长。这不是一个缺陷 — 这是为提高可靠性而做出的有意的设计权衡。
-
-如果您计划将视频存储在FadCam之外（Google Drive、计算机或任何其他位置），必须先进行转换。否则文件将无法正常播放。
-
-转换方法：只需在此处（Faditor Mini）打开视频并点击导出。转换后的标准MP4将出现在您的记录选项卡中，即可保存到相册或分享到任何地方。该过程即时且无损 — 无需重新编码或降低质量。</string>
+    <string name="faditor_info_convert_desc">Joy Creator 用一种防崩溃的格式录制，叫分段 MP4（fMP4）。普通 MP4 只有一个收尾完成的容器，而 fMP4 把视频分成许多小而独立的片块来写入。这样即使应用崩溃或录制突然中断，你的素材也完好无损。\n\n不过，外部的视频播放器、相册应用和文件管理器无法拖动进度、快速浏览，也无法显示这些文件的正确时长。这不是故障，而是为了可靠性做出的有意取舍。\n\n如果你打算把视频存到 Joy Creator 之外，比如 Google Drive、电脑或其他地方，必须先转换，否则这些文件将无法正常播放。\n\n转换方法：直接在 Studio 里打开这个视频并点按“导出”。转换好的标准 MP4 会出现在“录制文件”标签页里，可以保存到相册或分享到任何地方。这个过程瞬间完成且无损，不会重新编码，也不会损失画质。</string>
 
 <!-- faditor_info_convert_title -->
 <string name="faditor_info_convert_title">智能转换</string>
@@ -1749,17 +1719,13 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_info_export_title">导出的文件</string>
 
 <!-- faditor_info_how_desc -->
-<string name="faditor_info_how_desc">从您的设备或FadCam录制中选择任意视频。使用时间线逐帧裁剪，然后导出。所有处理均在您的设备本地完成 — 没有任何内容上传。
-
-您的编辑进度每几秒自动保存一次，在离开编辑器时也会保存，因此即使应用意外关闭也不会丢失工作。</string>
+    <string name="faditor_info_how_desc">从设备或 Joy Creator 的录制文件里选一个视频，用时间轴逐帧修剪，然后导出。所有处理都在你的设备上完成，不会上传任何内容。\n\n你的编辑进度每隔几秒以及每次离开编辑器时都会自动保存，就算应用意外关闭，也不会丢失任何成果。</string>
 
 <!-- faditor_info_how_title -->
 <string name="faditor_info_how_title">工作原理</string>
 
 <!-- faditor_info_projects_desc -->
-<string name="faditor_info_projects_desc">您的所有编辑会话都会显示以便快速访问。每个项目以小型JSON文件的形式存储在您的设备上，包含视频URI、裁剪点和时间戳 — 不会复制您的视频。项目每几秒自动保存一次，因此进度永不丢失。
-
-您可以使用多选清单图标删除不再需要的项目。删除项目仅删除编辑会话数据；您的原始视频文件保持不变。</string>
+    <string name="faditor_info_projects_desc">你所有的编辑记录都会列出来，方便快速打开。每个项目在设备上只是一个很小的 JSON 文件，里面记录视频地址、修剪点和时间戳，不会复制你的视频。项目每隔几秒自动保存，进度不会丢失。\n\n用多选清单图标可以删除不再需要的项目。删除项目只会移除编辑记录，你原来的视频文件不会受影响。</string>
 
 <!-- faditor_info_projects_title -->
 <string name="faditor_info_projects_title">最近项目</string>
@@ -1768,17 +1734,13 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_info_subtitle">关于内置编辑器您需要了解的一切</string>
 
 <!-- faditor_info_temp_desc -->
-<string name="faditor_info_temp_desc">当您加载fMP4视频进行编辑时，Faditor会检测文件是否需要"重新封装" — 一种无需重新编码即可添加拖放标记的快速转换。重新封装的文件会缓存在您的设备上，以便在您再次编辑同一视频时复用，节省时间和处理资源。
-
-您可以在每个项目旁看到其缓存大小（列在修改日期旁）。如果设备存储空间不足，您可以删除未使用的项目以清除其缓存的重新封装文件。
-
-这些临时缓存文件在您从此选项卡删除项目时会自动清理。</string>
+    <string name="faditor_info_temp_desc">载入 fMP4 视频进行编辑时，Studio 会检查文件是否需要\"重新封装\"，这是一种快速转换，只添加定位标记，不重新编码。重新封装后的文件会缓存在你的设备上，下次再编辑同一个视频时可以直接复用，省时间也省处理。\n\n每个项目的缓存大小会显示在它的修改日期旁边。如果设备存储空间不足，可以删除不用的项目来清除它们的缓存文件。\n\n在这个标签页里删除项目时，这些临时缓存文件也会自动清理掉。</string>
 
 <!-- faditor_info_temp_title -->
 <string name="faditor_info_temp_title">临时文件和缓存</string>
 
 <!-- faditor_info_title -->
-<string name="faditor_info_title">关于Faditor Mini</string>
+    <string name="faditor_info_title">关于 Studio</string>
 
 <!-- faditor_mini_subtitle -->
 <string name="faditor_mini_subtitle">精确裁剪和导出您的视频</string>
@@ -1787,7 +1749,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_new_project">新建项目</string>
 
 <!-- faditor_no_recordings -->
-<string name="faditor_no_recordings">尚未找到录制文件。开始使用FadCam录制即可在这里看到您的视频。</string>
+    <string name="faditor_no_recordings">还没有找到录制文件。用 Joy Creator 开始录制，就能在这里看到你的视频。</string>
 
 <!-- faditor_play_pause -->
 <string name="faditor_play_pause">播放或暂停</string>
@@ -1796,7 +1758,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_recent_projects">最近项目</string>
 
 <!-- faditor_recordings_helper -->
-<string name="faditor_recordings_helper">从您的活跃存储位置使用FadCam录制的视频</string>
+    <string name="faditor_recordings_helper">用 Joy Creator 在当前存储位置录制的视频</string>
 
 <!-- faditor_redo -->
 <string name="faditor_redo">重做</string>
@@ -1826,7 +1788,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_selected_count">已选 %1$d 项</string>
 
 <!-- faditor_source_chooser_desc -->
-<string name="faditor_source_chooser_desc">从相册选择视频或从FadCam录制中选择</string>
+    <string name="faditor_source_chooser_desc">从相册里选一个视频，或从 Joy Creator 的录制文件里选一个</string>
 
 <!-- faditor_speed_reset -->
 <string name="faditor_speed_reset">重置为1倍</string>
@@ -1890,7 +1852,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="faditor_undo">撤销</string>
 
 <!-- faditor_version_info -->
-<string name="faditor_version_info">Faditor Mini · 第一阶段 · 裁剪 + 导出</string>
+    <string name="faditor_version_info">Studio · 第 1 阶段 · 修剪 + 导出</string>
 
 <!-- faditor_video_count -->
 <string name="faditor_video_count">%1$d 个视频</string>
@@ -2115,11 +2077,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="forensics_heatmap_legend">亮点表示重复活动。暗点表示活动较少。</string>
 
 <!-- forensics_info_body -->
-<string name="forensics_info_body">证据库存储在活跃录制会话期间捕获的快照。
-
-快照是独立的证据文件，即使源视频被移动或删除，仍可查看。
-
-对于视频关联的项目，可查看证据详情中的照片查看器，在可用时跳转到源录像。</string>
+    <string name="forensics_info_body">快照库保存录制期间拍下的快照。\n\n快照是独立的文件，即使源视频被移动或删除，仍然可以查看。\n\n对于关联视频的项目，可以在照片查看器里用快照详情跳到对应的视频位置（如果还在的话）。</string>
 
 <!-- forensics_info_helper -->
 <string name="forensics_info_helper">录制期间捕获快照后，证据将立即出现在此处。</string>
@@ -2254,7 +2212,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="fullscreen_preview_close">关闭全屏</string>
 
 <!-- fullscreen_preview_enter -->
-<string name="fullscreen_preview_enter">FadCam预览</string>
+    <string name="fullscreen_preview_enter">Joy Creator 预览</string>
 
 <!-- fullscreen_preview_not_recording -->
 <string name="fullscreen_preview_not_recording">请先开始录制以使用全屏预览</string>
@@ -2404,10 +2362,10 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="home_elapsed_display_option_desc">在紧凑内联已用时间和数字时钟格式之间切换</string>
 
 <!-- home_elapsed_flag_helper -->
-<string name="home_elapsed_flag_helper">选择是否在已用时间后显示FadSec Lab标志。</string>
+    <string name="home_elapsed_flag_helper">选择是否在已录时长计时器后面显示强调色条。</string>
 
 <!-- home_elapsed_flag_hide -->
-<string name="home_elapsed_flag_hide">隐藏FadSec Lab标志</string>
+    <string name="home_elapsed_flag_hide">隐藏强调色</string>
 
 <!-- home_elapsed_flag_hide_desc -->
 <string name="home_elapsed_flag_hide_desc">保持已用计时器区域简洁，不带旗帜装饰</string>
@@ -2416,10 +2374,10 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="home_elapsed_flag_option">标志强调</string>
 
 <!-- home_elapsed_flag_option_desc -->
-<string name="home_elapsed_flag_option_desc">显示或隐藏计时器后的FadSec Lab标志</string>
+    <string name="home_elapsed_flag_option_desc">显示或隐藏计时器后面的强调色条</string>
 
 <!-- home_elapsed_flag_show -->
-<string name="home_elapsed_flag_show">显示FadSec Lab标志（默认）</string>
+    <string name="home_elapsed_flag_show">显示强调色（默认）</string>
 
 <!-- home_elapsed_flag_show_desc -->
 <string name="home_elapsed_flag_show_desc">在计时器后显示品牌旗帜装饰</string>
@@ -2564,8 +2522,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="intel_key_observations">关键观察</string>
 
 <!-- intel_no_data -->
-<string name="intel_no_data">没有可用的情报数据。
-资产监控处于活动状态。</string>
+    <string name="intel_no_data">没有活动数据。\n活动监测已开启。</string>
 
 <!-- intel_objects -->
 <string name="intel_objects">物体</string>
@@ -2781,9 +2738,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="mini_app_torch_title">手电筒</string>
 
 <!-- mini_apps_planned_shortcuts_desc -->
-<string name="mini_apps_planned_shortcuts_desc">主屏幕快捷方式，无需先打开FadCam即可即时访问任何迷你应用。
-
-基于Intent的自动化支持（Tasker、MacroDroid等），用于以编程方式触发迷你应用 — 从自动化工作流中使用二维码扫描、手电筒等功能。</string>
+    <string name="mini_apps_planned_shortcuts_desc">主屏幕快捷方式，无需先打开 Joy Creator 就能直接使用任何小应用。\n\n支持基于 Intent 的自动化（Tasker、MacroDroid 等），可以用程序触发小应用：在你的自动化流程里使用二维码扫描、手电筒等功能。</string>
 
 <!-- mini_apps_planned_shortcuts_title -->
 <string name="mini_apps_planned_shortcuts_title">计划中：快捷方式和自动化</string>
@@ -2879,33 +2834,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="motion_lab_fps_value">%1$d 帧/秒</string>
 
 <!-- motion_lab_info_body -->
-<string name="motion_lab_info_body">这是FadCam的运动自动录制功能。
-
-简单来说的工作原理：
-- 您的摄像头保持活动状态，在设备上实时分析帧。
-- 设备上的机器学习和运动逻辑寻找移动。
-- 检测到有效运动时，录制开始/继续。
-- 在运动持续期间录制一直进行。
-- 运动停止后，延后录制继续录制您选择的额外秒数。
-- 然后录制暂停，等待下一次运动事件。
-
-录制暂停时，应用仍在内存中分析帧，但在再次检测到运动前不会写入新的视频数据。
-
-如何使用（大多数用户）：
-- 将所有选项保持为默认值。
-- 在此屏幕上开启运动传感器。
-- 前往主页选项卡并正常开始录制。
-- 基于运动的自动录制将自动运行。
-
-从远处轻松测试：
-- 在此屏幕上开启自动手电筒。
-- 从主页选项卡开始录制。
-- 将手机倾斜放在桌子或架子上，面向房间。
-- 离开房间，然后进入并走动。
-- 手电筒开启可帮助您从远处立即注意到录制已开始。
-- 录制将在运动停止后持续您选择的延后录制时长。
-
-提示：此功能持续运行，因此非常高的高级值会增加发热，并可能随时间降低设备健康度。对于长时间会话，除非有特殊原因，请保持默认值。</string>
+    <string name="motion_lab_info_body">这是 Joy Creator 的“检测到动静自动录制”功能。\n\n简单说它是这样工作的：\n- 你的相机保持开启，并在设备上实时分析画面。\n- 设备上的机器学习模型和动作判断逻辑会寻找移动的物体。\n- 一旦检测到有效的动静，就开始或继续录制。\n- 动静持续期间，录制不会停。\n- 动静停止后，后延录制会再多录你所选的几秒。\n- 然后录制暂停，等待下一次动静。\n\n录制暂停时，应用仍会在内存中分析画面，但在再次检测到动静之前，不会写入新的视频数据。\n\n怎么用（适合大多数人）：\n- 所有选项保持默认值。\n- 在这个页面打开动静感应。\n- 回到主页标签，像平常一样开始录制。\n- 基于动静的自动录制就会自动运行。\n\n远距离轻松测试：\n- 在这个页面打开自动手电筒。\n- 在主页标签开始录制。\n- 把手机斜放在桌子或架子上，对着房间。\n- 离开房间，然后走进来。\n- 手电筒亮起，能让你从很远的地方立刻看出已经开始录制。\n- 动静停止后，录制会按你所选的后延时长继续一会儿。\n\n小提示：这个功能会持续运行，所以过高的高级数值会让手机发热，长期还会损耗设备寿命。长时间使用时，除非有特别的理由，否则请保持默认值。</string>
 
 <!-- motion_lab_info_cd -->
 <string name="motion_lab_info_cd">Motion Lab信息</string>
@@ -3050,9 +2979,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="privacy_black_gesture_triple">三次点击退出</string>
 
 <!-- privacy_black_gestures_helper -->
-<string name="privacy_black_gestures_helper">选择可用于退出隐私黑屏模式的手势。
-
-注意：应至少保留一种退出方式以避免卡死！</string>
+    <string name="privacy_black_gestures_helper">选择哪些手势可以用来退出隐私黑屏模式。\n\n注意：至少要保留一种退出方式，以免被困在里面！</string>
 
 <!-- privacy_black_gestures_title -->
 <string name="privacy_black_gestures_title">退出方式</string>
@@ -3070,11 +2997,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="privacy_black_mode_enabled_toast">隐私模式已启用</string>
 
 <!-- privacy_black_mode_helper -->
-<string name="privacy_black_mode_helper">如果您的设备在后台杀死了应用，您可以使用此功能保持应用在前台运行。
-
-会出现一个黑色屏幕叠加层，使屏幕看起来像关闭了一样，同时录制仍在继续。
-
-点击主页选项卡顶部标题中的FadCam图标即可激活。</string>
+    <string name="privacy_black_mode_helper">如果你的设备在后台把应用关掉，可以用这个功能让应用一直留在前台运行。\n\n屏幕上会盖一层黑色，看起来像熄屏，而录制仍在继续。\n\n点按“主页”标签顶部标题栏里的 Joy Creator 图标即可启用。</string>
 
 <!-- privacy_black_mode_title -->
 <string name="privacy_black_mode_title">隐私黑屏</string>
@@ -3131,10 +3054,10 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="records_batch_fab_label">批处理</string>
 
 <!-- records_batch_faditor -->
-<string name="records_batch_faditor">Faditor自动化</string>
+    <string name="records_batch_faditor">Studio 自动处理</string>
 
 <!-- records_batch_faditor_desc -->
-<string name="records_batch_faditor_desc">在不打开Faditor标签的情况下运行后台自动化。</string>
+    <string name="records_batch_faditor_desc">无需打开 Studio 标签页，直接在后台运行自动处理。</string>
 
 <!-- records_batch_faditor_export_standard -->
 <string name="records_batch_faditor_export_standard">导出为标准MP4</string>
@@ -3155,13 +3078,13 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="records_batch_faditor_queued">%1$d 个批量项目已在后台排队。</string>
 
 <!-- records_batch_faditor_sheet_title -->
-<string name="records_batch_faditor_sheet_title">批处理Faditor操作</string>
+    <string name="records_batch_faditor_sheet_title">批量 Studio 操作</string>
 
 <!-- records_batch_merge_done_title -->
 <string name="records_batch_merge_done_title">批量合并已完成</string>
 
 <!-- records_batch_notif_channel_desc -->
-<string name="records_batch_notif_channel_desc">记录批量保存和Faditor自动化任务的进度和结果。</string>
+    <string name="records_batch_notif_channel_desc">录制文件批量保存和 Studio 自动处理任务的进度与结果。</string>
 
 <!-- records_batch_notif_channel_name -->
 <string name="records_batch_notif_channel_name">批量媒体操作</string>
@@ -3341,7 +3264,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="records_filter_dual">双摄</string>
 
 <!-- records_filter_faditor -->
-<string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
 
 <!-- records_filter_faditor_all -->
 <string name="records_filter_faditor_all">全部</string>
@@ -3368,10 +3291,10 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="records_filter_helper_dual">双摄像头录制</string>
 
 <!-- records_filter_helper_faditor -->
-<string name="records_filter_helper_faditor">已编辑/导出的视频（Faditor）</string>
+    <string name="records_filter_helper_faditor">已编辑/已导出的视频（Studio）</string>
 
 <!-- records_filter_helper_faditor_all -->
-<string name="records_filter_helper_faditor_all">所有Faditor输出及相关文件。</string>
+    <string name="records_filter_helper_faditor_all">所有 Studio 输出及相关文件。</string>
 
 <!-- records_filter_helper_faditor_converted -->
 <string name="records_filter_helper_faditor_converted">将分片MP4转换为标准可拖动MP4，适用于外部播放器。</string>
@@ -3599,7 +3522,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="screenshot_accessibility_enable_needed">在无障碍中启用"Joy Creator截图"以在无录制提示的情况下使用此快捷方式。</string>
 
 <!-- screenshot_accessibility_service_desc -->
-<string name="screenshot_accessibility_service_desc">为FadRec快捷方式捕获截图并保存到Joy Creator。</string>
+    <string name="screenshot_accessibility_service_desc">为截图快捷方式截取屏幕，并保存到你的 Joy Creator 文件夹。</string>
 
 <!-- screenshot_capture_failed -->
 <string name="screenshot_capture_failed">无法捕获截图</string>
@@ -4138,9 +4061,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 <string name="watermark_timezone_title">时区</string>
 
 <!-- watermark_utm_helper -->
-<string name="watermark_utm_helper">UTM将地球分为60个区域，并将经纬度转换为以米为单位的东向和北向坐标。用于军事、测绘和地形图以进行精确网格定位。
-
-如何读取："42区 — 372,684m东, 3,512,334m北" = 北半球42区，东向372,684米，北向3,512,334米。</string>
+    <string name="watermark_utm_helper">UTM 把地球分成 60 个区域，并把经纬度换算成以米为单位的东距和北距。军方、测量人员和地形图用它来精确定位网格坐标。\n\n怎么读：“Zone 42N — 372,684m E, 3,512,334m N”表示北半球 42 区，东距 372,684 米（东西方向），北距 3,512,334 米（南北方向）。</string>
 
 <!-- watermark_utm_off -->
 <string name="watermark_utm_off">关</string>
@@ -4360,7 +4281,7 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
     <string name="settings_location_update_interval_5s">5.0 秒</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">来自 FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">来自 Joy Creator</string>
     <string name="annotation_quick_access">快速访问</string>
     <string name="annotation_annotate">标注</string>
     <string name="annotation_enable_tools">启用工具</string>
@@ -4574,4 +4495,585 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
     <string name="toast_failed_open_file">无法打开文件进行写入</string>
     <string name="toast_cannot_write_custom_dir">无法写入所选自定义目录</string>
     <string name="toast_failed_create_file">无法创建文件进行写入</string>
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">开始新的录制</string>
+    <string name="lobby_a11y_new_project">开始新项目</string>
+    <string name="lobby_a11y_new_character">创建新角色</string>
+    <string name="lobby_a11y_new_import">导入文件</string>
+    <string name="lobby_a11y_hero">%1$s：%2$s。%3$s。</string>
+    <string name="lobby_a11y_hero_empty">%1$s，里面还什么都没有</string>
+    <string name="lobby_a11y_library">打开 Library</string>
+    <string name="onboarding_a11y_checked">%1$s。已勾选。</string>
+    <string name="onboarding_a11y_unchecked">%1$s。未勾选。</string>
+    <string name="lobby_a11y_recent">%1$s，%2$s，%3$s</string>
+    <string name="faditor_tools_more">更多 %1$d 个</string>
+    <string name="faditor_tools_more_desc">显示所有工具</string>
+    <string name="capture_mode_camera">相机</string>
+    <string name="capture_mode_screen">屏幕</string>
+    <string name="capture_mode_mic">麦克风</string>
+    <string name="webcam_overlay">摄像头悬浮画面</string>
+    <string name="webcam_overlay_on">开</string>
+    <string name="webcam_overlay_off">关</string>
+    <string name="webcam_overlay_notification_title">摄像头悬浮画面已开启</string>
+    <string name="fadrec_recording_flash">正在录制！</string>
+    <string name="video_info_loading">加载中…</string>
+    <string name="faditor_timeline_resize_handle">拖动以调整时间轴和预览的大小</string>
+    <string name="faditor_export_preparing">正在准备导出…</string>
+    <string name="faditor_export_compositing">正在合成视频…</string>
+    <string name="faditor_export_finalizing">即将完成…</string>
+    <string name="faditor_font_picker_title">字体</string>
+    <string name="faditor_font_import">导入字体…</string>
+    <string name="faditor_font_row_selected">%1$s（已选）</string>
+    <string name="faditor_tool_opacity">不透明度</string>
+    <string name="faditor_tool_text">文字</string>
+    <string name="faditor_tool_sticker">图片</string>
+    <string name="faditor_text_hint">输入文字</string>
+    <string name="faditor_text_edit_title">编辑文字</string>
+    <string name="faditor_text_delete">删除</string>
+    <string name="faditor_text_selection_whole">全选</string>
+    <string name="faditor_text_selection_count">已选 %1$d 个</string>
+    <string name="faditor_text_selection_clear">清除</string>
+    <string name="faditor_text_style_undo">设置文字格式</string>
+    <string name="faditor_text_motion_range">文字动效范围</string>
+    <string name="faditor_trim_start_here">⇤ 从这里开始</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  铺满全程</string>
+    <string name="faditor_trim_end_here">到这里结束 ⇥</string>
+    <string name="faditor_split_playhead_text">把播放头移到文字内部才能分割</string>
+    <string name="faditor_split_playhead_sprite">把播放头移到精灵内部才能分割</string>
+    <string name="faditor_split_playhead_pip">把播放头移到画中画内部才能分割</string>
+    <string name="faditor_split_playhead_layer">把播放头移到图层内部才能分割</string>
+    <string name="faditor_trim_start_impossible">把播放头移到图层结尾之前，才能修剪开头</string>
+    <string name="faditor_trim_end_impossible">把播放头移到图层开头之后，才能修剪结尾</string>
+    <string name="faditor_heal_confirm_add">修复这次分割会在时间轴上增加 %1$s。可以吗？</string>
+    <string name="faditor_heal_confirm_remove">修复这次分割会从时间轴上去掉 %1$s。可以吗？</string>
+    <string name="faditor_locked_title">已锁定的对象</string>
+    <string name="faditor_locked_message">这个对象已锁定。要解锁并继续吗？</string>
+    <string name="faditor_locked_unlock">解锁并继续</string>
+    <string name="faditor_fx_static_hint">静态，点按 ◆ 添加动画</string>
+    <string name="faditor_fx_reorder_hint">再添加一个效果，才能调整效果链的顺序</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s 需要调整图层，已略过</string>
+    <string name="faditor_color_set">设置</string>
+    <string name="faditor_image_overlay_title">图片叠层</string>
+    <string name="faditor_image_overlay_desc">拖动移动，双指捏合缩放</string>
+    <string name="faditor_tool_silence">清理</string>
+    <string name="faditor_tool_loop">循环</string>
+    <string name="faditor_tool_settings">设置</string>
+    <string name="faditor_tool_sprites">精灵图</string>
+    <string name="sprite_editor_missing_image">找不到图集图片，请重新导入</string>
+    <string name="sprite_editor_no_project">没有找到项目，请先打开编辑器</string>
+    <string name="sprite_editor_default_name">精灵图</string>
+    <string name="sprite_editor_name_hint">精灵图集名称</string>
+    <string name="sprite_editor_cell_name_hint">格子名称（别名）</string>
+    <string name="sprite_editor_cell_enabled">开</string>
+    <string name="sprite_editor_cell_prefix">格子</string>
+    <string name="sprite_editor_save">保存</string>
+    <string name="sprite_editor_saved">精灵图集已保存</string>
+    <string name="sprite_editor_save_failed">保存失败，请再试一次</string>
+    <string name="sprite_editor_import_failed">无法导入这张图片</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">轴心</string>
+    <string name="sprite_editor_auto">自动</string>
+    <string name="sprite_editor_auto_applied">已识别网格：%1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">没找到清晰的网格，请用加减按钮手动设置</string>
+    <string name="sprite_editor_key">抠色</string>
+    <string name="sprite_editor_key_clear">抠色 ✕</string>
+    <string name="sprite_editor_key_pick_hint">点按要抠掉的背景颜色</string>
+    <string name="sprite_editor_key_cleared">已取消背景抠色</string>
+    <string name="sprite_editor_onion">洋葱皮</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">已从附属文件应用切分信息</string>
+    <string name="sprite_editor_sidecar_import_failed">无法读取附属文件</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">附属文件已保存在图集图片旁边</string>
+    <string name="sprite_editor_sidecar_failed">无法写入附属文件</string>
+    <string name="sprite_sheet_picker_title">精灵图集</string>
+    <string name="sprite_sheet_picker_new">+ 新建精灵图集</string>
+    <string name="sprite_sheet_picker_avatars">🎭 头像工坊…</string>
+    <string name="sprite_sheet_action_edit">编辑图集</string>
+    <string name="sprite_sheet_action_place">放到视频上</string>
+    <string name="sprite_sheet_action_relink">重新链接图片…</string>
+    <string name="sprite_placed">精灵图已放置，在预览里拖动它</string>
+    <string name="sprite_palette_load">+ 载入精灵图集</string>
+    <string name="sprite_palette_cell_prefix">格子</string>
+    <string name="sprite_palette_no_cell">还没有画面，点按一个格子</string>
+    <string name="sprite_palette_end_prefix">结束：</string>
+    <string name="sprite_palette_swap_dropped">已在播放头处放下替换</string>
+    <string name="avatar_studio_title">头像</string>
+    <string name="avatar_studio_new">+ 新建头像</string>
+    <string name="avatar_studio_default_name">头像</string>
+    <string name="avatar_studio_name_hint">头像名称</string>
+    <string name="avatar_studio_save">保存</string>
+    <string name="avatar_studio_saved">头像已保存</string>
+    <string name="avatar_studio_save_failed">保存失败，请再试一次</string>
+    <string name="avatar_studio_no_project">没有找到项目，请先打开编辑器</string>
+    <string name="avatar_studio_add_part">+ 部件</string>
+    <string name="avatar_studio_pick_sheet">新部件使用的精灵图集</string>
+    <string name="avatar_studio_no_sheets">请先切分一张精灵图集（精灵图工具），部件要从图集里取图</string>
+    <string name="avatar_studio_part_name_hint">部件名称（头、身体、左臂…）</string>
+    <string name="avatar_studio_part_menu_parent">设置父级…</string>
+    <string name="avatar_studio_part_menu_unparent">清除父级</string>
+    <string name="avatar_studio_part_menu_remove">移除部件</string>
+    <string name="avatar_studio_parent_pick_title">%1$s 的父级</string>
+    <string name="avatar_studio_armed_hint">格子已就绪，拖动部件摆出这个极端姿势</string>
+    <string name="avatar_studio_disarm_hint">网格已空闲，滑块会带动混合</string>
+    <string name="avatar_studio_yaw">偏航</string>
+    <string name="avatar_studio_pitch">俯仰</string>
+    <string name="avatar_studio_cell_stepper">精灵图格子</string>
+    <string name="avatar_studio_scale">缩放</string>
+    <string name="avatar_studio_rotation">旋转</string>
+    <string name="avatar_studio_flip_h">水平翻转</string>
+    <string name="avatar_studio_flip_v">垂直翻转</string>
+    <string name="avatar_studio_mirror">镜像 ⇋</string>
+    <string name="avatar_studio_mirrored">已镜像到对面的格子</string>
+    <string name="avatar_studio_pins">⌖ 图钉</string>
+    <string name="avatar_studio_pin_del">✕ 图钉</string>
+    <string name="avatar_studio_density">网格密度</string>
+    <string name="avatar_studio_pin_add_disarmed">先让格子退出就绪状态，才能添加或移除图钉（静止链）</string>
+    <string name="avatar_studio_pins_reseeded">格子图钉已根据静止链重新生成</string>
+    <string name="avatar_studio_clear_cell">清空格子</string>
+    <string name="avatar_studio_cell_cleared">格子已清空，恢复自动混合</string>
+    <string name="faditor_tools_all_title">所有工具</string>
+    <string name="faditor_tools_edit">编辑</string>
+    <string name="faditor_tools_edit_done">完成</string>
+    <string name="faditor_tools_edit_tooltip">整理工具</string>
+    <string name="faditor_silence_audio_desc">剪掉这段音频里安静的空档并把前后接上。按一次撤销就能恢复。</string>
+    <string name="faditor_silence_audio_btn">剪掉空档</string>
+    <string name="faditor_tools_edit_hint">按住工具并拖到新位置。拖过工具栏边缘可以固定它。完成后点按“完成”。</string>
+    <string name="faditor_settings_tool_order_title">工具顺序</string>
+    <string name="faditor_settings_tool_order_desc">底部工具栏的排序方式：按你手动排的顺序，或最近用过的排在前面。</string>
+    <string name="faditor_settings_tool_order_recent">最近使用优先</string>
+    <string name="faditor_loop_off">关</string>
+    <string name="faditor_loop_normal">循环</string>
+    <string name="faditor_loop_pingpong">往返</string>
+    <string name="faditor_loop_pingpong_parked">往返（即将推出）</string>
+    <string name="faditor_loop_pingpong_parked_toast">真正的往返播放正在打磨中，即将推出。想要流畅的正向重复，请用“循环”。</string>
+    <string name="faditor_loop_still">定格</string>
+    <string name="faditor_loop_extend_start">延伸到开头</string>
+    <string name="faditor_loop_extend_end">延伸到结尾</string>
+    <string name="faditor_loop_extend_prev">延伸到上一个片段</string>
+    <string name="faditor_loop_extend_next">延伸到下一个片段</string>
+    <string name="faditor_tool_transitions">转场</string>
+    <string name="faditor_transitions">转场</string>
+    <string name="faditor_transition_crossfade">交叉淡化</string>
+    <string name="faditor_transition_black">黑场淡化</string>
+    <string name="faditor_transition_white">白场淡化</string>
+    <string name="faditor_transition_wipe">擦除</string>
+    <string name="faditor_transition_radial">放射</string>
+    <string name="faditor_transition_mirror">镜像擦除</string>
+    <string name="faditor_transition_push">推移</string>
+    <string name="faditor_transition_glitch">故障</string>
+    <string name="faditor_transition_tv_channel">电视换台</string>
+    <string name="faditor_transition_added">已在最近的接缝处添加转场</string>
+    <string name="faditor_transition_removed">已移除转场</string>
+    <string name="faditor_gl_transition_pick_title">选择 GL 效果</string>
+    <string name="faditor_visualizer_style_title">可视化样式</string>
+    <string name="faditor_transition_duration_title">转场时长</string>
+    <string name="faditor_transition_type_title">转场类型</string>
+    <string name="faditor_transition_remove">移除</string>
+    <string name="faditor_transition_direction_title">方向</string>
+    <string name="faditor_filter_title">滤镜与色彩</string>
+    <string name="faditor_filter_lut">风格（LUT）</string>
+    <string name="faditor_filter_lut_none">无</string>
+    <string name="faditor_filter_reset">全部重置</string>
+    <string name="faditor_filter_copy_all">把风格复制到所有片段</string>
+    <string name="faditor_filter_preset_save">存为预设…</string>
+    <string name="faditor_filter_preset_name_hint">预设名称</string>
+    <string name="faditor_filter_preset_delete">删除预设\"%s\"？</string>
+    <string name="faditor_filter_preset_applied">已应用预设\"%s\"</string>
+    <string name="faditor_tool_filter">滤镜</string>
+    <string name="faditor_tool_move">移动</string>
+    <string name="faditor_move_drawer_title">移动片段</string>
+    <string name="faditor_move_layer_up">上移</string>
+    <string name="faditor_move_layer_down">下移</string>
+    <string name="faditor_move_to_time_hint">时间码（00:00:00.000）或帧数</string>
+    <string name="faditor_move_clip_label">调整片段顺序</string>
+    <string name="faditor_move_clip_start">移到最前</string>
+    <string name="faditor_move_clip_left">左移一位</string>
+    <string name="faditor_move_clip_right">右移一位</string>
+    <string name="faditor_move_clip_end">移到最后</string>
+    <string name="faditor_move_clip_at_start">这个片段已经在最前面</string>
+    <string name="faditor_move_clip_at_end">这个片段已经在最后面</string>
+    <string name="faditor_move_clip_none">请先选择一个片段</string>
+    <string name="faditor_transition_need_two_clips">添加转场前，请先添加至少两个视频片段</string>
+    <string name="faditor_silence_detect_title">检测静音</string>
+    <string name="faditor_silence_detect_desc">安静的空档会标成黄色。在时间轴上点按黄色空档即可剪掉（变成黑色）。再点一次工具即可隐藏。</string>
+    <string name="faditor_silence_detect_btn">检测</string>
+    <string name="faditor_silence_found">已标出 %1$d 处静音空档，点按黄色的即可剪掉</string>
+    <string name="faditor_silence_title">去除静音</string>
+    <string name="faditor_silence_desc">自动剪掉这个片段里安静的空档和无声的部分。</string>
+    <string name="faditor_silence_sensitivity">灵敏度</string>
+    <string name="faditor_silence_analyzing">正在分析音频…</string>
+    <string name="faditor_silence_none">没有找到静音空档</string>
+    <string name="faditor_silence_image">这个片段没有可分析的音频</string>
+    <string name="faditor_silence_result">已去掉 %1$d 处空档，节省 %2$.1f 秒</string>
+    <string name="faditor_jump_to_time">跳到时间点</string>
+    <string name="faditor_relink_title">缺少媒体文件</string>
+    <string name="faditor_relink_msg">有 %1$d 个片段无法打开（来源文件被移动或无法访问）。要把它们重新链接到你的文件吗？你的编辑都会保留。</string>
+    <string name="faditor_relink_now">重新链接</string>
+    <string name="faditor_relink_later">稍后</string>
+    <string name="faditor_relink_sheet_title">重新链接缺失的视频</string>
+    <string name="faditor_relink_sheet_sub">正在查找：%1$s</string>
+    <string name="faditor_relink_auto_found">在同一文件夹里又找到 %1$d 个，已自动重新链接</string>
+    <string name="faditor_relink_replace_title">要替换这个视频吗？</string>
+    <string name="faditor_relink_replace_msg">为这个片段选另一个文件。你所有的编辑（修剪、剪切、字幕）都会保留。</string>
+    <string name="faditor_relink_replace">替换视频</string>
+    <string name="faditor_relink_catalog_title">媒体目录</string>
+    <string name="faditor_relink_repaired">已修复 %1$d / %2$d，点按任意 ✗ 重新链接</string>
+    <string name="faditor_relink_all_ok">所有媒体文件都能正常访问 ✓</string>
+    <string name="faditor_relink_all">↻ 重新链接所有缺失项</string>
+    <string name="faditor_relink_done">完成</string>
+    <string name="faditor_relink_missing">缺失</string>
+    <string name="faditor_relink_ok">正常</string>
+    <string name="faditor_relink_generated">已生成，缓存已清除</string>
+    <string name="faditor_relink_confirm_title">确认替换</string>
+    <string name="faditor_relink_confirm_msg">替换片段 #%1$d：\n\n  原来：%2$s（%3$s）\n  现在：%4$s（%5$s）\n\n所有编辑（修剪、剪切、字幕）都会保留。</string>
+    <string name="faditor_relink_confirm_yes">替换</string>
+    <string name="faditor_relink_skip">跳过这个</string>
+    <string name="faditor_relink_warn_same_file">⚠ 这个文件已被片段 #%1$d 使用。再次使用会让两个片段显示同样的画面。</string>
+    <string name="faditor_relink_warn_duration">⚠ 时长相差很大。原来是 %1$s，现在是 %2$s。修剪点可能需要重新调整。</string>
+    <string name="faditor_relink_err_type">✗ 文件类型不对。需要 %1$s，但选到的是 %2$s。</string>
+    <string name="faditor_relink_btn">媒体目录</string>
+    <string name="faditor_asset_browser">素材浏览器</string>
+    <string name="faditor_asset_browser_title">固定的文件夹</string>
+    <string name="faditor_asset_browser_pin_dir">选择文件夹</string>
+    <string name="faditor_asset_browser_change_dir">更换文件夹</string>
+    <string name="faditor_asset_browser_unpin">取消固定文件夹</string>
+    <string name="faditor_asset_browser_empty">这个文件夹里没有媒体文件</string>
+    <string name="faditor_asset_browser_no_dir">还没有固定文件夹。点按图钉图标来选择一个。</string>
+    <string name="faditor_asset_browser_pin_success">已固定：%1$s</string>
+    <string name="faditor_asset_browser_filter_all">全部</string>
+    <string name="faditor_asset_browser_filter_used">使用中</string>
+    <string name="faditor_asset_browser_filter_unused">未使用</string>
+    <string name="faditor_asset_browser_rename">重命名</string>
+    <string name="faditor_asset_browser_rename_title">重命名文件</string>
+    <string name="faditor_asset_browser_rename_hint">新名称（保留扩展名）</string>
+    <string name="faditor_asset_browser_rename_success">已重命名为 %1$s</string>
+    <string name="faditor_asset_browser_rename_error">无法重命名文件</string>
+    <string name="faditor_asset_browser_delete_title">从历史记录中移除？</string>
+    <string name="faditor_asset_browser_delete_msg">要把这个文件夹从固定历史中移除吗？这个文件夹里正在使用的文件仍会留在项目中。</string>
+    <string name="faditor_asset_browser_delete_blocked">无法移除：这个文件夹里的文件正在使用。</string>
+    <string name="faditor_asset_insert_at_playhead">在播放头处插入所选素材</string>
+    <string name="faditor_asset_drag_hint">长按并拖到时间轴</string>
+    <string name="faditor_asset_used_badge">使用中</string>
+    <string name="faditor_new_project_title">给项目起个名字（%1$d 个片段）</string>
+    <string name="faditor_new_project_hint">项目名称</string>
+    <string name="faditor_create">创建</string>
+    <string name="faditor_creating_project">正在创建项目…</string>
+    <string name="faditor_create_failed">无法用这些视频创建项目。</string>
+    <string name="faditor_transcript_delete_version_title">删除文字稿</string>
+    <string name="faditor_transcript_delete_version_msg">要从这个片段中移除\"%1$s\"文字稿吗？其他版本会保留。</string>
+    <string name="faditor_kf_section">动画（关键帧）</string>
+    <string name="faditor_kf_status">%1$d 个关键帧</string>
+    <string name="faditor_kf_hint_start">先摆好叠层位置，再点按 ◆ 开始制作动画。</string>
+    <string name="faditor_kf_hint_armed">已有 %1$d 个关键帧。现在只要移动播放头并拖动叠层，关键帧就会自动添加。</string>
+    <string name="faditor_kf_add">◆ 添加关键帧</string>
+    <string name="faditor_kf_added">已在播放头处添加关键帧</string>
+    <string name="faditor_kf_clear">清除</string>
+    <string name="faditor_kf_set_start">从这里开始</string>
+    <string name="faditor_kf_set_end">到这里结束</string>
+    <string name="faditor_kf_range_set">叠层时间已更新</string>
+    <string name="faditor_kf_range_invalid">请移动播放头，结束点必须在开始点之后。</string>
+    <string name="faditor_coachmark_gestures_title">编辑一个项目</string>
+    <string name="faditor_coachmark_gestures_body">双击编辑  ·  长按打开菜单  ·  拖动移动</string>
+    <string name="faditor_coachmark_got_it">知道了</string>
+    <string name="faditor_transitions_more_effects">⌄  更多效果</string>
+    <string name="faditor_transitions_fewer_effects">⌃  收起效果</string>
+    <string name="faditor_clean_audio_label">清理音频 v2</string>
+    <string name="faditor_clean_audio_desc">降噪、平滑音量起伏，并用两遍响度校正加真峰值限制。会增加导出时间。</string>
+    <string name="faditor_transcript">文字稿</string>
+    <string name="faditor_captions">字幕</string>
+    <string name="faditor_captions_need_transcript">请先转写这个片段，再添加字幕</string>
+    <string name="faditor_captions_done">完成</string>
+    <string name="faditor_transcript_clean">清理口头禅</string>
+    <string name="faditor_transcript_apply">确认</string>
+    <string name="faditor_transcript_committed">编辑已锁定，导出时会应用</string>
+    <string name="faditor_transcript_search">搜索文字稿</string>
+    <string name="faditor_transcript_break">在高亮词后切换换行</string>
+    <string name="faditor_transcript_pick_model">选择语音模型</string>
+    <string name="faditor_transcript_pick_model_sub">完全在手机上离线运行。只需下载一次。</string>
+    <string name="faditor_transcript_model_fast">快速对时</string>
+    <string name="faditor_transcript_model_fast_sub">约 40 MB · 最快 · 词语时间最准，用字较粗糙</string>
+    <string name="faditor_transcript_model_accurate">均衡</string>
+    <string name="faditor_transcript_model_accurate_sub">约 128 MB · 时间准、用字也准 · 运行速度约等于实时</string>
+    <string name="faditor_transcript_model_whisper">最佳用字</string>
+    <string name="faditor_transcript_model_whisper_sub">约 57 MB · 用字最准，时间稍松 · 运行最慢</string>
+    <string name="faditor_transcript_model_whisper_note">“最佳用字”使用 Whisper：用字最准，但在长片段里时间会逐渐偏移。“快速对时”和“均衡”使用 Vosk，它们的词语时间更精确，字幕同步和按文字编辑都要靠这个。两种各跑一次，就能合并成既用字准确、时间又准的轨道。</string>
+    <string name="faditor_transcribe_prompt_title">要转写这个视频吗？</string>
+    <string name="faditor_transcribe_prompt_message">为你刚添加的片段生成可搜索、可编辑的文字稿。完全离线运行。</string>
+    <string name="faditor_transcribe_prompt_dont_ask">不要再问我</string>
+    <string name="faditor_settings_title">编辑器设置</string>
+    <string name="faditor_settings_ask_transcribe_title">添加视频时询问是否转写</string>
+    <string name="faditor_settings_ask_transcribe_desc">把片段加入时间轴后，立刻弹出是否转写的提示。</string>
+    <string name="faditor_transcript_working">处理中…</string>
+    <string name="faditor_transcript_header_audio">音频 \u00b7 %1$s</string>
+    <string name="faditor_transcript_header_clip">片段 %1$d \u00b7 %2$s</string>
+    <string name="faditor_transcript_source">+ 来源</string>
+    <string name="faditor_transcript_offer_title">添加文字稿来源</string>
+    <string name="faditor_transcript_offer_message">为所选片段载入或生成文字稿。\n\n之后随时可以从文字稿标题栏或“+ 来源”按钮添加来源。</string>
+    <string name="faditor_transcript_offer_dont_show">不再显示</string>
+    <string name="faditor_transcript_image">这个片段没有可转写的音频</string>
+    <string name="faditor_transcript_empty">没有检测到语音</string>
+    <string name="faditor_transcript_error">转写失败：%1$s</string>
+    <string name="faditor_transcript_cleaned">已划掉 %1$d 个口头禅</string>
+    <string name="faditor_transcript_no_edits">还没有划掉任何词，长按词语即可删除</string>
+    <string name="faditor_blank_clip_length">黑场片段时长</string>
+    <string name="faditor_motion_start_here">动画从这里开始</string>
+    <string name="faditor_motion_span_whole">动画铺满整个对象</string>
+    <string name="faditor_motion_end_here">动画到这里结束</string>
+    <string name="faditor_zone_in_ends_here">入场到这里结束</string>
+    <string name="faditor_zone_clear">没有入场或出场</string>
+    <string name="faditor_zone_out_starts_here">出场从这里开始</string>
+    <string name="faditor_blank_clip_added">已添加黑场片段（%1$s）</string>
+    <string name="faditor_add_asset_audio">音频</string>
+    <string name="faditor_add_asset_pip">视频叠层（画中画）</string>
+    <string name="faditor_pip_added">视频叠层已放好，在预览里拖动它</string>
+    <string name="faditor_audio_import_added">音频已添加到时间轴</string>
+    <string name="faditor_audio_import_error">无法读取这个音频文件</string>
+    <string name="faditor_undo_ai_edits">AI 编辑</string>
+    <string name="faditor_heal_success">空档已无损修复</string>
+    <string name="faditor_heal_error">这里无法修复，太靠近边缘</string>
+    <string name="faditor_heal_title">修复播放头附近的空档？</string>
+    <string name="faditor_heal_msg">以无损剪切的方式去掉播放头附近的 %1$s。你可以撤销。</string>
+    <string name="faditor_delete_last_segments">无法删除唯一的片段</string>
+    <string name="faditor_crop_custom_ratio_title">自定义比例（宽:高）</string>
+    <string name="faditor_canvas_custom_res_title">自定义分辨率（宽×高）</string>
+    <string name="faditor_settings_safe_zone_title">9:16 安全区参考线</string>
+    <string name="faditor_settings_safe_zone_desc">在 9:16 画布上显示仅供预览的参考线，标出社交媒体的安全区域（平台界面会遮住的范围）。不会影响导出。</string>
+    <string name="faditor_crop_snap_on">居中吸附已开</string>
+    <string name="faditor_crop_snap_off">居中吸附已关</string>
+    <string name="faditor_crop_auto_applied">已自动裁剪</string>
+    <string name="faditor_crop_no_black_bars">没有找到黑边，改用比例裁剪</string>
+    <string name="faditor_crop_error">请选择一个要裁剪的视频片段</string>
+    <string name="faditor_soft_snap_on">轻吸附已开</string>
+    <string name="faditor_soft_snap_off">轻吸附已关</string>
+    <string name="faditor_export_complete_summary_audio">你的音频已保存在 Joy Creator 文件夹里，可以在 Library 中找到。</string>
+    <string name="faditor_reverse_long_loop_later">长循环的倒放以后再推出，目前这个循环的尾部仍按正向播放。</string>
+    <string name="faditor_export_filename_label">文件名</string>
+    <string name="faditor_export_result_play">播放你刚导出的视频</string>
+    <string name="faditor_export_result_open_records">点按播放 · 在录制文件中查看</string>
+    <string name="faditor_export_no_room">这部手机的可用空间不够完成这次导出。请腾出约 %1$s（删除旧的导出文件或不需要的视频）后再试。你的项目是安全的。</string>
+    <string name="faditor_export_prepare_failed">导出没能准备好，多半是手机内存或空间不足。请关闭其他应用、腾出一些空间后再试。你的项目是安全的。</string>
+    <string name="faditor_export_snapshot_unreadable">导出无法开始，因为读不到你的项目。请再试一次。你的项目是安全的。</string>
+    <string name="faditor_export_copy_failed_title">导出完成了，但没有放进你的文件夹</string>
+    <string name="faditor_export_copy_failed_summary">复制到你选的文件夹没有成功（手机可能已满）。你的视频 %1$s 安全地留在 Joy Creator 里，可以在 Library 中找到。</string>
+    <string name="faditor_export_copy_failed_toast">你的视频已经做好，但没能复制到你选的文件夹（手机可能已满）。它安全地留在 Joy Creator 里，可以在 Library 中找到。</string>
+    <string name="battery_optimization_off">电池优化已关闭</string>
+    <string name="stream_notes_cellular">⚠️ 仅限 Wi-Fi：手机网络会拦截传入连接，所以观看端和这部手机必须连接同一个 Wi-Fi。</string>
+    <string name="torchtimer_label">自动关闭定时器</string>
+    <string name="torchtimer_desc">闪光灯会在设定的时间后自动关闭</string>
+    <string name="torchtimer_off">关</string>
+    <string name="torchtimer_picker_helper">只有闪光灯亮着时才开始计时</string>
+    <string name="torchtimer_cancel">取消定时</string>
+    <string name="torchtimer_30s">30 秒</string>
+    <string name="torchtimer_1m">1 分钟</string>
+    <string name="torchtimer_2m">2 分钟</string>
+    <string name="torchtimer_5m">5 分钟</string>
+    <string name="torchtimer_10m">10 分钟</string>
+    <string name="torchtimer_15m">15 分钟</string>
+    <string name="torchtimer_30m">30 分钟</string>
+    <string name="torchtimer_1h">1 小时</string>
+    <string name="torchtimer_custom_title">设置自定义定时</string>
+    <string name="torchtimer_custom_unit_helper">选择时间单位</string>
+    <string name="torchtimer_custom_hint">输入时长</string>
+    <string name="torchtimer_custom_minutes_example">例如：5 表示 5 分钟</string>
+    <string name="torchtimer_custom_hours_example">例如：2 表示 2 小时</string>
+    <string name="torchtimer_custom_apply">应用</string>
+    <string name="torchtimer_custom_error_positive">时长必须大于 0</string>
+    <string name="torchtimer_custom_error_invalid">数字无效</string>
+    <string name="setting_on">开</string>
+    <string name="menu_auto_pause_title">菜单打开时自动暂停</string>
+    <string name="button_state_tint_title">悬浮按钮录制时变色</string>
+    <string name="record_no_room_to_start">这部手机的空间不够录制。请腾出一些空间后再试。</string>
+    <string name="record_stopped_low_space">手机快满了，所以录制已停止。到目前为止录下的内容都已保存。</string>
+    <string name="record_stopped_write_problem">录制内容无法再继续保存，所以已停止。在那之前录下的内容都保留着。</string>
+    <string name="faditor_m12_select_clip_first">请先选择主轨上的一个片段</string>
+    <string name="faditor_m12_select_object_first">请先选择图层上的一个对象</string>
+    <string name="faditor_m12_only_video_images">主轨上只能放视频和图片</string>
+    <string name="faditor_m12_need_one_clip">主轨上至少要有一个片段</string>
+    <string name="faditor_m12_moved_to_layer">已移到图层</string>
+    <string name="faditor_m12_moved_to_main">已移到主轨</string>
+    <string name="faditor_m12_undo_to_layer">移到图层</string>
+    <string name="faditor_m12_undo_to_main">移到主轨</string>
+    <string name="faditor_text_decor_section">样式</string>
+    <string name="faditor_text_decor_stroke">描边</string>
+    <string name="faditor_text_decor_glow">发光</string>
+    <string name="faditor_text_decor_shadow">阴影</string>
+    <string name="faditor_text_decor_plate">背景</string>
+    <string name="faditor_mask_action">蒙版</string>
+    <string name="faditor_mask_title">蒙版</string>
+    <string name="faditor_mask_remove">移除</string>
+    <string name="faditor_mask_x">中心 X</string>
+    <string name="faditor_mask_y">中心 Y</string>
+    <string name="faditor_mask_w">宽度</string>
+    <string name="faditor_mask_h">高度</string>
+    <string name="faditor_mask_round">圆角</string>
+    <string name="faditor_mask_rotate">旋转</string>
+    <string name="faditor_mask_soften">柔化边缘</string>
+    <string name="faditor_mask_only_inside">只显示框内</string>
+    <string name="faditor_mask_section_shape">形状</string>
+    <string name="faditor_kf_outside_span">把播放头移到这个片段上，才能添加关键帧</string>
+    <string name="faditor_key_section">色度抠像</string>
+    <string name="faditor_key_enable">抠掉一种颜色</string>
+    <string name="faditor_key_color">抠像颜色</string>
+    <string name="faditor_key_eyedropper">从视频中取色</string>
+    <string name="faditor_key_eyedropper_failed">无法读取那个像素，请在片段显示时再试一次</string>
+    <string name="faditor_key_tap_prompt">点按要去掉的颜色</string>
+    <string name="faditor_key_tolerance">容差</string>
+    <string name="faditor_key_softness">边缘柔和度</string>
+    <string name="faditor_key_spill">收缩 / 扩张</string>
+    <string name="faditor_blend_action">混合模式</string>
+    <string name="faditor_blend_title">混合模式</string>
+    <string name="faditor_blend_export_note">混合模式会在导出时应用。预览里图层仍按正常显示。</string>
+    <string name="faditor_image_inert_mask">暂时还不适用于图片叠层，形状已保存，但不会影响预览或导出。</string>
+    <string name="faditor_image_inert_key">暂时还不适用于图片叠层，抠像设置已保存，但不会影响预览或导出。</string>
+    <string name="faditor_image_inert_fx">暂时还不适用于图片叠层，效果已保存，但不会影响预览或导出。</string>
+    <string name="faditor_image_fx_export_note">模糊等需要单独处理一遍的效果会被跳过，导出和这里都是如此。</string>
+    <string name="faditor_image_mask_export_note">图片上的蒙版会在导出时应用。预览里会显示整张图片，除非图片还带有效果、色度抠像或混合模式，这时这里也会应用蒙版。</string>
+    <string name="faditor_blend_normal">正常</string>
+    <string name="faditor_blend_multiply">正片叠底</string>
+    <string name="faditor_blend_screen">滤色</string>
+    <string name="faditor_blend_overlay">叠加</string>
+    <string name="faditor_blend_add">相加</string>
+    <string name="faditor_blend_difference">差值</string>
+    <string name="faditor_blend_color">颜色</string>
+    <string name="faditor_blend_darken">变暗</string>
+    <string name="faditor_blend_lighten">变亮</string>
+    <string name="faditor_blend_color_dodge">颜色减淡</string>
+    <string name="faditor_blend_color_burn">颜色加深</string>
+    <string name="faditor_blend_linear_burn">线性加深</string>
+    <string name="faditor_blend_hard_light">强光</string>
+    <string name="faditor_blend_soft_light">柔光</string>
+    <string name="faditor_blend_vivid_light">亮光</string>
+    <string name="faditor_blend_linear_light">线性光</string>
+    <string name="faditor_blend_pin_light">点光</string>
+    <string name="faditor_blend_hard_mix">实色混合</string>
+    <string name="faditor_blend_exclusion">排除</string>
+    <string name="faditor_blend_subtract">减去</string>
+    <string name="faditor_blend_divide">划分</string>
+    <string name="faditor_blend_darker_color">深色</string>
+    <string name="faditor_blend_lighter_color">浅色</string>
+    <string name="faditor_blend_hue">色相</string>
+    <string name="faditor_blend_saturation">饱和度</string>
+    <string name="faditor_blend_luminosity">明度</string>
+    <string name="faditor_blend_group_normal">正常</string>
+    <string name="faditor_blend_group_darken">变暗</string>
+    <string name="faditor_blend_group_lighten">变亮</string>
+    <string name="faditor_blend_group_contrast">对比</string>
+    <string name="faditor_blend_group_comparative">比较</string>
+    <string name="faditor_blend_group_color">颜色</string>
+    <string name="faditor_orphan_title">这个片段上的对象</string>
+    <string name="faditor_orphan_body">有 %1$d 个图层对象开始于你删除的那个片段。要保留它们并挂到下一个片段上，还是一起删除？</string>
+    <string name="faditor_orphan_keep">保留</string>
+    <string name="faditor_orphan_delete">一起删除</string>
+    <string name="faditor_orphan_remember">记住我的选择</string>
+    <string name="faditor_orphan_undo">删除图层对象</string>
+    <string name="faditor_orphan_removed">已移除 %1$d 个图层对象</string>
+    <string name="faditor_settings_orphan_title">已删除片段上的对象</string>
+    <string name="faditor_settings_orphan_desc">删除片段时，它上面的图层对象该怎么处理。当前：%1$s</string>
+    <string name="faditor_settings_orphan_ask">每次都问</string>
+    <string name="mini_apps_customize_title">自定义小应用</string>
+    <string name="mini_apps_show_count">显示数量</string>
+    <string name="mini_apps_show_count_desc">要显示的小应用数量</string>
+    <string name="desc_mini_apps_count_minus">减少数量</string>
+    <string name="desc_mini_apps_count_plus">增加数量</string>
+    <string name="mini_apps_reorder_footer">拖动以调整顺序</string>
+    <string name="quick_timer_desc">快速定时器说明</string>
+    <string name="quick_timer_label">定时器</string>
+    <string name="quick_mute_label">静音</string>
+    <string name="grid_lines_title">网格线</string>
+    <string name="grid_lines_subtitle">显示网格线</string>
+    <string name="desc_mini_apps_edit">编辑小应用</string>
+    <string name="records_repair_banner_title">修复提示条</string>
+    <string name="records_repair_banner_dismiss">忽略</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">接着做你碰过的任何作品</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">录制</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">头像</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">Joy Brush</string>
+    <string name="lobby_hero_new">新建</string>
+    <string name="lobby_new_recording">录制</string>
+    <string name="lobby_new_project">项目</string>
+    <string name="lobby_new_character">角色</string>
+    <string name="lobby_new_import">导入</string>
+    <string name="lobby_floor_finder">检测</string>
+    <string name="lobby_floor_remote">遥控</string>
+    <string name="lobby_floor_bits">小工具</string>
+    <string name="lobby_floor_packs">资源包</string>
+    <string name="lobby_floor_setup">设置</string>
+    <string name="lobby_empty_studio">还没有编辑过任何东西。开始一个项目，它就会在这里等你。</string>
+    <string name="lobby_empty_sprites">还没有图集。导入一张画，把它切成一帧一帧。</string>
+    <string name="lobby_empty_avatar">还没有角色。给一张图片装上骨骼，它就能动起来。</string>
+    <string name="lobby_empty_viz">还没有可视化效果。用你手头的任何声音做一个吧。</string>
+    <string name="lobby_empty_textlab">像电影海报一样的文字：铬金属、黄金、霓虹、火焰。选一个风格，然后输入。</string>
+    <string name="lobby_empty_joybrush">画点什么吧。它会自己保存。</string>
+    <string name="lobby_act_carry_on">继续</string>
+    <string name="lobby_act_open">打开</string>
+    <string name="lobby_act_record">录制</string>
+    <string name="lobby_act_start">开始一个</string>
+    <string name="lobby_act_new_drawing">画画</string>
+    <string name="intro_line_capture">带上你的脸一起录屏</string>
+    <string name="intro_line_record">视频录制，连熄屏时也能录</string>
+    <string name="intro_line_editor">真正的编辑器：图层、蒙版、关键帧</string>
+    <string name="intro_line_animation">动画：精灵图、骨骼、木偶</string>
+    <string name="intro_line_transcribe">绝不离开你手机的语音转写</string>
+    <string name="intro_line_secondcam">用第二部手机当摄像头，通过你自己的 Wi-Fi</string>
+    <string name="intro_line_ai">能直接编辑真实时间轴的 AI</string>
+    <string name="intro_start_creating">开始创作</string>
+    <string name="intro_promise">没有广告，没有订阅，\n没有水印。</string>
+    <string name="intro_promise_ever">导出永不收费。</string>
+    <string name="intro_story">我是在照顾三个幼儿的间隙，趁他们午睡做出了这个应用。它也是我养家的方式。如果它对你有帮助，你可以帮忙让它继续对所有人免费。</string>
+    <string name="intro_cta_start">开始创作</string>
+    <string name="intro_ai_note">Joy Creator 不运行任何服务器。如果你连接 AI，你的提示词会发给你选的服务商，我们看不到，也不抽成。</string>
+    <string name="intro_ai_have_key">已经有密钥了？</string>
+    <string name="intro_ai_add_now">现在添加</string>
+    <string name="intro_ai_later">稍后，在聊天里</string>
+    <string name="desc_select_mode">选择模式</string>
+    <string name="desc_delete_selected">删除所选</string>
+    <string name="desc_cancel_selection">取消选择</string>
+    <string name="desc_select_month">选择这个月</string>
+    <string name="desc_watch_remote_toggle">开始或停止推流</string>
+    <string name="desc_back">返回</string>
+    <string name="desc_decrease_named">减小%1$s</string>
+    <string name="desc_increase_named">增大%1$s</string>
+    <string name="desc_pip_expand">放大预览</string>
+    <string name="desc_pip_undock">取消停靠：让预览再次浮动</string>
+    <string name="desc_keyframe_toggle">播放头处的关键帧：点按添加或移除</string>
+    <string name="desc_transcript_show">显示文字稿</string>
+    <string name="desc_transcript_resize">拖动以调整文字稿面板大小</string>
+    <string name="desc_transcript_search">搜索文字稿</string>
+    <string name="desc_transcript_hide">隐藏文字稿</string>
+    <string name="desc_transcript_add_pass">再添加一次转写</string>
+    <string name="desc_search_prev">上一个搜索结果</string>
+    <string name="desc_search_next">下一个搜索结果</string>
+    <string name="desc_crop_auto">自动裁掉黑边</string>
+    <string name="desc_crop_snap_center">裁剪框吸附到中心</string>
+    <string name="desc_volume_keyframe">音量关键帧开或关</string>
+    <string name="desc_volume_mute">将所选音频静音或取消静音</string>
+    <string name="desc_opacity_keyframe">不透明度关键帧开或关</string>
+    <string name="desc_caption_keyframe">字幕样式关键帧开或关</string>
+    <string name="desc_keyframe_prev">上一个关键帧</string>
+    <string name="desc_keyframe_next">下一个关键帧</string>
+    <string name="desc_keyframe_delete">删除关键帧</string>
+    <string name="desc_keyframe_playhead">在播放头处添加、更新或移除关键帧</string>
+    <string name="desc_move_go">把片段移到输入的位置</string>
+    <string name="desc_word_earlier">把这个词提前一帧</string>
+    <string name="desc_word_later">把这个词延后一帧</string>
+    <string name="desc_word_center">以这个词为中心</string>
+    <string name="desc_hide_captions_clip">只隐藏这个片段的字幕</string>
+    <string name="desc_insert_playhead">在播放头处插入所选素材</string>
+    <string name="desc_layer_colour">设置图层颜色</string>
+    <string name="desc_visualizer_save">保存这个可视化样式</string>
+    <string name="desc_visualizer_export">把这个可视化样式导出到文件</string>
+    <string name="desc_visualizer_import">从文件导入可视化样式</string>
+    <string name="desc_wave_justify">垂直对齐</string>
+    <string name="desc_wave_data_mode">数据模式</string>
+    <string name="desc_wave_mirror">水平镜像</string>
+    <string name="desc_wave_center_mode">居中模式</string>
+    <string name="desc_wave_render_mode">渲染模式</string>
+    <string name="desc_wave_attach">附着到片段或分离</string>
 </resources>

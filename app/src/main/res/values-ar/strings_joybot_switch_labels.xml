@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_joybot_switch_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_label_preview">معاينة</string>
+    <string name="joybotswitch_label_torch">المصباح</string>
+    <string name="joybotswitch_label_record">تسجيل</string>
+    <string name="joybotswitch_label_visible">ظاهر</string>
+    <string name="joybotswitch_label_locked">مقفل</string>
+    <string name="joybotswitch_label_pinned">مثبّت</string>
+</resources>

@@ -53,6 +53,22 @@ class UnibrushSettingsViewTest {
         click(view, "Keep these settings and close")
     }
 
+    /** BRUSH-UI section K.3: with a picture maker, every slider shows a picture at both ends; Softness asks for dabs. */
+    @Test fun slidersShowPicturesAtBothEnds() {
+        val parts = ArrayList<TestStroke.Part>()
+        val view = UnibrushSettingsView(ChromeKit(context), UnibrushModes.presets().first(), StabilizerPreference(), View(context),
+            { _, _ -> }, {}, {}, {}, { _, _ -> }, endPicture = { _, _, _, part, _, _ -> parts += part; {} })
+        val pictures = descendants(view).filterIsInstance<android.widget.ImageView>().filter { it.contentDescription == null }
+        assertTrue("${pictures.size} end pictures", pictures.size >= 10)
+        // Attached and laid out, as on the phone: the pictures are asked for once their views have a size.
+        val activity = org.robolectric.Robolectric.buildActivity(android.app.Activity::class.java).setup().get()
+        activity.setContentView(view, ViewGroup.LayoutParams(420, 4000))
+        view.measure(View.MeasureSpec.makeMeasureSpec(420, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(4000, View.MeasureSpec.AT_MOST))
+        view.layout(0, 0, view.measuredWidth, view.measuredHeight)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(parts.toString(), parts.isNotEmpty())
+    }
+
     @Test fun cancelPutsTheModeBackAsItOpened() {
         val original = UnibrushModes.presets().first()
         var last: BrushPreset? = null

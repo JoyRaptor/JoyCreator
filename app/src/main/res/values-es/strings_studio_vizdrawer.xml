@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Forma</string>
+    <string name="studio_viz_sec_colour">Color</string>
+    <string name="studio_viz_sec_look">Aspecto</string>
+    <string name="studio_viz_sec_motion">Movimiento</string>
+    <string name="studio_viz_opacity">Opacidad</string>
+    <string name="studio_viz_softness">Suavidad</string>
+    <string name="studio_viz_gain">Ganancia</string>
+    <string name="studio_viz_spread">Dispersión</string>
+    <string name="studio_viz_blend">Mezcla</string>
+    <string name="studio_viz_mirror">Espejo</string>
+    <string name="studio_viz_trails">Estelas</string>
+    <string name="studio_viz_phase">Fase</string>
+    <string name="studio_viz_attack">Ataque</string>
+    <string name="studio_viz_release">Liberación</string>
+    <string name="studio_viz_glow">Brillo</string>
+    <string name="studio_viz_radius">Radio</string>
+    <string name="studio_viz_count">Cantidad</string>
+    <string name="studio_viz_speed">Velocidad</string>
+    <string name="studio_viz_hover_attack">Ataque: qué tan rápido sube, en ms</string>
+    <string name="studio_viz_hover_release">Liberación: qué tan rápido baja, en ms</string>
+    <string name="studio_viz_hover_radius">Radio del brillo</string>
+    <string name="studio_viz_hover_count">Cantidad de partículas</string>
+    <string name="studio_viz_hover_speed">Velocidad de las partículas</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

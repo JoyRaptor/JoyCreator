@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">Video</string>
+    <string name="home_rec_label_used">Usato</string>
+    <string name="home_rec_shot_label">Foto</string>
+    <string name="home_rec_shot_desc">Scatta una foto</string>
+    <string name="home_rec_full_label">Intero</string>
+    <string name="home_rec_full_desc">Anteprima a schermo intero</string>
+    <string name="home_rec_paused">Registrazione in pausa</string>
+    <string name="home_rec_mirror">Specchia la fotocamera frontale</string>
+    <string name="home_rec_sound_source">Sorgente del suono</string>
+    <string name="home_rec_live_viz">Visualizzatore dal vivo (tieni premuto per cambiare stile)</string>
+    <string name="home_rec_dismiss_gps">Chiudi l\'avviso sulla posizione</string>
+</resources>

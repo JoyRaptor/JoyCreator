@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Colonne lungo la sheet. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_rows">Righe lungo la sheet. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_margin_x">Spazio sul bordo sinistro e destro della sheet. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_margin_y">Spazio sul bordo alto e basso della sheet. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_spacing_x">Spazio tra le celle, da lato a lato. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_spacing_y">Spazio tra le celle, dall\'alto al basso. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_tolerance">Quanto un colore deve somigliare a quello da rimuovere per contare come sfondo. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_move_x">Sposta questo fotogramma a sinistra o a destra. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_move_y">Sposta questo fotogramma in su o in giù. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_scale">Ingrandisci o rimpicciolisci questo fotogramma. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_rotate">Ruota questo fotogramma, in gradi. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_pivot_x">Punto di rotazione, da sinistra a destra. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_pivot_y">Punto di rotazione, dall\'alto al basso. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_bake_pad">Spazio attorno a ogni fotogramma quando si fonde tutto in un\'immagine. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_onion_strength">Quanto si vedono forti i fantasmi dell\'onion skin. Trascina per cambiare, tocca per scrivere</string>
+    <string name="hover_sprite_onion_past">Fantasmi dei fotogrammi precedenti. Trascina per cambiare quanti, tocca per scegliere un colore</string>
+    <string name="hover_sprite_onion_future">Fantasmi dei fotogrammi successivi. Trascina per cambiare quanti, tocca per scegliere un colore</string>
+    <string name="hover_sprite_divider">Trascina per far diventare il pannello degli strumenti più alto o più basso</string>
+    <string name="hover_puppet_badge">Pin della marionetta. Tocca per posare, tieni premuto per aprire il cassetto dei pin</string>
+</resources>

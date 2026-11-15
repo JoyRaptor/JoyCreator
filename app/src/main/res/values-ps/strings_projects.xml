@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">نوې پروژه</string>
+    <string name="projects_new_a11y">نوې پروژه پیل کړئ له خپل تلیفون نه له یوې ویډیو، ستاسو له یو ثبت، یا یو خالي غږیز ټراک نه</string>
+    <string name="projects_classic_list">د Studio کلاسیک لیست</string>
+    <plurals name="projects_layers">
+        <item quantity="one">%d پرت</item>
+        <item quantity="other">%d پرتونه</item>
+    </plurals>
+    <string name="projects_open_failed">پروژه ونه خلاصېده.</string>
+    <string name="projects_open_failed_access">پروژه ونه خلاصېده — ښایي د سرچینې ویډیو لاسرسی ورک شوی وي.</string>
+    <string name="projects_untitled">بې نوم</string>
+</resources>

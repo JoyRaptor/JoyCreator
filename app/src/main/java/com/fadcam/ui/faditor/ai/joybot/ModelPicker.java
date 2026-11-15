@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.ai.joybot;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import android.app.Activity;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -85,7 +87,7 @@ public final class ModelPicker {
         final Set<String> stars = ModelCatalog.stars(a);
         final List<ModelCatalog.Model> shown = new ArrayList<>();
 
-        AlertDialog dialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(a)
+        AlertDialog dialog = StudioDialog.builder(a)
                 .setTitle("Choose a model")
                 .setView(root)
                 .setNegativeButton("Close", null)

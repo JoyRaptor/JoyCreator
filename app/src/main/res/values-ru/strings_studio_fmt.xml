@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Импортировано: %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Не удалось отрисовать слайд: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Не удалось собрать вместе: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Экспорт не удался: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Не удалось скопировать экспорт: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Импорт не удался: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Не удалось изменить порядок: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Ошибка изменения порядка: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Не удалось выровнять: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Это не похоже на слайд Studio: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Не удалось импортировать слайд: %1$s</string>
+</resources>

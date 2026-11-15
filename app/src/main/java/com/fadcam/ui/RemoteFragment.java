@@ -885,16 +885,24 @@ public class RemoteFragment extends BaseFragment {
         remoteAuthToggle.setChecked(authEnabled);
         updateSecurityRowsVisibility(authEnabled);
         
-        // Auth toggle listener
+        // Auth toggle listener. The lock is on by default and opens with the pairing code
+        // shown here (B3, 11-15), so turning it on no longer forces a password first.
         remoteAuthToggle.setOnCheckedChangeListener((buttonView, isChecked) -> {
             RemoteAuthManager.getInstance(requireContext()).setAuthEnabled(isChecked);
             updateSecurityRowsVisibility(isChecked);
-            
-            if (isChecked && !authManager.hasPassword()) {
-                // First time enabling - prompt for password
-                showSetPasswordSheet();
-            }
         });
+
+        // Pairing code: shown big; a tap makes a new one and signs every browser out.
+        View pairingRow = getView() != null ? getView().findViewById(R.id.remote_pairing_row) : null;
+        TextView pairingCode = getView() != null ? getView().findViewById(R.id.remote_pairing_code) : null;
+        if (pairingCode != null) pairingCode.setText(spacedCode(authManager.getPairingCode()));
+        if (pairingRow != null) {
+            pairingRow.setOnClickListener(v -> {
+                String code = authManager.newPairingCode();
+                if (pairingCode != null) pairingCode.setText(spacedCode(code));
+                Toast.makeText(requireContext(), R.string.remote_pairing_new, Toast.LENGTH_SHORT).show();
+            });
+        }
         // Auth enable row click — tapping anywhere on the row triggers the toggle.
         View remoteAuthEnableRow = getView() != null ? getView().findViewById(R.id.remote_auth_enable_row) : null;
         if (remoteAuthEnableRow != null) {
@@ -935,8 +943,15 @@ public class RemoteFragment extends BaseFragment {
     /**
      * Show/hide security rows based on auth enabled state
      */
+    /** "123456" shown as "123 456", easier to read across a room. */
+    private static String spacedCode(String code) {
+        return code != null && code.length() == 6 ? code.substring(0, 3) + " " + code.substring(3) : code;
+    }
+
     private void updateSecurityRowsVisibility(boolean authEnabled) {
         int visibility = authEnabled ? View.VISIBLE : View.GONE;
+        View pairing = getView() != null ? getView().findViewById(R.id.remote_pairing_row) : null;
+        if (pairing != null) pairing.setVisibility(visibility);
         remoteAuthPasswordRow.setVisibility(visibility);
         remoteAuthAutoLockRow.setVisibility(visibility);
         remoteAuthLogoutAllRow.setVisibility(visibility);

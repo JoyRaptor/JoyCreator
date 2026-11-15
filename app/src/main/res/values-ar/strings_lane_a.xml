@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">اسحب لتغيير الحجم، اضغط للإغلاق</string>
+    <string name="lane_a_toggle_mute">كتم</string>
+    <string name="lane_a_toggle_hide">إخفاء</string>
+    <string name="lane_a_toggle_lock">قفل</string>
+    <string name="lane_a_toggle_pass_through">اترك اللمسات تمر</string>
+    <string name="lane_a_toggle_start_here">ابدأ هنا</string>
+    <string name="lane_a_toggle_end_here">انتهِ هنا</string>
+    <string name="lane_a_toggle_split">قسّم عند رأس التشغيل</string>
+    <string name="lane_a_toggle_fx_bypass">تجاوز التأثيرات (أ/ب)</string>
+    <string name="lane_a_mask_add_shape">إضافة شكل قناع</string>
+    <string name="lane_a_mask_remove_shape">إزالة هذا الشكل</string>
+    <string name="lane_a_mask_shape_n">الشكل %1$d</string>
+    <string name="lane_a_step_down">خطوة للأسفل</string>
+    <string name="lane_a_step_up">خطوة للأعلى</string>
+    <string name="lane_a_key_green">إزالة الأخضر</string>
+    <string name="lane_a_key_blue">إزالة الأزرق</string>
+    <string name="lane_a_key_black">إزالة الأسود</string>
+    <string name="lane_a_key_white">إزالة الأبيض</string>
+    <string name="lane_a_pivot_title">محور الدوران</string>
+    <string name="lane_a_pivot_top_left">المحور: أعلى اليسار</string>
+    <string name="lane_a_pivot_top">المحور: أعلى</string>
+    <string name="lane_a_pivot_top_right">المحور: أعلى اليمين</string>
+    <string name="lane_a_pivot_left">المحور: يسار</string>
+    <string name="lane_a_pivot_centre">المحور: وسط</string>
+    <string name="lane_a_pivot_right">المحور: يمين</string>
+    <string name="lane_a_pivot_bottom_left">المحور: أسفل اليسار</string>
+    <string name="lane_a_pivot_bottom">المحور: أسفل</string>
+    <string name="lane_a_pivot_bottom_right">المحور: أسفل اليمين</string>
+    <string name="lane_a_sprite_prev_key">قدّم الإطار الرئيسي قليلًا</string>
+    <string name="lane_a_sprite_key">احذف الإطار الرئيسي تحت رأس التشغيل</string>
+    <string name="lane_a_sprite_next_key">أخّر الإطار الرئيسي قليلًا</string>
+    <string name="lane_a_sprite_open_lab">افتح في Sprite Lab</string>
+    <string name="lane_a_sprite_flip_h">اقلب أفقيًا</string>
+    <string name="lane_a_sprite_flip_v">اقلب رأسيًا</string>
+    <string name="lane_a_sprite_end">في النهاية: مرة واحدة أو تكرار أو ذهاب وإياب</string>
+    <string name="lane_a_sprite_record">سجّل الأداء</string>
+    <string name="lane_a_sprite_stop">أوقف التسجيل</string>
+    <string name="lane_a_sprite_sweep">تتبّع من الفيديو تحته</string>
+    <string name="lane_a_sprite_more">المزيد</string>
+    <string name="lane_a_sprite_dope">جدول الحركة</string>
+    <string name="lane_a_sprite_manage">لوحات الشخصيات</string>
+    <string name="lane_a_sprite_grip">اسحب للأعلى لصفوف أكثر وللأسفل لأقل</string>
+</resources>

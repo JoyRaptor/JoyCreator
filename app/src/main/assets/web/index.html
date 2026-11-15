@@ -6,13 +6,12 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>FadCam Remote</title>
-    <link rel="icon" type="image/png" href="assets/images/favicon.webp">
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css?v=2.11.0">
-    <!-- Avatar Component -->
-    <link rel="stylesheet" href="assets/avatar/avatar.css">
+    <title>Joy Creator · Remote Studio</title>
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/png" href="assets/images/joy_creator_icon.png">
+    <!-- Icons are local (css/icons.css): the page must work on a Wi-Fi with no internet -->
+    <link rel="stylesheet" href="css/icons.css?v=1">
+    <link rel="stylesheet" href="css/style.css?v=3.0.0">
     <style>
         /* Hero card and LED styles are in style.css - removed inline !important overrides */
     </style>
@@ -36,21 +35,22 @@
 <body>
     <!-- Top Bar -->
     <div class="top-bar">
-        <button class="hamburger-btn" id="sidebarToggle" title="Toggle sidebar">
+        <button class="hamburger-btn" id="sidebarToggle" title="Show or hide the phone panel" aria-label="Show or hide the phone panel">
             <span class="hamburger-line"></span>
             <span class="hamburger-line short-left"></span>
         </button>
         <h1>
-            <span id="headerLogoLink" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 8px;">
-                <img src="assets/images/favicon.webp" alt="FadCam" style="width: 28px; height: 28px; border-radius: 6px;">
-                FadCam Remote
+            <span id="headerLogoLink" class="brand-lockup">
+                <img src="assets/images/joy_creator_icon.png" alt="Joy Creator" class="brand-icon">
+                <span class="brand-name">Joy Creator</span>
+                <span class="brand-room">Remote Studio</span>
             </span>
         </h1>
         <!-- Header Actions (Notification + Profile) -->
         <div class="header-actions">
             <!-- Profile Button -->
             <div class="profile-container">
-                <button class="profile-btn" id="profileBtn" title="Profile & Security">
+                <button class="profile-btn" id="profileBtn" title="Password and sign-out" aria-label="Password and sign-out">
                     <i class="fas fa-user"></i>
                 </button>
             </div>
@@ -59,10 +59,10 @@
 
     <!-- Profile Dropdown (positioned at root for proper z-index stacking) -->
     <div class="profile-dropdown" id="profileDropdown">
-        <div class="profile-item" id="profileSecurityItem" onclick="showSecuritySettingsModal()">
+        <div class="profile-item" id="profileSecurityItem" onclick="showSecuritySettingsModal()" title="Password, auto-lock and signed-in browsers" role="button" tabindex="0">
             <i class="fas fa-shield-alt"></i> Security
         </div>
-        <div class="profile-item" id="profileLogoutItem" onclick="logoutNow()">
+        <div class="profile-item" id="profileLogoutItem" onclick="logoutNow()" title="Sign this browser out" role="button" tabindex="0">
             <i class="fas fa-sign-out-alt" id="profileLogoutIcon"></i> <span id="profileLogoutLabel">Logout</span>
         </div>
     </div>
@@ -75,48 +75,54 @@
         <div class="sidebar" id="sidebar">
             <!-- Sidebar Scrollable Content -->
             <div class="sidebar-content">
+            <!-- Hero: a flat panel with Joybot and the two status lines (no picture behind it) -->
             <div class="server-hero-card">
                 <div class="server-hero-bg" id="heroBackground"></div>
                 <div class="server-hero-content">
-                    <!-- Status Indicators - TOP RIGHT -->
-                    <div class="server-status-indicators">
-                        <!-- Status Grid - 2 columns, top-right positioned -->
-                        <div class="status-grid">
-                            <!-- Server Status Indicator -->
-                            <div class="status-group">
-                                <div class="led-dot online" id="serverLED"></div>
-                                <div class="status-text-col">
-                                    <span class="led-label">Server Status</span>
-                                    <span id="serverStatusLabel" class="status-value online-text">ONLINE</span>
+                    <!-- Joybot (idle loop from assets/joybot/idle.webp, as a PNG sheet) -->
+                    <div id="heroAvatarContainer" class="hero-avatar-container">
+                        <div class="joybot-sprite" role="img" aria-label="Joybot, Joy Creator's helper" title="Joybot"></div>
+                    </div>
+                    <div class="hero-text">
+                        <div class="hero-kicker">Capture · Remote Studio</div>
+                        <div class="hero-title">Your phone's camera, here</div>
+                        <div class="hero-sub">Works while this browser is on the same Wi-Fi as the phone.</div>
+                        <!-- Status lines -->
+                        <div class="server-status-indicators">
+                            <div class="status-grid">
+                                <!-- Phone connection -->
+                                <div class="status-group">
+                                    <div class="led-dot online" id="serverLED"></div>
+                                    <div class="status-text-col">
+                                        <span class="led-label">Phone</span>
+                                        <span id="serverStatusLabel" class="status-value online-text">ONLINE</span>
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <!-- Recording Status Indicator -->
-                            <div class="status-group">
-                                <div class="led-dot recording-led" id="recordingLED"></div>
-                                <div class="status-text-col">
-                                    <span class="led-label">Recording</span>
-                                    <span id="recordingStatusLabel" class="status-value recording-text">NOT RECORDING</span>
+
+                                <!-- Recording -->
+                                <div class="status-group">
+                                    <div class="led-dot recording-led" id="recordingLED"></div>
+                                    <div class="status-text-col">
+                                        <span class="led-label">Recording</span>
+                                        <span id="recordingStatusLabel" class="status-value recording-text">NOT RECORDING</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Avatar Container - BOTTOM RIGHT -->
-                    <div id="heroAvatarContainer" class="hero-avatar-container"></div>
                 </div>
             </div>
 
             <!-- Recording Message -->
             <div id="recordingMessage" class="recording-message"></div>
 
-            <!-- Server Room Section -->
-            <div class="section-heading" style="color: #f85149;">Server Room</div>
+            <!-- Phone details -->
+            <div class="section-heading">This phone</div>
 
             <!-- Info Cards Grid -->
             <div class="cards-grid">
                 <!-- Uptime Card -->
-                <div class="card-sm" onclick="showUptimeModal()">
+                <div class="card-sm" onclick="showUptimeModal()" title="How long the phone has been serving this page" role="button" tabindex="0">
                     <div class="card-clickable">
                         <i class="fas fa-clock card-icon-sm"></i>
                         <div class="card-sm-content">
@@ -128,7 +134,7 @@
                 </div>
 
                 <!-- Clients Card -->
-                <div class="card-sm" onclick="showClientsModal()">
+                <div class="card-sm" onclick="showClientsModal()" title="Browsers watching right now" role="button" tabindex="0">
                     <div class="card-clickable">
                         <i class="fas fa-users card-icon-sm"></i>
                         <div class="card-sm-content">
@@ -140,7 +146,7 @@
                 </div>
 
                 <!-- Battery Card - iOS Style -->
-                <div class="card-sm card-battery-ios" onclick="showBatteryModal()">
+                <div class="card-sm card-battery-ios" onclick="showBatteryModal()" title="Phone battery details" role="button" tabindex="0">
                     <div class="card-clickable battery-card-display">
                         <!-- Background Fill -->
                         <div class="card-ios-fill" id="batteryFill"></div>
@@ -186,7 +192,7 @@
                 </div>
 
                 <!-- Segments Card -->
-                <div class="card-sm" onclick="showSegmentsModal()">
+                <div class="card-sm" onclick="showSegmentsModal()" title="Video pieces waiting to stream" role="button" tabindex="0">
                     <div class="card-clickable">
                         <i class="fas fa-list card-icon-sm"></i>
                         <div class="card-sm-content">
@@ -198,9 +204,9 @@
                 </div>
 
                 <!-- Data Transfer Card -->
-                <div class="card-sm" onclick="showDataTransferModal()">
+                <div class="card-sm" onclick="showDataTransferModal()" title="Data sent to each browser" role="button" tabindex="0">
                     <div class="card-clickable">
-                        <i class="fas fa-arrow-down" style="font-size: 10px; color: #f85149; width: 12px; height: 12px; flex-shrink: 0;"></i>
+                        <i class="fas fa-arrow-down" style="font-size: 12px; color: var(--s-ink-dim); width: 12px; height: 12px; flex-shrink: 0;"></i>
                         <div class="card-sm-content">
                             <div class="card-label-sm">Data Received</div>
                             <div class="card-value-sm" id="dataTransferValue">—</div>
@@ -210,7 +216,7 @@
                 </div>
 
                 <!-- Network Card - iOS Style with WiFi Bars -->
-                <div class="card card-sm card-network-ios" onclick="showNetworkModal()">
+                <div class="card card-sm card-network-ios" onclick="showNetworkModal()" title="Wi-Fi details" role="button" tabindex="0">
                     <div class="card-clickable">
                         <div class="wifi-bars" id="wifiBars">
                             <div class="wifi-bar"></div>
@@ -230,7 +236,7 @@
                 <!-- Storage Card - iOS Style -->
                 <div class="card card-sm card-storage-ios">
                     <div class="card-clickable">
-                        <i class="fas fa-hard-drive card-icon-sm" style="color: #6366f1;"></i>
+                        <i class="fas fa-hard-drive card-icon-sm" style="color: var(--s-ink-dim);"></i>
                         <div class="storage-info">
                             <div class="storage-label">Storage</div>
                             <div class="storage-value" id="storageValue">—</div>
@@ -244,7 +250,7 @@
                 <!-- Memory Card - iOS Style -->
                 <div class="card card-sm card-memory-ios">
                     <div class="card-clickable">
-                        <i class="fas fa-microchip card-icon-sm" style="color: #0ea5e9;"></i>
+                        <i class="fas fa-microchip card-icon-sm" style="color: var(--s-ink-dim);"></i>
                         <div class="memory-info">
                             <div class="memory-label">Memory</div>
                             <div class="memory-value" id="memoryValue">—</div>
@@ -259,7 +265,7 @@
             <!-- Settings Cards Grid - Recording & Quality -->
             <div class="cards-grid">
                 <!-- Recording Mode Card -->
-                <div class="card-sm" onclick="showRecordingModeModal()">
+                <div class="card-sm" onclick="showRecordingModeModal()" title="Choose the recording mode" role="button" tabindex="0">
                     <div class="card-clickable">
                         <i class="fas fa-circle-dot card-icon-sm"></i>
                         <div class="card-sm-content">
@@ -271,7 +277,7 @@
                 </div>
 
                 <!-- Stream Quality Card -->
-                <div class="card-sm" onclick="showStreamQualityModal()">
+                <div class="card-sm" onclick="showStreamQualityModal()" title="Choose the stream quality" role="button" tabindex="0">
                     <div class="card-clickable">
                         <i class="fas fa-signal card-icon-sm"></i>
                         <div class="card-sm-content">
@@ -284,12 +290,12 @@
             </div>
 
             <!-- Remote Control Section -->
-            <div class="section-heading" style="color: #f85149;">Remote Control</div>
+            <div class="section-heading">Camera controls</div>
 
             <!-- Torch & Volume Row -->
             <div class="cards-grid">
                 <!-- Torch Card - Standalone Custom Card -->
-                <div class="torch-card" onclick="toggleTorch()">
+                <div class="torch-card" onclick="toggleTorch()" title="Turn the phone's torch on or off" role="button" tabindex="0">
                     <div class="torch-card-inner">
                         <!-- Background Fill -->
                         <div class="torch-fill" id="torchFill"></div>
@@ -307,7 +313,7 @@
                 </div>
 
                 <!-- Recording Card - Standalone Custom Card -->
-                <div class="torch-card recording-card" onclick="toggleRecording()">
+                <div class="torch-card recording-card" onclick="toggleRecording()" title="Start or stop recording on the phone" role="button" tabindex="0">
                     <div class="torch-card-inner">
                         <!-- Background Fill -->
                         <div class="torch-fill recording-fill" id="recordingFill"></div>
@@ -321,7 +327,7 @@
                                 <div class="torch-value" id="recordingState">STOPPED</div>
                             </div>
                             <!-- Pause/Resume Button (always visible, disabled when not recording) -->
-                            <button class="recording-pause-btn" id="recordingPauseBtn" onclick="event.stopPropagation(); togglePauseRecording();" disabled title="Pause recording">
+                            <button class="recording-pause-btn" id="recordingPauseBtn" onclick="event.stopPropagation(); togglePauseRecording();" disabled title="Pause recording" aria-label="Pause recording">
                                 <i class="fas fa-pause" id="recordingPauseBtnIcon"></i>
                             </button>
                         </div>
@@ -329,7 +335,7 @@
                 </div>
 
                 <!-- Camera Control Card -->
-                <div class="cam-ctrl-card camera-utility-card" id="cameraCard" onclick="toggleCamera()">
+                <div class="cam-ctrl-card camera-utility-card" id="cameraCard" onclick="toggleCamera()" title="Switch between the front and back camera" role="button" tabindex="0">
                     <div class="cam-ctrl-fill" id="cameraFill"></div>
                     <i class="fas fa-camera-rotate cam-ctrl-icon" id="cameraIcon"></i>
                     <div class="cam-ctrl-text">
@@ -338,20 +344,20 @@
                     </div>
                     <button class="cam-ctrl-sub-btn" id="mirrorBtn"
                             onclick="event.stopPropagation(); toggleMirror();"
-                            style="display:none;" title="Toggle mirror">
+                            style="display:none;" title="Mirror the front camera" aria-label="Mirror the front camera">
                         <i class="fas fa-arrows-left-right" id="mirrorIcon"></i>
                     </button>
                 </div>
 
                 <!-- Alarm Control Card -->
-                <div class="card-sm" onclick="showAlarmModal()" id="alarmCard" style="transition: all 300ms ease; cursor: pointer;">
+                <div class="card-sm" onclick="showAlarmModal()" title="Ring a sound on the phone" role="button" tabindex="0" id="alarmCard" style="transition: all 300ms ease; cursor: pointer;">
                     <div class="card-clickable">
-                        <i class="fas fa-bell card-icon-sm" style="color: #ef4444; font-size: 18px;" id="alarmIcon"></i>
+                        <i class="fas fa-bell card-icon-sm" style="color: var(--s-ink-dim); font-size: 18px;" id="alarmIcon"></i>
                         <div class="card-sm-content">
                             <div class="card-label-sm">Alarm</div>
                             <div class="card-value-sm" id="alarmState" style="display: flex; align-items: center; gap: 6px; font-weight: 600;">
                                 <span id="alarmStateText">READY</span>
-                                <span id="alarmCountdown" style="font-size: 12px; color: #8b949e; font-weight: normal;"></span>
+                                <span id="alarmCountdown" style="font-size: 12px; color: var(--s-ink-dim); font-weight: normal;"></span>
                             </div>
                         </div>
                         <i class="fas fa-chevron-right card-arrow-sm"></i>
@@ -381,11 +387,11 @@
                             </div>
                         </div>
                         <div class="volume-button-group">
-                            <button id="volumeMute" class="volume-btn volume-btn-mute" onclick="event.stopPropagation(); toggleVolumeMute()" title="Mute/Unmute">
+                            <button id="volumeMute" class="volume-btn volume-btn-mute" onclick="event.stopPropagation(); toggleVolumeMute()" title="Mute or unmute the phone" aria-label="Mute or unmute the phone">
                                 <i class="fas fa-volume-mute" id="volumeMuteIcon"></i>
                             </button>
-                            <button id="volumeMinus" class="volume-btn volume-btn-minus" onclick="event.stopPropagation(); volumeDecrease()" title="Decrease volume">−</button>
-                            <button id="volumePlus" class="volume-btn volume-btn-plus" onclick="event.stopPropagation(); volumeIncrease()" title="Increase volume">+</button>
+                            <button id="volumeMinus" class="volume-btn volume-btn-minus" onclick="event.stopPropagation(); volumeDecrease()" title="Volume down" aria-label="Volume down">−</button>
+                            <button id="volumePlus" class="volume-btn volume-btn-plus" onclick="event.stopPropagation(); volumeIncrease()" title="Volume up" aria-label="Volume up">+</button>
                         </div>
                     </div>
 
@@ -400,11 +406,11 @@
                             </div>
                         </div>
                         <div class="exp-btn-row">
-                            <button class="ae-lock-btn" id="aeLockBtn" onclick="event.stopPropagation(); toggleAeLock()" title="AE Lock">
+                            <button class="ae-lock-btn" id="aeLockBtn" onclick="event.stopPropagation(); toggleAeLock()" title="Lock exposure" aria-label="Lock exposure">
                                 <i class="fas fa-lock-open" id="aeLockIcon"></i>
                             </button>
-                            <button class="exposure-btn" onclick="event.stopPropagation(); adjustExposure(-1)" title="Decrease exposure">−</button>
-                            <button class="exposure-btn" onclick="event.stopPropagation(); adjustExposure(+1)" title="Increase exposure">+</button>
+                            <button class="exposure-btn" onclick="event.stopPropagation(); adjustExposure(-1)" title="Darker" aria-label="Darker">−</button>
+                            <button class="exposure-btn" onclick="event.stopPropagation(); adjustExposure(+1)" title="Brighter" aria-label="Brighter">+</button>
                         </div>
                     </div>
                 </div>
@@ -420,12 +426,12 @@
                             <input type="range" class="zoom-slider" id="zoomSlider"
                                    data-static-min="0.5"
                                    min="0" max="100" step="0.1" value="24.0"
-                                   oninput="onZoomSliderInput(this.value)"
+                                   oninput="onZoomSliderInput(this.value)" title="Zoom" aria-label="Zoom"
                                    onchange="onZoomSliderCommit(this.value)">
                         </div>
                         <div class="zoom-slider-presets" id="zoomSliderPresets"></div>
                     </div>
-                    <button class="zoom-reset-btn" onclick="resetZoom()" title="Reset zoom">
+                    <button class="zoom-reset-btn" onclick="resetZoom()" title="Reset zoom" aria-label="Reset zoom">
                         <i class="fas fa-undo"></i>
                     </button>
                 </div>
@@ -434,7 +440,7 @@
                 <div class="pan-container" id="panContainer">
                     <div class="pan-header">
                         <span class="pan-header-label">Pan</span>
-                        <button class="pan-reset-btn" onclick="resetPan()" title="Reset pan">
+                        <button class="pan-reset-btn" onclick="resetPan()" title="Centre the view" aria-label="Centre the view">
                             <i class="fas fa-undo"></i>
                         </button>
                     </div>
@@ -455,16 +461,16 @@
             <!-- Sidebar Footer (outside scrollable content) -->
             <div class="sidebar-footer">
                 <!-- Footer Info Text -->
-                <div style="font-size: 11px; color: #8b949e; display: flex; align-items: center; justify-content: flex-end; width: 100%; padding: 0 12px;">
+                <div style="font-size: 11px; color: var(--s-ink-dim); display: flex; align-items: center; justify-content: flex-end; width: 100%; padding: 0 12px;">
                     <div class="footer-links">
-                    <a href="" id="endpointsFooterLink" onclick="showEndpointsModal(); return false;" title="API Endpoints" class="footer-link">
+                    <a href="" id="endpointsFooterLink" onclick="showEndpointsModal(); return false;" title="Addresses this page uses (for tinkerers)" aria-label="Addresses this page uses" class="footer-link">
                         <i class="fas fa-code"></i>
                     </a>
                     </div>
                 </div>
 
                 <!-- Version Info -->
-                <div style="display: none; font-size: 8px; color: #4d5561; text-align: center; padding-top: 4px; border-top: 1px solid #3d4349;">
+                <div style="display: none; font-size: 8px; color: var(--s-ink-off); text-align: center; padding-top: 4px; border-top: 1px solid var(--s-line);">
                     v3.0.0
                 </div>
             </div>
@@ -474,8 +480,8 @@
         <div class="player-area">
             <div class="video-container">
                 <!-- No autoplay - we call play() manually when stream is ready. This prevents MIME type errors on empty video -->
-                <video id="videoPlayer" playsinline muted controls></video>
-                <div class="video-overlay" id="videoOverlay" onclick="(function(){ const s = currentStatus; if (s?.state === 'ready' && s?.isRecording) playStream(); else console.log('[Video] Stream not ready'); })()">
+                <video id="videoPlayer" playsinline muted controls title="Live view from the phone"></video>
+                <div class="video-overlay" id="videoOverlay" title="Play the live view" onclick="(function(){ const s = currentStatus; if (s?.state === 'ready' && s?.isRecording) playStream(); else console.log('[Video] Stream not ready'); })()">
                     <div class="overlay-content">
                         <div class="overlay-icon" id="overlayIcon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -487,7 +493,7 @@
                             <div class="spinner-ring"></div>
                         </div>
                         <div class="overlay-title" id="overlayTitle">Waiting for stream</div>
-                        <div class="overlay-text" id="overlayText">Stream will auto-start when recording begins</div>
+                        <div class="overlay-text" id="overlayText">The picture appears here when the phone starts recording</div>
                         <div class="overlay-divider"></div>
                         <div class="overlay-hint">
                             <span class="hint-label">Refresh if needed</span>
@@ -512,7 +518,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Uptime Details</h2>
-                <button class="modal-close" onclick="hideUptimeModal()">✕</button>
+                <button class="modal-close" onclick="hideUptimeModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="uptimeContent"></div>
         </div>
@@ -523,7 +529,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Connected Clients</h2>
-                <button class="modal-close" onclick="hideClientsModal()">✕</button>
+                <button class="modal-close" onclick="hideClientsModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="clientsContent"></div>
         </div>
@@ -534,7 +540,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Battery Status</h2>
-                <button class="modal-close" onclick="hideBatteryModal()">✕</button>
+                <button class="modal-close" onclick="hideBatteryModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="batteryContent"></div>
         </div>
@@ -545,7 +551,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Network Status</h2>
-                <button class="modal-close" onclick="hideNetworkModal()">✕</button>
+                <button class="modal-close" onclick="hideNetworkModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="networkContent"></div>
         </div>
@@ -556,7 +562,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Client Data Usage</h2>
-                <button class="modal-close" onclick="hideDataTransferModal()">✕</button>
+                <button class="modal-close" onclick="hideDataTransferModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="dataTransferContent"></div>
         </div>
@@ -567,7 +573,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Segments</h2>
-                <button class="modal-close" onclick="hideSegmentsModal()">✕</button>
+                <button class="modal-close" onclick="hideSegmentsModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="segmentsContent"></div>
         </div>
@@ -578,7 +584,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Storage</h2>
-                <button class="modal-close" onclick="hideStorageModal()">✕</button>
+                <button class="modal-close" onclick="hideStorageModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="storageContent"></div>
         </div>
@@ -589,7 +595,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Memory Usage</h2>
-                <button class="modal-close" onclick="hideMemoryModal()">✕</button>
+                <button class="modal-close" onclick="hideMemoryModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="memoryContent"></div>
         </div>
@@ -600,7 +606,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>API Endpoints</h2>
-                <button class="modal-close" onclick="hideEndpointsModal()">✕</button>
+                <button class="modal-close" onclick="hideEndpointsModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="endpointsContent"></div>
         </div>
@@ -611,7 +617,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Recording Mode</h2>
-                <button class="modal-close" onclick="hideRecordingModeModal()">✕</button>
+                <button class="modal-close" onclick="hideRecordingModeModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="recordingModeContent"></div>
         </div>
@@ -622,7 +628,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2>Stream Quality</h2>
-                <button class="modal-close" onclick="hideStreamQualityModal()">✕</button>
+                <button class="modal-close" onclick="hideStreamQualityModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body" id="streamQualityContent"></div>
         </div>
@@ -633,18 +639,18 @@
         <div class="modal-content" style="max-width: 500px;">
             <div class="modal-header">
                 <h2 style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-shield-alt"></i>Security Settings
+                    <i class="fas fa-shield-alt"></i>Security
                 </h2>
-                <button class="modal-close" onclick="hideSecuritySettingsModal()">✕</button>
+                <button class="modal-close" onclick="hideSecuritySettingsModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <!-- Security Warning -->
-                <div style="background: rgba(248, 159, 73, 0.15); border: 2px solid #f89f49; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-                    <div style="font-size: 13px; color: #f89f49; font-weight: 600; margin-bottom: 6px;">
-                        <i class="fas fa-shield-alt" style="margin-right: 6px;"></i>Network Security Notice:
+                <div style="background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 12px; padding: 12px; margin-bottom: 16px;">
+                    <div style="font-size: 13px; color: var(--c-careful); font-weight: 600; margin-bottom: 6px;">
+                        <i class="fas fa-exclamation-triangle" style="margin-right: 6px;"></i>Same Wi-Fi only, not encrypted
                     </div>
-                    <div style="font-size: 12px; color: #e6edf3; line-height: 1.5;">
-                       Traffic is sent over unencrypted HTTP. Anyone on your local WiFi network can potentially see data in transit. This password system provides basic authorization but <strong>does not encrypt</strong> the stream. Future versions may include cryptographic security to encrypt traffic. For now, this password acts as a barrier to access the dashboard on your local network.
+                    <div style="font-size: 12px; color: var(--s-ink); line-height: 1.5;">
+                       This page talks to the phone over your own Wi-Fi without encryption, so anyone on the same Wi-Fi could see the picture in transit. The password keeps other people out of the controls, but it <strong>does not encrypt</strong> the stream. Use it on a Wi-Fi you trust.
                     </div>
                 </div>
 
@@ -652,13 +658,13 @@
                 <div class="modal-section">
                     <div class="modal-section-title">Auto-Lock Timeout</div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;" id="autoLockButtons">
-                        <button onclick="setAutoLockTimeout('never')" class="timeout-btn" data-timeout="never" style="padding: 12px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e6edf3; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">Never</button>
-                        <button onclick="setAutoLockTimeout('30min')" class="timeout-btn" data-timeout="30min" style="padding: 12px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e6edf3; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">30 Minutes</button>
-                        <button onclick="setAutoLockTimeout('1hr')" class="timeout-btn" data-timeout="1hr" style="padding: 12px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e6edf3; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">1 Hour</button>
-                        <button onclick="setAutoLockTimeout('3hr')" class="timeout-btn" data-timeout="3hr" style="padding: 12px; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.1); border-radius: 8px; color: #e6edf3; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">3 Hours</button>
+                        <button onclick="setAutoLockTimeout('never')" class="timeout-btn" data-timeout="never" title="Never lock" style="padding: 12px; background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 999px; color: var(--s-ink); cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">Never</button>
+                        <button onclick="setAutoLockTimeout('30min')" class="timeout-btn" data-timeout="30min" title="Lock after 30 minutes" style="padding: 12px; background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 999px; color: var(--s-ink); cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">30 Minutes</button>
+                        <button onclick="setAutoLockTimeout('1hr')" class="timeout-btn" data-timeout="1hr" title="Lock after 1 hour" style="padding: 12px; background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 999px; color: var(--s-ink); cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">1 Hour</button>
+                        <button onclick="setAutoLockTimeout('3hr')" class="timeout-btn" data-timeout="3hr" title="Lock after 3 hours" style="padding: 12px; background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 999px; color: var(--s-ink); cursor: pointer; font-size: 13px; font-weight: 600; transition: all 200ms;">3 Hours</button>
                     </div>
-                    <div style="font-size: 12px; color: #8b949e; padding: 10px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; margin-bottom: 16px;">
-                        <i class="fas fa-info-circle" style="margin-right: 6px;"></i>Session will automatically lock after the selected period of inactivity
+                    <div style="font-size: 12px; color: var(--s-ink-dim); padding: 10px; background: rgba(161, 161, 170, 0.1); border-radius: 6px; margin-bottom: 16px;">
+                        <i class="fas fa-info-circle" style="margin-right: 6px;"></i>This browser locks itself after this long without use
                     </div>
                 </div>
 
@@ -666,7 +672,7 @@
                 <div class="modal-section">
                     <div class="modal-section-title">Active Sessions</div>
                     <div id="activeSessionsList" style="margin-bottom: 12px;">
-                        <div style="padding: 12px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; color: #8b949e; font-size: 13px; text-align: center;">
+                        <div style="padding: 12px; background: rgba(161, 161, 170, 0.1); border-radius: 6px; color: var(--s-ink-dim); font-size: 13px; text-align: center;">
                             Loading sessions...
                         </div>
                     </div>
@@ -674,11 +680,11 @@
 
                 <!-- Logout All Sessions -->
                 <div class="modal-section">
-                    <button onclick="logoutAllDevices()" style="width: 100%; padding: 13px; background: linear-gradient(135deg, #f85149 0%, #da3633 100%); border: none; border-radius: 10px; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; box-shadow: 0 4px 12px rgba(248, 81, 73, 0.3);">
-                        <i class="fas fa-sign-out-alt" style="margin-right: 8px;"></i>Logout All Sessions
+                    <button onclick="logoutAllDevices()" title="Sign out every browser, including this one" style="width: 100%; padding: 13px; background: var(--c-danger); border: none; border-radius: 999px; color: var(--s-ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; box-shadow: none;">
+                        <i class="fas fa-sign-out-alt" style="margin-right: 8px;"></i>Sign out every browser
                     </button>
-                    <div style="font-size: 11px; color: #8b949e; padding: 8px 10px; margin-top: 10px; background: rgba(248, 81, 73, 0.1); border-radius: 6px;">
-                        <i class="fas fa-warning" style="margin-right: 6px;"></i>This will log out all connected devices and require re-authentication
+                    <div style="font-size: 11px; color: var(--s-ink-dim); padding: 8px 10px; margin-top: 10px; background: rgba(250, 61, 93, 0.1); border-radius: 6px;">
+                        <i class="fas fa-warning" style="margin-right: 6px;"></i>Every browser will need the password again
                     </div>
                 </div>
             </div>
@@ -690,18 +696,18 @@
         <div class="modal-content" style="max-width: 440px;">
             <div class="modal-header">
                 <h2 style="display: flex; align-items: center; gap: 10px;">
-                    <i class="fas fa-bell" style="font-size: 24px; color: #ef4444;"></i>
-                    <span>Security Alarm</span>
+                    <i class="fas fa-bell" style="font-size: 20px; color: var(--s-ink-dim);"></i>
+                    <span>Alarm</span>
                 </h2>
-                <button class="modal-close" onclick="hideAlarmModal()">✕</button>
+                <button class="modal-close" onclick="hideAlarmModal()" title="Close" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <!-- Tab Selection -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                    <button id="alarmTabInstant" class="alarm-tab active" onclick="switchAlarmTab('instant')" style="padding: 12px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border: none; border-radius: 10px; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms;">
+                    <button id="alarmTabInstant" class="alarm-tab active" onclick="switchAlarmTab('instant')" title="Ring the phone now" style="padding: 12px; background: var(--c-armed); border: none; border-radius: 999px; color: var(--c-on-ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms;">
                         <i class="fas fa-zap" style="margin-right: 6px;"></i>Activate Now
                     </button>
-                    <button id="alarmTabScheduled" class="alarm-tab" onclick="switchAlarmTab('scheduled')" style="padding: 12px; background: #30363d; border: none; border-radius: 10px; color: #8b949e; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms;">
+                    <button id="alarmTabScheduled" class="alarm-tab" onclick="switchAlarmTab('scheduled')" title="Ring the phone at a set time" style="padding: 12px; background: var(--s-raised); border: none; border-radius: 999px; color: var(--s-ink-dim); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms;">
                         <i class="fas fa-clock" style="margin-right: 6px;"></i>Schedule
                     </button>
                 </div>
@@ -709,17 +715,17 @@
                 <!-- INSTANT TAB -->
                 <div id="alarmInstantTab">
                     <!-- Use Cases Info -->
-                    <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.05) 100%); border: 1px solid #3b82f6; border-radius: 12px; padding: 14px; margin-bottom: 18px; font-size: 13px; color: #8b949e;">
-                        <div style="margin-bottom: 6px;"><strong style="color: #60a5fa;"><i class="fas fa-lightbulb" style="margin-right: 6px;"></i>Quick Activation:</strong></div>
-                        <div style="line-height: 1.5;">Activate alarm immediately with selected sound and duration</div>
+                    <div style="background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 12px; padding: 14px; margin-bottom: 18px; font-size: 13px; color: var(--s-ink-dim);">
+                        <div style="margin-bottom: 6px;"><strong style="color: var(--s-ink);"><i class="fas fa-lightbulb" style="margin-right: 6px;"></i>Quick Activation:</strong></div>
+                        <div style="line-height: 1.5;">Rings the phone straight away with the sound and length you pick</div>
                     </div>
 
                     <!-- Sound Selection -->
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--s-ink-dim); text-transform: uppercase; letter-spacing: 0.5px;">
                             <i class="fas fa-volume-up" style="margin-right: 6px;"></i>Sound
                         </label>
-                        <select id="alarmSoundSelect" style="width: 100%; padding: 11px 12px; background: #0a0e11; border: 2px solid #30363d; border-radius: 10px; color: #e6edf3; font-size: 14px; cursor: pointer; transition: all 200ms;">
+                        <select id="alarmSoundSelect" style="width: 100%; padding: 11px 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 10px; color: var(--s-ink); font-size: 14px; cursor: pointer; transition: all 200ms;">
                             <option value="office_phone.mp3"><i class="fas fa-phone"></i> Office Phone (Default)</option>
                             <option value="alert_alarm.mp3">Alert Alarm</option>
                             <option value="car_alarm.mp3">Car Alarm</option>
@@ -728,17 +734,17 @@
                             <option value="rooster.mp3">Rooster Crow</option>
                             <option value="siren.mp3">Emergency Siren</option>
                         </select>
-                        <div style="font-size: 12px; color: #6e7681; margin-top: 8px; padding: 8px 10px; background: rgba(139, 148, 158, 0.1); border-radius: 6px;">
-                            <i class="fas fa-info-circle" style="margin-right: 6px; color: #60a5fa;"></i><strong>7 unique alarm sounds</strong> • Use preview to test before activation
+                        <div style="font-size: 12px; color: var(--s-ink-faint); margin-top: 8px; padding: 8px 10px; background: rgba(161, 161, 170, 0.1); border-radius: 6px;">
+                            <i class="fas fa-info-circle" style="margin-right: 6px; color: var(--s-ink-dim);"></i><strong>7 sounds</strong> · Preview plays a short sample first
                         </div>
                     </div>
 
                     <!-- Preview & Duration Row -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px;">
-                        <button id="previewBtn" onclick="previewAlarmSound()" style="padding: 11px; background: #1f2937; border: 2px solid #30363d; border-radius: 10px; color: #60a5fa; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms;">
+                        <button id="previewBtn" onclick="previewAlarmSound()" title="Play a short sample on the phone" style="padding: 11px; background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 999px; color: var(--s-ink-dim); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms;">
                             <i class="fas fa-play" style="margin-right: 6px;"></i>Preview
                         </button>
-                        <select id="durationSelect" style="padding: 11px 12px; background: #0a0e11; border: 2px solid #30363d; border-radius: 10px; color: #e6edf3; font-size: 14px; cursor: pointer; transition: all 200ms;">
+                        <select id="durationSelect" style="padding: 11px 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 10px; color: var(--s-ink); font-size: 14px; cursor: pointer; transition: all 200ms;">
                             <option value="10">10 sec</option>
                             <option value="20">20 sec</option>
                             <option value="30" selected>30 sec</option>
@@ -749,28 +755,28 @@
                             <option value="-1">Infinite</option>
                         </select>
                     </div>
-                    <div style="font-size: 12px; color: #6e7681; padding: 8px 10px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; margin-bottom: 16px;">
-                        <i class="fas fa-clock" style="margin-right: 6px; color: #60a5fa;"></i><strong>Duration:</strong> How long the alarm will sound before stopping automatically
+                    <div style="font-size: 12px; color: var(--s-ink-faint); padding: 8px 10px; background: rgba(161, 161, 170, 0.1); border-radius: 6px; margin-bottom: 16px;">
+                        <i class="fas fa-clock" style="margin-right: 6px; color: var(--s-ink-dim);"></i><strong>Duration:</strong> How long the alarm will sound before stopping automatically
                     </div>
 
                     <!-- Action Buttons -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
-                        <button id="ringBtn" onclick="ringAlarm()" style="padding: 13px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border: none; border-radius: 10px; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+                        <button id="ringBtn" onclick="ringAlarm()" title="Ring the phone now" style="padding: 13px; background: var(--c-danger); border: none; border-radius: 999px; color: var(--s-ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; box-shadow: none;">
                             <i class="fas fa-bell" style="margin-right: 6px;"></i>Activate
                         </button>
-                        <button id="stopBtn" onclick="stopAlarm()" style="padding: 13px; background: #6b7280; border: none; border-radius: 10px; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; opacity: 0.5;" disabled>
+                        <button id="stopBtn" onclick="stopAlarm()" title="Stop the ringing" style="padding: 13px; background: var(--s-raised); border: none; border-radius: 999px; color: var(--s-ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; opacity: 0.5;" disabled>
                             <i class="fas fa-stop" style="margin-right: 6px;"></i>Stop
                         </button>
                     </div>
 
                     <!-- Status Display -->
-                    <div id="alarmStatusDisplay" style="display: none; padding: 14px; background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.05) 100%); border: 2px solid #ef4444; border-radius: 10px;">
-                        <div style="font-size: 13px; color: #e6edf3; line-height: 1.5;">
+                    <div id="alarmStatusDisplay" style="display: none; padding: 14px; background: rgba(250, 61, 93, 0.15); border: none; border-radius: 12px;">
+                        <div style="font-size: 13px; color: var(--s-ink); line-height: 1.5;">
                             <div style="font-weight: 600; margin-bottom: 6px;">
-                                <i class="fas fa-exclamation-circle" style="margin-right: 6px; color: #ef4444;"></i>Alarm Active
+                                <i class="fas fa-exclamation-circle" style="margin-right: 6px; color: var(--c-danger);"></i>Alarm Active
                             </div>
-                            <div id="alarmDurationRemaining" style="color: #8b949e; font-size: 12px; display: flex; align-items: center; gap: 6px;">
-                                <span style="display: inline-block; width: 6px; height: 6px; background: #ef4444; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+                            <div id="alarmDurationRemaining" style="color: var(--s-ink-dim); font-size: 12px; display: flex; align-items: center; gap: 6px;">
+                                <span style="display: inline-block; width: 6px; height: 6px; background: var(--c-danger); border-radius: 50%; animation: pulse 1.5s infinite;"></span>
                                 <span>Ringing now...</span>
                             </div>
                         </div>
@@ -780,28 +786,28 @@
                 <!-- SCHEDULED TAB -->
                 <div id="alarmScheduledTab" style="display: none;">
                     <!-- Schedule Info -->
-                    <div style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%); border: 1px solid #22c55e; border-radius: 12px; padding: 14px; margin-bottom: 18px; font-size: 13px; color: #8b949e;">
-                        <div style="margin-bottom: 6px;"><strong style="color: #22c55e;"><i class="fas fa-info-circle" style="margin-right: 6px;"></i>Schedule Alarm:</strong></div>
-                        <div style="line-height: 1.5;">Server will trigger alarm at scheduled time. Set date, time, sound & duration.</div>
+                    <div style="background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 12px; padding: 14px; margin-bottom: 18px; font-size: 13px; color: var(--s-ink-dim);">
+                        <div style="margin-bottom: 6px;"><strong style="color: var(--s-ink);"><i class="fas fa-info-circle" style="margin-right: 6px;"></i>Schedule Alarm:</strong></div>
+                        <div style="line-height: 1.5;">The phone rings at the time you set. Pick the date, time, sound and length.</div>
                     </div>
 
                     <!-- Date & Time Selection (Single Picker) -->
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--s-ink-dim); text-transform: uppercase; letter-spacing: 0.5px;">
                             <i class="fas fa-calendar-clock" style="margin-right: 6px;"></i>When to Trigger
                         </label>
-                        <input type="text" id="scheduleDateTimePicker" placeholder="Select date & time" style="width: 100%; padding: 11px 12px; background: #0a0e11; border: 2px solid #30363d; border-radius: 10px; color: #e6edf3; font-size: 14px; cursor: pointer;">
-                        <div style="font-size: 12px; color: #6e7681; margin-top: 8px; padding: 8px 10px; background: rgba(139, 148, 158, 0.1); border-radius: 6px;">
-                            <i class="fas fa-info-circle" style="margin-right: 6px; color: #60a5fa;"></i>Pick any future date and time
+                        <input type="text" id="scheduleDateTimePicker" placeholder="Select date & time" style="width: 100%; padding: 11px 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 10px; color: var(--s-ink); font-size: 14px; cursor: pointer;">
+                        <div style="font-size: 12px; color: var(--s-ink-faint); margin-top: 8px; padding: 8px 10px; background: rgba(161, 161, 170, 0.1); border-radius: 6px;">
+                            <i class="fas fa-info-circle" style="margin-right: 6px; color: var(--s-ink-dim);"></i>Pick any future date and time
                         </div>
                     </div>
 
                     <!-- Sound Selection (Schedule) -->
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--s-ink-dim); text-transform: uppercase; letter-spacing: 0.5px;">
                             <i class="fas fa-volume-up" style="margin-right: 6px;"></i>Sound
                         </label>
-                        <select id="scheduleAlarmSoundSelect" style="width: 100%; padding: 11px 12px; background: #0a0e11; border: 2px solid #30363d; border-radius: 10px; color: #e6edf3; font-size: 14px; cursor: pointer;">
+                        <select id="scheduleAlarmSoundSelect" style="width: 100%; padding: 11px 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 10px; color: var(--s-ink); font-size: 14px; cursor: pointer;">
                             <option value="office_phone.mp3">Office Phone (Default)</option>
                             <option value="alert_alarm.mp3">Alert Alarm</option>
                             <option value="car_alarm.mp3">Car Alarm</option>
@@ -814,10 +820,10 @@
 
                     <!-- Duration Selection (Schedule) -->
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: #60a5fa; text-transform: uppercase; letter-spacing: 0.5px;">
+                        <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--s-ink-dim); text-transform: uppercase; letter-spacing: 0.5px;">
                             <i class="fas fa-hourglass-end" style="margin-right: 6px;"></i>Duration
                         </label>
-                        <select id="scheduleDurationSelect" style="width: 100%; padding: 11px 12px; background: #0a0e11; border: 2px solid #30363d; border-radius: 10px; color: #e6edf3; font-size: 14px; cursor: pointer;">
+                        <select id="scheduleDurationSelect" style="width: 100%; padding: 11px 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 10px; color: var(--s-ink); font-size: 14px; cursor: pointer;">
                             <option value="10">10 sec</option>
                             <option value="20">20 sec</option>
                             <option value="30" selected>30 sec</option>
@@ -827,39 +833,39 @@
                             <option value="600">10 min</option>
                             <option value="-1">Infinite</option>
                         </select>
-                        <div style="font-size: 12px; color: #6e7681; margin-top: 8px; padding: 8px 10px; background: rgba(139, 148, 158, 0.1); border-radius: 6px;">
-                            <i class="fas fa-info-circle" style="margin-right: 6px; color: #60a5fa;"></i>How long alarm sounds when triggered
+                        <div style="font-size: 12px; color: var(--s-ink-faint); margin-top: 8px; padding: 8px 10px; background: rgba(161, 161, 170, 0.1); border-radius: 6px;">
+                            <i class="fas fa-info-circle" style="margin-right: 6px; color: var(--s-ink-dim);"></i>How long alarm sounds when triggered
                         </div>
                     </div>
 
                     <!-- Schedule Buttons -->
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; position: relative; z-index: 100; pointer-events: auto;">
-                        <button id="scheduleSetBtn" onclick="scheduleAlarm()" style="padding: 13px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); border: none; border-radius: 10px; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); pointer-events: auto;">
+                        <button id="scheduleSetBtn" onclick="scheduleAlarm()" title="Save this alarm on the phone" style="padding: 13px; background: var(--c-armed); border: none; border-radius: 999px; color: var(--c-on-ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; box-shadow: none; pointer-events: auto;">
                             <i class="fas fa-check-circle" style="margin-right: 6px;"></i>Set Alarm
                         </button>
-                        <button id="scheduleCancelBtn" onclick="cancelScheduledAlarm()" style="padding: 13px; background: #6b7280; border: none; border-radius: 10px; color: #ffffff; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; opacity: 0.5; pointer-events: auto;" disabled>
+                        <button id="scheduleCancelBtn" onclick="cancelScheduledAlarm()" title="Remove the scheduled alarm" style="padding: 13px; background: var(--s-raised); border: none; border-radius: 999px; color: var(--s-ink); font-size: 14px; font-weight: 600; cursor: pointer; transition: all 200ms; opacity: 0.5; pointer-events: auto;" disabled>
                             <i class="fas fa-times" style="margin-right: 6px;"></i>Cancel
                         </button>
                     </div>
 
                     <!-- Helper Text for Scheduling -->
-                    <div style="font-size: 12px; color: #6e7681; padding: 10px 10px; background: rgba(34, 197, 94, 0.15); border-left: 3px solid #22c55e; border-radius: 6px; margin-bottom: 14px;">
-                        <div style="margin-bottom: 6px;"><i class="fas fa-lightbulb" style="margin-right: 6px; color: #22c55e;"></i><strong>How it works:</strong></div>
-                        <div style="line-height: 1.5;">Server receives schedule and triggers alarm at exact time automatically. No need to keep dashboard open. Card shows countdown until alarm triggers.</div>
+                    <div style="font-size: 12px; color: var(--s-ink-faint); padding: 10px 10px; background: var(--s-raised); border-radius: 6px; margin-bottom: 14px;">
+                        <div style="margin-bottom: 6px;"><i class="fas fa-lightbulb" style="margin-right: 6px; color: var(--s-ink-dim);"></i><strong>How it works:</strong></div>
+                        <div style="line-height: 1.5;">The phone keeps the schedule itself, so you can close this page. The Alarm card counts down until it rings.</div>
                     </div>
 
                     <!-- Scheduled Alarm Display -->
-                    <div id="scheduleStatusDisplay" style="display: none; padding: 14px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(34, 197, 94, 0.05) 100%); border: 2px solid #22c55e; border-radius: 10px; margin-bottom: 14px;">
-                        <div style="font-size: 13px; color: #e6edf3; line-height: 1.6;">
+                    <div id="scheduleStatusDisplay" style="display: none; padding: 14px; background: var(--s-raised); border: 1px solid var(--s-line); border-radius: 12px; margin-bottom: 14px;">
+                        <div style="font-size: 13px; color: var(--s-ink); line-height: 1.6;">
                             <div style="font-weight: 600; margin-bottom: 8px;">
-                                <i class="fas fa-hourglass-start" style="margin-right: 6px; color: #22c55e;"></i>Alarm Scheduled
+                                <i class="fas fa-hourglass-start" style="margin-right: 6px; color: var(--s-ink-dim);"></i>Alarm Scheduled
                             </div>
-                            <div id="scheduleCountdown" style="color: #8b949e; font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
-                                <span style="display: inline-block; width: 6px; height: 6px; background: #22c55e; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+                            <div id="scheduleCountdown" style="color: var(--s-ink-dim); font-size: 12px; display: flex; align-items: center; gap: 6px; margin-bottom: 10px;">
+                                <span style="display: inline-block; width: 6px; height: 6px; background: var(--c-armed); border-radius: 50%; animation: pulse 1.5s infinite;"></span>
                                 <span id="scheduleCountdownText">Waiting...</span>
                             </div>
-                            <div style="font-size: 11px; color: #6e7681; padding-top: 8px; border-top: 1px solid rgba(34, 197, 94, 0.2);">
-                                <i class="fas fa-info-circle" style="margin-right: 5px; color: #22c55e;"></i>Click "Cancel" to remove this scheduled alarm
+                            <div style="font-size: 11px; color: var(--s-ink-faint); padding-top: 8px; border-top: 1px solid var(--s-line);">
+                                <i class="fas fa-info-circle" style="margin-right: 5px; color: var(--s-ink-faint);"></i>Press Cancel to remove this alarm
                             </div>
                         </div>
                     </div>
@@ -870,83 +876,83 @@
     </div>
 
     <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17/dist/hls.min.js"></script>
     <!-- Flatpickr Date-Time Picker -->
     <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
     <style>
         /* Flatpickr Dark Theme Override - Improved Contrast */
         .flatpickr-calendar {
-            background: #0d1117 !important;
-            border: 2px solid #3d444d !important;
+            background: var(--s-surface) !important;
+            border: 2px solid var(--s-line) !important;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7) !important;
         }
         .flatpickr-calendar.open {
             display: block !important;
         }
         .flatpickr-month {
-            background: #0d1117 !important;
-            color: #e6edf3 !important;
+            background: var(--s-surface) !important;
+            color: var(--s-ink) !important;
         }
         .flatpickr-weekdays {
-            background: #161b22 !important;
+            background: var(--s-panel) !important;
         }
         .flatpickr-innerContainer {
-            background: #0d1117 !important;
+            background: var(--s-surface) !important;
         }
         .flatpickr-weekday {
-            color: #79c0ff !important;
+            color: var(--s-ink-dim) !important;
             font-weight: 600;
         }
         .flatpickr-day.today {
-            color: #79c0ff !important;
-            border-color: #79c0ff !important;
+            color: var(--s-ink-dim) !important;
+            border-color: var(--s-ink-dim) !important;
         }
         .flatpickr-day {
-            color: #c9d1d9 !important;
+            color: var(--s-ink) !important;
         }
         .flatpickr-day:hover,
         .flatpickr-day.prevMonthDay:hover,
         .flatpickr-day.nextMonthDay:hover {
-            background: #3d444d !important;
-            color: #79c0ff !important;
+            background: var(--s-line) !important;
+            color: var(--s-ink-dim) !important;
             font-weight: 600;
         }
         .flatpickr-day.selected,
         .flatpickr-day.selected:focus,
         .flatpickr-day.selected:hover {
-            background: #ef4444 !important;
-            border-color: #ef4444 !important;
-            color: #ffffff !important;
+            background: var(--c-armed) !important;
+            border-color: var(--c-armed) !important;
+            color: var(--c-on-ink) !important;
             font-weight: 600;
         }
         .flatpickr-time {
-            background: #161b22 !important;
-            border-top: 1px solid #3d444d !important;
+            background: var(--s-panel) !important;
+            border-top: 1px solid var(--s-line) !important;
         }
         .flatpickr-time input,
         .flatpickr-time .numInputWrapper input {
-            background: #0a0e11 !important;
-            color: #79c0ff !important;
-            border: 2px solid #3d444d !important;
+            background: var(--s-surface) !important;
+            color: var(--s-ink-dim) !important;
+            border: 2px solid var(--s-line) !important;
             font-weight: 600;
         }
         .flatpickr-time input:focus {
-            border-color: #79c0ff !important;
+            border-color: var(--s-ink-dim) !important;
         }
         .flatpickr-time .separator {
-            color: #79c0ff !important;
+            color: var(--s-ink-dim) !important;
             font-weight: 600;
         }
         .flatpickr-am-pm {
-            color: #79c0ff !important;
-            background: #0a0e11 !important;
-            border: 2px solid #3d444d !important;
+            color: var(--s-ink-dim) !important;
+            background: var(--s-surface) !important;
+            border: 2px solid var(--s-line) !important;
             font-weight: 600;
             cursor: pointer;
         }
         .flatpickr-am-pm:hover {
-            border-color: #79c0ff !important;
+            border-color: var(--s-ink-dim) !important;
         }
         .flatpickr-calendar {
             pointer-events: auto !important;
@@ -1024,7 +1030,7 @@
                         flex-direction: column;
                         align-items: center;
                         gap: 8px;
-                        color: #fff;
+                        color: var(--s-ink);
                         font-size: 12px;
                         font-weight: 500;
                     `;
@@ -1032,7 +1038,7 @@
                         width: 24px;
                         height: 24px;
                         border: 2px solid rgba(255,255,255,0.3);
-                        border-top-color: #fff;
+                        border-top-color: var(--s-ink);
                         border-radius: 50%;
                         animation: spin 0.8s linear infinite;
                     `;
@@ -1211,7 +1217,9 @@
                 batteryLevel.style.width = fillPercent + '%';
             }
             
-            batteryCard.classList.remove('charging', 'low', 'dim-text');
+            batteryCard.classList.remove('charging', 'low', 'dim-text', 'lvl-ok', 'lvl-mid', 'lvl-low');
+            // Rings B (owner 11-15): green from half up, amber below half, red under 15%.
+            batteryCard.classList.add(percent < 15 ? 'lvl-low' : (percent < 50 ? 'lvl-mid' : 'lvl-ok'));
             
             // Add dim-text class if battery is below 30% and not charging (to switch text to white for contrast)
             if (!isCharging && percent > 0 && percent < 30) {
@@ -1248,9 +1256,10 @@
                 storageFill.style.width = percent + '%';
                 
                 storageBar.classList.remove('warning', 'critical');
+                // Rings B: free under 15% red, under half amber, else green (as on the phone)
                 if (percent > 85) {
                     storageBar.classList.add('critical');
-                } else if (percent > 70) {
+                } else if (percent > 50) {
                     storageBar.classList.add('warning');
                 }
             } else {
@@ -1285,7 +1294,7 @@
                 memoryBar.classList.remove('warning', 'critical');
                 if (percent > 85) {
                     memoryBar.classList.add('critical');
-                } else if (percent > 70) {
+                } else if (percent > 50) {
                     memoryBar.classList.add('warning');
                 }
             } else {
@@ -1628,7 +1637,7 @@
             if (currentStatus.battery.warning && currentStatus.battery.warning.length > 0) {
                 warningSection = `
                     <div class="modal-section">
-                        <div style="padding: 12px; background: #f85149; border-radius: 8px; text-align: center;">
+                        <div style="padding: 12px; background: var(--c-danger); border-radius: 8px; text-align: center;">
                             <span style="color: white; font-weight: bold; font-size: 14px;">${currentStatus.battery.warning}</span>
                         </div>
                     </div>
@@ -1657,7 +1666,7 @@
                     <div class="modal-rows-group">
                         <div class="modal-row-container">
                             <div class="modal-row-label">Remaining Time</div>
-                            <div class="modal-row-value" style="color: ${currentStatus.battery.remainingHours > 0 && currentStatus.battery.remainingHours < 2 ? '#f85149' : '#58a6ff'};">${currentStatus.battery.remainingHours > 0 ? currentStatus.battery.remainingHours.toFixed(1) + 'h' : 'N/A'}</div>
+                            <div class="modal-row-value" style="color: ${currentStatus.battery.remainingHours > 0 && currentStatus.battery.remainingHours < 2 ? 'var(--c-danger)' : 'var(--s-ink-dim)'};">${currentStatus.battery.remainingHours > 0 ? currentStatus.battery.remainingHours.toFixed(1) + 'h' : 'N/A'}</div>
                         </div>
                     </div>
                 </div>
@@ -1665,8 +1674,8 @@
                     <div class="modal-section-title">Low Battery Warning</div>
                     <div class="modal-rows-group">
                         <div class="modal-row-container" style="border-bottom: none;">
-                            <input type="number" id="batteryWarningInput" min="5" max="100" value="${currentStatus.battery.warningThreshold || 20}" placeholder="Percentage" style="flex:1; padding:8px; border-radius:6px; border:1px solid #2d3439; background:#1e2329; color:#e6edf3;">
-                            <button onclick="setBatteryWarning()" style="padding:8px 16px; background:#f85149; border:none; border-radius:6px; color:white; cursor:pointer; margin-left:8px;">Set</button>
+                            <input type="number" id="batteryWarningInput" min="5" max="100" value="${currentStatus.battery.warningThreshold || 20}" placeholder="Percentage" style="flex:1; padding:8px; border-radius:6px; border:1px solid var(--s-line); background:var(--s-panel); color:var(--s-ink);">
+                            <button onclick="setBatteryWarning()" title="Save the low-battery warning level" style="padding:8px 16px; background:var(--s-raised); border:1px solid var(--s-line); border-radius:999px; color:var(--s-ink); cursor:pointer; margin-left:8px;">Set</button>
                         </div>
                     </div>
                 </div>
@@ -1880,7 +1889,7 @@
                         <div class="modal-info-text" style="line-height: 1.5;">
                             🔒 <strong>Zero-Log Policy</strong><br>
                             Per-viewer breakdown is not available in cloud mode to protect viewer privacy. 
-                            Relay Total Served is cumulative since the relay counter began. Monthly usage in FadSec ID counts current-month relay data delivered to viewers; phone uploads are not counted.
+                            Relay Total Served is cumulative since the relay counter began. 
                         </div>
                     </div>
                 `;
@@ -1913,9 +1922,9 @@
                         
                         return `
                             <div class="modal-rows-group" style="margin-bottom: 12px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid #24272d;">
-                                    <div style="font-size: 13px; font-weight: 700; color: #e6edf3; font-family: monospace;">${client.ip || 'Unknown'}</div>
-                                    <div style="font-size: 11px; font-weight: 700; color: #ffffff; background: ${isActive ? '#3fb950' : '#6e7681'}; padding: 4px 8px; border-radius: 4px;">${isActive ? 'Active' : 'Inactive'}</div>
+                                <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--s-raised);">
+                                    <div style="font-size: 13px; font-weight: 700; color: var(--s-ink); font-family: monospace;">${client.ip || 'Unknown'}</div>
+                                    <div style="font-size: 11px; font-weight: 700; color: var(--s-ink); background: ${isActive ? 'var(--c-armed)' : 'var(--s-ink-faint)'}; padding: 4px 8px; border-radius: 4px;">${isActive ? 'Active' : 'Inactive'}</div>
                                 </div>
                                 <div class="modal-row-container">
                                     <div class="modal-row-label">Data Served</div>
@@ -1933,7 +1942,7 @@
                         `;
                     }).join('');
                 } else {
-                    clientsHtml = '<div style="text-align: center; padding: 16px; color: #8b949e; font-size: 12px;">No clients connected</div>';
+                    clientsHtml = '<div style="text-align: center; padding: 16px; color: var(--s-ink-dim); font-size: 12px;">No clients connected</div>';
                 }
                 
                 content = `
@@ -2031,18 +2040,18 @@
             modes.forEach(mode => {
                 const isSelected = currentStatus.mode === mode.id;
                 content += `
-                    <div class="modal-option ${isSelected ? 'selected' : ''}" onclick="setRecordingMode('${mode.id}')">
+                    <div class="modal-option ${isSelected ? 'selected' : ''}" onclick="setRecordingMode('${mode.id}')" title="${mode.label}: ${mode.subtitle}" role="button" tabindex="0">
                         <div class="option-radio ${isSelected ? 'checked' : ''}"></div>
                         <div style="flex: 1;">
-                            <div style="font-weight: 500; color: #e6edf3; margin-bottom: 2px;">${mode.label}</div>
-                            <div style="font-size: 11px; color: #8b949e;">${mode.subtitle}</div>
+                            <div style="font-weight: 500; color: var(--s-ink); margin-bottom: 2px;">${mode.label}</div>
+                            <div style="font-size: 11px; color: var(--s-ink-dim);">${mode.subtitle}</div>
                         </div>
                     </div>
                 `;
             });
             content += `</div>
-                <div style="background: rgba(100, 150, 255, 0.1); border-left: 3px solid #4a90e2; border-radius: 6px; padding: 12px; margin-top: 16px;">
-                    <p style="color: #7aa3f0; font-size: 11px; margin: 0; line-height: 1.5;">
+                <div style="background: rgba(161, 161, 170, 0.1); border-left: 3px solid var(--s-ink-dim); border-radius: 6px; padding: 12px; margin-top: 16px;">
+                    <p style="color: var(--s-ink-dim); font-size: 11px; margin: 0; line-height: 1.5;">
                         <i class="fas fa-info-circle" style="margin-right: 6px;"></i><strong>Note:</strong> After changing the mode, you must stop recording and start again for the change to take effect.
                     </p>
                 </div>`;
@@ -2100,18 +2109,18 @@
             qualities.forEach(quality => {
                 const isSelected = currentStatus.qualityPreset && currentStatus.qualityPreset.toLowerCase() === quality.id;
                 content += `
-                    <div class="modal-option ${isSelected ? 'selected' : ''}" onclick="setStreamQuality('${quality.id}')">
+                    <div class="modal-option ${isSelected ? 'selected' : ''}" onclick="setStreamQuality('${quality.id}')" title="${quality.label}: ${quality.subtitle}" role="button" tabindex="0">
                         <div class="option-radio ${isSelected ? 'checked' : ''}"></div>
                         <div style="flex: 1;">
-                            <div style="font-weight: 500; color: #e6edf3; margin-bottom: 2px;">${quality.label}</div>
-                            <div style="font-size: 11px; color: #8b949e;">${quality.subtitle}</div>
+                            <div style="font-weight: 500; color: var(--s-ink); margin-bottom: 2px;">${quality.label}</div>
+                            <div style="font-size: 11px; color: var(--s-ink-dim);">${quality.subtitle}</div>
                         </div>
                     </div>
                 `;
             });
             content += `</div>
-                <div style="background: rgba(100, 150, 255, 0.1); border-left: 3px solid #4a90e2; border-radius: 6px; padding: 12px; margin-top: 16px;">
-                    <p style="color: #7aa3f0; font-size: 11px; margin: 0; line-height: 1.5;">
+                <div style="background: rgba(161, 161, 170, 0.1); border-left: 3px solid var(--s-ink-dim); border-radius: 6px; padding: 12px; margin-top: 16px;">
+                    <p style="color: var(--s-ink-dim); font-size: 11px; margin: 0; line-height: 1.5;">
                         <i class="fas fa-info-circle" style="margin-right: 6px;"></i><strong>Note:</strong> Bitrate and FPS are locked per preset during streaming. Resolution is always set from Recording Settings. Restart recording to apply changes.
                     </p>
                 </div>`;
@@ -2460,7 +2469,7 @@
             presets.innerHTML = presetPositions
                 .map((preset, index) => {
                     const edgeClass = preset.pct <= 0.1 ? ' is-edge-start' : (preset.pct >= 99.9 ? ' is-edge-end' : '');
-                    return '<button type="button" class="zoom-slider-preset' + edgeClass + '" data-value="' + preset.value.toFixed(1) + '" style="left:' + getZoomMarkerLeftCss(preset.pct) + '" onclick="setZoomPreset(' + preset.value.toFixed(1) + ')"><span class="zoom-slider-preset-tick"></span><span class="zoom-slider-preset-label">' + preset.value.toFixed(1) + '×</span></button>';
+                    return '<button type="button" class="zoom-slider-preset' + edgeClass + '" data-value="' + preset.value.toFixed(1) + '" style="left:' + getZoomMarkerLeftCss(preset.pct) + '" title="Zoom to ' + preset.value.toFixed(1) + '×" onclick="setZoomPreset(' + preset.value.toFixed(1) + ')"><span class="zoom-slider-preset-tick"></span><span class="zoom-slider-preset-label">' + preset.value.toFixed(1) + '×</span></button>';
                 })
                 .join('');
 
@@ -2672,8 +2681,8 @@
             // Create dialog
             const dialog = document.createElement('div');
             dialog.style.cssText = `
-                background: #0d1117;
-                border: 1px solid #30363d;
+                background: var(--s-surface);
+                border: 1px solid var(--s-line);
                 border-radius: 12px;
                 padding: 24px;
                 max-width: 400px;
@@ -2681,37 +2690,37 @@
             `;
             
             dialog.innerHTML = `
-                <h2 style="color: #e6edf3; font-size: 18px; margin: 0 0 12px 0; font-weight: 700;">
-                    <i class="fas fa-exclamation-triangle" style="color: #f85149; margin-right: 8px;"></i>
-                    Codec Incompatibility
+                <h2 style="color: var(--s-ink); font-size: 18px; margin: 0 0 12px 0; font-weight: 700;">
+                    <i class="fas fa-exclamation-triangle" style="color: var(--c-careful); margin-right: 8px;"></i>
+                    Switch the video format?
                 </h2>
-                <p style="color: #8b949e; margin: 0 0 20px 0; line-height: 1.5; font-size: 14px;">
-                    Your device is set to use H.265 (HEVC) codec, which is not supported for HLS streaming in web browsers. 
-                    To record with streaming enabled, we need to switch to H.264 (AVC) codec.
+                <p style="color: var(--s-ink-dim); margin: 0 0 20px 0; line-height: 1.5; font-size: 14px;">
+                    The phone records in H.265 (HEVC), which browsers cannot play live.
+                    To watch here while it records, the phone needs to switch to H.264 (AVC).
                 </p>
                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
-                    <button id="cancelCodecBtn" style="
+                    <button id="cancelCodecBtn" title="Keep H.265 and do not record" style="
                         padding: 10px 16px;
-                        background: transparent;
-                        color: #58a6ff;
-                        border: 1px solid #58a6ff;
-                        border-radius: 6px;
+                        background: var(--s-raised);
+                        color: var(--s-ink);
+                        border: 1px solid var(--s-line);
+                        border-radius: 999px;
                         cursor: pointer;
                         font-weight: 600;
                         transition: all 200ms;
-                    " onmouseover="this.style.background='rgba(88, 166, 255, 0.1)'" onmouseout="this.style.background='transparent'">
+                    " onmouseover="this.style.background='var(--s-pressed)'" onmouseout="this.style.background='var(--s-raised)'">
                         Cancel
                     </button>
-                    <button id="confirmCodecBtn" style="
+                    <button id="confirmCodecBtn" title="Switch the phone to H.264 and start recording" style="
                         padding: 10px 16px;
-                        background: #238636;
-                        color: white;
+                        background: var(--c-armed);
+                        color: var(--c-on-ink);
                         border: none;
-                        border-radius: 6px;
+                        border-radius: 999px;
                         cursor: pointer;
                         font-weight: 600;
                         transition: all 200ms;
-                    " onmouseover="this.style.background='#2ea043'" onmouseout="this.style.background='#238636'">
+                    " onmouseover="this.style.background='var(--c-armed)'" onmouseout="this.style.background='var(--c-armed)'">
                         <i class="fas fa-check" style="margin-right: 6px;"></i>Switch to H.264 & Record
                     </button>
                 </div>
@@ -2869,7 +2878,7 @@
         /**
          * Update controls disabled state based on server connectivity (Step 6.11.3.2)
          * When offline, gray out ALL interactive elements to prevent user confusion
-         * Footer buttons (API, FadCam Pro, social links) remain always enabled
+         * Footer buttons (the API link) remain always enabled
          * @param {boolean} disabled - Whether controls should be disabled
          */
         function updateControlsDisabledState(disabled) {
@@ -2895,8 +2904,7 @@
             controlSelectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach(btn => {
                     // Skip footer elements - they should always be clickable
-                    if (btn.closest('.footer') || btn.closest('.fadcam-pro-btn') || 
-                        btn.classList.contains('footer-link') || btn.classList.contains('fadcam-pro-btn')) {
+                    if (btn.closest('.footer') || btn.classList.contains('footer-link')) {
                         return;
                     }
                     
@@ -3245,7 +3253,7 @@
                 overlayIcon.style.display = '';
                 overlaySpinner.style.display = 'none';
                 overlayTitle.textContent = 'Waiting for stream';
-                overlayText.textContent = 'Stream will auto-start when recording begins';
+                overlayText.textContent = 'The picture appears here when the phone starts recording';
             }
 
             // ===== SYNC RECORDING STATE FIRST (before auto-play check) =====
@@ -3359,7 +3367,7 @@
             serverLED.className = stalenessLedMap[stalenessState] || 'led-dot online';
             // Add tooltip showing age or helpful info when offline
             if (stalenessState === 'offline') {
-                serverLED.title = 'Server is offline. Start streaming from the Remote tab in FadCam app.';
+                serverLED.title = 'The phone is not answering. Open Joy Creator on the phone and start Remote Studio there.';
             } else {
                 serverLED.title = stalenessAge ? `Last update: ${stalenessAge}` : '';
             }
@@ -3369,7 +3377,7 @@
                 serverStatusLabel.textContent = textInfo.text;
                 serverStatusLabel.className = textInfo.class;
                 if (stalenessState === 'offline') {
-                    serverStatusLabel.title = 'Server is offline. Start streaming from the Remote tab in FadCam app.';
+                    serverStatusLabel.title = 'The phone is not answering. Open Joy Creator on the phone and start Remote Studio there.';
                 } else {
                     serverStatusLabel.title = stalenessAge ? `Last update: ${stalenessAge}` : '';
                 }
@@ -3697,8 +3705,8 @@
                 } = options;
 
                 const confirmBg = destructive
-                    ? 'background:#dc2626;'
-                    : 'background:#ffffff;color:#09090b;';
+                    ? 'background:var(--c-danger);color:var(--s-ink);'
+                    : 'background:var(--s-ink);color:var(--c-on-ink);';
                 const confirmHover = destructive ? 'hoverred' : 'hoverwhite';
 
                 const el = document.createElement('div');
@@ -3708,7 +3716,7 @@
                     'display:flex', 'align-items:center', 'justify-content:center', 'padding:16px',
                     'background:rgba(0,0,0,0.7)', 'backdrop-filter:blur(6px)',
                     'animation:cfFadeIn 0.18s ease-out',
-                    'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'
+                    'font-family:var(--font-sans)'
                 ].join(';');
 
                 el.innerHTML = `
@@ -3716,34 +3724,27 @@
                     @keyframes cfFadeIn  { from{opacity:0}           to{opacity:1} }
                     @keyframes cfScaleIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
                     #confirm-overlay-dialog { animation: cfScaleIn 0.18s ease-out; }
-                    #cf-confirm-btn:hover:not(:disabled) {
-                      box-shadow: ${destructive
-                        ? '0 0 14px rgba(220,38,38,0.75),0 0 28px rgba(220,38,38,0.4)'
-                        : '0 0 14px rgba(255,255,255,0.45),0 0 28px rgba(255,255,255,0.2)'};
-                    }
-                    #cf-cancel-btn:hover:not(:disabled) {
-                      background:#ffffff !important; color:#09090b !important;
-                      box-shadow:0 0 14px rgba(255,255,255,0.35),0 0 28px rgba(255,255,255,0.15);
-                    }
+                    #cf-confirm-btn:hover:not(:disabled) { filter: brightness(1.08); }
+                    #cf-cancel-btn:hover:not(:disabled) { background:var(--s-pressed) !important; }
                     #cf-confirm-btn:disabled, #cf-cancel-btn:disabled { opacity:0.5; cursor:not-allowed; }
                   </style>
                   <div id="confirm-overlay-dialog"
-                       style="width:100%;max-width:380px;background:#18181b;border:1px solid #3f3f46;
-                              border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,0.6);color:#fff;">
+                       style="width:100%;max-width:380px;background:var(--s-panel);border:1px solid var(--s-line);
+                              border-radius:16px;box-shadow:0 24px 64px rgba(0,0,0,0.6);color:var(--s-ink);">
                     <div style="padding:24px 24px 16px;">
                       ${iconHtml ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">${iconHtml}<h3 style="margin:0;font-size:17px;font-weight:700;">${title}</h3></div>` : `<h3 style="margin:0 0 12px;font-size:17px;font-weight:700;">${title}</h3>`}
-                      <p style="margin:0;font-size:13px;color:#a1a1aa;line-height:1.6;">${message}</p>
+                      <p style="margin:0;font-size:13px;color:var(--s-ink-dim);line-height:1.6;">${message}</p>
                     </div>
                     <div style="display:flex;gap:10px;padding:12px 24px 24px;">
-                      <button id="cf-cancel-btn"
+                      <button id="cf-cancel-btn" title="${cancelText}"
                               style="flex:1;padding:11px 16px;font-size:13px;font-weight:600;
-                                     background:#27272a;border:none;border-radius:10px;
-                                     color:#e4e4e7;cursor:pointer;transition:all 0.2s;">
+                                     background:var(--s-raised);border:none;border-radius:999px;
+                                     color:var(--s-ink);cursor:pointer;transition:all 0.2s;">
                         ${cancelText}
                       </button>
-                      <button id="cf-confirm-btn"
+                      <button id="cf-confirm-btn" title="${confirmText}"
                               style="flex:1;padding:11px 16px;font-size:13px;font-weight:600;
-                                     ${confirmBg}border:none;border-radius:10px;
+                                     ${confirmBg}border:none;border-radius:999px;
                                      cursor:pointer;transition:all 0.2s;">
                         <span id="cf-btn-text">${confirmText}</span>
                       </button>
@@ -3788,7 +3789,7 @@
             toastElement.innerHTML = `
                 <div class="toast-content">
                     <span class="toast-message">${message}</span>
-                    <button class="toast-close" onclick="closeToastById('${toastId}')">✕</button>
+                    <button class="toast-close" onclick="closeToastById('${toastId}')" title="Dismiss" aria-label="Dismiss">✕</button>
                 </div>
                 <div class="toast-progress-bar"></div>
             `;
@@ -3991,8 +3992,8 @@
             let endpointsHtml = `
                 <div class="modal-section">
                     <div class="modal-section-title">Server URL</div>
-                    <div style="padding: 10px; background: #1a1e24; border: 1px solid #2d3439; border-radius: 6px; margin-bottom: 12px;">
-                        <div style="font-size: 11px; color: #8b949e; word-break: break-all; font-family: monospace; line-height: 1.4;">${serverUrl}</div>
+                    <div style="padding: 10px; background: var(--s-panel); border: 1px solid var(--s-line); border-radius: 6px; margin-bottom: 12px;">
+                        <div style="font-size: 11px; color: var(--s-ink-dim); word-break: break-all; font-family: monospace; line-height: 1.4;">${serverUrl}</div>
                     </div>
                 </div>
                 
@@ -4003,15 +4004,15 @@
             endpoints.forEach((ep, idx) => {
                 const fullUrl = serverUrl + ep.path;
                 endpointsHtml += `
-                    <div style="margin-bottom: ${idx === endpoints.length - 1 ? '0' : '12px'}; padding-bottom: ${idx === endpoints.length - 1 ? '0' : '12px'}; ${idx === endpoints.length - 1 ? '' : 'border-bottom: 1px solid #2d3439;'}">
+                    <div style="margin-bottom: ${idx === endpoints.length - 1 ? '0' : '12px'}; padding-bottom: ${idx === endpoints.length - 1 ? '0' : '12px'}; ${idx === endpoints.length - 1 ? '' : 'border-bottom: 1px solid var(--s-line);'}">
                         <div style="display: flex; gap: 8px; margin-bottom: 6px; align-items: center;">
-                            <span style="font-size: 11px; font-weight: 700; color: #ffffff; background: ${ep.method === 'GET' ? '#3fb950' : '#f85149'}; padding: 3px 8px; border-radius: 4px; min-width: 38px; text-align: center;">${ep.method}</span>
-                            <span style="font-size: 12px; font-weight: 600; color: #e6edf3; font-family: monospace; flex: 1;">${ep.path}</span>
-                            <button data-copy-url="${fullUrl}" class="endpoint-copy-btn" style="background: none; border: none; color: #58a6ff; cursor: pointer; font-size: 12px; padding: 4px 6px; transition: all 200ms;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#58a6ff'" title="Copy endpoint URL">
+                            <span style="font-size: 11px; font-weight: 700; color: var(--s-ink); background: ${ep.method === 'GET' ? 'var(--c-armed)' : 'var(--c-danger)'}; padding: 3px 8px; border-radius: 4px; min-width: 38px; text-align: center;">${ep.method}</span>
+                            <span style="font-size: 12px; font-weight: 600; color: var(--s-ink); font-family: monospace; flex: 1;">${ep.path}</span>
+                            <button data-copy-url="${fullUrl}" class="endpoint-copy-btn" title="Copy this address" aria-label="Copy this address" style="background: none; border: none; color: var(--s-ink-dim); cursor: pointer; font-size: 12px; padding: 4px 6px; transition: all 200ms;" onmouseover="this.style.color='var(--s-ink)'" onmouseout="this.style.color='var(--s-ink-dim)'" title="Copy endpoint URL">
                                 <i class="fas fa-link"></i>
                             </button>
                         </div>
-                        <div style="font-size: 11px; color: #8b949e; line-height: 1.4; margin-left: 46px;">${ep.desc}</div>
+                        <div style="font-size: 11px; color: var(--s-ink-dim); line-height: 1.4; margin-left: 46px;">${ep.desc}</div>
                     </div>
                 `;
             });
@@ -4177,17 +4178,17 @@
             if (tab === 'instant') {
                 instantTab.style.display = 'block';
                 scheduledTab.style.display = 'none';
-                instantBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
-                instantBtn.style.color = '#ffffff';
-                scheduledBtn.style.background = '#30363d';
-                scheduledBtn.style.color = '#8b949e';
+                instantBtn.style.background = 'var(--c-armed)';
+                instantBtn.style.color = 'var(--c-on-ink)';
+                scheduledBtn.style.background = 'var(--s-raised)';
+                scheduledBtn.style.color = 'var(--s-ink-dim)';
             } else {
                 instantTab.style.display = 'none';
                 scheduledTab.style.display = 'block';
-                instantBtn.style.background = '#30363d';
-                instantBtn.style.color = '#8b949e';
-                scheduledBtn.style.background = 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)';
-                scheduledBtn.style.color = '#ffffff';
+                instantBtn.style.background = 'var(--s-raised)';
+                instantBtn.style.color = 'var(--s-ink-dim)';
+                scheduledBtn.style.background = 'var(--c-armed)';
+                scheduledBtn.style.color = 'var(--c-on-ink)';
                 syncScheduleUI();
             }
         }
@@ -4657,11 +4658,14 @@
             const iconEl = document.getElementById('alarmIcon');
             
             if (isRinging) {
-                card.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(211, 47, 47, 0.1) 100%)';
-                card.style.borderColor = '#ef4444';
-                card.style.borderWidth = '2px';
+                // Ringing: solid danger fill, light ink (house style: no coloured outline)
+                card.classList.add('is-ringing'); card.classList.remove('is-armed');
+                card.style.background = 'var(--c-danger)';
+                card.style.borderColor = 'var(--c-danger)';
+                card.style.borderWidth = '';
                 stateTextEl.textContent = remainingMs === -1 ? '∞ RINGING' : 'RINGING';
-                stateTextEl.style.color = '#ef4444';
+                stateTextEl.style.color = 'var(--s-ink)';
+                if (countdownEl) countdownEl.style.color = 'var(--s-ink)';
                 if (countdownEl && remainingMs > 0) {
                     const seconds = Math.ceil(remainingMs / 1000);
                     countdownEl.textContent = seconds + 's left';
@@ -4670,14 +4674,17 @@
                 }
                 // Intense ringing animation with bell shake
                 iconEl.style.animation = 'bellShake 0.4s infinite';
-                iconEl.style.color = '#ef4444';
+                iconEl.style.color = 'var(--s-ink)';
             } else if (alarmScheduled && !isRinging) {
                 // Waiting state - smooth pulse animation
-                card.style.background = 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%)';
-                card.style.borderColor = '#22c55e';
-                card.style.borderWidth = '2px';
+                // Scheduled = armed: solid cyan fill, near-black ink
+                card.classList.add('is-armed'); card.classList.remove('is-ringing');
+                card.style.background = 'var(--c-armed)';
+                card.style.borderColor = 'var(--c-armed)';
+                card.style.borderWidth = '';
                 stateTextEl.textContent = 'SCHEDULED';
-                stateTextEl.style.color = '#22c55e';
+                stateTextEl.style.color = 'var(--c-on-ink)';
+                if (countdownEl) countdownEl.style.color = 'var(--c-on-ink)';
                 if (countdownEl && alarmScheduled.scheduledTime) {
                     const remaining = alarmScheduled.scheduledTime - Date.now();
                     const hours = Math.floor(remaining / (1000 * 60 * 60));
@@ -4686,17 +4693,18 @@
                 }
                 // Waiting animation - gentle pulse
                 iconEl.style.animation = 'alarmWaiting 2s ease-in-out infinite';
-                iconEl.style.color = '#22c55e';
+                iconEl.style.color = 'var(--c-on-ink)';
             } else {
                 // Ready state - no animation
+                card.classList.remove('is-armed', 'is-ringing');
                 card.style.background = '';
                 card.style.borderColor = '';
                 card.style.borderWidth = '';
                 stateTextEl.textContent = 'READY';
                 stateTextEl.style.color = '';
-                if (countdownEl) countdownEl.textContent = '';
+                if (countdownEl) { countdownEl.textContent = ''; countdownEl.style.color = ''; }
                 iconEl.style.animation = 'none';
-                iconEl.style.color = '#ef4444';
+                iconEl.style.color = 'var(--s-ink-dim)';
             }
         }
         
@@ -4978,88 +4986,9 @@
         );
     </script>
 
-    <!-- Avatar Component -->
-    <script src="assets/avatar/avatar.js"></script>
+    <!-- Joybot lives in the hero card as a CSS-animated sprite (see .joybot-sprite in style.css);
+         FadCam's robot avatar (assets/avatar/) is no longer loaded. -->
     <script>
-        // Initialize avatar when DOM is ready
-        document.addEventListener('DOMContentLoaded', () => {
-            try {
-                // Get the hero avatar container
-                const heroAvatarContainer = document.getElementById('heroAvatarContainer');
-                
-                if (heroAvatarContainer) {
-                    // Initialize avatar in hero card (bottom right)
-                    const avatar = new Avatar(heroAvatarContainer);
-                    console.log('✅ Avatar component initialized in hero card');
-                    
-                    // Create floating tooltip for avatar - speech bubble
-                    const tooltip = document.createElement('div');
-                    tooltip.className = 'avatar-floating-tooltip';
-                    tooltip.textContent = '???';
-                    document.body.appendChild(tooltip);
-                    
-                    // Get the avatar wrapper
-                    const avatarWrapper = heroAvatarContainer.querySelector('.avatar-wrapper');
-                    
-                    if (avatarWrapper) {
-                        // Function to position tooltip responsively
-                        const positionTooltip = () => {
-                            const rect = avatarWrapper.getBoundingClientRect();
-                            const viewportWidth = window.innerWidth;
-                            const viewportHeight = window.innerHeight;
-                            
-                            let left, top;
-                            
-                            // On small screens (phone), show on left side
-                            if (viewportWidth <= 480) {
-                                // Left side positioning - balanced distance
-                                tooltip.classList.add('left-position');
-                                tooltip.classList.remove('right-position');
-                                left = Math.max(10, rect.left - 45);
-                                top = Math.max(80, rect.top - 10);
-                            } else {
-                                // Right side positioning - adjusted up and left
-                                tooltip.classList.add('right-position');
-                                tooltip.classList.remove('left-position');
-                                left = Math.min(viewportWidth - 120, rect.right - 10);
-                                top = Math.max(10, rect.top - 10);
-                            }
-                            
-                            tooltip.style.left = left + 'px';
-                            tooltip.style.top = top + 'px';
-                        };
-                        
-                        // Show/hide tooltip on hover
-                        avatarWrapper.addEventListener('mouseenter', () => {
-                            positionTooltip();
-                            tooltip.classList.add('visible');
-                        });
-                        
-                        avatarWrapper.addEventListener('mouseleave', () => {
-                            tooltip.classList.remove('visible');
-                        });
-                        
-                        // Reposition on scroll/resize
-                        let repositionTimer;
-                        const handleReposition = () => {
-                            if (tooltip.classList.contains('visible')) {
-                                clearTimeout(repositionTimer);
-                                repositionTimer = setTimeout(positionTooltip, 10);
-                            }
-                        };
-                        window.addEventListener('scroll', handleReposition, { passive: true });
-                        window.addEventListener('resize', handleReposition, { passive: true });
-                    }
-                } else {
-                    // Fallback: initialize avatar on body if container not found
-                    const avatar = new Avatar();
-                    console.log('✅ Avatar component initialized on body (fallback)');
-                }
-            } catch (error) {
-                console.error('❌ Failed to initialize avatar:', error);
-            }
-        });
-
         // ========================================
         // AUTHENTICATION HANDLERS
         // ========================================
@@ -5087,6 +5016,9 @@
          */
         function showLockScreen() {
             const overlay = document.getElementById('lockScreenOverlay');
+            // Already showing: leave it alone. The status poll asks every few seconds, and
+            // re-opening would wipe the message ("Too many tries...") and steal the cursor.
+            if (overlay && overlay.classList.contains('visible')) return;
             if (overlay) {
                 overlay.classList.remove('hidden');
                 overlay.classList.add('visible');
@@ -5196,7 +5128,7 @@
                 confirmText: 'Sign Out',
                 cancelText: 'Stay',
                 destructive: true,
-                iconHtml: '<div style="padding:8px;background:#27272a;border:1px solid #3f3f46;border-radius:10px;color:#a1a1aa;"><i class="fas fa-sign-out-alt" style="font-size:16px;"></i></div>'
+                iconHtml: '<div style="padding:8px;background:var(--s-raised);border:1px solid var(--s-line);border-radius:10px;color:var(--s-ink-dim);"><i class="fas fa-sign-out-alt" style="font-size:16px;"></i></div>'
             });
             if (!confirmed) return;
 
@@ -5232,12 +5164,12 @@
         function loadActiveSessions() {
             const sessionsList = document.getElementById('activeSessionsList');
             sessionsList.innerHTML = `
-                <div style="padding: 12px; background: rgba(139, 148, 158, 0.1); border-radius: 6px; color: #e6edf3; font-size: 13px;">
+                <div style="padding: 12px; background: rgba(161, 161, 170, 0.1); border-radius: 6px; color: var(--s-ink); font-size: 13px;">
                     <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                        <i class="fas fa-check-circle" style="color: #3fb950;"></i>
+                        <i class="fas fa-check-circle" style="color: var(--c-armed);"></i>
                         <strong>This Browser</strong>
                     </div>
-                    <div style="font-size: 12px; color: #8b949e;">Logged in as <strong>${new Date().toLocaleString()}</strong></div>
+                    <div style="font-size: 12px; color: var(--s-ink-dim);">Logged in as <strong>${new Date().toLocaleString()}</strong></div>
                 </div>
             `;
         }
@@ -5249,14 +5181,14 @@
             const timeout = localStorage.getItem('autoLockTimeout') || 'never';
             document.querySelectorAll('.timeout-btn').forEach(btn => {
                 if (btn.getAttribute('data-timeout') === timeout) {
-                    btn.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
-                    btn.style.borderColor = '#3b82f6';
-                    btn.style.color = '#ffffff';
+                    btn.style.background = 'var(--c-armed)';
+                    btn.style.borderColor = 'var(--c-armed)';
+                    btn.style.color = 'var(--c-on-ink)';
                     btn.style.fontWeight = '700';
                 } else {
-                    btn.style.background = 'rgba(255, 255, 255, 0.1)';
-                    btn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-                    btn.style.color = '#e6edf3';
+                    btn.style.background = 'var(--s-raised)';
+                    btn.style.borderColor = 'var(--s-line)';
+                    btn.style.color = 'var(--s-ink)';
                     btn.style.fontWeight = '600';
                 }
             });
@@ -5375,11 +5307,11 @@
             <div class="lock-screen-icon">
                 <i class="fas fa-lock"></i>
             </div>
-            <h2>FadCam Remote Locked</h2>
-            <p>Enter your password to unlock</p>
+            <h2>Remote Studio is locked</h2>
+            <p>Enter the pairing code shown on the phone, in Remote Studio under Access (or your own password)</p>
             <div class="lock-screen-form">
-                <input type="password" id="lockPassword" class="lock-password-input" placeholder="Password" autocomplete="current-password">
-                <button class="lock-unlock-btn" onclick="attemptUnlock()">
+                <input type="password" id="lockPassword" class="lock-password-input" placeholder="Pairing code" autocomplete="current-password" inputmode="text">
+                <button class="lock-unlock-btn" onclick="attemptUnlock()" title="Unlock">
                     <i class="fas fa-unlock"></i> Unlock
                 </button>
                 <div id="lockError" class="lock-error-message"></div>

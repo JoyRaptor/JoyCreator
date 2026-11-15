@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Sposta fotogramma chiave</string>
+    <string name="studio_tail_add_adjustment_layer">Aggiungi livello di regolazione</string>
+    <string name="studio_tail_add_linked_pair">Aggiungi coppia collegata schermo + webcam</string>
+    <string name="studio_tail_insert_at_playhead">Inserisci alla testina</string>
+    <string name="studio_tail_split_linked_pair">Dividi la coppia collegata</string>
+    <string name="studio_tail_delete_linked_pair">Elimina la coppia collegata</string>
+    <string name="studio_tail_duplicate">Duplica</string>
+    <string name="studio_tail_link_clips_pair">Collega clip (schermo + webcam)</string>
+</resources>

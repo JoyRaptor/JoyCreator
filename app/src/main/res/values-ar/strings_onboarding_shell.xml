@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">ثلاثة أشياء تعرفها، ثم يصبح التطبيق لك.</string>
+    <string name="onboarding_promise_1">يبقى عملك على هاتفك، في مجلد Joy Creator الذي تختاره.</string>
+    <string name="onboarding_promise_2">لا حساب ولا إعلانات ولا تتبع. لا يُباع عنك شيء ولا يُشارَك.</string>
+    <string name="onboarding_promise_3">لا يغادر شيء هاتفك إلا حين تستخدم ميزة تحتاج إلى الإنترنت، مثل AI تربطه.</string>
+    <string name="hover_intro_ai_add">اربط AI خاصًا بك مع Joybot الآن</string>
+    <string name="hover_intro_ai_later">أخفِ هذا؛ يمكنك ربط AI لاحقًا من دردشة Joybot</string>
+</resources>

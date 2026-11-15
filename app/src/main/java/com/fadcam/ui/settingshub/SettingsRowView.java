@@ -2,6 +2,8 @@ package com.fadcam.ui.settingshub;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.InsetDrawable;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.widget.LinearLayout;
@@ -9,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 
 import com.fadcam.R;
 import com.fadcam.ui.faditor.SheetKit;
@@ -82,6 +85,33 @@ final class SettingsRowView extends LinearLayout {
     }
 
     /**
+     * The row's mark: a font glyph, or a picture (Joybot's own face) drawn in the glyph's 24 dp box, kept
+     * in proportion and tinted the same grey. Rows are recycled, so each bind sets both sides.
+     */
+    private void bindGlyph(@NonNull Context c, @NonNull SettingsCatalog.Row row) {
+        if (row.art == 0) {
+            glyph.setBackground(null);
+            glyph.setText(row.glyph);
+            return;
+        }
+        glyph.setText("");
+        Drawable art = ContextCompat.getDrawable(c, row.art);
+        if (art == null) {
+            glyph.setBackground(null);
+            glyph.setText(row.glyph);
+            return;
+        }
+        art = art.mutate();
+        art.setTint(Studio.INK_DIM);
+        int box = SettingsViews.dp(c, 24);
+        int high = SettingsViews.dp(c, 22);
+        int iw = Math.max(1, art.getIntrinsicWidth()), ih = Math.max(1, art.getIntrinsicHeight());
+        int wide = Math.min(box, Math.round(high * (iw / (float) ih)));
+        int side = (box - wide) / 2, top = (box - high) / 2;
+        glyph.setBackground(new InsetDrawable(art, side, top, box - wide - side, box - high - top));
+    }
+
+    /**
      * @param section the section's name to show above the title (search results), or null
      * @param value   the row's live value, or null when it has none (or it has not been read yet)
      */
@@ -89,7 +119,7 @@ final class SettingsRowView extends LinearLayout {
               @Nullable SettingsStatus.Value value) {
         Context c = getContext();
         setBackground(SettingsViews.rowBackground(c, shape));
-        glyph.setText(row.glyph);
+        bindGlyph(c, row);
         String name = c.getString(row.title);
         String desc = c.getString(row.summary);
         title.setText(name);

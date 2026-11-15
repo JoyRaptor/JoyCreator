@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/media_strings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="universal_rewind">Перемотать назад</string>
+    <string name="universal_forward">Перемотать вперёд</string>
+</resources>

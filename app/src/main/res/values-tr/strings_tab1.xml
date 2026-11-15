@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Çekmece resmin yanında (kapalıyken yukarıdan aşağı iner)</string>
+    <string name="tab1_drawer_column">Uzun sütun: zaman çizelgesi yalnızca resmin altında durur</string>
+    <string name="tab1_settings_place_title">Geniş ekranda çekmeceler</string>
+    <string name="tab1_settings_place_auto">Otomatik: yer varsa resmin yanında, yoksa aşağı iner</string>
+    <string name="tab1_settings_place_drop">Telefondaki gibi her zaman yukarıdan aşağı iner</string>
+    <string name="tab1_settings_place_beside">Her zaman resmin yanında</string>
+    <string name="tab1_settings_column_title">Uzun sütun</string>
+    <string name="tab1_settings_column">Resmin yanında çekmece tam yükseklikte uzanır ve zaman çizelgesi yalnızca resmin altında durur. Kapalıyken: zaman çizelgesi tam genişlikte olan kurgu masası.</string>
+    <string name="tab1_settings_left_title">Soldaki çekmeceler</string>
+    <string name="tab1_settings_left">Çekmece, resmin sağı yerine soluna yerleşir.</string>
+</resources>

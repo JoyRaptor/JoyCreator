@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import android.content.Context;
 import android.graphics.drawable.GradientDrawable;
 import android.util.DisplayMetrics;
@@ -49,7 +51,7 @@ public final class PinPickerDialog {
         GradientDrawable bg = new GradientDrawable();
         bg.setColor(Studio.PANEL);
         bg.setCornerRadius(SheetKit.dp(ctx, SheetKit.SHEET_RADIUS_DP));
-        final androidx.appcompat.app.AlertDialog dialog = new MaterialAlertDialogBuilder(ctx)
+        final androidx.appcompat.app.AlertDialog dialog = StudioDialog.builder(ctx)
                 .setBackground(bg)
                 .create();
 

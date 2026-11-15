@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">Τρία πράγματα να ξέρεις, και μετά η εφαρμογή είναι δική σου.</string>
+    <string name="onboarding_promise_1">Η δουλειά σου μένει στο κινητό σου, στον φάκελο Joy Creator που διαλέγεις.</string>
+    <string name="onboarding_promise_2">Χωρίς λογαριασμό, χωρίς διαφημίσεις, χωρίς καταγραφή. Τίποτα για σένα δεν πουλιέται ή μοιράζεται.</string>
+    <string name="onboarding_promise_3">Κάτι φεύγει από το κινητό σου μόνο όταν χρησιμοποιείς λειτουργία που θέλει ίντερνετ, όπως ένα AI που συνδέεις.</string>
+    <string name="hover_intro_ai_add">Σύνδεσε τώρα το δικό σου AI με τον Joybot</string>
+    <string name="hover_intro_ai_later">Απόκρυψη· μπορείς να συνδέσεις AI αργότερα από τη συνομιλία με τον Joybot</string>
+</resources>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI او Joybot</string>
+    <string name="settingshub_ai_joybot_desc">یو AI وصل کړئ (یو وړیا شته)، ستاسو کیلي، ماډل او خدمت، او ستاسو د کمپیوټر Claude Code یا Codex</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, api key, key, model, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, assistant, chat, connect, computer, mcp, مرستندوی, کیلي, ماډل, چټ, وصل, کمپیوټر</string>
+</resources>

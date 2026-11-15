@@ -193,7 +193,7 @@
                     android:id="@+id/text_total_count"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="48sp"
                     android:textStyle="bold" />
 
@@ -225,7 +225,7 @@
                 android:letterSpacing="0.15"
                 android:text="@string/intel_threat_assessment"
                 android:textAllCaps="true"
-                android:textColor="?attr/colorHeading"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -261,7 +261,7 @@
                         android:id="@+id/text_threat_desc"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:textColor="?attr/colorHeading"
+                        android:textColor="@color/s_ink"
                         android:textSize="13sp" />
 
                     <TextView
@@ -283,7 +283,7 @@
                 android:letterSpacing="0.15"
                 android:text="@string/intel_detection_breakdown"
                 android:textAllCaps="true"
-                android:textColor="?attr/colorHeading"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -323,7 +323,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="22sp"
                             android:textStyle="bold" />
 
@@ -361,7 +361,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="22sp"
                             android:textStyle="bold" />
 
@@ -406,7 +406,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="22sp"
                             android:textStyle="bold" />
 
@@ -444,7 +444,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="4dp"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="22sp"
                             android:textStyle="bold" />
 
@@ -471,7 +471,7 @@
                 android:letterSpacing="0.15"
                 android:text="@string/intel_activity_timeline"
                 android:textAllCaps="true"
-                android:textColor="?attr/colorHeading"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -557,7 +557,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
                     android:padding="8dp"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="12sp"
                     android:visibility="gone" />
 
@@ -580,7 +580,7 @@
                 android:letterSpacing="0.15"
                 android:text="@string/intel_zone_analysis"
                 android:textAllCaps="true"
-                android:textColor="?attr/colorHeading"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -847,7 +847,7 @@
                 android:letterSpacing="0.15"
                 android:text="@string/intel_key_observations"
                 android:textAllCaps="true"
-                android:textColor="?attr/colorHeading"
+                android:textColor="@color/s_ink"
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
@@ -863,7 +863,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:lineSpacingExtra="4dp"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="13sp" />
             </LinearLayout>
 

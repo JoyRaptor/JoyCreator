@@ -247,8 +247,7 @@
                 android:textStyle="normal"
                 android:maxLines="1"
                 android:ellipsize="end"
-                android:importantForAccessibility="auto"
-                android:text="@string/kofi_footer_text" />
+                android:importantForAccessibility="auto" />
         </LinearLayout>
         </LinearLayout>
     </ScrollView>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">درې شیان باید پوه شئ، بیا اپ ستاسو دی.</string>
+    <string name="onboarding_promise_1">ستاسو کار ستاسو په تلیفون کې، په هغه Joy Creator پوښۍ کې پاتې کېږي چې تاسو یې غوره کوئ.</string>
+    <string name="onboarding_promise_2">هیڅ حساب نشته، هیڅ اعلان نشته، هیڅ تعقیب نشته. ستاسو په اړه هیڅ نه خرڅېږي یا شریکېږي.</string>
+    <string name="onboarding_promise_3">یو څه یوازې هغه وخت ستاسو له تلیفون نه وځي کله چې داسې ځانګړتیا وکاروئ چې انټرنېټ غواړي، لکه AI چې تاسو یې وصل کوئ.</string>
+    <string name="hover_intro_ai_add">خپل AI اوس له Joybot سره وصل کړئ</string>
+    <string name="hover_intro_ai_later">دا پټ کړئ؛ کولای شئ AI وروسته د Joybot له چټ نه وصل کړئ</string>
+</resources>

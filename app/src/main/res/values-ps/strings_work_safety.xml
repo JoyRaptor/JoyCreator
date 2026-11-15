@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">بدلونونه چې بل ځای شوي</string>
+    <string name="studio_undo_transcription">ټرانسکریپشن</string>
+    <string name="studio_consolidate_some_failed">%1$d فایل(ونه) کاپي شول، خو دا دننه کاپي نه شول او لا هم اصلي کاروي: %2$s. دا اصلي فایلونه وساتئ؛ بیا یې د بیا هڅې لپاره چلوئ.</string>
+    <string name="studio_toast_changed_elsewhere">هغه بدلونونه راوستل شول چې په دې پروژه کې بل ځای شوي وو</string>
+</resources>

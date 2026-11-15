@@ -9,6 +9,7 @@
 - [ ] The GitHub repo confirmed private (or deliberately public with the right licence notice).
 - [ ] The store listing written from STATE (only 🟢 features are promoted).
 - [ ] The bundled What's New text (`assets/changelog/main.md`) is Joy Creator's, not FadCam's.
+- [x] No FadCam Pro or donation leftovers in the app; one quiet support link on the About page, hidden until the owner fills in `support_url` (L32 / SHELL-60, 11-15, 1db3aca9f; STATE §7). **Owner:** the support page's address (Ko-fi, GitHub Sponsors, Liberapay or Patreon) when there is one.
 
 ## Where it stands
 README and PRIVACY drafts are in the repo root. CHANGELOG.md is Joy Creator's since 10-14.

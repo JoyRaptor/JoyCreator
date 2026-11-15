@@ -139,6 +139,14 @@ public class WhatsNewActivity extends AppCompatActivity {
         SharedPreferencesManager.getInstance(this).setShowOnboarding(false);
         FLog.d(TAG, "navigateToHome: Onboarding marked as complete");
         
+        // Opened from Settings or the sidebar, the app is still underneath: just close, so the
+        // person lands back where they were instead of the whole app restarting on the lobby
+        // (launch bug hunt C17, 11-15). Only the after-update path (MainActivity finished
+        // itself before opening this) needs the app started again.
+        if (!isTaskRoot()) {
+            finish();
+            return;
+        }
         FLog.d(TAG, "navigateToHome: Starting navigation to MainActivity");
         Intent intent = new Intent(this, com.fadcam.MainActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

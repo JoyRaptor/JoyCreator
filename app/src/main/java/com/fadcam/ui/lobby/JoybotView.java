@@ -130,6 +130,10 @@ public final class JoybotView extends FrameLayout {
      * to set him up again.
      */
     public void setFilm(@Nullable JoybotFilm f) {
+        // The colour character has no orb under him: the orb is the icon's seat (owner, 09-18:
+        // the claymation "flattens into the white icon").
+        android.graphics.drawable.Drawable seat = getBackground();
+        if (seat != null) seat.setAlpha(f != null && f.isActor() ? 0 : 255);
         if (f == null) {
             if (film != null) { removeView(film); film = null; }
             neutral.setVisibility(VISIBLE);
@@ -141,12 +145,14 @@ public final class JoybotView extends FrameLayout {
             film.setLayoutParams(new LayoutParams(
                     LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER));
             addView(film);
+            film.calm = calmThruster;
         }
         // The stills are HIDDEN rather than removed: a one-shot film finishing has to hand
         // the face back instantly, and re-inflating two ImageViews at that moment would
         // drop the frame the handover happens on.
         neutral.setVisibility(INVISIBLE);
         smile.setVisibility(INVISIBLE);
+        film.onFinished = null;
         film.play(f);
     }
 
@@ -194,11 +200,81 @@ public final class JoybotView extends FrameLayout {
         private final android.graphics.Paint paint =
                 new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
 
+        /** The colour character is drawn as he is: a tint would flatten him to a silhouette. */
+        private final android.graphics.Paint plain =
+                new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
+
+        // ── life on top of the drawings (owner, 11-13: "use the squash and stretch ... extra zest") ──
+        // The frames change eight times a second; between them he would be a cut-out. So he sways
+        // and bobs on his hover peg all the time, and every new pose lands with a small squash that
+        // springs back. All of it pivots on the peg, so his feet never slide.
+        private static final long SWAY_MS = 3600L;
+        private static final float SWAY_DEG = 1.6f;
+        private static final float BOB_FRACTION = 0.012f;
+        private static final float POP_MS = 240f;
+        private static final float POP_SMALL = 0.035f, POP_BIG = 0.09f;
+        private int lastShown = -1;
+        private long popAt = 0L;
+        private boolean popBig = false;
+
         FilmView(android.content.Context c) { super(c); }
+
+        // ── his calm thruster on his seat (owner, 14 Nov: "fade away to a very calm glow and calm low
+        // emission once he's in place") ──
+        // A faint plasma push ring every 1.1 s, drifting a little way off his hover peg as it grows and
+        // fades; the same rings the arrival's GL stage puffs in its calm phase, drawn here so nothing
+        // has to render on the GPU while the chat sits still. Only while he sits at home.
+        boolean calm;
+        private static final int RINGS = 3;
+        private static final long RING_EVERY_MS = 1100L, RING_LIFE_MS = 1300L;
+        private final long[] ringBorn = new long[RINGS];
+        private final float[] ringSize = new float[RINGS];
+        private int ringNext;
+        private long lastRing;
+        private final java.util.Random dice = new java.util.Random();
+        private final android.graphics.Paint ringCore = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Paint ringGlow = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.RectF ringBox = new android.graphics.RectF();
+
+        private void drawCalmRings(@NonNull Canvas canvas, float px, float py, long now) {
+            View host = (View) getParent();
+            boolean home = host != null && Math.abs(host.getTranslationX()) < 1f && Math.abs(host.getTranslationY()) < 1f
+                    && Math.abs(host.getRotation()) < .5f;
+            if (home && now - lastRing >= RING_EVERY_MS) {
+                lastRing = now;
+                ringBorn[ringNext] = now;
+                ringSize[ringNext] = .25f + .75f * dice.nextFloat();
+                ringNext = (ringNext + 1) % RINGS;
+            }
+            float dp = getResources().getDisplayMetrics().density;
+            ringCore.setStyle(android.graphics.Paint.Style.STROKE);
+            ringGlow.setStyle(android.graphics.Paint.Style.STROKE);
+            for (int i = 0; i < RINGS; i++) {
+                if (ringBorn[i] == 0L) continue;
+                long age = now - ringBorn[i];
+                if (age >= RING_LIFE_MS) continue;
+                float f = age / (float) RING_LIFE_MS, f0 = ringSize[i];
+                float rad = (3.64f + 12.6f * (1f - (1f - f) * (1f - f))) * f0 * dp;
+                // drifts off the peg, slowing, and spreads on the seat's sill 4 dp below him
+                float drop = Math.min(3.5f * dp, 13f * dp * (1f - (float) Math.pow(.3, age / 1000.0)));
+                float alpha = (float) Math.pow(1f - f, 1.6) * .55f, hot = Math.max(0f, 1f - f * 2.2f);
+                ringBox.set(px - rad, py + drop - rad * .3f, px + rad, py + drop + rad * .3f);
+                ringGlow.setStrokeWidth((5f + 8f * f) * dp);
+                ringGlow.setColor(android.graphics.Color.argb(Math.round(255 * alpha * .22f), 255, 40, 190));
+                canvas.drawOval(ringBox, ringGlow);
+                ringCore.setStrokeWidth((2f * (1f - f * .6f) + 2.4f * f) * dp);
+                ringCore.setColor(android.graphics.Color.argb(Math.round(255 * alpha * (.55f + .4f * hot)),
+                        255, Math.round(70 + 110 * hot), Math.round(200 + 45 * hot)));
+                canvas.drawOval(ringBox, ringCore);
+            }
+        }
 
         void play(@NonNull JoybotFilm film) {
             this.f = film;
             film.start(android.os.SystemClock.uptimeMillis());
+            lastShown = -1;
+            popAt = android.os.SystemClock.uptimeMillis();
+            popBig = true;
             setAlpha(1f);
             setScaleX(1f);
             setScaleY(1f);
@@ -217,15 +293,51 @@ public final class JoybotView extends FrameLayout {
             // physical object; stretching it is immediately visible in a way that stretching
             // line art is not.
             float cw = f.cellWidth(), ch = f.cellHeight();
-            float s = Math.min(getWidth() / cw, getHeight() / ch);
-            float w = cw * s, h = ch * s;
-            box.set((getWidth() - w) / 2f, (getHeight() - h) / 2f,
-                    (getWidth() + w) / 2f, (getHeight() + h) / 2f);
-            f.draw(canvas, box, paint, android.os.SystemClock.uptimeMillis());
+            android.graphics.RectF body = f.focus();
+            if (body != null && body.width() > 0f && body.height() > 0f) {
+                // His BODY fills the view, as the stills' body does; what he holds may reach
+                // outside it (clipChildren is off all the way up).
+                float s = Math.min(getWidth() / (cw * body.width()), getHeight() / (ch * body.height()));
+                float left = getWidth() / 2f - cw * s * body.centerX();
+                float top = getHeight() / 2f - ch * s * body.centerY();
+                box.set(left, top, left + cw * s, top + ch * s);
+            } else {
+                float s = Math.min(getWidth() / cw, getHeight() / ch);
+                float w = cw * s, h = ch * s;
+                box.set((getWidth() - w) / 2f, (getHeight() - h) / 2f,
+                        (getWidth() + w) / 2f, (getHeight() + h) / 2f);
+            }
+            long now = android.os.SystemClock.uptimeMillis();
+            if (calm && f.isActor() && body != null) {
+                drawCalmRings(canvas, getWidth() / 2f, box.top + box.height() * body.bottom, now);
+            }
+            int saved = canvas.save();
+            if (f.isActor() && body != null) {
+                float px = getWidth() / 2f;
+                float py = box.top + box.height() * body.bottom;
+                double t = (now % SWAY_MS) / (double) SWAY_MS * Math.PI * 2.0;
+                float age = (now - popAt) / POP_MS;
+                float k = 0f;
+                if (age < 1f) {
+                    float fade = (1f - age) * (1f - age);
+                    k = fade * (popBig ? POP_BIG : POP_SMALL) * (float) Math.cos(age * Math.PI * 1.5);
+                }
+                canvas.translate(0f, (float) Math.sin(t * 2.0 + 0.6) * getHeight() * BOB_FRACTION);
+                canvas.rotate((float) Math.sin(t) * SWAY_DEG, px, py);
+                canvas.scale(1f + k, 1f - k, px, py);
+            }
+            f.draw(canvas, box, f.isActor() ? plain : paint, now);
+            canvas.restoreToCount(saved);
+            if (f.shownFrame() != lastShown) {
+                if (lastShown != -1) { popAt = now; popBig = false; }
+                lastShown = f.shownFrame();
+            }
             if (f.isFinished()) {
                 Runnable done = onFinished;
                 onFinished = null;                 // once
                 if (done != null) post(done);
+                Runnable chain = f.takeOnEnd();
+                if (chain != null) post(chain);
             } else {
                 postInvalidateOnAnimation();
             }
@@ -412,9 +524,64 @@ public final class JoybotView extends FrameLayout {
 
     @NonNull public Mood getMood() { return mood; }
 
+    /**
+     * Someone who chooses WHICH animation a mood plays, so one mood can have several and each can
+     * have a way in and a way out. Without one, a mood plays its single registered film or the stills.
+     */
+    public interface Director {
+        /** True when he is already doing the right thing for this mood: leave him be. */
+        boolean keeps(@NonNull Mood m);
+        /** A short film that puts away what he is doing now, or null to cut straight over. */
+        @Nullable JoybotFilm leave();
+        /** The film for this mood, or null to fall back to the stills. */
+        @Nullable JoybotFilm enter(@NonNull Mood m);
+        /** He has just come into view (the chat hides him until he leaves his seat in the header). */
+        default void shown() {}
+    }
+
+    @Nullable private Director director;
+    private int moodTurn = 0;
+    private boolean arrived;
+
+    /** He has just flown in and landed on his seat (the chat's arrival): that was his entrance. */
+    public void markArrived() { arrived = true; setCalmThruster(true); }
+
+    private boolean calmThruster;
+
+    /** On his seat his thruster idles: a faint ring now and then (see FilmView). */
+    public void setCalmThruster(boolean on) {
+        calmThruster = on;
+        if (film != null) film.calm = on;
+    }
+
+    /** True once {@link #markArrived} has been called: his director skips its own entrance flourish. */
+    public boolean arrived() { return arrived; }
+
+    public void setDirector(@Nullable Director d) {
+        director = d;
+        if (d != null) setMood(mood);
+    }
+
+    @Nullable public Director getDirector() { return director; }
+
     public void setMood(@NonNull Mood m) {
+        if (director != null && film != null && director.keeps(m)) { mood = m; return; }
         mood = m;
         if (moodAnim != null) { moodAnim.cancel(); moodAnim = null; }
+        if (director != null) {
+            final int turn = ++moodTurn;
+            JoybotFilm out = film != null ? director.leave() : null;
+            final JoybotFilm next = director.enter(m);
+            if (next != null) {
+                if (out != null) {
+                    setFilm(out);
+                    if (film != null) film.onFinished = () -> { if (turn == moodTurn) setFilm(next); };
+                } else {
+                    setFilm(next);
+                }
+                return;
+            }
+        }
         JoybotFilm f = moodFilms.get(m);
         if (f != null) { setFilm(f); return; }
         if (film != null) setFilm(null);
@@ -513,28 +680,35 @@ public final class JoybotView extends FrameLayout {
         final float sx = getTranslationX(), sy = getTranslationY();
         final float tx = sx + (x - (getLeft() + sx + getWidth() / 2f));
         final float ty = sy + (y - (getTop() + sy + getHeight() / 2f));
-        if (Motion.reduced(getContext())) {
-            setTranslationX(tx);
-            setTranslationY(ty);
-            if (then != null) then.run();
-            return;
-        }
         final float lift = -Math.min(getHeight() * 1.2f, Math.abs(tx - sx) * 0.25f + getHeight() * 0.3f);
-        ValueAnimator fly = ValueAnimator.ofFloat(0f, 1f);
-        fly.setDuration(560L);
-        fly.setInterpolator(Motion.EASE_IN_OUT);
-        fly.addUpdateListener(a -> {
-            float t = (float) a.getAnimatedValue();
-            setTranslationX(sx + (tx - sx) * t);
-            setTranslationY(sy + (ty - sy) * t + lift * (float) Math.sin(Math.PI * t));
-        });
-        fly.addListener(new android.animation.AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(android.animation.Animator animation) {
+        // He leans into the flight and stretches along it, then rights himself as he lands.
+        final float lean = Math.max(-14f, Math.min(14f, (tx - sx) / Math.max(1f, getWidth()) * 5f));
+        final int turn = ++flight;
+        final long start = android.os.SystemClock.uptimeMillis();
+        // On the clock, not a system animator: he flies even with "remove animations" on (owner, 11-14).
+        Runnable step = new Runnable() {
+            @Override public void run() {
+                if (turn != flight) return;
+                float k = Math.min(1f, (android.os.SystemClock.uptimeMillis() - start) / 560f);
+                float t = Motion.EASE_IN_OUT.getInterpolation(k);
+                float arc = (float) Math.sin(Math.PI * t);
+                setTranslationX(sx + (tx - sx) * t);
+                setTranslationY(sy + (ty - sy) * t + lift * arc);
+                setRotation(lean * arc);
+                setScaleX(1f - 0.06f * arc);
+                setScaleY(1f + 0.08f * arc);
+                if (k < 1f) { postOnAnimation(this); return; }
+                setRotation(0f);
+                setScaleX(1f);
+                setScaleY(1f);
                 if (then != null) then.run();
             }
-        });
-        fly.start();
+        };
+        postOnAnimation(step);
     }
+
+    /** Counts flights, so a new one replaces one still under way. */
+    private int flight = 0;
 
     /** Back to where his layout put him. */
     public void flyHome(@Nullable Runnable then) {
@@ -652,6 +826,7 @@ public final class JoybotView extends FrameLayout {
         // fragment, the screen off, the app in the background. All of those leave the view
         // attached, and without this he would keep animating into a surface nobody sees.
         if (visible) { startHover(); startIdeaBreath(); } else { stopHover(); stopIdeaBreath(); }
+        if (visible && director != null) director.shown();
     }
 
     private long lastReactMs = 0L;

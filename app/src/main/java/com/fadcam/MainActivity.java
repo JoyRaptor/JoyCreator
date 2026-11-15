@@ -85,6 +85,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private BottomNavigationView bottomNavigationView;
+    /** True while handleTabSelected marks the bar; its listener must not navigate then. */
+    private boolean syncingNavSelection = false;
     private int originalBottomNavColor = 0; // Store original bottom nav color
 
     private boolean doubleBackToExitPressedOnce = false;
@@ -678,6 +680,8 @@ public class MainActivity extends AppCompatActivity {
         }
 
         bottomNavigationView.setOnItemSelectedListener(item -> {
+            // Only marking the bar to match a switch that already happened: not a tap.
+            if (syncingNavSelection) return true;
             int itemId = item.getItemId();
             int targetPosition = -1;
             
@@ -1430,6 +1434,8 @@ public class MainActivity extends AppCompatActivity {
         com.fadcam.joyfolder.studio.JoyFolderSetupActivity.requireChoice(this);
         // Folder copies that were still owed when the app last closed (once per run; see StudioMirror).
         com.fadcam.joyfolder.studio.StudioMirror.catchUpOwed(this);
+        // FadCam's old shared folders moved to their Joy Creator names, side-load build only (once per run; SHELL-44).
+        com.fadcam.joyfolder.studio.FadCamFolderMove.runOnce(this);
         // Fonts, grades and caption styles from Joy packs, copied where Studio draws from (once per run).
         com.fadcam.joyfolder.studio.PackSuppliesSync.syncOnce(this);
         // state)-----------
@@ -2194,7 +2200,17 @@ public class MainActivity extends AppCompatActivity {
         // Update bottom nav selection
         int navItemId = getNavItemIdForPosition(position);
         if (navItemId != -1) {
-            bottomNavigationView.setSelectedItemId(navItemId);
+            // setSelectedItemId fires the item's listener whenever the bar was showing another
+            // item, and the house item's listener goes to the LOBBY. After any window size or
+            // rotation change the bar's selection is stale, so opening the recorder from the
+            // lobby bounced straight back and left the lobby drawn over the recorder (seen on
+            // the Fold, 11-15). Marking the bar must never navigate.
+            syncingNavSelection = true;
+            try {
+                bottomNavigationView.setSelectedItemId(navItemId);
+            } finally {
+                syncingNavSelection = false;
+            }
         }
         
         // The lobby carries its own navigation — a bottom bar underneath it would be a

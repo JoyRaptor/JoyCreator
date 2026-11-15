@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Forma</string>
+    <string name="studio_viz_sec_colour">Colore</string>
+    <string name="studio_viz_sec_look">Look</string>
+    <string name="studio_viz_sec_motion">Movimento</string>
+    <string name="studio_viz_opacity">Opacità</string>
+    <string name="studio_viz_softness">Morbidezza</string>
+    <string name="studio_viz_gain">Guadagno</string>
+    <string name="studio_viz_spread">Diffusione</string>
+    <string name="studio_viz_blend">Fusione</string>
+    <string name="studio_viz_mirror">Specchio</string>
+    <string name="studio_viz_trails">Scie</string>
+    <string name="studio_viz_phase">Fase</string>
+    <string name="studio_viz_attack">Attacco</string>
+    <string name="studio_viz_release">Rilascio</string>
+    <string name="studio_viz_glow">Bagliore</string>
+    <string name="studio_viz_radius">Raggio</string>
+    <string name="studio_viz_count">Quantità</string>
+    <string name="studio_viz_speed">Velocità</string>
+    <string name="studio_viz_hover_attack">Attacco: quanto in fretta sale, in ms</string>
+    <string name="studio_viz_hover_release">Rilascio: quanto in fretta scende, in ms</string>
+    <string name="studio_viz_hover_radius">Raggio del bagliore</string>
+    <string name="studio_viz_hover_count">Numero di particelle</string>
+    <string name="studio_viz_hover_speed">Velocità delle particelle</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

@@ -215,6 +215,9 @@ public class LobbyFragment extends BaseFragment {
     @Override
     public void onViewCreated(@NonNull View v, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(v, savedInstanceState);
+        // TAB-1 §K: two columns on a wide window (the same views, moved). Phones unchanged.
+        wideLobby = LobbyWide.wanted(requireContext());
+        if (wideLobby) LobbyWide.apply(v);
 
         iconFont = ResourcesCompat.getFont(requireContext(), R.font.materialicons);
         projectStorage = new ProjectStorage(requireContext());
@@ -556,6 +559,28 @@ public class LobbyFragment extends BaseFragment {
                 jb.getRoomStart(), jb.getRoomEnd(), onRoom, getString(R.string.lobbyv2_tag_new_drawing),
                 getString(R.string.lobby_act_new_drawing),
                 getString(R.string.lobby_empty_joybrush), -1, "brush"));
+
+        // L37: a room on the launch list has no place on the dial (its code is untouched). Studio stays as the
+        // fallback so the dial is never empty.
+        java.util.Iterator<Room> it = rooms.iterator();
+        while (it.hasNext()) {
+            Room r = it.next();
+            if (r.id != ROOM_STUDIO && com.fadcam.launch.LaunchGate.hidden(requireContext(), roomKey(r.id))) it.remove();
+        }
+        if (active >= rooms.size()) active = 0;
+    }
+
+    /** The launch list's key for a room (LaunchGate). */
+    private static String roomKey(int id) {
+        switch (id) {
+            case ROOM_CAPTURE:  return "room_capture";
+            case ROOM_SPRITE:   return "room_sprite_lab";
+            case ROOM_AVATAR:   return "room_avatar";
+            case ROOM_VIZ:      return "room_viz_lab";
+            case ROOM_TEXTLAB:  return "room_textlab";
+            case ROOM_JOYBRUSH: return "room_joybrush";
+            default:            return "room_studio";
+        }
     }
 
     private Room room() { return rooms.get(active); }
@@ -579,6 +604,23 @@ public class LobbyFragment extends BaseFragment {
      * list by three, so the carousel WRAPS rather than scrolling to an end and stopping —
      * which is what makes it feel like a dial rather than a list.
      */
+    /** TAB-1: the lobby was laid out in two columns for a wide window. */
+    private boolean wideLobby;
+
+    /**
+     * TAB-1: the host keeps this view across a resize (the activity handles size changes itself),
+     * so crossing between a phone-wide and a wide window rebuilds the view in the other layout.
+     */
+    @Override
+    public void onConfigurationChanged(@NonNull android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        if (getView() == null || !isAdded()) return;
+        if (LobbyWide.wanted(requireContext()) != wideLobby) {
+            getParentFragmentManager().beginTransaction().detach(this).commitNowAllowingStateLoss();
+            getParentFragmentManager().beginTransaction().attach(this).commitNowAllowingStateLoss();
+        }
+    }
+
     /** How many copies of the room list the strip holds, so it can wrap without an end. */
     private static final int MARQUEE_COPIES = 3;
     /** Settle delay after the last scroll event before the carousel snaps. */
@@ -868,6 +910,16 @@ public class LobbyFragment extends BaseFragment {
             sc[i] = MARQUEE_MIN_SCALE + (1f - MARQUEE_MIN_SCALE) * near;
             t.setScaleX(sc[i]);
             t.setScaleY(sc[i]);
+            // TAB-1 (owner pick L2 A): on a wide window more than one lap of the list fits and the
+            // strip read as the rooms twice over. Show each room once from the front word on;
+            // the copies past one lap stay laid out (the wrap still works) but are not shown.
+            // One lap measured from the words: the strip's own width also holds its end padding,
+            // which counted the next copy's first room as part of this lap (tablet, 11-15).
+            int per = n / MARQUEE_COPIES;
+            int lap = per > 0 && n > per
+                    ? marquee.getChildAt(per).getLeft() - marquee.getChildAt(0).getLeft() : 0;
+            int show = (lap <= 0 || d < lap - dp(4)) ? View.VISIBLE : View.INVISIBLE;
+            if (t.getVisibility() != show) t.setVisibility(show);
             t.setTextColor(blend(DIMMEST, INK, near));
             setWeight(t, Math.round(200 + 700 * near));
         }
@@ -1386,7 +1438,8 @@ public class LobbyFragment extends BaseFragment {
         // Tapped while glowing: he opens by saying the idea he had.
         i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_FROM_PULSE, joybot.hasIdea());
         joybot.setHasIdea(false);
-        startActivity(i);
+        // He flies out of this button (owner's arrival picks, 15 Nov).
+        com.fadcam.ui.lobby.arrival.JoybotOpen.start(requireActivity(), joybot, i);
     }
 
     /** Joybot breathes when he has an idea about your newest project that you haven't seen. */
@@ -1903,10 +1956,18 @@ public class LobbyFragment extends BaseFragment {
         // the marquee above it as well as a set of actions. Import has no room of its own --
         // it is a Library action -- so it takes the Library's cyan rather than inventing a
         // fifth identity the rest of the app would never repeat.
-        addNewChip("videocam",       G_CAPTURE_A, G_CAPTURE_B, getString(R.string.lobby_new_recording), R.string.lobby_a11y_new_recording,
-                true,  () -> routeTab(TAB_CAPTURE));
-        addNewChip("movie_edit",     G_STUDIO_A, G_STUDIO_B, getString(R.string.lobby_new_project), R.string.lobby_a11y_new_project,
-                false, () -> openProjects(true));
+        // L37: a chip on the launch list is not added; the first one shown takes the "first" spacing.
+        boolean first = true;
+        if (!com.fadcam.launch.LaunchGate.hidden(requireContext(), "new_recording") && indexOfRoom(ROOM_CAPTURE) >= 0) {
+            addNewChip("videocam",       G_CAPTURE_A, G_CAPTURE_B, getString(R.string.lobby_new_recording), R.string.lobby_a11y_new_recording,
+                    first, () -> routeTab(TAB_CAPTURE));
+            first = false;
+        }
+        if (!com.fadcam.launch.LaunchGate.hidden(requireContext(), "new_project")) {
+            addNewChip("movie_edit",     G_STUDIO_A, G_STUDIO_B, getString(R.string.lobby_new_project), R.string.lobby_a11y_new_project,
+                    first, () -> openProjects(true));
+            first = false;
+        }
         // Character SELECTS the Sprite Lab and then ENTERS it. It used to only select —
         // the dial turned, the hero changed, and nothing else happened. Three chips in this
         // row act and one pointed, which reads as the chip not working; and a chip labelled
@@ -1917,14 +1978,19 @@ public class LobbyFragment extends BaseFragment {
         // where you would make one. Selecting first is what makes that legible — the dial has
         // visibly moved to Sprite Lab, so the project list is obviously a step on the way
         // rather than the wrong door.
-        addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character), R.string.lobby_a11y_new_character,
-                false, () -> {
-                    int sprite = indexOfRoom(ROOM_SPRITE);
-                    if (sprite < 0) return;
-                    active = sprite; paintMarquee(); paintHero(); enterRoom(false);
-                });
-        addNewChip("folder",         Studio.ARMED_LIGHT, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
-                false, this::openImport);
+        if (!com.fadcam.launch.LaunchGate.hidden(requireContext(), "new_character") && indexOfRoom(ROOM_SPRITE) >= 0) {
+            addNewChip("directions_run", Studio.ROOM_AVATAR, Studio.ROOM_AVATAR_DEEP, getString(R.string.lobby_new_character), R.string.lobby_a11y_new_character,
+                    first, () -> {
+                        int sprite = indexOfRoom(ROOM_SPRITE);
+                        if (sprite < 0) return;
+                        active = sprite; paintMarquee(); paintHero(); enterRoom(false);
+                    });
+            first = false;
+        }
+        if (!com.fadcam.launch.LaunchGate.hidden(requireContext(), "new_import")) {
+            addNewChip("folder",         Studio.ARMED_LIGHT, Studio.ARMED, getString(R.string.lobby_new_import), R.string.lobby_a11y_new_import,
+                    first, this::openImport);
+        }
     }
 
     /** Visual height of a New chip. Half the old stacked cell, as asked. */
@@ -2120,15 +2186,15 @@ public class LobbyFragment extends BaseFragment {
         // "Packs" opened Settings, like "Setup"; it now opens the Library on Supplies, where
         // installed Joy packs, looks, brushes and fonts are. The lobby's own redesign (S18) may
         // still rename or cut any of these.
-        addFloorWord("travel_explore", getString(R.string.lobby_floor_finder),
+        addFloorWord("floor_detect", "travel_explore", getString(R.string.lobby_floor_finder),
                 getString(R.string.hover_lobby_floor_detect), () -> routeTab(TAB_FINDER));
-        addFloorWord("cast",           getString(R.string.lobby_floor_remote),
+        addFloorWord("floor_remote", "cast",           getString(R.string.lobby_floor_remote),
                 getString(R.string.hover_lobby_floor_remote), () -> routeTab(TAB_REMOTE));
-        addFloorWord("build",          getString(R.string.lobby_floor_bits),
+        addFloorWord("floor_bits", "build",          getString(R.string.lobby_floor_bits),
                 getString(R.string.hover_lobby_floor_bits),   this::openTools);
-        addFloorWord("inventory_2",    getString(R.string.lobby_floor_packs),
+        addFloorWord("floor_packs", "inventory_2",    getString(R.string.lobby_floor_packs),
                 getString(R.string.hover_lobby_floor_packs),  this::openSupplies);
-        addFloorWord("tune",           getString(R.string.lobby_floor_setup),
+        addFloorWord("floor_setup", "tune",           getString(R.string.lobby_floor_setup),
                 getString(R.string.hover_lobby_floor_setup),  this::openSettings);
     }
 
@@ -2145,6 +2211,12 @@ public class LobbyFragment extends BaseFragment {
     }
 
     private void addFloorWord(String glyph, String label, String hover, Runnable onTap) {
+        addFloorWord(null, glyph, label, hover, onTap);
+    }
+
+    /** As above; {@code key} on the launch list (LaunchGate) leaves the word out. */
+    private void addFloorWord(@Nullable String key, String glyph, String label, String hover, Runnable onTap) {
+        if (key != null && com.fadcam.launch.LaunchGate.hidden(requireContext(), key)) return;
         LinearLayout cell = new LinearLayout(requireContext());
         cell.setOrientation(LinearLayout.HORIZONTAL);
         cell.setGravity(Gravity.CENTER);

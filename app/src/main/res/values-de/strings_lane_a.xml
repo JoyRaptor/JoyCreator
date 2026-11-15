@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Ziehen zum Anpassen, tippen zum Schließen</string>
+    <string name="lane_a_toggle_mute">Stumm</string>
+    <string name="lane_a_toggle_hide">Ausblenden</string>
+    <string name="lane_a_toggle_lock">Sperren</string>
+    <string name="lane_a_toggle_pass_through">Tipps durchlassen</string>
+    <string name="lane_a_toggle_start_here">Hier beginnen</string>
+    <string name="lane_a_toggle_end_here">Hier enden</string>
+    <string name="lane_a_toggle_split">Am Abspielkopf teilen</string>
+    <string name="lane_a_toggle_fx_bypass">Effekte umgehen (A/B)</string>
+    <string name="lane_a_mask_add_shape">Eine Maskenform hinzufügen</string>
+    <string name="lane_a_mask_remove_shape">Diese Form entfernen</string>
+    <string name="lane_a_mask_shape_n">Form %1$d</string>
+    <string name="lane_a_step_down">Einen Schritt runter</string>
+    <string name="lane_a_step_up">Einen Schritt rauf</string>
+    <string name="lane_a_key_green">Grün ausblenden</string>
+    <string name="lane_a_key_blue">Blau ausblenden</string>
+    <string name="lane_a_key_black">Schwarz ausblenden</string>
+    <string name="lane_a_key_white">Weiß ausblenden</string>
+    <string name="lane_a_pivot_title">Drehpunkt</string>
+    <string name="lane_a_pivot_top_left">Drehpunkt: oben links</string>
+    <string name="lane_a_pivot_top">Drehpunkt: oben</string>
+    <string name="lane_a_pivot_top_right">Drehpunkt: oben rechts</string>
+    <string name="lane_a_pivot_left">Drehpunkt: links</string>
+    <string name="lane_a_pivot_centre">Drehpunkt: Mitte</string>
+    <string name="lane_a_pivot_right">Drehpunkt: rechts</string>
+    <string name="lane_a_pivot_bottom_left">Drehpunkt: unten links</string>
+    <string name="lane_a_pivot_bottom">Drehpunkt: unten</string>
+    <string name="lane_a_pivot_bottom_right">Drehpunkt: unten rechts</string>
+    <string name="lane_a_sprite_prev_key">Key früher setzen</string>
+    <string name="lane_a_sprite_key">Den Key unter dem Abspielkopf löschen</string>
+    <string name="lane_a_sprite_next_key">Key später setzen</string>
+    <string name="lane_a_sprite_open_lab">In SpriteLab öffnen</string>
+    <string name="lane_a_sprite_flip_h">Horizontal spiegeln</string>
+    <string name="lane_a_sprite_flip_v">Vertikal spiegeln</string>
+    <string name="lane_a_sprite_end">Am Ende: einmal, Schleife oder Ping-Pong</string>
+    <string name="lane_a_sprite_record">Auftritt aufnehmen</string>
+    <string name="lane_a_sprite_stop">Aufnahme stoppen</string>
+    <string name="lane_a_sprite_sweep">Vom Video darunter verfolgen</string>
+    <string name="lane_a_sprite_more">Mehr</string>
+    <string name="lane_a_sprite_dope">Dope Sheet</string>
+    <string name="lane_a_sprite_manage">Sprite-Blätter</string>
+    <string name="lane_a_sprite_grip">Nach oben ziehen für mehr Zeilen, nach unten für weniger</string>
+</resources>

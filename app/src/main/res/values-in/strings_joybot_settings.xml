@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI dan Joybot</string>
+    <string name="settingshub_ai_joybot_desc">Sambungkan AI (ada yang gratis), kunci, model, dan layananmu, juga Claude Code atau Codex di komputermu</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, kunci api, kunci, model, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, asisten, obrolan, sambungkan, komputer, mcp</string>
+</resources>

@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">ابحث في كل شيء</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot، مساعدك — يتوهج بالأخضر حين تكون لديه فكرة لمشروعك</string>
+    <string name="lobbyv2_dismiss">إغلاق</string>
+    <string name="lobbyv2_tag_last_project">آخر مشروع</string>
+    <string name="lobbyv2_tag_ready">جاهز</string>
+    <string name="lobbyv2_tag_last_sheet">آخر لوحة</string>
+    <string name="lobbyv2_tag_last_character">آخر شخصية</string>
+    <string name="lobbyv2_tag_last_visualiser">آخر مؤثر بصري</string>
+    <string name="lobbyv2_tag_last_look">آخر مظهر</string>
+    <string name="lobbyv2_tag_new_drawing">رسمة جديدة</string>
+    <string name="lobbyv2_tag_last_drawing">آخر رسمة</string>
+    <string name="lobbyv2_camera_back">الكاميرا الخلفية</string>
+    <string name="lobbyv2_camera_front">الكاميرا الأمامية</string>
+    <string name="lobbyv2_camera_dual">الكاميرتان معًا</string>
+    <string name="lobbyv2_capture_ready">جاهز للتسجيل</string>
+    <string name="lobbyv2_capture_sub">جاهز · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">جاهز</string>
+    <string name="lobbyv2_in_project">في %1$s</string>
+    <string name="lobbyv2_avatar_library">مكتبة الأفاتار</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="zero">%1$d رسمة · %2$s</item>
+        <item quantity="one">رسمة · %2$s</item>
+        <item quantity="two">%1$d رسمتان · %2$s</item>
+        <item quantity="few">%1$d رسمات · %2$s</item>
+        <item quantity="many">%1$d رسمة · %2$s</item>
+        <item quantity="other">%1$d رسمة · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="zero">%d طبقة</item>
+        <item quantity="one">%d طبقة</item>
+        <item quantity="two">%d طبقتان</item>
+        <item quantity="few">%d طبقات</item>
+        <item quantity="many">%d طبقة</item>
+        <item quantity="other">%d طبقة</item>
+    </plurals>
+    <string name="lobbyv2_drawings">الرسومات</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="zero">%d رسمة</item>
+        <item quantity="one">%d رسمة</item>
+        <item quantity="two">%d رسمتان</item>
+        <item quantity="few">%d رسمات</item>
+        <item quantity="many">%d رسمة</item>
+        <item quantity="other">%d رسمة</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">لا شيء بعد. اصنع شيئًا وسيصل إلى هنا.</string>
+    <string name="lobbyv2_new_card">+ جديد</string>
+    <string name="lobbyv2_new_drawing">رسمة جديدة</string>
+    <string name="lobbyv2_no_room_for_drawing">لا مكان على هذا الهاتف لحفظ رسمة.</string>
+    <string name="lobbyv2_kind_project">مشروع</string>
+    <string name="lobbyv2_kind_drawing">رسمة</string>
+    <string name="lobbyv2_kind_export">تصدير</string>
+    <string name="lobbyv2_kind_screen">شاشة</string>
+    <string name="lobbyv2_kind_photo">صورة</string>
+    <string name="lobbyv2_kind_stream">بث</string>
+    <string name="lobbyv2_kind_recording">تسجيل</string>
+    <string name="lobbyv2_kind_mini_app">تطبيق مصغر</string>
+    <string name="lobbyv2_kind_video">فيديو</string>
+    <string name="lobbyv2_kind_picture">صورة</string>
+    <string name="lobbyv2_kind_sheet">لوحة شخصيات</string>
+    <string name="lobbyv2_kind_character">شخصية</string>
+    <string name="lobbyv2_kind_look">مظهر VisLab</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">وصل أحدث تسجيل لك بعد آخر تعديل.</string>
+    <string name="lobbyv2_bot_open_library">افتح المكتبة</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="zero">%d تسجيل ولا مشاريع بعد.</item>
+        <item quantity="one">%d تسجيل ولا مشاريع بعد.</item>
+        <item quantity="two">%d تسجيلان ولا مشاريع بعد.</item>
+        <item quantity="few">%d تسجيلات ولا مشاريع بعد.</item>
+        <item quantity="many">%d تسجيلًا ولا مشاريع بعد.</item>
+        <item quantity="other">%d تسجيل ولا مشاريع بعد.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">متبقٍ %1$s</string>
+    <string name="lobbyv2_stat_free">%1$s فارغة</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="zero">%d مشروع</item>
+        <item quantity="one">%d مشروع</item>
+        <item quantity="two">%d مشروعان</item>
+        <item quantity="few">%d مشاريع</item>
+        <item quantity="many">%d مشروعًا</item>
+        <item quantity="other">%d مشروع</item>
+    </plurals>
+    <string name="lobbyv2_time_left">متبقٍ ~%1$s من الفيديو</string>
+    <string name="lobbyv2_time_left_short">متبقٍ ~%1$s</string>
+    <string name="lobbyv2_dur_days">%1$d ي %2$d س</string>
+    <string name="lobbyv2_dur_hours">%1$d س %2$d د</string>
+    <string name="lobbyv2_dur_minutes">%1$d د</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">الآن</string>
+    <string name="lobbyv2_ago_minutes">منذ %1$d د</string>
+    <string name="lobbyv2_ago_hours">منذ %1$d س</string>
+    <string name="lobbyv2_ago_days">منذ %1$d ي</string>
+    <string name="lobbyv2_ago_months">منذ %1$d ش</string>
+</resources>

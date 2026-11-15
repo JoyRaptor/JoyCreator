@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">开始或停止推流服务器</string>
+    <string name="hover_remote_password_toggle">开启或关闭密码保护</string>
+    <string name="hover_lobby_floor_detect">智能检测：相机在你的录制内容里发现的人和物</string>
+    <string name="hover_lobby_floor_remote">远程 Studio：在同一 Wi-Fi 下用浏览器观看并控制这部手机的相机</string>
+    <string name="hover_lobby_floor_bits">小工具：手电筒、二维码扫描和主屏幕快捷方式</string>
+    <string name="hover_lobby_floor_packs">资源包：你已安装的资源包、风格、笔刷和字体</string>
+    <string name="hover_lobby_floor_setup">设置：所有设置</string>
+    <string name="hover_lobby_stat">空间：看看是什么占用了这部手机的空间</string>
+    <string name="hover_library_paste_picture">把你在其他应用里复制的图片放进 Joy Creator 文件夹</string>
+    <string name="hover_lobby_room">前往%1$s</string>
+    <string name="hover_lobby_hero_action">%2$s中的%1$s</string>
+    <string name="hover_lobby_hero_new">在%1$s中开始新作品</string>
+    <string name="hover_lobby_library">打开 Library：你做过的所有东西</string>
+    <string name="hover_studio_cut_mark">剪切：跳过 %1$s 秒，点按这个词即可恢复</string>
+</resources>

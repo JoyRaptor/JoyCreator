@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Garde des voix naturelles quand la vitesse change</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Fermer tous les outils</string>
+    <string name="lane_d_asset_close">Fermer le navigateur de fichiers</string>
+    <string name="lane_d_asset_prev">Dossier épinglé précédent</string>
+    <string name="lane_d_asset_next">Dossier épinglé suivant</string>
+    <string name="lane_d_asset_filter">Afficher tous les fichiers, ceux utilisés ou ceux inutilisés</string>
+    <string name="lane_d_asset_forget">Retirer ce dossier de l\'historique des dossiers épinglés</string>
+    <string name="lane_d_asset_resize">Glisse pour redimensionner le navigateur de fichiers</string>
+</resources>

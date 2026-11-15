@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Başka yerde yapılan değişiklikler</string>
+    <string name="studio_undo_transcription">Yazıya dökme</string>
+    <string name="studio_consolidate_some_failed">%1$d dosya kopyalandı, ama şunlar içeri kopyalanamadı ve hâlâ asıl dosyayı kullanıyor: %2$s. O asılları sakla; yeniden denemek için tekrar çalıştır.</string>
+    <string name="studio_toast_changed_elsewhere">Bu projede başka yerde yapılan değişiklikler getirildi</string>
+</resources>

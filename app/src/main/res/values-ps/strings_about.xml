@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">په اړه</string>
+    <string name="aboutjoy_back">شاته</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">د هر هغه څه لپاره یو سټوډیو چې جوړوئ یې.</string>
+    <string name="aboutjoy_tagline_sub">سمول، رسمول، متحرک کول او نیول، ټول ستاسو په تلیفون کې.</string>
+    <string name="aboutjoy_version_label">نسخه</string>
+    <string name="aboutjoy_build">جوړښت %1$s · %2$s</string>
+    <string name="aboutjoy_check">تازه کېدنې وګورئ</string>
+    <string name="aboutjoy_check_hint">په آنلاین ډول د نوي Joy Creator لټون</string>
+    <string name="aboutjoy_checking">کتل کېږي…</string>
+    <string name="aboutjoy_up_to_date">تاسو نوې نسخه لرئ.</string>
+    <string name="aboutjoy_update_ready">%1$s نسخه چمتو ده.</string>
+    <string name="aboutjoy_beta_ready">تاسو نوې نسخه لرئ. یوه بیټا، %1$s، هم راوتلې ده.</string>
+    <string name="aboutjoy_get_beta">بیټا ترلاسه کړئ</string>
+    <string name="aboutjoy_update_failed">اوس کتل ونه شول. یو څه وروسته بیا هڅه وکړئ.</string>
+    <string name="aboutjoy_wings_label">وزرونه</string>
+    <string name="aboutjoy_wing_studio">ویډیو او غږ په مهالوېش کې غوڅ کړئ</string>
+    <string name="aboutjoy_wing_joybrush">رسم او متحرک کړئ، چوکاټ په چوکاټ</string>
+    <string name="aboutjoy_wing_sprites">د سپرایټ پاڼې او کرکټرونه جوړ کړئ</string>
+    <string name="aboutjoy_wing_capture">کامره یا پرده ثبت کړئ</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">ستاسو مرستندوی، په هر خونه کې</string>
+    <string name="aboutjoy_wing_viz">غږ په متحرکو انځورونو بدل کړئ</string>
+    <string name="aboutjoy_soon">ژر</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">محرمیت</string>
+    <string name="aboutjoy_privacy_toggle">د محرمیت ځوابونه وښایه یا پټ کړئ</string>
+    <string name="aboutjoy_open_label">خلاص کوډ</string>
+    <string name="aboutjoy_based_on">د FadSec Lab لخوا په FadCam جوړ شوی</string>
+    <string name="aboutjoy_source_hint">سرچینه کوډ په خپل براوزر کې خلاص کړئ</string>
+    <string name="aboutjoy_made_by">جوړ شوی د</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">کلاسیک په اړه</string>
+    <string name="aboutjoy_classic_hint">زوړه د «په اړه» پاڼه خلاصه کړئ</string>
+    <string name="aboutjoy_no_browser">دا لینک خلاصولو لپاره براوزر نشته</string>
+    <string name="aboutjoy_support">د Joy Creator ملاتړ وکړئ</string>
+    <string name="aboutjoy_support_hint">د جوړونکي د ملاتړ پاڼه په براوزر کې پرانیزئ</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">跟随什么？</string>
+    <string name="studio_pinpick_hint">点一个带编号的圆点，或从列表里选。</string>
+    <string name="studio_pinpick_whole">整张图片</string>
+    <string name="studio_pinpick_pin_n">图钉 %1$d</string>
+    <string name="studio_pinpick_diagram">每个图钉在图片上的位置。点一个圆点就跟随那个图钉。</string>
+    <string name="studio_pinpick_dot_n">跟随图钉 %1$d</string>
+    <string name="studio_pinpick_cancel">取消</string>
+</resources>

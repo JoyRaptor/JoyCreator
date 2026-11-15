@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">څه نوي دي</string>
+    <string name="legacyv2_whatsnew_intro">په دې نسخه کې نوې ځانګړتیاوې، ښه والي او د ستونزو حلونه.</string>
+    <string name="legacyv2_whatsnew_reenable">په تنظیماتو کې → \'پېژندنه وښایه\' بیا چارن کړئ</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">په %d ثانیه کې چمتو...</item>
+        <item quantity="other">په %d ثانیو کې چمتو...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">اوس کولای شئ دا بند کړئ</string>
+    <string name="legacyv2_whatsnew_got_it">پوه شوم</string>
+    <string name="legacyv2_whatsnew_progress_desc">تاسو د یادښتونو څومره برخه لوستې ده</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">په دې نسخه کې نوی</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">له %1$s نسخې نه %2$s نسخې ته تازه کېږي</string>
+    <string name="legacyv2_mode_option_desc">د %1$s تنظیمات وښایه</string>
+</resources>

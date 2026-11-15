@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI ve Joybot</string>
+    <string name="settingshub_ai_joybot_desc">Bir AI bağla (ücretsiz bir tane de var), anahtarın, modelin ve hizmetin, bir de bilgisayarındaki Claude Code veya Codex</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, api anahtarı, anahtar, model, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, asistan, sohbet, bağla, bilgisayar, mcp</string>
+</resources>

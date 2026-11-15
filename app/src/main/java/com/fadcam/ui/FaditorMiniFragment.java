@@ -503,12 +503,10 @@ public class FaditorMiniFragment extends BaseFragment {
                         int keptCount = 0;
                         boolean folder = com.fadcam.joyfolder.android.JoyFolderHome.isChosen(app);
                         for (String id : ids) {
-                            // With a Joy Creator folder, a project goes only when its copy can go to Trash.
-                            if (folder && !com.fadcam.joyfolder.studio.StudioMirror.mirrorNow(app, id)) {
-                                keptCount++;
-                                continue;
-                            }
+                            // With a Joy Creator folder, a project goes only when its copy, media included,
+                            // can go to Trash (ProjectStorage.delete refuses otherwise).
                             if (projectStorage.delete(id)) deleted.add(id);
+                            else if (folder) keptCount++;
                         }
                         final int kept = keptCount;
                         main.post(() -> {
@@ -517,8 +515,9 @@ public class FaditorMiniFragment extends BaseFragment {
                             if (!deleted.isEmpty()) offerUndoDelete(deleted);
                             if (kept > 0) {
                                 Toast.makeText(app, (kept == 1 ? "1 project wasn't deleted" : kept + " projects weren't deleted")
-                                        + ": it couldn't be put in Trash just now, so it could not have been put back. "
-                                        + "Check that your Joy Creator folder can be reached.", Toast.LENGTH_LONG).show();
+                                        + ": it, or some of its pictures and clips, couldn't be copied to your Joy Creator "
+                                        + "folder just now, so it could not have been put back. Check that the folder can "
+                                        + "be reached and has free space.", Toast.LENGTH_LONG).show();
                             }
                         });
                     });
@@ -1156,7 +1155,7 @@ public class FaditorMiniFragment extends BaseFragment {
             exportDockOk.postDelayed(() -> {
                 if (exportDockOk != null) {
                     exportDockOk.setVisibility(View.VISIBLE);
-                    exportDockOk.animateSlot(getString(R.string.records_delete_header_action_ok), 300);
+                    exportDockOk.animateSlot(exportDockOk.getContext().getString(R.string.records_delete_header_action_ok), 300);
                     exportDockOk.setAlpha(0f);
                     exportDockOk.animate()
                             .alpha(1f)
@@ -1276,7 +1275,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Show OK button to dismiss
         if (exportDockOk != null) {
             exportDockOk.setVisibility(View.VISIBLE);
-            exportDockOk.animateSlot(getString(R.string.records_delete_header_action_ok), 300);
+            exportDockOk.animateSlot(exportDockOk.getContext().getString(R.string.records_delete_header_action_ok), 300);
         }
     }
 
@@ -1393,7 +1392,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Show OK button to dismiss
         if (exportDockOk != null) {
             exportDockOk.setVisibility(View.VISIBLE);
-            exportDockOk.animateSlot(getString(R.string.records_delete_header_action_ok), 300);
+            exportDockOk.animateSlot(exportDockOk.getContext().getString(R.string.records_delete_header_action_ok), 300);
         }
     }
 }

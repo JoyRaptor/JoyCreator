@@ -89,9 +89,9 @@ public class FaditorToolsDrawer {
      */
     private static final int SHEET_FILL = Studio.alpha(Studio.SURFACE, 0xF5);
     /** {@code --edge}: rgba(255,255,255,.10), the top hairline. */
-    private static final int SHEET_EDGE = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    private static final int SHEET_EDGE = ObjectDrawer.Kit.EDGE;
     /** {@code --dctl}: rgba(255,255,255,.10), a control over the scrim. */
-    private static final int CELL_FILL = Studio.alpha(Studio.DRAWER_INK, 0x1A);
+    private static final int CELL_FILL = ObjectDrawer.Kit.CTL;
     /** A light veil over the rest of the editor, so a tap there reads as "close". */
     private static final int OUTSIDE_VEIL = Studio.alpha(Studio.GROUND, 0x33);
 
@@ -424,7 +424,7 @@ public class FaditorToolsDrawer {
             View pill = ((ViewGroup) strip).getChildAt(0);
             if (pill.getBackground() instanceof GradientDrawable) {
                 ((GradientDrawable) pill.getBackground().mutate())
-                        .setColor(Studio.alpha(Studio.DRAWER_INK, 0x4D));
+                        .setColor(ObjectDrawer.Kit.GRAB);
             }
         }
     }

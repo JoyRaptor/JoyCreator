@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Colonnes de la planche. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_rows">Lignes de la planche. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_margin_x">Espace sur les bords gauche et droit de la planche. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_margin_y">Espace sur les bords haut et bas de la planche. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_spacing_x">Écart entre les cases, de côté. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_spacing_y">Écart entre les cases, de haut en bas. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_tolerance">À quel point une couleur proche de la couleur retirée compte comme fond. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_move_x">Déplacer cette image à gauche ou à droite. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_move_y">Déplacer cette image vers le haut ou le bas. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_scale">Agrandir ou réduire cette image. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_rotate">Faire tourner cette image, en degrés. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_pivot_x">Point de pivot, de gauche à droite. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_pivot_y">Point de pivot, de haut en bas. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_bake_pad">Espace autour de chaque image à la fusion. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_onion_strength">Intensité des fantômes de pelure d\'oignon. Glisse pour changer, touche pour saisir</string>
+    <string name="hover_sprite_onion_past">Fantômes des images précédentes. Glisse pour changer leur nombre, touche pour choisir une couleur</string>
+    <string name="hover_sprite_onion_future">Fantômes des images suivantes. Glisse pour changer leur nombre, touche pour choisir une couleur</string>
+    <string name="hover_sprite_divider">Glisse pour agrandir ou réduire le panneau d\'outils</string>
+    <string name="hover_puppet_badge">Épingles de marionnette. Touche pour poser, maintiens pour ouvrir le tiroir des épingles</string>
+</resources>

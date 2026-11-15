@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Capture için kamera ve mikrofon gerekir</string>
+    <string name="access_capture_why">Film çekmek ve ses kaydetmek için Android, kameraya ve mikrofona izin vermeni ister. Joy Creator ayrıca kayıt bildirimini göstermek için izin ister; böylece ne zaman kayıt yaptığını hep bilirsin. Hiçbir şey telefonundan çıkmaz.</string>
+    <string name="access_allow">İzin ver</string>
+    <string name="access_not_now">Şimdi değil</string>
+    <string name="access_capture_declined">Kamera ve mikrofona izin verilene kadar Capture kapalı kalır. İstediğin zaman Capture\'a tekrar dokun.</string>
+    <string name="access_capture_blocked">Android kamera veya mikrofon için bir daha sormayacak. Bunları Joy Creator\'ın ayarlar sayfasında İzinler altından aç, sonra geri dön.</string>
+    <string name="access_open_settings">Ayarları aç</string>
+</resources>

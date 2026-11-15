@@ -4,7 +4,7 @@
     <string name="app_icon_description">Pilih ikon dan nama untuk aplikasi Anda. Ini akan mengubah tampilannya di layar utama Anda.</string>
     <string name="check_for_updates">Periksa pembaruan</string>
     <string name="accessibility_thumbnail_progress">%1$d%% ditonton</string>
-    <string name="fadsec_info">Joy Creator adalah bagian dari rangkaian FadSec Lab. Untuk informasi lebih lanjut, klik \'lihat kode sumber\' di bawah ini.</string>
+    <string name="fadsec_info">Joy Creator gratis dan open-source. Untuk info lebih lanjut, ketuk \'lihat kode sumber\' di bawah.</string>
 
 
     <string name="app_description"><![CDATA[
@@ -69,13 +69,7 @@
         <item>10/11 | Your preferences are saved and applied seamlessly.</item>
         <item>11/11 | Need help? Join our Discord via the About section.</item>
     </string-array>
-    <string name="mainpage_video_info" formatted="false">
-                                            <![CDATA[
-    <font color=\'#FFFFFF\' style=\'font-size:12sp;\'><b>Video: </b></font>
-    <font color=\'#D3D3D3\' style=\'font-size:11sp;\'>%d</font><br>
-    <font color=\'#FFFFFF\' style=\'font-size:12sp;\'><b>Digunakan: </b></font>
-    <font color=\'#D3D3D3\' style=\'font-size:11sp;\'>%s</font>
-    ]]>\n</string>
+    <string name="mainpage_video_info" formatted="false">\n &lt;font color=\'#FFFFFF\' style=\'font-size:12sp;\'&gt;&lt;b&gt;Video: &lt;/b&gt;&lt;/font&gt; &lt;font color=\'#D3D3D3\' style=\'font-size:11sp;\'&gt;%d&lt;/font&gt;&lt;br&gt; &lt;font color=\'#FFFFFF\' style=\'font-size:12sp;\'&gt;&lt;b&gt;Terpakai: &lt;/b&gt;&lt;/font&gt; &lt;font color=\'#D3D3D3\' style=\'font-size:11sp;\'&gt;%s&lt;/font&gt; \n</string>
     <string name="stats_label_videos">Video:</string>
     <string name="stats_label_used">Digunakan:</string>
     <string name="button_start">Mulai</string>
@@ -182,11 +176,11 @@
     <string name="home_elapsed_font_doto">Doto</string>
     <string name="home_elapsed_font_doto_desc">Menggunakan font Doto untuk tampilan timer digital yang lebih khas</string>
     <string name="home_elapsed_flag_option">Bendera aksen</string>
-    <string name="home_elapsed_flag_option_desc">Tampilkan atau sembunyikan bendera aksen FadSec Lab di belakang timer</string>
-    <string name="home_elapsed_flag_helper">Pilih apakah bendera aksen FadSec Lab ditampilkan di belakang timer berjalan.</string>
-    <string name="home_elapsed_flag_show">Tampilkan bendera FadSec Lab (Default)</string>
+    <string name="home_elapsed_flag_option_desc">Tampilkan atau sembunyikan bilah aksen di belakang timer</string>
+    <string name="home_elapsed_flag_helper">Pilih apakah bilah aksen tampil di belakang timer waktu berjalan.</string>
+    <string name="home_elapsed_flag_show">Tampilkan aksen (Bawaan)</string>
     <string name="home_elapsed_flag_show_desc">Tampilkan bendera merek aksen di belakang timer</string>
-    <string name="home_elapsed_flag_hide">Sembunyikan bendera FadSec Lab</string>
+    <string name="home_elapsed_flag_hide">Sembunyikan aksen</string>
     <string name="home_elapsed_flag_hide_desc">Jaga area timer berjalan tetap bersih tanpa bendera aksen</string>
     <string name="home_elapsed_background_option">Latar belakang</string>
     <string name="home_elapsed_background_option_desc">Pilih apakah timer berjalan berada di kartu hitam, putih, atau transparan</string>
@@ -404,7 +398,7 @@
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Dual</string>
     <string name="records_filter_screen">Layar</string>
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
     <string name="records_filter_stream">Stream</string>
     <string name="records_filter_shot">Foto</string>
     <string name="records_filter_camera_all">All</string>
@@ -426,8 +420,8 @@
     <string name="records_filter_helper_camera_dual">Direkam dengan mode kamera dual</string>
     <string name="records_filter_helper_dual">Rekaman kamera dual</string>
     <string name="records_filter_helper_screen">Rekaman layar</string>
-    <string name="records_filter_helper_faditor">Video yang diedit/diekspor (Faditor)</string>
-    <string name="records_filter_helper_faditor_all">Semua output Faditor dan file terkait.</string>
+    <string name="records_filter_helper_faditor">Video yang diedit/diekspor (Studio)</string>
+    <string name="records_filter_helper_faditor_all">Semua hasil Studio dan file terkait.</string>
     <string name="records_filter_helper_faditor_converted">Mengonversi MP4 terfragmentasi menjadi MP4 standar yang dapat dicari untuk pemutar eksternal.</string>
     <string name="records_filter_helper_faditor_merge">Menggabungkan beberapa klip menjadi satu video output.</string>
     <string name="records_filter_helper_stream">Rekaman stream yang disimpan</string>
@@ -439,7 +433,7 @@
     <string name="records_batch_select_all">Pilih semua</string>
     <string name="records_batch_deselect_all">Batal pilih semua</string>
     <string name="records_batch_save">Simpan ke Galeri</string>
-    <string name="records_batch_faditor">Otomasi Faditor</string>
+    <string name="records_batch_faditor">Otomatisasi Studio</string>
     <string name="records_batch_delete">Hapus</string>
     <string name="records_batch_coming_soon">Aksi batch ini akan ditambahkan berikutnya.</string>
     <string name="records_batch_select_items_first">Pilih satu atau lebih video terlebih dahulu.</string>
@@ -447,7 +441,7 @@
     <string name="records_batch_fab_label">Batch</string>
     <string name="records_batch_select_all_desc">Pilih atau hapus semua video di filter saat ini.</string>
     <string name="records_batch_save_desc">Salin, pindahkan, atau ekspor video yang dipilih ke folder lain.</string>
-    <string name="records_batch_faditor_desc">Jalankan otomasi latar belakang tanpa membuka tab Faditor.</string>
+    <string name="records_batch_faditor_desc">Jalankan otomatisasi di latar belakang tanpa membuka tab Studio.</string>
     <string name="records_batch_delete_desc">Pindahkan video yang dipilih ke Sampah.</string>
     <string name="records_batch_save_queued">%1$d tugas penyimpanan ditambahkan ke antrian.</string>
     <string name="records_batch_faditor_first_only">Membuka video pertama. %1$d dipilih; antrian multi-edit akan datang berikutnya.</string>
@@ -458,7 +452,7 @@
     <string name="records_batch_custom_export_started">Mengekspor %1$d video ke folder yang dipilih…</string>
     <string name="records_batch_custom_export_invalid_folder">Folder yang dipilih tidak dapat ditulis.</string>
     <string name="records_batch_custom_export_done">Ekspor selesai. Berhasil: %1$d • Gagal: %2$d</string>
-    <string name="records_batch_faditor_sheet_title">Aksi Batch Faditor</string>
+    <string name="records_batch_faditor_sheet_title">Aksi Studio Massal</string>
     <string name="records_batch_faditor_export_standard">Ekspor ke MP4 Standar</string>
     <string name="records_batch_faditor_export_standard_desc">Mengonversi MP4 terfragmentasi menjadi MP4 standar yang dapat dicari untuk pemutar eksternal.</string>
     <string name="records_batch_faditor_merge">Gabungkan Video yang Dipilih</string>
@@ -466,7 +460,7 @@
     <string name="records_batch_faditor_queued">%1$d item batch diantrikan di latar belakang.</string>
     <string name="records_batch_completed">Operasi batch selesai.</string>
     <string name="records_batch_notif_channel_name">Aksi Media Batch</string>
-    <string name="records_batch_notif_channel_desc">Progres dan hasil untuk penyimpanan batch Rekaman dan tugas otomasi Faditor.</string>
+    <string name="records_batch_notif_channel_desc">Kemajuan dan hasil penyimpanan massal Rekaman serta tugas otomatisasi Studio.</string>
     <string name="records_batch_starting">Menyiapkan operasi batch…</string>
     <string name="records_batch_progress_item">Memproses %1$d dari %2$d</string>
     <string name="records_batch_progress_counts">Selesai %1$d • Dilewati %2$d • Gagal %3$d</string>
@@ -479,7 +473,7 @@
     <string name="nav_settings">Pengaturan</string>
     <string name="nav_about">Tentang</string>
     <string name="nav_remote">Jarak Jauh</string>
-    <string name="nav_faditor_mini">Faditor Mini</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="nav_lab">Lab</string>
     <string name="setting_cam_title">Pemilihan Kamera</string>
     <string name="note_cam_sele">Pilih kamera \n(Default: Bagian belakang)</string>
@@ -540,9 +534,7 @@
     <string name="dual_cam_info_supported_unconfirmed">⚠ Perangkat Anda memiliki kedua kamera, tetapi dukungan bersamaan belum dikonfirmasi. Mungkin berfungsi atau tidak.</string>
     <string name="dual_cam_info_unsupported_status">✗ Perangkat Anda tidak mendukung perekaman kamera dual.</string>
     <string name="dual_cam_info_why_unsupported">Mengapa kamera dual tidak didukung?</string>
-    <string name="dual_cam_info_unsupported_explanation">Perekaman kamera dual memerlukan perangkat Anda mengoperasikan kamera depan dan belakang secara bersamaan. Ini adalah kemampuan perangkat keras yang bergantung pada prosesor dan perangkat keras kamera perangkat Anda. Sebagian besar ponsel flagship dari tahun 2020 ke atas mendukung fitur ini. Perangkat kelas menengah dan yang lebih lama biasanya tidak mendukung.
-
-Ini BUKAN bug — ini adalah batasan perangkat keras perangkat Anda.</string>
+    <string name="dual_cam_info_unsupported_explanation">Rekaman kamera ganda butuh perangkat yang bisa menjalankan kamera depan dan belakang sekaligus. Ini kemampuan perangkat keras yang bergantung pada prosesor dan kamera ponselmu. Kebanyakan ponsel flagship dari 2020 ke atas mendukungnya. Ponsel kelas menengah dan yang lebih lama biasanya tidak.\n\nIni BUKAN bug, tapi keterbatasan perangkat keras ponselmu.</string>
     <string name="dual_cam_info_which_devices">Perangkat mana yang mendukungnya?</string>
     <string name="dual_cam_info_devices_explanation">Perangkat dengan Qualcomm Snapdragon 855 atau yang lebih baru, Google Tensor, Samsung Exynos 990 atau yang lebih baru, dan MediaTek Dimensity 1000 atau yang lebih baru biasanya mendukung akses kamera bersamaan.</string>
 
@@ -561,9 +553,7 @@ Ini BUKAN bug — ini adalah batasan perangkat keras perangkat Anda.</string>
     <string name="note_framerate">Pilih framerate\n(Default: %1$d)</string>
     <string name="note_zoom_ratio">Pilih rasio zoom\n(Default: %1$.1fx - tanpa zoom)</string>
     <string name="setting_codec_title">Codec Video</string>
-    <string name="note_codec">Pilih codec
-(Default: %1$s)
-Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264 untuk kualitas yang sama. Contoh: Untuk FHD, gunakan 8 Mbps, bukan 16 Mbps.</string>
+    <string name="note_codec">Pilih codec\n(Bawaan: %1$s)\nTips: Dengan H.265 (HEVC), kamu bisa memakai bitrate sekitar setengah dari H.264 untuk kualitas yang sama. Contoh: untuk FHD, pakai 8 Mbps, bukan 16 Mbps.</string>
     <string name="setting_watermark">Watermark</string>
     <string name="note_watermark">Pilih opsi watermark\n(Default: Waktu dengan Joy Creator)</string>
     <string name="note_watermark_extra">Untuk menyimpan dengan cepat, pilih \'Tidak ada Watermark\'. Menambahkan watermark? Layak untuk ditunggu, hanya perlu waktu sedikit lebih lama untuk memprosesnya!</string>
@@ -759,7 +749,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="torch_both">Kedua Senter</string>
     <string name="setting_debug_title">Pencatatan Debug</string>
     <string name="note_debug">Aktifkan pembuatan file log debug \n(Default: Dinonaktifkan)</string>
-    <string name="note_debug_detailed">Saat diaktifkan, FadCam menulis file HTML log debug (JoyCreator_debug.html) ke folder Downloads/Joy Creator/ publik. Bagikan file ini saat melaporkan masalah. Matikan untuk menghentikan penulisan di masa mendatang.\nCatatan: Pencatatan debug dapat menambah beban kinerja selama perekaman — biarkan nonaktif kecuali Anda sedang memecahkan masalah.</string>
+    <string name="note_debug_detailed">Saat aktif, Joy Creator menulis file HTML log debug (JoyCreator_debug.html) ke folder publik Downloads/Joy Creator/. Kirim file ini saat melaporkan masalah. Matikan untuk berhenti menulis.\nCatatan: Log debug bisa membuat perekaman sedikit lebih berat. Biarkan mati kecuali kamu sedang mencari masalah.</string>
     <string name="note_debug_extra">Saat diaktifkan, file log debug akan dibuat di folder Downloads/Joy Creator. Ini dapat membantu mendiagnosis masalah aplikasi.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Pratinjau</string>
@@ -771,7 +761,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="watermark_style_timeonly_label">Stempel Waktu</string>
     <string name="watermark_style_badge_label">Label Merek Saja</string>
     <string name="watermark_style_none_label">Tanpa Tanda Air</string>
-    <string name="helper_watermark_preview">Ini adalah tampilan tanda air di pojok kiri atas video yang Anda rekam.\nFakta menarik: 10/Jul/2024 04:47 PM adalah saat Joy Creator v1.0 pertama kali dirilis.</string>
+    <string name="helper_watermark_preview">Begini watermark akan tampil di kiri atas videomu.</string>
     <string name="helper_location_watermark_option">Aktifkan/nonaktifkan penambahan lokasi perangkat Anda sebagai overlay. Memerlukan izin lokasi.</string>
     <string name="location_format_title">Format Lokasi</string>
     <string name="location_format_coordinates">Hanya Koordinat</string>
@@ -808,7 +798,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="widget_black_background_title">Latar Belakang Hitam</string>
     <string name="widget_arabic_date_title">Tanggal Arab</string>
     <string name="widget_arabic_date_format_title">Format Tanggal Arab</string>
-    <string name="widget_branding_title">Merek FadSecLab</string>
+    <string name="widget_branding_title">Branding Joy Creator</string>
 
     <!-- Widget Option Descriptions -->
     <string name="widget_time_format_12h">12 jam (3:30 PM)</string>
@@ -975,7 +965,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="screenshot_capture_failed">Could not capture screenshot</string>
     <string name="screenshot_capture_system_saved">Screenshot captured by system. Saved in system screenshots.</string>
     <string name="screenshot_accessibility_enable_needed">Enable "Joy Creator" in Accessibility to use this shortcut without recording prompt.</string>
-    <string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in Joy Creator.</string>
+    <string name="screenshot_accessibility_service_desc">Mengambil tangkapan layar untuk pintasan tangkapan layar dan menyimpannya di folder Joy Creator-mu.</string>
     <string name="shortcuts_video_category">Video Recording</string>
     <string name="shortcuts_picture_category">Picture</string>
     <string name="preview_quick_actions_title">Preview quick actions</string>
@@ -1033,12 +1023,12 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="coming_soon_toast">Segera hadir! In Sha Allah</string>
     <string name="remote_coming_soon">Kontrol jarak jauh untuk Joy Creator akan segera hadir.</string>
     <string name="remote_feature_description">Pasangkan klien Joy Creator menggunakan kode QR untuk kontrol jarak jauh yang aman melalui jaringan lokal: mulai/hentikan perekaman, pratinjau, zoom, beralih kamera, dan lainnya—semua dengan enkripsi end-to-end.</string>
-    <string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
     <string name="faditor_mini_coming_soon">Segera hadir — editor ringan</string>
     <string name="faditor_mini_subtitle">Trim and export your videos with precision</string>
-    <string name="faditor_mini_toast">Faditor Mini — segera hadir</string>
+    <string name="faditor_mini_toast">Studio — segera hadir</string>
     <string name="faditor_select_video">Select Video</string>
-    <string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
     <string name="faditor_close">Close editor</string>
     <string name="faditor_undo">Undo</string>
     <string name="faditor_redo">Redo</string>
@@ -1117,7 +1107,7 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_export_confirm_helper">%1$s • %2$d clip(s)%3$s\nExport runs as a background service — you can close the app and it will keep exporting.</string>
 
     <!-- Export notification -->
-    <string name="faditor_export_notif_channel">Faditor Export</string>
+    <string name="faditor_export_notif_channel">Ekspor Studio</string>
     <string name="faditor_export_notif_channel_desc">Notifications for ongoing video exports</string>
     <string name="faditor_export_notif_title">Exporting video…</string>
     <string name="faditor_export_notif_error_title">Export Failed</string>
@@ -1158,21 +1148,21 @@ Tips: Dengan H.265 (HEVC), Anda dapat menggunakan sekitar setengah bitrate H.264
     <string name="faditor_delete_projects_title">Delete projects?</string>
     <string name="faditor_delete_projects_message">Delete %1$d project(s)? This cannot be undone.</string>
     <string name="faditor_delete_confirm">Delete</string>
-    <string name="faditor_version_info">Faditor Mini · Phase 1 · Trim + Export</string>
+    <string name="faditor_version_info">Studio · Tahap 1 · Pangkas + Ekspor</string>
 
     <!-- Faditor Info Bottom Sheet -->
     <string name="faditor_empty_title">No projects yet</string>
     <string name="faditor_empty_desc">Tap \"Start New Project\" to pick a video and begin editing</string>
-    <string name="faditor_info_title">About Faditor Mini</string>
+    <string name="faditor_info_title">Tentang Studio</string>
     <string name="faditor_info_subtitle">Everything you need to know about the built-in editor</string>
     <string name="faditor_info_how_title">How it works</string>
     <string name="faditor_info_how_desc">Pick any video from your device or your Joy Creator recordings. Trim it frame-by-frame using the timeline, then export. All processing happens locally on your device — nothing is uploaded.\n\nYour editing progress is auto-saved every few seconds and whenever you leave the editor, so no work is lost if the app closes unexpectedly.</string>
     <string name="faditor_info_convert_title">Smart conversion</string>
-    <string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
+    <string name="faditor_info_convert_desc">Joy Creator merekam dalam format tahan-crash bernama fragmented MP4 (fMP4). Berbeda dari MP4 standar yang punya satu wadah final, fMP4 menulis video dalam potongan kecil yang berdiri sendiri. Artinya rekamanmu tetap utuh walau aplikasi crash atau rekaman berhenti mendadak.\n\nNamun, pemutar video lain, aplikasi galeri, dan pengelola file tidak bisa melompat, menggeser, atau menampilkan durasi yang benar dari file ini. Ini bukan bug — ini pilihan desain yang disengaja demi keandalan.\n\nKalau kamu berencana menyimpan videomu di luar Joy Creator — di Google Drive, komputer, atau tempat lain — kamu harus mengonversinya dulu. Kalau tidak, file-nya tidak bisa diputar dengan normal.\n\nCara mengonversi: cukup buka video di Studio ini lalu ketuk Ekspor. MP4 standar hasil konversi akan muncul di tab Rekaman, siap disimpan ke galeri atau dibagikan ke mana saja. Prosesnya instan dan tanpa kehilangan kualitas — tanpa encode ulang.</string>
     <string name="faditor_info_export_title">Exported files</string>
     <string name="faditor_info_export_desc">Exported videos are saved to your active storage location (the same one configured in Settings) with the prefix \"JoyCreator_\" followed by a timestamp. They appear in the Records tab alongside your original recordings.</string>
     <string name="faditor_info_temp_title">Temporary files and cache</string>
-    <string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
+    <string name="faditor_info_temp_desc">Saat kamu memuat video fMP4 untuk diedit, Studio mendeteksi apakah file perlu \"remuxing\" — konversi cepat yang menambahkan penanda lompat tanpa encode ulang. File hasil remux disimpan sebagai cache di perangkatmu agar bisa dipakai lagi kalau kamu mengedit video yang sama, jadi hemat waktu dan tenaga.\n\nUkuran cache tiap proyek tampil di samping tanggal ubahnya. Kalau penyimpanan perangkat menipis, kamu bisa menghapus proyek yang tidak terpakai untuk mengosongkan cache remux-nya.\n\nFile cache sementara ini dibersihkan otomatis saat kamu menghapus proyek dari tab ini.</string>
     <string name="faditor_info_projects_title">Recent projects</string>
     <string name="faditor_info_projects_desc">All your editing sessions are shown for quick access. Each project is stored as a small JSON file on your device containing the video URI, trim points, and timestamps — no copies of your videos are made. Projects are auto-saved every few seconds, so your progress is never lost.\n\nYou can delete projects you no longer need using the multi-select checklist icon. Deleting a project only removes the editing session data; your original video files remain untouched.</string>
     <string name="faditor_your_recordings">Your Recordings</string>
@@ -1361,7 +1351,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="video_split_size_summary_gb">Saat ini: %1$s GB</string>
     <string name="video_splitting_title">Aktifkan Pemisahan Video</string>
     <string name="video_splitting_description">Secara otomatis memisahkan rekaman menjadi file yang lebih kecil (Dinonaktifkan secara default). Direkomendasikan: 2 GB untuk keseimbangan. Tersedia preset hingga 4 GB dan ukuran kustom. Ini membantu mengelola rekaman besar dan menghindari batasan ukuran file perangkat.</string>
-    <string name="kofi_footer_text">Dibuat dengan penuh cinta di FadSec Lab di</string>
 
     <string name="setting_audio_input_source_title">Sumber Input Audio</string>
     <string name="setting_audio_input_source_status_default">Saat ini menggunakan: Mikrofon Ponsel</string>
@@ -1447,7 +1436,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <string name="version_format">v%s</string>
 
-    <string name="edit_with_faditorx">Edit dengan FaditorX</string>
+    <string name="edit_with_faditorx">Edit dengan Studio</string>
     <string name="remote_coming_soon_badge">BARU</string>
 
     <!-- Update Bottom Sheet Strings -->
@@ -1595,8 +1584,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="intel_vehicles">KENDARAAN</string>
     <string name="intel_animals">HEWAN</string>
     <string name="intel_objects">OBJEK</string>
-    <string name="intel_no_data">Tidak ada data intelijen tersedia.
-Pemantauan aset aktif.</string>
+    <string name="intel_no_data">Belum ada data aktivitas.\nPemantauan aktivitas aktif.</string>
     <string name="intel_time_window">Jendela pemantauan 24 jam</string>
     <string name="intel_range_24h">24J</string>
     <string name="intel_range_7d">7 HARI</string>
@@ -1639,11 +1627,7 @@ Pemantauan aset aktif.</string>
     <string name="forensics_grid_5">5 kolom</string>
     <string name="forensics_serial_strip">bukti</string>
     <string name="forensics_info_title">Info Bukti</string>
-    <string name="forensics_info_body">Galeri Bukti menyimpan snapshot yang diambil selama sesi perekaman aktif.
-
-Snapshot adalah file bukti mandiri dan tetap dapat dilihat meskipun video sumber dipindahkan atau dihapus.
-
-Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk melompat ke rekaman sumber jika tersedia.</string>
+    <string name="forensics_info_body">Galeri Snapshot menyimpan snapshot yang diambil selama sesi rekaman berlangsung.\n\nSnapshot adalah file mandiri dan tetap bisa dilihat walau video sumbernya dipindah atau dihapus.\n\nUntuk item yang terhubung ke video, pakai detail snapshot di penampil foto untuk melompat ke rekaman sumber kalau tersedia.</string>
     <string name="forensics_info_helper">Bukti muncul di sini segera setelah snapshot diambil selama perekaman.</string>
     <string name="forensics_info_line_1">Aksi video sumber hanya tersedia saat tautan video asli ada.</string>
     <string name="forensics_info_line_2">Jika video diubah atau dihapus, snapshot tetap tersedia sebagai bukti mandiri.</string>
@@ -1925,8 +1909,6 @@ Untuk item yang tertaut video, gunakan detail bukti di dalam penampil foto untuk
     <string name="new_project">Proyek Baru</string>
     <string name="delete">Hapus</string>
 
-    <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">Tentang Pemutar Video</string>
@@ -1941,11 +1923,7 @@ Untuk pengalaman pemutaran paling mulus, Anda dapat menggunakan pemutar eksterna
 
     <!-- Codec Compatibility Strings -->
     <string name="codec_hevc_incompatible_title">Codec H.265 Tidak Didukung untuk Streaming Langsung</string>
-    <string name="codec_hevc_incompatible_message">📡 Streaming langsung via HLS memerlukan codec H.264.
-
-H.265 tidak kompatibel dengan pemutar browser.
-
-Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
+    <string name="codec_hevc_incompatible_message">📡 Siaran langsung lewat HLS butuh codec H.264.\n\nH.265 tidak cocok dengan pemutar di browser.\n\nMau beralih ke H.264 dan mulai merekam?</string>
     <string name="codec_switch_and_record">Beralih ke H.264 &amp; Rekam</string>
     <string name="codec_switch_cancelled">Pergantian codec dibatalkan</string>
     <string name="codec_switched_to_h264">✓ Codec dialihkan ke H.264. Memulai perekaman...</string>
@@ -2118,33 +2096,7 @@ Apakah Anda ingin beralih ke H.264 dan mulai merekam?</string>
     <string name="motion_lab_debug_metrics_value">Area %1$.3f, Kuat %2$.3f, Rata %3$.3f, BG %4$.3f, Maks %5$.3f, Global %6$s</string>
     <string name="motion_lab_info_cd">Info Motion Lab</string>
     <string name="motion_lab_info_title">Rekam Otomatis saat Motion</string>
-    <string name="motion_lab_info_body">Ini adalah fitur Rekam Otomatis saat Motion Joy Creator.
-
-Cara kerjanya secara sederhana:
-- Kamera Anda tetap aktif dan menganalisis frame di perangkat secara real time.
-- Model machine learning di perangkat dan logika motion mencari gerakan.
-- Saat motion valid terdeteksi, perekaman dimulai/dilanjutkan.
-- Perekaman terus berjalan selama motion berlanjut.
-- Setelah motion berhenti, Post-roll terus merekam selama detik ekstra yang Anda pilih.
-- Kemudian perekaman dijeda dan menunggu peristiwa motion berikutnya.
-
-Saat perekaman dijeda, aplikasi masih menganalisis frame di memori, tetapi tidak menulis data video baru sampai motion terdeteksi lagi.
-
-Cara menggunakan (sebagian besar pengguna):
-- Pertahankan semua opsi pada nilai default.
-- Nyalakan Sensor Motion di layar ini.
-- Buka tab Beranda dan mulai perekaman secara normal.
-- Rekam otomatis berbasis motion akan berjalan secara otomatis.
-
-Tes mudah dari jarak jauh:
-- Nyalakan Senter Otomatis di layar ini.
-- Mulai perekaman dari tab Beranda.
-- Letakkan ponsel miring di atas meja atau rak menghadap ruangan.
-- Tinggalkan ruangan, lalu masuk dan berjalan.
-- Senter yang menyala membantu Anda langsung memperhatikan dari jauh bahwa perekaman dimulai.
-- Perekaman akan berlanjut selama durasi Post-roll yang Anda pilih setelah motion berhenti.
-
-Tips: Fitur ini berjalan terus menerus, sehingga nilai lanjutan yang sangat tinggi dapat meningkatkan panas dan dapat mengurangi kesehatan perangkat seiring waktu. Untuk sesi panjang, pertahankan default kecuali Anda memiliki alasan khusus.</string>
+    <string name="motion_lab_info_body">Ini fitur Rekam Otomatis saat Ada Gerakan di Joy Creator.\n\nCara kerjanya dengan kata sederhana:\n- Kameramu tetap aktif dan menganalisis frame di perangkat secara langsung.\n- Model machine learning di perangkat dan logika gerak mencari pergerakan.\n- Saat gerakan valid terdeteksi, rekaman mulai/lanjut.\n- Rekaman terus berjalan selama gerakan berlanjut.\n- Setelah gerakan berhenti, Post-roll tetap merekam selama detik tambahan yang kamu pilih.\n- Lalu rekaman dijeda dan menunggu gerakan berikutnya.\n\nSaat rekaman dijeda, aplikasi tetap menganalisis frame di memori, tapi tidak menulis data video baru sampai gerakan terdeteksi lagi.\n\nCara pakai (untuk kebanyakan orang):\n- Biarkan semua opsi di nilai bawaan.\n- Aktifkan Sensor Gerak di layar ini.\n- Buka tab Beranda dan mulai merekam seperti biasa.\n- Rekam otomatis berbasis gerakan akan berjalan sendiri.\n\nUji mudah dari jarak jauh:\n- Aktifkan Senter Otomatis di layar ini.\n- Mulai merekam dari tab Beranda.\n- Taruh ponsel miring di meja atau rak menghadap ruangan.\n- Keluar dari ruangan, lalu masuk dan berjalan ke dalam.\n- Senter yang menyala membuatmu langsung tahu dari jauh bahwa rekaman sudah mulai.\n- Rekaman akan berlanjut selama durasi Post-roll yang kamu pilih setelah gerakan berhenti.\n\nTips: Fitur ini berjalan terus-menerus, jadi nilai lanjutan yang sangat tinggi bisa membuat panas dan lama-lama mengurangi kesehatan perangkat. Untuk sesi panjang, biarkan nilai bawaan kecuali kamu punya alasan khusus.</string>
     <string name="motion_lab_percent_value">%1$d%%</string>
     <string name="motion_lab_fps_value">%1$d fps</string>
     <string name="motion_lab_ms_value">%1$d ms</string>
@@ -2161,18 +2113,12 @@ Tips: Fitur ini berjalan terus menerus, sehingga nilai lanjutan yang sangat ting
 
     <!-- Privacy Black Mode Settings -->
     <string name="privacy_black_mode_title">Layar Hitam Privasi</string>
-    <string name="privacy_black_mode_helper">Jika perangkat Anda mematikan aplikasi di latar belakang, Anda dapat menggunakan fitur ini untuk menjaga aplikasi tetap berjalan di latar depan.
-
-Overlay layar hitam muncul, membuatnya terlihat seperti layar mati sementara perekaman berlanjut.
-
-Ketuk ikon Joy Creator di header atas tab Beranda untuk mengaktifkannya.</string>
+    <string name="privacy_black_mode_helper">Kalau perangkatmu mematikan aplikasi di latar belakang, fitur ini bisa menjaga aplikasi tetap jalan di latar depan.\n\nLapisan layar hitam muncul sehingga layar tampak mati sementara rekaman terus berjalan.\n\nKetuk ikon Joy Creator di header atas tab Beranda untuk mengaktifkannya.</string>
     <string name="privacy_black_mode_enable_title">Aktifkan Mode Hitam Privasi</string>
     <string name="privacy_black_mode_enabled_toast">Mode Privasi Diaktifkan</string>
     <string name="privacy_black_mode_disabled_toast">Mode Privasi Dinonaktifkan</string>
     <string name="privacy_black_gestures_title">Metode Keluar</string>
-    <string name="privacy_black_gestures_helper">Pilih gestur mana yang dapat digunakan untuk keluar dari Mode Hitam Privasi.
-
-Catatan: Setidaknya satu metode keluar harus tetap diaktifkan untuk mencegah terjebak!</string>
+    <string name="privacy_black_gestures_helper">Pilih gestur yang boleh dipakai untuk keluar dari Mode Hitam Privasi.\n\nCatatan: Sisakan minimal satu cara keluar supaya kamu tidak terjebak!</string>
     <string name="privacy_black_gesture_swipe">Geser Naik untuk Keluar</string>
     <string name="privacy_black_gesture_triple">Ketuk Tiga Kali untuk Keluar</string>
     <string name="privacy_black_gesture_long">Tekan Lama untuk Keluar</string>
@@ -2388,9 +2334,7 @@ Catatan: Setidaknya satu metode keluar harus tetap diaktifkan untuk mencegah ter
     <string name="watermark_utm_title">Koordinat UTM</string>
     <string name="watermark_utm_off">Mati</string>
     <string name="watermark_utm_on">Aktif — Koordinat grid Universal Transverse Mercator</string>
-    <string name="watermark_utm_helper">UTM membagi Bumi menjadi 60 zona dan mengonversi lat/lon ke easting &amp; northing dalam meter. Digunakan oleh militer, surveyor, dan peta topografi untuk pemosisian grid yang tepat.
-
-Cara membaca: "Zona 42N — 372.684m T, 3.512.334m U" = Zona 42 di belahan utara, 372.684 meter Easting (timur-barat), 3.512.334 meter Northing (utara-selatan).</string>
+    <string name="watermark_utm_helper">UTM membagi Bumi menjadi 60 zona dan mengubah lintang/bujur menjadi easting &amp; northing dalam meter. Dipakai militer, juru ukur, dan peta topografi untuk penentuan posisi kisi yang presisi.\n\nCara membaca: \"Zone 42N — 372,684m E, 3,512,334m N\" = Zona 42 di belahan bumi utara, 372.684 meter Easting (timur-barat), 3.512.334 meter Northing (utara-selatan).</string>
     <string name="mini_app_speedometer_title">Speedometer</string>
     <string name="mini_app_speedometer_desc">Speedometer mobil real-time dengan pelacakan kecepatan GPS</string>
     <string name="mini_app_clinometer_title">Klinometer</string>
@@ -2408,9 +2352,7 @@ Cara membaca: "Zona 42N — 372.684m T, 3.512.334m U" = Zona 42 di belahan utara
 
     <!-- Mini Apps Info Sheet -->
     <string name="mini_apps_planned_shortcuts_title">Direncanakan: Pintasan &amp; Otomasi</string>
-    <string name="mini_apps_planned_shortcuts_desc">Pintasan layar beranda untuk akses instan ke Aplikasi Mini mana pun tanpa membuka Joy Creator terlebih dahulu.
-
-Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikasi Mini secara terprogram — gunakan pemindaian QR, senter, dan lainnya dari alur kerja otomatis Anda.</string>
+    <string name="mini_apps_planned_shortcuts_desc">Pintasan layar utama untuk akses instan ke Mini App mana pun tanpa membuka Joy Creator dulu.\n\nDukungan otomatisasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Mini App secara terprogram — pakai pemindai QR, senter, dan lainnya dari alur otomatismu.</string>
     <string name="export_center">Pusat Ekspor</string>
 
     <string name="remote_server_status">Status Server</string>
@@ -2712,7 +2654,7 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="settings_location_update_interval_5s">5,0 detik</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">oleh FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">oleh Joy Creator</string>
     <string name="annotation_quick_access">Akses Cepat</string>
     <string name="annotation_annotate">Anotasi</string>
     <string name="annotation_enable_tools">Aktifkan alat</string>
@@ -2926,4 +2868,585 @@ Dukungan otomasi berbasis intent (Tasker, MacroDroid, dll.) untuk memicu Aplikas
     <string name="toast_failed_open_file">Gagal membuka file untuk ditulis</string>
     <string name="toast_cannot_write_custom_dir">Tidak dapat menulis ke direktori kustom yang dipilih</string>
     <string name="toast_failed_create_file">Gagal membuat file untuk ditulis</string>
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">Mulai rekaman baru</string>
+    <string name="lobby_a11y_new_project">Mulai proyek baru</string>
+    <string name="lobby_a11y_new_character">Buat karakter baru</string>
+    <string name="lobby_a11y_new_import">Impor file</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s, belum ada isinya</string>
+    <string name="lobby_a11y_library">Buka Library</string>
+    <string name="onboarding_a11y_checked">%1$s. Tercentang.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. Belum dicentang.</string>
+    <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
+    <string name="faditor_tools_more">%1$d lagi</string>
+    <string name="faditor_tools_more_desc">Tampilkan semua alat</string>
+    <string name="capture_mode_camera">Kamera</string>
+    <string name="capture_mode_screen">Layar</string>
+    <string name="capture_mode_mic">Mikrofon</string>
+    <string name="webcam_overlay">Overlay webcam</string>
+    <string name="webcam_overlay_on">Aktif</string>
+    <string name="webcam_overlay_off">Mati</string>
+    <string name="webcam_overlay_notification_title">Overlay webcam aktif</string>
+    <string name="fadrec_recording_flash">Merekam!</string>
+    <string name="video_info_loading">Memuat…</string>
+    <string name="faditor_timeline_resize_handle">Seret untuk mengubah ukuran timeline dan pratinjau</string>
+    <string name="faditor_export_preparing">Menyiapkan ekspor…</string>
+    <string name="faditor_export_compositing">Menggabungkan video…</string>
+    <string name="faditor_export_finalizing">Menyelesaikan…</string>
+    <string name="faditor_font_picker_title">Font</string>
+    <string name="faditor_font_import">Impor font…</string>
+    <string name="faditor_font_row_selected">%1$s (dipilih)</string>
+    <string name="faditor_tool_opacity">Opasitas</string>
+    <string name="faditor_tool_text">Teks</string>
+    <string name="faditor_tool_sticker">Gambar</string>
+    <string name="faditor_text_hint">Ketik teks</string>
+    <string name="faditor_text_edit_title">Edit teks</string>
+    <string name="faditor_text_delete">Hapus</string>
+    <string name="faditor_text_selection_whole">Pilih semua</string>
+    <string name="faditor_text_selection_count">%1$d dipilih</string>
+    <string name="faditor_text_selection_clear">Bersihkan</string>
+    <string name="faditor_text_style_undo">Format teks</string>
+    <string name="faditor_text_motion_range">Rentang gerak teks</string>
+    <string name="faditor_trim_start_here">⇤ Mulai di sini</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  Seluruhnya</string>
+    <string name="faditor_trim_end_here">Berakhir di sini ⇥</string>
+    <string name="faditor_split_playhead_text">Geser playhead ke dalam teks untuk memisahnya</string>
+    <string name="faditor_split_playhead_sprite">Geser playhead ke dalam sprite untuk memisahnya</string>
+    <string name="faditor_split_playhead_pip">Geser playhead ke dalam PiP untuk memisahnya</string>
+    <string name="faditor_split_playhead_layer">Geser playhead ke dalam layer untuk memisahnya</string>
+    <string name="faditor_trim_start_impossible">Geser playhead sebelum akhir layer untuk memangkas bagian awal</string>
+    <string name="faditor_trim_end_impossible">Geser playhead setelah awal layer untuk memangkas bagian akhir</string>
+    <string name="faditor_heal_confirm_add">Menyatukan kembali potongan ini akan menambahkan %1$s ke timeline. Lanjut?</string>
+    <string name="faditor_heal_confirm_remove">Menyatukan kembali potongan ini akan menghapus %1$s dari timeline. Lanjut?</string>
+    <string name="faditor_locked_title">Objek terkunci</string>
+    <string name="faditor_locked_message">Objek ini terkunci. Buka kunci dan lanjutkan?</string>
+    <string name="faditor_locked_unlock">Buka kunci &amp; lanjut</string>
+    <string name="faditor_fx_static_hint">Diam — ketuk ◆ untuk menganimasikan</string>
+    <string name="faditor_fx_reorder_hint">Tambahkan efek kedua untuk mengatur urutan rantai</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s butuh layer penyesuaian — dilewati</string>
+    <string name="faditor_color_set">Atur</string>
+    <string name="faditor_image_overlay_title">Overlay gambar</string>
+    <string name="faditor_image_overlay_desc">Seret untuk memindah, cubit untuk mengubah ukuran</string>
+    <string name="faditor_tool_silence">Bersihkan</string>
+    <string name="faditor_tool_loop">Ulang</string>
+    <string name="faditor_tool_settings">Pengaturan</string>
+    <string name="faditor_tool_sprites">Sprite</string>
+    <string name="sprite_editor_missing_image">Gambar sheet hilang — impor lagi</string>
+    <string name="sprite_editor_no_project">Proyek tidak ditemukan — buka editor dulu</string>
+    <string name="sprite_editor_default_name">Sprite</string>
+    <string name="sprite_editor_name_hint">Nama sprite sheet</string>
+    <string name="sprite_editor_cell_name_hint">Nama sel (alias)</string>
+    <string name="sprite_editor_cell_enabled">Aktif</string>
+    <string name="sprite_editor_cell_prefix">Sel</string>
+    <string name="sprite_editor_save">Simpan</string>
+    <string name="sprite_editor_saved">Sprite sheet tersimpan</string>
+    <string name="sprite_editor_save_failed">Gagal menyimpan — coba lagi</string>
+    <string name="sprite_editor_import_failed">Gambar itu tidak bisa diimpor</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">Poros</string>
+    <string name="sprite_editor_auto">Otomatis</string>
+    <string name="sprite_editor_auto_applied">Kisi terdeteksi: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">Kisi tidak terlihat jelas — atur dengan tombol +/−</string>
+    <string name="sprite_editor_key">Kunci</string>
+    <string name="sprite_editor_key_clear">Kunci ✕</string>
+    <string name="sprite_editor_key_pick_hint">Ketuk warna latar yang mau dihilangkan</string>
+    <string name="sprite_editor_key_cleared">Kunci latar dihapus</string>
+    <string name="sprite_editor_onion">Onion</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">Info pemotongan diterapkan dari file pendamping</string>
+    <string name="sprite_editor_sidecar_import_failed">File pendamping tidak bisa dibaca</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">File pendamping disimpan di samping gambar sheet</string>
+    <string name="sprite_editor_sidecar_failed">File pendamping tidak bisa ditulis</string>
+    <string name="sprite_sheet_picker_title">Sprite sheet</string>
+    <string name="sprite_sheet_picker_new">+ Sprite sheet baru</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+    <string name="sprite_sheet_action_edit">Edit sheet</string>
+    <string name="sprite_sheet_action_place">Taruh di video</string>
+    <string name="sprite_sheet_action_relink">Tautkan ulang gambar…</string>
+    <string name="sprite_placed">Sprite ditaruh — seret di pratinjau</string>
+    <string name="sprite_palette_load">+ Muat sprite sheet</string>
+    <string name="sprite_palette_cell_prefix">sel</string>
+    <string name="sprite_palette_no_cell">belum ada frame — ketuk sebuah sel</string>
+    <string name="sprite_palette_end_prefix">akhir:</string>
+    <string name="sprite_palette_swap_dropped">Pergantian dijatuhkan di playhead</string>
+    <string name="avatar_studio_title">Avatar</string>
+    <string name="avatar_studio_new">+ Avatar baru</string>
+    <string name="avatar_studio_default_name">Avatar</string>
+    <string name="avatar_studio_name_hint">Nama avatar</string>
+    <string name="avatar_studio_save">Simpan</string>
+    <string name="avatar_studio_saved">Avatar tersimpan</string>
+    <string name="avatar_studio_save_failed">Gagal menyimpan — coba lagi</string>
+    <string name="avatar_studio_no_project">Proyek tidak ditemukan — buka editor dulu</string>
+    <string name="avatar_studio_add_part">+ Bagian</string>
+    <string name="avatar_studio_pick_sheet">Sprite sheet untuk bagian baru</string>
+    <string name="avatar_studio_no_sheets">Potong sprite sheet dulu (alat Sprite) — bagian diambil dari sheet</string>
+    <string name="avatar_studio_part_name_hint">Nama bagian (kepala, badan, lenganKiri…)</string>
+    <string name="avatar_studio_part_menu_parent">Atur induk…</string>
+    <string name="avatar_studio_part_menu_unparent">Hapus induk</string>
+    <string name="avatar_studio_part_menu_remove">Hapus bagian</string>
+    <string name="avatar_studio_parent_pick_title">Induk untuk %1$s</string>
+    <string name="avatar_studio_armed_hint">Sel siap — seret bagian untuk mengatur pose ekstrem ini</string>
+    <string name="avatar_studio_disarm_hint">Kisi bebas — slider menggerakkan campurannya</string>
+    <string name="avatar_studio_yaw">Yaw</string>
+    <string name="avatar_studio_pitch">Pitch</string>
+    <string name="avatar_studio_cell_stepper">Sel sprite</string>
+    <string name="avatar_studio_scale">Skala</string>
+    <string name="avatar_studio_rotation">Putar</string>
+    <string name="avatar_studio_flip_h">Balik H</string>
+    <string name="avatar_studio_flip_v">Balik V</string>
+    <string name="avatar_studio_mirror">Cermin ⇋</string>
+    <string name="avatar_studio_mirrored">Dicerminkan ke sel seberangnya</string>
+    <string name="avatar_studio_pins">⌖ Pin</string>
+    <string name="avatar_studio_pin_del">✕ pin</string>
+    <string name="avatar_studio_density">Mesh</string>
+    <string name="avatar_studio_pin_add_disarmed">Lepas sel dulu untuk menambah atau menghapus pin (rantai diam)</string>
+    <string name="avatar_studio_pins_reseeded">Pin sel dibuat ulang dari rantai diam</string>
+    <string name="avatar_studio_clear_cell">Kosongkan sel</string>
+    <string name="avatar_studio_cell_cleared">Sel dikosongkan — dicampur otomatis lagi</string>
+    <string name="faditor_tools_all_title">Semua alat</string>
+    <string name="faditor_tools_edit">Edit</string>
+    <string name="faditor_tools_edit_done">Selesai</string>
+    <string name="faditor_tools_edit_tooltip">Atur susunan alat</string>
+    <string name="faditor_silence_audio_desc">Memotong jeda hening dari klip audio ini lalu merapatkannya. Satu kali Urungkan mengembalikannya.</string>
+    <string name="faditor_silence_audio_btn">Potong jeda</string>
+    <string name="faditor_tools_edit_hint">Tahan sebuah alat lalu seret ke tempat baru. Seret melewati bilah untuk menyematkannya. Ketuk Selesai kalau sudah.</string>
+    <string name="faditor_settings_tool_order_title">Urutan alat</string>
+    <string name="faditor_settings_tool_order_desc">Cara carousel alat di bawah diurutkan: susunan buatanmu sendiri, atau yang terakhir dipakai di depan.</string>
+    <string name="faditor_settings_tool_order_recent">Terbaru dulu</string>
+    <string name="faditor_loop_off">Mati</string>
+    <string name="faditor_loop_normal">Ulang</string>
+    <string name="faditor_loop_pingpong">Ping-pong</string>
+    <string name="faditor_loop_pingpong_parked">Ping-pong (segera)</string>
+    <string name="faditor_loop_pingpong_parked_toast">Ping-pong sejati sedang dipoles — segera hadir. Pakai Ulang untuk pengulangan maju yang mulus.</string>
+    <string name="faditor_loop_still">Diam</string>
+    <string name="faditor_loop_extend_start">Perpanjang ke awal</string>
+    <string name="faditor_loop_extend_end">Perpanjang ke akhir</string>
+    <string name="faditor_loop_extend_prev">Perpanjang ke klip sebelumnya</string>
+    <string name="faditor_loop_extend_next">Perpanjang ke klip berikutnya</string>
+    <string name="faditor_tool_transitions">Transisi</string>
+    <string name="faditor_transitions">Transisi</string>
+    <string name="faditor_transition_crossfade">Crossfade</string>
+    <string name="faditor_transition_black">Pudar ke hitam</string>
+    <string name="faditor_transition_white">Pudar ke putih</string>
+    <string name="faditor_transition_wipe">Sapu</string>
+    <string name="faditor_transition_radial">Radial</string>
+    <string name="faditor_transition_mirror">Sapu cermin</string>
+    <string name="faditor_transition_push">Dorong</string>
+    <string name="faditor_transition_glitch">Glitch</string>
+    <string name="faditor_transition_tv_channel">Kanal TV</string>
+    <string name="faditor_transition_added">Transisi ditambahkan di sambungan terdekat</string>
+    <string name="faditor_transition_removed">Transisi dihapus</string>
+    <string name="faditor_gl_transition_pick_title">Pilih efek GL</string>
+    <string name="faditor_visualizer_style_title">Gaya visualizer</string>
+    <string name="faditor_transition_duration_title">Durasi transisi</string>
+    <string name="faditor_transition_type_title">Jenis transisi</string>
+    <string name="faditor_transition_remove">Hapus</string>
+    <string name="faditor_transition_direction_title">Arah</string>
+    <string name="faditor_filter_title">Filter &amp; Warna</string>
+    <string name="faditor_filter_lut">Tampilan (LUT)</string>
+    <string name="faditor_filter_lut_none">Tidak ada</string>
+    <string name="faditor_filter_reset">Reset semua</string>
+    <string name="faditor_filter_copy_all">Salin tampilan ke semua klip</string>
+    <string name="faditor_filter_preset_save">Simpan sebagai preset…</string>
+    <string name="faditor_filter_preset_name_hint">Nama preset</string>
+    <string name="faditor_filter_preset_delete">Hapus preset \"%s\"?</string>
+    <string name="faditor_filter_preset_applied">Preset \"%s\" diterapkan</string>
+    <string name="faditor_tool_filter">Filter</string>
+    <string name="faditor_tool_move">Pindah</string>
+    <string name="faditor_move_drawer_title">Pindahkan klip</string>
+    <string name="faditor_move_layer_up">Naik</string>
+    <string name="faditor_move_layer_down">Turun</string>
+    <string name="faditor_move_to_time_hint">Penanda waktu (00:00:00.000) atau frame</string>
+    <string name="faditor_move_clip_label">Atur ulang urutan klip</string>
+    <string name="faditor_move_clip_start">Kirim ke awal</string>
+    <string name="faditor_move_clip_left">Geser satu ke kiri</string>
+    <string name="faditor_move_clip_right">Geser satu ke kanan</string>
+    <string name="faditor_move_clip_end">Kirim ke akhir</string>
+    <string name="faditor_move_clip_at_start">Klip ini sudah yang pertama</string>
+    <string name="faditor_move_clip_at_end">Klip ini sudah yang terakhir</string>
+    <string name="faditor_move_clip_none">Pilih klip dulu</string>
+    <string name="faditor_transition_need_two_clips">Tambahkan minimal dua klip video sebelum menambah transisi</string>
+    <string name="faditor_silence_detect_title">Deteksi hening</string>
+    <string name="faditor_silence_detect_desc">Jeda hening ditandai kuning. Ketuk jeda kuning di timeline untuk memotongnya (jadi hitam). Ketuk alatnya lagi untuk menyembunyikan.</string>
+    <string name="faditor_silence_detect_btn">Deteksi</string>
+    <string name="faditor_silence_found">%1$d jeda hening ditandai — ketuk yang kuning untuk memotong</string>
+    <string name="faditor_silence_title">Hapus hening</string>
+    <string name="faditor_silence_desc">Potong otomatis jeda hening dan bagian kosong dari klip ini.</string>
+    <string name="faditor_silence_sensitivity">Kepekaan</string>
+    <string name="faditor_silence_analyzing">Menganalisis audio…</string>
+    <string name="faditor_silence_none">Tidak ada jeda hening</string>
+    <string name="faditor_silence_image">Klip ini tidak punya audio untuk dianalisis</string>
+    <string name="faditor_silence_result">%1$d jeda dihapus · hemat %2$.1fs</string>
+    <string name="faditor_jump_to_time">Lompat ke waktu</string>
+    <string name="faditor_relink_title">Media hilang</string>
+    <string name="faditor_relink_msg">%1$d klip tidak bisa dibuka (sumbernya pindah atau aksesnya hilang). Tautkan ulang ke filemu? Editanmu tetap aman.</string>
+    <string name="faditor_relink_now">Tautkan ulang</string>
+    <string name="faditor_relink_later">Nanti</string>
+    <string name="faditor_relink_sheet_title">Tautkan ulang video yang hilang</string>
+    <string name="faditor_relink_sheet_sub">Mencari: %1$s</string>
+    <string name="faditor_relink_auto_found">Ditemukan %1$d lagi di folder yang sama — ditautkan otomatis</string>
+    <string name="faditor_relink_replace_title">Ganti video ini?</string>
+    <string name="faditor_relink_replace_msg">Pilih file lain untuk klip ini. Semua editanmu (pangkas, potongan, teks) tetap aman.</string>
+    <string name="faditor_relink_replace">Ganti video</string>
+    <string name="faditor_relink_catalog_title">Katalog media</string>
+    <string name="faditor_relink_repaired">%1$d dari %2$d diperbaiki — ketuk ✗ mana pun untuk menautkan ulang</string>
+    <string name="faditor_relink_all_ok">Semua file media bisa diakses ✓</string>
+    <string name="faditor_relink_all">↻ Tautkan ulang semua yang hilang</string>
+    <string name="faditor_relink_done">Selesai</string>
+    <string name="faditor_relink_missing">HILANG</string>
+    <string name="faditor_relink_ok">OK</string>
+    <string name="faditor_relink_generated">dibuat otomatis — cache dibersihkan</string>
+    <string name="faditor_relink_confirm_title">Konfirmasi penggantian</string>
+    <string name="faditor_relink_confirm_msg">Ganti klip #%1$d:\n\n  Dulu: %2$s (%3$s)\n  Baru: %4$s (%5$s)\n\nSemua edit (pangkas, potongan, teks) tetap terjaga.</string>
+    <string name="faditor_relink_confirm_yes">Ganti</string>
+    <string name="faditor_relink_skip">Lewati yang ini</string>
+    <string name="faditor_relink_warn_same_file">⚠ File ini sudah dipakai untuk klip #%1$d. Kalau dipakai lagi, kedua klip akan menampilkan rekaman yang sama.</string>
+    <string name="faditor_relink_warn_duration">⚠ Durasinya jauh berbeda. Dulu %1$s, sekarang %2$s. Titik pangkas mungkin perlu disesuaikan.</string>
+    <string name="faditor_relink_err_type">✗ Jenis file salah. Seharusnya %1$s, tapi ini %2$s.</string>
+    <string name="faditor_relink_btn">Katalog media</string>
+    <string name="faditor_asset_browser">Penjelajah aset</string>
+    <string name="faditor_asset_browser_title">Folder tersemat</string>
+    <string name="faditor_asset_browser_pin_dir">Pilih folder</string>
+    <string name="faditor_asset_browser_change_dir">Ganti folder</string>
+    <string name="faditor_asset_browser_unpin">Lepas folder</string>
+    <string name="faditor_asset_browser_empty">Tidak ada file media di folder ini</string>
+    <string name="faditor_asset_browser_no_dir">Belum ada folder yang disematkan. Ketuk ikon pin untuk memilih.</string>
+    <string name="faditor_asset_browser_pin_success">Disematkan: %1$s</string>
+    <string name="faditor_asset_browser_filter_all">Semua</string>
+    <string name="faditor_asset_browser_filter_used">Terpakai</string>
+    <string name="faditor_asset_browser_filter_unused">Belum terpakai</string>
+    <string name="faditor_asset_browser_rename">Ganti nama</string>
+    <string name="faditor_asset_browser_rename_title">Ganti nama file</string>
+    <string name="faditor_asset_browser_rename_hint">Nama baru (pertahankan ekstensi)</string>
+    <string name="faditor_asset_browser_rename_success">Diganti menjadi %1$s</string>
+    <string name="faditor_asset_browser_rename_error">Nama file tidak bisa diganti</string>
+    <string name="faditor_asset_browser_delete_title">Hapus dari riwayat?</string>
+    <string name="faditor_asset_browser_delete_msg">Hapus folder ini dari riwayat folder tersemat? File dari folder ini yang sedang dipakai tetap ada di proyek.</string>
+    <string name="faditor_asset_browser_delete_blocked">Tidak bisa dihapus: file dari folder ini sedang dipakai.</string>
+    <string name="faditor_asset_insert_at_playhead">Sisipkan aset terpilih di playhead</string>
+    <string name="faditor_asset_drag_hint">Tekan lama lalu seret ke timeline</string>
+    <string name="faditor_asset_used_badge">Terpakai</string>
+    <string name="faditor_new_project_title">Beri nama proyekmu (%1$d klip)</string>
+    <string name="faditor_new_project_hint">Nama proyek</string>
+    <string name="faditor_create">Buat</string>
+    <string name="faditor_creating_project">Membuat proyek…</string>
+    <string name="faditor_create_failed">Proyek tidak bisa dibuat dari video-video itu.</string>
+    <string name="faditor_transcript_delete_version_title">Hapus transkrip</string>
+    <string name="faditor_transcript_delete_version_msg">Hapus transkrip \"%1$s\" dari klip ini? Versi lainnya tetap ada.</string>
+    <string name="faditor_kf_section">Animasi (keyframe)</string>
+    <string name="faditor_kf_status">%1$d keyframe</string>
+    <string name="faditor_kf_hint_start">Atur posisi overlay, lalu ketuk ◆ untuk mulai menganimasikannya.</string>
+    <string name="faditor_kf_hint_armed">%1$d keyframe. Sekarang geser playhead dan seret overlay — keyframe ditambahkan otomatis.</string>
+    <string name="faditor_kf_add">◆ Tambah keyframe</string>
+    <string name="faditor_kf_added">Keyframe ditambahkan di playhead</string>
+    <string name="faditor_kf_clear">Bersihkan</string>
+    <string name="faditor_kf_set_start">Mulai di sini</string>
+    <string name="faditor_kf_set_end">Berakhir di sini</string>
+    <string name="faditor_kf_range_set">Waktu overlay diperbarui</string>
+    <string name="faditor_kf_range_invalid">Geser playhead — akhir harus setelah awal.</string>
+    <string name="faditor_coachmark_gestures_title">Mengedit sebuah item</string>
+    <string name="faditor_coachmark_gestures_body">Ketuk dua kali untuk edit  ·  Tahan untuk menu  ·  Seret untuk memindah</string>
+    <string name="faditor_coachmark_got_it">Mengerti</string>
+    <string name="faditor_transitions_more_effects">⌄  Efek lainnya</string>
+    <string name="faditor_transitions_fewer_effects">⌃  Lebih sedikit efek</string>
+    <string name="faditor_clean_audio_label">Audio Bersih v2</string>
+    <string name="faditor_clean_audio_desc">Meredam noise, menghaluskan dinamika, dan memakai koreksi kenyaringan dua tahap dengan pembatas true-peak. Menambah waktu ekspor.</string>
+    <string name="faditor_transcript">Transkrip</string>
+    <string name="faditor_captions">Teks</string>
+    <string name="faditor_captions_need_transcript">Transkripsikan klip ini dulu, lalu tambahkan teks</string>
+    <string name="faditor_captions_done">Selesai</string>
+    <string name="faditor_transcript_clean">Bersihkan kata isian</string>
+    <string name="faditor_transcript_apply">Kunci</string>
+    <string name="faditor_transcript_committed">Edit terkunci — ekspor akan menerapkannya</string>
+    <string name="faditor_transcript_search">Cari di transkrip</string>
+    <string name="faditor_transcript_break">Aktifkan/matikan baris baru setelah kata yang disorot</string>
+    <string name="faditor_transcript_pick_model">Pilih model suara</string>
+    <string name="faditor_transcript_pick_model_sub">Berjalan sepenuhnya offline di ponselmu. Diunduh sekali saja.</string>
+    <string name="faditor_transcript_model_fast">Waktu cepat</string>
+    <string name="faditor_transcript_model_fast_sub">~40 MB · tercepat · WAKTU kata terbaik, kata lebih kasar</string>
+    <string name="faditor_transcript_model_accurate">Seimbang</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 MB · waktu bagus DAN kata bagus · berjalan ~secepat waktu nyata</string>
+    <string name="faditor_transcript_model_whisper">Kata terbaik</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 MB · KATA terbaik, waktu kurang rapat · paling lambat</string>
+    <string name="faditor_transcript_model_whisper_note">Kata terbaik memakai Whisper: kata-katanya paling tepat, tapi waktunya bisa melenceng di klip panjang. Waktu cepat dan Seimbang memakai Vosk — waktu katanya lebih rapat, yang dibutuhkan sinkronisasi teks dan edit lewat teks. Menjalankan masing-masing satu membuat keduanya bisa digabung jadi satu trek dengan kata bagus DAN waktu bagus.</string>
+    <string name="faditor_transcribe_prompt_title">Transkripsikan video ini?</string>
+    <string name="faditor_transcribe_prompt_message">Buat transkrip yang bisa dicari dan diedit untuk klip yang baru kamu tambahkan. Berjalan sepenuhnya offline.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">Jangan tanya lagi</string>
+    <string name="faditor_settings_title">Pengaturan editor</string>
+    <string name="faditor_settings_ask_transcribe_title">Tanya soal transkrip saat menambah video</string>
+    <string name="faditor_settings_ask_transcribe_desc">Tampilkan pertanyaan untuk mentranskripsi klip tepat setelah kamu menambahkannya ke timeline.</string>
+    <string name="faditor_transcript_working">Memproses…</string>
+    <string name="faditor_transcript_header_audio">Audio \u00b7 %1$s</string>
+    <string name="faditor_transcript_header_clip">Klip %1$d \u00b7 %2$s</string>
+    <string name="faditor_transcript_source">+ Sumber</string>
+    <string name="faditor_transcript_offer_title">Tambah sumber transkrip</string>
+    <string name="faditor_transcript_offer_message">Muat atau buat transkrip untuk klip yang dipilih.\n\nKamu selalu bisa menambah sumber nanti lewat kepala transkrip atau chip + Sumber.</string>
+    <string name="faditor_transcript_offer_dont_show">Jangan tampilkan lagi</string>
+    <string name="faditor_transcript_image">Klip ini tidak punya audio untuk ditranskripsi</string>
+    <string name="faditor_transcript_empty">Tidak ada suara bicara terdeteksi</string>
+    <string name="faditor_transcript_error">Transkripsi gagal: %1$s</string>
+    <string name="faditor_transcript_cleaned">%1$d kata isian dicoret</string>
+    <string name="faditor_transcript_no_edits">Belum ada yang dicoret — tekan lama sebuah kata untuk menghapusnya</string>
+    <string name="faditor_blank_clip_length">Panjang klip hitam</string>
+    <string name="faditor_motion_start_here">Animasi mulai di sini</string>
+    <string name="faditor_motion_span_whole">Animasi mencakup seluruh objek</string>
+    <string name="faditor_motion_end_here">Animasi berakhir di sini</string>
+    <string name="faditor_zone_in_ends_here">Masuk berakhir di sini</string>
+    <string name="faditor_zone_clear">Tanpa masuk atau keluar</string>
+    <string name="faditor_zone_out_starts_here">Keluar mulai di sini</string>
+    <string name="faditor_blank_clip_added">Klip hitam ditambahkan (%1$s)</string>
+    <string name="faditor_add_asset_audio">Audio</string>
+    <string name="faditor_add_asset_pip">Overlay video (PiP)</string>
+    <string name="faditor_pip_added">Overlay video ditaruh — seret di pratinjau</string>
+    <string name="faditor_audio_import_added">Audio ditambahkan ke timeline</string>
+    <string name="faditor_audio_import_error">File audio itu tidak bisa dibaca</string>
+    <string name="faditor_undo_ai_edits">Edit AI</string>
+    <string name="faditor_heal_success">Celah dirapatkan tanpa merusak</string>
+    <string name="faditor_heal_error">Tidak bisa dirapatkan di sini - terlalu dekat dengan tepi</string>
+    <string name="faditor_heal_title">Rapatkan celah di sekitar playhead?</string>
+    <string name="faditor_heal_msg">Hapus %1$s di sekitar playhead sebagai potongan yang tidak merusak. Bisa kamu urungkan.</string>
+    <string name="faditor_delete_last_segments">Satu-satunya segmen tidak bisa dihapus</string>
+    <string name="faditor_crop_custom_ratio_title">Rasio kustom (L:T)</string>
+    <string name="faditor_canvas_custom_res_title">Resolusi kustom (L×T)</string>
+    <string name="faditor_settings_safe_zone_title">Panduan area aman 9:16</string>
+    <string name="faditor_settings_safe_zone_desc">Tampilkan panduan khusus pratinjau yang menandai area aman media sosial pada kanvas 9:16 (zona bebas tampilan aplikasi). Tidak pernah memengaruhi ekspor.</string>
+    <string name="faditor_crop_snap_on">Tarik ke tengah aktif</string>
+    <string name="faditor_crop_snap_off">Tarik ke tengah mati</string>
+    <string name="faditor_crop_auto_applied">Pangkas otomatis diterapkan</string>
+    <string name="faditor_crop_no_black_bars">Tidak ada bilah hitam; memakai pangkas rasio</string>
+    <string name="faditor_crop_error">Pilih klip video untuk dipangkas</string>
+    <string name="faditor_soft_snap_on">Tarik lembut aktif</string>
+    <string name="faditor_soft_snap_off">Tarik lembut mati</string>
+    <string name="faditor_export_complete_summary_audio">Audiomu tersimpan di folder Joy Creator. Temukan di Library.</string>
+    <string name="faditor_reverse_long_loop_later">Putar balik untuk loop panjang akan hadir nanti — untuk sekarang loop ini memutar ujungnya ke depan.</string>
+    <string name="faditor_export_filename_label">Nama file</string>
+    <string name="faditor_export_result_play">Putar video yang baru diekspor</string>
+    <string name="faditor_export_result_open_records">Ketuk untuk memutar · Lihat di Rekaman</string>
+    <string name="faditor_export_no_room">Ruang kosong di ponsel ini tidak cukup untuk ekspor ini. Kosongkan sekitar %1$s (hapus ekspor lama atau video yang tidak kamu perlukan) lalu coba lagi. Proyekmu aman.</string>
+    <string name="faditor_export_prepare_failed">Ekspor gagal bersiap, kemungkinan karena memori atau ruang ponsel kurang. Tutup aplikasi lain, kosongkan sedikit ruang, lalu coba lagi. Proyekmu aman.</string>
+    <string name="faditor_export_snapshot_unreadable">Ekspor tidak bisa dimulai karena proyekmu tidak terbaca. Coba lagi. Proyekmu aman.</string>
+    <string name="faditor_export_copy_failed_title">Ekspor selesai, tapi tidak di foldermu</string>
+    <string name="faditor_export_copy_failed_summary">Menyalin ke folder pilihanmu gagal (mungkin ponsel penuh). Videomu %1$s aman di dalam Joy Creator: temukan di Library.</string>
+    <string name="faditor_export_copy_failed_toast">Videomu sudah jadi, tapi tidak bisa disalin ke folder pilihanmu (mungkin ponsel penuh). Videonya aman di dalam Joy Creator: temukan di Library.</string>
+    <string name="battery_optimization_off">Optimalisasi baterai mati</string>
+    <string name="stream_notes_cellular">⚠️ Hanya Wi-Fi: jaringan seluler memblokir sambungan masuk, jadi penonton dan ponsel ini harus berada di Wi-Fi yang sama.</string>
+    <string name="torchtimer_label">Timer mati otomatis</string>
+    <string name="torchtimer_desc">Lampu kilat mati sendiri setelah waktu yang diatur</string>
+    <string name="torchtimer_off">Mati</string>
+    <string name="torchtimer_picker_helper">Timer baru mulai saat lampu kilat menyala</string>
+    <string name="torchtimer_cancel">Batalkan timer</string>
+    <string name="torchtimer_30s">30 detik</string>
+    <string name="torchtimer_1m">1 menit</string>
+    <string name="torchtimer_2m">2 menit</string>
+    <string name="torchtimer_5m">5 menit</string>
+    <string name="torchtimer_10m">10 menit</string>
+    <string name="torchtimer_15m">15 menit</string>
+    <string name="torchtimer_30m">30 menit</string>
+    <string name="torchtimer_1h">1 jam</string>
+    <string name="torchtimer_custom_title">Atur timer kustom</string>
+    <string name="torchtimer_custom_unit_helper">Pilih satuan waktu</string>
+    <string name="torchtimer_custom_hint">Masukkan durasi</string>
+    <string name="torchtimer_custom_minutes_example">Contoh: 5 untuk 5 menit</string>
+    <string name="torchtimer_custom_hours_example">Contoh: 2 untuk 2 jam</string>
+    <string name="torchtimer_custom_apply">Terapkan</string>
+    <string name="torchtimer_custom_error_positive">Durasi harus lebih dari 0</string>
+    <string name="torchtimer_custom_error_invalid">Angka tidak valid</string>
+    <string name="setting_on">Aktif</string>
+    <string name="menu_auto_pause_title">Jeda otomatis saat menu terbuka</string>
+    <string name="button_state_tint_title">Warna tombol mengambang saat merekam</string>
+    <string name="record_no_room_to_start">Ruang di ponsel ini tidak cukup untuk merekam. Kosongkan sedikit ruang lalu coba lagi.</string>
+    <string name="record_stopped_low_space">Ponsel hampir penuh, jadi rekaman berhenti. Semua yang sudah terekam tersimpan.</string>
+    <string name="record_stopped_write_problem">Rekaman tidak bisa disimpan lagi, jadi berhenti. Semua yang terekam sampai saat itu aman.</string>
+    <string name="faditor_m12_select_clip_first">Pilih klip di trek utama dulu</string>
+    <string name="faditor_m12_select_object_first">Pilih objek di sebuah layer dulu</string>
+    <string name="faditor_m12_only_video_images">Hanya video dan gambar yang bisa masuk ke trek utama</string>
+    <string name="faditor_m12_need_one_clip">Trek utama butuh minimal satu klip</string>
+    <string name="faditor_m12_moved_to_layer">Dipindah ke layer</string>
+    <string name="faditor_m12_moved_to_main">Dipindah ke trek utama</string>
+    <string name="faditor_m12_undo_to_layer">Pindah ke layer</string>
+    <string name="faditor_m12_undo_to_main">Pindah ke trek utama</string>
+    <string name="faditor_text_decor_section">Gaya</string>
+    <string name="faditor_text_decor_stroke">Garis tepi</string>
+    <string name="faditor_text_decor_glow">Cahaya</string>
+    <string name="faditor_text_decor_shadow">Bayangan</string>
+    <string name="faditor_text_decor_plate">Latar</string>
+    <string name="faditor_mask_action">Mask</string>
+    <string name="faditor_mask_title">Mask</string>
+    <string name="faditor_mask_remove">Hapus</string>
+    <string name="faditor_mask_x">Pusat X</string>
+    <string name="faditor_mask_y">Pusat Y</string>
+    <string name="faditor_mask_w">Lebar</string>
+    <string name="faditor_mask_h">Tinggi</string>
+    <string name="faditor_mask_round">Kebulatan</string>
+    <string name="faditor_mask_rotate">Putar</string>
+    <string name="faditor_mask_soften">Haluskan tepi</string>
+    <string name="faditor_mask_only_inside">Tampilkan hanya di dalam kotak</string>
+    <string name="faditor_mask_section_shape">Bentuk</string>
+    <string name="faditor_kf_outside_span">Geser playhead ke atas klip ini untuk menambah keyframe</string>
+    <string name="faditor_key_section">Chroma key</string>
+    <string name="faditor_key_enable">Hilangkan sebuah warna</string>
+    <string name="faditor_key_color">Warna key</string>
+    <string name="faditor_key_eyedropper">Ambil dari video</string>
+    <string name="faditor_key_eyedropper_failed">Piksel itu tidak bisa dibaca — coba lagi saat klip tampil</string>
+    <string name="faditor_key_tap_prompt">Ketuk warna yang mau dihapus</string>
+    <string name="faditor_key_tolerance">Toleransi</string>
+    <string name="faditor_key_softness">Kehalusan tepi</string>
+    <string name="faditor_key_spill">Sempitkan / lebarkan</string>
+    <string name="faditor_blend_action">Mode campuran</string>
+    <string name="faditor_blend_title">Mode campuran</string>
+    <string name="faditor_blend_export_note">Mode campuran diterapkan saat kamu mengekspor. Pratinjau menampilkan layer secara normal.</string>
+    <string name="faditor_image_inert_mask">Belum berlaku untuk overlay gambar — bentukmu tersimpan, tapi tidak memengaruhi pratinjau maupun ekspor.</string>
+    <string name="faditor_image_inert_key">Belum berlaku untuk overlay gambar — key-mu tersimpan, tapi tidak memengaruhi pratinjau maupun ekspor.</string>
+    <string name="faditor_image_inert_fx">Belum berlaku untuk overlay gambar — efekmu tersimpan, tapi tidak memengaruhi pratinjau maupun ekspor.</string>
+    <string name="faditor_image_fx_export_note">Blur dan efek lain yang butuh proses sendiri dilewati — baik saat ekspor maupun di sini.</string>
+    <string name="faditor_image_mask_export_note">Mask pada gambar diterapkan saat kamu mengekspor. Pratinjau menampilkan seluruh gambar, kecuali gambar itu juga membawa efek, chroma key, atau mode campuran — maka di sini juga di-mask.</string>
+    <string name="faditor_blend_normal">Normal</string>
+    <string name="faditor_blend_multiply">Kali</string>
+    <string name="faditor_blend_screen">Layar</string>
+    <string name="faditor_blend_overlay">Tumpang</string>
+    <string name="faditor_blend_add">Tambah</string>
+    <string name="faditor_blend_difference">Selisih</string>
+    <string name="faditor_blend_color">Warna</string>
+    <string name="faditor_blend_darken">Gelapkan</string>
+    <string name="faditor_blend_lighten">Terangkan</string>
+    <string name="faditor_blend_color_dodge">Dodge Warna</string>
+    <string name="faditor_blend_color_burn">Burn Warna</string>
+    <string name="faditor_blend_linear_burn">Burn Linear</string>
+    <string name="faditor_blend_hard_light">Cahaya Keras</string>
+    <string name="faditor_blend_soft_light">Cahaya Lembut</string>
+    <string name="faditor_blend_vivid_light">Cahaya Terang</string>
+    <string name="faditor_blend_linear_light">Cahaya Linear</string>
+    <string name="faditor_blend_pin_light">Cahaya Pin</string>
+    <string name="faditor_blend_hard_mix">Campuran Keras</string>
+    <string name="faditor_blend_exclusion">Eksklusi</string>
+    <string name="faditor_blend_subtract">Kurangi</string>
+    <string name="faditor_blend_divide">Bagi</string>
+    <string name="faditor_blend_darker_color">Warna Lebih Gelap</string>
+    <string name="faditor_blend_lighter_color">Warna Lebih Terang</string>
+    <string name="faditor_blend_hue">Rona</string>
+    <string name="faditor_blend_saturation">Saturasi</string>
+    <string name="faditor_blend_luminosity">Luminositas</string>
+    <string name="faditor_blend_group_normal">Normal</string>
+    <string name="faditor_blend_group_darken">Gelap</string>
+    <string name="faditor_blend_group_lighten">Terang</string>
+    <string name="faditor_blend_group_contrast">Kontras</string>
+    <string name="faditor_blend_group_comparative">Pembanding</string>
+    <string name="faditor_blend_group_color">Warna</string>
+    <string name="faditor_orphan_title">Objek di klip ini</string>
+    <string name="faditor_orphan_body">%1$d objek layer dimulai di klip yang kamu hapus. Simpan dan tempelkan ke klip berikutnya, atau hapus juga?</string>
+    <string name="faditor_orphan_keep">Simpan</string>
+    <string name="faditor_orphan_delete">Hapus juga</string>
+    <string name="faditor_orphan_remember">Ingat pilihanku</string>
+    <string name="faditor_orphan_undo">Hapus objek layer</string>
+    <string name="faditor_orphan_removed">%1$d objek layer dihapus</string>
+    <string name="faditor_settings_orphan_title">Objek di klip yang dihapus</string>
+    <string name="faditor_settings_orphan_desc">Apa yang terjadi pada objek layer saat kamu menghapus klip tempat mereka berada. Saat ini: %1$s</string>
+    <string name="faditor_settings_orphan_ask">Selalu tanya</string>
+    <string name="mini_apps_customize_title">Atur Mini App</string>
+    <string name="mini_apps_show_count">Jumlah tampil</string>
+    <string name="mini_apps_show_count_desc">Banyaknya mini app yang ditampilkan</string>
+    <string name="desc_mini_apps_count_minus">Kurangi jumlah</string>
+    <string name="desc_mini_apps_count_plus">Tambah jumlah</string>
+    <string name="mini_apps_reorder_footer">Seret untuk mengatur urutan</string>
+    <string name="quick_timer_desc">Deskripsi timer cepat</string>
+    <string name="quick_timer_label">Timer</string>
+    <string name="quick_mute_label">Bisukan</string>
+    <string name="grid_lines_title">Garis kisi</string>
+    <string name="grid_lines_subtitle">Tampilkan garis kisi</string>
+    <string name="desc_mini_apps_edit">Edit mini app</string>
+    <string name="records_repair_banner_title">Spanduk perbaikan</string>
+    <string name="records_repair_banner_dismiss">Tutup</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">lanjutkan apa pun yang tadi kamu sentuh</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">Rekam</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">Avatar</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">Joy Brush</string>
+    <string name="lobby_hero_new">Baru</string>
+    <string name="lobby_new_recording">Rekaman</string>
+    <string name="lobby_new_project">Proyek</string>
+    <string name="lobby_new_character">Karakter</string>
+    <string name="lobby_new_import">Impor</string>
+    <string name="lobby_floor_finder">Deteksi</string>
+    <string name="lobby_floor_remote">Jarak jauh</string>
+    <string name="lobby_floor_bits">Bit</string>
+    <string name="lobby_floor_packs">Paket</string>
+    <string name="lobby_floor_setup">Penyiapan</string>
+    <string name="lobby_empty_studio">Belum ada yang diedit. Mulai sebuah proyek dan ia akan menunggumu di sini.</string>
+    <string name="lobby_empty_sprites">Belum ada sheet. Bawa masuk gambar dan potong jadi frame.</string>
+    <string name="lobby_empty_avatar">Belum ada karakter. Pasang rangka pada gambar dan ia akan bergerak.</string>
+    <string name="lobby_empty_viz">Belum ada visualizer. Buat satu dari suara apa pun yang kamu punya.</string>
+    <string name="lobby_empty_textlab">Kata-kata yang tampak seperti poster film: krom, emas, neon, api. Pilih tampilan lalu ketik.</string>
+    <string name="lobby_empty_joybrush">Gambar sesuatu. Tersimpan sendiri.</string>
+    <string name="lobby_act_carry_on">Lanjutkan</string>
+    <string name="lobby_act_open">Buka</string>
+    <string name="lobby_act_record">Rekam</string>
+    <string name="lobby_act_start">Mulai satu</string>
+    <string name="lobby_act_new_drawing">Gambar</string>
+    <string name="intro_line_capture">rekam layar dengan wajahmu di dalamnya</string>
+    <string name="intro_line_record">rekam video, bahkan saat layar mati</string>
+    <string name="intro_line_editor">editor sungguhan — layer, mask, keyframe</string>
+    <string name="intro_line_animation">animasi — sprite, rangka, boneka</string>
+    <string name="intro_line_transcribe">transkripsi yang tidak pernah keluar dari ponselmu</string>
+    <string name="intro_line_secondcam">ponsel kedua sebagai kamera, lewat Wi-Fi milikmu sendiri</string>
+    <string name="intro_line_ai">AI yang mengedit timeline sungguhan</string>
+    <string name="intro_start_creating">Mulai berkarya</string>
+    <string name="intro_promise">Tanpa iklan. Tanpa langganan.\nTanpa watermark.</string>
+    <string name="intro_promise_ever">Tanpa paywall ekspor. Selamanya.</string>
+    <string name="intro_story">Aku membuat ini di sela waktu tidur, sambil menjaga ketiga balitaku. Dari sinilah aku menghidupi keluargaku. Kalau kamu merasa terbantu, kamu bisa ikut menjaganya tetap gratis untuk semua orang.</string>
+    <string name="intro_cta_start">Mulai berkarya</string>
+    <string name="intro_ai_note">Joy Creator tidak menjalankan server. Kalau kamu menyambungkan AI, perintahmu dikirim ke penyedia yang kamu pilih — kami tidak pernah melihatnya dan tidak mengambil bagian apa pun.</string>
+    <string name="intro_ai_have_key">Sudah punya kunci?</string>
+    <string name="intro_ai_add_now">Tambahkan sekarang</string>
+    <string name="intro_ai_later">Nanti, dari chat</string>
+    <string name="desc_select_mode">Mode pilih</string>
+    <string name="desc_delete_selected">Hapus yang dipilih</string>
+    <string name="desc_cancel_selection">Batalkan pilihan</string>
+    <string name="desc_select_month">Pilih bulan ini</string>
+    <string name="desc_watch_remote_toggle">Mulai atau hentikan siaran</string>
+    <string name="desc_back">Kembali</string>
+    <string name="desc_decrease_named">Kurangi %1$s</string>
+    <string name="desc_increase_named">Tambah %1$s</string>
+    <string name="desc_pip_expand">Perbesar pratinjau</string>
+    <string name="desc_pip_undock">Lepas: buat pratinjau mengambang lagi</string>
+    <string name="desc_keyframe_toggle">Keyframe di playhead: ketuk untuk menambah atau menghapus</string>
+    <string name="desc_transcript_show">Tampilkan transkrip</string>
+    <string name="desc_transcript_resize">Seret untuk mengubah ukuran panel transkrip</string>
+    <string name="desc_transcript_search">Cari di transkrip</string>
+    <string name="desc_transcript_hide">Sembunyikan transkrip</string>
+    <string name="desc_transcript_add_pass">Tambah putaran transkripsi lagi</string>
+    <string name="desc_search_prev">Hasil pencarian sebelumnya</string>
+    <string name="desc_search_next">Hasil pencarian berikutnya</string>
+    <string name="desc_crop_auto">Pangkas bilah hitam otomatis</string>
+    <string name="desc_crop_snap_center">Tarik pangkasan ke tengah</string>
+    <string name="desc_volume_keyframe">Keyframe volume aktif atau mati</string>
+    <string name="desc_volume_mute">Bisukan atau bunyikan audio yang dipilih</string>
+    <string name="desc_opacity_keyframe">Keyframe opasitas aktif atau mati</string>
+    <string name="desc_caption_keyframe">Keyframe gaya teks aktif atau mati</string>
+    <string name="desc_keyframe_prev">Keyframe sebelumnya</string>
+    <string name="desc_keyframe_next">Keyframe berikutnya</string>
+    <string name="desc_keyframe_delete">Hapus keyframe</string>
+    <string name="desc_keyframe_playhead">Tambah, perbarui, atau hapus keyframe di playhead</string>
+    <string name="desc_move_go">Pindahkan klip ke posisi yang diketik</string>
+    <string name="desc_word_earlier">Majukan kata satu frame</string>
+    <string name="desc_word_later">Mundurkan kata satu frame</string>
+    <string name="desc_word_center">Pusatkan di kata ini</string>
+    <string name="desc_hide_captions_clip">Sembunyikan teks hanya untuk klip ini</string>
+    <string name="desc_insert_playhead">Sisipkan aset terpilih di playhead</string>
+    <string name="desc_layer_colour">Atur warna layer</string>
+    <string name="desc_visualizer_save">Simpan gaya visualizer ini</string>
+    <string name="desc_visualizer_export">Ekspor gaya visualizer ini ke file</string>
+    <string name="desc_visualizer_import">Impor gaya visualizer dari file</string>
+    <string name="desc_wave_justify">Perataan vertikal</string>
+    <string name="desc_wave_data_mode">Mode data</string>
+    <string name="desc_wave_mirror">Cerminkan secara horizontal</string>
+    <string name="desc_wave_center_mode">Mode tengah</string>
+    <string name="desc_wave_render_mode">Mode render</string>
+    <string name="desc_wave_attach">Tempel ke klip atau lepas</string>
 </resources>

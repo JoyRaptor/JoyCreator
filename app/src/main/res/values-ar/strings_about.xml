@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">حول</string>
+    <string name="aboutjoy_back">رجوع</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">استوديو واحد لكل ما تصنعه.</string>
+    <string name="aboutjoy_tagline_sub">عدّل وارسم وحرّك وصوّر، كل ذلك على هاتفك.</string>
+    <string name="aboutjoy_version_label">الإصدار</string>
+    <string name="aboutjoy_build">البناء %1$s · %2$s</string>
+    <string name="aboutjoy_check">التحقق من التحديثات</string>
+    <string name="aboutjoy_check_hint">ابحث على الإنترنت عن Joy Creator أحدث</string>
+    <string name="aboutjoy_checking">جارٍ التحقق…</string>
+    <string name="aboutjoy_up_to_date">لديك أحدث إصدار.</string>
+    <string name="aboutjoy_update_ready">الإصدار %1$s جاهز.</string>
+    <string name="aboutjoy_beta_ready">لديك أحدث إصدار. وهناك إصدار تجريبي أيضًا، %1$s.</string>
+    <string name="aboutjoy_get_beta">احصل على التجريبي</string>
+    <string name="aboutjoy_update_failed">تعذر التحقق الآن. حاول بعد قليل.</string>
+    <string name="aboutjoy_wings_label">الأجنحة</string>
+    <string name="aboutjoy_wing_studio">قص الفيديو والصوت على خط زمني</string>
+    <string name="aboutjoy_wing_joybrush">ارسم وحرّك، إطارًا بإطار</string>
+    <string name="aboutjoy_wing_sprites">ابنِ لوحات شخصيات وشخصيات</string>
+    <string name="aboutjoy_wing_capture">سجّل الكاميرا أو الشاشة</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">مساعدك، في كل غرفة</string>
+    <string name="aboutjoy_wing_viz">حوّل الصوت إلى صور متحركة</string>
+    <string name="aboutjoy_soon">قريبًا</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">الخصوصية</string>
+    <string name="aboutjoy_privacy_toggle">إظهار إجابات الخصوصية أو إخفاؤها</string>
+    <string name="aboutjoy_open_label">مفتوح المصدر</string>
+    <string name="aboutjoy_based_on">مبني على FadCam من FadSec Lab</string>
+    <string name="aboutjoy_source_hint">افتح الشيفرة المصدرية في متصفحك</string>
+    <string name="aboutjoy_made_by">صنعه</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">حول الكلاسيكية</string>
+    <string name="aboutjoy_classic_hint">افتح شاشة حول القديمة</string>
+    <string name="aboutjoy_no_browser">لا يوجد متصفح لفتح هذا الرابط</string>
+    <string name="aboutjoy_support">ادعم Joy Creator</string>
+    <string name="aboutjoy_support_hint">افتح صفحة دعم صانع التطبيق في متصفحك</string>
+</resources>

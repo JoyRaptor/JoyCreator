@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Нажми, чтобы связать заново</string>
+    <string name="studio_text_keyframe">Ключевой кадр</string>
+    <string name="studio_text_lane_1">Дорожка 1</string>
+    <string name="studio_text_current_position">Текущая позиция</string>
+    <string name="studio_text_tap_the_time_to_type">Нажми на время, чтобы ввести точное значение · ◄ ► сдвиг на ±1 кадр</string>
+    <string name="studio_text_one">ОДИН</string>
+    <string name="studio_text_snap">ПРИЛИП.</string>
+    <string name="studio_text_hz">Гц</string>
+    <string name="studio_text_bars">Полосы</string>
+    <string name="studio_text_width">Ширина</string>
+    <string name="studio_text_gap">Промежуток</string>
+    <string name="studio_text_lanes">Дорожки</string>
+    <string name="studio_text_karaoke_one_word_per_line">Караоке — одно слово на строку (время для каждого слова):</string>
+    <string name="studio_text_copy_example">Копировать пример</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Слайд — один блок на метку времени (весь куплет сразу):</string>
+    <string name="studio_text_none">Нет</string>
+    <string name="studio_text_backing_box">Подложка</string>
+    <string name="studio_text_hide_this_track">Скрыть эту дорожку</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Без анимации (сброс) — по центру, с заполнением, без движения</string>
+    <string name="studio_text_also_apply_caption_position_to">Применить позицию субтитров и ко всем клипам</string>
+    <string name="studio_text_also_apply_caption_size_to">Применить размер субтитров и ко всем клипам</string>
+    <string name="studio_text_sensitivity">Чувствительность</string>
+    <string name="studio_text_snap_to_beats">Прилипать к битам</string>
+    <string name="studio_text_reference_clip_stays">Опорный клип (остаётся)</string>
+    <string name="studio_text_clip_to_move">Клип для сдвига</string>
+    <string name="studio_text_release_the_slider_to_preview">Отпусти ползунок, чтобы увидеть паузы на таймлайне</string>
+    <string name="studio_text_scanning">Сканирую…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Не удалось просканировать звук</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Вставить</string>
+    <string name="studio_text_insert_2">Вставить &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Выбери картинку для таймлайна (нажми, чтобы отметить; цифры — как клип)</string>
+    <string name="studio_text_browse_files">Обзор файлов…</string>
+    <string name="studio_text_add_0">Добавить (0)</string>
+</resources>

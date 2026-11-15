@@ -137,9 +137,9 @@ public final class VisLabStyleTab {
         chipScroll.addView(chips);
         lookRow.addView(chipScroll, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         root.addView(lookRow);
-        addChip(null, "Classic", "Show the classic visualizer styles here");
+        addChip(null, c.getString(R.string.vl_style_classic), c.getString(R.string.vl_style_classic_tip));
         for (int i = 0; i < ids.size(); i++) {
-            addChip(ids.get(i), names.get(i), "Show the VisLab look " + names.get(i) + " here");
+            addChip(ids.get(i), names.get(i), c.getString(R.string.vl_style_look_tip, names.get(i)));
         }
 
         body = new FrameLayout(c);
@@ -177,14 +177,14 @@ public final class VisLabStyleTab {
         } else {
             wf.setVisLook(id);
         }
-        commit(id == null ? "Classic visualizer" : "VisLab look", before);
+        commit(c.getString(id == null ? R.string.vl_style_undo_classic : R.string.vl_style_undo_look), before);
     }
 
     /** The look's keyframe control: held keys of which look shows (no slider, no easing). */
     @NonNull
     private ObjectMenuSheet.Prop lookProp() {
         VisLabKeys k = wf.getVisKeys();
-        return new ObjectMenuSheet.Prop("vis_look", "Look", 0f, 1f, v -> "", ms -> 0f, (v, ms) -> { },
+        return new ObjectMenuSheet.Prop("vis_look", c.getString(R.string.vl_style_look_label), 0f, 1f, v -> "", ms -> 0f, (v, ms) -> { },
                 ms -> near(k.lookKeys(), local(ms)) != null,
                 () -> {
                     State before = snap();
@@ -221,31 +221,31 @@ public final class VisLabStyleTab {
         // A lyrics look shows the clip's transcript: say where the words come from while there are none.
         if (StudioWords.lookNeedsSongWords(VisLabSession.get(c).lookJson(lookId))) {
             TextView note = com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.note(c,
-                    "This look shows the clip's words. Make a transcript (Transcript, in the toolbar) and they appear here.");
+                    c.getString(R.string.vl_style_words_note));
             v.addView(note);
             rowRefresh.add(() -> note.setVisibility(host.hasTranscriptWords() ? View.GONE : View.VISIBLE));
         }
-        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.REACT, "React", 0f, 2f,   // Reactivity; the row's label fits ~7 letters
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.REACT, c.getString(R.string.vl_style_react), 0f, 2f,   // Reactivity; the row's label fits ~7 letters
                 x -> Math.round(x * 100f) + "%"), rowHost));
-        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.FADE, "Fade", 0f, 1f,
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.FADE, c.getString(R.string.vl_style_fade), 0f, 1f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
         // The look's own key knobs, look-wide (every layer's Brightness / Colour shift / size /
         // speeds together): what most looks need in a timeline, with the rest in VisLab.
-        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.BRIGHT, "Bright", 0f, 2f,
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.BRIGHT, c.getString(R.string.vl_style_bright), 0f, 2f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
-        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.HUE, "Colour", 0f, 1f,
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.HUE, c.getString(R.string.vl_style_colour), 0f, 1f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
-        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SIZE, "Size", 0.25f, 2.5f,
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SIZE, c.getString(R.string.vl_style_size), 0.25f, 2.5f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
-        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SPEED, "Speed", 0f, 3f,
+        rowRefresh.add(PipDrawerTabs.addPropRow(c, v, valueProp(VisLabKeys.SPEED, c.getString(R.string.vl_style_speed), 0f, 3f,
                 x -> Math.round(x * 100f) + "%"), rowHost));
         followRows(v, lookId);
-        TextView edit = Ui.text(c, "Edit in VisLab", 12f, Studio.INK, false, 600);
+        TextView edit = Ui.text(c, c.getString(R.string.vl_style_edit), 12f, Studio.INK, false, 600);
         edit.setGravity(Gravity.CENTER);
         edit.setMinHeight(Ui.dp(c, 36));
         edit.setPadding(Ui.dp(c, 16), Ui.dp(c, 8), Ui.dp(c, 16), Ui.dp(c, 8));
         edit.setBackground(Ui.round(Studio.RAISED, Ui.dp(c, 999)));
-        Ui.label(edit, "Open this look in VisLab to change its layers");
+        Ui.label(edit, R.string.vl_style_edit_tip);
         edit.setOnClickListener(x -> host.openVisLab(lookId));
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -270,14 +270,14 @@ public final class VisLabStyleTab {
             return;
         }
         if (layers == null || layers.size() == 0) return;
-        TextView head = Ui.text(c, "Layers can follow an object", 11f, Studio.INK_DIM, false, 600);
+        TextView head = Ui.text(c, c.getString(R.string.vl_style_follow_head), 11f, Studio.INK_DIM, false, 600);
         head.setPadding(0, Ui.dp(c, 10), 0, Ui.dp(c, 2));
         v.addView(head);
         for (int i = 0; i < layers.size(); i++) {
             if (!layers.get(i).isJsonObject()) continue;
             com.google.gson.JsonObject L = layers.get(i).getAsJsonObject();
             String name = L.has("name") && L.get("name").isJsonPrimitive() ? L.get("name").getAsString()
-                    : L.has("type") ? L.get("type").getAsString() : "Layer " + (i + 1);
+                    : L.has("type") ? L.get("type").getAsString() : c.getString(R.string.vl_style_layer_n, i + 1);
             String key = WaveformOverlayInstance.visFollowKey(lookId, i);
             LinearLayout row = new LinearLayout(c);
             row.setOrientation(LinearLayout.HORIZONTAL);
@@ -289,7 +289,7 @@ public final class VisLabStyleTab {
             pill.setGravity(Gravity.CENTER);
             pill.setMinHeight(Ui.dp(c, 30));
             pill.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
-            Ui.label(pill, "Choose an object for " + name + " to follow");
+            Ui.label(pill, c.getString(R.string.vl_style_follow_pick_tip, name));
             pill.setOnClickListener(x -> pickFollow(pill, key));
             row.addView(pill);
             // How it follows: snap onto the object (the default), or keep its place and move as
@@ -299,7 +299,7 @@ public final class VisLabStyleTab {
             how.setMinHeight(Ui.dp(c, 30));
             how.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
             how.setBackground(Ui.round(Studio.RAISED, Ui.dp(c, 999)));
-            Ui.label(how, "How " + name + " follows: snap onto the object, or keep its place and move as the object moves");
+            Ui.label(how, c.getString(R.string.vl_style_how_tip, name));
             how.setOnClickListener(x -> toggleKeepPlace(key));
             LinearLayout.LayoutParams hlp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -312,10 +312,13 @@ public final class VisLabStyleTab {
             copies.setGravity(Gravity.CENTER_VERTICAL);
             copies.setMinimumHeight(Ui.dp(c, 36));
             copies.setPadding(Ui.dp(c, 12), 0, 0, 0);
-            copies.addView(Ui.text(c, "copies", 11.5f, Studio.INK_DIM, false, 500),
+            copies.addView(Ui.text(c, c.getString(R.string.vl_style_copies), 11.5f, Studio.INK_DIM, false, 500),
                     new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             final char[] parts = {VisFollow.POSITION, VisFollow.SIZE, VisFollow.ROTATION};
-            final String[] partNames = {"Position", "Size", "Rotation"};
+            final String[] partNames = {c.getString(R.string.vl_style_position), c.getString(R.string.vl_style_size),
+                    c.getString(R.string.vl_style_rotation)};
+            final int[] partTips = {R.string.vl_style_copy_position_tip, R.string.vl_style_copy_size_tip,
+                    R.string.vl_style_copy_rotation_tip};
             final TextView[] partChips = new TextView[parts.length];
             for (int p = 0; p < parts.length; p++) {
                 final char part = parts[p];
@@ -323,8 +326,7 @@ public final class VisLabStyleTab {
                 chip.setGravity(Gravity.CENTER);
                 chip.setMinHeight(Ui.dp(c, 30));
                 chip.setPadding(Ui.dp(c, 10), Ui.dp(c, 6), Ui.dp(c, 10), Ui.dp(c, 6));
-                Ui.label(chip, name + " copies the object's " + partNames[p].toLowerCase(java.util.Locale.ROOT)
-                        + " (tap to switch)");
+                Ui.label(chip, c.getString(partTips[p], name));
                 chip.setOnClickListener(x -> toggleFollowPart(key, part));
                 LinearLayout.LayoutParams clp = new LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -336,11 +338,11 @@ public final class VisLabStyleTab {
             Runnable show = () -> {
                 String id = wf.getVisFollow().get(key);
                 boolean on = id != null;
-                pill.setText(on ? nameOf(id) : "Nothing");
+                pill.setText(on ? nameOf(id) : c.getString(R.string.vl_style_nothing));
                 pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
                 pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
                 how.setVisibility(on ? View.VISIBLE : View.GONE);
-                how.setText(wf.getVisFollowBase().containsKey(key) ? "Keeps its place" : "Snaps to it");
+                how.setText(wf.getVisFollowBase().containsKey(key) ? c.getString(R.string.vl_style_keeps_place) : c.getString(R.string.vl_style_snaps));
                 copies.setVisibility(on ? View.VISIBLE : View.GONE);
                 String has = wf.getVisFollowParts().get(key);
                 for (int p = 0; p < parts.length; p++) {
@@ -366,20 +368,20 @@ public final class VisLabStyleTab {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
         row.setPadding(Ui.dp(c, 12), 0, 0, 0);
-        row.addView(Ui.text(c, "shows", 11.5f, Studio.INK_DIM, false, 500),
+        row.addView(Ui.text(c, c.getString(R.string.vl_style_shows), 11.5f, Studio.INK_DIM, false, 500),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView pill = Ui.text(c, "", 11.5f, Studio.INK_DIM, false, 600);
         pill.setGravity(Gravity.CENTER);
         pill.setMinHeight(Ui.dp(c, 30));
         pill.setPadding(Ui.dp(c, 12), Ui.dp(c, 6), Ui.dp(c, 12), Ui.dp(c, 6));
-        Ui.label(pill, "Choose a Studio picture, title, sprite or video for " + layerName + " to show, with all its effects");
+        Ui.label(pill, c.getString(R.string.vl_style_show_tip, layerName));
         pill.setOnClickListener(x -> pickShow(pill, key));
         row.addView(pill);
         v.addView(row);
         Runnable show = () -> {
             String id = wf.getVisShow().get(key);
             boolean on = id != null;
-            pill.setText(on ? nameOfShown(id) : "Its own picture");
+            pill.setText(on ? nameOfShown(id) : c.getString(R.string.vl_style_own_picture));
             pill.setBackground(Ui.round(on ? Studio.ARMED : Studio.RAISED, Ui.dp(c, 999)));
             pill.setTextColor(on ? Studio.GROUND : Studio.INK_DIM);
         };
@@ -390,10 +392,10 @@ public final class VisLabStyleTab {
     private void pickShow(@NonNull View anchor, @NonNull String key) {
         List<String[]> items = host.showables();
         android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
-        menu.getMenu().add(0, 0, 0, "Its own picture");
+        menu.getMenu().add(0, 0, 0, c.getString(R.string.vl_style_own_picture));
         for (int i = 0; i < items.size(); i++) menu.getMenu().add(0, i + 1, i + 1, items.get(i)[1]);
         if (items.isEmpty()) {
-            menu.getMenu().add(0, -1, 1, "No pictures, titles, sprites or videos yet").setEnabled(false);
+            menu.getMenu().add(0, -1, 1, c.getString(R.string.vl_style_no_showables)).setEnabled(false);
         }
         menu.setOnMenuItemClickListener(item -> {
             int at = item.getItemId();
@@ -408,7 +410,7 @@ public final class VisLabStyleTab {
                 Object shown = host.showable(id);
                 if (shown != null) wf.getVisShowRefs().put(key, shown);
             }
-            commit(at == 0 ? "Show its own picture" : "Show a Studio item", before);
+            commit(c.getString(at == 0 ? R.string.vl_style_undo_own_picture : R.string.vl_style_undo_studio_item), before);
             return true;
         });
         menu.show();
@@ -418,13 +420,13 @@ public final class VisLabStyleTab {
     @NonNull
     private String nameOfShown(@NonNull String id) {
         for (String[] f : host.showables()) if (f[0].equals(id)) return f[1];
-        return "Gone";
+        return c.getString(R.string.vl_style_gone);
     }
 
     @NonNull
     private String nameOf(@NonNull String id) {
         for (String[] f : host.followables()) if (f[0].equals(id)) return f[1];
-        return "Gone";
+        return c.getString(R.string.vl_style_gone);
     }
 
     /** Switch a follow between snapping onto its object and keeping its place (one undo step). */
@@ -441,7 +443,7 @@ public final class VisLabStyleTab {
         } else {
             wf.getVisFollowBase().remove(key);
         }
-        commit(keep ? "Keep its place" : "Snap to the object", before);
+        commit(c.getString(keep ? R.string.vl_style_undo_keep_place : R.string.vl_style_undo_snap), before);
     }
 
     /**
@@ -452,23 +454,23 @@ public final class VisLabStyleTab {
         if (!wf.getVisFollow().containsKey(key)) return;
         String parts = VisFollow.toggled(wf.getVisFollowParts().get(key), part);
         if (parts != null && parts.isEmpty()) {
-            android.widget.Toast.makeText(c, "It copies at least one: pick Nothing to stop following",
+            android.widget.Toast.makeText(c, c.getString(R.string.vl_style_copies_one),
                     android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         State before = snap();
         if (parts == null) wf.getVisFollowParts().remove(key);
         else wf.getVisFollowParts().put(key, parts);
-        commit(VisFollow.copies(parts, part) ? "Copy it" : "Stop copying it", before);
+        commit(c.getString(VisFollow.copies(parts, part) ? R.string.vl_style_undo_copy : R.string.vl_style_undo_stop_copy), before);
     }
 
     private void pickFollow(@NonNull View anchor, @NonNull String key) {
         List<String[]> all = host.followables();
         android.widget.PopupMenu menu = new android.widget.PopupMenu(c, anchor);
-        menu.getMenu().add(0, 0, 0, "Nothing");
+        menu.getMenu().add(0, 0, 0, c.getString(R.string.vl_style_nothing));
         for (int i = 0; i < all.size(); i++) menu.getMenu().add(0, i + 1, i + 1, all.get(i)[1]);
         if (all.isEmpty()) {
-            menu.getMenu().add(0, -1, 1, "No objects yet: add a dummy or a picture").setEnabled(false);
+            menu.getMenu().add(0, -1, 1, c.getString(R.string.vl_style_no_objects)).setEnabled(false);
         }
         menu.setOnMenuItemClickListener(item -> {
             int at = item.getItemId();
@@ -491,7 +493,7 @@ public final class VisLabStyleTab {
                     else wf.getVisFollowBase().remove(key);
                 }
             }
-            commit(at == 0 ? "Stop following" : "Follow an object", before);
+            commit(c.getString(at == 0 ? R.string.vl_style_undo_stop_follow : R.string.vl_style_undo_follow), before);
             return true;
         });
         menu.show();

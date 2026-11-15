@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TAB-1 Tall column: the panel runs the full height; the timeline sits under the picture only. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M3,4h11a1,1 0,0 1,1 1v8a1,1 0,0 1,-1 1h-11a1,1 0,0 1,-1 -1v-8a1,1 0,0 1,1 -1z M3,16h11a1,1 0,0 1,1 1v2a1,1 0,0 1,-1 1h-11a1,1 0,0 1,-1 -1v-2a1,1 0,0 1,1 -1z M17,4h4a1,1 0,0 1,1 1v14a1,1 0,0 1,-1 1h-4z" />
+</vector>

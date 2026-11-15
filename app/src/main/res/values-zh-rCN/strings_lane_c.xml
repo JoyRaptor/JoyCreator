@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">更多 ⌄</string>
+    <string name="faditor_lc_drawer_grip">抽屉把手。拖动调整大小，点按显示更多或关闭</string>
+    <string name="faditor_lc_fx_expand">显示这个效果的设置</string>
+    <string name="faditor_lc_fx_collapse">隐藏这个效果的设置</string>
+    <string name="faditor_lc_fx_bypass">绕过效果</string>
+    <string name="faditor_lc_fx_enable">启用效果</string>
+    <string name="faditor_lc_fx_delete">删除效果</string>
+    <string name="faditor_lc_fx_reorder">按住并拖动以调整顺序</string>
+    <string name="faditor_lc_key_prev">上一个关键帧</string>
+    <string name="faditor_lc_key_next">下一个关键帧</string>
+    <string name="faditor_lc_key_diamond">关键帧。点按添加或移除，长按全部清除</string>
+    <string name="faditor_lc_ease_need_keys">请先打关键帧</string>
+    <string name="faditor_lc_motion_title">动效</string>
+    <string name="faditor_lc_motion_by">动画单位</string>
+    <string name="faditor_lc_gran_letter">字母</string>
+    <string name="faditor_lc_gran_word">词</string>
+    <string name="faditor_lc_gran_sentence">句</string>
+    <string name="faditor_lc_gran_block">整块</string>
+    <string name="faditor_lc_sheet_grip">面板把手。点按或向上拖显示所有设置，向下拖关闭</string>
+    <string name="faditor_lc_sheet_legend">关键帧形状的含义</string>
+    <string name="faditor_lc_sheet_more">更多…</string>
+    <string name="faditor_lc_sheet_move_to">移到</string>
+    <string name="faditor_lc_sheet_jump">输入要跳转的时间</string>
+    <string name="faditor_lc_sheet_push">推进</string>
+    <string name="faditor_lc_sheet_snap">吸附</string>
+    <string name="faditor_lc_sheet_static_hint">静态，点按 ♦ 添加动画</string>
+</resources>

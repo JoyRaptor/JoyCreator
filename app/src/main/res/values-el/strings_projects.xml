@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">Νέο έργο</string>
+    <string name="projects_new_a11y">Ξεκίνα νέο έργο από ένα βίντεο στο κινητό σου, μία από τις εγγραφές σου ή ένα κενό κομμάτι ήχου</string>
+    <string name="projects_classic_list">Κλασική λίστα Studio</string>
+    <plurals name="projects_layers">
+        <item quantity="one">%d επίπεδο</item>
+        <item quantity="other">%d επίπεδα</item>
+    </plurals>
+    <string name="projects_open_failed">Δεν μπόρεσα να ανοίξω το έργο.</string>
+    <string name="projects_open_failed_access">Δεν μπόρεσα να ανοίξω το έργο — ίσως χάθηκε η πρόσβαση στο αρχικό βίντεο.</string>
+    <string name="projects_untitled">Χωρίς τίτλο</string>
+</resources>

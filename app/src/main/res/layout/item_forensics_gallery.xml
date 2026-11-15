@@ -81,7 +81,7 @@
                         android:scaleX="0"
                         android:scaleY="0"
                         android:src="@drawable/avd_check_draw"
-                        android:tint="?attr/colorPrimary" />
+                        android:tint="@color/s_ink" />
                 </FrameLayout>
             </FrameLayout>
 
@@ -102,7 +102,7 @@
                     android:lineSpacingExtra="1dp"
                     android:maxLines="2"
                     android:minLines="1"
-                    android:textColor="#E2C99A"
+                    android:textColor="@color/s_ink"
                     android:textSize="12sp"
                     android:textStyle="bold" />
 
@@ -111,7 +111,7 @@
                     android:layout_height="0.8dp"
                     android:layout_marginTop="5dp"
                     android:layout_marginBottom="5dp"
-                    android:background="#35F0E9DD" />
+                    android:background="@color/s_line" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -123,7 +123,7 @@
                         android:layout_width="11dp"
                         android:layout_height="11dp"
                         android:src="@drawable/ic_calendar"
-                        android:tint="#94A1AE" />
+                        android:tint="@color/s_ink_faint" />
 
                     <TextView
                         android:id="@+id/text_gallery_meta_time"
@@ -135,7 +135,7 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#9EABBA"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="10sp" />
 
                     <ImageView
@@ -143,7 +143,7 @@
                         android:layout_width="11dp"
                         android:layout_height="11dp"
                         android:src="@drawable/ic_focus_target"
-                        android:tint="#8EA3B8" />
+                        android:tint="@color/s_ink_faint" />
 
                     <TextView
                         android:id="@+id/text_gallery_meta_confidence"
@@ -153,7 +153,7 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#9EABBA"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="10sp" />
                 </LinearLayout>
 
@@ -169,7 +169,7 @@
                         android:layout_width="11dp"
                         android:layout_height="11dp"
                         android:src="@drawable/ic_info"
-                        android:tint="#8B99A7" />
+                        android:tint="@color/s_ink_faint" />
 
                     <TextView
                         android:id="@+id/text_gallery_meta_source"
@@ -181,7 +181,7 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#95A2B1"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="10sp" />
 
                     <ImageView
@@ -189,7 +189,7 @@
                         android:layout_width="11dp"
                         android:layout_height="11dp"
                         android:src="@drawable/database_24px"
-                        android:tint="#8895A4" />
+                        android:tint="@color/s_ink_faint" />
 
                     <TextView
                         android:id="@+id/text_gallery_meta_size"
@@ -199,7 +199,7 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:singleLine="true"
-                        android:textColor="#8E9BAA"
+                        android:textColor="@color/s_ink_dim"
                         android:textSize="10sp" />
                 </LinearLayout>
             </LinearLayout>

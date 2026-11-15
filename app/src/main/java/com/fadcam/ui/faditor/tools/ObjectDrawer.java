@@ -212,6 +212,70 @@ public final class ObjectDrawer extends LinearLayout {
     /** The {@code .dot}: the object's colour, beside its name. */
     private final View dot;
     private final List<Toggle> toggles = new ArrayList<>();
+
+    // ── TAB-1 §K: the drawer as a side panel on a wide window ─────────────────────────────────
+    /** 0 = the phone drawer dropping from the top; +1 = a panel on the right; -1 = on the left. */
+    private int sideEdge = 0;
+    /** The panel's full height while beside the picture; the body fills what the chrome leaves. */
+    private int sidePanelHeightPx = 0;
+    @Nullable private PlaceSwitch placeSwitch;
+    /** The header's place toggles: a layout choice, not an edit, so never an undo step. */
+    private final List<Toggle> placeToggles = new ArrayList<>();
+
+    /** The host's answer to "where does this drawer go"; see {@code DrawerPlace}. */
+    public interface PlaceSwitch {
+        /** The window is wide enough to offer the switch at all. */
+        boolean available();
+        boolean beside();
+        boolean column();
+        void toggleBeside();
+        void toggleColumn();
+    }
+
+    public void setPlaceSwitch(@Nullable PlaceSwitch s) { placeSwitch = s; }
+
+    /**
+     * Stand beside the picture ({@code edge} +1 right, -1 left) at {@code panelHeightPx}, or drop
+     * from the top again ({@code edge} 0). The host owns the layout params; this only changes how
+     * the drawer slides and how tall its body may grow.
+     */
+    public void setSide(int edge, int panelHeightPx) {
+        boolean changed = edge != sideEdge || panelHeightPx != sidePanelHeightPx;
+        sideEdge = edge;
+        sidePanelHeightPx = panelHeightPx;
+        if (!changed) return;
+        if (edge != 0) setTranslationY(0f); else setTranslationX(0f);
+        if (bodyScroll != null) bodyScroll.requestLayout();
+        post(this::reportHeight);
+    }
+
+    public int side() { return sideEdge; }
+
+    /** Re-read the place toggles after the host moved the drawer (one appears only beside). */
+    public void refreshPlaceToggles() {
+        toggles.removeAll(placeToggles);
+        placeToggles.clear();
+        addPlaceToggles();
+        buildIconRow();
+        refreshIcons();
+    }
+
+    private void addPlaceToggles() {
+        if (placeSwitch == null || !placeSwitch.available()) return;
+        final PlaceSwitch ps = placeSwitch;
+        Toggle beside = new Toggle(com.fadcam.R.drawable.ic_drawer_desk_24,
+                com.fadcam.R.drawable.ic_drawer_desk_24, ps::beside, ps::toggleBeside, false,
+                getContext().getString(com.fadcam.R.string.tab1_drawer_beside));
+        placeToggles.add(beside);
+        if (ps.beside()) {
+            placeToggles.add(new Toggle(com.fadcam.R.drawable.ic_drawer_column_24,
+                    com.fadcam.R.drawable.ic_drawer_column_24, ps::column, ps::toggleColumn, false,
+                    getContext().getString(com.fadcam.R.string.tab1_drawer_column)));
+        }
+        // Before Frost and the close, so the close stays last.
+        int at = Math.max(0, toggles.size() - (frostSource != null ? 1 : 0));
+        toggles.addAll(at, placeToggles);
+    }
     private final List<ImageView> toggleIcons = new ArrayList<>();
 
     private int activeTab = 0;
@@ -437,10 +501,7 @@ public final class ObjectDrawer extends LinearLayout {
         moreHint.setVisibility(GONE);
         grip.addView(moreHint, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         View pill = new View(ctx);
-        GradientDrawable pillBg = new GradientDrawable();
-        pillBg.setColor(Kit.GRAB);
-        pillBg.setCornerRadius(999f * density);
-        pill.setBackground(pillBg);
+        pill.setBackground(Kit.pill(ctx, Kit.GRAB, 0));
         grip.addView(pill, new LayoutParams(dp(38), Math.max(1, Math.round(3.5f * density))));
         Kit.describe(grip, ctx.getString(com.fadcam.R.string.lane_a_drawer_grip));
         wireGrip(grip);
@@ -666,6 +727,8 @@ public final class ObjectDrawer extends LinearLayout {
         toggles.addAll(toggleList);
         // Frost belongs to every drawer, so the drawer adds it itself: last, beside the close.
         if (frostSource != null) toggles.add(frostToggle());
+        placeToggles.clear();
+        addPlaceToggles();
         // Header extras (§7.2.1): remove the previous show's views first — a null extra must
         // always CLEAR (so other drawers never inherit the caption pills), and a re-shown
         // drawer must not stack a second copy of its own.
@@ -718,9 +781,10 @@ public final class ObjectDrawer extends LinearLayout {
             setVisibility(VISIBLE);
             // Slide down from above its own height — the drawer arrives from off-screen top,
             // which is the direction it lives in.
-            setTranslationY(-dp(120));
+            // Beside the picture it arrives from its own edge instead (TAB-1).
+            if (sideEdge != 0) setTranslationX(sideEdge * dp(120)); else setTranslationY(-dp(120));
             setAlpha(0f);
-            animate().translationY(0f).alpha(1f)
+            animate().translationX(0f).translationY(0f).alpha(1f)
                     .setDuration(SLIDE_MS).setInterpolator(new DecelerateInterpolator()).start();
         }
         // After layout: the height is not known until the content has measured, and the host
@@ -932,7 +996,8 @@ public final class ObjectDrawer extends LinearLayout {
         // together so the video rises as the drawer leaves rather than jumping when it lands.
         reportedHeightPx = 0;
         if (heightListener != null) heightListener.onDrawerHeightChanged(0);
-        animate().translationY(-dp(120)).alpha(0f).setDuration(SLIDE_MS)
+        (sideEdge != 0 ? animate().translationX(sideEdge * dp(120))
+                : animate().translationY(-dp(120))).alpha(0f).setDuration(SLIDE_MS)
                 .withEndAction(() -> {
                     setVisibility(GONE);
                     contentHost.removeAllViews();
@@ -1061,7 +1126,7 @@ public final class ObjectDrawer extends LinearLayout {
                 refreshIcons();
                 // One press, one undo step (owner rule). A header toggle flips a state, so the same
                 // tap run again is its own undo and its own redo.
-                if (undoSink != null && t.state.isOn() != before) {
+                if (undoSink != null && t.state.isOn() != before && !placeToggles.contains(t)) {
                     final Runnable flip = () -> { t.onTap.run(); refreshIcons(); };
                     undoSink.record(name != null ? name.toString() : "", flip, flip);
                 }
@@ -1247,6 +1312,16 @@ public final class ObjectDrawer extends LinearLayout {
         ScrollView sv = new ScrollView(getContext()) {
             @Override
             protected void onMeasure(int widthSpec, int heightSpec) {
+                if (sideEdge != 0 && sidePanelHeightPx > 0) {
+                    // TAB-1: beside the picture the column is the drawer, so the body takes all of
+                    // it; the phone's opening limits (peek rows, floor) were about covering less
+                    // picture, which a side panel no longer does.
+                    super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(
+                            Math.max(dp(MIN_BODY_DP), sidePanelHeightPx - chromeHeightPx()),
+                            MeasureSpec.EXACTLY));
+                    post(ObjectDrawer.this::syncMoreHint);
+                    return;
+                }
                 int cap = maxBodyHeightPx();
                 // EXACTLY when the user has dragged a size, AT_MOST otherwise. With AT_MOST the
                 // ScrollView still measures to its content, so userHeightPx only ever raised a
@@ -1375,6 +1450,18 @@ public final class ObjectDrawer extends LinearLayout {
 
     @Nullable private TextView moreHint;
 
+    /** Everything in the drawer but the scrolling body: header, tabs, grip (TAB-1 side panel). */
+    private int chromeHeightPx() {
+        int sum = getPaddingTop() + getPaddingBottom();
+        for (int i = 0; i < getChildCount(); i++) {
+            View c = getChildAt(i);
+            if (c == contentHost || c.getVisibility() == GONE) continue;
+            int h = c.getMeasuredHeight();
+            sum += h > 0 ? h : dp(40);
+        }
+        return sum;
+    }
+
     /** The tallest the scrolling body may be: the user's dragged height, else the fraction. */
     private int maxBodyHeightPx() {
         int screen = getResources().getDisplayMetrics().heightPixels;
@@ -1460,6 +1547,8 @@ public final class ObjectDrawer extends LinearLayout {
         public static final int TRACK = SliderFace.TRACK;
         /** {@code .dgrab span} rgba(255,255,255,.30): the grab pill. */
         public static final int GRAB = Studio.alpha(Studio.DRAWER_INK, 0x4D);
+        /** {@code --edge}: the only border a drawer surface has (a top or side hairline). */
+        public static final int EDGE = Studio.alpha(Studio.DRAWER_INK, 0x1A);
         /** An ON control is the object's accent at 70% (record 06 {@code .dchip.on}). */
         public static final int ON_ALPHA = 0xB3;
         /** Record 06 §04: press is 140ms to scale .97. */

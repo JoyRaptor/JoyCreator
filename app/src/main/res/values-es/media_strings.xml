@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/media_strings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="universal_rewind">Rebobinar</string>
+    <string name="universal_forward">Avance rápido</string>
+</resources>

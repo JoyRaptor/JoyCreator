@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">Три вещи, которые стоит знать, — и приложение твоё.</string>
+    <string name="onboarding_promise_1">Твои работы остаются на твоём телефоне, в папке Joy Creator, которую ты выберешь.</string>
+    <string name="onboarding_promise_2">Без аккаунта, без рекламы, без слежки. Ничего о тебе не продаётся и не передаётся.</string>
+    <string name="onboarding_promise_3">Что-то покидает телефон, только когда ты пользуешься функцией, которой нужен интернет, например подключённым AI.</string>
+    <string name="hover_intro_ai_add">Подключить свой AI к Joybot сейчас</string>
+    <string name="hover_intro_ai_later">Скрыть это; AI можно подключить позже из чата с Joybot</string>
+</resources>

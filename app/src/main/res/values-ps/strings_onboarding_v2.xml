@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">څو اجازې</string>
+    <string name="onboardingv2_perm_why">Joy Creator دا د ویډیو اخیستلو، ستاسو د غږ ثبت او ستاسو د کار په تلیفون کې ساتلو لپاره غواړي. هیڅ نه وځي.</string>
+    <string name="onboardingv2_perm_camera">کامره</string>
+    <string name="onboardingv2_perm_camera_why">د فلم اخیستلو لپاره، او د هغه څه د لیدلو لپاره چې فلم یې اخلئ.</string>
+    <string name="onboardingv2_perm_mic">مایکروفون</string>
+    <string name="onboardingv2_perm_mic_why">ستاسو غږ له انځور سره ثبتولو لپاره.</string>
+    <string name="onboardingv2_perm_files">فایلونه او خبرتیاوې</string>
+    <string name="onboardingv2_perm_files_why">ستاسو ویډیوګانې خوندي کولو او د ثبت خبرتیا ښودلو لپاره.</string>
+    <string name="onboardingv2_perm_battery">ثبت ژوندی وساتئ</string>
+    <string name="onboardingv2_perm_battery_why">اختیاري: د بټرۍ اصلاح بنده کړئ چې اوږدې نیونې نه غوڅېږي.</string>
+    <string name="onboardingv2_perm_battery_done">اختیاري: د بټرۍ اصلاح لا دمخه بنده ده.</string>
+    <string name="onboardingv2_perm_allow">هغه څه چې ورک دي اجازه ورکړئ</string>
+    <string name="onboardingv2_perm_all_set">ټول چمتو</string>
+    <string name="onboardingv2_perm_open_settings">تنظیمات خلاص کړئ</string>
+    <string name="onboardingv2_perm_nudge">مهرباني وکړئ د دوام لپاره پورته درې اجازه ورکړئ.</string>
+    <string name="onboardingv2_perm_state_granted">اجازه ورکړل شوه</string>
+    <string name="onboardingv2_perm_state_missing">تر اوسه اجازه نه ده ورکړل شوې</string>
+    <string name="onboardingv2_perm_row_cd">%1$s، %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">هغه اجازې وغواړئ چې لا ورک دي</string>
+    <string name="onboardingv2_perm_all_set_cd">ټولې اجازې ورکړل شوې دي. راتلونکې پاڼې ته وښویئ.</string>
+    <string name="onboardingv2_perm_open_settings_cd">د دې اپ د سیسټم تنظیمات خلاص کړئ چې هغه اجازې ورکړئ چې مو رد کړې</string>
+    <string name="onboardingv2_perm_battery_cd">د Joy Creator لپاره د بټرۍ اصلاح د بندولو لپاره د سیسټم پاڼه خلاصه کړئ</string>
+</resources>

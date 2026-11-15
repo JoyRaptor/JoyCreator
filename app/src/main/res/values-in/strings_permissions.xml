@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Rekam butuh kamera dan mikrofon</string>
+    <string name="access_capture_why">Untuk merekam video dan suara, Android meminta kamu mengizinkan kamera dan mikrofon. Joy Creator juga meminta izin menampilkan pemberitahuan merekam, supaya kamu selalu tahu kapan ia sedang merekam. Tidak ada yang keluar dari ponselmu.</string>
+    <string name="access_allow">Izinkan</string>
+    <string name="access_not_now">Nanti saja</string>
+    <string name="access_capture_declined">Rekam tetap tertutup sampai kamera dan mikrofon diizinkan. Ketuk Rekam lagi kapan saja.</string>
+    <string name="access_capture_blocked">Android tidak akan meminta lagi izin kamera atau mikrofon. Aktifkan di halaman pengaturan Joy Creator bagian Izin, lalu kembali ke sini.</string>
+    <string name="access_open_settings">Buka pengaturan</string>
+</resources>

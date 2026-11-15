@@ -3,7 +3,7 @@
     <string name="auto_delete_immediate">Anında</string>
     <string name="trash_auto_delete_info_immediate">Öğeler anında silinir.</string>
     <string name="check_for_updates">Güncellemeleri Kontrol Et</string>
-    <string name="fadsec_info">Joy Creator, FadSec Lab paketinin bir parçasıdır. Daha fazla bilgi için aşağıda \'kaynak kodu görüntüle\' seçeneğine tıklayın.</string>
+    <string name="fadsec_info">Joy Creator ücretsiz ve açık kaynaklıdır. Daha fazla bilgi için aşağıdaki \'kaynak kodunu görüntüle\' bağlantısına dokun.</string>
     <string name="app_description">
     <![CDATA[
     Joy Creator, herhangi bir veri izleme veya toplama yapmadan gizliliğe öncelik veren, reklamsız ve açık kaynaklı bir video kayıt uygulamasıdır. Yalnızca GitHub ve README\'de belirtilen resmi bağlantılar üzerinden erişilebilir.
@@ -133,48 +133,43 @@
         <item>Bugatti\'nizin rengi ne?</item>
         <item>Ben sizin yaptığınızı yapmak için programlanmadım. Bekleyin, beni hacklemeye mi çalışıyorsunuz?</item>
     </string-array>
-    <string-array name="questions_array" tools:ignore="InconsistentArrays">
-        <item>FERAGATNAME</item>
+    <string-array name="questions_array">
+        <item>UYARI</item>
         <item>Joy Creator kullanıcı verisi topluyor mu?</item>
-        <item>Joy Creator\'de reklam var mı?</item>
+        <item>Joy Creator\'da reklam var mı?</item>
         <item>Joy Creator neden konum erişimi istiyor?</item>
-        <item>İnternet izni neden gerekiyor?</item>
+        <item>İnternet izni neden gerekli?</item>
         <item>Herhangi bir veri harici sunucularda saklanıyor mu?</item>
-        <item>Kayıttan sonra videolarıma ne oluyor?</item>
+        <item>Kayıttan sonra videolarıma ne olur?</item>
         <item>Joy Creator verilerimi üçüncü taraflarla paylaşıyor mu?</item>
-        <item> </item>
-        <item> </item>
+        <item></item>
+        <item></item>
         <item>Genel</item>
-        <item>Filigran ekleme neden uzun sürüyor?</item>
-        <item>Video kalitesini nasıl değiştirebilirim?</item>
-        <item>Önizlemeyi devre dışı bırakabilir miyim?</item>
+        <item>Önizlemeyi kapatabilir miyim?</item>
         <item>Konumumu filigrana nasıl eklerim?</item>
         <item>Tercihlerim kaydediliyor mu?</item>
         <item>Kayıtları zamanlayabilir miyim?</item>
         <item>Uygulamayı nasıl güncellerim?</item>
-        <item> </item>
+        <item></item>
     </string-array>
-    <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>Joy Creator, bu yazılımın etik dışı veya yasa dışı kullanımını onaylamaz veya desteklemez. Yetkisiz gözetim veya gizliliğin ihlali gibi kötüye kullanımlar kesinlikle kurallarımıza aykırıdır. Yazarlar, uygulamanın kötüye kullanımından sorumlu değildir.
-        </item>
-        <item>Hayır, Joy Creator herhangi bir kullanıcı verisi toplamaz.</item>
+    <string-array name="answers_array">
+        <item>Joy Creator, bu yazılımın etik dışı veya yasa dışı kullanımını onaylamaz ve desteklemez. İzinsiz gözetleme veya mahremiyeti ihlal etme gibi kötüye kullanımlar yönergelerimize kesinlikle aykırıdır. Yazar, uygulamanın kötüye kullanımından sorumlu değildir.</item>
+        <item>Hayır, Joy Creator hiçbir kullanıcı verisi toplamaz.</item>
         <item>Hayır, Joy Creator tamamen reklamsızdır.</item>
-        <item>Filigranlarınıza konum bilgisi eklemek için.</item>
-        <item>Otomatik güncelleme kontrolü için.</item>
-        <item>Hayır, tüm veriler cihazınızda saklanır.</item>
-        <item>Videolarınız cihazınızda yerel olarak saklanır.</item>
-        <item>Hayır, Joy Creator hiç veri paylaşmaz veya toplamaz, çökme günlükleri bile dahil.</item>
-        <item> </item>
-        <item> </item>
-        <item> </item>
-        <item>Filigran, videonun her karesine gömülür. Video ne kadar uzunsa, işlem o kadar uzun sürer.</item>
-        <item>Ayarlardan video kalitesini değiştirin: HD, SD veya FHD.</item>
-        <item>Önizleme alanına uzun basarak devre dışı bırakabilirsiniz.</item>
-        <item>Filigrana konum verisi eklemek için ayarlardan konumu etkinleştirin. Bu, hassas enlem ve boylam bilgisini ekler.</item>
-        <item>Evet, tercihler ve tüm ayarlar kaydedilir ve sorunsuzca uygulanır.</item>
+        <item>Filigranlarına konum bilgisi eklemek için.</item>
+        <item>Otomatik güncelleme denetimi için.</item>
+        <item>Hayır, tüm veriler cihazında saklanır.</item>
+        <item>Videoların cihazında yerel olarak kaydedilir.</item>
+        <item>Hayır, Joy Creator hiçbir veri paylaşmaz veya toplamaz, çökme günlükleri bile.</item>
+        <item></item>
+        <item></item>
+        <item></item>
+        <item>Önizleme alanına uzun basarak kapatabilirsin.</item>
+        <item>Filigranda konum verisi için ayarlardan konumu aç. Kesin enlem ve boylam eklenir.</item>
+        <item>Evet, tercihlerin ve tüm ayarlar kaydedilir ve sorunsuz uygulanır.</item>
         <item>Bu özellik yakında geliyor.</item>
-        <item>Güncellemeler için resmi GitHub deposunu kontrol edin.</item>
-        <item> </item>
+        <item>Güncellemeler için resmi GitHub deposuna göz at.</item>
+        <item></item>
     </string-array>
     <string name="dialog_welcome_title">Joy Creator\'e Hoş Geldiniz!</string>
     <string name="note_under_dev">Önemli: Bu uygulama şu anda geliştirme aşamasında. Yeni özellikler düzenli olarak ekleniyor.</string>
@@ -211,7 +206,7 @@
     <string name="up_to_date_description">Zaten en son sürümü kullanıyorsunuz.</string>
     <string name="up_to_date_loading">Güncellemeler kontrol ediliyor…</string>
     <string name="update_available_title">Güncelleme Mevcut</string>
-    <string name="update_available_message">Yeni bir sürüm (%1$s) mevcut. Güncellemek için lütfen F-Droid mağazasını veya GitHub depomuzu ziyaret edin.</string>
+    <string name="update_available_message">Taze bir güncelleme hazır! Şu an v%1$s sürümündesin, en son sürüm v%2$s. Yeni özelliklerin ve iyileştirmelerin tadını çıkar.</string>
     <string name="visit_fdroid">F-Droid\'i Ziyaret Et</string>
     <string name="visit_github">GitHub\'u Ziyaret Et</string>
     <string name="delete_all_videos_title">Tüm Videoları Sil</string>
@@ -334,9 +329,7 @@
     <string name="setting_framerate_title">Video Kare Hızı</string>
     <string name="note_framerate">Kare hızı seçin\n(Varsayılan: %1$d)</string>
     <string name="setting_codec_title">Video Kodeği</string>
-    <string name="note_codec">Kodek seçin
-(Varsayılan: %1$s)
-İpucu: H.265 (HEVC) ile, aynı kalite için H.264\'ün yaklaşık yarısı kadar bitrate kullanabilirsiniz. Örnek: FHD için 16 Mbps yerine 8 Mbps kullanın.</string>
+    <string name="note_codec">Kodek seç\n(Varsayılan: %1$s)\nİpucu: H.265 (HEVC) ile aynı kalite için H.264\'ün yaklaşık yarısı kadar bit hızı yeterlidir. Örnek: FHD için 16 Mbps yerine 8 Mbps kullan.</string>
     <!-- Video Splitting -->
     <string name="video_split_size_summary_mb">Mevcut: %1$d MB</string>
     <string name="video_split_size_summary_gb">Mevcut: %1$s GB</string>
@@ -594,7 +587,7 @@
     <string name="watermark_style_timeonly_label">Zaman Damgası</string>
     <string name="watermark_style_badge_label">Sadece Marka Etiketi</string>
     <string name="watermark_style_none_label">Filigran Yok</string>
-    <string name="helper_watermark_preview">Filigran, kaydedilen videonuzun sol üst köşesinde bu şekilde görünecek.\nKomik bilgi: 10/Tem/2024 16:47, Joy Creator v1.0\'ın ilk yayınlandığı zamandır.</string>
+    <string name="helper_watermark_preview">Filigran, kaydedilen videonun sol üst köşesinde böyle görünecek.</string>
     <string name="helper_location_watermark_option">Cihaz konumunuzu katman olarak eklemeyi açıp kapatır. Konum izni gerektirir.</string>
     <string name="helper_location_format">Konumun filigranda nasıl görüneceğini seçin: tam koordinatlar veya ters coğrafi kodlama ile tam adres (zoom=18, bina seviyesinde hassasiyet).</string>
     <string name="helper_location_overlay_short">Filigranın altına yaklaşık koordinatlar ekler.</string>
@@ -614,7 +607,7 @@
     <string name="widget_show_date_title">Tarihi Göster</string>
     <string name="widget_date_format_title">Tarih Formatı</string>
     <string name="widget_arabic_date_title">Arapça Tarih</string>
-    <string name="widget_branding_title">FadSecLab Markalaması</string>
+    <string name="widget_branding_title">Joy Creator Markası</string>
     <string name="widget_time_format_12h">12 saat (3:30 ÖS)</string>
     <string name="widget_time_format_24h">24 saat (15:30)</string>
     <string name="widget_date_format_sample">13 Ağu 2025</string>
@@ -684,7 +677,7 @@
     <string name="screenshot_capture_failed">Ekran görüntüsü alınamadı</string>
     <string name="screenshot_capture_system_saved">Ekran görüntüsü sistem tarafından alındı. Sistem ekran görüntülerine kaydedildi.</string>
     <string name="screenshot_accessibility_enable_needed">Kayıt istemi olmadan bu kısayolu kullanmak için Erişilebilirlik\'te &quot;Joy Creator Ekran Görüntüsü&quot;nü etkinleştirin.</string>
-    <string name="screenshot_accessibility_service_desc">FadRec kısayolu için ekran görüntüsü alır ve Joy Creator\'a kaydeder.</string>
+    <string name="screenshot_accessibility_service_desc">Ekran görüntüsü kısayolu için ekran görüntüsü alır ve Joy Creator klasörüne kaydeder.</string>
     <string name="shortcuts_video_category">Video Kaydı</string>
     <string name="shortcuts_picture_category">Resim</string>
     <string name="theme_red">Crimson Bloom</string>
@@ -826,7 +819,7 @@
     <string name="stream_instr_4">4. Canlı izlemek için URL\'yi medya oynatıcıya yapıştırın</string>
     <string name="stream_network_info">Yayın için aynı WiFi ağı gerekiyor</string>
     <string name="battery_estimate_title">Tahmini Kalan Yayın Süresi</string>
-    <string name="battery_estimate_disclaimer" formatted="false">Gerçek dünya testine göre: 5000mAh bir cihazda %%61 pil tüketimiyle 8 saat kesintisiz yayın. Kişiselleştirilmiş tahminler için aşağıdan cihaz kapasitenizi güncelleyin.</string>
+    <string name="battery_estimate_disclaimer" formatted="false">Gerçek bir teste dayanır: 5000 mAh\'lik bir cihazda 8 saat kesintisiz yayında %61 pil tüketimi. Kişiselleştirilmiş tahminler için cihazının kapasitesini aşağıdan güncelle.</string>
     <string name="remote_security_title">Uzaktan Güvenlik</string>
     <string name="remote_security_enable">Kimlik Doğrulamayı Etkinleştir</string>
     <string name="remote_security_enable_desc">Uzaktan web arayüzüne erişim için şifre gerektir</string>
@@ -1163,11 +1156,11 @@
     <string name="home_elapsed_font_doto">Doto</string>
     <string name="home_elapsed_font_doto_desc">Daha belirgin bir dijital süre görünümü için Doto yazı tipini kullanır</string>
     <string name="home_elapsed_flag_option">Bayrak vurgusu</string>
-    <string name="home_elapsed_flag_option_desc">Sürenin arkasındaki FadSec Lab bayrak vurgusunu göster veya gizle</string>
-    <string name="home_elapsed_flag_helper">FadSec Lab bayrak vurgusunun geçen sürenin arkasında gösterilip gösterilmeyeceğini seçin.</string>
-    <string name="home_elapsed_flag_show">FadSec Lab bayrağını göster (Varsayılan)</string>
+    <string name="home_elapsed_flag_option_desc">Sayacın arkasındaki vurgu çubuğunu göster veya gizle</string>
+    <string name="home_elapsed_flag_helper">Geçen süre sayacının arkasında vurgu çubuğunun görünüp görünmeyeceğini seç.</string>
+    <string name="home_elapsed_flag_show">Vurguyu göster (Varsayılan)</string>
     <string name="home_elapsed_flag_show_desc">Sürenin arkasında markalı bayrak vurgusunu görüntüle</string>
-    <string name="home_elapsed_flag_hide">FadSec Lab bayrağını gizle</string>
+    <string name="home_elapsed_flag_hide">Vurguyu gizle</string>
     <string name="home_elapsed_flag_hide_desc">Geçen süre alanını bayrak vurgusu olmadan temiz tut</string>
     <string name="home_elapsed_background_option">Arka Plan</string>
     <string name="home_elapsed_background_option_desc">Geçen sürenin siyah, beyaz veya şeffaf bir kart üzerinde durmasını seçin</string>
@@ -1344,7 +1337,7 @@
     <string name="records_filter_camera">Joy Creator</string>
     <string name="records_filter_dual">Çift</string>
     <string name="records_filter_screen">Ekran</string>
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
     <string name="records_filter_stream">Yayın</string>
     <string name="records_filter_shot">Fotoğraflar</string>
     <string name="records_filter_camera_all">Tümü</string>
@@ -1366,8 +1359,8 @@
     <string name="records_filter_helper_camera_dual">Çift kamera modu ile çekildi</string>
     <string name="records_filter_helper_dual">Çift kamera kayıtları</string>
     <string name="records_filter_helper_screen">Ekran kayıtları</string>
-    <string name="records_filter_helper_faditor">Düzenlenmiş/Dışa aktarılmış videolar (Faditor)</string>
-    <string name="records_filter_helper_faditor_all">Tüm Faditor çıktıları ve ilgili dosyalar.</string>
+    <string name="records_filter_helper_faditor">Düzenlenen/dışa aktarılan videolar (Studio)</string>
+    <string name="records_filter_helper_faditor_all">Tüm Studio çıktıları ve ilgili dosyalar.</string>
     <string name="records_filter_helper_faditor_converted">Parçalanmış MP4\'ü harici oynatıcılar için standart aranabilir MP4\'e dönüştürür.</string>
     <string name="records_filter_helper_faditor_merge">Birden çok klibi tek bir çıktı videosunda birleştirir.</string>
     <string name="records_filter_helper_stream">Kaydedilmiş yayın kayıtları</string>
@@ -1379,7 +1372,7 @@
     <string name="records_batch_select_all">Tümünü seç</string>
     <string name="records_batch_deselect_all">Tümünün seçimini kaldır</string>
     <string name="records_batch_save">Galeriye Kaydet</string>
-    <string name="records_batch_faditor">Faditor Otomasyonları</string>
+    <string name="records_batch_faditor">Studio Otomasyonları</string>
     <string name="records_batch_delete">Sil</string>
     <string name="records_batch_coming_soon">Bu toplu işlem bir sonraki sürümde eklenecek.</string>
     <string name="records_batch_select_items_first">Önce bir veya daha fazla video seçin.</string>
@@ -1387,7 +1380,7 @@
     <string name="records_batch_fab_label">Toplu</string>
     <string name="records_batch_select_all_desc">Geçerli filtredeki tüm videoları seçin veya temizleyin.</string>
     <string name="records_batch_save_desc">Seçilen videoları başka bir klasöre kopyalayın, taşıyın veya dışa aktarın.</string>
-    <string name="records_batch_faditor_desc">Faditor sekmesini açmadan arka plan otomasyonlarını çalıştırın.</string>
+    <string name="records_batch_faditor_desc">Studio sekmesini açmadan arka plan otomasyonlarını çalıştır.</string>
     <string name="records_batch_delete_desc">Seçilen videoları Çöp Kutusu\'na taşıyın.</string>
     <string name="records_batch_save_queued">%1$d kaydetme görevi kuyruğa eklendi.</string>
     <string name="records_batch_faditor_first_only">İlk video açıldı. %1$d seçildi; çoklu düzenleme kuyruğu bir sonraki sürümde.</string>
@@ -1398,7 +1391,7 @@
     <string name="records_batch_custom_export_started">%1$d video seçilen klasöre aktarılıyor…</string>
     <string name="records_batch_custom_export_invalid_folder">Seçilen klasör yazılabilir değil.</string>
     <string name="records_batch_custom_export_done">Dışa aktarma tamamlandı. Başarılı: %1$d • Başarısız: %2$d</string>
-    <string name="records_batch_faditor_sheet_title">Toplu Faditor İşlemleri</string>
+    <string name="records_batch_faditor_sheet_title">Toplu Studio İşlemleri</string>
     <string name="records_batch_faditor_export_standard">Standart MP4\'e Dışa Aktar</string>
     <string name="records_batch_faditor_export_standard_desc">Parçalanmış MP4\'ü harici oynatıcılar için aranabilir standart MP4\'e dönüştürür.</string>
     <string name="records_batch_faditor_merge">Seçilen Videoları Birleştir</string>
@@ -1406,7 +1399,7 @@
     <string name="records_batch_faditor_queued">%1$d toplu öğe arka planda kuyruğa alındı.</string>
     <string name="records_batch_completed">Toplu işlem tamamlandı.</string>
     <string name="records_batch_notif_channel_name">Toplu Medya İşlemleri</string>
-    <string name="records_batch_notif_channel_desc">Kayıtlar toplu kaydetme ve Faditor otomasyon görevlerinin ilerlemesi ve sonuçları.</string>
+    <string name="records_batch_notif_channel_desc">Kayıtlar toplu kaydetme ve Studio otomasyon görevlerinin ilerleme durumu ve sonuçları.</string>
     <string name="records_batch_starting">Toplu işlem hazırlanıyor…</string>
     <string name="records_batch_progress_item">%1$d / %2$d işleniyor</string>
     <string name="records_batch_progress_counts">Tamamlanan %1$d • Atlanan %2$d • Başarısız %3$d</string>
@@ -1414,7 +1407,7 @@
     <string name="records_batch_export_done_title">Standart MP4 Dışa Aktarma Tamamlandı</string>
     <string name="records_batch_merge_done_title">Toplu Birleştirme Tamamlandı</string>
     <string name="records_hide_thumbnails_row_title">Gizle</string>
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="nav_lab">Lab</string>
     <string name="note_cam_dual_unsupported">Cihazınız eşzamanlı çift kamera kaydını desteklemiyor.</string>
     <string name="dual_recording_started">Çift kamera kaydı başladı</string>
@@ -1536,7 +1529,7 @@
 <string name="row_input_source_title">Giriş Kaynağı</string>
 <string name="row_noise_suppression_title">Gürültü Engelleme</string>
 <string name="delete_single_video_subtitle">Bu kaydı kaldır</string>
-<string name="note_debug_detailed">Etkinleştirildiğinde, FadCam hata ayıklama günlüğü HTML dosyasını (JoyCreator_debug.html) herkese açık İndirilenler/Joy Creator/ klasörüne yazar. Sorun bildirirken bu dosyayı paylaşın. Gelecekteki yazmaları durdurmak için kapatın.\nNot: Hata ayıklama günlüğü kayıt sırasında performans yükü ekleyebilir — sorun gidermiyorsanız kapalı tutun.</string>
+    <string name="note_debug_detailed">Açıkken Joy Creator, herkese açık Downloads/Joy Creator/ klasörüne bir hata ayıklama günlüğü HTML dosyası (JoyCreator_debug.html) yazar. Sorun bildirirken bu dosyayı paylaş. Yazmayı durdurmak için kapat.\nNot: Hata ayıklama günlüğü kayıt sırasında performansı biraz düşürebilir — sorun gidermiyorsan kapalı tut.</string>
 <string name="location_format_title">Konum Biçimi</string>
 <string name="location_format_coordinates">Yalnızca Koordinatlar</string>
 <string name="location_format_address">Tam Adres</string>
@@ -1619,12 +1612,12 @@
 <string name="preview_quick_actions_state_always">Her zaman görünür (boşta + kayıt)</string>
 <string name="preview_quick_actions_state_recording_only">Yalnızca kayıt sırasında görünür</string>
 <string name="coming_soon_toast">Çok yakında! İnşallah</string>
-<string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
 <string name="faditor_mini_coming_soon">Çok yakında — hafif düzenleyici</string>
 <string name="faditor_mini_subtitle">Videolarınızı hassasiyetle kırpın ve dışa aktarın</string>
-<string name="faditor_mini_toast">Faditor Mini — çok yakında</string>
+    <string name="faditor_mini_toast">Studio — yakında</string>
 <string name="faditor_select_video">Video Seç</string>
-<string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
 <string name="faditor_close">Düzenleyiciyi kapat</string>
 <string name="faditor_undo">Geri Al</string>
 <string name="faditor_redo">İleri Al</string>
@@ -1699,7 +1692,7 @@
 <string name="faditor_export_confirm_action">Şimdi Dışa Aktar</string>
 <string name="faditor_export_confirm_subtitle">Dışa aktarma arka planda devam edecek</string>
 <string name="faditor_export_confirm_helper">%1$s • %2$d klip%3$s\nDışa aktarma bir arka plan hizmeti olarak çalışır — uygulamayı kapatabilirsiniz ve dışa aktarmaya devam eder.</string>
-<string name="faditor_export_notif_channel">Faditor Dışa Aktarma</string>
+    <string name="faditor_export_notif_channel">Studio Dışa Aktarma</string>
 <string name="faditor_export_notif_channel_desc">Devam eden video dışa aktarımları için bildirimler</string>
 <string name="faditor_export_notif_title">Video dışa aktarılıyor…</string>
 <string name="faditor_export_notif_error_title">Dışa Aktarma Başarısız</string>
@@ -1727,7 +1720,7 @@
 <string name="faditor_feature_export_desc">Donanım hızlandırmalı kodlama ile MP4 olarak dışa aktarın</string>
 <string name="faditor_feature_preview">Canlı Önizleme</string>
 <string name="faditor_feature_preview_desc">Kırpılmış kliplerinizin anında oynatılması</string>
-<string name="faditor_feature_privacy">%%100 Çevrimdışı</string>
+    <string name="faditor_feature_privacy">%100 Çevrimdışı</string>
 <string name="faditor_feature_privacy_desc">Tüm düzenleme yerel olarak yapılır — yükleme yok, bulut yok</string>
 <string name="faditor_feature_convert">Akıllı Dönüştür</string>
 <string name="faditor_feature_convert_desc">Çökmeye dayanıklı kayıtları, her yerde sorunsuz oynatma için aranabilir MP4\'e otomatik dönüştürür</string>
@@ -1736,19 +1729,19 @@
 <string name="faditor_delete_projects_title">Projeler silinsin mi?</string>
 <string name="faditor_delete_projects_message">%1$d proje silinsin mi? Bu işlem geri alınamaz.</string>
 <string name="faditor_delete_confirm">Sil</string>
-<string name="faditor_version_info">Faditor Mini · Aşama 1 · Kırpma + Dışa Aktarma</string>
+    <string name="faditor_version_info">Studio · Aşama 1 · Kırp + Dışa Aktar</string>
 <string name="faditor_empty_title">Henüz proje yok</string>
 <string name="faditor_empty_desc">Bir video seçip düzenlemeye başlamak için "Yeni Proje Başlat"a dokunun</string>
-<string name="faditor_info_title">Faditor Mini Hakkında</string>
+    <string name="faditor_info_title">Studio Hakkında</string>
 <string name="faditor_info_subtitle">Yerleşik düzenleyici hakkında bilmeniz gereken her şey</string>
 <string name="faditor_info_how_title">Nasıl çalışır</string>
 <string name="faditor_info_how_desc">Cihazınızdan veya Joy Creator kayıtlarınızdan herhangi bir video seçin. Zaman çizelgesini kullanarak kare kare kırpın, ardından dışa aktarın. Tüm işlemler cihazınızda yerel olarak gerçekleşir — hiçbir şey yüklenmez.\n\nDüzenleme ilerlemeniz her birkaç saniyede bir ve düzenleyiciden her ayrıldığınızda otomatik olarak kaydedilir, böylece uygulama beklenmedik şekilde kapanırsa hiçbir çalışma kaybolmaz.</string>
 <string name="faditor_info_convert_title">Akıllı dönüştürme</string>
-<string name="faditor_info_convert_desc">Joy Creator, çökmeye dayanıklı bir biçim olan parçalanmış MP4 (fMP4) formatında kayıt yapar. Standart bir MP4\'ün tek bir sonlandırılmış kapsayıcısı varken, fMP4 videoyu küçük bağımsız parçalar halinde yazar. Bu, uygulama çökse veya kayıt aniden dursa bile görüntülerinizin bozulmadan kalması anlamına gelir.\n\nAncak, harici video oynatıcılar, galeri uygulamaları ve dosya yöneticileri bu dosyalarda arama, ilerletme veya doğru süreyi görüntüleme yapamaz. Bu bir hata değil — güvenilirlik için kasıtlı bir tasarım ödünleşimidir.\n\nVideolarınızı Joy Creator dışında — Google Drive, bir bilgisayar veya başka bir konumda — saklamayı planlıyorsanız, önce dönüştürmelisiniz. Aksi takdirde dosyalar normal oynatma için kullanılamaz.\n\nDönüştürmek için: videoyu burada Faditor Mini\'de açın ve Dışa Aktar\'a dokunun. Dönüştürülen standart MP4, Kayıtlar sekmenizde görünecek, galerinize kaydetmeye veya herhangi bir yerde paylaşmaya hazır olacaktır. İşlem anlık ve kayıpsızdır — yeniden kodlama veya kalite kaybı yoktur.</string>
+    <string name="faditor_info_convert_desc">Joy Creator, çökmeye dayanıklı, parçalı MP4 (fMP4) adlı bir biçimde kayıt yapar. Tek bir tamamlanmış kapsayıcısı olan standart MP4\'ün aksine, fMP4 videoyu küçük bağımsız parçalar halinde yazar. Yani uygulama çökse ya da kayıt aniden dursa bile görüntün sağlam kalır.\n\nAncak harici video oynatıcılar, galeri uygulamaları ve dosya yöneticileri bu dosyalarda ileri geri sarma yapamaz ve doğru süreyi gösteremez. Bu bir hata değil — güvenilirlik için bilerek yapılmış bir takas.\n\nVideolarını Joy Creator dışında — Google Drive\'da, bilgisayarda ya da başka bir yerde — saklamayı planlıyorsan önce dönüştürmen gerekir. Aksi halde dosyalar normal oynatma için kullanılamaz.\n\nDönüştürmek için: videoyu burada Studio\'da açıp Dışa Aktar\'a dokunman yeterli. Dönüştürülen standart MP4 Kayıtlar sekmende görünür; galerine kaydetmeye veya her yerde paylaşmaya hazırdır. İşlem anlıktır ve kayıpsızdır — yeniden kodlama ya da kalite kaybı olmaz.</string>
 <string name="faditor_info_export_title">Dışa aktarılan dosyalar</string>
 <string name="faditor_info_export_desc">Dışa aktarılan videolar, "JoyCreator_" öneki ve ardından bir zaman damgası ile aktif depolama konumunuza (Ayarlar\'da yapılandırılanla aynı) kaydedilir. Orijinal kayıtlarınızla birlikte Kayıtlar sekmesinde görünürler.</string>
 <string name="faditor_info_temp_title">Geçici dosyalar ve önbellek</string>
-<string name="faditor_info_temp_desc">Düzenleme için bir fMP4 videosu yüklediğinizde, Faditor dosyanın "remuxing" gerektirip gerektirmediğini algılar — yeniden kodlama olmadan arama işaretçileri ekleyen hızlı bir dönüştürme. Remuxlanmış dosyalar cihazınızda önbelleğe alınır, böylece aynı videoyu tekrar düzenlerseniz yeniden kullanılabilir, zamandan ve işlemden tasarruf edilir.\n\nHer proje için önbellek boyutunu, değiştirilme tarihinin yanında görebilirsiniz. Cihaz depolama alanınız azalıyorsa, kullanılmayan projeleri silerek önbelleğe alınmış remuxlanmış dosyalarını temizleyebilirsiniz.\n\nBu geçici önbellek dosyaları, bu sekmeden bir proje sildiğinizde otomatik olarak temizlenir.</string>
+    <string name="faditor_info_temp_desc">Düzenlemek için bir fMP4 videosu yüklediğinde Studio, dosyanın \"yeniden paketlenmesi\" gerekip gerekmediğini algılar — bu, yeniden kodlama yapmadan ileri geri sarma işaretleri ekleyen hızlı bir dönüştürmedir. Yeniden paketlenen dosyalar cihazında önbelleğe alınır; aynı videoyu tekrar düzenlersen yeniden kullanılır, böylece zaman ve işlem gücü kazanırsın.\n\nHer projenin önbellek boyutunu, değiştirilme tarihinin yanında görebilirsin. Cihazının depolama alanı azalırsa, kullanılmayan projeleri silerek yeniden paketlenmiş önbellek dosyalarını temizleyebilirsin.\n\nBu geçici önbellek dosyaları, bu sekmeden bir projeyi sildiğinde otomatik olarak temizlenir.</string>
 <string name="faditor_info_projects_title">Son projeler</string>
 <string name="faditor_info_projects_desc">Tüm düzenleme oturumlarınız hızlı erişim için gösterilir. Her proje, video URI\'si, kırpma noktaları ve zaman damgalarını içeren küçük bir JSON dosyası olarak cihazınızda saklanır — videolarınızın hiçbir kopyası oluşturulmaz. Projeler her birkaç saniyede bir otomatik kaydedilir, böylece ilerlemeniz asla kaybolmaz.\n\nArtık ihtiyacınız olmayan projeleri çoklu seçim kontrol listesi simgesini kullanarak silebilirsiniz. Bir projeyi silmek yalnızca düzenleme oturumu verilerini kaldırır; orijinal video dosyalarınız dokunulmadan kalır.</string>
 <string name="faditor_your_recordings">Kayıtlarınız</string>
@@ -1788,14 +1781,13 @@
 <string name="saf_permission_missing_dialog_message_for_start_recording">Kayıtları özel bir konuma kaydetmek için Joy Creator\'in seçilen klasöre erişmesi gerekir. İstendiğinde erişim izni verin.</string>
 <string name="grant_permission_button">İzin Ver</string>
 <string name="trash_auto_delete_picker_helper">Çöp\'teki öğelerin ne zaman otomatik silineceğini seçin.</string>
-<string name="kofi_footer_text">Made with    at FadSec Lab in   </string>
 <string name="choose_language">Dil Seç</string>
 <string name="onboarding_human_checkbox3">Gizlilik Politikası\'nı kabul ediyorum</string>
 <string name="applock_set_pin_enable">PIN Belirle &amp; Etkinleştir</string>
 <string name="applock_helper_create">Kayıtlar sekmesi için 4 haneli PIN, şifre veya parmak izi kullanarak koruma oluşturun. Uygulama arka plana geçtiğinde otomatik kilitlenir.</string>
 <string name="applock_helper_manage_disabled">Sekme Kilidi PIN\'i ayarlandı. Uygulamaya dönerken PIN\'i gerektirmek için açın.</string>
 <string name="applock_helper_enabled">Sekme Kilidi aktif. Uygulamadan ayrıldıktan sonra Kayıtlar sekmesini açarken PIN\'e ihtiyacınız olacak.</string>
-<string name="edit_with_faditorx">Faditor Mini ile Düzenle</string>
+    <string name="edit_with_faditorx">Studio ile düzenle</string>
 <string name="remote_coming_soon_badge">Çok Yakında</string>
 <string name="update_visit_github">GitHub\'ı Ziyaret Et</string>
 <string name="header_logo_default" translatable="false">Joy Creator</string>
@@ -2070,7 +2062,6 @@
     <string name="delete_all">Tümünü Sil</string>
     <string name="new_project">Yeni Proje</string>
     <string name="delete">Sil</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Video Oynatıcı Hakkında</string>
     <string name="player_info_content"><![CDATA[
 <b>Parçalı MP4 Formatı</b><br/><br/>
@@ -2349,7 +2340,7 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="settings_location_update_interval_5s">5.0 saniye</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">FadSec Lab tarafından</string>
+    <string name="annotation_by_fadsec_lab">Joy Creator tarafından</string>
     <string name="annotation_quick_access">Hızlı Erişim</string>
     <string name="annotation_annotate">Not Ekle</string>
     <string name="annotation_enable_tools">Araçları etkinleştir</string>
@@ -2563,4 +2554,593 @@ En sorunsuz oynatma deneyimi için VLC gibi harici bir oynatıcı kullanabilirsi
     <string name="toast_failed_open_file">Yazmak için dosya açılamadı</string>
     <string name="toast_cannot_write_custom_dir">Seçilen özel dizine yazılamıyor</string>
     <string name="toast_failed_create_file">Yazmak için dosya oluşturulamadı</string>
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">Yeni kayıt başlat</string>
+    <string name="lobby_a11y_new_project">Yeni proje başlat</string>
+    <string name="lobby_a11y_new_character">Yeni karakter yap</string>
+    <string name="lobby_a11y_new_import">Dosya içe aktar</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s, henüz içinde bir şey yok</string>
+    <string name="lobby_a11y_library">Library\'yi aç</string>
+    <string name="onboarding_a11y_checked">%1$s. İşaretli.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. İşaretsiz.</string>
+    <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
+    <string name="faditor_tools_more">%1$d tane daha</string>
+    <string name="faditor_tools_more_desc">Tüm araçları göster</string>
+    <string name="capture_mode_camera">Kamera</string>
+    <string name="capture_mode_screen">Ekran</string>
+    <string name="capture_mode_mic">Mikrofon</string>
+    <string name="webcam_overlay">Web kamerası katmanı</string>
+    <string name="webcam_overlay_on">Açık</string>
+    <string name="webcam_overlay_off">Kapalı</string>
+    <string name="webcam_overlay_notification_title">Web kamerası katmanı etkin</string>
+    <string name="fadrec_recording_flash">Kayıt başladı!</string>
+    <string name="video_info_loading">Yükleniyor…</string>
+    <string name="faditor_timeline_resize_handle">Zaman çizelgesini ve önizlemeyi boyutlandırmak için sürükle</string>
+    <string name="faditor_export_preparing">Dışa aktarma hazırlanıyor…</string>
+    <string name="faditor_export_compositing">Video birleştiriliyor…</string>
+    <string name="faditor_export_finalizing">Tamamlanıyor…</string>
+    <string name="faditor_font_picker_title">Yazı tipi</string>
+    <string name="faditor_font_import">Yazı tipi içe aktar…</string>
+    <string name="faditor_font_row_selected">%1$s (seçili)</string>
+    <string name="faditor_tool_opacity">Opaklık</string>
+    <string name="faditor_tool_text">Metin</string>
+    <string name="faditor_tool_sticker">Resim</string>
+    <string name="faditor_text_hint">Metin gir</string>
+    <string name="faditor_text_edit_title">Metni düzenle</string>
+    <string name="faditor_text_delete">Sil</string>
+    <string name="faditor_text_selection_whole">Tümünü seç</string>
+    <string name="faditor_text_selection_count">%1$d seçili</string>
+    <string name="faditor_text_selection_clear">Temizle</string>
+    <string name="faditor_text_style_undo">Metni biçimlendir</string>
+    <string name="faditor_text_motion_range">Metin hareket aralığı</string>
+    <string name="faditor_trim_start_here">⇤ Buradan başla</string>
+    <string name="faditor_trim_span_whole">↔︎  Tamamını kapsa</string>
+    <string name="faditor_trim_end_here">Burada bitir ⇥</string>
+    <string name="faditor_split_playhead_text">Bölmek için oynatma imlecini metnin içine getir</string>
+    <string name="faditor_split_playhead_sprite">Bölmek için oynatma imlecini sprite\'ın içine getir</string>
+    <string name="faditor_split_playhead_pip">Bölmek için oynatma imlecini PiP\'in içine getir</string>
+    <string name="faditor_split_playhead_layer">Bölmek için oynatma imlecini katmanın içine getir</string>
+    <string name="faditor_trim_start_impossible">Başı kırpmak için oynatma imlecini katmanın bitişinden önceye getir</string>
+    <string name="faditor_trim_end_impossible">Sonu kırpmak için oynatma imlecini katmanın başlangıcından sonraya getir</string>
+    <string name="faditor_heal_confirm_add">Bu bölmeyi onarmak zaman çizelgesine %1$s ekler. Tamam mı?</string>
+    <string name="faditor_heal_confirm_remove">Bu bölmeyi onarmak zaman çizelgesinden %1$s çıkarır. Tamam mı?</string>
+    <string name="faditor_locked_title">Kilitli nesne</string>
+    <string name="faditor_locked_message">Bu nesne kilitli. Kilidi açıp devam edelim mi?</string>
+    <string name="faditor_locked_unlock">Kilidi aç ve devam et</string>
+    <string name="faditor_fx_static_hint">Sabit — canlandırmak için ◆ simgesine dokun</string>
+    <string name="faditor_fx_reorder_hint">Zinciri sıralamak için ikinci bir efekt ekle</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s için bir ayar katmanı gerekir — dışarıda bırakıldı</string>
+    <string name="faditor_color_set">Ayarla</string>
+    <string name="faditor_image_overlay_title">Resim katmanı</string>
+    <string name="faditor_image_overlay_desc">Taşımak için sürükle, boyutlandırmak için sıkıştır</string>
+    <string name="faditor_tool_silence">Temizle</string>
+    <string name="faditor_tool_loop">Döngü</string>
+    <string name="faditor_tool_settings">Ayarlar</string>
+    <string name="faditor_tool_sprites">Sprite\'lar</string>
+    <string name="sprite_editor_missing_image">Sayfa resmi eksik — yeniden içe aktar</string>
+    <string name="sprite_editor_no_project">Proje bulunamadı — önce düzenleyiciyi aç</string>
+    <string name="sprite_editor_default_name">Sprite</string>
+    <string name="sprite_editor_name_hint">Sprite sayfası adı</string>
+    <string name="sprite_editor_cell_name_hint">Hücre adı (takma ad)</string>
+    <string name="sprite_editor_cell_enabled">Açık</string>
+    <string name="sprite_editor_cell_prefix">Hücre</string>
+    <string name="sprite_editor_save">Kaydet</string>
+    <string name="sprite_editor_saved">Sprite sayfası kaydedildi</string>
+    <string name="sprite_editor_save_failed">Kaydedilemedi — tekrar dene</string>
+    <string name="sprite_editor_import_failed">Bu resim içe aktarılamadı</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">Eksen</string>
+    <string name="sprite_editor_auto">Otomatik</string>
+    <string name="sprite_editor_auto_applied">Izgara bulundu: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">Net bir ızgara bulunamadı — adım düğmeleriyle ayarla</string>
+    <string name="sprite_editor_key">Anahtar</string>
+    <string name="sprite_editor_key_clear">Anahtar ✕</string>
+    <string name="sprite_editor_key_pick_hint">Silinecek arka plan rengine dokun</string>
+    <string name="sprite_editor_key_cleared">Arka plan anahtarı kaldırıldı</string>
+    <string name="sprite_editor_onion">Soğan kabuğu</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">Dilimleme bilgileri yan dosyadan uygulandı</string>
+    <string name="sprite_editor_sidecar_import_failed">Yan dosya okunamadı</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">Yan dosya sayfa resminin yanına kaydedildi</string>
+    <string name="sprite_editor_sidecar_failed">Yan dosya yazılamadı</string>
+    <string name="sprite_sheet_picker_title">Sprite sayfaları</string>
+    <string name="sprite_sheet_picker_new">+ Yeni sprite sayfası</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Avatar Studio…</string>
+    <string name="sprite_sheet_action_edit">Sayfayı düzenle</string>
+    <string name="sprite_sheet_action_place">Videoya yerleştir</string>
+    <string name="sprite_sheet_action_relink">Resmi yeniden bağla…</string>
+    <string name="sprite_placed">Sprite yerleştirildi — önizlemede sürükle</string>
+    <string name="sprite_palette_load">+ Sprite sayfası yükle</string>
+    <string name="sprite_palette_cell_prefix">hücre</string>
+    <string name="sprite_palette_no_cell">henüz kare yok — bir hücreye dokun</string>
+    <string name="sprite_palette_end_prefix">son:</string>
+    <string name="sprite_palette_swap_dropped">Değişiklik oynatma imlecine bırakıldı</string>
+    <string name="avatar_studio_title">Avatarlar</string>
+    <string name="avatar_studio_new">+ Yeni avatar</string>
+    <string name="avatar_studio_default_name">Avatar</string>
+    <string name="avatar_studio_name_hint">Avatar adı</string>
+    <string name="avatar_studio_save">Kaydet</string>
+    <string name="avatar_studio_saved">Avatar kaydedildi</string>
+    <string name="avatar_studio_save_failed">Kaydedilemedi — tekrar dene</string>
+    <string name="avatar_studio_no_project">Proje bulunamadı — önce düzenleyiciyi aç</string>
+    <string name="avatar_studio_add_part">+ Parça</string>
+    <string name="avatar_studio_pick_sheet">Yeni parça için sprite sayfası</string>
+    <string name="avatar_studio_no_sheets">Önce bir sprite sayfasını dilimle (Sprite\'lar aracı) — parçalar sayfalardan gelir</string>
+    <string name="avatar_studio_part_name_hint">Parça adı (kafa, gövde, koluSol…)</string>
+    <string name="avatar_studio_part_menu_parent">Üst parça seç…</string>
+    <string name="avatar_studio_part_menu_unparent">Üst parçayı kaldır</string>
+    <string name="avatar_studio_part_menu_remove">Parçayı sil</string>
+    <string name="avatar_studio_parent_pick_title">%1$s için üst parça</string>
+    <string name="avatar_studio_armed_hint">Hücre hazır — bu uç pozu vermek için parçaları sürükle</string>
+    <string name="avatar_studio_disarm_hint">Izgara serbest — kaydırıcılar karışımı oynatır</string>
+    <string name="avatar_studio_yaw">Sapma</string>
+    <string name="avatar_studio_pitch">Eğim</string>
+    <string name="avatar_studio_cell_stepper">Sprite hücresi</string>
+    <string name="avatar_studio_scale">Ölçek</string>
+    <string name="avatar_studio_rotation">Döndür</string>
+    <string name="avatar_studio_flip_h">Yatay çevir</string>
+    <string name="avatar_studio_flip_v">Dikey çevir</string>
+    <string name="avatar_studio_mirror">Ayna ⇋</string>
+    <string name="avatar_studio_mirrored">Karşı hücreye yansıtıldı</string>
+    <string name="avatar_studio_pins">⌖ İğneler</string>
+    <string name="avatar_studio_pin_del">✕ iğne</string>
+    <string name="avatar_studio_density">Ağ</string>
+    <string name="avatar_studio_pin_add_disarmed">İğne eklemek veya silmek için hücreyi serbest bırak (dinlenme zinciri)</string>
+    <string name="avatar_studio_pins_reseeded">Hücre iğneleri dinlenme zincirinden yeniden oluşturuldu</string>
+    <string name="avatar_studio_clear_cell">Hücreyi temizle</string>
+    <string name="avatar_studio_cell_cleared">Hücre temizlendi — yine otomatik karışır</string>
+    <string name="faditor_tools_all_title">Tüm araçlar</string>
+    <string name="faditor_tools_edit">Düzenle</string>
+    <string name="faditor_tools_edit_done">Bitti</string>
+    <string name="faditor_tools_edit_tooltip">Araçları düzenle</string>
+    <string name="faditor_silence_audio_desc">Bu ses klibindeki sessiz boşlukları keser ve aralarını kapatır. Tek bir Geri Al ile eski haline döner.</string>
+    <string name="faditor_silence_audio_btn">Boşlukları kes</string>
+    <string name="faditor_tools_edit_hint">Bir araca basılı tutup yeni yerine sürükle. Sabitlemek için çubuğun ötesine sürükle. Bitince Bitti\'ye dokun.</string>
+    <string name="faditor_settings_tool_order_title">Araç sırası</string>
+    <string name="faditor_settings_tool_order_desc">Alttaki araç şeridinin sıralanışı: kendi düzenin veya en son kullanılan başta.</string>
+    <string name="faditor_settings_tool_order_recent">Son kullanılan başta</string>
+    <string name="faditor_loop_off">Kapalı</string>
+    <string name="faditor_loop_normal">Döngü</string>
+    <string name="faditor_loop_pingpong">Ping-pong</string>
+    <string name="faditor_loop_pingpong_parked">Ping-pong (yakında)</string>
+    <string name="faditor_loop_pingpong_parked_toast">Gerçek ping-pong cilalanıyor — yakında geliyor. Akıcı bir ileri tekrar için Döngü\'yü kullan.</string>
+    <string name="faditor_loop_still">Sabit kare</string>
+    <string name="faditor_loop_extend_start">Başa uzat</string>
+    <string name="faditor_loop_extend_end">Sona uzat</string>
+    <string name="faditor_loop_extend_prev">Önceki klibe uzat</string>
+    <string name="faditor_loop_extend_next">Sonraki klibe uzat</string>
+    <string name="faditor_tool_transitions">Geçişler</string>
+    <string name="faditor_transitions">Geçişler</string>
+    <string name="faditor_transition_crossfade">Çapraz geçiş</string>
+    <string name="faditor_transition_black">Siyaha karart</string>
+    <string name="faditor_transition_white">Beyaza karart</string>
+    <string name="faditor_transition_wipe">Silme</string>
+    <string name="faditor_transition_radial">Dairesel</string>
+    <string name="faditor_transition_mirror">Ayna silme</string>
+    <string name="faditor_transition_push">İtme</string>
+    <string name="faditor_transition_glitch">Glitch</string>
+    <string name="faditor_transition_tv_channel">TV Kanalı</string>
+    <string name="faditor_transition_added">Geçiş en yakın birleşim yerine eklendi</string>
+    <string name="faditor_transition_removed">Geçiş kaldırıldı</string>
+    <string name="faditor_gl_transition_pick_title">GL efekti seç</string>
+    <string name="faditor_visualizer_style_title">Görselleştirici stili</string>
+    <string name="faditor_transition_duration_title">Geçiş süresi</string>
+    <string name="faditor_transition_type_title">Geçiş türü</string>
+    <string name="faditor_transition_remove">Kaldır</string>
+    <string name="faditor_transition_direction_title">Yön</string>
+    <string name="faditor_filter_title">Filtreler ve Renk</string>
+    <string name="faditor_filter_lut">Görünüm (LUT)</string>
+    <string name="faditor_filter_lut_none">Yok</string>
+    <string name="faditor_filter_reset">Tümünü sıfırla</string>
+    <string name="faditor_filter_copy_all">Görünümü tüm kliplere kopyala</string>
+    <string name="faditor_filter_preset_save">Hazır ayar olarak kaydet…</string>
+    <string name="faditor_filter_preset_name_hint">Hazır ayar adı</string>
+    <string name="faditor_filter_preset_delete">\"%s\" hazır ayarı silinsin mi?</string>
+    <string name="faditor_filter_preset_applied">\"%s\" hazır ayarı uygulandı</string>
+    <string name="faditor_tool_filter">Filtre</string>
+    <string name="faditor_tool_move">Taşı</string>
+    <string name="faditor_move_drawer_title">Klibi Taşı</string>
+    <string name="faditor_move_layer_up">Yukarı taşı</string>
+    <string name="faditor_move_layer_down">Aşağı taşı</string>
+    <string name="faditor_move_to_time_hint">Zaman damgası (00:00:00.000) veya kare</string>
+    <string name="faditor_move_clip_label">Klibi yeniden sırala</string>
+    <string name="faditor_move_clip_start">Başa gönder</string>
+    <string name="faditor_move_clip_left">Bir sola taşı</string>
+    <string name="faditor_move_clip_right">Bir sağa taşı</string>
+    <string name="faditor_move_clip_end">Sona gönder</string>
+    <string name="faditor_move_clip_at_start">Klip zaten ilk sırada</string>
+    <string name="faditor_move_clip_at_end">Klip zaten son sırada</string>
+    <string name="faditor_move_clip_none">Önce bir klip seç</string>
+    <string name="faditor_transition_need_two_clips">Geçiş eklemeden önce en az iki video klibi ekle</string>
+    <string name="faditor_silence_detect_title">Sessizliği bul</string>
+    <string name="faditor_silence_detect_desc">Sessiz boşluklar sarıyla işaretlenir. Kesmek için zaman çizelgesindeki sarı boşluğa dokun (siyaha döner). Gizlemek için aracı tekrar seç.</string>
+    <string name="faditor_silence_detect_btn">Bul</string>
+    <string name="faditor_silence_found">%1$d sessiz boşluk işaretlendi — kesmek için sarılara dokun</string>
+    <string name="faditor_silence_title">Sessizliği kaldır</string>
+    <string name="faditor_silence_desc">Bu klipteki sessiz boşlukları ve ölü havayı otomatik keser.</string>
+    <string name="faditor_silence_sensitivity">Hassasiyet</string>
+    <string name="faditor_silence_analyzing">Ses inceleniyor…</string>
+    <string name="faditor_silence_none">Sessiz boşluk bulunamadı</string>
+    <string name="faditor_silence_image">Bu klipte incelenecek ses yok</string>
+    <string name="faditor_silence_result">%1$d boşluk kaldırıldı · %2$.1f sn kazanıldı</string>
+    <string name="faditor_jump_to_time">Zamana git</string>
+    <string name="faditor_relink_title">Eksik medya</string>
+    <string name="faditor_relink_msg">%1$d klip açılamadı (kaynak taşınmış veya erişim kaybolmuş). Dosyalarına yeniden bağlansın mı? Düzenlemelerin korunur.</string>
+    <string name="faditor_relink_now">Yeniden bağla</string>
+    <string name="faditor_relink_later">Sonra</string>
+    <string name="faditor_relink_sheet_title">Eksik videoyu yeniden bağla</string>
+    <string name="faditor_relink_sheet_sub">Aranan: %1$s</string>
+    <string name="faditor_relink_auto_found">Aynı klasörde %1$d tane daha bulundu — otomatik olarak yeniden bağlandı</string>
+    <string name="faditor_relink_replace_title">Bu video değiştirilsin mi?</string>
+    <string name="faditor_relink_replace_msg">Bu klip için başka bir dosya seç. Tüm düzenlemelerin (kırpma, kesimler, altyazılar) korunur.</string>
+    <string name="faditor_relink_replace">Videoyu değiştir</string>
+    <string name="faditor_relink_catalog_title">Medya Kataloğu</string>
+    <string name="faditor_relink_repaired">%2$d içinden %1$d onarıldı — yeniden bağlamak için herhangi bir ✗ işaretine dokun</string>
+    <string name="faditor_relink_all_ok">Tüm medya dosyalarına erişilebiliyor ✓</string>
+    <string name="faditor_relink_all">↻ Eksiklerin Tümünü Yeniden Bağla</string>
+    <string name="faditor_relink_done">Bitti</string>
+    <string name="faditor_relink_missing">EKSİK</string>
+    <string name="faditor_relink_ok">TAMAM</string>
+    <string name="faditor_relink_generated">üretildi — önbellek temizlendi</string>
+    <string name="faditor_relink_confirm_title">Değiştirmeyi onayla</string>
+    <string name="faditor_relink_confirm_msg">#%1$d numaralı klip değiştirilecek:\n\n  Önceki: %2$s (%3$s)\n  Yeni: %4$s (%5$s)\n\nTüm düzenlemeler (kırpma, kesimler, altyazılar) korunur.</string>
+    <string name="faditor_relink_confirm_yes">Değiştir</string>
+    <string name="faditor_relink_skip">Bunu atla</string>
+    <string name="faditor_relink_warn_same_file">⚠ Bu dosya zaten #%1$d numaralı klipte kullanılıyor. Tekrar kullanırsan iki klip de aynı görüntüyü gösterir.</string>
+    <string name="faditor_relink_warn_duration">⚠ Süre belirgin şekilde farklı. Önceki %1$s, yeni %2$s. Kırpma noktalarının ayarlanması gerekebilir.</string>
+    <string name="faditor_relink_err_type">✗ Yanlış dosya türü. %1$s bekleniyordu ama %2$s geldi.</string>
+    <string name="faditor_relink_btn">Medya kataloğu</string>
+    <string name="faditor_asset_browser">Öğe gezgini</string>
+    <string name="faditor_asset_browser_title">Sabitlenmiş Klasör</string>
+    <string name="faditor_asset_browser_pin_dir">Klasör seç</string>
+    <string name="faditor_asset_browser_change_dir">Klasörü değiştir</string>
+    <string name="faditor_asset_browser_unpin">Klasörün sabitlemesini kaldır</string>
+    <string name="faditor_asset_browser_empty">Bu klasörde medya dosyası bulunamadı</string>
+    <string name="faditor_asset_browser_no_dir">Henüz sabitlenmiş klasör yok. Seçmek için iğne simgesine dokun.</string>
+    <string name="faditor_asset_browser_pin_success">Sabitlendi: %1$s</string>
+    <string name="faditor_asset_browser_filter_all">Tümü</string>
+    <string name="faditor_asset_browser_filter_used">Kullanımda</string>
+    <string name="faditor_asset_browser_filter_unused">Kullanılmayan</string>
+    <string name="faditor_asset_browser_rename">Yeniden adlandır</string>
+    <string name="faditor_asset_browser_rename_title">Dosyayı yeniden adlandır</string>
+    <string name="faditor_asset_browser_rename_hint">Yeni ad (uzantıyı koru)</string>
+    <string name="faditor_asset_browser_rename_success">Yeni ad: %1$s</string>
+    <string name="faditor_asset_browser_rename_error">Dosya yeniden adlandırılamadı</string>
+    <string name="faditor_asset_browser_delete_title">Geçmişten kaldırılsın mı?</string>
+    <string name="faditor_asset_browser_delete_msg">Bu klasör sabitlenmiş geçmişinden kaldırılsın mı? Bu klasörden kullanımda olan dosyalar projede kalır.</string>
+    <string name="faditor_asset_browser_delete_blocked">Kaldırılamaz: bu klasördeki dosyalar kullanımda.</string>
+    <string name="faditor_asset_insert_at_playhead">Seçili öğeyi oynatma imlecine ekle</string>
+    <string name="faditor_asset_drag_hint">Basılı tutup zaman çizelgesine sürükle</string>
+    <string name="faditor_asset_used_badge">Kullanımda</string>
+    <string name="faditor_new_project_title">Projene ad ver (%1$d klip)</string>
+    <string name="faditor_new_project_hint">Proje adı</string>
+    <string name="faditor_create">Oluştur</string>
+    <string name="faditor_creating_project">Proje oluşturuluyor…</string>
+    <string name="faditor_create_failed">Bu videolardan proje oluşturulamadı.</string>
+    <string name="faditor_transcript_delete_version_title">Transkripti sil</string>
+    <string name="faditor_transcript_delete_version_msg">\"%1$s\" transkripti bu klipten kaldırılsın mı? Diğer sürümler korunur.</string>
+    <string name="faditor_kf_section">Animasyon (anahtar kareler)</string>
+    <string name="faditor_kf_status">%1$d anahtar kare</string>
+    <string name="faditor_kf_hint_start">Katmanı yerleştir, sonra canlandırmaya başlamak için ◆ simgesine dokun.</string>
+    <string name="faditor_kf_hint_armed">%1$d anahtar kare. Şimdi oynatma imlecini kaydırıp katmanı sürükle — anahtar kareler otomatik eklenir.</string>
+    <string name="faditor_kf_add">◆ Anahtar kare ekle</string>
+    <string name="faditor_kf_added">Anahtar kare oynatma imlecine eklendi</string>
+    <string name="faditor_kf_clear">Temizle</string>
+    <string name="faditor_kf_set_start">Buradan başla</string>
+    <string name="faditor_kf_set_end">Burada bitir</string>
+    <string name="faditor_kf_range_set">Katman zamanlaması güncellendi</string>
+    <string name="faditor_kf_range_invalid">Oynatma imlecini kaydır — bitiş başlangıçtan sonra olmalı.</string>
+    <string name="faditor_coachmark_gestures_title">Bir öğeyi düzenleme</string>
+    <string name="faditor_coachmark_gestures_body">Düzenlemek için çift dokun  ·  Menüsü için basılı tut  ·  Taşımak için sürükle</string>
+    <string name="faditor_coachmark_got_it">Anladım</string>
+    <string name="faditor_transitions_more_effects">⌄  Daha fazla efekt</string>
+    <string name="faditor_transitions_fewer_effects">⌃  Daha az efekt</string>
+    <string name="faditor_clean_audio_label">Temiz Ses v2</string>
+    <string name="faditor_clean_audio_desc">Gürültüyü giderir, dinamikleri yumuşatır ve gerçek tepe sınırlamalı iki geçişli ses düzeyi düzeltmesi uygular. Dışa aktarma süresini uzatır.</string>
+    <string name="faditor_transcript">Transkript</string>
+    <string name="faditor_captions">Altyazılar</string>
+    <string name="faditor_captions_need_transcript">Önce bu klibi yazıya dök, sonra altyazı ekle</string>
+    <string name="faditor_captions_done">Bitti</string>
+    <string name="faditor_transcript_clean">Dolgu sözleri temizle</string>
+    <string name="faditor_transcript_apply">Onayla</string>
+    <string name="faditor_transcript_committed">Düzenlemeler kilitlendi — dışa aktarma bunları uygular</string>
+    <string name="faditor_transcript_search">Transkriptte ara</string>
+    <string name="faditor_transcript_break">Vurgulanan kelimeden sonra satır sonunu aç/kapat</string>
+    <string name="faditor_transcript_pick_model">Bir konuşma modeli seç</string>
+    <string name="faditor_transcript_pick_model_sub">Telefonunda tamamen çevrimdışı çalışır. Bir kez indirilir.</string>
+    <string name="faditor_transcript_model_fast">Hızlı zamanlama</string>
+    <string name="faditor_transcript_model_fast_sub">~40 MB · en hızlısı · en iyi kelime ZAMANLAMASI, daha kaba kelimeler</string>
+    <string name="faditor_transcript_model_accurate">Dengeli</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 MB · iyi zamanlama VE iyi kelimeler · yaklaşık gerçek zamanlı çalışır</string>
+    <string name="faditor_transcript_model_whisper">En iyi sözcükler</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 MB · en iyi KELİMELER, daha gevşek zamanlama · en yavaş çalışır</string>
+    <string name="faditor_transcript_model_whisper_note">En iyi sözcükler Whisper kullanır: en iyi kelimeleri verir ama uzun kliplerde zamanlaması kayar. Hızlı zamanlama ve Dengeli, Vosk kullanır — kelime zamanlamaları daha sıkıdır, altyazı eşleşmesi ve metinle düzenleme buna dayanır. Her birinden birini çalıştırmak, ikisini iyi kelimeler VE iyi zamanlamayla tek bir kayıtta birleştirmeni sağlar.</string>
+    <string name="faditor_transcribe_prompt_title">Bu video yazıya dökülsün mü?</string>
+    <string name="faditor_transcribe_prompt_message">Az önce eklediğin klip için aranabilir, düzenlenebilir bir transkript oluştur. Tamamen çevrimdışı çalışır.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">Bir daha sorma</string>
+    <string name="faditor_settings_title">Düzenleyici ayarları</string>
+    <string name="faditor_settings_ask_transcribe_title">Video eklerken yazıya dökmeyi sor</string>
+    <string name="faditor_settings_ask_transcribe_desc">Bir klibi zaman çizelgesine ekledikten hemen sonra yazıya dökmek için bir soru gösterir.</string>
+    <string name="faditor_transcript_working">Çalışıyor…</string>
+    <string name="faditor_transcript_header_audio">Ses · %1$s</string>
+    <string name="faditor_transcript_header_clip">Klip %1$d · %2$s</string>
+    <string name="faditor_transcript_source">+ Kaynak</string>
+    <string name="faditor_transcript_offer_title">Transkript kaynağı ekle</string>
+    <string name="faditor_transcript_offer_message">Seçili klip için bir transkript yükle veya oluştur.\n\nKaynağı sonra da transkript başlığından veya + Kaynak düğmesinden ekleyebilirsin.</string>
+    <string name="faditor_transcript_offer_dont_show">Bunu bir daha gösterme</string>
+    <string name="faditor_transcript_image">Bu klipte yazıya dökülecek ses yok</string>
+    <string name="faditor_transcript_empty">Konuşma bulunamadı</string>
+    <string name="faditor_transcript_error">Yazıya dökme başarısız: %1$s</string>
+    <string name="faditor_transcript_cleaned">%1$d dolgu sözcüğünün üstü çizildi</string>
+    <string name="faditor_transcript_no_edits">Henüz üstü çizilen yok — kaldırmak için sözcüklere uzun bas</string>
+    <string name="faditor_blank_clip_length">Siyah klip süresi</string>
+    <string name="faditor_motion_start_here">Animasyon burada başlar</string>
+    <string name="faditor_motion_span_whole">Animasyon tüm nesneyi kapsar</string>
+    <string name="faditor_motion_end_here">Animasyon burada biter</string>
+    <string name="faditor_zone_in_ends_here">Giriş burada biter</string>
+    <string name="faditor_zone_clear">Giriş ya da çıkış yok</string>
+    <string name="faditor_zone_out_starts_here">Çıkış burada başlar</string>
+    <string name="faditor_blank_clip_added">Siyah klip eklendi (%1$s)</string>
+    <string name="faditor_add_asset_audio">Ses</string>
+    <string name="faditor_add_asset_pip">Video katmanı (PiP)</string>
+    <string name="faditor_pip_added">Video katmanı yerleştirildi — önizlemede sürükle</string>
+    <string name="faditor_audio_import_added">Ses zaman çizelgesine eklendi</string>
+    <string name="faditor_audio_import_error">Bu ses dosyası okunamadı</string>
+    <string name="faditor_undo_ai_edits">AI düzenlemeleri</string>
+    <string name="faditor_heal_success">Boşluk, hiçbir şey silmeden onarıldı</string>
+    <string name="faditor_heal_error">Burada onarılamaz - kenara çok yakın</string>
+    <string name="faditor_heal_title">Oynatma imlecinin çevresindeki boşluk onarılsın mı?</string>
+    <string name="faditor_heal_msg">Oynatma imlecinin çevresindeki %1$s, hiçbir şeyi silmeyen bir kesim olarak kaldırılır. Geri alabilirsin.</string>
+    <string name="faditor_delete_last_segments">Tek parça silemez</string>
+    <string name="faditor_crop_custom_ratio_title">Özel oran (G:Y)</string>
+    <string name="faditor_canvas_custom_res_title">Özel çözünürlük (G×Y)</string>
+    <string name="faditor_settings_safe_zone_title">9:16 güvenli alan kılavuzu</string>
+    <string name="faditor_settings_safe_zone_desc">9:16 tuvallerde sosyal medya güvenli alanını işaretleyen, yalnızca önizlemede görünen bir kılavuz gösterir (platform arayüzünün boş bıraktığı alan). Dışa aktarmayı asla etkilemez.</string>
+    <string name="faditor_crop_snap_on">Merkeze yapışma açık</string>
+    <string name="faditor_crop_snap_off">Merkeze yapışma kapalı</string>
+    <string name="faditor_crop_auto_applied">Otomatik kırpma uygulandı</string>
+    <string name="faditor_crop_no_black_bars">Siyah çubuk bulunamadı; en boy oranına göre kırpılıyor</string>
+    <string name="faditor_crop_error">Kırpmak için bir video klibi seç</string>
+    <string name="faditor_soft_snap_on">Yumuşak yapışma açık</string>
+    <string name="faditor_soft_snap_off">Yumuşak yapışma kapalı</string>
+    <string name="faditor_export_complete_summary_audio">Sesin Joy Creator klasörüne kaydedildi. Library\'de bulabilirsin.</string>
+    <string name="faditor_reverse_long_loop_later">Uzun döngülerde geri oynatma daha sonra geliyor — şimdilik bu döngü kuyruğunu ileri oynatır.</string>
+    <string name="faditor_export_filename_label">Dosya adı</string>
+    <string name="faditor_export_result_play">Az önce dışa aktardığın videoyu oynat</string>
+    <string name="faditor_export_result_open_records">Oynatmak için dokun · Kayıtlar\'da göster</string>
+    <string name="faditor_export_no_room">Bu telefonda bu dışa aktarma için yeterli boş alan yok. Yaklaşık %1$s yer aç (eski dışa aktarmaları veya artık gerekmeyen videoları sil) ve tekrar dene. Projen güvende.</string>
+    <string name="faditor_export_prepare_failed">Dışa aktarma hazırlanamadı; büyük olasılıkla telefonun belleği veya alanı yetmedi. Diğer uygulamaları kapat, biraz yer aç ve tekrar dene. Projen güvende.</string>
+    <string name="faditor_export_snapshot_unreadable">Projen okunamadığı için dışa aktarma başlayamadı. Lütfen tekrar dene. Projen güvende.</string>
+    <string name="faditor_export_copy_failed_title">Dışa aktarma bitti ama klasörüne konmadı</string>
+    <string name="faditor_export_copy_failed_summary">Seçtiğin klasöre kopyalama olmadı (telefon dolu olabilir). %1$s videon Joy Creator içinde güvende: Library\'de bulabilirsin.</string>
+    <string name="faditor_export_copy_failed_toast">Videon hazır ama seçtiğin klasöre kopyalanamadı (telefon dolu olabilir). Joy Creator içinde güvende: Library\'de bulabilirsin.</string>
+    <string name="battery_optimization_off">Pil optimizasyonu kapalı</string>
+    <string-array name="notification_appearance_options">
+        <item>Joy Creator (varsayılan)</item>
+        <item>Sistem Güncellemesi</item>
+        <item>İndirme</item>
+        <item>Eşitleniyor</item>
+        <item>Yedekleme</item>
+        <item>Özel</item>
+    </string-array>
+    <string name="stream_notes_cellular">⚠️ Yalnızca Wi-Fi: mobil ağlar gelen bağlantıları engeller, bu yüzden izleyici ile bu telefon aynı Wi-Fi\'da olmalı.</string>
+    <string name="torchtimer_label">Otomatik Kapanma Zamanlayıcısı</string>
+    <string name="torchtimer_desc">Flaş, ayarlanan süreden sonra kendiliğinden kapanır</string>
+    <string name="torchtimer_off">Kapalı</string>
+    <string name="torchtimer_picker_helper">Zamanlayıcı yalnızca flaş açıkken başlar</string>
+    <string name="torchtimer_cancel">Zamanlayıcıyı İptal Et</string>
+    <string name="torchtimer_30s">30 saniye</string>
+    <string name="torchtimer_1m">1 dakika</string>
+    <string name="torchtimer_2m">2 dakika</string>
+    <string name="torchtimer_5m">5 dakika</string>
+    <string name="torchtimer_10m">10 dakika</string>
+    <string name="torchtimer_15m">15 dakika</string>
+    <string name="torchtimer_30m">30 dakika</string>
+    <string name="torchtimer_1h">1 saat</string>
+    <string name="torchtimer_custom_title">Özel Zamanlayıcı Ayarla</string>
+    <string name="torchtimer_custom_unit_helper">Zaman birimini seç</string>
+    <string name="torchtimer_custom_hint">Süreyi gir</string>
+    <string name="torchtimer_custom_minutes_example">Örnek: 5 dakika için 5</string>
+    <string name="torchtimer_custom_hours_example">Örnek: 2 saat için 2</string>
+    <string name="torchtimer_custom_apply">Uygula</string>
+    <string name="torchtimer_custom_error_positive">Süre 0\'dan büyük olmalı</string>
+    <string name="torchtimer_custom_error_invalid">Geçersiz sayı</string>
+    <string name="setting_on">Açık</string>
+    <string name="menu_auto_pause_title">Menü açıkken otomatik duraklat</string>
+    <string name="button_state_tint_title">Yüzen düğme kayıt rengi</string>
+    <string name="record_no_room_to_start">Bu telefonda kayıt için yeterli yer yok. Biraz yer aç ve tekrar dene.</string>
+    <string name="record_stopped_low_space">Telefon neredeyse dolu olduğu için kayıt durdu. Şimdiye kadar kaydedilen her şey saklandı.</string>
+    <string name="record_stopped_write_problem">Kayıt artık saklanamadığı için durdu. O ana kadar kaydedilen her şey korundu.</string>
+    <string name="faditor_m12_select_clip_first">Önce ana kanalda bir klip seç</string>
+    <string name="faditor_m12_select_object_first">Önce bir katmanda bir nesne seç</string>
+    <string name="faditor_m12_only_video_images">Ana kanala yalnızca video ve resim konabilir</string>
+    <string name="faditor_m12_need_one_clip">Ana kanalda en az bir klip olmalı</string>
+    <string name="faditor_m12_moved_to_layer">Bir katmana taşındı</string>
+    <string name="faditor_m12_moved_to_main">Ana kanala taşındı</string>
+    <string name="faditor_m12_undo_to_layer">Katmana taşı</string>
+    <string name="faditor_m12_undo_to_main">Ana kanala taşı</string>
+    <string name="faditor_text_decor_section">Stil</string>
+    <string name="faditor_text_decor_stroke">Kontur</string>
+    <string name="faditor_text_decor_glow">Parıltı</string>
+    <string name="faditor_text_decor_shadow">Gölge</string>
+    <string name="faditor_text_decor_plate">Arka plan</string>
+    <string name="faditor_mask_action">Maske</string>
+    <string name="faditor_mask_title">Maske</string>
+    <string name="faditor_mask_remove">Kaldır</string>
+    <string name="faditor_mask_x">Merkez X</string>
+    <string name="faditor_mask_y">Merkez Y</string>
+    <string name="faditor_mask_w">Genişlik</string>
+    <string name="faditor_mask_h">Yükseklik</string>
+    <string name="faditor_mask_round">Yuvarlaklık</string>
+    <string name="faditor_mask_rotate">Döndürme</string>
+    <string name="faditor_mask_soften">Kenarları yumuşat</string>
+    <string name="faditor_mask_only_inside">Yalnızca kutunun içini göster</string>
+    <string name="faditor_mask_section_shape">Şekil</string>
+    <string name="faditor_kf_outside_span">Anahtar kare eklemek için oynatma imlecini bu klibin üzerine getir</string>
+    <string name="faditor_key_section">Krom anahtar</string>
+    <string name="faditor_key_enable">Bir rengi sil</string>
+    <string name="faditor_key_color">Anahtar rengi</string>
+    <string name="faditor_key_eyedropper">Videodan seç</string>
+    <string name="faditor_key_eyedropper_failed">Bu piksel okunamadı — klip görünürken tekrar dene</string>
+    <string name="faditor_key_tap_prompt">Kaldırılacak renge dokun</string>
+    <string name="faditor_key_tolerance">Tolerans</string>
+    <string name="faditor_key_softness">Kenar yumuşaklığı</string>
+    <string name="faditor_key_spill">Daralt / yay</string>
+    <string name="faditor_blend_action">Karışım modu</string>
+    <string name="faditor_blend_title">Karışım modu</string>
+    <string name="faditor_blend_export_note">Karışım modları dışa aktarırken uygulanır. Önizleme katmanı normal gösterir.</string>
+    <string name="faditor_image_inert_mask">Resim katmanlarına henüz uygulanmıyor — şeklin kaydedilir ama önizlemeyi ve dışa aktarmayı etkilemez.</string>
+    <string name="faditor_image_inert_key">Resim katmanlarına henüz uygulanmıyor — anahtarın kaydedilir ama önizlemeyi ve dışa aktarmayı etkilemez.</string>
+    <string name="faditor_image_inert_fx">Resim katmanlarına henüz uygulanmıyor — efektlerin kaydedilir ama önizlemeyi ve dışa aktarmayı etkilemez.</string>
+    <string name="faditor_image_fx_export_note">Bulanıklık gibi kendi geçişini gerektiren efektler atlanır — burada da dışa aktarırken de.</string>
+    <string name="faditor_image_mask_export_note">Resimdeki maskeler dışa aktarırken uygulanır. Önizleme resmin tamamını gösterir; resimde ayrıca bir efekt, krom anahtar veya karışım modu varsa burada da maskelenir.</string>
+    <string name="faditor_blend_normal">Normal</string>
+    <string name="faditor_blend_multiply">Çarpma</string>
+    <string name="faditor_blend_screen">Ekran</string>
+    <string name="faditor_blend_overlay">Kaplama</string>
+    <string name="faditor_blend_add">Ekle</string>
+    <string name="faditor_blend_difference">Fark</string>
+    <string name="faditor_blend_color">Renk</string>
+    <string name="faditor_blend_darken">Koyulaştır</string>
+    <string name="faditor_blend_lighten">Açıklaştır</string>
+    <string name="faditor_blend_color_dodge">Renk Açma</string>
+    <string name="faditor_blend_color_burn">Renk Yakma</string>
+    <string name="faditor_blend_linear_burn">Doğrusal Yakma</string>
+    <string name="faditor_blend_hard_light">Sert Işık</string>
+    <string name="faditor_blend_soft_light">Yumuşak Işık</string>
+    <string name="faditor_blend_vivid_light">Canlı Işık</string>
+    <string name="faditor_blend_linear_light">Doğrusal Işık</string>
+    <string name="faditor_blend_pin_light">Nokta Işık</string>
+    <string name="faditor_blend_hard_mix">Sert Karışım</string>
+    <string name="faditor_blend_exclusion">Dışlama</string>
+    <string name="faditor_blend_subtract">Çıkar</string>
+    <string name="faditor_blend_divide">Böl</string>
+    <string name="faditor_blend_darker_color">Daha Koyu Renk</string>
+    <string name="faditor_blend_lighter_color">Daha Açık Renk</string>
+    <string name="faditor_blend_hue">Ton</string>
+    <string name="faditor_blend_saturation">Doygunluk</string>
+    <string name="faditor_blend_luminosity">Parlaklık</string>
+    <string name="faditor_blend_group_normal">Normal</string>
+    <string name="faditor_blend_group_darken">Koyulaştır</string>
+    <string name="faditor_blend_group_lighten">Açıklaştır</string>
+    <string name="faditor_blend_group_contrast">Kontrast</string>
+    <string name="faditor_blend_group_comparative">Karşılaştırma</string>
+    <string name="faditor_blend_group_color">Renk</string>
+    <string name="faditor_orphan_title">Bu klipteki nesneler</string>
+    <string name="faditor_orphan_body">%1$d katman nesnesi sildiğin klipte başlıyor. Saklayıp sonraki klibe bağlayalım mı, yoksa onları da silelim mi?</string>
+    <string name="faditor_orphan_keep">Sakla</string>
+    <string name="faditor_orphan_delete">Sil</string>
+    <string name="faditor_orphan_remember">Seçimimi hatırla</string>
+    <string name="faditor_orphan_undo">Katman nesnelerini sil</string>
+    <string name="faditor_orphan_removed">%1$d katman nesnesi kaldırıldı</string>
+    <string name="faditor_settings_orphan_title">Silinen klipteki nesneler</string>
+    <string name="faditor_settings_orphan_desc">Bir klibi sildiğinde üzerindeki katman nesnelerine ne olacağı. Şu an: %1$s</string>
+    <string name="faditor_settings_orphan_ask">Her zaman sor</string>
+    <string name="mini_apps_customize_title">Mini Uygulamaları Özelleştir</string>
+    <string name="mini_apps_show_count">Sayıyı göster</string>
+    <string name="mini_apps_show_count_desc">Gösterilecek mini uygulama sayısı</string>
+    <string name="desc_mini_apps_count_minus">Sayıyı azalt</string>
+    <string name="desc_mini_apps_count_plus">Sayıyı artır</string>
+    <string name="mini_apps_reorder_footer">Sıralamak için sürükle</string>
+    <string name="quick_timer_desc">Hızlı zamanlayıcı açıklaması</string>
+    <string name="quick_timer_label">Zamanlayıcı</string>
+    <string name="quick_mute_label">Sessiz</string>
+    <string name="grid_lines_title">Izgara Çizgileri</string>
+    <string name="grid_lines_subtitle">Izgara çizgilerini göster</string>
+    <string name="desc_mini_apps_edit">Mini uygulamaları düzenle</string>
+    <string name="records_repair_banner_title">Onarım Başlığı</string>
+    <string name="records_repair_banner_dismiss">Kapat</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">dokunduğun her şeyle devam et</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">Kayıt</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">Avatar</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">Joy Brush</string>
+    <string name="lobby_hero_new">Yeni</string>
+    <string name="lobby_new_recording">Kayıt</string>
+    <string name="lobby_new_project">Proje</string>
+    <string name="lobby_new_character">Karakter</string>
+    <string name="lobby_new_import">İçe aktar</string>
+    <string name="lobby_floor_finder">Algıla</string>
+    <string name="lobby_floor_remote">Uzaktan</string>
+    <string name="lobby_floor_bits">Parçalar</string>
+    <string name="lobby_floor_packs">Paketler</string>
+    <string name="lobby_floor_setup">Kurulum</string>
+    <string name="lobby_empty_studio">Henüz düzenlenen bir şey yok. Bir proje başlat, seni burada bekler.</string>
+    <string name="lobby_empty_sprites">Henüz sayfa yok. Bir çizim getir ve karelere dilimle.</string>
+    <string name="lobby_empty_avatar">Henüz karakter yok. Bir resmi iskeletle, hareket etsin.</string>
+    <string name="lobby_empty_viz">Henüz görselleştirici yok. Elindeki herhangi bir sesten bir tane yap.</string>
+    <string name="lobby_empty_textlab">Film afişi gibi görünen yazılar: krom, altın, neon, ateş. Bir görünüm seç ve yaz.</string>
+    <string name="lobby_empty_joybrush">Bir şeyler çiz. Kendi kendine kaydedilir.</string>
+    <string name="lobby_act_carry_on">Devam et</string>
+    <string name="lobby_act_open">Aç</string>
+    <string name="lobby_act_record">Kaydet</string>
+    <string name="lobby_act_start">Başla</string>
+    <string name="lobby_act_new_drawing">Çiz</string>
+    <string name="intro_line_capture">yüzünün de göründüğü ekran kaydı</string>
+    <string name="intro_line_record">ekran kapalıyken bile video kaydı</string>
+    <string name="intro_line_editor">gerçek bir editör — katmanlar, maskeler, anahtar kareler</string>
+    <string name="intro_line_animation">animasyon — spritelar, iskeletler, kuklalar</string>
+    <string name="intro_line_transcribe">telefonundan hiç çıkmayan yazıya dökme</string>
+    <string name="intro_line_secondcam">kendi Wi-Fi\'ın üzerinden kamera olarak ikinci bir telefon</string>
+    <string name="intro_line_ai">gerçek zaman çizelgesini düzenleyen AI</string>
+    <string name="intro_start_creating">Yaratmaya başla</string>
+    <string name="intro_promise">Reklam yok. Abonelik yok.\nFiligran yok.</string>
+    <string name="intro_promise_ever">Dışa aktarma için ödeme duvarı yok. Asla.</string>
+    <string name="intro_story">Bunu üç miniğime bakarken, uyku aralarında yaptım. Ailemi bununla geçindiriyorum. Senin için işe yarıyorsa, herkes için ücretsiz kalmasına yardım edebilirsin.</string>
+    <string name="intro_cta_start">Yaratmaya başla</string>
+    <string name="intro_ai_note">Joy Creator hiç sunucu çalıştırmaz. Bir AI bağlarsan yazdıkların seçtiğin sağlayıcıya gider — biz onları asla görmeyiz ve pay almayız.</string>
+    <string name="intro_ai_have_key">Zaten anahtarın var mı?</string>
+    <string name="intro_ai_add_now">Şimdi ekle</string>
+    <string name="intro_ai_later">Sonra, sohbetten</string>
+    <string name="desc_select_mode">Seçim modu</string>
+    <string name="desc_delete_selected">Seçilenleri sil</string>
+    <string name="desc_cancel_selection">Seçimi iptal et</string>
+    <string name="desc_select_month">Bu ayı seç</string>
+    <string name="desc_watch_remote_toggle">Yayını başlat veya durdur</string>
+    <string name="desc_back">Geri</string>
+    <string name="desc_decrease_named">%1$s değerini azalt</string>
+    <string name="desc_increase_named">%1$s değerini artır</string>
+    <string name="desc_pip_expand">Önizlemeyi büyüt</string>
+    <string name="desc_pip_undock">Ayır: önizlemeyi yeniden yüzdür</string>
+    <string name="desc_keyframe_toggle">Oynatma imlecindeki anahtar kare: eklemek veya kaldırmak için dokun</string>
+    <string name="desc_transcript_show">Transkripti göster</string>
+    <string name="desc_transcript_resize">Transkript panelini yeniden boyutlandırmak için sürükle</string>
+    <string name="desc_transcript_search">Transkriptte ara</string>
+    <string name="desc_transcript_hide">Transkripti gizle</string>
+    <string name="desc_transcript_add_pass">Bir yazıya dökme geçişi daha ekle</string>
+    <string name="desc_search_prev">Önceki arama sonucu</string>
+    <string name="desc_search_next">Sonraki arama sonucu</string>
+    <string name="desc_crop_auto">Siyah çubukları otomatik kırp</string>
+    <string name="desc_crop_snap_center">Kırpmayı merkeze yapıştır</string>
+    <string name="desc_volume_keyframe">Ses seviyesi anahtar kareleri açık veya kapalı</string>
+    <string name="desc_volume_mute">Seçili sesi kapat veya aç</string>
+    <string name="desc_opacity_keyframe">Opaklık anahtar kareleri açık veya kapalı</string>
+    <string name="desc_caption_keyframe">Altyazı stili anahtar kareleri açık veya kapalı</string>
+    <string name="desc_keyframe_prev">Önceki anahtar kare</string>
+    <string name="desc_keyframe_next">Sonraki anahtar kare</string>
+    <string name="desc_keyframe_delete">Anahtar kareyi sil</string>
+    <string name="desc_keyframe_playhead">Oynatma imlecinde anahtar kare ekle, güncelle veya kaldır</string>
+    <string name="desc_move_go">Klibi yazılan konuma taşı</string>
+    <string name="desc_word_earlier">Kelimeyi bir kare öne al</string>
+    <string name="desc_word_later">Kelimeyi bir kare geriye al</string>
+    <string name="desc_word_center">Bu kelimeye ortala</string>
+    <string name="desc_hide_captions_clip">Altyazıları yalnızca bu klip için gizle</string>
+    <string name="desc_insert_playhead">Seçili öğeyi oynatma imlecine ekle</string>
+    <string name="desc_layer_colour">Katman rengini ayarla</string>
+    <string name="desc_visualizer_save">Bu görselleştirici stilini kaydet</string>
+    <string name="desc_visualizer_export">Bu görselleştirici stilini dosyaya aktar</string>
+    <string name="desc_visualizer_import">Dosyadan bir görselleştirici stili al</string>
+    <string name="desc_wave_justify">Dikey hizalama</string>
+    <string name="desc_wave_data_mode">Veri modu</string>
+    <string name="desc_wave_mirror">Yatay yansıt</string>
+    <string name="desc_wave_center_mode">Ortalama modu</string>
+    <string name="desc_wave_render_mode">Çizim modu</string>
+    <string name="desc_wave_attach">Bir klibe bağla veya ayır</string>
 </resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">Story Board on tühi</string>
+    <string name="smart_detection_empty_hint">Kaamera märgitud kaadrid ilmuvad siia</string>
+    <string name="smart_detection_empty_glyph_desc">Midagi pole veel tuvastatud</string>
+    <string name="smart_detection_tip_close">Sulge</string>
+    <string name="smart_detection_tip_back">Tagasi</string>
+    <string name="smart_detection_tip_menu">Nutika tuvastuse menüü</string>
+    <string name="smart_detection_tip_select_all">Vali kõik</string>
+    <string name="smart_detection_tip_sort">Sorteeri</string>
+    <string name="smart_detection_tip_grid">Muuda ruudustiku paigutust</string>
+    <string name="smart_detection_tip_scroll">Keri üles</string>
+</resources>

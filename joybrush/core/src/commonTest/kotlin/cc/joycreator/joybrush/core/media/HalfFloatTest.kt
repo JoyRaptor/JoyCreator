@@ -33,4 +33,12 @@ class HalfFloatTest {
         assertEquals(listOf(0x00, 0x3C, 0x00, 0xC0), bytes.map { it.toInt() and 0xFF })
         assertEquals(listOf(1f, -2f), HalfFloat.decode(bytes).toList())
     }
+    @Test fun decodeIntoFillsTheSameValuesAndLeavesTheRestAlone() {
+        val values = floatArrayOf(0f, 1f, -2f, 0.3f, 65504f, 1e-7f, Float.POSITIVE_INFINITY)
+        val bytes = HalfFloat.encode(values)
+        val out = FloatArray(values.size + 2) { 9f }
+        HalfFloat.decodeInto(bytes, out)
+        assertEquals(HalfFloat.decode(bytes).toList(), out.take(values.size))
+        assertEquals(listOf(9f, 9f), out.drop(values.size))
+    }
 }

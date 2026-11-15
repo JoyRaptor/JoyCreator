@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">视频</string>
+    <string name="home_rec_label_used">已用</string>
+    <string name="home_rec_shot_label">拍照</string>
+    <string name="home_rec_shot_desc">拍一张照片</string>
+    <string name="home_rec_full_label">全屏</string>
+    <string name="home_rec_full_desc">全屏预览</string>
+    <string name="home_rec_paused">录制已暂停</string>
+    <string name="home_rec_mirror">镜像前置摄像头</string>
+    <string name="home_rec_sound_source">声音来源</string>
+    <string name="home_rec_live_viz">实时可视化（长按更换样式）</string>
+    <string name="home_rec_dismiss_gps">关闭位置提醒</string>
+</resources>

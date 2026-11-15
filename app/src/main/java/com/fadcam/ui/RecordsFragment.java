@@ -4725,7 +4725,7 @@ public class RecordsFragment extends BaseFragment implements
                     i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_PROJECT_ID, pid);
                 }
                 i.putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "LIBRARY");
-                startActivity(i);
+                com.fadcam.ui.lobby.arrival.JoybotOpen.start(requireActivity(), null, i);
             });
         }).start();
     }

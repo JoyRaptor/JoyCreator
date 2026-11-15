@@ -15,7 +15,7 @@ Small rough edges the device sweeps found. Each one is the kind of thing that ma
 - ✅ Invert on a picture shows in the preview (it acts as an adjustment layer: everything beneath inverts).
 - ✅ `OverlayNavUtil` child-overlay close (7ffd27e4b, 10-16).
 - ✅ Sprite bend net sits on the sprite.
-- ✅ Colour picker hex is one line (d1655f38a); "#FF000B" touches the column edge (report only).
+- ✅ Colour picker hex is one line (d1655f38a); "#FF000B" touched the column edge: 11-15 (d1e53617b, STU-D6) it keeps 5dp of air and steps down a size instead. Not yet device-seen.
 - ❓ Not reachable by the agent: puppet RECORDING tab (no Puppet tab found from Studio drawers), sprite Lanes tab, audio envelope (see the audio bug).
 - ✅ Add → Audio with a real song (`vislab_demo.m4a`) works (the WAV failure was that test file). **Found on the way and fixed 10-28:** Fix audio never baked on a phone (file name from the raw URI, then no output format); now passes.
 - ✅ Undo of a sprite Bend leaves it crisp again (fabedb713, agent-checked 10-28).
@@ -41,13 +41,60 @@ joy-creator (caption, fx, mesh, motionrange, preview-parity, puppet, specq, spec
 - Joybot `add_marker` then one Undo: needs the computer bridge, never tried.
 
 **Open, not done:**
-- STU-B3 (diagnosed above): struck transcript words and cut silences still play in EXPORTS (film and audio). Needs the
-  owner to decide whether a struck word stays re-instatable; the smaller fix is to cut into pieces like Clean does.
+- STU-B3: owner ruled 11-15 (jump over cuts, keep them restorable, black marks); built 11-15, see "STU-B3 cut jumps" below.
 - STU-B5 (diagnosed above, save side): chat's Step.before lacks marks; multi-step add_marker undo limit.
 - Hover labels: controls with no spoken name at all still need one each (recount owed); dialogs not covered.
 - Tablet layout (TAB-1): bottom sheets open peeking, floating pencil covers the first tool, text drawer covers the
   preview's top third. Not built; TAB-1 owns the design.
 - Audit rows not started: STU-C1..C3 phone backlog, E2 (D9 rounding, D10/D11), E3/E4, F2..F8, G*.
+
+## STU-B3 cut jumps (11-15, "Studio cuts" session, branch `claude/studio-cuts-20261115-c5a8f6`)
+**The owner's ruling, 11-15:** struck words stay restorable exactly as today (tap the word to bring it back).
+Playback and export **jump over** every cut span. On the timeline each jump shows as **a small black mark**
+where it happens. No cutting the clip into pieces.
+
+**Built (commits c93fd7d29, b479f6f28, 415bea929, fe0be7e58 on `joy-creator`):**
+- [x] One list of jumps on the editor's clock, `model/CutJumps`: every film clip's spans (inside its main pass,
+      at its speed) and every sound clip's spans, merged; never under a transition. A struck word on a sound
+      clip jumps the whole program too (picture included), so nothing drifts.
+- [x] `model/TimeMap` subtracts the jumps: the file is the timeline less transitions less jumps, and anything
+      placed on the editor's clock lands after each jump where its picture is. The export dialog's length uses it.
+- [x] Export: a clip's main body is built as its kept pieces, each starting its own clip clock where its source
+      starts, so titles, stickers, captions, fades and volume curves read the editor's clock after each jump
+      (`pieceCutShiftMs` rides every overlay clock beside `chunkBaseMs`). Sound lanes, picture-in-picture sound,
+      the master sound (audio-only export and the long-export sound pass) and the black tail are laid as the
+      same pieces. A single-frame export still shows the uncut moment it was asked for.
+- [x] Preview: the playback tick jumps the film over a cut (a cut running to the clip's end now goes on to the
+      next clip; it used to pause there), the audio-only and audio-tail clock jumps, and the sound lanes are
+      seeked to the landing point. Seek-on-tick (50 ms), as before, so a jump may show a short hitch.
+- [x] Timeline: a small black mark (stem + tab, faint zinc edge) at each jump on the film track and the sound
+      rows (`timeline/CutMarkPainter`); hovering a film-track mark shows "Cut: 0.8 s skipped, tap the word to
+      restore" (`hover_studio_cut_mark`).
+- [x] Un-striking a word: the jump list is rebuilt every tick and at every export, so the word plays again at
+      once. Undo is unchanged (the span edits were already one press, one step).
+- [x] Tests: `CutJumpsTest` (run-cutjumps.sh, in run-studio-all, 1233 checks) and the whole Studio run (53/53).
+- [x] Cloud build; Note 9 (agent, 11-15): a test clip of ten spoken words with the source time burned into
+      the picture (`stu-b3-talk.mp4`, left in the Note 9's Downloads); Clean, then "two", "four", "nine" struck;
+      exported. Expected 4078 ms (the kept pieces, 5375 ms, less the struck words, 1297 ms); the file's picture
+      runs 4081 ms (one frame of rounding), its sound 4139 ms (normal AAC padding). Frames: 2.43 s of source,
+      then straight to 4.10 s (the struck "two" skipped); the piece holding only "four" is gone; seven word
+      bursts in the sound, the struck three absent. Preview: the playhead jumped at each cut (logged).
+- [x] Found on the phone and fixed: striking a word wiped every silence gap cut on that clip
+      (`syncRemovedSpansFromTranscript` rebuilt the whole list; `model/CutSpanMerge` keeps the gaps). Re-checked
+      on the Note 9: gap cut, "three" struck, both cut; "three" restored, the gap stays.
+- [x] Found on the phone and fixed: a clip's tick read a position a few ms past its end as inside the next,
+      fully cut clip and seeked back, holding the picture ~0.7 s (fe0be7e58). Re-checked on the final build
+      (63a835afb: the same code, built from the branch before it landed): the same project plays through in ~4.3 s for 4.08 s of kept
+      material, no back-seeks; a clip that is entirely cut still costs a ~0.15 s pause while the player seeks past it.
+
+**Also seen, not fixed (other jobs):** right after transcribing, the transcript panel stayed blank until the
+Transcript tool was closed and opened again; Clean's second tap applies the cut at once (Clean on a film clip
+makes pieces, as built), it does not reopen the dialog.
+
+**Limits:** the hover label is on the film track's marks only (sound rows draw the mark, no hover); a jump over
+a still picture is not skipped in the preview (stills play on their own clock), it is in the export; the preview
+jumps on its 50 ms tick, so the first moment of a struck word can be heard before the jump; a struck word on a
+voiceover lane jumps the film under it too (one rule: a jump is a jump of the whole program).
 
 ## Fixed 11-10 (Studio bugs session, commits 99f8b3ad5 + 3422a7a5a on `claude/studio-bugs-20261110-f15370`)
 - ✅ **Fix audio waveform stays unfixed.** Root cause was bigger than the waveform: a Fix/Clean bake wrote only
@@ -168,8 +215,16 @@ joy-creator (caption, fx, mesh, motionrange, preview-parity, puppet, specq, spec
 - [ ] `OverlayNavUtil.dismiss` hides the whole overlay but pops one level (Library → Trash close path).
       The 10-17 UI handoff says this was fixed for child overlays: confirm.
 - [ ] Sprite warp net looks detached from the sprite (owner report 10-15).
-- [ ] Drawer helper duplicates (top 10 in `tasks/audits/studio_tools_audit.md`).
+- [ ] Drawer helper duplicates (top 10 in `tasks/audits/studio_tools_audit.md`). 11-15 (8048674a6, STU-D5): same-pixel ones done (fix 5 edge/fill/grab aliases, fix 9 grab pill, fix 7 puppet on-fill). Left, each a visible change for the owner: fix 6 (one popover sheet face), fix 7 puppet chip ink (`Kit.inkOn` vs always-dark), fix 8 hand-built rows in Audio/Puppet tabs.
 - [ ] Colour picker hex field wraps on the phone. **The owner said do not touch the colour helper**: report only.
 
 ## Files and traps
 - Check git log for each before fixing; several were worked on after the list was written.
+
+## 11-15 device checks (test Fold, cloud build of joy-creator 4bc535455; full table in [device_checks_20261115](../audits/device_checks_20261115.md))
+- ✅ D7: a seek at/after a cut shows the later clip. ❌ F1: a TAP on the trim handle at the cut makes the clock read double and the preview jump to frame 0 (reproduced twice; a swipe recovers).
+- ✅ Text Fit chip reaches 'Fit to width' and the title fills the width.
+- 🟡 Audio-only project: length 0:06 right on the card and in the editor, but the clip is not drawn on the timeline (the file holds it). On the Fold the audio lane also hid below the pane until the empty top lane was collapsed. Re-look on the Note 9 / tablet.
+- ⬜ Not reached: Clean tab after Revert+Undo (could not find the tab in the drawer on this screen), caption-style chip undo (needs the speech model), old-style Fix audio re-time (no such project).
+
+- 11-15 later (tablet): ✅ Clean tab status line after Revert then Undo; ❌ F1 (tap on a cut handle) and F3 (audio clip undrawn until a lane is toggled) both reproduce on the tablet; ✅ SHELL-10 watermark in a saved video and photo (screen recording not run). Details: [device_checks_20261115](../audits/device_checks_20261115.md).

@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">د اندازې بدلولو لپاره وکاږئ، د بندولو لپاره کېکاږئ</string>
+    <string name="lane_a_toggle_mute">بې‌غږه</string>
+    <string name="lane_a_toggle_hide">پټ</string>
+    <string name="lane_a_toggle_lock">تړل</string>
+    <string name="lane_a_toggle_pass_through">کېکاږې ته اجازه ورکړئ تېرې شي</string>
+    <string name="lane_a_toggle_start_here">دلته پیل</string>
+    <string name="lane_a_toggle_end_here">دلته پای</string>
+    <string name="lane_a_toggle_split">د پلی‌هېډ پر ځای ویشل</string>
+    <string name="lane_a_toggle_fx_bypass">اغېزې تېرې کړئ (A/B)</string>
+    <string name="lane_a_mask_add_shape">د ماسک شکل زیات کړئ</string>
+    <string name="lane_a_mask_remove_shape">دا شکل لرې کړئ</string>
+    <string name="lane_a_mask_shape_n">شکل %1$d</string>
+    <string name="lane_a_step_down">ښکته ګام</string>
+    <string name="lane_a_step_up">پورته ګام</string>
+    <string name="lane_a_key_green">شین لرې کړئ</string>
+    <string name="lane_a_key_blue">آبي لرې کړئ</string>
+    <string name="lane_a_key_black">تور لرې کړئ</string>
+    <string name="lane_a_key_white">سپین لرې کړئ</string>
+    <string name="lane_a_pivot_title">د څرخېدو محور</string>
+    <string name="lane_a_pivot_top_left">محور: پورته کیڼ</string>
+    <string name="lane_a_pivot_top">محور: پورته</string>
+    <string name="lane_a_pivot_top_right">محور: پورته ښي</string>
+    <string name="lane_a_pivot_left">محور: کیڼ</string>
+    <string name="lane_a_pivot_centre">محور: مرکز</string>
+    <string name="lane_a_pivot_right">محور: ښي</string>
+    <string name="lane_a_pivot_bottom_left">محور: ښکته کیڼ</string>
+    <string name="lane_a_pivot_bottom">محور: ښکته</string>
+    <string name="lane_a_pivot_bottom_right">محور: ښکته ښي</string>
+    <string name="lane_a_sprite_prev_key">کیلي مخکې کړئ</string>
+    <string name="lane_a_sprite_key">د پلی‌هېډ لاندې کیلي ړنګ کړئ</string>
+    <string name="lane_a_sprite_next_key">کیلي وروسته کړئ</string>
+    <string name="lane_a_sprite_open_lab">په SpriteLab کې خلاص کړئ</string>
+    <string name="lane_a_sprite_flip_h">افقي واړوئ</string>
+    <string name="lane_a_sprite_flip_v">عمودي واړوئ</string>
+    <string name="lane_a_sprite_end">په پای کې: یو ځل، تکرار یا مخ‌شا</string>
+    <string name="lane_a_sprite_record">اجرا ثبت کړئ</string>
+    <string name="lane_a_sprite_stop">ثبت ودروئ</string>
+    <string name="lane_a_sprite_sweep">د لاندې ویډیو نه تعقیب کړئ</string>
+    <string name="lane_a_sprite_more">نور</string>
+    <string name="lane_a_sprite_dope">د وخت پاڼه</string>
+    <string name="lane_a_sprite_manage">د سپرایټ پاڼې</string>
+    <string name="lane_a_sprite_grip">د ډېرو کتارونو لپاره پورته، د لږو لپاره ښکته وکاږئ</string>
+</resources>

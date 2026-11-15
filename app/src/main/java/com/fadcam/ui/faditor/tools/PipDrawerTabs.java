@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.tools;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
@@ -643,7 +645,7 @@ public final class PipDrawerTabs {
         wrap.setPadding(pad, Math.round(8 * d), pad, 0);
         wrap.addView(input);
 
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+        StudioDialog.builder(ctx)
                 .setTitle(prop.label())
                 .setView(wrap)
                 .setNegativeButton(android.R.string.cancel, null)
@@ -1456,7 +1458,7 @@ public final class PipDrawerTabs {
                 | android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
                 | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
         input.setText(String.valueOf(Math.round(dial.getDegrees())));
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(ctx)
+        StudioDialog.builder(ctx)
                 .setTitle(R.string.faditor_mask_rotate)
                 .setView(input)
                 .setPositiveButton(android.R.string.ok, (dlg, w) -> {

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Stimmen klingen natürlich, auch wenn sich das Tempo ändert</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Alle Werkzeuge schließen</string>
+    <string name="lane_d_asset_close">Den Medienbrowser schließen</string>
+    <string name="lane_d_asset_prev">Voriger angehefteter Ordner</string>
+    <string name="lane_d_asset_next">Nächster angehefteter Ordner</string>
+    <string name="lane_d_asset_filter">Alle, benutzte oder unbenutzte Dateien zeigen</string>
+    <string name="lane_d_asset_forget">Diesen Ordner aus dem Verlauf angehefteter Ordner entfernen</string>
+    <string name="lane_d_asset_resize">Ziehen, um den Medienbrowser anzupassen</string>
+</resources>

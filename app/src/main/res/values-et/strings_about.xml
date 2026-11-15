@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">Teave</string>
+    <string name="aboutjoy_back">Tagasi</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">Üks stuudio kõige jaoks, mida teed.</string>
+    <string name="aboutjoy_tagline_sub">Monteeri, maali, animeeri ja jäädvusta — kõik oma telefonis.</string>
+    <string name="aboutjoy_version_label">Versioon</string>
+    <string name="aboutjoy_build">Järk %1$s · %2$s</string>
+    <string name="aboutjoy_check">Otsi uuendusi</string>
+    <string name="aboutjoy_check_hint">Vaata võrgust, kas on uuem Joy Creator</string>
+    <string name="aboutjoy_checking">Kontrollin…</string>
+    <string name="aboutjoy_up_to_date">Sul on uusim versioon.</string>
+    <string name="aboutjoy_update_ready">Versioon %1$s on valmis.</string>
+    <string name="aboutjoy_beta_ready">Sul on uusim versioon. Väljas on ka beeta, %1$s.</string>
+    <string name="aboutjoy_get_beta">Hangi beeta</string>
+    <string name="aboutjoy_update_failed">Praegu ei saanud kontrollida. Proovi hiljem uuesti.</string>
+    <string name="aboutjoy_wings_label">Tiivad</string>
+    <string name="aboutjoy_wing_studio">Lõika videot ja heli ajateljel</string>
+    <string name="aboutjoy_wing_joybrush">Maali ja animeeri kaader kaadri haaval</string>
+    <string name="aboutjoy_wing_sprites">Tee spraidilehti ja tegelasi</string>
+    <string name="aboutjoy_wing_capture">Salvesta kaamerat või ekraani</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Sinu abiline igas toas</string>
+    <string name="aboutjoy_wing_viz">Muuda heli liikuvateks piltideks</string>
+    <string name="aboutjoy_soon">Varsti</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">Privaatsus</string>
+    <string name="aboutjoy_privacy_toggle">Näita või peida privaatsusvastused</string>
+    <string name="aboutjoy_open_label">Avatud lähtekood</string>
+    <string name="aboutjoy_based_on">Põhineb rakendusel FadCam, autor FadSec Lab</string>
+    <string name="aboutjoy_source_hint">Ava lähtekood oma brauseris</string>
+    <string name="aboutjoy_made_by">Autor</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Klassikaline Teave</string>
+    <string name="aboutjoy_classic_hint">Ava vana Teabe ekraan</string>
+    <string name="aboutjoy_no_browser">Selle lingi avamiseks pole brauserit</string>
+    <string name="aboutjoy_support">Toeta Joy Creatorit</string>
+    <string name="aboutjoy_support_hint">Ava looja toetusleht brauseris</string>
+</resources>

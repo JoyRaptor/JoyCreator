@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">О приложении</string>
+    <string name="aboutjoy_back">Назад</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">Одна студия для всего, что ты создаёшь.</string>
+    <string name="aboutjoy_tagline_sub">Монтируй, рисуй, анимируй и снимай — всё на телефоне.</string>
+    <string name="aboutjoy_version_label">Версия</string>
+    <string name="aboutjoy_build">Сборка %1$s · %2$s</string>
+    <string name="aboutjoy_check">Проверить обновления</string>
+    <string name="aboutjoy_check_hint">Поискать в интернете новую версию Joy Creator</string>
+    <string name="aboutjoy_checking">Проверяю…</string>
+    <string name="aboutjoy_up_to_date">У тебя самая новая версия.</string>
+    <string name="aboutjoy_update_ready">Версия %1$s готова.</string>
+    <string name="aboutjoy_beta_ready">У тебя самая новая версия. Но уже вышла и бета: %1$s.</string>
+    <string name="aboutjoy_get_beta">Получить бету</string>
+    <string name="aboutjoy_update_failed">Сейчас проверить не получилось. Попробуй чуть позже.</string>
+    <string name="aboutjoy_wings_label">Крылья</string>
+    <string name="aboutjoy_wing_studio">Монтаж видео и звука на таймлайне</string>
+    <string name="aboutjoy_wing_joybrush">Рисуй и анимируй кадр за кадром</string>
+    <string name="aboutjoy_wing_sprites">Создавай спрайт-листы и персонажей</string>
+    <string name="aboutjoy_wing_capture">Записывай камеру или экран</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Твой помощник в каждой комнате</string>
+    <string name="aboutjoy_wing_viz">Превращай звук в движущиеся картинки</string>
+    <string name="aboutjoy_soon">Скоро</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">Конфиденциальность</string>
+    <string name="aboutjoy_privacy_toggle">Показать или скрыть ответы о конфиденциальности</string>
+    <string name="aboutjoy_open_label">Открытый код</string>
+    <string name="aboutjoy_based_on">Создано на основе FadCam от FadSec Lab</string>
+    <string name="aboutjoy_source_hint">Открыть исходный код в браузере</string>
+    <string name="aboutjoy_made_by">Автор</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Классический экран «О приложении»</string>
+    <string name="aboutjoy_classic_hint">Открыть старый экран «О приложении»</string>
+    <string name="aboutjoy_no_browser">Нет браузера, чтобы открыть эту ссылку</string>
+    <string name="aboutjoy_support">Поддержать Joy Creator</string>
+    <string name="aboutjoy_support_hint">Открыть страницу поддержки автора в браузере</string>
+</resources>

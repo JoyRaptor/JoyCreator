@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_lane_b.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_b_audio_level_slider">Tase</string>
+    <string name="lane_b_audio_pan_slider">Panoraam</string>
+    <string name="lane_b_audio_fade_in_slider">Esiletulek</string>
+    <string name="lane_b_audio_fade_out_slider">Hajumine</string>
+    <string name="lane_b_audio_level_value">Tase. Puuduta, et täpne protsent sisse tippida.</string>
+    <string name="lane_b_audio_pan_value">Panoraam. Puuduta, et täpne asend sisse tippida.</string>
+    <string name="lane_b_audio_fade_in_value">Esiletulek. Puuduta, et tippida see sekundites.</string>
+    <string name="lane_b_audio_fade_out_value">Hajumine. Puuduta, et tippida see sekundites.</string>
+    <string name="lane_b_audio_clear_envelope">Tühjenda helitugevuse ümbrik ja mine tagasi ühtlase võimenduse juurde</string>
+    <string name="lane_b_audio_beat_link">Seo pealiskiht selle klipi rütmiga</string>
+    <string name="lane_b_audio_gain_meter">Kompressori võimenduse vähendus</string>
+    <string name="lane_b_puppet_name">Nõela nimi</string>
+    <string name="lane_b_puppet_tool">Tööriist: %1$s</string>
+    <string name="lane_b_puppet_tool_on">Tööriist: %1$s, kasutusel</string>
+    <string name="lane_b_puppet_chip">%1$s nõel. Puuduta selle muutmiseks.</string>
+    <string name="lane_b_puppet_chip_on">%1$s nõel, muutmisel</string>
+    <string name="lane_b_puppet_scope">Seaded: %1$s</string>
+    <string name="lane_b_puppet_scope_on">Seaded: %1$s, nähtaval</string>
+    <string name="lane_b_puppet_toggle_on">%1$s: sees. Puuduta väljalülitamiseks.</string>
+    <string name="lane_b_puppet_toggle_off">%1$s: väljas. Puuduta sisselülitamiseks.</string>
+    <string name="lane_b_puppet_eye_on">Ulatuse rõngas on alati nähtav. Puuduta, et näha seda ainult lohistamise ajal.</string>
+    <string name="lane_b_puppet_eye_off">Ulatuse rõngas on nähtav lohistamise ajal. Puuduta, et hoida see sees.</string>
+    <string name="lane_b_puppet_key_position">Pane selle nõela asukoht võtmekaadriks</string>
+    <string name="lane_b_transcript_panel">Ärakiri. Puuduta sõna, et sinna hüpata, hoia all, et seda parandada või maha tõmmata.</string>
+    <string name="lane_b_wave_swatch">%1$s värv. Puuduta valimiseks.</string>
+    <string name="lane_b_wave_lane_top">Rada %1$s: peal. Puuduta, et liigutada alla.</string>
+    <string name="lane_b_wave_lane_below">Rada %1$s: all. Puuduta, et liigutada peale.</string>
+    <string name="lane_b_wave_band_show">Näita sagedusriba %1$s</string>
+    <string name="lane_b_wave_preset">Värv %1$d / %2$d</string>
+    <string name="lane_b_wave_preset_on">Värv %1$d / %2$d, kasutusel</string>
+</resources>

@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">Puuduta, et täpne väärtus sisse tippida</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">Maski pole. Lisa üks, et näidata ainult osa sellest objektist.</string>
+    <string name="lane_a_mask_mode_add">Lisa</string>
+    <string name="lane_a_mask_mode_subtract">Lahuta</string>
+    <string name="lane_a_mask_mode_intersect">Lõikumine</string>
+    <string name="faditor_mask_link_object">Liigu objektiga kaasa</string>
+    <string name="faditor_mask_link_hint">Väljas: mask jääb paigale ja objekt liigub selle all. Sees: mask liigub objektiga kaasa.</string>
+    <string name="lane_a_mask_animated">animeeritud</string>
+    <string name="lane_a_mask_static">animeerimata</string>
+    <string name="lane_a_mask_key_chip">◆ Võtmekaader esitusmärgil</string>
+    <string name="lane_a_mask_key_here">Pane see kuju esitusmärgi kohale võtmekaadriks</string>
+    <string name="lane_a_mask_clear_keys">Tühjenda kõik maski võtmekaadrid</string>
+    <string name="lane_a_mask_keyed_toast">Kuju %1$d sai võtmekaadri kohas %2$.1f s</string>
+    <string name="faditor_fx_empty_layer">See kiht ei muuda veel midagi. Lisa efekt ja kõik kihi all olev saab selle.</string>
+    <string name="faditor_fx_empty_object">Sellel objektil pole veel efekte. Lisa üks ja see liigub objektiga kaasa — see mõjutab ainult seda.</string>
+    <string name="faditor_fx_position">Paiguta eelvaates</string>
+    <string name="faditor_fx_position_done">Paigutan eelvaates — valmis</string>
+    <string name="faditor_fx_blend">Segamine</string>
+    <string name="faditor_fx_vertices">Tipud</string>
+    <string name="faditor_fx_edit_gradient">Muuda seda üleminekut</string>
+    <string name="faditor_fx_curve_edit">Muuda eelvaates</string>
+    <string name="faditor_fx_curve_edit_done">Muudan eelvaates — valmis</string>
+    <string name="faditor_fx_straighten">Sirgenda</string>
+    <string name="faditor_fx_save_look">Salvesta välimus</string>
+    <string name="faditor_fx_look_name_hint">Anna sellele välimusele nimi</string>
+    <string name="faditor_fx_look_save">Salvesta</string>
+    <string name="faditor_fx_saved_looks">Salvestatud välimused</string>
+    <string name="faditor_fx_look_desc">Lae %1$s. Kustutamiseks hoia all</string>
+    <string name="faditor_fx_load">Lae</string>
+    <string name="faditor_fx_load_confirm">Kas laen \'%1$s\'?</string>
+    <string name="faditor_fx_delete_look_confirm">Kas kustutan \'%1$s\'?</string>
+    <string name="faditor_fx_add">＋ Lisa efekt</string>
+    <string name="faditor_fx_needs_pass_title">%1$s vajab omaette läbimist</string>
+    <string name="faditor_fx_needs_pass_body">%1$s loeb naaberpiksleid, seega vajab see valmis pilti, millest lähtuda. Objekt joonistatakse ühe läbimisega, nii et valmis pilti veel pole.\n\nPane see selle objekti kohale kohandamiskihile ja see rakendub sellele ning kõigele selle all.</string>
+    <string name="faditor_fx_toast_keys_cleared">%1$s võtmekaadrid tühjendatud</string>
+    <string name="faditor_fx_toast_saved">Salvestatud: \'%1$s\'</string>
+    <string name="faditor_fx_toast_load_failed">Ei saanud laadida: \'%1$s\'</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">See asendab selle kihi %1$d efekti.</item>
+        <item quantity="other">See asendab selle kihi %1$d efekti.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d efekt</item>
+        <item quantity="other">%1$d efekti</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">Jäta efekt vahele</string>
+    <string name="faditor_undo_fx_enable">Lülita efekt sisse</string>
+    <string name="faditor_undo_fx_delete">Kustuta %1$s</string>
+    <string name="faditor_undo_fx_add">Lisa %1$s</string>
+    <string name="faditor_undo_fx_opacity">%1$s läbipaistvus</string>
+    <string name="faditor_undo_fx_blend">%1$s segamine</string>
+    <string name="faditor_undo_fx_vertices">Kõvera tipud</string>
+    <string name="faditor_undo_fx_straighten">Sirgenda kõver</string>
+    <string name="faditor_undo_fx_reorder">Muuda efektide järjekorda</string>
+    <string name="faditor_undo_fx_key">Võtmekaader: %1$s</string>
+    <string name="faditor_undo_fx_clear_keys">Tühjenda %1$s võtmekaadrid</string>
+    <string name="faditor_undo_fx_apply_look">Rakenda välimus \'%1$s\'</string>
+    <string name="lane_b_audio_fade_in_short">Sisse</string>
+    <string name="lane_b_audio_fade_out_short">Välja</string>
+    <string name="lane_b_audio_env_flat">Ühtlane võimendus — ◇ eemaldab esimese ümbriku punkti</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">Ümbrik · %1$d punkt — liugur juhib punkti ▶︎ all</item>
+        <item quantity="other">Ümbrik · %1$d punkti — liugur juhib punkti ▶︎ all</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">Töötlen…</string>
+    <string name="lane_b_audio_bake_in_use">Kasutusel on töödeldud heli — originaal on alles.</string>
+    <string name="lane_b_audio_bake_offline">Võrguühenduseta töötlus — originaalfaili ei muudeta kunagi.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Ebaõnnestus: %1$s</string>
+    <string name="lane_b_audio_bake_note">Töötab selle klipi heli koopiaga ja esitab seda. Tagasivõtmine viib originaali juurde tagasi.</string>
+    <string name="lane_b_audio_revert">Taasta originaal</string>
+    <string name="lane_b_audio_revert_desc">Mine tagasi originaalse töötlemata helifaili juurde</string>
+    <string name="lane_b_audio_denoise">Vähenda müra</string>
+    <string name="lane_b_audio_denoise_desc">Tee sellest klipist koopia, kus taustamüra on vähendatud</string>
+    <string name="lane_b_audio_normalize">Ühtlusta valjus</string>
+    <string name="lane_b_audio_normalize_desc">Tee sellest klipist koopia ühtlase valjusega</string>
+    <string name="lane_b_audio_voice">Paranda häält</string>
+    <string name="lane_b_audio_voice_undo">Hääle parandus</string>
+    <string name="lane_b_audio_voice_on">Hääleahel SEES — ainult see klipp</string>
+    <string name="lane_b_audio_voice_off">Hääleahel VÄLJAS — ainult see klipp</string>
+    <string name="lane_b_audio_voice_note">Undamise, värava, sisinate, kohaloleku, kompressori ja piiraja töötlus — kõne jaoks. Ehitab selle klipi eelvaateheli uuesti üles.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Rütmiga reageeriv seos…</string>
+    <string name="lane_b_audio_beat_link_note">Juhi pealiskihi suurust, läbipaistvust ja pööret selle klipi ühest sagedusribast. Kirjutab tavalised võtmekaadrid, mida saad hiljem lohistada.</string>
+    <string name="lane_b_audio_comp">Kompressor</string>
+    <string name="lane_b_audio_comp_bypassed">Efektiahel on VAHELE JÄETUD — kuuled puutumata miksi.</string>
+    <string name="lane_b_audio_comp_live">Võimenduse vähendus, otse kompressorist.</string>
+    <string name="lane_b_audio_comp_idle">Mõõdik liigub, kui projekt mängib.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Tase (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Panoraam (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (s)</string>
+    <string name="lane_b_audio_undo_level">Heli tase</string>
+    <string name="lane_b_audio_undo_clear_envelope">Tühjenda ümbrik</string>
+    <string name="lane_b_audio_undo_envelope_point">Ümbriku punkt</string>
+    <string name="lane_b_audio_undo_delete_point">Kustuta ümbriku punkt</string>
+    <string name="lane_b_puppet_swatch">%1$s nõel. Puuduta tüübi muutmiseks.</string>
+    <string name="lane_b_puppet_undo_pin_type">Nõela tüüp</string>
+    <string name="lane_b_puppet_rec_on">Salvestab, kui nõela puudutad. Puuduta peatamiseks.</string>
+    <string name="lane_b_puppet_rec_off">Puudutusel ei salvesta. Puuduta valmisseadmiseks.</string>
+    <string name="lane_b_puppet_sim">simul</string>
+    <string name="lane_b_puppet_tool_grab">Haara</string>
+    <string name="lane_b_puppet_tool_pin">Nõel</string>
+    <string name="lane_b_puppet_tool_stiff">Jäik</string>
+    <string name="lane_b_puppet_tool_dangle">Rippuv</string>
+    <string name="lane_b_puppet_tool_free">Vaba</string>
+    <string name="lane_b_puppet_tool_bone">Luu</string>
+    <string name="lane_b_puppet_scope_selected">Valitud</string>
+    <string name="lane_b_puppet_scope_character">Tegelane</string>
+    <string name="lane_b_puppet_scope_recording">Salvestus</string>
+    <string name="lane_b_puppet_hint_first_pin">Puuduta pilti, et panna paika oma esimene nõel</string>
+    <string name="lane_b_puppet_hint_tap_pin">Puuduta nõela, et seda muuta</string>
+    <string name="lane_b_puppet_hint_dangle">Simuleeritud — muudetavaid võtmekaadreid pole. Kõik olemasolevad võtmekaadrid jäävad puutumata alles ja tulevad tagasi niipea, kui see rippumise lõpetab.</string>
+    <string name="lane_b_puppet_hint_free">Vaba nõel liigub igas suunas. Pööramiseks ja suuruse muutmiseks on mootoris vaja nõelapõhist pööret — vaata spetsifikatsiooni.</string>
+    <string name="lane_b_puppet_hint_anchor">Ankrul pole muud seada — see ongi mõte</string>
+    <string name="lane_b_puppet_hint_tape">Allolev lint näitab nõela %1$s võtmekaadreid. Teiste nägemiseks puuduta teist nõela või ülal olevat kiipi.</string>
+    <string name="lane_b_puppet_hint_rigid">Jäik luu peatab käe poolel teel ja nikastab õla. Multifilmidele sobib tavaliselt venitatav.</string>
+    <string name="lane_b_puppet_hint_limits_off">Vaikimisi väljas — enamik multifilmi rigisid ei vaja neid kunagi.</string>
+    <string name="lane_b_puppet_hint_bone_keys">Luul endal võtmekaadreid pole. Selle liigutamine kirjutab need kohtadesse %1$s ja %2$s.</string>
+    <string name="lane_b_puppet_hint_put_away">Puuduta pildil nukku, et nõelad ära panna</string>
+    <string name="lane_b_puppet_hint_punch_in">Sissezuumimine algab sealt, kus vana liikumine oli, ja lõpus rahuneb tagasi</string>
+    <string name="lane_b_puppet_pin_depth">Sügavus — taga / ees</string>
+    <string name="lane_b_puppet_pin_muted">Vaigistatud</string>
+    <string name="lane_b_puppet_pin_active">Aktiivne</string>
+    <string name="lane_b_puppet_pin_reach_ring">Ulatuse rõngas</string>
+    <string name="lane_b_puppet_pin_auto_pull">Automaatne tõmme</string>
+    <string name="lane_b_puppet_pin_pull">Kui tugevalt see nõel tõmbab</string>
+    <string name="lane_b_puppet_pin_spring">Vedruvus</string>
+    <string name="lane_b_puppet_pin_settle">Rahunemine</string>
+    <string name="lane_b_puppet_pin_mass">Mass</string>
+    <string name="lane_b_puppet_pin_max_stretch">Suurim venitus</string>
+    <string name="lane_b_puppet_pin_stiff_area">Jäik ala</string>
+    <string name="lane_b_puppet_pin_strength">Tugevus</string>
+    <string name="lane_b_puppet_reset">Alusta otsast</string>
+    <string name="lane_b_puppet_reset_desc">Eemaldab %1$s ja kõik võtmekaadrid</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d nõel</item>
+        <item quantity="other">%1$d nõela</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d luu</item>
+        <item quantity="other">%1$d luud</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Luu</string>
+    <string name="lane_b_puppet_bone_from">Kust</string>
+    <string name="lane_b_puppet_bone_to">Kuhu</string>
+    <string name="lane_b_puppet_bone_length">Pikkus</string>
+    <string name="lane_b_puppet_bone_rest_angle">Puhkenurk</string>
+    <string name="lane_b_puppet_bone_rest_length">Puhkepikkus</string>
+    <string name="lane_b_puppet_bone_stretchy">Venitatav</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Pööra küünarnukk</string>
+    <string name="lane_b_puppet_bone_reach">Ulatus</string>
+    <string name="lane_b_puppet_bone_stretch">Kui kaugele see võib venida</string>
+    <string name="lane_b_puppet_bone_joint_limits">Liigese piirid</string>
+    <string name="lane_b_puppet_bone_fold_back">Ära voldi tagasi kaugemale kui</string>
+    <string name="lane_b_puppet_bone_fold_forward">Ära voldi ette kaugemale kui</string>
+    <string name="lane_b_puppet_rig_softness">Pehmus</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Võrgu detailsus</string>
+    <string name="lane_b_puppet_rig_gravity">Raskusjõud</string>
+    <string name="lane_b_puppet_rig_wind">Tuul</string>
+    <string name="lane_b_puppet_rig_wind_dir">Tuule suund</string>
+    <string name="lane_b_puppet_rig_show_pins">Nõelad</string>
+    <string name="lane_b_puppet_rig_show_bones">Luud</string>
+    <string name="lane_b_puppet_rig_show_mesh">Võrk</string>
+    <string name="lane_b_puppet_rig_rarely">Vajalik harva</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Serva lävi</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Serva laiendus</string>
+    <string name="lane_b_puppet_record_on_touch">Salvesta puudutusel</string>
+    <string name="lane_b_puppet_record_snap">Haaka võtmekaadritele</string>
+    <string name="lane_b_puppet_record_detail">Salvestatud liigutuste detailsus</string>
+    <string name="lane_b_puppet_record_blend_out">Sulanda välja</string>
+    <string name="faditor_text_underline">Allajoonitud</string>
+    <string name="faditor_text_case_first">Suurtäht sõna alguses</string>
+    <string name="faditor_text_case_all">Kõik suurtähed</string>
+    <string name="faditor_text_case_small">Kapiteelkiri</string>
+    <string name="faditor_text_align">Joondus: %1$s. Puuduta muutmiseks</string>
+    <string name="faditor_text_align_left">vasak</string>
+    <string name="faditor_text_align_center">kesk</string>
+    <string name="faditor_text_align_right">parem</string>
+    <string name="faditor_text_align_justify">rööpjoondus</string>
+    <string name="faditor_text_color">Teksti värv</string>
+    <string name="faditor_text_shadow_distance">Kaugus</string>
+    <string name="faditor_text_shadow_direction">Varju suund</string>
+    <string name="faditor_text_shadow_angle">Varju nurk</string>
+    <string name="faditor_text_anim_label">Animatsioon</string>
+    <string name="lane_b_caption_hide">Peida see subtiitrirada</string>
+    <string name="lane_b_caption_show">Näita seda subtiitrirada</string>
+    <string name="lane_b_caption_add_track">Lisa subtiitrirada</string>
+    <string name="caption_size">Subtiitri suurus</string>
+    <string name="caption_highlight">Esiletõst</string>
+    <string name="caption_style_save">Salvesta minu stiiliks</string>
+    <string name="caption_style_delete">Kustuta see oma stiil</string>
+    <string name="caption_style_copy">Kopeeri stiil tekstina</string>
+    <string name="caption_style_import">Impordi stiil tekstist</string>
+    <string name="caption_anim_pop">Hüpe</string>
+    <string name="caption_anim_zoom">Suum</string>
+    <string name="caption_anim_bounce">Põrge</string>
+    <string name="caption_box">Kast</string>
+    <string name="caption_box_more">Kast…</string>
+    <string name="caption_box_more_desc">Rohkem kasti valikuid</string>
+    <string name="caption_drawer_empty">Subtiitritega klippi pole valitud</string>
+    <string name="caption_fit_uniform">Ühtlane</string>
+    <string name="caption_fit_per_cue">Reakaupa</string>
+    <string name="caption_fit_truncate">Lõika ära</string>
+    <string name="caption_fit_words">Sõnad</string>
+    <string name="caption_fit_words_desc">Sõnu subtiitri kohta</string>
+    <string name="caption_fit_lines">Ridu kuni</string>
+    <string name="caption_fit_lines_prompt">Ridu kuni (0 = piiramatult)</string>
+    <string name="caption_fit_floor">Alampiir</string>
+    <string name="caption_group_slide">Rühmitus: Slaid</string>
+    <string name="caption_group_karaoke">Rühmitus: Karaoke</string>
+    <string name="caption_group_desc">Kuidas sõnad subtiitriteks rühmitatakse. Puuduta vahetamiseks</string>
+    <string name="caption_grow_center">Kasv: keskelt</string>
+    <string name="caption_grow_down">Kasv: alla</string>
+    <string name="caption_grow_up">Kasv: üles</string>
+    <string name="caption_grow_desc">Millises suunas subtiiter kasvab. Puuduta vahetamiseks</string>
+    <string name="caption_align_center">Joondus: kesk</string>
+    <string name="caption_align_left">Joondus: vasak</string>
+    <string name="caption_align_right">Joondus: parem</string>
+    <string name="caption_align_desc">Rea joondus. Puuduta vahetamiseks</string>
+    <string name="caption_copy_all">Kopeeri kõigile</string>
+    <string name="caption_copy_all_desc">Kopeeri selle raja kasv ja joondus kõigile subtiitriradadele</string>
+    <string name="caption_copy_all_done">Ankur ja joondus rakendatud kõigile radadele</string>
+    <string name="caption_position">Subtiitri asukoht</string>
+    <string name="caption_timing">Ajastus</string>
+    <string name="caption_timing_hint">Rakendub igale subtiitrireale selle rea osana</string>
+    <string name="caption_timing_readout">Sisse %1$d%%   Välja %2$d%%   igast reast</string>
+    <string name="caption_timing_readout_meet">Sisse %1$d%%   Välja %2$d%%   igast reast  ·  sisse lõpeb, kui välja algab</string>
+    <string name="caption_timing_in_desc">Sissetuleku ajastus</string>
+    <string name="caption_timing_out_desc">Väljatuleku ajastus</string>
+    <string name="faditor_prop_pos_x">Asukoht X</string>
+    <string name="faditor_prop_pos_y">Asukoht Y</string>
+    <string name="faditor_prop_scale">Suurus</string>
+    <string name="faditor_prop_scale_x">Suurus X</string>
+    <string name="faditor_prop_scale_y">Suurus Y</string>
+    <string name="drawer_title_visualizer">Visualiseerija</string>
+    <string name="drawer_tab_puppet">Nukk</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d heli</item>
+        <item quantity="other">%1$d heli</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>Väljas</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Broadcast -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Originaal</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (ilma lisakaoduta)</item>
+        <item>JPG (väiksem)</item>
+    </string-array>
+    <string name="export_loudness">Valjuse siht</string>
+    <string name="export_loudness_readout">Mõõdetud: %1$s LUFS → Siht: %2$s</string>
+    <string name="export_quality">Kvaliteet</string>
+    <string name="export_format">Vorming</string>
+    <string name="export_audio_only">Ekspordi ainult heli (.m4a)</string>
+    <string name="export_audio_only_desc">Segab klipi heli ja muusika üheks helifailiks — videorada puudub</string>
+    <string name="export_audio_only_project">Selles projektis pole videot — see eksporditakse heliks</string>
+    <string name="export_frame">Ekspordi üksik kaader (pilt)</string>
+    <string name="export_frame_desc">Salvestab ühe valmis kaadri — pealiskihid kaasa arvatud — ekspordi eraldusvõimega. Kaader tuleb samalt videokodeerijalt nagu eksport, seega kujundab seda Kvaliteet: PNG säilitab kaadri täpselt, JPG on väiksem (läbipaistvust pole, kaadrid on läbipaistmatud)</string>
+    <string name="export_frame_time">Kaadri aeg (eeltäidetud esitusmärgilt — kirjuta, et muuta)</string>
+    <string name="export_time_hint">m:ss.t või sekundid</string>
+    <string name="export_range_hint">m:ss.t</string>
+    <string name="export_frame_error_format">Sisesta aeg, näiteks 01:23.4 (või 4.5 tähendab 4,5 sekundit)</string>
+    <string name="export_frame_error_past">See aeg on pärast projekti lõppu (%1$s). Vali varasem aeg.</string>
+</resources>

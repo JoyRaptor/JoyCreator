@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.StudioDialog;
+
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
@@ -619,7 +621,7 @@ public class SpritePalettePanel extends FrameLayout {
         input.setSelectAllOnFocus(true);
         int p = (int) (20 * density);
         input.setPadding(p, p / 2, p, p / 2);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
+        StudioDialog.builder(getContext())
                 .setTitle(title)
                 .setView(input)
                 .setPositiveButton("OK", (d, w) -> {

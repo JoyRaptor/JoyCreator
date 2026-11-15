@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">Ενεργό</string>
+    <string name="joybotswitch_state_off">Ανενεργό</string>
+    <string name="joybotswitch_tip_on">Ενεργό. Πάτα για να το απενεργοποιήσεις.</string>
+    <string name="joybotswitch_tip_off">Ανενεργό. Πάτα για να το ενεργοποιήσεις.</string>
+    <string name="joybotswitch_tip_on_named">Ενεργό: %1$s. Πάτα για να το απενεργοποιήσεις.</string>
+    <string name="joybotswitch_tip_off_named">Ανενεργό: %1$s. Πάτα για να το ενεργοποιήσεις.</string>
+</resources>

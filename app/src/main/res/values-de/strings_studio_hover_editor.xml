@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_studio_hover_editor.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_hover_export_progress">Exportfortschritt anzeigen</string>
+    <string name="studio_hover_viz_add_layer">Ebene hinzufügen</string>
+    <string name="studio_hover_viz_duplicate_layer">Ebene duplizieren</string>
+    <string name="studio_hover_viz_delete_layer">Ebene löschen</string>
+    <string name="studio_hover_viz_move_layer_left">Ebene nach links schieben</string>
+    <string name="studio_hover_viz_move_layer_right">Ebene nach rechts schieben</string>
+    <string name="studio_hover_bold">Fett</string>
+    <string name="studio_hover_underline">Unterstrichen</string>
+    <string name="studio_hover_italic">Kursiv</string>
+    <string name="studio_hover_text_motion">Bewegung</string>
+    <string name="studio_hover_pivot">Drehpunkt</string>
+</resources>

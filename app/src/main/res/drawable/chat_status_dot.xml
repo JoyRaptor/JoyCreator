@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The little green "ready" light beside the model name under the title. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="@color/s_go" />
+    <size android:width="6dp" android:height="6dp" />
+</shape>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_onboarding_shell.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboarding_promise_desc">Tiga hal yang perlu kamu tahu, lalu aplikasi ini jadi milikmu.</string>
+    <string name="onboarding_promise_1">Karyamu tetap di ponselmu, di folder Joy Creator yang kamu pilih.</string>
+    <string name="onboarding_promise_2">Tanpa akun, tanpa iklan, tanpa pelacakan. Tidak ada hal tentangmu yang dijual atau dibagikan.</string>
+    <string name="onboarding_promise_3">Sesuatu hanya keluar dari ponselmu saat kamu memakai fitur yang butuh internet, seperti AI yang kamu sambungkan.</string>
+    <string name="hover_intro_ai_add">Sambungkan AI milikmu ke Joybot sekarang</string>
+    <string name="hover_intro_ai_later">Sembunyikan ini; kamu bisa menyambungkan AI nanti dari chat Joybot</string>
+</resources>

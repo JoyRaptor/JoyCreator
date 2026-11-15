@@ -637,6 +637,8 @@ public final class HelpBook {
         Topic best = null;
         int bestLen = 0;
         for (Topic t : TOPICS) {
+            // L37: no answer about a place on the launch list.
+            if (com.fadcam.launch.LaunchList.hiddenRoute(t.route)) continue;
             for (String k : t.keys) {
                 // Short keys only at a word start: "ums" must not match "drums".
                 boolean hit = k.length() <= 3 ? q.contains(" " + k) : q.contains(k);

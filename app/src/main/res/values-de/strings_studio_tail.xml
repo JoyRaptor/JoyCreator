@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Keyframe verschieben</string>
+    <string name="studio_tail_add_adjustment_layer">Einstellungsebene hinzufügen</string>
+    <string name="studio_tail_add_linked_pair">Verknüpftes Bildschirm-+-Webcam-Paar hinzufügen</string>
+    <string name="studio_tail_insert_at_playhead">An der Abspielposition einfügen</string>
+    <string name="studio_tail_split_linked_pair">Verknüpftes Paar teilen</string>
+    <string name="studio_tail_delete_linked_pair">Verknüpftes Paar löschen</string>
+    <string name="studio_tail_duplicate">Duplizieren</string>
+    <string name="studio_tail_link_clips_pair">Clips verknüpfen (Bildschirm + Webcam)</string>
+</resources>

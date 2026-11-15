@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_joybot_switch_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_label_preview">Vista previa</string>
+    <string name="joybotswitch_label_torch">Linterna</string>
+    <string name="joybotswitch_label_record">Grabar</string>
+    <string name="joybotswitch_label_visible">Visible</string>
+    <string name="joybotswitch_label_locked">Bloqueado</string>
+    <string name="joybotswitch_label_pinned">Fijado</string>
+</resources>

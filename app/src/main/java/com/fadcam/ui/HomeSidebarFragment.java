@@ -312,6 +312,8 @@ public class HomeSidebarFragment extends DialogFragment {
         if (parkingMarkerRow != null) parkingMarkerRow.setOnClickListener(v -> showMiniAppComingSoon(this, "parking_marker"));
         View qrGeneratorRow = view.findViewById(R.id.row_mini_app_qr_generator);
         if (qrGeneratorRow != null) qrGeneratorRow.setOnClickListener(v -> showMiniAppComingSoon(this, "qr_generator"));
+        // L37 / SHELL-15: "coming soon" gadgets on the launch list lose their rows (code untouched).
+        com.fadcam.launch.LaunchGate.hideGadgetRows(view);
 
         setupUpdateCards(view);
     }

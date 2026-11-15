@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Remote Studio</string>
+    <string name="remote_chip_on_air">ON AIR</string>
+    <string name="remote_chip_off_air">OFF AIR</string>
+    <string name="remote_section_on_air">On Air</string>
+    <string name="remote_section_connection">Verbindung</string>
+    <string name="remote_section_health">Zustand</string>
+    <string name="remote_section_security">Verschlüsselung</string>
+    <string name="remote_section_help">Hilfe</string>
+    <string name="remote_quality_default">Hoch (1080p) • 30 fps • 8 Mbit/s</string>
+    <string name="remote_usage_title">Cloud-Nutzungsbericht</string>
+    <string name="remote_usage_retrying">Verbindung wird erneut versucht ...</string>
+    <string name="remote_usage_bytes">Gemeldete Bytes</string>
+    <string name="remote_usage_failures">Fehler</string>
+    <string name="remote_usage_action">Aktion</string>
+    <string name="remote_usage_retry">Erneut versuchen</string>
+    <string name="remote_usage_retry_toast">Nutzungsbericht wird erneut versucht ...</string>
+    <string name="remote_usage_title_active">Cloud-Nutzung (aktiv)</string>
+    <string name="remote_usage_title_error">Cloud-Nutzung (Fehler)</string>
+    <string name="remote_usage_title_retrying">Cloud-Nutzung (neuer Versuch)</string>
+    <string name="remote_usage_title_plain">Cloud-Nutzung</string>
+    <string name="remote_usage_no_errors">Keine Fehler</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 Fehler</string>
+    <string name="remote_toast_stream_starting">Stream-Server startet ...</string>
+    <string name="remote_toast_stream_stopped">Stream-Server gestoppt</string>
+    <string name="remote_toast_mode_stream_only">Modus Nur Stream</string>
+    <string name="remote_toast_mode_stream_save">Modus Stream &amp; Speichern</string>
+    <string name="remote_toast_no_clients">Keine Geräte verbunden</string>
+    <string name="remote_toast_password_empty">Das Passwort darf nicht leer sein</string>
+    <string name="remote_toast_link_account">Verknüpfe zuerst dein Joy-Creator-ID-Konto</string>
+    <string name="remote_toast_wrong_password">Falsches Passwort — bitte versuche es nochmal</string>
+    <string name="remote_toast_setup_failed">Einrichtung fehlgeschlagen: %1$s</string>
+    <string name="remote_toast_autolock_set">Zeit für die automatische Sperre eingestellt auf: %1$s</string>
+    <string name="remote_toast_device_id_copied">Geräte-ID kopiert</string>
+    <string name="remote_password_hint">Neues Passwort eingeben</string>
+    <string name="remote_password_helper">Ändere hier dein Passwort für die Anmeldung. Mindestens 4 Zeichen. Das ist eine einfache HTTP-Authentifizierung — nicht besonders sicher, aber besser als nichts. Wenn du das Passwort änderst, werden alle anderen Geräte automatisch abgemeldet.</string>
+    <string name="remote_lock_never">Nie</string>
+    <string name="remote_lock_never_desc">Sitzungen dauerhaft aktiv lassen</string>
+    <string name="remote_lock_30min">30 Minuten</string>
+    <string name="remote_lock_30min_desc">Nach 30 Minuten ohne Aktivität sperren</string>
+    <string name="remote_lock_1hr">1 Stunde</string>
+    <string name="remote_lock_1hr_desc">Nach 1 Stunde ohne Aktivität sperren</string>
+    <string name="remote_lock_3hr">3 Stunden</string>
+    <string name="remote_lock_3hr_desc">Nach 3 Stunden ohne Aktivität sperren</string>
+    <string name="remote_lock_6hr">6 Stunden</string>
+    <string name="remote_lock_6hr_desc">Nach 6 Stunden ohne Aktivität sperren</string>
+</resources>

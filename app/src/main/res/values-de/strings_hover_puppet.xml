@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Spalten quer über das Blatt. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_rows">Zeilen nach unten über das Blatt. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_margin_x">Platz am linken und rechten Rand des Blatts. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_margin_y">Platz am oberen und unteren Rand des Blatts. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_spacing_x">Abstand zwischen den Zellen, von Seite zu Seite. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_spacing_y">Abstand zwischen den Zellen, von oben nach unten. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_tolerance">Wie nah an der Key-Farbe als Hintergrund zählt. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_move_x">Dieses Bild nach links oder rechts verschieben. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_move_y">Dieses Bild nach oben oder unten verschieben. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_scale">Dieses Bild größer oder kleiner machen. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_rotate">Dieses Bild drehen, in Grad. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_pivot_x">Drehpunkt, von links nach rechts. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_pivot_y">Drehpunkt, von oben nach unten. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_bake_pad">Platz um jedes Bild beim Backen. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_onion_strength">Wie stark die Zwiebelhaut-Geister aussehen. Ziehen zum Ändern, tippen zum Eingeben</string>
+    <string name="hover_sprite_onion_past">Geister früherer Bilder. Ziehen ändert die Anzahl, tippen wählt eine Farbe</string>
+    <string name="hover_sprite_onion_future">Geister späterer Bilder. Ziehen ändert die Anzahl, tippen wählt eine Farbe</string>
+    <string name="hover_sprite_divider">Ziehen, um das Werkzeugfeld höher oder niedriger zu machen</string>
+    <string name="hover_puppet_badge">Puppet-Pins. Tippen zum Posen, halten für die Pin-Schublade</string>
+</resources>

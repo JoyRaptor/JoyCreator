@@ -48,6 +48,8 @@ public final class CaptureAccess {
     private final AppCompatActivity activity;
     private final ActivityResultLauncher<String[]> launcher;
     @Nullable private Runnable onReady;
+    /** Which needed permissions Android was willing to explain just before this ask (see {@link #answered}). */
+    private final java.util.Set<String> explainableBefore = new java.util.HashSet<>();
 
     public CaptureAccess(@NonNull AppCompatActivity activity) {
         this.activity = activity;
@@ -146,6 +148,10 @@ public final class CaptureAccess {
         for (String p : needed()) if (!has(p)) ask.add(p);
         for (String p : optional()) if (!has(p)) ask.add(p);
         if (ask.isEmpty()) { ready(onReady); return; }
+        explainableBefore.clear();
+        for (String p : needed()) {
+            if (ActivityCompat.shouldShowRequestPermissionRationale(activity, p)) explainableBefore.add(p);
+        }
         launcher.launch(ask.toArray(new String[0]));
     }
 
@@ -153,12 +159,24 @@ public final class CaptureAccess {
         Runnable then = onReady;
         onReady = null;
         if (ready()) { ready(then); return; }
-        // Not allowed. If Android will no longer show its prompt, say where the switch is instead.
+        // Not allowed. Android's "explain why" flag is off both before a first ask and after "don't ask again", and a tap
+        // outside its question leaves it unchanged (launch bug hunt C17, 11-15), so it is "blocked" only when the flag
+        // just went from on to off, or a real "no" was seen on an earlier ask and Android still will not explain.
+        android.content.SharedPreferences seen = activity.getSharedPreferences("capture_access", AppCompatActivity.MODE_PRIVATE);
+        boolean blocked = false;
         for (String p : needed()) {
-            if (!has(p) && !ActivityCompat.shouldShowRequestPermissionRationale(activity, p)) {
-                explainSettings();
-                return;
+            if (has(p)) continue;
+            boolean explainable = ActivityCompat.shouldShowRequestPermissionRationale(activity, p);
+            if (explainable) {
+                seen.edit().putBoolean("denied_" + p, true).apply();
+            } else if (explainableBefore.contains(p) || seen.getBoolean("denied_" + p, false)) {
+                blocked = true;
             }
+        }
+        explainableBefore.clear();
+        if (blocked) {
+            explainSettings();
+            return;
         }
         android.widget.Toast.makeText(activity, R.string.access_capture_declined, android.widget.Toast.LENGTH_LONG).show();
     }

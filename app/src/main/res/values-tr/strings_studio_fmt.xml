@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">İçe aktarıldı: %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Slayt oluşturulamadı: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Toplama başarısız: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Dışa aktarma başarısız: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Dışa aktarma kopyası başarısız: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">İçe aktarma başarısız: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Yeniden sıralama başarısız: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Yeniden sıralama hatası: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Hizalama başarısız: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Bu bir Studio slaydına benzemiyor: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Slayt içe aktarma başarısız: %1$s</string>
+</resources>

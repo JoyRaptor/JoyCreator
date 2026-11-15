@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_timeline_marks_host.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="markers_host_bookmark_number">Marcador %1$d</string>
+    <string name="markers_host_add_bookmark">Agregar marcador</string>
+    <string name="markers_host_save_failed">No se pudieron guardar las marcas de la línea de tiempo. Se conservaron tus marcas anteriores.</string>
+    <string name="markers_host_export_named">%1$d regiones con nombre se exportarán como archivos separados.</string>
+    <string name="markers_host_region_filenames">Usar el nombre de cada región</string>
+    <string name="markers_host_export_invalid">No se pudieron exportar las regiones: %1$s</string>
+    <string name="markers_host_export_queued">%1$d exportaciones de regiones en cola</string>
+    <string name="markers_host_bookmark_hint">Toca para dejar un marcador; mantén pulsado para ver marcadores y regiones</string>
+</resources>

@@ -16,4 +16,6 @@
     <string name="hover_lobby_hero_action">%1$s in %2$s</string>
     <string name="hover_lobby_hero_new">Start something new in %1$s</string>
     <string name="hover_lobby_library">Open the Library: everything you have made</string>
+    <!-- STU-B3: the black mark on the timeline where playback and export jump over a struck word or a cut silence. %1$s is seconds, e.g. 0.8. -->
+    <string name="hover_studio_cut_mark">Cut: %1$s s skipped, tap the word to restore</string>
 </resources>

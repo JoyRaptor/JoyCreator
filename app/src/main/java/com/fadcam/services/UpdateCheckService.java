@@ -66,6 +66,11 @@ public class UpdateCheckService {
     // ── Public API ───────────────────────────────────────────────────
 
     public static UpdateCheckResult checkForUpdate(String currentVersion) {
+        // A Play install updates through Play only: Play forbids offering another way, and the GitHub
+        // download is a different app (launch bug hunt 11-15, B4). Never asks GitHub, never offers anything.
+        if (com.fadcam.BuildConfig.PLAY_BUILD) {
+            return new UpdateCheckResult(null, null, null, null, null, null, false, false, false, false);
+        }
         FLog.d(TAG, "Checking updates — current: " + currentVersion);
 
         // Fetch both feeds in parallel on a small thread pool

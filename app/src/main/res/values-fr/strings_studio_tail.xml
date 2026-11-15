@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Déplacer l\'image clé</string>
+    <string name="studio_tail_add_adjustment_layer">Ajouter un calque de réglage</string>
+    <string name="studio_tail_add_linked_pair">Ajouter une paire liée écran + webcam</string>
+    <string name="studio_tail_insert_at_playhead">Insérer à la tête de lecture</string>
+    <string name="studio_tail_split_linked_pair">Couper la paire liée</string>
+    <string name="studio_tail_delete_linked_pair">Supprimer la paire liée</string>
+    <string name="studio_tail_duplicate">Dupliquer</string>
+    <string name="studio_tail_link_clips_pair">Lier des clips (écran + webcam)</string>
+</resources>

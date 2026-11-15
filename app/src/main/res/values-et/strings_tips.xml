@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_tips.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string-array name="tips_joycreator">
+        <item>Kõik, mis sa teed, salvestatakse sinu Joy Creatori kausta tavaliste failidena, mida saad näha, kopeerida ja varundada.</item>
+        <item>Kustutasid kogemata midagi? Hoia lobby ülaosas Joy Creatori logo all, et avada Hiljuti kustutatud.</item>
+        <item>Puuduta lobbys otsingu luupi, et leida Library sisust mis tahes projekt, salvestus, joonistus või pilt.</item>
+        <item>Hoia Library sees midagi all, et näha kõike, mida sellega teha saad.</item>
+        <item>Jaga video, pilt või heli mis tahes rakendusest Joy Creatorisse ja see jõuab sinu kausta, Studio jaoks valmis.</item>
+        <item>Puuduta Joybotti, et saada idee sellest, millega tegeled. Oma AI-ga vestlemiseks ühenda see Seadetes, AI ja Joybot.</item>
+        <item>TextLab teeb filmiplakati tasemel pealkirju. Studios puuduta pealkirja ilme kõrval Muuda TextLabis, et seda seal muuta.</item>
+        <item>Ava .joypack fail, et lisada uusi ilmeid ja fonte. Puuduta lobby allosas Paketid, et näha, mis sul on.</item>
+        <item>Puuduta lobbys mäluriba, et näha, mis telefonis ruumi võtab, ja osa tagasi saada.</item>
+        <item>Otsi Seadetest seda, mida tahad muuta, näiteks \"vesimärk\" või \"teema\".</item>
+        <item>Viz Lab muudab sinu muusika liikuvaks visuaaliks, mis on ehitatud osadest, mida saad segada ja kohandada.</item>
+    </string-array>
+</resources>

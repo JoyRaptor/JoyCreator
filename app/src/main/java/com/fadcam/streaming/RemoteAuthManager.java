@@ -48,14 +48,46 @@ public class RemoteAuthManager {
      * Check if authentication is enabled
      */
     public boolean isAuthEnabled() {
-        return prefs.getBoolean(Constants.PREF_REMOTE_AUTH_ENABLED, false);
+        // ON unless the person turned it off on THIS key (B3, 11-15). The old key defaulted to
+        // off, and an "off" saved under it in the FadCam days must not carry over.
+        return prefs.getBoolean(PREF_LOCK_ON, true);
+    }
+
+    /** Remote Studio's lock is on by default; the old FadCam setting is not carried over. */
+    private static final String PREF_LOCK_ON = "remote_lock_on_v2";
+    /** The six-digit code shown on the phone that opens Remote Studio in a browser. */
+    private static final String PREF_PAIRING_CODE = "remote_pairing_code";
+
+    /** The pairing code shown on the phone; made the first time it is asked for. */
+    public synchronized String getPairingCode() {
+        String code = prefs.getString(PREF_PAIRING_CODE, null);
+        if (code == null || code.length() != 6) code = newPairingCode();
+        return code;
+    }
+
+    /** A fresh pairing code; every browser that was let in has to enter the new one. */
+    public synchronized String newPairingCode() {
+        String code = String.format(java.util.Locale.US, "%06d", secureRandom.nextInt(1_000_000));
+        prefs.edit().putString(PREF_PAIRING_CODE, code).apply();
+        clearAllSessions();
+        return code;
+    }
+
+    /** The code or the password the person set: either opens Remote Studio. */
+    public boolean verifyCodeOrPassword(String entered) {
+        if (entered == null) return false;
+        String e = entered.replace(" ", "").trim();
+        byte[] a = e.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        byte[] b = getPairingCode().getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        if (MessageDigest.isEqual(a, b)) return true;
+        return hasPassword() && verifyPassword(entered);
     }
     
     /**
      * Enable or disable authentication
      */
     public void setAuthEnabled(boolean enabled) {
-        prefs.edit().putBoolean(Constants.PREF_REMOTE_AUTH_ENABLED, enabled).apply();
+        prefs.edit().putBoolean(PREF_LOCK_ON, enabled).apply();
         if (!enabled) {
             clearAllSessions();
         }
@@ -112,7 +144,9 @@ public class RemoteAuthManager {
         }
         
         String inputHash = hashPassword(password);
-        boolean isValid = storedHash.equals(inputHash);
+        boolean isValid = inputHash != null && MessageDigest.isEqual(
+                storedHash.getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                inputHash.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         
         if (!isValid) {
             FLog.d(TAG, "Password verification failed: hash mismatch");

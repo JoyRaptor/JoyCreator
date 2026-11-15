@@ -8,5 +8,6 @@ if [ -z "$GSON" ]; then GSON=$(ls ~/.gradle/caches/modules-2/files-2.1/com.googl
 OUT=$(mktemp -d)
 SEP=":"; case "$(uname -s)" in MINGW*|MSYS*|CYGWIN*) SEP=";"; OUT=$(cygpath -w "$OUT"); GSON=$(cygpath -w "$GSON");; esac
 javac -Xlint:unchecked -encoding UTF-8 --release 11 -cp "$GSON" -d "$OUT" \
-  studiokit/src/main/java/com/fadcam/joyfolder/*.java tools/joyfolder-tests/JoyFolderTests.java
+  studiokit/src/main/java/com/fadcam/joyfolder/*.java tools/joyfolder-tests/JoyFolderTests.java tools/joyfolder-tests/LegacyFolderMoveTests.java
 java -cp "$OUT${SEP}$GSON" JoyFolderTests
+java -cp "$OUT${SEP}$GSON" LegacyFolderMoveTests

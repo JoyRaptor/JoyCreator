@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_studio_hover_editor.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_hover_export_progress">显示导出进度</string>
+    <string name="studio_hover_viz_add_layer">添加图层</string>
+    <string name="studio_hover_viz_duplicate_layer">复制图层</string>
+    <string name="studio_hover_viz_delete_layer">删除图层</string>
+    <string name="studio_hover_viz_move_layer_left">图层左移</string>
+    <string name="studio_hover_viz_move_layer_right">图层右移</string>
+    <string name="studio_hover_bold">粗体</string>
+    <string name="studio_hover_underline">下划线</string>
+    <string name="studio_hover_italic">斜体</string>
+    <string name="studio_hover_text_motion">动效</string>
+    <string name="studio_hover_pivot">旋转支点</string>
+</resources>

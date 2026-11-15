@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">图集横向的列数。拖动更改，点按输入</string>
+    <string name="hover_sprite_rows">图集纵向的行数。拖动更改，点按输入</string>
+    <string name="hover_sprite_margin_x">图集左右边缘的留白。拖动更改，点按输入</string>
+    <string name="hover_sprite_margin_y">图集上下边缘的留白。拖动更改，点按输入</string>
+    <string name="hover_sprite_spacing_x">格子之间的左右间隙。拖动更改，点按输入</string>
+    <string name="hover_sprite_spacing_y">格子之间的上下间隙。拖动更改，点按输入</string>
+    <string name="hover_sprite_tolerance">与抠色颜色多接近就算背景。拖动更改，点按输入</string>
+    <string name="hover_sprite_move_x">把这一帧向左或向右移动。拖动更改，点按输入</string>
+    <string name="hover_sprite_move_y">把这一帧向上或向下移动。拖动更改，点按输入</string>
+    <string name="hover_sprite_scale">把这一帧放大或缩小。拖动更改，点按输入</string>
+    <string name="hover_sprite_rotate">旋转这一帧，单位是度。拖动更改，点按输入</string>
+    <string name="hover_sprite_pivot_x">轴心点，从左到右。拖动更改，点按输入</string>
+    <string name="hover_sprite_pivot_y">轴心点，从上到下。拖动更改，点按输入</string>
+    <string name="hover_sprite_bake_pad">合成时每一帧周围的留白。拖动更改，点按输入</string>
+    <string name="hover_sprite_onion_strength">洋葱皮残影的浓淡。拖动更改，点按输入</string>
+    <string name="hover_sprite_onion_past">前面几帧的残影。拖动更改数量，点按选颜色</string>
+    <string name="hover_sprite_onion_future">后面几帧的残影。拖动更改数量，点按选颜色</string>
+    <string name="hover_sprite_divider">拖动可加高或压低工具面板</string>
+    <string name="hover_puppet_badge">木偶图钉。点按摆姿势，长按打开图钉抽屉</string>
+</resources>

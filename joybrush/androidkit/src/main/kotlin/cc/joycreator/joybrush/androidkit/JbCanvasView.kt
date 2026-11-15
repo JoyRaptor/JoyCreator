@@ -679,6 +679,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         requestRender()
     }
 
+    /** Bench only: paint store tiles read back and uploaded with the reused buffers ([GlPaintEngine.reuseMediaStaging]) or with new ones a tile. */
+    fun benchReuseMediaStaging(on: Boolean) { onGl(allowLost = true) { engine.reuseMediaStaging = on; engine.readMediaAsHalves = on } }
+
+    /**
+     * How much pencil, watercolour and oil state (bytes of store tiles, uncompressed) a save keeps as workable paint; past
+     * it the oldest paint is saved as its picture ([GlPaintEngine.mediaTilesToSave]). The screen sets it for the phone.
+     */
+    @Volatile var savePaintBudgetBytes: Long = cc.joycreator.joybrush.core.layers.LayerBudget.SAVE_PAINT_MAX_BYTES
+
     /** Bench only: lets go of what [benchHogGpu] took. */
     fun benchUnhogGpu() {
         onGl(allowLost = true) {
@@ -1398,6 +1407,21 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     /** The document's own name, so a file that is opened and saved again keeps the name it had. */
     @Volatile private var documentName = "Joy Brush"
+
+    /**
+     * JBX-14: the drawing's name as the Library shows it, so a rename there reaches the file (and exports, Studio
+     * hand-offs) with the next save. Blank names are ignored.
+     */
+    fun setDocumentName(name: String) {
+        if (name.isBlank()) return
+        documentName = name
+        // A drawing with boards saves from the engine's board document, which keeps the name it was opened with.
+        // A stroke already under way refuses a board change: then the name waits for the next open, nothing breaks.
+        onGl(allowLost = true) {
+            try { engine.boardDocument?.let { if (it.name != name) engine.setBoardDocument(it.copy(name = name)) } }
+            catch (e: Exception) { android.util.Log.w("JoyBrushName", "name not given to the boards yet", e) }
+        }
+    }
     private val whitePaper = 0xFFFFFFFF.toInt()
 
     /** Every touch that is not drawing (JB-2.02). Owns pan, zoom, rotate and the tap gestures. */
@@ -2235,6 +2259,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private fun reportMediaHistory() {
         val now = engine.undo.undoDepth to engine.undo.canRedo
         if (now == mediaHistorySeen) return
+        // A plain stroke is being drawn (ink while a wash dries and prints itself): the board cannot be republished under it.
+        // reportHistory's setBoardDocument refused ("A board cannot change during a stroke"), the refusal was caught as a
+        // failed media frame, and the wash's engine was let go (Note 9 incident log, 2026-11-14 00:52). It is told at the
+        // first water frame after the stroke instead; the stroke's own end reports the history meanwhile.
+        if (engine.strokeInProgress) return
         mediaHistorySeen = now
         reportHistory()
     }
@@ -3347,8 +3376,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         engine.boardDocument?.let { doc ->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)
+            // More paint than a save can carry in good time: the newest stays paint in the file, the rest its picture.
+            val keepPaint=engine.mediaTilesToSave(savePaintBudgetBytes)
             return withLines(BoardSnapshot.capture(current,
-                mediaKeys={layer,cel->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{engine.mediaTileKeys(layer,it,p)}},
+                mediaKeys={layer,cel->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{store->
+                    engine.mediaTileKeys(layer,store,p).let{keys->if(keepPaint==null)keys else keys.filter{Triple(layer,p,it) in keepPaint}}}},
                 mediaRead={layer,cel,store,key->engine.readMediaTile(layer,store,key,engine.mediaPlaneOfCel(layer,cel))},
                 keys={layer,cel->
                     val mask=current.layers.first{it.id==layer}.mask

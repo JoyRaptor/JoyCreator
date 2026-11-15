@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Панель рядом с картинкой (выкл.: выезжает сверху)</string>
+    <string name="tab1_drawer_column">Высокая колонка: таймлайн только под картинкой</string>
+    <string name="tab1_settings_place_title">Панели на широком экране</string>
+    <string name="tab1_settings_place_auto">Автоматически: рядом с картинкой, если там есть место, иначе выезжает сверху</string>
+    <string name="tab1_settings_place_drop">Всегда выезжает сверху, как на телефоне</string>
+    <string name="tab1_settings_place_beside">Всегда рядом с картинкой</string>
+    <string name="tab1_settings_column_title">Высокая колонка</string>
+    <string name="tab1_settings_column">Рядом с картинкой панель занимает всю высоту, а таймлайн лежит только под картинкой. Выкл.: монтажный стол с таймлайном на всю ширину.</string>
+    <string name="tab1_settings_left_title">Панели слева</string>
+    <string name="tab1_settings_left">Панель стоит слева от картинки, а не справа.</string>
+</resources>

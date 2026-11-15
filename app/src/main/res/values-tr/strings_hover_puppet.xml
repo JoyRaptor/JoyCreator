@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Sayfa boyunca sütunlar. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_rows">Sayfa boyunca satırlar. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_margin_x">Sayfanın sol ve sağ kenarındaki boşluk. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_margin_y">Sayfanın üst ve alt kenarındaki boşluk. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_spacing_x">Hücreler arasındaki boşluk, yandan yana. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_spacing_y">Hücreler arasındaki boşluk, yukarıdan aşağı. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_tolerance">Anahtar renge ne kadar yakın olanın arka plan sayılacağı. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_move_x">Bu kareyi sola veya sağa taşı. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_move_y">Bu kareyi yukarı veya aşağı taşı. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_scale">Bu kareyi büyüt veya küçült. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_rotate">Bu kareyi derece cinsinden döndür. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_pivot_x">Eksen noktası, soldan sağa. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_pivot_y">Eksen noktası, yukarıdan aşağı. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_bake_pad">Pişirirken her karenin çevresindeki boşluk. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_onion_strength">Soğan kabuğu hayaletlerinin ne kadar belirgin görüneceği. Değiştirmek için sürükle, yazmak için dokun</string>
+    <string name="hover_sprite_onion_past">Önceki karelerin hayaletleri. Kaç tane olacağını değiştirmek için sürükle, renk seçmek için dokun</string>
+    <string name="hover_sprite_onion_future">Sonraki karelerin hayaletleri. Kaç tane olacağını değiştirmek için sürükle, renk seçmek için dokun</string>
+    <string name="hover_sprite_divider">Araç panelini uzatmak veya kısaltmak için sürükle</string>
+    <string name="hover_puppet_badge">Kukla iğneleri. Poz vermek için dokun, iğne çekmecesini açmak için basılı tut</string>
+</resources>

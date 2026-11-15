@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Behind the big title: darker at the top, fading into the see-through drawer. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <gradient
+        android:angle="270"
+        android:startColor="#E00C0C10"
+        android:endColor="#8C0C0C10" />
+</shape>

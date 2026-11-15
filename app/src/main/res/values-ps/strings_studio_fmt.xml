@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">%1$s وارد شو</string>
+    <string name="studio_fmt_could_not_render_slide_1">سلاید ونه جوړېد: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">راټولول ونه شول: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">صادرول ونه شول: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">د صادرولو کاپي ونه شوه: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">وارد کول ونه شول: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">بیا ترتیبول ونه شول: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">د بیا ترتیبولو ستونزه: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">برابرول ونه شول: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">دا د Studio سلاید نه ښکاري: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">د سلاید وارد کول ونه شول: %1$s</string>
+</resources>

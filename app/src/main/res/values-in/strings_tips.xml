@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_tips.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string-array name="tips_joycreator">
+        <item>Semua yang kamu buat tersimpan di folder Joy Creator-mu sebagai file biasa yang bisa kamu lihat, salin, dan cadangkan.</item>
+        <item>Tidak sengaja menghapus sesuatu? Tahan logo Joy Creator di bagian atas lobi untuk membuka Baru saja dihapus.</item>
+        <item>Ketuk kaca pembesar di lobi untuk mencari proyek, rekaman, gambar, atau foto apa pun di Library-mu.</item>
+        <item>Tahan apa pun di Library untuk melihat semua yang bisa kamu lakukan dengannya.</item>
+        <item>Bagikan video, gambar, atau suara ke Joy Creator dari aplikasi apa pun dan ia masuk ke folder-mu, siap untuk Studio.</item>
+        <item>Ketuk Joybot untuk dapat ide tentang apa yang sedang kamu kerjakan. Untuk mengobrol dengan AI-mu sendiri, sambungkan di Pengaturan, AI dan Joybot.</item>
+        <item>TextLab membuat judul ala poster film. Di Studio, ketuk Ubah di TextLab di samping tampilan judul untuk mengubahnya di sana.</item>
+        <item>Buka file .joypack untuk menambah tampilan dan font baru. Ketuk Packs di bagian bawah lobi untuk melihat yang kamu punya.</item>
+        <item>Ketuk baris penyimpanan di lobi untuk melihat apa yang memakan tempat di ponselmu dan mengambilnya kembali.</item>
+        <item>Cari di Pengaturan apa yang ingin kamu ubah, seperti \"tanda air\" atau \"tema\".</item>
+        <item>Viz Lab mengubah musikmu menjadi visual bergerak, dibuat dari bagian-bagian yang bisa kamu campur dan atur.</item>
+    </string-array>
+</resources>

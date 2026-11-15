@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simplified Chinese translation of values/strings_tips.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string-array name="tips_joycreator">
+        <item>你做的一切都保存在 Joy Creator 文件夹里，是你能看到、能复制、能备份的普通文件。</item>
+        <item>误删了东西？按住大厅顶部的 Joy Creator 标志，就能打开“最近删除”。</item>
+        <item>点大厅里的放大镜，就能在 Library 里找到任何项目、录制文件、绘画或图片。</item>
+        <item>在 Library 里按住任何东西，就能看到你能对它做的所有事。</item>
+        <item>从任何应用把视频、图片或声音分享到 Joy Creator，它就会落进你的文件夹，随时可以用于 Studio。</item>
+        <item>点按 Joybot，听听对你正在做的事有什么点子。想和你自己的 AI 聊天，请在设置的“AI 和 Joybot”里连接它。</item>
+        <item>TextLab 能做电影海报级的标题。在 Studio 里，点标题样式旁边的“在 TextLab 中编辑”，就能在那里修改。</item>
+        <item>打开 .joypack 文件，就能添加新样式和字体。点大厅底部的“合集包”，看看你都有什么。</item>
+        <item>点大厅里的存储那一行，看看手机里什么最占地方，再腾出一些空间。</item>
+        <item>在设置里搜你想改的东西，比如\"水印\"或\"主题\"。</item>
+        <item>VisLab 能把你的音乐变成会动的画面，由你可以混合、调整的部件搭成。</item>
+    </string-array>
+</resources>

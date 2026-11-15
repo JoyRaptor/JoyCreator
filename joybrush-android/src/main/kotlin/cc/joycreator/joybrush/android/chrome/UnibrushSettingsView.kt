@@ -36,7 +36,14 @@ class UnibrushSettingsView(
     private val chooseAssets: ((UnibrushAssetRequest, (List<String>?) -> Unit) -> Unit)? = null,
     private val editProfilePoints: ((TipProfileSpec, (TipProfileSpec?) -> Unit) -> Unit)? = null,
     private val onChooseSecondaryColour: (() -> Unit)? = null,
+    /** BRUSH-UI section K.3: draws a slider's end picture, as for the paint brushes (null: words only). */
+    endPicture: ((BrushPreset, Int, Int, cc.joycreator.joybrush.core.brush.TestStroke.Part, Float?, (android.graphics.Bitmap) -> Unit) -> (() -> Unit))? = null,
 ) : LinearLayout(kit.context) {
+    private val endPictures = endPicture?.let { SliderEndPictures(it) }
+    /** Each slider with pictures: what its two ends are and how a value is written. */
+    private class EndRow(val low: android.widget.ImageView, val high: android.widget.ImageView, val lowValue: Float,
+                         val highValue: Float, val dab: Boolean, val write: (BrushPreset, Float) -> BrushPreset)
+    private val endRows = ArrayList<EndRow>()
     private var model = initial
     private var preference = initialPreference
     // BRUSH-UI section K.1: no tabs under the stage; every setting in one list, the top bar's group buttons jump.
@@ -156,7 +163,7 @@ class UnibrushSettingsView(
     }
 
     override fun onDetachedFromWindow() {
-        finishEditing(); closed = true; assetRequest++
+        finishEditing(); closed = true; assetRequest++; endPictures?.close()
         super.onDetachedFromWindow()
     }
 
@@ -172,6 +179,7 @@ class UnibrushSettingsView(
         assetRequest++ // A/B, tab and optional-panel changes invalidate callbacks bound to the old panel.
         val oldScroll = if (resetScroll) 0 else scroll.scrollY
         body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear(); groupStarts.clear(); tipStart = null
+        endRows.clear()
         body.addView(input, LayoutParams(MATCH, kit.dpi(92f)))
         if (!initialValid) { info("The brush has not changed. Close this sheet and choose a valid Unibrush mode."); return }
         quick(); shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
@@ -201,8 +209,27 @@ class UnibrushSettingsView(
         model = next; error.visibility = GONE
         // Publication succeeded. A UI refresh can never roll the model back behind the host.
         if (refresh) refreshControls()
+        if (done) refreshEnds()
         return true
     }
+
+    /** The two end pictures of [row]: the mode as it is now with only that setting at each end. */
+    private fun askEnds(row: EndRow) {
+        val q = endPictures ?: return
+        if (closed || !initialValid) return
+        try {
+            val lo = row.write(model, row.lowValue); val hi = row.write(model, row.highValue)
+            val part = if (row.dab) cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB else cc.joycreator.joybrush.core.brush.TestStroke.Part.SWOOSH
+            // A size-like setting draws both ends at the larger end's scale, so they still differ.
+            val scale = if (row.dab && lo.size.base != hi.size.base) maxOf(lo.size.base, hi.size.base).takeIf { it > 0f && it.isFinite() } else null
+            q.ask(row.low, lo, part, scale)
+            q.ask(row.high, hi, part, scale)
+        } catch (e: Exception) {
+            android.util.Log.w("JoyBrushEnds", "no Unibrush end pictures", e)
+        }
+    }
+
+    private fun refreshEnds() { for (r in endRows.toList()) askEnds(r) }
 
     private fun refreshControls(forceThumb: Boolean = false) {
         tipSection.show(model.tip.profile, model.tip.hardness.base)
@@ -264,8 +291,15 @@ class UnibrushSettingsView(
                        write: (BrushPreset, Float) -> BrushPreset, logarithmic: Boolean = false,
                        integer: Boolean = false, power: Float = 1f, format: (Float) -> String = ::numberText) {
         val row = UnibrushSheetSlider(kit, title, "Adjust $title", low, high, { read(model) },
-            { value, done -> edit(done) { write(it, value) } }, format, logarithmic, integer, power, endWordsOf(title))
+            { value, done -> edit(done) { write(it, value) } }, format, logarithmic, integer, power, endWordsOf(title),
+            pictures = endPictures != null)
         rows += row; body.addView(row, LayoutParams(MATCH, WRAP))
+        val lp = row.lowPicture; val hp = row.highPicture
+        if (lp != null && hp != null) {
+            val end = EndRow(lp, hp, low, high, title in DAB_TITLES, write)
+            endRows += end
+            lp.post { askEnds(end) }
+        }
     }
 
     private fun quick() {
@@ -615,6 +649,9 @@ class UnibrushSettingsView(
             "Tip texture" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PAPER, "Stroke texture" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.PAPER,
             "Stroke ends" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.ENDS, "Stabilizer" to cc.joycreator.joybrush.core.chrome.BrushKnobGroups.Group.FEEL,
         )
+        /** Sliders whose ends show one dab (softness, shape and size); the rest show the stroke's S-turns. */
+        val DAB_TITLES = setOf("Size", "Softness", "Corner rounding", "Shape thinness", "Main thinness", "Facing offset", "Tip taper",
+            "Fade amount", "Fade direction", "Morph A to B", "Secondary rounding", "Secondary thinness", "Secondary scale")
         /** The words at each end of a slider, by its title. */
         fun endWordsOf(title: String): Pair<String, String> = when (title) {
             "Size" -> "Small" to "Large"

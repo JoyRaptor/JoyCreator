@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">د دقیقې ارزښت لیکلو لپاره کېکاږئ</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">هیڅ ماسک نشته. یو زیات کړئ چې د دې څیز یوازې یوه برخه وښایي.</string>
+    <string name="lane_a_mask_mode_add">جمع</string>
+    <string name="lane_a_mask_mode_subtract">منفي</string>
+    <string name="lane_a_mask_mode_intersect">تقاطع</string>
+    <string name="faditor_mask_link_object">له څیز سره حرکت وکړي</string>
+    <string name="faditor_mask_link_hint">بند: ماسک په ځای پاتې کېږي او څیز د هغه لاندې حرکت کوي. چارن: ماسک له څیز سره ځي.</string>
+    <string name="lane_a_mask_animated">متحرک</string>
+    <string name="lane_a_mask_static">متحرک نه</string>
+    <string name="lane_a_mask_key_chip">◆ د پلی‌هېډ پر ځای کیلي</string>
+    <string name="lane_a_mask_key_here">دا شکل د پلی‌هېډ پر ځای کیلي کړئ</string>
+    <string name="lane_a_mask_clear_keys">د ماسک ټول کیفریمونه پاک کړئ</string>
+    <string name="lane_a_mask_keyed_toast">شکل %1$d په %2$.1fs کې کیلي شو</string>
+    <string name="faditor_fx_empty_layer">دا پرت تر اوسه هیڅ نه بدلوي. یوه اغېزه زیاته کړئ او هر هغه څه چې د پرت لاندې دي هغه به ومنې.</string>
+    <string name="faditor_fx_empty_object">په دې څیز تر اوسه هیڅ اغېزه نشته. یوه زیاته کړئ او له څیز سره ځي — یوازې پر دې اغېز کوي نه پر بل.</string>
+    <string name="faditor_fx_position">په مخکتنه کې ځای</string>
+    <string name="faditor_fx_position_done">په مخکتنه کې ځای ټاکل کېږي — بشپړ</string>
+    <string name="faditor_fx_blend">ګډول</string>
+    <string name="faditor_fx_vertices">څوکې</string>
+    <string name="faditor_fx_edit_gradient">دا ګرېډیینټ سم کړئ</string>
+    <string name="faditor_fx_curve_edit">په مخکتنه کې سمول</string>
+    <string name="faditor_fx_curve_edit_done">په مخکتنه کې سمول کېږي — بشپړ</string>
+    <string name="faditor_fx_straighten">سیده کړئ</string>
+    <string name="faditor_fx_save_look">بڼه خوندي کړئ</string>
+    <string name="faditor_fx_look_name_hint">دې بڼې ته نوم ورکړئ</string>
+    <string name="faditor_fx_look_save">خوندي کړئ</string>
+    <string name="faditor_fx_saved_looks">خوندي شوې بڼې</string>
+    <string name="faditor_fx_look_desc">%1$s پورته کړئ. د ړنګولو لپاره ونیسئ</string>
+    <string name="faditor_fx_load">پورته کړئ</string>
+    <string name="faditor_fx_load_confirm">\'%1$s\' پورته کړم؟</string>
+    <string name="faditor_fx_delete_look_confirm">\'%1$s\' ړنګ کړم؟</string>
+    <string name="faditor_fx_add">＋ اغېزه زیاته کړئ</string>
+    <string name="faditor_fx_needs_pass_title">%1$s خپل ځانګړی پړاو غواړي</string>
+    <string name="faditor_fx_needs_pass_body">%1$s ګاونډي پکسلونه لولي، نو یو بشپړ انځور ته اړتیا لري. یو څیز په یو پړاو کې رسمېږي، نو تر اوسه یو نشته.\n\nدا په یوه د سمون پرت کې د دې څیز پر سر کېږدئ او پر دې او هر هغه څه چې لاندې دي پلی کېږي.</string>
+    <string name="faditor_fx_toast_keys_cleared">د %1$s کیلي پاکې شوې</string>
+    <string name="faditor_fx_toast_saved">\'%1$s\' خوندي شو</string>
+    <string name="faditor_fx_toast_load_failed">\'%1$s\' پورته نه شو</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">دا په دې پرت کې %1$d اغېزه بدلوي.</item>
+        <item quantity="other">دا په دې پرت کې %1$d اغېزې بدلوي.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d اغېزه</item>
+        <item quantity="other">%1$d اغېزې</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">اغېزه تېره کړئ</string>
+    <string name="faditor_undo_fx_enable">اغېزه چارنه کړئ</string>
+    <string name="faditor_undo_fx_delete">%1$s ړنګ کړئ</string>
+    <string name="faditor_undo_fx_add">%1$s زیات کړئ</string>
+    <string name="faditor_undo_fx_opacity">د %1$s روڼتیا</string>
+    <string name="faditor_undo_fx_blend">د %1$s ګډول</string>
+    <string name="faditor_undo_fx_vertices">د منحني څوکې</string>
+    <string name="faditor_undo_fx_straighten">منحني سیده کړئ</string>
+    <string name="faditor_undo_fx_reorder">اغېزې بیا ترتیب کړئ</string>
+    <string name="faditor_undo_fx_key">%1$s کیلي کړئ</string>
+    <string name="faditor_undo_fx_clear_keys">د %1$s کیلي پاکې کړئ</string>
+    <string name="faditor_undo_fx_apply_look">بڼه \'%1$s\' پلي کړئ</string>
+    <string name="lane_b_audio_fade_in_short">ننوتل</string>
+    <string name="lane_b_audio_fade_out_short">وتل</string>
+    <string name="lane_b_audio_env_flat">هواره ګټه — ◇ لومړی د لفافې ټکی ړنګوي</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">لفافه · %1$d ټکی — سلایډر د ▶︎ لاندې ټکی چلوي</item>
+        <item quantity="other">لفافه · %1$d ټکي — سلایډر د ▶︎ لاندې ټکی چلوي</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">پروسس کېږي…</string>
+    <string name="lane_b_audio_bake_in_use">پروسس شوی غږ کارول کېږي — اصلي ساتل شوی.</string>
+    <string name="lane_b_audio_bake_offline">بې‌انټرنېټه رسمول — اصلي فایل هېڅکله نه بدلېږي.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">ناکام: %1$s</string>
+    <string name="lane_b_audio_bake_note">د دې کلیپ د غږ پر کاپي کار کوي او هغه پر ځای غږوي. بیرته اصلي ته ورګرځي.</string>
+    <string name="lane_b_audio_revert">اصلي ته ورګرځئ</string>
+    <string name="lane_b_audio_revert_desc">اصلي، نه پروسس شوي غږیز فایل ته ورګرځئ</string>
+    <string name="lane_b_audio_denoise">ګډوډي کم کړئ</string>
+    <string name="lane_b_audio_denoise_desc">د دې کلیپ یوه کاپي جوړه کړئ چې د شاته ګډوډي یې کمه وي</string>
+    <string name="lane_b_audio_normalize">د غږ کچه برابره کړئ</string>
+    <string name="lane_b_audio_normalize_desc">د دې کلیپ یوه کاپي په برابره غږ کچه جوړه کړئ</string>
+    <string name="lane_b_audio_voice">غږ ښه کړئ</string>
+    <string name="lane_b_audio_voice_undo">د غږ ښه کول</string>
+    <string name="lane_b_audio_voice_on">د غږ ځنځیر چارن — یوازې دا کلیپ</string>
+    <string name="lane_b_audio_voice_off">د غږ ځنځیر بند — یوازې دا کلیپ</string>
+    <string name="lane_b_audio_voice_note">د وینا لپاره: د ګونګ، دروازې، سیلۍ، حضور، کمپریسر، محدودونکي لرې کول. د دې کلیپ د مخکتنې غږ بیا جوړوي.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ د بیټ غبرګون اړیکه…</string>
+    <string name="lane_b_audio_beat_link_note">د پوښ اندازه / روڼتیا / څرخېدل د دې کلیپ له یوې کړۍ نه چلوي. عادي کیفریمونه لیکي چې وروسته یې وکاږئ.</string>
+    <string name="lane_b_audio_comp">کمپریسر</string>
+    <string name="lane_b_audio_comp_bypassed">د FX ځنځیر تېر شو — نه لمس شوی ګډون اورېدل کېږي.</string>
+    <string name="lane_b_audio_comp_live">د ګټې کمښت، له کمپریسر نه ژوندی.</string>
+    <string name="lane_b_audio_comp_idle">کله چې پروژه ځغلي، میټر حرکت کوي.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">کچه (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">پین (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (s)</string>
+    <string name="lane_b_audio_undo_level">د غږ کچه</string>
+    <string name="lane_b_audio_undo_clear_envelope">لفافه پاکه کړئ</string>
+    <string name="lane_b_audio_undo_envelope_point">د لفافې ټکی</string>
+    <string name="lane_b_audio_undo_delete_point">د لفافې ټکی ړنګ کړئ</string>
+    <string name="lane_b_puppet_swatch">د %1$s پن. د ډول بدلولو لپاره کېکاږئ.</string>
+    <string name="lane_b_puppet_undo_pin_type">د پن ډول</string>
+    <string name="lane_b_puppet_rec_on">کله چې پن ته لاس ورسوئ ثبتېږي. د درولو لپاره کېکاږئ.</string>
+    <string name="lane_b_puppet_rec_off">په لمس ثبت نه کېږي. د چمتو کولو لپاره کېکاږئ.</string>
+    <string name="lane_b_puppet_sim">ازمایښت</string>
+    <string name="lane_b_puppet_tool_grab">نیول</string>
+    <string name="lane_b_puppet_tool_pin">پن</string>
+    <string name="lane_b_puppet_tool_stiff">کلک</string>
+    <string name="lane_b_puppet_tool_dangle">خړپی</string>
+    <string name="lane_b_puppet_tool_free">آزاد</string>
+    <string name="lane_b_puppet_tool_bone">هډوکی</string>
+    <string name="lane_b_puppet_scope_selected">غوره شوی</string>
+    <string name="lane_b_puppet_scope_character">کرکټر</string>
+    <string name="lane_b_puppet_scope_recording">ثبت</string>
+    <string name="lane_b_puppet_hint_first_pin">خپل لومړی پن ایښودو لپاره پر انځور کېکاږئ</string>
+    <string name="lane_b_puppet_hint_tap_pin">د سمولو لپاره پر پن کېکاږئ</string>
+    <string name="lane_b_puppet_hint_dangle">ازمایل شوی — د سمولو لپاره کیلي نشته. هره کیلي چې لا لري ساتل کېږي، نه لمس کېږي، او کله چې خړپېدل ودرېږي بیرته راځي.</string>
+    <string name="lane_b_puppet_hint_free">آزاد پن هر لوری ته حرکت کوي. تاو او اندازې ته په انجن کې د هر پن څرخېدل ضرور دي — مشخصات وګورئ.</string>
+    <string name="lane_b_puppet_hint_anchor">لنګر هیڅ بل ټاکلو ته اړتیا نه لري — همدا یې ټکی دی</string>
+    <string name="lane_b_puppet_hint_tape">لاندې ټیپ د %1$s کیلي ښیي. د هغه کیلي لیدو لپاره بل پن یا پورته چپ کېکاږئ.</string>
+    <string name="lane_b_puppet_hint_rigid">کلک هډوکی لاس مخکې درول کوي او اوږه ماتوي. کارټونونه معمولا غځېدونکی غواړي.</string>
+    <string name="lane_b_puppet_hint_limits_off">په ډیفالټ بند — ډېری کارټون ترتیبونه یې نه غواړي.</string>
+    <string name="lane_b_puppet_hint_bone_keys">هډوکی خپلې کیلي نه لري. حرکت ورکول %1$s او %2$s ته لیکي.</string>
+    <string name="lane_b_puppet_hint_put_away">د پنونو پټولو لپاره پر انځور د لوبۍ کېکاږئ</string>
+    <string name="lane_b_puppet_hint_punch_in">نژدې کېدل هلته پیلېږي چېرته چې زوړ حرکت و، او په پای کې نرم راګرځي</string>
+    <string name="lane_b_puppet_pin_depth">ژوروالی — شاته / مخې</string>
+    <string name="lane_b_puppet_pin_muted">غلی شوی</string>
+    <string name="lane_b_puppet_pin_active">فعال</string>
+    <string name="lane_b_puppet_pin_reach_ring">د رسېدو کړۍ</string>
+    <string name="lane_b_puppet_pin_auto_pull">اتومات ایستل</string>
+    <string name="lane_b_puppet_pin_pull">دا پن څومره کلک راکاږي</string>
+    <string name="lane_b_puppet_pin_spring">فنري والی</string>
+    <string name="lane_b_puppet_pin_settle">آرامېدل</string>
+    <string name="lane_b_puppet_pin_mass">کتله</string>
+    <string name="lane_b_puppet_pin_max_stretch">تر ټولو زیات غځېدل</string>
+    <string name="lane_b_puppet_pin_stiff_area">کلکه ساحه</string>
+    <string name="lane_b_puppet_pin_strength">ځواک</string>
+    <string name="lane_b_puppet_reset">له سره پیل کړئ</string>
+    <string name="lane_b_puppet_reset_desc">%1$s او هر کیفریم لرې کوي</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d پن</item>
+        <item quantity="other">%1$d پنونه</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d هډوکی</item>
+        <item quantity="other">%1$d هډوکي</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s، %2$s</string>
+    <string name="lane_b_puppet_bone">هډوکی</string>
+    <string name="lane_b_puppet_bone_from">له</string>
+    <string name="lane_b_puppet_bone_to">ته</string>
+    <string name="lane_b_puppet_bone_length">اوږدوالی</string>
+    <string name="lane_b_puppet_bone_rest_angle">د آرام زاویه</string>
+    <string name="lane_b_puppet_bone_rest_length">د آرام اوږدوالی</string>
+    <string name="lane_b_puppet_bone_stretchy">غځېدونکی</string>
+    <string name="lane_b_puppet_bone_flip_elbow">خنګل واړوئ</string>
+    <string name="lane_b_puppet_bone_reach">رسېدل</string>
+    <string name="lane_b_puppet_bone_stretch">څومره کولای شي وغځېږي</string>
+    <string name="lane_b_puppet_bone_joint_limits">د بند حدونه</string>
+    <string name="lane_b_puppet_bone_fold_back">نه تر دې زیات شاته ټوله کېږي</string>
+    <string name="lane_b_puppet_bone_fold_forward">نه تر دې زیات مخته ټوله کېږي</string>
+    <string name="lane_b_puppet_rig_softness">نرموالی</string>
+    <string name="lane_b_puppet_rig_mesh_detail">د جال جزئیات</string>
+    <string name="lane_b_puppet_rig_gravity">جاذبه</string>
+    <string name="lane_b_puppet_rig_wind">باد</string>
+    <string name="lane_b_puppet_rig_wind_dir">د باد لوری</string>
+    <string name="lane_b_puppet_rig_show_pins">پنونه</string>
+    <string name="lane_b_puppet_rig_show_bones">هډوکي</string>
+    <string name="lane_b_puppet_rig_show_mesh">جال</string>
+    <string name="lane_b_puppet_rig_rarely">لږ اړتیا</string>
+    <string name="lane_b_puppet_rig_edge_threshold">د څنډې حد</string>
+    <string name="lane_b_puppet_rig_edge_expansion">د څنډې پراخول</string>
+    <string name="lane_b_puppet_record_on_touch">په لمس ثبت</string>
+    <string name="lane_b_puppet_record_snap">کیلیو ته نښلول</string>
+    <string name="lane_b_puppet_record_detail">د ثبت شویو حرکتونو جزئیات</string>
+    <string name="lane_b_puppet_record_blend_out">ورو ختم</string>
+    <string name="faditor_text_underline">لاندې کرښه</string>
+    <string name="faditor_text_case_first">لومړي توري لوی کړئ</string>
+    <string name="faditor_text_case_all">ټول لوی توري</string>
+    <string name="faditor_text_case_small">کوچني لوی توري</string>
+    <string name="faditor_text_align">همغږي: %1$s. د بدلولو لپاره کېکاږئ</string>
+    <string name="faditor_text_align_left">کیڼ</string>
+    <string name="faditor_text_align_center">مرکز</string>
+    <string name="faditor_text_align_right">ښي</string>
+    <string name="faditor_text_align_justify">برابر شوی</string>
+    <string name="faditor_text_color">د متن رنګ</string>
+    <string name="faditor_text_shadow_distance">واټن</string>
+    <string name="faditor_text_shadow_direction">د سیوري لوری</string>
+    <string name="faditor_text_shadow_angle">د سیوري زاویه</string>
+    <string name="faditor_text_anim_label">انیمېشن</string>
+    <string name="lane_b_caption_hide">دا د سرلیک ټراک پټ کړئ</string>
+    <string name="lane_b_caption_show">دا د سرلیک ټراک وښایه</string>
+    <string name="lane_b_caption_add_track">د سرلیک ټراک زیات کړئ</string>
+    <string name="caption_size">د سرلیک اندازه</string>
+    <string name="caption_highlight">روښانه کول</string>
+    <string name="caption_style_save">د خپلې بڼې په توګه خوندي کړئ</string>
+    <string name="caption_style_delete">دا ځانګړې بڼه ړنګ کړئ</string>
+    <string name="caption_style_copy">بڼه د متن په توګه کاپي کړئ</string>
+    <string name="caption_style_import">له متن نه بڼه راوړئ</string>
+    <string name="caption_anim_pop">پاپ</string>
+    <string name="caption_anim_zoom">زوم</string>
+    <string name="caption_anim_bounce">ټوپ</string>
+    <string name="caption_box">بکس</string>
+    <string name="caption_box_more">بکس…</string>
+    <string name="caption_box_more_desc">د بکس نور انتخابونه</string>
+    <string name="caption_drawer_empty">هیڅ سرلیک لرونکی کلیپ نه دی غوره شوی</string>
+    <string name="caption_fit_uniform">یو شان</string>
+    <string name="caption_fit_per_cue">هر نښه</string>
+    <string name="caption_fit_truncate">پرې کول</string>
+    <string name="caption_fit_words">ټکي</string>
+    <string name="caption_fit_words_desc">په هر سرلیک کې ټکي</string>
+    <string name="caption_fit_lines">تر ټولو زیاتې کرښې</string>
+    <string name="caption_fit_lines_prompt">تر ټولو زیاتې کرښې (0 = بې حده)</string>
+    <string name="caption_fit_floor">ټیټ حد</string>
+    <string name="caption_group_slide">ګروپ: سلایډ</string>
+    <string name="caption_group_karaoke">ګروپ: کراوکې</string>
+    <string name="caption_group_desc">ټکي څنګه په سرلیکونو ګروپ کېږي. د بدلولو لپاره کېکاږئ</string>
+    <string name="caption_grow_center">غټېدل: مرکز</string>
+    <string name="caption_grow_down">غټېدل: ښکته</string>
+    <string name="caption_grow_up">غټېدل: پورته</string>
+    <string name="caption_grow_desc">سرلیک کوم لوري ته غټېږي. د ګرځولو لپاره کېکاږئ</string>
+    <string name="caption_align_center">همغږي: مرکز</string>
+    <string name="caption_align_left">همغږي: کیڼ</string>
+    <string name="caption_align_right">همغږي: ښي</string>
+    <string name="caption_align_desc">د کرښې همغږي. د ګرځولو لپاره کېکاږئ</string>
+    <string name="caption_copy_all">ټولو ته کاپي کړئ</string>
+    <string name="caption_copy_all_desc">د دې ټراک غټېدل او همغږي هر سرلیک ټراک ته کاپي کړئ</string>
+    <string name="caption_copy_all_done">لنګر + همغږي پر ټولو ټراکونو پلي شوه</string>
+    <string name="caption_position">د سرلیک ځای</string>
+    <string name="caption_timing">وخت</string>
+    <string name="caption_timing_hint">پر هره سرلیک کرښه پلي کېږي، د هغې کرښې د ونډې په توګه</string>
+    <string name="caption_timing_readout">ننوتل %1$d%%   وتل %2$d%%   د هرې کرښې</string>
+    <string name="caption_timing_readout_meet">ننوتل %1$d%%   وتل %2$d%%   د هرې کرښې  ·  ننوتل هغه وخت پای ته رسېږي چې وتل پیلېږي</string>
+    <string name="caption_timing_in_desc">د ننوتلو وخت</string>
+    <string name="caption_timing_out_desc">د وتلو وخت</string>
+    <string name="faditor_prop_pos_x">ځای X</string>
+    <string name="faditor_prop_pos_y">ځای Y</string>
+    <string name="faditor_prop_scale">اندازه</string>
+    <string name="faditor_prop_scale_x">اندازه X</string>
+    <string name="faditor_prop_scale_y">اندازه Y</string>
+    <string name="drawer_title_visualizer">لیدونکی</string>
+    <string name="drawer_tab_puppet">لوبۍ</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d غږ</item>
+        <item quantity="other">%1$d غږونه</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>بند</item>
+        <item>YouTube -14 LUFS</item>
+        <item>پوډکاسټ -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>خپرونه -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>اصلي</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (بې اضافي ضایع)</item>
+        <item>JPG (کوچنی)</item>
+    </string-array>
+    <string name="export_loudness">د غږ کچې هدف</string>
+    <string name="export_loudness_readout">اندازه شوی: %1$s LUFS → هدف: %2$s</string>
+    <string name="export_quality">کیفیت</string>
+    <string name="export_format">بڼه</string>
+    <string name="export_audio_only">یوازې غږ صادر کړئ (.m4a)</string>
+    <string name="export_audio_only_desc">د کلیپ غږ + میوزیک په یوه غږیز فایل کې ګډوي — د ویډیو ټراک پرته</string>
+    <string name="export_audio_only_project">دا پروژه ویډیو نه لري — د غږ په توګه صادرېږي</string>
+    <string name="export_frame">یو چوکاټ صادر کړئ (انځور)</string>
+    <string name="export_frame_desc">یو جوړ شوی چوکاټ — پوښونه ورسره — د صادرولو په ریزولوشن خوندي کوي. چوکاټ د صادرولو په څېر له ورته ویډیو کوډوونکي نه راځي، نو کیفیت یې بڼه ټاکي: PNG ورته چوکاټ بشپړ ساتي، JPG کوچنی دی (روڼتیا نشته، چوکاټونه ټینګ دي)</string>
+    <string name="export_frame_time">د چوکاټ وخت (له پلی‌هېډ نه ډک شوی — د بدلولو لپاره ولیکئ)</string>
+    <string name="export_time_hint">m:ss.t یا ثانیې</string>
+    <string name="export_range_hint">m:ss.t</string>
+    <string name="export_frame_error_format">داسې وخت ولیکئ لکه 01:23.4 (یا د 4.5 ثانیو لپاره 4.5)</string>
+    <string name="export_frame_error_past">دا وخت د پروژې له پای (%1$s) تېر دی. یو مخکینی وخت وټاکئ.</string>
+</resources>

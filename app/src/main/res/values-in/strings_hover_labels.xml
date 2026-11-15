@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Mulai atau hentikan server siaran</string>
+    <string name="hover_remote_password_toggle">Nyalakan atau matikan perlindungan kata sandi</string>
+    <string name="hover_lobby_floor_detect">Deteksi Cerdas: orang dan benda yang ditemukan kamera di rekamanmu</string>
+    <string name="hover_lobby_floor_remote">Studio Jarak Jauh: tonton dan kendalikan kamera ponsel ini dari browser di Wi-Fi-mu</string>
+    <string name="hover_lobby_floor_bits">Bit: senter, pemindai QR, dan pintasan layar utama</string>
+    <string name="hover_lobby_floor_packs">Paket: paket, tampilan, kuas, dan font yang terpasang</string>
+    <string name="hover_lobby_floor_setup">Penyiapan: semua pengaturan</string>
+    <string name="hover_lobby_stat">Ruang: apa yang memakai tempat di ponsel ini</string>
+    <string name="hover_library_paste_picture">Taruh gambar yang kamu salin dari aplikasi lain ke folder Joy Creator-mu</string>
+    <string name="hover_lobby_room">Buka %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s di %2$s</string>
+    <string name="hover_lobby_hero_new">Mulai sesuatu yang baru di %1$s</string>
+    <string name="hover_lobby_library">Buka Library: semua yang pernah kamu buat</string>
+    <string name="hover_studio_cut_mark">Potong: %1$s dtk dilewati, ketuk kata untuk memulihkan</string>
+</resources>

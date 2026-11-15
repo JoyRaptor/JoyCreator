@@ -3288,6 +3288,61 @@ public class ExportManager {
     }
 
     /**
+     * One master clip's sound, source window [{@code clipInMs}, {@code endMs}), as an audio-only
+     * item with its speed, volume and volume curve (the curve read from where the window starts
+     * on the clip's own clock: after a transition's head, or past a jump, STU-5 D6 / STU-B3).
+     */
+    @NonNull
+    private EditedMediaItem masterAudioItem(@NonNull Clip clip, long clipInMs, long endMs) {
+        float speed = clip.getSpeedMultiplier();
+        long srcDurMs = Math.max(1L, endMs - clipInMs);
+        long timelineDurMs = Math.max(1L, (long) (srcDurMs / Math.max(0.1f, speed)));
+        MediaItem mediaItem = new MediaItem.Builder()
+                .setUri(resolveSeekableSourceUri(clip))
+                .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
+                        .setStartPositionMs(clipInMs)
+                        .setEndPositionMs(endMs)
+                        .build())
+                .build();
+        EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
+                .setRemoveVideo(true)
+                .setDurationUs(timelineDurMs * 1000);
+        List<AudioProcessor> aps = new ArrayList<>();
+        SonicAudioProcessor sap = speedAndFit(speed,
+                audioClockFit(resolveSeekableSourceUri(clip), clipInMs, endMs));
+        if (sap != null) aps.add(sap);
+        if (clip.hasVolumeKeyframes()) {
+            @SuppressWarnings("unchecked")
+            List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
+            long[] times = new long[kfs.size()];
+            float[] vols = new float[kfs.size()];
+            for (int i = 0; i < kfs.size(); i++) {
+                times[i] = kfs.get(i).timeMs;
+                vols[i] = kfs.get(i).volume;
+            }
+            VolumeAudioProcessor vp = new VolumeAudioProcessor();
+            // B1.Q: envelope values are MULTIPLIERS over the static level —
+            // without this the base stayed 1.0 and a boosted clip's fade
+            // capped its whole length at 100%.
+            vp.setVolume(clip.getVolumeLevel());
+            vp.setVolumeEnvelope(times, vols);
+            // Head-trimmed after a transition: read the curve from where the
+            // piece really starts (STU-5 D6), as the video pass does.
+            vp.setEnvelopeStartMs(
+                    com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, clipInMs));
+            aps.add(vp);
+        } else if (Math.abs(clip.getVolumeLevel() - 1.0f) >= 0.01f) {
+            VolumeAudioProcessor vp = new VolumeAudioProcessor();
+            vp.setVolume(clip.getVolumeLevel());
+            aps.add(vp);
+        }
+        if (!aps.isEmpty()) {
+            eb.setEffects(new Effects(aps, Collections.emptyList()));
+        }
+        return eb.build();
+    }
+
+    /**
      * Build an audio-only {@link Composition}: one sequence of the master clips' audio
      * (image / muted / loop segments → silence, preserving timing) plus the {@link AudioClip}
      * track (via {@link #buildAudioSequences}), mixed. Reuses the existing per-clip audio
@@ -3303,10 +3358,16 @@ public class ExportManager {
         int projectSampleRate = resolveProjectSampleRate(timeline);
 
         List<EditedMediaItem> master = new ArrayList<>();
+        // STU-B3: the master sound jumps where the picture does (struck words, cut silences).
+        final com.fadcam.ui.faditor.model.CutJumps cuts =
+                com.fadcam.ui.faditor.model.CutJumps.of(timeline);
+        long masterEditorCursorMs = 0L;
         for (int ci = 0; ci < timeline.getClipCount(); ci++) {
             Clip clip = timeline.getClip(ci);
             long clipInMs = clip.getInPointMs();
             long clipOutMs = clip.getOutPointMs();
+            final long clipEditorStartMs = masterEditorCursorMs;
+            masterEditorCursorMs += clip.getVisualDurationMs();
 
             // Mirror buildComposition's HEAD-overlap trim: a clip that is the SECOND in a
             // transition has its head covered by the previous clip's transition tail, so its
@@ -3330,7 +3391,34 @@ public class ExportManager {
             }
 
             float speed = clip.getSpeedMultiplier();
-            if (clip.isImageClip()) {
+            // Editor range of this clip's main pass that is laid here, less every jump in it.
+            long passEditorStart = clipEditorStartMs
+                    + (clip.hasLoopExtension() && !clip.isImageClip() ? clip.getLoopBeforeMs() : 0L);
+            double rate = Math.max(0.1f, speed);
+            long fromEditor = passEditorStart
+                    + Math.round((clipInMs - clip.getInPointMs()) / rate);
+            long toEditor = passEditorStart + Math.round(
+                    (Math.min(clipOutMs, clip.isImageClip() ? clipOutMs : clip.getSourceDurationMs())
+                            - clip.getInPointMs()) / rate);
+            List<long[]> keptEditor = cuts.isEmpty() ? null : cuts.keptRanges(fromEditor, toEditor);
+            boolean masterCut = keptEditor != null && !(keptEditor.size() == 1
+                    && keptEditor.get(0)[0] == fromEditor && keptEditor.get(0)[1] == toEditor);
+            if (masterCut && (clip.isImageClip() || clip.isAudioMuted())) {
+                for (long[] kr : keptEditor) {
+                    if (kr[1] - kr[0] >= MIN_EXPORT_SEGMENT_MS) {
+                        addSilence(master, silenceUri, kr[1] - kr[0]);
+                    }
+                }
+            } else if (masterCut && clipInMs < Math.min(clipOutMs, clip.getSourceDurationMs())) {
+                for (long[] kr : keptEditor) {
+                    long pIn = Math.max(clipInMs, clip.getInPointMs()
+                            + Math.round((kr[0] - passEditorStart) * rate));
+                    long pOut = Math.min(Math.min(clipOutMs, clip.getSourceDurationMs()),
+                            clip.getInPointMs() + Math.round((kr[1] - passEditorStart) * rate));
+                    if ((long) ((pOut - pIn) / rate) < MIN_EXPORT_SEGMENT_MS) continue;
+                    master.add(masterAudioItem(clip, pIn, pOut));
+                }
+            } else if (clip.isImageClip()) {
                 addSilence(master, silenceUri, Math.max(1L, clipOutMs - clipInMs));
             } else if (clipInMs >= Math.min(clipOutMs, clip.getSourceDurationMs())) {
                 // The seam transition's head-trim consumed the ENTIRE clip (transition
@@ -3345,49 +3433,7 @@ public class ExportManager {
                 if (clip.isAudioMuted()) {
                     addSilence(master, silenceUri, timelineDurMs);
                 } else {
-                    MediaItem mediaItem = new MediaItem.Builder()
-                            .setUri(resolveSeekableSourceUri(clip))
-                            .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
-                                    .setStartPositionMs(clipInMs)
-                                    .setEndPositionMs(endMs)
-                                    .build())
-                            .build();
-                    EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
-                            .setRemoveVideo(true)
-                            .setDurationUs(timelineDurMs * 1000);
-                    List<AudioProcessor> aps = new ArrayList<>();
-                    SonicAudioProcessor sap = speedAndFit(speed,
-                            audioClockFit(resolveSeekableSourceUri(clip), clipInMs, endMs));
-                    if (sap != null) aps.add(sap);
-                    if (clip.hasVolumeKeyframes()) {
-                        @SuppressWarnings("unchecked")
-                        List<Clip.VolumeKeyframe> kfs = (List<Clip.VolumeKeyframe>) clip.getVolumeKeyframes();
-                        long[] times = new long[kfs.size()];
-                        float[] vols = new float[kfs.size()];
-                        for (int i = 0; i < kfs.size(); i++) {
-                            times[i] = kfs.get(i).timeMs;
-                            vols[i] = kfs.get(i).volume;
-                        }
-                        VolumeAudioProcessor vp = new VolumeAudioProcessor();
-                        // B1.Q: envelope values are MULTIPLIERS over the static level —
-                        // without this the base stayed 1.0 and a boosted clip's fade
-                        // capped its whole length at 100%.
-                        vp.setVolume(clip.getVolumeLevel());
-                        vp.setVolumeEnvelope(times, vols);
-                        // Head-trimmed after a transition: read the curve from where the
-                        // piece really starts (STU-5 D6), as the video pass does.
-                        vp.setEnvelopeStartMs(
-                                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, clipInMs));
-                        aps.add(vp);
-                    } else if (Math.abs(clip.getVolumeLevel() - 1.0f) >= 0.01f) {
-                        VolumeAudioProcessor vp = new VolumeAudioProcessor();
-                        vp.setVolume(clip.getVolumeLevel());
-                        aps.add(vp);
-                    }
-                    if (!aps.isEmpty()) {
-                        eb.setEffects(new Effects(aps, Collections.emptyList()));
-                    }
-                    master.add(eb.build());
+                    master.add(masterAudioItem(clip, clipInMs, endMs));
                 }
             }
 
@@ -3818,6 +3864,15 @@ public class ExportManager {
      * byte-identical to before.
      */
     private long chunkBaseMs = 0L;
+    /**
+     * Cut jumps (STU-B3): how much of the editor timeline the file has jumped over before the
+     * item being built (struck words, cut silences). Added to every overlay clock with
+     * chunkBaseMs so pts + offset still equals editor time after a jump. Set per item by
+     * buildComposition; 0 whenever nothing is cut, so such exports are unchanged.
+     */
+    private long pieceCutShiftMs = 0L;
+    /** The kept piece being built starts part-way into its clip because of a jump before it. */
+    private boolean buildingCutPiece = false;
     private boolean chunkVideoOnly = false;
     private int chunkClipStart = 0;
     private int chunkClipEnd = -1;
@@ -4277,6 +4332,14 @@ public class ExportManager {
 
         List<EditedMediaItem> items = new ArrayList<>();
         long timelineCursorMs = 0;
+        // STU-B3: struck words and cut silences, on the editor clock. A single-frame export
+        // shows one editor moment, so it builds the uncut timeline (its frame directive maps
+        // editor time itself); every real export jumps.
+        final com.fadcam.ui.faditor.model.CutJumps cuts = frameDirective == null
+                ? com.fadcam.ui.faditor.model.CutJumps.of(timeline)
+                : com.fadcam.ui.faditor.model.CutJumps.none();
+        pieceCutShiftMs = 0L;
+        buildingCutPiece = false;
         // SPEC_C_SINGLE_FRAME: the EDITOR-timeline cursor — where the preview says clip ci
         // begins (sum of visual durations, transitions overlay the seam rather than removing
         // time). Recorded beside the composition cursor so a requested editor time can be
@@ -4357,6 +4420,9 @@ public class ExportManager {
             long effTailTimelineMs = hasTailTransition
                     ? effectiveTransitionMs(timeline, trans, ci) : 0L;
 
+            // Every item of this clip before its main body reads the jumps before the clip.
+            pieceCutShiftMs = cuts.cutBeforeMs(editorCursorMs);
+
             // ── Loop/ping-pong extensions BEFORE the main clip ──
             if (clip.hasLoopExtension() && !clip.isImageClip()) {
                 long trimmedPlayMs = clip.getTrimmedDurationMs();
@@ -4431,7 +4497,37 @@ public class ExportManager {
                             clipInMs + Math.max(1L, Math.round(clampedWinMs * clipSpeed)));
                 }
             }
-            if (mainSiteEmits) {
+            // STU-B3: the body less every jump inside it, as editor ranges. When nothing is
+            // struck here that is the whole body, which builds exactly the item it always did.
+            List<long[]> keptBody = mainSiteEmits && !cuts.isEmpty()
+                    ? cuts.keptRanges(mainEditorStartMs, mainEditorStartMs + mainEditorLenMs)
+                    : null;
+            boolean bodyIsCut = keptBody != null
+                    && !(keptBody.size() == 1 && keptBody.get(0)[0] == mainEditorStartMs
+                            && keptBody.get(0)[1] == mainEditorStartMs + mainEditorLenMs);
+            if (mainSiteEmits && bodyIsCut) {
+                for (long[] kr : keptBody) {
+                    long pieceIn = Math.min(mainOutMs, clipInMs
+                            + Math.round((kr[0] - mainEditorStartMs) * (double) clipSpeed));
+                    long pieceOut = Math.min(mainOutMs, clipInMs
+                            + Math.round((kr[1] - mainEditorStartMs) * (double) clipSpeed));
+                    if ((long) ((pieceOut - pieceIn) / clipSpeed) < MIN_EXPORT_SEGMENT_MS) continue;
+                    pieceCutShiftMs = cuts.cutBeforeMs(kr[0]);
+                    buildingCutPiece = kr[0] > mainEditorStartMs;
+                    EditedMediaItem piece;
+                    try {
+                        piece = buildClipItem(project, clip, pieceIn, pieceOut,
+                                timelineCursorMs, outW, outH, canvasDims,
+                                waveformSlots, projectSampleRate);
+                    } finally {
+                        buildingCutPiece = false;
+                    }
+                    items.add(piece);
+                    timelineCursorMs += piece.durationUs / 1000;
+                }
+                FLog.i(TAG, "buildComposition: clip " + ci + " plays as " + keptBody.size()
+                        + " kept pieces (jumps over struck words / cut silences)");
+            } else if (mainSiteEmits) {
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
                         waveformSlots, projectSampleRate);
@@ -4451,6 +4547,9 @@ public class ExportManager {
                         + " (body " + mainBodyTimelineMs + "ms < " + MIN_EXPORT_SEGMENT_MS
                         + "ms after transition trim) to avoid a no-output-sample muxer stall");
             }
+
+            // The transition and the loop-after pass read every jump up to the body's end.
+            pieceCutShiftMs = cuts.cutBeforeMs(mainEditorStartMs + mainEditorLenMs);
 
             // ── Build the transition item (if there's a tail transition) ──
             if (hasTailTransition && ci + 1 < timeline.getClipCount()) {
@@ -4626,6 +4725,31 @@ public class ExportManager {
         if (fillerEmitHere && isLastChunk && tailMs >= MIN_EXPORT_SEGMENT_MS) {
             Uri blackUri = ensureBlackFillerUri();
             if (blackUri != null) {
+                // STU-B3: a struck word in a sound lane past the last clip jumps the black too.
+                // Every piece but the last is built here; the last takes what is left of
+                // tailMs, so the file's length is the map's whatever the rounding.
+                List<long[]> keptTail = cuts.isEmpty() ? null
+                        : cuts.keptRanges(editorCursorMs, timeline.getTotalDurationMs());
+                if (keptTail != null && keptTail.size() > 1) {
+                    for (int k = 0; k < keptTail.size() - 1; k++) {
+                        long len = keptTail.get(k)[1] - keptTail.get(k)[0];
+                        if (len < MIN_EXPORT_SEGMENT_MS || len >= tailMs) continue;
+                        pieceCutShiftMs = cuts.cutBeforeMs(keptTail.get(k)[0]);
+                        Clip part = new Clip(blackUri, len);
+                        part.setImageClip(true);
+                        part.setAudioMuted(true);
+                        part.setDisplayName("Tail filler"); // TODO(strings)
+                        EditedMediaItem partItem = buildClipItem(project, part, 0L, len,
+                                timelineCursorMs, outW, outH, canvasDims, waveformSlots,
+                                projectSampleRate);
+                        items.add(partItem);
+                        timelineCursorMs += partItem.durationUs / 1000;
+                        tailMs -= partItem.durationUs / 1000;
+                    }
+                    pieceCutShiftMs = cuts.cutBeforeMs(keptTail.get(keptTail.size() - 1)[0]);
+                } else {
+                    pieceCutShiftMs = cuts.cutBeforeMs(editorCursorMs);
+                }
                 Clip filler = new Clip(blackUri, tailMs);
                 filler.setImageClip(true);
                 filler.setAudioMuted(true);
@@ -5048,7 +5172,8 @@ public class ExportManager {
     private long editorTimeOffsetForChunk(@NonNull Timeline timeline,
                                           @NonNull Clip clip,
                                           long compressedStartMs) {
-        return editorTimeOffsetFor(timeline, clip, compressedStartMs) + chunkBaseMs;
+        return editorTimeOffsetFor(timeline, clip, compressedStartMs) + chunkBaseMs
+                + pieceCutShiftMs;
     }
 
     private static long editorTimeOffsetFor(@NonNull Timeline timeline,
@@ -6341,22 +6466,60 @@ public class ExportManager {
             // every transition, so after two 0.6 s transitions a voiceover placed at 12 s on the
             // editor timeline belongs at 10.8 s in the file; placed at 12 s it came in 1.2 s
             // late against the picture it was laid under. Unchanged without transitions.
-            long clipStartMs = timeMap.editorToFileMs(ac.getOffsetMs());
+            // STU-B3: the parts of this clip that play. A jump (a struck word here or on the
+            // film above) skips the lane's sound with the picture, so the lane is laid as its
+            // kept pieces, each at its own place in the file. One piece, the whole clip, when
+            // nothing is cut under it.
+            long acEditorStart = ac.getOffsetMs();
+            List<long[]> keptLane = timeMap.cuts().isEmpty()
+                    ? Collections.singletonList(new long[]{acEditorStart, ac.getEndOnTimelineMs()})
+                    : timeMap.cuts().keptRanges(acEditorStart, ac.getEndOnTimelineMs());
+            for (long[] kr : keptLane) {
+                long pieceIn = ac.getInPointMs() + (kr[0] - acEditorStart);
+                long pieceOut = ac.getInPointMs() + (kr[1] - acEditorStart);
+                // A sliver left by a jump is dropped; an uncut clip is laid as it always was.
+                if (keptLane.size() > 1 && pieceOut - pieceIn < MIN_EXPORT_SEGMENT_MS) continue;
+                long clipStartMs = timeMap.editorToFileMs(kr[0]);
 
-            // Insert silence gap if necessary. The silence WAV is SILENCE_FILE_MS long,
-            // so a larger gap must be split into multiple items — otherwise the clip is
-            // capped at the file length and every later audio clip slides earlier on the
-            // timeline (the end song went silent because it landed ~250s too early).
-            if (clipStartMs > cursorMs) {
-                addSilence(audioItems, silenceUri, clipStartMs - cursorMs);
-                cursorMs = clipStartMs;
+                // Insert silence gap if necessary. The silence WAV is SILENCE_FILE_MS long,
+                // so a larger gap must be split into multiple items — otherwise the clip is
+                // capped at the file length and every later audio clip slides earlier on the
+                // timeline (the end song went silent because it landed ~250s too early).
+                if (clipStartMs > cursorMs) {
+                    addSilence(audioItems, silenceUri, clipStartMs - cursorMs);
+                    cursorMs = clipStartMs;
+                }
+                audioItems.add(laneAudioItem(ac, pieceIn, pieceOut, kr[0] - acEditorStart,
+                        projectSampleRate));
+                cursorMs = clipStartMs + (pieceOut - pieceIn);
             }
+        }
 
+        if (audioItems.isEmpty()) {
+            FLog.d(TAG, "buildLaneAudioSequence(" + laneId + "): all clips muted — no sequence");
+            return null;
+        }
+
+        FLog.d(TAG, "buildLaneAudioSequence(" + laneId + "): built " + audioItems.size()
+                + " audio items, total ~" + cursorMs + "ms");
+        return new EditedMediaItemSequence.Builder(audioItems).build();
+    }
+
+    /**
+     * One sound-lane item: source window [{@code inMs}, {@code outMs}) of {@code ac}, with its
+     * own trim, volume, envelope and FX. {@code localStartMs} is where the window starts on
+     * the clip's own clock (0 for the whole clip; past a jump, how far in), so fades and the
+     * volume curve keep reading the clip's clock across a jump (STU-B3).
+     */
+    @NonNull
+    private EditedMediaItem laneAudioItem(@NonNull AudioClip ac, long inMs, long outMs,
+                                          long localStartMs, int projectSampleRate) {
+        {
             // Build the audio clip item with trim & volume
             MediaItem.ClippingConfiguration clipping =
                     new MediaItem.ClippingConfiguration.Builder()
-                            .setStartPositionMs(ac.getInPointMs())
-                            .setEndPositionMs(ac.getOutPointMs())
+                            .setStartPositionMs(inMs)
+                            .setEndPositionMs(outMs)
                             .build();
 
             MediaItem mediaItem = new MediaItem.Builder()
@@ -6378,9 +6541,16 @@ public class ExportManager {
             List<AudioProcessor> processors = new ArrayList<>(AudioFxChainFactory.buildLaneChain(
                     ac, clipSampleRate, projectSampleRate, fxBypassedSnapshot,
                     ac.isVoiceFxEnabled()));
+            if (localStartMs > 0L) {
+                for (AudioProcessor ap : processors) {
+                    if (ap instanceof VolumeAudioProcessor) {
+                        ((VolumeAudioProcessor) ap).setEnvelopeStartMs(localStartMs);
+                    }
+                }
+            }
             // First, so the lane's envelope and FX run on sound already fitted to its span.
             SonicAudioProcessor fit = speedAndFit(1f, audioClockFit(
-                    seekableUriFor(ac.getSourceUri()), ac.getInPointMs(), ac.getOutPointMs()));
+                    seekableUriFor(ac.getSourceUri()), inMs, outMs));
             if (fit != null) processors.add(0, fit);
             if (clipSampleRate > 0 && clipSampleRate != projectSampleRate) {
                 FLog.d(TAG, "A6: audio clip " + ac.getId() + " resampled " + clipSampleRate + " → " + projectSampleRate + " Hz");
@@ -6388,19 +6558,8 @@ public class ExportManager {
             if (!processors.isEmpty()) {
                 editBuilder.setEffects(new Effects(processors, Collections.emptyList()));
             }
-
-            audioItems.add(editBuilder.build());
-            cursorMs = clipStartMs + ac.getTrimmedDurationMs();
+            return editBuilder.build();
         }
-
-        if (audioItems.isEmpty()) {
-            FLog.d(TAG, "buildLaneAudioSequence(" + laneId + "): all clips muted — no sequence");
-            return null;
-        }
-
-        FLog.d(TAG, "buildLaneAudioSequence(" + laneId + "): built " + audioItems.size()
-                + " audio items, total ~" + cursorMs + "ms");
-        return new EditedMediaItemSequence.Builder(audioItems).build();
     }
 
     /**
@@ -6465,7 +6624,22 @@ public class ExportManager {
                 FLog.d(TAG, "buildOverlayAudioSequence: PiP " + c.getId() + " has no audio — skipped");
                 continue;
             }
-            long startMs = Math.max(0, timeMap.editorToFileMs(c.getOverlayStartMs()));
+            // STU-B3: the picture-in-picture's pixels jump with the program, so its sound is
+            // laid as the same kept pieces. One piece, the whole clip, when nothing is cut.
+            long pipEditorStart = c.getOverlayStartMs();
+            long pipEditorEnd = pipEditorStart + Math.max(0, c.getTrimmedDurationMs());
+            double pipRate = Math.max(0.1f, c.getSpeedMultiplier());
+            List<long[]> keptPip = timeMap.cuts().isEmpty()
+                    ? Collections.singletonList(new long[]{pipEditorStart, pipEditorEnd})
+                    : timeMap.cuts().keptRanges(pipEditorStart, pipEditorEnd);
+            for (long[] kr : keptPip) {
+            boolean wholePip = kr[0] == pipEditorStart && kr[1] == pipEditorEnd;
+            if (!wholePip && kr[1] - kr[0] < MIN_EXPORT_SEGMENT_MS) continue;
+            long pieceIn = wholePip ? c.getInPointMs() : Math.min(c.getOutPointMs(),
+                    c.getInPointMs() + Math.round((kr[0] - pipEditorStart) * pipRate));
+            long pieceOut = wholePip ? c.getOutPointMs() : Math.min(c.getOutPointMs(),
+                    c.getInPointMs() + Math.round((kr[1] - pipEditorStart) * pipRate));
+            long startMs = Math.max(0, timeMap.editorToFileMs(kr[0]));
             if (startMs > cursorMs) {
                 addSilence(items, silenceUri, startMs - cursorMs);
                 cursorMs = startMs;
@@ -6474,8 +6648,8 @@ public class ExportManager {
             MediaItem mediaItem = new MediaItem.Builder()
                     .setUri(src)
                     .setClippingConfiguration(new MediaItem.ClippingConfiguration.Builder()
-                            .setStartPositionMs(c.getInPointMs())
-                            .setEndPositionMs(c.getOutPointMs())
+                            .setStartPositionMs(pieceIn)
+                            .setEndPositionMs(pieceOut)
                             .build())
                     .build();
             EditedMediaItem.Builder eb = new EditedMediaItem.Builder(mediaItem)
@@ -6485,7 +6659,7 @@ public class ExportManager {
             float speed = c.getSpeedMultiplier();
             if (Math.abs(speed - 1.0f) < 0.001f || speed <= 0) speed = 1f;
             SonicAudioProcessor sonic = speedAndFit(speed,
-                    audioClockFit(src, c.getInPointMs(), c.getOutPointMs()));
+                    audioClockFit(src, pieceIn, pieceOut));
             if (sonic != null) processors.add(sonic);
             // PiP volume: ENVELOPE when the clip has keyframes, flat level otherwise.
             //
@@ -6517,6 +6691,7 @@ public class ExportManager {
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
                 vp.setVolume(volume);
                 vp.setVolumeEnvelope(times, vols);
+                if (kr[0] > pipEditorStart) vp.setEnvelopeStartMs(kr[0] - pipEditorStart);
                 processors.add(vp);
             } else if (Math.abs(volume - 1.0f) >= 0.01f) {
                 VolumeAudioProcessor vp = new VolumeAudioProcessor();
@@ -6538,8 +6713,9 @@ public class ExportManager {
             // divided by the speed a second time: after a 2x picture-in-picture the cursor stopped
             // half-way through its sound, so the silence before the NEXT one was too long by the
             // other half and that one came in late (early after a slowed one). Code review 2026-11-11.
-            long dur = Math.max(0, c.getTrimmedDurationMs());
+            long dur = wholePip ? Math.max(0, c.getTrimmedDurationMs()) : kr[1] - kr[0];
             cursorMs = startMs + dur;
+            }
         }
         if (items.isEmpty()) return null;
         FLog.d(TAG, "buildOverlayAudioSequence: " + items.size()
@@ -6783,7 +6959,8 @@ public class ExportManager {
         // before it played under the blend for a main piece, 0 for a loop-before piece, and the
         // outgoing clip's tail for a transition piece (STU-5 E19), which buildTransitionItem
         // passes in as clipLocalStartMs.
-        final long pieceClipStartMs = isTransitionItem ? clipLocalStartMs
+        // A kept piece after a jump (STU-B3) starts where its source window does.
+        final long pieceClipStartMs = isTransitionItem || buildingCutPiece ? clipLocalStartMs
                 : (isLoopBeforeItem ? 0L : headTransitionMsFor(project.getTimeline(), clip));
         boolean isVideo = !clip.isImageClip();
 

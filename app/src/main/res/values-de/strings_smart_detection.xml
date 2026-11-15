@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">Das Story Board ist leer</string>
+    <string name="smart_detection_empty_hint">Bilder, die die Kamera markiert, erscheinen hier</string>
+    <string name="smart_detection_empty_glyph_desc">Noch nichts erkannt</string>
+    <string name="smart_detection_tip_close">Schließen</string>
+    <string name="smart_detection_tip_back">Zurück</string>
+    <string name="smart_detection_tip_menu">Smart-Detection-Menü</string>
+    <string name="smart_detection_tip_select_all">Alle auswählen</string>
+    <string name="smart_detection_tip_sort">Sortieren</string>
+    <string name="smart_detection_tip_grid">Rasteransicht ändern</string>
+    <string name="smart_detection_tip_scroll">Nach oben scrollen</string>
+</resources>

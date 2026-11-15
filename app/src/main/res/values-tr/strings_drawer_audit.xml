@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Turkish translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">Tam değeri yazmak için dokun</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">Maske yok. Bu nesnenin yalnızca bir kısmını göstermek için bir tane ekle.</string>
+    <string name="lane_a_mask_mode_add">Ekle</string>
+    <string name="lane_a_mask_mode_subtract">Çıkar</string>
+    <string name="lane_a_mask_mode_intersect">Kesiştir</string>
+    <string name="faditor_mask_link_object">Nesneyle birlikte hareket et</string>
+    <string name="faditor_mask_link_hint">Kapalı: maske yerinde kalır, nesne altında hareket eder. Açık: maske nesneyle birlikte gider.</string>
+    <string name="lane_a_mask_animated">canlandırılmış</string>
+    <string name="lane_a_mask_static">canlandırılmamış</string>
+    <string name="lane_a_mask_key_chip">◆ İmlecin yerine anahtar koy</string>
+    <string name="lane_a_mask_key_here">Bu şekle oynatma imlecinde anahtar koy</string>
+    <string name="lane_a_mask_clear_keys">Tüm maske anahtar karelerini temizle</string>
+    <string name="lane_a_mask_keyed_toast">Şekil %1$d, %2$.1f sn noktasında anahtarlandı</string>
+    <string name="faditor_fx_empty_layer">Bu katman henüz hiçbir şeyi değiştirmiyor. Bir efekt ekle, katmanın altındaki her şey onu alır.</string>
+    <string name="faditor_fx_empty_object">Bu nesnede henüz efekt yok. Bir tane ekle, nesneyle birlikte gider — yalnızca bunu etkiler, başka hiçbir şeyi değil.</string>
+    <string name="faditor_fx_position">Önizlemede konumlandır</string>
+    <string name="faditor_fx_position_done">Önizlemede konumlandırılıyor — bitti</string>
+    <string name="faditor_fx_blend">Karışım</string>
+    <string name="faditor_fx_vertices">Köşeler</string>
+    <string name="faditor_fx_edit_gradient">Bu renk geçişini düzenle</string>
+    <string name="faditor_fx_curve_edit">Önizlemede düzenle</string>
+    <string name="faditor_fx_curve_edit_done">Önizlemede düzenleniyor — bitti</string>
+    <string name="faditor_fx_straighten">Düzelt</string>
+    <string name="faditor_fx_save_look">Görünümü kaydet</string>
+    <string name="faditor_fx_look_name_hint">Bu görünüme ad ver</string>
+    <string name="faditor_fx_look_save">Kaydet</string>
+    <string name="faditor_fx_saved_looks">Kayıtlı görünümler</string>
+    <string name="faditor_fx_look_desc">%1$s yükle. Silmek için basılı tut</string>
+    <string name="faditor_fx_load">Yükle</string>
+    <string name="faditor_fx_load_confirm">\'%1$s\' yüklensin mi?</string>
+    <string name="faditor_fx_delete_look_confirm">\'%1$s\' silinsin mi?</string>
+    <string name="faditor_fx_add">＋ Efekt ekle</string>
+    <string name="faditor_fx_needs_pass_title">%1$s kendi geçişine ihtiyaç duyar</string>
+    <string name="faditor_fx_needs_pass_body">%1$s komşu pikselleri okur, bu yüzden üzerinde çalışacağı bitmiş bir görüntüye ihtiyaç duyar. Bir nesne tek geçişte çizilir, yani henüz öyle bir görüntü yok.\n\nBunu bu nesnenin üstündeki bir ayar katmanına koy; bu nesneye ve altındaki her şeye uygulanır.</string>
+    <string name="faditor_fx_toast_keys_cleared">%1$s anahtarları temizlendi</string>
+    <string name="faditor_fx_toast_saved">\'%1$s\' kaydedildi</string>
+    <string name="faditor_fx_toast_load_failed">\'%1$s\' yüklenemedi</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">Bu işlem bu katmandaki %1$d efektin yerine geçer.</item>
+        <item quantity="other">Bu işlem bu katmandaki %1$d efektin yerine geçer.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d efekt</item>
+        <item quantity="other">%1$d efekt</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">Efekti atla</string>
+    <string name="faditor_undo_fx_enable">Efekti aç</string>
+    <string name="faditor_undo_fx_delete">%1$s sil</string>
+    <string name="faditor_undo_fx_add">%1$s ekle</string>
+    <string name="faditor_undo_fx_opacity">%1$s opaklığı</string>
+    <string name="faditor_undo_fx_blend">%1$s karışımı</string>
+    <string name="faditor_undo_fx_vertices">Eğri köşeleri</string>
+    <string name="faditor_undo_fx_straighten">Eğriyi düzelt</string>
+    <string name="faditor_undo_fx_reorder">Efektleri yeniden sırala</string>
+    <string name="faditor_undo_fx_key">%1$s anahtarı</string>
+    <string name="faditor_undo_fx_clear_keys">%1$s anahtarlarını temizle</string>
+    <string name="faditor_undo_fx_apply_look">\'%1$s\' görünümünü uygula</string>
+    <string name="lane_b_audio_fade_in_short">Giriş</string>
+    <string name="lane_b_audio_fade_out_short">Çıkış</string>
+    <string name="lane_b_audio_env_flat">Sabit kazanç — ◇ ilk zarf noktasını siler</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">Zarf · %1$d nokta — kaydırıcı ▶︎ altındaki noktayı yönetir</item>
+        <item quantity="other">Zarf · %1$d nokta — kaydırıcı ▶︎ altındaki noktayı yönetir</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">İşleniyor…</string>
+    <string name="lane_b_audio_bake_in_use">İşlenmiş ses kullanımda — orijinal saklandı.</string>
+    <string name="lane_b_audio_bake_offline">Çevrimdışı işleme — orijinal dosyaya asla dokunulmaz.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Başarısız: %1$s</string>
+    <string name="lane_b_audio_bake_note">Bu klibin sesinin bir kopyası üzerinde çalışır ve onu çalar. Geri Dön ile orijinale dönersin.</string>
+    <string name="lane_b_audio_revert">Orijinale dön</string>
+    <string name="lane_b_audio_revert_desc">Orijinal, işlenmemiş ses dosyasına geri dön</string>
+    <string name="lane_b_audio_denoise">Gürültüyü azalt</string>
+    <string name="lane_b_audio_denoise_desc">Bu klibin arka plan gürültüsü azaltılmış bir kopyasını oluştur</string>
+    <string name="lane_b_audio_normalize">Ses düzeyini eşitle</string>
+    <string name="lane_b_audio_normalize_desc">Bu klibin eşit ses düzeyinde bir kopyasını oluştur</string>
+    <string name="lane_b_audio_voice">Sesi güzelleştir</string>
+    <string name="lane_b_audio_voice_undo">Ses güzelleştirme</string>
+    <string name="lane_b_audio_voice_on">Ses zinciri AÇIK — yalnızca bu klip</string>
+    <string name="lane_b_audio_voice_off">Ses zinciri KAPALI — yalnızca bu klip</string>
+    <string name="lane_b_audio_voice_note">Uğultu giderme, kapı, tıslama azaltma, canlılık, sıkıştırıcı, sınırlayıcı — konuşma için. Bu klibin önizleme sesini yeniden oluşturur.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Ritme tepki bağlantısı…</string>
+    <string name="lane_b_audio_beat_link_note">Bir katmanın ölçeğini / opaklığını / dönüşünü bu klibin tek bir bandından yönet. Sonradan sürükleyebileceğin normal anahtar kareler yazar.</string>
+    <string name="lane_b_audio_comp">Sıkıştırıcı</string>
+    <string name="lane_b_audio_comp_bypassed">FX zinciri ATLANDI — karışımı olduğu gibi duyuyorsun.</string>
+    <string name="lane_b_audio_comp_live">Kazanç azaltma, doğrudan sıkıştırıcıdan.</string>
+    <string name="lane_b_audio_comp_idle">Ölçer, proje oynarken hareket eder.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Düzey (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Pan (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (sn)</string>
+    <string name="lane_b_audio_undo_level">Ses düzeyi</string>
+    <string name="lane_b_audio_undo_clear_envelope">Zarfı temizle</string>
+    <string name="lane_b_audio_undo_envelope_point">Zarf noktası</string>
+    <string name="lane_b_audio_undo_delete_point">Zarf noktasını sil</string>
+    <string name="lane_b_puppet_swatch">%1$s iğnesi. Türü değiştirmek için dokun.</string>
+    <string name="lane_b_puppet_undo_pin_type">İğne türü</string>
+    <string name="lane_b_puppet_rec_on">Bir iğneye dokununca kaydediyor. Durdurmak için dokun.</string>
+    <string name="lane_b_puppet_rec_off">Dokununca kaydetmiyor. Hazırlamak için dokun.</string>
+    <string name="lane_b_puppet_sim">sim</string>
+    <string name="lane_b_puppet_tool_grab">Tut</string>
+    <string name="lane_b_puppet_tool_pin">İğne</string>
+    <string name="lane_b_puppet_tool_stiff">Sert</string>
+    <string name="lane_b_puppet_tool_dangle">Sallan</string>
+    <string name="lane_b_puppet_tool_free">Serbest</string>
+    <string name="lane_b_puppet_tool_bone">Kemik</string>
+    <string name="lane_b_puppet_scope_selected">Seçili</string>
+    <string name="lane_b_puppet_scope_character">Karakter</string>
+    <string name="lane_b_puppet_scope_recording">Kayıt</string>
+    <string name="lane_b_puppet_hint_first_pin">İlk iğneni koymak için resme dokun</string>
+    <string name="lane_b_puppet_hint_tap_pin">Düzenlemek için bir iğneye dokun</string>
+    <string name="lane_b_puppet_hint_dangle">Simüle ediliyor — düzenlenecek anahtar yok. Zaten olan anahtarlar el değmeden saklanır ve sallanma durunca geri gelir.</string>
+    <string name="lane_b_puppet_hint_free">Serbest bir iğne her yöne hareket eder. Dönme ve ölçekleme için motorda iğne başına dönüş gerekir — şartnameye bak.</string>
+    <string name="lane_b_puppet_hint_anchor">Bir çapanın ayarlanacak başka bir şeyi yok — amacı bu</string>
+    <string name="lane_b_puppet_hint_tape">Aşağıdaki şerit %1$s anahtarlarını gösteriyor. Anahtarlarını görmek için başka bir iğneye ya da yukarıdaki bir düğmeye dokun.</string>
+    <string name="lane_b_puppet_hint_rigid">Sert bir kemik eli kısa keser ve omzu koparır. Çizgi filmler genelde esnek ister.</string>
+    <string name="lane_b_puppet_hint_limits_off">Varsayılan olarak kapalı — çoğu çizgi film iskeleti bunları hiç istemez.</string>
+    <string name="lane_b_puppet_hint_bone_keys">Bir kemiğin kendi anahtarı olmaz. Onu hareket ettirmek %1$s ve %2$s üzerine yazar.</string>
+    <string name="lane_b_puppet_hint_put_away">İğneleri kaldırmak için resimdeki kuklaya dokun</string>
+    <string name="lane_b_puppet_hint_punch_in">Yakınlaşma eski hareketin kaldığı yerden başlar ve sonda yavaşça geri döner</string>
+    <string name="lane_b_puppet_pin_depth">Derinlik — arkada / önde</string>
+    <string name="lane_b_puppet_pin_muted">Sessize alındı</string>
+    <string name="lane_b_puppet_pin_active">Etkin</string>
+    <string name="lane_b_puppet_pin_reach_ring">Erişim halkası</string>
+    <string name="lane_b_puppet_pin_auto_pull">Otomatik çekme</string>
+    <string name="lane_b_puppet_pin_pull">Bu iğnenin ne kadar sert çektiği</string>
+    <string name="lane_b_puppet_pin_spring">Yaylanma</string>
+    <string name="lane_b_puppet_pin_settle">Oturma</string>
+    <string name="lane_b_puppet_pin_mass">Kütle</string>
+    <string name="lane_b_puppet_pin_max_stretch">En fazla uzama</string>
+    <string name="lane_b_puppet_pin_stiff_area">Sert alan</string>
+    <string name="lane_b_puppet_pin_strength">Güç</string>
+    <string name="lane_b_puppet_reset">Baştan başla</string>
+    <string name="lane_b_puppet_reset_desc">%1$s ve tüm anahtar kareleri kaldırır</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d iğne</item>
+        <item quantity="other">%1$d iğne</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d kemik</item>
+        <item quantity="other">%1$d kemik</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Kemik</string>
+    <string name="lane_b_puppet_bone_from">Başlangıç</string>
+    <string name="lane_b_puppet_bone_to">Bitiş</string>
+    <string name="lane_b_puppet_bone_length">Uzunluk</string>
+    <string name="lane_b_puppet_bone_rest_angle">Dinlenme açısı</string>
+    <string name="lane_b_puppet_bone_rest_length">Dinlenme uzunluğu</string>
+    <string name="lane_b_puppet_bone_stretchy">Esnek</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Dirseği çevir</string>
+    <string name="lane_b_puppet_bone_reach">Erişim</string>
+    <string name="lane_b_puppet_bone_stretch">Ne kadar uzayabileceği</string>
+    <string name="lane_b_puppet_bone_joint_limits">Eklem sınırları</string>
+    <string name="lane_b_puppet_bone_fold_back">Şundan fazla geriye katlanmasın</string>
+    <string name="lane_b_puppet_bone_fold_forward">Şundan fazla ileriye katlanmasın</string>
+    <string name="lane_b_puppet_rig_softness">Yumuşaklık</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Ağ ayrıntısı</string>
+    <string name="lane_b_puppet_rig_gravity">Yer çekimi</string>
+    <string name="lane_b_puppet_rig_wind">Rüzgar</string>
+    <string name="lane_b_puppet_rig_wind_dir">Rüzgar yönü</string>
+    <string name="lane_b_puppet_rig_show_pins">İğneler</string>
+    <string name="lane_b_puppet_rig_show_bones">Kemikler</string>
+    <string name="lane_b_puppet_rig_show_mesh">Ağ</string>
+    <string name="lane_b_puppet_rig_rarely">Nadiren gerekir</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Kenar eşiği</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Kenar genişletme</string>
+    <string name="lane_b_puppet_record_on_touch">Dokununca kaydet</string>
+    <string name="lane_b_puppet_record_snap">Anahtarlara yapış</string>
+    <string name="lane_b_puppet_record_detail">Kaydedilen hareketlerin ayrıntısı</string>
+    <string name="lane_b_puppet_record_blend_out">Sonda karıştır</string>
+    <string name="faditor_text_underline">Altı çizili</string>
+    <string name="faditor_text_case_first">İlk harfleri büyüt</string>
+    <string name="faditor_text_case_all">Hepsi büyük harf</string>
+    <string name="faditor_text_case_small">Küçük büyük harf</string>
+    <string name="faditor_text_align">Hizalama: %1$s. Değiştirmek için dokun</string>
+    <string name="faditor_text_align_left">sol</string>
+    <string name="faditor_text_align_center">orta</string>
+    <string name="faditor_text_align_right">sağ</string>
+    <string name="faditor_text_align_justify">iki yana yaslı</string>
+    <string name="faditor_text_color">Metin rengi</string>
+    <string name="faditor_text_shadow_distance">Mesafe</string>
+    <string name="faditor_text_shadow_direction">Gölge yönü</string>
+    <string name="faditor_text_shadow_angle">Gölge açısı</string>
+    <string name="faditor_text_anim_label">Animasyon</string>
+    <string name="lane_b_caption_hide">Bu altyazı kanalını gizle</string>
+    <string name="lane_b_caption_show">Bu altyazı kanalını göster</string>
+    <string name="lane_b_caption_add_track">Altyazı kanalı ekle</string>
+    <string name="caption_size">Altyazı boyutu</string>
+    <string name="caption_highlight">Vurgu</string>
+    <string name="caption_style_save">Kendi stilim olarak kaydet</string>
+    <string name="caption_style_delete">Bu özel stili sil</string>
+    <string name="caption_style_copy">Stili metin olarak kopyala</string>
+    <string name="caption_style_import">Stili metinden içe aktar</string>
+    <string name="caption_anim_pop">Pop</string>
+    <string name="caption_anim_zoom">Yakınlaş</string>
+    <string name="caption_anim_bounce">Zıpla</string>
+    <string name="caption_box">Kutu</string>
+    <string name="caption_box_more">Kutu…</string>
+    <string name="caption_box_more_desc">Daha fazla kutu seçeneği</string>
+    <string name="caption_drawer_empty">Altyazılı klip seçilmedi</string>
+    <string name="caption_fit_uniform">Eşit</string>
+    <string name="caption_fit_per_cue">Satır başına</string>
+    <string name="caption_fit_truncate">Kırp</string>
+    <string name="caption_fit_words">Kelime</string>
+    <string name="caption_fit_words_desc">Altyazı başına kelime</string>
+    <string name="caption_fit_lines">En çok satır</string>
+    <string name="caption_fit_lines_prompt">En çok satır (0 = sınırsız)</string>
+    <string name="caption_fit_floor">Taban</string>
+    <string name="caption_group_slide">Gruplama: Kaydırma</string>
+    <string name="caption_group_karaoke">Gruplama: Karaoke</string>
+    <string name="caption_group_desc">Kelimelerin altyazılar halinde nasıl gruplanacağı. Değiştirmek için dokun</string>
+    <string name="caption_grow_center">Büyüme: ortadan</string>
+    <string name="caption_grow_down">Büyüme: aşağı</string>
+    <string name="caption_grow_up">Büyüme: yukarı</string>
+    <string name="caption_grow_desc">Altyazının hangi yöne büyüyeceği. Sırayla geçmek için dokun</string>
+    <string name="caption_align_center">Hizalama: orta</string>
+    <string name="caption_align_left">Hizalama: sol</string>
+    <string name="caption_align_right">Hizalama: sağ</string>
+    <string name="caption_align_desc">Satır hizalaması. Sırayla geçmek için dokun</string>
+    <string name="caption_copy_all">Tümüne kopyala</string>
+    <string name="caption_copy_all_desc">Bu kanalın büyüme ve hizalamasını tüm altyazı kanallarına kopyala</string>
+    <string name="caption_copy_all_done">Bağlama noktası + hizalama tüm kanallara uygulandı</string>
+    <string name="caption_position">Altyazı konumu</string>
+    <string name="caption_timing">Zamanlama</string>
+    <string name="caption_timing_hint">Her altyazı satırına, o satırın bir oranı olarak uygulanır</string>
+    <string name="caption_timing_readout">Giriş %1$d%%   Çıkış %2$d%%   (her satırın)</string>
+    <string name="caption_timing_readout_meet">Giriş %1$d%%   Çıkış %2$d%%   (her satırın)  ·  giriş, çıkış başlarken biter</string>
+    <string name="caption_timing_in_desc">Giriş zamanlaması</string>
+    <string name="caption_timing_out_desc">Çıkış zamanlaması</string>
+    <string name="faditor_prop_pos_x">Konum X</string>
+    <string name="faditor_prop_pos_y">Konum Y</string>
+    <string name="faditor_prop_scale">Ölçek</string>
+    <string name="faditor_prop_scale_x">Ölçek X</string>
+    <string name="faditor_prop_scale_y">Ölçek Y</string>
+    <string name="drawer_title_visualizer">Görselleştirici</string>
+    <string name="drawer_tab_puppet">Kukla</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d ses</item>
+        <item quantity="other">%1$d ses</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>Kapalı</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Yayın -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Orijinal</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (ek kayıp yok)</item>
+        <item>JPG (daha küçük)</item>
+    </string-array>
+    <string name="export_loudness">Ses düzeyi hedefi</string>
+    <string name="export_loudness_readout">Ölçülen: %1$s LUFS → Hedef: %2$s</string>
+    <string name="export_quality">Kalite</string>
+    <string name="export_format">Biçim</string>
+    <string name="export_audio_only">Yalnızca sesi dışa aktar (.m4a)</string>
+    <string name="export_audio_only_desc">Klip sesini + müziği tek bir ses dosyasında birleştirir — video kanalı yok</string>
+    <string name="export_audio_only_project">Bu projede video yok — ses olarak dışa aktarılır</string>
+    <string name="export_frame">Tek kareyi dışa aktar (resim)</string>
+    <string name="export_frame_desc">Katmanlar dahil, birleştirilmiş tek bir kareyi dışa aktarma çözünürlüğünde kaydeder. Kare, dışa aktarmayla aynı video kodlayıcıdan çıkar, yani Kalite onu şekillendirir: PNG o kareyi birebir korur, JPG daha küçüktür (saydamlık yok, kareler opaktır)</string>
+    <string name="export_frame_time">Kare zamanı (oynatma imlecinden dolduruldu — değiştirmek için yaz)</string>
+    <string name="export_time_hint">d:ss.t veya saniye</string>
+    <string name="export_range_hint">d:ss.t</string>
+    <string name="export_frame_error_format">01:23.4 gibi bir zaman yaz (ya da 4,5 saniye için 4.5)</string>
+    <string name="export_frame_error_past">Bu zaman projenin bitişini (%1$s) geçiyor. Daha erken bir zaman seç.</string>
+</resources>

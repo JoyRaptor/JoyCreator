@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">الشكل</string>
+    <string name="studio_viz_sec_colour">اللون</string>
+    <string name="studio_viz_sec_look">المظهر</string>
+    <string name="studio_viz_sec_motion">الحركة</string>
+    <string name="studio_viz_opacity">الشفافية</string>
+    <string name="studio_viz_softness">النعومة</string>
+    <string name="studio_viz_gain">التضخيم</string>
+    <string name="studio_viz_spread">الانتشار</string>
+    <string name="studio_viz_blend">المزج</string>
+    <string name="studio_viz_mirror">انعكاس</string>
+    <string name="studio_viz_trails">الأثر</string>
+    <string name="studio_viz_phase">الطور</string>
+    <string name="studio_viz_attack">الصعود</string>
+    <string name="studio_viz_release">الهبوط</string>
+    <string name="studio_viz_glow">التوهج</string>
+    <string name="studio_viz_radius">نصف القطر</string>
+    <string name="studio_viz_count">العدد</string>
+    <string name="studio_viz_speed">السرعة</string>
+    <string name="studio_viz_hover_attack">الصعود: سرعة الارتفاع، بالميلي ثانية</string>
+    <string name="studio_viz_hover_release">الهبوط: سرعة الانخفاض، بالميلي ثانية</string>
+    <string name="studio_viz_hover_radius">نصف قطر التوهج</string>
+    <string name="studio_viz_hover_count">عدد الجسيمات</string>
+    <string name="studio_viz_hover_speed">سرعة الجسيمات</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

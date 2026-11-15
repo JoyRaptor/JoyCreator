@@ -64,19 +64,19 @@ public class ForensicsInsightsFragment extends Fragment {
 
     // ── Threat levels ────────────────────────────────────────────────────
     private enum ThreatLevel {
-        LOW(0xFF4CAF50, "LOW",
+        LOW(com.fadcam.ui.faditor.Studio.RAISED, "LOW",
                 "Minimal activity detected",
                 "Low event volume, no significant patterns."),
-        GUARDED(0xFF2196F3, "NORMAL",
+        GUARDED(com.fadcam.ui.faditor.Studio.GO, "NORMAL",
                 "Normal activity",
                 "Routine detections within expected range."),
-        ELEVATED(0xFFFFC107, "ACTIVE",
+        ELEVATED(com.fadcam.ui.faditor.Studio.ARMED, "ACTIVE",
                 "Increased detection volume",
                 "Above-average activity warrants monitoring."),
-        HIGH(0xFFFF9800, "HIGH",
+        HIGH(com.fadcam.ui.faditor.Studio.CAREFUL, "HIGH",
                 "Significant activity detected",
                 "High people count or priority events."),
-        SEVERE(0xFFF44336, "PEAK",
+        SEVERE(com.fadcam.ui.faditor.Studio.DANGER, "PEAK",
                 "Peak activity level",
                 "Very high event volume or priority concentration.");
 
@@ -539,23 +539,27 @@ public class ForensicsInsightsFragment extends Fragment {
         bg.setCornerRadius(dpToPx(4));
         bg.setColor(level.color);
         threatBadge.setBackground(bg);
+        // A coloured badge carries black words (the house's "on" face); the quiet one, grey.
+        threatBadge.setTextColor(level == ThreatLevel.LOW ? com.fadcam.ui.faditor.Studio.INK_DIM : com.fadcam.ui.faditor.Studio.ON_GO);
         if (threatDesc != null) threatDesc.setText(level.description);
         if (threatBasis != null) threatBasis.setText(level.basis);
     }
 
     // ── Detection cell tinting ───────────────────────────────────────────
 
+    /** a -> b by t (0..1), per channel. */
+    private static int blend(int a, int b, float t) {
+        t = Math.max(0f, Math.min(1f, t));
+        int ar = (a >> 16) & 0xFF, ag = (a >> 8) & 0xFF, ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF, bg = (b >> 8) & 0xFF, bb = b & 0xFF;
+        return 0xFF000000 | ((int) (ar + (br - ar) * t) << 16) | ((int) (ag + (bg - ag) * t) << 8) | (int) (ab + (bb - ab) * t);
+    }
+
     private void tintDetectionCells() {
         View[] cells = {cellPersonnel, cellVehicles, cellAnimals, cellObjects};
         // Resolve colorTopBar from the current theme for consistent card-in-card look
-        int cellColor;
-        try {
-            android.util.TypedValue tv = new android.util.TypedValue();
-            requireContext().getTheme().resolveAttribute(R.attr.colorTopBar, tv, true);
-            cellColor = tv.data;
-        } catch (Exception e) {
-            cellColor = 0xFF1A1A2E; // fallback
-        }
+        // A control sitting on a panel: the house's raised zinc (was the legacy theme's top bar).
+        int cellColor = com.fadcam.ui.faditor.Studio.RAISED;
         for (View cell : cells) {
             if (cell == null) continue;
             GradientDrawable bg = new GradientDrawable();
@@ -591,12 +595,13 @@ public class ForensicsInsightsFragment extends Fragment {
             GradientDrawable barBg = new GradientDrawable();
             float r = dpToPx(2);
             barBg.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
+            // Greys fade, colour guides: ordinary hours are grey, the busiest hour is cyan.
             if (h == peakHour && hourlyCounts[h] > 0) {
-                barBg.setColor(0xFFF44336);
+                barBg.setColor(com.fadcam.ui.faditor.Studio.ARMED);
             } else if (hourlyCounts[h] > 0) {
-                barBg.setColor(accentColor);
+                barBg.setColor(com.fadcam.ui.faditor.Studio.INK_FAINT);
             } else {
-                barBg.setColor(0x33FFFFFF);
+                barBg.setColor(com.fadcam.ui.faditor.Studio.LINE);
             }
             bar.setBackground(barBg);
 
@@ -675,13 +680,12 @@ public class ForensicsInsightsFragment extends Fragment {
 
                 GradientDrawable bg = new GradientDrawable();
                 bg.setCornerRadius(dpToPx(4));
+                // Heat in one colour: zinc when empty, rising to cyan where most happened.
                 if (count == 0) {
-                    bg.setColor(0xFF1A1A2E);
+                    bg.setColor(com.fadcam.ui.faditor.Studio.RAISED);
                 } else {
-                    int red = (int) (50 + intensity * 205);
-                    int green = (int) (50 + (1f - intensity) * 100);
-                    int blue = (int) (50 + (1f - intensity) * 50);
-                    bg.setColor(Color.rgb(red, green, blue));
+                    float t = 0.25f + 0.75f * intensity;
+                    bg.setColor(blend(com.fadcam.ui.faditor.Studio.RAISED, com.fadcam.ui.faditor.Studio.ARMED, t));
                 }
                 zoneCells[r][c].setBackground(bg);
 
@@ -692,7 +696,8 @@ public class ForensicsInsightsFragment extends Fragment {
                 } else {
                     zoneCountTexts[r][c].setText(String.valueOf(count));
                 }
-                zoneCountTexts[r][c].setTextColor(count > 0 ? 0xFFFFFFFF : 0x80FFFFFF);
+                zoneCountTexts[r][c].setTextColor(count == 0 ? com.fadcam.ui.faditor.Studio.INK_OFF
+                        : (count >= maxZone * 0.6f ? com.fadcam.ui.faditor.Studio.ON_GO : com.fadcam.ui.faditor.Studio.INK));
             }
         }
     }

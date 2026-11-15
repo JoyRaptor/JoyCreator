@@ -83,7 +83,7 @@ final class TlProgram {
         }
         if (need > 0 && v.length != need * x.size) {
             // once per program and name: a knob that shares a uniform's name with a host-set value
-            // (uArc: the lightning knob and a tube's share of its letter) is refused every frame, as in the look book
+            // is refused every frame, as in the look book (uArc once clashed so; the tube's share is uPenArc since 11-12)
             if (warned.add(name)) Log.w(TAG, label + ": " + name + " wants " + need * x.size + " numbers, got " + v.length);
             return this;
         }

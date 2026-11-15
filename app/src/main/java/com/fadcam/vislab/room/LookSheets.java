@@ -59,7 +59,7 @@ final class LookSheets {
      */
     static void askName(@NonNull Context c, @NonNull String title, @NonNull String current,
                         @NonNull String action, @NonNull Consumer<String> onName) {
-        askText(c, title, current, action, "Look name", onName);
+        askText(c, title, current, action, c.getString(R.string.vl_sheet_look_name), onName);
     }
 
     /** One line of text to type ({@code hint} is also the field's spoken label), then the action. */
@@ -115,7 +115,7 @@ final class LookSheets {
     static void chooseTextLook(@NonNull Context c, @NonNull java.util.List<cc.joycreator.textlab.TextLookShelf.Item> looks,
                                @Nullable String currentKey, @NonNull Consumer<cc.joycreator.textlab.TextLookShelf.Item> onPick) {
         BottomSheetDialog d = sheet(c);
-        LinearLayout root = column(c, d, "Words in a TextLab look", null);
+        LinearLayout root = column(c, d, c.getString(R.string.vl_sheet_textlab_title), null);
         LinearLayout list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
         for (cc.joycreator.textlab.TextLookShelf.Item it : looks) {
@@ -124,10 +124,10 @@ final class LookSheets {
                 d.dismiss();
                 onPick.accept(it);
             });
-            SheetKit.label(r.view, "Put the words in " + it.name + " (" + it.pack + ")");
+            SheetKit.label(r.view, c.getString(R.string.vl_sheet_textlab_row_tip, it.name, it.pack));
             list.addView(r.view);
         }
-        if (looks.isEmpty()) root.addView(SheetKit.subtitle(c, "TextLab's looks could not be read just now."));
+        if (looks.isEmpty()) root.addView(SheetKit.subtitle(c, c.getString(R.string.vl_sheet_textlab_unreadable)));
         android.widget.ScrollView scroll = new android.widget.ScrollView(c);
         scroll.addView(list);
         root.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
@@ -148,7 +148,7 @@ final class LookSheets {
                             @NonNull Runnable asItCame) {
         BottomSheetDialog d = sheet(c);
         TextView reset = new TextView(c);
-        reset.setText("As it came");
+        reset.setText(R.string.vl_sheet_as_it_came);
         reset.setTextSize(13);
         reset.setTextColor(Studio.INK);
         reset.setGravity(android.view.Gravity.CENTER);
@@ -158,7 +158,7 @@ final class LookSheets {
         bg.setCornerRadius(SheetKit.dp(c, 18));
         bg.setColor(0xFF1F1F26);
         reset.setBackground(bg);
-        Ui.label(reset, "Put this look's sliders and colours back as the look came");
+        Ui.label(reset, R.string.vl_sheet_as_it_came_tip);
         reset.setOnClickListener(v -> {
             com.fadcam.ui.motion.Motion.press(v);
             asItCame.run();
@@ -173,10 +173,10 @@ final class LookSheets {
     static void chooseSheet(@NonNull Context c, @NonNull java.util.List<SheetShelf.Entry> sheets,
                             @Nullable String currentId, @NonNull Consumer<SheetShelf.Entry> onPick) {
         BottomSheetDialog d = sheet(c);
-        LinearLayout root = column(c, d, "Sprite sheet", null);
+        LinearLayout root = column(c, d, c.getString(R.string.vl_sheet_sprite_title), null);
         LinearLayout list = new LinearLayout(c);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.addView(SheetKit.row(c, "album", "Joy record (built in)", currentId == null, SheetKit.Trail.CHECK, v -> {
+        list.addView(SheetKit.row(c, "album", c.getString(R.string.vl_sheet_joy_record), currentId == null, SheetKit.Trail.CHECK, v -> {
             d.dismiss();
             onPick.accept(null);
         }).view);
@@ -187,11 +187,11 @@ final class LookSheets {
                 d.dismiss();
                 onPick.accept(e);
             });
-            SheetKit.label(r.view, "Play " + e.name + " (from " + e.where + ")");
+            SheetKit.label(r.view, c.getString(R.string.vl_sheet_sprite_row_tip, e.name, e.where));
             list.addView(r.view);
         }
         if (sheets.isEmpty()) {
-            root.addView(SheetKit.subtitle(c, "No Sprite Lab sheets yet. Make one in Sprite Lab and it shows up here."));
+            root.addView(SheetKit.subtitle(c, c.getString(R.string.vl_sheet_no_sprites)));
         }
         android.widget.ScrollView scroll = new android.widget.ScrollView(c);
         scroll.addView(list);
@@ -215,7 +215,7 @@ final class LookSheets {
         buttons.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         int inset = SheetKit.dp(c, SheetKit.ROW_INSET_DP);
         buttons.setPadding(inset, SheetKit.dp(c, 4), inset, 0);
-        buttons.addView(SheetKit.pillButton(c, "Keep mine", false, v -> d.dismiss()));
+        buttons.addView(SheetKit.pillButton(c, c.getString(R.string.vl_sheet_keep_mine), false, v -> d.dismiss()));
         TextView red = SheetKit.pillButton(c, action, false, v -> {
             d.dismiss();
             onConfirm.run();

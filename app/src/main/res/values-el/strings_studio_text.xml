@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Πάτα για επανασύνδεση</string>
+    <string name="studio_text_keyframe">Καρέ-κλειδί</string>
+    <string name="studio_text_lane_1">Λωρίδα 1</string>
+    <string name="studio_text_current_position">Τρέχουσα θέση</string>
+    <string name="studio_text_tap_the_time_to_type">Πάτα την ώρα για να γράψεις ακριβή τιμή · ◄ ► μετακίνηση ±1 καρέ</string>
+    <string name="studio_text_one">ΕΝΑ</string>
+    <string name="studio_text_snap">ΠΡΟΣΔΕΣΗ</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Μπάρες</string>
+    <string name="studio_text_width">Πλάτος</string>
+    <string name="studio_text_gap">Κενό</string>
+    <string name="studio_text_lanes">Λωρίδες</string>
+    <string name="studio_text_karaoke_one_word_per_line">Καραόκε — μία λέξη ανά γραμμή (χρονισμός ανά λέξη):</string>
+    <string name="studio_text_copy_example">Αντιγραφή παραδείγματος</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Διαφάνεια — ένα μπλοκ ανά χρονοσήμανση (όλος ο στίχος εμφανίζεται μαζί):</string>
+    <string name="studio_text_none">Κανένα</string>
+    <string name="studio_text_backing_box">Πλαίσιο φόντου</string>
+    <string name="studio_text_hide_this_track">Απόκρυψη αυτού του κομματιού</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Χωρίς animation (επαναφορά) — κεντραρισμένο, γεμίζει το καρέ, ακίνητο</string>
+    <string name="studio_text_also_apply_caption_position_to">Εφαρμογή της θέσης υποτίτλων και σε όλα τα κλιπ</string>
+    <string name="studio_text_also_apply_caption_size_to">Εφαρμογή του μεγέθους υποτίτλων και σε όλα τα κλιπ</string>
+    <string name="studio_text_sensitivity">Ευαισθησία</string>
+    <string name="studio_text_snap_to_beats">Πρόσδεση στα beats</string>
+    <string name="studio_text_reference_clip_stays">Κλιπ αναφοράς (μένει)</string>
+    <string name="studio_text_clip_to_move">Κλιπ προς μετακίνηση</string>
+    <string name="studio_text_release_the_slider_to_preview">Άφησε το ρυθμιστικό για να δεις τα κενά στο χρονολόγιο</string>
+    <string name="studio_text_scanning">Σάρωση…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Δεν ήταν δυνατή η σάρωση του ήχου</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Εισαγωγή</string>
+    <string name="studio_text_insert_2">Εισαγωγή &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Διάλεξε εικόνα για το χρονολόγιο (πάτα για επιλογή, αριθμημένες — ως κλιπ)</string>
+    <string name="studio_text_browse_files">Περιήγηση αρχείων…</string>
+    <string name="studio_text_add_0">Προσθήκη (0)</string>
+</resources>

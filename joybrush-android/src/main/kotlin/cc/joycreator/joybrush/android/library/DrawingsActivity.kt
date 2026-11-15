@@ -34,6 +34,7 @@ import java.util.concurrent.Executors
 class DrawingsActivity : Activity() {
 
     private val io = Executors.newSingleThreadExecutor()
+    private var openedAt = 0L
     private lateinit var grid: GridLayout
     private lateinit var status: TextView
 
@@ -69,7 +70,7 @@ class DrawingsActivity : Activity() {
             val app = applicationContext
             JoyFolderHome.io().execute {
                 val added = try { DrawingLibrary.syncFromFolder(app) } catch (e: Exception) { 0 }
-                if (added > 0) runOnUiThread { if (!isFinishing) refresh() }
+                if (added > 0) runOnUiThread { if (!isFinishing && !isDestroyed) refresh() }
             }
         }
     }
@@ -115,6 +116,7 @@ class DrawingsActivity : Activity() {
         }
         tile.addView(plus, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         box.setOnClickListener {
+            if (!firstTap()) return@setOnClickListener
             val file = DrawingLibrary.create(this)
             if (file == null) toast("This phone has nowhere to keep a drawing.")
             else startActivity(DrawingLibrary.openIntent(this, file))
@@ -136,7 +138,7 @@ class DrawingsActivity : Activity() {
         if (path != null) {
             io.execute {
                 val bmp = try { BitmapFactory.decodeFile(path) } catch (t: Throwable) { null }
-                if (bmp != null) runOnUiThread { image.setImageBitmap(bmp) }
+                if (bmp != null) runOnUiThread { if (!isDestroyed) image.setImageBitmap(bmp) }
             }
         } else {
             image.setImageDrawable(null)
@@ -149,7 +151,7 @@ class DrawingsActivity : Activity() {
         })
         val ago = if (d.modified > 0) DateUtils.getRelativeTimeSpanString(d.modified).toString() else ""
         box.addView(text(ago, 11f, MUTED).apply { setPadding(dp(2), dp(1), dp(2), 0) })
-        box.setOnClickListener { startActivity(DrawingLibrary.openIntent(this, d.file)) }
+        box.setOnClickListener { open(d.file) }
         box.setOnLongClickListener { actions(d); true }
         box.contentDescription = "${d.name}, $ago. Long press to rename or delete."
         tip(box, d.name)
@@ -174,7 +176,7 @@ class DrawingsActivity : Activity() {
                 val app = applicationContext
                 JoyFolderHome.io().execute {
                     val ok = DrawingLibrary.rename(app, d.file, name)
-                    runOnUiThread { if (!ok) toast("That name can't be used."); if (!isFinishing) refresh() }
+                    runOnUiThread { if (!ok) toast("That name can't be used."); if (!isFinishing && !isDestroyed) refresh() }
                 }
             }
             .setNegativeButton("Cancel", null)
@@ -191,7 +193,7 @@ class DrawingsActivity : Activity() {
                     val problem = DrawingLibrary.delete(app, d.file)
                     runOnUiThread {
                         toast(if (problem == null) "Moved to Trash." else "Not deleted: $problem.")
-                        if (!isFinishing) refresh()
+                        if (!isFinishing && !isDestroyed) refresh()
                     }
                 }
             }
@@ -210,6 +212,22 @@ class DrawingsActivity : Activity() {
     private fun tip(v: View, label: String) {
         if (v.contentDescription == null) v.contentDescription = label
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) v.tooltipText = label
+    }
+
+    /**
+     * Open a drawing once. Two quick taps used to open two drawing screens on the same file, and the
+     * one underneath later saved its older picture over the newer one.
+     */
+    private fun open(file: String) {
+        if (!firstTap()) return
+        startActivity(DrawingLibrary.openIntent(this, file))
+    }
+
+    private fun firstTap(): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - openedAt < 1000) return false
+        openedAt = now
+        return true
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_LONG).show()

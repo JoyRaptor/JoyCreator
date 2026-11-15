@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_joybot_settings.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="settingshub_ai_joybot">AI ja Joybot</string>
+    <string name="settingshub_ai_joybot_desc">Ühenda AI (üks on tasuta), oma võti, mudel ja teenus ning arvuti Claude Code või Codex</string>
+    <string name="settingshub_ai_joybot_names">ai, joybot, api key, key, model, openrouter, openai, anthropic, claude, chatgpt, codex, gemini, assistant, chat, connect, computer, mcp, tehisintellekt, võti, mudel, abiline, vestlus, ühenda, arvuti</string>
+</resources>

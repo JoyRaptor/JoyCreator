@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Importato %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Non sono riuscito a disegnare la slide: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Consolidamento non riuscito: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Esportazione non riuscita: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Copia di esportazione non riuscita: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Importazione non riuscita: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Riordino non riuscito: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Errore di riordino: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Allineamento non riuscito: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Non sembra una slide di Studio: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Importazione della slide non riuscita: %1$s</string>
+</resources>

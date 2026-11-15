@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Ещё ⌄</string>
+    <string name="faditor_lc_drawer_grip">Ручка панели. Потяни, чтобы изменить размер, нажми, чтобы показать больше или закрыть</string>
+    <string name="faditor_lc_fx_expand">Показать настройки этого эффекта</string>
+    <string name="faditor_lc_fx_collapse">Скрыть настройки этого эффекта</string>
+    <string name="faditor_lc_fx_bypass">Обойти эффект</string>
+    <string name="faditor_lc_fx_enable">Включить эффект</string>
+    <string name="faditor_lc_fx_delete">Удалить эффект</string>
+    <string name="faditor_lc_fx_reorder">Удержи и перетащи, чтобы поменять порядок</string>
+    <string name="faditor_lc_key_prev">Предыдущий ключевой кадр</string>
+    <string name="faditor_lc_key_next">Следующий ключевой кадр</string>
+    <string name="faditor_lc_key_diamond">Ключевой кадр. Нажми, чтобы добавить или убрать, удержи, чтобы очистить все</string>
+    <string name="faditor_lc_ease_need_keys">Сначала поставь ключевые кадры</string>
+    <string name="faditor_lc_motion_title">Движение</string>
+    <string name="faditor_lc_motion_by">Анимировать по</string>
+    <string name="faditor_lc_gran_letter">Букве</string>
+    <string name="faditor_lc_gran_word">Слову</string>
+    <string name="faditor_lc_gran_sentence">Предложению</string>
+    <string name="faditor_lc_gran_block">Блоку</string>
+    <string name="faditor_lc_sheet_grip">Ручка панели. Нажми или потяни вверх, чтобы увидеть все настройки, потяни вниз, чтобы закрыть</string>
+    <string name="faditor_lc_sheet_legend">Что значат формы ключевых кадров</string>
+    <string name="faditor_lc_sheet_more">Ещё…</string>
+    <string name="faditor_lc_sheet_move_to">Перейти к</string>
+    <string name="faditor_lc_sheet_jump">Введи время, к которому перейти</string>
+    <string name="faditor_lc_sheet_push">Протолкнуть</string>
+    <string name="faditor_lc_sheet_snap">Прилипание</string>
+    <string name="faditor_lc_sheet_static_hint">Без движения — нажми ♦, чтобы анимировать</string>
+</resources>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Puuduta uuesti sidumiseks</string>
+    <string name="studio_text_keyframe">Võtmekaader</string>
+    <string name="studio_text_lane_1">Rada 1</string>
+    <string name="studio_text_current_position">Praegune asukoht</string>
+    <string name="studio_text_tap_the_time_to_type">Puuduta aega täpse väärtuse sisestamiseks · ◄ ► nihuta ±1 kaader</string>
+    <string name="studio_text_one">ÜKS</string>
+    <string name="studio_text_snap">HAAKU</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Ribad</string>
+    <string name="studio_text_width">Laius</string>
+    <string name="studio_text_gap">Vahe</string>
+    <string name="studio_text_lanes">Rajad</string>
+    <string name="studio_text_karaoke_one_word_per_line">Karaoke – üks sõna rea kohta (sõnapõhine ajastus):</string>
+    <string name="studio_text_copy_example">Kopeeri näide</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Slaid – üks plokk ajatempli kohta (kogu salm kuvatakse korraga):</string>
+    <string name="studio_text_none">Puudub</string>
+    <string name="studio_text_backing_box">Taustakast</string>
+    <string name="studio_text_hide_this_track">Peida see rada</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Animatsioon puudub (lähtesta) – keskel, kattega skaleeritud, liikumatu</string>
+    <string name="studio_text_also_apply_caption_position_to">Rakenda subtiitri asukoht ka kõigile klippidele</string>
+    <string name="studio_text_also_apply_caption_size_to">Rakenda subtiitri suurus ka kõigile klippidele</string>
+    <string name="studio_text_sensitivity">Tundlikkus</string>
+    <string name="studio_text_snap_to_beats">Haaku taktidega</string>
+    <string name="studio_text_reference_clip_stays">Võrdlusklipp (jääb paigale)</string>
+    <string name="studio_text_clip_to_move">Liigutatav klipp</string>
+    <string name="studio_text_release_the_slider_to_preview">Lase liugur lahti, et näha tühimikke ajajoonel</string>
+    <string name="studio_text_scanning">Skannin…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Heli skannimine ei õnnestunud</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Sisesta</string>
+    <string name="studio_text_insert_2">Sisesta &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Vali pilt ajajoonele (puuduta valimiseks, nummerdatud – klipina)</string>
+    <string name="studio_text_browse_files">Sirvi faile…</string>
+    <string name="studio_text_add_0">Lisa (0)</string>
+</resources>

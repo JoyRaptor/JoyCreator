@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Mantiene le voci naturali quando cambia la velocità</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Chiudi tutti gli strumenti</string>
+    <string name="lane_d_asset_close">Chiudi lo sfoglia risorse</string>
+    <string name="lane_d_asset_prev">Cartella fissata precedente</string>
+    <string name="lane_d_asset_next">Cartella fissata successiva</string>
+    <string name="lane_d_asset_filter">Mostra tutti i file, quelli in uso o quelli non usati</string>
+    <string name="lane_d_asset_forget">Togli questa cartella dalla cronologia delle fissate</string>
+    <string name="lane_d_asset_resize">Trascina per ridimensionare lo sfoglia risorse</string>
+</resources>

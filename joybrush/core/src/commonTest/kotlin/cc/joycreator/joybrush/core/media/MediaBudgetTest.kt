@@ -50,4 +50,10 @@ class MediaBudgetTest {
             "adding water to a dry window needs only the difference")
         assertTrue("watercolour" in LayerBudget.windowRefusal(wet = true))
     }
+    @Test fun aSaveKeepsAQuarterOfTheHeapAsPaintAndNoMoreThanItsCap() {
+        assertEquals(128L shl 20, LayerBudget.savePaintBudgetBytes(512L shl 20), "the Note 9's heap")
+        assertEquals(64L shl 20, LayerBudget.savePaintBudgetBytes(256L shl 20), "a smaller heap keeps less")
+        assertEquals(128L shl 20, LayerBudget.savePaintBudgetBytes(2048L shl 20), "a bigger heap does not keep more, until saves are incremental")
+        assertEquals(64L shl 20, LayerBudget.savePaintBudgetBytes(0L), "a heap that does not say")
+    }
 }

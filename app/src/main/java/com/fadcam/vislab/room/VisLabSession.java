@@ -866,7 +866,7 @@ public final class VisLabSession {
             }
             if (!toldFailure) {
                 toldFailure = true;
-                android.widget.Toast.makeText(app, "Couldn't save a look to your Joy Creator folder yet. Trying again.",
+                android.widget.Toast.makeText(app, app.getString(com.fadcam.R.string.vl_save_failed),
                         android.widget.Toast.LENGTH_LONG).show();
             }
             main.removeCallbacks(syncSoon);

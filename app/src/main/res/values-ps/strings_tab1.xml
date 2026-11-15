@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">د انځور تر څنګ پرده (بند: له پورته راښکته کېږي)</string>
+    <string name="tab1_drawer_column">اوږد ستون: ټایم لاین یوازې د انځور لاندې ځای نیسي</string>
+    <string name="tab1_settings_place_title">په پلنه پرده کې پردې</string>
+    <string name="tab1_settings_place_auto">اتومات: د انځور تر څنګ که ځای وي، نه نو راښکته کېږي</string>
+    <string name="tab1_settings_place_drop">تل له پورته راښکته کېږي، لکه په موبایل کې</string>
+    <string name="tab1_settings_place_beside">تل د انځور تر څنګ</string>
+    <string name="tab1_settings_column_title">اوږد ستون</string>
+    <string name="tab1_settings_column">د انځور تر څنګ، پرده ټوله اوږدوالی لري او ټایم لاین یوازې د انځور لاندې ځای نیسي. بند: د سمولو میز، له ټول پلنوالي ټایم لاین سره.</string>
+    <string name="tab1_settings_left_title">کیڼ لاسي پردې</string>
+    <string name="tab1_settings_left">پرده د انځور په کیڼ لوري ولاړه ده، د ښي پر ځای.</string>
+</resources>

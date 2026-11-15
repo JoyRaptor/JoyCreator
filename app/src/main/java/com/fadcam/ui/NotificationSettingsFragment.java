@@ -47,6 +47,16 @@ public class NotificationSettingsFragment extends Fragment implements com.fadcam
     if(row!=null){ row.setOnClickListener(v -> showPresetPicker()); }
     View hideRow = view.findViewById(R.id.row_hide_stop_button);
     if(hideRow!=null){ hideRow.setOnClickListener(v -> showHideStopBottomSheet()); }
+        if (com.fadcam.BuildConfig.PLAY_BUILD) {
+            // The Play build always shows the honest notice with its Stop button (launch bug hunt
+            // B1, 11-15), so the style and hide-Stop choices would do nothing: show the preview only.
+            for (int id : new int[]{ R.id.notification_options_heading, R.id.group_card_notification }) {
+                View gone = view.findViewById(id);
+                if (gone != null) gone.setVisibility(View.GONE);
+            }
+            TextView helper = view.findViewById(R.id.preview_helper);
+            if (helper != null) helper.setText(R.string.notification_preview_helper_play);
+        }
         refreshValues();
     }
 

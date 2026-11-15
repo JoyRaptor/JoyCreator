@@ -153,6 +153,9 @@
     <string name="library_rename_failed">Couldn\'t rename it.</string>
     <string name="library_open_failed">Couldn\'t open this.</string>
     <string name="library_no_app">No app on this phone opens this kind of file.</string>
+    <!-- Launch bug hunt A9 (11-15): a missing or unplayable file says so instead of a blank player. -->
+    <string name="library_file_gone">This file isn\'t in your folder any more. It may have been moved or deleted outside Joy Creator.</string>
+    <string name="player_cannot_play">This video can\'t be played. The file may be missing or damaged.</string>
     <string name="library_restoring">Bringing the project back from your folder…</string>
     <string name="library_restore_failed">Couldn\'t bring the project back from your folder.</string>
     <string name="library_sort_cycle_newest">Sorted newest first. Tap for name, A to Z.</string>

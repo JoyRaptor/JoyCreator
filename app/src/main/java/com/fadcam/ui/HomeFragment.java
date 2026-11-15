@@ -9875,7 +9875,9 @@ public class HomeFragment extends BaseFragment {
         if (ivAppTitle != null) {
             androidx.appcompat.widget.TooltipCompat.setTooltipText(ivAppTitle, ivAppTitle.getContext().getString(R.string.app_name));
             ivAppTitle.setContentDescription(ivAppTitle.getContext().getString(R.string.app_name));
-            ivAppTitle.setOnClickListener(v -> {
+            // The Play build has no privacy black screen, so the title is only a title there
+            // (launch bug hunt B9, 11-15): no hint about a setting that does not exist.
+            if (!com.fadcam.BuildConfig.PLAY_BUILD) ivAppTitle.setOnClickListener(v -> {
                 if (sharedPreferencesManager.isPrivacyBlackModeEnabled()) {
                     Intent intent = new Intent(requireContext(), PrivacyBlackActivity.class);
                     startActivity(intent);

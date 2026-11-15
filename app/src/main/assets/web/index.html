@@ -1217,7 +1217,9 @@
                 batteryLevel.style.width = fillPercent + '%';
             }
             
-            batteryCard.classList.remove('charging', 'low', 'dim-text');
+            batteryCard.classList.remove('charging', 'low', 'dim-text', 'lvl-ok', 'lvl-mid', 'lvl-low');
+            // Rings B (owner 11-15): green from half up, amber below half, red under 15%.
+            batteryCard.classList.add(percent < 15 ? 'lvl-low' : (percent < 50 ? 'lvl-mid' : 'lvl-ok'));
             
             // Add dim-text class if battery is below 30% and not charging (to switch text to white for contrast)
             if (!isCharging && percent > 0 && percent < 30) {
@@ -1254,9 +1256,10 @@
                 storageFill.style.width = percent + '%';
                 
                 storageBar.classList.remove('warning', 'critical');
+                // Rings B: free under 15% red, under half amber, else green (as on the phone)
                 if (percent > 85) {
                     storageBar.classList.add('critical');
-                } else if (percent > 70) {
+                } else if (percent > 50) {
                     storageBar.classList.add('warning');
                 }
             } else {
@@ -1291,7 +1294,7 @@
                 memoryBar.classList.remove('warning', 'critical');
                 if (percent > 85) {
                     memoryBar.classList.add('critical');
-                } else if (percent > 70) {
+                } else if (percent > 50) {
                     memoryBar.classList.add('warning');
                 }
             } else {

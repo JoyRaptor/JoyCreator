@@ -110,7 +110,10 @@ public class OnboardingActivity extends AppIntro {
         // anything to do with the thing they installed it to make. Settings keeps
         // the picker for the case the detection is wrong.
         addSlide(new OnboardingWelcomeFragment());
-        addSlide(new OnboardingPermissionsFragment());
+        // SHELL-36 (11-14): no permission page in the intro. Each permission is asked where it is first needed
+        // (Capture asks for the camera and microphone on the way in: ui/permission/CaptureAccess). The page is
+        // kept, unused, in case the owner wants an optional "allow now" step back.
+        // addSlide(new OnboardingPermissionsFragment());
         addSlide(new OnboardingHumanFragment());
 
         // Hide only the Done button while keeping navigation buttons

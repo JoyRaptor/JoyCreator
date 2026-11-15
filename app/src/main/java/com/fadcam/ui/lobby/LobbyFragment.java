@@ -1399,7 +1399,10 @@ public class LobbyFragment extends BaseFragment {
 
     private void routeTab(int position) {
         if (getActivity() instanceof MainActivity) {
-            ((MainActivity) getActivity()).switchFragment(position, true);
+            MainActivity m = (MainActivity) getActivity();
+            // Capture asks for the camera and microphone on the way in (SHELL-36), not at startup.
+            if (position == TAB_CAPTURE) m.openCapture();
+            else m.switchFragment(position, true);
         }
     }
 

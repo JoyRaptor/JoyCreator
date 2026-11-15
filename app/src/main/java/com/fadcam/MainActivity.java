@@ -62,6 +62,28 @@ import android.widget.HorizontalScrollView;
 
 public class MainActivity extends AppCompatActivity {
 
+    /** Camera and microphone asked for on the way into Capture, not at startup (SHELL-36). */
+    private final com.fadcam.ui.permission.CaptureAccess captureAccess =
+            new com.fadcam.ui.permission.CaptureAccess(this);
+
+    /**
+     * Into Capture from the lobby, a chip or Joybot: asks for the camera and microphone first when they are not
+     * allowed yet (a short sheet in plain words, then Android's prompt), and opens Capture once they are.
+     */
+    public void openCapture() {
+        captureAccess.open(() -> switchFragment(0, true));
+    }
+
+    /** True when Capture's current mode has what it needs (camera mode: camera and microphone). */
+    public boolean captureReady() {
+        return captureAccess.ready();
+    }
+
+    /** Ask for what Capture needs, then run {@code then} (the record button's safety net). */
+    public void askForCapture(@androidx.annotation.NonNull Runnable then) {
+        captureAccess.open(then);
+    }
+
     private BottomNavigationView bottomNavigationView;
     private int originalBottomNavColor = 0; // Store original bottom nav color
 

@@ -5332,7 +5332,13 @@ public class HomeFragment extends BaseFragment {
             return;
         }
         performHapticFeedback();
-        // Permission checks removed; handled by onboarding
+        // SHELL-36: the intro no longer asks for the camera and microphone; Capture asks on the way in. If either was
+        // turned off since (Android settings), ask again here rather than failing silently.
+        if (getActivity() instanceof com.fadcam.MainActivity
+                && !((com.fadcam.MainActivity) getActivity()).captureReady()) {
+            ((com.fadcam.MainActivity) getActivity()).askForCapture(this::startRecording);
+            return;
+        }
 
         // ── Dual Camera path ──────────────────────────────────────────
         CameraType selectedCam = sharedPreferencesManager.getCameraSelection();

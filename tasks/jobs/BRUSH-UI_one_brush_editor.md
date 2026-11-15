@@ -98,6 +98,19 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
 - Found for the brush lane: the drawer keeps old cached previews after the test stroke changed (the cache key lacks a
   stroke version).
 
+
+## Brush lane, 11-14 evening: test stroke and oil taper landed
+- **Test stroke = his exact curve** from his own vector drawing (`research/test_stroke_20261114/owner_test_stroke_exact.svg`),
+  his proportions kept (`core/brush/TestStroke`, stroke version 7; lab twin `lab/media/js/tests.js`). The settings stage
+  paints the colour lines first, then the swatch and lines, then his curve; drawer previews key on the stroke version.
+- **Oil Taper setting** (hair brushes; default = the old look). Seen on the Note 9: taper 0 gives blunt starts and
+  taper 1 gives pointed ones, on both the flat and the round.
+- **Seen on the Note 9** (cloud build bef2d9889, bench `tstripe0..14,tmark0..3,tcurve`): HB pencil, watercolour Round,
+  sable ink, oil flat and round with taper 0 and 1. No crash or refusal; the loop crosses where he drew it. Curve busy
+  time p50: ink 12 ms, pencil 23, watercolour 37, oil 35-57 ms.
+- **Owed (his 11-14 notes on the phone shots):** (a) one colour line per colour, spaced further apart, on a diagonal,
+  and running past the edge where the picture is cropped (wet lines laid close together merge into one block now);
+  (b) very large brushes (wide impasto, washes) are too big to read in the box: they need a size cap or a zoomed-out view.
 ## Section K build, step 1 (11-14 afternoon, screens lane; joy-creator caf3f90a6)
 - **Built, seen on the Note 9:** the paint brushes' settings in the Stage layout. A Studio-drawer top bar: the brush's
   name, round group buttons (Shape, Ink, Pressure & tilt, Spacing & scatter, Colour, Water, Stroke ends, Paper, Feel;

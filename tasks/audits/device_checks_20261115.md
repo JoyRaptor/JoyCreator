@@ -78,3 +78,5 @@ Still open: caption-style chip undo, screen-recording watermark, old-style Fix a
 | 1e | Caption-style chip undo | ⬜ still not run: waiting for the model download to finish (see F9) | |
 
 Left on the Fold (mine, safe to delete): projects "Untitled", "Untitled 2", "Untitled 3", "Untitled audio"; `Joy Creator/` test files and `Screen recording 2026-11-15 05.24.mp4`; `Download/JC *`. Its Watermark Style is on "Time with Joy Creator". Camera, microphone permissions granted, photos denied.
+
+Fold released 11-15 for the Studio polish lane's dialog shots, with the speech-model download (F9) still unfinished and watched no further, because their APK install restarts the app. **Caption-style chip undo is the one check still owed**: it needs the model downloaded once (about 40 MB, Transcript > Fast timing) and then Captions on a spoken clip (JC speech video.mp4 is in the Fold's Download folder).

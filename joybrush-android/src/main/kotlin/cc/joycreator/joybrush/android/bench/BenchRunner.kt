@@ -324,51 +324,78 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
      * readback on the GL thread, the archive written to a scratch file, read again and compared store tile by store tile,
      * loaded onto the canvas, and read back once more. The numbers a save's size is judged by: milliseconds, bytes on disk,
      * and the Java heap at each point (sampled, so a peak between two points is not seen: read the GC lines beside it).
+     * Each stage runs after the one before has let go of its copy (the tiles are compared by checksum), so the heap is
+     * what a real save and a real open hold, not both at once.
      */
     private fun benchSaveFile() {
-        val rt = Runtime.getRuntime()
-        fun heapMb() = (rt.totalMemory() - rt.freeMemory()) shr 20
         val file = java.io.File(canvas.context.cacheDir, "bench-savefile.joybrush")
-        val h0 = heapMb()
+        val h0 = benchHeapMb()
         val t0 = android.os.SystemClock.elapsedRealtime()
         canvas.snapshot({ a ->
             val t1 = android.os.SystemClock.elapsedRealtime()
-            val h1 = heapMb()
+            val h1 = benchHeapMb()
             Thread({
                 try {
                     cc.joycreator.joybrush.androidkit.io.JbArchive.save(file, a)
                     val t2 = android.os.SystemClock.elapsedRealtime()
-                    val h2 = heapMb()
-                    val onDisk = file.length()
-                    val back = cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)
-                    val t3 = android.os.SystemClock.elapsedRealtime()
-                    val h3 = heapMb()
-                    val raw = a.mediaTiles.values.sumOf { it.size.toLong() }
-                    val differ = a.mediaTiles.count { (k, v) -> back.mediaTiles[k]?.contentEquals(v) != true } + back.mediaTiles.keys.count { it !in a.mediaTiles }
-                    val byStore = a.mediaTiles.keys.groupingBy { it.store }.eachCount().toSortedMap()
-                    ui.post {
-                        Log.i(TAG, "then: savefile: ${a.tiles.size} picture tiles, ${a.mediaTiles.size} paint store tiles $byStore (${raw shr 20} MB raw); read back from the screen ${t1 - t0} ms; " +
-                            "written ${t2 - t1} ms, ${onDisk shr 10} KB on disk; read again ${t3 - t2} ms, $differ store tiles differ; " +
-                            "heap $h0 -> $h1 -> $h2 -> $h3 MB of ${rt.maxMemory() shr 20}, native ${android.os.Debug.getNativeHeapAllocatedSize() shr 20} MB")
-                        val t4 = android.os.SystemClock.elapsedRealtime()
-                        try {
-                            canvas.load(back) {
-                                val t5 = android.os.SystemClock.elapsedRealtime()
-                                canvas.snapshot({ c ->
-                                    val stores = a.mediaTiles.count { (k, v) -> c.mediaTiles[k]?.contentEquals(v) != true } + c.mediaTiles.keys.count { it !in a.mediaTiles }
-                                    val looks = a.tiles.count { (k, v) -> c.tiles[k]?.contentEquals(v) != true } + c.tiles.keys.count { it !in a.tiles }
-                                    Log.i(TAG, "then: savefile: opened on the canvas in ${t5 - t4} ms; saved again, $stores of ${a.mediaTiles.size} paint store tiles differ, " +
-                                        "$looks of ${a.tiles.size} picture tiles differ; heap ${heapMb()} MB")
-                                    file.delete(); java.io.File(file.path + ".bak").delete()
-                                }, { why -> Log.w(TAG, "then: savefile: the second snapshot failed: $why") })
-                            }
-                        } catch (x: Exception) { Log.w(TAG, "then: savefile: the open was refused: ${x.message}") }
-                    }
+                    val h2 = benchHeapMb()
+                    val sums = SaveSums(a)
+                    val line = "savefile: ${a.tiles.size} picture tiles, ${a.mediaTiles.size} paint store tiles ${sums.byStore} (${sums.rawStores shr 20} MB raw); " +
+                        "read back from the screen ${t1 - t0} ms; written ${t2 - t1} ms, ${file.length() shr 10} KB on disk; heap $h0 -> $h1 -> $h2 MB of ${Runtime.getRuntime().maxMemory() shr 20}"
+                    // The open starts from the UI thread's next turn, on a thread of its own: this one, and the copy it holds, is gone by then.
+                    ui.post { Log.i(TAG, "then: $line"); ui.postDelayed({ benchOpenFile(file, sums) }, 400) }
                 } catch (x: Throwable) {
-                    ui.post { Log.w(TAG, "then: savefile failed: ${x.javaClass.simpleName}: ${x.message}; heap ${heapMb()} MB of ${rt.maxMemory() shr 20}") }
+                    ui.post { Log.w(TAG, "then: savefile: the save failed: ${x.javaClass.simpleName}: ${x.message}; heap ${benchHeapMb()} MB") }
                 }
             }, "bench-savefile").start()
         }, { why -> Log.w(TAG, "then: savefile: snapshot failed: $why") })
+    }
+
+    private fun benchHeapMb(): Long = Runtime.getRuntime().let { (it.totalMemory() - it.freeMemory()) shr 20 }
+
+    /** What a snapshot held, small enough to keep: a checksum a tile, the counts and the stores' raw size. */
+    private class SaveSums(c: cc.joycreator.joybrush.androidkit.io.JbContents) {
+        val stores: Map<cc.joycreator.joybrush.androidkit.io.MediaTileKey, Long> = c.mediaTiles.mapValues { sum(it.value) }
+        val looks: Map<Triple<String, String, String>, Long> = c.tiles.mapValues { sum(it.value) }
+        val byStore: Map<String, Int> = c.mediaTiles.keys.groupingBy { it.store }.eachCount().toSortedMap()
+        val rawStores: Long = c.mediaTiles.values.sumOf { it.size.toLong() }
+        fun storesDiffering(o: SaveSums) = stores.count { (k, v) -> o.stores[k] != v } + o.stores.keys.count { it !in stores }
+        fun looksDiffering(o: SaveSums) = looks.count { (k, v) -> o.looks[k] != v } + o.looks.keys.count { it !in looks }
+        private companion object { fun sum(b: ByteArray): Long = java.util.zip.CRC32().also { it.update(b) }.value }
+    }
+
+    private fun benchOpenFile(file: java.io.File, saved: SaveSums) {
+        System.gc()
+        val h0 = benchHeapMb()
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        Thread({
+            try {
+                val back = cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)
+                val t1 = android.os.SystemClock.elapsedRealtime()
+                val h1 = benchHeapMb()
+                val differ = saved.storesDiffering(SaveSums(back))
+                ui.post {
+                    Log.i(TAG, "then: savefile: read again in ${t1 - t0} ms, $differ store tiles differ; heap $h0 -> $h1 MB, native ${android.os.Debug.getNativeHeapAllocatedSize() shr 20} MB")
+                    val t2 = android.os.SystemClock.elapsedRealtime()
+                    try {
+                        canvas.load(back) {
+                            val t3 = android.os.SystemClock.elapsedRealtime()
+                            ui.postDelayed({
+                                System.gc()
+                                canvas.snapshot({ c ->
+                                    val again = SaveSums(c)
+                                    Log.i(TAG, "then: savefile: opened on the canvas in ${t3 - t2} ms; saved again, ${saved.storesDiffering(again)} of ${saved.stores.size} paint store tiles differ, " +
+                                        "${saved.looksDiffering(again)} of ${saved.looks.size} picture tiles differ; heap ${benchHeapMb()} MB")
+                                    file.delete(); java.io.File(file.path + ".bak").delete()
+                                }, { why -> Log.w(TAG, "then: savefile: the second snapshot failed: $why") })
+                            }, 400)
+                        }
+                    } catch (x: Exception) { Log.w(TAG, "then: savefile: the open was refused: ${x.message}") }
+                }
+            } catch (x: Throwable) {
+                ui.post { Log.w(TAG, "then: savefile: reading the file failed: ${x.javaClass.simpleName}: ${x.message}; heap ${benchHeapMb()} MB of ${Runtime.getRuntime().maxMemory() shr 20}") }
+            }
+        }, "bench-openfile").start()
     }
 
     private fun waitForSurface() {

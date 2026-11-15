@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">Искать везде</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot, твой помощник — светится зелёным, когда у него есть идея для твоего проекта</string>
+    <string name="lobbyv2_dismiss">Скрыть</string>
+    <string name="lobbyv2_tag_last_project">ПОСЛЕДНИЙ ПРОЕКТ</string>
+    <string name="lobbyv2_tag_ready">ГОТОВО</string>
+    <string name="lobbyv2_tag_last_sheet">ПОСЛЕДНИЙ ЛИСТ</string>
+    <string name="lobbyv2_tag_last_character">ПОСЛЕДНИЙ ПЕРСОНАЖ</string>
+    <string name="lobbyv2_tag_last_visualiser">ПОСЛЕДНИЙ ВИЗУАЛИЗАТОР</string>
+    <string name="lobbyv2_tag_last_look">ПОСЛЕДНИЙ СТИЛЬ</string>
+    <string name="lobbyv2_tag_new_drawing">НОВЫЙ РИСУНОК</string>
+    <string name="lobbyv2_tag_last_drawing">ПОСЛЕДНИЙ РИСУНОК</string>
+    <string name="lobbyv2_camera_back">Основная камера</string>
+    <string name="lobbyv2_camera_front">Фронтальная камера</string>
+    <string name="lobbyv2_camera_dual">Обе камеры</string>
+    <string name="lobbyv2_capture_ready">Готово к записи</string>
+    <string name="lobbyv2_capture_sub">ГОТОВО · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">ГОТОВО</string>
+    <string name="lobbyv2_in_project">В %1$s</string>
+    <string name="lobbyv2_avatar_library">КОЛЛЕКЦИЯ АВАТАРОВ</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">%1$d РИСУНОК · %2$s</item>
+        <item quantity="few">%1$d РИСУНКА · %2$s</item>
+        <item quantity="many">%1$d РИСУНКОВ · %2$s</item>
+        <item quantity="other">%1$d РИСУНКА · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d СЛОЙ</item>
+        <item quantity="few">%d СЛОЯ</item>
+        <item quantity="many">%d СЛОЁВ</item>
+        <item quantity="other">%d СЛОЯ</item>
+    </plurals>
+    <string name="lobbyv2_drawings">Рисунки</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d рисунок</item>
+        <item quantity="few">%d рисунка</item>
+        <item quantity="many">%d рисунков</item>
+        <item quantity="other">%d рисунка</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Пока ничего нет. Создай что-нибудь, и это появится здесь.</string>
+    <string name="lobbyv2_new_card">+ Новое</string>
+    <string name="lobbyv2_new_drawing">Новый рисунок</string>
+    <string name="lobbyv2_no_room_for_drawing">На этом телефоне негде хранить рисунок.</string>
+    <string name="lobbyv2_kind_project">ПРОЕКТ</string>
+    <string name="lobbyv2_kind_drawing">РИСУНОК</string>
+    <string name="lobbyv2_kind_export">ЭКСПОРТ</string>
+    <string name="lobbyv2_kind_screen">ЭКРАН</string>
+    <string name="lobbyv2_kind_photo">ФОТО</string>
+    <string name="lobbyv2_kind_stream">ТРАНСЛЯЦИЯ</string>
+    <string name="lobbyv2_kind_recording">ЗАПИСЬ</string>
+    <string name="lobbyv2_kind_mini_app">МИНИ-ПРИЛОЖЕНИЕ</string>
+    <string name="lobbyv2_kind_video">ВИДЕО</string>
+    <string name="lobbyv2_kind_picture">КАРТИНКА</string>
+    <string name="lobbyv2_kind_sheet">СПРАЙТ-ЛИСТ</string>
+    <string name="lobbyv2_kind_character">ПЕРСОНАЖ</string>
+    <string name="lobbyv2_kind_look">СТИЛЬ VISLAB</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">Твоя новейшая запись появилась уже после последней правки.</string>
+    <string name="lobbyv2_bot_open_library">Открыть Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d запись и пока ни одного проекта.</item>
+        <item quantity="few">%d записи и пока ни одного проекта.</item>
+        <item quantity="many">%d записей и пока ни одного проекта.</item>
+        <item quantity="other">%d записи и пока ни одного проекта.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">осталось %1$s</string>
+    <string name="lobbyv2_stat_free">свободно %1$s</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d проект</item>
+        <item quantity="few">%d проекта</item>
+        <item quantity="many">%d проектов</item>
+        <item quantity="other">%d проекта</item>
+    </plurals>
+    <string name="lobbyv2_time_left">осталось ~%1$s видео</string>
+    <string name="lobbyv2_time_left_short">осталось ~%1$s</string>
+    <string name="lobbyv2_dur_days">%1$d д %2$d ч</string>
+    <string name="lobbyv2_dur_hours">%1$d ч %2$d мин</string>
+    <string name="lobbyv2_dur_minutes">%1$d мин</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f ГБ</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f МБ</string>
+    <string name="lobbyv2_ago_now">только что</string>
+    <string name="lobbyv2_ago_minutes">%1$d мин назад</string>
+    <string name="lobbyv2_ago_hours">%1$d ч назад</string>
+    <string name="lobbyv2_ago_days">%1$d дн назад</string>
+    <string name="lobbyv2_ago_months">%1$d мес назад</string>
+</resources>

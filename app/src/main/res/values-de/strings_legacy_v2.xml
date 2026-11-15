@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">Was ist neu</string>
+    <string name="legacyv2_whatsnew_intro">Neue Funktionen, Verbesserungen und Fehlerbehebungen in dieser Version.</string>
+    <string name="legacyv2_whatsnew_reenable">Wieder einschalten unter Einstellungen → \'Intro zeigen\'</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">Fertig in %d Sekunde ...</item>
+        <item quantity="other">Fertig in %d Sekunden ...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">Du kannst das jetzt schließen</string>
+    <string name="legacyv2_whatsnew_got_it">Alles klar</string>
+    <string name="legacyv2_whatsnew_progress_desc">Wie weit du durch die Hinweise gescrollt hast</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">Neu in dieser Version</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">Update von Version %1$s auf Version %2$s</string>
+    <string name="legacyv2_mode_option_desc">Einstellungen für %1$s zeigen</string>
+</resources>

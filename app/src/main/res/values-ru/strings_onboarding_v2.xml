@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">Несколько разрешений</string>
+    <string name="onboardingv2_perm_why">Joy Creator нужны они, чтобы снимать, записывать твой голос и хранить твои работы на телефоне. Ничего не уходит наружу.</string>
+    <string name="onboardingv2_perm_camera">Камера</string>
+    <string name="onboardingv2_perm_camera_why">Чтобы снимать и видеть, что ты снимаешь.</string>
+    <string name="onboardingv2_perm_mic">Микрофон</string>
+    <string name="onboardingv2_perm_mic_why">Чтобы записывать твой голос вместе с картинкой.</string>
+    <string name="onboardingv2_perm_files">Файлы и уведомления</string>
+    <string name="onboardingv2_perm_files_why">Чтобы сохранять твои видео и показывать уведомление о записи.</string>
+    <string name="onboardingv2_perm_battery">Не прерывать запись</string>
+    <string name="onboardingv2_perm_battery_why">По желанию: отключи экономию заряда, чтобы длинные съёмки не обрывались.</string>
+    <string name="onboardingv2_perm_battery_done">По желанию: экономия заряда уже отключена.</string>
+    <string name="onboardingv2_perm_allow">Разрешить недостающее</string>
+    <string name="onboardingv2_perm_all_set">Всё готово</string>
+    <string name="onboardingv2_perm_open_settings">Открыть настройки</string>
+    <string name="onboardingv2_perm_nudge">Разреши три пункта выше, чтобы продолжить.</string>
+    <string name="onboardingv2_perm_state_granted">разрешено</string>
+    <string name="onboardingv2_perm_state_missing">пока не разрешено</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Запросить недостающие разрешения</string>
+    <string name="onboardingv2_perm_all_set_cd">Все разрешения даны. Смахни к следующей странице.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Открыть системные настройки приложения, чтобы разрешить то, что ты отклонил</string>
+    <string name="onboardingv2_perm_battery_cd">Открыть системный экран, чтобы отключить экономию заряда для Joy Creator</string>
+</resources>

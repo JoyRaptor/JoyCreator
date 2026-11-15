@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">بدء خادم البث أو إيقافه</string>
+    <string name="hover_remote_password_toggle">تشغيل الحماية بكلمة مرور أو إيقافها</string>
+    <string name="hover_lobby_floor_detect">الكشف الذكي: الأشخاص والأشياء التي وجدتها الكاميرا في تسجيلاتك</string>
+    <string name="hover_lobby_floor_remote">Studio عن بُعد: شاهد كاميرا هذا الهاتف وتحكّم بها من متصفح على شبكة Wi-Fi الخاصة بك</string>
+    <string name="hover_lobby_floor_bits">قطع: المصباح وماسح QR واختصارات الشاشة الرئيسية</string>
+    <string name="hover_lobby_floor_packs">حِزم: حِزمك المثبّتة ومظاهرك وفُرشك وخطوطك</string>
+    <string name="hover_lobby_floor_setup">الإعداد: كل الإعدادات</string>
+    <string name="hover_lobby_stat">المساحة: ما يشغل مكانًا على هذا الهاتف</string>
+    <string name="hover_library_paste_picture">ضع صورة نسختها من تطبيق آخر في مجلد Joy Creator الخاص بك</string>
+    <string name="hover_lobby_room">انتقل إلى %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s في %2$s</string>
+    <string name="hover_lobby_hero_new">ابدأ شيئًا جديدًا في %1$s</string>
+    <string name="hover_lobby_library">افتح المكتبة: كل ما صنعته</string>
+    <string name="hover_studio_cut_mark">قص: تُخطّيت %1$s ث، اضغط على الكلمة لاستعادتها</string>
+</resources>

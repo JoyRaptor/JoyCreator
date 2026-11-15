@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">التقاط يحتاج إلى الكاميرا والميكروفون</string>
+    <string name="access_capture_why">للتصوير ولتسجيل الصوت، يطلب Android أن تسمح بالكاميرا والميكروفون. ويطلب Joy Creator أيضًا إظهار إشعار التسجيل، لتعرف دائمًا متى يسجّل. لا شيء يغادر هاتفك.</string>
+    <string name="access_allow">سماح</string>
+    <string name="access_not_now">ليس الآن</string>
+    <string name="access_capture_declined">يبقى التقاط مغلقًا حتى يُسمح بالكاميرا والميكروفون. اضغط التقاط مرة أخرى في أي وقت.</string>
+    <string name="access_capture_blocked">لن يسأل Android مرة أخرى عن الكاميرا أو الميكروفون. فعّلهما من صفحة إعدادات Joy Creator تحت الأذونات، ثم عد.</string>
+    <string name="access_open_settings">فتح الإعدادات</string>
+</resources>

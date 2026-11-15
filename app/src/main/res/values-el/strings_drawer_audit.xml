@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">Πάτα για να γράψεις ακριβή τιμή</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">Καμία μάσκα. Πρόσθεσε μία για να φαίνεται μόνο ένα μέρος αυτού του αντικειμένου.</string>
+    <string name="lane_a_mask_mode_add">Πρόσθεση</string>
+    <string name="lane_a_mask_mode_subtract">Αφαίρεση</string>
+    <string name="lane_a_mask_mode_intersect">Τομή</string>
+    <string name="faditor_mask_link_object">Κινείται με το αντικείμενο</string>
+    <string name="faditor_mask_link_hint">Ανενεργό: η μάσκα μένει στη θέση της και το αντικείμενο κινείται από κάτω της. Ενεργό: η μάσκα ταξιδεύει μαζί με το αντικείμενο.</string>
+    <string name="lane_a_mask_animated">με κίνηση</string>
+    <string name="lane_a_mask_static">χωρίς κίνηση</string>
+    <string name="lane_a_mask_key_chip">◆ Κλειδί στον δείκτη</string>
+    <string name="lane_a_mask_key_here">Βάλε καρέ-κλειδί σε αυτό το σχήμα στον δείκτη αναπαραγωγής</string>
+    <string name="lane_a_mask_clear_keys">Εκκαθάριση όλων των καρέ-κλειδιών της μάσκας</string>
+    <string name="lane_a_mask_keyed_toast">Το σχήμα %1$d πήρε καρέ-κλειδί στα %2$.1fδ</string>
+    <string name="faditor_fx_empty_layer">Αυτό το επίπεδο δεν αλλάζει τίποτα ακόμα. Πρόσθεσε ένα εφέ και ό,τι είναι κάτω από το επίπεδο θα το πάρει.</string>
+    <string name="faditor_fx_empty_object">Δεν υπάρχουν εφέ σε αυτό το αντικείμενο ακόμα. Πρόσθεσε ένα και θα ακολουθεί το αντικείμενο — επηρεάζει μόνο αυτό.</string>
+    <string name="faditor_fx_position">Τοποθέτηση στην προεπισκόπηση</string>
+    <string name="faditor_fx_position_done">Τοποθέτηση στην προεπισκόπηση — τέλος</string>
+    <string name="faditor_fx_blend">Ανάμειξη</string>
+    <string name="faditor_fx_vertices">Κορυφές</string>
+    <string name="faditor_fx_edit_gradient">Επεξεργασία αυτής της διαβάθμισης</string>
+    <string name="faditor_fx_curve_edit">Επεξεργασία στην προεπισκόπηση</string>
+    <string name="faditor_fx_curve_edit_done">Επεξεργασία στην προεπισκόπηση — τέλος</string>
+    <string name="faditor_fx_straighten">Ίσιωμα</string>
+    <string name="faditor_fx_save_look">Αποθήκευση look</string>
+    <string name="faditor_fx_look_name_hint">Δώσε όνομα σε αυτό το look</string>
+    <string name="faditor_fx_look_save">Αποθήκευση</string>
+    <string name="faditor_fx_saved_looks">Αποθηκευμένα looks</string>
+    <string name="faditor_fx_look_desc">Φόρτωση: %1$s. Κράτα πατημένο για διαγραφή</string>
+    <string name="faditor_fx_load">Φόρτωση</string>
+    <string name="faditor_fx_load_confirm">Να φορτωθεί το «%1$s»;</string>
+    <string name="faditor_fx_delete_look_confirm">Να διαγραφεί το «%1$s»;</string>
+    <string name="faditor_fx_add">＋ Προσθήκη εφέ</string>
+    <string name="faditor_fx_needs_pass_title">Το %1$s χρειάζεται δικό του πέρασμα</string>
+    <string name="faditor_fx_needs_pass_body">Το %1$s διαβάζει γειτονικά pixel, οπότε χρειάζεται μια ολοκληρωμένη εικόνα για να δουλέψει. Ένα αντικείμενο ζωγραφίζεται σε ένα μόνο πέρασμα, άρα δεν υπάρχει ακόμα τέτοια.\n\nΒάλε το σε ένα επίπεδο προσαρμογής πάνω από αυτό το αντικείμενο και θα εφαρμοστεί σε αυτό και σε ό,τι βρίσκεται κάτω του.</string>
+    <string name="faditor_fx_toast_keys_cleared">Τα καρέ-κλειδιά του %1$s καθαρίστηκαν</string>
+    <string name="faditor_fx_toast_saved">Αποθηκεύτηκε το «%1$s»</string>
+    <string name="faditor_fx_toast_load_failed">Δεν μπόρεσα να φορτώσω το «%1$s»</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">Αυτό αντικαθιστά το %1$d εφέ σε αυτό το επίπεδο.</item>
+        <item quantity="other">Αυτό αντικαθιστά τα %1$d εφέ σε αυτό το επίπεδο.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d εφέ</item>
+        <item quantity="other">%1$d εφέ</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">Παράκαμψη εφέ</string>
+    <string name="faditor_undo_fx_enable">Ενεργοποίηση εφέ</string>
+    <string name="faditor_undo_fx_delete">Διαγραφή: %1$s</string>
+    <string name="faditor_undo_fx_add">Προσθήκη: %1$s</string>
+    <string name="faditor_undo_fx_opacity">Αδιαφάνεια: %1$s</string>
+    <string name="faditor_undo_fx_blend">Ανάμειξη: %1$s</string>
+    <string name="faditor_undo_fx_vertices">Κορυφές καμπύλης</string>
+    <string name="faditor_undo_fx_straighten">Ίσιωμα καμπύλης</string>
+    <string name="faditor_undo_fx_reorder">Αλλαγή σειράς εφέ</string>
+    <string name="faditor_undo_fx_key">Καρέ-κλειδί: %1$s</string>
+    <string name="faditor_undo_fx_clear_keys">Εκκαθάριση καρέ-κλειδιών: %1$s</string>
+    <string name="faditor_undo_fx_apply_look">Εφαρμογή look «%1$s»</string>
+    <string name="lane_b_audio_fade_in_short">Είσοδος</string>
+    <string name="lane_b_audio_fade_out_short">Έξοδος</string>
+    <string name="lane_b_audio_env_flat">Σταθερή ενίσχυση — το ◇ αφαιρεί το πρώτο σημείο της περιβάλλουσας</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">Περιβάλλουσα · %1$d σημείο — το ρυθμιστικό κινεί το σημείο κάτω από το ▶︎</item>
+        <item quantity="other">Περιβάλλουσα · %1$d σημεία — το ρυθμιστικό κινεί το σημείο κάτω από το ▶︎</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">Επεξεργασία…</string>
+    <string name="lane_b_audio_bake_in_use">Χρησιμοποιείται επεξεργασμένος ήχος — το πρωτότυπο διατηρείται.</string>
+    <string name="lane_b_audio_bake_offline">Επεξεργασία εκτός σύνδεσης — το αρχικό αρχείο δεν αλλάζει ποτέ.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Απέτυχε: %1$s</string>
+    <string name="lane_b_audio_bake_note">Δουλεύει σε αντίγραφο του ήχου αυτού του κλιπ και παίζει αυτό αντί για το πρωτότυπο. Με την Επαναφορά γυρνάς στο πρωτότυπο.</string>
+    <string name="lane_b_audio_revert">Επαναφορά στο πρωτότυπο</string>
+    <string name="lane_b_audio_revert_desc">Επιστροφή στο αρχικό, ανεπεξέργαστο αρχείο ήχου</string>
+    <string name="lane_b_audio_denoise">Μείωση θορύβου</string>
+    <string name="lane_b_audio_denoise_desc">Φτιάξε αντίγραφο αυτού του κλιπ με μειωμένο θόρυβο υποβάθρου</string>
+    <string name="lane_b_audio_normalize">Ισοστάθμιση έντασης</string>
+    <string name="lane_b_audio_normalize_desc">Φτιάξε αντίγραφο αυτού του κλιπ με ομοιόμορφη ένταση</string>
+    <string name="lane_b_audio_voice">Βελτίωση φωνής</string>
+    <string name="lane_b_audio_voice_undo">Βελτίωση φωνής</string>
+    <string name="lane_b_audio_voice_on">Αλυσίδα φωνής ΕΝΕΡΓΗ — μόνο για αυτό το κλιπ</string>
+    <string name="lane_b_audio_voice_off">Αλυσίδα φωνής ΑΝΕΝΕΡΓΗ — μόνο για αυτό το κλιπ</string>
+    <string name="lane_b_audio_voice_note">Αφαίρεση βουητού, gate, de-ess, παρουσία, συμπιεστής, περιοριστής — για ομιλία. Ξαναχτίζει τον ήχο προεπισκόπησης αυτού του κλιπ.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Σύνδεση με τον ρυθμό…</string>
+    <string name="lane_b_audio_beat_link_note">Κινεί την κλίμακα / αδιαφάνεια / περιστροφή μιας επικάλυψης από μια ζώνη συχνοτήτων αυτού του κλιπ. Γράφει κανονικά καρέ-κλειδιά που μπορείς να σύρεις μετά.</string>
+    <string name="lane_b_audio_comp">Συμπιεστής</string>
+    <string name="lane_b_audio_comp_bypassed">Η αλυσίδα FX ΠΑΡΑΚΑΜΦΘΗΚΕ — ακούς το ανέγγιχτο μίξ.</string>
+    <string name="lane_b_audio_comp_live">Μείωση ενίσχυσης, ζωντανά από τον συμπιεστή.</string>
+    <string name="lane_b_audio_comp_idle">Ο μετρητής κινείται όσο παίζει το έργο.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Επίπεδο (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Pan (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (δ)</string>
+    <string name="lane_b_audio_undo_level">Επίπεδο ήχου</string>
+    <string name="lane_b_audio_undo_clear_envelope">Εκκαθάριση περιβάλλουσας</string>
+    <string name="lane_b_audio_undo_envelope_point">Σημείο περιβάλλουσας</string>
+    <string name="lane_b_audio_undo_delete_point">Διαγραφή σημείου περιβάλλουσας</string>
+    <string name="lane_b_puppet_swatch">Καρφίτσα %1$s. Πάτα για αλλαγή τύπου.</string>
+    <string name="lane_b_puppet_undo_pin_type">Τύπος καρφίτσας</string>
+    <string name="lane_b_puppet_rec_on">Γίνεται εγγραφή όταν αγγίζεις μια καρφίτσα. Πάτα για διακοπή.</string>
+    <string name="lane_b_puppet_rec_off">Δεν γίνεται εγγραφή στο άγγιγμα. Πάτα για να οπλίσεις.</string>
+    <string name="lane_b_puppet_sim">προσομ.</string>
+    <string name="lane_b_puppet_tool_grab">Πιάσιμο</string>
+    <string name="lane_b_puppet_tool_pin">Καρφίτσα</string>
+    <string name="lane_b_puppet_tool_stiff">Σφιχτό</string>
+    <string name="lane_b_puppet_tool_dangle">Κρέμασμα</string>
+    <string name="lane_b_puppet_tool_free">Ελεύθερο</string>
+    <string name="lane_b_puppet_tool_bone">Οστό</string>
+    <string name="lane_b_puppet_scope_selected">Επιλεγμένο</string>
+    <string name="lane_b_puppet_scope_character">Χαρακτήρας</string>
+    <string name="lane_b_puppet_scope_recording">Εγγραφή</string>
+    <string name="lane_b_puppet_hint_first_pin">Πάτα την εικόνα για να βάλεις την πρώτη σου καρφίτσα</string>
+    <string name="lane_b_puppet_hint_tap_pin">Πάτα μια καρφίτσα για να την επεξεργαστείς</string>
+    <string name="lane_b_puppet_hint_dangle">Προσομοίωση — δεν υπάρχουν καρέ-κλειδιά για επεξεργασία. Όσα έχει ήδη μένουν άθικτα και επιστρέφουν μόλις σταματήσει να κρέμεται.</string>
+    <string name="lane_b_puppet_hint_free">Μια ελεύθερη καρφίτσα κινείται προς κάθε κατεύθυνση. Η στροφή και η κλίμακα χρειάζονται περιστροφή ανά καρφίτσα στη μηχανή — δες τις προδιαγραφές.</string>
+    <string name="lane_b_puppet_hint_anchor">Μια άγκυρα δεν έχει τίποτα άλλο να ρυθμιστεί — αυτό είναι το νόημα</string>
+    <string name="lane_b_puppet_hint_tape">Η ταινία παρακάτω δείχνει τα καρέ-κλειδιά για: %1$s. Πάτα άλλη καρφίτσα, ή ένα chip από πάνω, για να δεις τα δικά της.</string>
+    <string name="lane_b_puppet_hint_rigid">Ένα άκαμπτο οστό σταματά το χέρι πριν φτάσει και σπάει τον ώμο. Τα κινούμενα σχέδια συνήθως θέλουν το ελαστικό ενεργό.</string>
+    <string name="lane_b_puppet_hint_limits_off">Ανενεργά από προεπιλογή — τα περισσότερα καρτουνίστικα rigs δεν τα θέλουν ποτέ.</string>
+    <string name="lane_b_puppet_hint_bone_keys">Ένα οστό δεν έχει δικά του καρέ-κλειδιά. Όταν το κινείς, γράφει στα %1$s και %2$s.</string>
+    <string name="lane_b_puppet_hint_put_away">Πάτα την μαριονέτα στην εικόνα για να κρύψεις τις καρφίτσες</string>
+    <string name="lane_b_puppet_hint_punch_in">Ένα punch-in ξεκινά από εκεί που ήταν η παλιά κίνηση και χαλαρώνει στο τέλος</string>
+    <string name="lane_b_puppet_pin_depth">Βάθος — πίσω / μπροστά</string>
+    <string name="lane_b_puppet_pin_muted">Σε σίγαση</string>
+    <string name="lane_b_puppet_pin_active">Ενεργή</string>
+    <string name="lane_b_puppet_pin_reach_ring">Δακτύλιος εμβέλειας</string>
+    <string name="lane_b_puppet_pin_auto_pull">Αυτόματο τράβηγμα</string>
+    <string name="lane_b_puppet_pin_pull">Πόσο δυνατά τραβά αυτή η καρφίτσα</string>
+    <string name="lane_b_puppet_pin_spring">Ελαστικότητα</string>
+    <string name="lane_b_puppet_pin_settle">Ηρέμηση</string>
+    <string name="lane_b_puppet_pin_mass">Μάζα</string>
+    <string name="lane_b_puppet_pin_max_stretch">Μέγιστο τέντωμα</string>
+    <string name="lane_b_puppet_pin_stiff_area">Σφιχτή περιοχή</string>
+    <string name="lane_b_puppet_pin_strength">Δύναμη</string>
+    <string name="lane_b_puppet_reset">Ξεκίνα από την αρχή</string>
+    <string name="lane_b_puppet_reset_desc">Αφαιρεί %1$s και κάθε καρέ-κλειδί</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d καρφίτσα</item>
+        <item quantity="other">%1$d καρφίτσες</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d οστό</item>
+        <item quantity="other">%1$d οστά</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Οστό</string>
+    <string name="lane_b_puppet_bone_from">Από</string>
+    <string name="lane_b_puppet_bone_to">Έως</string>
+    <string name="lane_b_puppet_bone_length">Μήκος</string>
+    <string name="lane_b_puppet_bone_rest_angle">Γωνία ηρεμίας</string>
+    <string name="lane_b_puppet_bone_rest_length">Μήκος ηρεμίας</string>
+    <string name="lane_b_puppet_bone_stretchy">Ελαστικό</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Αναστροφή αγκώνα</string>
+    <string name="lane_b_puppet_bone_reach">Εμβέλεια</string>
+    <string name="lane_b_puppet_bone_stretch">Πόσο μπορεί να τεντωθεί</string>
+    <string name="lane_b_puppet_bone_joint_limits">Όρια άρθρωσης</string>
+    <string name="lane_b_puppet_bone_fold_back">Δεν διπλώνει πιο πίσω από</string>
+    <string name="lane_b_puppet_bone_fold_forward">Δεν διπλώνει πιο μπροστά από</string>
+    <string name="lane_b_puppet_rig_softness">Απαλότητα</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Λεπτομέρεια πλέγματος</string>
+    <string name="lane_b_puppet_rig_gravity">Βαρύτητα</string>
+    <string name="lane_b_puppet_rig_wind">Άνεμος</string>
+    <string name="lane_b_puppet_rig_wind_dir">Κατεύθυνση ανέμου</string>
+    <string name="lane_b_puppet_rig_show_pins">Καρφίτσες</string>
+    <string name="lane_b_puppet_rig_show_bones">Οστά</string>
+    <string name="lane_b_puppet_rig_show_mesh">Πλέγμα</string>
+    <string name="lane_b_puppet_rig_rarely">Σπάνια χρειάζεται</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Όριο άκρων</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Επέκταση άκρων</string>
+    <string name="lane_b_puppet_record_on_touch">Εγγραφή στο άγγιγμα</string>
+    <string name="lane_b_puppet_record_snap">Κούμπωμα στα καρέ-κλειδιά</string>
+    <string name="lane_b_puppet_record_detail">Λεπτομέρεια των εγγεγραμμένων κινήσεων</string>
+    <string name="lane_b_puppet_record_blend_out">Σταδιακή έξοδος</string>
+    <string name="faditor_text_underline">Υπογράμμιση</string>
+    <string name="faditor_text_case_first">Κεφαλαία αρχικά</string>
+    <string name="faditor_text_case_all">Όλα κεφαλαία</string>
+    <string name="faditor_text_case_small">Μικρά κεφαλαία</string>
+    <string name="faditor_text_align">Στοίχιση: %1$s. Πάτα για αλλαγή</string>
+    <string name="faditor_text_align_left">αριστερά</string>
+    <string name="faditor_text_align_center">στο κέντρο</string>
+    <string name="faditor_text_align_right">δεξιά</string>
+    <string name="faditor_text_align_justify">πλήρης</string>
+    <string name="faditor_text_color">Χρώμα κειμένου</string>
+    <string name="faditor_text_shadow_distance">Απόσταση</string>
+    <string name="faditor_text_shadow_direction">Κατεύθυνση σκιάς</string>
+    <string name="faditor_text_shadow_angle">Γωνία σκιάς</string>
+    <string name="faditor_text_anim_label">Κίνηση</string>
+    <string name="lane_b_caption_hide">Απόκρυψη αυτού του κομματιού υποτίτλων</string>
+    <string name="lane_b_caption_show">Εμφάνιση αυτού του κομματιού υποτίτλων</string>
+    <string name="lane_b_caption_add_track">Πρόσθεση κομματιού υποτίτλων</string>
+    <string name="caption_size">Μέγεθος υποτίτλων</string>
+    <string name="caption_highlight">Επισήμανση</string>
+    <string name="caption_style_save">Αποθήκευση ως δικό μου στυλ</string>
+    <string name="caption_style_delete">Διαγραφή αυτού του δικού σου στυλ</string>
+    <string name="caption_style_copy">Αντιγραφή στυλ ως κείμενο</string>
+    <string name="caption_style_import">Εισαγωγή στυλ από κείμενο</string>
+    <string name="caption_anim_pop">Pop</string>
+    <string name="caption_anim_zoom">Ζουμ</string>
+    <string name="caption_anim_bounce">Αναπήδηση</string>
+    <string name="caption_box">Πλαίσιο</string>
+    <string name="caption_box_more">Πλαίσιο…</string>
+    <string name="caption_box_more_desc">Περισσότερες επιλογές πλαισίου</string>
+    <string name="caption_drawer_empty">Δεν έχει επιλεγεί κλιπ με υπότιτλους</string>
+    <string name="caption_fit_uniform">Ομοιόμορφο</string>
+    <string name="caption_fit_per_cue">Ανά υπότιτλο</string>
+    <string name="caption_fit_truncate">Περικοπή</string>
+    <string name="caption_fit_words">Λέξεις</string>
+    <string name="caption_fit_words_desc">Λέξεις ανά υπότιτλο</string>
+    <string name="caption_fit_lines">Μέγιστες γραμμές</string>
+    <string name="caption_fit_lines_prompt">Μέγιστες γραμμές (0 = απεριόριστες)</string>
+    <string name="caption_fit_floor">Κατώτατο</string>
+    <string name="caption_group_slide">Ομαδοποίηση: Slide</string>
+    <string name="caption_group_karaoke">Ομαδοποίηση: Καραόκε</string>
+    <string name="caption_group_desc">Πώς ομαδοποιούνται οι λέξεις σε υπότιτλους. Πάτα για αλλαγή</string>
+    <string name="caption_grow_center">Ανάπτυξη: κέντρο</string>
+    <string name="caption_grow_down">Ανάπτυξη: κάτω</string>
+    <string name="caption_grow_up">Ανάπτυξη: πάνω</string>
+    <string name="caption_grow_desc">Προς τα πού μεγαλώνει ο υπότιτλος. Πάτα για εναλλαγή</string>
+    <string name="caption_align_center">Στοίχιση: κέντρο</string>
+    <string name="caption_align_left">Στοίχιση: αριστερά</string>
+    <string name="caption_align_right">Στοίχιση: δεξιά</string>
+    <string name="caption_align_desc">Στοίχιση γραμμής. Πάτα για εναλλαγή</string>
+    <string name="caption_copy_all">Αντιγραφή σε όλα</string>
+    <string name="caption_copy_all_desc">Αντιγραφή της ανάπτυξης και της στοίχισης αυτού του κομματιού σε κάθε κομμάτι υποτίτλων</string>
+    <string name="caption_copy_all_done">Η άγκυρα και η στοίχιση εφαρμόστηκαν σε όλα τα κομμάτια</string>
+    <string name="caption_position">Θέση υποτίτλων</string>
+    <string name="caption_timing">Χρονισμός</string>
+    <string name="caption_timing_hint">Εφαρμόζεται σε κάθε γραμμή υποτίτλων, ως ποσοστό αυτής της γραμμής</string>
+    <string name="caption_timing_readout">Είσοδος %1$d%%   Έξοδος %2$d%%   κάθε γραμμής</string>
+    <string name="caption_timing_readout_meet">Είσοδος %1$d%%   Έξοδος %2$d%%   κάθε γραμμής  ·  η είσοδος τελειώνει όταν αρχίζει η έξοδος</string>
+    <string name="caption_timing_in_desc">Χρονισμός εισόδου</string>
+    <string name="caption_timing_out_desc">Χρονισμός εξόδου</string>
+    <string name="faditor_prop_pos_x">Θέση Χ</string>
+    <string name="faditor_prop_pos_y">Θέση Υ</string>
+    <string name="faditor_prop_scale">Κλίμακα</string>
+    <string name="faditor_prop_scale_x">Κλίμακα Χ</string>
+    <string name="faditor_prop_scale_y">Κλίμακα Υ</string>
+    <string name="drawer_title_visualizer">Οπτικοποιητής</string>
+    <string name="drawer_tab_puppet">Μαριονέτα</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d ήχος</item>
+        <item quantity="other">%1$d ήχοι</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>Ανενεργό</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Broadcast -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Αρχική</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (χωρίς επιπλέον απώλεια)</item>
+        <item>JPG (πιο μικρό)</item>
+    </string-array>
+    <string name="export_loudness">Στόχος έντασης</string>
+    <string name="export_loudness_readout">Μετρήθηκε: %1$s LUFS → Στόχος: %2$s</string>
+    <string name="export_quality">Ποιότητα</string>
+    <string name="export_format">Μορφή</string>
+    <string name="export_audio_only">Εξαγωγή μόνο ήχου (.m4a)</string>
+    <string name="export_audio_only_desc">Ενώνει τον ήχο των κλιπ και τη μουσική σε ένα αρχείο ήχου — χωρίς κομμάτι βίντεο</string>
+    <string name="export_audio_only_project">Αυτό το έργο δεν έχει βίντεο — εξάγεται ως ήχος</string>
+    <string name="export_frame">Εξαγωγή ενός καρέ (εικόνα)</string>
+    <string name="export_frame_desc">Αποθηκεύει ένα ολοκληρωμένο καρέ — μαζί με τις επικαλύψεις — στην ανάλυση της εξαγωγής. Το καρέ βγαίνει από τον ίδιο κωδικοποιητή βίντεο με μια εξαγωγή, οπότε η Ποιότητα το επηρεάζει: το PNG κρατά το καρέ ακριβώς, το JPG είναι πιο μικρό (χωρίς διαφάνεια, τα καρέ είναι αδιαφανή)</string>
+    <string name="export_frame_time">Χρόνος καρέ (συμπληρώνεται από τον δείκτη αναπαραγωγής — γράψε για να τον αλλάξεις)</string>
+    <string name="export_time_hint">λ:δδ.t ή δευτερόλεπτα</string>
+    <string name="export_range_hint">λ:δδ.t</string>
+    <string name="export_frame_error_format">Γράψε χρόνο όπως 01:23.4 (ή 4.5 για 4,5 δευτερόλεπτα)</string>
+    <string name="export_frame_error_past">Αυτός ο χρόνος είναι μετά το τέλος του έργου (%1$s). Διάλεξε νωρίτερο χρόνο.</string>
+</resources>

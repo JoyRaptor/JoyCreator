@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Cattura ha bisogno di fotocamera e microfono</string>
+    <string name="access_capture_why">Per filmare e registrare il suono, Android ti chiede di consentire la fotocamera e il microfono. Joy Creator chiede anche di mostrare l\'avviso di registrazione, così sai sempre quando sta registrando. Niente esce dal tuo telefono.</string>
+    <string name="access_allow">Consenti</string>
+    <string name="access_not_now">Non ora</string>
+    <string name="access_capture_declined">Cattura resta chiusa finché fotocamera e microfono non sono consentiti. Tocca Cattura di nuovo quando vuoi.</string>
+    <string name="access_capture_blocked">Android non chiederà più il permesso per la fotocamera o il microfono. Attivali nella pagina delle impostazioni di Joy Creator, sotto Permessi, poi torna qui.</string>
+    <string name="access_open_settings">Apri le impostazioni</string>
+</resources>

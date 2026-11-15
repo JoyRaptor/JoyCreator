@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Στήλες σε όλο το φύλλο. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_rows">Γραμμές σε όλο το φύλλο. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_margin_x">Κενό στην αριστερή και δεξιά άκρη του φύλλου. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_margin_y">Κενό στην πάνω και κάτω άκρη του φύλλου. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_spacing_x">Απόσταση μεταξύ κελιών, από πλευρά σε πλευρά. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_spacing_y">Απόσταση μεταξύ κελιών, από πάνω προς τα κάτω. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_tolerance">Πόσο κοντά στο χρώμα-κλειδί μετράει ως φόντο. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_move_x">Μετακίνηση αυτού του καρέ αριστερά ή δεξιά. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_move_y">Μετακίνηση αυτού του καρέ πάνω ή κάτω. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_scale">Μεγάλωσε ή μίκρυνε αυτό το καρέ. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_rotate">Γύρισε αυτό το καρέ, σε μοίρες. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_pivot_x">Σημείο άξονα, από αριστερά προς τα δεξιά. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_pivot_y">Σημείο άξονα, από πάνω προς τα κάτω. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_bake_pad">Κενό γύρω από κάθε καρέ κατά το ψήσιμο. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_onion_strength">Πόσο έντονα φαίνονται τα φαντάσματα onion-skin. Σύρε για αλλαγή, πάτα για να γράψεις</string>
+    <string name="hover_sprite_onion_past">Φαντάσματα προηγούμενων καρέ. Σύρε για να αλλάξεις πόσα, πάτα για να διαλέξεις χρώμα</string>
+    <string name="hover_sprite_onion_future">Φαντάσματα επόμενων καρέ. Σύρε για να αλλάξεις πόσα, πάτα για να διαλέξεις χρώμα</string>
+    <string name="hover_sprite_divider">Σύρε για να κάνεις τον πίνακα εργαλείων ψηλότερο ή χαμηλότερο</string>
+    <string name="hover_puppet_badge">Καρφίτσες μαριονέτας. Πάτα για πόζα, κράτα πατημένο για το συρτάρι της καρφίτσας</string>
+</resources>

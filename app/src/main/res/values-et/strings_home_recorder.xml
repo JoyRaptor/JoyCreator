@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">Videod</string>
+    <string name="home_rec_label_used">Kasutatud</string>
+    <string name="home_rec_shot_label">Foto</string>
+    <string name="home_rec_shot_desc">Tee foto</string>
+    <string name="home_rec_full_label">Täis</string>
+    <string name="home_rec_full_desc">Täisekraani eelvaade</string>
+    <string name="home_rec_paused">Salvestus peatatud</string>
+    <string name="home_rec_mirror">Peegelda esikaamerat</string>
+    <string name="home_rec_sound_source">Heliallikas</string>
+    <string name="home_rec_live_viz">Otsevisualiseerija (stiili muutmiseks hoia all)</string>
+    <string name="home_rec_dismiss_gps">Sulge asukohahoiatus</string>
+</resources>

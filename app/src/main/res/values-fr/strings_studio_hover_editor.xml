@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_studio_hover_editor.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_hover_export_progress">Afficher la progression de l\'export</string>
+    <string name="studio_hover_viz_add_layer">Ajouter un calque</string>
+    <string name="studio_hover_viz_duplicate_layer">Dupliquer le calque</string>
+    <string name="studio_hover_viz_delete_layer">Supprimer le calque</string>
+    <string name="studio_hover_viz_move_layer_left">Déplacer le calque à gauche</string>
+    <string name="studio_hover_viz_move_layer_right">Déplacer le calque à droite</string>
+    <string name="studio_hover_bold">Gras</string>
+    <string name="studio_hover_underline">Souligné</string>
+    <string name="studio_hover_italic">Italique</string>
+    <string name="studio_hover_text_motion">Mouvement</string>
+    <string name="studio_hover_pivot">Pivot de rotation</string>
+</resources>

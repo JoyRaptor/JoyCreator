@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">Τι νέο υπάρχει</string>
+    <string name="legacyv2_whatsnew_intro">Νέες λειτουργίες, βελτιώσεις και διορθώσεις σε αυτή την έκδοση.</string>
+    <string name="legacyv2_whatsnew_reenable">Ενεργοποίησέ το ξανά από τις Ρυθμίσεις → διακόπτης «Εμφάνιση εισαγωγής»</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">Έτοιμο σε %d δευτερόλεπτο...</item>
+        <item quantity="other">Έτοιμο σε %d δευτερόλεπτα...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">Μπορείς να το κλείσεις τώρα</string>
+    <string name="legacyv2_whatsnew_got_it">Κατάλαβα</string>
+    <string name="legacyv2_whatsnew_progress_desc">Πόσο έχεις προχωρήσει στις σημειώσεις</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">Νέο σε αυτή την έκδοση</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">Ενημέρωση από την έκδοση %1$s στην έκδοση %2$s</string>
+    <string name="legacyv2_mode_option_desc">Εμφάνιση ρυθμίσεων: %1$s</string>
+</resources>

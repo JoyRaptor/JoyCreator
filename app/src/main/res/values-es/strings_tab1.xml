@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Panel junto a la imagen (apagado: baja desde arriba)</string>
+    <string name="tab1_drawer_column">Columna alta: la línea de tiempo queda solo bajo la imagen</string>
+    <string name="tab1_settings_place_title">Paneles en pantalla ancha</string>
+    <string name="tab1_settings_place_auto">Automático: junto a la imagen si hay espacio, y si no, baja desde arriba</string>
+    <string name="tab1_settings_place_drop">Siempre baja desde arriba, como en un teléfono</string>
+    <string name="tab1_settings_place_beside">Siempre junto a la imagen</string>
+    <string name="tab1_settings_column_title">Columna alta</string>
+    <string name="tab1_settings_column">Junto a la imagen, el panel ocupa toda la altura y la línea de tiempo queda solo bajo la imagen. Apagado: el escritorio de edición, con la línea de tiempo a todo el ancho.</string>
+    <string name="tab1_settings_left_title">Paneles a la izquierda</string>
+    <string name="tab1_settings_left">El panel se coloca a la izquierda de la imagen en lugar de a la derecha.</string>
+</resources>

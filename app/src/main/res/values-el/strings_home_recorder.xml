@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">Βίντεο</string>
+    <string name="home_rec_label_used">Χρησιμοποιείται</string>
+    <string name="home_rec_shot_label">Φωτογραφία</string>
+    <string name="home_rec_shot_desc">Τράβηξε μια φωτογραφία</string>
+    <string name="home_rec_full_label">Πλήρης</string>
+    <string name="home_rec_full_desc">Προεπισκόπηση σε πλήρη οθόνη</string>
+    <string name="home_rec_paused">Η εγγραφή είναι σε παύση</string>
+    <string name="home_rec_mirror">Καθρέφτης μπροστινής κάμερας</string>
+    <string name="home_rec_sound_source">Πηγή ήχου</string>
+    <string name="home_rec_live_viz">Ζωντανός οπτικοποιητής (κράτα πατημένο για αλλαγή στυλ)</string>
+    <string name="home_rec_dismiss_gps">Κλείσιμο προειδοποίησης τοποθεσίας</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">Mida jälgida?</string>
+    <string name="studio_pinpick_hint">Puuduta nummerdatud punkti või vali loendist.</string>
+    <string name="studio_pinpick_whole">Pilt ise</string>
+    <string name="studio_pinpick_pin_n">Nööpnõel %1$d</string>
+    <string name="studio_pinpick_diagram">Kus iga nööpnõel pildil asub. Puuduta punkti, et seda nööpnõela jälgida.</string>
+    <string name="studio_pinpick_dot_n">Jälgi nööpnõela %1$d</string>
+    <string name="studio_pinpick_cancel">Tühista</string>
+</resources>

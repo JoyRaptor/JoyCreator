@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Голоса звучат естественно, даже когда меняется скорость</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Закрыть все инструменты</string>
+    <string name="lane_d_asset_close">Закрыть обзор файлов</string>
+    <string name="lane_d_asset_prev">Предыдущая закреплённая папка</string>
+    <string name="lane_d_asset_next">Следующая закреплённая папка</string>
+    <string name="lane_d_asset_filter">Показать все файлы, используемые или неиспользуемые</string>
+    <string name="lane_d_asset_forget">Убрать эту папку из истории закреплённых</string>
+    <string name="lane_d_asset_resize">Потяни, чтобы изменить размер обзора файлов</string>
+</resources>

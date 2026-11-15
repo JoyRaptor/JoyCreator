@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Remote Studio</string>
+    <string name="remote_chip_on_air">ΣΕ ΜΕΤΑΔΟΣΗ</string>
+    <string name="remote_chip_off_air">ΕΚΤΟΣ ΜΕΤΑΔΟΣΗΣ</string>
+    <string name="remote_section_on_air">Σε μετάδοση</string>
+    <string name="remote_section_connection">Σύνδεση</string>
+    <string name="remote_section_health">Κατάσταση</string>
+    <string name="remote_section_security">Κρυπτογράφηση</string>
+    <string name="remote_section_help">Βοήθεια</string>
+    <string name="remote_quality_default">Υψηλή (1080p) • 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">Αναφορά χρήσης cloud</string>
+    <string name="remote_usage_retrying">Νέα προσπάθεια σύνδεσης...</string>
+    <string name="remote_usage_bytes">Bytes που αναφέρθηκαν</string>
+    <string name="remote_usage_failures">Αποτυχίες</string>
+    <string name="remote_usage_action">Ενέργεια</string>
+    <string name="remote_usage_retry">Νέα προσπάθεια</string>
+    <string name="remote_usage_retry_toast">Νέα προσπάθεια αναφοράς χρήσης...</string>
+    <string name="remote_usage_title_active">Χρήση cloud (Ενεργή)</string>
+    <string name="remote_usage_title_error">Χρήση cloud (Σφάλμα)</string>
+    <string name="remote_usage_title_retrying">Χρήση cloud (Νέα προσπάθεια)</string>
+    <string name="remote_usage_title_plain">Χρήση cloud</string>
+    <string name="remote_usage_no_errors">Κανένα σφάλμα</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 σφάλματα</string>
+    <string name="remote_toast_stream_starting">Ο διακομιστής μετάδοσης ξεκινά...</string>
+    <string name="remote_toast_stream_stopped">Ο διακομιστής μετάδοσης σταμάτησε</string>
+    <string name="remote_toast_mode_stream_only">Λειτουργία Μόνο μετάδοση</string>
+    <string name="remote_toast_mode_stream_save">Λειτουργία Μετάδοση και αποθήκευση</string>
+    <string name="remote_toast_no_clients">Δεν είναι συνδεδεμένος κανένας θεατής</string>
+    <string name="remote_toast_password_empty">Ο κωδικός δεν μπορεί να είναι κενός</string>
+    <string name="remote_toast_link_account">Σύνδεσε πρώτα τον λογαριασμό σου Joy Creator ID</string>
+    <string name="remote_toast_wrong_password">Λάθος κωδικός — δοκίμασε ξανά</string>
+    <string name="remote_toast_setup_failed">Η ρύθμιση απέτυχε: %1$s</string>
+    <string name="remote_toast_autolock_set">Ο χρόνος αυτόματου κλειδώματος ορίστηκε σε: %1$s</string>
+    <string name="remote_toast_device_id_copied">Το ID συσκευής αντιγράφηκε</string>
+    <string name="remote_password_hint">Γράψε νέο κωδικό</string>
+    <string name="remote_password_helper">Άλλαξε εδώ τον κωδικό ταυτοποίησης. Τουλάχιστον 4 χαρακτήρες. Πρόκειται για βασική ταυτοποίηση HTTP — όχι πολύ ασφαλής, αλλά καλύτερη από το τίποτα. Όταν αλλάξεις τον κωδικό, όλες οι άλλες συσκευές αποσυνδέονται αυτόματα.</string>
+    <string name="remote_lock_never">Ποτέ</string>
+    <string name="remote_lock_never_desc">Οι συνεδρίες μένουν ενεργές επ\' αόριστον</string>
+    <string name="remote_lock_30min">30 λεπτά</string>
+    <string name="remote_lock_30min_desc">Κλείδωμα μετά από 30 λεπτά αδράνειας</string>
+    <string name="remote_lock_1hr">1 ώρα</string>
+    <string name="remote_lock_1hr_desc">Κλείδωμα μετά από 1 ώρα αδράνειας</string>
+    <string name="remote_lock_3hr">3 ώρες</string>
+    <string name="remote_lock_3hr_desc">Κλείδωμα μετά από 3 ώρες αδράνειας</string>
+    <string name="remote_lock_6hr">6 ώρες</string>
+    <string name="remote_lock_6hr_desc">Κλείδωμα μετά από 6 ώρες αδράνειας</string>
+</resources>

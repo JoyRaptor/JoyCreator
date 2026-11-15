@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Mehr ⌄</string>
+    <string name="faditor_lc_drawer_grip">Schubladengriff. Ziehen zum Anpassen, tippen für mehr oder zum Schließen</string>
+    <string name="faditor_lc_fx_expand">Die Einstellungen dieses Effekts zeigen</string>
+    <string name="faditor_lc_fx_collapse">Die Einstellungen dieses Effekts ausblenden</string>
+    <string name="faditor_lc_fx_bypass">Effekt umgehen</string>
+    <string name="faditor_lc_fx_enable">Effekt einschalten</string>
+    <string name="faditor_lc_fx_delete">Effekt löschen</string>
+    <string name="faditor_lc_fx_reorder">Halten und ziehen zum Umsortieren</string>
+    <string name="faditor_lc_key_prev">Voriger Keyframe</string>
+    <string name="faditor_lc_key_next">Nächster Keyframe</string>
+    <string name="faditor_lc_key_diamond">Keyframe. Tippen zum Hinzufügen oder Entfernen, halten zum Löschen aller</string>
+    <string name="faditor_lc_ease_need_keys">Setze zuerst Keyframes</string>
+    <string name="faditor_lc_motion_title">Bewegung</string>
+    <string name="faditor_lc_motion_by">Animieren nach</string>
+    <string name="faditor_lc_gran_letter">Buchstabe</string>
+    <string name="faditor_lc_gran_word">Wort</string>
+    <string name="faditor_lc_gran_sentence">Satz</string>
+    <string name="faditor_lc_gran_block">Block</string>
+    <string name="faditor_lc_sheet_grip">Griff des Blatts. Tippen oder nach oben ziehen für alle Einstellungen, nach unten ziehen zum Schließen</string>
+    <string name="faditor_lc_sheet_legend">Was die Keyframe-Formen bedeuten</string>
+    <string name="faditor_lc_sheet_more">Mehr …</string>
+    <string name="faditor_lc_sheet_move_to">Verschieben nach</string>
+    <string name="faditor_lc_sheet_jump">Zeit eingeben, zu der gesprungen wird</string>
+    <string name="faditor_lc_sheet_push">Durchschieben</string>
+    <string name="faditor_lc_sheet_snap">Einrasten</string>
+    <string name="faditor_lc_sheet_static_hint">Statisch — tippe auf ♦ zum Animieren</string>
+</resources>

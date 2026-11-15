@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">لرې Studio</string>
+    <string name="remote_chip_on_air">ژوندی</string>
+    <string name="remote_chip_off_air">بند</string>
+    <string name="remote_section_on_air">ژوندی</string>
+    <string name="remote_section_connection">اړیکه</string>
+    <string name="remote_section_health">روغتیا</string>
+    <string name="remote_section_security">کوډول</string>
+    <string name="remote_section_help">مرسته</string>
+    <string name="remote_quality_default">لوړ (1080p) • 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">د کلاوډ کارونې راپور</string>
+    <string name="remote_usage_retrying">اړیکه بیا هڅول کېږي...</string>
+    <string name="remote_usage_bytes">راپور شوي بایټونه</string>
+    <string name="remote_usage_failures">ناکامۍ</string>
+    <string name="remote_usage_action">عمل</string>
+    <string name="remote_usage_retry">بیا هڅه</string>
+    <string name="remote_usage_retry_toast">د کارونې راپور بیا هڅول کېږي...</string>
+    <string name="remote_usage_title_active">د کلاوډ کارونه (فعال)</string>
+    <string name="remote_usage_title_error">د کلاوډ کارونه (تېروتنه)</string>
+    <string name="remote_usage_title_retrying">د کلاوډ کارونه (بیا هڅه)</string>
+    <string name="remote_usage_title_plain">د کلاوډ کارونه</string>
+    <string name="remote_usage_no_errors">تېروتنه نشته</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 تېروتنې</string>
+    <string name="remote_toast_stream_starting">د ځغلولو سرور پیلېږي...</string>
+    <string name="remote_toast_stream_stopped">د ځغلولو سرور ودرېد</string>
+    <string name="remote_toast_mode_stream_only">یوازې ځغلونې حالت</string>
+    <string name="remote_toast_mode_stream_save">ځغلونه او خوندي کول حالت</string>
+    <string name="remote_toast_no_clients">هیڅ مشتری نه دی وصل</string>
+    <string name="remote_toast_password_empty">پټنوم خالي نه شي کېدای</string>
+    <string name="remote_toast_link_account">لومړی خپل Joy Creator ID حساب وصل کړئ</string>
+    <string name="remote_toast_wrong_password">پټنوم ناسم دی — مهرباني وکړئ بیا هڅه وکړئ</string>
+    <string name="remote_toast_setup_failed">جوړونه ناکامه شوه: %1$s</string>
+    <string name="remote_toast_autolock_set">د اتومات تړلو موده وټاکل شوه: %1$s</string>
+    <string name="remote_toast_device_id_copied">د وسیلې ID کاپي شو</string>
+    <string name="remote_password_hint">نوی پټنوم ولیکئ</string>
+    <string name="remote_password_helper">دلته خپل د تصدیق پټنوم بدل کړئ. لږ تر لږه 4 توري. دا اساسي HTTP تصدیق دی - ډېر خوندي نه دی خو له هیڅ نه ښه دی. کله چې پټنوم بدل کړئ، ټولې نورې وسیلې په اتومات ډول وځي.</string>
+    <string name="remote_lock_never">هېڅکله</string>
+    <string name="remote_lock_never_desc">ناستې تل فعاله وساتئ</string>
+    <string name="remote_lock_30min">30 دقیقې</string>
+    <string name="remote_lock_30min_desc">د 30 دقیقو بې‌کارۍ وروسته وتړئ</string>
+    <string name="remote_lock_1hr">1 ساعت</string>
+    <string name="remote_lock_1hr_desc">د 1 ساعت بې‌کارۍ وروسته وتړئ</string>
+    <string name="remote_lock_3hr">3 ساعتونه</string>
+    <string name="remote_lock_3hr_desc">د 3 ساعتونو بې‌کارۍ وروسته وتړئ</string>
+    <string name="remote_lock_6hr">6 ساعتونه</string>
+    <string name="remote_lock_6hr_desc">د 6 ساعتونو بې‌کارۍ وروسته وتړئ</string>
+</resources>

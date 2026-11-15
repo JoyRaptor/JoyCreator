@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Capture a besoin de la caméra et du microphone</string>
+    <string name="access_capture_why">Pour filmer et enregistrer le son, Android te demande d\'autoriser la caméra et le microphone. Joy Creator demande aussi d\'afficher la notification d\'enregistrement, pour que tu saches toujours quand ça enregistre. Rien ne quitte ton téléphone.</string>
+    <string name="access_allow">Autoriser</string>
+    <string name="access_not_now">Pas maintenant</string>
+    <string name="access_capture_declined">Capture reste fermé tant que la caméra et le microphone ne sont pas autorisés. Touche Capture à nouveau quand tu veux.</string>
+    <string name="access_capture_blocked">Android ne redemandera plus la caméra ni le microphone. Active-les dans la page de réglages de Joy Creator, sous Autorisations, puis reviens.</string>
+    <string name="access_open_settings">Ouvrir les réglages</string>
+</resources>

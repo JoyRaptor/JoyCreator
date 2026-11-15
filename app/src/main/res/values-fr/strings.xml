@@ -3,7 +3,7 @@
     <string name="auto_delete_immediate">Immédiat</string>
     <string name="trash_auto_delete_info_immediate">Les éléments sont supprimés immédiatement.</string>
     <string name="check_for_updates">Vérifier les mises à jour</string>
-    <string name="fadsec_info">Joy Creator fait partie de la suite FadSec Lab. Pour plus d\'informations, cliquez sur \'Voir code source\' ci-dessous.</string>
+    <string name="fadsec_info">Joy Creator est gratuit et open source. Pour en savoir plus, touche « voir le code source » ci-dessous.</string>
     <string name="app_description"><![CDATA[
 Joy Creator est une application d\'enregistrement vidéo open-source sans publicité qui priorise la confidentialité en ne suivant ni ne collectant aucune donnée. Il est disponible exclusivement sur GitHub et via les liens officiels mentionnés dans le README.
 <br/><br/>
@@ -70,9 +70,7 @@ Joy Creator a été présenté dans les chaînes YouTube populaires comme <font 
     <string name="setting_framerate_title">Fréquence d\'Images Vidéo</string>
     <string name="note_quailty">Choix de la qualité\n(Défaut: HD)</string>
     <string name="note_framerate">Choisir la fréquence d\'images\n(Par défaut: %1$d)</string>
-    <string name="note_codec">Choisir le codec
-(Par défaut: %1$s)
-Astuce : Avec H.265 (HEVC), vous pouvez utiliser environ la moitié du débit de H.264 pour une qualité équivalente. Exemple : Pour FHD, utilisez 8 Mbps au lieu de 16 Mbps.</string>
+    <string name="note_codec">Choisis le codec\n(par défaut : %1$s)\nAstuce : avec H.265 (HEVC), tu peux utiliser environ la moitié du débit de H.264 pour la même qualité. Exemple : en FHD, 8 Mbit/s au lieu de 16 Mbit/s.</string>
     <string name="setting_watermark">Filigrane</string>
     <string name="note_watermark">Sélectionner l\'option filigrane\n(Défaut: Horodatage avec Joy Creator)</string>
     <string name="note_watermark_extra">Pour une sauvegarde rapide, choisissez \'Aucun\'. Ajouter un filigrane ? Ça vaut la peine d\'attendre, juste un peu plus pour traiter !</string>
@@ -93,48 +91,43 @@ Astuce : Avec H.265 (HEVC), vous pouvez utiliser environ la moitié du débit de
         <item>De quelle couleur est ta Bugatti ?</item>
         <item>Je n\'étais pas programmé pour faire ce que vous faites. Attends, tu essaies de me pirater ?</item>
     </string-array>
-    <string-array name="questions_array" tools:ignore="InconsistentArrays">
+    <string-array name="questions_array">
         <item>AVERTISSEMENT</item>
-        <item>Joy Creator collecte-t-elle des données utilisateur ?</item>
-        <item>Y a-t-il de la publicité dans Joy Creator ?</item>
-        <item>Pourquoi Joy Creator demande-t-elle l\'accès à l\'emplacement ?</item>
-        <item>Pourquoi l\'autorisation Internet est requise ?</item>
+        <item>Joy Creator collecte-t-il des données sur moi ?</item>
+        <item>Y a-t-il des pubs dans Joy Creator ?</item>
+        <item>Pourquoi Joy Creator demande-t-il l\'accès à la position ?</item>
+        <item>Pourquoi l\'accès à internet est-il nécessaire ?</item>
         <item>Des données sont-elles stockées sur des serveurs externes ?</item>
-        <item>Qu\'arrive t-il à mes vidéos après l\'enregistrement ?</item>
-        <item>Joy Creator partage-t-elle mes données avec des tiers ?</item>
-        <item> </item>
-        <item> </item>
-        <item>Générale</item>
-        <item>Pourquoi le filigrane prend-il si longtemps?</item>
-        <item>Comment changer la qualité de la vidéo ?</item>
-        <item>Puis-je désactiver la prévisulisation ?</item>
-        <item>Comment puis-je intégrer mon emplacement au filigrane ?</item>
-        <item>Mes préférences sont-elles sauvegardées ?</item>
+        <item>Que deviennent mes vidéos après l\'enregistrement ?</item>
+        <item>Joy Creator partage-t-il mes données avec des tiers ?</item>
+        <item></item>
+        <item></item>
+        <item>Général</item>
+        <item>Puis-je désactiver l\'aperçu ?</item>
+        <item>Comment ajouter ma position au filigrane ?</item>
+        <item>Mes préférences sont-elles enregistrées ?</item>
         <item>Puis-je programmer des enregistrements ?</item>
-        <item>Comment mettre à jour l\'application ?</item>
-        <item> </item>
+        <item>Comment mettre l\'appli à jour ?</item>
+        <item></item>
     </string-array>
-    <string-array name="answers_array" tools:ignore="InconsistentArrays">
-        <item>Joy Creator ne tolère ni ne supporte aucune utilisation contraire à l\'éthique ou illégale de ce logiciel. La mauvaise utilisation, comme la surveillance non autorisée ou l\'atteinte à la vie privée, est strictement contraire à nos directives. Les auteurs ne sont pas responsables de tout abus de l\'application.
-        </item>
-        <item>Non, Joy Creator ne recueille aucune donnée utilisateur.</item>
-        <item>Non, Joy Creator est complètement sans publicité.</item>
-        <item>Pour ajouter des informations de localisation à vos filigranes.</item>
-        <item>Pour la vérification automatique des mises à jour.</item>
-        <item>Non, toutes les données sont stockées sur votre appareil.</item>
-        <item>Vos vidéos sont enregistrées localement sur votre appareil.</item>
+    <string-array name="answers_array">
+        <item>Joy Creator n\'approuve ni ne soutient aucun usage contraire à l\'éthique ou à la loi. Tout détournement, comme la surveillance non autorisée ou l\'atteinte à la vie privée, est strictement contraire à nos règles. L\'auteur n\'est pas responsable d\'un mauvais usage de l\'application.</item>
+        <item>Non, Joy Creator ne collecte aucune donnée sur toi.</item>
+        <item>Non, Joy Creator ne contient aucune publicité.</item>
+        <item>Pour ajouter ta position à tes filigranes.</item>
+        <item>Pour vérifier les mises à jour automatiquement.</item>
+        <item>Non, toutes les données restent sur ton appareil.</item>
+        <item>Tes vidéos sont enregistrées sur ton appareil.</item>
         <item>Non, Joy Creator ne partage ni ne collecte aucune donnée, pas même les rapports de plantage.</item>
-        <item> </item>
-        <item> </item>
-        <item> </item>
-        <item>Le filigrane est intégré dans chaque frame de la vidéo. Plus la vidéo est longue, plus il faudra de temps.</item>
-        <item>Changer la qualité de la vidéo dans les paramètres : HD, SD, ou FHD.</item>
-        <item>Pressez la zone de prévisualisation pour la désactiver.</item>
-        <item>Activer la localisation dans les paramètres pour les données de localisation dans le filigrane. Il intégrera la longitude et la latitude précises.</item>
-        <item>Oui, les préférences et tous les paramètres sont sauvegardés et appliqués de manière transparente.</item>
-        <item>Cette fonctionnalité arrive bientôt.</item>
-        <item>Vérifiez le dépôt officiel GitHub pour les mises à jour.</item>
-        <item> </item>
+        <item></item>
+        <item></item>
+        <item></item>
+        <item>Appuie longuement sur la zone d\'aperçu pour le désactiver.</item>
+        <item>Active la localisation dans les réglages pour ajouter ta position au filigrane. Elle y inscrira la longitude et la latitude exactes.</item>
+        <item>Oui, tes préférences et tous tes réglages sont enregistrés et appliqués automatiquement.</item>
+        <item>Cette fonction arrive bientôt.</item>
+        <item>Consulte le dépôt GitHub officiel pour les mises à jour.</item>
+        <item></item>
     </string-array>
     <string name="dialog_welcome_title">Bienvenue sur Joy Creator !</string>
     <string name="note_under_dev">Important: Cette application est en cours de développement. De nouvelles fonctionnalités sont ajoutées régulièrement.</string>
@@ -169,7 +162,7 @@ Astuce : Avec H.265 (HEVC), vous pouvez utiliser environ la moitié du débit de
     <string name="up_to_date_description">Vous utilisez déjà la dernière version.</string>
     <string name="up_to_date_loading">Vérification des mises à jour…</string>
     <string name="update_available_title">Mise à jour disponible</string>
-    <string name="update_available_message">Une nouvelle version (%1$s) est disponible. Pour mettre à jour, s\'il vous plait allez sur F-Droid store ou notre dépôt GitHub pour plus de détails.</string>
+    <string name="update_available_message">Une mise à jour toute fraîche est prête ! Tu as la v%1$s, la dernière est la v%2$s. Profite des nouveautés et des améliorations.</string>
     <string name="visit_fdroid">Visiter F-Droid</string>
     <string name="visit_github">Visiter GitHub</string>
     <string name="delete_all_videos_title">Supprimer toutes les vidéos</string>
@@ -708,15 +701,15 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="home_elapsed_flag_option">Flag accent</string>
 
-<string name="home_elapsed_flag_option_desc">Show or hide the FadSec Lab flag accent behind the timer</string>
+    <string name="home_elapsed_flag_option_desc">Afficher ou masquer la barre de couleur derrière le minuteur</string>
 
-<string name="home_elapsed_flag_helper">Choose whether the FadSec Lab flag accent is shown behind the elapsed timer.</string>
+    <string name="home_elapsed_flag_helper">Choisis si la barre de couleur s\'affiche derrière le minuteur.</string>
 
-<string name="home_elapsed_flag_show">Show FadSec Lab flag (Default)</string>
+    <string name="home_elapsed_flag_show">Afficher la couleur (par défaut)</string>
 
 <string name="home_elapsed_flag_show_desc">Display the branded flag accent behind the timer</string>
 
-<string name="home_elapsed_flag_hide">Hide FadSec Lab flag</string>
+    <string name="home_elapsed_flag_hide">Masquer la couleur</string>
 
 <string name="home_elapsed_flag_hide_desc">Keep the elapsed timer area clean without the flag accent</string>
 
@@ -1102,7 +1095,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="records_filter_screen">Écran</string>
 
-<string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
 
 <string name="records_filter_stream">Stream</string>
 
@@ -1146,9 +1139,9 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="records_filter_helper_screen">Screen recordings</string>
 
-<string name="records_filter_helper_faditor">Edited/Exported videos (Faditor)</string>
+    <string name="records_filter_helper_faditor">Vidéos montées ou exportées (Studio)</string>
 
-<string name="records_filter_helper_faditor_all">All Faditor outputs and related files.</string>
+    <string name="records_filter_helper_faditor_all">Tout ce que Studio a produit, et les fichiers liés.</string>
 
 <string name="records_filter_helper_faditor_converted">Converted fragmented MP4 into standard seekable MP4 for external players.</string>
 
@@ -1172,7 +1165,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="records_batch_save">Save to Gallery</string>
 
-<string name="records_batch_faditor">Faditor Automations</string>
+    <string name="records_batch_faditor">Automatisations Studio</string>
 
 <string name="records_batch_delete">Delete</string>
 
@@ -1188,7 +1181,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="records_batch_save_desc">Copy, move, or export selected videos to another folder.</string>
 
-<string name="records_batch_faditor_desc">Run background automations without opening the Faditor tab.</string>
+    <string name="records_batch_faditor_desc">Lance des automatisations en arrière-plan sans ouvrir l\'onglet Studio.</string>
 
 <string name="records_batch_delete_desc">Move selected videos to Trash.</string>
 
@@ -1210,7 +1203,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="records_batch_custom_export_done">Export finished. Success: %1$d • Failed: %2$d</string>
 
-<string name="records_batch_faditor_sheet_title">Batch Faditor Actions</string>
+    <string name="records_batch_faditor_sheet_title">Actions Studio en lot</string>
 
 <string name="records_batch_faditor_export_standard">Export to Standard MP4</string>
 
@@ -1226,7 +1219,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="records_batch_notif_channel_name">Batch Media Actions</string>
 
-<string name="records_batch_notif_channel_desc">Progress and results for Records batch save and Faditor automation tasks.</string>
+    <string name="records_batch_notif_channel_desc">Progression et résultats des enregistrements par lot et des automatisations Studio.</string>
 
 <string name="records_batch_starting">Preparing batch operation…</string>
 
@@ -1244,7 +1237,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="nav_remote">Remote</string>
 
-<string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
 
 <string name="nav_lab">Lab</string>
 
@@ -1516,7 +1509,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="delete_single_video_subtitle">Remove this recording</string>
 
-<string name="note_debug_detailed">When enabled, FadCam writes a debug log HTML file (JoyCreator_debug.html) into the public Downloads/Joy Creator/ folder. Share this file when reporting issues. Turn off to stop future writes.\nNote: Debug logging may add performance overhead during recording — keep it off unless you are troubleshooting.</string>
+    <string name="note_debug_detailed">Quand c\'est activé, Joy Creator écrit un fichier HTML de journal de débogage (JoyCreator_debug.html) dans le dossier public Downloads/Joy Creator/. Partage ce fichier quand tu signales un souci. Désactive pour arrêter l\'écriture.\nNote : le journal de débogage peut ralentir l\'enregistrement. Laisse-le désactivé sauf pour chercher un problème.</string>
 
 <string name="watermark_preview_heading">Preview</string>
 
@@ -1536,7 +1529,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="watermark_style_none_label">No Watermark</string>
 
-<string name="helper_watermark_preview">This is how the watermark will appear at the top-left of your recorded video.\nFun fact: 10/Jul/2024 04:47 PM is when Joy Creator v1.0 first shipped.</string>
+    <string name="helper_watermark_preview">Voici comment le filigrane apparaîtra en haut à gauche de ta vidéo.</string>
 
 <string name="helper_location_watermark_option">Toggle adding your device location as an overlay. Requires location permission.</string>
 
@@ -1604,7 +1597,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="widget_arabic_date_format_title">Arabic Date Format</string>
 
-<string name="widget_branding_title">FadSecLab Branding</string>
+    <string name="widget_branding_title">Marque Joy Creator</string>
 
 <string name="widget_time_format_12h">12-hour (3:30 PM)</string>
 
@@ -1888,7 +1881,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="screenshot_accessibility_enable_needed">Enable "Joy Creator" in Accessibility to use this shortcut without recording prompt.</string>
 
-<string name="screenshot_accessibility_service_desc">Captures a screenshot for the FadRec shortcut and saves it in Joy Creator.</string>
+    <string name="screenshot_accessibility_service_desc">Prend une capture d\'écran pour le raccourci de capture et l\'enregistre dans ton dossier Joy Creator.</string>
 
 <string name="shortcuts_video_category">Video Recording</string>
 
@@ -1966,17 +1959,17 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="coming_soon_toast">Coming soon! In Sha Allah</string>
 
-<string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
 
 <string name="faditor_mini_coming_soon">Coming soon — lightweight editor</string>
 
 <string name="faditor_mini_subtitle">Trim and export your videos with precision</string>
 
-<string name="faditor_mini_toast">Faditor Mini — coming soon</string>
+    <string name="faditor_mini_toast">Studio — bientôt disponible</string>
 
 <string name="faditor_select_video">Select Video</string>
 
-<string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
 
 <string name="faditor_close">Close editor</string>
 
@@ -2127,7 +2120,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="faditor_export_confirm_helper">%1$s • %2$d clip(s)%3$s\nExport runs as a background service — you can close the app and it will keep exporting.</string>
 
-<string name="faditor_export_notif_channel">Faditor Export</string>
+    <string name="faditor_export_notif_channel">Export Studio</string>
 
 <string name="faditor_export_notif_channel_desc">Notifications for ongoing video exports</string>
 
@@ -2201,13 +2194,13 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="faditor_delete_confirm">Delete</string>
 
-<string name="faditor_version_info">Faditor Mini · Phase 1 · Trim + Export</string>
+    <string name="faditor_version_info">Studio · Phase 1 · Rogner + Exporter</string>
 
 <string name="faditor_empty_title">No projects yet</string>
 
 <string name="faditor_empty_desc">Tap \"Start New Project\" to pick a video and begin editing</string>
 
-<string name="faditor_info_title">About Faditor Mini</string>
+    <string name="faditor_info_title">À propos de Studio</string>
 
 <string name="faditor_info_subtitle">Everything you need to know about the built-in editor</string>
 
@@ -2217,7 +2210,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="faditor_info_convert_title">Smart conversion</string>
 
-<string name="faditor_info_convert_desc">Joy Creator records in a crash-safe format called fragmented MP4 (fMP4). Unlike a standard MP4 which has one finalized container, fMP4 writes video in small independent chunks. This means your footage stays intact even if the app crashes or recording stops suddenly.\n\nHowever, external video players, gallery apps, and file managers will not be able to seek, scrub, or display the correct duration of these files. This is not a bug — it is a deliberate design trade-off for reliability.\n\nIf you plan to store your videos outside Joy Creator — on Google Drive, a computer, or any other location — you must convert them first. Otherwise the files will be unusable for normal playback.\n\nTo convert: simply open the video here in Faditor Mini and tap Export. The converted standard MP4 will appear in your Records tab, ready to save to your gallery or share anywhere. The process is instant and lossless — no re-encoding or quality loss.</string>
+    <string name="faditor_info_convert_desc">Joy Creator enregistre dans un format à l\'épreuve des plantages, le MP4 fragmenté (fMP4). Contrairement à un MP4 standard, qui a un seul conteneur finalisé, le fMP4 écrit la vidéo en petits morceaux indépendants. Tes images restent donc intactes même si l\'appli plante ou si l\'enregistrement s\'arrête d\'un coup.\n\nEn revanche, les lecteurs vidéo externes, les applis de galerie et les gestionnaires de fichiers ne pourront pas avancer dans la vidéo ni afficher la bonne durée de ces fichiers. Ce n\'est pas un bug — c\'est un choix voulu, pour la fiabilité.\n\nSi tu comptes garder tes vidéos en dehors de Joy Creator — sur Google Drive, un ordinateur ou ailleurs — tu dois d\'abord les convertir. Sinon les fichiers ne seront pas lisibles normalement.\n\nPour convertir : ouvre simplement la vidéo ici dans Studio et touche Exporter. Le MP4 standard obtenu apparaîtra dans ton onglet Enregistrements, prêt à être enregistré dans ta galerie ou partagé où tu veux. C\'est instantané et sans perte — aucun ré-encodage, aucune baisse de qualité.</string>
 
 <string name="faditor_info_export_title">Exported files</string>
 
@@ -2225,7 +2218,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="faditor_info_temp_title">Temporary files and cache</string>
 
-<string name="faditor_info_temp_desc">When you load an fMP4 video for editing, Faditor detects if the file needs \"remuxing\" — a fast conversion that adds seeking markers without re-encoding. Remuxed files are cached on your device so they can be reused if you edit the same video again, saving time and processing.\n\nYou can see the cache size for each project listed next to its modified date. If your device storage is running low, you can delete unused projects to clear their cached remuxed files.\n\nThese temporary cache files are automatically cleaned up when you delete a project from this tab.</string>
+    <string name="faditor_info_temp_desc">Quand tu charges une vidéo fMP4 pour la modifier, Studio détecte si le fichier a besoin d\'un « remuxage » — une conversion rapide qui ajoute des repères de navigation sans ré-encoder. Les fichiers remuxés sont gardés en cache sur ton appareil pour être réutilisés si tu modifies à nouveau la même vidéo, ce qui fait gagner du temps.\n\nTu vois la taille du cache de chaque projet à côté de sa date de modification. Si le stockage de ton appareil se remplit, tu peux supprimer les projets inutilisés pour vider leurs fichiers remuxés en cache.\n\nCes fichiers temporaires sont nettoyés automatiquement quand tu supprimes un projet depuis cet onglet.</string>
 
 <string name="faditor_info_projects_title">Recent projects</string>
 
@@ -2352,7 +2345,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 
 
-<string name="kofi_footer_text">Made with    at FadSec Lab in   </string>
+    <string name="kofi_footer_text">Fait avec    pour les créateurs en</string>
 
 <string name="choose_language">Choose Language</string>
 
@@ -2368,7 +2361,7 @@ Recommandé : 192000 bps, 48000 Hz pour la plupart des utilisateurs.</string>
 
 <string name="version_format">v%s</string>
 
-<string name="edit_with_faditorx">Edit with Faditor Mini</string>
+    <string name="edit_with_faditorx">Modifier avec Studio</string>
 
 <string name="remote_coming_soon_badge">Coming Soon</string>
 
@@ -4091,7 +4084,7 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="settings_location_update_interval_5s">5,0 secondes</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">par FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">par Joy Creator</string>
     <string name="annotation_quick_access">Accès rapide</string>
     <string name="annotation_annotate">Annoter</string>
     <string name="annotation_enable_tools">Activer les outils</string>
@@ -4306,4 +4299,587 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="toast_cannot_write_custom_dir">Impossible d\'écrire dans le répertoire personnalisé sélectionné</string>
     <string name="toast_failed_create_file">Échec de création du fichier en écriture</string>
 
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">Commencer un nouvel enregistrement</string>
+    <string name="lobby_a11y_new_project">Commencer un nouveau projet</string>
+    <string name="lobby_a11y_new_character">Créer un nouveau personnage</string>
+    <string name="lobby_a11y_new_import">Importer un fichier</string>
+    <string name="lobby_a11y_hero">%1$s : %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s, rien dedans pour l\'instant</string>
+    <string name="lobby_a11y_library">Ouvrir la Library</string>
+    <string name="onboarding_a11y_checked">%1$s. Coché.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. Non coché.</string>
+    <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
+    <string name="faditor_tools_more">%1$d de plus</string>
+    <string name="faditor_tools_more_desc">Afficher tous les outils</string>
+    <string name="capture_mode_camera">Caméra</string>
+    <string name="capture_mode_screen">Écran</string>
+    <string name="capture_mode_mic">Micro</string>
+    <string name="webcam_overlay">Incrustation webcam</string>
+    <string name="webcam_overlay_on">Activée</string>
+    <string name="webcam_overlay_off">Désactivée</string>
+    <string name="webcam_overlay_notification_title">Incrustation webcam active</string>
+    <string name="fadrec_recording_flash">Enregistrement en cours !</string>
+    <string name="video_info_loading">Chargement…</string>
+    <string name="faditor_timeline_resize_handle">Fais glisser pour redimensionner la timeline et l\'aperçu</string>
+    <string name="faditor_export_preparing">Préparation de l\'export…</string>
+    <string name="faditor_export_compositing">Assemblage de la vidéo…</string>
+    <string name="faditor_export_finalizing">Finalisation…</string>
+    <string name="faditor_font_picker_title">Police</string>
+    <string name="faditor_font_import">Importer une police…</string>
+    <string name="faditor_font_row_selected">%1$s (sélectionnée)</string>
+    <string name="faditor_tool_opacity">Opacité</string>
+    <string name="faditor_tool_text">Texte</string>
+    <string name="faditor_tool_sticker">Image</string>
+    <string name="faditor_text_hint">Saisis du texte</string>
+    <string name="faditor_text_edit_title">Modifier le texte</string>
+    <string name="faditor_text_delete">Supprimer</string>
+    <string name="faditor_text_selection_whole">Tout sélectionner</string>
+    <string name="faditor_text_selection_count">%1$d sélectionné(s)</string>
+    <string name="faditor_text_selection_clear">Effacer</string>
+    <string name="faditor_text_style_undo">Mettre en forme</string>
+    <string name="faditor_text_motion_range">Plage de mouvement du texte</string>
+    <string name="faditor_trim_start_here">⇤ Début ici</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  Tout couvrir</string>
+    <string name="faditor_trim_end_here">Fin ici ⇥</string>
+    <string name="faditor_split_playhead_text">Place la tête de lecture dans le texte pour le diviser</string>
+    <string name="faditor_split_playhead_sprite">Place la tête de lecture dans le sprite pour le diviser</string>
+    <string name="faditor_split_playhead_pip">Place la tête de lecture dans l\'image dans l\'image pour la diviser</string>
+    <string name="faditor_split_playhead_layer">Place la tête de lecture dans le calque pour le diviser</string>
+    <string name="faditor_trim_start_impossible">Place la tête de lecture avant la fin du calque pour rogner le début</string>
+    <string name="faditor_trim_end_impossible">Place la tête de lecture après le début du calque pour rogner la fin</string>
+    <string name="faditor_heal_confirm_add">Réparer cette coupure ajouterait %1$s à la timeline. D\'accord ?</string>
+    <string name="faditor_heal_confirm_remove">Réparer cette coupure retirerait %1$s de la timeline. D\'accord ?</string>
+    <string name="faditor_locked_title">Objet verrouillé</string>
+    <string name="faditor_locked_message">Cet objet est verrouillé. Le déverrouiller et continuer ?</string>
+    <string name="faditor_locked_unlock">Déverrouiller et continuer</string>
+    <string name="faditor_fx_static_hint">Fixe — touche ◆ pour animer</string>
+    <string name="faditor_fx_reorder_hint">Ajoute un deuxième effet pour réorganiser la chaîne</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s a besoin d\'un calque de réglage — ignoré</string>
+    <string name="faditor_color_set">Valider</string>
+    <string name="faditor_image_overlay_title">Image en incrustation</string>
+    <string name="faditor_image_overlay_desc">Glisse pour déplacer, pince pour redimensionner</string>
+    <string name="faditor_tool_silence">Nettoyer</string>
+    <string name="faditor_tool_loop">Boucle</string>
+    <string name="faditor_tool_settings">Paramètres</string>
+    <string name="faditor_tool_sprites">Sprites</string>
+    <string name="sprite_editor_missing_image">Image de la planche introuvable — importe-la à nouveau</string>
+    <string name="sprite_editor_no_project">Aucun projet trouvé — ouvre d\'abord l\'éditeur</string>
+    <string name="sprite_editor_default_name">Sprite</string>
+    <string name="sprite_editor_name_hint">Nom de la planche de sprites</string>
+    <string name="sprite_editor_cell_name_hint">Nom de la case (alias)</string>
+    <string name="sprite_editor_cell_enabled">Activée</string>
+    <string name="sprite_editor_cell_prefix">Case</string>
+    <string name="sprite_editor_save">Enregistrer</string>
+    <string name="sprite_editor_saved">Planche de sprites enregistrée</string>
+    <string name="sprite_editor_save_failed">Échec de l\'enregistrement — réessaie</string>
+    <string name="sprite_editor_import_failed">Impossible d\'importer cette image</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">Pivot</string>
+    <string name="sprite_editor_auto">Auto</string>
+    <string name="sprite_editor_auto_applied">Grille détectée : %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">Aucune grille nette trouvée — règle-la avec les boutons + et −</string>
+    <string name="sprite_editor_key">Détourer</string>
+    <string name="sprite_editor_key_clear">Détourer ✕</string>
+    <string name="sprite_editor_key_pick_hint">Touche la couleur de fond à retirer</string>
+    <string name="sprite_editor_key_cleared">Détourage du fond retiré</string>
+    <string name="sprite_editor_onion">Pelure d\'oignon</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">Découpage appliqué depuis le fichier associé</string>
+    <string name="sprite_editor_sidecar_import_failed">Impossible de lire le fichier associé</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">Fichier associé enregistré à côté de l\'image de la planche</string>
+    <string name="sprite_editor_sidecar_failed">Impossible d\'écrire le fichier associé</string>
+    <string name="sprite_sheet_picker_title">Planches de sprites</string>
+    <string name="sprite_sheet_picker_new">+ Nouvelle planche de sprites</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Studio d\'avatars…</string>
+    <string name="sprite_sheet_action_edit">Modifier la planche</string>
+    <string name="sprite_sheet_action_place">Placer sur la vidéo</string>
+    <string name="sprite_sheet_action_relink">Relier l\'image…</string>
+    <string name="sprite_placed">Sprite placé — fais-le glisser sur l\'aperçu</string>
+    <string name="sprite_palette_load">+ Charger une planche de sprites</string>
+    <string name="sprite_palette_cell_prefix">case</string>
+    <string name="sprite_palette_no_cell">pas encore d\'image — touche une case</string>
+    <string name="sprite_palette_end_prefix">fin :</string>
+    <string name="sprite_palette_swap_dropped">Échange déposé à la tête de lecture</string>
+    <string name="avatar_studio_title">Avatars</string>
+    <string name="avatar_studio_new">+ Nouvel avatar</string>
+    <string name="avatar_studio_default_name">Avatar</string>
+    <string name="avatar_studio_name_hint">Nom de l\'avatar</string>
+    <string name="avatar_studio_save">Enregistrer</string>
+    <string name="avatar_studio_saved">Avatar enregistré</string>
+    <string name="avatar_studio_save_failed">Échec de l\'enregistrement — réessaie</string>
+    <string name="avatar_studio_no_project">Aucun projet trouvé — ouvre d\'abord l\'éditeur</string>
+    <string name="avatar_studio_add_part">+ Pièce</string>
+    <string name="avatar_studio_pick_sheet">Planche de sprites pour la nouvelle pièce</string>
+    <string name="avatar_studio_no_sheets">Découpe d\'abord une planche de sprites (outil Sprites) — les pièces viennent des planches</string>
+    <string name="avatar_studio_part_name_hint">Nom de la pièce (tête, corps, brasG…)</string>
+    <string name="avatar_studio_part_menu_parent">Choisir le parent…</string>
+    <string name="avatar_studio_part_menu_unparent">Retirer le parent</string>
+    <string name="avatar_studio_part_menu_remove">Supprimer la pièce</string>
+    <string name="avatar_studio_parent_pick_title">Parent de %1$s</string>
+    <string name="avatar_studio_armed_hint">Case armée — fais glisser les pièces pour poser cette expression extrême</string>
+    <string name="avatar_studio_disarm_hint">Grille libre — les curseurs animent le mélange</string>
+    <string name="avatar_studio_yaw">Lacet</string>
+    <string name="avatar_studio_pitch">Tangage</string>
+    <string name="avatar_studio_cell_stepper">Case du sprite</string>
+    <string name="avatar_studio_scale">Échelle</string>
+    <string name="avatar_studio_rotation">Rot.</string>
+    <string name="avatar_studio_flip_h">Retourner H</string>
+    <string name="avatar_studio_flip_v">Retourner V</string>
+    <string name="avatar_studio_mirror">Miroir ⇋</string>
+    <string name="avatar_studio_mirrored">Reflété sur la case opposée</string>
+    <string name="avatar_studio_pins">⌖ Épingles</string>
+    <string name="avatar_studio_pin_del">✕ épingle</string>
+    <string name="avatar_studio_density">Maillage</string>
+    <string name="avatar_studio_pin_add_disarmed">Désarme la case pour ajouter ou retirer des épingles (chaîne de repos)</string>
+    <string name="avatar_studio_pins_reseeded">Épingles de la case reprises depuis la chaîne de repos</string>
+    <string name="avatar_studio_clear_cell">Vider la case</string>
+    <string name="avatar_studio_cell_cleared">Case vidée — le mélange redevient automatique</string>
+    <string name="faditor_tools_all_title">Tous les outils</string>
+    <string name="faditor_tools_edit">Modifier</string>
+    <string name="faditor_tools_edit_done">Terminé</string>
+    <string name="faditor_tools_edit_tooltip">Organiser les outils</string>
+    <string name="faditor_silence_audio_desc">Coupe les silences de ce clip audio et referme les trous. Un seul Annuler remet tout en place.</string>
+    <string name="faditor_silence_audio_btn">Couper les silences</string>
+    <string name="faditor_tools_edit_hint">Maintiens un outil et glisse-le ailleurs. Glisse-le au-delà de la barre pour l\'épingler. Touche Terminé quand c\'est bon.</string>
+    <string name="faditor_settings_tool_order_title">Ordre des outils</string>
+    <string name="faditor_settings_tool_order_desc">Comment le carrousel d\'outils du bas est classé : ton ordre à toi, ou les plus récents d\'abord.</string>
+    <string name="faditor_settings_tool_order_recent">Récents d\'abord</string>
+    <string name="faditor_loop_off">Désactivée</string>
+    <string name="faditor_loop_normal">Boucle</string>
+    <string name="faditor_loop_pingpong">Aller-retour</string>
+    <string name="faditor_loop_pingpong_parked">Aller-retour (bientôt)</string>
+    <string name="faditor_loop_pingpong_parked_toast">Le vrai aller-retour est en cours de peaufinage — bientôt disponible. Utilise Boucle pour une répétition fluide vers l\'avant.</string>
+    <string name="faditor_loop_still">Image fixe</string>
+    <string name="faditor_loop_extend_start">Étendre jusqu\'au début</string>
+    <string name="faditor_loop_extend_end">Étendre jusqu\'à la fin</string>
+    <string name="faditor_loop_extend_prev">Étendre jusqu\'au clip précédent</string>
+    <string name="faditor_loop_extend_next">Étendre jusqu\'au clip suivant</string>
+    <string name="faditor_tool_transitions">Transitions</string>
+    <string name="faditor_transitions">Transitions</string>
+    <string name="faditor_transition_crossfade">Fondu enchaîné</string>
+    <string name="faditor_transition_black">Fondu au noir</string>
+    <string name="faditor_transition_white">Fondu au blanc</string>
+    <string name="faditor_transition_wipe">Volet</string>
+    <string name="faditor_transition_radial">Radial</string>
+    <string name="faditor_transition_mirror">Volet miroir</string>
+    <string name="faditor_transition_push">Poussée</string>
+    <string name="faditor_transition_glitch">Glitch</string>
+    <string name="faditor_transition_tv_channel">Chaîne TV</string>
+    <string name="faditor_transition_added">Transition ajoutée à la jonction la plus proche</string>
+    <string name="faditor_transition_removed">Transition retirée</string>
+    <string name="faditor_gl_transition_pick_title">Choisir un effet GL</string>
+    <string name="faditor_visualizer_style_title">Style du visualiseur</string>
+    <string name="faditor_transition_duration_title">Durée de la transition</string>
+    <string name="faditor_transition_type_title">Type de transition</string>
+    <string name="faditor_transition_remove">Retirer</string>
+    <string name="faditor_transition_direction_title">Direction</string>
+    <string name="faditor_filter_title">Filtres et couleur</string>
+    <string name="faditor_filter_lut">Look (LUT)</string>
+    <string name="faditor_filter_lut_none">Aucun</string>
+    <string name="faditor_filter_reset">Tout réinitialiser</string>
+    <string name="faditor_filter_copy_all">Copier le look sur tous les clips</string>
+    <string name="faditor_filter_preset_save">Enregistrer comme préréglage…</string>
+    <string name="faditor_filter_preset_name_hint">Nom du préréglage</string>
+    <string name="faditor_filter_preset_delete">Supprimer le préréglage \"%s\" ?</string>
+    <string name="faditor_filter_preset_applied">Préréglage \"%s\" appliqué</string>
+    <string name="faditor_tool_filter">Filtre</string>
+    <string name="faditor_tool_move">Déplacer</string>
+    <string name="faditor_move_drawer_title">Déplacer le clip</string>
+    <string name="faditor_move_layer_up">Monter</string>
+    <string name="faditor_move_layer_down">Descendre</string>
+    <string name="faditor_move_to_time_hint">Horodatage (00:00:00.000) ou images</string>
+    <string name="faditor_move_clip_label">Réorganiser le clip</string>
+    <string name="faditor_move_clip_start">Envoyer au début</string>
+    <string name="faditor_move_clip_left">Décaler d\'un cran à gauche</string>
+    <string name="faditor_move_clip_right">Décaler d\'un cran à droite</string>
+    <string name="faditor_move_clip_end">Envoyer à la fin</string>
+    <string name="faditor_move_clip_at_start">Le clip est déjà le premier</string>
+    <string name="faditor_move_clip_at_end">Le clip est déjà le dernier</string>
+    <string name="faditor_move_clip_none">Sélectionne d\'abord un clip</string>
+    <string name="faditor_transition_need_two_clips">Ajoute au moins deux clips vidéo avant d\'ajouter une transition</string>
+    <string name="faditor_silence_detect_title">Détecter les silences</string>
+    <string name="faditor_silence_detect_desc">Les silences sont marqués en jaune. Touche un silence jaune sur la timeline pour le couper (il devient noir). Touche à nouveau l\'outil pour masquer.</string>
+    <string name="faditor_silence_detect_btn">Détecter</string>
+    <string name="faditor_silence_found">%1$d silences marqués — touche les jaunes pour les couper</string>
+    <string name="faditor_silence_title">Retirer les silences</string>
+    <string name="faditor_silence_desc">Coupe automatiquement les silences et les temps morts de ce clip.</string>
+    <string name="faditor_silence_sensitivity">Sensibilité</string>
+    <string name="faditor_silence_analyzing">Analyse de l\'audio…</string>
+    <string name="faditor_silence_none">Aucun silence trouvé</string>
+    <string name="faditor_silence_image">Ce clip n\'a pas d\'audio à analyser</string>
+    <string name="faditor_silence_result">%1$d silences retirés · %2$.1f s gagnées</string>
+    <string name="faditor_jump_to_time">Aller à l\'instant</string>
+    <string name="faditor_relink_title">Médias manquants</string>
+    <string name="faditor_relink_msg">%1$d clip(s) n\'ont pas pu être ouverts (la source a bougé ou l\'accès a été perdu). Les relier à tes fichiers ? Tes modifications sont conservées.</string>
+    <string name="faditor_relink_now">Relier</string>
+    <string name="faditor_relink_later">Plus tard</string>
+    <string name="faditor_relink_sheet_title">Relier la vidéo manquante</string>
+    <string name="faditor_relink_sheet_sub">Recherche de : %1$s</string>
+    <string name="faditor_relink_auto_found">%1$d autre(s) trouvé(s) dans le même dossier — reliés automatiquement</string>
+    <string name="faditor_relink_replace_title">Remplacer cette vidéo ?</string>
+    <string name="faditor_relink_replace_msg">Choisis un autre fichier pour ce clip. Toutes tes modifications (découpe, coupes, sous-titres) sont conservées.</string>
+    <string name="faditor_relink_replace">Remplacer la vidéo</string>
+    <string name="faditor_relink_catalog_title">Catalogue des médias</string>
+    <string name="faditor_relink_repaired">%1$d sur %2$d réparés — touche un ✗ pour le relier</string>
+    <string name="faditor_relink_all_ok">Tous les fichiers médias sont accessibles ✓</string>
+    <string name="faditor_relink_all">↻ Relier tous les manquants</string>
+    <string name="faditor_relink_done">Terminé</string>
+    <string name="faditor_relink_missing">MANQUANT</string>
+    <string name="faditor_relink_ok">OK</string>
+    <string name="faditor_relink_generated">généré — cache vidé</string>
+    <string name="faditor_relink_confirm_title">Confirmer le remplacement</string>
+    <string name="faditor_relink_confirm_msg">Remplacer le clip n°%1$d :\n\n  Avant : %2$s (%3$s)\n  Après : %4$s (%5$s)\n\nToutes les modifications (découpe, coupes, sous-titres) sont conservées.</string>
+    <string name="faditor_relink_confirm_yes">Remplacer</string>
+    <string name="faditor_relink_skip">Passer celui-ci</string>
+    <string name="faditor_relink_warn_same_file">⚠ Ce fichier est déjà utilisé pour le clip n°%1$d. Le réutiliser fera montrer les mêmes images aux deux clips.</string>
+    <string name="faditor_relink_warn_duration">⚠ La durée est très différente. Avant : %1$s, maintenant : %2$s. Les points de découpe devront peut-être être ajustés.</string>
+    <string name="faditor_relink_err_type">✗ Mauvais type de fichier. Attendu : %1$s, reçu : %2$s.</string>
+    <string name="faditor_relink_btn">Catalogue des médias</string>
+    <string name="faditor_asset_browser">Navigateur de fichiers</string>
+    <string name="faditor_asset_browser_title">Dossier épinglé</string>
+    <string name="faditor_asset_browser_pin_dir">Choisir un dossier</string>
+    <string name="faditor_asset_browser_change_dir">Changer de dossier</string>
+    <string name="faditor_asset_browser_unpin">Désépingler le dossier</string>
+    <string name="faditor_asset_browser_empty">Aucun fichier média dans ce dossier</string>
+    <string name="faditor_asset_browser_no_dir">Aucun dossier épinglé pour l\'instant. Touche l\'épingle pour en choisir un.</string>
+    <string name="faditor_asset_browser_pin_success">Épinglé : %1$s</string>
+    <string name="faditor_asset_browser_filter_all">Tous</string>
+    <string name="faditor_asset_browser_filter_used">Utilisés</string>
+    <string name="faditor_asset_browser_filter_unused">Inutilisés</string>
+    <string name="faditor_asset_browser_rename">Renommer</string>
+    <string name="faditor_asset_browser_rename_title">Renommer le fichier</string>
+    <string name="faditor_asset_browser_rename_hint">Nouveau nom (garde l\'extension)</string>
+    <string name="faditor_asset_browser_rename_success">Renommé en %1$s</string>
+    <string name="faditor_asset_browser_rename_error">Impossible de renommer le fichier</string>
+    <string name="faditor_asset_browser_delete_title">Retirer de l\'historique ?</string>
+    <string name="faditor_asset_browser_delete_msg">Retirer ce dossier de ton historique de dossiers épinglés ? Les fichiers de ce dossier utilisés restent dans le projet.</string>
+    <string name="faditor_asset_browser_delete_blocked">Impossible de retirer : des fichiers de ce dossier sont utilisés.</string>
+    <string name="faditor_asset_insert_at_playhead">Insérer le fichier choisi à la tête de lecture</string>
+    <string name="faditor_asset_drag_hint">Appui long, puis glisse vers la timeline</string>
+    <string name="faditor_asset_used_badge">Utilisé</string>
+    <string name="faditor_new_project_title">Donne un nom à ton projet (%1$d clips)</string>
+    <string name="faditor_new_project_hint">Nom du projet</string>
+    <string name="faditor_create">Créer</string>
+    <string name="faditor_creating_project">Création du projet…</string>
+    <string name="faditor_create_failed">Impossible de créer le projet avec ces vidéos.</string>
+    <string name="faditor_transcript_delete_version_title">Supprimer la transcription</string>
+    <string name="faditor_transcript_delete_version_msg">Retirer la transcription \"%1$s\" de ce clip ? Les autres versions sont conservées.</string>
+    <string name="faditor_kf_section">Animation (images clés)</string>
+    <string name="faditor_kf_status">%1$d image(s) clé(s)</string>
+    <string name="faditor_kf_hint_start">Place l\'incrustation, puis touche ◆ pour commencer à l\'animer.</string>
+    <string name="faditor_kf_hint_armed">%1$d image(s) clé(s). Il suffit maintenant de déplacer la tête de lecture et de faire glisser l\'incrustation — les images clés s\'ajoutent toutes seules.</string>
+    <string name="faditor_kf_add">◆ Ajouter une image clé</string>
+    <string name="faditor_kf_added">Image clé ajoutée à la tête de lecture</string>
+    <string name="faditor_kf_clear">Effacer</string>
+    <string name="faditor_kf_set_start">Début ici</string>
+    <string name="faditor_kf_set_end">Fin ici</string>
+    <string name="faditor_kf_range_set">Durée de l\'incrustation mise à jour</string>
+    <string name="faditor_kf_range_invalid">Déplace la tête de lecture — la fin doit venir après le début.</string>
+    <string name="faditor_coachmark_gestures_title">Modifier un élément</string>
+    <string name="faditor_coachmark_gestures_body">Double appui pour modifier  ·  Appui long pour son menu  ·  Glisse pour déplacer</string>
+    <string name="faditor_coachmark_got_it">Compris</string>
+    <string name="faditor_transitions_more_effects">⌄  Plus d\'effets</string>
+    <string name="faditor_transitions_fewer_effects">⌃  Moins d\'effets</string>
+    <string name="faditor_clean_audio_label">Audio propre v2</string>
+    <string name="faditor_clean_audio_desc">Réduit le bruit, lisse la dynamique et corrige le volume en deux passes, avec limiteur de crête réelle. Allonge un peu l\'export.</string>
+    <string name="faditor_transcript">Transcription</string>
+    <string name="faditor_captions">Sous-titres</string>
+    <string name="faditor_captions_need_transcript">Transcris d\'abord ce clip, puis ajoute les sous-titres</string>
+    <string name="faditor_captions_done">Terminé</string>
+    <string name="faditor_transcript_clean">Retirer les tics de langage</string>
+    <string name="faditor_transcript_apply">Valider</string>
+    <string name="faditor_transcript_committed">Modifications validées — l\'export les appliquera</string>
+    <string name="faditor_transcript_search">Chercher dans la transcription</string>
+    <string name="faditor_transcript_break">Saut de ligne après le mot en surbrillance</string>
+    <string name="faditor_transcript_pick_model">Choisis un modèle de reconnaissance vocale</string>
+    <string name="faditor_transcript_pick_model_sub">Fonctionne entièrement hors ligne sur ton téléphone. Téléchargé une seule fois.</string>
+    <string name="faditor_transcript_model_fast">Timing rapide</string>
+    <string name="faditor_transcript_model_fast_sub">~40 Mo · le plus rapide · meilleur TIMING des mots, mots plus approximatifs</string>
+    <string name="faditor_transcript_model_accurate">Équilibré</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 Mo · bon timing ET bons mots · à peu près en temps réel</string>
+    <string name="faditor_transcript_model_whisper">Meilleurs mots</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 Mo · meilleurs MOTS, timing moins précis · le plus lent</string>
+    <string name="faditor_transcript_model_whisper_note">Meilleurs mots utilise Whisper : les mots les plus justes, mais son timing dérive sur les longs clips. Timing rapide et Équilibré utilisent Vosk — leur timing est plus serré, ce dont dépendent la synchro des sous-titres et le montage par le texte. En lancer un de chaque permet de les fusionner en une piste avec de bons mots ET un bon timing.</string>
+    <string name="faditor_transcribe_prompt_title">Transcrire cette vidéo ?</string>
+    <string name="faditor_transcribe_prompt_message">Crée une transcription modifiable et consultable pour le clip que tu viens d\'ajouter. Fonctionne entièrement hors ligne.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">Ne plus me demander</string>
+    <string name="faditor_settings_title">Réglages de l\'éditeur</string>
+    <string name="faditor_settings_ask_transcribe_title">Proposer de transcrire à l\'ajout d\'une vidéo</string>
+    <string name="faditor_settings_ask_transcribe_desc">Affiche une proposition de transcription juste après l\'ajout d\'un clip à la timeline.</string>
+    <string name="faditor_transcript_working">En cours…</string>
+    <string name="faditor_transcript_header_audio">Audio \u00b7 %1$s</string>
+    <string name="faditor_transcript_header_clip">Clip %1$d \u00b7 %2$s</string>
+    <string name="faditor_transcript_source">+ Source</string>
+    <string name="faditor_transcript_offer_title">Ajouter une source de transcription</string>
+    <string name="faditor_transcript_offer_message">Charge ou génère une transcription pour le clip sélectionné.\n\nTu peux toujours ajouter une source plus tard depuis l\'en-tête de la transcription ou la puce + Source.</string>
+    <string name="faditor_transcript_offer_dont_show">Ne plus afficher</string>
+    <string name="faditor_transcript_image">Ce clip n\'a pas d\'audio à transcrire</string>
+    <string name="faditor_transcript_empty">Aucune parole détectée</string>
+    <string name="faditor_transcript_error">Échec de la transcription : %1$s</string>
+    <string name="faditor_transcript_cleaned">%1$d mot(s) parasite(s) barré(s)</string>
+    <string name="faditor_transcript_no_edits">Rien de barré pour l\'instant — appuie longuement sur des mots pour les retirer</string>
+    <string name="faditor_blank_clip_length">Durée du clip noir</string>
+    <string name="faditor_motion_start_here">L\'animation commence ici</string>
+    <string name="faditor_motion_span_whole">L\'animation couvre tout l\'objet</string>
+    <string name="faditor_motion_end_here">L\'animation finit ici</string>
+    <string name="faditor_zone_in_ends_here">L\'entrée finit ici</string>
+    <string name="faditor_zone_clear">Ni entrée ni sortie</string>
+    <string name="faditor_zone_out_starts_here">La sortie commence ici</string>
+    <string name="faditor_blank_clip_added">Clip noir ajouté (%1$s)</string>
+    <string name="faditor_add_asset_audio">Audio</string>
+    <string name="faditor_add_asset_pip">Vidéo en incrustation (image dans l\'image)</string>
+    <string name="faditor_pip_added">Vidéo en incrustation placée — fais-la glisser sur l\'aperçu</string>
+    <string name="faditor_audio_import_added">Audio ajouté à la timeline</string>
+    <string name="faditor_audio_import_error">Impossible de lire ce fichier audio</string>
+    <string name="faditor_undo_ai_edits">Modifications de l\'IA</string>
+    <string name="faditor_heal_success">Trou refermé sans rien perdre</string>
+    <string name="faditor_heal_error">Impossible de réparer ici - trop près du bord</string>
+    <string name="faditor_heal_title">Refermer le trou autour de la tête de lecture ?</string>
+    <string name="faditor_heal_msg">Retire %1$s autour de la tête de lecture par une coupe sans perte. Tu peux l\'annuler.</string>
+    <string name="faditor_delete_last_segments">Impossible de supprimer le seul segment</string>
+    <string name="faditor_crop_custom_ratio_title">Format personnalisé (L:H)</string>
+    <string name="faditor_canvas_custom_res_title">Résolution personnalisée (L×H)</string>
+    <string name="faditor_settings_safe_zone_title">Guide de zone sûre 9:16</string>
+    <string name="faditor_settings_safe_zone_desc">Affiche, dans l\'aperçu seulement, un guide marquant la zone sûre des réseaux sociaux sur les toiles 9:16 (zone libre de l\'interface). N\'affecte jamais l\'export.</string>
+    <string name="faditor_crop_snap_on">Aimantation au centre activée</string>
+    <string name="faditor_crop_snap_off">Aimantation au centre désactivée</string>
+    <string name="faditor_crop_auto_applied">Recadrage auto appliqué</string>
+    <string name="faditor_crop_no_black_bars">Aucune bande noire trouvée ; recadrage selon le format</string>
+    <string name="faditor_crop_error">Sélectionne un clip vidéo à recadrer</string>
+    <string name="faditor_soft_snap_on">Aimantation douce activée</string>
+    <string name="faditor_soft_snap_off">Aimantation douce désactivée</string>
+    <string name="faditor_export_complete_summary_audio">Ton audio est enregistré dans ton dossier Joy Creator. Retrouve-le dans Library.</string>
+    <string name="faditor_reverse_long_loop_later">Le sens inverse pour les longues boucles arrive plus tard — pour l\'instant, cette boucle joue sa fin vers l\'avant.</string>
+    <string name="faditor_export_filename_label">Nom du fichier</string>
+    <string name="faditor_export_result_play">Lire la vidéo que tu viens d\'exporter</string>
+    <string name="faditor_export_result_open_records">Touche pour lire · Voir dans Enregistrements</string>
+    <string name="faditor_export_no_room">Il n\'y a pas assez de place libre sur ce téléphone pour cet export. Libère environ %1$s (supprime d\'anciens exports ou des vidéos dont tu n\'as plus besoin) et réessaie. Ton projet est en sécurité.</string>
+    <string name="faditor_export_prepare_failed">L\'export n\'a pas pu se préparer, sans doute parce que le téléphone manquait de mémoire ou de place. Ferme les autres applis, libère de la place et réessaie. Ton projet est en sécurité.</string>
+    <string name="faditor_export_snapshot_unreadable">L\'export n\'a pas pu démarrer car ton projet n\'a pas pu être lu. Réessaie. Ton projet est en sécurité.</string>
+    <string name="faditor_export_copy_failed_title">Export terminé, mais pas dans ton dossier</string>
+    <string name="faditor_export_copy_failed_summary">La copie vers le dossier que tu as choisi n\'a pas marché (le téléphone est peut-être plein). Ta vidéo %1$s est en sécurité dans Joy Creator : retrouve-la dans Library.</string>
+    <string name="faditor_export_copy_failed_toast">Ta vidéo est terminée, mais elle n\'a pas pu être copiée dans le dossier choisi (le téléphone est peut-être plein). Elle est en sécurité dans Joy Creator : retrouve-la dans Library.</string>
+    <string name="battery_optimization_off">L\'optimisation de la batterie est désactivée</string>
+    <string name="stream_notes_cellular">⚠️ Wi-Fi uniquement : les réseaux mobiles bloquent les connexions entrantes, donc l\'écran de visionnage et ce téléphone doivent être sur le même Wi-Fi.</string>
+    <string name="torchtimer_label">Minuteur d\'arrêt auto</string>
+    <string name="torchtimer_desc">Le flash s\'éteint tout seul après la durée choisie</string>
+    <string name="torchtimer_off">Désactivé</string>
+    <string name="torchtimer_picker_helper">Le minuteur ne démarre que lorsque le flash est allumé</string>
+    <string name="torchtimer_cancel">Annuler le minuteur</string>
+    <string name="torchtimer_30s">30 secondes</string>
+    <string name="torchtimer_1m">1 minute</string>
+    <string name="torchtimer_2m">2 minutes</string>
+    <string name="torchtimer_5m">5 minutes</string>
+    <string name="torchtimer_10m">10 minutes</string>
+    <string name="torchtimer_15m">15 minutes</string>
+    <string name="torchtimer_30m">30 minutes</string>
+    <string name="torchtimer_1h">1 heure</string>
+    <string name="torchtimer_custom_title">Régler un minuteur perso</string>
+    <string name="torchtimer_custom_unit_helper">Choisis l\'unité de temps</string>
+    <string name="torchtimer_custom_hint">Saisis la durée</string>
+    <string name="torchtimer_custom_minutes_example">Exemple : 5 pour 5 minutes</string>
+    <string name="torchtimer_custom_hours_example">Exemple : 2 pour 2 heures</string>
+    <string name="torchtimer_custom_apply">Appliquer</string>
+    <string name="torchtimer_custom_error_positive">La durée doit être supérieure à 0</string>
+    <string name="torchtimer_custom_error_invalid">Nombre invalide</string>
+    <string name="setting_on">Activé</string>
+    <string name="menu_auto_pause_title">Pause auto quand le menu est ouvert</string>
+    <string name="button_state_tint_title">Teinte du bouton flottant pendant l\'enregistrement</string>
+    <string name="record_no_room_to_start">Il n\'y a pas assez de place sur ce téléphone pour enregistrer. Libère de la place et réessaie.</string>
+    <string name="record_stopped_low_space">Le téléphone est presque plein, l\'enregistrement s\'est donc arrêté. Tout ce qui a été enregistré jusque-là est sauvegardé.</string>
+    <string name="record_stopped_write_problem">L\'enregistrement n\'a plus pu être sauvegardé, il s\'est donc arrêté. Tout ce qui a été enregistré jusque-là est conservé.</string>
+    <string name="faditor_m12_select_clip_first">Sélectionne d\'abord un clip sur la piste principale</string>
+    <string name="faditor_m12_select_object_first">Sélectionne d\'abord un objet sur un calque</string>
+    <string name="faditor_m12_only_video_images">Seules les vidéos et les images peuvent aller sur la piste principale</string>
+    <string name="faditor_m12_need_one_clip">La piste principale doit garder au moins un clip</string>
+    <string name="faditor_m12_moved_to_layer">Déplacé sur un calque</string>
+    <string name="faditor_m12_moved_to_main">Déplacé sur la piste principale</string>
+    <string name="faditor_m12_undo_to_layer">Déplacer sur un calque</string>
+    <string name="faditor_m12_undo_to_main">Déplacer sur la piste principale</string>
+    <string name="faditor_text_decor_section">Style</string>
+    <string name="faditor_text_decor_stroke">Contour</string>
+    <string name="faditor_text_decor_glow">Lueur</string>
+    <string name="faditor_text_decor_shadow">Ombre</string>
+    <string name="faditor_text_decor_plate">Fond</string>
+    <string name="faditor_mask_action">Masque</string>
+    <string name="faditor_mask_title">Masque</string>
+    <string name="faditor_mask_remove">Retirer</string>
+    <string name="faditor_mask_x">Centre X</string>
+    <string name="faditor_mask_y">Centre Y</string>
+    <string name="faditor_mask_w">Largeur</string>
+    <string name="faditor_mask_h">Hauteur</string>
+    <string name="faditor_mask_round">Arrondi</string>
+    <string name="faditor_mask_rotate">Rotation</string>
+    <string name="faditor_mask_soften">Adoucir les bords</string>
+    <string name="faditor_mask_only_inside">Afficher seulement l\'intérieur du cadre</string>
+    <string name="faditor_mask_section_shape">Forme</string>
+    <string name="faditor_kf_outside_span">Place la tête de lecture sur ce clip pour ajouter une image clé</string>
+    <string name="faditor_key_section">Incrustation couleur</string>
+    <string name="faditor_key_enable">Retirer une couleur</string>
+    <string name="faditor_key_color">Couleur à retirer</string>
+    <string name="faditor_key_eyedropper">Choisir dans la vidéo</string>
+    <string name="faditor_key_eyedropper_failed">Impossible de lire ce pixel — réessaie pendant que le clip est affiché</string>
+    <string name="faditor_key_tap_prompt">Touche la couleur à retirer</string>
+    <string name="faditor_key_tolerance">Tolérance</string>
+    <string name="faditor_key_softness">Douceur des bords</string>
+    <string name="faditor_key_spill">Rétrécir / étaler</string>
+    <string name="faditor_blend_action">Mode de fusion</string>
+    <string name="faditor_blend_title">Mode de fusion</string>
+    <string name="faditor_blend_export_note">Les modes de fusion s\'appliquent à l\'export. L\'aperçu montre le calque normalement.</string>
+    <string name="faditor_image_inert_mask">Pas encore appliqué aux images en incrustation — ta forme est enregistrée, mais elle n\'aura aucun effet sur l\'aperçu ni sur l\'export.</string>
+    <string name="faditor_image_inert_key">Pas encore appliqué aux images en incrustation — ton retrait de couleur est enregistré, mais il n\'aura aucun effet sur l\'aperçu ni sur l\'export.</string>
+    <string name="faditor_image_inert_fx">Pas encore appliqué aux images en incrustation — tes effets sont enregistrés, mais ils n\'auront aucun effet sur l\'aperçu ni sur l\'export.</string>
+    <string name="faditor_image_fx_export_note">Le flou et les autres effets qui demandent leur propre passe sont ignorés — à l\'export comme ici.</string>
+    <string name="faditor_image_mask_export_note">Les masques sur une image s\'appliquent à l\'export. L\'aperçu montre toute l\'image, sauf si elle porte aussi un effet, un retrait de couleur ou un mode de fusion — alors elle est masquée ici aussi.</string>
+    <string name="faditor_blend_normal">Normal</string>
+    <string name="faditor_blend_multiply">Produit</string>
+    <string name="faditor_blend_screen">Écran</string>
+    <string name="faditor_blend_overlay">Superposition</string>
+    <string name="faditor_blend_add">Addition</string>
+    <string name="faditor_blend_difference">Différence</string>
+    <string name="faditor_blend_color">Couleur</string>
+    <string name="faditor_blend_darken">Obscurcir</string>
+    <string name="faditor_blend_lighten">Éclaircir</string>
+    <string name="faditor_blend_color_dodge">Densité couleur -</string>
+    <string name="faditor_blend_color_burn">Densité couleur +</string>
+    <string name="faditor_blend_linear_burn">Densité linéaire +</string>
+    <string name="faditor_blend_hard_light">Lumière crue</string>
+    <string name="faditor_blend_soft_light">Lumière douce</string>
+    <string name="faditor_blend_vivid_light">Lumière vive</string>
+    <string name="faditor_blend_linear_light">Lumière linéaire</string>
+    <string name="faditor_blend_pin_light">Lumière ponctuelle</string>
+    <string name="faditor_blend_hard_mix">Mélange dur</string>
+    <string name="faditor_blend_exclusion">Exclusion</string>
+    <string name="faditor_blend_subtract">Soustraction</string>
+    <string name="faditor_blend_divide">Division</string>
+    <string name="faditor_blend_darker_color">Couleur plus sombre</string>
+    <string name="faditor_blend_lighter_color">Couleur plus claire</string>
+    <string name="faditor_blend_hue">Teinte</string>
+    <string name="faditor_blend_saturation">Saturation</string>
+    <string name="faditor_blend_luminosity">Luminosité</string>
+    <string name="faditor_blend_group_normal">Normal</string>
+    <string name="faditor_blend_group_darken">Obscurcir</string>
+    <string name="faditor_blend_group_lighten">Éclaircir</string>
+    <string name="faditor_blend_group_contrast">Contraste</string>
+    <string name="faditor_blend_group_comparative">Comparatif</string>
+    <string name="faditor_blend_group_color">Couleur</string>
+    <string name="faditor_orphan_title">Objets sur ce clip</string>
+    <string name="faditor_orphan_body">%1$d objet(s) de calque commencent sur le clip que tu as supprimé. Les garder en les attachant au clip suivant, ou les supprimer aussi ?</string>
+    <string name="faditor_orphan_keep">Les garder</string>
+    <string name="faditor_orphan_delete">Les supprimer</string>
+    <string name="faditor_orphan_remember">Retenir mon choix</string>
+    <string name="faditor_orphan_undo">Supprimer les objets de calque</string>
+    <string name="faditor_orphan_removed">%1$d objet(s) de calque retiré(s)</string>
+    <string name="faditor_settings_orphan_title">Objets d\'un clip supprimé</string>
+    <string name="faditor_settings_orphan_desc">Ce qui arrive aux objets de calque quand tu supprimes le clip sur lequel ils reposent. Actuellement : %1$s</string>
+    <string name="faditor_settings_orphan_ask">Toujours demander</string>
+    <string name="mini_apps_customize_title">Personnaliser les mini-applis</string>
+    <string name="mini_apps_show_count">Nombre affiché</string>
+    <string name="mini_apps_show_count_desc">Nombre de mini-applis à afficher</string>
+    <string name="desc_mini_apps_count_minus">Diminuer le nombre</string>
+    <string name="desc_mini_apps_count_plus">Augmenter le nombre</string>
+    <string name="mini_apps_reorder_footer">Glisse pour réorganiser</string>
+    <string name="quick_timer_desc">Description du minuteur rapide</string>
+    <string name="quick_timer_label">Minuteur</string>
+    <string name="quick_mute_label">Muet</string>
+    <string name="grid_lines_title">Lignes de grille</string>
+    <string name="grid_lines_subtitle">Afficher les lignes de grille</string>
+    <string name="desc_mini_apps_edit">Modifier les mini-applis</string>
+    <string name="records_repair_banner_title">Bandeau de réparation</string>
+    <string name="records_repair_banner_dismiss">Fermer</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">reprends tout ce que tu as touché</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">Capture</string>
+    <string name="lobby_room_sprites">Sprite Lab</string>
+    <string name="lobby_room_avatar">Avatar</string>
+    <string name="lobby_room_viz">Viz Lab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">Joy Brush</string>
+    <string name="lobby_hero_new">Nouveau</string>
+    <string name="lobby_new_recording">Enregistrement</string>
+    <string name="lobby_new_project">Projet</string>
+    <string name="lobby_new_character">Personnage</string>
+    <string name="lobby_new_import">Importer</string>
+    <string name="lobby_floor_finder">Détecter</string>
+    <string name="lobby_floor_remote">Télécommande</string>
+    <string name="lobby_floor_bits">Bricoles</string>
+    <string name="lobby_floor_packs">Packs</string>
+    <string name="lobby_floor_setup">Réglages</string>
+    <string name="lobby_empty_studio">Rien de monté pour l\'instant. Commence un projet, il t\'attendra ici.</string>
+    <string name="lobby_empty_sprites">Pas encore de planches. Apporte un dessin et découpe-le en images.</string>
+    <string name="lobby_empty_avatar">Pas encore de personnages. Prépare une image et elle bougera.</string>
+    <string name="lobby_empty_viz">Pas encore de visualiseurs. Crées-en un à partir de n\'importe quel son.</string>
+    <string name="lobby_empty_textlab">Des mots dignes d\'une affiche de film : chrome, or, néon, feu. Choisis un look et écris.</string>
+    <string name="lobby_empty_joybrush">Dessine quelque chose. Ça se sauvegarde tout seul.</string>
+    <string name="lobby_act_carry_on">Reprendre</string>
+    <string name="lobby_act_open">Ouvrir</string>
+    <string name="lobby_act_record">Enregistrer</string>
+    <string name="lobby_act_start">En créer un</string>
+    <string name="lobby_act_new_drawing">Dessiner</string>
+    <string name="intro_line_capture">capture d\'écran avec ton visage dessus</string>
+    <string name="intro_line_record">enregistrement vidéo, même écran éteint</string>
+    <string name="intro_line_editor">un vrai éditeur — calques, masques, images clés</string>
+    <string name="intro_line_animation">animation — sprites, squelettes, marionnettes</string>
+    <string name="intro_line_transcribe">une transcription qui ne quitte jamais ton téléphone</string>
+    <string name="intro_line_secondcam">un deuxième téléphone comme caméra, sur ton propre Wi-Fi</string>
+    <string name="intro_line_ai">une IA qui modifie la vraie timeline</string>
+    <string name="intro_start_creating">Commencer à créer</string>
+    <string name="intro_support">Soutenir</string>
+    <string name="intro_promise">Sans pub. Sans abonnement.\nSans filigrane.</string>
+    <string name="intro_promise_ever">Jamais d\'export payant.</string>
+    <string name="intro_story">J\'ai construit ça entre deux siestes, en m\'occupant de mes trois tout-petits. C\'est comme ça que je fais vivre ma famille. Si ça te sert à quelque chose, tu peux aider à le garder gratuit pour tout le monde.</string>
+    <string name="intro_cta_start">Commencer à créer</string>
+    <string name="intro_cta_support">Soutenir</string>
+    <string name="intro_ai_note">Joy Creator n\'utilise aucun serveur. Si tu connectes une IA, tes requêtes vont au fournisseur que tu as choisi — nous ne les voyons jamais et ne prélevons rien.</string>
+    <string name="intro_ai_have_key">Tu as déjà une clé ?</string>
+    <string name="intro_ai_add_now">L\'ajouter maintenant</string>
+    <string name="intro_ai_later">Plus tard, depuis le chat</string>
+    <string name="desc_select_mode">Mode sélection</string>
+    <string name="desc_delete_selected">Supprimer la sélection</string>
+    <string name="desc_cancel_selection">Annuler la sélection</string>
+    <string name="desc_select_month">Sélectionner ce mois</string>
+    <string name="desc_watch_remote_toggle">Démarrer ou arrêter la diffusion</string>
+    <string name="desc_back">Retour</string>
+    <string name="desc_decrease_named">Diminuer %1$s</string>
+    <string name="desc_increase_named">Augmenter %1$s</string>
+    <string name="desc_pip_expand">Agrandir l\'aperçu</string>
+    <string name="desc_pip_undock">Détacher : refaire flotter l\'aperçu</string>
+    <string name="desc_keyframe_toggle">Image clé à la tête de lecture : touche pour ajouter ou retirer</string>
+    <string name="desc_transcript_show">Afficher la transcription</string>
+    <string name="desc_transcript_resize">Glisse pour redimensionner le panneau de transcription</string>
+    <string name="desc_transcript_search">Chercher dans la transcription</string>
+    <string name="desc_transcript_hide">Masquer la transcription</string>
+    <string name="desc_transcript_add_pass">Ajouter une autre passe de transcription</string>
+    <string name="desc_search_prev">Résultat précédent</string>
+    <string name="desc_search_next">Résultat suivant</string>
+    <string name="desc_crop_auto">Recadrer automatiquement les bandes noires</string>
+    <string name="desc_crop_snap_center">Aimanter le recadrage au centre</string>
+    <string name="desc_volume_keyframe">Images clés de volume activées ou non</string>
+    <string name="desc_volume_mute">Couper ou remettre le son de l\'audio sélectionné</string>
+    <string name="desc_opacity_keyframe">Images clés d\'opacité activées ou non</string>
+    <string name="desc_caption_keyframe">Images clés de style des sous-titres activées ou non</string>
+    <string name="desc_keyframe_prev">Image clé précédente</string>
+    <string name="desc_keyframe_next">Image clé suivante</string>
+    <string name="desc_keyframe_delete">Supprimer l\'image clé</string>
+    <string name="desc_keyframe_playhead">Ajouter, mettre à jour ou retirer une image clé à la tête de lecture</string>
+    <string name="desc_move_go">Déplacer le clip à la position saisie</string>
+    <string name="desc_word_earlier">Avancer le mot d\'une image</string>
+    <string name="desc_word_later">Reculer le mot d\'une image</string>
+    <string name="desc_word_center">Centrer sur ce mot</string>
+    <string name="desc_hide_captions_clip">Masquer les sous-titres pour ce clip seulement</string>
+    <string name="desc_insert_playhead">Insérer le fichier sélectionné à la tête de lecture</string>
+    <string name="desc_layer_colour">Choisir la couleur du calque</string>
+    <string name="desc_visualizer_save">Enregistrer ce style de visualiseur</string>
+    <string name="desc_visualizer_export">Exporter ce style de visualiseur dans un fichier</string>
+    <string name="desc_visualizer_import">Importer un style de visualiseur depuis un fichier</string>
+    <string name="desc_wave_justify">Alignement vertical</string>
+    <string name="desc_wave_data_mode">Mode des données</string>
+    <string name="desc_wave_mirror">Miroir horizontal</string>
+    <string name="desc_wave_center_mode">Mode centré</string>
+    <string name="desc_wave_render_mode">Mode de rendu</string>
+    <string name="desc_wave_attach">Attacher à un clip ou détacher</string>
 </resources>

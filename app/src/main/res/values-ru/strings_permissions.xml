@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Для съёмки нужны камера и микрофон</string>
+    <string name="access_capture_why">Чтобы снимать и записывать звук, Android просит разрешить камеру и микрофон. Joy Creator также просит показывать уведомление о записи, чтобы ты всегда знал, когда идёт запись. Ничего не уходит с твоего телефона.</string>
+    <string name="access_allow">Разрешить</string>
+    <string name="access_not_now">Не сейчас</string>
+    <string name="access_capture_declined">Съёмка останется закрытой, пока не разрешены камера и микрофон. Нажми «Съёмка» ещё раз в любой момент.</string>
+    <string name="access_capture_blocked">Android больше не будет спрашивать о камере и микрофоне. Включи их в настройках Joy Creator в разделе «Разрешения» и вернись сюда.</string>
+    <string name="access_open_settings">Открыть настройки</string>
+</resources>

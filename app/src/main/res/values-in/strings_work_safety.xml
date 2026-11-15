@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Perubahan yang dibuat di tempat lain</string>
+    <string name="studio_undo_transcription">Transkripsi</string>
+    <string name="studio_consolidate_some_failed">%1$d file disalin, tetapi ini tidak bisa disalin masuk dan masih memakai aslinya: %2$s. Simpan file asli itu; jalankan lagi untuk mencoba ulang.</string>
+    <string name="studio_toast_changed_elsewhere">Perubahan yang dibuat di tempat lain pada proyek ini sudah dibawa masuk</string>
+</resources>

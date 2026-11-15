@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Eliminati di recente</string>
+    <string name="trash_close">Chiudi Eliminati di recente</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d elemento</item>
+        <item quantity="other">%d elementi</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d selezionato</item>
+        <item quantity="other">%d selezionati</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · leggo la cartella</string>
+    <string name="trash_notice_unreachable">La tua cartella Joy Creator ora non è raggiungibile, quindi si vedono solo le cose eliminate dentro l\'app.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">%d giorno rimasto</item>
+        <item quantity="other">%d giorni rimasti</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">%d ora rimasta</item>
+        <item quantity="other">%d ore rimaste</item>
+    </plurals>
+    <string name="trash_left_soon">sparisce a momenti</string>
+    <string name="trash_left_kept">conservato</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Selezionato.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">Conservato %d giorno, poi eliminato per sempre.</item>
+        <item quantity="other">Conservato %d giorni, poi eliminato per sempre.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Conservato %d ora, poi eliminato per sempre.</item>
+        <item quantity="other">Conservato %d ore, poi eliminato per sempre.</item>
+    </plurals>
+    <string name="trash_rule_never">Conservato finché non lo elimini tu.</string>
+    <string name="trash_rule_now">Eliminato subito per sempre.</string>
+    <string name="trash_hold_hint">Tieni premuto per scegliere cosa ripristinare o eliminare.</string>
+    <string name="trash_stop_selecting">Smetti di scegliere</string>
+    <string name="trash_restore">Ripristina</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Ripristina %d elemento</item>
+        <item quantity="other">Ripristina %d elementi</item>
+    </plurals>
+    <string name="trash_delete_forever">Elimina per sempre</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Elimina %d elemento per sempre</item>
+        <item quantity="other">Elimina %d elementi per sempre</item>
+    </plurals>
+    <string name="trash_open_failed">Non si è potuto aprire.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">Eliminare %d elemento per sempre?</item>
+        <item quantity="other">Eliminare %d elementi per sempre?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Svuotare il cestino? %d elemento sparisce per sempre.</item>
+        <item quantity="other">Svuotare il cestino? Tutti i %d elementi spariscono per sempre.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d elemento è più vecchio di così e sparisce subito per sempre.</item>
+        <item quantity="other">%d elementi sono più vecchi di così e spariscono subito per sempre.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Non si può annullare.</string>
+    <string name="trash_confirm_keep">Tieni</string>
+    <string name="trash_confirm_empty_button">Svuota il cestino</string>
+    <string name="trash_confirm_rule_button">Cambia ed elimina</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">Ripristina %d elemento</item>
+        <item quantity="other">Ripristina %d elementi</item>
+    </plurals>
+    <string name="trash_restore_where">Scegli dove vanno le registrazioni.</string>
+    <string name="trash_restore_where_mixed">Scegli dove vanno le registrazioni. Progetti, disegni e altri file tornano dov\'erano nella tua cartella Joy Creator.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">Ripristinato %d elemento.</item>
+        <item quantity="other">Ripristinati %d elementi.</item>
+    </plurals>
+    <string name="trash_done_restored_part">Ripristinati %1$d su %2$d. Gli altri non si sono potuti ripristinare.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">Eliminato %d elemento per sempre.</item>
+        <item quantity="other">Eliminati %d elementi per sempre.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Alcuni elementi non si sono potuti eliminare.</string>
+    <string name="trash_done_emptied">Cestino svuotato.</string>
+    <string name="trash_done_empty_failed">Il cestino non si è potuto svuotare del tutto.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d vecchio elemento è stato eliminato per sempre.</item>
+        <item quantity="other">%d vecchi elementi sono stati eliminati per sempre.</item>
+    </plurals>
+    <string name="trash_options">Seleziona, svuota e altro</string>
+    <string name="trash_options_title">Eliminati di recente</string>
+    <string name="trash_opt_select_all">Seleziona tutto</string>
+    <string name="trash_opt_rule">Elimina per sempre dopo · %1$s</string>
+    <string name="trash_opt_empty">Svuota il cestino</string>
+    <string name="trash_opt_classic">Cestino classico</string>
+    <string name="trash_rule_title">Elimina per sempre dopo</string>
+    <string name="trash_empty_all">Il cestino è vuoto. Le cose che elimini aspettano qui prima di sparire per sempre.</string>
+    <string name="trash_empty_projects">Nessun progetto eliminato.</string>
+    <string name="trash_empty_drawings">Nessun disegno eliminato.</string>
+    <string name="trash_empty_recordings">Nessuna registrazione o video eliminato.</string>
+    <string name="trash_empty_photos">Nessuna foto o immagine eliminata.</string>
+    <string name="trash_empty_other">Nient\'altro nel cestino.</string>
+    <string name="trash_empty_show_all">Mostra tutto</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Запустить или остановить сервер трансляции</string>
+    <string name="hover_remote_password_toggle">Включить или выключить защиту паролем</string>
+    <string name="hover_lobby_floor_detect">Умный поиск: люди и предметы, которые камера нашла в твоих записях</string>
+    <string name="hover_lobby_floor_remote">Remote Studio: смотри и управляй камерой этого телефона из браузера в твоей сети Wi-Fi</string>
+    <string name="hover_lobby_floor_bits">Мелочи: фонарик, сканер QR и ярлыки на главном экране</string>
+    <string name="hover_lobby_floor_packs">Наборы: установленные наборы, стили, кисти и шрифты</string>
+    <string name="hover_lobby_floor_setup">Настройка: все настройки</string>
+    <string name="hover_lobby_stat">Место: что занимает память на этом телефоне</string>
+    <string name="hover_library_paste_picture">Положить картинку, скопированную в другом приложении, в твою папку Joy Creator</string>
+    <string name="hover_lobby_room">Перейти: %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s в разделе «%2$s»</string>
+    <string name="hover_lobby_hero_new">Начать что-то новое: %1$s</string>
+    <string name="hover_lobby_library">Открыть Library: всё, что ты создал</string>
+    <string name="hover_studio_cut_mark">Вырезано: пропущено %1$s с, нажми на слово, чтобы вернуть</string>
+</resources>

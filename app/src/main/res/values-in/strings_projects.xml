@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">Proyek baru</string>
+    <string name="projects_new_a11y">Mulai proyek baru dari video di ponselmu, salah satu rekamanmu, atau trek audio kosong</string>
+    <string name="projects_classic_list">Daftar Studio klasik</string>
+    <plurals name="projects_layers">
+        <item quantity="other">%d layer</item>
+    </plurals>
+    <string name="projects_open_failed">Proyek tidak bisa dibuka.</string>
+    <string name="projects_open_failed_access">Proyek tidak bisa dibuka — akses ke video sumber mungkin hilang.</string>
+    <string name="projects_untitled">Tanpa judul</string>
+</resources>

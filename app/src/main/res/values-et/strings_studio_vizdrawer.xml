@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Kuju</string>
+    <string name="studio_viz_sec_colour">Värv</string>
+    <string name="studio_viz_sec_look">Ilme</string>
+    <string name="studio_viz_sec_motion">Liikumine</string>
+    <string name="studio_viz_opacity">Läbipaistmatus</string>
+    <string name="studio_viz_softness">Pehmus</string>
+    <string name="studio_viz_gain">Võimendus</string>
+    <string name="studio_viz_spread">Laiali</string>
+    <string name="studio_viz_blend">Segu</string>
+    <string name="studio_viz_mirror">Peegel</string>
+    <string name="studio_viz_trails">Jäljed</string>
+    <string name="studio_viz_phase">Faas</string>
+    <string name="studio_viz_attack">Tõus</string>
+    <string name="studio_viz_release">Langus</string>
+    <string name="studio_viz_glow">Hõõg</string>
+    <string name="studio_viz_radius">Raadius</string>
+    <string name="studio_viz_count">Arv</string>
+    <string name="studio_viz_speed">Kiirus</string>
+    <string name="studio_viz_hover_attack">Tõus: kui kiiresti see tõuseb, ms-des</string>
+    <string name="studio_viz_hover_release">Langus: kui kiiresti see langeb, ms-des</string>
+    <string name="studio_viz_hover_radius">Hõõgu raadius</string>
+    <string name="studio_viz_hover_count">Osakeste arv</string>
+    <string name="studio_viz_hover_speed">Osakeste kiirus</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

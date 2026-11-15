@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Démarrer ou arrêter le serveur de diffusion</string>
+    <string name="hover_remote_password_toggle">Activer ou désactiver la protection par mot de passe</string>
+    <string name="hover_lobby_floor_detect">Détection intelligente : les personnes et les choses que la caméra a repérées dans tes enregistrements</string>
+    <string name="hover_lobby_floor_remote">Studio à distance : regarde et pilote la caméra de ce téléphone depuis un navigateur sur ton Wi-Fi</string>
+    <string name="hover_lobby_floor_bits">Bricoles : lampe torche, lecteur de QR et raccourcis de l\'écran d\'accueil</string>
+    <string name="hover_lobby_floor_packs">Packs : tes packs, looks, pinceaux et polices installés</string>
+    <string name="hover_lobby_floor_setup">Réglages : tous les paramètres</string>
+    <string name="hover_lobby_stat">Espace : ce qui occupe de la place sur ce téléphone</string>
+    <string name="hover_library_paste_picture">Mettre dans ton dossier Joy Creator une image copiée dans une autre appli</string>
+    <string name="hover_lobby_room">Aller à %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s dans %2$s</string>
+    <string name="hover_lobby_hero_new">Commencer quelque chose de nouveau dans %1$s</string>
+    <string name="hover_lobby_library">Ouvrir Library : tout ce que tu as créé</string>
+    <string name="hover_studio_cut_mark">Coupe : %1$s s sautées, touche le mot pour les rétablir</string>
+</resources>

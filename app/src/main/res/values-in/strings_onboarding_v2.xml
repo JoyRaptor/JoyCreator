@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">Beberapa izin</string>
+    <string name="onboardingv2_perm_why">Joy Creator butuh ini untuk merekam video, merekam suaramu, dan menyimpan karyamu di ponselmu. Tidak ada yang keluar dari sana.</string>
+    <string name="onboardingv2_perm_camera">Kamera</string>
+    <string name="onboardingv2_perm_camera_why">Untuk merekam, dan melihat apa yang kamu rekam.</string>
+    <string name="onboardingv2_perm_mic">Mikrofon</string>
+    <string name="onboardingv2_perm_mic_why">Untuk merekam suaramu bersama gambar.</string>
+    <string name="onboardingv2_perm_files">File dan notifikasi</string>
+    <string name="onboardingv2_perm_files_why">Untuk menyimpan videomu, dan menampilkan pemberitahuan merekam.</string>
+    <string name="onboardingv2_perm_battery">Jaga rekaman tetap hidup</string>
+    <string name="onboardingv2_perm_battery_why">Opsional: matikan optimalisasi baterai agar rekaman panjang tidak terputus.</string>
+    <string name="onboardingv2_perm_battery_done">Opsional: optimalisasi baterai sudah mati.</string>
+    <string name="onboardingv2_perm_allow">Izinkan yang belum</string>
+    <string name="onboardingv2_perm_all_set">Semua siap</string>
+    <string name="onboardingv2_perm_open_settings">Buka pengaturan</string>
+    <string name="onboardingv2_perm_nudge">Izinkan ketiga hal di atas untuk melanjutkan.</string>
+    <string name="onboardingv2_perm_state_granted">diizinkan</string>
+    <string name="onboardingv2_perm_state_missing">belum diizinkan</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Minta izin yang masih belum diberikan</string>
+    <string name="onboardingv2_perm_all_set_cd">Semua izin sudah diberikan. Geser ke halaman berikutnya.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Buka pengaturan sistem aplikasi ini untuk mengizinkan izin yang kamu tolak</string>
+    <string name="onboardingv2_perm_battery_cd">Buka layar sistem untuk mematikan optimalisasi baterai bagi Joy Creator</string>
+</resources>

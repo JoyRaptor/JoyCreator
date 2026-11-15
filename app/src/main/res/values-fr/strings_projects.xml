@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">Nouveau projet</string>
+    <string name="projects_new_a11y">Commencer un nouveau projet à partir d\'une vidéo de ton téléphone, d\'un de tes enregistrements ou d\'une piste audio vide</string>
+    <string name="projects_classic_list">Liste Studio classique</string>
+    <plurals name="projects_layers">
+        <item quantity="one">%d calque</item>
+        <item quantity="other">%d calques</item>
+    </plurals>
+    <string name="projects_open_failed">Impossible d\'ouvrir le projet.</string>
+    <string name="projects_open_failed_access">Impossible d\'ouvrir le projet — l\'accès à la vidéo source a peut-être été perdu.</string>
+    <string name="projects_untitled">Sans titre</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Käivita või peata voogedastuse server</string>
+    <string name="hover_remote_password_toggle">Lülita paroolikaitse sisse või välja</string>
+    <string name="hover_lobby_floor_detect">Nutituvastus: inimesed ja asjad, mille kaamera sinu salvestistest leidis</string>
+    <string name="hover_lobby_floor_remote">Kaug-Studio: vaata ja juhi selle telefoni kaamerat brauserist oma Wi-Fi võrgus</string>
+    <string name="hover_lobby_floor_bits">Killud: taskulamp, QR-skanner ja avaekraani otseteed</string>
+    <string name="hover_lobby_floor_packs">Paketid: sinu paigaldatud paketid, välimused, pintslid ja fondid</string>
+    <string name="hover_lobby_floor_setup">Seadistus: kõik seaded</string>
+    <string name="hover_lobby_stat">Ruum: mis selles telefonis ruumi võtab</string>
+    <string name="hover_library_paste_picture">Pane teises rakenduses kopeeritud pilt oma Joy Creatori kausta</string>
+    <string name="hover_lobby_room">Mine: %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s: %2$s</string>
+    <string name="hover_lobby_hero_new">Alusta midagi uut: %1$s</string>
+    <string name="hover_lobby_library">Ava Library: kõik, mis oled teinud</string>
+    <string name="hover_studio_cut_mark">Lõige: %1$s s jäetud vahele, taastamiseks puuduta sõna</string>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">څه تعقیب کړو؟</string>
+    <string name="studio_pinpick_hint">یو شمېرل شوی ټکی وکېکاږئ، یا له لېست څخه غوره کړئ.</string>
+    <string name="studio_pinpick_whole">پخپله انځور</string>
+    <string name="studio_pinpick_pin_n">پین %1$d</string>
+    <string name="studio_pinpick_diagram">هر پین په انځور کې چېرته دی. د هغه پین تعقیبولو لپاره یو ټکی وکېکاږئ.</string>
+    <string name="studio_pinpick_dot_n">پین %1$d تعقیب کړئ</string>
+    <string name="studio_pinpick_cancel">لغوه کول</string>
+</resources>

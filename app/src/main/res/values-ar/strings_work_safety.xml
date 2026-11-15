@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">تغييرات أُجريت في مكان آخر</string>
+    <string name="studio_undo_transcription">التفريغ النصي</string>
+    <string name="studio_consolidate_some_failed">نُسخ %1$d من الملفات، لكن تعذّر نسخ هذه إلى الداخل وما زالت تستخدم الأصل: %2$s. احتفظ بتلك الأصول؛ وأعد التشغيل للمحاولة مجددًا.</string>
+    <string name="studio_toast_changed_elsewhere">تم جلب تغييرات أُجريت على هذا المشروع في مكان آخر</string>
+</resources>

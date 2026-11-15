@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">أبقِ الأصوات طبيعية عند تغيّر السرعة</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">إغلاق كل الأدوات</string>
+    <string name="lane_d_asset_close">إغلاق مستعرض الملفات</string>
+    <string name="lane_d_asset_prev">المجلد المثبّت السابق</string>
+    <string name="lane_d_asset_next">المجلد المثبّت التالي</string>
+    <string name="lane_d_asset_filter">أظهر كل الملفات أو المستخدمة أو غير المستخدمة</string>
+    <string name="lane_d_asset_forget">أزل هذا المجلد من سجل المثبّتات</string>
+    <string name="lane_d_asset_resize">اسحب لتغيير حجم مستعرض الملفات</string>
+</resources>

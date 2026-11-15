@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">مفعّل</string>
+    <string name="joybotswitch_state_off">متوقف</string>
+    <string name="joybotswitch_tip_on">مفعّل. اضغط لإيقافه.</string>
+    <string name="joybotswitch_tip_off">متوقف. اضغط لتفعيله.</string>
+    <string name="joybotswitch_tip_on_named">%1$s مفعّل. اضغط لإيقافه.</string>
+    <string name="joybotswitch_tip_off_named">%1$s متوقف. اضغط لتفعيله.</string>
+</resources>

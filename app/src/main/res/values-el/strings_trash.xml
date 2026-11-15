@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Διαγράφηκαν πρόσφατα</string>
+    <string name="trash_close">Κλείσιμο των Διαγράφηκαν πρόσφατα</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d στοιχείο</item>
+        <item quantity="other">%d στοιχεία</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d επιλεγμένο</item>
+        <item quantity="other">%d επιλεγμένα</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · ανάγνωση φακέλου</string>
+    <string name="trash_notice_unreachable">Ο φάκελος Joy Creator δεν είναι προσβάσιμος αυτή τη στιγμή, οπότε φαίνονται μόνο όσα διαγράφηκαν μέσα στην εφαρμογή.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">απομένει %d ημέρα</item>
+        <item quantity="other">απομένουν %d ημέρες</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">απομένει %d ώρα</item>
+        <item quantity="other">απομένουν %d ώρες</item>
+    </plurals>
+    <string name="trash_left_soon">φεύγει πολύ σύντομα</string>
+    <string name="trash_left_kept">διατηρείται</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Επιλέχθηκε.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">Διατηρείται %d ημέρα και μετά διαγράφεται οριστικά.</item>
+        <item quantity="other">Διατηρείται %d ημέρες και μετά διαγράφεται οριστικά.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Διατηρείται %d ώρα και μετά διαγράφεται οριστικά.</item>
+        <item quantity="other">Διατηρείται %d ώρες και μετά διαγράφεται οριστικά.</item>
+    </plurals>
+    <string name="trash_rule_never">Διατηρείται μέχρι να το διαγράψεις.</string>
+    <string name="trash_rule_now">Διαγράφεται οριστικά αμέσως.</string>
+    <string name="trash_hold_hint">Κράτα πατημένο για να διαλέξεις τι θα επαναφέρεις ή θα διαγράψεις.</string>
+    <string name="trash_stop_selecting">Τέλος επιλογής</string>
+    <string name="trash_restore">Επαναφορά</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Επαναφορά %d στοιχείου</item>
+        <item quantity="other">Επαναφορά %d στοιχείων</item>
+    </plurals>
+    <string name="trash_delete_forever">Οριστική διαγραφή</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Οριστική διαγραφή %d στοιχείου</item>
+        <item quantity="other">Οριστική διαγραφή %d στοιχείων</item>
+    </plurals>
+    <string name="trash_open_failed">Δεν ήταν δυνατό το άνοιγμα.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">Να διαγραφεί οριστικά %d στοιχείο;</item>
+        <item quantity="other">Να διαγραφούν οριστικά %d στοιχεία;</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Να αδειάσει ο κάδος; %d στοιχείο θα διαγραφεί για πάντα.</item>
+        <item quantity="other">Να αδειάσει ο κάδος; Και τα %d στοιχεία θα διαγραφούν για πάντα.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d στοιχείο είναι παλαιότερο από αυτό και διαγράφεται τώρα για πάντα.</item>
+        <item quantity="other">%d στοιχεία είναι παλαιότερα από αυτό και διαγράφονται τώρα για πάντα.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Αυτό δεν αναιρείται.</string>
+    <string name="trash_confirm_keep">Διατήρηση</string>
+    <string name="trash_confirm_empty_button">Άδειασμα κάδου</string>
+    <string name="trash_confirm_rule_button">Αλλαγή και διαγραφή</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">Επαναφορά %d στοιχείου</item>
+        <item quantity="other">Επαναφορά %d στοιχείων</item>
+    </plurals>
+    <string name="trash_restore_where">Διάλεξε πού θα πάνε οι εγγραφές.</string>
+    <string name="trash_restore_where_mixed">Διάλεξε πού θα πάνε οι εγγραφές. Τα έργα, τα σχέδια και τα άλλα αρχεία επιστρέφουν εκεί που ήταν στον φάκελο Joy Creator.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">Έγινε επαναφορά %d στοιχείου.</item>
+        <item quantity="other">Έγινε επαναφορά %d στοιχείων.</item>
+    </plurals>
+    <string name="trash_done_restored_part">Έγινε επαναφορά %1$d από %2$d. Τα υπόλοιπα δεν μπόρεσαν να επανέλθουν.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">Διαγράφηκε οριστικά %d στοιχείο.</item>
+        <item quantity="other">Διαγράφηκαν οριστικά %d στοιχεία.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Κάποια στοιχεία δεν μπόρεσαν να διαγραφούν.</string>
+    <string name="trash_done_emptied">Ο κάδος άδειασε.</string>
+    <string name="trash_done_empty_failed">Ο κάδος δεν άδειασε εντελώς.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">Διαγράφηκε οριστικά %d παλιό στοιχείο.</item>
+        <item quantity="other">Διαγράφηκαν οριστικά %d παλιά στοιχεία.</item>
+    </plurals>
+    <string name="trash_options">Επιλογή, άδειασμα και άλλα</string>
+    <string name="trash_options_title">Διαγράφηκαν πρόσφατα</string>
+    <string name="trash_opt_select_all">Επιλογή όλων</string>
+    <string name="trash_opt_rule">Οριστική διαγραφή μετά από · %1$s</string>
+    <string name="trash_opt_empty">Άδειασμα κάδου</string>
+    <string name="trash_opt_classic">Κλασικός κάδος</string>
+    <string name="trash_rule_title">Οριστική διαγραφή μετά από</string>
+    <string name="trash_empty_all">Ο κάδος είναι άδειος. Ό,τι διαγράφεις περιμένει εδώ πριν φύγει για πάντα.</string>
+    <string name="trash_empty_projects">Κανένα διαγραμμένο έργο.</string>
+    <string name="trash_empty_drawings">Κανένα διαγραμμένο σχέδιο.</string>
+    <string name="trash_empty_recordings">Καμία διαγραμμένη εγγραφή ή βίντεο.</string>
+    <string name="trash_empty_photos">Καμία διαγραμμένη φωτογραφία ή εικόνα.</string>
+    <string name="trash_empty_other">Τίποτα άλλο στον κάδο.</string>
+    <string name="trash_empty_show_all">Εμφάνιση όλων</string>
+</resources>

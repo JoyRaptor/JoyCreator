@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Mujal tehtud muudatused</string>
+    <string name="studio_undo_transcription">Transkribeerimine</string>
+    <string name="studio_consolidate_some_failed">Kopeeritud %1$d faili, aga neid ei saanud sisse kopeerida ja need kasutavad endiselt originaali: %2$s. Hoia need originaalid alles; proovimiseks käivita uuesti.</string>
+    <string name="studio_toast_changed_elsewhere">Tõin sisse selle projekti mujal tehtud muudatused</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">Story Board masih kosong</string>
+    <string name="smart_detection_empty_hint">Bingkai yang ditandai kamera akan muncul di sini</string>
+    <string name="smart_detection_empty_glyph_desc">Belum ada yang terdeteksi</string>
+    <string name="smart_detection_tip_close">Tutup</string>
+    <string name="smart_detection_tip_back">Kembali</string>
+    <string name="smart_detection_tip_menu">Menu Smart Detection</string>
+    <string name="smart_detection_tip_select_all">Pilih semua</string>
+    <string name="smart_detection_tip_sort">Urutkan</string>
+    <string name="smart_detection_tip_grid">Ubah tata letak kisi</string>
+    <string name="smart_detection_tip_scroll">Gulir ke atas</string>
+</resources>

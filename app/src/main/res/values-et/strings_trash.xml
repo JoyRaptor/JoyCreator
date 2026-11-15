@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Hiljuti kustutatud</string>
+    <string name="trash_close">Sulge Hiljuti kustutatud</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d üksus</item>
+        <item quantity="other">%d üksust</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d valitud</item>
+        <item quantity="other">%d valitud</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · loen kausta</string>
+    <string name="trash_notice_unreachable">Sinu Joy Creatori kaustani ei pääse praegu ligi, nii et näidatakse ainult rakenduses kustutatut.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">%d päev jäänud</item>
+        <item quantity="other">%d päeva jäänud</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">%d tund jäänud</item>
+        <item quantity="other">%d tundi jäänud</item>
+    </plurals>
+    <string name="trash_left_soon">kaob väga varsti</string>
+    <string name="trash_left_kept">alles</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Valitud.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">Säilitatakse %d päev, siis kustutatakse jäädavalt.</item>
+        <item quantity="other">Säilitatakse %d päeva, siis kustutatakse jäädavalt.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Säilitatakse %d tund, siis kustutatakse jäädavalt.</item>
+        <item quantity="other">Säilitatakse %d tundi, siis kustutatakse jäädavalt.</item>
+    </plurals>
+    <string name="trash_rule_never">Säilitatakse, kuni selle ise kustutad.</string>
+    <string name="trash_rule_now">Kustutatakse kohe jäädavalt.</string>
+    <string name="trash_hold_hint">Vajuta ja hoia, et valida, mida taastada või kustutada.</string>
+    <string name="trash_stop_selecting">Lõpeta valimine</string>
+    <string name="trash_restore">Taasta</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Taasta %d üksus</item>
+        <item quantity="other">Taasta %d üksust</item>
+    </plurals>
+    <string name="trash_delete_forever">Kustuta jäädavalt</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Kustuta %d üksus jäädavalt</item>
+        <item quantity="other">Kustuta %d üksust jäädavalt</item>
+    </plurals>
+    <string name="trash_open_failed">Seda ei saanud avada.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">Kas kustutada %d üksus jäädavalt?</item>
+        <item quantity="other">Kas kustutada %d üksust jäädavalt?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Kas tühjendada prügikast? %d üksus kaob jäädavalt.</item>
+        <item quantity="other">Kas tühjendada prügikast? Kõik %d üksust kaovad jäädavalt.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d üksus on sellest vanem ja kaob nüüd jäädavalt.</item>
+        <item quantity="other">%d üksust on sellest vanemad ja kaovad nüüd jäädavalt.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Seda ei saa tagasi võtta.</string>
+    <string name="trash_confirm_keep">Jäta alles</string>
+    <string name="trash_confirm_empty_button">Tühjenda prügikast</string>
+    <string name="trash_confirm_rule_button">Muuda ja kustuta</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">Taasta %d üksus</item>
+        <item quantity="other">Taasta %d üksust</item>
+    </plurals>
+    <string name="trash_restore_where">Vali, kuhu salvestused lähevad.</string>
+    <string name="trash_restore_where_mixed">Vali, kuhu salvestused lähevad. Projektid, joonistused ja muud failid lähevad tagasi sinna, kus need sinu Joy Creatori kaustas olid.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">Taastatud %d üksus.</item>
+        <item quantity="other">Taastatud %d üksust.</item>
+    </plurals>
+    <string name="trash_done_restored_part">Taastatud %1$d / %2$d. Ülejäänuid ei saanud taastada.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">Kustutatud %d üksus jäädavalt.</item>
+        <item quantity="other">Kustutatud %d üksust jäädavalt.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Mõnda üksust ei saanud kustutada.</string>
+    <string name="trash_done_emptied">Prügikast tühjendatud.</string>
+    <string name="trash_done_empty_failed">Prügikasti ei saanud täielikult tühjendada.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d vana üksus kustutati jäädavalt.</item>
+        <item quantity="other">%d vana üksust kustutati jäädavalt.</item>
+    </plurals>
+    <string name="trash_options">Vali, tühjenda ja muud</string>
+    <string name="trash_options_title">Hiljuti kustutatud</string>
+    <string name="trash_opt_select_all">Vali kõik</string>
+    <string name="trash_opt_rule">Kustuta jäädavalt pärast · %1$s</string>
+    <string name="trash_opt_empty">Tühjenda prügikast</string>
+    <string name="trash_opt_classic">Klassikaline prügikast</string>
+    <string name="trash_rule_title">Kustuta jäädavalt pärast</string>
+    <string name="trash_empty_all">Prügikastis pole midagi. Kustutatud asjad ootavad siin, enne kui jäädavalt kaovad.</string>
+    <string name="trash_empty_projects">Kustutatud projekte pole.</string>
+    <string name="trash_empty_drawings">Kustutatud joonistusi pole.</string>
+    <string name="trash_empty_recordings">Kustutatud salvestusi ega videoid pole.</string>
+    <string name="trash_empty_photos">Kustutatud fotosid ega pilte pole.</string>
+    <string name="trash_empty_other">Prügikastis pole muud.</string>
+    <string name="trash_empty_show_all">Näita kõike</string>
+</resources>

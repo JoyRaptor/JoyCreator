@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">Τι να ακολουθήσει;</string>
+    <string name="studio_pinpick_hint">Πάτα μια αριθμημένη τελεία ή διάλεξε από τη λίστα.</string>
+    <string name="studio_pinpick_whole">Η ίδια η εικόνα</string>
+    <string name="studio_pinpick_pin_n">Καρφίτσα %1$d</string>
+    <string name="studio_pinpick_diagram">Πού βρίσκεται κάθε καρφίτσα στην εικόνα. Πάτα μια τελεία για να ακολουθήσεις εκείνη την καρφίτσα.</string>
+    <string name="studio_pinpick_dot_n">Ακολούθησε την καρφίτσα %1$d</string>
+    <string name="studio_pinpick_cancel">Ακύρωση</string>
+</resources>

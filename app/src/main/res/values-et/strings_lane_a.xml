@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Lohista suuruse muutmiseks, puuduta sulgemiseks</string>
+    <string name="lane_a_toggle_mute">Vaigista</string>
+    <string name="lane_a_toggle_hide">Peida</string>
+    <string name="lane_a_toggle_lock">Lukusta</string>
+    <string name="lane_a_toggle_pass_through">Lase puuted läbi</string>
+    <string name="lane_a_toggle_start_here">Algus siin</string>
+    <string name="lane_a_toggle_end_here">Lõpp siin</string>
+    <string name="lane_a_toggle_split">Lõika esitusmärgi kohalt</string>
+    <string name="lane_a_toggle_fx_bypass">Jäta efektid vahele (A/B)</string>
+    <string name="lane_a_mask_add_shape">Lisa maski kuju</string>
+    <string name="lane_a_mask_remove_shape">Eemalda see kuju</string>
+    <string name="lane_a_mask_shape_n">Kuju %1$d</string>
+    <string name="lane_a_step_down">Samm alla</string>
+    <string name="lane_a_step_up">Samm üles</string>
+    <string name="lane_a_key_green">Lõika roheline välja</string>
+    <string name="lane_a_key_blue">Lõika sinine välja</string>
+    <string name="lane_a_key_black">Lõika must välja</string>
+    <string name="lane_a_key_white">Lõika valge välja</string>
+    <string name="lane_a_pivot_title">Pöördepunkt</string>
+    <string name="lane_a_pivot_top_left">Pöördepunkt: üleval vasakul</string>
+    <string name="lane_a_pivot_top">Pöördepunkt: üleval</string>
+    <string name="lane_a_pivot_top_right">Pöördepunkt: üleval paremal</string>
+    <string name="lane_a_pivot_left">Pöördepunkt: vasakul</string>
+    <string name="lane_a_pivot_centre">Pöördepunkt: keskel</string>
+    <string name="lane_a_pivot_right">Pöördepunkt: paremal</string>
+    <string name="lane_a_pivot_bottom_left">Pöördepunkt: all vasakul</string>
+    <string name="lane_a_pivot_bottom">Pöördepunkt: all</string>
+    <string name="lane_a_pivot_bottom_right">Pöördepunkt: all paremal</string>
+    <string name="lane_a_sprite_prev_key">Nihuta võtmekaadrit varasemaks</string>
+    <string name="lane_a_sprite_key">Kustuta esitusmärgi all olev võtmekaader</string>
+    <string name="lane_a_sprite_next_key">Nihuta võtmekaadrit hilisemaks</string>
+    <string name="lane_a_sprite_open_lab">Ava Sprite Labis</string>
+    <string name="lane_a_sprite_flip_h">Pööra rõhtsalt</string>
+    <string name="lane_a_sprite_flip_v">Pööra püstiselt</string>
+    <string name="lane_a_sprite_end">Lõpus: üks kord, silmus või edasi-tagasi</string>
+    <string name="lane_a_sprite_record">Salvesta esitus</string>
+    <string name="lane_a_sprite_stop">Peata salvestus</string>
+    <string name="lane_a_sprite_sweep">Jälgi selle all olevat videot</string>
+    <string name="lane_a_sprite_more">Veel</string>
+    <string name="lane_a_sprite_dope">Kaadritabel</string>
+    <string name="lane_a_sprite_manage">Spraidilehed</string>
+    <string name="lane_a_sprite_grip">Lohista üles, et ridu oleks rohkem, alla, et vähem</string>
+</resources>

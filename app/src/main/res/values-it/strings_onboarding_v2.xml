@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_onboarding_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="onboardingv2_perm_title">Qualche permesso</string>
+    <string name="onboardingv2_perm_why">Joy Creator ne ha bisogno per filmare, registrare la tua voce e tenere il tuo lavoro sul telefono. Niente esce da qui.</string>
+    <string name="onboardingv2_perm_camera">Fotocamera</string>
+    <string name="onboardingv2_perm_camera_why">Per filmare e vedere cosa stai filmando.</string>
+    <string name="onboardingv2_perm_mic">Microfono</string>
+    <string name="onboardingv2_perm_mic_why">Per registrare la tua voce insieme all\'immagine.</string>
+    <string name="onboardingv2_perm_files">File e notifiche</string>
+    <string name="onboardingv2_perm_files_why">Per salvare i tuoi video e mostrare l\'avviso di registrazione.</string>
+    <string name="onboardingv2_perm_battery">Tieni viva la registrazione</string>
+    <string name="onboardingv2_perm_battery_why">Facoltativo: disattiva l\'ottimizzazione della batteria così le riprese lunghe non vengono interrotte.</string>
+    <string name="onboardingv2_perm_battery_done">Facoltativo: l\'ottimizzazione della batteria è già disattivata.</string>
+    <string name="onboardingv2_perm_allow">Consenti quelli che mancano</string>
+    <string name="onboardingv2_perm_all_set">Tutto a posto</string>
+    <string name="onboardingv2_perm_open_settings">Apri le impostazioni</string>
+    <string name="onboardingv2_perm_nudge">Consenti i tre qui sopra per continuare.</string>
+    <string name="onboardingv2_perm_state_granted">consentito</string>
+    <string name="onboardingv2_perm_state_missing">non ancora consentito</string>
+    <string name="onboardingv2_perm_row_cd">%1$s, %2$s. %3$s</string>
+    <string name="onboardingv2_perm_allow_cd">Chiedi i permessi che mancano ancora</string>
+    <string name="onboardingv2_perm_all_set_cd">Tutti i permessi sono consentiti. Scorri alla pagina successiva.</string>
+    <string name="onboardingv2_perm_open_settings_cd">Apri le impostazioni di sistema di questa app per consentire i permessi che hai rifiutato</string>
+    <string name="onboardingv2_perm_battery_cd">Apri la schermata di sistema per disattivare l\'ottimizzazione della batteria per Joy Creator</string>
+</resources>

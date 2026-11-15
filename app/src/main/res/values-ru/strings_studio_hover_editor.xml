@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_studio_hover_editor.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_hover_export_progress">Показать ход экспорта</string>
+    <string name="studio_hover_viz_add_layer">Добавить слой</string>
+    <string name="studio_hover_viz_duplicate_layer">Дублировать слой</string>
+    <string name="studio_hover_viz_delete_layer">Удалить слой</string>
+    <string name="studio_hover_viz_move_layer_left">Сдвинуть слой влево</string>
+    <string name="studio_hover_viz_move_layer_right">Сдвинуть слой вправо</string>
+    <string name="studio_hover_bold">Жирный</string>
+    <string name="studio_hover_underline">Подчёркнутый</string>
+    <string name="studio_hover_italic">Курсив</string>
+    <string name="studio_hover_text_motion">Движение</string>
+    <string name="studio_hover_pivot">Точка вращения</string>
+</resources>

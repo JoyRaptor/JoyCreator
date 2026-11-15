@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Más ⌄</string>
+    <string name="faditor_lc_drawer_grip">Asa del cajón. Arrastra para cambiar el tamaño, toca para ver más o cerrar</string>
+    <string name="faditor_lc_fx_expand">Mostrar los ajustes de este efecto</string>
+    <string name="faditor_lc_fx_collapse">Ocultar los ajustes de este efecto</string>
+    <string name="faditor_lc_fx_bypass">Saltar efecto</string>
+    <string name="faditor_lc_fx_enable">Activar efecto</string>
+    <string name="faditor_lc_fx_delete">Eliminar efecto</string>
+    <string name="faditor_lc_fx_reorder">Mantén pulsado y arrastra para reordenar</string>
+    <string name="faditor_lc_key_prev">Fotograma clave anterior</string>
+    <string name="faditor_lc_key_next">Fotograma clave siguiente</string>
+    <string name="faditor_lc_key_diamond">Fotograma clave. Toca para añadir o quitar, mantén pulsado para borrarlos todos</string>
+    <string name="faditor_lc_ease_need_keys">Primero pon fotogramas clave</string>
+    <string name="faditor_lc_motion_title">Movimiento</string>
+    <string name="faditor_lc_motion_by">Animar por</string>
+    <string name="faditor_lc_gran_letter">Letra</string>
+    <string name="faditor_lc_gran_word">Palabra</string>
+    <string name="faditor_lc_gran_sentence">Frase</string>
+    <string name="faditor_lc_gran_block">Bloque</string>
+    <string name="faditor_lc_sheet_grip">Asa de la hoja. Toca o arrastra hacia arriba para ver todos los ajustes, hacia abajo para cerrar</string>
+    <string name="faditor_lc_sheet_legend">Qué significan las formas de los fotogramas clave</string>
+    <string name="faditor_lc_sheet_more">Más…</string>
+    <string name="faditor_lc_sheet_move_to">Mover a</string>
+    <string name="faditor_lc_sheet_jump">Escribe un tiempo al que ir</string>
+    <string name="faditor_lc_sheet_push">Empujar</string>
+    <string name="faditor_lc_sheet_snap">Imán</string>
+    <string name="faditor_lc_sheet_static_hint">Fijo — toca ♦ para animar</string>
+</resources>

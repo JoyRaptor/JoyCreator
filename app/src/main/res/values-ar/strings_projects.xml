@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">مشروع جديد</string>
+    <string name="projects_new_a11y">ابدأ مشروعًا جديدًا من فيديو على هاتفك أو أحد تسجيلاتك أو مسار صوتي فارغ</string>
+    <string name="projects_classic_list">قائمة Studio الكلاسيكية</string>
+    <plurals name="projects_layers">
+        <item quantity="zero">%d طبقة</item>
+        <item quantity="one">%d طبقة</item>
+        <item quantity="two">%d طبقتان</item>
+        <item quantity="few">%d طبقات</item>
+        <item quantity="many">%d طبقة</item>
+        <item quantity="other">%d طبقة</item>
+    </plurals>
+    <string name="projects_open_failed">تعذر فتح المشروع.</string>
+    <string name="projects_open_failed_access">تعذر فتح المشروع — ربما فُقد الوصول إلى الفيديو المصدر.</string>
+    <string name="projects_untitled">بلا عنوان</string>
+</resources>

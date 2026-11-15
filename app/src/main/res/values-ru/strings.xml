@@ -2,7 +2,7 @@
     <string name="app_icon_description">Выберите значок и название для вашего приложения. Это изменит его вид на главном экране.</string>
     <string name="check_for_updates">Проверить наличие обновлений</string>
     <string name="accessibility_thumbnail_progress">%1$d%% просмотрено</string>
-    <string name="fadsec_info">Joy Creator является частью пакета FadSec Lab. Для получения дополнительной информации нажмите «Просмотреть исходный код» ниже.</string>
+    <string name="fadsec_info">Joy Creator бесплатный и с открытым исходным кодом. Подробнее: нажми «посмотреть исходный код» ниже.</string>
 
 
     <string name="app_description">
@@ -198,7 +198,7 @@
     <string name="nav_settings">Настройки</string>
     <string name="nav_about">О программе</string>
     <string name="nav_remote">Удалённый</string>
-    <string name="nav_faditor_mini">Faditor</string>
+    <string name="nav_faditor_mini">Studio</string>
     <string name="setting_cam_title">Выбор камеры</string>
     <string name="note_cam_sele">Выберите камеру \n(По умолчанию: Задняя)</string>
     <string name="button_settings_cam_back">Задняя</string>
@@ -409,7 +409,7 @@
     <string name="torch_both">Оба фонарика</string>
     <string name="setting_debug_title">Отладочное логирование</string>
     <string name="note_debug">Включить генерацию файла отладочного журнала \n(По умолчанию: Отключено)</string>
-    <string name="note_debug_detailed">При включении FadCam записывает файл отладочного журнала HTML (JoyCreator_debug.html) в общедоступную папку Downloads/Joy Creator/. Поделитесь этим файлом при сообщении о проблемах. Выключите, чтобы остановить будущие записи.\nПримечание: Отладочное логирование может добавить накладные расходы на производительность во время записи — держите выключенным, если не устраняете неисправности.</string>
+    <string name="note_debug_detailed">Если включить, Joy Creator записывает журнал отладки в HTML-файл (JoyCreator_debug.html) в общую папку Downloads/Joy Creator/. Отправь этот файл, если сообщаешь о проблеме. Выключи, чтобы прекратить запись.\nВажно: журнал отладки может замедлять запись видео — держи его выключенным, если не ищешь неполадку.</string>
     <string name="note_debug_extra">При включении файл отладочного журнала будет создан в папке Downloads/Joy Creator. Это может помочь диагностировать проблемы с приложением.</string>
     <!-- Watermark unified strings -->
     <string name="watermark_preview_heading">Предпросмотр</string>
@@ -421,7 +421,7 @@
     <string name="watermark_style_timeonly_label">Временная метка</string>
     <string name="watermark_style_badge_label">Только метка бренда</string>
     <string name="watermark_style_none_label">Без водяного знака</string>
-    <string name="helper_watermark_preview">Так водяной знак будет отображаться в верхнем левом углу вашего записанного видео.\nЗабавный факт: 10/Июл/2024 04:47 PM - когда Joy Creator v1.0 впервые вышел.</string>
+    <string name="helper_watermark_preview">Так водяной знак будет выглядеть в левом верхнем углу записанного видео.</string>
     <string name="helper_location_watermark_option">Переключить добавление местоположения вашего устройства как наложения. Требуется разрешение на местоположение.</string>
     <string name="location_watermark_sheet_title">Наложение местоположения</string>
     <string name="location_watermark_switch_label">Наложение местоположения</string>
@@ -452,7 +452,7 @@
     <string name="widget_black_background_title">Чёрный фон</string>
     <string name="widget_arabic_date_title">Арабская дата</string>
     <string name="widget_arabic_date_format_title">Формат арабской даты</string>
-    <string name="widget_branding_title">Брендинг FadSecLab</string>
+    <string name="widget_branding_title">Фирменный стиль Joy Creator</string>
 
     <!-- Widget Option Descriptions -->
     <string name="widget_time_format_12h">12-часовой (3:30 PM)</string>
@@ -643,9 +643,9 @@
     <string name="coming_soon_toast">Скоро! Инша Аллах</string>
     <string name="remote_coming_soon">Удалённое управление для Joy Creator скоро появится.</string>
     <string name="remote_feature_description">Свяжите клиенты Joy Creator с помощью QR-кода для безопасного удалённого управления в локальной сети: запуск/остановка записи, превью, зум, переключение камеры и многое другое — всё с end-to-end шифрованием.</string>
-    <string name="faditor_mini_title">Faditor Mini</string>
+    <string name="faditor_mini_title">Studio</string>
     <string name="faditor_mini_coming_soon">Скоро — лёгкий редактор</string>
-    <string name="faditor_mini_toast">Faditor Mini — скоро</string>
+    <string name="faditor_mini_toast">Studio — скоро</string>
     <string name="setting_audio_title">Audio Recording</string>
     <string name="note_audio">Включить или отключить запись аудио для видео.\n(По умолчанию: Включено)</string>
     <string name="button_audio_settings">Настройки аудио</string>
@@ -785,22 +785,30 @@
 
     <!-- Strings for Trash Auto-Delete Feature -->
     <plurals name="trash_auto_delete_info_days">
-        <item quantity="one">Элементы автоматически удаляются через %1$d день.</item>
-        <item quantity="other">Элементы автоматически удаляются через %1$d дней.</item>
+        <item quantity="one">Элементы удаляются автоматически через %1$d день.</item>
+        <item quantity="few">Элементы удаляются автоматически через %1$d дня.</item>
+        <item quantity="many">Элементы удаляются автоматически через %1$d дней.</item>
+        <item quantity="other">Элементы удаляются автоматически через %1$d дня.</item>
     </plurals>
     <plurals name="trash_auto_delete_info_hours">
-        <item quantity="one">Элементы автоматически удаляются через %1$d час.</item>
-        <item quantity="other">Элементы автоматически удаляются через %1$d часов.</item>
+        <item quantity="one">Элементы удаляются автоматически через %1$d час.</item>
+        <item quantity="few">Элементы удаляются автоматически через %1$d часа.</item>
+        <item quantity="many">Элементы удаляются автоматически через %1$d часов.</item>
+        <item quantity="other">Элементы удаляются автоматически через %1$d часа.</item>
     </plurals>
     <string name="trash_auto_delete_info_manual">Элементы в корзине никогда не удаляются, удаляйте
     видео вручную.</string>
     <plurals name="trash_item_remaining_days">
-        <item quantity="one">Остался %1$d день</item>
-        <item quantity="other">Осталось %1$d дней</item>
+        <item quantity="one">остался %1$d день</item>
+        <item quantity="few">осталось %1$d дня</item>
+        <item quantity="many">осталось %1$d дней</item>
+        <item quantity="other">осталось %1$d дня</item>
     </plurals>
     <plurals name="trash_item_remaining_hours">
-        <item quantity="one">Остался %1$d час</item>
-        <item quantity="other">Осталось %1$d часов</item>
+        <item quantity="one">остался %1$d час</item>
+        <item quantity="few">осталось %1$d часа</item>
+        <item quantity="many">осталось %1$d часов</item>
+        <item quantity="other">осталось %1$d часа</item>
     </plurals>
     <string name="trash_item_remaining_soon">Удалится очень скоро</string>
     <string name="trash_menu_auto_delete_settings">Настройки авто-удаления</string>
@@ -822,7 +830,7 @@
     <string name="video_split_size_summary_gb">Текущий: %1$s ГБ</string>
     <string name="video_splitting_title">Включить разделение видео</string>
     <string name="video_splitting_description">Автоматически разделять записи на меньшие файлы (Отключено по умолчанию). Рекомендуется: 2 ГБ для баланса. Доступны предустановки до 4 ГБ и пользовательские размеры. Это помогает управлять большими записями и избегает ограничений размера файлов устройства.</string>
-    <string name="kofi_footer_text">Сделано    в FadSec Lab в   </string>
+    <string name="kofi_footer_text">Сделано с    для творцов в</string>
 
     <string name="setting_audio_input_source_title">Источник аудиовхода</string>
     <string name="setting_audio_input_source_status_default">Микрофон телефона</string>
@@ -908,7 +916,7 @@
 
     <string name="version_format">v%s</string>
 
-    <string name="edit_with_faditorx">Edit with FaditorX</string>
+    <string name="edit_with_faditorx">Править в Studio</string>
     <string name="remote_coming_soon_badge">NEW</string>
 
     <!-- Update Bottom Sheet Strings -->
@@ -1397,15 +1405,15 @@ Joy Creator использует фрагментированный формат
 
     <string name="home_elapsed_flag_option">Флаг акцента</string>
 
-    <string name="home_elapsed_flag_option_desc">Показать или скрыть флаг акцента FadSec Lab за таймером</string>
+    <string name="home_elapsed_flag_option_desc">Показать или скрыть цветную полосу за таймером</string>
 
-    <string name="home_elapsed_flag_helper">Выберите, показывать ли флаг акцента FadSec Lab за таймером прошедшего времени.</string>
+    <string name="home_elapsed_flag_helper">Выбери, показывать ли цветную полосу за таймером записи.</string>
 
-    <string name="home_elapsed_flag_show">Показать флаг FadSec Lab (По умолчанию)</string>
+    <string name="home_elapsed_flag_show">Показывать полосу (по умолчанию)</string>
 
     <string name="home_elapsed_flag_show_desc">Отображать фирменный флаг акцента за таймером</string>
 
-    <string name="home_elapsed_flag_hide">Скрыть флаг FadSec Lab</string>
+    <string name="home_elapsed_flag_hide">Скрыть полосу</string>
 
     <string name="home_elapsed_flag_hide_desc">Оставить область таймера без флага акцента</string>
 
@@ -1648,39 +1656,45 @@ Joy Creator использует фрагментированный формат
     <string name="records_save_header_done_body_failed">%1$d элемент(ов) с ошибкой.</string>
 
     <plurals name="records_delete_header_running_title">
-        <item quantity="one">Удаление %d элемента</item>
-        <item quantity="few">Удаление %d элементов</item>
-        <item quantity="many">Удаление %d элементов</item>
+        <item quantity="one">Удаляется %d элемент</item>
+        <item quantity="few">Удаляется %d элемента</item>
+        <item quantity="many">Удаляется %d элементов</item>
+        <item quantity="other">Удаляется %d элемента</item>
     </plurals>
 
     <plurals name="records_delete_header_progress_title">
-        <item quantity="one">Удаление %1$d из %2$d элемента</item>
-        <item quantity="few">Удаление %1$d из %2$d элементов</item>
-        <item quantity="many">Удаление %1$d из %2$d элементов</item>
+        <item quantity="one">Удаляется %1$d из %2$d элемента</item>
+        <item quantity="few">Удаляется %1$d из %2$d элементов</item>
+        <item quantity="many">Удаляется %1$d из %2$d элементов</item>
+        <item quantity="other">Удаляется %1$d из %2$d элементов</item>
     </plurals>
 
     <plurals name="records_save_copy_header_progress_title">
-        <item quantity="one">Сохранение %1$d из %2$d элемента</item>
-        <item quantity="few">Сохранение %1$d из %2$d элементов</item>
-        <item quantity="many">Сохранение %1$d из %2$d элементов</item>
+        <item quantity="one">Сохраняется %1$d из %2$d элемента</item>
+        <item quantity="few">Сохраняется %1$d из %2$d элементов</item>
+        <item quantity="many">Сохраняется %1$d из %2$d элементов</item>
+        <item quantity="other">Сохраняется %1$d из %2$d элементов</item>
     </plurals>
 
     <plurals name="records_save_move_header_progress_title">
-        <item quantity="one">Перемещение %1$d из %2$d элемента</item>
-        <item quantity="few">Перемещение %1$d из %2$d элементов</item>
-        <item quantity="many">Перемещение %1$d из %2$d элементов</item>
+        <item quantity="one">Переносится %1$d из %2$d элемента</item>
+        <item quantity="few">Переносится %1$d из %2$d элементов</item>
+        <item quantity="many">Переносится %1$d из %2$d элементов</item>
+        <item quantity="other">Переносится %1$d из %2$d элементов</item>
     </plurals>
 
     <plurals name="records_save_export_header_progress_title">
-        <item quantity="one">Экспорт %1$d из %2$d элемента</item>
-        <item quantity="few">Экспорт %1$d из %2$d элементов</item>
-        <item quantity="many">Экспорт %1$d из %2$d элементов</item>
+        <item quantity="one">Экспортируется %1$d из %2$d элемента</item>
+        <item quantity="few">Экспортируется %1$d из %2$d элементов</item>
+        <item quantity="many">Экспортируется %1$d из %2$d элементов</item>
+        <item quantity="other">Экспортируется %1$d из %2$d элементов</item>
     </plurals>
 
     <plurals name="records_delete_queued_toast">
-        <item quantity="one">Удаление 1 элемента в фоне.</item>
-        <item quantity="few">Удаление %d элементов в фоне.</item>
-        <item quantity="many">Удаление %d элементов в фоне.</item>
+        <item quantity="one">В фоне удаляется %d элемент.</item>
+        <item quantity="few">В фоне удаляются %d элемента.</item>
+        <item quantity="many">В фоне удаляются %d элементов.</item>
+        <item quantity="other">В фоне удаляются %d элемента.</item>
     </plurals>
 
     <string name="image_viewer_title">Просмотр фото</string>
@@ -1707,7 +1721,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_filter_screen">Экран</string>
 
-    <string name="records_filter_faditor">Faditor</string>
+    <string name="records_filter_faditor">Studio</string>
 
     <string name="records_filter_stream">Поток</string>
 
@@ -1751,9 +1765,9 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_filter_helper_screen">Записи экрана</string>
 
-    <string name="records_filter_helper_faditor">Отредактированные/экспортированные видео (Faditor)</string>
+    <string name="records_filter_helper_faditor">Отредактированные и экспортированные видео (Studio)</string>
 
-    <string name="records_filter_helper_faditor_all">Все выходные файлы Faditor и связанные файлы.</string>
+    <string name="records_filter_helper_faditor_all">Всё, что создано в Studio, и связанные файлы.</string>
 
     <string name="records_filter_helper_faditor_converted">Конвертация фрагментированного MP4 в стандартный MP4 с поиском для внешних плееров.</string>
 
@@ -1777,7 +1791,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_batch_save">Сохранить в галерею</string>
 
-    <string name="records_batch_faditor">Автоматизация Faditor</string>
+    <string name="records_batch_faditor">Автоматизация Studio</string>
 
     <string name="records_batch_delete">Удалить</string>
 
@@ -1793,7 +1807,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_batch_save_desc">Копировать, переместить или экспортировать выбранные видео в другую папку.</string>
 
-    <string name="records_batch_faditor_desc">Запуск фоновой автоматизации без открытия вкладки Faditor.</string>
+    <string name="records_batch_faditor_desc">Запускай фоновые задачи, не открывая вкладку Studio.</string>
 
     <string name="records_batch_delete_desc">Переместить выбранные видео в корзину.</string>
 
@@ -1815,7 +1829,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_batch_custom_export_done">Экспорт завершён. Успешно: %1$d • Ошибки: %2$d</string>
 
-    <string name="records_batch_faditor_sheet_title">Групповые действия Faditor</string>
+    <string name="records_batch_faditor_sheet_title">Пакетные действия Studio</string>
 
     <string name="records_batch_faditor_export_standard">Экспорт в стандартный MP4</string>
 
@@ -1831,7 +1845,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="records_batch_notif_channel_name">Групповые действия с медиа</string>
 
-    <string name="records_batch_notif_channel_desc">Прогресс и результаты группового сохранения в Записях и задач автоматизации Faditor.</string>
+    <string name="records_batch_notif_channel_desc">Ход и результаты пакетного сохранения записей и задач автоматизации Studio.</string>
 
     <string name="records_batch_starting">Подготовка групповой операции…</string>
 
@@ -1999,7 +2013,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="screenshot_accessibility_enable_needed">Включите «Joy Creator» в специальных возможностях для использования этого ярлыка без запроса записи.</string>
 
-    <string name="screenshot_accessibility_service_desc">Делает скриншот для ярлыка FadRec и сохраняет в Joy Creator.</string>
+    <string name="screenshot_accessibility_service_desc">Делает снимок экрана по быстрой команде и сохраняет его в твою папку Joy Creator.</string>
 
     <string name="shortcuts_video_category">Запись видео</string>
 
@@ -2027,7 +2041,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_select_video">Выбрать видео</string>
 
-    <string name="faditor_editor_title">Faditor Mini</string>
+    <string name="faditor_editor_title">Studio</string>
 
     <string name="faditor_close">Закрыть редактор</string>
 
@@ -2178,7 +2192,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_export_confirm_helper">%1$s • %2$d клип(ов)%3$s\nЭкспорт выполняется как фоновая служба — вы можете закрыть приложение, и он продолжит экспорт.</string>
 
-    <string name="faditor_export_notif_channel">Экспорт Faditor</string>
+    <string name="faditor_export_notif_channel">Экспорт Studio</string>
 
     <string name="faditor_export_notif_channel_desc">Уведомления о текущем экспорте видео</string>
 
@@ -2252,13 +2266,13 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_delete_confirm">Удалить</string>
 
-    <string name="faditor_version_info">Faditor Mini · Фаза 1 · Обрезка + Экспорт</string>
+    <string name="faditor_version_info">Studio · Этап 1 · Обрезка + Экспорт</string>
 
     <string name="faditor_empty_title">Проектов пока нет</string>
 
     <string name="faditor_empty_desc">Нажмите «Начать новый проект» для выбора видео и начала редактирования</string>
 
-    <string name="faditor_info_title">О Faditor Mini</string>
+    <string name="faditor_info_title">О Studio</string>
 
     <string name="faditor_info_subtitle">Всё, что нужно знать о встроенном редакторе</string>
 
@@ -2268,7 +2282,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_info_convert_title">Умная конвертация</string>
 
-    <string name="faditor_info_convert_desc">Joy Creator записывает в формате фрагментированного MP4 (fMP4) с защитой от сбоев. В отличие от стандартного MP4 с одним финализированным контейнером, fMP4 записывает видео небольшими независимыми фрагментами. Это означает, что ваши записи остаются целыми даже при сбое приложения или внезапной остановке записи.\n\nОднако внешние видеоплееры, приложения галереи и файловые менеджеры не смогут выполнять поиск, перемотку или отображать правильную длительность этих файлов. Это не баг — это преднамеренная жертва надёжности.\n\nЕсли вы планируете хранить видео за пределами Joy Creator — на Google Drive, компьютере или в другом месте — вы должны сначала конвертировать их. Иначе файлы будут непригодны для обычного воспроизведения.\n\nДля конвертации: просто откройте видео здесь в Faditor Mini и нажмите Экспорт. Конвертированный стандартный MP4 появится во вкладке Записи, готовый к сохранению в галерею или отправке куда угодно. Процесс мгновенный и без потерь — без перекодирования или потери качества.</string>
+    <string name="faditor_info_convert_desc">Joy Creator записывает в формате, который переживает сбои, — фрагментированный MP4 (fMP4). В обычном MP4 всё лежит в одном готовом контейнере, а fMP4 пишет видео маленькими независимыми кусочками. Поэтому твоя съёмка остаётся целой, даже если приложение упадёт или запись внезапно оборвётся.\n\nЗато сторонние видеоплееры, галереи и файловые менеджеры не смогут перематывать такие файлы и показывать правильную длительность. Это не ошибка, а осознанный выбор ради надёжности.\n\nЕсли собираешься хранить видео вне Joy Creator — на Google Диске, на компьютере или где-то ещё, — сначала их нужно преобразовать. Иначе обычный просмотр будет невозможен.\n\nКак преобразовать: просто открой видео здесь, в Studio, и нажми «Экспорт». Обычный MP4 появится во вкладке «Записи», готовый для сохранения в галерею или отправки куда угодно. Это мгновенно и без потерь — без пережатия и ухудшения качества.</string>
 
     <string name="faditor_info_export_title">Экспортированные файлы</string>
 
@@ -2276,7 +2290,7 @@ Joy Creator использует фрагментированный формат
 
     <string name="faditor_info_temp_title">Временные файлы и кэш</string>
 
-    <string name="faditor_info_temp_desc">При загрузке видео fMP4 для редактирования Faditor определяет, нужен ли файлу «ремультиплексинг» — быстрая конвертация, добавляющая маркеры поиска без перекодирования. Ремультиплексированные файлы кэшируются на устройстве, чтобы их можно было повторно использовать при редактировании того же видео, экономя время и обработку.\n\nВы можете увидеть размер кэша для каждого проекта рядом с датой изменения. Если место на устройстве заканчивается, вы можете удалить неиспользуемые проекты для очистки их кэшированных ремультиплексированных файлов.\n\nЭти временные файлы кэша автоматически очищаются при удалении проекта из этой вкладки.</string>
+    <string name="faditor_info_temp_desc">Когда ты загружаешь fMP4-видео для монтажа, Studio проверяет, нужна ли файлу «пересборка» — быстрое преобразование, которое добавляет метки для перемотки без пережатия. Пересобранные файлы хранятся в кэше на устройстве и используются снова, если ты редактируешь то же видео, — это экономит время и силы телефона.\n\nРазмер кэша каждого проекта указан рядом с датой изменения. Если на устройстве мало места, удали ненужные проекты — их пересобранные файлы тоже очистятся.\n\nЭти временные файлы кэша автоматически удаляются, когда ты удаляешь проект на этой вкладке.</string>
 
     <string name="faditor_info_projects_title">Недавние проекты</string>
 
@@ -2549,9 +2563,10 @@ Joy Creator использует фрагментированный формат
     <string name="forensics_gallery_empty_title">Доска улик пуста</string>
     <string name="forensics_gallery_selected_count">%1$d выбрано</string>
     <plurals name="forensics_gallery_selected_count_plural">
-        <item quantity="one">%1$d выбрано</item>
-        <item quantity="few">%1$d выбрано</item>
-        <item quantity="many">%1$d выбрано</item>
+        <item quantity="one">Выбран %1$d</item>
+        <item quantity="few">Выбрано %1$d</item>
+        <item quantity="many">Выбрано %1$d</item>
+        <item quantity="other">Выбрано %1$d</item>
     </plurals>
     <string name="forensics_gallery_sort_event_type">Тип события</string>
     <string name="forensics_gallery_source_missing">Видео отсутствует: доступны только снимки-улики.</string>
@@ -3119,7 +3134,7 @@ Joy Creator использует фрагментированный формат
     <string name="settings_location_update_interval_5s">5.0 секунд</string>
 
     <!-- Annotation toolbar -->
-    <string name="annotation_by_fadsec_lab">от FadSec Lab</string>
+    <string name="annotation_by_fadsec_lab">от Joy Creator</string>
     <string name="annotation_quick_access">Быстрый доступ</string>
     <string name="annotation_annotate">Аннотировать</string>
     <string name="annotation_enable_tools">Включить инструменты</string>
@@ -3333,4 +3348,587 @@ Joy Creator использует фрагментированный формат
     <string name="toast_failed_open_file">Не удалось открыть файл для записи</string>
     <string name="toast_cannot_write_custom_dir">Не удалось записать в выбранный пользовательский каталог</string>
     <string name="toast_failed_create_file">Не удалось создать файл для записи</string>
+    <!-- Added 2026-11-15 (L17): strings the English file gained after this translation was written. -->
+    <string name="lobby_a11y_new_recording">Начать новую запись</string>
+    <string name="lobby_a11y_new_project">Начать новый проект</string>
+    <string name="lobby_a11y_new_character">Создать нового персонажа</string>
+    <string name="lobby_a11y_new_import">Импортировать файл</string>
+    <string name="lobby_a11y_hero">%1$s: %2$s. %3$s.</string>
+    <string name="lobby_a11y_hero_empty">%1$s, пока пусто</string>
+    <string name="lobby_a11y_library">Открыть Library</string>
+    <string name="onboarding_a11y_checked">%1$s. Отмечено.</string>
+    <string name="onboarding_a11y_unchecked">%1$s. Не отмечено.</string>
+    <string name="lobby_a11y_recent">%1$s, %2$s, %3$s</string>
+    <string name="faditor_tools_more">ещё %1$d</string>
+    <string name="faditor_tools_more_desc">Показать все инструменты</string>
+    <string name="capture_mode_camera">Камера</string>
+    <string name="capture_mode_screen">Экран</string>
+    <string name="capture_mode_mic">Микрофон</string>
+    <string name="webcam_overlay">Вебкамера поверх видео</string>
+    <string name="webcam_overlay_on">Вкл.</string>
+    <string name="webcam_overlay_off">Выкл.</string>
+    <string name="webcam_overlay_notification_title">Вебкамера поверх видео включена</string>
+    <string name="fadrec_recording_flash">Идёт запись!</string>
+    <string name="video_info_loading">Загрузка…</string>
+    <string name="faditor_timeline_resize_handle">Потяни, чтобы изменить размер таймлайна и просмотра</string>
+    <string name="faditor_export_preparing">Подготовка экспорта…</string>
+    <string name="faditor_export_compositing">Сборка видео…</string>
+    <string name="faditor_export_finalizing">Завершение…</string>
+    <string name="faditor_font_picker_title">Шрифт</string>
+    <string name="faditor_font_import">Импортировать шрифт…</string>
+    <string name="faditor_font_row_selected">%1$s (выбран)</string>
+    <string name="faditor_tool_opacity">Прозрачность</string>
+    <string name="faditor_tool_text">Текст</string>
+    <string name="faditor_tool_sticker">Картинка</string>
+    <string name="faditor_text_hint">Введи текст</string>
+    <string name="faditor_text_edit_title">Изменить текст</string>
+    <string name="faditor_text_delete">Удалить</string>
+    <string name="faditor_text_selection_whole">Выбрать всё</string>
+    <string name="faditor_text_selection_count">Выбрано: %1$d</string>
+    <string name="faditor_text_selection_clear">Сбросить</string>
+    <string name="faditor_text_style_undo">Форматировать текст</string>
+    <string name="faditor_text_motion_range">Диапазон движения текста</string>
+    <string name="faditor_trim_start_here">⇤ Начало здесь</string>
+    <string name="faditor_trim_span_whole">↔\uFE0E  Весь отрезок</string>
+    <string name="faditor_trim_end_here">Конец здесь ⇥</string>
+    <string name="faditor_split_playhead_text">Поставь маркер внутрь текста, чтобы его разрезать</string>
+    <string name="faditor_split_playhead_sprite">Поставь маркер внутрь спрайта, чтобы его разрезать</string>
+    <string name="faditor_split_playhead_pip">Поставь маркер внутрь «картинки в картинке», чтобы её разрезать</string>
+    <string name="faditor_split_playhead_layer">Поставь маркер внутрь слоя, чтобы его разрезать</string>
+    <string name="faditor_trim_start_impossible">Чтобы обрезать начало, поставь маркер раньше конца слоя</string>
+    <string name="faditor_trim_end_impossible">Чтобы обрезать конец, поставь маркер позже начала слоя</string>
+    <string name="faditor_heal_confirm_add">Если склеить этот разрез, на таймлайн добавится %1$s. Ок?</string>
+    <string name="faditor_heal_confirm_remove">Если склеить этот разрез, с таймлайна уберётся %1$s. Ок?</string>
+    <string name="faditor_locked_title">Заблокированный объект</string>
+    <string name="faditor_locked_message">Этот объект заблокирован. Разблокировать и продолжить?</string>
+    <string name="faditor_locked_unlock">Разблокировать и продолжить</string>
+    <string name="faditor_fx_static_hint">Без движения — нажми ◆, чтобы анимировать</string>
+    <string name="faditor_fx_reorder_hint">Добавь второй эффект, чтобы менять порядок в цепочке</string>
+    <string name="faditor_fx_layer_only_left_out">%1$s нужен корректирующий слой — пропущено</string>
+    <string name="faditor_color_set">Задать</string>
+    <string name="faditor_image_overlay_title">Картинка поверх</string>
+    <string name="faditor_image_overlay_desc">Потяни, чтобы переместить, сведи пальцы, чтобы изменить размер</string>
+    <string name="faditor_tool_silence">Чистка</string>
+    <string name="faditor_tool_loop">Повтор</string>
+    <string name="faditor_tool_settings">Настройки</string>
+    <string name="faditor_tool_sprites">Спрайты</string>
+    <string name="sprite_editor_missing_image">Нет картинки листа — импортируй её заново</string>
+    <string name="sprite_editor_no_project">Проект не найден — сначала открой редактор</string>
+    <string name="sprite_editor_default_name">Спрайт</string>
+    <string name="sprite_editor_name_hint">Название спрайт-листа</string>
+    <string name="sprite_editor_cell_name_hint">Название ячейки (псевдоним)</string>
+    <string name="sprite_editor_cell_enabled">Вкл.</string>
+    <string name="sprite_editor_cell_prefix">Ячейка</string>
+    <string name="sprite_editor_save">Сохранить</string>
+    <string name="sprite_editor_saved">Спрайт-лист сохранён</string>
+    <string name="sprite_editor_save_failed">Не удалось сохранить — попробуй ещё раз</string>
+    <string name="sprite_editor_import_failed">Не получилось импортировать эту картинку</string>
+    <string name="sprite_editor_play">▶</string>
+    <string name="sprite_editor_stop">■</string>
+    <string name="sprite_editor_pivot">Опора</string>
+    <string name="sprite_editor_auto">Авто</string>
+    <string name="sprite_editor_auto_applied">Сетка найдена: %1$d×%2$d</string>
+    <string name="sprite_editor_auto_failed">Чёткая сетка не найдена — задай её кнопками «+» и «−»</string>
+    <string name="sprite_editor_key">Ключ</string>
+    <string name="sprite_editor_key_clear">Ключ ✕</string>
+    <string name="sprite_editor_key_pick_hint">Нажми на цвет фона, который нужно убрать</string>
+    <string name="sprite_editor_key_cleared">Ключ фона убран</string>
+    <string name="sprite_editor_onion">Калька</string>
+    <string name="sprite_editor_import_sidecar">⇩ .json</string>
+    <string name="sprite_editor_sidecar_imported">Данные нарезки применены из файла-спутника</string>
+    <string name="sprite_editor_sidecar_import_failed">Не удалось прочитать файл-спутник</string>
+    <string name="sprite_editor_export_sidecar">⇪ .json</string>
+    <string name="sprite_editor_sidecar_saved">Файл-спутник сохранён рядом с картинкой листа</string>
+    <string name="sprite_editor_sidecar_failed">Не удалось записать файл-спутник</string>
+    <string name="sprite_sheet_picker_title">Спрайт-листы</string>
+    <string name="sprite_sheet_picker_new">+ Новый спрайт-лист</string>
+    <string name="sprite_sheet_picker_avatars">🎭 Студия аватаров…</string>
+    <string name="sprite_sheet_action_edit">Изменить лист</string>
+    <string name="sprite_sheet_action_place">Поместить на видео</string>
+    <string name="sprite_sheet_action_relink">Привязать картинку заново…</string>
+    <string name="sprite_placed">Спрайт добавлен — перетащи его на превью</string>
+    <string name="sprite_palette_load">+ Загрузить спрайт-лист</string>
+    <string name="sprite_palette_cell_prefix">ячейка</string>
+    <string name="sprite_palette_no_cell">кадра пока нет — нажми на ячейку</string>
+    <string name="sprite_palette_end_prefix">конец:</string>
+    <string name="sprite_palette_swap_dropped">Замена поставлена на маркер</string>
+    <string name="avatar_studio_title">Аватары</string>
+    <string name="avatar_studio_new">+ Новый аватар</string>
+    <string name="avatar_studio_default_name">Аватар</string>
+    <string name="avatar_studio_name_hint">Имя аватара</string>
+    <string name="avatar_studio_save">Сохранить</string>
+    <string name="avatar_studio_saved">Аватар сохранён</string>
+    <string name="avatar_studio_save_failed">Не удалось сохранить — попробуй ещё раз</string>
+    <string name="avatar_studio_no_project">Проект не найден — сначала открой редактор</string>
+    <string name="avatar_studio_add_part">+ Часть</string>
+    <string name="avatar_studio_pick_sheet">Спрайт-лист для новой части</string>
+    <string name="avatar_studio_no_sheets">Сначала нарежь спрайт-лист (инструмент «Спрайты») — части берутся из листов</string>
+    <string name="avatar_studio_part_name_hint">Название части (голова, тело, рукаЛ…)</string>
+    <string name="avatar_studio_part_menu_parent">Задать родителя…</string>
+    <string name="avatar_studio_part_menu_unparent">Убрать родителя</string>
+    <string name="avatar_studio_part_menu_remove">Удалить часть</string>
+    <string name="avatar_studio_parent_pick_title">Родитель для «%1$s»</string>
+    <string name="avatar_studio_armed_hint">Ячейка выбрана — двигай части, чтобы задать эту позу</string>
+    <string name="avatar_studio_disarm_hint">Сетка свободна — ползунки управляют смешиванием</string>
+    <string name="avatar_studio_yaw">Поворот</string>
+    <string name="avatar_studio_pitch">Наклон</string>
+    <string name="avatar_studio_cell_stepper">Ячейка спрайта</string>
+    <string name="avatar_studio_scale">Масштаб</string>
+    <string name="avatar_studio_rotation">Угол</string>
+    <string name="avatar_studio_flip_h">Отразить ↔</string>
+    <string name="avatar_studio_flip_v">Отразить ↕</string>
+    <string name="avatar_studio_mirror">Зеркало ⇋</string>
+    <string name="avatar_studio_mirrored">Отражено в противоположную ячейку</string>
+    <string name="avatar_studio_pins">⌖ Точки</string>
+    <string name="avatar_studio_pin_del">✕ точка</string>
+    <string name="avatar_studio_density">Сетка</string>
+    <string name="avatar_studio_pin_add_disarmed">Чтобы добавить или убрать точки, отпусти ячейку (цепочка покоя)</string>
+    <string name="avatar_studio_pins_reseeded">Точки ячейки заново взяты из цепочки покоя</string>
+    <string name="avatar_studio_clear_cell">Очистить ячейку</string>
+    <string name="avatar_studio_cell_cleared">Ячейка очищена — снова смешивается сама</string>
+    <string name="faditor_tools_all_title">Все инструменты</string>
+    <string name="faditor_tools_edit">Изменить</string>
+    <string name="faditor_tools_edit_done">Готово</string>
+    <string name="faditor_tools_edit_tooltip">Расставить инструменты</string>
+    <string name="faditor_silence_audio_desc">Вырезает тихие паузы из этого аудиоклипа и смыкает края. Одно «Отменить» вернёт всё как было.</string>
+    <string name="faditor_silence_audio_btn">Вырезать паузы</string>
+    <string name="faditor_tools_edit_hint">Удерживай инструмент и перетащи на новое место. Перетащи за панель, чтобы закрепить. Когда закончишь, нажми «Готово».</string>
+    <string name="faditor_settings_tool_order_title">Порядок инструментов</string>
+    <string name="faditor_settings_tool_order_desc">В каком порядке стоят инструменты внизу: как ты расставил сам или сначала недавние.</string>
+    <string name="faditor_settings_tool_order_recent">Сначала недавние</string>
+    <string name="faditor_loop_off">Выкл.</string>
+    <string name="faditor_loop_normal">Повтор</string>
+    <string name="faditor_loop_pingpong">Туда и обратно</string>
+    <string name="faditor_loop_pingpong_parked">Туда и обратно (скоро)</string>
+    <string name="faditor_loop_pingpong_parked_toast">«Туда и обратно» ещё доводится до ума — скоро будет. А пока используй «Повтор» для плавного повтора вперёд.</string>
+    <string name="faditor_loop_still">Стоп-кадр</string>
+    <string name="faditor_loop_extend_start">Растянуть до начала</string>
+    <string name="faditor_loop_extend_end">Растянуть до конца</string>
+    <string name="faditor_loop_extend_prev">Растянуть до прошлого клипа</string>
+    <string name="faditor_loop_extend_next">Растянуть до следующего клипа</string>
+    <string name="faditor_tool_transitions">Переходы</string>
+    <string name="faditor_transitions">Переходы</string>
+    <string name="faditor_transition_crossfade">Наплыв</string>
+    <string name="faditor_transition_black">В чёрное</string>
+    <string name="faditor_transition_white">В белое</string>
+    <string name="faditor_transition_wipe">Шторка</string>
+    <string name="faditor_transition_radial">Круговой</string>
+    <string name="faditor_transition_mirror">Зеркальная шторка</string>
+    <string name="faditor_transition_push">Сдвиг</string>
+    <string name="faditor_transition_glitch">Глитч</string>
+    <string name="faditor_transition_tv_channel">Переключение канала</string>
+    <string name="faditor_transition_added">Переход добавлен на ближайший стык</string>
+    <string name="faditor_transition_removed">Переход убран</string>
+    <string name="faditor_gl_transition_pick_title">Выбери GL-эффект</string>
+    <string name="faditor_visualizer_style_title">Стиль визуализатора</string>
+    <string name="faditor_transition_duration_title">Длительность перехода</string>
+    <string name="faditor_transition_type_title">Вид перехода</string>
+    <string name="faditor_transition_remove">Убрать</string>
+    <string name="faditor_transition_direction_title">Направление</string>
+    <string name="faditor_filter_title">Фильтры и цвет</string>
+    <string name="faditor_filter_lut">Стиль (LUT)</string>
+    <string name="faditor_filter_lut_none">Нет</string>
+    <string name="faditor_filter_reset">Сбросить всё</string>
+    <string name="faditor_filter_copy_all">Применить стиль ко всем клипам</string>
+    <string name="faditor_filter_preset_save">Сохранить как пресет…</string>
+    <string name="faditor_filter_preset_name_hint">Название пресета</string>
+    <string name="faditor_filter_preset_delete">Удалить пресет \"%s\"?</string>
+    <string name="faditor_filter_preset_applied">Пресет \"%s\" применён</string>
+    <string name="faditor_tool_filter">Фильтр</string>
+    <string name="faditor_tool_move">Переместить</string>
+    <string name="faditor_move_drawer_title">Переместить клип</string>
+    <string name="faditor_move_layer_up">Выше</string>
+    <string name="faditor_move_layer_down">Ниже</string>
+    <string name="faditor_move_to_time_hint">Время (00:00:00.000) или кадры</string>
+    <string name="faditor_move_clip_label">Порядок клипа</string>
+    <string name="faditor_move_clip_start">В начало</string>
+    <string name="faditor_move_clip_left">На один влево</string>
+    <string name="faditor_move_clip_right">На один вправо</string>
+    <string name="faditor_move_clip_end">В конец</string>
+    <string name="faditor_move_clip_at_start">Клип уже первый</string>
+    <string name="faditor_move_clip_at_end">Клип уже последний</string>
+    <string name="faditor_move_clip_none">Сначала выбери клип</string>
+    <string name="faditor_transition_need_two_clips">Чтобы добавить переход, нужно хотя бы два видеоклипа</string>
+    <string name="faditor_silence_detect_title">Найти тишину</string>
+    <string name="faditor_silence_detect_desc">Тихие паузы помечаются жёлтым. Нажми на жёлтую паузу на таймлайне, чтобы вырезать её (станет чёрной). Нажми на инструмент ещё раз, чтобы скрыть.</string>
+    <string name="faditor_silence_detect_btn">Найти</string>
+    <string name="faditor_silence_found">Помечено тихих пауз: %1$d — нажми на жёлтые, чтобы вырезать</string>
+    <string name="faditor_silence_title">Убрать тишину</string>
+    <string name="faditor_silence_desc">Автоматически вырезает тихие паузы и пустой звук из этого клипа.</string>
+    <string name="faditor_silence_sensitivity">Чувствительность</string>
+    <string name="faditor_silence_analyzing">Анализ звука…</string>
+    <string name="faditor_silence_none">Тихих пауз не найдено</string>
+    <string name="faditor_silence_image">В этом клипе нет звука для анализа</string>
+    <string name="faditor_silence_result">Убрано пауз: %1$d · сэкономлено %2$.1f с</string>
+    <string name="faditor_jump_to_time">Перейти ко времени</string>
+    <string name="faditor_relink_title">Не найдены файлы</string>
+    <string name="faditor_relink_msg">Не удалось открыть клипов: %1$d (файл перенесён или нет доступа). Привязать их к твоим файлам заново? Твои правки сохранятся.</string>
+    <string name="faditor_relink_now">Привязать</string>
+    <string name="faditor_relink_later">Позже</string>
+    <string name="faditor_relink_sheet_title">Привязать потерянное видео</string>
+    <string name="faditor_relink_sheet_sub">Ищем: %1$s</string>
+    <string name="faditor_relink_auto_found">Ещё найдено в той же папке: %1$d — привязано автоматически</string>
+    <string name="faditor_relink_replace_title">Заменить это видео?</string>
+    <string name="faditor_relink_replace_msg">Выбери другой файл для этого клипа. Все твои правки (обрезка, разрезы, подписи) сохранятся.</string>
+    <string name="faditor_relink_replace">Заменить видео</string>
+    <string name="faditor_relink_catalog_title">Каталог файлов</string>
+    <string name="faditor_relink_repaired">Исправлено %1$d из %2$d — нажми на любой ✗, чтобы привязать</string>
+    <string name="faditor_relink_all_ok">Все файлы доступны ✓</string>
+    <string name="faditor_relink_all">↻ Привязать все потерянные</string>
+    <string name="faditor_relink_done">Готово</string>
+    <string name="faditor_relink_missing">НЕ НАЙДЕН</string>
+    <string name="faditor_relink_ok">ОК</string>
+    <string name="faditor_relink_generated">создан — кэш очищен</string>
+    <string name="faditor_relink_confirm_title">Подтверди замену</string>
+    <string name="faditor_relink_confirm_msg">Заменить клип №%1$d:\n\n  Было: %2$s (%3$s)\n  Станет: %4$s (%5$s)\n\nВсе правки (обрезка, разрезы, подписи) сохранятся.</string>
+    <string name="faditor_relink_confirm_yes">Заменить</string>
+    <string name="faditor_relink_skip">Пропустить этот</string>
+    <string name="faditor_relink_warn_same_file">⚠ Этот файл уже используется для клипа №%1$d. Если взять его снова, оба клипа покажут одно и то же видео.</string>
+    <string name="faditor_relink_warn_duration">⚠ Длительность сильно отличается. Было %1$s, стало %2$s. Возможно, придётся поправить границы обрезки.</string>
+    <string name="faditor_relink_err_type">✗ Неподходящий тип файла. Нужен %1$s, а выбран %2$s.</string>
+    <string name="faditor_relink_btn">Каталог файлов</string>
+    <string name="faditor_asset_browser">Обзор файлов</string>
+    <string name="faditor_asset_browser_title">Закреплённая папка</string>
+    <string name="faditor_asset_browser_pin_dir">Выбрать папку</string>
+    <string name="faditor_asset_browser_change_dir">Сменить папку</string>
+    <string name="faditor_asset_browser_unpin">Открепить папку</string>
+    <string name="faditor_asset_browser_empty">В этой папке нет медиафайлов</string>
+    <string name="faditor_asset_browser_no_dir">Папка ещё не закреплена. Нажми на значок булавки, чтобы выбрать.</string>
+    <string name="faditor_asset_browser_pin_success">Закреплено: %1$s</string>
+    <string name="faditor_asset_browser_filter_all">Все</string>
+    <string name="faditor_asset_browser_filter_used">Используются</string>
+    <string name="faditor_asset_browser_filter_unused">Не используются</string>
+    <string name="faditor_asset_browser_rename">Переименовать</string>
+    <string name="faditor_asset_browser_rename_title">Переименовать файл</string>
+    <string name="faditor_asset_browser_rename_hint">Новое имя (с расширением)</string>
+    <string name="faditor_asset_browser_rename_success">Переименовано: %1$s</string>
+    <string name="faditor_asset_browser_rename_error">Не удалось переименовать файл</string>
+    <string name="faditor_asset_browser_delete_title">Убрать из истории?</string>
+    <string name="faditor_asset_browser_delete_msg">Убрать эту папку из истории закреплённых? Файлы из неё, которые используются, останутся в проекте.</string>
+    <string name="faditor_asset_browser_delete_blocked">Нельзя убрать: файлы из этой папки используются.</string>
+    <string name="faditor_asset_insert_at_playhead">Вставить выбранный файл в место маркера</string>
+    <string name="faditor_asset_drag_hint">Удерживай и перетащи на таймлайн</string>
+    <string name="faditor_asset_used_badge">Используется</string>
+    <string name="faditor_new_project_title">Назови проект (клипов: %1$d)</string>
+    <string name="faditor_new_project_hint">Название проекта</string>
+    <string name="faditor_create">Создать</string>
+    <string name="faditor_creating_project">Создаю проект…</string>
+    <string name="faditor_create_failed">Не получилось создать проект из этих видео.</string>
+    <string name="faditor_transcript_delete_version_title">Удалить расшифровку</string>
+    <string name="faditor_transcript_delete_version_msg">Убрать расшифровку «%1$s» из этого клипа? Другие версии останутся.</string>
+    <string name="faditor_kf_section">Анимация (ключевые кадры)</string>
+    <string name="faditor_kf_status">Ключевых кадров: %1$d</string>
+    <string name="faditor_kf_hint_start">Поставь наложение на место, потом нажми ◆, чтобы начать анимацию.</string>
+    <string name="faditor_kf_hint_armed">Ключевых кадров: %1$d. Теперь двигай маркер и перетаскивай наложение — ключевые кадры добавятся сами.</string>
+    <string name="faditor_kf_add">◆ Добавить ключевой кадр</string>
+    <string name="faditor_kf_added">Ключевой кадр добавлен на маркер</string>
+    <string name="faditor_kf_clear">Очистить</string>
+    <string name="faditor_kf_set_start">Начало здесь</string>
+    <string name="faditor_kf_set_end">Конец здесь</string>
+    <string name="faditor_kf_range_set">Время наложения обновлено</string>
+    <string name="faditor_kf_range_invalid">Передвинь маркер — конец должен быть позже начала.</string>
+    <string name="faditor_coachmark_gestures_title">Правка элемента</string>
+    <string name="faditor_coachmark_gestures_body">Двойное нажатие — правка  ·  Удержание — меню  ·  Перетаскивание — сдвиг</string>
+    <string name="faditor_coachmark_got_it">Понятно</string>
+    <string name="faditor_transitions_more_effects">⌄  Ещё эффекты</string>
+    <string name="faditor_transitions_fewer_effects">⌃  Меньше эффектов</string>
+    <string name="faditor_clean_audio_label">Чистый звук v2</string>
+    <string name="faditor_clean_audio_desc">Убирает шум, сглаживает динамику и выравнивает громкость в два прохода с ограничением пиков. Экспорт займёт больше времени.</string>
+    <string name="faditor_transcript">Расшифровка</string>
+    <string name="faditor_captions">Субтитры</string>
+    <string name="faditor_captions_need_transcript">Сначала расшифруй этот клип, потом добавляй субтитры</string>
+    <string name="faditor_captions_done">Готово</string>
+    <string name="faditor_transcript_clean">Убрать слова-паразиты</string>
+    <string name="faditor_transcript_apply">Принять</string>
+    <string name="faditor_transcript_committed">Правки закреплены — при экспорте они применятся</string>
+    <string name="faditor_transcript_search">Поиск по расшифровке</string>
+    <string name="faditor_transcript_break">Перенос строки после выделенного слова</string>
+    <string name="faditor_transcript_pick_model">Выбери модель распознавания речи</string>
+    <string name="faditor_transcript_pick_model_sub">Работает полностью без интернета, прямо на телефоне. Скачивается один раз.</string>
+    <string name="faditor_transcript_model_fast">Точное время</string>
+    <string name="faditor_transcript_model_fast_sub">~40 МБ · быстрее всех · лучшее ВРЕМЯ слов, слова грубее</string>
+    <string name="faditor_transcript_model_accurate">Баланс</string>
+    <string name="faditor_transcript_model_accurate_sub">~128 МБ · хорошее время И хорошие слова · работает примерно в реальном времени</string>
+    <string name="faditor_transcript_model_whisper">Лучшие слова</string>
+    <string name="faditor_transcript_model_whisper_sub">~57 МБ · лучшие СЛОВА, время менее точное · самая медленная</string>
+    <string name="faditor_transcript_model_whisper_note">«Лучшие слова» работает на Whisper: слова самые точные, но время на длинных клипах плывёт. «Точное время» и «Баланс» работают на Vosk — у них время слов точнее, а на нём держатся синхронные субтитры и правка по тексту. Если запустить по одной модели каждого вида, их можно объединить в дорожку и с хорошими словами, и с хорошим временем.</string>
+    <string name="faditor_transcribe_prompt_title">Расшифровать это видео?</string>
+    <string name="faditor_transcribe_prompt_message">Сделаю расшифровку с поиском и правкой для клипа, который ты только что добавил. Работает полностью без интернета.</string>
+    <string name="faditor_transcribe_prompt_dont_ask">Больше не спрашивать</string>
+    <string name="faditor_settings_title">Настройки редактора</string>
+    <string name="faditor_settings_ask_transcribe_title">Спрашивать о расшифровке при добавлении видео</string>
+    <string name="faditor_settings_ask_transcribe_desc">Предлагать расшифровать клип сразу после того, как ты добавишь его на таймлайн.</string>
+    <string name="faditor_transcript_working">Работаю…</string>
+    <string name="faditor_transcript_header_audio">Аудио \u00b7 %1$s</string>
+    <string name="faditor_transcript_header_clip">Клип %1$d \u00b7 %2$s</string>
+    <string name="faditor_transcript_source">+ Источник</string>
+    <string name="faditor_transcript_offer_title">Добавь источник расшифровки</string>
+    <string name="faditor_transcript_offer_message">Загрузи или создай расшифровку для выбранного клипа.\n\nИсточник можно добавить и позже: из заголовка расшифровки или кнопкой «+ Источник».</string>
+    <string name="faditor_transcript_offer_dont_show">Больше не показывать</string>
+    <string name="faditor_transcript_image">В этом клипе нет звука для расшифровки</string>
+    <string name="faditor_transcript_empty">Речь не найдена</string>
+    <string name="faditor_transcript_error">Не удалось расшифровать: %1$s</string>
+    <string name="faditor_transcript_cleaned">Вычеркнуто слов-паразитов: %1$d</string>
+    <string name="faditor_transcript_no_edits">Пока ничего не вычеркнуто — удержи слово, чтобы убрать его</string>
+    <string name="faditor_blank_clip_length">Длина чёрного клипа</string>
+    <string name="faditor_motion_start_here">Анимация начинается здесь</string>
+    <string name="faditor_motion_span_whole">Анимация идёт на всём объекте</string>
+    <string name="faditor_motion_end_here">Анимация заканчивается здесь</string>
+    <string name="faditor_zone_in_ends_here">Появление заканчивается здесь</string>
+    <string name="faditor_zone_clear">Без появления и ухода</string>
+    <string name="faditor_zone_out_starts_here">Уход начинается здесь</string>
+    <string name="faditor_blank_clip_added">Чёрный клип добавлен (%1$s)</string>
+    <string name="faditor_add_asset_audio">Аудио</string>
+    <string name="faditor_add_asset_pip">Видео поверх (PiP)</string>
+    <string name="faditor_pip_added">Видео поверх добавлено — перетащи его на превью</string>
+    <string name="faditor_audio_import_added">Аудио добавлено на таймлайн</string>
+    <string name="faditor_audio_import_error">Не удалось прочитать этот аудиофайл</string>
+    <string name="faditor_undo_ai_edits">Правки AI</string>
+    <string name="faditor_heal_success">Пауза склеена без потерь</string>
+    <string name="faditor_heal_error">Здесь не склеить — слишком близко к краю</string>
+    <string name="faditor_heal_title">Склеить паузу вокруг маркера?</string>
+    <string name="faditor_heal_msg">Убрать %1$s вокруг маркера обычным разрезом, без потерь. Можно отменить.</string>
+    <string name="faditor_delete_last_segments">Нельзя удалить единственный отрезок</string>
+    <string name="faditor_crop_custom_ratio_title">Своё соотношение (Ш:В)</string>
+    <string name="faditor_canvas_custom_res_title">Своё разрешение (Ш×В)</string>
+    <string name="faditor_settings_safe_zone_title">Безопасная зона 9:16</string>
+    <string name="faditor_settings_safe_zone_desc">Показывать подсказку только в превью: безопасную область для соцсетей на холсте 9:16 (где не перекрывают кнопки приложения). На экспорт не влияет.</string>
+    <string name="faditor_crop_snap_on">Прилипание к центру включено</string>
+    <string name="faditor_crop_snap_off">Прилипание к центру выключено</string>
+    <string name="faditor_crop_auto_applied">Автообрезка применена</string>
+    <string name="faditor_crop_no_black_bars">Чёрных полос нет, обрезаю по пропорциям</string>
+    <string name="faditor_crop_error">Выбери видеоклип для обрезки</string>
+    <string name="faditor_soft_snap_on">Мягкое прилипание включено</string>
+    <string name="faditor_soft_snap_off">Мягкое прилипание выключено</string>
+    <string name="faditor_export_complete_summary_audio">Твоё аудио сохранено в папке Joy Creator. Найдёшь его в Library.</string>
+    <string name="faditor_reverse_long_loop_later">Реверс для длинных повторов появится позже — пока хвост этого повтора идёт вперёд.</string>
+    <string name="faditor_export_filename_label">Имя файла</string>
+    <string name="faditor_export_result_play">Смотреть только что экспортированное видео</string>
+    <string name="faditor_export_result_open_records">Нажми, чтобы смотреть · Открыть в записях</string>
+    <string name="faditor_export_no_room">На телефоне не хватает места для этого экспорта. Освободи около %1$s (удали старые экспорты или ненужные видео) и попробуй снова. Твой проект в безопасности.</string>
+    <string name="faditor_export_prepare_failed">Не получилось подготовить экспорт — скорее всего, телефону не хватило памяти или места. Закрой другие приложения, освободи место и попробуй снова. Твой проект в безопасности.</string>
+    <string name="faditor_export_snapshot_unreadable">Экспорт не начался: не удалось прочитать твой проект. Попробуй ещё раз. Твой проект в безопасности.</string>
+    <string name="faditor_export_copy_failed_title">Экспорт готов, но не в твоей папке</string>
+    <string name="faditor_export_copy_failed_summary">Скопировать в выбранную папку не получилось (возможно, на телефоне нет места). Твоё видео %1$s в безопасности внутри Joy Creator: найдёшь его в Library.</string>
+    <string name="faditor_export_copy_failed_toast">Видео готово, но скопировать его в выбранную папку не удалось (возможно, на телефоне нет места). Оно в безопасности внутри Joy Creator: найдёшь его в Library.</string>
+    <string name="battery_optimization_off">Экономия заряда выключена</string>
+    <string name="stream_notes_cellular">⚠️ Только Wi-Fi: мобильные сети блокируют входящие подключения, поэтому зритель и этот телефон должны быть в одной сети Wi-Fi.</string>
+    <string name="torchtimer_label">Таймер автовыключения</string>
+    <string name="torchtimer_desc">Вспышка сама выключится через заданное время</string>
+    <string name="torchtimer_off">Выкл.</string>
+    <string name="torchtimer_picker_helper">Таймер запускается, только когда включена вспышка</string>
+    <string name="torchtimer_cancel">Отменить таймер</string>
+    <string name="torchtimer_30s">30 секунд</string>
+    <string name="torchtimer_1m">1 минута</string>
+    <string name="torchtimer_2m">2 минуты</string>
+    <string name="torchtimer_5m">5 минут</string>
+    <string name="torchtimer_10m">10 минут</string>
+    <string name="torchtimer_15m">15 минут</string>
+    <string name="torchtimer_30m">30 минут</string>
+    <string name="torchtimer_1h">1 час</string>
+    <string name="torchtimer_custom_title">Свой таймер</string>
+    <string name="torchtimer_custom_unit_helper">Выбери единицу времени</string>
+    <string name="torchtimer_custom_hint">Введи длительность</string>
+    <string name="torchtimer_custom_minutes_example">Пример: 5 — это 5 минут</string>
+    <string name="torchtimer_custom_hours_example">Пример: 2 — это 2 часа</string>
+    <string name="torchtimer_custom_apply">Применить</string>
+    <string name="torchtimer_custom_error_positive">Длительность должна быть больше 0</string>
+    <string name="torchtimer_custom_error_invalid">Неверное число</string>
+    <string name="setting_on">Вкл.</string>
+    <string name="menu_auto_pause_title">Автопауза, пока меню открыто</string>
+    <string name="button_state_tint_title">Цвет плавающей кнопки при записи</string>
+    <string name="record_no_room_to_start">На телефоне не хватает места для записи. Освободи немного места и попробуй снова.</string>
+    <string name="record_stopped_low_space">Телефон почти полон, поэтому запись остановилась. Всё, что успело записаться, сохранено.</string>
+    <string name="record_stopped_write_problem">Запись больше не удавалось сохранять, поэтому она остановилась. Всё записанное до этого сохранено.</string>
+    <string name="faditor_m12_select_clip_first">Сначала выбери клип на основной дорожке</string>
+    <string name="faditor_m12_select_object_first">Сначала выбери объект на слое</string>
+    <string name="faditor_m12_only_video_images">На основную дорожку можно класть только видео и картинки</string>
+    <string name="faditor_m12_need_one_clip">На основной дорожке должен остаться хотя бы один клип</string>
+    <string name="faditor_m12_moved_to_layer">Перенесено на слой</string>
+    <string name="faditor_m12_moved_to_main">Перенесено на основную дорожку</string>
+    <string name="faditor_m12_undo_to_layer">Перенос на слой</string>
+    <string name="faditor_m12_undo_to_main">Перенос на основную дорожку</string>
+    <string name="faditor_text_decor_section">Стиль</string>
+    <string name="faditor_text_decor_stroke">Контур</string>
+    <string name="faditor_text_decor_glow">Свечение</string>
+    <string name="faditor_text_decor_shadow">Тень</string>
+    <string name="faditor_text_decor_plate">Фон</string>
+    <string name="faditor_mask_action">Маска</string>
+    <string name="faditor_mask_title">Маска</string>
+    <string name="faditor_mask_remove">Убрать</string>
+    <string name="faditor_mask_x">Центр по X</string>
+    <string name="faditor_mask_y">Центр по Y</string>
+    <string name="faditor_mask_w">Ширина</string>
+    <string name="faditor_mask_h">Высота</string>
+    <string name="faditor_mask_round">Скругление</string>
+    <string name="faditor_mask_rotate">Поворот</string>
+    <string name="faditor_mask_soften">Смягчить края</string>
+    <string name="faditor_mask_only_inside">Показывать только внутри рамки</string>
+    <string name="faditor_mask_section_shape">Форма</string>
+    <string name="faditor_kf_outside_span">Чтобы добавить ключевой кадр, поставь маркер над этим клипом</string>
+    <string name="faditor_key_section">Хромакей</string>
+    <string name="faditor_key_enable">Убрать цвет</string>
+    <string name="faditor_key_color">Цвет для удаления</string>
+    <string name="faditor_key_eyedropper">Взять из видео</string>
+    <string name="faditor_key_eyedropper_failed">Не удалось прочитать эту точку — попробуй ещё раз, пока клип на экране</string>
+    <string name="faditor_key_tap_prompt">Нажми на цвет, который нужно убрать</string>
+    <string name="faditor_key_tolerance">Допуск</string>
+    <string name="faditor_key_softness">Мягкость края</string>
+    <string name="faditor_key_spill">Сжатие / расширение</string>
+    <string name="faditor_blend_action">Режим наложения</string>
+    <string name="faditor_blend_title">Режим наложения</string>
+    <string name="faditor_blend_export_note">Режимы наложения применяются при экспорте. В превью слой показан обычным.</string>
+    <string name="faditor_image_inert_mask">Для картинок поверх видео пока не работает — твоя форма сохранится, но ни на превью, ни на экспорт не повлияет.</string>
+    <string name="faditor_image_inert_key">Для картинок поверх видео пока не работает — твой ключ сохранится, но ни на превью, ни на экспорт не повлияет.</string>
+    <string name="faditor_image_inert_fx">Для картинок поверх видео пока не работает — твои эффекты сохранятся, но ни на превью, ни на экспорт не повлияют.</string>
+    <string name="faditor_image_fx_export_note">Размытие и другие эффекты, которым нужен отдельный проход, пропускаются — и при экспорте, и здесь.</string>
+    <string name="faditor_image_mask_export_note">Маски на картинке применяются при экспорте. В превью видна вся картинка, если только у неё нет эффекта, хромакея или режима наложения — тогда маска действует и здесь.</string>
+    <string name="faditor_blend_normal">Обычный</string>
+    <string name="faditor_blend_multiply">Умножение</string>
+    <string name="faditor_blend_screen">Экран</string>
+    <string name="faditor_blend_overlay">Перекрытие</string>
+    <string name="faditor_blend_add">Сложение</string>
+    <string name="faditor_blend_difference">Разница</string>
+    <string name="faditor_blend_color">Цвет</string>
+    <string name="faditor_blend_darken">Затемнение</string>
+    <string name="faditor_blend_lighten">Осветление</string>
+    <string name="faditor_blend_color_dodge">Осветление основы</string>
+    <string name="faditor_blend_color_burn">Затемнение основы</string>
+    <string name="faditor_blend_linear_burn">Линейное затемнение</string>
+    <string name="faditor_blend_hard_light">Жёсткий свет</string>
+    <string name="faditor_blend_soft_light">Мягкий свет</string>
+    <string name="faditor_blend_vivid_light">Яркий свет</string>
+    <string name="faditor_blend_linear_light">Линейный свет</string>
+    <string name="faditor_blend_pin_light">Точечный свет</string>
+    <string name="faditor_blend_hard_mix">Жёсткое смешение</string>
+    <string name="faditor_blend_exclusion">Исключение</string>
+    <string name="faditor_blend_subtract">Вычитание</string>
+    <string name="faditor_blend_divide">Деление</string>
+    <string name="faditor_blend_darker_color">Тёмный цвет</string>
+    <string name="faditor_blend_lighter_color">Светлый цвет</string>
+    <string name="faditor_blend_hue">Цветовой тон</string>
+    <string name="faditor_blend_saturation">Насыщенность</string>
+    <string name="faditor_blend_luminosity">Яркость</string>
+    <string name="faditor_blend_group_normal">Обычные</string>
+    <string name="faditor_blend_group_darken">Затемняющие</string>
+    <string name="faditor_blend_group_lighten">Осветляющие</string>
+    <string name="faditor_blend_group_contrast">Контрастные</string>
+    <string name="faditor_blend_group_comparative">Сравнивающие</string>
+    <string name="faditor_blend_group_color">Цветовые</string>
+    <string name="faditor_orphan_title">Объекты на этом клипе</string>
+    <string name="faditor_orphan_body">Объектов слоя, которые начинались на удалённом клипе: %1$d. Оставить их и прикрепить к следующему клипу или удалить тоже?</string>
+    <string name="faditor_orphan_keep">Оставить</string>
+    <string name="faditor_orphan_delete">Удалить</string>
+    <string name="faditor_orphan_remember">Запомнить мой выбор</string>
+    <string name="faditor_orphan_undo">Удаление объектов слоя</string>
+    <string name="faditor_orphan_removed">Удалено объектов слоя: %1$d</string>
+    <string name="faditor_settings_orphan_title">Объекты на удалённом клипе</string>
+    <string name="faditor_settings_orphan_desc">Что будет с объектами слоя, когда ты удалишь клип, на котором они лежат. Сейчас: %1$s</string>
+    <string name="faditor_settings_orphan_ask">Всегда спрашивать</string>
+    <string name="mini_apps_customize_title">Настроить мини-приложения</string>
+    <string name="mini_apps_show_count">Сколько показывать</string>
+    <string name="mini_apps_show_count_desc">Число мини-приложений на экране</string>
+    <string name="desc_mini_apps_count_minus">Меньше</string>
+    <string name="desc_mini_apps_count_plus">Больше</string>
+    <string name="mini_apps_reorder_footer">Перетащи, чтобы поменять порядок</string>
+    <string name="quick_timer_desc">Описание быстрого таймера</string>
+    <string name="quick_timer_label">Таймер</string>
+    <string name="quick_mute_label">Без звука</string>
+    <string name="grid_lines_title">Линии сетки</string>
+    <string name="grid_lines_subtitle">Показывать линии сетки</string>
+    <string name="desc_mini_apps_edit">Изменить мини-приложения</string>
+    <string name="records_repair_banner_title">Баннер восстановления</string>
+    <string name="records_repair_banner_dismiss">Закрыть</string>
+    <string name="lobby_library">Library</string>
+    <string name="lobby_carry_on">продолжить с того, чего ты касался</string>
+    <string name="lobby_room_studio">Studio</string>
+    <string name="lobby_room_capture">Съёмка</string>
+    <string name="lobby_room_sprites">SpriteLab</string>
+    <string name="lobby_room_avatar">Аватар</string>
+    <string name="lobby_room_viz">VisLab</string>
+    <string name="lobby_room_textlab">TextLab</string>
+    <string name="lobby_room_joybrush">JoyBrush</string>
+    <string name="lobby_hero_new">Новое</string>
+    <string name="lobby_new_recording">Запись</string>
+    <string name="lobby_new_project">Проект</string>
+    <string name="lobby_new_character">Персонаж</string>
+    <string name="lobby_new_import">Импорт</string>
+    <string name="lobby_floor_finder">Поиск</string>
+    <string name="lobby_floor_remote">Пульт</string>
+    <string name="lobby_floor_bits">Мелочи</string>
+    <string name="lobby_floor_packs">Наборы</string>
+    <string name="lobby_floor_setup">Настройка</string>
+    <string name="lobby_empty_studio">Пока ничего не смонтировано. Начни проект, и он будет ждать тебя здесь.</string>
+    <string name="lobby_empty_sprites">Листов пока нет. Принеси рисунок и нарежь его на кадры.</string>
+    <string name="lobby_empty_avatar">Персонажей пока нет. Оснасти картинку — и она оживёт.</string>
+    <string name="lobby_empty_viz">Визуализаторов пока нет. Сделай один из любого звука.</string>
+    <string name="lobby_empty_textlab">Слова как с киноафиши: хром, золото, неон, огонь. Выбери стиль и печатай.</string>
+    <string name="lobby_empty_joybrush">Нарисуй что-нибудь. Всё сохранится само.</string>
+    <string name="lobby_act_carry_on">Продолжить</string>
+    <string name="lobby_act_open">Открыть</string>
+    <string name="lobby_act_record">Записать</string>
+    <string name="lobby_act_start">Начать</string>
+    <string name="lobby_act_new_drawing">Рисовать</string>
+    <string name="intro_line_capture">запись экрана с твоим лицом поверх</string>
+    <string name="intro_line_record">запись видео, даже при выключенном экране</string>
+    <string name="intro_line_editor">настоящий редактор — слои, маски, ключевые кадры</string>
+    <string name="intro_line_animation">анимация — спрайты, риги, куклы</string>
+    <string name="intro_line_transcribe">расшифровка, которая не покидает твой телефон</string>
+    <string name="intro_line_secondcam">второй телефон как камера, по твоему же Wi-Fi</string>
+    <string name="intro_line_ai">AI, который правит настоящий таймлайн</string>
+    <string name="intro_start_creating">Начать творить</string>
+    <string name="intro_support">Поддержать</string>
+    <string name="intro_promise">Без рекламы. Без подписки.\nБез водяных знаков.</string>
+    <string name="intro_promise_ever">Никакой платы за экспорт. Никогда.</string>
+    <string name="intro_story">Я сделал это в перерывах между детскими снами, пока растил троих малышей. Так я кормлю семью. Если тебе это пригодилось, ты можешь помочь сохранить приложение бесплатным для всех остальных.</string>
+    <string name="intro_cta_start">Начать творить</string>
+    <string name="intro_cta_support">Поддержать</string>
+    <string name="intro_ai_note">У Joy Creator нет своих серверов. Если подключишь AI, твои запросы уходят выбранному тобой провайдеру — мы их не видим и ничего не берём.</string>
+    <string name="intro_ai_have_key">Уже есть ключ?</string>
+    <string name="intro_ai_add_now">Добавить сейчас</string>
+    <string name="intro_ai_later">Позже, из чата</string>
+    <string name="desc_select_mode">Режим выбора</string>
+    <string name="desc_delete_selected">Удалить выбранное</string>
+    <string name="desc_cancel_selection">Отменить выбор</string>
+    <string name="desc_select_month">Выбрать этот месяц</string>
+    <string name="desc_watch_remote_toggle">Начать или остановить трансляцию</string>
+    <string name="desc_back">Назад</string>
+    <string name="desc_decrease_named">Уменьшить: %1$s</string>
+    <string name="desc_increase_named">Увеличить: %1$s</string>
+    <string name="desc_pip_expand">Увеличить превью</string>
+    <string name="desc_pip_undock">Открепить: снова сделать превью плавающим</string>
+    <string name="desc_keyframe_toggle">Ключевой кадр на маркере: нажми, чтобы добавить или убрать</string>
+    <string name="desc_transcript_show">Показать расшифровку</string>
+    <string name="desc_transcript_resize">Потяни, чтобы изменить размер панели расшифровки</string>
+    <string name="desc_transcript_search">Поиск по расшифровке</string>
+    <string name="desc_transcript_hide">Скрыть расшифровку</string>
+    <string name="desc_transcript_add_pass">Добавить ещё один проход расшифровки</string>
+    <string name="desc_search_prev">Предыдущий результат поиска</string>
+    <string name="desc_search_next">Следующий результат поиска</string>
+    <string name="desc_crop_auto">Автообрезка чёрных полос</string>
+    <string name="desc_crop_snap_center">Притянуть кадр к центру</string>
+    <string name="desc_volume_keyframe">Ключевые кадры громкости: вкл. или выкл.</string>
+    <string name="desc_volume_mute">Выключить или включить звук выбранного аудио</string>
+    <string name="desc_opacity_keyframe">Ключевые кадры прозрачности: вкл. или выкл.</string>
+    <string name="desc_caption_keyframe">Ключевые кадры стиля субтитров: вкл. или выкл.</string>
+    <string name="desc_keyframe_prev">Предыдущий ключевой кадр</string>
+    <string name="desc_keyframe_next">Следующий ключевой кадр</string>
+    <string name="desc_keyframe_delete">Удалить ключевой кадр</string>
+    <string name="desc_keyframe_playhead">Добавить, обновить или убрать ключевой кадр на маркере</string>
+    <string name="desc_move_go">Переместить клип на введённую позицию</string>
+    <string name="desc_word_earlier">Сдвинуть слово на кадр раньше</string>
+    <string name="desc_word_later">Сдвинуть слово на кадр позже</string>
+    <string name="desc_word_center">Центрировать на этом слове</string>
+    <string name="desc_hide_captions_clip">Скрыть субтитры только для этого клипа</string>
+    <string name="desc_insert_playhead">Вставить выбранный файл на маркер</string>
+    <string name="desc_layer_colour">Задать цвет слоя</string>
+    <string name="desc_visualizer_save">Сохранить этот стиль визуализатора</string>
+    <string name="desc_visualizer_export">Экспортировать этот стиль визуализатора в файл</string>
+    <string name="desc_visualizer_import">Импортировать стиль визуализатора из файла</string>
+    <string name="desc_wave_justify">Выравнивание по вертикали</string>
+    <string name="desc_wave_data_mode">Режим данных</string>
+    <string name="desc_wave_mirror">Отразить по горизонтали</string>
+    <string name="desc_wave_center_mode">Режим центра</string>
+    <string name="desc_wave_render_mode">Режим отрисовки</string>
+    <string name="desc_wave_attach">Прикрепить к клипу или открепить</string>
 </resources>

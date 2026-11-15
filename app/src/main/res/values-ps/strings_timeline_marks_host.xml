@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_timeline_marks_host.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="markers_host_bookmark_number">نښه %1$d</string>
+    <string name="markers_host_add_bookmark">نښه زیاته کړئ</string>
+    <string name="markers_host_save_failed">د ټایم لاین نښې ونه ساتل شوې. ستاسو پخوانۍ نښې ساتل شوې دي.</string>
+    <string name="markers_host_export_named">%1$d نومول شوې سیمې به د جلا فایلونو په توګه صادر شي.</string>
+    <string name="markers_host_region_filenames">د هرې سیمې نوم وکاروئ</string>
+    <string name="markers_host_export_invalid">سیمې صادرې نه شوې: %1$s</string>
+    <string name="markers_host_export_queued">%1$d د سیمو صادرول په کتار کې دي</string>
+    <string name="markers_host_bookmark_hint">د نښې د ایښودو لپاره وټکوئ؛ د نښو او سیمو لپاره ونیسئ</string>
+</resources>

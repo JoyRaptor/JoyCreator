@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">Σχετικά</string>
+    <string name="aboutjoy_back">Πίσω</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">Ένα στούντιο για ό,τι φτιάχνεις.</string>
+    <string name="aboutjoy_tagline_sub">Επεξεργασία, ζωγραφική, animation και εγγραφή, όλα στο κινητό σου.</string>
+    <string name="aboutjoy_version_label">Έκδοση</string>
+    <string name="aboutjoy_build">Build %1$s · %2$s</string>
+    <string name="aboutjoy_check">Έλεγχος για ενημερώσεις</string>
+    <string name="aboutjoy_check_hint">Ψάξε online για νεότερο Joy Creator</string>
+    <string name="aboutjoy_checking">Έλεγχος…</string>
+    <string name="aboutjoy_up_to_date">Έχεις την τελευταία έκδοση.</string>
+    <string name="aboutjoy_update_ready">Η έκδοση %1$s είναι έτοιμη.</string>
+    <string name="aboutjoy_beta_ready">Έχεις την τελευταία έκδοση. Κυκλοφορεί και μια beta, η %1$s.</string>
+    <string name="aboutjoy_get_beta">Πάρε την beta</string>
+    <string name="aboutjoy_update_failed">Δεν μπόρεσα να ελέγξω τώρα. Δοκίμασε ξανά σε λίγο.</string>
+    <string name="aboutjoy_wings_label">Τα φτερά</string>
+    <string name="aboutjoy_wing_studio">Κόψε βίντεο και ήχο σε χρονοδιάγραμμα</string>
+    <string name="aboutjoy_wing_joybrush">Ζωγράφισε και φτιάξε animation, καρέ-καρέ</string>
+    <string name="aboutjoy_wing_sprites">Φτιάξε φύλλα sprite και χαρακτήρες</string>
+    <string name="aboutjoy_wing_capture">Κατέγραψε την κάμερα ή την οθόνη</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Ο βοηθός σου, σε κάθε δωμάτιο</string>
+    <string name="aboutjoy_wing_viz">Μετάτρεψε τον ήχο σε κινούμενες εικόνες</string>
+    <string name="aboutjoy_soon">Σύντομα</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">Απόρρητο</string>
+    <string name="aboutjoy_privacy_toggle">Εμφάνιση ή απόκρυψη των απαντήσεων για το απόρρητο</string>
+    <string name="aboutjoy_open_label">Ανοιχτός κώδικας</string>
+    <string name="aboutjoy_based_on">Βασισμένο στο FadCam από το FadSec Lab</string>
+    <string name="aboutjoy_source_hint">Άνοιξε τον πηγαίο κώδικα στον browser σου</string>
+    <string name="aboutjoy_made_by">Δημιουργός</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Κλασικό Σχετικά</string>
+    <string name="aboutjoy_classic_hint">Άνοιγμα της παλιάς οθόνης Σχετικά</string>
+    <string name="aboutjoy_no_browser">Δεν υπάρχει browser για να ανοίξει αυτός ο σύνδεσμος</string>
+</resources>

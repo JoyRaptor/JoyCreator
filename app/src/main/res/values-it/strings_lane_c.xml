@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Altro ⌄</string>
+    <string name="faditor_lc_drawer_grip">Maniglia del cassetto. Trascina per ridimensionare, tocca per mostrare di più o chiudere</string>
+    <string name="faditor_lc_fx_expand">Mostra le impostazioni di questo effetto</string>
+    <string name="faditor_lc_fx_collapse">Nascondi le impostazioni di questo effetto</string>
+    <string name="faditor_lc_fx_bypass">Salta effetto</string>
+    <string name="faditor_lc_fx_enable">Attiva effetto</string>
+    <string name="faditor_lc_fx_delete">Elimina effetto</string>
+    <string name="faditor_lc_fx_reorder">Tieni premuto e trascina per riordinare</string>
+    <string name="faditor_lc_key_prev">Keyframe precedente</string>
+    <string name="faditor_lc_key_next">Keyframe successivo</string>
+    <string name="faditor_lc_key_diamond">Keyframe. Tocca per aggiungere o togliere, tieni premuto per cancellarli tutti</string>
+    <string name="faditor_lc_ease_need_keys">Prima metti dei keyframe</string>
+    <string name="faditor_lc_motion_title">Movimento</string>
+    <string name="faditor_lc_motion_by">Anima per</string>
+    <string name="faditor_lc_gran_letter">Lettera</string>
+    <string name="faditor_lc_gran_word">Parola</string>
+    <string name="faditor_lc_gran_sentence">Frase</string>
+    <string name="faditor_lc_gran_block">Blocco</string>
+    <string name="faditor_lc_sheet_grip">Maniglia del pannello. Tocca o trascina in su per tutte le impostazioni, trascina in giù per chiudere</string>
+    <string name="faditor_lc_sheet_legend">Cosa significano le forme dei keyframe</string>
+    <string name="faditor_lc_sheet_more">Altro…</string>
+    <string name="faditor_lc_sheet_move_to">Sposta a</string>
+    <string name="faditor_lc_sheet_jump">Scrivi un tempo a cui saltare</string>
+    <string name="faditor_lc_sheet_push">Spingi oltre</string>
+    <string name="faditor_lc_sheet_snap">Aggancia</string>
+    <string name="faditor_lc_sheet_static_hint">Fisso — tocca ♦ per animare</string>
+</resources>

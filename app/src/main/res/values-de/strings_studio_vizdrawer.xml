@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_studio_vizdrawer.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_viz_sec_shape">Form</string>
+    <string name="studio_viz_sec_colour">Farbe</string>
+    <string name="studio_viz_sec_look">Look</string>
+    <string name="studio_viz_sec_motion">Bewegung</string>
+    <string name="studio_viz_opacity">Deckkraft</string>
+    <string name="studio_viz_softness">Weichheit</string>
+    <string name="studio_viz_gain">Verstärkung</string>
+    <string name="studio_viz_spread">Streuung</string>
+    <string name="studio_viz_blend">Mischung</string>
+    <string name="studio_viz_mirror">Spiegeln</string>
+    <string name="studio_viz_trails">Schweife</string>
+    <string name="studio_viz_phase">Phase</string>
+    <string name="studio_viz_attack">Anstieg</string>
+    <string name="studio_viz_release">Abfall</string>
+    <string name="studio_viz_glow">Leuchten</string>
+    <string name="studio_viz_radius">Radius</string>
+    <string name="studio_viz_count">Anzahl</string>
+    <string name="studio_viz_speed">Tempo</string>
+    <string name="studio_viz_hover_attack">Anstieg: wie schnell er steigt, in ms</string>
+    <string name="studio_viz_hover_release">Abfall: wie schnell er fällt, in ms</string>
+    <string name="studio_viz_hover_radius">Leuchtradius</string>
+    <string name="studio_viz_hover_count">Anzahl der Partikel</string>
+    <string name="studio_viz_hover_speed">Tempo der Partikel</string>
+    <string name="studio_viz_value_ms">%1$dms</string>
+    <string name="studio_viz_value_deg">%1$d°</string>
+</resources>

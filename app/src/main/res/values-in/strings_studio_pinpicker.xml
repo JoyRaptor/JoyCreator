@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">Ikuti apa?</string>
+    <string name="studio_pinpick_hint">Ketuk titik bernomor, atau pilih dari daftar.</string>
+    <string name="studio_pinpick_whole">Gambarnya sendiri</string>
+    <string name="studio_pinpick_pin_n">Pin %1$d</string>
+    <string name="studio_pinpick_diagram">Posisi tiap pin pada gambar. Ketuk titik untuk mengikuti pin itu.</string>
+    <string name="studio_pinpick_dot_n">Ikuti pin %1$d</string>
+    <string name="studio_pinpick_cancel">Batal</string>
+</resources>

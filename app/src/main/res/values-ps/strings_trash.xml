@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">وروستي ړنګ شوي</string>
+    <string name="trash_close">وروستي ړنګ شوي وتړئ</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d توکی</item>
+        <item quantity="other">%d توکي</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d غوره شو</item>
+        <item quantity="other">%d غوره شول</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · پوښۍ لوستل کېږي</string>
+    <string name="trash_notice_unreachable">ستاسو د Joy Creator پوښۍ ته همدا اوس نه شي رسېدلی، نو یوازې هغه څه ښودل کېږي چې په اپ دننه ړنګ شوي.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">%d ورځ پاتې ده</item>
+        <item quantity="other">%d ورځې پاتې دي</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">%d ساعت پاتې دی</item>
+        <item quantity="other">%d ساعتونه پاتې دي</item>
+    </plurals>
+    <string name="trash_left_soon">ډېر ژر ځي</string>
+    <string name="trash_left_kept">ساتل شوی</string>
+    <string name="trash_a11y_card">%1$s. %2$s، %3$s.</string>
+    <string name="trash_a11y_selected">غوره شو.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">%d ورځ ساتل کېږي، بیا د تل لپاره ړنګېږي.</item>
+        <item quantity="other">%d ورځې ساتل کېږي، بیا د تل لپاره ړنګېږي.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">%d ساعت ساتل کېږي، بیا د تل لپاره ړنګېږي.</item>
+        <item quantity="other">%d ساعتونه ساتل کېږي، بیا د تل لپاره ړنګېږي.</item>
+    </plurals>
+    <string name="trash_rule_never">تر هغه ساتل کېږي چې تاسو یې ړنګ کړئ.</string>
+    <string name="trash_rule_now">سمدلاسه د تل لپاره ړنګېږي.</string>
+    <string name="trash_hold_hint">د بیرته راوړلو یا ړنګولو لپاره د شیانو غوره کولو لپاره ونیسئ.</string>
+    <string name="trash_stop_selecting">غوره کول ودروئ</string>
+    <string name="trash_restore">بیرته راوړل</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">%d توکی بیرته راوړئ</item>
+        <item quantity="other">%d توکي بیرته راوړئ</item>
+    </plurals>
+    <string name="trash_delete_forever">د تل لپاره ړنګول</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">%d توکی د تل لپاره ړنګ کړئ</item>
+        <item quantity="other">%d توکي د تل لپاره ړنګ کړئ</item>
+    </plurals>
+    <string name="trash_open_failed">دا ونه پرانیستل شو.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">%d توکی د تل لپاره ړنګ کړو؟</item>
+        <item quantity="other">%d توکي د تل لپاره ړنګ کړو؟</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">ټوکرۍ خالي کړو؟ %d توکی د تل لپاره ځي.</item>
+        <item quantity="other">ټوکرۍ خالي کړو؟ ټول %d توکي د تل لپاره ځي.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d توکی له دې زوړ دی او همدا اوس د تل لپاره ځي.</item>
+        <item quantity="other">%d توکي له دې زاړه دي او همدا اوس د تل لپاره ځي.</item>
+    </plurals>
+    <string name="trash_confirm_undone">دا بیرته نه شي کېدای.</string>
+    <string name="trash_confirm_keep">ساتل</string>
+    <string name="trash_confirm_empty_button">ټوکرۍ خالي کړئ</string>
+    <string name="trash_confirm_rule_button">بدل کړئ او ړنګ کړئ</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">%d توکی بیرته راوړئ</item>
+        <item quantity="other">%d توکي بیرته راوړئ</item>
+    </plurals>
+    <string name="trash_restore_where">وټاکئ چې ریکارډونه چېرته ځي.</string>
+    <string name="trash_restore_where_mixed">وټاکئ چې ریکارډونه چېرته ځي. پروژې، انځورونه او نور فایلونه هلته بیرته ځي چېرته چې ستاسو په Joy Creator پوښۍ کې وو.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">%d توکی بیرته راغی.</item>
+        <item quantity="other">%d توکي بیرته راغلل.</item>
+    </plurals>
+    <string name="trash_done_restored_part">د %2$d څخه %1$d بیرته راغلل. پاتې بیرته نه شول راوړل کېدای.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">%d توکی د تل لپاره ړنګ شو.</item>
+        <item quantity="other">%d توکي د تل لپاره ړنګ شول.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">ځینې توکي ونه ړنګېدل.</string>
+    <string name="trash_done_emptied">ټوکرۍ خالي شوه.</string>
+    <string name="trash_done_empty_failed">ټوکرۍ په بشپړ ډول خالي نه شوه.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d زوړ توکی د تل لپاره ړنګ شو.</item>
+        <item quantity="other">%d زاړه توکي د تل لپاره ړنګ شول.</item>
+    </plurals>
+    <string name="trash_options">غوره کول، خالي کول او نور</string>
+    <string name="trash_options_title">وروستي ړنګ شوي</string>
+    <string name="trash_opt_select_all">ټول غوره کړئ</string>
+    <string name="trash_opt_rule">وروسته له دې د تل لپاره ړنګ کړئ · %1$s</string>
+    <string name="trash_opt_empty">ټوکرۍ خالي کړئ</string>
+    <string name="trash_opt_classic">پخوانۍ ټوکرۍ</string>
+    <string name="trash_rule_title">وروسته له دې د تل لپاره ړنګ کړئ</string>
+    <string name="trash_empty_all">په ټوکرۍ کې هېڅ نشته. هغه څه چې ړنګ کړئ دلته انتظار باسي مخکې له دې چې د تل لپاره ولاړ شي.</string>
+    <string name="trash_empty_projects">ړنګ شوې پروژې نشته.</string>
+    <string name="trash_empty_drawings">ړنګ شوي انځورونه نشته.</string>
+    <string name="trash_empty_recordings">ړنګ شوي ریکارډونه یا ویډیوګانې نشته.</string>
+    <string name="trash_empty_photos">ړنګ شوي عکسونه یا انځورونه نشته.</string>
+    <string name="trash_empty_other">په ټوکرۍ کې بل هېڅ نشته.</string>
+    <string name="trash_empty_show_all">ټول وښایاست</string>
+</resources>

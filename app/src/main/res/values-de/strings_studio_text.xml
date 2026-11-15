@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Zum Neuverknüpfen tippen</string>
+    <string name="studio_text_keyframe">Keyframe</string>
+    <string name="studio_text_lane_1">Spur 1</string>
+    <string name="studio_text_current_position">Aktuelle Position</string>
+    <string name="studio_text_tap_the_time_to_type">Tippe auf die Zeit, um einen genauen Wert einzugeben · ◄ ► ±1 Bild verschieben</string>
+    <string name="studio_text_one">EINS</string>
+    <string name="studio_text_snap">RASTEN</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Balken</string>
+    <string name="studio_text_width">Breite</string>
+    <string name="studio_text_gap">Abstand</string>
+    <string name="studio_text_lanes">Spuren</string>
+    <string name="studio_text_karaoke_one_word_per_line">Karaoke — ein Wort pro Zeile (Timing pro Wort):</string>
+    <string name="studio_text_copy_example">Beispiel kopieren</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Folie — ein Block pro Zeitmarke (der ganze Vers erscheint auf einmal):</string>
+    <string name="studio_text_none">Keine</string>
+    <string name="studio_text_backing_box">Hinterlegte Box</string>
+    <string name="studio_text_hide_this_track">Diese Spur ausblenden</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Keine Animation (zurücksetzen) — zentriert, füllend skaliert, statisch</string>
+    <string name="studio_text_also_apply_caption_position_to">Untertitelposition auch auf alle Clips anwenden</string>
+    <string name="studio_text_also_apply_caption_size_to">Untertitelgröße auch auf alle Clips anwenden</string>
+    <string name="studio_text_sensitivity">Empfindlichkeit</string>
+    <string name="studio_text_snap_to_beats">An Beats einrasten</string>
+    <string name="studio_text_reference_clip_stays">Referenz-Clip (bleibt)</string>
+    <string name="studio_text_clip_to_move">Clip zum Verschieben</string>
+    <string name="studio_text_release_the_slider_to_preview">Lass den Regler los, um die Lücken in der Zeitleiste vorab zu sehen</string>
+    <string name="studio_text_scanning">Wird gescannt…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Das Audio ließ sich nicht scannen</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Einfügen</string>
+    <string name="studio_text_insert_2">Einfügen &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Bild für die Zeitleiste wählen (zum Auswählen tippen, nummeriert — als Clip)</string>
+    <string name="studio_text_browse_files">Dateien durchsuchen…</string>
+    <string name="studio_text_add_0">Hinzufügen (0)</string>
+</resources>

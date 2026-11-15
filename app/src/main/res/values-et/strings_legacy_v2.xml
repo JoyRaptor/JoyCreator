@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">Mis on uut</string>
+    <string name="legacyv2_whatsnew_intro">Uued funktsioonid, parandused ja vigade parandused selles versioonis.</string>
+    <string name="legacyv2_whatsnew_reenable">Lülita uuesti sisse: Seaded → lüliti \'Näita tutvustust\'</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">Valmis %d sekundi pärast...</item>
+        <item quantity="other">Valmis %d sekundi pärast...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">Nüüd võid selle sulgeda</string>
+    <string name="legacyv2_whatsnew_got_it">Selge</string>
+    <string name="legacyv2_whatsnew_progress_desc">Kui kaugele märkmetes oled kerinud</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">Uus selles versioonis</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">Uuendan versioonilt %1$s versioonile %2$s</string>
+    <string name="legacyv2_mode_option_desc">Näita seadeid: %1$s</string>
+</resources>

@@ -118,6 +118,7 @@ internal object ZipCarry {
          * CRC-32 of the bytes written for it (the compressed ones), which a later save checks before carrying them.
          */
         fun fresh(name: String, bytes: ByteArray, level: Int): Long {
+            check(!finished) { "this zip is finished" }
             val crc = CRC32().also { it.update(bytes) }.value
             if (level < 0) {
                 begin(name, STORED, crc, bytes.size.toLong(), bytes.size.toLong())

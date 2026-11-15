@@ -239,7 +239,9 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
 
     /** Keep the last row and the empty note clear of the dock, wherever the keyboard has lifted it. */
     private void pad() {
-        if (list == null) return;
+        // Posted from layout and keyboard callbacks; leaving for Classic settings detaches the hub before it runs
+        // (Note 9 11-15: "not attached to a context" crash). Nothing to pad once it is gone.
+        if (list == null || !isAdded()) return;
         int bottom = dockHeight + lift;
         list.setPadding(list.getPaddingLeft(), list.getPaddingTop(), list.getPaddingRight(),
                 bottom + SettingsViews.dp(requireContext(), 8));

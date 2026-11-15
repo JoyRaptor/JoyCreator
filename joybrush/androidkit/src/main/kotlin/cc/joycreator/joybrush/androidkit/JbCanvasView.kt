@@ -2641,15 +2641,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     var keepDrawnStrokes = false
 
     /**
-     * A brush's settings preview only: pencil, watercolour and oil in a small atlas ([PREVIEW_SLOTS]) and watercolour off the
-     * wet sheet (in-layer water), so this second canvas never holds a drawing's worth of graphics memory. Set before its
+     * A brush's settings preview only: pencil and oil in the smallest atlas a drawing gets ([PREVIEW_SLOTS]), never one sized
+     * by the phone's memory. Watercolour goes on the wet sheet as in a drawing; the sheet is the size of THIS view (the small
+     * stage), not the screen (11-15: in the atlas a big watercolour's test curve did not fit even at 6 x 4). Set before its
      * first stroke. Off for the drawing.
      */
     var smallMediaPreview = false
         set(v) {
             field = v
             mediaCanvas.slotGrid = if (v) PREVIEW_SLOTS else null
-            mediaCanvas.sheetAllowed = !v
         }
 
     val drawnStrokes = ArrayList<List<PenSample>>()

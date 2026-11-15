@@ -19,6 +19,10 @@ internal object TextureNameReuseProbe {
     fun measure(): JSONObject {
         val o = JSONObject()
         val one = IntArray(1)
+        // The engine remembers what it bound: this leaves the unit and its binding exactly as it found them.
+        val was = IntArray(2)
+        GLES30.glGetIntegerv(GLES30.GL_ACTIVE_TEXTURE, was, 0)
+        GLES30.glGetIntegerv(GLES30.GL_TEXTURE_BINDING_2D, was, 1)
 
         // A: delete a name, ask for one at once.
         var immediate = 0
@@ -77,7 +81,8 @@ internal object TextureNameReuseProbe {
             }
         }
         o.put("secondDeleteKilledNewOwner", killed)
-        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
+        GLES30.glActiveTexture(was[0])
+        GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, if (GLES30.glIsTexture(was[1])) was[1] else 0)
         o.put("renderer", GLES30.glGetString(GLES30.GL_RENDERER) ?: "")
         o.put("glError", GLES30.glGetError())
         return o

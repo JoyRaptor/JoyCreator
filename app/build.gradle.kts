@@ -103,7 +103,9 @@ android {
                 "proguard-rules.pro"
             )
             isDebuggable = false
-            signingConfig = signingConfigs.getByName("release")
+            // Signed only where the upload key is (this PC). Elsewhere (the GitHub cloud build) the release comes
+            // out unsigned and is signed afterwards on the PC; an empty signing config made the bundle task crash.
+            signingConfig = if (releaseSigningConfigValid) signingConfigs.getByName("release") else null
         }
         
     }

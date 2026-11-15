@@ -14,6 +14,9 @@ the "iPhone fans like it" part of the front door.
 Moods (idle, listen, think, work, talk, excited, show, oops) and places are built and played with two
 stills; a sheet loader exists and maps animations by name. The owner is drawing the sheet.
 
+## 11-14: Report this reply
+- A flag on Joybot's answers saves the reply and question to `Joybot/Reports/` and opens a prefilled email (Play's AI-content rule, [OWNER_CLICKS](../store/OWNER_CLICKS.md) section 6). Contact address is the stand-in `studio@joycreator.cc`.
+
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
 - [ ] Fly-to-corner and show-off moves.

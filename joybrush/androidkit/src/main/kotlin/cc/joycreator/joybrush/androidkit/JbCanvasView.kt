@@ -686,7 +686,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * How much pencil, watercolour and oil state (bytes of store tiles, uncompressed) a save keeps as workable paint; past
      * it the oldest paint is saved as its picture ([GlPaintEngine.mediaTilesToSave]). The screen sets it for the phone.
      */
-    @Volatile var savePaintBudgetBytes: Long = 128L shl 20
+    @Volatile var savePaintBudgetBytes: Long = cc.joycreator.joybrush.core.layers.LayerBudget.SAVE_PAINT_MAX_BYTES
 
     /** Bench only: lets go of what [benchHogGpu] took. */
     fun benchUnhogGpu() {

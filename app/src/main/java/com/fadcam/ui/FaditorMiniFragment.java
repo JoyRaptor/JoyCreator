@@ -1156,7 +1156,7 @@ public class FaditorMiniFragment extends BaseFragment {
             exportDockOk.postDelayed(() -> {
                 if (exportDockOk != null) {
                     exportDockOk.setVisibility(View.VISIBLE);
-                    exportDockOk.animateSlot(getString(R.string.records_delete_header_action_ok), 300);
+                    exportDockOk.animateSlot(exportDockOk.getContext().getString(R.string.records_delete_header_action_ok), 300);
                     exportDockOk.setAlpha(0f);
                     exportDockOk.animate()
                             .alpha(1f)
@@ -1276,7 +1276,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Show OK button to dismiss
         if (exportDockOk != null) {
             exportDockOk.setVisibility(View.VISIBLE);
-            exportDockOk.animateSlot(getString(R.string.records_delete_header_action_ok), 300);
+            exportDockOk.animateSlot(exportDockOk.getContext().getString(R.string.records_delete_header_action_ok), 300);
         }
     }
 
@@ -1393,7 +1393,7 @@ public class FaditorMiniFragment extends BaseFragment {
         // Show OK button to dismiss
         if (exportDockOk != null) {
             exportDockOk.setVisibility(View.VISIBLE);
-            exportDockOk.animateSlot(getString(R.string.records_delete_header_action_ok), 300);
+            exportDockOk.animateSlot(exportDockOk.getContext().getString(R.string.records_delete_header_action_ok), 300);
         }
     }
 }

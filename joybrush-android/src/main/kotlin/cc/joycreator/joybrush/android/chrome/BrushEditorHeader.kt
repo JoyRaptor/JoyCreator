@@ -60,7 +60,7 @@ class BrushEditorHeader(
                     text = g.label; textSize = 11f; setSingleLine(true)
                     importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
                 }, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
-                kit.label(this, g.label)
+                kit.label(this, "Go to ${g.label} settings")
                 setOnClickListener { active = g; onGroup(g) }
             }
             row.addView(pill, LayoutParams(LayoutParams.WRAP_CONTENT, kit.dpi(32f)).apply { if (pills.isNotEmpty()) leftMargin = kit.dpi(3f) })

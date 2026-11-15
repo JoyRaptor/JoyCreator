@@ -16,7 +16,7 @@ Library reads it, share-in, big outside files linked with a warning and a yellow
 the Space screen. Live spec: [`SPEC_20261013_FILE_MANAGEMENT.md`](../SPEC_20261013_FILE_MANAGEMENT.md) §4 (proof per piece) and §6 (open list).
 
 ## What is left
-- [ ] Undo after a Move: needs an outside file over 25 MB (smaller files are copied, not linked).
+- [x] Undo after a Move: 11-15 PASS on the test Fold with a 44 MB file (Joybot Copy / Move / Leave card; Studio Undo then Redo kept the clip and its picture; the original is not put back in Downloads, which is the Move). [Report](../audits/device_checks_20261115.md).
 - [ ] Space → "Move unused to Trash…" (multi-select): compiles, never on the phone.
 - [x] 11-10 Share-in of a large file (over 25 MB) now asks Copy / Move / Leave (`ShareInActivity`, reusing `BringInDialog.Choice` + `OriginalsRemover`). Leave links only when the sharing app allows a lasting grant, else copies with a note. **Note 9 11-10 PASS** (a throwaway 31 MB file sent by an intent): the card "This is a large file (31 MB)" appears with Copy / Move / Leave / Cancel; Leave saved nothing in the folder and said "linked, not copied"; Move put a copy in the folder and removed the original. The first try exposed a bug (a `file://` share reported no size, so it skipped the choice); fixed by reading the size from the file. Not tried: Leave on a `content://` share whose app refuses a lasting link (falls back to copy; code path only), and Undo after a Move.
 - [x] 11-10 Space → "Move unused to Trash…" PASS on the Note 9: the list pre-ticks every unused file (careful on a real phone); with only my throwaway ticked, "1 file moved to Trash", the folder went 643 → 611 MB, the file left the folder, the Trash showed it.

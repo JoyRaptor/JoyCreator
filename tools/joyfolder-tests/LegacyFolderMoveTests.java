@@ -109,6 +109,8 @@ public final class LegacyFolderMoveTests {
         List<String> plan = LegacyFolderMove.plan(w.roots());
         check(plan.size() == 2, "the plan lists every file");
         check(plan.get(0).startsWith("would-move\t" + v.getPath()), "the plan says from where");
+        check(plan.get(0).split("\t")[2].equals(new File(w.newDir, "a.mp4").getPath()), "and to where, for a single file");
+        check(plan.get(1).split("\t")[2].equals(new File(w.newProjects, "FadRec_1/project.fadrec").getPath()), "and to where, inside a folder");
         check(v.isFile() && !w.newDir.exists() && !w.logFile.exists(), "the dry run touches nothing");
     }
 

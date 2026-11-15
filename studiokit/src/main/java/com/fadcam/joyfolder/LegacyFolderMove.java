@@ -131,9 +131,11 @@ public final class LegacyFolderMove {
             Arrays.sort(units);
             for (File unit : units) {
                 if (unit.getName().endsWith(PARTIAL)) continue;
-                File dest = new File(r.fresh, unit.getName());
+                File dest = unit.isFile() ? r.fresh : new File(r.fresh, unit.getName());
                 for (File f : filesUnder(unit)) {
-                    out.add("would-move\t" + f.getPath() + "\t" + new File(dest, relative(unit, f)).getPath());
+                    File to = new File(dest, relative(unit, f));
+                    out.add("would-move\t" + f.getPath() + "\t" + to.getPath()
+                            + (to.exists() ? "\ta file of that name is already there: a different file gets a new name" : ""));
                 }
             }
         }

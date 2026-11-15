@@ -335,7 +335,7 @@ footer b{color:var(--dim)}
 <!-- ========== 01b YOUR PATHS ========== -->
 <section>
   <div class="h2"><span>01b</span><h2>Your six paths</h2></div>
-  <p class="dek">The paths you drew on 14 Nov, read straight from your SVG. Each is <b>stretched</b> so it always starts on the Joybot button and ends on his spot, on any screen: a phone, a tablet panel, sideways. Every open picks one he has not just flown. He pivots on <b>his body</b>, not his hover peg, so he swivels. Near the ground he always rights himself. His thruster puffs <b>plasma rings</b> sized by how hard he has to push: almost none in a dive, big ones in a braking burn, small steady ones while he hovers; they drift off his bottom and fade to pink smoke. All three directions now use them; the old tumble, loop and skim are still under "Flight" to compare.</p>
+  <p class="dek">The paths you drew on 14 Nov, read straight from your SVG. Each is <b>stretched</b> so it always starts on the Joybot button and ends on his spot, on any screen: a phone, a tablet panel, sideways. Every open picks one he has not just flown. He pivots on <b>his body</b>, not his hover peg, so he swivels. Near the ground he always rights himself. Flying in he <b>sizzles</b>: plasma sparks, glints and a trail of afterimages. On a <b>steep last leg</b> he flips feet-first and fires his <b>reverse thrusters</b>, a rapid burst of rings, and is done before the end; on a skim along the floor he never fires them. Once in place it all settles to a <b>calm glow</b> and a slow puff now and then. Landings take turns between your two favourites, <b>plop</b> and <b>skim</b>. All three directions now use them; the old tumble, loop and skim are still under "Flight" to compare.</p>
   <div class="fit"><div class="scale" id="ownHost"></div></div>
   <div class="ctrls" style="justify-content:center">
     <button type="button" class="mini" data-act="replay" data-for="own" title="Fly another of your paths"><svg class="ic"><use href="#i-play"></use></svg>Another path</button>
@@ -454,9 +454,10 @@ var PARTS = [
     {v:'skim',   n:'Dive and skim', s:'Head first down the right side, pulls up over the input and skims to the left, leaning, then brakes.'}]},
   {k:'approach', t:'Final approach', d:'How he comes down at the end of one of your paths.', o:[
     {v:'rocket', n:'Rocket landing', s:'Head first down the path, then he flips feet-first and slows right down on his thrust, like a SpaceX booster, and touches down.'},
-    {v:'plop',   n:'Plop', s:'Head first nearly all the way, a last-moment flip and a hard plop onto his spot.'},
-    {v:'scoot',  n:'Drop and scoot', s:'He drops in just beside his spot, then scoots across on his hover and settles into place.'},
-    {v:'mix',    n:'Any of the three', s:'A different landing each time too.'}]},
+    {v:'plop',   n:'Plop', s:'Head first, then on the steep last stretch he flips and fires his reverse thrusters in a rapid burst of rings, cuts them before the end and plops the last bit onto his spot.'},
+    {v:'scoot',  n:'Skim in', s:'He rights himself low, touches down just beside his spot and skims across on his hover into it, sparks skidding off the floor. No reverse thrust.'},
+    {v:'both',   n:'Plop or skim, taking turns', s:'Your two favourites (14 Nov): a plop one time, a skim the next.'},
+    {v:'mix',    n:'Any of the three', s:'Rocket, plop or skim, a different one each time.'}]},
   {k:'pad', t:'His spot', d:'What marks the place he lands.', o:[
     {v:'ring',   n:'Landing ring', s:'A small pink ring, like his hover rings, that flashes when he touches down.'},
     {v:'seat',   n:'A seat in the bottom row', s:'He sits at the start of the suggestion row; the suggestions start after him.'},
@@ -475,15 +476,15 @@ var PARTS = [
     {v:'card',  n:'Floating card',     s:'A tall card at the right, inset like the phone\'s inset card.'}]}
 ];
 var DIRS = [
-  {n:1, t:'Curtain call', c:{frame:'full', bar:'frost', title:'sheet', reveal:'curtain', flight:'yours', approach:'rocket', pad:'ring', squash:'cartoon', later:'hop', tablet:'right'},
+  {n:1, t:'Curtain call', c:{frame:'full', bar:'frost', title:'sheet', reveal:'curtain', flight:'yours', approach:'both', pad:'ring', squash:'cartoon', later:'hop', tablet:'right'},
    why:['The drawer drops like a curtain and he tumbles out ahead of it: the most "show" of the three, and the easiest to read at a glance.',
         'The glass band and purple room line make the chat a room like the others.'],
    cost:['Full sheet: the lobby is only seen through the glass.']},
-  {n:2, t:'Out of the portal', c:{frame:'card', bar:'none', title:'orb', reveal:'portal', flight:'yours', approach:'plop', pad:'shadow', squash:'bouncy', later:'trim', tablet:'card'},
+  {n:2, t:'Out of the portal', c:{frame:'card', bar:'none', title:'orb', reveal:'portal', flight:'yours', approach:'both', pad:'shadow', squash:'bouncy', later:'trim', tablet:'card'},
    why:['Everything comes out of the button you pressed: the drawer, the title and him. The clearest link from tap to chat.',
         'Big JOYBOT title like a Studio room; the inset card keeps the lobby round the edges.'],
-   cost:['The big title costs about 50 dp of message room on a phone.', 'Plop is the hardest landing; best with a shorter later open.']},
-  {n:3, t:'Low sheet, skim landing', c:{frame:'low', bar:'solid', title:'letters', reveal:'wake', flight:'yours', approach:'scoot', pad:'seat', squash:'gentle', later:'hop', tablet:'right'},
+   cost:['The big title costs about 50 dp of message room on a phone.', 'A long path is best with a shorter later open.']},
+  {n:3, t:'Low sheet, skim landing', c:{frame:'low', bar:'solid', title:'letters', reveal:'wake', flight:'yours', approach:'both', pad:'seat', squash:'gentle', later:'hop', tablet:'right'},
    why:['The lobby banner and the button stay in view, so you always see where he came from and where he goes back to.',
         'He has a real seat in the bottom row; nothing ever sits under him.'],
    cost:['The quietest of the three.', 'The scoot passes in front of the suggestions for a moment.']}
@@ -716,14 +717,68 @@ Mock.prototype.build = function(){
   this.qpath = flightPath(G, cfg, R, E, true);
   this.frame(0, true);
 };
+/* The steep last leg of a path, where his reverse thrusters fire. Owner, 14 Nov: "he should only shoot
+   a bunch out rapidly to decelerate on the most vertical parts at the last leg and he should be done with
+   it before the end of the route. And he shouldn't do it at all if he's already scooting across the
+   ground." Returns {a, b} (path fractions) or null. */
+function lastSteepLeg(path, groundY, topY){
+  var N = 200, down = [], ys = [];
+  for (var i = 0; i <= N; i++){
+    var u = i / N, p = at(path, Math.min(u, .994)), q = at(path, Math.min(u + .006, 1));
+    var dx = q.x - p.x, dy = q.y - p.y, l = Math.hypot(dx, dy) || 1;
+    down.push(dy / l); ys.push(p.y + PEG_UP);
+  }
+  /* steep runs (heading mostly straight down), last first; the one that counts is the last that ends
+     either late in the route or low near the ground (your blue path: down the side, then along the floor) */
+  var k = N;
+  while (k > 0){
+    while (k > 0 && down[k] <= .72) k--;
+    if (k <= 0) break;
+    var end = k;
+    while (k > 0 && down[k - 1] > .55) k--;
+    var st = k; k--;
+    var low = (groundY - ys[end]) < .22 * (groundY - topY);
+    if (end / N - st / N >= .035 && end / N > .3 && (end / N >= .8 || low)){
+      var b = Math.min(end / N - .015, .965), a = Math.max(st / N, b - .25);
+      if (b - a < .03) continue;
+      return {a:a, b:b, hover:(1 - b) > .12};   /* hover: he stays upright and floats the rest of the way */
+    }
+  }
+  return null;
+}
+/* How fast he covers the path at each point (1 = cruising): launch, braking burn, engines cut. */
+function speedAt(u, info, ap){
+  var s = u < .08 ? .45 + .55 * smooth(u / .08) : 1;
+  if (info){
+    if (u >= info.a && u <= info.b) s = Math.min(s, lerp(1, ap === 'rocket' ? .16 : .24, smooth((u - info.a) / (info.b - info.a))));
+    else if (u > info.b) s = ap === 'rocket' ? .16 : info.hover ? lerp(.24, .6, smooth((u - info.b) / .06))
+                                                   : lerp(.24, 1.15, smooth((u - info.b) / (1 - info.b)));   /* cut: he drops */
+  } else if (ap === 'scoot' && u > .88) s = lerp(1, .6, smooth((u - .88) / .12));
+  return s;
+}
+function buildWarp(info, ap){
+  var N = 240, T = [0];
+  for (var i = 1; i <= N; i++) T.push(T[i - 1] + (1 / N) / speedAt((i - .5) / N, info, ap));
+  return {T:T, total:T[N]};
+}
+function warpInv(w, f){
+  var target = clamp(f, 0, 1) * w.total, T = w.T, lo = 0, hi = T.length - 1;
+  while (hi - lo > 1){ var mid = (lo + hi) >> 1; if (T[mid] < target) lo = mid; else hi = mid; }
+  return (lo + (target - T[lo]) / ((T[hi] - T[lo]) || 1)) / (T.length - 1);
+}
+
 /* a new path and landing for the next flight: never the same path twice running */
 Mock.prototype.pick = function(){
   var G = this.G, cfg = this.cfg, R = this.R, E = this.E, n = JPATHS.paths.length, i = this.pi;
   if (n > 1){ do { i = Math.floor(Math.random() * n); } while (i === this.pi); } else i = 0;
   this.pi = i;
   var AP = ['rocket', 'plop', 'scoot'];
-  this.approach = cfg.approach === 'mix' ? AP[Math.floor(Math.random() * 3)] : (cfg.approach || 'rocket');
+  if (cfg.approach === 'both'){ this.turn = !this.turn; this.approach = this.turn ? 'plop' : 'scoot'; }
+  else this.approach = cfg.approach === 'mix' ? AP[Math.floor(Math.random() * 3)] : (cfg.approach || 'plop');
   this.path = flightPath(G, cfg, R, E, false, i, this.approach);
+  /* reverse thrust only on a steep last leg, and never on a skim */
+  this.info = this.approach === 'rocket' ? {a:.7, b:.95} : this.approach === 'scoot' ? null : lastSteepLeg(this.path, E.y, G.orb.y);
+  this.warp = buildWarp(this.info, this.approach);
   var svg = this.root.querySelector('.path'), Ec = {x:E.x, y:E.y - PEG_UP}, all = '';
   if (cfg.flight === 'yours'){
     JPATHS.paths.forEach(function(p, k){
@@ -738,65 +793,164 @@ Mock.prototype.pick = function(){
     '<circle class="e" cx="' + E.x + '" cy="' + E.y + '" r="4"/><text x="' + (E.x + 10) + '" y="' + (E.y + 14) + '">lands here</text>' +
     '<text x="' + (G.orb.x - 74) + '" y="' + (G.orb.y + 34) + '">from the button</text>';
 };
-/* ---- his hover thruster: plasma push rings ----
-   Owner, 14 Nov: the thruster under him puffs rings that grow by how hard he has to push, drift
-   away from his bottom and fade into hot-pink smoke rings. Thrust here is the push a hovering body
-   needs: his acceleration minus gravity, so a free-falling dive puffs almost nothing, a hover puffs
-   small steady rings and a braking burn throws big ones. They leave a trail as he flies. */
-var GRAV = 900;   /* dp / s^2 */
-Mock.prototype.fx = function(t, cx, cy, rot, idle){
+/* ---- his hover thruster and the cinematic effects ----
+   Owner, 14 Nov: his thruster puffs plasma push rings that grow and fade into hot-pink smoke, drifting
+   slowly off his bottom; ring sizes vary (a quarter to full size); flying in he sizzles; on the steep
+   last leg he fires his reverse thrusters (a rapid burst) and is done before the end; once in place it
+   all settles to a calm glow and a slow, low emission. "Make him magical" in the special-effects sense:
+   a motion trail of afterimages, plasma sparks and glints, light from the thruster, a flash on landing.
+   Every effect is made of his own stuff: his plasma pink and the white-hot core of the thruster. */
+var IMGS = {};
+function spriteImg(name){ var s = SPR[name]; if (!s) return null; if (!IMGS[name]){ IMGS[name] = new Image(); IMGS[name].src = s.src; } return IMGS[name]; }
+function rnd(a, b){ return a + Math.random() * (b - a); }
+Mock.prototype.fx = function(t, cx, cy, rot, phase){
   var g = this.fxg; if (!g) return;
   if (this.fxT === null || t < this.fxT || t - this.fxT > 400){
-    this.rings = []; this.fxT = t; this.fxP = null; this.fxV = null; this.fxA = {x:0, y:0}; this.fxAcc = 0;
+    this.rings = []; this.sparks = []; this.glints = []; this.ghosts = []; this.flash = null;
+    this.fxT = t; this.fxP = null; this.fxV = {x:0, y:0}; this.acc = {ring:0, spark:0, glint:0, ghost:0}; this.heat = 0;
   }
-  var dt = Math.max(1, t - this.fxT) / 1000; this.fxT = t;
+  var dtm = Math.max(1, t - this.fxT), dt = dtm / 1000; this.fxT = t;
   var th = rot * Math.PI / 180, dn = {x:-Math.sin(th), y:Math.cos(th)};
   var peg = {x:cx + dn.x * PEG_UP, y:cy + dn.y * PEG_UP};
-  if (this.fxP && dt > 0){
-    var v = {x:(cx - this.fxP.x) / dt, y:(cy - this.fxP.y) / dt};
-    if (this.fxV){ var a = {x:(v.x - this.fxV.x) / dt, y:(v.y - this.fxV.y) / dt}, k = Math.min(1, dt * 14);
-      this.fxA.x += (a.x - this.fxA.x) * k; this.fxA.y += (a.y - this.fxA.y) * k; }
-    this.fxV = v;
-  }
+  if (this.fxP){ var vx = (cx - this.fxP.x) / dt, vy = (cy - this.fxP.y) / dt, kk = Math.min(1, dt * 18);
+    this.fxV.x += (vx - this.fxV.x) * kk; this.fxV.y += (vy - this.fxV.y) * kk; }
   this.fxP = {x:cx, y:cy};
-  /* push needed along his body axis (his thruster only pushes up through his body) */
-  var push = Math.max(0, -( (this.fxA.x) * dn.x + (this.fxA.y - GRAV) * dn.y )) / GRAV;   /* 1 = a plain hover */
-  push = Math.min(push, 4);
-  var every = idle ? 340 : (push < .25 ? 1e9 : 150 / (0.6 + push));
-  this.fxAcc += dt * 1000;
-  if (this.fxAcc >= every){
-    this.fxAcc = 0;
-    if (this.rings.length < 48){
-      var sz = idle ? 1 : push;
-      this.rings.push({x:peg.x, y:peg.y, vx:dn.x * (40 + 55 * sz) + (this.fxV ? this.fxV.x * .08 : 0), vy:dn.y * (40 + 55 * sz) + (this.fxV ? this.fxV.y * .08 : 0),
-        age:0, life:520 + 260 * Math.min(sz, 2.5), r0:4 + 1.2 * sz, grow:9 + 8 * Math.min(sz, 3), rot:th});
+  var v = this.fxV, speed = Math.hypot(v.x, v.y), mode = phase.mode, k = phase.k || 0;
+  var want = mode === 'calm' ? 0 : mode === 'coast' ? .45 : mode === 'skid' || mode === 'hover' ? .7 : 1;
+  this.heat += (want - this.heat) * Math.min(1, dt * (want < this.heat ? 1.6 : 6));
+  var heat = this.heat, A = this.acc;
+  for (var key in A) A[key] += dtm;
+
+  /* push rings: slow drift (a quarter of before), sizes from a quarter to full */
+  var ringEvery = mode === 'burst' ? 34 : mode === 'fly' ? 150 : mode === 'hover' ? 230 : mode === 'calm' ? 1100 : 1e9;
+  if (A.ring >= ringEvery && this.rings.length < 60){
+    A.ring = 0;
+    var base = mode === 'burst' ? 1.8 + 1.4 * k : mode === 'fly' || mode === 'hover' ? .6 : .4, f0 = rnd(.25, 1), sz = base * f0;
+    this.rings.push({x:peg.x, y:peg.y, vx:dn.x * (10 + 14 * base) + v.x * .02, vy:dn.y * (10 + 14 * base) + v.y * .02,
+      age:0, life:mode === 'calm' ? 1300 : 560 + 300 * Math.min(base, 2.5), r0:(3 + 1.6 * base) * f0, grow:(9 + 9 * Math.min(base, 3)) * f0, rot:th, calm:mode === 'calm'});
+  }
+  /* sparks: the sizzle while he flies, a spray in the burn, a skid off the floor */
+  var sparkEvery = mode === 'burst' ? 9 : mode === 'fly' ? 20 : mode === 'skid' ? 14 : mode === 'hover' ? 40 : mode === 'coast' ? 70 : 900;
+  while (A.spark >= sparkEvery && this.sparks.length < 160){
+    A.spark -= sparkEvery;
+    if (mode === 'skid'){
+      this.sparks.push({x:peg.x + rnd(-4, 4), y:peg.y, vx:-v.x * .35 + rnd(30, 130), vy:rnd(-90, -15), g:520, age:0, life:rnd(260, 480), s:rnd(.8, 1.8)});
+    } else {
+      var spread = rnd(-.7, .7), sp = mode === 'burst' ? rnd(80, 230) : rnd(25, 110);
+      var ddx = dn.x * Math.cos(spread) - dn.y * Math.sin(spread), ddy = dn.x * Math.sin(spread) + dn.y * Math.cos(spread);
+      this.sparks.push({x:peg.x + rnd(-3, 3), y:peg.y + rnd(-3, 3), vx:ddx * sp + v.x * .15, vy:ddy * sp + v.y * .15, g:mode === 'calm' ? -30 : 240,
+        age:0, life:mode === 'calm' ? 900 : rnd(240, 560), s:mode === 'calm' ? rnd(.6, 1) : rnd(.8, 2.2)});
     }
   }
+  if (A.spark > 2000) A.spark = 0;
+  /* plasma glints along the trail */
+  if ((mode === 'fly' || mode === 'burst') && A.glint >= 70){
+    A.glint = 0;
+    if (Math.random() < .65 && this.glints.length < 24)
+      this.glints.push({x:peg.x + rnd(-10, 10) - v.x * .02, y:peg.y + rnd(-8, 8) - v.y * .02, age:0, life:rnd(300, 460), s:rnd(3, 7), a:rnd(0, .8)});
+  }
+  /* afterimages while he moves fast */
+  if (A.ghost >= 34){
+    A.ghost = 0;
+    if (speed > 420 && mode !== 'calm' && this._sn){ this.ghosts.unshift({x:cx, y:cy, rot:th, sn:this._sn, sf:this._sf || 0}); }
+    else if (this.ghosts.length) this.ghosts.pop();
+    if (this.ghosts.length > 7) this.ghosts.length = 7;
+  }
+  /* the landing flash, once */
+  if (phase.touch && !this.touched){
+    this.touched = true;
+    var big = phase.touch === 'plop' ? 1 : phase.touch === 'rocket' ? .6 : .4;
+    this.flash = {x:peg.x, y:peg.y, age:0, life:320, s:big};
+    for (var n = 0; n < Math.round(18 * big); n++){
+      var side = Math.random() < .5 ? -1 : 1;
+      this.sparks.push({x:peg.x + rnd(-6, 6), y:peg.y, vx:side * rnd(60, 240) * big, vy:rnd(-160, -30) * big, g:620, age:0, life:rnd(300, 600), s:rnd(1, 2.4)});
+    }
+  }
+
   var W = this.G.W, H = this.G.H;
   g.clearRect(0, 0, W, H);
+  /* calm glow on the floor under him once he is in place */
+  var floorA = (1 - heat) * (.2 + .06 * Math.sin(t / 2400 * Math.PI * 2));
+  if (mode === 'calm' && floorA > .01){
+    g.save(); g.globalCompositeOperation = 'lighter'; g.translate(this.E.x + (phase.dx || 0), this.E.y + 2); g.scale(1, .3);
+    var fg = g.createRadialGradient(0, 0, 0, 0, 0, 34); fg.addColorStop(0, 'rgba(255,70,200,' + floorA.toFixed(3) + ')'); fg.addColorStop(1, 'rgba(255,70,200,0)');
+    g.fillStyle = fg; g.beginPath(); g.arc(0, 0, 34, 0, Math.PI * 2); g.fill(); g.restore();
+  }
+  /* afterimages */
+  for (var gi = this.ghosts.length - 1; gi >= 0; gi--){
+    var gh = this.ghosts[gi], img = spriteImg(gh.sn);
+    if (!img || !img.complete) continue;
+    g.save(); g.globalAlpha = .26 * (1 - gi / 7) * Math.max(.3, heat); g.translate(gh.x, gh.y); g.rotate(gh.rot);
+    g.drawImage(img, gh.sf * 128, 0, 128, 128, -BCX, -BCY, SP, SP); g.restore();
+  }
+  /* rings */
   var keep = [];
   for (var i = 0; i < this.rings.length; i++){
     var r = this.rings[i];
-    r.age += dt * 1000; if (r.age >= r.life) continue;
+    r.age += dtm; if (r.age >= r.life) continue;
     var f = r.age / r.life;
-    r.x += r.vx * dt; r.y += r.vy * dt; r.vx *= Math.pow(.25, dt); r.vy *= Math.pow(.25, dt);
-    var rad = r.r0 + r.grow * (1 - Math.pow(1 - f, 2));
-    var alpha = Math.pow(1 - f, 1.6);
-    /* hot plasma first, cooling to a soft pink smoke ring */
-    var hot = Math.max(0, 1 - f * 2.2);
+    r.x += r.vx * dt; r.y += r.vy * dt; r.vx *= Math.pow(.3, dt); r.vy *= Math.pow(.3, dt);
+    var rad = r.r0 + r.grow * (1 - Math.pow(1 - f, 2)), alpha = Math.pow(1 - f, 1.6) * (r.calm ? .55 : 1), hot = Math.max(0, 1 - f * 2.2);
     g.save(); g.translate(r.x, r.y); g.rotate(r.rot);
     g.beginPath(); g.ellipse(0, 0, rad, rad * .3, 0, 0, Math.PI * 2);
-    g.lineWidth = 2.2 * (1 - f * .6) + 2.5 * f;
-    g.strokeStyle = 'rgba(' + Math.round(255) + ',' + Math.round(70 + 90 * hot) + ',' + Math.round(200 + 40 * hot) + ',' + (alpha * (.55 + .4 * hot)).toFixed(3) + ')';
-    g.shadowColor = 'rgba(255,40,190,' + (alpha * .9).toFixed(3) + ')'; g.shadowBlur = 6 + 8 * f;
+    g.lineWidth = 2 * (1 - f * .6) + 2.4 * f;
+    g.strokeStyle = 'rgba(255,' + Math.round(70 + 110 * hot) + ',' + Math.round(200 + 45 * hot) + ',' + (alpha * (.55 + .4 * hot)).toFixed(3) + ')';
+    g.shadowColor = 'rgba(255,40,190,' + (alpha * .9).toFixed(3) + ')'; g.shadowBlur = 5 + 8 * f;
     g.stroke();
-    if (f > .35){ g.lineWidth = 6 + 6 * f; g.strokeStyle = 'rgba(240,120,200,' + (alpha * .12).toFixed(3) + ')'; g.shadowBlur = 0; g.stroke(); }
+    if (f > .35){ g.lineWidth = 5 + 6 * f; g.strokeStyle = 'rgba(240,120,200,' + (alpha * .12).toFixed(3) + ')'; g.shadowBlur = 0; g.stroke(); }
     g.restore();
     keep.push(r);
   }
   this.rings = keep;
+  g.save(); g.globalCompositeOperation = 'lighter';
+  /* the thruster's light */
+  var glow = mode === 'burst' ? .65 + .5 * k : mode === 'fly' ? .45 : mode === 'skid' || mode === 'hover' ? .5 : mode === 'coast' ? .15 : .28 + .05 * Math.sin(t / 2400 * Math.PI * 2);
+  var gr = 12 + 22 * glow, gg = g.createRadialGradient(peg.x, peg.y, 0, peg.x, peg.y, gr);
+  gg.addColorStop(0, 'rgba(255,235,250,' + (.5 * glow).toFixed(3) + ')'); gg.addColorStop(.3, 'rgba(255,60,200,' + (.35 * glow).toFixed(3) + ')'); gg.addColorStop(1, 'rgba(255,40,180,0)');
+  g.fillStyle = gg; g.beginPath(); g.arc(peg.x, peg.y, gr, 0, Math.PI * 2); g.fill();
+  /* sparks: white-hot, cooling to pink */
+  var ks = [];
+  for (var si = 0; si < this.sparks.length; si++){
+    var s = this.sparks[si];
+    s.age += dtm; if (s.age >= s.life) continue;
+    var sf = s.age / s.life;
+    s.vy += s.g * dt; s.vx *= Math.pow(.4, dt); s.vy *= Math.pow(.6, dt); s.x += s.vx * dt; s.y += s.vy * dt;
+    var sa = (1 - sf) * (1 - sf), core = Math.max(0, 1 - sf * 2.5);
+    g.fillStyle = 'rgba(255,' + Math.round(80 + 170 * core) + ',' + Math.round(200 + 50 * core) + ',' + sa.toFixed(3) + ')';
+    g.beginPath(); g.arc(s.x, s.y, s.s * (1 - sf * .5), 0, Math.PI * 2); g.fill();
+    ks.push(s);
+  }
+  this.sparks = ks;
+  /* glints: a four-point flash that pops and fades */
+  var kg = [];
+  for (var gj = 0; gj < this.glints.length; gj++){
+    var q = this.glints[gj];
+    q.age += dtm; if (q.age >= q.life) continue;
+    var qf = q.age / q.life, sc2 = Math.sin(Math.PI * qf), L = q.s * sc2;
+    g.save(); g.translate(q.x, q.y); g.rotate(q.a);
+    g.fillStyle = 'rgba(255,220,245,' + (.9 * sc2).toFixed(3) + ')';
+    g.beginPath(); g.moveTo(0, -L * 1.6); g.lineTo(L * .22, 0); g.lineTo(0, L * 1.6); g.lineTo(-L * .22, 0); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(-L * 1.6, 0); g.lineTo(0, L * .22); g.lineTo(L * 1.6, 0); g.lineTo(0, -L * .22); g.closePath(); g.fill();
+    g.restore();
+    kg.push(q);
+  }
+  this.glints = kg;
+  /* landing flash: a bright ground ring and a burst of light */
+  if (this.flash){
+    var fl = this.flash; fl.age += dtm;
+    if (fl.age >= fl.life) this.flash = null;
+    else {
+      var ff = fl.age / fl.life, fr = (10 + 60 * fl.s) * easeOut(ff), fa = (1 - ff) * (.9 * fl.s + .1);
+      g.save(); g.translate(fl.x, fl.y); g.scale(1, .28);
+      var lg = g.createRadialGradient(0, 0, 0, 0, 0, fr + 1); lg.addColorStop(0, 'rgba(255,240,250,' + (fa * .8).toFixed(3) + ')'); lg.addColorStop(.6, 'rgba(255,70,200,' + (fa * .5).toFixed(3) + ')'); lg.addColorStop(1, 'rgba(255,60,190,0)');
+      g.fillStyle = lg; g.beginPath(); g.arc(0, 0, fr + 1, 0, Math.PI * 2); g.fill();
+      g.lineWidth = 3; g.strokeStyle = 'rgba(255,150,225,' + fa.toFixed(3) + ')'; g.beginPath(); g.arc(0, 0, fr * 1.1, 0, Math.PI * 2); g.stroke();
+      g.restore();
+    }
+  }
+  g.restore();
 };
-Mock.prototype.fxClear = function(){ if (this.fxg){ this.fxg.clearRect(0, 0, this.G.W, this.G.H); } this.rings = []; this.fxT = null; };
+Mock.prototype.fxClear = function(){ if (this.fxg){ this.fxg.clearRect(0, 0, this.G.W, this.G.H); } this.rings = []; this.sparks = []; this.glints = []; this.ghosts = []; this.flash = null; this.fxT = null; this.touched = false; };
 Mock.prototype.setSprite = function(name, k){
   var s = SPR[name]; if (!s) return;
   if (this._sn !== name){ this.spr.style.backgroundImage = 'url(' + s.src + ')'; this.spr.style.backgroundSize = (s.n * SP) + 'px ' + SP + 'px'; this._sn = name; }
@@ -812,9 +966,10 @@ Mock.prototype.frame = function(t, still){
   var cfg = this.cfg, G = this.G, quick = this.quick;
   var T0 = 80;                                   /* he leaves the button */
   var ap = this.approach || 'rocket';
-  var dur = quick ? 440 : cfg.flight === 'yours' ? Math.round(560 + 300 * JPATHS.paths[this.pi || 0].lengthOverDirect + (ap === 'rocket' ? 380 : 0))
+  var yoursF = !quick && cfg.flight === 'yours';
+  var dur = quick ? 440 : yoursF ? Math.round(clamp(this.path.tot / 1.55, 650, 1700) * this.warp.total)
           : (cfg.flight === 'loop' ? 1300 : cfg.flight === 'skim' ? 1150 : 1050);
-  if (!quick && cfg.later === 'trim' && this.later) dur = 800;
+  if (!quick && cfg.later === 'trim' && this.later) dur = Math.round(yoursF ? 800 * this.warp.total : 800);
   var path = quick ? this.qpath : this.path;
   var tLand = T0 + dur;
   /* press */
@@ -873,24 +1028,26 @@ Mock.prototype.frame = function(t, still){
   if (t < tLand){
     var u = clamp((t - T0) / dur, 0, 1), ue = quick ? easeIO(u) : u * u * (1.6 - .6 * u) / 1;
     ue = clamp(quick ? ue : (u < .1 ? easeOut(u / .1) * .06 : .06 + (u - .1) / .9 * .94), 0, 1);
-    if (!quick && cfg.flight === 'yours' && ap === 'rocket'){
-      /* the burn: the last 12% of the path takes the last 35% of the time, slowing to a hover */
-      ue = u < .65 ? (u < .1 ? easeOut(u / .1) * .06 : .06 + (u - .1) / .55 * .82) : .88 + .12 * easeOut((u - .65) / .35);
-    }
-    var p = at(path, ue), r = rotAt(cfg, path, ue, quick, ap);
-    if (!quick && cfg.flight === 'yours' && ue > .3){
-      /* owner, 14 Nov: any time he is close to the ground he rights himself */
+    if (yoursF) ue = warpInv(this.warp, u);       /* launch, cruise, the braking burn, engines cut */
+    var p = at(path, ue), r = rotAt(cfg, path, ue, quick, ap), info = quick ? null : this.info;
+    var inBurst = info && ue >= info.a && ue <= info.b, afterBurst = info && ue > info.b;
+    if (yoursF && ue > .3){
+      /* owner, 14 Nov: any time he is close to the ground he rights himself, and he fires his
+         reverse thrusters feet-first: he is upright from just before the burn to touchdown */
       var gap = E.y - (p.y + PEG_UP), near2 = smooth(1 - clamp((gap - 20) / 130, 0, 1));
-      r = lerp(r, Math.round(r / 360) * 360, near2);
+      var burnUp = info ? smooth((ue - (info.a - .08)) / .08) : 0;
+      r = lerp(r, Math.round(r / 360) * 360, Math.max(near2, burnUp));
     }
     var pop = clamp((t - T0) / 160, 0, 1), sc = lerp(.35, 1, easeOut(pop));
     var spd = Math.sin(Math.PI * ue), sx = 1 - .07 * spd, sy = 1 + .10 * spd;
     var tumbling = !quick && ((cfg.flight === 'tumble' && ue < .36) || (cfg.flight === 'skim' && ue < .12) || (cfg.flight === 'yours' && ue < .1));
-    if (!quick && cfg.flight === 'yours' && ap === 'rocket' && ue > .84){ sx = 1 - .03; sy = 1 + .05; }
+    if (inBurst){ sx = 1.04; sy = .96; }                         /* braking: pressed against his thrust */
+    else if (afterBurst && ap !== 'rocket' && !info.hover){ sx = .95; sy = 1.07; }  /* engines cut: stretched as he drops */
     if (tumbling) this.setSprite('spin', Math.floor((t - T0) / 55));
     else this.setSprite('idle', 0);
     this.place(p.x, p.y, r, sx, sy, sc);
-    if (t >= T0 + 60) this.fx(t, p.x, p.y, r, false);
+    if (t >= T0 + 60) this.fx(t, p.x, p.y, r, {mode:inBurst ? 'burst' : afterBurst && ap !== 'rocket' ? (info.hover ? 'hover' : 'coast') : 'fly',
+      k:inBurst ? 1 - .6 * (ue - info.a) / (info.b - info.a) : 0});
     if (sh){ var near = clamp(1 - Math.hypot(p.x - E.x, p.y + PEG_UP - E.y) / 180, 0, 1); sh.style.opacity = near * (cfg.pad === 'shadow' ? .9 : .5); sh.style.transform = 'scale(' + lerp(.4, 1, near) + ')'; }
     this.bub.style.opacity = 0; this.chips.style.opacity = 0;
     if (this.shock) this.shock.style.opacity = 0;
@@ -911,7 +1068,7 @@ Mock.prototype.frame = function(t, still){
     lt2 = Math.max(0, lt2 - 640) + (lt2 < 120 ? lt2 : 0);
   }
   var L = landAt(style, lt2);
-  var endRot = rotAt(cfg, path, 1, quick, ap), rr = endRot - Math.round(endRot / 360) * 360;
+  var endRot = rotAt(cfg, path, 1, quick, ap), rr = yours ? 0 : endRot - Math.round(endRot / 360) * 360;   /* on your paths he is already upright near the ground */
   var rot = lerp(rr, 0, smooth(lt2 / 160)) + scootLean;
   var idleT = Math.max(0, lt2 - 400);
   var bob = Math.sin(idleT / 2400 * Math.PI * 2) * 2 * smooth(idleT / 400), sway = Math.sin(idleT / 3600 * Math.PI * 2) * 1.6 * smooth(idleT / 400);
@@ -919,7 +1076,9 @@ Mock.prototype.frame = function(t, still){
   if (lt2 > talkStart && lt2 < talkEnd) this.setSprite('talk', Math.floor((lt2 - talkStart) / 166));
   else this.setSprite('idle', Math.floor(Math.max(0, lt2 - talkEnd) / 125));
   this.place(E.x + scootX, E.y - PEG_UP + L.dy + bob, rot + sway, L.sx, L.sy, 1);
-  this.fx(t, E.x + scootX, E.y - PEG_UP + L.dy + bob, rot + sway, lt2 > 700 && scootX < 1);
+  var raw = t - tLand;
+  this.fx(t, E.x + scootX, E.y - PEG_UP + L.dy + bob, rot + sway, {mode:scootX > 1 && raw > 100 ? 'skid' : 'calm', dx:0,
+    touch:quick ? 'scoot' : yours ? ap : 'plop'});
   if (sh){ sh.style.opacity = cfg.pad === 'shadow' ? .9 : .5; sh.style.transform = 'scale(' + (L.sx * (1 - L.dy / -60)) + ')'; }
   if (this.shock){ var k = clamp(lt2 / 420, 0, 1); this.shock.style.opacity = (1 - k) * .9; this.shock.style.transform = 'scale(' + lerp(1, 2.4, easeOut(k)) + ')'; }
   var bt = clamp((lt2 - talkStart) / 220, 0, 1);

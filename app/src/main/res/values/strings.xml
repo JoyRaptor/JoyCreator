@@ -2391,10 +2391,10 @@ For the smoothest playback experience, you can use an external player like VLC. 
     
     <!-- Instructions -->
     <string name="stream_instructions">How to Use</string>
-    <string name="stream_instr_1">1. Turn on Start Server toggle</string>
-    <string name="stream_instr_2">2. Copy HLS Stream URL from Server Endpoints</string>
-    <string name="stream_instr_3">3. Open VLC or any HLS player on same WiFi</string>
-    <string name="stream_instr_4">4. Paste URL in media player to watch live</string>
+    <string name="stream_instr_1">1. Turn on Stream Server</string>
+    <string name="stream_instr_2">2. On a computer or tablet on the same Wi-Fi, open the Server URL in a browser</string>
+    <string name="stream_instr_3">3. Type the pairing code shown under Access</string>
+    <string name="stream_instr_4">4. Watch live and use the controls from the browser</string>
     <string name="stream_network_info">Same WiFi network required for streaming</string>
     
     <!-- Remote Security -->

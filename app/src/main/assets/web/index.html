@@ -5016,6 +5016,9 @@
          */
         function showLockScreen() {
             const overlay = document.getElementById('lockScreenOverlay');
+            // Already showing: leave it alone. The status poll asks every few seconds, and
+            // re-opening would wipe the message ("Too many tries...") and steal the cursor.
+            if (overlay && overlay.classList.contains('visible')) return;
             if (overlay) {
                 overlay.classList.remove('hidden');
                 overlay.classList.add('visible');
@@ -5305,7 +5308,7 @@
                 <i class="fas fa-lock"></i>
             </div>
             <h2>Remote Studio is locked</h2>
-            <p>Enter the pairing code shown on the phone, in Remote Studio under Lock (or your own password)</p>
+            <p>Enter the pairing code shown on the phone, in Remote Studio under Access (or your own password)</p>
             <div class="lock-screen-form">
                 <input type="password" id="lockPassword" class="lock-password-input" placeholder="Pairing code" autocomplete="current-password" inputmode="text">
                 <button class="lock-unlock-btn" onclick="attemptUnlock()" title="Unlock">

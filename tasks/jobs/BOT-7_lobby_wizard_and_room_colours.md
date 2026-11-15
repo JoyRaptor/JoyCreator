@@ -1,6 +1,6 @@
 # BOT-7: Joybot in the lobby is your guide; colours say where things will happen
 
-**Milestone:** M1/M2 (launch polish)  ·  **State:** ⬜ card written 11-15  ·  **Owner:** Joybot brain lane  ·  **Checked:** 2026-11-15
+**Milestone:** M1/M2 (launch polish)  ·  **State:** 🔨 built 11-15, device check owed  ·  **Owner:** Joybot brain lane  ·  **Checked:** 2026-11-15
 
 ## Why it matters
 The owner, 11-15, after trying Joybot in the lobby. He tapped "make a transition", and Joybot said "I made a
@@ -56,5 +56,25 @@ a connected AI only makes it more flexible.
 - JoyBrush board presets go through a launch intent the JoyBrush screens lane provides; don't edit JoyBrush internals.
 - The chat's layout, bubble drawable and actor belong to the joybot-sprites lane: agree any change to them with it.
 
-## Where it stands
-Card written 11-15 by the orchestrator from the owner's words. Nothing built.
+## Added by the orchestrator, 11-15 (owner)
+- [x] **Talk to him and he does it** ("go to sleep", "hop", "backflip", "beg", "roll over", "shake"): typed, offline, is the
+      sprites lane's (`JoybotDirector.trickFor` in sendMessage). Owed here: a `do_trick` tool for "anything close" with an AI,
+      once `JoybotDirector.trick` is on joy-creator.
+- [x] **Jokes, offline:** 66 (`joybot/JokeBook`), none back until most have had a turn. The owner judges the wit.
+- [x] **First run v1:** the first time the lobby shows after the intro, Joybot opens with a welcome and his buttons. Tour
+      engine generic (`ui/tour/Spotlight`), only the lobby scripted (`LobbyTour`).
+
+## Where it stands (11-15, BOT-7 lane, branch `claude/joybot-brain-20261115-43c4fd`)
+Built, all offline; tests: IdeaEngineTest 1,189 pass (new: honesty in every room, shapes, the tree, lobby guide, jokes,
+colours); joybot bench 65/65 incl. `host-lobby-transition` (asks, changes nothing) and `host-lobby-new-project`.
+- Honesty: `joybot/Preflight` runs before every tool, in the agent (`JoybotAgent.runTool`); no "On it…" for a call that
+  won't run; "Doing it…" gone. Held calls end the request with one sentence + buttons (`ChatAssistantActivity.showHeld`).
+- 3:1: `new_studio_project(shape)` (`actions/CreateActions`), any shape, with a built-in title card so it can reopen;
+  fixed `SlideFiles.dimensionsFor` drawing custom canvases 9:16.
+- Lobby scope: the chat opened from the lobby treats its project as "last project" only; `CarriedAsk` offers the request
+  once in the project.
+- Buttons + tree: `LobbyGuide`, `CreateTree` (+ `CreateBubbles`, `CreateUsage`, `CreateLanding` → `JoyBrushLaunch`).
+- Colours: `RoomColours` (pure) + `RoomTint` (views). Split agreed with the sprites lane: the send arrow is theirs to wire
+  (`RoomTint.send(chat_send, RoomTint.forRoom(this, RoomColours.home(room)))`). Joybot's own = his orb pair: owner to OK.
+- Not done / not checked: on a device (see below); icons are placeholders until ICON-1; the AI-connected check (no PC key).
+

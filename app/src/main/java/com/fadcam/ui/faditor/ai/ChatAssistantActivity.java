@@ -1084,7 +1084,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
         com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind makeKind = com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start(text);
         if (makeKind != null && (room == IdeaEngine.Room.LOBBY || room == IdeaEngine.Room.LIBRARY
-                || norm(text).matches(".*\\b(new|blank|fresh|empty)\\b.*"))) {
+                || com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(makeKind) && norm(text).matches(".*\\b(new|blank|fresh|empty)\\b.*"))) {
             startCreate(makeKind, text);
             return;
         }

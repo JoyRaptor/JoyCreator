@@ -1515,6 +1515,8 @@ public class IdeaEngineTest {
         eq("tree: sprite new", "sprite_new", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("make a sprite"));
         eq("tree: tile", "tile", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("make a seamless tile"));
         eq("tree: painting", "paint", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start("I want to paint a picture"));
+        check("tree: a new video starts from any room", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("video")), "");
+        check("tree: a new title in the Studio stays a title there", !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("titles")), "");
         // The owner's request walks straight through: the shape was in his words.
         com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow f = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(none, new java.util.ArrayList<>())
                 .startingWith(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind("video"), "new blank studio project 3.1");

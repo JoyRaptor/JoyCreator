@@ -437,6 +437,20 @@ public final class CreateTree {
                 "\\b(?:new|blank|fresh|empty|start(?:ing)?|begin|create|i want to (?:make|draw|paint|animate)|"
                         + "let'?s (?:make|draw|paint)|make (?:a|an|me a|me an)|draw (?:a|an)|paint (?:a|an))\\b");
 
+        /**
+         * Kinds a "new …" request starts from inside a room too: whole new projects and drawings.
+         * Titles, characters, music visuals and sheets mean something in the room you're in ("a new
+         * title" in the Studio is a title card in this project), so only the lobby starts those.
+         */
+        public static boolean newAnywhere(@NonNull Kind k) {
+            switch (k.id) {
+                case "video": case "audio": case "paint": case "perspective": case "animation": case "tile": case "sprite_new":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         /** "Create something" with nothing more: show the bubbles. */
         public static boolean anything(@Nullable String text) {
             if (text == null) return false;

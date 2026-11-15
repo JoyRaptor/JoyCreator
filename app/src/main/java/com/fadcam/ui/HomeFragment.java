@@ -5167,6 +5167,17 @@ public class HomeFragment extends BaseFragment {
                 isDualRecordingActive = false;
             }
 
+            // SHELL-36: ask for the camera and microphone BEFORE the button turns into Stop (it changes first and
+            // records after). With them allowed, the tap is replayed; with "Not now" the button stays Start.
+            if (recordingState.equals(RecordingState.NONE)
+                    && getActivity() instanceof com.fadcam.MainActivity
+                    && !((com.fadcam.MainActivity) getActivity()).captureReady()) {
+                ((com.fadcam.MainActivity) getActivity()).askForCapture(() -> {
+                    if (buttonStartStop != null && isAdded()) buttonStartStop.performClick();
+                });
+                return;
+            }
+
             // Temporarily disable button to prevent rapid clicks
             buttonStartStop.setEnabled(false);
             

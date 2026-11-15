@@ -204,6 +204,51 @@ How to measure (anyone, about ten minutes on the Note 9): install a debug build,
 `then: savefile` lines in logcat (tag `JoyBrushPerf`). `savepaint <MB>` and `savelevel <0-9>` between two `savefile`
 steps change the budget and the deflate level; `jb_bench_zoom` 0.87 / 0.5 / 0.36 gives about 50 / 136 / 264 tiles.
 
+### 11-15 night: no stroke lost when the screen is rebuilt or the graphics die (JBX-37)
+
+**The gate.** `--es jb_bench_life <tag>` runs the stroke replay as a REAL drawing on a cache file of its own (real
+autosaves, pause save, recovery copy; never in the Library). Then-steps: `digest <label>` (one checksum over every
+picture tile and one over every paint store tile, logcat `JoyBrushPerf`, `bench/LifeDigest`), `recreate` (Android builds
+the screen again; the new screen opens the file and logs `digest rebuilt`), `cover` (another screen over it: pause,
+stop, save; Back returns), `savenow` (the working save, so the next step meets it half written).
+`--ez joybrush_test_recreate_context true` makes the pause destroy the graphics context for real. Two digests that
+agree are the same tiles with the same bytes.
+
+**What it found (Note 9, a full page of oil, 264 MB of paint).** The screen built again while the graphics were busy:
+the save on the way out never got its answer ("the drawing did not answer in time" 15 s later), the new screen said
+"The last save didn't finish" and opened the save before it. Cause: on this phone the window's stop destroys the
+canvas's surface at once (pause, stop, surface gone within 15 ms, all in one turn of the UI thread); a save's read is
+queued for the next frame, and no frame runs without a surface. The same hole was open for a save that waits behind
+one still being written when the person presses Home: it started after the view stopped drawing and got no answer.
+
+**The fix (`JbCanvasView`, `JoyBrushActivity`).** The frames already owed run before the surface goes
+(`surfaceDestroyed` waits for them, at most 3 s). When the pause's save cannot start at once, the drawing is read right
+then and kept (`keepPausePicture`); a save that starts once the view no longer draws is answered from it; it is dropped
+on resume and when no save is waiting. Answers go to the main thread itself, not through a view that may be off its
+window. A closing screen with nothing kept refuses at once instead of after 15 s.
+
+**Proof, Note 9, build c6c2ab3fa, digests equal in every case (pictures and paint stores):**
+
+| Case | Result |
+|---|---|
+| Ink + pencil + oil, screen built again | same (15 + 57 tiles) |
+| Ink + pencil + oil, graphics lost on pause, restored | same; restore 0.95 s |
+| Full page of oil, screen built again mid-read (the failing case) | same (264 + 256 tiles) |
+| Full page of oil, graphics lost on pause, restored | same; restore 5.9 s |
+| Full page of oil: save, undo, leave while that save is still writing, graphics lost | same as after the undo: the second save came from the kept picture |
+
+**A save that fails leaves the older file** (`JbArchiveCarryTest.aSaveThatFailsWhileWritingLeavesTheOlderFileAndNothingElse`):
+a full disk, memory running out and an unforeseen error, each forced after the new file is written, for both kinds of
+save: the file is byte for byte what it was, no `.tmp` is left (an out-of-memory used to leave one: 26 MB was found
+beside a drawing on the Note 9), and the next save is whole and still carries.
+
+Also here: the pinned reference photo is read on a thread of its own (bug hunt C7: a cloud-only photo held up opening
+and every save).
+
+Not covered: the process killed while a save is being written (the file is safe by construction, the newest marks are
+not in it); graphics lost while the person is painting in front (restores the last autosave, up to 30 s old, and says
+so); two screens on one drawing is unit-tested only.
+
 ### Also found by the incident recorder (11-14), fixed 11-15
 
 `files/joybrush-incidents.log` on the Note 9 held one line: "a media frame failed ... A board cannot change during a

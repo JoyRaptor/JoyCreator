@@ -481,6 +481,8 @@ public final class JoybotView extends FrameLayout {
         @Nullable JoybotFilm leave();
         /** The film for this mood, or null to fall back to the stills. */
         @Nullable JoybotFilm enter(@NonNull Mood m);
+        /** He has just come into view (the chat hides him until he leaves his seat in the header). */
+        default void shown() {}
     }
 
     @Nullable private Director director;
@@ -757,6 +759,7 @@ public final class JoybotView extends FrameLayout {
         // fragment, the screen off, the app in the background. All of those leave the view
         // attached, and without this he would keep animating into a surface nobody sees.
         if (visible) { startHover(); startIdeaBreath(); } else { stopHover(); stopIdeaBreath(); }
+        if (visible && director != null) director.shown();
     }
 
     private long lastReactMs = 0L;

@@ -59,6 +59,14 @@ public final class JoybotDirector implements JoybotView.Director {
     @Nullable private JoybotView.Mood chainMood;
 
     @Override
+    public void shown() {
+        if (greeted || bot.getMood() != JoybotView.Mood.IDLE) return;
+        now = null;
+        nowMood = null;
+        bot.setMood(JoybotView.Mood.IDLE);   // now that he can be seen: the arrival spin
+    }
+
+    @Override
     public boolean keeps(@NonNull JoybotView.Mood m) {
         if (chainTo != null && chainMood == m) return true;
         if (now == null || nowMood != m) return false;
@@ -99,7 +107,9 @@ public final class JoybotDirector implements JoybotView.Director {
         if (a == null) { now = null; nowMood = null; return null; }
         if (fresh) {
             // A flourish first: when he arrives, and one time in three when he is excited.
-            boolean arrive = m == JoybotView.Mood.IDLE && !greeted;
+            // Only while he can be seen: the chat keeps him hidden until he leaves his seat in the
+            // header, and a spin played then was a spin nobody saw (test tablet, 11-14).
+            boolean arrive = m == JoybotView.Mood.IDLE && !greeted && bot.isShown();
             boolean cheer = m == JoybotView.Mood.EXCITED && dice.nextInt(3) == 0;
             JoybotActs.Act f = arrive || cheer ? acts.named(FLOURISH) : null;
             if (f != null && f != a) { chainTo = a; chainMood = m; a = f; }

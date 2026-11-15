@@ -51,6 +51,8 @@ internal object MediaFailureProbe {
         val names = sleepThenRelease(paper, preset, memory)
         o.put("sleepThenRelease", names)
         if (names.getInt("survived") != names.getInt("made")) pass = false
+        // JBX-35: whether this driver hands a deleted name out again at all (reported, never a pass or a fail).
+        o.put("nameReuse", runCatching { TextureNameReuseProbe.measure() }.getOrElse { JSONObject().put("failed", it.toString()) })
         val glError = GLES30.glGetError()
         return o.put("glError", glError).put("pass", pass && glError == GLES30.GL_NO_ERROR).toString()
     }

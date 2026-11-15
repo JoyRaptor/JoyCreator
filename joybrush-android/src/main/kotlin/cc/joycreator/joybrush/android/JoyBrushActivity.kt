@@ -1354,6 +1354,8 @@ class JoyBrushActivity : Activity() {
             colorArgb = canvas.strokeColor
             // What the owner draws here is laid again with every slider move (2026-10-27).
             keepDrawnStrokes = true
+            // Pencil, watercolour and oil here in a small atlas and off the wet sheet: a second canvas, never a drawing's memory.
+            smallMediaPreview = true
         }
         // The sheet's groups named under them (pressure, tilt, speed, turn): views over the preview's surface.
         val framed = FrameLayout(this).apply {

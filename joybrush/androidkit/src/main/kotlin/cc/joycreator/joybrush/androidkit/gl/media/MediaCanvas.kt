@@ -80,8 +80,14 @@ class MediaCanvas(
         // When the drawing's media room is full, old paint sets to make room (MediaRoom); never what the tool holds.
         paint.mediaRoomKeep = { layer, plane -> window?.takeIf { it.layerId == layer && it.plane == plane }?.keptForRoom().orEmpty() }
     }
-    /** Debug probe only (MediaUndoProbe, MediaAtlasLedgerProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
+    /**
+     * The atlas's slot grid, columns x rows, instead of the phone's memory: debug probes (MediaUndoProbe,
+     * MediaAtlasLedgerProbe) and a brush settings preview (JbCanvasView.smallMediaPreview), which must stay small.
+     */
     internal var slotGrid: Pair<Int, Int>? = null
+
+    /** False on a brush settings preview: its watercolour keeps the in-layer water, never the screen-sized wet sheet. */
+    @Volatile var sheetAllowed = true
     /** The atlas in use, if the engine places tiles freely (probe counters: parked tiles, admission misses, blocks). */
     internal val atlas: MediaAtlas? get() = window as? MediaAtlas
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
@@ -282,7 +288,7 @@ class MediaCanvas(
         // Watercolour on the wet sheet (WET_SHEET_20261110), on the shared plane or on the animation frame under the pen
         // (2026-11-13: the wash is drawn and printed only where that plane owns the pixels). A blank frame and a layer with
         // editable lines keep the atlas's water.
-        if (spec.medium == MEDIUM_WET && WetSheet.enabled && !paint.mediaPlaneBlankAt(layerId, x, y) &&
+        if (spec.medium == MEDIUM_WET && WetSheet.enabled && sheetAllowed && !paint.mediaPlaneBlankAt(layerId, x, y) &&
             paint.localHistory && !paint.layerHasLines(layerId))
             return beginOnSheet(layerId, paint.mediaPlaneAt(layerId, x, y), preset, spec, argb, x, y, nowMs, symmetry)
         // Any other realistic paint on the sheet's layer goes over the wash: it is printed first.

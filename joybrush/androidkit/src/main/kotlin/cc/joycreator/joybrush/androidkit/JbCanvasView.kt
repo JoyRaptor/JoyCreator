@@ -2142,8 +2142,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     private fun feedMedia(ev: MotionEvent, idx: Int) {
+        if (strokePreset == null) return
+        feedMediaSamples(MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation))
+    }
+
+    /** The media stroke's samples in DOCUMENT coordinates: from the pen ([feedMedia]) or laid by [drawStrokes]. */
+    private fun feedMediaSamples(samples: List<PenSample>) {
         val p = strokePreset ?: return
-        val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
         val snap = snapper
         val out = ArrayList<PenSample>(samples.size)
         for (s in samples) {
@@ -2634,6 +2639,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * so the preview can lay them again with the brush as the sliders change it. UI thread. Off for the drawing.
      */
     var keepDrawnStrokes = false
+
+    /**
+     * A brush's settings preview only: pencil, watercolour and oil in a small atlas ([PREVIEW_SLOTS]) and watercolour off the
+     * wet sheet (in-layer water), so this second canvas never holds a drawing's worth of graphics memory. Set before its
+     * first stroke. Off for the drawing.
+     */
+    var smallMediaPreview = false
+        set(v) {
+            field = v
+            mediaCanvas.slotGrid = if (v) PREVIEW_SLOTS else null
+            mediaCanvas.sheetAllowed = !v
+        }
+
     val drawnStrokes = ArrayList<List<PenSample>>()
     private var drawnNow: ArrayList<PenSample>? = null
 
@@ -2914,6 +2932,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val seeds = preset?.takeIf { it.engine == ENGINE_WATERCOLOUR }?.watercolour?.sampleSeeds
             val previewSeed = seeds?.getOrNull(index) ?: seeds?.firstOrNull()?.plus(index.toLong())
             startStroke(eraser = false, watercolourPreviewSeed = previewSeed)
+            // A pencil, watercolour or oil stroke goes to the media engine as the pen's would (the brush settings preview).
+            if (mediaStroke) {
+                feedMediaSamples(samples.map { s -> val (dx, dy) = view.screenToDoc(s.x, s.y); s.copy(x = dx, y = dy) })
+                finishStroke()
+                continue
+            }
             // With the symmetry on, the lanes have their own smoothers and the view has none.
             val sm = smoother
             if (sm == null && symmetryLanes.isEmpty()) continue
@@ -4375,6 +4399,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     companion object {
+        /** A settings preview's atlas: 6 x 3 slots of 256 px (its stage is about 1000 x 330 px); a drawing gets 24 to 48. */
+        val PREVIEW_SLOTS = 6 to 3
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
         private const val PEN_PREFS = "joybrush.canvas"

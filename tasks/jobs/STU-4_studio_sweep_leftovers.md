@@ -53,7 +53,7 @@ joy-creator (caption, fx, mesh, motionrange, preview-parity, puppet, specq, spec
 Playback and export **jump over** every cut span. On the timeline each jump shows as **a small black mark**
 where it happens. No cutting the clip into pieces.
 
-**Built (commits 9e27f25fa, 621c2a830, 284fd61ac, 00a15446b on `joy-creator`):**
+**Built (commits c93fd7d29, b479f6f28, 415bea929, fe0be7e58 on `joy-creator`):**
 - [x] One list of jumps on the editor's clock, `model/CutJumps`: every film clip's spans (inside its main pass,
       at its speed) and every sound clip's spans, merged; never under a transition. A struck word on a sound
       clip jumps the whole program too (picture included), so nothing drifts.
@@ -83,8 +83,8 @@ where it happens. No cutting the clip into pieces.
       (`syncRemovedSpansFromTranscript` rebuilt the whole list; `model/CutSpanMerge` keeps the gaps). Re-checked
       on the Note 9: gap cut, "three" struck, both cut; "three" restored, the gap stays.
 - [x] Found on the phone and fixed: a clip's tick read a position a few ms past its end as inside the next,
-      fully cut clip and seeked back, holding the picture ~0.7 s (00a15446b). Re-checked on the final build
-      (63a835afb, on top of joy-creator 74787f446): the same project plays through in ~4.3 s for 4.08 s of kept
+      fully cut clip and seeked back, holding the picture ~0.7 s (fe0be7e58). Re-checked on the final build
+      (63a835afb: the same code, built from the branch before it landed): the same project plays through in ~4.3 s for 4.08 s of kept
       material, no back-seeks; a clip that is entirely cut still costs a ~0.15 s pause while the player seeks past it.
 
 **Also seen, not fixed (other jobs):** right after transcribing, the transcript panel stayed blank until the

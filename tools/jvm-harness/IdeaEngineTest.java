@@ -1467,6 +1467,17 @@ public class IdeaEngineTest {
                 "There's no project open right now. Want me to open your last one, “Untitled 3:1”?", "Untitled 3:1"), "");
         check("honest: a mention without a question gets none", !com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(
                 "Untitled 3:1 is your newest project.", "Untitled 3:1"), "");
+        // In the lobby a project change is asked about before any AI (Note 9 11-15).
+        for (String w : new String[]{"make a transition", "add captions", "cut the ums", "turn the music down", "put a title on it"}) {
+            check("lobby asks first: “" + w + "”", com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyProjectChange(w), "");
+        }
+        for (String w : new String[]{"a new blank studio project 3:1", "turn on dark mode", "how do I add captions?",
+                "tell me a joke", "I want to make something", "open vislab"}) {
+            check("lobby doesn't ask: “" + w + "”", !com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyProjectChange(w), "");
+        }
+        eq("lobby ask sentence", "Make a transition in “Holiday”, the last project you had open? I'll open it so we can look at it together.",
+                com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyAsk("make a transition", "p1", "Holiday").say);
+        eq("lobby ask with no last project", null, com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyAsk("make a transition", null, null));
         // A long request isn't parroted into the question.
         v = pf("set_transition", "STUDIO", false, "Set a transition", IdeaEngine.Room.LOBBY, false, "p1", "Holiday",
                 "please could you go through every single cut and put a gentle crossfade on each of them");

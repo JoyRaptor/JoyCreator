@@ -682,6 +682,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** Bench only: paint store tiles read back and uploaded with the reused buffers ([GlPaintEngine.reuseMediaStaging]) or with new ones a tile. */
     fun benchReuseMediaStaging(on: Boolean) { onGl(allowLost = true) { engine.reuseMediaStaging = on } }
 
+    /**
+     * How much pencil, watercolour and oil state (bytes of store tiles, uncompressed) a save keeps as workable paint; past
+     * it the oldest paint is saved as its picture ([GlPaintEngine.mediaTilesToSave]). The screen sets it for the phone.
+     */
+    @Volatile var savePaintBudgetBytes: Long = 128L shl 20
+
     /** Bench only: lets go of what [benchHogGpu] took. */
     fun benchUnhogGpu() {
         onGl(allowLost = true) {
@@ -3317,8 +3323,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         engine.boardDocument?.let { doc ->
             val current=syncBoardLayers(doc)
             engine.setBoardDocument(current)
+            // More paint than a save can carry in good time: the newest stays paint in the file, the rest its picture.
+            val keepPaint=engine.mediaTilesToSave(savePaintBudgetBytes)
             return withLines(BoardSnapshot.capture(current,
-                mediaKeys={layer,cel->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{engine.mediaTileKeys(layer,it,p)}},
+                mediaKeys={layer,cel->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{store->
+                    engine.mediaTileKeys(layer,store,p).let{keys->if(keepPaint==null)keys else keys.filter{Triple(layer,p,it) in keepPaint}}}},
                 mediaRead={layer,cel,store,key->engine.readMediaTile(layer,store,key,engine.mediaPlaneOfCel(layer,cel))},
                 keys={layer,cel->
                     val mask=current.layers.first{it.id==layer}.mask

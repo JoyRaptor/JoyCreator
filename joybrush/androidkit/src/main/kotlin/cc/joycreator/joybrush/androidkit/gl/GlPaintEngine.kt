@@ -6978,6 +6978,23 @@ class GlPaintEngine(
 
     private fun forgetAgreements(layerId: String) { agreedLook.keys.removeAll { it.first == layerId } }
 
+    /**
+     * The tiles (layer, plane, key) whose pencil, watercolour and oil state a save should keep, when all of it is more than
+     * [budgetBytes]: the most recently painted first, until the budget is spent. Null = all of it fits. The others are saved
+     * as their picture alone and open as set paint, as paint the room has set does ([setOldMedia]): what a save reads back
+     * and writes has to stay small enough to finish (a full room took 2 s of readback and 19 s of writing on the Note 9,
+     * 2026-11-15). Tiles painted before this drawing was opened carry no time and count as oldest.
+     */
+    fun mediaTilesToSave(budgetBytes: Long): Set<Triple<String, String?, Long>>? {
+        val all = ArrayList<MediaRoom.Tile>()
+        for (l in layers.values) for ((plane, stores) in l.planes()) {
+            val bytes = HashMap<Long, Long>()
+            for ((store, tiles) in stores) for (k in tiles.keys) bytes[k] = (bytes[k] ?: 0L) + MediaStores.tileBytes(size, store)
+            for ((k, b) in bytes) all += MediaRoom.Tile(l.id, plane, k, b, mediaWritten[Triple(l.id, plane, k)] ?: 0L)
+        }
+        return MediaRoom.newestWithin(all, budgetBytes)
+    }
+
     /** After a load: every payload agrees with the look the file put beside it. */
     fun agreeAllPayloads() {
         requireLocalPaint()

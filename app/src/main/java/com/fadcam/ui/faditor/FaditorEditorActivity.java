@@ -45922,16 +45922,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long inMs = isAudio ? ac.getInPointMs() : clip.getInPointMs();
         long outMs = isAudio ? ac.getOutPointMs() : clip.getOutPointMs();
         List<long[]> raw = new ArrayList<>();
+        List<long[]> allWords = new ArrayList<>();
         for (com.fadcam.ui.faditor.transcript.TranscriptWord w : currentTranscript.words) {
             // Only words fully inside this clip's trim window contribute cuts (defensive: once the
             // transcript-windowing rework lands, a clip keeps the full source transcript). Mirrors
             // the timeline's word filter. See tasks/PLAN_transcript_windowing.md.
             if (w.startMs < inMs || w.endMs > outMs) continue;
-            if (w.struck) {
-                long s = Math.max(inMs, w.startMs - 70);
-                long e = Math.min(outMs, w.endMs + 50);
-                raw.add(new long[]{s, e});
-            }
+            long s = Math.max(inMs, w.startMs - 70);
+            long e = Math.min(outMs, w.endMs + 50);
+            allWords.add(new long[]{s, e});
+            if (w.struck) raw.add(new long[]{s, e});
         }
         java.util.Collections.sort(raw, (a, b) -> Long.compare(a[0], b[0]));
 
@@ -45945,6 +45945,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 merged.add(new long[]{s[0], s[1]});
             }
         }
+        // STU-B3: keep the silence gaps cut with Clean; only the word half is rebuilt (one strike
+        // used to wipe every Clean cut on the clip).
+        merged = com.fadcam.ui.faditor.model.CutSpanMerge.rebuild(
+                isAudio ? ac.getRemovedSpans() : clip.getRemovedSpans(), merged, allWords);
         if (isAudio) ac.setRemovedSpans(merged); else clip.setRemovedSpans(merged);
         editorTimeline.invalidate();
         refreshTotalTimeDisplay();

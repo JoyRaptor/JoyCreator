@@ -1,6 +1,7 @@
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CutJumps;
+import com.fadcam.ui.faditor.model.CutSpanMerge;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
@@ -228,6 +229,28 @@ public class CutJumpsTest {
                 check(rj.endMs(q) < rj.startMs(q + 1), "random " + run + ": jumps sorted, apart");
             }
         }
+
+        // ── Striking a word keeps the Clean cuts (found on the Note 9, 11-15) ─────────────
+        // Words (padded): one 930-1750, two 2430-3250, three 3930-4750. A Clean gap 1750-2430.
+        List<long[]> words = spans(new long[]{930, 1_750}, new long[]{2_430, 3_250},
+                new long[]{3_930, 4_750});
+        List<long[]> afterStrike = CutSpanMerge.rebuild(spans(new long[]{1_760, 2_420}),
+                spans(new long[]{2_430, 3_250}), words);
+        eq(afterStrike.size(), 2, "merge: the Clean gap survives a strike");
+        eq(afterStrike.get(0)[0], 1_760, "merge: gap kept as cut");
+        eq(afterStrike.get(1)[0], 2_430, "merge: struck word added");
+        List<long[]> afterRestore = CutSpanMerge.rebuild(afterStrike, new ArrayList<>(), words);
+        eq(afterRestore.size(), 1, "merge: restoring the word drops only the word");
+        eq(afterRestore.get(0)[1], 2_420, "merge: the gap is still there");
+        // A gap that touches its words by a little is still a gap.
+        List<long[]> touching = CutSpanMerge.rebuild(spans(new long[]{1_600, 2_600}),
+                new ArrayList<>(), words);
+        eq(touching.size(), 1, "merge: a gap overlapping its words' edges is kept");
+        // A gap cut next to a struck word merges into one span.
+        List<long[]> joined = CutSpanMerge.rebuild(spans(new long[]{1_750, 2_430}),
+                spans(new long[]{2_430, 3_250}), words);
+        eq(joined.size(), 1, "merge: gap + struck word touching = one span");
+        eq(joined.get(0)[1], 3_250, "merge: to the word's end");
 
         System.out.println("CutJumpsTest: " + pass + " passed, " + fail + " failed");
         System.exit(fail == 0 ? 0 : 1);

@@ -39,7 +39,7 @@ class BrushDrawerView(
     private val kit: ChromeKit,
     library: List<BrushPreset>,
     startKind: BrushShelf.Kind,
-    private val currentId: String?,
+    private var currentId: String?,
     private val onPick: (BrushPreset) -> Unit,
     /** Long-press on a brush: its advanced settings (owner, 2026-09-30). Null keeps the drawer tap-only. */
     private val onSettings: ((BrushPreset) -> Unit)? = null,
@@ -55,18 +55,35 @@ class BrushDrawerView(
     private val swap: Swap? = null,
     /** BRUSH-IMPORT: "Import…" under the shelf names. Null leaves it out. */
     private val onImport: (() -> Unit)? = null,
+    /**
+     * TAB-1 K10: stars and recent picks. Non-null adds the "Mine" list at the top of the kinds (starred first, then
+     * the latest picks) and a star on every row. Null keeps the drawer as it was.
+     */
+    private val marks: BrushMarks? = null,
+    /** TAB-1 K10: standing as a tall side panel, so the drawer takes the height it is given instead of 45% of the screen. */
+    private val tall: Boolean = false,
 ) : LinearLayout(kit.context) {
 
     /** What the swap list draws with: the selected lines' [ink], the drawing's [paper], the brushes they [use] now. */
     class Swap(val ink: Int, val paper: Int, val use: (BrushPreset) -> Boolean, val footer: String)
 
     private val shelves = BrushShelf.shelves(library)
+    private val all = library
+    private val boxes = HashMap<String, View>()
+
+    /** TAB-1 K10: the panel stays open after a pick, so the ring moves to the brush now in the hand. */
+    fun markCurrent(id: String?) {
+        currentId = id
+        for ((bid, box) in boxes) box.background = if (bid == id) ring(10f) else null
+    }
+    private var mineView: TextView? = null
+    private var mineShowing = false
     private val kinds = LinearLayout(context).apply { orientation = VERTICAL }
     private val strokes = LinearLayout(context).apply { orientation = VERTICAL }
     private val kindViews = HashMap<BrushShelf.Kind, TextView>()
     private var shown: BrushShelf.Kind = shelves.firstOrNull { it.first == startKind }?.first ?: BrushShelf.Kind.ALL
     private val strokeScroll = ScrollView(context).apply { isVerticalScrollBarEnabled = false }
-    private val maxH = (resources.displayMetrics.heightPixels * 0.45f).roundToInt()
+    private val maxH = if (tall) Int.MAX_VALUE else (resources.displayMetrics.heightPixels * 0.45f).roundToInt()
 
     /** The look the pictures are drawn in: the drawer ink, and the eraser strip tinted with it. */
     private val previewStyle = swap?.let {
@@ -93,6 +110,18 @@ class BrushDrawerView(
         strokeScroll.setOnScrollChangeListener { _, _, _, _, _ -> askVisible() }
         addView(kindScroll, LayoutParams(kit.dpi(104f), LayoutParams.WRAP_CONTENT))
         addView(strokeScroll, LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = kit.dpi(6f) })
+        if (marks != null && swap == null) {
+            mineView = TextView(context).apply {
+                text = "\u2605 Mine"
+                textSize = 13f
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(kit.dpi(10f), 0, kit.dpi(6f), 0)
+                setSingleLine()
+                kit.label(this, "Your starred brushes, then the ones you used last")
+                setOnClickListener { showMine() }
+            }
+            kinds.addView(mineView, LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ChromeKit.TOUCH_DP)))
+        }
         for ((kind, _) in shelves) {
             val t = TextView(context).apply {
                 text = nameOf(kind)
@@ -126,11 +155,40 @@ class BrushDrawerView(
         doOnLayout {
             if (height > maxH) layoutParams = layoutParams.apply { height = maxH }
         }
-        showShelf(shown)
+        if (marks != null && swap == null && marks.mine().any { id -> all.any { it.id == id } }) showMine()
+        else showShelf(shown)
+    }
+
+    /** TAB-1 K10: starred brushes always on top, then the latest picks. */
+    private fun showMine() {
+        val m = marks ?: return
+        mineShowing = true
+        for ((_, v) in kindViews) { v.setTextColor(kit.p.drawerDim); v.background = null }
+        mineView?.apply { setTextColor(kit.p.drawerInk); background = ring(10f) }
+        callOffAsks()
+        shelfShowing++
+        strokes.removeAllViews()
+        boxes.clear()
+        val byId = all.associateBy { it.id }
+        val ids = m.mine().filter { it in byId }
+        if (ids.isEmpty()) {
+            strokes.addView(TextView(context).apply {
+                text = "Star a brush to keep it here. The ones you pick show up here too, the latest first."
+                textSize = 12f
+                setTextColor(kit.p.drawerDim)
+                setPadding(kit.dpi(8f), kit.dpi(10f), kit.dpi(8f), kit.dpi(10f))
+            }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
+            return
+        }
+        for (id in ids) {
+            strokes.addView(row(byId.getValue(id)), LayoutParams(LayoutParams.MATCH_PARENT, kit.dpi(ROW_DP)).apply { bottomMargin = kit.dpi(2f) })
+        }
     }
 
     private fun showShelf(kind: BrushShelf.Kind) {
         shown = kind
+        mineShowing = false
+        mineView?.apply { setTextColor(kit.p.drawerDim); background = null }
         for ((k, v) in kindViews) {
             val on = k == kind
             v.setTextColor(if (on) kit.p.drawerInk else kit.p.drawerDim)
@@ -139,6 +197,7 @@ class BrushDrawerView(
         callOffAsks()
         shelfShowing++
         strokes.removeAllViews()
+        boxes.clear()
         val list = shelves.firstOrNull { it.first == kind }?.second ?: return
         var familyHeading = false
         for (p in list) {
@@ -165,7 +224,7 @@ class BrushDrawerView(
     /** The pictures of the rows that are on screen (and one row beyond), asked for from the top. */
     private fun askVisible() {
         val source = previews ?: return
-        val viewport = minOf(strokeScroll.height, maxH)
+        val viewport = if (tall) strokeScroll.height else minOf(strokeScroll.height, maxH)
         if (viewport <= 0) return
         val reach = kit.dpi(ROW_DP)
         val top = strokeScroll.scrollY - reach
@@ -226,6 +285,7 @@ class BrushDrawerView(
             topMargin = kit.dpi(LABEL_DP)
         })
         if (p.id == currentId || swap?.use?.invoke(p) == true) box.background = ring(10f)
+        boxes[p.id] = box
         val makesLines = editableLines(p)
         val mode = if (makesLines) cc.joycreator.joybrush.android.select.BrushModeBadge.LINES_LABEL
             else cc.joycreator.joybrush.android.select.BrushModeBadge.PIXELS_LABEL
@@ -234,7 +294,23 @@ class BrushDrawerView(
             FrameLayout.LayoutParams(kit.dpi(12f), kit.dpi(12f), Gravity.END or Gravity.BOTTOM).apply {
                 marginEnd = kit.dpi(6f); bottomMargin = kit.dpi(6f)
             })
-        box.setOnClickListener { onPick(p) }
+        box.setOnClickListener { marks?.noteUsed(p.id); onPick(p) }
+        marks?.takeIf { swap == null }?.let { m ->
+            // TAB-1 K10: the star, in the row's top corner; starred brushes stay at the top of Mine.
+            val star = TextView(context).apply {
+                textSize = 15f
+                gravity = Gravity.CENTER
+                fun paint() {
+                    val on = m.isStarred(p.id)
+                    text = if (on) "\u2605" else "\u2606"
+                    setTextColor(if (on) kit.p.stateSelected else kit.p.drawerDim)
+                }
+                paint()
+                kit.label(this, "Star ${p.name}: keep it at the top of Mine")
+                setOnClickListener { m.toggleStar(p.id); paint(); if (mineShowing) showMine() }
+            }
+            box.addView(star, FrameLayout.LayoutParams(kit.dpi(32f), kit.dpi(28f), Gravity.END or Gravity.TOP))
+        }
         onSettings?.let { open -> box.setOnLongClickListener { open(p); true } }
         // The stand-in needs the row's real width; it is drawn once the row is laid out, and the real picture is asked for.
         val slot = Slot(p, img, shelfShowing)

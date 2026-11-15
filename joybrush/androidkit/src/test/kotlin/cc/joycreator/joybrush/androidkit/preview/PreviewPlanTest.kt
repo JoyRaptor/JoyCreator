@@ -81,6 +81,12 @@ class PreviewPlanTest {
         assertEquals(3f, PreviewPlan.shown(brush(size = 3f), 110).size.base, 0.001f)
     }
 
+    @Test fun aDabMayFillMostOfThePictureButNoMoreThanTheBrush() {
+        val dab = cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB
+        assertEquals(110f * PreviewPlan.DAB_SHARE, PreviewPlan.shown(brush(size = 300f), 110, dab).size.base, 0.001f)
+        assertEquals(3f, PreviewPlan.shown(brush(size = 3f), 110, dab).size.base, 0.001f)
+    }
+
     @Test fun showingABrushChangesOnlyItsBaseSize() {
         val p = brush(size = 300f)
         val shown = PreviewPlan.shown(p, 100)

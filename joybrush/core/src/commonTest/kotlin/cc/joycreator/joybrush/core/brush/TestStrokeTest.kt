@@ -89,6 +89,13 @@ class TestStrokeTest {
         }
     }
 
+    @Test fun aDabIsOnePressAtTheMiddle() {
+        val d = TestStroke.pen(200, 100, 40f, part = TestStroke.Part.DAB)
+        assertTrue(d.size >= 2)
+        assertTrue(d.all { it.x == 100f && it.y == 50f && it.pressure == 1f }, "one place, full pressure")
+        assertTrue(d.zipWithNext().all { (a, b) -> b.timeMs > a.timeMs })
+    }
+
     @Test fun theMarksAreAtOneAngleAndGetLighter() {
         val m = TestStroke.marks(w, h, size)
         assertEquals(4, m.size)

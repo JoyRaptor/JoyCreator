@@ -54,4 +54,12 @@ object PreviewPlan {
     /** [p] as shown in a row [heightPx] tall: its own size, or the most the row allows. Only the base size changes. */
     fun shown(p: BrushPreset, heightPx: Int): BrushPreset =
         ToolMemory.sized(p, min(p.size.base, heightPx * MAX_SHARE).coerceAtLeast(1f), p.opacity.base)
+
+    /** A single dab ([cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB]) may fill this share of the picture's height. */
+    const val DAB_SHARE = 0.8f
+
+    /** As [shown], for [part]: a dab may be larger, up to [DAB_SHARE] of the height. */
+    fun shown(p: BrushPreset, heightPx: Int, part: cc.joycreator.joybrush.core.brush.TestStroke.Part): BrushPreset =
+        if (part != cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB) shown(p, heightPx)
+        else ToolMemory.sized(p, min(p.size.base, heightPx * DAB_SHARE).coerceAtLeast(1f), p.opacity.base)
 }

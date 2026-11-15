@@ -225,7 +225,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
     private fun renderStroke(req: Request, kind: PreviewKind): Bitmap? {
         val w = req.width
         val h = req.height
-        val shown = PreviewPlan.shown(req.preset, h)
+        val shown = PreviewPlan.shown(req.preset, h, req.snapshot.part)
         val onPaper = kind == PreviewKind.WATERCOLOUR
         val e = engine(paperOf(kind))
         val ink = if (onPaper) req.style.mediaInk else req.style.ink
@@ -242,7 +242,7 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         // The test stroke's colour lines (TestStroke.STRIPES): slanted lines the curve crosses, to show pick-up, smear and
         // blur, painted from the top edge to the bottom so they run off the picture. A smudge has its own two bands, an
         // eraser its strip.
-        else if (req.snapshot.stripes) for (stripe in cc.joycreator.joybrush.core.brush.TestStroke.STRIPES) {
+        else if (req.snapshot.stripes && req.snapshot.part != cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB) for (stripe in cc.joycreator.joybrush.core.brush.TestStroke.STRIPES) {
             val inset = CannedStroke.inset(shown.size.base)
             val sw = w - 2 * inset
             val sh = (h - 2 * inset).coerceAtLeast(1f)

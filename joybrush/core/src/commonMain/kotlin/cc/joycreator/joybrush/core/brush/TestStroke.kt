@@ -201,7 +201,19 @@ object TestStroke {
         0.5f * (2f * b + (c - a) * t + (2f * a - 5f * b + 4f * c - d) * t * t + (3f * b - a - 3f * c + d) * t * t * t)
 
     /** Which part of the curve to draw: all of it, or ([SWOOSH]) the light-to-heavy S-turns alone, for a picture too small for the loop. */
-    enum class Part { WHOLE, SWOOSH }
+    /**
+     * Which part of the test to draw: all of it, the S-turns alone ([SWOOSH], a slider's tiny end picture), or a single
+     * [DAB]: one press at the box's centre, for the ends of the softness, shape and size sliders (BRUSH-UI K.3).
+     */
+    enum class Part { WHOLE, SWOOSH, DAB }
+
+    /** A [Part.DAB]'s tilt: as at his stroke's middle. */
+    const val DAB_TILT = 0.45f
+
+    /** A single press at the middle of a [width] x [height] box: full pressure, held a moment in one place, no movement. */
+    fun dab(width: Int, height: Int): List<PenSample> = List(4) { i ->
+        PenSample(width / 2f, height / 2f, timeMs = i * 12.0, pressure = 1f, tilt = DAB_TILT, azimuth = LEAN)
+    }
 
     /**
      * The S-turns, from the hairline start through both turns to where the loop begins, stretched to fill the box, its pressure
@@ -217,6 +229,7 @@ object TestStroke {
 
     /** The curve for a [width] x [height] picture and a brush [sizePx] wide, a sample about every [pitchPx] along it. */
     fun pen(width: Int, height: Int, sizePx: Float, pitchPx: Float = 3f, part: Part = Part.WHOLE): List<PenSample> {
+        if (part == Part.DAB) return dab(width, height)
         val box = Box(width, height, sizePx)
         val PATH = if (part == Part.SWOOSH) SWOOSH else PATH
         // A fine polyline through the traced points, with pressure and tilt carried along it.

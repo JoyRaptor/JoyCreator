@@ -2231,6 +2231,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private fun reportMediaHistory() {
         val now = engine.undo.undoDepth to engine.undo.canRedo
         if (now == mediaHistorySeen) return
+        // A plain stroke is being drawn (ink while a wash dries and prints itself): the board cannot be republished under it.
+        // reportHistory's setBoardDocument refused ("A board cannot change during a stroke"), the refusal was caught as a
+        // failed media frame, and the wash's engine was let go (Note 9 incident log, 2026-11-14 00:52). It is told at the
+        // first water frame after the stroke instead; the stroke's own end reports the history meanwhile.
+        if (engine.strokeInProgress) return
         mediaHistorySeen = now
         reportHistory()
     }

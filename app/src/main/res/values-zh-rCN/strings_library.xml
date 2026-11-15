@@ -122,7 +122,7 @@
     <string name="library_trashed">已移到垃圾箱。你可以从垃圾箱里放回来。</string>
     <string name="library_trash_failed">无法移到垃圾箱：%1$s</string>
     <string name="library_trash_in_use">有项目正在使用它，所以保留不动。请先把它从项目里去掉。</string>
-    <string name="library_trash_no_copy">这个项目在你的 Joy Creator 文件夹里还没有副本，以后将无法放回来，所以没有动它。</string>
+    <string name="library_trash_no_copy">这个项目或它的部分图片和片段没能复制到你的 Joy Creator 文件夹，以后将无法放回来，所以没有动它。</string>
     <string name="library_trash_no_folder">无法访问你的 Joy Creator 文件夹，以后将无法放回来，所以没有动它。</string>
     <string name="library_renamed">已重命名。</string>
     <string name="library_rename_failed">无法重命名。</string>

@@ -124,7 +124,7 @@
     <string name="library_trashed">Çöp kutusuna taşındı. Çöp kutusundan geri koyabilirsin.</string>
     <string name="library_trash_failed">Çöp kutusuna taşınamadı: %1$s</string>
     <string name="library_trash_in_use">Bir proje bunu kullanıyor, bu yüzden kalıyor. Önce projeden çıkar.</string>
-    <string name="library_trash_no_copy">Bu projenin Joy Creator klasöründe henüz bir kopyası yok, bu yüzden sonradan geri konamazdı. Dokunulmadı.</string>
+    <string name="library_trash_no_copy">Bu proje ya da bazı resimleri ve klipleri Joy Creator klasörüne kopyalanamadı, bu yüzden sonradan geri konamazdı. Dokunulmadı.</string>
     <string name="library_trash_no_folder">Joy Creator klasörüne ulaşılamıyor, bu yüzden sonradan geri konamazdı. Dokunulmadı.</string>
     <string name="library_renamed">Yeniden adlandırıldı.</string>
     <string name="library_rename_failed">Yeniden adlandırılamadı.</string>

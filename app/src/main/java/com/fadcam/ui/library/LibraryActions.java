@@ -272,11 +272,11 @@ final class LibraryActions {
             return why == null ? null : app.getString(R.string.library_trash_failed, why);
         }
         if (it.kind == LibraryKind.PROJECTS && !it.needsRestore) {
-            // The Studio list's delete: the folder copy goes to Trash. Refused when there is no folder
-            // copy to go there, because then the delete could not be undone.
+            // The Studio list's delete: the folder copy goes to Trash. Refused when the project and its
+            // media cannot all be copied there first (ProjectStorage.delete, bug hunt 11-15 A5),
+            // because then the delete could not be undone.
             if (!JoyFolderHome.isReachable(app)) return app.getString(R.string.library_trash_no_folder);
-            if (StudioMirror.folderPathOf(app, it.projectId) == null) return app.getString(R.string.library_trash_no_copy);
-            new ProjectStorage(app).delete(it.projectId);
+            if (!new ProjectStorage(app).delete(it.projectId)) return app.getString(R.string.library_trash_no_copy);
             return null;
         }
         if (it.folderPath != null) {

@@ -1359,7 +1359,9 @@ public class HomeFragment extends BaseFragment {
         }
 
         // ----- Update Check (Atom feed) -----
+        // Never in the Play build: Play does the updating (launch bug hunt 11-15, B4).
         if (
+            !com.fadcam.BuildConfig.PLAY_BUILD &&
             com.fadcam.SharedPreferencesManager.isAutoUpdateCheckEnabled(
                 requireContext()
             ) &&

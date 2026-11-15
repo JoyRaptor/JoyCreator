@@ -124,7 +124,7 @@
     <string name="library_trashed">In den Papierkorb gelegt. Du kannst es von dort zurückholen.</string>
     <string name="library_trash_failed">Es ließ sich nicht in den Papierkorb legen: %1$s</string>
     <string name="library_trash_in_use">Ein Projekt braucht das, deshalb bleibt es. Nimm es zuerst aus dem Projekt heraus.</string>
-    <string name="library_trash_no_copy">Dieses Projekt hat noch keine Kopie in deinem Joy-Creator-Ordner und könnte später nicht zurückgeholt werden. Es wurde in Ruhe gelassen.</string>
+    <string name="library_trash_no_copy">Dieses Projekt oder einige seiner Bilder und Clips konnten nicht in deinen Joy-Creator-Ordner kopiert werden, also könnte es später nicht zurückgeholt werden. Es wurde nicht angetastet.</string>
     <string name="library_trash_no_folder">Dein Joy-Creator-Ordner ist nicht erreichbar, deshalb könnte es später nicht zurückgeholt werden. Es wurde in Ruhe gelassen.</string>
     <string name="library_renamed">Umbenannt.</string>
     <string name="library_rename_failed">Das Umbenennen hat nicht geklappt.</string>

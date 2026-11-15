@@ -124,7 +124,7 @@
     <string name="library_trashed">Spostato nel cestino. Lo puoi rimettere a posto dal cestino.</string>
     <string name="library_trash_failed">Non sono riuscito a spostarlo nel cestino: %1$s</string>
     <string name="library_trash_in_use">Un progetto lo usa, quindi resta. Toglilo prima dal progetto.</string>
-    <string name="library_trash_no_copy">Questo progetto non ha ancora una copia nella tua cartella Joy Creator, quindi dopo non si potrebbe rimettere a posto. L\'ho lasciato dov\'era.</string>
+    <string name="library_trash_no_copy">Non è stato possibile copiare questo progetto, o alcune sue immagini e clip, nella tua cartella Joy Creator, quindi dopo non si potrebbe rimettere a posto. È stato lasciato com\'era.</string>
     <string name="library_trash_no_folder">La tua cartella Joy Creator non è raggiungibile, quindi dopo non si potrebbe rimettere a posto. L\'ho lasciato dov\'era.</string>
     <string name="library_renamed">Rinominato.</string>
     <string name="library_rename_failed">Non sono riuscito a rinominarlo.</string>

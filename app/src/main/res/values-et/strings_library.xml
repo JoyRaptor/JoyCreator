@@ -124,7 +124,7 @@
     <string name="library_trashed">Viidud Prügikasti. Saad selle Prügikastist tagasi tuua.</string>
     <string name="library_trash_failed">Seda ei saanud Prügikasti viia: %1$s</string>
     <string name="library_trash_in_use">Projekt kasutab seda, seega see jääb. Võta see esmalt projektist välja.</string>
-    <string name="library_trash_no_copy">Sellel projektil pole veel koopiat sinu Joy Creatori kaustas, seega ei saaks seda hiljem tagasi tuua. Jätsin selle rahule.</string>
+    <string name="library_trash_no_copy">Seda projekti või osa selle piltidest ja klippidest ei saanud sinu Joy Creatori kausta kopeerida, seega ei saaks seda hiljem tagasi tuua. See jäeti puutumata.</string>
     <string name="library_trash_no_folder">Sinu Joy Creatori kausta ei saa kätte, seega ei saaks seda hiljem tagasi tuua. Jätsin selle rahule.</string>
     <string name="library_renamed">Ümber nimetatud.</string>
     <string name="library_rename_failed">Ümbernimetamine ei õnnestunud.</string>

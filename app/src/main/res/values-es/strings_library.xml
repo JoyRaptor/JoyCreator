@@ -124,7 +124,7 @@
     <string name="library_trashed">Movido a la papelera. Puedes recuperarlo desde ahí.</string>
     <string name="library_trash_failed">No se pudo mover a la papelera: %1$s</string>
     <string name="library_trash_in_use">Un proyecto lo usa, así que se queda. Primero quítalo del proyecto.</string>
-    <string name="library_trash_no_copy">Este proyecto aún no tiene copia en tu carpeta de Joy Creator, así que luego no se podría recuperar. Se dejó como estaba.</string>
+    <string name="library_trash_no_copy">No se pudo copiar este proyecto, o algunas de sus imágenes y clips, a tu carpeta de Joy Creator, así que luego no se podría recuperar. Se dejó como estaba.</string>
     <string name="library_trash_no_folder">No se puede acceder a tu carpeta de Joy Creator, así que luego no se podría recuperar. Se dejó como estaba.</string>
     <string name="library_renamed">Renombrado.</string>
     <string name="library_rename_failed">No se pudo renombrar.</string>

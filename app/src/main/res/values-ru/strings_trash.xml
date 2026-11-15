@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Недавно удалённые</string>
+    <string name="trash_close">Закрыть «Недавно удалённые»</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d элемент</item>
+        <item quantity="few">%d элемента</item>
+        <item quantity="many">%d элементов</item>
+        <item quantity="other">%d элемента</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d выбран</item>
+        <item quantity="few">%d выбрано</item>
+        <item quantity="many">%d выбрано</item>
+        <item quantity="other">%d выбрано</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · читаю папку</string>
+    <string name="trash_notice_unreachable">Твоя папка Joy Creator сейчас недоступна, поэтому показано только то, что удалено внутри приложения.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">остался %d день</item>
+        <item quantity="few">осталось %d дня</item>
+        <item quantity="many">осталось %d дней</item>
+        <item quantity="other">осталось %d дня</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">остался %d час</item>
+        <item quantity="few">осталось %d часа</item>
+        <item quantity="many">осталось %d часов</item>
+        <item quantity="other">осталось %d часа</item>
+    </plurals>
+    <string name="trash_left_soon">скоро исчезнет</string>
+    <string name="trash_left_kept">хранится</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Выбрано.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">Хранится %d день, потом удаляется навсегда.</item>
+        <item quantity="few">Хранится %d дня, потом удаляется навсегда.</item>
+        <item quantity="many">Хранится %d дней, потом удаляется навсегда.</item>
+        <item quantity="other">Хранится %d дня, потом удаляется навсегда.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Хранится %d час, потом удаляется навсегда.</item>
+        <item quantity="few">Хранится %d часа, потом удаляется навсегда.</item>
+        <item quantity="many">Хранится %d часов, потом удаляется навсегда.</item>
+        <item quantity="other">Хранится %d часа, потом удаляется навсегда.</item>
+    </plurals>
+    <string name="trash_rule_never">Хранится, пока ты сам не удалишь.</string>
+    <string name="trash_rule_now">Сразу удаляется навсегда.</string>
+    <string name="trash_hold_hint">Нажми и удерживай, чтобы выбрать, что восстановить или удалить.</string>
+    <string name="trash_stop_selecting">Закончить выбор</string>
+    <string name="trash_restore">Восстановить</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Восстановить %d элемент</item>
+        <item quantity="few">Восстановить %d элемента</item>
+        <item quantity="many">Восстановить %d элементов</item>
+        <item quantity="other">Восстановить %d элемента</item>
+    </plurals>
+    <string name="trash_delete_forever">Удалить навсегда</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Удалить %d элемент навсегда</item>
+        <item quantity="few">Удалить %d элемента навсегда</item>
+        <item quantity="many">Удалить %d элементов навсегда</item>
+        <item quantity="other">Удалить %d элемента навсегда</item>
+    </plurals>
+    <string name="trash_open_failed">Не удалось открыть.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">Удалить %d элемент навсегда?</item>
+        <item quantity="few">Удалить %d элемента навсегда?</item>
+        <item quantity="many">Удалить %d элементов навсегда?</item>
+        <item quantity="other">Удалить %d элемента навсегда?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Очистить корзину? %d элемент исчезнет навсегда.</item>
+        <item quantity="few">Очистить корзину? Все %d элемента исчезнут навсегда.</item>
+        <item quantity="many">Очистить корзину? Все %d элементов исчезнут навсегда.</item>
+        <item quantity="other">Очистить корзину? Все %d элемента исчезнут навсегда.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d элемент старше этого срока и сейчас исчезнет навсегда.</item>
+        <item quantity="few">%d элемента старше этого срока и сейчас исчезнут навсегда.</item>
+        <item quantity="many">%d элементов старше этого срока и сейчас исчезнут навсегда.</item>
+        <item quantity="other">%d элемента старше этого срока и сейчас исчезнут навсегда.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Это нельзя отменить.</string>
+    <string name="trash_confirm_keep">Оставить</string>
+    <string name="trash_confirm_empty_button">Очистить корзину</string>
+    <string name="trash_confirm_rule_button">Изменить и удалить</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">Восстановить %d элемент</item>
+        <item quantity="few">Восстановить %d элемента</item>
+        <item quantity="many">Восстановить %d элементов</item>
+        <item quantity="other">Восстановить %d элемента</item>
+    </plurals>
+    <string name="trash_restore_where">Выбери, куда вернуть записи.</string>
+    <string name="trash_restore_where_mixed">Выбери, куда вернуть записи. Проекты, рисунки и другие файлы вернутся туда, где они были в твоей папке Joy Creator.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">Восстановлен %d элемент.</item>
+        <item quantity="few">Восстановлено %d элемента.</item>
+        <item quantity="many">Восстановлено %d элементов.</item>
+        <item quantity="other">Восстановлено %d элемента.</item>
+    </plurals>
+    <string name="trash_done_restored_part">Восстановлено %1$d из %2$d. Остальное восстановить не удалось.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">Удалён %d элемент навсегда.</item>
+        <item quantity="few">Удалено %d элемента навсегда.</item>
+        <item quantity="many">Удалено %d элементов навсегда.</item>
+        <item quantity="other">Удалено %d элемента навсегда.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Некоторые элементы удалить не удалось.</string>
+    <string name="trash_done_emptied">Корзина очищена.</string>
+    <string name="trash_done_empty_failed">Корзину не удалось очистить полностью.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d старый элемент удалён навсегда.</item>
+        <item quantity="few">%d старых элемента удалены навсегда.</item>
+        <item quantity="many">%d старых элементов удалены навсегда.</item>
+        <item quantity="other">%d старого элемента удалено навсегда.</item>
+    </plurals>
+    <string name="trash_options">Выбрать, очистить и другое</string>
+    <string name="trash_options_title">Недавно удалённые</string>
+    <string name="trash_opt_select_all">Выбрать всё</string>
+    <string name="trash_opt_rule">Удалять навсегда через · %1$s</string>
+    <string name="trash_opt_empty">Очистить корзину</string>
+    <string name="trash_opt_classic">Классическая корзина</string>
+    <string name="trash_rule_title">Удалять навсегда через</string>
+    <string name="trash_empty_all">В корзине пусто. Всё, что ты удаляешь, ждёт здесь, прежде чем исчезнет навсегда.</string>
+    <string name="trash_empty_projects">Удалённых проектов нет.</string>
+    <string name="trash_empty_drawings">Удалённых рисунков нет.</string>
+    <string name="trash_empty_recordings">Удалённых записей и видео нет.</string>
+    <string name="trash_empty_photos">Удалённых фото и картинок нет.</string>
+    <string name="trash_empty_other">Больше в корзине ничего нет.</string>
+    <string name="trash_empty_show_all">Показать всё</string>
+</resources>

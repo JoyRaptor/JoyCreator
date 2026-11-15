@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_projects.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="projects_new">Новый проект</string>
+    <string name="projects_new_a11y">Начать новый проект из видео на телефоне, из одной из твоих записей или из пустой звуковой дорожки</string>
+    <string name="projects_classic_list">Классический список Studio</string>
+    <plurals name="projects_layers">
+        <item quantity="one">%d слой</item>
+        <item quantity="few">%d слоя</item>
+        <item quantity="many">%d слоёв</item>
+        <item quantity="other">%d слоя</item>
+    </plurals>
+    <string name="projects_open_failed">Не получилось открыть проект.</string>
+    <string name="projects_open_failed_access">Не получилось открыть проект — возможно, потерян доступ к исходному видео.</string>
+    <string name="projects_untitled">Без названия</string>
+</resources>

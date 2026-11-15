@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">الأعمدة عبر اللوحة. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_rows">الصفوف على طول اللوحة. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_margin_x">المسافة عند الحافة اليسرى واليمنى للوحة. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_margin_y">المسافة عند الحافة العليا والسفلى للوحة. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_spacing_x">الفراغ بين الخلايا، من جانب إلى جانب. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_spacing_y">الفراغ بين الخلايا، من الأعلى إلى الأسفل. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_tolerance">إلى أي حد يُعدّ القريب من لون الإزالة خلفية. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_move_x">حرّك هذا الإطار يمينًا أو يسارًا. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_move_y">حرّك هذا الإطار للأعلى أو للأسفل. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_scale">كبّر هذا الإطار أو صغّره. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_rotate">أدِر هذا الإطار، بالدرجات. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_pivot_x">نقطة الارتكاز، من اليسار إلى اليمين. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_pivot_y">نقطة الارتكاز، من الأعلى إلى الأسفل. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_bake_pad">الفراغ حول كل إطار عند الدمج. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_onion_strength">مدى وضوح أطياف ظل الإطارات. اسحب للتغيير، اضغط للكتابة</string>
+    <string name="hover_sprite_onion_past">أطياف الإطارات السابقة. اسحب لتغيير عددها، اضغط لاختيار لون</string>
+    <string name="hover_sprite_onion_future">أطياف الإطارات اللاحقة. اسحب لتغيير عددها، اضغط لاختيار لون</string>
+    <string name="hover_sprite_divider">اسحب لجعل لوحة الأدوات أطول أو أقصر</string>
+    <string name="hover_puppet_badge">دبابيس الدمية. اضغط للتحريك، اضغط مطولًا لفتح درج الدبابيس</string>
+</resources>

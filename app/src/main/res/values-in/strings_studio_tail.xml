@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Pindahkan keyframe</string>
+    <string name="studio_tail_add_adjustment_layer">Tambah lapisan penyesuaian</string>
+    <string name="studio_tail_add_linked_pair">Tambah pasangan layar + webcam yang tertaut</string>
+    <string name="studio_tail_insert_at_playhead">Sisipkan di kepala putar</string>
+    <string name="studio_tail_split_linked_pair">Pisahkan pasangan tertaut</string>
+    <string name="studio_tail_delete_linked_pair">Hapus pasangan tertaut</string>
+    <string name="studio_tail_duplicate">Gandakan</string>
+    <string name="studio_tail_link_clips_pair">Tautkan klip (layar + webcam)</string>
+</resources>

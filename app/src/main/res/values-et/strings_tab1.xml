@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Paneel pildi kõrval (väljas: langeb ülevalt alla)</string>
+    <string name="tab1_drawer_column">Kõrge veerg: ajajoon asub ainult pildi all</string>
+    <string name="tab1_settings_place_title">Paneelid laial ekraanil</string>
+    <string name="tab1_settings_place_auto">Automaatne: pildi kõrval, kui seal on ruumi, muidu langeb alla</string>
+    <string name="tab1_settings_place_drop">Alati ülevalt alla, nagu telefonis</string>
+    <string name="tab1_settings_place_beside">Alati pildi kõrval</string>
+    <string name="tab1_settings_column_title">Kõrge veerg</string>
+    <string name="tab1_settings_column">Pildi kõrval ulatub paneel kogu kõrguses ja ajajoon asub ainult pildi all. Väljas: redigeerimislaud, ajajoon täislaiuses.</string>
+    <string name="tab1_settings_left_title">Vasakpoolsed paneelid</string>
+    <string name="tab1_settings_left">Paneel asub pildi vasakul, mitte paremal.</string>
+</resources>

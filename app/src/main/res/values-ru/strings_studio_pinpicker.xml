@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">За чем следовать?</string>
+    <string name="studio_pinpick_hint">Нажми на точку с цифрой или выбери из списка.</string>
+    <string name="studio_pinpick_whole">Сама картинка</string>
+    <string name="studio_pinpick_pin_n">Булавка %1$d</string>
+    <string name="studio_pinpick_diagram">Где каждая булавка стоит на картинке. Нажми на точку, чтобы следовать за этой булавкой.</string>
+    <string name="studio_pinpick_dot_n">Следовать за булавкой %1$d</string>
+    <string name="studio_pinpick_cancel">Отмена</string>
+</resources>

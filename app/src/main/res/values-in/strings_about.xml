@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">Tentang</string>
+    <string name="aboutjoy_back">Kembali</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">Satu studio untuk semua yang kamu buat.</string>
+    <string name="aboutjoy_tagline_sub">Edit, lukis, animasikan, dan rekam, semuanya di ponselmu.</string>
+    <string name="aboutjoy_version_label">Versi</string>
+    <string name="aboutjoy_build">Build %1$s · %2$s</string>
+    <string name="aboutjoy_check">Cek pembaruan</string>
+    <string name="aboutjoy_check_hint">Cari Joy Creator yang lebih baru secara online</string>
+    <string name="aboutjoy_checking">Memeriksa…</string>
+    <string name="aboutjoy_up_to_date">Kamu sudah memakai versi terbaru.</string>
+    <string name="aboutjoy_update_ready">Versi %1$s sudah siap.</string>
+    <string name="aboutjoy_beta_ready">Kamu sudah memakai versi terbaru. Beta %1$s juga sudah tersedia.</string>
+    <string name="aboutjoy_get_beta">Ambil beta</string>
+    <string name="aboutjoy_update_failed">Belum bisa memeriksa sekarang. Coba lagi nanti.</string>
+    <string name="aboutjoy_wings_label">Sayap-sayapnya</string>
+    <string name="aboutjoy_wing_studio">Potong video dan suara di timeline</string>
+    <string name="aboutjoy_wing_joybrush">Lukis dan animasikan, frame demi frame</string>
+    <string name="aboutjoy_wing_sprites">Buat sprite sheet dan karakter</string>
+    <string name="aboutjoy_wing_capture">Rekam kamera atau layar</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Pembantumu, di setiap ruangan</string>
+    <string name="aboutjoy_wing_viz">Ubah suara jadi gambar bergerak</string>
+    <string name="aboutjoy_soon">Segera</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">Privasi</string>
+    <string name="aboutjoy_privacy_toggle">Tampilkan atau sembunyikan jawaban soal privasi</string>
+    <string name="aboutjoy_open_label">Open source</string>
+    <string name="aboutjoy_based_on">Dibangun di atas FadCam oleh FadSec Lab</string>
+    <string name="aboutjoy_source_hint">Buka kode sumber di browsermu</string>
+    <string name="aboutjoy_made_by">Dibuat oleh</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Tentang versi klasik</string>
+    <string name="aboutjoy_classic_hint">Buka layar Tentang yang lama</string>
+    <string name="aboutjoy_no_browser">Tidak ada browser untuk membuka tautan ini</string>
+</resources>

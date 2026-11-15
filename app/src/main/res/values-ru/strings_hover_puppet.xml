@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Столбцы листа. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_rows">Строки листа. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_margin_x">Отступ у левого и правого края листа. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_margin_y">Отступ у верхнего и нижнего края листа. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_spacing_x">Промежуток между ячейками по горизонтали. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_spacing_y">Промежуток между ячейками по вертикали. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_tolerance">Насколько близкий к ключевому цвет считается фоном. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_move_x">Сдвинуть этот кадр влево или вправо. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_move_y">Сдвинуть этот кадр вверх или вниз. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_scale">Увеличить или уменьшить этот кадр. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_rotate">Повернуть этот кадр, в градусах. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_pivot_x">Точка опоры по горизонтали. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_pivot_y">Точка опоры по вертикали. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_bake_pad">Отступ вокруг каждого кадра при запекании. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_onion_strength">Насколько заметны призраки кальки. Потяни, чтобы изменить, нажми, чтобы ввести</string>
+    <string name="hover_sprite_onion_past">Призраки прошлых кадров. Потяни, чтобы изменить число, нажми, чтобы выбрать цвет</string>
+    <string name="hover_sprite_onion_future">Призраки следующих кадров. Потяни, чтобы изменить число, нажми, чтобы выбрать цвет</string>
+    <string name="hover_sprite_divider">Потяни, чтобы сделать панель инструментов выше или ниже</string>
+    <string name="hover_puppet_badge">Булавки куклы. Нажми, чтобы позировать, удержи, чтобы открыть панель булавок</string>
+</resources>

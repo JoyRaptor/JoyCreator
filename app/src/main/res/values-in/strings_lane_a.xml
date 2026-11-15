@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_lane_a.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_drawer_grip">Seret untuk mengubah ukuran, ketuk untuk menutup</string>
+    <string name="lane_a_toggle_mute">Bisukan</string>
+    <string name="lane_a_toggle_hide">Sembunyikan</string>
+    <string name="lane_a_toggle_lock">Kunci</string>
+    <string name="lane_a_toggle_pass_through">Biarkan ketukan menembus</string>
+    <string name="lane_a_toggle_start_here">Mulai di sini</string>
+    <string name="lane_a_toggle_end_here">Berakhir di sini</string>
+    <string name="lane_a_toggle_split">Pisahkan di playhead</string>
+    <string name="lane_a_toggle_fx_bypass">Lewati efek (A/B)</string>
+    <string name="lane_a_mask_add_shape">Tambah bentuk mask</string>
+    <string name="lane_a_mask_remove_shape">Hapus bentuk ini</string>
+    <string name="lane_a_mask_shape_n">Bentuk %1$d</string>
+    <string name="lane_a_step_down">Kurangi satu langkah</string>
+    <string name="lane_a_step_up">Tambah satu langkah</string>
+    <string name="lane_a_key_green">Hilangkan hijau</string>
+    <string name="lane_a_key_blue">Hilangkan biru</string>
+    <string name="lane_a_key_black">Hilangkan hitam</string>
+    <string name="lane_a_key_white">Hilangkan putih</string>
+    <string name="lane_a_pivot_title">Poros rotasi</string>
+    <string name="lane_a_pivot_top_left">Poros: kiri atas</string>
+    <string name="lane_a_pivot_top">Poros: atas</string>
+    <string name="lane_a_pivot_top_right">Poros: kanan atas</string>
+    <string name="lane_a_pivot_left">Poros: kiri</string>
+    <string name="lane_a_pivot_centre">Poros: tengah</string>
+    <string name="lane_a_pivot_right">Poros: kanan</string>
+    <string name="lane_a_pivot_bottom_left">Poros: kiri bawah</string>
+    <string name="lane_a_pivot_bottom">Poros: bawah</string>
+    <string name="lane_a_pivot_bottom_right">Poros: kanan bawah</string>
+    <string name="lane_a_sprite_prev_key">Majukan key sedikit</string>
+    <string name="lane_a_sprite_key">Hapus key di bawah playhead</string>
+    <string name="lane_a_sprite_next_key">Mundurkan key sedikit</string>
+    <string name="lane_a_sprite_open_lab">Buka di Sprite Lab</string>
+    <string name="lane_a_sprite_flip_h">Balik horizontal</string>
+    <string name="lane_a_sprite_flip_v">Balik vertikal</string>
+    <string name="lane_a_sprite_end">Di akhir: sekali, ulang, atau ping-pong</string>
+    <string name="lane_a_sprite_record">Rekam penampilan</string>
+    <string name="lane_a_sprite_stop">Hentikan rekaman</string>
+    <string name="lane_a_sprite_sweep">Lacak dari video di bawahnya</string>
+    <string name="lane_a_sprite_more">Lainnya</string>
+    <string name="lane_a_sprite_dope">Dope sheet</string>
+    <string name="lane_a_sprite_manage">Sprite sheet</string>
+    <string name="lane_a_sprite_grip">Seret ke atas untuk lebih banyak baris, ke bawah untuk lebih sedikit</string>
+</resources>

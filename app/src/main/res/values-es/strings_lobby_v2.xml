@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_lobby_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lobbyv2_search">Buscar en todo</string>
+    <string name="lobbyv2_joybot">Joybot</string>
+    <string name="lobbyv2_joybot_tip">Joybot, tu ayudante — se ilumina de verde cuando tiene una idea para tu proyecto</string>
+    <string name="lobbyv2_dismiss">Descartar</string>
+    <string name="lobbyv2_tag_last_project">ÚLTIMO PROYECTO</string>
+    <string name="lobbyv2_tag_ready">LISTO</string>
+    <string name="lobbyv2_tag_last_sheet">ÚLTIMA HOJA</string>
+    <string name="lobbyv2_tag_last_character">ÚLTIMO PERSONAJE</string>
+    <string name="lobbyv2_tag_last_visualiser">ÚLTIMO VISUALIZADOR</string>
+    <string name="lobbyv2_tag_last_look">ÚLTIMO ASPECTO</string>
+    <string name="lobbyv2_tag_new_drawing">DIBUJO NUEVO</string>
+    <string name="lobbyv2_tag_last_drawing">ÚLTIMO DIBUJO</string>
+    <string name="lobbyv2_camera_back">Cámara trasera</string>
+    <string name="lobbyv2_camera_front">Cámara frontal</string>
+    <string name="lobbyv2_camera_dual">Ambas cámaras</string>
+    <string name="lobbyv2_capture_ready">Listo para grabar</string>
+    <string name="lobbyv2_capture_sub">LISTO · %1$s</string>
+    <string name="lobbyv2_capture_sub_plain">LISTO</string>
+    <string name="lobbyv2_in_project">EN %1$s</string>
+    <string name="lobbyv2_avatar_library">BIBLIOTECA DE AVATARES</string>
+    <plurals name="lobbyv2_hero_drawings">
+        <item quantity="one">DIBUJO · %2$s</item>
+        <item quantity="other">%1$d DIBUJOS · %2$s</item>
+    </plurals>
+    <plurals name="lobbyv2_layers">
+        <item quantity="one">%d CAPA</item>
+        <item quantity="other">%d CAPAS</item>
+    </plurals>
+    <string name="lobbyv2_drawings">Dibujos</string>
+    <plurals name="lobbyv2_drawing_count">
+        <item quantity="one">%d dibujo</item>
+        <item quantity="other">%d dibujos</item>
+    </plurals>
+    <string name="lobbyv2_nothing_yet">Aún no hay nada. Crea algo y aparecerá aquí.</string>
+    <string name="lobbyv2_new_card">+ Nuevo</string>
+    <string name="lobbyv2_new_drawing">Dibujo nuevo</string>
+    <string name="lobbyv2_no_room_for_drawing">Este teléfono no tiene dónde guardar un dibujo.</string>
+    <string name="lobbyv2_kind_project">PROYECTO</string>
+    <string name="lobbyv2_kind_drawing">DIBUJO</string>
+    <string name="lobbyv2_kind_export">EXPORTACIÓN</string>
+    <string name="lobbyv2_kind_screen">PANTALLA</string>
+    <string name="lobbyv2_kind_photo">FOTO</string>
+    <string name="lobbyv2_kind_stream">TRANSMISIÓN</string>
+    <string name="lobbyv2_kind_recording">GRABACIÓN</string>
+    <string name="lobbyv2_kind_mini_app">MINIAPP</string>
+    <string name="lobbyv2_kind_video">VIDEO</string>
+    <string name="lobbyv2_kind_picture">IMAGEN</string>
+    <string name="lobbyv2_kind_sheet">HOJA DE SPRITES</string>
+    <string name="lobbyv2_kind_character">PERSONAJE</string>
+    <string name="lobbyv2_kind_look">ASPECTO DE VISLAB</string>
+    <string name="lobbyv2_card_meta">%1$s · %2$s</string>
+    <string name="lobbyv2_bot_newest_recording">Tu grabación más reciente llegó después de tu última edición.</string>
+    <string name="lobbyv2_bot_open_library">Abrir Library</string>
+    <plurals name="lobbyv2_bot_recordings_no_projects">
+        <item quantity="one">%d grabación y aún ningún proyecto.</item>
+        <item quantity="other">%d grabaciones y aún ningún proyecto.</item>
+    </plurals>
+    <string name="lobbyv2_stat_low">Quedan %1$s</string>
+    <string name="lobbyv2_stat_free">%1$s libres</string>
+    <plurals name="lobbyv2_stat_projects">
+        <item quantity="one">%d proyecto</item>
+        <item quantity="other">%d proyectos</item>
+    </plurals>
+    <string name="lobbyv2_time_left">Quedan ~%1$s de video</string>
+    <string name="lobbyv2_time_left_short">Quedan ~%1$s</string>
+    <string name="lobbyv2_dur_days">%1$d d %2$d h</string>
+    <string name="lobbyv2_dur_hours">%1$d h %2$d min</string>
+    <string name="lobbyv2_dur_minutes">%1$d min</string>
+    <string name="lobbyv2_bytes_gb">%1$.0f GB</string>
+    <string name="lobbyv2_bytes_mb">%1$.0f MB</string>
+    <string name="lobbyv2_ago_now">ahora mismo</string>
+    <string name="lobbyv2_ago_minutes">hace %1$d min</string>
+    <string name="lobbyv2_ago_hours">hace %1$d h</string>
+    <string name="lobbyv2_ago_days">hace %1$d d</string>
+    <string name="lobbyv2_ago_months">hace %1$d mes</string>
+</resources>

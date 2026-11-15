@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">ما الجديد</string>
+    <string name="legacyv2_whatsnew_intro">ميزات وتحسينات وإصلاحات جديدة في هذا الإصدار.</string>
+    <string name="legacyv2_whatsnew_reenable">أعد التفعيل من الإعدادات → مفتاح \'إظهار المقدمة\'</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="zero">جاهز خلال %d ثانية...</item>
+        <item quantity="one">جاهز خلال %d ثانية...</item>
+        <item quantity="two">جاهز خلال %d ثانية...</item>
+        <item quantity="few">جاهز خلال %d ثوانٍ...</item>
+        <item quantity="many">جاهز خلال %d ثانية...</item>
+        <item quantity="other">جاهز خلال %d ثانية...</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">يمكنك إغلاق هذا الآن</string>
+    <string name="legacyv2_whatsnew_got_it">فهمت</string>
+    <string name="legacyv2_whatsnew_progress_desc">إلى أي مدى مررت على الملاحظات</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">جديد في هذا الإصدار</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">التحديث من الإصدار %1$s إلى الإصدار %2$s</string>
+    <string name="legacyv2_mode_option_desc">أظهر إعدادات %1$s</string>
+</resources>

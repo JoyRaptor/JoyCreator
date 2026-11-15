@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">Hoia hääled loomulikena, kui kiirus muutub</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">Sulge kõik tööriistad</string>
+    <string name="lane_d_asset_close">Sulge failide sirvija</string>
+    <string name="lane_d_asset_prev">Eelmine kinnitatud kaust</string>
+    <string name="lane_d_asset_next">Järgmine kinnitatud kaust</string>
+    <string name="lane_d_asset_filter">Näita kõiki, kasutusel olevaid või kasutamata faile</string>
+    <string name="lane_d_asset_forget">Eemalda see kaust kinnitatud kaustade ajaloost</string>
+    <string name="lane_d_asset_resize">Lohista, et muuta failide sirvija suurust</string>
+</resources>

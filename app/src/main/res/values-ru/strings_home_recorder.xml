@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">Видео</string>
+    <string name="home_rec_label_used">Занято</string>
+    <string name="home_rec_shot_label">Фото</string>
+    <string name="home_rec_shot_desc">Сделать фото</string>
+    <string name="home_rec_full_label">Во весь экран</string>
+    <string name="home_rec_full_desc">Превью на весь экран</string>
+    <string name="home_rec_paused">Запись на паузе</string>
+    <string name="home_rec_mirror">Зеркалить фронтальную камеру</string>
+    <string name="home_rec_sound_source">Источник звука</string>
+    <string name="home_rec_live_viz">Живой визуализатор (удержи, чтобы сменить стиль)</string>
+    <string name="home_rec_dismiss_gps">Скрыть предупреждение о местоположении</string>
+</resources>

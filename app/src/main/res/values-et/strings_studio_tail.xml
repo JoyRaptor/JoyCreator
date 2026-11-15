@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_studio_tail.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_tail_move_keyframe">Liiguta võtmekaadrit</string>
+    <string name="studio_tail_add_adjustment_layer">Lisa korrektsioonikiht</string>
+    <string name="studio_tail_add_linked_pair">Lisa seotud ekraani + veebikaamera paar</string>
+    <string name="studio_tail_insert_at_playhead">Sisesta esitusmarkeri kohale</string>
+    <string name="studio_tail_split_linked_pair">Jaga seotud paar</string>
+    <string name="studio_tail_delete_linked_pair">Kustuta seotud paar</string>
+    <string name="studio_tail_duplicate">Dubleeri</string>
+    <string name="studio_tail_link_clips_pair">Seo klipid (ekraan + veebikaamera)</string>
+</resources>

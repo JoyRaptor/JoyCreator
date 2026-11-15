@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_permissions.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="access_capture_title">Η Λήψη χρειάζεται την κάμερα και το μικρόφωνο</string>
+    <string name="access_capture_why">Για να βιντεοσκοπείς και να καταγράφεις ήχο, το Android σου ζητά να επιτρέψεις την κάμερα και το μικρόφωνο. Το Joy Creator ζητά επίσης να δείχνει την ειδοποίηση εγγραφής, ώστε να ξέρεις πάντα πότε γίνεται εγγραφή. Τίποτα δεν φεύγει από το κινητό σου.</string>
+    <string name="access_allow">Επιτρέπω</string>
+    <string name="access_not_now">Όχι τώρα</string>
+    <string name="access_capture_declined">Η Λήψη μένει κλειστή μέχρι να επιτραπούν η κάμερα και το μικρόφωνο. Πάτα ξανά Λήψη όποτε θες.</string>
+    <string name="access_capture_blocked">Το Android δεν θα ξαναρωτήσει για την κάμερα ή το μικρόφωνο. Ενεργοποίησέ τα στη σελίδα ρυθμίσεων του Joy Creator, στις Άδειες, και μετά γύρνα πίσω.</string>
+    <string name="access_open_settings">Άνοιγμα ρυθμίσεων</string>
+</resources>

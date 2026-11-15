@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">Activé</string>
+    <string name="joybotswitch_state_off">Désactivé</string>
+    <string name="joybotswitch_tip_on">Activé. Touche pour désactiver.</string>
+    <string name="joybotswitch_tip_off">Désactivé. Touche pour activer.</string>
+    <string name="joybotswitch_tip_on_named">%1$s est activé. Touche pour désactiver.</string>
+    <string name="joybotswitch_tip_off_named">%1$s est désactivé. Touche pour activer.</string>
+</resources>

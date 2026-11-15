@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_home_recorder.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="home_rec_label_videos">ویډیوګانې</string>
+    <string name="home_rec_label_used">کارول شوي</string>
+    <string name="home_rec_shot_label">انځور</string>
+    <string name="home_rec_shot_desc">انځور واخلئ</string>
+    <string name="home_rec_full_label">بشپړ</string>
+    <string name="home_rec_full_desc">بشپړ پرده مخکتنه</string>
+    <string name="home_rec_paused">ثبت ودرول شو</string>
+    <string name="home_rec_mirror">مخکینۍ کامره هینداره کړئ</string>
+    <string name="home_rec_sound_source">د غږ سرچینه</string>
+    <string name="home_rec_live_viz">ژوندی لیدونکی (د بڼې بدلولو لپاره ونیسئ)</string>
+    <string name="home_rec_dismiss_gps">د موقعیت خبرتیا لرې کړئ</string>
+</resources>

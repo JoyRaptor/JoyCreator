@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">В Story Board пусто</string>
+    <string name="smart_detection_empty_hint">Кадры, отмеченные камерой, появятся здесь</string>
+    <string name="smart_detection_empty_glyph_desc">Пока ничего не найдено</string>
+    <string name="smart_detection_tip_close">Закрыть</string>
+    <string name="smart_detection_tip_back">Назад</string>
+    <string name="smart_detection_tip_menu">Меню Smart Detection</string>
+    <string name="smart_detection_tip_select_all">Выбрать всё</string>
+    <string name="smart_detection_tip_sort">Сортировка</string>
+    <string name="smart_detection_tip_grid">Изменить сетку</string>
+    <string name="smart_detection_tip_scroll">Наверх</string>
+</resources>

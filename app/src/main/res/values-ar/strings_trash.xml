@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">المحذوفة مؤخرًا</string>
+    <string name="trash_close">إغلاق المحذوفة مؤخرًا</string>
+    <plurals name="trash_count">
+        <item quantity="zero">%d عنصر</item>
+        <item quantity="one">عنصر واحد</item>
+        <item quantity="two">عنصران</item>
+        <item quantity="few">%d عناصر</item>
+        <item quantity="many">%d عنصرًا</item>
+        <item quantity="other">%d عنصر</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="zero">%d محدد</item>
+        <item quantity="one">عنصر واحد محدد</item>
+        <item quantity="two">عنصران محددان</item>
+        <item quantity="few">%d محددة</item>
+        <item quantity="many">%d محددًا</item>
+        <item quantity="other">%d محدد</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · جارٍ قراءة المجلد</string>
+    <string name="trash_notice_unreachable">تعذّر الوصول إلى مجلد Joy Creator الآن، لذلك تظهر فقط الأشياء المحذوفة داخل التطبيق.</string>
+    <plurals name="trash_days_left">
+        <item quantity="zero">بقي %d يوم</item>
+        <item quantity="one">بقي يوم واحد</item>
+        <item quantity="two">بقي يومان</item>
+        <item quantity="few">بقيت %d أيام</item>
+        <item quantity="many">بقي %d يومًا</item>
+        <item quantity="other">بقي %d يوم</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="zero">بقيت %d ساعة</item>
+        <item quantity="one">بقيت ساعة واحدة</item>
+        <item quantity="two">بقيت ساعتان</item>
+        <item quantity="few">بقيت %d ساعات</item>
+        <item quantity="many">بقيت %d ساعة</item>
+        <item quantity="other">بقيت %d ساعة</item>
+    </plurals>
+    <string name="trash_left_soon">يُحذف قريبًا جدًا</string>
+    <string name="trash_left_kept">محفوظ</string>
+    <string name="trash_a11y_card">%1$s. %2$s، %3$s.</string>
+    <string name="trash_a11y_selected">محدد.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="zero">يُحفظ %d يوم، ثم يُحذف نهائيًا.</item>
+        <item quantity="one">يُحفظ يومًا واحدًا، ثم يُحذف نهائيًا.</item>
+        <item quantity="two">يُحفظ يومين، ثم يُحذف نهائيًا.</item>
+        <item quantity="few">يُحفظ %d أيام، ثم يُحذف نهائيًا.</item>
+        <item quantity="many">يُحفظ %d يومًا، ثم يُحذف نهائيًا.</item>
+        <item quantity="other">يُحفظ %d يوم، ثم يُحذف نهائيًا.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="zero">يُحفظ %d ساعة، ثم يُحذف نهائيًا.</item>
+        <item quantity="one">يُحفظ ساعة واحدة، ثم يُحذف نهائيًا.</item>
+        <item quantity="two">يُحفظ ساعتين، ثم يُحذف نهائيًا.</item>
+        <item quantity="few">يُحفظ %d ساعات، ثم يُحذف نهائيًا.</item>
+        <item quantity="many">يُحفظ %d ساعة، ثم يُحذف نهائيًا.</item>
+        <item quantity="other">يُحفظ %d ساعة، ثم يُحذف نهائيًا.</item>
+    </plurals>
+    <string name="trash_rule_never">يُحفظ حتى تحذفه أنت.</string>
+    <string name="trash_rule_now">يُحذف نهائيًا على الفور.</string>
+    <string name="trash_hold_hint">اضغط مطولًا لاختيار ما تريد استعادته أو حذفه.</string>
+    <string name="trash_stop_selecting">إيقاف الاختيار</string>
+    <string name="trash_restore">استعادة</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="zero">استعادة %d عنصر</item>
+        <item quantity="one">استعادة عنصر واحد</item>
+        <item quantity="two">استعادة عنصرين</item>
+        <item quantity="few">استعادة %d عناصر</item>
+        <item quantity="many">استعادة %d عنصرًا</item>
+        <item quantity="other">استعادة %d عنصر</item>
+    </plurals>
+    <string name="trash_delete_forever">حذف نهائي</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="zero">حذف %d عنصر نهائيًا</item>
+        <item quantity="one">حذف عنصر واحد نهائيًا</item>
+        <item quantity="two">حذف عنصرين نهائيًا</item>
+        <item quantity="few">حذف %d عناصر نهائيًا</item>
+        <item quantity="many">حذف %d عنصرًا نهائيًا</item>
+        <item quantity="other">حذف %d عنصر نهائيًا</item>
+    </plurals>
+    <string name="trash_open_failed">تعذّر فتح هذا.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="zero">حذف %d عنصر نهائيًا؟</item>
+        <item quantity="one">حذف عنصر واحد نهائيًا؟</item>
+        <item quantity="two">حذف عنصرين نهائيًا؟</item>
+        <item quantity="few">حذف %d عناصر نهائيًا؟</item>
+        <item quantity="many">حذف %d عنصرًا نهائيًا؟</item>
+        <item quantity="other">حذف %d عنصر نهائيًا؟</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="zero">إفراغ السلة؟ سيُحذف كل ما فيها (%d) نهائيًا.</item>
+        <item quantity="one">إفراغ السلة؟ سيُحذف العنصر الوحيد نهائيًا.</item>
+        <item quantity="two">إفراغ السلة؟ سيُحذف العنصران نهائيًا.</item>
+        <item quantity="few">إفراغ السلة؟ ستُحذف كل العناصر الـ %d نهائيًا.</item>
+        <item quantity="many">إفراغ السلة؟ ستُحذف كل العناصر الـ %d نهائيًا.</item>
+        <item quantity="other">إفراغ السلة؟ ستُحذف كل العناصر الـ %d نهائيًا.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="zero">%d عنصر أقدم من ذلك وسيُحذف نهائيًا الآن.</item>
+        <item quantity="one">عنصر واحد أقدم من ذلك وسيُحذف نهائيًا الآن.</item>
+        <item quantity="two">عنصران أقدم من ذلك وسيُحذفان نهائيًا الآن.</item>
+        <item quantity="few">%d عناصر أقدم من ذلك وستُحذف نهائيًا الآن.</item>
+        <item quantity="many">%d عنصرًا أقدم من ذلك وستُحذف نهائيًا الآن.</item>
+        <item quantity="other">%d عنصر أقدم من ذلك وستُحذف نهائيًا الآن.</item>
+    </plurals>
+    <string name="trash_confirm_undone">لا يمكن التراجع عن هذا.</string>
+    <string name="trash_confirm_keep">إبقاء</string>
+    <string name="trash_confirm_empty_button">إفراغ السلة</string>
+    <string name="trash_confirm_rule_button">غيّر واحذف</string>
+    <plurals name="trash_restore_title">
+        <item quantity="zero">استعادة %d عنصر</item>
+        <item quantity="one">استعادة عنصر واحد</item>
+        <item quantity="two">استعادة عنصرين</item>
+        <item quantity="few">استعادة %d عناصر</item>
+        <item quantity="many">استعادة %d عنصرًا</item>
+        <item quantity="other">استعادة %d عنصر</item>
+    </plurals>
+    <string name="trash_restore_where">اختر المكان الذي تذهب إليه التسجيلات.</string>
+    <string name="trash_restore_where_mixed">اختر المكان الذي تذهب إليه التسجيلات. أما المشاريع والرسومات والملفات الأخرى فتعود إلى مكانها في مجلد Joy Creator.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="zero">تمت استعادة %d عنصر.</item>
+        <item quantity="one">تمت استعادة عنصر واحد.</item>
+        <item quantity="two">تمت استعادة عنصرين.</item>
+        <item quantity="few">تمت استعادة %d عناصر.</item>
+        <item quantity="many">تمت استعادة %d عنصرًا.</item>
+        <item quantity="other">تمت استعادة %d عنصر.</item>
+    </plurals>
+    <string name="trash_done_restored_part">تمت استعادة %1$d من %2$d. تعذّرت استعادة الباقي.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="zero">تم حذف %d عنصر نهائيًا.</item>
+        <item quantity="one">تم حذف عنصر واحد نهائيًا.</item>
+        <item quantity="two">تم حذف عنصرين نهائيًا.</item>
+        <item quantity="few">تم حذف %d عناصر نهائيًا.</item>
+        <item quantity="many">تم حذف %d عنصرًا نهائيًا.</item>
+        <item quantity="other">تم حذف %d عنصر نهائيًا.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">تعذّر حذف بعض العناصر.</string>
+    <string name="trash_done_emptied">تم إفراغ السلة.</string>
+    <string name="trash_done_empty_failed">تعذّر إفراغ السلة بالكامل.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="zero">حُذف %d عنصر قديم نهائيًا.</item>
+        <item quantity="one">حُذف عنصر قديم واحد نهائيًا.</item>
+        <item quantity="two">حُذف عنصران قديمان نهائيًا.</item>
+        <item quantity="few">حُذفت %d عناصر قديمة نهائيًا.</item>
+        <item quantity="many">حُذف %d عنصرًا قديمًا نهائيًا.</item>
+        <item quantity="other">حُذف %d عنصر قديم نهائيًا.</item>
+    </plurals>
+    <string name="trash_options">تحديد وإفراغ والمزيد</string>
+    <string name="trash_options_title">المحذوفة مؤخرًا</string>
+    <string name="trash_opt_select_all">تحديد الكل</string>
+    <string name="trash_opt_rule">الحذف النهائي بعد · %1$s</string>
+    <string name="trash_opt_empty">إفراغ السلة</string>
+    <string name="trash_opt_classic">السلة الكلاسيكية</string>
+    <string name="trash_rule_title">الحذف النهائي بعد</string>
+    <string name="trash_empty_all">لا شيء في السلة. الأشياء التي تحذفها تنتظر هنا قبل أن تُحذف نهائيًا.</string>
+    <string name="trash_empty_projects">لا مشاريع محذوفة.</string>
+    <string name="trash_empty_drawings">لا رسومات محذوفة.</string>
+    <string name="trash_empty_recordings">لا تسجيلات أو فيديوهات محذوفة.</string>
+    <string name="trash_empty_photos">لا صور محذوفة.</string>
+    <string name="trash_empty_other">لا شيء آخر في السلة.</string>
+    <string name="trash_empty_show_all">عرض كل شيء</string>
+</resources>

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Baru saja dihapus</string>
+    <string name="trash_close">Tutup Baru saja dihapus</string>
+    <plurals name="trash_count">
+        <item quantity="other">%d item</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="other">%d dipilih</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · membaca folder</string>
+    <string name="trash_notice_unreachable">Folder Joy Creator-mu sedang tidak bisa diakses, jadi hanya yang dihapus di dalam aplikasi yang tampil.</string>
+    <plurals name="trash_days_left">
+        <item quantity="other">%d hari lagi</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="other">%d jam lagi</item>
+    </plurals>
+    <string name="trash_left_soon">segera hilang</string>
+    <string name="trash_left_kept">disimpan</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Dipilih.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="other">Disimpan %d hari, lalu dihapus selamanya.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="other">Disimpan %d jam, lalu dihapus selamanya.</item>
+    </plurals>
+    <string name="trash_rule_never">Disimpan sampai kamu menghapusnya.</string>
+    <string name="trash_rule_now">Langsung dihapus selamanya.</string>
+    <string name="trash_hold_hint">Tekan dan tahan untuk memilih yang ingin dipulihkan atau dihapus.</string>
+    <string name="trash_stop_selecting">Berhenti memilih</string>
+    <string name="trash_restore">Pulihkan</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="other">Pulihkan %d item</item>
+    </plurals>
+    <string name="trash_delete_forever">Hapus selamanya</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="other">Hapus %d item selamanya</item>
+    </plurals>
+    <string name="trash_open_failed">Ini tidak bisa dibuka.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="other">Hapus %d item selamanya?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="other">Kosongkan sampah? Semua %d item hilang selamanya.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="other">%d item lebih lama dari itu dan hilang selamanya sekarang.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Ini tidak bisa dibatalkan.</string>
+    <string name="trash_confirm_keep">Simpan</string>
+    <string name="trash_confirm_empty_button">Kosongkan sampah</string>
+    <string name="trash_confirm_rule_button">Ubah dan hapus</string>
+    <plurals name="trash_restore_title">
+        <item quantity="other">Pulihkan %d item</item>
+    </plurals>
+    <string name="trash_restore_where">Pilih ke mana rekaman dikembalikan.</string>
+    <string name="trash_restore_where_mixed">Pilih ke mana rekaman dikembalikan. Proyek, gambar, dan file lain kembali ke tempat asalnya di folder Joy Creator-mu.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="other">%d item dipulihkan.</item>
+    </plurals>
+    <string name="trash_done_restored_part">%1$d dari %2$d dipulihkan. Sisanya tidak bisa dipulihkan.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="other">%d item dihapus selamanya.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Beberapa item tidak bisa dihapus.</string>
+    <string name="trash_done_emptied">Sampah dikosongkan.</string>
+    <string name="trash_done_empty_failed">Sampah tidak bisa dikosongkan seluruhnya.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="other">%d item lama dihapus selamanya.</item>
+    </plurals>
+    <string name="trash_options">Pilih, kosongkan, dan lainnya</string>
+    <string name="trash_options_title">Baru saja dihapus</string>
+    <string name="trash_opt_select_all">Pilih semua</string>
+    <string name="trash_opt_rule">Hapus selamanya setelah · %1$s</string>
+    <string name="trash_opt_empty">Kosongkan sampah</string>
+    <string name="trash_opt_classic">Sampah klasik</string>
+    <string name="trash_rule_title">Hapus selamanya setelah</string>
+    <string name="trash_empty_all">Sampah kosong. Yang kamu hapus menunggu di sini sebelum hilang selamanya.</string>
+    <string name="trash_empty_projects">Tidak ada proyek yang dihapus.</string>
+    <string name="trash_empty_drawings">Tidak ada gambar yang dihapus.</string>
+    <string name="trash_empty_recordings">Tidak ada rekaman atau video yang dihapus.</string>
+    <string name="trash_empty_photos">Tidak ada foto atau gambar yang dihapus.</string>
+    <string name="trash_empty_other">Tidak ada yang lain di sampah.</string>
+    <string name="trash_empty_show_all">Tampilkan semuanya</string>
+</resources>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Estonian translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Kaug-Studio</string>
+    <string name="remote_chip_on_air">EETRIS</string>
+    <string name="remote_chip_off_air">EETRIST VÄLJAS</string>
+    <string name="remote_section_on_air">Eetris</string>
+    <string name="remote_section_connection">Ühendus</string>
+    <string name="remote_section_health">Seisukord</string>
+    <string name="remote_section_security">Krüptimine</string>
+    <string name="remote_section_help">Abi</string>
+    <string name="remote_quality_default">Kõrge (1080p) • 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">Pilvekasutuse aruandlus</string>
+    <string name="remote_usage_retrying">Proovin ühendust uuesti...</string>
+    <string name="remote_usage_bytes">Edastatud baite</string>
+    <string name="remote_usage_failures">Tõrkeid</string>
+    <string name="remote_usage_action">Toiming</string>
+    <string name="remote_usage_retry">Proovi uuesti</string>
+    <string name="remote_usage_retry_toast">Proovin kasutuse aruandlust uuesti...</string>
+    <string name="remote_usage_title_active">Pilvekasutus (aktiivne)</string>
+    <string name="remote_usage_title_error">Pilvekasutus (viga)</string>
+    <string name="remote_usage_title_retrying">Pilvekasutus (proovin uuesti)</string>
+    <string name="remote_usage_title_plain">Pilvekasutus</string>
+    <string name="remote_usage_no_errors">Vigu pole</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 viga</string>
+    <string name="remote_toast_stream_starting">Voogedastuse server käivitub...</string>
+    <string name="remote_toast_stream_stopped">Voogedastuse server peatatud</string>
+    <string name="remote_toast_mode_stream_only">Režiim: ainult voog</string>
+    <string name="remote_toast_mode_stream_save">Režiim: voog ja salvestus</string>
+    <string name="remote_toast_no_clients">Ühtegi klienti pole ühendatud</string>
+    <string name="remote_toast_password_empty">Parool ei tohi olla tühi</string>
+    <string name="remote_toast_link_account">Seo esmalt oma Joy Creator ID konto</string>
+    <string name="remote_toast_wrong_password">Vale parool — palun proovi uuesti</string>
+    <string name="remote_toast_setup_failed">Seadistamine ebaõnnestus: %1$s</string>
+    <string name="remote_toast_autolock_set">Automaatse lukustuse aeg: %1$s</string>
+    <string name="remote_toast_device_id_copied">Seadme ID kopeeritud</string>
+    <string name="remote_password_hint">Sisesta uus parool</string>
+    <string name="remote_password_helper">Muuda siin oma autentimisparooli. Vähemalt 4 märki. See on lihtne HTTP-autentimine — mitte väga turvaline, aga parem kui mitte midagi. Parooli muutmisel logitakse kõik teised seadmed automaatselt välja.</string>
+    <string name="remote_lock_never">Mitte kunagi</string>
+    <string name="remote_lock_never_desc">Hoia seansid piiramatult aktiivsed</string>
+    <string name="remote_lock_30min">30 minutit</string>
+    <string name="remote_lock_30min_desc">Lukusta pärast 30 minutit tegevusetust</string>
+    <string name="remote_lock_1hr">1 tund</string>
+    <string name="remote_lock_1hr_desc">Lukusta pärast 1 tundi tegevusetust</string>
+    <string name="remote_lock_3hr">3 tundi</string>
+    <string name="remote_lock_3hr_desc">Lukusta pärast 3 tundi tegevusetust</string>
+    <string name="remote_lock_6hr">6 tundi</string>
+    <string name="remote_lock_6hr_desc">Lukusta pärast 6 tundi tegevusetust</string>
+</resources>

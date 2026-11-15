@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Arabic translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">اضغط لإعادة الربط</string>
+    <string name="studio_text_keyframe">إطار مفتاحي</string>
+    <string name="studio_text_lane_1">المسار 1</string>
+    <string name="studio_text_current_position">الموضع الحالي</string>
+    <string name="studio_text_tap_the_time_to_type">اضغط على الوقت لكتابة قيمة دقيقة · ◄ ► تحريك ±1 إطار</string>
+    <string name="studio_text_one">واحد</string>
+    <string name="studio_text_snap">التصاق</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">أعمدة</string>
+    <string name="studio_text_width">العرض</string>
+    <string name="studio_text_gap">الفجوة</string>
+    <string name="studio_text_lanes">المسارات</string>
+    <string name="studio_text_karaoke_one_word_per_line">كاريوكي — كلمة واحدة في كل سطر (توقيت لكل كلمة):</string>
+    <string name="studio_text_copy_example">نسخ المثال</string>
+    <string name="studio_text_slide_one_block_per_timestamp">شريحة — كتلة واحدة لكل توقيت (يظهر المقطع كله دفعة واحدة):</string>
+    <string name="studio_text_none">بلا</string>
+    <string name="studio_text_backing_box">مربع الخلفية</string>
+    <string name="studio_text_hide_this_track">إخفاء هذا المسار</string>
+    <string name="studio_text_no_animation_reset_centred_cover">بلا حركة (إعادة ضبط) — في الوسط، بحجم يغطي الإطار، ثابتة</string>
+    <string name="studio_text_also_apply_caption_position_to">طبّق موضع الترجمة على كل المقاطع أيضًا</string>
+    <string name="studio_text_also_apply_caption_size_to">طبّق حجم الترجمة على كل المقاطع أيضًا</string>
+    <string name="studio_text_sensitivity">الحساسية</string>
+    <string name="studio_text_snap_to_beats">التصاق بالإيقاعات</string>
+    <string name="studio_text_reference_clip_stays">المقطع المرجعي (يبقى)</string>
+    <string name="studio_text_clip_to_move">المقطع المراد نقله</string>
+    <string name="studio_text_release_the_slider_to_preview">ارفع إصبعك عن المنزلق لمعاينة الفجوات على الخط الزمني</string>
+    <string name="studio_text_scanning">جارٍ الفحص…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">تعذّر فحص الصوت</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; إدراج</string>
+    <string name="studio_text_insert_2">إدراج &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">اختر صورة للخط الزمني (اضغط للتحديد، مرقّمة — كمقطع)</string>
+    <string name="studio_text_browse_files">تصفّح الملفات…</string>
+    <string name="studio_text_add_0">إضافة (0)</string>
+</resources>

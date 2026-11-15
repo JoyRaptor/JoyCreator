@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_smart_detection.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="smart_detection_empty_title">Το Story Board είναι καθαρό</string>
+    <string name="smart_detection_empty_hint">Τα καρέ που επισημαίνει η κάμερα θα εμφανίζονται εδώ</string>
+    <string name="smart_detection_empty_glyph_desc">Δεν εντοπίστηκε τίποτα ακόμα</string>
+    <string name="smart_detection_tip_close">Κλείσιμο</string>
+    <string name="smart_detection_tip_back">Πίσω</string>
+    <string name="smart_detection_tip_menu">Μενού Έξυπνης ανίχνευσης</string>
+    <string name="smart_detection_tip_select_all">Επιλογή όλων</string>
+    <string name="smart_detection_tip_sort">Ταξινόμηση</string>
+    <string name="smart_detection_tip_grid">Αλλαγή διάταξης πλέγματος</string>
+    <string name="smart_detection_tip_scroll">Μετάβαση στην κορυφή</string>
+</resources>

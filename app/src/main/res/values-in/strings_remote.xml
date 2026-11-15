@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Studio Jarak Jauh</string>
+    <string name="remote_chip_on_air">ON AIR</string>
+    <string name="remote_chip_off_air">OFF AIR</string>
+    <string name="remote_section_on_air">Siaran aktif</string>
+    <string name="remote_section_connection">Sambungan</string>
+    <string name="remote_section_health">Kondisi</string>
+    <string name="remote_section_security">Enkripsi</string>
+    <string name="remote_section_help">Bantuan</string>
+    <string name="remote_quality_default">Tinggi (1080p) • 30fps • 8 Mbps</string>
+    <string name="remote_usage_title">Pelaporan Pemakaian Cloud</string>
+    <string name="remote_usage_retrying">Mencoba menyambung lagi...</string>
+    <string name="remote_usage_bytes">Byte Dilaporkan</string>
+    <string name="remote_usage_failures">Kegagalan</string>
+    <string name="remote_usage_action">Aksi</string>
+    <string name="remote_usage_retry">Coba lagi</string>
+    <string name="remote_usage_retry_toast">Mencoba lagi pelaporan pemakaian...</string>
+    <string name="remote_usage_title_active">Pemakaian Cloud (Aktif)</string>
+    <string name="remote_usage_title_error">Pemakaian Cloud (Galat)</string>
+    <string name="remote_usage_title_retrying">Pemakaian Cloud (Mencoba lagi)</string>
+    <string name="remote_usage_title_plain">Pemakaian Cloud</string>
+    <string name="remote_usage_no_errors">Tidak ada galat</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 galat</string>
+    <string name="remote_toast_stream_starting">Server siaran dimulai...</string>
+    <string name="remote_toast_stream_stopped">Server siaran berhenti</string>
+    <string name="remote_toast_mode_stream_only">Mode Siaran Saja</string>
+    <string name="remote_toast_mode_stream_save">Mode Siaran &amp; Simpan</string>
+    <string name="remote_toast_no_clients">Tidak ada klien yang tersambung</string>
+    <string name="remote_toast_password_empty">Kata sandi tidak boleh kosong</string>
+    <string name="remote_toast_link_account">Tautkan dulu akun Joy Creator ID-mu</string>
+    <string name="remote_toast_wrong_password">Kata sandi salah — coba lagi</string>
+    <string name="remote_toast_setup_failed">Penyiapan gagal: %1$s</string>
+    <string name="remote_toast_autolock_set">Batas waktu kunci otomatis diatur ke: %1$s</string>
+    <string name="remote_toast_device_id_copied">ID perangkat disalin</string>
+    <string name="remote_password_hint">Masukkan kata sandi baru</string>
+    <string name="remote_password_helper">Ubah kata sandi autentikasimu di sini. Minimal 4 karakter. Ini autentikasi HTTP dasar - tidak sangat aman tapi lebih baik daripada tanpa apa-apa. Saat kata sandi diubah, semua perangkat lain akan keluar otomatis.</string>
+    <string name="remote_lock_never">Tidak pernah</string>
+    <string name="remote_lock_never_desc">Biarkan sesi aktif tanpa batas waktu</string>
+    <string name="remote_lock_30min">30 Menit</string>
+    <string name="remote_lock_30min_desc">Kunci setelah 30 menit tidak ada aktivitas</string>
+    <string name="remote_lock_1hr">1 Jam</string>
+    <string name="remote_lock_1hr_desc">Kunci setelah 1 jam tidak ada aktivitas</string>
+    <string name="remote_lock_3hr">3 Jam</string>
+    <string name="remote_lock_3hr_desc">Kunci setelah 3 jam tidak ada aktivitas</string>
+    <string name="remote_lock_6hr">6 Jam</string>
+    <string name="remote_lock_6hr_desc">Kunci setelah 6 jam tidak ada aktivitas</string>
+</resources>

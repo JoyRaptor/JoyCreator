@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_work_safety.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_undo_changed_elsewhere">Изменения, сделанные в другом месте</string>
+    <string name="studio_undo_transcription">Расшифровка</string>
+    <string name="studio_consolidate_some_failed">Скопировано файлов: %1$d, но эти не удалось скопировать, и они по-прежнему используют оригинал: %2$s. Не удаляй эти оригиналы; запусти ещё раз, чтобы повторить.</string>
+    <string name="studio_toast_changed_elsewhere">Загружены изменения, сделанные в этом проекте в другом месте</string>
+</resources>

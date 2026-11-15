@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_about.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="aboutjoy_title">Über</string>
+    <string name="aboutjoy_back">Zurück</string>
+    <string name="aboutjoy_count">v%1$s</string>
+    <string name="aboutjoy_banner_desc">Joy Creator</string>
+    <string name="aboutjoy_tagline">Ein Studio für alles, was du machst.</string>
+    <string name="aboutjoy_tagline_sub">Schneiden, malen, animieren und aufnehmen, alles auf deinem Handy.</string>
+    <string name="aboutjoy_version_label">Version</string>
+    <string name="aboutjoy_build">Build %1$s · %2$s</string>
+    <string name="aboutjoy_check">Nach Updates suchen</string>
+    <string name="aboutjoy_check_hint">Online nach einem neueren Joy Creator suchen</string>
+    <string name="aboutjoy_checking">Suche läuft …</string>
+    <string name="aboutjoy_up_to_date">Du hast die neueste Version.</string>
+    <string name="aboutjoy_update_ready">Version %1$s steht bereit.</string>
+    <string name="aboutjoy_beta_ready">Du hast die neueste Version. Es gibt auch eine Beta, %1$s.</string>
+    <string name="aboutjoy_get_beta">Beta holen</string>
+    <string name="aboutjoy_update_failed">Gerade nicht möglich. Versuche es später nochmal.</string>
+    <string name="aboutjoy_wings_label">Die Flügel</string>
+    <string name="aboutjoy_wing_studio">Video und Ton auf einer Zeitleiste schneiden</string>
+    <string name="aboutjoy_wing_joybrush">Malen und animieren, Bild für Bild</string>
+    <string name="aboutjoy_wing_sprites">Sprite-Blätter und Figuren bauen</string>
+    <string name="aboutjoy_wing_capture">Kamera oder Bildschirm aufnehmen</string>
+    <string name="aboutjoy_wing_joybot">Joybot</string>
+    <string name="aboutjoy_wing_joybot_desc">Dein Helfer, in jedem Raum</string>
+    <string name="aboutjoy_wing_viz">Aus Sound bewegte Bilder machen</string>
+    <string name="aboutjoy_soon">Bald</string>
+    <string name="aboutjoy_wing_spoken">%1$s: %2$s</string>
+    <string name="aboutjoy_privacy_label">Datenschutz</string>
+    <string name="aboutjoy_privacy_toggle">Die Datenschutz-Antworten zeigen oder verbergen</string>
+    <string name="aboutjoy_open_label">Open Source</string>
+    <string name="aboutjoy_based_on">Aufgebaut auf FadCam von FadSec Lab</string>
+    <string name="aboutjoy_source_hint">Den Quellcode im Browser öffnen</string>
+    <string name="aboutjoy_made_by">Gemacht von</string>
+    <string name="aboutjoy_maker">JoyRaptor</string>
+    <string name="aboutjoy_classic">Klassisches Über</string>
+    <string name="aboutjoy_classic_hint">Den alten Über-Bildschirm öffnen</string>
+    <string name="aboutjoy_no_browser">Kein Browser, der diesen Link öffnen kann</string>
+</resources>

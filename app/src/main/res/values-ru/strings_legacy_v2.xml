@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_legacy_v2.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="legacyv2_whatsnew_title">Что нового</string>
+    <string name="legacyv2_whatsnew_intro">Новые возможности, улучшения и исправления в этой версии.</string>
+    <string name="legacyv2_whatsnew_reenable">Включить снова: Настройки → переключатель «Показывать вступление»</string>
+    <plurals name="legacyv2_whatsnew_ready">
+        <item quantity="one">Готово через %d секунду…</item>
+        <item quantity="few">Готово через %d секунды…</item>
+        <item quantity="many">Готово через %d секунд…</item>
+        <item quantity="other">Готово через %d секунды…</item>
+    </plurals>
+    <string name="legacyv2_whatsnew_done">Теперь это можно закрыть</string>
+    <string name="legacyv2_whatsnew_got_it">Понятно</string>
+    <string name="legacyv2_whatsnew_progress_desc">Сколько заметок ты уже прокрутил</string>
+    <string name="legacyv2_whatsnew_sparkle_desc">Новое в этой версии</string>
+    <string name="legacyv2_update_versions">v%1$s  →  v%2$s</string>
+    <string name="legacyv2_update_versions_desc">Обновление с версии %1$s до версии %2$s</string>
+    <string name="legacyv2_mode_option_desc">Показать настройки: %1$s</string>
+</resources>

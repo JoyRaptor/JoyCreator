@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Συρτάρι δίπλα στην εικόνα (ανενεργό: πέφτει από πάνω)</string>
+    <string name="tab1_drawer_column">Ψηλή στήλη: το χρονολόγιο βρίσκεται μόνο κάτω από την εικόνα</string>
+    <string name="tab1_settings_place_title">Συρτάρια σε πλατιά οθόνη</string>
+    <string name="tab1_settings_place_auto">Αυτόματα: δίπλα στην εικόνα όταν υπάρχει χώρος, αλλιώς πέφτει από πάνω</string>
+    <string name="tab1_settings_place_drop">Πάντα από πάνω, όπως στο τηλέφωνο</string>
+    <string name="tab1_settings_place_beside">Πάντα δίπλα στην εικόνα</string>
+    <string name="tab1_settings_column_title">Ψηλή στήλη</string>
+    <string name="tab1_settings_column">Δίπλα στην εικόνα, το συρτάρι τρέχει σε όλο το ύψος και το χρονολόγιο βρίσκεται μόνο κάτω από την εικόνα. Ανενεργό: το γραφείο επεξεργασίας, με το χρονολόγιο σε όλο το πλάτος.</string>
+    <string name="tab1_settings_left_title">Συρτάρια αριστερά</string>
+    <string name="tab1_settings_left">Το συρτάρι στέκεται αριστερά από την εικόνα αντί για δεξιά.</string>
+</resources>

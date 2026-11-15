@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_hover_labels.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_remote_server_toggle">Έναρξη ή διακοπή του διακομιστή μετάδοσης</string>
+    <string name="hover_remote_password_toggle">Ενεργοποίηση ή απενεργοποίηση προστασίας με κωδικό</string>
+    <string name="hover_lobby_floor_detect">Έξυπνος εντοπισμός: άνθρωποι και πράγματα που βρήκε η κάμερα στις εγγραφές σου</string>
+    <string name="hover_lobby_floor_remote">Remote Studio: δες και έλεγξε την κάμερα αυτού του κινητού από browser στο Wi-Fi σου</string>
+    <string name="hover_lobby_floor_bits">Κομμάτια: φακός, σαρωτής QR και συντομεύσεις αρχικής οθόνης</string>
+    <string name="hover_lobby_floor_packs">Πακέτα: τα πακέτα, τα looks, τα πινέλα και οι γραμματοσειρές που έχεις εγκαταστήσει</string>
+    <string name="hover_lobby_floor_setup">Ρύθμιση: όλες οι ρυθμίσεις</string>
+    <string name="hover_lobby_stat">Χώρος: τι πιάνει χώρο σε αυτό το κινητό</string>
+    <string name="hover_library_paste_picture">Βάλε στον φάκελο Joy Creator μια εικόνα που αντέγραψες σε άλλη εφαρμογή</string>
+    <string name="hover_lobby_room">Μετάβαση: %1$s</string>
+    <string name="hover_lobby_hero_action">%1$s στο %2$s</string>
+    <string name="hover_lobby_hero_new">Ξεκίνα κάτι νέο στο %1$s</string>
+    <string name="hover_lobby_library">Άνοιγμα της Library: ό,τι έχεις φτιάξει</string>
+    <string name="hover_studio_cut_mark">Κόψιμο: παραλείπονται %1$s δ, πάτα τη λέξη για επαναφορά</string>
+</resources>

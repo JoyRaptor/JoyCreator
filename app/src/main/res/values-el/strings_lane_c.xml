@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_lane_c.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="faditor_lc_drawer_more">Περισσότερα ⌄</string>
+    <string name="faditor_lc_drawer_grip">Λαβή συρταριού. Σύρε για αλλαγή μεγέθους, πάτα για περισσότερα ή κλείσιμο</string>
+    <string name="faditor_lc_fx_expand">Εμφάνιση των ρυθμίσεων αυτού του εφέ</string>
+    <string name="faditor_lc_fx_collapse">Απόκρυψη των ρυθμίσεων αυτού του εφέ</string>
+    <string name="faditor_lc_fx_bypass">Παράκαμψη εφέ</string>
+    <string name="faditor_lc_fx_enable">Ενεργοποίηση εφέ</string>
+    <string name="faditor_lc_fx_delete">Διαγραφή εφέ</string>
+    <string name="faditor_lc_fx_reorder">Κράτα πατημένο και σύρε για αλλαγή σειράς</string>
+    <string name="faditor_lc_key_prev">Προηγούμενο καρέ-κλειδί</string>
+    <string name="faditor_lc_key_next">Επόμενο καρέ-κλειδί</string>
+    <string name="faditor_lc_key_diamond">Καρέ-κλειδί. Πάτα για προσθήκη ή αφαίρεση, κράτα πατημένο για να καθαρίσεις όλα</string>
+    <string name="faditor_lc_ease_need_keys">Βάλε πρώτα καρέ-κλειδιά</string>
+    <string name="faditor_lc_motion_title">Κίνηση</string>
+    <string name="faditor_lc_motion_by">Κίνηση ανά</string>
+    <string name="faditor_lc_gran_letter">Γράμμα</string>
+    <string name="faditor_lc_gran_word">Λέξη</string>
+    <string name="faditor_lc_gran_sentence">Πρόταση</string>
+    <string name="faditor_lc_gran_block">Μπλοκ</string>
+    <string name="faditor_lc_sheet_grip">Λαβή φύλλου. Πάτα ή σύρε πάνω για όλες τις ρυθμίσεις, σύρε κάτω για κλείσιμο</string>
+    <string name="faditor_lc_sheet_legend">Τι σημαίνουν τα σχήματα των καρέ-κλειδιών</string>
+    <string name="faditor_lc_sheet_more">Περισσότερα…</string>
+    <string name="faditor_lc_sheet_move_to">Μετακίνηση σε</string>
+    <string name="faditor_lc_sheet_jump">Γράψε χρόνο για να πας εκεί</string>
+    <string name="faditor_lc_sheet_push">Ώθηση</string>
+    <string name="faditor_lc_sheet_snap">Κούμπωμα</string>
+    <string name="faditor_lc_sheet_static_hint">Στατικό — πάτα ♦ για κίνηση</string>
+</resources>

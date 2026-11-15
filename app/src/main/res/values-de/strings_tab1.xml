@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- German translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Leiste neben dem Bild (aus: klappt von oben herunter)</string>
+    <string name="tab1_drawer_column">Hohe Spalte: Die Zeitleiste liegt nur unter dem Bild</string>
+    <string name="tab1_settings_place_title">Leisten auf einem breiten Bildschirm</string>
+    <string name="tab1_settings_place_auto">Automatisch: neben dem Bild, wenn dort Platz ist, sonst von oben herunter</string>
+    <string name="tab1_settings_place_drop">Immer von oben herunterklappen, wie auf dem Handy</string>
+    <string name="tab1_settings_place_beside">Immer neben dem Bild</string>
+    <string name="tab1_settings_column_title">Hohe Spalte</string>
+    <string name="tab1_settings_column">Neben dem Bild läuft die Leiste über die ganze Höhe und die Zeitleiste liegt nur unter dem Bild. Aus: der Schnitttisch, mit der Zeitleiste in voller Breite.</string>
+    <string name="tab1_settings_left_title">Linke Leisten</string>
+    <string name="tab1_settings_left">Die Leiste steht links vom Bild statt rechts.</string>
+</resources>

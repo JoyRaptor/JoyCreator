@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_remote.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="remote_title">Studio remoto</string>
+    <string name="remote_chip_on_air">EN EMISIÓN</string>
+    <string name="remote_chip_off_air">SIN EMISIÓN</string>
+    <string name="remote_section_on_air">En emisión</string>
+    <string name="remote_section_connection">Conexión</string>
+    <string name="remote_section_health">Estado</string>
+    <string name="remote_section_security">Cifrado</string>
+    <string name="remote_section_help">Ayuda</string>
+    <string name="remote_quality_default">Alta (1080p) • 30 fps • 8 Mbps</string>
+    <string name="remote_usage_title">Informe de uso de la nube</string>
+    <string name="remote_usage_retrying">Reintentando la conexión...</string>
+    <string name="remote_usage_bytes">Bytes informados</string>
+    <string name="remote_usage_failures">Fallos</string>
+    <string name="remote_usage_action">Acción</string>
+    <string name="remote_usage_retry">Reintentar</string>
+    <string name="remote_usage_retry_toast">Reintentando el informe de uso...</string>
+    <string name="remote_usage_title_active">Uso de la nube (activo)</string>
+    <string name="remote_usage_title_error">Uso de la nube (error)</string>
+    <string name="remote_usage_title_retrying">Uso de la nube (reintentando)</string>
+    <string name="remote_usage_title_plain">Uso de la nube</string>
+    <string name="remote_usage_no_errors">Sin errores</string>
+    <string name="remote_usage_errors_fmt">%1$d/50 errores</string>
+    <string name="remote_toast_stream_starting">Iniciando el servidor de transmisión...</string>
+    <string name="remote_toast_stream_stopped">Servidor de transmisión detenido</string>
+    <string name="remote_toast_mode_stream_only">Modo solo transmisión</string>
+    <string name="remote_toast_mode_stream_save">Modo transmitir y guardar</string>
+    <string name="remote_toast_no_clients">No hay clientes conectados</string>
+    <string name="remote_toast_password_empty">La contraseña no puede estar vacía</string>
+    <string name="remote_toast_link_account">Primero vincula tu cuenta de Joy Creator ID</string>
+    <string name="remote_toast_wrong_password">Contraseña incorrecta — inténtalo otra vez</string>
+    <string name="remote_toast_setup_failed">Falló la configuración: %1$s</string>
+    <string name="remote_toast_autolock_set">Tiempo de bloqueo automático fijado en: %1$s</string>
+    <string name="remote_toast_device_id_copied">ID del dispositivo copiado</string>
+    <string name="remote_password_hint">Escribe la contraseña nueva</string>
+    <string name="remote_password_helper">Cambia aquí tu contraseña de acceso. Mínimo 4 caracteres. Es autenticación HTTP básica: no es muy segura, pero es mejor que nada. Al cambiar la contraseña, se cerrará automáticamente la sesión en todos los demás dispositivos.</string>
+    <string name="remote_lock_never">Nunca</string>
+    <string name="remote_lock_never_desc">Mantener las sesiones activas sin límite</string>
+    <string name="remote_lock_30min">30 minutos</string>
+    <string name="remote_lock_30min_desc">Bloquear tras 30 minutos sin actividad</string>
+    <string name="remote_lock_1hr">1 hora</string>
+    <string name="remote_lock_1hr_desc">Bloquear tras 1 hora sin actividad</string>
+    <string name="remote_lock_3hr">3 horas</string>
+    <string name="remote_lock_3hr_desc">Bloquear tras 3 horas sin actividad</string>
+    <string name="remote_lock_6hr">6 horas</string>
+    <string name="remote_lock_6hr_desc">Bloquear tras 6 horas sin actividad</string>
+</resources>

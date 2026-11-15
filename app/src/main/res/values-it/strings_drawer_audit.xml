@@ -1,0 +1,282 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">Tocca per scrivere un valore preciso</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">Nessuna maschera. Aggiungine una per mostrare solo una parte di questo oggetto.</string>
+    <string name="lane_a_mask_mode_add">Aggiungi</string>
+    <string name="lane_a_mask_mode_subtract">Sottrai</string>
+    <string name="lane_a_mask_mode_intersect">Interseca</string>
+    <string name="faditor_mask_link_object">Si muove con l\'oggetto</string>
+    <string name="faditor_mask_link_hint">No: la maschera resta ferma e l\'oggetto si muove sotto di lei. Sì: la maschera segue l\'oggetto.</string>
+    <string name="lane_a_mask_animated">animata</string>
+    <string name="lane_a_mask_static">non animata</string>
+    <string name="lane_a_mask_key_chip">◆ Keyframe alla testina</string>
+    <string name="lane_a_mask_key_here">Metti un keyframe a questa forma alla testina</string>
+    <string name="lane_a_mask_clear_keys">Cancella tutti i keyframe della maschera</string>
+    <string name="lane_a_mask_keyed_toast">Forma %1$d con keyframe a %2$.1fs</string>
+    <string name="faditor_fx_empty_layer">Questo livello per ora non cambia nulla. Aggiungi un effetto e tutto ciò che sta sotto il livello lo riceverà.</string>
+    <string name="faditor_fx_empty_object">Nessun effetto su questo oggetto. Aggiungine uno e viaggia con l\'oggetto — riguarda solo lui e nient\'altro.</string>
+    <string name="faditor_fx_position">Posiziona nell\'anteprima</string>
+    <string name="faditor_fx_position_done">Posizionamento nell\'anteprima — fatto</string>
+    <string name="faditor_fx_blend">Fusione</string>
+    <string name="faditor_fx_vertices">Vertici</string>
+    <string name="faditor_fx_edit_gradient">Modifica questo gradiente</string>
+    <string name="faditor_fx_curve_edit">Modifica nell\'anteprima</string>
+    <string name="faditor_fx_curve_edit_done">Modifica nell\'anteprima — fatto</string>
+    <string name="faditor_fx_straighten">Raddrizza</string>
+    <string name="faditor_fx_save_look">Salva look</string>
+    <string name="faditor_fx_look_name_hint">Dai un nome a questo look</string>
+    <string name="faditor_fx_look_save">Salva</string>
+    <string name="faditor_fx_saved_looks">Look salvati</string>
+    <string name="faditor_fx_look_desc">Carica %1$s. Tieni premuto per eliminare</string>
+    <string name="faditor_fx_load">Carica</string>
+    <string name="faditor_fx_load_confirm">Caricare \'%1$s\'?</string>
+    <string name="faditor_fx_delete_look_confirm">Eliminare \'%1$s\'?</string>
+    <string name="faditor_fx_add">＋ Aggiungi effetto</string>
+    <string name="faditor_fx_needs_pass_title">%1$s ha bisogno di un passaggio tutto suo</string>
+    <string name="faditor_fx_needs_pass_body">%1$s legge i pixel vicini, quindi ha bisogno di un\'immagine già finita da cui partire. Un oggetto viene disegnato in un solo passaggio, quindi per ora non c\'è.\n\nMettilo su un livello di regolazione sopra questo oggetto e si applicherà a lui e a tutto ciò che sta sotto.</string>
+    <string name="faditor_fx_toast_keys_cleared">Keyframe di %1$s cancellati</string>
+    <string name="faditor_fx_toast_saved">Salvato \'%1$s\'</string>
+    <string name="faditor_fx_toast_load_failed">Non riesco a caricare \'%1$s\'</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="one">Questo sostituisce l\'effetto (%1$d) su questo livello.</item>
+        <item quantity="other">Questo sostituisce i %1$d effetti su questo livello.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="one">%1$d effetto</item>
+        <item quantity="other">%1$d effetti</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">Salta effetto</string>
+    <string name="faditor_undo_fx_enable">Attiva effetto</string>
+    <string name="faditor_undo_fx_delete">Elimina %1$s</string>
+    <string name="faditor_undo_fx_add">Aggiungi %1$s</string>
+    <string name="faditor_undo_fx_opacity">Opacità di %1$s</string>
+    <string name="faditor_undo_fx_blend">Fusione di %1$s</string>
+    <string name="faditor_undo_fx_vertices">Vertici della curva</string>
+    <string name="faditor_undo_fx_straighten">Raddrizza la curva</string>
+    <string name="faditor_undo_fx_reorder">Riordina gli effetti</string>
+    <string name="faditor_undo_fx_key">Keyframe %1$s</string>
+    <string name="faditor_undo_fx_clear_keys">Cancella keyframe di %1$s</string>
+    <string name="faditor_undo_fx_apply_look">Applica il look \'%1$s\'</string>
+    <string name="lane_b_audio_fade_in_short">Ent.</string>
+    <string name="lane_b_audio_fade_out_short">Usc.</string>
+    <string name="lane_b_audio_env_flat">Guadagno fisso — ◇ toglie il primo punto dell\'inviluppo</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="one">Inviluppo · %1$d punto — il cursore guida il punto sotto ▶︎</item>
+        <item quantity="other">Inviluppo · %1$d punti — il cursore guida il punto sotto ▶︎</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">Elaborazione…</string>
+    <string name="lane_b_audio_bake_in_use">Audio elaborato in uso — originale conservato.</string>
+    <string name="lane_b_audio_bake_offline">Elaborazioni offline — il file originale non viene mai modificato.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Non riuscito: %1$s</string>
+    <string name="lane_b_audio_bake_note">Lavora su una copia del suono di questa clip e riproduce quella. Ripristina torna all\'originale.</string>
+    <string name="lane_b_audio_revert">Torna all\'originale</string>
+    <string name="lane_b_audio_revert_desc">Torna al file audio originale, non elaborato</string>
+    <string name="lane_b_audio_denoise">Riduci il rumore</string>
+    <string name="lane_b_audio_denoise_desc">Crea una copia di questa clip con meno rumore di fondo</string>
+    <string name="lane_b_audio_normalize">Uniforma il volume</string>
+    <string name="lane_b_audio_normalize_desc">Crea una copia di questa clip con volume uniforme</string>
+    <string name="lane_b_audio_voice">Migliora la voce</string>
+    <string name="lane_b_audio_voice_undo">Voce migliorata</string>
+    <string name="lane_b_audio_voice_on">Catena voce SÌ — solo questa clip</string>
+    <string name="lane_b_audio_voice_off">Catena voce NO — solo questa clip</string>
+    <string name="lane_b_audio_voice_note">Toglie il ronzio, gate, de-esser, presenza, compressore, limitatore — per il parlato. Ricostruisce il suono dell\'anteprima di questa clip.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Legame al ritmo…</string>
+    <string name="lane_b_audio_beat_link_note">Guida scala / opacità / rotazione di una sovrapposizione con una banda di questa clip. Scrive normali keyframe che puoi poi trascinare.</string>
+    <string name="lane_b_audio_comp">Compressore</string>
+    <string name="lane_b_audio_comp_bypassed">Catena effetti SALTATA — senti il mix intatto.</string>
+    <string name="lane_b_audio_comp_live">Riduzione del guadagno, in diretta dal compressore.</string>
+    <string name="lane_b_audio_comp_idle">L\'indicatore si muove mentre il progetto è in riproduzione.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Livello (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Bilanciamento (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (s)</string>
+    <string name="lane_b_audio_undo_level">Livello audio</string>
+    <string name="lane_b_audio_undo_clear_envelope">Cancella inviluppo</string>
+    <string name="lane_b_audio_undo_envelope_point">Punto dell\'inviluppo</string>
+    <string name="lane_b_audio_undo_delete_point">Elimina punto dell\'inviluppo</string>
+    <string name="lane_b_puppet_swatch">Pin %1$s. Tocca per cambiare tipo.</string>
+    <string name="lane_b_puppet_undo_pin_type">Tipo di pin</string>
+    <string name="lane_b_puppet_rec_on">Registra quando tocchi un pin. Tocca per fermare.</string>
+    <string name="lane_b_puppet_rec_off">Non registra al tocco. Tocca per armare.</string>
+    <string name="lane_b_puppet_sim">sim</string>
+    <string name="lane_b_puppet_tool_grab">Afferra</string>
+    <string name="lane_b_puppet_tool_pin">Pin</string>
+    <string name="lane_b_puppet_tool_stiff">Rigido</string>
+    <string name="lane_b_puppet_tool_dangle">Penzola</string>
+    <string name="lane_b_puppet_tool_free">Libero</string>
+    <string name="lane_b_puppet_tool_bone">Osso</string>
+    <string name="lane_b_puppet_scope_selected">Selezionato</string>
+    <string name="lane_b_puppet_scope_character">Personaggio</string>
+    <string name="lane_b_puppet_scope_recording">Registrazione</string>
+    <string name="lane_b_puppet_hint_first_pin">Tocca l\'immagine per mettere il primo pin</string>
+    <string name="lane_b_puppet_hint_tap_pin">Tocca un pin per modificarlo</string>
+    <string name="lane_b_puppet_hint_dangle">Simulato — nessun keyframe da modificare. Quelli che ha già restano intatti e tornano non appena smette di penzolare.</string>
+    <string name="lane_b_puppet_hint_free">Un pin libero si muove in ogni direzione. Girare e scalare richiedono la rotazione per pin nel motore — vedi la specifica.</string>
+    <string name="lane_b_puppet_hint_anchor">Un ancoraggio non ha altro da impostare — è proprio questo il punto</string>
+    <string name="lane_b_puppet_hint_tape">Il nastro qui sotto mostra i keyframe di %1$s. Tocca un altro pin, o un chip qui sopra, per vedere i suoi.</string>
+    <string name="lane_b_puppet_hint_rigid">Un osso rigido ferma la mano a metà e fa scattare la spalla. Nei cartoni di solito serve l\'elastico attivo.</string>
+    <string name="lane_b_puppet_hint_limits_off">Disattivati di base — la maggior parte dei rig da cartone non li vuole mai.</string>
+    <string name="lane_b_puppet_hint_bone_keys">Un osso non ha keyframe suoi. Muoverlo scrive su %1$s e %2$s.</string>
+    <string name="lane_b_puppet_hint_put_away">Tocca la marionetta sull\'immagine per nascondere i pin</string>
+    <string name="lane_b_puppet_hint_punch_in">Un avvicinamento parte da dov\'era il vecchio movimento e rallenta alla fine</string>
+    <string name="lane_b_puppet_pin_depth">Profondità — dietro / davanti</string>
+    <string name="lane_b_puppet_pin_muted">Muto</string>
+    <string name="lane_b_puppet_pin_active">Attivo</string>
+    <string name="lane_b_puppet_pin_reach_ring">Anello di portata</string>
+    <string name="lane_b_puppet_pin_auto_pull">Trazione automatica</string>
+    <string name="lane_b_puppet_pin_pull">Quanto forte tira questo pin</string>
+    <string name="lane_b_puppet_pin_spring">Elasticità</string>
+    <string name="lane_b_puppet_pin_settle">Assestamento</string>
+    <string name="lane_b_puppet_pin_mass">Massa</string>
+    <string name="lane_b_puppet_pin_max_stretch">Allungamento max</string>
+    <string name="lane_b_puppet_pin_stiff_area">Area rigida</string>
+    <string name="lane_b_puppet_pin_strength">Forza</string>
+    <string name="lane_b_puppet_reset">Ricomincia</string>
+    <string name="lane_b_puppet_reset_desc">Toglie %1$s e ogni keyframe</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="one">%1$d pin</item>
+        <item quantity="other">%1$d pin</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="one">%1$d osso</item>
+        <item quantity="other">%1$d ossa</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Osso</string>
+    <string name="lane_b_puppet_bone_from">Da</string>
+    <string name="lane_b_puppet_bone_to">A</string>
+    <string name="lane_b_puppet_bone_length">Lunghezza</string>
+    <string name="lane_b_puppet_bone_rest_angle">Angolo a riposo</string>
+    <string name="lane_b_puppet_bone_rest_length">Lunghezza a riposo</string>
+    <string name="lane_b_puppet_bone_stretchy">Elastico</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Inverti gomito</string>
+    <string name="lane_b_puppet_bone_reach">Portata</string>
+    <string name="lane_b_puppet_bone_stretch">Fin dove può allungarsi</string>
+    <string name="lane_b_puppet_bone_joint_limits">Limiti dell\'articolazione</string>
+    <string name="lane_b_puppet_bone_fold_back">Non piegare all\'indietro oltre</string>
+    <string name="lane_b_puppet_bone_fold_forward">Non piegare in avanti oltre</string>
+    <string name="lane_b_puppet_rig_softness">Morbidezza</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Dettaglio maglia</string>
+    <string name="lane_b_puppet_rig_gravity">Gravità</string>
+    <string name="lane_b_puppet_rig_wind">Vento</string>
+    <string name="lane_b_puppet_rig_wind_dir">Direzione del vento</string>
+    <string name="lane_b_puppet_rig_show_pins">Pin</string>
+    <string name="lane_b_puppet_rig_show_bones">Ossa</string>
+    <string name="lane_b_puppet_rig_show_mesh">Maglia</string>
+    <string name="lane_b_puppet_rig_rarely">Serve di rado</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Soglia dei bordi</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Espansione dei bordi</string>
+    <string name="lane_b_puppet_record_on_touch">Registra al tocco</string>
+    <string name="lane_b_puppet_record_snap">Aggancia ai keyframe</string>
+    <string name="lane_b_puppet_record_detail">Dettaglio dei movimenti registrati</string>
+    <string name="lane_b_puppet_record_blend_out">Dissolvi in uscita</string>
+    <string name="faditor_text_underline">Sottolineato</string>
+    <string name="faditor_text_case_first">Iniziali maiuscole</string>
+    <string name="faditor_text_case_all">Tutto maiuscolo</string>
+    <string name="faditor_text_case_small">Maiuscoletto</string>
+    <string name="faditor_text_align">Allineamento: %1$s. Tocca per cambiare</string>
+    <string name="faditor_text_align_left">a sinistra</string>
+    <string name="faditor_text_align_center">centrato</string>
+    <string name="faditor_text_align_right">a destra</string>
+    <string name="faditor_text_align_justify">giustificato</string>
+    <string name="faditor_text_color">Colore del testo</string>
+    <string name="faditor_text_shadow_distance">Distanza</string>
+    <string name="faditor_text_shadow_direction">Direzione dell\'ombra</string>
+    <string name="faditor_text_shadow_angle">Angolo dell\'ombra</string>
+    <string name="faditor_text_anim_label">Animazione</string>
+    <string name="lane_b_caption_hide">Nascondi questa traccia di didascalie</string>
+    <string name="lane_b_caption_show">Mostra questa traccia di didascalie</string>
+    <string name="lane_b_caption_add_track">Aggiungi una traccia di didascalie</string>
+    <string name="caption_size">Dimensione didascalie</string>
+    <string name="caption_highlight">Evidenziazione</string>
+    <string name="caption_style_save">Salva come mio stile</string>
+    <string name="caption_style_delete">Elimina questo stile personale</string>
+    <string name="caption_style_copy">Copia lo stile come testo</string>
+    <string name="caption_style_import">Importa lo stile da un testo</string>
+    <string name="caption_anim_pop">Pop</string>
+    <string name="caption_anim_zoom">Zoom</string>
+    <string name="caption_anim_bounce">Rimbalzo</string>
+    <string name="caption_box">Riquadro</string>
+    <string name="caption_box_more">Riquadro…</string>
+    <string name="caption_box_more_desc">Altre opzioni del riquadro</string>
+    <string name="caption_drawer_empty">Nessuna clip con didascalie scelta</string>
+    <string name="caption_fit_uniform">Uniforme</string>
+    <string name="caption_fit_per_cue">Per battuta</string>
+    <string name="caption_fit_truncate">Taglia</string>
+    <string name="caption_fit_words">Parole</string>
+    <string name="caption_fit_words_desc">Parole per didascalia</string>
+    <string name="caption_fit_lines">Righe max</string>
+    <string name="caption_fit_lines_prompt">Righe max (0 = senza limite)</string>
+    <string name="caption_fit_floor">Minimo</string>
+    <string name="caption_group_slide">Raggruppa: a scorrimento</string>
+    <string name="caption_group_karaoke">Raggruppa: karaoke</string>
+    <string name="caption_group_desc">Come le parole si raggruppano nelle didascalie. Tocca per cambiare</string>
+    <string name="caption_grow_center">Cresce: dal centro</string>
+    <string name="caption_grow_down">Cresce: in basso</string>
+    <string name="caption_grow_up">Cresce: in alto</string>
+    <string name="caption_grow_desc">Da che parte cresce la didascalia. Tocca per cambiare</string>
+    <string name="caption_align_center">Allinea: al centro</string>
+    <string name="caption_align_left">Allinea: a sinistra</string>
+    <string name="caption_align_right">Allinea: a destra</string>
+    <string name="caption_align_desc">Allineamento della riga. Tocca per cambiare</string>
+    <string name="caption_copy_all">Copia su tutte</string>
+    <string name="caption_copy_all_desc">Copia la crescita e l\'allineamento di questa traccia su ogni traccia di didascalie</string>
+    <string name="caption_copy_all_done">Ancoraggio e allineamento applicati a tutte le tracce</string>
+    <string name="caption_position">Posizione didascalie</string>
+    <string name="caption_timing">Tempi</string>
+    <string name="caption_timing_hint">Applicati a ogni riga di didascalia, come parte di quella riga</string>
+    <string name="caption_timing_readout">Entrata %1$d%%   Uscita %2$d%%   di ogni riga</string>
+    <string name="caption_timing_readout_meet">Entrata %1$d%%   Uscita %2$d%%   di ogni riga  ·  l\'entrata finisce quando inizia l\'uscita</string>
+    <string name="caption_timing_in_desc">Tempi di entrata</string>
+    <string name="caption_timing_out_desc">Tempi di uscita</string>
+    <string name="faditor_prop_pos_x">Pos X</string>
+    <string name="faditor_prop_pos_y">Pos Y</string>
+    <string name="faditor_prop_scale">Scala</string>
+    <string name="faditor_prop_scale_x">Scala X</string>
+    <string name="faditor_prop_scale_y">Scala Y</string>
+    <string name="drawer_title_visualizer">Visualizzatore</string>
+    <string name="drawer_tab_puppet">Marionetta</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="one">%1$d audio</item>
+        <item quantity="other">%1$d audio</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>No</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Radio/TV -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Originale</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (nessuna perdita in più)</item>
+        <item>JPG (più leggero)</item>
+    </string-array>
+    <string name="export_loudness">Volume obiettivo</string>
+    <string name="export_loudness_readout">Misurato: %1$s LUFS → Obiettivo: %2$s</string>
+    <string name="export_quality">Qualità</string>
+    <string name="export_format">Formato</string>
+    <string name="export_audio_only">Esporta solo l\'audio (.m4a)</string>
+    <string name="export_audio_only_desc">Unisce l\'audio delle clip e la musica in un unico file audio — senza traccia video</string>
+    <string name="export_audio_only_project">Questo progetto non ha video — si esporta come audio</string>
+    <string name="export_frame">Esporta un solo fotogramma (immagine)</string>
+    <string name="export_frame_desc">Salva un fotogramma composto — sovrapposizioni incluse — alla risoluzione dell\'esportazione. Il fotogramma passa dallo stesso codificatore video dell\'esportazione, quindi la Qualità lo influenza: PNG lo conserva identico, JPG è più leggero (senza trasparenza, i fotogrammi sono opachi)</string>
+    <string name="export_frame_time">Tempo del fotogramma (già preso dalla testina — scrivi per cambiarlo)</string>
+    <string name="export_time_hint">m:ss.t o secondi</string>
+    <string name="export_range_hint">m:ss.t</string>
+    <string name="export_frame_error_format">Scrivi un tempo come 01:23.4 (o 4.5 per 4,5 secondi)</string>
+    <string name="export_frame_error_past">Quel tempo è oltre la fine del progetto (%1$s). Scegli un tempo precedente.</string>
+</resources>

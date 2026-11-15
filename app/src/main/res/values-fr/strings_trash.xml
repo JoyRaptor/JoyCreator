@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French translation of values/strings_trash.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="trash_title">Récemment supprimés</string>
+    <string name="trash_close">Fermer Récemment supprimés</string>
+    <plurals name="trash_count">
+        <item quantity="one">%d élément</item>
+        <item quantity="other">%d éléments</item>
+    </plurals>
+    <plurals name="trash_count_selected">
+        <item quantity="one">%d sélectionné</item>
+        <item quantity="other">%d sélectionnés</item>
+    </plurals>
+    <string name="trash_count_reading">%1$s · lecture du dossier</string>
+    <string name="trash_notice_unreachable">Ton dossier Joy Creator est inaccessible pour l\'instant, donc seules les choses supprimées dans l\'app sont affichées.</string>
+    <plurals name="trash_days_left">
+        <item quantity="one">%d jour restant</item>
+        <item quantity="other">%d jours restants</item>
+    </plurals>
+    <plurals name="trash_hours_left">
+        <item quantity="one">%d heure restante</item>
+        <item quantity="other">%d heures restantes</item>
+    </plurals>
+    <string name="trash_left_soon">part très bientôt</string>
+    <string name="trash_left_kept">conservé</string>
+    <string name="trash_a11y_card">%1$s. %2$s, %3$s.</string>
+    <string name="trash_a11y_selected">Sélectionné.</string>
+    <plurals name="trash_rule_days">
+        <item quantity="one">Conservé %d jour, puis supprimé définitivement.</item>
+        <item quantity="other">Conservé %d jours, puis supprimé définitivement.</item>
+    </plurals>
+    <plurals name="trash_rule_hours">
+        <item quantity="one">Conservé %d heure, puis supprimé définitivement.</item>
+        <item quantity="other">Conservé %d heures, puis supprimé définitivement.</item>
+    </plurals>
+    <string name="trash_rule_never">Conservé jusqu\'à ce que tu le supprimes.</string>
+    <string name="trash_rule_now">Supprimé définitivement tout de suite.</string>
+    <string name="trash_hold_hint">Maintiens appuyé pour choisir des éléments à restaurer ou à supprimer.</string>
+    <string name="trash_stop_selecting">Arrêter de choisir</string>
+    <string name="trash_restore">Restaurer</string>
+    <plurals name="trash_restore_tip">
+        <item quantity="one">Restaurer %d élément</item>
+        <item quantity="other">Restaurer %d éléments</item>
+    </plurals>
+    <string name="trash_delete_forever">Supprimer définitivement</string>
+    <plurals name="trash_delete_forever_tip">
+        <item quantity="one">Supprimer %d élément définitivement</item>
+        <item quantity="other">Supprimer %d éléments définitivement</item>
+    </plurals>
+    <string name="trash_open_failed">Impossible d\'ouvrir ceci.</string>
+    <plurals name="trash_confirm_delete">
+        <item quantity="one">Supprimer %d élément définitivement ?</item>
+        <item quantity="other">Supprimer %d éléments définitivement ?</item>
+    </plurals>
+    <plurals name="trash_confirm_empty">
+        <item quantity="one">Vider la corbeille ? %d élément sera supprimé définitivement.</item>
+        <item quantity="other">Vider la corbeille ? Les %d éléments seront supprimés définitivement.</item>
+    </plurals>
+    <plurals name="trash_confirm_rule">
+        <item quantity="one">%d élément est plus ancien que cela et sera supprimé définitivement maintenant.</item>
+        <item quantity="other">%d éléments sont plus anciens que cela et seront supprimés définitivement maintenant.</item>
+    </plurals>
+    <string name="trash_confirm_undone">Cette action ne peut pas être annulée.</string>
+    <string name="trash_confirm_keep">Garder</string>
+    <string name="trash_confirm_empty_button">Vider la corbeille</string>
+    <string name="trash_confirm_rule_button">Changer et supprimer</string>
+    <plurals name="trash_restore_title">
+        <item quantity="one">Restaurer %d élément</item>
+        <item quantity="other">Restaurer %d éléments</item>
+    </plurals>
+    <string name="trash_restore_where">Choisis où vont les enregistrements.</string>
+    <string name="trash_restore_where_mixed">Choisis où vont les enregistrements. Les projets, dessins et autres fichiers retournent là où ils étaient dans ton dossier Joy Creator.</string>
+    <plurals name="trash_done_restored">
+        <item quantity="one">%d élément restauré.</item>
+        <item quantity="other">%d éléments restaurés.</item>
+    </plurals>
+    <string name="trash_done_restored_part">%1$d restauré(s) sur %2$d. Les autres n\'ont pas pu être restaurés.</string>
+    <plurals name="trash_done_deleted">
+        <item quantity="one">%d élément supprimé définitivement.</item>
+        <item quantity="other">%d éléments supprimés définitivement.</item>
+    </plurals>
+    <string name="trash_done_delete_failed">Certains éléments n\'ont pas pu être supprimés.</string>
+    <string name="trash_done_emptied">Corbeille vidée.</string>
+    <string name="trash_done_empty_failed">La corbeille n\'a pas pu être entièrement vidée.</string>
+    <plurals name="trash_done_swept">
+        <item quantity="one">%d ancien élément a été supprimé définitivement.</item>
+        <item quantity="other">%d anciens éléments ont été supprimés définitivement.</item>
+    </plurals>
+    <string name="trash_options">Sélectionner, vider et plus</string>
+    <string name="trash_options_title">Récemment supprimés</string>
+    <string name="trash_opt_select_all">Tout sélectionner</string>
+    <string name="trash_opt_rule">Supprimer définitivement après · %1$s</string>
+    <string name="trash_opt_empty">Vider la corbeille</string>
+    <string name="trash_opt_classic">Corbeille classique</string>
+    <string name="trash_rule_title">Supprimer définitivement après</string>
+    <string name="trash_empty_all">Rien dans la corbeille. Ce que tu supprimes attend ici avant de partir pour de bon.</string>
+    <string name="trash_empty_projects">Aucun projet supprimé.</string>
+    <string name="trash_empty_drawings">Aucun dessin supprimé.</string>
+    <string name="trash_empty_recordings">Aucun enregistrement ou vidéo supprimé.</string>
+    <string name="trash_empty_photos">Aucune photo ou image supprimée.</string>
+    <string name="trash_empty_other">Rien d\'autre dans la corbeille.</string>
+    <string name="trash_empty_show_all">Tout afficher</string>
+</resources>

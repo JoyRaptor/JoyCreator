@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Laci di samping gambar (mati: turun dari atas)</string>
+    <string name="tab1_drawer_column">Kolom tinggi: timeline hanya di bawah gambar</string>
+    <string name="tab1_settings_place_title">Laci di layar lebar</string>
+    <string name="tab1_settings_place_auto">Otomatis: di samping gambar jika ada ruang, kalau tidak turun dari atas</string>
+    <string name="tab1_settings_place_drop">Selalu turun dari atas, seperti di ponsel</string>
+    <string name="tab1_settings_place_beside">Selalu di samping gambar</string>
+    <string name="tab1_settings_column_title">Kolom tinggi</string>
+    <string name="tab1_settings_column">Di samping gambar, laci setinggi layar penuh dan timeline hanya di bawah gambar. Mati: meja edit, dengan timeline selebar layar.</string>
+    <string name="tab1_settings_left_title">Laci di kiri</string>
+    <string name="tab1_settings_left">Laci berdiri di kiri gambar, bukan di kanan.</string>
+</resources>

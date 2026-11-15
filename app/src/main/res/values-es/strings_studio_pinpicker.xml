@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_studio_pinpicker.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_pinpick_title">¿Seguir qué?</string>
+    <string name="studio_pinpick_hint">Toca un punto numerado o elige de la lista.</string>
+    <string name="studio_pinpick_whole">La imagen entera</string>
+    <string name="studio_pinpick_pin_n">Pin %1$d</string>
+    <string name="studio_pinpick_diagram">Dónde está cada pin en la imagen. Toca un punto para seguir ese pin.</string>
+    <string name="studio_pinpick_dot_n">Seguir el pin %1$d</string>
+    <string name="studio_pinpick_cancel">Cancelar</string>
+</resources>

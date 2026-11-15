@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Russian translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">Вкл.</string>
+    <string name="joybotswitch_state_off">Выкл.</string>
+    <string name="joybotswitch_tip_on">Включено. Нажми, чтобы выключить.</string>
+    <string name="joybotswitch_tip_off">Выключено. Нажми, чтобы включить.</string>
+    <string name="joybotswitch_tip_on_named">%1$s: включено. Нажми, чтобы выключить.</string>
+    <string name="joybotswitch_tip_off_named">%1$s: выключено. Нажми, чтобы включить.</string>
+</resources>

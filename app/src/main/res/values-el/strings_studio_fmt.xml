@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Greek translation of values/strings_studio_fmt.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_fmt_imported_1_s">Έγινε εισαγωγή: %1$s</string>
+    <string name="studio_fmt_could_not_render_slide_1">Δεν ήταν δυνατή η απόδοση της διαφάνειας: %1$s</string>
+    <string name="studio_fmt_consolidate_failed_1_s">Η συγκέντρωση απέτυχε: %1$s</string>
+    <string name="studio_fmt_export_failed_1_s">Η εξαγωγή απέτυχε: %1$s</string>
+    <string name="studio_fmt_export_copy_failed_1_s">Η αντιγραφή εξαγωγής απέτυχε: %1$s</string>
+    <string name="studio_fmt_import_failed_1_s">Η εισαγωγή απέτυχε: %1$s</string>
+    <string name="studio_fmt_reorder_failed_1_s">Η αναδιάταξη απέτυχε: %1$s</string>
+    <string name="studio_fmt_reorder_error_1_s">Σφάλμα αναδιάταξης: %1$s</string>
+    <string name="studio_fmt_align_failed_1_s">Η ευθυγράμμιση απέτυχε: %1$s</string>
+    <string name="studio_fmt_that_doesn_t_look_like">Αυτό δεν μοιάζει με διαφάνεια του Studio: %1$s</string>
+    <string name="studio_fmt_slide_import_failed_1_s">Η εισαγωγή της διαφάνειας απέτυχε: %1$s</string>
+</resources>

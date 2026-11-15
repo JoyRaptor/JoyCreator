@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_drawer_audit.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_a_value_type_hint">Ketuk untuk mengetik nilai pasti</string>
+    <string name="lane_a_rotation_hint">720, -45, 16x</string>
+    <string name="lane_a_range_hint">%1$s … %2$s</string>
+    <string name="lane_a_mask_empty">Belum ada mask. Tambahkan satu untuk menampilkan sebagian objek ini saja.</string>
+    <string name="lane_a_mask_mode_add">Tambah</string>
+    <string name="lane_a_mask_mode_subtract">Kurangi</string>
+    <string name="lane_a_mask_mode_intersect">Irisan</string>
+    <string name="faditor_mask_link_object">Ikut bergerak dengan objek</string>
+    <string name="faditor_mask_link_hint">Mati: mask diam di tempat dan objek bergerak di bawahnya. Aktif: mask ikut bergerak bersama objek.</string>
+    <string name="lane_a_mask_animated">beranimasi</string>
+    <string name="lane_a_mask_static">tidak beranimasi</string>
+    <string name="lane_a_mask_key_chip">◆ Key di playhead</string>
+    <string name="lane_a_mask_key_here">Pasang key bentuk ini di playhead</string>
+    <string name="lane_a_mask_clear_keys">Hapus semua keyframe mask</string>
+    <string name="lane_a_mask_keyed_toast">Bentuk %1$d di-key pada %2$.1fs</string>
+    <string name="faditor_fx_empty_layer">Layer ini belum mengubah apa pun. Tambahkan efek dan semua yang ada di bawah layer akan terkena.</string>
+    <string name="faditor_fx_empty_object">Objek ini belum punya efek. Tambahkan satu dan ia ikut bersama objek — hanya memengaruhi objek ini.</string>
+    <string name="faditor_fx_position">Atur posisi di pratinjau</string>
+    <string name="faditor_fx_position_done">Mengatur posisi di pratinjau — selesai</string>
+    <string name="faditor_fx_blend">Campuran</string>
+    <string name="faditor_fx_vertices">Titik sudut</string>
+    <string name="faditor_fx_edit_gradient">Edit gradien ini</string>
+    <string name="faditor_fx_curve_edit">Edit di pratinjau</string>
+    <string name="faditor_fx_curve_edit_done">Mengedit di pratinjau — selesai</string>
+    <string name="faditor_fx_straighten">Luruskan</string>
+    <string name="faditor_fx_save_look">Simpan tampilan</string>
+    <string name="faditor_fx_look_name_hint">Beri nama tampilan ini</string>
+    <string name="faditor_fx_look_save">Simpan</string>
+    <string name="faditor_fx_saved_looks">Tampilan tersimpan</string>
+    <string name="faditor_fx_look_desc">Muat %1$s. Tahan untuk menghapus</string>
+    <string name="faditor_fx_load">Muat</string>
+    <string name="faditor_fx_load_confirm">Muat \'%1$s\'?</string>
+    <string name="faditor_fx_delete_look_confirm">Hapus \'%1$s\'?</string>
+    <string name="faditor_fx_add">＋ Tambah efek</string>
+    <string name="faditor_fx_needs_pass_title">%1$s butuh prosesnya sendiri</string>
+    <string name="faditor_fx_needs_pass_body">%1$s membaca piksel di sekitarnya, jadi butuh gambar jadi sebagai bahan. Sebuah objek digambar dalam satu proses, jadi belum ada gambar jadinya.\n\nTaruh di layer penyesuaian di atas objek ini dan ia akan berlaku untuk objek ini beserta semua yang ada di bawahnya.</string>
+    <string name="faditor_fx_toast_keys_cleared">Key %1$s dihapus</string>
+    <string name="faditor_fx_toast_saved">\'%1$s\' tersimpan</string>
+    <string name="faditor_fx_toast_load_failed">\'%1$s\' tidak bisa dimuat</string>
+    <plurals name="faditor_fx_load_replaces">
+        <item quantity="other">Ini akan menggantikan %1$d efek di layer ini.</item>
+    </plurals>
+    <plurals name="faditor_fx_effect_count">
+        <item quantity="other">%1$d efek</item>
+    </plurals>
+    <string name="faditor_undo_fx_bypass">Lewati efek</string>
+    <string name="faditor_undo_fx_enable">Aktifkan efek</string>
+    <string name="faditor_undo_fx_delete">Hapus %1$s</string>
+    <string name="faditor_undo_fx_add">Tambah %1$s</string>
+    <string name="faditor_undo_fx_opacity">Opasitas %1$s</string>
+    <string name="faditor_undo_fx_blend">Campuran %1$s</string>
+    <string name="faditor_undo_fx_vertices">Titik sudut kurva</string>
+    <string name="faditor_undo_fx_straighten">Luruskan kurva</string>
+    <string name="faditor_undo_fx_reorder">Atur ulang urutan efek</string>
+    <string name="faditor_undo_fx_key">Key %1$s</string>
+    <string name="faditor_undo_fx_clear_keys">Hapus key %1$s</string>
+    <string name="faditor_undo_fx_apply_look">Terapkan tampilan \'%1$s\'</string>
+    <string name="lane_b_audio_fade_in_short">Masuk</string>
+    <string name="lane_b_audio_fade_out_short">Keluar</string>
+    <string name="lane_b_audio_env_flat">Gain rata — ◇ menjatuhkan titik envelope pertama</string>
+    <plurals name="lane_b_audio_env_count">
+        <item quantity="other">Envelope · %1$d titik — slider menggerakkan titik di bawah ▶︎</item>
+    </plurals>
+    <string name="lane_b_audio_bake_processing">Memproses…</string>
+    <string name="lane_b_audio_bake_in_use">Audio hasil olahan dipakai — aslinya tetap disimpan.</string>
+    <string name="lane_b_audio_bake_offline">Dirender offline — file aslinya tidak pernah diubah.</string>
+    <string name="lane_b_audio_bake_progress">%1$s · %2$d%%</string>
+    <string name="lane_b_audio_bake_failed">Gagal: %1$s</string>
+    <string name="lane_b_audio_bake_note">Bekerja pada salinan suara klip ini dan memutarnya sebagai gantinya. Kembalikan akan balik ke yang asli.</string>
+    <string name="lane_b_audio_revert">Kembali ke asli</string>
+    <string name="lane_b_audio_revert_desc">Kembali ke file audio asli yang belum diolah</string>
+    <string name="lane_b_audio_denoise">Kurangi noise</string>
+    <string name="lane_b_audio_denoise_desc">Render salinan klip ini dengan noise latar yang dikurangi</string>
+    <string name="lane_b_audio_normalize">Ratakan kenyaringan</string>
+    <string name="lane_b_audio_normalize_desc">Render salinan klip ini dengan kenyaringan yang merata</string>
+    <string name="lane_b_audio_voice">Perjelas suara</string>
+    <string name="lane_b_audio_voice_undo">Perjelas suara</string>
+    <string name="lane_b_audio_voice_on">Rantai suara AKTIF — hanya klip ini</string>
+    <string name="lane_b_audio_voice_off">Rantai suara MATI — hanya klip ini</string>
+    <string name="lane_b_audio_voice_note">Hilangkan dengung, gate, de-ess, kejelasan, kompresor, limiter — untuk ucapan. Membangun ulang suara pratinjau klip ini.</string>
+    <string name="lane_b_audio_beat_link_chip">◆ Tautan mengikuti beat…</string>
+    <string name="lane_b_audio_beat_link_note">Gerakkan skala / opasitas / rotasi sebuah overlay dari satu pita suara klip ini. Menulis keyframe biasa yang bisa kamu seret setelahnya.</string>
+    <string name="lane_b_audio_comp">Kompresor</string>
+    <string name="lane_b_audio_comp_bypassed">Rantai FX DILEWATI — kamu mendengar campuran asli.</string>
+    <string name="lane_b_audio_comp_live">Pengurangan gain, langsung dari kompresor.</string>
+    <string name="lane_b_audio_comp_idle">Meternya bergerak saat proyek diputar.</string>
+    <string name="lane_b_audio_prompt_level" formatted="false">Level (%)</string>
+    <string name="lane_b_audio_prompt_level_hint">0 … 200</string>
+    <string name="lane_b_audio_prompt_pan" formatted="false">Pan (%)</string>
+    <string name="lane_b_audio_prompt_pan_hint">-100 … 100</string>
+    <string name="lane_b_audio_prompt_fade_hint">0 … %1$s</string>
+    <string name="lane_b_audio_fade_prompt">%1$s (d)</string>
+    <string name="lane_b_audio_undo_level">Level audio</string>
+    <string name="lane_b_audio_undo_clear_envelope">Hapus envelope</string>
+    <string name="lane_b_audio_undo_envelope_point">Titik envelope</string>
+    <string name="lane_b_audio_undo_delete_point">Hapus titik envelope</string>
+    <string name="lane_b_puppet_swatch">Pin %1$s. Ketuk untuk mengganti jenis.</string>
+    <string name="lane_b_puppet_undo_pin_type">Jenis pin</string>
+    <string name="lane_b_puppet_rec_on">Merekam saat kamu menyentuh pin. Ketuk untuk berhenti.</string>
+    <string name="lane_b_puppet_rec_off">Tidak merekam saat disentuh. Ketuk untuk mengaktifkan.</string>
+    <string name="lane_b_puppet_sim">sim</string>
+    <string name="lane_b_puppet_tool_grab">Pegang</string>
+    <string name="lane_b_puppet_tool_pin">Pin</string>
+    <string name="lane_b_puppet_tool_stiff">Kaku</string>
+    <string name="lane_b_puppet_tool_dangle">Ayun</string>
+    <string name="lane_b_puppet_tool_free">Bebas</string>
+    <string name="lane_b_puppet_tool_bone">Tulang</string>
+    <string name="lane_b_puppet_scope_selected">Terpilih</string>
+    <string name="lane_b_puppet_scope_character">Karakter</string>
+    <string name="lane_b_puppet_scope_recording">Rekaman</string>
+    <string name="lane_b_puppet_hint_first_pin">Ketuk gambar untuk menaruh pin pertamamu</string>
+    <string name="lane_b_puppet_hint_tap_pin">Ketuk sebuah pin untuk mengeditnya</string>
+    <string name="lane_b_puppet_hint_dangle">Disimulasikan — tidak ada key untuk diedit. Key yang sudah ada tetap tersimpan utuh dan kembali begitu ia berhenti mengayun.</string>
+    <string name="lane_b_puppet_hint_free">Pin bebas bergerak ke segala arah. Putar dan skala butuh rotasi per pin di mesin — lihat spesifikasinya.</string>
+    <string name="lane_b_puppet_hint_anchor">Jangkar tidak punya pengaturan lain — memang begitu tujuannya</string>
+    <string name="lane_b_puppet_hint_tape">Pita di bawah menampilkan key milik %1$s. Ketuk pin lain, atau chip di atas, untuk melihat key-nya.</string>
+    <string name="lane_b_puppet_hint_rigid">Tulang kaku menghentikan tangan di tengah jalan dan membuat bahu tersentak. Kartun biasanya butuh mode lentur aktif.</string>
+    <string name="lane_b_puppet_hint_limits_off">Mati secara bawaan — kebanyakan rangka kartun tidak butuh batas ini.</string>
+    <string name="lane_b_puppet_hint_bone_keys">Tulang tidak menyimpan key sendiri. Menggerakkannya menulis ke %1$s dan %2$s.</string>
+    <string name="lane_b_puppet_hint_put_away">Ketuk boneka di gambar untuk menyimpan pin-pinnya</string>
+    <string name="lane_b_puppet_hint_punch_in">Punch-in dimulai dari tempat gerakan lama berada, lalu melambat di akhir</string>
+    <string name="lane_b_puppet_pin_depth">Kedalaman — di belakang / di depan</string>
+    <string name="lane_b_puppet_pin_muted">Dibisukan</string>
+    <string name="lane_b_puppet_pin_active">Aktif</string>
+    <string name="lane_b_puppet_pin_reach_ring">Cincin jangkauan</string>
+    <string name="lane_b_puppet_pin_auto_pull">Tarikan otomatis</string>
+    <string name="lane_b_puppet_pin_pull">Sekuat apa pin ini menarik</string>
+    <string name="lane_b_puppet_pin_spring">Kelenturan pegas</string>
+    <string name="lane_b_puppet_pin_settle">Mereda</string>
+    <string name="lane_b_puppet_pin_mass">Massa</string>
+    <string name="lane_b_puppet_pin_max_stretch">Regangan maks</string>
+    <string name="lane_b_puppet_pin_stiff_area">Area kaku</string>
+    <string name="lane_b_puppet_pin_strength">Kekuatan</string>
+    <string name="lane_b_puppet_reset">Mulai dari awal</string>
+    <string name="lane_b_puppet_reset_desc">Menghapus %1$s dan semua keyframe</string>
+    <string name="lane_b_puppet_reset_hover">%1$s. %2$s.</string>
+    <plurals name="lane_b_puppet_count_pins">
+        <item quantity="other">%1$d pin</item>
+    </plurals>
+    <plurals name="lane_b_puppet_count_bones">
+        <item quantity="other">%1$d tulang</item>
+    </plurals>
+    <string name="lane_b_puppet_count_join">%1$s, %2$s</string>
+    <string name="lane_b_puppet_bone">Tulang</string>
+    <string name="lane_b_puppet_bone_from">Dari</string>
+    <string name="lane_b_puppet_bone_to">Ke</string>
+    <string name="lane_b_puppet_bone_length">Panjang</string>
+    <string name="lane_b_puppet_bone_rest_angle">Sudut diam</string>
+    <string name="lane_b_puppet_bone_rest_length">Panjang diam</string>
+    <string name="lane_b_puppet_bone_stretchy">Lentur</string>
+    <string name="lane_b_puppet_bone_flip_elbow">Balik siku</string>
+    <string name="lane_b_puppet_bone_reach">Jangkauan</string>
+    <string name="lane_b_puppet_bone_stretch">Seberapa jauh bisa meregang</string>
+    <string name="lane_b_puppet_bone_joint_limits">Batas sendi</string>
+    <string name="lane_b_puppet_bone_fold_back">Jangan melipat ke belakang lebih dari</string>
+    <string name="lane_b_puppet_bone_fold_forward">Jangan melipat ke depan lebih dari</string>
+    <string name="lane_b_puppet_rig_softness">Kelembutan</string>
+    <string name="lane_b_puppet_rig_mesh_detail">Detail mesh</string>
+    <string name="lane_b_puppet_rig_gravity">Gravitasi</string>
+    <string name="lane_b_puppet_rig_wind">Angin</string>
+    <string name="lane_b_puppet_rig_wind_dir">Arah angin</string>
+    <string name="lane_b_puppet_rig_show_pins">Pin</string>
+    <string name="lane_b_puppet_rig_show_bones">Tulang</string>
+    <string name="lane_b_puppet_rig_show_mesh">Mesh</string>
+    <string name="lane_b_puppet_rig_rarely">Jarang diperlukan</string>
+    <string name="lane_b_puppet_rig_edge_threshold">Ambang tepi</string>
+    <string name="lane_b_puppet_rig_edge_expansion">Pelebaran tepi</string>
+    <string name="lane_b_puppet_record_on_touch">Rekam saat disentuh</string>
+    <string name="lane_b_puppet_record_snap">Tarik ke key</string>
+    <string name="lane_b_puppet_record_detail">Detail gerakan yang direkam</string>
+    <string name="lane_b_puppet_record_blend_out">Lepas perlahan</string>
+    <string name="faditor_text_underline">Garis bawah</string>
+    <string name="faditor_text_case_first">Huruf pertama kapital</string>
+    <string name="faditor_text_case_all">Huruf kapital semua</string>
+    <string name="faditor_text_case_small">Kapital kecil</string>
+    <string name="faditor_text_align">Perataan: %1$s. Ketuk untuk mengganti</string>
+    <string name="faditor_text_align_left">kiri</string>
+    <string name="faditor_text_align_center">tengah</string>
+    <string name="faditor_text_align_right">kanan</string>
+    <string name="faditor_text_align_justify">rata kiri-kanan</string>
+    <string name="faditor_text_color">Warna teks</string>
+    <string name="faditor_text_shadow_distance">Jarak</string>
+    <string name="faditor_text_shadow_direction">Arah bayangan</string>
+    <string name="faditor_text_shadow_angle">Sudut bayangan</string>
+    <string name="faditor_text_anim_label">Animasi</string>
+    <string name="lane_b_caption_hide">Sembunyikan trek teks ini</string>
+    <string name="lane_b_caption_show">Tampilkan trek teks ini</string>
+    <string name="lane_b_caption_add_track">Tambah trek teks</string>
+    <string name="caption_size">Ukuran teks</string>
+    <string name="caption_highlight">Sorot</string>
+    <string name="caption_style_save">Simpan sebagai gayaku</string>
+    <string name="caption_style_delete">Hapus gaya kustom ini</string>
+    <string name="caption_style_copy">Salin gaya sebagai teks</string>
+    <string name="caption_style_import">Impor gaya dari teks</string>
+    <string name="caption_anim_pop">Muncul</string>
+    <string name="caption_anim_zoom">Zoom</string>
+    <string name="caption_anim_bounce">Memantul</string>
+    <string name="caption_box">Kotak</string>
+    <string name="caption_box_more">Kotak…</string>
+    <string name="caption_box_more_desc">Opsi kotak lainnya</string>
+    <string name="caption_drawer_empty">Tidak ada klip bertulisan yang dipilih</string>
+    <string name="caption_fit_uniform">Seragam</string>
+    <string name="caption_fit_per_cue">Per baris</string>
+    <string name="caption_fit_truncate">Potong</string>
+    <string name="caption_fit_words">Kata</string>
+    <string name="caption_fit_words_desc">Kata per teks</string>
+    <string name="caption_fit_lines">Baris maks</string>
+    <string name="caption_fit_lines_prompt">Baris maks (0 = tanpa batas)</string>
+    <string name="caption_fit_floor">Batas bawah</string>
+    <string name="caption_group_slide">Pengelompokan: Geser</string>
+    <string name="caption_group_karaoke">Pengelompokan: Karaoke</string>
+    <string name="caption_group_desc">Cara kata dikelompokkan jadi teks. Ketuk untuk beralih</string>
+    <string name="caption_grow_center">Tumbuh: tengah</string>
+    <string name="caption_grow_down">Tumbuh: bawah</string>
+    <string name="caption_grow_up">Tumbuh: atas</string>
+    <string name="caption_grow_desc">Ke arah mana teks tumbuh. Ketuk untuk berganti</string>
+    <string name="caption_align_center">Rata: tengah</string>
+    <string name="caption_align_left">Rata: kiri</string>
+    <string name="caption_align_right">Rata: kanan</string>
+    <string name="caption_align_desc">Perataan baris. Ketuk untuk berganti</string>
+    <string name="caption_copy_all">Salin ke semua</string>
+    <string name="caption_copy_all_desc">Salin arah tumbuh dan perataan trek ini ke semua trek teks</string>
+    <string name="caption_copy_all_done">Jangkar + perataan diterapkan ke semua trek</string>
+    <string name="caption_position">Posisi teks</string>
+    <string name="caption_timing">Waktu</string>
+    <string name="caption_timing_hint">Berlaku untuk setiap baris teks, sebagai bagian dari baris itu</string>
+    <string name="caption_timing_readout">Masuk %1$d%%   Keluar %2$d%%   dari tiap baris</string>
+    <string name="caption_timing_readout_meet">Masuk %1$d%%   Keluar %2$d%%   dari tiap baris  ·  masuk selesai saat keluar mulai</string>
+    <string name="caption_timing_in_desc">Waktu masuk</string>
+    <string name="caption_timing_out_desc">Waktu keluar</string>
+    <string name="faditor_prop_pos_x">Posisi X</string>
+    <string name="faditor_prop_pos_y">Posisi Y</string>
+    <string name="faditor_prop_scale">Skala</string>
+    <string name="faditor_prop_scale_x">Skala X</string>
+    <string name="faditor_prop_scale_y">Skala Y</string>
+    <string name="drawer_title_visualizer">Visualizer</string>
+    <string name="drawer_tab_puppet">Boneka</string>
+    <string name="export_default_basename">JoyCreator_</string>
+    <plurals name="export_audio_count">
+        <item quantity="other">%1$d audio</item>
+    </plurals>
+    <string-array name="export_loudness_targets">
+        <item>Mati</item>
+        <item>YouTube -14 LUFS</item>
+        <item>Podcast -16 LUFS</item>
+        <item>TikTok -14 LUFS</item>
+        <item>Siaran -23 LUFS</item>
+    </string-array>
+    <string-array name="export_resolutions">
+        <item>Asli</item>
+        <item>1080p</item>
+        <item>720p</item>
+        <item>480p</item>
+    </string-array>
+    <string-array name="export_frame_formats">
+        <item>PNG (tanpa kehilangan tambahan)</item>
+        <item>JPG (lebih kecil)</item>
+    </string-array>
+    <string name="export_loudness">Target kenyaringan</string>
+    <string name="export_loudness_readout">Terukur: %1$s LUFS → Target: %2$s</string>
+    <string name="export_quality">Kualitas</string>
+    <string name="export_format">Format</string>
+    <string name="export_audio_only">Ekspor audio saja (.m4a)</string>
+    <string name="export_audio_only_desc">Mencampur audio klip + musik jadi satu file audio — tanpa trek video</string>
+    <string name="export_audio_only_project">Proyek ini tidak punya video — diekspor sebagai audio</string>
+    <string name="export_frame">Ekspor satu frame (gambar)</string>
+    <string name="export_frame_desc">Menyimpan satu frame jadi — beserta overlay — pada resolusi ekspor. Frame ini keluar dari encoder video yang sama dengan ekspor, jadi Kualitas memengaruhinya: PNG menjaga frame itu persis, JPG lebih kecil (tanpa transparansi, frame bersifat buram)</string>
+    <string name="export_frame_time">Waktu frame (terisi otomatis dari playhead — ketik untuk mengganti)</string>
+    <string name="export_time_hint">m:dd.t atau detik</string>
+    <string name="export_range_hint">m:dd.t</string>
+    <string name="export_frame_error_format">Masukkan waktu seperti 01:23.4 (atau 4.5 untuk 4,5 detik)</string>
+    <string name="export_frame_error_past">Waktu itu melewati akhir proyek (%1$s). Pilih waktu yang lebih awal.</string>
+</resources>

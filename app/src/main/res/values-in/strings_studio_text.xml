@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Indonesian translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Ketuk untuk menautkan ulang</string>
+    <string name="studio_text_keyframe">Keyframe</string>
+    <string name="studio_text_lane_1">Jalur 1</string>
+    <string name="studio_text_current_position">Posisi saat ini</string>
+    <string name="studio_text_tap_the_time_to_type">Ketuk waktu untuk mengetik nilai tepat · ◄ ► geser ±1 bingkai</string>
+    <string name="studio_text_one">SATU</string>
+    <string name="studio_text_snap">MAGNET</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Batang</string>
+    <string name="studio_text_width">Lebar</string>
+    <string name="studio_text_gap">Celah</string>
+    <string name="studio_text_lanes">Jalur</string>
+    <string name="studio_text_karaoke_one_word_per_line">Karaoke — satu kata per baris (waktu per kata):</string>
+    <string name="studio_text_copy_example">Salin contoh</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Slide — satu blok per stempel waktu (satu bait tampil sekaligus):</string>
+    <string name="studio_text_none">Tidak ada</string>
+    <string name="studio_text_backing_box">Kotak latar</string>
+    <string name="studio_text_hide_this_track">Sembunyikan trek ini</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Tanpa animasi (setel ulang) — di tengah, diskalakan menutupi, diam</string>
+    <string name="studio_text_also_apply_caption_position_to">Terapkan juga posisi teks ke semua klip</string>
+    <string name="studio_text_also_apply_caption_size_to">Terapkan juga ukuran teks ke semua klip</string>
+    <string name="studio_text_sensitivity">Sensitivitas</string>
+    <string name="studio_text_snap_to_beats">Tempel ke beat</string>
+    <string name="studio_text_reference_clip_stays">Klip acuan (tetap)</string>
+    <string name="studio_text_clip_to_move">Klip yang digeser</string>
+    <string name="studio_text_release_the_slider_to_preview">Lepas slider untuk melihat pratinjau jeda di timeline</string>
+    <string name="studio_text_scanning">Memindai…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">Audio tidak bisa dipindai</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Sisipkan</string>
+    <string name="studio_text_insert_2">Sisipkan &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Pilih gambar untuk timeline (ketuk untuk memilih, bernomor — sebagai klip)</string>
+    <string name="studio_text_browse_files">Telusuri file…</string>
+    <string name="studio_text_add_0">Tambah (0)</string>
+</resources>

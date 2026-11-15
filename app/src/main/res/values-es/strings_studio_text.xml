@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">Toca para revincular</string>
+    <string name="studio_text_keyframe">Fotograma clave</string>
+    <string name="studio_text_lane_1">Carril 1</string>
+    <string name="studio_text_current_position">Posición actual</string>
+    <string name="studio_text_tap_the_time_to_type">Toca el tiempo para escribir un valor exacto · ◄ ► mueve ±1 fotograma</string>
+    <string name="studio_text_one">UNO</string>
+    <string name="studio_text_snap">IMÁN</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">Barras</string>
+    <string name="studio_text_width">Ancho</string>
+    <string name="studio_text_gap">Espacio</string>
+    <string name="studio_text_lanes">Carriles</string>
+    <string name="studio_text_karaoke_one_word_per_line">Karaoke — una palabra por línea (con tiempo por palabra):</string>
+    <string name="studio_text_copy_example">Copiar ejemplo</string>
+    <string name="studio_text_slide_one_block_per_timestamp">Diapositiva — un bloque por marca de tiempo (todo el verso aparece a la vez):</string>
+    <string name="studio_text_none">Ninguno</string>
+    <string name="studio_text_backing_box">Caja de fondo</string>
+    <string name="studio_text_hide_this_track">Ocultar esta pista</string>
+    <string name="studio_text_no_animation_reset_centred_cover">Sin animación (restablecer) — centrada, ajustada para cubrir, estática</string>
+    <string name="studio_text_also_apply_caption_position_to">Aplicar también la posición de subtítulos a todos los clips</string>
+    <string name="studio_text_also_apply_caption_size_to">Aplicar también el tamaño de subtítulos a todos los clips</string>
+    <string name="studio_text_sensitivity">Sensibilidad</string>
+    <string name="studio_text_snap_to_beats">Imantar a los pulsos</string>
+    <string name="studio_text_reference_clip_stays">Clip de referencia (se queda)</string>
+    <string name="studio_text_clip_to_move">Clip que se mueve</string>
+    <string name="studio_text_release_the_slider_to_preview">Suelta el control para ver las pausas en la línea de tiempo</string>
+    <string name="studio_text_scanning">Analizando…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">No se pudo analizar el audio</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; Insertar</string>
+    <string name="studio_text_insert_2">Insertar &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">Elige una imagen para la línea de tiempo (toca para seleccionar, numeradas — como clip)</string>
+    <string name="studio_text_browse_files">Explorar archivos…</string>
+    <string name="studio_text_add_0">Agregar (0)</string>
+</resources>

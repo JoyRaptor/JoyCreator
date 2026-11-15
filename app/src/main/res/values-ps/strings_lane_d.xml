@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_lane_d.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="lane_d_pitch_tip">کله چې چټکتیا بدلېږي غږونه طبیعي وساتئ</string>
+    <string name="lane_d_tools_count">%1$d</string>
+    <string name="lane_d_tools_close">ټولې وسیلې بندې کړئ</string>
+    <string name="lane_d_asset_close">د شتمنیو لټوونکی بند کړئ</string>
+    <string name="lane_d_asset_prev">تېره پن شوې پوښۍ</string>
+    <string name="lane_d_asset_next">راتلونکې پن شوې پوښۍ</string>
+    <string name="lane_d_asset_filter">ټول، کارول شوي، یا ناکارول شوي فایلونه وښایه</string>
+    <string name="lane_d_asset_forget">دا پوښۍ له پن شوې تاریخچې لرې کړئ</string>
+    <string name="lane_d_asset_resize">د شتمنیو لټوونکي د اندازې بدلولو لپاره وکاږئ</string>
+</resources>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_tab1.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="tab1_drawer_beside">Pannello accanto all\'immagine (spento: scende dall\'alto)</string>
+    <string name="tab1_drawer_column">Colonna alta: la timeline sta solo sotto l\'immagine</string>
+    <string name="tab1_settings_place_title">Pannelli su schermo largo</string>
+    <string name="tab1_settings_place_auto">Automatico: accanto all\'immagine se c\'è posto, altrimenti scende dall\'alto</string>
+    <string name="tab1_settings_place_drop">Sempre dall\'alto, come su un telefono</string>
+    <string name="tab1_settings_place_beside">Sempre accanto all\'immagine</string>
+    <string name="tab1_settings_column_title">Colonna alta</string>
+    <string name="tab1_settings_column">Accanto all\'immagine, il pannello occupa tutta l\'altezza e la timeline sta solo sotto l\'immagine. Spento: il banco di montaggio, con la timeline a tutta larghezza.</string>
+    <string name="tab1_settings_left_title">Pannelli a sinistra</string>
+    <string name="tab1_settings_left">Il pannello sta a sinistra dell\'immagine invece che a destra.</string>
+</resources>

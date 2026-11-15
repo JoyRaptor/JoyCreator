@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Italian translation of values/strings_joybot_switch.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="joybotswitch_state_on">Sì</string>
+    <string name="joybotswitch_state_off">No</string>
+    <string name="joybotswitch_tip_on">Acceso. Tocca per spegnere.</string>
+    <string name="joybotswitch_tip_off">Spento. Tocca per accendere.</string>
+    <string name="joybotswitch_tip_on_named">%1$s è acceso. Tocca per spegnere.</string>
+    <string name="joybotswitch_tip_off_named">%1$s è spento. Tocca per accendere.</string>
+</resources>

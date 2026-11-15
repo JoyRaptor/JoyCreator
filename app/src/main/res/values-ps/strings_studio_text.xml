@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pashto translation of values/strings_studio_text.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="studio_text_tap_to_relink">د بیا نښلولو لپاره وټکوئ</string>
+    <string name="studio_text_keyframe">کیفریم</string>
+    <string name="studio_text_lane_1">لاره 1</string>
+    <string name="studio_text_current_position">اوسنی ځای</string>
+    <string name="studio_text_tap_the_time_to_type">د دقیق ارزښت لیکلو لپاره وخت وټکوئ · ◄ ► ±1 چوکاټ وخوځوئ</string>
+    <string name="studio_text_one">یو</string>
+    <string name="studio_text_snap">نښلول</string>
+    <string name="studio_text_hz">Hz</string>
+    <string name="studio_text_bars">پټۍ</string>
+    <string name="studio_text_width">پلنوالی</string>
+    <string name="studio_text_gap">تشه</string>
+    <string name="studio_text_lanes">لارې</string>
+    <string name="studio_text_karaoke_one_word_per_line">کاراوکي — په هره کرښه کې یوه کلمه (د هرې کلمې وخت):</string>
+    <string name="studio_text_copy_example">بېلګه کاپي کړئ</string>
+    <string name="studio_text_slide_one_block_per_timestamp">سلاید — د هرې وخت نښې لپاره یو بلاک (ټوله بیت په یو وخت ښکاري):</string>
+    <string name="studio_text_none">هېڅ</string>
+    <string name="studio_text_backing_box">د شا بکس</string>
+    <string name="studio_text_hide_this_track">دا پټلۍ پټه کړئ</string>
+    <string name="studio_text_no_animation_reset_centred_cover">انځورغورځنګ نشته (بیا سمول) — په مینځ کې، ډک شوی، ولاړ</string>
+    <string name="studio_text_also_apply_caption_position_to">د کیپشن ځای پر ټولو کلیپونو هم پلي کړئ</string>
+    <string name="studio_text_also_apply_caption_size_to">د کیپشن کچه پر ټولو کلیپونو هم پلي کړئ</string>
+    <string name="studio_text_sensitivity">حساسیت</string>
+    <string name="studio_text_snap_to_beats">بیټونو ته ونښلوئ</string>
+    <string name="studio_text_reference_clip_stays">د مرجع کلیپ (پاتې کېږي)</string>
+    <string name="studio_text_clip_to_move">کلیپ چې خوځول کېږي</string>
+    <string name="studio_text_release_the_slider_to_preview">د ټایم لاین پر تشو د مخکتنې لپاره سلایډر پرېږدئ</string>
+    <string name="studio_text_scanning">سکین کېږي…</string>
+    <string name="studio_text_couldn_t_scan_the_audio">غږ ونه سکین شو</string>
+    <string name="studio_text_2m30s_10_5s_1_30">2m30s  ·  10.5s  ·  1:30  ·  90f  ·  1/6 min</string>
+    <string name="studio_text_insert">|&lt; دننه کړئ</string>
+    <string name="studio_text_insert_2">دننه کړئ &gt;|</string>
+    <string name="studio_text_choose_image_for_timeline_tap">د ټایم لاین لپاره انځور غوره کړئ (د غوره کولو لپاره کېکاږئ، شمېرل شوی — د کلیپ په توګه)</string>
+    <string name="studio_text_browse_files">فایلونه کتل…</string>
+    <string name="studio_text_add_0">زیاتول (0)</string>
+</resources>

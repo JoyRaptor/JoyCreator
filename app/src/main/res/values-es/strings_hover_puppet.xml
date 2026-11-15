@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation of values/strings_hover_puppet.xml (L17, 2026-11-15). Keys, placeholders and escapes match English. -->
+<resources>
+    <string name="hover_sprite_cols">Columnas de la hoja. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_rows">Filas de la hoja. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_margin_x">Espacio en el borde izquierdo y derecho de la hoja. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_margin_y">Espacio en el borde superior e inferior de la hoja. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_spacing_x">Hueco entre celdas, de lado a lado. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_spacing_y">Hueco entre celdas, de arriba abajo. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_tolerance">Cuánto se puede parecer al color de clave para contar como fondo. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_move_x">Mueve este cuadro a la izquierda o a la derecha. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_move_y">Mueve este cuadro arriba o abajo. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_scale">Hace este cuadro más grande o más pequeño. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_rotate">Gira este cuadro, en grados. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_pivot_x">Punto de pivote, de izquierda a derecha. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_pivot_y">Punto de pivote, de arriba abajo. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_bake_pad">Espacio alrededor de cada cuadro al hornear. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_onion_strength">Qué intensos se ven los fantasmas del papel cebolla. Arrastra para cambiar, toca para escribir</string>
+    <string name="hover_sprite_onion_past">Fantasmas de cuadros anteriores. Arrastra para cambiar cuántos, toca para elegir un color</string>
+    <string name="hover_sprite_onion_future">Fantasmas de cuadros posteriores. Arrastra para cambiar cuántos, toca para elegir un color</string>
+    <string name="hover_sprite_divider">Arrastra para hacer el panel de herramientas más alto o más bajo</string>
+    <string name="hover_puppet_badge">Pines del títere. Toca para posar, mantén pulsado para abrir el cajón de pines</string>
+</resources>

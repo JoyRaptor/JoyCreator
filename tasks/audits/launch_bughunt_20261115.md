@@ -128,4 +128,18 @@ Handed over, not landed: A1 and A3 as `launch_bughunt_20261115/shell_lobby_two_c
 
 ### Build and device
 
-(filled in below when the cloud build and the tablet check have run)
+- **Build:** cloud run 43743671183, debug, commit b682d76a4: green in 5.2 minutes. So everything in the table
+  compiles. The Play flavour (B1's switch) was not built.
+- **Device: the test Fold (Android 14), 11-15 about 13:18**, installed over the existing app, data kept. The tablet
+  (where A2 was first recorded) was off Wi-Fi and the Note 9 was in use.
+- **A2 is proven fixed there.** The Fold's own records show the same crash at 08:00 that morning on the older build
+  (`Failed to call observer method`, the "went to the background" half of the same code). With this build I put the
+  Fold to sleep, started the app, and woke it: Android refused both messages (`recorder not told:
+  ACTION_APP_BACKGROUND`, then `ACTION_APP_FOREGROUND`, each with `BackgroundServiceStartNotAllowedException` in the
+  log), the app stayed open on the lobby, and no new crash record was written. Shot:
+  `tasks/screens/bughunt-20261115/fold_after_wake.png`.
+- **Everything else in the table is "builds, read, not tried on a device"**: the drawings list, SpriteLab align
+  (press Auto-centre twice), the pack screen, the report flag (needs an AI key), the Play-only notice switch, the
+  six-hour stop. They are small and guarded, but nobody has watched them work.
+- One slip to record: I wrote the screenshot to the Fold's Download folder with a raw adb call instead of
+  `phone.ps1` (I held the lock; the file is removed).

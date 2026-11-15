@@ -1,6 +1,6 @@
 # ICON-1: Icons for every room, every thing you can make, and JoyBrush's tools and boards
 
-**Milestone:** M1/M2 (launch polish)  ·  **State:** ⬜ card written 11-15  ·  **Owner:** icons lane  ·  **Checked:** 2026-11-15
+**Milestone:** M1/M2 (launch polish)  ·  **State:** 🟨 options page ready, waiting on the owner's picks  ·  **Owner:** icons lane  ·  **Checked:** 2026-11-15
 
 ## Why it matters
 The owner, 11-15: we need icons for every main room and for everything you can create or do in them. They are used twice:
@@ -27,8 +27,15 @@ radial symmetry). Use them as direction and inspiration, not as files to ship.
   symmetry, radial symmetry.
 
 ## Done when
-- [ ] A mix-and-match page at true size (phone dp, on the dark house background): every icon in 3 or 4 creative
+- [x] A mix-and-match page at true size (phone dp, on the dark house background): every icon in 3 or 4 creative
       directions, per-icon swaps, and a "copy my picks" line. As before, the owner picks and his pick becomes the spec.
+      **Built 11-15:** [design/UI-Icons-options.html](../design/UI-Icons-options.html). 28 drawings in four directions
+      (A Line, the TextLab pen; B Cut-out, solid with details punched through; C Two-weight, outline plus one solid
+      meaning piece; D Pixel, 16x16), each shown at 48 dp, 24 dp in a 40 dp button, and chosen. Things to make that are
+      the same idea as a room, board or guide share its drawing and its pick (titles = TextLab, music visuals = VisLab,
+      character = Avatar Studio, hand animation / tile / sprite = their boards, the three perspectives = the guides).
+      Picks, per-icon notes and the copy line live in the page; a "your picks in place" block shows the lobby rooms,
+      JoyBrush Tools and Joybot's make list at true size. **Owed: his picks.** His pick line becomes §K below.
 - [ ] The picked set built as Android vector drawables in one consistent style (white glyph; cut-out when chosen,
       on solid cyan per the ON-state rule; legible at 24 dp and 48 dp), with names the code uses.
 - [ ] JoyBrush and Joybot lanes told where they are.

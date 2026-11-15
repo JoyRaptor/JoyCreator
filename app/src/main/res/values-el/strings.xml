@@ -1301,7 +1301,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="video_split_size_summary_gb">Τρέχον: %1$s GB</string>
     <string name="video_splitting_title">Ενεργοποίηση Διαχωρισμού Βίντεο</string>
     <string name="video_splitting_description">Αυτόματος διαχωρισμός εγγραφών σε μικρότερα αρχεία.</string>
-    <string name="kofi_footer_text">Φτιαγμένο με στο FadSec Lab</string>
     <string name="setting_audio_input_source_title">Πηγή Εισόδου Ήχου</string>
     <string name="setting_audio_input_source_status_default">Μικρόφωνο Τηλεφώνου</string>
     <string name="setting_audio_input_source_status_wired">Ενσύρματο Μικρόφωνο</string>
@@ -1821,8 +1820,6 @@ Fun fact: 10/Ιουλ/2024 04:47 ΜΜ είναι όταν κυκλοφόρησε
     <string name="delete_all">Διαγραφή Όλων</string>
     <string name="new_project">Νέο Έργο</string>
     <string name="delete">Διαγραφή</string>
-    <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_header_button">Pro</string>
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">Σχετικά με τον Αναπαραγωγέα Βίντεο</string>
     <string name="player_info_content"><![CDATA[

@@ -1297,7 +1297,6 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="video_split_size_summary_gb">Praegune: %1$s GB</string>
     <string name="video_splitting_title">Luba video tükeldamine</string>
     <string name="video_splitting_description">Jagab salvestised automaatselt väiksemateks failideks (vaikimisi keelatud). Soovitatav: 2 GB tasakaalu jaoks. Eelseadistused kuni 4 GB ja kohandatud suurused on saadaval. See aitab hallata suuri salvestisi ja väldib seadme failisuuruse piiranguid.</string>
-    <string name="kofi_footer_text">Tehtud armastusega    FadSec Labis    </string>
     <string name="setting_audio_input_source_title">Heli sisendallikas</string>
     <string name="setting_audio_input_source_status_default">Telefoni mikrofon</string>
     <string name="setting_audio_input_source_status_wired">Juhtmega mikrofon</string>
@@ -1770,7 +1769,6 @@ Soovitatav: 192000 bps, 48000 Hz enamikele kasutajatele.</string>
     <string name="delete_all">Kustuta kõik</string>
     <string name="new_project">Uus projekt</string>
     <string name="delete">Kustuta</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Videoesitaja teave</string>
     <string name="player_info_content"><![CDATA[
 <b>Killustatud MP4 vorming</b><br/><br/>

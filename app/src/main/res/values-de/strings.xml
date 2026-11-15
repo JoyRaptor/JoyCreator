@@ -430,7 +430,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="video_split_size_summary_gb">Aktuell: %1$s GB</string>
     <string name="video_splitting_title">Video-Aufteilung aktivieren</string>
     <string name="video_splitting_description">Aufnahmen automatisch in kleinere Dateien aufteilen (standardmäßig deaktiviert). Empfohlen: 2 GB für eine gute Balance. Voreinstellungen bis zu 4 GB und benutzerdefinierte Größen sind verfügbar. Dies hilft bei der Verwaltung großer Aufnahmen und vermeidet Dateigrößenbeschränkungen des Geräts.</string>
-    <string name="kofi_footer_text">Gemacht mit im FadSec Lab in</string>
     <string name="setting_audio_input_source_title">Audio-Eingangsquelle</string>
     <string name="setting_audio_input_source_status_default">Aktuell verwendet: Telefonmikrofon</string>
     <string name="setting_audio_input_source_status_wired">Aktuell verwendet: Kabelmikrofon</string>
@@ -1397,7 +1396,6 @@ Empfohlen: 192000 bps, 48000 Hz für die meisten Benutzer.</string>
     <string name="eye_color_violet" translatable="false">Violet</string>
     <string name="eye_color_white" translatable="false">White</string>
 
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="faditor_add_asset_image">Bild (5s Standbild)</string>
     <string name="faditor_add_asset_title">Asset hinzufügen</string>
     <string name="faditor_add_asset_video">Videoclip</string>

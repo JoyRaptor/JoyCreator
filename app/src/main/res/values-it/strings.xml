@@ -1281,7 +1281,6 @@
     <string name="video_split_size_summary_gb">%1$d.%2$d GB</string>
     <string name="video_splitting_title">Divisione video</string>
     <string name="video_splitting_description">Divide automaticamente i video in segmenti più piccoli quando raggiungono una dimensione specificata. Questo aiuta la gestione dei file.</string>
-    <string name="kofi_footer_text">Grazie per il tuo supporto!</string>
     <string name="setting_audio_input_source_title">Sorgente ingresso audio</string>
     <string name="setting_audio_input_source_status_default">Usando sorgente predefinita</string>
     <string name="setting_audio_input_source_status_wired">Cuffie collegate</string>
@@ -1728,7 +1727,6 @@
     <string name="delete_all">Elimina tutto</string>
     <string name="new_project">Nuovo progetto</string>
     <string name="delete">Elimina</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="player_info_title">Info lettore video</string>
     <string name="player_info_content">Codec supportati, risoluzione, bitrate, FPS.</string>
     <string name="codec_hevc_incompatible_title">H.265 non supportato per live streaming</string>

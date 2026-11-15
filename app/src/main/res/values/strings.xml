@@ -1758,7 +1758,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="video_split_size_summary_gb">Current: %1$s GB</string>
     <string name="video_splitting_title">Enable Video Splitting</string>
     <string name="video_splitting_description">Automatically split recordings into smaller files (Disabled by default). Recommended: 2 GB for balance. Presets up to 4 GB and custom sizes are available. This helps manage large recordings and avoids device file size limits.</string>
-    <string name="kofi_footer_text">Made with    for creators in   </string>
 
     <string name="setting_audio_input_source_title">Audio Input Source</string>
     <string name="setting_audio_input_source_status_default">Phone Microphone</string>
@@ -2320,24 +2319,6 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
     <string name="delete_all">Delete All</string>
     <string name="new_project">New Project</string>
     <string name="delete">Delete</string>
-
-    <!-- ══ FADCAM PRO — SOMEBODY ELSE'S PAID PRODUCT ═══════════════════════════════════
-         An app-wide rename swept "FadCam" to "Joy Creator" through this block, and the
-         result was a page offering "Joy Creator Pro" for $15 with a button that opens
-         patreon.com/cw/Fadedx/shop — the shop of the developer of FadCam, the app this one
-         was forked from. Presented as this product's own paid tier, in a product whose
-         first screen promises "No ads. No subscription. No export paywall. Ever."
-
-         The names are restored to FadCam Pro, which is what it is. The feature is NOT
-         removed — whether Joy Creator carries an upstream upsell at all is JoyRaptor's
-         call, not a design decision, and deleting a revenue path is not mine to make.
-         What could not stand was the page claiming to be this product.
-
-         Also note the offer has expired: it says free until 23 Dec 2025, so it currently
-         tells people the free period is over and it costs $15.
-         ═══════════════════════════════════════════════════════════════════════════════ -->
-    <!-- FadCam Pro Strings -->
-    <string name="fadcam_pro_header_button">Pro</string>
 
     <!-- Video Player Info Bottom Sheet -->
     <string name="player_info_title">About the Video Player</string>
@@ -3418,23 +3399,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <string name="intro_line_secondcam">a second phone as a camera, over your own Wi-Fi</string>
     <string name="intro_line_ai">AI that edits the actual timeline</string>
     <string name="intro_start_creating">Start creating</string>
-    <string name="intro_support">Support</string>
-    <!-- ══ NOT SET YET — JoyRaptor must fill this in ═══════════════════════════════════
-         This was https://ko-fi.com/fadedx, which is the Ko-fi of the developer of FadCam,
-         the app this one was forked from.
-
-         It is the URL behind the "Support" button on the welcome screen — the button that
-         sits directly under the sentence "I built this between naps, looking after my three
-         toddlers. It's how I support my family." Money from that button was going to
-         somebody else. Whatever is decided about supporting upstream, that particular
-         combination could not stand, so the button is inert until this is filled in rather
-         than paying the wrong person in the meantime.
-
-         Put a Ko-fi, GitHub Sponsors or Patreon URL here and the button works again. The
-         About screen's donate sheet is separate and still goes upstream, honestly labelled.
-         ═══════════════════════════════════════════════════════════════════════════════ -->
-    <string name="support_url" translatable="false"></string>
-
     <!-- The Marquee §03 draws the last clause in the Studio accent:
          the Studio accent. It is the one coloured word on the
          screen, and it is on the promise that costs the most to keep. Split so the
@@ -3444,7 +3408,6 @@ For the smoothest playback experience, you can use an external player like VLC. 
     <!-- "Between naps" does more work than a paragraph of explanation would. -->
     <string name="intro_story">I built this between naps, looking after my three toddlers. It\'s how I support my family. If you get something out of it, you can help keep it free for everyone else.</string>
     <string name="intro_cta_start">Start creating</string>
-    <string name="intro_cta_support">Support</string>
     <!-- Said where AI is explained, which is the only moment it makes sense. -->
     <string name="intro_ai_note">Joy Creator runs no servers. If you connect an AI, your prompts go to the provider you chose — we never see them and we take no cut.</string>
     <string name="intro_ai_have_key">Already have a key?</string>

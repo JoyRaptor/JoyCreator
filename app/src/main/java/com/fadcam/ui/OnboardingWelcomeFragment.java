@@ -125,10 +125,8 @@ public final class OnboardingWelcomeFragment extends Fragment {
         slideA.setBackground(slideFor(BEATS[0]));
         line.setText(getString(BEATS[0].line));
 
-        View support = v.findViewById(R.id.welcome_support);
         View start = v.findViewById(R.id.welcome_start);
         Motion.press(start);
-        Motion.press(support);
         // "Start creating" moves to the next screen; AppIntro owns the pager, so this asks
         // the host rather than trying to drive it from inside a page.
         start.setOnClickListener(b -> {
@@ -136,7 +134,6 @@ public final class OnboardingWelcomeFragment extends Fragment {
                 ((OnboardingActivity) getActivity()).advanceSlide();
             }
         });
-        support.setOnClickListener(b -> openSupport());
         return v;
     }
 
@@ -165,22 +162,6 @@ public final class OnboardingWelcomeFragment extends Fragment {
         t.setText(sp);
     }
 
-    private void openSupport() {
-        // An UNSET support URL opens nothing, on purpose. It used to hold the Ko-fi of the
-        // developer of the app this one was forked from, sitting under the sentence "It's
-        // how I support my family" — so the button quietly contradicted the paragraph above
-        // it and sent the money elsewhere. Better to do nothing than to do that.
-        String url = getString(R.string.support_url);
-        if (url == null || url.trim().isEmpty()) return;
-        try {
-            startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW,
-                    android.net.Uri.parse(url)));
-        } catch (Exception ignored) {
-            // No browser. Silently doing nothing is right here: this is a donation link on
-            // a welcome screen, and an error dialog about it would be the first thing the
-            // product ever said to someone.
-        }
-    }
 
     @Override
     public void onResume() {

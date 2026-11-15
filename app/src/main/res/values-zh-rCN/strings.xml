@@ -752,7 +752,6 @@
     <string name="saf_permission_missing_dialog_message_for_start_recording">为将录制内容保存到自定义位置，Joy Creator 需要权限以访问您所选的文件夹。请在系统提示时授予访问权限。</string>
     <string name="grant_permission_button">授予权限</string>
     <string name="trash_auto_delete_picker_helper">选择何时自动删除垃圾箱中的项目。</string>
-    <string name="kofi_footer_text">匠心打造于 FadSecLab</string>
     <string name="choose_language">选择语言</string>
     <string name="onboarding_human_checkbox3">我同意隐私政策</string>
     <string name="applock_set_pin_enable">设置PIN码并启用</string>
@@ -1488,15 +1487,6 @@ Joy Creator 为录制使用分段式 MP4 格式。这意味着视频被保存为
 
 <!-- export_status -->
 <string name="export_status">导出状态</string>
-
-<!-- fadcam_pro_column_label -->
-
-<!-- fadcam_pro_header_button -->
-<string name="fadcam_pro_header_button">专业版</string>
-
-<!-- fadcam_pro_plus_label -->
-
-<!-- fadcam_pro_proplus_label -->
 
 <!-- faditor_add_asset_image -->
 <string name="faditor_add_asset_image">图片（5秒静态）</string>

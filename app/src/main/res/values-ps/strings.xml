@@ -738,7 +738,6 @@ Would you like to switch to H.264 and start recording?</string>
     <string name="eye_color_teal" translatable="false">Cyan</string>
     <string name="eye_color_violet" translatable="false">Violet</string>
     <string name="eye_color_white" translatable="false">White</string>
-    <string name="fadcam_pro_header_button">Pro</string>
     <string name="faditor_add_asset_image">Image (5s still)</string>
     <string name="faditor_add_asset_title">Asset Zaat Ka</string>
     <string name="faditor_add_asset_video">Video clip</string>
@@ -1184,7 +1183,6 @@ Fun fact: 10/Jul/2024 04:47 PM wakht ke Joy Creator v1.0 first shipped.</string>
     <string name="intel_zone_desc_v2">Sta camera view 9 zones ke taksim shwi. Zeati roghan = pa agha hissa ke zeati activity detect shwi.</string>
     <string name="keep_screen_on_helper_picker">Kala che faal wi, screen ba video chalao wakht ke na wridegi.</string>
     <string name="keep_screen_on_title">Screen chalu sawa ka</string>
-    <string name="kofi_footer_text">Made with    at FadSec Lab in</string>
     <string name="lab_hide_thumbnails_redacted">REDACTED</string>
     <string name="lab_hide_thumbnails_title">Classified Mode</string>
     <string name="lab_section_about">Maloomat</string>

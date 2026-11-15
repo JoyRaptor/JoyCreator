@@ -792,6 +792,9 @@ class JoyBrushActivity : Activity() {
             workingFile()?.let { pauseSaveHandoff.requested(it.absoluteFile.normalize().path) }
         }
         saves.request(SaveReason.IDLE, SaveDest.Working)
+        // That save did not start (another is being written, or it waits for a stroke): it will start when the view no
+        // longer draws, so the picture is read for it now (JbCanvasView.keepPausePicture; JBX-37).
+        if (!benchMode && workingSaveAllowed && saves.pending > 0) canvas.keepPausePicture()
         super.onPause()
     }
 
@@ -818,6 +821,9 @@ class JoyBrushActivity : Activity() {
         boardBackdrop?.close(); boardBackdrop=null
         boardExports.dismiss()
         boardController?.stop()
+        // A save already asked the canvas for the picture and the frame that reads it has not run: let it, while the
+        // graphics still exist (Android building the screen again pauses, stops and destroys in one go; JBX-37).
+        if (::canvas.isInitialized && (saves.busy || saves.pending > 0)) canvas.settleForClosing()
         destroyed = true
         unopenedDialog?.dismiss(); unopenedDialog = null
         restoreSaveWait?.close(); restoreSaveWait = null
@@ -2823,6 +2829,7 @@ class JoyBrushActivity : Activity() {
     }
 
     private fun finishPauseSaveIfDrained() {
+        if (!saves.busy && saves.pending == 0 && ::canvas.isInitialized) canvas.dropPausePicture()
         pauseSaveHandoff.queueAdvanced(null, !saves.busy && saves.pending == 0)
     }
 
@@ -2948,6 +2955,7 @@ class JoyBrushActivity : Activity() {
             activeBench = cc.joycreator.joybrush.android.bench.BenchRunner(canvas, spec, boardController, life = { step ->
                 when (step) {
                     "recreate" -> recreate()
+                    "savenow" -> saves.request(SaveReason.IDLE, SaveDest.Working)
                     // Another screen of the app over this one: this one is paused and stopped as Android does it, saves,
                     // and its graphics go when `joybrush_test_recreate_context` is set. Back returns to it.
                     "cover" -> startActivity(Intent(this, cc.joycreator.joybrush.android.library.DrawingsActivity::class.java))

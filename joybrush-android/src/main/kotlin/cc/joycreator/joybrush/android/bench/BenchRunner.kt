@@ -290,6 +290,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             // again; this runner ends with the old screen and the new one logs its own digest.
             "digest" -> LifeDigest.log(canvas, arg.ifEmpty { "now" })
             "cover" -> life?.invoke("cover") ?: Log.w(TAG, "then: cover needs jb_bench_life")
+            // savenow: the working save, asked for as the autosave asks (so the next step can meet it half written).
+            "savenow" -> life?.invoke("savenow") ?: Log.w(TAG, "then: savenow needs jb_bench_life")
             "recreate" -> { if (life != null) { life.invoke("recreate"); return } else Log.w(TAG, "then: recreate needs jb_bench_life") }
             "savefile" -> benchSaveFile()
             "savecarry" -> benchSaveCarry()

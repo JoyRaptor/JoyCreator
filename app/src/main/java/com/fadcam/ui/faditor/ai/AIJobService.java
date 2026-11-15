@@ -87,11 +87,19 @@ public class AIJobService extends Service {
         if (intent != null && ACTION_START.equals(intent.getAction())) {
             currentTask = intent.getStringExtra(EXTRA_TASK);
             if (currentTask == null) currentTask = "AI working...";
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                startForeground(NOTIFICATION_ID, buildNotification(currentTask, 0),
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
-            } else {
-                startForeground(NOTIFICATION_ID, buildNotification(currentTask, 0));
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    startForeground(NOTIFICATION_ID, buildNotification(currentTask, 0),
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC);
+                } else {
+                    startForeground(NOTIFICATION_ID, buildNotification(currentTask, 0));
+                }
+            } catch (RuntimeException refused) {
+                // Android 12+ can refuse a start from the background, and Android 15 once the day's
+                // six hours of this kind of service are used. No notice then; never a closed app.
+                FLog.w(TAG, "foreground refused: " + refused);
+                stopSelf();
+                return START_NOT_STICKY;
             }
             FLog.i(TAG, "AI job service started: " + currentTask);
         } else if (intent != null && ACTION_UPDATE.equals(intent.getAction())) {
@@ -158,6 +166,14 @@ public class AIJobService extends Service {
     @Nullable
     @Override
     public IBinder onBind(Intent intent) { return binder; }
+
+    /** Android 15: this kind of service may run six hours a day; told to stop, it must, or the app is closed. */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        FLog.w(TAG, "system time limit reached: stopping the job notice");
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
+    }
 
     @Override
     public void onDestroy() {

@@ -3520,7 +3520,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
             flag.setLayoutParams(flp);
             flag.setContentDescription("Report this reply");
             androidx.appcompat.widget.TooltipCompat.setTooltipText(flag, "Report this reply");
-            flag.setOnClickListener(v -> confirmReport(text));
+            // The bubble is born saying "Thinking…" and the answer is written into it later
+            // (updateLastBotMessage), so the report reads the words the bubble holds when the flag is tapped.
+            flag.setTag(text);
+            flag.setOnClickListener(v -> confirmReport(String.valueOf(v.getTag())));
             wrapper.addView(flag);
         }
 
@@ -4031,6 +4034,9 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 }
                 if (fl.getChildCount() > 1) {
                     fl.getChildAt(1).setTag(text);
+                }
+                if (fl.getChildCount() > 2) {
+                    fl.getChildAt(2).setTag(text);   // the report flag
                 }
             } else if (last instanceof TextView) {
                 ((TextView) last).setText(text);

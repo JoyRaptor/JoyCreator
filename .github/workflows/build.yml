@@ -160,5 +160,5 @@ jobs:
           name: joycreator-${{ inputs.variant }}-${{ steps.meta.outputs.sha }}
           path: cloud-out/
           retention-days: 3
-          compression-level: 0
+          compression-level: 6   # mapping.txt is ~100 MB of text; this PC's line can be slow
           if-no-files-found: error

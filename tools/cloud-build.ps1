@@ -166,20 +166,55 @@ function Get-Build([string] $id) {
     $arts = Api GET "/actions/runs/$id/artifacts"
     $a = $arts.artifacts | Select-Object -First 1
     if (-not $a) { throw "run $id has no artifact (did it succeed? artifacts are kept 3 days)" }
-    $res = Api GET "/actions/artifacts/$($a.id)/zip"
-    if ($res -isnot [System.Net.Http.HttpResponseMessage]) { throw "GitHub did not hand out a download link" }
-    $link = $res.Headers.Location
     New-Item -ItemType Directory -Force $outDir | Out-Null
     $zip = Join-Path $outDir "$($a.name).zip"
     $dest = Join-Path $outDir $a.name
     $plain = New-Client $null   # the storage link is pre-signed: no login goes with it
-    $dl = $plain.GetAsync($link, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
-    if (-not $dl.IsSuccessStatusCode) { throw "download failed: $([int]$dl.StatusCode)" }
-    $in = $dl.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
-    $fs = [IO.File]::Create($zip)
-    try { $in.CopyTo($fs) } finally { $fs.Dispose(); $in.Dispose() }
+    # Big downloads get cut off ("connection was forcibly closed"), most of all when this PC's line is busy: keep
+    # resuming where it stopped for as long as each try gets further; give up after 5 tries in a row that get nowhere.
+    $done = $false
+    $stuck = 0
+    $try = 0
+    $total = "{0:N0} MB" -f ($a.size_in_bytes / 1MB)
+    while (-not $done -and $stuck -lt 5) {
+        $try++
+        $before = if (Test-Path $zip) { (Get-Item $zip).Length } else { 0 }
+        try {
+            $res = Api GET "/actions/artifacts/$($a.id)/zip"   # a fresh link each time: they expire after a minute
+            if ($res -isnot [System.Net.Http.HttpResponseMessage]) { throw "GitHub did not hand out a download link" }
+            $have = if (Test-Path $zip) { (Get-Item $zip).Length } else { 0 }
+            $req = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, $res.Headers.Location)
+            if ($have -gt 0) { $req.Headers.Range = New-Object System.Net.Http.Headers.RangeHeaderValue([long]$have, $null) }
+            $dl = $plain.SendAsync($req, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+            if ([int]$dl.StatusCode -eq 416) { $done = $true; break }   # nothing left to send
+            if (-not $dl.IsSuccessStatusCode) { throw "download answered $([int]$dl.StatusCode)" }
+            $mode = if ([int]$dl.StatusCode -eq 206) { [IO.FileMode]::Append } else { [IO.FileMode]::Create }
+            $in = $dl.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+            $fs = New-Object IO.FileStream($zip, $mode)
+            # Copy by hand so a silent stall (no bytes for 60 s) counts as a cut-off and resumes.
+            $buf = New-Object byte[] (1MB)
+            $next = $have + 25MB
+            try {
+                while ($true) {
+                    $t = $in.ReadAsync($buf, 0, $buf.Length)
+                    if (-not $t.Wait(60000)) { throw "no data for 60 s" }
+                    if ($t.Result -le 0) { break }
+                    $fs.Write($buf, 0, $t.Result)
+                    if ($fs.Length -ge $next) { Write-Host ("  {0:N0} MB of {1}" -f ($fs.Length / 1MB), $total); $next += 25MB }
+                }
+            } finally { $fs.Dispose(); $in.Dispose() }
+            $done = $true
+        } catch {
+            $after = if (Test-Path $zip) { (Get-Item $zip).Length } else { 0 }
+            if ($after -gt $before) { $stuck = 0 } else { $stuck++ }
+            Write-Host ("download cut off at {0:N0} of {1} (try {2}), resuming: {3}" -f ($after / 1MB), $total, $try, $_.Exception.GetBaseException().Message)
+            Start-Sleep -Seconds (5 + 5 * $stuck)
+        }
+    }
+    if (-not $done) { throw "download got nowhere 5 times in a row; run fetch again later to resume" }
     if (Test-Path $dest) { Remove-Item -Recurse -Force $dest }
-    [IO.Compression.ZipFile]::ExtractToDirectory($zip, $dest)
+    try { [IO.Compression.ZipFile]::ExtractToDirectory($zip, $dest) }
+    catch { Remove-Item $zip -ErrorAction SilentlyContinue; throw "the download was damaged and is deleted; run fetch again" }
     Remove-Item $zip
     Write-Host "fetched $($a.name) into build\cloud\$($a.name):"
     Get-ChildItem $dest | ForEach-Object { Write-Host ("  {0}  {1:N1} MB" -f $_.Name, ($_.Length / 1MB)) }

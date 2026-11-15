@@ -3106,10 +3106,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * it the wash dries where it lies and goes into its layer first (leaving the screen, opening another drawing).
      */
     fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) {
-        // The view no longer draws (paused, or the screen is closing): no frame will ever run this request. The picture
+        // The view no longer draws (paused, its surface gone, or the screen closing): no frame will run this request. The picture
         // read when the screen left answers it ([keepPausePicture]); a closing screen without one says so at once
         // instead of leaving the save to its watchdog.
-        if (closing || viewPaused) {
+        if (closing || viewPaused || surfaceGone) {
             val kept = synchronized(pauseLock) { pausePicture }
             if (kept != null) { mainThread.post { onReady(kept) }; return }
             if (closing) { mainThread.post { onFailure("the screen closed before the drawing could be read") }; return }

@@ -73,13 +73,15 @@ class JbArchiveCarryTest {
         // One tile repainted: its picture and its two stores change; nothing else does.
         val after = drawing(lookSeeds = mapOf("1_0" to 200), storeSeeds = mapOf("1_0" to 50))
         val memo2 = JbArchive.saveCarrying(f, after, memo)
-        assertEquals(3 + 2, memo2.fresh, "the tile's picture and two stores, the document and the mimetype")
-        assertEquals(3 + 6, memo2.carried, "three pictures and six stores came over untouched")
+        // The document lists the same tiles, so its entry is the same bytes and is carried too.
+        assertEquals(3 + 1, memo2.fresh, "the tile's picture and two stores, and the mimetype (always written)")
+        assertEquals(3 + 6 + 1, memo2.carried, "three pictures, six stores and the document came over untouched")
         assertSameDrawing(after, f)
         assertTrue(File(f.path + ".bak").isFile, "the file before is kept beside it, as a full save keeps it")
-        // And again with nothing changed: all of it carried but the two small entries always written.
+        // And again with nothing changed: all of it carried but the mimetype.
         val memo3 = JbArchive.saveCarrying(f, after, memo2)
-        assertEquals(4 + 8, memo3.carried)
+        assertEquals(4 + 8 + 1, memo3.carried)
+        assertEquals(1, memo3.fresh)
         assertSameDrawing(after, f)
     }
 
@@ -123,7 +125,8 @@ class JbArchiveCarryTest {
         }
         assertTrue(f.setLastModified(time))
         val memo2 = JbArchive.saveCarrying(f, drawing(), memo)
-        assertEquals(1 + 2, memo2.fresh, "the damaged tile is compressed anew from the drawing, beside the two small entries")
+        assertEquals(1 + 1, memo2.fresh, "the damaged tile is compressed anew from the drawing, beside the mimetype")
+        assertEquals(4 + 7 + 1, memo2.carried, "everything else, the document included, is still carried")
         assertSameDrawing(drawing(), f)
     }
 

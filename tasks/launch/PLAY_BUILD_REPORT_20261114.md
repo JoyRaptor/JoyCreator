@@ -45,6 +45,15 @@ folder). Phone 33.4 to 34.0 °C throughout, no throttling. No crash in the crash
 
 Screenshots: [tasks/screens/play-build-20261114/](../screens/play-build-20261114/).
 
+**Second round (19:30, after the store lane's permission review):** the Play manifest now also drops
+`REQUEST_IGNORE_BATTERY_OPTIMIZATIONS`, `BLUETOOTH_SCAN` and `WRITE_MEDIA_VIDEO`, closes four developer entry points
+and names the two special-use services. Rebuilt, installed over the test copy (data kept), and checked: the
+installed app no longer holds any of the removed permissions (`dumpsys package`); Android's battery-optimisation list
+(the new target of the battery row) opens on the Note 9; Joybot made a title card on top of the video ("Added 1
+layer", `52`). Not exercised: the onboarding battery row itself (replaying onboarding needs cleared app data, which
+is never done) and the separate slide renderer (the title card used the built-in design). The GitHub cloud build of
+the same commit succeeded (8.7 min, unsigned bundle) once release builds without the key stopped trying to sign.
+
 **Not tested:** Smart Detection finding a person (the launch-docs lane owns it), speech to text with words in it,
 avatar face tracking, LAN Remote, screen recording, the Note 20 or the tablet. Which speech engine did the
 transcription is not visible on a release build.

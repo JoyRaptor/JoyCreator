@@ -259,6 +259,28 @@ end. Found by reading; not reproduced on the phone.
 
 Pictures and the numbers behind this table: [evidence/atlas-2to8-20261113](../joybrush/evidence/atlas-2to8-20261113/README.md).
 
+### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
+
+**In plain words.** Three ways a watercolour wash could be lost or dried by something other than the painter, all found by
+Codex reading the code, all still true this morning, all fixed.
+
+- **A cancelled stroke could wipe the wash under it (ENG-01).** When the phone had no graphics memory to keep a copy of
+  the wash for the next stroke's cancel, the stroke painted anyway, and cancelling it (a second finger) emptied the whole
+  sheet. Now the older undo copies are given up first; if that is not enough the wash is set into the layer, where it is
+  safe, and the stroke starts on a clean sheet. The price in that rare moment: the wash dries early and undo cannot go
+  back past it.
+- **Undo or redo could make the wash vanish (ENG-02).** After the canvas was turned between strokes, going back needed
+  the sheet in its other shape; if that could not be made the history had already moved and the wash was gone from the
+  screen. Now the history asks the sheet first, for undo and redo, and everything that can fail is done before anything
+  moves. No memory: the press does nothing, the picture is unchanged, and the next press works once memory is back.
+- **Renaming or locking a board dried the wash (R2-JB-02).** Every board edit set the wet wash. Now only edits that move
+  paint or frames do (`core/doc/BoardChangePaint`, unit-tested).
+- **Proof.** New bench case `wetSheetFailureProbe` (`WetSheetFailureProbe`, the real engine with the two failures
+  injected), Note 9, build 18c20fc83, two runs the same: cancel with no copy, 277 of 83,098 wash pixels differ (0.3%, the
+  early drying) and 2 stray; refused undo and refused redo change 0 pixels and then go through. All unit tests pass.
+- **Not covered.** The old losses were confirmed by reading the code, not made to happen on the old build. The board
+  fix has no phone check by eye. The double failure named in the routing file (`tasks/audits/codex/ROUTING_20261115.md`).
+
 ## 2026-11-15: the cause of the 10-31 lost squares (JBX-35), by the "Launch bug hunt" session
 
 **In plain words.** On 10-31 four squares of the owner's painting turned black and a save stopped with "Board tile copy

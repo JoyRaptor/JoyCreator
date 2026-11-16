@@ -148,6 +148,21 @@ Told to the orchestrator in the owner's words; each is a requirement.
       a closing chat detaches only its own listeners; the chat in front re-attaches in `onResume` and shows what finished.
 - [ ] Cloud build of all of it; seen on a device; clips to the owner; the owner OKs; land.
 
+## 11-15 evening: hover and body language (owner's picks on the hover picks page)
+Owner: "Hover D (Alive), 12 dp above the seat ... every once in a while a thruster pulse"; oopsies, idea, showing and
+celebrating Yes (idea and celebrating drawn larger: their art shrinks him); thinking paces further on a long think,
+stops longer, wanders off to the side, hops back; talking is mostly typing his reply, the marble now and then;
+celebrating hops in a circle, nearer and further. New art: taking notes (notepad, 9 frames) and a thinking pose.
+- [x] Sheet v4 (art aligned_v4_20261115, README there): taking-notes cells 348-356, thinking-still 357; idea 1.25x,
+      confetti 1.3x; moves.body, weight, rests in the data; the packer carries weight and rests.
+- [x] JoybotBody (hover D with habits and puffs; body language per animation, blended); 12 dp hover: he lands on the
+      seat with the impact, then lifts (Flight.withRise). PC tests: run-joybot-body.sh (all pass), run-joybot-flight.sh
+      (88 pass, lifts to his hover).
+- [x] Wiring: notes while you type; options (A/B/C) when he offers several ideas; the idea pop for a tip; a no bins the
+      idea; the thinking pose mid-think; the brush now and then at rest; a job done sometimes celebrates.
+- [x] Cloud build (b4afd06ba) compiles. Test tablet and Note 9 recordings (no errors; arrival 0-1 frame gaps): he floats 12 dp above the seat, reads at rest, notes while typing, discards on "no", backflip, brush, flies home; clips sent. A short think only starts his pacing: long thinks not yet seen on a device.
+- [ ] The owner OKs the clips; land.
+
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
 - [ ] Fly-to-corner and show-off moves.

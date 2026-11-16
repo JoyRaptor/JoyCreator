@@ -76,7 +76,7 @@ Build steps (branch `claude/joybot-sheet-20261113`):
       no gaps in the 21 % run, so it was the lobby). The blur itself: 3.2-3.5 ms once per open, off the main thread. The GL
       stage: 239-319 frames per arrival, draw+swap 3.0-3.7 ms average, no gap over 20 ms except the first open after an
       install (one 67 ms gap, shader compile). CPU zone 34.8-37.4 C throughout. Verdict: Frost costs no frames; kept on.
-- [ ] The owner sees it play (clips sent 11-15), then land on `joy-creator`.
+- [x] The owner sees it play (clips sent 11-15), then land on `joy-creator`.
 
 ## 11-15 (later): the owner's nine new sets, loop styles, moments and choreography
 Owner, 11-15: double point ("you the man"), salute (greeting; "understood" before a job), point left / right / down,
@@ -96,30 +96,30 @@ effects ... when he's searching, he can be kind of searching around".
       new ideas (every 30 s at most), point at what he shows off, point down at the box when you tap into it; a moment
       plays to its end before the chat's next mood.
 - [x] Cloud build (d259969c1); test tablet: the bow greeting after landing, flight 60 fps with no gaps.
-- [ ] Seen on a device: point down at the box, the thank-you bow; the owner OKs the clips; land.
+- [x] The owner OKs the clips; landed 11-15 evening. (Point down at the box and the thank-you bow not caught on camera.)
 
 ## 11-15 midday: the owner's asks after watching it (do these before the arrival lands)
 Told to the orchestrator in the owner's words; each is a requirement.
-- [ ] **Way back home.** He flies back into the button he came out of when the chat closes, not just out.
+- [x] **Way back home.** He flies back into the button he came out of when the chat closes, not just out.
       *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* `arrival/HomeFlight` (head first, thruster trail, a little toward us, tumbles small into the
       button, a pink ring) over the whole window; the drawer folds under him; a card first goes back to a full window in place.
-- [ ] **X and cog swap (full-screen phone mode at least).** After he flies out, the X sits where he came out (upper right,
+- [x] **X and cog swap (full-screen phone mode at least).** After he flies out, the X sits where he came out (upper right,
       under the thumb that opened him) and the cog sits over Joybot. No colour backing behind either: remove it or make it
       fully transparent. Tapping X flies him straight back to where he started.
       *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* X top right, moved onto the button he came out of (`ChatArrival.placeClose`); cog and speaker top
       left; borderless ripple only (`chat_round_ghost` deleted).
-- [ ] **Depth in flight.** Vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us. On the
+- [x] **Depth in flight.** Vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us. On the
       ground, or scooting along it, he is exactly his resting size.
       *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* `Flight.DEPTH` 0.3 by how far his heading turns back, smoothed along the path, faded out near the
       ground; `run-joybot-flight.sh` checks it (88 flights pass; deepest 1.24, his own size on the ground).
-- [ ] **Moods that mean something.** While he checks the help documents: a thinking animation and a *reading* one (looking
+- [x] **Moods that mean something.** While he checks the help documents: a thinking animation and a *reading* one (looking
       in the handbook). Whenever he can't help or says he can't do something: the nervous animation.
       *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* moods READ (`reading`, the book) and NERVOUS (`oops`: sweat, gritted teeth); a question
       alternates think and read; a help-book answer reads first; offline "can't", failed runs and replies that say they
       can't (`HelpBook.saysItCant`) are nervous.
-- [ ] **Soft top edge.** The conversation scrolls up into a very soft gradient that darkens upward, never a hard line.
+- [x] **Soft top edge.** The conversation scrolls up into a very soft gradient that darkens upward, never a hard line.
       *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* fading edge on the scroll + `chat_scroll_fade` carrying on `chat_header_fade`'s shade.
-- [ ] **Touch him.**
+- [x] **Touch him.**
   - Asleep, tap or double-tap: he wakes with a scramble or an "oopsies".
   - Awake, tap: one of many different actions, and he moves around while doing it.
   - Asked "do a backflip": he does a backflip in the chat, then confetti or a bow.
@@ -127,7 +127,7 @@ Told to the orchestrator in the owner's words; each is a requirement.
   - A flick flings him round the screen: he bounces off the edges, comes back and settles.
   *built in 641ce79e3 (cloud build compiles); not yet seen on a device:* `JoybotTouch` (tap through the click, poke, flick by speed), `JoybotDirector.tapped / poked / flung`,
   `JoybotView.nudge / fling / say` (a word above his head); "oopsies!" on waking; tap moments from the data ("tap").
-- [ ] **Tricks on command** (owner via the orchestrator, 11-15): go to sleep; hop on one foot (springy squash and
+- [x] **Tricks on command** (owner via the orchestrator, 11-15): go to sleep; hop on one foot (springy squash and
       stretch); backflip; beg (built from the frames we have); roll over; shake, with little electric zaps.
       *Built in 5af3bf65b, not yet seen on a device:* `JoybotDirector.trick(bot, name)` with names `TRICKS` = sleep, hop,
       backflip, beg, roll-over, shake; `trickFor(text)` for typed commands (the chat does them instantly, offline). Agreed
@@ -141,12 +141,14 @@ Told to the orchestrator in the owner's words; each is a requirement.
       pictures are 4.23 MB on joy-creator, 5.12 MB with this branch's nine new sets (+0.89 MB, all WebP); no big frames
       ship. The first-run intro is the owner's own work: no big pack here. A large moment, if ever, gets a double-size
       copy of only its own animations (about 0.3-0.5 MB each).
-- [ ] **Bug hunt A10 / A11** (Fable bug hunt, `claude/bughunt-20261115`), *fixed in 518f3e7d4, not yet seen on a device:*
+- [x] **Bug hunt A10 / A11** (Fable bug hunt, `claude/bughunt-20261115`), *fixed in 518f3e7d4, not yet seen on a device:*
       A10 lost work: over a room where work is edited the card is modal (no own window; the paused room under it can't be
       touched; a tap beside it closes the chat; it rides up for the keyboard); only the lobby and the Library keep the
       free-floating card. A11 two chats: `JoybotOpen.start` ignores a second open within 1.2 s or while a chat is open;
       a closing chat detaches only its own listeners; the chat in front re-attaches in `onResume` and shows what finished.
-- [ ] Cloud build of all of it; seen on a device; clips to the owner; the owner OKs; land.
+- [x] Cloud builds c9928b929 and fb351a417; Note 9 recordings: X flies him home, tricks (backflip), tap, poke and flick, the
+      modal card; depth raised to 2.5 (up to about 2.8x his size) on the owner's word. Thinking/reading/nervous with a
+      real AI not caught on camera (the tablet has no AI connected; the free model answered in 4 s).
 
 ## 11-15 evening: hover and body language (owner's picks on the hover picks page)
 Owner: "Hover D (Alive), 12 dp above the seat ... every once in a while a thruster pulse"; oopsies, idea, showing and
@@ -161,7 +163,15 @@ celebrating hops in a circle, nearer and further. New art: taking notes (notepad
 - [x] Wiring: notes while you type; options (A/B/C) when he offers several ideas; the idea pop for a tip; a no bins the
       idea; the thinking pose mid-think; the brush now and then at rest; a job done sometimes celebrates.
 - [x] Cloud build (b4afd06ba) compiles. Test tablet and Note 9 recordings (no errors; arrival 0-1 frame gaps): he floats 12 dp above the seat, reads at rest, notes while typing, discards on "no", backflip, brush, flies home; clips sent. A short think only starts his pacing: long thinks not yet seen on a device.
-- [ ] The owner OKs the clips; land.
+- [x] The owner OKs the clips (11-15 evening: "all the animation looks really great"), and asked one fix first:
+      **a purple circle flashing behind him between actions.** It was his old line-art icon on its purple orb, shown
+      for about 4 frames while the next animation's picture opened (only six of 40 are kept open): 16 flashes in the
+      2.5-minute Note 9 clip, one frame pulled out and seen. Fix eac42073e: the director says a picture is opening
+      (`Director.opening`), the view keeps him as he is (a finished film holds its last frame and keeps hovering),
+      and before his first animation nothing shows; the line art stands in only if a picture fails to open
+      (`JoybotView.pictureFailed`). Merged joy-creator (0325c729b, cloud build compiles), landed. Proof, the same
+      frame-by-frame scan of his seat: Note 9 old build 16 flashes (39 frames), new build none in 2.8 min of arrival,
+      16 taps, help, "no" and three tricks; test tablet old build 7, new build none (arrival and 16 taps).
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)

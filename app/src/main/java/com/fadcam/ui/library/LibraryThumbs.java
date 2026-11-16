@@ -111,6 +111,8 @@ public final class LibraryThumbs {
                                                 @Nullable com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> t) {
                         SheetDrawable d = SheetDrawable.of(bmp, it.thumbSheet);
                         if (d == null) return;
+                        com.fadcam.FLog.d("LibraryThumbs", "sheet card " + it.thumbSheet + " decoded " + bmp.getWidth() + "x"
+                                + bmp.getHeight() + " (" + (bmp.getByteCount() >> 10) + " KiB), asked for " + w + "x" + h);
                         view.setImageDrawable(d);
                         glyph.setVisibility(View.INVISIBLE);
                         if (view.isShown()) d.start();

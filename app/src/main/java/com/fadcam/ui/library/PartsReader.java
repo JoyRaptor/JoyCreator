@@ -64,6 +64,7 @@ final class PartsReader {
     @NonNull
     static List<LibraryItem> read(@NonNull Context c, @NonNull ProjectStorage storage,
                                   @NonNull List<ProjectStorage.ProjectSummary> projects) {
+        long t0 = android.os.SystemClock.elapsedRealtime();
         List<LibraryItem> out = new ArrayList<>();
         java.util.Set<String> live = new java.util.HashSet<>();
         for (ProjectStorage.ProjectSummary p : projects) live.add(p.id);
@@ -76,7 +77,8 @@ final class PartsReader {
             }
         }
         readAvatarLibrary(c, out);
-        FLog.d(TAG, "project files read so far: " + FILE_READS.get() + " of " + projects.size() + " projects");
+        FLog.d(TAG, "parts read in " + (android.os.SystemClock.elapsedRealtime() - t0) + " ms; project files read so far: "
+                + FILE_READS.get() + " of " + projects.size() + " projects");
         return out;
     }
 

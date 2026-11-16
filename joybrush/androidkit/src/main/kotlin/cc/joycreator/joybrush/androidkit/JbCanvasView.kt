@@ -2423,6 +2423,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             startMediaStroke(p)
             return
         }
+        // The wash itself: straight to the realistic-paint stroke, past the line layer's own admission (which refuses media).
+        if (washAmongLines && p?.engine == ENGINE_MEDIA && !eraser && !editingMask && watercolourPreviewSeed == null &&
+            tileBoardId == null && lineSnapshot.holdsItemsOnLayer(activeLayer)) {
+            startMediaStroke(p)
+            return
+        }
         var lineFrozen: FrozenBrushResult? = null
         if (!maskStroke && watercolourPreviewSeed == null) {
             val holdsItems = lineSnapshot.holdsItemsOnLayer(activeLayer)

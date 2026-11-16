@@ -1553,24 +1553,27 @@ class JoyBrushActivity : Activity() {
         val redraw = Runnable {
             if (preview.width > 0 && preview.height > 0) {
                 val shownBrush = previewBrush()
-                // The test stroke's colour lines first, laid by their own thin brush (never this one: they are paint
-                // already on the paper, TestStroke.lineBrushId), then the swatch, the lines and his curve with this brush,
-                // then everything the owner drew here, in his colour.
-                val sheet = BrushPreviewStrokes.sheet(preview.width.toFloat(), preview.height.toFloat())
-                val (lines, rest) = sheet.partition { it.argb != null }
-                val lineBrush = brushes.firstOrNull { it.id == cc.joycreator.joybrush.core.brush.TestStroke.lineBrushId(shownBrush) }
+                // What lies under the test stroke, where this brush samples (owner, 11-16): plain paper for a brush that
+                // picks nothing up, a fine grey checkerboard for a smudge or an eraser, a blob of a second colour of the same
+                // paint for one that carries colour, laid by that paint's own brush (never this one: TestStroke.lineBrushId).
+                // Then the swatch, the lines and his curve with this brush, then everything the owner drew here.
+                val ts = cc.joycreator.joybrush.core.brush.TestStroke
+                val underpaint = ts.underpaintFor(shownBrush)
+                val sheet = BrushPreviewStrokes.sheet(preview.width.toFloat(), preview.height.toFloat(), underpaint = underpaint)
+                val (under, rest) = sheet.partition { it.under }
+                val underBrush = brushes.firstOrNull { it.id == ts.lineBrushId(shownBrush) }
                 val second = secondColour(canvas.strokeColor)
-                if (lineBrush != null && preview.surfaceReady) {
-                    val sw = preview.width - 2 * cc.joycreator.joybrush.core.brush.TestStroke.inset(12f)
-                    val thin = (2 * sw * cc.joycreator.joybrush.core.brush.TestStroke.STRIPES.first().half).coerceAtLeast(2f)
-                    preview.preset = cc.joycreator.joybrush.core.chrome.ToolMemory.sized(lineBrush, thin, 1f)
-                    preview.replaceWithStrokes(lines.map { it.samples }, lines.map { it.argb })
+                val checker = underpaint == cc.joycreator.joybrush.core.brush.TestStroke.Underpaint.CHECKER
+                if (under.isNotEmpty() && underBrush != null && preview.surfaceReady) {
+                    preview.preset = cc.joycreator.joybrush.core.chrome.ToolMemory.sized(underBrush,
+                        ts.blobBrushPx(preview.width, preview.height, 12f), 1f)
+                    preview.replaceWithStrokes(under.map { it.samples }, under.map { second })
                     preview.preset = shownBrush
                     preview.drawStrokes(rest.map { it.samples } + preview.drawnStrokes, rest.map { if (it.second) second else null })
                 } else {
                     preview.preset = shownBrush
-                    preview.replaceWithStrokes(sheet.map { it.samples } + preview.drawnStrokes,
-                        sheet.map { it.argb ?: if (it.second) second else null })
+                    preview.replaceWithStrokes(rest.map { it.samples } + preview.drawnStrokes,
+                        rest.map { it.argb ?: if (it.second) second else null }, checker = checker)
                 }
             }
         }

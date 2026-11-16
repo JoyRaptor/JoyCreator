@@ -231,19 +231,23 @@ class BrushTuningTest {
     }
 
     @Test
-    fun theSettingsStageDrawsTheOwnersTestStrokeOverItsColourLines() {
+    fun theSettingsStageDrawsTheOwnersTestStrokeOverItsUnderpaint() {
         val w = 1000f; val h = 300f
-        val sheet = BrushPreviewStrokes.sheet(w, h)
-        for (s in sheet) {
-            assertTrue(s.samples.size >= 2)
-            assertTrue(s.samples.zipWithNext().all { (a, b) -> b.timeMs >= a.timeMs })
-            assertTrue(s.samples.all { it.x in 0f..w && it.y in 0f..h }, "inside the preview")
-            val t = TuftStroke(sable(), 1L)
-            assertTrue((t.add(s.samples) + t.finish()).isNotEmpty())
+        for (under in TestStroke.Underpaint.entries) {
+            val sheet = BrushPreviewStrokes.sheet(w, h, underpaint = under)
+            for (s in sheet) {
+                assertTrue(s.samples.size >= 2)
+                assertTrue(s.samples.zipWithNext().all { (a, b) -> b.timeMs >= a.timeMs })
+                assertTrue(s.samples.all { it.x in 0f..w && it.y in 0f..h }, "inside the preview")
+                val t = TuftStroke(sable(), 1L)
+                assertTrue((t.add(s.samples) + t.finish()).isNotEmpty())
+            }
+            // No colour lines any more (owner, 11-16); a blob of the second colour first for a brush that carries colour.
+            assertTrue(sheet.none { it.argb != null })
+            assertEquals(if (under == TestStroke.Underpaint.BLOB) 1 else 0, sheet.count { it.under })
+            if (under == TestStroke.Underpaint.BLOB) assertTrue(sheet.first().under && sheet.first().second)
         }
-        // The colour lines come first, in their own colours; the curve is last, in the colour in hand.
-        val lines = sheet.takeWhile { it.argb != null }
-        assertEquals(TestStroke.STRIPES.map { it.argb }.toSet(), lines.map { it.argb }.toSet())
+        val sheet = BrushPreviewStrokes.sheet(w, h)
         assertEquals(null, sheet.last().argb)
         assertEquals(TestStroke.pen(1000, 300, 12f), sheet.last().samples)
         assertEquals(0, BrushPreviewStrokes.captions.size)

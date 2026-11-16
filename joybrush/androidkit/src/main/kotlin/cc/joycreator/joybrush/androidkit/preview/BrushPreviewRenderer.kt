@@ -231,31 +231,19 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         val ink = if (onPaper) req.style.mediaInk else req.style.ink
         val erase = PreviewPlan.erases(shown)
 
-        // What the stroke works on: a strip for the eraser to cut, two colour bands for the smudge to drag.
+        // What the stroke works on, in its own layer where it samples: a fine grey checkerboard for the smudge to drag (owner,
+        // 11-16: its tapers, edges and warping show), a strip for the eraser to cut. Every other brush on plain paper: the
+        // selector shows just the stroke (owner, 11-16: the colour lines distracted there).
         val ground = HashMap<Long, ByteArray>()
-        if (kind == PreviewKind.SMUDGE) {
-            PreviewRaster.fillRect(ground, 0, 0, w / 2, h, req.style.bandLeft)
-            PreviewRaster.fillRect(ground, w / 2, 0, w, h, req.style.bandRight)
+        if (kind == PreviewKind.SMUDGE || shown.engine == cc.joycreator.joybrush.core.brush.ENGINE_PUSH) {
+            PreviewRaster.checker(ground, 0, 0, w, h, CHECKER_CELL)
         } else if (erase) {
             PreviewRaster.fillRect(ground, 0, (h * STRIP_INSET).toInt(), w, h - (h * STRIP_INSET).toInt(), req.style.strip)
-        }
-        // The test stroke's colour lines (TestStroke.STRIPES): slanted lines the curve crosses, to show pick-up, smear and
-        // blur, painted from the top edge to the bottom so they run off the picture. A smudge has its own two bands, an
-        // eraser its strip.
-        else if (req.snapshot.stripes && req.snapshot.part != cc.joycreator.joybrush.core.brush.TestStroke.Part.DAB) for (stripe in cc.joycreator.joybrush.core.brush.TestStroke.STRIPES) {
-            val inset = CannedStroke.inset(shown.size.base)
-            val sw = w - 2 * inset
-            val sh = (h - 2 * inset).coerceAtLeast(1f)
-            for (y in 0 until h step 2) {
-                val mid = inset + sw * stripe.xAt((y + 1 - inset) / sh)
-                val half = sw * stripe.half
-                PreviewRaster.fillRect(ground, (mid - half).toInt(), y, (mid + half).toInt() + 1, minOf(y + 2, h), stripe.argb)
-            }
         }
         for ((key, bytes) in ground) e.writeTile(LAYER, key, bytes)
 
         // A smudge begins carrying the colour it begins on.
-        val argb = if (kind == PreviewKind.SMUDGE) req.style.bandLeft else ink
+        val argb = if (kind == PreviewKind.SMUDGE) PreviewRaster.CHECKER_LIGHT else ink
         val canned = cc.joycreator.joybrush.core.brush.TestStroke.pen(w, h, shown.size.base, part = req.snapshot.part)
         val samples = req.snapshot.penOverride?.apply(canned) ?: canned
         when (kind) {
@@ -406,6 +394,8 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
 
         /** The eraser's strip stops this share of the picture's height short of the top and bottom edges. */
         private const val STRIP_INSET = 0.12f
+        /** A selector row's checker squares (px): fine, about a tenth of a row's height. */
+        private const val CHECKER_CELL = 6
 
         /** Bytes per pixel of a media engine's window (LayerBudget.MEDIA_WINDOW_DRY_BYTES / WET_BYTES, per pixel). */
         private const val DRY_BYTES_PER_PX = 132L

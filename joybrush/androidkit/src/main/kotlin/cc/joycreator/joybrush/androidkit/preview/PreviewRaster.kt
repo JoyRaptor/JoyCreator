@@ -41,6 +41,35 @@ object PreviewRaster {
         }
     }
 
+    /** The checkerboard a smudge or an eraser is shown on (owner, 11-16): fine squares, light grey and dark grey. */
+    const val CHECKER_LIGHT = 0xFFC9C9C9.toInt()
+    const val CHECKER_DARK = 0xFF6B6B6B.toInt()
+
+    /**
+     * Paints [x0, x1) × [y0, y1) with a checkerboard of [cell] px squares, [light] and [dark], into [tiles] (replacing what was
+     * there). Its squares line up with [originX], [originY], so the board looks the same wherever it starts. Any coordinates,
+     * negative too (the settings stage's document may start left of or above 0).
+     */
+    fun checker(tiles: MutableMap<Long, ByteArray>, x0: Int, y0: Int, x1: Int, y1: Int, cell: Int,
+                originX: Int = x0, originY: Int = y0, light: Int = CHECKER_LIGHT, dark: Int = CHECKER_DARK) {
+        if (x1 <= x0 || y1 <= y0) return
+        val c = cell.coerceAtLeast(1)
+        val lp = premultiplied(light)
+        val dp = premultiplied(dark)
+        for (ty in Math.floorDiv(y0, TILE)..Math.floorDiv(y1 - 1, TILE)) for (tx in Math.floorDiv(x0, TILE)..Math.floorDiv(x1 - 1, TILE)) {
+            val tile = tiles.getOrPut(Tiles.key(tx, ty)) { ByteArray(TILE * TILE * 4) }
+            val ox = tx * TILE
+            val oy = ty * TILE
+            for (y in maxOf(y0, oy) until minOf(y1, oy + TILE)) {
+                val row = Math.floorDiv(y - originY, c)
+                for (x in maxOf(x0, ox) until minOf(x1, ox + TILE)) {
+                    val px = if ((row + Math.floorDiv(x - originX, c)) and 1 == 0) lp else dp
+                    px.copyInto(tile, ((y - oy) * TILE + (x - ox)) * 4)
+                }
+            }
+        }
+    }
+
     /** [tiles] as one [width] × [height] picture; where there is no tile, transparent. Tiles outside the picture are ignored. */
     fun assemble(tiles: Map<Long, ByteArray>, width: Int, height: Int): ByteArray {
         val out = ByteArray(width * height * 4)

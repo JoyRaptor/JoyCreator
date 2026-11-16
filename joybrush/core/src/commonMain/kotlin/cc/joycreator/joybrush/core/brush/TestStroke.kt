@@ -24,7 +24,7 @@ import kotlin.math.roundToInt
  */
 object TestStroke {
     /** Bumped whenever the stroke, its marks or its stripes change: stored brush previews drawn with an older one are stale. */
-    const val VERSION = 9
+    const val VERSION = 10
 
     /** One traced point of the curve: [x], [y] as shares of the box (0..1), the pen's [pressure] and [tilt] (radians from upright) there. */
     class P(val x: Float, val y: Float, val pressure: Float, val tilt: Float)
@@ -166,6 +166,56 @@ object TestStroke {
         shown.engine != ENGINE_MEDIA -> "joybrush.marker"
         shown.media?.medium == MEDIUM_PASTE -> "media:paste:Oil flat"
         else -> "media:wet:Round"
+    }
+
+    /**
+     * What the settings stage lays under the test stroke, in the layer the brush samples (owner, 11-16; the colour lines
+     * sat where nothing read them in the selector, and distracted everywhere):
+     *  - [PLAIN]: paper, for a brush that picks nothing up (never decoration that does nothing);
+     *  - [CHECKER]: a fine light-grey and dark-grey checkerboard over the whole stage, for a brush that moves or removes
+     *    paint (smudge, push, erasers), so its tapers, edges and warping show;
+     *  - [BLOB]: a blob of the same kind of paint in a second colour, crossed by the curve at its edges only (half in, half
+     *    out), for a brush that carries colour (watercolour, oil, knife), so it shows how they mix, how far it pulls the
+     *    colour and how a part load carries out.
+     */
+    enum class Underpaint { PLAIN, CHECKER, BLOB }
+
+    fun underpaintFor(p: BrushPreset): Underpaint = when {
+        p.blend == "erase" || p.engine == ENGINE_SMUDGE || p.engine == ENGINE_PUSH -> Underpaint.CHECKER
+        p.engine == ENGINE_MEDIA -> if (p.media?.medium == MEDIUM_WET || p.media?.medium == MEDIUM_PASTE) Underpaint.BLOB else Underpaint.PLAIN
+        p.engine == ENGINE_WATERCOLOUR -> Underpaint.BLOB
+        else -> Underpaint.PLAIN
+    }
+
+    /**
+     * The [Underpaint.BLOB]'s middle and radius, as shares of the box: between the second S-turn (x about 0.46 here) and the
+     * loop's left side (about 0.57), so both pass through its edges, not its middle. Its radius is a share of the box's height.
+     */
+    const val BLOB_X = 0.515f
+    const val BLOB_Y = 0.62f
+    const val BLOB_R = 0.2f
+
+    /** The width of the brush that lays the [blob]: wide enough that the spiral's turns close up into one patch. */
+    fun blobBrushPx(width: Int, height: Int, sizePx: Float): Float = Box(width, height, sizePx).h * BLOB_R * 0.9f
+
+    /**
+     * The blob, one stroke: a spiral out from its middle, pressed firmly, laid with the brush [blobBrushPx] wide, so it
+     * fills a round patch of radius [BLOB_R] (of the box's height).
+     */
+    fun blob(width: Int, height: Int, sizePx: Float): List<PenSample> {
+        val box = Box(width, height, sizePx)
+        val cx = box.x(BLOB_X)
+        val cy = box.y(BLOB_Y)
+        val brush = blobBrushPx(width, height, sizePx)
+        val reach = (box.h * BLOB_R - brush / 2f).coerceAtLeast(1f)
+        val turns = 2.5f
+        val n = 140
+        return List(n) { i ->
+            val k = i / (n - 1f)
+            val a = (2.0 * PI * turns * k).toFloat()
+            val r = reach * k
+            PenSample(cx + r * kotlin.math.cos(a), cy + r * kotlin.math.sin(a), timeMs = i * 8.0, pressure = 0.9f, tilt = 0.3f, azimuth = LEAN)
+        }
     }
 
     /** How far the colour lines run past the box's top and bottom, as a share of its height. */

@@ -108,35 +108,29 @@ object BrushPreviewStrokes {
     }
 
     /**
-     * One stroke of the [sheet]: drawn in the second colour when [second] (it crosses wet paint of the first), or in its own
-     * colour [argb] (the test stroke's colour lines).
+     * One stroke of the [sheet]: drawn in the second colour when [second], or in its own colour [argb]. [under]: paint already
+     * on the paper (the [TestStroke.blob]), laid first by the brush for that paint ([TestStroke.lineBrushId]), never the
+     * brush being shown.
      */
-    class Specimen(val samples: List<PenSample>, val second: Boolean = false, val argb: Int? = null)
+    class Specimen(val samples: List<PenSample>, val second: Boolean = false, val argb: Int? = null, val under: Boolean = false)
 
     /** A labelled group of the [sheet]: its caption, centred at [centreX] (fraction of the width) under the bottom band. */
     class Caption(val text: String, val centreX: Float)
 
     /**
-     * The settings stage's strokes: the owner's test stroke (BRUSH-UI K.5, [TestStroke]: one stroke everywhere). First its
-     * colour lines, cyan, magenta, yellow, black and white, each one slanted stroke edge to edge in its own colour, UNDER the
-     * curve; then the swatch and the three lines at one angle; then his curve in the colour in hand. This is a live canvas
-     * with one brush, so the lines are laid by the brush itself (the drawer's pictures paint them as plain bands).
+     * The settings stage's strokes: the owner's test stroke (BRUSH-UI K.5, [TestStroke]: one stroke everywhere). For a brush
+     * that carries colour ([TestStroke.Underpaint.BLOB]) first a blob of a second colour of the same paint, which the curve
+     * crosses at its edges (owner, 11-16); then the swatch and the three lines at one angle; then his curve in the colour in
+     * hand. The checkerboard under a smudge or an eraser is pixels, not strokes (JbCanvasView.replaceWithStrokes).
      *
      * SCREEN px inside [width] x [height] from (0, 0); pure and repeatable.
      */
-    fun sheet(width: Float, height: Float, sizePx: Float = 12f): List<Specimen> {
+    fun sheet(width: Float, height: Float, sizePx: Float = 12f,
+              underpaint: TestStroke.Underpaint = TestStroke.Underpaint.PLAIN): List<Specimen> {
         val w = width.toInt().coerceAtLeast(1)
         val h = height.toInt().coerceAtLeast(1)
         val out = ArrayList<Specimen>()
-        val inset = TestStroke.inset(sizePx)
-        val sw = w - 2 * inset
-        val sh = (h - 2 * inset).coerceAtLeast(0f)
-        // One stroke a line, from the top edge of the stage to the bottom: it runs off both, as the owner asked.
-        for (st in TestStroke.STRIPES) {
-            val share = { t: Float -> (-inset + h * t) / sh.coerceAtLeast(1f) }
-            out += Specimen(path(n = (h * 0.5f).toInt().coerceAtLeast(8), x = { t -> (inset + sw * st.xAt(share(t))).coerceIn(0f, w.toFloat()) },
-                y = { t -> h * t }, pressure = { 0.8f }, tilt = { 0.3f }, speed = { 1.2f }), argb = st.argb)
-        }
+        if (underpaint == TestStroke.Underpaint.BLOB) out += Specimen(TestStroke.blob(w, h, sizePx), second = true, under = true)
         for (m in TestStroke.marks(w, h, sizePx)) out += Specimen(m)
         out += Specimen(TestStroke.pen(w, h, sizePx))
         return out

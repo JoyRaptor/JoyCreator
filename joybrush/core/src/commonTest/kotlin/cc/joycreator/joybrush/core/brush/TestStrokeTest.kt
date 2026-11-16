@@ -14,6 +14,20 @@ class TestStrokeTest {
     private val s = TestStroke.pen(w, h, size)
     private val inset = TestStroke.inset(size)
 
+    @Test fun theCurveCrossesTheBlobAtItsEdgesNotItsMiddle() {
+        // Owner, 11-16: half in, half out, so the stage shows how far the colour is pulled and how a part load carries out.
+        val boxW = w - 2 * inset; val boxH = h - 2 * inset
+        val cx = inset + boxW * TestStroke.BLOB_X; val cy = inset + boxH * TestStroke.BLOB_Y
+        val r = boxH * TestStroke.BLOB_R
+        val near = s.minOf { hypot(it.x - cx, it.y - cy) }
+        assertTrue(near < r, "the curve reaches the blob ($near of $r)")
+        assertTrue(near > 0.35f * r, "but not its middle ($near of $r)")
+        val blob = TestStroke.blob(w, h, size)
+        assertTrue(blob.all { hypot(it.x - cx, it.y - cy) <= r }, "the spiral stays inside its patch")
+        assertEquals(TestStroke.Underpaint.CHECKER, TestStroke.underpaintFor(BrushPreset(id = "s", name = "S", size = Param(8f), engine = ENGINE_SMUDGE)))
+        assertEquals(TestStroke.Underpaint.PLAIN, TestStroke.underpaintFor(BrushPreset(id = "p", name = "P", size = Param(8f))))
+    }
+
     @Test fun theSameBoxGivesTheSameSamplesEveryTime() {
         assertEquals(TestStroke.pen(900, 120, 12f), TestStroke.pen(900, 120, 12f))
         assertEquals(TestStroke.marks(900, 120, 12f), TestStroke.marks(900, 120, 12f))

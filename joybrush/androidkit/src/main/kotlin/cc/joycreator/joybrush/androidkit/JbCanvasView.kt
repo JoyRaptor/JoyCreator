@@ -342,7 +342,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private var lockShown = false
 
     /** Outstanding [sampleScreen] requests: view px as x,y pairs, and who wants the answer. All answered after the next frame. */
-    private val screenSamples = java.util.concurrent.ConcurrentLinkedQueue<Pair<FloatArray, (IntArray) -> Unit>>()
+    private val screenSamples = java.util.concurrent.ConcurrentLinkedQueue<SampleRequest>()
+
+    /** One waiting [sampleScreen]; [latestWins] ones (the eyedropper's moves) are replaced by a newer one before they are read. */
+    private class SampleRequest(val points: FloatArray, val latestWins: Boolean, val answer: (IntArray) -> Unit)
+
+    /** One 4-byte readback buffer, reused (GL thread only). */
+    private var readPixel: java.nio.ByteBuffer? = null
 
     /**
      * The colours actually SHOWN at [points] (view px, x,y pairs), read from the screen right after the next frame is drawn
@@ -351,7 +357,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * Every request is answered (the top icons and the eyedropper both ask, and neither may starve the other).
      */
     fun sampleScreen(points: FloatArray, onColors: (IntArray) -> Unit) {
-        screenSamples.add(Pair(points.copyOf(), onColors))
+        screenSamples.add(SampleRequest(points.copyOf(), false, onColors))
+        requestRender()
+    }
+
+    /**
+     * Like [sampleAt], for a stream of moves where only the newest answer matters (the eyedropper dragging): a still-waiting
+     * earlier move is dropped before the GL readback and its callback is never called (eyedropMove's callback already ignores
+     * anything but the newest). Plain [sampleScreen] requests and the final lift pick are never dropped.
+     */
+    fun sampleAtLatest(screenX: Float, screenY: Float, onColor: (Int) -> Unit) {
+        screenSamples.removeIf { it.latestWins }
+        screenSamples.add(SampleRequest(floatArrayOf(screenX, screenY), true) { c -> onColor(c[0]) })
         requestRender()
     }
 
@@ -360,10 +377,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         while (true) answerOne(screenSamples.poll() ?: return)
     }
 
-    private fun answerOne(req: Pair<FloatArray, (IntArray) -> Unit>) {
-        val pts = req.first
+    private fun answerOne(req: SampleRequest) {
+        val pts = req.points
         val out = IntArray(pts.size / 2)
-        val px = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
+        val px = readPixel ?: java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).also { readPixel = it }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         for (i in out.indices) {
             val x = pts[2 * i].toInt()
@@ -376,7 +393,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val b = px.get(2).toInt() and 0xFF
             out[i] = OPAQUE_BLACK or (r shl 16) or (g shl 8) or b
         }
-        val answer = req.second
+        val answer = req.answer
         post { answer(out) }
     }
 
@@ -498,7 +515,36 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** The fill pen's transient shape. Screen owns its transparent overlay; never saved. */
     var onFillPreview: ((FillPenPreviewState?) -> Unit)? = null
     private val fillSamples = ArrayList<PenSample>()
-    private val fillPoints = ArrayList<Pt>()
+    private val fillPoints = AppendOnlyPts()
+
+    /**
+     * The fill pen's outline so far, for the preview. Only ever appended to by the input thread; [snapshot] is an O(1) view of
+     * the first n points: its backing array is never changed below n, and growing makes a NEW array (the old one stays with
+     * whoever holds a snapshot), so the UI thread never reads the list the input thread is still adding to.
+     */
+    private class AppendOnlyPts {
+        private var data = arrayOfNulls<Pt>(256)
+        private var n = 0
+
+        fun addAll(items: List<Pt>) {
+            if (n + items.size > data.size) data = data.copyOf(maxOf(data.size * 2, n + items.size))
+            for (p in items) data[n++] = p
+        }
+
+        fun clear() { data = arrayOfNulls(256); n = 0 }
+
+        fun snapshot(): List<Pt> {
+            val d = data
+            val count = n
+            return object : AbstractList<Pt>() {
+                override val size: Int get() = count
+                override fun get(index: Int): Pt {
+                    if (index < 0 || index >= count) throw IndexOutOfBoundsException()
+                    return d[index]!!
+                }
+            }
+        }
+    }
     private var fillSerial = 0L
     private var fillSmoothing = 0f
     private var fillZoom = 1f
@@ -2026,7 +2072,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         eyedropX = sx; eyedropY = sy
         publishEyedrop()
         val seq = ++sampleSeq
-        sampleAt(sx, sy) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
+        sampleAtLatest(sx, sy) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
     }
 
     /** Cancel is where the TOUCH went back to, not where the lifted ring is. */
@@ -2906,7 +2952,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
             fillPoints.addAll(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
-            onFillPreview?.invoke(FillPenPreviewState(fillPoints.toList(),fillArgb,fillOpacity))
+            onFillPreview?.invoke(FillPenPreviewState(fillPoints.snapshot(),fillArgb,fillOpacity))
             return
         }
         strokeTuft?.let { t -> paintTuft(t.add(points)); return }

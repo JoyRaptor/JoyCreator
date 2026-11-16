@@ -451,6 +451,35 @@ public final class CreateTree {
             }
         }
 
+        /**
+         * A how-to question the help book answers ("how do I make a board") is a question, not an
+         * order: it gets the answer, never the create questions (Note 9 11-15, BOT-A8).
+         */
+        public static boolean helpQuestion(@Nullable String text) {
+            return text != null && HelpBook.isHowTo(text) && HelpBook.find(text) != null;
+        }
+
+        private static final Pattern LEAVE = Pattern.compile(
+                "^(?:stop|cancel|never ?mind|forget it|no thanks|not now|quit|exit)\\b");
+        private static final Pattern ELSEWHERE = Pattern.compile(
+                "^(?:how (?:do|can|does|would|to)|where (?:is|are|do|can)|where's|what|why|who|when|can you|could you"
+                        + "|tell me|show me|help\\b|open\\b|take me)");
+
+        /** Mid-create, "stop", "never mind": nothing is made. */
+        public static boolean stops(@Nullable String text) {
+            return text != null && LEAVE.matcher(norm(text)).find();
+        }
+
+        /**
+         * Mid-create, words that are plainly something else (a question, "open the Library"): the
+         * create questions let go and the words are handled as usual. Before, every later message got
+         * "Sorry, I didn't catch that. Try a shape" (Note 9 11-15, BOT-A8). No answer to a create
+         * question starts like these ("3:1", "12", "a walk cycle", "Hero sheet").
+         */
+        public static boolean elsewhere(@Nullable String text) {
+            return text != null && ELSEWHERE.matcher(norm(text)).find();
+        }
+
         /** "Create something" with nothing more: show the bubbles. */
         public static boolean anything(@Nullable String text) {
             if (text == null) return false;

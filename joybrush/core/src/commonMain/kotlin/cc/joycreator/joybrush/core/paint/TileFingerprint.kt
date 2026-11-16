@@ -9,13 +9,17 @@ import cc.joycreator.joybrush.core.media.HalfFloat
  * they were last read. The fingerprint is of the CONTENT, so it needs no record of who wrote a tile and when: a write
  * nobody remembered to note cannot be missed.
  *
- * Four lanes of 32 bits, each its own seed and odd multiplier. Per value: `h = (h xor v) * M; h = h xor (h ushr 15)`.
- * Both steps are one-to-one on `h` for a given `v`, and one-to-one on `v` for a given `h`, so two tiles that differ in
- * exactly one value never share a fingerprint. The shift matters: a multiply alone only carries a difference upward, and
- * two flipped top bits (two changed signs in a paint store) would cancel in every lane.
+ * Four lanes of 32 bits, each its own seed and odd multiplier. Per texel, its four values one to a lane:
+ * `h = (h xor v) * M; h = h xor (h ushr 15)`, then the lanes are stirred into each other
+ * (`h0 += h1; h2 += h3; h1 += h2; h3 += h0`). Every step is one-to-one on the 128 bits of `h` for a given texel, and
+ * one-to-one on the texel for a given `h`, so two tiles that differ in exactly one texel never share a fingerprint. The
+ * shift matters: a multiply alone only carries a difference upward, and two flipped top bits (two changed signs in a
+ * paint store) would cancel. The stir matters: without it a lane would only ever see one colour channel.
+ * (The first version fed every value to every lane: four times the arithmetic, 0.4 ms a tile on the Note 9, which ate
+ * half of what not reading the tiles saved.)
  *
  * The tile is taken as 16 x 16 blocks of 16 x 16 texels (the chip does a block per output pixel), each block's texels
- * row by row, red green blue alpha; then the blocks' results row by row, lane by lane.
+ * row by row; then the blocks' results row by row, folded the same way, a block's four lanes as a texel's four values.
  *
  * A texel's value is its byte (0..255) for a picture tile, and the bits of the 32-bit float a half float widens to for a
  * paint store tile (what a shader's `floatBitsToUint` sees).
@@ -63,13 +67,19 @@ object TileFingerprint {
             SEED.copyInto(h)
             for (y in 0 until BLOCK) {
                 var i = ((by * BLOCK + y) * SIDE + bx * BLOCK) * 4
-                for (n in 0 until BLOCK * 4) {
-                    val v = value(i++)
-                    for (l in 0 until 4) { val m = (h[l] xor v) * MUL[l]; h[l] = m xor (m ushr 15) }
+                for (n in 0 until BLOCK) {
+                    for (l in 0 until 4) { val m = (h[l] xor value(i++)) * MUL[l]; h[l] = m xor (m ushr 15) }
+                    stir(h)
                 }
             }
             for (l in 0 until 4) { val m = (out[l] xor h[l]) * MUL[l]; out[l] = m xor (m ushr 15) }
+            stir(out)
         }
         return of(out[0], out[1], out[2], out[3])
     }
+
+    private fun stir(h: IntArray) { h[0] += h[1]; h[2] += h[3]; h[1] += h[2]; h[3] += h[0] }
+
+    /** One step of the fold as GLSL, on `uvec4 h` with multipliers `M`, taking the texel `uvec4` named [v]. */
+    fun glslStep(v: String): String = "h = (h ^ $v) * M; h ^= h >> 15u; h.x += h.y; h.z += h.w; h.y += h.z; h.w += h.x;"
 }

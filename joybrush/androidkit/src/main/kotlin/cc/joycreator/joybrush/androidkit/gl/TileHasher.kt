@@ -147,7 +147,6 @@ void main() {
     gl_Position = vec4(float(gl_VertexID & 1) * 2.0 - 1.0, float(gl_VertexID >> 1) * 2.0 - 1.0, 0.0, 1.0);
 }
 """
-        val STEP = "h = (h ^ uvec4(V)) * M; h ^= h >> 15u;"
         val BLOCK_FRAGMENT = """#version 300 es
 precision highp float;
 precision highp int;
@@ -163,10 +162,7 @@ void main() {
         for (int x = 0; x < 16; x++) {
             vec4 c = texelFetch(uTile, base + ivec2(x, y), 0);
             uvec4 v = uBytes == 1 ? uvec4(c * 255.0 + 0.5) : floatBitsToUint(c);
-            ${STEP.replace("V", "v.r")}
-            ${STEP.replace("V", "v.g")}
-            ${STEP.replace("V", "v.b")}
-            ${STEP.replace("V", "v.a")}
+            ${TileFingerprint.glslStep("v")}
         }
     }
     o = h;
@@ -184,7 +180,7 @@ void main() {
     for (int y = 0; y < 16; y++) {
         for (int x = 0; x < 16; x++) {
             uvec4 v = texelFetch(uBlocks, base + ivec2(x, y), 0);
-            h = (h ^ v) * M; h ^= h >> 15u;
+            ${TileFingerprint.glslStep("v")}
         }
     }
     o = h;

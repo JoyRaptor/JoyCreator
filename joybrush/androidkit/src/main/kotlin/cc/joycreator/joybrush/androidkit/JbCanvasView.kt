@@ -3559,7 +3559,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private fun readContentsSparse(w: Int, h: Int, sparse: Boolean): cc.joycreator.joybrush.androidkit.io.SparseContents {
         if (engine.hasJointPaintPublication) throw JbArchiveException(
             "This recorded drawing needs its physical-source save connection; your previous save is kept")
+        val readBegan = android.os.SystemClock.elapsedRealtime()
         val lost = engine.repairLostTiles()
+        val repairMs = android.os.SystemClock.elapsedRealtime() - readBegan
         if (lost > 0) post { onTilesLost?.invoke(lost); requestRender() }
         // Pen-up already released UI drawing state; the cosmetic fade must finish before
         // capturing metadata or enumerating keys, otherwise newly painted tiles are absent.
@@ -3618,7 +3620,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 },paper=documentPaperState,
                 seen={layer,cel,key->known(Triple(layer,cel,key))},
                 mediaSeen={layer,cel,store,key->known(MediaTileKey(layer,cel,key.toString(),store))})
-            if(sparse) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms"
+            if(sparse) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
+                "the lost-tile check $repairMs ms, ${android.os.SystemClock.elapsedRealtime()-readBegan} ms in all on the graphics thread"
             return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents),made.tiles,made.mediaTiles)
         }
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the

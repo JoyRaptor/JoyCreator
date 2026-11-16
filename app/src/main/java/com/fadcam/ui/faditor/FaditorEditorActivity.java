@@ -31717,6 +31717,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final long beforeStart = start, beforeEnd = end;
             left.setTimeRange(start, cut);
             right.setTimeRange(cut, end);
+            right.carryOnFrom(cut - start);   // frames + recorded puppet motion carry on past the cut (STUDIO-01/02)
             right.setLayerId(left.getLayerId());   // same lane as its left half (see the text split)
             rebaseOverlayKeyframes(right.getKeyframes(), left.getKeyframes(), cut - start);
             timeline.addSpriteOverlay(right);

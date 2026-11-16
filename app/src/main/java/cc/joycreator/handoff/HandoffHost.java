@@ -35,13 +35,15 @@ public final class HandoffHost {
     private final Activity activity;
     private final HandoffEngine engine;
     private final View scrim;
+    private final Tail tail;
     private final float density;
     private final float winH;
 
-    private HandoffHost(Activity a, HandoffEngine e, View scrim, float density, float winH) {
+    private HandoffHost(Activity a, HandoffEngine e, View scrim, Tail tail, float density, float winH) {
         this.activity = a;
         this.engine = e;
         this.scrim = scrim;
+        this.tail = tail;
         this.density = density;
         this.winH = winH;
     }
@@ -84,9 +86,11 @@ public final class HandoffHost {
             scrim.setBackgroundColor(0x73000000);
             scrim.setAlpha(0f);
             root.addView(scrim, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            Tail tail = new Tail(a);
+            root.addView(tail, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             root.addView(new HandoffSurfaceView(a, e), new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
             ((ViewGroup) win.getDecorView()).addView(root, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-            return new HandoffHost(a, e, scrim, d, h);
+            return new HandoffHost(a, e, scrim, tail, d, h);
         } catch (RuntimeException | OutOfMemoryError e) {
             HandoffEngine live = HandoffEngine.live();
             if (live != null) live.abort();
@@ -137,11 +141,14 @@ public final class HandoffHost {
             return;
         }
         engine.ask(left + 34f, Math.min(winH - 60f, bottom + 58f));
+        // the question is his: its tail points at him, as his answers do in the chat (owner, 14 Nov)
+        tail.point((left + 22f) * density, (at[1] + box.getHeight()) - 2f * density, (left + 34f) * density, (bottom + 15f) * density);
     }
 
     /** The answer is in, or there was nothing to ask: he goes into the move. */
     public void go() {
         scrim.setAlpha(0f);
+        tail.hide();
         engine.go();
     }
 
@@ -151,6 +158,7 @@ public final class HandoffHost {
      */
     public void cancel(@NonNull Runnable then) {
         scrim.setAlpha(0f);
+        tail.hide();
         engine.retreat();
         scrim.postDelayed(then, (long) (HandoffMoves.RETREAT_S * 1000f) + 80L);
     }
@@ -164,6 +172,47 @@ public final class HandoffHost {
     /** The hand-off failed (the usual message is shown by the caller): no show. */
     public void fail() {
         engine.abort();
+    }
+
+    /**
+     * The speech tail under the question's card, pointing at Joybot. Drawn in this screen (the card is a
+     * dialog of its own above it), in the card's own fill and hairline (StudioDialog's frame).
+     */
+    private static final class Tail extends View {
+        private final android.graphics.Path shape = new android.graphics.Path(), edge = new android.graphics.Path();
+        private final android.graphics.Paint fill = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Paint line = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+        private boolean shown;
+
+        Tail(@NonNull android.content.Context c) {
+            super(c);
+            float d = c.getResources().getDisplayMetrics().density;
+            fill.setColor(ContextCompat.getColor(c, R.color.s_panel));
+            line.setColor(ContextCompat.getColor(c, R.color.s_line));
+            line.setStyle(android.graphics.Paint.Style.STROKE);
+            line.setStrokeWidth(Math.max(1f, d));
+            line.setStrokeJoin(android.graphics.Paint.Join.ROUND);
+        }
+
+        /** From the card's bottom edge at {@code x, y} (window px) down to a tip at {@code tipX, tipY}. */
+        void point(float x, float y, float tipX, float tipY) {
+            float w = 26f * getResources().getDisplayMetrics().density;
+            shape.rewind();
+            shape.moveTo(x, y); shape.lineTo(x + w, y); shape.lineTo(tipX, tipY); shape.close();
+            edge.rewind();
+            edge.moveTo(x, y); edge.lineTo(tipX, tipY); edge.lineTo(x + w, y);
+            shown = true;
+            invalidate();
+        }
+
+        void hide() { shown = false; invalidate(); }
+
+        @Override
+        protected void onDraw(android.graphics.Canvas c) {
+            if (!shown) return;
+            c.drawPath(shape, fill);
+            c.drawPath(edge, line);
+        }
     }
 
     /** Start the next room with no window animation of Android's own: the show is the transition. */

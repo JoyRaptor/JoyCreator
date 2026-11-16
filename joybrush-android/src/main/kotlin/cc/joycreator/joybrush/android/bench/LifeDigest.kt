@@ -16,7 +16,10 @@ object LifeDigest {
         canvas.snapshot({ c ->
             Log.i(BenchRunner.TAG, "life: digest $label: ${c.tiles.size} picture tiles ${hex(sum(c.tiles))}, " +
                 "${c.mediaTiles.size} paint store tiles ${hex(sum(c.mediaTiles))}, ${c.doc.layers.size} layers" +
-                // Editable lines (JBX-42): how many the drawing keeps AS lines, and a checksum of their records.
+                // Editable lines (JBX-42): a tile that lines cross is saved as its look (and its paint between lines as
+                // slabs), not as a picture tile; then how many lines the drawing keeps AS lines, and their records.
+                (if (c.looks.isEmpty()) "" else ", ${c.looks.size} looks ${hex(sum(c.looks))}") +
+                (if (c.slabs.isEmpty()) "" else ", ${c.slabs.size} slabs ${hex(sum(c.slabs))}") +
                 (if (c.strokes.isEmpty()) "" else ", ${c.strokes.values.sumOf { it.size }} editable lines ${hex(sum(c.strokes.mapValues { (_, l) -> cc.joycreator.joybrush.core.stroke.StrokeCodec.encodeAll(l) }))}"))
         }, { why -> Log.w(BenchRunner.TAG, "life: digest $label FAILED: $why") }, keepWet = true)
     }

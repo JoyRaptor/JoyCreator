@@ -29,6 +29,7 @@ public class MaskFoldTest {
         oneIntersectFlipsTheGate();
         bucketsAreLabelledButUnordered();
         orderedFoldSeedsWithUnion();
+        glOrderRunsAddsBeforeSubtracts();
         signatureSeparatesModeAndSlot();
 
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
@@ -51,6 +52,22 @@ public class MaskFoldTest {
     static final int ADD = CompositingSpec.MODE_ADD;
     static final int SUB = CompositingSpec.MODE_SUBTRACT;
     static final int INT = CompositingSpec.MODE_INTERSECT;
+
+    // ── The GL order (audit R3-MASK-01) ─────────────────────────────────────
+
+    static void glOrderRunsAddsBeforeSubtracts() {
+        check("Add, Subtract, Add packs as 0, 2, 1",
+                java.util.Arrays.equals(MaskFold.glOrder(spec(ADD, SUB, ADD)), new int[]{0, 2, 1}));
+        check("Subtract, Add packs the add first",
+                java.util.Arrays.equals(MaskFold.glOrder(spec(SUB, ADD)), new int[]{1, 0}));
+        check("only subtracts: an empty order, so the packer parks one off-screen shape",
+                MaskFold.glOrder(spec(SUB, SUB)).length == 0);
+        check("an intersect stack keeps the list's own order",
+                java.util.Arrays.equals(MaskFold.glOrder(spec(ADD, SUB, INT, ADD)),
+                        new int[]{0, 1, 2, 3}));
+        check("null and empty give no order",
+                MaskFold.glOrder(null).length == 0 && MaskFold.glOrder(spec()).length == 0);
+    }
 
     // ── The gate ────────────────────────────────────────────────────────────
 

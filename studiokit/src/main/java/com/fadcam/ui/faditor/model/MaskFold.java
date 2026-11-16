@@ -69,6 +69,37 @@ public final class MaskFold {
     }
 
     /**
+     * The ORDER the GL fold must run the shapes in, as indices into {@code spec.masks} — the
+     * one place the Canvas rule is carried over to the shaders (audit R3-MASK-01).
+     *
+     * <p>The GL consumers fold the packed list in order (seed with the first, then
+     * union/difference/intersect). That is the right reading for the sequential fold, so there
+     * the order is the list's own. In the two-bucket case it was wrong: Canvas takes
+     * union(adds) minus union(subtracts) whatever the order, but folding Add, Subtract, Add in
+     * sequence lets the last Add bring back what the Subtract removed. Running every add first
+     * and every subtract after gives exactly (adds) minus (subtracts) in the same fold.</p>
+     *
+     * <p>A stack with no add at all removes from nothing: Canvas's region is empty. That is
+     * returned as an EMPTY array, and the packer then writes one off-screen shape (which
+     * covers no pixel) rather than seeding the fold with a subtract.</p>
+     */
+    @NonNull
+    public static int[] glOrder(@Nullable CompositingSpec spec) {
+        if (spec == null || spec.masks.isEmpty()) return new int[0];
+        int n = spec.masks.size();
+        int[] out = new int[n];
+        int k = 0;
+        if (spec.usesIntersect()) {
+            for (int i = 0; i < n; i++) out[k++] = i;
+            return out;
+        }
+        for (int i = 0; i < n; i++) if (!spec.masks.get(i).isSubtract()) out[k++] = i;
+        if (k == 0) return new int[0];
+        for (int i = 0; i < n; i++) if (spec.masks.get(i).isSubtract()) out[k++] = i;
+        return out;
+    }
+
+    /**
      * Everything that changes the feather erase bitmap, and nothing that does not — the key
      * {@code MaskPathBuilder}'s LRU is looked up by.
      *

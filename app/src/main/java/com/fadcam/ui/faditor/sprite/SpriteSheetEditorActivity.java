@@ -74,6 +74,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private boolean isNewSheet = false;
 
     private SpriteGridEditorView gridView;
+    /** FX-1: Joybot is carrying a sheet in from another room, and the show finishes over this screen. Null: nothing arriving. */
+    @Nullable private cc.joycreator.handoff.HandoffArrival handoffArrival;
+    @Nullable private View joybotButton;
     private EditText nameField;
     private LinearLayout cellPanel;
     private TextView cellTitle;
@@ -236,6 +239,18 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // FX-1: the sheet that just arrived lands on the sheet view itself; there is nothing to select here.
+        if (handoffArrival != null && gridView != null) {
+            handoffArrival.roomReady(new cc.joycreator.handoff.HandoffArrival.Room() {
+                @Override public void reveal() {}
+                @Override public android.graphics.RectF itemRect() {
+                    return gridView.getWidth() > 0 ? new android.graphics.RectF(0f, 0f, gridView.getWidth(), gridView.getHeight()) : null;
+                }
+                @Override public void select() {}
+                @Override public View anchor() { return gridView; }
+                @Override public View joybotButton() { return joybotButton; }
+            });
+        }
         if (!joybotOpen) return;
         joybotOpen = false;
         long wrote = com.fadcam.ui.faditor.ai.joybot.JoybotStorage.writes() - joybotWritesAtOpen;
@@ -436,6 +451,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         cellEnabled = new Switch(this);
 
         setContentView(root);
+        handoffArrival = cc.joycreator.handoff.HandoffArrival.attach(this, null);
         showSection(labSection);
         rebuildFilm();
         settled = snapshot();
@@ -491,6 +507,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         joy.setBackground(pillBg(SpriteTheme.CONTROL, SpriteTheme.LINE, d));
         joy.setPadding((int) (5 * d), (int) (5 * d), (int) (5 * d), (int) (5 * d));
         joy.setContentDescription("Joybot");
+        joybotButton = joy;
         androidx.appcompat.widget.TooltipCompat.setTooltipText(joy,
                 "Joybot — ideas for this sprite sheet");
         joy.setOnClickListener(v -> {
@@ -4465,6 +4482,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (handoffArrival != null) { handoffArrival.drop(); handoffArrival = null; }
         preview.setPlaying(false);
         if (renderer != null) renderer.recycle();
     }

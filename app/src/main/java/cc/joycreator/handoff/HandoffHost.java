@@ -47,11 +47,12 @@ public final class HandoffHost {
     }
 
     /**
-     * Set the screen up for a show from JoyBrush to Studio. Null: no show this time (switched off, an
-     * old phone, or JoyBrush took no picture of itself), and the caller carries on exactly as before.
+     * Set the screen up for a show from JoyBrush to Studio ({@code toStudio}) or to SpriteLab. Null: no
+     * show this time (switched off, an old phone, or JoyBrush took no picture of itself), and the caller
+     * carries on exactly as before.
      */
     @Nullable
-    public static HandoffHost open(@NonNull Activity a) {
+    public static HandoffHost open(@NonNull Activity a, boolean toStudio) {
         RoomShot.Shot shot = RoomShot.take();
         if (shot == null) return null;
         if (!Handoff.enabled(a)) { shot.getPicture().recycle(); return null; }
@@ -70,8 +71,10 @@ public final class HandoffHost {
             HandoffEngine e = HandoffEngine.start(a, Handoff.nextMove(a), d, w, h,
                     btn.exactCenterX() / d, btn.exactCenterY() / d, pic,
                     0xFF5C43FD, 0xFF4397FD,                         // JoyBrush's gradient (RoomColours.JB_START / JB_END)
-                    ContextCompat.getColor(a, R.color.s_room_studio), ContextCompat.getColor(a, R.color.s_go_end),
-                    true);                                         // on the lobby dial Studio is the next room to the RIGHT of JoyBrush
+                    // the arriving room's gradient, as the lobby and Joybot colour it (RoomColours)
+                    ContextCompat.getColor(a, toStudio ? R.color.s_room_studio : R.color.s_room_sprite),
+                    ContextCompat.getColor(a, toStudio ? R.color.s_go_end : R.color.s_room_avatar),
+                    true);       // round the lobby dial both Studio and SpriteLab are nearer to the RIGHT of JoyBrush
             FrameLayout root = new FrameLayout(a);
             ImageView room = new ImageView(a);
             room.setScaleType(ImageView.ScaleType.FIT_XY);

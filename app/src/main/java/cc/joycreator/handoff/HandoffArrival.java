@@ -34,14 +34,31 @@ public final class HandoffArrival implements HandoffEngine.Listener {
     private static final long STILL_MS = 120L;
     private static final long REPORT_BY_MS = 2500L;
 
+    /**
+     * What a room tells the show about the work arriving in it. Each room answers in its own terms
+     * (Studio: the item's tape on the timeline; SpriteLab: the sheet), so the show never fakes a
+     * landing place or a selection.
+     */
+    public interface Room {
+        /** Bring the arrived item into view, if the room scrolls. */
+        void reveal();
+        /** Where the item is right now, in the pixels of {@link #anchor}; null while it is not laid out or not in view. */
+        @Nullable RectF itemRect();
+        /** Select the item, with the room's own selection. Called the moment it is slapped down. */
+        void select();
+        /** The view {@link #itemRect} is measured in. */
+        @NonNull View anchor();
+        /** Joybot's button in this room: his way home. */
+        @Nullable View joybotButton();
+    }
+
     private final Activity room;
     private final HandoffEngine engine;
     @Nullable private final String itemId;
     private final ViewGroup decor;
     private final HandoffSurfaceView layer;
     private boolean drawn, reporting, reported, gone;
-    @Nullable private EditorTimelineView timeline;
-    @Nullable private View joybot;
+    @Nullable private Room place;
     private long holdUntil, reportBy, stillSince;
     @Nullable private RectF lastRect;
 
@@ -92,25 +109,38 @@ public final class HandoffArrival implements HandoffEngine.Listener {
     }
 
     /**
-     * The room is loaded and showing (its onResume). {@code timeline}: where the item's tape is;
+     * Studio is loaded and showing (its onResume). {@code timeline}: where the item's tape is;
      * {@code joybotButton}: where Joybot lives in this room, his way home.
      */
     public void roomReady(@NonNull EditorTimelineView timeline, @Nullable View joybotButton) {
+        final String id = itemId;
+        roomReady(new Room() {
+            @Override public void reveal() { if (id != null) timeline.revealLayerRowForItem(id); }
+            @Nullable @Override public RectF itemRect() { return id != null ? timeline.layerItemRectInView(id) : null; }
+            @Override public void select() { if (id != null) timeline.selectLayerItemById(id); }
+            @NonNull @Override public View anchor() { return timeline; }
+            @Nullable @Override public View joybotButton() { return joybotButton; }
+        });
+    }
+
+    /** The room is loaded and showing (its onResume), whatever kind of room it is. */
+    public void roomReady(@NonNull Room place) {
         if (reporting || gone) return;
         reporting = true;
-        this.timeline = timeline;
-        this.joybot = joybotButton;
+        this.place = place;
         reportBy = SystemClock.uptimeMillis() + REPORT_BY_MS;
-        if (itemId != null) timeline.revealLayerRowForItem(itemId);
-        timeline.postDelayed(this::watchItem, 50L);
+        try { place.reveal(); } catch (RuntimeException ignored) { /* the show never breaks the room */ }
+        place.anchor().postDelayed(this::watchItem, 50L);
     }
 
     /** Wait for the room's first real picture and for the item's row to stop sliding, then picture the room. */
     private void watchItem() {
-        EditorTimelineView t = timeline;
-        if (gone || reported || t == null) return;
+        Room pl = place;
+        if (gone || reported || pl == null) return;
+        View t = pl.anchor();
         long now = SystemClock.uptimeMillis();
-        RectF r = itemId != null ? t.layerItemRectInView(itemId) : null;
+        RectF r;
+        try { r = pl.itemRect(); } catch (RuntimeException e) { r = null; }
         boolean still = r != null && lastRect != null && Math.abs(r.top - lastRect.top) < .5f && Math.abs(r.left - lastRect.left) < .5f;
         if (!still) stillSince = now;
         lastRect = r;
@@ -125,7 +155,8 @@ public final class HandoffArrival implements HandoffEngine.Listener {
 
     private void report(@Nullable RectF itemInView) {
         reported = true;
-        final EditorTimelineView t = timeline;
+        final Room pl = place;
+        final View t = pl != null ? pl.anchor() : null;
         final float d = room.getResources().getDisplayMetrics().density;
         RectF item = null;
         if (itemInView != null && t != null) {
@@ -135,7 +166,7 @@ public final class HandoffArrival implements HandoffEngine.Listener {
                     (at[0] + itemInView.right) / d, (at[1] + itemInView.bottom) / d);
         }
         float homeX = decor.getWidth() / d - 24f, homeY = 40f;
-        View j = joybot;
+        View j = pl != null ? pl.joybotButton() : null;
         if (j != null && j.isShown() && j.getWidth() > 0) {
             int[] at = new int[2];
             j.getLocationInWindow(at);
@@ -170,9 +201,9 @@ public final class HandoffArrival implements HandoffEngine.Listener {
     public void onSlap() {
         // the room's own selection, the moment the item is down
         layer.letTouchesThrough();
-        EditorTimelineView t = timeline;
-        if (t != null && itemId != null && !gone) {
-            try { t.selectLayerItemById(itemId); } catch (RuntimeException ignored) { /* the show never breaks the room */ }
+        Room pl = place;
+        if (pl != null && !gone) {
+            try { pl.select(); } catch (RuntimeException ignored) { /* the show never breaks the room */ }
         }
     }
 

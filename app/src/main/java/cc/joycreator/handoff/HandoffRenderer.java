@@ -78,7 +78,8 @@ final class HandoffRenderer {
 
     // ── set up and tear down ────────────────────────────────────────────────
 
-    void init() {
+    /** {@code winW, winH}: the window's size in pixels, as near as is known yet (to build things at their real size). */
+    void init(int winW, int winH) {
         String quad = src("joybot/stage/quad.vert"), fill = src("joybot/stage/fill.vert");
         ringP = GlProgram.link("handoff ring", quad, src("joybot/stage/ring.frag"));
         lightP = GlProgram.link("handoff light", quad, src("joybot/stage/light.frag"));
@@ -134,7 +135,7 @@ final class HandoffRenderer {
             lyric = HandoffStars.open(app, a1, a2, b1, b2);
             if (lyric != null) {
                 // build its programs now, while nothing is moving, not in the middle of his flight
-                GlTarget warm = GlTarget.create(270, 555, GlTarget.RGBA8, 1, true);
+                GlTarget warm = GlTarget.create(Math.max(8, winW / 2), Math.max(8, winH / 2), GlTarget.RGBA8, 1, true);
                 lyric.draw(0f, 0f, 1f / 60f, warm.fb, warm.w, warm.h);
                 lyric.draw(0f, 1f / 60f, 1f / 60f, warm.fb, warm.w, warm.h);
                 warm.free();
@@ -276,6 +277,7 @@ final class HandoffRenderer {
             float px = tpSet ? tpX : him.x, py = tpSet ? tpY : him.y, pr = tpSet ? tpRot : him.rot;
             int steps = (int) Math.min(6, Math.max(1, Math.ceil(Math.hypot(him.x - px, him.y - py) / 6f)));
             float a = Math.min(.45f, .3f * fx.heat / (float) Math.sqrt(steps));
+            if (him.carry) a *= .4f;                 // circling with a load he crosses his own trail: keep it a wisp, not a cloud
             normal.run();
             float hx = him.x, hy = him.y, hr = him.rot;
             boolean pinned = him.hand;

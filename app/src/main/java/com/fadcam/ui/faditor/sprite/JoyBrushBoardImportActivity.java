@@ -32,13 +32,13 @@ import java.util.UUID;
  * is there, see {@link BoardAttachPlan}); with no project yet there is nothing to ask.
  */
 public final class JoyBrushBoardImportActivity extends Activity {
-    /** FX-1: Joybot carries the board to Studio. Null: no show (switched off, or no picture of JoyBrush), and all is as before. */
+    /** FX-1: Joybot carries the board to Studio or SpriteLab. Null: no show (switched off, or no picture of JoyBrush), and all is as before. */
     private cc.joycreator.handoff.HandoffHost handoff;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         final String bundle=getIntent().getStringExtra("joybrush_board_bundle");
         final boolean studio=getIntent().getBooleanExtra("joybrush_board_studio",false);
-        handoff=studio && state == null ? cc.joycreator.handoff.HandoffHost.open(this) : null;
+        handoff=state == null ? cc.joycreator.handoff.HandoffHost.open(this,studio) : null;
         if(handoff == null) Toast.makeText(this,"Opening board…",Toast.LENGTH_SHORT).show();
         new Thread(() -> choose(bundle,studio),"joybrush-board-import").start();
     }
@@ -184,7 +184,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             runOnUiThread(() -> {
                 if(!isFinishing() && !isDestroyed()) {
                     // The board is saved and placed: only now does the show get to finish in the room it opens.
-                    if(handoff != null && studio) { handoff.into(intent,landed); handoff.start(intent); }
+                    if(handoff != null) { handoff.into(intent,landed); handoff.start(intent); }
                     else startActivity(intent);
                 } else if(handoff != null) handoff.fail();
                 finish();

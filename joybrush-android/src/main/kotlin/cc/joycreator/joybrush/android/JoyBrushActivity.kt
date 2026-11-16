@@ -2811,9 +2811,9 @@ class JoyBrushActivity : Activity() {
                         val go=Intent().setClassName(packageName,"com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
                             .putExtra("joybrush_board_bundle",bundle.absolutePath)
                             .putExtra("joybrush_board_studio",toStudio)
-                        // FX-1: Joybot carries the board to Studio. The show needs a picture of this screen as it is;
-                        // the board is already saved, and the picture never holds the hand-off up (RoomShot waits 0.3 s at most).
-                        if(toStudio && cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
+                        // FX-1: Joybot carries the board to Studio or SpriteLab. The show needs a picture of this screen as it
+                        // is; the board is already saved, and the picture never holds the hand-off up (RoomShot waits 0.3 s at most).
+                        if(cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
                             cc.joycreator.joybrush.android.handoff.RoomShot.capture(this,canvas,joybotBtn) {
                                 if(destroyed) bundle.deleteRecursively() else { startActivity(go); overridePendingTransition(0,0) }
                             }

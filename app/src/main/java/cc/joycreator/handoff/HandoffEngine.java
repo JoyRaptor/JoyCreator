@@ -223,7 +223,7 @@ public final class HandoffEngine {
             stage.cell = sp.cellFor(64f);              // the chat's Joybot: a 64 dp body
             setupEgl();
             HandoffRenderer r = new HandoffRenderer(app, mode, sp, a1, a2, b1, b2);
-            r.init();
+            r.init(Math.round(stage.w * density), Math.round(stage.h * density));
             r.setRoomA(roomA);
             renderer = r;
             running = true;

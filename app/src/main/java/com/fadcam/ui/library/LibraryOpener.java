@@ -157,7 +157,7 @@ final class LibraryOpener {
         // A file moved or deleted outside the app used to open a blank 00:00 player (launch bug
         // hunt A9, 11-15): check it can still be read, and say so plainly when it cannot.
         try (android.content.res.AssetFileDescriptor fd = a.getContentResolver().openAssetFileDescriptor(uri, "r")) {
-            if (fd == null) throw new java.io.FileNotFoundException(it.uri);
+            if (fd == null) throw new java.io.FileNotFoundException(link);
         } catch (Exception gone) {
             FLog.w("LibraryOpener", "media not readable: " + link, gone);
             Toast.makeText(a, R.string.library_file_gone, Toast.LENGTH_LONG).show();

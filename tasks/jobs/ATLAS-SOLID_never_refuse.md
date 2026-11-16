@@ -416,8 +416,24 @@ crossed the tile yet. So a line under the wash can still be edited and its tiles
 - Bench case `washOverLinesProbe` (`WashOverLinesBench`, brush `ink`): line, wash across it, save while wet, Dry now,
   recolour the line and back, undo and redo of the wash, reopen the wet save.
 
-**Proof so far.** First Fold run (build 7ae8f3246) FAILED: the wash was refused by `LineAdmission.slabRefusal`; fixed in
-672b49765, rerun not read when this was written. Nothing else is proven. `lostTileProbe` still passes on the Fold.
+**Proof so far (Fold only, one run, build 672b49765, bench `washOverLinesProbe`, brush `ink`, wash `media:wet:All-round`).**
+The first run (7ae8f3246) failed: the wash was refused by `LineAdmission.slabRefusal`; fixed in 672b49765. Second run:
+
+| Check | Result |
+|---|---|
+| The wash paints on the line's layer; the line is still a line; nothing "became paint" | PASS (146670 px painted, 1 line) |
+| Dry now, then recolour the line and back: its tiles redrawn from the layer's items | PASS, 0 px off (the wash is among the items) |
+| Undo of the wash (one press took the print and its stroke) gives the line alone | PASS, 0 px off; recolour and back there 0 px off |
+| Redo, Dry now again: the line still a line, recolour and back | PASS, 0 px off against itself |
+| Redo, Dry now again: the same picture as the first dried one | **NOT SHOWN**: 148535 px differ |
+| The save taken while wet, reopened: the line is a line; recolour and back | PASS, 0 px off against itself |
+| The reopened picture against the wet picture read just before the save | **NOT SHOWN**: 22522 px differ (the wash is 146670 px) |
+
+The two NOT SHOWN rows count pixels that differ at all, not by how much, and compare a wash at two different moments of
+drying (drying alone changed 136531 px between the wet read and the dried one). They may be the test asking too much, or a
+real difference: **there is no control run on a plain layer yet, so it is not known.** The next step is that control (the
+same sequence without the line), and a measure of how far the pixels differ, before believing either way. `lostTileProbe`
+still passes on the Fold with this build. No Note 9 run.
 
 **Before it may land: the engine session's five conditions (11-16), each to be shown on the Note 9.**
 1. Undo/redo of a print step with slabs and a sheet mark stays on the ordinary path, the slab goes and comes with the

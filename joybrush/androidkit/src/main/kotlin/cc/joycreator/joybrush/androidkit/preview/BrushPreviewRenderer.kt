@@ -348,6 +348,10 @@ class BrushPreviewRenderer(private val memory: () -> Pair<Long, Long>) {
         val made = MediaLayerEngine(shaders, atlasMode = false)
         try {
             made.init(w, h)
+        } catch (x: cc.joycreator.joybrush.androidkit.gl.GraphicsMemoryException) {
+            // No graphics memory just now: this preview stays empty, the next one tries again. It is not "this phone cannot".
+            runCatching { made.release() }
+            return null
         } catch (x: IllegalStateException) {
             // No float colour buffers: the canvas refuses pencil, watercolour and oil on this phone for the same reason.
             runCatching { made.release() }

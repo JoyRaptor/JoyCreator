@@ -2447,6 +2447,9 @@ class GlPaintEngine(
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         val itemTextures = ArrayList<Int>(editableCopies.sumOf { it.textureCount })
+        // R2-JB-03: the realistic-paint state a duplicated frame takes with it (made before anything is published).
+        val payloadCopies = ArrayList<UndoLog.TileChange<Int>>()
+        var payloadPut = false
         fun trackItemTexture(made: Int): Int {
             try { itemTextures.add(made) } catch (e: Throwable) { recycleLayerTex(made); throw e }
             return made
@@ -2583,20 +2586,43 @@ class GlPaintEngine(
                     pending[address]=UndoLog.TileChange(layer.id,key,old?.before ?: tex,null,drop.celId)
                 }
             }
+            // A duplicated frame's paint stays paint (R2-JB-03): every payload tile of the source frame under the board gets
+            // a copy for the new frame, as a duplicated layer's does. Whole tiles: a frame's plane owns only the board's
+            // pixels, so what lies outside the board in its payload tiles is never drawn. Cell moves (transfers) still
+            // settle: their payload would have to be shifted inside tiles, which is not built.
+            for (copy in duplicateCopies.orEmpty()) {
+                val layer = layers[copy.layerId] ?: continue
+                val r = copy.rect
+                for ((store, tiles) in layer.celFloats[copy.fromCelId].orEmpty()) for ((key, tex) in tiles) {
+                    val x0 = Tiles.tx(key) * size; val y0 = Tiles.ty(key) * size
+                    if (x0 >= r.x + r.w || x0 + size <= r.x || y0 >= r.y + r.h || y0 + size <= r.y) continue
+                    val made = newPayloadTile(store)
+                    payloadCopies += UndoLog.TileChange(MediaStores.id(copy.layerId, store), key, null, made, copy.toCelId)
+                    initializeTile(made, tex, false)
+                    graphicsTouched = true
+                }
+            }
             published=true
             pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             setBoardDocument(change.doc)
             applyItemChanges(items.slabs, items.lines, forward = true, footprints = copiedFootprints); itemsApplied = true
             // JB-2.40 slice 3a: payloads are per plane now, so a layer gaining frames keeps them; only tiles whose pixels a
             // board edit moved lose theirs (settled: the look stays, it just can't be re-wetted until slice 3b carries it).
+            // Slice 3b for a duplicated frame (R2-JB-03): its copies go in after the settle, in the same step.
+            val settled = if (pending.isNotEmpty()) settlePlainWrites(pending.values) else emptyList()
+            payloadPut = true
+            payloadCopies.forEach { c -> put(c.layerId, c.key, c.after, c.celId) }
+            payloadCopies.forEach { c -> MediaStores.parse(c.layerId)?.let { (owner, _) -> agree(owner, c.key, c.celId) } }
             if(before!=change.doc || pending.isNotEmpty() || items.lines.isNotEmpty() || items.slabs.isNotEmpty())
-                undo.push(UndoLog.Step(pending.values.toList() + settlePlainWrites(pending.values),
+                undo.push(UndoLog.Step(pending.values.toList() + settled + payloadCopies,
                     documentBefore=before,documentAfter=change.doc, lines = items.lines, slabs = items.slabs))
         } catch(e:Throwable) {
             // Restore every published address before releasing prepared textures.
             if(itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
+            if(payloadPut) payloadCopies.forEach { c -> put(c.layerId, c.key, null, c.celId) }
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
+            payloadCopies.forEach { c -> c.after?.let(::recycleLayerTex) }
             itemTextures.forEach(::recycleLayerTex)
             throw e
         } finally { if(graphicsTouched) { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) } }

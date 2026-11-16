@@ -676,6 +676,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         val capturedJoint = case == "recordedCapturedJointProbe"
         val watercolourEdits = case == "recordedWatercolourEditProbe"
         val watercolourOrdinary = case == "recordedWatercolourOrdinaryProbe"
+        if (case == "framePayloadProbe") {
+            // R2-JB-03: a duplicated frame keeps its realistic-paint state (a throwaway engine).
+            canvas.runFramePayloadProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("passed", false).put("error", result) }
+                logRecordedReport(report.put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "nativeFrameDuplicateProbe") {
             canvas.runNativeFrameDuplicateProbe { result ->
                 val report = org.json.JSONObject(result).put("case", case).put("run", run)

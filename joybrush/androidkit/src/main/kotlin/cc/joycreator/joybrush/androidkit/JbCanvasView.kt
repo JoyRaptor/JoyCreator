@@ -4220,6 +4220,30 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     }
 
+    /** Debug only (R2-JB-03): a duplicated frame keeps its realistic-paint state. A fresh engine, never this View's artwork. */
+    fun runFramePayloadProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"failure\":\"Frame payload probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        onGl {
+            val probe = GlPaintEngine()
+            val value = try {
+                probe.init()
+                probe.setDocumentPaper(paper)
+                probe.addLayer("frame-payload-probe")
+                cc.joycreator.joybrush.androidkit.gl.FramePayloadProbe.run(probe, "frame-payload-probe")
+            } catch (error: Exception) {
+                org.json.JSONObject().put("passed", false).put("failure", error.message ?: error.javaClass.simpleName)
+            } finally {
+                try { probe.release() } catch (error: Exception) { android.util.Log.w("JoyBrushCanvas", "frame payload probe release", error) }
+            }
+            val report = value.toString()
+            post { ready(report) }
+        }
+    }
+
     /** Debug-only ordinary frame oracle; it owns a fresh engine, never this View's artwork. */
     fun runNativeFrameDuplicateProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {

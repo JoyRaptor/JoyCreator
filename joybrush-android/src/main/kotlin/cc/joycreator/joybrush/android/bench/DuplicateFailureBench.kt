@@ -39,6 +39,7 @@ class DuplicateFailureBench(private val canvas: JbCanvasView, private val spec: 
     private var priorLayers: ((LayerStack) -> Unit)? = null
     private var priorStrokeEnded: (() -> Unit)? = null
     private var finished = false
+    private val editableBefore = canvas.editableLines
     private lateinit var rect: RectPx
     private lateinit var base: JbCanvasView.BenchState
     private lateinit var baseStack: LayerStack
@@ -58,7 +59,11 @@ class DuplicateFailureBench(private val canvas: JbCanvasView, private val spec: 
 
     private fun board() {
         val all = BrushLibrary.builtIn()
-        canvas.preset = all.firstOrNull { it.engine == "stamp" && it.id.endsWith("ink") } ?: all.first { it.engine == "stamp" }
+        // The ink pen keeps editable lines (as in SelectBench), so the copy has lines to carry.
+        canvas.editableLines = true
+        canvas.preset = all.firstOrNull { it.id == "joybrush.ink" } ?: all.firstOrNull { it.id == "ink" }
+            ?: all.first { it.engine == "stamp" }
+        report.put("brush", canvas.preset.id)
         val s = (minOf(512, (minOf(canvas.pageWidth, canvas.pageHeight) * 0.6).toInt()) / 8) * 8
         rect = RectPx((canvas.pageWidth - s) / 2, canvas.pageHeight / 5, s, s)
         var n = 0
@@ -222,6 +227,7 @@ class DuplicateFailureBench(private val canvas: JbCanvasView, private val spec: 
         finished = true
         canvas.benchFailLayerTile(-1)
         canvas.onRefused = priorRefused; canvas.onLayersChanged = priorLayers; canvas.onStrokeEnded = priorStrokeEnded
+        canvas.editableLines = editableBefore
         if (faults == 0) problem("no copy was made to fail")
         Log.i(BenchRunner.TAG, report.put("faults", faults).put("problems", problems).put("pass", problems.length() == 0).toString())
         ui.postDelayed({ next() }, spec.settleMs)

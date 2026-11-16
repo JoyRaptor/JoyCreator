@@ -1,6 +1,6 @@
 # FX-1: Joybot carries your work from one room to the next
 
-**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 options page with the owner 11-16; nothing built in the app  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
+**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 options page v2 (his 11-16 notes built in) with the owner; nothing built in the app  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
 
 ## Why it matters
 The owner, 11-15: "We've built up this huge library of effects. Why don't we start using it on our own app to really
@@ -52,6 +52,25 @@ the edge pull, Joybot on top, then a reveal of the live room. Budget: no new hea
   (pose(t), backdrop textures, effect triggers, optional Reveal, a clock that can pause). Send it to them as a patch; never edit
   `ui/lobby/arrival/**`. Carry the show in a translucent window that outlives the Activity switch; Choreographer only;
   `overridePendingTransition(0, 0)`; prewarm shaders (67 ms first-open gap); `HomeFlight.flyInto` on request for the ending.
+
+## 11-16 (later): the owner's notes on the four, built into the options page (version 2)
+His rulings, each a requirement:
+- **Joybot is already out when the "which project?" question shows**, and he is the one asking. The show starts from where he sits.
+- **He travels more, in smooth arcs** the eye can follow, and **comes towards you out of his button**: at least twice his
+  resting size while he works, close to three times if the sprite holds up.
+- **Big Pull:** a first tug pulls out a small, steep piece; not enough; a harder tug, wider; then the whole side goes.
+- **Bed-sheet ending (his sketch):** the old room, hauled or kicked mostly off screen, is grabbed at the screen edge and dragged
+  back in like a bed sheet that spirals down into the item's rectangle. The old room BECOMES the clip. Used by Pull and Kick.
+- **Box Kick:** he flies out away from the edge for a run-up, charges, and the hit has an impact spark like his landing.
+- **Peel and Carry:** liked. The tunnel is chromatic streaks and neon rings (his two reference stills); streak colours start in the
+  leaving room's gradient and give way to the arriving room's. A VisLab look or a fresh shader: my call (fresh, small, lifted from
+  VisLab's tunnel and rays, so the show never waits on VisLab's engine).
+- **Melt, replaced:** it read too fast and unclear. Now a vacuum: he makes one large sweep and the room streams radially towards
+  him into a ball he carries.
+- **Sprites:** his nine back-to-camera pulling frames arrived 11-16 (3x3, transparent, not yet aligned or reordered by him); they
+  also serve for dragging. The nervous `oops` (leaning back, gritted teeth) is the heavy carry.
+- Room colours are the app's own: JoyBrush `#5C43FD` to `#4397FD`, Studio `#35F6BF` to `#97FE8B` (`RoomColours`).
+- Open: each now runs about 2 s from the pick (the card's 1.2 to 1.6 s was written before he asked for more travel); the page asks him.
 
 ## Rules that apply
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no

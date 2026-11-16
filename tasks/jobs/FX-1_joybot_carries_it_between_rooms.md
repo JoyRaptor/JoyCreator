@@ -1,6 +1,6 @@
 # FX-1: Joybot carries your work from one room to the next
 
-**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 building in the app since 11-16 night (first route JoyBrush to Studio); not yet seen on a device  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
+**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 built 11-16, two routes out of JoyBrush; seen by the agent on the Note 9 and the Fold; owner look owed  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
 
 ## Why it matters
 The owner, 11-15: "We've built up this huge library of effects. Why don't we start using it on our own app to really
@@ -120,6 +120,34 @@ Not done yet (say so, do not claim): on a device at all; the real Lyric Flight e
 star field in the two rooms' colours is in; `VisRenderer` has the API: `setScene`, `setBrandPalette`, `render` to an fbo);
 the speech tail from the question to Joybot; his flight back to his button if the question is cancelled; 480 px strips
 for his flight poses (240 px cells are soft at 2.3x, sprites lane); the other routes; the Settings row.
+
+## 11-16 (late): on the phones
+Six cloud builds, each tried on a device from JoyBrush's bench drawing (`JoyBrushBenchActivity`, `jb_bench_board animation`,
+`jb_hold_ms`), recorded with `screenrecord` and read frame by frame. What the recordings showed, and what was changed for it:
+- First build: the whole show ran end to end first time (question, launch, tugs while Studio opened, bed sheet, slap,
+  salute, home). 4.0 ms a frame.
+- **The lobby dial puts Studio to the RIGHT of JoyBrush** (Studio, Capture, SpriteLab, Avatar, VisLab, TextLab, JoyBrush, and round
+  again), not to the left as the picks page said. The moves are written for a room coming in from the left, so a move can now be
+  played mirrored (`Stage.mirror`, `uMirror`): Studio and SpriteLab come in from the right. Rooms are never drawn mirrored.
+- A long project list left Joybot no room: the question is shortened by what is measured missing and hung from the top
+  (`HandoffHost.seat`; measured because bars and cut-outs differ by phone: the Fold needed a second pass).
+- VisLab's Lyric Flight starts empty: it is run 3.5 s of its own time before it is seen (`HandoffStars.fill`), with a faster
+  rush and longer streaks on this copy of the look. Its five colours go from the leaving room's to the arriving room's one at a time.
+- With nothing to ask (no projects, or SpriteLab) the bare room flashed for a frame: only a frame on the room's own layer
+  releases its first picture now (`HandoffArrival.onFirstFrame`).
+- The Vacuum's wait read as a freeze: the tug is three times wider. A big item (SpriteLab's sheet): he stands in it and its
+  glow is gentler. Circling with a load, his trail is a wisp. Back on the question flies him home (`retreat`).
+- [x] JoyBrush to Studio, new project and into the list: Note 9 (all four moves, both directions), Fold (Big Pull).
+- [x] JoyBrush to SpriteLab: Note 9 (Peel and Carry).
+- [x] Skippable; never delays the real work; holds while the room opens; the landing spot and the selection are the room's own.
+- [ ] The Settings switch row (asked of the app-shell lane; the pref is there, on).
+- [ ] VisLab to Studio, TextLab to Studio: there is no send to hook (Studio pulls from VisLab; TextLab hands a look back to a
+      Studio that is already open). Each needs its own design: ask the owner what he wants to see there.
+- [ ] Owner's own look; tablet, landscape, the Fold unfolded; the speech tail; his pictures at 480 px only if he finds them blurry.
+- Idea for the owner, not built: JoyBrush shows only "Preparing board" for the 2 to 3 seconds it takes to save a board before
+  the show can start. Joybot could already be out and waiting then.
+- Test files left on the devices, mine, safe to delete: about a dozen Studio projects called "Bench animation" and "Sprite"
+  on the Note 9, two on the Fold; JoyBrush drawings made by the bench.
 
 ## Rules that apply
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no

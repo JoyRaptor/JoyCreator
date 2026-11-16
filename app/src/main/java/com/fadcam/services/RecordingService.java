@@ -5382,7 +5382,7 @@ public class RecordingService extends Service {
         joyFolderFallback = true;
         FLog.w(TAG, "Joy Creator folder unavailable: keeping this recording inside the app");
         new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> Toast.makeText(this,
-                "Joy Creator folder unavailable. This recording is kept inside the app.", Toast.LENGTH_LONG).show());
+                R.string.record_folder_unreachable_kept_inside, Toast.LENGTH_LONG).show());
     }
 
     /** The storage mode this recording uses: the user's setting, unless the Joy folder fallback applies. */

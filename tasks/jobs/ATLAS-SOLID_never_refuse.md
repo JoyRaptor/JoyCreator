@@ -392,3 +392,45 @@ is ever seen, and a long mixed session reading the incident log.
 - `MediaAtlas.hold`, `flush`; `MediaAtlasPlacement.table` no longer grows for far walls.
 - The bench's `jb_media_budget_mb` now sticks (`JbCanvasView.mediaBudgetHeld`); before, the screen reset it after one stroke, so
   earlier small-room runs through the real screen did not test what they meant to.
+
+## 2026-11-16: a wash on a layer with editable lines (ledger C6), IN WORK, handoff
+
+**State: built on the side branch `claude/jbx42-20261116`, NOT on `joy-creator`, not proven.** Written by the bug-hunt
+Fable session (Fable usage ends 11-17); whoever continues starts here.
+
+**What it does.** A watercolour (wet sheet) stroke on a layer that holds editable lines no longer turns the lines into
+paint first (R51's freeze) and is no longer refused. The wash is wet on the sheet as on any layer; when it is printed it
+goes into the layer's tiles as before AND is kept among the layer's items as a pixel slab on top, in time order, exactly
+the form a fill already has (`fillSlabs`): operator `normal`, the tile's earlier pixels as the base under it where no item
+crossed the tile yet. So a line under the wash can still be edited and its tiles are redrawn with the wash over them.
+**No new file format:** an existing slab kind and operator.
+
+**Where.**
+- `GlPaintEngine.printOverlay`: builds the slabs (`overlaySlabs`, new), applies them before the tiles (all or nothing),
+  the undo step carries `slabs` and the sheet mark.
+- `GlPaintEngine.withOverlayStamped` (the save while wet): the same slabs are in for the body and taken back after.
+- `GlPaintEngine.linesTakeSheet`: only while `recordedScene == null`, so undo and redo take the ordinary path.
+- `MediaCanvas.begin`: the sheet is allowed on a layer with lines.
+- `JbCanvasView.startStroke`: watercolour skips the freeze and goes past `LineAdmission.slabRefusal` to `startMediaStroke`.
+  Pencil and oil are unchanged: they still turn the lines into paint first.
+- Bench case `washOverLinesProbe` (`WashOverLinesBench`, brush `ink`): line, wash across it, save while wet, Dry now,
+  recolour the line and back, undo and redo of the wash, reopen the wet save.
+
+**Proof so far.** First Fold run (build 7ae8f3246) FAILED: the wash was refused by `LineAdmission.slabRefusal`; fixed in
+672b49765, rerun not read when this was written. Nothing else is proven. `lostTileProbe` still passes on the Fold.
+
+**Before it may land: the engine session's five conditions (11-16), each to be shown on the Note 9.**
+1. Undo/redo of a print step with slabs and a sheet mark stays on the ordinary path, the slab goes and comes with the
+   sheet; `wetSheetFailureProbe` on a layer with lines too (cancel with no rollback copy; undo/redo across a turned view).
+2. The other callers of the print behave on a line layer: `WetSheet.settle`, `WetSheet.cutCarry`, and the
+   `pushSheetStep(mark)` path when the overlay is null. A print that fails part way leaves nothing applied (tiles and slabs
+   are given back before anything is put; no step is pushed), as before this change: by reading only.
+3. Save while wet on a line layer: the file holds the wash on crossed tiles, and the layer is bit for bit as before after
+   the save (digest before == after reopen; digest after the save == before the save). JBX-36's sparse readback already
+   switches itself off for a drawing with lines; leave that.
+4. One bench run of a board rename and a frame change with a wet wash on a line layer (R2-JB-02's rule).
+5. Old drawings open: same slab form as a fill, by reading; not tried with an old file.
+
+**Not covered at all:** an animation frame's line plane, a mask, moving or deleting a line under a wet wash (the wash's
+ground under it is not refreshed until the next stroke), the slab memory budget (`LineAdmission.slabBudgetRefusal` is not
+asked for a wash), a real pen, the owner's eye on the look.

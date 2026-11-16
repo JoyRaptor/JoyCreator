@@ -169,4 +169,22 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
 - **Pencil and oil are not laid on the stage yet** (the stage logs it, no curve, as before). An atlas for them took
   about 600 MB of graphics on the Fold even at 6 x 4 slots; the atlas session's condition (11-15): make it small by
   construction (about 3 x 2 slots, under 100 MB by the atlas's own count) or build it only inside the media budget,
-  and let it go on pause and on graphics loss as well as on close. Next brush-lane step.
+  and let it go on pause and on graphics loss as well as on close. Next brush-lane step. (Done 11-16, below.)
+
+## Brush lane, 11-16: pencil and oil paint on the settings stage too
+- **Owner (11-16): opening a brush editor shows a stroke waiting, and every dial re-lays it live; never a blank pad.**
+- Pencil and oil go in a preview atlas of their own, fixed at **4 x 3 slots** (`JbCanvasView.PREVIEW_SLOTS`), never sized
+  from the phone. 3 x 2 held 4 areas (two slots kept back) and one pencil dab with its look ring needs 9: nothing drew.
+- Let go when the stage leaves the screen: `MediaCanvas.releaseAtlas()` from `onPause` and `surfaceDestroyed`, for a
+  settings preview only (explicit guard: the drawing's own atlas is never let go at a pause, JBX-37). Graphics loss
+  forgets it as before (`forget()` in `onSurfaceCreated`). Log "settings preview: atlas let go", 4-12 ms after the
+  surface goes, no stall.
+- Its size by its own count, logged when made ("settings preview atlas memory"): HB 92 MB, Palette knife 3 86 MB, Oil
+  round 86 MB. The atlas session signed for 4 x 3 at about 110 MB.
+- **Thinned (wet) oil is laid without its thinner on the stage**: with water one dab needs 12 areas (109 MB) and the atlas
+  holds 10; 4 x 4 (about 145 MB) was refused by the atlas session, and its water park shows tile squares, not the brush.
+  So Oil round's stage shows its stroke and hairs, not its wet spread. Two gaps seen in its cyan line with water on were
+  not explained (they went with the water). Wet oil's true stage look is a later job.
+- **Seen on the Note 9** (cloud builds c2f0959f7, 95a2e104e, 3167dd93e): HB whole curve (same picture as the old 6 x 4),
+  Palette knife 3 whole (frames split in time, none refused), Oil round whole; moving its Hairs dial re-laid the stroke.
+  Cloud tests on 3167dd93e: jb-core 3012, jb-androidkit 1353 pass.

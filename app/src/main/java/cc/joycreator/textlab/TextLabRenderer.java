@@ -889,8 +889,8 @@ public final class TextLabRenderer {
             if (!bloomBlack) {
                 TlGpuTimer.mark("bloom");
                 GLES30.glClearColor(0, 0, 0, 0);
-                for (TlGl.Target t : bloom) {
-                    glw.bind(t);
+                for (TlGl.Target level : bloom) {
+                    glw.bind(level);
                     GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);
                 }
                 bloomBlack = true;

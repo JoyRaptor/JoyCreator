@@ -2122,7 +2122,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** The active layer's kind, from the document; a layer the document has not seen yet is paint. */
     private fun activeLayerKind(): LayerKind = boardDocument?.layers?.firstOrNull { it.id == activeLayer }?.kind ?: LayerKind.PAINT
 
-    private fun startMediaStroke(p: BrushPreset) {
+    private fun startMediaStroke(given: BrushPreset) {
+        // A settings preview lays thinned (wet) oil without its thinner: its water needs 12 areas held at once for one dab and
+        // the preview's atlas holds 10 (Note 9, 11-16); a bigger atlas is more than the atlas session signs for beside the
+        // drawing (145 MB). The owner's rule (11-16): the stage always shows a stroke, never a blank pad. Off for the drawing.
+        val p = given.media?.takeIf { m -> smallMediaPreview && m.medium != MEDIUM_WET && m.thinner > 0 }
+            ?.let { m -> android.util.Log.i("JoyBrushSheet", "settings preview: thinned oil laid without its thinner (no room for its water)"); given.copy(media = m.copy(thinner = 0)) }
+            ?: given
         // Painting INTO a mask with a media brush stays refused (the Lead, step 1): a mask is a grey, not a paint.
         if (editingMask && stackUi.active.hasMask) {
             drawing = false
@@ -2145,14 +2151,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // free memory for the window. Said in words; nothing changes.
         mediaCanvas.unsupported?.let { drawing = false; onRefused?.invoke(it); return }
         val wet =p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
-        // A settings preview does not lay thinned (wet) oil: one wet dab needs 12 areas held at once and the preview's atlas
-        // holds 10 (Note 9, 11-16), and a bigger one is more than the atlas session signs for beside the drawing (145 MB).
-        // Pencil and dry oil are laid; watercolour goes on the wet sheet. Off for the drawing.
-        if (smallMediaPreview && wet && p.media?.medium != MEDIUM_WET) {
-            drawing = false
-            android.util.Log.i("JoyBrushSheet", "settings preview: thinned oil is not laid here yet (its water needs more room than the preview atlas)")
-            return
-        }
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)

@@ -188,7 +188,7 @@ object AnimExportRunner {
         }
 
         return when (format) {
-            AnimFormat.GIF -> listOf(gif(plan, cells))
+            AnimFormat.GIF -> listOf(gif(plan, cells, onWarning))
             AnimFormat.SPRITE_SHEET -> sheet(plan, cells, cols)
             AnimFormat.PNG_SEQUENCE -> throw IllegalArgumentException(
                 "a PNG sequence is many files and is written by writeSequence, not by encodeOne, " +
@@ -309,19 +309,27 @@ object AnimExportRunner {
     /**
      * The GIF follows the saved end mode; ping-pong repeats the interior drawings in reverse.
      *
-     * The encoder owns the unit. Its centisecond rounding (`(ms + 5) / 10`, floored at 2 cs) is
-     * `GifEncoder.delayCentiseconds` and this file does not know what it is: the plan's
-     * milliseconds are the input and the encoder's hundredths are the output, and a second copy of
-     * that rule here would be a second answer to a question the encoder has already answered.
+     * Drawn frames go through [GifTiming] (Codex audit JB-ANIM-01/02, 11-15): hundredths from running
+     * totals so the GIF lasts what the board plays, at most 50 drawings a second (a shorter drawing is
+     * left out, with a warning in words), and a hold longer than a GIF delay can say written as the
+     * same picture again rather than cut short. Each piece reaches the encoder as an exact multiple of
+     * 10 ms, so its own rounding leaves it as it is. Tween exposures keep their own check below.
      */
-    private fun gif(plan: AnimExportPlan, cells: List<ByteArray>): AnimFile {
+    private fun gif(plan: AnimExportPlan, cells: List<ByteArray>, onWarning: (String) -> Unit = {}): AnimFile {
         val encoder = GifEncoder(plan.width, plan.height, loop = plan.playMode == PlayMode.LOOP || plan.playMode == PlayMode.PING_PONG)
-        val delays = if (plan.tweenSamples == null) null else gifTweenDelayCentiseconds(plan.baseName, plan)
-        val order = if (plan.tweenSamples != null) cells.indices.toList() else when (plan.playMode) {
-            PlayMode.PING_PONG -> cells.indices.toList() + if (cells.size > 2) (cells.lastIndex - 1 downTo 1).toList() else emptyList()
-            else -> cells.indices.toList()
+        if (plan.tweenSamples != null) {
+            val delays = gifTweenDelayCentiseconds(plan.baseName, plan)
+            for (i in cells.indices) encoder.addFrame(cells[i], delays[i] * 10)
+        } else {
+            val order = when (plan.playMode) {
+                PlayMode.PING_PONG -> cells.indices.toList() + if (cells.size > 2) (cells.lastIndex - 1 downTo 1).toList() else emptyList()
+                else -> cells.indices.toList()
+            }
+            val timing = GifTiming.of(order, order.map { plan.delayMs[it] })
+            if (timing.dropped > 0) onWarning("A GIF shows at most 50 drawings a second, so ${timing.dropped} very short " +
+                "${if (timing.dropped == 1) "drawing was" else "drawings were"} left out of it; PNG frames keep every one")
+            for (piece in timing.pieces) encoder.addFrame(cells[piece.picture], piece.centiseconds * 10)
         }
-        for (i in order) encoder.addFrame(cells[i], delays?.get(i)?.times(10) ?: plan.delayMs[i])
         return AnimFile(
             name = "${plan.baseName}.${AnimFormat.GIF.extension}",
             mime = AnimFormat.GIF.mime,

@@ -2,6 +2,7 @@ package cc.joycreator.joybrush.androidkit.gl.media
 
 import cc.joycreator.joybrush.androidkit.gl.GlPaintEngine
 import cc.joycreator.joybrush.androidkit.gl.MEDIA_LOOK
+import android.opengl.GLES30
 import cc.joycreator.joybrush.core.paint.Tiles
 import org.json.JSONObject
 
@@ -14,7 +15,8 @@ import org.json.JSONObject
  * straight back out, so those new layer tiles could be holding them, and the second delete took their memory: a tile whose
  * name has no storage, which draws black and cannot be read or copied ("Board tile copy failed").
  *
- * Two runs, the same but for the second delete: [GlPaintEngine.repairLostTiles] counts the layer tiles left without memory.
+ * Two runs, the same but for the second delete: the driver is asked which layer tiles are left without memory, and
+ * [GlPaintEngine.repairLostTiles] (the check before every save) is asked to find and mend them.
  * The 10-31 way must lose every tile that took a reused name; today's way must lose none. Stand-in textures play the paint
  * engine's window (the mistake was in when names are deleted, not in what the textures held).
  *
@@ -52,8 +54,13 @@ internal object DoubleDeleteProbe {
             val reused = keys.count { engine.mediaTile(LAYER, MEDIA_LOOK, it)?.let { t -> t in window } == true }
             // The paint engine is released. On 10-31 it deleted the names it had already deleted when it slept.
             if (deleteAgain) MediaTex.deleteTex(*window)
-            val lost = engine.repairLostTiles()
+            // Counted here from the driver itself, then by the engine's own check before a save: the two must agree, or the
+            // save-time check is missing lost tiles.
+            fun dead() = keys.count { k -> engine.mediaTile(LAYER, MEDIA_LOOK, k)?.let { t -> !GLES30.glIsTexture(t) } == true }
+            val lost = dead()
+            val found = engine.repairLostTiles()
             return JSONObject().put("tiles", TILES).put("tilesOnReusedNames", reused).put("tilesLost", lost)
+                .put("repairFound", found).put("stillLostAfterRepair", dead())
         } finally {
             if (engine.ready) runCatching { engine.release() }
         }

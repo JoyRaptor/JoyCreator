@@ -188,3 +188,22 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
 - **Seen on the Note 9** (cloud builds c2f0959f7, 95a2e104e, 3167dd93e): HB whole curve (same picture as the old 6 x 4),
   Palette knife 3 whole (frames split in time, none refused), Oil round whole; moving its Hairs dial re-laid the stroke.
   Cloud tests on 3167dd93e: jb-core 3012, jb-androidkit 1353 pass.
+
+## Brush lane, 11-16: underpaint the brush really works into (owner rulings via the screens lane)
+- Brief: shared notes `BRUSH_STAGE_UNDERPAINT_BRIEF_20261116.md`. Root cause: the selector painted its colour lines into
+  a ground the stroke never read; the stage's lines distracted.
+- **Selector rows: the stroke only**, no colour lines (`BrushPreviewRenderer`). Smudge and push rows on a fine grey
+  checkerboard (`PreviewRaster.checker`, 6 px) in the layer they sample, instead of the amber/blue blocks; erasers keep
+  their strip. `TestStroke.VERSION` 10, so stored pictures redraw.
+- **Stage underpaint by brush** (`TestStroke.underpaintFor`):
+  - smudge, push and erasers: a fine light/dark grey checkerboard (4 dp) written into the stage's own layer
+    (`JbCanvasView.replaceWithStrokes(checker = true)`);
+  - colour-carrying paint (media watercolour and oil, the line watercolour): a round blob of a second colour of the
+    same paint, laid first by that paint's brush (`TestStroke.blob`, `lineBrushId`), low in the middle so the second
+    S-turn's foot and the loop's bottom graze its top edge (a first, smaller blob between the turns vanished under Oil round);
+  - everything else, pencils included: plain paper.
+- The `STRIPES` data stays for the bench's `tstripe` cases only.
+- **Seen on the Note 9** (cloud build 4b54b6a25): Oil round crosses the orange blob and pulls a little of it; Round
+  watercolour mixes into the orange wash wet in wet; Smudge drags the checkerboard to grey with its taper showing (slider
+  ends on the checker too); HB on plain paper; the Pencil and smudge selector rows as ruled.
+- Open: wet oil on the stage is still laid without its thinner (11-16 above), so its mixing with the blob is weak.

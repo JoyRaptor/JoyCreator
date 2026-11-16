@@ -360,8 +360,37 @@ redrawn over them.
   read of a wash that was still moving. Both are corrected in the bench.
 - **Not covered.** On a layer WITH lines: no memory running out during the print, no view move that parts a wet wash
   (`cutCarry`), no second wash over the first, no animation frame or mask, no moving or deleting the line under the wash
-  (only recolour), no board edit while the wash is wet, no lifecycle gate, and no real pen. The look of a wash on a line
+  (only recolour), no board edit while the wash is wet, and no real pen. (The lifecycle gate was run after landing: next section.) The look of a wash on a line
   layer has not been compared by eye with one on a plain layer. The owner has not tried it.
+
+### 11-16: editable watercolour lines through the lifecycle gate (JBX-42 / L9 "View save, reopen, recovery")
+
+**In plain words.** The "Watercolour line" brush draws lines that stay editable. Until now nobody had checked, in the
+real drawing screen, that they come back as the same lines with the same picture after Android rebuilds the screen or
+takes the graphics away. They do, also when an ink line, a watercolour line and a wet-sheet wash share one layer.
+
+- **The gate.** The lifecycle gate (`jb_bench_life`, JBX-37) with `--ez jb_editable_lines true`, so every stroke is
+  kept as a line, and a digest that now also counts what a line drawing is saved as: the looks of the tiles lines cross,
+  the paint slabs between lines, and the lines' own records (`LifeDigest`: `N looks`, `N slabs`, `N editable lines`,
+  each with a checksum; the records through `StrokeCodec`). The wash is dried in place first (`dry`), because leaving the
+  screen sets a wet wash and a wet picture cannot equal a set one.
+- **Note 9, build 2cad57534, four cases, every number equal before and after:**
+
+| Case | Looks | Slabs | Editable lines |
+|---|---|---|---|
+| Watercolour lines, screen built again | 12, `b56b04b5` | none | 9, `34f0ac6c` |
+| Watercolour lines, graphics lost and restored | 12, `439cfcda` | none | 9, `306d916e` |
+| Ink line + watercolour line + wet-sheet wash on ONE layer, screen built again | 18, `6c1300c3` | 18, `5c26e7f9` | 18, `7b7e9bba` |
+| The same, graphics lost and restored | 18, `5fc3d2b2` | 18, `cd2b8733` | 18, `906602a7` |
+
+  The two mixed cases are also the lifecycle check that the wash-on-line-layers work (section above) had not had: its
+  slabs come back among the lines.
+- **Two faults in the test found on the way, not in the app.** The real screen puts its own "Editable lines" choice back
+  between strokes, so the first runs saved plain paint and proved nothing about lines (the bench now sets the switch at
+  every pen-down). And a wet wash compared with its set self differs, as it should.
+- **Still open for L9 (not done here).** Reopen on an animation FRAME; the cold first stroke's timing; the fade matrix
+  and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a drawn curve); the grainy preset against the
+  owner's approved look; width redo exactness after the screens lane's 11-16 change; rebrush, delete, duplicate.
 
 ### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
 

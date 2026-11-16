@@ -109,7 +109,7 @@ public class StereoGainTest {
 
         // 7. Folding 3 to 6 channels into the export's stereo (found on the test Fold 11-16: a
         //    5.1 centre-channel tone exported on the left only). One channel sounds at a time,
-        //    through media3's real mixing processor holding the export's folds.
+        //    through media3's own mixing code (AudioMixingUtil.mix) with the export's folds.
         String[][] names = {
                 null, null, null,
                 {"FL", "FR", "FC"},
@@ -147,19 +147,28 @@ public class StereoGainTest {
         return "nowhere";
     }
 
-    /** A 10000 tone on {@code channel} of an {@code n}-channel stream, folded to stereo: {left, right}. */
+    /**
+     * A 10000 tone on {@code channel} of an {@code n}-channel stream, folded to stereo: {left, right}.
+     * Through {@code AudioMixingUtil.mix}, the exact call media3's ChannelMixingAudioProcessor makes
+     * with the matrix it holds for {@code n} channels (the processor itself needs Android's
+     * SparseArray, which these JVM stubs cannot run).
+     */
     static int[] fold(androidx.media3.common.audio.ChannelMixingMatrix[] folds, int n, int channel) throws Exception {
-        androidx.media3.common.audio.ChannelMixingAudioProcessor mix =
-                new androidx.media3.common.audio.ChannelMixingAudioProcessor();
-        for (androidx.media3.common.audio.ChannelMixingMatrix m : folds) mix.putChannelMixingMatrix(m);
-        mix.configure(new AudioProcessor.AudioFormat(48000, n, C.ENCODING_PCM_16BIT));
-        mix.flush();
+        androidx.media3.common.audio.ChannelMixingMatrix matrix = null;
+        for (androidx.media3.common.audio.ChannelMixingMatrix m : folds) {
+            if (m.getInputChannelCount() == n) matrix = m;
+        }
+        if (matrix == null) throw new IllegalStateException("no fold for " + n + " channels");
         short[] in = new short[n * 4];
         for (int f = 0; f < 4; f++) in[f * n + channel] = TONE;
         ByteBuffer b = ByteBuffer.allocateDirect(in.length * 2).order(ByteOrder.nativeOrder());
         b.asShortBuffer().put(in);
-        mix.queueInput(b);
-        ShortBuffer s = mix.getOutput().order(ByteOrder.nativeOrder()).asShortBuffer();
+        ByteBuffer out = ByteBuffer.allocateDirect(4 * 2 * 2).order(ByteOrder.nativeOrder());
+        androidx.media3.common.audio.AudioMixingUtil.mix(
+                b, new AudioProcessor.AudioFormat(48000, n, C.ENCODING_PCM_16BIT),
+                out, new AudioProcessor.AudioFormat(48000, 2, C.ENCODING_PCM_16BIT),
+                matrix, 4, /* accumulate= */ false, /* clipFloatOutput= */ true);
+        ShortBuffer s = ((ByteBuffer) out.flip()).asShortBuffer();
         return new int[]{s.get(2), s.get(3)};   // frame 1, left and right
     }
 }

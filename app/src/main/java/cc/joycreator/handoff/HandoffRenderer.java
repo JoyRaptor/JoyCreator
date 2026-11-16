@@ -304,8 +304,10 @@ final class HandoffRenderer {
         // the new item's glow, in the house's "on" cyan, once it is down
         if (glow > 0f) {
             float gw = (s.itemR - s.itemL) * .5f + 26f, gh = (s.itemB - s.itemT) * .5f + 20f;
-            light(s.mx(s.itemCx()), s.itemCy(), gw, gh, 0f, 34f / 255f, 211f / 255f, 238f / 255f, .55f * glow,
-                    34f / 255f, 211f / 255f, 238f / 255f, .3f * glow, .55f, 0f);
+            // a small item needs a strong glow to be found; a big one (a whole sheet) only a breath of it
+            float ga = glow * Math.max(.3f, Math.min(1f, 110f / Math.max(gw, gh)));
+            light(s.mx(s.itemCx()), s.itemCy(), gw, gh, 0f, 34f / 255f, 211f / 255f, 238f / 255f, .55f * ga,
+                    34f / 255f, 211f / 255f, 238f / 255f, .3f * ga, .55f, 0f);
             flush(lightP, px2, add);
         }
         for (HandoffFx.Ring r : fx.rings) {

@@ -194,7 +194,10 @@ public final class HandoffArrival implements HandoffEngine.Listener {
 
     @Override
     public void onFirstFrame(@NonNull Surface surface) {
-        drawn = true;
+        // only a frame on THIS room's layer lets the room show itself: one on the screen before it does not
+        // (seen on the Note 9: with nothing to ask, the first frame of all arrived as this room opened, and the
+        // bare room flashed for a frame)
+        if (surface == layer.getHolder().getSurface()) drawn = true;
     }
 
     @Override

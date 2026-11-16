@@ -94,7 +94,11 @@ final class HandoffMoves {
         float itemCy() { return (itemT + itemB) * .5f; }
         /** Where he stands to slap the item down: just above it. */
         float standX() { return clamp(itemCx(), .14f * w, .86f * w); }
-        float standY() { return Math.max(.12f * h, itemT - .30f * cell); }
+        /** A thin item (a tape on a timeline): he stands on it. A big one (a whole sheet): he stands in it. */
+        float standY() {
+            float tall = itemB - itemT;
+            return tall > 2.2f * cell ? itemT + .42f * tall : Math.max(.12f * h, itemT - .30f * cell);
+        }
         /** The middle of the vacuum's wipe. */
         float c0x() { return .5f * w; }
         float c0y() { return .469f * h; }

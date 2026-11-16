@@ -466,9 +466,10 @@ public final class HelpBook {
             // ── Settings hub and Remote (BOT-2, 11-04; from STATE Settings hub v2, Remote rows) ──
             new Topic("settings_find", "find a setting|search the settings|search settings|settings search|settings hub"
                     + "|jump chips|classic settings|where is the setting|where are the settings",
-                    "The Settings hub groups settings into sections, with chips across the top that jump to a "
-                            + "section. Search sits above the keyboard, and each row shows its live status. The classic "
-                            + "settings screens are still there, under About.",
+                    "Settings (Setup on the lobby floor) groups everything into sections: Folder, Studio, Recording, "
+                            + "Appearance, Notifications, Privacy, Tools, Labs and About. The chips across the top jump "
+                            + "to a section, search sits above the keyboard, and each row shows its live status. The "
+                            + "classic settings screens are still there: About and help › Classic settings.",
                     "setup", null),
             new Topic("settings_location", "location in video|location in my video|gps in|embed location|location metadata"
                     + "|put my location|location in the file",
@@ -480,11 +481,59 @@ public final class HelpBook {
                             + "finds it too. They are older camera tips, not yet rewritten for Joy Creator.",
                     "setup", null),
             new Topic("remote_lan", "remote control|remote camera|watch my phone camera|control the phone camera|lan remote"
-                    + "|remote streaming|stream to my computer|stream to a browser|server room",
-                    "Remote Studio lets you watch and control the phone's camera from a browser on the same Wi-Fi. It "
-                            + "works on your own network only: the old cloud parts were removed. The viewer's computer "
-                            + "needs internet for the page to look right. In the lobby it's the Remote word on the floor.",
+                    + "|remote streaming|stream to my computer|stream to a browser|server room|remote studio"
+                    + "|pairing code|remote code|unlock remote|remote password|remote is locked|sign in to remote",
+                    "Remote Studio (Remote on the lobby floor, or Settings › Labs › Remote Studio) lets you watch and "
+                            + "control the phone's camera from a browser on the same Wi-Fi. Turn on Stream Server and "
+                            + "open the Server URL in the browser. It's locked: type the six-digit pairing code shown "
+                            + "under Access (or your own password, if you set one). Tapping the code makes a new one "
+                            + "and signs every browser out. It works on your own network only; the viewer's computer "
+                            + "needs internet for the page to look right.",
                     "remote", null),
+            // ── Capture and Settings (BOT-A6, 11-15; labels checked in the strings and layouts) ──
+            new Topic("capture_modes", "camera or screen|switch to screen recording|switch to camera recording|switch to screen|switch to camera|camera mode"
+                    + "|home recorder|recording mode|the recorder|start recording|pause recording|switch camera"
+                    + "|front camera|back camera|torch|flashlight|wake the camera|preview is black",
+                    "Capture is the recorder. The switch at the top picks Camera or Screen (Mic is coming). Start "
+                            + "records and turns into Stop, Pause pauses, Switch camera flips front and back, and Torch "
+                            + "lights the scene. Hold the preview to wake the camera. The ☰ Home Menu has Profiles and "
+                            + "Display options. Recordings land in the Library.",
+                    "record", null),
+            new Topic("capture_photo", "take a photo|take a picture|snap a photo|snap a picture|photo button|selfie"
+                    + "|take photos|take pictures|still photo|photo with the camera|photo while recording",
+                    "In Capture, tap Photo on the camera preview; it works while you're recording too. No Photo "
+                            + "button? Turn on ☰ Home Menu › Display › Preview quick actions. You can also hold Joy "
+                            + "Creator's icon on your home screen and tap Photo or Selfie.",
+                    "record", null),
+            new Topic("capture_screenshot", "screenshot|screen shot|screengrab|screen grab|picture of my screen",
+                    "Hold Joy Creator's icon on your home screen and tap Screenshot, or pin it there from Settings › "
+                            + "Tools › Shortcuts and widgets › Screenshot › Add to Home screen. It needs Joy Creator "
+                            + "switched on in Android's Accessibility settings; the first time, it takes you there.",
+                    "setup", null),
+            new Topic("dual_camera", "dual camera|dual cam|both cameras|front and back|back and front|front and rear"
+                    + "|two cameras|picture in picture camera|pip camera|camera pip",
+                    "To record with the front and back cameras at once: Settings › Recording › Camera video › Camera, "
+                            + "then choose Dual (PiP). It's only listed if your phone can run both cameras together. "
+                            + "Dual Camera Settings on the same screen sets the small picture's layout and look; in "
+                            + "Capture, Switch camera swaps the two.",
+                    "setup", null),
+            new Topic("watermark", "watermark|stamp on my video|stamp the time|time stamp on|timestamp on"
+                    + "|burn the time|captured by|recorded by joy",
+                    "Settings › Recording › Watermark. Watermark Style picks what's stamped on camera recordings, "
+                            + "photos and screen recordings: Time with Joy Creator, Brand Label Only, Timestamp, or No "
+                            + "Watermark (the default). The same screen can add your location and your own text.",
+                    "setup", null),
+            new Topic("about", "about joy creator|about the app|about this app|app version|what version|which version"
+                    + "|version number|licences|licenses|open source|who made",
+                    "Settings › About and help › About Joy Creator shows the version and build, the wings, privacy, "
+                            + "the open-source credits (Joy Creator is built on FadCam by FadSec Lab) and who made it.",
+                    "setup", null),
+            new Topic("lobby_floor", "floor words|words on the floor|words at the bottom|bottom of the lobby"
+                    + "|what is bits|what is detect|what is packs|what is setup|bits word|packs word",
+                    "The words along the bottom of the lobby are doors: Detect opens Smart Detection, Remote opens "
+                            + "Remote Studio, Bits opens Settings on its tools (Torch, QR scanner, shortcuts), Packs "
+                            + "opens the Library's Fonts and supplies, and Setup opens Settings.",
+                    "setup", null),
             new Topic("smart_detection", "smart detection|finder|detect tab|detect people|detection|find people in|find a person"
                     + "|find cars|find a car|find my pet|events timeline|activity summary|snapshot gallery|who came",
                     "Smart Detection (Detect in the lobby) finds people, vehicles, pets and objects in your camera "
@@ -648,6 +697,15 @@ public final class HelpBook {
                     "Hold the mic, say what you want and stop talking — it sends itself. I'll read my answer "
                             + "out and listen for 'yes', 'undo' or 'stop'.", null, null)));
 
+    /**
+     * L37: no answer about a place on the launch list, nor a topic listed by itself as {@code help_<id>}
+     * (the Play build lists {@code help_capture_screenshot}: it has no Screenshot shortcut).
+     */
+    public static boolean shown(@NonNull Topic t) {
+        return !com.fadcam.launch.LaunchList.hiddenRoute(t.route)
+                && !com.fadcam.launch.LaunchList.hidden("help_" + t.id);
+    }
+
     /** The best topic for a question, or null. */
     @Nullable
     public static Topic find(@NonNull String question) {
@@ -656,8 +714,7 @@ public final class HelpBook {
         Topic best = null;
         int bestLen = 0;
         for (Topic t : TOPICS) {
-            // L37: no answer about a place on the launch list.
-            if (com.fadcam.launch.LaunchList.hiddenRoute(t.route)) continue;
+            if (!shown(t)) continue;
             for (String k : t.keys) {
                 // Short keys only at a word start: "ums" must not match "drums".
                 boolean hit = k.length() <= 3 ? q.contains(" " + k) : q.contains(k);
@@ -724,7 +781,7 @@ public final class HelpBook {
         StringBuilder b = new StringBuilder("HOW THE APP IS LAID OUT (use these exact names when explaining):\n");
         List<String> seen = new ArrayList<>();
         for (Topic t : TOPICS) {
-            if (seen.contains(t.answer)) continue;
+            if (!shown(t) || seen.contains(t.answer)) continue;
             seen.add(t.answer);
             b.append("- ").append(t.answer).append('\n');
         }

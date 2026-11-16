@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -43,9 +44,35 @@ final class LibraryAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder>
     }
 
     void submit(@NonNull List<LibrarySections.Row> rows, boolean list) {
+        final List<LibrarySections.Row> old = this.rows;
+        final boolean sameLayout = this.list == list;
         this.rows = rows;
         this.list = list;
-        notifyDataSetChanged();
+        if (!sameLayout || old.isEmpty()) {
+            notifyDataSetChanged();
+            return;
+        }
+        // R3-LIB-04: only the cards whose content changed are rebound; a refresh that changes nothing visible no
+        // longer clears and reloads every visible picture (and restarts every moving sheet).
+        DiffUtil.calculateDiff(new DiffUtil.Callback() {
+            @Override public int getOldListSize() { return old.size(); }
+            @Override public int getNewListSize() { return rows.size(); }
+
+            @Override
+            public boolean areItemsTheSame(int o, int n) {
+                LibrarySections.Row a = old.get(o), b = rows.get(n);
+                if (a.isHeader() || b.isHeader()) return a.isHeader() && b.isHeader() && a.band == b.band;
+                return a.item.key.equals(b.item.key);
+            }
+
+            @Override
+            public boolean areContentsTheSame(int o, int n) {
+                LibrarySections.Row a = old.get(o), b = rows.get(n);
+                if (a.isHeader()) return a.bandCount == b.bandCount;
+                return a.item.sameShown(b.item);
+            }
+        }, false).dispatchUpdatesTo(this);
+        // A kept card keeps its previous LibraryItem object; it has the same content, which is all a tap reads.
     }
 
     /** Choosing started, stopped or changed: repaint the marks only, never the pictures. */

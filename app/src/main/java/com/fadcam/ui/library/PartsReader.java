@@ -42,10 +42,32 @@ final class PartsReader {
 
     private PartsReader() {}
 
+    /**
+     * R3-LIB-02: a project's sheets and characters as of its last save (the save's stamp, as
+     * {@link ProjectFacts} does it). Reading them means loading the whole project file and parsing its whole JSON tree,
+     * so an unchanged project is read once for as long as the app lives, not again on every Library visit.
+     */
+    private static final class Parts {
+        final long stamp;
+        final List<LibraryItem> items;
+
+        Parts(long stamp, List<LibraryItem> items) {
+            this.stamp = stamp;
+            this.items = items;
+        }
+    }
+
+    private static final Map<String, Parts> KNOWN = new java.util.concurrent.ConcurrentHashMap<>();
+    /** How many project files were actually read and parsed (the log line counts them). */
+    static final java.util.concurrent.atomic.AtomicInteger FILE_READS = new java.util.concurrent.atomic.AtomicInteger();
+
     @NonNull
     static List<LibraryItem> read(@NonNull Context c, @NonNull ProjectStorage storage,
                                   @NonNull List<ProjectStorage.ProjectSummary> projects) {
         List<LibraryItem> out = new ArrayList<>();
+        java.util.Set<String> live = new java.util.HashSet<>();
+        for (ProjectStorage.ProjectSummary p : projects) live.add(p.id);
+        KNOWN.keySet().retainAll(live);
         for (ProjectStorage.ProjectSummary p : projects) {
             try {
                 readProject(storage, p, out);
@@ -54,15 +76,31 @@ final class PartsReader {
             }
         }
         readAvatarLibrary(c, out);
+        FLog.d(TAG, "project files read so far: " + FILE_READS.get() + " of " + projects.size() + " projects");
         return out;
     }
 
     private static void readProject(@NonNull ProjectStorage storage,
                                     @NonNull ProjectStorage.ProjectSummary p,
                                     @NonNull List<LibraryItem> out) throws Exception {
+        Parts known = KNOWN.get(p.id);
+        if (known != null && known.stamp == p.lastModified) {
+            out.addAll(known.items);
+            return;
+        }
+        List<LibraryItem> mine = new ArrayList<>();
+        readFile(storage, p, mine);
+        KNOWN.put(p.id, new Parts(p.lastModified, mine));
+        out.addAll(mine);
+    }
+
+    private static void readFile(@NonNull ProjectStorage storage,
+                                 @NonNull ProjectStorage.ProjectSummary p,
+                                 @NonNull List<LibraryItem> out) throws Exception {
         File dir = storage.projectDir(p.id);
         File json = new File(dir, PROJECT_JSON);
         if (!json.isFile()) return;
+        FILE_READS.incrementAndGet();
         String text = readText(json);
         if (!text.contains("\"spriteSheets\"") && !text.contains("\"avatarRigs\"")) return;
         JsonObject root = JsonParser.parseString(text).getAsJsonObject();

@@ -108,9 +108,21 @@ public final class TextLabPreviews {
             done.accept(f);
             return;
         }
-        glThread().post(() -> {
-            Bitmap b = draw(look, words);
-            File out = null;
+        // R3-TXT-03: one picture per key. A second ask for the same picture (the shelf asks again once the folder is
+        // read) joins the job already queued and gets its answer, instead of drawing the whole moving sheet again.
+        synchronized (chipWaiting) {
+            List<Consumer<File>> waiting = chipWaiting.get(key);
+            if (waiting != null) {
+                waiting.add(done);
+                return;
+            }
+            waiting = new java.util.ArrayList<>();
+            waiting.add(done);
+            chipWaiting.put(key, waiting);
+        }
+        boolean queued = glThread().post(() -> {
+            Bitmap b = f.exists() ? null : draw(look, words);   // a job ahead of this one may have made it
+            File out = f.exists() ? f : null;
             if (b != null) {
                 //noinspection ResultOfMethodCallIgnored
                 dir.mkdirs();
@@ -125,9 +137,32 @@ public final class TextLabPreviews {
                 b.recycle();
             }
             File result = out;
-            main.post(() -> done.accept(result));
+            main.post(() -> {
+                List<Consumer<File>> waiting;
+                synchronized (chipWaiting) {
+                    waiting = chipWaiting.remove(key);
+                }
+                if (waiting == null) return;
+                for (Consumer<File> w : waiting) {
+                    try {
+                        w.accept(result);
+                    } catch (RuntimeException e) {
+                        Log.w(TAG, "a preview listener failed", e);
+                    }
+                }
+            });
         });
+        if (!queued) {   // the GL thread is gone: nobody is coming, so nobody may be left waiting
+            List<Consumer<File>> waiting;
+            synchronized (chipWaiting) {
+                waiting = chipWaiting.remove(key);
+            }
+            if (waiting != null) for (Consumer<File> w : waiting) w.accept(null);
+        }
     }
+
+    /** Preview key to everyone waiting for that picture (callbacks run on the main thread). */
+    private final java.util.Map<String, List<Consumer<File>>> chipWaiting = new java.util.HashMap<>();
 
     private String engineStamp;
 

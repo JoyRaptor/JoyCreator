@@ -52,7 +52,16 @@ public final class WordsPicture {
     // slider redraws in place instead of starting a renderer for every value the drag passed through.
     private final Map<String, Long> lastStep = new HashMap<>();
     private final Map<String, String> lastRef = new HashMap<>();
-    private final Map<String, Bitmap> shown = new HashMap<>();
+    // access order: the slots in use stay at the back, and only the last few are kept (R3-VIS-01)
+    private final java.util.LinkedHashMap<String, Bitmap> shown = new java.util.LinkedHashMap<>(16, 0.75f, true);
+    /** Slot to the number of the frame {@link #shown} holds: it changes whenever the picture is drawn again. */
+    private final Map<String, Long> generations = new HashMap<>();
+    private long drawn;
+    /**
+     * How many slots keep a frame. A layer wearing a look uses one; changing its words or look makes a new slot each
+     * time, and the old ones used to stay until the room closed. Twelve is far more than a scene has layers of words.
+     */
+    private static final int MAX_SLOTS = 12;
 
     WordsPicture(@NonNull Context c) {
         app = c.getApplicationContext();
@@ -133,7 +142,34 @@ public final class WordsPicture {
         lastRef.put(slot, ref);
         Bitmap old = shown.put(slot, b);
         if (old != null && old != b && !old.isRecycled()) old.recycle();   // the renderer let it go at this call
+        generations.put(slot, ++drawn);
+        dropOldSlots(slot);
         return b;
+    }
+
+    /** The number of the frame {@link #frame} last gave for this picture, or -1 (R3-VIS-02). */
+    long generation(@NonNull String ref) {
+        Parsed p = parsedOf(ref);
+        Long g = p == null ? null : generations.get(p.slot());
+        return g == null ? -1L : g;
+    }
+
+    /**
+     * Keep the most recently used slots: a frame of a words-and-look the layer no longer wears is let go (R3-VIS-01).
+     * Never the slot just drawn, and the others were handed over (and sent to the GPU) in earlier calls.
+     */
+    private void dropOldSlots(@NonNull String keep) {
+        java.util.Iterator<Map.Entry<String, Bitmap>> it = shown.entrySet().iterator();
+        while (shown.size() > MAX_SLOTS && it.hasNext()) {
+            Map.Entry<String, Bitmap> e = it.next();
+            if (e.getKey().equals(keep)) continue;
+            Bitmap b = e.getValue();
+            if (b != null && !b.isRecycled()) b.recycle();
+            lastStep.remove(e.getKey());
+            lastRef.remove(e.getKey());
+            generations.remove(e.getKey());
+            it.remove();
+        }
     }
 
     /** Let go of every frame (the renderer is being let go). */
@@ -142,6 +178,7 @@ public final class WordsPicture {
         shown.clear();
         lastStep.clear();
         lastRef.clear();
+        generations.clear();
     }
 
     @Nullable

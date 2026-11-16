@@ -67,6 +67,27 @@ public final class LibraryItem {
         this.sharedIn = sharedIn;
     }
 
+    /**
+     * True when a card for {@code o} would look and behave exactly like a card for this one: every field a card
+     * shows, opens or draws its picture from. (R3-LIB-04: an identical refresh must not rebind the card.)
+     */
+    public boolean sameShown(LibraryItem o) {
+        return o != null && key.equals(o.key) && kind == o.kind && name.equals(o.name)
+                && modified == o.modified && size == o.size && sharedIn == o.sharedIn
+                && fileKind == o.fileKind && layers == o.layers && durationMs == o.durationMs
+                && needsRestore == o.needsRestore
+                && eq(fileName, o.fileName) && eq(uri, o.uri) && eq(thumb, o.thumb)
+                && eq(thumbSheet, o.thumbSheet) && eq(folderPath, o.folderPath)
+                && eq(projectId, o.projectId) && eq(parentName, o.parentName)
+                && eq(searchAlias, o.searchAlias) && eq(partId, o.partId)
+                && eq(drawingFile, o.drawingFile) && eq(avatarDir, o.avatarDir)
+                && eq(fontPath, o.fontPath) && eq(captureCategory, o.captureCategory);
+    }
+
+    private static boolean eq(String a, String b) {
+        return a == null ? b == null : a.equals(b);
+    }
+
     /** True when it plays as a video: recordings, exports, clips, and video project media. */
     public boolean isVideo() {
         return fileKind == FileKind.VIDEO;

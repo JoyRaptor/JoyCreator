@@ -335,7 +335,8 @@ public final class HandoffEngine {
                             }
                         }
                     }
-                } else if (picked) {
+                } else {
+                    // no screen to draw on, whether he was asking or already carrying: the show has lost its window
                     blind += dt;
                     if (blind > BLIND_S) { finish(false); return; }
                 }

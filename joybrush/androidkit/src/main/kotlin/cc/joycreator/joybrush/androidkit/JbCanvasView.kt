@@ -2124,6 +2124,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // free memory for the window. Said in words; nothing changes.
         mediaCanvas.unsupported?.let { drawing = false; onRefused?.invoke(it); return }
         val wet =p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
+        // A settings preview does not lay thinned (wet) oil: one wet dab needs 12 areas held at once and the preview's atlas
+        // holds 10 (Note 9, 11-16), and a bigger one is more than the atlas session signs for beside the drawing (145 MB).
+        // Pencil and dry oil are laid; watercolour goes on the wet sheet. Off for the drawing.
+        if (smallMediaPreview && wet && p.media?.medium != MEDIUM_WET) {
+            drawing = false
+            android.util.Log.i("JoyBrushSheet", "settings preview: thinned oil is not laid here yet (its water needs more room than the preview atlas)")
+            return
+        }
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)

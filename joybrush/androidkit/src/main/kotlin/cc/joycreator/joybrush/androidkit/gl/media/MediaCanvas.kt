@@ -738,8 +738,11 @@ class MediaCanvas(
     /**
      * A brush settings preview going out of sight (its surface goes: the settings close or the app pauses): its pencil and
      * oil atlas is written back and let go, the wet sheet left as it is. The next pencil or oil stroke there makes it again.
+     * ONLY a preview's (a fixed [slotGrid]): the drawing's own atlas is never let go at a pause, which would cost its 5.9 s
+     * restore and break the JBX-37 lifecycle gate (the atlas session, 11-16). Called from JbCanvasView for smallMediaPreview only.
      */
     fun releaseAtlas() {
+        if (slotGrid == null) return
         if (stroke?.sheet == false) dropStroke()
         if (engine == null && warm == null) return
         settleOwed(); window?.let(::refreshFlat); window?.release()

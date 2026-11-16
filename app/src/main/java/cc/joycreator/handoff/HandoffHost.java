@@ -105,7 +105,7 @@ public final class HandoffHost {
         scrim.setAlpha(1f);
         final View card = dw != null ? dw.getDecorView() : null;
         if (card == null) { engine.ask(60f, .7f * winH); return; }
-        card.post(() -> seat(dialog, dw, card, true));
+        card.post(() -> seat(dialog, dw, card, 3));
     }
 
     /** Room his whole body needs under the card, dp: his seat, his hover, his thruster's rings. */
@@ -116,24 +116,24 @@ public final class HandoffHost {
      * leave him room there (a long list of projects) is shortened and hung from the top: its list
      * scrolls, and he is never squeezed off the screen.
      */
-    private void seat(@NonNull Dialog dialog, @NonNull Window dw, @NonNull View card, boolean mayShorten) {
+    private void seat(@NonNull Dialog dialog, @NonNull Window dw, @NonNull View card, int tries) {
         View panel = dialog.findViewById(androidx.appcompat.R.id.parentPanel);
         View box = panel != null ? panel : card;     // the card itself, not the window's clear margins round it
         int[] at = new int[2];
         box.getLocationOnScreen(at);
         float left = at[0] / density, bottom = (at[1] + box.getHeight()) / density;
-        if (mayShorten && winH - bottom < UNDER_DP) {
-            int[] cardAt = new int[2];
-            card.getLocationOnScreen(cardAt);
-            float marginTop = (at[1] - cardAt[1]) / density;
-            float marginBottom = (cardAt[1] + card.getHeight() - at[1] - box.getHeight()) / density;
+        float short_ = UNDER_DP - (winH - bottom);     // how much more room he needs under the card
+        if (tries > 0 && short_ > 2f && box.getHeight() / density - short_ > 160f) {
+            // Measured, not worked out: where a dialog sits depends on the phone's bars and cut-outs.
+            // Hang it from the top and take off what is missing; look again once it has been laid out.
             WindowManager.LayoutParams lp = dw.getAttributes();
-            lp.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
-            lp.y = Math.round(Math.max(0f, 28f - marginTop) * density);
-            dw.setAttributes(lp);
-            float room = winH - 28f - UNDER_DP + marginTop + marginBottom;
-            dw.setLayout(card.getWidth(), Math.round(Math.min(room, card.getHeight() / density) * density));
-            card.post(() -> card.post(() -> seat(dialog, dw, card, false)));
+            if ((lp.gravity & android.view.Gravity.VERTICAL_GRAVITY_MASK) != android.view.Gravity.TOP) {
+                lp.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
+                lp.y = 0;
+                dw.setAttributes(lp);
+            }
+            dw.setLayout(card.getWidth(), Math.round(card.getHeight() - short_ * density));
+            card.post(() -> card.post(() -> seat(dialog, dw, card, tries - 1)));
             return;
         }
         engine.ask(left + 34f, Math.min(winH - 60f, bottom + 58f));

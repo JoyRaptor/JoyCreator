@@ -4536,11 +4536,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     companion object {
         /**
-         * A settings preview's pencil and oil atlas: 3 x 2 slots of 256 px, about 15 MB a slot (the engine's ask, 11-15: under
-         * about 100 MB, small by construction; 6 x 4 was about 600 MB on the Fold). Watercolour is not in it (the wet sheet).
-         * A frame that needs more areas than this is refused and written to the log; the drawing is never touched.
+         * A settings preview's pencil and oil atlas: 4 x 3 slots of 256 px (the engine's ask, 11-15: small by construction;
+         * 6 x 4 was about 600 MB on the Fold). 3 x 2 held 4 areas and one pencil dab with its look's ring needs 9 (Note 9,
+         * 11-15), so nothing drew; 12 slots hold 10. Bigger frames are split in time down to one dab, as in a drawing.
+         * Watercolour is not in it (the wet sheet). Its memory, by its own count: "settings preview atlas memory" in the log.
          */
-        val PREVIEW_SLOTS = 3 to 2
+        val PREVIEW_SLOTS = 4 to 3
 
         /**
          * A settings preview's wet sheet: 512 cells along its long side, not a drawing's 1280. The sheet's grid follows the

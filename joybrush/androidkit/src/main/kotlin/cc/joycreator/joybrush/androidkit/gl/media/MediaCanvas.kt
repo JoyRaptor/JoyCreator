@@ -573,8 +573,18 @@ class MediaCanvas(
                 rec.memory = e.memoryReport(); memoryHadWater = e.hasWaterTextures
             }
             if (e != null) paint.collectPaperTextures()
+            // A settings preview's atlas says what it holds, by its own count, once made and again once it has water.
+            if (e != null && slotGrid != null && (e !== atlasLogged || (e.hasWaterTextures && !atlasLoggedWater))) {
+                atlasLogged = e; atlasLoggedWater = e.hasWaterTextures
+                val bytes = runCatching { org.json.JSONObject(e.memoryReport()).optLong("totalBytes") }.getOrDefault(0L)
+                android.util.Log.i("JoyBrushMediaMemory", "settings preview atlas memory: ${bytes shr 20} MB for ${slotGrid?.first} x ${slotGrid?.second} slots (water ${e.hasWaterTextures})")
+            }
         }
     }
+
+    /** The settings preview atlas whose memory was last written to the log, and whether it had water then. */
+    private var atlasLogged: MediaLayerEngine? = null
+    private var atlasLoggedWater = false
 
     private var memoryHadWater = false
 

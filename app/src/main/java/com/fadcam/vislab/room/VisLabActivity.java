@@ -137,22 +137,39 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         });
         session = VisLabSession.get(this);
         buildUi();
-        String want = getIntent().getStringExtra(EXTRA_LOOK);
-        if (want != null) {
-            List<VisScene> looks = session.looks();
-            for (int i = 0; i < looks.size(); i++) if (looks.get(i).id().equals(want)) session.roomPicked(i);
-        }
-        String wantFile = getIntent().getStringExtra(EXTRA_LOOK_FILE);
-        if (wantFile != null) {
-            List<VisScene> looks = session.looks();
-            for (int i = 0; i < looks.size(); i++) {
-                if (wantFile.equalsIgnoreCase(session.lookFile(looks.get(i).id()))) { session.roomPicked(i); break; }
-            }
-        }
+        final String want = getIntent().getStringExtra(EXTRA_LOOK);
+        final String wantFile = getIntent().getStringExtra(EXTRA_LOOK_FILE);
+        int first = wantedLook(want, wantFile);
+        if (first >= 0) session.roomPicked(first);
         session.bind(this);
+        // On a cold start the person's own looks are still being read: pick again once they are,
+        // or the room keeps the previous look (KNOWN-LAB-02). Only for the first creation: a
+        // rotation keeps whatever was picked since.
+        if (state == null && (want != null || wantFile != null)) {
+            session.whenLoaded(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                int i = wantedLook(want, wantFile);
+                if (i < 0) {
+                    Toast.makeText(this, getString(R.string.vl_room_look_gone), Toast.LENGTH_LONG).show();
+                } else if (i != session.current()) {
+                    session.roomPicked(i);
+                    session.bind(this);   // tells the room the look on screen changed
+                }
+            });
+        }
         session.whenLoaded(this::ownOldSheets);
         useSource(SRC_DEMO, null);
         if (state == null && getIntent().getBooleanExtra(EXTRA_NEW_LOOK, false)) view.post(this::startNewLook);
+    }
+
+    /** The look the room was opened for (by id, or by its file name from Library), or -1. */
+    private int wantedLook(@Nullable String id, @Nullable String file) {
+        List<VisScene> looks = session.looks();
+        for (int i = 0; i < looks.size(); i++) {
+            if (id != null && looks.get(i).id().equals(id)) return i;
+            if (file != null && file.equalsIgnoreCase(session.lookFile(looks.get(i).id()))) return i;
+        }
+        return -1;
     }
 
     /** A look built from nothing, as the strip's "+ New" card makes it. */
@@ -785,6 +802,18 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             else if (com.fadcam.vislab.audio.ModSource.isMod(this, song)) s = new com.fadcam.vislab.audio.ModSource(ring, song);
             else s = SongPlayer.ofUri(ring, song);
         } else s = SongPlayer.ofAsset(ring, DEMO);
+        if (s instanceof SongPlayer) {
+            // A song that opens but cannot be decoded fails later, on its own thread: say so and
+            // go back to the demo song, so the picture keeps moving (KNOWN-LAB-03).
+            final SoundSource failing = s;
+            final boolean demo = kind != SRC_SONG;
+            ((SongPlayer) s).setOnFailed(() -> runOnUiThread(() -> {
+                if (source != failing || isFinishing() || isDestroyed()) return;
+                Toast.makeText(this, getString(demo ? R.string.vl_room_song_failed
+                        : R.string.vl_room_song_unplayable), Toast.LENGTH_LONG).show();
+                if (!demo) useSource(SRC_DEMO, null);
+            }));
+        }
         if (!s.start(this)) {
             Toast.makeText(this, getString(kind == SRC_MIC ? R.string.vl_room_mic_busy : R.string.vl_room_song_failed),
                     Toast.LENGTH_LONG).show();

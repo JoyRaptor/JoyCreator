@@ -388,9 +388,33 @@ takes the graphics away. They do, also when an ink line, a watercolour line and 
 - **Two faults in the test found on the way, not in the app.** The real screen puts its own "Editable lines" choice back
   between strokes, so the first runs saved plain paint and proved nothing about lines (the bench now sets the switch at
   every pen-down). And a wet wash compared with its set self differs, as it should.
-- **Still open for L9 (not done here).** Reopen on an animation FRAME; the cold first stroke's timing; the fade matrix
-  and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a drawn curve); the grainy preset against the
-  owner's approved look; width redo exactness after the screens lane's 11-16 change; rebrush, delete, duplicate.
+- **On an animation board too (11-16, build 34e33d60f).** The bench lays an animation board over the middle of the page
+  before the strokes (`--es jb_bench_board animation`, the app's own board operation), so they cross its first frame and
+  the shared canvas around it; then a blank second frame is added and shown (`addframe`), so what was painted on frame 1
+  is no longer on the screen when the drawing is saved. Four cases, every number equal before and after:
+
+| Case | Looks | Slabs | Editable lines |
+|---|---|---|---|
+| Watercolour lines across the board, screen built again | 12, `c4df6706` | none | 9, `b9173380` |
+| The same, graphics lost and restored | 12, `c47b5417` | none | 9, `e3acbc3f` |
+| Ink line + watercolour line + wet-sheet wash across the board, screen built again | 18, `9aa3683f` | 18, `003547d8` | 18, `38983045` |
+| The same, graphics lost and restored | 18, `72e81867` | 18, `560ca22b` | 18, `d442cd3f` |
+
+  Not told apart by this check: which of the lines sit on the frame's own cel and which on the shared canvas (the digest
+  covers every cel, it does not say which). Not done: a line edited on a frame after the reopen, playback, onion skin.
+- **Stroke timings of the Watercolour line brush, same runs (finger-like replay, Note 9; each run a fresh process).**
+  The first stroke after an INSTALL waited 1.37 s for its first frame, once (the phone compiling the brush's programs
+  for the first time); after an ordinary start the first frame comes in 1 to 16 ms. In every run the first stroke has
+  one slow frame of 0.2 to 0.4 s; later strokes have a slowest frame of 60 to 290 ms. All through, a stroke of about a
+  second has 6 to 30 frames longer than 34 ms (the ink pen on the same page: none). So the line draws correctly but
+  not smoothly on the Note 9. For comparison the wet-sheet Round's first stroke has one frame of about 1 s (the sheet
+  being made, known). These are the first recorded numbers for L9's "cold first stroke" and "performance"; nothing was
+  tuned.
+- **Still open for L9 (not done here).** The stutter above (owner's call whether it matters with a real pen, then the
+  watercolour-line renderer); the fade matrix and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a
+  drawn curve); **the grainy preset: owner's eye owed** (no file records an approved look; the orchestrator is asking
+  him for a reference or a verdict); width redo exactness after the screens lane's 11-16 change; rebrush, delete,
+  duplicate.
 
 ### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
 

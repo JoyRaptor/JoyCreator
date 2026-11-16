@@ -541,11 +541,41 @@ public class IdeaEngineTest {
                     {"how do I filter my library", "library_find"},
                     {"how do I rename a project", "library_projects"},
                     {"how do I change the brush settings", "joybrush_brushes"},
+                    // BOT-A6 (11-15): Capture and Settings
+                    {"how do I take a photo", "capture_photo"},
+                    {"can I take a selfie", "capture_photo"},
+                    {"how do I take a screenshot", "capture_screenshot"},
+                    {"how do I record with both cameras", "dual_camera"},
+                    {"can I use the front and back camera at the same time", "dual_camera"},
+                    {"how do I turn off the watermark", "watermark"},
+                    {"how do I put a timestamp on my recordings", "watermark"},
+                    {"what version is this", "about"},
+                    {"who made this app", "about"},
+                    {"where is the pairing code for remote studio", "remote_lan"},
+                    {"remote studio is locked, how do I sign in", "remote_lan"},
+                    {"how do I switch to screen recording", "capture_modes"},
+                    {"how do I turn on the torch", "capture_modes"},
+                    {"what are the words at the bottom of the lobby", "lobby_floor"},
+                    {"where are the settings", "settings_find"},
+                    // keys that must stay with their own topics
+                    {"how do I add credits at the end", "slides"},
+                    {"how do I use screen mode", "blend"},
+                    {"how do I add a photo to my video", "image"},
             };
             for (String[] c : bot2Help) {
                 t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);
                 eq("help BOT-2: " + c[1], c[1], t == null ? null : t.id);
             }
+            // BOT-A6: the Play build lists help_capture_screenshot; the topic and its line for the model go.
+            com.fadcam.launch.LaunchList.set(java.util.Collections.singleton("help_capture_screenshot"));
+            t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I take a screenshot");
+            check("help A6: Play build has no screenshot answer", t == null || !"capture_screenshot".equals(t.id),
+                    t == null ? "null" : t.id);
+            check("help A6: nor in the model's index",
+                    !com.fadcam.ui.faditor.ai.joybot.HelpBook.forModel().contains("tap Screenshot"), "");
+            com.fadcam.launch.LaunchList.set(null);
+            eq("help A6: back when not listed", "capture_screenshot",
+                    com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I take a screenshot").id);
             check("howto: how do I", com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("How do I export?"), "");
             check("howto: not a command", !com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("cut the ums"), "");
             check("help: every topic has an answer", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size() > 30, "");

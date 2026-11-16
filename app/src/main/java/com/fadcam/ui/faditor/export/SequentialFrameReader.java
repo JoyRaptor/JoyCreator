@@ -156,7 +156,8 @@ public final class SequentialFrameReader {
             int wantW = wantWidthFor(maxOutW, maxOutH);
             // Already past the request: the frame in hand IS the first one at/after it, unless
             // it was converted coarser than this request needs.
-            if (current != null && !current.isRecycled() && currentPtsUs >= sourceUs
+            if (current != null && !current.isRecycled()
+                    && DecodedFrameCursor.holds(currentPtsUs, sourceUs)
                     && currentOutW >= wantW) {
                 reuseHits++;
                 return current;

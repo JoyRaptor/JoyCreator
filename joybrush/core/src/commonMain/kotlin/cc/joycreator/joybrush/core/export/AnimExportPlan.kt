@@ -226,11 +226,15 @@ object AnimExport {
         // already in MILLISECONDS: the `1000 / fps` has been applied inside them, and there is no
         // `× 1000` in this file. `PlaybackClock.kt:69-78` is this same derivation, already landed
         // and already reviewed, and it is the reason the line below is spelled this way.
+        //
+        // Each delay is the difference of the two boundaries ROUNDED ONCE each (Codex audit JB-ANIM-01,
+        // 11-15), not each length rounded on its own: 30 one-tick frames at 30 fps were 33 ms each and
+        // the second lasted 990 ms; now they are 33, 34, 33, ... and it lasts 1000 ms, as it plays.
         val last = board.frames.size - 1
         val delays = ArrayList<Int>(hi - lo + 1)
         for (i in lo..hi) {
             val end = if (i < last) starts[i + 1] else total
-            delays.add(roundHalfUpMs(end - starts[i]))
+            delays.add((boundaryMs(end) - boundaryMs(starts[i])).toInt().coerceAtLeast(1))
         }
 
         val basePlan = AnimExportPlan(
@@ -300,15 +304,18 @@ object AnimExport {
      */
     private fun roundHalfUpMs(x: Double): Int = floor(x + 0.5).toInt().coerceAtLeast(1)
 
+    /** A moment on the board's clock, rounded half up to a whole millisecond (a boundary may be 0). */
+    private fun boundaryMs(x: Double): Long = floor(x + 0.5).toLong()
+
     /**
      * How many board ticks frame [i] was held for, read back out of the plan's own delay.
      *
      * **THIS IS THE INVERSE OF THE DELAY, NOT A SECOND DEFINITION OF THE HOLD.** The plan carries a
      * duration in milliseconds and a rate, and a cell index is a position, so a sidecar that has to
      * survive a hold has to get the hold from somewhere and there is exactly one somewhere. It is
-     * exact, not approximate: [AnimExportPlan.delayMs] is `floor(exact + 0.5)`, so the error is at
-     * most half a millisecond, and half a millisecond at 60 fps is 0.03 of a tick — far too little to
-     * reach the next whole tick in either direction. `noHoldIsLostOrGainedByTheRoundTrip` in the
+     * exact, not approximate: [AnimExportPlan.delayMs] is the difference of two boundaries each rounded
+     * half up, so the error is under one millisecond, and a millisecond at 60 fps is 0.06 of a tick — far
+     * too little to reach the next whole tick in either direction. `noHoldIsLostOrGainedByTheRoundTrip` in the
      * test beside this file walks all 59 940 rate/hold pairs through the real `AnimOps` and checks
      * that this returns the hold that went in, every time.
      */

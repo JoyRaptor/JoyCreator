@@ -116,6 +116,31 @@ public final class AvatarParamTrack {
         return out;
     }
 
+    /** An independent copy: a duplicated puppet gets its own performance, never a shared one. */
+    @NonNull
+    public AvatarParamTrack copy() {
+        AvatarParamTrack t = new AvatarParamTrack();
+        for (int i = 0; i < timesMs.size(); i++) t.add(timesMs.get(i), samples.get(i));
+        return t;
+    }
+
+    /**
+     * The performance from {@code fromMs} on, re-based so {@code fromMs} becomes 0: what the
+     * right half of a split plays. The first sample is the pose AT the cut (interpolated as
+     * {@link #sampleAt} would), so the two halves meet without a jump.
+     */
+    @NonNull
+    public AvatarParamTrack sliceFrom(long fromMs) {
+        if (fromMs <= 0 || timesMs.isEmpty()) return copy();
+        AvatarParamTrack t = new AvatarParamTrack();
+        t.add(0, sampleAt(fromMs));
+        for (int i = 0; i < timesMs.size(); i++) {
+            long s = timesMs.get(i);
+            if (s > fromMs) t.add(s - fromMs, samples.get(i));
+        }
+        return t;
+    }
+
     // ── Serialization (AvatarRig idiom: schemaVersion + tolerant reads) ──────
 
     @NonNull

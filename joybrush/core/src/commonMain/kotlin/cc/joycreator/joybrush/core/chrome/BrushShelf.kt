@@ -7,6 +7,7 @@ import cc.joycreator.joybrush.core.brush.MEDIUM_DRY
 import cc.joycreator.joybrush.core.brush.MEDIUM_WET
 import cc.joycreator.joybrush.core.brush.ENGINE_PUSH
 import cc.joycreator.joybrush.core.brush.ENGINE_SMUDGE
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
 import cc.joycreator.joybrush.core.stroke.StrokeEdit
 
 /**
@@ -47,6 +48,9 @@ object BrushShelf {
             MEDIUM_WET -> Kind.WATERCOLOUR
             else -> Kind.OILS
         }
+        // The editable watercolour line is watercolour to the person looking for it, whatever engine draws it (L9, the
+        // 11-14 phone check: it sat on Paint, next to Sable, and the Watercolour shelf had no editable line).
+        p.engine == ENGINE_WATERCOLOUR -> Kind.WATERCOLOUR
         p.sourceFormat != "native" -> Kind.IMPORTED
         else -> {
             val words = (p.id + " " + p.name).lowercase()

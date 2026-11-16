@@ -2,7 +2,7 @@
 // hit and the bounce as the new face lands.
 uniform float uPre;
 void main() {
-    vec2 v = vec2(vUv.x, 1.0 - vUv.y);
+    vec2 v = scr();
     float pp = clamp(uP, 0.0, 1.0);
     float zoom = 1.0 - 0.17 * sin(3.14159 * pp) - uPre * 0.07;
     vec2 q = (v - 0.5) / zoom + 0.5;

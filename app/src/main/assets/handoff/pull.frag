@@ -5,7 +5,7 @@ uniform float uAmp;        // the seam's bulge at his fists, as a share of the s
 uniform float uSig;        // how tall the bulge is, as a share of the height
 uniform float uSheet;      // > 0: the bed sheet has the leaving room now (handoff/sheet.frag)
 void main() {
-    vec2 v = vec2(vUv.x, 1.0 - vUv.y);
+    vec2 v = scr();
     float pp = clamp(uP, 0.0, 1.0);
     float sx = uAmp * exp(-sq((v.y - uGrab.y) / uSig));
     vec2 u = v;

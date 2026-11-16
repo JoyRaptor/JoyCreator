@@ -4,7 +4,7 @@
 uniform float uSweep;      // the wipe's angle, radians from straight up, clockwise
 uniform float uColl;       // 0..1 how far what is left has collapsed to the middle
 void main() {
-    vec2 v = vec2(vUv.x, 1.0 - vUv.y);
+    vec2 v = scr();
     vec2 c0 = vec2(0.5, 0.469);
     vec2 q = (v - c0) * vec2(1.0, uAspect);
     float r = length(q);

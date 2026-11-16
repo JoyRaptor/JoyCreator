@@ -103,16 +103,19 @@ public final class HandoffEngine {
     /**
      * Begin a show. {@code roomA}: the room we are leaving, pictured; {@code w, h}: the window in dp;
      * {@code btnX, btnY}: Joybot's button there, dp. Colours: the leaving and arriving rooms' gradients.
+     * {@code nextRoomToTheRight}: which way round the lobby dial the next room lies, so the travel reads true.
      */
     @MainThread
     @NonNull
     public static HandoffEngine start(@NonNull Context c, int mode, float density, float w, float h,
-                                      float btnX, float btnY, @NonNull Bitmap roomA, int a1, int a2, int b1, int b2) {
+                                      float btnX, float btnY, @NonNull Bitmap roomA, int a1, int a2, int b1, int b2,
+                                      boolean nextRoomToTheRight) {
         HandoffEngine old = live;
         if (old != null) old.abort();
         HandoffEngine e = new HandoffEngine(c, mode, density, a1, a2, b1, b2);
-        e.stage.w = w; e.stage.h = h; e.stage.btnX = btnX; e.stage.btnY = btnY;
-        e.stage.homeX = btnX; e.stage.homeY = btnY;
+        e.stage.w = w; e.stage.h = h; e.stage.mirror = nextRoomToTheRight;
+        e.stage.btnX = e.stage.mx(btnX); e.stage.btnY = btnY;
+        e.stage.homeX = e.stage.btnX; e.stage.homeY = btnY;
         live = e;
         e.gl.post(() -> e.setUp(roomA));
         return e;
@@ -149,7 +152,7 @@ public final class HandoffEngine {
     public void ask(float seatX, float seatY) {
         gl.post(() -> {
             if (script != null || over) return;
-            stage.hasSeat = true; stage.seatX = seatX; stage.seatY = seatY;
+            stage.hasSeat = true; stage.seatX = stage.mx(seatX); stage.seatY = seatY;
             script = new HandoffScript(mode, stage, true);
         });
     }
@@ -186,12 +189,14 @@ public final class HandoffEngine {
                 roomB.recycle();
             }
             if (item != null && item.width() > 4f && item.height() > 4f) {
-                stage.itemL = item.left; stage.itemT = item.top; stage.itemR = item.right; stage.itemB = item.bottom;
+                stage.itemL = Math.min(stage.mx(item.left), stage.mx(item.right));
+                stage.itemR = Math.max(stage.mx(item.left), stage.mx(item.right));
+                stage.itemT = item.top; stage.itemB = item.bottom;
             } else {
                 stage.itemL = .2f * stage.w; stage.itemR = .8f * stage.w;
                 stage.itemT = .72f * stage.h; stage.itemB = stage.itemT + 30f;
             }
-            stage.homeX = homeX; stage.homeY = homeY;
+            stage.homeX = stage.mx(homeX); stage.homeY = homeY;
             s.roomReady();
         });
     }

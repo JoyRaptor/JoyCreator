@@ -70,7 +70,8 @@ public final class HandoffHost {
             HandoffEngine e = HandoffEngine.start(a, Handoff.nextMove(a), d, w, h,
                     btn.exactCenterX() / d, btn.exactCenterY() / d, pic,
                     0xFF5C43FD, 0xFF4397FD,                         // JoyBrush's gradient (RoomColours.JB_START / JB_END)
-                    ContextCompat.getColor(a, R.color.s_room_studio), ContextCompat.getColor(a, R.color.s_go_end));
+                    ContextCompat.getColor(a, R.color.s_room_studio), ContextCompat.getColor(a, R.color.s_go_end),
+                    true);                                         // on the lobby dial Studio is the next room to the RIGHT of JoyBrush
             FrameLayout root = new FrameLayout(a);
             ImageView room = new ImageView(a);
             room.setScaleType(ImageView.ScaleType.FIT_XY);
@@ -101,19 +102,38 @@ public final class HandoffHost {
         scrim.setAlpha(1f);
         final View card = dw != null ? dw.getDecorView() : null;
         if (card == null) { engine.ask(60f, .7f * winH); return; }
-        card.post(() -> {
-            // the card itself, not the dialog window's clear margins around it
-            View panel = dialog.findViewById(androidx.appcompat.R.id.parentPanel);
-            View box = panel != null ? panel : card;
-            int[] at = new int[2];
-            box.getLocationOnScreen(at);
-            float left = at[0] / density, top = at[1] / density, bottom = (at[1] + box.getHeight()) / density;
-            // his seat: by the card's lower left corner (his corner in the chat too); above it when there is no room below
-            float seatX = left + 34f;
-            float seatY = bottom + 52f;
-            if (seatY + 44f > winH) seatY = Math.max(60f, top - 44f);
-            engine.ask(seatX, seatY);
-        });
+        card.post(() -> seat(dialog, dw, card, true));
+    }
+
+    /** Room his whole body needs under the card, dp: his seat, his hover, his thruster's rings. */
+    private static final float UNDER_DP = 128f;
+
+    /**
+     * His seat is by the card's lower left corner (his corner in the chat too). A card too tall to
+     * leave him room there (a long list of projects) is shortened and hung from the top: its list
+     * scrolls, and he is never squeezed off the screen.
+     */
+    private void seat(@NonNull Dialog dialog, @NonNull Window dw, @NonNull View card, boolean mayShorten) {
+        View panel = dialog.findViewById(androidx.appcompat.R.id.parentPanel);
+        View box = panel != null ? panel : card;     // the card itself, not the window's clear margins round it
+        int[] at = new int[2];
+        box.getLocationOnScreen(at);
+        float left = at[0] / density, bottom = (at[1] + box.getHeight()) / density;
+        if (mayShorten && winH - bottom < UNDER_DP) {
+            int[] cardAt = new int[2];
+            card.getLocationOnScreen(cardAt);
+            float marginTop = (at[1] - cardAt[1]) / density;
+            float marginBottom = (cardAt[1] + card.getHeight() - at[1] - box.getHeight()) / density;
+            WindowManager.LayoutParams lp = dw.getAttributes();
+            lp.gravity = android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL;
+            lp.y = Math.round(Math.max(0f, 28f - marginTop) * density);
+            dw.setAttributes(lp);
+            float room = winH - 28f - UNDER_DP + marginTop + marginBottom;
+            dw.setLayout(card.getWidth(), Math.round(Math.min(room, card.getHeight() / density) * density));
+            card.post(() -> card.post(() -> seat(dialog, dw, card, false)));
+            return;
+        }
+        engine.ask(left + 34f, Math.min(winH - 60f, bottom + 58f));
     }
 
     /** The answer is in, or there was nothing to ask: he goes into the move. */

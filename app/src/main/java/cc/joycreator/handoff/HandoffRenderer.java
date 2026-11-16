@@ -43,6 +43,9 @@ final class HandoffRenderer {
     private final float[] colA1, colA2, colB1, colB2;
 
     private GlProgram ringP, lightP, spriteP, colourP, screenP, roomP, sheetP, starsP, carryP;
+    /** VisLab's Lyric Flight, for Peel and Carry; null: the plain field (starsP) draws instead. */
+    @Nullable private HandoffStars lyric;
+    private final int a1, a2, b1, b2;
     private int vaoBatch, vboBatch, vaoSprite, vboSprite, vaoEmpty;
     private final int[] texStrip = new int[HandoffMoves.ACTS];
     private int texA, texB;
@@ -53,9 +56,11 @@ final class HandoffRenderer {
     private int quads;
     private final FloatBuffer sprite = ByteBuffer.allocateDirect(6 * 4 * 4).order(ByteOrder.nativeOrder()).asFloatBuffer();
     private final float[] corners = new float[16];
+    private final HandoffMoves.Pose shown = new HandoffMoves.Pose();
     private float viewW, viewH, d = 1f;
     private float tpX, tpY, tpRot;
     private boolean tpSet;
+    private boolean mirror;
     private float haveB, whiteFlash, whiteLife = .18f, glow;
     private final HashMap<String, Integer> locs = new HashMap<>();
 
@@ -63,6 +68,7 @@ final class HandoffRenderer {
         this.app = c.getApplicationContext();
         this.mode = mode;
         this.sprites = sprites;
+        this.a1 = a1; this.a2 = a2; this.b1 = b1; this.b2 = b2;
         colA1 = rgb(a1); colA2 = rgb(a2); colB1 = rgb(b1); colB2 = rgb(b2);
     }
 
@@ -124,6 +130,16 @@ final class HandoffRenderer {
         for (int i = 0; i < texStrip.length; i++) texStrip[i] = upload(sprites.strips[i].picture, false);
         String ext = GLES30.glGetString(GLES30.GL_EXTENSIONS);
         halfFloat = ext != null && (ext.contains("GL_EXT_color_buffer_half_float") || ext.contains("GL_EXT_color_buffer_float"));
+        if (mode == HandoffMoves.PEEL) {
+            lyric = HandoffStars.open(app, a1, a2, b1, b2);
+            if (lyric != null) {
+                // build its programs now, while nothing is moving, not in the middle of his flight
+                GlTarget warm = GlTarget.create(270, 555, GlTarget.RGBA8, 1, true);
+                lyric.draw(0f, 0f, 1f / 60f, warm.fb, warm.w, warm.h);
+                lyric.draw(0f, 1f / 60f, 1f / 60f, warm.fb, warm.w, warm.h);
+                warm.free();
+            }
+        }
     }
 
     /** The room we are leaving, pictured. */
@@ -153,6 +169,8 @@ final class HandoffRenderer {
         GlTarget.free(fxT);
         GlTarget.free(stars);
         trail = fxT = stars = null;
+        if (lyric != null) lyric.release();
+        lyric = null;
     }
 
     private int upload(@NonNull Bitmap b, boolean mips) {
@@ -209,23 +227,25 @@ final class HandoffRenderer {
     /** Draw {@code f} into the bound window surface of {@code w} x {@code h} pixels. */
     void render(@NonNull HandoffScript.Frame f, @NonNull HandoffMoves.Stage s, float density, int w, int h, float dt) {
         d = density;
+        mirror = s.mirror;
         viewW = w / d;
         viewH = h / d;
         ensureTargets(w, h);
         HandoffMoves.Pose him = f.him;
+        if (s.mirror) { shown.mirrored(f.him, s.w); him = shown; }
         float pegUp = s.cell * sprites.pegShare();
         fx.step(dt * 1000f, him.x, him.y, him.rot, him.sc, him.fx, pegUp, him.visible);
         if (f.launched) fx.puff(him.x, him.y, 0f, 1.4f);
         if (f.kick) {
-            fx.land(s.x(350f), s.y(390f), 1.5f);
+            fx.land(s.mx(s.x(350f)), s.y(390f), 1.5f);
             whiteFlash = .6f; whiteLife = .14f;
         }
         if (f.slap) {
-            fx.land(s.itemCx(), s.itemCy(), 1.3f);
+            fx.land(s.mx(s.itemCx()), s.itemCy(), 1.3f);
             whiteFlash = .7f; whiteLife = .18f;
             glow = 1f;
         }
-        if (f.done) fx.puff(s.homeX, s.homeY, 0f, 1.2f);
+        if (f.done) fx.puff(s.mx(s.homeX), s.homeY, 0f, 1.2f);
         if (texB != 0) haveB = Math.min(1f, haveB + dt / .15f);
         glow = Math.max(0f, glow - dt / 1.3f);
 
@@ -280,7 +300,7 @@ final class HandoffRenderer {
         // the new item's glow, in the house's "on" cyan, once it is down
         if (glow > 0f) {
             float gw = (s.itemR - s.itemL) * .5f + 26f, gh = (s.itemB - s.itemT) * .5f + 20f;
-            light(s.itemCx(), s.itemCy(), gw, gh, 0f, 34f / 255f, 211f / 255f, 238f / 255f, .55f * glow,
+            light(s.mx(s.itemCx()), s.itemCy(), gw, gh, 0f, 34f / 255f, 211f / 255f, 238f / 255f, .55f * glow,
                     34f / 255f, 211f / 255f, 238f / 255f, .3f * glow, .55f, 0f);
             flush(lightP, px2, add);
         }
@@ -328,13 +348,16 @@ final class HandoffRenderer {
 
         // the star field behind the peeled room
         if (mode == HandoffMoves.PEEL && f.rooms && stars != null && f.p > .01f && f.p < .999f) {
-            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, stars.fb);
-            GLES30.glViewport(0, 0, stars.w, stars.h);
-            GLES30.glDisable(GLES30.GL_BLEND);
-            roomUniforms(starsP, f, w, h);
-            GLES30.glBindVertexArray(vaoEmpty);
-            GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3);
-            GLES30.glEnable(GLES30.GL_BLEND);
+            float k = HandoffMoves.ss(.34f, .76f, f.p);
+            if (lyric == null || !lyric.draw(k, f.t, dt, stars.fb, stars.w, stars.h)) {
+                GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, stars.fb);
+                GLES30.glViewport(0, 0, stars.w, stars.h);
+                GLES30.glDisable(GLES30.GL_BLEND);
+                roomUniforms(starsP, f, w, h);
+                GLES30.glBindVertexArray(vaoEmpty);
+                GLES30.glDrawArrays(GLES30.GL_TRIANGLES, 0, 3);
+                GLES30.glEnable(GLES30.GL_BLEND);
+            }
         }
 
         // 3. the window
@@ -373,7 +396,7 @@ final class HandoffRenderer {
             }
             // the ball forming in the middle of the sweep, before he picks it up
             if (mode == HandoffMoves.VACUUM && f.phase == HandoffScript.Phase.MAIN && !him.carry && him.load > .02f) {
-                carried(s.c0x(), s.c0y(), (.04f + .16f * him.load) * s.cell * 1.6f, 0f, 1f, f.t, 1f);
+                carried(s.mx(s.c0x()), s.c0y(), (.04f + .16f * him.load) * s.cell * 1.6f, 0f, 1f, f.t, 1f);
             }
         }
         if (whiteFlash > 0f) {
@@ -393,9 +416,9 @@ final class HandoffRenderer {
                 // in his fists at his chest, his mouth showing over it (owner, 16 Nov)
                 float size = s.cell * him.sc;
                 float cs = (float) Math.cos(him.rot), sn = (float) Math.sin(him.rot);
-                float lx = HandoffMoves.CHEST_X * size, ly = HandoffMoves.CHEST_Y * size;
+                float lx = HandoffMoves.CHEST_X * size * (him.flip ? -1f : 1f), ly = HandoffMoves.CHEST_Y * size;
                 float cx = him.x + lx * cs - ly * sn, cy = him.y + lx * sn + ly * cs;
-                if (mode == HandoffMoves.PEEL) carried(cx, cy, .26f * size, .065f * size, 0f, f.t, him.rot - .28f);
+                if (mode == HandoffMoves.PEEL) carried(cx, cy, .26f * size, .065f * size, 0f, f.t, him.rot + (s.mirror ? .28f : -.28f));
                 else carried(cx, cy + .02f * size, .15f * size, 0f, 1f, f.t, 1f);
             }
         }
@@ -422,6 +445,7 @@ final class HandoffRenderer {
         GLES30.glUniform1f(loc(p, "uT"), f.t);
         GLES30.glUniform1f(loc(p, "uAspect"), h / (float) w);
         GLES30.glUniform2f(loc(p, "uGrab"), f.gx, f.gy);
+        GLES30.glUniform1f(loc(p, "uMirror"), mirror ? 1f : 0f);
         GLES30.glUniform3f(loc(p, "uA1"), colA1[0], colA1[1], colA1[2]);
         GLES30.glUniform3f(loc(p, "uA2"), colA2[0], colA2[1], colA2[2]);
         GLES30.glUniform3f(loc(p, "uB1"), colB1[0], colB1[1], colB1[2]);

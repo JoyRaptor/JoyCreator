@@ -78,6 +78,15 @@ final class HandoffMoves {
         /** The new item's rectangle in the next room. */
         float itemL = 56f, itemT = 598f, itemR = 340f, itemB = 630f;
         float homeX = 336f, homeY = 40f;
+        /**
+         * The move is played mirrored: the next room lies to the RIGHT of this one on the lobby dial, so it
+         * comes in from the right (the moves are written for a room that comes in from the left). Everything
+         * in this file stays in the move's own space; places are flipped on the way in ({@link #mx}) and
+         * the drawing is flipped on the way out.
+         */
+        boolean mirror;
+        /** A real screen x into the move's space, or back. */
+        float mx(float realX) { return mirror ? w - realX : realX; }
 
         float x(float sheetX) { return sheetX * w / 360f; }
         float y(float sheetY) { return sheetY * h / 740f; }
@@ -125,6 +134,13 @@ final class HandoffMoves {
         }
 
         void set(float px, float py, float scale) { x = px; y = py; sc = scale; }
+
+        /** This pose as it is drawn on a screen {@code w} wide when the move is played mirrored. */
+        void mirrored(Pose from, float w) {
+            x = w - from.x; y = from.y; sc = from.sc; rot = -from.rot; sx = from.sx; sy = from.sy;
+            flip = !from.flip; visible = from.visible; act = from.act; hand = from.hand;
+            hx = w - from.hx; hy = from.hy; carry = from.carry; load = from.load; fx = from.fx;
+        }
     }
 
     // ── small maths ─────────────────────────────────────────────────────────

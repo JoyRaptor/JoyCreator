@@ -4,7 +4,7 @@
 uniform float uSheet;      // 0..1 how far it has been dragged in
 uniform float uOff;        // where the leaving room's left edge was left, as a share of the screen's width
 void main() {
-    vec2 v = vec2(vUv.x, 1.0 - vUv.y);
+    vec2 v = scr();
     float e = uSheet;
     float fl = 1.0 + 2.5 * smoothstep(0.75, 1.0, e);
     vec2 d = (v - uGrab) * vec2(1.0, uAspect * fl);

@@ -2,12 +2,12 @@
 // curl), the zooming star field is behind it, and the arriving room bursts open out of the middle.
 uniform sampler2D uStars;  // the star field, drawn by its own pass
 void main() {
-    vec2 v = vec2(vUv.x, 1.0 - vUv.y);
+    vec2 v = scr();
     float pp = clamp(uP, 0.0, 1.0);
     float a = smoothstep(0.0, 0.3, pp), c = smoothstep(0.8, 1.0, pp);
     float f = (v.x * 0.55 + v.y) / 1.55;
     float th = 1.02 - a * 1.2, w = 0.09;
-    vec3 stars = texture(uStars, vUv).rgb;
+    vec3 stars = texture(uStars, vec2(pic(v).x, vUv.y)).rgb;
     vec3 col;
     if (f < th) {
         col = roomA(v);

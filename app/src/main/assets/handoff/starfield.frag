@@ -2,7 +2,7 @@
 // give way to the arriving room's (uP). This is the stand-in for VisLab's Lyric Flight field, which
 // the owner picked for this (16 Nov); it is used only where that engine cannot be started.
 void main() {
-    vec2 v = vec2(vUv.x, 1.0 - vUv.y);
+    vec2 v = scr();
     float k = smoothstep(0.34, 0.76, clamp(uP, 0.0, 1.0));
     vec2 q = (v - vec2(0.5, 0.47)) * vec2(1.0, uAspect);
     float r = length(q) + 0.001, an0 = atan(q.y, q.x) / 6.28318 + 0.5;

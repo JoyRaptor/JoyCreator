@@ -3747,6 +3747,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         if (benchWatch && benchErrors.size < 50) benchErrors.add("$where: ${e.javaClass.simpleName}: ${e.message}")
     }
 
+    /**
+     * Debug bench only (R2-JB-01): the [n]th layer tile made from now on fails as if the phone had no graphics memory; -1
+     * switches it off. Queued like any canvas command, so it takes effect between the commands around it. [was] hears the
+     * count it replaced (below zero after a fault was reached).
+     */
+    fun benchFailLayerTile(n: Int, was: ((Int) -> Unit)? = null) {
+        val debug = context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0
+        onGl(allowLost = true) {
+            val old = engine.benchFailLayerTileIn
+            engine.benchFailLayerTileIn = if (debug) n else -1
+            if (was != null) post { was(old) }
+        }
+    }
+
     /** Reads the active layer back on the GL thread, behind everything already queued (so it is also a fence). */
     fun benchState(readPixels: Boolean = true, ready: (BenchState?, String?) -> Unit) {
         onGl(allowLost = true) {

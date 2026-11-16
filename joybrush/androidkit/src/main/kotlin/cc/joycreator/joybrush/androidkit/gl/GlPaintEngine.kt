@@ -8074,8 +8074,13 @@ class GlPaintEngine(
         return GLES30.glCheckFramebufferStatus(GLES30.GL_READ_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE
     }
 
-    private fun newLayerTile(): Int = freeLayerTex.removeLastOrNull()
-        ?: newTexture(size, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+    /** Debug bench only (DuplicateFailureBench, R2-JB-01): the layer tile that cannot be made, counted down from here; -1 in the app. */
+    internal var benchFailLayerTileIn = -1
+
+    private fun newLayerTile(): Int {
+        if (benchFailLayerTileIn >= 0 && benchFailLayerTileIn-- == 0) throw GraphicsMemoryException("bench: no graphics memory for a layer tile")
+        return freeLayerTex.removeLastOrNull() ?: newTexture(size, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE)
+    }
 
     private fun newStrokeTile(): Int {
         val tex = if (strokeIsRgba) {

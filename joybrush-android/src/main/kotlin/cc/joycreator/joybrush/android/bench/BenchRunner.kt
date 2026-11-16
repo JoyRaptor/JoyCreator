@@ -511,6 +511,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             }
             return
         }
+        if (case == "duplicateFailureProbe") {
+            // R2-JB-01: a layer copy the phone has no memory for, on a layer with frames, a mask and strokes.
+            DuplicateFailureBench(canvas, spec, run) { next() }.start()
+            return
+        }
         if (case == "lostTileProbe") {
             canvas.runLostTileProbe { result ->
                 val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }

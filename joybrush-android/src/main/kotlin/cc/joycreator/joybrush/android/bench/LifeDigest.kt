@@ -15,7 +15,9 @@ object LifeDigest {
     fun log(canvas: JbCanvasView, label: String) {
         canvas.snapshot({ c ->
             Log.i(BenchRunner.TAG, "life: digest $label: ${c.tiles.size} picture tiles ${hex(sum(c.tiles))}, " +
-                "${c.mediaTiles.size} paint store tiles ${hex(sum(c.mediaTiles))}, ${c.doc.layers.size} layers")
+                "${c.mediaTiles.size} paint store tiles ${hex(sum(c.mediaTiles))}, ${c.doc.layers.size} layers" +
+                // Editable lines (JBX-42): how many the drawing keeps AS lines, and a checksum of their records.
+                (if (c.strokes.isEmpty()) "" else ", ${c.strokes.values.sumOf { it.size }} editable lines ${hex(sum(c.strokes.mapValues { (_, l) -> cc.joycreator.joybrush.core.stroke.StrokeCodec.encodeAll(l) }))}"))
         }, { why -> Log.w(BenchRunner.TAG, "life: digest $label FAILED: $why") }, keepWet = true)
     }
 

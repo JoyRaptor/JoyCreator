@@ -94,7 +94,7 @@ class BoardRuntimeController(private val context: Context, private val parent: F
     private var contentRevision = Long.MIN_VALUE
     private var pendingSelection: String? = null
     private var pendingClipHint = false
-    private val art = object : LruCache<Pair<String, String>, Bitmap>(8 * 1024 * 1024) {
+    private val art = object : LruCache<Pair<String, String>, Bitmap>(THUMB_CACHE_BYTES) {
         override fun sizeOf(key: Pair<String, String>, value: Bitmap) = value.allocationByteCount
     }
     private val requested = mutableSetOf<Pair<String, String>>()
@@ -399,7 +399,8 @@ class BoardRuntimeController(private val context: Context, private val parent: F
                 liftedCellOffset = spriteLiftOffset, reducedMotion = reducedMotion, wiggleElapsedMs = now,
                 end=b.end,playingAll=allClips!=null,overlaps=overlaps)
             v.show(penFades.getOrPut(b.id) { BoardChromePenFade() }.apply(input, now))
-            if (b.kind == BoardKind.ANIMATION && session.selectedBoardId == b.id) requestArt(b, rect.width, density)
+            if (b.kind == BoardKind.ANIMATION && session.selectedBoardId == b.id)
+                requestArt(b, rect, input.screen, t.panX + margin, t.panY + margin, t.rotation, density)
             if (b.kind == BoardKind.SPRITE && session.selectedBoardId == b.id && geometryPreview == null) requestSpriteArt(b)
         }
         session.selectedBoardId?.let { views[it]?.bringToFront() }
@@ -410,10 +411,22 @@ class BoardRuntimeController(private val context: Context, private val parent: F
             parent.postDelayed(armedTick,80)
     }
 
-    private fun requestArt(b: Board, width: Float, density: Float) {
+    /**
+     * Thumbnails for the frames of [b]'s strip that are on screen (JB-ANIM-03): the strip's own width cut
+     * to what the screen shows, turned with the canvas, plus a quarter screen each side. Never more than
+     * half of what the cache holds, so a batch can never push out frames still wanted and start again.
+     */
+    private fun requestArt(b: Board, rect: Chrome.Rect, screen: Chrome.Rect, pivotX: Float, pivotY: Float, rotation: Float, density: Float) {
         if (penDown) return
+        val window = cc.joycreator.joybrush.core.chrome.FrameStripWindow.visible(screen, pivotX, pivotY, rotation,
+            prefetch = (screen.right - screen.left) / 4f)
+        // The strip runs along the board's edge: a board above or below the screen shows none of it.
+        if (rect.bottom + 80 * density < window.top || rect.top - 80 * density > window.bottom) return
+        val from = maxOf(0f, window.left - rect.left)
+        val until = minOf(rect.width, window.right - rect.left)
         var x = -(scroll[b.id] ?: 0).toFloat()
-        val visible = b.frames.filter { f -> val start = x; x += f.holdFrames * 44 * density; start < width && x > 0 }
+        val visible = b.frames.filter { f -> val start = x; x += f.holdFrames * 44 * density; start < until && x > from }
+            .take(MAX_THUMB_DEMAND)
             .filter { art[b.id to it.id] == null && (b.id to it.id) !in requested }.take(16)
         if (visible.isEmpty()) return
         val stamp = artEpoch
@@ -990,6 +1003,10 @@ class BoardRuntimeController(private val context: Context, private val parent: F
         }
     }
     companion object {
+        /** Frame thumbnails held at once (80 x 80, 25.6 KB each: about 327). */
+        internal const val THUMB_CACHE_BYTES = 8 * 1024 * 1024
+        /** At most half of them asked for at once (JB-ANIM-03), so a batch never pushes out a frame still wanted. */
+        internal const val MAX_THUMB_DEMAND = THUMB_CACHE_BYTES / (80 * 80 * 4) / 2
         internal fun resized(r: RectPx, handle: Int, dx: Int, dy: Int): RectPx {
             require(handle in 0..7)
             var left = r.x.toLong(); var top = r.y.toLong(); var right = left + r.w; var bottom = top + r.h

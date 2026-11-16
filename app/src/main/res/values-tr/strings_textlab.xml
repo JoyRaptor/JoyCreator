@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Bu telefonun grafikleri TextLab görünümlerini çizemiyor. Başlıkların yine de sade kelimeler olarak görünür.</string>
     <string name="textlab_trouble_memory">Telefonun belleği bu görünüm için yetmedi. Diğer uygulamaları kapat ve tekrar dene.</string>
     <string name="textlab_trouble_other">Bu görünüm bu telefonda çizilemedi. Başka bir görünüm dene; başlıkların yine de sade kelimeler olarak görünür.</string>
+    <string name="textlab_draft_title">Kaydedilmemiş değişikliklerin</string>
+    <string name="textlab_draft_body">%1$s üzerindeki değişikliklerin geçen sefer kaydedilmedi. Geri getirilsin mi?</string>
+    <string name="textlab_draft_bring">Geri getir</string>
+    <string name="textlab_draft_let_go">Bırak gitsin</string>
 </resources>

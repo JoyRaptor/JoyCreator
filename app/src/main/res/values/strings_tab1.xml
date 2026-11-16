@@ -13,4 +13,6 @@
     <string name="tab1_settings_column">Beside the picture, the drawer runs the full height and the timeline sits under the picture only. Off: the editing desk, with the timeline full width.</string>
     <string name="tab1_settings_left_title">Left-hand drawers</string>
     <string name="tab1_settings_left">The drawer stands on the left of the picture instead of the right.</string>
+    <string name="tab1_settings_split_title">Second drawer on the other side</string>
+    <string name="tab1_settings_split">When a small drawer (volume, opacity, loop, move...) opens with another drawer beside the picture, it stands on the other side of the picture, as in an editing suite. Off: it stacks above the other drawer in the same column.</string>
 </resources>

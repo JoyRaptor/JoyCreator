@@ -3874,6 +3874,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     }
 
+    /** A wash when the phone has no graphics memory for a cancel's copy or for an undo's sheet (debug bench only; WetSheetFailureProbe). */
+    fun runWetSheetFailureProbe(preset: BrushPreset, ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Wet sheet failure probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        val memory = {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(info)
+            info.availMem to info.threshold
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.media.WetSheetFailureProbe.probe(paper, preset, memory)
+            } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
     /** The owner's oil hairlines (debug bench only): seams at tile boundaries, atlas vs window (MediaSeamProbe). */
     fun runMediaSeamProbe(preset: BrushPreset, ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {

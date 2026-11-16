@@ -63,6 +63,16 @@ public final class SongPlayer implements SoundSource {
         });
     }
 
+    @androidx.annotation.Nullable private volatile Runnable onFailed;
+
+    /**
+     * Run (on the song's own thread) when the song stops because it cannot be read or decoded,
+     * which happens after {@link #start} has already said yes. The room tells the person.
+     */
+    public void setOnFailed(@androidx.annotation.Nullable Runnable r) {
+        onFailed = r;
+    }
+
     public void setLooping(boolean loop) {
         looping = loop;
     }
@@ -210,6 +220,9 @@ public final class SongPlayer implements SoundSource {
             }
         } catch (IOException | RuntimeException e) {
             Log.w(TAG, "song stopped", e);
+            // Not stopped by the room: the song could not be decoded. Say so (KNOWN-LAB-03).
+            Runnable f = onFailed;
+            if (running && f != null) f.run();
         } finally {
             if (codec != null) {
                 try {
@@ -257,6 +270,11 @@ public final class SongPlayer implements SoundSource {
     }
 
     private void writeOut(short[] pcm, int samples, int channels) {
+        if (channels > 2) {
+            // 5.1 and the like: the track and the ring are stereo, so fold it down first (LAB-07).
+            samples = StereoDownmix.fold(pcm, samples, channels, pcm) * 2;
+            channels = 2;
+        }
         int frames = samples / Math.max(1, channels);
         int done = 0;
         while (running && done < samples) {

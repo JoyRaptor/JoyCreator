@@ -83,6 +83,51 @@ public final class SpriteSheetRenderer {
     @Nullable
     public static SpriteSheetRenderer load(@NonNull Context ctx, @NonNull SpriteSheet sheet,
                                            int sequenceMaxDim) {
+        return load(ctx, sheet, sequenceMaxDim, MAX_DECODE_DIM, Long.MAX_VALUE);
+    }
+
+    /** Longest edge an export decodes a sequence frame at (the preview's default is 512). */
+    private static final int EXPORT_SEQUENCE_DIM = 2048;
+    /** Never more than this for one decoded export sheet, however much memory is free. */
+    private static final long EXPORT_MAX_BYTES = 128L * 1024 * 1024;
+
+    /**
+     * A renderer for BAKING, not for the screen (audit SP-03): "Keep cell size" used to bake at
+     * the preview's 2048-pixel decode, so a 1024-pixel cell of an 8192 sheet came out 256. This
+     * decodes the sheet as large as {@code share} of the memory the phone has free allows (and
+     * at most {@link #EXPORT_MAX_BYTES}), full size when it fits; sequence frames at 2048 rather
+     * than 512. {@link #isReduced()} says when it still had to be smaller than the source.
+     *
+     * @param share fraction of free memory this decode may use (a packed bake also needs room
+     *              for its output, so it asks for less than numbered frames do)
+     */
+    @Nullable
+    public static SpriteSheetRenderer loadForExport(@NonNull Context ctx, @NonNull SpriteSheet sheet,
+                                                    float share) {
+        long budget = EXPORT_MAX_BYTES;
+        try {
+            android.app.ActivityManager am = (android.app.ActivityManager)
+                    ctx.getSystemService(Context.ACTIVITY_SERVICE);
+            if (am != null) {
+                android.app.ActivityManager.MemoryInfo mi = new android.app.ActivityManager.MemoryInfo();
+                am.getMemoryInfo(mi);
+                budget = Math.min(budget, (long) (Math.max(0L, mi.availMem - mi.threshold) * share));
+            }
+        } catch (RuntimeException ignored) {
+            // keep the cap
+        }
+        budget = Math.max(budget, 16L * 1024 * 1024);   // never below the preview's own size
+        return load(ctx, sheet, EXPORT_SEQUENCE_DIM, Integer.MAX_VALUE, budget);
+    }
+
+    /** True when the decode is smaller than the source picture (a grid sheet only). */
+    public boolean isReduced() {
+        return frames == null && sample > 1.01f;
+    }
+
+    @Nullable
+    private static SpriteSheetRenderer load(@NonNull Context ctx, @NonNull SpriteSheet sheet,
+                                            int sequenceMaxDim, int gridMaxDim, long gridMaxBytes) {
         if (sheet.isSequence()) return loadSequence(ctx, sheet, sequenceMaxDim);
         try {
             Uri uri = Uri.parse(sheet.getSheetUri());
@@ -93,7 +138,9 @@ public final class SpriteSheetRenderer {
             }
             if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null;
             int inSample = 1;
-            while (Math.max(bounds.outWidth, bounds.outHeight) / inSample > MAX_DECODE_DIM) {
+            while (Math.max(bounds.outWidth, bounds.outHeight) / inSample > gridMaxDim
+                    || (long) (bounds.outWidth / inSample) * (bounds.outHeight / inSample) * 4L
+                            > gridMaxBytes) {
                 inSample *= 2;
             }
             BitmapFactory.Options opts = new BitmapFactory.Options();

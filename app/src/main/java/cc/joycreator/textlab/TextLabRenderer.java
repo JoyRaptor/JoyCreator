@@ -220,6 +220,13 @@ public final class TextLabRenderer {
         photoAspect = (double) bmp.getWidth() / bmp.getHeight();
     }
 
+    /** No picture behind the words (a renderer shared by many looks must not show one look's picture on another). */
+    public void clearPhoto() {
+        TlGl.deleteTexture(photo);
+        photo = 0;
+        photoAspect = 0;
+    }
+
     public int width() {
         return W;
     }

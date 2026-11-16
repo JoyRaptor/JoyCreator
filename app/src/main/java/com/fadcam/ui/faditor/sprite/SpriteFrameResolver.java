@@ -80,7 +80,7 @@ public final class SpriteFrameResolver {
         // inside the evaluator itself. Only reachable via hand-edited JSON with preset.fps above
         // MAX_FPS, which is exactly the sort of thing that gets found late.
         float fps = SequenceTiming.clampFps(preset.fps > 0f ? preset.fps : sheet.getFps());
-        long elapsed = localMs - active.timeMs;
+        long elapsed = localMs - active.timeMs + Math.max(0, active.phaseMs);
         long frameOrdinal = (long) Math.floor(elapsed * fps / 1000.0);
 
         String type = preset.type;
@@ -211,8 +211,19 @@ public final class SpriteFrameResolver {
             // started at frame 5, the marks would describe an animation nobody is watching.
             long startTick = SequenceTiming.tickAtIndex(preset.weights, n,
                     item.getSequenceStartFrame());
+            // A split's right half begins part-way into the run (FrameTrack.Key#phaseMs): the
+            // run's virtual start is that much earlier, and the frame already on screen at the
+            // entry's own time comes in AT that time. Zero phase is the old walk exactly.
+            long phase = Math.max(0, k.phaseMs);
+            long virtualStart = k.timeMs - phase;
             long tick = 0;
             int pass = 0;
+            if (phase > 0 && !once) {
+                // Jump whole cycles (one short, to stay clear of rounding) rather than walk an
+                // hour of loops to find where the run is.
+                long skip = (long) Math.floor(phase * fps / 1000.0 / cycleTicks) - 1;
+                if (skip > 0) { tick = skip * cycleTicks; pass = (int) Math.min(skip, 1 << 20); }
+            }
             walk:
             while (true) {
                 for (int i = 0; i < order.length; i++) {
@@ -223,7 +234,15 @@ public final class SpriteFrameResolver {
                     // ceil, not round: resolveCellAt inverts with floor(elapsed*fps/1000), so a
                     // mark drawn at a rounded-DOWN time resolves to the PREVIOUS frame and
                     // scrubbing onto a mark would show the picture before it.
-                    long tMs = k.timeMs + (long) Math.ceil((tick - startTick) * 1000.0 / fps);
+                    long tMs = virtualStart
+                            + (long) Math.ceil((tick - startTick) * 1000.0 / fps);
+                    if (phase > 0 && tMs < k.timeMs) {
+                        boolean heldForever = once && i == order.length - 1;
+                        long nextMs = virtualStart + (long) Math.ceil(
+                                (tick + weights[i] - startTick) * 1000.0 / fps);
+                        if (!heldForever && nextMs <= k.timeMs) { tick += weights[i]; continue; }
+                        tMs = k.timeMs;
+                    }
                     if (tMs >= spanEnd || tMs > toLocalMs) break walk;
                     if (tMs >= fromLocalMs) {
                         int cell = validCellOrNone(sheet, preset.frames.get(order[i]));

@@ -1025,6 +1025,40 @@ class BoardRuntimeControllerTest {
         assertThrows(DocException::class.java) { host.queued.single()(changed) }
     }
 
+    /**
+     * JB-ANIM-03 (Codex audit 11-15): a zoomed board 64 000 px wide with 400 frames asked for every frame
+     * across its width, more than the cache holds, so answering batches pushed out frames still wanted and
+     * it never stopped. Now only the frames on screen are asked for, and once answered it rests.
+     */
+    @Test fun aWideZoomedBoardAsksOnlyForFramesOnScreenAndThenRests() {
+        val base = JbDocument(id="drawing",name="Drawing",boards=listOf(Board("page","Page",BoardKind.CANVAS,RectPx(0,0,548,1126))),
+            layers=listOf(Layer("paint","Paint",LayerKind.PAINT,cels=listOf(Cel("shared")))))
+        var n = 0
+        var doc = RegionDocumentOps.create(base,"Animation",RectPx(0,100,1000,100)) { "id-${++n}" }.doc
+        val id = doc.boards.last().id
+        repeat(399) { doc = RegionDocumentOps.addFrame(doc,id,NewFrame.BLANK) { "f-${++n}" }.doc }
+        val host = Host(doc).apply { transform.zoom = 64f; transform.panX = 0f; transform.panY = -100f * 64f + 200f }
+        val (controller,_) = setup(host)
+        controller.select(id)
+        val asked = mutableSetOf<String>()
+        var answered = 0
+        while (answered < host.thumbnails.size && answered < 100) {
+            val (frames, ready) = host.thumbnails[answered++]
+            asked += frames
+            ready(frames.associateWith { IntArray(6400) { 0xff00ff00.toInt() } })
+        }
+        assertTrue("it rests once the frames on screen have pictures", answered < 100)
+        assertTrue("the frames on screen get pictures", asked.isNotEmpty())
+        // 548 px of screen and a quarter each side, at 44 px a frame: about 19 frames, never hundreds.
+        assertTrue("asked for ${asked.size} frames", asked.size <= 30)
+        val order = host.document.boards.last().frames.map { it.id }
+        val at = asked.map { order.indexOf(it) }.sorted()
+        assertEquals("one run of neighbouring frames, the ones on screen", (at.first()..at.last()).toList(), at)
+        repeat(3) { controller.refreshTransform() }
+        assertEquals("and nothing more while nothing changes", answered, host.thumbnails.size)
+        controller.stop()
+    }
+
     @Test fun emptyThumbnailReplyWaitsForNewContentBeforeRetrying() {
         val host = Host(document()); val (controller,_) = setup(host)
         controller.select(host.document.boards.last().id)

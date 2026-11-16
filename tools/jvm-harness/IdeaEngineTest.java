@@ -1537,6 +1537,18 @@ public class IdeaEngineTest {
     static void bot7CreateTree() {
         com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind k;
         java.util.Map<String, Integer> none = new java.util.HashMap<>();
+        // BOT-A8 (Note 9 11-15): "how do I make a board" in the lobby started the create questions,
+        // and every later message got "Try a shape". A how-to the book answers is a question; mid-create,
+        // a question lets go and "stop" ends it; real answers still answer.
+        check("tree A8: how do I make a board is help", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.helpQuestion("how do I make a board"), "");
+        check("tree A8: make a board is still an order", !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.helpQuestion("make a board"), "");
+        check("tree A8: a question leaves", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere("how does the onion peg work"), "");
+        check("tree A8: where is leaves", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere("where is smart detection"), "");
+        check("tree A8: stop stops", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.stops("never mind"), "");
+        for (String a : new String[]{"3:1", "16:9", "square", "12", "12 fps", "2-point", "a walk cycle", "Hero sheet", "wide", "64"}) {
+            check("tree A8: an answer stays: " + a, !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere(a)
+                    && !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.stops(a), a);
+        }
         // The bubbles: the owner's order for a new person, then most-made first.
         StringBuilder ids = new StringBuilder();
         for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind x : com.fadcam.ui.faditor.ai.joybot.CreateTree.ordered(none)) ids.append(x.id).append(' ');

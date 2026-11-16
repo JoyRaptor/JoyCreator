@@ -137,21 +137,39 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
         });
         session = VisLabSession.get(this);
         buildUi();
-        String want = getIntent().getStringExtra(EXTRA_LOOK);
-        if (want != null) {
-            List<VisScene> looks = session.looks();
-            for (int i = 0; i < looks.size(); i++) if (looks.get(i).id().equals(want)) session.roomPicked(i);
-        }
-        String wantFile = getIntent().getStringExtra(EXTRA_LOOK_FILE);
-        if (wantFile != null) {
-            List<VisScene> looks = session.looks();
-            for (int i = 0; i < looks.size(); i++) {
-                if (wantFile.equalsIgnoreCase(session.lookFile(looks.get(i).id()))) { session.roomPicked(i); break; }
-            }
-        }
+        final String want = getIntent().getStringExtra(EXTRA_LOOK);
+        final String wantFile = getIntent().getStringExtra(EXTRA_LOOK_FILE);
+        int first = wantedLook(want, wantFile);
+        if (first >= 0) session.roomPicked(first);
         session.bind(this);
+        // On a cold start the person's own looks are still being read: pick again once they are,
+        // or the room keeps the previous look (KNOWN-LAB-02). Only for the first creation: a
+        // rotation keeps whatever was picked since.
+        if (state == null && (want != null || wantFile != null)) {
+            session.whenLoaded(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                int i = wantedLook(want, wantFile);
+                if (i < 0) {
+                    Toast.makeText(this, getString(R.string.vl_room_look_gone), Toast.LENGTH_LONG).show();
+                } else if (i != session.current()) {
+                    session.roomPicked(i);
+                    session.bind(this);   // tells the room the look on screen changed
+                }
+            });
+        }
+        session.whenLoaded(this::ownOldSheets);
         useSource(SRC_DEMO, null);
         if (state == null && getIntent().getBooleanExtra(EXTRA_NEW_LOOK, false)) view.post(this::startNewLook);
+    }
+
+    /** The look the room was opened for (by id, or by its file name from Library), or -1. */
+    private int wantedLook(@Nullable String id, @Nullable String file) {
+        List<VisScene> looks = session.looks();
+        for (int i = 0; i < looks.size(); i++) {
+            if (id != null && looks.get(i).id().equals(id)) return i;
+            if (file != null && file.equalsIgnoreCase(session.lookFile(looks.get(i).id()))) return i;
+        }
+        return -1;
     }
 
     /** A look built from nothing, as the strip's "+ New" card makes it. */
@@ -674,15 +692,74 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 String nowId = now != null && now.isJsonObject() && now.getAsJsonObject().has("id")
                         ? now.getAsJsonObject().get("id").getAsString() : null;
                 LookSheets.chooseSheet(this, sheets, nowId, pick -> {
-                    beginEdit("Sprite sheet");
-                    if (pick == null) layer.remove("sheet");
-                    else layer.add("sheet", pick.sheet.deepCopy());
-                    layer.remove("clip");
-                    edited();
-                    panel.rebuild();
+                    if (pick == null) {
+                        applySheet(layer, null);
+                        return;
+                    }
+                    // The look keeps its own copy of the pictures, so deleting the project the
+                    // sheet came from cannot take them away (audit XROOM-03). Files: off the
+                    // main thread.
+                    java.io.File home = new java.io.File(getFilesDir(), SheetCopies.FOLDER);
+                    com.google.gson.JsonObject chosen = pick.sheet.deepCopy();
+                    new Thread(() -> {
+                        com.google.gson.JsonObject owned = SheetCopies.own(home, chosen);
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed()) applySheet(layer, owned);
+                        });
+                    }, "VisSheetCopy").start();
                 });
             });
         }, "VisSheetShelf").start();
+    }
+
+    /**
+     * Looks saved before a look owned its sprite pictures (XROOM-03) still link into the project
+     * the sheet came from. While that project is still here, give each such look its own copy,
+     * once, quietly: the look shows exactly the same, so it is not an undo step.
+     */
+    private void ownOldSheets() {
+        final List<com.google.gson.JsonObject> layers = new java.util.ArrayList<>();
+        final List<com.google.gson.JsonObject> before = new java.util.ArrayList<>();
+        final List<VisScene> owners = new java.util.ArrayList<>();
+        for (VisScene s : session.looks()) {
+            for (com.google.gson.JsonElement le : s.layers()) {
+                if (!le.isJsonObject()) continue;
+                com.google.gson.JsonElement se = le.getAsJsonObject().get("sheet");
+                if (se == null || !se.isJsonObject()) continue;
+                layers.add(le.getAsJsonObject());
+                before.add(se.getAsJsonObject().deepCopy());
+                owners.add(s);
+            }
+        }
+        if (layers.isEmpty()) return;
+        java.io.File home = new java.io.File(getFilesDir(), SheetCopies.FOLDER);
+        new Thread(() -> {
+            List<com.google.gson.JsonObject> after = new java.util.ArrayList<>();
+            for (com.google.gson.JsonObject b : before) after.add(SheetCopies.own(home, b));
+            runOnUiThread(() -> {
+                boolean any = false;
+                for (int i = 0; i < layers.size(); i++) {
+                    com.google.gson.JsonObject a = after.get(i);
+                    // Only where nothing changed meanwhile, and only when there was something to copy.
+                    if (a == before.get(i) || !before.get(i).equals(layers.get(i).get("sheet"))) continue;
+                    layers.get(i).add("sheet", a);
+                    owners.get(i).touch();
+                    any = true;
+                }
+                if (any) session.roomEdited();
+            });
+        }, "VisSheetCopyOld").start();
+    }
+
+    /** One undo step: the layer plays this sheet (null: the built-in one) from its first animation. */
+    private void applySheet(@NonNull com.google.gson.JsonObject layer,
+                            @Nullable com.google.gson.JsonObject sheet) {
+        beginEdit("Sprite sheet");
+        if (sheet == null) layer.remove("sheet");
+        else layer.add("sheet", sheet);
+        layer.remove("clip");
+        edited();
+        panel.rebuild();
     }
 
     // ------------------------------------------------------------------ sound
@@ -725,6 +802,18 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             else if (com.fadcam.vislab.audio.ModSource.isMod(this, song)) s = new com.fadcam.vislab.audio.ModSource(ring, song);
             else s = SongPlayer.ofUri(ring, song);
         } else s = SongPlayer.ofAsset(ring, DEMO);
+        if (s instanceof SongPlayer) {
+            // A song that opens but cannot be decoded fails later, on its own thread: say so and
+            // go back to the demo song, so the picture keeps moving (KNOWN-LAB-03).
+            final SoundSource failing = s;
+            final boolean demo = kind != SRC_SONG;
+            ((SongPlayer) s).setOnFailed(() -> runOnUiThread(() -> {
+                if (source != failing || isFinishing() || isDestroyed()) return;
+                Toast.makeText(this, getString(demo ? R.string.vl_room_song_failed
+                        : R.string.vl_room_song_unplayable), Toast.LENGTH_LONG).show();
+                if (!demo) useSource(SRC_DEMO, null);
+            }));
+        }
         if (!s.start(this)) {
             Toast.makeText(this, getString(kind == SRC_MIC ? R.string.vl_room_mic_busy : R.string.vl_room_song_failed),
                     Toast.LENGTH_LONG).show();

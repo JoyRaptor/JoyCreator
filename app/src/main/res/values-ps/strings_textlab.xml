@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">د دې موبایل ګرافیک د TextLab ښکارېدنې نه شي رسمولی. ستاسو سرلیکونه لا هم د ساده کلمو په توګه ښکاري.</string>
     <string name="textlab_trouble_memory">موبایل د دې ښکارېدنې لپاره حافظه کمه کړه. نور اپونه وتړئ او بیا هڅه وکړئ.</string>
     <string name="textlab_trouble_other">دا ښکارېدنه پدې موبایل ونه رسمول شوه. بله ښکارېدنه هڅه کړئ؛ ستاسو سرلیکونه لا هم د ساده کلمو په توګه ښکاري.</string>
+    <string name="textlab_draft_title">ستا نه خوندي شوي بدلونونه</string>
+    <string name="textlab_draft_body">په %1$s کې ستا بدلونونه تېر ځل خوندي نه شول. بېرته يې راوړم؟</string>
+    <string name="textlab_draft_bring">بېرته يې راوړه</string>
+    <string name="textlab_draft_let_go">پرېږده يې</string>
 </resources>

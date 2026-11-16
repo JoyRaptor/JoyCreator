@@ -257,6 +257,16 @@ class AnimExportTest {
      * It is the ONLY way this file builds a plan: every expected millisecond below is therefore
      * `AnimExportPlan.delayMs`, and a test cannot quietly start typing its own timings.
      */
+    /** Hundredths of a second per frame from the running total of [delaysMs], each total rounded half up. */
+    private fun centisecondsOfRunningTotals(delaysMs: List<Int>): List<Int> {
+        var elapsed = 0L; var before = 0L
+        return delaysMs.map { d ->
+            elapsed += d
+            val bound = (elapsed + 5) / 10
+            (bound - before).toInt().also { before = bound }
+        }
+    }
+
     private fun plan(c: JbContents = contents) =
         AnimExport.plan(c.doc.boards.first(), c.doc.boards.first().name)
 
@@ -306,12 +316,12 @@ class AnimExportTest {
 
         val decoded = decodeGif(files[0].bytes)
         assertEquals(p.frameCount, decoded.size, "the decoder sees one frame per planned frame")
-        // The encoder's own rule, written out beside the answer. `(ms + 5) / 10` floored at 2 cs is
-        // `GifEncoder.delayCentiseconds` and this file does not know it; this is the formula, not an
-        // import of it, so the assertion is a comparison and not a tautology.
+        // The rule, written out beside the answer (JB-ANIM-01): each frame's hundredths are the
+        // difference of the running totals, each rounded half up once. Not an import of `GifTiming`,
+        // so the assertion is a comparison and not a tautology.
+        val expected = centisecondsOfRunningTotals(p.delayMs)
         for (i in p.delayMs.indices) {
-            val expected = ((p.delayMs[i] + 5) / 10).coerceIn(2, 65535)
-            assertEquals(expected, decoded[i].delayCs, "frame $i delay, from ${p.delayMs[i]} ms")
+            assertEquals(expected[i], decoded[i].delayCs, "frame $i delay, from ${p.delayMs[i]} ms")
         }
         // The whole animation's length, compared in the unit the format stores, within ONE
         // centisecond — a tolerance the format forces, not one the numbers needed.
@@ -381,9 +391,9 @@ class AnimExportTest {
         assertEquals(p.delayMs, manifestDelays, "the manifest's delay column IS plan.delayMs")
         assertEquals(p.frameIds.indices.map { AnimExportRunner.sequenceName(it + 1) }, manifestNames)
 
-        // 2. The GIF's decoded centiseconds are the encoder's rule applied to that same list.
+        // 2. The GIF's decoded centiseconds are that same list's running totals in hundredths.
         val gifCs = gif.map { it.delayCs }
-        val fromPlan = p.delayMs.map { ((it + 5) / 10).coerceIn(2, 65535) }
+        val fromPlan = centisecondsOfRunningTotals(p.delayMs)
         assertEquals(fromPlan, gifCs, "the GIF's delays are the plan's, in the encoder's own unit")
 
         // 3. And the same list in the THIRD form: the sidecar's folded cell list, whose shape is the

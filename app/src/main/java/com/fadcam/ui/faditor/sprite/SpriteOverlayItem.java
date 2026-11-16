@@ -200,12 +200,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         c.continuesUntilBlocked = continuesUntilBlocked;
         c.sequenceStartFrame = sequenceStartFrame;
         c.avatarRigId = avatarRigId;
-        for (FrameTrack.Key k : frameTrack.keys()) {
-            FrameTrack.Key nk = k.presetId != null
-                    ? FrameTrack.Key.ofPreset(k.timeMs, k.presetId)
-                    : FrameTrack.Key.ofCell(k.timeMs, k.cellIndex);
-            c.frameTrack.put(nk);
-        }
+        for (FrameTrack.Key k : frameTrack.keys()) c.frameTrack.put(k.copy());
         c.keyframes.copyFrom(keyframes);
         System.arraycopy(cornerPin, 0, c.cornerPin, 0,
                 com.fadcam.ui.faditor.model.CornerPin.SIZE);
@@ -213,12 +208,42 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         // copy silently bend the original, the same trap the avatar track note below describes.
         c.mesh = mesh != null ? mesh.copy() : null;
         c.installMeshCurve();
-        // The avatar param track has no copy() of its own; sharing it would alias a rig's pose
-        // animation across two puppets. Dropped rather than shared -- a copy that quietly moves
-        // with the original is worse than one that starts un-posed, and the rig id is kept so
-        // the copy still knows what it is.
-        c.avatarTrack = null;
+        // The recorded puppet motion is the person's performance: a copy gets its OWN copy of
+        // it (audit STUDIO-02). It used to be dropped, which left a duplicate (or the right
+        // half of a split) standing still; sharing it would alias one track across two puppets.
+        c.avatarTrack = avatarTrack != null ? avatarTrack.copy() : null;
         return c;
+    }
+
+    /**
+     * Make item-local {@code localMs} this item's new start, for the RIGHT half of a split:
+     * the pictures and the recorded puppet motion carry on exactly where they were at the cut
+     * instead of restarting (audit STUDIO-01 / STUDIO-02). The caller sets the new time range
+     * and rebases the transform keys as before; this does the frame track and the performance.
+     *
+     * <p>The frame entry in effect at the cut moves to 0: a direct cell simply holds; a running
+     * preset keeps its place in the run through {@link FrameTrack.Key#phaseMs}, so holds,
+     * weights, loops, ping-pong and the sequence start frame all continue unchanged. Later
+     * entries shift earlier by {@code localMs}; earlier ones are gone from this half (they
+     * stay on the left half, which is untouched, so Undo needs nothing extra).</p>
+     */
+    public void carryOnFrom(long localMs) {
+        if (localMs <= 0) return;
+        java.util.List<FrameTrack.Key> old = new java.util.ArrayList<>(frameTrack.keys());
+        FrameTrack.Key active = frameTrack.atOrBefore(localMs);
+        frameTrack.keys().clear();
+        for (FrameTrack.Key k : old) {
+            if (k.timeMs <= localMs && k != active) continue;
+            FrameTrack.Key nk = k.copy();
+            if (k == active) {
+                nk.timeMs = 0;
+                if (nk.presetId != null) nk.phaseMs = localMs - k.timeMs + Math.max(0, k.phaseMs);
+            } else {
+                nk.timeMs = k.timeMs - localMs;
+            }
+            frameTrack.put(nk);
+        }
+        if (avatarTrack != null) avatarTrack = avatarTrack.sliceFrom(localMs);
     }
 
     public SpriteOverlayItem(@NonNull String id, @NonNull String sheetId) {

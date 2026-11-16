@@ -139,9 +139,11 @@ final class PipFrameOverlay extends BitmapOverlay {
         int maxOutH = (int) Math.ceil(frameH * Math.max(0.01f, scale)) + 1;
         Bitmap frame = frameAt(clip.getInPointMs() + (timelineMs - start), maxOutW, maxOutH);
         if (frame == null) return transparent;
-        float fit = Math.min(frameW / (float) frame.getWidth(), frameH / (float) frame.getHeight());
-        float w = frame.getWidth() * fit * scale;
-        float h = frame.getHeight() * fit * scale;
+        // The one placement rule, shared with the GPU path and the editor (R2-FX-01).
+        float[] size = com.fadcam.ui.faditor.model.PipPlacement.fitSize(
+                frameW, frameH, frame.getWidth(), frame.getHeight(), scale);
+        float w = size[0];
+        float h = size[1];
         float cx = x * frameW;
         float cy = y * frameH;
 

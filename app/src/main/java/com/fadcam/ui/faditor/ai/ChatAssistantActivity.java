@@ -1089,8 +1089,17 @@ public class ChatAssistantActivity extends AppCompatActivity {
         }
         // BOT-7: mid "Create something", typing answers the question on screen.
         if (createFlow != null) {
-            answerCreate(text);
-            return;
+            if (com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.stops(text)) {
+                answerCreate("");
+                return;
+            }
+            if (!com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere(text)) {
+                answerCreate(text);
+                return;
+            }
+            // Something else entirely (a question): the create questions let go.
+            createFlow = null;
+            inputField.setHint("Ask anything…");
         }
         // "Tell me a joke": his own roster, offline (owner 11-15).
         if (com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(text)) {
@@ -1100,11 +1109,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // "I want to make something" / "a new blank Studio project, 3:1": the create tree, offline.
         // Outside the lobby only a request for something NEW ("new", "blank") starts it, so "make a
         // title" in the Studio still means a title in this project.
-        if (com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.anything(text)) {
+        boolean helpQ = com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.helpQuestion(text);
+        if (!helpQ && com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.anything(text)) {
             startCreate(null, null);
             return;
         }
-        com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind makeKind = com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start(text);
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind makeKind = helpQ ? null
+                : com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start(text);
         if (makeKind != null && (room == IdeaEngine.Room.LOBBY || room == IdeaEngine.Room.LIBRARY
                 || com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(makeKind) && norm(text).matches(".*\\b(new|blank|fresh|empty)\\b.*"))) {
             startCreate(makeKind, text);

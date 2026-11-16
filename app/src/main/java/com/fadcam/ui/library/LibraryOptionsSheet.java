@@ -22,6 +22,8 @@ final class LibraryOptionsSheet {
         void onClassicStudio();
         /** Paste a picture copied in another app (SHELL-25). */
         void onPastePicture();
+        /** Open (making it first if needed) the demo project (SHELL-38). */
+        void onDemoProject();
     }
 
     private LibraryOptionsSheet() {}
@@ -42,6 +44,10 @@ final class LibraryOptionsSheet {
                 false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onPastePicture(); });
         SheetKit.label(paste.view, c.getString(R.string.hover_library_paste_picture));
         root.addView(paste.view);
+        SheetKit.Row demo = SheetKit.row(c, "play_circle", c.getString(R.string.library_demo_project),
+                false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onDemoProject(); });
+        SheetKit.label(demo.view, c.getString(R.string.hover_library_demo_project));
+        root.addView(demo.view);
         root.addView(SheetKit.sectionLabel(c, c.getString(R.string.library_more), 0));
         root.addView(SheetKit.row(c, "delete_outline", c.getString(R.string.library_open_trash),
                 false, SheetKit.Trail.CHEVRON, v -> { d.dismiss(); l.onTrash(); }).view);

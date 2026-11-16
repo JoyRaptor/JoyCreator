@@ -81,13 +81,6 @@ public final class LookExport {
         void done(@Nullable String where, @Nullable String problem);
     }
 
-    /** Thrown inside the export when the person stopped it. */
-    static final class Stopped extends RuntimeException {
-        Stopped() {
-            super("stopped");
-        }
-    }
-
     static final int FPS = 30;
 
     private final Context app;
@@ -145,6 +138,11 @@ public final class LookExport {
             setupEgl();
             r = new TextLabRenderer(TextLabRenderer.Assets.load(app.getAssets()), app);
             r.output = job.clear ? TextLabRenderer.CLEAR : TextLabRenderer.FOR_SCREEN;
+            Bitmap ph = TlPhoto.waitFor(app, job.look);   // the look's own picture behind the words (LAB-03)
+            if (ph != null) {
+                r.setPhoto(ph);
+                ph.recycle();
+            }
             fit(job.w, job.h);
             String base = baseName(job.words, job.look);
             File dir = new File(app.getCacheDir(), "textlab/export");
@@ -152,27 +150,29 @@ public final class LookExport {
             dir.mkdirs();
             String name;
             long t0 = System.nanoTime();
+            // a file of this export's own (LAB-05): a stopped export still finishing never shares one with the next
             switch (job.kind) {
                 case VIDEO:
                     name = base + ".mp4";
-                    tmp = new File(dir, "export.mp4");
+                    tmp = File.createTempFile("export-", ".mp4", dir);
                     video(tmp);
                     break;
                 case SHEET:
                     name = SheetName.of(base, LookPreview.COLS, LookPreview.ROWS);
-                    tmp = new File(dir, "export.sprite.png");
+                    tmp = File.createTempFile("export-", ".sprite.png", dir);
                     writePng(sheet(), tmp);
                     break;
                 default:
                     name = base + ".png";
-                    tmp = new File(dir, "export.png");
+                    tmp = File.createTempFile("export-", ".png", dir);
                     writePng(picture(), tmp);
             }
             Log.i(TAG, "export " + job.kind + " " + job.w + "x" + job.h + " made in "
                     + (System.nanoTime() - t0) / 1_000_000 + " ms");
+            checkStop();   // LAB-04: stopped while it was being made: nothing goes into the folder
             String where = place(tmp, name);
             main.post(() -> listener.done(where, null));
-        } catch (Stopped s) {
+        } catch (ExportStopped s) {
             main.post(() -> listener.done(null, null));
         } catch (OutOfMemoryError e) {
             Log.w(TAG, "export too big", e);
@@ -195,7 +195,7 @@ public final class LookExport {
     }
 
     private void checkStop() {
-        if (stop) throw new Stopped();
+        if (stop) throw new ExportStopped();
     }
 
     /** Lay the look out once, then widen its margins to the frame's shape. */
@@ -211,8 +211,14 @@ public final class LookExport {
     @NonNull
     private Bitmap picture() {
         r.still(PICTURE_AT);
+        checkStop();
         progress(0.7f);
-        return exact(r.readBitmap(), job.w, job.h);
+        Bitmap b = exact(r.readBitmap(), job.w, job.h);
+        if (stop) {
+            b.recycle();
+            throw new ExportStopped();
+        }
+        return b;
     }
 
     /** The look's two seconds as a 5 x 4 sheet, from the same moment as the previews, at 10 frames a second. */
@@ -271,31 +277,50 @@ public final class LookExport {
     /** Into the folder's exports (beside Studio's), on the folder's own thread; the app's own folder without one. */
     @NonNull
     private String place(@NonNull File tmp, @NonNull String name) throws Exception {
-        return JoyFolderHome.io().submit(() -> {
-            JoyFolder jf = JoyFolderHome.open(app);
-            if (jf == null) {
-                File dir = new File(app.getExternalFilesDir(null), "TextLab exports");
+        try {
+            return JoyFolderHome.io().submit(() -> placeNow(tmp, name)).get();
+        } catch (java.util.concurrent.ExecutionException e) {
+            // Stop pressed during the copy: "stopped", not "went wrong"
+            if (e.getCause() instanceof ExportStopped) throw (ExportStopped) e.getCause();
+            throw e;
+        }
+    }
+
+    /**
+     * Folder thread. The copy reads through a {@link StopStream}: Stop pressed part way ends it and the half-made file
+     * is taken away again ({@link JoyFolder#addFile} does, or this), so a stopped export never lands in the folder.
+     */
+    @NonNull
+    private String placeNow(@NonNull File tmp, @NonNull String name) throws Exception {
+        checkStop();
+        JoyFolder jf = JoyFolderHome.open(app);
+        if (jf == null) {
+            File dir = new File(app.getExternalFilesDir(null), "TextLab exports");
+            //noinspection ResultOfMethodCallIgnored
+            dir.mkdirs();
+            File f = new File(dir, name);
+            for (int n = 2; f.exists(); n++) f = new File(dir, numbered(name, n));
+            try (InputStream in = new StopStream(new FileInputStream(tmp), () -> stop);
+                 FileOutputStream os = new FileOutputStream(f)) {
+                byte[] buf = new byte[256 * 1024];
+                int k;
+                while ((k = in.read(buf)) > 0) os.write(buf, 0, k);
+            } catch (Exception | Error e) {
                 //noinspection ResultOfMethodCallIgnored
-                dir.mkdirs();
-                File f = new File(dir, name);
-                for (int n = 2; f.exists(); n++) f = new File(dir, numbered(name, n));
-                try (InputStream in = new FileInputStream(tmp); FileOutputStream os = new FileOutputStream(f)) {
-                    byte[] buf = new byte[256 * 1024];
-                    int k;
-                    while ((k = in.read(buf)) > 0) os.write(buf, 0, k);
-                }
-                Log.w(TAG, "Joy Creator folder unreachable; export kept in " + f);
-                return app.getString(com.fadcam.R.string.textlab_export_own_folder);
+                f.delete();
+                throw e;
             }
-            String dir = jf.prepareDir(Placement.What.EXPORT, null, null, null);
-            String rel;
-            try (InputStream in = new FileInputStream(tmp)) {
-                rel = jf.addFile(dir, name, in, "export");
-            }
-            jf.saveIndex();
-            Log.i(TAG, "exported " + rel);
-            return rel;
-        }).get();
+            Log.w(TAG, "Joy Creator folder unreachable; export kept in " + f);
+            return app.getString(com.fadcam.R.string.textlab_export_own_folder);
+        }
+        String dir = jf.prepareDir(Placement.What.EXPORT, null, null, null);
+        String rel;
+        try (InputStream in = new StopStream(new FileInputStream(tmp), () -> stop)) {
+            rel = jf.addFile(dir, name, in, "export");
+        }
+        jf.saveIndex();
+        Log.i(TAG, "exported " + rel);
+        return rel;
     }
 
     /** "a.mp4" → "a 2.mp4"; "a.5x4.sprite.png" → "a 2.5x4.sprite.png". */

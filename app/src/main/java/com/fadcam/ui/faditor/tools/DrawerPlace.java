@@ -99,6 +99,31 @@ public final class DrawerPlace {
         return 0f;
     }
 
+    /**
+     * The picture's slide with panels on either side (K5, left and right): {@code leftW} /
+     * {@code rightW} are the widths standing over the slot's left and right edges (0 = none).
+     * One side only behaves exactly as {@link #panelShift}. With both, the picture is centred in
+     * the band between them as far as its own room allows; it never shrinks.
+     */
+    public static float sidesShift(float containerW, float leftW, float rightW,
+                                   float picLeft, float picRight) {
+        if (leftW <= 0f && rightW <= 0f) return 0f;
+        if (leftW <= 0f) return panelShift(1, containerW, rightW, picLeft, picRight);
+        if (rightW <= 0f) return panelShift(-1, containerW, leftW, picLeft, picRight);
+        boolean covered = picLeft < leftW || picRight > containerW - rightW;
+        if (!covered) return 0f;
+        float want = (leftW + (containerW - rightW)) / 2f - (picLeft + picRight) / 2f;
+        float lo = -Math.max(0f, picLeft), hi = Math.max(0f, containerW - picRight);
+        float s = Math.max(lo, Math.min(hi, want));
+        return s == 0f ? 0f : s;
+    }
+
+    private static final String K_SPLIT = "place_split";
+
+    /** K5: a second drawer stands on the other side of the picture instead of stacked under. */
+    public static boolean split(@NonNull Context c) { return p(c).getBoolean(K_SPLIT, false); }
+    public static void setSplit(@NonNull Context c, boolean v) { p(c).edit().putBoolean(K_SPLIT, v).apply(); }
+
     /** True where the one-touch switch makes sense (a window wider than a phone held upright). */
     public static boolean switchable(int windowDp) { return windowDp >= PHONE_UNDER_DP; }
 }

@@ -164,6 +164,15 @@ class UnibrushHostController(
     fun previewStarted(snapshot:BrushPreviewRequest)=resourceLane.started(snapshot)
     fun previewRetired(snapshot:BrushPreviewRequest)=resourceLane.retired(snapshot)
 
+    /**
+     * TAB-1 K10: where the settings stand instead of the floating sheet (beside the standing brush panel on a wide
+     * window). [show] returns false to keep the sheet; [close] puts the standing settings away.
+     */
+    interface SettingsHost { fun show(view:View,onClosed:()->Unit):Boolean; fun close() }
+    var settingsHost:SettingsHost?=null
+    private var settingsDocked=false
+    private fun closeSettingsSurface(){ if(settingsDocked)settingsHost?.close() else popovers.close() }
+
     fun openSettings() {
         val active=session?:return
         val epoch=++sheetRevision
@@ -185,7 +194,7 @@ class UnibrushHostController(
             },
             onPreferenceChange={next->changePreference(next);redrawPreview(epoch)},
             onNewBrush={recipe->askSaveAs(recipe,epoch)},
-            onDone={popovers.close()},
+            onDone={closeSettingsSurface()},
             onPreviewInput={pressure,tilt->previewPen=PreviewPenOverride(pressure,tilt);redrawPreview(epoch)},
             chooseAssets={request,done->chooseImages(request,done,epoch)},
             editProfilePoints={profile,done->UnibrushProfileDialogs.show(kit,profile,done)},
@@ -201,10 +210,13 @@ class UnibrushHostController(
             },
         )
         sheet=view
-        canvas.onPenReading={p,t,o->if(epoch==sheetRevision)view.showReading(p,t,o)}
-        popovers.showSheet(view,600f,alignEnd(),onClosed={
+        val closed={
             if(epoch==sheetRevision){sheetRevision++;sheet=null;previewImage=null;previewAsk?.cancel();previewAsk=null;canvas.onPenReading=null;cancelPick();secondaryInk.cancel()}
-        },modal=false)
+        }
+        // Shown before the pen reading is set: showing closes the surface before, whose close clears the reading.
+        settingsDocked=settingsHost?.show(view,closed)==true
+        if(!settingsDocked)popovers.showSheet(view,600f,alignEnd(),onClosed=closed,modal=false)
+        canvas.onPenReading={p,t,o->if(epoch==sheetRevision)view.showReading(p,t,o)}
         image.post{redrawPreview(epoch)}
     }
     private fun chooseSecondaryColour(epoch:Long) {
@@ -339,7 +351,7 @@ class UnibrushHostController(
                     main {
                         savingMode=false
                         users=catalog.definitions.map{it.preset};publishLibrary();dialog.dismiss();saveDialog=null
-                        if(epoch==sheetRevision){popovers.close();install(made);takeUp(made.current().recipe);openSettings()}
+                        if(epoch==sheetRevision){closeSettingsSurface();install(made);takeUp(made.current().recipe);openSettings()}
                         else refusal("${saved.name} was saved as a new mode")
                     }
                 }catch(error:Exception){main{

@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">这部手机的图形处理画不了 TextLab 的样式。你的标题仍会显示，只是变成普通文字。</string>
     <string name="textlab_trouble_memory">手机的内存不够用来画这个样式。请关掉其他应用后再试。</string>
     <string name="textlab_trouble_other">这个样式在这部手机上画不出来。换一个样式试试；你的标题仍会显示为普通文字。</string>
+    <string name="textlab_draft_title">你未保存的修改</string>
+    <string name="textlab_draft_body">上次你对%1$s的修改没有保存。要找回吗？</string>
+    <string name="textlab_draft_bring">找回</string>
+    <string name="textlab_draft_let_go">不要了</string>
 </resources>

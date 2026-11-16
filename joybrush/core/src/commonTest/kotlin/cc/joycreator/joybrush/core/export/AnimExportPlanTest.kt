@@ -85,7 +85,8 @@ class AnimExportPlanTest {
         val total = AnimOps.totalDurationMs(b)
         return starts.indices.map { i ->
             val end = if (i < starts.lastIndex) starts[i + 1] else total
-            floor(end - starts[i] + 0.5).toInt().coerceAtLeast(1)
+            // JB-ANIM-01: the two boundaries rounded once each, then differenced (no drift).
+            (floor(end + 0.5) - floor(starts[i] + 0.5)).toInt().coerceAtLeast(1)
         }
     }
 
@@ -105,7 +106,7 @@ class AnimExportPlanTest {
             val starts = AnimOps.frameStartsMs(board)
             val end = if (i < starts.lastIndex) starts[i + 1] else AnimOps.totalDurationMs(board)
             assertEquals(
-                floor(end - starts[i] + 0.5).toInt(),
+                (floor(end + 0.5) - floor(starts[i] + 0.5)).toInt(),
                 plan.delayMs[i],
                 "frame $i is not the difference of the two starts the renderer will actually use",
             )

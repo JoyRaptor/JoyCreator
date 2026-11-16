@@ -152,6 +152,15 @@ public class SpriteSheet {
             this.index = index;
             this.name = name;
         }
+
+        /** Everything a cell holds, as an independent copy (tags included: audit SP-02). */
+        @NonNull
+        public Cell copy() {
+            Cell c = new Cell(index, name);
+            c.tags.addAll(tags);
+            c.enabled = enabled;
+            return c;
+        }
     }
 
     /**
@@ -465,11 +474,16 @@ public class SpriteSheet {
      * The frame URI for {@code index}, or null when this is a grid sheet or the index is out of
      * range. Null is the MISSING affordance's input, never a crash — same S7 rule the grid path
      * follows for an unopenable sheetUri.
+     *
+     * <p>{@code index} is a DISPLAY slot, like every other cell index: a reordered sequence
+     * (Swap, Ripple) shows the picture that moved there, so its name, alignment and picture stay
+     * together (audit SP-01). The permutation is applied here, once.</p>
      */
     @Nullable
     public String frameUriAt(int index) {
         if (!isSequence() || index < 0 || index >= frameUris.size()) return null;
-        return frameUris.get(index);
+        int src = sourceCell(index);
+        return src >= 0 && src < frameUris.size() ? frameUris.get(src) : null;
     }
 
     /**

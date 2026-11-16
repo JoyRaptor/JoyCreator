@@ -80,6 +80,14 @@ public final class TextLabPreviews {
             }
             if (renderer == null) renderer = new TextLabRenderer(TextLabRenderer.Assets.load(app.getAssets()), app);
             long t0 = System.nanoTime();
+            // the look's own picture behind the words (LAB-03), or none: this renderer draws every look in turn
+            Bitmap ph = TlPhoto.waitFor(app, look);
+            if (ph != null) {
+                renderer.setPhoto(ph);
+                ph.recycle();
+            } else {
+                renderer.clearPhoto();
+            }
             Bitmap b = LookPreview.make(renderer, look, words);
             Log.i(TAG, "preview " + look.optString("id") + " made in " + (System.nanoTime() - t0) / 1_000_000 + " ms");
             return b;

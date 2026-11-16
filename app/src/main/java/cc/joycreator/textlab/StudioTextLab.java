@@ -10,13 +10,12 @@ import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.vislab.studio.LookTicket;
 import com.fadcam.vislab.studio.OffscreenGl;
 
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Studio titles wearing TextLab looks (TEXT-1): the twin of VisLab's {@code StudioVis}. TextLab draws on a GL thread
@@ -119,22 +118,57 @@ public final class StudioTextLab {
     @Nullable
     public Frame renderBlocking(@NonNull String key, @NonNull TitleLook look, @NonNull String words, long localMs,
                                 double em) {
-        final Frame[] out = new Frame[1];
-        CountDownLatch done = new CountDownLatch(1);
+        LookTicket<Frame> t = post(key, look, words, localMs, em);
+        LookTicket.Outcome o = t.await(5_000, null);
+        if (o != LookTicket.Outcome.READY) {
+            Log.w(TAG, "title look " + o + " for " + key);
+            return null;
+        }
+        return t.take();
+    }
+
+    /** Thrown by {@link #renderForExport}: there is no right picture for this frame, so the export must stop. */
+    public static final class LookFailed extends RuntimeException {
+        LookFailed(@NonNull String what) {
+            super(what);
+        }
+    }
+
+    /**
+     * Studio's export (XROOM-01): as {@link #renderBlocking}, but a look that does not arrive in time fails the export
+     * instead of the title quietly coming out in plain words. Null still means this phone cannot draw TextLab looks
+     * at all (then plain words are the honest picture, as in the room). Waits as long as VisLab's looks do: the first
+     * frame compiles the look's shaders. A late picture is thrown away, and a frame not yet begun is skipped.
+     *
+     * @throws LookFailed the picture timed out, or the export's thread was stopped while waiting
+     */
+    @Nullable
+    public Frame renderForExport(@NonNull String key, @NonNull TitleLook look, @NonNull String words, long localMs,
+                                 double em) {
+        LookTicket<Frame> t = post(key, look, words, localMs, em);
+        LookTicket.Outcome o = t.await(EXPORT_WAIT_MS, null);
+        if (o != LookTicket.Outcome.READY) throw new LookFailed("title look " + o + " for " + key + " at " + localMs + " ms");
+        return t.take();
+    }
+
+    static final long EXPORT_WAIT_MS = 60_000;
+
+    /** One picture asked of the GL thread; a waiter that gives up abandons it (a late picture is recycled). */
+    @NonNull
+    private LookTicket<Frame> post(@NonNull String key, @NonNull TitleLook look, @NonNull String words, long localMs,
+                                   double em) {
+        LookTicket<Frame> ticket = new LookTicket<>(f -> f.bitmap.recycle());
         Request r = new Request(look.copy(), words, localMs, em);
         glThread().post(() -> {
+            if (!ticket.begin()) return;   // nobody waits for this frame any more
+            Frame f = null;
             try {
-                out[0] = draw(key, r);
+                f = draw(key, r);
             } finally {
-                done.countDown();
+                ticket.finish(f, false);
             }
         });
-        try {
-            if (!done.await(5, TimeUnit.SECONDS)) Log.w(TAG, "title look timed out for " + key);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        return out[0];
+        return ticket;
     }
 
     /**

@@ -119,6 +119,8 @@ final class GlImageOverlayEffect implements GlEffect {
                 }
                 tf.external = true;
                 return true;
+            } catch (cc.joycreator.textlab.StudioTextLab.LookFailed e) {
+                throw e;   // XROOM-01: the title's look did not arrive; the export stops rather than drop it
             } catch (Throwable e) {
                 FLog.w("GlImageOverlay", "zero-copy text unavailable; uploading instead", e);
                 zeroCopyText = false;
@@ -258,6 +260,8 @@ final class GlImageOverlayEffect implements GlEffect {
             tf.external = false;
             try {
                 tf.drawn = textDrawer.drawTextItem(tf.canvas, o, t);
+            } catch (cc.joycreator.textlab.StudioTextLab.LookFailed e) {
+                throw e;   // XROOM-01, as above
             } catch (Throwable e) {
                 FLog.w("GlImageOverlay", "text draw threw for " + o.getId(), e);
                 tf.drawn = false;

@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Die Grafik dieses Handys kann die Looks von TextLab nicht zeichnen. Deine Titel erscheinen trotzdem, als schlichte Wörter.</string>
     <string name="textlab_trouble_memory">Dem Handy ging für diesen Look der Speicher aus. Schließe andere Apps und versuche es nochmal.</string>
     <string name="textlab_trouble_other">Dieser Look ließ sich auf diesem Handy nicht zeichnen. Versuche einen anderen Look; deine Titel erscheinen trotzdem als schlichte Wörter.</string>
+    <string name="textlab_draft_title">Deine ungespeicherten Änderungen</string>
+    <string name="textlab_draft_body">Deine Änderungen an %1$s wurden letztes Mal nicht gespeichert. Zurückholen?</string>
+    <string name="textlab_draft_bring">Zurückholen</string>
+    <string name="textlab_draft_let_go">Verwerfen</string>
 </resources>

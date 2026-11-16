@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Selle telefoni graafika ei suuda TextLabi ilmeid joonistada. Sinu pealkirjad paistavad ikka, lihtsate sõnadena.</string>
     <string name="textlab_trouble_memory">Telefonil sai selle ilme jaoks mälu otsa. Sulge teised rakendused ja proovi uuesti.</string>
     <string name="textlab_trouble_other">Seda ilmet ei saanud selles telefonis joonistada. Proovi teist ilmet; sinu pealkirjad paistavad ikka lihtsate sõnadena.</string>
+    <string name="textlab_draft_title">Sinu salvestamata muudatused</string>
+    <string name="textlab_draft_body">Sinu muudatusi failis %1$s eelmine kord ei salvestatud. Kas tuua need tagasi?</string>
+    <string name="textlab_draft_bring">Too tagasi</string>
+    <string name="textlab_draft_let_go">Lase minna</string>
 </resources>

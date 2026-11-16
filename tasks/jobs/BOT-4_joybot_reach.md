@@ -1,6 +1,6 @@
 # BOT-4: Joybot's new reach: everything a person can do, across the wings
 
-**Milestone:** M1 (the parts the owner wants before launch) and after launch  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13)  ·  **Checked:** 2026-11-13
+**Milestone:** M1 (the parts the owner wants before launch) and after launch  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13)  ·  **Checked:** 2026-11-15 on `joy-creator` (BOT-A39: ideas 1,239, bench 65/65, flights 88, bridge 33, actions 43, prompt budget 50, item names 28; all pass)
 
 ## Why it matters (for the user)
 The goal is "anything you can do in Joy Creator, Joybot can do with you", in any wing, and whole jobs that

@@ -1,6 +1,6 @@
 # BOT-3: Joybot you can trust: never claims what it didn't do, never loses work
 
-**Milestone:** M1  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13)  ·  **Checked:** 2026-11-13
+**Milestone:** M1  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13)  ·  **Checked:** 2026-11-15 on `joy-creator` (BOT-A39: ideas 1,239, bench 65/65, flights 88, bridge 33, actions 43, prompt budget 50, item names 28; all pass)
 
 ## Why it matters (for the user)
 With free AI models, the weak point is honesty and safety: saying "done" when nothing changed, or a long job

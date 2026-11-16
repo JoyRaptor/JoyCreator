@@ -49,9 +49,10 @@ public final class LaunchGate {
      * Hidden in the Play build whatever the list file or its master switch says, because Google Play would
      * object, not because they are unproven (launch bug hunt 11-15): the "look for a new version" switch,
      * since a Play install updates through Play and the GitHub download is a different app (B4). Remote
-     * Studio was here too until its pairing-code lock landed (B3, lifted 11-15).
+     * Studio was here too until its pairing-code lock landed (B3, lifted 11-15). Joybot's Screenshot help
+     * (BOT-A6): the Play build has no Screenshot shortcut, so he must not point at one.
      */
-    static final String[] PLAY_HIDDEN = {"setting_update_check"};
+    static final String[] PLAY_HIDDEN = {"setting_update_check", "help_capture_screenshot"};
 
     private LaunchGate() {}
 

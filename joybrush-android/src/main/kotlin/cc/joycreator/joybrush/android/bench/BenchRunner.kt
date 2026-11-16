@@ -772,7 +772,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
             ui.postDelayed({ if (!terminal) guarded {
                 canvas.startFrameStats { if (!terminal) guarded {
-                    StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
+                    StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = { spec.editableLines?.let { canvas.editableLines = it } }, onUp = {
                         if (spec.fullTail) { terminal = true; ui.removeCallbacks(timeout); refusals.close(); waitForFullTail(preset, case, run, samples.size) }
                         else ui.postDelayed({ if (!terminal) guarded {
                             canvas.finishFrameStats { summary -> if (!terminal) {

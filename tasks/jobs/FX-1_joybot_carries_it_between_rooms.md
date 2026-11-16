@@ -1,6 +1,6 @@
 # FX-1: Joybot carries your work from one room to the next
 
-**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 options page v3 (his 11-16 notes built in) with the owner; nothing built in the app  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
+**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 building in the app since 11-16 night (first route JoyBrush to Studio); not yet seen on a device  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
 
 ## Why it matters
 The owner, 11-15: "We've built up this huge library of effects. Why don't we start using it on our own app to really
@@ -89,6 +89,37 @@ His rulings, each a requirement:
   machine on the nine pulling frames: 6 px at most, 13% less mismatch; the page uses that set in the order he drew them.
 - Sprites lane, 11-16: 240 px cells go soft past about 92 dp on the Note 9; flight poses at 2 to 3 times need 480 px strips
   (as `hi/home.webp`), about 0.3 to 0.5 MB each. BOT-5 landed at 4a8ce14db: build the stage seam against that.
+
+## 11-16 (night): building it in the app (owner: "Go ahead and start building directly into the app")
+His last notes before the go: carrying = the chat's nervous shaking, sweating Joybot (`oops` + `JoybotBody`'s "nervous" shiver);
+use ALL his flight elements (trail, rings, sparkles); the star field is VisLab's Lyric Flight without its words, its colours
+moved from room A's gradient to room B's; he liked the highlight edge on the seam; "Pixar quality of animation".
+
+How it is built (branch `claude/fx1-handoff-20261116`):
+- `cc.joycreator.handoff` (new, small files):
+  - `HandoffMoves` + `HandoffScript`: pure maths, a port of the picks page v3: every pose, the tugs, the hands pinned to
+    what he grabs, the wait while the next room opens (left only on a beat, so never a jump), the slap. PC test
+    `bash tools/jvm-harness/run-handoff.sh`: 4 moves x 5 screen shapes x rooms that open early, late, never, and a skip.
+  - `HandoffEngine`: one GL thread and context that belongs to the app, not to a screen. It draws into whichever
+    surface is lent to it, so the same show carries on from the question screen into Studio on the same clock, and
+    keeps moving while the main thread opens Studio. Choreographer only. Watchdogs end a show whose room never reports.
+  - `HandoffRenderer` + `HandoffFx`: the rooms warped into each other (`assets/handoff/*.frag`, one small program a move),
+    and Joybot's light drawn with the ARRIVAL'S OWN shaders (`assets/joybot/stage/`, read, never changed) in the same
+    order: trail, rings, sparks, glints, landing flash. `HandoffFx` is the arrival's `Fx` driven by any pose.
+  - `HandoffSurfaceView` (a SurfaceView: it reaches the screen without the main thread), `HandoffHost` (the question
+    screen), `HandoffArrival` (Studio), `Handoff` (the switch, the choice of move in turn, a picture of a window).
+- The route: JoyBrush pictures itself (`joybrush-android/.../handoff/RoomShot.kt`: window + GL painting) and starts
+  `JoyBrushBoardImportActivity`, which shows that picture, has Joybot fly out and wait beside "Where should I take it?",
+  does the real save, then opens `FaditorEditorActivity` marked with the arriving item's id. Studio opens under the
+  show, reveals the item's row, is pictured, reports the tape's rectangle (`EditorTimelineView.layerItemRectInView`, new),
+  and selects the item with its own selection at the slap. From the slap on the show draws only Joybot: the real room is live.
+- A different move each time, in turn. Switch: prefs `handoff` / `show` (on); the Settings row is asked of the shell lane.
+- Pulling frames: the owner's nine, least-difference aligned, at `assets/handoff/joybot-pull.webp` until the sprites lane packs them.
+
+Not done yet (say so, do not claim): on a device at all; the real Lyric Flight engine behind Peel and Carry (a stand-in
+star field in the two rooms' colours is in; `VisRenderer` has the API: `setScene`, `setBrandPalette`, `render` to an fbo);
+the speech tail from the question to Joybot; his flight back to his button if the question is cancelled; 480 px strips
+for his flight poses (240 px cells are soft at 2.3x, sprites lane); the other routes; the Settings row.
 
 ## Rules that apply
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no

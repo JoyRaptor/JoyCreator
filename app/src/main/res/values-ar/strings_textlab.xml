@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">رسوميات هذا الهاتف لا تستطيع رسم مظاهر TextLab. ستظل عناوينك تظهر ككلمات عادية.</string>
     <string name="textlab_trouble_memory">نفدت ذاكرة الهاتف لهذا المظهر. أغلق التطبيقات الأخرى وحاول مرة أخرى.</string>
     <string name="textlab_trouble_other">تعذّر رسم هذا المظهر على هذا الهاتف. جرّب مظهرًا آخر؛ وستظل عناوينك تظهر ككلمات عادية.</string>
+    <string name="textlab_draft_title">تغييراتك غير المحفوظة</string>
+    <string name="textlab_draft_body">لم تُحفظ تغييراتك على %1$s في المرة الماضية. هل تعيدها؟</string>
+    <string name="textlab_draft_bring">أعدها</string>
+    <string name="textlab_draft_let_go">اتركها</string>
 </resources>

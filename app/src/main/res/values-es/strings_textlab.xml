@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Los gráficos de este teléfono no pueden dibujar los estilos de TextLab. Tus títulos se siguen viendo, como palabras simples.</string>
     <string name="textlab_trouble_memory">Al teléfono le faltó memoria para este estilo. Cierra otras apps e inténtalo de nuevo.</string>
     <string name="textlab_trouble_other">Este estilo no se pudo dibujar en este teléfono. Prueba otro estilo; tus títulos se siguen viendo como palabras simples.</string>
+    <string name="textlab_draft_title">Tus cambios sin guardar</string>
+    <string name="textlab_draft_body">Tus cambios en %1$s no se guardaron la última vez. ¿Los recuperas?</string>
+    <string name="textlab_draft_bring">Recuperarlos</string>
+    <string name="textlab_draft_let_go">Descartarlos</string>
 </resources>

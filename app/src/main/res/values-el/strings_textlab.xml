@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Τα γραφικά αυτού του τηλεφώνου δεν μπορούν να σχεδιάσουν τα στιλ του TextLab. Οι τίτλοι σου εξακολουθούν να φαίνονται, ως απλές λέξεις.</string>
     <string name="textlab_trouble_memory">Το τηλέφωνο έμεινε από μνήμη για αυτό το στιλ. Κλείσε άλλες εφαρμογές και δοκίμασε ξανά.</string>
     <string name="textlab_trouble_other">Αυτό το στιλ δεν μπόρεσε να σχεδιαστεί σε αυτό το τηλέφωνο. Δοκίμασε άλλο στιλ· οι τίτλοι σου εξακολουθούν να φαίνονται ως απλές λέξεις.</string>
+    <string name="textlab_draft_title">Οι αλλαγές σου που δεν αποθηκεύτηκαν</string>
+    <string name="textlab_draft_body">Οι αλλαγές σου στο %1$s δεν αποθηκεύτηκαν την προηγούμενη φορά. Να τις φέρω πίσω;</string>
+    <string name="textlab_draft_bring">Φέρ\' τες πίσω</string>
+    <string name="textlab_draft_let_go">Άφησέ τες</string>
 </resources>

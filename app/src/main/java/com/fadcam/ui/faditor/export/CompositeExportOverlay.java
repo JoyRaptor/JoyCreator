@@ -620,7 +620,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         cc.joycreator.textlab.TitleLook look = o.getTextLook();
         if (look == null) return false;
         cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(context)
-                .renderBlocking(cc.joycreator.textlab.StudioTextLab.exportKey(o.getId()), look, shown,
+                .renderForExport(cc.joycreator.textlab.StudioTextLab.exportKey(o.getId()), look, shown,
                         o.lookTime(timelineMs), fontPx);
         if (f == null) return false;
         try {
@@ -1239,6 +1239,11 @@ public class CompositeExportOverlay extends BitmapOverlay {
                 continue;
             }
         }
+        } catch (cc.joycreator.textlab.StudioTextLab.LookFailed e) {
+            // XROOM-01: not skippable, as a VisLab look's failure is not: the export would report success with a
+            // title in plain words where its look should be.
+            canvas.restoreToCount(textSaveCount);
+            throw new VideoFrameProcessingException(e);
         } catch (Throwable t) {
             canvas.restoreToCount(textSaveCount);
             if (!loggedTextDrawError) {

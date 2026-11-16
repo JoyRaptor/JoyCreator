@@ -93,7 +93,7 @@ final class LookVideo {
             mux = new MediaMuxer(out.getAbsolutePath(), MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
             Drain d = new Drain(codec, mux);
             for (int i = 0; i < count; i++) {
-                if (stop.now()) throw new LookExport.Stopped();
+                if (stop.now()) throw new ExportStopped();
                 frames.draw(i, w, h);
                 EGLExt.eglPresentationTimeANDROID(display, win, i * 1_000_000_000L / fps);
                 EGL14.eglSwapBuffers(display, win);

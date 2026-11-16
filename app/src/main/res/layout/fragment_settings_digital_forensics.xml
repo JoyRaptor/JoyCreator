@@ -99,7 +99,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/digital_forensics_preview_title"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="14sp"
                     android:textStyle="bold"
             android:fontFamily="@font/joy_body" />
@@ -185,7 +185,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_enable"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="14sp"
                             android:fontFamily="@font/joy_body" />
 
@@ -228,7 +228,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_overlay"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="14sp"
                             android:fontFamily="@font/joy_body" />
 
@@ -270,7 +270,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_evidence_enable"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="14sp"
                             android:fontFamily="@font/joy_body" />
 
@@ -312,7 +312,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@string/digital_forensics_capture_scope"
-                            android:textColor="?attr/colorHeading"
+                            android:textColor="@color/s_ink"
                             android:textSize="14sp"
                             android:fontFamily="@font/joy_body" />
 

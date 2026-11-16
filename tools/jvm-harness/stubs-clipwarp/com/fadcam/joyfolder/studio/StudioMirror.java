@@ -17,7 +17,7 @@ public final class StudioMirror {
 
     public static void onProjectDeleted(Context context, String projectId) {}
 
-    public static boolean mirrorNow(Context context, String projectId) { return false; }
+    public static boolean deleteUnsafe(Context context, String projectId) { return false; }
 
     public static boolean healMovedFiles(Context context, String projectId, File projectJson) {
         return false;

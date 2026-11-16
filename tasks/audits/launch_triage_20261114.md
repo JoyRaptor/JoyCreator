@@ -161,10 +161,10 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-04 (M) Make moving the symmetry line one Undo step
 - JBX-08 (S) Phone-look the hover outline (never seen working) and fix the lean direction if wrong
 - JBX-10 (M) Sweep JoyBrush chrome for missing hover labels
-- JBX-11 (M) Group the long more menu (about 20+ rows) into sections
+- JBX-11 (M) Group the long more menu (about 20+ rows) into sections — DONE 11-15 (58f256930), tablet-checked
 - JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings
-- JBX-14 (S) Doc name follows a drawing's rename
-- JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one
+- JBX-14 (S) Doc name follows a drawing's rename — DONE 11-15 (58f256930), tablet-checked
+- JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one — DONE 11-15 (58f256930), tablet-checked
 - JBX-17 (L) Wire the tap-fill (bucket) tool
 - JBX-23 (M) Symmetry phone checks still owed: scatter, 30 copies speed, pen tilt and pressure
 - JBX-24 (L) Boards, Tile and Sprite acceptance sweep on the Note 9

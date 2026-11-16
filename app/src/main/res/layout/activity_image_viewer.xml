@@ -85,7 +85,7 @@
             android:id="@+id/imageViewerMeta"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#CCFFFFFF"
+            android:textColor="@color/s_ink"
             android:textSize="12sp" />
     </LinearLayout>
 

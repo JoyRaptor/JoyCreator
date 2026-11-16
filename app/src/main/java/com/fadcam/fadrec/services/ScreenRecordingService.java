@@ -345,6 +345,12 @@ public class ScreenRecordingService extends Service {
         backgroundHandler.post(() -> {
             try {
                 startScreenRecording();
+            } catch (NoRoomToRecord e) {
+                FLog.w(TAG, e.getMessage());
+                mainHandler.post(() -> {
+                    Toast.makeText(this, getString(R.string.record_no_room_to_start), Toast.LENGTH_LONG).show();
+                    stopSelf();
+                });
             } catch (IOException e) {
                 String errorMsg = e.getMessage() != null ? e.getMessage() : "I/O error";
                 FLog.e(TAG, "IOException starting screen recording: " + errorMsg, e);
@@ -553,6 +559,9 @@ public class ScreenRecordingService extends Service {
             enableAudio ? "enabled" : "disabled",
             audioSource));
 
+        // Room to record (work-loss audit F5): refuse in plain words before writing anything.
+        refuseIfNoRoom(finalBitrate);
+
         // Build recording pipeline
         try {
             ScreenRecordingPipeline.Builder pipelineBuilder = new ScreenRecordingPipeline.Builder(this)
@@ -700,8 +709,10 @@ public class ScreenRecordingService extends Service {
             sharedPreferencesManager.setScreenRecordingState(ScreenRecordingState.IN_PROGRESS.name());
             
             // NOW start recording pipeline with correct internal state
+            recordingPipeline.setWriteFailureListener(roomWatch::writeFailed);
             recordingPipeline.startRecording();
             recordingStartTime = SystemClock.elapsedRealtime();
+            roomWatch.start();
 
             // Dual-stream: if enabled + capable + the webcam overlay is showing a live
             // camera, start a second encoder for the raw webcam feed sharing the same clock.
@@ -845,7 +856,68 @@ public class ScreenRecordingService extends Service {
     /**
      * Clean up recording pipeline
      */
+    // --- Room to record (work-loss audit F5, SHELL-31) ---
+    // The camera recorder already stopped in time on a nearly full phone; screen and webcam recording
+    // now do the same: a start needs room for a minute plus a margin, free space is watched while
+    // recording, and a failed write stops the recording with the file kept up to its last whole piece.
+    private static final long AUDIO_BITS_PER_SECOND_GUESS = 192_000L;
+
+    /** Thrown when there is clearly not enough room to start; nothing is kept of the empty file. */
+    private static final class NoRoomToRecord extends IOException {
+        NoRoomToRecord(String message) { super(message); }
+    }
+
+    private final com.fadcam.utils.RecordingRoomWatch roomWatch = new com.fadcam.utils.RecordingRoomWatch(
+            mainHandler, this::freeBytesWhereRecording, this::stopForStorage);
+
+    /** Free bytes on the volume of the file being recorded, or -1 when that cannot be told. */
+    private long freeBytesWhereRecording() {
+        android.os.ParcelFileDescriptor pfd = currentSegmentPfd != null ? currentSegmentPfd : safRecordingPfd;
+        if (pfd != null) return com.fadcam.utils.StorageProbe.freeBytes(pfd.getFileDescriptor());
+        File f = outputFile;
+        return f != null ? com.fadcam.utils.StorageProbe.freeBytes(f) : -1L;
+    }
+
+    /** Stops the recording because the storage is (nearly) full or cannot be written; the file is kept. */
+    private void stopForStorage(int messageRes) {
+        if (recordingState == ScreenRecordingState.NONE || recordingState == ScreenRecordingState.STOPPING) return;
+        FLog.w(TAG, "Stopping the screen recording: no room to go on");
+        try {
+            Toast.makeText(this, getString(messageRes), Toast.LENGTH_LONG).show();
+        } catch (Throwable ignored) {
+        }
+        handleStopRecording();
+    }
+
+    /** Throws (after removing the just-made empty file) when there is no room for about a minute. */
+    private void refuseIfNoRoom(int videoBitrate) throws NoRoomToRecord {
+        long free = freeBytesWhereRecording();
+        long perSecond = com.fadcam.utils.RecordingRoom.bytesPerSecond(videoBitrate, AUDIO_BITS_PER_SECOND_GUESS);
+        if (com.fadcam.utils.RecordingRoom.enoughToStart(free, perSecond)) return;
+        if (safRecordingPfd != null) {
+            try { safRecordingPfd.close(); } catch (Exception ignore) {}
+            safRecordingPfd = null;
+        }
+        if (safRecordingUri != null) {
+            try {
+                DocumentsContract.deleteDocument(getContentResolver(), safRecordingUri);
+            } catch (Exception e) {
+                FLog.w(TAG, "Could not remove the empty recording file", e);
+            }
+            safRecordingUri = null;
+        }
+        if (outputFile != null && outputFile.exists() && outputFile.length() == 0) {
+            outputFile.delete();
+        }
+        outputFile = null;
+        recordingState = ScreenRecordingState.NONE;
+        sharedPreferencesManager.setScreenRecordingState(ScreenRecordingState.NONE.name());
+        throw new NoRoomToRecord("Not starting: " + free + " bytes free, needs "
+                + com.fadcam.utils.RecordingRoom.neededToStart(perSecond));
+    }
+
     private void cleanupPipeline() {
+        roomWatch.cancel();
         releasePreviewOnlyVirtualDisplay();
         // Safety net: finalize the webcam pipeline if a failure path reached cleanup
         // without going through stopScreenRecording (no-op if already stopped).
@@ -946,6 +1018,7 @@ public class ScreenRecordingService extends Service {
                 return;
             }
 
+            pipeline.setWriteFailureListener(roomWatch::writeFailed);
             pipeline.startRecording();
 
             // Tee the screen mic PCM into the webcam audio encoder (Decision 4).
@@ -1121,6 +1194,7 @@ public class ScreenRecordingService extends Service {
      */
     private void stopScreenRecording() {
         FLog.d(TAG, "stopScreenRecording: Finalizing recording");
+        roomWatch.cancel();
         
         try {
             // Finalize the raw-webcam file first so its final drain still sees a

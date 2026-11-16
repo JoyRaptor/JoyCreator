@@ -3106,9 +3106,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * it the wash dries where it lies and goes into its layer first (leaving the screen, opening another drawing).
      */
     fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) {
+        // The view no longer draws (paused, its surface gone, or the screen closing): no frame will run this request. The picture
+        // read when the screen left answers it ([keepPausePicture]); a closing screen without one says so at once
+        // instead of leaving the save to its watchdog.
+        if (closing || viewPaused || surfaceGone) {
+            val kept = synchronized(pauseLock) { pausePicture }
+            if (kept != null) { mainThread.post { onReady(kept) }; return }
+            if (closing) { mainThread.post { onFailure("the screen closed before the drawing could be read") }; return }
+        }
         val w = viewW
         val h = viewH
         val epoch = graphicsEpoch
+        // Answers go to the main thread itself, not through the view: a view taken off its window never runs what was
+        // posted to it, and a save's picture read just before the screen closed was dropped that way.
         onGl(allowLost = true) {
             val made: JbContents? = try {
                 if (contentLost || epoch != graphicsEpoch) throw JbArchiveException("the graphics restarted; wait for drawing recovery")
@@ -3120,17 +3130,106 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     readContents(w, h)
                 }
             } catch (e: OutOfMemoryError) {
-                post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }
+                mainThread.post { onFailure("there is not enough memory to save this drawing; your previous save is kept") }
                 null
             } catch (e: Exception) {
-                post { onFailure(e.message ?: e.javaClass.simpleName) }
+                mainThread.post { onFailure(e.message ?: e.javaClass.simpleName) }
                 null
             }
             if (made != null) {
                 val contents = made
-                post { onReady(contents) }
+                mainThread.post { onReady(contents) }
             }
         }
+    }
+
+    // ── A picture for the saves that start after this view stopped drawing (JBX-37, 2026-11-15) ──
+    //
+    // A save reads the drawing in a frame. A view that is paused, or whose screen is closing, draws no more frames: a save
+    // that starts then (it waited behind another save being written, or Android built the screen again while the
+    // graphics were busy) got no answer, failed after its watchdog, and the marks since the save before it were not in
+    // the file. So the host asks for the picture while frames still run, and it answers those saves.
+    private val mainThread = android.os.Handler(android.os.Looper.getMainLooper())
+    private val pauseLock = Any()
+    private var pausePicture: JbContents? = null
+    private var pauseAsk = 0
+    @Volatile private var pausePictureOwed: java.util.concurrent.CountDownLatch? = null
+    @Volatile private var viewPaused = false
+    @Volatile private var surfaceGone = false
+    @Volatile private var closing = false
+
+    /**
+     * Reads the drawing now, as the autosave reads it (the wash stays wet), and keeps it for [snapshot] requests made
+     * once this view no longer draws. UI thread; does not wait. Dropped when the view resumes ([onResume]) or the host
+     * says no save needs it ([dropPausePicture]): it is as large as a save.
+     */
+    fun keepPausePicture() {
+        if (closing || viewPaused || pausePictureOwed != null) return
+        val done = java.util.concurrent.CountDownLatch(1)
+        val ask = synchronized(pauseLock) { pausePictureOwed = done; pauseAsk }
+        val w = viewW
+        val h = viewH
+        val epoch = graphicsEpoch
+        onGl(allowLost = true) {
+            try {
+                if (!contentLost && epoch == graphicsEpoch) {
+                    val made = mediaCanvas.withSheetStamped { readContents(w, h) }
+                    synchronized(pauseLock) { if (ask == pauseAsk) pausePicture = made }
+                }
+            } catch (e: OutOfMemoryError) {
+                android.util.Log.w("JoyBrushSave", "no room to keep the picture for a later save")
+            } catch (e: Exception) {
+                android.util.Log.w("JoyBrushSave", "the picture for a later save could not be read: ${e.message}")
+            } finally { done.countDown() }
+        }
+    }
+
+    /** No save is waiting for the kept picture any more (or the person is back and it is out of date). */
+    fun dropPausePicture() {
+        synchronized(pauseLock) { pauseAsk++; pausePicture = null; pausePictureOwed = null }
+    }
+
+    /** Waits, at most [timeoutMs], for the GL work already asked for to run. UI thread. False when it did not. */
+    private fun awaitQueuedGl(timeoutMs: Long): Boolean {
+        if (viewPaused || surfaceGone) return false
+        val done = java.util.concurrent.CountDownLatch(1)
+        onGl(allowLost = true) { done.countDown() }
+        return try { done.await(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS) } catch (e: InterruptedException) { false }
+    }
+
+    /**
+     * The screen is closing for good. Lets the reads already asked for (a save's, the kept picture's) finish while the
+     * graphics still exist, for at most [timeoutMs] on the UI thread; after it, [snapshot] answers from the kept picture
+     * or refuses at once.
+     */
+    fun settleForClosing(timeoutMs: Long = 3000L) {
+        if (closing) return
+        awaitQueuedGl(timeoutMs)
+        closing = true
+    }
+
+    override fun onPause() {
+        // A kept picture still being read must be read before the frames stop.
+        if (pausePictureOwed?.count == 1L) awaitQueuedGl(1500L)
+        viewPaused = true
+        super.onPause()
+    }
+
+    override fun onResume() {
+        viewPaused = false
+        dropPausePicture()
+        super.onResume()
+    }
+
+    override fun surfaceCreated(holder: android.view.SurfaceHolder) { surfaceGone = false; super.surfaceCreated(holder) }
+    override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
+        // The window stopped and its surface goes NOW, on the UI thread, in the same breath as the pause (seen on the
+        // Note 9 when Android built the screen again: pause, stop, surface destroyed within 15 ms). A save asked for in
+        // that pause has its read queued and no frame has run it yet; after this no frame will. So the frames already
+        // owed run first, while there is still a surface to make the graphics current on.
+        awaitQueuedGl(3000L)
+        surfaceGone = true
+        super.surfaceDestroyed(holder)
     }
 
     /**

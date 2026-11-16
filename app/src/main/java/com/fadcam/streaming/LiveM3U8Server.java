@@ -113,13 +113,17 @@ import fi.iki.elonen.NanoHTTPD;
         Response response;
         
         // Handle OPTIONS preflight requests for CORS
+        // No cross-origin access (B3, 11-15): the page is served from this same address, so
+        // it never needs CORS; a page from anywhere else gets no Allow-Origin and cannot read
+        // anything here.
         if (Method.OPTIONS.equals(method)) {
-            response = newFixedLengthResponse(Response.Status.OK, MIME_PLAINTEXT, "");
-            response.addHeader("Access-Control-Allow-Origin", "*");
-            response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-            response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma");
-            response.addHeader("Access-Control-Max-Age", "3600");
-            return response;
+            return newFixedLengthResponse(Response.Status.NO_CONTENT, MIME_PLAINTEXT, "");
+        }
+
+        // THE LOCK (B3, 11-15). Every route but the page itself, its files and the login is
+        // closed without a valid session: the stream, the status, every control.
+        if (!isOpenRoute(method, uri) && !validateAuthToken(session)) {
+            return locked();
         }
         
         if (Method.GET.equals(method)) {
@@ -197,10 +201,6 @@ import fi.iki.elonen.NanoHTTPD;
         }
         
         // Add CORS headers to all responses
-        response.addHeader("Access-Control-Allow-Origin", "*");
-        response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-        response.addHeader("Access-Control-Allow-Headers", "Content-Type, Cache-Control, Pragma");
-        response.addHeader("Access-Control-Max-Age", "3600");
         
         return response;
     }
@@ -322,7 +322,6 @@ import fi.iki.elonen.NanoHTTPD;
             response.addHeader("Expires", "0");
             response.addHeader("ETag", String.valueOf(System.currentTimeMillis())); // Force unique response each time
             response.addHeader("Last-Modified", new java.text.SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss z", java.util.Locale.US).format(new java.util.Date()));
-            response.addHeader("Access-Control-Allow-Origin", "*");
             
             return response;
             
@@ -1361,13 +1360,25 @@ import fi.iki.elonen.NanoHTTPD;
                 return jsonResponse(Response.Status.BAD_REQUEST, authResponse.toJson());
             }
             
-            // Verify password
-            if (!authManager.verifyPassword(password)) {
-                FLog.w(TAG, "Invalid login attempt from " + clientIP + " (password mismatch)");
-                com.fadcam.streaming.model.AuthResponse authResponse = 
+            // Too many wrong codes from this address: make it wait (B3)
+            long waitMs = loginThrottle.waitMs(clientIP, System.currentTimeMillis());
+            if (waitMs > 0) {
+                FLog.w(TAG, "Login from " + clientIP + " refused: waiting " + (waitMs / 1000) + " s");
+                com.fadcam.streaming.model.AuthResponse authResponse =
+                    com.fadcam.streaming.model.AuthResponse.failure(
+                        "Too many tries. Wait " + ((waitMs + 999) / 1000) + " seconds and try again.");
+                return jsonResponse(Response.Status.TOO_MANY_REQUESTS, authResponse.toJson());
+            }
+
+            // The pairing code shown on the phone, or the password the person set
+            if (!authManager.verifyCodeOrPassword(password)) {
+                loginThrottle.failed(clientIP, System.currentTimeMillis());
+                FLog.w(TAG, "Invalid login attempt from " + clientIP + " (code mismatch)");
+                com.fadcam.streaming.model.AuthResponse authResponse =
                     com.fadcam.streaming.model.AuthResponse.invalidCredentials();
                 return jsonResponse(Response.Status.UNAUTHORIZED, authResponse.toJson());
             }
+            loginThrottle.succeeded(clientIP);
             
             // Create session
             String userAgent = session.getHeaders().get("user-agent");
@@ -1376,9 +1387,13 @@ import fi.iki.elonen.NanoHTTPD;
             
             FLog.i(TAG, "✅ Successful login from " + clientIP);
             
-            com.fadcam.streaming.model.AuthResponse authResponse = 
+            com.fadcam.streaming.model.AuthResponse authResponse =
                 com.fadcam.streaming.model.AuthResponse.success(token.getToken(), token.getExpiresAtMs());
-            return jsonResponse(Response.Status.OK, authResponse.toJson());
+            Response ok = jsonResponse(Response.Status.OK, authResponse.toJson());
+            // HttpOnly: page scripts cannot read it; SameSite=Strict: other sites cannot use it.
+            ok.addHeader("Set-Cookie", SESSION_COOKIE + "=" + token.getToken()
+                    + "; Path=/; HttpOnly; SameSite=Strict");
+            return ok;
             
         } catch (Exception e) {
             FLog.e(TAG, "Error handling login", e);
@@ -1401,9 +1416,11 @@ import fi.iki.elonen.NanoHTTPD;
                 FLog.i(TAG, "Session logged out");
             }
             
-            com.fadcam.streaming.model.AuthResponse authResponse = 
+            com.fadcam.streaming.model.AuthResponse authResponse =
                 new com.fadcam.streaming.model.AuthResponse(true, "Logged out successfully");
-            return jsonResponse(Response.Status.OK, authResponse.toJson());
+            Response out = jsonResponse(Response.Status.OK, authResponse.toJson());
+            out.addHeader("Set-Cookie", SESSION_COOKIE + "=; Path=/; Max-Age=0; HttpOnly; SameSite=Strict");
+            return out;
         } catch (Exception e) {
             FLog.e(TAG, "Error handling logout", e);
             com.fadcam.streaming.model.AuthResponse authResponse = 
@@ -1516,7 +1533,46 @@ import fi.iki.elonen.NanoHTTPD;
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
+        // The cookie set at login: the browser sends it with the video stream too, which
+        // cannot carry a header.
+        String cookies = session.getHeaders().get("cookie");
+        if (cookies != null) {
+            for (String part : cookies.split(";")) {
+                String p = part.trim();
+                if (p.startsWith(SESSION_COOKIE + "=")) {
+                    String v = p.substring(SESSION_COOKIE.length() + 1);
+                    if (!v.isEmpty()) return v;
+                }
+            }
+        }
         return null;
+    }
+
+    /** The session cookie's name. */
+    private static final String SESSION_COOKIE = "jc_remote";
+    /** Guesses of the pairing code are slowed per address. */
+    private final LoginThrottle loginThrottle = new LoginThrottle();
+
+    /** Routes anyone on the Wi-Fi may reach: the page, its own files, and the way in. */
+    static boolean isOpenRoute(Method method, String uri) {
+        if (uri == null) return false;
+        if (Method.GET.equals(method)) {
+            return "/".equals(uri) || "/auth/check".equals(uri)
+                    || ((uri.startsWith("/css/") || uri.startsWith("/js/") || uri.startsWith("/assets/"))
+                        && !uri.contains(".."));
+        }
+        if (Method.POST.equals(method)) {
+            return "/auth/login".equals(uri) || "/auth/logout".equals(uri);
+        }
+        return false;
+    }
+
+    /** The answer to a request without a valid session. */
+    private Response locked() {
+        Response r = newFixedLengthResponse(Response.Status.UNAUTHORIZED, "application/json",
+                "{\"error\":\"locked\",\"message\":\"Enter the pairing code shown on the phone.\"}");
+        r.addHeader("Cache-Control", "no-store");
+        return r;
     }
     
     /**

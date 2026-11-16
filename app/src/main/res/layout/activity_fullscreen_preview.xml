@@ -94,7 +94,7 @@
                     android:tag="preserve_color"
                     android:text="z"
                     android:textSize="9sp"
-                    android:textColor="#71717A"
+                    android:textColor="@color/s_ink_faint"
                     android:fontFamily="sans-serif-black"
                     android:textStyle="bold" />
 
@@ -105,7 +105,7 @@
                     android:tag="preserve_color"
                     android:text="Z"
                     android:textSize="13sp"
-                    android:textColor="#A1A1AA"
+                    android:textColor="@color/s_ink_dim"
                     android:fontFamily="sans-serif-black"
                     android:textStyle="bold" />
 
@@ -116,7 +116,7 @@
                     android:tag="preserve_color"
                     android:text="Z"
                     android:textSize="17sp"
-                    android:textColor="#E4E4E7"
+                    android:textColor="@color/s_ink"
                     android:fontFamily="sans-serif-black"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -200,15 +200,15 @@
             android:insetBottom="0dp"
             android:minWidth="0dp"
             android:padding="0dp"
-            app:backgroundTint="#5A0D1015"
+            app:backgroundTint="@color/s_raised"
             app:cornerRadius="10dp"
             app:icon="@drawable/ic_zoom_out_map"
             app:iconGravity="textStart"
             app:iconPadding="0dp"
             app:iconSize="18dp"
             app:iconTint="@android:color/white"
-            app:rippleColor="#33FFFFFF"
-            app:strokeColor="#2AFFFFFF"
+            app:rippleColor="@color/s_ink_33"
+            app:strokeColor="@android:color/transparent"
             app:strokeWidth="1dp" />
     </LinearLayout>
 
@@ -274,15 +274,15 @@
             android:textAllCaps="false"
             android:textColor="@android:color/white"
             android:textSize="12sp"
-            app:backgroundTint="#66101418"
+            app:backgroundTint="@color/s_raised"
             app:cornerRadius="14dp"
             app:icon="@drawable/ic_focus_target"
             app:iconGravity="textStart"
             app:iconPadding="6dp"
             app:iconSize="18dp"
             app:iconTint="@android:color/white"
-            app:rippleColor="#33FFFFFF"
-            app:strokeColor="#33FFFFFF"
+            app:rippleColor="@color/s_ink_33"
+            app:strokeColor="@android:color/transparent"
             app:strokeWidth="1dp" />
 
     </LinearLayout>
@@ -329,15 +329,15 @@
                     android:insetBottom="0dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    app:backgroundTint="#5A0D1015"
+                    app:backgroundTint="@color/s_raised"
                     app:cornerRadius="14dp"
                     app:icon="@drawable/cam_switch"
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
                     app:iconSize="22dp"
                     app:iconTint="@android:color/white"
-                    app:rippleColor="#33FFFFFF"
-                    app:strokeColor="#2AFFFFFF"
+                    app:rippleColor="@color/s_ink_33"
+                    app:strokeColor="@android:color/transparent"
                     app:strokeWidth="1dp" />
 
                 <TextView
@@ -345,7 +345,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/fullscreen_label_switch"
-                    android:textColor="#B3FFFFFF"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -368,15 +368,15 @@
                     android:insetBottom="0dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    app:backgroundTint="#5A0D1015"
+                    app:backgroundTint="@color/s_raised"
                     app:cornerRadius="14dp"
                     app:icon="@drawable/ic_flashlight_on"
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
                     app:iconSize="22dp"
                     app:iconTint="@android:color/white"
-                    app:rippleColor="#33FFFFFF"
-                    app:strokeColor="#2AFFFFFF"
+                    app:rippleColor="@color/s_ink_33"
+                    app:strokeColor="@android:color/transparent"
                     app:strokeWidth="1dp" />
 
                 <TextView
@@ -384,7 +384,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/fullscreen_label_torch"
-                    android:textColor="#B3FFFFFF"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -407,15 +407,15 @@
                     android:insetBottom="0dp"
                     android:minWidth="0dp"
                     android:padding="0dp"
-                    app:backgroundTint="#5A0D1015"
+                    app:backgroundTint="@color/s_raised"
                     app:cornerRadius="14dp"
                     app:icon="@drawable/pause_rounded"
                     app:iconGravity="textStart"
                     app:iconPadding="0dp"
                     app:iconSize="18dp"
                     app:iconTint="@android:color/white"
-                    app:rippleColor="#33FFFFFF"
-                    app:strokeColor="#2AFFFFFF"
+                    app:rippleColor="@color/s_ink_33"
+                    app:strokeColor="@android:color/transparent"
                     app:strokeWidth="1dp" />
 
                 <TextView
@@ -424,7 +424,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/button_pause"
-                    android:textColor="#B3FFFFFF"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -455,7 +455,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/fullscreen_label_af"
-                    android:textColor="#B3FFFFFF"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -487,7 +487,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/fullscreen_label_exposure"
-                    android:textColor="#B3FFFFFF"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -519,7 +519,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/fullscreen_label_zoom"
-                    android:textColor="#B3FFFFFF"
+                    android:textColor="@color/s_ink_dim"
                     android:textSize="10sp" />
             </LinearLayout>
 
@@ -551,15 +551,15 @@
             android:insetBottom="0dp"
             android:minWidth="0dp"
             android:padding="0dp"
-            app:backgroundTint="#5A0D1015"
+            app:backgroundTint="@color/s_raised"
             app:cornerRadius="14dp"
             app:icon="@drawable/ic_mirror_video"
             app:iconGravity="textStart"
             app:iconPadding="0dp"
             app:iconSize="22dp"
             app:iconTint="@android:color/white"
-            app:rippleColor="#33FFFFFF"
-            app:strokeColor="#2AFFFFFF"
+            app:rippleColor="@color/s_ink_33"
+            app:strokeColor="@android:color/transparent"
             app:strokeWidth="1dp" />
 
         <TextView
@@ -568,7 +568,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/fullscreen_label_mirror"
-            android:textColor="#B3FFFFFF"
+            android:textColor="@color/s_ink_dim"
             android:textSize="10sp" />
     </LinearLayout>
 
@@ -595,15 +595,15 @@
             android:insetBottom="0dp"
             android:minWidth="0dp"
             android:padding="0dp"
-            app:backgroundTint="#7A0D1015"
+            app:backgroundTint="@color/s_raised"
             app:cornerRadius="16dp"
             app:icon="@drawable/ic_camera"
             app:iconGravity="textStart"
             app:iconPadding="0dp"
             app:iconSize="24dp"
             app:iconTint="@android:color/white"
-            app:rippleColor="#33FFFFFF"
-            app:strokeColor="#2AFFFFFF"
+            app:rippleColor="@color/s_ink_33"
+            app:strokeColor="@android:color/transparent"
             app:strokeWidth="1dp" />
 
         <TextView
@@ -612,7 +612,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
             android:text="@string/fullscreen_label_shot"
-            android:textColor="#B3FFFFFF"
+            android:textColor="@color/s_ink_dim"
             android:textSize="10sp" />
     </LinearLayout>
 

@@ -2723,11 +2723,6 @@ class JoyBrushActivity : Activity() {
      */
     /** What the last working save wrote (JbArchive.SaveMemo), for the next one to carry from. Read and written on the save thread only. */
     @Volatile private var workingSaveMemo: JbArchive.SaveMemo? = null
-    /**
-     * Rereading only what changed (JBX-36, JbCanvasView.snapshotSparse). The next working save reads the whole drawing:
-     * the first of a screen, and the one after any that failed. UI thread.
-     */
-    private var workingWholeNext = true
     /** A working save that read only the changed tiles is being written: if the screen leaves now, the whole picture is kept for it. */
     private var workingSparseInFlight = false
 
@@ -2767,7 +2762,7 @@ class JoyBrushActivity : Activity() {
             if (!answered) {
                 answered = true
                 ui.removeCallbacks(watchdog)
-                if (dest is SaveDest.Working) { workingSparseInFlight = false; workingWholeNext = problem != null }
+                if (dest is SaveDest.Working) workingSparseInFlight = false
                 workingHandoff?.complete(problem)
                 if (dest is SaveDest.Open) {
                     dest.selection.close()
@@ -2822,9 +2817,10 @@ class JoyBrushActivity : Activity() {
             return
         }
         // The working save while the person is here reads back only the tiles that changed since this screen's last
-        // save (the pen waited 0.55 s for a full page to be read on the Note 9); leaving, the first save and the one after
-        // a failure read everything, and so does this one again if the file cannot stand in for what was not read.
-        val sparse = dest is SaveDest.Working && !viewPausePending && !workingWholeNext && workingSaveMemo != null &&
+        // save (the pen waited 0.45 s for a full page to be read on the Note 9). The first such save finds nothing
+        // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
+        // cannot stand in for what was not read.
+        val sparse = dest is SaveDest.Working && !viewPausePending &&
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
         lateinit var take: (Boolean) -> Unit
         take = { whole -> try {
@@ -2930,7 +2926,7 @@ class JoyBrushActivity : Activity() {
             }
             val failed: (String) -> Unit = { why -> answer("Could not read the drawing: $why") }
             val keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff
-            if (sparse && !whole) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet) }
+            if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole) }
             else canvas.snapshot({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")

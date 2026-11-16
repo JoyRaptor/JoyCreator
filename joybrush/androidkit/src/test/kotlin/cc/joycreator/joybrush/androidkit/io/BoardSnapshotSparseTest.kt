@@ -14,7 +14,9 @@ class BoardSnapshotSparseTest {
         return base.copy(layers = listOf(layer.copy(mask = Cel("mask"))))
     }
     private fun tile(seed: Int) = ByteArray(TILE_BYTES) { ((it + seed) % 251).toByte() }
-    private fun seenOf(bytes: ByteArray) = BoardSnapshot.Seen(Tiles.isBlank(bytes), Unread(bytes.size, JbArchive.sumOf(bytes)))
+    private val fp = cc.joycreator.joybrush.core.paint.TileFingerprint
+    private fun printOf(bytes: ByteArray) = if (bytes.size == TILE_BYTES) fp.ofBytes(bytes) else fp.ofHalves(bytes)
+    private fun seenOf(bytes: ByteArray) = BoardSnapshot.Seen(Tiles.isBlank(bytes), Unread(bytes.size, printOf(bytes)))
 
     @Test fun knownTilesAreNotReadAndTheDocumentListsWhatAWholeCaptureLists() {
         val doc = drawing(); val layer = doc.layers.single().id; val cel = doc.layers.single().cels.single().id
@@ -28,13 +30,17 @@ class BoardSnapshotSparseTest {
         val known = setOf(keys[0], keys[2])
         val sparse = BoardSnapshot.captureSparse(doc, { _, c -> if (c == "mask") listOf(keys[0]) else keys },
             { _, c, k -> read.add("$c/${Tiles.tx(k)}"); if (c == "mask") mask else bytes[k] },
-            seen = { _, c, k -> if (c == "mask") seenOf(mask) else if (k in known) seenOf(bytes.getValue(k)) else null })
+            seen = { _, c, k -> if (c == "mask") seenOf(mask) else if (k in known) seenOf(bytes.getValue(k)) else null },
+            print = { _, c, k -> printOf(if (c == "mask") mask else bytes.getValue(k)) })
         assertEquals(listOf("$cel/1", "$cel/3"), read.sorted())
         assertEquals(whole.doc, sparse.contents.doc, "the same tiles are listed, the blank one left out, the blank mask tile kept")
         assertEquals(setOf(Triple(layer, cel, "1_0"), Triple(layer, cel, "3_0")), sparse.contents.tiles.keys)
         assertEquals(setOf(Triple(layer, cel, "0_0"), Triple(layer, "mask", "0_0")), sparse.tiles.keys)
         assertEquals(whole.tiles.keys, sparse.contents.tiles.keys + sparse.tiles.keys)
-        for ((k, u) in sparse.tiles) { assertEquals(JbArchive.sumOf(whole.tiles.getValue(k)), u.sum); assertEquals(TILE_BYTES, u.size) }
+        for ((k, u) in sparse.tiles) { assertEquals(printOf(whole.tiles.getValue(k)), u.print); assertEquals(TILE_BYTES, u.size) }
+        // The tiles that were read come with the fingerprints they were given, and no others do.
+        assertEquals(sparse.contents.tiles.keys, sparse.tilePrints.keys)
+        for ((k, p) in sparse.tilePrints) assertEquals(printOf(whole.tiles.getValue(k)), p)
         assertFalse(sparse.whole)
     }
 

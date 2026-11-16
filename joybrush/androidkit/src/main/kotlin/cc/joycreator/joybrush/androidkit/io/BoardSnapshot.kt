@@ -29,7 +29,9 @@ object BoardSnapshot {
                 mediaKeys: (String,String)->Map<String,List<Long>> = { _, _ -> emptyMap() },
                 mediaRead: (String,String,String,Long)->ByteArray? = { _, _, _, _ -> null },
                 seen: (String,String,Long)->Seen? = { _, _, _ -> null },
-                mediaSeen: (String,String,String,Long)->Seen? = { _, _, _, _ -> null }): SparseContents {
+                mediaSeen: (String,String,String,Long)->Seen? = { _, _, _, _ -> null },
+                print: (String,String,Long)->cc.joycreator.joybrush.core.paint.TileFingerprint.Print? = { _, _, _ -> null },
+                mediaPrint: (String,String,String,Long)->cc.joycreator.joybrush.core.paint.TileFingerprint.Print? = { _, _, _, _ -> null }): SparseContents {
         val errors=DocOps.validate(doc)
         require(errors.isEmpty()){errors.joinToString("; ")}
         require(doc.layers.all{it.kind.hasPixels && it.animatedIn==null}) { "Raster snapshot cannot drop vector strokes" }
@@ -41,6 +43,8 @@ object BoardSnapshot {
         val media=LinkedHashMap<MediaTileKey,ByteArray>()
         val unreadTiles=LinkedHashMap<Triple<String,String,String>,Unread>()
         val unreadMedia=LinkedHashMap<MediaTileKey,Unread>()
+        val tilePrints=HashMap<Triple<String,String,String>,cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
+        val mediaPrints=HashMap<MediaTileKey,cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
         fun mediaState(layer: Layer, cel: Cel): Cel {
             val stores=mediaKeys(layer.id,cel.id).filterValues{it.isNotEmpty()}
             // No payload now: the cel lists none either. The document's list is from the LAST save; a plain write that
@@ -61,6 +65,7 @@ object BoardSnapshot {
                 if(cc.joycreator.joybrush.core.paint.Tiles.isBlank(bytes))continue
                 val name=DocOps.key(cc.joycreator.joybrush.core.paint.Tiles.tx(key),cc.joycreator.joybrush.core.paint.Tiles.ty(key))
                 listed.add(name); media[MediaTileKey(layer.id,cel.id,name,store)]=bytes
+                mediaPrint(layer.id,cel.id,store,key)?.let{mediaPrints[MediaTileKey(layer.id,cel.id,name,store)]=it}
             }
             return cel.copy(floatTiles=listed.sorted())
         }
@@ -80,11 +85,12 @@ object BoardSnapshot {
                 if(!mask && cc.joycreator.joybrush.core.paint.Tiles.isBlank(rgba))continue
                 val name=DocOps.key(cc.joycreator.joybrush.core.paint.Tiles.tx(key),cc.joycreator.joybrush.core.paint.Tiles.ty(key))
                 listed.add(name); payload[Triple(layer,value.id,name)]=rgba
+                print(layer,value.id,key)?.let{tilePrints[Triple(layer,value.id,name)]=it}
             }
             return value.copy(tiles=listed.sorted())
         }
         val current=doc.copy(paper=paper,layers=doc.layers.map{layer->layer.copy(
             cels=layer.cels.map{mediaState(layer,cel(layer.id,it))}, mask=layer.mask?.let{cel(layer.id,it,true)})})
-        return SparseContents(JbContents(current,payload,emptyMap(),null,media),unreadTiles,unreadMedia)
+        return SparseContents(JbContents(current,payload,emptyMap(),null,media),unreadTiles,unreadMedia,tilePrints,mediaPrints)
     }
 }

@@ -18,15 +18,19 @@ import cc.joycreator.joybrush.core.media.HalfFloat
  * (The first version fed every value to every lane: four times the arithmetic, 0.4 ms a tile on the Note 9, which ate
  * half of what not reading the tiles saved.)
  *
- * The tile is taken as 16 x 16 blocks of 16 x 16 texels (the chip does a block per output pixel), each block's texels
- * row by row; then the blocks' results row by row, folded the same way, a block's four lanes as a texel's four values.
+ * The tile is folded in three levels, each the same step with the level below's four lanes as a texel's four values:
+ * 64 x 64 blocks of 4 x 4 texels, row by row; 8 x 8 groups of 8 x 8 blocks; then the 64 groups. Many short folds, because
+ * the chip runs one fold per output pixel and all pixels at once: a 256-texel fold per pixel (the second version) left
+ * it working through long loops one after the other, 0.38 ms a tile on the Note 9 whatever the arithmetic cost.
  *
  * A texel's value is its byte (0..255) for a picture tile, and the bits of the 32-bit float a half float widens to for a
  * paint store tile (what a shader's `floatBitsToUint` sees).
  */
 object TileFingerprint {
     const val SIDE = 256
-    private const val BLOCK = 16
+    /** Texels along a block's side, and blocks along a group's side (and groups along the tile's). */
+    const val BLOCK = 4
+    const val GROUP = 8
     private val SEED = intArrayOf(0x811C9DC5.toInt(), 0x9E3779B9.toInt(), 0x85EBCA6B.toInt(), 0xC2B2AE35.toInt())
     private val MUL = intArrayOf(16777619, 0x9E3779B1.toInt(), 0x85EBCA77.toInt(), 0xC2B2AE3D.toInt())
 
@@ -61,9 +65,10 @@ object TileFingerprint {
 
     /** [value]: the value at channel index `(y * SIDE + x) * 4 + channel`. */
     private inline fun fold(value: (Int) -> Int): Print {
-        val out = SEED.copyOf()
+        val blocksAlong = SIDE / BLOCK
+        val blocks = IntArray(blocksAlong * blocksAlong * 4)
         val h = IntArray(4)
-        for (by in 0 until SIDE / BLOCK) for (bx in 0 until SIDE / BLOCK) {
+        for (by in 0 until blocksAlong) for (bx in 0 until blocksAlong) {
             SEED.copyInto(h)
             for (y in 0 until BLOCK) {
                 var i = ((by * BLOCK + y) * SIDE + bx * BLOCK) * 4
@@ -72,10 +77,29 @@ object TileFingerprint {
                     stir(h)
                 }
             }
-            for (l in 0 until 4) { val m = (out[l] xor h[l]) * MUL[l]; out[l] = m xor (m ushr 15) }
-            stir(out)
+            h.copyInto(blocks, (by * blocksAlong + bx) * 4)
         }
+        val groupsAlong = blocksAlong / GROUP
+        val groups = foldUp(blocks, blocksAlong, GROUP)
+        val out = foldUp(groups, groupsAlong, groupsAlong)
         return of(out[0], out[1], out[2], out[3])
+    }
+
+    /** A sheet of [along] x [along] four-lane results folded [side] x [side] at a time, rows first. */
+    private fun foldUp(sheet: IntArray, along: Int, side: Int): IntArray {
+        val n = along / side
+        val out = IntArray(n * n * 4)
+        val h = IntArray(4)
+        for (gy in 0 until n) for (gx in 0 until n) {
+            SEED.copyInto(h)
+            for (y in 0 until side) for (x in 0 until side) {
+                val i = ((gy * side + y) * along + gx * side + x) * 4
+                for (l in 0 until 4) { val m = (h[l] xor sheet[i + l]) * MUL[l]; h[l] = m xor (m ushr 15) }
+                stir(h)
+            }
+            h.copyInto(out, (gy * n + gx) * 4)
+        }
+        return out
     }
 
     private fun stir(h: IntArray) { h[0] += h[1]; h[2] += h[3]; h[1] += h[2]; h[3] += h[0] }

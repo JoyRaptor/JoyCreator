@@ -3164,7 +3164,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * it the wash dries where it lies and goes into its layer first (leaving the screen, opening another drawing).
      */
     fun snapshot(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) =
-        snapshotOf(sparse = false, { onReady(it.contents) }, onFailure, keepWet)
+        snapshotOf(0, { onReady(it.contents) }, onFailure, keepWet)
 
     /**
      * [snapshot] for the save that rewrites only what changed (JBX-36): a tile whose content is what it was when this
@@ -3173,10 +3173,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * Whether a tile changed is asked of the tile itself ([GlPaintEngine.tilePrints]), not of any record of writes.
      * Everything is read when that cannot be asked, when the drawing holds editable lines, and the first time.
      */
-    fun snapshotSparse(onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) =
-        snapshotOf(sparse = true, onReady, onFailure, keepWet)
+    fun snapshotSparse(onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false,
+                       readAll: Boolean = false) =
+        snapshotOf(if (readAll) 2 else 1, onReady, onFailure, keepWet)
 
-    private fun snapshotOf(sparse: Boolean, onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean) {
+    /** [sparse]: 0 a plain readback; 1 only the tiles that changed; 2 every tile, with its fingerprint (after [JbArchiveNeedsBytes]). */
+    private fun snapshotOf(sparse: Int, onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean) {
         // The view no longer draws (paused, its surface gone, or the screen closing): no frame will run this request. The picture
         // read when the screen left answers it ([keepPausePicture]); a closing screen without one says so at once
         // instead of leaving the save to its watchdog.
@@ -3195,6 +3197,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 if (contentLost || epoch != graphicsEpoch) throw JbArchiveException("the graphics restarted; wait for drawing recovery")
                 // Watercolour still on the wet sheet is not in any tile yet. The save holds what the screen shows either
                 // way (WET_SHEET_20261110.md rule 9): stamped into stand-in tiles for the readback alone, or really set.
+                // A wash stamped into its tiles for this readback alone is gone from them right after: such a tile's
+                // fingerprint would be remembered for bytes the tile no longer holds only until the next save asks, which
+                // is harmless (it reads as changed), and its fingerprint in the file is that of what was saved.
                 if (keepWet) mediaCanvas.withSheetStamped { readContentsSparse(w, h, sparse) }
                 else {
                     if (mediaCanvas.settleSheet()) reportHistory()
@@ -3502,10 +3507,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     /** The GL-thread half of [snapshot]: every layer, every tile, read back, under one document. */
-    private fun readContents(w: Int, h: Int): JbContents = readContentsSparse(w, h, sparse = false).contents
+    private fun readContents(w: Int, h: Int): JbContents = readContentsSparse(w, h, 0).contents
 
     /** What this canvas remembers of a tile it read for a save that rewrites only what changed: see [snapshotSparse]. GL thread. */
-    private class SeenTile(val print: cc.joycreator.joybrush.core.paint.TileFingerprint.Print, val size: Int, val sum: Long, val blank: Boolean)
+    private class SeenTile(val print: cc.joycreator.joybrush.core.paint.TileFingerprint.Print, val size: Int, val blank: Boolean)
     private val seenTiles = HashMap<Any, SeenTile>()
 
     /** Bench: how the last [snapshotSparse] went: tiles asked, tiles read back, ms spent on the fingerprints. */
@@ -3556,7 +3561,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** Bench: forget what the canvas remembers of its tiles (the next [snapshotSparse] reads everything). */
     fun benchForgetSeenTiles() = onGl { seenTiles.clear() }
 
-    private fun readContentsSparse(w: Int, h: Int, sparse: Boolean): cc.joycreator.joybrush.androidkit.io.SparseContents {
+    private fun readContentsSparse(w: Int, h: Int, sparse: Int): cc.joycreator.joybrush.androidkit.io.SparseContents {
         if (engine.hasJointPaintPublication) throw JbArchiveException(
             "This recorded drawing needs its physical-source save connection; your previous save is kept")
         val readBegan = android.os.SystemClock.elapsedRealtime()
@@ -3581,7 +3586,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // Editable lines re-file tiles as looks and slabs on the way out (withLines): such a drawing is read whole.
             val prints=HashMap<Any,cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
             var printMs=0L
-            if(sparse && engine.lineSave().records.isEmpty()) {
+            if(sparse != 0 && engine.lineSave().records.isEmpty()) {
                 val began=android.os.SystemClock.elapsedRealtime()
                 val ids=ArrayList<Any>(); val asks=ArrayList<GlPaintEngine.TileAsk>()
                 for(layer in current.layers) {
@@ -3603,13 +3608,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             fun note(id: Any,bytes: ByteArray?): ByteArray? {
                 readBack++
                 val print=prints[id]
-                if(bytes!=null && print!=null) seenTiles[id]=SeenTile(print,bytes.size,JbArchive.sumOf(bytes),Tiles.isBlank(bytes))
+                if(bytes!=null && print!=null) seenTiles[id]=SeenTile(print,bytes.size,Tiles.isBlank(bytes))
                 return bytes
             }
             fun known(id: Any): BoardSnapshot.Seen? {
+                if(sparse != 1) return null
                 val print=prints[id] ?: return null
                 val was=seenTiles[id] ?: return null
-                return if(was.print==print) BoardSnapshot.Seen(was.blank,cc.joycreator.joybrush.androidkit.io.Unread(was.size,was.sum)) else null
+                return if(was.print==print) BoardSnapshot.Seen(was.blank,cc.joycreator.joybrush.androidkit.io.Unread(was.size,print)) else null
             }
             val made=BoardSnapshot.captureSparse(current,
                 mediaKeys=mediaKeys,
@@ -3619,10 +3625,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     note(Triple(layer,cel,key),if(mask?.id==cel)engine.readTile(maskStoreId(layer),key) else engine.readCelTile(layer,cel,key))
                 },paper=documentPaperState,
                 seen={layer,cel,key->known(Triple(layer,cel,key))},
-                mediaSeen={layer,cel,store,key->known(MediaTileKey(layer,cel,key.toString(),store))})
-            if(sparse) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
+                mediaSeen={layer,cel,store,key->known(MediaTileKey(layer,cel,key.toString(),store))},
+                print={layer,cel,key->prints[Triple(layer,cel,key)]},
+                mediaPrint={layer,cel,store,key->prints[MediaTileKey(layer,cel,key.toString(),store)]})
+            if(sparse != 0) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
                 "the lost-tile check $repairMs ms, ${android.os.SystemClock.elapsedRealtime()-readBegan} ms in all on the graphics thread"
-            return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents),made.tiles,made.mediaTiles)
+            return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents),made.tiles,made.mediaTiles,made.tilePrints,made.mediaPrints)
         }
         // Read back, not guessed at: the tiles are the drawing, so the archive carries exactly the
         // bytes the engine is holding and nothing has to be rebuilt from stroke records to save.

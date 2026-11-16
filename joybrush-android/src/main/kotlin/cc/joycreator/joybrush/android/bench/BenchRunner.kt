@@ -438,8 +438,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                             s.contents.tiles.keys.none { it in s.tiles } && s.contents.mediaTiles.keys.none { it in s.mediaTiles }
                         val docSame = s.contents.doc == a.doc
                         val readWrong = s.contents.tiles.count { (k, v) -> a.tiles[k]?.contentEquals(v) != true } + s.contents.mediaTiles.count { (k, v) -> a.mediaTiles[k]?.contentEquals(v) != true }
-                        val unreadWrong = s.tiles.count { (k, u) -> a.tiles[k]?.let { it.size == u.size && sum(it) == u.sum } != true } +
-                            s.mediaTiles.count { (k, u) -> a.mediaTiles[k]?.let { it.size == u.size && sum(it) == u.sum } != true }
+                        // A tile that was not read must be, in the whole readback, a tile with the fingerprint it was left unread for.
+                        val fp = cc.joycreator.joybrush.core.paint.TileFingerprint
+                        val unreadWrong = s.tiles.count { (k, u) -> a.tiles[k]?.let { it.size == u.size && fp.ofBytes(it) == u.print } != true } +
+                            s.mediaTiles.count { (k, u) -> a.mediaTiles[k]?.let { it.size == u.size &&
+                                (if (k.store == cc.joycreator.joybrush.core.media.MediaStores.GROUND) fp.ofBytes(it) else fp.ofHalves(it)) == u.print } != true }
                         val unread = s.tiles.size + s.mediaTiles.size
                         val verdict = if (listed && docSame && readWrong == 0 && unreadWrong == 0) "EXACT" else "WRONG (same tiles listed $listed, same document $docSame, $readWrong read tiles differ, $unreadWrong unread tiles differ)"
                         val t3 = android.os.SystemClock.elapsedRealtime()

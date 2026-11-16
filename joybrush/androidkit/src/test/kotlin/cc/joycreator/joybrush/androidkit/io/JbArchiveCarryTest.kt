@@ -176,17 +176,25 @@ class JbArchiveCarryTest {
 
     // ── Tiles given without their bytes (JBX-36: the canvas rereads only what changed) ──
 
-    /** [d] with only the tiles named in [read] carrying bytes; the rest remembered by the checksum of [remembered]'s bytes. */
-    private fun sparse(d: JbContents, read: Set<String>, remembered: JbContents = d) = SparseContents(
+    private val fp = cc.joycreator.joybrush.core.paint.TileFingerprint
+
+    /** [d] with only the tiles named in [read] carrying bytes (and their fingerprints); the rest as their fingerprints alone. */
+    private fun sparse(d: JbContents, read: Set<String>) = SparseContents(
         d.copy(tiles = d.tiles.filterKeys { it.third in read }, mediaTiles = d.mediaTiles.filterKeys { it.key in read }),
-        d.tiles.keys.filter { it.third !in read }.associateWith { k -> remembered.tiles.getValue(k).let { Unread(it.size, JbArchive.sumOf(it)) } },
-        d.mediaTiles.keys.filter { it.key !in read }.associateWith { k -> remembered.mediaTiles.getValue(k).let { Unread(it.size, JbArchive.sumOf(it)) } })
+        d.tiles.filterKeys { it.third !in read }.mapValues { Unread(it.value.size, fp.ofBytes(it.value)) },
+        d.mediaTiles.filterKeys { it.key !in read }.mapValues { Unread(it.value.size, fp.ofHalves(it.value)) },
+        d.tiles.filterKeys { it.third in read }.mapValues { fp.ofBytes(it.value) },
+        d.mediaTiles.filterKeys { it.key in read }.mapValues { fp.ofHalves(it.value) })
+
+    /** [d] read whole, each tile with its fingerprint: what the canvas hands over the first time. */
+    private fun whole(d: JbContents) = sparse(d, names.toSet() + "5_5")
 
     private fun entries(f: File) = ZipCarry.index(f).values.map { "${it.name} ${it.method} ${it.crc} ${it.compressedSize} ${it.size}" }
 
     @Test fun aSaveGivenOnlyTheChangedTilesMakesTheFileAFullSaveMakes() {
         val f = temp(); val full = temp()
-        val memo = JbArchive.saveCarrying(f, drawing(), null)
+        val memo = JbArchive.saveCarrying(f, whole(drawing()), null)
+        assertSameDrawing(drawing(), f)
         val after = drawing(lookSeeds = mapOf("1_0" to 200), storeSeeds = mapOf("1_0" to 50))
         val memo2 = JbArchive.saveCarrying(f, sparse(after, setOf("1_0")), memo)
         assertEquals(3 + 1, memo2.fresh, "the changed tile's picture and two stores, and the mimetype")
@@ -207,7 +215,7 @@ class JbArchiveCarryTest {
         val after = drawing(lookSeeds = mapOf("1_0" to 200), storeSeeds = mapOf("1_0" to 50))
         fun refused(what: String, prepare: (File, JbArchive.SaveMemo) -> Pair<SparseContents, JbArchive.SaveMemo?>) {
             val f = temp()
-            val memo = JbArchive.saveCarrying(f, first, null)
+            val memo = JbArchive.saveCarrying(f, whole(first), null)
             val (given, withMemo) = prepare(f, memo)
             val before = f.readBytes()
             val failure = runCatching { JbArchive.saveCarrying(f, given, withMemo) }.exceptionOrNull()
@@ -221,6 +229,8 @@ class JbArchiveCarryTest {
         refused("no earlier save is remembered") { _, _ -> sparse(after, setOf("1_0")) to null }
         // The canvas remembers a tile as it was painted since; the file holds the older one.
         refused("the tile changed since the file was written") { _, memo -> sparse(after, emptySet()) to memo }
+        // A save that was given the bytes alone (a copy, the picture kept at a pause) remembers no fingerprints.
+        refused("the last save was given no fingerprints") { f, _ -> sparse(first, emptySet()) to JbArchive.saveCarrying(f, first, null) }
         refused("the file is not the one that save wrote") { f, memo ->
             JbArchive.save(f, first)   // the same drawing written again by someone else
             f.setLastModified(f.lastModified() + 5000)
@@ -238,15 +248,15 @@ class JbArchiveCarryTest {
 
     @Test fun aTileWithoutBytesThatIsNotTheDrawingsIsRefusedLikeAnyOther() {
         val f = temp()
-        val memo = JbArchive.saveCarrying(f, drawing(), null)
+        val memo = JbArchive.saveCarrying(f, whole(drawing()), null)
         val d = drawing()
+        val print = fp.ofBytes(d.tiles.getValue(Triple(layer, cel, "0_0")))
         val stray = SparseContents(d.copy(tiles = d.tiles - Triple(layer, cel, "0_0")),
-            mapOf(Triple(layer, cel, "0_0") to Unread(TILE_BYTES, JbArchive.sumOf(d.tiles.getValue(Triple(layer, cel, "0_0")))),
-                Triple(layer, cel, "9_9") to Unread(TILE_BYTES, 1L)))
+            mapOf(Triple(layer, cel, "0_0") to Unread(TILE_BYTES, print), Triple(layer, cel, "9_9") to Unread(TILE_BYTES, print)))
         val failure = runCatching { JbArchive.saveCarrying(f, stray, memo) }.exceptionOrNull()
         assertTrue(failure is JbArchiveException && failure !is JbArchiveNeedsBytes, "a tile the document does not list: $failure")
         assertSameDrawing(drawing(), f)
-        val both = SparseContents(d, mapOf(Triple(layer, cel, "0_0") to Unread(TILE_BYTES, 1L)))
+        val both = SparseContents(d, mapOf(Triple(layer, cel, "0_0") to Unread(TILE_BYTES, print)))
         assertTrue(runCatching { JbArchive.saveCarrying(f, both, memo) }.exceptionOrNull() is JbArchiveException)
         assertSameDrawing(drawing(), f)
     }

@@ -85,20 +85,26 @@ open class JbArchiveException(message: String) : Exception(message)
 class JbArchiveNeedsBytes(message: String) : JbArchiveException(message)
 
 /**
- * A tile the canvas did not read back for this save: it holds the bytes it held when it was last read, [size] of them
- * with the checksum [sum] ([JbArchive.sumOf]). The file is trusted for such a tile only as far as [JbArchive.saveCarrying]
- * trusts it for any tile: the last save's record, the file's own directory and the compressed bytes must all agree.
+ * A tile the canvas did not read back for this save: its content has the fingerprint [print]
+ * ([cc.joycreator.joybrush.core.paint.TileFingerprint], taken on the tile where it lies) and is [size] bytes. The file
+ * stands in for it only when the save that wrote the file's copy was given that very fingerprint for it
+ * ([JbArchive.SaveMemo]), and then only as far as [JbArchive.saveCarrying] trusts the file for any tile: the last save's
+ * record, the file's own directory and the compressed bytes must all agree.
  */
-class Unread(val size: Int, val sum: Long)
+class Unread(val size: Int, val print: cc.joycreator.joybrush.core.paint.TileFingerprint.Print)
 
 /**
  * A drawing for a save that rewrites only what changed (JBX-36): [contents] holds the document, which lists every tile,
  * and the bytes of the tiles that were read; [tiles] and [mediaTiles] are the listed tiles that were not.
+ * [tilePrints] and [mediaPrints]: the fingerprints of tiles whose bytes ARE here, taken just before they were read; the
+ * save remembers them, and that is what lets a later save leave those tiles unread.
  */
 class SparseContents(
     val contents: JbContents,
     val tiles: Map<Triple<String, String, String>, Unread> = emptyMap(),
     val mediaTiles: Map<MediaTileKey, Unread> = emptyMap(),
+    val tilePrints: Map<Triple<String, String, String>, cc.joycreator.joybrush.core.paint.TileFingerprint.Print> = emptyMap(),
+    val mediaPrints: Map<MediaTileKey, cc.joycreator.joybrush.core.paint.TileFingerprint.Print> = emptyMap(),
 ) {
     /** Every tile has its bytes: [contents] is the whole drawing. */
     val whole: Boolean get() = tiles.isEmpty() && mediaTiles.isEmpty()
@@ -571,6 +577,8 @@ object JbArchive {
         internal val raw: Map<String, Long>, internal val packed: Map<String, Long>,
         /** How many entries the save that made this memo carried from the older file, and how many it compressed anew. */
         val carried: Int, val fresh: Int,
+        /** The fingerprint the canvas gave for an entry's bytes, where it gave one ([SparseContents]). */
+        internal val tags: Map<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print> = emptyMap(),
     )
 
     /**
@@ -588,12 +596,12 @@ object JbArchive {
      */
     fun saveCarrying(file: File, contents: JbContents, memo: SaveMemo?): SaveMemo {
         var made: SaveMemo? = null
-        atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo, emptyMap()) }
+        atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo, emptyMap(), emptyMap()) }
         val m = made ?: throw JbArchiveException("could not save ${file.name}")
         return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
     }
 
-    /** The checksum an [Unread] tile carries: CRC-32 of [bytes] in the high half, Adler-32 in the low. */
+    /** CRC-32 of [bytes] in the high half, Adler-32 in the low (bench and tests: one number for a tile's bytes). */
     fun sumOf(bytes: ByteArray): Long {
         val crc = CRC32(); crc.update(bytes)
         val adler = java.util.zip.Adler32(); adler.update(bytes)
@@ -602,14 +610,15 @@ object JbArchive {
 
     /**
      * [saveCarrying] for a drawing some of whose tiles were not read back ([SparseContents]). Every check a save makes
-     * is made (the document against the tiles, both ways), and a tile without bytes is taken from the older file under
-     * exactly the conditions any carried tile is: the last save's record knows it with this checksum and length, the
-     * file's directory lists it so, and its compressed bytes are the ones that save wrote. If one of them cannot be,
-     * [JbArchiveNeedsBytes]: nothing is written, the older file stays, and the caller saves the whole drawing.
+     * is made (the document against the tiles, both ways), and a tile without bytes is taken from the older file only
+     * when the last save's record holds this very fingerprint for it, and then under exactly the conditions any carried
+     * tile meets: the file's directory lists it with the length and checksum that save wrote, and its compressed bytes
+     * are the ones that save wrote. If one of them cannot be, [JbArchiveNeedsBytes]: nothing is written, the older
+     * file stays, and the caller saves the whole drawing. The fingerprints given for tiles that came with bytes are
+     * remembered in the memo returned.
      */
     fun saveCarrying(file: File, sparse: SparseContents, memo: SaveMemo?): SaveMemo {
-        if (sparse.whole) return saveCarrying(file, sparse.contents, memo)
-        if (memo == null) throw JbArchiveNeedsBytes("no earlier save of ${file.name} is remembered")
+        if (!sparse.whole && memo == null) throw JbArchiveNeedsBytes("no earlier save of ${file.name} is remembered")
         val unread = HashMap<String, Unread>(sparse.tiles.size + sparse.mediaTiles.size)
         // Stand-ins of the right size so the document is checked against every tile as always. They are never written:
         // a tile named in [unread] is carried or the save is refused, and that is checked by name below.
@@ -627,17 +636,21 @@ object JbArchive {
             media[key] = standIn(size); unread[mediaPath(key)] = u
         }
         if (unread.size != sparse.tiles.size + sparse.mediaTiles.size) throw JbArchiveException("two tiles of this drawing share a file name")
-        val filled = sparse.contents.copy(tiles = tiles, mediaTiles = media)
+        val filled = if (sparse.whole) sparse.contents else sparse.contents.copy(tiles = tiles, mediaTiles = media)
+        val prints = HashMap<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(sparse.tilePrints.size + sparse.mediaPrints.size)
+        for ((key, p) in sparse.tilePrints) if (key in sparse.contents.tiles) prints[tilePath(key)] = p
+        for ((key, p) in sparse.mediaPrints) if (key in sparse.contents.mediaTiles) prints[mediaPath(key)] = p
         var made: SaveMemo? = null
-        atomicWrite(file) { out -> made = writeCarrying(out, filled, file, memo, unread) }
+        atomicWrite(file) { out -> made = writeCarrying(out, filled, file, memo, unread, prints) }
         val m = made ?: throw JbArchiveException("could not save ${file.name}")
-        return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
+        return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh, m.tags)
     }
 
     private val standIns = java.util.concurrent.ConcurrentHashMap<Int, ByteArray>()
     private fun standIn(size: Int): ByteArray = standIns.getOrPut(size) { ByteArray(size) }
 
-    private fun writeCarrying(out: OutputStream, contents: JbContents, old: File, memo: SaveMemo?, unread: Map<String, Unread>): SaveMemo {
+    private fun writeCarrying(out: OutputStream, contents: JbContents, old: File, memo: SaveMemo?, unread: Map<String, Unread>,
+                              prints: Map<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>): SaveMemo {
         val (doc, entries) = prepareWrite(contents, null)
         class Item(val name: String, val bytes: ByteArray, val level: Int)
         val items = ArrayList<Item>()
@@ -659,6 +672,7 @@ object JbArchive {
             val w = ZipCarry.Writer(buffered)
             val raw = HashMap<String, Long>(items.size * 2)
             val packed = HashMap<String, Long>(items.size * 2)
+            val tags = HashMap<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(prints.size + unread.size)
             var carried = 0
             var fresh = 0
             var hold = ByteArray(1 shl 20)
@@ -670,12 +684,18 @@ object JbArchive {
                 if (index == null) throw JbArchiveNeedsBytes("the older file is not the one the last save wrote")
             }
             for (item in items) {
-                // A tile that was not read back: its checksum and length are the ones remembered for it, and its bytes
-                // here are a stand-in that must never reach the file.
+                // A tile that was not read back: the last save must have been given this very fingerprint for it; its
+                // checksum is then the one that save wrote, and its bytes here are a stand-in that must never reach the file.
                 val u = unread[item.name]
                 val sum: Long; val length: Long; val rawCrc: Long
-                if (u != null) { sum = u.sum; length = u.size.toLong(); rawCrc = u.sum ushr 32 }
-                else {
+                if (u != null) {
+                    val then = memo?.raw?.get(item.name)
+                    val tag = memo?.tags?.get(item.name)
+                    if (then == null || tag == null || tag != u.print) throw JbArchiveNeedsBytes("the last save did not write ${item.name} as it is now")
+                    sum = then; length = u.size.toLong(); rawCrc = then ushr 32
+                    tags[item.name] = u.print
+                } else {
+                    prints[item.name]?.let { tags[item.name] = it }
                     crc.reset(); crc.update(item.bytes)
                     adler.reset(); adler.update(item.bytes)
                     sum = (crc.value shl 32) or adler.value; length = item.bytes.size.toLong(); rawCrc = crc.value
@@ -705,7 +725,7 @@ object JbArchive {
             }
             w.finish()
             buffered.flush()
-            return SaveMemo(old.path, 0L, 0L, raw, packed, carried, fresh)
+            return SaveMemo(old.path, 0L, 0L, raw, packed, carried, fresh, tags)
         } catch (e: JbArchiveException) {
             throw e
         } catch (e: Exception) {

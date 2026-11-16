@@ -1,6 +1,6 @@
 # FX-1: Joybot carries your work from one room to the next
 
-**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 built 11-16, two routes out of JoyBrush; seen by the agent on the Note 9 and the Fold; owner look owed  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
+**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 landed 11-16, two routes out of JoyBrush; seen by the agent on the Note 9 and the Fold; owner look owed  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
 
 ## Why it matters
 The owner, 11-15: "We've built up this huge library of effects. Why don't we start using it on our own app to really
@@ -143,7 +143,8 @@ Six cloud builds, each tried on a device from JoyBrush's bench drawing (`JoyBrus
 - [ ] The Settings switch row (asked of the app-shell lane; the pref is there, on).
 - [ ] VisLab to Studio, TextLab to Studio: there is no send to hook (Studio pulls from VisLab; TextLab hands a look back to a
       Studio that is already open). Each needs its own design: ask the owner what he wants to see there.
-- [ ] Owner's own look; tablet, landscape, the Fold unfolded; the speech tail; his pictures at 480 px only if he finds them blurry.
+- [x] The speech tail from the question to Joybot; his squash and spring-back on the slap and the kick (last two builds, seen on the Note 9).
+- [ ] Owner's own look; tablet, landscape, the Fold unfolded; his pictures at 480 px only if he finds them blurry (his call 11-16: try 2 to 3 times first).
 - Idea for the owner, not built: JoyBrush shows only "Preparing board" for the 2 to 3 seconds it takes to save a board before
   the show can start. Joybot could already be out and waiting then.
 - Test files left on the devices, mine, safe to delete: about a dozen Studio projects called "Bench animation" and "Sprite"

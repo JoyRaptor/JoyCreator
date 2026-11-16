@@ -105,6 +105,7 @@ public final class ObjectTimeScrubSession {
 
     private void resolveAndPreview() {
         long d = (snap > 0) ? Math.round((double) desired / snap) * snap : desired;
+        d = clampDesired(d);   // R2-TIME-02: rounding must not carry the start past the end cap
         Result r = ObjectTimeMover.resolve(durMs, originAnchor, d, push, breakthrough, origin, above);
         // Anti-overshoot (user 2026-07-27): with push-through OFF, a move that CLEARS an obstacle
         // used to jump straight to the (possibly far) desired, so a small extra shuttle push
@@ -128,9 +129,14 @@ public final class ObjectTimeScrubSession {
 
     /**
      * Forward step-past: if sliding from {@code from} to {@code to} would cross an origin-lane
-     * obstacle, return the flush position just past the FIRST such obstacle (so a lock-only clear
-     * steps over cleanly, one obstacle at a time, instead of jumping to a far desired); else
-     * {@code to}. This is what turns "shoots past" into "steps just over".
+     * obstacle, return the first position past that obstacle where the WHOLE object fits (so a
+     * lock-only clear steps over cleanly instead of jumping to a far desired); else {@code to}.
+     * This is what turns "shoots past" into "steps just over".
+     *
+     * <p>R2-TIME-01 (Codex audit round 2): flush past the first obstacle is not enough on its own;
+     * when the next obstacle starts closer than the object is long, that flush spot overlaps it.
+     * So keep stepping past whatever the object would overlap until it fits. {@code to} is itself
+     * legal (the mover resolved it), so the search always ends at or before it.</p>
      */
     private long flushPastForward(long from, long to) {
         long objRight = from + durMs;
@@ -142,7 +148,18 @@ public final class ObjectTimeScrubSession {
                 flush = o.endMs;
             }
         }
-        return flush;
+        for (Span hit = overlapOnOrigin(flush); hit != null && flush < to; hit = overlapOnOrigin(flush)) {
+            flush = hit.endMs;
+        }
+        return Math.min(flush, to);
+    }
+
+    /** An origin-lane neighbour that {@code [start, start + durMs)} overlaps, or null. */
+    private Span overlapOnOrigin(long start) {
+        for (Span o : origin) {
+            if (start < o.endMs && o.startMs < start + durMs) return o;
+        }
+        return null;
     }
 
     /** Gesture finished (shuttle glide settled / jump applied): commit the net move, if any. */

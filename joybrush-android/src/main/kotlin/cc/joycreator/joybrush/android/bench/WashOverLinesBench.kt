@@ -42,6 +42,7 @@ class WashOverLinesBench(private val canvas: JbCanvasView, private val spec: Ben
     private var priorNotice: ((String) -> Unit)? = null
     private var priorStrokeEnded: (() -> Unit)? = null
     private val sheetBefore = WetSheet.enabled
+    private val linesBefore = canvas.editableLines
     private var finished = false
     private lateinit var lineOnly: JbCanvasView.BenchState
     private lateinit var wet: JbCanvasView.BenchState
@@ -54,6 +55,7 @@ class WashOverLinesBench(private val canvas: JbCanvasView, private val spec: Ben
         priorStrokeEnded = canvas.onStrokeEnded; canvas.onStrokeEnded = null
         canvas.benchWatch = true; canvas.benchErrors.clear()
         WetSheet.enabled = true
+        canvas.editableLines = true   // the first stroke is kept as a line, as with the drawer's Editable lines switch on
         ui.postDelayed({ if (!finished) { problem("timed out"); finish() } }, 150_000L)
         canvas.benchFreshDrawing { later(300) { drawLine() } }
     }
@@ -188,6 +190,7 @@ class WashOverLinesBench(private val canvas: JbCanvasView, private val spec: Ben
         if (finished) return
         finished = true
         WetSheet.enabled = sheetBefore
+        canvas.editableLines = linesBefore
         canvas.onRefused = priorRefused; canvas.onNotice = priorNotice; canvas.onStrokeEnded = priorStrokeEnded
         if (canvas.benchErrors.isNotEmpty()) problem("canvas errors: ${canvas.benchErrors.toList()}")
         Log.i(BenchRunner.TAG, report.put("problems", problems).put("pass", problems.length() == 0).toString())

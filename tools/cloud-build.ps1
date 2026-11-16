@@ -6,6 +6,8 @@
 #   .\tools\cloud-build.ps1 fetch [runId]           downloads the APK/AAB into build\cloud\<artifact>\ of this worktree
 #   .\tools\cloud-build.ps1 sign  [aab]             release only: signs the bundle with the Play upload key, on this PC
 #   .\tools\cloud-build.ps1 run   <ref> [variant]   start + wait + fetch in one go
+#   .\tools\cloud-build.ps1 test  <ref> [suites]    runs tests on GitHub and prints a short summary (run it in the background);
+#                                                   suites: all (default) or any of jb-core,jb-androidkit,jb-android,studio,joybot
 # runId defaults to the last run started from this worktree (build\cloud\last-run.json); "latest" = the newest run anyone started.
 #
 # Then:  .\tools\phone.ps1 install build\cloud\<artifact>\app-default-arm64-v8a-debug.apk   (under the phone lock)
@@ -24,7 +26,9 @@ param(
 $ErrorActionPreference = "Stop"
 $Repo = if ($env:CLOUD_BUILD_REPO) { $env:CLOUD_BUILD_REPO } else { "JoyRaptor/JoyCreator" }
 $Workflow = "build.yml"
-$WorkflowRef = "joy-creator"   # the branch the workflow file is taken from; the BUILT ref is an input
+# The branch the workflow file is taken from; the BUILT ref is an input. CLOUD_BUILD_WORKFLOW_REF=<pushed branch>
+# tries a changed workflow before it lands.
+$WorkflowRef = if ($env:CLOUD_BUILD_WORKFLOW_REF) { $env:CLOUD_BUILD_WORKFLOW_REF } else { "joy-creator" }
 
 $root = (& git rev-parse --show-toplevel 2>$null)
 if (-not $root) { Write-Host "run this from inside a Joy Creator worktree"; exit 1 }
@@ -113,7 +117,7 @@ function Get-RunId {
     throw "no run id given and no build\cloud\last-run.json here: start one first"
 }
 
-function Start-Build([string] $ref, [string] $variant) {
+function Start-Build([string] $ref, [string] $variant, [string] $suites = "") {
     if (-not $ref) { throw "usage: start <ref> [variant]" }
     if (-not $variant) { $variant = "defaultDebug" }
     # A commit: the runner's checkout can only fetch a FULL 40-character commit id, and only one that is on GitHub.
@@ -133,7 +137,9 @@ function Start-Build([string] $ref, [string] $variant) {
         Write-Host "WARNING: your $ref is not the same as origin/$ref; the cloud builds origin's. Push first if you meant yours."
     }
     $rid = "cb-" + [Guid]::NewGuid().ToString("N").Substring(0, 8)
-    Api POST "/actions/workflows/$Workflow/dispatches" @{ ref = $WorkflowRef; inputs = @{ ref = $ref; variant = $variant; request_id = $rid } } | Out-Null
+    $inputs = @{ ref = $ref; variant = $variant; request_id = $rid }
+    if ($variant -eq "tests") { $inputs.suites = $(if ($suites) { $suites } else { "all" }) }
+    Api POST "/actions/workflows/$Workflow/dispatches" @{ ref = $WorkflowRef; inputs = $inputs } | Out-Null
     # Find our run by the tag in its name (it takes a few seconds to appear).
     for ($i = 0; $i -lt 24; $i++) {
         Start-Sleep -Seconds 5
@@ -232,6 +238,8 @@ function Get-Build([string] $id) {
     if ($apk) { Write-Host "install: .\tools\phone.ps1 install build\cloud\$($a.name)\$($apk.Name)" }
     $aab = Get-ChildItem $dest -Filter *.aab | Select-Object -First 1
     if ($aab) { Write-Host "unsigned bundle; sign it here: .\tools\cloud-build.ps1 sign build\cloud\$($a.name)\$($aab.Name)" }
+    $sum = Join-Path $dest "tests-summary.md"
+    if (Test-Path $sum) { Write-Host ""; Get-Content $sum -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
 }
 
 function Resign-Debug([string] $apk) {
@@ -303,5 +311,12 @@ switch ($Cmd) {
         if (-not (Wait-Build $id)) { exit 1 }
         Get-Build $id
     }
-    default { Get-Content $PSCommandPath -TotalCount 12 | ForEach-Object { $_ -replace '^# ?', '' } }
+    "test" {
+        # A failed suite still uploads its summary, so fetch it either way; the exit code says whether all passed.
+        $id = Start-Build $Rest[0] "tests" $(if ($Rest.Count -ge 2) { ($Rest[1..($Rest.Count - 1)] -join ",") } else { "all" })
+        $ok = Wait-Build $id
+        try { Get-Build $id } catch { Write-Host "no summary to fetch: $($_.Exception.Message)" }
+        if (-not $ok) { exit 1 }
+    }
+    default { Get-Content $PSCommandPath -TotalCount 14 | ForEach-Object { $_ -replace '^# ?', '' } }
 }

@@ -758,7 +758,7 @@ public class AIToolExecutor {
 
         // Author the HTML (model → validate → retry once → built-in fallback).
         String[] authored = authorSlideHtml(mode, text, styleHint, durationMs, w, h,
-                args.optString("kind", ""), args.optString("mood", ""));
+                args.optString("kind", ""), args.optString("mood", ""), args.optBoolean("built_in", false));
         String html = authored[0];
         String usedModel = authored[1];
 
@@ -813,12 +813,14 @@ public class AIToolExecutor {
     @NonNull
     private String[] authorSlideHtml(@NonNull String mode, @NonNull String text,
                                      @NonNull String styleHint, long durationMs,
-                                     int w, int h, @NonNull String kind, @NonNull String mood) {
+                                     int w, int h, @NonNull String kind, @NonNull String mood,
+                                     boolean builtIn) {
         SharedPreferencesManager prefs = SharedPreferencesManager.getInstance(context);
         String apiKey = AiKey.get(context);
         String model = prefs.sharedPreferences.getString("ai_model", "openrouter/free");
 
-        if (!AiService.ready(context, apiKey)) {
+        // built_in: the phone's own design, no model call (BOT-7: a new project's first card).
+        if (builtIn || !AiService.ready(context, apiKey)) {
             return new String[]{builtInSlide(w, h, mode, text, durationMs, kind, mood), null};
         }
 

@@ -16,6 +16,7 @@ import com.fadcam.ui.faditor.fx.FxCompiler;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxGlSource;
 import com.fadcam.ui.faditor.fx.FxHistory;
+import com.fadcam.ui.faditor.fx.SharedFxHistory;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxStack;
 import com.fadcam.ui.faditor.fx.FxUniforms;
@@ -127,6 +128,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             this.ears = ears;
             this.layer = layer;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
+            String name = layer.getName();
+            this.trailKey = (name != null && name.startsWith("clip:") ? name : layer.getId()) + "/p";
         }
 
         @Override
@@ -209,7 +212,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     // frame's. The planner never makes it the last pass, so the composite is
                     // never fed back.
                     FxHistory.Target hist = step.pass.feedback && !last
-                            ? history.begin("p" + i, width, height, editorMs) : null;
+                            ? history(editorMs).begin(trailKey + i, width, height, editorMs)
+                            : null;
                     if (last) {
                         GlUtil.focusFramebufferUsingCurrentContext(outFbo[0], width, height);
                     } else if (hist != null) {
@@ -256,7 +260,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     GlUtil.checkGlError();
                     if (hist != null) {
                         src = hist.writeTex();
-                        history.end(hist, editorMs);
+                        history(editorMs).end(hist, editorMs);
                     } else if (!last) {
                         src = texFor(i);
                     }
@@ -389,8 +393,32 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          * that first frame for the whole export.
          */
         @androidx.annotation.Nullable private List<FxCompiler.Pass> livePasses;
-        /** Echo Trails' previous frames, one per feedback pass, kept across drawFrame calls. */
-        @NonNull private final FxHistory history = new FxHistory();
+        /**
+         * Echo Trails' previous frames, one per feedback pass. Borrowed on the first trail frame
+         * from {@link SharedFxHistory}, which outlives this program: Media3 builds a new program
+         * for every clip, and a history of its own started empty at each cut (VL-07). Null until
+         * then; a private one when another export holds the shared one.
+         */
+        @androidx.annotation.Nullable private FxHistory history;
+        private boolean borrowed;
+        /**
+         * Which trails are this layer's in the shared history: the layer's id, or for a clip's
+         * own effects (ExportManager.spineFxLayer names them "clip:" + the clip's id and gives
+         * each chain a new id) the clip, so one clip cut into pieces keeps its trails too.
+         */
+        @NonNull private final String trailKey;
+
+        @NonNull
+        private FxHistory history(long editorMs) {
+            if (history == null) {
+                FxHistory shared = SharedFxHistory.borrow();
+                borrowed = shared != null;
+                history = borrowed ? shared : new FxHistory();
+                // Trails no clip can continue any more (a clip's own, from earlier clips).
+                if (borrowed) history.dropStale(editorMs);
+            }
+            return history;
+        }
         /** Ping-pong targets, one per intermediate step. Lazily made, reused every frame. */
         @NonNull private final List<int[]> pingPong = new java.util.ArrayList<>();
 
@@ -538,7 +566,11 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             super.release();
             try {
                 releaseSteps();
-                history.release();
+                if (history != null) {
+                    if (borrowed) SharedFxHistory.giveBack(history);
+                    else history.release();
+                    history = null;
+                }
                 // The ping-pong targets are GL objects too. Leaking one per export would be a
                 // slow bleed nobody notices until a long session runs out of texture memory.
                 for (int[] pp : pingPong) {

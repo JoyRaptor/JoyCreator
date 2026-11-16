@@ -145,14 +145,29 @@ public final class StudioMirror {
     }
 
     /**
+     * ProjectStorage.delete's one question: with a Joy Creator folder in use, could this project and every
+     * file that lives only inside the app NOT be made safe in the folder first? Then the delete must not
+     * happen. Without a folder: false (that delete is final, and the person was told so before it).
+     * Folder I/O: never the main thread.
+     */
+    public static boolean deleteUnsafe(Context context, String projectId) {
+        return JoyFolderHome.isChosen(context.getApplicationContext()) && !readyToDelete(context, projectId);
+    }
+
+    /**
      * Before a delete: bring the project's folder copy up to date NOW, not a few seconds from now, so
      * what goes to Trash is the project as it is (work-loss audit 2026-11-10: the copy in Trash was
      * whatever the last background copy had caught, and for a project deleted moments after it was
      * made there was no copy at all). Folder I/O: never the main thread.
      *
-     * @return true when the folder holds a copy of this project afterwards, so the delete can be undone
+     * <p>Its pictures, clips and sounds go too, even for someone who chose "Just the projects" or who
+     * picked the folder before having any (launch bug hunt 11-15, A5): the delete removes the app's
+     * own copy of them, so without this the project came back from Trash with its media gone.
+     *
+     * @return true only when the folder holds an up-to-date copy of this project AND every file that
+     *         lived only inside the app is in the folder too, so the delete can really be undone
      */
-    public static boolean mirrorNow(Context context, String projectId) {
+    private static boolean readyToDelete(Context context, String projectId) {
         final Context app = context.getApplicationContext();
         if (!JoyFolderHome.isChosen(app)) return false;
         MAIN.post(() -> {
@@ -160,9 +175,15 @@ public final class StudioMirror {
             if (waiting != null) MAIN.removeCallbacks(waiting);
         });
         try {
-            mirror(app, projectId);
+            Result r = mirror(app, projectId, null, true);
+            if (r.uncopied > 0) {
+                Log.w(TAG, "Not deleting " + projectId + ": " + r.uncopied + " media file(s) could not be copied "
+                        + "into the folder " + r.problems);
+                return false;
+            }
         } catch (Exception e) {
-            Log.w(TAG, "Could not bring the folder copy of " + projectId + " up to date", e);
+            Log.w(TAG, "Not deleting " + projectId + ": its folder copy could not be brought up to date", e);
+            return false;
         }
         try {
             return folderPathOf(app, projectId) != null;
@@ -257,6 +278,8 @@ public final class StudioMirror {
         public int projects;
         public int filesCopied;
         public long bytesCopied;
+        /** Media that lives only inside the app and could not be copied into the folder this time. */
+        public int uncopied;
         public final List<String> problems = new ArrayList<>();
     }
 
@@ -300,7 +323,16 @@ public final class StudioMirror {
         return mirror(context, projectId, null);
     }
 
-    static synchronized Result mirror(Context context, String projectId, Progress progress) throws IOException {
+    static Result mirror(Context context, String projectId, Progress progress) throws IOException {
+        return mirror(context, projectId, progress, false);
+    }
+
+    /**
+     * @param forceMedia copy the pictures, clips and sounds that live only inside the app even when the
+     *                   person chose "Just the projects": a delete is about to remove the only copy
+     */
+    static synchronized Result mirror(Context context, String projectId, Progress progress, boolean forceMedia)
+            throws IOException {
         Result res = new Result();
         JoyFolder jf = JoyFolderHome.open(context);
         SafJoyFs saf = JoyFolderHome.fsOf(jf);
@@ -315,7 +347,7 @@ public final class StudioMirror {
         State st = State.load(jf);
         String workRel = placeProject(jf, st, projectId, name);
 
-        boolean copyMedia = JoyFolderHome.copyMediaAllowed(context);
+        boolean copyMedia = forceMedia || JoyFolderHome.copyMediaAllowed(context);
         Map<String, String> files = new LinkedHashMap<>();
         final Map<String, String> locals = new LinkedHashMap<>();
         final java.util.Set<String> outside = new java.util.LinkedHashSet<>();
@@ -345,7 +377,10 @@ public final class StudioMirror {
             Source src = atRisk(context, projectDir, value, uri);
             if (src == null) return value;
             String rel = copyIn(context, jf, st, src, workRel, name, res);
-            if (rel == null) return value;
+            if (rel == null) {
+                res.uncopied++;   // still only inside the app
+                return value;
+            }
             files.put(rel, st.mediaFingerprint(rel));
             // A file from inside the project's own folder: remember where, so a restore puts it back
             // there instead of leaving the project pointing at the folder (ProjectLocals).

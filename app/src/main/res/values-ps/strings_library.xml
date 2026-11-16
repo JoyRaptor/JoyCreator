@@ -124,7 +124,7 @@
     <string name="library_trashed">ردي ته ولاړ. کولای شئ له ردي نه بیرته یې راوګرځوئ.</string>
     <string name="library_trash_failed">ردي ته نه شو لېږدېدای: %1$s</string>
     <string name="library_trash_in_use">یوه پروژه دا کاروي، نو پاتې کېږي. لومړی یې له پروژې وباسئ.</string>
-    <string name="library_trash_no_copy">دا پروژه تر اوسه ستاسو په Joy Creator پوښۍ کې کاپي نه لري، نو وروسته نه شي راګرځېدای. پرېښودل شوه.</string>
+    <string name="library_trash_no_copy">دا پروژه، یا د هغې ځینې انځورونه او کلیپونه، ستاسو Joy Creator پوښۍ ته کاپي نه شول، نو وروسته بیرته نه شي راتلای. همداسې پرېښودل شوه.</string>
     <string name="library_trash_no_folder">ستاسو Joy Creator پوښۍ نه رسېږي، نو دا وروسته نه شي راګرځېدای. پرېښودل شوه.</string>
     <string name="library_renamed">نوم بدل شو.</string>
     <string name="library_rename_failed">نوم ونه بدل شو.</string>

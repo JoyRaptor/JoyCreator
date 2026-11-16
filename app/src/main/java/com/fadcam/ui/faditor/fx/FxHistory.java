@@ -102,6 +102,22 @@ public final class FxHistory {
         t.cur = 1 - t.cur;
     }
 
+    /**
+     * Free every pass whose last frame is more than a jump away from {@code editorMs}: its
+     * history could never count again ({@link #begin} would restart it), so a shared history
+     * ({@link SharedFxHistory}) does not keep a clip's own trails alive for the whole export.
+     */
+    public void dropStale(long editorMs) {
+        java.util.Iterator<Target> it = targets.values().iterator();
+        while (it.hasNext()) {
+            Target t = it.next();
+            if (t.lastMs != Long.MIN_VALUE && Math.abs(editorMs - t.lastMs) > JUMP_MS) {
+                free(t);
+                it.remove();
+            }
+        }
+    }
+
     /** Delete every history picture (the renderer is done, or the frame size changed). */
     public void release() {
         for (Target t : targets.values()) free(t);

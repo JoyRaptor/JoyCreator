@@ -1,6 +1,7 @@
 package com.fadcam.vislab.overlay;
 
 import android.content.Context;
+import com.fadcam.R;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -69,7 +70,7 @@ final class OverlayControls extends LinearLayout {
         int p = Ui.dp(c, 6);
         row.setPadding(p, p, p, p);
         row.setBackground(Ui.round(VisOverlayService.LEGIBLE, Ui.dp(c, 999)));
-        row.addView(button(c, "chevron_left", "Previous look", v -> a.step(-1)));
+        row.addView(button(c, "chevron_left", c.getString(R.string.vl_ov_prev), v -> a.step(-1)));
         LinearLayout words = new LinearLayout(c);
         words.setOrientation(VERTICAL);
         words.setGravity(Gravity.CENTER);
@@ -81,19 +82,19 @@ final class OverlayControls extends LinearLayout {
         hears.setSingleLine(true);
         words.addView(name);
         words.addView(hears);
-        Ui.label(words, "Every look by name: tap to choose");
+        Ui.label(words, R.string.vl_ov_pick_look);
         words.setOnClickListener(v -> {
             Motion.press(v);
             togglePicker();
         });
         LayoutParams wl = new LayoutParams(Ui.dp(c, 128), LayoutParams.WRAP_CONTENT);
         row.addView(words, wl);
-        row.addView(button(c, "chevron_right", "Next look", v -> a.step(1)));
-        phone = button(c, "speaker", "Hear the phone's own sound: music, games, video (Android asks first)", v -> a.togglePhoneAudio());
+        row.addView(button(c, "chevron_right", c.getString(R.string.vl_ov_next), v -> a.step(1)));
+        phone = button(c, "speaker", c.getString(R.string.vl_ov_phone_on_tip), v -> a.togglePhoneAudio());
         row.addView(phone);
-        mode = button(c, "fullscreen", "Fill the screen (touches pass through to the app below)", v -> a.toggleFull());
+        mode = button(c, "fullscreen", c.getString(R.string.vl_ov_full_tip), v -> a.toggleFull());
         row.addView(mode);
-        row.addView(button(c, "close", "Turn the visualiser off", v -> a.close()));
+        row.addView(button(c, "close", c.getString(R.string.vl_ov_off), v -> a.close()));
         addView(row, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
     }
 
@@ -102,21 +103,19 @@ final class OverlayControls extends LinearLayout {
     }
 
     void setSource(int kind) {
-        hears.setText(kind == OverlaySound.RECORDING ? "hearing the recording"
-                : kind == OverlaySound.PHONE ? "hearing the phone"
-                : kind == OverlaySound.MIC ? "hearing the microphone" : "waiting for sound");
+        hears.setText(kind == OverlaySound.RECORDING ? R.string.vl_ov_hear_recording
+                : kind == OverlaySound.PHONE ? R.string.vl_ov_hear_phone
+                : kind == OverlaySound.MIC ? R.string.vl_ov_hear_mic : R.string.vl_ov_hear_none);
         boolean on = kind == OverlaySound.PHONE;
         // ON = solid cyan with the icon cut out (the owner's rule).
         phone.setTextColor(on ? Studio.GROUND : Studio.INK);
         phone.setBackground(on ? Ui.round(Studio.ARMED, Ui.dp(getContext(), 999)) : null);
-        Ui.label(phone, on ? "Stop hearing the phone; back to the microphone"
-                : "Hear the phone's own sound: music, games, video (Android asks first)");
+        Ui.label(phone, on ? R.string.vl_ov_phone_off_tip : R.string.vl_ov_phone_on_tip);
     }
 
     void setFull(boolean full) {
         mode.setText(full ? "fullscreen_exit" : "fullscreen");
-        Ui.label(mode, full ? "Back to a box you can move and resize"
-                : "Fill the screen (touches pass through to the app below)");
+        Ui.label(mode, full ? R.string.vl_ov_box_tip : R.string.vl_ov_full_tip);
     }
 
     private void togglePicker() {

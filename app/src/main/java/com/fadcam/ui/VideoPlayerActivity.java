@@ -1340,6 +1340,13 @@ public class VideoPlayerActivity extends AppCompatActivity {
                         @Override
                         public void onPlayerError(androidx.media3.common.PlaybackException error) {
                             FLog.e(TAG, "Player error: " + error.getMessage(), error);
+                            // A file that has gone or will not decode used to leave a blank 00:00
+                            // player (launch bug hunt A9, 11-15): say so and go back instead.
+                            if (!isFinishing()) {
+                                android.widget.Toast.makeText(VideoPlayerActivity.this,
+                                        R.string.player_cannot_play, android.widget.Toast.LENGTH_LONG).show();
+                                finish();
+                            }
                         }
                         @Override
                         public void onAudioSessionIdChanged(int audioSessionId) {
@@ -2927,9 +2934,14 @@ public class VideoPlayerActivity extends AppCompatActivity {
             // player.play(); // Uncomment if you want auto-resume on activity resume
         }
 
-        // Request notification permission on Android 13+
+        // Request notification permission on Android 13+, once ever: it only shows the playback
+        // controls in the notification shade, and asking on every open (launch bug hunt A9, 11-15)
+        // is nagging. The choice stays in Android's own app settings.
         try {
-            if (android.os.Build.VERSION.SDK_INT >= 33) {
+            android.content.SharedPreferences asked = getSharedPreferences("player_access", MODE_PRIVATE);
+            if (android.os.Build.VERSION.SDK_INT >= 33
+                    && !asked.getBoolean("notifications_asked", false)) {
+                asked.edit().putBoolean("notifications_asked", true).apply();
                 if (
                     androidx.core.content.ContextCompat.checkSelfPermission(
                         this,

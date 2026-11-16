@@ -890,10 +890,24 @@ public class ProjectStorage {
      * Also cleans up any cached remuxed files for clips in this project.
      *
      * @param projectId the project ID to delete
-     * @return true if deleted, false otherwise
+     * @return true if deleted, false otherwise (with a Joy Creator folder: also when the project and
+     *         every picture, clip and sound that lives only inside the app could not first be copied
+     *         there, because then it could not be put back from Trash)
      */
     public boolean delete(@NonNull String projectId) {
-        // First, try to load the project to get clip info for cache cleanup
+        if (!getProjectDir(projectId).exists()) return false;
+        // What goes to Trash must be the project as it is now, not as the last background copy
+        // caught it (work-loss audit 2026-11-10), and with its media (bug hunt 11-15, A5): the tree
+        // below is the app's only copy of anything the project made or imported into the app.
+        // Folder I/O, so only off the main thread; both callers that delete for a person do so
+        // from the folder's own thread.
+        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()
+                && com.fadcam.joyfolder.studio.StudioMirror.deleteUnsafe(context, projectId)) {
+            FLog.w(TAG, "Project kept: its folder copy or media could not be made safe first: " + projectId);
+            return false;
+        }
+
+        // Try to load the project to get clip info for cache cleanup
         FaditorProject project = null;
         try {
             project = load(projectId);
@@ -949,13 +963,6 @@ public class ProjectStorage {
         // Now delete the project directory
         File dir = getProjectDir(projectId);
         if (!dir.exists()) return false;
-
-        // What goes to Trash must be the project as it is now, not as the last background copy
-        // caught it (work-loss audit 2026-11-10). Folder I/O, so only off the main thread; both
-        // callers that delete for a person do so from the folder's own thread.
-        if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()) {
-            com.fadcam.joyfolder.studio.StudioMirror.mirrorNow(context, projectId);
-        }
 
         // The copy in the user's Joy Creator folder goes to its Trash, restorable for 30 days.
         com.fadcam.joyfolder.studio.StudioMirror.onProjectDeleted(context, projectId);

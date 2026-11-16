@@ -98,11 +98,11 @@ final class LookStrip extends HorizontalScrollView {
         lp.setMarginEnd(Ui.dp(c, 7));
         card.setLayoutParams(lp);
         card.setBackground(Ui.round(0xA6 << 24 | (Studio.RAISED & 0xFFFFFF), Ui.dp(c, 12)));
-        card.addView(Ui.text(c, "+ New", 12.5f, Studio.INK, true, 650));
-        TextView sub = Ui.text(c, "From nothing", 10.5f, Studio.INK_FAINT, false, 400);
+        card.addView(Ui.text(c, c.getString(com.fadcam.R.string.vl_strip_new), 12.5f, Studio.INK, true, 650));
+        TextView sub = Ui.text(c, c.getString(com.fadcam.R.string.vl_strip_from_nothing), 10.5f, Studio.INK_FAINT, false, 400);
         sub.setPadding(0, Ui.dp(c, 3), 0, 0);
         card.addView(sub);
-        Ui.label(card, "Start a new look from nothing and build it layer by layer");
+        Ui.label(card, com.fadcam.R.string.vl_strip_new_tip);
         card.setOnClickListener(v -> {
             Motion.press(v);
             if (onNew != null) onNew.run();

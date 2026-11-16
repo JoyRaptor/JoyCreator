@@ -144,8 +144,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         startInForeground();   // first, always: a foreground start that never calls it crashes the app
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && !android.provider.Settings.canDrawOverlays(this)) {
             // Samsung titles the same switch "Appear on top": name both so it can be found.
-            android.widget.Toast.makeText(this, "To float the visualiser over other apps, allow Joy Creator to "
-                    + "\"Display over other apps\" (Samsung: \"Appear on top\") in Android's settings.",
+            android.widget.Toast.makeText(this, getString(R.string.vl_ov_need_overlay),
                     android.widget.Toast.LENGTH_LONG).show();
             stopSelf();
             return;
@@ -190,7 +189,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
 
     /** From {@link PhoneAudioConsent}: no (or back). Nothing changes. */
     static void phoneAudioRefused(@NonNull Context c) {
-        android.widget.Toast.makeText(c.getApplicationContext(), "The visualiser keeps listening to the microphone",
+        android.widget.Toast.makeText(c.getApplicationContext(), c.getString(R.string.vl_ov_keeps_mic),
                 android.widget.Toast.LENGTH_SHORT).show();
     }
 
@@ -203,19 +202,19 @@ public class VisOverlayService extends Service implements OverlayControls.Action
             return;
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            android.widget.Toast.makeText(this, "Hearing the phone's own sound needs Android 10 or newer",
+            android.widget.Toast.makeText(this, getString(R.string.vl_ov_needs_android10),
                     android.widget.Toast.LENGTH_LONG).show();
             return;
         }
         // Audit 10-18 R1: while a recording runs it already hears the phone through the recorder, and
         // a second screen-capture yes would make Android end that recording.
         if (sound.recordingRuns()) {
-            android.widget.Toast.makeText(this, "While you record, the visualiser hears the recording",
+            android.widget.Toast.makeText(this, getString(R.string.vl_ov_hears_recording),
                     android.widget.Toast.LENGTH_SHORT).show();
             return;
         }
         if (!com.fadcam.vislab.audio.MicSource.hasPermission(this)) {
-            android.widget.Toast.makeText(this, "Allow the microphone for Joy Creator first: Android counts the phone's sound as recording",
+            android.widget.Toast.makeText(this, getString(R.string.vl_ov_allow_mic_first),
                     android.widget.Toast.LENGTH_LONG).show();
             return;
         }
@@ -291,7 +290,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
         resize.setGravity(Gravity.CENTER);
         resize.setBackground(Ui.round(Ui.DRAWER, Ui.dp(this, 999)));
         resize.setRotation(90);
-        Ui.label(resize, "Drag to resize");
+        Ui.label(resize, R.string.vl_ov_resize);
         resize.setVisibility(View.GONE);
         int rs = Ui.dp(this, 34);
         FrameLayout.LayoutParams rl = new FrameLayout.LayoutParams(rs, rs, Gravity.TOP | Gravity.END);
@@ -372,7 +371,7 @@ public class VisOverlayService extends Service implements OverlayControls.Action
                 dot = Ui.icon(this, "graphic_eq", 22, Ui.VIZ_A);
                 dot.setGravity(Gravity.CENTER);
                 dot.setBackground(Ui.round(LEGIBLE, Ui.dp(this, 999)));
-                Ui.label(dot, "Visualiser: tap for its controls, drag to move");
+                Ui.label(dot, R.string.vl_ov_dot);
                 int d = Ui.dp(this, 44);
                 handle.addView(dot, new FrameLayout.LayoutParams(d, d));
                 wm.addView(handle, handleLp);
@@ -615,18 +614,18 @@ public class VisOverlayService extends Service implements OverlayControls.Action
     private void startInForeground(boolean projection) {
         NotificationManager nm = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(new NotificationChannel(CHANNEL_ID, "Visualiser on screen",
+            nm.createNotificationChannel(new NotificationChannel(CHANNEL_ID, getString(R.string.vl_ov_notif_title),
                     NotificationManager.IMPORTANCE_LOW));
         }
         PendingIntent stop = PendingIntent.getService(this, 0,
                 new Intent(this, VisOverlayService.class).setAction(ACTION_STOP),
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification n = new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("Visualiser on screen")
-                .setContentText("Moving with what you hear")
+                .setContentTitle(getString(R.string.vl_ov_notif_title))
+                .setContentText(getString(R.string.vl_ov_notif_text))
                 .setSmallIcon(R.drawable.ic_waveform_bars)
                 .setOngoing(true)
-                .addAction(0, "Turn off", stop)
+                .addAction(0, getString(R.string.vl_ov_notif_off), stop)
                 .build();
         // Android 10 needs the screen-capture type to hand out the projection; Android 11+ also
         // only lets a foreground service hear the microphone when it says so.

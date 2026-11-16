@@ -147,13 +147,13 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - AN-06 (M) Phone-prove puppet basics on a throwaway rigged picture: place pins, key a pin, live take, tape drags, bone tap, rotated-picture pins
 - AN-08 (S) Timeline grab bar: run the diagnostic and read moves= (ledger C1)
 - AN-09 (S) Phone-drag a sprite's corner pin and bend (never dragged on a phone)
-- VL-02 (M) Land the unlanded VisLab review branch origin/claude/festive-perlman-8dde53 (V1, V3, V4, V5, SoundHits fix)
-- VL-03 (S) Words in a look: measure frame cost in VisLab and try a Studio export of a VisLab look carrying words
-- VL-05 (M) VisLab words into strings.xml for translation, and a hover-label audit
-- VL-07 (M) Echo trails restart at a clip boundary in exports
+- VL-02 (M) Land the unlanded VisLab review branch origin/claude/festive-perlman-8dde53 (V1, V3, V4, V5, SoundHits fix) **DONE 11-15** (code on joy-creator since 11-13; merged build exports a VisLab look on the Fold)
+- VL-03 (S) Words in a look: measure frame cost in VisLab and try a Studio export of a VisLab look carrying words **DONE 11-15** (Fold: about 5 ms a frame, 61-69 -> 48-52 fps; the export works)
+- VL-05 (M) VisLab words into strings.xml for translation, and a hover-label audit **DONE 11-15** (strings_vislab.xml, 201 strings; every control already had a hover label)
+- VL-07 (M) Echo trails restart at a clip boundary in exports **DONE 11-15** (fx/SharedFxHistory; Fold export proof)
 - VL-12 (M) Owner-deferred checks: R1 audit (floating visualiser, needs Start now), R2 audit (Android 12+), D2 hour-long heat test
-- TX-04 (S) Rename the lobby 'uArc' name clash (lightning knob vs tube share)
-- TX-09 (M) TextLab phone engine speed: per-pass GPU timing; app ~2x slower than the look book
+- TX-04 (S) Rename the lobby 'uArc' name clash (lightning knob vs tube share) **DONE** (renamed uPenArc 11-12; comment caught up 11-15)
+- TX-09 (M) TextLab phone engine speed: per-pass GPU timing; app ~2x slower than the look book **DONE** (TlGpuTimer and T13 speed on joy-creator before 11-15)
 - TX-17 (S) STATE and help mapping for TextLab rows after owner tries
 
 ### JoyBrush
@@ -161,10 +161,10 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-04 (M) Make moving the symmetry line one Undo step
 - JBX-08 (S) Phone-look the hover outline (never seen working) and fix the lean direction if wrong
 - JBX-10 (M) Sweep JoyBrush chrome for missing hover labels
-- JBX-11 (M) Group the long more menu (about 20+ rows) into sections
+- JBX-11 (M) Group the long more menu (about 20+ rows) into sections — DONE 11-15 (58f256930), tablet-checked
 - JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings
-- JBX-14 (S) Doc name follows a drawing's rename
-- JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one
+- JBX-14 (S) Doc name follows a drawing's rename — DONE 11-15 (58f256930), tablet-checked
+- JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one — DONE 11-15 (58f256930), tablet-checked
 - JBX-17 (L) Wire the tap-fill (bucket) tool
 - JBX-23 (M) Symmetry phone checks still owed: scatter, 30 copies speed, pen tilt and pressure
 - JBX-24 (L) Boards, Tile and Sprite acceptance sweep on the Note 9

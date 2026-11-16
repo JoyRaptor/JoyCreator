@@ -34,7 +34,7 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:src="@drawable/ic_close"
-                android:tint="?attr/pickerTextSecondary" />
+                android:tint="@color/s_ink_dim" />
 
             <TextView
                 android:layout_width="0dp"
@@ -42,7 +42,7 @@
                 android:layout_weight="1"
                 android:text="@string/forensic_intelligence_title"
                 android:textAlignment="viewStart"
-                android:textColor="?attr/pickerTextPrimary"
+                android:textColor="@color/s_ink"
                 android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -53,7 +53,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginStart="14dp"
             android:layout_marginEnd="12dp"
-            app:dividerColor="#262626" />
+            app:dividerColor="@color/s_line" />
 
         <!-- ═══ About ═══ -->
         <TextView
@@ -62,7 +62,7 @@
             android:paddingTop="16dp"
             android:paddingBottom="8dp"
             android:text="@string/lab_section_about"
-            android:textColor="?attr/colorHeading"
+            android:textColor="@color/s_ink"
             android:textStyle="bold" />
 
         <!-- Evidence Info — standalone top item -->
@@ -82,7 +82,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/forensics_info_title"
-                android:textColor="?attr/colorHeading"
+                android:textColor="@color/s_ink"
                 android:textSize="15sp"
                 android:textStyle="bold" />
             <ImageView
@@ -98,7 +98,7 @@
             android:paddingTop="16dp"
             android:paddingBottom="8dp"
             android:text="@string/forensics_section_actions"
-            android:textColor="?attr/colorHeading"
+            android:textColor="@color/s_ink"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -122,7 +122,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/export_center"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="15sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -137,7 +137,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="14dp"
                 android:layout_marginEnd="12dp"
-                app:dividerColor="#262626" />
+                app:dividerColor="@color/s_line" />
 
             <LinearLayout
                 android:id="@+id/row_lab_insights"
@@ -157,7 +157,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/forensics_insights_title"
-                        android:textColor="?attr/colorHeading"
+                        android:textColor="@color/s_ink"
                         android:textSize="15sp"
                         android:textStyle="bold" />
                     <TextView
@@ -182,7 +182,7 @@
             android:paddingTop="16dp"
             android:paddingBottom="8dp"
             android:text="@string/forensics_section_appearance"
-            android:textColor="?attr/colorHeading"
+            android:textColor="@color/s_ink"
             android:textStyle="bold" />
 
         <LinearLayout
@@ -211,7 +211,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/lab_hide_thumbnails_title"
-                        android:textColor="?attr/colorHeading"
+                        android:textColor="@color/s_ink"
                         android:textSize="15sp"
                         android:textStyle="bold" />
                     <TextView
@@ -234,7 +234,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="14dp"
                 android:layout_marginEnd="12dp"
-                app:dividerColor="#262626" />
+                app:dividerColor="@color/s_line" />
 
             <LinearLayout
                 android:id="@+id/row_lab_clip_style"
@@ -249,7 +249,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/forensics_clip_style_title"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="15sp"
                     android:textStyle="bold" />
                 <ImageView
@@ -264,7 +264,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="14dp"
                 android:layout_marginEnd="12dp"
-                app:dividerColor="#262626" />
+                app:dividerColor="@color/s_line" />
 
             <LinearLayout
                 android:id="@+id/row_lab_tape_style"
@@ -279,7 +279,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="@string/forensics_tape_style_title"
-                    android:textColor="?attr/colorHeading"
+                    android:textColor="@color/s_ink"
                     android:textSize="15sp"
                     android:textStyle="bold" />
                 <ImageView

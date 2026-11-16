@@ -428,7 +428,7 @@ public class ForensicsGalleryAdapter extends RecyclerView.Adapter<RecyclerView.V
         if (hideThumbnails) {
             holder.image.setImageResource(R.drawable.ic_visibility_off);
             holder.image.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-            holder.image.setBackgroundColor(0xFF1A1A2E);
+            holder.image.setBackgroundColor(com.fadcam.ui.faditor.Studio.RAISED);
             holder.image.setColorFilter(0x66FFFFFF, android.graphics.PorterDuff.Mode.SRC_IN);
         } else {
             holder.image.setColorFilter(null);

@@ -1986,6 +1986,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         float tx = (target[0] + target[2]) * 0.5f, ty = (target[1] + target[3]) * 0.5f;
         java.util.Map<Integer, float[]> boxes = inkBoxes(alignTargets());
+        // Both boxes are measured on the untouched sheet picture, so a cell's offset is the gap between
+        // the two inks plus wherever the reference frame itself has been moved to. Adding the gap to the
+        // cell's old offset moved every frame again on a second press.
+        SpriteSheet.CellXf refXf = sheet.cellTransform(ref);
+        float refDx = refXf == null ? 0f : refXf.dx, refDy = refXf == null ? 0f : refXf.dy;
         int n = 0;
         for (java.util.Map.Entry<Integer, float[]> e : boxes.entrySet()) {
             int c = e.getKey();
@@ -1993,8 +1998,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float[] box = e.getValue();
             SpriteSheet.CellXf t = sheet.cellTransform(c);
             SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
-            xf.dx += (tx - (box[0] + box[2]) * 0.5f) * toSource;
-            xf.dy += (ty - (box[1] + box[3]) * 0.5f) * toSource;
+            xf.dx = (tx - (box[0] + box[2]) * 0.5f) * toSource + refDx;
+            xf.dy = (ty - (box[1] + box[3]) * 0.5f) * toSource + refDy;
             sheet.setCellTransform(c, xf);
             n++;
         }
@@ -3510,8 +3515,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             float cx = (box[0] + box[2]) * 0.5f;
             SpriteSheet.CellXf t = sheet.cellTransform(c);
             SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
-            xf.dx += (targetX - cx) * toSource;
-            xf.dy += (feet ? (avgBottom - box[3]) : (sheet.getPivotY() * ch - (box[1] + box[3]) * 0.5f))
+            // The ink is measured on the untouched sheet picture, so this is the cell's WHOLE offset.
+            // Adding it to the offset already there moved every cell again on a second press.
+            xf.dx = (targetX - cx) * toSource;
+            xf.dy = (feet ? (avgBottom - box[3]) : (sheet.getPivotY() * ch - (box[1] + box[3]) * 0.5f))
                     * toSource;
             sheet.setCellTransform(c, xf);
         }

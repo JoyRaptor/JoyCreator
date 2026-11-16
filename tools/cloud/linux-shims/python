@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Cloud tests only (Linux runner): the harness scripts call `python`, which Ubuntu names python3.
+exec python3 "$@"

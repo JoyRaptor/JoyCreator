@@ -223,6 +223,8 @@ public class AboutFragment extends BaseFragment implements com.fadcam.ui.size.Co
         emailText.setOnClickListener(v -> sendEmail());
         setupPrivacyInfo(privacyInfoCard, scrollView);
         view.findViewById(R.id.check_updates_button).setOnClickListener(v -> checkForUpdates());
+        // A Play install updates through Play; there is nothing for this button to do (bug hunt 11-15, B4).
+        if (com.fadcam.BuildConfig.PLAY_BUILD) checkUpdatesButton.setVisibility(View.GONE);
 
         // Find text elements with specific content and set their colors
         ScrollView scrollViewObj = view.findViewById(R.id.scroll_view);

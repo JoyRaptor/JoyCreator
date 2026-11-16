@@ -124,7 +124,7 @@
     <string name="library_trashed">Mis à la corbeille. Tu peux le remettre depuis la corbeille.</string>
     <string name="library_trash_failed">Impossible de le mettre à la corbeille : %1$s</string>
     <string name="library_trash_in_use">Un projet l\'utilise, il reste donc ici. Retire-le d\'abord du projet.</string>
-    <string name="library_trash_no_copy">Ce projet n\'a pas encore de copie dans ton dossier Joy Creator, il n\'aurait donc pas pu être remis plus tard. Il a été laissé tel quel.</string>
+    <string name="library_trash_no_copy">Ce projet, ou certaines de ses images et de ses clips, n\'a pas pu être copié dans ton dossier Joy Creator, il n\'aurait donc pas pu être remis plus tard. Il a été laissé tel quel.</string>
     <string name="library_trash_no_folder">Ton dossier Joy Creator est inaccessible, donc ceci n\'aurait pas pu être remis plus tard. Il a été laissé tel quel.</string>
     <string name="library_renamed">Renommé.</string>
     <string name="library_rename_failed">Impossible de le renommer.</string>

@@ -141,4 +141,36 @@ class JbArchiveCarryTest {
         assertContentEquals(before, f.readBytes(), "the file the person had is the file they have")
         assertTrue(!File(f.path + ".tmp").exists(), "and no half-written file is left")
     }
+
+    /** JBX-37: a writer that fails once everything is written, in each way a phone fails it, for both kinds of save. */
+    @Test fun aSaveThatFailsWhileWritingLeavesTheOlderFileAndNothingElse() {
+        val first = drawing()
+        val second = drawing(lookSeeds = mapOf("1_0" to 201), storeSeeds = mapOf("1_0" to 21))
+        val faults = listOf<Pair<String, () -> Nothing>>(
+            "the disk is full" to { throw java.io.IOException("No space left on device") },
+            "the memory ran out" to { throw OutOfMemoryError("test") },
+            "something unforeseen" to { throw IllegalStateException("test") })
+        try {
+            for (carrying in listOf(true, false)) for ((what, fault) in faults) {
+                val f = temp()
+                var memo = JbArchive.saveCarrying(f, first, null)
+                val before = f.readBytes()
+                var sawTmp = false
+                JbArchive.beforeCommit = { tmp -> sawTmp = tmp.isFile && tmp.length() > 0; fault() }
+                val failure = runCatching { if (carrying) JbArchive.saveCarrying(f, second, memo) else JbArchive.save(f, second) }.exceptionOrNull()
+                JbArchive.beforeCommit = null
+                assertTrue(sawTmp, "$what: the failure came after the new file was written")
+                if (what == "the memory ran out") assertTrue(failure is OutOfMemoryError, "$what is heard as it is: $failure")
+                else assertTrue(failure is JbArchiveException, "$what is refused in words: $failure")
+                assertContentEquals(before, f.readBytes(), "$what: the file the person had is the file they have")
+                assertTrue(!File(f.path + ".tmp").exists(), "$what: no half-written file is left")
+                assertSameDrawing(first, f)
+                // And the next save, with the memo the failed one never replaced, is whole and still carries.
+                memo = JbArchive.saveCarrying(f, second, memo)
+                assertSameDrawing(second, f)
+                assertTrue(memo.carried > 0, "$what: the save after the failure still carries what did not change")
+                assertSameDrawing(first, File(f.path + ".bak"))
+            }
+        } finally { JbArchive.beforeCommit = null }
+    }
 }

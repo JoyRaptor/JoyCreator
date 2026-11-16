@@ -3,6 +3,7 @@ package com.fadcam.vislab.room;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import com.fadcam.R;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.View;
@@ -138,7 +139,9 @@ final class KnobPanel extends LinearLayout {
     @Nullable private String brandName;
     @Nullable private LinearLayout footer;
 
-    private static final String MUSIC_HINT = "Acts on the music: play something to see it";
+    private String musicHint() {
+        return getContext().getString(R.string.vl_knob_music_hint);
+    }
     /** How faint a music-only row is while nothing plays. */
     private static final float QUIET = 0.55f;
     /** The music-only rows now on show, and whether the sound they need is there. */
@@ -161,10 +164,10 @@ final class KnobPanel extends LinearLayout {
         int pad = Ui.dp(c, 14);
         setPadding(pad, Ui.dp(c, 10), pad, 0);
         tabs = new SlantRow(c, Ui.VIZ_A, Ui.VIZ_B);
-        tabs.add("layers", "Layers", "The pieces this look is built from");
-        tabs.add("auto_awesome", "Finish", "Bloom, lens, glitch, film and framing");
-        tabs.add("blur_on", "Echo", "Feedback trails under everything");
-        tabs.add("palette", "Colours", "Palette and brand colours");
+        tabs.add("layers", c.getString(R.string.vl_knob_tab_layers), c.getString(R.string.vl_knob_tab_layers_tip));
+        tabs.add("auto_awesome", c.getString(R.string.vl_knob_tab_finish), c.getString(R.string.vl_knob_tab_finish_tip));
+        tabs.add("blur_on", c.getString(R.string.vl_knob_tab_echo), c.getString(R.string.vl_knob_tab_echo_tip));
+        tabs.add("palette", c.getString(R.string.vl_knob_tab_colours), c.getString(R.string.vl_knob_tab_colours_tip));
         tabs.setSelected(0);
         tabs.setOnPick(i -> {
             tab = i;
@@ -174,10 +177,10 @@ final class KnobPanel extends LinearLayout {
         head.setOrientation(HORIZONTAL);
         head.setGravity(Gravity.CENTER_VERTICAL);
         head.addView(tabs, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        head.addView(iconButton(c, "undo", Studio.INK_DIM, "Undo the last change", v -> {
+        head.addView(iconButton(c, "undo", Studio.INK_DIM, c.getString(R.string.vl_knob_undo), v -> {
             if (host.undo()) rebuild();
         }));
-        head.addView(iconButton(c, "redo", Studio.INK_DIM, "Redo", v -> {
+        head.addView(iconButton(c, "redo", Studio.INK_DIM, c.getString(R.string.vl_knob_redo), v -> {
             if (host.redo()) rebuild();
         }));
         addView(head, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
@@ -249,19 +252,19 @@ final class KnobPanel extends LinearLayout {
         Context c = getContext();
         LinearLayout body = footer;
         body.removeAllViews();
-        body.addView(section(c, "This look"));
+        body.addView(section(c, c.getString(R.string.vl_knob_this_look)));
         WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
-        w.addView(footerPill(c, "Duplicate", "Keep a copy of this look under a new name", host::duplicateLook));
-        w.addView(footerPill(c, "Rename", "Give this look a new name (its file follows)", host::renameLook));
+        w.addView(footerPill(c, c.getString(R.string.vl_knob_duplicate), c.getString(R.string.vl_knob_duplicate_tip), host::duplicateLook));
+        w.addView(footerPill(c, c.getString(R.string.vl_knob_rename), c.getString(R.string.vl_knob_rename_tip), host::renameLook));
         if (!host.lookIsBuiltIn()) {
-            w.addView(footerPill(c, "Delete", "Move this look to the Trash (asks first; undo brings it back)", host::deleteLook));
+            w.addView(footerPill(c, c.getString(R.string.vl_knob_delete), c.getString(R.string.vl_knob_delete_tip), host::deleteLook));
         } else if (host.lookIsCustomised()) {
-            w.addView(footerPill(c, "Revert to default", "Put this look back as it came, with the app or in its pack (asks first)", host::revertLook));
+            w.addView(footerPill(c, c.getString(R.string.vl_knob_revert), c.getString(R.string.vl_knob_revert_tip), host::revertLook));
         }
         body.addView(w);
         String f = host.lookFile();
-        TextView where = Ui.text(c, f != null ? "Kept in your Joy Creator folder as " + f
-                : "Kept in your Joy Creator folder a moment after each change", 10.5f, Studio.INK_FAINT, false, 400);
+        TextView where = Ui.text(c, f != null ? c.getString(R.string.vl_knob_kept_as, f)
+                : c.getString(R.string.vl_knob_kept_soon), 10.5f, Studio.INK_FAINT, false, 400);
         where.setPadding(0, Ui.dp(c, 8), 0, 0);
         body.addView(where);
     }
@@ -297,8 +300,8 @@ final class KnobPanel extends LinearLayout {
             if (!layers.get(i).isJsonObject()) continue;
             body.addView(layerRow(s, layers.get(i).getAsJsonObject(), i));
         }
-        TextView add = pill(c, "+ Add a layer", false);
-        Ui.label(add, "Add a new piece to this look");
+        TextView add = pill(c, c.getString(R.string.vl_knob_add_layer), false);
+        Ui.label(add, R.string.vl_knob_add_layer_tip);
         LinearLayout addBox = new LinearLayout(c);
         addBox.setOrientation(VERTICAL);
         addBox.setVisibility(layers.size() == 0 ? VISIBLE : GONE);   // an empty look: the parts are the point
@@ -340,9 +343,9 @@ final class KnobPanel extends LinearLayout {
         JsonObject L = layers.get(selLayer).getAsJsonObject();
         VisType t = types.type(str(L, "type"));
         if (t == null) return;
-        body.addView(section(c, name(L, t) + ": layer"));
-        TextView save = pill(c, "Save as a part", false);
-        Ui.label(save, "Keep this layer, as it is now, among your parts for any look");
+        body.addView(section(c, c.getString(R.string.vl_knob_layer_section, name(L, t))));
+        TextView save = pill(c, c.getString(R.string.vl_room_part_title), false);
+        Ui.label(save, R.string.vl_knob_save_part_tip);
         save.setOnClickListener(v -> {
             Motion.press(v);
             host.saveLayerAsPart(L);
@@ -352,11 +355,11 @@ final class KnobPanel extends LinearLayout {
         body.addView(save, slp);
         // The controls every layer has (types.json "layer"): Opacity, Reactivity, Softness here,
         // the Place group after the layer's own knobs.
-        VisKnob add2 = new VisKnob("add", "Light / paint", -1, 0, 1, 1, 0, false, false, null, null);
+        VisKnob add2 = new VisKnob("add", c.getString(R.string.vl_knob_light_paint), -1, 0, 1, 1, 0, false, false, null, null);
         for (VisKnob k : types.layer.knobs) if (k.group == null) body.addView(knobRow(c, k, L));
         body.addView(knobRow(c, add2, L));
-        body.addView(toggleRow(c, "Under echo", !(L.has("echo") && L.get("echo").isJsonPrimitive() && !L.get("echo").getAsBoolean()),
-                "Draw into the echo trails, or crisp above them", on -> {
+        body.addView(toggleRow(c, c.getString(R.string.vl_knob_under_echo), !(L.has("echo") && L.get("echo").isJsonPrimitive() && !L.get("echo").getAsBoolean()),
+                c.getString(R.string.vl_knob_under_echo_tip), on -> {
                     host.beginEdit("Under echo");
                     L.addProperty("echo", on);
                     host.edited();
@@ -384,7 +387,7 @@ final class KnobPanel extends LinearLayout {
         Context c = getContext();
         JsonObject echo = s.json().has("echo") && s.json().get("echo").isJsonObject() ? s.json().getAsJsonObject("echo") : null;
         boolean on = s.echoOn() != null;
-        body.addView(toggleRow(c, "Echo", on, "Feedback trails on or off", v -> {
+        body.addView(toggleRow(c, c.getString(R.string.vl_knob_tab_echo), on, c.getString(R.string.vl_knob_echo_tip), v -> {
             host.beginEdit("Echo");
             JsonObject e = s.json().has("echo") && s.json().get("echo").isJsonObject() ? s.json().getAsJsonObject("echo") : new JsonObject();
             e.addProperty("on", v);
@@ -401,11 +404,11 @@ final class KnobPanel extends LinearLayout {
 
     private void buildColours(@NonNull VisScene s) {
         Context c = getContext();
-        body.addView(section(c, "Palette: tap to use on this look"));
+        body.addView(section(c, c.getString(R.string.vl_knob_palette_section)));
         WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
         for (String[] p : PALETTES) {
             View chip = paletteChip(c, p, false);
-            Ui.label(chip, "Use the " + p[0] + " palette on this look");
+            Ui.label(chip, c.getString(R.string.vl_knob_palette_use_tip, p[0]));
             chip.setOnClickListener(v -> {
                 Motion.press(v);
                 host.beginEdit("Palette " + p[0]);
@@ -417,10 +420,10 @@ final class KnobPanel extends LinearLayout {
             w.addView(chip);
         }
         body.addView(w);
-        body.addView(section(c, "Brand lock: every look in your colours"));
+        body.addView(section(c, c.getString(R.string.vl_knob_brand_section)));
         WrapLayout b = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
-        TextView off = pill(c, "Off", brandName == null);
-        Ui.label(off, "Each look keeps its own colours");
+        TextView off = pill(c, c.getString(R.string.vl_knob_off), brandName == null);
+        Ui.label(off, R.string.vl_knob_brand_off_tip);
         off.setOnClickListener(v -> {
             brandName = null;
             host.brand(null);
@@ -429,7 +432,7 @@ final class KnobPanel extends LinearLayout {
         b.addView(off);
         for (String[] p : PALETTES) {
             View chip = paletteChip(c, p, p[0].equals(brandName));
-            Ui.label(chip, "Show every look in the " + p[0] + " palette");
+            Ui.label(chip, c.getString(R.string.vl_knob_brand_pick_tip, p[0]));
             chip.setOnClickListener(v -> {
                 Motion.press(v);
                 brandName = p[0];
@@ -441,8 +444,8 @@ final class KnobPanel extends LinearLayout {
             b.addView(chip);
         }
         body.addView(b);
-        body.addView(toggleRow(c, "See-through", s.background() == null,
-                "No background: the look sits over whatever is underneath", on -> {
+        body.addView(toggleRow(c, c.getString(R.string.vl_knob_see_through), s.background() == null,
+                c.getString(R.string.vl_knob_see_through_tip), on -> {
                     host.beginEdit("See-through");
                     if (on) s.json().add("background", com.google.gson.JsonNull.INSTANCE);
                     else s.json().addProperty("background", "#000000");
@@ -454,7 +457,7 @@ final class KnobPanel extends LinearLayout {
     private void myParts(@NonNull Context c, @NonNull VisScene s, @NonNull LinearLayout addBox) {
         java.util.List<com.fadcam.vislab.model.VisPart> mine = host.myParts();
         if (mine.isEmpty()) return;
-        partPills(c, s, addBox, "My parts", mine);
+        partPills(c, s, addBox, c.getString(R.string.vl_knob_my_parts), mine);
     }
 
     /** Then the parts that came in Joy packs, one row per pack, under the pack's name. */
@@ -477,7 +480,7 @@ final class KnobPanel extends LinearLayout {
         for (com.fadcam.vislab.model.VisPart part : list) {
             VisType t = types.type(str(part.layer, "type"));
             TextView p = pill(c, part.name, false);
-            Ui.label(p, (t != null ? t.label : "A layer") + (part.from.isEmpty() ? "" : ", saved from " + part.from));
+            Ui.label(p, (t != null ? t.label : c.getString(R.string.vl_knob_a_layer)) + (part.from.isEmpty() ? "" : c.getString(R.string.vl_knob_part_from, part.from)));
             p.setOnClickListener(v -> {
                 Motion.press(v);
                 host.beginEdit("Add " + part.name);
@@ -503,8 +506,8 @@ final class KnobPanel extends LinearLayout {
         LinearLayout shelf = new LinearLayout(c);
         shelf.setOrientation(VERTICAL);
         shelf.setVisibility(GONE);
-        TextView open = pill(c, "Parts from every look", false);
-        Ui.label(open, "Browse the layers of every look and drop one into this look");
+        TextView open = pill(c, c.getString(R.string.vl_knob_parts_all), false);
+        Ui.label(open, R.string.vl_knob_parts_all_tip);
         open.setOnClickListener(v -> {
             Motion.press(v);
             shelf.setVisibility(shelf.getVisibility() == VISIBLE ? GONE : VISIBLE);
@@ -523,7 +526,7 @@ final class KnobPanel extends LinearLayout {
                 if (t == null) continue;
                 String label = name(src, t) + " · " + from.name();
                 TextView p = pill(c, label, false);
-                Ui.label(p, t.label + " from " + from.name() + ": " + t.about);
+                Ui.label(p, c.getString(R.string.vl_knob_part_of_look_tip, t.label, from.name(), t.about));
                 p.setOnClickListener(v -> {
                     Motion.press(v);
                     host.beginEdit("Add " + label);
@@ -559,9 +562,9 @@ final class KnobPanel extends LinearLayout {
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
-        row.addView(Ui.text(c, "Words", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
-        TextView song = pill(c, "The song's", text.isEmpty());
-        Ui.label(song, "Show the words of the song (its lyrics, or a transcript)");
+        row.addView(Ui.text(c, c.getString(R.string.vl_knob_words), 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        TextView song = pill(c, c.getString(R.string.vl_knob_words_song), text.isEmpty());
+        Ui.label(song, R.string.vl_knob_words_song_tip);
         song.setOnClickListener(v -> {
             if (text.isEmpty()) return;
             Motion.press(v);
@@ -571,11 +574,11 @@ final class KnobPanel extends LinearLayout {
             rebuild();
         });
         row.addView(song);
-        TextView mine = pill(c, text.isEmpty() ? "Your words" : "\u201C" + (text.length() > 18 ? text.substring(0, 17) + "\u2026" : text) + "\u201D", !text.isEmpty());
-        Ui.label(mine, "Type your own words (a slogan, a name); they come one per beat and are kept in this look");
+        TextView mine = pill(c, text.isEmpty() ? c.getString(R.string.vl_knob_words_mine) : "\u201C" + (text.length() > 18 ? text.substring(0, 17) + "\u2026" : text) + "\u201D", !text.isEmpty());
+        Ui.label(mine, R.string.vl_knob_words_mine_tip);
         mine.setOnClickListener(v -> {
             Motion.press(v);
-            LookSheets.askName(c, "Your words", text, "Show", typedIn -> {
+            LookSheets.askName(c, c.getString(R.string.vl_knob_words_mine), text, c.getString(R.string.vl_knob_words_show), typedIn -> {
                 host.beginEdit("Your words");
                 if (typedIn.trim().isEmpty()) L.remove("text");
                 else L.addProperty("text", typedIn.trim());
@@ -600,7 +603,7 @@ final class KnobPanel extends LinearLayout {
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
-        row.addView(Ui.text(c, "Font", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        row.addView(Ui.text(c, c.getString(R.string.vl_knob_font), 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
         android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(c);
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout pills = new LinearLayout(c);
@@ -611,7 +614,7 @@ final class KnobPanel extends LinearLayout {
             boolean on = key.equals(font);
             TextView p = pill(c, f[1], on);
             p.setTypeface(com.fadcam.vislab.words.VisFonts.typeface(c, key));
-            Ui.label(p, "Draw this layer's words in " + f[1]);
+            Ui.label(p, c.getString(R.string.vl_knob_font_tip, f[1]));
             p.setOnClickListener(v -> {
                 if (key.equals(font)) return;
                 Motion.press(v);
@@ -648,17 +651,17 @@ final class KnobPanel extends LinearLayout {
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
-        row.addView(Ui.text(c, videoFirst ? "Video" : "Picture", 12, Studio.INK_DIM, false, 500),
+        row.addView(Ui.text(c, c.getString(videoFirst ? R.string.vl_knob_video : R.string.vl_knob_picture), 12, Studio.INK_DIM, false, 500),
                 new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
         WrapLayout pills = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
-        TextView pic = pill(c, "Use my picture", false);
-        Ui.label(pic, "Put your own logo or album art in this layer");
+        TextView pic = pill(c, c.getString(R.string.vl_knob_use_picture), false);
+        Ui.label(pic, R.string.vl_knob_use_picture_tip);
         pic.setOnClickListener(v -> {
             Motion.press(v);
             host.pickPicture(L);
         });
-        TextView vid = pill(c, "Use a video", false);
-        Ui.label(vid, "Play one of your videos in this layer, round and round with the look");
+        TextView vid = pill(c, c.getString(R.string.vl_knob_use_video), false);
+        Ui.label(vid, R.string.vl_knob_use_video_tip);
         vid.setOnClickListener(v -> {
             Motion.press(v);
             host.pickVideo(L);
@@ -666,17 +669,16 @@ final class KnobPanel extends LinearLayout {
         pills.addView(videoFirst ? vid : pic);
         pills.addView(videoFirst ? pic : vid);
         boolean words = own && WordsPicture.is(L.get("image").getAsString());
-        TextView look = pill(c, words ? "Change the words" : "Words in a look", false);
-        Ui.label(look, words ? "Change these words, or the TextLab look they wear"
-                : "Your own words in one of TextLab's looks: chrome, gold, fire, neon and more, moving with the look");
+        TextView look = pill(c, c.getString(words ? R.string.vl_knob_words_change : R.string.vl_knob_words_in_look), false);
+        Ui.label(look, words ? R.string.vl_knob_words_change_tip : R.string.vl_knob_words_in_look_tip);
         look.setOnClickListener(v -> {
             Motion.press(v);
             host.pickWordsLook(L);
         });
         pills.addView(look);
         if (words) {
-            TextView sliders = pill(c, "Look's sliders", false);
-            Ui.label(sliders, "Change this look's own sliders and colours for these words: shine, glow, colour and more");
+            TextView sliders = pill(c, c.getString(R.string.vl_knob_look_sliders), false);
+            Ui.label(sliders, R.string.vl_knob_look_sliders_tip);
             sliders.setOnClickListener(v -> {
                 Motion.press(v);
                 host.wordsLookSliders(L);
@@ -684,8 +686,8 @@ final class KnobPanel extends LinearLayout {
             pills.addView(sliders);
         }
         if (own) {
-            TextView back = pill(c, "Joy emblem", false);
-            Ui.label(back, "Go back to the built-in Joy emblem");
+            TextView back = pill(c, c.getString(R.string.vl_knob_joy_emblem), false);
+            Ui.label(back, R.string.vl_knob_joy_emblem_tip);
             back.setOnClickListener(v -> {
                 Motion.press(v);
                 host.beginEdit("Picture");
@@ -706,9 +708,9 @@ final class KnobPanel extends LinearLayout {
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
-        row.addView(Ui.text(c, "Sheet", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        row.addView(Ui.text(c, c.getString(R.string.vl_knob_sheet), 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
         TextView pick = pill(c, SheetShelf.nameOf(sheet), false);
-        Ui.label(pick, "Choose which Sprite Lab sheet this layer plays");
+        Ui.label(pick, R.string.vl_knob_sheet_tip);
         pick.setOnClickListener(v -> {
             Motion.press(v);
             host.pickSheet(L);
@@ -723,20 +725,20 @@ final class KnobPanel extends LinearLayout {
         crow.setOrientation(HORIZONTAL);
         crow.setGravity(Gravity.CENTER_VERTICAL);
         crow.setMinimumHeight(Ui.dp(c, 36));
-        crow.addView(Ui.text(c, "Animation", 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
+        crow.addView(Ui.text(c, c.getString(R.string.vl_knob_animation), 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
         android.widget.HorizontalScrollView scroll = new android.widget.HorizontalScrollView(c);
         scroll.setHorizontalScrollBarEnabled(false);
         LinearLayout pills = new LinearLayout(c);
         pills.setOrientation(HORIZONTAL);
         java.util.List<String[]> choices = new java.util.ArrayList<>();
-        choices.add(new String[]{"", "Every frame"});
+        choices.add(new String[]{"", c.getString(R.string.vl_knob_every_frame)});
         for (java.util.Map.Entry<String, String> e : clips.entrySet()) choices.add(new String[]{e.getKey(), e.getValue()});
         TextView chosen = null;
         for (String[] ch : choices) {
             String id = ch[0];
             boolean on = id.equals(clip);
             TextView p = pill(c, ch[1], on);
-            Ui.label(p, id.isEmpty() ? "Play every frame of the sheet" : "Play the sheet's " + ch[1] + " animation");
+            Ui.label(p, id.isEmpty() ? c.getString(R.string.vl_knob_every_frame_tip) : c.getString(R.string.vl_knob_clip_tip, ch[1]));
             p.setOnClickListener(v -> {
                 if (id.equals(clip)) return;
                 Motion.press(v);
@@ -764,14 +766,14 @@ final class KnobPanel extends LinearLayout {
      */
     private void layerColours(@NonNull Context c, @NonNull VisScene s, @NonNull JsonObject L) {
         String[] own = VisScene.stops(L.get("palette"));
-        body.addView(section(c, "Colours of this layer"));
+        body.addView(section(c, c.getString(R.string.vl_knob_layer_colours)));
         WrapLayout w = new WrapLayout(c, Ui.dp(c, 6), Ui.dp(c, 6));
         String[] looks = new String[6];
-        looks[0] = "The look's";
+        looks[0] = c.getString(R.string.vl_knob_the_looks);
         String[] sp = s.palette();
         for (int i = 0; i < 5; i++) looks[i + 1] = sp != null && i < sp.length ? sp[i] : "#808080";
         View mine = paletteChip(c, looks, own == null);
-        Ui.label(mine, "This layer uses the look's colours (the Colours tab)");
+        Ui.label(mine, R.string.vl_knob_the_looks_tip);
         mine.setOnClickListener(v -> {
             if (!L.has("palette")) return;
             Motion.press(v);
@@ -784,7 +786,7 @@ final class KnobPanel extends LinearLayout {
         for (String[] p : PALETTES) {
             boolean on = own != null && samePalette(own, p);
             View chip = paletteChip(c, p, on);
-            Ui.label(chip, "Give this layer the " + p[0] + " colours");
+            Ui.label(chip, c.getString(R.string.vl_knob_layer_palette_tip, p[0]));
             chip.setOnClickListener(v -> {
                 Motion.press(v);
                 host.beginEdit("Layer colours " + p[0]);
@@ -822,7 +824,7 @@ final class KnobPanel extends LinearLayout {
         row.setLayoutParams(lp);
         boolean on = !(L.has("on") && L.get("on").isJsonPrimitive() && !L.get("on").getAsBoolean());
         TextView eye = iconButton(c, on ? "visibility" : "visibility_off", on ? Studio.INK : Studio.INK_FAINT,
-                "Show or hide this layer", v -> {
+                c.getString(R.string.vl_knob_layer_eye), v -> {
                     host.beginEdit(on ? "Hide layer" : "Show layer");
                     L.addProperty("on", !on);
                     host.edited();
@@ -835,9 +837,9 @@ final class KnobPanel extends LinearLayout {
         names.addView(Ui.text(c, name(L, t), 12.5f, sel ? Studio.INK : Studio.LABEL, false, 600));
         names.addView(Ui.text(c, t != null ? t.label : str(L, "type"), 10.5f, Studio.INK_FAINT, false, 400));
         row.addView(names, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-        row.addView(iconButton(c, "arrow_upward", Studio.INK_DIM, "Move up: drawn later, on top", v -> move(s, index, 1)));
-        row.addView(iconButton(c, "arrow_downward", Studio.INK_DIM, "Move down: drawn earlier, behind", v -> move(s, index, -1)));
-        row.addView(iconButton(c, "content_copy", Studio.INK_DIM, "Duplicate this layer", v -> {
+        row.addView(iconButton(c, "arrow_upward", Studio.INK_DIM, c.getString(R.string.vl_knob_layer_up), v -> move(s, index, 1)));
+        row.addView(iconButton(c, "arrow_downward", Studio.INK_DIM, c.getString(R.string.vl_knob_layer_down), v -> move(s, index, -1)));
+        row.addView(iconButton(c, "content_copy", Studio.INK_DIM, c.getString(R.string.vl_knob_layer_copy), v -> {
             host.beginEdit("Duplicate layer");
             JsonObject copy = L.deepCopy();
             copy.addProperty("seed", (int) (Math.random() * 1000));
@@ -846,7 +848,7 @@ final class KnobPanel extends LinearLayout {
             host.edited();
             rebuild();
         }));
-        row.addView(iconButton(c, "close", Studio.INK_DIM, "Remove this layer", v -> {
+        row.addView(iconButton(c, "close", Studio.INK_DIM, c.getString(R.string.vl_knob_layer_remove), v -> {
             host.beginEdit("Remove layer");
             s.layers().remove(index);
             selLayer = Math.max(0, index - 1);
@@ -857,7 +859,7 @@ final class KnobPanel extends LinearLayout {
             selLayer = index;
             rebuild();
         });
-        Ui.label(row, "Edit " + name(L, t));
+        Ui.label(row, c.getString(R.string.vl_knob_layer_edit, name(L, t)));
         return row;
     }
 
@@ -924,13 +926,13 @@ final class KnobPanel extends LinearLayout {
         row.addView(k.music ? musicLabel(c, label) : label, new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
         wrap.addView(row);
         if (k.music) {
-            Ui.label(wrap, MUSIC_HINT);
+            Ui.label(wrap, musicHint());
             musicRows.add(wrap);
             if (!hearing) wrap.setAlpha(QUIET);
         }
         if (k.options != null || k.toggle) {
             WrapLayout pills = new WrapLayout(c, Ui.dp(c, 5), Ui.dp(c, 5));
-            String[] opts = k.options != null ? k.options : new String[]{"Off", "On"};
+            String[] opts = k.options != null ? k.options : new String[]{c.getString(R.string.vl_knob_off), c.getString(R.string.vl_knob_on)};
             int cur = Math.round(base(holder, k));
             for (int i = 0; i < opts.length; i++) {
                 final int value = i;
@@ -955,7 +957,7 @@ final class KnobPanel extends LinearLayout {
         bar.setThumbTintList(ColorStateList.valueOf(Ui.VIZ_A));
         bar.setProgressBackgroundTintList(ColorStateList.valueOf(Studio.LINE));
         bar.setProgress(Math.round(toSlider(k, base(holder, k)) * 1000));
-        Ui.label(bar, k.music ? k.label + ". " + MUSIC_HINT : k.label);
+        Ui.label(bar, k.music ? k.label + ". " + musicHint() : k.label);
         row.addView(bar, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
         TextView val = Ui.text(c, fmt(base(holder, k)), 11, Studio.INK_FAINT, false, 400);
         val.setGravity(Gravity.END);
@@ -965,7 +967,7 @@ final class KnobPanel extends LinearLayout {
         note.setBackground(hasMod ? Ui.round(Ui.VIZ_A, Ui.dp(c, 14)) : null);
         int np = Ui.dp(c, 5);
         note.setPadding(np, np, np, np);
-        Ui.label(note, "Make " + k.label + " react to the music");
+        Ui.label(note, c.getString(R.string.vl_knob_react_tip, k.label));
         row.addView(note);
         WrapLayout modBox = new WrapLayout(c, Ui.dp(c, 5), Ui.dp(c, 5));
         modBox.setVisibility(GONE);
@@ -1026,11 +1028,12 @@ final class KnobPanel extends LinearLayout {
         box.setOrientation(HORIZONTAL);
         box.setGravity(Gravity.CENTER_VERTICAL);
         label.setMaxWidth(Ui.dp(c, 82));   // room for the note inside the 98dp name column
-        androidx.appcompat.widget.TooltipCompat.setTooltipText(label, MUSIC_HINT);
+        String hint = c.getString(R.string.vl_knob_music_hint);
+        androidx.appcompat.widget.TooltipCompat.setTooltipText(label, hint);
         box.addView(label, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         TextView note = Ui.icon(c, "music_note", 12, Studio.INK_FAINT);
         note.setPadding(Ui.dp(c, 3), 0, 0, 0);
-        Ui.label(note, MUSIC_HINT);
+        Ui.label(note, hint);
         box.addView(note, new LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT));
         return box;
     }
@@ -1043,8 +1046,8 @@ final class KnobPanel extends LinearLayout {
             if (Signals.indexOf(sig.id) < 0) continue;
             boolean on = m != null && m.has(sig.id);
             TextView p = pill(c, on ? sig.label + "  " + fmt(m.get(sig.id).getAsFloat()) : sig.label, on);
-            Ui.label(p, on ? "Tap to change how much " + sig.label + " moves " + k.label + "; hold to remove"
-                    : "React to " + sig.label);
+            Ui.label(p, on ? c.getString(R.string.vl_knob_signal_change_tip, sig.label, k.label)
+                    : c.getString(R.string.vl_knob_signal_react_tip, sig.label));
             p.setOnClickListener(v -> {
                 Motion.press(v);
                 host.beginEdit(k.label + " follows " + sig.label);
@@ -1084,13 +1087,13 @@ final class KnobPanel extends LinearLayout {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
         row.addView(Ui.text(c, label, 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
-        TextView p = pill(c, on ? "On" : "Off", on);
+        TextView p = pill(c, c.getString(on ? R.string.vl_knob_on : R.string.vl_knob_off), on);
         Ui.label(p, hover);
         final boolean[] state = {on};
         p.setOnClickListener(v -> {
             Motion.press(v);
             state[0] = !state[0];
-            p.setText(state[0] ? "On" : "Off");
+            p.setText(state[0] ? R.string.vl_knob_on : R.string.vl_knob_off);
             stylePill(p, state[0]);
             set.accept(state[0]);
         });
@@ -1255,9 +1258,9 @@ final class KnobPanel extends LinearLayout {
     }
 
     @NonNull
-    private static String name(@NonNull JsonObject L, @Nullable VisType t) {
+    private String name(@NonNull JsonObject L, @Nullable VisType t) {
         String n = str(L, "name");
-        return !n.isEmpty() ? n : (t != null ? t.label : "Layer");
+        return !n.isEmpty() ? n : (t != null ? t.label : getContext().getString(R.string.vl_knob_layer));
     }
 
 }

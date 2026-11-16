@@ -45,6 +45,14 @@ public final class LaunchGate {
     private static final String FILE = "launch/hidden_features.json";
     private static volatile Set<String> hidden;
 
+    /**
+     * Hidden in the Play build whatever the list file or its master switch says, because Google Play would
+     * object, not because they are unproven (launch bug hunt 11-15): the "look for a new version" switch,
+     * since a Play install updates through Play and the GitHub download is a different app (B4). Remote
+     * Studio was here too until its pairing-code lock landed (B3, lifted 11-15).
+     */
+    static final String[] PLAY_HIDDEN = {"setting_update_check"};
+
     private LaunchGate() {}
 
     /** True when {@code key} is on the list and the master switch is on. */
@@ -94,7 +102,13 @@ public final class LaunchGate {
         if (h != null) return h;
         synchronized (LaunchGate.class) {
             if (hidden != null) return hidden;
-            hidden = read(c.getApplicationContext());
+            Set<String> h2 = read(c.getApplicationContext());
+            if (com.fadcam.BuildConfig.PLAY_BUILD) {
+                h2 = new HashSet<>(h2);
+                Collections.addAll(h2, PLAY_HIDDEN);
+                h2 = Collections.unmodifiableSet(h2);
+            }
+            hidden = h2;
             LaunchList.set(hidden);   // the plain-Java side Joybot's help, tips and ideas read
             return hidden;
         }

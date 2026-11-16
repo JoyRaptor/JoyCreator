@@ -42,10 +42,16 @@ public final class PackOpenActivity extends Activity {
                 r = PackInstaller.read(in);
             } catch (Exception e) {
                 problem = e.getMessage() != null ? e.getMessage() : getString(R.string.textlab_pack_not_readable);
+            } catch (OutOfMemoryError tooBig) {
+                // A pack is read into memory whole; one too big for this phone must say so, not close the app.
+                r = null;
+                problem = getString(R.string.textlab_pack_not_readable);
             }
             PackInstaller.Read got = r;
             String why = problem;
             runOnUiThread(() -> {
+                // Turned or closed while the pack was read: this screen is gone and cannot show a dialog.
+                if (isFinishing() || isDestroyed()) return;
                 if (got == null) say(getString(R.string.textlab_pack_not_openable, why));
                 else ask(got);
             });
@@ -108,7 +114,7 @@ public final class PackOpenActivity extends Activity {
             }
             String where = done, why = problem;
             runOnUiThread(() -> {
-                Toast.makeText(this, where != null ? getString(R.string.textlab_pack_installed, r.pack.name, where)
+                Toast.makeText(getApplicationContext(), where != null ? getString(R.string.textlab_pack_installed, r.pack.name, where)
                         : getString(R.string.textlab_pack_not_installed, why), Toast.LENGTH_LONG).show();
                 finish();
             });

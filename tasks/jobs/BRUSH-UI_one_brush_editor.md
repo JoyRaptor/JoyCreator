@@ -151,3 +151,9 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
 - **Still owed:** Unibrush's stage still shows the stripes with its own preview rather than the shared stage; the
   hover outline under the pen still draws its own shapes (it can now use `Footprint`), and nobody has seen it with a
   real S Pen since the atlas batch landed (agents cannot inject a hover on either device).
+## Section K, 11-15 (screens lane)
+- **Unibrush slider-end pictures, seen on the test tablet** (58f256930): every Unibrush slider shows the brush at
+  each end, as the paint brushes do (a dab for softness, shape and size; the S-turns for the rest). Modes whose image
+  tips must be prepared first skip the pictures and keep the words.
+- **Still owed:** Unibrush's own stage (no Clear / Test yet), the hover outline from `Footprint`, the media brushes'
+  dab ends.

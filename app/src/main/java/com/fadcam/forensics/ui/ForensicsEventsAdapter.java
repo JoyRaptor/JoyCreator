@@ -276,7 +276,7 @@ public class ForensicsEventsAdapter extends RecyclerView.Adapter<ForensicsEvents
         wrap.addView(image);
 
         TextView time = new TextView(context);
-        time.setTextColor(0xFF9E9E9E);
+        time.setTextColor(com.fadcam.ui.faditor.Studio.INK_FAINT);
         time.setTextSize(10f);
         time.setText(formatTime(Math.max(0L, frameMs / 1000L)));
         wrap.addView(time);

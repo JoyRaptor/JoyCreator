@@ -146,21 +146,28 @@ final class LibraryOpener {
      */
     private static boolean openMedia(@NonNull Activity a, @NonNull LibraryItem it) {
         if (it.uri == null || it.uri.isEmpty()) return false;
-        Uri uri = Uri.parse(it.uri);
+        return openMedia(a, it.uri, it.isImage(), it.captureCategory,
+                it.fileName != null ? it.fileName : it.name);
+    }
+
+    /** The same viewers for a recording or picture known only by its link (the lobby's recent cards). */
+    static boolean openMedia(@NonNull Activity a, @NonNull String link, boolean image,
+                             @Nullable String category, @Nullable String displayName) {
+        Uri uri = Uri.parse(link);
         // A file moved or deleted outside the app used to open a blank 00:00 player (launch bug
         // hunt A9, 11-15): check it can still be read, and say so plainly when it cannot.
         try (android.content.res.AssetFileDescriptor fd = a.getContentResolver().openAssetFileDescriptor(uri, "r")) {
             if (fd == null) throw new java.io.FileNotFoundException(it.uri);
         } catch (Exception gone) {
-            FLog.w("LibraryOpener", "media not readable: " + it.key, gone);
+            FLog.w("LibraryOpener", "media not readable: " + link, gone);
             Toast.makeText(a, R.string.library_file_gone, Toast.LENGTH_LONG).show();
             return true;
         }
-        Intent i = new Intent(a, it.isImage() ? ImageViewerActivity.class : VideoPlayerActivity.class);
+        Intent i = new Intent(a, image ? ImageViewerActivity.class : VideoPlayerActivity.class);
         i.setData(uri);
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        if (it.captureCategory != null) i.putExtra("item_category", it.captureCategory);
-        i.putExtra("item_display_name", it.fileName != null ? it.fileName : it.name);
+        if (category != null) i.putExtra("item_category", category);
+        if (displayName != null) i.putExtra("item_display_name", displayName);
         a.startActivity(i);
         return true;
     }

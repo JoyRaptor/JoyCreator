@@ -1499,14 +1499,14 @@ public class DualCameraRecordingService extends Service {
                 String treeUriString = prefs.getCustomStorageUri();
                 if (treeUriString == null || treeUriString.isEmpty()) {
                     FLog.e(TAG, "No custom storage location configured");
-                    return null;
+                    return keptInside(filename);
                 }
                 DocumentFile treeDoc = com.fadcam.utils.RecordingStoragePaths.getSafCameraSourceDir(
                         this, treeUriString,
                         com.fadcam.utils.RecordingStoragePaths.CameraSource.DUAL, true);
                 if (treeDoc == null || !treeDoc.exists() || !treeDoc.canWrite()) {
                     FLog.e(TAG, "Cannot write to custom storage location");
-                    return null;
+                    return keptInside(filename);
                 }
                 String joyName = com.fadcam.utils.RecordingStoragePaths.joyRecordingName(this, treeUriString,
                         com.fadcam.utils.RecordingStoragePaths.JoyKind.DUAL_CAMERA, 0,
@@ -1515,7 +1515,7 @@ public class DualCameraRecordingService extends Service {
                 DocumentFile videoFile = treeDoc.createFile("video/mp4", filename);
                 if (videoFile == null) {
                     FLog.e(TAG, "Failed to create SAF file: " + filename);
-                    return null;
+                    return keptInside(filename);
                 }
                 safRecordingPfd = getContentResolver().openFileDescriptor(videoFile.getUri(), "w");
                 safRecordingUri = videoFile.getUri();
@@ -1524,9 +1524,30 @@ public class DualCameraRecordingService extends Service {
                 return null;
             } catch (Exception e) {
                 FLog.e(TAG, "Error creating SAF file", e);
-                return null;
+                safRecordingPfd = null;
+                safRecordingUri = null;
+                return keptInside(filename);
             }
         } else {
+            return insideApp(filename);
+        }
+    }
+
+    /**
+     * The chosen folder cannot be reached (renamed, deleted, on a card taken out, access lost): keep
+     * this recording inside the app and say so, as the camera and screen recorders do (SHELL-28),
+     * instead of stopping with "Cannot create output file".
+     */
+    @Nullable
+    private File keptInside(String filename) {
+        mainHandler.post(() -> Toast.makeText(getApplicationContext(),
+                R.string.record_folder_unreachable_kept_inside, Toast.LENGTH_LONG).show());
+        return insideApp(filename);
+    }
+
+    @Nullable
+    private File insideApp(String filename) {
+        {
             File videoDir = com.fadcam.utils.RecordingStoragePaths.getInternalCameraSourceDir(
                     this, com.fadcam.utils.RecordingStoragePaths.CameraSource.DUAL, true);
             if (videoDir == null) {

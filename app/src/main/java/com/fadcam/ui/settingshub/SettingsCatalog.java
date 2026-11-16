@@ -93,7 +93,7 @@ final class SettingsCatalog {
                             R.string.settingshub_screen_recording_desc, R.string.settingshub_screen_recording_names),
                     row(SettingsKey.WATERMARK, "branding_watermark", R.string.settingshub_watermark,
                             R.string.settingshub_watermark_desc, R.string.settingshub_watermark_names),
-                    row(SettingsKey.LOCATION_EMBED, "branding_watermark", R.string.settingshub_location_embed,
+                    row(SettingsKey.LOCATION_EMBED, "location_on", R.string.settingshub_location_embed,
                             R.string.settingshub_location_embed_desc, R.string.settingshub_location_embed_names)),
             new Section(R.string.settingshub_section_appearance, R.string.settingshub_chip_appearance, "palette",
                     row(SettingsKey.APPEARANCE, "palette", R.string.settingshub_appearance,

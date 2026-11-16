@@ -1474,7 +1474,7 @@ public class ScreenRecordingService extends Service {
                     
                     if (pickedDir == null || !pickedDir.canWrite()) {
                         FLog.e(TAG, "Cannot write to custom directory, falling back to internal");
-                        Toast.makeText(this, getString(R.string.screen_rec_cannot_write_custom), Toast.LENGTH_LONG).show();
+                        Toast.makeText(this, getString(R.string.record_folder_unreachable_kept_inside), Toast.LENGTH_LONG).show();
                         // Fall through to internal storage
                     } else {
                         // Create file in custom location using SAF

@@ -106,6 +106,12 @@ public final class LibraryGlance {
         return LibraryOpener.open(activity, item);
     }
 
+    /** Play a recording or show a picture known only by its link, in the Library's own viewers (SHELL-02). */
+    public static boolean openMedia(@NonNull Activity activity, @NonNull String link, boolean image,
+                                    @Nullable String category, @Nullable String displayName) {
+        return LibraryOpener.openMedia(activity, link, image, category, displayName);
+    }
+
     @Nullable
     private static LibraryItem newest(@NonNull List<LibraryItem> items, @NonNull LibraryKind kind) {
         java.util.Comparator<LibraryItem> newestFirst = LibraryFilter.comparator(LibraryFilter.Sort.NEWEST);

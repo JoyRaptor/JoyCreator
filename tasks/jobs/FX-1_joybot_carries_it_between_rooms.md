@@ -1,6 +1,6 @@
 # FX-1: Joybot carries your work from one room to the next
 
-**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 options page v2 (his 11-16 notes built in) with the owner; nothing built in the app  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
+**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 options page v3 (his 11-16 notes built in) with the owner; nothing built in the app  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
 
 ## Why it matters
 The owner, 11-15: "We've built up this huge library of effects. Why don't we start using it on our own app to really
@@ -71,6 +71,24 @@ His rulings, each a requirement:
   also serve for dragging. The nervous `oops` (leaning back, gritted teeth) is the heavy carry.
 - Room colours are the app's own: JoyBrush `#5C43FD` to `#4397FD`, Studio `#35F6BF` to `#97FE8B` (`RoomColours`).
 - Open: each now runs about 2 s from the pick (the card's 1.2 to 1.6 s was written before he asked for more travel); the page asks him.
+
+## 11-16 (evening): his notes on version 2, built into version 3 of the options page
+"He looks pretty good so far." Rulings:
+- **Hands sell it.** Whatever he grabs is pinned to his fists through the motion (the seam, the peeling corner, the bed sheet,
+  the wipe edge); a seam centred on his body with the fists past it does not sell. The page pins per frame (`HAND` table measured
+  from the pulling frames). Carried things sit in his fists: the scroll high at his chest, only his mouth showing over it.
+- **Waiting on the question:** his neutral "Eve" hover from the chat (`JoybotBody.target`: figure eight 2.6 x 3.4 dp, periods
+  5.2 s and 2.9 s, 3 degree lean, soft squash, 12 dp above the seat). The page uses those numbers. The question waits for a tap.
+- **Vacuum Sweep accepted as a radial wipe with distortion**, with changes: he holds the wipe's edge and turns with it
+  (perpendicular to it), spiralling from the outside in to the middle, where the ball forms; add a circular distortion as what
+  is left collapses to the middle.
+- **Star field:** use the zooming field from VisLab's Lyric Flight (`assets/vislab/scenes/lyric-flight.vis.json`: 8000 particles
+  flying at the camera, echo zoom 1.025, bloom, chroma), its palette swapped from the leaving room's gradient to the arriving
+  room's. "That should be good enough, it already looks nice." This replaces my 11-16 note about writing a fresh tunnel shader.
+- His frame-alignment method, for whoever packs sprites: SpriteLab's difference mode, slide until the overlap is blackest. Run by
+  machine on the nine pulling frames: 6 px at most, 13% less mismatch; the page uses that set in the order he drew them.
+- Sprites lane, 11-16: 240 px cells go soft past about 92 dp on the Note 9; flight poses at 2 to 3 times need 480 px strips
+  (as `hi/home.webp`), about 0.3 to 0.5 MB each. BOT-5 landed at 4a8ce14db: build the stage seam against that.
 
 ## Rules that apply
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no

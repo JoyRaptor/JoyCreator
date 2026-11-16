@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">La grafica di questo telefono non riesce a disegnare i look di TextLab. I tuoi titoli si vedono lo stesso, come parole semplici.</string>
     <string name="textlab_trouble_memory">Al telefono è mancata la memoria per questo look. Chiudi le altre app e riprova.</string>
     <string name="textlab_trouble_other">Questo look non si è potuto disegnare su questo telefono. Prova un altro look; i tuoi titoli si vedono lo stesso come parole semplici.</string>
+    <string name="textlab_draft_title">Le tue modifiche non salvate</string>
+    <string name="textlab_draft_body">Le tue modifiche a %1$s non sono state salvate l\'ultima volta. Le recuperi?</string>
+    <string name="textlab_draft_bring">Recuperale</string>
+    <string name="textlab_draft_let_go">Lasciale perdere</string>
 </resources>

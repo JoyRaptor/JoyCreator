@@ -6223,14 +6223,15 @@ public class ExportManager {
                 androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain(1, 2));
         mix.putChannelMixingMatrix(
                 androidx.media3.common.audio.ChannelMixingMatrix.createForConstantGain(2, 2));
-        for (int in = 3; in <= 8; in++) {
-            // Only the layouts media3 has a fold for (7->2 has none and threw at build time,
-            // killing every export on 2026-09-23 15:09). A source with an unlisted count (a
-            // 7-channel file) is refused by this processor — rare enough to accept for now.
-            try {
-                mix.putChannelMixingMatrix(androidx.media3.common.audio.ChannelMixingMatrix
-                        .createForConstantPower(in, 2));
-            } catch (UnsupportedOperationException ignored) { }
+        // 3 to 6 channels fold through StereoDownmix, NOT media3's createForConstantPower(n, 2):
+        // in 1.8.0 that table is laid out by output side while the matrix reads it by input
+        // channel, so a 5.1 centre went to the left only (seen on the test Fold, 11-16). A
+        // source with an unlisted count (a 7-channel file) is refused by this processor, as
+        // before (7->2 has no fold; asking media3 for one threw and killed every export on
+        // 2026-09-23 15:09).
+        for (androidx.media3.common.audio.ChannelMixingMatrix fold
+                : StereoDownmix.multichannelFolds()) {
+            mix.putChannelMixingMatrix(fold);
         }
         List<AudioProcessor> chain = new ArrayList<>(2);
         chain.add(rate);

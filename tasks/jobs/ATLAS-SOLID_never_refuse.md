@@ -259,6 +259,64 @@ end. Found by reading; not reproduced on the phone.
 
 Pictures and the numbers behind this table: [evidence/atlas-2to8-20261113](../joybrush/evidence/atlas-2to8-20261113/README.md).
 
+### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
+
+**In plain words.** Three ways a watercolour wash could be lost or dried by something other than the painter, all found by
+Codex reading the code, all still true this morning, all fixed.
+
+- **A cancelled stroke could wipe the wash under it (ENG-01).** When the phone had no graphics memory to keep a copy of
+  the wash for the next stroke's cancel, the stroke painted anyway, and cancelling it (a second finger) emptied the whole
+  sheet. Now the older undo copies are given up first; if that is not enough the wash is set into the layer, where it is
+  safe, and the stroke starts on a clean sheet. The price in that rare moment: the wash dries early and undo cannot go
+  back past it.
+- **Undo or redo could make the wash vanish (ENG-02).** After the canvas was turned between strokes, going back needed
+  the sheet in its other shape; if that could not be made the history had already moved and the wash was gone from the
+  screen. Now the history asks the sheet first, for undo and redo, and everything that can fail is done before anything
+  moves. No memory: the press does nothing, the picture is unchanged, and the next press works once memory is back.
+- **Renaming or locking a board dried the wash (R2-JB-02).** Every board edit set the wet wash. Now only edits that move
+  paint or frames do (`core/doc/BoardChangePaint`, unit-tested).
+- **Proof.** New bench case `wetSheetFailureProbe` (`WetSheetFailureProbe`, the real engine with the two failures
+  injected), Note 9, build 18c20fc83, two runs the same: cancel with no copy, 277 of 83,098 wash pixels differ (0.3%, the
+  early drying) and 2 stray; refused undo and refused redo change 0 pixels and then go through. All unit tests pass.
+- **Not covered.** The old losses were confirmed by reading the code, not made to happen on the old build. The board
+  fix has no phone check by eye. The double failure named in the routing file (`tasks/audits/codex/ROUTING_20261115.md`).
+
+## 2026-11-15: the cause of the 10-31 lost squares (JBX-35), by the "Launch bug hunt" session
+
+**In plain words.** On 10-31 four squares of the owner's painting turned black and a save stopped with "Board tile copy
+failed". The cause is now made to happen on purpose on both test phones, and today's code does not do it.
+
+- **What happened.** The realistic-paint engine went to sleep and freed its working pictures. A stroke then made new
+  squares, and the phone's graphics driver gave them the very names just freed. When the paint engine was later closed it
+  freed its sleeping pictures a SECOND time (`MediaLayerEngine.release`, fixed 11-01), which took the memory of the new
+  squares that now held those names.
+- **Why the 11-01 check did not show it.** Its test names were not the newest ones. The driver hands a freed name
+  straight back only when it was among the newest (2000 of 2000 tries, 32 of 32 in a batch) and never in an
+  oldest-first churn (0 of 50,000).
+- **Proof (bench case `mediaFailureProbe`, fields `nameReuse` and `doubleDelete`; Fold = Adreno 730, Note 9 = Adreno 630,
+  the same numbers on both).** 24 test squares all landed on just-freed names. The 10-31 order of events killed 24 of 24.
+  Today's order killed 0.
+- **A second fault found on the way, fixed here (8a48d687e, with the engine session's OK).** The check that runs before
+  every save (`GlPaintEngine.repairLostTiles`) found only the FIRST dead square: 1 of 24, leaving 23 dead for the save to
+  trip over. A square whose name is gone makes the driver refuse the test and keep the previous square in place, so the
+  rest looked healthy. It now asks the driver about the name and the attach as well: 24 of 24 found and mended on both
+  phones, none left dead, and the older `lostTileProbe` still passes. `tileReadable` got the same guard.
+- **What this does not cover.** A mended square is blank: what it held is gone (the person is told, and each one is
+  written to `files/joybrush-incidents.log`). The guard sees "name gone", not "name taken by another picture": only never
+  freeing twice prevents that. No lost-square line has been written on the Note 9 since the log began on 11-13, but no
+  long painting session has been run to look for one, and the owner's own pages have not been tried.
+- **Places a second free could still come from, read and left alone (none seen to happen).** `WetSheet` History frees a
+  snapshot when its count reaches zero or below, so an extra release would free twice (the counts read balanced);
+  `MediaAtlasGl.release` has no guard against being called twice (its one caller clears the field);
+  `GlPaintEngine.recycleLayerTex` cannot notice a stale retire after the name was handed out again.
+
+**Handoff.** Branch `claude/jbx35-20261115`, landed on `joy-creator`. Files: `gl/media/TextureNameReuseProbe.kt`,
+`gl/media/DoubleDeleteProbe.kt` (new), `gl/media/MediaFailureProbe.kt` (two report lines), `gl/GlPaintEngine.kt`
+(`repairLostTiles`, `tileReadable` only). To rerun on a phone:
+`phone.ps1 start com.fadcam.beta/com.fadcam.joybrush.JoyBrushBenchActivity --es jb_bench mediaFailureProbe --es jb_bench_brushes "'media:paste:Oil round'" --ei jb_bench_runs 1`
+and read the `JoyBrushPerf` line. Next for whoever picks this up: a guard flag on the three places above if a second free
+is ever seen, and a long mixed session reading the incident log.
+
 ## What is left
 - [ ] **Wet sheet: owner's own test** on the Note 9 (his page, his hand, tilt), then the Note 20.
 - [x] Wet sheet: the paper's grain at full resolution ("sharp when dry"): built 11-11, half strength by default; the owner
@@ -272,7 +330,8 @@ Pictures and the numbers behind this table: [evidence/atlas-2to8-20261113](../jo
 - [ ] Wet sheet: the small follow-ups in [LEDGER_SMALL_FIXES.md](../joybrush/LEDGER_SMALL_FIXES.md) section C.
 - [ ] Owner test on the Note 9 build, then the Note 20; owner compares Water detail Fast and Detailed with tilt.
 - [ ] Water speed steps 1-3 of the WATER_SPEED road (cheap tilt path, 4 x 4 running water, step only moving water).
-- [ ] A stress run long enough to meet the 10-31 tile failures again (or not), reading `JoyBrushTiles` and `JoyBrushMediaMemory`.
+- [x] The cause of the 10-31 tile failures (JBX-35): made to happen on purpose and shown fixed, 11-15 (section above).
+- [ ] A long mixed painting session reading `files/joybrush-incidents.log`, to see whether any other cause of a lost square exists.
 - [ ] When running water is pinned far from the pen, the stroke is still refused in words ("too far from paint that is still wet"). Rare; the water should be set aside instead.
 - [ ] **Streaming saves** (second review E4), then raise `LayerBudget.MEDIA_RAM_SHARE`. Launch-critical with the lost
       squares (orchestrator, 11-13: work loss matters more than speed). Multi-day, in the save path; not started.

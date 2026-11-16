@@ -121,13 +121,16 @@ public final class SequenceFrameCache {
     public Bitmap frame(int index) {
         String uri = sheet.frameUriAt(index);
         if (uri == null) return null;
-        Bitmap cached = resident.get(index);
+        // Kept by the PICTURE (its source slot), not the display slot: after a reorder the slot
+        // shows another picture, and a slot-keyed cache would keep showing the old one (SP-01).
+        int key = sheet.sourceCell(index);
+        Bitmap cached = resident.get(key);
         if (cached != null && !cached.isRecycled()) return cached;
-        if (failed.contains(index)) return null;
+        if (failed.contains(key)) return null;
 
         Bitmap bmp = decode(uri);
-        if (bmp == null) { failed.add(index); return null; }
-        resident.put(index, bmp);
+        if (bmp == null) { failed.add(key); return null; }
+        resident.put(key, bmp);
         return bmp;
     }
 
@@ -168,7 +171,8 @@ public final class SequenceFrameCache {
 
     /** True when frame {@code index} is known to be unopenable — drives the MISSING affordance. */
     public boolean isMissing(int index) {
-        return sheet.frameUriAt(index) != null && failed.contains(index) && !resident.containsKey(index);
+        int key = sheet.sourceCell(index);
+        return sheet.frameUriAt(index) != null && failed.contains(key) && !resident.containsKey(key);
     }
 
     /**

@@ -124,6 +124,158 @@ public final class JoybotFilm {
         return this;
     }
 
+    // ── less loopy loops (owner, 11-15) ─────────────────────────────────────
+    // "You can get loops to look less loopy by varying the frames that are next to each other ... if that is somewhat
+    // randomized, or stuttered, he can type a lot more with random pauses, and it won't look like a loop at all."
+    // "The painting, you can't really stutter ... but you can have it where he's always swiping one direction, or
+    // swiping, mirror, then swiping another direction, or ping-ponging to get a variety of strokes."
+
+    /** How the loop part plays. */
+    public enum Style {
+        /** As drawn, round and round. */
+        LOOP,
+        /** There and back. */
+        PINGPONG,
+        /** A random walk over neighbouring frames, mostly forward, with holds and the odd pause. */
+        STUTTER,
+        /** One fluid motion a pass at a time, forward or back, sometimes mirrored, now and then a breath between. */
+        STROKES
+    }
+
+    private Style style = Style.LOOP;
+    @Nullable private java.util.Random dice;
+    /** The loop as it will play, tick by tick, from {@link #planFrom}: frame (0-based within the loop) | MIRROR. */
+    private int[] plan = new int[96];
+    private int planLen = 0, planFrom = 0, walkAt = 0;
+    private static final int MIRROR = 1 << 16;
+    private boolean mirrorNow = false;
+
+    /** Play the loop part in {@code s} (only for an animation drawn from a list of frames, one tick each). */
+    @NonNull
+    public JoybotFilm withStyle(@Nullable Style s) {
+        style = s != null ? s : Style.LOOP;
+        if (style != Style.LOOP) dice = new java.util.Random();
+        return this;
+    }
+
+    /** Loop positions (0-based within the loop) a stuttered loop may rest on for a while. */
+    @Nullable private int[] rests;
+
+    @NonNull
+    public JoybotFilm withRests(@Nullable int[] loopPositions) {
+        rests = loopPositions != null && loopPositions.length > 0 ? loopPositions : null;
+        return this;
+    }
+
+    /** His body language while this plays (acts.json "moves.body"; see JoybotBody), or null for just his hover. */
+    @Nullable private String body;
+
+    @NonNull
+    public JoybotFilm withBody(@Nullable String b) {
+        body = b != null && !b.isEmpty() ? b : null;
+        return this;
+    }
+
+    @Nullable public String body() { return body; }
+
+    /** True while the frame being shown is mirrored (a stroke the other way, or the whole play facing the other way). */
+    public boolean mirrored() { return mirrorNow ^ mirrorAll; }
+
+    // ── choreography on top of the frames (owner, 11-15) ────────────────────
+    /** Motion the view adds while this plays: see acts.json "moves". */
+    public static final class Moves {
+        public float scale = 1f;
+        public float hopDp, hopMs;
+        public float driftDp, driftMs;
+        public boolean sparks;
+        /** Starts with a backflip this time. */
+        public boolean flip;
+    }
+
+    @Nullable private Moves moves;
+    /** This whole play faces the other way (decided by whoever made it, so its way in, loop and way out agree). */
+    private boolean mirrorAll;
+
+    @NonNull
+    public JoybotFilm withMoves(@Nullable Moves m, boolean mirror) {
+        moves = m;
+        mirrorAll = mirror;
+        return this;
+    }
+
+    @Nullable public Moves moves() { return moves; }
+
+    /** Set by the view for this draw: he faces the other way while drifting left (searching around). */
+    private boolean facing;
+
+    public void turnForDrift(boolean otherWay) { facing = otherWay; }
+
+    public boolean mirroredPlay() { return mirrorAll; }
+
+    /** When this play started (uptime ms). */
+    public long startedAt() { return startedAtMs; }
+
+    /** How long a one-shot plays, ms; 0 for a loop (it never ends). */
+    public long onceMs() { return loop ? 0L : totalTicks * framePeriodMs; }
+
+    private int loopFrames(int introFrames) { return cellRects == null ? 0 : cellRects.length - introFrames; }
+
+    /** The loop's frame at loop tick {@code k}, writing the plan ahead as needed (and forgetting what has played). */
+    private int planned(int k, int n) {
+        if (k < planFrom) { planFrom = k; planLen = 0; }
+        if (k - planFrom > 4096) {                         // keep the plan short: drop what has played
+            int keep = Math.max(0, planLen - (k - planFrom));
+            if (keep > 0) System.arraycopy(plan, k - planFrom, plan, 0, keep);
+            planLen = keep;
+            planFrom = k;
+        }
+        while (planFrom + planLen <= k) extend(n);
+        return plan[k - planFrom];
+    }
+
+    private void put(int v) {
+        if (planLen == plan.length) plan = java.util.Arrays.copyOf(plan, plan.length * 2);
+        plan[planLen++] = v;
+    }
+
+    private void extend(int n) {
+        java.util.Random r = dice != null ? dice : (dice = new java.util.Random());
+        if (n <= 1) { put(0); return; }
+        switch (style) {
+            case PINGPONG:
+                for (int i = 0; i < n; i++) put(i);
+                for (int i = n - 2; i > 0; i--) put(i);
+                return;
+            case STUTTER: {
+                float x = r.nextFloat();
+                if (x < .62f) walkAt = (walkAt + 1) % n;                       // on
+                else if (x < .76f) walkAt = (walkAt + n - 1) % n;              // back a frame
+                else if (x < .92f) put(walkAt);                                // a hold
+                else { int p = 3 + r.nextInt(8); for (int i = 0; i < p; i++) put(walkAt); }   // a pause
+                put(walkAt);
+                // a frame he may rest on a while (owner, 11-15: looking up from the book, a pause in his notes)
+                if (rests != null && r.nextFloat() < .4f) {
+                    for (int q : rests) {
+                        if (q == walkAt) { int p = 6 + r.nextInt(13); for (int i = 0; i < p; i++) put(walkAt); break; }
+                    }
+                }
+                return;
+            }
+            case STROKES: {
+                boolean back = r.nextInt(3) == 0, flip = r.nextInt(4) == 0;
+                int m = flip ? MIRROR : 0;
+                for (int i = 0; i < n; i++) put((back ? n - 1 - i : i) | m);
+                if (r.nextInt(3) == 0) {                                       // a breath before the next stroke
+                    int last = (back ? 0 : n - 1) | m, p = 1 + r.nextInt(3);
+                    for (int i = 0; i < p; i++) put(last);
+                }
+                return;
+            }
+            default:
+                for (int i = 0; i < n; i++) put(i);
+        }
+    }
+
     /** Mark this as the full-colour character and say where his body is inside a cell. */
     @NonNull
     public JoybotFilm asActor(@Nullable RectF bodyInCell) {
@@ -173,6 +325,18 @@ public final class JoybotFilm {
         if (sheet.isRecycled()) return;
         long elapsed = Math.max(0L, nowMs - startedAtMs);
         int tick = (int) (elapsed / framePeriodMs);
+        mirrorNow = false;
+        int introFrames = introTicks;                       // styled films hold every frame one tick
+        int n = loopFrames(introFrames);
+        if (loop && style != Style.LOOP && cellRects != null && n > 0 && tick >= introTicks) {
+            int v = planned(tick - introTicks, n);
+            mirrorNow = (v & MIRROR) != 0;
+            int i = introFrames + (v & 0xFFFF);
+            src.set(cellRects[i]);
+            shown = i;
+            drawCell(canvas, into, paint);
+            return;
+        }
         if (tick >= totalTicks) {
             if (loop) {
                 tick = introTicks + (tick - introTicks) % (totalTicks - introTicks);
@@ -192,7 +356,17 @@ public final class JoybotFilm {
             int cx = i % cols, cy = i / cols;
             src.set(cx * cellW, cy * cellH, (cx + 1) * cellW, (cy + 1) * cellH);
         }
+        drawCell(canvas, into, paint);
+    }
+
+    /** The current source cell into {@code into}; mirrored about his body's own upright line when a stroke goes the other way. */
+    private void drawCell(@NonNull Canvas canvas, @NonNull RectF into, @Nullable Paint paint) {
         dst.set(into);
+        if (!(mirrorNow ^ mirrorAll ^ facing)) { canvas.drawBitmap(sheet, src, dst, paint); return; }
+        float axis = focus != null ? dst.left + dst.width() * focus.centerX() : dst.centerX();
+        int save = canvas.save();
+        canvas.scale(-1f, 1f, axis, 0f);
         canvas.drawBitmap(sheet, src, dst, paint);
+        canvas.restoreToCount(save);
     }
 }

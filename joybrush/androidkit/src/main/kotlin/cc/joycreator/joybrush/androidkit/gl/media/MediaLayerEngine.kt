@@ -199,11 +199,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     private var eraseWetFbo = IntArray(0)
 
     private class State(val p0: Int, val p1: Int, val paper: Int, val fbo: Int)
-    private lateinit var state: Array<State>
+    private var state: Array<State> = emptyArray()   // empty until [allocate] made all of it (ENG-04)
     private var pFbo0 = 0
     private var pFbo1 = 0
     private class Brush(val b0: Int, val b1: Int, val fbo: Int)
-    private lateinit var brush: Array<Brush>
+    private var brush: Array<Brush> = emptyArray()
     private var bc = 0
 
     // made on first use
@@ -267,10 +267,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         if (atlasMode) require(width % MediaAtlasDraw.SIDE == 0 && height % MediaAtlasDraw.SIDE == 0) { "an atlas window is whole slots" }
         while (compileNext()) Unit   // whatever was not compiled ahead (MediaCanvas.prewarmStep)
         allocate()
-        brush = Array(2) {
-            val b0 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
-            val b1 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST)
-            Brush(b0, b1, MediaTex.fbo(b0, b1))
+        brush = allOrNothing { tex, fbos ->
+            Array(2) {
+                val b0 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST).also(tex::add)
+                val b1 = MediaTex.make(PASTE_LANES, PASTE_DEPTH, GLES30.GL_RGBA32F, GLES30.GL_RGBA, GLES30.GL_FLOAT, GLES30.GL_NEAREST).also(tex::add)
+                Brush(b0, b1, MediaTex.fbo(b0, b1).also(fbos::add))
+            }
         }
         val ids = IntArray(2)
         GLES30.glGenFramebuffers(2, ids, 0); readFbo = ids[0]; drawFbo = ids[1]
@@ -302,15 +304,36 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
 
     /** The full-float state: the one part of the window every medium needs. */
     private fun allocate() {
-        state = Array(2) {
-            val p0 = MediaTex.full(w, h); val p1 = MediaTex.full(w, h); val pp = MediaTex.full(w, h)
-            State(p0, p1, pp, MediaTex.fbo(p0, p1, pp))
+        allOrNothing { tex, fbos ->
+            val made = Array(2) {
+                val p0 = MediaTex.full(w, h).also(tex::add); val p1 = MediaTex.full(w, h).also(tex::add); val pp = MediaTex.full(w, h).also(tex::add)
+                State(p0, p1, pp, MediaTex.fbo(p0, p1, pp).also(fbos::add))
+            }
+            val f0 = MediaTex.fbo(made[0].p0, made[0].p1).also(fbos::add)
+            val f1 = MediaTex.fbo(made[1].p0, made[1].p1).also(fbos::add)
+            val ground = MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST).also(tex::add)
+            val groundF = MediaTex.fbo(ground).also(fbos::add)
+            // All of it was made: only now does the engine own any of it.
+            state = made; pFbo0 = f0; pFbo1 = f1; groundTex = ground; groundFbo = groundF
         }
-        pFbo0 = MediaTex.fbo(state[0].p0, state[0].p1)
-        pFbo1 = MediaTex.fbo(state[1].p0, state[1].p1)
-        groundTex = MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
-        groundFbo = MediaTex.fbo(groundTex)
         asleep = false
+    }
+
+    /**
+     * Several textures and framebuffers that are made together or not at all (ENG-04). When one cannot be made (the phone's
+     * graphics memory ran out), the ones made before it are given back here and the failure goes on to the caller: the
+     * engine's own fields were not touched, so [release] neither leaks them nor deletes a name twice.
+     */
+    private inline fun <T> allOrNothing(make: (tex: MutableList<Int>, fbos: MutableList<Int>) -> T): T {
+        val tex = ArrayList<Int>(); val fbos = ArrayList<Int>()
+        try {
+            return make(tex, fbos)
+        } catch (x: Throwable) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            if (fbos.isNotEmpty()) MediaTex.deleteFbo(*fbos.toIntArray())
+            if (tex.isNotEmpty()) MediaTex.deleteTex(*tex.toIntArray())
+            throw x
+        }
     }
 
     private var released = false

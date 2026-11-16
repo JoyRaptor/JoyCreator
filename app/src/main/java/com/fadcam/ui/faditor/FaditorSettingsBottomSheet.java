@@ -82,6 +82,14 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
     @Override
     public Dialog onCreateDialog(Bundle savedInstanceState) {
         Dialog dialog = super.onCreateDialog(savedInstanceState);
+        // E6 (bug hunt 11-15): Android rebuilt the editor (unfolding the Fold, a dark-mode
+        // switch, a font-size change) and restored this sheet without its owner, so every
+        // button would do nothing. Close it; the person opens it again from the editor.
+        if (savedInstanceState != null && callback == null) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                if (isAdded()) dismissAllowingStateLoss();
+            });
+        }
         SheetKit.install(dialog, null);
         return dialog;
     }
@@ -286,6 +294,9 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
         addSwitchRow(parent, dp, getString(R.string.tab1_settings_left_title), getString(R.string.tab1_settings_left),
                 com.fadcam.ui.faditor.tools.DrawerPlace.left(ctx),
                 on -> com.fadcam.ui.faditor.tools.DrawerPlace.setLeft(ctx, on));
+        addSwitchRow(parent, dp, getString(R.string.tab1_settings_split_title), getString(R.string.tab1_settings_split),
+                com.fadcam.ui.faditor.tools.DrawerPlace.split(ctx),
+                on -> com.fadcam.ui.faditor.tools.DrawerPlace.setSplit(ctx, on));
     }
 
     /** The TextView in {@code root} showing {@code text}, or null. */

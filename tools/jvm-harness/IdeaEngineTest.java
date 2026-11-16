@@ -541,11 +541,41 @@ public class IdeaEngineTest {
                     {"how do I filter my library", "library_find"},
                     {"how do I rename a project", "library_projects"},
                     {"how do I change the brush settings", "joybrush_brushes"},
+                    // BOT-A6 (11-15): Capture and Settings
+                    {"how do I take a photo", "capture_photo"},
+                    {"can I take a selfie", "capture_photo"},
+                    {"how do I take a screenshot", "capture_screenshot"},
+                    {"how do I record with both cameras", "dual_camera"},
+                    {"can I use the front and back camera at the same time", "dual_camera"},
+                    {"how do I turn off the watermark", "watermark"},
+                    {"how do I put a timestamp on my recordings", "watermark"},
+                    {"what version is this", "about"},
+                    {"who made this app", "about"},
+                    {"where is the pairing code for remote studio", "remote_lan"},
+                    {"remote studio is locked, how do I sign in", "remote_lan"},
+                    {"how do I switch to screen recording", "capture_modes"},
+                    {"how do I turn on the torch", "capture_modes"},
+                    {"what are the words at the bottom of the lobby", "lobby_floor"},
+                    {"where are the settings", "settings_find"},
+                    // keys that must stay with their own topics
+                    {"how do I add credits at the end", "slides"},
+                    {"how do I use screen mode", "blend"},
+                    {"how do I add a photo to my video", "image"},
             };
             for (String[] c : bot2Help) {
                 t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find(c[0]);
                 eq("help BOT-2: " + c[1], c[1], t == null ? null : t.id);
             }
+            // BOT-A6: the Play build lists help_capture_screenshot; the topic and its line for the model go.
+            com.fadcam.launch.LaunchList.set(java.util.Collections.singleton("help_capture_screenshot"));
+            t = com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I take a screenshot");
+            check("help A6: Play build has no screenshot answer", t == null || !"capture_screenshot".equals(t.id),
+                    t == null ? "null" : t.id);
+            check("help A6: nor in the model's index",
+                    !com.fadcam.ui.faditor.ai.joybot.HelpBook.forModel().contains("tap Screenshot"), "");
+            com.fadcam.launch.LaunchList.set(null);
+            eq("help A6: back when not listed", "capture_screenshot",
+                    com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I take a screenshot").id);
             check("howto: how do I", com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("How do I export?"), "");
             check("howto: not a command", !com.fadcam.ui.faditor.ai.joybot.HelpBook.isHowTo("cut the ums"), "");
             check("help: every topic has an answer", com.fadcam.ui.faditor.ai.joybot.HelpBook.TOPICS.size() > 30, "");
@@ -1507,6 +1537,18 @@ public class IdeaEngineTest {
     static void bot7CreateTree() {
         com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind k;
         java.util.Map<String, Integer> none = new java.util.HashMap<>();
+        // BOT-A8 (Note 9 11-15): "how do I make a board" in the lobby started the create questions,
+        // and every later message got "Try a shape". A how-to the book answers is a question; mid-create,
+        // a question lets go and "stop" ends it; real answers still answer.
+        check("tree A8: how do I make a board is help", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.helpQuestion("how do I make a board"), "");
+        check("tree A8: make a board is still an order", !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.helpQuestion("make a board"), "");
+        check("tree A8: a question leaves", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere("how does the onion peg work"), "");
+        check("tree A8: where is leaves", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere("where is smart detection"), "");
+        check("tree A8: stop stops", com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.stops("never mind"), "");
+        for (String a : new String[]{"3:1", "16:9", "square", "12", "12 fps", "2-point", "a walk cycle", "Hero sheet", "wide", "64"}) {
+            check("tree A8: an answer stays: " + a, !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.elsewhere(a)
+                    && !com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.stops(a), a);
+        }
         // The bubbles: the owner's order for a new person, then most-made first.
         StringBuilder ids = new StringBuilder();
         for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind x : com.fadcam.ui.faditor.ai.joybot.CreateTree.ordered(none)) ids.append(x.id).append(' ');

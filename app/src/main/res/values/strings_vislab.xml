@@ -17,6 +17,8 @@
     <string name="vl_room_mic_needed">VisLab needs the microphone to listen to the room.</string>
     <string name="vl_room_mic_busy">The microphone is busy or not allowed.</string>
     <string name="vl_room_song_failed">That song could not be opened.</string>
+    <string name="vl_room_look_gone">That look is not here any more, so the room shows another one.</string>
+    <string name="vl_room_song_unplayable">That song could not be played, so the demo song is back on. Try another song.</string>
     <string name="vl_room_part_title">Save as a part</string>
     <string name="vl_room_part_save">Save</string>
     <string name="vl_room_part_saved">Saved with your looks as %1$s.vispart.json</string>
@@ -125,6 +127,9 @@
     <string name="vl_knob_joy_emblem_tip">Go back to the built-in Joy emblem</string>
     <string name="vl_knob_sheet">Sheet</string>
     <string name="vl_knob_sheet_tip">Choose which Sprite Lab sheet this layer plays</string>
+    <string name="vl_knob_sheet_missing">%1$s: pictures missing</string>
+    <string name="vl_knob_sheet_long">%1$s: plays the first %2$d frames</string>
+    <string name="vl_knob_sheet_missing_tip">This sheet\'s pictures are gone, perhaps with the project they came from. Tap to choose a sheet again</string>
     <string name="vl_knob_animation">Animation</string>
     <string name="vl_knob_every_frame">Every frame</string>
     <string name="vl_knob_every_frame_tip">Play every frame of the sheet</string>

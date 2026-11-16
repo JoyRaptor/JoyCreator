@@ -538,6 +538,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             }
             return
         }
+        if (case == "wetSheetFailureProbe") {
+            // Codex audit ENG-01/02: a wash survives no graphics memory at a cancel and at an undo or redo (WetSheetFailureProbe).
+            canvas.runWetSheetFailureProbe(preset) { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("pass", false).put("raw", result) }
+                logRecordedReport(report.put("brush", preset.id).put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "mediaFailureProbe") {
             // The owner's pink knife lines 10-31: a line whose frame fails, a line across it, nothing laid is lost (MediaFailureProbe).
             canvas.runMediaFailureProbe(preset) { result ->

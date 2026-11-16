@@ -88,6 +88,12 @@ final class SurfaceFrameReader {
 
     int getOesTextureId() { return oesTexId; }
 
+    /** The picture's width as SHOWN (rotation applied), or 0 before the source is open. */
+    int getDisplayWidth() { return displayW; }
+
+    /** The picture's height as SHOWN (rotation applied), or 0 before the source is open. */
+    int getDisplayHeight() { return displayH; }
+
     void getTransformMatrix(@NonNull float[] out) {
         if (texMatrixValid) System.arraycopy(texMatrix, 0, out, 0, 16);
         else {
@@ -115,6 +121,9 @@ final class SurfaceFrameReader {
             }
             lastRequestUs = sourceUs;
             if (!started && !openOnGlThread()) { degraded = true; return false; }
+            // The frame on the texture already answers this request: keep it (R2-FX-02). Pulling
+            // another here ran a 24 fps PiP a quarter fast in a 30 fps export.
+            if (DecodedFrameCursor.holds(currentPtsUs, sourceUs)) return true;
             if (streamEnded) {
                 // No more frames will arrive; last frame remains current.
                 return currentPtsUs != Long.MIN_VALUE;

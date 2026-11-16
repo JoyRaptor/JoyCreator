@@ -10,4 +10,6 @@
     <string name="access_open_settings">Open settings</string>
     <!-- Launch bug hunt B1 (11-15): the Play build's notification page shows the preview only. -->
     <string name="notification_preview_helper_play">This is how the notice looks while Joy Creator records. It always says what is happening and always has a Stop button.</string>
+    <!-- SHELL-28 (11-15): any recorder whose folder cannot be reached keeps the recording inside the app. -->
+    <string name="record_folder_unreachable_kept_inside">Your Joy Creator folder can\'t be reached (moved, renamed, or on a card that was taken out), so this recording is saved inside the app instead. It still shows in the Library.</string>
 </resources>

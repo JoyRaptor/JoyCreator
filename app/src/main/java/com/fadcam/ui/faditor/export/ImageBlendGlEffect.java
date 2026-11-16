@@ -733,7 +733,10 @@ final class ImageBlendGlEffect implements GlEffect {
         private void setFxUniformsOn(@NonNull GlProgram target, long presentationTimeUs) {
             com.fadcam.ui.faditor.fx.FxStack stack = fxItem.getFx();
             if (stack == null || stack.active().isEmpty()) return;
-            com.fadcam.ui.faditor.fx.FxStack resolved = stack.resolveAt(presentationTimeUs / 1000L);
+            // The editor's clock, as the placement reads it (R2-FX-04).
+            com.fadcam.ui.faditor.fx.FxStack resolved = stack.resolveAt(
+                    com.fadcam.ui.faditor.model.TimeMap.chunkToEditorMs(
+                            presentationTimeUs, meshEditorTimeOffsetMs));
             com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
                     com.fadcam.ui.faditor.fx.FxCompiler.plan(resolved);
             for (com.fadcam.ui.faditor.fx.FxCompiler.Pass p : plan.passes) {

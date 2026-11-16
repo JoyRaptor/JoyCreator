@@ -99,6 +99,15 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     /** The look and words as last opened or saved: a change back to them is not a change. */
     private String savedLook = "", savedWords = "";
     @Nullable private String photoNote;
+    /** The folder path of {@link #photo} (LAB-03: the look keeps it, {@link TlPhoto#KEY}). */
+    @Nullable private String photoRel;
+    /**
+     * KNOWN-LAB-01: a draft from last time is being offered (kept until answered, unless new changes replace it); a
+     * draft was taken back (the shelf's later reload must not open another look over it); the shelf key of the look
+     * the draft was editing, until the shelf has it; the draft as last written (written again only when changed).
+     */
+    private boolean draftOffered, draftTaken;
+    @Nullable private String pendingKey, draftWritten;
     private String light = TitleLook.SWAY;
     private float stillX, stillY;
     private long t0 = android.os.SystemClock.uptimeMillis();
@@ -131,23 +140,95 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         if (in.getStringExtra(EXTRA_WORDS) != null) words = in.getStringExtra(EXTRA_WORDS);
         shelf.addAll(TextLookShelf.builtIn(this));
         showChips();
-        String title = in.getStringExtra(EXTRA_TITLE_LOOK);
-        if (title != null) {
-            try {
-                editing = null;
-                choose(new JSONObject(title), null, true);
-            } catch (Exception e) {
-                Log.w(TAG, "title look not read", e);
+        // KNOWN-LAB-01: unsaved work from a room Android closed. Coming back to that room (state is set): as it was.
+        // Opening the room afresh: the look asked for, then the question whether to bring the changes back.
+        TlDraft draft = titleMode ? null : TlDraft.read(TlDraft.file(getFilesDir()));
+        if (draft != null && state != null) {
+            restoreDraft(draft);
+            loadFolder(null, false);
+        } else {
+            String title = in.getStringExtra(EXTRA_TITLE_LOOK);
+            if (title != null) {
+                try {
+                    editing = null;
+                    choose(new JSONObject(title), null, true);
+                } catch (Exception e) {
+                    Log.w(TAG, "title look not read", e);
+                }
+            }
+            String id = in.getStringExtra(EXTRA_LOOK_ID);
+            if (look == null && !shelf.isEmpty() && in.getStringExtra(EXTRA_LOOK_FILE) == null) {
+                int i = indexOf(id);
+                chooseItem(i >= 0 ? i : 0, in.getStringExtra(EXTRA_WORDS) == null);
+            }
+            loadFolder(in.getStringExtra(EXTRA_LOOK_FILE));
+            if (draft != null) offerDraft(draft);
+        }
+        setLight(TitleLook.SWAY);
+    }
+
+    // ---- unsaved work kept while the room is out of sight (KNOWN-LAB-01) -----------------------------
+
+    private void offerDraft(@NonNull TlDraft d) {
+        draftOffered = true;
+        TlSheet.ask(this, getString(R.string.textlab_draft_title), getString(R.string.textlab_draft_body, d.name),
+                getString(R.string.textlab_draft_bring), () -> {
+                    draftOffered = false;
+                    restoreDraft(d);
+                }, getString(R.string.textlab_draft_let_go), () -> {
+                    draftOffered = false;
+                    TlDraft.delete(TlDraft.file(getFilesDir()));
+                });
+    }
+
+    /** The draft's look, words, undo steps and "as saved" back on screen; the look it was editing once the shelf has it. */
+    private void restoreDraft(@NonNull TlDraft d) {
+        try {
+            choose(new JSONObject(d.look), d.words, false);
+        } catch (Exception e) {
+            Log.w(TAG, "draft not read", e);
+            return;
+        }
+        draftTaken = true;
+        savedLook = d.savedLook;
+        savedWords = d.savedWords;
+        undo.load(d.undo);
+        editing = null;
+        pendingKey = null;
+        if (d.key != null) {
+            int i = indexOf(d.key);
+            if (i >= 0) {
+                editing = shelf.get(i);
+                chips.choose(i);
+            } else {
+                pendingKey = d.key;   // a look in the folder: the shelf's reload finds it
+                loadFolder(null, false);
             }
         }
-        String id = in.getStringExtra(EXTRA_LOOK_ID);
-        if (look == null && !shelf.isEmpty() && in.getStringExtra(EXTRA_LOOK_FILE) == null) {
-            int i = indexOf(id);
-            chooseItem(i >= 0 ? i : 0, in.getStringExtra(EXTRA_WORDS) == null);
+        changed();
+    }
+
+    /** Out of sight: keep the unsaved work, or take away a draft that is no longer needed. */
+    private void keepDraft() {
+        if (titleMode || look == null) return;
+        java.io.File f = TlDraft.file(getFilesDir());
+        if (!dirty) {
+            if (!draftOffered) {
+                TlDraft.delete(f);   // nothing unsaved (a draft still being offered waits for its answer)
+                draftWritten = null;
+            }
+            return;
         }
-        loadFolder(in.getStringExtra(EXTRA_LOOK_FILE));
-        setLight(TitleLook.SWAY);
-        main.post(ticker);
+        try {
+            String j = new TlDraft(look.toString(), words, savedLook, savedWords,
+                    editing != null ? editing.key : pendingKey, nameOf(), undo.save()).toJson();
+            if (!j.equals(draftWritten)) {
+                TlDraft.write(f, j);
+                draftWritten = j;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "unsaved work not kept", e);
+        }
     }
 
     // ---- the screen ---------------------------------------------------------------------------------
@@ -237,12 +318,19 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
             @Override
             public void afterTextChanged(Editable s) {
-                if (!wordsBox.hasFocus()) return;
-                words = s.toString();
+                if (!wordsBox.hasFocus() || look == null) return;
+                String now = s.toString();
+                if (now.equals(words)) return;
+                // LAB-06: typing is an undo step (a run of letters is one) and, as any new change, forgets redo
+                undo.typed(look.toString(), words, getString(R.string.textlab_words));
+                words = now;
                 changed();
                 final String ws = words.isEmpty() ? " " : words;
                 stage.run(r -> r.setText(ws));
             }
+        });
+        wordsBox.setOnFocusChangeListener((v, has) -> {
+            if (!has) undo.endTyping();
         });
         wordsRow.addView(wordsBox, new LinearLayout.LayoutParams(0, dp(38), 1));
         TextView replay = iconButton("replay", "Play the arrival again", v -> {
@@ -394,7 +482,18 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
                 shelf.clear();
                 shelf.addAll(all);
                 showChips();
-                if (openRel != null) {
+                if (pendingKey != null) {
+                    // a taken-back draft's look, or a renamed look: edit it on (the screen and its undo steps stay)
+                    int i = indexOf(pendingKey);
+                    pendingKey = null;
+                    if (i >= 0) {
+                        editing = shelf.get(i);
+                        chips.choose(i);
+                        showName();
+                    }
+                    return;
+                }
+                if (openRel != null && !draftTaken) {
                     int i = indexOf("folder:" + openRel);
                     if (i >= 0) chooseItem(i, true);
                     else Toast.makeText(this, R.string.textlab_look_not_opened, Toast.LENGTH_SHORT).show();
@@ -485,7 +584,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         }
         changed();
         stage.show(look, words.isEmpty() ? " " : words);
-        if (photo != null && look.optInt("stage", 1) == 11) stage.run(r -> r.setPhoto(photo));
+        showPhoto();
         panel.refresh();
         showProgress();
         showName();
@@ -705,30 +804,45 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             saveAs(then);
             return;
         }
+        // LAB-02: what is written is the look as it is NOW, a copy; edits made while it is being written stay unsaved
         final TextLookShelf.Item it = editing;
-        final JSONObject l = look;
-        final String ws = words;
+        final String snap = look.toString(), ws = words;
+        final JSONObject l;
+        try {
+            l = new JSONObject(snap);
+        } catch (Exception e) {
+            return;
+        }
         JoyFolderHome.io().execute(() -> {
             TlLookFiles.Done d = TlLookFiles.save(this, it, l, ws);
-            runOnUiThread(() -> afterSave(d, then));
+            runOnUiThread(() -> afterSave(d, then, snap, ws));
         });
     }
 
     private void saveAs(@Nullable Runnable then) {
         TlSheet.name(this, getString(R.string.textlab_save_as_title), (editing != null ? editing.name : "My look") + " 2", getString(R.string.textlab_save), n ->
-                TextLabPreviews.get(this).save(look, words, n, s -> afterSave(new TlLookFiles.Done(
-                        s.where != null && s.where.startsWith("Supplies") ? s.where : null,
-                        s.where == null ? s.problem : null), then)));
+                saveNew(n, then));
     }
 
-    private void afterSave(TlLookFiles.Done d, @Nullable Runnable then) {
+    /** Save the look as it is now as a new look of the person's own (save() copies it at once: LAB-02). */
+    private void saveNew(@NonNull String name, @Nullable Runnable then) {
+        final String snap = look.toString(), ws = words;
+        TextLabPreviews.get(this).save(look, ws, name, s -> afterSave(new TlLookFiles.Done(
+                s.where != null && s.where.startsWith("Supplies") ? s.where : null,
+                s.where == null ? s.problem : null), then, snap, ws));
+    }
+
+    /** A save ended: {@code wroteLook} / {@code wroteWords} are what went into the file, so only they count as saved. */
+    private void afterSave(TlLookFiles.Done d, @Nullable Runnable then, @NonNull String wroteLook,
+                           @NonNull String wroteWords) {
         if (!d.ok()) {
             Toast.makeText(this, d.problem, Toast.LENGTH_LONG).show();
             return;
         }
-        savedLook = look.toString();
-        savedWords = words;
+        savedLook = wroteLook;
+        savedWords = wroteWords;
         changed();
+        if (!dirty) TlDraft.delete(TlDraft.file(getFilesDir()));
         Toast.makeText(this, R.string.textlab_saved, Toast.LENGTH_SHORT).show();
         if (d.rel != null) loadFolder(null, false);
         if (d.rel != null && then == null) {
@@ -774,12 +888,32 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             TlLookFiles.Done d = TlLookFiles.rename(this, it, n);
             runOnUiThread(() -> {
                 if (!d.ok()) Toast.makeText(this, d.problem, Toast.LENGTH_LONG).show();
-                else {
-                    editing = null;
-                    loadFolder(d.rel);
-                }
+                else if (d.rel != null) renamed(it, d.rel, n);
             });
         }));
+    }
+
+    /**
+     * LAB-01: a rename changes the look's name and file, nothing else. The screen keeps its unsaved changes and undo
+     * steps (it used to open the file afresh, losing both); the next save goes to the new file.
+     */
+    private void renamed(@NonNull TextLookShelf.Item was, @NonNull String rel, @NonNull String typed) {
+        String clean = com.fadcam.joyfolder.ReadableNames.sanitize(typed).trim();   // as the file now says
+        try {
+            JSONObject l = new JSONObject(was.look.toString());
+            l.put("name", clean);
+            editing = new TextLookShelf.Item("folder:" + rel, FileKind.baseOf(Placement.nameOf(rel)), was.pack,
+                    TextLookShelf.From.MINE, l, rel);
+            if (look != null && look.has("name")) look.put("name", clean);
+            JSONObject s = new JSONObject(savedLook);
+            if (s.has("name")) s.put("name", clean);
+            savedLook = s.toString();
+        } catch (Exception e) {
+            Log.w(TAG, "renamed look not followed", e);
+        }
+        pendingKey = "folder:" + rel;
+        changed();
+        loadFolder(null, false);
     }
 
     private void askDelete() {
@@ -855,7 +989,12 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             boolean on = !s[0].isEmpty() && Integer.parseInt(s[0]) == cur;
             rows.add(new TlSheet.Row(s[1], getString(R.string.textlab_stage_tip, s[1]), on, () -> setStage(s[0])));
         }
-        if (photo != null) rows.add(new TlSheet.Row(getString(R.string.textlab_stage_picture), getString(R.string.textlab_stage_picture_tip), cur == 11, () -> setStage("11")));
+        if (photo != null || !look.optString(TlPhoto.KEY, "").isEmpty()) {
+            rows.add(new TlSheet.Row(getString(R.string.textlab_stage_picture), getString(R.string.textlab_stage_picture_tip), cur == 11, () -> {
+                setStage("11");
+                showPhoto();
+            }));
+        }
         TlSheet.menu(this, getString(R.string.textlab_background), rows);
     }
 
@@ -947,14 +1086,24 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         if (request == PICK_PICTURE) {
             JoyFolderHome.io().execute(() -> {
                 Bitmap b = decode(uri);
+                // LAB-03: a copy in the folder, its path kept with the look, so a reopened or exported look has it
+                String rel = b != null ? TlPhoto.importPicture(this, uri, displayName(uri, "Picture.jpg")) : null;
                 runOnUiThread(() -> {
                     if (b == null) {
                         Toast.makeText(this, R.string.textlab_picture_unreadable, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     photo = b;
+                    photoRel = rel;
                     stage.run(r -> r.setPhoto(b));
                     setStage("11");
+                    try {
+                        if (rel != null) look.put(TlPhoto.KEY, rel);
+                        else look.remove(TlPhoto.KEY);
+                    } catch (Exception ignored) {
+                        // the picture still shows in the room
+                    }
+                    changed();
                 });
             });
         } else if (request == PICK_FONT) {
@@ -989,11 +1138,40 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     @NonNull
     private String displayName(Uri uri) {
+        return displayName(uri, "font.ttf");
+    }
+
+    @NonNull
+    private String displayName(Uri uri, @NonNull String otherwise) {
         try (android.database.Cursor c = getContentResolver().query(uri, new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
-            if (c != null && c.moveToFirst()) return c.getString(0);
+            if (c != null && c.moveToFirst() && c.getString(0) != null) return c.getString(0);
         } catch (Exception ignored) { }
         String p = uri.getLastPathSegment();
-        return p != null ? p : "font.ttf";
+        return p != null ? p : otherwise;
+    }
+
+    /**
+     * LAB-03: the look's own picture behind the words when it shows one: the one in memory when it is that picture,
+     * else read from the folder (a reopened look, an undo back to an earlier picture).
+     */
+    private void showPhoto() {
+        if (look == null || look.optInt("stage", 1) != TlPhoto.STAGE) return;
+        final String rel = look.optString(TlPhoto.KEY, "");
+        if (photo != null && (rel.isEmpty() || rel.equals(photoRel))) {
+            final Bitmap b = photo;
+            stage.run(r -> r.setPhoto(b));
+            return;
+        }
+        if (rel.isEmpty()) return;
+        JoyFolderHome.io().execute(() -> {
+            Bitmap b = TlPhoto.load(this, rel);
+            runOnUiThread(() -> {
+                if (b == null || isFinishing() || look == null || !rel.equals(look.optString(TlPhoto.KEY, ""))) return;
+                photo = b;
+                photoRel = rel;
+                stage.run(r -> r.setPhoto(b));
+            });
+        });
     }
 
     @Nullable
@@ -1058,11 +1236,15 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         TlLobbyHero.entered();
         com.fadcam.ui.faditor.ai.joybot.JoybotPulse.lightButton(joy, null, com.fadcam.ui.faditor.ai.joybot.IdeaEngine.Room.TEXTLAB);
         if ("live".equals(light)) setLight("live");
+        main.removeCallbacks(ticker);
+        main.post(ticker);
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        main.removeCallbacks(ticker);   // LAB-08: no light updates thirty times a second while out of sight
+        keepDraft();                    // KNOWN-LAB-01
         stage.onPause();
         tilt.stop();
         TlLobbyHero.leaving(this);   // the lobby's hero gets its moving preview now, not while sliders turn
@@ -1190,8 +1372,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
             return "Put the look on the title and went back to Studio.";
         }
         if (asNew != null && !asNew.trim().isEmpty()) {
-            TextLabPreviews.get(this).save(look, words, asNew.trim(), sv -> afterSave(new TlLookFiles.Done(
-                    sv.where != null && sv.where.startsWith("Supplies") ? sv.where : null, sv.where == null ? sv.problem : null), null));
+            saveNew(asNew.trim(), null);
             return "Saving it as a new look, “" + asNew.trim() + "”, in Supplies › Looks.";
         }
         if (editing == null || editing.from == TextLookShelf.From.PACK) {

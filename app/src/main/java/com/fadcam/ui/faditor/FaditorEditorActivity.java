@@ -492,6 +492,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private float drawerReflowShiftY = 0f;
     /** TAB-1: the picture's sideways slide away from a side-panel drawer (negative = left). */
     private float panelReflowShiftX = 0f;
+    /**
+     * TAB-1 K5: the small top drawers (volume, opacity, loop, caption keyframes, visualizer, move,
+     * word timing) stand beside the picture with the object drawer on a wide window: stacked above
+     * it in the same column, or on the other side when "Second drawer on the other side" is on.
+     */
+    private static final int[] SMALL_DRAWERS = {R.id.volume_drawer, R.id.opacity_drawer,
+            R.id.loop_drawer, R.id.caption_keyframe_drawer, R.id.visualizer_drawer,
+            R.id.move_drawer, R.id.word_scrub_drawer};
+    /** Height of the small drawers stacked above the object drawer on its own side, px. */
+    private int smallStackPx = 0;
+    /** Where the open small drawers stand: +1 right, -1 left, 0 none beside the picture. */
+    private int smallDrawerEdge = 0;
+    /** What the side layout was last made for, so a layout pass with nothing new does nothing. */
+    private String sideLayoutKey = "";
     /** TAB-1: where the object drawer stands now (DrawerPlace decides; DROP on a phone). */
     private com.fadcam.ui.faditor.tools.DrawerPlace.Place drawerPlace = com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP;
     private boolean transitionPanelOpen = false;
@@ -1641,6 +1655,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
         setContentView(R.layout.activity_faditor_editor);
+        // TAB-1 K5: every small top drawer opening or closing is a layout pass; one listener places
+        // them beside the picture on a wide window, so none of their seven open paths changes.
+        getWindow().getDecorView().getViewTreeObserver()
+                .addOnGlobalLayoutListener(this::layoutSideDrawers);
         // Every named control shows its name on hover (stylus, mouse), drawers included (STU-D1).
         com.fadcam.ui.faditor.util.HoverLabels.watch(getWindow().getDecorView());
 
@@ -1694,11 +1712,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         if (projectId != null) {
-            boolean openBackup = getIntent().getBooleanExtra(EXTRA_LOAD_BACKUP, false);
+            // E7 (bug hunt 11-15): "Open last backup" is a one-time request. The launching
+            // Intent is handed back on every rebuild of this screen (unfold, dark mode, Android
+            // closing the app), and re-reading it loaded the backup again and saved it over the
+            // work done since. Only a first start opens the backup; a rebuild opens the project.
+            boolean openBackup = savedInstanceState == null
+                    && getIntent().getBooleanExtra(EXTRA_LOAD_BACKUP, false);
             FaditorProject loaded = openBackup
                     ? projectStorage.loadBackupOnly(projectId)
                     : projectStorage.load(projectId);
-            if (loaded != null && hasLoadableContent(loaded)) {                initViews();
+            if (loaded != null) {                initViews();   // E2: any saved project opens, even one with nothing left in it
                 project = loaded;
                 warnIfProjectIsReadOnly(loaded);
                 warnIfItemsSkipped(loaded, projectId, openBackup);
@@ -1908,13 +1931,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void startBlankAudioProject() {
         initViews();
         project = new FaditorProject(new ProjectStorage(this).uniqueName("Untitled audio"));
-        updateEditorTitle();
         wireBookmarks();
-        editorTimeline.setTimeline(project.getTimeline(), 0);
-        editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
-        syncTimelineOverlays();
-        refreshTotalTimeDisplay();
         saveProjectNow();
+        // E1 (bug hunt 11-15): this used to run initViews only, so Play, Export, Volume, Speed
+        // and Canvas stayed dead until the project was closed and reopened. Reopening runs the
+        // full set-up (player, timeline, toolbar, export, back handling), and an audio-only
+        // project already takes that path cleanly, so a blank start now takes it too.
+        continueLoadFromSavedProject();
+        syncTimelineOverlays();
         FLog.i(TAG, "G21: blank audio project started");
         Toast.makeText(this,
                 getString(R.string.studio_project_blank_audio_started),
@@ -1922,15 +1946,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         showAddAssetPicker();
     }
 
+    // B9 / E2 (bug hunt 11-15): the gate "has a spine clip or an audio clip" went. An audio
+    // project whose last clip was deleted, or a blank audio project left before any sound was
+    // added, read as empty: the loader fell through to the new-project path and closed with
+    // "No video selected", stranding its titles, sprites and undo history. A saved project
+    // always opens; an empty one opens like a blank audio project, ready for the Add sheet.
+
     /**
-     * B9: whether a saved project carries anything loadable. The old gate was
-     * {@code !timeline.isEmpty()} — spine clips ONLY, so a saved AUDIO-ONLY project (the
-     * kind G21 now makes creatable) read as empty and the loader fell through to the
-     * new-project path, which finished the activity for lack of a video URI. A podcast
-     * project that could never be reopened is not storage, it is a bit bucket.
+     * E5 (bug hunt 11-15): the "Opening project…" cover waits for the player's first frame.
+     * When none can come (no picture clip, or its file is missing and the Relink sheet was
+     * closed) it must go, or it swallows every tap and only Back works.
      */
-    private static boolean hasLoadableContent(@NonNull com.fadcam.ui.faditor.model.FaditorProject p) {
-        return !p.getTimeline().isEmpty() || p.getTimeline().hasAudioClips();
+    private void dropOpeningOverlay() {
+        if (!openingOverlayPending) return;
+        openingOverlayPending = false;
+        hideRemuxProgress();
     }
 
     // ── B9: audio-only preview reclaim ──────────────────────────────────────────────────
@@ -3969,6 +3999,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // B9: an audio-only project has NO spine clip — there is nothing to feed the
             // player. The audio lanes below still restore, preview stays black until video
             // is added, and export runs the audio-only composition.
+            dropOpeningOverlay();   // E5: no frame will ever come to lift it
         } else if (initialClip.isGeneratedSlide()) {
             showSlidePreview(initialClip, 0);
         } else {
@@ -4392,6 +4423,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void checkMissingMedia() {
         if (project == null) return;
         if (countMissingMedia() > 0) {
+            // E5: a missing first clip never reaches "ready", so the opening cover would stay.
+            dropOpeningOverlay();
             showRelinkCatalog();
         }
         // Push missing segment indices to timeline view for visual indicators
@@ -10808,6 +10841,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (exportProgressStripe != null) {
                             exportProgressStripe.setProgress(1f);
                         }
+                        // C1 (bug hunt 11-15): the video is made and is being finished; Cancel
+                        // cannot stop that (the service finishes the file rather than leave it
+                        // half-written), so the button rests instead of claiming to cancel.
+                        View cancelBtn = findViewById(R.id.btn_cancel_export);
+                        if (cancelBtn != null) {
+                            cancelBtn.setEnabled(false);
+                            cancelBtn.setAlpha(0.4f);
+                            androidx.appcompat.widget.TooltipCompat.setTooltipText(cancelBtn,
+                                    getString(R.string.faditor_export_finishing_cannot_stop));
+                        }
                     });
     }
 
@@ -14754,7 +14797,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (backBtn != null) backBtn.setVisibility(View.VISIBLE);
 
         View cancelBtn = findViewById(R.id.btn_cancel_export);
-        if (cancelBtn != null) cancelBtn.setVisibility(View.VISIBLE);
+        if (cancelBtn != null) {
+            cancelBtn.setVisibility(View.VISIBLE);
+            cancelBtn.setEnabled(true);   // rested during the last export's Finalizing (C1)
+            cancelBtn.setAlpha(1f);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(cancelBtn, null);
+        }
 
         exportProgressOverlay.setVisibility(View.VISIBLE);
         exportProgressOverlay.setAlpha(0f);
@@ -15367,6 +15415,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void refreshEditorAfterUndoRedo() {
         // A history step from before a MOVE may bring back the original's link: point it at the copy.
         healMovedInEditor();
+        rebindAudioDrawerToModel();   // E8
         // An open drawer's rows read the model on the playhead tick, which does not run while
         // paused: after an undo its rows (e.g. the Clean tab's "processed / original" line) stayed
         // on the old state until play (Note 9, 11-13). Read them again now.
@@ -15376,7 +15425,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Clamp selected index in case clip count changed (e.g. after snapshot restore)
         int clipCount = project.getTimeline().getClipCount();
         if (clipCount == 0) {
-            refreshPreviewSurfaceAfterUndoRedo();   // nothing left to preview — drop a stale slide
+            // E4 (bug hunt 11-15): an audio-only project has no spine clip, and this returned
+            // here, so the audio lanes, their players and the overlays kept showing the pre-undo
+            // clips (and a later edit could land on a clip other than the one shown). Refresh
+            // everything that does not need a picture clip.
+            selectedClipIndex = 0;
+            editorTimeline.setTimeline(project.getTimeline(), 0);
+            editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+            updateAudioToolUI();
+            refreshAfterUndoRedoAtPlayhead();   // ends by dropping a stale slide surface
             return;
         }
         if (selectedClipIndex < 0 || selectedClipIndex >= clipCount) {
@@ -15484,6 +15541,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // happened — "PHJUMP 34180 -> 54888 (+20708)", and 20708 is precisely clip 8's start.
         // That is what made it chaotic rather than merely wrong, and why times could land past
         // the end of the project and render black.
+        refreshAfterUndoRedoAtPlayhead();
+    }
+
+    /**
+     * The part of an undo/redo refresh that needs no selected picture clip: the playhead and
+     * time readouts, the audio players, waveform, text, caption and transcript overlays, and the
+     * preview surface. Shared by the normal path and the audio-only one (E4).
+     */
+    private void refreshAfterUndoRedoAtPlayhead() {
         // A step that SHORTENS the project (redo of a delete) can leave the playhead past the new
         // end, showing black. Bring it back to the last frame, as deleting the clip does (Note 9, 10-28).
         long undoEndMs = totalEffectiveMs();
@@ -32008,6 +32074,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
     @Nullable private android.widget.LinearLayout captionHeaderPills;
     // G3: remember which audio clip the drawer is showing so double-tap can toggle
     @Nullable private String lastAudioDrawerId;
+    /** E8: the clip object the open audio drawer's rows write to (see rebindAudioDrawerToModel). */
+    @Nullable private AudioClip audioDrawerClip;
+
+    /**
+     * E8 (bug hunt 11-15): an undo that restores a snapshot (and a Joybot change) replaces the
+     * project's clip objects. An audio drawer left open kept writing to the old object, which is
+     * no longer saved, so its Level and Mute changes did not stick. Re-open it on the clip the
+     * project now holds, or close it if that clip is gone.
+     */
+    private void rebindAudioDrawerToModel() {
+        if (lastAudioDrawerId == null || objectDrawer == null || !objectDrawer.isShowing()) return;
+        AudioClip now = findAudioClipById(lastAudioDrawerId);
+        if (now == audioDrawerClip) return;
+        lastAudioDrawerId = null;   // so showAudioDrawer opens rather than toggling closed
+        if (now != null) {
+            showAudioDrawer(now);
+        } else {
+            objectDrawer.hide();
+        }
+    }
     @Nullable private String lastClipAudioDrawerId;
 
     /**
@@ -32184,6 +32270,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean left = com.fadcam.ui.faditor.tools.DrawerPlace.left(this);
         // Below the app's own header, which stays in place beside a panel (it is not covered).
         int top = editor.getTop() + (topBar != null ? topBar.getTop() + topBar.getHeight() : 0);
+        // K5: small drawers stacked above it in the same column.
+        top += smallStackPx;
         View root = (View) editor.getParent();
         int bottom = place == com.fadcam.ui.faditor.tools.DrawerPlace.Place.COLUMN
                 ? root.getHeight() - root.getPaddingBottom()
@@ -32226,13 +32314,89 @@ public class FaditorEditorActivity extends AppCompatActivity {
         float shift = 0f;
         View slot = findViewById(R.id.player_container);
         android.graphics.RectF pic = computeCanvasRect();
-        if (open && edge != 0 && slot != null && pic != null && pic.width() > 0) {
-            shift = com.fadcam.ui.faditor.tools.DrawerPlace.panelShift(edge, slot.getWidth(), panelW, pic.left, pic.right);
+        if (slot != null && pic != null && pic.width() > 0) {
+            float rightW = 0f, leftW = 0f;
+            if (open && edge > 0) rightW = panelW;
+            else if (open && edge < 0) leftW = panelW;
+            // K5: small drawers standing beside the picture count too.
+            if (smallDrawerEdge > 0) rightW = panelW;
+            else if (smallDrawerEdge < 0) leftW = panelW;
+            shift = com.fadcam.ui.faditor.tools.DrawerPlace.sidesShift(slot.getWidth(), leftW, rightW, pic.left, pic.right);
         }
         panelReflowShiftX = shift;
         drawerReflowShiftY = 0f;
         applyPictureReflow(true);
         setTopBarHiddenForDrawer(false);
+    }
+
+    /**
+     * TAB-1 K5: stand the open small top drawers beside the picture on a wide window, stacked from
+     * under the header on the object drawer's side (the object drawer moves down under them), or on
+     * the other side when the second-drawer setting says so. On a phone, or with drawers set to drop
+     * down, they keep their own drop-down place exactly: nothing here touches them.
+     */
+    private void layoutSideDrawers() {
+        View editor = findViewById(R.id.editor_root);
+        View slot = findViewById(R.id.player_container);
+        View topBar = findViewById(R.id.editor_top_bar);
+        if (editor == null || slot == null) return;
+        int widthDp = getResources().getConfiguration().screenWidthDp;
+        if (!com.fadcam.ui.faditor.tools.DrawerPlace.switchable(widthDp) && sideLayoutKey.isEmpty()) return;   // a phone: untouched
+        float slackX = 0f, slackY = 0f;
+        android.graphics.RectF pic = computeCanvasRect();
+        if (pic != null && pic.width() > 0 && slot.getWidth() > 0) {
+            slackX = slot.getWidth() - pic.width();
+            slackY = slot.getHeight() - pic.height();
+        }
+        boolean side = com.fadcam.ui.faditor.tools.DrawerPlace.choose(com.fadcam.ui.faditor.tools.DrawerPlace.mode(this), com.fadcam.ui.faditor.tools.DrawerPlace.column(this), widthDp, slackX, slackY)
+                != com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP;
+        int mainEdge = com.fadcam.ui.faditor.tools.DrawerPlace.left(this) ? -1 : 1;
+        boolean objBeside = objectDrawer != null && objectDrawer.isShowing() && objectDrawer.side() != 0;
+        int edge = com.fadcam.ui.faditor.tools.DrawerPlace.split(this) && objBeside ? -mainEdge : mainEdge;
+        int top = editor.getTop() + (topBar != null ? topBar.getTop() + topBar.getHeight() : 0);
+        int panelW = dp(com.fadcam.ui.faditor.tools.DrawerPlace.PANEL_DP), gap = dp(6), stack = 0;
+        boolean any = false;
+        StringBuilder key = new StringBuilder().append(side).append(edge).append(objBeside)
+                .append(widthDp).append(top);
+        for (int id : SMALL_DRAWERS) {
+            View v = findViewById(id);
+            if (v == null || !(v.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams)) continue;
+            android.widget.FrameLayout.LayoutParams lp =
+                    (android.widget.FrameLayout.LayoutParams) v.getLayoutParams();
+            Object tag = v.getTag(R.id.tab1_margin_base);
+            int[] base;
+            if (tag instanceof int[]) base = (int[]) tag;
+            else { base = new int[]{lp.width, lp.gravity, lp.topMargin}; v.setTag(R.id.tab1_margin_base, base); }
+            boolean shown = v.getVisibility() == View.VISIBLE;
+            key.append(id).append(shown ? 'v' : '-').append(v.getHeight());
+            int w = base[0], g = base[1], t = base[2];
+            if (side) {
+                w = panelW;
+                g = android.view.Gravity.TOP | (edge > 0 ? android.view.Gravity.RIGHT : android.view.Gravity.LEFT);
+                t = top + (shown ? stack : 0);
+                if (shown) { stack += v.getHeight() + gap; any = true; }
+            }
+            if (lp.width != w || lp.gravity != g || lp.topMargin != t) {
+                lp.width = w;
+                lp.gravity = g;
+                lp.topMargin = t;
+                v.setLayoutParams(lp);
+            }
+        }
+        String k = key.toString();
+        if (k.equals(sideLayoutKey)) return;
+        sideLayoutKey = k;
+        smallDrawerEdge = side && any ? edge : 0;
+        int stacked = side && any && edge == mainEdge ? stack : 0;
+        boolean restack = stacked != smallStackPx;
+        smallStackPx = stacked;
+        if (objBeside && restack) placeObjectDrawer();
+        if (side) reflowBesidePanel(objBeside);
+        else if (panelReflowShiftX != 0f && !objBeside) {
+            // Back to dropping down (the window narrowed): give the picture its place back.
+            panelReflowShiftX = 0f;
+            applyPictureReflow(true);
+        }
     }
 
     /**
@@ -32667,6 +32831,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         lastAudioDrawerId = ac.getId();
+        audioDrawerClip = ac;
         lastClipAudioDrawerId = null;
         com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host host = new com.fadcam.ui.faditor.tools.AudioDrawerTabs.Host() {
             @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
@@ -49257,7 +49422,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
             // Insert after the currently selected segment
             Timeline timeline = project.getTimeline();
-            int insertIndex = selectedClipIndex + 1;
+            // E3 (bug hunt 11-15): clamped, as the multi-add path is. In an audio-only project
+            // the row is empty and "after the selected clip" was position 1 of nothing.
+            int insertIndex = Math.max(0, Math.min(selectedClipIndex + 1, timeline.getClipCount()));
             timeline.addClip(insertIndex, imageClip);
             timeline.shiftTransitionsAfterInsert(insertIndex);
 
@@ -49329,7 +49496,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
                     // Insert after the currently selected segment
                     Timeline timeline = project.getTimeline();
-                    int insertIndex = selectedClipIndex + 1;
+                    // E3: clamped (see onImageAssetPicked).
+                    int insertIndex = Math.max(0,
+                            Math.min(selectedClipIndex + 1, timeline.getClipCount()));
                     timeline.addClip(insertIndex, videoClip);
                     timeline.shiftTransitionsAfterInsert(insertIndex);
 

@@ -276,4 +276,8 @@
     <string name="textlab_trouble_unsupported">This phone\'s graphics can\'t draw TextLab\'s looks. Your titles still show, as plain words.</string>
     <string name="textlab_trouble_memory">The phone ran short of memory for this look. Close other apps and try again.</string>
     <string name="textlab_trouble_other">This look couldn\'t be drawn on this phone. Try another look; your titles still show as plain words.</string>
+    <string name="textlab_draft_title">Your unsaved changes</string>
+    <string name="textlab_draft_body">Your changes to %1$s weren\'t saved last time. Bring them back?</string>
+    <string name="textlab_draft_bring">Bring them back</string>
+    <string name="textlab_draft_let_go">Let them go</string>
 </resources>

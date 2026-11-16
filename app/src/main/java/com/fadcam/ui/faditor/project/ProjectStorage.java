@@ -3106,6 +3106,10 @@ public class ProjectStorage {
                             kj.addProperty("t", k.timeMs);
                             if (k.presetId != null) kj.addProperty("p", k.presetId);
                             else kj.addProperty("c", k.cellIndex);
+                            // A split's right half, part-way into its run (STUDIO-01).
+                            if (k.presetId != null && k.phaseMs > 0) {
+                                kj.addProperty("ph", k.phaseMs);
+                            }
                             ftArr.add(kj);
                         }
                         sj.add("frameTrack", ftArr);
@@ -4230,9 +4234,13 @@ public class ProjectStorage {
                                     JsonObject kj = ftArr.get(k).getAsJsonObject();
                                     long t = kj.get("t").getAsLong();
                                     if (hasValue(kj, "p")) {
-                                        so.getFrameTrack().put(
+                                        com.fadcam.ui.faditor.sprite.FrameTrack.Key pk =
                                                 com.fadcam.ui.faditor.sprite.FrameTrack.Key
-                                                        .ofPreset(t, kj.get("p").getAsString()));
+                                                        .ofPreset(t, kj.get("p").getAsString());
+                                        if (hasValue(kj, "ph")) {
+                                            pk.phaseMs = Math.max(0, kj.get("ph").getAsLong());
+                                        }
+                                        so.getFrameTrack().put(pk);
                                     } else if (hasValue(kj, "c")) {
                                         so.getFrameTrack().put(
                                                 com.fadcam.ui.faditor.sprite.FrameTrack.Key

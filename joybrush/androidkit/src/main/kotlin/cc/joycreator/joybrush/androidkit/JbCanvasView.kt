@@ -1063,7 +1063,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val newId = before.freshId()
         val after = before.duplicate(id, newId) ?: return false
         adopt(after)
-        onGl { engine.duplicateLayerStep(id, newId, before, after); reportHistory() }
+        onGl {
+            try {
+                engine.duplicateLayerStep(id, newId, before, after)
+            } catch (e: IllegalStateException) {
+                // No memory for the copy (R2-JB-01): the engine put its own stack back; the list shown follows it, in words.
+                android.util.Log.w("JoyBrushCanvas", "a layer could not be duplicated", e)
+                noteBenchError("duplicate layer", e)
+                post {
+                    if (stackUi === after) adopt(before)
+                    onRefused?.invoke("There was not enough memory to copy that layer. Nothing was changed.")
+                }
+            }
+            reportHistory()
+        }
         return true
     }
 
@@ -1573,7 +1586,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 }
             }
             private fun drawFrame() {
-                while (frameWork.isNotEmpty()) frameWork.removeFirst()()
+                while (frameWork.isNotEmpty()) {
+                    val work = frameWork.removeFirst()
+                    // A queued command that fails must not end the GL thread, which ends the app (R2-JB-01); the commands
+                    // behind it still run. Errors (out of Java memory) keep their own handling.
+                    try { work() } catch (e: RuntimeException) {
+                        android.util.Log.e("JoyBrushCanvas", "a queued canvas command failed", e)
+                        noteBenchError("queued command", e)
+                    }
+                }
                 frameStats.afterWork()
                 // Media strokes and running water advance once per drawn frame, and keep frames coming while they run.
                 try {
@@ -2207,12 +2228,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val middle = view.screenToDoc(width / 2f, height / 2f)
             val sheetView = cc.joycreator.joybrush.androidkit.gl.media.WetSheet.View(view.zoom, middle.first.toDouble(), middle.second.toDouble(),
                 width.coerceAtLeast(1), height.coerceAtLeast(1), view.rotation)
+            val guide = mediaSymmetry
             onGl {
                 // Without the board document a save would drop the media state, so nothing is painted - and that is always
                 // said: the reason when making the document failed (above), else a sentence here. Never a silent stroke.
                 if (engine.boardDocument != null) {
                     mediaCanvas.sheetView = sheetView
-                    mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, mediaSymmetry)
+                    // The guide read on this thread just above, never the field: a quick tap's pen-up clears the field before this runs (ENG-03).
+                    mediaCanvas.begin(target, p, argb, belly, first.x.toDouble(), first.y.toDouble(), now, guide)
                         ?.let { why -> post { onRefused?.invoke(why) } }
                 } else if (!mediaDocRefused) post { onRefused?.invoke("This drawing could not take pencil, watercolour or oil") }
             }
@@ -3873,6 +3896,27 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onGl {
             val report = try {
                 cc.joycreator.joybrush.androidkit.gl.media.MediaFailureProbe.probe(paper, preset, memory)
+            } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
+            post { ready(report) }
+        }
+    }
+
+    /** A wash when the phone has no graphics memory for a cancel's copy or for an undo's sheet (debug bench only; WetSheetFailureProbe). */
+    fun runWetSheetFailureProbe(preset: BrushPreset, ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"pass\":false,\"error\":\"Wet sheet failure probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        val memory = {
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val info = android.app.ActivityManager.MemoryInfo()
+            am.getMemoryInfo(info)
+            info.availMem to info.threshold
+        }
+        onGl {
+            val report = try {
+                cc.joycreator.joybrush.androidkit.gl.media.WetSheetFailureProbe.probe(paper, preset, memory)
             } catch (e: Throwable) { "{\"pass\":false,\"error\":" + org.json.JSONObject.quote(e.toString()) + "}" }
             post { ready(report) }
         }

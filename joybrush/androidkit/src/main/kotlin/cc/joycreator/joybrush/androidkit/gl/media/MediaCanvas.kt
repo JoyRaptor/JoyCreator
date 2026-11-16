@@ -74,6 +74,7 @@ class MediaCanvas(
             paint.layerOverlays = listOfNotNull(sheet?.overlay())
         }
         paint.sheetUndoBlocked = { mark -> sheet?.undoBlocked(mark) ?: true }
+        paint.sheetRedoBlocked = { mark -> sheet?.redoBlocked(mark) ?: false }
     }
     private var window: MediaPlace? = null
     init {
@@ -370,6 +371,9 @@ class MediaCanvas(
 
     /** Bench only ([WetSheet.dryOnly]). */
     fun drySheet() { sheet?.dryOnly(paint.mediaPaper()) }
+
+    /** Bench only (WetSheetFailureProbe): the sheet's next copies and next engines fail as with no graphics memory. */
+    internal fun sheetFailures(keeps: Int, engines: Int) { sheet?.let { it.failKeeps = keeps; it.failEngines = engines } }
 
     /** True while the wet sheet holds watercolour that is not in its layer's tiles yet. */
     val sheetHolding: Boolean get() = sheet?.holding == true

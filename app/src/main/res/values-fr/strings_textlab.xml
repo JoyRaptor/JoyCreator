@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Le processeur graphique de ce téléphone ne peut pas dessiner les looks de TextLab. Tes titres s\'affichent quand même, en simples mots.</string>
     <string name="textlab_trouble_memory">Le téléphone a manqué de mémoire pour ce look. Ferme d\'autres apps et réessaie.</string>
     <string name="textlab_trouble_other">Ce look n\'a pas pu être dessiné sur ce téléphone. Essaie un autre look ; tes titres s\'affichent quand même en simples mots.</string>
+    <string name="textlab_draft_title">Tes modifications non enregistrées</string>
+    <string name="textlab_draft_body">Tes modifications de %1$s n\'ont pas été enregistrées la dernière fois. Les récupérer ?</string>
+    <string name="textlab_draft_bring">Les récupérer</string>
+    <string name="textlab_draft_let_go">Les abandonner</string>
 </resources>

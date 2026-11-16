@@ -10,7 +10,7 @@ So each animation is cut out into its own small picture, opened only while he pl
 Input is the folder the alignment work wrote (it holds sheet/joybot.png and joybot.animations.json).
 Edit joybot.animations.json (order, speed, "general", which frames loop), run this again, rebuild.
 
-    python tools/joybot/pack_joybot.py "art/Joybot-sprite-assets/aligned_v2_20261113"
+    python tools/joybot/pack_joybot.py "art/Joybot-sprite-assets/aligned_v4_20261115"
 
 Needs Pillow and numpy.
 """
@@ -72,6 +72,14 @@ def main():
             "file": name + ".webp", "cols": sc, "rows": sr, "count": len(cells),
             "in": [at[i] for i in an.get("in", [])], "loop": [at[i] for i in an["loop"]],
             "out": [at[i] for i in an.get("out", [])],
+            # how the loop plays (loop, pingpong, stutter, strokes) and what it may be used for (moods, moments, words)
+            "play": an.get("play", "loop"),
+            "uses": an.get("uses", {}),
+            "moves": an.get("moves", {}),
+            # how often it is picked among its mood's animations (1 = as often as any), and frames it may hold a while
+            # (a look up from the book, a pause in the notes): both from the owner's 11-15 evening notes
+            "weight": an.get("weight", 1),
+            "rests": [at[i] for i in an.get("rests", []) if i in at],
         })
     doc = {"about": "Made by tools/joybot/pack_joybot.py. Do not edit by hand: edit joybot.animations.json and pack again.",
            "cell": cell, "focus": focus, "idleAfterSeconds": guide.get("suggestedBehaviour", {}).get("afterSecondsIdle", {}),

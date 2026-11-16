@@ -27,6 +27,21 @@ public class FrameTrack {
         public int cellIndex;
         /** Preset reference (runs from this entry's time at the preset's fps), or null. */
         @Nullable public String presetId;
+        /**
+         * How far into its run (ms) a preset entry ALREADY is when it begins; 0 = from the top.
+         * Only a split writes it: the right half of a cut keeps the animation exactly where the
+         * left half was at the cut (audit STUDIO-01), instead of restarting the preset there.
+         * Ignored for a direct-cell entry. Saved as {@code "ph"} only when non-zero.
+         */
+        public long phaseMs;
+
+        /** An independent copy (a duplicate must never share an entry with its original). */
+        @NonNull
+        public Key copy() {
+            Key k = presetId != null ? ofPreset(timeMs, presetId) : ofCell(timeMs, cellIndex);
+            k.phaseMs = presetId != null ? Math.max(0, phaseMs) : 0;
+            return k;
+        }
 
         public static Key ofCell(long timeMs, int cellIndex) {
             Key k = new Key();

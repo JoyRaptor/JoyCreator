@@ -71,12 +71,14 @@ public final class PackSuppliesSync {
         File root = PackSupplies.root(filesDir);
         List<PackSupplies.Item> before = PackSupplies.all(filesDir);
         List<PackSupplies.Item> now = new ArrayList<>();
-        Set<String> ids = new HashSet<>();
+        // seen: in an installed pack now; listed: already in the new list. R2-PACK-03: an entry that could not be
+        // read or copied this time is seen but not listed, so its last good copy is kept below, still offered.
+        Set<String> seen = new HashSet<>(), listed = new HashSet<>();
         int copied = 0;
         for (PackShelf.Found f : PackShelf.installed(fs, SOCKETS)) {
             String id = f.entry.socket + ":" + f.pack.id + "/" + f.entry.file;
-            if (!ids.add(id)) continue;
-            File local = new File(new File(root, safe(f.pack.id)), f.entry.file.replace('\\', '/'));
+            if (!seen.add(id)) continue;
+            File local = new File(new File(root, folderOf(f.pack.id)), f.entry.file.replace('\\', '/'));
             try {
                 JoyFs.Entry src = fs.stat(f.rel);
                 if (src == null) continue;
@@ -85,15 +87,17 @@ public final class PackSuppliesSync {
                     copied++;
                 }
                 now.add(new PackSupplies.Item(f.entry.socket, id, f.label(), f.pack.name, local, false));
+                listed.add(id);
             } catch (IOException | RuntimeException e) {
                 FLog.w(TAG, "Couldn't copy " + f.rel, e);
             }
         }
-        // A removed pack: its copies stay (work that uses them keeps its look), no longer offered.
+        // The last good copy of anything not listed: still offered while its pack is installed (it could not be read
+        // this time), marked gone when the pack was removed (work that uses it keeps its look).
         for (PackSupplies.Item b : before) {
-            if (ids.contains(b.id) || !b.file.isFile()) continue;
-            ids.add(b.id);
-            now.add(new PackSupplies.Item(b.socket, b.id, b.label, b.pack, b.file, true));
+            if (listed.contains(b.id) || !b.file.isFile()) continue;
+            listed.add(b.id);
+            now.add(new PackSupplies.Item(b.socket, b.id, b.label, b.pack, b.file, !seen.contains(b.id)));
         }
         PackSupplies.write(filesDir, now);
         return copied;
@@ -108,9 +112,13 @@ public final class PackSuppliesSync {
             int n;
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
         }
-        //noinspection ResultOfMethodCallIgnored
-        to.delete();
-        if (!tmp.renameTo(to)) throw new IOException("Cannot save " + to);
+        // renamed over the old copy in one step: a failed copy must not take the last good one away first
+        // (Android renames over a file; a Windows JVM, where the tests run, will not, so it makes room first)
+        if (!tmp.renameTo(to) && !(to.delete() && tmp.renameTo(to))) {
+            //noinspection ResultOfMethodCallIgnored
+            tmp.delete();
+            throw new IOException("Cannot save " + to);
+        }
     }
 
     /** A pack id as one folder name. */
@@ -118,5 +126,29 @@ public final class PackSuppliesSync {
     static String safe(@NonNull String id) {
         String s = id.replaceAll("[^A-Za-z0-9._-]+", "_");
         return s.isEmpty() || s.startsWith(".") ? "_" + s : s;
+    }
+
+    /**
+     * The app's folder for one pack's copies (R2-PACK-02). An id made only of safe letters is its own folder name, as
+     * before, so copies already made stay where projects point at them. Any other id ("Artist Pack", "a/b") gets its
+     * safe form, "~" and a hash of the whole id: "~" is never in a safe id, so two ids never share a folder.
+     */
+    @NonNull
+    static String folderOf(@NonNull String id) {
+        if (id.matches("[A-Za-z0-9_-][A-Za-z0-9._-]*")) return id;
+        return safe(id) + "~" + hash(id);
+    }
+
+    @NonNull
+    private static String hash(@NonNull String id) {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(id.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < 8; i++) b.append(String.format(java.util.Locale.ROOT, "%02x", d[i]));
+            return b.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);   // every Java has SHA-256
+        }
     }
 }

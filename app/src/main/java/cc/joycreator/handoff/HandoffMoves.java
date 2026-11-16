@@ -401,6 +401,17 @@ final class HandoffMoves {
         }
     }
 
+    /**
+     * The hit: he squashes on impact and springs back through a stretch (a slap down, a kick, a landing).
+     * {@code since}: seconds since it; {@code along}: true when the blow is sideways (a kick), so he squashes thin.
+     */
+    static void impact(Pose o, float since, boolean along) {
+        if (since < 0f || since > .6f) return;
+        float k = .22f * (float) (Math.exp(-since * 9.0) * Math.cos(since * 26.0));
+        if (along) { o.sx *= 1f - k; o.sy *= 1f + k; }
+        else { o.sx *= 1f + k; o.sy *= 1f - k; }
+    }
+
     /** The question was dismissed: straight back into the button he came out of, shrinking into it. */
     static final float RETREAT_S = .5f;
 

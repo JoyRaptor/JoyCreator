@@ -52,7 +52,7 @@ final class HandoffScript {
     private boolean ready, skip;
     private float fromX, fromY, fromSc;
     private boolean kicked, slapped, finished, launchMarked;
-    private float slapClock;
+    private float slapClock, kickClock = -1f;
     private boolean retreated;
     private final float[] t3 = new float[3];
 
@@ -97,6 +97,7 @@ final class HandoffScript {
         if (phase == Phase.DONE) return;
         clock += dt;
         if (slapped) slapClock += dt;
+        if (kickClock >= 0f) kickClock += dt;
         if (skip && ready && phase != Phase.ASK) { phase = Phase.DONE; return; }
         int m = mode;
         switch (phase) {
@@ -181,7 +182,8 @@ final class HandoffScript {
                     if (holding) f.pre = .6f + .3f * (float) Math.sin(ht * 7f);
                     else if (u < .4f) f.pre = .6f * (1f - u / .4f);
                     else f.p = io((u - .4f) / .6f);
-                    if (!holding && u >= .4f && !kicked) { kicked = true; f.kick = true; }
+                    if (!holding && u >= .4f && !kicked) { kicked = true; f.kick = true; kickClock = 0f; }
+                    HandoffMoves.impact(o, kickClock, true);
                 } else {
                     HandoffMoves.vacShape(u, holding, ht, t3);
                     f.sweep = t3[1]; f.coll = t3[2];
@@ -202,12 +204,13 @@ final class HandoffScript {
                     if (!o.hand) { f.gx = s.x(352f) / s.w; f.gy = s.y(330f) / s.h; }
                 }
                 if (m == HandoffMoves.KICK && !kicked) { kicked = true; f.kick = true; }
-                if (u >= slapU) { markSlap(f); f.rooms = false; f.actT = slapClock; }   // from the slap on, the real room is what you see
+                if (u >= slapU) { markSlap(f); f.rooms = false; f.actT = slapClock; HandoffMoves.impact(o, slapClock, false); }   // from the slap on, the real room is what you see
                 break;
             }
             case HOME:
                 HandoffMoves.homePose(s, t / HandoffMoves.HOME_S, o);
                 f.actT = o.act == HandoffMoves.ACT_SALUTE ? t - HandoffMoves.HOME_SALUTE * HandoffMoves.HOME_S : slapClock;
+                HandoffMoves.impact(o, slapClock, false);
                 after(f);
                 markSlap(f);
                 f.rooms = false;

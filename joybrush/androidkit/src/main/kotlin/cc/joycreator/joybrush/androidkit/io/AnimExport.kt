@@ -9,6 +9,7 @@ import cc.joycreator.joybrush.core.anim.TweenFrameSample
 import cc.joycreator.joybrush.core.export.AnimExport
 import cc.joycreator.joybrush.core.export.AnimExportPlan
 import cc.joycreator.joybrush.core.export.GifEncoder
+import cc.joycreator.joybrush.core.export.GifTiming
 import cc.joycreator.joybrush.core.export.SpritePacker
 import cc.joycreator.joybrush.core.render.MAX_REGION_PX
 import cc.joycreator.joybrush.core.render.RegionException

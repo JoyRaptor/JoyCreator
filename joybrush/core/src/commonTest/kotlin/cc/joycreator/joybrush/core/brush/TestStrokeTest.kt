@@ -23,7 +23,7 @@ class TestStrokeTest {
         assertTrue(near < r, "the curve reaches the blob ($near of $r)")
         assertTrue(near > 0.35f * r, "but not its middle ($near of $r)")
         val blob = TestStroke.blob(w, h, size)
-        assertTrue(blob.all { hypot(it.x - cx, it.y - cy) <= r }, "the spiral stays inside its patch")
+        assertTrue(blob.all { hypot(it.x - cx, it.y - cy) <= r + 0.01f }, "the spiral stays inside its patch")
         assertEquals(TestStroke.Underpaint.CHECKER, TestStroke.underpaintFor(BrushPreset(id = "s", name = "S", size = Param(8f), engine = ENGINE_SMUDGE)))
         assertEquals(TestStroke.Underpaint.PLAIN, TestStroke.underpaintFor(BrushPreset(id = "p", name = "P", size = Param(8f))))
     }

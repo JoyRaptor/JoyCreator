@@ -188,12 +188,14 @@ object TestStroke {
     }
 
     /**
-     * The [Underpaint.BLOB]'s middle and radius, as shares of the box: between the second S-turn (x about 0.46 here) and the
-     * loop's left side (about 0.57), so both pass through its edges, not its middle. Its radius is a share of the box's height.
+     * The [Underpaint.BLOB]'s middle and radius, as shares of the box: low in the middle, under the second S-turn's foot and
+     * the loop's bottom, which both graze its top edge, so a fat brush still leaves most of it to be seen being pulled
+     * (Note 9, 11-16: a smaller blob between the turns vanished under Oil round). It runs off the stage's bottom edge.
+     * Its radius is a share of the box's height.
      */
-    const val BLOB_X = 0.515f
-    const val BLOB_Y = 0.62f
-    const val BLOB_R = 0.2f
+    const val BLOB_X = 0.5f
+    const val BLOB_Y = 0.86f
+    const val BLOB_R = 0.3f
 
     /** The width of the brush that lays the [blob]: wide enough that the spiral's turns close up into one patch. */
     fun blobBrushPx(width: Int, height: Int, sizePx: Float): Float = Box(width, height, sizePx).h * BLOB_R * 0.9f
@@ -214,7 +216,9 @@ object TestStroke {
             val k = i / (n - 1f)
             val a = (2.0 * PI * turns * k).toFloat()
             val r = reach * k
-            PenSample(cx + r * kotlin.math.cos(a), cy + r * kotlin.math.sin(a), timeMs = i * 8.0, pressure = 0.9f, tilt = 0.3f, azimuth = LEAN)
+            // Its lower part runs off the stage: the pen stays on the bottom edge there and the brush's width carries past it.
+            PenSample(cx + r * kotlin.math.cos(a), (cy + r * kotlin.math.sin(a)).coerceIn(0f, height.toFloat()), timeMs = i * 8.0,
+                pressure = 0.9f, tilt = 0.3f, azimuth = LEAN)
         }
     }
 

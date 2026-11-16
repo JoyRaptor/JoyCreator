@@ -93,19 +93,26 @@ Tablet-checked 11-15 on the Tab S8 Ultra sideways (shots `tasks/screens/tab1-202
       (`DrawerPlace.sidesShift`, JVM test 21 pass). Phone and drop-down mode: untouched (one layout listener,
       returns at once under 600 dp).
 - [x] **JoyBrush K10 second half:** hold a brush in the standing brush panel and its settings stand beside it,
-      staying open while you paint; picking another brush moves them to that brush. The panel's x closes both.
-- [x] **JoyBrush K11:** "Paper beside panels" in the ... menu (wide windows only, off by default): the drawing ends
-      where the standing panels begin; the strip it leaves is paper-coloured so the top bar's icons stay readable
-      (acf18715e, found on the Fold: they vanished on bare black).
+      staying open while you paint; picking another brush moves them to that brush. Classic and Unibrush brushes
+      alike (0d9b36d44: Unibrush's own sheet had opened over the panel on the tablet; `UnibrushHostController`
+      got a `SettingsHost` hook). The settings' own Done / x put them away; the panel's x closes both.
+- [x] **JoyBrush K11:** "Paper beside panels" in the ... menu (wide windows only, off by default): opening the
+      standing panels slides the drawing aside by their width, so what lay under them shows beside them; closing
+      slides it back (40530171e: a pan of the drawing's own view, so guides, symmetry, reference, Select and boards
+      move with it and the paper still fills the screen. The first try narrowed the canvas instead: on the Fold the
+      top icons lost their paper behind them, on the tablet the symmetry guide stayed behind).
 - Checked 11-15 on the test Fold at a forced wide window (wm size 2176x1812, density 360 = 967 x 805 dp; shots
   `tasks/screens/tab1-20261114/fold-k5-*`, `fold-k10-*`, `fold-k11-*`): small drawer beside, stacked above the
   Text drawer, left/right split, settings beside the brush panel and following a new pick, paper aside on.
-  The paper-coloured strip re-checked on acf18715e (`fold-k11-02-paper-strip.png`). Then at the Fold's own phone
+  (The narrowed-canvas K11 seen there was replaced by the pan, below.) Then at the Fold's own phone
   width (344 dp, size and density reset and checked): the lobby one column, Studio's Opacity drops from the top full
   width, JoyBrush's brush drawer is the old phone drawer (no Mine, no stars) (`fold-phone-*`).
-  **Tablet look owed** (the true size; the tablet was offline). Small things seen: the brush settings show two
-  closes (the panel's x and the settings' own Done/x); Opacity's drawer is see-through by its own design, so beside
-  the picture it reads faint.
+  Small thing seen: Opacity's drawer is see-through by its own design, so beside the picture it reads faint.
+  (The settings' two closes seen on the Fold are gone: the extra header is dropped, their own Done / x work.)
+- Tablet-checked 11-15 evening at the true size (Tab S8 Ultra sideways, build 40530171e; shots `k5_tablet_*`,
+  `k10_tablet_*`, `k11_tablet_*`): Volume beside the picture, stacked above the Text drawer, left/right split;
+  Unibrush and classic settings beside the brush panel, following a new pick, their Done closing them; Paper
+  beside panels sliding the drawing (guide and symmetry pill with it) and back exactly. Settings left as found.
 - [ ] Not built yet: Joybot's chat as a panel (K7, the Joybot lane's, rule agreed: 360 dp, right, full height,
       from 840 dp); the layer column floating anywhere (it moves along its edge only).
 

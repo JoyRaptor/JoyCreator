@@ -2339,7 +2339,9 @@ class GlPaintEngine(
     fun applyBoardChange(change: RegionChange): String? {
         requireLocalPaint()
         checkStrokeEnded("Check failed.")
-        beforeLayerWrite?.invoke(null)
+        // A new name, a lock or a frame's timing moves no pixel and no frame: the wash on the wet sheet stays wet
+        // (Codex audit R2-JB-02, 2026-11-15: every board edit dried and printed it).
+        if (BoardChangePaint.writes(change, layers.mapValues { it.value.plan?.frames }, framePreviews)) beforeLayerWrite?.invoke(null)
         if(clipMovePreview != null) setClipMovePreview(null,null)
         val before=boardDocument ?: error("No board document is attached")
         // A runtime marker is untrusted input. Validate against the actual engine
@@ -6329,6 +6331,8 @@ class GlPaintEngine(
         }
         settleWatercolourFade()
         val pending = undo.peekRedo() ?: return false
+        // The wet sheet cannot take the state this step brings back (no graphics memory): nothing moves.
+        pending.sheet?.let { if (sheetRedoBlocked?.invoke(it) == true) return false }
         if ((pending.lines.isNotEmpty() || pending.slabs.isNotEmpty()) && recordedScene != null) return recordedHistory(pending, true)
         check(recordedScene?.hasContent != true) { "Recorded artwork needs the joint pixel/media/structural history publisher" }
         val s = undo.redo() ?: return false
@@ -7666,6 +7670,9 @@ class GlPaintEngine(
 
     /** Asked before a step carrying a sheet mark is undone: true when the sheet no longer has what going back needs. */
     var sheetUndoBlocked: ((mark: Long) -> Boolean)? = null
+
+    /** Asked before a step carrying a sheet mark is redone: true when the sheet cannot take the state it brings back. */
+    var sheetRedoBlocked: ((mark: Long) -> Boolean)? = null
 
     /** A watercolour stroke that stays on the wet sheet: its step changes no tile yet, the sheet keeps what undoing it needs. */
     fun pushSheetStep(mark: Long) {

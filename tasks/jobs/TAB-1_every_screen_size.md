@@ -86,11 +86,35 @@ Tablet-checked 11-15 on the Tab S8 Ultra sideways (shots `tasks/screens/tab1-202
 - [x] **JoyBrush K10:** on a window 840 dp or wider the brush drawer stands as a panel beside the rail that stays
       open while you work: "Mine" (starred first, then the latest picks) above the kinds, a star on every row; hold a
       brush for its settings as before. Tablet: panel, star, Mine seen. **Note 9 (548 dp):** lobby still one column; JoyBrush's layer column and brush drawer pixel-identical before/after (`note9_k_before_*` / `note9_k_after_*`, main line 4bc535455 vs this branch 62f94949e); Studio's drawer not opened there (its phone path is unchanged code).
-- [ ] Not built yet: two drawers at once (K5: stacked, or left and right); the inline top drawers (volume, opacity,
-      loop, move, caption keyframes, transitions) still drop from the top; Joybot's chat as a panel (K7, the Joybot
-      lane's, rule agreed: 360 dp, right, full height, from 840 dp); brush settings that stay open beside the panel
-      (K10 second half); paper steps aside as a JoyBrush setting (K11); the layer column floating anywhere (it moves
-      along its edge only).
+- [x] **Studio K5 + the small top drawers** (c854aa023): on a wide window the small drawers (volume, opacity, loop,
+      caption keyframes, visualizer, move, word timing) stand beside the picture too, 360 dp under the header; with
+      the Text (or any object) drawer open they stack above it in the same column, or, with Studio Settings'
+      **Second drawer on the other side** on, one stands left and one right and the picture centres between them
+      (`DrawerPlace.sidesShift`, JVM test 21 pass). Phone and drop-down mode: untouched (one layout listener,
+      returns at once under 600 dp).
+- [x] **JoyBrush K10 second half:** hold a brush in the standing brush panel and its settings stand beside it,
+      staying open while you paint; picking another brush moves them to that brush. Classic and Unibrush brushes
+      alike (0d9b36d44: Unibrush's own sheet had opened over the panel on the tablet; `UnibrushHostController`
+      got a `SettingsHost` hook). The settings' own Done / x put them away; the panel's x closes both.
+- [x] **JoyBrush K11:** "Paper beside panels" in the ... menu (wide windows only, off by default): opening the
+      standing panels slides the drawing aside by their width, so what lay under them shows beside them; closing
+      slides it back (40530171e: a pan of the drawing's own view, so guides, symmetry, reference, Select and boards
+      move with it and the paper still fills the screen. The first try narrowed the canvas instead: on the Fold the
+      top icons lost their paper behind them, on the tablet the symmetry guide stayed behind).
+- Checked 11-15 on the test Fold at a forced wide window (wm size 2176x1812, density 360 = 967 x 805 dp; shots
+  `tasks/screens/tab1-20261114/fold-k5-*`, `fold-k10-*`, `fold-k11-*`): small drawer beside, stacked above the
+  Text drawer, left/right split, settings beside the brush panel and following a new pick, paper aside on.
+  (The narrowed-canvas K11 seen there was replaced by the pan, below.) Then at the Fold's own phone
+  width (344 dp, size and density reset and checked): the lobby one column, Studio's Opacity drops from the top full
+  width, JoyBrush's brush drawer is the old phone drawer (no Mine, no stars) (`fold-phone-*`).
+  Small thing seen: Opacity's drawer is see-through by its own design, so beside the picture it reads faint.
+  (The settings' two closes seen on the Fold are gone: the extra header is dropped, their own Done / x work.)
+- Tablet-checked 11-15 evening at the true size (Tab S8 Ultra sideways, build 40530171e; shots `k5_tablet_*`,
+  `k10_tablet_*`, `k11_tablet_*`): Volume beside the picture, stacked above the Text drawer, left/right split;
+  Unibrush and classic settings beside the brush panel, following a new pick, their Done closing them; Paper
+  beside panels sliding the drawing (guide and symmetry pill with it) and back exactly. Settings left as found.
+- [ ] Not built yet: Joybot's chat as a panel (K7, the Joybot lane's, rule agreed: 360 dp, right, full height,
+      from 840 dp); the layer column floating anywhere (it moves along its edge only).
 
 ## What is left
 - [ ] Survey: each lane lists its screens' problems on the tablet in its own card (the UI leftovers and lobby

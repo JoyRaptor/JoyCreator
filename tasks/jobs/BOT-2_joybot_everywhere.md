@@ -37,7 +37,9 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
         has no Screenshot shortcut: `LaunchGate.PLAY_HIDDEN` `help_capture_screenshot`; any topic can now be hidden as
         `help_<id>`), `dual_camera`, `watermark`, `about`, `lobby_floor`; `remote_lan` names the pairing code under
         Access; `settings_find` names the hub's sections. Labels read from the strings and layouts. Ideas 1,239 (18 new
-        question checks, 3 that other topics keep their words, the Play hide). Not yet asked on a device (BOT-A8).
+        question checks, 3 that other topics keep their words, the Play hide). **Asked on the Note 9 11-16 (BOT-A8)** with the 18 JoyBrush/Sprite Lab/Library topics and the TextLab, Settings and
+        Remote ones: 37 questions, all right; Tips answer corrected; a how-to no longer starts the create questions, and
+        mid-create a question lets go ([evidence](../joybot/evidence/HELP_A8_20261116.md)).
   - [x] **11-13: JoyBrush layer menu and the Studio rows STATE marked "Help: PENDING"** (BOT-A5): `joybrush_layers`
         (Lock, Merge down, Freeze layer, Flatten, Flatten Lower, Clip, Clear, Delete; STATE row `joybrush.layer-ops`
         added), `studio_marks` (bookmarks, regions, loop, region export, "ask me to drop a mark"), `studio_title_rename`,

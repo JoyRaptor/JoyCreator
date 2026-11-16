@@ -217,6 +217,8 @@ public final class BlendModeGlEffect implements GlEffect {
         @NonNull private final Clip fxClip;
         @NonNull private final Clip clip;
         @Nullable private final Clip matteClip;
+        /** Editor time at this piece's presentation time 0; the FX keys read the editor clock. */
+        private final long fxEditorTimeOffsetMs;
 
         Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
                  long editorTimeOffsetMs)
@@ -224,6 +226,7 @@ public final class BlendModeGlEffect implements GlEffect {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
             this.clip = clip;
             this.matteClip = matteClip;
+            this.fxEditorTimeOffsetMs = editorTimeOffsetMs;
             this.overlay = new PipFrameOverlay(context, clip, editorTimeOffsetMs);
             // Option 2 (§4): masked PiPs stay on the CPU Canvas path where MaskPathBuilder clips.
             // Only unmasked PiPs are routed through the Surface → GL texture path.
@@ -341,7 +344,10 @@ public final class BlendModeGlEffect implements GlEffect {
         private void setFxUniforms(long presentationTimeUs) {
             com.fadcam.ui.faditor.fx.FxStack stack = fxClip.getFx();
             if (stack == null || stack.active().isEmpty()) return;
-            long editorMs = presentationTimeUs / 1000L;
+            // The editor's clock, as the overlay's placement reads it (R2-FX-04): the
+            // presentation time alone is this piece's own clock, wrong after a transition.
+            long editorMs = com.fadcam.ui.faditor.model.TimeMap.chunkToEditorMs(
+                    presentationTimeUs, fxEditorTimeOffsetMs);
             com.fadcam.ui.faditor.fx.FxStack resolved = stack.resolveAt(editorMs);
             com.fadcam.ui.faditor.fx.FxCompiler.Plan plan =
                     com.fadcam.ui.faditor.fx.FxCompiler.plan(resolved);

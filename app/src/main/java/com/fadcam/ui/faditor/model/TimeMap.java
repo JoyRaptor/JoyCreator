@@ -111,6 +111,19 @@ public final class TimeMap {
         return offsetBeforeClip(i) + cuts.cutBeforeMs(editorMs);
     }
 
+    /**
+     * The editor time of a frame in an export piece: its presentation time (that piece's own
+     * clock, from 0) plus the editor time the piece starts at.
+     *
+     * <p>Every overlay in a piece reads its keys on the editor's clock this way. Placement always
+     * did; the PiP and image EFFECT values used the presentation time alone, so in any piece but
+     * the first (after a transition, or a later chunk) a PiP sat in the right place with the
+     * wrong blur or colour (Codex round 2, R2-FX-04). One method so the two cannot part again.</p>
+     */
+    public static long chunkToEditorMs(long presentationTimeUs, long editorTimeOffsetMs) {
+        return presentationTimeUs / 1000L + editorTimeOffsetMs;
+    }
+
     /** Where editor time {@code editorMs} lands in the exported file. */
     public long editorToFileMs(long editorMs) {
         long out = editorMs - cuts.cutBeforeMs(editorMs);

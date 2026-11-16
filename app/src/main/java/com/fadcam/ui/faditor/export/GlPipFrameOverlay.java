@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.Bitmap;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
-import android.opengl.Matrix;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -161,7 +160,11 @@ final class GlPipFrameOverlay {
                     + "void main() {\n"
                     + "  vec2 uv = (uTexMatrix * vec4(vTexCoord, 0.0, 1.0)).xy;\n"
                     + "  vec4 c = texture2D(uOesTex, uv);\n"
-                    + "  gl_FragColor = vec4(c.rgb, c.a * uAlpha);\n"
+                    // PREMULTIPLIED out, like the Canvas bitmaps this texture stands in for:
+                    // BlendModeGlEffect divides by alpha. Straight colour here kept a 50% PiP at
+                    // full brightness over black (Codex round 2, R2-FX-03).
+                    + "  float a = c.a * uAlpha;\n"
+                    + "  gl_FragColor = vec4(c.rgb * a, a);\n"
                     + "}\n";
             blitProgram = createProgram(vertex, fragment);
             aPositionLoc = GLES20.glGetAttribLocation(blitProgram, "aPosition");
@@ -220,30 +223,31 @@ final class GlPipFrameOverlay {
         float scale = kf == null ? dds : kf.valueAt(KeyframeSet.SCALE, timelineMs, dds);
         float rot = kf == null ? 0f : kf.valueAt(KeyframeSet.ROTATION, timelineMs, 0f);
 
-        // Full-fit scale reference (same as PipFrameOverlay)
-        // We don't know decoded frame size here without querying; assume frameW/H for now
-        // and let the OES texture's transform handle crop. Full-fit will be refined when
-        // SurfaceFrameReader exposes source dimensions (TODO).
-        float w = frameW * Math.max(0.01f, scale) * 0.25f; // placeholder fraction; real fit uses frame size
-        float h = frameH * Math.max(0.01f, scale) * 0.25f;
-        // For correctness we compute w/h from fit: use 0.3 as placeholder for 30% of frame
-        // The exact fit will be measured and tightened once we expose sourceW/H.
-        w = frameW * 0.3f * scale;
-        h = frameH * 0.3f * scale;
+        // The SAME fit as the editor and the Canvas path (PipPlacement, R2-FX-01): the clip's own
+        // picture fitted whole into the frame, times its scale. This used a 30%-of-the-frame
+        // placeholder, so every unmasked PiP exported about a third of its size and in the
+        // project's shape instead of its own.
+        float[] size = com.fadcam.ui.faditor.model.PipPlacement.fitSize(frameW, frameH,
+                surfaceReader.getDisplayWidth(), surfaceReader.getDisplayHeight(),
+                Math.max(0.01f, scale));
         float cx = x * frameW;
         float cy = y * frameH;
+        float[] mvp = com.fadcam.ui.faditor.model.PipPlacement.quadMatrix(
+                frameW, frameH, cx, cy, size[0], size[1], rot);
 
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId);
         GLES20.glViewport(0, 0, frameW, frameH);
         GLES20.glClearColor(0f, 0f, 0f, 0f);
         GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
 
+        // Replace, never blend, into the cleared FBO: the texture must hold this PiP's own
+        // premultiplied pixels whatever blend state an earlier GL step left on. The quad's
+        // winding flips with the y-down store, so culling must be off too.
+        boolean blendWas = GLES20.glIsEnabled(GLES20.GL_BLEND);
+        boolean cullWas = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
+        GLES20.glDisable(GLES20.GL_BLEND);
+        GLES20.glDisable(GLES20.GL_CULL_FACE);
         GLES20.glUseProgram(blitProgram);
-        float[] mvp = new float[16];
-        Matrix.setIdentityM(mvp, 0);
-        Matrix.translateM(mvp, 0, (cx * 2f / frameW) - 1f, 1f - (cy * 2f / frameH), 0f);
-        Matrix.scaleM(mvp, 0, w / frameW, h / frameH, 1f);
-        Matrix.rotateM(mvp, 0, rot, 0f, 0f, 1f);
 
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, surfaceReader.getOesTextureId());
@@ -260,6 +264,8 @@ final class GlPipFrameOverlay {
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GLES20.glDisableVertexAttribArray(aPositionLoc);
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+        if (blendWas) GLES20.glEnable(GLES20.GL_BLEND);
+        if (cullWas) GLES20.glEnable(GLES20.GL_CULL_FACE);
         try { GlUtil.checkGlError(); } catch (Exception ignored) {}
         return overlayTexId;
     }

@@ -287,9 +287,32 @@ public final class Flight {
 
     /** He has stopped moving and turned to face front: the chat's own Joybot takes over. */
     public long tSettle() {
+        return tLand() + landMs() + (rise > 0f ? RISE_MS : 0L) + 40L;
+    }
+
+    /** From touchdown until his landing (and any scoot) is over, ms. */
+    private long landMs() {
         Landing style = landingStyle();
         long land = style == Landing.DOUBLE ? 560L : style == Landing.CARTOON ? 400L : 300L;
-        return tLand() + land + (approach == Approach.SCOOT && !quick ? 640L : 0L) + 40L;
+        return land + (approach == Approach.SCOOT && !quick ? 640L : 0L);
+    }
+
+    /**
+     * After touching down on his seat (the impact and the sparks: owner, 11-15) he lifts this many dp to his hover
+     * (owner's pick: 12 dp above the seat) before the chat's Joybot takes over.
+     */
+    private float rise;
+    private static final long RISE_MS = 320L;
+
+    @NonNull
+    public Flight withRise(float dp) {
+        rise = Math.max(0f, dp);
+        return this;
+    }
+
+    /** How far he has lifted off the seat, {@code raw} ms after touchdown. */
+    float risen(float raw) {
+        return rise <= 0f ? 0f : rise * smooth((raw - landMs()) / RISE_MS);
     }
 
     /** Fraction of the path he has covered at {@code t} ms (UI thread uses this for the wake reveal). */
@@ -497,7 +520,7 @@ public final class Flight {
             boolean settled = yours && f.approach == Approach.SCOOT ? raw > 660f : raw > 220f;
             if (skimming) face = -1; else if (settled) face = 1;
             o.x = f.ex + scootX;
-            o.y = f.ey + land[2];
+            o.y = f.ey + land[2] - f.risen(raw);
             o.rot = lerp(rr, 0f, smooth(lt2 / 160f)) + scootLean;
             o.sx = land[0];
             o.sy = land[1];

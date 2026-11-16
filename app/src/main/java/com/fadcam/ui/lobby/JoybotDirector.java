@@ -267,6 +267,31 @@ public final class JoybotDirector implements JoybotView.Director {
         });
     }
 
+    private final Runnable ponderTick = this::ponder;
+    private final Runnable brushTick = this::brush;
+
+    /** Mid-think: he stops in his thinking pose a moment (hand at his chin), then thinks on. */
+    private void ponder() {
+        if (!bot.isAttachedToWindow() || bot.getDirector() != this || bot.getMood() != JoybotView.Mood.THINK || chainTo != null) return;
+        final JoybotActs.Act still = acts.named("thinking-still");
+        if (still == null) return;
+        final int hold = 12 + dice.nextInt(12);
+        Bitmap p = acts.opened(still);
+        if (p != null) { playOnce(acts.framesFilm(still, p, new int[]{1}, new int[]{hold})); return; }
+        acts.open(still, bot, got -> {
+            if (got != null && bot.isAttachedToWindow() && bot.getMood() == JoybotView.Mood.THINK && chainTo == null) {
+                playOnce(acts.framesFilm(still, got, new int[]{1}, new int[]{hold}));
+            }
+        });
+    }
+
+    /** Resting, awake: a wave of the paintbrush. */
+    private void brush() {
+        if (!bot.isAttachedToWindow() || bot.getDirector() != this || bot.getMood() != JoybotView.Mood.IDLE || chainTo != null
+                || asleep(bot) || (now != null && "reading".equals(now.name))) return;
+        moment(bot, "brush");
+    }
+
     /** A film played once as a flourish, then back to what he was doing. */
     private void playOnce(@NonNull JoybotFilm film) {
         final JoybotView.Mood m = bot.getMood();
@@ -285,6 +310,15 @@ public final class JoybotDirector implements JoybotView.Director {
             reopened = next;
             bot.setMood(m);
         }));
+    }
+
+    /** "No", "nah", "not that one", "never mind": told no to an idea (he throws it in the bin). The whole message. */
+    public static boolean isNo(@Nullable String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase(java.util.Locale.ROOT).replace('’', '\'').replaceAll("[^a-z' ]", " ").replaceAll("\\s+", " ").trim();
+        return t.matches("(no|nope|nah|no thanks|no thank you|not that|not that one|not now|don't|dont|never mind|nevermind"
+                + "|forget it|forget that|cancel|cancel that|skip|skip it|skip that|scrap that|bin it|no way|i don't like it"
+                + "|i dont like it|not really)( please| joybot)?");
     }
 
     /** "Thanks", "great job", "love it": the person thanked or praised him (he takes a bow). */
@@ -328,6 +362,12 @@ public final class JoybotDirector implements JoybotView.Director {
     @Override
     public JoybotFilm enter(@NonNull JoybotView.Mood m) {
         bot.removeCallbacks(idleTick);
+        bot.removeCallbacks(ponderTick);
+        bot.removeCallbacks(brushTick);
+        // A long think stops now and then in his thinking pose; resting, now and then he waves his paintbrush about
+        // ("as the mascot, I'd love to find an excuse for him to every once in a while wave his paintbrush around").
+        if (m == JoybotView.Mood.THINK) bot.postDelayed(ponderTick, 5500L + dice.nextInt(3500));
+        if (m == JoybotView.Mood.IDLE && reopened == null && dice.nextInt(3) == 0) bot.postDelayed(brushTick, 18_000L + dice.nextInt(14_000));
         // An animation whose picture has just finished opening comes back through here: take it.
         JoybotActs.Act a = reopened;
         reopened = null;
@@ -420,9 +460,19 @@ public final class JoybotDirector implements JoybotView.Director {
         List<JoybotActs.Act> pool = acts.generalFor(mood);
         if (pool.isEmpty()) return null;
         if (pool.size() == 1) return pool.get(0);
-        JoybotActs.Act a;
-        do { a = pool.get(dice.nextInt(pool.size())); } while (a.name.equals(lastName));
-        return a;
+        // by weight (owner, 11-15: typing his reply is how he talks; the marble from his chest only now and then),
+        // never the one he did last
+        float sum = 0f;
+        for (JoybotActs.Act x : pool) if (!x.name.equals(lastName)) sum += x.weight;
+        if (sum <= 0f) return pool.get(dice.nextInt(pool.size()));
+        float r = dice.nextFloat() * sum;
+        for (JoybotActs.Act x : pool) {
+            if (x.name.equals(lastName)) continue;
+            r -= x.weight;
+            if (r <= 0f) return x;
+        }
+        for (JoybotActs.Act x : pool) if (!x.name.equals(lastName)) return x;
+        return pool.get(0);
     }
 
     private void scheduleDrift() {

@@ -986,8 +986,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
             return;
         }
-        // Thanked or praised: he takes a bow (owner, 11-15).
+        // Thanked or praised: he takes a bow (owner, 11-15). Told no: he bins the idea (owner, 11-15 evening).
+        actor.removeCallbacks(notesDone);
+        if (takingNotes) { takingNotes = false; actor.setMood(JoybotView.Mood.IDLE); }   // notes put away: you sent it
         if (com.fadcam.ui.lobby.JoybotDirector.isThanks(text)) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "thanks");
+        else if (com.fadcam.ui.lobby.JoybotDirector.isNo(text)) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "discard");
         // Hands-free: dictated and sent unedited = sent by voice; so is a voice answer's new request.
         boolean bySpeech = follow || (dictatedText != null && dictatedText.equals(text));
         if (!follow) handsFreeUsed = false;
@@ -1359,6 +1362,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         inputField.setOnFocusChangeListener((v, has) -> {
             if (has && inputField.getText().length() == 0) pointAtInput();
         });
+        // While you type he takes notes in his notepad (owner, 11-15 evening: "he's taking notes while you're typing").
+        inputField.addTextChangedListener(new android.text.TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a) {}
+            @Override public void onTextChanged(CharSequence s, int st, int b, int c) {}
+            @Override public void afterTextChanged(android.text.Editable s) { onTyping(s.length() > 0); }
+        });
         // The drawer opening, the title and his flight in (owner's picks, 15 Nov): ChatArrival.
         arrival = new com.fadcam.ui.lobby.arrival.ChatArrival(this, actor);
         // Over a room where work is edited the card is modal: that room is paused under it and skips its saves, so
@@ -1399,6 +1408,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 LAST_OPENER.put(projectId, offer.opener);
                 addBotMessage(offer.opener);
                 voice.speak(offer.opener);
+                com.fadcam.ui.lobby.JoybotDirector.moment(actor, "tip");     // an idea: he pops up with it
                 actor.setMood(JoybotView.Mood.TALK);
                 actor.postDelayed(() -> { if (!busy) actor.setMood(JoybotView.Mood.IDLE); }, 1400L);
             }
@@ -1527,12 +1537,35 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private long lastPresent = 0L, lastPointDown = 0L;
 
-    /** New ideas beside him: now and then he presents them with an open hand (owner, 11-15). */
+    /**
+     * New ideas beside him: now and then he presents them with an open hand, or weighs the options A, B and C (owner,
+     * 11-15: "anytime he's thinking about something where there's multiple options").
+     */
     private void presentIdeas() {
         long now = android.os.SystemClock.uptimeMillis();
         if (busy || actor == null || actor.getVisibility() != View.VISIBLE || now - lastPresent < 30_000L) return;
         lastPresent = now;
-        actor.postDelayed(() -> { if (!busy) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "present"); }, 400L);
+        final String what = chipsRow != null && chipsRow.getChildCount() >= 3 && Math.random() < .4 ? "options" : "present";
+        actor.postDelayed(() -> { if (!busy) com.fadcam.ui.lobby.JoybotDirector.moment(actor, what); }, 400L);
+    }
+
+    /** He set himself to take notes because you were typing (not because he is listening to your voice). */
+    private boolean takingNotes;
+    private final Runnable notesDone = () -> {
+        if (takingNotes && !busy && actor != null && actor.getMood() == JoybotView.Mood.LISTEN) actor.setMood(JoybotView.Mood.IDLE);
+        takingNotes = false;
+    };
+
+    /** You are typing: he takes notes, and stops a few seconds after you stop. */
+    private void onTyping(boolean has) {
+        if (actor == null) return;
+        actor.removeCallbacks(notesDone);
+        if (!has || busy) { if (takingNotes) actor.postDelayed(notesDone, 600L); return; }
+        if (actor.getMood() == JoybotView.Mood.IDLE) {
+            takingNotes = true;
+            actor.setMood(JoybotView.Mood.LISTEN);
+        }
+        if (takingNotes) actor.postDelayed(notesDone, 3500L);
     }
 
     /** The box to type in: he points down at it when you tap into it (owner, 11-15: "pointing down below him"). */
@@ -2321,7 +2354,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 boolean pointed = com.fadcam.ui.lobby.JoybotDirector.moment(actor, "point-left");
                 actor.postDelayed(() -> actor.flyHome(() -> {
                     actor.setMood(JoybotView.Mood.IDLE);
-                    com.fadcam.ui.lobby.JoybotDirector.moment(actor, Math.random() < .67 ? "done" : "you-did-it");
+                    double r = Math.random();     // a bow, "you're the man", or a celebration (owner, 11-15)
+                    com.fadcam.ui.lobby.JoybotDirector.moment(actor, r < .5 ? "done" : r < .75 ? "you-did-it" : "cheer");
                 }), pointed ? 1700L : 900L);
             });
         });

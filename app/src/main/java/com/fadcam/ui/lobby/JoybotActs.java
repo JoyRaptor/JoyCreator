@@ -56,6 +56,12 @@ public final class JoybotActs {
         final float scale, hopDp, hopMs, driftDp, driftMs, flipChance;
         final boolean sparks;
         public final boolean mirrorable;
+        /** How often it is picked among its mood's animations (acts.json "weight"; 1 = as often as any). */
+        final float weight;
+        /** Loop positions it may rest on a while (acts.json "rests", given as frames). */
+        @Nullable final int[] restsAt;
+        /** Its body language (acts.json "moves.body"), or null. */
+        @Nullable final String body;
 
         Act(JSONObject o) throws Exception {
             name = o.getString("name");
@@ -87,6 +93,14 @@ public final class JoybotActs {
             flipChance = mv != null ? (float) mv.optDouble("flip", 0) : 0f;
             sparks = mv != null && mv.optBoolean("sparks", false);
             mirrorable = mv != null && "random".equals(mv.optString("mirror", "never"));
+            body = mv != null && mv.has("body") ? mv.optString("body", null) : null;
+            weight = (float) Math.max(0.0, o.optDouble("weight", 1.0));
+            int[] rf = ints(o.optJSONArray("rests"));
+            List<Integer> at = new ArrayList<>();
+            for (int f : rf) for (int p = 0; p < loop.length; p++) if (loop[p] == f && !at.contains(p)) at.add(p);
+            int[] ra = new int[at.size()];
+            for (int i = 0; i < ra.length; i++) ra[i] = at.get(i);
+            restsAt = ra.length > 0 ? ra : null;
         }
 
         /** The motion for one play of it ({@code flip}: start this one with a backflip). */
@@ -317,7 +331,7 @@ public final class JoybotActs {
         for (int i = 0; i < a.in.length; i++) r[i] = cell(a, picture, a.in[i]);
         for (int i = 0; i < a.loop.length; i++) r[a.in.length + i] = cell(a, picture, a.loop[i]);
         return new JoybotFilm(picture, r, null, a.fps, true).withIntro(a.in.length).asActor(focus).withStyle(a.style)
-                .withMoves(a.moves(flip), mirror);
+                .withMoves(a.moves(flip), mirror).withRests(a.restsAt).withBody(a.body);
     }
 
     /** The whole animation once through (in, loop, out), for an entrance or a flourish before something else. */
@@ -345,7 +359,7 @@ public final class JoybotActs {
             if (m.driftDp <= 0f) { m.driftDp = 10f + taskDice.nextInt(9); m.driftMs = 1500f + taskDice.nextInt(900); }
             if (m.hopDp <= 0f && taskDice.nextBoolean()) { m.hopDp = 4f + taskDice.nextInt(5); m.hopMs = 460f + taskDice.nextInt(200); }
         }
-        return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus).withMoves(m, mirror);
+        return new JoybotFilm(picture, r, null, a.fps, false).asActor(focus).withMoves(m, mirror).withBody(a.body);
     }
 
     /**
@@ -358,7 +372,7 @@ public final class JoybotActs {
         for (int i = 0; i < frames.length; i++) r[i] = cell(a, picture, frames[i]);
         JoybotFilm.Moves m = new JoybotFilm.Moves();
         m.scale = a.scale;
-        return new JoybotFilm(picture, r, holds, a.fps, false).asActor(focus).withMoves(m, false);
+        return new JoybotFilm(picture, r, holds, a.fps, false).asActor(focus).withMoves(m, false).withBody(a.body);
     }
 
     /** The way out (played once), or null when this animation has none. */
@@ -371,7 +385,7 @@ public final class JoybotActs {
         Rect[] r = new Rect[a.out.length];
         for (int i = 0; i < r.length; i++) r[i] = cell(a, picture, a.out[i]);
         float fps = a.out.length > LONG_OUT ? a.fps * 2f : a.fps;
-        return new JoybotFilm(picture, r, null, fps, false).asActor(focus).withMoves(a.moves(false), mirror);
+        return new JoybotFilm(picture, r, null, fps, false).asActor(focus).withMoves(a.moves(false), mirror).withBody(a.body);
     }
 
     private static Rect cell(Act a, Bitmap picture, int i) {

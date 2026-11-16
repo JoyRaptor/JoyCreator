@@ -59,6 +59,11 @@ public final class ChatArrival {
     private static final String TAG = "ChatArrival";
     /** The chat's Joybot is 64 dp (activity_chat_assistant.xml chat_actor). */
     private static final float ACTOR_DP = 64f;
+    /**
+     * His cone floats this far above his seat (owner's pick, 11-15 evening: "Hover D (Alive), 12 dp above the seat"). He
+     * lands on it 4 dp up, with the impact, then lifts to here.
+     */
+    static final float HOVER_DP = 12f;
     /** His body inside a cell, until acts.json is read (the same numbers). */
     private static final RectF DEFAULT_FOCUS = new RectF(.2667f, .1625f, .6833f, .9167f);
     private static final float CELL = 240f;
@@ -147,6 +152,7 @@ public final class ChatArrival {
         reveal.addView(frost, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         reveal.setVisibility(View.INVISIBLE);
         chips.setAlpha(0f);
+        actor.setChatStage(HOVER_DP);
         row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeActor());
         frame.attach(titleBlock, grip);
         frame.watchKeyboard(root);
@@ -259,7 +265,7 @@ public final class ChatArrival {
         int[] s = seatInStage();
         float peg = Show.pegUp(CELL, CELL, focus, ACTOR_DP) * d;
         int aw = Math.round(ACTOR_DP * d);
-        int left = s[0] - aw / 2, top = Math.round(s[1] - 4f * d - peg - aw / 2f);
+        int left = s[0] - aw / 2, top = Math.round(s[1] - HOVER_DP * d - peg - aw / 2f);
         ViewGroup.LayoutParams p = actor.getLayoutParams();
         if (!(p instanceof FrameLayout.LayoutParams)) return;
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) p;
@@ -308,7 +314,7 @@ public final class ChatArrival {
         boolean shorter = !full && later == JoybotArrival.Later.SHORT;
         float[] uv = hop ? null : paths.get(JoybotArrival.nextPath(a, paths.size(), dice));
         Flight.Approach ap = Flight.Approach.values()[JoybotArrival.nextApproach(a, 3, dice)];
-        Flight f = new Flight(bx, by, ex, ey, pegUp, uv, ap, Flight.Landing.DOUBLE, shorter);
+        Flight f = new Flight(bx, by, ex, ey, pegUp, uv, ap, Flight.Landing.DOUBLE, shorter).withRise(HOVER_DP - 4f);
         Log.i(TAG, "arrival: " + (hop ? "hop" : shorter ? "shorter show" : "whole show") + ", " + ap
                 + ", " + JoybotArrival.reveal(a) + " / " + JoybotArrival.title(a) + (card ? ", card" : ", sheet")
                 + ", flight " + f.dur + " ms, frost " + frostOn());

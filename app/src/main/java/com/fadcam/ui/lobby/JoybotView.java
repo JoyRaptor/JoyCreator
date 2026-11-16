@@ -146,6 +146,8 @@ public final class JoybotView extends FrameLayout {
                     LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT, Gravity.CENTER));
             addView(film);
             film.calm = calmThruster;
+            film.motion.roomy = roomy;
+            film.seatDp = seatDp;
         }
         // The stills are HIDDEN rather than removed: a one-shot film finishing has to hand
         // the face back instantly, and re-inflating two ImageViews at that moment would
@@ -205,12 +207,9 @@ public final class JoybotView extends FrameLayout {
                 new android.graphics.Paint(android.graphics.Paint.FILTER_BITMAP_FLAG);
 
         // ── life on top of the drawings (owner, 11-13: "use the squash and stretch ... extra zest") ──
-        // The frames change eight times a second; between them he would be a cut-out. So he sways
-        // and bobs on his hover peg all the time, and every new pose lands with a small squash that
-        // springs back. All of it pivots on the peg, so his feet never slide.
-        private static final long SWAY_MS = 3600L;
-        private static final float SWAY_DEG = 1.6f;
-        private static final float BOB_FRACTION = 0.012f;
+        // The frames change eight times a second; between them he would be a cut-out. So he hovers and moves with
+        // his body language all the time (JoybotBody, owner's picks of 11-15 evening), and every new pose lands with
+        // a small squash that springs back. All of it pivots on his peg, so his cone never slides.
         private static final float POP_MS = 240f;
         private static final float POP_SMALL = 0.035f, POP_BIG = 0.09f;
         private int lastShown = -1;
@@ -499,11 +498,23 @@ public final class JoybotView extends FrameLayout {
             }
         }
 
-        private void drawCalmRings(@NonNull Canvas canvas, float px, float py, long now) {
+        // his hover and body language (owner, 11-15 evening: hover D, 12 dp above the seat, a thruster puff now and then)
+        final JoybotBody motion = new JoybotBody();
+        final JoybotBody.Pose bp = new JoybotBody.Pose();
+        /** How far below his peg the seat is, dp: the rings drop to it. */
+        float seatDp = 3.5f;
+        private float sparkPx, sparkPy;
+        /** Sparks his body language throws (an idea's pop, a celebration's landings), from his resting peg. */
+        private final JoybotBody.Sparks sparker = (xd, yd, n, ground) -> {
+            float d = getResources().getDisplayMetrics().density;
+            spark(sparkPx + xd * d, sparkPy + (ground ? seatDp * d : yd * d), n, d);
+        };
+
+        private void drawCalmRings(@NonNull Canvas canvas, float px, float py, long now, boolean puff, float dropMax) {
             View host = (View) getParent();
             boolean home = host != null && Math.abs(host.getTranslationX()) < 1f && Math.abs(host.getTranslationY()) < 1f
                     && Math.abs(host.getRotation()) < .5f;
-            if (home && now - lastRing >= RING_EVERY_MS) {
+            if (home && (puff || now - lastRing >= RING_EVERY_MS)) {
                 lastRing = now;
                 ringBorn[ringNext] = now;
                 ringSize[ringNext] = .25f + .75f * dice.nextFloat();
@@ -518,8 +529,8 @@ public final class JoybotView extends FrameLayout {
                 if (age >= RING_LIFE_MS) continue;
                 float f = age / (float) RING_LIFE_MS, f0 = ringSize[i];
                 float rad = (3.64f + 12.6f * (1f - (1f - f) * (1f - f))) * f0 * dp;
-                // drifts off the peg, slowing, and spreads on the seat's sill 4 dp below him
-                float drop = Math.min(3.5f * dp, 13f * dp * (1f - (float) Math.pow(.3, age / 1000.0)));
+                // drifts off the peg, slowing, and spreads on the seat's sill below him
+                float drop = Math.min(Math.max(1f * dp, dropMax), 13f * dp * (1f - (float) Math.pow(.3, age / 1000.0)));
                 float alpha = (float) Math.pow(1f - f, 1.6) * .55f, hot = Math.max(0f, 1f - f * 2.2f);
                 ringBox.set(px - rad, py + drop - rad * .3f, px + rad, py + drop + rad * .3f);
                 ringGlow.setStrokeWidth((5f + 8f * f) * dp);
@@ -571,25 +582,29 @@ public final class JoybotView extends FrameLayout {
                         (getWidth() + w) / 2f, (getHeight() + h) / 2f);
             }
             long now = android.os.SystemClock.uptimeMillis();
-            if (calm && f.isActor() && body != null) {
-                drawCalmRings(canvas, getWidth() / 2f, box.top + box.height() * body.bottom, now);
+            final float dp = getResources().getDisplayMetrics().density;
+            final float px = getWidth() / 2f, py = body != null ? box.top + box.height() * body.bottom : 0f;
+            if (f.isActor() && body != null) {
+                // his hover and his body language (JoybotBody): where he is relative to his resting place this frame
+                sparkPx = px;
+                sparkPy = py;
+                motion.pose(now, f.body(), bp, sparker);
+                if (calm) drawCalmRings(canvas, px + bp.x * dp, py + bp.y * dp, now, bp.ring, (seatDp - bp.y) * dp);
             }
             int saved = canvas.save();
             if (f.isActor() && body != null) {
-                float px = getWidth() / 2f;
-                float py = box.top + box.height() * body.bottom;
-                double t = (now % SWAY_MS) / (double) SWAY_MS * Math.PI * 2.0;
                 float age = (now - popAt) / POP_MS;
                 float k = 0f;
                 if (age < 1f) {
                     float fade = (1f - age) * (1f - age);
                     k = fade * (popBig ? POP_BIG : POP_SMALL) * (float) Math.cos(age * Math.PI * 1.5);
                 }
-                canvas.translate(0f, (float) Math.sin(t * 2.0 + 0.6) * getHeight() * BOB_FRACTION);
-                canvas.rotate((float) Math.sin(t) * SWAY_DEG, px, py);
-                canvas.scale(1f + k, 1f - k, px, py);
+                canvas.translate(bp.x * dp, bp.y * dp);
+                canvas.rotate(bp.rot, px, py);
+                canvas.scale((bp.sx + k) * bp.scale, (bp.sy - k) * bp.scale, px, py);
                 float cy = box.top + box.height() * body.centerY();
                 choreograph(canvas, f, px, py, cy, now);
+                if (bp.face < 0) f.turnForDrift(true);              // pacing, reading: he faces the way he goes
                 long ft = now - trickAt;
                 if (trick != 0 && ft < trickMs(trick)) applyTrick(canvas, ft, px, py, cy, getResources().getDisplayMetrics().density);
                 else if (trick != 0 && trick != TRICK_SHAKE) trick = 0;
@@ -832,6 +847,20 @@ public final class JoybotView extends FrameLayout {
     public void setCalmThruster(boolean on) {
         calmThruster = on;
         if (film != null) film.calm = on;
+    }
+
+    private boolean roomy;
+    private float seatDp = 3.5f;
+
+    /**
+     * He sits in the chat (owner, 11-15 evening): room to pace, slide over to show you things and hop round when he
+     * celebrates, and he hovers {@code hoverDp} above his seat, where his rings land. Elsewhere (a 40 dp button) his
+     * travels stay tiny.
+     */
+    public void setChatStage(float hoverDp) {
+        roomy = true;
+        seatDp = hoverDp;
+        if (film != null) { film.motion.roomy = true; film.seatDp = hoverDp; }
     }
 
     /** True once {@link #markArrived} has been called: his director skips its own entrance flourish. */

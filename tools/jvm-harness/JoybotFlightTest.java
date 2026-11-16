@@ -98,6 +98,11 @@ public class JoybotFlightTest {
                         check(o.face == 1, name + ": ends facing away from the front");
                         check(Math.abs(o.sx - 1f) < .001f && Math.abs(o.sy - 1f) < .001f, name + ": ends squashed");
                         check(o.down, name + ": not down at settle");
+                        // he lands on his seat, then lifts to his hover before the chat takes over (owner, 11-15 evening)
+                        Flight fr = new Flight(w[0], w[1], ex, ey, peg, uv, ap, Flight.Landing.DOUBLE, shorter).withRise(8f);
+                        Flight.Pose ro = new Flight.Pose();
+                        new Flight.Player(fr).pose(fr.tSettle(), ro);
+                        check(Math.abs(ro.y - (ey - 8f)) < .01f, name + ": does not lift to his hover (" + ro.y + ")");
                         flights++;
                     }
                     if (uv == null) break;

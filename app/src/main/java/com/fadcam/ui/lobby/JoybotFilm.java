@@ -158,6 +158,26 @@ public final class JoybotFilm {
         return this;
     }
 
+    /** Loop positions (0-based within the loop) a stuttered loop may rest on for a while. */
+    @Nullable private int[] rests;
+
+    @NonNull
+    public JoybotFilm withRests(@Nullable int[] loopPositions) {
+        rests = loopPositions != null && loopPositions.length > 0 ? loopPositions : null;
+        return this;
+    }
+
+    /** His body language while this plays (acts.json "moves.body"; see JoybotBody), or null for just his hover. */
+    @Nullable private String body;
+
+    @NonNull
+    public JoybotFilm withBody(@Nullable String b) {
+        body = b != null && !b.isEmpty() ? b : null;
+        return this;
+    }
+
+    @Nullable public String body() { return body; }
+
     /** True while the frame being shown is mirrored (a stroke the other way, or the whole play facing the other way). */
     public boolean mirrored() { return mirrorNow ^ mirrorAll; }
 
@@ -233,6 +253,12 @@ public final class JoybotFilm {
                 else if (x < .92f) put(walkAt);                                // a hold
                 else { int p = 3 + r.nextInt(8); for (int i = 0; i < p; i++) put(walkAt); }   // a pause
                 put(walkAt);
+                // a frame he may rest on a while (owner, 11-15: looking up from the book, a pause in his notes)
+                if (rests != null && r.nextFloat() < .4f) {
+                    for (int q : rests) {
+                        if (q == walkAt) { int p = 6 + r.nextInt(13); for (int i = 0; i < p; i++) put(walkAt); break; }
+                    }
+                }
                 return;
             }
             case STROKES: {

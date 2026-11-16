@@ -127,9 +127,10 @@ public final class CaptionTextureCache {
         // Resolve phrase / active word — SLIDE styles group one timing entry per phrase
         // (SPEC_20260831_CAPTION_SLIDES), and layoutWords splits paragraph entries so they
         // wrap by word inside the box.
-        CaptionPhrases grouping = style.slideGroup
-                ? CaptionPhrases.ofSlides(nt.transcript)
-                : CaptionPhrases.of(nt.transcript, style.maxWords);
+        // The grouping of a whole transcript is rebuilt only when the words change (R3-STU-01): a transcript is edited in
+        // place, so the key is its content signature, not its identity.
+        final int sig = nt.transcript.contentSignature();
+        CaptionPhrases grouping = groupingFor(nt.transcript, sig, style);
         int activeIdx = nt.transcript.indexAtOrBeforeTime(sourceMs);
         if (activeIdx < 0) return null;
         int phraseIdx = grouping.phraseOf(activeIdx);
@@ -154,8 +155,21 @@ public final class CaptionTextureCache {
         // infinite box height (frame height * 8, the same rule as preview + export) so only
         // width constrains and the column may run off screen.
         float fitBoxH = style.fitTruncate ? boxH : videoH * 8f;
-        float fittedPx = fittedFontPx(nt.transcript, style, authoredPx, boxW, fitBoxH, renderedPhrase, layoutWords);
-        if (fittedPx <= 0) fittedPx = authoredPx;
+        // The fitted size is measured text: for UNIFORM every phrase of the transcript, for the other modes this phrase.
+        // It depends only on the words, the style's fit and font, the authored size and the box, so it is kept by those.
+        String fitKey = fitKeyFor(nt.transcript, sig, style, authoredPx, boxW, fitBoxH, renderedPhrase);
+        Float fitted = fits.get(fitKey);
+        float fittedPx;
+        if (fitted != null) {
+            fittedPx = fitted;
+        } else {
+            fittedPx = fittedFontPx(nt.transcript, style, authoredPx, boxW, fitBoxH, renderedPhrase, layoutWords);
+            if (fittedPx <= 0) fittedPx = authoredPx;
+            fits.put(fitKey, fittedPx);
+            fitBuilds++;
+            FLog.d("CaptionTextureCache", "caption fit measured (" + fitBuilds + " so far, "
+                    + groupingBuilds + " groupings)");
+        }
 
         String key = keyFor(clip.getId(), bindingIdx, renderedPhrase, activeIdx, style, fittedPx, binding.boxWidthFraction, videoW, videoH);
         Bitmap cached = map.get(key);
@@ -165,6 +179,62 @@ public final class CaptionTextureCache {
         if (bmp == null) return null;
         put(key, bmp);
         return bmp;
+    }
+
+    private static final class Grouped {
+        final com.fadcam.ui.faditor.transcript.Transcript transcript;
+        final int signature;
+        final CaptionPhrases phrases;
+
+        Grouped(com.fadcam.ui.faditor.transcript.Transcript t, int signature, CaptionPhrases phrases) {
+            this.transcript = t;
+            this.signature = signature;
+            this.phrases = phrases;
+        }
+    }
+
+    /** The last few groupings, by transcript object + grouping mode (access order). */
+    private final LinkedHashMap<String, Grouped> groupings = new LinkedHashMap<String, Grouped>(8, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(Map.Entry<String, Grouped> e) { return size() > 8; }
+    };
+    /** Fitted font sizes (see getOrCreate), a few hundred floats at most. */
+    private final LinkedHashMap<String, Float> fits = new LinkedHashMap<String, Float>(64, 0.75f, true) {
+        @Override protected boolean removeEldestEntry(Map.Entry<String, Float> e) { return size() > 256; }
+    };
+    /** How many times a grouping / a fit was worked out rather than reused (logged on each fit). */
+    int groupingBuilds, fitBuilds;
+
+    @NonNull
+    private CaptionPhrases groupingFor(@NonNull com.fadcam.ui.faditor.transcript.Transcript t, int sig,
+                                       @NonNull CaptionStyle style) {
+        String k = System.identityHashCode(t) + "|" + (style.slideGroup ? "s" : "m" + style.maxWords);
+        Grouped g = groupings.get(k);
+        if (g != null && g.transcript == t && g.signature == sig) return g.phrases;
+        CaptionPhrases built = style.slideGroup ? CaptionPhrases.ofSlides(t) : CaptionPhrases.of(t, style.maxWords);
+        groupings.put(k, new Grouped(t, sig, built));
+        groupingBuilds++;
+        return built;
+    }
+
+    @NonNull
+    private String fitKeyFor(@NonNull com.fadcam.ui.faditor.transcript.Transcript t, int sig,
+                             @NonNull CaptionStyle style, float authoredPx, float boxW, float boxH,
+                             @NonNull String renderedPhrase) {
+        StringBuilder sb = new StringBuilder(96);
+        sb.append(System.identityHashCode(t)).append('|').append(sig).append('|');
+        sb.append(style.id).append(',').append(style.fitMode.name()).append(',').append(style.fitMinScale)
+                .append(',').append(style.fitMaxLines).append(',').append(style.pill).append(',')
+                .append(style.fitTruncate).append(',').append(style.fontKey).append(',').append(style.bold)
+                .append(',').append(style.slideGroup).append(',').append(style.maxWords).append('|');
+        // An imported font replaced under the same path measures differently.
+        if (style.fontKey != null && style.fontKey.startsWith("file:")) {
+            java.io.File ff = new java.io.File(style.fontKey.substring(5));
+            sb.append(ff.lastModified()).append(',').append(ff.length()).append('|');
+        }
+        sb.append(authoredPx).append('|').append(boxW).append('|').append(boxH).append('|');
+        // Only the non-uniform fits measure this one phrase.
+        if (style.fitMode != CaptionStyle.FitMode.UNIFORM) sb.append(renderedPhrase);
+        return sb.toString();
     }
 
     private static float fittedFontPx(@NonNull com.fadcam.ui.faditor.transcript.Transcript transcript,

@@ -69,6 +69,15 @@ public final class VisRenderer {
         default Bitmap frame(@NonNull String ref, double seconds) {
             return null;
         }
+
+        /**
+         * Which picture the frame just returned by {@link #frame} is: the same number twice means the same pixels, so
+         * the renderer need not send them to the GPU again (R3-VIS-02). -1 (the default) means "cannot say": the
+         * pixels are sent every time, as a source that reuses one bitmap for changing pictures needs.
+         */
+        default long frameGeneration(@NonNull String ref) {
+            return -1L;
+        }
     }
 
     /** Supplies sprite sheets for Sprite layers, drawn into a GPU-ready grid. Called on the GL thread. */
@@ -157,6 +166,8 @@ public final class VisRenderer {
     private final IdentityHashMap<Object, Object> imageRef = new IdentityHashMap<>();
     /** The clock time each moving picture's texture was last filled at (R12), per layer. */
     private final IdentityHashMap<Object, Double> movingAt = new IdentityHashMap<>();
+    /** R3-VIS-02: the content generation of the frame last uploaded to a moving layer's texture. */
+    private final IdentityHashMap<Object, Long> movingGen = new IdentityHashMap<>();
     private final Signals signals = new Signals();
     private double time;
     private long lastTick = Long.MIN_VALUE;
@@ -496,6 +507,7 @@ public final class VisRenderer {
         imageTex.clear();
         imageRef.clear();
         movingAt.clear();
+        movingGen.clear();
         sprites.contextLost();
         main = half = echoA = echoB = null;
         bloom.free();
@@ -517,6 +529,7 @@ public final class VisRenderer {
         imageTex.clear();
         imageRef.clear();
         movingAt.clear();
+        movingGen.clear();
         sprites.free();
         brokenLayers.clear();
         echoFresh = true;
@@ -718,6 +731,7 @@ public final class VisRenderer {
                     GLES30.glDeleteTextures(1, new int[]{en.getValue()[0]}, 0);
                     imageRef.remove(en.getKey());
                     movingAt.remove(en.getKey());
+                    movingGen.remove(en.getKey());
                     ii.remove();
                 }
                 sprites.prune(alive);
@@ -981,6 +995,7 @@ public final class VisRenderer {
         imageTex.put(L.source, t);
         imageRef.put(L.source, ref);
         movingAt.remove(L.source);
+        movingGen.remove(L.source);
         return t;
     }
 
@@ -1018,7 +1033,14 @@ public final class VisRenderer {
             imageRef.put(L.source, want);
         }
         if (have) {
+            long gen = src.frameGeneration(want);
+            Long sent = movingGen.get(L.source);
+            if (!fresh && gen >= 0 && sent != null && sent == gen) {
+                movingAt.put(L.source, time);   // the same picture as the texture already holds
+                return t;
+            }
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, t[0]);
+            if (gen >= 0) movingGen.put(L.source, gen); else movingGen.remove(L.source);
             if (!fresh && bmp.getWidth() == t[1] && bmp.getHeight() == t[2]) {
                 GLUtils.texSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, bmp);
             } else {

@@ -50,14 +50,26 @@ public class BandedTimelineWaveformCache {
     public static final class Shaped {
         @NonNull public final BandedWaveformData raw;
         @NonNull public final ShapedTape tape;
-        /** Unique per instance; changes iff the shaped data changed. */
+        /** Unique per instance; changes iff the shaped data OR how it is painted changed (it keys the tile cache). */
         public final long serial;
-        Shaped(@NonNull BandedWaveformData raw, @NonNull ShapedTape tape) {
+        /** The shaping settings {@link #tape} was made with (see {@link #shapingOf}); equal means the tape is still right. */
+        final String shapedWith;
+        Shaped(@NonNull BandedWaveformData raw, @NonNull ShapedTape tape, @NonNull String shapedWith) {
             this.raw = raw;
             this.tape = tape;
+            this.shapedWith = shapedWith;
             this.serial = ++serialSeq;
         }
     }
+
+    /** Only these knobs change the SHAPE of the envelope; colours, lanes, glow and the rest are painted on top. */
+    @NonNull
+    private static String shapingOf(@NonNull TapeWaveformStyle st) {
+        return st.smooth + "|" + st.contrast + "|" + st.perBandNormalize;
+    }
+
+    /** How many envelope shapings were worked out (R3-STU-02), for the log line and the checks. */
+    int shapings;
 
     public interface InvalidateListener { void onWaveformReady(); }
 
@@ -180,7 +192,8 @@ public class BandedTimelineWaveformCache {
                             inFlight.remove(k);
                             ShapedTape tape = BandEnvelopeShaper.shapeToTape(data, style.smooth,
                                     style.contrast, style.perBandNormalize);
-                            Shaped shaped = new Shaped(data, tape);
+                            shapings++;
+                            Shaped shaped = new Shaped(data, tape, shapingOf(style));
                             ready.put(k, shaped);
                             listener.onWaveformReady();
                             if (!data.complete) {
@@ -239,11 +252,28 @@ public class BandedTimelineWaveformCache {
 
     /** Re-shape every cached entry from its raw data (AV4: called when a cheap knob changes). */
     public void reshapeAll() {
+        // R3-STU-02: only a change to the shaping knobs (smooth, contrast, per-band normalise) needs the envelope
+        // worked out again; a colour, lane or glow change keeps every tape and only gets a new serial, which is what
+        // makes the tile cache paint again. Windows that share one extraction (aliases) are shaped once.
+        final String now = shapingOf(style);
+        java.util.IdentityHashMap<Shaped, Shaped> done = new java.util.IdentityHashMap<>();
+        int before = shapings;
         for (Map.Entry<String, Shaped> e : ready.entrySet()) {
-            BandedWaveformData raw = e.getValue().raw;
-            e.setValue(new Shaped(raw, BandEnvelopeShaper.shapeToTape(raw, style.smooth,
-                    style.contrast, style.perBandNormalize)));
+            Shaped old = e.getValue();
+            Shaped fresh = done.get(old);
+            if (fresh == null) {
+                ShapedTape tape = old.tape;
+                if (!now.equals(old.shapedWith)) {
+                    tape = BandEnvelopeShaper.shapeToTape(old.raw, style.smooth, style.contrast,
+                            style.perBandNormalize);
+                    shapings++;
+                }
+                fresh = new Shaped(old.raw, tape, now);
+                done.put(old, fresh);
+            }
+            e.setValue(fresh);
         }
+        FLog.d(TAG, "waveform style change: " + (shapings - before) + " shapings for " + ready.size() + " entries");
         listener.onWaveformReady();
     }
 

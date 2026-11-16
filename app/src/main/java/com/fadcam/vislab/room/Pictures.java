@@ -58,6 +58,12 @@ public final class Pictures implements VisRenderer.ImageSource {
         return videos.frame(ref, seconds, true);
     }
 
+    /** Words only: which frame {@link #frame} gave last (R3-VIS-02); a video says -1, its pixels change every time. */
+    @Override
+    public synchronized long frameGeneration(@NonNull String ref) {
+        return WordsPicture.is(ref) ? words.generation(ref) : -1L;
+    }
+
     /** Let go of the video decoders (the room closed, or the renderer was let go). */
     public synchronized void release() {
         videos.release();

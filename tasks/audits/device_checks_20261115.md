@@ -80,3 +80,26 @@ Still open: caption-style chip undo, screen-recording watermark, old-style Fix a
 Left on the Fold (mine, safe to delete): projects "Untitled", "Untitled 2", "Untitled 3", "Untitled audio"; `Joy Creator/` test files and `Screen recording 2026-11-15 05.24.mp4`; `Download/JC *`. Its Watermark Style is on "Time with Joy Creator". Camera, microphone permissions granted, photos denied.
 
 Fold released 11-15 for the Studio polish lane's dialog shots, with the speech-model download (F9) still unfinished and watched no further, because their APK install restarts the app. **Caption-style chip undo is the one check still owed**: it needs the model downloaded once (about 40 MB, Transcript > Fast timing) and then Captions on a spoken clip (JC speech video.mp4 is in the Fold's Download folder).
+
+## Update 4, test Fold (build of 18:02 already on it): STU-C5 marks, AN-08, and what did not run
+
+| Check | Result | Proof |
+|---|---|---|
+| STU-C5 drop a bookmark (tap the chip) | ✅ chip flashes, one undo step | `stuc5-bookmark-dropped.png`, `stuc5-marks-popup.png` |
+| STU-C5 finish a region (In then Out) | ✅ "Region saved" (0 to 3.5 s). See F10 for how awkward it is | `stuc5-region-finished.png` |
+| STU-C5 loop timing | ✅ Loop on: over 50 s of playback the clock only ever read 0 to 3 s, so it wraps at the region's end | `stuc5-loop-on.png` |
+| STU-C5 region export | ✅ one file "Untitled 4 - Region 1.mp4", 3.52 s, 1280x720, video and audio; "Export Complete" screen | `stuc5-region-export-dialog.png`, `stuc5-region-export-frame.png` |
+| STU-C5 rename | ✅ Edit bookmark (name, time, colour, Delete); renamed to "Intro" | `stuc5-renamed.png` |
+| STU-C5 reopen | ✅ closed and reopened from the Library: 2 bookmarks, 1 region, Loop on all kept | `stuc5-reopened-marks.png` |
+| STU-C5 undo | ✅ one press, one step: rename, then Loop, then the region, then bookmark 2, then bookmark 1 | `stuc5-undo-after-rename.png`, `stuc5-undo-all.png` |
+| AN-08 timeline grab bar | ✅ on the Fold: log `GRABBAR gesture ended moves=106 baseline=140 dp now=264.8 dp`; the timeline grew | `an08-grabbar-fold.png` |
+| 1e caption-style chip undo | ⬜ still not run: the speech model never finished downloading (see F9, F11) | |
+| AN-06 puppet basics, AN-09 sprite corner pin and bend, STU-C2 | ⬜ not run: I could not get a sprite sheet into a Studio project on the Fold. A sheet imported through "New sprite sheet" opened the SpriteLab editor, but after Save and Back the Studio sprite panel still listed no sheet (F13). Earlier passes already proved AN-06 pins, key and live take, and AN-09 bend, on the Note 9 and tablet; tape drags, bone tap and rotated-picture pins, and the corner-pin drag, are still unproven | `an09-new-sprite-sheet-open-with-chooser.png` |
+
+New findings:
+- **F10 Marks popup.** A region can be made only while the popup stays open, and any close (X, or touching the timeline) throws away a half-made region ("In 6.3 s . set Out" goes back to "new region"). With the popup open the timeline cannot be moved, so the only way to put In and Out at different times is to drop bookmarks first and jump between them with the arrows. A tester will think Set In / Set Out are broken. Suggest: keep the half-made region when the popup closes, and let the popup sit above the timeline. Also the Export button's spoken label reads "Export . %1$d" (an unfilled format string).
+- **F11 Speech model download (corrects F9).** The bar does advance, but the source (alphacephei.com) gave the Fold only about 5 to 10 KB/s on this Wi-Fi (the huggingface file gave 50 KB/s; this PC got 250 KB/s, then dropped repeatedly), so 40 MB would take over an hour with no percentage or size shown. Suggest showing percentage and size, a Cancel, and a mirror or a bundled small model.
+- **F12 Picker.** On the Fold (Android 14), tapping an image in the file picker's GRID view opens an "Open with" chooser instead of picking it; the LIST view picks correctly. Probably the system picker, not the app, but a tester hits it on the first image.
+- **F13 Sprite sheet import.** The editor guessed a 3x3 grid for a sheet named `*.2x2.sprite.png` (file-name hint not read when it comes through the picker), and the sheet did not appear in Studio's sprite panel after Save and Back. Needs a second look on a phone with the Library route.
+
+Left on the Fold (mine, safe to delete): projects "Untitled 3", "Untitled 4", Joy Creator folder test files, `Download/JC *`. Fold lock released. The speech-model retry download was stopped.

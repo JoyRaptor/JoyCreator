@@ -3070,14 +3070,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 if (!assets.exists() && !assets.mkdirs()) {
                     message = "Could not create the project's assets folder";
                 } else if (framesOnly) {
-                    File dir = new File(assets, base + "_frames");
-                    if (!dir.exists() && !dir.mkdirs()) {
-                        message = "Could not create " + dir.getName();
-                    } else {
-                        int n = SpriteBaker.writeFrames(sources, opt, dir, base);
-                        message = n == 0 ? "Nothing to write"
-                                : n + " frames written to " + dir.getName();
-                    }
+                    // Each export is its own new folder, published only when complete (SP-04).
+                    SpriteBaker.Frames fr = SpriteBaker.writeFrames(sources, opt, assets, base);
+                    message = fr.failed
+                            ? "Couldn't save the frames (is the phone full?). Nothing was changed."
+                            : fr.dir == null ? "Nothing to write"
+                            : fr.written + " frames saved in " + fr.dir.getName();
                 } else {
                     result = SpriteBaker.bake(sources, opt);
                     if (result == null) {
@@ -3093,7 +3091,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     }
                 }
             } catch (Throwable t) {
-                message = "Bake failed: " + t.getClass().getSimpleName();
+                // Plain words only: the person never sees an exception's name.
+                com.fadcam.FLog.w("SpriteLab", "bake failed", t);
+                message = "Couldn't finish that (the phone may be short of memory). Nothing was changed.";
             }
             for (SpriteSheetRenderer r : opened) r.recycle();
 
@@ -3658,7 +3658,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             if (!running) return;
             tick++;
             invalidate();
-            float fps = preset != null && preset.fps > 0f ? preset.fps : 8f;
+            // The sheet's own speed when the animation has none (SP-06; it used to be 8).
+            float fps = preset != null && preset.fps > 0f ? preset.fps
+                    : sheet != null ? sheet.getFps() : 8f;
             postDelayed(this::step, (long) (1000f / Math.max(1f, Math.min(60f, fps))));
         }
         @Override protected void onDetachedFromWindow() { super.onDetachedFromWindow(); running = false; }
@@ -3669,12 +3671,18 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             dest.set(1, 1, getWidth() - 1, getHeight() - 1);
             int cell = still;
             if (preset != null && !preset.frames.isEmpty()) {
+                // One tick per fps step, and each frame held for its weight, through the same
+                // arithmetic the timeline plays (SP-06: holds were ignored here). The chip
+                // still repeats a "once" animation, so it keeps showing what it is.
                 int n = preset.frames.size();
+                java.util.List<Integer> w = preset.weights;
                 int i;
                 if ("pingpong".equals(preset.type) && n > 1) {
-                    int period = 2 * n - 2, k = tick % period;
-                    i = k < n ? k : period - k;
-                } else i = tick % n;
+                    long period = SequenceTiming.pingPongPeriod(w, n);
+                    i = SequenceTiming.pingPongIndexAtTick(w, n, tick % period);
+                } else {
+                    i = SequenceTiming.indexAtTick(w, n, tick % SequenceTiming.totalWeight(w, n));
+                }
                 Integer f = preset.frames.get(Math.max(0, Math.min(n - 1, i)));
                 cell = f == null ? 0 : f;
             }
@@ -4387,11 +4395,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             sheet.setPivot(imported.getPivotX(), imported.getPivotY());
             sheet.setBgKey(imported.getBgKeyColor(), imported.getKeyTolerance());
             sheet.getCells().clear();
+            // Cell.copy carries the tags too: they used to be dropped here while the import
+            // reported success (audit SP-02).
             for (com.fadcam.ui.faditor.sprite.SpriteSheet.Cell c : imported.getCells()) {
-                com.fadcam.ui.faditor.sprite.SpriteSheet.Cell copy =
-                        new com.fadcam.ui.faditor.sprite.SpriteSheet.Cell(c.index, c.name);
-                copy.enabled = c.enabled;
-                sheet.getCells().add(copy);
+                sheet.getCells().add(c.copy());
             }
             // Cell names and ANIMATIONS. The sidecar's whole reason to exist is that a sheet
             // sliced and choreographed elsewhere can arrive whole; importing the grid but

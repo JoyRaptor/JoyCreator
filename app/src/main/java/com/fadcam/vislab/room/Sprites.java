@@ -45,8 +45,12 @@ public final class Sprites implements VisRenderer.SpriteSource {
     private static final int MAX_SIDE = 2048;     // the whole grid
     private static final int MAX_CELL = 512;      // one frame's longest side
     private static final int GUTTER = 4;          // clear pixels round each frame
-    private static final int MAX_FRAMES = 256;
-    private static final int MAX_HOLD = 16;       // a frame's weight, as repeats
+    // Up to 1024 different frames fit (at 2048 a side that is 64 px each); a longer sheet plays
+    // its first 1024 and the layer's row says so (audit XROOM-02: 256, silently, before).
+    static final int MAX_FRAMES = 1024;
+    // Holds play exactly as authored (they were cut to 16 ticks); this only bounds the play
+    // order's memory for a pathological sheet (a million ints = 4 MB).
+    private static final int MAX_ORDER = 1 << 20;
 
     private final Context app;
     private final LinkedHashMap<String, SpriteAtlas> kept = new LinkedHashMap<>(4, 0.75f, true);
@@ -115,9 +119,8 @@ public final class Sprites implements VisRenderer.SpriteSource {
                     slotOf.put(cell, slot);
                     unique.add(cell);
                 }
-                Integer w = j < weights.size() ? weights.get(j) : null;
-                int hold = w == null ? 1 : Math.max(1, Math.min(MAX_HOLD, w));
-                for (int k = 0; k < hold; k++) order.add(slot);
+                int hold = com.fadcam.ui.faditor.sprite.SequenceTiming.weightAt(weights, j);
+                for (int k = 0; k < hold && order.size() < MAX_ORDER; k++) order.add(slot);
             }
             if (unique.isEmpty()) return null;
             RectF first = r.fitCell(unique.get(0), new RectF(0, 0, 4096, 4096));
@@ -143,6 +146,30 @@ public final class Sprites implements VisRenderer.SpriteSource {
                     p != null && "pingpong".equals(p.type));
         } finally {
             r.recycle();
+        }
+    }
+
+    /**
+     * How many different frames the sheet (or its chosen animation) plays, so the layer's row can
+     * say when it is longer than a Sprite layer holds ({@link #MAX_FRAMES}). 0 when unreadable.
+     */
+    static int uniqueFrames(@Nullable JsonObject sheet, @NonNull String clip) {
+        if (sheet == null) return 0;
+        try {
+            SpriteSheet s = SpriteSheet.fromJson(sheet);
+            SpriteSheet.Preset p = clip.isEmpty() ? null : s.presetById(clip);
+            java.util.Set<Integer> seen = new java.util.HashSet<>();
+            if (p != null && !p.frames.isEmpty()) {
+                for (Integer f : p.frames) if (f != null && f >= 0 && f < s.cellCount()) seen.add(f);
+            } else {
+                for (int i = 0; i < s.cellCount(); i++) {
+                    SpriteSheet.Cell c = s.cellAt(i);
+                    if (c == null || c.enabled) seen.add(i);
+                }
+            }
+            return seen.size();
+        } catch (RuntimeException e) {
+            return 0;
         }
     }
 

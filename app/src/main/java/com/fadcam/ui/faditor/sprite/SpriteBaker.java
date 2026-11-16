@@ -203,6 +203,45 @@ public final class SpriteBaker {
      */
     @Nullable
     public static Result bake(@NonNull List<Source> sources, @NonNull Options opt) {
+        Box b = box(sources, opt);
+        if (b == null) return null;
+        int total = b.total, cw = b.cw, ch = b.ch, bw = b.bw, bh = b.bh;
+        float boxL = b.l, boxT = b.t;
+
+        int cols = Math.max(1, Math.min(opt.cols, total));
+        int rows = (int) Math.ceil(total / (float) cols);
+
+        Bitmap out = Bitmap.createBitmap(cols * bw, rows * bh, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(out);
+        if (opt.jpeg) canvas.drawColor(Studio.INK);
+
+        Map<String, Integer> map = new LinkedHashMap<>();
+        int i = 0;
+        for (Source s : sources) {
+            for (int cell : s.cells) {
+                drawFrame(canvas, s, cell, b, opt, (i % cols) * bw, (i / cols) * bh);
+                map.put(key(s.sheet, cell), i);
+                i++;
+            }
+        }
+
+        // The pivot is a fraction of a cell, so a crop moves it. Keep it on the same PIXEL, or
+        // every sprite already placed against this art jumps the moment you bake.
+        Source first = sources.get(0);
+        float px = (first.sheet.getPivotX() * cw - boxL) / bw;
+        float py = (first.sheet.getPivotY() * ch - boxT) / bh;
+        return new Result(out, cols, rows, map,
+                Math.max(0f, Math.min(1f, px)), Math.max(0f, Math.min(1f, py)));
+    }
+
+    /** The frame box every baked frame shares, measured once for a sheet or for numbered files. */
+    private static final class Box {
+        int total, cw, ch, bw, bh;
+        float l, t;
+    }
+
+    @Nullable
+    private static Box box(@NonNull List<Source> sources, @NonNull Options opt) {
         int total = 0;
         for (Source s : sources) total += s.cells.size();
         if (total == 0) return null;
@@ -225,37 +264,25 @@ public final class SpriteBaker {
                 boxH = (ink[3] - ink[1]) + opt.pad * 2f;
             }
         }
-        int bw = Math.max(1, Math.round(boxW)), bh = Math.max(1, Math.round(boxH));
+        Box b = new Box();
+        b.total = total;
+        b.cw = cw;
+        b.ch = ch;
+        b.l = boxL;
+        b.t = boxT;
+        b.bw = Math.max(1, Math.round(boxW));
+        b.bh = Math.max(1, Math.round(boxH));
+        return b;
+    }
 
-        int cols = Math.max(1, Math.min(opt.cols, total));
-        int rows = (int) Math.ceil(total / (float) cols);
-
-        Bitmap out = Bitmap.createBitmap(cols * bw, rows * bh, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(out);
-        if (opt.jpeg) canvas.drawColor(Studio.INK);
-
-        Map<String, Integer> map = new LinkedHashMap<>();
-        int i = 0;
-        for (Source s : sources) {
-            for (int cell : s.cells) {
-                int x = (i % cols) * bw, y = (i / cols) * bh;
-                int save = canvas.save();
-                canvas.clipRect(x, y, x + bw, y + bh);
-                canvas.translate(x - boxL, y - boxT);
-                s.renderer.drawCell(canvas, cell, destFor(s, cell, cw, ch,
-                        opt.fit == Fit.FILL), null);
-                canvas.restoreToCount(save);
-                map.put(key(s.sheet, cell), i);
-                i++;
-            }
-        }
-
-        // The pivot is a fraction of a cell, so a crop moves it. Keep it on the same PIXEL, or
-        // every sprite already placed against this art jumps the moment you bake.
-        float px = (first.sheet.getPivotX() * cw - boxL) / bw;
-        float py = (first.sheet.getPivotY() * ch - boxT) / bh;
-        return new Result(out, cols, rows, map,
-                Math.max(0f, Math.min(1f, px)), Math.max(0f, Math.min(1f, py)));
+    /** One frame into its box at (x, y), clipped to it: the one drawing both outputs share. */
+    private static void drawFrame(@NonNull Canvas canvas, @NonNull Source s, int cell,
+                                  @NonNull Box b, @NonNull Options opt, int x, int y) {
+        int save = canvas.save();
+        canvas.clipRect(x, y, x + b.bw, y + b.bh);
+        canvas.translate(x - b.l, y - b.t);
+        s.renderer.drawCell(canvas, cell, destFor(s, cell, b.cw, b.ch, opt.fit == Fit.FILL), null);
+        canvas.restoreToCount(save);
     }
 
     /**
@@ -324,29 +351,77 @@ public final class SpriteBaker {
         }
     }
 
+    /** What a numbered-frame export did. */
+    public static final class Frames {
+        /** The new folder holding the frames, or null when nothing was published. */
+        @Nullable public final File dir;
+        public final int written;
+        /** True when a frame (or the folder) could not be written: then nothing was published. */
+        public final boolean failed;
+
+        Frames(@Nullable File dir, int written, boolean failed) {
+            this.dir = dir;
+            this.written = written;
+            this.failed = failed;
+        }
+    }
+
     /**
      * Write one numbered PNG per frame, content-fit to the same box so they can be re-imported
      * as a sequence without every frame jittering.
      *
-     * @return how many files were written.
+     * <p>One frame is in memory at a time, in one reused bitmap: the whole sheet used to be baked
+     * first, hundreds of MB for a long sequence, before the first file was written (audit SP-05).
+     * The frames go to a staging folder that becomes a NEW folder ({@code <base>_frames}, then
+     * {@code <base>_frames-2} ...) only once every frame is written: an earlier export is never
+     * overwritten or mixed with this one, and a failure halfway leaves nothing half-done (SP-04).</p>
      */
-    public static int writeFrames(@NonNull List<Source> sources, @NonNull Options opt,
-                                  @NonNull File dir, @NonNull String base) {
-        Result baked = bake(sources, opt);
-        if (baked == null) return 0;
-        int bw = baked.bitmap.getWidth() / Math.max(1, baked.cols);
-        int bh = baked.bitmap.getHeight() / Math.max(1, baked.rows);
+    @NonNull
+    public static Frames writeFrames(@NonNull List<Source> sources, @NonNull Options opt,
+                                     @NonNull File parent, @NonNull String base) {
+        Box b = box(sources, opt);
+        if (b == null) return new Frames(null, 0, false);
+        File stage = new File(parent, base + "_frames.part");
+        deleteTree(stage);   // our own leftover from an export that was cut off
+        if (!stage.mkdirs()) return new Frames(null, 0, true);
+        Bitmap one = Bitmap.createBitmap(b.bw, b.bh, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(one);
         int n = 0;
-        for (Map.Entry<String, Integer> e : baked.map.entrySet()) {
-            int slot = e.getValue();
-            int x = (slot % baked.cols) * bw, y = (slot / baked.cols) * bh;
-            if (x + bw > baked.bitmap.getWidth() || y + bh > baked.bitmap.getHeight()) continue;
-            Bitmap one = Bitmap.createBitmap(baked.bitmap, x, y, bw, bh);
-            File f = new File(dir, String.format(java.util.Locale.US, "%s_%03d.png", base, slot));
-            if (write(one, f, false, 100) != null) n++;
+        boolean failed = false;
+        try {
+            outer:
+            for (Source s : sources) {
+                for (int cell : s.cells) {
+                    one.eraseColor(0);
+                    drawFrame(canvas, s, cell, b, opt, 0, 0);
+                    File f = new File(stage, String.format(java.util.Locale.US, "%s_%03d.png", base, n));
+                    if (write(one, f, false, 100) == null) { failed = true; break outer; }
+                    n++;
+                }
+            }
+        } finally {
             one.recycle();
         }
-        baked.bitmap.recycle();
-        return n;
+        File dest = failed ? null : freshDir(parent, base + "_frames");
+        if (dest == null || !stage.renameTo(dest)) {
+            deleteTree(stage);
+            return new Frames(null, n, true);
+        }
+        return new Frames(dest, n, false);
+    }
+
+    /** {@code name}, or {@code name-2}, {@code name-3} ...: the first that does not exist yet. */
+    @NonNull
+    static File freshDir(@NonNull File parent, @NonNull String name) {
+        File d = new File(parent, name);
+        for (int k = 2; d.exists(); k++) d = new File(parent, name + "-" + k);
+        return d;
+    }
+
+    private static void deleteTree(@NonNull File f) {
+        File[] kids = f.listFiles();
+        if (kids != null) for (File k : kids) deleteTree(k);
+        //noinspection ResultOfMethodCallIgnored
+        f.delete();
     }
 }

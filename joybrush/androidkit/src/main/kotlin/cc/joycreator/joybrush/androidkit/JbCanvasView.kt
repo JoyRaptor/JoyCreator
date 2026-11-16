@@ -2123,7 +2123,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // The common refusals come BEFORE any layer is made (the Lead, 4c review): a GPU that cannot, a phone without the
         // free memory for the window. Said in words; nothing changes.
         mediaCanvas.unsupported?.let { drawing = false; onRefused?.invoke(it); return }
-        val wet = p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
+        // A settings preview lays watercolour only, on its own small wet sheet. Pencil and oil would need an atlas beside the
+        // drawing's (about 600 MB at 6 x 4 on the Fold): not until it is small by construction or kept inside the media budget
+        // (the atlas session, 11-15). Off for the drawing.
+        if (smallMediaPreview && p.media?.medium != MEDIUM_WET) {
+            drawing = false
+            android.util.Log.i("JoyBrushSheet", "settings preview: pencil and oil are not laid here yet (no preview atlas)")
+            return
+        }
+        val wet =p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
         am.getMemoryInfo(info)
@@ -2166,8 +2174,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     private fun feedMedia(ev: MotionEvent, idx: Int) {
+        if (strokePreset == null) return
+        feedMediaSamples(MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation))
+    }
+
+    /** The media stroke's samples in DOCUMENT coordinates: from the pen ([feedMedia]) or laid by [drawStrokes]. */
+    private fun feedMediaSamples(samples: List<PenSample>) {
         val p = strokePreset ?: return
-        val samples = MotionEventSamples.from(ev, idx, { x, y -> view.screenToDoc(x, y) }, view.rotation)
         val snap = snapper
         val out = ArrayList<PenSample>(samples.size)
         for (s in samples) {
@@ -2663,6 +2676,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * so the preview can lay them again with the brush as the sliders change it. UI thread. Off for the drawing.
      */
     var keepDrawnStrokes = false
+
+    /**
+     * A brush's settings preview only: pencil and oil are not laid (startMediaStroke; their atlas, [PREVIEW_SLOTS] if ever
+     * built, is never one sized by the phone's memory). Watercolour goes on the wet sheet as in a drawing, a small one ([PREVIEW_SHEET_LONG_CELLS]) laid
+     * over THIS view (the small stage), not the screen (11-15: in the atlas a big watercolour's test curve did not fit even at 6 x 4). Set before its
+     * first stroke. Off for the drawing.
+     */
+    var smallMediaPreview = false
+        set(v) {
+            field = v
+            mediaCanvas.slotGrid = if (v) PREVIEW_SLOTS else null
+            mediaCanvas.sheetLongCells = if (v) PREVIEW_SHEET_LONG_CELLS else null
+        }
+
     val drawnStrokes = ArrayList<List<PenSample>>()
     private var drawnNow: ArrayList<PenSample>? = null
 
@@ -2943,6 +2970,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val seeds = preset?.takeIf { it.engine == ENGINE_WATERCOLOUR }?.watercolour?.sampleSeeds
             val previewSeed = seeds?.getOrNull(index) ?: seeds?.firstOrNull()?.plus(index.toLong())
             startStroke(eraser = false, watercolourPreviewSeed = previewSeed)
+            // A pencil, watercolour or oil stroke goes to the media engine as the pen's would (the brush settings preview).
+            if (mediaStroke) {
+                feedMediaSamples(samples.map { s -> val (dx, dy) = view.screenToDoc(s.x, s.y); s.copy(x = dx, y = dy) })
+                finishStroke()
+                continue
+            }
             // With the symmetry on, the lanes have their own smoothers and the view has none.
             val sm = smoother
             if (sm == null && symmetryLanes.isEmpty()) continue
@@ -4506,6 +4539,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     companion object {
+        /**
+         * A settings preview's atlas: 6 x 4 slots of 256 px, the floor a drawing gets (24 to 48). 6 x 3 refused the test curve of a
+         * big watercolour (its water reached 19 areas of 16, Fold 4, 11-15). About 15 MB a slot, let go when the sheet closes.
+         */
+        val PREVIEW_SLOTS = 6 to 4
+
+        /**
+         * A settings preview's wet sheet: 512 cells along its long side, not a drawing's 1280. The sheet's grid follows the
+         * Water detail switch, not the view, so the small stage got a full-screen sheet (257 MB, Fold 4, 11-15); at 512 it
+         * is about 43 MB, cells of about 1.6 stage px.
+         */
+        const val PREVIEW_SHEET_LONG_CELLS = 512
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L
         private const val PEN_PREFS = "joybrush.canvas"

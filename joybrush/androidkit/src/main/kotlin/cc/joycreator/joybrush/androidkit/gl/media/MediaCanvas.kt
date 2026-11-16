@@ -80,8 +80,16 @@ class MediaCanvas(
         // When the drawing's media room is full, old paint sets to make room (MediaRoom); never what the tool holds.
         paint.mediaRoomKeep = { layer, plane -> window?.takeIf { it.layerId == layer && it.plane == plane }?.keptForRoom().orEmpty() }
     }
-    /** Debug probe only (MediaUndoProbe, MediaAtlasLedgerProbe): the atlas's slot grid, columns x rows, instead of the phone's memory. */
+    /**
+     * The atlas's slot grid, columns x rows, instead of the phone's memory: debug probes (MediaUndoProbe,
+     * MediaAtlasLedgerProbe) and a brush settings preview (JbCanvasView.smallMediaPreview), which must stay small.
+     */
     internal var slotGrid: Pair<Int, Int>? = null
+    /**
+     * Cells along the wet sheet's long side instead of the owner's Water detail switch ([WetSheet.longCells]): a brush
+     * settings preview (JbCanvasView.smallMediaPreview), whose stage is small on screen. Set before the first wet stroke.
+     */
+    internal var sheetLongCells: Int? = null
     /** The atlas in use, if the engine places tiles freely (probe counters: parked tiles, admission misses, blocks). */
     internal val atlas: MediaAtlas? get() = window as? MediaAtlas
     /** Why this GPU cannot do media, once found out: said again rather than retried every stroke. Read by the UI thread. */
@@ -282,7 +290,7 @@ class MediaCanvas(
         // Watercolour on the wet sheet (WET_SHEET_20261110), on the shared plane or on the animation frame under the pen
         // (2026-11-13: the wash is drawn and printed only where that plane owns the pixels). A blank frame and a layer with
         // editable lines keep the atlas's water.
-        if (spec.medium == MEDIUM_WET && WetSheet.enabled && !paint.mediaPlaneBlankAt(layerId, x, y) &&
+        if (spec.medium == MEDIUM_WET && WetSheet.enabled &&!paint.mediaPlaneBlankAt(layerId, x, y) &&
             paint.localHistory && !paint.layerHasLines(layerId))
             return beginOnSheet(layerId, paint.mediaPlaneAt(layerId, x, y), preset, spec, argb, x, y, nowMs, symmetry)
         // Any other realistic paint on the sheet's layer goes over the wash: it is printed first.
@@ -403,7 +411,7 @@ class MediaCanvas(
                              symmetry: Guide.Symmetry?): String? {
         if (preset.mediaScale() <= 0.0) return "This brush has no size."
         val (avail, threshold) = memory()
-        val s = sheet ?: WetSheet(paint, shaders).also { sheet = it }
+        val s = sheet ?: WetSheet(paint, shaders).also { sheet = it; it.ownLongCells = sheetLongCells }
         look = MediaLook(rgb(paint.paperArgb).map { it.toFloat() }.toFloatArray(), lamp = look.lamp)
         s.begin(layerId, plane, x, y, sheetView, paint.mediaPaper(), look, avail, threshold)?.let { return it }
         val scaled = spec.scaled(preset.mediaScale())

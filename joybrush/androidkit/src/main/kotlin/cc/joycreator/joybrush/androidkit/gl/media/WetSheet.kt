@@ -60,6 +60,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
     /** What that plane owns of the document, as the layer's frames stood at the last stroke's start; null = all of it. */
     private var region: GlPaintEngine.PlaneRegion? = null
 
+    /** Cells along this sheet's long side instead of the owner's switch ([longCells]): a brush settings preview's small sheet. */
+    var ownLongCells: Int? = null
+
     /** Document px per cell, and the sheet's origin (document px). */
     var cell = 2.0
         private set
@@ -108,8 +111,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
               availBytes: Long, thresholdBytes: Long): String? {
         val same = layer == layerId && plane == this.plane
         val turned = abs(sin(view.rotation.toDouble())) > 0.7071
-        val wantGrid = if (turned) WetSheetMath.grid(view.screenH, view.screenW, longCells) else WetSheetMath.grid(view.screenW, view.screenH, longCells)
-        val wantCell = forcedCell?.toDouble() ?: WetSheetMath.cellFor(view.zoom, max(view.screenW, view.screenH), longCells)
+        val long = ownLongCells ?: longCells
+        val wantGrid = if (turned) WetSheetMath.grid(view.screenH, view.screenW, long) else WetSheetMath.grid(view.screenW, view.screenH, long)
+        val wantCell = forcedCell?.toDouble() ?: WetSheetMath.cellFor(view.zoom, max(view.screenW, view.screenH), long)
         if (holding && (!same || !covers(docX, docY) || (forcedCell == null && !coversView(view)) || WetSheetMath.tooCoarse(cell, wantCell))) {
             // The view moved: when everything the sheet holds still fits on a sheet laid for the new view, it comes along whole,
             // still wet (carry).

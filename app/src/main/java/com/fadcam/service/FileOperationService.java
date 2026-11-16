@@ -114,6 +114,18 @@ public class FileOperationService extends Service implements FileOperationManage
         return binder;
     }
     
+    /**
+     * Android 15 (bug hunt B6, 11-15): a dataSync service may run six hours a day; when
+     * Android says time is up it must stop at once, or the app is closed. onDestroy
+     * stops the work that is still running.
+     */
+    @Override
+    public void onTimeout(int startId, int fgsType) {
+        FLog.w(TAG, "System time limit reached: stopping");
+        stopForeground(STOP_FOREGROUND_REMOVE);
+        stopSelf();
+    }
+
     @Override
     public void onDestroy() {
         FLog.d(TAG, "Service destroyed");

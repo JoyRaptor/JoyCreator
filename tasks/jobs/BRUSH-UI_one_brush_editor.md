@@ -157,3 +157,16 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   tips must be prepared first skip the pictures and keep the words.
 - **Still owed:** Unibrush's own stage (no Clear / Test yet), the hover outline from `Footprint`, the media brushes'
   dab ends.
+
+## Brush lane, 11-15: watercolour paints on the settings stage
+- **Watercolour lays its test curve and the owner's own strokes on the settings stage**, on a wet sheet of the stage's
+  own (512 cells along its long side, `JbCanvasView.PREVIEW_SHEET_LONG_CELLS`; `WetSheet.ownLongCells` via
+  `MediaCanvas.sheetLongCells`). The stage's strokes go to the media engine as the pen's would (`drawStrokes` ->
+  `feedMediaSamples`; the live pen's `feedMedia` only builds the samples and calls the same function).
+- **Seen on the Note 9** (cloud build cbd810e7f): Round paints whole, "sheet memory: 38 MB for 608 x 288 cells";
+  graphics 88 MB before, 116 MB open, back down on close. The drawing's own sheet is unchanged (bench band0,band1:
+  720 x 1376 cells, 218 MB, as the Detailed receipt). Fold 4 too (before the sheet was made small it took 257 MB).
+- **Pencil and oil are not laid on the stage yet** (the stage logs it, no curve, as before). An atlas for them took
+  about 600 MB of graphics on the Fold even at 6 x 4 slots; the atlas session's condition (11-15): make it small by
+  construction (about 3 x 2 slots, under 100 MB by the atlas's own count) or build it only inside the media budget,
+  and let it go on pause and on graphics loss as well as on close. Next brush-lane step.

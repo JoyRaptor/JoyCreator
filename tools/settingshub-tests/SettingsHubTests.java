@@ -250,7 +250,7 @@ public final class SettingsHubTests {
         String java = read(HUB + "SettingsCatalog.java");
         Matcher m = Pattern.compile(
                 "new Section\\(R\\.string\\.(\\w+),\\s*R\\.string\\.\\w+,\\s*\"\\w+\""
-                + "|(?:row|new Row)\\(SettingsKey\\.(\\w+),\\s*\"\\w+\",\\s*R\\.string\\.(\\w+),\\s*R\\.string\\.(\\w+),\\s*R\\.string\\.(\\w+)")
+                + "|(?:row|new Row)\\(SettingsKey\\.(\\w+),\\s*\"\\w+\",\\s*(?:R\\.drawable\\.\\w+,\\s*)?R\\.string\\.(\\w+),\\s*R\\.string\\.(\\w+),\\s*R\\.string\\.(\\w+)")
                 .matcher(java);
         while (m.find()) {
             if (m.group(1) != null) {

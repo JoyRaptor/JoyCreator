@@ -2643,17 +2643,26 @@ class GlPaintEngine(
      * Tiles whose memory the graphics driver no longer holds: they draw black and cannot be read, and one of them used to
      * stop every save of the drawing. Each gets fresh blank memory under its own name, so the rest of the drawing saves.
      * What the tile held is gone. Run before a save reads the tiles; returns how many were lost.
+     *
+     * Two ways to be lost (JBX-35): the name still stands but has no memory (the framebuffer is incomplete), or the NAME
+     * itself is gone, deleted from under the tile. For a gone name the driver refuses the attach and leaves the tile checked
+     * before it on the framebuffer, so completeness alone called every such tile healthy after the first: the name and the
+     * attach are asked too. What this cannot see: a name deleted and then given to another texture. That name is alive and
+     * holds another owner's pixels; only never deleting twice prevents it ([MediaLayerEngine.release]).
      */
     fun repairLostTiles(): Int {
         var lost = 0
+        while (GLES30.glGetError() != GLES30.GL_NO_ERROR) { /* an older error is not this tile's */ }
         for (layer in layers.values) {
             var repaired = false
             for (tex in (layer.tiles.values + layer.cels.values.flatMap { it.values }).distinct()) {
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fbo)
+                val named = GLES30.glIsTexture(tex)
                 attach(tex)
+                val attachError = GLES30.glGetError()
                 val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
-                if (status == GLES30.GL_FRAMEBUFFER_COMPLETE) continue
-                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("layer ${layer.id}: tile texture $tex lost (framebuffer status $status, is texture ${GLES30.glIsTexture(tex)}, GL error ${GLES30.glGetError()})")
+                if (named && attachError == GLES30.GL_NO_ERROR && status == GLES30.GL_FRAMEBUFFER_COMPLETE) continue
+                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("layer ${layer.id}: tile texture $tex lost (framebuffer status $status, is texture $named, attach error $attachError)")
                 GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, tex)
                 GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_RGBA8, size, size, 0, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, null)
                 attach(tex)
@@ -8049,8 +8058,10 @@ class GlPaintEngine(
         GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, tex, 0)
     }
 
-    /** True while [tex] still has memory the driver can read. */
+    /** True while [tex] still has memory the driver can read. A name that is gone is asked first: its attach is refused and
+     *  would leave the tile read before it on the framebuffer, which reads as healthy (JBX-35). */
     private fun tileReadable(tex: Int): Boolean {
+        if (!GLES30.glIsTexture(tex)) return false
         GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFbo)
         GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, tex, 0)
         return GLES30.glCheckFramebufferStatus(GLES30.GL_READ_FRAMEBUFFER) == GLES30.GL_FRAMEBUFFER_COMPLETE

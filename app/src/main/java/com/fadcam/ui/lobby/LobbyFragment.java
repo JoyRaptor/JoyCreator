@@ -1740,9 +1740,12 @@ public class LobbyFragment extends BaseFragment {
                 return;
             }
             if (item.projectId != null) { openProject(item.projectId); return; }
-            // A recording is not a project: opening it in the editor would silently CREATE
-            // one. Sending the user to the Library is the honest action until "start a
-            // project from this clip" exists as a deliberate choice.
+            // A recording, export or picture plays in the Library's own viewer, the same as
+            // its Library card (SHELL-02, 11-15). Not the editor: that would silently create a
+            // project. Only something with no file link falls back to the Library.
+            if (item.thumbUri != null && getActivity() != null
+                    && com.fadcam.ui.library.LibraryGlance.openMedia(getActivity(), item.thumbUri,
+                            item.image, item.category, item.name)) return;
             openLibrary(false);
         });
         Motion.press(card);
@@ -1769,6 +1772,10 @@ public class LobbyFragment extends BaseFragment {
         @Nullable String drawingFile;
         /** The Library's own item, when this card is a sheet, character or VisLab look: opened as the Library opens it. */
         @Nullable com.fadcam.ui.library.LibraryItem libraryItem;
+        /** A recording, export or picture: true when it is a still (opens the picture viewer, not the player). */
+        boolean image;
+        /** The recorder's category name (CAMERA, SCREEN...), handed to the player as the Library hands it. */
+        @Nullable String category;
 
         Recent(String name, Kind kind, String thumbUri, long when,
                int gradA, int gradB, @Nullable String projectId) {
@@ -1918,8 +1925,11 @@ public class LobbyFragment extends BaseFragment {
                                 // Nobody knows who made it: say only what it is.
                                 a = G_LIBRARY_A; b = G_LIBRARY_B; kind = image ? Kind.PICTURE : Kind.VIDEO; break;
                         }
-                        merged.add(new Recent(v.displayName, kind, v.uri.toString(),
-                                v.lastModified, a, b, null));
+                        Recent r = new Recent(v.displayName, kind, v.uri.toString(),
+                                v.lastModified, a, b, null);
+                        r.image = image;
+                        r.category = v.category == null ? null : v.category.name();
+                        merged.add(r);
                     }
                 }
             } catch (Exception e) {

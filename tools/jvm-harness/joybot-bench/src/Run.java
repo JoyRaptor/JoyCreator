@@ -172,10 +172,19 @@ final class Run {
 
     static JoybotAgent.Ask ask(State s, JsonObject task, String words, String model, String apiKey) {
         JoybotAgent.Situation sit = new JoybotAgent.Situation();
-        sit.room = str(task, "room", "studio").equals("vislab") ? IdeaEngine.Room.VISLAB : IdeaEngine.Room.STUDIO;
+        String room = str(task, "room", "studio");
+        sit.room = room.equals("vislab") ? IdeaEngine.Room.VISLAB
+                : room.equals("lobby") ? IdeaEngine.Room.LOBBY : IdeaEngine.Room.STUDIO;
         sit.selectedId = str(task, "selected", null);
         sit.playheadMs = task.has("playheadMs") ? task.get("playheadMs").getAsLong() : -1;
-        JoybotAgent.Ask ask = new JoybotAgent.Ask(s.pid, words, model, apiKey,
+        // BOT-7: in the lobby no project is open; the fixture is only "the last project you had open".
+        String pid = s.pid;
+        if (sit.room == IdeaEngine.Room.LOBBY) {
+            sit.lastProjectId = s.pid;
+            sit.lastProjectName = "Bench project";
+            pid = null;
+        }
+        JoybotAgent.Ask ask = new JoybotAgent.Ask(pid, words, model, apiKey,
                 "Joybot: “" + JoybotAgent.shortOf(words) + "”", sit);
         ask.question = HelpBook.isQuestion(words);   // as the chat sets it
         if (task.has("director") && task.get("director").getAsBoolean()) {

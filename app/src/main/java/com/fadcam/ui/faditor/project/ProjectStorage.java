@@ -902,8 +902,7 @@ public class ProjectStorage {
         // Folder I/O, so only off the main thread; both callers that delete for a person do so
         // from the folder's own thread.
         if (android.os.Looper.myLooper() != android.os.Looper.getMainLooper()
-                && com.fadcam.joyfolder.android.JoyFolderHome.isChosen(context)
-                && !com.fadcam.joyfolder.studio.StudioMirror.readyToDelete(context, projectId)) {
+                && com.fadcam.joyfolder.studio.StudioMirror.deleteUnsafe(context, projectId)) {
             FLog.w(TAG, "Project kept: its folder copy or media could not be made safe first: " + projectId);
             return false;
         }

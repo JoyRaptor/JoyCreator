@@ -1,6 +1,6 @@
 # BOT-7: Joybot in the lobby is your guide; colours say where things will happen
 
-**Milestone:** M1/M2 (launch polish)  ·  **State:** ⬜ card written 11-15  ·  **Owner:** Joybot brain lane  ·  **Checked:** 2026-11-15
+**Milestone:** M1/M2 (launch polish)  ·  **State:** 🟡 built 11-15, agent-checked on the Note 9 (first pass)  ·  **Owner:** Joybot brain lane  ·  **Checked:** 2026-11-15
 
 ## Why it matters
 The owner, 11-15, after trying Joybot in the lobby. He tapped "make a transition", and Joybot said "I made a
@@ -56,5 +56,40 @@ a connected AI only makes it more flexible.
 - JoyBrush board presets go through a launch intent the JoyBrush screens lane provides; don't edit JoyBrush internals.
 - The chat's layout, bubble drawable and actor belong to the joybot-sprites lane: agree any change to them with it.
 
-## Where it stands
-Card written 11-15 by the orchestrator from the owner's words. Nothing built.
+## Added by the orchestrator, 11-15 (owner)
+- [x] **Talk to him and he does it** ("go to sleep", "hop", "backflip", "beg", "roll over", "shake"): typed, offline, is the
+      sprites lane's (`JoybotDirector.trickFor` in sendMessage). Owed here: a `do_trick` tool for "anything close" with an AI,
+      once `JoybotDirector.trick` is on joy-creator.
+- [x] **Jokes, offline:** 66 (`joybot/JokeBook`), none back until most have had a turn. The owner judges the wit.
+- **First run v1 and the spotlight tour engine: the owner's own job** (owner 11-15, via the orchestrator: he makes the
+  intro, welcome and getting-started himself with his own footage). Built briefly 11-15 and removed before landing. The
+  create tree is offered whenever Joybot opens in the lobby, not as a first-run step.
+
+## Where it stands (11-15, BOT-7 lane, branch `claude/joybot-brain-20261115-43c4fd`)
+Built, all offline; tests: IdeaEngineTest 1,189 pass (new: honesty in every room, shapes, the tree, lobby guide, jokes,
+colours); joybot bench 65/65 incl. `host-lobby-transition` (asks, changes nothing) and `host-lobby-new-project`.
+- Honesty: `joybot/Preflight` runs before every tool, in the agent (`JoybotAgent.runTool`); no "On it…" for a call that
+  won't run; "Doing it…" gone. Held calls end the request with one sentence + buttons (`ChatAssistantActivity.showHeld`).
+- 3:1: `new_studio_project(shape)` (`actions/CreateActions`), any shape, with a built-in title card so it can reopen;
+  fixed `SlideFiles.dimensionsFor` drawing custom canvases 9:16.
+- Lobby scope: the chat opened from the lobby treats its project as "last project" only; `CarriedAsk` offers the request
+  once in the project.
+- Buttons + tree: `LobbyGuide`, `CreateTree` (+ `CreateBubbles`, `CreateUsage`, `CreateLanding` → `JoyBrushLaunch`).
+- Colours: `RoomColours` (pure) + `RoomTint` (views). Split agreed with the sprites lane: they own the drawables and layout;
+  the send arrow is tinted from initViews (`RoomTint.send`), at their request. Joybot's own = his orb pair: owner to OK.
+- **Note 9, 11-15 17:06 (agent, build ec88011f0, AI connected):** lobby buttons and colours, create bubbles, the owner's
+  "new blank studio project 3.1" → "Untitled 3:1" opened in the Studio, "make a transition" in the lobby (honest, nothing
+  changed), Hand animation → 16:9 → 12 → JoyBrush with a 16:9 Animation board, a joke, Show me around. Shots and notes:
+  [tasks/screens/bot7-20261115](../screens/bot7-20261115/README.md). Found and fixed after it (bacc368ed, not yet re-seen
+  on a device): the new project's first open had no picture (now the card is drawn first), the model's own "open your
+  last one?" got no button, restored messages lost their room colour, the lobby's best button was Studio green.
+- **Note 9 re-check, 11-15 18:18 (build bacc368ed):** ✅ "new blank studio project 3 by 1" → "Untitled 3:1 2" opens
+  with its 3:1 picture at once and the title card plays; ✅ the lobby's best button in Joybot's purple; ✅ colours kept
+  after closing and reopening the chat; ✅ bubbles in this person's order (Video, made twice, first). The free model
+  then answered "make a transition" with "Which cut?" (honest, nothing changed, but about a project nobody could see):
+  since 09d3b60b8 the lobby asks "in the last project you had open?" BEFORE any AI reads such a request.
+- **Test Fold, 11-15 19:54 (build 09d3b60b8, no AI):** ✅ "make a transition" in the lobby asks at once about
+  "Untitled 2" with Open it / Not now; ✅ Open it opens it and Joybot there offers "Shall I do it here now?".
+- Not checked: the image / tile / sprite / perspective landings and sprite-edit / find on a device;
+  icons are placeholders until ICON-1; Joybot's own colours (his orb's purple) await the owner's OK.
+

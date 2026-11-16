@@ -154,6 +154,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private int stagedW, stagedH;
     private String model;
     private String projectId;
+    /** BOT-7: in the lobby, the last project the person had open (named, never worked on unasked). */
+    @Nullable private String lastProjectId;
 
     private final ExecutorService aiExecutor = Executors.newSingleThreadExecutor();
 
@@ -209,6 +211,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             String r = getIntent().getStringExtra(EXTRA_ROOM);
             if (r != null) room = IdeaEngine.Room.valueOf(r);
         } catch (IllegalArgumentException ignored) { }
+        // BOT-7 (owner 11-15): in the lobby no project is open. The lobby hands over its newest
+        // project; Joybot only NAMES it ("in the last project you had open?") and never works on
+        // it unseen. Its job there is to guide, tour, create and find.
+        if (room == IdeaEngine.Room.LOBBY && projectId != null) {
+            lastProjectId = projectId;
+            projectId = null;
+        }
+        readLastProjectName();
         ideaMemory = new IdeaMemory(this);
         com.fadcam.ui.faditor.ai.joybot.TipUsage.openedIn(this, room);
         // The conversation is kept while the app is open, one per project (or room): opening
@@ -274,6 +284,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         showFinishedWhileAway();
         offerCarryOn();
         offerBringIn();
+        offerCarried();
         // A plan still waiting for Go ahead: its card isn't in the saved words, so show it again.
         JoybotAgent.Plan waitingPlan = JoybotAgent.pendingPlan(projectId);
         if (waitingPlan != null && !planCardShown && JoybotAgent.liveFor(chatKey) == null) addPlanCard(waitingPlan);
@@ -302,6 +313,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 addUserMessage(msg[1]);
             } else if ("tool".equals(msg[0])) {
                 addToolResultMessage(msg[1]);   // a quiet tool line again, not a speech bubble
+            } else if (msg.length > 2 && msg[2] != null) {
+                addBotMessageIn(msg[1], msg[2]);   // BOT-7: it keeps the room colour it was said in
             } else {
                 addBotMessage(msg[1]);
             }
@@ -312,6 +325,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         messagesContainer = findViewById(R.id.chat_messages);
         inputField = findViewById(R.id.chat_input);
         sendButton = findViewById(R.id.chat_send);
+        // BOT-7 (split agreed with the sprites lane 11-15): the send arrow wears Joybot's colours in
+        // the lobby and the room's inside a room.
+        if (sendButton instanceof android.widget.ImageView) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.send((android.widget.ImageView) sendButton,
+                    com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, com.fadcam.ui.faditor.ai.joybot.RoomColours.home(room)));
+        }
         scrollContainer = findViewById(R.id.chat_scroll);
         tickerContainer = findViewById(R.id.chat_ticker);
         rebuildTicker();
@@ -859,7 +878,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // to the wings this person uses, then the idea buttons below.
         com.fadcam.ui.faditor.ai.joybot.TipBook.Tip tip = com.fadcam.ui.faditor.ai.joybot.TipUsage.next(this);
         String did = com.fadcam.ui.faditor.ai.joybot.TipBook.said(tip);
-        if (!AiService.ready(this, apiKey)) {
+        if (room == IdeaEngine.Room.LOBBY) {
+            // BOT-7: in the lobby he is your guide: make, find, show around.
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.greeting(did, AiService.ready(this, apiKey)));
+        } else if (!AiService.ready(this, apiKey)) {
             // Offline is not a lesser Joybot: everything the buttons do runs on the phone.
             addBotMessage(com.fadcam.ui.faditor.ai.joybot.Greeting.offline(did));
         } else {
@@ -891,8 +913,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     }));
         }
         if (go) {
-            row.addView(JoybotChatViews.cardButton(this, "Take me there",
-                    "Open the part of the app this tip is about", v -> route(where)));
+            TextView there = JoybotChatViews.cardButton(this, "Take me there",
+                    "Open the part of the app this tip is about", v -> route(where));
+            // "Take me there" wears the destination room's colours (BOT-7).
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.pill(there, com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, where));
+            row.addView(there);
         }
         messagesContainer.addView(row);
         messageViews.add(row);
@@ -1044,6 +1069,49 @@ public class ChatAssistantActivity extends AppCompatActivity {
             setupFlow.start();
             return;
         }
+        // BOT-7: mid "Create something", typing answers the question on screen.
+        if (createFlow != null) {
+            answerCreate(text);
+            return;
+        }
+        // "Tell me a joke": his own roster, offline (owner 11-15).
+        if (com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(text)) {
+            tellJoke();
+            return;
+        }
+        // "I want to make something" / "a new blank Studio project, 3:1": the create tree, offline.
+        // Outside the lobby only a request for something NEW ("new", "blank") starts it, so "make a
+        // title" in the Studio still means a title in this project.
+        if (com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.anything(text)) {
+            startCreate(null, null);
+            return;
+        }
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind makeKind = com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.start(text);
+        if (makeKind != null && (room == IdeaEngine.Room.LOBBY || room == IdeaEngine.Room.LIBRARY
+                || com.fadcam.ui.faditor.ai.joybot.CreateTree.Words.newAnywhere(makeKind) && norm(text).matches(".*\\b(new|blank|fresh|empty)\\b.*"))) {
+            startCreate(makeKind, text);
+            return;
+        }
+        if (com.fadcam.ui.faditor.ai.joybot.LobbyGuide.asksTour(text)) {
+            startTour();
+            return;
+        }
+        // In the lobby a change to a project ("make a transition") gets the "in the last project you
+        // had open?" question at once, before any AI reads it (Note 9 11-15: a free model asked
+        // "which cut?" about a project nobody could see).
+        if (room == IdeaEngine.Room.LOBBY && com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyProjectChange(text)) {
+            com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict ask =
+                    com.fadcam.ui.faditor.ai.joybot.Preflight.lobbyAsk(text, lastProjectId, lastProjectName());
+            if (ask != null) {
+                addBotMessageIn(ask.say, "studio");
+                showHeld(ask, text);
+                return;
+            }
+        }
+        if (room == IdeaEngine.Room.LOBBY && com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(text)) {
+            showWhat();
+            return;
+        }
         // "What can I do here?": this room's real actions, in plain words (BOT-2), online or off.
         if (com.fadcam.ui.faditor.ai.joybot.WhatHere.asks(text)) {
             addBotMessage(com.fadcam.ui.faditor.ai.joybot.WhatHere.answer(room, projectId != null, AiService.ready(this, apiKey), roomActions()));
@@ -1182,6 +1250,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         where.room = room;
         where.playheadMs = getIntent().getLongExtra(EXTRA_PLAYHEAD_MS, -1);
         where.selectedId = getIntent().getStringExtra(EXTRA_SELECTED_ID);
+        where.lastProjectId = lastProjectId;
+        where.lastProjectName = lastProjectName();
         IdeaEngine.Offer o = currentOffer;
         if (o != null && o.hasIdea()) {
             for (Idea i : o.ideas) if (i.kind != Idea.Kind.TYPE) where.suggestions.add(i.label);
@@ -1263,6 +1333,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             }
             doneTalking(f.ok);
             renderFinishedExtras(f);
+            if (f.held != null) showHeld(f.held, f.asked);
+            else if (room == IdeaEngine.Room.LOBBY && lastProjectId != null
+                    && com.fadcam.ui.faditor.ai.joybot.Preflight.offersToOpen(f.reply, lastProjectName())) {
+                showHeld(com.fadcam.ui.faditor.ai.joybot.Preflight.askProject(lastProjectId, f.reply), f.asked);
+            }
             return true;
         }
     };
@@ -1312,6 +1387,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
             currentOffer = IdeaEngine.offer(f, room, java.util.Collections.<String>emptySet(),
                     java.util.Collections.<String>emptySet());
             if (!busy && slideFlow == null) showChips(currentOffer.ideas);
+            return;
+        }
+        if (room == IdeaEngine.Room.LOBBY) {
+            // BOT-7: the lobby's own doors, never a project's ideas (no project is open here).
+            currentOffer = null;
+            if (!busy && createFlow == null && tourStops == null) {
+                showChips(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.firstButtons());
+            }
             return;
         }
         if (projectId == null) {
@@ -1447,6 +1530,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
             @Override public void onTap(@NonNull Idea idea) { runIdea(idea, true); }
             @Override public void onDismiss(@NonNull Idea idea) { dismissIdea(idea); }
         });
+        // BOT-7: in the lobby the green "best" button is Joybot's own: no one room's colours.
+        if (room == IdeaEngine.Room.LOBBY && chipsRow.getChildCount() > 0 && chipsRow.getChildAt(0) instanceof TextView
+                && !ideas.isEmpty() && ideas.get(0).kind != Idea.Kind.TYPE) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.pill((TextView) chipsRow.getChildAt(0),
+                    com.fadcam.ui.faditor.ai.joybot.RoomColours.of(com.fadcam.ui.faditor.ai.joybot.RoomColours.JOYBOT));
+        }
         chipsScroll.scrollTo(0, 0);
         if (chipsScroll.getVisibility() != View.VISIBLE) {
             chipsScroll.setVisibility(View.VISIBLE);
@@ -1501,6 +1590,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 }
                 break;
             case FLOW:
+                if (runLobbyIdea(idea)) break;
                 if (IdeaEngine.FLOW_PICTURE.equals(idea.flow)) {
                     startPictureFlow(null);
                 } else if (IdeaEngine.FLOW_SLIDE.equals(idea.flow)) {
@@ -2324,6 +2414,14 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     /** "Take me there": a tab of the main screen, or a screen that opens on its own. */
     private void route(@NonNull String where) {
+        // BOT-7: a project Joybot just made ("new_studio_project") opens in the editor.
+        if (where.startsWith("project:")) { openProject(where.substring("project:".length())); return; }
+        if ("studio_audio".equals(where)) {
+            startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                    .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_START_BLANK_AUDIO, true));
+            finish();
+            return;
+        }
         int tab;
         switch (where) {
             case IdeaEngine.ROUTE_RECORD: tab = 0; break;
@@ -3008,6 +3106,509 @@ public class ChatAssistantActivity extends AppCompatActivity {
     }
 
     /** End of a model reply (or chain): buttons back, Joybot settles. */
+    // ══ BOT-7: the lobby's guide, the create tree, the tour ═════════════════════════════
+    // Owner 11-15: in the lobby Joybot is a wizard, butler, custodian, co-pilot and tour guide.
+    // Buttons first, no typing needed; the create tree lands you in the right room already set up.
+
+    /** A walk through "Create something", or null. */
+    @Nullable private com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow createFlow;
+    /** The Library, read when the tree starts (sprite sheets to edit, things to find). */
+    @Nullable private List<com.fadcam.ui.library.LibraryItem> libraryItems;
+    @Nullable private com.fadcam.ui.library.LibraryGlance libraryGlance;
+    /** "Show me around": its stops and where we are; null when no tour is on. */
+    @Nullable private List<com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop> tourStops;
+    private int tourAt;
+
+    /** Joybot's words in a room's colours (BOT-7: the colour says where it happens). */
+    private void addBotMessageIn(@NonNull String text, @NonNull String inRoom) {
+        addBotMessage(text);
+        // Remember the room with the words, so a reopened chat shows them in the same colours.
+        synchronized (messageLog) {
+            int last = messageLog.size() - 1;
+            if (last >= 0 && "bot".equals(messageLog.get(last)[0]) && text.equals(messageLog.get(last)[1])) {
+                messageLog.set(last, new String[]{"bot", text, inRoom});
+            }
+        }
+        View last = messageViews.isEmpty() ? null : messageViews.get(messageViews.size() - 1);
+        if (last instanceof FrameLayout && ((FrameLayout) last).getChildAt(0) instanceof TextView) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.bubble((TextView) ((FrameLayout) last).getChildAt(0),
+                    com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, inRoom));
+        }
+    }
+
+    /** This screen is closing or closed: nothing more to show or start. */
+    private boolean gone() {
+        return isFinishing() || isDestroyed();
+    }
+
+    /** The chips row, shown (the BOT-7 rows fill it themselves). */
+    private void showRow() {
+        chipsScroll.scrollTo(0, 0);
+        if (chipsScroll.getVisibility() != View.VISIBLE) {
+            chipsScroll.setVisibility(View.VISIBLE);
+            com.fadcam.ui.motion.Motion.enter(chipsScroll, 0);
+        }
+    }
+
+    /** A lobby button (Create something, Help, Show me around, What can I do…). True when it was one. */
+    private boolean runLobbyIdea(@NonNull Idea idea) {
+        switch (idea.flow) {
+            case com.fadcam.ui.faditor.ai.joybot.LobbyGuide.CREATE:
+                startCreate(com.fadcam.ui.faditor.ai.joybot.CreateTree.kind(idea.target), null);
+                return true;
+            case com.fadcam.ui.faditor.ai.joybot.LobbyGuide.HELP: showHelp(); return true;
+            case com.fadcam.ui.faditor.ai.joybot.LobbyGuide.TOUR: startTour(); return true;
+            case com.fadcam.ui.faditor.ai.joybot.LobbyGuide.WHAT: showWhat(); return true;
+            case com.fadcam.ui.faditor.ai.joybot.LobbyGuide.OPEN_LAST:
+                if (lastProjectId != null) {
+                    addBotMessageIn("Opening it in the Studio.", "studio");
+                    final String id = lastProjectId;
+                    messagesContainer.postDelayed(() -> { if (!gone()) openProject(id); }, 700L);
+                }
+                return true;
+            case com.fadcam.ui.faditor.ai.joybot.LobbyGuide.CONNECT: setupFlow.start(); return true;
+            default: return false;
+        }
+    }
+
+    /** "What can I do?" in the lobby: the answer, and its buttons. */
+    private void showWhat() {
+        boolean online = AiService.ready(this, apiKey);
+        addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatCanIDo(online, lastProjectName()));
+        showChips(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.whatButtons(online, lastProjectName()));
+    }
+
+    /** Help: common questions as buttons, each answered by the help book (no AI). */
+    private void showHelp() {
+        addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.helpIntro());
+        List<String> qs = com.fadcam.ui.faditor.ai.joybot.LobbyGuide.HELP_QUESTIONS;
+        String[][] b = new String[qs.size() + 1][];
+        for (int i = 0; i < qs.size(); i++) b[i] = new String[]{qs.get(i), qs.get(i), "Ask: " + qs.get(i)};
+        b[qs.size()] = new String[]{"Type a question", com.fadcam.ui.faditor.ai.joybot.CreateTree.TYPE_OWN, "Ask in your own words"};
+        com.fadcam.ui.faditor.ai.joybot.CreateBubbles.buttons(chipsRow, b, null, id -> {
+            if (com.fadcam.ui.faditor.ai.joybot.CreateTree.TYPE_OWN.equals(id)) { focusTyping("How do I…"); return; }
+            inputField.setText(id);
+            sendMessage();
+        });
+        showRow();
+    }
+
+    private void focusTyping(@NonNull String hint) {
+        inputField.setHint(hint);
+        inputField.requestFocus();
+        android.view.inputmethod.InputMethodManager imm =
+                (android.view.inputmethod.InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+        if (imm != null) imm.showSoftInput(inputField, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+    }
+
+    // ── the create tree ─────────────────────────────────────────────────────
+
+    /** Starts "Create something", at the bubbles or (when the words named one) at a kind. */
+    private void startCreate(@Nullable com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind kind, @Nullable String said) {
+        tourStops = null;
+        createFlow = new com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow(
+                com.fadcam.ui.faditor.ai.joybot.CreateUsage.counts(this),
+                new ArrayList<com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice>());
+        if (kind != null) createFlow.startingWith(kind, said);
+        readLibraryForCreate();
+        askCreate();
+    }
+
+    /** Reads the Library once (main-thread callbacks), for sheets to edit and things to find. */
+    private void readLibraryForCreate() {
+        if (libraryGlance != null) return;
+        libraryGlance = new com.fadcam.ui.library.LibraryGlance(this);
+        libraryGlance.loadAll((items, complete) -> {
+            if (gone()) return;
+            libraryItems = new ArrayList<>(items);
+            com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow f = createFlow;
+            if (f != null) {
+                f.setSheets(sheetChoices());
+                // Waiting on the sheets question: ask it again now they're known.
+                com.fadcam.ui.faditor.ai.joybot.CreateTree.Question q = f.question();
+                if (complete && q != null && q.ask == com.fadcam.ui.faditor.ai.joybot.CreateTree.Ask.SHEET) askCreate();
+            }
+        });
+    }
+
+    /** The newest sprite sheets, as buttons. */
+    @NonNull
+    private List<com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice> sheetChoices() {
+        List<com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice> out = new ArrayList<>();
+        List<com.fadcam.ui.library.LibraryItem> all = libraryItems;
+        if (all == null) return out;
+        List<com.fadcam.ui.library.LibraryItem> sheets = new ArrayList<>();
+        for (com.fadcam.ui.library.LibraryItem it : all) {
+            if (it.kind == com.fadcam.ui.library.LibraryKind.SPRITE_SHEETS) sheets.add(it);
+        }
+        sheets.sort((a, b) -> Long.compare(b.modified, a.modified));
+        for (int i = 0; i < sheets.size() && out.size() < 4; i++) {
+            com.fadcam.ui.library.LibraryItem it = sheets.get(i);
+            out.add(new com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice(it.key, it.name,
+                    it.parentName != null ? "In “" + it.parentName + "”" : "Open it in Sprite Lab"));
+        }
+        return out;
+    }
+
+    /** Says the tree's next step: the bubbles, a question with its buttons, or lands. */
+    private void askCreate() {
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow f = createFlow;
+        if (f == null) return;
+        if (f.picking()) {
+            addBotMessage("What shall we make? The ones you make most come first.");
+            com.fadcam.ui.faditor.ai.joybot.CreateBubbles.kinds(chipsRow, f.kinds(), this::answerCreate);
+            showRow();
+            return;
+        }
+        if (f.done()) { land(f.landing()); return; }
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Question q = f.question();
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind k = f.kind();
+        if (q == null || k == null) return;
+        if (q.ask == com.fadcam.ui.faditor.ai.joybot.CreateTree.Ask.SHEET && libraryItems == null) {
+            addBotMessageIn("Looking for your sprite sheets…", k.room);
+            return;   // readLibraryForCreate asks again when they're read
+        }
+        addBotMessageIn(q.text, k.room);
+        com.fadcam.ui.faditor.ai.joybot.CreateBubbles.answers(chipsRow, q, k.room, this::answerCreate);
+        showRow();
+    }
+
+    /** A tapped bubble or answer (its id), or typed words. "" = Never mind. */
+    private void answerCreate(@NonNull String raw) {
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Flow f = createFlow;
+        if (f == null) return;
+        if (raw.isEmpty()) {
+            createFlow = null;
+            inputField.setHint("Ask anything…");
+            addBotMessage("No problem: nothing was made.");
+            refreshIdeas(false);
+            return;
+        }
+        if (com.fadcam.ui.faditor.ai.joybot.CreateTree.TYPE_OWN.equals(raw)) {
+            com.fadcam.ui.faditor.ai.joybot.CreateTree.Question q = f.question();
+            focusTyping(q != null && q.typeHint != null ? q.typeHint : "Type your own…");
+            return;
+        }
+        // A tapped bubble names its kind by id: show it as the person's words.
+        com.fadcam.ui.faditor.ai.joybot.CreateTree.Kind tapped = f.picking() ? com.fadcam.ui.faditor.ai.joybot.CreateTree.kind(raw) : null;
+        if (tapped != null) addUserMessage(tapped.label);
+        else if (!f.picking()) {
+            com.fadcam.ui.faditor.ai.joybot.CreateTree.Question q = f.question();
+            if (q != null) for (com.fadcam.ui.faditor.ai.joybot.CreateTree.Choice c : q.choices) {
+                if (c.id.equals(raw)) { addUserMessage(c.label); break; }
+            }
+        }
+        if (!f.answer(raw)) {
+            com.fadcam.ui.faditor.ai.joybot.CreateTree.Question q = f.question();
+            addBotMessage(f.picking() ? "Sorry, I didn't catch which. Tap one of the bubbles below."
+                    : "Sorry, I didn't catch that." + (q != null && q.typeHint != null ? " Try " + q.typeHint.toLowerCase(java.util.Locale.US) + "." : " Tap one of the buttons."));
+            return;
+        }
+        inputField.setHint("Ask anything…");
+        askCreate();
+    }
+
+    /** Lands in the right room, already set up. */
+    private void land(@NonNull com.fadcam.ui.faditor.ai.joybot.CreateTree.Landing l) {
+        createFlow = null;
+        hideChips();
+        com.fadcam.ui.faditor.ai.joybot.CreateUsage.made(this, l.kind.id);
+        String k = l.kind.id;
+        switch (k) {
+            case "video": {
+                addBotMessageIn(l.say, "studio");
+                org.json.JSONObject args = new org.json.JSONObject();
+                try { args.put("shape", l.get("shape")); } catch (org.json.JSONException ignored) { }
+                runAppAction("new_studio_project", args);
+                return;
+            }
+            case "audio": goSoon(l.say, "studio", "studio_audio"); return;
+            case "music_visuals": goSoon(l.say, "vislab", "vislab"); return;
+            case "titles": goSoon(l.say, "textlab", "textlab"); return;
+            case "character": goSoon(l.say, "avatar", "avatar"); return;
+            case "sprite_edit": {
+                String sheet = l.get("sheet");
+                com.fadcam.ui.library.LibraryItem it = itemByKey(sheet);
+                if (it == null) { goSoon(l.say, "library", "library"); return; }
+                addBotMessageIn(l.say, "spritelab");
+                messagesContainer.postDelayed(() -> {
+                    if (!gone() && com.fadcam.ui.library.LibraryGlance.open(this, it)) finish();
+                }, 700L);
+                return;
+            }
+            case "find": landFind(l); return;
+            default: launchJoyBrush(l);
+        }
+    }
+
+    /** Says it in the room's colours, then goes there (a moment to read it first). */
+    private void goSoon(@NonNull String say, @NonNull String colour, @NonNull String where) {
+        addBotMessageIn(say, colour);
+        messagesContainer.postDelayed(() -> { if (!gone()) route(where); }, 700L);
+    }
+
+    @Nullable
+    private com.fadcam.ui.library.LibraryItem itemByKey(@Nullable String key) {
+        if (key == null || libraryItems == null) return null;
+        for (com.fadcam.ui.library.LibraryItem it : libraryItems) if (key.equals(it.key)) return it;
+        return null;
+    }
+
+    /** Find and tidy: the Library, projects, Space; typed words search the Library's names. */
+    private void landFind(@NonNull com.fadcam.ui.faditor.ai.joybot.CreateTree.Landing l) {
+        String f = l.get("find");
+        if ("space".equals(f)) { goSoon(l.say, "library", "space"); return; }
+        if ("projects".equals(f)) { goSoon(l.say, "studio", "studio"); return; }
+        if ("recent".equals(f) || "exports".equals(f) || f == null) { goSoon(l.say, "library", "library"); return; }
+        List<com.fadcam.ui.library.LibraryItem> hits = new ArrayList<>();
+        String q = f.toLowerCase(java.util.Locale.US);
+        if (libraryItems != null) for (com.fadcam.ui.library.LibraryItem it : libraryItems) {
+            if (it.name != null && it.name.toLowerCase(java.util.Locale.US).contains(q)) hits.add(it);
+        }
+        hits.sort((a, b) -> Long.compare(b.modified, a.modified));
+        if (hits.isEmpty()) {
+            addBotMessageIn(libraryItems == null ? "The Library is still being read; I'll open it so you can look."
+                    : "Nothing in the Library is called “" + f + "”. I'll open it so you can look around.", "library");
+            messagesContainer.postDelayed(() -> { if (!gone()) route("library"); }, 1200L);
+            return;
+        }
+        addBotMessageIn(hits.size() == 1 ? "I found one:" : "I found " + hits.size() + ". The newest first:", "library");
+        int n = Math.min(5, hits.size());
+        String[][] b = new String[n + 1][];
+        for (int i = 0; i < n; i++) b[i] = new String[]{hits.get(i).name, hits.get(i).key, "Open it"};
+        b[n] = new String[]{"Open the Library", "library", "See everything"};
+        com.fadcam.ui.faditor.ai.joybot.CreateBubbles.buttons(chipsRow, b, "library", id -> {
+            if ("library".equals(id)) { route("library"); return; }
+            com.fadcam.ui.library.LibraryItem it = itemByKey(id);
+            if (it != null && com.fadcam.ui.library.LibraryGlance.open(this, it)) finish();
+        });
+        showRow();
+    }
+
+    /** JoyBrush with the board already made (the JoyBrush screens lane's launch, 11-15). */
+    private void launchJoyBrush(@NonNull com.fadcam.ui.faditor.ai.joybot.CreateTree.Landing l) {
+        addBotMessageIn(l.say, "joybrush");
+        final cc.joycreator.joybrush.android.JoyBrushLaunch.Preset preset =
+                com.fadcam.ui.faditor.ai.joybot.CreateLanding.preset(l);
+        aiExecutor.execute(() -> {
+            Intent i = null;
+            try {
+                i = cc.joycreator.joybrush.android.JoyBrushLaunch.newDrawing(getApplicationContext(), preset);
+            } catch (Throwable t) {
+                com.fadcam.FLog.w(TAG, "JoyBrush launch", t);
+            }
+            final Intent go = i;
+            runOnUiThread(() -> {
+                if (gone()) return;
+                if (go == null) {
+                    // The honest sentence, never a silent nothing (BOT-7).
+                    addBotMessage("I couldn't make a new drawing: JoyBrush has no drawing folder yet. Open JoyBrush once"
+                            + " and it'll make one.");
+                    nervous();
+                    return;
+                }
+                messagesContainer.postDelayed(() -> {
+                    if (gone()) return;
+                    startActivity(go);
+                    finish();
+                }, 600L);
+            });
+        });
+    }
+
+    /** Runs an app-wide action off the main thread (no AI), then says what happened and goes where it says. */
+    private void runAppAction(@NonNull String tool, @NonNull org.json.JSONObject args) {
+        setBusy(true);
+        actor.setMood(JoybotView.Mood.WORK);
+        aiExecutor.execute(() -> {
+            String r;
+            try {
+                r = com.fadcam.ui.faditor.ai.actions.AppActions.execute(getApplicationContext(), null, tool, args);
+            } catch (Throwable t) {
+                r = "Error: " + t.getMessage();
+            }
+            final String result = r;
+            runOnUiThread(() -> {
+                if (gone()) return;
+                setBusy(false);
+                actor.setMood(JoybotView.Mood.IDLE);
+                if (DirectRunner.isFailure(result)) {
+                    addBotMessage("That didn't work: " + plainError(result).split("\n")[0]);
+                    nervous();
+                    return;
+                }
+                addBotMessageIn(result.split("\n")[0], "studio");
+                String where = com.fadcam.ui.faditor.ai.actions.AppActions.takePendingRoute();
+                if (where != null) messagesContainer.postDelayed(() -> { if (!gone()) route(where); }, 900L);
+            });
+        });
+    }
+
+    // ── Show me around ──────────────────────────────────────────────────────
+
+    private void startTour() {
+        createFlow = null;
+        com.fadcam.launch.LaunchGate.hiddenKeys(this);   // make sure the launch list has been read
+        tourStops = com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(com.fadcam.launch.LaunchList::hiddenRoute);
+        tourAt = 0;
+        addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tourIntro(tourStops.size()));
+        showTourStop();
+    }
+
+    private void showTourStop() {
+        List<com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop> stops = tourStops;
+        if (stops == null) return;
+        if (tourAt >= stops.size()) {
+            tourStops = null;
+            addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tourEnd());
+            showChips(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.firstButtons());
+            return;
+        }
+        final com.fadcam.ui.faditor.ai.joybot.LobbyGuide.Stop s = stops.get(tourAt);
+        addBotMessageIn(s.say, s.room);
+        boolean last = tourAt == stops.size() - 1;
+        String[][] b = {
+                {last ? "Finish" : "Next", "next", last ? "End the tour" : "The next room"},
+                {"Take me there", "go", "Go into " + s.name},
+                {"Stop the tour", "stop", "Back to the lobby's buttons"}};
+        com.fadcam.ui.faditor.ai.joybot.CreateBubbles.buttons(chipsRow, b, null, id -> {
+            if ("next".equals(id)) { tourAt++; showTourStop(); }
+            else if ("go".equals(id)) { tourStops = null; route(s.route); }
+            else { tourStops = null; addBotMessage("OK. Ask me anything, any time."); refreshIdeas(false); }
+        });
+        // "Take me there" wears the destination room's colours (owner 11-15).
+        if (chipsRow.getChildCount() > 1 && chipsRow.getChildAt(1) instanceof TextView) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.pill((TextView) chipsRow.getChildAt(1),
+                    com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, s.room));
+        }
+        showRow();
+    }
+
+    // ── BOT-7: held back before it ran (Preflight) ────────────────────────────
+
+    /** The lobby's last project's name, read once off the main thread; null until read or when none. */
+    @Nullable private volatile String lastProjectNameRead;
+
+    @Nullable
+    private String lastProjectName() {
+        return lastProjectNameRead;
+    }
+
+    /** Reads the last project's name for "in “Holiday”, the last project you had open?". */
+    private void readLastProjectName() {
+        final String id = lastProjectId;
+        if (id == null) return;
+        aiExecutor.execute(() -> {
+            try {
+                com.fadcam.ui.faditor.model.FaditorProject p =
+                        new com.fadcam.ui.faditor.project.ProjectStorage(getApplicationContext()).load(id);
+                if (p != null) lastProjectNameRead = p.getName();
+            } catch (Throwable t) {
+                com.fadcam.FLog.w(TAG, "last project name unread", t);
+            }
+        });
+    }
+
+    /**
+     * Joybot held a request back ({@link com.fadcam.ui.faditor.ai.joybot.Preflight}): his one
+     * sentence is already in the chat; this adds its buttons. ASK: "Open it" (the request is carried
+     * there and offered again) or "Not now" (nothing happens). CANT: the nervous look and the
+     * nearest thing he can do.
+     */
+    private void showHeld(@NonNull com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict v, @Nullable String asked) {
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this, "", null);
+        card.root.removeView(card.title);
+        boolean ask = v.kind == com.fadcam.ui.faditor.ai.joybot.Preflight.Verdict.Kind.ASK;
+        if (ask) {
+            String label = v.nearestLabel != null ? v.nearestLabel : "Open it";
+            TextView open;
+            card.buttons.addView(open = JoybotChatViews.cardButton(this, label,
+                    "Go there; I'll offer to do it once we're there", b -> {
+                        com.fadcam.ui.faditor.ai.joybot.CarriedAsk.save(this, v.projectId != null
+                                ? com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forProject(v.projectId)
+                                : com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forRoom(v.room), asked);
+                        if (v.projectId != null) openProject(v.projectId);
+                        else if (v.nearestRoute != null) route(v.nearestRoute);
+                    }));
+            // It wears the colours of where it will happen (owner 11-15).
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.pill(open, com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, v.room));
+            card.buttons.addView(JoybotChatViews.cardButton(this, "Not now", "Leave it; nothing changes", b -> {
+                card.retire("");
+                addBotMessage("OK, I've left it as it was.");
+            }));
+        } else {
+            nervous();
+            if (v.nearestRoute != null && v.nearestLabel != null) {
+                final String where = v.nearestRoute;
+                TextView go = JoybotChatViews.cardButton(this, v.nearestLabel, "Go there", b -> route(where));
+                com.fadcam.ui.faditor.ai.joybot.RoomTint.pill(go, com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this, where));
+                card.buttons.addView(go);
+            }
+        }
+        if (card.buttons.getChildCount() == 0) return;
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        scrollToBottom();
+    }
+
+    /** A request carried here from where it couldn't run (the lobby): offered once, run only on "Do it". */
+    private void offerCarried() {
+        String key = projectId != null ? com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forProject(projectId)
+                : com.fadcam.ui.faditor.ai.joybot.CarriedAsk.forRoom(room.name());
+        final String asked = com.fadcam.ui.faditor.ai.joybot.CarriedAsk.take(this, key);
+        if (asked == null) return;
+        JoybotChatViews.Card card = JoybotChatViews.resultCard(this,
+                "You asked me to “" + JoybotAgent.shortOf(asked) + "”. Shall I do it here now?", null);
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Do it", "Do what you asked, here", b -> {
+            card.retire("Doing what you asked.");
+            inputField.setText(asked);
+            sendMessage();
+        }));
+        card.buttons.addView(JoybotChatViews.cardButton(this, "Not now", "Leave it", b -> card.retire("Left for now.")));
+        messagesContainer.addView(card.root);
+        messageViews.add(card.root);
+        scrollToBottom();
+    }
+
+    /** Jokes told while the app is open, oldest first: none comes back until most have had a turn. */
+    private static final List<Integer> JOKES_TOLD = new ArrayList<>();
+
+    private void tellJoke() {
+        int i;
+        synchronized (JOKES_TOLD) {
+            i = com.fadcam.ui.faditor.ai.joybot.JokeBook.pick(JOKES_TOLD, new java.util.Random());
+            JOKES_TOLD.add(i);
+            while (JOKES_TOLD.size() > com.fadcam.ui.faditor.ai.joybot.JokeBook.memory()) JOKES_TOLD.remove(0);
+        }
+        String joke = com.fadcam.ui.faditor.ai.joybot.JokeBook.JOKES.get(i);
+        addBotMessage(joke);
+        voice.speak(joke);
+        actor.setMood(JoybotView.Mood.EXCITED);
+        actor.postDelayed(() -> { if (!busy) actor.setMood(JoybotView.Mood.IDLE); }, 1600L);
+        String[][] b = {{"Another one", "tell me another joke", "One more joke"}};
+        com.fadcam.ui.faditor.ai.joybot.CreateBubbles.buttons(chipsRow, b, null, id -> {
+            inputField.setText(id);
+            sendMessage();
+        });
+        showRow();
+    }
+
+    /** Opens one Studio project in the editor and closes the chat. */
+    private void openProject(@NonNull String id) {
+        startActivity(new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class)
+                .putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id));
+        finish();
+    }
+
+    /**
+     * The nervous look, whenever Joybot can't do something (owner 11-15, BOT-5 "moods that mean
+     * something"). The sheet's OOPS for now; the sprites lane maps it to the nervous animation.
+     */
+    private void nervous() {
+        actor.setMood(JoybotView.Mood.OOPS);
+        actor.postDelayed(() -> { if (!busy) actor.setMood(JoybotView.Mood.IDLE); }, 1400L);
+    }
+
     private void doneTalking(boolean ok) {
         runOnUiThread(() -> {
             if (isFinishing() || isDestroyed()) return;
@@ -3471,6 +4072,12 @@ public class ChatAssistantActivity extends AppCompatActivity {
         // Joybot's answer carries the colour; your own words fade back (owner, 10-28).
         tv.setTextColor(isUser ? Studio.INK_DIM : Studio.ON_GO);
         tv.setBackgroundResource(isUser ? R.drawable.chat_bubble_user : R.drawable.chat_bubble_joybot);
+        // BOT-7: his words wear the colours of where they happen: the room's own inside a room, his
+        // own in the lobby, another room's when the message is about doing something there.
+        if (!isUser) {
+            com.fadcam.ui.faditor.ai.joybot.RoomTint.bubble(tv, com.fadcam.ui.faditor.ai.joybot.RoomTint.forRoom(this,
+                    com.fadcam.ui.faditor.ai.joybot.RoomColours.about(com.fadcam.ui.faditor.ai.joybot.RoomColours.home(room), text)));
+        }
         // Both tails are at the bottom now: yours drops to the send button on the right, Joybot's
         // drops to Joybot himself in the lower left (owner, 11-14). The padding clears the band
         // the tail is drawn in.

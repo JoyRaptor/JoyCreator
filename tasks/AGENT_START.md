@@ -58,15 +58,21 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
 ## Building
 
 - **Build in the cloud** (the default since 11-14): push your branch, then `.\tools\cloud-build.ps1 run <branch>` (or `start`, `wait`, `fetch` as separate steps; run `wait` in the background). It builds on GitHub's free runners (about 16 GB of RAM, no queue on this PC), and `fetch` puts the APK in your worktree's `build\cloud\<name>\`; install it with `.\tools\phone.ps1 install build\cloud\<name>\<apk>`. Play bundles: variant `playRelease`, then `cloud-build.ps1 sign` signs it on this PC. Nothing is ever signed on GitHub, and the logs there are public. Builds are kept 3 days.
-- **A local Gradle build only when you must** (unpushed code, tests, a quick loop), and only under `jb-gradle.lock` (below).
+- **Test in the cloud too** (the default since 11-15): push, then `.\tools\cloud-build.ps1 test <branch> [suites]` (run it
+  in the background). Suites: `all` (default) or any of `jb-core`, `jb-androidkit`, `jb-android` (JoyBrush core,
+  androidkit, Android unit tests), `studio` (the Studio JVM harness), `joybot` (Joybot flights, the bench with the fake
+  model, the bridge). About 11-13 minutes for all. It prints one line per suite (time, pass count) and, for a failure,
+  only the failing tests' own output. Any branch works, even one older than this tool. No live AI model runs there.
+- **A local Gradle build or test only when you must** (unpushed code, a quick loop), and only under `jb-gradle.lock` (below).
 - The owner's watcher (`watch-build.ps1`) builds the main folder into `build.log` (UTF-16).
 - **One heavy job on the machine at a time.** Take `C:/Users/JoyRaptor/AppData/Local/Temp/jb-gradle.lock`
   (create-new; if it exists, someone is building: wait or do something else). Check free RAM first:
   about 2.2 GB for focused tests, 2.8 GB for full tests, 3.2 GB for an APK.
 - **Check disk space first.** C: filled up on 10-24 and broke every session's builds. D: has room.
 - A quick type check without Gradle: `tools/jvm-harness/typecheck.sh`.
-- All Studio test suites in one go: `bash tools/jvm-harness/run-studio-all.sh` (takes the build lock; one PASS/FAIL
-  line per suite; `run-studio-all.sh timemap fx` runs just those). Run it before landing Studio model or export changes.
+- All Studio test suites in one go: `cloud-build.ps1 test <branch> studio`, or locally `bash tools/jvm-harness/run-studio-all.sh`
+  (takes the build lock; one PASS/FAIL line per suite; `run-studio-all.sh timemap fx` runs just those). Run it before
+  landing Studio model or export changes.
 - "Unable to establish loopback connection" from Gradle is a Windows socket problem, not your code
   (see the lessons file).
 

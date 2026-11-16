@@ -94,7 +94,7 @@ Still to prove or build is in "What is left".
 | 3 | A bigger wet-paint room (streaming saves) | **Not started.** A painted oil tile is about 1.28 MB (two paint stores and its ground), so the 315 MB room is about 246 tiles wet at once; past that old paint sets (never a refusal). Growing the room needs saves that stream tile by tile through `JbArchive`, `readContents` and open: a multi-day job in the save path | Second review E4. The Codex claim on `JoyBrushActivity` save/restore is dead (orchestrator, 11-13): whoever takes this claims it on the BOARD |
 | 4 | A wet wash wider than the screen when the view moves | The part still in view stays wet; the rest is parted off through a soft band and sets (spec rule 10) | Note 9 films: a stroke painted after zooming in runs into the still-wet wash; no line at the join (brightness measured along each band); undo and redo across the parting go one press a step. The kept part goes on spreading while the rest has set, so their texture differs a little at the edge of the view |
 | 5 | Watercolour at full speed on the fine grid | No engine change. Measured with the profiler off: three Round strokes 39 frames a second at 0.94 of the clock, three Wash strokes 33 at 0.76, the nine-band page at 31 % 31 at 0.85 | My 11-11 figure of 0.33 was wrong: the profiler's own waits were left on (a setprop lasts until reboot). A mask of live blocks was tried and taken out (spec rule 6) |
-| 6 | The wet sheet on animation frames, and on layers with editable lines | **Frames: built** (spec rule 17). **Layers with lines: open, no owner**: the recorded-line engine draws them and Codex has left | Note 9 matrix on an animation board, final build: watercolour 161047 px, oil 98839, pencil 28741, all in the frame's own cel, none on the shared plane inside the board, undo exact; canvas and sprite boards work (morning build) |
+| 6 | The wet sheet on animation frames, and on layers with editable lines | **Frames: built** (spec rule 17). **Layers with lines: built 11-16** (section "11-16: watercolour on a layer with editable lines"); before that: open, no owner: the recorded-line engine draws them and Codex has left | Note 9 matrix on an animation board, final build: watercolour 161047 px, oil 98839, pencil 28741, all in the frame's own cel, none on the shared plane inside the board, undo exact; canvas and sprite boards work (morning build) |
 | 7 | The 10-31 lost squares | The Engine Lead's 11-01 fix is the likely cure: a slept engine's textures were deleted twice (`MediaLayerEngine.release`). New: every tile failure is written to `files/joybrush-incidents.log` with what the engine held (`TileIncidents`), and a bench takes graphics memory away first (`jb_gpu_hog_mb`) | 2 and 3 GB of noise held (and 1 to 3 GB of flat colour on the morning build), then oil strokes and a save: no failed frame, no incident line. All 23 realistic-paint brushes, two strokes each: none. Not reproduced |
 | 8 | Symmetry for realistic paint in the atlas | Works: every copy is its own lane, nothing is pinned or refused | Note 9 pictures: Oil round, 6B pencil and watercolour on the wet sheet, six copies each |
 
@@ -331,6 +331,38 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   drawing screen cannot be started twice from outside the app. Not measured: what the more frequent saves cost in
   battery and heat over a long session (each is about 1 s of one core and about 100 MB written on a full page).
 
+### 11-16: watercolour on a layer with editable lines (ledger C6; built by the bug-hunt session, finished and landed by the engine session)
+
+**In plain words.** Until now, picking a watercolour brush on a layer that held editable lines first turned those lines
+into paint ("became paint", its own undo step), because the wet wash had nowhere to go among lines. Now the wash goes on
+the same layer and the lines stay lines: they can still be moved, recoloured or deleted afterwards, and the wash is
+redrawn over them.
+
+- **How.** When the wet sheet prints its wash into a layer whose plane holds items, each printed tile also keeps the
+  wash ALONE as a pixel slab on top of the items in time order, the way a fill is kept
+  (`GlPaintEngine.overlaySlabs`, called from `printOverlay`; `slabTile` merges it into the slab under it when that is
+  plain paint too, so slabs do not pile up). A save taken while the wash is wet holds it the same way for the length of
+  the save (`withOverlayStamped`). `JbCanvasView.startStroke` no longer freezes the lines for watercolour, and
+  `MediaCanvas.begin` lets the sheet take a layer with lines. Watercolour the sheet does NOT take (a blank animation
+  frame, a recorded scene) is refused in words on such a layer rather than reaching the old water among lines.
+- **The saved file.** No new kind of entry: the wash is an ordinary pixel slab, as a fill has been since v10. Old
+  drawings are read by the same reader.
+- **Proof: bench case `washOverLinesProbe`** (an ink line, a wash of the first built-in watercolour across it, on the
+  app's own canvas). Note 9, build 0f3dc40ea, pass with no problems: the line stays a line through the wash, Dry now,
+  undo, redo and both reopens; recolouring the line and back redraws its tiles from the layer's items with 0 px off
+  after Dry now, after redo, after undo, and after each reopen; undo of the wash is one press and leaves the line alone
+  (0 px off); redo straight after is the dried picture exactly (0 px); a save of the DRIED wash opens to the dried
+  picture exactly (0 px); a save taken while WET opens within what the wash itself moved around that save (41,610 and
+  24,373 px from the reads just before and after it, which are 54,457 px apart; the wash is 181,204 px). The Fold run
+  (bug-hunt session, one run, earlier form of the bench) had the same 0 px results. `wetSheetFailureProbe` still passes.
+- **Two test faults found on the way, not app faults.** The first form of the bench pressed Redo after two new edits
+  (which empty what there is to redo) and so "found" 180,231 px off; and it held the reopened wet save against a single
+  read of a wash that was still moving. Both are corrected in the bench.
+- **Not covered.** On a layer WITH lines: no memory running out during the print, no view move that parts a wet wash
+  (`cutCarry`), no second wash over the first, no animation frame or mask, no moving or deleting the line under the wash
+  (only recolour), no board edit while the wash is wet, no lifecycle gate, and no real pen. The look of a wash on a line
+  layer has not been compared by eye with one on a plain layer. The owner has not tried it.
+
 ### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
 
 **In plain words.** Three ways a watercolour wash could be lost or dried by something other than the painter, all found by
@@ -407,7 +439,7 @@ is ever seen, and a long mixed session reading the incident log.
 - [ ] When running water is pinned far from the pen, the stroke is still refused in words ("too far from paint that is still wet"). Rare; the water should be set aside instead.
 - [ ] **Streaming saves** (second review E4), then raise `LayerBudget.MEDIA_RAM_SHARE`. Launch-critical with the lost
       squares (orchestrator, 11-13: work loss matters more than speed). Multi-day, in the save path; not started.
-- [ ] **Wet sheet on layers with editable lines** (ledger C6): open, no owner.
+- [x] **Wet sheet on layers with editable lines** (ledger C6): built and landed 11-16, Note 9 and Fold bench; owner test owed (section "11-16: watercolour on a layer with editable lines").
 - [ ] Memory admission for the atlas itself (second review E3): the check before making water still counts the old 1024 window.
 - [x] Symmetry for realistic paint in the atlas (11-11 code, 11-13 Note 9 pictures). The owner's own use is owed.
 - [ ] A tile boundary can show where set paint meets live thick paint that is re-lit. Not seen in the runs; ask the owner to look.

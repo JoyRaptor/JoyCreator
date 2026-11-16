@@ -1261,3 +1261,13 @@ Repeated 11-15 13:17 by the Play build lane, in PowerShell: `claim` piped to `Ou
 
 ## 2026-11-14 - Joybot always animates, and he lives lower left
 The owner corrected two things in the first wiring of his sprite sheet. (1) I made Joybot hold a still pose when the phone's "remove animations" setting is on, because a code comment said the Note 9 has animations off. He did not know why it would be: "he's a character that guides you. He needs to be animated." Joybot's own frames, sway and squash never follow that setting; a comment about a device is not the owner's choice. (2) I left him lower right. Lower right is the person (the send button); lower left is Joybot, and his speech bubbles carry a tail that points at him.
+
+## 2026-11-16 - Read the screen, not the constants; and check which phone a command goes to
+Two of my own slips in FX-1 (Joybot carries your work between rooms), both caught on a device before they reached the owner's hands.
+(1) I told the owner Studio sits to the LEFT of JoyBrush on the lobby dial, from the order of the `ROOM_` constants. The dial on the
+phone reads Studio, Capture, SpriteLab, Avatar, VisLab, TextLab, JoyBrush and round again: Studio is the next room to the RIGHT. A
+whole show had been designed to bring the room in from the wrong side. **Rule: anything about where a thing is on screen is read off the
+running app (a screenshot), never off the order of constants or an enum.** (2) A `$env:PHONE_SLOT = 'fold'` set in one PowerShell tool
+call was still set in the next, and an install meant for the Note 9 went to the Fold. Both are test devices, so nothing was lost.
+**Rule: print the slot (`"slot: [$env:PHONE_SLOT]"`) and clear it at the top of every command that installs or taps, and read the
+device's own clock or model back before believing where it went.**

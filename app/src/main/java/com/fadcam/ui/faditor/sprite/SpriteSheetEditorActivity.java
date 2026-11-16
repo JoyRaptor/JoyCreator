@@ -3059,12 +3059,22 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             String message;
             SpriteBaker.Result result = null;
             File written = null;
+            boolean reduced = false;
             try {
-                sources.add(new SpriteBaker.Source(sheets.get(0), renderer, cellLists.get(0)));
-                for (int i = 1; i < sheets.size(); i++) {
-                    SpriteSheetRenderer r = SpriteSheetRenderer.load(this, sheets.get(i));
+                // Bake from export-quality decodes, not the editor's preview-sized one (SP-03).
+                // Numbered frames hold one frame at a time, so they may use more of the free
+                // memory than a packed sheet, which also needs room for its output.
+                float share = (framesOnly ? 0.3f : 0.12f) / Math.max(1, sheets.size());
+                for (int i = 0; i < sheets.size(); i++) {
+                    SpriteSheetRenderer r = SpriteSheetRenderer.loadForExport(this, sheets.get(i), share);
+                    if (r != null) {
+                        opened.add(r);
+                        reduced |= r.isReduced();
+                    } else if (i == 0) {
+                        r = renderer;   // the editor's own copy: smaller, but it is what you see
+                        reduced = true;
+                    }
                     if (r == null) continue;
-                    opened.add(r);
                     sources.add(new SpriteBaker.Source(sheets.get(i), r, cellLists.get(i)));
                 }
                 if (!assets.exists() && !assets.mkdirs()) {
@@ -3089,6 +3099,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                                   + result.bitmap.getWidth() + "\u00d7"
                                   + result.bitmap.getHeight() + " px";
                     }
+                }
+                if (reduced && !message.startsWith("Could") && !message.startsWith("Nothing")) {
+                    message += " (made smaller than the original to fit the phone's memory)";
                 }
             } catch (Throwable t) {
                 // Plain words only: the person never sees an exception's name.

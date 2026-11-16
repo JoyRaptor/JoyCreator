@@ -36,6 +36,8 @@ internal object DoubleDeleteProbe {
             // no name at all (reused 0) the probe can show nothing either way on this phone.
             .put("reproduced", reused > 0 && old.getInt("tilesLost") == reused && now.getInt("tilesLost") == 0)
             .put("conclusive", reused > 0)
+            // The check before a save must find every tile the driver calls dead, and leave none dead behind it.
+            .put("saveCheckFoundAll", old.getInt("repairFound") == old.getInt("tilesLost") && old.getInt("stillLostAfterRepair") == 0)
     }
 
     private fun pass(deleteAgain: Boolean): JSONObject {

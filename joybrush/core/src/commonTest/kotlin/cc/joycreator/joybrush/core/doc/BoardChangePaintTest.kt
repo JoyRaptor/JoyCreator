@@ -36,8 +36,10 @@ class BoardChangePaintTest {
 
     @Test fun anEditThatMovesPixelsSetsItWhateverTheFramesDo() {
         val doc = source(); val id = doc.activeBoardId!!
-        val resize = AnimationBoardOps.resize(doc, id, RectPx(-10, -10, 40, 30))
-        assertTrue(BoardChangePaint.writes(resize, live(doc), emptyMap()))
+        val move = AnimationBoardOps.moveAll(doc, id, 4, -1)
+        assertTrue(BoardChangePaint.writes(move, live(doc), emptyMap()))
+        // The same pixel moves under a document whose frames lie as they did: still an edit that writes paint.
+        assertTrue(BoardChangePaint.writes(move.copy(doc = doc), live(doc), emptyMap()), "pixel moves alone")
         val added = RegionDocumentOps.addFrame(doc, id, NewFrame.BLANK, ::ids)
         assertTrue(BoardChangePaint.writes(added, live(doc), emptyMap()), "a new frame shows instead of the one painted on")
     }

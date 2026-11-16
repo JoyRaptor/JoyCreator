@@ -65,10 +65,44 @@ object ArchiveMediaDeflate { @Volatile var level: Int = java.util.zip.Deflater.B
  * 2026-11-15 ([JbArchive.save]). The file made is the same archive either way; off is the way back if a phone's storage
  * ever disagrees with the carrying.
  */
-object ArchiveCarrying { @Volatile var on: Boolean = true }
+object ArchiveCarrying {
+    @Volatile var on: Boolean = true
+    /**
+     * Whether the working save also reads back only the tiles that changed (JbCanvasView.snapshotSparse, since
+     * 2026-11-15) or every tile, as before. Off is the way back if a phone's fingerprints ever disagree with its tiles.
+     */
+    @Volatile var rereadChangedOnly: Boolean = true
+}
 
 /** Thrown by every function here. The message is the whole error report, so it says what is wrong. */
-class JbArchiveException(message: String) : Exception(message)
+open class JbArchiveException(message: String) : Exception(message)
+
+/**
+ * A save was given a tile without its bytes ([SparseContents]) and the older file cannot stand in for it (no record of
+ * the last save, another file, a tile that is not there as remembered). Nothing was written and the older file is as it
+ * was: the caller reads the whole drawing and saves again.
+ */
+class JbArchiveNeedsBytes(message: String) : JbArchiveException(message)
+
+/**
+ * A tile the canvas did not read back for this save: it holds the bytes it held when it was last read, [size] of them
+ * with the checksum [sum] ([JbArchive.sumOf]). The file is trusted for such a tile only as far as [JbArchive.saveCarrying]
+ * trusts it for any tile: the last save's record, the file's own directory and the compressed bytes must all agree.
+ */
+class Unread(val size: Int, val sum: Long)
+
+/**
+ * A drawing for a save that rewrites only what changed (JBX-36): [contents] holds the document, which lists every tile,
+ * and the bytes of the tiles that were read; [tiles] and [mediaTiles] are the listed tiles that were not.
+ */
+class SparseContents(
+    val contents: JbContents,
+    val tiles: Map<Triple<String, String, String>, Unread> = emptyMap(),
+    val mediaTiles: Map<MediaTileKey, Unread> = emptyMap(),
+) {
+    /** Every tile has its bytes: [contents] is the whole drawing. */
+    val whole: Boolean get() = tiles.isEmpty() && mediaTiles.isEmpty()
+}
 
 /**
  * A drawing, in memory: the document, its paint tiles, its ink strokes and an optional thumbnail.
@@ -554,12 +588,56 @@ object JbArchive {
      */
     fun saveCarrying(file: File, contents: JbContents, memo: SaveMemo?): SaveMemo {
         var made: SaveMemo? = null
-        atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo) }
+        atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo, emptyMap()) }
         val m = made ?: throw JbArchiveException("could not save ${file.name}")
         return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
     }
 
-    private fun writeCarrying(out: OutputStream, contents: JbContents, old: File, memo: SaveMemo?): SaveMemo {
+    /** The checksum an [Unread] tile carries: CRC-32 of [bytes] in the high half, Adler-32 in the low. */
+    fun sumOf(bytes: ByteArray): Long {
+        val crc = CRC32(); crc.update(bytes)
+        val adler = java.util.zip.Adler32(); adler.update(bytes)
+        return (crc.value shl 32) or adler.value
+    }
+
+    /**
+     * [saveCarrying] for a drawing some of whose tiles were not read back ([SparseContents]). Every check a save makes
+     * is made (the document against the tiles, both ways), and a tile without bytes is taken from the older file under
+     * exactly the conditions any carried tile is: the last save's record knows it with this checksum and length, the
+     * file's directory lists it so, and its compressed bytes are the ones that save wrote. If one of them cannot be,
+     * [JbArchiveNeedsBytes]: nothing is written, the older file stays, and the caller saves the whole drawing.
+     */
+    fun saveCarrying(file: File, sparse: SparseContents, memo: SaveMemo?): SaveMemo {
+        if (sparse.whole) return saveCarrying(file, sparse.contents, memo)
+        if (memo == null) throw JbArchiveNeedsBytes("no earlier save of ${file.name} is remembered")
+        val unread = HashMap<String, Unread>(sparse.tiles.size + sparse.mediaTiles.size)
+        // Stand-ins of the right size so the document is checked against every tile as always. They are never written:
+        // a tile named in [unread] is carried or the save is refused, and that is checked by name below.
+        val tiles = HashMap<Triple<String, String, String>, ByteArray>(sparse.contents.tiles)
+        for ((key, u) in sparse.tiles) {
+            if (key in sparse.contents.tiles) throw JbArchiveException("tile ${tilePath(key)} was given with and without its bytes")
+            if (u.size != TILE_BYTES) throw JbArchiveNeedsBytes("tile ${tilePath(key)} is remembered with another size")
+            tiles[key] = standIn(TILE_BYTES); unread[tilePath(key)] = u
+        }
+        val media = HashMap<MediaTileKey, ByteArray>(sparse.contents.mediaTiles)
+        for ((key, u) in sparse.mediaTiles) {
+            if (key in sparse.contents.mediaTiles) throw JbArchiveException("tile ${mediaPath(key)} was given with and without its bytes")
+            val size = try { cc.joycreator.joybrush.core.media.MediaStores.tileBytes(TILE_SIZE, key.store) } catch (e: RuntimeException) { -1 }
+            if (size <= 0 || u.size != size) throw JbArchiveNeedsBytes("tile ${mediaPath(key)} is remembered with another size")
+            media[key] = standIn(size); unread[mediaPath(key)] = u
+        }
+        if (unread.size != sparse.tiles.size + sparse.mediaTiles.size) throw JbArchiveException("two tiles of this drawing share a file name")
+        val filled = sparse.contents.copy(tiles = tiles, mediaTiles = media)
+        var made: SaveMemo? = null
+        atomicWrite(file) { out -> made = writeCarrying(out, filled, file, memo, unread) }
+        val m = made ?: throw JbArchiveException("could not save ${file.name}")
+        return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
+    }
+
+    private val standIns = java.util.concurrent.ConcurrentHashMap<Int, ByteArray>()
+    private fun standIn(size: Int): ByteArray = standIns.getOrPut(size) { ByteArray(size) }
+
+    private fun writeCarrying(out: OutputStream, contents: JbContents, old: File, memo: SaveMemo?, unread: Map<String, Unread>): SaveMemo {
         val (doc, entries) = prepareWrite(contents, null)
         class Item(val name: String, val bytes: ByteArray, val level: Int)
         val items = ArrayList<Item>()
@@ -586,16 +664,28 @@ object JbArchive {
             var hold = ByteArray(1 shl 20)
             val crc = CRC32()
             val adler = java.util.zip.Adler32()
+            if (unread.isNotEmpty()) {
+                val named = items.count { it.name in unread }
+                if (named != unread.size) throw JbArchiveException("${unread.size - named} tiles without bytes are not tiles of this drawing")
+                if (index == null) throw JbArchiveNeedsBytes("the older file is not the one the last save wrote")
+            }
             for (item in items) {
-                crc.reset(); crc.update(item.bytes)
-                adler.reset(); adler.update(item.bytes)
-                val sum = (crc.value shl 32) or adler.value
+                // A tile that was not read back: its checksum and length are the ones remembered for it, and its bytes
+                // here are a stand-in that must never reach the file.
+                val u = unread[item.name]
+                val sum: Long; val length: Long; val rawCrc: Long
+                if (u != null) { sum = u.sum; length = u.size.toLong(); rawCrc = u.sum ushr 32 }
+                else {
+                    crc.reset(); crc.update(item.bytes)
+                    adler.reset(); adler.update(item.bytes)
+                    sum = (crc.value shl 32) or adler.value; length = item.bytes.size.toLong(); rawCrc = crc.value
+                }
                 raw[item.name] = sum
                 val kept = index?.get(item.name)
                 var done = false
                 // The first entry stays the stored mimetype whatever the older file held; it is 22 bytes.
                 if (kept != null && raf != null && memo != null && item.level >= 0 && memo.raw[item.name] == sum &&
-                    kept.size == item.bytes.size.toLong() && kept.crc == crc.value && kept.method == ZipCarry.DEFLATED &&
+                    kept.size == length && kept.crc == rawCrc && kept.method == ZipCarry.DEFLATED &&
                     kept.compressedSize <= Int.MAX_VALUE / 2) {
                     val n = kept.compressedSize.toInt()
                     if (hold.size < n) hold = ByteArray(n)
@@ -610,6 +700,7 @@ object JbArchive {
                         }
                     }
                 }
+                if (!done && u != null) throw JbArchiveNeedsBytes("the older file does not hold ${item.name} as it was last saved")
                 if (!done) { packed[item.name] = w.fresh(item.name, item.bytes, item.level); fresh++ }
             }
             w.finish()

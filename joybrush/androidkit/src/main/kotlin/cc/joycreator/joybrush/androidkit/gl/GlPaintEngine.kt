@@ -1014,6 +1014,8 @@ class GlPaintEngine(
         GLES30.glDeleteBuffers(3, intArrayOf(quadVbo, unitVbo, instanceVbo), 0)
         GLES30.glDeleteVertexArrays(4, intArrayOf(dabVao, tileVao, smudgeVao, tuftVao), 0)
         GLES30.glDeleteFramebuffers(3, intArrayOf(fbo, readFbo, copyFbo), 0)
+        if (tileHasherEpoch == physicalContextEpoch) tileHasher?.release()
+        tileHasher = null
         wcPass?.release(); wcPass = null
         wcLineRenderer?.release(); wcLineRenderer = null; wcLineSelection = null; wcLineReplay = null
         var tipRetirementFailure: Throwable? = null
@@ -2622,6 +2624,53 @@ class GlPaintEngine(
         settleLift()
         val layer = layers[layerId] ?: return null
         return readTextureTile(physicalDisplayTiles(layer, planeOf(layer, celId))[key])
+    }
+
+    /**
+     * One tile a save may read: a cel's picture tile ([readCelTile]), a tile of a store by its id (a mask: [readTile]),
+     * or a paint store tile ([readMediaTile]).
+     */
+    class TileAsk private constructor(internal val layerId: String, internal val celId: String?, internal val key: Long,
+                                      internal val store: String?, internal val plane: String?, internal val kind: Int) {
+        companion object {
+            fun cel(layerId: String, celId: String, key: Long) = TileAsk(layerId, celId, key, null, null, 0)
+            fun store(storeId: String, key: Long) = TileAsk(storeId, null, key, null, null, 1)
+            fun media(layerId: String, store: String, key: Long, plane: String?) = TileAsk(layerId, null, key, store, plane, 2)
+        }
+    }
+
+    private var tileHasher: TileHasher? = null
+    private var tileHasherEpoch = -1L
+
+    /**
+     * A fingerprint of each asked tile's content, computed on the graphics chip without reading the tile back
+     * ([TileHasher], [cc.joycreator.joybrush.core.paint.TileFingerprint]): a tile whose fingerprint is the one it had when
+     * it was last read holds the same bytes, and a save need not read it again. An entry is null for a tile that does not
+     * exist. Null altogether when this phone's driver cannot do it: the caller reads every tile.
+     */
+    fun tilePrints(asks: List<TileAsk>): Array<cc.joycreator.joybrush.core.paint.TileFingerprint.Print?>? {
+        if (asks.isEmpty()) return emptyArray()
+        paintWaitingTileStroke()
+        settleWatercolourFade()
+        settleLift()
+        val found = IntArray(asks.size)
+        val bytes = BooleanArray(asks.size)
+        for ((i, a) in asks.withIndex()) {
+            val tex: Int? = when (a.kind) {
+                0 -> layers[a.layerId]?.let { physicalDisplayTiles(it, planeOf(it, a.celId))[a.key] }
+                1 -> storeOf(a.layerId)?.let { visibleTiles(it)[a.key] }
+                else -> mediaTile(a.layerId, a.store!!, a.key, a.plane)
+            }
+            found[i] = tex ?: 0
+            bytes[i] = a.kind != 2 || a.store == MediaStores.GROUND
+        }
+        val present = found.indices.filter { found[it] != 0 }
+        if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }   // names of a dead context are forgotten
+        val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+        val prints = hasher.prints(IntArray(present.size) { found[present[it]] }, BooleanArray(present.size) { bytes[present[it]] }) ?: return null
+        val out = arrayOfNulls<cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(asks.size)
+        for ((n, i) in present.withIndex()) out[i] = prints[n]
+        return out
     }
 
     /** Live source lease probe only: one leased texture read back as RGBA8 bytes (as [readTile]). */

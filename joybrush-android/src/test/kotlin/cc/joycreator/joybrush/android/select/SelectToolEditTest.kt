@@ -319,14 +319,15 @@ class SelectToolEditTest {
 
     /** L9: Done on the width drag grows the box with the lines, tells the controller, and the label reads the new weight. */
     @Test fun aFinishedReweightRefitsTheBoxAndReportsTheSelection() {
-        val host = Host(mutableListOf(record("a")))
+        // Longer than the box's 28 dp least size, so its width shows the line's.
+        val host = Host(mutableListOf(StrokeRecord("a", "brush", 7L, 0f, 1f, listOf(PenSample(0f, 20f, 0.0), PenSample(100f, 20f, 1.0)))))
         val tool = SelectTool(host, 1f) { true }
         var changes = 0
         tool.listener = object : SelectTool.Listener {
             override fun selectionChanged() { changes++ }
             override fun overlayChanged() {}
         }
-        selectLines(tool, host)
+        selectLines(tool, host, left = -10.0, right = 150.0)
         val before = tool.boxDoc!!.copyOf()
         changes = 0
         assertTrue(tool.reweight(4f, done = true))

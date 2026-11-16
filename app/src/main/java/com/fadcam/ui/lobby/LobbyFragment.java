@@ -1283,6 +1283,20 @@ public class LobbyFragment extends BaseFragment {
         heroName.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
         heroSub.setText(sub);
         heroSub.setVisibility(hasContent ? View.VISIBLE : View.INVISIBLE);
+        // SHELL-38: an empty Studio (once the project list has really been read) offers the demo
+        // project, a short one with music to press play on. Anything else: the line is not a button.
+        if (r.id == ROOM_STUDIO && !hasContent && lastProjects != null) {
+            heroSub.setText(R.string.lobby_try_demo);
+            heroSub.setVisibility(View.VISIBLE);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(heroSub, getString(R.string.hover_library_demo_project));
+            heroSub.setOnClickListener(v -> {
+                if (getActivity() != null) com.fadcam.ui.studio.DemoProject.open(getActivity());
+            });
+        } else {
+            heroSub.setOnClickListener(null);
+            heroSub.setClickable(false);
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(heroSub, null);
+        }
 
         heroAction.setText(lastDrawing != null || vizShown != null || tlShown != null ? getString(R.string.lobby_act_carry_on)
                 : hasContent || r.id == ROOM_JOYBRUSH ? r.action : getString(R.string.lobby_act_start));

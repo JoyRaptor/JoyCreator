@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- SHELL-38 (11-15): the demo project testers can press play on. -->
+    <string name="demo_project_name">Joy Creator demo</string>
+    <string name="demo_project_song">Demo song (made in VisLab)</string>
+    <string name="demo_project_making">Making the demo project…</string>
+    <string name="demo_project_failed">The demo project couldn\'t be made just now. Try again in a moment.</string>
+    <string name="library_demo_project">Demo project</string>
+    <string name="hover_library_demo_project">A short Studio project with music you can press play on</string>
+    <string name="lobby_try_demo">Or try the demo project</string>
+</resources>

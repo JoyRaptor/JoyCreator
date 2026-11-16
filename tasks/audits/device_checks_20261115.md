@@ -103,3 +103,16 @@ New findings:
 - **F13 Sprite sheet import.** The editor guessed a 3x3 grid for a sheet named `*.2x2.sprite.png` (file-name hint not read when it comes through the picker), and the sheet did not appear in Studio's sprite panel after Save and Back. Needs a second look on a phone with the Library route.
 
 Left on the Fold (mine, safe to delete): projects "Untitled 3", "Untitled 4", Joy Creator folder test files, `Download/JC *`. Fold lock released. The speech-model retry download was stopped.
+
+## Update 5, test Fold: caption-style undo passes; AN-06 partly; a way round the model download
+
+| Check | Result | Proof |
+|---|---|---|
+| 1e Caption-style chip undo | ✅ A clip with captions made from the speech clip (Transcript > Fast timing, words appear on the timeline). One tap on the "Zoom" chip = one undo step (counter 4 to 5); one Undo takes it back (5 to 4, redo 1); closing and reopening the Captions drawer shows "Pop" again. 🟡 Small: while the drawer stayed open after Undo, the "Zoom" chip still looked selected until the drawer was reopened (F14) | `caption-style-*.png` |
+| AN-06 place pins | ✅ the first pin ("Chest", a hard Pin tool) places with one undo step, badge shows 1 pin | `an06-pins-placed.png` |
+| AN-06 second pin, key, live take, tape drags, bone tap, rotated-picture pins | ⬜ **blocked on the Fold's narrow screen (F15):** after the first pin the Puppet drawer grows to cover the whole picture, so no second pin can be placed (taps land on the drawer); closing the drawer leaves "pose mode" where taps and drags on a lone hard pin do nothing (a hard Pin is an anchor and cannot be dragged). On the Note 9 and tablet the same drawer left room. A reliable way to place several pins on a phone-sized screen is owed | `an06-pin-dragged-take.png`, `an06-grab-drag-arm.png` |
+| AN-09, STU-C2 sprite corner pin and bend | ⬜ still not run (sprite sheet did not reach Studio, F13) | |
+
+How the caption check was unblocked (for anyone repeating it): the speech model download from alphacephei.com was unusable over the Fold's link (F11), so I downloaded the 40 MB `vosk-model-small-en-us-0.15.zip` on the PC, unzipped it and copied the folder into the test app's own `files/vosk/` (`run-as`, through `phone.ps1 shell-write`; no uninstall, no data cleared); Transcript then used it at once. A mirror, or bundling this small model, would remove the problem for testers too (F11).
+
+F14 Captions drawer chip stays on the undone style until the drawer is reopened. F15 Puppet drawer covers the picture after the first pin on a phone-sized screen (known on the tablet 11-14; on the Fold cover screen it blocks the second pin entirely).

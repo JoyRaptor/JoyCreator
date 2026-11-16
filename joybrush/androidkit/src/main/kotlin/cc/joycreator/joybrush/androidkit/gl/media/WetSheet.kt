@@ -131,20 +131,23 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
                 settle(paper, look)
             }
         }
-        val before = history.now()
+        var before = history.nowOrShed()
+        if (before === Was.Lost) {
+            // The wash cannot be kept for this stroke's cancel or undo (no graphics memory for the copy, even after the
+            // older copies went). Painting on regardless left a cancel nothing to go back to, and it emptied the sheet:
+            // the wash was gone (Codex audit ENG-01, 2026-11-15). So the wash goes into the layer first, where it is safe,
+            // and the stroke starts on an empty sheet.
+            android.util.Log.w(TAG, "the wash sets: the phone has no graphics memory to keep it for an undo of the next stroke")
+            try { settle(paper, look) } catch (x: RuntimeException) { android.util.Log.e(TAG, "the wash could not be set before the stroke", x) }
+            if (holding) return LayerBudget.windowRefusal(true)
+            before = Was.Empty
+        }
         if (!holding) {
             if (engine == null || grid != wantGrid) {
                 if (!LayerBudget.windowFits(availBytes, thresholdBytes, wet = true)) return LayerBudget.windowRefusal(true)
                 releaseEngine()
                 val madeAt = System.nanoTime()
-                val made = MediaLayerEngine(shaders, atlasMode = false, coarseWater = false)
-                try { made.init(wantGrid.w, wantGrid.h, 0f, 0f, 1f) } catch (x: GraphicsMemoryException) {
-                    android.util.Log.e(TAG, "no graphics memory for the wet sheet: ${x.message}")
-                    runCatching { made.release() }
-                    return LayerBudget.windowRefusal(true)
-                }
-                made.lookPaintOnly = true; made.cullWater = true; made.capInput = true; made.rimCells = WetSheetMath.RIM_CELLS
-                made.prewarmSheet()
+                val made = newEngine(wantGrid) ?: return LayerBudget.windowRefusal(true)
                 engine = made; grid = wantGrid
                 android.opengl.GLES30.glFinish()
                 android.util.Log.i(TAG, "sheet made: ${grid.w} x ${grid.h} cells in ${(System.nanoTime() - madeAt) / 1_000_000} ms (its programs and textures; the stroke waited for it)")
@@ -639,6 +642,24 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             return Was.Held(retain(s))
         }
 
+        /**
+         * [now]; when the copy cannot be made, once more after every older copy kept for undo is let go (those steps can
+         * no longer go back: the history ends there, as at the memory cap). [spare]'s copies stay.
+         */
+        fun nowOrShed(spare: Rec? = null): Was {
+            val first = now()
+            if (first !== Was.Lost) return first
+            var freed = false
+            for (rec in recs.values) {
+                if (rec === spare) continue
+                val b = rec.before
+                if (b is Was.Held) { drop(b); rec.before = Was.Lost; freed = true }
+            }
+            if (!freed) return Was.Lost
+            android.util.Log.w(TAG, "older undo copies of the sheet were let go to keep the sheet as it is now")
+            return now()
+        }
+
         fun strokeBegan(before: Was) { pending?.let(::drop); pending = before }
 
         fun strokeEnded() {
@@ -654,7 +675,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         fun strokeCancelled() {
             val before = pending ?: return
             pending = null
-            put(before)
+            // What cannot be put back stays as painted: a stray mark is the lesser harm, the wash under it is kept.
+            if (!put(before)) android.util.Log.e(TAG, "a cancelled stroke could not be taken off the sheet: the sheet stays as painted")
             drop(before)
         }
 
@@ -670,20 +692,67 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         fun moved(mark: Long, forward: Boolean) {
             val rec = recs[mark]
             if (rec == null) { android.util.Log.w(TAG, "a sheet step with nothing kept for it ($mark) was ${if (forward) "redone" else "undone"}"); return }
-            if (forward) { rec.after?.let(::put); return }
+            if (forward) {
+                rec.after?.let { if (!put(it)) android.util.Log.e(TAG, "the sheet could not follow a redo ($mark): it stays as it is") }
+                return
+            }
             rec.after?.let(::drop)
             rec.after = now()
-            put(rec.before)
+            if (!put(rec.before)) android.util.Log.e(TAG, "the sheet could not follow an undo ($mark): it stays as it is")
         }
 
-        fun blocked(mark: Long): Boolean = recs[mark].let { it == null || it.before === Was.Lost }
+        /**
+         * Asked BEFORE the undo log undoes ([forward] false) or redoes the step carrying [mark]: true when the sheet can
+         * follow, and everything that could fail is done here, while the log has not moved (Codex audit ENG-02,
+         * 2026-11-15: the log moved first, the sheet's engine for the other state could not be made, and the wash was
+         * gone from the screen with the history a step on). What the sheet holds now is kept (an undo's way forward
+         * again), and the sheet's engine is the one the other state needs, awake. False: nothing has changed.
+         */
+        fun ready(mark: Long, forward: Boolean): Boolean {
+            val rec = recs[mark] ?: return forward   // an undo with nothing kept for it cannot go back; a redo has nothing to put
+            if ((if (forward) rec.after else rec.before) === Was.Lost) return false
+            val cur = nowOrShed(spare = rec)
+            if (cur === Was.Lost) return false
+            try {
+                val target = if (forward) rec.after else rec.before
+                // A print made straight after its stroke goes back together with that stroke: both or neither.
+                if (!forward && target === Was.AsIs && WetSheetMath.isPrintMark(mark)) {
+                    val under = recs.lowerKey(mark)
+                    if (under != null && !WetSheetMath.isPrintMark(under) && !ready(under, false)) return false
+                }
+                val snap = (target as? Was.Held)?.snap ?: return true
+                return engineFor(snap.grid, cur)
+            } finally { drop(cur) }
+        }
 
-        private fun put(was: Was) {
-            when (was) {
-                Was.Empty, Was.Lost -> if (holding) empty()
-                Was.AsIs -> Unit
-                is Was.Held -> { restore(was.snap); changed(); live = retain(was.snap) }
+        /** The sheet's engine has [g] cells and is awake; when that cannot be, it is as it was (holding [cur]) and false. */
+        private fun engineFor(g: WetSheetMath.Grid, cur: Was): Boolean {
+            val e = engine
+            if (e != null && grid == g) {
+                if (!e.asleep) return true
+                return try { e.wake(); true } catch (x: GraphicsMemoryException) {
+                    android.util.Log.e(TAG, "no graphics memory to wake the wet sheet for the history: ${x.message}"); false
+                }
             }
+            val oldGrid = grid
+            releaseEngine()
+            newEngine(g)?.let { engine = it; grid = g; return true }
+            // Back to the engine it had, holding what it held (kept in [cur], which the released engine no longer has).
+            if (e != null) engine = newEngine(oldGrid)
+            if (cur is Was.Held && !restore(cur.snap)) {
+                android.util.Log.e(TAG, "the wash could not be shown again after a failed undo or redo")
+                holding = false; content = null; lookStale = null; lastWet = null
+                changed()
+            }
+            return false
+        }
+
+        private fun put(was: Was): Boolean = when (was) {
+            Was.Empty -> { if (holding) empty(); true }
+            // Nothing is kept to put back. Never the empty sheet in its place: that erased the wash (ENG-01).
+            Was.Lost -> false
+            Was.AsIs -> true
+            is Was.Held -> if (restore(was.snap)) { changed(); live = retain(was.snap); true } else false
         }
 
         /** Lets go of what the undo log no longer holds, and of the oldest copies past the memory cap. */
@@ -738,6 +807,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val stores = if (e.wetActive) listOf("p0", "p1", "w0", "w1") else listOf("p0", "p1")
         val tex = LinkedHashMap<String, Int>()
         try {
+            if (failKeeps > 0) { failKeeps--; throw GraphicsMemoryException("failed by the probe") }
             for (s in stores) {
                 val src = e.current(s) ?: continue
                 val t = MediaTex.make(w, h, filter = GLES30.GL_NEAREST)
@@ -752,23 +822,42 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             w.toLong() * h * 8 * tex.size)
     }
 
-    /** The sheet holds [s] again, where it lay; water that was running may run on. */
-    private fun restore(s: Snap) {
+    /** Bench only (WetSheetFailureProbe): the next copies of the sheet, the next sheet engines, fail as with no graphics memory. */
+    internal var failKeeps = 0
+    internal var failEngines = 0
+
+    /** A sheet engine of [g] cells, or null when the phone has no graphics memory for it (said in the log). */
+    private fun newEngine(g: WetSheetMath.Grid): MediaLayerEngine? {
+        val made = MediaLayerEngine(shaders, atlasMode = false, coarseWater = false)
+        try {
+            if (failEngines > 0) { failEngines--; throw GraphicsMemoryException("failed by the probe") }
+            made.init(g.w, g.h, 0f, 0f, 1f)
+        } catch (x: GraphicsMemoryException) {
+            android.util.Log.e(TAG, "no graphics memory for a wet sheet of ${g.w} x ${g.h} cells: ${x.message}")
+            runCatching { made.release() }
+            return null
+        }
+        made.lookPaintOnly = true; made.cullWater = true; made.capInput = true; made.rimCells = WetSheetMath.RIM_CELLS
+        made.prewarmSheet()
+        return made
+    }
+
+    /**
+     * The sheet holds [s] again, where it lay; water that was running may run on. False when it could not be (no graphics
+     * memory for its engine): the sheet is then as it was. The history asks [History.ready] first, so that is not met there.
+     */
+    private fun restore(s: Snap): Boolean {
         if (engine == null || grid != s.grid) {
+            // The engine it has stays until the other one exists: a failure here must not cost what the sheet holds.
+            val made = newEngine(s.grid) ?: return false
             releaseEngine()
-            val made = MediaLayerEngine(shaders, atlasMode = false, coarseWater = false)
-            try { made.init(s.grid.w, s.grid.h, 0f, 0f, 1f) } catch (x: GraphicsMemoryException) {
-                android.util.Log.e(TAG, "no graphics memory to bring the sheet back: ${x.message}")
-                runCatching { made.release() }
-                holding = false
-                return
-            }
-            made.lookPaintOnly = true; made.cullWater = true; made.capInput = true; made.rimCells = WetSheetMath.RIM_CELLS
-            made.prewarmSheet()
             engine = made; grid = s.grid
         }
         val e = engine!!
-        if (e.asleep) e.wake()
+        if (e.asleep) try { e.wake() } catch (x: GraphicsMemoryException) {
+            android.util.Log.e(TAG, "no graphics memory to wake the wet sheet: ${x.message}")
+            return false
+        }
         e.stopWater()
         layerId = s.layer; plane = s.plane; region = paint.planeRegion(s.layer, s.plane)
         cell = s.cell; originX = s.originX; originY = s.originY
@@ -782,13 +871,17 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         lookStale = content; lastWet = e.wetRect; groundStale = true
         holding = true
         pace.reset()
+        return true
     }
 
     /** The undo log undid or redid a step carrying a sheet mark ([GlPaintEngine.onSheetHistory]). */
     fun historyMoved(mark: Long, forward: Boolean) = history.moved(mark, forward)
 
-    /** [GlPaintEngine.sheetUndoBlocked]. */
-    fun undoBlocked(mark: Long): Boolean = history.blocked(mark)
+    /** [GlPaintEngine.sheetUndoBlocked]: asked before the log moves; everything that could fail is done in it ([History.ready]). */
+    fun undoBlocked(mark: Long): Boolean = !history.ready(mark, forward = false)
+
+    /** [GlPaintEngine.sheetRedoBlocked]. */
+    fun redoBlocked(mark: Long): Boolean = !history.ready(mark, forward = true)
 
     // ---- housekeeping ----
 

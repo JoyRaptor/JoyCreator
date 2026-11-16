@@ -42,6 +42,20 @@ public class DrawerPlaceTest {
         eq("picture already clear: no slide", 0f, DrawerPlace.panelShift(1, 1480, 360, 100, 1000));
         eq("no panel: no slide", 0f, DrawerPlace.panelShift(0, 1480, 360, 242, 1238));
 
+        // K5 left and right: one side only matches panelShift; both sides centre the picture in the band.
+        eq("sides: right only = panelShift", DrawerPlace.panelShift(1, 1480, 360, 242, 1238),
+                DrawerPlace.sidesShift(1480, 0, 360, 242, 1238));
+        eq("sides: left only = panelShift", DrawerPlace.panelShift(-1, 1480, 360, 242, 1238),
+                DrawerPlace.sidesShift(1480, 360, 0, 242, 1238));
+        eq("sides: both 360 on a centred 996 picture: already centred, no slide", 0f,
+                DrawerPlace.sidesShift(1480, 360, 360, 242, 1238));
+        eq("sides: both, picture off-centre: centred in the band", 50f,
+                DrawerPlace.sidesShift(1480, 360, 260, 242, 1238));
+        eq("sides: never past its own room", 242f * -1,
+                DrawerPlace.sidesShift(1480, 100, 900, 242, 1238));
+        eq("sides: picture clear of both: no slide", 0f,
+                DrawerPlace.sidesShift(1480, 200, 200, 300, 1100));
+
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
     }

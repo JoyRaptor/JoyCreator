@@ -492,6 +492,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private float drawerReflowShiftY = 0f;
     /** TAB-1: the picture's sideways slide away from a side-panel drawer (negative = left). */
     private float panelReflowShiftX = 0f;
+    /**
+     * TAB-1 K5: the small top drawers (volume, opacity, loop, caption keyframes, visualizer, move,
+     * word timing) stand beside the picture with the object drawer on a wide window: stacked above
+     * it in the same column, or on the other side when "Second drawer on the other side" is on.
+     */
+    private static final int[] SMALL_DRAWERS = {R.id.volume_drawer, R.id.opacity_drawer,
+            R.id.loop_drawer, R.id.caption_keyframe_drawer, R.id.visualizer_drawer,
+            R.id.move_drawer, R.id.word_scrub_drawer};
+    /** Height of the small drawers stacked above the object drawer on its own side, px. */
+    private int smallStackPx = 0;
+    /** Where the open small drawers stand: +1 right, -1 left, 0 none beside the picture. */
+    private int smallDrawerEdge = 0;
+    /** What the side layout was last made for, so a layout pass with nothing new does nothing. */
+    private String sideLayoutKey = "";
     /** TAB-1: where the object drawer stands now (DrawerPlace decides; DROP on a phone). */
     private com.fadcam.ui.faditor.tools.DrawerPlace.Place drawerPlace = com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP;
     private boolean transitionPanelOpen = false;
@@ -1641,6 +1655,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
         setContentView(R.layout.activity_faditor_editor);
+        // TAB-1 K5: every small top drawer opening or closing is a layout pass; one listener places
+        // them beside the picture on a wide window, so none of their seven open paths changes.
+        getWindow().getDecorView().getViewTreeObserver()
+                .addOnGlobalLayoutListener(this::layoutSideDrawers);
         // Every named control shows its name on hover (stylus, mouse), drawers included (STU-D1).
         com.fadcam.ui.faditor.util.HoverLabels.watch(getWindow().getDecorView());
 
@@ -32253,6 +32271,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         boolean left = com.fadcam.ui.faditor.tools.DrawerPlace.left(this);
         // Below the app's own header, which stays in place beside a panel (it is not covered).
         int top = editor.getTop() + (topBar != null ? topBar.getTop() + topBar.getHeight() : 0);
+        // K5: small drawers stacked above it in the same column.
+        top += smallStackPx;
         View root = (View) editor.getParent();
         int bottom = place == com.fadcam.ui.faditor.tools.DrawerPlace.Place.COLUMN
                 ? root.getHeight() - root.getPaddingBottom()
@@ -32295,13 +32315,89 @@ public class FaditorEditorActivity extends AppCompatActivity {
         float shift = 0f;
         View slot = findViewById(R.id.player_container);
         android.graphics.RectF pic = computeCanvasRect();
-        if (open && edge != 0 && slot != null && pic != null && pic.width() > 0) {
-            shift = com.fadcam.ui.faditor.tools.DrawerPlace.panelShift(edge, slot.getWidth(), panelW, pic.left, pic.right);
+        if (slot != null && pic != null && pic.width() > 0) {
+            float rightW = 0f, leftW = 0f;
+            if (open && edge > 0) rightW = panelW;
+            else if (open && edge < 0) leftW = panelW;
+            // K5: small drawers standing beside the picture count too.
+            if (smallDrawerEdge > 0) rightW = panelW;
+            else if (smallDrawerEdge < 0) leftW = panelW;
+            shift = com.fadcam.ui.faditor.tools.DrawerPlace.sidesShift(slot.getWidth(), leftW, rightW, pic.left, pic.right);
         }
         panelReflowShiftX = shift;
         drawerReflowShiftY = 0f;
         applyPictureReflow(true);
         setTopBarHiddenForDrawer(false);
+    }
+
+    /**
+     * TAB-1 K5: stand the open small top drawers beside the picture on a wide window, stacked from
+     * under the header on the object drawer's side (the object drawer moves down under them), or on
+     * the other side when the second-drawer setting says so. On a phone, or with drawers set to drop
+     * down, they keep their own drop-down place exactly: nothing here touches them.
+     */
+    private void layoutSideDrawers() {
+        View editor = findViewById(R.id.editor_root);
+        View slot = findViewById(R.id.player_container);
+        View topBar = findViewById(R.id.editor_top_bar);
+        if (editor == null || slot == null) return;
+        int widthDp = getResources().getConfiguration().screenWidthDp;
+        if (!com.fadcam.ui.faditor.tools.DrawerPlace.switchable(widthDp) && sideLayoutKey.isEmpty()) return;   // a phone: untouched
+        float slackX = 0f, slackY = 0f;
+        android.graphics.RectF pic = computeCanvasRect();
+        if (pic != null && pic.width() > 0 && slot.getWidth() > 0) {
+            slackX = slot.getWidth() - pic.width();
+            slackY = slot.getHeight() - pic.height();
+        }
+        boolean side = com.fadcam.ui.faditor.tools.DrawerPlace.choose(com.fadcam.ui.faditor.tools.DrawerPlace.mode(this), com.fadcam.ui.faditor.tools.DrawerPlace.column(this), widthDp, slackX, slackY)
+                != com.fadcam.ui.faditor.tools.DrawerPlace.Place.DROP;
+        int mainEdge = com.fadcam.ui.faditor.tools.DrawerPlace.left(this) ? -1 : 1;
+        boolean objBeside = objectDrawer != null && objectDrawer.isShowing() && objectDrawer.side() != 0;
+        int edge = com.fadcam.ui.faditor.tools.DrawerPlace.split(this) && objBeside ? -mainEdge : mainEdge;
+        int top = editor.getTop() + (topBar != null ? topBar.getTop() + topBar.getHeight() : 0);
+        int panelW = dp(com.fadcam.ui.faditor.tools.DrawerPlace.PANEL_DP), gap = dp(6), stack = 0;
+        boolean any = false;
+        StringBuilder key = new StringBuilder().append(side).append(edge).append(objBeside)
+                .append(widthDp).append(top);
+        for (int id : SMALL_DRAWERS) {
+            View v = findViewById(id);
+            if (v == null || !(v.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams)) continue;
+            android.widget.FrameLayout.LayoutParams lp =
+                    (android.widget.FrameLayout.LayoutParams) v.getLayoutParams();
+            Object tag = v.getTag(R.id.tab1_margin_base);
+            int[] base;
+            if (tag instanceof int[]) base = (int[]) tag;
+            else { base = new int[]{lp.width, lp.gravity, lp.topMargin}; v.setTag(R.id.tab1_margin_base, base); }
+            boolean shown = v.getVisibility() == View.VISIBLE;
+            key.append(id).append(shown ? 'v' : '-').append(v.getHeight());
+            int w = base[0], g = base[1], t = base[2];
+            if (side) {
+                w = panelW;
+                g = android.view.Gravity.TOP | (edge > 0 ? android.view.Gravity.RIGHT : android.view.Gravity.LEFT);
+                t = top + (shown ? stack : 0);
+                if (shown) { stack += v.getHeight() + gap; any = true; }
+            }
+            if (lp.width != w || lp.gravity != g || lp.topMargin != t) {
+                lp.width = w;
+                lp.gravity = g;
+                lp.topMargin = t;
+                v.setLayoutParams(lp);
+            }
+        }
+        String k = key.toString();
+        if (k.equals(sideLayoutKey)) return;
+        sideLayoutKey = k;
+        smallDrawerEdge = side && any ? edge : 0;
+        int stacked = side && any && edge == mainEdge ? stack : 0;
+        boolean restack = stacked != smallStackPx;
+        smallStackPx = stacked;
+        if (objBeside && restack) placeObjectDrawer();
+        if (side) reflowBesidePanel(objBeside);
+        else if (panelReflowShiftX != 0f && !objBeside) {
+            // Back to dropping down (the window narrowed): give the picture its place back.
+            panelReflowShiftX = 0f;
+            applyPictureReflow(true);
+        }
     }
 
     /**

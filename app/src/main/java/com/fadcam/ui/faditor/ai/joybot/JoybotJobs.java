@@ -68,6 +68,11 @@ public final class JoybotJobs {
         listener = l;
     }
 
+    /** Detach only if {@code l} is still the one attached (a newer chat may have replaced it). */
+    public static synchronized void detach(@NonNull Listener l) {
+        if (listener == l) listener = null;
+    }
+
     public static boolean isRunning() { return !LIVE.isEmpty(); }
 
     /** Stop between steps (a step already under way finishes). */

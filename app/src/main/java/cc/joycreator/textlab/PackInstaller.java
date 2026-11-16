@@ -24,7 +24,8 @@ import java.util.zip.ZipInputStream;
  *
  * <p>Safe by construction: every file stays inside the pack's folder (a path that climbs out refuses the whole
  * pack), the pack is read whole before anything is written, and it is capped in size and count. Nothing in a pack
- * runs as program code. Installing a pack with the same id again replaces that pack's folder; the person's own
+ * runs as program code. Installing a pack with the same id again replaces that pack's folder as one step
+ * ({@link com.fadcam.joyfolder.PackPublish}); the person's own
  * copies (saved in {@code Supplies/Looks/}) are never touched.</p>
  */
 public final class PackInstaller {
@@ -93,23 +94,20 @@ public final class PackInstaller {
     @WorkerThread
     @NonNull
     public static String install(@NonNull JoyFolder jf, @NonNull Read r) throws IOException {
-        String dir = findOrMake(jf, r.pack);
-        for (Map.Entry<String, byte[]> f : r.files.entrySet()) {
-            String rel = Placement.join(dir, f.getKey());
-            int slash = rel.lastIndexOf('/');
-            if (slash > 0) jf.fs.mkdirs(rel.substring(0, slash));
-            jf.writeAtomic(rel, f.getValue());
-        }
+        jf.fs.mkdirs(TextLookShelf.PACKS_DIR);
+        com.fadcam.joyfolder.PackPublish.recover(jf.fs, TextLookShelf.PACKS_DIR);   // an install the app did not finish
+        String dir = findOrName(jf, r.pack);
+        // R2-PACK-01: the whole new version, then one swap; a failure leaves the installed pack as it was
+        com.fadcam.joyfolder.PackPublish.publish(jf.fs, dir, r.files);
         jf.saveIndex();
         return dir;
     }
 
-    /** The folder of an installed pack with this id (updated in place), or a new one named after the pack. */
-    private static String findOrMake(@NonNull JoyFolder jf, @NonNull JoyPack p) throws IOException {
+    /** The folder of an installed pack with this id (replaced as one step), or a free one named after the pack. */
+    private static String findOrName(@NonNull JoyFolder jf, @NonNull JoyPack p) throws IOException {
         String top = TextLookShelf.PACKS_DIR;
-        jf.fs.mkdirs(top);
         for (com.fadcam.joyfolder.JoyFs.Entry d : jf.fs.list(top)) {
-            if (!d.dir) continue;
+            if (!d.dir || d.name.startsWith(".")) continue;
             String m = Placement.join(Placement.join(top, d.name), JoyPack.MANIFEST);
             try {
                 if (jf.fs.stat(m) != null && JoyPack.parse(new String(jf.readAll(m), StandardCharsets.UTF_8)).id.equals(p.id)) {
@@ -121,9 +119,7 @@ public final class PackInstaller {
         }
         String base = ReadableNames.sanitize(p.name).trim();
         if (base.isEmpty()) base = "Pack";
-        String dir = Placement.join(top, jf.freeName(top, base));
-        jf.fs.mkdirs(dir);
-        return dir;
+        return Placement.join(top, jf.freeName(top, base));
     }
 
     /** A path inside the pack: relative, no "..", no drive. */

@@ -478,6 +478,7 @@ public class LibraryFragment extends BaseFragment {
             @Override public void onClassic() { leaveFor(TAB_RECORDS); }
             @Override public void onClassicStudio() { leaveFor(TAB_STUDIO); }
             @Override public void onPastePicture() { pastePicture(); }
+            @Override public void onDemoProject() { com.fadcam.ui.studio.DemoProject.open(requireActivity()); }
         });
     }
 

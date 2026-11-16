@@ -1,6 +1,6 @@
 # BOT-2: Joybot everywhere, and everything findable through him
 
-**Milestone:** M1 (feeds M2)  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13; was "JoyBot UX vision and capabilities")  ·  **Checked:** 2026-11-13
+**Milestone:** M1 (feeds M2)  ·  **State:** 🔨  ·  **Owner:** Joybot lane (Claude Opus 5.5, 11-13; was "JoyBot UX vision and capabilities")  ·  **Checked:** 2026-11-15 on `joy-creator` (BOT-A39: ideas 1,239, bench 65/65, flights 88, bridge 33, actions 43, prompt budget 50, item names 28; all pass)
 
 ## Why it matters (for the user)
 Wherever you are, tapping Joybot should offer the right next things and answer "how do I…" for that room.
@@ -32,6 +32,14 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
   - [x] SpriteLab (3 more: `sprite_align`, `sprite_sheets`, `sprite_reorder`), Library (4: `library_find`,
         `library_projects`, `library_import`, `library_look`): 11-04. Space and Trash were already covered by `space`,
         `trash`, `trash_restore`; STATE row mapped.
+  - [x] **11-15: Capture and Settings** (BOT-A6, BOT-7 lane): `capture_modes` (the recorder: Camera / Screen, Start,
+        Pause, Switch camera, Torch, Home Menu), `capture_photo`, `capture_screenshot` (left out of the Play build, which
+        has no Screenshot shortcut: `LaunchGate.PLAY_HIDDEN` `help_capture_screenshot`; any topic can now be hidden as
+        `help_<id>`), `dual_camera`, `watermark`, `about`, `lobby_floor`; `remote_lan` names the pairing code under
+        Access; `settings_find` names the hub's sections. Labels read from the strings and layouts. Ideas 1,239 (18 new
+        question checks, 3 that other topics keep their words, the Play hide). **Asked on the Note 9 11-16 (BOT-A8)** with the 18 JoyBrush/Sprite Lab/Library topics and the TextLab, Settings and
+        Remote ones: 37 questions, all right; Tips answer corrected; a how-to no longer starts the create questions, and
+        mid-create a question lets go ([evidence](../joybot/evidence/HELP_A8_20261116.md)).
   - [x] **11-13: JoyBrush layer menu and the Studio rows STATE marked "Help: PENDING"** (BOT-A5): `joybrush_layers`
         (Lock, Merge down, Freeze layer, Flatten, Flatten Lower, Clip, Clear, Delete; STATE row `joybrush.layer-ops`
         added), `studio_marks` (bookmarks, regions, loop, region export, "ask me to drop a mark"), `studio_title_rename`,

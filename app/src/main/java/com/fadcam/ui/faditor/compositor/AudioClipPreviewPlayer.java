@@ -35,7 +35,9 @@ import java.util.List;
  *   <li>{@link #setVolume} does NOT set a raw player gain — gain belongs to the model
  *       (volume level + envelope + pan) and the processors read it; this method pushes a
  *       fresh {@link #refresh()} instead. Call sites that wrote computed gains directly
- *       now write the model first (they already do) and land here.</li>
+ *       now write the model first (they already do) and land here. The one thing it takes
+ *       from the numbers is MUTE: an effective level of 0 shuts the player
+ *       ({@link PreviewMuteGate}), because the processors know nothing of a muted lane.</li>
  *   <li>Position semantics are SOURCE ms (ClippingConfiguration plays in-point-relative),
  *       identical to what every existing seek site computes.</li>
  * </ul>
@@ -63,6 +65,9 @@ public final class AudioClipPreviewPlayer {
     @Nullable private List<AudioProcessor> chain;
     private boolean prepared = false;
     @Nullable private Long parkTargetMs = null;
+    /** The editor's last effective level as a gate (1 open until it says otherwise). */
+    private float callerGain = 1f;
+    @NonNull private final PreviewStreamClock streamClock = new PreviewStreamClock();
 
     public AudioClipPreviewPlayer(@NonNull Context context,
                                   @NonNull AudioClip clip,
@@ -82,9 +87,19 @@ public final class AudioClipPreviewPlayer {
         try {
             // The chain must exist BEFORE the sink is built (processors configure when the
             // pipeline starts). Built from the ONE factory export uses.
-            chain = AudioFxChainFactory.buildLaneChain(
+            // The PREVIEW chain mounts the level processor even for a muted clip (export drops
+            // a muted clip outright): otherwise a clip muted when the editor opened had no
+            // processor, and unmuting it later brought back neither its level nor its fades.
+            // The mute itself is the player gate below (R2-AUD-02).
+            chain = AudioFxChainFactory.buildPreviewLaneChain(
                     clip, sampleRateOfSource(), projectSampleRate, fxBypassedSnapshot,
                     applyVoiceChain);
+            for (AudioProcessor ap : chain) {
+                if (ap instanceof com.fadcam.ui.faditor.export.VolumeAudioProcessor) {
+                    ((com.fadcam.ui.faditor.export.VolumeAudioProcessor) ap)
+                            .setStreamClock(streamClock);
+                }
+            }
 
             androidx.media3.exoplayer.DefaultRenderersFactory rf =
                     new androidx.media3.exoplayer.DefaultRenderersFactory(context) {
@@ -95,11 +110,35 @@ public final class AudioClipPreviewPlayer {
                                 boolean enableAudioTrackPlaybackParams) {
                             // Force Sonic (time-stretch without pitch) for micro-speed drift correction.
                     // Hardware AudioTrack playbackParams DOES repitch; Sonic path does not.
-                    return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(ctx)
+                    AudioSink sink = new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(ctx)
                                     .setEnableFloatOutput(enableFloatOutput)
                                     .setEnableAudioTrackPlaybackParams(false)
                                     .setAudioProcessors(chain.toArray(new AudioProcessor[0]))
                                     .build();
+                            // Watches buffer times so the fade keeps its place across a
+                            // flush (lead W1; see PreviewStreamClock).
+                            return new androidx.media3.exoplayer.audio.ForwardingAudioSink(sink) {
+                                @Override
+                                public boolean handleBuffer(java.nio.ByteBuffer buffer,
+                                        long presentationTimeUs, int encodedAccessUnitCount)
+                                        throws InitializationException, WriteException {
+                                    streamClock.onBuffer(presentationTimeUs);
+                                    return super.handleBuffer(buffer, presentationTimeUs,
+                                            encodedAccessUnitCount);
+                                }
+
+                                @Override
+                                public void flush() {
+                                    streamClock.onSinkFlush();
+                                    super.flush();
+                                }
+
+                                @Override
+                                public void reset() {
+                                    streamClock.onSinkFlush();
+                                    super.reset();
+                                }
+                            };
                         }
                     };
 
@@ -130,6 +169,7 @@ public final class AudioClipPreviewPlayer {
             p.setMediaItem(item);
             p.prepare();
             this.player = p;
+            applyGate();
         } catch (Exception e) {
             FLog.e(TAG, "Failed to prepare preview player for " + clip.getId(), e);
             release();
@@ -193,7 +233,10 @@ public final class AudioClipPreviewPlayer {
      * site computes in: {@code inPointMs + playhead - offset}).
      */
     public void seekTo(long sourceMs) {
-        if (player != null) player.seekTo(toWindowMs(sourceMs));
+        if (player == null) return;
+        long w = toWindowMs(sourceMs);
+        streamClock.seekingTo(w * 1000L);
+        player.seekTo(w);
     }
 
     /** Park (seek + buffer) at sourceMs WITHOUT starting. */
@@ -207,7 +250,9 @@ public final class AudioClipPreviewPlayer {
         }
         try {
             player.setPlayWhenReady(false);
-            player.seekTo(toWindowMs(target));
+            long w = toWindowMs(target);
+            streamClock.seekingTo(w * 1000L);
+            player.seekTo(w);
             if (player.getPlaybackState() == Player.STATE_IDLE) {
                 player.prepare();
             }
@@ -280,13 +325,28 @@ public final class AudioClipPreviewPlayer {
      * pan) into the mounted processors so slider/fade edits are audible immediately.
      */
     public void setVolume(float left, float right) {
+        // The numbers are the editor's EFFECTIVE level (0 when the clip or its lane is muted).
+        // They used to be dropped here, so mute never reached the preview (R2-AUD-02). The
+        // level itself stays with the processors; only the gate reads these.
+        callerGain = PreviewMuteGate.playerGain(false, left, right);
         refresh();
     }
 
-    /** Re-read the live model into the mounted processors. Cheap. */
+    /** Re-read the live model into the mounted processors, and the mute gate. Cheap. */
     public void refresh() {
         if (chain != null) {
             AudioFxChainFactory.refreshLaneChain(chain, clip);
+        }
+        applyGate();
+    }
+
+    private void applyGate() {
+        if (player == null) return;
+        float g = PreviewMuteGate.playerGain(clip.isMuted(), callerGain, callerGain);
+        try {
+            if (player.getVolume() != g) player.setVolume(g);
+        } catch (Exception e) {
+            FLog.w(TAG, "mute gate failed for " + clip.getId(), e);
         }
     }
 

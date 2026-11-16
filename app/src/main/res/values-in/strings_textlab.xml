@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Grafis ponsel ini tidak bisa menggambar tampilan TextLab. Judulmu tetap tampil, sebagai kata polos.</string>
     <string name="textlab_trouble_memory">Memori ponsel kurang untuk tampilan ini. Tutup aplikasi lain lalu coba lagi.</string>
     <string name="textlab_trouble_other">Tampilan ini tidak bisa digambar di ponsel ini. Coba tampilan lain; judulmu tetap tampil sebagai kata polos.</string>
+    <string name="textlab_draft_title">Perubahanmu yang belum disimpan</string>
+    <string name="textlab_draft_body">Perubahanmu pada %1$s belum disimpan terakhir kali. Kembalikan?</string>
+    <string name="textlab_draft_bring">Kembalikan</string>
+    <string name="textlab_draft_let_go">Biarkan</string>
 </resources>

@@ -30,6 +30,16 @@ public final class Flight {
     /** He leaves the button this long after the show starts. */
     public static final long T0 = 80L;
 
+    /**
+     * Depth (owner, 11-15 midday: "vary his scale through the loop-the-loops, so he sometimes seems to fly closer to us.
+     * On the ground, or scooting along it, he is exactly his resting size"; then, seeing 20%: "rookie numbers ... grow 2
+     * to 3 times bigger and it would just look like he's zooming at you and away"): where his path turns back against
+     * the way he is travelling overall (the top of a loop) he zooms toward us, by up to this much more than his size before
+     * the zoom is smoothed in time (so about 2 to 2.8 times his size at the top of a loop); it fades to nothing as he
+     * nears the ground, so he touches down at his own size. Drawn from a sharp 480 px home pose (assets/joybot/hi).
+     */
+    public static final float DEPTH = 2.5f;
+
     /** Where he is, how he is turned and what picture to show. Reused; never kept. */
     public static final class Pose {
         /** Body centre, dp. */
@@ -143,6 +153,13 @@ public final class Flight {
     public final long dur;
     final Line line;
     @Nullable final Leg leg;
+    /** The way he travels overall, button to seat, as a heading (degrees, 0 = up). */
+    final float chord;
+    /**
+     * How far his heading has turned back against {@link #chord} along the path (0 = with it, 1 = the opposite way),
+     * smoothed along the path so his size swells and settles rather than jumping in a tight turn.
+     */
+    private final float[] back;
     private final float[] warp;
     private final float warpTotal;
 
@@ -160,6 +177,7 @@ public final class Flight {
         this.quick = uv == null;
         this.approach = quick ? Approach.SCOOT : approach;
         this.landing = landing;
+        this.chord = (float) Math.toDegrees(Math.atan2(ey - sy, ex - sx)) + 90f;
         if (quick) {
             line = catmull(new float[]{sx, sy, lerp(sx, ex, .55f), Math.min(sy, ey) + 40f, ex, ey}, 26);
         } else {
@@ -176,6 +194,7 @@ public final class Flight {
         if (quick || approach == Approach.SCOOT) leg = null;
         else if (approach == Approach.ROCKET) leg = new Leg(.7f, .95f, false);
         else leg = lastSteepLeg(line, ey + pegUp, sy, pegUp);
+        back = backProfile(line, chord, 200, 14);
         int N = 240;
         warp = new float[N + 1];
         for (int i = 1; i <= N; i++) warp[i] = warp[i - 1] + (1f / N) / speedAt((i - .5f) / N);
@@ -184,6 +203,83 @@ public final class Flight {
         if (quick) dur = Math.round(clamp(line.tot / 1.2f, 440f, 650f));
         else if (short_) dur = Math.round(800f * warpTotal);
         else dur = Math.round(clamp(line.tot / 1.55f, 650f, 1700f) * warpTotal);
+        depthT = quick ? null : depthProfile();
+    }
+
+    /** His zoom toward us through the flight ({@link #DEPTH}), sampled every {@link #DEPTH_STEP_MS} from {@link #T0}. */
+    @Nullable private final float[] depthT;
+    private static final int DEPTH_STEP_MS = 4;
+
+    /**
+     * How big he is at each moment: bigger where the path turns back on itself, fading to his own size well before the
+     * ground (by 40 dp above it) and before a braking burn; then smoothed in time (twice over 70 ms either side), so a
+     * fast dive zooms rather than pops.
+     */
+    @NonNull
+    private float[] depthProfile() {
+        int n = (int) (dur / DEPTH_STEP_MS) + 1;
+        float[] raw = new float[n], p = new float[3];
+        for (int i = 0; i < n; i++) {
+            float ue = progress(T0 + (long) i * DEPTH_STEP_MS);
+            line.at(ue, p);
+            float near = smooth(1f - clamp(((ey - p[1]) - 40f) / 220f, 0f, 1f));
+            float burn = leg != null ? smooth((ue - (leg.a - .14f)) / .1f) : 0f;
+            float away = smooth((ue - .1f) / .12f) * (1f - Math.max(near, burn));
+            raw[i] = DEPTH * backAt(ue) * away;
+        }
+        int half = 70 / DEPTH_STEP_MS;
+        for (int pass = 0; pass < 2; pass++) {
+            float[] out = new float[n];
+            for (int i = 0; i < n; i++) {
+                float sum = 0f;
+                int c = 0;
+                for (int k = Math.max(0, i - half); k <= Math.min(n - 1, i + half); k++) { sum += raw[k]; c++; }
+                out[i] = sum / c;
+            }
+            raw = out;
+        }
+        // ends exactly at his own size: the last 100 ms ease to it whatever the smoothing left
+        int tail = Math.min(n, 100 / DEPTH_STEP_MS);
+        for (int i = n - tail; i < n; i++) raw[i] *= smooth((n - 1 - i) / (float) Math.max(1, tail - 1));
+        for (int i = 0; i < n; i++) raw[i] += 1f;
+        return raw;
+    }
+
+    /** His zoom at {@code t} ms into the show (1 = his own size). */
+    float depthAt(long t) {
+        if (depthT == null) return 1f;
+        float f = clamp((t - T0) / (float) DEPTH_STEP_MS, 0f, depthT.length - 1);
+        int i = Math.min(depthT.length - 2, (int) f);
+        if (i < 0) return depthT[0];
+        return lerp(depthT[i], depthT[i + 1], f - i);
+    }
+
+    /** {@link #back} sampled at {@code n + 1} points, box-smoothed twice over {@code half} samples either side. */
+    @NonNull
+    static float[] backProfile(@NonNull Line line, float chord, int n, int half) {
+        float[] raw = new float[n + 1], p = new float[3];
+        for (int i = 0; i <= n; i++) {
+            line.at(i / (float) n, p);
+            raw[i] = .5f - .5f * (float) Math.cos(Math.toRadians(p[2] - chord));
+        }
+        for (int pass = 0; pass < 2; pass++) {
+            float[] out = new float[n + 1];
+            for (int i = 0; i <= n; i++) {
+                float sum = 0f;
+                int c = 0;
+                for (int k = Math.max(0, i - half); k <= Math.min(n, i + half); k++) { sum += raw[k]; c++; }
+                out[i] = sum / c;
+            }
+            raw = out;
+        }
+        return raw;
+    }
+
+    /** {@link #back} at fraction {@code u} of the path. */
+    float backAt(float u) {
+        float f = clamp(u, 0f, 1f) * (back.length - 1);
+        int i = Math.min(back.length - 2, (int) f);
+        return lerp(back[i], back[i + 1], f - i);
     }
 
     /** Touchdown, ms after the show starts. */
@@ -191,9 +287,32 @@ public final class Flight {
 
     /** He has stopped moving and turned to face front: the chat's own Joybot takes over. */
     public long tSettle() {
+        return tLand() + landMs() + (rise > 0f ? RISE_MS : 0L) + 40L;
+    }
+
+    /** From touchdown until his landing (and any scoot) is over, ms. */
+    private long landMs() {
         Landing style = landingStyle();
         long land = style == Landing.DOUBLE ? 560L : style == Landing.CARTOON ? 400L : 300L;
-        return tLand() + land + (approach == Approach.SCOOT && !quick ? 640L : 0L) + 40L;
+        return land + (approach == Approach.SCOOT && !quick ? 640L : 0L);
+    }
+
+    /**
+     * After touching down on his seat (the impact and the sparks: owner, 11-15) he lifts this many dp to his hover
+     * (owner's pick: 12 dp above the seat) before the chat's Joybot takes over.
+     */
+    private float rise;
+    private static final long RISE_MS = 320L;
+
+    @NonNull
+    public Flight withRise(float dp) {
+        rise = Math.max(0f, dp);
+        return this;
+    }
+
+    /** How far he has lifted off the seat, {@code raw} ms after touchdown. */
+    float risen(float raw) {
+        return rise <= 0f ? 0f : rise * smooth((raw - landMs()) / RISE_MS);
     }
 
     /** Fraction of the path he has covered at {@code t} ms (UI thread uses this for the wake reveal). */
@@ -357,6 +476,7 @@ public final class Flight {
             if (upW > .5f && Math.abs(vx) > 60f) face = vx < 0f ? -1 : 1;
             float pop = clamp((t - T0) / 160f, 0f, 1f);
             float spd = (float) Math.sin(Math.PI * ue);
+            float depth = f.depthAt(t);
             o.x = p[0];
             o.y = p[1];
             o.rot = r;
@@ -364,7 +484,7 @@ public final class Flight {
             o.sy = 1f + .10f * spd;
             if (inBurst) { o.sx = 1.04f; o.sy = .96f; }
             else if (afterBurst && f.approach != Approach.ROCKET && !info.hover) { o.sx = .95f; o.sy = 1.07f; }
-            o.scale = lerp(.35f, 1f, easeOut(pop));
+            o.scale = lerp(.35f, 1f, easeOut(pop)) * depth;
             o.face = face;
             o.spinning = !f.quick && ue < .1f;
             o.spinFrame = (int) ((t - T0) / 55L);
@@ -400,7 +520,7 @@ public final class Flight {
             boolean settled = yours && f.approach == Approach.SCOOT ? raw > 660f : raw > 220f;
             if (skimming) face = -1; else if (settled) face = 1;
             o.x = f.ex + scootX;
-            o.y = f.ey + land[2];
+            o.y = f.ey + land[2] - f.risen(raw);
             o.rot = lerp(rr, 0f, smooth(lt2 / 160f)) + scootLean;
             o.sx = land[0];
             o.sy = land[1];

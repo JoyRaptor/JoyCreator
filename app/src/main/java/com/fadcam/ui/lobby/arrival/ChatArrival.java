@@ -59,8 +59,13 @@ public final class ChatArrival {
     private static final String TAG = "ChatArrival";
     /** The chat's Joybot is 64 dp (activity_chat_assistant.xml chat_actor). */
     private static final float ACTOR_DP = 64f;
+    /**
+     * His cone floats this far above his seat (owner's pick, 11-15 evening: "Hover D (Alive), 12 dp above the seat"). He
+     * lands on it 4 dp up, with the impact, then lifts to here.
+     */
+    static final float HOVER_DP = 12f;
     /** His body inside a cell, until acts.json is read (the same numbers). */
-    private static final RectF DEFAULT_FOCUS = new RectF(.2583f, .1708f, .6958f, .9667f);
+    private static final RectF DEFAULT_FOCUS = new RectF(.2667f, .1625f, .6833f, .9167f);
     private static final float CELL = 240f;
     /** The longest the open waits for his pictures before going without the flight. */
     private static final long SPRITE_WAIT_MS = 260L;
@@ -71,6 +76,7 @@ public final class ChatArrival {
     private final FrameLayout root, reveal, stage;
     private final LinearLayout panel, title;
     private final View header, titleBlock, seat, row, grip, chips;
+    @Nullable private final View closeBtn;
     private final JoybotView actor;
     private final Random dice = new Random();
     private final CardFrame frame;
@@ -80,12 +86,18 @@ public final class ChatArrival {
     private final float[] tmp = new float[4];
 
     private boolean card;
+    /**
+     * The card stays inside the full chat window and the screen beside it can't be touched: the room under it is paused
+     * and skips its saves, so edits made beside a floating card were lost (bug hunt A10, 11-15). A tap beside it closes
+     * the chat. Only the lobby and the Library keep the free-floating card.
+     */
+    private boolean modal;
     private boolean placed, started, running, handedOff, opened, stageOver, closing;
     private long t0, handT, waitUntil;
     @Nullable private Flight flight;
     @Nullable private Reveal rev;
     @Nullable private StageView gl;
-    @Nullable private Bitmap idle, spin;
+    @Nullable private Bitmap idle, spin, homeSharp;
     private int idleCols = 8, idleRows = 2, spinCols = 8, spinRows = 2, spinCount = 10;
     @NonNull private RectF focus = DEFAULT_FOCUS;
     private volatile boolean spritesDone;
@@ -109,12 +121,16 @@ public final class ChatArrival {
         row = a.findViewById(R.id.chat_row);
         grip = a.findViewById(R.id.chat_grip);
         chips = a.findViewById(R.id.chat_chips);
+        closeBtn = a.findViewById(R.id.chat_back);
         frame = new CardFrame(a, root, reveal);
         frost = new FrostView(a);
         frame.setOnMoved(() -> { frost.invalidate(); frost.postOnAnimation(frost::invalidate); frost.postDelayed(frost::invalidate, 60L); });
     }
 
     // ── set up ──────────────────────────────────────────────────────────────
+
+    /** Opened over a room where work is edited (not the lobby or the Library): the card is modal there. Before install. */
+    public void setModal(boolean modal) { this.modal = modal; }
 
     /** Call once, after the chat's views are set up. The show starts by itself once laid out. */
     public void install() {
@@ -136,8 +152,14 @@ public final class ChatArrival {
         reveal.addView(frost, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         reveal.setVisibility(View.INVISIBLE);
         chips.setAlpha(0f);
+        actor.setChatStage(HOVER_DP);
         row.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> placeActor());
         frame.attach(titleBlock, grip);
+        frame.watchKeyboard(root);
+        // A modal card: a tap beside it closes the chat; touches on the card that nothing on it takes stay on the card.
+        reveal.setOnTouchListener((v, e) -> true);
+        root.setOnClickListener(v -> { if (card && modal && opened) a.finish(); });
+        root.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         loadSprites();
         waitUntil = SystemClock.uptimeMillis() + SPRITE_WAIT_MS;
         root.getViewTreeObserver().addOnGlobalLayoutListener(new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -208,7 +230,15 @@ public final class ChatArrival {
             JoybotActs acts = JoybotActs.get(app);
             if (acts == null) { spritesDone = true; return; }
             JoybotActs.Act ia = acts.named("idle"), sa = acts.named("spin");
+            // His home pose at 480 px for the flight: he zooms up to about 3x toward us (Flight.DEPTH), where the 240 px
+            // cell would be stretched. Only this one picture is big (owner: keep big frames to the moments he is shown large).
+            Bitmap sharp = null;
+            try (java.io.InputStream in = app.getAssets().open("joybot/hi/home.webp")) {
+                sharp = android.graphics.BitmapFactory.decodeStream(in);
+            } catch (java.io.IOException | RuntimeException | OutOfMemoryError ignored) { /* the 240 px home will do */ }
+            final Bitmap hi = sharp;
             actor.post(() -> {
+                homeSharp = hi;
                 if (ia == null) { spritesDone = true; return; }
                 RectF f = acts.focus();
                 if (f != null) focus = f;
@@ -235,7 +265,7 @@ public final class ChatArrival {
         int[] s = seatInStage();
         float peg = Show.pegUp(CELL, CELL, focus, ACTOR_DP) * d;
         int aw = Math.round(ACTOR_DP * d);
-        int left = s[0] - aw / 2, top = Math.round(s[1] - 4f * d - peg - aw / 2f);
+        int left = s[0] - aw / 2, top = Math.round(s[1] - HOVER_DP * d - peg - aw / 2f);
         ViewGroup.LayoutParams p = actor.getLayoutParams();
         if (!(p instanceof FrameLayout.LayoutParams)) return;
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) p;
@@ -284,7 +314,7 @@ public final class ChatArrival {
         boolean shorter = !full && later == JoybotArrival.Later.SHORT;
         float[] uv = hop ? null : paths.get(JoybotArrival.nextPath(a, paths.size(), dice));
         Flight.Approach ap = Flight.Approach.values()[JoybotArrival.nextApproach(a, 3, dice)];
-        Flight f = new Flight(bx, by, ex, ey, pegUp, uv, ap, Flight.Landing.DOUBLE, shorter);
+        Flight f = new Flight(bx, by, ex, ey, pegUp, uv, ap, Flight.Landing.DOUBLE, shorter).withRise(HOVER_DP - 4f);
         Log.i(TAG, "arrival: " + (hop ? "hop" : shorter ? "shorter show" : "whole show") + ", " + ap
                 + ", " + JoybotArrival.reveal(a) + " / " + JoybotArrival.title(a) + (card ? ", card" : ", sheet")
                 + ", flight " + f.dur + " ms, frost " + frostOn());
@@ -299,7 +329,8 @@ public final class ChatArrival {
         // the picture of the screen it opened over: taken every time, so it never lingers in memory
         Rect bs = new Rect();
         Bitmap back = JoybotOpen.takeBackdrop(bs);
-        if (back != null && frostOn() && !blurOffered(a)) frost.setPicture(back, bs);
+        // a modal card is never its own window, so the window's blur would frost the whole screen: blur the card's own picture
+        if (back != null && frostOn() && (!blurOffered(a) || (card && modal))) frost.setPicture(back, bs);
         if (idle != null) startStage(r, f, ro, back, bs);
         reveal.setVisibility(View.VISIBLE);
         running = true;
@@ -309,7 +340,9 @@ public final class ChatArrival {
 
     private void startStage(@NonNull Reveal r, @NonNull Flight f, @NonNull int[] ro, @Nullable Bitmap back, @NonNull Rect bs) {
         try {
-            Show show = new Show(f, r, d, t0, idle, idleCols, idleRows, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
+            Bitmap home = homeSharp != null ? homeSharp : idle;
+            int hc = homeSharp != null ? 1 : idleCols, hr = homeSharp != null ? 1 : idleRows;
+            Show show = new Show(f, r, d, t0, home, hc, hr, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
             if (back != null) {
                 show.back = back;
                 show.backRect.set((bs.left - ro[0]) / d, (bs.top - ro[1]) / d, (bs.right - ro[0]) / d, (bs.bottom - ro[1]) / d);
@@ -409,6 +442,9 @@ public final class ChatArrival {
         if (flew) actor.markArrived();
         actor.setCalmThruster(true);
         actor.setVisibility(View.VISIBLE);
+        // On his seat he greets you: a salute or a bow (owner, 11-15). Both start from his home pose, the pose the
+        // flight ends on, so the hand-over stays seamless.
+        if (flew) com.fadcam.ui.lobby.JoybotDirector.moment(actor, "greet");
     }
 
     /** Everything at rest: no clip, no slide, the title in place. */
@@ -428,6 +464,7 @@ public final class ChatArrival {
         for (TextView l : letters) { l.setAlpha(1f); l.setTranslationY(0f); }
         chips.setAlpha(1f);
         if (!card && frostOn()) blurTo(Math.round(14f * d));
+        placeClose();
     }
 
     private void stageDone(boolean drew) {
@@ -444,15 +481,16 @@ public final class ChatArrival {
 
     /** A card becomes its own window once he has arrived and the stage has gone. */
     private void maybeWindow() {
-        if (!card || closing || !opened || (gl != null && !stageOver)) return;
+        if (!card || modal || closing || !opened || (gl != null && !stageOver)) return;
         frame.enterWindow(frostOn());
     }
 
     // ── closing ─────────────────────────────────────────────────────────────
 
     /**
-     * Close the way it opened, quickly, then run {@code done} (the activity's real finish). Returns
-     * false when there is nothing to animate.
+     * Close: he flies home into the button he came out of (owner, 11-15 midday: "not just out") while the drawer folds
+     * away the way it opened, then {@code done} runs (the activity's real finish). Returns false when there is nothing
+     * to animate.
      */
     public boolean close(@NonNull Runnable done) {
         if (closing) return true;
@@ -461,19 +499,60 @@ public final class ChatArrival {
         StageView v = gl;
         if (v != null) v.stop();
         if (!started || reveal.getWidth() == 0) return false;
+        HomeFlight home = flyHome(done);
+        if (home == null) fold(0L, done);
+        else fold(home.flightMs() * 2L / 5L, null);
+        return true;
+    }
+
+    /** He flies home from wherever he is, over everything; null when he can't (not on his seat yet, no pictures). */
+    @Nullable
+    private HomeFlight flyHome(@NonNull Runnable done) {
+        if (!handedOff || idle == null || actor.getVisibility() != View.VISIBLE || actor.getWidth() == 0) return null;
+        int[] s = new int[2];
+        stage.getLocationOnScreen(s);
+        float fx = s[0] + actor.getLeft() + actor.getTranslationX() + actor.getWidth() / 2f;
+        float fy = s[1] + actor.getTop() + actor.getTranslationY() + actor.getHeight() / 2f;
+        Rect sb = a.getIntent().getSourceBounds();
+        float tx, ty;
+        if (sb != null) {
+            tx = sb.exactCenterX();
+            ty = sb.exactCenterY();
+        } else {
+            tx = a.getResources().getDisplayMetrics().widthPixels - 30f * d;
+            ty = 30f * d;
+        }
+        // A card is its own small window: it goes back to a full one (the card staying where it is) so he can leave it.
+        frame.leaveWindowInPlace();
+        HomeFlight home;
+        try {
+            home = new HomeFlight(a, idle, idleCols, idleRows, spin, spinCols, spinRows, spinCount, focus, ACTOR_DP);
+        } catch (RuntimeException e) {
+            return null;
+        }
+        root.addView(home, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        actor.setVisibility(View.INVISIBLE);
+        home.go(fx, fy, tx, ty, done);
+        Log.i(TAG, "home: " + home.flightMs() + " ms" + (card ? ", card" : ""));
+        return home;
+    }
+
+    /** The drawer closes the way it opened, quickly, after {@code delay} ms; then {@code then}, if any. */
+    private void fold(long delay, @Nullable Runnable then) {
         final JoybotArrival.Reveal kind = rev != null ? rev.kind : JoybotArrival.reveal(a);
         final float bxp = rev != null ? rev.bx * d - reveal.getLeft() : reveal.getWidth();
         final float byp = rev != null ? rev.by * d - reveal.getTop() : 0f;
         final float maxR = (float) Math.hypot(Math.max(bxp, reveal.getWidth() - bxp), Math.max(byp, reveal.getHeight() - byp)) + 20f * d;
-        final long start = System.nanoTime();
-        final long dur = 200L;
-        final boolean windowed = frame.windowed();
+        final long start = System.nanoTime() + delay * 1_000_000L;
+        final long dur = 220L;
+        final boolean fade = card;
         Choreographer.getInstance().postFrameCallback(new Choreographer.FrameCallback() {
             @Override
             public void doFrame(long nanos) {
+                if (nanos < start) { Choreographer.getInstance().postFrameCallback(this); return; }
                 float k = Flight.clamp((nanos - start) / 1e6f / dur, 0f, 1f);
                 float e = k * k;
-                if (windowed) {
+                if (fade) {
                     reveal.setAlpha(1f - e);
                     reveal.setScaleX(1f - .04f * e);
                     reveal.setScaleY(1f - .04f * e);
@@ -488,10 +567,31 @@ public final class ChatArrival {
                 }
                 if (!card && frostOn()) blurTo(Math.round(14f * d * (1f - e)));
                 if (k < 1f) Choreographer.getInstance().postFrameCallback(this);
-                else done.run();
+                else if (then != null) then.run();
             }
         });
-        return true;
+    }
+
+    /**
+     * On a full sheet the X sits where he came out (owner, 11-15 midday: "upper right, under the thumb that opened
+     * him"), so the same thumb sends him home.
+     */
+    private void placeClose() {
+        if (closeBtn == null) return;
+        closeBtn.setTranslationX(0f);
+        closeBtn.setTranslationY(0f);
+        Rect sb = a.getIntent().getSourceBounds();
+        if (card || sb == null || closeBtn.getWidth() == 0 || !(closeBtn.getParent() instanceof View)) return;
+        int[] p = new int[2];
+        closeBtn.getLocationOnScreen(p);
+        float dx = sb.exactCenterX() - (p[0] + closeBtn.getWidth() / 2f);
+        float dy = sb.exactCenterY() - (p[1] + closeBtn.getHeight() / 2f);
+        if (Math.abs(dx) > 96f * d || Math.abs(dy) > 72f * d) return;      // the button is not up in this corner
+        View parent = (View) closeBtn.getParent();
+        dx = Math.min(dx, parent.getWidth() - closeBtn.getRight());          // inside the header, so it can be tapped
+        dy = Math.max(dy, -closeBtn.getTop());
+        closeBtn.setTranslationX(dx);
+        closeBtn.setTranslationY(dy);
     }
 
     /** The window turned or changed size: end any show, and lay the chat out for the new window. */
@@ -507,7 +607,7 @@ public final class ChatArrival {
         style();
         root.post(() -> {
             if (card) frame.place(frame.bounds(null));
-            root.post(() -> { placeActor(); maybeWindow(); });
+            root.post(() -> { placeActor(); placeClose(); maybeWindow(); });
         });
     }
 

@@ -236,6 +236,14 @@ public final class JoyFolder {
             byte[] buf = new byte[256 * 1024];
             int n;
             while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        } catch (IOException | RuntimeException e) {
+            // the source failed or was stopped part way: no half-written file is left behind
+            try {
+                fs.delete(tmp);
+            } catch (IOException | RuntimeException ignored) {
+                // the first failure is the one to report
+            }
+            throw e;
         }
         if (!fs.rename(tmp, name)) {
             fs.delete(tmp);

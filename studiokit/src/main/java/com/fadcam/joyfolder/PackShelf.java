@@ -61,7 +61,7 @@ public final class PackShelf {
             List<JoyFs.Entry> dirs = new ArrayList<>(fs.list(DIR));
             dirs.sort((a, b) -> a.name.compareToIgnoreCase(b.name));
             for (JoyFs.Entry d : dirs) {
-                if (!d.dir) continue;
+                if (!d.dir || d.name.startsWith(".")) continue;   // an install in progress (PackPublish), not a pack
                 String top = Placement.join(DIR, d.name);
                 JoyPack p = manifest(fs, top);
                 if (p == null || !p.usable()) continue;

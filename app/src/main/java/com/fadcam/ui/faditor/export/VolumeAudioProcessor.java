@@ -90,7 +90,7 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
      */
     private float gainAtMs(long ms) {
         return volume * com.fadcam.ui.faditor.model.VolumeEnvelope.gainAt(
-                kfTimes, kfVols, envelopeStartMs + ms, 1f);
+                kfTimes, kfVols, envelopeStartMs + streamOriginMs + ms, 1f);
     }
 
     /** Where on the clip's own clock this item starts (see {@link #envelopeStartMs}). */
@@ -99,19 +99,51 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
     }
 
     /**
-     * Compute per-channel gains from the current pan using equal-power law.
-     * Center (0) = both channels 1.0 (true no-op). Full L = (sqrt(2), 0), Full R = (0, sqrt(2)).
-     * For mono channelCount=1, returns single gain = volume.
+     * Where the stream resumes after a flush, for a player that flushes mid-clip.
+     *
+     * <p>Export never needs this: each item plays once from its start. The PREVIEW player flushes
+     * on every seek AND every time its drift correction nudges the speed (Media3 drains and
+     * flushes the processors to apply new playback parameters), and a flush used to put the
+     * curve back to the clip's first millisecond: a fade-out heard from the middle of a clip
+     * started over from full (Codex round 2, lead W1).</p>
      */
-    private float[] channelGains() {
-        if (channelCount == 1) return new float[]{volume};
+    public interface StreamClock {
+        /** The clip-local time, in µs, of the next input after a flush; {@code C.TIME_UNSET} when unknown. */
+        long nextInputClipUs();
+    }
+
+    @androidx.annotation.Nullable private volatile StreamClock streamClock;
+    /** Clip-local ms of the first frame since the last flush (0 until a {@link StreamClock} says otherwise). */
+    private long streamOriginMs;
+    private boolean resyncPending;
+
+    /** Preview only; see {@link StreamClock}. */
+    public void setStreamClock(@androidx.annotation.Nullable StreamClock clock) {
+        this.streamClock = clock;
+    }
+
+    /**
+     * Per-channel PAN gains (no volume, no envelope): equal-power law, centre = 1.0 on both
+     * (a true no-op), full L = (√2, 0), full R = (0, √2). Mono gets {1}.
+     *
+     * <p>One entry PER CHANNEL. It used to return two for every layout but mono, and the loop
+     * indexes it by channel, so a 5.1 file threw on channel 2 (Codex round 2, R2-AUD-03).
+     * Pan moves the FRONT pair (channels 0 and 1 in Android's PCM order: FL, FR, FC, LFE,
+     * BL, BR); the other channels keep unity, so centre, sub and surrounds are not panned
+     * away. The volume and the envelope apply to every channel alike.</p>
+     */
+    static float[] panGains(int channelCount, float pan) {
+        int ch = Math.max(1, channelCount);
+        float[] g = new float[ch];
+        java.util.Arrays.fill(g, 1f);
+        if (ch == 1) return g;
         // Equal-power: angle = (pan + 1) * pi/4. pan=-1 -> 0 (cos=1,sin=0). pan=0 -> pi/4 (cos=sin=√2/2). pan=1 -> pi/2 (cos=0,sin=1).
         // Multiply by √2 so center = 1.0 (no-op), full L/R = √2.
         double angle = (pan + 1.0) * Math.PI / 4.0;
         double sqrt2 = Math.sqrt(2.0);
-        float leftGain = (float)(Math.cos(angle) * sqrt2 * volume);
-        float rightGain = (float)(Math.sin(angle) * sqrt2 * volume);
-        return new float[]{leftGain, rightGain};
+        g[0] = (float) (Math.cos(angle) * sqrt2);
+        g[1] = (float) (Math.sin(angle) * sqrt2);
+        return g;
     }
 
     @Override
@@ -137,12 +169,22 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
         ShortBuffer inShort = inputBuffer.asShortBuffer();
         ShortBuffer outShort = output.asShortBuffer();
 
+        if (resyncPending) {
+            resyncPending = false;
+            StreamClock clock = streamClock;
+            long us = clock != null ? clock.nextInputClipUs() : C.TIME_UNSET;
+            streamOriginMs = (us == C.TIME_UNSET || us < 0) ? 0L : us / 1000L;
+        }
+
         boolean enveloped = kfTimes != null;
         int ch = Math.max(1, channelCount);
         int channelIdx = 0;
 
-        float[] gains = channelGains();
-        float frameGain = enveloped ? gainAtMs(frameToMs(framePosition)) : gains[0];
+        // Pan per channel, times ONE gain per frame (volume, or volume x the curve) for every
+        // channel. Stereo used to multiply by the static pan-and-volume pair alone, so a fade
+        // or a volume curve on a stereo song did nothing; only mono followed it (R2-AUD-01).
+        float[] pans = panGains(ch, pan);
+        float frameGain = enveloped ? gainAtMs(frameToMs(framePosition)) : volume;
 
         // Bulk arrays instead of a ShortBuffer call per sample (export speed, 2026-09-24: the
         // sound pass was CPU-bound on per-sample buffer access). Same arithmetic, same order.
@@ -150,12 +192,7 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
         inShort.get(samples);
         for (int i = 0; i < samples.length; i++) {
             int sample = samples[i];
-            float gain;
-            if (channelCount == 1) {
-                gain = enveloped ? frameGain : gains[0];
-            } else {
-                gain = gains[channelIdx];
-            }
+            float gain = pans[channelIdx] * frameGain;
             int scaled = Math.round(sample * gain);
             scaled = Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, scaled));
             samples[i] = (short) scaled;
@@ -180,11 +217,16 @@ public class VolumeAudioProcessor extends BaseAudioProcessor {
     @Override
     protected void onFlush() {
         framePosition = 0;
+        // Without a clock this is the old behaviour exactly: the next input is the item's start.
+        streamOriginMs = 0L;
+        resyncPending = streamClock != null;
     }
 
     @Override
     protected void onReset() {
         framePosition = 0;
+        streamOriginMs = 0L;
+        resyncPending = false;
         kfTimes = null;
         kfVols = null;
     }

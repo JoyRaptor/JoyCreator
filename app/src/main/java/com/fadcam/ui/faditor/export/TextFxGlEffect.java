@@ -135,7 +135,7 @@ public final class TextFxGlEffect implements GlEffect {
             if (item.hasTextLook()) {
                 float fontPx = Math.max(1f, frameItem.getSizeFraction() * outH);
                 cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(context)
-                        .renderBlocking(cc.joycreator.textlab.StudioTextLab.exportKey(item.getId()),
+                        .renderForExport(cc.joycreator.textlab.StudioTextLab.exportKey(item.getId()),
                                 item.getTextLook(), item.getText(), item.lookTime(timelineMs), fontPx);
                 if (f != null) {
                     textBmp = f.bitmap;

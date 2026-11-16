@@ -452,8 +452,10 @@ public class OverlayVideoPreviewView extends FrameLayout {
         if (callback == null || srcW <= 0 || srcH <= 0) return null;
         RectF r = canvasRect();
         if (r == null) return null;
-        float fit = Math.min(r.width() / srcW, r.height() / srcH);
-        float baseW = srcW * fit, baseH = srcH * fit;
+        // The one placement rule, shared with both export paths (PipPlacement, R2-FX-01).
+        float[] base = com.fadcam.ui.faditor.model.PipPlacement.fitSize(
+                r.width(), r.height(), srcW, srcH, 1f);
+        float baseW = base[0], baseH = base[1];
         float x = readValue(clip, KeyframeSet.X, DEFAULT_X);
         float y = readValue(clip, KeyframeSet.Y, DEFAULT_Y);
         float scale = readValue(clip, KeyframeSet.SCALE, DEFAULT_SCALE);

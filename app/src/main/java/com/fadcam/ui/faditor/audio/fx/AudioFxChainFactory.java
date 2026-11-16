@@ -130,8 +130,35 @@ public final class AudioFxChainFactory {
                                                       int projectSampleRate,
                                                       boolean bypassed,
                                                       boolean applyVoiceChain) {
+        if (clip.isMuted()) return new ArrayList<>();
+        return build(clip, sourceSampleRate, projectSampleRate, bypassed, applyVoiceChain);
+    }
+
+    /**
+     * The PREVIEW player's chain: {@link #buildLaneChain} without the mute short-cut.
+     *
+     * <p>Export drops a muted clip, so an empty chain is right there. The preview player builds
+     * its chain once, when it is created, and can only refresh processors that are mounted, so
+     * a clip muted at that moment kept an empty chain for good and unmuting it lost its level,
+     * pan and fades (the same trap as the removed volume gate below). The preview mutes with its
+     * player gate instead ({@code compositor.PreviewMuteGate}, R2-AUD-02).</p>
+     */
+    @NonNull
+    public static List<AudioProcessor> buildPreviewLaneChain(@NonNull AudioParams clip,
+                                                             int sourceSampleRate,
+                                                             int projectSampleRate,
+                                                             boolean bypassed,
+                                                             boolean applyVoiceChain) {
+        return build(clip, sourceSampleRate, projectSampleRate, bypassed, applyVoiceChain);
+    }
+
+    @NonNull
+    private static List<AudioProcessor> build(@NonNull AudioParams clip,
+                                              int sourceSampleRate,
+                                              int projectSampleRate,
+                                              boolean bypassed,
+                                              boolean applyVoiceChain) {
         List<AudioProcessor> out = new ArrayList<>();
-        if (clip.isMuted()) return out;
         // A6: resample to project rate when the source differs (BEFORE gain math).
         if (sourceSampleRate > 0 && projectSampleRate > 0
                 && sourceSampleRate != projectSampleRate) {

@@ -211,4 +211,8 @@
     <string name="textlab_trouble_unsupported">Графика этого телефона не может нарисовать виды TextLab. Твои заголовки всё равно будут видны — простыми словами.</string>
     <string name="textlab_trouble_memory">Этому виду не хватило памяти на телефоне. Закрой другие приложения и попробуй снова.</string>
     <string name="textlab_trouble_other">Этот вид не удалось нарисовать на этом телефоне. Попробуй другой вид; твои заголовки всё равно будут видны простыми словами.</string>
+    <string name="textlab_draft_title">Твои несохранённые изменения</string>
+    <string name="textlab_draft_body">Твои изменения в %1$s в прошлый раз не сохранились. Вернуть их?</string>
+    <string name="textlab_draft_bring">Вернуть</string>
+    <string name="textlab_draft_let_go">Не нужно</string>
 </resources>

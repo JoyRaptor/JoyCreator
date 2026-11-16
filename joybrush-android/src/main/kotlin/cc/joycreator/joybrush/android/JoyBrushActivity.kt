@@ -130,6 +130,9 @@ private const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
 private const val BRUSH_DOCK_FROM_DP = 840
 private const val BRUSH_DOCK_DP = 360
 private const val BRUSH_DOCK_RAIL_GAP = 52
+private const val BRUSH_SETTINGS_DOCK_DP = 420
+/** TAB-1 K11: the drawing steps aside for the standing panels instead of lying under them (off = as before). */
+private const val PREF_PAPER_ASIDE = "tab1_paper_aside"
 
 // JB-0.08b. The working file and its folder are the spec's decisions (1) and (3).
 private const val WORKING_DIR = "joybrush"
@@ -794,7 +797,9 @@ class JoyBrushActivity : Activity() {
         saves.request(SaveReason.IDLE, SaveDest.Working)
         // That save did not start (another is being written, or it waits for a stroke): it will start when the view no
         // longer draws, so the picture is read for it now (JbCanvasView.keepPausePicture; JBX-37).
-        if (!benchMode && workingSaveAllowed && saves.pending > 0) canvas.keepPausePicture()
+        // The same for a save being written from only the changed tiles: should the file not stand in for the rest, it
+        // reads the whole drawing again, and by then the view may no longer draw.
+        if (!benchMode && workingSaveAllowed && (saves.pending > 0 || workingSparseInFlight)) canvas.keepPausePicture()
         super.onPause()
     }
 
@@ -1064,6 +1069,15 @@ class JoyBrushActivity : Activity() {
                 catch (error: Exception) { tools = before; throw error }
             }, refusal = ::toast)
         unibrush = controller
+        // TAB-1 K10: Unibrush's settings stand beside the brush panel too, when it stands open.
+        controller.settingsHost = object : cc.joycreator.joybrush.android.chrome.UnibrushHostController.SettingsHost {
+            override fun show(view: View, onClosed: () -> Unit): Boolean {
+                if (brushDock == null) return false
+                dockBrushSettings(view, onClosed)
+                return true
+            }
+            override fun close() = closeSettingsDock()
+        }
         controller.start { loaded ->
             if (!loaded || !restoreCatalogTools) return@start
             val restored = ToolMemory.decode(pendingCatalogTools, brushes)
@@ -1162,11 +1176,12 @@ class JoyBrushActivity : Activity() {
      */
     private fun toggleBrushDock(start: BrushShelf.Kind, current: String?) {
         val host = topBar.parent as? FrameLayout ?: return
-        brushDock?.let { host.removeView(it); brushDock = null; return }
+        brushDock?.let { host.removeView(it); brushDock = null; closeSettingsDock(); return }
         popovers.close()
         lateinit var drawer: BrushDrawerView
         drawer = BrushDrawerView(kit, tunedBrushes(), start, current, onPick = { picked ->
-            chooseDrawerBrush(picked, settings = false)
+            // Settings standing open follow the brush now in the hand.
+            chooseDrawerBrush(picked, settings = settingsDock != null)
             drawer.markCurrent(picked.id)
         }, onSettings = { held ->
             chooseDrawerBrush(held, settings = true)
@@ -1183,7 +1198,7 @@ class JoyBrushActivity : Activity() {
         val close = drawerText("\u00d7", 18f).apply {
             gravity = Gravity.CENTER
             kit.label(this, "Put the brushes away")
-            setOnClickListener { brushDock?.let { host.removeView(it) }; brushDock = null }
+            setOnClickListener { brushDock?.let { host.removeView(it) }; brushDock = null; closeSettingsDock() }
         }
         head.addView(close, LinearLayout.LayoutParams(dp(40), dp(40)))
         dock.addView(head, LinearLayout.LayoutParams(MATCH, WRAP))
@@ -1197,6 +1212,7 @@ class JoyBrushActivity : Activity() {
             if (right) marginEnd = dp(BRUSH_DOCK_RAIL_GAP) else marginStart = dp(BRUSH_DOCK_RAIL_GAP)
         })
         brushDock = dock
+        fitPaperBesidePanels()
     }
 
     /** Size on a slider: a log scale, so a 2 px pen and a 400 px wash are both easy to set. */
@@ -1344,6 +1360,16 @@ class JoyBrushActivity : Activity() {
         unibrush?.let { controller ->
             box.addView(menuRow("Stabilizer…", "Choose each brush's suggestion or your own canvas stabilizer") {
                 controller.openStabilizer()
+            })
+        }
+        // TAB-1 K11: only where the brush panels can stand open (a wide window).
+        if (resources.configuration.screenWidthDp >= BRUSH_DOCK_FROM_DP) {
+            val aside = prefs.getBoolean(PREF_PAPER_ASIDE, false)
+            box.addView(menuRow("Paper beside panels: ${if (aside) "On" else "Off"}",
+                "On: the drawing steps aside for the standing brush panels instead of lying under them") {
+                prefs.edit().putBoolean(PREF_PAPER_ASIDE, !aside).apply()
+                popovers.close()
+                fitPaperBesidePanels()
             })
         }
 
@@ -1577,7 +1603,7 @@ class JoyBrushActivity : Activity() {
                     .map { s -> s.map { it.copy(x = it.x + left, y = it.y + top) } }
                 canvas.drawStrokes(strokes)
             },
-            onDone = { popovers.close() },
+            onDone = { if (settingsDock != null) closeSettingsDock() else popovers.close() },
             onClear = { preview.drawnStrokes.clear(); redrawSoon() },
             editableLines = if (BrushLinePreferences.canSwitch(brush)) BrushLinePreferences(prefs).enabled(brush) else null,
             onEditableLinesChanged = { on ->
@@ -1593,10 +1619,89 @@ class JoyBrushActivity : Activity() {
         )
         // The pen dot and the curves' markers follow the pen on the drawing and on the preview alike.
         val reading: (Float, Float, Float) -> Unit = { p, t, o -> view.showReading(p, t, o) }
-        canvas.onPenReading = reading
         preview.onPenReading = reading
-        popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
+        // TAB-1 K10: with the brush panel standing open on a wide window, the settings stand beside it and stay
+        // open while you paint, until their own close. The drawing's pen reading is set after the surface is shown:
+        // showing it closes the one before, whose close clears the reading.
+        if (brushDock != null) dockBrushSettings(view) { canvas.onPenReading = null }
+        else popovers.showSheet(view, maxWidthDp = 600f, alignEnd = placement.edge == StripPlacement.Edge.RIGHT,
             onClosed = { canvas.onPenReading = null }, modal = false)
+        canvas.onPenReading = reading
+    }
+
+    /** TAB-1 K10: the brush settings standing beside the brush panel; null while closed. */
+    private var settingsDock: FrameLayout? = null
+    /** What closing the standing settings must also do (the opener's own clean-up). */
+    private var settingsDockClosed: (() -> Unit)? = null
+
+    private fun closeSettingsDock() {
+        val dock = settingsDock
+        if (dock != null) {
+            (dock.parent as? android.view.ViewGroup)?.removeView(dock)
+            settingsDock = null
+            val closed = settingsDockClosed
+            settingsDockClosed = null
+            closed?.invoke()
+        }
+        fitPaperBesidePanels()
+    }
+
+    /** TAB-1 K11: how far the drawing is slid aside for the standing panels, screen px (0 = not slid). */
+    private var paperAsideShiftPx = 0f
+
+    /**
+     * TAB-1 K11 (owner: "that should just be an option in settings"): with "Paper beside panels" on, the drawing
+     * slides aside by the standing brush panels' width, so what lay under them shows beside them; it slides back
+     * when they close. A pan of the drawing's own view, so the paper still fills the screen and everything drawn in
+     * the drawing's coordinates (guides, symmetry, reference, Select, boards) moves with it; your own pans and zooms
+     * meanwhile are kept. Off (the default): the drawing stays under the panels, exactly as before.
+     */
+    private fun fitPaperBesidePanels() {
+        if (!::canvas.isInitialized || !::prefs.isInitialized) return
+        val on = prefs.getBoolean(PREF_PAPER_ASIDE, false)
+        val inset = when {
+            !on -> 0
+            settingsDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP + 8 + BRUSH_SETTINGS_DOCK_DP)
+            brushDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP)
+            else -> 0
+        }
+        val want = (if (placement.edge == StripPlacement.Edge.RIGHT) -inset else inset).toFloat()
+        val delta = want - paperAsideShiftPx
+        if (delta == 0f) return
+        paperAsideShiftPx = want
+        canvas.view.panX += delta
+        canvas.requestRender()
+        canvas.onViewMoved?.invoke()
+    }
+
+    /**
+     * The settings view (classic or Unibrush) in a tall panel beside the brush panel, on the same side of the screen.
+     * The view's own Done / x close it ([closeSettingsDock]); [onClosed] is the opener's clean-up.
+     */
+    private fun dockBrushSettings(view: View, onClosed: () -> Unit) {
+        val host = topBar.parent as? FrameLayout ?: return
+        closeSettingsDock()
+        popovers.close()
+        val dock = FrameLayout(this).apply {
+            val r = dp(14).toFloat()
+            kit.chromeSurface(this, floatArrayOf(r, r, r, r, r, r, r, r))
+            setPadding(dp(4), dp(6), dp(4), dp(6))
+        }
+        (view.parent as? android.view.ViewGroup)?.removeView(view)
+        dock.addView(android.widget.ScrollView(this).apply { isVerticalScrollBarEnabled = false; addView(view) },
+            FrameLayout.LayoutParams(MATCH, MATCH))
+        val right = placement.edge == StripPlacement.Edge.RIGHT
+        host.addView(dock, FrameLayout.LayoutParams(dp(BRUSH_SETTINGS_DOCK_DP), MATCH,
+            Gravity.TOP or (if (right) Gravity.END else Gravity.START)).apply {
+            topMargin = topBar.height.coerceAtLeast(dp(44))
+            bottomMargin = dp(12)
+            // Beside the brush panel, which stands beside the rail.
+            val inset = dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP + 8)
+            if (right) marginEnd = inset else marginStart = inset
+        })
+        settingsDock = dock
+        settingsDockClosed = onClosed
+        fitPaperBesidePanels()
     }
 
     /** The preview's crossing stroke: the colour in hand turned well round the wheel, so it reads against it (and dark on light). */
@@ -2618,6 +2723,8 @@ class JoyBrushActivity : Activity() {
      */
     /** What the last working save wrote (JbArchive.SaveMemo), for the next one to carry from. Read and written on the save thread only. */
     @Volatile private var workingSaveMemo: JbArchive.SaveMemo? = null
+    /** A working save that read only the changed tiles is being written: if the screen leaves now, the whole picture is kept for it. */
+    private var workingSparseInFlight = false
 
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
         if (destroyed) {
@@ -2655,6 +2762,7 @@ class JoyBrushActivity : Activity() {
             if (!answered) {
                 answered = true
                 ui.removeCallbacks(watchdog)
+                if (dest is SaveDest.Working) workingSparseInFlight = false
                 workingHandoff?.complete(problem)
                 if (dest is SaveDest.Open) {
                     dest.selection.close()
@@ -2708,13 +2816,23 @@ class JoyBrushActivity : Activity() {
             answer("this device has nowhere to keep a working drawing")
             return
         }
-        try { canvas.snapshot({ contents ->
+        // The working save while the person is here reads back only the tiles that changed since this screen's last
+        // save (the pen waited 0.45 s for a full page to be read on the Note 9). The first such save finds nothing
+        // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
+        // cannot stand in for what was not read.
+        val sparse = dest is SaveDest.Working && !viewPausePending &&
+            cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
+        lateinit var take: (Boolean) -> Unit
+        take = { whole -> try {
+            val onContents: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit = onContents@{ given ->
+            val contents = given.contents
             // A timed-out readback may arrive after another request has started. It owns no write.
-            if (answered) return@snapshot
+            if (answered) return@onContents
             ui.removeCallbacks(watchdog)
             // The GL thread has done its part. Nothing else is waiting for it, so it can rest now.
             pauseViewIfDrained()
             fileIo.execute {
+                var needsWhole = false
                 val problem = try {
                     when (dest) {
                         is SaveDest.Working -> {
@@ -2723,14 +2841,15 @@ class JoyBrushActivity : Activity() {
                             // write when all of it was compressed every time, Note 9 2026-11-15). The memo belongs to
                             // this one save thread; a file it does not remember is simply written whole.
                             val began = android.os.SystemClock.elapsedRealtime()
-                            if (cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on) workingSaveMemo = JbArchive.saveCarrying(file!!, contents, workingSaveMemo)
+                            if (cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on) workingSaveMemo = JbArchive.saveCarrying(file!!, given, workingSaveMemo)
                             else { workingSaveMemo = null; JbArchive.save(file!!, contents) }
+                            if (!given.whole) android.util.Log.i("JoyBrushSave", "working save read only what changed: ${canvas.lastSparseReport}")
                             // One line a save, for whoever reads the log after a slow or odd one: what it carried and how long it took.
                             android.util.Log.i("JoyBrushSave", "working save: ${workingSaveMemo?.carried ?: 0} entries carried, ${workingSaveMemo?.fresh ?: -1} compressed, " +
                                 "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
                             recovery.rememberWorking(file)
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)
+                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole)
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
@@ -2751,12 +2870,23 @@ class JoyBrushActivity : Activity() {
                         }
                     }
                     null
+                } catch (e: cc.joycreator.joybrush.androidkit.io.JbArchiveNeedsBytes) {
+                    needsWhole = true
+                    e.message ?: "the file could not stand in for the tiles that were not read"
                 } catch (_: OutOfMemoryError) {
                     "this device has too little memory to finish saving or exporting the drawing"
                 } catch (e: Exception) {
                     e.message ?: e.javaClass.simpleName
                 }
                 runOnUiThread {
+                    // Nothing was written and the file is as it was (JbArchive.saveCarrying): the whole drawing is read
+                    // and saved, once. A screen that left meanwhile answers from the picture kept at its pause.
+                    if (needsWhole && !whole && !answered) {
+                        android.util.Log.i("JoyBrushSave", "working save: $problem; reading the whole drawing")
+                        ui.postDelayed(watchdog, SNAPSHOT_TIMEOUT_MS)
+                        take(true)
+                        return@runOnUiThread
+                    }
                     if (dest is SaveDest.Open && problem == null && !destroyed && !answered) {
                         // Replacement only follows a successful durable write of the old drawing.
                         // A separate executor task releases this snapshot's pixel arrays BEFORE
@@ -2793,13 +2923,17 @@ class JoyBrushActivity : Activity() {
         // Keep failure bound to this save, even if the GL response arrives after its timeout.
         // A wash still wet stays wet through a save made while the person is here (the autosave, a copy, an export); it is
         // set for good only when the screen is leaving or the drawing is being replaced (the graphics may not come back).
-        }, { why -> answer("Could not read the drawing: $why") },
-            keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff)
+            }
+            val failed: (String) -> Unit = { why -> answer("Could not read the drawing: $why") }
+            val keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff
+            if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole) }
+            else canvas.snapshot({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")
         } catch (e: Exception) {
             answer(e.message ?: "the drawing could not be read for saving")
-        }
+        } }
+        take(false)
     }
 
     /**

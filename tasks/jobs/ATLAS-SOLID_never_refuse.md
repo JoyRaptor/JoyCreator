@@ -182,11 +182,9 @@ them.
    (bug hunt 11-15): `WorkingFileOwners`, the screen that showed a file last is the one that writes it, the older one
    skips its save and loads the file again when it comes back; unit-tested (`WorkingFileOwnersTest`), NOT reproduced
    on a phone. Left: (b) the recovery copy and the Joy Creator folder copy are still whole
-   byte copies of the file after every save; (c) **rereading only what changed**, which is what the pen still waits
-   for (0.55 s for a full page): the engine stamps every paint tile it writes (`GlPaintEngine.mediaWritten`), picture
-   tiles need the same stamp set at every place a tile is put, and a tile whose stamp has not moved can be taken from
-   the file without being read back at all. A texture's id is NOT such a stamp: ids come back out of the pools. Until
-   (c), the budget (`LayerBudget.savePaintBudgetBytes`) is set by the readback and the heap, not by the write.
+   byte copies of the file after every save; (c) **rereading only what changed: built 11-16** (section "11-16: a save reads
+   back only the tiles that changed" below). The budget (`LayerBudget.savePaintBudgetBytes`) is still set by the first
+   save of a screen and the save on leaving, which read everything, and by the heap.
 2. **Open as it is read**: list the entries (`ZipFile`), then inflate and upload in batches, so opening holds a batch
    and not the drawing. `JbCanvasView.load` uploads everything in one GL task today.
 3. **Then** raise the save's budget to the room, then `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB,
@@ -258,6 +256,72 @@ was caught as a failed media frame, and the water's engine was let go. `reportMe
 end. Found by reading; not reproduced on the phone.
 
 Pictures and the numbers behind this table: [evidence/atlas-2to8-20261113](../joybrush/evidence/atlas-2to8-20261113/README.md).
+
+### 11-16: a save reads back only the tiles that changed (JBX-36, the rest of "streaming saves" item 1)
+
+**In plain words.** An autosave used to read the whole drawing back from the graphics chip while the pen waited: 0.45 s
+on a full page of oil. Now the chip is asked for a fingerprint of every tile, which is quick, and only the tiles whose
+fingerprint moved are read. The rest are taken from the file, as the save already did for writing.
+
+- **Why fingerprints and not a list of what was written.** The plan was a stamp set wherever a tile is written. The
+  engine writes tiles in more than forty places and others would be added; one forgotten stamp would save an old tile
+  silently. A fingerprint is of the tile's CONTENT, so there is nothing to forget (`core/paint/TileFingerprint`, 128
+  bits; the chip runs the same arithmetic in `gl/TileHasher`, three short passes, 64 tiles at a time).
+- **How the file is trusted.** The save remembers, for each tile it wrote, the fingerprint the canvas gave with the
+  bytes (`JbArchive.SaveMemo`). A tile comes without bytes only when its fingerprint now is the one the canvas last
+  read it with (`JbCanvasView.snapshotSparse`, `SparseContents`), and the file stands in for it only when the last save
+  holds that same fingerprint AND the file passes every check a carried tile already had to pass. Otherwise the save
+  writes nothing (`JbArchiveNeedsBytes`), the file is as it was, and the screen reads the whole drawing once
+  (`JoyBrushActivity.beginSave`). **The file format is unchanged**: the same archive, entry for entry.
+- **When everything is still read.** The first save of a screen, the save on leaving (it also makes the lobby
+  thumbnail, which a save without all the bytes cannot), a drawing with editable lines, a phone whose driver cannot
+  fingerprint, and any copy or export. `ArchiveCarrying.rereadChangedOnly = false` is the way back.
+- **Note 9, build ea7bf56b8 (bench steps `printcheck`, `savesparse`).**
+
+| | Full page of oil (264 picture tiles, 256 paint tiles) | Light page (ink, pencil, watercolour, oil; 56 tiles) |
+|---|---|---|
+| The chip's fingerprints against the same arithmetic on the CPU | 0 of 804 tiles differ | 0 of 67 differ |
+| Nothing changed: the pen waits | 130 ms (a whole readback: 479 ms) | 34 ms (75 ms) |
+| A big undo or redo (106 tiles changed; 24 on the light page) | 351 to 376 ms (423 to 426 ms) | 81 to 87 ms (69 to 71 ms) |
+| The first save of a screen (everything read, fingerprints on top) | 670 to 688 ms (about 500 ms) | 139 ms (about 110 ms) |
+| Every tile left unread, against a whole readback taken right after | EXACT, 5 of 5 | EXACT, 3 of 3 |
+| The file written, read again | 0 of 520 tiles differ, every time | 0 of 56, every time |
+
+  In the real drawing screen (the lifecycle gate, heavy page): four autosaves read 108 to 336 of 526 tiles and took the
+  rest from the file, then the graphics were taken away and the drawing was restored from that file: the same picture
+  and paint as before (digests `92d0aae9` / `6460c2e2` both sides).
+- **Unit tests.** `TileFingerprintTest` (any one changed byte, swapped texels, two flipped signs), `JbArchiveCarryTest`
+  (the file made is the one a full save makes; no memo, a tile changed since, a save that gave no fingerprints, another
+  file, a damaged carried tile: all refuse and leave the file), `BoardSnapshotSparseTest`.
+- **What it does not do, said plainly.** It is about twice to three times quicker when little changed, which is the
+  usual autosave; it is no quicker when a hundred tiles change at once, and the first save of a screen is about 180 ms
+  slower on a full page. Fingerprinting costs about 0.24 ms a tile; a stroke's own list of touched tiles could skip
+  most of that, but it would have to be proven complete first. Two different tiles sharing a fingerprint is possible in
+  principle (128 bits) and has not been seen (793 different tiles, 793 fingerprints). Not tried on the Fold or any
+  other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
+  twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
+
+### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
+
+**In plain words.** Three ways a watercolour wash could be lost or dried by something other than the painter, all found by
+Codex reading the code, all still true this morning, all fixed.
+
+- **A cancelled stroke could wipe the wash under it (ENG-01).** When the phone had no graphics memory to keep a copy of
+  the wash for the next stroke's cancel, the stroke painted anyway, and cancelling it (a second finger) emptied the whole
+  sheet. Now the older undo copies are given up first; if that is not enough the wash is set into the layer, where it is
+  safe, and the stroke starts on a clean sheet. The price in that rare moment: the wash dries early and undo cannot go
+  back past it.
+- **Undo or redo could make the wash vanish (ENG-02).** After the canvas was turned between strokes, going back needed
+  the sheet in its other shape; if that could not be made the history had already moved and the wash was gone from the
+  screen. Now the history asks the sheet first, for undo and redo, and everything that can fail is done before anything
+  moves. No memory: the press does nothing, the picture is unchanged, and the next press works once memory is back.
+- **Renaming or locking a board dried the wash (R2-JB-02).** Every board edit set the wet wash. Now only edits that move
+  paint or frames do (`core/doc/BoardChangePaint`, unit-tested).
+- **Proof.** New bench case `wetSheetFailureProbe` (`WetSheetFailureProbe`, the real engine with the two failures
+  injected), Note 9, build 18c20fc83, two runs the same: cancel with no copy, 277 of 83,098 wash pixels differ (0.3%, the
+  early drying) and 2 stray; refused undo and refused redo change 0 pixels and then go through. All unit tests pass.
+- **Not covered.** The old losses were confirmed by reading the code, not made to happen on the old build. The board
+  fix has no phone check by eye. The double failure named in the routing file (`tasks/audits/codex/ROUTING_20261115.md`).
 
 ## 2026-11-15: the cause of the 10-31 lost squares (JBX-35), by the "Launch bug hunt" session
 

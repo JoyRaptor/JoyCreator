@@ -22,7 +22,9 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <!-- No bar, big title: close on the left, settings on the right, JOYBOT under them. -->
+            <!-- No bar, big title: settings on the left over Joybot, close on the right where he came out (owner,
+                 11-15 midday: the X sits where he came out, under the thumb that opened him; no colour backing behind
+                 either, just a ripple when pressed), JOYBOT under them. ChatArrival puts the X on the button itself. -->
             <FrameLayout
                 android:id="@+id/chat_header"
                 android:layout_width="match_parent"
@@ -37,9 +39,8 @@
                     android:id="@+id/chat_back"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
-                    android:layout_gravity="top|start"
-                    android:layout_marginStart="-8dp"
-                    android:background="@drawable/chat_round_ghost"
+                    android:layout_gravity="top|end"
+                    android:background="?android:attr/selectableItemBackgroundBorderless"
                     android:padding="8dp"
                     android:scaleType="fitCenter"
                     android:src="@android:drawable/ic_menu_close_clear_cancel"
@@ -50,7 +51,8 @@
                     android:id="@+id/chat_header_buttons"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
-                    android:layout_gravity="top|end"
+                    android:layout_gravity="top|start"
+                    android:layout_marginStart="-8dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -58,7 +60,7 @@
                         android:id="@+id/chat_settings"
                         android:layout_width="36dp"
                         android:layout_height="36dp"
-                        android:background="@drawable/chat_round_ghost"
+                        android:background="?android:attr/selectableItemBackgroundBorderless"
                         android:padding="8dp"
                         android:scaleType="fitCenter"
                         android:src="@drawable/ic_settings"
@@ -166,11 +168,15 @@
                 android:layout_height="0dp"
                 android:layout_weight="1">
 
+                <!-- The conversation scrolls up into a soft fade that darkens upward, never a hard line (owner,
+                     11-15 midday): the words fade out over the top, under chat_scroll_fade. -->
                 <ScrollView
                     android:id="@+id/chat_scroll"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:fadingEdgeLength="44dp"
                     android:fillViewport="true"
+                    android:requiresFadingEdge="vertical"
                     android:scrollbarStyle="insideOverlay">
 
                     <!-- paddingBottom leaves room for his head, which rises above his seat in the row below. -->
@@ -195,6 +201,15 @@
                     android:background="#44000000"
                     android:paddingTop="4dp"
                     android:paddingBottom="4dp" />
+
+                <!-- Carries on the title's dark fade, so there is no edge where the header ends. Not touchable. -->
+                <View
+                    android:id="@+id/chat_scroll_fade"
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:layout_alignParentTop="true"
+                    android:background="@drawable/chat_scroll_fade"
+                    android:importantForAccessibility="no" />
             </RelativeLayout>
 
             <!-- The bottom row: his seat at the start, his idea buttons after him (owner, 15 Nov:

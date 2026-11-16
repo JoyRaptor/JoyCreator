@@ -244,6 +244,14 @@ class MediaProgram(shaders: ShaderLibrary, vert: String, frag: String, label: St
 
 /** Texture and framebuffer helpers for the media engine (GL thread only). */
 internal object MediaTex {
+    /** Debug bench only ([MediaInitFailureProbe]): the acquisition (texture or framebuffer) that fails, counted down from
+     *  here; -1 in the app. */
+    internal var failAcquisitionIn = -1
+    /** Debug bench only: while set, every texture and framebuffer made here and not yet deleted here. Null in the app. */
+    internal var liveTextures: HashSet<Int>? = null
+    internal var liveFbos: HashSet<Int>? = null
+    private fun probeFails(): Boolean = failAcquisitionIn >= 0 && failAcquisitionIn-- == 0
+
     fun make(w: Int, h: Int, internal: Int = GLES30.GL_RGBA16F, format: Int = GLES30.GL_RGBA, type: Int = GLES30.GL_HALF_FLOAT,
              filter: Int = GLES30.GL_LINEAR, data: java.nio.Buffer? = null): Int {
         val ids = IntArray(1)
@@ -251,12 +259,13 @@ internal object MediaTex {
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, ids[0])
         while (GLES30.glGetError() != GLES30.GL_NO_ERROR) Unit   // what an earlier pass left is not this allocation's
         GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, internal, w, h, 0, format, type, data)
-        val error = GLES30.glGetError()
+        val error = if (probeFails()) GLES30.GL_OUT_OF_MEMORY else GLES30.glGetError()
         if (error != GLES30.GL_NO_ERROR) {
             GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
             GLES30.glDeleteTextures(1, ids, 0)
             throw cc.joycreator.joybrush.androidkit.gl.GraphicsMemoryException("The phone has no graphics memory for this paint (GL error $error)")
         }
+        liveTextures?.add(ids[0])
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MIN_FILTER, filter)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_MAG_FILTER, filter)
         GLES30.glTexParameteri(GLES30.GL_TEXTURE_2D, GLES30.GL_TEXTURE_WRAP_S, GLES30.GL_CLAMP_TO_EDGE)
@@ -275,13 +284,19 @@ internal object MediaTex {
             GLES30.glFramebufferTexture2D(GLES30.GL_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0 + i, GLES30.GL_TEXTURE_2D, t, 0)
         }
         GLES30.glDrawBuffers(textures.size, IntArray(textures.size) { GLES30.GL_COLOR_ATTACHMENT0 + it }, 0)
-        val status = GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
-        check(status == GLES30.GL_FRAMEBUFFER_COMPLETE) { "media framebuffer incomplete: 0x${status.toString(16)}" }
+        val status = if (probeFails()) 0 else GLES30.glCheckFramebufferStatus(GLES30.GL_FRAMEBUFFER)
+        if (status != GLES30.GL_FRAMEBUFFER_COMPLETE) {
+            // The name made above goes with the failure: nobody else was ever told it (ENG-04).
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+            GLES30.glDeleteFramebuffers(1, ids, 0)
+            error("media framebuffer incomplete: 0x${status.toString(16)}")
+        }
+        liveFbos?.add(ids[0])
         return ids[0]
     }
 
-    fun deleteTex(vararg t: Int) = GLES30.glDeleteTextures(t.size, t, 0)
-    fun deleteFbo(vararg f: Int) = GLES30.glDeleteFramebuffers(f.size, f, 0)
+    fun deleteTex(vararg t: Int) { liveTextures?.removeAll(t.toSet()); GLES30.glDeleteTextures(t.size, t, 0) }
+    fun deleteFbo(vararg f: Int) { liveFbos?.removeAll(f.toSet()); GLES30.glDeleteFramebuffers(f.size, f, 0) }
 
     fun floats(a: FloatArray): FloatBuffer =
         ByteBuffer.allocateDirect(a.size * 4).order(ByteOrder.nativeOrder()).asFloatBuffer().apply { put(a); position(0) }

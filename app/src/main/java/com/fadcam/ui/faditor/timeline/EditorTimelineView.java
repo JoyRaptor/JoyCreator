@@ -928,6 +928,22 @@ public class EditorTimelineView extends View {
     }
 
     /**
+     * FX-1 (Joybot carries your work between rooms): where a layer item's tape is in this view right
+     * now, clipped to the view, or null while its row is not laid out or is scrolled out of sight.
+     * The hand-off show lands the item on exactly this rectangle.
+     */
+    @Nullable
+    public RectF layerItemRectInView(@Nullable String itemId) {
+        if (itemId == null || layerRowRenderer == null) return null;
+        RectF body = layerRowRenderer.itemBodyRect(itemId, getM6RowsTopPx(), totalEffectiveMs, this::timeToX);
+        if (body == null) return null;
+        RectF out = new RectF(body);
+        out.offset(-scrollOffsetPx, 0f);        // content x to view x, as onDraw's own translate
+        if (!out.intersect(0f, 0f, getWidth(), getHeight())) return null;
+        return out;
+    }
+
+    /**
      * Scroll the floating layer band so the row hosting {@code itemId} is visible
      * (preview-tap reveals the object's layer, JoyRaptor 2026-07-17). Safe no-op when the
      * renderer hasn't laid out yet or the item lives in an always-visible band.

@@ -465,6 +465,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** Currently highlighted caption-style chip id (null = none). */
     private String highlightedCaptionStyleId;
     private EditorTimelineView editorTimeline;
+    /** FX-1: Joybot is carrying work in from another room, and the show finishes over this screen. Null: nothing arriving. */
+    @Nullable private cc.joycreator.handoff.HandoffArrival handoffArrival;
     private TextView btnPlayPause;
     private TextView editorTitle;
     private TextView timeCurrent;
@@ -1655,6 +1657,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
 
         setContentView(R.layout.activity_faditor_editor);
+        handoffArrival = cc.joycreator.handoff.HandoffArrival.attach(this, savedInstanceState);
         // TAB-1 K5: every small top drawer opening or closing is a layout pass; one listener places
         // them beside the picture on a wide window, so none of their seven open paths changes.
         getWindow().getDecorView().getViewTreeObserver()
@@ -2226,6 +2229,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
 
+        // FX-1: the room is open. It shows the arriving item's row, is pictured, and says where the item is;
+        // the item is selected (by the timeline's own selection) the moment Joybot slaps it down.
+        if (handoffArrival != null && editorTimeline != null) {
+            handoffArrival.roomReady(editorTimeline, findViewById(R.id.btn_ai_assistant));
+        }
+
         playheadHandler.post(playheadUpdater);
     }
 
@@ -2394,6 +2403,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (handoffArrival != null) { handoffArrival.drop(); handoffArrival = null; }
         super.onDestroy();
         if (markerPopup != null) markerPopup.dismiss();
         if (project != null) com.fadcam.joyfolder.studio.ShareInbox.clearOpenProject(project.getId());

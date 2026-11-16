@@ -32,11 +32,14 @@ import java.util.UUID;
  * is there, see {@link BoardAttachPlan}); with no project yet there is nothing to ask.
  */
 public final class JoyBrushBoardImportActivity extends Activity {
+    /** FX-1: Joybot carries the board to Studio. Null: no show (switched off, or no picture of JoyBrush), and all is as before. */
+    private cc.joycreator.handoff.HandoffHost handoff;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         final String bundle=getIntent().getStringExtra("joybrush_board_bundle");
         final boolean studio=getIntent().getBooleanExtra("joybrush_board_studio",false);
-        Toast.makeText(this,"Opening board…",Toast.LENGTH_SHORT).show();
+        handoff=studio && state == null ? cc.joycreator.handoff.HandoffHost.open(this) : null;
+        if(handoff == null) Toast.makeText(this,"Opening board…",Toast.LENGTH_SHORT).show();
         new Thread(() -> choose(bundle,studio),"joybrush-board-import").start();
     }
     /** Studio with projects on the phone asks where the board goes; everything else goes straight in. */
@@ -45,21 +48,29 @@ public final class JoyBrushBoardImportActivity extends Activity {
         if(studio) {
             try { projects=new ProjectStorage(this).listProjects(); } catch(Exception ignored) { projects=null; }
         }
-        if(projects == null || projects.isEmpty()) { receive(path,studio,null); return; }
+        if(projects == null || projects.isEmpty()) {
+            runOnUiThread(() -> { if(handoff != null) handoff.go(); });
+            receive(path,studio,null); return;
+        }
         final List<ProjectStorage.ProjectSummary> list=projects;
         runOnUiThread(() -> {
             if(isFinishing() || isDestroyed()) { discardStage(path); return; }
             final String[] labels=new String[list.size()+1];
             labels[0]="New project";
             for(int i=0;i<list.size();i++) labels[i+1]=list.get(i).name.isEmpty() ? "Untitled" : list.get(i).name;
-            AlertDialog dialog=StudioDialog.builder(this).setTitle("Send to Studio")
+            // With the show, Joybot is out beside this question and it is his to ask (owner, 16 Nov).
+            AlertDialog dialog=StudioDialog.builder(this).setTitle(handoff != null ? "Where should I take it?" : "Send to Studio")
                 .setItems(labels,(d,which) -> {
                     final String target=which == 0 ? null : list.get(which-1).id;
+                    if(handoff != null) handoff.go();
                     new Thread(() -> receive(path,true,target),"joybrush-board-import").start();
                 })
-                .setOnCancelListener(d -> { new Thread(() -> discardStage(path),"joybrush-board-discard").start(); finish(); })
+                .setOnCancelListener(d -> {
+                    if(handoff != null) handoff.cancel();
+                    new Thread(() -> discardStage(path),"joybrush-board-discard").start(); finish();
+                })
                 .create();
-            dialog.show();
+            if(handoff != null) handoff.present(dialog); else dialog.show();
         });
     }
     /** The staged bundle belongs to this receiver; a board given up (back out of the chooser) leaves nothing behind. */
@@ -75,6 +86,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
         File ownProject=null;
         File unsavedImage=null;
         boolean ownsStage=false;
+        String arriving=null;
         try {
             if(path == null) throw new IllegalArgumentException("No board files were supplied");
             stage=new File(path).getCanonicalFile();
@@ -157,6 +169,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
                     project.setCanvasPreset(CanvasPickerBottomSheet.customPresetKey(bounds.outWidth/sheet.getCols(),bounds.outHeight/sheet.getRows()));
                 }
                 project.getTimeline().addSpriteOverlay(item);
+                arriving=item.getId();
             }
             if(!storage.save(project)) throw new IllegalStateException("The board project could not be saved");
             // Loading the saved model proves IDs and asset registration before launching the editor.
@@ -167,10 +180,18 @@ public final class JoyBrushBoardImportActivity extends Activity {
                 .putExtra(SpriteSheetEditorActivity.EXTRA_PROJECT_ID,project.getId()).putExtra(SpriteSheetEditorActivity.EXTRA_SHEET_ID,sheet.getId());
             ownProject=null;
             unsavedImage=null;
-            runOnUiThread(() -> { if(!isFinishing() && !isDestroyed()) startActivity(intent); finish(); });
+            final String landed=arriving;
+            runOnUiThread(() -> {
+                if(!isFinishing() && !isDestroyed()) {
+                    // The board is saved and placed: only now does the show get to finish in the room it opens.
+                    if(handoff != null && studio) { handoff.into(intent,landed); handoff.start(intent); }
+                    else startActivity(intent);
+                } else if(handoff != null) handoff.fail();
+                finish();
+            });
         } catch(Exception e) {
             final String message=e.getMessage();
-            runOnUiThread(() -> { Toast.makeText(this,"Could not open board: "+message,Toast.LENGTH_LONG).show(); finish(); });
+            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,"Could not open board: "+message,Toast.LENGTH_LONG).show(); finish(); });
         } finally {
             if(ownsStage) deleteOwned(stage);
             if(ownProject != null) deleteOwned(ownProject);

@@ -2806,10 +2806,19 @@ class JoyBrushActivity : Activity() {
                     toast((listOf(saved)+dest.warnings).joinToString(". "))
                 } else if(problem == null && dest is SaveDest.BoardHandoff) {
                     val bundle=dest.bundle
-                    if(!destroyed && bundle != null) startActivity(Intent().setClassName(packageName,
-                        "com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
-                        .putExtra("joybrush_board_bundle",bundle.absolutePath)
-                        .putExtra("joybrush_board_studio",dest.target.format == cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO))
+                    if(!destroyed && bundle != null) {
+                        val toStudio=dest.target.format == cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO
+                        val go=Intent().setClassName(packageName,"com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
+                            .putExtra("joybrush_board_bundle",bundle.absolutePath)
+                            .putExtra("joybrush_board_studio",toStudio)
+                        // FX-1: Joybot carries the board to Studio. The show needs a picture of this screen as it is;
+                        // the board is already saved, and the picture never holds the hand-off up (RoomShot waits 0.3 s at most).
+                        if(toStudio && cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
+                            cc.joycreator.joybrush.android.handoff.RoomShot.capture(this,canvas,joybotBtn) {
+                                if(destroyed) bundle.deleteRecursively() else { startActivity(go); overridePendingTransition(0,0) }
+                            }
+                        else startActivity(go)
+                    }
                     else bundle?.deleteRecursively()
                 } else if (problem == null && dest is SaveDest.Working) {
                     strokeSaveClock.saved(android.os.SystemClock.elapsedRealtime())

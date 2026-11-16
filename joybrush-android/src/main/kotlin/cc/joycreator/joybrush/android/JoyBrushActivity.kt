@@ -146,7 +146,14 @@ private const val WORKING_FILE = "current.joybrush"
 private const val COPY_TEMP = "joybrush-copy.tmp"
 
 /** Autosave this long after the last stroke (spec decision 2). */
-private const val AUTOSAVE_AFTER_MS = 30_000L
+/**
+ * How long after the last change the working file is saved, and how often while the person keeps painting. Until
+ * 2026-11-16 these were 30 s and 60 s: what a crash, a dead battery or lost graphics could cost. A save then read the
+ * whole drawing back and compressed all of it (0.45 s of waiting pen and 9 s of writing on a full page, Note 9); since
+ * JBX-36 it reads and writes what changed (about 0.13 s and 1 s), so it can come twice as often for less waiting in all.
+ */
+private const val AUTOSAVE_AFTER_MS = 15_000L
+private const val AUTOSAVE_WHILE_PAINTING_MS = 30_000L
 
 /**
  * How long the GL thread is left running waiting for a snapshot at the end of the screen, before
@@ -432,7 +439,7 @@ class JoyBrushActivity : Activity() {
     // the working file yet, and zero means it is all there.
     private val ui = Handler(Looper.getMainLooper())
     private var changes = 0
-    private val strokeSaveClock = StrokeSaveClock(android.os.SystemClock.elapsedRealtime())
+    private val strokeSaveClock = StrokeSaveClock(android.os.SystemClock.elapsedRealtime(), AUTOSAVE_WHILE_PAINTING_MS)
 
     /** Where a save goes. Working is the autosave; Copy is a person's "Save a copy…". */
     private sealed class SaveDest {
@@ -2696,7 +2703,7 @@ class JoyBrushActivity : Activity() {
     /** The working file this run settled on; see [workingFile]. */
     private var openedDrawing: File? = null
 
-    /** Something changed on the canvas: (re)start the 30 s clock before the autosave. */
+    /** Something changed on the canvas: (re)start the clock before the autosave ([AUTOSAVE_AFTER_MS]). */
     private fun noteChange() {
         changes += 1
         ui.removeCallbacks(idleSave)

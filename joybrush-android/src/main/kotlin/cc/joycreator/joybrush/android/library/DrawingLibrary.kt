@@ -280,12 +280,22 @@ object DrawingLibrary {
         }
         onChange?.run()
         if (!JoyFolderHome.isChosen(app)) return
+        // The folder copy is the whole file written again through the folder's own door (tens of megabytes for a full
+        // page). Autosaves come every 15 to 30 s since 2026-11-16; the copy follows at most once in [FOLDER_COPY_EVERY_MS],
+        // and always after a save that read everything (the first of a screen, and leaving it), so the folder is never
+        // behind when the person looks at it.
+        val now = android.os.SystemClock.elapsedRealtime()
+        synchronized(folderCopied) {
+            val last = folderCopied[file.path]
+            if (!whole && last != null && now - last < FOLDER_COPY_EVERY_MS) return
+            folderCopied[file.path] = now
+        }
         JoyFolderHome.io().execute {
             try {
                 val jf = JoyFolderHome.open(app)
                 if (jf == null) {
                     Log.w(TAG, "folder copy of ${file.name} not written: the Joy Creator folder can't be opened")
-                    tellFolderCopyFailed(app, file.name)
+                    folderCopyOwed(file); tellFolderCopyFailed(app, file.name)
                     return@execute
                 }
                 mirrorFile(app, jf, dir, file.name, contents.doc.id)
@@ -293,12 +303,18 @@ object DrawingLibrary {
                 // Throwable: running out of memory here is an Error, and on this plain worker thread an Error that
                 // nobody catches closes the whole app, right after a save (work-loss audit 2026-11-10).
                 Log.w(TAG, "folder copy of ${file.name} not written; the next save tries again", e)
-                tellFolderCopyFailed(app, file.name)
+                folderCopyOwed(file); tellFolderCopyFailed(app, file.name)
             }
         }
     }
 
+    /** The folder copy was not made: the next save tries again whatever the clock says. */
+    private fun folderCopyOwed(file: File) { synchronized(folderCopied) { folderCopied.remove(file.path) } }
+
     private val folderCopyNotice = FolderCopyNotice()
+    private const val FOLDER_COPY_EVERY_MS = 60_000L
+    /** When each working file's folder copy was last asked for (elapsed ms), by path. */
+    private val folderCopied = HashMap<String, Long>()
 
     /** Tells the person, once per drawing per session, that the copy in their Joy Creator folder was not made. Any thread. */
     private fun tellFolderCopyFailed(app: Context, file: String) {

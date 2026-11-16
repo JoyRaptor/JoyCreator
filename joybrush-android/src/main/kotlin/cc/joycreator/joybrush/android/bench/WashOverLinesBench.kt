@@ -26,7 +26,8 @@ import org.json.JSONObject
  * Checked: the line is still a line (it used to be turned into paint first); the wash shows while wet; a save taken while
  * it is wet and opened again holds the line as a line AND the wash; Dry now leaves the line a line; recolouring the line
  * and back redraws its tiles from the layer's items to the same picture (so the wash is among them, not lost under the
- * redraw), also after the reopen; undo of the two recolours gives the dried picture back.
+ * redraw), also after the reopen; undo of the two recolours gives the dried picture back; undo of the wash gives the line
+ * alone back (still a line, its tiles redrawn without the wash) and redo the dried picture.
  *
  * Not covered: an animation frame, a mask, moving or deleting the line under the wash, the wash's look next to a wash on
  * a plain layer, a second wash, memory running out during the print, and a real pen.
@@ -132,9 +133,57 @@ class WashOverLinesBench(private val canvas: JbCanvasView, private val spec: Ben
         later(400) {
             fence("undo edits") { st ->
                 if (!MatrixDiff.same(dried.visible(), st.visible())) problem("undo of the two recolours is not the dried picture")
-                reopen()
+                undoWash()
             }
         }
+    }
+
+    /**
+     * Undo takes the dried wash away again (the print, and the stroke with it when they go back together), the line stays
+     * a line and the layer's items no longer hold the wash; Redo brings the dried picture back, exactly.
+     */
+    private fun undoWash() {
+        var presses = 0
+        fun back() {
+            canvas.undo(); presses++
+            later(500) {
+                fence("undo wash $presses") { st ->
+                    if (st.undoDepth > lineOnly.undoDepth && presses < 4) { back(); return@fence }
+                    report.put("undoPressesForWash", presses).put("undoWashOffPx", MatrixDiff.count(lineOnly.visible(), st.visible()).px)
+                    if (st.undoDepth != lineOnly.undoDepth) problem("undo of the wash: Undo depth ${st.undoDepth}, the line alone was ${lineOnly.undoDepth}")
+                    if (!MatrixDiff.same(lineOnly.visible(), st.visible())) problem("undo of the wash is not the line alone")
+                    if (onlyLine() == null) problem("undo of the wash: the line is no longer a line (lines: ${lines()})")
+                    recolourAndBack("unwashed", st) {
+                        canvas.undo(); canvas.undo()
+                        later(400) { redoWash(presses) }
+                    }
+                }
+            }
+        }
+        back()
+    }
+
+    private fun redoWash(presses: Int) {
+        var left = presses
+        fun forward() {
+            if (left == 0) {
+                // A redone stroke is wet again on the sheet: dry it as before, then the picture must be the dried one.
+                canvas.dryWashNow()
+                later(600) {
+                    fence("redo wash") { st ->
+                        val off = MatrixDiff.count(dried.visible(), st.visible()).px
+                        report.put("redoWashOffPx", off)
+                        if (off != 0) problem("redo of the wash: $off px differ from the dried picture")
+                        if (onlyLine() == null) problem("redo of the wash: the line is no longer a line (lines: ${lines()})")
+                        recolourAndBack("redone", st) { reopen() }
+                    }
+                }
+                return
+            }
+            canvas.redo(); left--
+            later(500) { fence("redo press") { forward() } }
+        }
+        forward()
     }
 
     private fun reopen() {

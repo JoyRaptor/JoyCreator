@@ -2123,14 +2123,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // The common refusals come BEFORE any layer is made (the Lead, 4c review): a GPU that cannot, a phone without the
         // free memory for the window. Said in words; nothing changes.
         mediaCanvas.unsupported?.let { drawing = false; onRefused?.invoke(it); return }
-        // A settings preview lays watercolour only, on its own small wet sheet. Pencil and oil would need an atlas beside the
-        // drawing's (about 600 MB at 6 x 4 on the Fold): not until it is small by construction or kept inside the media budget
-        // (the atlas session, 11-15). Off for the drawing.
-        if (smallMediaPreview && p.media?.medium != MEDIUM_WET) {
-            drawing = false
-            android.util.Log.i("JoyBrushSheet", "settings preview: pencil and oil are not laid here yet (no preview atlas)")
-            return
-        }
         val wet =p.media?.let { m -> m.medium == MEDIUM_WET || (m.thinner > 0 && m.paste?.let { it.shape < 2 && !it.clean } == true) } == true
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
         val info = android.app.ActivityManager.MemoryInfo()
@@ -2678,8 +2670,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     var keepDrawnStrokes = false
 
     /**
-     * A brush's settings preview only: pencil and oil are not laid (startMediaStroke; their atlas, [PREVIEW_SLOTS] if ever
-     * built, is never one sized by the phone's memory). Watercolour goes on the wet sheet as in a drawing, a small one ([PREVIEW_SHEET_LONG_CELLS]) laid
+     * A brush's settings preview only: pencil and oil go in an atlas of [PREVIEW_SLOTS], never one sized by the phone's
+     * memory, let go whenever the stage leaves the screen ([onPause], [surfaceDestroyed]). Watercolour goes on the wet sheet as in a drawing, a small one ([PREVIEW_SHEET_LONG_CELLS]) laid
      * over THIS view (the small stage), not the screen (11-15: in the atlas a big watercolour's test curve did not fit even at 6 x 4). Set before its
      * first stroke. Off for the drawing.
      */
@@ -3242,6 +3234,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     }
 
     override fun onPause() {
+        // A settings preview's atlas goes while the frames still run (it is made again by the next stroke there).
+        if (smallMediaPreview && !viewPaused && !surfaceGone) { onGl { mediaCanvas.releaseAtlas() }; awaitQueuedGl(1500L) }
         // A kept picture still being read must be read before the frames stop.
         if (pausePictureOwed?.count == 1L) awaitQueuedGl(1500L)
         viewPaused = true
@@ -3260,6 +3254,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // Note 9 when Android built the screen again: pause, stop, surface destroyed within 15 ms). A save asked for in
         // that pause has its read queued and no frame has run it yet; after this no frame will. So the frames already
         // owed run first, while there is still a surface to make the graphics current on.
+        // A settings preview's atlas is let go in the same breath: the stage is leaving the screen (settings closed, app paused).
+        if (smallMediaPreview && !viewPaused) onGl { mediaCanvas.releaseAtlas() }
         awaitQueuedGl(3000L)
         surfaceGone = true
         super.surfaceDestroyed(holder)
@@ -4540,10 +4536,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
 
     companion object {
         /**
-         * A settings preview's atlas: 6 x 4 slots of 256 px, the floor a drawing gets (24 to 48). 6 x 3 refused the test curve of a
-         * big watercolour (its water reached 19 areas of 16, Fold 4, 11-15). About 15 MB a slot, let go when the sheet closes.
+         * A settings preview's pencil and oil atlas: 3 x 2 slots of 256 px, about 15 MB a slot (the engine's ask, 11-15: under
+         * about 100 MB, small by construction; 6 x 4 was about 600 MB on the Fold). Watercolour is not in it (the wet sheet).
+         * A frame that needs more areas than this is refused and written to the log; the drawing is never touched.
          */
-        val PREVIEW_SLOTS = 6 to 4
+        val PREVIEW_SLOTS = 3 to 2
 
         /**
          * A settings preview's wet sheet: 512 cells along its long side, not a drawing's 1280. The sheet's grid follows the

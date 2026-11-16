@@ -1496,7 +1496,7 @@ class JoyBrushActivity : Activity() {
             colorArgb = canvas.strokeColor
             // What the owner draws here is laid again with every slider move (2026-10-27).
             keepDrawnStrokes = true
-            // Watercolour here on a small wet sheet of its own (pencil and oil not yet): a second canvas, let go on close.
+            // Watercolour on a small wet sheet of its own, pencil and oil in a 3 x 2 atlas: a second canvas, let go on close.
             smallMediaPreview = true
             // A stroke the preview could not lay is not said over the sheet, but it is written down (never silent).
             onRefused = { why -> android.util.Log.w("JoyBrushSheet", "settings preview refused a stroke: $why") }

@@ -725,6 +725,20 @@ class MediaCanvas(
      */
     fun settleOwed() { if (stroke == null) (window as? MediaAtlas)?.payOwedStores(paint.mediaPaper(), DOC_PX_PER_MM, water()) }
 
+    /**
+     * A brush settings preview going out of sight (its surface goes: the settings close or the app pauses): its pencil and
+     * oil atlas is written back and let go, the wet sheet left as it is. The next pencil or oil stroke there makes it again.
+     */
+    fun releaseAtlas() {
+        if (stroke?.sheet == false) dropStroke()
+        if (engine == null && warm == null) return
+        settleOwed(); window?.let(::refreshFlat); window?.release()
+        engine?.release(); warm?.releasePrograms()
+        engine = null; window = null; warm = null
+        noteHeld()
+        android.util.Log.i("JoyBrushMediaMemory", "settings preview: atlas let go")
+    }
+
     /** GL context lost or the canvas closing. */
     fun release() {
         engine?.release()

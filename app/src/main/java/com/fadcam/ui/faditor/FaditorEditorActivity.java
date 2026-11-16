@@ -47118,6 +47118,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // the synchronous save + flush there. The per-edit hot path uses the
             // async save (serialize on UI thread, write on a background thread) so
             // trimming/importing/transitions don't block on disk I/O.
+            final long saveT0 = android.os.SystemClock.uptimeMillis();   // E10: time the leave-the-editor save
             if (forceUndoHistory) {
                 // Let queued background writes land FIRST: run after these synchronous ones,
                 // an older queued project or history would overwrite the newer one.
@@ -47156,6 +47157,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
             }
             FLog.d(TAG, "Project saved: " + project.getId());
+            if (forceUndoHistory) FLog.i(TAG, "E10 blocking save took " + (android.os.SystemClock.uptimeMillis() - saveT0) + " ms, undo steps " + undoManager.getUndoHistoryForPersist().size() + ": " + project.getId());
         }
     }
 

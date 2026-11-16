@@ -254,7 +254,7 @@ class SelectController(
                 preferences.observeLockedLines(recs.any { it.locked })
                 val colours = recs.map { it.record.colorArgb }.distinct().take(2)
                 val icon = recs.firstOrNull()?.let { app.brushIcon(it.record.brushId) } ?: JbIcon.BRUSH
-                row.showLines(colours, icon, 1f, picks.chipsInRow)
+                row.showLines(colours, icon, tool.weightSinceSelected, picks.chipsInRow)
             }
             is SelectionState.Pixels -> row.showPixels(
                 canvas.strokeColor,

@@ -388,8 +388,26 @@ class SelectTool(
         weightRecords = null
         val ok = commitLines(after)
         if (!ok) { liftedLines?.preview(before); host.invalidate() }
+        // L9: a heavier line is a wider line; the box, the ring and the row's width label follow it.
+        refitBox()
+        listener?.selectionChanged()
         return ok
     }
+
+    /**
+     * L9: how much heavier the selected lines are than when they were selected (1 = unchanged), for the row's
+     * width label. Read from the first selected line that was there at the start.
+     */
+    val weightSinceSelected: Float
+        get() {
+            for (now in selectedRecords()) {
+                val was = selectionStart.firstOrNull { it.address == now.address } ?: continue
+                val a = was.record.widthScale.takeIf { it.isFinite() && it > 0f } ?: 1f
+                val b = now.record.widthScale.takeIf { it.isFinite() && it > 0f } ?: 1f
+                return b / a
+            }
+            return 1f
+        }
 
     private fun cancelWeight() {
         val before = weightRecords ?: return

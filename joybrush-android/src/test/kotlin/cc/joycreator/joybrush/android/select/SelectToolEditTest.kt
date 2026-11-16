@@ -150,7 +150,7 @@ class SelectToolEditTest {
         private fun lines() = records.map { r ->
             val xs = r.samples.map { it.x.toDouble() }.toDoubleArray()
             val ys = r.samples.map { it.y.toDouble() }.toDoubleArray()
-            SelectionHost.Line(LineAddress("layer", null, r.id), InkLine(r.id, xs, ys, DoubleArray(xs.size) { 1.0 }), r, false, null)
+            SelectionHost.Line(LineAddress("layer", null, r.id), InkLine(r.id, xs, ys, DoubleArray(xs.size) { r.widthScale.toDouble() }), r, false, null)
         }
         override fun activeLines() = lines()
         override fun visibleLines() = lines()
@@ -315,6 +315,27 @@ class SelectToolEditTest {
         tool.end()
         assertFalse(tool.reweight(2f, done = true))
         assertEquals(2f, host.records.first { it.id == "b" }.widthScale, 0.001f)
+    }
+
+    /** L9: Done on the width drag grows the box with the lines, tells the controller, and the label reads the new weight. */
+    @Test fun aFinishedReweightRefitsTheBoxAndReportsTheSelection() {
+        val host = Host(mutableListOf(record("a")))
+        val tool = SelectTool(host, 1f) { true }
+        var changes = 0
+        tool.listener = object : SelectTool.Listener {
+            override fun selectionChanged() { changes++ }
+            override fun overlayChanged() {}
+        }
+        selectLines(tool, host)
+        val before = tool.boxDoc!!.copyOf()
+        changes = 0
+        assertTrue(tool.reweight(4f, done = true))
+        assertTrue("the controller hears the change", changes > 0)
+        val after = tool.boxDoc!!
+        assertTrue("the box grew with the lines: ${before.toList()} -> ${after.toList()}", after[0] < before[0] && after[4] > before[4])
+        assertEquals(4f, tool.weightSinceSelected, 0.001f)
+        assertTrue(tool.reweight(0.5f, done = true))
+        assertEquals(2f, tool.weightSinceSelected, 0.001f)
     }
 
     @Test fun failedPixelTransformRestoresBoxAndKeepsClip() {

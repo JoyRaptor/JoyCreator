@@ -88,6 +88,8 @@ colours); joybot bench 65/65 incl. `host-lobby-transition` (asks, changes nothin
   after closing and reopening the chat; ✅ bubbles in this person's order (Video, made twice, first). The free model
   then answered "make a transition" with "Which cut?" (honest, nothing changed, but about a project nobody could see):
   since 09d3b60b8 the lobby asks "in the last project you had open?" BEFORE any AI reads such a request.
-- Not checked: the image / tile / sprite / perspective landings and sprite-edit / find on a device; the no-AI run;
+- **Test Fold, 11-15 19:54 (build 09d3b60b8, no AI):** ✅ "make a transition" in the lobby asks at once about
+  "Untitled 2" with Open it / Not now; ✅ Open it opens it and Joybot there offers "Shall I do it here now?".
+- Not checked: the image / tile / sprite / perspective landings and sprite-edit / find on a device;
   icons are placeholders until ICON-1; Joybot's own colours (his orb's purple) await the owner's OK.
 

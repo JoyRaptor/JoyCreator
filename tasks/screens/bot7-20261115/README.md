@@ -15,3 +15,10 @@ Build `ec88011f0` (joy-creator 078ea1024 + BOT-7), installed 17:06. Joybot conne
 
 Also seen: "tell me a joke" → one of the 66, with Another one. Found and fixed: restored chat messages lost their room
 colour (bacc368ed). The phone's temperature log for the run is in the lane's scratchpad (no throttling seen).
+
+## Test Fold, 11-15 19:54, build `09d3b60b8` (no AI connected)
+
+| Shot | What it shows |
+|---|---|
+| 11-fold-lobby-transition-asks | "make a transition" in the lobby: at once, with no AI, "Make a transition in “Untitled 2”, the last project you had open? I'll open it so we can look at it together." Open it / Not now. Nothing changed |
+| 12-fold-carried-ask-in-project | Open it opened Untitled 2; Joybot there: "You asked me to “make a transition”. Shall I do it here now?" Do it / Not now |

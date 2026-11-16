@@ -709,8 +709,11 @@ final class KnobPanel extends LinearLayout {
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(Ui.dp(c, 36));
         row.addView(Ui.text(c, c.getString(R.string.vl_knob_sheet), 12, Studio.INK_DIM, false, 500), new LayoutParams(Ui.dp(c, 98), LayoutParams.WRAP_CONTENT));
-        TextView pick = pill(c, SheetShelf.nameOf(sheet), false);
-        Ui.label(pick, R.string.vl_knob_sheet_tip);
+        boolean gone = SheetCopies.missing(sheet);
+        TextView pick = pill(c, gone
+                ? c.getString(R.string.vl_knob_sheet_missing, SheetShelf.nameOf(sheet))
+                : SheetShelf.nameOf(sheet), false);
+        Ui.label(pick, gone ? R.string.vl_knob_sheet_missing_tip : R.string.vl_knob_sheet_tip);
         pick.setOnClickListener(v -> {
             Motion.press(v);
             host.pickSheet(L);

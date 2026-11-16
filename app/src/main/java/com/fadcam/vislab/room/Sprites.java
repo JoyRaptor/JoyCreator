@@ -69,7 +69,10 @@ public final class Sprites implements VisRenderer.SpriteSource {
             Log.w(TAG, "sprite sheet unreadable", e);
             a = null;
         }
-        if (a == null) return builtIn();
+        // A chosen sheet that cannot be read draws NOTHING, never the built-in record: playing
+        // unrelated art hid a missing sheet (audit XROOM-03). The layer's panel row says the
+        // pictures are missing and offers to choose the sheet again.
+        if (a == null) return null;
         kept.put(key, a);
         Iterator<Map.Entry<String, SpriteAtlas>> it = kept.entrySet().iterator();
         while (kept.size() > 2 && it.hasNext()) {

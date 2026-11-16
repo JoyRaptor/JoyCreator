@@ -150,6 +150,7 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
             }
         }
         session.bind(this);
+        session.whenLoaded(this::ownOldSheets);
         useSource(SRC_DEMO, null);
         if (state == null && getIntent().getBooleanExtra(EXTRA_NEW_LOOK, false)) view.post(this::startNewLook);
     }
@@ -674,15 +675,74 @@ public class VisLabActivity extends AppCompatActivity implements KnobPanel.Host,
                 String nowId = now != null && now.isJsonObject() && now.getAsJsonObject().has("id")
                         ? now.getAsJsonObject().get("id").getAsString() : null;
                 LookSheets.chooseSheet(this, sheets, nowId, pick -> {
-                    beginEdit("Sprite sheet");
-                    if (pick == null) layer.remove("sheet");
-                    else layer.add("sheet", pick.sheet.deepCopy());
-                    layer.remove("clip");
-                    edited();
-                    panel.rebuild();
+                    if (pick == null) {
+                        applySheet(layer, null);
+                        return;
+                    }
+                    // The look keeps its own copy of the pictures, so deleting the project the
+                    // sheet came from cannot take them away (audit XROOM-03). Files: off the
+                    // main thread.
+                    java.io.File home = new java.io.File(getFilesDir(), SheetCopies.FOLDER);
+                    com.google.gson.JsonObject chosen = pick.sheet.deepCopy();
+                    new Thread(() -> {
+                        com.google.gson.JsonObject owned = SheetCopies.own(home, chosen);
+                        runOnUiThread(() -> {
+                            if (!isFinishing() && !isDestroyed()) applySheet(layer, owned);
+                        });
+                    }, "VisSheetCopy").start();
                 });
             });
         }, "VisSheetShelf").start();
+    }
+
+    /**
+     * Looks saved before a look owned its sprite pictures (XROOM-03) still link into the project
+     * the sheet came from. While that project is still here, give each such look its own copy,
+     * once, quietly: the look shows exactly the same, so it is not an undo step.
+     */
+    private void ownOldSheets() {
+        final List<com.google.gson.JsonObject> layers = new java.util.ArrayList<>();
+        final List<com.google.gson.JsonObject> before = new java.util.ArrayList<>();
+        final List<VisScene> owners = new java.util.ArrayList<>();
+        for (VisScene s : session.looks()) {
+            for (com.google.gson.JsonElement le : s.layers()) {
+                if (!le.isJsonObject()) continue;
+                com.google.gson.JsonElement se = le.getAsJsonObject().get("sheet");
+                if (se == null || !se.isJsonObject()) continue;
+                layers.add(le.getAsJsonObject());
+                before.add(se.getAsJsonObject().deepCopy());
+                owners.add(s);
+            }
+        }
+        if (layers.isEmpty()) return;
+        java.io.File home = new java.io.File(getFilesDir(), SheetCopies.FOLDER);
+        new Thread(() -> {
+            List<com.google.gson.JsonObject> after = new java.util.ArrayList<>();
+            for (com.google.gson.JsonObject b : before) after.add(SheetCopies.own(home, b));
+            runOnUiThread(() -> {
+                boolean any = false;
+                for (int i = 0; i < layers.size(); i++) {
+                    com.google.gson.JsonObject a = after.get(i);
+                    // Only where nothing changed meanwhile, and only when there was something to copy.
+                    if (a == before.get(i) || !before.get(i).equals(layers.get(i).get("sheet"))) continue;
+                    layers.get(i).add("sheet", a);
+                    owners.get(i).touch();
+                    any = true;
+                }
+                if (any) session.roomEdited();
+            });
+        }, "VisSheetCopyOld").start();
+    }
+
+    /** One undo step: the layer plays this sheet (null: the built-in one) from its first animation. */
+    private void applySheet(@NonNull com.google.gson.JsonObject layer,
+                            @Nullable com.google.gson.JsonObject sheet) {
+        beginEdit("Sprite sheet");
+        if (sheet == null) layer.remove("sheet");
+        else layer.add("sheet", sheet);
+        layer.remove("clip");
+        edited();
+        panel.rebuild();
     }
 
     // ------------------------------------------------------------------ sound

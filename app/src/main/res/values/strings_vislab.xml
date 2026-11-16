@@ -125,6 +125,8 @@
     <string name="vl_knob_joy_emblem_tip">Go back to the built-in Joy emblem</string>
     <string name="vl_knob_sheet">Sheet</string>
     <string name="vl_knob_sheet_tip">Choose which Sprite Lab sheet this layer plays</string>
+    <string name="vl_knob_sheet_missing">%1$s: pictures missing</string>
+    <string name="vl_knob_sheet_missing_tip">This sheet\'s pictures are gone, perhaps with the project they came from. Tap to choose a sheet again</string>
     <string name="vl_knob_animation">Animation</string>
     <string name="vl_knob_every_frame">Every frame</string>
     <string name="vl_knob_every_frame_tip">Play every frame of the sheet</string>

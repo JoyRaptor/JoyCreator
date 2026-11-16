@@ -1,6 +1,6 @@
 # FX-1: Joybot carries your work from one room to the next
 
-**Milestone:** M1/M2 (signature polish)  ·  **State:** ⬜ card written 11-15  ·  **Owner:** hand-off lane  ·  **Checked:** 2026-11-15
+**Milestone:** M1/M2 (signature polish)  ·  **State:** 🟨 options page with the owner 11-16; nothing built in the app  ·  **Owner:** "FX-1 hand-off" (Claude Fable 5.2)  ·  **Checked:** 2026-11-16
 
 ## Why it matters
 The owner, 11-15: "We've built up this huge library of effects. Why don't we start using it on our own app to really
@@ -35,6 +35,23 @@ Reuse, don't rebuild: picture capture of a view, VisLab's GL programs and offscr
 `OffscreenGl`), the TextLab warp shaders, Joybot's GL flight and landing from the arrival (BOT-5, joybot-sprites lane).
 One overlay component (a full-screen GL view above the receiving room) plays: the two snapshots with a warp seam and slide,
 the edge pull, Joybot on top, then a reveal of the live room. Budget: no new heavy assets; keep frame time flat on the Note 9.
+
+## 11-16: four options out to the owner (no app code yet)
+- Options page: [UI-Handoff-transitions-options.html](../design/UI-Handoff-transitions-options.html): The Big Pull, Peel and Carry,
+  The Box Kick, Made of Its Own Stuff; real Joybot sprites, sketched rooms, warps written as the phone's shaders would be.
+  Checked in a browser only. Nothing measured on the Note 9. He answers with the page's "FX-1 picks" line.
+- Direction of travel follows the lobby dial (Studio is left of JoyBrush); the seam glows in the destination room's colour.
+- Found while reading the route (origin/joy-creator 11-15):
+  - `JoyBrushBoardImportActivity` makes the new item's id but does not pass it to `FaditorEditorActivity`; the editor has
+    `selectAndRevealNewObject` (private) and `LayerRowRenderer.itemBodyRect` to build "report the new item's rectangle" from.
+  - No transition overrides on the route; three Activities, one process. The "New project / which project" dialog comes first.
+  - VisLab has no Send to Studio (Studio pulls looks from VisLab), so that route needs a send button before it can have a show.
+  - Joybot has no grab, pull, carry or slap drawings; the stage draws only `idle` and `spin`. Closest: arranging-clips,
+    discarding-clip, salute. Asked the owner whether he will draw poses.
+- Joybot sprites lane, 11-15: the stage is tied to the chat (`Show` + `Reveal`); the seam is an interface `StageRenderer` reads
+  (pose(t), backdrop textures, effect triggers, optional Reveal, a clock that can pause). Send it to them as a patch; never edit
+  `ui/lobby/arrival/**`. Carry the show in a translucent window that outlives the Activity switch; Choreographer only;
+  `overridePendingTransition(0, 0)`; prewarm shaders (67 ms first-open gap); `HomeFlight.flyInto` on request for the ending.
 
 ## Rules that apply
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no

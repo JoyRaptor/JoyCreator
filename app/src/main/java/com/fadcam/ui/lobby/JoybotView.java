@@ -627,6 +627,8 @@ public final class JoybotView extends FrameLayout {
                 if (done != null) post(done);
                 Runnable chain = f.takeOnEnd();
                 if (chain != null) post(chain);
+                // He holds the last frame while his next animation opens, still hovering (his body language runs on).
+                if (f.isActor()) postInvalidateOnAnimation();
             } else {
                 postInvalidateOnAnimation();
             }
@@ -832,6 +834,8 @@ public final class JoybotView extends FrameLayout {
         default void shown() {}
         /** True while a short flourish (a bow, a salute, a point) is playing. */
         default boolean flourishing() { return false; }
+        /** True while the picture of the animation he is going into is still opening ({@link #enter} gave null for it). */
+        default boolean opening() { return false; }
     }
 
     @Nullable private Director director;
@@ -872,6 +876,20 @@ public final class JoybotView extends FrameLayout {
     }
 
     @Nullable public Director getDirector() { return director; }
+
+    /** His director could not open a picture: the line art on its orb is all there is to show, so it shows. */
+    public void pictureFailed() {
+        if (film != null) setFilm(null);
+        else showFaces(true);
+    }
+
+    /** The line art and the orb under it, shown or hidden (they stand in only when no animation can play). */
+    private void showFaces(boolean show) {
+        neutral.setVisibility(show ? VISIBLE : INVISIBLE);
+        smile.setVisibility(show ? VISIBLE : INVISIBLE);
+        android.graphics.drawable.Drawable seat = getBackground();
+        if (seat != null) seat.setAlpha(show ? 255 : 0);
+    }
 
     @Nullable private String pendingMoment;
     private boolean forceMood;
@@ -920,6 +938,14 @@ public final class JoybotView extends FrameLayout {
                 } else {
                     setFilm(next);
                 }
+                return;
+            }
+            if (director.opening()) {
+                // Its picture is still opening (six of his forty animations are kept open at a time). He carries on as
+                // he is until it is; the line-art icon on its orb never stands in for him (owner, 11-15 evening: "a
+                // purple looking circle that flashes behind him in between transitions of actions"). Before his first
+                // animation there is nothing to carry on with, so nothing shows until it opens.
+                if (film == null) showFaces(false);
                 return;
             }
         }

@@ -364,6 +364,7 @@ public final class JoybotDirector implements JoybotView.Director {
         bot.removeCallbacks(idleTick);
         bot.removeCallbacks(ponderTick);
         bot.removeCallbacks(brushTick);
+        waiting = null;
         // A long think stops now and then in his thinking pose; resting, now and then he waves his paintbrush about
         // ("as the mascot, I'd love to find an excuse for him to every once in a while wave his paintbrush around").
         if (m == JoybotView.Mood.THINK) bot.postDelayed(ponderTick, 5500L + dice.nextInt(3500));
@@ -414,12 +415,17 @@ public final class JoybotDirector implements JoybotView.Director {
         }
         Bitmap p = acts.opened(a);
         if (p == null) {
-            // Not open yet: the stills stand in for the moment it takes, then he comes back to it.
+            // Not open yet: he carries on as he is for the moment it takes (JoybotView), then comes back to it.
             final JoybotActs.Act want = a;
             now = null;
             nowMood = null;
+            waiting = want;
             acts.open(a, bot, got -> {
-                if (got == null || !bot.isAttachedToWindow() || bot.getMood() != m || bot.getDirector() != this) return;
+                if (waiting != want) return;                    // he has moved on to something else since
+                waiting = null;
+                if (!bot.isAttachedToWindow() || bot.getDirector() != this) return;
+                if (got == null) { bot.pictureFailed(); return; }
+                if (bot.getMood() != m) { bot.refreshMood(); return; }
                 reopened = want;
                 bot.setMood(m);
             });
@@ -454,6 +460,11 @@ public final class JoybotDirector implements JoybotView.Director {
     }
 
     @Nullable private JoybotActs.Act reopened;
+    /** The animation whose picture is opening, while it is. */
+    @Nullable private JoybotActs.Act waiting;
+
+    @Override
+    public boolean opening() { return waiting != null; }
 
     @Nullable
     private JoybotActs.Act pick(@NonNull String mood) {

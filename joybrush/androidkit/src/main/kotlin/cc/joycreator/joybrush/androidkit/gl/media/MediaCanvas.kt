@@ -295,6 +295,11 @@ class MediaCanvas(
         if (spec.medium == MEDIUM_WET && WetSheet.enabled &&!paint.mediaPlaneBlankAt(layerId, x, y) &&
             paint.localHistory && (!paint.layerHasLines(layerId) || paint.linesTakeSheet))
             return beginOnSheet(layerId, paint.mediaPlaneAt(layerId, x, y), preset, spec, argb, x, y, nowMs, symmetry)
+        // Watercolour that the sheet does not take (a blank frame, a recorded scene) must not reach the atlas on a layer that
+        // still holds editable lines: the canvas no longer turns them into paint first for watercolour (2026-11-16), and the
+        // atlas's water has no place among lines.
+        if (spec.medium == MEDIUM_WET && paint.layerHasLines(layerId))
+            return "Watercolour can't go here while this layer holds editable lines. Turn its lines into paint first (Layers, Freeze), then paint."
         // Any other realistic paint on the sheet's layer goes over the wash: it is printed first.
         settleSheet(layerId)
         val thinned = spec.medium == MEDIUM_PASTE && spec.thinner > 0 && spec.paste?.let { it.shape < 2 && !it.clean } == true

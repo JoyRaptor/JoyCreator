@@ -916,6 +916,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             // An ordinary clear is queued first. Admission subsequently checks the actual EMPTY
             // physical target on GL before any DOWN; a fixed delay alone never grants admission.
             canvas.preset = preset
+            // In the real screen (jb_bench_life) the host sets the switch from its own saved choice after this runner starts.
+            spec.editableLines?.let { canvas.editableLines = it }
             canvas.brush = diagnosticBrush
             canvas.colorArgb = diagnosticColor
             canvas.clearCanvas()

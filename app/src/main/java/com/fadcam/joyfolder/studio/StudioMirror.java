@@ -145,6 +145,16 @@ public final class StudioMirror {
     }
 
     /**
+     * ProjectStorage.delete's one question: with a Joy Creator folder in use, could this project and every
+     * file that lives only inside the app NOT be made safe in the folder first? Then the delete must not
+     * happen. Without a folder: false (that delete is final, and the person was told so before it).
+     * Folder I/O: never the main thread.
+     */
+    public static boolean deleteUnsafe(Context context, String projectId) {
+        return JoyFolderHome.isChosen(context.getApplicationContext()) && !readyToDelete(context, projectId);
+    }
+
+    /**
      * Before a delete: bring the project's folder copy up to date NOW, not a few seconds from now, so
      * what goes to Trash is the project as it is (work-loss audit 2026-11-10: the copy in Trash was
      * whatever the last background copy had caught, and for a project deleted moments after it was
@@ -157,7 +167,7 @@ public final class StudioMirror {
      * @return true only when the folder holds an up-to-date copy of this project AND every file that
      *         lived only inside the app is in the folder too, so the delete can really be undone
      */
-    public static boolean readyToDelete(Context context, String projectId) {
+    private static boolean readyToDelete(Context context, String projectId) {
         final Context app = context.getApplicationContext();
         if (!JoyFolderHome.isChosen(app)) return false;
         MAIN.post(() -> {

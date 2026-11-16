@@ -63,7 +63,7 @@ class DuplicateFailureBench(private val canvas: JbCanvasView, private val spec: 
         canvas.editableLines = true
         canvas.preset = all.firstOrNull { it.id == "joybrush.ink" } ?: all.firstOrNull { it.id == "ink" }
             ?: all.first { it.engine == "stamp" }
-        report.put("brush", canvas.preset.id)
+        report.put("brush", canvas.preset?.id)
         val s = (minOf(512, (minOf(canvas.pageWidth, canvas.pageHeight) * 0.6).toInt()) / 8) * 8
         rect = RectPx((canvas.pageWidth - s) / 2, canvas.pageHeight / 5, s, s)
         var n = 0

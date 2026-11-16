@@ -477,8 +477,9 @@ public final class HelpBook {
                             + "Embed Location Metadata, the switch that puts the GPS position in your videos.",
                     "setup", null),
             new Topic("settings_tips", "camera tips|tips carousel|tips in settings|the tips row|tips row",
-                    "In Settings, under About and help, the Tips row opens a carousel of 11 tips. Settings search "
-                            + "finds it too. They are older camera tips, not yet rewritten for Joy Creator.",
+                    "In Settings, under About and help, the Tips row opens 11 tips about Joy Creator: your folder, "
+                            + "Recently deleted, Library search, sharing in, Joybot, TextLab, packs, Space, Settings "
+                            + "search and Viz Lab. Settings search finds it too.",
                     "setup", null),
             new Topic("remote_lan", "remote control|remote camera|watch my phone camera|control the phone camera|lan remote"
                     + "|remote streaming|stream to my computer|stream to a browser|server room|remote studio"

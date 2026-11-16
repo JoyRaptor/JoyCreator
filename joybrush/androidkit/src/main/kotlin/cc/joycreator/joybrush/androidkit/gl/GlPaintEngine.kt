@@ -7788,6 +7788,7 @@ class GlPaintEngine(
         check(!strokeInProgress && mediaStroke == null) { "printing the wet sheet inside a stroke would be undone out of order" }
         val layer = layers[o.layerId]?.takeIf { !it.isMask }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
+        var slabs: List<UndoLog.SlabChange<Int>> = emptyList()
         if (layer != null && o.texture != 0) {
             // The plane's own tiles: the layer's, or the frame cel's (the picture is drawn in the pieces that plane owns).
             val store = planeTiles(layer, o.plane)
@@ -7804,6 +7805,7 @@ class GlPaintEngine(
                     GLES30.glBindVertexArray(tileVao)
                     drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
                 }
+                slabs = overlaySlabs(layer, o, changes.map { it.key to it.before })
             } catch (e: Throwable) {
                 changes.forEach { it.after?.let(::recycleLayerTex) }
                 throw e
@@ -7812,10 +7814,63 @@ class GlPaintEngine(
                 GLES30.glDisable(GLES30.GL_BLEND)
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             }
+            // The wash's slabs go in first (all or nothing), then the tiles, which cannot fail (H5, as a fill's do).
+            if (slabs.isNotEmpty()) try { applyItemChanges(slabs, emptyList(), forward = true) } catch (e: Throwable) {
+                changes.forEach { it.after?.let(::recycleLayerTex) }
+                slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
+                throw e
+            }
             changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
         }
-        undo.push(UndoLog.Step(changes + settlePlainWrites(changes), sheet = mark))
+        undo.push(UndoLog.Step(changes + settlePlainWrites(changes), slabs = slabs, sheet = mark))
         return changes.size
+    }
+
+    /** The wet sheet may paint on a layer that holds editable lines: its wash is kept among them as a slab ([overlaySlabs]). */
+    val linesTakeSheet: Boolean get() = recordedScene == null
+
+    /**
+     * The wet sheet's wash on a plane that holds editable lines or slabs (ATLAS-SOLID ledger C6, 2026-11-16): each printed
+     * tile ([tiles]: key to the tile's texture before the print) also keeps the wash ALONE as a pixel slab, on top of the
+     * plane's items in time order, the way a fill is kept ([fillSlabs]). So a line under the wash can still be moved,
+     * recoloured or deleted and the tile is redrawn with the wash over it. A tile no item crossed yet gets its pixels as
+     * the base under the slab. Empty when the plane holds no items: the print is plain pixels as before. Nothing is
+     * applied to NativeLines here; the caller owns the textures in the result until it applies them.
+     */
+    private fun overlaySlabs(layer: Layer, o: LayerOverlay, tiles: List<Pair<Long, Int?>>): List<UndoLog.SlabChange<Int>> {
+        val plane = linePlane(layer, o.plane)
+        if (!nativeLines.hasItems(plane) || tiles.isEmpty()) return emptyList()
+        val out = ArrayList<UndoLog.SlabChange<Int>>()
+        val seq = nativeLines.nextSeq(plane)
+        try {
+            for ((key, before) in tiles) {
+                if (!nativeLines.isCrossed(plane, key)) {
+                    before?.let(::copyOfTile)?.let { copy ->
+                        out += UndoLog.SlabChange(layer.id, o.plane, key, 0L, null, UndoLog.SlabValue(copy, "normal"))
+                    }
+                }
+                val unit = newLayerTile()
+                try {
+                    initializeTile(unit, null, false)
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(unit)
+                    GLES30.glViewport(0, 0, size, size)
+                    GLES30.glEnable(GLES30.GL_BLEND)
+                    GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+                    GLES30.glBindVertexArray(tileVao)
+                    drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
+                    GLES30.glBindVertexArray(0)
+                    GLES30.glDisable(GLES30.GL_BLEND)
+                } catch (e: Throwable) {
+                    recycleLayerTex(unit)
+                    throw e
+                }
+                out += slabTile(layer, o.plane, plane, key, unit, "normal", seq)
+            }
+        } catch (e: Throwable) {
+            out.forEach { it.after?.texture?.let(::recycleLayerTex) }
+            throw e
+        }
+        return out
     }
 
     /**
@@ -7828,6 +7883,9 @@ class GlPaintEngine(
         if (layer == null || o.texture == 0 || keys.isEmpty() || !localHistory) return body()
         val stamped = LinkedHashMap<Long, Int>()
         val store = planeTiles(layer, o.plane)
+        // On a plane with editable lines the wash is among its items for the length of [body] too, as a print leaves it:
+        // a save keeps such a plane as its items, so the stand-in tiles alone would lose the wash where a line crosses.
+        var slabs: List<UndoLog.SlabChange<Int>> = emptyList()
         try {
             for (key in keys) {
                 val after = newLayerTile()
@@ -7840,6 +7898,7 @@ class GlPaintEngine(
                 GLES30.glBindVertexArray(tileVao)
                 drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
             }
+            slabs = overlaySlabs(layer, o, stamped.keys.map { it to store[it] })
         } catch (e: Throwable) {
             stamped.values.forEach(::recycleLayerTex)
             throw e
@@ -7851,7 +7910,9 @@ class GlPaintEngine(
         // The stand-ins take the tiles' places, and the payload under them steps aside, for the length of [body] only.
         val had = HashMap<Long, Int?>()
         val aside = ArrayList<Triple<HashMap<Long, Int>, Long, Int>>()
+        var slabsIn = false
         try {
+            if (slabs.isNotEmpty()) { applyItemChanges(slabs, emptyList(), forward = true); slabsIn = true }
             for ((key, tex) in stamped) { had[key] = store[key]; store[key] = tex }
             for (tiles in floatsOf(layer, o.plane).values) for (key in stamped.keys) tiles.remove(key)?.let { aside.add(Triple(tiles, key, it)) }
             invalidateProjection(layer)
@@ -7859,6 +7920,8 @@ class GlPaintEngine(
         } finally {
             for ((key, old) in had) if (old == null) store.remove(key) else store[key] = old
             for ((tiles, key, tex) in aside) tiles[key] = tex
+            if (slabsIn) applyItemChanges(slabs, emptyList(), forward = false)
+            slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
             invalidateProjection(layer)
             stamped.values.forEach(::recycleLayerTex)
         }

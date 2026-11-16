@@ -2405,8 +2405,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // R51, any brush works on any layer (owner, 2026-10-21: his daughter and his wife found the pen did nothing with a brush
         // picked): a realistic brush on a layer that holds editable lines first turns them into paint (Freeze: the picture
         // unchanged, its own undo step, said once), then paints. It used to be refused.
+        // Watercolour needs no freeze (2026-11-16): the wet sheet prints its wash among the lines and they stay editable.
+        val washAmongLines = p?.media?.medium == cc.joycreator.joybrush.core.brush.MEDIUM_WET &&
+            cc.joycreator.joybrush.androidkit.gl.media.WetSheet.enabled
         if (p?.engine == ENGINE_MEDIA && !eraser && !editingMask && watercolourPreviewSeed == null && tileBoardId == null &&
-            lineSnapshot.holdsItemsOnLayer(activeLayer)) {
+            !washAmongLines && lineSnapshot.holdsItemsOnLayer(activeLayer)) {
             val id = activeLayer; val name = stackUi.active.name
             onBeforeHistoryChange?.invoke()
             onGl {

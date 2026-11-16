@@ -169,6 +169,11 @@ class ChromeCoreTest {
         assertEquals(BrushShelf.Kind.ERASERS, BrushShelf.kindOf(eraser.copy(sourceFormat = "abr")))
         // "Hair" is not an airbrush.
         assertEquals(BrushShelf.Kind.PAINT, BrushShelf.kindOf(brush("hair", "Hair")))
+        // The editable watercolour line is found with the watercolours, and an erasing one with the erasers.
+        val line = brush("joybrush.watercolour", "Watercolour line").copy(engine = "watercolour")
+        assertEquals(BrushShelf.Kind.WATERCOLOUR, BrushShelf.kindOf(line))
+        assertEquals(BrushShelf.Kind.ERASERS, BrushShelf.kindOf(line.copy(blend = "erase")))
+        assertFalse(BrushShelf.makesLines(line), "the shelf alone does not make it a line brush; its own switch does")
     }
 
     @Test

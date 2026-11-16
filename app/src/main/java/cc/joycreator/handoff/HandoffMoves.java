@@ -207,7 +207,8 @@ final class HandoffMoves {
     static void vacShape(float u, boolean hold, float ht, float[] out) {
         float e = cl(u / .92f);
         out[0] = e;
-        out[1] = lerp(-.85f, 6.95f, e) + (hold ? .08f * sin(ht * 8f) * env(ht) : 0f);
+        // waiting, he hauls the edge back and forth a good hand's width: seen on the Note 9, a smaller tug read as a freeze
+        out[1] = lerp(-.85f, 6.95f, e) + (hold ? .24f * sin(ht * 8f) * env(ht) : 0f);
         out[2] = (float) Math.pow(e, 1.6);
     }
 

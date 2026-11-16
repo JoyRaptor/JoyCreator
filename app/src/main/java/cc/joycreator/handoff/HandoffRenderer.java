@@ -138,7 +138,7 @@ final class HandoffRenderer {
                 GlTarget small = GlTarget.create(Math.max(8, winW / 8), Math.max(8, winH / 8), GlTarget.RGBA8, 1, true);
                 lyric.fill(small.fb, small.w, small.h);
                 small.free();
-                GlTarget warm = GlTarget.create(Math.max(8, winW / 2), Math.max(8, winH / 2), GlTarget.RGBA8, 1, true);
+                GlTarget warm = GlTarget.create(Math.max(8, winW * 2 / 5), Math.max(8, winH * 2 / 5), GlTarget.RGBA8, 1, true);
                 lyric.draw(0f, 0f, 1f / 60f, warm.fb, warm.w, warm.h);
                 warm.free();
             }
@@ -218,7 +218,8 @@ final class HandoffRenderer {
             trail = GlTarget.create(hw, hh, GlTarget.RGBA8, 1, true);
             fxT = GlTarget.create(hw, hh, GlTarget.RGBA8, 1, true);
         }
-        stars = mode == HandoffMoves.PEEL ? GlTarget.create(hw, hh, GlTarget.RGBA8, 1, true) : null;
+        // the star field is soft streaks: two fifths of the window is plenty, and it is the costliest pass (Note 9)
+        stars = mode == HandoffMoves.PEEL ? GlTarget.create(Math.max(8, w * 2 / 5), Math.max(8, h * 2 / 5), GlTarget.RGBA8, 1, true) : null;
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, trail.fb);
         GLES30.glClearColor(0, 0, 0, 0);
         GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);

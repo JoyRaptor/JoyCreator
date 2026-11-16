@@ -694,7 +694,7 @@ class JoyBrushActivity : Activity() {
         // Undo, redo, a frame change and a board edit all change the lines under a selection: it ends first.
         canvas.onBeforeHistoryChange = { popovers.close(); boardController?.stopPreview(); selection?.beforeHistoryChange() }
         canvas.onPaperBackdropChanged = { checkIcons() }
-        canvas.onPaperChanged = { p -> refreshPaper(p); checkIcons(); fitPaperBesidePanels() }
+        canvas.onPaperChanged = { p -> refreshPaper(p); checkIcons() }
         refreshPaper(canvas.documentPaper)
         canvas.onTilesLost = { count -> toast("$count squares of this drawing were lost by the graphics chip and are blank now. Everything else is saved.") }
         canvas.onHistoryChanged = { canUndo, canRedo ->
@@ -1644,13 +1644,18 @@ class JoyBrushActivity : Activity() {
         fitPaperBesidePanels()
     }
 
+    /** TAB-1 K11: how far the drawing is slid aside for the standing panels, screen px (0 = not slid). */
+    private var paperAsideShiftPx = 0f
+
     /**
-     * TAB-1 K11 (owner: "that should just be an option in settings"): with "Paper beside panels" on, the drawing's
-     * view ends where the standing brush panels begin, so they never lie over the drawing. Off (the default) keeps
-     * the drawing full screen under them, exactly as before.
+     * TAB-1 K11 (owner: "that should just be an option in settings"): with "Paper beside panels" on, the drawing
+     * slides aside by the standing brush panels' width, so what lay under them shows beside them; it slides back
+     * when they close. A pan of the drawing's own view, so the paper still fills the screen and everything drawn in
+     * the drawing's coordinates (guides, symmetry, reference, Select, boards) moves with it; your own pans and zooms
+     * meanwhile are kept. Off (the default): the drawing stays under the panels, exactly as before.
      */
     private fun fitPaperBesidePanels() {
-        val lp = canvas.layoutParams as? FrameLayout.LayoutParams ?: return
+        if (!::canvas.isInitialized || !::prefs.isInitialized) return
         val on = prefs.getBoolean(PREF_PAPER_ASIDE, false)
         val inset = when {
             !on -> 0
@@ -1658,18 +1663,13 @@ class JoyBrushActivity : Activity() {
             brushDock != null -> dp(BRUSH_DOCK_RAIL_GAP + BRUSH_DOCK_DP)
             else -> 0
         }
-        // The strip the drawing leaves is paper-coloured, so the top bar's icons (drawn for the paper) stay
-        // readable over it (Fold check 11-15: they vanished on the bare black window).
-        (canvas.parent as? View)?.let { host ->
-            if (inset > 0) host.setBackgroundColor(canvas.paperArgb) else host.background = null
-        }
-        val right = placement.edge == StripPlacement.Edge.RIGHT
-        val l = if (right) 0 else inset
-        val r = if (right) inset else 0
-        if (lp.leftMargin == l && lp.rightMargin == r) return
-        lp.leftMargin = l
-        lp.rightMargin = r
-        canvas.layoutParams = lp
+        val want = (if (placement.edge == StripPlacement.Edge.RIGHT) -inset else inset).toFloat()
+        val delta = want - paperAsideShiftPx
+        if (delta == 0f) return
+        paperAsideShiftPx = want
+        canvas.view.panX += delta
+        canvas.requestRender()
+        canvas.onViewMoved?.invoke()
     }
 
     /**

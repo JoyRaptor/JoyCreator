@@ -797,7 +797,9 @@ class JoyBrushActivity : Activity() {
         saves.request(SaveReason.IDLE, SaveDest.Working)
         // That save did not start (another is being written, or it waits for a stroke): it will start when the view no
         // longer draws, so the picture is read for it now (JbCanvasView.keepPausePicture; JBX-37).
-        if (!benchMode && workingSaveAllowed && saves.pending > 0) canvas.keepPausePicture()
+        // The same for a save being written from only the changed tiles: should the file not stand in for the rest, it
+        // reads the whole drawing again, and by then the view may no longer draw.
+        if (!benchMode && workingSaveAllowed && (saves.pending > 0 || workingSparseInFlight)) canvas.keepPausePicture()
         super.onPause()
     }
 
@@ -2721,6 +2723,8 @@ class JoyBrushActivity : Activity() {
      */
     /** What the last working save wrote (JbArchive.SaveMemo), for the next one to carry from. Read and written on the save thread only. */
     @Volatile private var workingSaveMemo: JbArchive.SaveMemo? = null
+    /** A working save that read only the changed tiles is being written: if the screen leaves now, the whole picture is kept for it. */
+    private var workingSparseInFlight = false
 
     private fun beginSave(dest: SaveDest, finished: (String?) -> Unit) {
         if (destroyed) {
@@ -2758,6 +2762,7 @@ class JoyBrushActivity : Activity() {
             if (!answered) {
                 answered = true
                 ui.removeCallbacks(watchdog)
+                if (dest is SaveDest.Working) workingSparseInFlight = false
                 workingHandoff?.complete(problem)
                 if (dest is SaveDest.Open) {
                     dest.selection.close()
@@ -2811,13 +2816,23 @@ class JoyBrushActivity : Activity() {
             answer("this device has nowhere to keep a working drawing")
             return
         }
-        try { canvas.snapshot({ contents ->
+        // The working save while the person is here reads back only the tiles that changed since this screen's last
+        // save (the pen waited 0.45 s for a full page to be read on the Note 9). The first such save finds nothing
+        // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
+        // cannot stand in for what was not read.
+        val sparse = dest is SaveDest.Working && !viewPausePending &&
+            cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
+        lateinit var take: (Boolean) -> Unit
+        take = { whole -> try {
+            val onContents: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit = onContents@{ given ->
+            val contents = given.contents
             // A timed-out readback may arrive after another request has started. It owns no write.
-            if (answered) return@snapshot
+            if (answered) return@onContents
             ui.removeCallbacks(watchdog)
             // The GL thread has done its part. Nothing else is waiting for it, so it can rest now.
             pauseViewIfDrained()
             fileIo.execute {
+                var needsWhole = false
                 val problem = try {
                     when (dest) {
                         is SaveDest.Working -> {
@@ -2826,14 +2841,15 @@ class JoyBrushActivity : Activity() {
                             // write when all of it was compressed every time, Note 9 2026-11-15). The memo belongs to
                             // this one save thread; a file it does not remember is simply written whole.
                             val began = android.os.SystemClock.elapsedRealtime()
-                            if (cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on) workingSaveMemo = JbArchive.saveCarrying(file!!, contents, workingSaveMemo)
+                            if (cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on) workingSaveMemo = JbArchive.saveCarrying(file!!, given, workingSaveMemo)
                             else { workingSaveMemo = null; JbArchive.save(file!!, contents) }
+                            if (!given.whole) android.util.Log.i("JoyBrushSave", "working save read only what changed: ${canvas.lastSparseReport}")
                             // One line a save, for whoever reads the log after a slow or odd one: what it carried and how long it took.
                             android.util.Log.i("JoyBrushSave", "working save: ${workingSaveMemo?.carried ?: 0} entries carried, ${workingSaveMemo?.fresh ?: -1} compressed, " +
                                 "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
                             recovery.rememberWorking(file)
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents)
+                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole)
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
@@ -2854,12 +2870,23 @@ class JoyBrushActivity : Activity() {
                         }
                     }
                     null
+                } catch (e: cc.joycreator.joybrush.androidkit.io.JbArchiveNeedsBytes) {
+                    needsWhole = true
+                    e.message ?: "the file could not stand in for the tiles that were not read"
                 } catch (_: OutOfMemoryError) {
                     "this device has too little memory to finish saving or exporting the drawing"
                 } catch (e: Exception) {
                     e.message ?: e.javaClass.simpleName
                 }
                 runOnUiThread {
+                    // Nothing was written and the file is as it was (JbArchive.saveCarrying): the whole drawing is read
+                    // and saved, once. A screen that left meanwhile answers from the picture kept at its pause.
+                    if (needsWhole && !whole && !answered) {
+                        android.util.Log.i("JoyBrushSave", "working save: $problem; reading the whole drawing")
+                        ui.postDelayed(watchdog, SNAPSHOT_TIMEOUT_MS)
+                        take(true)
+                        return@runOnUiThread
+                    }
                     if (dest is SaveDest.Open && problem == null && !destroyed && !answered) {
                         // Replacement only follows a successful durable write of the old drawing.
                         // A separate executor task releases this snapshot's pixel arrays BEFORE
@@ -2896,13 +2923,17 @@ class JoyBrushActivity : Activity() {
         // Keep failure bound to this save, even if the GL response arrives after its timeout.
         // A wash still wet stays wet through a save made while the person is here (the autosave, a copy, an export); it is
         // set for good only when the screen is leaving or the drawing is being replaced (the graphics may not come back).
-        }, { why -> answer("Could not read the drawing: $why") },
-            keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff)
+            }
+            val failed: (String) -> Unit = { why -> answer("Could not read the drawing: $why") }
+            val keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff
+            if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole) }
+            else canvas.snapshot({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")
         } catch (e: Exception) {
             answer(e.message ?: "the drawing could not be read for saving")
-        }
+        } }
+        take(false)
     }
 
     /**

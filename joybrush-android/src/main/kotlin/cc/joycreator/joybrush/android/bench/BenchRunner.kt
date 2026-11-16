@@ -295,6 +295,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "recreate" -> { if (life != null) { life.invoke("recreate"); return } else Log.w(TAG, "then: recreate needs jb_bench_life") }
             "savefile" -> benchSaveFile()
             "savecarry" -> benchSaveCarry()
+            // savesparse: the save that reads back only the tiles that changed (JbCanvasView.snapshotSparse), then a whole
+            // readback of the same drawing: every tile not read must be the tile the whole readback holds, and the file
+            // written from the sparse one must open as the whole one. printcheck: the chip's fingerprints against the CPU's.
+            "savesparse" -> benchSaveSparse()
+            "printcheck" -> canvas.benchFingerprintCheck { line -> Log.i(TAG, "then: printcheck: $line") }
+            "forgetseen" -> canvas.benchForgetSeenTiles()
             // Between two "savefile" steps of one run: the paint a save keeps (MB), the deflate level of its store tiles.
             "savepaint" -> arg.toLongOrNull()?.let { canvas.savePaintBudgetBytes = it shl 20 }
             "savelevel" -> arg.toIntOrNull()?.let { cc.joycreator.joybrush.androidkit.io.ArchiveMediaDeflate.level = it.coerceIn(0, 9) }
@@ -413,6 +419,74 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 }
             }, "bench-savecarry").start()
         }, { why -> Log.w(TAG, "then: savecarry: snapshot failed: $why") })
+    }
+
+    private fun benchSaveSparse() {
+        val file = java.io.File(canvas.context.cacheDir, "bench-savecarry.joybrush")
+        val t0 = android.os.SystemClock.elapsedRealtime()
+        canvas.snapshotSparse({ s ->
+            val t1 = android.os.SystemClock.elapsedRealtime()
+            val report = canvas.lastSparseReport
+            // Every tile was read (nothing remembered yet): there is nothing to hold it against, and two whole drawings
+            // and the file read again do not fit this phone's heap. It is written, and the file is checked against it.
+            if (s.whole) benchFinishSparse(file, s, null, "the pen waited ${t1 - t0} ms ($report)")
+            else canvas.snapshot({ a ->
+                val t2 = android.os.SystemClock.elapsedRealtime()
+                benchFinishSparse(file, s, a, "the pen waited ${t1 - t0} ms, a whole readback ${t2 - t1} ms ($report)")
+            }, { why -> Log.w(TAG, "then: savesparse: whole snapshot failed: $why") })
+        }, { why -> Log.w(TAG, "then: savesparse: snapshot failed: $why") })
+    }
+
+    /** [a]: the whole drawing read right after [s], or null when [s] is whole itself. */
+    private fun benchFinishSparse(file: java.io.File, s: cc.joycreator.joybrush.androidkit.io.SparseContents,
+                                  a: cc.joycreator.joybrush.androidkit.io.JbContents?, times: String) {
+        val memoBefore = benchCarryMemo
+        Thread({
+            try {
+                val truth = a ?: s.contents
+                var verdict = "every tile read (nothing was remembered)"
+                if (a != null) {
+                    // What the sparse one says against what the drawing holds: a tile that was not read must be, in the
+                    // whole readback, a tile with the fingerprint it was left unread for.
+                    val fp = cc.joycreator.joybrush.core.paint.TileFingerprint
+                    val listed = s.contents.tiles.keys + s.tiles.keys == a.tiles.keys && s.contents.mediaTiles.keys + s.mediaTiles.keys == a.mediaTiles.keys &&
+                        s.contents.tiles.keys.none { it in s.tiles } && s.contents.mediaTiles.keys.none { it in s.mediaTiles }
+                    val docSame = s.contents.doc == a.doc
+                    val readWrong = s.contents.tiles.count { (k, v) -> a.tiles[k]?.contentEquals(v) != true } + s.contents.mediaTiles.count { (k, v) -> a.mediaTiles[k]?.contentEquals(v) != true }
+                    val unreadWrong = s.tiles.count { (k, u) -> a.tiles[k]?.let { it.size == u.size && fp.ofBytes(it) == u.print } != true } +
+                        s.mediaTiles.count { (k, u) -> a.mediaTiles[k]?.let { it.size == u.size &&
+                            (if (k.store == cc.joycreator.joybrush.core.media.MediaStores.GROUND) fp.ofBytes(it) else fp.ofHalves(it)) == u.print } != true }
+                    verdict = if (listed && docSame && readWrong == 0 && unreadWrong == 0) "EXACT" else "WRONG (same tiles listed $listed, same document $docSame, $readWrong read tiles differ, $unreadWrong unread tiles differ)"
+                }
+                val unread = s.tiles.size + s.mediaTiles.size
+                val t3 = android.os.SystemClock.elapsedRealtime()
+                var needed = ""
+                val memo = try { cc.joycreator.joybrush.androidkit.io.JbArchive.saveCarrying(file, s, memoBefore) }
+                    catch (x: cc.joycreator.joybrush.androidkit.io.JbArchiveNeedsBytes) {
+                        needed = "; THE FILE COULD NOT STAND IN (${x.message}), written from the whole drawing"
+                        cc.joycreator.joybrush.androidkit.io.JbArchive.saveCarrying(file, truth, memoBefore)
+                    }
+                val t4 = android.os.SystemClock.elapsedRealtime()
+                val want = SaveSums(truth)
+                val line = "savesparse: $verdict; ${truth.tiles.size} picture tiles and ${truth.mediaTiles.size} paint store tiles, $unread not read back; $times; " +
+                    "written ${t4 - t3} ms, ${memo.carried} carried and ${memo.fresh} compressed$needed"
+                ui.post {
+                    benchCarryMemo = memo
+                    // The file is read again by a thread that holds only the checksums, after this one has let the drawing go.
+                    ui.postDelayed({
+                        Thread({
+                            val back = try { SaveSums(cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)) } catch (x: Throwable) { null }
+                            ui.post {
+                                if (back == null) Log.w(TAG, "then: $line; THE FILE COULD NOT BE READ AGAIN")
+                                else Log.i(TAG, "then: $line; the file read again: ${want.storesDiffering(back)} of ${want.stores.size} paint store tiles differ, ${want.looksDiffering(back)} of ${want.looks.size} picture tiles differ")
+                            }
+                        }, "bench-opensparse").start()
+                    }, 500)
+                }
+            } catch (x: Throwable) {
+                ui.post { Log.w(TAG, "then: savesparse: FAILED: ${x.javaClass.simpleName}: ${x.message}") }
+            }
+        }, "bench-savesparse").start()
     }
 
     private fun benchHeapMb(): Long = Runtime.getRuntime().let { (it.totalMemory() - it.freeMemory()) shr 20 }

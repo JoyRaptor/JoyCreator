@@ -250,7 +250,8 @@ object DrawingLibrary {
      * have the person's folder copy follow. Never throws: a library problem must not look like a failed save.
      */
     @JvmStatic
-    fun onSaved(context: Context, file: File, contents: JbContents) {
+    @JvmOverloads
+    fun onSaved(context: Context, file: File, contents: JbContents, whole: Boolean = true) {
         val app = context.applicationContext
         val dir = file.parentFile ?: return
         try {
@@ -263,7 +264,9 @@ object DrawingLibrary {
                 }
             }
             val thumb = File(File(dir, THUMBS), "${file.name}.png")
-            if (!thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS) {
+            // [whole] false: a save that read back only the tiles that changed. Its contents are not the picture, so the
+            // thumbnail waits for a save that read everything (leaving the screen always is one).
+            if (whole && (!thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
                 thumbnailOf(contents)?.let { bmp ->
                     thumb.parentFile?.mkdirs()
                     val tmp = File(thumb.path + ".tmp")

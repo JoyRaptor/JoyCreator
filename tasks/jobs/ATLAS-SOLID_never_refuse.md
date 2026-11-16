@@ -301,6 +301,36 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
   twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
 
+### 11-16: the rest of JBX-37 (killed while saving, how much a crash can cost, other waits on the graphics thread)
+
+**In plain words.** Three things were left open on 11-15 night. Two are now proven or made smaller; one is as it was.
+
+- **The app is killed while a save is being written: proven safe on the Note 9.** A full page of oil, a save asked
+  for, and the app force-stopped the moment the new file began to grow (three rounds, build 8cb1d0672). Twice the kill
+  landed mid-write: the drawing's file was byte for byte the one from before (same MD5), all 522 entries read, and a
+  half-written `.tmp` was left beside it, which the next save overwrites. Once the save had already finished: the new
+  file read whole and the one before it was the `.bak`. What a kill costs is the marks since the last finished save,
+  never the file.
+- **How much that is: halved.** The autosave came 30 s after the last change and every 60 s while painting. It now
+  comes after 15 s and every 30 s (`AUTOSAVE_AFTER_MS`, `AUTOSAVE_WHILE_PAINTING_MS` in `JoyBrushActivity`). That is
+  affordable since JBX-36: a save reads and writes what changed (about 0.13 s of waiting pen and 1 s of writing on a
+  full page, where it was 0.45 s and 9 s). The same halving applies to graphics lost while the person is painting, which
+  restores the last save. The copy in the Joy Creator folder is the whole file written again, so it follows at most
+  once a minute and after every save that read everything (the first of a screen, and leaving it); a copy that failed is
+  tried again at the next save (`DrawingLibrary.onSaved`).
+- **Lifecycle gate on that build (f3bfc1eee), five cases, digests equal in all five**: full page rebuilt
+  (`a4082fce`/`d62df07e`), full page graphics lost (`572b31e0`/`31e5a6dc`), full page left while a save was being
+  written then graphics lost (`5ed44782`/`c4341ca0`), light page rebuilt (`9f070948`/`83ab6b90`), light page graphics
+  lost (`748ab8e0`/`e3e8af00`). The log shows two autosaves during each painting run, about 30 s apart.
+- **Other requests that wait for the graphics thread (read through, no change needed).** `JbCanvasView.load` and
+  `submitLineEdit` run even when the graphics were lost and always answer; the screen's restore has its own 30 s
+  timeout and version check; a colour sample or a preview that never answers costs nothing. The drain that runs these
+  commands now survives one of them failing (bug-hunt session, 60322b90b).
+- **Still open.** Graphics lost while the pen is down still loses up to the last 15 to 30 s (nothing can be read from
+  graphics that are gone; only a save can shrink it). The two-screens guard still has no phone reproduction: the
+  drawing screen cannot be started twice from outside the app. Not measured: what the more frequent saves cost in
+  battery and heat over a long session (each is about 1 s of one core and about 100 MB written on a full page).
+
 ### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
 
 **In plain words.** Three ways a watercolour wash could be lost or dried by something other than the painter, all found by

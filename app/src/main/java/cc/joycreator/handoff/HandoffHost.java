@@ -145,9 +145,14 @@ public final class HandoffHost {
         engine.go();
     }
 
-    /** The question was dismissed: there is no hand-off after all. */
-    public void cancel() {
-        engine.abort();
+    /**
+     * The question was dismissed: there is no hand-off after all. He flies back into the button he came
+     * out of, and {@code then} runs when he is in (about half a second): close the screen there.
+     */
+    public void cancel(@NonNull Runnable then) {
+        scrim.setAlpha(0f);
+        engine.retreat();
+        scrim.postDelayed(then, (long) (HandoffMoves.RETREAT_S * 1000f) + 80L);
     }
 
     /** Mark the next room's intent, so it carries the show on, and knows which item is arriving. */

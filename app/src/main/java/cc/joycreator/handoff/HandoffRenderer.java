@@ -135,9 +135,11 @@ final class HandoffRenderer {
             lyric = HandoffStars.open(app, a1, a2, b1, b2);
             if (lyric != null) {
                 // build its programs now, while nothing is moving, not in the middle of his flight
+                GlTarget small = GlTarget.create(Math.max(8, winW / 8), Math.max(8, winH / 8), GlTarget.RGBA8, 1, true);
+                lyric.fill(small.fb, small.w, small.h);
+                small.free();
                 GlTarget warm = GlTarget.create(Math.max(8, winW / 2), Math.max(8, winH / 2), GlTarget.RGBA8, 1, true);
                 lyric.draw(0f, 0f, 1f / 60f, warm.fb, warm.w, warm.h);
-                lyric.draw(0f, 1f / 60f, 1f / 60f, warm.fb, warm.w, warm.h);
                 warm.free();
             }
         }

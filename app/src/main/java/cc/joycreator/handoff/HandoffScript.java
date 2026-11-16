@@ -15,7 +15,7 @@ import static cc.joycreator.handoff.HandoffMoves.ss;
  */
 final class HandoffScript {
 
-    enum Phase { ASK, LAUNCH, MAIN, LAND, HOME, DONE }
+    enum Phase { ASK, LAUNCH, MAIN, LAND, HOME, RETREAT, DONE }
 
     /** Everything the renderer needs for one frame. */
     static final class Frame {
@@ -53,6 +53,7 @@ final class HandoffScript {
     private float fromX, fromY, fromSc;
     private boolean kicked, slapped, finished, launchMarked;
     private float slapClock;
+    private boolean retreated;
     private final float[] t3 = new float[3];
 
     /** {@code ask}: he flies out and waits for an answer first ({@link #pick}); else straight into the move. */
@@ -74,6 +75,17 @@ final class HandoffScript {
         phase = Phase.LAUNCH;
         t = 0f;
     }
+
+    /** The question was dismissed: he flies home to his button and that is all. Nothing lands anywhere. */
+    void retreat(HandoffMoves.Pose now) {
+        if (phase != Phase.ASK) return;
+        fromX = now.x; fromY = now.y; fromSc = now.sc;
+        phase = Phase.RETREAT;
+        retreated = true;
+        t = 0f;
+    }
+
+    boolean retreated() { return retreated; }
 
     /** The next room is open, pictured, and has said where the item is ({@link #stage} holds it). */
     void roomReady() { ready = true; }
@@ -119,6 +131,10 @@ final class HandoffScript {
             case HOME:
                 t += dt;
                 if (t >= HandoffMoves.HOME_S) phase = Phase.DONE;
+                break;
+            case RETREAT:
+                t += dt;
+                if (t >= HandoffMoves.RETREAT_S) phase = Phase.DONE;
                 break;
             default:
                 break;
@@ -196,12 +212,16 @@ final class HandoffScript {
                 markSlap(f);
                 f.rooms = false;
                 break;
+            case RETREAT:
+                HandoffMoves.retreatPose(s, t / HandoffMoves.RETREAT_S, fromX, fromY, fromSc, o);
+                f.rooms = false;
+                break;
             default:
                 o.reset();
                 o.visible = false;
-                o.set(s.homeX, s.homeY, .3f);
+                o.set(retreated ? s.btnX : s.homeX, retreated ? s.btnY : s.homeY, .3f);
                 after(f);
-                markSlap(f);
+                if (!retreated) markSlap(f);
                 f.rooms = false;
                 if (!finished) { finished = true; f.done = true; }
                 break;

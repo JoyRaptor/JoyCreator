@@ -201,6 +201,17 @@ public final class HandoffEngine {
         });
     }
 
+    /** The question was dismissed: he flies back into his button, then the show is over (about half a second). */
+    @MainThread
+    public void retreat() {
+        gl.post(() -> {
+            HandoffScript s = script;
+            if (over) return;
+            if (s == null || s.phase() != HandoffScript.Phase.ASK) { finish(false); return; }
+            s.retreat(frame.him);
+        });
+    }
+
     /** A tap: to the end as soon as there is a room to end in. */
     @MainThread
     public void skip() {
@@ -369,12 +380,13 @@ public final class HandoffEngine {
         sprites = null;
         if (sp != null) sp.recycle();
         final boolean told = slapTold;
+        final boolean retreated = script != null && script.retreated();
         main.post(() -> {
             if (live == HandoffEngine.this) live = null;
             Listener l = listener;
             listener = null;
             if (l != null) {
-                if (!told) l.onSlap();          // the room must end up selected and usable however the show ended
+                if (!told && !retreated) l.onSlap();   // the room must end up selected and usable however the show ended
                 l.onDone(drew);
             }
         });

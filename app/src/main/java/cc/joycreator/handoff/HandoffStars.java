@@ -36,6 +36,7 @@ final class HandoffStars {
     private final String[][] colours = new String[5][];
     private int shown = -1;
     private boolean broken;
+    private float rolled;
 
     private HandoffStars(VisRenderer vis, int a1, int a2, int b1, int b2) {
         this.vis = vis;
@@ -63,6 +64,19 @@ final class HandoffStars {
                 if (!"words".equals(layer.has("type") ? layer.get("type").getAsString() : "")) kept.add(layer);
             }
             look.add("layers", kept);
+            // Flown through at speed, with no music to pump it: a faster rush and longer, brighter streaks than
+            // the look's resting values (its own knobs, set on this copy only; the look file is not touched).
+            for (int i = 0; i < kept.size(); i++) {
+                JsonObject layer = kept.get(i).getAsJsonObject();
+                if (!"particles".equals(layer.has("type") ? layer.get("type").getAsString() : "") || !layer.has("p")) continue;
+                JsonObject p = layer.getAsJsonObject("p");
+                JsonObject speed = new JsonObject();
+                speed.addProperty("v", 2.8);
+                p.add("zSpeed", speed);
+                p.addProperty("stretch", 4.5);
+                p.addProperty("size", 0.004);
+                p.addProperty("brightness", 1.6);
+            }
             VisRenderer vis = new VisRenderer(lib, types);
             vis.setTransparent(false);
             vis.setScene(new VisScene(look));
@@ -83,7 +97,7 @@ final class HandoffStars {
         try {
             int n = Math.max(0, Math.min(4, Math.round(k * 4f)));
             if (n != shown) { shown = n; vis.setBrandPalette(colours[n]); }
-            vis.render(music, t, dt, fbo, w, h);
+            vis.render(music, t + rolled, dt, fbo, w, h);
             if (vis.lastError() != null) throw new IllegalStateException(vis.lastError());
             return true;
         } catch (RuntimeException e) {
@@ -103,6 +117,19 @@ final class HandoffStars {
             GLES30.glBindVertexArray(0);
         }
     }
+
+    /**
+     * Run the field for a few seconds of its own time before it is seen: it starts empty (stars are born
+     * a few at a time), and he must fly into a sky that is already full. Small and quick; the first real
+     * frame is then drawn at the real size.
+     */
+    void fill(int fbo, int w, int h) {
+        for (int i = 0; i < 70 && !broken; i++) draw(0f, i / 20f, 1f / 20f, fbo, w, h);
+        rolled = 70f / 20f;
+    }
+
+    /** Seconds the field had already run when the show began. */
+    float rolled() { return rolled; }
 
     void release() {
         try { vis.release(); } catch (RuntimeException ignored) { /* the context goes anyway */ }

@@ -28,6 +28,7 @@ public final class HandoffTestDoor {
             }
         }
         neverReady();
+        retreat();
         System.out.println(checks + " checks, " + fails + " failed");
         return fails;
     }
@@ -97,6 +98,30 @@ public final class HandoffTestDoor {
         if (!skip) check(worstJump < Math.max(w, h) / 6f, tag + ": he jumps " + worstJump + " dp in one frame, " + worstAt);
         // a room that is ready before he gets to the waiting point costs no wait at all
         if (readyAfter == 0f) check(waited == 0f, tag + ": waited " + waited + " s for a room that was ready");
+    }
+
+    /** The question dismissed: he flies back to his button in a smooth path, nothing is slapped anywhere, and it ends. */
+    private static void retreat() {
+        HandoffMoves.Stage s = stage(548, 1127);
+        s.hasSeat = true; s.seatX = 60f; s.seatY = 900f;
+        HandoffScript sc = new HandoffScript(HandoffMoves.PULL, s, true);
+        HandoffScript.Frame f = new HandoffScript.Frame();
+        boolean slap = false, done = false;
+        float px = Float.NaN, py = 0f, worst = 0f;
+        for (int i = 0; i < 60 * 6; i++) {
+            if (i == 120) { sc.frame(f); sc.retreat(f.him); }
+            sc.advance(1f / 60f);
+            sc.frame(f);
+            slap |= f.slap;
+            done |= f.done;
+            if (f.him.visible && !Float.isNaN(px)) worst = Math.max(worst, (float) Math.hypot(f.him.x - px, f.him.y - py));
+            px = f.him.visible ? f.him.x : Float.NaN; py = f.him.y;
+            check(!f.rooms, "retreat: the rooms are drawn although nothing was sent");
+        }
+        check(done && sc.phase() == HandoffScript.Phase.DONE, "retreat: never finished");
+        check(!slap, "retreat: an item was slapped down although the question was dismissed");
+        check(worst < 1127f / 6f, "retreat: he jumps " + worst + " dp in one frame");
+        check(Math.abs(f.him.x - s.btnX) < 1f && Math.abs(f.him.y - s.btnY) < 1f, "retreat: he does not end at his button");
     }
 
     /** A room that never reports: he waits (and waits moving) rather than landing anywhere; the engine's own watchdog ends it. */

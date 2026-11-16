@@ -66,8 +66,9 @@ public final class JoyBrushBoardImportActivity extends Activity {
                     new Thread(() -> receive(path,true,target),"joybrush-board-import").start();
                 })
                 .setOnCancelListener(d -> {
-                    if(handoff != null) handoff.cancel();
-                    new Thread(() -> discardStage(path),"joybrush-board-discard").start(); finish();
+                    new Thread(() -> discardStage(path),"joybrush-board-discard").start();
+                    // With the show, Joybot flies back into his button first; then the screen closes as before.
+                    if(handoff != null) handoff.cancel(() -> { finish(); overridePendingTransition(0,0); }); else finish();
                 })
                 .create();
             if(handoff != null) handoff.present(dialog); else dialog.show();

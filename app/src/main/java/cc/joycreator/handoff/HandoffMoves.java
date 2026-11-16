@@ -396,6 +396,17 @@ final class HandoffMoves {
         }
     }
 
+    /** The question was dismissed: straight back into the button he came out of, shrinking into it. */
+    static final float RETREAT_S = .5f;
+
+    static void retreatPose(Stage s, float u, float fromX, float fromY, float fromSc, Pose o) {
+        o.reset();
+        pt(0, fromX, fromY, fromSc);
+        pt(1, lerp(fromX, s.btnX, .45f) + (.5f * s.w - lerp(fromX, s.btnX, .45f)) * .5f, lerp(fromY, s.btnY, .45f), 1.9f);
+        pt(2, s.btnX, s.btnY, .3f);
+        curve(PTS, 3, io(u), o);
+    }
+
     /**
      * Carrying something heavy: the chat's "nervous" body (a fine shiver, leaning back), which the
      * owner picked for it on 16 Nov ("makes it look like he's got a lot of effort").

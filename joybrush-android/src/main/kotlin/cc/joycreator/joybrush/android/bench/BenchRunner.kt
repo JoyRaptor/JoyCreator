@@ -146,6 +146,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 * sheet's water dries where it lies; with `jb_sheet_print_hold_ms` its print waits that long after).
                 */
                val then: List<String> = emptyList(),
+               /**
+                * `jb_bench_board animation`: before the first stroke an animation board is laid over the middle of the page
+                * (as the app makes one), so the strokes land partly on its first frame and partly on the shared canvas
+                * around it. The step `addframe` in `jb_bench_then` then adds a blank frame, which becomes the one shown.
+                */
+               val board: String? = null,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null,
                /** `jb_bench_under`: the brush that draws the test stroke's colour stripes (cases `tstripe*`), e.g. a soft airbrush. */
@@ -285,6 +291,19 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
+            // addframe: a blank frame on the animation board (`jb_bench_board animation`); it becomes the frame shown, so
+            // what was painted on the first frame is no longer on the screen and must still be saved and come back.
+            "addframe" -> {
+                var n = 0
+                canvas.editBoards { d ->
+                    val board = d.boards.last { it.kind == cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION }
+                    cc.joycreator.joybrush.core.doc.RegionDocumentOps.addFrame(d, board.id, cc.joycreator.joybrush.core.doc.NewFrame.BLANK) { "bench-frame-${System.nanoTime()}-${++n}" }
+                }
+                canvas.benchState(readPixels = false) { st, err ->
+                    val b = st?.doc?.boards?.lastOrNull { it.kind == cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION }
+                    Log.i(TAG, "then: addframe: ${b?.frames?.size ?: "no"} frames, showing ${b?.frames?.indexOfFirst { it.id == b.currentFrameId }?.plus(1)}${err?.let { "; $it" }.orEmpty()}")
+                }
+            }
             // The lifecycle gate (jb_bench_life, JBX-37). digest: what the drawing holds now, as two checksums in the log.
             // cover: another screen over this one (pause, stop, save; Back returns). recreate: Android builds the screen
             // again; this runner ends with the old screen and the new one logs its own digest.
@@ -542,7 +561,19 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         // taken away before the first stroke (`jb_gpu_hog_mb`: the lost-tile hunt).
         ui.postDelayed({
             val hog = spec.gpuHogMb
-            if (hog == null) next() else canvas.benchHogGpu(hog) { said -> Log.i(TAG, said); next() }
+            val begin = { if (hog == null) next() else canvas.benchHogGpu(hog) { said -> Log.i(TAG, said); next() } }
+            if (spec.board == "animation") {
+                val s = (minOf(480, (minOf(canvas.pageWidth, canvas.pageHeight) * 0.8).toInt()) / 8) * 8
+                val rect = cc.joycreator.joybrush.core.doc.RectPx((canvas.pageWidth - s) / 2, (canvas.pageHeight - s) / 2, s, s)
+                var n = 0
+                canvas.editBoards { d -> cc.joycreator.joybrush.core.doc.BoardDocumentOps.createAnimation(d, "Bench animation", rect) { "bench-board-${++n}" } }
+                // The read-back queues behind the edit, so its answer is also "the edit has been applied".
+                canvas.benchState(readPixels = false) { st, err ->
+                    val made = st?.doc?.boards?.firstOrNull { it.name == "Bench animation" }
+                    Log.i(TAG, if (made != null) "board: an animation board ${made.rect.w} x ${made.rect.h} at (${made.rect.x}, ${made.rect.y}), ${made.frames.size} frame" else "board: NOT MADE: $err")
+                    begin()
+                }
+            } else begin()
         }, spec.startMs)
     }
 
@@ -1082,6 +1113,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
+                board = intent.getStringExtra("jb_bench_board"),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },

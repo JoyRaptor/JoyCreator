@@ -3896,6 +3896,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 val current=engine.boardDocument ?: readContents(viewW,viewH).doc.also{engine.setBoardDocument(it)}
                 val synced=syncBoardLayers(current); engine.setBoardDocument(synced)
                 engine.setFramePreviews(emptyMap())
+                // The newest realistic paint lives in the media window or the atlas until it is written back: a board
+                // edit that moves pixels takes their paint state with it (R2-JB-03) and must read the newest, not the
+                // tiles as they were. The wet sheet is not printed for this: BoardChangePaint decides that.
+                mediaCanvas.releaseWindow(printSheet = false)
                 // A sentence when editable lines became pixels for this change (v1.2 H4), shown like any other notice.
                 engine.applyBoardChange(edit(synced))?.let { said -> post { onNotice?.invoke(said) } }; reportHistory()
             } catch(e:Exception) { post{onRefused?.invoke(e.message ?: "That board change could not be applied")} }

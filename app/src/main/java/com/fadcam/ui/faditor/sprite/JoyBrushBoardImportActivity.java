@@ -34,10 +34,15 @@ import java.util.UUID;
 public final class JoyBrushBoardImportActivity extends Activity {
     /** FX-1: Joybot carries the board to Studio or SpriteLab. Null: no show (switched off, or no picture of JoyBrush), and all is as before. */
     private cc.joycreator.handoff.HandoffHost handoff;
+    /** A plain image board: one picture, no sheet. It becomes a picture in Studio, not a sprite. */
+    private boolean image;
+    /** As Studio's own still pictures (FaditorEditorActivity.IMAGE_CLIP_DURATION_MS). */
+    private static final long STILL_MS=5000L;
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         final String bundle=getIntent().getStringExtra("joybrush_board_bundle");
         final boolean studio=getIntent().getBooleanExtra("joybrush_board_studio",false);
+        image=studio && getIntent().getBooleanExtra("joybrush_board_image",false);
         handoff=state == null ? cc.joycreator.handoff.HandoffHost.open(this,studio) : null;
         if(handoff == null) Toast.makeText(this,"Opening board…",Toast.LENGTH_SHORT).show();
         new Thread(() -> choose(bundle,studio),"joybrush-board-import").start();
@@ -82,7 +87,84 @@ public final class JoyBrushBoardImportActivity extends Activity {
             if(stage.getParentFile().equals(getCacheDir().getCanonicalFile()) && stage.getName().startsWith("jb-board-export-")) deleteOwned(stage);
         } catch(Exception ignored) { }
     }
+    /**
+     * A plain image board sent to Studio. Into an existing project it goes in as a picture layer by the
+     * editor's own "Image as new layer" (fitted, selected, undoable, copied into the project), queued for
+     * when the editor opens. With no project chosen it becomes a new one made of the picture, five seconds
+     * long, on a canvas of the picture's own size.
+     */
+    private void receiveImage(String path,String targetId) {
+        File stage=null;
+        File ownProject=null;
+        boolean ownsStage=false;
+        try {
+            if(path == null) throw new IllegalArgumentException("No board files were supplied");
+            stage=new File(path).getCanonicalFile();
+            if(!stage.getParentFile().equals(getCacheDir().getCanonicalFile()) || !stage.getName().startsWith("jb-board-export-"))
+                throw new IllegalArgumentException("Invalid board bundle");
+            ownsStage=true;
+            File[] files=stage.listFiles();
+            if(files == null || files.length != 1 || !files[0].getName().endsWith(".png")) throw new IllegalArgumentException("Incomplete board picture");
+            File png=files[0];
+            android.graphics.BitmapFactory.Options bounds=new android.graphics.BitmapFactory.Options();
+            bounds.inJustDecodeBounds=true; android.graphics.BitmapFactory.decodeFile(png.getPath(),bounds);
+            if(bounds.outWidth < 1 || bounds.outHeight < 1) throw new IllegalArgumentException("The board picture could not be read");
+            String name=png.getName().substring(0,png.getName().length()-4);
+            ProjectStorage storage=new ProjectStorage(this);
+            final FaditorProject existing=targetId == null ? null : storage.load(targetId);
+            if(targetId != null && existing == null) throw new IllegalStateException("That project could not be opened");
+            final String projectId;
+            if(existing != null) {
+                // Pictures left here by earlier sends have been copied into their projects long since.
+                File[] old=getCacheDir().listFiles((dir,n) -> n.startsWith("jb-board-image-") && n.endsWith(".png"));
+                if(old != null) for(File f: old) if(System.currentTimeMillis()-f.lastModified() > 24L*60*60*1000) f.delete();
+                File keep=new File(getCacheDir(),"jb-board-image-"+UUID.randomUUID()+".png");
+                copySynced(png,keep);
+                com.fadcam.ui.faditor.ai.AIChatState.putLayerInsert(existing.getId(),Uri.fromFile(keep));
+                projectId=existing.getId();
+            } else {
+                FaditorProject project=new FaditorProject(name);
+                File projectDir=storage.projectDir(project.getId());
+                ownProject=projectDir;
+                File assets=new File(projectDir,"assets");
+                if(!assets.isDirectory() && !assets.mkdirs()) throw new IllegalStateException("Could not create board assets");
+                File picture=new File(assets,"picture-"+UUID.randomUUID()+".png");
+                copySynced(png,picture);
+                Clip clip=new Clip(Uri.fromFile(picture),STILL_MS);
+                clip.setImageClip(true); clip.setAudioMuted(true); clip.setDisplayName(name);
+                project.getTimeline().addClip(clip);
+                project.setCanvasPreset(CanvasPickerBottomSheet.customPresetKey(bounds.outWidth,bounds.outHeight));
+                if(!storage.save(project)) throw new IllegalStateException("The board project could not be saved");
+                FaditorProject saved=storage.load(project.getId());
+                if(saved == null || saved.getTimeline().getClipCount() != 1) throw new IllegalStateException("The saved board could not be reopened");
+                projectId=project.getId();
+                ownProject=null;
+            }
+            final Intent intent=new Intent(this,FaditorEditorActivity.class).putExtra(FaditorEditorActivity.EXTRA_PROJECT_ID,projectId);
+            runOnUiThread(() -> {
+                if(!isFinishing() && !isDestroyed()) {
+                    // No item id: the room says where the picture landed (its new layer, or the picture that is the project).
+                    if(handoff != null) { handoff.into(intent,null); handoff.start(intent); }
+                    else startActivity(intent);
+                } else if(handoff != null) handoff.fail();
+                finish();
+            });
+        } catch(Exception e) {
+            final String message=e.getMessage();
+            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,"Could not open board: "+message,Toast.LENGTH_LONG).show(); finish(); });
+        } finally {
+            if(ownsStage) deleteOwned(stage);
+            if(ownProject != null) deleteOwned(ownProject);
+        }
+    }
+    private static void copySynced(File from,File to) throws java.io.IOException {
+        try(FileInputStream in=new FileInputStream(from);FileOutputStream out=new FileOutputStream(to)) {
+            byte[] buffer=new byte[65536]; int n; while((n=in.read(buffer)) != -1) out.write(buffer,0,n);
+            out.getFD().sync();
+        }
+    }
     private void receive(String path,boolean studio,String targetId) {
+        if(image) { receiveImage(path,targetId); return; }
         File stage=null;
         File ownProject=null;
         File unsavedImage=null;

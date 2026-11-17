@@ -451,6 +451,8 @@ class JoyBrushActivity : Activity() {
             var warnings: List<String> = emptyList()) : SaveDest()
         class BoardHandoff(val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest() {
             var bundle: File? = null
+            /** A plain image board: handed over as its picture alone, not as a sheet with its json. */
+            val image: Boolean get() = target.kind == cc.joycreator.joybrush.core.doc.BoardKind.CANVAS
         }
     }
 
@@ -2811,6 +2813,7 @@ class JoyBrushActivity : Activity() {
                         val go=Intent().setClassName(packageName,"com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
                             .putExtra("joybrush_board_bundle",bundle.absolutePath)
                             .putExtra("joybrush_board_studio",toStudio)
+                            .putExtra("joybrush_board_image",dest.image)
                         // FX-1: Joybot carries the board to Studio or SpriteLab. The show needs a picture of this screen as it
                         // is; the board is already saved, and the picture never holds the hand-off up (RoomShot waits 0.3 s at most).
                         if(cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
@@ -2884,7 +2887,8 @@ class JoyBrushActivity : Activity() {
                             contentResolver,dest.uri,cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),dest.target,cacheDir)
                         is SaveDest.BoardHandoff -> {
                             val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),
-                                dest.target.copy(format=cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
+                                dest.target.copy(format=if(dest.image) cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.PNG
+                                    else cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
                             dest.bundle=prepared.directory
                         }
                     }

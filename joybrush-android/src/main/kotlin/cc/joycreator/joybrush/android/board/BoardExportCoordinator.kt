@@ -78,7 +78,7 @@ class BoardExportCoordinator(private val activity: Activity,
             }
             private fun selectScope(next: Export.Scope) {
                 scope = next
-                format = when { next == Export.Scope.FRAME -> Export.Format.PNG
+                format = when { next == Export.Scope.FRAME || next == Export.Scope.ALL_IMAGES -> Export.Format.PNG
                     animated && format == Export.Format.PNG -> Export.Format.GIF
                     else -> format }
                 refresh()
@@ -102,7 +102,11 @@ class BoardExportCoordinator(private val activity: Activity,
                 else -> listOf(Export.Scope.BOARD)
             }
             val formats = when {
-                scope == Export.Scope.FRAME || board.kind == BoardKind.CANVAS -> listOf(Export.Format.PNG)
+                scope == Export.Scope.FRAME -> listOf(Export.Format.PNG)
+                // Owner, 16 Nov: a plain image board had only "export to a file". It goes to Studio too, as a picture
+                // (one board at a time; "All image boards" stays a file export).
+                board.kind == BoardKind.CANVAS -> if(scope == Export.Scope.BOARD) listOf(Export.Format.PNG,Export.Format.STUDIO)
+                    else listOf(Export.Format.PNG)
                 board.kind == BoardKind.SPRITE -> listOf(Export.Format.SPRITE_SHEET,Export.Format.SPRITE_LAB)
                 else -> Export.chipFormats
             }

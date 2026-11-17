@@ -50,6 +50,11 @@ public final class HandoffArrival implements HandoffEngine.Listener {
         @NonNull View anchor();
         /** Joybot's button in this room: his way home. */
         @Nullable View joybotButton();
+        /**
+         * Where the work is when it has no item of its own to point at, or its item never showed up: in the
+         * pixels of {@link #anchor}, or null (he then lands mid-screen).
+         */
+        @Nullable default RectF fallbackRect() { return null; }
     }
 
     private final Activity room;
@@ -112,14 +117,30 @@ public final class HandoffArrival implements HandoffEngine.Listener {
      * Studio is loaded and showing (its onResume). {@code timeline}: where the item's tape is;
      * {@code joybotButton}: where Joybot lives in this room, his way home.
      */
-    public void roomReady(@NonNull EditorTimelineView timeline, @Nullable View joybotButton) {
-        final String id = itemId;
+    public void roomReady(@NonNull EditorTimelineView timeline, @Nullable View joybotButton, @Nullable View preview) {
+        final String sent = itemId;
         roomReady(new Room() {
-            @Override public void reveal() { if (id != null) timeline.revealLayerRowForItem(id); }
-            @Nullable @Override public RectF itemRect() { return id != null ? timeline.layerItemRectInView(id) : null; }
-            @Override public void select() { if (id != null) timeline.selectLayerItemById(id); }
+            /**
+             * The item that arrived: the one the sender named, else the layer Studio itself has just added and
+             * selected (a picture sent into an existing project goes in by Studio's own "Image as new layer").
+             * Null: the picture IS the project (a new one made of it), and it fills the preview.
+             */
+            @Nullable private String id() { return sent != null ? sent : timeline.getSelectedLayerItemId(); }
+            @Override public void reveal() { String id = id(); if (id != null) timeline.revealLayerRowForItem(id); }
+            @Nullable @Override public RectF itemRect() {
+                String id = id();
+                return id != null ? timeline.layerItemRectInView(id) : fallbackRect();
+            }
+            @Override public void select() { if (sent != null) timeline.selectLayerItemById(sent); }
             @NonNull @Override public View anchor() { return timeline; }
             @Nullable @Override public View joybotButton() { return joybotButton; }
+            @Nullable @Override public RectF fallbackRect() {
+                if (preview == null || preview.getWidth() <= 0 || !preview.isShown()) return null;
+                int[] p = new int[2], t = new int[2];
+                preview.getLocationInWindow(p);
+                timeline.getLocationInWindow(t);
+                return new RectF(p[0] - t[0], p[1] - t[1], p[0] - t[0] + preview.getWidth(), p[1] - t[1] + preview.getHeight());
+            }
         });
     }
 
@@ -147,6 +168,9 @@ public final class HandoffArrival implements HandoffEngine.Listener {
         boolean laidOut = t.getWidth() > 0 && t.isLaidOut();
         boolean late = now > reportBy;
         if (laidOut && ((still && now - stillSince >= STILL_MS) || late) && (drawn || now > holdUntil)) {
+            if (r == null) {
+                try { r = pl.fallbackRect(); } catch (RuntimeException e) { r = null; }
+            }
             report(r);
             return;
         }

@@ -55,6 +55,9 @@ internal class DeferredMedia<K>(
                 throw x
             } catch (x: Exception) {
                 throw JbArchiveException("\"${e.name}\" of ${file.name} cannot be read again: ${x.javaClass.simpleName}")
+            } finally {
+                // Nobody holds the file any more (a read after the maps let go): it is not kept open for the next one.
+                if (holds == 0) { try { zip?.close() } catch (_: Exception) {}; zip = null }
             }
         }
     }

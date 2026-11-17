@@ -3275,12 +3275,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // instead of leaving the save to its watchdog.
         if (closing || viewPaused || surfaceGone) {
             val kept = synchronized(pauseLock) { pausePicture }
-            // The picture kept at a pause is a whole drawing; an export wants it without its paint state, as asked.
-            if (kept != null) {
-                val given = if (sparse == 3) kept.copy(mediaTiles = emptyMap(), doc = kept.doc.copy(layers = kept.doc.layers.map { l ->
-                    l.copy(cels = l.cels.map { it.copy(floatTiles = emptyList()) }) })) else kept
-                mainThread.post { onReady(cc.joycreator.joybrush.androidkit.io.SparseContents(given)) }; return
+            // The picture kept at a pause answers the request it can: one kept with only its changed tiles answers a
+            // save that asks for those; a whole one answers anything (an export gets it without its paint state).
+            val given = when {
+                kept == null -> null
+                sparse == 1 -> kept
+                !kept.whole -> null
+                sparse == 3 -> cc.joycreator.joybrush.androidkit.io.SparseContents(kept.contents.copy(mediaTiles = emptyMap(), doc = kept.contents.doc.copy(layers = kept.contents.doc.layers.map { l ->
+                    l.copy(cels = l.cels.map { it.copy(floatTiles = emptyList()) }) })))
+                else -> kept
             }
+            if (given != null) { mainThread.post { onReady(given) }; return }
             if (closing) { mainThread.post { onFailure("the screen closed before the drawing could be read") }; return }
         }
         val w = viewW
@@ -3323,7 +3328,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     // the file. So the host asks for the picture while frames still run, and it answers those saves.
     private val mainThread = android.os.Handler(android.os.Looper.getMainLooper())
     private val pauseLock = Any()
-    private var pausePicture: JbContents? = null
+    private var pausePicture: cc.joycreator.joybrush.androidkit.io.SparseContents? = null
     private var pauseAsk = 0
     @Volatile private var pausePictureOwed: java.util.concurrent.CountDownLatch? = null
     @Volatile private var viewPaused = false
@@ -3335,7 +3340,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * once this view no longer draws. UI thread; does not wait. Dropped when the view resumes ([onResume]) or the host
      * says no save needs it ([dropPausePicture]): it is as large as a save.
      */
-    fun keepPausePicture() {
+    fun keepPausePicture(changedOnly: Boolean = false) {
         if (closing || viewPaused || pausePictureOwed != null) return
         val done = java.util.concurrent.CountDownLatch(1)
         val ask = synchronized(pauseLock) { pausePictureOwed = done; pauseAsk }
@@ -3345,7 +3350,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         onGl(allowLost = true) {
             try {
                 if (!contentLost && epoch == graphicsEpoch) {
-                    val made = mediaCanvas.withSheetStamped { readContents(w, h) }
+                    // [changedOnly] (the owner's ruling, 2026-11-17): only the tiles that changed are read, as the save it
+                    // waits for will ask; the whole drawing is then never held for it. Should the file not stand in for
+                    // the rest, that save fails and says so on return, and the last autosave is what is kept.
+                    val made = mediaCanvas.withSheetStamped { readContentsSparse(w, h, if (changedOnly) 1 else 0) }
                     synchronized(pauseLock) { if (ask == pauseAsk) pausePicture = made }
                 }
             } catch (e: OutOfMemoryError) {

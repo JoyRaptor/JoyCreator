@@ -812,7 +812,9 @@ class JoyBrushActivity : Activity() {
         // longer draws, so the picture is read for it now (JbCanvasView.keepPausePicture; JBX-37).
         // The same for a save being written from only the changed tiles: should the file not stand in for the rest, it
         // reads the whole drawing again, and by then the view may no longer draw.
-        if (!benchMode && workingSaveAllowed && (saves.pending > 0 || workingSparseInFlight)) canvas.keepPausePicture()
+        // Since the owner's ruling of 2026-11-17 it is kept as that save will ask for it: only the tiles that changed.
+        if (!benchMode && workingSaveAllowed && saves.pending > 0) canvas.keepPausePicture(
+            changedOnly = cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly)
         super.onPause()
     }
 
@@ -2793,7 +2795,8 @@ class JoyBrushActivity : Activity() {
                             is SaveDest.Png -> "Couldn't export. Your drawing is safe. $problem"
                             is SaveDest.BoardExport -> "Couldn't export the board. Your drawing is safe. $problem"
                             is SaveDest.BoardHandoff -> "Couldn't open the board. $problem"
-                            is SaveDest.Working -> "The autosave did not work: $problem"
+                            // Plain words, and nothing to act on but to know: the reason is in the log.
+                            is SaveDest.Working -> "The newest marks aren't saved yet. Your drawing is safe, and it will save again in a moment."
                         },
                     )
                     if (dest is SaveDest.Png && dest.target.toStudio) dest.uri.path?.let { File(it).parentFile?.deleteRecursively() }
@@ -2848,8 +2851,12 @@ class JoyBrushActivity : Activity() {
         // save (the pen waited 0.45 s for a full page to be read on the Note 9). The first such save finds nothing
         // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
         // cannot stand in for what was not read.
+        // Leaving too (the owner's ruling, 2026-11-17): the save on the way out reads back only what changed, so the
+        // whole drawing is never held in memory for it. The rare case he accepted: the file cannot stand in for the rest
+        // and the graphics are already gone, so nothing is saved; the screen says so on return and the last autosave
+        // (15 to 30 s old) is what is kept.
         val leaving = viewPausePending
-        val sparse = dest is SaveDest.Working && !viewPausePending &&
+        val sparse = dest is SaveDest.Working &&
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
         lateinit var take: (Boolean) -> Unit
         take = { whole -> try {
@@ -2858,8 +2865,10 @@ class JoyBrushActivity : Activity() {
             // A timed-out readback may arrive after another request has started. It owns no write.
             if (answered) return@onContents
             ui.removeCallbacks(watchdog)
-            // The GL thread has done its part. Nothing else is waiting for it, so it can rest now.
-            pauseViewIfDrained()
+            // The GL thread has done its part. Nothing else is waiting for it, so it can rest now. Not after a read of only
+            // what changed: should the file not stand in for the rest, the whole drawing is read once more, and that
+            // needs the view still drawing (it rests when this save has answered).
+            if (given.whole) pauseViewIfDrained()
             fileIo.execute {
                 var needsWhole = false
                 val problem = try {
@@ -2902,7 +2911,8 @@ class JoyBrushActivity : Activity() {
                     null
                 } catch (e: cc.joycreator.joybrush.androidkit.io.JbArchiveNeedsBytes) {
                     needsWhole = true
-                    e.message ?: "the file could not stand in for the tiles that were not read"
+                    android.util.Log.w("JoyBrushSave", "working save: the file could not stand in: ${e.message}")
+                    "the newest marks could not be saved this time"
                 } catch (_: OutOfMemoryError) {
                     "this device has too little memory to finish saving or exporting the drawing"
                 } catch (e: Exception) {

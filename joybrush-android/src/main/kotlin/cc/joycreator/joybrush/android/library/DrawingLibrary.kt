@@ -268,15 +268,20 @@ object DrawingLibrary {
             // thumbnail waits for a save that read everything (leaving the screen always is one).
             // [leaving]: the person is about to see the Library, so its picture is made from this very save whatever its age
             // (it could be 45 s of drawing behind).
-            if (whole && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
-                thumbnailOf(contents)?.let { bmp ->
+            // A save that read back only what changed does not hold the picture. On leaving (and when there is no
+            // thumbnail at all) the picture is read from the file just written instead: its picture tiles, the paint
+            // state left on disk (JbArchive.openDeferringMedia).
+            val fromFile = if (!whole && (leaving || !thumb.isFile)) try { cc.joycreator.joybrush.androidkit.io.JbArchive.openDeferringMedia(file) } catch (e: Exception) { null } else null
+            val picture = if (whole) contents else fromFile
+            if (picture != null && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) try {
+                thumbnailOf(picture)?.let { bmp ->
                     thumb.parentFile?.mkdirs()
                     val tmp = File(thumb.path + ".tmp")
                     FileOutputStream(tmp).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
                     bmp.recycle()
                     if (!tmp.renameTo(thumb)) { thumb.delete(); tmp.renameTo(thumb) }
                 }
-            }
+            } finally { (fromFile?.mediaTiles as? java.io.Closeable)?.close() }
         } catch (t: Throwable) {
             Log.w(TAG, "thumbnail not refreshed for ${file.name}", t)
         }

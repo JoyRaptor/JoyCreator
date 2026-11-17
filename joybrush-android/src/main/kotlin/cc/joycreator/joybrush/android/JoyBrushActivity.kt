@@ -2957,6 +2957,10 @@ class JoyBrushActivity : Activity() {
             val failed: (String) -> Unit = { why -> answer("Could not read the drawing: $why") }
             val keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff
             if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole) }
+            // Leaving: everything is read (the thumbnail needs it), with each tile's fingerprint, so the file still
+            // stands in for what did not change when it is known only from having been opened (JbArchive.memoOf).
+            else if (dest is SaveDest.Working && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly)
+                canvas.snapshotSparse(onContents, failed, keepWet, readAll = true)
             else canvas.snapshot({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")

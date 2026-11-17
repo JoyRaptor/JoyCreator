@@ -305,6 +305,22 @@ class JbArchiveCarryTest {
             assertEquals(0, memo2.carried)
             assertSameDrawing(first, f)
         }
+        // Unless its fingerprint comes with it and is the one the file's tile went on with: then it is the file's tile.
+        run {
+            val f = temp(); JbArchive.save(f, first)
+            val (tiles, media) = printsOf(first)
+            val memo = JbArchive.memoOf(f, tiles, media)!!
+            val memo2 = JbArchive.saveCarrying(f, whole(first), memo)
+            assertEquals(4 + 8, memo2.carried, "every tile, by its fingerprint and the directory's checksum")
+            assertSameDrawing(first, f)
+            // And the record it leaves is a full one: the bytes alone are enough the next time.
+            assertEquals(4 + 8 + 1, JbArchive.saveCarrying(f, first, memo2).carried)
+            // A changed tile with a fingerprint is still written anew.
+            val g = temp(); JbArchive.save(g, first)
+            val memo3 = JbArchive.saveCarrying(g, whole(after), JbArchive.memoOf(g, tiles, media)!!)
+            assertEquals(3 + 6, memo3.carried)
+            assertSameDrawing(after, g)
+        }
     }
 
     @Test fun aTileWithoutBytesThatIsNotTheDrawingsIsRefusedLikeAnyOther() {

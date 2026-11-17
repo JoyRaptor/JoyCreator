@@ -750,7 +750,13 @@ object JbArchive {
                 val kept = index?.get(item.name)
                 var done = false
                 // The first entry stays the stored mimetype whatever the older file held; it is 22 bytes.
-                if (kept != null && raf != null && memo != null && item.level >= 0 && memo.raw[item.name] == sum &&
+                // The same bytes as then: the last save remembers this very checksum of them; or, for a file known only by
+                // its directory (memoOf: a drawing just opened), the canvas gives with the bytes the fingerprint that file's
+                // tile went on with, and the bytes have the directory's CRC-32.
+                val then = memo?.raw?.get(item.name)
+                val same = then == sum || (u == null && then != null && (then and 0xFFFFFFFFL) == NO_ADLER &&
+                    prints[item.name].let { it != null && it == memo?.tags?.get(item.name) })
+                if (kept != null && raf != null && memo != null && item.level >= 0 && same &&
                     kept.size == length && kept.crc == rawCrc && kept.method == ZipCarry.DEFLATED &&
                     kept.compressedSize <= Int.MAX_VALUE / 2) {
                     val n = kept.compressedSize.toInt()

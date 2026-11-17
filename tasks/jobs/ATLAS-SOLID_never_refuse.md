@@ -412,8 +412,28 @@ takes the graphics away. They do, also when an ink line, a watercolour line and 
   not smoothly on the Note 9. For comparison the wet-sheet Round's first stroke has one frame of about 1 s (the sheet
   being made, known). These are the first recorded numbers for L9's "cold first stroke" and "performance"; nothing was
   tuned.
-- **Still open for L9 (not done here).** The stutter above (owner's call whether it matters with a real pen, then the
-  watercolour-line renderer); the fade matrix and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a
+- **The stutter: fixed the same day (build efc4e8a41).** A stroke spent its frames in one place: every batch of dabs
+  redid the brush's whole finish over every 256 px tile the dabs fell on (`GlPaintEngine.addWatercolourDabs` ->
+  `WatercolourPass.finishInto`), though a finish only reads the coverage under a pixel and up to the edge and gravity
+  widths away. It now redoes only the dabs' bounds grown by that reach (`WatercolourPass.reach`), on every stroke tile
+  the rectangle touches (the old way missed a neighbour's rim until its next dab). The lift refinishes everything, as
+  before, so the finished stroke is the one it always was. Note 9, same bench (`band0,band1,band2` x 3, brush
+  `joybrush.watercolour`), old way by `--ez jb_wc_whole_tiles true` on the same build, each measured twice:
+
+| | Old way | New way |
+|---|---|---|
+| Work in a frame, median | 61.1 and 59.5 ms | 13.5 and 13.4 ms |
+| The dab step, median | 55.3 and 54.1 ms | 6.8 and 6.8 ms |
+| Frames in a stroke | about 20 | about 85 |
+| Frames over 34 ms in a stroke | 3 to 26 | 0 to 1 |
+| Slowest single frame in a stroke | 68 to 515 ms | 188 to 331 ms |
+
+  **Exactness, checked on the phone:** with `--ez jb_wc_finish_check true` every partial finish is followed by a
+  whole-tile finish of the same tiles and the two are compared by fingerprint: 4,701 tile finishes, 0 differ.
+  **What is left:** one slow frame of about 0.2 to 0.3 s in every stroke (not looked into: the first frame's new tiles
+  or the lift's two whole finishes are the suspects), and the 1.4 s first stroke after an install. A stroke on a Tile
+  board still finishes whole tiles (its wrap-around was left alone).
+- **Still open for L9 (not done here).** the fade matrix and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a
   drawn curve); **the grainy preset: owner's eye owed** (no file records an approved look; the orchestrator is asking
   him for a reference or a verdict); width redo exactness after the screens lane's 11-16 change; rebrush, delete,
   duplicate.

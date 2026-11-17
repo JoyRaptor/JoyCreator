@@ -134,7 +134,9 @@ class DeferredMediaTest {
         try {
             // The working save replaces the file by rename; the drawing in hand still reads what was checked, or says so.
             val other = painted().let { c -> c.copy(mediaTiles = c.mediaTiles.mapValues { (_, v) -> ByteArray(v.size) { 1 } }) }
-            JbArchive.save(file, other)
+            // On a build PC with Windows a file held open cannot be renamed, so the save itself is refused there and the
+            // file stays as it was: also "does not reach". On the phone (and Linux) the rename goes through.
+            try { JbArchive.save(file, other) } catch (e: JbArchiveException) { }
             for (k in whole.mediaTiles.keys) {
                 val got = try { deferred.mediaTiles.getValue(k) } catch (e: JbArchiveException) { null }
                 if (got != null) assertContentEquals(whole.mediaTiles.getValue(k), got, "never the other file's bytes: $k")

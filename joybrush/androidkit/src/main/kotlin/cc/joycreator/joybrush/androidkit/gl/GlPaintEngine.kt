@@ -2689,7 +2689,16 @@ class GlPaintEngine(
                 }
             }
             payloadMoved.forEach { c -> put(c.layerId, c.key, c.after, c.celId) }
-            for (at in payloadStaged.keys) layers[at.first]?.let { owner -> agree(at.first, at.third, planeOf(owner, at.second)) }
+            if (payloadStaged.isNotEmpty()) mediaClock++
+            for (at in payloadStaged.keys) layers[at.first]?.let { owner ->
+                val plane = planeOf(owner, at.second)
+                agree(at.first, at.third, plane)
+                // Stamped like any written tile: the paint room takes an unstamped tile as the oldest and flattens it first.
+                mediaWritten[Triple(at.first, plane, at.third)] = mediaClock
+            }
+            // Whoever holds a copy of these tiles (the media window, the atlas) reloads them, as after an undo: it must
+            // not write its old copy back over the moved paint.
+            if (payloadMoved.isNotEmpty() || payloadCopies.isNotEmpty()) reportMediaRestored(payloadMoved + payloadCopies)
             val settledKept = settled.filter { Triple(it.layerId, it.celId, it.key) in dropped }
             if(before!=change.doc || pending.isNotEmpty() || items.lines.isNotEmpty() || items.slabs.isNotEmpty())
                 undo.push(UndoLog.Step(pending.values.toList() + settledKept + payloadMoved + payloadCopies,

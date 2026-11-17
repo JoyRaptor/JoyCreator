@@ -55,6 +55,8 @@ public final class HandoffArrival implements HandoffEngine.Listener {
          * pixels of {@link #anchor}, or null (he then lands mid-screen).
          */
         @Nullable default RectF fallbackRect() { return null; }
+        /** False when the work has no item of its own to wait for (a picture that IS the new project): the room is pictured at once. */
+        default boolean expectsItem() { return true; }
     }
 
     private final Activity room;
@@ -134,6 +136,7 @@ public final class HandoffArrival implements HandoffEngine.Listener {
             @Override public void select() { if (sent != null) timeline.selectLayerItemById(sent); }
             @NonNull @Override public View anchor() { return timeline; }
             @Nullable @Override public View joybotButton() { return joybotButton; }
+            @Override public boolean expectsItem() { return id() != null; }
             @Nullable @Override public RectF fallbackRect() {
                 if (preview == null || preview.getWidth() <= 0 || !preview.isShown()) return null;
                 int[] p = new int[2], t = new int[2];
@@ -166,7 +169,9 @@ public final class HandoffArrival implements HandoffEngine.Listener {
         if (!still) stillSince = now;
         lastRect = r;
         boolean laidOut = t.getWidth() > 0 && t.isLaidOut();
-        boolean late = now > reportBy;
+        boolean expected;
+        try { expected = pl.expectsItem(); } catch (RuntimeException e) { expected = true; }
+        boolean late = now > reportBy || (!expected && now > reportBy - REPORT_BY_MS + 300L);
         if (laidOut && ((still && now - stillSince >= STILL_MS) || late) && (drawn || now > holdUntil)) {
             if (r == null) {
                 try { r = pl.fallbackRect(); } catch (RuntimeException e) { r = null; }

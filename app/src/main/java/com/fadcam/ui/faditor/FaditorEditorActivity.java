@@ -2232,7 +2232,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // FX-1: the room is open. It shows the arriving item's row, is pictured, and says where the item is;
         // the item is selected (by the timeline's own selection) the moment Joybot slaps it down.
         if (handoffArrival != null && editorTimeline != null) {
-            handoffArrival.roomReady(editorTimeline, findViewById(R.id.btn_ai_assistant), findViewById(R.id.player_view));
+            handoffArrival.roomReady(editorTimeline, findViewById(R.id.btn_ai_assistant), findViewById(R.id.canvas_frame));
         }
 
         playheadHandler.post(playheadUpdater);

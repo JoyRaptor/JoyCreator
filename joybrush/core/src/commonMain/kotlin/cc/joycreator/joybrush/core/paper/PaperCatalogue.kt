@@ -159,7 +159,7 @@ object PaperCatalogues {
         for (s in c.surfaces) {
             val at = "surface \"${s.id}\""
             if (s.name.length !in 1..40) out += "$at: name is ${s.name.length} characters, not 1 to 40"
-            pngProblem(s.file)?.let { out += "$at: $it" }
+            (if (s.packed) pngProblem(s.file) else imageProblem(s.file))?.let { out += "$at: $it" }
             if (s.size < 64 || s.size > 2048) {
                 out += "$at: size ${s.size} is outside 64 to 2048"
             } else if (s.size and (s.size - 1) != 0) {
@@ -240,7 +240,13 @@ object PaperCatalogues {
         else -> null
     }
 
-    /** A look is a photograph: PNG or JPEG (2026-10-06; a JPEG of paper grain is a fifth of the PNG's size). */
+    /**
+     * A look is a photograph: PNG or JPEG (2026-10-06; a JPEG of paper grain is a fifth of the PNG's size).
+     * A height-only surface (`packed: false`) may be a grey JPEG too (2026-11-17: its slopes and height² are
+     * worked out at load, so nothing in it has to be exact; measured sizes in
+     * tasks/audits/paper_wrapup_20261117.md). A packed surface and a fluid map stay PNG: their channels are
+     * separate numbers, and JPEG would mix them.
+     */
     private fun imageProblem(file: String): String? = when {
         file.isBlank() -> "file is empty"
         '/' in file || '\\' in file -> "file \"$file\" must be a plain name inside assets/paper/, not a path"

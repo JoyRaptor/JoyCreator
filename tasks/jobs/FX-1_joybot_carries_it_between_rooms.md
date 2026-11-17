@@ -161,8 +161,10 @@ the menu's Export for the whole drawing went only to the file picker. Both now g
   not a one-cell sprite. New project: the picture is the film (an image clip, 5 s as Studio's own stills, canvas of the picture's
   size, named after the board or drawing). Into a project you pick: queued for the editor's own "Image as new layer"
   (`AIChatState.putLayerInsert`), so it is fitted, selected, undoable and copied into the project by the code that already does that.
-- **The show** lands him on the new layer's tape (the layer Studio has just selected), or, when the picture IS the new project,
-  in Studio's canvas (`HandoffArrival.Room.fallbackRect` / `expectsItem`).
+- **The show** lands him on the new layer's tape (the layer Studio has just selected). When the picture IS the new project there is no layer:
+  he lands on the timeline near its clip (the show's mid-screen fallback; `HandoffArrival.Room.fallbackRect` was meant to give
+  Studio's canvas and returned nothing on the Fold: not chased, the timeline is the better place). The exact tape of a clip on the
+  main film strip is not reported to the show yet.
 - Seen on the Fold (Android 14), recorded: image board into a new project, into an existing one, the whole drawing into a new
   one. Not tried on the Note 9: the owner was drawing on it.
 - Found there: Joybot's seat and the question's tail were measured in screen pixels but drawn in the window's; on the Fold

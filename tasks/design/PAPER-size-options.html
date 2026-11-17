@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Paper size options</title>
+<style>
+  :root { --ground:#0b0b0c; --panel:#18181b; --line:#27272a; --text:#e4e4e7; --dim:#a1a1aa; --faint:#71717a; --cyan:#22d3ee; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--ground); color:var(--text); font:15px/1.45 system-ui, sans-serif; padding:16px 16px 190px; }
+  h1 { font-size:20px; margin:0 0 6px; }
+  h2 { font-size:16px; margin:26px 0 4px; }
+  p { margin:6px 0; color:var(--dim); max-width:70ch; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin:8px 0; }
+  .chip { background:var(--panel); color:var(--text); border:0; border-radius:999px; padding:7px 12px; font:inherit; font-size:13px; cursor:pointer; }
+  .chip small { color:var(--faint); margin-left:6px; }
+  .chip.on { background:var(--cyan); color:#06202a; }
+  .chip.on small { color:#0b3b47; }
+  .part { color:var(--faint); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-top:14px; }
+  .pair { display:flex; flex-wrap:wrap; gap:10px; margin:8px 0 2px; }
+  figure { margin:0; }
+  figure img { display:block; background:#000; border-radius:4px; }
+  figcaption { font-size:12px; color:var(--dim); margin-top:3px; }
+  .bar { position:fixed; left:0; right:0; bottom:0; background:rgba(24,24,27,.94); border-top:1px solid var(--line); padding:10px 16px 12px; }
+  .bar b { color:var(--cyan); }
+  .tot { font-size:14px; }
+  .picks { font:12px ui-monospace, monospace; color:var(--dim); margin-top:6px; word-break:break-all; }
+  .copy { margin-top:6px; }
+  .note { border-left:3px solid var(--line); padding-left:10px; }
+</style>
+</head>
+<body>
+<h1>JoyBrush papers: how small can they go?</h1>
+<p>The 45 new papers take <b>205.7 MB</b> as they are today. Each paper is three pictures: the <b>colour</b> you see, the <b>tooth</b> a pencil or brush feels, and the <b>water map</b> watercolour reads. Pick one option for each part. The left picture is always today's full-size paper; the right one is your pick. The bar at the bottom adds up the size for all 45.</p>
+<p class="note">Pictures are drawn one paper pixel to one screen pixel, as the canvas does at 100% zoom, and again at 300% zoom, where a smaller picture shows first. The tooth pictures are a deliberately harsh test: the bare surface under a low lamp on the left half, a soft pencil rubbed over it on the right half. The app itself lights paper far more gently.</p>
+
+<div class="part">Zoom</div>
+<div class="chips" id="zoom"></div>
+<div class="part">Colour picture</div>
+<div class="chips" id="look"></div>
+<div class="part">Tooth (what the brush feels)</div>
+<div class="chips" id="tooth"></div>
+<div class="part">Water map (not visible; it steers how a wash soaks in)</div>
+<div class="chips" id="fluid"></div>
+<div class="part">How many papers</div>
+<div class="chips" id="lib"></div>
+
+<div id="papers"></div>
+
+<div class="bar">
+  <div class="tot" id="tot"></div>
+  <div class="picks" id="picks"></div>
+  <button class="chip copy" id="copy">Copy my picks</button>
+</div>
+
+<script>
+const DATA = {
+  papers: [
+    {id:'eval_linen_1', name:'Fine linen canvas 1'}, {id:'eval_jute_3', name:'Rough jute canvas 3'},
+    {id:'eval_papyrus_1', name:'Papyrus 1'}, {id:'eval_silk_1', name:'Silk 1'}, {id:'eval_expanded_firm', name:'Firmly crumpled paper'}],
+  look: [
+    {code:'L0', name:'Today: full size', mb:63.6}, {code:'L1', name:'Half size, fine', mb:12.4},
+    {code:'L2', name:'Half size, tighter', mb:9.0}, {code:'L3', name:'Quarter size', mb:2.9}],
+  tooth: [
+    {code:'H0', name:'Today: full size', mb:117.2}, {code:'H1', name:'Half size, exact', mb:33.0},
+    {code:'H2', name:'Half size, fine', mb:17.8}, {code:'H3', name:'Half size, tighter', mb:12.4},
+    {code:'H4', name:'Half size, tightest', mb:8.9}, {code:'H5', name:'Quarter size', mb:4.4}],
+  fluid: [
+    {code:'F0', name:'Today: full size, all four maps', mb:24.9}, {code:'F1', name:'Half size, all four maps', mb:7.7},
+    {code:'F2', name:'Half size, only the map the paint reads', mb:0.7}],
+  lib: [
+    {code:'A45', name:'All 45', n:45}, {code:'A40', name:'40 (the 5 doubles left out)', n:40},
+    {code:'A12', name:'12 in the app, the rest as a free pack', n:12}],
+  zoom: [{code:'z1', name:'100% zoom'}, {code:'z3', name:'300% zoom'}],
+  tile: 240, start: 205.7
+};
+const pick = {look:'L2', tooth:'H3', fluid:'F1', lib:'A45', zoom:'z1'};
+const $ = id => document.getElementById(id);
+function chips(part) {
+  const box = $(part); box.innerHTML = '';
+  for (const o of DATA[part]) {
+    const b = document.createElement('button');
+    b.className = 'chip' + (pick[part] === o.code ? ' on' : '');
+    b.title = o.name;
+    b.innerHTML = o.name + (o.mb != null ? '<small>' + o.mb.toFixed(1) + ' MB</small>' : '');
+    b.onclick = () => { pick[part] = o.code; draw(); };
+    box.appendChild(b);
+  }
+}
+function fig(src, cap) {
+  const px = DATA.tile / (window.devicePixelRatio || 1);
+  return '<figure><img src="paper-size-options/' + src + '.jpg" width="' + px + '" height="' + px + '" alt="' + cap + '"><figcaption>' + cap + '</figcaption></figure>';
+}
+function draw() {
+  for (const p of ['zoom', 'look', 'tooth', 'fluid', 'lib']) chips(p);
+  let h = '';
+  for (const p of DATA.papers) {
+    h += '<h2>' + p.name + '</h2><div class="pair">'
+      + fig(p.id + '_L0_' + pick.zoom, 'Colour, today') + fig(p.id + '_' + pick.look + '_' + pick.zoom, 'Colour, your pick')
+      + fig(p.id + '_H0_' + pick.zoom, 'Tooth, today') + fig(p.id + '_' + pick.tooth + '_' + pick.zoom, 'Tooth, your pick') + '</div>';
+  }
+  $('papers').innerHTML = h;
+  const get = part => DATA[part].find(o => o.code === pick[part]);
+  const share = get('lib').n / 45;
+  const all = (get('look').mb + get('tooth').mb + get('fluid').mb);
+  const mb = all * share;
+  $('tot').innerHTML = 'In the app: <b>' + mb.toFixed(1) + ' MB</b> for ' + get('lib').n + ' papers'
+    + ' (today 205.7 MB for 45: <b>' + (DATA.start / mb).toFixed(1) + ' times smaller</b>)'
+    + (get('lib').n === 12 ? '. The other 33 would be a ' + (all * 33 / 45).toFixed(1) + ' MB download.' : '');
+  $('picks').textContent = 'PAPER-SIZE picks: colour ' + pick.look + ', tooth ' + pick.tooth + ', water ' + pick.fluid + ', library ' + pick.lib;
+}
+$('copy').onclick = () => { try { navigator.clipboard.writeText($('picks').textContent); $('copy').textContent = 'Copied'; } catch (e) { $('copy').textContent = 'Select the line above and copy it'; } };
+draw();
+</script>
+</body>
+</html>

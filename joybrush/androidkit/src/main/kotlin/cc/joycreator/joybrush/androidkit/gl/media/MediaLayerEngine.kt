@@ -36,22 +36,46 @@ import kotlin.math.min
  * are written by [MediaUniforms.paper].
  */
 /**
- * Whether watercolour follows the paper's fibres and pores (owner, 2026-11-17: "a wash should creep further along the
- * fibres than across them, and each spot should hold as much water as its pore capacity says"). The fluid map of every
- * photo paper carries a fibre direction and a pore capacity that no shader read. [strength] multiplies the paper's own
- * anisotropy (0 = off, the old water exactly; 1 = as the catalogue says; above 1 exaggerates, for comparing);
- * [pores] makes each spot's capacity its own. Off until the owner has compared the two: his rule is that the old
- * behaviour stays selectable and nothing becomes the default before his eye.
+ * Watercolour follows the paper's fibres and pores (owner, 2026-11-17: "get that paper fibres and pores all wicking and
+ * working and visible"). Every photo paper's fluid map carries a fibre direction and a pore capacity; with [on] the wet
+ * sheet's water reads them:
+ * - **the bleed**: thirsty paper beside a wet edge draws the edge's water in through its fibres, pigment and all, furthest
+ *   along the fibres (jb_wet_flux.frag). How far is the paper's own: its absorbency less its sizing ([thirst]), so rice
+ *   paper feathers by millimetres and a sized watercolour paper keeps its crisp edge;
+ * - **the pores**: each spot soaks up what its own pores hold, so a wash is taken up unevenly, spot by spot;
+ * - dampness creeps further along the fibres than across them, and a wash follows it.
+ *
+ * It is a build of the water's two passes of its own (JB_WET_FIBRES): with [on] false the programs are the old ones to the
+ * byte. A wet sheet is made for one or the other; the switch takes hold when the next sheet is laid (WetSheet.begin).
+ * Off until the owner has compared the two: his rule is that the old behaviour stays selectable and nothing becomes the
+ * default before his eye.
  */
 object PaperFibres {
-    @Volatile @JvmStatic var strength: Double = 0.0
-    @Volatile @JvmStatic var pores: Boolean = false
+    @Volatile @JvmStatic var on: Boolean = false
+    /** The bleed's pace, times the paper's own (1 = as tuned on the Note 9, 2026-11-17; the bench exaggerates it to compare). */
+    @Volatile @JvmStatic var bleed: Double = 1.0
+    /** How strongly the fibres steer, times the paper's anisotropy (1 = as its catalogue row says). */
+    @Volatile @JvmStatic var strength: Double = 1.0
+    /** 0..1: how far each spot's own pore capacity counts. */
+    @Volatile @JvmStatic var pores: Double = 1.0
     /**
      * Bench: every spot's fibres lie at this angle (degrees from the drawing's x axis toward its y axis, which points
      * down the page), whatever the paper's map says, and the paper's anisotropy counts as 1: to see on a screenshot that
      * a wash follows a chosen direction, a diagonal included. Null = the paper's own map.
      */
     @Volatile @JvmStatic var forceAngleDeg: Double? = null
+
+    /** The bleed's pace on a paper of thirst 1 with fibres neither helping nor hindering, in the lab's px² per second. */
+    const val BLEED = 48.0
+    /** The bleed feeds paper holding less than this film (mm). */
+    const val FILM_MM = 0.03
+    /** The film keeps its pigment this much longer than standing water would (the share of its settling that is left). */
+    const val CARRY = 0.3
+    /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */
+    const val REACH_CELLS = 72.0
+
+    /** How readily a paper draws water in: its absorbency, less what its sizing shuts (rice 0.86, cold press 0.08). */
+    fun thirst(paper: cc.joycreator.joybrush.core.media.MediaPaper): Double = (paper.absorbency * (1.0 - paper.sizing)).coerceIn(0.0, 1.0)
 }
 
 class MediaPaperGl(
@@ -90,7 +114,12 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
                         * quarter of the work and of the water's memory); the paint, the paper and the look stay at full
                         * resolution. False = the water at full resolution, as before.
                         */
-                       val coarseWater: Boolean = coarseWaterDefault) {
+                       val coarseWater: Boolean = coarseWaterDefault,
+                       /**
+                        * The water's passes built to read the paper's fibres and pores ([PaperFibres]; the wet sheet only:
+                        * never with the atlas or coarse water). False = the programs as they always were.
+                        */
+                       val fibres: Boolean = false) {
     /** Pixels per water cell along each side: 2 with [coarseWater], else 1. */
     private val wf = if (coarseWater) 2 else 1
     /** The water's resolution in the atlas's terms: its slots are 256 / [wf] cells (shift 7 when coarse). */
@@ -193,7 +222,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      */
     fun compileNext(): Boolean {
         val spec = programTable.getOrNull(programs.size) ?: return false
-        val defs = (if (atlasMode) listOf("JB_ATLAS") + spec.atlasDefs else emptyList()) + (if (coarseWater && spec.wet) listOf("JB_WET_COARSE") else emptyList())
+        val defs = (if (atlasMode) listOf("JB_ATLAS") + spec.atlasDefs else emptyList()) + (if (coarseWater && spec.wet) listOf("JB_WET_COARSE") else emptyList()) +
+            (if (fibres && spec.wet && !atlasMode && !coarseWater) listOf("JB_WET_FIBRES") else emptyList())
         val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs,
             if (atlasMode && !atlasBroken) spec.ownReach else -1, spec.ownDefine)
         programs += made
@@ -415,9 +445,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         bakeTex = MediaTex.make(w, h)
         // Only .r of the fluid and water bakes is ever read (jb_wet_flux.frag, jb_wet_update.frag: texelFetch(...).r), so they
         // are one channel; the same value is rounded to the same 8-bit / half float, the other channels were never read.
-        // Except the fluid bake of an engine that is not the atlas (the wet sheet): there the paper's fibre direction (G, B)
-        // and pore capacity (A) are kept too, for PaperFibres. The absorbency in R is the same byte either way.
-        fluidBake = if (atlasMode) MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+        // Except the fluid bake of an engine built for the paper's fibres ([fibres], PaperFibres): there the fibre direction
+        // (G, B) and pore capacity (A) are kept too. The absorbency in R is the same byte either way.
+        fluidBake = if (!fibres) MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
             else MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
         waterBake = MediaTex.make(w, h, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_HALF_FLOAT)
         bakeFbo = MediaTex.fbo(bakeTex, fluidBake, waterBake)
@@ -497,23 +527,31 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
      * cell² (the levelling flow, the wick, the mingling) slowed by [wf]², so the water spreads as far per second whatever
      * its cell (a coarse cell is wf² times the area: the same per-cell rate would be wf² times faster across the paper).
      */
+    /** What the fibre build of the water's passes reads of the paper ([PaperFibres]); nothing for the plain build. */
+    private fun fibreUniforms(paper: MediaPaperGl): Map<String, Double> {
+        if (!fibres) return emptyMap()
+        val forced = PaperFibres.forceAngleDeg
+        val a = Math.toRadians(2.0 * (forced ?: 0.0))
+        return mapOf(
+            "u_fibre" to PaperFibres.strength * (if (forced != null) 1.0 else paper.stats.anisotropy),
+            "u_pore" to PaperFibres.pores.coerceIn(0.0, 1.0),
+            "u_bleed" to PaperFibres.BLEED * PaperFibres.bleed * PaperFibres.thirst(paper.stats),
+            "u_bleedFilmMm" to PaperFibres.FILM_MM, "u_bleedCarry" to PaperFibres.CARRY,
+            "u_fibreForceOn" to (if (forced != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a))
+    }
+
     private fun loadWetFrame(paper: MediaPaperGl, wc0: WetConstants, evapOverride: Double?, pxPerMm: Double) {
         // [worldScale]: the water's world magnified (the wet sheet zoomed out), so a millimetre is that many times as many px.
         val pxmm = pxPerMm * worldScale
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran) + ("u_runCapMmPerS" to runCapMmPerS) +
             ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_capSlack" to capSlack) + ("u_capSeed" to nextCapSeed()) +
-            ("u_rimCells" to rimCells.toDouble()) +
-            // The paper's fibres and pores (PaperFibres): nothing when the switch is off, and the shader is then as it was.
-            ("u_fibre" to (if (atlasMode) 0.0 else PaperFibres.strength * (if (PaperFibres.forceAngleDeg != null) 1.0 else paper.stats.anisotropy))) +
-            ("u_pore" to (if (PaperFibres.pores && !atlasMode) 1.0 else 0.0)) +
-            PaperFibres.forceAngleDeg.let { deg -> val a = Math.toRadians(2.0 * (deg ?: 0.0))
-                mapOf("u_fibreForceOn" to (if (deg != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a)) },
+            ("u_rimCells" to rimCells.toDouble()) + fibreUniforms(paper),
             evapOverride, slope,
             wf / (pxmm * scale), wc0.beadMm * pxmm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
         // WetSheet): a cell is wf / scale document px across, wf / (scale x worldScale) of the lab's.
         val cellDoc = wf / (scale.toDouble() * worldScale)
-        if (cellDoc != 1.0) for (n in listOf("u_flow", "u_wick", "u_mingle")) wetFrameUniforms.scale(n, 1.0 / (cellDoc * cellDoc))
+        if (cellDoc != 1.0) for (n in listOf("u_flow", "u_wick", "u_mingle", "u_bleed")) wetFrameUniforms.scale(n, 1.0 / (cellDoc * cellDoc))
     }
 
     // ---- Media Atlas v2 B2: free placement (a [MediaAtlas] host places tiles; the engine then has no window edge) ----
@@ -1395,7 +1433,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             wetRect?.let { WetSpread.grow(it, paintRect, slope[0], slope[1], steps, 1 / (pxPerMm * scale),
                 if (free) Int.MAX_VALUE else w, if (free) Int.MAX_VALUE else h) }   // free: only the 4 cm cap, no window
         if (batch != null && batch.count > 0) {
-            val r = layerRect(batch.dirty, 48.0)
+            // (With the paper's fibres the water bleeds further from the dabs than plain water spreads: room for it.)
+            val r = layerRect(batch.dirty, if (fibres) max(48.0, PaperFibres.REACH_CELLS / scale) else 48.0)
             if (r != null) { wetRect = union(wetRect, r); paintRect = union(paintRect, r); culler()?.wetted(r[0], r[1], r[2], r[3]) }
             // Only the simulated rectangle ever reads the brush input, so the dabs are drawn there and the input is cleared
             // there after the step that eats it (the full-window clear wrote 16 B/px of nothing). Where there is no rectangle

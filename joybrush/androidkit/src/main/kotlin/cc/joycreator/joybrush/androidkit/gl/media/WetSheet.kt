@@ -143,7 +143,8 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             before = Was.Empty
         }
         if (!holding) {
-            if (engine == null || grid != wantGrid) {
+            // (A sheet is made for the plain water or for the paper's fibres, PaperFibres: the switch takes hold here.)
+            if (engine == null || grid != wantGrid || engine?.fibres != PaperFibres.on) {
                 if (!LayerBudget.windowFits(availBytes, thresholdBytes, wet = true)) return LayerBudget.windowRefusal(true)
                 releaseEngine()
                 val madeAt = System.nanoTime()
@@ -828,7 +829,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
 
     /** A sheet engine of [g] cells, or null when the phone has no graphics memory for it (said in the log). */
     private fun newEngine(g: WetSheetMath.Grid): MediaLayerEngine? {
-        val made = MediaLayerEngine(shaders, atlasMode = false, coarseWater = false)
+        val made = MediaLayerEngine(shaders, atlasMode = false, coarseWater = false, fibres = PaperFibres.on)
         try {
             if (failEngines > 0) { failEngines--; throw GraphicsMemoryException("failed by the probe") }
             made.init(g.w, g.h, 0f, 0f, 1f)

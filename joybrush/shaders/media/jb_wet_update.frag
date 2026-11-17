@@ -56,13 +56,20 @@ uniform float u_edgeDep;        // pigment drops out faster at the drying edge (
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
 uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
 uniform sampler2D u_fluidBake;  // absorbency, fibre direction, capacity
+#ifdef JB_WET_FIBRES
+// The paper's fibres and pores (PaperFibres, owner 2026-11-17). Built in only while that switch is on: without the define
+// this file is the water as it always was, to the byte.
 uniform float u_fibre;          // dampness creeps this much further along the paper's fibres than across them (the paper's
-                                // anisotropy x the map's coherence; 0 = no grain direction, or the feature off: as always)
-uniform float u_pore;           // 1: each spot soaks up what its own pores hold (the fluid map's capacity); 0 = one capacity
-                                // for the whole sheet, as always
+                                // anisotropy; times the map's coherence at each spot)
+uniform float u_pore;           // 0..1: how far each spot soaks up what its own pores hold (the fluid map's capacity)
+                                // rather than one capacity for the whole sheet
+uniform float u_bleedFilmMm;    // water thinner than this is water in the paper's surface (the bleed, jb_wet_flux.frag)
+uniform float u_bleedCarry;     // how readily that water keeps its pigment as it travels: the film's settling is this
+                                // share of standing water's (1 = as standing water)
 uniform float u_fibreForceOn;   // bench: 1 = every spot's fibres lie at one angle, given as cos and sin of TWICE it
 uniform float u_fibreForceC;
 uniform float u_fibreForceS;
+#endif
 uniform float u_noBody;         // owner A/B (2026-10-18): 1 = watercolour leaves no paint body (no relief); unset 0 = as always
 
 layout(location = 0) out vec4 o_w0;
@@ -236,18 +243,22 @@ void main() {
     // (1 + k cos 2a) along x, (1 - k cos 2a) along y, and a cross term k sin 2a over the four diagonal neighbours, which is
     // what lets a fibre lying on a diagonal carry the damp along it. A spot with roomy pores takes more water before it
     // is full. Both off (unset uniforms): the arithmetic below is the old one.
+#ifdef JB_WET_FIBRES
     float capMm = u_capMm;
     float wickX = 1.0, wickY = 1.0, wickD = 0.0;
-#ifndef JB_WET_COARSE
-    if (u_fibre > 0.0 || u_pore > 0.0) {
+    {
         vec4 fl = jb_fetch(u_fluidBake, c);
-        // A paper with no fluid map bakes G = B = 0: no direction (a real map says "none" as 0.5, 0.5).
-        vec2 dir = (fl.g == 0.0 && fl.b == 0.0) ? vec2(0.0) : fl.gb * 2.0 - 1.0;
+        // A paper with no fluid map bakes G = B = 0: no direction, and its capacity reads 1 (a real map says "the
+        // sheet's own" as 0.5): left as the sheet's.
+        bool mapped = !(fl.g == 0.0 && fl.b == 0.0);
+        vec2 dir = mapped ? fl.gb * 2.0 - 1.0 : vec2(0.0);
         if (u_fibreForceOn > 0.5) dir = vec2(u_fibreForceC, u_fibreForceS);
         float k = min(u_fibre, 0.9 / max(length(dir), 1.0e-4));
         wickX = 1.0 + k * dir.x; wickY = 1.0 - k * dir.x; wickD = k * dir.y;
-        capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
+        if (mapped) capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
     }
+#else
+    float capMm = u_capMm;
 #endif
     float soak = min(w, u_absorb * u_dt * (1.0 - s) * capMm);
     w -= soak;
@@ -260,13 +271,16 @@ void main() {
     float sR = wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).g;
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
-    if (u_fibre > 0.0) {
+#ifdef JB_WET_FIBRES
+    {
         float cross = 0.0;
         if (wickD != 0.0) cross = 0.5 * wickD * (wf(u_w0, jb_clampCell(c + ivec2(1, 1), size)).g + wf(u_w0, jb_clampCell(c + ivec2(-1, -1), size)).g
                                                - wf(u_w0, jb_clampCell(c + ivec2(1, -1), size)).g - wf(u_w0, jb_clampCell(c + ivec2(-1, 1), size)).g);
         s = max(0.0, s + soak / capMm + u_wick * u_dt * (wickX * (sL + sR - 2.0 * s) + wickY * (sD + sU - 2.0 * s) + cross));
     }
-    else s = s + soak / capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
+#else
+    s = s + soak / capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
+#endif
     // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
     // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp
     // spread until one damp pool covered the drawing, overflowed the atlas and froze in tile-shaped squares). Dampness this
@@ -298,6 +312,9 @@ void main() {
     if (w <= u_minMm) {
         dep += pig;                      // the last of the water leaves its pigment where it is
         pig = vec4(0.0);
+#ifdef JB_WET_FIBRES
+        s = min(1.0, s + w / capMm);     // the bleed's last trace is water in the paper: it leaves the paper damp
+#endif
         w = 0.0;
     } else {
         // Granulation: pigment grains lodge in the paper's FINE tooth (height minus its fibre-scale mean),
@@ -308,7 +325,14 @@ void main() {
         float edge = 1.0 + rimWater * (u_edgeDep * (1.0 - wetN) + u_edgeDep * 0.5 * smoothstep(0.06, 0.01, w));
         // Pigment reaches the fibres faster the thinner the film over them (it has less far to sink), so most
         // of it is down before the last water gathers in pockets; what is left still marks the edge.
+#ifdef JB_WET_FIBRES
+        // Water drawn into the paper's surface carries its pigment along the fibres before the fibres filter it out: the
+        // film's settling is u_bleedCarry of what standing water of its depth would have.
+        float k = 1.0 - exp(-u_settle * g * edge * u_dt * min(20.0, 0.15 / max(w, 0.004))
+                            * mix(u_bleedCarry, 1.0, smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, w)));
+#else
         float k = 1.0 - exp(-u_settle * g * edge * u_dt * min(20.0, 0.15 / max(w, 0.004)));
+#endif
         dep += pig * k;
         pig *= 1.0 - k;
         // --- lift: water re-dissolves soluble pigment lying under it

@@ -159,7 +159,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 * paper's fibre direction and pore capacity (PaperFibres). `jb_bench_paper`: the surface id to paint on.
                 */
                val wetFibres: Double? = null,
-               val wetPores: Boolean? = null,
+               val wetPores: Double? = null,
+               /** `jb_wet_bleed`: the bleed's pace, times the paper's own (PaperFibres.bleed). */
+               val wetBleed: Double? = null,
+               /** `jb_wet_fibres_on` (boolean): the switch itself (PaperFibres.on); any of the numbers above also turns it on. */
+               val wetFibresOn: Boolean? = null,
                /** `jb_wet_fibre_angle`: every fibre at this angle in degrees (PaperFibres.forceAngleDeg); "none" clears it. */
                val wetFibreAngle: String? = null,
                val paper: String? = null,
@@ -195,10 +199,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
         canvas.benchWcWholeTiles(spec.wcWholeTiles)
-        spec.wetFibres?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.strength = it.coerceIn(0.0, 4.0) }
-        spec.wetPores?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.pores = it }
-        spec.wetFibreAngle?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.forceAngleDeg = it.toDoubleOrNull() }
-        if (spec.wetFibres != null || spec.wetPores != null) Log.i(TAG, "paper fibres: strength ${cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.strength}, pores ${cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.pores}")
+        cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.let { pf ->
+            spec.wetFibres?.let { pf.strength = it.coerceIn(0.0, 4.0) }
+            spec.wetPores?.let { pf.pores = it.coerceIn(0.0, 1.0) }
+            spec.wetBleed?.let { pf.bleed = it.coerceIn(0.0, 8.0) }
+            spec.wetFibreAngle?.let { pf.forceAngleDeg = it.toDoubleOrNull() }
+            if (spec.wetFibres != null || spec.wetPores != null || spec.wetBleed != null || spec.wetFibreAngle != null) pf.on = true
+            spec.wetFibresOn?.let { pf.on = it }
+            if (pf.on || spec.wetFibresOn != null) Log.i(TAG, "paper fibres: ${if (pf.on) "on" else "off"}, bleed ${pf.bleed}, fibres ${pf.strength}, pores ${pf.pores}, angle ${pf.forceAngleDeg}")
+        }
         spec.paper?.let { id -> canvas.applyDocumentPaper(cc.joycreator.joybrush.core.doc.Paper(textureId = id)); Log.i(TAG, "paper: $id") }
         canvas.benchWcFinishCheck(spec.wcFinishCheck)
         if (spec.wcWholeTiles) Log.i(TAG, "watercolour line: whole tiles finished for every batch (the old way)")
@@ -1145,10 +1154,18 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         private const val FULL_TAIL_IDLE_CONFIRMATIONS = 2
 
         /** The bench request in [intent], or null: debug builds only, and only when asked for. */
+        /** A number given as text (`--es name 1.5`) or as a float (`--ef`); null when the extra is absent. */
+        private fun number(intent: Intent, name: String): Double? =
+            if (!intent.hasExtra(name)) null else intent.getStringExtra(name)?.toDoubleOrNull() ?: intent.getFloatExtra(name, 0f).toDouble()
+
         fun spec(intent: Intent?, info: ApplicationInfo): Spec? {
             if (intent == null || info.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
             val cases = intent.getStringExtra("jb_bench") ?: return null
             fun list(s: String?) = s?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+            // `jb_shader_dir`: shaders pushed to the app's own files folder stand in for the packaged ones (tuning a shader
+            // on the phone without a build). Set before the graphics thread compiles anything.
+            cc.joycreator.joybrush.androidkit.gl.ShaderLibrary.overrideDir = if (!intent.getBooleanExtra("jb_shader_dir", false)) null
+                else java.io.File(android.os.Environment.getExternalStorageDirectory(), "Android/data/${info.packageName}/files/jb_shaders")
             return Spec(list(cases), list(intent.getStringExtra("jb_bench_brushes")).ifEmpty { listOf(if ("matrix" in list(cases)) "all" else "ink") },
                 intent.getIntExtra("jb_bench_runs", 3).coerceIn(1, 20), intent.getBooleanExtra("jb_bench_clear", true),
                 intent.getBooleanExtra("jb_media_legacy", false),
@@ -1184,7 +1201,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 board = intent.getStringExtra("jb_bench_board"),
                 wcWholeTiles = intent.getBooleanExtra("jb_wc_whole_tiles", false),
                 wetFibres = if (intent.hasExtra("jb_wet_fibres")) intent.getStringExtra("jb_wet_fibres")?.toDoubleOrNull() ?: intent.getFloatExtra("jb_wet_fibres", 0f).toDouble() else null,
-                wetPores = if (intent.hasExtra("jb_wet_pores")) intent.getBooleanExtra("jb_wet_pores", false) else null,
+                wetPores = number(intent, "jb_wet_pores"),
+                wetBleed = number(intent, "jb_wet_bleed"),
+                wetFibresOn = if (intent.hasExtra("jb_wet_fibres_on")) intent.getBooleanExtra("jb_wet_fibres_on", false) else null,
                 paper = intent.getStringExtra("jb_bench_paper"),
                 wetFibreAngle = intent.getStringExtra("jb_wet_fibre_angle"),
                 wcFinishCheck = intent.getBooleanExtra("jb_wc_finish_check", false),

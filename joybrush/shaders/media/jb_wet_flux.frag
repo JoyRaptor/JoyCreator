@@ -25,11 +25,18 @@ uniform float u_filmMm;       // below this depth a film clings: viscous drag �
 uniform float u_dt;
 uniform float u_toothMm;
 uniform float u_flow;         // how hard a height difference pushes water (1/s)
-uniform float u_fibre;        // a wash's edge creeps further along the paper's fibres than across them, by this much (the
-                              // paper's anisotropy x the fluid map's coherence; 0 = off or no direction: as always)
+#ifdef JB_WET_FIBRES
+// The paper's fibres (PaperFibres, owner 2026-11-17). Built in only while that switch is on: without the define this file
+// is the water as it always was, to the byte.
+uniform float u_fibre;        // how much faster the paper draws water along its fibres than across them (the paper's
+                              // anisotropy; times the fluid map's coherence at each spot)
+uniform float u_bleed;        // the capillary pull (cells² per second): how fast thirsty paper draws in the water of a wet
+                              // edge beside it (the paper's absorbency, less its sizing; 0 on a paper sized shut)
+uniform float u_bleedFilmMm;  // the pull feeds paper that holds less water than this film; deeper water is the levelling's
 uniform float u_fibreForceOn; // bench: 1 = every fibre at one angle, given as cos and sin of TWICE it
 uniform float u_fibreForceC;
 uniform float u_fibreForceS;
+#endif
 uniform float u_keep;         // fraction of flow kept from the last step (viscosity: watery → near 1)
 uniform float u_pinMm;        // head (mm) needed to wet dry paper
 uniform float u_dampS;        // saturation at which paper counts as damp (no pinning)
@@ -203,24 +210,6 @@ void main() {
             }
         }
     }
-    // The paper's fibres (owner, 2026-11-17): a dry edge holds the water back less where the wash is advancing ALONG the
-    // fibres and more where it advances across them. Which way an edge faces is read from the water round this cell (it
-    // falls away outward), so a fibre lying on a diagonal lets a diagonal front through; where the water is level there
-    // is no facing and each neighbour's own direction is used. 1 everywhere when the switch is off.
-    vec2 fibre = vec2(0.0);       // strength x (cos, sin) of twice the fibre angle
-    vec2 facing2 = vec2(0.0);     // (cos, sin) of twice the angle the edge here faces; zero = not known
-#ifndef JB_WET_COARSE
-    if (u_fibre > 0.0) {
-        vec4 fl = jb_fetch(u_fluidBake, c);
-        vec2 dir = (fl.g == 0.0 && fl.b == 0.0) ? vec2(0.0) : fl.gb * 2.0 - 1.0;
-        if (u_fibreForceOn > 0.5) dir = vec2(u_fibreForceC, u_fibreForceS);
-        fibre = dir * min(u_fibre, 0.9 / max(length(dir), 1.0e-4));
-        vec2 g = vec2(wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).r - wf(u_w0, jb_clampCell(c + ivec2(-1, 0), size)).r,
-                      wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).r - wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).r);
-        float gl2 = dot(g, g);
-        if (gl2 > 1.0e-10) facing2 = vec2(g.x * g.x - g.y * g.y, 2.0 * g.x * g.y) / gl2;
-    }
-#endif
     vec4 f;
     for (int i = 0; i < 4; i++) {
         ivec2 q = jb_clampCell(c + nb[i], size);
@@ -239,10 +228,6 @@ void main() {
             // On a tilted paper the gathering bead is held by the same edge, judged as a whole bead (the slow
             // levelling must not seep it over cell by cell ahead of the running water's own test).
             float hold = pinHold(q, sn) * mix(1.0, holdK, tilted);
-            if (u_fibre > 0.0) {
-                vec2 way = dot(facing2, facing2) > 0.0 ? facing2 : vec2(float(nb[i].x * nb[i].x - nb[i].y * nb[i].y), 0.0);
-                hold *= 1.0 - dot(fibre, way);
-            }
             float head = mix(dh, wb + dot(u_slope, vec2(nb[i])) * u_cellMm, tilted * u_runCoherent);
             // Only an edge facing downhill ever lets go on a slope; a stream's sides and its upper edge hold.
             float faces = smoothstep(0.25, 0.6, dot(sd, vec2(nb[i])));
@@ -315,6 +300,53 @@ void main() {
             }
         }
     }
+#ifdef JB_WET_FIBRES
+    // The bleed (owner, 2026-11-17: "paper fibres and pores all wicking and working and visible"). Thirsty paper beside a
+    // wet edge draws the edge's water into itself through its fibres, and the pigment in that water with it: the feathered
+    // edge of a stroke on unsized paper, reaching furthest along the fibres. No surface tension holds it back and no depth
+    // is needed to push it (the levelling above has both): the pull is the paper's own, so it is the paper's thirst
+    // (u_bleed, and the fluid map's absorbency at the spot drawing) that sets its pace.
+    //
+    // Which way: out through the edge (the water falls away outward: minus its gradient), bent toward the fibre's axis.
+    // With D = (1 - k) I + 2 k a a' (a = the fibre's axis, k = the paper's anisotropy x the map's coherence there) the
+    // pull is D n: 1 + k along the fibre, 1 - k across, and a fibre on a diagonal turns a pull that faces along x partly
+    // into y, which is what lets a diagonal fibre carry water along itself on a grid of four neighbours.
+    // It leaves as running water does (o_run, signed along x and y): moved the same step, never kept to the next.
+    {
+        vec2 g = vec2(wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).r - wf(u_w0, jb_clampCell(c + ivec2(-1, 0), size)).r,
+                      wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).r - wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).r);
+        float gl = length(g);
+        if (gl > 1.0e-6 && u_bleed > 0.0) {
+            vec4 fl = jb_fetch(u_fluidBake, c);
+            // A paper with no fluid map bakes G = B = 0: no direction (a real map says "none" as 0.5, 0.5).
+            vec2 d2 = (fl.g == 0.0 && fl.b == 0.0) ? vec2(0.0) : fl.gb * 2.0 - 1.0;
+            if (u_fibreForceOn > 0.5) d2 = vec2(u_fibreForceC, u_fibreForceS);
+            float coh = length(d2);
+            vec2 n = -g / gl;
+            vec2 pull = n;
+            if (coh > 1.0e-4) {
+                // The axis from its doubled angle: cos a = sqrt((1 + cos 2a) / 2), sin a takes sin 2a's sign.
+                float c2 = d2.x / coh;
+                vec2 axis = vec2(sqrt(max(0.0, 0.5 + 0.5 * c2)), sqrt(max(0.0, 0.5 - 0.5 * c2)));
+                if (d2.y < 0.0) axis.y = -axis.y;
+                float k = min(u_fibre * coh, 0.95);
+                pull = (1.0 - k) * n + 2.0 * k * dot(axis, n) * axis;
+            }
+            for (int axis = 0; axis < 2; axis++) {
+                float pa = pull[axis];
+                if (abs(pa) < 1.0e-4) continue;
+                ivec2 q = c + (axis == 0 ? ivec2(pa > 0.0 ? 1 : -1, 0) : ivec2(0, pa > 0.0 ? 1 : -1));
+                if (!jb_inside(q, size) || outside(q)) continue;
+                float wn = wf(u_w0, q).r;
+                if (wn >= w || wn >= u_bleedFilmMm) continue;
+                // Never more than a share of the difference in a step: the paper drawing cannot end up wetter than the edge.
+                float share = min(0.45, u_bleed * u_dt * 2.0 * absorbAt(q) * abs(pa));
+                float take = share * (w - wn) * (1.0 - smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, wn)) / u_dt;
+                run[axis] += pa > 0.0 ? take : -take;
+            }
+        }
+    }
+#endif
     float out_ = (f.x + f.y + f.z + f.w + abs(run.x) + abs(run.y)) * u_dt;
     if (out_ > w) { f *= w / out_; run *= w / out_; }          // never move more water than the cell holds
     o_flux = f;

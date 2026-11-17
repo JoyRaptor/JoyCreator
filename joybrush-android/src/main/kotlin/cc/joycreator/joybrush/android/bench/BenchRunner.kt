@@ -154,6 +154,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val board: String? = null,
                /** `jb_wc_whole_tiles`: the watercolour line finishes whole tiles for every batch of dabs, as before 2026-11-16. */
                val wcWholeTiles: Boolean = false,
+               /** `jb_wc_finish_check`: each partial finish is compared with a whole one; the step `wccheck` in `jb_bench_then` reports. */
+               val wcFinishCheck: Boolean = false,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null,
                /** `jb_bench_under`: the brush that draws the test stroke's colour stripes (cases `tstripe*`), e.g. a soft airbrush. */
@@ -184,6 +186,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
         canvas.benchWcWholeTiles(spec.wcWholeTiles)
+        canvas.benchWcFinishCheck(spec.wcFinishCheck)
         if (spec.wcWholeTiles) Log.i(TAG, "watercolour line: whole tiles finished for every batch (the old way)")
         canvas.mediaLegacyWindow = spec.legacy
         spec.slope?.let { canvas.setMediaSlope(it[0], it[1]) }
@@ -295,6 +298,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
+            "wccheck" -> canvas.benchWcFinishReport { line -> Log.i(TAG, "then: wccheck: $line") }
             // addframe: a blank frame on the animation board (`jb_bench_board animation`); it becomes the frame shown, so
             // what was painted on the first frame is no longer on the screen and must still be saved and come back.
             "addframe" -> {
@@ -1128,6 +1132,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 board = intent.getStringExtra("jb_bench_board"),
                 wcWholeTiles = intent.getBooleanExtra("jb_wc_whole_tiles", false),
+                wcFinishCheck = intent.getBooleanExtra("jb_wc_finish_check", false),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },

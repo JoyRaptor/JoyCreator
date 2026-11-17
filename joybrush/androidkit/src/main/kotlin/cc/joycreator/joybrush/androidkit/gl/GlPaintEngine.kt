@@ -6035,6 +6035,11 @@ class GlPaintEngine(
     /** Bench: the watercolour line's finish redoes whole tiles for every batch of dabs, as it did until 2026-11-16 (before and after on one build). */
     @Volatile var wcFinishWholeTiles = false
 
+    /** Bench: every partial finish is followed by a whole one of the same tiles and the two are compared ([wcFinishChecked], [wcFinishWrong]). */
+    @Volatile var wcFinishCheck = false
+    @Volatile var wcFinishChecked = 0
+    @Volatile var wcFinishWrong = 0
+
     /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
     private fun addWatercolourDabs(dabs: List<Dab>) {
         val tile = strokeTileRect
@@ -6064,6 +6069,18 @@ class GlPaintEngine(
                     if (key in strokeTiles) touched.add(key)
                 }
             pass.finishInto(strokeTiles,0f,touched,only)
+            if (wcFinishCheck && touched.isNotEmpty()) {
+                // Bench: the same tiles finished whole must be the same tiles, texel for texel (fingerprints on the chip).
+                if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }
+                val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+                val texs = IntArray(touched.size) { strokeTiles.getValue(touched[it]) }
+                val part = hasher.prints(texs, BooleanArray(texs.size))
+                pass.finishInto(strokeTiles,0f,touched)
+                val whole = hasher.prints(texs, BooleanArray(texs.size))
+                wcFinishChecked += touched.size
+                if (part == null || whole == null) wcFinishWrong += touched.size
+                else wcFinishWrong += touched.indices.count { part[it] != whole[it] }
+            }
             return
         }
         // Tile board: the finish pools by reading coverage up to the edge/gravity widths away. Copies cover that halo round

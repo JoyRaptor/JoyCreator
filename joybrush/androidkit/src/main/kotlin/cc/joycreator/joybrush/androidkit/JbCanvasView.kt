@@ -746,6 +746,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** Bench: the watercolour line's finish as it was until 2026-11-16 (whole tiles for every batch of dabs), for a before and after on one build. */
     fun benchWcWholeTiles(on: Boolean) = onGl { engine.wcFinishWholeTiles = on }
 
+    /** Bench: check every partial finish of the watercolour line against a whole one ([on]); [benchWcFinishReport] says how it went. */
+    fun benchWcFinishCheck(on: Boolean) = onGl { engine.wcFinishCheck = on; engine.wcFinishChecked = 0; engine.wcFinishWrong = 0 }
+    fun benchWcFinishReport(ready: (String) -> Unit) = onGl {
+        val line = "${engine.wcFinishChecked} tile finishes checked against a whole-tile finish, ${engine.wcFinishWrong} differ"
+        mainThread.post { ready(line) }
+    }
+
     fun benchUnhogGpu() {
         onGl(allowLost = true) {
             if (benchHog.isNotEmpty()) GLES30.glDeleteTextures(benchHog.size, benchHog.toIntArray(), 0)

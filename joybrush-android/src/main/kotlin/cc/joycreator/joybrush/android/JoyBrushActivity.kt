@@ -751,7 +751,9 @@ class JoyBrushActivity : Activity() {
             benchLifeFile = f
             if (savedInstanceState == null) {
                 benchLifeSpec = bench
-                f.delete(); File(f.path + ".bak").delete(); File(f.path + ".tmp").delete()
+                // `jb_bench_life_keep`: the file an earlier run left is OPENED, as a drawing picked from the Library is,
+                // and this run's strokes go on top of it (the first save after an open; JBX-36).
+                if (!intent.getBooleanExtra("jb_bench_life_keep", false)) { f.delete(); File(f.path + ".bak").delete(); File(f.path + ".tmp").delete() }
             }
         } else if (bench != null) {
             benchMode = true
@@ -2846,6 +2848,7 @@ class JoyBrushActivity : Activity() {
         // save (the pen waited 0.45 s for a full page to be read on the Note 9). The first such save finds nothing
         // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
         // cannot stand in for what was not read.
+        val leaving = viewPausePending
         val sparse = dest is SaveDest.Working && !viewPausePending &&
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
         lateinit var take: (Boolean) -> Unit
@@ -2875,7 +2878,7 @@ class JoyBrushActivity : Activity() {
                                 "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
                             recovery.rememberWorking(file)
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole)
+                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole, leaving = leaving)
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)

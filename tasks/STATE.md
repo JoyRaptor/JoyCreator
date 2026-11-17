@@ -488,6 +488,9 @@ paper storage46,137,340logical mip bytes after adoption, not measured driver/tra
 peak. Actual brush/paper optics, borrower continuation, seams, save/export and owner
 acceptance remain pending. [Device receipt](joybrush/reviews/FULL_PAPER_GPU_20261030.json)
 and [current testing/compression/pack plan](joybrush/reviews/PAPER_TEST_PLAN_20261030.md).
+**11-17 size check:** the 45 masters measure 205.7 MB; half-width copies with JPEG heights measure 29.1 MB
+(7.1 times smaller, all 45 measured on the PC; nothing converted, nothing on a phone). The Note 9 no longer
+runs the 45-paper build. [Report](audits/paper_wrapup_20261117.md).
 [Full-library receipt](joybrush/reviews/FULL_PAPER_PHONE_BUILD_20261029.md). The subsequent
 compression benchmark targets10× smaller material data without assuming that ratio
 is achievable at acceptable quality; base-app versus downloadable-pack selection

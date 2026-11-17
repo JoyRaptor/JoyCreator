@@ -1,6 +1,6 @@
 # JB-PAPER-RES: compare paper detail, brush response and package size
 
-**Milestone:** M1 · **State:** 🟡 full45 evaluation installed; owner/GL acceptance open · **Owner:** JoyBrush coordinator + paper specialist (Codex) · **Checked:** 2026-10-29 againstded8d4699
+**Milestone:** M1 · **State:** 🟡 sizes measured 11-17 (205.7 MB to 29.1 MB proposed, owner picks owed); the 45-paper build is no longer on the Note 9; owner/GL acceptance open · **Owner:** JoyBrush coordinator + paper specialist (Codex) · **Checked:** 2026-11-17 (handoff at the end)
 
 ## Why it matters
 Keep convincing physical paper while choosing phone-friendly texture sizes. Compare the same crumpled paper at2048/1024/512 rather than silently lowering quality or shipping45 full-size textures.
@@ -92,3 +92,50 @@ The initial3-profile-only APK is superseded by the full45 evaluation install abo
 Numerical preparation
 is not measured physical paper accuracy or creative/GL/seam/feel acceptance. No
 codec experiment or runtime-format change was started.
+
+## Handoff 2026-11-17: size measured, selection proposed, nothing converted (paper wrap-up session, Claude Fable 5.2)
+
+Report for the owner: [audits/paper_wrapup_20261117.md](../audits/paper_wrapup_20261117.md). His options page:
+[design/PAPER-size-options.html](../design/PAPER-size-options.html). Data and scripts:
+[audits/paper_wrapup_20261117/](../audits/paper_wrapup_20261117/).
+
+**Checked against Codex's 11-17 handoff:** every number holds (135 master files, 205,722,497 bytes; both branches
+pushed at the stated commits; evaluation app 379,901,966 bytes with the stated fingerprint, 234.7 MB of it paper).
+**Stale:** the Note 9 no longer runs the evaluation build. On 11-17 it has the ordinary build installed 09:16
+(181.5 MB), with no `eval_` papers. The owner's "the papers look alike" was about the 29 shipping surfaces.
+
+**Found:**
+- No exact format shrinks the grain (lossless WebP saves 1%). Half width + JPEG: 205.7 MB to 29.1 MB (7.1 times),
+  22.1 MB if the water map keeps only the channel the shaders read, under 20 MB without the 5 doubles.
+  WebP gives the same sizes as JPEG and the JVM tests cannot read it, so JPEG.
+- Of the 45: 24 new materials, 7 re-makes of shipping papers from the same photos (`eval_owner_*`), 5 doubles
+  (`eval_earlier_` chalkboard_black_01, construction_tan_03, rice_cream_01, sugarcane_01, sugarcane_02 are the
+  same pictures as owner_2, 1, 7, 9, 10), 9 variants.
+- All 45 have relief 0.15 and `lightByDefault: false`; their six physical numbers are per family, untested.
+- No shader reads fluid G, B or A, nor `anisotropy` (only `jb_media_bake.frag` samples the fluid map; the wet
+  shaders read `.r`). 13 older surfaces have no fluid map and share the default numbers.
+- The chooser (`PaperSheetView`) draws 40 dp circles of a 1:1 crop; surface circles are lit grey, light capped
+  at 10%.
+
+**On branch `claude/paper-wrapup-20261117` (pushed, NOT landed; engine session, please look before it lands):**
+- `PaperCatalogues.problems`: a `packed: false` surface may end in `.jpg` (packed surfaces and fluid maps stay
+  PNG). Two new tests in `PaperCatalogueTest`. Inert: no shipped file uses it.
+- `joybrush/tools/paper/shrink_papers.py`: masters folder in, half-size copies and catalogue rows out, into a
+  folder of its own. Doubles texelPx and slopeRange, halves hexTexels (the rule of Codex's p1k profile).
+
+**Not done, in order:**
+- [ ] Owner's picks on the options page. Nothing is converted until then.
+- [ ] Prove a grey JPEG height decodes on Android as the JVM reads it (the evaluation branch's
+      `CrumplePaperProductionDecodeTest` is the template), and teach `lab/media/js/paper.js` line 37 and
+      `tools/paper/material_gpu_check.js` line 36 not to label every file `image/png`.
+- [ ] Reinstall the 45 on the Note 9 at the picked size beside the masters; then Codex's open gates (brush
+      families, seams, save/reopen, export) on the picked size.
+- [ ] Relief, Light and the six numbers per material, by painting.
+- [ ] Final ids and names (drop `eval_` and "Test"); the 7 re-makes take the shipping ids' places; hide, do not
+      delete, the 10 old procedural surfaces (documents store their ids).
+- [ ] Chooser: bigger swatches, a rubbed-pencil surface swatch, groups (a screens-lane job; owner sees it first).
+- [ ] Papers from packs (PACK-1 spec; nothing built). `LaunchMaterialsTest` counts only `*.png` toward its
+      25 MiB budget: JPEG heights would slip past it, so count every picture when heights change format.
+- [ ] Today's 17 one-megabyte height PNGs could go the same way (about 14.5 MB to about 7 MB): owner's eye first.
+
+**Not checked today:** nothing installed, nothing painted, no seam judged by eye, Play's size limits not looked up.

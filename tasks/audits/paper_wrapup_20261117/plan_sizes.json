@@ -1,0 +1,3152 @@
+{
+ "eval_expanded_firm": {
+  "name": "Crumpled paper 2048px",
+  "now": {
+   "look": 903017,
+   "height": 2369455,
+   "fluid": 553153
+  },
+  "v": {
+   "look1024_jpg88": 201982,
+   "look1024_jpg80": 147211,
+   "look1024_jpg70": 114991,
+   "height1024_png": 653928,
+   "height1024_jpg90": 295887,
+   "height1024_jpg90_err": [
+    3.07,
+    1.001,
+    0.0
+   ],
+   "height1024_jpg80": 184803,
+   "height1024_jpg80_err": [
+    4.46,
+    0.9997,
+    0.0
+   ],
+   "height1024_jpg65": 122784,
+   "height1024_jpg65_err": [
+    5.49,
+    0.9976,
+    0.001
+   ],
+   "height1024_jpg50": 91034,
+   "height1024_jpg50_err": [
+    6.12,
+    0.9963,
+    -0.001
+   ],
+   "look512_jpg88": 56685,
+   "look512_jpg80": 42306,
+   "look512_jpg70": 33499,
+   "height512_png": 156786,
+   "height512_jpg90": 67411,
+   "height512_jpg90_err": [
+    3.04,
+    1.0007,
+    -0.0
+   ],
+   "height512_jpg80": 40639,
+   "height512_jpg80_err": [
+    4.15,
+    0.9988,
+    0.002
+   ],
+   "height512_jpg65": 26858,
+   "height512_jpg65_err": [
+    4.85,
+    0.9971,
+    0.002
+   ],
+   "height512_jpg50": 20087,
+   "height512_jpg50_err": [
+    5.24,
+    0.9958,
+    0.01
+   ],
+   "fluid256_png": 175805,
+   "fluid512_R_jpg90": 44810,
+   "fluid256_R_jpg90": 16801,
+   "fluid256_R_png": 40310
+  }
+ },
+ "eval_linen_1": {
+  "name": "Test Fine linen canvas 1",
+  "now": {
+   "look": 2086059,
+   "height": 3212991,
+   "fluid": 570304
+  },
+  "v": {
+   "look1024_jpg88": 441348,
+   "look1024_jpg80": 344734,
+   "look1024_jpg70": 280938,
+   "height1024_png": 911338,
+   "height1024_jpg90": 539717,
+   "height1024_jpg90_err": [
+    3.79,
+    1.0059,
+    -0.002
+   ],
+   "height1024_jpg80": 394702,
+   "height1024_jpg80_err": [
+    6.73,
+    1.0091,
+    -0.0
+   ],
+   "height1024_jpg65": 295299,
+   "height1024_jpg65_err": [
+    9.72,
+    1.0082,
+    -0.003
+   ],
+   "height1024_jpg50": 238530,
+   "height1024_jpg50_err": [
+    11.82,
+    1.0023,
+    -0.002
+   ],
+   "look512_jpg88": 100264,
+   "look512_jpg80": 76041,
+   "look512_jpg70": 59063,
+   "height512_png": 222047,
+   "height512_jpg90": 115783,
+   "height512_jpg90_err": [
+    3.87,
+    1.0125,
+    -0.003
+   ],
+   "height512_jpg80": 81825,
+   "height512_jpg80_err": [
+    7.25,
+    1.0275,
+    0.004
+   ],
+   "height512_jpg65": 56150,
+   "height512_jpg65_err": [
+    10.78,
+    1.0182,
+    0.005
+   ],
+   "height512_jpg50": 41211,
+   "height512_jpg50_err": [
+    12.91,
+    0.9774,
+    -0.001
+   ],
+   "fluid256_png": 172944,
+   "fluid512_R_jpg90": 43595,
+   "fluid256_R_jpg90": 16532,
+   "fluid256_R_png": 40789
+  }
+ },
+ "eval_linen_2": {
+  "name": "Test Fine linen canvas 2",
+  "now": {
+   "look": 1590453,
+   "height": 3108075,
+   "fluid": 567196
+  },
+  "v": {
+   "look1024_jpg88": 318224,
+   "look1024_jpg80": 237659,
+   "look1024_jpg70": 190501,
+   "height1024_png": 883568,
+   "height1024_jpg90": 503830,
+   "height1024_jpg90_err": [
+    3.73,
+    1.0051,
+    0.003
+   ],
+   "height1024_jpg80": 358639,
+   "height1024_jpg80_err": [
+    6.18,
+    1.0039,
+    0.002
+   ],
+   "height1024_jpg65": 264537,
+   "height1024_jpg65_err": [
+    8.22,
+    0.9984,
+    -0.0
+   ],
+   "height1024_jpg50": 217450,
+   "height1024_jpg50_err": [
+    9.6,
+    0.9959,
+    -0.005
+   ],
+   "look512_jpg88": 70379,
+   "look512_jpg80": 50115,
+   "look512_jpg70": 39176,
+   "height512_png": 223807,
+   "height512_jpg90": 113347,
+   "height512_jpg90_err": [
+    3.81,
+    1.0104,
+    0.0
+   ],
+   "height512_jpg80": 78791,
+   "height512_jpg80_err": [
+    6.7,
+    1.0135,
+    0.002
+   ],
+   "height512_jpg65": 54255,
+   "height512_jpg65_err": [
+    9.26,
+    0.9966,
+    -0.001
+   ],
+   "height512_jpg50": 41635,
+   "height512_jpg50_err": [
+    10.7,
+    0.9776,
+    0.01
+   ],
+   "fluid256_png": 172692,
+   "fluid512_R_jpg90": 43784,
+   "fluid256_R_jpg90": 16838,
+   "fluid256_R_png": 40291
+  }
+ },
+ "eval_linen_3": {
+  "name": "Test Fine linen canvas 3",
+  "now": {
+   "look": 1792221,
+   "height": 3100745,
+   "fluid": 568722
+  },
+  "v": {
+   "look1024_jpg88": 390509,
+   "look1024_jpg80": 301257,
+   "look1024_jpg70": 242719,
+   "height1024_png": 888119,
+   "height1024_jpg90": 521460,
+   "height1024_jpg90_err": [
+    3.77,
+    1.0055,
+    0.001
+   ],
+   "height1024_jpg80": 375183,
+   "height1024_jpg80_err": [
+    6.38,
+    1.0054,
+    0.002
+   ],
+   "height1024_jpg65": 277003,
+   "height1024_jpg65_err": [
+    8.69,
+    1.0005,
+    -0.001
+   ],
+   "height1024_jpg50": 225309,
+   "height1024_jpg50_err": [
+    10.24,
+    0.9957,
+    0.01
+   ],
+   "look512_jpg88": 91430,
+   "look512_jpg80": 68361,
+   "look512_jpg70": 52255,
+   "height512_png": 227443,
+   "height512_jpg90": 118945,
+   "height512_jpg90_err": [
+    3.84,
+    1.0108,
+    0.003
+   ],
+   "height512_jpg80": 84746,
+   "height512_jpg80_err": [
+    7.06,
+    1.0211,
+    0.003
+   ],
+   "height512_jpg65": 59035,
+   "height512_jpg65_err": [
+    10.24,
+    1.0104,
+    -0.007
+   ],
+   "height512_jpg50": 44768,
+   "height512_jpg50_err": [
+    12.2,
+    0.9885,
+    -0.006
+   ],
+   "fluid256_png": 172147,
+   "fluid512_R_jpg90": 40656,
+   "fluid256_R_jpg90": 15664,
+   "fluid256_R_png": 38596
+  }
+ },
+ "eval_duck_1": {
+  "name": "Test Cotton duck canvas 1",
+  "now": {
+   "look": 1508548,
+   "height": 2839821,
+   "fluid": 541412
+  },
+  "v": {
+   "look1024_jpg88": 316778,
+   "look1024_jpg80": 235907,
+   "look1024_jpg70": 186364,
+   "height1024_png": 817544,
+   "height1024_jpg90": 509651,
+   "height1024_jpg90_err": [
+    3.63,
+    1.0044,
+    0.001
+   ],
+   "height1024_jpg80": 368137,
+   "height1024_jpg80_err": [
+    5.97,
+    1.0047,
+    0.002
+   ],
+   "height1024_jpg65": 272931,
+   "height1024_jpg65_err": [
+    8.22,
+    1.002,
+    -0.002
+   ],
+   "height1024_jpg50": 221359,
+   "height1024_jpg50_err": [
+    9.76,
+    0.9972,
+    0.004
+   ],
+   "look512_jpg88": 87156,
+   "look512_jpg80": 64865,
+   "look512_jpg70": 50862,
+   "height512_png": 218166,
+   "height512_jpg90": 133549,
+   "height512_jpg90_err": [
+    3.85,
+    1.0084,
+    0.004
+   ],
+   "height512_jpg80": 96545,
+   "height512_jpg80_err": [
+    6.84,
+    1.0117,
+    0.002
+   ],
+   "height512_jpg65": 70674,
+   "height512_jpg65_err": [
+    9.86,
+    1.0109,
+    0.007
+   ],
+   "height512_jpg50": 56522,
+   "height512_jpg50_err": [
+    11.93,
+    0.9982,
+    -0.024
+   ],
+   "fluid256_png": 167371,
+   "fluid512_R_jpg90": 44023,
+   "fluid256_R_jpg90": 16942,
+   "fluid256_R_png": 40329
+  }
+ },
+ "eval_duck_2": {
+  "name": "Test Cotton duck canvas 2",
+  "now": {
+   "look": 1546601,
+   "height": 3054922,
+   "fluid": 545892
+  },
+  "v": {
+   "look1024_jpg88": 363398,
+   "look1024_jpg80": 272321,
+   "look1024_jpg70": 214635,
+   "height1024_png": 865056,
+   "height1024_jpg90": 552146,
+   "height1024_jpg90_err": [
+    3.8,
+    1.0064,
+    0.001
+   ],
+   "height1024_jpg80": 403761,
+   "height1024_jpg80_err": [
+    6.71,
+    1.0099,
+    0.001
+   ],
+   "height1024_jpg65": 298123,
+   "height1024_jpg65_err": [
+    9.63,
+    1.0064,
+    -0.001
+   ],
+   "height1024_jpg50": 239949,
+   "height1024_jpg50_err": [
+    11.58,
+    0.9985,
+    0.003
+   ],
+   "look512_jpg88": 84231,
+   "look512_jpg80": 60971,
+   "look512_jpg70": 46859,
+   "height512_png": 221205,
+   "height512_jpg90": 129818,
+   "height512_jpg90_err": [
+    3.87,
+    1.0115,
+    0.0
+   ],
+   "height512_jpg80": 94768,
+   "height512_jpg80_err": [
+    7.39,
+    1.0276,
+    -0.0
+   ],
+   "height512_jpg65": 67037,
+   "height512_jpg65_err": [
+    11.02,
+    1.019,
+    0.005
+   ],
+   "height512_jpg50": 51199,
+   "height512_jpg50_err": [
+    13.34,
+    0.9964,
+    -0.002
+   ],
+   "fluid256_png": 166130,
+   "fluid512_R_jpg90": 38698,
+   "fluid256_R_jpg90": 15087,
+   "fluid256_R_png": 36708
+  }
+ },
+ "eval_duck_3": {
+  "name": "Test Cotton duck canvas 3",
+  "now": {
+   "look": 1535633,
+   "height": 2870583,
+   "fluid": 549504
+  },
+  "v": {
+   "look1024_jpg88": 324624,
+   "look1024_jpg80": 243695,
+   "look1024_jpg70": 192739,
+   "height1024_png": 832877,
+   "height1024_jpg90": 504568,
+   "height1024_jpg90_err": [
+    3.55,
+    1.0038,
+    0.001
+   ],
+   "height1024_jpg80": 365964,
+   "height1024_jpg80_err": [
+    5.81,
+    1.0042,
+    0.002
+   ],
+   "height1024_jpg65": 273801,
+   "height1024_jpg65_err": [
+    8.0,
+    1.0017,
+    -0.002
+   ],
+   "height1024_jpg50": 222681,
+   "height1024_jpg50_err": [
+    9.48,
+    0.9973,
+    0.002
+   ],
+   "look512_jpg88": 91879,
+   "look512_jpg80": 69628,
+   "look512_jpg70": 56290,
+   "height512_png": 222160,
+   "height512_jpg90": 138650,
+   "height512_jpg90_err": [
+    3.87,
+    1.0083,
+    0.003
+   ],
+   "height512_jpg80": 101330,
+   "height512_jpg80_err": [
+    7.08,
+    1.0132,
+    0.004
+   ],
+   "height512_jpg65": 73549,
+   "height512_jpg65_err": [
+    10.13,
+    1.0052,
+    0.004
+   ],
+   "height512_jpg50": 59206,
+   "height512_jpg50_err": [
+    12.04,
+    0.9948,
+    -0.001
+   ],
+   "fluid256_png": 171195,
+   "fluid512_R_jpg90": 45882,
+   "fluid256_R_jpg90": 17497,
+   "fluid256_R_png": 41794
+  }
+ },
+ "eval_jute_2": {
+  "name": "Test Rough jute canvas 2",
+  "now": {
+   "look": 1724513,
+   "height": 3292378,
+   "fluid": 563874
+  },
+  "v": {
+   "look1024_jpg88": 373022,
+   "look1024_jpg80": 281229,
+   "look1024_jpg70": 224298,
+   "height1024_png": 921345,
+   "height1024_jpg90": 600717,
+   "height1024_jpg90_err": [
+    3.85,
+    1.0045,
+    -0.0
+   ],
+   "height1024_jpg80": 452131,
+   "height1024_jpg80_err": [
+    7.17,
+    1.0092,
+    0.001
+   ],
+   "height1024_jpg65": 339114,
+   "height1024_jpg65_err": [
+    10.69,
+    1.0077,
+    -0.002
+   ],
+   "height1024_jpg50": 275854,
+   "height1024_jpg50_err": [
+    13.07,
+    1.0024,
+    0.002
+   ],
+   "look512_jpg88": 97872,
+   "look512_jpg80": 73876,
+   "look512_jpg70": 58604,
+   "height512_png": 235039,
+   "height512_jpg90": 148967,
+   "height512_jpg90_err": [
+    3.89,
+    1.0075,
+    0.001
+   ],
+   "height512_jpg80": 113393,
+   "height512_jpg80_err": [
+    7.64,
+    1.0211,
+    0.006
+   ],
+   "height512_jpg65": 84544,
+   "height512_jpg65_err": [
+    12.03,
+    1.0246,
+    0.009
+   ],
+   "height512_jpg50": 67306,
+   "height512_jpg50_err": [
+    15.11,
+    1.019,
+    0.017
+   ],
+   "fluid256_png": 173829,
+   "fluid512_R_jpg90": 47659,
+   "fluid256_R_jpg90": 18133,
+   "fluid256_R_png": 43471
+  }
+ },
+ "eval_jute_3": {
+  "name": "Test Rough jute canvas 3",
+  "now": {
+   "look": 1948310,
+   "height": 3419519,
+   "fluid": 567868
+  },
+  "v": {
+   "look1024_jpg88": 425048,
+   "look1024_jpg80": 326213,
+   "look1024_jpg70": 260317,
+   "height1024_png": 936977,
+   "height1024_jpg90": 611080,
+   "height1024_jpg90_err": [
+    3.86,
+    1.0044,
+    0.0
+   ],
+   "height1024_jpg80": 465071,
+   "height1024_jpg80_err": [
+    7.34,
+    1.0105,
+    -0.0
+   ],
+   "height1024_jpg65": 351156,
+   "height1024_jpg65_err": [
+    11.3,
+    1.0119,
+    0.003
+   ],
+   "height1024_jpg50": 284663,
+   "height1024_jpg50_err": [
+    14.04,
+    1.0062,
+    0.0
+   ],
+   "look512_jpg88": 110309,
+   "look512_jpg80": 84785,
+   "look512_jpg70": 67887,
+   "height512_png": 233660,
+   "height512_jpg90": 149791,
+   "height512_jpg90_err": [
+    3.89,
+    1.0075,
+    0.001
+   ],
+   "height512_jpg80": 114423,
+   "height512_jpg80_err": [
+    7.64,
+    1.0216,
+    -0.008
+   ],
+   "height512_jpg65": 85110,
+   "height512_jpg65_err": [
+    12.09,
+    1.0243,
+    0.005
+   ],
+   "height512_jpg50": 67726,
+   "height512_jpg50_err": [
+    15.1,
+    1.0128,
+    0.006
+   ],
+   "fluid256_png": 177931,
+   "fluid512_R_jpg90": 48908,
+   "fluid256_R_jpg90": 18326,
+   "fluid256_R_png": 42582
+  }
+ },
+ "eval_papyrus_1": {
+  "name": "Test Papyrus 1",
+  "now": {
+   "look": 1767223,
+   "height": 2606292,
+   "fluid": 508766
+  },
+  "v": {
+   "look1024_jpg88": 316748,
+   "look1024_jpg80": 235207,
+   "look1024_jpg70": 185458,
+   "height1024_png": 748544,
+   "height1024_jpg90": 421895,
+   "height1024_jpg90_err": [
+    3.34,
+    1.0046,
+    -0.001
+   ],
+   "height1024_jpg80": 293896,
+   "height1024_jpg80_err": [
+    5.25,
+    1.0038,
+    0.003
+   ],
+   "height1024_jpg65": 214753,
+   "height1024_jpg65_err": [
+    6.98,
+    0.9983,
+    0.002
+   ],
+   "height1024_jpg50": 173003,
+   "height1024_jpg50_err": [
+    8.15,
+    0.9941,
+    -0.006
+   ],
+   "look512_jpg88": 77231,
+   "look512_jpg80": 57165,
+   "look512_jpg70": 45149,
+   "height512_png": 191132,
+   "height512_jpg90": 107064,
+   "height512_jpg90_err": [
+    3.67,
+    1.0103,
+    0.0
+   ],
+   "height512_jpg80": 71098,
+   "height512_jpg80_err": [
+    5.84,
+    1.0037,
+    0.002
+   ],
+   "height512_jpg65": 50398,
+   "height512_jpg65_err": [
+    7.57,
+    0.9912,
+    -0.012
+   ],
+   "height512_jpg50": 40008,
+   "height512_jpg50_err": [
+    8.75,
+    0.986,
+    -0.005
+   ],
+   "fluid256_png": 159770,
+   "fluid512_R_jpg90": 39164,
+   "fluid256_R_jpg90": 14883,
+   "fluid256_R_png": 37469
+  }
+ },
+ "eval_papyrus_2": {
+  "name": "Test Papyrus 2",
+  "now": {
+   "look": 1590194,
+   "height": 2534571,
+   "fluid": 549516
+  },
+  "v": {
+   "look1024_jpg88": 291947,
+   "look1024_jpg80": 217162,
+   "look1024_jpg70": 171346,
+   "height1024_png": 739033,
+   "height1024_jpg90": 416823,
+   "height1024_jpg90_err": [
+    3.18,
+    1.004,
+    -0.002
+   ],
+   "height1024_jpg80": 294343,
+   "height1024_jpg80_err": [
+    4.93,
+    1.0036,
+    -0.0
+   ],
+   "height1024_jpg65": 217502,
+   "height1024_jpg65_err": [
+    6.62,
+    1.0006,
+    -0.002
+   ],
+   "height1024_jpg50": 177158,
+   "height1024_jpg50_err": [
+    7.85,
+    0.9989,
+    -0.001
+   ],
+   "look512_jpg88": 70455,
+   "look512_jpg80": 52104,
+   "look512_jpg70": 40795,
+   "height512_png": 192665,
+   "height512_jpg90": 108839,
+   "height512_jpg90_err": [
+    3.6,
+    1.0094,
+    0.001
+   ],
+   "height512_jpg80": 73709,
+   "height512_jpg80_err": [
+    5.63,
+    1.0053,
+    -0.001
+   ],
+   "height512_jpg65": 52960,
+   "height512_jpg65_err": [
+    7.45,
+    0.997,
+    0.002
+   ],
+   "height512_jpg50": 42172,
+   "height512_jpg50_err": [
+    8.73,
+    0.9893,
+    0.015
+   ],
+   "fluid256_png": 171616,
+   "fluid512_R_jpg90": 43700,
+   "fluid256_R_jpg90": 16464,
+   "fluid256_R_png": 40663
+  }
+ },
+ "eval_papyrus_3": {
+  "name": "Test Papyrus 3",
+  "now": {
+   "look": 1465106,
+   "height": 2590574,
+   "fluid": 522283
+  },
+  "v": {
+   "look1024_jpg88": 274526,
+   "look1024_jpg80": 203121,
+   "look1024_jpg70": 159472,
+   "height1024_png": 752437,
+   "height1024_jpg90": 419988,
+   "height1024_jpg90_err": [
+    3.24,
+    1.0041,
+    0.0
+   ],
+   "height1024_jpg80": 295818,
+   "height1024_jpg80_err": [
+    5.05,
+    1.0038,
+    0.002
+   ],
+   "height1024_jpg65": 217660,
+   "height1024_jpg65_err": [
+    6.79,
+    1.0004,
+    0.004
+   ],
+   "height1024_jpg50": 176280,
+   "height1024_jpg50_err": [
+    8.02,
+    0.997,
+    0.006
+   ],
+   "look512_jpg88": 68233,
+   "look512_jpg80": 50276,
+   "look512_jpg70": 39210,
+   "height512_png": 194712,
+   "height512_jpg90": 108374,
+   "height512_jpg90_err": [
+    3.62,
+    1.0098,
+    -0.003
+   ],
+   "height512_jpg80": 73300,
+   "height512_jpg80_err": [
+    5.79,
+    1.0059,
+    0.005
+   ],
+   "height512_jpg65": 52500,
+   "height512_jpg65_err": [
+    7.7,
+    0.9983,
+    -0.002
+   ],
+   "height512_jpg50": 41781,
+   "height512_jpg50_err": [
+    9.05,
+    0.9906,
+    0.005
+   ],
+   "fluid256_png": 163054,
+   "fluid512_R_jpg90": 37864,
+   "fluid256_R_jpg90": 14442,
+   "fluid256_R_png": 37154
+  }
+ },
+ "eval_parchment_1": {
+  "name": "Test Parchment 1",
+  "now": {
+   "look": 1216522,
+   "height": 2727465,
+   "fluid": 550096
+  },
+  "v": {
+   "look1024_jpg88": 190437,
+   "look1024_jpg80": 123217,
+   "look1024_jpg70": 87205,
+   "height1024_png": 718719,
+   "height1024_jpg90": 321741,
+   "height1024_jpg90_err": [
+    3.73,
+    1.0621,
+    0.0
+   ],
+   "height1024_jpg80": 185095,
+   "height1024_jpg80_err": [
+    5.89,
+    0.9993,
+    0.003
+   ],
+   "height1024_jpg65": 104719,
+   "height1024_jpg65_err": [
+    7.21,
+    0.8398,
+    0.009
+   ],
+   "height1024_jpg50": 68681,
+   "height1024_jpg50_err": [
+    7.8,
+    0.7419,
+    -0.005
+   ],
+   "look512_jpg88": 36071,
+   "look512_jpg80": 23237,
+   "look512_jpg70": 16239,
+   "height512_png": 153856,
+   "height512_jpg90": 42993,
+   "height512_jpg90_err": [
+    3.27,
+    1.03,
+    -0.001
+   ],
+   "height512_jpg80": 16424,
+   "height512_jpg80_err": [
+    4.07,
+    0.6726,
+    -0.001
+   ],
+   "height512_jpg65": 6003,
+   "height512_jpg65_err": [
+    4.32,
+    0.4661,
+    0.028
+   ],
+   "height512_jpg50": 2416,
+   "height512_jpg50_err": [
+    4.4,
+    0.3423,
+    -0.065
+   ],
+   "fluid256_png": 172275,
+   "fluid512_R_jpg90": 39142,
+   "fluid256_R_jpg90": 14853,
+   "fluid256_R_png": 37410
+  }
+ },
+ "eval_parchment_2": {
+  "name": "Test Parchment 2",
+  "now": {
+   "look": 1418683,
+   "height": 2671898,
+   "fluid": 562703
+  },
+  "v": {
+   "look1024_jpg88": 231697,
+   "look1024_jpg80": 158367,
+   "look1024_jpg70": 116042,
+   "height1024_png": 717628,
+   "height1024_jpg90": 330622,
+   "height1024_jpg90_err": [
+    3.63,
+    1.0467,
+    0.003
+   ],
+   "height1024_jpg80": 197647,
+   "height1024_jpg80_err": [
+    5.62,
+    0.998,
+    0.003
+   ],
+   "height1024_jpg65": 118251,
+   "height1024_jpg65_err": [
+    6.91,
+    0.8834,
+    -0.003
+   ],
+   "height1024_jpg50": 81743,
+   "height1024_jpg50_err": [
+    7.57,
+    0.8132,
+    -0.008
+   ],
+   "look512_jpg88": 48264,
+   "look512_jpg80": 31883,
+   "look512_jpg70": 22849,
+   "height512_png": 162037,
+   "height512_jpg90": 51646,
+   "height512_jpg90_err": [
+    3.5,
+    1.0736,
+    0.003
+   ],
+   "height512_jpg80": 21349,
+   "height512_jpg80_err": [
+    4.65,
+    0.7677,
+    0.002
+   ],
+   "height512_jpg65": 8607,
+   "height512_jpg65_err": [
+    5.06,
+    0.532,
+    0.003
+   ],
+   "height512_jpg50": 3690,
+   "height512_jpg50_err": [
+    5.19,
+    0.3895,
+    -0.035
+   ],
+   "fluid256_png": 174399,
+   "fluid512_R_jpg90": 40322,
+   "fluid256_R_jpg90": 15234,
+   "fluid256_R_png": 38388
+  }
+ },
+ "eval_parchment_3": {
+  "name": "Test Parchment 3",
+  "now": {
+   "look": 1314061,
+   "height": 2618514,
+   "fluid": 562083
+  },
+  "v": {
+   "look1024_jpg88": 261827,
+   "look1024_jpg80": 187191,
+   "look1024_jpg70": 142445,
+   "height1024_png": 710509,
+   "height1024_jpg90": 329162,
+   "height1024_jpg90_err": [
+    3.59,
+    1.042,
+    0.003
+   ],
+   "height1024_jpg80": 198444,
+   "height1024_jpg80_err": [
+    5.51,
+    0.9978,
+    0.003
+   ],
+   "height1024_jpg65": 122526,
+   "height1024_jpg65_err": [
+    6.81,
+    0.8972,
+    0.003
+   ],
+   "height1024_jpg50": 85915,
+   "height1024_jpg50_err": [
+    7.48,
+    0.8311,
+    0.006
+   ],
+   "look512_jpg88": 57041,
+   "look512_jpg80": 39598,
+   "look512_jpg70": 29554,
+   "height512_png": 161111,
+   "height512_jpg90": 53148,
+   "height512_jpg90_err": [
+    3.46,
+    1.0609,
+    0.002
+   ],
+   "height512_jpg80": 23610,
+   "height512_jpg80_err": [
+    4.65,
+    0.8156,
+    0.002
+   ],
+   "height512_jpg65": 10516,
+   "height512_jpg65_err": [
+    5.13,
+    0.5909,
+    0.01
+   ],
+   "height512_jpg50": 4910,
+   "height512_jpg50_err": [
+    5.3,
+    0.4567,
+    -0.006
+   ],
+   "fluid256_png": 175377,
+   "fluid512_R_jpg90": 45282,
+   "fluid256_R_jpg90": 17075,
+   "fluid256_R_png": 40452
+  }
+ },
+ "eval_silk_1": {
+  "name": "Test Silk 1",
+  "now": {
+   "look": 1393403,
+   "height": 2178323,
+   "fluid": 543880
+  },
+  "v": {
+   "look1024_jpg88": 306256,
+   "look1024_jpg80": 228364,
+   "look1024_jpg70": 183735,
+   "height1024_png": 652229,
+   "height1024_jpg90": 327620,
+   "height1024_jpg90_err": [
+    2.68,
+    1.0063,
+    -0.0
+   ],
+   "height1024_jpg80": 218994,
+   "height1024_jpg80_err": [
+    3.83,
+    0.9997,
+    -0.002
+   ],
+   "height1024_jpg65": 155426,
+   "height1024_jpg65_err": [
+    4.83,
+    0.9876,
+    -0.003
+   ],
+   "height1024_jpg50": 122778,
+   "height1024_jpg50_err": [
+    5.55,
+    0.9832,
+    0.012
+   ],
+   "look512_jpg88": 84242,
+   "look512_jpg80": 62106,
+   "look512_jpg70": 49011,
+   "height512_png": 173583,
+   "height512_jpg90": 84013,
+   "height512_jpg90_err": [
+    3.32,
+    1.0231,
+    0.0
+   ],
+   "height512_jpg80": 52850,
+   "height512_jpg80_err": [
+    4.95,
+    0.9906,
+    -0.003
+   ],
+   "height512_jpg65": 33939,
+   "height512_jpg65_err": [
+    6.03,
+    0.9306,
+    -0.005
+   ],
+   "height512_jpg50": 24475,
+   "height512_jpg50_err": [
+    6.55,
+    0.8925,
+    -0.004
+   ],
+   "fluid256_png": 167226,
+   "fluid512_R_jpg90": 42013,
+   "fluid256_R_jpg90": 16261,
+   "fluid256_R_png": 38798
+  }
+ },
+ "eval_silk_2": {
+  "name": "Test Silk 2",
+  "now": {
+   "look": 1616855,
+   "height": 2470802,
+   "fluid": 485323
+  },
+  "v": {
+   "look1024_jpg88": 291651,
+   "look1024_jpg80": 213410,
+   "look1024_jpg70": 167958,
+   "height1024_png": 642950,
+   "height1024_jpg90": 295687,
+   "height1024_jpg90_err": [
+    2.97,
+    1.0063,
+    -0.0
+   ],
+   "height1024_jpg80": 188232,
+   "height1024_jpg80_err": [
+    4.11,
+    0.9919,
+    0.0
+   ],
+   "height1024_jpg65": 129708,
+   "height1024_jpg65_err": [
+    5.07,
+    0.9856,
+    -0.007
+   ],
+   "height1024_jpg50": 99264,
+   "height1024_jpg50_err": [
+    5.9,
+    0.9907,
+    -0.005
+   ],
+   "look512_jpg88": 62258,
+   "look512_jpg80": 45237,
+   "look512_jpg70": 35325,
+   "height512_png": 145321,
+   "height512_jpg90": 56277,
+   "height512_jpg90_err": [
+    2.62,
+    1.0004,
+    -0.002
+   ],
+   "height512_jpg80": 33651,
+   "height512_jpg80_err": [
+    3.45,
+    0.9788,
+    -0.003
+   ],
+   "height512_jpg65": 21661,
+   "height512_jpg65_err": [
+    4.24,
+    0.9738,
+    -0.008
+   ],
+   "height512_jpg50": 15399,
+   "height512_jpg50_err": [
+    4.84,
+    0.9436,
+    0.001
+   ],
+   "fluid256_png": 152316,
+   "fluid512_R_jpg90": 43062,
+   "fluid256_R_jpg90": 16397,
+   "fluid256_R_png": 39415
+  }
+ },
+ "eval_silk_3": {
+  "name": "Test Silk 3",
+  "now": {
+   "look": 1374552,
+   "height": 2160613,
+   "fluid": 626058
+  },
+  "v": {
+   "look1024_jpg88": 341643,
+   "look1024_jpg80": 262399,
+   "look1024_jpg70": 211649,
+   "height1024_png": 638179,
+   "height1024_jpg90": 298502,
+   "height1024_jpg90_err": [
+    2.59,
+    1.0087,
+    -0.005
+   ],
+   "height1024_jpg80": 194213,
+   "height1024_jpg80_err": [
+    3.66,
+    0.9977,
+    -0.004
+   ],
+   "height1024_jpg65": 135357,
+   "height1024_jpg65_err": [
+    4.61,
+    0.9764,
+    -0.007
+   ],
+   "height1024_jpg50": 103744,
+   "height1024_jpg50_err": [
+    5.26,
+    0.965,
+    0.003
+   ],
+   "look512_jpg88": 90835,
+   "look512_jpg80": 67323,
+   "look512_jpg70": 50808,
+   "height512_png": 169951,
+   "height512_jpg90": 69235,
+   "height512_jpg90_err": [
+    3.43,
+    1.0426,
+    -0.007
+   ],
+   "height512_jpg80": 38516,
+   "height512_jpg80_err": [
+    4.88,
+    0.948,
+    -0.007
+   ],
+   "height512_jpg65": 22255,
+   "height512_jpg65_err": [
+    5.79,
+    0.8699,
+    -0.019
+   ],
+   "height512_jpg50": 14559,
+   "height512_jpg50_err": [
+    6.34,
+    0.7966,
+    -0.058
+   ],
+   "fluid256_png": 185976,
+   "fluid512_R_jpg90": 41855,
+   "fluid256_R_jpg90": 15652,
+   "fluid256_R_png": 41283
+  }
+ },
+ "eval_fabric_1": {
+  "name": "Test General fabric 1",
+  "now": {
+   "look": 1414108,
+   "height": 2661055,
+   "fluid": 540163
+  },
+  "v": {
+   "look1024_jpg88": 306003,
+   "look1024_jpg80": 225713,
+   "look1024_jpg70": 178668,
+   "height1024_png": 765064,
+   "height1024_jpg90": 436262,
+   "height1024_jpg90_err": [
+    3.46,
+    1.0071,
+    0.001
+   ],
+   "height1024_jpg80": 300587,
+   "height1024_jpg80_err": [
+    5.38,
+    1.0035,
+    0.0
+   ],
+   "height1024_jpg65": 215881,
+   "height1024_jpg65_err": [
+    7.01,
+    0.9932,
+    -0.002
+   ],
+   "height1024_jpg50": 172715,
+   "height1024_jpg50_err": [
+    8.0,
+    0.9841,
+    0.007
+   ],
+   "look512_jpg88": 81467,
+   "look512_jpg80": 59965,
+   "look512_jpg70": 46898,
+   "height512_png": 199592,
+   "height512_jpg90": 112750,
+   "height512_jpg90_err": [
+    3.76,
+    1.0153,
+    0.003
+   ],
+   "height512_jpg80": 77347,
+   "height512_jpg80_err": [
+    6.31,
+    1.0163,
+    -0.0
+   ],
+   "height512_jpg65": 53387,
+   "height512_jpg65_err": [
+    8.64,
+    0.9951,
+    -0.003
+   ],
+   "height512_jpg50": 39666,
+   "height512_jpg50_err": [
+    9.9,
+    0.9547,
+    -0.008
+   ],
+   "fluid256_png": 166421,
+   "fluid512_R_jpg90": 41902,
+   "fluid256_R_jpg90": 16221,
+   "fluid256_R_png": 38980
+  }
+ },
+ "eval_fabric_2": {
+  "name": "Test General fabric 2",
+  "now": {
+   "look": 1438806,
+   "height": 2680273,
+   "fluid": 556446
+  },
+  "v": {
+   "look1024_jpg88": 347982,
+   "look1024_jpg80": 270593,
+   "look1024_jpg70": 221590,
+   "height1024_png": 785727,
+   "height1024_jpg90": 434129,
+   "height1024_jpg90_err": [
+    3.2,
+    1.0048,
+    0.0
+   ],
+   "height1024_jpg80": 307442,
+   "height1024_jpg80_err": [
+    4.93,
+    1.0038,
+    -0.004
+   ],
+   "height1024_jpg65": 225536,
+   "height1024_jpg65_err": [
+    6.58,
+    0.9995,
+    0.001
+   ],
+   "height1024_jpg50": 182945,
+   "height1024_jpg50_err": [
+    7.73,
+    0.9954,
+    0.004
+   ],
+   "look512_jpg88": 105953,
+   "look512_jpg80": 82170,
+   "look512_jpg70": 67094,
+   "height512_png": 207602,
+   "height512_jpg90": 119699,
+   "height512_jpg90_err": [
+    3.8,
+    1.0166,
+    -0.002
+   ],
+   "height512_jpg80": 83301,
+   "height512_jpg80_err": [
+    6.47,
+    1.0149,
+    0.001
+   ],
+   "height512_jpg65": 59630,
+   "height512_jpg65_err": [
+    8.84,
+    1.0062,
+    -0.015
+   ],
+   "height512_jpg50": 46992,
+   "height512_jpg50_err": [
+    10.64,
+    1.0097,
+    -0.007
+   ],
+   "fluid256_png": 175409,
+   "fluid512_R_jpg90": 48284,
+   "fluid256_R_jpg90": 18702,
+   "fluid256_R_png": 42105
+  }
+ },
+ "eval_fabric_3": {
+  "name": "Test General fabric 3",
+  "now": {
+   "look": 1413187,
+   "height": 2961605,
+   "fluid": 566487
+  },
+  "v": {
+   "look1024_jpg88": 273005,
+   "look1024_jpg80": 200158,
+   "look1024_jpg70": 156053,
+   "height1024_png": 831755,
+   "height1024_jpg90": 481011,
+   "height1024_jpg90_err": [
+    3.73,
+    1.0108,
+    0.001
+   ],
+   "height1024_jpg80": 333588,
+   "height1024_jpg80_err": [
+    6.18,
+    1.0086,
+    -0.003
+   ],
+   "height1024_jpg65": 237992,
+   "height1024_jpg65_err": [
+    8.3,
+    0.9969,
+    0.004
+   ],
+   "height1024_jpg50": 188354,
+   "height1024_jpg50_err": [
+    9.64,
+    0.9826,
+    -0.008
+   ],
+   "look512_jpg88": 65609,
+   "look512_jpg80": 46194,
+   "look512_jpg70": 34282,
+   "height512_png": 210484,
+   "height512_jpg90": 108510,
+   "height512_jpg90_err": [
+    3.83,
+    1.023,
+    0.002
+   ],
+   "height512_jpg80": 73742,
+   "height512_jpg80_err": [
+    6.89,
+    1.0342,
+    -0.004
+   ],
+   "height512_jpg65": 48365,
+   "height512_jpg65_err": [
+    9.6,
+    0.9983,
+    -0.011
+   ],
+   "height512_jpg50": 35005,
+   "height512_jpg50_err": [
+    11.16,
+    0.9496,
+    0.002
+   ],
+   "fluid256_png": 172025,
+   "fluid512_R_jpg90": 44465,
+   "fluid256_R_jpg90": 16752,
+   "fluid256_R_png": 42932
+  }
+ },
+ "eval_cement_1": {
+  "name": "Test Cement 1",
+  "now": {
+   "look": 1622927,
+   "height": 3419053,
+   "fluid": 564839
+  },
+  "v": {
+   "look1024_jpg88": 315611,
+   "look1024_jpg80": 224788,
+   "look1024_jpg70": 166397,
+   "height1024_png": 912642,
+   "height1024_jpg90": 584705,
+   "height1024_jpg90_err": [
+    3.88,
+    1.0074,
+    0.002
+   ],
+   "height1024_jpg80": 442300,
+   "height1024_jpg80_err": [
+    7.57,
+    1.0201,
+    -0.002
+   ],
+   "height1024_jpg65": 324432,
+   "height1024_jpg65_err": [
+    11.69,
+    1.0175,
+    -0.002
+   ],
+   "height1024_jpg50": 255267,
+   "height1024_jpg50_err": [
+    14.27,
+    0.9994,
+    -0.005
+   ],
+   "look512_jpg88": 61717,
+   "look512_jpg80": 41353,
+   "look512_jpg70": 29701,
+   "height512_png": 223472,
+   "height512_jpg90": 135381,
+   "height512_jpg90_err": [
+    3.89,
+    1.0135,
+    -0.001
+   ],
+   "height512_jpg80": 99928,
+   "height512_jpg80_err": [
+    7.59,
+    1.0359,
+    -0.0
+   ],
+   "height512_jpg65": 71101,
+   "height512_jpg65_err": [
+    11.67,
+    1.0275,
+    0.005
+   ],
+   "height512_jpg50": 54482,
+   "height512_jpg50_err": [
+    14.16,
+    0.993,
+    -0.002
+   ],
+   "fluid256_png": 175015,
+   "fluid512_R_jpg90": 41628,
+   "fluid256_R_jpg90": 15877,
+   "fluid256_R_png": 38811
+  }
+ },
+ "eval_expanded_handled": {
+  "name": "Test Gently handled white paper",
+  "now": {
+   "look": 970841,
+   "height": 1563500,
+   "fluid": 548223
+  },
+  "v": {
+   "look1024_jpg88": 179412,
+   "look1024_jpg80": 117881,
+   "look1024_jpg70": 85545,
+   "height1024_png": 443823,
+   "height1024_jpg90": 91368,
+   "height1024_jpg90_err": [
+    1.64,
+    0.9955,
+    -0.0
+   ],
+   "height1024_jpg80": 36210,
+   "height1024_jpg80_err": [
+    1.89,
+    0.9916,
+    0.021
+   ],
+   "height1024_jpg65": 12369,
+   "height1024_jpg65_err": [
+    2.05,
+    0.9867,
+    0.047
+   ],
+   "height1024_jpg50": 6460,
+   "height1024_jpg50_err": [
+    2.11,
+    0.985,
+    -0.001
+   ],
+   "look512_jpg88": 33664,
+   "look512_jpg80": 21784,
+   "look512_jpg70": 15228,
+   "height512_png": 96399,
+   "height512_jpg90": 10821,
+   "height512_jpg90_err": [
+    1.1,
+    0.9969,
+    0.001
+   ],
+   "height512_jpg80": 4013,
+   "height512_jpg80_err": [
+    1.17,
+    0.9968,
+    0.049
+   ],
+   "height512_jpg65": 2392,
+   "height512_jpg65_err": [
+    1.26,
+    0.9959,
+    0.053
+   ],
+   "height512_jpg50": 1812,
+   "height512_jpg50_err": [
+    1.32,
+    0.9972,
+    -0.019
+   ],
+   "fluid256_png": 171520,
+   "fluid512_R_jpg90": 39331,
+   "fluid256_R_jpg90": 14976,
+   "fluid256_R_png": 37422
+  }
+ },
+ "eval_expanded_light": {
+  "name": "Test Light crumple flattened paper",
+  "now": {
+   "look": 731845,
+   "height": 2091360,
+   "fluid": 534279
+  },
+  "v": {
+   "look1024_jpg88": 139097,
+   "look1024_jpg80": 94196,
+   "look1024_jpg70": 68385,
+   "height1024_png": 569821,
+   "height1024_jpg90": 217267,
+   "height1024_jpg90_err": [
+    2.57,
+    1.0003,
+    0.0
+   ],
+   "height1024_jpg80": 127220,
+   "height1024_jpg80_err": [
+    3.3,
+    0.9962,
+    0.001
+   ],
+   "height1024_jpg65": 80212,
+   "height1024_jpg65_err": [
+    3.77,
+    0.9935,
+    -0.001
+   ],
+   "height1024_jpg50": 56913,
+   "height1024_jpg50_err": [
+    4.08,
+    0.9922,
+    -0.001
+   ],
+   "look512_jpg88": 35004,
+   "look512_jpg80": 24383,
+   "look512_jpg70": 18189,
+   "height512_png": 134006,
+   "height512_jpg90": 47628,
+   "height512_jpg90_err": [
+    2.13,
+    0.9989,
+    0.002
+   ],
+   "height512_jpg80": 29907,
+   "height512_jpg80_err": [
+    2.51,
+    0.9974,
+    0.002
+   ],
+   "height512_jpg65": 20596,
+   "height512_jpg65_err": [
+    2.82,
+    0.9963,
+    0.002
+   ],
+   "height512_jpg50": 16015,
+   "height512_jpg50_err": [
+    3.07,
+    0.9966,
+    -0.016
+   ],
+   "fluid256_png": 170110,
+   "fluid512_R_jpg90": 42968,
+   "fluid256_R_jpg90": 16071,
+   "fluid256_R_png": 39590
+  }
+ },
+ "eval_earlier_chalkboard_black_01": {
+  "name": "Test Earlier Chalkboard Black 01",
+  "now": {
+   "look": 1126086,
+   "height": 1720593,
+   "fluid": 547263
+  },
+  "v": {
+   "look1024_jpg88": 216067,
+   "look1024_jpg80": 143364,
+   "look1024_jpg70": 103107,
+   "height1024_png": 513285,
+   "height1024_jpg90": 196565,
+   "height1024_jpg90_err": [
+    1.74,
+    1.0006,
+    -0.001
+   ],
+   "height1024_jpg80": 124416,
+   "height1024_jpg80_err": [
+    2.3,
+    0.9893,
+    -0.001
+   ],
+   "height1024_jpg65": 80719,
+   "height1024_jpg65_err": [
+    2.85,
+    0.9821,
+    -0.0
+   ],
+   "height1024_jpg50": 56078,
+   "height1024_jpg50_err": [
+    3.3,
+    0.9721,
+    -0.001
+   ],
+   "look512_jpg88": 39312,
+   "look512_jpg80": 25494,
+   "look512_jpg70": 18063,
+   "height512_png": 136249,
+   "height512_jpg90": 47353,
+   "height512_jpg90_err": [
+    2.43,
+    0.9794,
+    -0.002
+   ],
+   "height512_jpg80": 25788,
+   "height512_jpg80_err": [
+    2.97,
+    0.9031,
+    0.003
+   ],
+   "height512_jpg65": 14948,
+   "height512_jpg65_err": [
+    3.37,
+    0.8632,
+    -0.004
+   ],
+   "height512_jpg50": 9328,
+   "height512_jpg50_err": [
+    3.65,
+    0.8325,
+    -0.001
+   ],
+   "fluid256_png": 170256,
+   "fluid512_R_jpg90": 37869,
+   "fluid256_R_jpg90": 14547,
+   "fluid256_R_png": 37317
+  }
+ },
+ "eval_earlier_chalkboard_green_02": {
+  "name": "Test Earlier Chalkboard Green 02",
+  "now": {
+   "look": 1203337,
+   "height": 1516394,
+   "fluid": 534187
+  },
+  "v": {
+   "look1024_jpg88": 237841,
+   "look1024_jpg80": 163735,
+   "look1024_jpg70": 121229,
+   "height1024_png": 471002,
+   "height1024_jpg90": 169741,
+   "height1024_jpg90_err": [
+    1.47,
+    0.9998,
+    -0.005
+   ],
+   "height1024_jpg80": 104782,
+   "height1024_jpg80_err": [
+    1.93,
+    0.9925,
+    -0.001
+   ],
+   "height1024_jpg65": 65661,
+   "height1024_jpg65_err": [
+    2.41,
+    0.9855,
+    0.009
+   ],
+   "height1024_jpg50": 44313,
+   "height1024_jpg50_err": [
+    2.79,
+    0.9733,
+    0.003
+   ],
+   "look512_jpg88": 48061,
+   "look512_jpg80": 32259,
+   "look512_jpg70": 23752,
+   "height512_png": 126658,
+   "height512_jpg90": 41462,
+   "height512_jpg90_err": [
+    2.07,
+    0.9701,
+    -0.003
+   ],
+   "height512_jpg80": 23136,
+   "height512_jpg80_err": [
+    2.49,
+    0.9219,
+    -0.003
+   ],
+   "height512_jpg65": 13353,
+   "height512_jpg65_err": [
+    2.84,
+    0.8924,
+    0.011
+   ],
+   "height512_jpg50": 8436,
+   "height512_jpg50_err": [
+    3.1,
+    0.8684,
+    -0.03
+   ],
+   "fluid256_png": 167726,
+   "fluid512_R_jpg90": 37481,
+   "fluid256_R_jpg90": 14911,
+   "fluid256_R_png": 37493
+  }
+ },
+ "eval_earlier_chalkboard_green_03": {
+  "name": "Test Earlier Chalkboard Green 03",
+  "now": {
+   "look": 1193963,
+   "height": 1618114,
+   "fluid": 541876
+  },
+  "v": {
+   "look1024_jpg88": 228760,
+   "look1024_jpg80": 154590,
+   "look1024_jpg70": 113008,
+   "height1024_png": 490708,
+   "height1024_jpg90": 183267,
+   "height1024_jpg90_err": [
+    1.6,
+    0.9999,
+    -0.0
+   ],
+   "height1024_jpg80": 115123,
+   "height1024_jpg80_err": [
+    2.1,
+    0.993,
+    -0.003
+   ],
+   "height1024_jpg65": 73841,
+   "height1024_jpg65_err": [
+    2.62,
+    0.9861,
+    -0.007
+   ],
+   "height1024_jpg50": 51139,
+   "height1024_jpg50_err": [
+    3.03,
+    0.9765,
+    -0.008
+   ],
+   "look512_jpg88": 44794,
+   "look512_jpg80": 29573,
+   "look512_jpg70": 21567,
+   "height512_png": 131710,
+   "height512_jpg90": 45240,
+   "height512_jpg90_err": [
+    2.26,
+    0.9795,
+    0.001
+   ],
+   "height512_jpg80": 25302,
+   "height512_jpg80_err": [
+    2.73,
+    0.9238,
+    -0.0
+   ],
+   "height512_jpg65": 15003,
+   "height512_jpg65_err": [
+    3.11,
+    0.8989,
+    0.004
+   ],
+   "height512_jpg50": 9635,
+   "height512_jpg50_err": [
+    3.39,
+    0.8763,
+    -0.011
+   ],
+   "fluid256_png": 169605,
+   "fluid512_R_jpg90": 38101,
+   "fluid256_R_jpg90": 14514,
+   "fluid256_R_png": 37045
+  }
+ },
+ "eval_earlier_construction_tan_01": {
+  "name": "Test Earlier Construction Tan 01",
+  "now": {
+   "look": 1354827,
+   "height": 3142982,
+   "fluid": 577848
+  },
+  "v": {
+   "look1024_jpg88": 254376,
+   "look1024_jpg80": 177261,
+   "look1024_jpg70": 131566,
+   "height1024_png": 862137,
+   "height1024_jpg90": 530957,
+   "height1024_jpg90_err": [
+    3.8,
+    1.0061,
+    -0.0
+   ],
+   "height1024_jpg80": 381574,
+   "height1024_jpg80_err": [
+    6.5,
+    1.0063,
+    -0.001
+   ],
+   "height1024_jpg65": 280179,
+   "height1024_jpg65_err": [
+    8.87,
+    1.0,
+    0.004
+   ],
+   "height1024_jpg50": 226432,
+   "height1024_jpg50_err": [
+    10.4,
+    0.9938,
+    0.01
+   ],
+   "look512_jpg88": 52815,
+   "look512_jpg80": 35388,
+   "look512_jpg70": 25927,
+   "height512_png": 223698,
+   "height512_jpg90": 137802,
+   "height512_jpg90_err": [
+    3.88,
+    1.0112,
+    -0.002
+   ],
+   "height512_jpg80": 102235,
+   "height512_jpg80_err": [
+    7.59,
+    1.03,
+    -0.002
+   ],
+   "height512_jpg65": 73283,
+   "height512_jpg65_err": [
+    11.64,
+    1.0243,
+    0.006
+   ],
+   "height512_jpg50": 56606,
+   "height512_jpg50_err": [
+    14.16,
+    0.9964,
+    -0.014
+   ],
+   "fluid256_png": 179094,
+   "fluid512_R_jpg90": 46203,
+   "fluid256_R_jpg90": 17454,
+   "fluid256_R_png": 41367
+  }
+ },
+ "eval_earlier_construction_tan_02": {
+  "name": "Test Earlier Construction Tan 02",
+  "now": {
+   "look": 1487754,
+   "height": 3208013,
+   "fluid": 583892
+  },
+  "v": {
+   "look1024_jpg88": 288948,
+   "look1024_jpg80": 203884,
+   "look1024_jpg70": 151380,
+   "height1024_png": 871321,
+   "height1024_jpg90": 542363,
+   "height1024_jpg90_err": [
+    3.83,
+    1.0062,
+    -0.002
+   ],
+   "height1024_jpg80": 391904,
+   "height1024_jpg80_err": [
+    6.7,
+    1.0073,
+    -0.0
+   ],
+   "height1024_jpg65": 287123,
+   "height1024_jpg65_err": [
+    9.23,
+    1.0007,
+    0.002
+   ],
+   "height1024_jpg50": 231441,
+   "height1024_jpg50_err": [
+    10.86,
+    0.9942,
+    -0.0
+   ],
+   "look512_jpg88": 58031,
+   "look512_jpg80": 38325,
+   "look512_jpg70": 27829,
+   "height512_png": 225129,
+   "height512_jpg90": 138381,
+   "height512_jpg90_err": [
+    3.88,
+    1.0106,
+    0.001
+   ],
+   "height512_jpg80": 103052,
+   "height512_jpg80_err": [
+    7.62,
+    1.0287,
+    -0.006
+   ],
+   "height512_jpg65": 74034,
+   "height512_jpg65_err": [
+    11.81,
+    1.0271,
+    0.002
+   ],
+   "height512_jpg50": 57201,
+   "height512_jpg50_err": [
+    14.45,
+    0.9983,
+    0.01
+   ],
+   "fluid256_png": 181056,
+   "fluid512_R_jpg90": 46046,
+   "fluid256_R_jpg90": 17373,
+   "fluid256_R_png": 41291
+  }
+ },
+ "eval_earlier_construction_tan_03": {
+  "name": "Test Earlier Construction Tan 03",
+  "now": {
+   "look": 1435852,
+   "height": 3117644,
+   "fluid": 581557
+  },
+  "v": {
+   "look1024_jpg88": 274600,
+   "look1024_jpg80": 193394,
+   "look1024_jpg70": 144531,
+   "height1024_png": 858687,
+   "height1024_jpg90": 526515,
+   "height1024_jpg90_err": [
+    3.79,
+    1.0059,
+    -0.002
+   ],
+   "height1024_jpg80": 377546,
+   "height1024_jpg80_err": [
+    6.39,
+    1.0055,
+    -0.002
+   ],
+   "height1024_jpg65": 277419,
+   "height1024_jpg65_err": [
+    8.69,
+    0.9999,
+    -0.005
+   ],
+   "height1024_jpg50": 225081,
+   "height1024_jpg50_err": [
+    10.19,
+    0.9944,
+    -0.006
+   ],
+   "look512_jpg88": 58563,
+   "look512_jpg80": 39616,
+   "look512_jpg70": 29238,
+   "height512_png": 223362,
+   "height512_jpg90": 137591,
+   "height512_jpg90_err": [
+    3.88,
+    1.0106,
+    -0.001
+   ],
+   "height512_jpg80": 101882,
+   "height512_jpg80_err": [
+    7.55,
+    1.0282,
+    -0.005
+   ],
+   "height512_jpg65": 73105,
+   "height512_jpg65_err": [
+    11.57,
+    1.0247,
+    -0.004
+   ],
+   "height512_jpg50": 56514,
+   "height512_jpg50_err": [
+    14.1,
+    0.9967,
+    0.018
+   ],
+   "fluid256_png": 180014,
+   "fluid512_R_jpg90": 46883,
+   "fluid256_R_jpg90": 17701,
+   "fluid256_R_png": 41895
+  }
+ },
+ "eval_earlier_papyrus_01": {
+  "name": "Test Earlier Papyrus 01",
+  "now": {
+   "look": 1465329,
+   "height": 2611141,
+   "fluid": 528594
+  },
+  "v": {
+   "look1024_jpg88": 258140,
+   "look1024_jpg80": 188041,
+   "look1024_jpg70": 145462,
+   "height1024_png": 753605,
+   "height1024_jpg90": 430145,
+   "height1024_jpg90_err": [
+    3.39,
+    1.0045,
+    -0.002
+   ],
+   "height1024_jpg80": 299757,
+   "height1024_jpg80_err": [
+    5.27,
+    1.0035,
+    -0.001
+   ],
+   "height1024_jpg65": 218967,
+   "height1024_jpg65_err": [
+    7.01,
+    0.9989,
+    -0.002
+   ],
+   "height1024_jpg50": 176702,
+   "height1024_jpg50_err": [
+    8.2,
+    0.9948,
+    -0.001
+   ],
+   "look512_jpg88": 62203,
+   "look512_jpg80": 45372,
+   "look512_jpg70": 35154,
+   "height512_png": 191646,
+   "height512_jpg90": 108938,
+   "height512_jpg90_err": [
+    3.66,
+    1.0093,
+    -0.001
+   ],
+   "height512_jpg80": 73060,
+   "height512_jpg80_err": [
+    5.74,
+    1.0033,
+    0.004
+   ],
+   "height512_jpg65": 52097,
+   "height512_jpg65_err": [
+    7.46,
+    0.9937,
+    0.007
+   ],
+   "height512_jpg50": 41609,
+   "height512_jpg50_err": [
+    8.64,
+    0.9872,
+    0.012
+   ],
+   "fluid256_png": 164880,
+   "fluid512_R_jpg90": 39165,
+   "fluid256_R_jpg90": 14859,
+   "fluid256_R_png": 37669
+  }
+ },
+ "eval_earlier_papyrus_02": {
+  "name": "Test Earlier Papyrus 02",
+  "now": {
+   "look": 1671292,
+   "height": 2691500,
+   "fluid": 526626
+  },
+  "v": {
+   "look1024_jpg88": 306004,
+   "look1024_jpg80": 225495,
+   "look1024_jpg70": 176162,
+   "height1024_png": 772829,
+   "height1024_jpg90": 444495,
+   "height1024_jpg90_err": [
+    3.49,
+    1.0055,
+    -0.001
+   ],
+   "height1024_jpg80": 310000,
+   "height1024_jpg80_err": [
+    5.55,
+    1.0046,
+    0.002
+   ],
+   "height1024_jpg65": 225036,
+   "height1024_jpg65_err": [
+    7.42,
+    0.9986,
+    -0.001
+   ],
+   "height1024_jpg50": 180875,
+   "height1024_jpg50_err": [
+    8.67,
+    0.9921,
+    0.003
+   ],
+   "look512_jpg88": 72945,
+   "look512_jpg80": 53405,
+   "look512_jpg70": 41653,
+   "height512_png": 195701,
+   "height512_jpg90": 111593,
+   "height512_jpg90_err": [
+    3.74,
+    1.0122,
+    -0.003
+   ],
+   "height512_jpg80": 74774,
+   "height512_jpg80_err": [
+    6.08,
+    1.006,
+    0.003
+   ],
+   "height512_jpg65": 52647,
+   "height512_jpg65_err": [
+    7.98,
+    0.9927,
+    -0.004
+   ],
+   "height512_jpg50": 41419,
+   "height512_jpg50_err": [
+    9.22,
+    0.982,
+    -0.0
+   ],
+   "fluid256_png": 164220,
+   "fluid512_R_jpg90": 39517,
+   "fluid256_R_jpg90": 15042,
+   "fluid256_R_png": 37815
+  }
+ },
+ "eval_earlier_papyrus_03": {
+  "name": "Test Earlier Papyrus 03",
+  "now": {
+   "look": 1539465,
+   "height": 2605734,
+   "fluid": 524527
+  },
+  "v": {
+   "look1024_jpg88": 283462,
+   "look1024_jpg80": 207939,
+   "look1024_jpg70": 163092,
+   "height1024_png": 756567,
+   "height1024_jpg90": 429770,
+   "height1024_jpg90_err": [
+    3.38,
+    1.005,
+    0.001
+   ],
+   "height1024_jpg80": 299805,
+   "height1024_jpg80_err": [
+    5.32,
+    1.0041,
+    0.002
+   ],
+   "height1024_jpg65": 218307,
+   "height1024_jpg65_err": [
+    7.08,
+    0.9982,
+    -0.004
+   ],
+   "height1024_jpg50": 176155,
+   "height1024_jpg50_err": [
+    8.25,
+    0.9933,
+    0.005
+   ],
+   "look512_jpg88": 67623,
+   "look512_jpg80": 49141,
+   "look512_jpg70": 38303,
+   "height512_png": 193289,
+   "height512_jpg90": 108497,
+   "height512_jpg90_err": [
+    3.69,
+    1.0113,
+    0.002
+   ],
+   "height512_jpg80": 72487,
+   "height512_jpg80_err": [
+    5.93,
+    1.0055,
+    -0.004
+   ],
+   "height512_jpg65": 51075,
+   "height512_jpg65_err": [
+    7.77,
+    0.9913,
+    0.001
+   ],
+   "height512_jpg50": 40360,
+   "height512_jpg50_err": [
+    8.97,
+    0.9826,
+    -0.009
+   ],
+   "fluid256_png": 163364,
+   "fluid512_R_jpg90": 41013,
+   "fluid256_R_jpg90": 15567,
+   "fluid256_R_png": 38814
+  }
+ },
+ "eval_earlier_rice_cool_01": {
+  "name": "Test Earlier Rice Cool 01",
+  "now": {
+   "look": 1198032,
+   "height": 2115662,
+   "fluid": 569088
+  },
+  "v": {
+   "look1024_jpg88": 247219,
+   "look1024_jpg80": 175310,
+   "look1024_jpg70": 132534,
+   "height1024_png": 595010,
+   "height1024_jpg90": 259412,
+   "height1024_jpg90_err": [
+    2.42,
+    1.0003,
+    -0.001
+   ],
+   "height1024_jpg80": 167592,
+   "height1024_jpg80_err": [
+    3.17,
+    0.984,
+    -0.0
+   ],
+   "height1024_jpg65": 116937,
+   "height1024_jpg65_err": [
+    3.82,
+    0.9746,
+    0.003
+   ],
+   "height1024_jpg50": 87896,
+   "height1024_jpg50_err": [
+    4.36,
+    0.972,
+    0.0
+   ],
+   "look512_jpg88": 57850,
+   "look512_jpg80": 40342,
+   "look512_jpg70": 30408,
+   "height512_png": 156227,
+   "height512_jpg90": 67620,
+   "height512_jpg90_err": [
+    3.08,
+    1.0142,
+    -0.004
+   ],
+   "height512_jpg80": 39090,
+   "height512_jpg80_err": [
+    4.1,
+    0.9428,
+    -0.003
+   ],
+   "height512_jpg65": 24687,
+   "height512_jpg65_err": [
+    4.73,
+    0.8889,
+    -0.003
+   ],
+   "height512_jpg50": 17499,
+   "height512_jpg50_err": [
+    5.16,
+    0.8657,
+    -0.014
+   ],
+   "fluid256_png": 177781,
+   "fluid512_R_jpg90": 49508,
+   "fluid256_R_jpg90": 18939,
+   "fluid256_R_png": 42305
+  }
+ },
+ "eval_earlier_rice_cool_02": {
+  "name": "Test Earlier Rice Cool 02",
+  "now": {
+   "look": 978298,
+   "height": 2092425,
+   "fluid": 558632
+  },
+  "v": {
+   "look1024_jpg88": 194616,
+   "look1024_jpg80": 134704,
+   "look1024_jpg70": 101316,
+   "height1024_png": 590732,
+   "height1024_jpg90": 254727,
+   "height1024_jpg90_err": [
+    2.35,
+    1.0013,
+    -0.002
+   ],
+   "height1024_jpg80": 165036,
+   "height1024_jpg80_err": [
+    3.09,
+    0.9859,
+    0.001
+   ],
+   "height1024_jpg65": 114800,
+   "height1024_jpg65_err": [
+    3.75,
+    0.9776,
+    0.003
+   ],
+   "height1024_jpg50": 85920,
+   "height1024_jpg50_err": [
+    4.29,
+    0.9734,
+    0.002
+   ],
+   "look512_jpg88": 45188,
+   "look512_jpg80": 31324,
+   "look512_jpg70": 23517,
+   "height512_png": 155244,
+   "height512_jpg90": 66396,
+   "height512_jpg90_err": [
+    3.06,
+    1.0138,
+    -0.001
+   ],
+   "height512_jpg80": 38009,
+   "height512_jpg80_err": [
+    4.02,
+    0.9389,
+    -0.006
+   ],
+   "height512_jpg65": 24133,
+   "height512_jpg65_err": [
+    4.61,
+    0.8913,
+    -0.005
+   ],
+   "height512_jpg50": 17064,
+   "height512_jpg50_err": [
+    5.02,
+    0.8712,
+    0.008
+   ],
+   "fluid256_png": 174978,
+   "fluid512_R_jpg90": 46423,
+   "fluid256_R_jpg90": 17891,
+   "fluid256_R_png": 40560
+  }
+ },
+ "eval_earlier_rice_cream_01": {
+  "name": "Test Earlier Rice Cream 01",
+  "now": {
+   "look": 1048753,
+   "height": 1973384,
+   "fluid": 555079
+  },
+  "v": {
+   "look1024_jpg88": 188008,
+   "look1024_jpg80": 127729,
+   "look1024_jpg70": 93515,
+   "height1024_png": 566440,
+   "height1024_jpg90": 237051,
+   "height1024_jpg90_err": [
+    2.1,
+    0.9988,
+    -0.002
+   ],
+   "height1024_jpg80": 155788,
+   "height1024_jpg80_err": [
+    2.73,
+    0.9893,
+    -0.001
+   ],
+   "height1024_jpg65": 108908,
+   "height1024_jpg65_err": [
+    3.34,
+    0.9855,
+    -0.003
+   ],
+   "height1024_jpg50": 81660,
+   "height1024_jpg50_err": [
+    3.85,
+    0.9837,
+    -0.003
+   ],
+   "look512_jpg88": 44406,
+   "look512_jpg80": 30074,
+   "look512_jpg70": 22078,
+   "height512_png": 152053,
+   "height512_jpg90": 64360,
+   "height512_jpg90_err": [
+    2.87,
+    1.0077,
+    -0.004
+   ],
+   "height512_jpg80": 37867,
+   "height512_jpg80_err": [
+    3.77,
+    0.9512,
+    -0.004
+   ],
+   "height512_jpg65": 24490,
+   "height512_jpg65_err": [
+    4.36,
+    0.9143,
+    0.003
+   ],
+   "height512_jpg50": 17415,
+   "height512_jpg50_err": [
+    4.8,
+    0.8975,
+    -0.02
+   ],
+   "fluid256_png": 174361,
+   "fluid512_R_jpg90": 47294,
+   "fluid256_R_jpg90": 18172,
+   "fluid256_R_png": 41081
+  }
+ },
+ "eval_earlier_sugarcane_01": {
+  "name": "Test Earlier Sugarcane 01",
+  "now": {
+   "look": 1344921,
+   "height": 2915406,
+   "fluid": 543730
+  },
+  "v": {
+   "look1024_jpg88": 221105,
+   "look1024_jpg80": 148906,
+   "look1024_jpg70": 108637,
+   "height1024_png": 809336,
+   "height1024_jpg90": 470479,
+   "height1024_jpg90_err": [
+    3.61,
+    1.0064,
+    -0.002
+   ],
+   "height1024_jpg80": 328481,
+   "height1024_jpg80_err": [
+    5.71,
+    1.004,
+    -0.004
+   ],
+   "height1024_jpg65": 238962,
+   "height1024_jpg65_err": [
+    7.55,
+    0.9971,
+    -0.003
+   ],
+   "height1024_jpg50": 193577,
+   "height1024_jpg50_err": [
+    8.77,
+    0.9911,
+    -0.004
+   ],
+   "look512_jpg88": 49579,
+   "look512_jpg80": 33738,
+   "look512_jpg70": 24609,
+   "height512_png": 211176,
+   "height512_jpg90": 125971,
+   "height512_jpg90_err": [
+    3.88,
+    1.0159,
+    0.0
+   ],
+   "height512_jpg80": 89473,
+   "height512_jpg80_err": [
+    7.24,
+    1.0279,
+    0.001
+   ],
+   "height512_jpg65": 61753,
+   "height512_jpg65_err": [
+    10.34,
+    1.0035,
+    0.0
+   ],
+   "height512_jpg50": 46671,
+   "height512_jpg50_err": [
+    12.06,
+    0.9653,
+    -0.027
+   ],
+   "fluid256_png": 171025,
+   "fluid512_R_jpg90": 43307,
+   "fluid256_R_jpg90": 16797,
+   "fluid256_R_png": 39600
+  }
+ },
+ "eval_earlier_sugarcane_02": {
+  "name": "Test Earlier Sugarcane 02",
+  "now": {
+   "look": 1591695,
+   "height": 2939791,
+   "fluid": 555716
+  },
+  "v": {
+   "look1024_jpg88": 272524,
+   "look1024_jpg80": 188804,
+   "look1024_jpg70": 139331,
+   "height1024_png": 815802,
+   "height1024_jpg90": 477982,
+   "height1024_jpg90_err": [
+    3.63,
+    1.006,
+    -0.003
+   ],
+   "height1024_jpg80": 335554,
+   "height1024_jpg80_err": [
+    5.78,
+    1.0039,
+    -0.0
+   ],
+   "height1024_jpg65": 245090,
+   "height1024_jpg65_err": [
+    7.67,
+    0.9978,
+    0.001
+   ],
+   "height1024_jpg50": 198401,
+   "height1024_jpg50_err": [
+    8.92,
+    0.9914,
+    0.0
+   ],
+   "look512_jpg88": 59895,
+   "look512_jpg80": 41122,
+   "look512_jpg70": 30655,
+   "height512_png": 212977,
+   "height512_jpg90": 128229,
+   "height512_jpg90_err": [
+    3.87,
+    1.0144,
+    0.0
+   ],
+   "height512_jpg80": 91694,
+   "height512_jpg80_err": [
+    7.3,
+    1.027,
+    0.005
+   ],
+   "height512_jpg65": 63884,
+   "height512_jpg65_err": [
+    10.52,
+    1.0075,
+    0.005
+   ],
+   "height512_jpg50": 48666,
+   "height512_jpg50_err": [
+    12.36,
+    0.9741,
+    -0.004
+   ],
+   "fluid256_png": 174316,
+   "fluid512_R_jpg90": 43583,
+   "fluid256_R_jpg90": 16666,
+   "fluid256_R_png": 39995
+  }
+ },
+ "eval_owner_1": {
+  "name": "Test Cardboard supplied",
+  "now": {
+   "look": 1521585,
+   "height": 3124052,
+   "fluid": 580715
+  },
+  "v": {
+   "look1024_jpg88": 282774,
+   "look1024_jpg80": 199894,
+   "look1024_jpg70": 149992,
+   "height1024_png": 858882,
+   "height1024_jpg90": 528612,
+   "height1024_jpg90_err": [
+    3.8,
+    1.0062,
+    -0.003
+   ],
+   "height1024_jpg80": 378977,
+   "height1024_jpg80_err": [
+    6.45,
+    1.0055,
+    0.002
+   ],
+   "height1024_jpg65": 277766,
+   "height1024_jpg65_err": [
+    8.75,
+    0.9996,
+    0.0
+   ],
+   "height1024_jpg50": 225126,
+   "height1024_jpg50_err": [
+    10.24,
+    0.9938,
+    0.002
+   ],
+   "look512_jpg88": 60132,
+   "look512_jpg80": 41061,
+   "look512_jpg70": 30304,
+   "height512_png": 223396,
+   "height512_jpg90": 137857,
+   "height512_jpg90_err": [
+    3.88,
+    1.011,
+    -0.001
+   ],
+   "height512_jpg80": 102009,
+   "height512_jpg80_err": [
+    7.55,
+    1.0283,
+    0.003
+   ],
+   "height512_jpg65": 73157,
+   "height512_jpg65_err": [
+    11.56,
+    1.024,
+    0.008
+   ],
+   "height512_jpg50": 56568,
+   "height512_jpg50_err": [
+    14.07,
+    0.996,
+    -0.007
+   ],
+   "fluid256_png": 179751,
+   "fluid512_R_jpg90": 46000,
+   "fluid256_R_jpg90": 17474,
+   "fluid256_R_png": 41454
+  }
+ },
+ "eval_owner_2": {
+  "name": "Test Black chalkboard supplied",
+  "now": {
+   "look": 1187759,
+   "height": 1741723,
+   "fluid": 548997
+  },
+  "v": {
+   "look1024_jpg88": 219848,
+   "look1024_jpg80": 146500,
+   "look1024_jpg70": 105904,
+   "height1024_png": 518191,
+   "height1024_jpg90": 200608,
+   "height1024_jpg90_err": [
+    1.8,
+    1.0005,
+    -0.002
+   ],
+   "height1024_jpg80": 126644,
+   "height1024_jpg80_err": [
+    2.36,
+    0.9863,
+    -0.002
+   ],
+   "height1024_jpg65": 82426,
+   "height1024_jpg65_err": [
+    2.92,
+    0.9791,
+    0.005
+   ],
+   "height1024_jpg50": 57574,
+   "height1024_jpg50_err": [
+    3.37,
+    0.9692,
+    -0.004
+   ],
+   "look512_jpg88": 40517,
+   "look512_jpg80": 26400,
+   "look512_jpg70": 18727,
+   "height512_png": 137195,
+   "height512_jpg90": 48017,
+   "height512_jpg90_err": [
+    2.48,
+    0.9786,
+    -0.001
+   ],
+   "height512_jpg80": 26078,
+   "height512_jpg80_err": [
+    3.03,
+    0.8962,
+    -0.006
+   ],
+   "height512_jpg65": 15183,
+   "height512_jpg65_err": [
+    3.43,
+    0.8558,
+    0.001
+   ],
+   "height512_jpg50": 9424,
+   "height512_jpg50_err": [
+    3.72,
+    0.8202,
+    -0.003
+   ],
+   "fluid256_png": 170658,
+   "fluid512_R_jpg90": 38446,
+   "fluid256_R_jpg90": 14814,
+   "fluid256_R_png": 37684
+  }
+ },
+ "eval_owner_4": {
+  "name": "Test Blue construction paper",
+  "now": {
+   "look": 1524700,
+   "height": 2953333,
+   "fluid": 558717
+  },
+  "v": {
+   "look1024_jpg88": 270972,
+   "look1024_jpg80": 187430,
+   "look1024_jpg70": 137442,
+   "height1024_png": 817790,
+   "height1024_jpg90": 478429,
+   "height1024_jpg90_err": [
+    3.65,
+    1.0055,
+    -0.002
+   ],
+   "height1024_jpg80": 335064,
+   "height1024_jpg80_err": [
+    5.84,
+    1.0037,
+    0.002
+   ],
+   "height1024_jpg65": 243760,
+   "height1024_jpg65_err": [
+    7.74,
+    0.9979,
+    0.001
+   ],
+   "height1024_jpg50": 197081,
+   "height1024_jpg50_err": [
+    8.98,
+    0.992,
+    0.002
+   ],
+   "look512_jpg88": 54433,
+   "look512_jpg80": 36057,
+   "look512_jpg70": 26298,
+   "height512_png": 213367,
+   "height512_jpg90": 128252,
+   "height512_jpg90_err": [
+    3.86,
+    1.0114,
+    -0.001
+   ],
+   "height512_jpg80": 91763,
+   "height512_jpg80_err": [
+    7.2,
+    1.0219,
+    -0.011
+   ],
+   "height512_jpg65": 64122,
+   "height512_jpg65_err": [
+    10.36,
+    1.0063,
+    -0.009
+   ],
+   "height512_jpg50": 49167,
+   "height512_jpg50_err": [
+    12.21,
+    0.9807,
+    0.011
+   ],
+   "fluid256_png": 174127,
+   "fluid512_R_jpg90": 40936,
+   "fluid256_R_jpg90": 15634,
+   "fluid256_R_png": 38814
+  }
+ },
+ "eval_owner_7": {
+  "name": "Test Tan rice paper supplied",
+  "now": {
+   "look": 1101968,
+   "height": 1961007,
+   "fluid": 557099
+  },
+  "v": {
+   "look1024_jpg88": 197860,
+   "look1024_jpg80": 135557,
+   "look1024_jpg70": 99976,
+   "height1024_png": 562681,
+   "height1024_jpg90": 233248,
+   "height1024_jpg90_err": [
+    2.08,
+    0.998,
+    -0.002
+   ],
+   "height1024_jpg80": 153133,
+   "height1024_jpg80_err": [
+    2.68,
+    0.9891,
+    -0.001
+   ],
+   "height1024_jpg65": 106641,
+   "height1024_jpg65_err": [
+    3.27,
+    0.9853,
+    0.003
+   ],
+   "height1024_jpg50": 80045,
+   "height1024_jpg50_err": [
+    3.78,
+    0.9846,
+    0.005
+   ],
+   "look512_jpg88": 47121,
+   "look512_jpg80": 32062,
+   "look512_jpg70": 23486,
+   "height512_png": 151239,
+   "height512_jpg90": 63367,
+   "height512_jpg90_err": [
+    2.82,
+    1.0062,
+    -0.004
+   ],
+   "height512_jpg80": 37521,
+   "height512_jpg80_err": [
+    3.69,
+    0.9535,
+    0.0
+   ],
+   "height512_jpg65": 24228,
+   "height512_jpg65_err": [
+    4.29,
+    0.9179,
+    0.006
+   ],
+   "height512_jpg50": 17207,
+   "height512_jpg50_err": [
+    4.71,
+    0.9003,
+    -0.012
+   ],
+   "fluid256_png": 174487,
+   "fluid512_R_jpg90": 46915,
+   "fluid256_R_jpg90": 18060,
+   "fluid256_R_png": 40969
+  }
+ },
+ "eval_owner_8": {
+  "name": "Test White rice paper supplied",
+  "now": {
+   "look": 1132232,
+   "height": 2103429,
+   "fluid": 566983
+  },
+  "v": {
+   "look1024_jpg88": 241137,
+   "look1024_jpg80": 173106,
+   "look1024_jpg70": 132465,
+   "height1024_png": 590605,
+   "height1024_jpg90": 253135,
+   "height1024_jpg90_err": [
+    2.39,
+    0.9992,
+    -0.001
+   ],
+   "height1024_jpg80": 163617,
+   "height1024_jpg80_err": [
+    3.08,
+    0.9831,
+    -0.001
+   ],
+   "height1024_jpg65": 114510,
+   "height1024_jpg65_err": [
+    3.71,
+    0.977,
+    0.001
+   ],
+   "height1024_jpg50": 86134,
+   "height1024_jpg50_err": [
+    4.23,
+    0.975,
+    0.001
+   ],
+   "look512_jpg88": 58611,
+   "look512_jpg80": 41456,
+   "look512_jpg70": 31435,
+   "height512_png": 154812,
+   "height512_jpg90": 66832,
+   "height512_jpg90_err": [
+    2.99,
+    1.011,
+    -0.002
+   ],
+   "height512_jpg80": 39097,
+   "height512_jpg80_err": [
+    3.96,
+    0.9482,
+    -0.004
+   ],
+   "height512_jpg65": 25127,
+   "height512_jpg65_err": [
+    4.57,
+    0.9045,
+    -0.008
+   ],
+   "height512_jpg50": 17992,
+   "height512_jpg50_err": [
+    5.0,
+    0.8873,
+    -0.002
+   ],
+   "fluid256_png": 177342,
+   "fluid512_R_jpg90": 47151,
+   "fluid256_R_jpg90": 18048,
+   "fluid256_R_png": 40930
+  }
+ },
+ "eval_owner_9": {
+  "name": "Test Thai paper supplied 1",
+  "now": {
+   "look": 1430345,
+   "height": 2914291,
+   "fluid": 547063
+  },
+  "v": {
+   "look1024_jpg88": 230687,
+   "look1024_jpg80": 155819,
+   "look1024_jpg70": 113680,
+   "height1024_png": 806557,
+   "height1024_jpg90": 468460,
+   "height1024_jpg90_err": [
+    3.62,
+    1.0066,
+    -0.001
+   ],
+   "height1024_jpg80": 326704,
+   "height1024_jpg80_err": [
+    5.73,
+    1.0038,
+    -0.005
+   ],
+   "height1024_jpg65": 237040,
+   "height1024_jpg65_err": [
+    7.54,
+    0.9967,
+    0.003
+   ],
+   "height1024_jpg50": 191662,
+   "height1024_jpg50_err": [
+    8.74,
+    0.9906,
+    -0.001
+   ],
+   "look512_jpg88": 51274,
+   "look512_jpg80": 34813,
+   "look512_jpg70": 25326,
+   "height512_png": 210443,
+   "height512_jpg90": 125227,
+   "height512_jpg90_err": [
+    3.88,
+    1.0154,
+    -0.003
+   ],
+   "height512_jpg80": 88616,
+   "height512_jpg80_err": [
+    7.2,
+    1.028,
+    -0.0
+   ],
+   "height512_jpg65": 60915,
+   "height512_jpg65_err": [
+    10.22,
+    1.0004,
+    -0.007
+   ],
+   "height512_jpg50": 46151,
+   "height512_jpg50_err": [
+    11.87,
+    0.9646,
+    0.015
+   ],
+   "fluid256_png": 171973,
+   "fluid512_R_jpg90": 43770,
+   "fluid256_R_jpg90": 16872,
+   "fluid256_R_png": 39866
+  }
+ },
+ "eval_owner_10": {
+  "name": "Test Thai paper supplied 2",
+  "now": {
+   "look": 1692295,
+   "height": 2943446,
+   "fluid": 556631
+  },
+  "v": {
+   "look1024_jpg88": 283986,
+   "look1024_jpg80": 198378,
+   "look1024_jpg70": 146048,
+   "height1024_png": 815790,
+   "height1024_jpg90": 479675,
+   "height1024_jpg90_err": [
+    3.65,
+    1.0063,
+    -0.001
+   ],
+   "height1024_jpg80": 336278,
+   "height1024_jpg80_err": [
+    5.81,
+    1.0039,
+    -0.001
+   ],
+   "height1024_jpg65": 245177,
+   "height1024_jpg65_err": [
+    7.69,
+    0.9975,
+    -0.001
+   ],
+   "height1024_jpg50": 198771,
+   "height1024_jpg50_err": [
+    8.93,
+    0.9913,
+    -0.002
+   ],
+   "look512_jpg88": 62099,
+   "look512_jpg80": 42759,
+   "look512_jpg70": 31734,
+   "height512_png": 213222,
+   "height512_jpg90": 128891,
+   "height512_jpg90_err": [
+    3.88,
+    1.0147,
+    -0.001
+   ],
+   "height512_jpg80": 92255,
+   "height512_jpg80_err": [
+    7.29,
+    1.0272,
+    -0.002
+   ],
+   "height512_jpg65": 64354,
+   "height512_jpg65_err": [
+    10.5,
+    1.0058,
+    -0.001
+   ],
+   "height512_jpg50": 49145,
+   "height512_jpg50_err": [
+    12.33,
+    0.9723,
+    0.007
+   ],
+   "fluid256_png": 174587,
+   "fluid512_R_jpg90": 44238,
+   "fluid256_R_jpg90": 16799,
+   "fluid256_R_png": 40260
+  }
+ }
+}

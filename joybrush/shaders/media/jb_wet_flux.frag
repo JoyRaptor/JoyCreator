@@ -25,6 +25,11 @@ uniform float u_filmMm;       // below this depth a film clings: viscous drag âˆ
 uniform float u_dt;
 uniform float u_toothMm;
 uniform float u_flow;         // how hard a height difference pushes water (1/s)
+uniform float u_fibre;        // a wash's edge creeps further along the paper's fibres than across them, by this much (the
+                              // paper's anisotropy x the fluid map's coherence; 0 = off or no direction: as always)
+uniform float u_fibreForceOn; // bench: 1 = every fibre at one angle, given as cos and sin of TWICE it
+uniform float u_fibreForceC;
+uniform float u_fibreForceS;
 uniform float u_keep;         // fraction of flow kept from the last step (viscosity: watery â†’ near 1)
 uniform float u_pinMm;        // head (mm) needed to wet dry paper
 uniform float u_dampS;        // saturation at which paper counts as damp (no pinning)
@@ -198,6 +203,24 @@ void main() {
             }
         }
     }
+    // The paper's fibres (owner, 2026-11-17): a dry edge holds the water back less where the wash is advancing ALONG the
+    // fibres and more where it advances across them. Which way an edge faces is read from the water round this cell (it
+    // falls away outward), so a fibre lying on a diagonal lets a diagonal front through; where the water is level there
+    // is no facing and each neighbour's own direction is used. 1 everywhere when the switch is off.
+    vec2 fibre = vec2(0.0);       // strength x (cos, sin) of twice the fibre angle
+    vec2 facing2 = vec2(0.0);     // (cos, sin) of twice the angle the edge here faces; zero = not known
+#ifndef JB_WET_COARSE
+    if (u_fibre > 0.0) {
+        vec4 fl = jb_fetch(u_fluidBake, c);
+        vec2 dir = (fl.g == 0.0 && fl.b == 0.0) ? vec2(0.0) : fl.gb * 2.0 - 1.0;
+        if (u_fibreForceOn > 0.5) dir = vec2(u_fibreForceC, u_fibreForceS);
+        fibre = dir * min(u_fibre, 0.9 / max(length(dir), 1.0e-4));
+        vec2 g = vec2(wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).r - wf(u_w0, jb_clampCell(c + ivec2(-1, 0), size)).r,
+                      wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).r - wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).r);
+        float gl2 = dot(g, g);
+        if (gl2 > 1.0e-10) facing2 = vec2(g.x * g.x - g.y * g.y, 2.0 * g.x * g.y) / gl2;
+    }
+#endif
     vec4 f;
     for (int i = 0; i < 4; i++) {
         ivec2 q = jb_clampCell(c + nb[i], size);
@@ -216,6 +239,10 @@ void main() {
             // On a tilted paper the gathering bead is held by the same edge, judged as a whole bead (the slow
             // levelling must not seep it over cell by cell ahead of the running water's own test).
             float hold = pinHold(q, sn) * mix(1.0, holdK, tilted);
+            if (u_fibre > 0.0) {
+                vec2 way = dot(facing2, facing2) > 0.0 ? facing2 : vec2(float(nb[i].x * nb[i].x - nb[i].y * nb[i].y), 0.0);
+                hold *= 1.0 - dot(fibre, way);
+            }
             float head = mix(dh, wb + dot(u_slope, vec2(nb[i])) * u_cellMm, tilted * u_runCoherent);
             // Only an edge facing downhill ever lets go on a slope; a stream's sides and its upper edge hold.
             float faces = smoothstep(0.25, 0.6, dot(sd, vec2(nb[i])));

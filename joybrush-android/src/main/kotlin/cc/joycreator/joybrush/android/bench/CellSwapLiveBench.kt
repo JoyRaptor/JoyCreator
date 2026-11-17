@@ -61,6 +61,7 @@ class CellSwapLiveBench(private val canvas: JbCanvasView, private val spec: Benc
     private lateinit var painted: JbCanvasView.BenchState
     private lateinit var moved: JbCanvasView.BenchState
     private lateinit var again: JbCanvasView.BenchState
+    private var spillPx = 0
 
     fun start() {
         priorRefused = canvas.onRefused; canvas.onRefused = { why -> refusals.add(why) }
@@ -99,7 +100,9 @@ class CellSwapLiveBench(private val canvas: JbCanvasView, private val spec: Benc
     private fun afterFirst() = fence("painted") { st ->
         painted = st
         val c = MatrixDiff.count(empty.visible(), st.visible(), from)
-        report.put("paintedPx", c.insidePx)
+        // Paint the stroke laid outside the place that is moved (beyond the board's edge) stays where it is.
+        spillPx = c.outsidePx
+        report.put("paintedPx", c.insidePx).put("paintedOutsidePx", spillPx)
         if (c.insidePx == 0) { problem("the first stroke painted nothing where it was aimed: $refusals"); finish(); return@fence }
         canvas.benchPayloadAt(from.x + from.w / 2, from.y + from.h / 2) { has ->
             report.put("hasPaintStateBefore", has)
@@ -116,7 +119,8 @@ class CellSwapLiveBench(private val canvas: JbCanvasView, private val spec: Benc
         val c = MatrixDiff.count(empty.visible(), st.visible(), to)
         report.put("movedPx", c.insidePx).put("leftBehindPx", c.outsidePx).put("moveUndoSteps", st.undoDepth - painted.undoDepth)
         if (c.insidePx == 0) problem("after the move there is no paint where it was moved to (refused: $refusals)")
-        if (c.outsidePx != 0) problem("after the move ${c.outsidePx} px of paint are outside the place it was moved to")
+        if (c.outsidePx != spillPx) problem("after the move ${c.outsidePx} px of paint are outside the place it was moved to; $spillPx were laid outside to begin with")
+        if (c.insidePx != MatrixDiff.count(empty.visible(), painted.visible(), from).insidePx) problem("the moved place holds ${c.insidePx} px of paint, not what was painted")
         if (st.undoDepth != painted.undoDepth + 1) problem("the move was ${st.undoDepth - painted.undoDepth} undo steps")
         canvas.benchPayloadAt(to.x + to.w / 2, to.y + to.h / 2) { has ->
             report.put("hasPaintStateAfter", has)

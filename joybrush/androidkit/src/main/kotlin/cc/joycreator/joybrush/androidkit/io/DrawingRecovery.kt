@@ -51,7 +51,7 @@ class DrawingRecovery(private val opened: File) {
                 }
             } catch (_: Exception) { null }
             if (id != documentId) continue
-            val contents = try { JbArchive.open(file) } catch (_: Exception) { continue }
+            val contents = try { JbArchive.openDeferringMedia(file) } catch (_: Exception) { continue }
             if (contents.doc.id == documentId) {
                 CanvasSnapshot.requireSupportedPayload(contents)
                 return contents

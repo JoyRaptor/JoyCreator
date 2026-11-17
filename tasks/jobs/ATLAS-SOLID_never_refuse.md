@@ -303,6 +303,25 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
   twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
 
+### 11-17 later: exports read the picture alone; the Watercolour line on a Tile board
+
+Two things done after the handoff below was written (it lists them as open: item 4, and "a stroke on a Tile board").
+
+- **An export no longer reads the paint state it never uses** (handoff item 4, second review E4). A PNG, a board
+  export and the hand-off to Studio draw the picture; they were given a whole snapshot, pencil, watercolour and oil
+  state included. They now take `JbCanvasView.snapshotPicture`: every picture tile as before, no paint stores read
+  back, none held, and a document that lists none (so it is never a drawing to save; a copy and the save before
+  "Open" still take the whole one). Note 9, bench step `picturecmp`, full oil page, twice: 264 picture tiles byte for
+  byte the whole snapshot's, 0 paint store tiles against 256 (128 MB); read in 245 and 302 ms against 487 and 615 ms;
+  `ExportPicture.asShown` takes it. Not done: a real export through the Share sheet was not driven on the phone (the
+  system's file picker cannot be tapped from here), so the proof is the snapshot the export is made from.
+- **The Watercolour line on a Tile board** finishes only near its dabs and their copies round the board, as it does
+  off a board since 11-16 (`GlPaintEngine.addWatercolourDabs`, the board branch; `WatercolourPass.finishWithin`).
+  Exactness on the Note 9 (`--ez jb_wc_finish_check true`, said at every lift): 296 partial finishes on a Tile
+  board against whole-tile ones, 0 differ; undo exact. Speed, the matrix bench's one 0.6 s stroke on a Tile board:
+  4 frames at a mean of 239 ms before, 10 frames at a mean of 130 ms after. So it is better and still not smooth
+  there: a Tile board lays every dab several times for the wrap-around and its lift still finishes whole tiles.
+
 ### 11-17: handoff from the engine session (Claude Fable), and why the paint room was NOT raised
 
 **Read this first if you take the save path, the wet sheet or the watercolour line next.**

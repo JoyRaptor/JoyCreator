@@ -29,7 +29,7 @@ class DrawingRecovery(private val opened: File) {
         // A drawing whose paint state is still in its file (JbArchive.openDeferringMedia): the recovery copy is a copy of
         // that file, which was checked whole when it was opened. Saving it again would read every paint tile back into
         // memory at once, the very thing opening it this way avoids, and inflate the drawing twice.
-        val source = (contents.mediaTiles as? DeferredMedia)?.file
+        val source = DeferredMedia.fileOf(contents)
         when {
             source == null -> JbArchive.save(opened, contents)
             source.canonicalFile == opened.canonicalFile -> Unit   // it IS the recovery copy

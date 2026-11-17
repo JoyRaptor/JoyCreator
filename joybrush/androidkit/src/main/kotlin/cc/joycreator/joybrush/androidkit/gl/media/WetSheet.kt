@@ -334,6 +334,9 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
      * [realMs]: how long the frame took to come round. [still]: the water stands (there is something to redo).
      * Returns true while water runs.
      */
+    private var paceFrames = 0
+    private var paceMs = 0f
+    private var paceSteps = 0
     fun frame(batch: DabBatch?, paper: MediaPaperGl, base: WetConstants, slope: FloatArray, look: MediaLook, realMs: Float, still: Boolean): Boolean {
         val e = engine ?: return false
         if (!holding || e.asleep) return false
@@ -353,6 +356,13 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             resting = lively == 0 && e.waterPhase == WaterCull.DAMP
             val steps = if (resting) 1 else pace.next(realMs, WetSheetMath.stepsWanted(realMs, pc, flowSpeed))
             e.wetFrame(input, paper, DOC_PX_PER_MM, WetSheetMath.constants(base, realMs, steps, pc), substeps = steps)
+            if (PaperFibres.logPace) {
+                paceFrames++; paceMs += realMs; paceSteps += steps
+                if (paceFrames >= 60) {
+                    android.util.Log.i(TAG, "sheet pace: ${"%.1f".format(paceMs / paceFrames)} ms a frame, ${"%.2f".format(paceSteps.toFloat() / paceFrames)} steps a frame, ${if (e.fibres) "paper fibres" else "plain water"}")
+                    paceFrames = 0; paceMs = 0f; paceSteps = 0
+                }
+            }
             e.takeDirty(); e.takeDirtyStores()
             history.changed()
             parts = e.lastWaterParts

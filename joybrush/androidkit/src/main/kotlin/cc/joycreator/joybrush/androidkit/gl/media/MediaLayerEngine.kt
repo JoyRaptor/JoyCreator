@@ -77,11 +77,14 @@ object PaperFibres {
      * - `carry`: the film's pigment settles at this share of standing water's pace;
      * - `sieve`: of the pigment in film water that moves on, this share goes with it at each cell;
      * - `mingle`: colour spreads through the film along a fibre this many times as readily as through a wash;
-     * - `fibreLo`, `fibreHi`: a cell lies on a fibre from, and fully from, this far above the paper's fibre-scale mean.
+     * - `fibreLo`, `fibreHi`: a cell lies on a fibre from, and fully from, this far above the paper's fibre-scale mean;
+     * - `share`: the most of the difference between two cells that the paper draws across in one water step.
      */
     @JvmStatic val tune: MutableMap<String, Double> = java.util.concurrent.ConcurrentHashMap(mapOf(
         "filmMm" to 0.08, "felt" to 0.01, "soak" to 0.05, "evap" to 0.1, "carry" to 0.15, "sieve" to 0.92, "mingle" to 3.0,
-        "fibreLo" to 0.10, "fibreHi" to 0.25))
+        "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.24))
+    /** Bench: the wet sheet says in the log, every 60 frames of running water, how long its frames took and how many steps they ran. */
+    @Volatile @JvmStatic var logPace: Boolean = false
     /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */
     const val REACH_CELLS = 72.0
 
@@ -558,7 +561,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             "u_bleedFilmMm" to PaperFibres.tune.getValue("filmMm"), "u_bleedFelt" to PaperFibres.tune.getValue("felt"),
             "u_bleedSoak" to PaperFibres.tune.getValue("soak"), "u_bleedEvap" to PaperFibres.tune.getValue("evap"),
             "u_bleedCarry" to PaperFibres.tune.getValue("carry"), "u_bleedSieve" to PaperFibres.tune.getValue("sieve"),
-            "u_bleedMingle" to PaperFibres.tune.getValue("mingle"),
+            "u_bleedMingle" to PaperFibres.tune.getValue("mingle"), "u_bleedShare" to PaperFibres.tune.getValue("share").coerceIn(0.01, 0.49),
             "u_fibreForceOn" to (if (forced != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a))
     }
 

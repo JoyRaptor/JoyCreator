@@ -34,6 +34,7 @@ uniform float u_bleed;        // the capillary pull (cells² per second): how fa
                               // edge beside it (the paper's absorbency, less its sizing; 0 on a paper sized shut)
 uniform float u_bleedFilmMm;  // the pull feeds paper that holds less water than this film; deeper water is the levelling's
 uniform float u_bleedFelt;    // the felt between fibres draws at this share of a fibre's pace
+uniform float u_bleedShare;   // the most of the difference between two cells that the paper draws across in one step
 uniform float u_fibreForceOn; // bench: 1 = every fibre at one angle, given as cos and sin of TWICE it
 uniform float u_fibreForceC;
 uniform float u_fibreForceS;
@@ -332,7 +333,7 @@ void main() {
                 if (wn >= w || wn >= u_bleedFilmMm) continue;
                 float carry = mix(u_bleedFelt, 1.0, jb_fetch(u_waterBake, q).g);
                 // Never more than a share of the difference in a step: the paper drawing cannot end up wetter than the edge.
-                float share = min(0.24, u_bleed * u_dt * 2.0 * absorbAt(q) * carry * (axis == 0 ? 1.0 + grain.x : 1.0 - grain.x));
+                float share = min(u_bleedShare, u_bleed * u_dt * 2.0 * absorbAt(q) * carry * (axis == 0 ? 1.0 + grain.x : 1.0 - grain.x));
                 float t = share * (w - wn) * (1.0 - smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, wn));
                 if (t > abs(take[axis])) take[axis] = float(side) * t;
             }

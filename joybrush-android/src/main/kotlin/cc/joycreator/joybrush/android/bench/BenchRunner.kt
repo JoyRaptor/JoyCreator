@@ -202,6 +202,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
         canvas.benchWcWholeTiles(spec.wcWholeTiles)
         cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.let { pf ->
+            pf.logPace = true
             spec.wetFibres?.let { pf.strength = it.coerceIn(0.0, 4.0) }
             spec.wetPores?.let { pf.pores = it.coerceIn(0.0, 1.0) }
             spec.wetBleed?.let { pf.bleed = it.coerceIn(0.0, 8.0) }

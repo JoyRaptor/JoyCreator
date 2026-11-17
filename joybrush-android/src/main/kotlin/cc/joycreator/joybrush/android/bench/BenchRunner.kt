@@ -725,9 +725,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         val capturedJoint = case == "recordedCapturedJointProbe"
         val watercolourEdits = case == "recordedWatercolourEditProbe"
         val watercolourOrdinary = case == "recordedWatercolourOrdinaryProbe"
-        if (case == "cellSwapLiveProbe") {
-            // R2-JB-03, in the real canvas: oil on a sprite cell, the cells swapped at once, oil again, undo and redo.
-            CellSwapLiveBench(canvas, spec, run) { next() }.start()
+        if (case == "cellSwapLiveProbe" || case == "boardDragLiveProbe") {
+            // R2-JB-03, in the real canvas: oil on a sprite cell (or in an animation board's frame), the cells swapped (the
+            // board dragged over itself) at once, oil again, undo and redo, then saved to a file and opened again.
+            CellSwapLiveBench(canvas, spec, run, drag = case == "boardDragLiveProbe") { next() }.start()
             return
         }
         if (case == "cellPayloadProbe") {

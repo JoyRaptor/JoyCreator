@@ -3996,10 +3996,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     }
 
-    /** Debug bench only: whether the tile under the document point holds realistic-paint state on the active layer's own plane. */
+    /** Debug bench only: whether the tile under the document point holds realistic-paint state, on the plane that owns that point (the layer's, or the frame's shown there). */
     fun benchPayloadAt(docX: Int, docY: Int, ready: (Boolean) -> Unit) {
         onGl(allowLost = true) {
-            val has = try { engine.hasPayload(activeLayer, Tiles.key(Math.floorDiv(docX, Tiles.SIZE), Math.floorDiv(docY, Tiles.SIZE))) } catch (e: Exception) { false }
+            val has = try {
+                engine.hasPayload(activeLayer, Tiles.key(Math.floorDiv(docX, Tiles.SIZE), Math.floorDiv(docY, Tiles.SIZE)),
+                    engine.mediaPlaneAt(activeLayer, docX.toDouble(), docY.toDouble()))
+            } catch (e: Exception) { false }
             post { ready(has) }
         }
     }

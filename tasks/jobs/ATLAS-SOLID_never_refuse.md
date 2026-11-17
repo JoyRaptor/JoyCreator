@@ -589,7 +589,21 @@ memory, not a file). Not tried: the owner's own drawings, a drawing picked from 
 a failing disk. The picture tiles, looks, slabs and strokes are still read whole.
 
 **What is left of item 2.** (a) The picture tiles the same way (they are a twelfth of the paint state per tile, and
-`LineOpenPlan` and the refusals read them, so it is a wider change). (b) **Raising the paint room will need the load split
+`LineOpenPlan` and the refusals read them, so it is a wider change). **Looked at 11-16 late, NOT started; the map for
+whoever does it.** `io/DeferredMedia` would serve as it is with another key type (make it generic; `JbArchive.read`'s plain
+tile branch notes the entry the way the two media branches do; `documentFrom` reads only the tiles' KEYS). What stands in
+the way is three readers that walk every tile's BYTES before the load, each of which would inflate the whole drawing
+again from a lazy map: (1) `JbCanvasView.refusalFor`, the loop over `contents.tiles.keys` that calls
+`contents.tiles.getValue(key)` only to check the size (the archive already refused a tile of another size, so for a
+deferred map the check can go by the noted length); (2) `LineOpenPlan.of`, `for ((at, bytes) in contents.tiles)`: the
+destructuring reads the bytes of every tile though it needs them only for tiles under items (walk the keys, read the
+bytes only where `at in contents.looks` or the tile is stacked); (3) `JbCanvasView.load` itself, which collects every
+tile's bytes into `wanted` on the caller's thread before the GL task (collect the addresses, read each tile inside the GL
+task as the media loop does now). Also `DrawingRecovery.rememberOpened` must copy the file when EITHER map is deferred,
+and a drawing with no paint state at all would then hold a file open too. The gain on the full oil page is about 66 MB
+(264 tiles of 256 KB) of the open's heap; the same proof applies (the lifecycle gate's five cases, unit tests for the
+refusals with the same words). It was not started because it touches the refusals and the line open plan on the last
+day of this session; nothing of it is in the code. (b) **Raising the paint room will need the load split
 over several GL tasks**: one task that inflates and uploads everything grows with the drawing and must stay under the 30 s
 watchdogs (`recoveryTimeout`, and the Open path's `ui.postDelayed(watchdog, 30_000L)`); today 264 MB of paint restores in
 about 7 s on the Note 9.

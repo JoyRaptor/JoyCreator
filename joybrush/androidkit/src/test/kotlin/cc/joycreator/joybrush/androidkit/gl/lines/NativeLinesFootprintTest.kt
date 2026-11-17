@@ -69,7 +69,13 @@ class NativeLinesFootprintTest {
         val wc = WatercolourSpec(size = 300.0, scatter = 0.36, gravityWidth = 36.0, edgeWidth = 3.0)
         val preset = BrushPreset(id = "wc", name = "Wash", engine = ENGINE_WATERCOLOUR, size = Param(40f), watercolour = wc)
         val r = NativeLines.reachPx(stroke(), preset)
-        assertTrue(r >= 2f * 300f + 36f + 3f + 16f, "reach $r covers the wash size, its pooling and the pad")
+        // A dab is a turned square of half the wash size (its corner 0.71 of the size from its middle), thrown up to its
+        // scatter share of the size off the path; then the pooling and the pad. Not two whole sizes, as a stamp is counted:
+        // that made one widened line too big for the phone (L9, 2026-11-17).
+        assertTrue(r >= 0.7072f * 300f + 0.36f * 300f + 36f + 3f + 16f, "reach $r covers the dab, its scatter, its pooling and the pad")
+        assertTrue(r < 2f * 300f, "reach $r is not two whole wash sizes")
+        val wide = NativeLines.reachPx(stroke(widthScale = 3f), preset)
+        assertTrue(wide >= 3f * (0.7072f + 0.36f) * 300f + 36f + 3f + 16f && wide < 3f * 2f * 300f, "the dab and its scatter scale with the width: $wide")
     }
 
     @Test fun aLineIsOnTheTilesAroundItsSamplesAndNotFarFromThem() {

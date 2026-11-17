@@ -123,8 +123,13 @@ public final class HandoffHost {
     private void seat(@NonNull Dialog dialog, @NonNull Window dw, @NonNull View card, int tries) {
         View panel = dialog.findViewById(androidx.appcompat.R.id.parentPanel);
         View box = panel != null ? panel : card;     // the card itself, not the window's clear margins round it
-        int[] at = new int[2];
+        int[] at = new int[2], mine = new int[2];
         box.getLocationOnScreen(at);
+        // The card is in a window of its own; the show is drawn in this screen's. Where this screen's window does
+        // not start at the corner of the display (a camera cut-out on the Fold), the two differ: measure both.
+        activity.getWindow().getDecorView().getLocationOnScreen(mine);
+        at[0] -= mine[0];
+        at[1] -= mine[1];
         float left = at[0] / density, bottom = (at[1] + box.getHeight()) / density;
         float short_ = UNDER_DP - (winH - bottom);     // how much more room he needs under the card
         if (tries > 0 && short_ > 2f && box.getHeight() / density - short_ > 160f) {

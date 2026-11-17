@@ -629,6 +629,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             DuplicateFailureBench(canvas, spec, run) { next() }.start()
             return
         }
+        if (case == "lineWidthRedoProbe") {
+            // L9: an editable line made wider, undone and redone; every step must be the exact picture it had.
+            LineWidthRedoBench(canvas, spec, preset, run) { next() }.start()
+            return
+        }
         if (case == "washOverLinesProbe") {
             // ATLAS-SOLID C6: a watercolour wash on a layer that holds an editable line; the line stays a line.
             WashOverLinesBench(canvas, spec, preset, run) { next() }.start()

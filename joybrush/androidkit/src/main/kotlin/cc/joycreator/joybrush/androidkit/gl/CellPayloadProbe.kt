@@ -211,7 +211,7 @@ internal object CellPayloadProbe {
 
     /** [n] bytes of [tile] at [offset] are [want]; a tile or a want that is not there is all zero. */
     private fun same(tile: ByteArray?, offset: Int, n: Int, want: ByteArray?): Boolean {
-        for (i in 0 until n) if ((tile?.get(offset + i) ?: 0) != (want?.get(i) ?: 0)) return false
+        for (i in 0 until n) if ((tile?.get(offset + i) ?: 0.toByte()) != (want?.get(i) ?: 0.toByte())) return false
         return true
     }
 

@@ -3991,6 +3991,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     }
 
+    /** Debug bench only: whether the tile under the document point holds realistic-paint state on the active layer's own plane. */
+    fun benchPayloadAt(docX: Int, docY: Int, ready: (Boolean) -> Unit) {
+        onGl(allowLost = true) {
+            val has = try { engine.hasPayload(activeLayer, Tiles.key(Math.floorDiv(docX, Tiles.SIZE), Math.floorDiv(docY, Tiles.SIZE))) } catch (e: Exception) { false }
+            post { ready(has) }
+        }
+    }
+
     /** Reads the active layer back on the GL thread, behind everything already queued (so it is also a fence). */
     fun benchState(readPixels: Boolean = true, ready: (BenchState?, String?) -> Unit) {
         onGl(allowLost = true) {

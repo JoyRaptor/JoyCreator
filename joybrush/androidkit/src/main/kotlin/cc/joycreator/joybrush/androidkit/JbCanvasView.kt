@@ -3451,7 +3451,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             }
             // Media payloads (DocModel v8, v9): their stores and grounds, beside the look the tiles already put back, which
             // they agree with.
-            for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
+            // One tile's stores at a time: the contents may hold them on disk (JbArchive.openDeferringMedia), so opening
+            // holds a tile and not the drawing. A tile whose state cannot be read again (the disk failed since it was
+            // checked) keeps its picture and gets no paint state at all, never half of it: the look is its ground.
+            var unread = 0
+            for ((_, stores) in contents.mediaTiles.keys.groupBy { Triple(it.layerId, it.celId, it.key) }) {
+                val bytes = try { stores.map { k -> k to contents.mediaTiles.getValue(k) } } catch (e: JbArchiveException) {
+                    if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
+                    continue
+                }
+                for ((k, b) in bytes) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), b, k.celId)
+            }
+            if (unread > 0) noteBenchError("open", JbArchiveException("$unread tiles opened without their paint state"))
+            (contents.mediaTiles as? java.io.Closeable)?.close()
             engine.agreeAllPayloads()
             engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose, contents.brushAssets)
             post { postDelayed({ pumpMediaPrewarm() }, 400) }

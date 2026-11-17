@@ -764,7 +764,15 @@ object JbArchive {
         read(input, legacyBrushes, null)
 
     fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
-             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents {
+             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents = read(input, legacyBrushes, pngVerifier, null)
+
+    /**
+     * [deferred] not null: every check is made exactly as without it, on every byte, but a media tile's bytes are let go
+     * once checked; its entry name, size and the CRC of the bytes read are noted in [deferred] and the contents returned
+     * hold a stand-in of the right size in its place ([openDeferringMedia] puts the real reader there).
+     */
+    private fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
+                     pngVerifier: FrozenBrushAssets.PngVerifier?, deferred: MutableMap<MediaTileKey, DeferredMedia.Entry>?): JbContents {
         val zis = ZipInputStream(input)
         val names = HashSet<String>()
         val budget = ByteBudget(MAX_TOTAL_BYTES)
@@ -857,7 +865,7 @@ object JbArchive {
                         if (bytes.size != MEDIA_TILE_BYTES) {
                             throw JbArchiveException("media tile \"$name\" is ${bytes.size} bytes, a media tile is $MEDIA_TILE_BYTES")
                         }
-                        media[key] = bytes
+                        media[key] = if (deferred == null) bytes else DeferredMedia.note(deferred, key, name, bytes)
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(GROUND_SUFFIX) -> {
@@ -870,7 +878,8 @@ object JbArchive {
                         if (bytes.size != TILE_BYTES) {
                             throw JbArchiveException("media ground tile \"$name\" is ${bytes.size} bytes, a ground tile is $TILE_BYTES")
                         }
-                        media[MediaTileKey(parts[1], parts[2], stem, MediaStores.GROUND)] = bytes
+                        val key = MediaTileKey(parts[1], parts[2], stem, MediaStores.GROUND)
+                        media[key] = if (deferred == null) bytes else DeferredMedia.note(deferred, key, name, bytes)
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(LOOK_SUFFIX) -> {
@@ -1129,6 +1138,41 @@ object JbArchive {
         // one catch must not meet a FileNotFoundException from underneath it.
         return try {
             FileInputStream(file).use { read(it, legacyBrushes, pngVerifier) }
+        } catch (e: JbArchiveException) {
+            throw e
+        } catch (e: Exception) {
+            throw JbArchiveException("${file.name} cannot be opened: ${brief(e)}")
+        }
+    }
+
+    /**
+     * Opens [file] like [open], holding its realistic-paint state on disk instead of in memory (ATLAS-SOLID, streaming
+     * saves item 2, "open as it is read"): the paint stores are most of a painted drawing, about 3 MB a tile, and a
+     * drawing was held whole in the heap between the read and the upload. Everything is read and checked first exactly as
+     * [open] does it, so a file [open] refuses is refused here with the same words and before anything is shown; only
+     * then are the media tiles handed out, each read again from the file when asked for ([DeferredMedia]) and checked
+     * against what the first reading saw. The file format is untouched.
+     *
+     * When the two readings cannot be matched up (a zip whose directory does not say what its entries hold), nothing is
+     * refused for it: the drawing is opened whole, as [open] does.
+     */
+    fun openDeferringMedia(file: File, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents {
+        if (!file.isFile) throw JbArchiveException("there is no file at ${file.path}")
+        return try {
+            // Opened before the checking pass, so the second reading is of the file that was checked even when the
+            // path is given another file or deleted meanwhile (an open file stays readable).
+            val zip = try { java.util.zip.ZipFile(file) } catch (e: Exception) { null } ?: return open(file, legacyBrushes)
+            var handedOver = false
+            try {
+                val noted = LinkedHashMap<MediaTileKey, DeferredMedia.Entry>()
+                val contents = FileInputStream(file).use { read(it, legacyBrushes, null, noted) }
+                if (noted.isEmpty()) return contents
+                if (!DeferredMedia.agrees(zip, noted)) return open(file, legacyBrushes)
+                handedOver = true
+                contents.copy(mediaTiles = DeferredMedia(file, zip, noted))
+            } finally {
+                if (!handedOver) try { zip.close() } catch (_: Exception) {}
+            }
         } catch (e: JbArchiveException) {
             throw e
         } catch (e: Exception) {

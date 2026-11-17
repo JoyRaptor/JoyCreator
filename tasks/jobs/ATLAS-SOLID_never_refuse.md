@@ -303,6 +303,57 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
   twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
 
+### 11-17: handoff from the engine session (Claude Fable), and why the paint room was NOT raised
+
+**Read this first if you take the save path, the wet sheet or the watercolour line next.**
+
+**Where it stands (all on `joy-creator`, each with its section below):** a save reads back and writes only what
+changed, from the first save after an open; an app killed mid-save leaves the file whole; autosave after 15 s and every
+30 s; lifecycle gate for paint, for editable lines and for frames; wet-sheet washes survive low graphics memory, go on
+layers with editable lines, and board renames leave them wet; the Watercolour line brush runs at the screen's rate.
+
+**The paint room (`LayerBudget.MEDIA_RAM_SHARE`, the save's paint budget) was deliberately left as it is.** Raising it
+is a few lines; making it safe is not, and a save that runs out of memory on a big painting is the one failure this
+card exists to prevent. What still holds the WHOLE drawing in the app's 512 MB heap, each a reason not to raise it yet:
+
+1. **The save on leaving** reads everything (the Library thumbnail is drawn from the save's tiles): 479 MB peak on a
+   full page today. Way out: leave with `snapshotSparse` and draw the thumbnail from the saved file's picture tiles
+   read one row of tiles at a time (they are deflated entries; `DrawingLibrary.thumbnailOf` only calls
+   `contents.tiles[...]`). The hard part is not the thumbnail: a sparse save that the file cannot stand in for asks
+   for the whole drawing again (`JbArchiveNeedsBytes`), and on leaving the graphics may already be gone (the window's
+   stop destroys the surface at once, JBX-37). Either accept that rare case as a failed save that says so on return,
+   or keep `keepPausePicture` for it and lose the gain. Decide with the owner; do not do it quietly.
+2. **`keepPausePicture`** (a save still being written when the screen leaves) keeps a whole picture for the save that
+   follows. Same question.
+3. **Open from another drawing, and the restore after lost graphics,** do not tie the canvas to the file
+   (`JbArchive.memoOf` is called only from `readWorkingFile`), so their first save reads everything.
+4. **Copy, export and the board hand-off** take whole snapshots, paint stores included, which exports never use
+   (second review E4).
+5. **Opening**: paint and (in work by the bug-hunt session, 11-17) picture tiles are read as they are needed, but
+   still in ONE graphics task; a bigger room needs that split into steps, under the two 30 s watchdogs.
+6. **Graphics memory**: the admission check before water is made still counts the old 1024 window (second review E3),
+   and the wet sheet takes 218 MB beside the atlas on Detailed.
+
+Order to do it in: 4 (smallest), 3, 5, then 1 and 2 together with the owner's ruling, then raise the save budget to
+the room, then the room itself, measuring heap on the Note 9 at each step with the lifecycle gate's five cases.
+
+**Things found and left, smallest first.**
+- The Watercolour line: about 0.15 s at the lift (the pooled finish itself); 1.4 s before the first stroke after an
+  install (its programs are compiled at first use; `pumpMediaPrewarm` is where the others are warmed); a stroke on a
+  Tile board still finishes whole tiles.
+- **Width of a line (L9), fixed 11-17.** Bench case `lineWidthRedoProbe`: an ink line and a watercolour line made 2.1 and 3 times wider, with Undo and Redo walked across both: every step the exact picture it had (0 px), the record's width right, and the same edit sent again gives the same picture (Note 9). On the way: ONE watercolour line made 3 times wider was refused as "too many lines" (460 unit tiles counted for it); its footprint counted the dab as two whole brush sizes round the path (`NativeLines.reachPx`), now as the turned square it is, and the sentence no longer speaks of many lines. The 11-14 "width redo not exact" did not reproduce after the screens lane's 122d9b330.
+- **Paper fibres and pores (owner's request 11-17): built, NOT landed, no visible effect yet.** Branch `claude/atlas-paper-fibres-20261117` (pushed). What is true on it: the wet sheet's paper bake now keeps the fluid map's direction and pore channels (it kept absorbency alone: `MediaLayerEngine.ensureBake`, `jb_media_bake.frag`); `jb_wet_update.frag` spreads dampness by the fibre direction (cross term for diagonals) and soaks to each spot's pore capacity; `jb_wet_flux.frag` lowers a dry edge's hold where the wash advances along the fibres; `PaperFibres` (strength, pores, forceAngleDeg), off by default; bench `jb_wet_fibres`, `jb_wet_pores`, `jb_wet_fibre_angle`, `jb_bench_paper`. What is NOT true yet: on the Note 9, Round and Wash strokes on `rice_fibres` with it off, on, three times over, and forced to 0, 45, 90 and 135 degrees differ no more than two runs with it off do. Either the settings do not reach the passes (first thing to check: draw u_fibre into the look as a colour on a debug switch) or a held edge is the wrong lever (a wash's edge here is set by the brush's own water, which is small). Frame times were in the same range in all runs. Do not land it as it is: a switch that does nothing is worse than none.
+- The other footprints (`NativeLines.reachPx` for stamp brushes) count two diameters round the path the same way the
+  watercolour line's did; nobody has measured whether that refuses wide ink lines too.
+- `WatercolourPass.finishInto` binds nine neighbour textures and re-sends every uniform per tile; cheap now that it is
+  scissored, worth a look only if the lift is profiled again.
+- Not run on the Fold by this session: anything of 11-16 and 11-17 except what the bug-hunt session ran there.
+
+**Test tools this session left (bench steps and cases, all debug only):** `jb_bench_life` (+ `_keep`,
+`jb_bench_board animation`, steps `digest`, `cover`, `recreate`, `savenow`, `addframe`, `dry`), `savesparse`,
+`printcheck`, `wccheck`, cases `wetSheetFailureProbe`, `washOverLinesProbe`, `lineWidthRedoProbe`; switches
+`jb_wc_whole_tiles`, `jb_wc_finish_check`, `jb_editable_lines`. The start lines are in each section's "bench" line.
+
 ### 11-17: the first save after opening a drawing (JBX-36, continued)
 
 **In plain words.** Opening a big painting and making one mark used to cost a full save: the whole drawing read back

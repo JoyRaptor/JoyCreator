@@ -32,7 +32,8 @@ uniform float u_fibre;        // how much faster the paper draws water along its
                               // anisotropy; times the fluid map's coherence at each spot)
 uniform float u_bleed;        // the capillary pull (cells² per second): how fast thirsty paper draws in the water of a wet
                               // edge beside it (the paper's absorbency, less its sizing; 0 on a paper sized shut)
-uniform float u_bleedFilmMm;  // the pull feeds paper that holds less water than this film; deeper water is the levelling's
+uniform float u_bleedFilmMm;  // the pull feeds paper that holds less than this film of water it drew in before ...
+uniform float u_bleedThinMm;  // ... or less than this of any other water; deeper water is the levelling's
 uniform float u_bleedFelt;    // the felt between fibres draws at this share of a fibre's pace
 uniform float u_bleedShare;   // the most of the difference between two cells that the paper draws across in one step
 uniform float u_fibreForceOn; // bench: 1 = every fibre at one angle, given as cos and sin of TWICE it
@@ -329,12 +330,16 @@ void main() {
             for (int side = -1; side <= 1; side += 2) {
                 ivec2 q = c + (axis == 0 ? ivec2(side, 0) : ivec2(0, side));
                 if (!jb_inside(q, size) || outside(q)) continue;
-                float wn = wf(u_w0, q).r;
-                if (wn >= w || wn >= u_bleedFilmMm) continue;
+                // Into paper that holds less than a film: u_bleedFilmMm of water drawn in this way (marked by a negative
+                // wet age, jb_wet_update.frag), u_bleedThinMm of any other. Never into a wash standing deeper.
+                vec4 an = wf(u_w0, q);
+                float wn = an.r;
+                float cap = an.b < 0.0 ? u_bleedFilmMm : u_bleedThinMm;
+                if (wn >= w || wn >= cap) continue;
                 float carry = mix(u_bleedFelt, 1.0, jb_fetch(u_waterBake, q).g);
                 // Never more than a share of the difference in a step: the paper drawing cannot end up wetter than the edge.
                 float share = min(u_bleedShare, u_bleed * u_dt * 2.0 * absorbAt(q) * carry * (axis == 0 ? 1.0 + grain.x : 1.0 - grain.x));
-                float t = share * (w - wn) * (1.0 - smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, wn));
+                float t = share * (w - wn) * (1.0 - smoothstep(0.5 * cap, cap, wn));
                 if (t > abs(take[axis])) take[axis] = float(side) * t;
             }
         }

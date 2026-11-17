@@ -70,7 +70,8 @@ object PaperFibres {
     /**
      * The bleed's own numbers, by the name the shaders give them (`u_bleed` + the name, capitalised; the two `fibre` ones
      * are the bake's). Tuned on the Note 9; a map only so that the bench can try others without a build (`jb_wet_tune`).
-     * - `filmMm`: the bleed feeds paper holding less than this film;
+     * - `filmMm`: water the paper drew in is film, and is fed, while thinner than this;
+     * - `thinMm`: any water thinner than this is film (the faint rim a brush leaves round its stroke);
      * - `felt`: the felt between fibres draws at this share of a fibre's pace;
      * - `soak`: the paper under the film drinks it at this share of standing water's pace;
      * - `evap`: the film dries at this share of standing water's pace;
@@ -82,7 +83,7 @@ object PaperFibres {
      */
     @JvmStatic val tune: MutableMap<String, Double> = java.util.concurrent.ConcurrentHashMap(mapOf(
         "filmMm" to 0.1, "felt" to 0.01, "soak" to 0.05, "evap" to 0.25, "carry" to 0.3, "sieve" to 0.95, "mingle" to 4.0,
-        "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.4))
+        "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.4, "thinMm" to 0.04))
     /** Bench: the wet sheet says in the log, every 60 frames of running water, how long its frames took and how many steps they ran. */
     @Volatile @JvmStatic var logPace: Boolean = false
     /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */
@@ -564,7 +565,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             "u_fibre" to PaperFibres.strength * (if (forced != null) 1.0 else paper.stats.anisotropy),
             "u_pore" to PaperFibres.pores.coerceIn(0.0, 1.0),
             "u_bleed" to PaperFibres.BLEED * PaperFibres.bleed * PaperFibres.thirst(paper.stats),
-            "u_bleedFilmMm" to PaperFibres.tune.getValue("filmMm"), "u_bleedFelt" to PaperFibres.tune.getValue("felt"),
+            "u_bleedFilmMm" to PaperFibres.tune.getValue("filmMm"), "u_bleedThinMm" to PaperFibres.tune.getValue("thinMm"), "u_bleedFelt" to PaperFibres.tune.getValue("felt"),
             "u_bleedSoak" to PaperFibres.tune.getValue("soak"), "u_bleedEvap" to PaperFibres.tune.getValue("evap"),
             "u_bleedCarry" to PaperFibres.tune.getValue("carry"), "u_bleedSieve" to PaperFibres.tune.getValue("sieve"),
             "u_bleedMingle" to PaperFibres.tune.getValue("mingle"), "u_bleedShare" to PaperFibres.tune.getValue("share").coerceIn(0.01, 0.49),

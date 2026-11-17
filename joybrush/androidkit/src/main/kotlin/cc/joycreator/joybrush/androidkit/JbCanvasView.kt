@@ -4339,6 +4339,26 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         }
     }
 
+    /** Debug only (R2-JB-03): moved cells and a dragged board keep their realistic-paint state. Fresh engines, never this View's artwork. */
+    fun runCellPayloadProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"failure\":\"Cell payload probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        onGl {
+            val value = try {
+                cc.joycreator.joybrush.androidkit.gl.CellPayloadProbe.run({
+                    GlPaintEngine().also { it.init(); it.setDocumentPaper(paper); it.addLayer("cell-payload-probe") }
+                }, "cell-payload-probe")
+            } catch (error: Exception) {
+                org.json.JSONObject().put("passed", false).put("failure", error.message ?: error.javaClass.simpleName)
+            }
+            val report = value.toString()
+            post { ready(report) }
+        }
+    }
+
     /** Debug only (R2-JB-03): a duplicated frame keeps its realistic-paint state. A fresh engine, never this View's artwork. */
     fun runFramePayloadProbe(ready: (String) -> Unit) {
         if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {

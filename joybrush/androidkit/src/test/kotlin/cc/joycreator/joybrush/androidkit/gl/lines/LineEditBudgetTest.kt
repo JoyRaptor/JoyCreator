@@ -17,7 +17,7 @@ class LineEditBudgetTest {
         val tiles = LineEditBudget.LIMIT_BYTES / LineEditBudget.TILE_BYTES   // 768
         assertEquals(768L, tiles)
         assertNull(LineEditBudget.refusal(LineEditBudget.bytes(tiles - 100, 100)))
-        assertEquals("That's too many lines to change at once on this phone; choose fewer.",
+        assertEquals("That change is too big for this phone to make at once. Try fewer lines, or a smaller change.",
             LineEditBudget.refusal(LineEditBudget.bytes(tiles - 100, 101)))
     }
 

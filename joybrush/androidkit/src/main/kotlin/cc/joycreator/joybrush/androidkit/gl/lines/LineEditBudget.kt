@@ -14,7 +14,7 @@ internal object LineEditBudget {
     /** Above this an edit is refused in words. */
     const val LIMIT_BYTES: Long = 192L * 1024 * 1024
 
-    const val MESSAGE = "That's too many lines to change at once on this phone; choose fewer."
+    const val MESSAGE = "That change is too big for this phone to make at once. Try fewer lines, or a smaller change."
 
     /** The units' tiles plus the tiles composed (and the bases copied) from them, in bytes. */
     fun bytes(unitTiles: Long, composedTiles: Long): Long = (unitTiles + composedTiles) * TILE_BYTES

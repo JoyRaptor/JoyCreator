@@ -434,7 +434,9 @@ class GlPaintEngine(
             toothMm = (surface?.toothDepthMm ?: 0.01f).toDouble(), compliance = (surface?.compliance ?: 0.3f).toDouble(),
             sizing = (surface?.sizing ?: 0.5f).toDouble(), absorbency = (surface?.absorbency ?: 0.5f).toDouble(),
             capacity = (surface?.capacity ?: 0.5f).toDouble(), wickSpeed = (surface?.wickSpeed ?: 0.4f).toDouble(),
-            heightMeanOverride = surface?.heightMean?.toDouble())
+            heightMeanOverride = surface?.heightMean?.toDouble(),
+            // Only a paper that ships a fluid map has a direction to follow (the others read as "no direction").
+            anisotropy = if (fluidTexture != null) (surface?.anisotropy ?: 0f).toDouble() else 0.0)
         val fluid = fluidTexture
         val made = cc.joycreator.joybrush.androidkit.gl.media.MediaPaperGl(stats,
             surface = cc.joycreator.joybrush.androidkit.gl.media.Tex(surfaceTexture ?: grains.placeholder),

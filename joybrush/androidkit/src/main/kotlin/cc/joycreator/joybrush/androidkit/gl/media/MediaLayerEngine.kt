@@ -82,8 +82,8 @@ object PaperFibres {
      * - `share`: the most of the difference between two cells that the paper draws across in one water step.
      */
     @JvmStatic val tune: MutableMap<String, Double> = java.util.concurrent.ConcurrentHashMap(mapOf(
-        "filmMm" to 0.1, "felt" to 0.01, "soak" to 0.05, "evap" to 0.25, "carry" to 0.3, "sieve" to 0.95, "mingle" to 4.0,
-        "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.4, "thinMm" to 0.04))
+        "filmMm" to 0.1, "thinMm" to 0.08, "felt" to 0.01, "soak" to 0.05, "evap" to 0.25, "carry" to 1.0, "sieve" to 0.85,
+        "mingle" to 4.0, "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.4))
     /** Bench: the wet sheet says in the log, every 60 frames of running water, how long its frames took and how many steps they ran. */
     @Volatile @JvmStatic var logPace: Boolean = false
     /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */

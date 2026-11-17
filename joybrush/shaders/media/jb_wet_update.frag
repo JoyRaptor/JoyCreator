@@ -113,7 +113,6 @@ float jb_filmOf(float w, bool marked) {
 }
 float jb_film(vec4 st) { return jb_filmOf(st.r, st.b < 0.0); }
 #endif
-
 void main() {
     jb_atlasBegin();
     ivec2 c = jb_cell();
@@ -139,8 +138,6 @@ void main() {
     float sieve = mix(1.0, u_bleedSieve, jb_film(a));
     float inRun = 0.0;
     float keepP = w > 0.0 ? max(0.0, 1.0 - ((fo.x + fo.y + fo.z + fo.w) + sieve * (abs(ro.x) + abs(ro.y))) * u_dt / w) : 1.0;
-#else
-#define keepP keep
 #endif
     float inW = 0.0;
     vec4 inP = vec4(0.0);
@@ -202,13 +199,15 @@ void main() {
     }
 #endif
     w = w - outW + inW;
-    pig = max(pig * keepP + inP + u_mingle * u_dt * mingle, vec4(0.0));
 #ifdef JB_WET_FIBRES
+    pig = max(pig * keepP + inP + u_mingle * u_dt * mingle, vec4(0.0));
     // The mark: paper that was dry, or held only a film, and is wetted mostly by what the paper itself drew in (o_run, not
     // the levelling's flow) holds the bleed's water from here on, said by a wet age that counts DOWN (nothing else reads
     // the age's sign: it is this pass's own). A brush that wets it makes it painted water again (age 0, below); so does
     // drying out.
     if (age >= 0.0 && a.r < 0.5 * u_bleedThinMm && inRun > 0.0 && inRun >= 0.5 * inW) age = -max(age, 1.0e-4);
+#else
+    pig = max(pig * keep + inP + u_mingle * u_dt * mingle, vec4(0.0));
 #endif
 
     // --- brush (signed: a thirsty brush lifts water and the pigment in it)
@@ -305,13 +304,6 @@ void main() {
     w = max(0.0, w - evap);
 
     // --- soak and wick
-    // The paper's own fibres and pores (owner, 2026-11-17; every photo paper's fluid map carries them: G = 0.5 + 0.5 x
-    // cos(2 x fibre angle) x coherence, B the same with sin, A = pore capacity, 0.5 = the sheet's own). Dampness spreads
-    // faster along the fibres and slower across, by as much: the spread is a diffusion whose two rates are 1 + k and 1 - k
-    // along and across the fibre (k = the paper's anisotropy x the map's coherence), so in the grid's own axes it is
-    // (1 + k cos 2a) along x, (1 - k cos 2a) along y, and a cross term k sin 2a over the four diagonal neighbours, which is
-    // what lets a fibre lying on a diagonal carry the damp along it. A spot with roomy pores takes more water before it
-    // is full. Both off (unset uniforms): the arithmetic below is the old one.
 #ifdef JB_WET_FIBRES
     // The paper's pores (the fluid map's A: 0.5 = the sheet's own capacity): a spot with roomy pores takes more water
     // before it is full, and takes it faster. A paper with no fluid map bakes G = B = 0 and A = 1: left as the sheet's.
@@ -320,14 +312,12 @@ void main() {
         vec4 fl = jb_fetch(u_fluidBake, c);
         if (!(fl.g == 0.0 && fl.b == 0.0)) capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
     }
-#else
-    float capMm = u_capMm;
-#endif
     float soak = min(w, u_absorb * u_dt * (1.0 - s) * capMm);
-#ifdef JB_WET_FIBRES
     // The bleed's film is water already in the paper's surface: it sinks further in slowly (u_bleedSoak of standing
     // water's pace), or the paper under it would drink it dry within a few cells of the edge.
     soak *= mix(1.0, u_bleedSoak, film);
+#else
+    float soak = min(w, u_absorb * u_dt * (1.0 - s) * u_capMm);
 #endif
     w -= soak;
     vec4 stain = pig * min(1.0, soak / max(before, 1.0e-6)) * u_stainCarry;
@@ -339,7 +329,11 @@ void main() {
     float sR = wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).g;
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
+#ifdef JB_WET_FIBRES
     s = s + soak / capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
+#else
+    s = s + soak / u_capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
+#endif
     // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
     // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp
     // spread until one damp pool covered the drawing, overflowed the atlas and froze in tile-shaped squares). Dampness this

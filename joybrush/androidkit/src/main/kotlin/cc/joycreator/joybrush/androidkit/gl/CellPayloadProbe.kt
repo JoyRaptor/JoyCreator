@@ -63,7 +63,7 @@ internal object CellPayloadProbe {
         val shared = "cell-probe-shared"
         val base = JbDocument(id = "cell-probe-doc", name = "Disposable cell payload probe",
             boards = listOf(Board("cell-probe-root", "Root", BoardKind.CANVAS, RectPx(-512, -512, 1536, 1536))),
-            layers = listOf(Layer(layerId, "Probe", LayerKind.PAINT, cels = listOf(Cel(shared)))), activeLayerId = layerId)
+            layers = listOf(Layer(layerId, "Probe", LayerKind.PAINT, cels = listOf(Cel(shared)), sharedCelId = shared)), activeLayerId = layerId)
         engine.setBoardDocument(base)
         val keys = listOf(Tiles.key(0, 0), Tiles.key(1, 0))
         for (key in keys) engine.writeCelTile(layerId, shared, key, lookBytes(key))
@@ -77,7 +77,7 @@ internal object CellPayloadProbe {
         val board = doc.boards.single { it.kind == BoardKind.SPRITE }
         doc = BoardDocumentOps.setLocked(doc, board.id, true)
         engine.setBoardDocument(doc)
-        val cel = checkNotNull(doc.layers.single().sharedCelId)
+        val cel = doc.layers.single().sharedCelId ?: shared
         val before = read(engine, layerId, cel, null, keys)
         report.put("payloadTilesBefore", before.media.size)
         if (!before.hasPayload(keys[0]) || before.hasPayload(keys[1])) problem("setup: paint state is not on the left tile alone")

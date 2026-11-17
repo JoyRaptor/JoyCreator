@@ -67,12 +67,21 @@ object PaperFibres {
 
     /** The bleed's pace on a paper of thirst 1 with fibres neither helping nor hindering, in the lab's px² per second. */
     const val BLEED = 48.0
-    /** The bleed feeds paper holding less than this film (mm). (A variable for the bench's tuning; the app never sets it.) */
-    @Volatile @JvmStatic var film: Double = 0.03
-    /** The film keeps its pigment this much longer than standing water would (the share of its settling that is left). */
-    @Volatile @JvmStatic var carry: Double = 0.3
-    /** The paper under the film drinks it at this share of standing water's pace. */
-    @Volatile @JvmStatic var soak: Double = 0.15
+    /**
+     * The bleed's own numbers, by the name the shaders give them (`u_bleed` + the name, capitalised; the two `fibre` ones
+     * are the bake's). Tuned on the Note 9; a map only so that the bench can try others without a build (`jb_wet_tune`).
+     * - `filmMm`: the bleed feeds paper holding less than this film;
+     * - `felt`: the felt between fibres draws at this share of a fibre's pace;
+     * - `soak`: the paper under the film drinks it at this share of standing water's pace;
+     * - `evap`: the film dries at this share of standing water's pace;
+     * - `carry`: the film's pigment settles at this share of standing water's pace;
+     * - `sieve`: of the pigment in film water that moves on, this share goes with it at each cell;
+     * - `mingle`: colour spreads through the film along a fibre this many times as readily as through a wash;
+     * - `fibreLo`, `fibreHi`: a cell lies on a fibre from, and fully from, this far above the paper's fibre-scale mean.
+     */
+    @JvmStatic val tune: MutableMap<String, Double> = java.util.concurrent.ConcurrentHashMap(mapOf(
+        "filmMm" to 0.08, "felt" to 0.01, "soak" to 0.05, "evap" to 0.1, "carry" to 0.15, "sieve" to 0.92, "mingle" to 3.0,
+        "fibreLo" to 0.10, "fibreHi" to 0.25))
     /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */
     const val REACH_CELLS = 72.0
 
@@ -180,7 +189,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         ProgramSpec({ progCopy = it }, "jb_media_quad.vert", "jb_media_copy.frag", "media copy", atlasDefs = ATLAS_OWN),
         ProgramSpec({ progRender = it }, "jb_media_screen.vert", "jb_media_render.frag", "media render", wet = true, atlasDefs = ATLAS_NBR,
             ownReach = LOOK_NEAR_REACH, ownDefine = "JB_ATLAS_NEAR"),
-        ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR),
+        ProgramSpec({ progBake = it }, "jb_media_quad.vert", "jb_media_bake.frag", "media bake", atlasDefs = ATLAS_NBR, fibre = true),
         ProgramSpec({ progWetDab = it }, "jb_wet_dab.vert", "jb_wet_dab.frag", "media wet dab", wet = true),
         ProgramSpec({ progFlux = it }, "jb_media_quad.vert", "jb_wet_flux.frag", "media wet flux", wet = true, atlasDefs = ATLAS_NBR,
             ownReach = 128 /* none until set each frame ([fluxReach]) */, ownDefine = "JB_ATLAS_NEAR"),
@@ -207,6 +216,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     ))
     private class ProgramSpec(val set: (MediaProgram) -> Unit, val vert: String, val frag: String, val label: String,
                               /** Reads the water: built with JB_WET_COARSE when the engine's water is coarse. */ val wet: Boolean = false,
+                              /** Built with JB_WET_FIBRES in a fibre engine though it is not a water pass (the bake). */ val fibre: Boolean = false,
                               val plain: Boolean = false,
                               /** More defines for the atlas build only (the look's JB_ATLAS_NBR). */ val atlasDefs: List<String> = emptyList(),
                               /** >= 0: how far the pass reads (full-res layer px): its tiles' insides are drawn by its OWN build. */
@@ -225,7 +235,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     fun compileNext(): Boolean {
         val spec = programTable.getOrNull(programs.size) ?: return false
         val defs = (if (atlasMode) listOf("JB_ATLAS") + spec.atlasDefs else emptyList()) + (if (coarseWater && spec.wet) listOf("JB_WET_COARSE") else emptyList()) +
-            (if (fibres && spec.wet && !atlasMode && !coarseWater) listOf("JB_WET_FIBRES") else emptyList())
+            (if (fibres && (spec.wet || spec.fibre) && !atlasMode && !coarseWater) listOf("JB_WET_FIBRES") else emptyList())
         val made = MediaProgram(shaders, "media/${spec.vert}", "media/${spec.frag}", spec.label, if (spec.plain && atlasMode) defs + "JB_PLAIN_TARGET" else defs,
             if (atlasMode && !atlasBroken) spec.ownReach else -1, spec.ownDefine)
         programs += made
@@ -437,6 +447,11 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     }
 
     // ---- textures made on first use ----
+    private fun bakeFibres(u: UniformBank) {
+        if (!fibres) return
+        u.f1("u_fibreLo", PaperFibres.tune.getValue("fibreLo")); u.f1("u_fibreHi", PaperFibres.tune.getValue("fibreHi"))
+    }
+
     private fun ensureDry() {
         if (delta != 0) return
         delta = MediaTex.make(w, h); deltaFbo = MediaTex.fbo(delta); clearFbo(deltaFbo)
@@ -451,7 +466,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         // (G, B) and pore capacity (A) are kept too. The absorbency in R is the same byte either way.
         fluidBake = if (!fibres) MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
             else MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
-        waterBake = MediaTex.make(w, h, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_HALF_FLOAT)
+        // (A fibre engine's second channel: how far each cell lies on a fibre, jb_media_bake.frag.)
+        waterBake = if (fibres) MediaTex.make(w, h, GLES30.GL_RG16F, GLES30.GL_RG, GLES30.GL_HALF_FLOAT)
+            else MediaTex.make(w, h, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_HALF_FLOAT)
         bakeFbo = MediaTex.fbo(bakeTex, fluidBake, waterBake)
         clearFbo(bakeFbo)   // the atlas's zero slot must read as zero in every texture (and made textures start undefined)
     }
@@ -538,7 +555,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             "u_fibre" to PaperFibres.strength * (if (forced != null) 1.0 else paper.stats.anisotropy),
             "u_pore" to PaperFibres.pores.coerceIn(0.0, 1.0),
             "u_bleed" to PaperFibres.BLEED * PaperFibres.bleed * PaperFibres.thirst(paper.stats),
-            "u_bleedFilmMm" to PaperFibres.film, "u_bleedCarry" to PaperFibres.carry, "u_bleedSoak" to PaperFibres.soak,
+            "u_bleedFilmMm" to PaperFibres.tune.getValue("filmMm"), "u_bleedFelt" to PaperFibres.tune.getValue("felt"),
+            "u_bleedSoak" to PaperFibres.tune.getValue("soak"), "u_bleedEvap" to PaperFibres.tune.getValue("evap"),
+            "u_bleedCarry" to PaperFibres.tune.getValue("carry"), "u_bleedSieve" to PaperFibres.tune.getValue("sieve"),
+            "u_bleedMingle" to PaperFibres.tune.getValue("mingle"),
             "u_fibreForceOn" to (if (forced != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a))
     }
 
@@ -775,7 +795,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glViewport(0, 0, w, h)
         GLES30.glDisable(GLES30.GL_BLEND)
         val u = progBake.use()
-        common(u); MediaUniforms.paper(u, paper); MediaUniforms.bake(u, w, h)
+        common(u); MediaUniforms.paper(u, paper); MediaUniforms.bake(u, w, h); bakeFibres(u)
         val side = MediaAtlasDraw.SIDE.toFloat()
         quad(floatArrayOf(Tiles.tx(key) * side, Tiles.ty(key) * side, (Tiles.tx(key) + 1) * side, (Tiles.ty(key) + 1) * side))
         bakedPaper = paper
@@ -975,7 +995,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         GLES30.glViewport(0, 0, w, h)
         GLES30.glDisable(GLES30.GL_BLEND)
         val u = progBake.use()
-        common(u); MediaUniforms.paper(u, paper); MediaUniforms.bake(u, w, h)   // (the old u_cellPx named no uniform of jb_media_bake.frag)
+        common(u); MediaUniforms.paper(u, paper); MediaUniforms.bake(u, w, h); bakeFibres(u)   // (the old u_cellPx named no uniform of jb_media_bake.frag)
         quad(full())
         bakedPaper = paper
     }

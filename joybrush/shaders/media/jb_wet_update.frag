@@ -54,22 +54,20 @@ uniform float u_rimCells;       // > 0: water flowing into this many cells along
                                 //      edge itself (the wet sheet's rim: see main); 0 = the edge is a wall, as always
 uniform float u_edgeDep;        // pigment drops out faster at the drying edge (contact-line deposition)
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
-uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
+uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale; (fibre build) G = how far the cell lies on a fibre
 uniform sampler2D u_fluidBake;  // absorbency, fibre direction, capacity
 #ifdef JB_WET_FIBRES
 // The paper's fibres and pores (PaperFibres, owner 2026-11-17). Built in only while that switch is on: without the define
 // this file is the water as it always was, to the byte.
-uniform float u_fibre;          // dampness creeps this much further along the paper's fibres than across them (the paper's
-                                // anisotropy; times the map's coherence at each spot)
 uniform float u_pore;           // 0..1: how far each spot soaks up what its own pores hold (the fluid map's capacity)
                                 // rather than one capacity for the whole sheet
 uniform float u_bleedFilmMm;    // water thinner than this is water in the paper's surface (the bleed, jb_wet_flux.frag)
+uniform float u_bleedSieve;     // of the pigment in a film's water that the paper draws on, this share goes with it at each cell
+uniform float u_bleedEvap;      // the film dries at this share of the pace of water standing on the paper
+uniform float u_bleedMingle;    // colour spreads through the film along a fibre this many times as readily as through a wash
 uniform float u_bleedSoak;      // how fast the paper under the bleed's film drinks it, as a share of standing water's pace
 uniform float u_bleedCarry;     // how readily that water keeps its pigment as it travels: the film's settling is this
                                 // share of standing water's (1 = as standing water)
-uniform float u_fibreForceOn;   // bench: 1 = every spot's fibres lie at one angle, given as cos and sin of TWICE it
-uniform float u_fibreForceC;
-uniform float u_fibreForceS;
 #endif
 uniform float u_noBody;         // owner A/B (2026-10-18): 1 = watercolour leaves no paint body (no relief); unset 0 = as always
 
@@ -118,6 +116,16 @@ void main() {
     vec2 ro = wf(u_run, c).xy;
     float outW = (fo.x + fo.y + fo.z + fo.w + abs(ro.x) + abs(ro.y)) * u_dt;
     float keep = w > 0.0 ? max(0.0, 1.0 - outW / w) : 1.0;
+#ifdef JB_WET_FIBRES
+    // The fibres sieve the pigment out of water that travels through them: of the pigment in a film's water that the
+    // paper draws on (o_run: the bleed), only u_bleedSieve goes with it at each cell, so the colour thins with distance
+    // and does not arrive whole at the bleed's far edge to dry there as a line. Deep water (the wash itself, and water
+    // running down a tilted sheet) keeps all of its pigment as it moves.
+    float sieve = mix(u_bleedSieve, 1.0, smoothstep(u_bleedFilmMm, 3.0 * u_bleedFilmMm, w));
+    float keepP = w > 0.0 ? max(0.0, 1.0 - ((fo.x + fo.y + fo.z + fo.w) + sieve * (abs(ro.x) + abs(ro.y))) * u_dt / w) : 1.0;
+#else
+#define keepP keep
+#endif
     float inW = 0.0;
     vec4 inP = vec4(0.0);
     ivec2 nb[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
@@ -131,6 +139,9 @@ void main() {
         if (fq <= 0.0) continue;
         float wq = wf(u_w0, q).r;
         inW += fq;
+#ifdef JB_WET_FIBRES
+        fq -= (1.0 - mix(u_bleedSieve, 1.0, smoothstep(u_bleedFilmMm, 3.0 * u_bleedFilmMm, wq))) * rq * u_dt;
+#endif
         inP += wf(u_w1, q) * min(1.0, fq / max(wq, 1.0e-6));
     }
     // --- mingle: pigment drifts from rich water to lean water wherever the water connects (never into dry
@@ -139,10 +150,20 @@ void main() {
     vec4 mingle = vec4(0.0);
     if (a.r > u_minMm) {
         vec4 c0 = wf(u_w1, c) / a.r;
+#ifdef JB_WET_FIBRES
+        // Through the bleed's film colour spreads only along a fibre, both cells on it (never faster than the step allows):
+        // the fine dark threads a stroke's edge sends out along the fibres that cross it.
+        float along = jb_fetch(u_waterBake, c).g * min(u_bleedMingle, 0.24 / max(u_mingle * u_dt, 1.0e-6));
+#endif
         for (int i = 0; i < 4; i++) {
             ivec2 q = jb_clampCell(c + nb[i], size);
             float wq = wf(u_w0, q).r;
+#ifdef JB_WET_FIBRES
+            if (wq > u_minMm) mingle += (wf(u_w1, q) / wq - c0) * min(a.r, wq)
+                * max(smoothstep(u_bleedFilmMm, 3.0 * u_bleedFilmMm, min(a.r, wq)), along * jb_fetch(u_waterBake, q).g);
+#else
             if (wq > u_minMm) mingle += (wf(u_w1, q) / wq - c0) * min(a.r, wq);
+#endif
         }
     }
 #ifndef JB_ATLAS
@@ -157,7 +178,7 @@ void main() {
     }
 #endif
     w = w - outW + inW;
-    pig = max(pig * keep + inP + u_mingle * u_dt * mingle, vec4(0.0));
+    pig = max(pig * keepP + inP + u_mingle * u_dt * mingle, vec4(0.0));
 
     // --- brush (signed: a thirsty brush lifts water and the pigment in it)
     vec4 i0 = vec4(0.0), i1 = vec4(0.0);
@@ -233,6 +254,12 @@ void main() {
 #endif
     float evap = u_evap * u_dt * sizingVar * (1.0 + rimWater * u_edgeEvap * (1.0 - wetN));
     if (u_dryBoost > 0.0) evap *= 1.0 + u_dryBoost * smoothstep(u_dryAfterS, u_dryAfterS + max(u_dryRampS, 1.0e-3), age);
+#ifdef JB_WET_FIBRES
+    // The bleed's film is water in the paper's surface, out of the air's reach: it dries at u_bleedEvap of the pace of
+    // water standing on it (whose thin edge dries five times as fast: that alone dried a fibre's thread of water within
+    // four cells of the edge, Note 9, 2026-11-17).
+    evap *= mix(u_bleedEvap, 1.0, smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, w));
+#endif
     float before = w;
     w = max(0.0, w - evap);
 
@@ -245,18 +272,12 @@ void main() {
     // what lets a fibre lying on a diagonal carry the damp along it. A spot with roomy pores takes more water before it
     // is full. Both off (unset uniforms): the arithmetic below is the old one.
 #ifdef JB_WET_FIBRES
+    // The paper's pores (the fluid map's A: 0.5 = the sheet's own capacity): a spot with roomy pores takes more water
+    // before it is full, and takes it faster. A paper with no fluid map bakes G = B = 0 and A = 1: left as the sheet's.
     float capMm = u_capMm;
-    float wickX = 1.0, wickY = 1.0, wickD = 0.0;
     {
         vec4 fl = jb_fetch(u_fluidBake, c);
-        // A paper with no fluid map bakes G = B = 0: no direction, and its capacity reads 1 (a real map says "the
-        // sheet's own" as 0.5): left as the sheet's.
-        bool mapped = !(fl.g == 0.0 && fl.b == 0.0);
-        vec2 dir = mapped ? fl.gb * 2.0 - 1.0 : vec2(0.0);
-        if (u_fibreForceOn > 0.5) dir = vec2(u_fibreForceC, u_fibreForceS);
-        float k = min(u_fibre, 0.9 / max(length(dir), 1.0e-4));
-        wickX = 1.0 + k * dir.x; wickY = 1.0 - k * dir.x; wickD = k * dir.y;
-        if (mapped) capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
+        if (!(fl.g == 0.0 && fl.b == 0.0)) capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
     }
 #else
     float capMm = u_capMm;
@@ -277,16 +298,7 @@ void main() {
     float sR = wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).g;
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
-#ifdef JB_WET_FIBRES
-    {
-        float cross = 0.0;
-        if (wickD != 0.0) cross = 0.5 * wickD * (wf(u_w0, jb_clampCell(c + ivec2(1, 1), size)).g + wf(u_w0, jb_clampCell(c + ivec2(-1, -1), size)).g
-                                               - wf(u_w0, jb_clampCell(c + ivec2(1, -1), size)).g - wf(u_w0, jb_clampCell(c + ivec2(-1, 1), size)).g);
-        s = max(0.0, s + soak / capMm + u_wick * u_dt * (wickX * (sL + sR - 2.0 * s) + wickY * (sD + sU - 2.0 * s) + cross));
-    }
-#else
     s = s + soak / capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
-#endif
     // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
     // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp
     // spread until one damp pool covered the drawing, overflowed the atlas and froze in tile-shaped squares). Dampness this
@@ -315,7 +327,14 @@ void main() {
 #else
     // --- settle (into the valleys first) or dry out
     vec4 dep = stain;
+#ifdef JB_WET_FIBRES
+    // A trace of water that the paper is still drawing in is not the last of the water: it gathers until it is a film that
+    // draws on in its turn. (Dried out at every step, as below, the bleed stopped where a step brought less than u_minMm:
+    // a dozen cells along the thirstiest fibre and none across the felt, Note 9, 2026-11-17.) It dries by evaporating.
+    if (w <= u_minMm && inW <= 0.0) {
+#else
     if (w <= u_minMm) {
+#endif
         dep += pig;                      // the last of the water leaves its pigment where it is
         pig = vec4(0.0);
 #ifdef JB_WET_FIBRES

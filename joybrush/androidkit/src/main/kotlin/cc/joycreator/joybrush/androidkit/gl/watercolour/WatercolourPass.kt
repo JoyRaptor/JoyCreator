@@ -194,7 +194,15 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
      * bounds grown by that reach can have changed: the picture is the one a whole-tile finish gives, for a fraction of
      * the pixels (a stroke spent 80 ms a frame here on the Note 9, 2026-11-16: every batch of dabs redid whole tiles).
      */
-    fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long> = outputs.keys, only: FloatArray? = null) {
+    fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long> = outputs.keys, only: FloatArray? = null) =
+        finishInto(outputs, pooling, keys, only, null)
+
+    /**
+     * [within]: for each tile, the document rectangle that holds everything the stroke can have changed on it (its dabs
+     * grown by [reach]). A tile is finished only inside its rectangle, and a tile with none is left as it is; right for a
+     * target that is clear outside (a fresh tile: nothing was laid there, and the finish of nothing is nothing).
+     */
+    private fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long>, only: FloatArray?, within: Map<Long, FloatArray>?) {
         // The original finish unless this line's wash was moved with it (see JB_WASH_FRAME in jb_wc_finish.frag).
         val p = if (docToWash == null) requireNotNull(finish) else framedFinish(); val asset = requireNotNull(images)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); GLES30.glViewport(0,0,size,size)
@@ -218,10 +226,11 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         GLES30.glBindVertexArray(finishVao)
         for (key in keys) {
             val target = outputs[key] ?: continue
-            if (only != null) {
+            val rect = if (within != null) within[key] ?: continue else only
+            if (rect != null) {
                 val ox = Tiles.tx(key) * docTileSize; val oy = Tiles.ty(key) * docTileSize
-                val x0 = kotlin.math.floor((only[0] - ox) * renderScale).toInt().coerceIn(0, size); val x1 = kotlin.math.ceil((only[2] - ox) * renderScale).toInt().coerceIn(0, size)
-                val y0 = kotlin.math.floor((only[1] - oy) * renderScale).toInt().coerceIn(0, size); val y1 = kotlin.math.ceil((only[3] - oy) * renderScale).toInt().coerceIn(0, size)
+                val x0 = kotlin.math.floor((rect[0] - ox) * renderScale).toInt().coerceIn(0, size); val x1 = kotlin.math.ceil((rect[2] - ox) * renderScale).toInt().coerceIn(0, size)
+                val y0 = kotlin.math.floor((rect[1] - oy) * renderScale).toInt().coerceIn(0, size); val y1 = kotlin.math.ceil((rect[3] - oy) * renderScale).toInt().coerceIn(0, size)
                 if (x1 <= x0 || y1 <= y0) continue
                 GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(x0, y0, x1 - x0, y1 - y0)
             }
@@ -234,17 +243,44 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
             GLES30.glUniform2f(p.loc("u_tileOrigin"),(Tiles.tx(key)*docTileSize).toFloat(),(Tiles.ty(key)*docTileSize).toFloat())
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4)
         }
-        if (only != null) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        if (only != null || within != null) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindVertexArray(0); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }
 
     /** How far from a pixel its finish reads coverage (document px): the edge and gravity widths, and a little. */
     val reach: Float get() = (maxOf(spec.edgeWidth, spec.gravityWidth, 0.0) + 3.0).toFloat()
 
-    fun prepareFade(outputs: Map<Long,Int>) {
+    /**
+     * The two pictures the fade at the lift runs between. [within] (see [finishInto]) when the caller kept [outputs] as
+     * the exact unpooled finish all through the stroke and knows where on each tile the stroke lies: the unpooled picture
+     * is then a copy of [outputs], and the pooled one is finished only there. A stroke's lift spent 180 ms here on the
+     * Note 9 (2026-11-16): two whole finishes for every tile the stroke touched.
+     */
+    fun prepareFade(outputs: Map<Long,Int>, within: Map<Long, FloatArray>? = null) {
         for(key in outputs.keys) { plain.getOrPut(key) { tile() }; pooled.getOrPut(key) { tile() } }
-        finishInto(plain,0f); finishInto(pooled,1f)
+        if (within == null) { finishInto(plain,0f); finishInto(pooled,1f); return }
+        copyInto(outputs, plain)
+        finishInto(pooled, 1f, pooled.keys, null, within)
     }
+
+    private var readFbo = 0
+    /** Each tile of [from] copied whole into its tile of [to]. */
+    private fun copyInto(from: Map<Long,Int>, to: Map<Long,Int>) {
+        if (readFbo == 0) { val ids = IntArray(1); GLES30.glGenFramebuffers(1, ids, 0); readFbo = ids[0] }
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        for ((key, source) in from) {
+            val target = to[key] ?: continue
+            GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, readFbo)
+            GLES30.glFramebufferTexture2D(GLES30.GL_READ_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, source, 0)
+            GLES30.glBindFramebuffer(GLES30.GL_DRAW_FRAMEBUFFER, fbo)
+            GLES30.glFramebufferTexture2D(GLES30.GL_DRAW_FRAMEBUFFER, GLES30.GL_COLOR_ATTACHMENT0, GLES30.GL_TEXTURE_2D, target, 0)
+            GLES30.glBlitFramebuffer(0, 0, size, size, 0, 0, size, size, GLES30.GL_COLOR_BUFFER_BIT, GLES30.GL_NEAREST)
+        }
+        GLES30.glBindFramebuffer(GLES30.GL_READ_FRAMEBUFFER, 0); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+    }
+
+    /** Bench: the fade's two pictures, as texture names ([prepareFade] must have run). */
+    internal fun fadeTextures(): IntArray = (plain.values + pooled.values).toIntArray()
     /** Cached-image interpolation only; no repeated edge/paper readback or optical finish. */
     fun fadeInto(outputs: Map<Long,Int>, amount: Float) {
         val p = requireNotNull(mix)
@@ -281,12 +317,13 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         return Collections.unmodifiableMap(result)
     }
 
-    fun forget() { bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; finishFramed=null; mix=null; images=null; paper=null; paperTextures=emptySet() }
+    fun forget() { readFbo=0; bands.clear(); plain.clear(); pooled.clear(); free.clear(); textures.forget(); empty=0; fbo=0; quad=0; instance=0; vao=0; finishVao=0; unitVbo=0; dab=null; finish=null; finishFramed=null; mix=null; images=null; paper=null; paperTextures=emptySet() }
     fun release() {
         val names=(bands.values+plain.values+pooled.values+free+listOf(empty)).filter { it!=0 }.distinct().toIntArray()
         if(names.isNotEmpty())GLES30.glDeleteTextures(names.size,names,0)
         textures.release(); dab?.release(); finish?.release(); finishFramed?.release(); mix?.release()
         if(fbo!=0) GLES30.glDeleteFramebuffers(1,intArrayOf(fbo),0)
+        if(readFbo!=0) GLES30.glDeleteFramebuffers(1,intArrayOf(readFbo),0)
         if(quad!=0)GLES30.glDeleteBuffers(3,intArrayOf(quad,instance,unitVbo),0)
         if(vao!=0)GLES30.glDeleteVertexArrays(2,intArrayOf(vao,finishVao),0)
         forget()

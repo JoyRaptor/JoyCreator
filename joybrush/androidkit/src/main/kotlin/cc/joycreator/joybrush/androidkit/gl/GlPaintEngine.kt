@@ -5940,6 +5940,7 @@ class GlPaintEngine(
             val frozenLook = look
             val frozenSurface = surfaceTexture ?: grains.placeholder
             val pass = wcPass ?: WatercolourPass(shaders, size).also { wcPass = it }
+            wcWithin.clear(); wcWithinKnown = true
             try {
                 pass.begin(watercolour, watercolourSeed, floatArrayOf(colR,colG,colB), surfaceTexture != null && surface != null,
                     strokePaperHandles(frozenLook) + frozenSurface) { program ->
@@ -6037,8 +6038,18 @@ class GlPaintEngine(
 
     /** Bench: every partial finish is followed by a whole one of the same tiles and the two are compared ([wcFinishChecked], [wcFinishWrong]). */
     @Volatile var wcFinishCheck = false
+
+    /**
+     * Where the watercolour stroke in hand lies on each tile (document px, grown by the finish's reach), and whether that
+     * is known for all of it (not on a Tile board, not the old way): then the stroke tiles ARE the exact unpooled finish and
+     * the lift copies them and finishes the pooled picture only there ([WatercolourPass.prepareFade]).
+     */
+    private val wcWithin = HashMap<Long, FloatArray>()
+    private var wcWithinKnown = false
     @Volatile var wcFinishChecked = 0
     @Volatile var wcFinishWrong = 0
+    @Volatile var wcLiftChecked = 0
+    @Volatile var wcLiftWrong = 0
 
     /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
     private fun addWatercolourDabs(dabs: List<Dab>) {
@@ -6058,7 +6069,7 @@ class GlPaintEngine(
                 if (d.x + r > x1) x1 = d.x + r; if (d.y + r > y1) y1 = d.y + r
             }
             val reach = pass.reach
-            if (wcFinishWholeTiles || !(x1 >= x0 && y1 >= y0)) { pass.finishInto(strokeTiles,0f,buckets.keys); return }
+            if (wcFinishWholeTiles || !(x1 >= x0 && y1 >= y0)) { wcWithinKnown = false; pass.finishInto(strokeTiles,0f,buckets.keys); return }
             val only = floatArrayOf(x0 - reach, y0 - reach, x1 + reach, y1 + reach)
             // Every tile of the stroke that rectangle touches, not only the ones the dabs fell on: the reach crosses tile
             // edges (redoing only the dabs' own tiles left a neighbour's rim stale until its next dab).
@@ -6066,6 +6077,10 @@ class GlPaintEngine(
             for (ty in Math.floorDiv(kotlin.math.floor(only[1]).toInt(), size)..Math.floorDiv(kotlin.math.ceil(only[3]).toInt(), size))
                 for (tx in Math.floorDiv(kotlin.math.floor(only[0]).toInt(), size)..Math.floorDiv(kotlin.math.ceil(only[2]).toInt(), size)) {
                     val key = Tiles.key(tx, ty)
+                    // Where the stroke lies on each tile it can reach, for the lift (also tiles it has no output on yet).
+                    val had = wcWithin[key]
+                    if (had == null) wcWithin[key] = only.copyOf()
+                    else { had[0] = minOf(had[0], only[0]); had[1] = minOf(had[1], only[1]); had[2] = maxOf(had[2], only[2]); had[3] = maxOf(had[3], only[3]) }
                     if (key in strokeTiles) touched.add(key)
                 }
             pass.finishInto(strokeTiles,0f,touched,only)
@@ -6087,6 +6102,7 @@ class GlPaintEngine(
         // the board and the coverage bands are NOT clipped, so a read across the seam finds the repeat; only tiles on the
         // board get output, and endStroke's commit is clipped to the board as for every tile stroke.
         val halo = wcSpec?.let { minOf(kotlin.math.ceil(maxOf(it.edgeWidth, it.gravityWidth, 0.0)) + 2.0, size.toDouble()) } ?: 0.0
+        wcWithinKnown = false   // a Tile board's wrap-around is finished whole, as before
         val bands = Tiles.bucket(dabs.flatMap { TilePainting.dabs(tile,it,halo) },size)
         val outputs = bands.keys.filter { TilePainting.clip(tile,it) != null }
         require((strokeTiles.keys+outputs).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
@@ -6305,7 +6321,20 @@ class GlPaintEngine(
             wcPrepared=true
             if(options.poolingFadeMilliseconds>0 && strokeTiles.isNotEmpty() &&
                 (options.edgePool>0.0 || options.edgeAlpha>0.0 || options.gravityPool>0.0)) {
-                wcPass?.prepareFade(strokeTiles)
+                val pass = wcPass
+                val within = if (wcWithinKnown && !wcFinishWholeTiles && strokeTiles.keys.all { it in wcWithin }) wcWithin else null
+                pass?.prepareFade(strokeTiles, within)
+                if (wcFinishCheck && pass != null && within != null) {
+                    // Bench: the fade's two pictures made the short way against the same two made whole.
+                    if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }
+                    val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+                    val texs = pass.fadeTextures()
+                    val short = hasher.prints(texs, BooleanArray(texs.size))
+                    pass.prepareFade(strokeTiles)
+                    val whole = hasher.prints(texs, BooleanArray(texs.size))
+                    wcLiftChecked += texs.size
+                    if (short == null || whole == null) wcLiftWrong += texs.size else wcLiftWrong += texs.indices.count { short[it] != whole[it] }
+                }
                 wcFadeStart=SystemClock.uptimeMillis(); wcFading=true
                 return 0
             }

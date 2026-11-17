@@ -747,9 +747,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     fun benchWcWholeTiles(on: Boolean) = onGl { engine.wcFinishWholeTiles = on }
 
     /** Bench: check every partial finish of the watercolour line against a whole one ([on]); [benchWcFinishReport] says how it went. */
-    fun benchWcFinishCheck(on: Boolean) = onGl { engine.wcFinishCheck = on; engine.wcFinishChecked = 0; engine.wcFinishWrong = 0 }
+    fun benchWcFinishCheck(on: Boolean) = onGl { engine.wcFinishCheck = on; engine.wcFinishChecked = 0; engine.wcFinishWrong = 0; engine.wcLiftChecked = 0; engine.wcLiftWrong = 0 }
     fun benchWcFinishReport(ready: (String) -> Unit) = onGl {
-        val line = "${engine.wcFinishChecked} tile finishes checked against a whole-tile finish, ${engine.wcFinishWrong} differ"
+        val line = "${engine.wcFinishChecked} tile finishes checked against a whole-tile finish, ${engine.wcFinishWrong} differ; " +
+            "${engine.wcLiftChecked} lift pictures checked against whole ones, ${engine.wcLiftWrong} differ"
         mainThread.post { ready(line) }
     }
 

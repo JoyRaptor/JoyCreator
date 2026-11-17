@@ -625,7 +625,7 @@ The oracle of `cellPayloadProbe` is one rule checked for every pixel: the paint 
 with none has its look as its ground.
 
 **Limits, said plainly.**
-- No save and reopen of moved paint was run. No watercolour, no real pen, no mask, no linked frames, one layer.
+- No watercolour, no real pen, no mask, no linked frames, one layer. (Save and reopen: run later the same night, below.)
 - No failure was injected (memory running out part way): by reading, everything made is taken out and given back.
 - **No paint-room check for the staged stores.** The old stores stay in the undo step, so dragging a large painted board
   holds both until the step is trimmed.
@@ -635,3 +635,24 @@ with none has its look as its ground.
 - For "open as it is read" (section above): a tool that runs the archive code on Windows cannot save over a file whose
   deferred paint state is still held open (Windows will not rename an open file; Android does). One unit test assumed
   otherwise and failed on the build PC; the engine session corrected the test.
+
+**Save and reopen of moved paint (asked by the orchestrator, run 11-16 late, Note 9 only, build 970f07917 = `joy-creator`
+5d4a14ba5 plus test code).** The real-canvas bench now does both moves (`cellSwapLiveProbe`: oil in a sprite cell, the
+cells swapped at once; `boardDragLiveProbe`: oil in an animation board's frame, the board dragged onto part of itself),
+paints again on the moved paint, walks Undo and Redo, then saves the drawing to a file of its own, opens that file as the
+screen opens one (`JbArchive.openDeferringMedia`), puts it on the canvas and saves again.
+
+| Check | Sprite cells swapped | Animation board dragged |
+|---|---|---|
+| Paint where it was moved to; the place holds paint state | 11989 px, yes | 14685 px, yes |
+| Paint outside it afterwards | 2321 px, exactly the 2321 px the stroke laid beyond the cell to begin with | 0 |
+| Undo and Redo of the move and of the second stroke | 0 px off, four times | 0 px off, four times |
+| The reopened picture against the one saved | 0 px off | 0 px off |
+| The moved place holds paint state after the reopen | yes | yes |
+| A second save against the first, every picture tile and every paint-state tile | 0 differ (2 + 6 tiles) | 0 differ (3 + 9 tiles) |
+
+Limits: one run of each, Note 9 only. This is the save, the file and the open the screen uses, driven from the bench; it
+is not the screen's own autosave and recovery copy (the lifecycle gate cannot drive a board edit; it covers those for
+paint that was not moved). Nothing was painted after the reopen. On a first version of this bench the "paint outside"
+check failed with 2277 px: it counted paint the stroke had laid beyond the board's edge, which is in no cell and rightly
+stays; the bench now measures that before the move and requires the same after.

@@ -6032,6 +6032,9 @@ class GlPaintEngine(
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
+    /** Bench: the watercolour line's finish redoes whole tiles for every batch of dabs, as it did until 2026-11-16 (before and after on one build). */
+    @Volatile var wcFinishWholeTiles = false
+
     /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
     private fun addWatercolourDabs(dabs: List<Dab>) {
         val tile = strokeTileRect
@@ -6041,7 +6044,26 @@ class GlPaintEngine(
             for(key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
             val pass = requireNotNull(wcPass)
             pass.add(buckets) { null }
-            pass.finishInto(strokeTiles,0f,buckets.keys)
+            // Only where these dabs can have changed the finish: their bounds (a dab is a turned square of its radius)
+            // grown by how far the finish reads. The lift refinishes every tile whole, as before.
+            var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE
+            for (d in dabs) {
+                val r = d.radius * 1.5f + 2f
+                if (d.x - r < x0) x0 = d.x - r; if (d.y - r < y0) y0 = d.y - r
+                if (d.x + r > x1) x1 = d.x + r; if (d.y + r > y1) y1 = d.y + r
+            }
+            val reach = pass.reach
+            if (wcFinishWholeTiles || !(x1 >= x0 && y1 >= y0)) { pass.finishInto(strokeTiles,0f,buckets.keys); return }
+            val only = floatArrayOf(x0 - reach, y0 - reach, x1 + reach, y1 + reach)
+            // Every tile of the stroke that rectangle touches, not only the ones the dabs fell on: the reach crosses tile
+            // edges (redoing only the dabs' own tiles left a neighbour's rim stale until its next dab).
+            val touched = ArrayList<Long>()
+            for (ty in Math.floorDiv(kotlin.math.floor(only[1]).toInt(), size)..Math.floorDiv(kotlin.math.ceil(only[3]).toInt(), size))
+                for (tx in Math.floorDiv(kotlin.math.floor(only[0]).toInt(), size)..Math.floorDiv(kotlin.math.ceil(only[2]).toInt(), size)) {
+                    val key = Tiles.key(tx, ty)
+                    if (key in strokeTiles) touched.add(key)
+                }
+            pass.finishInto(strokeTiles,0f,touched,only)
             return
         }
         // Tile board: the finish pools by reading coverage up to the edge/gravity widths away. Copies cover that halo round

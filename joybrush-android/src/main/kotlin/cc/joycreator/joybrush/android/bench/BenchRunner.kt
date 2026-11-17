@@ -152,6 +152,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 * around it. The step `addframe` in `jb_bench_then` then adds a blank frame, which becomes the one shown.
                 */
                val board: String? = null,
+               /** `jb_wc_whole_tiles`: the watercolour line finishes whole tiles for every batch of dabs, as before 2026-11-16. */
+               val wcWholeTiles: Boolean = false,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null,
                /** `jb_bench_under`: the brush that draws the test stroke's colour stripes (cases `tstripe*`), e.g. a soft airbrush. */
@@ -181,6 +183,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
 
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
+        canvas.benchWcWholeTiles(spec.wcWholeTiles)
+        if (spec.wcWholeTiles) Log.i(TAG, "watercolour line: whole tiles finished for every batch (the old way)")
         canvas.mediaLegacyWindow = spec.legacy
         spec.slope?.let { canvas.setMediaSlope(it[0], it[1]) }
         canvas.mediaWetQuality = spec.wetSubsteps?.let { n ->
@@ -1123,6 +1127,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 board = intent.getStringExtra("jb_bench_board"),
+                wcWholeTiles = intent.getBooleanExtra("jb_wc_whole_tiles", false),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },

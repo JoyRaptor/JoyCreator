@@ -743,6 +743,9 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     @Volatile var savePaintBudgetBytes: Long = cc.joycreator.joybrush.core.layers.LayerBudget.SAVE_PAINT_MAX_BYTES
 
     /** Bench only: lets go of what [benchHogGpu] took. */
+    /** Bench: the watercolour line's finish as it was until 2026-11-16 (whole tiles for every batch of dabs), for a before and after on one build. */
+    fun benchWcWholeTiles(on: Boolean) = onGl { engine.wcFinishWholeTiles = on }
+
     fun benchUnhogGpu() {
         onGl(allowLost = true) {
             if (benchHog.isNotEmpty()) GLES30.glDeleteTextures(benchHog.size, benchHog.toIntArray(), 0)

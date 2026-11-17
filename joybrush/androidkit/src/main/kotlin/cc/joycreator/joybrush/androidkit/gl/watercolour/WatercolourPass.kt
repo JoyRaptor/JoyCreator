@@ -188,7 +188,13 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glDisable(GLES30.GL_BLEND); GLES30.glBindVertexArray(0)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }
-    fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long> = outputs.keys) {
+    /**
+     * [only]: a rectangle in document px (x0, y0, x1, y1). The finish is then redone only inside it. A pixel's finish reads
+     * the coverage under it and up to the edge and gravity widths away ([reach]), so after new dabs nothing outside their
+     * bounds grown by that reach can have changed: the picture is the one a whole-tile finish gives, for a fraction of
+     * the pixels (a stroke spent 80 ms a frame here on the Note 9, 2026-11-16: every batch of dabs redid whole tiles).
+     */
+    fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long> = outputs.keys, only: FloatArray? = null) {
         // The original finish unless this line's wash was moved with it (see JB_WASH_FRAME in jb_wc_finish.frag).
         val p = if (docToWash == null) requireNotNull(finish) else framedFinish(); val asset = requireNotNull(images)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo); GLES30.glViewport(0,0,size,size)
@@ -212,6 +218,13 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
         GLES30.glBindVertexArray(finishVao)
         for (key in keys) {
             val target = outputs[key] ?: continue
+            if (only != null) {
+                val ox = Tiles.tx(key) * docTileSize; val oy = Tiles.ty(key) * docTileSize
+                val x0 = kotlin.math.floor((only[0] - ox) * renderScale).toInt().coerceIn(0, size); val x1 = kotlin.math.ceil((only[2] - ox) * renderScale).toInt().coerceIn(0, size)
+                val y0 = kotlin.math.floor((only[1] - oy) * renderScale).toInt().coerceIn(0, size); val y1 = kotlin.math.ceil((only[3] - oy) * renderScale).toInt().coerceIn(0, size)
+                if (x1 <= x0 || y1 <= y0) continue
+                GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(x0, y0, x1 - x0, y1 - y0)
+            }
             for(dy in -1..1)for(dx in -1..1) {
                 val unit = 3+(dy+1)*3+dx+1
                 bind(unit,bands[Tiles.key(Tiles.tx(key)+dx,Tiles.ty(key)+dy)] ?: empty)
@@ -221,8 +234,13 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
             GLES30.glUniform2f(p.loc("u_tileOrigin"),(Tiles.tx(key)*docTileSize).toFloat(),(Tiles.ty(key)*docTileSize).toFloat())
             GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP,0,4)
         }
+        if (only != null) GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
         GLES30.glBindVertexArray(0); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0); GLES30.glActiveTexture(GLES30.GL_TEXTURE0)
     }
+
+    /** How far from a pixel its finish reads coverage (document px): the edge and gravity widths, and a little. */
+    val reach: Float get() = (maxOf(spec.edgeWidth, spec.gravityWidth, 0.0) + 3.0).toFloat()
+
     fun prepareFade(outputs: Map<Long,Int>) {
         for(key in outputs.keys) { plain.getOrPut(key) { tile() }; pooled.getOrPut(key) { tile() } }
         finishInto(plain,0f); finishInto(pooled,1f)

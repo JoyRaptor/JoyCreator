@@ -725,6 +725,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         val capturedJoint = case == "recordedCapturedJointProbe"
         val watercolourEdits = case == "recordedWatercolourEditProbe"
         val watercolourOrdinary = case == "recordedWatercolourOrdinaryProbe"
+        if (case == "cellSwapLiveProbe") {
+            // R2-JB-03, in the real canvas: oil on a sprite cell, the cells swapped at once, oil again, undo and redo.
+            CellSwapLiveBench(canvas, spec, run) { next() }.start()
+            return
+        }
         if (case == "cellPayloadProbe") {
             // R2-JB-03, second half: a sprite cell swap and a board dragged over itself keep their realistic-paint state.
             canvas.runCellPayloadProbe { result ->

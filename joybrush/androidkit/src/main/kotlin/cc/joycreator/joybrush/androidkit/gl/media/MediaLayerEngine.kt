@@ -415,7 +415,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         bakeTex = MediaTex.make(w, h)
         // Only .r of the fluid and water bakes is ever read (jb_wet_flux.frag, jb_wet_update.frag: texelFetch(...).r), so they
         // are one channel; the same value is rounded to the same 8-bit / half float, the other channels were never read.
-        fluidBake = MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+        // Except the fluid bake of an engine that is not the atlas (the wet sheet): there the paper's fibre direction (G, B)
+        // and pore capacity (A) are kept too, for PaperFibres. The absorbency in R is the same byte either way.
+        fluidBake = if (atlasMode) MediaTex.make(w, h, GLES30.GL_R8, GLES30.GL_RED, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
+            else MediaTex.make(w, h, GLES30.GL_RGBA8, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, GLES30.GL_NEAREST)
         waterBake = MediaTex.make(w, h, GLES30.GL_R16F, GLES30.GL_RED, GLES30.GL_HALF_FLOAT)
         bakeFbo = MediaTex.fbo(bakeTex, fluidBake, waterBake)
         clearFbo(bakeFbo)   // the atlas's zero slot must read as zero in every texture (and made textures start undefined)
@@ -501,8 +504,8 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_capSlack" to capSlack) + ("u_capSeed" to nextCapSeed()) +
             ("u_rimCells" to rimCells.toDouble()) +
             // The paper's fibres and pores (PaperFibres): nothing when the switch is off, and the shader is then as it was.
-            ("u_fibre" to PaperFibres.strength * (if (PaperFibres.forceAngleDeg != null) 1.0 else paper.stats.anisotropy)) +
-            ("u_pore" to (if (PaperFibres.pores) 1.0 else 0.0)) +
+            ("u_fibre" to (if (atlasMode) 0.0 else PaperFibres.strength * (if (PaperFibres.forceAngleDeg != null) 1.0 else paper.stats.anisotropy))) +
+            ("u_pore" to (if (PaperFibres.pores && !atlasMode) 1.0 else 0.0)) +
             PaperFibres.forceAngleDeg.let { deg -> val a = Math.toRadians(2.0 * (deg ?: 0.0))
                 mapOf("u_fibreForceOn" to (if (deg != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a)) },
             evapOverride, slope,

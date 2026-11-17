@@ -22,6 +22,10 @@ void main() {
     o_surface = jb_paperSurface(docPx);
     o_surface.b = clamp((o_surface.b - u_paperHBot) / max(u_paperHTop - u_paperHBot, 0.05), 0.0, 1.0);
     o_fluid = jb_paperFluid(docPx);
+    // The fibre direction comes back signed (-1..1, turned with its patch of paper); the bake is 8-bit, so it is kept as
+    // 0.5 + 0.5 x direction (0.5, 0.5 = no direction). Read by jb_wet_flux.frag and jb_wet_update.frag for PaperFibres;
+    // the absorbency in R is untouched.
+    o_fluid.gb = o_fluid.gb * 0.5 + 0.5;
     // A paper without a fluid map still has uneven sizing: derive a slow, decorrelated variation from its
     // own surface (another hex arrangement, far down the mips) so fronts and blooms are never perfectly even.
     if (u_paperFluidTexelPx <= 0.0)

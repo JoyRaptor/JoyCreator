@@ -46,6 +46,12 @@ import kotlin.math.min
 object PaperFibres {
     @Volatile @JvmStatic var strength: Double = 0.0
     @Volatile @JvmStatic var pores: Boolean = false
+    /**
+     * Bench: every spot's fibres lie at this angle (degrees from the drawing's x axis toward its y axis, which points
+     * down the page), whatever the paper's map says, and the paper's anisotropy counts as 1: to see on a screenshot that
+     * a wash follows a chosen direction, a diagonal included. Null = the paper's own map.
+     */
+    @Volatile @JvmStatic var forceAngleDeg: Double? = null
 }
 
 class MediaPaperGl(
@@ -495,7 +501,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_capSlack" to capSlack) + ("u_capSeed" to nextCapSeed()) +
             ("u_rimCells" to rimCells.toDouble()) +
             // The paper's fibres and pores (PaperFibres): nothing when the switch is off, and the shader is then as it was.
-            ("u_fibre" to PaperFibres.strength * paper.stats.anisotropy) + ("u_pore" to (if (PaperFibres.pores) 1.0 else 0.0)),
+            ("u_fibre" to PaperFibres.strength * (if (PaperFibres.forceAngleDeg != null) 1.0 else paper.stats.anisotropy)) +
+            ("u_pore" to (if (PaperFibres.pores) 1.0 else 0.0)) +
+            PaperFibres.forceAngleDeg.let { deg -> val a = Math.toRadians(2.0 * (deg ?: 0.0))
+                mapOf("u_fibreForceOn" to (if (deg != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a)) },
             evapOverride, slope,
             wf / (pxmm * scale), wc0.beadMm * pxmm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,

@@ -160,6 +160,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 */
                val wetFibres: Double? = null,
                val wetPores: Boolean? = null,
+               /** `jb_wet_fibre_angle`: every fibre at this angle in degrees (PaperFibres.forceAngleDeg); "none" clears it. */
+               val wetFibreAngle: String? = null,
                val paper: String? = null,
                /** `jb_wc_finish_check`: each partial finish is compared with a whole one; the step `wccheck` in `jb_bench_then` reports. */
                val wcFinishCheck: Boolean = false,
@@ -195,6 +197,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         canvas.benchWcWholeTiles(spec.wcWholeTiles)
         spec.wetFibres?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.strength = it.coerceIn(0.0, 4.0) }
         spec.wetPores?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.pores = it }
+        spec.wetFibreAngle?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.forceAngleDeg = it.toDoubleOrNull() }
         if (spec.wetFibres != null || spec.wetPores != null) Log.i(TAG, "paper fibres: strength ${cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.strength}, pores ${cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.pores}")
         spec.paper?.let { id -> canvas.applyDocumentPaper(cc.joycreator.joybrush.core.doc.Paper(textureId = id)); Log.i(TAG, "paper: $id") }
         canvas.benchWcFinishCheck(spec.wcFinishCheck)
@@ -1166,6 +1169,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 wetFibres = if (intent.hasExtra("jb_wet_fibres")) intent.getStringExtra("jb_wet_fibres")?.toDoubleOrNull() ?: intent.getFloatExtra("jb_wet_fibres", 0f).toDouble() else null,
                 wetPores = if (intent.hasExtra("jb_wet_pores")) intent.getBooleanExtra("jb_wet_pores", false) else null,
                 paper = intent.getStringExtra("jb_bench_paper"),
+                wetFibreAngle = intent.getStringExtra("jb_wet_fibre_angle"),
                 wcFinishCheck = intent.getBooleanExtra("jb_wc_finish_check", false),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,

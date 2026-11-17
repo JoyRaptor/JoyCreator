@@ -186,7 +186,9 @@ them.
    back only the tiles that changed" below). The budget (`LayerBudget.savePaintBudgetBytes`) is still set by the first
    save of a screen and the save on leaving, which read everything, and by the heap.
 2. **Open as it is read**: list the entries (`ZipFile`), then inflate and upload in batches, so opening holds a batch
-   and not the drawing. `JbCanvasView.load` uploads everything in one GL task today.
+   and not the drawing. `JbCanvasView.load` uploads everything in one GL task today. **11-16: built for the paint state** (section "2026-11-16: open as it is read"
+   below: the media tiles stay in the file until the canvas takes them tile by tile; still one GL task; the picture
+   tiles are still read whole).
 3. **Then** raise the save's budget to the room, then `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB,
    `MAX_ENTRIES` 20,000), and count the atlas's own memory in the admission check (second review E3).
 4. Small and separate: `DrawingLibrary`'s after-save task keeps the whole snapshot alive only to read its id; exports
@@ -507,3 +509,61 @@ is ever seen, and a long mixed session reading the incident log.
 - `MediaAtlas.hold`, `flush`; `MediaAtlasPlacement.table` no longer grows for far walls.
 - The bench's `jb_media_budget_mb` now sticks (`JbCanvasView.mediaBudgetHeld`); before, the screen reset it after one stroke, so
   earlier small-room runs through the real screen did not test what they meant to.
+
+## 2026-11-16: open as it is read, the paint state (streaming saves item 2, first half), handoff
+
+**What changed.** A drawing's realistic-paint state (the media tiles, most of a painted drawing: about 3 MB a tile) is no
+longer held whole in memory between reading the file and putting it on the canvas. `JbArchive.openDeferringMedia` reads
+and checks every byte exactly as `open` does (the same code, so the same refusals in the same words, before anything is
+shown), lets each media tile's bytes go once checked and notes its entry name, length and CRC. The contents it returns
+hold `io/DeferredMedia` in place of the media map: each tile is read again from the held-open file when the canvas asks
+for it and checked against the first reading (a difference is an error, never other bytes). `JbCanvasView.load` takes one
+tile's stores at a time. **No change to the file format.** `JbArchive.open` and `read` behave as before.
+
+**Where it is used:** the screen's own start-up open (`DrawingHistory.readWorking`), a drawing picked to open
+(`StagedDrawing.read`) and the restore after lost graphics (`DrawingRecovery.read`). The recovery copy of a drawing opened
+this way is a copy of its file (`DrawingRecovery.rememberOpened`), not a second save that would read every tile back.
+
+**When the two readings cannot be matched** (the zip's directory does not say what the entries held, or the file cannot be
+opened a second time), nothing is refused for it: the drawing is opened whole, the old way.
+
+**A tile whose paint state cannot be read again during the load** (the disk failed after the check): that tile keeps its
+picture and gets no paint state at all, never half; it is counted, written to the incident log and said to the person
+("Part of this drawing's paint could not be read back..."). The pictures are still read whole before the load, so the
+screen is never left with half a drawing; there is no second try from the `.bak` for those tiles. By reading only: this
+path was not made to happen on a phone.
+
+**Proof.** Unit tests, cloud, `jb-androidkit`: 1368 of 1368 (new `DeferredMediaTest`, 9 cases: same drawing as `open`,
+same refusals and words, a save over the file, another file at the path, the directory check, the recovery copy, the file
+gone). The lifecycle gate on the Note 9, build 96f5ce2fd, digests equal in all five cases (pictures and paint stores):
+
+| Case | Result |
+|---|---|
+| Full page of oil (264 + 256 tiles), screen built again | same |
+| Full page of oil, graphics lost on pause, restored | same; restore 6.9 s |
+| Full page of oil, leaves while a save is being written, graphics lost | same; restore 7.0 s |
+| Ink + pencil + oil (15 + 57 tiles), screen built again | same |
+| Ink + pencil + oil, graphics lost on pause, restored | same; restore 1.1 s |
+
+Before and after on the full oil page, same phone, same hour, the same script (the build before was e9f772e63):
+
+| | Before | After |
+|---|---|---|
+| Restore after lost graphics | 6.0 s | 6.9 s |
+| App's Java heap, highest 2 s sample, graphics-lost case | 291 MB | 224 MB |
+| App's Java heap, highest 2 s sample, screen-built-again case | 479 MB | 454 MB |
+
+The restore is about a second slower: the paint state is now inflated on the GL thread during the load instead of on the
+file thread before it. It stays far under the screen's 30 s watchdogs. The heap figures are samples every 2 s over the
+whole case (painting, saving, opening), so they are a rough ceiling, not the open alone; the screen-built-again peak is
+set by the save on the way out, which this change does not touch.
+
+**Limits.** One run of each case, Note 9 only. The bench `reload` step was not run (it loads a snapshot already in
+memory, not a file). Not tried: the owner's own drawings, a drawing picked from the Library on a phone (unit-tested only),
+a failing disk. The picture tiles, looks, slabs and strokes are still read whole.
+
+**What is left of item 2.** (a) The picture tiles the same way (they are a twelfth of the paint state per tile, and
+`LineOpenPlan` and the refusals read them, so it is a wider change). (b) **Raising the paint room will need the load split
+over several GL tasks**: one task that inflates and uploads everything grows with the drawing and must stay under the 30 s
+watchdogs (`recoveryTimeout`, and the Open path's `ui.postDelayed(watchdog, 30_000L)`); today 264 MB of paint restores in
+about 7 s on the Note 9.

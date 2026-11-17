@@ -6434,7 +6434,13 @@ class GlPaintEngine(
     }
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
-    fun endStroke(): Int = mediaTrace("JB.paint.commit") { endStrokeInner() }
+    fun endStroke(): Int {
+        val checked = wcFinishCheck && wcSpec != null
+        val n = mediaTrace("JB.paint.commit") { endStrokeInner() }
+        // Bench (jb_wc_finish_check): said at every lift too, for runs that have no step to ask (the matrix).
+        if (checked) android.util.Log.i("JoyBrushPerf", "wccheck at the lift: $wcFinishChecked tile finishes checked against a whole-tile finish, $wcFinishWrong differ; $wcLiftChecked lift pictures checked, $wcLiftWrong differ")
+        return n
+    }
     private fun endStrokeInner(): Int {
         requireLocalPaint()
         paintWaitingTileStroke()

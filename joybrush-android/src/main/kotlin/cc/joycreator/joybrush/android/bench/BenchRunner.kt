@@ -164,6 +164,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val wetBleed: Double? = null,
                /** `jb_wet_fibres_on` (boolean): the switch itself (PaperFibres.on); any of the numbers above also turns it on. */
                val wetFibresOn: Boolean? = null,
+               /** `jb_wet_film`, `jb_wet_carry`, `jb_wet_soak`: the bleed's tuning numbers (PaperFibres.film, carry, soak). */
+               val wetTune: List<Double?> = emptyList(),
                /** `jb_wet_fibre_angle`: every fibre at this angle in degrees (PaperFibres.forceAngleDeg); "none" clears it. */
                val wetFibreAngle: String? = null,
                val paper: String? = null,
@@ -204,9 +206,12 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             spec.wetPores?.let { pf.pores = it.coerceIn(0.0, 1.0) }
             spec.wetBleed?.let { pf.bleed = it.coerceIn(0.0, 8.0) }
             spec.wetFibreAngle?.let { pf.forceAngleDeg = it.toDoubleOrNull() }
+            spec.wetTune.getOrNull(0)?.let { pf.film = it.coerceIn(0.004, 0.4) }
+            spec.wetTune.getOrNull(1)?.let { pf.carry = it.coerceIn(0.0, 1.0) }
+            spec.wetTune.getOrNull(2)?.let { pf.soak = it.coerceIn(0.0, 1.0) }
             if (spec.wetFibres != null || spec.wetPores != null || spec.wetBleed != null || spec.wetFibreAngle != null) pf.on = true
             spec.wetFibresOn?.let { pf.on = it }
-            if (pf.on || spec.wetFibresOn != null) Log.i(TAG, "paper fibres: ${if (pf.on) "on" else "off"}, bleed ${pf.bleed}, fibres ${pf.strength}, pores ${pf.pores}, angle ${pf.forceAngleDeg}")
+            if (pf.on || spec.wetFibresOn != null) Log.i(TAG, "paper fibres: ${if (pf.on) "on" else "off"}, bleed ${pf.bleed}, fibres ${pf.strength}, pores ${pf.pores}, angle ${pf.forceAngleDeg}, film ${pf.film}, carry ${pf.carry}, soak ${pf.soak}")
         }
         spec.paper?.let { id -> canvas.applyDocumentPaper(cc.joycreator.joybrush.core.doc.Paper(textureId = id)); Log.i(TAG, "paper: $id") }
         canvas.benchWcFinishCheck(spec.wcFinishCheck)
@@ -1203,6 +1208,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 wetFibres = if (intent.hasExtra("jb_wet_fibres")) intent.getStringExtra("jb_wet_fibres")?.toDoubleOrNull() ?: intent.getFloatExtra("jb_wet_fibres", 0f).toDouble() else null,
                 wetPores = number(intent, "jb_wet_pores"),
                 wetBleed = number(intent, "jb_wet_bleed"),
+                wetTune = listOf(number(intent, "jb_wet_film"), number(intent, "jb_wet_carry"), number(intent, "jb_wet_soak")),
                 wetFibresOn = if (intent.hasExtra("jb_wet_fibres_on")) intent.getBooleanExtra("jb_wet_fibres_on", false) else null,
                 paper = intent.getStringExtra("jb_bench_paper"),
                 wetFibreAngle = intent.getStringExtra("jb_wet_fibre_angle"),

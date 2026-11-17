@@ -64,6 +64,7 @@ uniform float u_fibre;          // dampness creeps this much further along the p
 uniform float u_pore;           // 0..1: how far each spot soaks up what its own pores hold (the fluid map's capacity)
                                 // rather than one capacity for the whole sheet
 uniform float u_bleedFilmMm;    // water thinner than this is water in the paper's surface (the bleed, jb_wet_flux.frag)
+uniform float u_bleedSoak;      // how fast the paper under the bleed's film drinks it, as a share of standing water's pace
 uniform float u_bleedCarry;     // how readily that water keeps its pigment as it travels: the film's settling is this
                                 // share of standing water's (1 = as standing water)
 uniform float u_fibreForceOn;   // bench: 1 = every spot's fibres lie at one angle, given as cos and sin of TWICE it
@@ -261,6 +262,11 @@ void main() {
     float capMm = u_capMm;
 #endif
     float soak = min(w, u_absorb * u_dt * (1.0 - s) * capMm);
+#ifdef JB_WET_FIBRES
+    // The bleed's film is water already in the paper's surface: it sinks further in slowly (u_bleedSoak of standing
+    // water's pace), or the paper under it would drink it dry within a few cells of the edge.
+    soak *= mix(u_bleedSoak, 1.0, smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, w));
+#endif
     w -= soak;
     vec4 stain = pig * min(1.0, soak / max(before, 1.0e-6)) * u_stainCarry;
 #ifdef JB_WET_COARSE

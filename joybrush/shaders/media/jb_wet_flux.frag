@@ -340,7 +340,10 @@ void main() {
                 float wn = wf(u_w0, q).r;
                 if (wn >= w || wn >= u_bleedFilmMm) continue;
                 // Never more than a share of the difference in a step: the paper drawing cannot end up wetter than the edge.
-                float share = min(0.45, u_bleed * u_dt * 2.0 * absorbAt(q) * abs(pa));
+                // The fibres themselves are the thirstiest part of the sheet (the map's absorbency is brightest along a
+                // strand): squared, a strand draws four times what the felt between strands does, and the bleed fingers.
+                float thirst = 2.0 * absorbAt(q);
+                float share = min(0.45, u_bleed * u_dt * thirst * thirst * abs(pa));
                 float take = share * (w - wn) * (1.0 - smoothstep(0.5 * u_bleedFilmMm, u_bleedFilmMm, wn)) / u_dt;
                 run[axis] += pa > 0.0 ? take : -take;
             }

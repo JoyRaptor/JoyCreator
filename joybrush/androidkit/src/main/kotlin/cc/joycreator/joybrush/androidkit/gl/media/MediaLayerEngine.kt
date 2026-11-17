@@ -67,10 +67,12 @@ object PaperFibres {
 
     /** The bleed's pace on a paper of thirst 1 with fibres neither helping nor hindering, in the lab's px² per second. */
     const val BLEED = 48.0
-    /** The bleed feeds paper holding less than this film (mm). */
-    const val FILM_MM = 0.03
+    /** The bleed feeds paper holding less than this film (mm). (A variable for the bench's tuning; the app never sets it.) */
+    @Volatile @JvmStatic var film: Double = 0.03
     /** The film keeps its pigment this much longer than standing water would (the share of its settling that is left). */
-    const val CARRY = 0.3
+    @Volatile @JvmStatic var carry: Double = 0.3
+    /** The paper under the film drinks it at this share of standing water's pace. */
+    @Volatile @JvmStatic var soak: Double = 0.15
     /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */
     const val REACH_CELLS = 72.0
 
@@ -536,7 +538,7 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             "u_fibre" to PaperFibres.strength * (if (forced != null) 1.0 else paper.stats.anisotropy),
             "u_pore" to PaperFibres.pores.coerceIn(0.0, 1.0),
             "u_bleed" to PaperFibres.BLEED * PaperFibres.bleed * PaperFibres.thirst(paper.stats),
-            "u_bleedFilmMm" to PaperFibres.FILM_MM, "u_bleedCarry" to PaperFibres.CARRY,
+            "u_bleedFilmMm" to PaperFibres.film, "u_bleedCarry" to PaperFibres.carry, "u_bleedSoak" to PaperFibres.soak,
             "u_fibreForceOn" to (if (forced != null) 1.0 else 0.0), "u_fibreForceC" to Math.cos(a), "u_fibreForceS" to Math.sin(a))
     }
 

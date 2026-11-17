@@ -299,6 +299,23 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
             "wccheck" -> canvas.benchWcFinishReport { line -> Log.i(TAG, "then: wccheck: $line") }
+            // picturecmp: the picture alone, as an export takes it (JbCanvasView.snapshotPicture), against a whole snapshot:
+            // the same picture tiles byte for byte, no paint state, and what it saved in time and memory.
+            "picturecmp" -> {
+                val t0 = android.os.SystemClock.elapsedRealtime()
+                canvas.snapshotPicture({ p ->
+                    val t1 = android.os.SystemClock.elapsedRealtime()
+                    canvas.snapshot({ a ->
+                        val t2 = android.os.SystemClock.elapsedRealtime()
+                        val same = p.tiles.size == a.tiles.size && p.tiles.all { (k, v) -> a.tiles[k]?.contentEquals(v) == true }
+                        val listed = p.doc.layers.sumOf { l -> l.cels.sumOf { it.floatTiles.size } }
+                        val shown = try { cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(p); "an export takes it" } catch (e: Exception) { "AN EXPORT REFUSES IT: ${e.message}" }
+                        Log.i(TAG, "then: picturecmp: ${p.tiles.size} picture tiles ${if (same) "byte for byte the whole snapshot's" else "DIFFERENT from the whole snapshot's"}, " +
+                            "${p.mediaTiles.size} paint store tiles and $listed listed (the whole one: ${a.mediaTiles.size}, ${a.mediaTiles.values.sumOf { it.size.toLong() } shr 20} MB); " +
+                            "read in ${t1 - t0} ms against ${t2 - t1} ms; $shown")
+                    }, { why -> Log.w(TAG, "then: picturecmp: whole snapshot failed: $why") })
+                }, { why -> Log.w(TAG, "then: picturecmp: FAILED: $why") })
+            }
             // addframe: a blank frame on the animation board (`jb_bench_board animation`); it becomes the frame shown, so
             // what was painted on the first frame is no longer on the screen and must still be saved and come back.
             "addframe" -> {

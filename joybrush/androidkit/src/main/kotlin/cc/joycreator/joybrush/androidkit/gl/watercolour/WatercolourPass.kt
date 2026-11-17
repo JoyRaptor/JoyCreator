@@ -202,6 +202,8 @@ internal class WatercolourPass(private val shaders: ShaderLibrary, private val d
      * grown by [reach]). A tile is finished only inside its rectangle, and a tile with none is left as it is; right for a
      * target that is clear outside (a fresh tile: nothing was laid there, and the finish of nothing is nothing).
      */
+    fun finishWithin(outputs: Map<Long,Int>, pooling: Float, within: Map<Long, FloatArray>) = finishInto(outputs, pooling, within.keys, null, within)
+
     private fun finishInto(outputs: Map<Long,Int>, pooling: Float, keys: Collection<Long>, only: FloatArray?, within: Map<Long, FloatArray>?) {
         // The original finish unless this line's wash was moved with it (see JB_WASH_FRAME in jb_wc_finish.frag).
         val p = if (docToWash == null) requireNotNull(finish) else framedFinish(); val asset = requireNotNull(images)

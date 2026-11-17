@@ -3248,6 +3248,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         snapshotOf(0, { onReady(it.contents) }, onFailure, keepWet)
 
     /**
+     * The drawing's PICTURE alone, for an export (a PNG, a board, a hand-off to Studio): every picture tile as [snapshot]
+     * gives it, and none of the pencil, watercolour and oil state under it, which an export never reads. On a full page
+     * that state is 128 MB read back from the graphics chip and held in memory beside the picture for nothing (second
+     * review E4; the handoff of 2026-11-17, item 4). The document it comes with lists no paint state, so it is NOT a
+     * drawing to save: never hand it to a save or a copy.
+     */
+    fun snapshotPicture(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) =
+        snapshotOf(3, { onReady(it.contents) }, onFailure, keepWet)
+
+    /**
      * [snapshot] for the save that rewrites only what changed (JBX-36): a tile whose content is what it was when this
      * canvas last read it for such a save is NOT read back; it comes as its length and checksum
      * ([cc.joycreator.joybrush.androidkit.io.SparseContents]), for [JbArchive.saveCarrying] to take from the file.
@@ -3258,14 +3268,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                        readAll: Boolean = false) =
         snapshotOf(if (readAll) 2 else 1, onReady, onFailure, keepWet)
 
-    /** [sparse]: 0 a plain readback; 1 only the tiles that changed; 2 every tile, with its fingerprint (after [JbArchiveNeedsBytes]). */
+    /** [sparse]: 0 a plain readback; 1 only the tiles that changed; 2 every tile, with its fingerprint (after [JbArchiveNeedsBytes]); 3 the picture alone ([snapshotPicture]). */
     private fun snapshotOf(sparse: Int, onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean) {
         // The view no longer draws (paused, its surface gone, or the screen closing): no frame will run this request. The picture
         // read when the screen left answers it ([keepPausePicture]); a closing screen without one says so at once
         // instead of leaving the save to its watchdog.
         if (closing || viewPaused || surfaceGone) {
             val kept = synchronized(pauseLock) { pausePicture }
-            if (kept != null) { mainThread.post { onReady(cc.joycreator.joybrush.androidkit.io.SparseContents(kept)) }; return }
+            // The picture kept at a pause is a whole drawing; an export wants it without its paint state, as asked.
+            if (kept != null) {
+                val given = if (sparse == 3) kept.copy(mediaTiles = emptyMap(), doc = kept.doc.copy(layers = kept.doc.layers.map { l ->
+                    l.copy(cels = l.cels.map { it.copy(floatTiles = emptyList()) }) })) else kept
+                mainThread.post { onReady(cc.joycreator.joybrush.androidkit.io.SparseContents(given)) }; return
+            }
             if (closing) { mainThread.post { onFailure("the screen closed before the drawing could be read") }; return }
         }
         val w = viewW
@@ -3724,8 +3739,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             engine.setBoardDocument(current)
             // More paint than a save can carry in good time: the newest stays paint in the file, the rest its picture.
             val keepPaint=engine.mediaTilesToSave(savePaintBudgetBytes)
-            val mediaKeys={layer: String,cel: String->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{store->
-                engine.mediaTileKeys(layer,store,p).let{keys->if(keepPaint==null)keys else keys.filter{Triple(layer,p,it) in keepPaint}}}}
+            val mediaKeys={layer: String,cel: String->if(sparse == 3) emptyMap() else { val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{store->
+                engine.mediaTileKeys(layer,store,p).let{keys->if(keepPaint==null)keys else keys.filter{Triple(layer,p,it) in keepPaint}}} }}
             val keys={layer: String,cel: String->
                 val mask=current.layers.first{it.id==layer}.mask
                 if(mask?.id==cel)engine.tileKeys(maskStoreId(layer)) else engine.celTileKeys(layer,cel)
@@ -3734,7 +3749,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // Editable lines re-file tiles as looks and slabs on the way out (withLines): such a drawing is read whole.
             val prints=HashMap<Any,cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
             var printMs=0L
-            if(sparse != 0 && engine.lineSave().records.isEmpty()) {
+            if((sparse == 1 || sparse == 2) && engine.lineSave().records.isEmpty()) {
                 val began=android.os.SystemClock.elapsedRealtime()
                 val ids=ArrayList<Any>(); val asks=ArrayList<GlPaintEngine.TileAsk>()
                 for(layer in current.layers) {
@@ -3776,7 +3791,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 mediaSeen={layer,cel,store,key->known(MediaTileKey(layer,cel,key.toString(),store))},
                 print={layer,cel,key->prints[Triple(layer,cel,key)]},
                 mediaPrint={layer,cel,store,key->prints[MediaTileKey(layer,cel,key.toString(),store)]})
-            if(sparse != 0) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
+            if(sparse == 1 || sparse == 2) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
                 "the lost-tile check $repairMs ms, ${android.os.SystemClock.elapsedRealtime()-readBegan} ms in all on the graphics thread"
             return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents),made.tiles,made.mediaTiles,made.tilePrints,made.mediaPrints)
         }

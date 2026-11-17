@@ -2961,6 +2961,9 @@ class JoyBrushActivity : Activity() {
             // stands in for what did not change when it is known only from having been opened (JbArchive.memoOf).
             else if (dest is SaveDest.Working && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly)
                 canvas.snapshotSparse(onContents, failed, keepWet, readAll = true)
+            // An export draws the picture and nothing else: the paint state under it is not read back for it.
+            else if (dest is SaveDest.Png || dest is SaveDest.BoardExport || dest is SaveDest.BoardHandoff)
+                canvas.snapshotPicture({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
             else canvas.snapshot({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")

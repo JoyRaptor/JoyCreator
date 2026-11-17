@@ -6195,15 +6195,46 @@ class GlPaintEngine(
         // the board and the coverage bands are NOT clipped, so a read across the seam finds the repeat; only tiles on the
         // board get output, and endStroke's commit is clipped to the board as for every tile stroke.
         val halo = wcSpec?.let { minOf(kotlin.math.ceil(maxOf(it.edgeWidth, it.gravityWidth, 0.0)) + 2.0, size.toDouble()) } ?: 0.0
-        wcWithinKnown = false   // a Tile board's wrap-around is finished whole, as before
-        val bands = Tiles.bucket(dabs.flatMap { TilePainting.dabs(tile,it,halo) },size)
+        wcWithinKnown = false   // the lift on a Tile board still finishes whole tiles
+        val copies = dabs.flatMap { TilePainting.dabs(tile,it,halo) }
+        val bands = Tiles.bucket(copies,size)
         val outputs = bands.keys.filter { TilePainting.clip(tile,it) != null }
         require((strokeTiles.keys+outputs).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
         for(key in outputs) strokeTiles.getOrPut(key) { newStrokeTile() }
         val pass = requireNotNull(wcPass)
         pass.add(bands) { null }
-        pass.finishInto(strokeTiles,0f,outputs)
+        if (wcFinishWholeTiles) { pass.finishInto(strokeTiles,0f,outputs); return }
+        // As off a Tile board (2026-11-17): only where these dabs and their copies round the board can have changed the
+        // finish, each copy's own bounds grown by the finish's reach, on every stroke tile that touches (a copy near
+        // another tile's rim changes that tile too). The copies lie far apart, so each tile gets its own rectangle.
+        val reach = pass.reach
+        val within = HashMap<Long, FloatArray>()
+        for (d in copies) {
+            val r = maxOf(d.radius * 1.5f + 2f, cc.joycreator.joybrush.core.paint.TipMath.extent(d.radius, d.anchor, d.sampled, d.aspect)) + reach
+            val x0 = d.x - r; val y0 = d.y - r; val x1 = d.x + r; val y1 = d.y + r
+            for (ty in Math.floorDiv(kotlin.math.floor(y0).toInt(), size)..Math.floorDiv(kotlin.math.ceil(y1).toInt(), size))
+                for (tx in Math.floorDiv(kotlin.math.floor(x0).toInt(), size)..Math.floorDiv(kotlin.math.ceil(x1).toInt(), size)) {
+                    val key = Tiles.key(tx, ty)
+                    if (key !in strokeTiles) continue
+                    val had = within[key]
+                    if (had == null) within[key] = floatArrayOf(x0, y0, x1, y1)
+                    else { had[0] = minOf(had[0], x0); had[1] = minOf(had[1], y0); had[2] = maxOf(had[2], x1); had[3] = maxOf(had[3], y1) }
+                }
+        }
+        pass.finishWithin(strokeTiles, 0f, within)
+        if (wcFinishCheck && within.isNotEmpty()) {
+            if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }
+            val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+            val touched = within.keys.toList()
+            val texs = IntArray(touched.size) { strokeTiles.getValue(touched[it]) }
+            val part = hasher.prints(texs, BooleanArray(texs.size))
+            pass.finishInto(strokeTiles,0f,touched)
+            val whole = hasher.prints(texs, BooleanArray(texs.size))
+            wcFinishChecked += touched.size
+            if (part == null || whole == null) wcFinishWrong += touched.size
+            else wcFinishWrong += touched.indices.count { part[it] != whole[it] }
+        }
     }
 
     /** Selected-brush warmup on this GL context; never clears or settles an active stroke. */

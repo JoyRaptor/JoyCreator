@@ -3403,7 +3403,15 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * Several PAINT layers are shown in full (JB-2.04). Opening the half that can be shown and dropping
      * the rest is the one thing this must never do.
      */
-    fun load(opened: JbContents, onDone: () -> Unit) {
+    fun load(opened: JbContents, onDone: () -> Unit) = load(opened, null, onDone)
+
+    /**
+     * As [load]; [onFailed] hears, in place of [onDone], when a tile that passed every check could not be read from the
+     * file again while the drawing was being put on the canvas (its tiles are read one at a time: JbArchive
+     * .openDeferringMedia). The canvas is then an empty drawing, never part of one, and the caller must not save it over
+     * the file that failed. Without [onFailed], [onDone] is called on the empty drawing.
+     */
+    fun load(opened: JbContents, onFailed: ((String) -> Unit)?, onDone: () -> Unit) {
         lineEditEpoch += 1          // edits handed in before this are about the old drawing (H10)
         frozenBrushes.clear()
         // A drawing that still carries the once-shared id gets its own now; the next save writes it (audit 2026-10-18).
@@ -3415,13 +3423,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         val states = doc.layers.map { LayerState(it.id, it.name, it.opacity, it.visible, it.blend, it.mask != null, it.clip, it.locked) }
         val active = doc.activeLayerId?.takeIf { id -> doc.layers.any { it.id == id } } ?: doc.layers.last().id
         val stack = LayerStack(states, active)
-        val wanted = ArrayList<Pair<Triple<String,String,Long>,ByteArray>>(contents.tiles.size)
+        // Each tile's address and how to get its bytes: a tile still in the file is read in the GL task, one at a time.
+        val wanted = ArrayList<Pair<Triple<String,String,Long>, () -> ByteArray>>(contents.tiles.size)
         // Editable lines (NATIVE_LINES_V1): where a cel keeps a look, the screen shows the look and the tile file is the
         // base under its lines; no line is replayed to open.
         // v1.2 H13: a tile under items (a look, or a slab stack) is a base, never the picture; a stack with no look is
         // composed from its base and slabs by the engine.
         val linePlan = LineOpenPlan.of(contents)
-        for ((key, look) in contents.looks) wanted.add(Triple(key.first, key.second, tileKeyOf(key.third)) to look)
+        for ((key, look) in contents.looks) wanted.add(Triple(key.first, key.second, tileKeyOf(key.third)) to { look })
         val lineRecords = linePlan.records.mapKeys { (k, _) -> LinePlane(k.first, k.second) }
         val lineBases = linePlan.bases.entries.associate { (at, bytes) -> (LinePlane(at.first, at.second) to tileKeyOf(at.third)) to bytes }
         val lineSlabs = LinkedHashMap<LinePlane, MutableMap<Long, Pair<String, MutableMap<Long, ByteArray>>>>()
@@ -3430,13 +3439,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             bySeq.getOrPut(k.seq) { slab.first to LinkedHashMap() }.second[tileKeyOf(k.key)] = slab.second
         }
         val lineCompose = linePlan.composeKeys.groupBy({ LinePlane(it.first, it.second) }, { tileKeyOf(it.third) }).mapValues { it.value.toSet() }
-        for (entry in contents.tiles) {
-            if (entry.key in linePlan.itemTiles) continue
-            // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
+        for (at in contents.tiles.keys) {
+            if (at in linePlan.itemTiles) continue
+            // The key is (layer, cel, "tx_ty").
             // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
-            val layer = doc.layers.first { it.id == entry.key.first }
-            val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
-            wanted.add(Triple(store,entry.key.second,tileKeyOf(entry.key.third)) to entry.value)
+            val layer = doc.layers.first { it.id == at.first }
+            val store = if (layer.mask?.id == at.second) maskStoreId(layer.id) else layer.id
+            wanted.add(Triple(store, at.second, tileKeyOf(at.third)) to { contents.tiles.getValue(at) })
         }
         val resolved = PaperState.resolve(doc.paper,PaperResources.catalogue)
         val name = doc.name
@@ -3456,9 +3465,22 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             engine.resetDocument()
             engine.setStack(stack)
             engine.setBoardDocument(doc)
-            for ((address,rgba) in wanted) {
-                if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
-                else engine.writeCelTile(address.first,address.second,address.third,rgba)
+            // A PICTURE tile that cannot be read again (the disk failed since it was checked) ends the load: a drawing
+            // with a hole in it must never be shown, let alone saved. The canvas becomes an empty drawing and the caller
+            // is told ([onFailed]); the file is untouched.
+            try {
+                for ((address, read) in wanted) {
+                    val rgba = read()
+                    if(address.first.endsWith(MASK_SUFFIX))engine.writeTile(address.first,address.third,rgba)
+                    else engine.writeCelTile(address.first,address.second,address.third,rgba)
+                }
+            } catch (e: JbArchiveException) {
+                cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents)
+                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("a drawing could not be opened: a picture tile could not be read again", e)
+                noteBenchError("open", e)
+                engine.resetDocument()
+                post { loadEmptyAfterFailure("This drawing could not be read from the phone's storage just now. Your saved drawing was kept.", onFailed, onDone) }
+                return@onGl
             }
             // Media payloads (DocModel v8, v9): their stores and grounds, beside the look the tiles already put back, which
             // they agree with.
@@ -3476,7 +3498,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 }
             } finally {
                 // Whatever ends the load (a failed upload, the graphics going), the file is let go: a retry opens its own.
-                (contents.mediaTiles as? java.io.Closeable)?.close()
+                cc.joycreator.joybrush.androidkit.io.DeferredMedia.release(contents)
             }
             if (unread > 0) {
                 // Paint that became a flat picture after every check had passed is said, not only logged.
@@ -3550,9 +3572,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             if (key.third !in listed) {
                 return "the drawing lists tile \"${key.third}\", and this file does not have it"
             }
-            val bytes = contents.tiles.getValue(key)
-            if (bytes.size != TILE_BYTES) {
-                return "tile \"${key.third}\" is ${bytes.size} bytes, and a paint tile is $TILE_BYTES"
+            // The length as it was read and checked; a tile still in its file is not read again for this.
+            val length = cc.joycreator.joybrush.androidkit.io.DeferredMedia.sizeIn(contents.tiles, key)
+            if (length != TILE_BYTES) {
+                return "tile \"${key.third}\" is $length bytes, and a paint tile is $TILE_BYTES"
             }
         }
         for (layer in doc.layers) for (cel in DocOps.storedCels(layer)) {
@@ -4035,6 +4058,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             } catch (e: Exception) { failure = "${e.javaClass.simpleName}: ${e.message}" }
             post { ready(state, failure) }
         }
+    }
+
+    /** After a load that could not read its file: an empty drawing in its place, then the caller is told. */
+    private fun loadEmptyAfterFailure(why: String, onFailed: ((String) -> Unit)?, onDone: () -> Unit) {
+        val ids = ArrayDeque(listOf(BOARD_ID, FIRST_LAYER, CEL_ID))
+        freshDocId = newDocumentId()
+        val fresh = DocOps.newDocument(freshDocId, documentName, viewW, viewH) { ids.removeFirst() }.copy(paper = documentPaperState)
+        load(JbContents(fresh, emptyMap(), emptyMap(), null)) { if (onFailed != null) onFailed(why) else onDone() }
     }
 
     /**

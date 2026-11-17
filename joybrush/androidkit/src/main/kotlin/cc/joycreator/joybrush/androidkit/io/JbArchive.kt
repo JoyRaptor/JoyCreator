@@ -764,7 +764,7 @@ object JbArchive {
         read(input, legacyBrushes, null)
 
     fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
-             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents = read(input, legacyBrushes, pngVerifier, null)
+             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents = read(input, legacyBrushes, pngVerifier, null, null)
 
     /**
      * [deferred] not null: every check is made exactly as without it, on every byte, but a media tile's bytes are let go
@@ -772,7 +772,8 @@ object JbArchive {
      * hold a stand-in of the right size in its place ([openDeferringMedia] puts the real reader there).
      */
     private fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
-                     pngVerifier: FrozenBrushAssets.PngVerifier?, deferred: MutableMap<MediaTileKey, DeferredMedia.Entry>?): JbContents {
+                     pngVerifier: FrozenBrushAssets.PngVerifier?, deferred: MutableMap<MediaTileKey, DeferredMedia.Entry>?,
+                     deferredTiles: MutableMap<Triple<String, String, String>, DeferredMedia.Entry>?): JbContents {
         val zis = ZipInputStream(input)
         val names = HashSet<String>()
         val budget = ByteBudget(MAX_TOTAL_BYTES)
@@ -944,7 +945,8 @@ object JbArchive {
                         if (bytes.size != TILE_BYTES) {
                             throw JbArchiveException("tile \"$name\" is ${bytes.size} bytes, a paint tile is $TILE_BYTES")
                         }
-                        tiles[Triple(parts[1], parts[2], key)] = bytes
+                        val at = Triple(parts[1], parts[2], key)
+                        tiles[at] = if (deferredTiles == null) bytes else DeferredMedia.note(deferredTiles, at, name, bytes)
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith("/$STROKES_NAME") -> {
@@ -1146,9 +1148,10 @@ object JbArchive {
     }
 
     /**
-     * Opens [file] like [open], holding its realistic-paint state on disk instead of in memory (ATLAS-SOLID, streaming
-     * saves item 2, "open as it is read"): the paint stores are most of a painted drawing, about 3 MB a tile, and a
-     * drawing was held whole in the heap between the read and the upload. Everything is read and checked first exactly as
+     * Opens [file] like [open], holding its picture tiles and its realistic-paint state on disk instead of in memory
+     * (ATLAS-SOLID, streaming saves item 2, "open as it is read"): a drawing was held whole in the heap between the read
+     * and the upload, a quarter of a megabyte a picture tile and about 3 MB of paint stores on top where it is painted.
+     * Looks, slabs and strokes are read whole as before. Everything is read and checked first exactly as
      * [open] does it, so a file [open] refuses is refused here with the same words and before anything is shown; only
      * then are the media tiles handed out, each read again from the file when asked for ([DeferredMedia]) and checked
      * against what the first reading saw. The file format is untouched.
@@ -1165,11 +1168,16 @@ object JbArchive {
             var handedOver = false
             try {
                 val noted = LinkedHashMap<MediaTileKey, DeferredMedia.Entry>()
-                val contents = FileInputStream(file).use { read(it, legacyBrushes, null, noted) }
-                if (noted.isEmpty()) return contents
-                if (!DeferredMedia.agrees(zip, noted)) return open(file, legacyBrushes)
+                val notedTiles = LinkedHashMap<Triple<String, String, String>, DeferredMedia.Entry>()
+                val contents = FileInputStream(file).use { read(it, legacyBrushes, null, noted, notedTiles) }
+                if (noted.isEmpty() && notedTiles.isEmpty()) return contents
+                if (!DeferredMedia.agrees(zip, noted) || !DeferredMedia.agrees(zip, notedTiles)) return open(file, legacyBrushes)
                 handedOver = true
-                contents.copy(mediaTiles = DeferredMedia(file, zip, noted))
+                // One open file for both maps; it is closed when both have let go.
+                val source = DeferredMedia.Source(file, zip)
+                contents.copy(
+                    tiles = if (notedTiles.isEmpty()) contents.tiles else DeferredMedia(source, notedTiles),
+                    mediaTiles = if (noted.isEmpty()) contents.mediaTiles else DeferredMedia(source, noted))
             } finally {
                 if (!handedOver) try { zip.close() } catch (_: Exception) {}
             }

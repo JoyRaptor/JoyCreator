@@ -37,10 +37,13 @@ class LineOpenPlan private constructor(
             val itemTiles = LinkedHashSet<Triple<String, String, String>>()
             val bases = LinkedHashMap<Triple<String, String, String>, ByteArray>()
             val compose = LinkedHashSet<Triple<String, String, String>>()
-            for ((at, bytes) in contents.tiles) {
+            // By key: the tiles may still be in the file (JbArchive.openDeferringMedia), and only the ones under items
+            // are needed here.
+            for (at in contents.tiles.keys) {
                 val stacked = at in ops
                 if (at !in contents.looks && !stacked) continue
                 itemTiles += at
+                val bytes = contents.tiles.getValue(at)
                 if (!Tiles.isBlank(bytes)) bases[at] = bytes
                 if (stacked && at !in contents.looks) compose += at
             }

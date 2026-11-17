@@ -430,9 +430,15 @@ takes the graphics away. They do, also when an ink line, a watercolour line and 
 
   **Exactness, checked on the phone:** with `--ez jb_wc_finish_check true` every partial finish is followed by a
   whole-tile finish of the same tiles and the two are compared by fingerprint: 4,701 tile finishes, 0 differ.
-  **What is left:** one slow frame of about 0.2 to 0.3 s in every stroke (not looked into: the first frame's new tiles
-  or the lift's two whole finishes are the suspects), and the 1.4 s first stroke after an install. A stroke on a Tile
-  board still finishes whole tiles (its wrap-around was left alone).
+  **The lift, same day (build 52ffadde2).** The one slow frame left in every stroke was the lift (phase
+  `JB.paint.commit`, about 180 ms): the fade there runs between two pictures and both were finished whole for every
+  tile of the stroke. The unpooled one is now a copy of the stroke tiles, which the change above keeps exact, and the
+  pooled one is finished only where the stroke lies on each tile (`WatercolourPass.prepareFade`, the engine's
+  `wcWithin`). Checked the same way: 120 lift pictures against whole ones, 0 differ (and the 4,701 partial finishes
+  again, 0 differ). Slowest frame in a stroke: 188 to 331 ms before, 38 to 169 ms after, on the bench's wide zigzags,
+  which fill most of their tiles; a thin line gains more.
+  **What is left:** that one frame of about 0.15 s at the lift (the pooled finish itself), and the 1.4 s first stroke
+  after an install. A stroke on a Tile board still finishes whole tiles (its wrap-around was left alone).
 - **Still open for L9 (not done here).** the fade matrix and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a
   drawn curve); **the grainy preset: owner's eye owed** (no file records an approved look; the orchestrator is asking
   him for a reference or a verdict); width redo exactness after the screens lane's 11-16 change; rebrush, delete,

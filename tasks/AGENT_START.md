@@ -61,8 +61,9 @@ git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/<topic>-<yyyymmdd> -b <har
 - **Test in the cloud too** (the default since 11-15): push, then `.\tools\cloud-build.ps1 test <branch> [suites]` (run it
   in the background). Suites: `all` (default) or any of `jb-core`, `jb-androidkit`, `jb-android` (JoyBrush core,
   androidkit, Android unit tests), `studio` (the Studio JVM harness), `joybot` (Joybot flights, the bench with the fake
-  model, the bridge). About 11-13 minutes for all. It prints one line per suite (time, pass count) and, for a failure,
-  only the failing tests' own output. Any branch works, even one older than this tool. No live AI model runs there.
+  model, the bridge). About 11-13 minutes for all. It prints one line per suite (time, pass count), then each failing
+  test (class.method and its message, repeated at the very end), its trimmed stack trace, and puts the failing classes'
+  JUnit XML in `build\cloud\<name>\junit\`. Any branch works, even one older than this tool. No live AI model runs there.
 - **A local Gradle build or test only when you must** (unpushed code, a quick loop), and only under `jb-gradle.lock` (below).
 - The owner's watcher (`watch-build.ps1`) builds the main folder into `build.log` (UTF-16).
 - **One heavy job on the machine at a time.** Take `C:/Users/JoyRaptor/AppData/Local/Temp/jb-gradle.lock`

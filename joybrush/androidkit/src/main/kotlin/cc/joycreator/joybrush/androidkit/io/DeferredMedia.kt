@@ -18,7 +18,8 @@ import java.util.zip.ZipFile
  * a read after that opens the path again, and fails in words when the file there is no longer the one that was checked.
  */
 internal class DeferredMedia(
-    private val file: File,
+    /** The file the drawing was read from and checked in. */
+    val file: File,
     private var zip: ZipFile?,
     private val noted: Map<MediaTileKey, Entry>,
 ) : AbstractMap<MediaTileKey, ByteArray>(), Closeable {

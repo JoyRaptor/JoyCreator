@@ -142,6 +142,55 @@ class DeferredMediaTest {
         } finally { close(deferred); file.delete() }
     }
 
+    @Test fun anotherFileAtThePathIsAnErrorNeverItsBytes() {
+        val file = saved(painted())
+        val deferred = JbArchive.openDeferringMedia(file)
+        close(deferred)   // let go: the next read opens the path again
+        val other = painted().let { c -> c.copy(mediaTiles = c.mediaTiles.mapValues { (_, v) -> ByteArray(v.size) { 1 } }) }
+        JbArchive.save(file, other)
+        for (k in deferred.mediaTiles.keys) assertFailsWith<JbArchiveException>(k.toString()) { deferred.mediaTiles.getValue(k) }
+        close(deferred); file.delete()
+    }
+
+    @Test fun aDirectoryThatDisagreesWithTheReadingIsNotTrusted() {
+        // What sends openDeferringMedia back to the ordinary whole open: the zip's directory must say of every tile what
+        // the checking pass read. (A zip whose directory lies cannot be made with java.util.zip, so the check is asked directly.)
+        val file = saved(painted())
+        val whole = JbArchive.open(file)
+        java.util.zip.ZipFile(file).use { zip ->
+            fun noted(name: String, size: Int, crc: Long) = mapOf(key("0_0", "p0") to DeferredMedia.Entry(name, size, crc))
+            val name = "layers/$layer/$cel/0_0.p0${MediaStores.EXT}"
+            val bytes = whole.mediaTiles.getValue(key("0_0", "p0"))
+            val crc = java.util.zip.CRC32().apply { update(bytes) }.value
+            assertTrue(DeferredMedia.agrees(zip, noted(name, bytes.size, crc)))
+            assertFalse(DeferredMedia.agrees(zip, noted(name, bytes.size, crc xor 1L)), "another CRC")
+            assertFalse(DeferredMedia.agrees(zip, noted(name, bytes.size - 1, crc)), "another length")
+            assertFalse(DeferredMedia.agrees(zip, noted("layers/$layer/$cel/9_9.p0${MediaStores.EXT}", bytes.size, crc)), "no such entry")
+        }
+        file.delete()
+    }
+
+    @Test fun theRecoveryCopyOfADeferredDrawingIsItsFile() {
+        val dir = File(System.getProperty("java.io.tmpdir"), "deferred-recovery-${System.nanoTime()}").also { it.mkdirs() }
+        val file = saved(painted())
+        val deferred = JbArchive.openDeferringMedia(file)
+        try {
+            val recovery = DrawingRecovery(File(dir, "joybrush-recovery-test.joybrush"))
+            recovery.rememberOpened(deferred)
+            val whole = JbArchive.open(file)
+            val back = recovery.read(deferred.doc.id)
+            try {
+                assertEquals(whole.mediaTiles.keys, back.mediaTiles.keys)
+                for ((k, v) in whole.mediaTiles) assertContentEquals(v, back.mediaTiles.getValue(k), k.toString())
+                for ((k, v) in whole.tiles) assertContentEquals(v, back.tiles.getValue(k))
+                // Remembering the recovery copy's own contents again copies nothing onto itself and loses nothing.
+                recovery.rememberOpened(back)
+            } finally { close(back) }
+            val again = recovery.read(deferred.doc.id)
+            try { for ((k, v) in whole.mediaTiles) assertContentEquals(v, again.mediaTiles.getValue(k), k.toString()) } finally { close(again) }
+        } finally { close(deferred); file.delete(); dir.deleteRecursively() }
+    }
+
     @Test fun afterItIsLetGoAndTheFileIsGoneAReadFailsInWords() {
         val file = saved(painted())
         val deferred = JbArchive.openDeferringMedia(file)

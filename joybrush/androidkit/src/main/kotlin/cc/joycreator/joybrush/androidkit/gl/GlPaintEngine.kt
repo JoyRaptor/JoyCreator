@@ -2450,6 +2450,10 @@ class GlPaintEngine(
         // R2-JB-03: the realistic-paint state a duplicated frame takes with it (made before anything is published).
         val payloadCopies = ArrayList<UndoLog.TileChange<Int>>()
         var payloadPut = false
+        // R2-JB-03, second half: the paint state moved pixels take with them (see movePayload below).
+        val payloadStaged = LinkedHashMap<Triple<String, String?, Long>, HashMap<String, Int>>()
+        val payloadMade = ArrayList<Int>()
+        val payloadMoved = ArrayList<UndoLog.TileChange<Int>>()
         fun trackItemTexture(made: Int): Int {
             try { itemTextures.add(made) } catch (e: Throwable) { recycleLayerTex(made); throw e }
             return made
@@ -2480,6 +2484,61 @@ class GlPaintEngine(
                 old?.after?.let(::recycleLayerTex)
                 pending[address]=UndoLog.TileChange(layer.id,key,original,made,cel)
             } catch(e:Throwable){recycleLayerTex(made); throw e}
+        }
+        // R2-JB-03, second half: pixels a board edit MOVES (a cell moved or swapped, a board dragged) take their
+        // realistic-paint state with them, shifted inside the tiles exactly as the pixels are. Per destination tile a
+        // whole new set of stores is staged (copies of what the tile holds, or nothing), the moved rectangle is copied
+        // into every store, and the sets go in after the settle, in the same undo step. A tile with no paint state has
+        // its look as its ground, so: a set made for a tile that had none starts with that tile's look as its ground,
+        // and pixels with no paint state that land on a tile with one bring their look as the ground there and clear
+        // the paint under them. Sources are the live stores, as for the pixels (reciprocal moves read the same state).
+        fun livePayload(layer: Layer, cel: String?, key: Long): Map<String, Int> {
+            // The stores are kept by plane: the layer's own for its shared cel, a frame cel's under its id.
+            val plane = planeOf(layer, cel)
+            val out = HashMap<String, Int>()
+            for ((store, tiles) in (if (plane == null) layer.floats else layer.celFloats[plane]).orEmpty()) tiles[key]?.let { out[store] = it }
+            return out
+        }
+        fun clearPayloadRect(target: Int, rect: RegionTileRect) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(target)
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(rect.x, rect.y, rect.w, rect.h)
+            GLES30.glClearColor(0f, 0f, 0f, 0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Board payload clear failed" }
+        }
+        fun madePayload(store: String, from: Int?): Int {
+            graphicsTouched = true
+            val made = newPayloadTile(store)
+            payloadMade += made
+            initializeTile(made, from, false)
+            return made
+        }
+        fun stagedPayload(layer: Layer, cel: String?, key: Long): HashMap<String, Int> =
+            payloadStaged.getOrPut(Triple(layer.id, cel, key)) {
+                val set = HashMap<String, Int>()
+                for ((store, tex) in livePayload(layer, cel, key)) set[store] = madePayload(store, tex)
+                // No ground of its own: the look it has before this edit is its ground.
+                if (MediaStores.GROUND !in set) set[MediaStores.GROUND] = madePayload(MediaStores.GROUND, planeTiles(layer, cel)[key])
+                set
+            }
+        fun hasPayloadAt(layer: Layer, cel: String?, key: Long) =
+            Triple(layer.id, cel, key) in payloadStaged || livePayload(layer, cel, key).isNotEmpty()
+        /** [sourceLook]: the source tile's look, which is its ground when it has no paint state. */
+        fun movePayload(layer: Layer, fromCel: String?, toCel: String?, slice: TranslatedTileSlice, sourceLook: Int?) {
+            if (layer.isMask) return
+            val src = livePayload(layer, fromCel, slice.sourceKey)
+            if (src.isEmpty() && !hasPayloadAt(layer, toCel, slice.destinationKey)) return
+            val set = stagedPayload(layer, toCel, slice.destinationKey)
+            for (store in (src.keys + set.keys).toList()) {
+                val target = set.getOrPut(store) { madePayload(store, null) }
+                val from = src[store] ?: if (store == MediaStores.GROUND) sourceLook else null
+                if (from != null) copyTextureRectTranslated(from, target, slice.source, slice.destination)
+                else clearPayloadRect(target, slice.destination)
+            }
+        }
+        fun clearPayload(layer: Layer, cel: String?, key: Long, rect: RegionTileRect) {
+            if (layer.isMask || !hasPayloadAt(layer, cel, key)) return
+            for (target in stagedPayload(layer, cel, key).values) clearPayloadRect(target, rect)
         }
         fun stageTranslated(layer: Layer, cel: String?, slice: TranslatedTileSlice, source: Int?) {
             val key = slice.destinationKey
@@ -2537,8 +2596,10 @@ class GlPaintEngine(
             for (clear in change.clears) {
                 val layer = layers.getValue(clear.layerId)
                 for (slice in RegionTransferTiles.sparseSlices(clear.rect, clear.rect, emptySequence(),
-                    layer.cels.getValue(clear.celId).keys.asSequence() + pendingKeys(layer.id, clear.celId).asSequence()))
+                    layer.cels.getValue(clear.celId).keys.asSequence() + pendingKeys(layer.id, clear.celId).asSequence())) {
+                    clearPayload(layer, clear.celId, slice.destinationKey, slice.destination)
                     stageTranslated(layer, clear.celId, slice, null)
+                }
             }
             for (clear in change.maskClears) {
                 val mask = requireNotNull(layers.getValue(clear.layerId).mask)
@@ -2566,6 +2627,7 @@ class GlPaintEngine(
                 for (slice in RegionTransferTiles.sparseSlices(transfer.sourceRect, transfer.destinationRect,
                     source.keys.asSequence(), layer.cels[transfer.toCelId].orEmpty().keys.asSequence() +
                         pendingKeys(layer.id, transfer.toCelId).asSequence())) {
+                    movePayload(layer, transfer.fromCelId, transfer.toCelId, slice, source[slice.sourceKey])
                     stageTranslated(layer, transfer.toCelId, slice, source[slice.sourceKey])
                 }
             }
@@ -2613,16 +2675,34 @@ class GlPaintEngine(
             payloadPut = true
             payloadCopies.forEach { c -> put(c.layerId, c.key, c.after, c.celId) }
             payloadCopies.forEach { c -> MediaStores.parse(c.layerId)?.let { (owner, _) -> agree(owner, c.key, c.celId) } }
+            // The moved paint state: each staged store takes its tile's place. What the settle just dropped from that
+            // place is its `before`, so the step holds ONE change per store tile and undo puts the old paint back.
+            val dropped = HashMap<Triple<String, String?, Long>, UndoLog.TileChange<Int>>()
+            for (c in settled) dropped[Triple(c.layerId, c.celId, c.key)] = c
+            for ((at, set) in payloadStaged) {
+                val owner = layers[at.first] ?: continue
+                val plane = planeOf(owner, at.second)   // as the settle's changes and the agreements name it
+                for ((store, tex) in set) {
+                    val id = MediaStores.id(at.first, store)
+                    val was = dropped.remove(Triple(id, plane, at.third))?.before ?: livePayload(owner, at.second, at.third)[store]
+                    payloadMoved += UndoLog.TileChange(id, at.third, was, tex, plane)
+                }
+            }
+            payloadMoved.forEach { c -> put(c.layerId, c.key, c.after, c.celId) }
+            for (at in payloadStaged.keys) layers[at.first]?.let { owner -> agree(at.first, at.third, planeOf(owner, at.second)) }
+            val settledKept = settled.filter { Triple(it.layerId, it.celId, it.key) in dropped }
             if(before!=change.doc || pending.isNotEmpty() || items.lines.isNotEmpty() || items.slabs.isNotEmpty())
-                undo.push(UndoLog.Step(pending.values.toList() + settled + payloadCopies,
+                undo.push(UndoLog.Step(pending.values.toList() + settledKept + payloadMoved + payloadCopies,
                     documentBefore=before,documentAfter=change.doc, lines = items.lines, slabs = items.slabs))
         } catch(e:Throwable) {
             // Restore every published address before releasing prepared textures.
             if(itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
             if(payloadPut) payloadCopies.forEach { c -> put(c.layerId, c.key, null, c.celId) }
+            payloadMoved.forEach { c -> put(c.layerId, c.key, c.before, c.celId) }
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
             payloadCopies.forEach { c -> c.after?.let(::recycleLayerTex) }
+            payloadMade.forEach(::recycleLayerTex)
             itemTextures.forEach(::recycleLayerTex)
             throw e
         } finally { if(graphicsTouched) { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) } }

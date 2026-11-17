@@ -239,7 +239,20 @@ function Get-Build([string] $id) {
     $aab = Get-ChildItem $dest -Filter *.aab | Select-Object -First 1
     if ($aab) { Write-Host "unsigned bundle; sign it here: .\tools\cloud-build.ps1 sign build\cloud\$($a.name)\$($aab.Name)" }
     $sum = Join-Path $dest "tests-summary.md"
-    if (Test-Path $sum) { Write-Host ""; Get-Content $sum -Encoding UTF8 | ForEach-Object { Write-Host $_ } }
+    if (Test-Path $sum) {
+        $lines = @(Get-Content $sum -Encoding UTF8)
+        Write-Host ""
+        $lines | ForEach-Object { Write-Host $_ }
+        # The failing tests once more, last, so a lane reading only the end of a long output still sees each one.
+        $failing = @($lines | Where-Object { $_.StartsWith('- `') })   # (not -like: a backtick escapes there)
+        if ($failing.Count -gt 0) {
+            Write-Host ""
+            Write-Host "FAILING TESTS ($($failing.Count)); full messages and stacks are above:"
+            $failing | ForEach-Object { Write-Host "  $($_.Substring(2))" }
+            $junit = Join-Path $dest "junit"
+            if (Test-Path $junit) { Write-Host "their JUnit XML: build\cloud\$($a.name)\junit\" }
+        }
+    }
 }
 
 function Resign-Debug([string] $apk) {
@@ -303,7 +316,15 @@ function Sign-Bundle([string] $aab) {
 
 switch ($Cmd) {
     "start" { Start-Build $Rest[0] $(if ($Rest.Count -ge 2) { $Rest[1] } else { "" }) | Out-Null }
-    "wait"  { if (-not (Wait-Build (Get-RunId))) { exit 1 } }
+    "wait"  {
+        $id = Get-RunId
+        $ok = Wait-Build $id
+        # A tests run has nothing to install, only its summary: fetch and print it here too, pass or fail.
+        if ("$((Api GET "/actions/runs/$id").display_title)" -like "build tests @*") {
+            try { Get-Build $id } catch { Write-Host "no summary to fetch: $($_.Exception.Message)" }
+        }
+        if (-not $ok) { exit 1 }
+    }
     "fetch" { Get-Build (Get-RunId) }
     "sign"  { Sign-Bundle $(if ($Rest.Count -ge 1) { $Rest[0] } else { "" }) }
     "run" {

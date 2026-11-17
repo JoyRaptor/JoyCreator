@@ -3287,7 +3287,13 @@ class JoyBrushActivity : Activity() {
 
     private fun uploadContents(contents: JbContents, onLoaded: (Boolean) -> Unit) {
         endSelection()   // the drawing the lines belonged to is about to be replaced
-        canvas.load(contents) {
+        canvas.load(contents, { why ->
+            // The file could not be read while it was being shown: the canvas is empty and must not be saved over it.
+            workingSaveAllowed = false
+            ui.removeCallbacks(idleSave)
+            if (!destroyed) toast(why)
+            onLoaded(false)
+        }) {
             // Loading reports a history change; it is not a new edit.
             changes = 0
             ui.removeCallbacks(idleSave)

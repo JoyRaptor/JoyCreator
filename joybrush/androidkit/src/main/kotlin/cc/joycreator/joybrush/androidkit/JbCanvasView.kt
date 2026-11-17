@@ -3403,15 +3403,25 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // holds a tile and not the drawing. A tile whose state cannot be read again (the disk failed since it was
             // checked) keeps its picture and gets no paint state at all, never half of it: the look is its ground.
             var unread = 0
-            for ((_, stores) in contents.mediaTiles.keys.groupBy { Triple(it.layerId, it.celId, it.key) }) {
-                val bytes = try { stores.map { k -> k to contents.mediaTiles.getValue(k) } } catch (e: JbArchiveException) {
-                    if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
-                    continue
+            try {
+                for ((_, stores) in contents.mediaTiles.keys.groupBy { Triple(it.layerId, it.celId, it.key) }) {
+                    val bytes = try { stores.map { k -> k to contents.mediaTiles.getValue(k) } } catch (e: JbArchiveException) {
+                        if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
+                        continue
+                    }
+                    for ((k, b) in bytes) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), b, k.celId)
                 }
-                for ((k, b) in bytes) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), b, k.celId)
+            } finally {
+                // Whatever ends the load (a failed upload, the graphics going), the file is let go: a retry opens its own.
+                (contents.mediaTiles as? java.io.Closeable)?.close()
             }
-            if (unread > 0) noteBenchError("open", JbArchiveException("$unread tiles opened without their paint state"))
-            (contents.mediaTiles as? java.io.Closeable)?.close()
+            if (unread > 0) {
+                // Paint that became a flat picture after every check had passed is said, not only logged.
+                val n = unread
+                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("$n tiles opened as their picture: their paint state could not be read again", Throwable())
+                noteBenchError("open", JbArchiveException("$n tiles opened without their paint state"))
+                post { onNotice?.invoke("Part of this drawing's paint could not be read back, so it opened as a flat picture there. Nothing else was lost.") }
+            }
             engine.agreeAllPayloads()
             engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose, contents.brushAssets)
             post { postDelayed({ pumpMediaPrewarm() }, 400) }

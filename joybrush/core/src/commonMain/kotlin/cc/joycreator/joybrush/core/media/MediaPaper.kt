@@ -22,6 +22,8 @@ class MediaPaper(
     val capacity: Double = 0.5,
     val wickSpeed: Double = 0.5,
     val heightMeanOverride: Double? = null,
+    /** The catalogue's anisotropy, 0..1: how strongly wicking follows the paper's fibres (read with the fluid map's direction). */
+    val anisotropy: Double = 0.0,
 ) {
     init { require(hist.size == 256) { "height histogram must have 256 bins" } }
 

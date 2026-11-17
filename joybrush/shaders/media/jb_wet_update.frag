@@ -56,6 +56,10 @@ uniform float u_edgeDep;        // pigment drops out faster at the drying edge (
 uniform float u_mingle;         // pigment spreading through connected water (cells²/s): wet-in-wet colour mixing
 uniform sampler2D u_waterBake;  // R = paper height smoothed to fibre scale
 uniform sampler2D u_fluidBake;  // absorbency, fibre direction, capacity
+uniform float u_fibre;          // dampness creeps this much further along the paper's fibres than across them (the paper's
+                                // anisotropy x the map's coherence; 0 = no grain direction, or the feature off: as always)
+uniform float u_pore;           // 1: each spot soaks up what its own pores hold (the fluid map's capacity); 0 = one capacity
+                                // for the whole sheet, as always
 uniform float u_noBody;         // owner A/B (2026-10-18): 1 = watercolour leaves no paint body (no relief); unset 0 = as always
 
 layout(location = 0) out vec4 o_w0;
@@ -222,7 +226,21 @@ void main() {
     w = max(0.0, w - evap);
 
     // --- soak and wick
-    float soak = min(w, u_absorb * u_dt * (1.0 - s) * u_capMm);
+    // The paper's own fibres and pores (owner, 2026-11-17; every photo paper's fluid map carries them: G = 0.5 + 0.5 x
+    // cos(2 x fibre angle) x coherence, A = pore capacity, 0.5 = the sheet's own). Dampness spreads faster along the
+    // fibres and slower across, by as much (the two rates always add up to the same, so the step stays stable); a spot
+    // with roomy pores takes more water before it is full. Both off (unset uniforms): the arithmetic below is the old one.
+    float capMm = u_capMm;
+    float wickX = 1.0, wickY = 1.0;
+#ifndef JB_WET_COARSE
+    if (u_fibre > 0.0 || u_pore > 0.0) {
+        vec4 fl = jb_fetch(u_fluidBake, c);
+        float along = clamp((fl.g * 2.0 - 1.0) * u_fibre, -0.9, 0.9);
+        wickX = 1.0 + along; wickY = 1.0 - along;
+        capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
+    }
+#endif
+    float soak = min(w, u_absorb * u_dt * (1.0 - s) * capMm);
     w -= soak;
     vec4 stain = pig * min(1.0, soak / max(before, 1.0e-6)) * u_stainCarry;
 #ifdef JB_WET_COARSE
@@ -233,7 +251,8 @@ void main() {
     float sR = wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).g;
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
-    s = s + soak / u_capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
+    if (u_fibre > 0.0) s = s + soak / capMm + u_wick * u_dt * (wickX * (sL + sR - 2.0 * s) + wickY * (sD + sU - 2.0 * s));
+    else s = s + soak / capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
     // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
     // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp
     // spread until one damp pool covered the drawing, overflowed the atlas and froze in tile-shaped squares). Dampness this

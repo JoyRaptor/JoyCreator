@@ -35,6 +35,19 @@ import kotlin.math.min
  * jb_paper.glsl uniforms), plus the media statistics (contact table, height percentiles) from [MediaPaper]. Its uniforms
  * are written by [MediaUniforms.paper].
  */
+/**
+ * Whether watercolour follows the paper's fibres and pores (owner, 2026-11-17: "a wash should creep further along the
+ * fibres than across them, and each spot should hold as much water as its pore capacity says"). The fluid map of every
+ * photo paper carries a fibre direction and a pore capacity that no shader read. [strength] multiplies the paper's own
+ * anisotropy (0 = off, the old water exactly; 1 = as the catalogue says; above 1 exaggerates, for comparing);
+ * [pores] makes each spot's capacity its own. Off until the owner has compared the two: his rule is that the old
+ * behaviour stays selectable and nothing becomes the default before his eye.
+ */
+object PaperFibres {
+    @Volatile @JvmStatic var strength: Double = 0.0
+    @Volatile @JvmStatic var pores: Boolean = false
+}
+
 class MediaPaperGl(
     val stats: MediaPaper,
     val surface: Tex, val texelPx: Float, val size: Float, val hexTexels: Float, val slopeRange: Float, val rotatable: Boolean,
@@ -480,7 +493,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
         val pxmm = pxPerMm * worldScale
         wetFrameUniforms.load(wetUniforms(paper.stats, wc0) + ("u_gran" to wetGran) + ("u_runCapMmPerS" to runCapMmPerS) +
             ("u_inputCap" to (if (capInput) 1.0 else 0.0)) + ("u_capSlack" to capSlack) + ("u_capSeed" to nextCapSeed()) +
-            ("u_rimCells" to rimCells.toDouble()), evapOverride, slope,
+            ("u_rimCells" to rimCells.toDouble()) +
+            // The paper's fibres and pores (PaperFibres): nothing when the switch is off, and the shader is then as it was.
+            ("u_fibre" to PaperFibres.strength * paper.stats.anisotropy) + ("u_pore" to (if (PaperFibres.pores) 1.0 else 0.0)),
+            evapOverride, slope,
             wf / (pxmm * scale), wc0.beadMm * pxmm * scale / wf)
         // The same for an engine whose layer px are themselves wider than a document px (scale under 1: the wet sheet,
         // WetSheet): a cell is wf / scale document px across, wf / (scale x worldScale) of the lab's.

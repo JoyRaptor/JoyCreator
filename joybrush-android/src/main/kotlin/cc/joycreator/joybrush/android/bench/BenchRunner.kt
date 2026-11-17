@@ -154,6 +154,13 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val board: String? = null,
                /** `jb_wc_whole_tiles`: the watercolour line finishes whole tiles for every batch of dabs, as before 2026-11-16. */
                val wcWholeTiles: Boolean = false,
+               /**
+                * `jb_wet_fibres` (a number, 1 = as the paper's catalogue row says) and `jb_wet_pores`: watercolour follows the
+                * paper's fibre direction and pore capacity (PaperFibres). `jb_bench_paper`: the surface id to paint on.
+                */
+               val wetFibres: Double? = null,
+               val wetPores: Boolean? = null,
+               val paper: String? = null,
                /** `jb_wc_finish_check`: each partial finish is compared with a whole one; the step `wccheck` in `jb_bench_then` reports. */
                val wcFinishCheck: Boolean = false,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
@@ -186,6 +193,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
         canvas.benchWcWholeTiles(spec.wcWholeTiles)
+        spec.wetFibres?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.strength = it.coerceIn(0.0, 4.0) }
+        spec.wetPores?.let { cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.pores = it }
+        if (spec.wetFibres != null || spec.wetPores != null) Log.i(TAG, "paper fibres: strength ${cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.strength}, pores ${cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.pores}")
+        spec.paper?.let { id -> canvas.applyDocumentPaper(cc.joycreator.joybrush.core.doc.Paper(textureId = id)); Log.i(TAG, "paper: $id") }
         canvas.benchWcFinishCheck(spec.wcFinishCheck)
         if (spec.wcWholeTiles) Log.i(TAG, "watercolour line: whole tiles finished for every batch (the old way)")
         canvas.mediaLegacyWindow = spec.legacy
@@ -1152,6 +1163,9 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
                 board = intent.getStringExtra("jb_bench_board"),
                 wcWholeTiles = intent.getBooleanExtra("jb_wc_whole_tiles", false),
+                wetFibres = if (intent.hasExtra("jb_wet_fibres")) intent.getStringExtra("jb_wet_fibres")?.toDoubleOrNull() ?: intent.getFloatExtra("jb_wet_fibres", 0f).toDouble() else null,
+                wetPores = if (intent.hasExtra("jb_wet_pores")) intent.getBooleanExtra("jb_wet_pores", false) else null,
+                paper = intent.getStringExtra("jb_bench_paper"),
                 wcFinishCheck = intent.getBooleanExtra("jb_wc_finish_check", false),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,

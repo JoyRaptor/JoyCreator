@@ -246,6 +246,67 @@ class JbArchiveCarryTest {
         }
     }
 
+    // ── A drawing just opened from its file (JbArchive.memoOf) ──
+
+    private fun printsOf(d: JbContents) = d.tiles.mapValues { fp.ofBytes(it.value) } to d.mediaTiles.mapValues { fp.ofHalves(it.value) }
+
+    @Test fun aDrawingOpenedFromItsFileIsSavedByWhatChangedFromTheFirstSaveOn() {
+        val f = temp(); val full = temp()
+        JbArchive.save(f, drawing())                       // any earlier writer: a plain save, another session, a copy
+        val (tiles, media) = printsOf(JbArchive.open(f))   // the fingerprints of the tiles as they went onto the canvas
+        val memo = JbArchive.memoOf(f, tiles, media)!!
+        val after = drawing(lookSeeds = mapOf("1_0" to 200), storeSeeds = mapOf("1_0" to 50))
+        val memo2 = JbArchive.saveCarrying(f, sparse(after, setOf("1_0")), memo)
+        assertEquals(3 + 6, memo2.carried, "every tile that did not change, taken from the file as it lay")
+        assertEquals(3 + 2, memo2.fresh, "the changed tile's picture and stores, the mimetype and the document")
+        assertSameDrawing(after, f)
+        JbArchive.save(full, after)
+        assertEquals(entries(full).map { it.substringBefore(' ') }, entries(f).map { it.substringBefore(' ') }, "the same entries in the same order")
+        // From then on it is an ordinary remembered file.
+        val memo3 = JbArchive.saveCarrying(f, sparse(after, emptySet()), memo2)
+        assertEquals(4 + 8 + 1, memo3.carried)
+        assertSameDrawing(after, f)
+    }
+
+    @Test fun aFileThatIsNotWhatWentOntoTheCanvasIsNotTrusted() {
+        val first = drawing()
+        val after = drawing(lookSeeds = mapOf("1_0" to 200), storeSeeds = mapOf("1_0" to 50))
+        // The canvas holds another picture of a tile than the file (the open redrew it): its fingerprint is not the file's.
+        run {
+            val f = temp(); JbArchive.save(f, first)
+            val (tiles, media) = printsOf(first)
+            val memo = JbArchive.memoOf(f, tiles, media)!!
+            val before = f.readBytes()
+            assertTrue(runCatching { JbArchive.saveCarrying(f, sparse(after, emptySet()), memo) }.exceptionOrNull() is JbArchiveNeedsBytes)
+            assertContentEquals(before, f.readBytes())
+        }
+        // The file was written again after the open.
+        run {
+            val f = temp(); JbArchive.save(f, first)
+            val (tiles, media) = printsOf(first)
+            val memo = JbArchive.memoOf(f, tiles, media)!!
+            JbArchive.save(f, after); f.setLastModified(f.lastModified() + 5000)
+            assertTrue(runCatching { JbArchive.saveCarrying(f, sparse(first, emptySet()), memo) }.exceptionOrNull() is JbArchiveNeedsBytes)
+            assertSameDrawing(after, f)
+        }
+        // A tile the file does not hold, or no file at all: no memo, and the next save reads everything.
+        run {
+            val f = temp(); JbArchive.save(f, first)
+            val (tiles, media) = printsOf(first)
+            assertEquals(null, JbArchive.memoOf(f, tiles + (Triple(layer, cel, "9_9") to tiles.values.first()), media))
+            assertEquals(null, JbArchive.memoOf(temp(), tiles, media))
+        }
+        // A tile given WITH its bytes is never taken from a file known only by its directory: it is compressed anew.
+        run {
+            val f = temp(); JbArchive.save(f, first)
+            val (tiles, media) = printsOf(first)
+            val memo = JbArchive.memoOf(f, tiles, media)!!
+            val memo2 = JbArchive.saveCarrying(f, first, memo)
+            assertEquals(0, memo2.carried)
+            assertSameDrawing(first, f)
+        }
+    }
+
     @Test fun aTileWithoutBytesThatIsNotTheDrawingsIsRefusedLikeAnyOther() {
         val f = temp()
         val memo = JbArchive.saveCarrying(f, whole(drawing()), null)

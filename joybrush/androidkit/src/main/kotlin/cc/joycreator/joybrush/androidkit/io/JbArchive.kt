@@ -601,6 +601,52 @@ object JbArchive {
         return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
     }
 
+    /**
+     * The record a save of [file] would have left ([SaveMemo]), made from the file as it lies, for a drawing that was just
+     * OPENED from it: [tilePrints] and [mediaPrints] are the fingerprints of its tiles as they went onto the canvas from
+     * this file's bytes. With it the first save after an open takes the unchanged tiles from the file like any later save
+     * (it used to read back and compress the whole drawing again: 18 s for a full page on the Note 9).
+     *
+     * Only the tiles named are remembered, each with the checksum the file's directory gives for it and the checksum of
+     * its compressed bytes as they are read now; everything else is written anew by the next save. Null when the file
+     * cannot be read as a zip or does not hold a named tile as a deflated entry: the next save then reads everything.
+     * The caller must be sure the drawing came from THIS file (not its backup) and that nothing wrote it since.
+     */
+    fun memoOf(file: File, tilePrints: Map<Triple<String, String, String>, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>,
+               mediaPrints: Map<MediaTileKey, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>): SaveMemo? {
+        val tags = HashMap<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(tilePrints.size + mediaPrints.size)
+        for ((key, p) in tilePrints) tags[tilePath(key)] = p
+        for ((key, p) in mediaPrints) tags[mediaPath(key)] = p
+        if (tags.size != tilePrints.size + mediaPrints.size) return null
+        val length = file.length(); val modified = file.lastModified()
+        val raw = HashMap<String, Long>(tags.size * 2)
+        val packed = HashMap<String, Long>(tags.size * 2)
+        try {
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                val index = ZipCarry.index(raf)
+                var hold = ByteArray(1 shl 20)
+                val crc = CRC32()
+                for (name in tags.keys) {
+                    val kept = index[name] ?: return null
+                    if (kept.method != ZipCarry.DEFLATED || kept.compressedSize > Int.MAX_VALUE / 2) return null
+                    val n = kept.compressedSize.toInt()
+                    if (hold.size < n) hold = ByteArray(n)
+                    raf.seek(kept.dataOffset); raf.readFully(hold, 0, n)
+                    crc.reset(); crc.update(hold, 0, n)
+                    packed[name] = crc.value
+                    // The bytes' own checksum is the directory's CRC-32. Their Adler-32 is not known without inflating
+                    // them, and is never needed for a tile that comes without bytes; a value no Adler-32 can have keeps
+                    // a tile that comes WITH bytes from ever being taken for this one (it is then compressed anew).
+                    raw[name] = (kept.crc shl 32) or NO_ADLER
+                }
+            }
+        } catch (e: Exception) { return null }
+        if (file.length() != length || file.lastModified() != modified) return null
+        return SaveMemo(file.path, length, modified, raw, packed, 0, 0, tags)
+    }
+    /** Both halves of an Adler-32 are below 65,521, so this is never one. */
+    private const val NO_ADLER = 0xFFFFFFFFL
+
     /** CRC-32 of [bytes] in the high half, Adler-32 in the low (bench and tests: one number for a tile's bytes). */
     fun sumOf(bytes: ByteArray): Long {
         val crc = CRC32(); crc.update(bytes)

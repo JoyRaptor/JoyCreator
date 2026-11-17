@@ -3430,13 +3430,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             bySeq.getOrPut(k.seq) { slab.first to LinkedHashMap() }.second[tileKeyOf(k.key)] = slab.second
         }
         val lineCompose = linePlan.composeKeys.groupBy({ LinePlane(it.first, it.second) }, { tileKeyOf(it.third) }).mapValues { it.value.toSet() }
+        // Fingerprints of the tiles as they go on from the file ([loadedPrints]): only for a drawing of plain tiles and
+        // paint (editable lines re-file tiles on the way in and out, and such a drawing is saved whole anyway).
+        val printing = contents.strokes.values.all { it.isEmpty() } && contents.looks.isEmpty() && contents.slabs.isEmpty()
+        class Loaded(val name: Any, val id: Any, val ask: GlPaintEngine.TileAsk, val size: Int, val blank: Boolean)
+        val loaded = ArrayList<Loaded>()
         for (entry in contents.tiles) {
             if (entry.key in linePlan.itemTiles) continue
             // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
             // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
             val layer = doc.layers.first { it.id == entry.key.first }
-            val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
-            wanted.add(Triple(store,entry.key.second,tileKeyOf(entry.key.third)) to entry.value)
+            val mask = layer.mask?.id == entry.key.second
+            val store = if (mask) maskStoreId(layer.id) else layer.id
+            val key = tileKeyOf(entry.key.third)
+            wanted.add(Triple(store,entry.key.second,key) to entry.value)
+            if (printing) loaded.add(Loaded(entry.key, Triple(layer.id, entry.key.second, key),
+                if (mask) GlPaintEngine.TileAsk.store(store, key) else GlPaintEngine.TileAsk.cel(layer.id, entry.key.second, key),
+                entry.value.size, Tiles.isBlank(entry.value)))
         }
         val resolved = PaperState.resolve(doc.paper,PaperResources.catalogue)
         val name = doc.name
@@ -3452,6 +3462,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // The previous drawing's realistic paint (its media window and any moving water) is discarded first, never
             // flushed into the new drawing's layers (audit 2026-10-18 P1: a wet wash could paint into the next drawing).
             if (contentLost) mediaCanvas.forget() else mediaCanvas.release()
+            seenTiles.clear(); loadedPrints = null
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
@@ -3472,7 +3483,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                         if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
                         continue
                     }
-                    for ((k, b) in bytes) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), b, k.celId)
+                    for ((k, b) in bytes) {
+                        val key = tileKeyOf(k.key)
+                        engine.writeMediaTile(k.layerId, k.store, key, b, k.celId)
+                        if (printing) loaded.add(Loaded(k, MediaTileKey(k.layerId, k.celId, key.toString(), k.store),
+                            GlPaintEngine.TileAsk.media(k.layerId, k.store, key, engine.mediaPlaneOfCel(k.layerId, k.celId)), b.size, Tiles.isBlank(b)))
+                    }
                 }
             } finally {
                 // Whatever ends the load (a failed upload, the graphics going), the file is let go: a retry opens its own.
@@ -3484,6 +3500,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("$n tiles opened as their picture: their paint state could not be read again", Throwable())
                 noteBenchError("open", JbArchiveException("$n tiles opened without their paint state"))
                 post { onNotice?.invoke("Part of this drawing's paint could not be read back, so it opened as a flat picture there. Nothing else was lost.") }
+            }
+            // Each tile's fingerprint NOW, straight after its bytes went on and before anything redraws it: that is the
+            // fingerprint of the file's bytes. A tile still wearing it at the first save is the file's tile, and is not
+            // read back (snapshotSparse); the host ties the fingerprints to the file ([takeLoadedPrints], JbArchive.memoOf).
+            if (printing && unread == 0 && loaded.isNotEmpty()) {
+                val got = try { engine.tilePrints(loaded.map { it.ask }) } catch (e: RuntimeException) { null }
+                if (got != null && got.none { it == null }) {
+                    val tiles = HashMap<Triple<String, String, String>, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
+                    val media = HashMap<MediaTileKey, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
+                    for ((i, l) in loaded.withIndex()) {
+                        val print = got[i]!!
+                        seenTiles[l.id] = SeenTile(print, l.size, l.blank)
+                        @Suppress("UNCHECKED_CAST")
+                        if (l.name is MediaTileKey) media[l.name] = print else tiles[l.name as Triple<String, String, String>] = print
+                    }
+                    loadedPrints = cc.joycreator.joybrush.androidkit.io.SparseContents(JbContents(doc, emptyMap(), emptyMap()), tilePrints = tiles, mediaPrints = media)
+                }
             }
             engine.agreeAllPayloads()
             engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose, contents.brushAssets)
@@ -3619,6 +3652,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** What this canvas remembers of a tile it read for a save that rewrites only what changed: see [snapshotSparse]. GL thread. */
     private class SeenTile(val print: cc.joycreator.joybrush.core.paint.TileFingerprint.Print, val size: Int, val blank: Boolean)
     private val seenTiles = HashMap<Any, SeenTile>()
+
+    /**
+     * The fingerprints of the tiles the last [load] put on from its file, until taken (its `tilePrints` and `mediaPrints`;
+     * the rest of the object is empty). Null when there are none: a drawing with editable lines, a phone that cannot
+     * fingerprint, a tile that could not be read. GL thread writes, the host takes it after `onDone`.
+     */
+    @Volatile private var loadedPrints: cc.joycreator.joybrush.androidkit.io.SparseContents? = null
+    fun takeLoadedPrints(): cc.joycreator.joybrush.androidkit.io.SparseContents? = loadedPrints.also { loadedPrints = null }
 
     /** Bench: how the last [snapshotSparse] went: tiles asked, tiles read back, ms spent on the fingerprints. */
     @Volatile var lastSparseReport: String = ""

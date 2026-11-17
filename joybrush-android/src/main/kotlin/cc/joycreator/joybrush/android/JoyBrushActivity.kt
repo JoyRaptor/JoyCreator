@@ -3083,6 +3083,15 @@ class JoyBrushActivity : Activity() {
                 if (destroyed) { finishStartup(false); return@post }
                 if (read == null) finishStartup(true)
                 else showContents(read.contents, keepRecoveryCopy = false) { loaded ->
+                    // The drawing on the canvas is this file's: its first save can take what does not change from the
+                    // file, like every later one (JbArchive.memoOf). Not when it came from the backup beside it.
+                    val prints = canvas.takeLoadedPrints()
+                    if (loaded && !read.recoveredBackup && prints != null && workingSaveMemo == null) fileIo.execute {
+                        val began = android.os.SystemClock.elapsedRealtime()
+                        val memo = try { JbArchive.memoOf(file, prints.tilePrints, prints.mediaPrints) } catch (e: Throwable) { null }
+                        if (memo != null && workingSaveMemo == null) workingSaveMemo = memo
+                        android.util.Log.i("JoyBrushSave", "opened drawing: ${if (memo != null) "${prints.tilePrints.size + prints.mediaPrints.size} tiles tied to the file" else "the file could not be tied to the canvas"} in ${android.os.SystemClock.elapsedRealtime() - began} ms")
+                    }
                     if (loaded && read.recoveredBackup) toast("Recovered your drawing from its backup")
                     if (loaded) finishStartup(true) else startupFailed(file, "the drawing could not be shown")
                 }

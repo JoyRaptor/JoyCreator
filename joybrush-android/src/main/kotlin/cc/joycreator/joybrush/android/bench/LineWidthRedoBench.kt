@@ -46,13 +46,22 @@ class LineWidthRedoBench(private val canvas: JbCanvasView, private val spec: Ben
                 canvas.editableLines = true
                 val w = canvas.width.toFloat(); val h = canvas.height.toFloat()
                 StrokeReplay.play(canvas, StrokeReplay.zigzag(0.25f * w, 0.75f * w, 0.4f * h, 0.6f * h, 2, 600.0), null,
-                    onDown = { canvas.editableLines = true }, onUp = { later(1500) { fence("line") { st -> drawn = st; widen() } } })
+                    onDown = { canvas.editableLines = true }, onUp = { awaitLine(0) })
             }
         }
     }
 
+    /** A watercolour line is only a line once its fade at the lift has run (it is committed then): wait for it. */
+    private fun awaitLine(tries: Int) {
+        later(500) {
+            if (onlyLine() == null && tries < 20) { awaitLine(tries + 1); return@later }
+            report.put("lineAfterMs", (tries + 1) * 500)
+            later(500) { fence("line") { st -> drawn = st; widen() } }
+        }
+    }
+
     private fun widen() {
-        val (plane, record) = onlyLine() ?: run { problem("the stroke was not kept as a line: ${canvas.lastLineRefusal}"); finish(); return }
+        val (plane, record) = onlyLine() ?: run { problem("the stroke was not kept as a line: ${canvas.lastLineRefusal}; lines ${canvas.lineSnapshot.planes.values.sumOf { it.size }}, brush ${canvas.preset?.id}, switch ${canvas.editableLines}"); finish(); return }
         edit(plane, record.copy(widthScale = WIDE), "wide") { a ->
             wide = a
             report.put("widePx", MatrixDiff.count(drawn.visible(), a.visible()).px)

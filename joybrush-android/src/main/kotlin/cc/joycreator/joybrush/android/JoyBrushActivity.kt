@@ -458,7 +458,9 @@ class JoyBrushActivity : Activity() {
 
     /** An export on its way to the file picker: [boardId] null = the whole drawing; [layered] = OpenRaster, not PNG. */
     private data class PngTarget(val documentId: String, val boardId: String?, val frameId: String?, val includePaper: Boolean,
-                                 val layered: Boolean = false)
+                                 val layered: Boolean = false,
+                                 /** FX-1: the picture is written into this screen's cache and handed to Studio, not to a file the person chose. */
+                                 val toStudio: Boolean = false)
     private var pendingPng: PngTarget? = null
     private var pendingBoardExport: cc.joycreator.joybrush.androidkit.io.BoardExportRequest? = null
     private var boardBackdrop: cc.joycreator.joybrush.android.board.BoardBackdrop? = null
@@ -2792,6 +2794,7 @@ class JoyBrushActivity : Activity() {
                             is SaveDest.Working -> "The autosave did not work: $problem"
                         },
                     )
+                    if (dest is SaveDest.Png && dest.target.toStudio) dest.uri.path?.let { File(it).parentFile?.deleteRecursively() }
                     // A working save that failed is still owed: ask again after the usual quiet.
                     if (dest is SaveDest.Working) {
                         ui.removeCallbacks(idleSave)
@@ -2802,7 +2805,8 @@ class JoyBrushActivity : Activity() {
                     // working file is up to date: `changes` is left exactly as it was.
                     toast("Copy saved")
                 } else if (problem == null && dest is SaveDest.Png && !destroyed) {
-                    toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
+                    if (dest.target.toStudio) sendPictureToStudio(dest.uri)
+                    else toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
                 } else if (problem == null && dest is SaveDest.BoardExport && !destroyed) {
                     val saved=if(dest.target.folder) "Board files exported into a new folder" else "Board exported"
                     toast((listOf(saved)+dest.warnings).joinToString(". "))
@@ -3374,7 +3378,35 @@ class JoyBrushActivity : Activity() {
                 putExtra(Intent.EXTRA_TITLE, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(name) + if (layered) ".ora" else ".png")
             }, REQUEST_EXPORT_PNG)
         })
+        // Owner, 16 Nov: "I see export to file. I don't see export to another place." The whole drawing goes to Studio
+        // too, as one picture: a new project made of it, or a layer in a project you pick there (FX-1 carries it over).
+        if (whole && !layered) box.addView(menuRow("Send to Studio  ›", "Open the whole drawing in Studio as a picture") {
+            boardController?.stopPreview()
+            popovers.close()
+            val name = workingFile()?.let { f -> cc.joycreator.joybrush.android.library.DrawingLibrary.list(this).firstOrNull { it.file == f.name }?.name } ?: doc.name
+            // The receiver owns exactly this kind of folder in the cache, and deletes it once it has the picture.
+            val stage = File(cacheDir, "jb-board-export-" + java.util.UUID.randomUUID())
+            if (!stage.mkdirs()) { toast("Couldn't prepare the picture"); return@menuRow }
+            toast("Preparing picture…")
+            saves.request(SaveReason.EXPLICIT, SaveDest.Png(
+                Uri.fromFile(File(stage, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(name) + ".png")),
+                PngTarget(doc.id, null, null, paper, layered = false, toStudio = true)))
+        })
         popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
+    }
+
+    /** FX-1: the picture just written for Studio is handed over, as a board is (with a picture of this screen for the show). */
+    private fun sendPictureToStudio(picture: Uri) {
+        val stage = picture.path?.let { File(it).parentFile } ?: return
+        val go = Intent().setClassName(packageName, "com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
+            .putExtra("joybrush_board_bundle", stage.absolutePath)
+            .putExtra("joybrush_board_studio", true)
+            .putExtra("joybrush_board_image", true)
+        if (cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
+            cc.joycreator.joybrush.android.handoff.RoomShot.capture(this, canvas, joybotBtn) {
+                if (destroyed) stage.deleteRecursively() else { startActivity(go); overridePendingTransition(0, 0) }
+            }
+        else startActivity(go)
     }
 
     /** The chosen export, encoded in full before the destination is touched. File thread. */

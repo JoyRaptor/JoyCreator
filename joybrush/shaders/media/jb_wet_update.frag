@@ -60,6 +60,9 @@ uniform float u_fibre;          // dampness creeps this much further along the p
                                 // anisotropy x the map's coherence; 0 = no grain direction, or the feature off: as always)
 uniform float u_pore;           // 1: each spot soaks up what its own pores hold (the fluid map's capacity); 0 = one capacity
                                 // for the whole sheet, as always
+uniform float u_fibreForceOn;   // bench: 1 = every spot's fibres lie at one angle, given as cos and sin of TWICE it
+uniform float u_fibreForceC;
+uniform float u_fibreForceS;
 uniform float u_noBody;         // owner A/B (2026-10-18): 1 = watercolour leaves no paint body (no relief); unset 0 = as always
 
 layout(location = 0) out vec4 o_w0;
@@ -227,16 +230,22 @@ void main() {
 
     // --- soak and wick
     // The paper's own fibres and pores (owner, 2026-11-17; every photo paper's fluid map carries them: G = 0.5 + 0.5 x
-    // cos(2 x fibre angle) x coherence, A = pore capacity, 0.5 = the sheet's own). Dampness spreads faster along the
-    // fibres and slower across, by as much (the two rates always add up to the same, so the step stays stable); a spot
-    // with roomy pores takes more water before it is full. Both off (unset uniforms): the arithmetic below is the old one.
+    // cos(2 x fibre angle) x coherence, B the same with sin, A = pore capacity, 0.5 = the sheet's own). Dampness spreads
+    // faster along the fibres and slower across, by as much: the spread is a diffusion whose two rates are 1 + k and 1 - k
+    // along and across the fibre (k = the paper's anisotropy x the map's coherence), so in the grid's own axes it is
+    // (1 + k cos 2a) along x, (1 - k cos 2a) along y, and a cross term k sin 2a over the four diagonal neighbours, which is
+    // what lets a fibre lying on a diagonal carry the damp along it. A spot with roomy pores takes more water before it
+    // is full. Both off (unset uniforms): the arithmetic below is the old one.
     float capMm = u_capMm;
-    float wickX = 1.0, wickY = 1.0;
+    float wickX = 1.0, wickY = 1.0, wickD = 0.0;
 #ifndef JB_WET_COARSE
     if (u_fibre > 0.0 || u_pore > 0.0) {
         vec4 fl = jb_fetch(u_fluidBake, c);
-        float along = clamp((fl.g * 2.0 - 1.0) * u_fibre, -0.9, 0.9);
-        wickX = 1.0 + along; wickY = 1.0 - along;
+        // A paper with no fluid map bakes G = B = 0: no direction (a real map says "none" as 0.5, 0.5).
+        vec2 dir = (fl.g == 0.0 && fl.b == 0.0) ? vec2(0.0) : fl.gb * 2.0 - 1.0;
+        if (u_fibreForceOn > 0.5) dir = vec2(u_fibreForceC, u_fibreForceS);
+        float k = min(u_fibre, 0.9 / max(length(dir), 1.0e-4));
+        wickX = 1.0 + k * dir.x; wickY = 1.0 - k * dir.x; wickD = k * dir.y;
         capMm = u_capMm * mix(1.0, clamp(fl.a * 2.0, 0.4, 1.8), u_pore);
     }
 #endif
@@ -251,7 +260,12 @@ void main() {
     float sR = wf(u_w0, jb_clampCell(c + ivec2(1, 0), size)).g;
     float sD = wf(u_w0, jb_clampCell(c + ivec2(0, -1), size)).g;
     float sU = wf(u_w0, jb_clampCell(c + ivec2(0, 1), size)).g;
-    if (u_fibre > 0.0) s = s + soak / capMm + u_wick * u_dt * (wickX * (sL + sR - 2.0 * s) + wickY * (sD + sU - 2.0 * s));
+    if (u_fibre > 0.0) {
+        float cross = 0.0;
+        if (wickD != 0.0) cross = 0.5 * wickD * (wf(u_w0, jb_clampCell(c + ivec2(1, 1), size)).g + wf(u_w0, jb_clampCell(c + ivec2(-1, -1), size)).g
+                                               - wf(u_w0, jb_clampCell(c + ivec2(1, -1), size)).g - wf(u_w0, jb_clampCell(c + ivec2(-1, 1), size)).g);
+        s = max(0.0, s + soak / capMm + u_wick * u_dt * (wickX * (sL + sR - 2.0 * s) + wickY * (sD + sU - 2.0 * s) + cross));
+    }
     else s = s + soak / capMm + u_wick * u_dt * (sL + sR + sD + sU - 4.0 * s);
     // Damp paper dries on the clock (2026-11-10): like the wet age, the drying of dampness takes real time, so a phone that runs
     // the water at a twentieth of real time no longer keeps paper damp twenty times as long (on the owner's Note 9 the damp

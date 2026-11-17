@@ -593,3 +593,45 @@ a failing disk. The picture tiles, looks, slabs and strokes are still read whole
 over several GL tasks**: one task that inflates and uploads everything grows with the drawing and must stay under the 30 s
 watchdogs (`recoveryTimeout`, and the Open path's `ui.postDelayed(watchdog, 30_000L)`); today 264 MB of paint restores in
 about 7 s on the Note 9.
+
+## 2026-11-16: pixels a board edit moves keep their paint state (Codex R2-JB-03), handoff
+
+**What changed.** A duplicated animation frame (landed earlier today, e714eed45) and now every pixel a board edit MOVES
+(sprite cells swapped, an animation board dragged, any `transfers` and `clears` of `applyBoardChange`) take their
+realistic-paint state with them. Before, the picture moved and the paint under it was dropped ("until slice 3b carries
+it"): pencil, oil and old-engine water could not go on working the moved part.
+
+**How (`GlPaintEngine.applyBoardChange`).** Next to the pixel staging, each destination tile gets a whole staged set of
+stores: copies of what it holds, and where it has no ground of its own, a ground made from its look before the edit (a
+tile with no paint state has its look as its ground). The moved rectangle is copied into every store, shifted exactly as
+the pixels are, from the live stores; a source with no paint state brings zeros and its look as the ground; a clear zeroes
+the rectangle. Nothing is staged where neither side has paint state, so moving plain pixels costs nothing. After the
+settle the staged stores take their tiles' places, one change per store tile (its `before` is what the settle dropped), in
+the same undo step; they agree with their look, are stamped for the paint room like any written tile, and whoever holds a
+copy of those tiles (the media window, the atlas) is told to reload (`reportMediaRestored`). `JbCanvasView.editBoards`
+writes the newest paint back first (`mediaCanvas.releaseWindow(printSheet = false)`), only for an edit that moves, copies
+or clears pixels; a rename or a lock leaves the atlas be.
+
+**Proof, Fold and Note 9, build 295bbb0b5, the same results on both.**
+
+| Bench case | Result |
+|---|---|
+| `cellPayloadProbe`, sprite cells swapped across a tile edge, paint state on one tile only (a throwaway engine) | 131072 pixels, every store and the ground, 0 wrong; 1 undo step; none dropped as stale; Undo and Redo exact |
+| `cellPayloadProbe`, an animation board dragged onto part of itself across four tiles | 262144 pixels, 0 wrong; 1 undo step; Undo and Redo exact |
+| `cellSwapLiveProbe`, the real canvas with the atlas: oil in the left cell, the cells swapped at once, oil again on the moved paint | the paint is in the right cell (11778 px on the Fold, 12067 on the Note 9), none left behind; the right cell HOLDS paint state; the second stroke paints, nothing refused; Undo of the stroke = the picture after the swap, Undo of the swap = the picture before, Redo of both exact (0 px off, four times) |
+| `framePayloadProbe`, `nativeFrameDuplicateProbe` | still pass |
+
+The oracle of `cellPayloadProbe` is one rule checked for every pixel: the paint state moves as the pixels do, and a tile
+with none has its look as its ground.
+
+**Limits, said plainly.**
+- No save and reopen of moved paint was run. No watercolour, no real pen, no mask, no linked frames, one layer.
+- No failure was injected (memory running out part way): by reading, everything made is taken out and given back.
+- **No paint-room check for the staged stores.** The old stores stay in the undo step, so dragging a large painted board
+  holds both until the step is trimmed.
+- A paint-state tile with no picture tile under it is not moved (the slices come from the picture's tiles).
+- The probes were not run against the code before the fix (the engine's own comment said the paint was dropped).
+- The tested build is the commit before the last rebase onto `joy-creator`.
+- For "open as it is read" (section above): a tool that runs the archive code on Windows cannot save over a file whose
+  deferred paint state is still held open (Windows will not rename an open file; Android does). One unit test assumed
+  otherwise and failed on the build PC; the engine session corrected the test.

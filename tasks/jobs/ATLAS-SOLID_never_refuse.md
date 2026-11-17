@@ -303,6 +303,41 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
   twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
 
+### 11-17: the first save after opening a drawing (JBX-36, continued)
+
+**In plain words.** Opening a big painting and making one mark used to cost a full save: the whole drawing read back
+from the graphics chip and compressed again, because the screen knew nothing about the file it had just opened. Now it
+does: the first autosave after an open is as small as any other.
+
+- **How.** As each tile goes onto the canvas from the file, the chip fingerprints it, before anything can redraw it
+  (`JbCanvasView.load`, `takeLoadedPrints`): that is the fingerprint of the file's own bytes. On the file thread the
+  screen then ties those fingerprints to the file (`JbArchive.memoOf`: the file's directory checksums, the checksum of
+  each tile's compressed bytes as read now, the fingerprints as the record's tags). From there the save that reads
+  back only what changed (section 11-16) works from the first save on. A tile the open redrew has another fingerprint
+  by then and is simply read. Only for a drawing that came from the working file itself (not its backup), with no
+  editable lines.
+- **Leaving after an open.** The save on leaving still reads everything (the thumbnail needs it), now with each
+  tile's fingerprint, so a tile the file already holds is taken from the file there too instead of being compressed
+  again. The Library's thumbnail is made from that save whatever its age (it could be 45 s of drawing behind).
+- **Note 9, build f724a11fa, bench `jb_bench_life_keep` (a full oil page painted and saved, the app stopped, the same
+  file opened in a fresh start, one more stroke, saved, the screen built again):**
+
+| | Before | Now |
+|---|---|---|
+| Tying the open drawing to its file | (not done) | 520 tiles in 0.13 s, on the file thread |
+| First autosave after the open: read back | all 536 tiles | 142 (the new stroke's), 394 taken from the file |
+| First autosave after the open: written in | 4.2 to 4.5 s for this page (18 s for the 59 MB one) | 1.7 s |
+| The save on leaving after that | 5.6 s when only the first half was built | 0.8 s (535 entries taken from the file, 1 written) |
+| The drawing after the screen is built again | | identical (264 picture tiles `22a7154d`, 270 paint tiles `5fbd2903`, both sides) |
+
+- **Unit tests** (`JbArchiveCarryTest`): a file written by any earlier writer, opened, one tile changed, saved by what
+  changed, gives the drawing a full save gives; a tile the canvas holds differently, a file written again after the
+  open, a tile the file does not hold: all refuse or give no record and leave the file; a tile given with bytes alone
+  is never taken from a file known only by its directory; with its fingerprint it is.
+- **Not done.** The save on leaving still holds the whole drawing in memory (the thumbnail), which is what stands
+  between this and a bigger paint room; opening through "Open" from another drawing and a restore after lost graphics
+  do not tie the file (their first save finds that out and reads everything once). Not run on the Fold.
+
 ### 11-16: the rest of JBX-37 (killed while saving, how much a crash can cost, other waits on the graphics thread)
 
 **In plain words.** Three things were left open on 11-15 night. Two are now proven or made smaller; one is as it was.

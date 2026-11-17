@@ -522,11 +522,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * the first n points: its backing array is never changed below n, and growing makes a NEW array (the old one stays with
      * whoever holds a snapshot), so the UI thread never reads the list the input thread is still adding to.
      */
-    private class AppendOnlyPts {
+    private class AppendOnlyPts : AbstractList<Pt>() {
         private var data = arrayOfNulls<Pt>(256)
         private var n = 0
 
-        fun addAll(items: List<Pt>) {
+        override val size: Int get() = n
+        override fun get(index: Int): Pt {
+            if (index < 0 || index >= n) throw IndexOutOfBoundsException()
+            return data[index]!!
+        }
+
+        fun addPoints(items: List<Pt>) {
             if (n + items.size > data.size) data = data.copyOf(maxOf(data.size * 2, n + items.size))
             for (p in items) data[n++] = p
         }
@@ -2951,7 +2957,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             return
         }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
-            fillPoints.addAll(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
+            fillPoints.addPoints(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
             onFillPreview?.invoke(FillPenPreviewState(fillPoints.snapshot(),fillArgb,fillOpacity))
             return
         }

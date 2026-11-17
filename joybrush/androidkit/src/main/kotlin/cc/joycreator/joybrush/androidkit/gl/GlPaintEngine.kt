@@ -3691,7 +3691,11 @@ class GlPaintEngine(
             composedTiles += 2L * affected.size   // the composed tile and, at most, a new base
         }
         LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, composedTiles) + wcLineCacheReservation())
-            ?.let { throw IllegalStateException(it) }
+            ?.let {
+                // Said in the log with its numbers: one wide line refused as "too many lines" is a budget to look at, not a person's mistake.
+                android.util.Log.w("JoyBrushLines", "edit refused for room: $unitTiles unit tiles, $composedTiles composed tiles, ${wcLineCacheReservation() shr 20} MB kept for the watercolour line cache, limit ${LineEditBudget.LIMIT_BYTES shr 20} MB")
+                throw IllegalStateException(it)
+            }
         try {
             for ((plane, newList) in next) {
                 val layer = layers.getValue(plane.layerId)

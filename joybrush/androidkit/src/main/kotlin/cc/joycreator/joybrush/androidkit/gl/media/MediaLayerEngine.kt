@@ -65,8 +65,8 @@ object PaperFibres {
      */
     @Volatile @JvmStatic var forceAngleDeg: Double? = null
 
-    /** The bleed's pace on a paper of thirst 1 with fibres neither helping nor hindering, in the lab's px² per second. */
-    const val BLEED = 48.0
+    /** The bleed's pace along a fibre of a paper of thirst 1, in the lab's px² per second. */
+    const val BLEED = 150.0
     /**
      * The bleed's own numbers, by the name the shaders give them (`u_bleed` + the name, capitalised; the two `fibre` ones
      * are the bake's). Tuned on the Note 9; a map only so that the bench can try others without a build (`jb_wet_tune`).
@@ -81,15 +81,21 @@ object PaperFibres {
      * - `share`: the most of the difference between two cells that the paper draws across in one water step.
      */
     @JvmStatic val tune: MutableMap<String, Double> = java.util.concurrent.ConcurrentHashMap(mapOf(
-        "filmMm" to 0.08, "felt" to 0.01, "soak" to 0.05, "evap" to 0.1, "carry" to 0.15, "sieve" to 0.92, "mingle" to 3.0,
-        "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.24))
+        "filmMm" to 0.1, "felt" to 0.01, "soak" to 0.05, "evap" to 0.25, "carry" to 0.3, "sieve" to 0.95, "mingle" to 4.0,
+        "fibreLo" to 0.10, "fibreHi" to 0.25, "share" to 0.4))
     /** Bench: the wet sheet says in the log, every 60 frames of running water, how long its frames took and how many steps they ran. */
     @Volatile @JvmStatic var logPace: Boolean = false
     /** How far beyond a stroke's dabs the water is run for the bleed, in the sheet's cells (the plain water: 48 document px). */
     const val REACH_CELLS = 72.0
 
-    /** How readily a paper draws water in: its absorbency, less what its sizing shuts (rice 0.86, cold press 0.08). */
-    fun thirst(paper: cc.joycreator.joybrush.core.media.MediaPaper): Double = (paper.absorbency * (1.0 - paper.sizing)).coerceIn(0.0, 1.0)
+    /**
+     * How readily a paper draws water in, 0..1: its absorbency, less what its sizing shuts, and nothing at all for a sheet
+     * sized as watercolour paper is (rice 0.84, sugarcane 0.43, cardboard 0.36, drawing paper 0.11; cold press, hot press
+     * and bristol 0: their edges stay as crisp as they were).
+     */
+    fun thirst(paper: cc.joycreator.joybrush.core.media.MediaPaper): Double =
+        ((paper.absorbency * (1.0 - paper.sizing) - SIZED_SHUT) / (1.0 - SIZED_SHUT)).coerceIn(0.0, 1.0)
+    private const val SIZED_SHUT = 0.1
 }
 
 class MediaPaperGl(

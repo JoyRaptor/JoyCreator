@@ -212,6 +212,8 @@ private const val DEFAULT_WET_SHEET = true
 private const val PREF_WASH_WAVE = "joybrush.washWave"
 /** How strongly the paper's grain shows in a wet-sheet wash: "none", "half" (default, the owner 2026-11-11) or "full". */
 private const val PREF_WASH_GRAIN = "joybrush.washGrain"
+/** Watercolour is drawn into thirsty paper along its fibres (PaperFibres): "off" (default: the water as before), "on" or "strong". */
+private const val PREF_PAPER_FIBRES = "joybrush.paperFibres"
 /** How much a loaded brush lifts of a wash it goes back over: "hardly", "little" (default), "more" or "full" (as before 11-10). */
 private const val PREF_WASH_LIFT = "joybrush.washLift"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
@@ -1320,6 +1322,13 @@ class JoyBrushActivity : Activity() {
             grain = when (prefs.getString(PREF_WASH_GRAIN, "half")) { "none" -> 0.0; "full" -> 1.0; else -> 0.5 })
         cc.joycreator.joybrush.core.media.WetStroke.lift =
             when (prefs.getString(PREF_WASH_LIFT, "little")) { "hardly" -> 0.03; "more" -> 0.5; "full" -> 1.0; else -> 0.2 }
+        // Paper fibres (2026-11-17): off is the water as it always was. Not while a bench has set it for its own run.
+        if (!benchMode) cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.let { pf ->
+            val level = prefs.getString(PREF_PAPER_FIBRES, "off")
+            pf.on = level == "on" || level == "strong"
+            pf.bleed = if (level == "strong") 2.0 else 1.0
+            pf.strength = if (level == "strong") 1.3 else 1.0
+        }
     }
 
     /**
@@ -1449,6 +1458,16 @@ class JoyBrushActivity : Activity() {
             box.addView(menuRow("Paper grain in washes: ${mapOf("none" to "None", "half" to "Half", "full" to "Full")[grain] ?: "Half"}",
                 "How strongly the paper's fine tooth shows in watercolour painted while zoomed out. Tap to change") {
                 prefs.edit().putString(PREF_WASH_GRAIN, when (grain) { "none" -> "half"; "half" -> "full"; else -> "none" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+        }
+        // Paper fibres (2026-11-17), wet sheet only: watercolour is drawn into thirsty paper along its fibres. Off = as before.
+        if (wetSheet) {
+            val fibres = prefs.getString(PREF_PAPER_FIBRES, "off") ?: "off"
+            box.addView(menuRow("Paper fibres: ${mapOf("off" to "Off", "on" to "On", "strong" to "Strong")[fibres] ?: "Off"}",
+                "Wet watercolour creeps into thirsty paper along its fibres and pores: feathered edges on rice paper, crisp ones on sized watercolour paper. Tap to change; the next wash on dry paper takes it") {
+                prefs.edit().putString(PREF_PAPER_FIBRES, when (fibres) { "off" -> "on"; "on" -> "strong"; else -> "off" }).apply()
                 applyWashTaste()
                 popovers.close(); moreMenu(anchor)
             })

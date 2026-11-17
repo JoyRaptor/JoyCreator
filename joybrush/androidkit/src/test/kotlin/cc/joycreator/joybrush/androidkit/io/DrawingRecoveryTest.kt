@@ -27,6 +27,9 @@ class DrawingRecoveryTest {
         assertEquals(expected.doc, actual.doc)
         assertEquals(expected.tiles.keys, actual.tiles.keys)
         expected.tiles.forEach { (key, bytes) -> assertContentEquals(bytes, actual.tiles.getValue(key)) }
+        // What was read is let go as the canvas lets it go after its load: its file is written over or removed next,
+        // which Windows refuses for a file still held open.
+        DeferredMedia.release(actual)
     }
     @Test fun openedDrawingRecoversIdentityGeometryPaperLocksAndPixels() = inDirectory { _, recovery ->
         val before = art()

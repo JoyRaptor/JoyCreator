@@ -64,6 +64,8 @@ class LineLifecycleTest {
             expected.looks.forEach { (key, look) -> assertContentEquals(look, read.looks.getValue(key)) }
             expected.tiles.forEach { (key, base) -> assertContentEquals(base, read.tiles.getValue(key)) }
             assertContentEquals(bytes, dir.listFiles()!!.single().readBytes(), "a read leaves the staged selection as it was")
+            // The canvas lets the file go when it has taken the tiles; a file still held cannot be deleted on Windows.
+            DeferredMedia.release(read)
         }
         assertTrue(dir.listFiles()!!.isEmpty())
     }
@@ -94,6 +96,7 @@ class LineLifecycleTest {
         val fromOpened = recovery.read(lines.doc.id)
         assertEquals(lines.strokes.mapValues { it.value.sortedBy { r -> r.seq } }, fromOpened.strokes)
         assertEquals(lines.brushes, fromOpened.brushes)
+        DeferredMedia.release(fromOpened)   // as the canvas does after its load; the recovery copy is written over next
         val working = File(dir, "current.joybrush")
         JbArchive.save(working, lines)
         recovery.rememberWorking(working)
@@ -155,6 +158,7 @@ class LineLifecycleTest {
             val recovered = recovery.read(expected.doc.id)
             expected.mediaTiles.forEach { (key, bytes) -> assertContentEquals(bytes, recovered.mediaTiles.getValue(key)) }
             expected.tiles.forEach { (key, bytes) -> assertContentEquals(bytes, recovered.tiles.getValue(key)) }
+            DeferredMedia.release(recovered); DeferredMedia.release(read)
         }
     }
 }

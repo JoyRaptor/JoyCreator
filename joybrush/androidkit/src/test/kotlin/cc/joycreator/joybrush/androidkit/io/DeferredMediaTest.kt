@@ -54,14 +54,16 @@ class DeferredMediaTest {
     private fun temp(): File = File.createTempFile("deferred-media", ".joybrush").also { it.deleteOnExit() }
     private fun saved(c: JbContents): File = temp().also { JbArchive.save(it, c) }
     private fun close(c: JbContents) { DeferredMedia.release(c) }
+    /** Asked through Any, so the check does not narrow the map's key type for the lines after it. */
+    private fun held(map: Any): Boolean = map is DeferredMedia<*>
 
     @Test fun itIsTheSameDrawingAsAnOrdinaryOpen() {
         val file = saved(painted())
         val whole = JbArchive.open(file)
         val deferred = JbArchive.openDeferringMedia(file)
         try {
-            assertTrue(deferred.mediaTiles is DeferredMedia<*>, "the paint state is held on disk")
-            assertTrue(deferred.tiles is DeferredMedia<*>, "the picture tiles are held on disk")
+            assertTrue(held(deferred.mediaTiles), "the paint state is held on disk")
+            assertTrue(held(deferred.tiles), "the picture tiles are held on disk")
             assertEquals(whole.doc, deferred.doc)
             assertEquals(whole.tiles.keys, deferred.tiles.keys)
             for ((k, v) in whole.tiles) assertContentEquals(v, deferred.tiles.getValue(k))
@@ -80,8 +82,8 @@ class DeferredMediaTest {
         val plain = painted().copy(doc = doc(floatTiles = emptyList()), mediaTiles = emptyMap())
         val file = saved(plain)
         val back = JbArchive.openDeferringMedia(file)
-        assertFalse(back.mediaTiles is DeferredMedia<*>)
-        assertTrue(back.tiles is DeferredMedia<*>, "its picture tiles are held on disk all the same")
+        assertFalse(held(back.mediaTiles))
+        assertTrue(held(back.tiles), "its picture tiles are held on disk all the same")
         assertTrue(back.mediaTiles.isEmpty())
         for ((k, v) in plain.tiles) assertContentEquals(v, back.tiles.getValue(k))
         file.delete()

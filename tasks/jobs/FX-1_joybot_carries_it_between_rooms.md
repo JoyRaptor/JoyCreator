@@ -150,6 +150,26 @@ Six cloud builds, each tried on a device from JoyBrush's bench drawing (`JoyBrus
 - Test files left on the devices, mine, safe to delete: about a dozen Studio projects called "Bench animation" and "Sprite"
   on the Note 9, two on the Fold; JoyBrush drawings made by the bench.
 
+## 11-16 (night): "I see export to file. I don't see export to another place" (owner, trying it on a plain image board)
+Send to Studio was only on ANIMATION boards (and Open in SpriteLab on sprite boards). A plain image board had "PNG" alone, and
+the menu's Export for the whole drawing went only to the file picker. Both now go to Studio too:
+- **An image board:** its Export sheet shows PNG and Send to Studio (`BoardExportCoordinator`: one board at a time; "All image
+  boards" stays a file export). JoyBrush stages the board's picture alone (`SaveDest.BoardHandoff.image`, format PNG, no json).
+- **The whole drawing:** the menu, Export, Whole drawing, Flat picture has a "Send to Studio" row under "Export". The picture
+  is written by the same export (`SaveDest.Png` with `PngTarget.toStudio`) into a cache folder the receiver owns.
+- **Studio's side** (`JoyBrushBoardImportActivity.receiveImage`, extra `joybrush_board_image`): a picture is a PICTURE in Studio,
+  not a one-cell sprite. New project: the picture is the film (an image clip, 5 s as Studio's own stills, canvas of the picture's
+  size, named after the board or drawing). Into a project you pick: queued for the editor's own "Image as new layer"
+  (`AIChatState.putLayerInsert`), so it is fitted, selected, undoable and copied into the project by the code that already does that.
+- **The show** lands him on the new layer's tape (the layer Studio has just selected), or, when the picture IS the new project,
+  in Studio's canvas (`HandoffArrival.Room.fallbackRect` / `expectsItem`).
+- Seen on the Fold (Android 14), recorded: image board into a new project, into an existing one, the whole drawing into a new
+  one. Not tried on the Note 9: the owner was drawing on it.
+- Found there: Joybot's seat and the question's tail were measured in screen pixels but drawn in the window's; on the Fold
+  (a camera cut-out above the window) both sat low. Fixed (`HandoffHost.seat`).
+- Left as it is, to tell the owner: a board sent without "Include paper" is see-through, and dark ink on Studio's black
+  canvas is nearly invisible in a new project. That is right for laying a drawing over a film, wrong-looking for a new project.
+
 ## Rules that apply
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no
 technical errors are ever shown. Effects are made of the same stuff as the scene (a warp of the real screens, not stickers).

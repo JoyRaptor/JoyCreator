@@ -303,6 +303,39 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
   twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
 
+### 11-17 night: paper fibres (watercolour is drawn into thirsty paper along its fibres)
+
+**In plain words.** The owner, 11-17: "get that paper fibres and pores all wicking and working and visible". With
+**Paper fibres** on (⋯ menu, Watercolour: Off / On / Strong; Off is the default and is the water as it always was), a wet
+stroke on thirsty paper no longer keeps a cut-out edge: the paper draws the water out along the very fibres one can see
+in it, colour goes with it in fine threads, and they keep creeping for about 20 seconds. Rice papers feather most,
+sugarcane softly; papers sized as watercolour paper is (cold press, hot press, bristol) keep their crisp edge. The
+inside of a wash is left alone. [Pictures](../joybrush/evidence/paper-fibres-20261117/note9-off-on-strong-papers.jpg),
+[one stroke over 20 s](../joybrush/evidence/paper-fibres-20261117/note9-rice-3s-10s-20s.jpg).
+
+- **How.** A build of its own of the water's two passes and the paper's bake (`JB_WET_FIBRES`; `PaperFibres` in
+  `MediaLayerEngine.kt`), made when a wet sheet is laid with the switch on. With it off the three shaders compile to
+  the published text (`PaperFibresTest`). The bake writes a fibre map from the paper's own relief (a fibre stands proud
+  of the felt; widened by a cell so a diagonal fibre joins up). `jb_wet_flux.frag`: paper holding less than a film
+  draws water from a wetter cell beside it, at the paper's thirst (absorbency less sizing, nothing below 0.1), at full
+  pace on a fibre and a hundredth of it on felt, helped along the fluid map's grain. `jb_wet_update.frag`: water drawn
+  in is marked (a wet age that counts down), and marked or very thin water dries and soaks slowly, sieves its pigment
+  as it moves, and lets colour spread only along a fibre; each spot soaks to its own pore capacity.
+- **What the first tries taught (Note 9).** The fluid map's own direction channel is far too coarse to show (one texel
+  is 10 px). The bleed stalled a few cells out until its leading trace of water stopped being dried out every step,
+  and until its film stopped drying at the thin-edge rate. Rules that applied to all thin water changed the inside of
+  a wash; hence the mark.
+- **Note 9, build fd2bba2f3 (the shaders as landed), one robot stroke per run:** rice: threads visible at 3 s, about
+  30 to 45 px at 20 s; cold press on and off look alike; sugarcane soft. One stroke: 16.7 ms a frame on and off. A
+  page of ten wet washes: 41 ms a frame off, 49 ms on (one run each).
+- **Not done, not claimed.** Not seen by the owner. Not tried on a tilted sheet (the bleed and running water share one
+  channel and can cancel along an axis), with a real pen, on the Fold, or on hot press and bristol (their thirst is 0
+  by the same rule as cold press). The pores' own effect was never looked at apart. The PC lab has no switch. A fibre
+  sheet takes 5 bytes a cell more graphics memory (about 5 MB on the Note 9), not counted by the admission check.
+- **Bench.** `jb_wet_fibres_on`, `jb_wet_bleed`, `jb_wet_fibres`, `jb_wet_pores`, `jb_wet_fibre_angle`,
+  `jb_wet_tune "name=value,..."` (every number in `PaperFibres.tune`), `jb_bench_paper`, `jb_shader_dir` (shader text
+  pushed to the app's files folder stands in for the packaged one: tuning without a build); the sheet logs its pace.
+
 ### 11-17 later: exports read the picture alone; the Watercolour line on a Tile board
 
 Two things done after the handoff below was written (it lists them as open: item 4, and "a stroke on a Tile board").

@@ -1415,6 +1415,17 @@ public class IdeaEngineTest {
         for (String a : new String[]{"add a joke as a title", "is this a joke", "make the joke text red"}) {
             check("jokes: not “" + a + "”", !com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(a), "");
         }
+        // Tricks typed with no AI (owner, 11-15): the plain phrasings, as people say them; never inside a real request.
+        String[][] tricks = {{"go to sleep", "sleep"}, {"Joybot, go to sleep!", "sleep"}, {"time for bed", "sleep"}, {"night night", "sleep"},
+                {"take a nap", "sleep"}, {"hop on one foot", "hop"}, {"can you hop on one foot?", "hop"}, {"hop", "hop"},
+                {"do a backflip", "backflip"}, {"Can you do a backflip for me?", "backflip"}, {"backflip!", "backflip"},
+                {"beg", "beg"}, {"beg please", "beg"}, {"roll over", "roll-over"}, {"roll over please joybot", "roll-over"},
+                {"shake", "shake"}, {"shake it off", "shake"}, {"Shake!", "shake"},
+                {"trim the sleep scene", null}, {"flip the clip", null}, {"shake the camera less", null},
+                {"add a hop sound", null}, {"roll the credits", null}, {"how do I flip a layer", null}};
+        for (String[] t : tricks) {
+            eq("tricks: “" + t[0] + "”", t[1], com.fadcam.ui.lobby.TrickWords.trickFor(t[0]));
+        }
         java.util.List<Integer> told = new java.util.ArrayList<>();
         java.util.Random r = new java.util.Random(7);
         boolean repeat = false;

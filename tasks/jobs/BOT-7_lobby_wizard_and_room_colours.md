@@ -63,6 +63,10 @@ a connected AI only makes it more flexible.
       the reply is on screen (stopped runs drop it, a room change wins). Only trick words send the tool (router family
       `joybot`; "flip the clip", "shake the camera less" don't). Proof: `run-actions.sh` (do_trick 8, incl. the list
       matching `JoybotDirector.TRICKS`), `run-ideas.sh` 1,263. Not yet seen on a device with a model connected.
+      11-18, offline: the typed phrasings ("go to sleep", "hop on one foot", "do a backflip", "beg", "roll over",
+      "shake", "time for bed") are answered before any AI, now from plain `ui/lobby/TrickWords` so `run-ideas.sh` checks 25
+      of them, real requests included ("flip the clip", "roll the credits" stay requests); jokes were already offline
+      (`JokeBook`). Fold check with no AI owed: only the owner's Note 20 was attached 11-18.
 - [x] **Jokes, offline:** 66 (`joybot/JokeBook`), none back until most have had a turn. The owner judges the wit.
 - **First run v1 and the spotlight tour engine: the owner's own job** (owner 11-15, via the orchestrator: he makes the
   intro, welcome and getting-started himself with his own footage). Built briefly 11-15 and removed before landing. The

@@ -25,7 +25,7 @@ class DrawingRecovery(private val opened: File) {
     private var backupAllowed = false
     /** What [read] last handed out from [opened] itself: let go before [opened] is written over (let go, then write). */
     private var handed: JbContents? = null
-    private fun letGo() { handed?.let(DeferredMedia::release); handed = null }
+    private fun letGo() { handed?.let { DeferredMedia.release(it) }; handed = null }
     /** A newly opened drawing may not be in current.joybrush yet. Keep it before GPU upload. */
     fun rememberOpened(contents: JbContents) {
         CanvasSnapshot.requireSupportedPayload(contents)

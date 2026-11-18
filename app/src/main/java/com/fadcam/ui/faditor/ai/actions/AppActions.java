@@ -18,6 +18,8 @@ public final class AppActions {
     private AppActions() { }
 
     @Nullable private static volatile ActionRegistry<AppCtx> REG;
+    /** The trick do_trick named; the chat plays it once the reply is shown (main thread). */
+    @Nullable private static volatile String pendingTrick;
     /** Where the last NAVIGATE action asked to go; the chat takes it (main thread). */
     @Nullable private static volatile String pendingRoute;
 
@@ -44,6 +46,7 @@ public final class AppActions {
         add(r, "joybrush", JoyBrushActions::register);
         add(r, "capture", CaptureActions::register);
         add(r, "create", CreateActions::register);
+        add(r, "joybot", JoybotActions::register);
         return r;
     }
 
@@ -65,6 +68,7 @@ public final class AppActions {
             ActionResult res = registry().run(ctx, tool, StudioActions.toMap(args));
             if (res.changed) CHANGES.incrementAndGet();
             if (ctx.route != null) pendingRoute = ctx.route;
+            if (ctx.trick != null) pendingTrick = ctx.trick;
             if (ctx.openItem != null) {
                 pendingItem = ctx.openItem;
                 pendingAsNewProject = ctx.asNewProject;
@@ -111,6 +115,14 @@ public final class AppActions {
     /** True while an action's route is waiting for the chat (the request should end: the chat is leaving). */
     public static boolean hasPendingRoute() {
         return pendingRoute != null;
+    }
+
+    /** The trick do_trick asked for, once; null when none is waiting. Main thread. */
+    @Nullable
+    public static String takePendingTrick() {
+        String t = pendingTrick;
+        pendingTrick = null;
+        return t;
     }
 
     /** Where an action asked to go, once; null when nothing is waiting. Main thread. */

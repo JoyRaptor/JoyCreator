@@ -1317,6 +1317,16 @@ public class ChatAssistantActivity extends AppCompatActivity {
         return says[(int) (Math.random() * says.length)];
     }
 
+    /**
+     * The model's do_trick (JoybotActions): he does it once the reply is on screen and his working pose has let go
+     * (doneTalking sets him idle first), so the trick isn't cut short. A route away wins: he is leaving.
+     */
+    private void playPendingTrick() {
+        String t = com.fadcam.ui.faditor.ai.actions.AppActions.takePendingTrick();
+        if (t == null || actor == null || com.fadcam.ui.faditor.ai.actions.AppActions.hasPendingRoute()) return;
+        actor.postDelayed(() -> { if (!gone()) com.fadcam.ui.lobby.JoybotDirector.trick(actor, t); }, 450L);
+    }
+
     /** While a question is answered: thinking, then the handbook, in turns, until a tool starts or he answers. */
     private final Runnable helpLook = new Runnable() {
         @Override public void run() {
@@ -1399,7 +1409,10 @@ public class ChatAssistantActivity extends AppCompatActivity {
             waitingOnAgent = false;
             // Stopped (reply null): stopWorking already said so, but a stopped Director run still
             // made changes that the Review card should offer to put back.
-            if (f.reply == null) { endHandsFree(); renderFinishedExtras(f); return true; }
+            if (f.reply == null) {
+                com.fadcam.ui.faditor.ai.actions.AppActions.takePendingTrick();   // stopped: no trick later
+                endHandsFree(); renderFinishedExtras(f); return true;
+            }
             if (handsFree && f.ok) {
                 handsFreeSay(f.reply);
             } else {
@@ -1408,6 +1421,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             }
             // "I can't do that" is an answer too, and he is nervous saying it (owner, 11-15 midday).
             doneTalking(f.ok, f.ok && HelpBook.saysItCant(f.reply));
+            playPendingTrick();
             renderFinishedExtras(f);
             if (f.held != null) showHeld(f.held, f.asked);
             else if (room == IdeaEngine.Room.LOBBY && lastProjectId != null
@@ -3578,6 +3592,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                 addBotMessageIn(result.split("\n")[0], "studio");
                 String where = com.fadcam.ui.faditor.ai.actions.AppActions.takePendingRoute();
                 if (where != null) messagesContainer.postDelayed(() -> { if (!gone()) route(where); }, 900L);
+                playPendingTrick();
             });
         });
     }

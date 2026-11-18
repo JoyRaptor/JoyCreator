@@ -33,7 +33,8 @@
     var s = lc(name).replace(/[_\-.]/g, ' '), side = sideOf(name) || inheritedSide;
     if (/pupil|iris/.test(s)) return 'pupil';
     if (/eyeball|eye white|sclera/.test(s)) return 'eyeball';
-    if (/blink|eyelid|eye closed|closed eye/.test(s)) return 'blink';
+    if (/\blids?\b|eyelid/.test(s)) return /lower|bottom|under|cheek/.test(s) ? 'lidL' : 'lidU';
+    if (/blink|eye closed|closed eye/.test(s)) return 'blink';
     if (/brow/.test(s)) return side === 'R' ? 'browR' : 'browL';
     if (/\beyes?\b/.test(s)) return side === 'R' ? 'eyeR' : 'eyeL';
     if (parentRole === 'mouth') return null;
@@ -141,12 +142,103 @@
     art.pivot = { x: hingeRight ? b.x0 + b.w * 0.86 : b.x0 + b.w * 0.14, y: b.y0 + b.h * 0.3 };
     art.hinge = { rest: 'open', angle: hingeRight ? 30 : -30 };
   };
-  AL.guessTail = function (ch, art, near) {
-    var e = ends(art); if (!e) return;
-    var d0 = near ? hyp(e[0].x - near.x, e[0].y - near.y) : e[0].y, d1 = near ? hyp(e[1].x - near.x, e[1].y - near.y) : e[1].y;
-    var rootP = d0 <= d1 ? e[0] : e[1], tip = d0 <= d1 ? e[1] : e[0], keep = art.dangle || {};
-    art.pivot = rootP; art.dangle = { tip: tip, stiff: keep.stiff == null ? 70 : keep.stiff, damp: keep.damp == null ? 7 : keep.damp, swing: keep.swing == null ? 1 : keep.swing, wag: keep.wag == null ? 0.05 : keep.wag, on: keep.on };
+
+  /* ── swinging things ── */
+  var BENDY = /hair|tuft|feather|braid|ponytail|pigtail|bangs?\b|fringe|antenna|ribbon|scarf|cape|whisker|tassel|plume|mane|tail/i;
+  var STIFF = /chain|\blinks?\b|earring|pendant|charm|medal|locket|\bbell\b|\bkeys?\b|dangl/i;
+  /**
+   * Root and tip for something that swings. Bendy things (hair, a tail) grow from the end nearest the body;
+   * stiff things (a link, a charm) hang from their top.
+   */
+  AL.guessSwing = function (ch, art, near, kind) {
+    var b = boxOf(art); if (!b) return;
+    var keep = art.swing || {}, k = kind || keep.kind || 'bendy', e = ends(art), rootP, tip;
+    if (!e || (b.w / b.h > 0.7 && b.w / b.h < 1.4 && k === 'stiff')) e = [{ x: b.cx, y: b.y0 + b.h * 0.08 }, { x: b.cx, y: b.y1 - b.h * 0.08 }];
+    if (k === 'stiff' && !near) { rootP = e[0].y <= e[1].y ? e[0] : e[1]; }
+    else { var d0 = near ? hyp(e[0].x - near.x, e[0].y - near.y) : e[0].y, d1 = near ? hyp(e[1].x - near.x, e[1].y - near.y) : e[1].y; rootP = d0 <= d1 ? e[0] : e[1]; }
+    tip = rootP === e[0] ? e[1] : e[0];
+    var st = k === 'stiff';
+    art.pivot = { x: rootP.x, y: rootP.y };
+    art.swing = { kind: k, tip: { x: tip.x, y: tip.y }, segs: keep.segs || 4, stiff: keep.stiff == null ? (st ? 0.25 : 0.35) : keep.stiff, damp: keep.damp == null ? (st ? 0.2 : 0.3) : keep.damp,
+      follow: keep.follow == null ? 1 : keep.follow, hang: keep.hang == null ? st : keep.hang, limit: keep.limit == null ? 80 : keep.limit, wind: keep.wind == null ? (st ? 0.4 : 1) : keep.wind,
+      flutter: keep.flutter || 0, wag: keep.wag == null ? (st ? 0 : 0.04) : keep.wag, on: keep.on };
   };
+  AL.guessTail = function (ch, art, near) { AL.guessSwing(ch, art, near, 'bendy'); };
+  /** Stiff pieces that hang one from the next: sort top to bottom, hang each from the one above. */
+  AL.guessChain = function (ch, arts, anchorId) {
+    arts = arts.slice().sort(function (a, b) { return boxOf(a).y0 - boxOf(b).y0; });
+    arts.forEach(function (a, i) { AL.guessSwing(ch, a, null, 'stiff'); if (i > 0) a.attach = arts[i - 1].id; else if (anchorId) a.attach = anchorId; });
+  };
+
+  /* ── eyelids ── */
+  function lidPicture(w, h, upper, colour) {
+    var c = document.createElement('canvas'); c.width = Math.max(4, Math.round(w)); c.height = Math.max(4, Math.round(h));
+    var g = c.getContext('2d'), sag = c.height * 0.22;
+    g.beginPath();
+    if (upper) { g.moveTo(0, 0); g.lineTo(c.width, 0); g.lineTo(c.width, c.height - sag); g.quadraticCurveTo(c.width / 2, c.height + sag * 0.9, 0, c.height - sag); }
+    else { g.moveTo(0, c.height); g.lineTo(c.width, c.height); g.lineTo(c.width, sag); g.quadraticCurveTo(c.width / 2, -sag * 0.9, 0, sag); }
+    g.closePath(); g.fillStyle = colour ? 'rgb(' + colour[0] + ',' + colour[1] + ',' + colour[2] + ')' : '#fff'; g.fill();
+    if (colour) {                                         // a darker line where the lid meets the eye
+      g.beginPath();
+      if (upper) { g.moveTo(0, c.height - sag); g.quadraticCurveTo(c.width / 2, c.height + sag * 0.9, c.width, c.height - sag); }
+      else { g.moveTo(0, sag); g.quadraticCurveTo(c.width / 2, -sag * 0.9, c.width, sag); }
+      g.strokeStyle = 'rgb(' + Math.round(colour[0] * 0.45) + ',' + Math.round(colour[1] * 0.4) + ',' + Math.round(colour[2] * 0.42) + ')'; g.lineWidth = Math.max(1.5, c.height * 0.05); g.stroke();
+    }
+    return c;
+  }
+  /** The colour of whatever is painted just above an eye: the lid should be made of that. */
+  function skinAbove(scope, eye, x, y) {
+    var skip = {}, hit = null; AL.walk(eye, function (k) { skip[k.id] = 1; });
+    AL.walk(scope, function (n) {
+      if (hit || skip[n.id] || n.hidden) return hit ? false : (skip[n.id] || n.hidden ? false : undefined);
+      if (n.type !== 'art') return;
+      var px = AL.img.rgba(n.img, x - n.x, y - n.y); if (px[3] > 200) hit = [px[0], px[1], px[2]];
+    });
+    return hit || [217, 160, 116];
+  }
+  AL.pruneClips = function (ch) { var ix = AL.reindex(ch); AL.walk(ch.root, function (n) { if (n.clips) { n.clips = n.clips.filter(function (q) { return ix.n[q.by]; }); if (!n.clips.length) delete n.clips; } }); };
+  AL.hasLids = function (ch) { return !!(AL.firstRole(ch.root, 'lidU') || AL.firstRole(ch.root, 'lidL')); };
+  AL.removeLids = function (ch) {
+    AL.findAll(ch.root, function (n) { return (n.role === 'lidU' || n.role === 'lidL') && n.made; }).forEach(function (n) { var p = AL.parentOf(ch, n.id); if (p) p.kids = p.kids.filter(function (k) { return k !== n; }); });
+    AL.pruneClips(ch);
+  };
+  /**
+   * Give every eye an upper and a lower lid without any art. mode 'cut': invisible lids that hide the eye
+   * where they are, so whatever is painted underneath shows (right for a pupil painted straight onto a face).
+   * mode 'drawn': skin-coloured lids, kept inside the white of the eye. Default: drawn when there is a white.
+   */
+  AL.addLids = function (ch, mode) {
+    AL.removeLids(ch);
+    var head = AL.firstRole(ch.root, 'head'), scopes = head && head.type === 'set' ? head.kids.filter(function (k) { return k.type === 'group'; }) : [head || ch.root], made = 0;
+    scopes.forEach(function (scope) {
+      var faceB = AL.boundsOf(AL.firstRole(scope, 'face') || scope), faceCx = faceB ? (faceB.x0 + faceB.x1) / 2 : ch.w / 2;
+      AL.findAll(scope, function (n) { return (n.role === 'eyeL' || n.role === 'eyeR') && !n.hidden; }).forEach(function (eye) {
+        if (eye.type === 'art') return;
+        var open = eye.kids.filter(function (k) { return k.blink !== 'closed' && k.role !== 'lidU' && k.role !== 'lidL' && k.role !== 'mouth' && !k.hidden; });
+        var b = null; open.forEach(function (k) { var q = AL.boundsOf(k); if (q) b = b ? { x0: Math.min(b.x0, q.x0), y0: Math.min(b.y0, q.y0), x1: Math.max(b.x1, q.x1), y1: Math.max(b.y1, q.y1) } : q; });
+        if (!b) return;
+        var w = b.x1 - b.x0, h = b.y1 - b.y0, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, gap = Math.max(1.5, h * 0.12);
+        var ball = eye.kids.filter(function (k) { return k.role === 'eyeball'; })[0], drawn = (mode || (ball ? 'drawn' : 'cut')) === 'drawn' && !!ball;
+        var colour = drawn ? skinAbove(scope, eye, cx, b.y0 - h * 0.45) : null, side = eye.role === 'eyeR' ? 'R' : 'L', sign = cx < faceCx ? 1 : -1;
+        function lid(upper) {
+          var W = w * 2.3, H = h * (upper ? 1.7 : 1.1), id = AL.id('i'); AL.img.put(id, lidPicture(W, H, upper, colour), upper ? 'Upper lid' : 'Lower lid');
+          var sag = Math.round(H) * 0.22, n = { id: AL.id('n'), name: upper ? 'Upper lid' : 'Lower lid', type: 'art', role: upper ? 'lidU' : 'lidL', made: true, side: side, img: id,
+            x: cx - W / 2, y: upper ? b.y0 - gap - Math.round(H) : b.y1 + gap - sag * 0.05, pivot: { x: cx, y: cy },
+            lid: { kind: upper ? 'upper' : 'lower', travel: upper ? h + gap + sag : h * 0.62 + gap, tilt: 24, sign: sign } };
+          if (drawn) n.clips = [{ by: ball.id }]; else n.maskOnly = true;
+          return n;
+        }
+        var up = lid(true), low = lid(false);
+        eye.kids.unshift(up, low);
+        if (!drawn) open.forEach(function (k) { k.clips = (k.clips || []).concat([{ by: up.id, cut: true }, { by: low.id, cut: true }]); });
+        made++;
+      });
+    });
+    AL.reindex(ch);
+    return made;
+  };
+  AL.lidMode = function (ch) { var l = AL.firstRole(ch.root, 'lidU') || AL.firstRole(ch.root, 'lidL'); return !l ? null : l.maskOnly ? 'cut' : 'drawn'; };
+
 
   function trigger(ch, name) {
     var key = lc(name), t = ch.triggers.filter(function (q) { return lc(q.name) === key; })[0];
@@ -248,7 +340,8 @@
             n.kids.forEach(function (k) {
               if (k.role === 'blink') { k.blink = 'closed'; k.side = side; delete k.hidden; }
               else if (!k.role || k.role === 'pupil' || k.role === 'eyeball') { if (hasBlink) { k.blink = 'open'; k.side = side; } }
-              if (k.role === 'pupil' && k.type === 'art') { var im = AL.img.get(k.img); k.look = { rx: Math.max(1.5, im.w * 0.12), ry: Math.max(1, im.h * 0.08) }; }
+              if (k.role === 'pupil' && k.type === 'art') { var im = AL.img.get(k.img), ball = n.kids.filter(function (q) { return q.role === 'eyeball'; })[0], bb2 = ball ? AL.boundsOf(ball) : null; k.look = { rx: Math.max(1.5, bb2 ? (bb2.x1 - bb2.x0) * 0.2 : im.w * 0.12), ry: Math.max(1, bb2 ? (bb2.y1 - bb2.y0) * 0.14 : im.h * 0.08) }; if (ball) k.clips = [{ by: ball.id }]; }
+              if ((k.role === 'lidU' || k.role === 'lidL') && k.type === 'art') { var eb = AL.boundsOf(n), fb2 = AL.boundsOf(scope), ball2 = n.kids.filter(function (q) { return q.role === 'eyeball'; })[0]; k.side = side; k.pivot = { x: (eb.x0 + eb.x1) / 2, y: (eb.y0 + eb.y1) / 2 }; k.lid = { kind: k.role === 'lidL' ? 'lower' : 'upper', travel: (eb.y1 - eb.y0) * (k.role === 'lidL' ? 0.5 : 0.85), tilt: 24, sign: (eb.x0 + eb.x1) / 2 < (fb2.x0 + fb2.x1) / 2 ? 1 : -1 }; if (ball2) k.clips = [{ by: ball2.id }]; delete k.blink; }
             });
           }
           if (n.type === 'group' && n.kids.length && n.kids.every(function (k) { return k.role === 'blink' || k.hidden; })) n.hidden = true;   // this eye is not drawn at this angle
@@ -280,6 +373,15 @@
 
     /* 6. tails swing; anything else on the body rides the torso */
     AL.byRole(ch.root, 'tail').forEach(function (t) { if (t.type === 'art') { AL.guessTail(ch, t, tc); if (torso) t.attach = torso.id; } });
+    /* hair, feathers and ribbons bend; chains, earrings and charms hang stiff, each from the one above */
+    var chains = {};
+    AL.walk(ch.root, function (n, par) {
+      if (n.type !== 'art' || n.swing || n.limb || n.hidden || !par) return;
+      if (STIFF.test(n.name)) { (chains[par.id] = chains[par.id] || []).push(n); return; }
+      if (BENDY.test(n.name) && n.role !== 'tail') { var view = AL.ancestorWith(ch, n.id, function (a) { return !!a.at; }), vb = AL.boundsOf(view || head || ch.root); AL.guessSwing(ch, n, vb ? { x: (vb.x0 + vb.x1) / 2, y: (vb.y0 + vb.y1) / 2 } : tc, 'bendy'); n.swing.segs = 3; }
+    });
+    Object.keys(chains).forEach(function (pid) { var inHead = head && AL.ancestorWith(ch, pid, function (a) { return a === head; }); AL.guessChain(ch, chains[pid], inHead ? null : (torso ? torso.id : null)); });
+    AL.addLids(ch);
     if (torso) {
       var tail = AL.firstRole(ch.root, 'tail'), tbx = tail ? AL.boundsOf(tail) : null;
       if (tbx) ch.settings.facing = (tbx.x0 + tbx.x1) / 2 > tb.cx ? 'left' : 'right';
@@ -305,7 +407,7 @@
       AL.reindex(ch); AL.guessFan(ch, set, tc);
     } else if (role === 'tail') {
       var art = n.type === 'art' ? n : AL.find(n, function (k) { return k.type === 'art'; });
-      if (art) { AL.guessTail(ch, art, tc); if (torso) art.attach = torso.id; }
+      if (art) { AL.guessSwing(ch, art, tc, 'bendy'); if (torso) art.attach = torso.id; }
     } else if (role === 'torso') {
       if (n.type === 'art') {
         var b = boxOf(n);
@@ -336,7 +438,7 @@
     ['armL', 'armR'].forEach(function (r) { var a = AL.firstRole(ch.root, r); if (a) { var k = (a.kids || []).filter(function (q) { return q.limb; }).length; out[r] = k > 1 ? k + ' drawings, swaps and bends' : 'bends to reach'; } });
     var t = AL.firstRole(ch.root, 'torso') || AL.firstRole(ch.root, 'body'); if (t) out.body = t.breathe ? 'breathes' : 'in place';
     ['legL', 'legR'].forEach(function (r) { if (AL.firstRole(ch.root, r)) out[r] = 'in place'; });
-    var tl = AL.firstRole(ch.root, 'tail'); if (tl) out.tail = tl.dangle ? 'swings' : 'in place';
+    var tl = AL.firstRole(ch.root, 'tail'); if (tl) out.tail = tl.swing ? 'swings' : 'in place';
     return out;
   };
   AL._px = { plainEndFirst: plainEndFirst, ends: ends, boxOf: boxOf, farthest: farthest, ringCentre: ringCentre, eachOpaque: eachOpaque, viewPos: viewPos, shapeOf: shapeOf, roleOf: roleOf, trigger: trigger };

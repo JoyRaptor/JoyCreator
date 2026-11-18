@@ -29,6 +29,20 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 - **Four ways in, each run once:** PSD (Topps), a sheet (tap the parts: body, head and a 7-drawing arm became
   a working character with no pin placed), one whole drawing (7 taps, then it bends), and Pip the built-in.
 
+- **Added the same evening, on the owner's ask (masks, lids, swinging, wind):**
+  - Masks: any part can show only inside another part or be hidden where another part is; the masking part
+    is drawn or invisible, and moves like any part. Pip's pupils now stay inside the whites of his eyes.
+  - Eyelids without art: an upper lid (relaxed), its tilt (angry, sad) and a lower lid (cheery), as invisible
+    lids that cut the eye (Topps) or skin-coloured lids inside the eye white (Pip). Seven mood buttons in
+    Perform. Every imported character gets lids by default; "Remove eyelids" takes them away in one tap.
+  - Swinging comes in two kinds: bendy (hair, braids, feathers, tails: a jointed chain) and stiff (chain
+    links, earrings, charms: never bends, swings and rattles, links hang from each other). Pip has a hair
+    tuft and a two-link chain with a charm to show both.
+  - A Breeze slider in Perform leans and waves anything with Breeze turned on; it is recorded in a take.
+  - Checked by script: lids on and off with undo, a take that carries mood and wind, save and reopen keeps
+    lids and a stiff tail, all cards open. Seen in stills: five moods on both characters, a mirrored angle,
+    the chain swinging and settling, hair and tail leaning in wind. **Not seen in motion by a person.**
+
 ## What the pilot settles (proposed, the owner rules)
 1. First screen: a dotted body with a + on every part, and three doors for bringing a whole character in.
 2. Two modes with one meaning each: **Build** (everything still, pins draggable) and **Perform** (everything
@@ -43,7 +57,7 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 ## What is left
 - [ ] Owner tries the pilot (PC page with Topps; the artifact on the phone with Pip) and rules.
 - [ ] Not built in the pilot: clipping layers and blend modes from the PSD (Topps uses neither); eye whites
-      that mask the pupil; legs that bend and walk cycles; hands tracked by camera; a motion library; saving a
+      (built since: see the masks note above); legs that bend and walk cycles; hands tracked by camera; a motion library; saving a
       video; per-drawing art nudge for a mouth that sits wrong at one angle is manual (Move art).
 - [ ] Not checked: face camera with a real face; microphone with a real voice; any phone.
 - [ ] Topps notes for the owner: "smile" sits off the face at Left Profile, Left Quarter and Frontal in the

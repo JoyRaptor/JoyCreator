@@ -40,7 +40,7 @@
     ch: null, solver: null, G: null, inp: null, out: null, hist: new AL.History(),
     mode: 'build', live: false, sel: { zone: null, feature: null, node: null }, selIds: null, tab: 'parts',
     force: {}, show: {}, onion: false, mesh: false, moveArt: false, bt: { x: 0, y: 0 },
-    test: { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, trig: {} },
+    test: { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} },
     view: { s: 1, ox: 0, oy: 0 }, vt: null, pinProvider: null, hooks: []
   };
 
@@ -77,7 +77,7 @@
     o = o || {};
     app.ch = ch; AL.reindex(ch); app.solver = new AL.Solver(ch); if (app.G) app.G.forget();
     app.inp = new AL.Inputs(app); app.hist = new AL.History(); app.syncUndo();
-    app.force = {}; app.show = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, trig: {} }; app.live = false;
+    app.force = {}; app.show = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} }; app.live = false;
     $('chname').textContent = ch.name;
     var first = null; AL.ZONES.forEach(function (z) { if (!first && app.zoneNode(z.id)) first = z.id; });
     app.sel = { zone: first, feature: null, node: null }; app.resolveSel();
@@ -122,7 +122,7 @@
   };
   app.select = function (zone, feature, nodeId) {
     app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.live = app.mode === 'perform' ? app.live : false;
-    app.test.mouth = null; app.show = {}; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
+    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
   };
   app.selectByNode = function (id) {
     var ch = app.ch, zone = AL.zoneOf(ch, id), feature = null;
@@ -159,7 +159,7 @@
   /* ── signals while building: everything at rest, plus whatever is being tried ── */
   app.buildSignals = function () {
     var S = app._bs || (app._bs = AL.restSignals()), t = app.test;
-    S.turnX = app.bt.x; S.turnY = app.bt.y; S.mouth = t.mouth; S.viseme = t.vis || 'Aa'; S.blinkL = S.blinkR = t.blink; S.lookX = t.lookX; S.lookY = t.lookY; S.browL = S.browR = t.brow; S.trig = t.trig; S.breath = 0;
+    S.turnX = app.bt.x; S.turnY = app.bt.y; S.mouth = t.mouth; S.viseme = t.vis || 'Aa'; S.blinkL = S.blinkR = t.blink; S.lookX = t.lookX; S.lookY = t.lookY; S.browL = S.browR = t.brow; S.lidUp = t.lidUp || 0; S.lidLow = t.lidLow || 0; S.lidTilt = t.lidTilt || 0; S.trig = t.trig; S.breath = 0;
     return S;
   };
 
@@ -321,7 +321,7 @@
       if (k.type === 'art') { k.x += dx; k.y += dy; }
       if (k.pivot) { k.pivot.x += dx; k.pivot.y += dy; }
       if (k.limb) ['a', 'b', 'c'].forEach(function (q) { k.limb[q].x += dx; k.limb[q].y += dy; });
-      if (k.dangle) { k.dangle.tip.x += dx; k.dangle.tip.y += dy; }
+      if (k.swing) { k.swing.tip.x += dx; k.swing.tip.y += dy; }
       if (k.breathe) { k.breathe.cx += dx; k.breathe.cy += dy; }
       if (k.mesh) k.mesh.pins.forEach(function (q) { q.x += dx; q.y += dy; });
     });

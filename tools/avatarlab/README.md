@@ -24,8 +24,27 @@ One idea: **a character is a tree of three things**, the same three a layered ar
 | art | one drawing | everything you painted |
 
 Behaviour hangs off a node as a small record: `limb` (shoulder, elbow, hand pins), `hinge` or `squash`
-(a talking mouth), `look` (a pupil), `blink`, `dangle` (a tail), `breathe` (a chest), `mesh` (a pinned
-whole drawing), `links` (follow any signal), `depth` (slide between head angles). The file is plain JSON.
+(a talking mouth), `look` (a pupil), `blink`, `lid` (an eyelid), `clips` (masks), `swing` (anything that
+dangles), `breathe` (a chest), `mesh` (a pinned whole drawing), `links` (follow any signal), `depth`
+(slide between head angles). The file is plain JSON.
+
+**Masks (`clips`).** Any part can be shown only INSIDE another part, or be HIDDEN where another part is.
+The masking part may be drawn too, or be invisible (`maskOnly`). It is an ordinary part, so it moves,
+tilts and swaps like any other: that is what makes a mask animatable. Drawn with the art's own soft edge.
+
+**Eyelids (`lid`).** An upper lid that comes down (relaxed), tilts (angry or sad) and a lower lid that
+pushes up (cheery), made without art. Two modes: *invisible* lids cut the eye, so the face painted
+underneath shows (right for a pupil painted straight onto a face, like Topps); *drawn* lids are
+skin-coloured, sampled from the face, and kept inside the white of the eye. A layer named "eyelid" or
+"lower lid" in the file becomes a lid too. Seven moods (Relaxed, Sleepy, Angry, Sad, Cheery, Wary) are
+three lid numbers and one brow number.
+
+**Swinging (`swing`).** Two kinds. *Bendy* (hair, a braid, a feather, a tail) is a jointed chain that is
+dragged by its root and catches up late; the drawing is skinned along it. *Stiff* (a chain link, an
+earring, a charm) never bends: it swings from its pin, knocks against its limits, and whatever hangs
+from it rides along, so links hung one from the next behave like a chain. Both have springiness, settle,
+follow-through, "hangs down", and a Breeze amount; bendy adds joints and flutter. Wind is a recorded
+signal like any other.
 
 ## Screens
 
@@ -60,6 +79,8 @@ whole drawing), `links` (follow any signal), `depth` (slide between head angles)
 4. **The whole character can turn around**: one three-quarter drawing faces both ways.
 5. **Layered takes**: a second pass replaces only what was touched.
 6. **Follows**: any part can ride any signal (mouth, eyes, blink, breath, turn).
+7. **Lids without art**, in two modes, and moods built from them.
+8. **Stiff chains and a breeze**, beside the bendy swing the phone already has.
 
 ## Not checked
 

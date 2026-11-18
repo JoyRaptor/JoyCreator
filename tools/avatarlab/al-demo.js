@@ -58,6 +58,7 @@
         layer(s > 0 ? 'Left Eyeball' : 'Right Eyeball', box, function (g) { ell(g, ex, ey, rw, rh, WHITE, 4); })
       ]));
     });
+    kids.push(layer('Hair tuft', [110, 10, 402, 310], function (g) { var bx = cx - yaw * 8, by = cy - R * 0.88 + pitch * 6, tx = cx + 18 - yaw * 26, ty = cy - R - 48 + pitch * 10; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx - 14, (by + ty) / 2 - 6, tx, ty); g.strokeStyle = INK; g.lineWidth = 17; g.stroke(); g.strokeStyle = BODY; g.lineWidth = 9; g.stroke(); }));
     kids.push(layer('Cheeks', box, function (g) { g.save(); faceClip(g); g.clip(); g.globalAlpha = 0.5; [1, -1].forEach(function (s) { ell(g, fx + s * 52 * q, fy + 20, 13 * q, 8, PINK, 0); }); g.restore(); }));
     kids.push(layer('Face', box, function (g) { faceClip(g); g.fillStyle = BODY; g.fill(); g.save(); g.clip(); ell(g, fx, fy + 30, 50 * q, 40, BELLY, 0); g.restore(); faceClip(g); g.strokeStyle = INK; g.lineWidth = 5; g.stroke(); }));
     kids.push(layer('Ears', box, function (g) { [1, -1].forEach(function (s) { var ex = cx + s * 66 - yaw * 22, ey = cy - 66 - pitch * 14, r = 27 * (1 - s * yaw * 0.16); ell(g, ex, ey, r, r, BODY, 5); ell(g, ex, ey, r * 0.5, r * 0.5, PINK, 0); }); }));
@@ -91,7 +92,12 @@
   }
 
   AL.demoDoc = function () {
+    var GOLD = '#f5c542';
+    function ring(g, x, y) { g.beginPath(); g.ellipse(x, y, 6, 10, 0, 0, 7); g.strokeStyle = INK; g.lineWidth = 7; g.stroke(); g.strokeStyle = GOLD; g.lineWidth = 3.5; g.stroke(); }
     var body = group('Body', [
+      layer('Charm', [226, 318, 286, 376], function (g) { g.beginPath(); for (var k = 0; k < 10; k++) { var r = k % 2 ? 6.5 : 14, a = -Math.PI / 2 + k * Math.PI / 5; g.lineTo(256 + Math.cos(a) * r, 348 + Math.sin(a) * r); } g.closePath(); g.fillStyle = GOLD; g.fill(); g.strokeStyle = INK; g.lineWidth = 3.5; g.stroke(); }),
+      layer('Chain link 2', [236, 300, 276, 344], function (g) { ring(g, 256, 322); }),
+      layer('Chain link 1', [236, 282, 276, 326], function (g) { ring(g, 256, 304); }),
       layer('Torso', [150, 230, 362, 440], function (g) { ell(g, 256, 340, 78, 88, BODY, 5); g.save(); g.beginPath(); g.ellipse(256, 340, 78, 88, 0, 0, 7); g.clip(); ell(g, 256, 356, 50, 62, BELLY, 0); g.restore(); }),
       layer('Left Leg', [262, 400, 350, 480], function (g) { ell(g, 300, 446, 31, 20, BODY, 5); [-9, 3, 15].forEach(function (k) { g.beginPath(); g.moveTo(300 + k, 452); g.lineTo(300 + k, 463); g.strokeStyle = INK; g.lineWidth = 3; g.stroke(); }); }),
       layer('Right Leg', [162, 400, 250, 480], function (g) { ell(g, 212, 446, 31, 20, BODY, 5); [-15, -3, 9].forEach(function (k) { g.beginPath(); g.moveTo(212 + k, 452); g.lineTo(212 + k, 463); g.strokeStyle = INK; g.lineWidth = 3; g.stroke(); }); }),

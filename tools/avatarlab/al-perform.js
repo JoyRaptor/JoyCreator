@@ -25,11 +25,22 @@
     return out;
   }
 
+  function hasSwing(app) { return !!AL.find(app.ch.root, function (n) { return n.swing && n.swing.on !== false; }); }
+  function moodChips(app) {
+    return Object.keys(AL.MOODS).map(function (m) { return app.ui.chip(m, { on: app.inp.pose.mood === m, title: 'Eyelids and brows: ' + m.toLowerCase(), fn: function () { app.inp.setMood(m); app.refreshPanel(true); } }); });
+  }
+  function breeze(app) {
+    return app.ui.slider('Breeze', { min: -1, max: 1, step: 0.05, value: app.inp.pose.wind, undo: false, set: function (v) { app.inp.pose.wind = Math.abs(v) < 0.06 ? 0 : v; app.inp.held.body = true; clearTimeout(app._wt); app._wt = setTimeout(function () { app.inp.held.body = false; }, 500); },
+      fmt: function (v) { return Math.abs(v) < 0.06 ? 'still' : (v < 0 ? '\u2190 ' : '') + Math.round(Math.abs(v) * 100) + (v > 0 ? ' \u2192' : ''); }, title: 'Wind. Hair, feathers, tails and chains with Breeze turned on lean and wave in it.' });
+  }
+
   /** The few controls shown under "Try it" while building. */
   perform.quick = function (app) {
     var box = h('div');
     var hasHead = app.zoneNode('head') && app.zoneNode('head').type === 'set';
     box.appendChild(h('div', { class: 'padrow' }, [hasHead ? AL.cards.turnPad(app, {}) : null, h('div', { class: 'side' }, [talkButton(app), h('div', { class: 'rowf' }, triggerChips(app))])]));
+    if (AL.hasLids(app.ch)) { box.appendChild(app.ui.lab('Mood')); box.appendChild(app.ui.row(moodChips(app))); }
+    if (hasSwing(app)) box.appendChild(breeze(app));
     box.appendChild(app.ui.note('This is the same as <b>Perform</b>, kept beside the part you were working on.'));
     return box;
   };
@@ -69,6 +80,8 @@
       ui.chip('Let go of everything', { cls: 'quiet', title: 'Head to the middle, hands to rest', fn: function () { inp.resetPose(); inp.S.pin = {}; app.refreshPanel(true); } })
     ])));
 
+    if (AL.hasLids(app.ch)) { pb.appendChild(ui.lab('Mood (eyelids and brows)')); pb.appendChild(ui.row(moodChips(app))); }
+    if (hasSwing(app)) { pb.appendChild(ui.lab('Weather')); pb.appendChild(breeze(app)); }
     pb.appendChild(ui.lab('Alive by itself'));
     pb.appendChild(ui.row([
       ui.chip('Show-off loop', { on: inp.auto, icon: 'loop', title: 'The character performs by itself: looks around, waves, talks. Anything you grab is yours.', fn: function () { inp.auto = !inp.auto; if (!inp.auto) inp.resetPose(); app.refreshPanel(true); } }),

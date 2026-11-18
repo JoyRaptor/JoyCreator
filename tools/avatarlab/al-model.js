@@ -4,7 +4,7 @@
  *   group : draw every child                       (a folder)
  *   set   : draw ONE child, picked by a rule       (a "swap set": head angles, arm drawings, mouth shapes)
  *   art   : one drawing, placed at x,y in character space (pixels, y down)
- * Behaviour hangs off any node as small optional records (limb, hinge, look, dangle, breathe, links...).
+ * Behaviour hangs off any node as small optional records (limb, hinge, look, swing, lid, clips, breathe, links...).
  * Everything is plain JSON so it can be read by hand, by Joybot, and by the phone.
  *
  * Phone twin: AvatarRig (parts + pose domains) grows into this tree; nothing here is web-only.
@@ -20,6 +20,7 @@
     head: { label: 'Head', zone: 'head' }, face: { label: 'Face', zone: 'head' },
     eyeL: { label: 'Left eye', zone: 'head' }, eyeR: { label: 'Right eye', zone: 'head' },
     pupil: { label: 'Pupil', zone: 'head' }, eyeball: { label: 'Eye white', zone: 'head' }, blink: { label: 'Blink', zone: 'head' },
+    lidU: { label: 'Upper lid', zone: 'head' }, lidL: { label: 'Lower lid', zone: 'head' },
     browL: { label: 'Left brow', zone: 'head' }, browR: { label: 'Right brow', zone: 'head' },
     nose: { label: 'Nose', zone: 'head' }, mouth: { label: 'Mouth', zone: 'head' }, jaw: { label: 'Jaw', zone: 'head' },
     hair: { label: 'Hair, ears, frill', zone: 'head' },
@@ -96,6 +97,8 @@
       for (var i = 0, n = a.length; i < n; i++) a[i] = d[i * 4 + 3];
       return (im._a = a);
     },
+    /** One pixel, [r,g,b,a]. */
+    rgba: function (id, x, y) { var im = this.map[id]; if (!im || x < 0 || y < 0 || x >= im.w || y >= im.h) return [0, 0, 0, 0]; return im.canvas.getContext('2d').getImageData(x | 0, y | 0, 1, 1).data; },
     fromRGBA: function (id, w, h, data, name) {
       var c = document.createElement('canvas'); c.width = w; c.height = h;
       c.getContext('2d').putImageData(new ImageData(data, w, h), 0, 0);
@@ -122,6 +125,8 @@
       }));
     });
     delete o.pictures;
+    /* files saved before 11-18: the one-angle "dangle" became the jointed "swing" */
+    AL.walk(o.root, function (n) { if (n.dangle) { n.swing = { kind: 'bendy', tip: n.dangle.tip, segs: 4, stiff: 0.35, damp: 0.3, follow: n.dangle.swing == null ? 1 : n.dangle.swing, wind: 1, wag: n.dangle.wag == null ? 0.04 : n.dangle.wag, on: n.dangle.on }; delete n.dangle; } });
     return Promise.all(jobs).then(function () { AL.reindex(o); return o; });
   };
 

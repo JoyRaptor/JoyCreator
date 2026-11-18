@@ -11,15 +11,15 @@
   function ease(cur, to, rate, dt) { return cur + (to - cur) * (1 - Math.exp(-rate * dt)); }
 
   var GROUPS = AL.TAKE_GROUPS = {
-    head: ['turnX', 'turnY', 'roll', 'lookX', 'lookY'], face: ['mouth', 'vis', 'browL', 'browR', 'blinkL', 'blinkR'],
-    handL: ['hLx', 'hLy'], handR: ['hRx', 'hRy'], body: ['sway', 'bounce', 'flip'], trig: []
+    head: ['turnX', 'turnY', 'roll', 'lookX', 'lookY'], face: ['mouth', 'vis', 'browL', 'browR', 'blinkL', 'blinkR', 'lidUp', 'lidLow', 'lidTilt'],
+    handL: ['hLx', 'hLy'], handR: ['hRx', 'hRy'], body: ['sway', 'bounce', 'flip', 'wind'], trig: []
   };
   AL.TAKE_LABELS = { head: 'Head', face: 'Face', handL: 'Left hand', handR: 'Right hand', body: 'Body', trig: 'Buttons' };
 
   AL.Inputs = function (app) {
     this.app = app; this.t = 0;
-    this.pose = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, brow: 0, handL: null, handR: null, flip: false };
-    this.sm = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, lookX: 0, lookY: 0, browL: 0, browR: 0, hL: null, hR: null };
+    this.pose = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, mood: 'Neutral', handL: null, handR: null, flip: false };
+    this.sm = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, lookX: 0, lookY: 0, browL: 0, browR: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, hL: null, hR: null };
     this.trig = {}; this.talking = false; this.auto = false; this.held = {};
     this.life = { next: 1.5, bt: -1, sx: 0, sy: 0, ns: 1 };
     this.babble = { env: 0, next: 0, vis: 'Aa', gap: 0 };
@@ -35,7 +35,10 @@
     var k = AL.node(ch, set.pick.rest); return k && k.limb ? { x: k.limb.c.x, y: k.limb.c.y, ax: k.limb.a.x, ay: k.limb.a.y } : null;
   };
   P.blinkNow = function () { this.life.bt = 0; };
-  P.resetPose = function () { var p = this.pose; p.turnX = p.turnY = p.roll = p.sway = p.bounce = p.mouth = 0; p.handL = p.handR = null; p.flip = false; this.trig = {}; };
+  P.resetPose = function () { var p = this.pose; p.turnX = p.turnY = p.roll = p.sway = p.bounce = p.mouth = p.brow = p.lidUp = p.lidLow = p.lidTilt = p.wind = 0; p.mood = 'Neutral'; p.handL = p.handR = null; p.flip = false; this.trig = {}; };
+  /* a mood is three numbers for the lids and one for the brows */
+  AL.MOODS = { Neutral: [0, 0, 0, 0], Relaxed: [0.42, 0, 0, 0], Sleepy: [0.72, 0, 0.12, -0.3], Angry: [0.3, 1, 0.18, -0.9], Sad: [0.26, -1, 0, 0.35], Cheery: [0, 0, 0.8, 0.45], Wary: [0.4, 0.35, 0.45, -0.4] };
+  P.setMood = function (name) { var m = AL.MOODS[name] || AL.MOODS.Neutral, p = this.pose; p.mood = name; p.lidUp = m[0]; p.lidTilt = m[1]; p.lidLow = m[2]; p.brow = m[3]; this.held.face = true; var self = this; clearTimeout(this._mt); this._mt = setTimeout(function () { self.held.face = false; }, 700); };
 
   /* ── voice ── */
   P.audioGraph = function () {
@@ -100,7 +103,8 @@
     var bs = {}; r.faceBlendshapes[0].categories.forEach(function (q) { bs[q.categoryName] = q.score; });
     var f = { mouth: clamp((bs.jawOpen || 0) * 1.8, 0, 1), blinkL: bs.eyeBlinkLeft > 0.5 ? 1 : 0, blinkR: bs.eyeBlinkRight > 0.5 ? 1 : 0,
       brow: clamp(((bs.browInnerUp || 0) + (bs.browOuterUpLeft || 0) + (bs.browOuterUpRight || 0)) / 1.6 - (bs.browDownLeft || 0), -1, 1),
-      lookX: clamp(((bs.eyeLookOutLeft || 0) - (bs.eyeLookInLeft || 0)) * 1.6, -1, 1), lookY: clamp(((bs.eyeLookDownLeft || 0) - (bs.eyeLookUpLeft || 0)) * 1.6, -1, 1), smile: ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2 };
+      lookX: clamp(((bs.eyeLookOutLeft || 0) - (bs.eyeLookInLeft || 0)) * 1.6, -1, 1), lookY: clamp(((bs.eyeLookDownLeft || 0) - (bs.eyeLookUpLeft || 0)) * 1.6, -1, 1), smile: ((bs.mouthSmileLeft || 0) + (bs.mouthSmileRight || 0)) / 2,
+      lidUp: clamp(Math.min(bs.eyeBlinkLeft || 0, bs.eyeBlinkRight || 0) * 1.5, 0, 0.8), lidLow: clamp(((bs.eyeSquintLeft || 0) + (bs.eyeSquintRight || 0)) * 0.9 + ((bs.cheekSquintLeft || 0) + (bs.cheekSquintRight || 0)) * 0.6, 0, 1), lidTilt: clamp(((bs.browDownLeft || 0) + (bs.browDownRight || 0)) * 1.2 - (bs.browInnerUp || 0) * 1.4, -1, 1) };
     var m = r.facialTransformationMatrixes && r.facialTransformationMatrixes[0] && r.facialTransformationMatrixes[0].data;
     if (m) { var sg = c.swap ? -1 : 1; f.turnX = clamp(Math.atan2(m[8], m[10]) / 0.55, -1, 1) * sg; f.turnY = clamp(Math.asin(clamp(-m[9], -1, 1)) / 0.45, -1, 1) * -1; f.roll = clamp(Math.atan2(m[1], m[5]) / 0.6, -1, 1) * -sg; f.lookX *= sg; }
     c.face = f;
@@ -119,7 +123,7 @@
   P.duration = function () { return this.take ? this.take.n / this.take.fps : 0; };
 
   function flat(S, trigs) {
-    var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR,
+    var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind,
       hLx: S.hand.L ? S.hand.L.x : NaN, hLy: S.hand.L ? S.hand.L.y : NaN, hRx: S.hand.R ? S.hand.R.x : NaN, hRy: S.hand.R ? S.hand.R.y : NaN, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0 };
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     return o;
@@ -136,7 +140,7 @@
   P.step = function (dt) {
     var app = this.app, ch = app.ch, set = ch.settings || {}, p = this.pose, sm = this.sm, S = this.S, L = this.life, held = this.held;
     this.t += dt; var t = this.t;
-    var tg = { turnX: p.turnX, turnY: p.turnY, roll: p.roll, sway: p.sway, bounce: p.bounce, hL: p.handL, hR: p.handR }, mouth = p.mouth, vis = mouth > 0.08 ? 'Aa' : 'Neutral', brow = p.brow, talking = this.talking, look = null, blinkCam = null;
+    var tg = { turnX: p.turnX, turnY: p.turnY, roll: p.roll, sway: p.sway, bounce: p.bounce, hL: p.handL, hR: p.handR }, mouth = p.mouth, vis = mouth > 0.08 ? 'Aa' : 'Neutral', brow = p.brow, lidUp = p.lidUp, lidLow = p.lidLow, lidTilt = p.lidTilt, talking = this.talking, look = null, blinkCam = null;
 
     if (this.auto) {
       if (!held.head) { tg.turnX = 0.9 * Math.sin(t * 0.55); tg.turnY = 0.55 * Math.sin(t * 0.37 + 1); tg.roll = 0.3 * Math.sin(t * 0.8); }
@@ -151,7 +155,7 @@
       });
       if (!held.face) talking = (t % 7.5) < 4.2;
     }
-    if (this.cam.on) { this.watch(); var f = this.cam.face; if (f) { if (!held.head && f.turnX != null) { tg.turnX = f.turnX; tg.turnY = f.turnY; tg.roll = f.roll; } if (!held.face) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; blinkCam = f; } look = f; } }
+    if (this.cam.on) { this.watch(); var f = this.cam.face; if (f) { if (!held.head && f.turnX != null) { tg.turnX = f.turnX; tg.turnY = f.turnY; tg.roll = f.roll; } if (!held.face) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; lidUp = f.lidUp; lidLow = f.lidLow; lidTilt = f.lidTilt; blinkCam = f; } look = f; } }
 
     /* a voice, or the Talk button's babble */
     if (this.mic.on) { this.listen(); mouth = Math.max(mouth, this.mic.level); vis = this.mic.vis; }
@@ -178,6 +182,7 @@
     var lx = look ? look.lookX : (set.eyesLead !== false ? clamp((tg.turnX - sm.turnX) * 2.6, -1, 1) : 0) + idle * L.sx, ly = look ? look.lookY : (set.eyesLead !== false ? clamp((tg.turnY - sm.turnY) * 2.6, -1, 1) : 0) + idle * L.sy;
     sm.lookX = ease(sm.lookX, clamp(lx, -1, 1), 26, dt); sm.lookY = ease(sm.lookY, clamp(ly, -1, 1), 26, dt);
     sm.browL = ease(sm.browL, brow + (mouth > 0.75 ? 0.25 : 0), 14, dt); sm.browR = sm.browL;
+    sm.lidUp = ease(sm.lidUp, lidUp, 12, dt); sm.lidLow = ease(sm.lidLow, lidLow, 12, dt); sm.lidTilt = ease(sm.lidTilt, lidTilt, 10, dt); sm.wind = ease(sm.wind, p.wind, 3, dt);
     /* blinks: uneven on purpose */
     var bl = 0;
     if (L.bt >= 0) { L.bt += dt; bl = L.bt < 0.11 ? 1 : 0; if (L.bt >= 0.11) L.bt = -1; }
@@ -186,6 +191,7 @@
     S.t = t; S.turnX = sm.turnX; S.turnY = sm.turnY; S.roll = sm.roll; S.sway = sm.sway; S.bounce = sm.bounce;
     S.mouth = sm.mouth < 0.015 ? 0 : sm.mouth; S.viseme = vis; S.lookX = sm.lookX; S.lookY = sm.lookY; S.browL = sm.browL; S.browR = sm.browR;
     S.blinkL = blinkCam ? blinkCam.blinkL : bl; S.blinkR = blinkCam ? blinkCam.blinkR : bl;
+    S.lidUp = sm.lidUp; S.lidLow = sm.lidLow; S.lidTilt = sm.lidTilt; S.wind = sm.wind;
     S.breath = set.breathe !== false ? Math.sin(t * 2 * Math.PI * (set.breathRate || 0.28)) : 0;
     S.hand.L = sm.hL ? { x: sm.hL.x, y: sm.hL.y } : null; S.hand.R = sm.hR ? { x: sm.hR.x, y: sm.hR.y } : null;
     S.flip = !!p.flip; S.trig = {}; for (var id in this.trig) if (this.trig[id]) S.trig[id] = true;

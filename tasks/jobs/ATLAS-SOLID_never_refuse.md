@@ -808,3 +808,62 @@ is not the screen's own autosave and recovery copy (the lifecycle gate cannot dr
 paint that was not moved). Nothing was painted after the reopen. On a first version of this bench the "paint outside"
 check failed with 2277 px: it counted paint the stroke had laid beyond the board's edge, which is in no cell and rightly
 stays; the bench now measures that before the move and requires the same after.
+
+## 2026-11-18: open as it is read, the picture tiles (streaming saves item 2, second half), handoff
+
+**What changed.** A drawing's PICTURE tiles now stay in its file as its paint state already did (section 2026-11-16):
+`JbArchive.openDeferringMedia` notes each plain tile's entry, length and CRC while it checks the file exactly as `open`
+does, and the contents hold `io/DeferredMedia` (now generic, one held-open file for both maps) in place of the tile map.
+The three readers that walked every tile's bytes before the load no longer do: `JbCanvasView.refusalFor` checks the noted
+length, `LineOpenPlan.of` reads only the tiles under items, and `JbCanvasView.load` reads each tile inside its GL task.
+Looks, slabs and strokes are still read whole. **No change to the file format; the refusals are the same code and words.**
+
+**A picture tile that cannot be read again during the load** (the disk failed after the check) ends the load: the canvas
+becomes an empty drawing, the screen says "This drawing could not be read from the phone's storage just now. Your saved
+drawing was kept.", `workingSaveAllowed` goes false so the empty canvas is never saved over the file, and it is written
+to the incident log (`load(opened, onFailed, onDone)`; `JoyBrushActivity.uploadContents`). A drawing with a hole in it is
+never shown. By reading and unit tests only: this path was not made to happen on a phone.
+
+**Let go, then write or delete.** `StagedDrawing.close` and `DrawingRecovery` (`rememberOpened`, `rememberWorking`,
+`close`) release what they handed out before their file is removed or written over. A file still held open cannot be
+renamed or deleted on Windows; Android allows it, and the order is right everywhere.
+
+**It sits on the engine session's JBX-36 load change** (fingerprints of the tiles as they go on, `loadedPrints`): a
+picture tile's size and blankness are now filled in when its bytes are read in the GL task; the fingerprints are still
+taken after all uploads and before `agreeAllPayloads`; a failed load leaves `loadedPrints` null.
+
+**Proof.** Cloud, the landed code (53043357c): `jb-androidkit` 1370 of 1370, `jb-android` 606 of 606 (run on its own; in
+one run with another suite Gradle's configuration cache fails before any test, a known tool fault). Note 9, build
+53043357c, 11-18:
+
+| Check | Result |
+|---|---|
+| The engine session's reopen test (a full oil page saved, the app stopped, the same file opened fresh, one stroke, saved, the screen built again) | "opened drawing: 520 tiles tied to the file in 117 ms"; the first save after the open carried 394 of 536 entries (1.8 s); digest painted = digest rebuilt |
+| Lifecycle gate: full oil page, screen built again / graphics lost / leaves mid-save then graphics lost | digests equal in all three; restore 7.7 s and 7.7 s |
+| Lifecycle gate: ink + pencil + oil, screen built again / graphics lost | digests equal in both; restore 1.1 s |
+
+Earlier the same day-pair on the build before the last two commits (c47b86560): the same cases equal on the Note 9
+(the light graphics-lost case lost its last log line when the phone fell off adb; repeated three times on the Fold,
+equal three times), and the reopen test passing on the Fold.
+
+**Memory, the open on its own** (the reopen test's fresh start opening the full oil page, the app's Java heap sampled
+about once a second until the drawing is open; Note 9, one run each): **105 MB on `joy-creator` c36fd7272, 41 MB with this
+change** (48 MB on the final build's run). Total PSS 327 MB against 267 MB.
+
+**Limits, said plainly.**
+- **Not rerun on Windows.** On the build PC the engine session ran `:joybrush:androidkit:test` on an earlier commit:
+  1370 tests, 2 failed (`ExportCapabilityTest.frozenBrushOnlyDrawingIsAdmittedByStagedReadAndRecovery`,
+  `LineLifecycleTest.stagedReadRefusesSlabbedDrawingsWithoutChangingOrDeletingStagedBytes`), both a file held open while
+  it was renamed or deleted. They are fixed in production order (above) and three tests release what they read; that
+  passes on the cloud's Linux and was NOT run again on Windows (the owner's PC ran out of memory from local Gradle that
+  day, so no local build was started). Whoever next has a Windows run: `./gradlew.bat --offline
+  -Pkotlin.compiler.execution.strategy=in-process --max-workers=1 :joybrush:androidkit:test` under `jb-gradle.lock`.
+- The restore after lost graphics on the full oil page read 7.7 s on this run (6.9 s on 11-16, 6.0 s before any of this):
+  more of the inflate is on the GL thread now. Far under the 30 s watchdogs; one run each, not a careful timing.
+- Every drawing with picture tiles now holds its file open from the read until the load lets go (before, only painted
+  ones did).
+- One run of each case; the owner's own drawings not tried; a failing disk not made to happen.
+
+**What is left of item 2.** The load split over several GL tasks (needed before the paint room is raised: one task that
+inflates and uploads everything grows with the drawing and must stay under the two 30 s watchdogs; a save must not start
+between the steps, so `loadingDrawing` stays true until the last one). Not started.

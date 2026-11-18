@@ -349,6 +349,12 @@ every surface reorders together. Slice carries one segment — drag [ Pan | Pivo
 Ripple ] — because four modes that all change what a drag does must be mutually exclusive, and
 as four separate chips two could be armed at once with reorder silently winning.
 
+**Avatar Studio redesign, web pilot (2026-11-18, job [AVA-1](jobs/AVA-1_avatar_studio_redesign.md)).** Not on the phone.
+
+| Feature | Level | Notes |
+|---|---|---|
+| Avatar Studio web pilot: build a character from a layered `.psd`, loose pictures, a sheet (tap the parts) or one whole drawing (tap head, hands, feet); a body map and one plain-words card per part; pins guessed from the art; perform by dragging the head, hands and body, by Talk, mic or a voice file; record in passes (a second pass replaces only what you touch); save the character, bake a sprite sheet for Sprite Lab | 🔵 pilot | `tools/avatarlab/` (open `index.html` through a local server; also a private Claude artifact). Agent-checked in the in-app browser at phone size 11-18 with the owner's Topps PSD (191 layers: 7 head angles, hinged mouth, blink, two 8-drawing arm fans, tail) and the built-in Pip; take, layered pass, save and reopen, sprite bake and undo checked by script. **Not checked:** any phone, the face camera with a real face, the mic with a real voice. The owner has not tried it. Reuse on the phone: the port map in `tools/avatarlab/README.md` (PuppetPoseResolver, PinWarpStrip, FabrikSolver, DangleSim, puppet mesh engine, tracking bus); new there: the PSD reader and the automatic rig. Help: none yet (pilot). |
+
 > ⚠️ **Avatar Studio is the largest 🟡 block in the app.** Substantial, sophisticated, and
 > never exercised by a human. Recommendation: **present in the launch build, not reachable
 > from the UI.** Ship what has been driven.

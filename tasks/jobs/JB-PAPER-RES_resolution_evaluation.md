@@ -139,3 +139,21 @@ pushed at the stated commits; evaluation app 379,901,966 bytes with the stated f
 - [ ] Today's 17 one-megabyte height PNGs could go the same way (about 14.5 MB to about 7 MB): owner's eye first.
 
 **Not checked today:** nothing installed, nothing painted, no seam judged by eye, Play's size limits not looked up.
+
+### Later on 11-17: the owner's rulings, and a test build on the Note 9
+
+- **Owner ruling: no duplicate papers.** The 5 doubles are out for good (`eval_earlier_` chalkboard_black_01,
+  construction_tan_03, rice_cream_01, sugarcane_01, sugarcane_02). 40 papers remain.
+- **Owner on the options page:** he sees a loss at half width, at 100% and at 300% zoom; the tighter format by
+  itself changes little to his eye. He wants to paint on the full-size papers before any shrinking. A
+  combination is open: colour at full width in the tighter format, tooth smaller (about 46 MB for the 40,
+  estimated from one paper, not measured on all).
+- **Test build, never to land:** branch `claude/paper-eval40-20261117` (18382fbf2) adds the 40 full-size
+  evaluation papers beside the shipping ones (184 MB of paper, app 348 MB). Installed on the Note 9 on 11-17 at
+  14:37; opened once, no crash; the Paper sheet was not opened and nothing was painted by the agent. Any other
+  session's install replaces it. A rebuild on the newest main line follows.
+- **Fluid maps stay whole** (engine session, 11-17): its paper-fibre work reads the direction and pore channels;
+  the visible bleed along fibres still needs a new pigment-carrying term, to be shown in the PC media lab first.
+- **Landed 11-18:** the catalogue rule (a `packed: false` surface may be a grey JPEG) and
+  `joybrush/tools/paper/shrink_papers.py`. Inert: no shipped paper uses them. Cloud tests on the branch:
+  JoyBrush core 3020 and androidkit 1368, none failed (run on the 11-17 base).

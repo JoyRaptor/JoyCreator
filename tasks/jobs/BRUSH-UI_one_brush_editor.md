@@ -207,3 +207,19 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
   watercolour mixes into the orange wash wet in wet; Smudge drags the checkerboard to grey with its taper showing (slider
   ends on the checker too); HB on plain paper; the Pencil and smudge selector rows as ruled.
 - Open: wet oil on the stage is still laid without its thinner (11-16 above), so its mixing with the blob is weak.
+
+## Brush lane, 11-18: 14 underpaint options for the owner to pick
+- Owner (11-18): the fine checker greys too soon; larger checkers, colour checkers, plaid or others; 14 options on a variety
+  of smudge brushes, with texture, paper grain and water if we have them. Test blobs and lines go down before the stroke
+  (they do: the blob is its own pass first).
+- Built: `androidkit/preview/UnderpaintPatterns` (14 patterns in dp: fine/small/medium/large grey checker, black and white,
+  four-colour, orange and teal, rainbow checker, tartan, red gingham, rainbow stripes, diagonal stripes, graph paper, polka
+  dots); the stage takes any as its ground (`replaceWithStrokes(ground = ...)`); debug `UnderpaintSheetBench`
+  (`--ez jb_underpaint_sheet true`) lays each under 9 brushes on a stage-sized canvas and copies the screen.
+- Note 9 sheets (e51d2b429), sent to the owner; his pick owed. What they showed:
+  - Smudge, Flat Paint and the bench-made textured and long-pull smudges really pull the pattern; the larger checkers and
+    the colour patterns show it, the fine one greys.
+  - **Push paints a plain stroke**: the canvas draws the push engine on the stamp path, so it moves no pixels yet.
+  - **Water (watercolour) barely changes paint already on the layer**: clear water does not lift or move it.
+  - **Scraper leaves no mark** on the pattern; Fan blender and the palette knife lay their own grey oil over it.
+  - So a real push, a lifting water brush and a scraper that moves paint would be new brush work if he wants them.

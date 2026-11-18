@@ -23,7 +23,7 @@ class StagedDrawing private constructor(private val file: File) : Closeable {
         closed = true
         // Let go, then delete: the canvas has taken the tiles by now (the screen closes this after its load), and a file
         // that is still held open cannot be deleted everywhere.
-        handed?.let(DeferredMedia::release); handed = null
+        handed?.let { DeferredMedia.release(it) }; handed = null
         file.delete()
     }
 

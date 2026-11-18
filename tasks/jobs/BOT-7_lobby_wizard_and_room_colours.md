@@ -58,8 +58,11 @@ a connected AI only makes it more flexible.
 
 ## Added by the orchestrator, 11-15 (owner)
 - [x] **Talk to him and he does it** ("go to sleep", "hop", "backflip", "beg", "roll over", "shake"): typed, offline, is the
-      sprites lane's (`JoybotDirector.trickFor` in sendMessage). Owed here: a `do_trick` tool for "anything close" with an AI,
-      once `JoybotDirector.trick` is on joy-creator.
+      sprites lane's (`JoybotDirector.trickFor` in sendMessage). 11-18: with an AI, "anything close" ("show me a trick",
+      "do a little dance") reaches the `do_trick` tool (`actions/JoybotActions`): the model names a trick, he does it once
+      the reply is on screen (stopped runs drop it, a room change wins). Only trick words send the tool (router family
+      `joybot`; "flip the clip", "shake the camera less" don't). Proof: `run-actions.sh` (do_trick 8, incl. the list
+      matching `JoybotDirector.TRICKS`), `run-ideas.sh` 1,263. Not yet seen on a device with a model connected.
 - [x] **Jokes, offline:** 66 (`joybot/JokeBook`), none back until most have had a turn. The owner judges the wit.
 - **First run v1 and the spotlight tour engine: the owner's own job** (owner 11-15, via the orchestrator: he makes the
   intro, welcome and getting-started himself with his own footage). Built briefly 11-15 and removed before landing. The

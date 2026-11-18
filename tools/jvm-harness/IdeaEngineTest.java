@@ -1161,6 +1161,17 @@ public class IdeaEngineTest {
                     com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", true, true, true, true, ""));
             check("capture: 'start recording' wakes the capture tools",
                     com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick("start recording please").contains("capture"), "");
+            // do_trick (BOT-7): asking him for a trick sends his trick tool; editing words don't.
+            for (String s : new String[]{"show me a trick", "can you do a backflip for me", "do a little dance", "time for a nap"}) {
+                check("router: '" + s + "' sends do_trick",
+                        com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick(s).contains("joybot"), "");
+            }
+            for (String s : new String[]{"flip the clip", "shake the camera less", "play it back", "jump to the end"}) {
+                check("router: '" + s + "' leaves do_trick out",
+                        !com.fadcam.ui.faditor.ai.joybot.ToolRouter.pick(s).contains("joybot"), "");
+            }
+            eq("router: do_trick is in its own family", "joybot",
+                    com.fadcam.ui.faditor.ai.joybot.ToolRouter.familyOf("do_trick", "joybot"));
         }
 
         // ── SpriteOptions: mouth shapes and key colours as SpriteLab names them (BOT-A31, 11-13) ──

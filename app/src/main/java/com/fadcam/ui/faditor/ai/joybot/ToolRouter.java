@@ -53,6 +53,7 @@ public final class ToolRouter {
         f.put("vislab", "VisLab, the music visualiser room: its looks, their layers and knobs, music links, brand colours");
         f.put("textlab", "TextLab, the film-poster words room: its looks, their sliders and pieces, words, font, background, saving a look");
         f.put("capture", "Capture's camera recorder: start, pause, resume, stop, is it recording");
+        f.put("joybot", "your own tricks: sleep, hop, backflip, beg, roll over, shake");
         f.put("joybrush", "JoyBrush, the drawing room: the open drawing's layers (add, rename, hide, reorder), animation frames, brush and colour, drawing simple shapes");
         FAMILIES = Collections.unmodifiableMap(f);
 
@@ -79,6 +80,7 @@ public final class ToolRouter {
         w("vislab", "vislab|vis lab|visuali[sz]er looks?|music visuali[sz]er");
         w("textlab", "text ?lab|film (title|poster) (look|text|words)|poster (look|text|words)|chrome letters|neon letters|gold letters");
         w("capture", "record(ing)?|film(ing)?|camera|webcam");
+        w("joybot", "tricks?|backflip|hop|beg|roll over|sleep|nap|dance|show off");
         w("joybrush", "joy ?brush|draw\\w*|paint\\w*|brush\\w*|sketch\\w*|strokes?|canvas|doodle|circle|rectangle|ellipse");
         w("project", "export|render|save|share|post|upload|health|broken|check|canvas|aspect|vertical|"
                 + "square|landscape|portrait|tiktok|reels|youtube");
@@ -157,7 +159,7 @@ public final class ToolRouter {
                 {"looks", "looks"}, {"transform", "looks"}, {"motion", "motion"}, {"organise", "organise"},
                 {"slides", "slides"}, {"sources", "media"}, {"transitions", "transitions"},
                 {"text_look", "text"}, {"clip_shape", "clips"}, {"sprite_video", "sprites"}, {"director", CORE}, {"vislab", "vislab"},
-                {"joybrush", "joybrush"}, {"capture", "capture"},
+                {"joybrush", "joybrush"}, {"capture", "capture"}, {"joybot", "joybot"},
                 // BOT-7: making something new is the lobby's own job, so it is always to hand.
                 {"create", CORE}};
         for (String[] p : spec) SPEC_FAMILY.put(p[0], p[1]);

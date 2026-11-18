@@ -21,6 +21,8 @@ public final class AppCtx {
     @Nullable public com.fadcam.ui.library.LibraryItem openItem;
     /** With {@link #openItem}: start a new Studio project from it instead of opening it. */
     public boolean asNewProject;
+    /** A trick for Joybot to do once the reply is shown ({@link JoybotActions}), or null. */
+    @Nullable public String trick;
 
     public AppCtx(@NonNull Context app, @Nullable String projectId) {
         this.app = app;

@@ -3025,26 +3025,31 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * A brush's live preview (owner, 2026-09-30): empties this canvas WITHOUT an undo step and lays [strokes] afresh. For a
      * small canvas used as a preview, never for the person's drawing. Does nothing before [onReady] or mid-stroke.
      */
-    fun replaceWithStrokes(strokes: List<List<PenSample>>, colours: List<Int?> = emptyList(), checker: Boolean = false) {
+    fun replaceWithStrokes(strokes: List<List<PenSample>>, colours: List<Int?> = emptyList(), checker: Boolean = false,
+                           ground: cc.joycreator.joybrush.androidkit.preview.UnderpaintPatterns.Pattern? = null) {
         if (!surfaceReady || drawing) return
         // One fresh layer, and the brush on it (JB-2.04: strokes go to the active layer, so it must be the one re-added).
         val fresh = LayerStack.single(FIRST_LAYER, FIRST_LAYER_NAME)
         stackUi = fresh
         activeLayer = FIRST_LAYER
-        // [checker] (a brush settings stage, owner 11-16): a fine grey checkerboard over everything this view shows, in the
-        // layer itself, where a smudge or an eraser reads and changes it. Squares counted from the view's top left.
-        val ground = if (!checker) null else {
+        // [ground] (a brush settings stage, owner 11-16 and 11-18): a pattern over everything this view shows, in the layer
+        // itself, where a smudge or an eraser reads and changes it, counted from the view's top left. [checker]: the fine
+        // grey checkerboard (UnderpaintPatterns.FINE).
+        val pattern = ground ?: if (checker) cc.joycreator.joybrush.androidkit.preview.UnderpaintPatterns.FINE else null
+        val groundTiles = if (pattern == null) null else {
             val (ax, ay) = view.screenToDoc(0f, 0f)
             val (bx, by) = view.screenToDoc(width.toFloat(), height.toFloat())
             val x0 = kotlin.math.floor(minOf(ax, bx)).toInt(); val y0 = kotlin.math.floor(minOf(ay, by)).toInt()
             val x1 = kotlin.math.ceil(maxOf(ax, bx)).toInt(); val y1 = kotlin.math.ceil(maxOf(ay, by)).toInt()
-            val cell = (STAGE_CHECKER_DP * resources.displayMetrics.density / view.zoom).toInt().coerceAtLeast(2)
-            HashMap<Long, ByteArray>().also { cc.joycreator.joybrush.androidkit.preview.PreviewRaster.checker(it, x0, y0, x1, y1, cell) }
+            HashMap<Long, ByteArray>().also {
+                cc.joycreator.joybrush.androidkit.preview.UnderpaintPatterns.paint(pattern, it, x0, y0, x1, y1,
+                    resources.displayMetrics.density / view.zoom)
+            }
         }
         onGl {
             engine.resetDocument()
             engine.setStack(fresh)
-            ground?.forEach { (key, bytes) -> engine.writeTile(FIRST_LAYER, key, bytes) }
+            groundTiles?.forEach { (key, bytes) -> engine.writeTile(FIRST_LAYER, key, bytes) }
         }
         drawStrokes(strokes, colours)
     }
@@ -4743,8 +4748,6 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
          * Water detail switch, not the view, so the small stage got a full-screen sheet (257 MB, Fold 4, 11-15); at 512 it
          * is about 43 MB, cells of about 1.6 stage px.
          */
-        /** A settings stage's checkerboard squares (dp): fine, so a smudge's taper and warping show (owner, 11-16). */
-        const val STAGE_CHECKER_DP = 4f
         const val PREVIEW_SHEET_LONG_CELLS =512
         /** Fingers are ignored for this long after the pen lifts (palm rejection). */
         const val PALM_GRACE_MS = 400L

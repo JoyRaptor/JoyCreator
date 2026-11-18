@@ -737,8 +737,15 @@ class JoyBrushActivity : Activity() {
         canvas.onRawEvent = { ev -> diag.onRawEvent(ev); boardController?.penEvent(ev) }
         goFullScreen(overlays)
 
+        // Debug: the owner's underpaint options as picture sheets (bench/UnderpaintSheetBench); nothing is read or saved.
+        if (cc.joycreator.joybrush.android.bench.UnderpaintSheetBench.wanted(this)) {
+            benchMode = true
+            finishStartup(false)
+            cc.joycreator.joybrush.android.bench.UnderpaintSheetBench(this, brushes) { finish() }.start()
+            return
+        }
         // Debug stroke replay: a fresh unsaved drawing; the working file is neither read nor ever written (bench/BenchRunner).
-        val bench = cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
+        val bench =cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
         val life = if (bench != null) intent.getStringExtra("jb_bench_life")?.takeIf { it.matches(Regex("[a-z0-9]{1,16}")) } else null
         if (bench != null && life != null) {
             // Not bench mode: every save is real. A first start begins from no file and paints; a screen Android built

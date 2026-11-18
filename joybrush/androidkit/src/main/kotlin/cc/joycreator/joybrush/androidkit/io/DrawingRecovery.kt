@@ -26,7 +26,16 @@ class DrawingRecovery(private val opened: File) {
     /** A newly opened drawing may not be in current.joybrush yet. Keep it before GPU upload. */
     fun rememberOpened(contents: JbContents) {
         CanvasSnapshot.requireSupportedPayload(contents)
-        JbArchive.save(opened, contents)
+        // A drawing whose paint state is still in its file (JbArchive.openDeferringMedia): the recovery copy is a copy of
+        // that file, which was checked whole when it was opened. Saving it again would read every paint tile back into
+        // memory at once, the very thing opening it this way avoids, and inflate the drawing twice.
+        val source = (contents.mediaTiles as? DeferredMedia)?.file
+        when {
+            source == null -> JbArchive.save(opened, contents)
+            source.canonicalFile == opened.canonicalFile -> Unit   // it IS the recovery copy
+            source.isFile -> JbArchive.copySaved(source, opened)
+            else -> JbArchive.save(opened, contents)               // its path is gone; the open file still reads
+        }
         // This is a selected drawing, not another revision of the previous one. Its backup
         // may share the same default document ID, so it must not be used as its fallback.
         backupAllowed = false
@@ -51,7 +60,7 @@ class DrawingRecovery(private val opened: File) {
                 }
             } catch (_: Exception) { null }
             if (id != documentId) continue
-            val contents = try { JbArchive.open(file) } catch (_: Exception) { continue }
+            val contents = try { JbArchive.openDeferringMedia(file) } catch (_: Exception) { continue }
             if (contents.doc.id == documentId) {
                 CanvasSnapshot.requireSupportedPayload(contents)
                 return contents

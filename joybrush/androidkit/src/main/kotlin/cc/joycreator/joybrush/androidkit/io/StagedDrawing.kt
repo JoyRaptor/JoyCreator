@@ -12,7 +12,9 @@ class StagedDrawing private constructor(private val file: File) : Closeable {
     /** Call only after the previous canvas snapshot has been written and released. */
     fun read(): JbContents {
         if (closed) throw JbArchiveException("the selected drawing is no longer available")
-        return JbArchive.open(file).also { CanvasSnapshot.requireSupportedPayload(it) }
+        // The paint state stays in this file until the canvas asks for it tile by tile (it is most of a painted drawing).
+        // A file that is open stays readable after [close] deletes it.
+        return JbArchive.openDeferringMedia(file).also { CanvasSnapshot.requireSupportedPayload(it) }
     }
 
     override fun close() {

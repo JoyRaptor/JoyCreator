@@ -212,6 +212,8 @@ private const val DEFAULT_WET_SHEET = true
 private const val PREF_WASH_WAVE = "joybrush.washWave"
 /** How strongly the paper's grain shows in a wet-sheet wash: "none", "half" (default, the owner 2026-11-11) or "full". */
 private const val PREF_WASH_GRAIN = "joybrush.washGrain"
+/** Watercolour is drawn into thirsty paper along its fibres (PaperFibres): "off" (default: the water as before), "on" or "strong". */
+private const val PREF_PAPER_FIBRES = "joybrush.paperFibres"
 /** How much a loaded brush lifts of a wash it goes back over: "hardly", "little" (default), "more" or "full" (as before 11-10). */
 private const val PREF_WASH_LIFT = "joybrush.washLift"
 /** The paint engine for pencil, watercolour and oil: "atlas" (the whole layer) or "window" (the old 1024 px patch). */
@@ -451,12 +453,16 @@ class JoyBrushActivity : Activity() {
             var warnings: List<String> = emptyList()) : SaveDest()
         class BoardHandoff(val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest() {
             var bundle: File? = null
+            /** A plain image board: handed over as its picture alone, not as a sheet with its json. */
+            val image: Boolean get() = target.kind == cc.joycreator.joybrush.core.doc.BoardKind.CANVAS
         }
     }
 
     /** An export on its way to the file picker: [boardId] null = the whole drawing; [layered] = OpenRaster, not PNG. */
     private data class PngTarget(val documentId: String, val boardId: String?, val frameId: String?, val includePaper: Boolean,
-                                 val layered: Boolean = false)
+                                 val layered: Boolean = false,
+                                 /** FX-1: the picture is written into this screen's cache and handed to Studio, not to a file the person chose. */
+                                 val toStudio: Boolean = false)
     private var pendingPng: PngTarget? = null
     private var pendingBoardExport: cc.joycreator.joybrush.androidkit.io.BoardExportRequest? = null
     private var boardBackdrop: cc.joycreator.joybrush.android.board.BoardBackdrop? = null
@@ -754,7 +760,9 @@ class JoyBrushActivity : Activity() {
             benchLifeFile = f
             if (savedInstanceState == null) {
                 benchLifeSpec = bench
-                f.delete(); File(f.path + ".bak").delete(); File(f.path + ".tmp").delete()
+                // `jb_bench_life_keep`: the file an earlier run left is OPENED, as a drawing picked from the Library is,
+                // and this run's strokes go on top of it (the first save after an open; JBX-36).
+                if (!intent.getBooleanExtra("jb_bench_life_keep", false)) { f.delete(); File(f.path + ".bak").delete(); File(f.path + ".tmp").delete() }
             }
         } else if (bench != null) {
             benchMode = true
@@ -1321,6 +1329,13 @@ class JoyBrushActivity : Activity() {
             grain = when (prefs.getString(PREF_WASH_GRAIN, "half")) { "none" -> 0.0; "full" -> 1.0; else -> 0.5 })
         cc.joycreator.joybrush.core.media.WetStroke.lift =
             when (prefs.getString(PREF_WASH_LIFT, "little")) { "hardly" -> 0.03; "more" -> 0.5; "full" -> 1.0; else -> 0.2 }
+        // Paper fibres (2026-11-17): off is the water as it always was. Not while a bench has set it for its own run.
+        if (!benchMode) cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.let { pf ->
+            val level = prefs.getString(PREF_PAPER_FIBRES, "off")
+            pf.on = level == "on" || level == "strong"
+            pf.bleed = if (level == "strong") 2.0 else 1.0
+            pf.strength = if (level == "strong") 1.3 else 1.0
+        }
     }
 
     /**
@@ -1450,6 +1465,16 @@ class JoyBrushActivity : Activity() {
             box.addView(menuRow("Paper grain in washes: ${mapOf("none" to "None", "half" to "Half", "full" to "Full")[grain] ?: "Half"}",
                 "How strongly the paper's fine tooth shows in watercolour painted while zoomed out. Tap to change") {
                 prefs.edit().putString(PREF_WASH_GRAIN, when (grain) { "none" -> "half"; "half" -> "full"; else -> "none" }).apply()
+                applyWashTaste()
+                popovers.close(); moreMenu(anchor)
+            })
+        }
+        // Paper fibres (2026-11-17), wet sheet only: watercolour is drawn into thirsty paper along its fibres. Off = as before.
+        if (wetSheet) {
+            val fibres = prefs.getString(PREF_PAPER_FIBRES, "off") ?: "off"
+            box.addView(menuRow("Paper fibres: ${mapOf("off" to "Off", "on" to "On", "strong" to "Strong")[fibres] ?: "Off"}",
+                "Wet watercolour creeps into thirsty paper along its fibres and pores: feathered edges on rice paper, crisp ones on sized watercolour paper. Tap to change; the next wash on dry paper takes it") {
+                prefs.edit().putString(PREF_PAPER_FIBRES, when (fibres) { "off" -> "on"; "on" -> "strong"; else -> "off" }).apply()
                 applyWashTaste()
                 popovers.close(); moreMenu(anchor)
             })
@@ -2797,6 +2822,7 @@ class JoyBrushActivity : Activity() {
                             is SaveDest.Working -> "The autosave did not work: $problem"
                         },
                     )
+                    if (dest is SaveDest.Png && dest.target.toStudio) dest.uri.path?.let { File(it).parentFile?.deleteRecursively() }
                     // A working save that failed is still owed: ask again after the usual quiet.
                     if (dest is SaveDest.Working) {
                         ui.removeCallbacks(idleSave)
@@ -2807,16 +2833,27 @@ class JoyBrushActivity : Activity() {
                     // working file is up to date: `changes` is left exactly as it was.
                     toast("Copy saved")
                 } else if (problem == null && dest is SaveDest.Png && !destroyed) {
-                    toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
+                    if (dest.target.toStudio) sendPictureToStudio(dest.uri)
+                    else toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
                 } else if (problem == null && dest is SaveDest.BoardExport && !destroyed) {
                     val saved=if(dest.target.folder) "Board files exported into a new folder" else "Board exported"
                     toast((listOf(saved)+dest.warnings).joinToString(". "))
                 } else if(problem == null && dest is SaveDest.BoardHandoff) {
                     val bundle=dest.bundle
-                    if(!destroyed && bundle != null) startActivity(Intent().setClassName(packageName,
-                        "com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
-                        .putExtra("joybrush_board_bundle",bundle.absolutePath)
-                        .putExtra("joybrush_board_studio",dest.target.format == cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO))
+                    if(!destroyed && bundle != null) {
+                        val toStudio=dest.target.format == cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.STUDIO
+                        val go=Intent().setClassName(packageName,"com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
+                            .putExtra("joybrush_board_bundle",bundle.absolutePath)
+                            .putExtra("joybrush_board_studio",toStudio)
+                            .putExtra("joybrush_board_image",dest.image)
+                        // FX-1: Joybot carries the board to Studio or SpriteLab. The show needs a picture of this screen as it
+                        // is; the board is already saved, and the picture never holds the hand-off up (RoomShot waits 0.3 s at most).
+                        if(cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
+                            cc.joycreator.joybrush.android.handoff.RoomShot.capture(this,canvas,joybotBtn) {
+                                if(destroyed) bundle.deleteRecursively() else { startActivity(go); overridePendingTransition(0,0) }
+                            }
+                        else startActivity(go)
+                    }
                     else bundle?.deleteRecursively()
                 } else if (problem == null && dest is SaveDest.Working) {
                     strokeSaveClock.saved(android.os.SystemClock.elapsedRealtime())
@@ -2837,6 +2874,7 @@ class JoyBrushActivity : Activity() {
         // save (the pen waited 0.45 s for a full page to be read on the Note 9). The first such save finds nothing
         // remembered and reads everything; leaving reads everything; and this one reads everything again if the file
         // cannot stand in for what was not read.
+        val leaving = viewPausePending
         val sparse = dest is SaveDest.Working && !viewPausePending &&
             cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly
         lateinit var take: (Boolean) -> Unit
@@ -2866,7 +2904,7 @@ class JoyBrushActivity : Activity() {
                                 "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
                             recovery.rememberWorking(file)
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
-                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole)
+                            if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole, leaving = leaving)
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)
@@ -2882,7 +2920,8 @@ class JoyBrushActivity : Activity() {
                             contentResolver,dest.uri,cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),dest.target,cacheDir)
                         is SaveDest.BoardHandoff -> {
                             val prepared=cc.joycreator.joybrush.androidkit.io.BoardExport.stage(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),
-                                dest.target.copy(format=cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
+                                dest.target.copy(format=if(dest.image) cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.PNG
+                                    else cc.joycreator.joybrush.core.chrome.BoardExportLayout.Format.SPRITE_SHEET),cacheDir)
                             dest.bundle=prepared.directory
                         }
                     }
@@ -2944,6 +2983,13 @@ class JoyBrushActivity : Activity() {
             val failed: (String) -> Unit = { why -> answer("Could not read the drawing: $why") }
             val keepWet = !viewPausePending && dest !is SaveDest.Open && dest !is SaveDest.BoardHandoff
             if (sparse) { workingSparseInFlight = true; canvas.snapshotSparse(onContents, failed, keepWet, readAll = whole) }
+            // Leaving: everything is read (the thumbnail needs it), with each tile's fingerprint, so the file still
+            // stands in for what did not change when it is known only from having been opened (JbArchive.memoOf).
+            else if (dest is SaveDest.Working && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.on && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.rereadChangedOnly)
+                canvas.snapshotSparse(onContents, failed, keepWet, readAll = true)
+            // An export draws the picture and nothing else: the paint state under it is not read back for it.
+            else if (dest is SaveDest.Png || dest is SaveDest.BoardExport || dest is SaveDest.BoardHandoff)
+                canvas.snapshotPicture({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
             else canvas.snapshot({ onContents(cc.joycreator.joybrush.androidkit.io.SparseContents(it)) }, failed, keepWet)
         } catch (_: OutOfMemoryError) {
             answer("this device has too little memory to read the drawing for saving")
@@ -3073,6 +3119,15 @@ class JoyBrushActivity : Activity() {
                 if (destroyed) { finishStartup(false); return@post }
                 if (read == null) finishStartup(true)
                 else showContents(read.contents, keepRecoveryCopy = false) { loaded ->
+                    // The drawing on the canvas is this file's: its first save can take what does not change from the
+                    // file, like every later one (JbArchive.memoOf). Not when it came from the backup beside it.
+                    val prints = canvas.takeLoadedPrints()
+                    if (loaded && !read.recoveredBackup && prints != null && workingSaveMemo == null) fileIo.execute {
+                        val began = android.os.SystemClock.elapsedRealtime()
+                        val memo = try { JbArchive.memoOf(file, prints.tilePrints, prints.mediaPrints) } catch (e: Throwable) { null }
+                        if (memo != null && workingSaveMemo == null) workingSaveMemo = memo
+                        android.util.Log.i("JoyBrushSave", "opened drawing: ${if (memo != null) "${prints.tilePrints.size + prints.mediaPrints.size} tiles tied to the file" else "the file could not be tied to the canvas"} in ${android.os.SystemClock.elapsedRealtime() - began} ms")
+                    }
                     if (loaded && read.recoveredBackup) toast("Recovered your drawing from its backup")
                     if (loaded) finishStartup(true) else startupFailed(file, "the drawing could not be shown")
                 }
@@ -3368,7 +3423,35 @@ class JoyBrushActivity : Activity() {
                 putExtra(Intent.EXTRA_TITLE, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(name) + if (layered) ".ora" else ".png")
             }, REQUEST_EXPORT_PNG)
         })
+        // Owner, 16 Nov: "I see export to file. I don't see export to another place." The whole drawing goes to Studio
+        // too, as one picture: a new project made of it, or a layer in a project you pick there (FX-1 carries it over).
+        if (whole && !layered) box.addView(menuRow("Send to Studio  ›", "Open the whole drawing in Studio as a picture") {
+            boardController?.stopPreview()
+            popovers.close()
+            val name = workingFile()?.let { f -> cc.joycreator.joybrush.android.library.DrawingLibrary.list(this).firstOrNull { it.file == f.name }?.name } ?: doc.name
+            // The receiver owns exactly this kind of folder in the cache, and deletes it once it has the picture.
+            val stage = File(cacheDir, "jb-board-export-" + java.util.UUID.randomUUID())
+            if (!stage.mkdirs()) { toast("Couldn't prepare the picture"); return@menuRow }
+            toast("Preparing picture…")
+            saves.request(SaveReason.EXPLICIT, SaveDest.Png(
+                Uri.fromFile(File(stage, cc.joycreator.joybrush.core.export.AnimExport.safeBaseName(name) + ".png")),
+                PngTarget(doc.id, null, null, paper, layered = false, toStudio = true)))
+        })
         popovers.show(box, anchor, Popovers.Side.BESIDE, widthDp = 240f)
+    }
+
+    /** FX-1: the picture just written for Studio is handed over, as a board is (with a picture of this screen for the show). */
+    private fun sendPictureToStudio(picture: Uri) {
+        val stage = picture.path?.let { File(it).parentFile } ?: return
+        val go = Intent().setClassName(packageName, "com.fadcam.ui.faditor.sprite.JoyBrushBoardImportActivity")
+            .putExtra("joybrush_board_bundle", stage.absolutePath)
+            .putExtra("joybrush_board_studio", true)
+            .putExtra("joybrush_board_image", true)
+        if (cc.joycreator.joybrush.android.handoff.RoomShot.wanted(this))
+            cc.joycreator.joybrush.android.handoff.RoomShot.capture(this, canvas, joybotBtn) {
+                if (destroyed) stage.deleteRecursively() else { startActivity(go); overridePendingTransition(0, 0) }
+            }
+        else startActivity(go)
     }
 
     /** The chosen export, encoded in full before the destination is touched. File thread. */

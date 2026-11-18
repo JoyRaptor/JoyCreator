@@ -251,7 +251,7 @@ object DrawingLibrary {
      */
     @JvmStatic
     @JvmOverloads
-    fun onSaved(context: Context, file: File, contents: JbContents, whole: Boolean = true) {
+    fun onSaved(context: Context, file: File, contents: JbContents, whole: Boolean = true, leaving: Boolean = false) {
         val app = context.applicationContext
         val dir = file.parentFile ?: return
         try {
@@ -266,7 +266,9 @@ object DrawingLibrary {
             val thumb = File(File(dir, THUMBS), "${file.name}.png")
             // [whole] false: a save that read back only the tiles that changed. Its contents are not the picture, so the
             // thumbnail waits for a save that read everything (leaving the screen always is one).
-            if (whole && (!thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
+            // [leaving]: the person is about to see the Library, so its picture is made from this very save whatever its age
+            // (it could be 45 s of drawing behind).
+            if (whole && (leaving || !thumb.isFile || System.currentTimeMillis() - thumb.lastModified() > THUMB_EVERY_MS)) {
                 thumbnailOf(contents)?.let { bmp ->
                     thumb.parentFile?.mkdirs()
                     val tmp = File(thumb.path + ".tmp")

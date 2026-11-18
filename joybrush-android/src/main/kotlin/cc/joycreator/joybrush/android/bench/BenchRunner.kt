@@ -146,6 +146,31 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 * sheet's water dries where it lies; with `jb_sheet_print_hold_ms` its print waits that long after).
                 */
                val then: List<String> = emptyList(),
+               /**
+                * `jb_bench_board animation`: before the first stroke an animation board is laid over the middle of the page
+                * (as the app makes one), so the strokes land partly on its first frame and partly on the shared canvas
+                * around it. The step `addframe` in `jb_bench_then` then adds a blank frame, which becomes the one shown.
+                */
+               val board: String? = null,
+               /** `jb_wc_whole_tiles`: the watercolour line finishes whole tiles for every batch of dabs, as before 2026-11-16. */
+               val wcWholeTiles: Boolean = false,
+               /**
+                * `jb_wet_fibres` (a number, 1 = as the paper's catalogue row says) and `jb_wet_pores`: watercolour follows the
+                * paper's fibre direction and pore capacity (PaperFibres). `jb_bench_paper`: the surface id to paint on.
+                */
+               val wetFibres: Double? = null,
+               val wetPores: Double? = null,
+               /** `jb_wet_bleed`: the bleed's pace, times the paper's own (PaperFibres.bleed). */
+               val wetBleed: Double? = null,
+               /** `jb_wet_fibres_on` (boolean): the switch itself (PaperFibres.on); any of the numbers above also turns it on. */
+               val wetFibresOn: Boolean? = null,
+               /** `jb_wet_tune "felt=0.02,sieve=0.9"`: the bleed's tuning numbers by name (PaperFibres.tune). */
+               val wetTune: Map<String, Double> = emptyMap(),
+               /** `jb_wet_fibre_angle`: every fibre at this angle in degrees (PaperFibres.forceAngleDeg); "none" clears it. */
+               val wetFibreAngle: String? = null,
+               val paper: String? = null,
+               /** `jb_wc_finish_check`: each partial finish is compared with a whole one; the step `wccheck` in `jb_bench_then` reports. */
+               val wcFinishCheck: Boolean = false,
                /** Debug-only resolved nominal stamp size; null retains the actual recipe. */
                val sizeOverridePx: Float? = null,
                /** `jb_bench_under`: the brush that draws the test stroke's colour stripes (cases `tstripe*`), e.g. a soft airbrush. */
@@ -175,6 +200,21 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
 
     fun start() {
         spec.editableLines?.let { canvas.editableLines = it; Log.i(TAG, "editable lines override: $it") }
+        canvas.benchWcWholeTiles(spec.wcWholeTiles)
+        cc.joycreator.joybrush.androidkit.gl.media.PaperFibres.let { pf ->
+            pf.logPace = true
+            spec.wetFibres?.let { pf.strength = it.coerceIn(0.0, 4.0) }
+            spec.wetPores?.let { pf.pores = it.coerceIn(0.0, 1.0) }
+            spec.wetBleed?.let { pf.bleed = it.coerceIn(0.0, 8.0) }
+            spec.wetFibreAngle?.let { pf.forceAngleDeg = it.toDoubleOrNull() }
+            for ((name, v) in spec.wetTune) if (name in pf.tune) pf.tune[name] = v else Log.w(TAG, "paper fibres: no tuning number called $name")
+            if (spec.wetFibres != null || spec.wetPores != null || spec.wetBleed != null || spec.wetFibreAngle != null || spec.wetTune.isNotEmpty()) pf.on = true
+            spec.wetFibresOn?.let { pf.on = it }
+            if (pf.on || spec.wetFibresOn != null) Log.i(TAG, "paper fibres: ${if (pf.on) "on" else "off"}, bleed ${pf.bleed}, fibres ${pf.strength}, pores ${pf.pores}, angle ${pf.forceAngleDeg}, ${pf.tune.toSortedMap()}")
+        }
+        spec.paper?.let { id -> canvas.applyDocumentPaper(cc.joycreator.joybrush.core.doc.Paper(textureId = id)); Log.i(TAG, "paper: $id") }
+        canvas.benchWcFinishCheck(spec.wcFinishCheck)
+        if (spec.wcWholeTiles) Log.i(TAG, "watercolour line: whole tiles finished for every batch (the old way)")
         canvas.mediaLegacyWindow = spec.legacy
         spec.slope?.let { canvas.setMediaSlope(it[0], it[1]) }
         canvas.mediaWetQuality = spec.wetSubsteps?.let { n ->
@@ -285,6 +325,37 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             "dry" -> canvas.debugDryWetSheet()
             "save" -> canvas.snapshot({ c -> Log.i(TAG, "then: snapshot of ${c.tiles.size} tiles; tile incidents this run: ${cc.joycreator.joybrush.androidkit.diag.TileIncidents.count}") }, { why -> Log.w(TAG, "then: snapshot failed: $why") })
             "unhog" -> canvas.benchUnhogGpu()
+            "wccheck" -> canvas.benchWcFinishReport { line -> Log.i(TAG, "then: wccheck: $line") }
+            // picturecmp: the picture alone, as an export takes it (JbCanvasView.snapshotPicture), against a whole snapshot:
+            // the same picture tiles byte for byte, no paint state, and what it saved in time and memory.
+            "picturecmp" -> {
+                val t0 = android.os.SystemClock.elapsedRealtime()
+                canvas.snapshotPicture({ p ->
+                    val t1 = android.os.SystemClock.elapsedRealtime()
+                    canvas.snapshot({ a ->
+                        val t2 = android.os.SystemClock.elapsedRealtime()
+                        val same = p.tiles.size == a.tiles.size && p.tiles.all { (k, v) -> a.tiles[k]?.contentEquals(v) == true }
+                        val listed = p.doc.layers.sumOf { l -> l.cels.sumOf { it.floatTiles.size } }
+                        val shown = try { cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(p); "an export takes it" } catch (e: Exception) { "AN EXPORT REFUSES IT: ${e.message}" }
+                        Log.i(TAG, "then: picturecmp: ${p.tiles.size} picture tiles ${if (same) "byte for byte the whole snapshot's" else "DIFFERENT from the whole snapshot's"}, " +
+                            "${p.mediaTiles.size} paint store tiles and $listed listed (the whole one: ${a.mediaTiles.size}, ${a.mediaTiles.values.sumOf { it.size.toLong() } shr 20} MB); " +
+                            "read in ${t1 - t0} ms against ${t2 - t1} ms; $shown")
+                    }, { why -> Log.w(TAG, "then: picturecmp: whole snapshot failed: $why") })
+                }, { why -> Log.w(TAG, "then: picturecmp: FAILED: $why") })
+            }
+            // addframe: a blank frame on the animation board (`jb_bench_board animation`); it becomes the frame shown, so
+            // what was painted on the first frame is no longer on the screen and must still be saved and come back.
+            "addframe" -> {
+                var n = 0
+                canvas.editBoards { d ->
+                    val board = d.boards.last { it.kind == cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION }
+                    cc.joycreator.joybrush.core.doc.RegionDocumentOps.addFrame(d, board.id, cc.joycreator.joybrush.core.doc.NewFrame.BLANK) { "bench-frame-${System.nanoTime()}-${++n}" }
+                }
+                canvas.benchState(readPixels = false) { st, err ->
+                    val b = st?.doc?.boards?.lastOrNull { it.kind == cc.joycreator.joybrush.core.doc.BoardKind.ANIMATION }
+                    Log.i(TAG, "then: addframe: ${b?.frames?.size ?: "no"} frames, showing ${b?.frames?.indexOfFirst { it.id == b.currentFrameId }?.plus(1)}${err?.let { "; $it" }.orEmpty()}")
+                }
+            }
             // The lifecycle gate (jb_bench_life, JBX-37). digest: what the drawing holds now, as two checksums in the log.
             // cover: another screen over this one (pause, stop, save; Back returns). recreate: Android builds the screen
             // again; this runner ends with the old screen and the new one logs its own digest.
@@ -542,7 +613,19 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         // taken away before the first stroke (`jb_gpu_hog_mb`: the lost-tile hunt).
         ui.postDelayed({
             val hog = spec.gpuHogMb
-            if (hog == null) next() else canvas.benchHogGpu(hog) { said -> Log.i(TAG, said); next() }
+            val begin = { if (hog == null) next() else canvas.benchHogGpu(hog) { said -> Log.i(TAG, said); next() } }
+            if (spec.board == "animation") {
+                val s = (minOf(480, (minOf(canvas.pageWidth, canvas.pageHeight) * 0.8).toInt()) / 8) * 8
+                val rect = cc.joycreator.joybrush.core.doc.RectPx((canvas.pageWidth - s) / 2, (canvas.pageHeight - s) / 2, s, s)
+                var n = 0
+                canvas.editBoards { d -> cc.joycreator.joybrush.core.doc.BoardDocumentOps.createAnimation(d, "Bench animation", rect) { "bench-board-${++n}" } }
+                // The read-back queues behind the edit, so its answer is also "the edit has been applied".
+                canvas.benchState(readPixels = false) { st, err ->
+                    val made = st?.doc?.boards?.firstOrNull { it.name == "Bench animation" }
+                    Log.i(TAG, if (made != null) "board: an animation board ${made.rect.w} x ${made.rect.h} at (${made.rect.x}, ${made.rect.y}), ${made.frames.size} frame" else "board: NOT MADE: $err")
+                    begin()
+                }
+            } else begin()
         }, spec.startMs)
     }
 
@@ -588,6 +671,16 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         if (case == "duplicateFailureProbe") {
             // R2-JB-01: a layer copy the phone has no memory for, on a layer with frames, a mask and strokes.
             DuplicateFailureBench(canvas, spec, run) { next() }.start()
+            return
+        }
+        if (case == "lineWidthRedoProbe") {
+            // L9: an editable line made wider, undone and redone; every step must be the exact picture it had.
+            LineWidthRedoBench(canvas, spec, preset, run) { next() }.start()
+            return
+        }
+        if (case == "washOverLinesProbe") {
+            // ATLAS-SOLID C6: a watercolour wash on a layer that holds an editable line; the line stays a line.
+            WashOverLinesBench(canvas, spec, preset, run) { next() }.start()
             return
         }
         if (case == "lostTileProbe") {
@@ -681,6 +774,30 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         val capturedJoint = case == "recordedCapturedJointProbe"
         val watercolourEdits = case == "recordedWatercolourEditProbe"
         val watercolourOrdinary = case == "recordedWatercolourOrdinaryProbe"
+        if (case == "cellSwapLiveProbe" || case == "boardDragLiveProbe") {
+            // R2-JB-03, in the real canvas: oil on a sprite cell (or in an animation board's frame), the cells swapped (the
+            // board dragged over itself) at once, oil again, undo and redo, then saved to a file and opened again.
+            CellSwapLiveBench(canvas, spec, run, drag = case == "boardDragLiveProbe") { next() }.start()
+            return
+        }
+        if (case == "cellPayloadProbe") {
+            // R2-JB-03, second half: a sprite cell swap and a board dragged over itself keep their realistic-paint state.
+            canvas.runCellPayloadProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("passed", false).put("error", result) }
+                logRecordedReport(report.put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
+        if (case == "framePayloadProbe") {
+            // R2-JB-03: a duplicated frame keeps its realistic-paint state (a throwaway engine).
+            canvas.runFramePayloadProbe { result ->
+                val report = try { org.json.JSONObject(result) } catch (e: Exception) { org.json.JSONObject().put("passed", false).put("error", result) }
+                logRecordedReport(report.put("case", case).put("run", run), preset.id, case, run)
+                ui.postDelayed({ next() }, spec.settleMs)
+            }
+            return
+        }
         if (case == "nativeFrameDuplicateProbe") {
             canvas.runNativeFrameDuplicateProbe { result ->
                 val report = org.json.JSONObject(result).put("case", case).put("run", run)
@@ -767,7 +884,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             spec.zooms.getOrNull(spec.cases.indexOf(case))?.let { canvas.view.zoom = it; canvas.requestRender(); Log.i(TAG, "view zoom: $it") }
             ui.postDelayed({ if (!terminal) guarded {
                 canvas.startFrameStats { if (!terminal) guarded {
-                    StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = {}, onUp = {
+                    StrokeReplay.play(canvas, samples, canvas.frameStats, onDown = { spec.editableLines?.let { canvas.editableLines = it } }, onUp = {
                         if (spec.fullTail) { terminal = true; ui.removeCallbacks(timeout); refusals.close(); waitForFullTail(preset, case, run, samples.size) }
                         else ui.postDelayed({ if (!terminal) guarded {
                             canvas.finishFrameStats { summary -> if (!terminal) {
@@ -911,6 +1028,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             // An ordinary clear is queued first. Admission subsequently checks the actual EMPTY
             // physical target on GL before any DOWN; a fixed delay alone never grants admission.
             canvas.preset = preset
+            // In the real screen (jb_bench_life) the host sets the switch from its own saved choice after this runner starts.
+            spec.editableLines?.let { canvas.editableLines = it }
             canvas.brush = diagnosticBrush
             canvas.colorArgb = diagnosticColor
             canvas.clearCanvas()
@@ -1039,10 +1158,18 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         private const val FULL_TAIL_IDLE_CONFIRMATIONS = 2
 
         /** The bench request in [intent], or null: debug builds only, and only when asked for. */
+        /** A number given as text (`--es name 1.5`) or as a float (`--ef`); null when the extra is absent. */
+        private fun number(intent: Intent, name: String): Double? =
+            if (!intent.hasExtra(name)) null else intent.getStringExtra(name)?.toDoubleOrNull() ?: intent.getFloatExtra(name, 0f).toDouble()
+
         fun spec(intent: Intent?, info: ApplicationInfo): Spec? {
             if (intent == null || info.flags and ApplicationInfo.FLAG_DEBUGGABLE == 0) return null
             val cases = intent.getStringExtra("jb_bench") ?: return null
             fun list(s: String?) = s?.split(',')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty()
+            // `jb_shader_dir`: shaders pushed to the app's own files folder stand in for the packaged ones (tuning a shader
+            // on the phone without a build). Set before the graphics thread compiles anything.
+            cc.joycreator.joybrush.androidkit.gl.ShaderLibrary.overrideDir = if (!intent.getBooleanExtra("jb_shader_dir", false)) null
+                else java.io.File(android.os.Environment.getExternalStorageDirectory(), "Android/data/${info.packageName}/files/jb_shaders")
             return Spec(list(cases), list(intent.getStringExtra("jb_bench_brushes")).ifEmpty { listOf(if ("matrix" in list(cases)) "all" else "ink") },
                 intent.getIntExtra("jb_bench_runs", 3).coerceIn(1, 20), intent.getBooleanExtra("jb_bench_clear", true),
                 intent.getBooleanExtra("jb_media_legacy", false),
@@ -1075,6 +1202,17 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),
+                board = intent.getStringExtra("jb_bench_board"),
+                wcWholeTiles = intent.getBooleanExtra("jb_wc_whole_tiles", false),
+                wetFibres = if (intent.hasExtra("jb_wet_fibres")) intent.getStringExtra("jb_wet_fibres")?.toDoubleOrNull() ?: intent.getFloatExtra("jb_wet_fibres", 0f).toDouble() else null,
+                wetPores = number(intent, "jb_wet_pores"),
+                wetBleed = number(intent, "jb_wet_bleed"),
+                wetTune = intent.getStringExtra("jb_wet_tune")?.split(',')?.mapNotNull { p ->
+                    val kv = p.split('='); kv.getOrNull(1)?.trim()?.toDoubleOrNull()?.let { kv[0].trim() to it } }?.toMap().orEmpty(),
+                wetFibresOn = if (intent.hasExtra("jb_wet_fibres_on")) intent.getBooleanExtra("jb_wet_fibres_on", false) else null,
+                paper = intent.getStringExtra("jb_bench_paper"),
+                wetFibreAngle = intent.getStringExtra("jb_wet_fibre_angle"),
+                wcFinishCheck = intent.getBooleanExtra("jb_wc_finish_check", false),
                 mediaBudgetMb = intent.getIntExtra("jb_media_budget_mb", -1).takeIf { it > 0 },
                 dropDry = if (intent.hasExtra("jb_drop_dry")) intent.getBooleanExtra("jb_drop_dry", true) else null,
                 parkUnits = intent.getIntExtra("jb_water_park_units", -1).takeIf { it >= 0 },

@@ -94,7 +94,7 @@ Still to prove or build is in "What is left".
 | 3 | A bigger wet-paint room (streaming saves) | **Not started.** A painted oil tile is about 1.28 MB (two paint stores and its ground), so the 315 MB room is about 246 tiles wet at once; past that old paint sets (never a refusal). Growing the room needs saves that stream tile by tile through `JbArchive`, `readContents` and open: a multi-day job in the save path | Second review E4. The Codex claim on `JoyBrushActivity` save/restore is dead (orchestrator, 11-13): whoever takes this claims it on the BOARD |
 | 4 | A wet wash wider than the screen when the view moves | The part still in view stays wet; the rest is parted off through a soft band and sets (spec rule 10) | Note 9 films: a stroke painted after zooming in runs into the still-wet wash; no line at the join (brightness measured along each band); undo and redo across the parting go one press a step. The kept part goes on spreading while the rest has set, so their texture differs a little at the edge of the view |
 | 5 | Watercolour at full speed on the fine grid | No engine change. Measured with the profiler off: three Round strokes 39 frames a second at 0.94 of the clock, three Wash strokes 33 at 0.76, the nine-band page at 31 % 31 at 0.85 | My 11-11 figure of 0.33 was wrong: the profiler's own waits were left on (a setprop lasts until reboot). A mask of live blocks was tried and taken out (spec rule 6) |
-| 6 | The wet sheet on animation frames, and on layers with editable lines | **Frames: built** (spec rule 17). **Layers with lines: open, no owner**: the recorded-line engine draws them and Codex has left | Note 9 matrix on an animation board, final build: watercolour 161047 px, oil 98839, pencil 28741, all in the frame's own cel, none on the shared plane inside the board, undo exact; canvas and sprite boards work (morning build) |
+| 6 | The wet sheet on animation frames, and on layers with editable lines | **Frames: built** (spec rule 17). **Layers with lines: built 11-16** (section "11-16: watercolour on a layer with editable lines"); before that: open, no owner: the recorded-line engine draws them and Codex has left | Note 9 matrix on an animation board, final build: watercolour 161047 px, oil 98839, pencil 28741, all in the frame's own cel, none on the shared plane inside the board, undo exact; canvas and sprite boards work (morning build) |
 | 7 | The 10-31 lost squares | The Engine Lead's 11-01 fix is the likely cure: a slept engine's textures were deleted twice (`MediaLayerEngine.release`). New: every tile failure is written to `files/joybrush-incidents.log` with what the engine held (`TileIncidents`), and a bench takes graphics memory away first (`jb_gpu_hog_mb`) | 2 and 3 GB of noise held (and 1 to 3 GB of flat colour on the morning build), then oil strokes and a save: no failed frame, no incident line. All 23 realistic-paint brushes, two strokes each: none. Not reproduced |
 | 8 | Symmetry for realistic paint in the atlas | Works: every copy is its own lane, nothing is pinned or refused | Note 9 pictures: Oil round, 6B pencil and watercolour on the wet sheet, six copies each |
 
@@ -186,7 +186,9 @@ them.
    back only the tiles that changed" below). The budget (`LayerBudget.savePaintBudgetBytes`) is still set by the first
    save of a screen and the save on leaving, which read everything, and by the heap.
 2. **Open as it is read**: list the entries (`ZipFile`), then inflate and upload in batches, so opening holds a batch
-   and not the drawing. `JbCanvasView.load` uploads everything in one GL task today.
+   and not the drawing. `JbCanvasView.load` uploads everything in one GL task today. **11-16: built for the paint state** (section "2026-11-16: open as it is read"
+   below: the media tiles stay in the file until the canvas takes them tile by tile; still one GL task; the picture
+   tiles are still read whole).
 3. **Then** raise the save's budget to the room, then `MEDIA_RAM_SHARE` and the read limits (`MAX_TOTAL_BYTES` 1 GiB,
    `MAX_ENTRIES` 20,000), and count the atlas's own memory in the admission check (second review E3).
 4. Small and separate: `DrawingLibrary`'s after-save task keeps the whole snapshot alive only to read its id; exports
@@ -301,6 +303,144 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   other graphics chip: a driver that cannot do it reads everything, but a driver that computes it WRONGLY the same way
   twice is what `printcheck` exists to catch, and it has only been run on the Note 9.
 
+### 11-17 night: paper fibres (watercolour is drawn into thirsty paper along its fibres)
+
+**In plain words.** The owner, 11-17: "get that paper fibres and pores all wicking and working and visible". With
+**Paper fibres** on (⋯ menu, Watercolour: Off / On / Strong; Off is the default and is the water as it always was), a wet
+stroke on thirsty paper no longer keeps a cut-out edge: the paper draws the water out along the very fibres one can see
+in it, colour goes with it in fine threads, and they keep creeping for about 20 seconds. Rice papers feather most,
+sugarcane softly; papers sized as watercolour paper is (cold press, hot press, bristol) keep their crisp edge. The
+inside of a wash is left alone. [Pictures](../joybrush/evidence/paper-fibres-20261117/note9-off-on-strong-papers.jpg),
+[one stroke over 20 s](../joybrush/evidence/paper-fibres-20261117/note9-rice-3s-10s-20s.jpg).
+
+- **How.** A build of its own of the water's two passes and the paper's bake (`JB_WET_FIBRES`; `PaperFibres` in
+  `MediaLayerEngine.kt`), made when a wet sheet is laid with the switch on. With it off the three shaders compile to
+  the published text (`PaperFibresTest`). The bake writes a fibre map from the paper's own relief (a fibre stands proud
+  of the felt; widened by a cell so a diagonal fibre joins up). `jb_wet_flux.frag`: paper holding less than a film
+  draws water from a wetter cell beside it, at the paper's thirst (absorbency less sizing, nothing below 0.1), at full
+  pace on a fibre and a hundredth of it on felt, helped along the fluid map's grain. `jb_wet_update.frag`: water drawn
+  in is marked (a wet age that counts down), and marked or very thin water dries and soaks slowly, sieves its pigment
+  as it moves, and lets colour spread only along a fibre; each spot soaks to its own pore capacity.
+- **What the first tries taught (Note 9).** The fluid map's own direction channel is far too coarse to show (one texel
+  is 10 px). The bleed stalled a few cells out until its leading trace of water stopped being dried out every step,
+  and until its film stopped drying at the thin-edge rate. Rules that applied to all thin water changed the inside of
+  a wash; hence the mark.
+- **Note 9, build fd2bba2f3 (the shaders as landed), one robot stroke per run:** rice: threads visible at 3 s, about
+  30 to 45 px at 20 s; cold press on and off look alike; sugarcane soft. One stroke: 16.7 ms a frame on and off. A
+  page of ten wet washes: 41 ms a frame off, 49 ms on (one run each).
+- **Not done, not claimed.** Not seen by the owner. Not tried on a tilted sheet (the bleed and running water share one
+  channel and can cancel along an axis), with a real pen, on the Fold, or on hot press and bristol (their thirst is 0
+  by the same rule as cold press). The pores' own effect was never looked at apart. The PC lab has no switch. A fibre
+  sheet takes 5 bytes a cell more graphics memory (about 5 MB on the Note 9), not counted by the admission check.
+- **Bench.** `jb_wet_fibres_on`, `jb_wet_bleed`, `jb_wet_fibres`, `jb_wet_pores`, `jb_wet_fibre_angle`,
+  `jb_wet_tune "name=value,..."` (every number in `PaperFibres.tune`), `jb_bench_paper`, `jb_shader_dir` (shader text
+  pushed to the app's files folder stands in for the packaged one: tuning without a build); the sheet logs its pace.
+
+### 11-17 later: exports read the picture alone; the Watercolour line on a Tile board
+
+Two things done after the handoff below was written (it lists them as open: item 4, and "a stroke on a Tile board").
+
+- **An export no longer reads the paint state it never uses** (handoff item 4, second review E4). A PNG, a board
+  export and the hand-off to Studio draw the picture; they were given a whole snapshot, pencil, watercolour and oil
+  state included. They now take `JbCanvasView.snapshotPicture`: every picture tile as before, no paint stores read
+  back, none held, and a document that lists none (so it is never a drawing to save; a copy and the save before
+  "Open" still take the whole one). Note 9, bench step `picturecmp`, full oil page, twice: 264 picture tiles byte for
+  byte the whole snapshot's, 0 paint store tiles against 256 (128 MB); read in 245 and 302 ms against 487 and 615 ms;
+  `ExportPicture.asShown` takes it. Not done: a real export through the Share sheet was not driven on the phone (the
+  system's file picker cannot be tapped from here), so the proof is the snapshot the export is made from.
+- **The Watercolour line on a Tile board** finishes only near its dabs and their copies round the board, as it does
+  off a board since 11-16 (`GlPaintEngine.addWatercolourDabs`, the board branch; `WatercolourPass.finishWithin`).
+  Exactness on the Note 9 (`--ez jb_wc_finish_check true`, said at every lift): 296 partial finishes on a Tile
+  board against whole-tile ones, 0 differ; undo exact. Speed, the matrix bench's one 0.6 s stroke on a Tile board:
+  4 frames at a mean of 239 ms before, 10 frames at a mean of 130 ms after. So it is better and still not smooth
+  there: a Tile board lays every dab several times for the wrap-around and its lift still finishes whole tiles.
+
+### 11-17: handoff from the engine session (Claude Fable), and why the paint room was NOT raised
+
+**Read this first if you take the save path, the wet sheet or the watercolour line next.**
+
+**Where it stands (all on `joy-creator`, each with its section below):** a save reads back and writes only what
+changed, from the first save after an open; an app killed mid-save leaves the file whole; autosave after 15 s and every
+30 s; lifecycle gate for paint, for editable lines and for frames; wet-sheet washes survive low graphics memory, go on
+layers with editable lines, and board renames leave them wet; the Watercolour line brush runs at the screen's rate.
+
+**The paint room (`LayerBudget.MEDIA_RAM_SHARE`, the save's paint budget) was deliberately left as it is.** Raising it
+is a few lines; making it safe is not, and a save that runs out of memory on a big painting is the one failure this
+card exists to prevent. What still holds the WHOLE drawing in the app's 512 MB heap, each a reason not to raise it yet:
+
+1. **The save on leaving** reads everything (the Library thumbnail is drawn from the save's tiles): 479 MB peak on a
+   full page today. Way out: leave with `snapshotSparse` and draw the thumbnail from the saved file's picture tiles
+   read one row of tiles at a time (they are deflated entries; `DrawingLibrary.thumbnailOf` only calls
+   `contents.tiles[...]`). The hard part is not the thumbnail: a sparse save that the file cannot stand in for asks
+   for the whole drawing again (`JbArchiveNeedsBytes`), and on leaving the graphics may already be gone (the window's
+   stop destroys the surface at once, JBX-37). Either accept that rare case as a failed save that says so on return,
+   or keep `keepPausePicture` for it and lose the gain. Decide with the owner; do not do it quietly.
+2. **`keepPausePicture`** (a save still being written when the screen leaves) keeps a whole picture for the save that
+   follows. Same question.
+3. **Open from another drawing, and the restore after lost graphics,** do not tie the canvas to the file
+   (`JbArchive.memoOf` is called only from `readWorkingFile`), so their first save reads everything.
+4. **Copy, export and the board hand-off** take whole snapshots, paint stores included, which exports never use
+   (second review E4).
+5. **Opening**: paint and (in work by the bug-hunt session, 11-17) picture tiles are read as they are needed, but
+   still in ONE graphics task; a bigger room needs that split into steps, under the two 30 s watchdogs.
+6. **Graphics memory**: the admission check before water is made still counts the old 1024 window (second review E3),
+   and the wet sheet takes 218 MB beside the atlas on Detailed.
+
+Order to do it in: 4 (smallest), 3, 5, then 1 and 2 together with the owner's ruling, then raise the save budget to
+the room, then the room itself, measuring heap on the Note 9 at each step with the lifecycle gate's five cases.
+
+**Things found and left, smallest first.**
+- The Watercolour line: about 0.15 s at the lift (the pooled finish itself); 1.4 s before the first stroke after an
+  install (its programs are compiled at first use; `pumpMediaPrewarm` is where the others are warmed); a stroke on a
+  Tile board still finishes whole tiles.
+- **Width of a line (L9), fixed 11-17.** Bench case `lineWidthRedoProbe`: an ink line and a watercolour line made 2.1 and 3 times wider, with Undo and Redo walked across both: every step the exact picture it had (0 px), the record's width right, and the same edit sent again gives the same picture (Note 9). On the way: ONE watercolour line made 3 times wider was refused as "too many lines" (460 unit tiles counted for it); its footprint counted the dab as two whole brush sizes round the path (`NativeLines.reachPx`), now as the turned square it is, and the sentence no longer speaks of many lines. The 11-14 "width redo not exact" did not reproduce after the screens lane's 122d9b330.
+- **Paper fibres and pores (owner's request 11-17): built, NOT landed, no visible effect yet.** Branch `claude/atlas-paper-fibres-20261117` (pushed). What is true on it: the wet sheet's paper bake now keeps the fluid map's direction and pore channels (it kept absorbency alone: `MediaLayerEngine.ensureBake`, `jb_media_bake.frag`); `jb_wet_update.frag` spreads dampness by the fibre direction (cross term for diagonals) and soaks to each spot's pore capacity; `jb_wet_flux.frag` lowers a dry edge's hold where the wash advances along the fibres; `PaperFibres` (strength, pores, forceAngleDeg), off by default; bench `jb_wet_fibres`, `jb_wet_pores`, `jb_wet_fibre_angle`, `jb_bench_paper`. What is NOT true yet: on the Note 9, Round and Wash strokes on `rice_fibres` with it off, on, three times over, and forced to 0, 45, 90 and 135 degrees differ no more than two runs with it off do. Either the settings do not reach the passes (first thing to check: draw u_fibre into the look as a colour on a debug switch) or a held edge is the wrong lever (a wash's edge here is set by the brush's own water, which is small). Frame times were in the same range in all runs. Do not land it as it is: a switch that does nothing is worse than none.
+- The other footprints (`NativeLines.reachPx` for stamp brushes) count two diameters round the path the same way the
+  watercolour line's did; nobody has measured whether that refuses wide ink lines too.
+- `WatercolourPass.finishInto` binds nine neighbour textures and re-sends every uniform per tile; cheap now that it is
+  scissored, worth a look only if the lift is profiled again.
+- Not run on the Fold by this session: anything of 11-16 and 11-17 except what the bug-hunt session ran there.
+
+**Test tools this session left (bench steps and cases, all debug only):** `jb_bench_life` (+ `_keep`,
+`jb_bench_board animation`, steps `digest`, `cover`, `recreate`, `savenow`, `addframe`, `dry`), `savesparse`,
+`printcheck`, `wccheck`, cases `wetSheetFailureProbe`, `washOverLinesProbe`, `lineWidthRedoProbe`; switches
+`jb_wc_whole_tiles`, `jb_wc_finish_check`, `jb_editable_lines`. The start lines are in each section's "bench" line.
+
+### 11-17: the first save after opening a drawing (JBX-36, continued)
+
+**In plain words.** Opening a big painting and making one mark used to cost a full save: the whole drawing read back
+from the graphics chip and compressed again, because the screen knew nothing about the file it had just opened. Now it
+does: the first autosave after an open is as small as any other.
+
+- **How.** As each tile goes onto the canvas from the file, the chip fingerprints it, before anything can redraw it
+  (`JbCanvasView.load`, `takeLoadedPrints`): that is the fingerprint of the file's own bytes. On the file thread the
+  screen then ties those fingerprints to the file (`JbArchive.memoOf`: the file's directory checksums, the checksum of
+  each tile's compressed bytes as read now, the fingerprints as the record's tags). From there the save that reads
+  back only what changed (section 11-16) works from the first save on. A tile the open redrew has another fingerprint
+  by then and is simply read. Only for a drawing that came from the working file itself (not its backup), with no
+  editable lines.
+- **Leaving after an open.** The save on leaving still reads everything (the thumbnail needs it), now with each
+  tile's fingerprint, so a tile the file already holds is taken from the file there too instead of being compressed
+  again. The Library's thumbnail is made from that save whatever its age (it could be 45 s of drawing behind).
+- **Note 9, build f724a11fa, bench `jb_bench_life_keep` (a full oil page painted and saved, the app stopped, the same
+  file opened in a fresh start, one more stroke, saved, the screen built again):**
+
+| | Before | Now |
+|---|---|---|
+| Tying the open drawing to its file | (not done) | 520 tiles in 0.13 s, on the file thread |
+| First autosave after the open: read back | all 536 tiles | 142 (the new stroke's), 394 taken from the file |
+| First autosave after the open: written in | 4.2 to 4.5 s for this page (18 s for the 59 MB one) | 1.7 s |
+| The save on leaving after that | 5.6 s when only the first half was built | 0.8 s (535 entries taken from the file, 1 written) |
+| The drawing after the screen is built again | | identical (264 picture tiles `22a7154d`, 270 paint tiles `5fbd2903`, both sides) |
+
+- **Unit tests** (`JbArchiveCarryTest`): a file written by any earlier writer, opened, one tile changed, saved by what
+  changed, gives the drawing a full save gives; a tile the canvas holds differently, a file written again after the
+  open, a tile the file does not hold: all refuse or give no record and leave the file; a tile given with bytes alone
+  is never taken from a file known only by its directory; with its fingerprint it is.
+- **Not done.** The save on leaving still holds the whole drawing in memory (the thumbnail), which is what stands
+  between this and a bigger paint room; opening through "Open" from another drawing and a restore after lost graphics
+  do not tie the file (their first save finds that out and reads everything once). Not run on the Fold.
+
 ### 11-16: the rest of JBX-37 (killed while saving, how much a crash can cost, other waits on the graphics thread)
 
 **In plain words.** Three things were left open on 11-15 night. Two are now proven or made smaller; one is as it was.
@@ -330,6 +470,117 @@ fingerprint moved are read. The rest are taken from the file, as the save alread
   graphics that are gone; only a save can shrink it). The two-screens guard still has no phone reproduction: the
   drawing screen cannot be started twice from outside the app. Not measured: what the more frequent saves cost in
   battery and heat over a long session (each is about 1 s of one core and about 100 MB written on a full page).
+
+### 11-16: watercolour on a layer with editable lines (ledger C6; built by the bug-hunt session, finished and landed by the engine session)
+
+**In plain words.** Until now, picking a watercolour brush on a layer that held editable lines first turned those lines
+into paint ("became paint", its own undo step), because the wet wash had nowhere to go among lines. Now the wash goes on
+the same layer and the lines stay lines: they can still be moved, recoloured or deleted afterwards, and the wash is
+redrawn over them.
+
+- **How.** When the wet sheet prints its wash into a layer whose plane holds items, each printed tile also keeps the
+  wash ALONE as a pixel slab on top of the items in time order, the way a fill is kept
+  (`GlPaintEngine.overlaySlabs`, called from `printOverlay`; `slabTile` merges it into the slab under it when that is
+  plain paint too, so slabs do not pile up). A save taken while the wash is wet holds it the same way for the length of
+  the save (`withOverlayStamped`). `JbCanvasView.startStroke` no longer freezes the lines for watercolour, and
+  `MediaCanvas.begin` lets the sheet take a layer with lines. Watercolour the sheet does NOT take (a blank animation
+  frame, a recorded scene) is refused in words on such a layer rather than reaching the old water among lines.
+- **The saved file.** No new kind of entry: the wash is an ordinary pixel slab, as a fill has been since v10. Old
+  drawings are read by the same reader.
+- **Proof: bench case `washOverLinesProbe`** (an ink line, a wash of the first built-in watercolour across it, on the
+  app's own canvas). Note 9, build 0f3dc40ea, pass with no problems: the line stays a line through the wash, Dry now,
+  undo, redo and both reopens; recolouring the line and back redraws its tiles from the layer's items with 0 px off
+  after Dry now, after redo, after undo, and after each reopen; undo of the wash is one press and leaves the line alone
+  (0 px off); redo straight after is the dried picture exactly (0 px); a save of the DRIED wash opens to the dried
+  picture exactly (0 px); a save taken while WET opens within what the wash itself moved around that save (41,610 and
+  24,373 px from the reads just before and after it, which are 54,457 px apart; the wash is 181,204 px). The Fold run
+  (bug-hunt session, one run, earlier form of the bench) had the same 0 px results. `wetSheetFailureProbe` still passes.
+- **Two test faults found on the way, not app faults.** The first form of the bench pressed Redo after two new edits
+  (which empty what there is to redo) and so "found" 180,231 px off; and it held the reopened wet save against a single
+  read of a wash that was still moving. Both are corrected in the bench.
+- **Not covered.** On a layer WITH lines: no memory running out during the print, no view move that parts a wet wash
+  (`cutCarry`), no second wash over the first, no animation frame or mask, no moving or deleting the line under the wash
+  (only recolour), no board edit while the wash is wet, and no real pen. (The lifecycle gate was run after landing: next section.) The look of a wash on a line
+  layer has not been compared by eye with one on a plain layer. The owner has not tried it.
+
+### 11-16: editable watercolour lines through the lifecycle gate (JBX-42 / L9 "View save, reopen, recovery")
+
+**In plain words.** The "Watercolour line" brush draws lines that stay editable. Until now nobody had checked, in the
+real drawing screen, that they come back as the same lines with the same picture after Android rebuilds the screen or
+takes the graphics away. They do, also when an ink line, a watercolour line and a wet-sheet wash share one layer.
+
+- **The gate.** The lifecycle gate (`jb_bench_life`, JBX-37) with `--ez jb_editable_lines true`, so every stroke is
+  kept as a line, and a digest that now also counts what a line drawing is saved as: the looks of the tiles lines cross,
+  the paint slabs between lines, and the lines' own records (`LifeDigest`: `N looks`, `N slabs`, `N editable lines`,
+  each with a checksum; the records through `StrokeCodec`). The wash is dried in place first (`dry`), because leaving the
+  screen sets a wet wash and a wet picture cannot equal a set one.
+- **Note 9, build 2cad57534, four cases, every number equal before and after:**
+
+| Case | Looks | Slabs | Editable lines |
+|---|---|---|---|
+| Watercolour lines, screen built again | 12, `b56b04b5` | none | 9, `34f0ac6c` |
+| Watercolour lines, graphics lost and restored | 12, `439cfcda` | none | 9, `306d916e` |
+| Ink line + watercolour line + wet-sheet wash on ONE layer, screen built again | 18, `6c1300c3` | 18, `5c26e7f9` | 18, `7b7e9bba` |
+| The same, graphics lost and restored | 18, `5fc3d2b2` | 18, `cd2b8733` | 18, `906602a7` |
+
+  The two mixed cases are also the lifecycle check that the wash-on-line-layers work (section above) had not had: its
+  slabs come back among the lines.
+- **Two faults in the test found on the way, not in the app.** The real screen puts its own "Editable lines" choice back
+  between strokes, so the first runs saved plain paint and proved nothing about lines (the bench now sets the switch at
+  every pen-down). And a wet wash compared with its set self differs, as it should.
+- **On an animation board too (11-16, build 34e33d60f).** The bench lays an animation board over the middle of the page
+  before the strokes (`--es jb_bench_board animation`, the app's own board operation), so they cross its first frame and
+  the shared canvas around it; then a blank second frame is added and shown (`addframe`), so what was painted on frame 1
+  is no longer on the screen when the drawing is saved. Four cases, every number equal before and after:
+
+| Case | Looks | Slabs | Editable lines |
+|---|---|---|---|
+| Watercolour lines across the board, screen built again | 12, `c4df6706` | none | 9, `b9173380` |
+| The same, graphics lost and restored | 12, `c47b5417` | none | 9, `e3acbc3f` |
+| Ink line + watercolour line + wet-sheet wash across the board, screen built again | 18, `9aa3683f` | 18, `003547d8` | 18, `38983045` |
+| The same, graphics lost and restored | 18, `72e81867` | 18, `560ca22b` | 18, `d442cd3f` |
+
+  Not told apart by this check: which of the lines sit on the frame's own cel and which on the shared canvas (the digest
+  covers every cel, it does not say which). Not done: a line edited on a frame after the reopen, playback, onion skin.
+- **Stroke timings of the Watercolour line brush, same runs (finger-like replay, Note 9; each run a fresh process).**
+  The first stroke after an INSTALL waited 1.37 s for its first frame, once (the phone compiling the brush's programs
+  for the first time); after an ordinary start the first frame comes in 1 to 16 ms. In every run the first stroke has
+  one slow frame of 0.2 to 0.4 s; later strokes have a slowest frame of 60 to 290 ms. All through, a stroke of about a
+  second has 6 to 30 frames longer than 34 ms (the ink pen on the same page: none). So the line draws correctly but
+  not smoothly on the Note 9. For comparison the wet-sheet Round's first stroke has one frame of about 1 s (the sheet
+  being made, known). These are the first recorded numbers for L9's "cold first stroke" and "performance"; nothing was
+  tuned.
+- **The stutter: fixed the same day (build efc4e8a41).** A stroke spent its frames in one place: every batch of dabs
+  redid the brush's whole finish over every 256 px tile the dabs fell on (`GlPaintEngine.addWatercolourDabs` ->
+  `WatercolourPass.finishInto`), though a finish only reads the coverage under a pixel and up to the edge and gravity
+  widths away. It now redoes only the dabs' bounds grown by that reach (`WatercolourPass.reach`), on every stroke tile
+  the rectangle touches (the old way missed a neighbour's rim until its next dab). The lift refinishes everything, as
+  before, so the finished stroke is the one it always was. Note 9, same bench (`band0,band1,band2` x 3, brush
+  `joybrush.watercolour`), old way by `--ez jb_wc_whole_tiles true` on the same build, each measured twice:
+
+| | Old way | New way |
+|---|---|---|
+| Work in a frame, median | 61.1 and 59.5 ms | 13.5 and 13.4 ms |
+| The dab step, median | 55.3 and 54.1 ms | 6.8 and 6.8 ms |
+| Frames in a stroke | about 20 | about 85 |
+| Frames over 34 ms in a stroke | 3 to 26 | 0 to 1 |
+| Slowest single frame in a stroke | 68 to 515 ms | 188 to 331 ms |
+
+  **Exactness, checked on the phone:** with `--ez jb_wc_finish_check true` every partial finish is followed by a
+  whole-tile finish of the same tiles and the two are compared by fingerprint: 4,701 tile finishes, 0 differ.
+  **The lift, same day (build 52ffadde2).** The one slow frame left in every stroke was the lift (phase
+  `JB.paint.commit`, about 180 ms): the fade there runs between two pictures and both were finished whole for every
+  tile of the stroke. The unpooled one is now a copy of the stroke tiles, which the change above keeps exact, and the
+  pooled one is finished only where the stroke lies on each tile (`WatercolourPass.prepareFade`, the engine's
+  `wcWithin`). Checked the same way: 120 lift pictures against whole ones, 0 differ (and the 4,701 partial finishes
+  again, 0 differ). Slowest frame in a stroke: 188 to 331 ms before, 38 to 169 ms after, on the bench's wide zigzags,
+  which fill most of their tiles; a thin line gains more.
+  **What is left:** that one frame of about 0.15 s at the lift (the pooled finish itself), and the 1.4 s first stroke
+  after an install. A stroke on a Tile board still finishes whole tiles (its wrap-around was left alone).
+- **Still open for L9 (not done here).** the fade matrix and anything that needs a real S Pen (tilt, the pooling fade at pen-up, a
+  drawn curve); **the grainy preset: owner's eye owed** (no file records an approved look; the orchestrator is asking
+  him for a reference or a verdict); width redo exactness after the screens lane's 11-16 change; rebrush, delete,
+  duplicate.
 
 ### 11-15 late: three Codex audit findings on the wet sheet (ENG-01, ENG-02, R2-JB-02)
 
@@ -407,7 +658,7 @@ is ever seen, and a long mixed session reading the incident log.
 - [ ] When running water is pinned far from the pen, the stroke is still refused in words ("too far from paint that is still wet"). Rare; the water should be set aside instead.
 - [ ] **Streaming saves** (second review E4), then raise `LayerBudget.MEDIA_RAM_SHARE`. Launch-critical with the lost
       squares (orchestrator, 11-13: work loss matters more than speed). Multi-day, in the save path; not started.
-- [ ] **Wet sheet on layers with editable lines** (ledger C6): open, no owner.
+- [x] **Wet sheet on layers with editable lines** (ledger C6): built and landed 11-16, Note 9 and Fold bench; owner test owed (section "11-16: watercolour on a layer with editable lines").
 - [ ] Memory admission for the atlas itself (second review E3): the check before making water still counts the old 1024 window.
 - [x] Symmetry for realistic paint in the atlas (11-11 code, 11-13 Note 9 pictures). The owner's own use is owed.
 - [ ] A tile boundary can show where set paint meets live thick paint that is re-lit. Not seen in the runs; ask the owner to look.
@@ -422,3 +673,138 @@ is ever seen, and a long mixed session reading the incident log.
 - `MediaAtlas.hold`, `flush`; `MediaAtlasPlacement.table` no longer grows for far walls.
 - The bench's `jb_media_budget_mb` now sticks (`JbCanvasView.mediaBudgetHeld`); before, the screen reset it after one stroke, so
   earlier small-room runs through the real screen did not test what they meant to.
+
+## 2026-11-16: open as it is read, the paint state (streaming saves item 2, first half), handoff
+
+**What changed.** A drawing's realistic-paint state (the media tiles, most of a painted drawing: about 3 MB a tile) is no
+longer held whole in memory between reading the file and putting it on the canvas. `JbArchive.openDeferringMedia` reads
+and checks every byte exactly as `open` does (the same code, so the same refusals in the same words, before anything is
+shown), lets each media tile's bytes go once checked and notes its entry name, length and CRC. The contents it returns
+hold `io/DeferredMedia` in place of the media map: each tile is read again from the held-open file when the canvas asks
+for it and checked against the first reading (a difference is an error, never other bytes). `JbCanvasView.load` takes one
+tile's stores at a time. **No change to the file format.** `JbArchive.open` and `read` behave as before.
+
+**Where it is used:** the screen's own start-up open (`DrawingHistory.readWorking`), a drawing picked to open
+(`StagedDrawing.read`) and the restore after lost graphics (`DrawingRecovery.read`). The recovery copy of a drawing opened
+this way is a copy of its file (`DrawingRecovery.rememberOpened`), not a second save that would read every tile back.
+
+**When the two readings cannot be matched** (the zip's directory does not say what the entries held, or the file cannot be
+opened a second time), nothing is refused for it: the drawing is opened whole, the old way.
+
+**A tile whose paint state cannot be read again during the load** (the disk failed after the check): that tile keeps its
+picture and gets no paint state at all, never half; it is counted, written to the incident log and said to the person
+("Part of this drawing's paint could not be read back..."). The pictures are still read whole before the load, so the
+screen is never left with half a drawing; there is no second try from the `.bak` for those tiles. By reading only: this
+path was not made to happen on a phone.
+
+**Proof.** Unit tests, cloud, `jb-androidkit`: 1368 of 1368 (new `DeferredMediaTest`, 9 cases: same drawing as `open`,
+same refusals and words, a save over the file, another file at the path, the directory check, the recovery copy, the file
+gone). The lifecycle gate on the Note 9, build 96f5ce2fd, digests equal in all five cases (pictures and paint stores):
+
+| Case | Result |
+|---|---|
+| Full page of oil (264 + 256 tiles), screen built again | same |
+| Full page of oil, graphics lost on pause, restored | same; restore 6.9 s |
+| Full page of oil, leaves while a save is being written, graphics lost | same; restore 7.0 s |
+| Ink + pencil + oil (15 + 57 tiles), screen built again | same |
+| Ink + pencil + oil, graphics lost on pause, restored | same; restore 1.1 s |
+
+Before and after on the full oil page, same phone, same hour, the same script (the build before was e9f772e63):
+
+| | Before | After |
+|---|---|---|
+| Restore after lost graphics | 6.0 s | 6.9 s |
+| App's Java heap, highest 2 s sample, graphics-lost case | 291 MB | 224 MB |
+| App's Java heap, highest 2 s sample, screen-built-again case | 479 MB | 454 MB |
+
+The restore is about a second slower: the paint state is now inflated on the GL thread during the load instead of on the
+file thread before it. It stays far under the screen's 30 s watchdogs. The heap figures are samples every 2 s over the
+whole case (painting, saving, opening), so they are a rough ceiling, not the open alone; the screen-built-again peak is
+set by the save on the way out, which this change does not touch.
+
+**Limits.** One run of each case, Note 9 only. The bench `reload` step was not run (it loads a snapshot already in
+memory, not a file). Not tried: the owner's own drawings, a drawing picked from the Library on a phone (unit-tested only),
+a failing disk. The picture tiles, looks, slabs and strokes are still read whole.
+
+**What is left of item 2.** (a) The picture tiles the same way (they are a twelfth of the paint state per tile, and
+`LineOpenPlan` and the refusals read them, so it is a wider change). **Looked at 11-16 late, NOT started; the map for
+whoever does it.** `io/DeferredMedia` would serve as it is with another key type (make it generic; `JbArchive.read`'s plain
+tile branch notes the entry the way the two media branches do; `documentFrom` reads only the tiles' KEYS). What stands in
+the way is three readers that walk every tile's BYTES before the load, each of which would inflate the whole drawing
+again from a lazy map: (1) `JbCanvasView.refusalFor`, the loop over `contents.tiles.keys` that calls
+`contents.tiles.getValue(key)` only to check the size (the archive already refused a tile of another size, so for a
+deferred map the check can go by the noted length); (2) `LineOpenPlan.of`, `for ((at, bytes) in contents.tiles)`: the
+destructuring reads the bytes of every tile though it needs them only for tiles under items (walk the keys, read the
+bytes only where `at in contents.looks` or the tile is stacked); (3) `JbCanvasView.load` itself, which collects every
+tile's bytes into `wanted` on the caller's thread before the GL task (collect the addresses, read each tile inside the GL
+task as the media loop does now). Also `DrawingRecovery.rememberOpened` must copy the file when EITHER map is deferred,
+and a drawing with no paint state at all would then hold a file open too. The gain on the full oil page is about 66 MB
+(264 tiles of 256 KB) of the open's heap; the same proof applies (the lifecycle gate's five cases, unit tests for the
+refusals with the same words). It was not started because it touches the refusals and the line open plan on the last
+day of this session; nothing of it is in the code. (b) **Raising the paint room will need the load split
+over several GL tasks**: one task that inflates and uploads everything grows with the drawing and must stay under the 30 s
+watchdogs (`recoveryTimeout`, and the Open path's `ui.postDelayed(watchdog, 30_000L)`); today 264 MB of paint restores in
+about 7 s on the Note 9.
+
+## 2026-11-16: pixels a board edit moves keep their paint state (Codex R2-JB-03), handoff
+
+**What changed.** A duplicated animation frame (landed earlier today, e714eed45) and now every pixel a board edit MOVES
+(sprite cells swapped, an animation board dragged, any `transfers` and `clears` of `applyBoardChange`) take their
+realistic-paint state with them. Before, the picture moved and the paint under it was dropped ("until slice 3b carries
+it"): pencil, oil and old-engine water could not go on working the moved part.
+
+**How (`GlPaintEngine.applyBoardChange`).** Next to the pixel staging, each destination tile gets a whole staged set of
+stores: copies of what it holds, and where it has no ground of its own, a ground made from its look before the edit (a
+tile with no paint state has its look as its ground). The moved rectangle is copied into every store, shifted exactly as
+the pixels are, from the live stores; a source with no paint state brings zeros and its look as the ground; a clear zeroes
+the rectangle. Nothing is staged where neither side has paint state, so moving plain pixels costs nothing. After the
+settle the staged stores take their tiles' places, one change per store tile (its `before` is what the settle dropped), in
+the same undo step; they agree with their look, are stamped for the paint room like any written tile, and whoever holds a
+copy of those tiles (the media window, the atlas) is told to reload (`reportMediaRestored`). `JbCanvasView.editBoards`
+writes the newest paint back first (`mediaCanvas.releaseWindow(printSheet = false)`), only for an edit that moves, copies
+or clears pixels; a rename or a lock leaves the atlas be.
+
+**Proof, Fold and Note 9, build 295bbb0b5, the same results on both.**
+
+| Bench case | Result |
+|---|---|
+| `cellPayloadProbe`, sprite cells swapped across a tile edge, paint state on one tile only (a throwaway engine) | 131072 pixels, every store and the ground, 0 wrong; 1 undo step; none dropped as stale; Undo and Redo exact |
+| `cellPayloadProbe`, an animation board dragged onto part of itself across four tiles | 262144 pixels, 0 wrong; 1 undo step; Undo and Redo exact |
+| `cellSwapLiveProbe`, the real canvas with the atlas: oil in the left cell, the cells swapped at once, oil again on the moved paint | the paint is in the right cell (11778 px on the Fold, 12067 on the Note 9), none left behind; the right cell HOLDS paint state; the second stroke paints, nothing refused; Undo of the stroke = the picture after the swap, Undo of the swap = the picture before, Redo of both exact (0 px off, four times) |
+| `framePayloadProbe`, `nativeFrameDuplicateProbe` | still pass |
+
+The oracle of `cellPayloadProbe` is one rule checked for every pixel: the paint state moves as the pixels do, and a tile
+with none has its look as its ground.
+
+**Limits, said plainly.**
+- No watercolour, no real pen, no mask, no linked frames, one layer. (Save and reopen: run later the same night, below.)
+- No failure was injected (memory running out part way): by reading, everything made is taken out and given back.
+- **No paint-room check for the staged stores.** The old stores stay in the undo step, so dragging a large painted board
+  holds both until the step is trimmed.
+- A paint-state tile with no picture tile under it is not moved (the slices come from the picture's tiles).
+- The probes were not run against the code before the fix (the engine's own comment said the paint was dropped).
+- The tested build is the commit before the last rebase onto `joy-creator`.
+- For "open as it is read" (section above): a tool that runs the archive code on Windows cannot save over a file whose
+  deferred paint state is still held open (Windows will not rename an open file; Android does). One unit test assumed
+  otherwise and failed on the build PC; the engine session corrected the test.
+
+**Save and reopen of moved paint (asked by the orchestrator, run 11-16 late, Note 9 only, build 970f07917 = `joy-creator`
+5d4a14ba5 plus test code).** The real-canvas bench now does both moves (`cellSwapLiveProbe`: oil in a sprite cell, the
+cells swapped at once; `boardDragLiveProbe`: oil in an animation board's frame, the board dragged onto part of itself),
+paints again on the moved paint, walks Undo and Redo, then saves the drawing to a file of its own, opens that file as the
+screen opens one (`JbArchive.openDeferringMedia`), puts it on the canvas and saves again.
+
+| Check | Sprite cells swapped | Animation board dragged |
+|---|---|---|
+| Paint where it was moved to; the place holds paint state | 11989 px, yes | 14685 px, yes |
+| Paint outside it afterwards | 2321 px, exactly the 2321 px the stroke laid beyond the cell to begin with | 0 |
+| Undo and Redo of the move and of the second stroke | 0 px off, four times | 0 px off, four times |
+| The reopened picture against the one saved | 0 px off | 0 px off |
+| The moved place holds paint state after the reopen | yes | yes |
+| A second save against the first, every picture tile and every paint-state tile | 0 differ (2 + 6 tiles) | 0 differ (3 + 9 tiles) |
+
+Limits: one run of each, Note 9 only. This is the save, the file and the open the screen uses, driven from the bench; it
+is not the screen's own autosave and recovery copy (the lifecycle gate cannot drive a board edit; it covers those for
+paint that was not moved). Nothing was painted after the reopen. On a first version of this bench the "paint outside"
+check failed with 2277 px: it counted paint the stroke had laid beyond the board's edge, which is in no cell and rightly
+stays; the bench now measures that before the move and requires the same after.

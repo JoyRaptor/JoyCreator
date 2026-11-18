@@ -26,6 +26,7 @@ public class MaskSdfTest {
         cornerRadiusRounds();
         rotationIsAPixelRotationNotAShear();
         booleanFolds();
+        twoBucketStacksAgreeWithCanvas();
         effectCoverageRespectsInvert();
         coverOfMirrorsFxMaskCover();
         glslReadsShapesTopDown();
@@ -126,7 +127,80 @@ public class MaskSdfTest {
         // the same rule MaskFold pins on the Path side, restated on the field side.
         CompositingSpec lead = spec(shape(0.5f, 0.5f, 0.4f, 0.4f, 0f, 0f));
         lead.masks.get(0).mode = CompositingSpec.MODE_SUBTRACT;
-        check("a leading SUBTRACT does not erase everything", cov(lead, 0.5f, 0.5f) > 0.9f);
+        // (R3-MASK-01, 11-16: this used to assert cov > 0.9, i.e. that the GL field seeds a lone
+        // leading SUBTRACT as a union. The Canvas two-bucket path -- the authority -- says a
+        // subtract with no add in front of it removes from NOTHING, so its region is empty.
+        // The GL field now agrees; see twoBucketStacksAgreeWithCanvas.)
+    }
+
+    /**
+     * R3-MASK-01: with no INTERSECT, MaskPathBuilder (Canvas) takes union(adds) - union(subs),
+     * order irrelevant. The GL fold used to run the list in order, so a later Add brought back
+     * what an earlier Subtract removed. This replays the Canvas rule as plain booleans at a
+     * point and demands the GL mirror give the same answer for every ordering.
+     */
+    static void twoBucketStacksAgreeWithCanvas() {
+        final int ADD = CompositingSpec.MODE_ADD, SUB = CompositingSpec.MODE_SUBTRACT;
+        // A: big box, B: smaller box inside it, C: box covering B. Point P is inside all three.
+        float[][] box = {
+                {0.5f, 0.5f, 0.8f, 0.8f},   // A
+                {0.5f, 0.5f, 0.3f, 0.3f},   // B
+                {0.5f, 0.5f, 0.5f, 0.5f},   // C
+        };
+        float[][] pts = {
+                {0.5f, 0.5f},   // inside A, B and C
+                {0.5f, 0.2f},   // inside A only (|dy| = 0.3 < 0.4)
+                {0.5f, 0.32f},  // inside A and C, outside B (|dy| = 0.18 > 0.15)
+                {0.05f, 0.05f}, // outside all
+        };
+        int[][] modes = {
+                {ADD, SUB, ADD}, {ADD, ADD, SUB}, {SUB, ADD, ADD}, {ADD, SUB, SUB},
+                {SUB, SUB, ADD}, {SUB, SUB, SUB}, {ADD, ADD, ADD}, {SUB, ADD, SUB},
+        };
+        int bad = 0;
+        StringBuilder why = new StringBuilder();
+        for (int[] md : modes) {
+            CompositingSpec s = new CompositingSpec();
+            for (int i = 0; i < 3; i++) {
+                CompositingSpec.MaskShape m = s.addShape();
+                m.cx = box[i][0]; m.cy = box[i][1]; m.w = box[i][2]; m.h = box[i][3];
+                m.corner = 0f; m.mode = md[i];
+            }
+            for (float[] p : pts) {
+                boolean inAdd = false, inSub = false;
+                for (int i = 0; i < 3; i++) {
+                    boolean in = Math.abs(p[0] - box[i][0]) < box[i][2] / 2f
+                            && Math.abs(p[1] - box[i][1]) < box[i][3] / 2f;
+                    if (md[i] == SUB) inSub |= in; else inAdd |= in;
+                }
+                boolean canvas = inAdd && !inSub;            // MaskPathBuilder.buildTwoBucket
+                boolean gl = cov(s, p[0], p[1]) > 0.5f;
+                if (canvas != gl) {
+                    bad++;
+                    why.append(" [").append(md[0]).append(md[1]).append(md[2]).append(" @")
+                            .append(p[0]).append(',').append(p[1]).append(" canvas=")
+                            .append(canvas).append(" gl=").append(gl).append(']');
+                }
+            }
+        }
+        check("GL mirror equals the Canvas two-bucket rule for every add/subtract order: "
+                + bad + " differ" + why, bad == 0);
+
+        // the exact case from the audit
+        CompositingSpec asc = spec(shape(0.5f, 0.5f, 0.8f, 0.8f, 0f, 0f),
+                shape(0.5f, 0.5f, 0.3f, 0.3f, 0f, 0f), shape(0.5f, 0.5f, 0.5f, 0.5f, 0f, 0f));
+        asc.masks.get(1).mode = SUB;
+        check("Add, Subtract, Add: the point inside all three is NOT in the region",
+                cov(asc, 0.5f, 0.5f) < 0.1f);
+        CompositingSpec lead = spec(shape(0.5f, 0.5f, 0.4f, 0.4f, 0f, 0f));
+        lead.masks.get(0).mode = SUB;
+        check("a lone SUBTRACT removes from nothing (Canvas: empty region)",
+                cov(lead, 0.5f, 0.5f) < 0.1f);
+
+        // ops and geometry stay the same length for the shader's constant loop
+        float[] g = MaskSdf.packShapes(asc, W, H);
+        check("packed shapes and ops have the same count",
+                g.length / MaskSdf.FLOATS_PER_SHAPE == MaskSdf.packOps(asc).length);
     }
 
     static void effectCoverageRespectsInvert() {

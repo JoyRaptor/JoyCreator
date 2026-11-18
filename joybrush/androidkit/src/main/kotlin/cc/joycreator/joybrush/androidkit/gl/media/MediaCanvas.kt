@@ -289,11 +289,17 @@ class MediaCanvas(
     ): String? {
         val spec = preset.media ?: return "This brush has no pencil, watercolour or oil settings."
         // Watercolour on the wet sheet (WET_SHEET_20261110), on the shared plane or on the animation frame under the pen
-        // (2026-11-13: the wash is drawn and printed only where that plane owns the pixels). A blank frame and a layer with
-        // editable lines keep the atlas's water.
+        // (2026-11-13: the wash is drawn and printed only where that plane owns the pixels). A blank frame keeps the atlas's
+        // water. A layer with editable lines takes the sheet too (2026-11-16): the wash is printed among its lines as a
+        // slab, so they stay editable (GlPaintEngine.overlaySlabs).
         if (spec.medium == MEDIUM_WET && WetSheet.enabled &&!paint.mediaPlaneBlankAt(layerId, x, y) &&
-            paint.localHistory && !paint.layerHasLines(layerId))
+            paint.localHistory && (!paint.layerHasLines(layerId) || paint.linesTakeSheet))
             return beginOnSheet(layerId, paint.mediaPlaneAt(layerId, x, y), preset, spec, argb, x, y, nowMs, symmetry)
+        // Watercolour that the sheet does not take (a blank frame, a recorded scene) must not reach the atlas on a layer that
+        // still holds editable lines: the canvas no longer turns them into paint first for watercolour (2026-11-16), and the
+        // atlas's water has no place among lines.
+        if (spec.medium == MEDIUM_WET && paint.layerHasLines(layerId))
+            return "Watercolour can't go here while this layer holds editable lines. Turn its lines into paint first (Layers, Freeze), then paint."
         // Any other realistic paint on the sheet's layer goes over the wash: it is printed first.
         settleSheet(layerId)
         val thinned = spec.medium == MEDIUM_PASTE && spec.thinner > 0 && spec.paste?.let { it.shape < 2 && !it.clean } == true

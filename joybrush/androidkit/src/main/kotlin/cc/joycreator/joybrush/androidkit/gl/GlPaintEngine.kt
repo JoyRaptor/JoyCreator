@@ -434,7 +434,9 @@ class GlPaintEngine(
             toothMm = (surface?.toothDepthMm ?: 0.01f).toDouble(), compliance = (surface?.compliance ?: 0.3f).toDouble(),
             sizing = (surface?.sizing ?: 0.5f).toDouble(), absorbency = (surface?.absorbency ?: 0.5f).toDouble(),
             capacity = (surface?.capacity ?: 0.5f).toDouble(), wickSpeed = (surface?.wickSpeed ?: 0.4f).toDouble(),
-            heightMeanOverride = surface?.heightMean?.toDouble())
+            heightMeanOverride = surface?.heightMean?.toDouble(),
+            // Only a paper that ships a fluid map has a direction to follow (the others read as "no direction").
+            anisotropy = if (fluidTexture != null) (surface?.anisotropy ?: 0f).toDouble() else 0.0)
         val fluid = fluidTexture
         val made = cc.joycreator.joybrush.androidkit.gl.media.MediaPaperGl(stats,
             surface = cc.joycreator.joybrush.androidkit.gl.media.Tex(surfaceTexture ?: grains.placeholder),
@@ -2447,6 +2449,13 @@ class GlPaintEngine(
         }
         val pending=LinkedHashMap<Pair<String,Pair<String?,Long>>,UndoLog.TileChange<Int>>()
         val itemTextures = ArrayList<Int>(editableCopies.sumOf { it.textureCount })
+        // R2-JB-03: the realistic-paint state a duplicated frame takes with it (made before anything is published).
+        val payloadCopies = ArrayList<UndoLog.TileChange<Int>>()
+        var payloadPut = false
+        // R2-JB-03, second half: the paint state moved pixels take with them (see movePayload below).
+        val payloadStaged = LinkedHashMap<Triple<String, String?, Long>, HashMap<String, Int>>()
+        val payloadMade = ArrayList<Int>()
+        val payloadMoved = ArrayList<UndoLog.TileChange<Int>>()
         fun trackItemTexture(made: Int): Int {
             try { itemTextures.add(made) } catch (e: Throwable) { recycleLayerTex(made); throw e }
             return made
@@ -2477,6 +2486,61 @@ class GlPaintEngine(
                 old?.after?.let(::recycleLayerTex)
                 pending[address]=UndoLog.TileChange(layer.id,key,original,made,cel)
             } catch(e:Throwable){recycleLayerTex(made); throw e}
+        }
+        // R2-JB-03, second half: pixels a board edit MOVES (a cell moved or swapped, a board dragged) take their
+        // realistic-paint state with them, shifted inside the tiles exactly as the pixels are. Per destination tile a
+        // whole new set of stores is staged (copies of what the tile holds, or nothing), the moved rectangle is copied
+        // into every store, and the sets go in after the settle, in the same undo step. A tile with no paint state has
+        // its look as its ground, so: a set made for a tile that had none starts with that tile's look as its ground,
+        // and pixels with no paint state that land on a tile with one bring their look as the ground there and clear
+        // the paint under them. Sources are the live stores, as for the pixels (reciprocal moves read the same state).
+        fun livePayload(layer: Layer, cel: String?, key: Long): Map<String, Int> {
+            // The stores are kept by plane: the layer's own for its shared cel, a frame cel's under its id.
+            val plane = planeOf(layer, cel)
+            val out = HashMap<String, Int>()
+            for ((store, tiles) in (if (plane == null) layer.floats else layer.celFloats[plane]).orEmpty()) tiles[key]?.let { out[store] = it }
+            return out
+        }
+        fun clearPayloadRect(target: Int, rect: RegionTileRect) {
+            GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(target)
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST); GLES30.glScissor(rect.x, rect.y, rect.w, rect.h)
+            GLES30.glClearColor(0f, 0f, 0f, 0f); GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+            check(GLES30.glGetError() == GLES30.GL_NO_ERROR) { "Board payload clear failed" }
+        }
+        fun madePayload(store: String, from: Int?): Int {
+            graphicsTouched = true
+            val made = newPayloadTile(store)
+            payloadMade += made
+            initializeTile(made, from, false)
+            return made
+        }
+        fun stagedPayload(layer: Layer, cel: String?, key: Long): HashMap<String, Int> =
+            payloadStaged.getOrPut(Triple(layer.id, cel, key)) {
+                val set = HashMap<String, Int>()
+                for ((store, tex) in livePayload(layer, cel, key)) set[store] = madePayload(store, tex)
+                // No ground of its own: the look it has before this edit is its ground.
+                if (MediaStores.GROUND !in set) set[MediaStores.GROUND] = madePayload(MediaStores.GROUND, planeTiles(layer, cel)[key])
+                set
+            }
+        fun hasPayloadAt(layer: Layer, cel: String?, key: Long) =
+            Triple(layer.id, cel, key) in payloadStaged || livePayload(layer, cel, key).isNotEmpty()
+        /** [sourceLook]: the source tile's look, which is its ground when it has no paint state. */
+        fun movePayload(layer: Layer, fromCel: String?, toCel: String?, slice: TranslatedTileSlice, sourceLook: Int?) {
+            if (layer.isMask) return
+            val src = livePayload(layer, fromCel, slice.sourceKey)
+            if (src.isEmpty() && !hasPayloadAt(layer, toCel, slice.destinationKey)) return
+            val set = stagedPayload(layer, toCel, slice.destinationKey)
+            for (store in (src.keys + set.keys).toList()) {
+                val target = set.getOrPut(store) { madePayload(store, null) }
+                val from = src[store] ?: if (store == MediaStores.GROUND) sourceLook else null
+                if (from != null) copyTextureRectTranslated(from, target, slice.source, slice.destination)
+                else clearPayloadRect(target, slice.destination)
+            }
+        }
+        fun clearPayload(layer: Layer, cel: String?, key: Long, rect: RegionTileRect) {
+            if (layer.isMask || !hasPayloadAt(layer, cel, key)) return
+            for (target in stagedPayload(layer, cel, key).values) clearPayloadRect(target, rect)
         }
         fun stageTranslated(layer: Layer, cel: String?, slice: TranslatedTileSlice, source: Int?) {
             val key = slice.destinationKey
@@ -2534,8 +2598,10 @@ class GlPaintEngine(
             for (clear in change.clears) {
                 val layer = layers.getValue(clear.layerId)
                 for (slice in RegionTransferTiles.sparseSlices(clear.rect, clear.rect, emptySequence(),
-                    layer.cels.getValue(clear.celId).keys.asSequence() + pendingKeys(layer.id, clear.celId).asSequence()))
+                    layer.cels.getValue(clear.celId).keys.asSequence() + pendingKeys(layer.id, clear.celId).asSequence())) {
+                    clearPayload(layer, clear.celId, slice.destinationKey, slice.destination)
                     stageTranslated(layer, clear.celId, slice, null)
+                }
             }
             for (clear in change.maskClears) {
                 val mask = requireNotNull(layers.getValue(clear.layerId).mask)
@@ -2563,6 +2629,7 @@ class GlPaintEngine(
                 for (slice in RegionTransferTiles.sparseSlices(transfer.sourceRect, transfer.destinationRect,
                     source.keys.asSequence(), layer.cels[transfer.toCelId].orEmpty().keys.asSequence() +
                         pendingKeys(layer.id, transfer.toCelId).asSequence())) {
+                    movePayload(layer, transfer.fromCelId, transfer.toCelId, slice, source[slice.sourceKey])
                     stageTranslated(layer, transfer.toCelId, slice, source[slice.sourceKey])
                 }
             }
@@ -2583,20 +2650,70 @@ class GlPaintEngine(
                     pending[address]=UndoLog.TileChange(layer.id,key,old?.before ?: tex,null,drop.celId)
                 }
             }
+            // A duplicated frame's paint stays paint (R2-JB-03): every payload tile of the source frame under the board gets
+            // a copy for the new frame, as a duplicated layer's does. Whole tiles: a frame's plane owns only the board's
+            // pixels, so what lies outside the board in its payload tiles is never drawn. Cell moves (transfers) still
+            // settle: their payload would have to be shifted inside tiles, which is not built.
+            for (copy in duplicateCopies.orEmpty()) {
+                val layer = layers[copy.layerId] ?: continue
+                val r = copy.rect
+                for ((store, tiles) in layer.celFloats[copy.fromCelId].orEmpty()) for ((key, tex) in tiles) {
+                    val x0 = Tiles.tx(key) * size; val y0 = Tiles.ty(key) * size
+                    if (x0 >= r.x + r.w || x0 + size <= r.x || y0 >= r.y + r.h || y0 + size <= r.y) continue
+                    val made = newPayloadTile(store)
+                    payloadCopies += UndoLog.TileChange(MediaStores.id(copy.layerId, store), key, null, made, copy.toCelId)
+                    initializeTile(made, tex, false)
+                    graphicsTouched = true
+                }
+            }
             published=true
             pending.values.forEach { c->put(c.layerId,c.key,c.after,c.celId) }
             setBoardDocument(change.doc)
             applyItemChanges(items.slabs, items.lines, forward = true, footprints = copiedFootprints); itemsApplied = true
             // JB-2.40 slice 3a: payloads are per plane now, so a layer gaining frames keeps them; only tiles whose pixels a
             // board edit moved lose theirs (settled: the look stays, it just can't be re-wetted until slice 3b carries it).
+            // Slice 3b for a duplicated frame (R2-JB-03): its copies go in after the settle, in the same step.
+            val settled = if (pending.isNotEmpty()) settlePlainWrites(pending.values) else emptyList()
+            payloadPut = true
+            payloadCopies.forEach { c -> put(c.layerId, c.key, c.after, c.celId) }
+            payloadCopies.forEach { c -> MediaStores.parse(c.layerId)?.let { (owner, _) -> agree(owner, c.key, c.celId) } }
+            // The moved paint state: each staged store takes its tile's place. What the settle just dropped from that
+            // place is its `before`, so the step holds ONE change per store tile and undo puts the old paint back.
+            val dropped = HashMap<Triple<String, String?, Long>, UndoLog.TileChange<Int>>()
+            for (c in settled) dropped[Triple(c.layerId, c.celId, c.key)] = c
+            for ((at, set) in payloadStaged) {
+                val owner = layers[at.first] ?: continue
+                val plane = planeOf(owner, at.second)   // as the settle's changes and the agreements name it
+                for ((store, tex) in set) {
+                    val id = MediaStores.id(at.first, store)
+                    val was = dropped.remove(Triple(id, plane, at.third))?.before ?: livePayload(owner, at.second, at.third)[store]
+                    payloadMoved += UndoLog.TileChange(id, at.third, was, tex, plane)
+                }
+            }
+            payloadMoved.forEach { c -> put(c.layerId, c.key, c.after, c.celId) }
+            if (payloadStaged.isNotEmpty()) mediaClock++
+            for (at in payloadStaged.keys) layers[at.first]?.let { owner ->
+                val plane = planeOf(owner, at.second)
+                agree(at.first, at.third, plane)
+                // Stamped like any written tile: the paint room takes an unstamped tile as the oldest and flattens it first.
+                mediaWritten[Triple(at.first, plane, at.third)] = mediaClock
+            }
+            // Whoever holds a copy of these tiles (the media window, the atlas) reloads them, as after an undo: it must
+            // not write its old copy back over the moved paint.
+            if (payloadMoved.isNotEmpty() || payloadCopies.isNotEmpty()) reportMediaRestored(payloadMoved + payloadCopies)
+            val settledKept = settled.filter { Triple(it.layerId, it.celId, it.key) in dropped }
             if(before!=change.doc || pending.isNotEmpty() || items.lines.isNotEmpty() || items.slabs.isNotEmpty())
-                undo.push(UndoLog.Step(pending.values.toList() + settlePlainWrites(pending.values),
+                undo.push(UndoLog.Step(pending.values.toList() + settledKept + payloadMoved + payloadCopies,
                     documentBefore=before,documentAfter=change.doc, lines = items.lines, slabs = items.slabs))
         } catch(e:Throwable) {
             // Restore every published address before releasing prepared textures.
             if(itemsApplied) applyItemChanges(items.slabs, items.lines, forward = false)
+            if(payloadPut) payloadCopies.forEach { c -> put(c.layerId, c.key, null, c.celId) }
+            payloadMoved.forEach { c -> put(c.layerId, c.key, c.before, c.celId) }
             if(published) { pending.values.forEach{c->put(c.layerId,c.key,c.before,c.celId)}; setBoardDocument(before) }
             pending.values.forEach { c->c.after?.let(::recycleLayerTex) }
+            payloadCopies.forEach { c -> c.after?.let(::recycleLayerTex) }
+            payloadMade.forEach(::recycleLayerTex)
             itemTextures.forEach(::recycleLayerTex)
             throw e
         } finally { if(graphicsTouched) { GLES30.glDisable(GLES30.GL_SCISSOR_TEST); GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,0) } }
@@ -3576,7 +3693,11 @@ class GlPaintEngine(
             composedTiles += 2L * affected.size   // the composed tile and, at most, a new base
         }
         LineEditBudget.refusal(LineEditBudget.bytes(unitTiles, composedTiles) + wcLineCacheReservation())
-            ?.let { throw IllegalStateException(it) }
+            ?.let {
+                // Said in the log with its numbers: one wide line refused as "too many lines" is a budget to look at, not a person's mistake.
+                android.util.Log.w("JoyBrushLines", "edit refused for room: $unitTiles unit tiles, $composedTiles composed tiles, ${wcLineCacheReservation() shr 20} MB kept for the watercolour line cache, limit ${LineEditBudget.LIMIT_BYTES shr 20} MB")
+                throw IllegalStateException(it)
+            }
         try {
             for ((plane, newList) in next) {
                 val layer = layers.getValue(plane.layerId)
@@ -5914,6 +6035,7 @@ class GlPaintEngine(
             val frozenLook = look
             val frozenSurface = surfaceTexture ?: grains.placeholder
             val pass = wcPass ?: WatercolourPass(shaders, size).also { wcPass = it }
+            wcWithin.clear(); wcWithinKnown = true
             try {
                 pass.begin(watercolour, watercolourSeed, floatArrayOf(colR,colG,colB), surfaceTexture != null && surface != null,
                     strokePaperHandles(frozenLook) + frozenSurface) { program ->
@@ -6006,6 +6128,24 @@ class GlPaintEngine(
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
     }
 
+    /** Bench: the watercolour line's finish redoes whole tiles for every batch of dabs, as it did until 2026-11-16 (before and after on one build). */
+    @Volatile var wcFinishWholeTiles = false
+
+    /** Bench: every partial finish is followed by a whole one of the same tiles and the two are compared ([wcFinishChecked], [wcFinishWrong]). */
+    @Volatile var wcFinishCheck = false
+
+    /**
+     * Where the watercolour stroke in hand lies on each tile (document px, grown by the finish's reach), and whether that
+     * is known for all of it (not on a Tile board, not the old way): then the stroke tiles ARE the exact unpooled finish and
+     * the lift copies them and finishes the pooled picture only there ([WatercolourPass.prepareFade]).
+     */
+    private val wcWithin = HashMap<Long, FloatArray>()
+    private var wcWithinKnown = false
+    @Volatile var wcFinishChecked = 0
+    @Volatile var wcFinishWrong = 0
+    @Volatile var wcLiftChecked = 0
+    @Volatile var wcLiftWrong = 0
+
     /** The new engine owns only its band/finish targets; existing dab packing and draws stay untouched. */
     private fun addWatercolourDabs(dabs: List<Dab>) {
         val tile = strokeTileRect
@@ -6015,21 +6155,88 @@ class GlPaintEngine(
             for(key in buckets.keys) strokeTiles.getOrPut(key) { newStrokeTile() }
             val pass = requireNotNull(wcPass)
             pass.add(buckets) { null }
-            pass.finishInto(strokeTiles,0f,buckets.keys)
+            // Only where these dabs can have changed the finish: their bounds (a dab is a turned square of its radius)
+            // grown by how far the finish reads. The lift refinishes every tile whole, as before.
+            var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE
+            for (d in dabs) {
+                val r = d.radius * 1.5f + 2f
+                if (d.x - r < x0) x0 = d.x - r; if (d.y - r < y0) y0 = d.y - r
+                if (d.x + r > x1) x1 = d.x + r; if (d.y + r > y1) y1 = d.y + r
+            }
+            val reach = pass.reach
+            if (wcFinishWholeTiles || !(x1 >= x0 && y1 >= y0)) { wcWithinKnown = false; pass.finishInto(strokeTiles,0f,buckets.keys); return }
+            val only = floatArrayOf(x0 - reach, y0 - reach, x1 + reach, y1 + reach)
+            // Every tile of the stroke that rectangle touches, not only the ones the dabs fell on: the reach crosses tile
+            // edges (redoing only the dabs' own tiles left a neighbour's rim stale until its next dab).
+            val touched = ArrayList<Long>()
+            for (ty in Math.floorDiv(kotlin.math.floor(only[1]).toInt(), size)..Math.floorDiv(kotlin.math.ceil(only[3]).toInt(), size))
+                for (tx in Math.floorDiv(kotlin.math.floor(only[0]).toInt(), size)..Math.floorDiv(kotlin.math.ceil(only[2]).toInt(), size)) {
+                    val key = Tiles.key(tx, ty)
+                    // Where the stroke lies on each tile it can reach, for the lift (also tiles it has no output on yet).
+                    val had = wcWithin[key]
+                    if (had == null) wcWithin[key] = only.copyOf()
+                    else { had[0] = minOf(had[0], only[0]); had[1] = minOf(had[1], only[1]); had[2] = maxOf(had[2], only[2]); had[3] = maxOf(had[3], only[3]) }
+                    if (key in strokeTiles) touched.add(key)
+                }
+            pass.finishInto(strokeTiles,0f,touched,only)
+            if (wcFinishCheck && touched.isNotEmpty()) {
+                // Bench: the same tiles finished whole must be the same tiles, texel for texel (fingerprints on the chip).
+                if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }
+                val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+                val texs = IntArray(touched.size) { strokeTiles.getValue(touched[it]) }
+                val part = hasher.prints(texs, BooleanArray(texs.size))
+                pass.finishInto(strokeTiles,0f,touched)
+                val whole = hasher.prints(texs, BooleanArray(texs.size))
+                wcFinishChecked += touched.size
+                if (part == null || whole == null) wcFinishWrong += touched.size
+                else wcFinishWrong += touched.indices.count { part[it] != whole[it] }
+            }
             return
         }
         // Tile board: the finish pools by reading coverage up to the edge/gravity widths away. Copies cover that halo round
         // the board and the coverage bands are NOT clipped, so a read across the seam finds the repeat; only tiles on the
         // board get output, and endStroke's commit is clipped to the board as for every tile stroke.
         val halo = wcSpec?.let { minOf(kotlin.math.ceil(maxOf(it.edgeWidth, it.gravityWidth, 0.0)) + 2.0, size.toDouble()) } ?: 0.0
-        val bands = Tiles.bucket(dabs.flatMap { TilePainting.dabs(tile,it,halo) },size)
+        wcWithinKnown = false   // the lift on a Tile board still finishes whole tiles
+        val copies = dabs.flatMap { TilePainting.dabs(tile,it,halo) }
+        val bands = Tiles.bucket(copies,size)
         val outputs = bands.keys.filter { TilePainting.clip(tile,it) != null }
         require((strokeTiles.keys+outputs).toSet().size <= TilePainting.MAX_TILES) { "This tile stroke is too large" }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER,fbo)
         for(key in outputs) strokeTiles.getOrPut(key) { newStrokeTile() }
         val pass = requireNotNull(wcPass)
         pass.add(bands) { null }
-        pass.finishInto(strokeTiles,0f,outputs)
+        if (wcFinishWholeTiles) { pass.finishInto(strokeTiles,0f,outputs); return }
+        // As off a Tile board (2026-11-17): only where these dabs and their copies round the board can have changed the
+        // finish, each copy's own bounds grown by the finish's reach, on every stroke tile that touches (a copy near
+        // another tile's rim changes that tile too). The copies lie far apart, so each tile gets its own rectangle.
+        val reach = pass.reach
+        val within = HashMap<Long, FloatArray>()
+        for (d in copies) {
+            val r = maxOf(d.radius * 1.5f + 2f, cc.joycreator.joybrush.core.paint.TipMath.extent(d.radius, d.anchor, d.sampled, d.aspect)) + reach
+            val x0 = d.x - r; val y0 = d.y - r; val x1 = d.x + r; val y1 = d.y + r
+            for (ty in Math.floorDiv(kotlin.math.floor(y0).toInt(), size)..Math.floorDiv(kotlin.math.ceil(y1).toInt(), size))
+                for (tx in Math.floorDiv(kotlin.math.floor(x0).toInt(), size)..Math.floorDiv(kotlin.math.ceil(x1).toInt(), size)) {
+                    val key = Tiles.key(tx, ty)
+                    if (key !in strokeTiles) continue
+                    val had = within[key]
+                    if (had == null) within[key] = floatArrayOf(x0, y0, x1, y1)
+                    else { had[0] = minOf(had[0], x0); had[1] = minOf(had[1], y0); had[2] = maxOf(had[2], x1); had[3] = maxOf(had[3], y1) }
+                }
+        }
+        pass.finishWithin(strokeTiles, 0f, within)
+        if (wcFinishCheck && within.isNotEmpty()) {
+            if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }
+            val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+            val touched = within.keys.toList()
+            val texs = IntArray(touched.size) { strokeTiles.getValue(touched[it]) }
+            val part = hasher.prints(texs, BooleanArray(texs.size))
+            pass.finishInto(strokeTiles,0f,touched)
+            val whole = hasher.prints(texs, BooleanArray(texs.size))
+            wcFinishChecked += touched.size
+            if (part == null || whole == null) wcFinishWrong += touched.size
+            else wcFinishWrong += touched.indices.count { part[it] != whole[it] }
+        }
     }
 
     /** Selected-brush warmup on this GL context; never clears or settles an active stroke. */
@@ -6229,7 +6436,13 @@ class GlPaintEngine(
     }
 
     /** Commits the active stroke into its layer as one undoable step. Returns tiles changed. */
-    fun endStroke(): Int = mediaTrace("JB.paint.commit") { endStrokeInner() }
+    fun endStroke(): Int {
+        val checked = wcFinishCheck && wcSpec != null
+        val n = mediaTrace("JB.paint.commit") { endStrokeInner() }
+        // Bench (jb_wc_finish_check): said at every lift too, for runs that have no step to ask (the matrix).
+        if (checked) android.util.Log.i("JoyBrushPerf", "wccheck at the lift: $wcFinishChecked tile finishes checked against a whole-tile finish, $wcFinishWrong differ; $wcLiftChecked lift pictures checked, $wcLiftWrong differ")
+        return n
+    }
     private fun endStrokeInner(): Int {
         requireLocalPaint()
         paintWaitingTileStroke()
@@ -6240,7 +6453,20 @@ class GlPaintEngine(
             wcPrepared=true
             if(options.poolingFadeMilliseconds>0 && strokeTiles.isNotEmpty() &&
                 (options.edgePool>0.0 || options.edgeAlpha>0.0 || options.gravityPool>0.0)) {
-                wcPass?.prepareFade(strokeTiles)
+                val pass = wcPass
+                val within = if (wcWithinKnown && !wcFinishWholeTiles && strokeTiles.keys.all { it in wcWithin }) wcWithin else null
+                pass?.prepareFade(strokeTiles, within)
+                if (wcFinishCheck && pass != null && within != null) {
+                    // Bench: the fade's two pictures made the short way against the same two made whole.
+                    if (tileHasherEpoch != physicalContextEpoch) { tileHasher = null; tileHasherEpoch = physicalContextEpoch }
+                    val hasher = tileHasher ?: TileHasher(size).also { tileHasher = it }
+                    val texs = pass.fadeTextures()
+                    val short = hasher.prints(texs, BooleanArray(texs.size))
+                    pass.prepareFade(strokeTiles)
+                    val whole = hasher.prints(texs, BooleanArray(texs.size))
+                    wcLiftChecked += texs.size
+                    if (short == null || whole == null) wcLiftWrong += texs.size else wcLiftWrong += texs.indices.count { short[it] != whole[it] }
+                }
                 wcFadeStart=SystemClock.uptimeMillis(); wcFading=true
                 return 0
             }
@@ -7788,6 +8014,7 @@ class GlPaintEngine(
         check(!strokeInProgress && mediaStroke == null) { "printing the wet sheet inside a stroke would be undone out of order" }
         val layer = layers[o.layerId]?.takeIf { !it.isMask }
         val changes = ArrayList<UndoLog.TileChange<Int>>()
+        var slabs: List<UndoLog.SlabChange<Int>> = emptyList()
         if (layer != null && o.texture != 0) {
             // The plane's own tiles: the layer's, or the frame cel's (the picture is drawn in the pieces that plane owns).
             val store = planeTiles(layer, o.plane)
@@ -7804,6 +8031,7 @@ class GlPaintEngine(
                     GLES30.glBindVertexArray(tileVao)
                     drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
                 }
+                slabs = overlaySlabs(layer, o, changes.map { it.key to it.before })
             } catch (e: Throwable) {
                 changes.forEach { it.after?.let(::recycleLayerTex) }
                 throw e
@@ -7812,10 +8040,63 @@ class GlPaintEngine(
                 GLES30.glDisable(GLES30.GL_BLEND)
                 GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
             }
+            // The wash's slabs go in first (all or nothing), then the tiles, which cannot fail (H5, as a fill's do).
+            if (slabs.isNotEmpty()) try { applyItemChanges(slabs, emptyList(), forward = true) } catch (e: Throwable) {
+                changes.forEach { it.after?.let(::recycleLayerTex) }
+                slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
+                throw e
+            }
             changes.forEach { put(it.layerId, it.key, it.after, it.celId) }
         }
-        undo.push(UndoLog.Step(changes + settlePlainWrites(changes), sheet = mark))
+        undo.push(UndoLog.Step(changes + settlePlainWrites(changes), slabs = slabs, sheet = mark))
         return changes.size
+    }
+
+    /** The wet sheet may paint on a layer that holds editable lines: its wash is kept among them as a slab ([overlaySlabs]). */
+    val linesTakeSheet: Boolean get() = recordedScene == null
+
+    /**
+     * The wet sheet's wash on a plane that holds editable lines or slabs (ATLAS-SOLID ledger C6, 2026-11-16): each printed
+     * tile ([tiles]: key to the tile's texture before the print) also keeps the wash ALONE as a pixel slab, on top of the
+     * plane's items in time order, the way a fill is kept ([fillSlabs]). So a line under the wash can still be moved,
+     * recoloured or deleted and the tile is redrawn with the wash over it. A tile no item crossed yet gets its pixels as
+     * the base under the slab. Empty when the plane holds no items: the print is plain pixels as before. Nothing is
+     * applied to NativeLines here; the caller owns the textures in the result until it applies them.
+     */
+    private fun overlaySlabs(layer: Layer, o: LayerOverlay, tiles: List<Pair<Long, Int?>>): List<UndoLog.SlabChange<Int>> {
+        val plane = linePlane(layer, o.plane)
+        if (!nativeLines.hasItems(plane) || tiles.isEmpty()) return emptyList()
+        val out = ArrayList<UndoLog.SlabChange<Int>>()
+        val seq = nativeLines.nextSeq(plane)
+        try {
+            for ((key, before) in tiles) {
+                if (!nativeLines.isCrossed(plane, key)) {
+                    before?.let(::copyOfTile)?.let { copy ->
+                        out += UndoLog.SlabChange(layer.id, o.plane, key, 0L, null, UndoLog.SlabValue(copy, "normal"))
+                    }
+                }
+                val unit = newLayerTile()
+                try {
+                    initializeTile(unit, null, false)
+                    GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, copyFbo); attach(unit)
+                    GLES30.glViewport(0, 0, size, size)
+                    GLES30.glEnable(GLES30.GL_BLEND)
+                    GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE_MINUS_SRC_ALPHA)
+                    GLES30.glBindVertexArray(tileVao)
+                    drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
+                    GLES30.glBindVertexArray(0)
+                    GLES30.glDisable(GLES30.GL_BLEND)
+                } catch (e: Throwable) {
+                    recycleLayerTex(unit)
+                    throw e
+                }
+                out += slabTile(layer, o.plane, plane, key, unit, "normal", seq)
+            }
+        } catch (e: Throwable) {
+            out.forEach { it.after?.texture?.let(::recycleLayerTex) }
+            throw e
+        }
+        return out
     }
 
     /**
@@ -7828,6 +8109,9 @@ class GlPaintEngine(
         if (layer == null || o.texture == 0 || keys.isEmpty() || !localHistory) return body()
         val stamped = LinkedHashMap<Long, Int>()
         val store = planeTiles(layer, o.plane)
+        // On a plane with editable lines the wash is among its items for the length of [body] too, as a print leaves it:
+        // a save keeps such a plane as its items, so the stand-in tiles alone would lose the wash where a line crosses.
+        var slabs: List<UndoLog.SlabChange<Int>> = emptyList()
         try {
             for (key in keys) {
                 val after = newLayerTile()
@@ -7840,6 +8124,7 @@ class GlPaintEngine(
                 GLES30.glBindVertexArray(tileVao)
                 drawOverlay(o, tileToClip((Tiles.tx(key) * size).toFloat(), (Tiles.ty(key) * size).toFloat()), 1f)
             }
+            slabs = overlaySlabs(layer, o, stamped.keys.map { it to store[it] })
         } catch (e: Throwable) {
             stamped.values.forEach(::recycleLayerTex)
             throw e
@@ -7851,7 +8136,9 @@ class GlPaintEngine(
         // The stand-ins take the tiles' places, and the payload under them steps aside, for the length of [body] only.
         val had = HashMap<Long, Int?>()
         val aside = ArrayList<Triple<HashMap<Long, Int>, Long, Int>>()
+        var slabsIn = false
         try {
+            if (slabs.isNotEmpty()) { applyItemChanges(slabs, emptyList(), forward = true); slabsIn = true }
             for ((key, tex) in stamped) { had[key] = store[key]; store[key] = tex }
             for (tiles in floatsOf(layer, o.plane).values) for (key in stamped.keys) tiles.remove(key)?.let { aside.add(Triple(tiles, key, it)) }
             invalidateProjection(layer)
@@ -7859,6 +8146,8 @@ class GlPaintEngine(
         } finally {
             for ((key, old) in had) if (old == null) store.remove(key) else store[key] = old
             for ((tiles, key, tex) in aside) tiles[key] = tex
+            if (slabsIn) applyItemChanges(slabs, emptyList(), forward = false)
+            slabs.forEach { it.after?.texture?.let(::recycleLayerTex) }
             invalidateProjection(layer)
             stamped.values.forEach(::recycleLayerTex)
         }

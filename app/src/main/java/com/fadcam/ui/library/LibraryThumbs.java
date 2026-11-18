@@ -63,7 +63,7 @@ public final class LibraryThumbs {
         Object model = modelOf(it.thumb);
         if (model == null) return;
         if (it.thumbSheet != null && com.fadcam.joyfolder.SheetName.parse(it.thumbSheet) != null) {
-            bindSheet(it, model, picture, glyph);
+            bindSheet(it, model, picture, glyph, sizePx);
             return;
         }
         RequestOptions o = new RequestOptions()
@@ -94,17 +94,25 @@ public final class LibraryThumbs {
      * the card is on screen). Cards crop it like any picture.
      */
     private static void bindSheet(@NonNull LibraryItem it, @NonNull Object model, @NonNull ImageView picture,
-                                  @NonNull TextView glyph) {
+                                  @NonNull TextView glyph, int sizePx) {
+        // R3-LIB-01: the whole sheet, but only as large as its cells need: the card's size times the grid, so every
+        // frame still has the card's own resolution (fitted to the card's size, the whole sheet would shrink every
+        // frame with it). A 4096 px sheet of 8 x 8 cells for a 128 px card decodes at about 1024 px, not 4096.
+        com.fadcam.joyfolder.SheetName grid = com.fadcam.joyfolder.SheetName.parse(it.thumbSheet);
+        int cell = Math.max(1, sizePx);
+        int w = grid == null ? Target.SIZE_ORIGINAL : Math.max(cell, grid.cols * cell);
+        int h = grid == null ? Target.SIZE_ORIGINAL : Math.max(cell, grid.rows * cell);
         Glide.with(picture).asBitmap().load(model)
-                // the whole sheet at its own size: fitted to the card it would shrink every frame with it
-                .apply(new RequestOptions().signature(new ObjectKey(it.thumb + "|" + it.modified)).dontTransform()
-                        .override(Target.SIZE_ORIGINAL))
+                .apply(new RequestOptions().signature(new ObjectKey(it.thumb + "|" + it.modified + "|" + w + "x" + h))
+                        .dontTransform().override(w, h))
                 .into(new com.bumptech.glide.request.target.CustomViewTarget<ImageView, android.graphics.Bitmap>(picture) {
                     @Override
                     public void onResourceReady(@NonNull android.graphics.Bitmap bmp,
                                                 @Nullable com.bumptech.glide.request.transition.Transition<? super android.graphics.Bitmap> t) {
                         SheetDrawable d = SheetDrawable.of(bmp, it.thumbSheet);
                         if (d == null) return;
+                        com.fadcam.FLog.d("LibraryThumbs", "sheet card " + it.thumbSheet + " decoded " + bmp.getWidth() + "x"
+                                + bmp.getHeight() + " (" + (bmp.getByteCount() >> 10) + " KiB), asked for " + w + "x" + h);
                         view.setImageDrawable(d);
                         glyph.setVisibility(View.INVISIBLE);
                         if (view.isShown()) d.start();

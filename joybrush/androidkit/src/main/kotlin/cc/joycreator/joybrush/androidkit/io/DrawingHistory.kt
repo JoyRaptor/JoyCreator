@@ -41,7 +41,9 @@ object DrawingHistory {
      * [open] is a seam so the OOM path is testable: raising a real OutOfMemoryError from the zip
      * reader needs a file large enough to exhaust a real heap, which no unit test should do.
      */
-    fun readWorking(file: File, open: (File) -> JbContents = JbArchive::open): Working? {
+    // The paint state stays in the file until the canvas takes it tile by tile (JbArchive.openDeferringMedia): the
+    // working drawing is the one opened most often, and the one whose size ran the heap out.
+    fun readWorking(file: File, open: (File) -> JbContents = { JbArchive.openDeferringMedia(it) }): Working? {
         var failure: Throwable? = null
         if (file.isFile) {
             try { return Working(open(file), false) }

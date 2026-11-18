@@ -19,12 +19,27 @@ uniform sampler2D u_w0;       // w (mm), s (0..1 capillary saturation), wet age,
 uniform sampler2D u_flux;     // outflow L, R, D, U (mm per second, per cell)
 uniform sampler2D u_paperBake;// .b = height 0..1, .a = E[h²]
 uniform sampler2D u_fluidBake;// absorbency, fibre direction (signed), capacity
-uniform sampler2D u_waterBake;// R = paper height smoothed to fibre scale
+uniform sampler2D u_waterBake;// R = paper height smoothed to fibre scale; (fibre build) G = how far the cell lies on a fibre
 uniform sampler2D u_p0;       // the layer's paint: .a = body thickness (mm), terrain the water runs over
 uniform float u_filmMm;       // below this depth a film clings: viscous drag ∝ 1/depth², so thin water barely moves
 uniform float u_dt;
 uniform float u_toothMm;
 uniform float u_flow;         // how hard a height difference pushes water (1/s)
+#ifdef JB_WET_FIBRES
+// The paper's fibres (PaperFibres, owner 2026-11-17). Built in only while that switch is on: without the define this file
+// is the water as it always was, to the byte.
+uniform float u_fibre;        // how much faster the paper draws water along its fibres than across them (the paper's
+                              // anisotropy; times the fluid map's coherence at each spot)
+uniform float u_bleed;        // the capillary pull (cells² per second): how fast thirsty paper draws in the water of a wet
+                              // edge beside it (the paper's absorbency, less its sizing; 0 on a paper sized shut)
+uniform float u_bleedFilmMm;  // the pull feeds paper that holds less than this film of water it drew in before ...
+uniform float u_bleedThinMm;  // ... or less than this of any other water; deeper water is the levelling's
+uniform float u_bleedFelt;    // the felt between fibres draws at this share of a fibre's pace
+uniform float u_bleedShare;   // the most of the difference between two cells that the paper draws across in one step
+uniform float u_fibreForceOn; // bench: 1 = every fibre at one angle, given as cos and sin of TWICE it
+uniform float u_fibreForceC;
+uniform float u_fibreForceS;
+#endif
 uniform float u_keep;         // fraction of flow kept from the last step (viscosity: watery → near 1)
 uniform float u_pinMm;        // head (mm) needed to wet dry paper
 uniform float u_dampS;        // saturation at which paper counts as damp (no pinning)
@@ -288,6 +303,50 @@ void main() {
             }
         }
     }
+#ifdef JB_WET_FIBRES
+    // The bleed (owner, 2026-11-17: "paper fibres and pores all wicking and working and visible"). Thirsty paper beside a
+    // wet edge draws the edge's water into itself through its fibres, and the pigment in that water with it: the feathered
+    // edge of a stroke on unsized paper. No surface tension holds it back and no depth is needed to push it (the
+    // levelling above has both): the pull is the paper's own, so the paper sets its pace (u_bleed: its absorbency less
+    // its sizing, so a sized sheet keeps its crisp edge).
+    //
+    // Where it runs: along the fibres one can SEE. A fibre stands proud of the felt round it (baked once from the paper's
+    // own relief, jb_media_bake.frag), and it is the fibres that carry: a cell on a fibre draws at the full pace, the
+    // felt between fibres at u_bleedFelt of it. So the water runs out along each long fibre
+    // that crosses the edge, at whatever angle it lies, and the felt only softens the edge between them. The fluid map
+    // adds the sheet's larger pattern: its absorbency (strands of thirstier paper), and its grain: u_fibre x the map's
+    // coherence more along the grain's axis and as much less across it; on a diagonal grain a pull along x and y
+    // together is helped when the two go the grain's way and hindered when they cross it.
+    // It leaves as running water does (o_run, signed along x and y): moved the same step, never kept to the next. On
+    // each axis the side that draws harder takes it.
+    if (u_bleed > 0.0) {
+        vec4 fl = jb_fetch(u_fluidBake, c);
+        // A paper with no fluid map bakes G = B = 0: no grain (a real map says "none" as 0.5, 0.5).
+        vec2 grain = (fl.g == 0.0 && fl.b == 0.0) ? vec2(0.0) : fl.gb * 2.0 - 1.0;
+        if (u_fibreForceOn > 0.5) grain = vec2(u_fibreForceC, u_fibreForceS);
+        grain *= min(u_fibre, 0.9 / max(length(grain), 1.0e-4));
+        vec2 take = vec2(0.0);
+        for (int axis = 0; axis < 2; axis++) {
+            for (int side = -1; side <= 1; side += 2) {
+                ivec2 q = c + (axis == 0 ? ivec2(side, 0) : ivec2(0, side));
+                if (!jb_inside(q, size) || outside(q)) continue;
+                // Into paper that holds less than a film: u_bleedFilmMm of water drawn in this way (marked by a negative
+                // wet age, jb_wet_update.frag), u_bleedThinMm of any other. Never into a wash standing deeper.
+                vec4 an = wf(u_w0, q);
+                float wn = an.r;
+                float cap = an.b < 0.0 ? u_bleedFilmMm : u_bleedThinMm;
+                if (wn >= w || wn >= cap) continue;
+                float carry = mix(u_bleedFelt, 1.0, jb_fetch(u_waterBake, q).g);
+                // Never more than a share of the difference in a step: the paper drawing cannot end up wetter than the edge.
+                float share = min(u_bleedShare, u_bleed * u_dt * 2.0 * absorbAt(q) * carry * (axis == 0 ? 1.0 + grain.x : 1.0 - grain.x));
+                float t = share * (w - wn) * (1.0 - smoothstep(0.5 * cap, cap, wn));
+                if (t > abs(take[axis])) take[axis] = float(side) * t;
+            }
+        }
+        if (take.x != 0.0 && take.y != 0.0) take *= 1.0 + sign(take.x * take.y) * grain.y;
+        run += take / u_dt;
+    }
+#endif
     float out_ = (f.x + f.y + f.z + f.w + abs(run.x) + abs(run.y)) * u_dt;
     if (out_ > w) { f *= w / out_; run *= w / out_; }          // never move more water than the cell holds
     o_flux = f;

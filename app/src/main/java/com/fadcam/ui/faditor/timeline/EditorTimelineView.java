@@ -928,6 +928,22 @@ public class EditorTimelineView extends View {
     }
 
     /**
+     * FX-1 (Joybot carries your work between rooms): where a layer item's tape is in this view right
+     * now, clipped to the view, or null while its row is not laid out or is scrolled out of sight.
+     * The hand-off show lands the item on exactly this rectangle.
+     */
+    @Nullable
+    public RectF layerItemRectInView(@Nullable String itemId) {
+        if (itemId == null || layerRowRenderer == null) return null;
+        RectF body = layerRowRenderer.itemBodyRect(itemId, getM6RowsTopPx(), totalEffectiveMs, this::timeToX);
+        if (body == null) return null;
+        RectF out = new RectF(body);
+        out.offset(-scrollOffsetPx, 0f);        // content x to view x, as onDraw's own translate
+        if (!out.intersect(0f, 0f, getWidth(), getHeight())) return null;
+        return out;
+    }
+
+    /**
      * Scroll the floating layer band so the row hosting {@code itemId} is visible
      * (preview-tap reveals the object's layer, JoyRaptor 2026-07-17). Safe no-op when the
      * renderer hasn't laid out yet or the item lives in an always-visible band.
@@ -1031,7 +1047,14 @@ public class EditorTimelineView extends View {
     private float scrollOffsetPx = 0f;
     
     // Thumbnails cache (key: content-based cacheKey, value: list of thumbnails)
-    private final Map<String, List<Bitmap>> thumbnailsCache = new HashMap<>();
+    /**
+     * Decoded filmstrips, least recently used first (R3-STU-03). Bounded by {@link #THUMBNAIL_CACHE_MAX_BYTES}: what is
+     * scrolled out of use is let go and comes back from the filmstrip disk cache when it is needed again.
+     */
+    private final Map<String, List<Bitmap>> thumbnailsCache = new java.util.LinkedHashMap<>(16, 0.75f, true);
+    private static final long THUMBNAIL_CACHE_MAX_BYTES = 96L * 1024L * 1024L;
+    /** The most recently used filmstrips are never let go for size: they are the ones on screen. */
+    private static final int THUMBNAIL_CACHE_KEEP = 12;
     private final Set<String> thumbnailsLoading = new HashSet<>();
     // Keys whose extraction hard-failed (no decodable frames). Tracked so the
     // lazy per-frame loader in onDraw doesn't re-enqueue them every redraw.
@@ -5450,6 +5473,32 @@ if (sd.clip.hasVolumeKeyframes()) {
         if (timelineWaveformCache != null) timelineWaveformCache.setSuspended(suspended);
     }
 
+    /**
+     * Lets go of the least recently used filmstrips while the decoded ones take more than the budget, always keeping the
+     * newest few (those are being drawn; a visible one let go would just be decoded again from disk, forever). Main
+     * thread, between frames: nothing is drawing the bitmaps it recycles.
+     */
+    private void trimThumbnailCache() {
+        long bytes = 0;
+        for (List<Bitmap> l : thumbnailsCache.values()) bytes += thumbnailBytes(l);
+        int count = thumbnailsCache.size();
+        java.util.Iterator<Map.Entry<String, List<Bitmap>>> it = thumbnailsCache.entrySet().iterator();
+        while (bytes > THUMBNAIL_CACHE_MAX_BYTES && count > THUMBNAIL_CACHE_KEEP && it.hasNext()) {
+            List<Bitmap> old = it.next().getValue();   // access order: the least recently used comes first
+            it.remove();
+            count--;
+            bytes -= thumbnailBytes(old);
+            if (old != null) for (Bitmap b : old) if (b != null && !b.isRecycled()) b.recycle();
+        }
+        FLog.d(TAG, "filmstrip cache: " + thumbnailsCache.size() + " strips, " + (bytes >> 20) + " MiB");
+    }
+
+    private static long thumbnailBytes(@Nullable List<Bitmap> l) {
+        long n = 0;
+        if (l != null) for (Bitmap b : l) if (b != null && !b.isRecycled()) n += b.getByteCount();
+        return n;
+    }
+
     public void releaseThumbnailMemory() {
         for (List<Bitmap> thumbs : thumbnailsCache.values()) {
             if (thumbs != null) {
@@ -5562,6 +5611,7 @@ if (sd.clip.hasVolumeKeyframes()) {
                 thumbnailsLoading.remove(key);
                 if (!finalThumbs.isEmpty()) {
                     thumbnailsCache.put(key, finalThumbs);
+                    trimThumbnailCache();
                     invalidate();
                     if (finalFromDisk) {
                         FLog.d(TAG, "Filmstrip disk cache hit for " + diskKey);
@@ -5828,7 +5878,7 @@ if (sd.clip.hasVolumeKeyframes()) {
             final List<Bitmap> finalThumbs = thumbs;
             mainHandler.post(() -> {
                 thumbnailsLoading.remove(key);
-                if (!finalThumbs.isEmpty()) { thumbnailsCache.put(key, finalThumbs); invalidate(); }
+                if (!finalThumbs.isEmpty()) { thumbnailsCache.put(key, finalThumbs); trimThumbnailCache(); invalidate(); }
                 else thumbnailsFailed.add(key);
             });
         });

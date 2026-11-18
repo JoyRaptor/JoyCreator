@@ -43,7 +43,17 @@ class ShaderLibrary(private val load: (String) -> String = ::loadResource) {
             return head + defines.joinToString("") { "#define $it\n" } + src.substring(minOf(end, src.length))
         }
 
+        /**
+         * Bench only (debug builds, `jb_shader_dir`): a folder whose files stand in for the packaged shaders of the same
+         * name, so a shader can be tuned on the phone by pushing its text instead of building the app. Null = packaged.
+         */
+        @Volatile @JvmStatic var overrideDir: java.io.File? = null
+
         fun loadResource(name: String): String {
+            overrideDir?.let { dir ->
+                val f = java.io.File(dir, name)
+                if (f.isFile) { android.util.Log.w("JoyBrushShaders", "shader $name read from ${f.path}, not the app's own"); return f.readText() }
+            }
             val stream = ShaderLibrary::class.java.getResourceAsStream("/joybrush/shaders/$name")
                 ?: error("shader not packaged: /joybrush/shaders/$name")
             return stream.bufferedReader().use { it.readText() }

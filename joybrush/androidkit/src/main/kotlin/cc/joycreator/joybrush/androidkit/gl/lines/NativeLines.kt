@@ -353,13 +353,19 @@ internal class NativeLines(
             val wc = if (preset.engine == ENGINE_WATERCOLOUR) preset.watercolour else null
             val size = if (wc != null) max(preset.size.base, wc.size.toFloat()) else preset.size.base
             val scatter = if (wc != null) {
-                // The wash spreads by its scatter share of a dab and pools out to its gravity and edge widths.
-                wc.scatter.toFloat() * size * 1.5f * scale + wc.gravityWidth.toFloat() + wc.edgeWidth.toFloat()
+                // A watercolour dab lands up to its scatter share of its diameter off the path (WatercolourDabber: radius =
+                // sqrt(u) · scatter · d) and the wash pools out to its gravity and edge widths.
+                wc.scatter.toFloat() * size * 1.1f * scale + wc.gravityWidth.toFloat() + wc.edgeWidth.toFloat()
             } else {
                 // A scatter copy lands up to √2 · amount · diameter off the path (Scatter: a square of side amount × diameter).
                 preset.scatter.amount.base * 2f * size * scale * 1.5f
             }
-            val r = 2f * size * scale + max(scatter, 0f) + PAD_PX
+            // A watercolour dab is a turned square of half its diameter at most (0.71 of the diameter corner to centre).
+            // It was counted as two whole diameters like a stamp: with the brush's 300 px that made a thin line's
+            // footprint 50 tiles, and one line made three times wider was refused as "too many lines" (L9, 2026-11-17:
+            // 460 unit tiles). A tile the line turns out to draw on beyond this is added when it is drawn ([widen]).
+            val body = if (wc != null) 0.75f else 2f
+            val r = body * size * scale + max(scatter, 0f) + PAD_PX
             return if (r.isFinite()) r else PAD_PX
         }
     }

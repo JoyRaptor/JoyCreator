@@ -62,14 +62,19 @@ final class LibrarySource {
     void load(@NonNull Listener listener) {
         final int gen = ++generation;
         WORK.execute(() -> {
+            // R3-LIB-03: a load that was already replaced or cancelled while it waited for this thread does none
+            // of its reading (the project files, the parts, the folder walk).
+            if (gen != generation) return;
             final ProjectStorage storage = new ProjectStorage(app);
             final List<ProjectStorage.ProjectSummary> projects = listProjects(storage);
+            if (gen != generation) return;
             final List<LibraryItem> rest = readRestOfApp(storage, projects);
             final Set<String> projectIds = new HashSet<>();
             for (ProjectStorage.ProjectSummary p : projects) projectIds.add(p.id);
             post(gen, listener, withProjects(projects, rest), false, FolderState.UNKNOWN);
 
             JoyFolderHome.io().execute(() -> {
+                if (gen != generation) return;   // R3-LIB-03: do not walk the folder for a superseded load
                 FolderReader.Result folder;
                 try {
                     folder = FolderReader.read(app, projectIds);

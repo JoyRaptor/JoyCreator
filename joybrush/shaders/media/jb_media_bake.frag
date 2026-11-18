@@ -16,12 +16,22 @@ uniform float u_layerScale;
 layout(location = 0) out vec4 o_surface;
 layout(location = 1) out vec4 o_fluid;
 layout(location = 2) out vec4 o_water;   // the paper as water feels it: R = height smoothed to fibre scale
+#ifdef JB_WET_FIBRES
+uniform float u_fibreLo;      // a cell lies on a fibre from this far above the paper's fibre-scale mean (the bakes' height units) ...
+uniform float u_fibreHi;      // ... and fully from this far
+#endif
 
 void main() {
     vec2 docPx = u_layerOrigin + jb_fragPx() / u_layerScale;
     o_surface = jb_paperSurface(docPx);
     o_surface.b = clamp((o_surface.b - u_paperHBot) / max(u_paperHTop - u_paperHBot, 0.05), 0.0, 1.0);
     o_fluid = jb_paperFluid(docPx);
+#ifdef JB_WET_FIBRES
+    // The grain's direction comes back signed (-1..1, turned with its patch of paper); the fibre engine's bake keeps it
+    // in 8 bits as 0.5 + 0.5 x direction (0.5, 0.5 = no direction), for jb_wet_flux.frag. The absorbency in R is untouched,
+    // and so is every other engine's bake (which keeps R alone).
+    o_fluid.gb = o_fluid.gb * 0.5 + 0.5;
+#endif
     // A paper without a fluid map still has uneven sizing: derive a slow, decorrelated variation from its
     // own surface (another hex arrangement, far down the mips) so fronts and blooms are never perfectly even.
     if (u_paperFluidTexelPx <= 0.0)
@@ -29,4 +39,18 @@ void main() {
     // A water surface bridges the finest tooth (its meniscus spans a few fibres), so flow and pinning read
     // the height two mips down; granulation still reads the full-detail height.
     o_water = vec4(clamp((jb_paperRead(docPx, 0, false, 4.0).z - u_paperHBot) / max(u_paperHTop - u_paperHBot, 0.05), 0.0, 1.0), 0.0, 0.0, 0.0);
+#ifdef JB_WET_FIBRES
+    // The paper's fibres, for the bleed (PaperFibres, jb_wet_flux.frag): G = how far this cell lies on a fibre, 0..1. A
+    // fibre stands proud of the felt round it: the full-detail height above the fibre-scale mean in R. The highest of this
+    // cell and the one to each side counts, so a fibre one cell wide that lies on a diagonal still joins up for water that
+    // can only step along x or y.
+    {
+        vec2 e = vec2(1.0 / u_layerScale, 0.0);
+        float top = max(jb_paperRead(docPx, 0, false).z,
+                        max(max(jb_paperRead(docPx + e.xy, 0, false).z, jb_paperRead(docPx - e.xy, 0, false).z),
+                            max(jb_paperRead(docPx + e.yx, 0, false).z, jb_paperRead(docPx - e.yx, 0, false).z)));
+        float proud = (top - jb_paperRead(docPx, 0, false, 4.0).z) / max(u_paperHTop - u_paperHBot, 0.05);
+        o_water.g = smoothstep(u_fibreLo, u_fibreHi, proud);
+    }
+#endif
 }

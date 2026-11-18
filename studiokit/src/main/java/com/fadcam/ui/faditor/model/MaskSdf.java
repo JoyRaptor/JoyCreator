@@ -111,11 +111,22 @@ public final class MaskSdf {
      */
     @NonNull
     public static float[] packShapes(@Nullable CompositingSpec spec, float frameW, float frameH) {
-        int n = spec == null ? 0 : Math.min(spec.masks.size(), MAX_SHAPES);
+        // In MaskFold.glOrder's order, not the list's: the fold below runs in packed order, and
+        // the two-bucket rule needs every add before every subtract (audit R3-MASK-01).
+        int[] order = MaskFold.glOrder(spec);
+        int n = Math.min(order.length, MAX_SHAPES);
         float[] out = new float[Math.max(1, n) * FLOATS_PER_SHAPE];
         if (spec == null) return out;
+        if (order.length == 0 && !spec.masks.isEmpty()) {
+            // Subtracts with nothing to subtract from: an empty region. One shape parked far
+            // outside the frame covers no pixel, and the fold has something harmless to seed.
+            out[0] = -100f;
+            out[1] = -100f;
+            out[4] = 1f;
+            return out;
+        }
         for (int i = 0; i < n; i++) {
-            CompositingSpec.MaskShape m = spec.masks.get(i);
+            CompositingSpec.MaskShape m = spec.masks.get(order[i]);
             double rad = Math.toRadians(m.rotationDeg);
             int o = i * FLOATS_PER_SHAPE;
             out[o] = m.cx;
@@ -138,9 +149,10 @@ public final class MaskSdf {
     @NonNull
     public static int[] packOps(@Nullable CompositingSpec spec) {
         MaskFold.Fold fold = MaskFold.foldOps(spec);
-        int n = Math.min(fold.ops.length, MAX_SHAPES);
+        int[] order = MaskFold.glOrder(spec);
+        int n = Math.min(order.length, MAX_SHAPES);
         int[] out = new int[Math.max(1, n)];
-        System.arraycopy(fold.ops, 0, out, 0, n);
+        for (int i = 0; i < n; i++) out[i] = fold.ops[order[i]];
         return out;
     }
 
@@ -173,7 +185,7 @@ public final class MaskSdf {
         if (spec == null || spec.masks.isEmpty()) return 1f;
         float[] geo = packShapes(spec, frameW, frameH);
         int[] ops = packOps(spec);
-        int n = Math.min(spec.masks.size(), MAX_SHAPES);
+        int n = geo.length / FLOATS_PER_SHAPE;   // as packed: reordered, and never empty
         float acc = 0f;
         for (int i = 0; i < n; i++) {
             int o = i * FLOATS_PER_SHAPE;

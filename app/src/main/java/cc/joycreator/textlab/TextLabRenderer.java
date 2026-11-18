@@ -122,6 +122,46 @@ public final class TextLabRenderer {
      * floats: then every look draws the old way (the same picture, only slower).
      */
     @Nullable private TlGl.Target march, wobT;
+    /** The bloom pictures hold black, so a frame with no bloom need not run the chain (see the bloom step of frame). */
+    private boolean bloomBlack;
+
+    /** This GPU (or its memory right now) would not make a 32-bit float target: looks draw the old way. */
+    private boolean floatsRefused;
+
+    /** The march pass's target, made on first use; null when this GPU cannot draw into 32-bit floats. */
+    @Nullable
+    private TlGl.Target marchTarget() {
+        if (march == null && !floatsRefused) {
+            try {
+                march = glw.floatTarget(W, H);
+            } catch (RuntimeException e) {
+                refuseFloats(e);
+            }
+        }
+        return march;
+    }
+
+    /** The wobble's offset picture, made on first use; null as {@link #marchTarget}. */
+    @Nullable
+    private TlGl.Target wobbleTarget() {
+        if (wobT == null && !floatsRefused) {
+            try {
+                wobT = glw.floatTarget(W, H);
+            } catch (RuntimeException e) {
+                refuseFloats(e);
+            }
+        }
+        return wobT;
+    }
+
+    private void refuseFloats(@NonNull RuntimeException e) {
+        floatsRefused = true;
+        glw.free(march);
+        glw.free(wobT);
+        march = null;
+        wobT = null;
+        android.util.Log.w("TextLab", "no 32-bit float targets here: looks draw the old way", e);
+    }
     /** Where this frame's shape work left the field (a still runs the fire on it). */
     private TlGl.Target shapedField;
     private TlGl.Target[] heat, bloom;
@@ -364,15 +404,12 @@ public final class TextLabRenderer {
         back = glw.target(W, H, true, false);
         screen = glw.target(W, H, false, false);
         out = glw.target(W, H, false, false);
-        try {
-            march = glw.floatTarget(W, H);
-            wobT = glw.floatTarget(W, H);
-        } catch (RuntimeException e) {
-            glw.free(march);
-            march = null;
-            wobT = null;
-            android.util.Log.w("TextLab", "no 32-bit float targets here: looks draw the old way", e);
-        }
+        // The two 32-bit float targets (28 MiB at 1280 x 720) are made the first frame a look needs them, not here:
+        // most looks never run the march or the wobble pass (R3-TXT-01).
+        march = null;
+        wobT = null;
+        floatsRefused = false;
+        bloomBlack = false;   // new bloom pictures below hold nothing yet
         outHdr = null;   // made when a linear clear picture is first asked for
         // the fire's heat picture has a fixed fineness (640 across at most): the same flame, and the
         // same cost, whether the picture is a phone preview or a 4K still
@@ -725,7 +762,7 @@ public final class TextLabRenderer {
                 // of small passes, each reading the one before (same order, same sums as one pass)
                 List<String> pieces = new ArrayList<>();
                 for (String p : new String[]{"SOFTEN_CHIPS", "SOFTEN_DRIP", "SOFTEN_SPLASH"}) if (parts.contains(p)) pieces.add(p);
-                boolean wobbleRead = parts.contains("SOFTEN_WOBBLE") && pieces.size() > 1 && wobT != null;
+                boolean wobbleRead = parts.contains("SOFTEN_WOBBLE") && pieces.size() > 1 && wobbleTarget() != null;
                 if (wobbleRead) {
                     glw.program("quad.vert", "soften.frag", java.util.Arrays.asList("SOFTEN_PARTS", "SOFTEN_WOBBLE", "SOFTEN_WOBBLE_ONLY"))
                             .use().setAll(U).set("uWobble", shape);
@@ -798,7 +835,7 @@ public final class TextLabRenderer {
         boolean slant = knob("persp") != 0 || knob("parallax") != 0 || knob("extrudeX") != 0 || knob("extrudeY") != 0;
         boolean ownWay = defines.contains("TUBE") || defines.contains("CELLS") || defines.contains("INK")
                 || defines.contains("FOG") || defines.contains("FLAG");
-        boolean split = slant && !ownWay && march != null;
+        boolean split = slant && !ownWay && marchTarget() != null;
         if (split) {
             TlGpuTimer.mark("march");
             List<String> md = new ArrayList<>(defines);
@@ -844,25 +881,41 @@ public final class TextLabRenderer {
         }
         GLES30.glDisable(GLES30.GL_BLEND);
 
-        // bloom: down the chain, then back up adding
-        TlGpuTimer.mark("bloom");
-        TlProgram down = glw.program("quad.vert", "bloom_down.frag", none).use();
-        TlGl.Target src = scene;
-        for (int i = 0; i < bloom.length; i++) {
-            down.set("uHalf", new double[]{0.5 / src.w, 0.5 / src.h})
-                    .set("uBloomCfg", new double[]{knob("bloomThreshold"), knob("bloomKnee"), i == 0 ? 1 : 0, 0})
-                    .tex("uSrc", src.tex(), 0);
-            glw.pass(bloom[i]);
-            src = bloom[i];
+        // bloom: down the chain, then back up adding. The final pass reads it only through the Bloom knob and the lens
+        // streak knob (each multiplies it), so with both at zero none of the nine passes can show: the two pictures the
+        // final pass samples are cleared to black once and the chain is left alone (R3-TXT-02).
+        boolean bloomShows = knob("bloom") != 0 || knob("streak") != 0;
+        if (!bloomShows) {
+            if (!bloomBlack) {
+                TlGpuTimer.mark("bloom");
+                GLES30.glClearColor(0, 0, 0, 0);
+                for (TlGl.Target level : bloom) {
+                    glw.bind(level);
+                    GLES30.glClear(GLES30.GL_COLOR_BUFFER_BIT);
+                }
+                bloomBlack = true;
+            }
+        } else {
+            bloomBlack = false;
+            TlGpuTimer.mark("bloom");
+            TlProgram down = glw.program("quad.vert", "bloom_down.frag", none).use();
+            TlGl.Target src = scene;
+            for (int i = 0; i < bloom.length; i++) {
+                down.set("uHalf", new double[]{0.5 / src.w, 0.5 / src.h})
+                        .set("uBloomCfg", new double[]{knob("bloomThreshold"), knob("bloomKnee"), i == 0 ? 1 : 0, 0})
+                        .tex("uSrc", src.tex(), 0);
+                glw.pass(bloom[i]);
+                src = bloom[i];
+            }
+            TlProgram up = glw.program("quad.vert", "bloom_up.frag", none).use();
+            GLES30.glEnable(GLES30.GL_BLEND);
+            GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE);
+            for (int i = bloom.length - 1; i > 0; i--) {
+                up.set("uHalf", new double[]{0.5 / bloom[i].w, 0.5 / bloom[i].h}).tex("uSrc", bloom[i].tex(), 0);
+                glw.pass(bloom[i - 1]);
+            }
+            GLES30.glDisable(GLES30.GL_BLEND);
         }
-        TlProgram up = glw.program("quad.vert", "bloom_up.frag", none).use();
-        GLES30.glEnable(GLES30.GL_BLEND);
-        GLES30.glBlendFunc(GLES30.GL_ONE, GLES30.GL_ONE);
-        for (int i = bloom.length - 1; i > 0; i--) {
-            up.set("uHalf", new double[]{0.5 / bloom[i].w, 0.5 / bloom[i].h}).tex("uSrc", bloom[i].tex(), 0);
-            glw.pass(bloom[i - 1]);
-        }
-        GLES30.glDisable(GLES30.GL_BLEND);
 
         // final
         TlGpuTimer.mark("final");

@@ -342,7 +342,13 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private var lockShown = false
 
     /** Outstanding [sampleScreen] requests: view px as x,y pairs, and who wants the answer. All answered after the next frame. */
-    private val screenSamples = java.util.concurrent.ConcurrentLinkedQueue<Pair<FloatArray, (IntArray) -> Unit>>()
+    private val screenSamples = java.util.concurrent.ConcurrentLinkedQueue<SampleRequest>()
+
+    /** One waiting [sampleScreen]; [latestWins] ones (the eyedropper's moves) are replaced by a newer one before they are read. */
+    private class SampleRequest(val points: FloatArray, val latestWins: Boolean, val answer: (IntArray) -> Unit)
+
+    /** One 4-byte readback buffer, reused (GL thread only). */
+    private var readPixel: java.nio.ByteBuffer? = null
 
     /**
      * The colours actually SHOWN at [points] (view px, x,y pairs), read from the screen right after the next frame is drawn
@@ -351,7 +357,18 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
      * Every request is answered (the top icons and the eyedropper both ask, and neither may starve the other).
      */
     fun sampleScreen(points: FloatArray, onColors: (IntArray) -> Unit) {
-        screenSamples.add(Pair(points.copyOf(), onColors))
+        screenSamples.add(SampleRequest(points.copyOf(), false, onColors))
+        requestRender()
+    }
+
+    /**
+     * Like [sampleAt], for a stream of moves where only the newest answer matters (the eyedropper dragging): a still-waiting
+     * earlier move is dropped before the GL readback and its callback is never called (eyedropMove's callback already ignores
+     * anything but the newest). Plain [sampleScreen] requests and the final lift pick are never dropped.
+     */
+    fun sampleAtLatest(screenX: Float, screenY: Float, onColor: (Int) -> Unit) {
+        screenSamples.removeIf { it.latestWins }
+        screenSamples.add(SampleRequest(floatArrayOf(screenX, screenY), true) { c -> onColor(c[0]) })
         requestRender()
     }
 
@@ -360,10 +377,10 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         while (true) answerOne(screenSamples.poll() ?: return)
     }
 
-    private fun answerOne(req: Pair<FloatArray, (IntArray) -> Unit>) {
-        val pts = req.first
+    private fun answerOne(req: SampleRequest) {
+        val pts = req.points
         val out = IntArray(pts.size / 2)
-        val px = java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder())
+        val px = readPixel ?: java.nio.ByteBuffer.allocateDirect(4).order(java.nio.ByteOrder.nativeOrder()).also { readPixel = it }
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
         for (i in out.indices) {
             val x = pts[2 * i].toInt()
@@ -376,7 +393,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val b = px.get(2).toInt() and 0xFF
             out[i] = OPAQUE_BLACK or (r shl 16) or (g shl 8) or b
         }
-        val answer = req.second
+        val answer = req.answer
         post { answer(out) }
     }
 
@@ -498,7 +515,42 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** The fill pen's transient shape. Screen owns its transparent overlay; never saved. */
     var onFillPreview: ((FillPenPreviewState?) -> Unit)? = null
     private val fillSamples = ArrayList<PenSample>()
-    private val fillPoints = ArrayList<Pt>()
+    private val fillPoints = AppendOnlyPts()
+
+    /**
+     * The fill pen's outline so far, for the preview. Only ever appended to by the input thread; [snapshot] is an O(1) view of
+     * the first n points: its backing array is never changed below n, and growing makes a NEW array (the old one stays with
+     * whoever holds a snapshot), so the UI thread never reads the list the input thread is still adding to.
+     */
+    private class AppendOnlyPts : AbstractList<Pt>() {
+        private var data = arrayOfNulls<Pt>(256)
+        private var n = 0
+
+        override val size: Int get() = n
+        override fun get(index: Int): Pt {
+            if (index < 0 || index >= n) throw IndexOutOfBoundsException()
+            return data[index]!!
+        }
+
+        fun addPoints(items: List<Pt>) {
+            if (n + items.size > data.size) data = data.copyOf(maxOf(data.size * 2, n + items.size))
+            for (p in items) data[n++] = p
+        }
+
+        fun clear() { data = arrayOfNulls(256); n = 0 }
+
+        fun snapshot(): List<Pt> {
+            val d = data
+            val count = n
+            return object : AbstractList<Pt>() {
+                override val size: Int get() = count
+                override fun get(index: Int): Pt {
+                    if (index < 0 || index >= count) throw IndexOutOfBoundsException()
+                    return d[index]!!
+                }
+            }
+        }
+    }
     private var fillSerial = 0L
     private var fillSmoothing = 0f
     private var fillZoom = 1f
@@ -691,6 +743,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     @Volatile var savePaintBudgetBytes: Long = cc.joycreator.joybrush.core.layers.LayerBudget.SAVE_PAINT_MAX_BYTES
 
     /** Bench only: lets go of what [benchHogGpu] took. */
+    /** Bench: the watercolour line's finish as it was until 2026-11-16 (whole tiles for every batch of dabs), for a before and after on one build. */
+    fun benchWcWholeTiles(on: Boolean) = onGl { engine.wcFinishWholeTiles = on }
+
+    /** Bench: check every partial finish of the watercolour line against a whole one ([on]); [benchWcFinishReport] says how it went. */
+    fun benchWcFinishCheck(on: Boolean) = onGl { engine.wcFinishCheck = on; engine.wcFinishChecked = 0; engine.wcFinishWrong = 0; engine.wcLiftChecked = 0; engine.wcLiftWrong = 0 }
+    fun benchWcFinishReport(ready: (String) -> Unit) = onGl {
+        val line = "${engine.wcFinishChecked} tile finishes checked against a whole-tile finish, ${engine.wcFinishWrong} differ; " +
+            "${engine.wcLiftChecked} lift pictures checked against whole ones, ${engine.wcLiftWrong} differ"
+        mainThread.post { ready(line) }
+    }
+
     fun benchUnhogGpu() {
         onGl(allowLost = true) {
             if (benchHog.isNotEmpty()) GLES30.glDeleteTextures(benchHog.size, benchHog.toIntArray(), 0)
@@ -2026,7 +2089,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         eyedropX = sx; eyedropY = sy
         publishEyedrop()
         val seq = ++sampleSeq
-        sampleAt(sx, sy) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
+        sampleAtLatest(sx, sy) { argb -> if (seq == sampleSeq && eyedropping) { eyedropNew = argb; publishEyedrop() } }
     }
 
     /** Cancel is where the TOUCH went back to, not where the lifted ring is. */
@@ -2405,8 +2468,11 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         // R51, any brush works on any layer (owner, 2026-10-21: his daughter and his wife found the pen did nothing with a brush
         // picked): a realistic brush on a layer that holds editable lines first turns them into paint (Freeze: the picture
         // unchanged, its own undo step, said once), then paints. It used to be refused.
+        // Watercolour needs no freeze (2026-11-16): the wet sheet prints its wash among the lines and they stay editable.
+        val washAmongLines = p?.media?.medium == cc.joycreator.joybrush.core.brush.MEDIUM_WET &&
+            cc.joycreator.joybrush.androidkit.gl.media.WetSheet.enabled
         if (p?.engine == ENGINE_MEDIA && !eraser && !editingMask && watercolourPreviewSeed == null && tileBoardId == null &&
-            lineSnapshot.holdsItemsOnLayer(activeLayer)) {
+            !washAmongLines && lineSnapshot.holdsItemsOnLayer(activeLayer)) {
             val id = activeLayer; val name = stackUi.active.name
             onBeforeHistoryChange?.invoke()
             onGl {
@@ -2417,6 +2483,12 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                     post { onNotice?.invoke("Lines on \"$name\" became paint so pencil, watercolour and oil fit. Undo brings them back.") }
                 }
             }
+            startMediaStroke(p)
+            return
+        }
+        // The wash itself: straight to the realistic-paint stroke, past the line layer's own admission (which refuses media).
+        if (washAmongLines && p?.engine == ENGINE_MEDIA && !eraser && !editingMask && watercolourPreviewSeed == null &&
+            tileBoardId == null && lineSnapshot.holdsItemsOnLayer(activeLayer)) {
             startMediaStroke(p)
             return
         }
@@ -2896,8 +2968,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             return
         }
         if (strokePreset?.engine == ENGINE_FILL && !mediaErase) {
-            fillPoints.addAll(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
-            onFillPreview?.invoke(FillPenPreviewState(fillPoints.toList(),fillArgb,fillOpacity))
+            fillPoints.addPoints(points.map { Pt(it.x.toDouble(),it.y.toDouble()) })
+            onFillPreview?.invoke(FillPenPreviewState(fillPoints.snapshot(),fillArgb,fillOpacity))
             return
         }
         strokeTuft?.let { t -> paintTuft(t.add(points)); return }
@@ -3181,6 +3253,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
         snapshotOf(0, { onReady(it.contents) }, onFailure, keepWet)
 
     /**
+     * The drawing's PICTURE alone, for an export (a PNG, a board, a hand-off to Studio): every picture tile as [snapshot]
+     * gives it, and none of the pencil, watercolour and oil state under it, which an export never reads. On a full page
+     * that state is 128 MB read back from the graphics chip and held in memory beside the picture for nothing (second
+     * review E4; the handoff of 2026-11-17, item 4). The document it comes with lists no paint state, so it is NOT a
+     * drawing to save: never hand it to a save or a copy.
+     */
+    fun snapshotPicture(onReady: (JbContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean = false) =
+        snapshotOf(3, { onReady(it.contents) }, onFailure, keepWet)
+
+    /**
      * [snapshot] for the save that rewrites only what changed (JBX-36): a tile whose content is what it was when this
      * canvas last read it for such a save is NOT read back; it comes as its length and checksum
      * ([cc.joycreator.joybrush.androidkit.io.SparseContents]), for [JbArchive.saveCarrying] to take from the file.
@@ -3191,14 +3273,19 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                        readAll: Boolean = false) =
         snapshotOf(if (readAll) 2 else 1, onReady, onFailure, keepWet)
 
-    /** [sparse]: 0 a plain readback; 1 only the tiles that changed; 2 every tile, with its fingerprint (after [JbArchiveNeedsBytes]). */
+    /** [sparse]: 0 a plain readback; 1 only the tiles that changed; 2 every tile, with its fingerprint (after [JbArchiveNeedsBytes]); 3 the picture alone ([snapshotPicture]). */
     private fun snapshotOf(sparse: Int, onReady: (cc.joycreator.joybrush.androidkit.io.SparseContents) -> Unit, onFailure: (String) -> Unit, keepWet: Boolean) {
         // The view no longer draws (paused, its surface gone, or the screen closing): no frame will run this request. The picture
         // read when the screen left answers it ([keepPausePicture]); a closing screen without one says so at once
         // instead of leaving the save to its watchdog.
         if (closing || viewPaused || surfaceGone) {
             val kept = synchronized(pauseLock) { pausePicture }
-            if (kept != null) { mainThread.post { onReady(cc.joycreator.joybrush.androidkit.io.SparseContents(kept)) }; return }
+            // The picture kept at a pause is a whole drawing; an export wants it without its paint state, as asked.
+            if (kept != null) {
+                val given = if (sparse == 3) kept.copy(mediaTiles = emptyMap(), doc = kept.doc.copy(layers = kept.doc.layers.map { l ->
+                    l.copy(cels = l.cels.map { it.copy(floatTiles = emptyList()) }) })) else kept
+                mainThread.post { onReady(cc.joycreator.joybrush.androidkit.io.SparseContents(given)) }; return
+            }
             if (closing) { mainThread.post { onFailure("the screen closed before the drawing could be read") }; return }
         }
         val w = viewW
@@ -3363,13 +3450,23 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             bySeq.getOrPut(k.seq) { slab.first to LinkedHashMap() }.second[tileKeyOf(k.key)] = slab.second
         }
         val lineCompose = linePlan.composeKeys.groupBy({ LinePlane(it.first, it.second) }, { tileKeyOf(it.third) }).mapValues { it.value.toSet() }
+        // Fingerprints of the tiles as they go on from the file ([loadedPrints]): only for a drawing of plain tiles and
+        // paint (editable lines re-file tiles on the way in and out, and such a drawing is saved whole anyway).
+        val printing = contents.strokes.values.all { it.isEmpty() } && contents.looks.isEmpty() && contents.slabs.isEmpty()
+        class Loaded(val name: Any, val id: Any, val ask: GlPaintEngine.TileAsk, val size: Int, val blank: Boolean)
+        val loaded = ArrayList<Loaded>()
         for (entry in contents.tiles) {
             if (entry.key in linePlan.itemTiles) continue
             // Iterating the map gives the ENTRY: its key is (layer, cel, "tx_ty").
             // A mask's tiles go to the mask's store (JB-2.23); every other tile to its layer.
             val layer = doc.layers.first { it.id == entry.key.first }
-            val store = if (layer.mask?.id == entry.key.second) maskStoreId(layer.id) else layer.id
-            wanted.add(Triple(store,entry.key.second,tileKeyOf(entry.key.third)) to entry.value)
+            val mask = layer.mask?.id == entry.key.second
+            val store = if (mask) maskStoreId(layer.id) else layer.id
+            val key = tileKeyOf(entry.key.third)
+            wanted.add(Triple(store,entry.key.second,key) to entry.value)
+            if (printing) loaded.add(Loaded(entry.key, Triple(layer.id, entry.key.second, key),
+                if (mask) GlPaintEngine.TileAsk.store(store, key) else GlPaintEngine.TileAsk.cel(layer.id, entry.key.second, key),
+                entry.value.size, Tiles.isBlank(entry.value)))
         }
         val resolved = PaperState.resolve(doc.paper,PaperResources.catalogue)
         val name = doc.name
@@ -3385,6 +3482,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // The previous drawing's realistic paint (its media window and any moving water) is discarded first, never
             // flushed into the new drawing's layers (audit 2026-10-18 P1: a wet wash could paint into the next drawing).
             if (contentLost) mediaCanvas.forget() else mediaCanvas.release()
+            seenTiles.clear(); loadedPrints = null
             // resetDocument() empties EVERY layer; the file's stack is put back whole, then its pixels.
             engine.resetDocument()
             engine.setStack(stack)
@@ -3395,7 +3493,51 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             }
             // Media payloads (DocModel v8, v9): their stores and grounds, beside the look the tiles already put back, which
             // they agree with.
-            for ((k, bytes) in contents.mediaTiles) engine.writeMediaTile(k.layerId, k.store, tileKeyOf(k.key), bytes, k.celId)
+            // One tile's stores at a time: the contents may hold them on disk (JbArchive.openDeferringMedia), so opening
+            // holds a tile and not the drawing. A tile whose state cannot be read again (the disk failed since it was
+            // checked) keeps its picture and gets no paint state at all, never half of it: the look is its ground.
+            var unread = 0
+            try {
+                for ((_, stores) in contents.mediaTiles.keys.groupBy { Triple(it.layerId, it.celId, it.key) }) {
+                    val bytes = try { stores.map { k -> k to contents.mediaTiles.getValue(k) } } catch (e: JbArchiveException) {
+                        if (unread++ == 0) android.util.Log.w("JoyBrushCanvas", "paint state could not be read again; those tiles open as their picture", e)
+                        continue
+                    }
+                    for ((k, b) in bytes) {
+                        val key = tileKeyOf(k.key)
+                        engine.writeMediaTile(k.layerId, k.store, key, b, k.celId)
+                        if (printing) loaded.add(Loaded(k, MediaTileKey(k.layerId, k.celId, key.toString(), k.store),
+                            GlPaintEngine.TileAsk.media(k.layerId, k.store, key, engine.mediaPlaneOfCel(k.layerId, k.celId)), b.size, Tiles.isBlank(b)))
+                    }
+                }
+            } finally {
+                // Whatever ends the load (a failed upload, the graphics going), the file is let go: a retry opens its own.
+                (contents.mediaTiles as? java.io.Closeable)?.close()
+            }
+            if (unread > 0) {
+                // Paint that became a flat picture after every check had passed is said, not only logged.
+                val n = unread
+                cc.joycreator.joybrush.androidkit.diag.TileIncidents.e("$n tiles opened as their picture: their paint state could not be read again", Throwable())
+                noteBenchError("open", JbArchiveException("$n tiles opened without their paint state"))
+                post { onNotice?.invoke("Part of this drawing's paint could not be read back, so it opened as a flat picture there. Nothing else was lost.") }
+            }
+            // Each tile's fingerprint NOW, straight after its bytes went on and before anything redraws it: that is the
+            // fingerprint of the file's bytes. A tile still wearing it at the first save is the file's tile, and is not
+            // read back (snapshotSparse); the host ties the fingerprints to the file ([takeLoadedPrints], JbArchive.memoOf).
+            if (printing && unread == 0 && loaded.isNotEmpty()) {
+                val got = try { engine.tilePrints(loaded.map { it.ask }) } catch (e: RuntimeException) { null }
+                if (got != null && got.none { it == null }) {
+                    val tiles = HashMap<Triple<String, String, String>, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
+                    val media = HashMap<MediaTileKey, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
+                    for ((i, l) in loaded.withIndex()) {
+                        val print = got[i]!!
+                        seenTiles[l.id] = SeenTile(print, l.size, l.blank)
+                        @Suppress("UNCHECKED_CAST")
+                        if (l.name is MediaTileKey) media[l.name] = print else tiles[l.name as Triple<String, String, String>] = print
+                    }
+                    loadedPrints = cc.joycreator.joybrush.androidkit.io.SparseContents(JbContents(doc, emptyMap(), emptyMap()), tilePrints = tiles, mediaPrints = media)
+                }
+            }
             engine.agreeAllPayloads()
             engine.loadLines(lineRecords, lineBases, contents.brushes, lineSlabs, lineCompose, contents.brushAssets)
             post { postDelayed({ pumpMediaPrewarm() }, 400) }
@@ -3531,6 +3673,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     private class SeenTile(val print: cc.joycreator.joybrush.core.paint.TileFingerprint.Print, val size: Int, val blank: Boolean)
     private val seenTiles = HashMap<Any, SeenTile>()
 
+    /**
+     * The fingerprints of the tiles the last [load] put on from its file, until taken (its `tilePrints` and `mediaPrints`;
+     * the rest of the object is empty). Null when there are none: a drawing with editable lines, a phone that cannot
+     * fingerprint, a tile that could not be read. GL thread writes, the host takes it after `onDone`.
+     */
+    @Volatile private var loadedPrints: cc.joycreator.joybrush.androidkit.io.SparseContents? = null
+    fun takeLoadedPrints(): cc.joycreator.joybrush.androidkit.io.SparseContents? = loadedPrints.also { loadedPrints = null }
+
     /** Bench: how the last [snapshotSparse] went: tiles asked, tiles read back, ms spent on the fingerprints. */
     @Volatile var lastSparseReport: String = ""
         private set
@@ -3594,8 +3744,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             engine.setBoardDocument(current)
             // More paint than a save can carry in good time: the newest stays paint in the file, the rest its picture.
             val keepPaint=engine.mediaTilesToSave(savePaintBudgetBytes)
-            val mediaKeys={layer: String,cel: String->val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{store->
-                engine.mediaTileKeys(layer,store,p).let{keys->if(keepPaint==null)keys else keys.filter{Triple(layer,p,it) in keepPaint}}}}
+            val mediaKeys={layer: String,cel: String->if(sparse == 3) emptyMap() else { val p=engine.mediaPlaneOfCel(layer,cel); MediaStores.PAYLOAD.associateWith{store->
+                engine.mediaTileKeys(layer,store,p).let{keys->if(keepPaint==null)keys else keys.filter{Triple(layer,p,it) in keepPaint}}} }}
             val keys={layer: String,cel: String->
                 val mask=current.layers.first{it.id==layer}.mask
                 if(mask?.id==cel)engine.tileKeys(maskStoreId(layer)) else engine.celTileKeys(layer,cel)
@@ -3604,7 +3754,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             // Editable lines re-file tiles as looks and slabs on the way out (withLines): such a drawing is read whole.
             val prints=HashMap<Any,cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
             var printMs=0L
-            if(sparse != 0 && engine.lineSave().records.isEmpty()) {
+            if((sparse == 1 || sparse == 2) && engine.lineSave().records.isEmpty()) {
                 val began=android.os.SystemClock.elapsedRealtime()
                 val ids=ArrayList<Any>(); val asks=ArrayList<GlPaintEngine.TileAsk>()
                 for(layer in current.layers) {
@@ -3646,7 +3796,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 mediaSeen={layer,cel,store,key->known(MediaTileKey(layer,cel,key.toString(),store))},
                 print={layer,cel,key->prints[Triple(layer,cel,key)]},
                 mediaPrint={layer,cel,store,key->prints[MediaTileKey(layer,cel,key.toString(),store)]})
-            if(sparse != 0) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
+            if(sparse == 1 || sparse == 2) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
                 "the lost-tile check $repairMs ms, ${android.os.SystemClock.elapsedRealtime()-readBegan} ms in all on the graphics thread"
             return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents),made.tiles,made.mediaTiles,made.tilePrints,made.mediaPrints)
         }
@@ -3808,8 +3958,16 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 val current=engine.boardDocument ?: readContents(viewW,viewH).doc.also{engine.setBoardDocument(it)}
                 val synced=syncBoardLayers(current); engine.setBoardDocument(synced)
                 engine.setFramePreviews(emptyMap())
+                // The newest realistic paint lives in the media window or the atlas until it is written back: a board
+                // edit that moves pixels takes their paint state with it (R2-JB-03) and must read the newest, not the
+                // tiles as they were. The wet sheet is not printed for this: BoardChangePaint decides that.
+                // Only for an edit that moves, copies or clears pixels: a rename or a lock leaves the atlas where it is,
+                // so the next pencil or oil stroke does not pay a reload for it.
+                val change = edit(synced)
+                if (change.transfers.isNotEmpty() || change.clears.isNotEmpty() || change.copies.isNotEmpty() ||
+                    change.drops.isNotEmpty() || change.frameDuplicate != null) mediaCanvas.releaseWindow(printSheet = false)
                 // A sentence when editable lines became pixels for this change (v1.2 H4), shown like any other notice.
-                engine.applyBoardChange(edit(synced))?.let { said -> post { onNotice?.invoke(said) } }; reportHistory()
+                engine.applyBoardChange(change)?.let { said -> post { onNotice?.invoke(said) } }; reportHistory()
             } catch(e:Exception) { post{onRefused?.invoke(e.message ?: "That board change could not be applied")} }
         }
     }
@@ -3896,6 +4054,17 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
             val old = engine.benchFailLayerTileIn
             engine.benchFailLayerTileIn = if (debug) n else -1
             if (was != null) post { was(old) }
+        }
+    }
+
+    /** Debug bench only: whether the tile under the document point holds realistic-paint state, on the plane that owns that point (the layer's, or the frame's shown there). */
+    fun benchPayloadAt(docX: Int, docY: Int, ready: (Boolean) -> Unit) {
+        onGl(allowLost = true) {
+            val has = try {
+                engine.hasPayload(activeLayer, Tiles.key(Math.floorDiv(docX, Tiles.SIZE), Math.floorDiv(docY, Tiles.SIZE)),
+                    engine.mediaPlaneAt(activeLayer, docX.toDouble(), docY.toDouble()))
+            } catch (e: Exception) { false }
+            post { ready(has) }
         }
     }
 
@@ -4246,6 +4415,50 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 }
             }
             val report = checkNotNull(result).toString()
+            post { ready(report) }
+        }
+    }
+
+    /** Debug only (R2-JB-03): moved cells and a dragged board keep their realistic-paint state. Fresh engines, never this View's artwork. */
+    fun runCellPayloadProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"failure\":\"Cell payload probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        onGl {
+            val value = try {
+                cc.joycreator.joybrush.androidkit.gl.CellPayloadProbe.run({
+                    GlPaintEngine().also { it.init(); it.setDocumentPaper(paper); it.addLayer("cell-payload-probe") }
+                }, "cell-payload-probe")
+            } catch (error: Exception) {
+                org.json.JSONObject().put("passed", false).put("failure", error.message ?: error.javaClass.simpleName)
+            }
+            val report = value.toString()
+            post { ready(report) }
+        }
+    }
+
+    /** Debug only (R2-JB-03): a duplicated frame keeps its realistic-paint state. A fresh engine, never this View's artwork. */
+    fun runFramePayloadProbe(ready: (String) -> Unit) {
+        if (context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE == 0) {
+            ready("{\"passed\":false,\"failure\":\"Frame payload probe is debug only\"}")
+            return
+        }
+        val paper = documentPaperState
+        onGl {
+            val probe = GlPaintEngine()
+            val value = try {
+                probe.init()
+                probe.setDocumentPaper(paper)
+                probe.addLayer("frame-payload-probe")
+                cc.joycreator.joybrush.androidkit.gl.FramePayloadProbe.run(probe, "frame-payload-probe")
+            } catch (error: Exception) {
+                org.json.JSONObject().put("passed", false).put("failure", error.message ?: error.javaClass.simpleName)
+            } finally {
+                try { probe.release() } catch (error: Exception) { android.util.Log.w("JoyBrushCanvas", "frame payload probe release", error) }
+            }
+            val report = value.toString()
             post { ready(report) }
         }
     }

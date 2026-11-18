@@ -37,6 +37,7 @@ public final class LibraryTests {
         run("bands: rows carry headers only when banded", LibraryTests::bandRows);
         run("clock: m:ss, then h:mm:ss, as the lobby writes it", LibraryTests::clock);
         run("sheets: a look and its PNG or WebP preview are one card; the newer of two wins", LibraryTests::sheets);
+        run("refresh: an identical card is the same card; any shown field makes it a different one (R3-LIB-04)", LibraryTests::sameShown);
         System.out.println();
         System.out.println(passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
@@ -246,6 +247,31 @@ public final class LibraryTests {
         eq("Gold.5x4.sprite.png", items.get(1).thumbSheet);
         eq("Run.4x2.sprite.webp", items.get(4).thumbSheet);
         eq(Arrays.asList("Supplies/Looks/Ice.text.json", "Supplies/Looks/Ink.text.json"), stale);
+    }
+
+    static void sameShown() {
+        LibraryItem a = item("Dust", LibraryKind.SPRITE_SHEETS, 100, false);
+        a.thumb = "file:///x/Dust.5x4.sprite.png";
+        a.thumbSheet = "Dust.5x4.sprite.png";
+        LibraryItem b = item("Dust", LibraryKind.SPRITE_SHEETS, 100, false);
+        b.thumb = "file:///x/Dust.5x4.sprite.png";
+        b.thumbSheet = "Dust.5x4.sprite.png";
+        check(a.sameShown(b) && b.sameShown(a), "identical cards are the same");
+        check(!a.sameShown(null), "null is different");
+        b.thumb = "file:///x/Dust2.5x4.sprite.png";
+        check(!a.sameShown(b), "a new picture is a different card");
+        b.thumb = a.thumb;
+        LibraryItem c = item("Dust", LibraryKind.SPRITE_SHEETS, 101, false);
+        c.thumb = a.thumb;
+        c.thumbSheet = a.thumbSheet;
+        check(!a.sameShown(c), "a newer file (same path) is a different card: its picture must reload");
+        LibraryItem d = item("Dust", LibraryKind.SPRITE_SHEETS, 100, false);
+        d.thumb = a.thumb;
+        d.thumbSheet = a.thumbSheet;
+        d.layers = 3;
+        check(!a.sameShown(d), "facts that arrive later (layers) make a different card");
+        d.layers = -1;
+        check(a.sameShown(d), "and back");
     }
 
     static LibraryItem item(String name, LibraryKind kind, long modified, boolean shared) {

@@ -54,11 +54,13 @@ class PaperCatalogueTest {
         hexTexels: String = "180",
         rotatable: Boolean = true,
         relief: String = "1.0",
+        packed: Boolean = true,
     ): String = """
         {
           "id": "$id",
           "name": "$name",
           "file": "$file",
+          "packed": $packed,
           "size": $size,
           "texelPx": $texelPx,
           "slopeRange": $slopeRange,
@@ -235,6 +237,21 @@ class PaperCatalogueTest {
     @Test
     fun aSurfaceFileThatIsNotAPngIsRefused() {
         assertOneProblem(catalogue(surfaces = listOf(surface(file = "surface_pulp_artisan.jpg"))), "pulp_artisan", "file")
+    }
+
+    /**
+     * A height-only surface is rebuilt at load (slopes, height²), so it may be a grey JPEG, a fraction of
+     * the PNG's size. A packed one carries separate numbers per channel and must stay PNG (the test above).
+     */
+    @Test
+    fun aHeightOnlySurfaceMayBeAJpeg() {
+        val c = PaperCatalogues.parse(catalogue(surfaces = listOf(surface(file = "height_pulp_artisan.jpg", packed = false))))
+        assertEquals(emptyList(), PaperCatalogues.problems(c))
+    }
+
+    @Test
+    fun aHeightOnlySurfaceInAnotherFormatIsRefused() {
+        assertOneProblem(catalogue(surfaces = listOf(surface(file = "height_pulp_artisan.webp", packed = false))), "pulp_artisan", "file")
     }
 
     @Test

@@ -24,42 +24,19 @@ LOGS=$OUT/logs
 mkdir -p "$LOGS"
 SUM=$OUT/tests-summary.md
 FAILS=$OUT/failures.md
+LIST=$OUT/failing-tests.md
+JUNIT=$OUT/junit
+rm -rf "$JUNIT"
 : > "$FAILS"
+: > "$LIST"
 ROWS=()
 failed=0
 
-# JUnit XML results under the given folders -> "tests failures errors skipped"; failing cases go to $FAILS.
-junit() {
-    python3 - "$FAILS" "$@" <<'PY'
-import sys, glob, os, xml.etree.ElementTree as ET
-fails_file, dirs = sys.argv[1], sys.argv[2:]
-t = f = e = s = 0
-out = []
-for d in dirs:
-    for p in glob.glob(os.path.join(d, "**", "TEST-*.xml"), recursive=True):
-        try:
-            root = ET.parse(p).getroot()
-        except ET.ParseError:
-            continue
-        for case in root.iter("testcase"):
-            t += 1
-            if case.find("skipped") is not None:
-                s += 1
-            for kind in ("failure", "error"):
-                bad = case.find(kind)
-                if bad is not None:
-                    if kind == "failure": f += 1
-                    else: e += 1
-                    text = (bad.get("message") or "") + "\n" + (bad.text or "")
-                    lines = [l for l in text.strip().splitlines() if l.strip()][:25]
-                    out.append("#### %s.%s\n```\n%s\n```\n" % (case.get("classname"), case.get("name"), "\n".join(lines)))
-with open(fails_file, "a", encoding="utf-8") as fh:
-    for chunk in out[:40]:
-        fh.write(chunk + "\n")
-    if len(out) > 40:
-        fh.write("(%d more failing tests not shown)\n\n" % (len(out) - 40))
-print(t, f, e, s)
-PY
+# One suite's JUnit XML -> "tests failures errors skipped". Each failing test gets a line in $LIST (class.method and
+# the first line of its message), its message and first stack lines in $FAILS, and its XML file a trimmed copy under
+# $JUNIT, which is uploaded with the summary.
+junit() {   # suite results-dir...
+    python3 tools/cloud/junit_summary.py "$1" "$LIST" "$FAILS" "$JUNIT" "${@:2}"
 }
 
 record() {   # suite seconds ok result
@@ -75,8 +52,9 @@ gradle_suite() {   # name results-dir gradle-args...
     local start=$(date +%s) ok=1
     ./gradlew "$@" --continue > "$LOGS/$name.log" 2>&1 || ok=0
     local secs=$(( $(date +%s) - start ))
-    read -r t f e s < <(junit "$dir")
+    read -r t f e s < <(junit "$name" "$dir")
     if [ "$t" = 0 ] && [ "$ok" = 0 ]; then
+        echo "- \`$name\` Gradle failed before any test ran (its errors are under Failures)" >> "$LIST"
         { echo "#### $name: Gradle failed before any test ran"; echo '```'; grep -E "error:|e: |FAILURE|What went wrong" -A3 "$LOGS/$name.log" | head -40; echo '```'; echo; } >> "$FAILS"
     fi
     [ "$f" = 0 ] && [ "$e" = 0 ] || ok=0
@@ -92,6 +70,7 @@ harness() {   # name result-pattern command...
     line=$(grep -E "$pattern" "$LOGS/$name.log" | tail -1)
     [ -n "$line" ] || line="(no result line; last: $(tail -1 "$LOGS/$name.log" | cut -c1-120))"
     if [ "$ok" = 0 ]; then
+        [ "$name" = studio ] || echo "- \`$name\` failed: $line" >> "$LIST"
         { echo "#### $name"; echo '```'; tail -40 "$LOGS/$name.log"; echo '```'; echo; } >> "$FAILS"
     fi
     record "$name" "$secs" "$ok" "$line"
@@ -108,6 +87,8 @@ for s in $SUITES; do
             for l in tools/jvm-harness/out-studio-all/*.log; do
                 n=$(basename "$l" .log)
                 if grep -q "^FAIL *$n " "$LOGS/studio.log" 2>/dev/null; then
+                    why=$(grep -E "FAIL|Exception|Error|expected" "$l" | head -1 | cut -c1-180)
+                    echo "- \`studio / $n\` ${why:-failed (its last lines are under Failures)}" >> "$LIST"
                     { echo "#### studio / $n"; echo '```'; tail -30 "$l"; echo '```'; echo; } >> "$FAILS"
                 fi
             done ;;
@@ -126,6 +107,7 @@ done
     echo "|---|---|---|---|"
     printf '%s\n' "${ROWS[@]}"
     echo
+    if [ -s "$LIST" ]; then echo "### Failing tests ($(wc -l < "$LIST"))"; echo; cat "$LIST"; echo; fi
     if [ -s "$FAILS" ]; then echo "### Failures"; echo; cat "$FAILS"; else echo "No failures."; fi
 } > "$SUM"
 cat "$SUM"

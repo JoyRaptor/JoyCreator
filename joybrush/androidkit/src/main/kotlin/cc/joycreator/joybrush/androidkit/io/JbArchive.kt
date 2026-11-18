@@ -601,6 +601,52 @@ object JbArchive {
         return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
     }
 
+    /**
+     * The record a save of [file] would have left ([SaveMemo]), made from the file as it lies, for a drawing that was just
+     * OPENED from it: [tilePrints] and [mediaPrints] are the fingerprints of its tiles as they went onto the canvas from
+     * this file's bytes. With it the first save after an open takes the unchanged tiles from the file like any later save
+     * (it used to read back and compress the whole drawing again: 18 s for a full page on the Note 9).
+     *
+     * Only the tiles named are remembered, each with the checksum the file's directory gives for it and the checksum of
+     * its compressed bytes as they are read now; everything else is written anew by the next save. Null when the file
+     * cannot be read as a zip or does not hold a named tile as a deflated entry: the next save then reads everything.
+     * The caller must be sure the drawing came from THIS file (not its backup) and that nothing wrote it since.
+     */
+    fun memoOf(file: File, tilePrints: Map<Triple<String, String, String>, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>,
+               mediaPrints: Map<MediaTileKey, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>): SaveMemo? {
+        val tags = HashMap<String, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>(tilePrints.size + mediaPrints.size)
+        for ((key, p) in tilePrints) tags[tilePath(key)] = p
+        for ((key, p) in mediaPrints) tags[mediaPath(key)] = p
+        if (tags.size != tilePrints.size + mediaPrints.size) return null
+        val length = file.length(); val modified = file.lastModified()
+        val raw = HashMap<String, Long>(tags.size * 2)
+        val packed = HashMap<String, Long>(tags.size * 2)
+        try {
+            java.io.RandomAccessFile(file, "r").use { raf ->
+                val index = ZipCarry.index(raf)
+                var hold = ByteArray(1 shl 20)
+                val crc = CRC32()
+                for (name in tags.keys) {
+                    val kept = index[name] ?: return null
+                    if (kept.method != ZipCarry.DEFLATED || kept.compressedSize > Int.MAX_VALUE / 2) return null
+                    val n = kept.compressedSize.toInt()
+                    if (hold.size < n) hold = ByteArray(n)
+                    raf.seek(kept.dataOffset); raf.readFully(hold, 0, n)
+                    crc.reset(); crc.update(hold, 0, n)
+                    packed[name] = crc.value
+                    // The bytes' own checksum is the directory's CRC-32. Their Adler-32 is not known without inflating
+                    // them, and is never needed for a tile that comes without bytes; a value no Adler-32 can have keeps
+                    // a tile that comes WITH bytes from ever being taken for this one (it is then compressed anew).
+                    raw[name] = (kept.crc shl 32) or NO_ADLER
+                }
+            }
+        } catch (e: Exception) { return null }
+        if (file.length() != length || file.lastModified() != modified) return null
+        return SaveMemo(file.path, length, modified, raw, packed, 0, 0, tags)
+    }
+    /** Both halves of an Adler-32 are below 65,521, so this is never one. */
+    private const val NO_ADLER = 0xFFFFFFFFL
+
     /** CRC-32 of [bytes] in the high half, Adler-32 in the low (bench and tests: one number for a tile's bytes). */
     fun sumOf(bytes: ByteArray): Long {
         val crc = CRC32(); crc.update(bytes)
@@ -704,7 +750,13 @@ object JbArchive {
                 val kept = index?.get(item.name)
                 var done = false
                 // The first entry stays the stored mimetype whatever the older file held; it is 22 bytes.
-                if (kept != null && raf != null && memo != null && item.level >= 0 && memo.raw[item.name] == sum &&
+                // The same bytes as then: the last save remembers this very checksum of them; or, for a file known only by
+                // its directory (memoOf: a drawing just opened), the canvas gives with the bytes the fingerprint that file's
+                // tile went on with, and the bytes have the directory's CRC-32.
+                val then = memo?.raw?.get(item.name)
+                val same = then == sum || (u == null && then != null && (then and 0xFFFFFFFFL) == NO_ADLER &&
+                    prints[item.name].let { it != null && it == memo?.tags?.get(item.name) })
+                if (kept != null && raf != null && memo != null && item.level >= 0 && same &&
                     kept.size == length && kept.crc == rawCrc && kept.method == ZipCarry.DEFLATED &&
                     kept.compressedSize <= Int.MAX_VALUE / 2) {
                     val n = kept.compressedSize.toInt()
@@ -764,7 +816,15 @@ object JbArchive {
         read(input, legacyBrushes, null)
 
     fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
-             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents {
+             pngVerifier: FrozenBrushAssets.PngVerifier?): JbContents = read(input, legacyBrushes, pngVerifier, null)
+
+    /**
+     * [deferred] not null: every check is made exactly as without it, on every byte, but a media tile's bytes are let go
+     * once checked; its entry name, size and the CRC of the bytes read are noted in [deferred] and the contents returned
+     * hold a stand-in of the right size in its place ([openDeferringMedia] puts the real reader there).
+     */
+    private fun read(input: InputStream, legacyBrushes: ((String) -> BrushPreset?)?,
+                     pngVerifier: FrozenBrushAssets.PngVerifier?, deferred: MutableMap<MediaTileKey, DeferredMedia.Entry>?): JbContents {
         val zis = ZipInputStream(input)
         val names = HashSet<String>()
         val budget = ByteBudget(MAX_TOTAL_BYTES)
@@ -857,7 +917,7 @@ object JbArchive {
                         if (bytes.size != MEDIA_TILE_BYTES) {
                             throw JbArchiveException("media tile \"$name\" is ${bytes.size} bytes, a media tile is $MEDIA_TILE_BYTES")
                         }
-                        media[key] = bytes
+                        media[key] = if (deferred == null) bytes else DeferredMedia.note(deferred, key, name, bytes)
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(GROUND_SUFFIX) -> {
@@ -870,7 +930,8 @@ object JbArchive {
                         if (bytes.size != TILE_BYTES) {
                             throw JbArchiveException("media ground tile \"$name\" is ${bytes.size} bytes, a ground tile is $TILE_BYTES")
                         }
-                        media[MediaTileKey(parts[1], parts[2], stem, MediaStores.GROUND)] = bytes
+                        val key = MediaTileKey(parts[1], parts[2], stem, MediaStores.GROUND)
+                        media[key] = if (deferred == null) bytes else DeferredMedia.note(deferred, key, name, bytes)
                     }
 
                     name.startsWith("$LAYERS_DIR/") && name.endsWith(LOOK_SUFFIX) -> {
@@ -1129,6 +1190,41 @@ object JbArchive {
         // one catch must not meet a FileNotFoundException from underneath it.
         return try {
             FileInputStream(file).use { read(it, legacyBrushes, pngVerifier) }
+        } catch (e: JbArchiveException) {
+            throw e
+        } catch (e: Exception) {
+            throw JbArchiveException("${file.name} cannot be opened: ${brief(e)}")
+        }
+    }
+
+    /**
+     * Opens [file] like [open], holding its realistic-paint state on disk instead of in memory (ATLAS-SOLID, streaming
+     * saves item 2, "open as it is read"): the paint stores are most of a painted drawing, about 3 MB a tile, and a
+     * drawing was held whole in the heap between the read and the upload. Everything is read and checked first exactly as
+     * [open] does it, so a file [open] refuses is refused here with the same words and before anything is shown; only
+     * then are the media tiles handed out, each read again from the file when asked for ([DeferredMedia]) and checked
+     * against what the first reading saw. The file format is untouched.
+     *
+     * When the two readings cannot be matched up (a zip whose directory does not say what its entries hold), nothing is
+     * refused for it: the drawing is opened whole, as [open] does.
+     */
+    fun openDeferringMedia(file: File, legacyBrushes: ((String) -> BrushPreset?)? = null): JbContents {
+        if (!file.isFile) throw JbArchiveException("there is no file at ${file.path}")
+        return try {
+            // Opened before the checking pass, so the second reading is of the file that was checked even when the
+            // path is given another file or deleted meanwhile (an open file stays readable).
+            val zip = try { java.util.zip.ZipFile(file) } catch (e: Exception) { null } ?: return open(file, legacyBrushes)
+            var handedOver = false
+            try {
+                val noted = LinkedHashMap<MediaTileKey, DeferredMedia.Entry>()
+                val contents = FileInputStream(file).use { read(it, legacyBrushes, null, noted) }
+                if (noted.isEmpty()) return contents
+                if (!DeferredMedia.agrees(zip, noted)) return open(file, legacyBrushes)
+                handedOver = true
+                contents.copy(mediaTiles = DeferredMedia(file, zip, noted))
+            } finally {
+                if (!handedOver) try { zip.close() } catch (_: Exception) {}
+            }
         } catch (e: JbArchiveException) {
             throw e
         } catch (e: Exception) {

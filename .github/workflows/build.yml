@@ -149,7 +149,7 @@ jobs:
           # The test runner itself comes from this workflow's own commit, so a branch made before it existed can
           # still be tested; only these tool files are swapped, never the code under test.
           git fetch -q --depth 1 origin "$GITHUB_SHA"
-          git checkout -q FETCH_HEAD -- tools/cloud/run-tests.sh tools/cloud/linux-shims
+          git checkout -q FETCH_HEAD -- tools/cloud
           # The jvm-harness scripts were written on Windows: ';' class paths (java/javac stand-ins swap them),
           # cygpath and `python`. The build lock they take is a file under TEMP, which this runner has to itself.
           chmod +x tools/cloud/linux-shims/* tools/cloud/run-tests.sh
@@ -181,7 +181,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: joycreator-tests-${{ steps.meta.outputs.sha }}
-          path: cloud-out/tests-summary.md
+          # The summary, plus the JUnit XML of only the test classes that failed (their captured output trimmed).
+          path: |
+            cloud-out/tests-summary.md
+            cloud-out/junit/
           retention-days: 3
           if-no-files-found: warn
 

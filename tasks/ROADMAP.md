@@ -260,4 +260,4 @@ The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE
 
 | Job | State | Evidence |
 |---|---|---|
-| PERF-4 | Source audit in progress, November 19 | [Audit card](jobs/PERF-4_suite_audit.md) |
+| PERF-4 | Audit delivered November 19 · 20 ranked findings, runtime follow-up open | [Audit card](jobs/PERF-4_suite_audit.md) |

@@ -265,7 +265,3 @@ disk; the owner knows which is which.
 "JoyBot specialist" sessions → BOT-1 · "Fix stale slide preview after snapshot undo" → STU-2 ·
 "Studio undo history drops steps after export" → STU-1 · "Background and canvas paper textures" and
 "Realistic brush engines" → JoyBrush roadmap.
-
-## PERF-4 review
-
-Codex · codex/suite-performance-audit-20261119 · Owns PERF-4 audit and card, plus the index entries. Source review only.

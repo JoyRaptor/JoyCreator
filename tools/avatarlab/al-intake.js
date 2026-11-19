@@ -52,7 +52,9 @@
   intake.builtIn = function (app, which) {
     if (which === 'pip') { AL.img.map = {}; var p = AL.demo(); p.demo = 'pip'; p.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(p, { quiet: true }); return Promise.resolve(); }
     function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('missing'); return r.json(); }); }
-    return get('topps.avatar.json').catch(function () { return get('local/topps.avatar.json'); }).then(function (o) {
+    /* in the published page he rides inside it; on the local page he is the file saved beside it */
+    var inside = document.getElementById('builtin-topps');
+    return (inside ? Promise.resolve().then(function () { return JSON.parse(inside.textContent); }) : get('local/topps.avatar.json')).then(function (o) {
       delete o.take; AL.img.map = {};
       return AL.fromJson(o).then(function (ch) { ch.demo = 'topps'; ch.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(ch, { quiet: true }); });
     });

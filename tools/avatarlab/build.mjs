@@ -2,7 +2,7 @@
 //   node tools/avatarlab/build.mjs      ->  tools/avatarlab/dist/avatar-studio.html
 // The artifact host supplies <html>/<head>/<body>, so this keeps only the title, fonts, styles,
 // the page body, and every script inlined in order.
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -20,7 +20,11 @@ body = body.replace(/<script src="([^"]+)"><\/script>/g, (_, src) => {
   if (js.includes('</script')) throw new Error(src + ' contains a closing script tag');
   return '<script>\n' + js + '\n</script>';
 });
+// The built-in character rides inside the page when it has been saved beside the pilot (local/ is never committed).
+let builtIn = '';
+const toppsFile = join(here, 'local', 'topps.avatar.json');
+if (existsSync(toppsFile)) builtIn = '<script type="application/json" id="builtin-topps">' + readFileSync(toppsFile, 'utf8').replace(/</g, '\\u003c') + '</script>';
 mkdirSync(join(here, 'dist'), { recursive: true });
-const out = [title, sides, fonts, style, body].join('\n');
+const out = [title, sides, fonts, style, builtIn, body].join('\n');
 writeFileSync(join(here, 'dist', 'avatar-studio.html'), out);
 console.log('dist/avatar-studio.html', (out.length / 1024).toFixed(0) + ' KB');

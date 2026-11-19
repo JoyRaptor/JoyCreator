@@ -33,6 +33,10 @@ Rank reflects potential work loss or incorrect delivery, user reach, cost and st
 
 Use these as the baseline for new work. The Note 9 watercolor line bench on efc4e8a41 measured 54.1–55.3 ms median for the old dab step and 6.8 ms for the bounded finish, about 8× on that step. Median frame work went from about 60 to 13.4–13.5 ms. Engineers compared 4,701 partial tile finishes, all matching. The later lift change still recorded a 38–169 ms worst frame on its zigzag workload. The full-oil-page open test on the Note 9 recorded 105 MB sampled Java heap before deferred tiles and 48 MB on the final build run. The report gives 327 versus 267 MB total PSS and one run per variant. The same card records a 7.7 s full oil restore following graphics loss. Preserve the before/after fixtures, measure cold start, steady strokes, lift, open and context restore separately, and report device and build with each result. See lines 545–579 and 842–861. [Atlas engineering evidence](../../jobs/ATLAS-SOLID_never_refuse.md)
 
+## Which audio control to use for the rain recording
+
+In the selected clip’s audio drawer, **Clean → Reduce noise** runs the offline spectral denoiser. **FX → Enhance voice** enables the separate live speech-processing chain. On the synthetic speech/rain fixture, **Reduce noise** delivered the strongest score against the original dry speech. The detailed comparison and test recipe are in AUD-RAIN below.
+
 ## What the voice processor demonstrably cleans
 
 Recompiled the production audio/fx processors, Biquad and FFT at the audited commit against the local patched Media3 library and ran tools/jvm-harness/VoiceChainTest.java. All 9 checks passed. On the 48 kHz mono fixture the 60 Hz hum amplitude fell to 0.035× input and the synthetic voice tone to 0.605×, improving the voice-to-hum ratio by about 24.8 dB. Bypass preserved both at 1.000×. This demonstrates mains-hum rejection on a synthetic tone. Rain under actual speech needs a separate comparison.

@@ -46,6 +46,27 @@ from it rides along, so links hung one from the next behave like a chain. Both h
 follow-through, "hangs down", and a Breeze amount; bendy adds joints and flutter. Wind is a recorded
 signal like any other.
 
+**Walking (`settings.walk`, `al-walk.js`).** There is no walk-cycle animation. Each foot is planted at a spot
+on the stage and stays there, so nothing slides, until the body has left it behind; then it lifts, swings ahead
+and plants again. Legs are ordinary bending limbs from hip to foot. A hand nobody holds swings against the
+legs; the body bobs and leans; the tail follows because it already swings. Two scenes: *from the side* (one
+ground line: lift the body and the legs tuck or hang, let go and it falls and lands) and *from above* (every
+direction is walking, further up can be smaller). Two gaits: steps, hops. A foot under a finger is that
+finger's until the body moves on. Stride, step height, bounce, lean and arm swing are five sliders.
+
+**Many fingers.** In Perform every finger that lands on a hand, a foot, the head, the body or a pin owns it
+until it lifts: two hands, a hand and a foot, both feet and the body. Fingers on empty space pan and pinch.
+
+**Bridges (`set.bridges`, `al-bridge.js`).** Between two neighbouring head angles the artist marks the same
+landmarks on both drawings (tap, then drag the magenta twin onto the ghost). As the head turns, each drawing
+is warped toward the other so the landmarks arrive together and the swap does not jump. A mirrored angle
+takes its bridge from the pair it mirrors. The warp is the same moving-least-squares the phone's puppet mesh
+engine already has.
+
+**Each angle is its own stack.** In front of or behind the face is set per angle (an ear in front on one side,
+behind on the other; a tuft behind the head when he looks up). Any set of angles can have its own pad
+(`pick.dial`), so a body can turn separately from the head.
+
 ## Screens
 
 - **Build.** A body map says which part; one card per part says, in words, what it does. Everything
@@ -66,7 +87,10 @@ signal like any other.
 | `al-autorig.js` | Names to roles, folders to sets, pins guessed from pixels. | New. `AvatarRigTemplates` (unused today) is its natural home. |
 | `al-inputs.js` | Touch, voice, face camera, blinks and breathing, takes. | `TrackingDriverBus`, `MediaPipeTrackingSource`, `SpectralVisemeAnalyzer`, `LifeSignals`, `AvatarParamTrack`. |
 | `al-app.js`, `al-cards.js`, `al-perform.js`, `al-intake.js` | The screens. | The new Avatar Studio activity. |
-| `al-demo.js` | Pip, drawn in code as a layered file and pushed through the same automatic rig. | Ships as the sample character. |
+| `al-walk.js` | Planted feet that step as the body is dragged; arm swing, bob, lean; hop and hang. | New. Signals in, signals out: ports as it stands. |
+| `al-bridge.js` | Matching two head angles with landmark pairs; the bridge tool. | Warp = the puppet mesh engine's MLS. |
+| `al-demo.js` | Pip, drawn in code as a layered file and pushed through the same automatic rig. | Ships as a sample character. |
+| `serve.mjs` | Local server: no caching, and PUT into `local/` (how a rigged character is saved beside the page). | Pilot only. |
 
 ## What is new here (the parts worth the port)
 
@@ -84,7 +108,10 @@ signal like any other.
 
 ## Not checked
 
-- The face camera (MediaPipe in the browser) is written but has not been tried with a real face.
+- The face camera (MediaPipe in the browser) is written but has not been tried with a real face; that includes
+  the new "while talking" mode that steers from where the hand left the head.
+- Walking, swinging and the bridge warp were checked in still frames and by numbers, not watched in motion.
+- Many-finger dragging was not tried with real fingers (the test browser has one pointer).
 - The microphone lip-sync has not been tried with a real voice; the Talk button and the take path have.
 - Bending a pinned whole drawing is rougher here than the phone's existing puppet engine.
 - Nothing has been built or tried on a phone. This is the design pilot only.

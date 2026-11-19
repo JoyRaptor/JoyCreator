@@ -12,19 +12,20 @@
 
   var GROUPS = AL.TAKE_GROUPS = {
     head: ['turnX', 'turnY', 'roll', 'lookX', 'lookY'], face: ['mouth', 'vis', 'browL', 'browR', 'blinkL', 'blinkR', 'lidUp', 'lidLow', 'lidTilt'],
-    handL: ['hLx', 'hLy'], handR: ['hRx', 'hRy'], body: ['sway', 'bounce', 'flip', 'wind'], trig: []
+    handL: ['hLx', 'hLy'], handR: ['hRx', 'hRy'], body: ['sway', 'bounce', 'flip', 'wind', 'rootX', 'rootY', 'rootS', 'walk'], footL: ['fLx', 'fLy'], footR: ['fRx', 'fRy'], trig: []
   };
   AL.TAKE_LABELS = { head: 'Head', face: 'Face', handL: 'Left hand', handR: 'Right hand', body: 'Body', trig: 'Buttons' };
 
   AL.Inputs = function (app) {
     this.app = app; this.t = 0;
-    this.pose = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, mood: 'Neutral', handL: null, handR: null, flip: false };
+    this.pose = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, mood: 'Neutral', handL: null, handR: null, footL: null, footR: null, dial: {}, flip: false };
+    this.walker = new AL.Walker(app); this.smd = {};
     this.sm = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, lookX: 0, lookY: 0, browL: 0, browR: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, hL: null, hR: null };
     this.trig = {}; this.talking = false; this.auto = false; this.held = {};
     this.life = { next: 1.5, bt: -1, sx: 0, sy: 0, ns: 1 };
     this.babble = { env: 0, next: 0, vis: 'Aa', gap: 0 };
     this.mic = { on: false, level: 0, vis: 'Neutral', kind: null };
-    this.cam = { on: false, v: null, swap: false };
+    this.cam = { on: false, v: null, swap: false, mode: 'talk', zero: null };
     this.take = null; this.playing = false; this.recording = false; this.ph = 0; this.wrote = {};
     this.S = AL.restSignals();
   };
@@ -35,7 +36,7 @@
     var k = AL.node(ch, set.pick.rest); return k && k.limb ? { x: k.limb.c.x, y: k.limb.c.y, ax: k.limb.a.x, ay: k.limb.a.y } : null;
   };
   P.blinkNow = function () { this.life.bt = 0; };
-  P.resetPose = function () { var p = this.pose; p.turnX = p.turnY = p.roll = p.sway = p.bounce = p.mouth = p.brow = p.lidUp = p.lidLow = p.lidTilt = p.wind = 0; p.mood = 'Neutral'; p.handL = p.handR = null; p.flip = false; this.trig = {}; };
+  P.resetPose = function () { var p = this.pose; p.turnX = p.turnY = p.roll = p.sway = p.bounce = p.mouth = p.brow = p.lidUp = p.lidLow = p.lidTilt = p.wind = 0; p.mood = 'Neutral'; p.handL = p.handR = p.footL = p.footR = null; p.dial = {}; this.trig = {}; this.walker.home(); };
   /* a mood is three numbers for the lids and one for the brows */
   AL.MOODS = { Neutral: [0, 0, 0, 0], Relaxed: [0.42, 0, 0, 0], Sleepy: [0.72, 0, 0.12, -0.3], Angry: [0.3, 1, 0.18, -0.9], Sad: [0.26, -1, 0, 0.35], Cheery: [0, 0, 0.8, 0.45], Wary: [0.4, 0.35, 0.45, -0.4] };
   P.setMood = function (name) { var m = AL.MOODS[name] || AL.MOODS.Neutral, p = this.pose; p.mood = name; p.lidUp = m[0]; p.lidTilt = m[1]; p.lidLow = m[2]; p.brow = m[3]; this.held.face = true; var self = this; clearTimeout(this._mt); this._mt = setTimeout(function () { self.held.face = false; }, 700); };
@@ -111,8 +112,8 @@
   };
 
   /* ── takes ── */
-  P.channels = function () { var out = []; for (var g in GROUPS) out = out.concat(GROUPS[g]); (this.app.ch.triggers || []).forEach(function (t) { out.push('g:' + t.id); }); return out; };
-  P.groupOf = function (name) { if (name.slice(0, 2) === 'g:') return 'trig'; for (var g in GROUPS) if (GROUPS[g].indexOf(name) >= 0) return g; return 'body'; };
+  P.channels = function () { var out = []; for (var g in GROUPS) out = out.concat(GROUPS[g]); for (var dn in this.pose.dial) out.push('dx:' + dn, 'dy:' + dn); (this.app.ch.triggers || []).forEach(function (t) { out.push('g:' + t.id); }); return out; };
+  P.groupOf = function (name) { if (name.slice(0, 2) === 'g:') return 'trig'; if (name.slice(0, 3) === 'dx:' || name.slice(0, 3) === 'dy:') return 'head'; for (var g in GROUPS) if (GROUPS[g].indexOf(name) >= 0) return g; return 'body'; };
   P.record = function () {
     if (!this.take) this.take = { fps: 30, n: 0, ch: {} };
     this.recording = true; this.playing = true; this.ph = 0; this.wrote = {}; this.fresh = this.take.n === 0;
@@ -124,7 +125,9 @@
 
   function flat(S, trigs) {
     var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind,
-      hLx: S.hand.L ? S.hand.L.x : NaN, hLy: S.hand.L ? S.hand.L.y : NaN, hRx: S.hand.R ? S.hand.R.x : NaN, hRy: S.hand.R ? S.hand.R.y : NaN, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0 };
+      hLx: S.hand.L ? S.hand.L.x : NaN, hLy: S.hand.L ? S.hand.L.y : NaN, hRx: S.hand.R ? S.hand.R.x : NaN, hRy: S.hand.R ? S.hand.R.y : NaN, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0,
+      fLx: S.hand.FL ? S.hand.FL.x : NaN, fLy: S.hand.FL ? S.hand.FL.y : NaN, fRx: S.hand.FR ? S.hand.FR.x : NaN, fRy: S.hand.FR ? S.hand.FR.y : NaN };
+    for (var dk in (S.dial || {})) { o['dx:' + dk] = S.dial[dk][0]; o['dy:' + dk] = S.dial[dk][1]; }
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     return o;
   }
@@ -133,6 +136,10 @@
     if (name === 'vis') S.viseme = AL.SHAPES[v] || 'Neutral';
     else if (name === 'hLx') S.hand.L = isNaN(v) ? null : { x: v, y: S.hand.L ? S.hand.L.y : 0 }; else if (name === 'hLy') { if (S.hand.L && !isNaN(v)) S.hand.L.y = v; }
     else if (name === 'hRx') S.hand.R = isNaN(v) ? null : { x: v, y: S.hand.R ? S.hand.R.y : 0 }; else if (name === 'hRy') { if (S.hand.R && !isNaN(v)) S.hand.R.y = v; }
+    else if (name === 'rootX') S.root.x = v; else if (name === 'rootY') S.root.y = v; else if (name === 'rootS') S.rootScale = v;
+    else if (name === 'fLx') S.hand.FL = isNaN(v) ? null : { x: v, y: S.hand.FL ? S.hand.FL.y : 0 }; else if (name === 'fLy') { if (S.hand.FL && !isNaN(v)) S.hand.FL.y = v; }
+    else if (name === 'fRx') S.hand.FR = isNaN(v) ? null : { x: v, y: S.hand.FR ? S.hand.FR.y : 0 }; else if (name === 'fRy') { if (S.hand.FR && !isNaN(v)) S.hand.FR.y = v; }
+    else if (name.slice(0, 3) === 'dx:') { (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[0] = v; } else if (name.slice(0, 3) === 'dy:') { (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[1] = v; }
     else if (name === 'flip') S.flip = v > 0.5; else if (name.slice(0, 2) === 'g:') S.trig[name.slice(2)] = v > 0.5; else S[name] = v;
   }
 
@@ -155,18 +162,26 @@
       });
       if (!held.face) talking = (t % 7.5) < 4.2;
     }
-    if (this.cam.on) { this.watch(); var f = this.cam.face; if (f) { if (!held.head && f.turnX != null) { tg.turnX = f.turnX; tg.turnY = f.turnY; tg.roll = f.roll; } if (!held.face) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; lidUp = f.lidUp; lidLow = f.lidLow; lidTilt = f.lidTilt; blinkCam = f; } look = f; } }
+    /* Face camera. "While talking": it takes over only while Talk is held. Either way the first face it sees is
+       taken as "straight ahead", and the head moves from wherever the hand had left it: no jump in, no jump out. */
+    var faceOn = this.cam.on && (this.cam.mode === 'always' || this.talking);
+    if (!faceOn) { this.cam.zero = null; this.cam.face = null; }
+    if (faceOn) { this.watch(); var f = this.cam.face; if (f) {
+      if (f.turnX != null && !this.cam.zero) this.cam.zero = { fx: f.turnX, fy: f.turnY, fr: f.roll, px: p.turnX, py: p.turnY, pr: p.roll };
+      var z = this.cam.zero;
+      if (!held.head && z) { tg.turnX = z.px + (f.turnX - z.fx); tg.turnY = z.py + (f.turnY - z.fy); tg.roll = z.pr + (f.roll - z.fr); }
+      if (!held.face || this.talking) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; lidUp = f.lidUp; lidLow = f.lidLow; lidTilt = f.lidTilt; blinkCam = f; } look = f; } }
 
     /* a voice, or the Talk button's babble */
     if (this.mic.on) { this.listen(); mouth = Math.max(mouth, this.mic.level); vis = this.mic.vis; }
-    else if (talking) {
+    else if (talking && !(faceOn && this.cam.face)) {
       var b = this.babble; b.next -= dt;
       if (b.next <= 0) { if (b.gap > 0 && Math.random() < 0.16) { b.env = 0; b.vis = 'M'; b.next = 0.12 + Math.random() * 0.22; b.gap = 0; } else { b.env = 0.45 + Math.random() * 0.55; b.vis = ['Aa', 'Ee', 'Oh', 'Aa', 'W-Oo', 'Aa', 'F', 'Ee', 'L'][(Math.random() * 9) | 0]; b.next = 0.09 + Math.random() * 0.13; b.gap = 1; } }
       mouth = Math.max(mouth, b.env); vis = b.env > 0.08 ? b.vis : 'M';
     }
 
     /* idle life */
-    var idle = set.idle !== false && !this.cam.on ? 1 : 0;
+    var idle = set.idle !== false && !faceOn ? 1 : 0;
     tg.turnX += idle * 0.035 * Math.sin(t * 0.43); tg.turnY += idle * 0.03 * Math.sin(t * 0.31 + 2); tg.sway += idle * 0.07 * Math.sin(t * 0.52);
     sm.turnX = ease(sm.turnX, clamp(tg.turnX, -1, 1), 11, dt); sm.turnY = ease(sm.turnY, clamp(tg.turnY, -1, 1), 11, dt);
     sm.roll = ease(sm.roll, tg.roll, 10, dt); sm.sway = ease(sm.sway, tg.sway, 8, dt); sm.bounce = ease(sm.bounce, tg.bounce, 12, dt);
@@ -188,12 +203,16 @@
     if (L.bt >= 0) { L.bt += dt; bl = L.bt < 0.11 ? 1 : 0; if (L.bt >= 0.11) L.bt = -1; }
     else if (set.blinkAuto !== false && !blinkCam) { L.next -= dt; if (L.next <= 0) { L.bt = 0; var ev = set.blinkEvery || 3.6; L.next = Math.random() < 0.18 ? 0.24 : ev * (0.45 + Math.random() * 1.1); } }
 
+    if (this.blinkHold) bl = 1;
     S.t = t; S.turnX = sm.turnX; S.turnY = sm.turnY; S.roll = sm.roll; S.sway = sm.sway; S.bounce = sm.bounce;
     S.mouth = sm.mouth < 0.015 ? 0 : sm.mouth; S.viseme = vis; S.lookX = sm.lookX; S.lookY = sm.lookY; S.browL = sm.browL; S.browR = sm.browR;
     S.blinkL = blinkCam ? blinkCam.blinkL : bl; S.blinkR = blinkCam ? blinkCam.blinkR : bl;
     S.lidUp = sm.lidUp; S.lidLow = sm.lidLow; S.lidTilt = sm.lidTilt; S.wind = sm.wind;
     S.breath = set.breathe !== false ? Math.sin(t * 2 * Math.PI * (set.breathRate || 0.28)) : 0;
     S.hand.L = sm.hL ? { x: sm.hL.x, y: sm.hL.y } : null; S.hand.R = sm.hR ? { x: sm.hR.x, y: sm.hR.y } : null;
+    var dn; S.dial = S.dial || {};
+    for (dn in p.dial) { var dq = this.smd[dn] || (this.smd[dn] = [0, 0]); dq[0] = ease(dq[0], p.dial[dn][0], 11, dt); dq[1] = ease(dq[1], p.dial[dn][1], 11, dt); S.dial[dn] = [dq[0], dq[1]]; }
+    this.walker.step(dt, S);
     S.flip = !!p.flip; S.trig = {}; for (var id in this.trig) if (this.trig[id]) S.trig[id] = true;
 
     /* a take: play it back under whatever is being held live; record writes what is held */
@@ -203,7 +222,7 @@
       if (held.face || this.mic.on || talking) held.faceNow = true; else held.faceNow = false;
       for (var q = 0; q < names.length; q++) {
         n = names[q]; g = this.groupOf(n);
-        var isHeld = g === 'face' ? held.faceNow : g === 'trig' ? Object.keys(S.trig).length > 0 : !!held[g];
+        var isHeld = g === 'face' ? held.faceNow : g === 'trig' ? Object.keys(S.trig).length > 0 : (g === 'footL' || g === 'footR') ? (!!held[g] || !!held.body) : !!held[g];
         if (this.recording && (this.fresh || isHeld || this.wrote[g])) {
           if (isHeld || this.fresh) this.wrote[g] = true;
           var arr = tk.ch[n] || (tk.ch[n] = []); while (arr.length < i) arr.push(arr.length ? arr[arr.length - 1] : live[n]); arr[i] = live[n];

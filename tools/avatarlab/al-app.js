@@ -46,30 +46,42 @@
 
   /* ── small control kit ── */
   app.ui = {
-    chip: function (label, o) { o = o || {}; return h('button', { class: 'chip' + (o.on ? ' on' : '') + (o.cls ? ' ' + o.cls : ''), title: o.title || label, onclick: o.fn, disabled: o.disabled, 'aria-pressed': o.on == null ? null : String(!!o.on) }, [o.icon ? AL.icon(o.icon) : null, label]); },
+    chip: function (label, o) { o = o || {}; return h('button', { class: 'chip' + (o.on ? ' on' : '') + (o.cls ? ' ' + o.cls : ''), title: o.title || label, onclick: o.fn ? function (ev) { app.nextLabel = o.undo || label; try { o.fn.call(this, ev); } finally { app.nextLabel = null; } } : null, disabled: o.disabled, 'aria-pressed': o.on == null ? null : String(!!o.on) }, [o.icon ? AL.icon(o.icon) : null, label]); },
     lab: function (text) { return h('div', { class: 'lab', text: text }); },
     note: function (html) { return h('p', { class: 'note', html: html }); },
     row: function (kids) { return h('div', { class: 'rowf' }, kids); },
-    seg: function (opts, val, fn, title) { var s = h('span', { class: 'seg', role: 'group', title: title }); opts.forEach(function (o) { s.appendChild(h('button', { class: o[0] === val ? 'on' : '', text: o[1], title: o[2] || o[1], onclick: function () { fn(o[0]); } })); }); return s; },
-    toggle: function (label, on, fn, sub, title) { return h('button', { class: 'tg' + (on ? ' on' : ''), title: title || label, 'aria-pressed': String(!!on), onclick: function () { fn(!on); } }, [h('i'), h('span', null, [label, sub ? h('small', { text: sub }) : null])]); },
+    seg: function (opts, val, fn, title) { var s = h('span', { class: 'seg', role: 'group', title: title }); opts.forEach(function (o) { s.appendChild(h('button', { class: o[0] === val ? 'on' : '', text: o[1], title: o[2] || o[1], onclick: function () { app.nextLabel = (title ? title.replace(/\?$/, '') + ': ' : '') + o[1]; try { fn(o[0]); } finally { app.nextLabel = null; } } })); }); return s; },
+    toggle: function (label, on, fn, sub, title) { return h('button', { class: 'tg' + (on ? ' on' : ''), title: title || label, 'aria-pressed': String(!!on), onclick: function () { app.nextLabel = label + (on ? ' off' : ' on'); try { fn(!on); } finally { app.nextLabel = null; } } }, [h('i'), h('span', null, [label, sub ? h('small', { text: sub }) : null])]); },
     /** A slider that is one undo step per drag. get/set work on the model directly. */
     slider: function (label, o) {
       var out = h('output', { text: (o.fmt || String)(o.value) }), first = true;
       var inp = h('input', { type: 'range', min: o.min, max: o.max, step: o.step || 1, value: o.value, title: o.title || label, 'aria-label': label,
         onpointerdown: function () { first = true; }, onkeydown: function () { first = true; },
-        oninput: function () { var v = parseFloat(inp.value); if (first && o.undo !== false) { app.hist.push(app.ch); app.syncUndo(); first = false; } o.set(v); out.textContent = (o.fmt || String)(v); app.touch(); },
+        oninput: function () { var v = parseFloat(inp.value); if (first && o.undo !== false) { app.hist.push(app.ch, label); app.syncUndo(); first = false; } o.set(v); out.textContent = (o.fmt || String)(v); app.touch(); },
         onchange: function () { first = true; if (o.done) o.done(); } });
       return h('div', { class: 'sl' }, [h('label', { text: label }), inp, out]);
     }
   };
 
   /* ── changing the character ── */
-  app.edit = function (fn, quiet) { app.hist.push(app.ch); fn(); AL.reindex(app.ch); app.touch(); app.syncUndo(); if (!quiet) app.refreshPanel(); };
+  app.edit = function (fn, quiet, label) { app.hist.push(app.ch, label || app.nextLabel || 'Change'); fn(); AL.reindex(app.ch); app.touch(); app.syncUndo(); if (!quiet) app.refreshPanel(); };
   app.touch = function () { app.dirty = true; clearTimeout(app._sv); app._sv = setTimeout(app.autosave, 1800); };
-  app.syncUndo = function () { $('bundo').disabled = !app.hist.past.length; $('bredo').disabled = !app.hist.future.length; };
-  app.undo = function (redo) {
+  app.syncUndo = function () {
+    var p = app.hist.past, f = app.hist.future;
+    $('bundo').disabled = !p.length; $('bredo').disabled = !f.length;
+    $('bundo').title = p.length ? 'Undo: ' + p[p.length - 1].l + '  (hold for the list)' : 'Nothing to undo';
+    $('bredo').title = f.length ? 'Redo: ' + f[f.length - 1].l : 'Nothing to redo';
+  };
+  /** Hold Undo: every step, newest first. Tap one to go back to just before it. */
+  app.historySheet = function () {
+    var p = app.hist.past, body = h('div', { class: 'menu' });
+    if (!p.length) body.appendChild(app.ui.note('Nothing has been changed yet.'));
+    for (var i = p.length - 1; i >= 0; i--) (function (i) { body.appendChild(h('button', { title: 'Go back to before this', onclick: function () { app.closeSheet(); for (var k = p.length - i; k > 0; k--) app.undo(false, true); app.toast('Went back ' + (p.length - i) + (p.length - i === 1 ? ' step' : ' steps')); } }, [AL.icon('undo'), h('span', { text: p[i].l }), h('small', { text: i === p.length - 1 ? 'latest' : '' })])); })(i);
+    app.sheet('History', body, []);
+  };
+  app.undo = function (redo, quiet) {
     var o = redo ? app.hist.redo(app.ch) : app.hist.undo(app.ch); if (!o) return;
-    app.ch = o; app.solver.ch = o; app.solver.grids = {}; app.keepSel(); app.syncUndo(); app.touch(); app.refreshPanel(); app.toast(redo ? 'Redone' : 'Undone');
+    app.ch = o; app.solver.ch = o; app.solver.grids = {}; if (app.bridge && !AL.node(o, app.bridge.set)) app.bridge = null; app.keepSel(); app.syncUndo(); app.touch(); app.refreshPanel(); if (!quiet) app.toast((redo ? 'Redone: ' : 'Undone: ') + app.hist.said);
   };
   app.keepSel = function () { if (app.sel.node && !AL.node(app.ch, app.sel.node)) app.sel = { zone: app.sel.zone, feature: null, node: null }; app.resolveSel(); };
 
@@ -77,7 +89,7 @@
     o = o || {};
     app.ch = ch; AL.reindex(ch); app.solver = new AL.Solver(ch); if (app.G) app.G.forget();
     app.inp = new AL.Inputs(app); app.hist = new AL.History(); app.syncUndo();
-    app.force = {}; app.show = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} }; app.live = false;
+    app.force = {}; app.show = {}; app.bridge = null; app.lockForce = null; app.btd = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} }; app.live = false;
     $('chname').textContent = ch.name;
     var first = null; AL.ZONES.forEach(function (z) { if (!first && app.zoneNode(z.id)) first = z.id; });
     app.sel = { zone: first, feature: null, node: null }; app.resolveSel();
@@ -122,7 +134,7 @@
   };
   app.select = function (zone, feature, nodeId) {
     app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.live = app.mode === 'perform' ? app.live : false;
-    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
+    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
   };
   app.selectByNode = function (id) {
     var ch = app.ch, zone = AL.zoneOf(ch, id), feature = null;
@@ -142,7 +154,11 @@
     var v = { s: s, ox: (z.w - w * s) / 2 - b.x0 * s, oy: top + (z.h - top - hh * s) / 2 - b.y0 * s };
     if (snap) { app.view = v; app.vt = null; } else app.vt = v;
   };
-  app.fit = function (snap) { var b = AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h }; app.fitTo(b, 14, snap); };
+  app.fit = function (snap) {
+    var b = AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
+    if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.cfg()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * 0.05 }; }   // room to walk
+    app.fitTo(b, 14, snap);
+  };
   app.focusSel = function () {
     if (app.userView) return;
     var liveNow = app.mode === 'perform' || app.live, b = null;
@@ -159,7 +175,7 @@
   /* ── signals while building: everything at rest, plus whatever is being tried ── */
   app.buildSignals = function () {
     var S = app._bs || (app._bs = AL.restSignals()), t = app.test;
-    S.turnX = app.bt.x; S.turnY = app.bt.y; S.mouth = t.mouth; S.viseme = t.vis || 'Aa'; S.blinkL = S.blinkR = t.blink; S.lookX = t.lookX; S.lookY = t.lookY; S.browL = S.browR = t.brow; S.lidUp = t.lidUp || 0; S.lidLow = t.lidLow || 0; S.lidTilt = t.lidTilt || 0; S.trig = t.trig; S.breath = 0;
+    S.turnX = app.bt.x; S.turnY = app.bt.y; S.mouth = t.mouth; S.viseme = t.vis || 'Aa'; S.blinkL = S.blinkR = t.blink; S.lookX = t.lookX; S.lookY = t.lookY; S.dial = app.btd || {}; S.browL = S.browR = t.brow; S.lidUp = t.lidUp || 0; S.lidLow = t.lidLow || 0; S.lidTilt = t.lidTilt || 0; S.trig = t.trig; S.breath = 0;
     return S;
   };
 
@@ -175,10 +191,15 @@
     var liveNow = app.mode === 'perform' || app.live;
     var S = liveNow ? app.inp.step(dt) : app.buildSignals();
     var onion = null; if (!liveNow && app.onion && app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') onion = app.selNodes[0].id;
-    var out = app.out = app.solver.eval(S, { live: liveNow, dt: dt, force: liveNow ? null : app.force, show: liveNow ? null : app.show, onion: onion });
+    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion };
+    if (bridge) {                                            // matching two head angles: one on stage, the other ghosted over it; or the real turn, to preview it
+      if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = 0.6; eo.onionOver = true; }
+      else eo.tween = true;
+    }
+    var out = app.out = app.solver.eval(S, eo);
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
     app.G.draw(out.items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, function (it) {
-      if (it.ghost) return [0.65, 0.55, 0.98, 0.55];
+      if (it.ghost) return bridge ? [0.96, 0.25, 0.56, 0.62] : [0.65, 0.55, 0.98, 0.55];
       if (ids && !ids[it.id]) return [0.03, 0.03, 0.05, 0.52];
       return null;
     });
@@ -190,7 +211,7 @@
   app.pinsNow = function () {
     if (!app.pinProvider || !app.out) return [];
     var list = app.pinProvider() || [];
-    list.forEach(function (p) { var m = (p.node && app.out.M[p.node]) || app.out.rootM, w = M.ap(m, p.x, p.y); p.sx = w[0] * app.view.s + app.view.ox; p.sy = w[1] * app.view.s + app.view.oy; p.m = m; });
+    list.forEach(function (p) { var m = (p.node && app.out.M[p.node]) || app.out.rootM, w = M.ap(m, p.x, p.y); p.sx = w[0] * app.view.s + app.view.ox + (p.ox || 0); p.sy = w[1] * app.view.s + app.view.oy + (p.oy || 0); p.m = m; });
     return list;
   };
   app.drawOverlay = function (g, dpr, liveNow, out) {
@@ -206,6 +227,8 @@
       g.stroke();
     }
     if (liveNow) {
+      var wc = app.inp.walker.cfg();
+      if (wc && wc.ground !== 'plane') { var gyy = sy(wc.groundY); g.beginPath(); g.moveTo(0, gyy); g.lineTo(g.canvas.width / dpr, gyy); g.strokeStyle = 'rgba(228,228,231,.16)'; g.lineWidth = 1; g.setLineDash([2, 6]); g.stroke(); g.setLineDash([]); }
       /* quiet rings on the things you can grab */
       for (var id in out.pins) { var p = out.pins[id]; if (p.c) { g.beginPath(); g.arc(sx(p.c[0]), sy(p.c[1]), 13, 0, 7); g.strokeStyle = 'rgba(255,255,255,.34)'; g.lineWidth = 1.5; g.stroke(); } if (p.mesh) p.mesh.forEach(function (q) { g.beginPath(); g.arc(sx(q[0]), sy(q[1]), 9, 0, 7); g.strokeStyle = 'rgba(255,255,255,.34)'; g.lineWidth = 1.5; g.stroke(); }); }
       return;
@@ -217,6 +240,11 @@
     pins.forEach(function (p) { if (p.to && byKey[p.to]) { g.beginPath(); g.moveTo(p.sx, p.sy); g.lineTo(byKey[p.to].sx, byKey[p.to].sy); g.stroke(); } if (p.ring) { g.beginPath(); g.setLineDash([5, 5]); g.arc(p.sx, p.sy, p.ring * v.s, 0, 7); g.stroke(); g.setLineDash([]); } });
     g.font = '600 11px "IBM Plex Sans",system-ui,sans-serif'; g.textBaseline = 'middle';
     pins.forEach(function (p) {
+      if (p.tap) {                                           // a small helper you tap, not drag
+        g.beginPath(); g.arc(p.sx, p.sy, 10, 0, 7); g.fillStyle = p.on ? '#22d3ee' : 'rgba(13,13,16,.85)'; g.fill(); g.strokeStyle = p.on ? '#03181c' : '#e4e4e7'; g.lineWidth = 1.6;
+        g.beginPath(); g.arc(p.sx, p.sy, 5, Math.PI * 0.15, Math.PI * 1.55); g.stroke(); g.beginPath(); g.moveTo(p.sx + 1, p.sy - 8.5); g.lineTo(p.sx + 1.5, p.sy - 4); g.lineTo(p.sx - 3.2, p.sy - 4.6); g.stroke();
+        return;
+      }
       var hot = app.drag && app.drag.pin && app.drag.pin.key === p.key, r = hot ? 10 : 7.5;
       g.beginPath(); g.arc(p.sx, p.sy, r + 2.5, 0, 7); g.fillStyle = 'rgba(3,24,28,.85)'; g.fill();
       g.beginPath(); g.arc(p.sx, p.sy, r, 0, 7); g.fillStyle = p.color || '#22d3ee'; g.fill();
@@ -228,7 +256,7 @@
     });
     /* a magnifier above the finger while a pin is dragged */
     if (app.drag && app.drag.pin && app.drag.moved) {
-      var pp = app.drag.pin, R = 46, zx = clamp(pp.sx, R + 6, g.canvas.width / dpr - R - 6), zy = pp.sy - 96 < R + 6 ? pp.sy + 96 : pp.sy - 96, z = 2.6, src = $('gl');
+      var dk = app.drag.pin.key, pp = pins.filter(function (q) { return q.key === dk; })[0] || app.drag.pin, R = 46, zx = clamp(pp.sx, R + 6, g.canvas.width / dpr - R - 6), zy = pp.sy - 96 < R + 6 ? pp.sy + 96 : pp.sy - 96, z = 2.6, src = $('gl');
       g.save(); g.beginPath(); g.arc(zx, zy, R, 0, 7); g.clip(); g.fillStyle = '#0d0d10'; g.fill();
       g.drawImage(src, (pp.sx - R / z) * dpr, (pp.sy - R / z) * dpr, (2 * R / z) * dpr, (2 * R / z) * dpr, zx - R, zy - R, 2 * R, 2 * R);
       g.restore(); g.beginPath(); g.arc(zx, zy, R, 0, 7); g.strokeStyle = '#22d3ee'; g.lineWidth = 2; g.stroke();
@@ -236,19 +264,26 @@
     }
   };
 
-  /* ── fingers on the stage ── */
+  /* ── fingers on the stage ──
+     Perform: every finger that lands on a hand, a foot, the head, the body or a pin OWNS that thing until it lifts,
+     so two hands, a hand and a foot, or two feet and the body can all be puppeteered at once. Fingers that land
+     on nothing move the view: one pans, two pinch. Build: one finger drags pins, taps select. */
   function wire() {
-    var st = $('stage'), ptr = {}, pinch = null;
+    var st = $('stage'), ptr = {}, grabs = {}, pinch = null;
     function pos(e) { var r = st.getBoundingClientRect(), k = st.clientWidth / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; }
     function count() { return Object.keys(ptr).length; }
+    function isLive() { return app.mode === 'perform' || app.live; }
     st.addEventListener('pointerdown', function (e) {
       if (e.target.closest && e.target.closest('button')) return;
       try { st.setPointerCapture(e.pointerId); } catch (x) { }
-      ptr[e.pointerId] = pos(e);
+      var p = pos(e);
+      if (isLive()) { var gr = liveGrab(p); if (gr) { gr.x0 = p.x; gr.y0 = p.y; grabs[e.pointerId] = gr; return; } }
+      ptr[e.pointerId] = p;
       if (count() === 2) { endDrag(true); var ks = Object.keys(ptr), a = ptr[ks[0]], b = ptr[ks[1]]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; return; }
-      if (count() === 1) begin(ptr[e.pointerId], e);
+      if (count() === 1) begin(p);
     });
     st.addEventListener('pointermove', function (e) {
+      if (grabs[e.pointerId]) { liveMove(grabs[e.pointerId], pos(e)); return; }
       if (!ptr[e.pointerId]) return; var p = ptr[e.pointerId] = pos(e);
       if (pinch && count() >= 2) {
         var ks = Object.keys(ptr), a = ptr[ks[0]], b = ptr[ks[1]], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, v = app.view, f = d / (pinch.d || 1);
@@ -256,61 +291,88 @@
       }
       if (app.drag) move(p);
     });
-    function up(e) { if (!ptr[e.pointerId]) return; delete ptr[e.pointerId]; if (count() < 2) pinch = null; if (count() === 0) endDrag(false); }
+    function up(e) {
+      if (grabs[e.pointerId]) { liveEnd(grabs[e.pointerId]); delete grabs[e.pointerId]; return; }
+      if (!ptr[e.pointerId]) return; delete ptr[e.pointerId]; if (count() < 2) pinch = null; if (count() === 0) endDrag(false);
+    }
     st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
     st.addEventListener('wheel', function (e) { e.preventDefault(); var p = pos(e), v = app.view, f = Math.exp(-e.deltaY * 0.0015); v.ox = p.x - (p.x - v.ox) * f; v.oy = p.y - (p.y - v.oy) * f; v.s *= f; app.vt = null; app.userView = true; }, { passive: false });
-    st.addEventListener('dblclick', function (e) { var p = pos(e); if (app.mode === 'perform' || app.live) liveDouble(p); });
+    st.addEventListener('dblclick', function (e) { var p = pos(e); if (isLive()) liveDouble(p); });
 
     function begin(p) {
-      var liveNow = app.mode === 'perform' || app.live, c = app.toChar(p.x, p.y);
+      var c = app.toChar(p.x, p.y);
       app.drag = { x0: p.x, y0: p.y, x: p.x, y: p.y, moved: false };
-      if (liveNow) return liveBegin(p, c);
-      var best = null, bd = 26; (app._pins || []).forEach(function (q) { var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d < bd) { bd = d; best = q; } });
+      if (isLive()) return;
+      var best = null, bd = 26; (app._pins || []).forEach(function (q) { var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d < (q.tap ? Math.min(bd, 16) : bd)) { bd = d; best = q; } });
       if (best) { app.drag.pin = best; app.drag.off = { x: best.sx - p.x, y: best.sy - p.y }; return; }
       if (app.moveArt && app.selIds) { var hit = AL.hit(app.out, c[0], c[1]); if (hit && app.selIds[hit.id]) { app.drag.art = hit.id; app.drag.last = c; } }
     }
     function move(p) {
-      var d = app.drag, liveNow = app.mode === 'perform' || app.live;
-      if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 5) { d.moved = true; if ((d.pin || d.art) && !liveNow) { app.hist.push(app.ch); app.syncUndo(); } }
+      var d = app.drag;
+      if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 5) { d.moved = true; if (((d.pin && !d.pin.tap) || d.art) && !isLive()) { app.hist.push(app.ch, d.pin ? 'Move ' + (d.pin.label || 'pin') : 'Move art'); app.syncUndo(); } }
       if (!d.moved) return;
-      if (liveNow) return liveMove(p);
-      if (d.pin) { var c = app.toChar(p.x + d.off.x, p.y + d.off.y), l = M.ap(M.inv(d.pin.m), c[0], c[1]); d.pin.set(l[0], l[1]); d.pin.x = l[0]; d.pin.y = l[1]; app.touch(); return; }
-      if (d.art) { var c2 = app.toChar(p.x, p.y); app.nudge(AL.node(app.ch, d.art), c2[0] - d.last[0], c2[1] - d.last[1]); d.last = c2; app.touch(); return; }
+      if (!isLive()) {
+        if (d.pin && !d.pin.tap) { var c = app.toChar(p.x + d.off.x - (d.pin.ox || 0), p.y + d.off.y - (d.pin.oy || 0)), l = M.ap(M.inv(d.pin.m), c[0], c[1]); d.pin.set(l[0], l[1]); d.pin.x = l[0]; d.pin.y = l[1]; app.touch(); return; }
+        if (d.art) { var c2 = app.toChar(p.x, p.y); app.nudge(AL.node(app.ch, d.art), c2[0] - d.last[0], c2[1] - d.last[1]); d.last = c2; app.touch(); return; }
+        if (d.pin) return;
+      }
       app.view.ox += p.x - d.x; app.view.oy += p.y - d.y; d.x = p.x; d.y = p.y; app.vt = null; app.userView = true;
     }
     function endDrag(cancel) {
-      var d = app.drag; app.drag = null; if (!d) return;
-      var liveNow = app.mode === 'perform' || app.live;
-      if (liveNow) { var hd = app.inp.held; if (d.kind === 'body') { app.inp.pose.sway = 0; app.inp.pose.bounce = 0; } hd.head = hd.handL = hd.handR = hd.body = false; if (d.pinId) delete hd.pin; return; }
-      if (cancel) return;
-      if (!d.moved) { var c = app.toChar(d.x0, d.y0), hit = AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return; }
-      if (d.pin || d.art) app.refreshPanel(true);
+      var d = app.drag; app.drag = null; if (!d || isLive() || cancel) return;
+      if (!d.moved) {
+        if (d.pin && d.pin.tap) { d.pin.tap(); return; }
+        var c = app.toChar(d.x0, d.y0);
+        if (app.bridge) { AL.bridge.tap(app, c, d.pin); return; }
+        if (d.pin) { if (d.pin.pick) d.pin.pick(); return; }
+        var hit = AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return;
+      }
+      if (d.pin || d.art) { if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }
     }
-    /* Perform: grab the head to turn it, a hand to reach, the body to lean */
-    function liveBegin(p, c) {
-      var out = app.out, d = app.drag, inp = app.inp, ch = app.ch, inner = app.toInner(c[0], c[1]), best = null, bd = 30 / app.view.s;
-      ['L', 'R'].forEach(function (sd) { var set = AL.firstRole(ch.root, sd === 'L' ? 'armL' : 'armR'); if (!set) return; var pk = out.pins[out.picks[set.id]]; if (pk && pk.c) { var dd = Math.hypot(pk.c[0] - c[0], pk.c[1] - c[1]); if (dd < bd) { bd = dd; best = { sd: sd, w: pk.c }; } } });
-      var hit = best ? null : AL.hit(out, c[0], c[1]), zone = hit ? AL.zoneOf(ch, hit.id) : null;
-      if (!best && (zone === 'armL' || zone === 'armR')) { var set2 = AL.firstRole(ch.root, zone), pk2 = out.pins[out.picks[set2.id]]; if (pk2 && pk2.c) best = { sd: zone === 'armL' ? 'L' : 'R', w: pk2.c }; }
-      if (best) { var wi = app.toInner(best.w[0], best.w[1]); d.kind = 'hand'; d.sd = best.sd; d.off = [wi[0] - inner[0], wi[1] - inner[1]]; inp.held['hand' + best.sd] = true; inp.pose['hand' + best.sd] = { x: wi[0], y: wi[1] }; app.say('hand'); return; }
-      /* a pinned whole drawing: grab the nearest pin */
+
+    /* Perform: what did this finger land on? */
+    function nearestTip(c, roles, radius) {
+      var out = app.out, ch = app.ch, best = null, bd = radius;
+      roles.forEach(function (r) { var set = AL.firstRole(ch.root, r[0]); if (!set || set.type !== 'set') return; var pk = out.pins[out.picks[set.id]]; if (pk && pk.c) { var dd = Math.hypot(pk.c[0] - c[0], pk.c[1] - c[1]); if (dd < bd) { bd = dd; best = { sd: r[1], w: pk.c }; } } });
+      return best;
+    }
+    function tipOf(role) { var set = AL.firstRole(app.ch.root, role), pk = set && app.out.pins[app.out.picks[set.id]]; return pk && pk.c ? pk.c : null; }
+    function liveGrab(p) {
+      var out = app.out, inp = app.inp, ch = app.ch, c = app.toChar(p.x, p.y), inner = app.toInner(c[0], c[1]), rad = 30 / app.view.s;
+      var hand = nearestTip(c, [['armL', 'L'], ['armR', 'R']], rad), foot = nearestTip(c, [['legL', 'L'], ['legR', 'R']], rad);
+      if (hand && foot) { if (Math.hypot(hand.w[0] - c[0], hand.w[1] - c[1]) <= Math.hypot(foot.w[0] - c[0], foot.w[1] - c[1])) foot = null; else hand = null; }
+      var hit = hand || foot ? null : AL.hit(out, c[0], c[1]), zone = hit ? AL.zoneOf(ch, hit.id) : null, w;
+      if (!hand && (zone === 'armL' || zone === 'armR') && (w = tipOf(zone))) hand = { sd: zone === 'armL' ? 'L' : 'R', w: w };
+      if (!foot && (zone === 'legL' || zone === 'legR') && (w = tipOf(zone))) foot = { sd: zone === 'legL' ? 'L' : 'R', w: w };
+      if (hand) { var wi = app.toInner(hand.w[0], hand.w[1]); inp.held['hand' + hand.sd] = true; inp.pose['hand' + hand.sd] = { x: wi[0], y: wi[1] }; return { kind: 'hand', sd: hand.sd, off: [wi[0] - inner[0], wi[1] - inner[1]] }; }
+      if (foot) { inp.held['foot' + foot.sd] = true; inp.pose['foot' + foot.sd] = { x: foot.w[0], y: foot.w[1] }; return { kind: 'foot', sd: foot.sd, off: [foot.w[0] - c[0], foot.w[1] - c[1]] }; }
       var mp = null, md = 34 / app.view.s; for (var id in out.pins) if (out.pins[id].mesh) { var n = AL.node(ch, id); out.pins[id].mesh.forEach(function (q, i) { var dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd < md && n.mesh.pins[i]) { md = dd; mp = { pin: n.mesh.pins[i], q: q }; } }); }
-      if (mp) { var qi = app.toInner(mp.q[0], mp.q[1]); d.kind = 'pin'; d.pinId = mp.pin.id; d.off = [qi[0] - inner[0], qi[1] - inner[1]]; return; }
-      if (zone === 'head') { d.kind = 'head'; d.t0 = [inp.pose.turnX, inp.pose.turnY]; var hb = AL.boundsOf(app.zoneNode('head')); d.R = Math.max(40, (hb ? hb.x1 - hb.x0 : 160) * 0.42); inp.held.head = true; app.say('head'); return; }
-      if (zone === 'body' || zone === 'legL' || zone === 'legR') { d.kind = 'body'; inp.held.body = true; return; }
-      d.kind = 'pan';
+      if (mp) { var qi = app.toInner(mp.q[0], mp.q[1]); return { kind: 'pin', pinId: mp.pin.id, off: [qi[0] - inner[0], qi[1] - inner[1]] }; }
+      if (zone === 'head') { var hb = AL.boundsOf(app.zoneNode('head')); inp.held.head = true; return { kind: 'head', t0: [inp.pose.turnX, inp.pose.turnY], R: Math.max(40, (hb ? hb.x1 - hb.x0 : 160) * 0.42) }; }
+      if (zone === 'body' || zone === 'tail' || zone === 'legL' || zone === 'legR') { inp.held.body = true; if (inp.walker.cfg()) { inp.walker.grab(c); return { kind: 'walk' }; } return { kind: 'body' }; }
+      return null;
     }
-    function liveMove(p) {
-      var d = app.drag, inp = app.inp, c = app.toChar(p.x, p.y), inner = app.toInner(c[0], c[1]);
-      if (d.kind === 'hand') inp.pose['hand' + d.sd] = { x: inner[0] + d.off[0], y: inner[1] + d.off[1] };
-      else if (d.kind === 'pin') inp.S.pin[d.pinId] = { x: inner[0] + d.off[0], y: inner[1] + d.off[1] };
-      else if (d.kind === 'head') { inp.pose.turnX = clamp(d.t0[0] + (p.x - d.x0) / app.view.s / d.R, -1, 1); inp.pose.turnY = clamp(d.t0[1] + (p.y - d.y0) / app.view.s / d.R, -1, 1); }
-      else if (d.kind === 'body') { inp.pose.sway = clamp((p.x - d.x0) / app.view.s / 70, -1, 1); inp.pose.bounce = clamp((p.y - d.y0) / app.view.s / 40, -1, 1); }
-      else { app.view.ox += p.x - d.x; app.view.oy += p.y - d.y; d.x = p.x; d.y = p.y; app.vt = null; app.userView = true; }
+    function liveMove(g, p) {
+      var inp = app.inp, c = app.toChar(p.x, p.y), inner = app.toInner(c[0], c[1]);
+      if (g.kind === 'hand') inp.pose['hand' + g.sd] = { x: inner[0] + g.off[0], y: inner[1] + g.off[1] };
+      else if (g.kind === 'foot') inp.pose['foot' + g.sd] = { x: c[0] + g.off[0], y: c[1] + g.off[1] };
+      else if (g.kind === 'pin') inp.S.pin[g.pinId] = { x: inner[0] + g.off[0], y: inner[1] + g.off[1] };
+      else if (g.kind === 'head') { inp.pose.turnX = clamp(g.t0[0] + (p.x - g.x0) / app.view.s / g.R, -1, 1); inp.pose.turnY = clamp(g.t0[1] + (p.y - g.y0) / app.view.s / g.R, -1, 1); }
+      else if (g.kind === 'walk') inp.walker.drag(c);
+      else if (g.kind === 'body') { inp.pose.sway = clamp((p.x - g.x0) / app.view.s / 70, -1, 1); inp.pose.bounce = clamp((p.y - g.y0) / app.view.s / 40, -1, 1); }
+    }
+    function liveEnd(g) {
+      var inp = app.inp;
+      if (g.kind === 'hand') inp.held['hand' + g.sd] = false;
+      else if (g.kind === 'foot') inp.held['foot' + g.sd] = false;
+      else if (g.kind === 'head') inp.held.head = false;
+      else if (g.kind === 'walk') { inp.walker.release(); inp.held.body = false; }
+      else if (g.kind === 'body') { inp.pose.sway = 0; inp.pose.bounce = 0; inp.held.body = false; }
     }
     function liveDouble(p) {
       var c = app.toChar(p.x, p.y), hit = AL.hit(app.out, c[0], c[1]), zone = hit ? AL.zoneOf(app.ch, hit.id) : null, inp = app.inp;
-      if (zone === 'head') { inp.pose.turnX = inp.pose.turnY = inp.pose.roll = 0; } else if (zone === 'armL') inp.pose.handL = null; else if (zone === 'armR') inp.pose.handR = null; else if (!hit) { inp.resetPose(); inp.S.pin = {}; }
+      if (zone === 'head') { inp.pose.turnX = inp.pose.turnY = inp.pose.roll = 0; } else if (zone === 'armL') inp.pose.handL = null; else if (zone === 'armR') inp.pose.handR = null;
+      else if (zone === 'body') inp.walker.home(); else if (!hit) { inp.resetPose(); inp.S.pin = {}; }
     }
   }
   app.say = function () { };
@@ -355,13 +417,14 @@
     Array.prototype.forEach.call($('modes').children, function (b) { b.className = (b.getAttribute('data-m') === m ? 'on' : '') + (m === 'perform' && b.getAttribute('data-m') === m ? ' live' : ''); });
     $('app').classList.toggle('perform', m === 'perform');
     if (!app.ch || !app.inp) return;
-    if (m === 'build') { app.inp.stop(); } else { app.solver.reset(); }
+    if (m === 'build') { app.inp.stop(); app.inp.walker.reset(); app.inp.pose.flip = false; } else { app.solver.reset(); }
+    app.bridge = null; app.lockForce = null;
     app.userView = false; app.resolveSel(); app.refreshPanel(); app.focusSel();
   };
-  app.setLive = function (on) { app.live = on; if (on) { app.solver.reset(); } app.userView = false; app.refreshPanel(); app.focusSel(); };
+  app.setLive = function (on) { app.live = on; if (on) { app.solver.reset(); } else { app.lockForce = null; app.inp.walker.reset(); app.inp.pose.flip = false; } app.userView = false; app.refreshPanel(); app.focusSel(); };
   app.refreshPanel = function (keepScroll) {
     var pb = $('panelbody'), sc = pb.scrollTop;
-    app.pinProvider = null; app.padDraw = null;
+    app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);
     app.renderTools();
     if (keepScroll) pb.scrollTop = sc;
@@ -405,7 +468,11 @@
   app.boot = function () {
     $('bmenu').appendChild(AL.icon('menu')); $('bundo').appendChild(AL.icon('undo')); $('bredo').appendChild(AL.icon('redo')); $('sheetx').appendChild(AL.icon('x'));
     app.G = new AL.GL($('gl'));
-    $('bundo').onclick = function () { app.undo(false); }; $('bredo').onclick = function () { app.undo(true); };
+    var held = false, ht = null, ub = $('bundo');
+    ub.addEventListener('pointerdown', function () { held = false; ht = setTimeout(function () { held = true; app.historySheet(); }, 480); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach(function (ev) { ub.addEventListener(ev, function () { clearTimeout(ht); }); });
+    ub.onclick = function () { if (held) { held = false; return; } app.undo(false); }; $('bredo').onclick = function () { app.undo(true); };
+    ub.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     $('sheetx').onclick = app.closeSheet; $('scrim').onclick = app.closeSheet;
     $('bmenu').onclick = function () { AL.intake.menu(app); };
     $('bname').onclick = function () { app.promptText('Name this character', app.ch.name, function (v) { app.edit(function () { app.ch.name = v; app.ch.root.name = v; }); $('chname').textContent = v; }); };
@@ -423,7 +490,11 @@
     root.addEventListener('pagehide', function () { app.dirty = true; app.autosave(); });
     wire(); AL.intake.wire(app);
     var q = /[?&]open=([^&]+)/.exec(location.search), fresh = /[?&]demo\b/.test(location.search);
-    var start = q ? AL.intake.openUrl(app, decodeURIComponent(q[1])) : (fresh ? Promise.resolve(null) : app.loadSaved()).then(function (ch) { app.setCharacter(ch || AL.demo(), { quiet: true }); });
+    var start = q ? AL.intake.openUrl(app, decodeURIComponent(q[1])) : (fresh ? Promise.resolve(null) : app.loadSaved()).then(function (ch) {
+      if (ch && !(ch.demo && ch.pilot !== AL.PILOT)) { app.setCharacter(ch, { quiet: true }); return; }
+      var want = /[?&]demo=pip\b/.test(location.search) || (ch && ch.demo === 'pip') ? 'pip' : 'topps';
+      return AL.intake.builtIn(app, want).catch(function () { AL.img.map = {}; app.setCharacter(AL.demo(), { quiet: true }); });
+    });
     start.catch(function (e) { console.error(e); app.setCharacter(AL.demo(), { quiet: true }); app.toast('That file would not open: ' + e.message); }).then(function () { requestAnimationFrame(app.frame); });
   };
 })(typeof self !== 'undefined' ? self : this);

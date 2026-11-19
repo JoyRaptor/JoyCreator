@@ -58,10 +58,16 @@
         layer(s > 0 ? 'Left Eyeball' : 'Right Eyeball', box, function (g) { ell(g, ex, ey, rw, rh, WHITE, 4); })
       ]));
     });
-    kids.push(layer('Hair tuft', [110, 10, 402, 310], function (g) { var bx = cx - yaw * 8, by = cy - R * 0.88 + pitch * 6, tx = cx + 18 - yaw * 26, ty = cy - R - 48 + pitch * 10; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx - 14, (by + ty) / 2 - 6, tx, ty); g.strokeStyle = INK; g.lineWidth = 17; g.stroke(); g.strokeStyle = BODY; g.lineWidth = 9; g.stroke(); }));
+    /* each angle is its own stack: looking up, the tuft is behind the head and sits lower; turned, the near ear is in front and the far one behind */
+    function tuft() { return layer('Hair tuft', [110, 10, 402, 310], function (g) { var up = pitch < 0, bx = cx - yaw * 8, by = cy - R * (up ? 0.6 : pitch > 0 ? 0.72 : 0.88), tx = cx + 18 - yaw * 26, ty = cy - R - (up ? 30 : 48) + pitch * 10; g.beginPath(); g.moveTo(bx, by); g.quadraticCurveTo(bx - 14, (by + ty) / 2 - 6, tx, ty); g.strokeStyle = INK; g.lineWidth = 17; g.stroke(); g.strokeStyle = BODY; g.lineWidth = 9; g.stroke(); }); }
+    function ear(sd) { return layer(sd > 0 ? 'Left Ear' : 'Right Ear', box, function (g) { var near = sd * yaw < 0, ex = cx + sd * 66 - yaw * (near ? 30 : 16), ey = cy - 66 - pitch * 14 + (near ? 8 : 0), r = 27 * (1 - sd * yaw * 0.16); ell(g, ex, ey, r, r, BODY, 5); ell(g, ex, ey, r * 0.5, r * 0.5, PINK, 0); }); }
+    var nearEar = yaw < 0 ? 1 : yaw > 0 ? -1 : 0;
+    if (pitch >= 0) kids.push(tuft());
+    if (nearEar) kids.push(ear(nearEar));
     kids.push(layer('Cheeks', box, function (g) { g.save(); faceClip(g); g.clip(); g.globalAlpha = 0.5; [1, -1].forEach(function (s) { ell(g, fx + s * 52 * q, fy + 20, 13 * q, 8, PINK, 0); }); g.restore(); }));
     kids.push(layer('Face', box, function (g) { faceClip(g); g.fillStyle = BODY; g.fill(); g.save(); g.clip(); ell(g, fx, fy + 30, 50 * q, 40, BELLY, 0); g.restore(); faceClip(g); g.strokeStyle = INK; g.lineWidth = 5; g.stroke(); }));
-    kids.push(layer('Ears', box, function (g) { [1, -1].forEach(function (s) { var ex = cx + s * 66 - yaw * 22, ey = cy - 66 - pitch * 14, r = 27 * (1 - s * yaw * 0.16); ell(g, ex, ey, r, r, BODY, 5); ell(g, ex, ey, r * 0.5, r * 0.5, PINK, 0); }); }));
+    if (pitch < 0) kids.push(tuft());
+    [1, -1].forEach(function (sd) { if (sd !== nearEar) kids.push(ear(sd)); });
     return group(name, kids);
   }
 
@@ -108,7 +114,7 @@
   };
   AL.demo = function () {
     var ch = AL.autoRig(AL.demoDoc());
-    ch.name = 'Pip'; ch.root.name = 'Pip'; ch.settings.facing = 'front'; ch.demo = true;
+    ch.name = 'Pip'; ch.root.name = 'Pip'; ch.settings.facing = 'front'; ch.demo = 'pip'; ch.pilot = AL.PILOT; AL.limbPrefs(ch);
     return ch;
   };
 })(typeof self !== 'undefined' ? self : this);

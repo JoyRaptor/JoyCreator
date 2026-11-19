@@ -12,6 +12,7 @@
 (function (root) {
   'use strict';
   var AL = root.AL = root.AL || {};
+  AL.PILOT = '2026-11-19a';      // built-in characters saved by an older pilot are replaced by the fresh one
   var seq = 0;
   AL.id = function (p) { seq++; return (p || 'n') + seq.toString(36) + ((Math.random() * 46655) | 0).toString(36); };
 
@@ -134,7 +135,7 @@
   AL.History = function () { this.past = []; this.future = []; };
   AL.History.prototype.snap = function (ch) { return JSON.stringify(ch); };
   /** Call BEFORE a change, with the character as it is now. */
-  AL.History.prototype.push = function (ch) { this.past.push(this.snap(ch)); if (this.past.length > 80) this.past.shift(); this.future.length = 0; };
-  AL.History.prototype.undo = function (ch) { if (!this.past.length) return null; this.future.push(this.snap(ch)); var o = JSON.parse(this.past.pop()); AL.reindex(o); return o; };
-  AL.History.prototype.redo = function (ch) { if (!this.future.length) return null; this.past.push(this.snap(ch)); var o = JSON.parse(this.future.pop()); AL.reindex(o); return o; };
+  AL.History.prototype.push = function (ch, label) { this.past.push({ s: this.snap(ch), l: label || 'Change' }); if (this.past.length > 80) this.past.shift(); this.future.length = 0; };
+  AL.History.prototype.undo = function (ch) { if (!this.past.length) return null; var e = this.past.pop(); this.future.push({ s: this.snap(ch), l: e.l }); this.said = e.l; var o = JSON.parse(e.s); AL.reindex(o); return o; };
+  AL.History.prototype.redo = function (ch) { if (!this.future.length) return null; var e = this.future.pop(); this.past.push({ s: this.snap(ch), l: e.l }); this.said = e.l; var o = JSON.parse(e.s); AL.reindex(o); return o; };
 })(typeof self !== 'undefined' ? self : this);

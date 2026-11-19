@@ -43,6 +43,26 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
     lids and a stiff tail, all cards open. Seen in stills: five moods on both characters, a mirrored angle,
     the chain swinging and settling, hair and tail leaning in wind. **Not seen in motion by a person.**
 
+- **Round 3, 11-19, from the owner's first hands-on (Topps and Pip on the PC and the phone):**
+  - **Rulings:** Topps ships as the demo character. The magnifier while dragging a pin is wanted on the phone.
+    Undo: hover names the step, hold opens the history, as in Studio. Blink: tap blinks, hold keeps the eyes shut.
+    The whole-character turn must offer "instant" beside the cardboard turn.
+  - **Fixed (his reports):** a chosen arm drawing was shown bent to the resting hand, and drawings that pass
+    behind the body were hidden behind it, so they could not be tuned: now shown as drawn, in front, with a
+    "Try this drawing" button that plays just that one. Lids tilted the same way on both eyes at side angles
+    (pouty instead of angry): the two eyes are now a mirrored pair at every angle, with a per-angle "tilt the
+    other way". A flash when Pip blinked (a lid lost its mask for the blink): fixed. Hair "freaked out" when
+    the head swapped angle: the new drawing now starts in the bend and at the speed the last one had. The
+    magnifier did not follow the pin: fixed.
+  - **Built:** walking by dragging the body (planted feet, steps or hops, side view or from above, tuck or
+    hang when lifted, fall and land); legs that bend; many fingers at once in Perform; bridges that warp one
+    head angle into its neighbour from matched landmarks; in front / behind per angle; a pad for any set of
+    angles; the face camera "while talking", steering from where the hand left off; an elbow/knee flip helper
+    on the stage; undo history. Topps is inside the published page and opens first.
+  - **Checked by script and in stills:** Topps walks right and left, turns to face, tucks when lifted, falls
+    and lands; a walking take replays to the same footfalls; bridge points warp the face; every card opens.
+    **Not checked:** any of it in motion by a person, many fingers with real fingers, the face camera.
+
 ## What the pilot settles (proposed, the owner rules)
 1. First screen: a dotted body with a + on every part, and three doors for bringing a whole character in.
 2. Two modes with one meaning each: **Build** (everything still, pins draggable) and **Perform** (everything

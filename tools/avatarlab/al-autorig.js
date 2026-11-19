@@ -212,6 +212,16 @@
     var head = AL.firstRole(ch.root, 'head'), scopes = head && head.type === 'set' ? head.kids.filter(function (k) { return k.type === 'group'; }) : [head || ch.root], made = 0;
     scopes.forEach(function (scope) {
       var faceB = AL.boundsOf(AL.firstRole(scope, 'face') || scope), faceCx = faceB ? (faceB.x0 + faceB.x1) / 2 : ch.w / 2;
+      /* which way is "inward" for each eye? With two eyes they are a mirrored pair at EVERY angle (the left one's inner corner is on its
+         right), however far the nose has swung to one side. With one eye showing, inward is toward the nose. */
+      var eyeList = AL.findAll(scope, function (n) { return (n.role === 'eyeL' || n.role === 'eyeR') && !n.hidden && n.type !== 'art'; }), cxOf = {}, noseN = AL.firstRole(scope, 'nose'), noseB = noseN ? AL.boundsOf(noseN) : null;
+      eyeList.forEach(function (e) { var q = AL.boundsOf(e); cxOf[e.id] = q ? (q.x0 + q.x1) / 2 : 0; });
+      function signOf(eye) {
+        var sg;
+        if (eyeList.length >= 2) { var other = eyeList.filter(function (e) { return e !== eye; })[0]; sg = cxOf[eye.id] <= cxOf[other.id] ? 1 : -1; }
+        else sg = cxOf[eye.id] < (noseB ? (noseB.x0 + noseB.x1) / 2 : faceCx) ? 1 : -1;
+        return eye.lidFlip ? -sg : sg;
+      }
       AL.findAll(scope, function (n) { return (n.role === 'eyeL' || n.role === 'eyeR') && !n.hidden; }).forEach(function (eye) {
         if (eye.type === 'art') return;
         var open = eye.kids.filter(function (k) { return k.blink !== 'closed' && k.role !== 'lidU' && k.role !== 'lidL' && k.role !== 'mouth' && !k.hidden; });
@@ -219,7 +229,7 @@
         if (!b) return;
         var w = b.x1 - b.x0, h = b.y1 - b.y0, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, gap = Math.max(1.5, h * 0.12);
         var ball = eye.kids.filter(function (k) { return k.role === 'eyeball'; })[0], drawn = (mode || (ball ? 'drawn' : 'cut')) === 'drawn' && !!ball;
-        var colour = drawn ? skinAbove(scope, eye, cx, b.y0 - h * 0.45) : null, side = eye.role === 'eyeR' ? 'R' : 'L', sign = cx < faceCx ? 1 : -1;
+        var colour = drawn ? skinAbove(scope, eye, cx, b.y0 - h * 0.45) : null, side = eye.role === 'eyeR' ? 'R' : 'L', sign = signOf(eye);
         function lid(upper) {
           var W = w * 2.3, H = h * (upper ? 1.7 : 1.1), id = AL.id('i'); AL.img.put(id, lidPicture(W, H, upper, colour), upper ? 'Upper lid' : 'Lower lid');
           var sag = Math.round(H) * 0.22, n = { id: AL.id('n'), name: upper ? 'Upper lid' : 'Lower lid', type: 'art', role: upper ? 'lidU' : 'lidL', made: true, side: side, img: id,
@@ -306,6 +316,9 @@
       AL.guessFan(ch, set, tc);
     });
 
+    /* 3b. legs: a leg drawn as one piece becomes a limb that bends from hip to foot, so it can step */
+    ['legL', 'legR'].forEach(function (role) { var n = AL.firstRole(ch.root, role); if (n && n.type === 'art') AL.makeLeg(ch, n, role, torso, tc); });
+
     /* 4. the head: angle folders become a turn set; a face drawn once stays one folder */
     var head = AL.firstRole(ch.root, 'head');
     if (head && head.type === 'group') {
@@ -386,8 +399,24 @@
       var tail = AL.firstRole(ch.root, 'tail'), tbx = tail ? AL.boundsOf(tail) : null;
       if (tbx) ch.settings.facing = (tbx.x0 + tbx.x1) / 2 > tb.cx ? 'left' : 'right';
     }
-    AL.reindex(ch);
+    AL.reindex(ch); AL.limbPrefs(ch);
+    if (AL.walkDefaults) { var wd = AL.walkDefaults(ch); if (wd) ch.settings.walk = wd; }
     return ch;
+  };
+
+  AL.makeLeg = function (ch, n, role, torso, tc) {
+    var par = AL.parentOf(ch, n.id), at = par.kids.indexOf(n), set = { id: AL.id('n'), name: AL.ROLES[role].label, type: 'set', role: role, kids: [n] };
+    delete n.role; delete n.hidden; par.kids[at] = set;
+    set.pick = { by: 'reach', hand: role === 'legR' ? 'FR' : 'FL', fade: 110 };
+    if (torso) set.attach = torso.id;
+    AL.reindex(ch); AL.guessFan(ch, set, tc);
+    if (n.limb) n.limb.soft = 0.45;
+    return set;
+  };
+  /** Which way a straight limb should bend: elbows out and a little down, knees toward where the character faces. */
+  AL.limbPrefs = function (ch) {
+    var ax = ch.settings.axisX == null ? ch.w / 2 : ch.settings.axisX, f = ch.settings.facing === 'left' ? -1 : ch.settings.facing === 'right' ? 1 : 0;
+    AL.walk(ch.root, function (n, par) { if (!n.limb) return; var leg = par && /^leg/.test(par.role || ''), side = n.limb.a.x >= ax ? 1 : -1; n.limb.out = leg ? [f || side, 0] : [side * 0.9, 0.45]; });
   };
 
   /** The owner says "this layer is the left arm": give it that part's default rig. Used by every door and by the role picker. */
@@ -405,6 +434,8 @@
       if (torso) set.attach = torso.id;
       if (!set.links || !set.links.length) set.links = [{ sig: 'breath', prop: 'y', amt: -0.8 }];
       AL.reindex(ch); AL.guessFan(ch, set, tc);
+    } else if ((role === 'legL' || role === 'legR') && n.type === 'art') {
+      AL.makeLeg(ch, n, role, torso, tc);
     } else if (role === 'tail') {
       var art = n.type === 'art' ? n : AL.find(n, function (k) { return k.type === 'art'; });
       if (art) { AL.guessSwing(ch, art, tc, 'bendy'); if (torso) art.attach = torso.id; }
@@ -428,7 +459,8 @@
     else if (role === 'hair') n.depth = -0.7;
     else if (role === 'jaw') { n.links = [{ sig: 'mouth', prop: 'y', amt: 3, bias: -1 }]; n.depth = 0.8; }
     else if (role === 'browL' || role === 'browR') { var bb = AL.boundsOf(n); n.links = [{ sig: role, prop: 'y', amt: -Math.max(3, (bb ? bb.y1 - bb.y0 : 20) * 0.14) }]; n.depth = 0.6; }
-    AL.reindex(ch);
+    AL.reindex(ch); AL.limbPrefs(ch);
+    if (AL.walkDefaults && !ch.settings.walk) { var wd = AL.walkDefaults(ch); if (wd) ch.settings.walk = wd; }
   };
 
   /** A plain-words summary of what the automatic rig found, zone by zone. */
@@ -437,7 +469,7 @@
     if (head) { var nv = head.type === 'set' ? head.kids.length : 1; out.head = nv > 1 ? nv + ' angles' : 'one drawing'; }
     ['armL', 'armR'].forEach(function (r) { var a = AL.firstRole(ch.root, r); if (a) { var k = (a.kids || []).filter(function (q) { return q.limb; }).length; out[r] = k > 1 ? k + ' drawings, swaps and bends' : 'bends to reach'; } });
     var t = AL.firstRole(ch.root, 'torso') || AL.firstRole(ch.root, 'body'); if (t) out.body = t.breathe ? 'breathes' : 'in place';
-    ['legL', 'legR'].forEach(function (r) { if (AL.firstRole(ch.root, r)) out[r] = 'in place'; });
+    ['legL', 'legR'].forEach(function (r) { var q = AL.firstRole(ch.root, r); if (q) out[r] = q.type === 'set' ? (ch.settings.walk ? 'bends, walks' : 'bends') : 'in place'; });
     var tl = AL.firstRole(ch.root, 'tail'); if (tl) out.tail = tl.swing ? 'swings' : 'in place';
     return out;
   };

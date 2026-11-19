@@ -48,6 +48,18 @@
     intake.saveFile((app.ch.name || 'character').replace(/[^\w\- ]+/g, '') + '.avatar.json', new Blob([JSON.stringify(o)], { type: 'application/json' }));
   };
 
+  /* ── the built-in characters ── */
+  intake.builtIn = function (app, which) {
+    if (which === 'pip') { AL.img.map = {}; var p = AL.demo(); p.demo = 'pip'; p.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(p, { quiet: true }); return Promise.resolve(); }
+    function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('missing'); return r.json(); }); }
+    return get('topps.avatar.json').catch(function () { return get('local/topps.avatar.json'); }).then(function (o) {
+      delete o.take; AL.img.map = {};
+      return AL.fromJson(o).then(function (ch) { ch.demo = 'topps'; ch.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(ch, { quiet: true }); });
+    });
+  };
+  /** Pilot only: write a file next to the page (tools/avatarlab/local/), through serve.mjs. */
+  intake.saveLocal = function (name, text) { return fetch('local/' + name, { method: 'PUT', body: text }).then(function (r) { if (!r.ok) throw new Error('could not write local/' + name); }); };
+
   /* ── a layered file ── */
   intake.openPsd = function (app, buf, name) {
     var old = AL.img.map; AL.img.map = {};
@@ -272,7 +284,8 @@
       door('layers', 'Open a layered file', 'A .psd with folders named Head, Left Arm, Mouth, Pupil, Blink… It rigs itself from the names.', function () { app.closeSheet(); $('filePsd').value = ''; $('filePsd').click(); }),
       door('cut', 'Cut parts from a sheet', 'One picture with the parts laid out. Tap each part and say what it is.', function () { app.closeSheet(); intake.cutSheet(app, null); }),
       door('pin', 'Pin one whole drawing', 'A finished drawing in one piece. Tap the head, hands and feet and it bends.', function () { app.closeSheet(); intake.wholeDrawing(app); }),
-      door('smile', 'Meet Pip', 'A practice character that is already rigged. Poke at it.', function () { app.closeSheet(); AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.demo()); }, true)
+      door('smile', 'Meet Topps', 'A finished character to poke at: seven head angles, arms that swap and bend, and he walks.', function () { app.closeSheet(); intake.builtIn(app, 'topps').catch(function () { intake.builtIn(app, 'pip'); }); }, true),
+      door('smile', 'Meet Pip', 'A simple practice character, drawn in code.', function () { app.closeSheet(); intake.builtIn(app, 'pip'); }, true)
     ]);
   }
   intake.addTo = function (app, zone) {
@@ -298,7 +311,8 @@
     item('save', 'Save this character', function () { intake.saveCharacter(app); }, '.avatar.json');
     item('send', 'Send to Studio', function () { intake.send(app); });
     m.appendChild(h('hr'));
-    item('smile', 'Meet Pip, the practice character', function () { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.demo()); });
+    item('smile', 'Meet Topps', function () { intake.builtIn(app, 'topps').catch(function () { app.toast('Topps is not with this copy of the page.'); }); });
+    item('smile', 'Meet Pip', function () { intake.builtIn(app, 'pip'); });
     item('help', 'What can this do?', function () { intake.about(app); });
     app.sheet('Avatar Studio', m, []);
   };

@@ -14,6 +14,7 @@
   function hyp(x, y) { return Math.sqrt(x * x + y * y); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function smooth(t) { t = clamp(t, 0, 1); return t * t * (3 - 2 * t); }
+  function wrapA(a) { while (a > Math.PI) a -= 2 * Math.PI; while (a < -Math.PI) a += 2 * Math.PI; return a; }
 
   /* 2x3 affine: [a b c d e f]  x' = a x + c y + e,  y' = b x + d y + f */
   var M = AL.M = {
@@ -31,9 +32,32 @@
   /* a mouth set rarely has every sound: these are the nearest stand-ins */
   var VFALL = { S: ['Ee', 'D'], D: ['S', 'Ee'], F: ['M'], L: ['D', 'Ee'], R: ['W-Oo', 'Oh'], 'W-Oo': ['Oh'], Oh: ['W-Oo'], Ee: ['S'], Uh: ['Aa', 'Oh'], Surprised: ['Oh'], Smile: ['Ee'] };
 
+  /**
+   * A BRIDGE is a handful of matched landmarks between two neighbouring head angles (the same crest spike in
+   * drawing A and in drawing B). As the head turns from A toward B, A is warped so its landmarks travel to
+   * the meeting point; B arrives already warped to the same point and relaxes. The eye sees one shape turn.
+   * Returned as seen from A: [{ from: where A has it, to: where it should be when B takes over }].
+   */
+  AL.bridgeFor = function (ch, set, A, B) {
+    var bs = set.bridges || [], ax = set.axisX == null ? ch.w / 2 : set.axisX;
+    function find(a, b) { for (var i = 0; i < bs.length; i++) { if (bs[i].a === a && bs[i].b === b) return { br: bs[i], rev: false }; if (bs[i].a === b && bs[i].b === a) return { br: bs[i], rev: true }; } return null; }
+    var hit = find(A.id, B.id), flip = false;
+    if (!hit && (A.type === 'mirror' || B.type === 'mirror')) {     // the far side of the face: the mirror image of a bridge matched by hand
+      var a2 = A.type === 'mirror' ? A.of : (A.at && Math.abs(A.at[0]) < 0.05 ? A.id : null), b2 = B.type === 'mirror' ? B.of : (B.at && Math.abs(B.at[0]) < 0.05 ? B.id : null);
+      if (a2 && b2) { hit = find(a2, b2); flip = !!hit; }
+    }
+    if (!hit || !hit.br.pts || !hit.br.pts.length) return null;
+    var meet = hit.br.meet == null ? 0.5 : hit.br.meet;
+    return hit.br.pts.map(function (q) {
+      var pa = hit.rev ? q.b : q.a, pb = hit.rev ? q.a : q.b, m = hit.rev ? 1 - meet : meet, fx = pa[0], tx = pa[0] + (pb[0] - pa[0]) * m;
+      if (flip) { fx = 2 * ax - fx; tx = 2 * ax - tx; }
+      return { from: [fx, pa[1]], to: [tx, pa[1] + (pb[1] - pa[1]) * m] };
+    });
+  };
+
   AL.restSignals = function () {
     return { turnX: 0, turnY: 0, roll: 0, lookX: 0, lookY: 0, blinkL: 0, blinkR: 0, browL: 0, browR: 0, mouth: null, viseme: 'Neutral',
-      lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, breath: 0, sway: 0, bounce: 0, hand: { L: null, R: null }, trig: {}, pin: {}, flip: false, t: 0 };
+      lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, breath: 0, sway: 0, bounce: 0, hand: { L: null, R: null, FL: null, FR: null }, root: { x: 0, y: 0 }, rootScale: 1, walk: 0, dial: {}, trig: {}, pin: {}, flip: false, t: 0 };
   };
 
   /* ── two-bone reach (phone: FabrikSolver for the chain, PinWarpStrip for the skin) ── */
@@ -50,8 +74,11 @@
     var dd = clamp(d, Math.abs(l1 - l2) + 0.001, l1 + l2 - 0.001);
     var A = Math.acos(clamp((l1 * l1 + dd * dd - l2 * l2) / (2 * l1 * dd), -1, 1));
     var cr = (cx - ax) * (by - ay) - (cy - ay) * (bx - ax), side;
-    if (Math.abs(cr) > 0.03 * L1 * L2) side = cr > 0 ? 1 : -1;
-    else { var base = Math.atan2(uy, ux); side = Math.sin(base + A) >= Math.sin(base - A) ? 1 : -1; }   // a straight arm: the elbow drops
+    if (Math.abs(cr) > 0.09 * L1 * L2) side = cr > 0 ? 1 : -1;
+    else {                                                 // a straight limb bends the way it was told to: elbows out and down, knees forward
+      var base = Math.atan2(uy, ux), ox = l.out ? l.out[0] : 0, oy = l.out ? l.out[1] : 1;
+      side = (Math.cos(base + A) * ox + Math.sin(base + A) * oy) >= (Math.cos(base - A) * ox + Math.sin(base - A) * oy) ? 1 : -1;
+    }
     if (l.flip) side = -side;
     var th = Math.atan2(uy, ux) + side * A;
     var ex = ax + Math.cos(th) * l1, ey = ay + Math.sin(th) * l1;
@@ -166,15 +193,17 @@
     if (live && set.autoFlip && F) { var th = set.flipAt == null ? 0.4 : set.flipAt, x = S.turnX * F; if (x < -th) want = 1; else if (x > -th * 0.45) want = 0; }
     st.flipWant = want;
     var target = (want ? 1 : 0) ^ (S.flip ? 1 : 0);
-    if (!live) st.flip = S.flip ? 1 : 0; else st.flip = st.flip < target ? Math.min(target, st.flip + dt / 0.16) : Math.max(target, st.flip - dt / 0.16);
+    if (!live || set.flipStyle === 'snap') st.flip = target; else st.flip = st.flip < target ? Math.min(target, st.flip + dt / 0.16) : Math.max(target, st.flip - dt / 0.16);
     var fx = Math.cos(st.flip * Math.PI); if (Math.abs(fx) < 0.03) fx = fx < 0 ? -0.03 : 0.03;
     var axis = set.axisX == null ? ch.w / 2 : set.axisX;
-    var rootM = out.rootM = M.trs(0, 0, 0, fx, 1, axis, 0), flipped = out.flipped = st.flip > 0.5;
+    /* where the character stands on the stage (walking), how big (further away = smaller), then the mirror */
+    var rt = S.root || { x: 0, y: 0 }, rs = S.rootScale || 1, gy = (set.walk && set.walk.groundY) || ch.h;
+    var TS = M.trs(rt.x, rt.y, 0, rs, rs, axis, gy), rootM = out.rootM = M.mul(TS, M.trs(0, 0, 0, fx, 1, axis, 0)), flipped = out.flipped = st.flip > 0.5;
 
     /* springs and wind run in the character's own space, so turning the whole character around does not whip the hair */
-    var invRoot = M.inv(rootM), frame = (st.frame = (st.frame || 0) + 1), windIn = (S.wind || 0) * (flipped ? -1 : 1);
+    var invRoot = M.mul(TS, M.inv(rootM)), moving = live || !!opt.tween, frame = (st.frame = (st.frame || 0) + 1), windIn = (S.wind || 0) * (flipped ? -1 : 1);
     function windAcc(x) { return windIn * 1500 * (0.6 + 0.4 * Math.sin(S.t * 1.9 + x * 0.013) + 0.25 * Math.sin(S.t * 4.7 + x * 0.031)); }
-    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, reach: null }; if (over) for (var e in over) k[e] = over[e]; return k; }
+    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null }; if (over) for (var e in over) k[e] = over[e]; return k; }
     if (this._mkIx !== ix) { this._mkIx = ix; var mk = this.maskIds = {}; AL.walk(ch.root, function (n) { if (n.clips) n.clips.forEach(function (q) { mk[q.by] = 1; }); }); }
     var maskIds = this.maskIds, masks = {};
 
@@ -182,7 +211,7 @@
     function sigs(mir) {
       if (!mir) return S;
       return { turnX: -S.turnX, turnY: S.turnY, roll: -S.roll, lookX: -S.lookX, lookY: S.lookY, blinkL: S.blinkR, blinkR: S.blinkL, browL: S.browR, browR: S.browL,
-        mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, trig: S.trig, pin: S.pin, t: S.t };
+        mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, walk: -(S.walk || 0), trig: S.trig, pin: S.pin, t: S.t };
     }
     var SM = [S, sigs(true)];
     function sg(c) { return SM[(c.mir ? 1 : 0) ^ (flipped ? 1 : 0)]; }
@@ -199,7 +228,7 @@
         if (l.prop === 'x') tx += v * l.amt; else if (l.prop === 'y') ty += v * l.amt; else if (l.prop === 'rot') rot += v * l.amt * DEG;
         else if (l.prop === 'sx') sx *= 1 + v * l.amt; else if (l.prop === 'sy') sy *= 1 + v * l.amt; else if (l.prop === 's') { sx *= 1 + v * l.amt; sy *= 1 + v * l.amt; }
       }
-      if (live && n.depth && c.P) { tx += n.depth * c.P[0]; ty += n.depth * c.P[1]; any = true; }
+      if (moving && n.depth && c.P) { tx += n.depth * c.P[0]; ty += n.depth * c.P[1]; any = true; }
       if (n.look) { tx += s.lookX * n.look.rx; ty += s.lookY * n.look.ry; any = true; }
       if (s.mouth != null) {
         if (n.hinge) { rot += (n.hinge.rest === 'closed' ? s.mouth : 1 - s.mouth) * n.hinge.angle * DEG; any = true; }
@@ -267,13 +296,17 @@
       var prevId = st.pick[n.id], prev = prevId && ix.p[prevId] === n ? ix.n[prevId] : null, T = null;
 
       if (pk.by === 'turn') {
-        var tx = s.turnX, ty = s.turnY, best = null, bd = 1e9, pd = 1e9;
+        var dl = pk.dial && S.dial ? S.dial[pk.dial] : null, tx = dl ? dl[0] * ((((c.mir ? 1 : 0) ^ (flipped ? 1 : 0))) ? -1 : 1) : s.turnX, ty = dl ? dl[1] : s.turnY, best = null, bd = 1e9, pd = 1e9;
         for (i = 0; i < kids.length; i++) { k = kids[i]; if (!k.at) continue; var d = hyp(k.at[0] - tx, k.at[1] - ty); if (d < bd) { bd = d; best = k; } if (k === prev) pd = d; }
         cur = (live && prev && prev.at && pd - bd < 0.07) ? prev : best;
       } else if (pk.by === 'reach') {
-        var hand = s.hand[pk.hand] , restKid = ix.n[pk.rest] || null;
+        var hand = s.hand[pk.hand], foot = !!pk.hand && pk.hand.charAt(0) === 'F', restKid = ix.n[pk.rest] || null;
         if (!restKid || !restKid.limb) for (i = 0; i < kids.length; i++) if (kids[i].limb) { restKid = kids[i]; break; }
-        var Tw = hand ? M.ap(c.rootIn, hand.x, hand.y) : (restKid ? M.ap(Mx, restKid.limb.c.x, restKid.limb.c.y) : null);
+        var Tw = hand ? (foot ? [hand.x, hand.y] : M.ap(c.rootIn, hand.x, hand.y)) : (restKid ? M.ap(Mx, restKid.limb.c.x, restKid.limb.c.y) : null);
+        if (!hand && !foot && restKid && live && s.walk) {             // nobody is holding this hand: it swings with the walk
+          var sa = (set.walk && set.walk.armSwing != null ? set.walk.armSwing : 18) * DEG * s.walk * (pk.hand === 'L' ? 1 : -1), la = restKid.limb.a, lc = restKid.limb.c, cs = Math.cos(sa), sn = Math.sin(sa);
+          Tw = M.ap(Mx, la.x + cs * (lc.x - la.x) - sn * (lc.y - la.y), la.y + sn * (lc.x - la.x) + cs * (lc.y - la.y));
+        }
         if (Tw) { var iv = M.inv(Mx), tl = M.ap(iv, Tw[0], Tw[1]); T = { x: tl[0], y: tl[1] }; }
         if (T) {
           var bk = null, bdist = 1e9, pdist = 1e9;
@@ -292,6 +325,7 @@
       if (trigKid) cur = trigKid;
       if (forced) cur = forced;
       if (!cur) cur = kids[0];
+      if (forced && forced.limb && !live) T = { x: forced.limb.c.x, y: forced.limb.c.y };     // building: the chosen drawing as it was drawn, not reaching anywhere
 
       /* a swap fades in over the old drawing, both solved to the same pose, so it reads as a turn and not a pop */
       var fade = st.fade[n.id];
@@ -301,27 +335,42 @@
 
       function one(kid, a, ghost) {
         var extra = { ghost: ghost || c.ghost };
-        if (pk.by === 'reach') extra.reach = T;
+        if (pk.by === 'reach') { extra.reach = (ghost && kid.limb) ? { x: kid.limb.c.x, y: kid.limb.c.y } : T; extra.lift = !live && forced === kid; }
         if (pk.by === 'turn') extra.vs = n.id;
-        if (pk.by === 'turn' && kid.at) { var dpx = pk.depth == null ? 14 : pk.depth; extra.P = [(s.turnX - kid.at[0]) * dpx, (s.turnY - kid.at[1]) * dpx]; }
-        var m2 = Mx, src = kid;
+        if (pk.by === 'turn' && kid.at) { var dpx = pk.depth == null ? 14 : pk.depth; extra.P = [(tx - kid.at[0]) * dpx, (ty - kid.at[1]) * dpx]; }
+        var m2 = Mx, src = kid, ax = n.axisX;
+        if (pk.by === 'turn' && moving && !ghost && kid.at && n.bridges && n.bridges.length) {
+          /* warp this angle toward each neighbour it is turning to */
+          var BP = [], BQ = [];
+          kids.forEach(function (o) {
+            if (o === kid || !o.at) return;
+            var br = AL.bridgeFor(ch, n, kid, o); if (!br) return;
+            var ddx = o.at[0] - kid.at[0], ddy = o.at[1] - kid.at[1], d2 = ddx * ddx + ddy * ddy || 1, tt = ((tx - kid.at[0]) * ddx + (ty - kid.at[1]) * ddy) / d2, w = smooth(clamp(tt / 0.5, 0, 1));
+            if (w < 0.002) return;
+            br.forEach(function (q) { var fxp = q.from[0], txp = q.from[0] + (q.to[0] - q.from[0]) * w; if (kid.type === 'mirror') { var axm = ax == null ? ch.w / 2 : ax; fxp = 2 * axm - fxp; txp = 2 * axm - txp; } BP.push([fxp, q.from[1]]); BQ.push([txp, q.from[1] + (q.to[1] - q.from[1]) * w]); });
+          });
+          if (BP.length) extra.warp = { P: BP, Q: BQ };
+        }
         if (kid.type === 'mirror') {
           src = ix.n[kid.of]; if (!src) return;
-          var ax = n.axisX; if (ax == null) { var b = AL.boundsOf(src); ax = b ? (b.x0 + b.x1) / 2 : ch.w / 2; }
+          if (ax == null) { var b = AL.boundsOf(src); ax = b ? (b.x0 + b.x1) / 2 : ch.w / 2; }
           m2 = M.mul(Mx, M.flipX(ax)); extra.mir = !c.mir; extra.tag = (c.tag || '') + 'm'; if (extra.P) extra.P = [-extra.P[0], extra.P[1]];
           out.M[kid.id] = m2;
         }
         walk(src, kidCtx(c, m2, a, extra));
       }
-      if (opt.onion === n.id) for (i = kids.length - 1; i >= 0; i--) if (kids[i] !== cur && !kids[i].trig) one(kids[i], c.a * 0.2, true);
+      function ghosts() { for (var gi = kids.length - 1; gi >= 0; gi--) if (kids[gi] !== cur && !kids[gi].trig && (!opt.onionKid || kids[gi].id === opt.onionKid)) one(kids[gi], c.a * (opt.onionAlpha || 0.2), true); }
+      if (opt.onion === n.id && !opt.onionOver) ghosts();
       if (fade) { one(ix.n[fade.from], c.a); one(cur, c.a * smooth(fade.t)); } else one(cur, c.a);
+      if (opt.onion === n.id && opt.onionOver) ghosts();
     }
 
     function emit(n, Mx, c) {
       var im = AL.img.get(n.img); if (!im) return;
       var s = sg(c), limbOn = n.limb && c.reach && n.limb.bend !== false, bendOn = n.swing && n.swing.kind !== 'stiff' && live && n.swing.on !== false, brOn = n.breathe && n.breathe.on !== false && s.breath, meshOn = n.mesh && n.mesh.pins && n.mesh.pins.length;
-      var dense = meshOn ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe) ? 1 : 0;
+      var dense = meshOn ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp) ? 1 : 0;
       var g = self.grid(n, im, dense), v = g.v, i;
+      if (c.warp) v = warpMLS(v, c.warp.P, c.warp.Q);
       if (limbOn) {
         var k = solveLimb(n.limb, c.reach);
         if (k) { v = warpLimb(v, n.limb, k); var pa = M.ap(Mx, n.limb.a.x, n.limb.a.y); out.pins[n.id] = { a: pa, b: M.ap(Mx, k.e[0], k.e[1]), c: M.ap(Mx, k.w[0], k.w[1]) }; }
@@ -349,7 +398,7 @@
       if (bendOn) v = bendy(n, v === g.v ? new Float32Array(v) : v, Mx, c, s);
       var w = new Float32Array(v.length);
       for (i = 0; i < v.length; i += 2) { w[i] = Mx[0] * v[i] + Mx[2] * v[i + 1] + Mx[4]; w[i + 1] = Mx[1] * v[i] + Mx[3] * v[i + 1] + Mx[5]; }
-      out.items.push({ id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: n.zUnder || null, ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '' });
+      out.items.push({ id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: c.lift ? null : (n.zUnder || null), ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '' });
     }
 
     /*
@@ -384,10 +433,15 @@
      */
     function bendy(n, v, Mx, c, s) {
       var sw = n.swing, p = pivotOf(n), N = clamp(Math.round(sw.segs || 4), 1, 10), Mi = M.mul(invRoot, Mx), i, k2, it;
-      var key = (c.vs ? c.vs + ':' + (n.role || '') + ':' + n.name : n.id) + (c.tag || '');
+      var key = n.id + (c.tag || ''), nameKey = c.vs ? c.vs + ':' + (n.role || '') + ':' + n.name : null;
       var r = M.ap(Mi, p.x, p.y), tp = M.ap(Mi, sw.tip.x, sw.tip.y), dx = tp[0] - r[0], dy = tp[1] - r[1], len = hyp(dx, dy) || 1, L = len / N, ux = dx / len, uy = dy / len;
       var q = st.swing[key];
-      if (!q || q.n !== N || frame - q.f > 2 || hyp(q.p[0] - r[0], q.p[1] - r[1]) > len * 2.5) { q = st.swing[key] = { n: N, p: [], o: [] }; for (i = 0; i <= N; i++) q.p.push(r[0] + ux * L * i, r[1] + uy * L * i); q.o = q.p.slice(); }
+      if (!q || q.n !== N || frame - q.f > 2 || hyp(q.p[0] - r[0], q.p[1] - r[1]) > len * 2.5) {
+        /* a fresh drawing of the same lock of hair (the head just swapped angle): start it in the bend, and at the speed, the last one had */
+        var sh = nameKey && st.shape ? st.shape[nameKey] : null, okS = sh && sh.n === N && frame - sh.f <= 3, b0 = Math.atan2(uy, ux), ca = r[0], cb = r[1], oa = r[0], ob = r[1];
+        q = st.swing[key] = { n: N, p: [r[0], r[1]], o: [r[0], r[1]] };
+        for (i = 0; i < N; i++) { var an = b0 + (okS ? sh.rel[i] : 0), aw = b0 + (okS ? sh.was[i] : 0); ca += Math.cos(an) * L; cb += Math.sin(an) * L; oa += Math.cos(aw) * L; ob += Math.sin(aw) * L; q.p.push(ca, cb); q.o.push(oa, ob); }
+      }
       q.f = frame;
       var stiff = 0.012 + (sw.stiff == null ? 0.35 : sw.stiff) * 0.22, damp = 0.015 + (sw.damp == null ? 0.3 : sw.damp) * 0.2, follow = sw.follow == null ? 1 : sw.follow, sens = sw.wind == null ? 1 : sw.wind, flut = sw.flutter || 0, hang = sw.hang ? 0.5 : 0;
       var sgn = (Mi[0] * Mi[3] - Mi[1] * Mi[2]) < 0 ? -1 : 1, hl = hyp(sw.tip.x - p.x, sw.tip.y - p.y) || 1, hx = (sw.tip.x - p.x) / hl * sgn, hy = (sw.tip.y - p.y) / hl;
@@ -415,6 +469,7 @@
           var ex = q.p[jj] - px, ey = q.p[jj + 1] - py, el = hyp(ex, ey) || 1; q.p[jj] = px + ex / el * L; q.p[jj + 1] = py + ey / el * L;
         }
       }
+      if (nameKey) { var bb0 = Math.atan2(uy, ux), old = st.shape ? st.shape[nameKey] : null, rel = []; for (i = 0; i < N; i++) rel.push(wrapA(Math.atan2(q.p[i * 2 + 3] - q.p[i * 2 + 1], q.p[i * 2 + 2] - q.p[i * 2]) - bb0)); (st.shape = st.shape || {})[nameKey] = { n: N, f: frame, rel: rel, was: old && old.n === N && old.f === frame - 1 ? old.rel : (old && old.f === frame ? old.was : rel) }; }
       /* skin the drawing along the chain */
       var inv = M.inv(Mi), ax0 = sw.tip.x - p.x, ay0 = sw.tip.y - p.y, al = hyp(ax0, ay0) || 1, axx = ax0 / al, axy = ay0 / al, restA = Math.atan2(axy, axx), Ll = al / N, pl = [], ang = [];
       for (i = 0; i <= N; i++) pl.push(M.ap(inv, q.p[i * 2], q.p[i * 2 + 1]));
@@ -437,9 +492,10 @@
     out.items.forEach(function (it) {
       if (!it.clip) return;
       var inside = null, cuts = [], key = '';
-      it.clip.forEach(function (q) { var m = masks[q.by + it.tag] || masks[q.by]; if (!m || !m.length) return; key += (q.cut ? '-' : '+') + q.by; if (q.cut) cuts.push(m); else if (!inside) inside = m; });
+      it.clip.forEach(function (q) { var m = masks[q.by + it.tag] || masks[q.by]; if (!m || !m.length) { if (!q.cut) it.dead = true; return; } key += (q.cut ? '-' : '+') + q.by; if (q.cut) cuts.push(m); else if (!inside) inside = m; });
       it.mask = (inside || cuts.length) ? { key: key + it.tag, inside: inside, cuts: cuts } : null;
     });
+    out.items = out.items.filter(function (it) { return !it.dead; });
 
     /* drawings that belong UNDER another part (an arm that passes behind the body) */
     var moved = out.items.filter(function (it) { return it.under && out.first[it.under]; });

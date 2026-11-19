@@ -21,10 +21,18 @@
     (app.ch.triggers || []).forEach(function (t, i) {
       out.push(ui.chip(t.name, { on: !!inp.trig[t.id], icon: 'bolt', title: 'Tap to switch “' + t.name + '” on and off' + (i < 9 ? ' (key ' + (i + 1) + ')' : ''), fn: function () { inp.trig[t.id] = !inp.trig[t.id]; app.refreshPanel(true); } }));
     });
-    out.push(ui.chip('Blink', { icon: 'eye', title: 'Blink now (key B)', fn: function () { inp.blinkNow(); } }));
+    var bl = ui.chip('Blink', { icon: 'eye', title: 'Tap to blink. Hold to keep the eyes shut. (key B)' });
+    bl.addEventListener('pointerdown', function (e) { try { bl.setPointerCapture(e.pointerId); } catch (x) { } inp.blinkHold = true; bl.classList.add('on'); });
+    ['pointerup', 'pointercancel'].forEach(function (ev) { bl.addEventListener(ev, function () { inp.blinkHold = false; bl.classList.remove('on'); }); });
+    out.push(bl);
     return out;
   }
 
+  function morePads(app, box, sets) {
+    if (sets.length < 2) return;
+    box.appendChild(app.ui.lab('More to turn'));
+    box.appendChild(h('div', { class: 'rowf', style: 'align-items:flex-start;gap:10px' }, sets.slice(1).map(function (st) { return h('div', null, [AL.cards.turnPad(app, { set: st.id }), h('div', { class: 'badge', style: 'margin-top:4px;display:inline-block', text: st.name })]); })));
+  }
   function hasSwing(app) { return !!AL.find(app.ch.root, function (n) { return n.swing && n.swing.on !== false; }); }
   function moodChips(app) {
     return Object.keys(AL.MOODS).map(function (m) { return app.ui.chip(m, { on: app.inp.pose.mood === m, title: 'Eyelids and brows: ' + m.toLowerCase(), fn: function () { app.inp.setMood(m); app.refreshPanel(true); } }); });
@@ -37,8 +45,9 @@
   /** The few controls shown under "Try it" while building. */
   perform.quick = function (app) {
     var box = h('div');
-    var hasHead = app.zoneNode('head') && app.zoneNode('head').type === 'set';
-    box.appendChild(h('div', { class: 'padrow' }, [hasHead ? AL.cards.turnPad(app, {}) : null, h('div', { class: 'side' }, [talkButton(app), h('div', { class: 'rowf' }, triggerChips(app))])]));
+    var sets = AL.cards.turnSets(app);
+    box.appendChild(h('div', { class: 'padrow' }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), h('div', { class: 'rowf' }, triggerChips(app))])]));
+    morePads(app, box, sets);
     if (AL.hasLids(app.ch)) { box.appendChild(app.ui.lab('Mood')); box.appendChild(app.ui.row(moodChips(app))); }
     if (hasSwing(app)) box.appendChild(breeze(app));
     box.appendChild(app.ui.note('This is the same as <b>Perform</b>, kept beside the part you were working on.'));
@@ -48,7 +57,7 @@
   perform.render = function (app) {
     var ph = $('panelhead'), pb = $('panelbody'), inp = app.inp, ui = app.ui, st = app.ch.settings;
     $('stagebar').innerHTML = ''; ph.innerHTML = ''; pb.innerHTML = '';
-    app.coach(inp.recording ? '<b>Recording.</b> ' + (inp.fresh ? 'Everything you do is kept.' : 'Only what you touch is replaced.') + ' Tap the square to stop.' : '<b>Perform.</b> Drag the <b>head</b> to turn, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap lets go.');
+    app.coach(inp.recording ? '<b>Recording.</b> ' + (inp.fresh ? 'Everything you do is kept.' : 'Only what you touch is replaced.') + ' Tap the square to stop.' : (inp.walker.cfg() ? '<b>Perform.</b> Drag the <b>body</b> and he walks. Drag the <b>head</b>, a <b>hand</b> or a <b>foot</b> with other fingers at the same time. Two fingers on empty space zoom.' : '<b>Perform.</b> Drag the <b>head</b> to turn, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap lets go.'));
 
     /* transport */
     var rec = h('button', { class: 'recb' + (inp.recording ? ' on' : ''), title: inp.recording ? 'Stop recording' : (inp.take && inp.take.n ? 'Record another pass: only what you touch is replaced' : 'Record a take'), 'aria-pressed': String(inp.recording), onclick: function () { if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); } }, h('i'));
@@ -63,16 +72,22 @@
     perform.tl = tlc;
 
     /* hands-on controls */
-    var hasHead = app.zoneNode('head') && app.zoneNode('head').type === 'set';
+    var sets = AL.cards.turnSets(app);
     var meter = h('div', { class: 'meter', title: 'How loud the voice is' }, h('i')); perform.meter = meter.firstChild;
     var hosted = AL.intake.hosted;
     var voice = h('div', { class: 'rowf' }, [
       hosted ? null : ui.chip('Mic', { on: inp.mic.on && inp.mic.kind === 'mic', icon: 'mic', title: 'Lip-sync to your voice', fn: function () { if (inp.mic.on) { inp.micStop(); app.refreshPanel(true); } else inp.micStart().then(function () { app.refreshPanel(true); }).catch(function () { app.toast('No microphone here. Hold Talk, or play a voice file.'); }); } }),
       ui.chip('Voice file', { on: inp.mic.on && inp.mic.kind === 'file', icon: 'note', title: 'Play a recording and lip-sync to it', fn: function () { if (inp.mic.kind === 'file') { inp.micStop(); app.refreshPanel(true); } else $('fileAudio').click(); } }),
-      hosted ? null : ui.chip('Face', { on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. The picture is never shown or kept.', fn: function () { if (inp.cam.on) { inp.camStop(); app.refreshPanel(true); } else { app.toast('Starting the face camera…'); inp.camStart().then(function () { app.toast('Face camera on. Look at the screen.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It works on the PC page with a webcam.'); }); } } })
+      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Tap again to change between "while Talk is held" and "always", then off. The picture is never shown or kept.', fn: function () {
+        if (!inp.cam.on) { app.toast('Starting the face camera\u2026'); inp.cam.mode = 'talk'; inp.camStart().then(function () { app.toast('Face is ready. Hold Talk and it takes over from where your hand left the head.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It needs a webcam and the PC page.'); }); }
+        else if (inp.cam.mode === 'talk') { inp.cam.mode = 'always'; inp.cam.zero = null; app.refreshPanel(true); }
+        else { inp.camStop(); app.refreshPanel(true); }
+      } })
     ]);
+    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take the way you are facing now as straight ahead', fn: function () { inp.cam.zero = null; } }));
     if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
-    pb.appendChild(h('div', { class: 'padrow' }, [hasHead ? AL.cards.turnPad(app, {}) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice])]));
+    pb.appendChild(h('div', { class: 'padrow' }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice])]));
+    morePads(app, pb, sets);
 
     if (hosted) pb.appendChild(ui.note('The microphone and the face camera work on the PC page (tools/avatarlab). Here, hold Talk or play a voice file.'));
     pb.appendChild(ui.lab('Buttons'));
@@ -100,7 +115,7 @@
 
   /* per frame: the take strip and the voice meter */
   AL.app.hooks.push(function () {
-    var app = AL.app, inp = app.inp; if (app.padDraw) app.padDraw();
+    var app = AL.app, inp = app.inp; (app.padDraws || []).forEach(function (d) { d(); });
     if (app.mode !== 'perform') return;
     if (perform.meter) perform.meter.style.width = Math.round((inp.S.mouth || 0) * 100) + '%';
     var c = perform.tl; if (!c || !c.parentNode) return;

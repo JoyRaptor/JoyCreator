@@ -86,6 +86,7 @@
     $('empty').style.display = hasArt ? 'none' : 'flex';
     if (!hasArt) { $('stagebar').innerHTML = ''; return AL.intake.emptyPanel(app); }
     if (app.live) { tryBar(app, true); head(app, 'Trying it', 'alive', 'Drag the <b>head</b> to turn it, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap a part to let it go back.'); app.coach('<b>Trying it.</b> Everything moves. Tap <b>Done trying</b> to go back to the pins.'); pb.appendChild(AL.perform.quick(app)); return; }
+    if (app.bridge) return AL.bridge.render(app, pb);
     tryBar(app, true);
     if (app.tab === 'layers') return layers(app, pb);
     var z = app.sel.zone;
@@ -101,45 +102,67 @@
   /* ── a pad you turn the head with; dots are the drawings ── */
   cards.turnPad = function (app, opts) {
     opts = opts || {};
-    var c = h('canvas'), pad = h('div', { class: 'pad', title: 'Drag to turn the head. Each dot is one drawing.' }, c), dragDot = null, pushed = false;
-    function headSet() { var hd = app.zoneNode('head'); return hd && hd.type === 'set' ? hd : null; }
+    var c = h('canvas'), pad = h('div', { class: 'pad', title: 'Drag to turn. Each dot is one drawing; a diamond between two dots matches them so the swap is smooth.' }, c), dragDot = null, pushed = false, brs = [];
+    function theSet() { if (opts.set) return AL.node(app.ch, opts.set); var hd = app.zoneNode('head'); return hd && hd.type === 'set' ? hd : null; }
+    function isLive() { return app.mode === 'perform' || app.live; }
+    function dialOf(hs) { return hs && hs.pick ? hs.pick.dial : null; }
+    function value() {
+      var hs = theSet(), dn = dialOf(hs);
+      if (isLive()) { if (dn) { var q = app.inp.S.dial && app.inp.S.dial[dn]; return q ? [q[0], q[1]] : [0, 0]; } return [app.inp.S.turnX, app.inp.S.turnY]; }
+      if (dn) { var w = (app.btd || {})[dn]; return w ? [w[0], w[1]] : [0, 0]; }
+      return [app.bt.x, app.bt.y];
+    }
+    function put(x, y) {
+      var hs = theSet(), dn = dialOf(hs);
+      if (isLive()) { if (dn) app.inp.pose.dial[dn] = [x, y]; else { app.inp.pose.turnX = x; app.inp.pose.turnY = y; } return; }
+      if (dn) { app.btd = app.btd || {}; app.btd[dn] = [x, y]; } else { app.bt.x = x; app.bt.y = y; }
+    }
     function toPx(v, size) { return (v * 0.4 + 0.5) * size; } function fromPx(p, size) { return clamp((p / size - 0.5) / 0.4, -1, 1); }
     function draw() {
       var size = pad.clientWidth || 132, dpr = root.devicePixelRatio || 1; if (c.width !== Math.round(size * dpr)) { c.width = c.height = Math.round(size * dpr); }
-      var g = c.getContext('2d'), hs = headSet(), live = app.mode === 'perform' || app.live, S = live ? app.inp.S : app.bt, tx = live ? S.turnX : S.x, ty = live ? S.turnY : S.y;
+      var g = c.getContext('2d'), hs = theSet(), live = isLive(), v = value();
       g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, size, size);
       g.strokeStyle = '#2c2c35'; g.lineWidth = 1; g.beginPath(); g.moveTo(size / 2, 8); g.lineTo(size / 2, size - 8); g.moveTo(8, size / 2); g.lineTo(size - 8, size / 2); g.stroke();
-      var pick = hs && app.out ? app.out.picks[hs.id] : null;
+      var pick = hs && app.out ? app.out.picks[hs.id] : null, cur = pick ? AL.node(app.ch, pick) : null; brs = [];
+      if (hs && cur && !live && !app.bridge && opts.bridges !== false) AL.bridge.neighbours(hs, cur).forEach(function (o) {
+        var x = toPx((cur.at[0] + o.at[0]) / 2, size), y = toPx((cur.at[1] + o.at[1]) / 2, size), has = AL.bridge.count(app.ch, hs, cur, o) > 0;
+        g.beginPath(); g.moveTo(toPx(cur.at[0], size), toPx(cur.at[1], size)); g.lineTo(toPx(o.at[0], size), toPx(o.at[1], size)); g.strokeStyle = has ? 'rgba(244,63,142,.5)' : '#3a3a46'; g.lineWidth = 1; g.stroke();
+        g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x + 5, y); g.lineTo(x, y + 5); g.lineTo(x - 5, y); g.closePath(); if (has) { g.fillStyle = '#f43f8e'; g.fill(); } else { g.fillStyle = '#111114'; g.fill(); g.strokeStyle = '#a1a1aa'; g.lineWidth = 1.4; g.stroke(); }
+        brs.push({ x: x, y: y, a: cur, b: o });
+      });
       if (hs) hs.kids.forEach(function (k) {
         if (!k.at) return; var x = toPx(k.at[0], size), y = toPx(k.at[1], size), on = k.id === pick;
         g.beginPath(); g.arc(x, y, on ? 8 : 6, 0, 7);
         if (k.type === 'mirror') { g.strokeStyle = on ? '#22d3ee' : '#71717a'; g.lineWidth = 2; g.stroke(); } else { g.fillStyle = on ? '#22d3ee' : '#a1a1aa'; g.fill(); }
       });
-      g.beginPath(); g.arc(toPx(tx, size), toPx(ty, size), 12, 0, 7); g.strokeStyle = live ? '#f43f8e' : '#e4e4e7'; g.lineWidth = 2; g.stroke();
+      g.beginPath(); g.arc(toPx(v[0], size), toPx(v[1], size), 12, 0, 7); g.strokeStyle = live ? '#f43f8e' : '#e4e4e7'; g.lineWidth = 2; g.stroke();
     }
-    app.padDraw = draw;
+    (app.padDraws = app.padDraws || []).push(draw);
     function at(e) { var r = pad.getBoundingClientRect(), k = pad.clientWidth / r.width; return [(e.clientX - r.left) * k, (e.clientY - r.top) * k]; }
     function setTurn(p, snap) {
-      var size = pad.clientWidth, x = fromPx(p[0], size), y = fromPx(p[1], size), hs = headSet(), live = app.mode === 'perform' || app.live;
-      if (live) { app.inp.pose.turnX = x; app.inp.pose.turnY = y; return; }
-      if (snap && hs) { var best = null, bd = 9; hs.kids.forEach(function (k) { if (!k.at) return; var d = Math.hypot(k.at[0] - x, k.at[1] - y); if (d < bd) { bd = d; best = k; } }); if (best) { x = best.at[0]; y = best.at[1]; } }
-      app.bt.x = x; app.bt.y = y;
+      var size = pad.clientWidth, x = fromPx(p[0], size), y = fromPx(p[1], size), hs = theSet();
+      if (!isLive() && snap && hs) { var best = null, bd = 9; hs.kids.forEach(function (k) { if (!k.at) return; var d = Math.hypot(k.at[0] - x, k.at[1] - y); if (d < bd) { bd = d; best = k; } }); if (best) { x = best.at[0]; y = best.at[1]; } }
+      put(x, y);
     }
     pad.addEventListener('pointerdown', function (e) {
-      pad.setPointerCapture(e.pointerId); var p = at(e), size = pad.clientWidth, hs = headSet(); dragDot = null; pushed = false;
+      var p = at(e), size = pad.clientWidth, hs = theSet(); dragDot = null; pushed = false;
+      for (var i = 0; i < brs.length; i++) if (Math.hypot(brs[i].x - p[0], brs[i].y - p[1]) < 11) { AL.bridge.open(app, hs, brs[i].a, brs[i].b); return; }
+      pad.setPointerCapture(e.pointerId);
       if (opts.moveDots && opts.moveDots() && hs) hs.kids.forEach(function (k) { if (k.at && Math.hypot(toPx(k.at[0], size) - p[0], toPx(k.at[1], size) - p[1]) < 14) dragDot = k; });
-      if (!dragDot) { if (app.mode === 'perform' || app.live) app.inp.held.head = true; setTurn(p, false); }
+      if (!dragDot) { if (isLive()) app.inp.held.head = true; setTurn(p, false); }
       pad._down = true;
     });
     pad.addEventListener('pointermove', function (e) {
       if (!pad._down) return; var p = at(e), size = pad.clientWidth;
-      if (dragDot) { if (!pushed) { app.hist.push(app.ch); app.syncUndo(); pushed = true; } dragDot.at = [Math.round(fromPx(p[0], size) * 20) / 20, Math.round(fromPx(p[1], size) * 20) / 20]; app.bt.x = dragDot.at[0]; app.bt.y = dragDot.at[1]; app.touch(); }
+      if (dragDot) { if (!pushed) { app.hist.push(app.ch, 'Move an angle dot'); app.syncUndo(); pushed = true; } dragDot.at = [Math.round(fromPx(p[0], size) * 20) / 20, Math.round(fromPx(p[1], size) * 20) / 20]; put(dragDot.at[0], dragDot.at[1]); app.touch(); }
       else setTurn(p, false);
     });
-    function up(e) { if (!pad._down) return; pad._down = false; app.inp.held.head = false; if (!dragDot) { setTurn(at(e), true); } if (!(app.mode === 'perform' || app.live)) { setTimeout(function () { app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(true); }, 30); } }
+    function up(e) { if (!pad._down) return; pad._down = false; app.inp.held.head = false; if (!dragDot) { setTurn(at(e), true); } if (!isLive()) { setTimeout(function () { app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(true); }, 30); } }
     pad.addEventListener('pointerup', up); pad.addEventListener('pointercancel', up);
     return pad;
   };
+  /** Every set of angles in the character: the head, and anything else that turns on its own pad. */
+  cards.turnSets = function (app) { return AL.findAll(app.ch.root, function (n) { return n.type === 'set' && n.pick && n.pick.by === 'turn' && n.kids.length > 1; }); };
 
   function mirrorNote(app, pb, cv) {
     if (!cv || !cv.mirror) return false;
@@ -159,6 +182,7 @@
         mirrorChip(app, hd)
       ]);
       pb.appendChild(h('div', { class: 'padrow' }, [cards.turnPad(app, { moveDots: function () { return app.moveDots; } }), side]));
+      pb.appendChild(ui.note('The small <b>diamonds</b> between two dots are bridges. Tap one to match those two drawings, so the head bends from one into the other instead of jumping.'));
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
     if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts')); pb.appendChild(ui.row(feats.map(function (f) { return ui.chip(app.FEAT[f].label, { title: 'Open ' + app.FEAT[f].label, fn: function () { app.select('head', f); } }); }))); }
@@ -178,6 +202,24 @@
     return null;
   }
 
+  /** Each head angle is its own stack of layers, so "in front" and "behind" are set per angle: an ear can be in front of the head on one side and behind it on the other. */
+  function orderChips(app, pb, nodes) {
+    var ui = app.ui, ch = app.ch; nodes = nodes.filter(function (n) { var p = AL.parentOf(ch, n.id); return p && p.type === 'group' && p.kids.length > 1; });
+    if (!nodes.length) return;
+    pb.appendChild(ui.lab(AL.ancestorWith(ch, nodes[0].id, function (a) { return !!a.at; }) ? 'In front or behind, at this angle' : 'In front or behind'));
+    nodes.forEach(function (n) {
+      var par = AL.parentOf(ch, n.id), i = par.kids.indexOf(n), face = par.kids.filter(function (k) { return k.role === 'face'; })[0], fi = face ? par.kids.indexOf(face) : -1;
+      function place(fn) { app.edit(function () { var k = par.kids.filter(function (x) { return x !== n; }); k.splice(fn(k), 0, n); par.kids = k; }, false, 'Reorder ' + n.name); }
+      var row = [nodes.length > 1 ? h('span', { class: 'note', style: 'margin:0;min-width:78px', text: n.name }) : null];
+      if (face && face !== n) {
+        row.push(ui.chip('In front of the face', { on: i < fi, fn: function () { place(function (k) { return k.indexOf(face); }); } }));
+        row.push(ui.chip('Behind the face', { on: i > fi, fn: function () { place(function (k) { return k.indexOf(face) + 1; }); } }));
+      }
+      row.push(ui.chip('\u25b2', { title: 'One layer forward', disabled: i === 0, fn: function () { place(function () { return Math.max(0, i - 1); }); } }));
+      row.push(ui.chip('\u25bc', { title: 'One layer back', disabled: i === par.kids.length - 1, fn: function () { place(function (k) { return Math.min(k.length, i + 1); }); } }));
+      pb.appendChild(ui.row(row));
+    });
+  }
   function backToHead(app, pb, f) { pb.appendChild(app.ui.row([app.ui.chip('Head', { icon: 'back', cls: 'quiet', title: 'Back to the whole head', fn: function () { app.select('head'); } }), h('span', { class: 'badge', text: ((app.curView() || {}).kid || {}).name || '' })])); void f; }
 
   function feature(app, pb, f) {
@@ -214,6 +256,11 @@
           ui.chip('Show the lids', { on: !!app.showLids, icon: 'eye', title: 'See the invisible lids as shapes, to check where they sit', fn: function () { app.showLids = !app.showLids; app.show = {}; if (app.showLids) lids.forEach(function (l) { app.show[l.id] = true; }); app.refreshPanel(true); } }),
           ui.chip('Remove eyelids', { cls: 'quiet', icon: 'trash', fn: function () { app.edit(function () { AL.removeLids(app.ch); app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; }); } })
         ]));
+        var eyesHere = nodes.filter(function (e) { return e.type !== 'art' && !e.hidden && e.kids.some(function (k) { return k.lid; }); });
+        if (eyesHere.length) {
+          pb.appendChild(ui.note('The two eyes tilt as a mirrored pair at every angle. If one tilts the wrong way <b>at this angle</b>, turn it over:'));
+          pb.appendChild(ui.row(eyesHere.map(function (e) { return ui.chip((AL.ROLES[e.role] || {}).label + ': tilt the other way', { on: !!e.lidFlip, icon: 'flip', fn: function () { app.edit(function () { e.lidFlip = !e.lidFlip; e.kids.forEach(function (k) { if (k.lid) k.lid.sign = -k.lid.sign; }); }); } }); })));
+        }
       }
       var hidden = nodes.filter(function (n) { return n.hidden; });
       hidden.forEach(function (n) { pb.appendChild(ui.toggle('Show the ' + (AL.ROLES[n.role] || {}).label.toLowerCase() + ' at this angle', false, function () { app.edit(function () { delete n.hidden; }); }, 'It was hidden in the file, as if turned away')); });
@@ -237,6 +284,7 @@
     app.coach('<b>' + F.label + '.</b> Things in front slide further; things behind slide the other way.');
     var role = F.roles[0], list = AL.byRole(app.ch.root, role), dp = list.length ? (list[0].depth || 0) : 0;
     pb.appendChild(ui.slider('Depth', { min: -1.5, max: 1.5, step: 0.1, value: dp, set: function (v) { list.forEach(function (n) { n.depth = v; }); }, fmt: function (v) { return v > 0.05 ? 'front ' + v : v < -0.05 ? 'behind ' + (-v) : 'flat'; }, title: 'Front slides with the turn, behind slides against it' }));
+    orderChips(app, pb, nodes);
     var first = nodes[0] ? (nodes[0].type === 'art' ? nodes[0] : AL.find(nodes[0], function (k) { return k.type === 'art'; })) : null;
     if (first && f === 'hair') {
       pb.appendChild(ui.lab(nodes.length > 1 ? 'Swinging (\u201c' + first.name + '\u201d)' : 'Swinging'));
@@ -295,19 +343,25 @@
     var ui = app.ui, ch = app.ch, set = app.zoneNode(zone), kids = (set.kids || []).filter(function (k) { return k.type === 'art'; });
     var cur = AL.node(ch, app.force[set.id]); if (!cur || AL.parentOf(ch, cur.id) !== set) cur = AL.node(ch, set.pick && set.pick.rest) || kids[0];
     app.force[set.id] = cur.id;
-    var many = kids.length > 1, idx = kids.indexOf(cur);
-    head(app, ZLABEL[zone], many ? kids.length + ' drawings' : 'one drawing', many ? 'Shows the drawing whose hand is nearest to where you want the hand, then bends it the rest of the way.' : 'Bends from the shoulder and elbow so the hand lands where you drag it.');
-    app.coach('<b>' + ZLABEL[zone] + '.</b> Three pins per drawing: <b>shoulder, elbow, hand</b>. They were guessed from the art; drag any that are off.');
+    var many = kids.length > 1, idx = kids.indexOf(cur), leg = /^leg/.test(zone), PN = leg ? ['Hip', 'Knee', 'Foot'] : ['Shoulder', 'Elbow', 'Hand'];
+    head(app, ZLABEL[zone], many ? kids.length + ' drawings' : 'bends', many ? 'Shows the drawing whose ' + PN[2].toLowerCase() + ' is nearest to where you want it, then bends it the rest of the way.' : (leg ? 'Bends from the hip and knee, so the foot can stay planted while the body moves, and step when it walks.' : 'Bends from the shoulder and elbow so the hand lands where you drag it.'));
+    app.coach('<b>' + ZLABEL[zone] + '.</b> Three pins' + (many ? ' per drawing' : '') + ': <b>' + PN.join(', ').toLowerCase() + '</b>. They were guessed from the art; drag any that are off. The small round arrow turns the ' + PN[1].toLowerCase() + ' over.');
     pb.appendChild(h('div', { class: 'thumbs' }, kids.map(function (k, i) { return th(k, (i + 1) + '. ' + k.name, k === cur, set.pick && set.pick.rest === k.id, function () { app.force[set.id] = k.id; app.refreshPanel(true); }, 'Drawing ' + (i + 1) + (set.pick.rest === k.id ? ' (the resting pose)' : '')); })));
     var shared = app.sharedShoulder !== false;
     pb.appendChild(ui.row([
       many ? ui.chip('‹', { title: 'Previous drawing', fn: function () { app.force[set.id] = kids[(idx + kids.length - 1) % kids.length].id; app.refreshPanel(true); } }) : null,
       many ? ui.chip('›', { title: 'Next drawing', fn: function () { app.force[set.id] = kids[(idx + 1) % kids.length].id; app.refreshPanel(true); } }) : null,
       ui.chip('Resting pose', { on: set.pick.rest === cur.id, icon: 'star', title: 'Use this drawing when the arm is left alone', fn: function () { app.edit(function () { set.pick.rest = cur.id; }); } }),
-      ui.chip('Flip elbow', { on: !!(cur.limb && cur.limb.flip), title: 'Bend this drawing the other way', fn: function () { app.edit(function () { if (cur.limb) cur.limb.flip = !cur.limb.flip; }); } }),
+      ui.chip('Flip ' + PN[1].toLowerCase(), { on: !!(cur.limb && cur.limb.flip), title: 'Bend this drawing the other way', fn: function () { app.edit(function () { if (cur.limb) cur.limb.flip = !cur.limb.flip; }); } }),
       ui.chip('Guess pins again', { icon: 'wand', title: 'Work out every pin of this arm from the art again', fn: function () { app.edit(function () { var tz = app.zoneNode('body'), b = tz ? AL._px.boxOf(tz) : null; AL.guessFan(ch, set, b ? { x: b.cx, y: b.cy } : null); }); app.toast('Pins guessed from the art'); } })
     ]));
     pb.appendChild(ui.lab('How it moves'));
+    var torsoN = app.zoneNode('body'), behind = !!cur.zUnder;
+    pb.appendChild(ui.row([
+      ui.chip('Try this drawing', { icon: 'play', cls: 'go', title: 'Bring it to life with ONLY this drawing, so you can drag the ' + PN[2].toLowerCase() + ' around and see how it bends', fn: function () { app.lockForce = {}; app.lockForce[set.id] = cur.id; app.setLive(true); } }),
+      (behind || cur.zWas || (torsoN && !leg)) ? ui.chip('Behind the body', { on: behind, title: 'This drawing passes behind the body. It is lifted to the front while you edit it.', fn: function () { app.edit(function () { if (cur.zUnder) { cur.zWas = cur.zUnder; delete cur.zUnder; } else cur.zUnder = cur.zWas || torsoN.id; }); } }) : null
+    ]));
+    if (behind) pb.appendChild(ui.note('This drawing sits <b>behind the body</b>. It is shown in front while you work on it.'));
     if (many) pb.appendChild(ui.toggle('Swap drawings', set.pick.swap !== false, function (v) { app.edit(function () { set.pick.swap = v; }); }, 'Off: always the resting drawing, bent'));
     pb.appendChild(ui.toggle('Bend to reach', !kids.some(function (k) { return k.limb && k.limb.bend === false; }), function (v) { app.edit(function () { kids.forEach(function (k) { if (k.limb) k.limb.bend = v; }); }); }, 'Off: the drawing only swings from the shoulder'));
     pb.appendChild(ui.toggle('One shoulder for all', shared, function (v) { app.sharedShoulder = v; app.refreshPanel(true); }, 'Moving the shoulder pin moves it on every drawing'));
@@ -317,9 +371,10 @@
     app.pinProvider = function () {
       var l = cur.limb; if (!l) return [];
       return [
-        { key: 'a', label: 'Shoulder', x: l.a.x, y: l.a.y, node: cur.id, to: 'b', set: function (x, y) { var dx = x - l.a.x, dy = y - l.a.y; (app.sharedShoulder !== false ? kids : [cur]).forEach(function (k) { if (k.limb) { k.limb.a.x += dx; k.limb.a.y += dy; } }); } },
-        { key: 'b', label: 'Elbow', x: l.b.x, y: l.b.y, node: cur.id, to: 'c', set: function (x, y) { l.b.x = x; l.b.y = y; } },
-        { key: 'c', label: 'Hand', x: l.c.x, y: l.c.y, node: cur.id, set: function (x, y) { l.c.x = x; l.c.y = y; } }
+        { key: 'a', label: PN[0], x: l.a.x, y: l.a.y, node: cur.id, to: 'b', set: function (x, y) { var dx = x - l.a.x, dy = y - l.a.y; (app.sharedShoulder !== false ? kids : [cur]).forEach(function (k) { if (k.limb) { k.limb.a.x += dx; k.limb.a.y += dy; } }); } },
+        { key: 'b', label: PN[1], x: l.b.x, y: l.b.y, node: cur.id, to: 'c', set: function (x, y) { l.b.x = x; l.b.y = y; } },
+        { key: 'c', label: PN[2], x: l.c.x, y: l.c.y, node: cur.id, set: function (x, y) { l.c.x = x; l.c.y = y; } },
+        { key: 'flip', tap: function () { app.edit(function () { l.flip = !l.flip; }, false, 'Flip ' + PN[1].toLowerCase()); app.toast(PN[1] + ' turned over. Tap Try this drawing to see it bend.'); }, on: !!l.flip, x: l.b.x, y: l.b.y, node: cur.id, ox: -6, oy: -28 }
       ];
     };
   }
@@ -338,9 +393,33 @@
     pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'Drawn facing' }), ui.seg([['left', 'Left'], ['front', 'Front'], ['right', 'Right']], st.facing || 'front', function (v) { app.edit(function () { st.facing = v; }); }, 'Which way the body was drawn'), h('span')]));
     pb.appendChild(ui.toggle('Turn around by itself', !!st.autoFlip, function (v) { app.edit(function () { st.autoFlip = v; if (v && st.facing === 'front') st.facing = 'left'; }); }, 'When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways'));
     if (st.autoFlip) pb.appendChild(ui.slider('Flips past', { min: 0.1, max: 0.9, step: 0.05, value: st.flipAt == null ? 0.4 : st.flipAt, set: function (v) { st.flipAt = v; }, fmt: function (v) { return Math.round(v * 100) + '% turned'; } }));
+    if (st.facing !== 'front') pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'The turn is' }), ui.seg([['turn', 'A card turning', 'It swings round like a cardboard cut-out'], ['snap', 'Instant', 'Straight to the mirror image, for when the drawings already match closely']], st.flipStyle || 'turn', function (v) { app.edit(function () { st.flipStyle = v; }); }, 'How turning around looks'), h('span')]));
     pb.appendChild(ui.row([ui.chip('See it flipped', { on: !!app._bs && app._bs.flip, icon: 'flip', title: 'Show the mirrored side while building', fn: function () { app.buildSignals().flip = !app._bs.flip; app.refreshPanel(true); } })]));
+    pb.appendChild(ui.lab('Walking'));
+    var can = AL.walkDefaults(app.ch), wk = st.walk;
+    if (!can) pb.appendChild(ui.note('Give it two legs that bend (tap a leg on the body map, then <b>Make it bend</b>) and it walks when you drag the body: the feet plant and step by themselves.'));
+    else {
+      if (!wk) wk = st.walk = can;
+      pb.appendChild(ui.toggle('Walks when you drag the body', wk.on !== false, function (v) { app.edit(function () { wk.on = v; }); }, 'Each foot stays planted until it is left behind, then steps. Nothing slides.'));
+      if (wk.on !== false) {
+        pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'The scene is seen' }), ui.seg([['line', 'From the side', 'One ground line. Lifting the body takes the feet off the ground.'], ['plane', 'From above', 'An angled view: every direction is walking, and further up can be further away.']], wk.ground || 'line', function (v) { app.edit(function () { wk.ground = v; }); }, 'What kind of scene is this?'), h('span')]));
+        if (wk.ground !== 'plane') {
+          pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'Lifted up, it' }), ui.seg([['tuck', 'Tucks (hop)', 'The legs pull up, as in a jump'], ['hang', 'Hangs', 'The legs dangle']], wk.air || 'tuck', function (v) { app.edit(function () { wk.air = v; }); }, 'What the legs do off the ground'), h('span')]));
+          pb.appendChild(ui.toggle('Falls back when let go', wk.fall !== false, function (v) { app.edit(function () { wk.fall = v; }); }, 'Off: it stays where you leave it, in the air'));
+        } else pb.appendChild(ui.slider('Smaller far away', { min: 0, max: 1, step: 0.05, value: wk.depth == null ? 0.35 : wk.depth, set: function (v) { wk.depth = v; }, fmt: function (v) { return Math.round(v * 100) + '%'; }, title: 'How much it shrinks as it walks up the stage' }));
+        pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'It moves by' }), ui.seg([['walk', 'Steps', 'One foot at a time'], ['hop', 'Hops', 'Both feet together, the body arcs']], wk.gait || 'walk', function (v) { app.edit(function () { wk.gait = v; }); }, 'The gait'), h('span')]));
+        pb.appendChild(ui.slider('Stride', { min: 8, max: 220, value: wk.stride, set: function (v) { wk.stride = v; }, fmt: function (v) { return v + ' px'; }, title: 'How far apart the footfalls are' }));
+        pb.appendChild(ui.slider('Step height', { min: 0, max: 90, value: wk.stepH, set: function (v) { wk.stepH = v; }, fmt: function (v) { return v + ' px'; }, title: 'How high a foot lifts' }));
+        pb.appendChild(ui.slider('Bounce', { min: 0, max: 2.5, step: 0.05, value: wk.bob == null ? 0.8 : wk.bob, set: function (v) { wk.bob = v; }, fmt: function (v) { return v + '\u00d7'; }, title: 'How much the body bobs with each step' }));
+        pb.appendChild(ui.slider('Lean', { min: 0, max: 1.5, step: 0.05, value: wk.lean == null ? 0.5 : wk.lean, set: function (v) { wk.lean = v; }, fmt: function (v) { return v + '\u00d7'; }, title: 'How far it leans into the walk' }));
+        pb.appendChild(ui.slider('Arm swing', { min: 0, max: 50, value: wk.armSwing == null ? 18 : wk.armSwing, set: function (v) { wk.armSwing = v; }, fmt: function (v) { return v + '\u00b0'; }, title: 'A hand nobody is holding swings against the legs' }));
+        if (st.facing !== 'front') pb.appendChild(ui.toggle('Turns to face the way it walks', wk.face !== false, function (v) { app.edit(function () { wk.face = v; }); }));
+        pb.appendChild(ui.note('Tap <b>Try it</b> and drag the body. Drag a foot or a hand with another finger and it is yours until you let go.'));
+      }
+    }
     app.pinProvider = function () {
       var pins = [];
+      if (wk && can && wk.on !== false && wk.ground !== 'plane') pins.push({ key: 'ground', label: 'Ground', x: st.axisX == null ? app.ch.w / 2 : st.axisX, y: wk.groundY, node: null, color: '#a78bfa', set: function (x, y) { wk.groundY = Math.round(y); } });
       if (t.breathe) pins.push({ key: 'chest', label: 'Chest', x: t.breathe.cx, y: t.breathe.cy, node: null, ring: t.breathe.r, set: function (x, y) { t.breathe.cx = x; t.breathe.cy = y; } });
       if (t.breathe) pins.push({ key: 'size', label: 'Size', x: t.breathe.cx + t.breathe.r, y: t.breathe.cy, node: null, color: '#a78bfa', set: function (x, y) { t.breathe.r = Math.max(8, Math.hypot(x - t.breathe.cx, y - t.breathe.cy)); } });
       if (t.pivot) pins.push({ key: 'hips', label: 'Hips', x: t.pivot.x, y: t.pivot.y, node: null, color: '#fbbf24', set: function (x, y) { t.pivot.x = x; t.pivot.y = y; } });
@@ -416,8 +495,10 @@
   }
   function legCard(app, pb, zone) {
     var n = app.zoneNode(zone);
-    head(app, ZLABEL[zone], 'planted', 'Stays where it is drawn, so the feet do not slide while the body leans.');
-    app.coach('<b>' + ZLABEL[zone] + '.</b> Planted. Turn on <b>Move art</b> (right edge) to slide it.');
+    if (n.type === 'set' && n.pick && n.pick.by === 'reach') return armCard(app, pb, zone);
+    head(app, ZLABEL[zone], 'planted', 'Stays as drawn. Make it bend and the foot can stay planted while the body moves, and step when the character walks.');
+    app.coach('<b>' + ZLABEL[zone] + '.</b> One piece for now. <b>Make it bend</b> to give it a hip, a knee and a foot.');
+    if (n.type === 'art') pb.appendChild(app.ui.row([app.ui.chip('Make it bend', { cls: 'go', icon: 'wand', fn: function () { app.edit(function () { AL.applyRole(app.ch, n, zone); }); } })]));
     follows(app, pb, n);
   }
 
@@ -450,6 +531,7 @@
       ui.chip('Remove', { cls: 'quiet', icon: 'trash', title: 'Take this out of the character (Undo brings it back)', fn: function () { app.edit(function () { AL.remove(ch, n.id); app.sel.node = null; }); app.toast('Removed. Undo brings it back.'); } })
     ]));
     pb.appendChild(ui.slider('Depth', { min: -1.5, max: 1.5, step: 0.1, value: n.depth || 0, set: function (v) { n.depth = v; }, fmt: function (v) { return v > 0.05 ? 'front ' + v : v < -0.05 ? 'behind ' + (-v) : 'flat'; } }));
+    orderChips(app, pb, [n]);
     if (n.type === 'art') { pb.appendChild(ui.lab('Swinging')); swingControls(app, pb, n); }
     follows(app, pb, n);
     masksSection(app, pb, n);

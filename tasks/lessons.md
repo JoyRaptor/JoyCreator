@@ -1271,3 +1271,7 @@ running app (a screenshot), never off the order of constants or an enum.** (2) A
 call was still set in the next, and an install meant for the Note 9 went to the Fold. Both are test devices, so nothing was lost.
 **Rule: print the slot (`"slot: [$env:PHONE_SLOT]"`) and clear it at the top of every command that installs or taps, and read the
 device's own clock or model back before believing where it went.**
+
+## Budget-limited reviews · November 19, 2026
+
+When the owner asks to conserve review credits, keep concurrency small, checkpoint each verified finding to the Explorer-visible audit immediately, and close each research lane after its strongest findings. A larger coverage list is useful only when each lane returns a durable result.

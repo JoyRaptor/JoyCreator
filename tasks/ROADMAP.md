@@ -255,3 +255,9 @@ The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE
    the OWNER DECISIONS sections and `DESIGN_JOY_CREATOR.md` for it and quote what was ruled. When a plan leaves this page,
    its row moves to `FUTURE_PLANS.md` with the reason.
    handoffs hang off the card, never off this page.
+
+## Suite performance and stability review
+
+| Job | State | Evidence |
+|---|---|---|
+| PERF-4 | Source audit in progress, November 19 | [Audit card](jobs/PERF-4_suite_audit.md) |

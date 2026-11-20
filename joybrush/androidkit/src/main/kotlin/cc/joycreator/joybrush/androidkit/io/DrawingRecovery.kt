@@ -75,7 +75,7 @@ class DrawingRecovery(private val opened: File) {
     /** Call only AFTER the working archive's durable save succeeds, on the same file executor. */
     fun rememberWorking(file: File) {
         letGo()
-        val pin = pinOf(file)
+        val pin = if (holdSaved) pinOf(file) else null
         if (pin == null) {
             // This file system cannot say which file a path names (a JVM on Windows): a copy, as always.
             JbArchive.copySaved(file, opened)
@@ -170,12 +170,15 @@ class DrawingRecovery(private val opened: File) {
         listOf(opened, File(opened.path + ".bak"), File(opened.path + ".tmp"), pinCopy).forEach { it.delete() }
     }
 
-    internal companion object {
+    companion object {
+        /** False: every working save is copied whole for the restore, as before 2026-11-20 (the way back; bench `jb_recovery_copy`). */
+        @JvmField @Volatile var holdSaved = true
+
         /**
          * Which file [file] names: device and inode, or null when that cannot be told (then the recovery copies, as before).
          * Android: Os.stat. A JVM (the unit tests): the file key, which Windows does not give.
          */
-        fun identity(file: File): String? {
+        internal fun identity(file: File): String? {
             try {
                 val st = android.system.Os.stat(file.path)
                 return "${st.st_dev}:${st.st_ino}"

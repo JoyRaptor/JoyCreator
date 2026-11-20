@@ -756,7 +756,11 @@ class JoyBrushActivity : Activity() {
         if (bench != null && life != null) {
             // Not bench mode: every save is real. A first start begins from no file and paints; a screen Android built
             // again (a saved state came with it) opens the file as any screen would and reports what it holds.
-            val f = File(cacheDir, "bench-life-$life.joybrush")
+            // jb_bench_life_ext: the drawing where real drawings live (shared storage), not in the cache (JB-SAVE-IO bench).
+            // jb_recovery_copy: the recovery copies each save whole again, as before 11-20 (to compare).
+            if (intent.getBooleanExtra("jb_recovery_copy", false)) cc.joycreator.joybrush.androidkit.io.DrawingRecovery.holdSaved = false
+            val f = File((if (intent.getBooleanExtra("jb_bench_life_ext", false)) getExternalFilesDir("bench")?.takeIf { it.isDirectory || it.mkdirs() } else null) ?: cacheDir,
+                "bench-life-$life.joybrush")
             benchLifeFile = f
             if (savedInstanceState == null) {
                 benchLifeSpec = bench

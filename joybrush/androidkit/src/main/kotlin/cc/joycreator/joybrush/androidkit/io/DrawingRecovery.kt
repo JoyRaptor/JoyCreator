@@ -36,6 +36,8 @@ class DrawingRecovery(private val opened: File) {
     /** The generations a restore may use, newest first: a [Pin], or a file of this recovery's own ([opened] and its `.bak`). */
     private val kept = ArrayList<Any>(2)
     private var backupAllowed = false
+    /** How the last working save was kept: "held, not copied" or "copied" (the save's log line). */
+    var lastKept = ""; private set
     /** What [read] last handed out from a file of this recovery's own: let go before that file is written over (let go, then write). */
     private var handed: JbContents? = null
     private fun letGo() { handed?.let { DeferredMedia.release(it) }; handed = null }
@@ -81,6 +83,8 @@ class DrawingRecovery(private val opened: File) {
         } else {
             keep(pin, kept.firstOrNull())
         }
+        lastKept = if (pin == null) "copied" else "held, not copied"
+
         backupAllowed = true
     }
 

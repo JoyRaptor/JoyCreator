@@ -2909,8 +2909,8 @@ class JoyBrushActivity : Activity() {
                             if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole, leaving = leaving)
                             // Codex audit round 4, JB-SAVE-IO: each part of the save timed on its own (the folder copy runs on its
                             // own thread afterwards and logs under JoyBrushLibrary).
-                            android.util.Log.i("JoyBrushSave", "save parts: working file ${saved - began} ms, recovery copy ${kept - saved} ms " +
-                                "(${file.length() shr 10} KB read and written again), thumbnail ${android.os.SystemClock.elapsedRealtime() - kept} ms")
+                            android.util.Log.i("JoyBrushSave", "save parts: working file ${saved - began} ms, kept for a restore in ${kept - saved} ms " +
+                                "(${file.length() shr 10} KB file), thumbnail ${android.os.SystemClock.elapsedRealtime() - kept} ms")
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)

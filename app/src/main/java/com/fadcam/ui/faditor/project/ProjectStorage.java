@@ -2587,6 +2587,8 @@ public class ProjectStorage {
                 if (ac.getBakedFromUri() != null) {
                     acJson.addProperty("bakedFromUri", ac.getBakedFromUri());
                     acJson.addProperty("bakedFromFile", ac.getBakedFromFile());
+                    acJson.addProperty("bakedOriginMs", ac.getBakedOriginMs());
+                    acJson.addProperty("originalDurationMs", ac.getOriginalDurationMs());
                 }
                 // Serialize transcripts + caption settings
                 if (ac.hasTranscript()) {
@@ -3529,6 +3531,8 @@ public class ProjectStorage {
                             ac.setBakedFrom(acObj.get("bakedFromUri").getAsString(),
                                     hasValue(acObj, "bakedFromFile")
                                             ? acObj.get("bakedFromFile").getAsString() : null);
+                            ac.restoreBakeClock(hasValue(acObj, "bakedOriginMs") ? acObj.get("bakedOriginMs").getAsLong() : 0,
+                                    hasValue(acObj, "originalDurationMs") ? acObj.get("originalDurationMs").getAsLong() : acDuration);
                         }
                         if (hasValue(acObj, "waveform")) {
                             JsonArray wfArr = acObj.getAsJsonArray("waveform");

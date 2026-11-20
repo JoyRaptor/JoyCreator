@@ -139,6 +139,8 @@ public class AudioClip implements AudioParams {
     private String bakedFromUri;
     @Nullable
     private String bakedFromFile;
+    private long bakedOriginMs;
+    private long originalDurationMs;
 
     // ── Transcripts (speech-to-text) ─────────────────────────────────
 
@@ -318,6 +320,8 @@ public class AudioClip implements AudioParams {
         for (long[] s : other.removedSpans) this.removedSpans.add(new long[]{s[0], s[1]});
         this.bakedFromUri = other.bakedFromUri;
         this.bakedFromFile = other.bakedFromFile;
+        this.bakedOriginMs = other.bakedOriginMs;
+        this.originalDurationMs = other.originalDurationMs;
     }
 
     // ── Getters ──────────────────────────────────────────────────────
@@ -821,6 +825,75 @@ public class AudioClip implements AudioParams {
     public void setRemovedSpans(@NonNull List<long[]> spans) { removedSpans.clear(); removedSpans.addAll(spans); }
 
     // ── C2.U baked-source bookkeeping ────────────────────────────────
+
+    /** Immutable source clock used by apply, revert and their undo steps. */
+    public static final class BakeState {
+        public final Uri uri;
+        public final String originalUri, file;
+        public final long originMs, durationMs, originalDurationMs;
+
+        private BakeState(Uri uri, String originalUri, String file, long originMs,
+                          long durationMs, long originalDurationMs) {
+            this.uri = uri; this.originalUri = originalUri; this.file = file;
+            this.originMs = originMs; this.durationMs = durationMs; this.originalDurationMs = originalDurationMs;
+        }
+    }
+
+    public BakeState captureBakeState() {
+        return new BakeState(sourceUri, bakedFromUri, bakedFromFile, bakedOriginMs, sourceDurationMs,
+                originalDurationMs > 0 ? originalDurationMs : sourceDurationMs);
+    }
+
+    public BakeState originalBakeState() {
+        BakeState before = captureBakeState();
+        return new BakeState(bakedFromUri == null ? sourceUri : Uri.parse(bakedFromUri),
+                null, null, 0, before.originalDurationMs, before.originalDurationMs);
+    }
+
+    public BakeState segmentBakeState(java.io.File output, long startMs, long endMs) {
+        BakeState before = captureBakeState();
+        return new BakeState(Uri.fromFile(output), bakedFromUri != null ? bakedFromUri : sourceUri.toString(),
+                output.getAbsolutePath(), bakedOriginMs + startMs, endMs - startMs, before.originalDurationMs);
+    }
+
+    /** All source-relative edits move together. Clip-local automation and timeline placement stay put. */
+    public void switchBakeState(BakeState state) {
+        long delta = bakedOriginMs - state.originMs;
+        if (delta != 0) {
+            inPointMs += delta;
+            outPointMs += delta;
+            for (int i = 0; i < removedSpans.size(); i++) {
+                long[] cut = removedSpans.get(i);
+                removedSpans.set(i, new long[]{cut[0] + delta, cut[1] + delta});
+            }
+            for (int index = 0; index < transcripts.size(); index++) {
+                NamedTranscript named = transcripts.get(index);
+                // A loaded transcript may come from the shared transcript pool. Do not move
+                // the words of another clip referencing that same immutable snapshot.
+                Transcript shifted = new Transcript();
+                shifted.chapterTitles.putAll(named.transcript.chapterTitles);
+                shifted.paragraphSpeakers.putAll(named.transcript.paragraphSpeakers);
+                for (com.fadcam.ui.faditor.transcript.TranscriptWord word : named.transcript.words) {
+                    shifted.words.add(new com.fadcam.ui.faditor.transcript.TranscriptWord(word.text,
+                            word.startMs + delta, word.endMs + delta, word.struck, word.forceLineBreakAfter));
+                }
+                transcripts.set(index, new NamedTranscript(named.id, named.label, named.engine, shifted));
+            }
+        }
+        sourceUri = state.uri;
+        sourceDurationMs = state.durationMs;
+        bakedFromUri = state.originalUri;
+        bakedFromFile = state.file;
+        restoreBakeClock(state.originMs, state.originalDurationMs);
+    }
+
+    // Disk coordinates already refer to the stored media. Loading must never translate them twice.
+    public void restoreBakeClock(long origin, long originalDuration) {
+        bakedOriginMs = Math.max(0, origin);
+        originalDurationMs = Math.max(0, originalDuration);
+    }
+    public long getBakedOriginMs() { return bakedOriginMs; }
+    public long getOriginalDurationMs() { return originalDurationMs; }
 
     /** The ORIGINAL source uri while {@link #getSourceUri()} points at a bake, else null. */
     @Nullable

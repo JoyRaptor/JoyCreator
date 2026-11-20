@@ -497,7 +497,7 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     }
 
     @NonNull
-    public static View cleanTab(@NonNull Context ctx, @NonNull AudioParams clip,
+    public static View cleanTab(@NonNull Context ctx, @NonNull AudioClip clip,
                                 @NonNull Host host, @NonNull java.io.File projectDir,
                                 @NonNull com.fadcam.ui.faditor.audio.BakedAudioCache cache) {
         LinearLayout root = column(ctx);
@@ -546,27 +546,16 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
             revert.setTextColor(clip.isBakedSource() ? TXT : TXT_DIM);
             revert.setOnClickListener(v -> {
                 if (!clip.isBakedSource() || baking[0]) return;
-                String origUri = clip.getBakedFromUri();
-                String bakedPath = clip.getBakedFromFile();
-                java.io.File bakedFile =
-                        bakedPath == null ? null : new java.io.File(bakedPath);
-                clip.setSourceUri(android.net.Uri.parse(origUri));
-                clip.setBakedFrom(null, null);
-                // redo = revert again; undo = back to the processed file. These two were swapped
-                // (Undo of a Revert left the original playing), and the processed file was a bare
-                // path rather than a file link. The processed file is KEPT: Undo needs it, and a
-                // later Fix or Clean of the same span reuses it (STU-B2, 11-13).
-                final android.net.Uri bakedUri = bakedFile != null
-                        ? android.net.Uri.fromFile(bakedFile) : android.net.Uri.parse(origUri);
+                AudioClip.BakeState processed = clip.captureBakeState();
+                AudioClip.BakeState original = clip.originalBakeState();
+                clip.switchBakeState(original);
                 host.recordUndo(ctx.getString(R.string.lane_b_audio_revert),
                         () -> {
-                            clip.setSourceUri(android.net.Uri.parse(origUri));
-                            clip.setBakedFrom(null, null);
+                            clip.switchBakeState(original);
                             afterSourceSwap(ctx, clip, host);
                         },
                         () -> {
-                            clip.setSourceUri(bakedUri);
-                            clip.setBakedFrom(origUri, bakedPath);
+                            clip.switchBakeState(processed);
                             afterSourceSwap(ctx, clip, host);
                         });
                 afterSourceSwap(ctx, clip, host);
@@ -612,23 +601,20 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                                         error != null ? error : "?"));
                                 return;
                             }
-                            String origUri = clip.getSourceUri().toString();
-                            java.io.File bakedFile = result.bakedFile;
-                            android.net.Uri baked = android.net.Uri.fromFile(bakedFile);
-                            clip.setSourceUri(baked);
-                            clip.setBakedFrom(origUri, bakedFile.getAbsolutePath());
+                            if (!req.sourceUri.equals(clip.getSourceUri()) || startMs != clip.getInPointMs()
+                                    || endMs != clip.getOutPointMs()) { refresh.run(); return; }
+                            AudioClip.BakeState original = clip.captureBakeState();
+                            AudioClip.BakeState processed = clip.segmentBakeState(result.bakedFile, startMs, endMs);
+                            clip.switchBakeState(processed);
                             // Undo keeps the processed file: Redo plays it again (it used to be
                             // deleted here, and Redo then pointed at a missing file).
                             host.recordUndo(label,
                                     () -> {
-                                        clip.setSourceUri(baked);
-                                        clip.setBakedFrom(origUri,
-                                                bakedFile.getAbsolutePath());
+                                        clip.switchBakeState(processed);
                                         afterSourceSwap(ctx, clip, host);
                                     },
                                     () -> {
-                                        clip.setSourceUri(android.net.Uri.parse(origUri));
-                                        clip.setBakedFrom(null, null);
+                                        clip.switchBakeState(original);
                                         afterSourceSwap(ctx, clip, host);
                                     });
                             afterSourceSwap(ctx, clip, host);

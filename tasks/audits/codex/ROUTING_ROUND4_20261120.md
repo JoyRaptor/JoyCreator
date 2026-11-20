@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| AUD-BAKE | Fixed on `codex/r4-aud-bake` | Host regression `tools/jvm-harness/run-audio-segment.py`: baseline encodes an 18 s silence prefix. Actual middle/end 2 s AAC excerpts now measure 2.000 s and decode byte-identically to the equivalent trimmed filter chain. Hour-late word strikes/cuts, envelopes, split/undo/redo, nested bakes and original duration pass on the production AudioClip. Project-clock fields persist with tolerant legacy defaults. Physical Android player/reopen still pending. |

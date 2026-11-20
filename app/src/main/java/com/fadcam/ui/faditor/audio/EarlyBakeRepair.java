@@ -42,6 +42,7 @@ public final class EarlyBakeRepair {
      */
     public static boolean isEarly(@NonNull AudioClip clip) {
         if (!clip.isBakedSource() || clip.getBakedFromFile() == null) return false;
+        if (!new File(clip.getBakedFromFile()).isFile()) return true;
         if (clip.getInPointMs() <= IN_POINT_SLACK_MS) return false;
         long dur = durationMs(new File(clip.getBakedFromFile()));
         // An aligned bake reaches the out-point; an old one stops at (out - in).
@@ -72,8 +73,7 @@ public final class EarlyBakeRepair {
         final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
         main.post(() -> {
             if (!oldBake.equals(clip.getBakedFromFile())) return; // changed meanwhile
-            clip.setSourceUri(Uri.parse(original));
-            clip.setBakedFrom(null, null);
+            clip.switchBakeState(clip.originalBakeState());
             FLog.i(TAG, "Early bake on clip " + clip.getId() + ": original restored ("
                     + new File(oldBake).getName() + ")");
             listener.onClipChanged(clip);
@@ -93,8 +93,8 @@ public final class EarlyBakeRepair {
                         }
                         // Only if nothing else touched the clip while it baked.
                         if (clip.isBakedSource() || !original.equals(clip.getSourceUri().toString())) return;
-                        clip.setSourceUri(Uri.fromFile(result.bakedFile));
-                        clip.setBakedFrom(original, result.bakedFile.getAbsolutePath());
+                        if (clip.getInPointMs() != req.startMs || clip.getOutPointMs() != req.endMs) return;
+                        clip.switchBakeState(clip.segmentBakeState(result.bakedFile, req.startMs, req.endMs));
                         FLog.i(TAG, "Re-baked in time: " + result.bakedFile.getName());
                         listener.onClipChanged(clip);
                     }));

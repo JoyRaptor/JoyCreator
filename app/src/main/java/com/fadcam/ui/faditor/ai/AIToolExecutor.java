@@ -2932,11 +2932,7 @@ public class AIToolExecutor {
         String[] err = new String[1];
         com.fadcam.ui.faditor.audio.BakedAudioCache.Result res = cache.bakeSync(projectDir, req, null, err);
         if (res == null) return "Fix failed: " + (err[0] != null ? err[0] : "unknown");
-        String originalUri = target.getSourceUri().toString();
-        String bakedPath = res.bakedFile.getAbsolutePath();
-        android.net.Uri bakedUri = android.net.Uri.fromFile(res.bakedFile);
-        target.setSourceUri(bakedUri);
-        target.setBakedFrom(originalUri, bakedPath);
+        target.switchBakeState(target.segmentBakeState(res.bakedFile, s, e));
         storage.save(proj);
         AIChatState.signalModified(projectId);
         return "Audio fixed via Fix chain (highpass→afftdn→acompressor→loudnorm) — baked to " + res.bakedFile.getName() + " (" + (res.bakedFile.length()/1024) + "KB). Revert in Clean tab.";

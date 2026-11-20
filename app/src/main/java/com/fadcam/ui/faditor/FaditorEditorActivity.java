@@ -46463,13 +46463,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             // The revert target is the TRUE original: a Fix on a clip that is already a bake
             // (Clean, then Fix) used to record the earlier bake as "the original", so the
             // Clean tab's Revert went back to the half-processed file, not the recording.
-            String originalUri = target.isBakedSource()
-                    ? target.getBakedFromUri() : target.getSourceUri().toString();
-            String bakedPath = result.bakedFile.getAbsolutePath();
-            String beforeUri = target.getSourceUri().toString();
-            String beforeBakedUri = target.getBakedFromUri();
-            String beforeBakedFile = target.getBakedFromFile();
-            android.net.Uri bakedUri = android.net.Uri.fromFile(result.bakedFile);
+            if (!req.sourceUri.equals(target.getSourceUri()) || req.startMs != target.getInPointMs()
+                    || (target.getOutPointMs() > req.startMs && req.endMs != target.getOutPointMs())) return;
+            AudioClip.BakeState before = target.captureBakeState();
+            AudioClip.BakeState processed = target.segmentBakeState(result.bakedFile, req.startMs, req.endMs);
             // Every swap ends the same way: the stored waveform is read again from the file
             // the clip now plays (SourceWaveform), then the usual repaint, player and save.
             final Runnable afterSwap = () -> {
@@ -46481,18 +46478,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 prepareAudioPlayer();
                 scheduleAutoSave();
             };
-            target.setSourceUri(bakedUri);
-            target.setBakedFrom(originalUri, bakedPath);
+            target.switchBakeState(processed);
             undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
                     "Fix audio",
                     () -> {
-                        target.setSourceUri(bakedUri);
-                        target.setBakedFrom(originalUri, bakedPath);
+                        target.switchBakeState(processed);
                         afterSwap.run();
                     },
                     () -> {
-                        target.setSourceUri(android.net.Uri.parse(beforeUri));
-                        target.setBakedFrom(beforeBakedUri, beforeBakedFile);
+                        target.switchBakeState(before);
                         afterSwap.run();
                     }));
             afterSwap.run();

@@ -41,14 +41,9 @@ import java.util.regex.Pattern;
  * file. {@link #KEY_VERSION} folds the chain definition into the identity so any DSP change
  * invalidates prior artifacts instead of being mistaken for them.
  *
- * <h3>Timing: a bake is a drop-in for its source</h3>
- * Only {@code [startMs,endMs]} is processed, but the file keeps the SOURCE's clock: it opens
- * with {@code startMs} of silence, so source time T is file time T. The clip that switches to
- * the bake keeps its in/out points, cut spans, envelope and waveform keys, and all of them stay
- * true. Until 2026-11-10 the bake started at 0, so on any trimmed or split clip (in-point &gt; 0)
- * the fixed audio played early by the in-point, ran out before the out-point, and the
- * waveform lookups asked for a span past the end of the file and fell back to the old
- * (unfixed) picture. {@link #KEY_VERSION} was bumped so no old-style bake is reused.
+ * <h3>Timing</h3>
+ * v3 caches contain only the requested span. AudioClip rebases its source-clock edits
+ * when switching media. Older padded files retain their original coordinate system.
  *
  * <h3>Chains</h3>
  * <ul>
@@ -82,7 +77,7 @@ public class BakedAudioCache {
      * artifact can never be served as if it were made by the new DSP (same reasoning as
      * ReversedSegmentCache.KEY_VERSION).
      */
-    private static final String KEY_VERSION = "v2-aligned";
+    private static final String KEY_VERSION = "v3-segment";
 
     /** Single-pass FFT denoise. The value is the filter name passed after {@code -af}. */
     public static final String CHAIN_DENOISE = "afftdn";
@@ -266,9 +261,6 @@ public class BakedAudioCache {
                 + request.chain + " -> " + out.getName());
         File tmp = outTmp(out);
         long spanMs = request.endMs - request.startMs;
-        // The written file runs to endMs on the source's clock (see "Timing"), so a pass that
-        // writes it reports progress against endMs, not the span.
-        long writtenMs = request.endMs;
         if (CHAIN_LOUDNORM.equals(request.chain)) {
             StringBuilder logs = new StringBuilder();
             String measureCmd = measureCommand(input, request);
@@ -293,12 +285,12 @@ public class BakedAudioCache {
                 String applyCmd = bakeCommand(applyInput, request,
                         "loudnorm=" + m.asApplyParams(), tmp);
                 FLog.d(TAG, "async loudnorm pass2: ffmpeg " + applyCmd);
-                runPassAsync(request, out, tmp, applyCmd, progress, callback, 0.5f, writtenMs);
+                runPassAsync(request, out, tmp, applyCmd, progress, callback, 0.5f, spanMs);
             }, log -> collect(logs, log.getMessage()),
                     stats -> report(progress, stats, 0f, 0.5f, spanMs));
         } else {
             String cmd = bakeCommand(input, request, singlePassChain(request.chain), tmp);
-            runPassAsync(request, out, tmp, cmd, progress, callback, 0f, writtenMs);
+            runPassAsync(request, out, tmp, cmd, progress, callback, 0f, spanMs);
         }
     }
 
@@ -437,9 +429,7 @@ public class BakedAudioCache {
     @NonNull
     static String bakeCommand(@NonNull String input, @NonNull Request request,
                               @NonNull String chain, @NonNull File tmp) {
-        String align = request.startMs > 0
-                ? ",adelay=delays=" + request.startMs + ":all=1" : "";
-        return spanInput(input, request) + " -af \"" + spanTrim(request) + "," + chain + align
+        return spanInput(input, request) + " -af \"" + spanTrim(request) + "," + chain
                 + "\" " + encodeOutput(tmp.getAbsolutePath());
     }
 
@@ -460,7 +450,7 @@ public class BakedAudioCache {
     @NonNull
     private static String spanTrim(@NonNull Request request) {
         double fine = request.startMs / 1000.0 - coarseSeekS(request);
-        double durSec = Math.max(0.1, (request.endMs - request.startMs) / 1000.0);
+        double durSec = (request.endMs - request.startMs) / 1000.0;
         return String.format(Locale.US, "atrim=start=%.3f:duration=%.3f,asetpts=PTS-STARTPTS",
                 fine, durSec);
     }

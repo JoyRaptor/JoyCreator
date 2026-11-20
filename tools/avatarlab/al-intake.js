@@ -214,6 +214,21 @@
       }).catch(function (e) { app.toast(e.message); });
     });
   };
+  /** More pictures as ANGLES of something that turns (a body's front view, its other side): each gets its own dot on the pad. */
+  intake.addAngle = function (app, set) {
+    pickImages(function (files) {
+      Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
+        pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
+        var b = AL.boundsOf(set) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h }, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, last = null, spots = [[0, 0], [0.6, 0], [-0.6, 0], [1, 0], [-1, 0], [0, -0.6], [0, 0.6], [0.3, 0], [-0.3, 0]];
+        app.edit(function () { pics.forEach(function (p) {
+          var id = AL.id('i'), at = spots.filter(function (q) { return !set.kids.some(function (k) { return k.at && Math.hypot(k.at[0] - q[0], k.at[1] - q[1]) < 0.2; }); })[0] || [0, 0.3];
+          AL.img.put(id, p.canvas, p.name); last = { id: AL.id('n'), name: p.name, type: 'art', img: id, x: Math.round(cx - p.canvas.width / 2), y: Math.round(cy - p.canvas.height / 2), at: [at[0], at[1]] }; set.kids.push(last);
+        }); }, true, 'Add an angle');
+        if (last) { app.bt.x = last.at[0]; app.bt.y = last.at[1]; app.moveDots = true; } app.refreshPanel(true);
+        app.toast(pics.length === 1 ? 'Angle added. Drag its dot to where it should show.' : pics.length + ' angles added. Drag their dots to where they should show.');
+      }).catch(function (e) { app.toast(e.message); });
+    });
+  };
   /** More pictures as looks of a part that swaps: each lands where the part is. */
   intake.addLook = function (app, set) {
     pickImages(function (files) {

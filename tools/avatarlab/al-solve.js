@@ -94,15 +94,18 @@
     var d1x = (bx - ax) / L1, d1y = (by - ay) / L1, d2x = (cx - bx) / L2, d2y = (cy - by) / L2;
     var R = (l.soft == null ? 0.3 : l.soft) * Math.min(L1, L2) + 0.5;
     var c1 = Math.cos(k.r1) * k.st, s1 = Math.sin(k.r1) * k.st, c2 = Math.cos(k.r2) * k.st, s2 = Math.sin(k.r2) * k.st;
+    /* Round the joint: each point near it is TURNED about the joint by an in-between angle, so the outside of an elbow follows
+       an arc. (Sliding straight between the two bones' positions instead cuts the corner: a flat facet outside, a pinch inside.) */
+    var dr = k.r2 - k.r1; while (dr > Math.PI) dr -= 2 * Math.PI; while (dr < -Math.PI) dr += 2 * Math.PI;
     for (var i = 0; i < src.length; i += 2) {
       var x = src[i], y = src[i + 1];
-      var ux = ax + c1 * (x - ax) - s1 * (y - ay), uy = ay + s1 * (x - ax) + c1 * (y - ay);
       var qx = x - bx, qy = y - by;
       var s = ((qx * d1x + qy * d1y) + (qx * d2x + qy * d2y)) * 0.5;
       var w = smooth((s + R) / (2 * R));
-      if (w <= 0) { out[i] = ux; out[i + 1] = uy; continue; }
-      var lx = k.e[0] + c2 * qx - s2 * qy, ly = k.e[1] + s2 * qx + c2 * qy;
-      out[i] = ux + (lx - ux) * w; out[i + 1] = uy + (ly - uy) * w;
+      if (w <= 0) { out[i] = ax + c1 * (x - ax) - s1 * (y - ay); out[i + 1] = ay + s1 * (x - ax) + c1 * (y - ay); continue; }
+      if (w >= 1) { out[i] = k.e[0] + c2 * qx - s2 * qy; out[i + 1] = k.e[1] + s2 * qx + c2 * qy; continue; }
+      var an = k.r1 + dr * w, ca = Math.cos(an) * k.st, sa = Math.sin(an) * k.st;
+      out[i] = k.e[0] + ca * qx - sa * qy; out[i + 1] = k.e[1] + sa * qx + ca * qy;
     }
     return out;
   }
@@ -307,8 +310,11 @@
 
     /* springs and wind run in the character's own space, so turning the whole character around does not whip the hair */
     var invRoot = M.mul(TS, M.inv(rootM)), moving = live || !!opt.tween, frame = (st.frame = (st.frame || 0) + 1), windIn = (S.wind || 0) * (flipped ? -1 : 1);
+    /* the stances that are in play right now, and how far in each is (0..1, eased by whoever drives it; forced while one is being edited) */
+    var PZ = []; (ch.poses || []).forEach(function (p) { var w = opt.poses && opt.poses[p.id] != null ? opt.poses[p.id] : (S.pose ? S.pose[p.id] || 0 : 0); if (w > 0.0005 || w < -0.0005) PZ.push({ p: p, w: w }); });
+    out.B = {};
     function windAcc(x) { return windIn * 1500 * (0.6 + 0.4 * Math.sin(S.t * 1.9 + x * 0.013) + 0.25 * Math.sin(S.t * 4.7 + x * 0.031)); }
-    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0 }; if (over) for (var e in over) k[e] = over[e]; return k; }
+    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0, nc: c.nc }; if (over) for (var e in over) k[e] = over[e]; return k; }
     /** The same context with a few things changed (ctx() is for stepping DOWN to a child; this stays on the same node). */
     function also(c, over) { var k = {}, e; for (e in c) k[e] = c[e]; for (e in over) k[e] = over[e]; return k; }
     /* a round head: where a point painted on the front of the ball is, once the ball has turned. Returns [x, y, depth]. */
@@ -380,6 +386,18 @@
       }
       if (n.sc != null && n.sc !== 1) { sx *= n.sc; sy *= n.sc; any = true; }
       if (n.rot) { rot += n.rot * DEG; any = true; }
+      if (n.dx || n.dy) { tx += n.dx || 0; ty += n.dy || 0; any = true; }                 // nudged into place by hand (the transform box)
+      /* STANCES: a whole-body pose (all fours, sitting, a crouch) is a handful of parts each moved, turned or resized by a set amount.
+         It is blended in by its level, and a part that turns about a point of its own choosing (a torso about its hips) travels
+         an ARC as it goes, so the neck and shoulders swing round instead of sliding in a straight line. */
+      for (i = 0; i < PZ.length; i++) {
+        var pz = PZ[i], pd = pz.p.d && pz.p.d[n.id]; if (!pd) continue;
+        var pw = pz.w, pr = (pd.rot || 0) * DEG * pw;
+        tx += (pd.x || 0) * pw; ty += (pd.y || 0) * pw; rot += pr;
+        if (pd.sc != null && pd.sc !== 1) { var psc = 1 + (pd.sc - 1) * pw; sx *= psc; sy *= psc; }
+        if (pd.orbit && pd.orbit.deg) { var po = pd.orbit.deg * DEG * pw, pv1 = pivotOf(n), vx1 = pv1.x - pd.orbit.x, vy1 = pv1.y - pd.orbit.y, cp = Math.cos(po), sp1 = Math.sin(po); tx += cp * vx1 - sp1 * vy1 - vx1; ty += sp1 * vx1 + cp * vy1 - vy1; }
+        any = true;
+      }
       if (n.flip) { sx = -sx; any = true; }
       if (moving && n.depth && c.P && !(c.ball && c.wrap)) { tx += n.depth * c.P[0]; ty += n.depth * c.P[1]; any = true; }
       if (n.look) { tx += s.lookX * n.look.rx; ty += s.lookY * n.look.ry; any = true; }
@@ -471,6 +489,7 @@
         if (tp) c = ride(n, c, tp);
       }
       var Mx = c.M;
+      if (n.noTone && !c.nc) c = also(c, { nc: true });                 // this part keeps its own colours when a colour set comes on
       if (n.attach && ix.n[n.attach]) Mx = M.mul(c.rootIn, worldOf(n.attach));
       if (live && n.swing && n.swing.kind === 'stiff' && n.swing.on !== false) stepStiff(n, M.mul(invRoot, Mx));
       /* a PIECE of a turning head with landmarks of its own (or sharing another piece's) warps by those, not by the whole head's */
@@ -500,6 +519,7 @@
       } else if (n.wrap && c.ball && moving) { if (n.wrap === 'out') { an = centreOf(n); out2 = ballPt(c.ball.b, ballRot(c), an.x, an.y, n.lift || 0, n.back); out2[0] -= an.x; out2[1] -= an.y; c = also(c, { wrap: null, under: out2[2] < -0.03 ? c.ball.id : c.under }); } else c = also(c, { wrap: 'on', back: !!n.back }); }
       if (dec) Mx = M.mul(Mx, dec);
       if (out2) Mx0 = Mx = M.mul(Mx, M.trs(out2[0], out2[1], 0, n.flat ? clamp(Math.abs(out2[2]) / (1 + (n.lift || 0)), 0.2, 1) : 1, 1, an.x, an.y));
+      out.B[n.id] = Mx;                              // where this part sits before its own move, turn and size (the transform box works in this space)
       var L = local(n, c); if (L) Mx = M.mul(Mx, L);
       out.M[n.id] = Mx;
       /* the tip of something that swings stiffly: a thing can ride on it (a lantern on a pole, a ring stream on a hover peg) */
@@ -525,6 +545,7 @@
 
       if (pk.by === 'turn') {
         var dl = pk.dial && S.dial ? S.dial[pk.dial] : null, tx = dl ? dl[0] * ((((c.mir ? 1 : 0) ^ (flipped ? 1 : 0))) ? -1 : 1) : s.turnX, ty = dl ? dl[1] : s.turnY, best = null, bd = 1e9, pd = 1e9;
+        if (pk.gain != null && pk.gain !== 1) tx = clamp(tx * pk.gain, -1, 1);          // a body that follows the head's turn only part of the way
         for (i = 0; i < kids.length; i++) { k = kids[i]; if (!k.at) continue; var d = hyp(k.at[0] - tx, k.at[1] - ty); if (d < bd) { bd = d; best = k; } if (k === prev) pd = d; }
         cur = (live && prev && prev.at && pd - bd < 0.07) ? prev : best;
         /* turning right round: something with drawings for both sides keeps its full width while the body tucks */
@@ -534,29 +555,43 @@
         }
         /* ANGLES THAT ARE TURNED OR RESIZED (a copy of the level head, tipped up): between the dots the tip and the size blend, so two
            copies of one drawing turn into each other with no jump. Each dot's pull falls off fast with distance, and is total on the dot. */
-        var effOf = function (q) { var qs = q.type === 'mirror' ? ix.n[q.of] : null; return qs ? { rot: (q.rot || 0) - (qs.rot || 0), sc: (q.sc == null ? 1 : q.sc) * (qs.sc == null ? 1 : qs.sc) } : { rot: q.rot || 0, sc: q.sc == null ? 1 : q.sc }; };
+        var effOf = function (q) { var qs = q.type === 'mirror' ? ix.n[q.of] : null; return qs ? { rot: (q.rot || 0) - (qs.rot || 0), sc: (q.sc == null ? 1 : q.sc) * (qs.sc == null ? 1 : qs.sc), x: (q.dx || 0) - (qs.dx || 0), y: (q.dy || 0) + (qs.dy || 0) } : { rot: q.rot || 0, sc: q.sc == null ? 1 : q.sc, x: q.dx || 0, y: q.dy || 0 }; };
         var mix = null;
-        if (moving && kids.some(function (q) { return q.at && (q.rot || (q.sc != null && q.sc !== 1)); })) {
-          var gw = 0, gr = 0, gs = 0;
-          kids.forEach(function (q) { if (!q.at) return; var ef = effOf(q), dq = hyp(q.at[0] - tx, q.at[1] - ty), g = 1 / (dq * dq * dq + 1e-6); gw += g; gr += g * ef.rot; gs += g * Math.log(Math.max(0.01, ef.sc)); });
-          if (gw) mix = { rot: gr / gw, sc: Math.exp(gs / gw) };
+        if (moving && kids.some(function (q) { return q.at && (q.rot || q.dx || q.dy || (q.sc != null && q.sc !== 1)); })) {
+          var gw = 0, gr = 0, gs = 0, gx = 0, gyy = 0;
+          kids.forEach(function (q) { if (!q.at) return; var ef = effOf(q), dq = hyp(q.at[0] - tx, q.at[1] - ty), g = 1 / (dq * dq * dq + 1e-6); gw += g; gr += g * ef.rot; gs += g * Math.log(Math.max(0.01, ef.sc)); gx += g * ef.x; gyy += g * ef.y; });
+          if (gw) mix = { rot: gr / gw, sc: Math.exp(gs / gw), x: gx / gw, y: gyy / gw };
         }
       } else if (pk.by === 'reach') {
         var hand = s.hand[pk.hand], foot = !!pk.hand && pk.hand.charAt(0) === 'F', restKid = ix.n[pk.rest] || null;
         if (!restKid || !restKid.limb) for (i = 0; i < kids.length; i++) if (kids[i].limb) { restKid = kids[i]; break; }
         var rAt = pk.restAt && moving ? pk.restAt : (restKid ? restKid.limb.c : null);
-        var Tw = hand ? (foot ? [hand.x, hand.y] : M.ap(c.rootIn, hand.x, hand.y)) : (rAt ? M.ap(Mx, rAt.x, rAt.y) : null);
+        var Tw = hand ? ((foot || hand.w) ? [hand.x, hand.y] : M.ap(c.rootIn, hand.x, hand.y)) : (rAt ? M.ap(Mx, rAt.x, rAt.y) : null);
         if (!hand && !foot && restKid && live && s.walk) {             // nobody is holding this hand: it swings with the walk
           var sa = (set.walk && set.walk.armSwing != null ? set.walk.armSwing : 18) * DEG * s.walk * (pk.hand === 'L' ? 1 : -1), la = restKid.limb.a, lc = rAt || restKid.limb.c, cs = Math.cos(sa), sn = Math.sin(sa);
           Tw = M.ap(Mx, la.x + cs * (lc.x - la.x) - sn * (lc.y - la.y), la.y + sn * (lc.x - la.x) + cs * (lc.y - la.y));
         }
         if (Tw) { var iv = M.inv(Mx), tl = M.ap(iv, Tw[0], Tw[1]); T = { x: tl[0], y: tl[1] }; }
+        /* the walker asks where each limb grows from right now (a shoulder carried down by a stance comes within reach of the ground) */
+        if (pk.hand && restKid && !c.ghost) (S.anchor || (S.anchor = {}))[pk.hand] = M.ap(Mx, restKid.limb.a.x, restKid.limb.a.y);
+        /* what drives this hand has changed (a finger took it, it was let go, it planted on the ground as a foot, it lifted off again):
+           it travels from where it was to where it is now wanted over a few frames, instead of jumping */
+        if (live && T && !c.ghost) {
+          var rb = st.rb || (st.rb = {}), rq = rb[n.id + (c.tag || '')] || (rb[n.id + (c.tag || '')] = { m: -1, t: 0, x: T.x, y: T.y, f: frame }), md = hand ? ((hand.w || foot) ? 2 : 1) : 0;
+          if (rq.m !== md && rq.m >= 0 && frame - rq.f <= 2 && !foot) { rq.t = 1; rq.fx = rq.x; rq.fy = rq.y; }
+          rq.m = md;
+          if (rq.t > 0) { rq.t -= dt / 0.3; var rw = smooth(clamp(1 - rq.t, 0, 1)); T = { x: rq.fx + (T.x - rq.fx) * rw, y: rq.fy + (T.y - rq.fy) * rw }; }
+          rq.x = T.x; rq.y = T.y; rq.f = frame;
+        }
         if (T) {
           var bk = null, bdist = 1e9, pdist = 1e9;
           for (i = 0; i < kids.length; i++) { k = kids[i]; if (!k.limb) continue; var dd = hyp(k.limb.c.x - T.x, k.limb.c.y - T.y); if (dd < bdist) { bdist = dd; bk = k; } if (k === prev) pdist = dd; }
           cur = (live && prev && prev.limb && pk.swap !== false && pdist < bdist * 1.18 + 3) ? prev : bk;
           if (pk.swap === false && restKid) cur = restKid;
         } else cur = restKid || kids[0];
+        /* a hand that is walking uses ONE drawing, the one chosen for it (the resting arm unless told otherwise): an arm fan drawn for
+           reaching and waving would otherwise show its raised, palm-out drawings under a body that has tipped onto all fours */
+        if (hand && hand.w && !foot && T) { var wkid = pk.walk && pk.walk.kid ? ix.n[pk.walk.kid] : null; if (!wkid || ix.p[wkid.id] !== n || !wkid.limb) wkid = restKid; if (wkid) cur = wkid; }
         if (pk.loop && moving && T) { var lf = kids.filter(function (q) { return q.limb && !q.trig; }); if (lf.length) cur = lf[Math.floor(Math.max(0, s.t) * pk.loop) % lf.length]; }      // its drawings are frames, not angles
       } else if (pk.by === 'cycle') {
         var fr = kids.filter(function (q) { return !q.trig; });
@@ -589,7 +624,7 @@
 
       function one(kid, a, ghost) {
         var extra = { ghost: ghost || c.ghost };
-        if (pk.by === 'reach') { extra.reach = (ghost && kid.limb) ? { x: kid.limb.c.x, y: kid.limb.c.y } : T; extra.lift = !live && forced === kid && opt.lift !== false; extra.limbSet = n.id; extra.restLimb = restKid ? restKid.limb : null; extra.foot = s.foot && pk.hand ? s.foot[pk.hand] : 0; }
+        if (pk.by === 'reach') { extra.reach = (ghost && kid.limb) ? { x: kid.limb.c.x, y: kid.limb.c.y } : T; extra.lift = !live && forced === kid && opt.lift !== false; extra.limbSet = n.id; extra.handKey = pk.hand || null; extra.restLimb = restKid ? restKid.limb : null; extra.foot = s.foot && pk.hand ? s.foot[pk.hand] : 0; }
         if (fade && fade.morph && !ghost) {
           var oth = kid === cur ? ix.n[fade.from] : cur, me = smooth(fade.t), mw = kid === cur ? 1 - me : me, mq = oth && oth !== kid ? AL.bridgeFor(ch, n, kid, oth, '', true) : null;
           if (mq) extra.warp = { P: mq.map(function (q) { return q.from; }), Q: mq.map(function (q) { return [q.from[0] + (q.to[0] - q.from[0]) * mw, q.from[1] + (q.to[1] - q.from[1]) * mw]; }) };
@@ -621,17 +656,18 @@
           if (n.warpWith) { var ws = {}, wn = 0; for (var wkey in n.warpWith) { var tg = n.warpWith[wkey]; tg = tg === 'own' ? wkey : (n.warpWith[tg] === 'own' ? tg : null); ws[wkey] = tg ? warpOf(tg) : whole; wn++; } if (wn) extra.warps = ws; }
         }
         /* this angle's share of the blended tip and size (see above) */
-        var er = 0, es = 1;
-        if (mix && !ghost && kid.at) { var ek = effOf(kid); er = mix.rot - ek.rot; es = mix.sc / ek.sc; }
+        var er = 0, es = 1, ex0 = 0, ey0 = 0;
+        if (mix && !ghost && kid.at) { var ek = effOf(kid); er = mix.rot - ek.rot; es = mix.sc / ek.sc; ex0 = mix.x - ek.x; ey0 = mix.y - ek.y; }
         var pvA = function (q) { if (q.pivot) return q.pivot; if (n.pivot) return n.pivot; var qb = AL.boundsOf(q); return qb ? { x: (qb.x0 + qb.x1) / 2, y: (qb.y0 + qb.y1) / 2 } : { x: 0, y: 0 }; };
-        if (kid.type !== 'mirror' && (Math.abs(er) > 0.005 || Math.abs(es - 1) > 0.0005)) { var pk1 = pvA(kid); m2 = M.mul(Mx, M.trs(0, 0, er * DEG, es, es, pk1.x, pk1.y)); }
+        if (kid.type !== 'mirror' && (Math.abs(er) > 0.005 || Math.abs(es - 1) > 0.0005 || Math.abs(ex0) > 0.01 || Math.abs(ey0) > 0.01)) { var pk1 = pvA(kid); m2 = M.mul(Mx, M.trs(ex0, ey0, er * DEG, es, es, pk1.x, pk1.y)); }
         if (kid.type === 'mirror') {
           src = ix.n[kid.of]; if (!src) return;
           if (ax == null) { var b = AL.boundsOf(src); ax = b ? (b.x0 + b.x1) / 2 : ch.w / 2; }
           /* a mirrored angle can be tipped and resized on its own, like any other */
           var mr = (kid.rot || 0) + er, ms = (kid.sc == null ? 1 : kid.sc) * es;
           var mB = Mx;
-          if (Math.abs(mr) > 0.005 || Math.abs(ms - 1) > 0.0005) { var pk2 = pvA(src); mB = M.mul(Mx, M.trs(0, 0, mr * DEG, ms, ms, 2 * ax - pk2.x, pk2.y)); }
+          var mdx = (kid.dx || 0) + ex0, mdy = (kid.dy || 0) + ey0;
+          if (Math.abs(mr) > 0.005 || Math.abs(ms - 1) > 0.0005 || mdx || mdy) { var pk2 = pvA(src); mB = M.mul(Mx, M.trs(mdx, mdy, mr * DEG, ms, ms, 2 * ax - pk2.x, pk2.y)); }
           m2 = M.mul(mB, M.flipX(ax)); extra.mir = !c.mir; extra.tag = (c.tag || '') + 'm'; if (extra.P) { extra.P = [-extra.P[0], extra.P[1]]; extra.rel = [-extra.rel[0], extra.rel[1]]; if (extra.P0) extra.P0 = [-extra.P0[0], extra.P0[1]]; if (extra.warps) for (var fk in extra.warps) { var fw = extra.warps[fk]; if (fw && fw.par && !fw.flp) { fw.flp = 1; fw.par = [-fw.par[0], fw.par[1]]; } } }
           out.M[kid.id] = m2;
         }
@@ -647,7 +683,7 @@
       var im = AL.img.get(n.img); if (!im) return;
       var s = sg(c), limbOn = n.limb && c.reach && n.limb.bend !== false, bendOn = n.swing && n.swing.kind !== 'stiff' && live && n.swing.on !== false, brOn = n.breathe && n.breathe.on !== false && s.breath, meshOn = n.mesh && n.mesh.pins && n.mesh.pins.length;
       var wrapOn = moving && c.ball && c.wrap === 'on', behind = null;
-      var dense = (meshOn || wrapOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp) ? 1 : 0;
+      var dense = (meshOn || wrapOn || limbOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp) ? 1 : 0;
       var g = self.grid(n, im, dense), i, zs = (n.zSplit && n.limb && !c.lift && !c.ghost) ? n.zSplit : null;
       if (zs) g = self.splitGrid(g, n.limb, zs.at == null ? 0.5 : zs.at, zs.behind === 'tip');
       var v = g.v;
@@ -665,6 +701,7 @@
         var t = { p: M.ap(Mx, x, y), ang: wAng(Mx, ang), restP: M.ap(Mx, rl.c.x, rl.c.y), rest: wAng(Mx, hose ? Math.atan2(rl.c.y - rl.a.y, rl.c.x - rl.a.x) : Math.atan2(rl.c.y - rl.b.y, rl.c.x - rl.b.x)) };
         t.under = c.lift ? null : zs ? (zs.behind === 'tip' ? (zs.under || n.zUnder || null) : null) : (n.zUnder || c.under || null);      // a hand goes where its arm goes: behind the body with it
         out.tips[n.id] = t; if (c.limbSet) out.tips[c.limbSet] = t;
+        if (c.handKey) (S.tips || (S.tips = {}))[c.handKey] = t.p;
       }
       if (limbOn && n.limb.style === 'hose') {
         var hk = solveHose(n.limb, c.reach, s.t);
@@ -691,7 +728,7 @@
       if (bendOn) v = bendy(n, v === g.v ? new Float32Array(v) : v, Mx, c, s);
       var w = new Float32Array(v.length);
       for (i = 0; i < v.length; i += 2) { w[i] = Mx[0] * v[i] + Mx[2] * v[i + 1] + Mx[4]; w[i + 1] = Mx[1] * v[i] + Mx[3] * v[i + 1] + Mx[5]; }
-      var item = { id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: c.lift ? null : (n.zUnder || c.under || null), ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '' };
+      var item = { id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: c.lift ? null : (n.zUnder || c.under || null), ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '', nc: !!c.nc };
       if (behind && !zs) { var ki = [], gi = g.idx; for (i = 0; i < gi.length; i += 3) if (!behind[gi[i]] && !behind[gi[i + 1]] && !behind[gi[i + 2]]) ki.push(gi[i], gi[i + 1], gi[i + 2]); if (!ki.length) return; item.idx = new Uint16Array(ki); }
       if (zs) {
         /* An arm that comes round from behind: the same drawing in two pieces, one under the body and one over it, meeting on a line across the
@@ -750,12 +787,16 @@
       var sgn = (Mi[0] * Mi[3] - Mi[1] * Mi[2]) < 0 ? -1 : 1, hl = hyp(sw.tip.x - p.x, sw.tip.y - p.y) || 1, hx = (sw.tip.x - p.x) / hl * sgn, hy = (sw.tip.y - p.y) / hl;
       /* how much of the root's move the rest is spared: 0 = rides rigidly, 1 = left behind and catches up, more = flung */
       var mx = r[0] - q.p[0], my = r[1] - q.p[1], keep = 1 - clamp(follow, 0, 1), fling = Math.max(0, follow - 1);
-      for (i = 1; i <= N; i++) { q.p[i * 2] += mx * keep; q.p[i * 2 + 1] += my * keep; q.o[i * 2] += mx * (keep + fling); q.o[i * 2 + 1] += my * (keep + fling); }
+      /* a big sudden move of the root (picked up, a jump, a landing) is mostly CARRIED, not left behind: only so much of one frame's
+         move can whip the chain, or a tail lifted off the ground spins like a propeller */
+      var jump = hyp(mx, my), capJ = L * 0.45, carry = jump > capJ ? 1 - capJ / jump : 0, kp2 = keep + (1 - keep) * carry, ko2 = keep + fling * (1 - carry) + (1 - keep) * carry;
+      for (i = 1; i <= N; i++) { q.p[i * 2] += mx * kp2; q.p[i * 2 + 1] += my * kp2; q.o[i * 2] += mx * ko2; q.o[i * 2 + 1] += my * ko2; }
       q.p[0] = r[0]; q.p[1] = r[1];
-      var h = dt / 2;
+      var h = dt / 2, vcap = L * 0.5, lim = (sw.limit == null ? 80 : sw.limit) * DEG, b00 = Math.atan2(uy, ux);
       for (k2 = 0; k2 < 2; k2++) {
         for (i = 1; i <= N; i++) {
           var j = i * 2, vx = (q.p[j] - q.o[j]) * (1 - damp), vy = (q.p[j + 1] - q.o[j + 1]) * (1 - damp); q.o[j] = q.p[j]; q.o[j + 1] = q.p[j + 1];
+          var vl = hyp(vx, vy); if (vl > vcap) { vx *= vcap / vl; vy *= vcap / vl; }                 // nothing travels faster than half a joint a step
           var w = (windAcc(q.p[j]) * (i / N) + flut * windIn * 1100 * Math.sin(S.t * 21 + i * 1.7 + r[0])) * sens;
           q.p[j] += vx + w * h * h; q.p[j + 1] += vy;
         }
@@ -770,6 +811,10 @@
           }
           q.p[jj] += (px + dxp * L - q.p[jj]) * stiff; q.p[jj + 1] += (py + dyp * L - q.p[jj + 1]) * stiff;
           var ex = q.p[jj] - px, ey = q.p[jj + 1] - py, el = hyp(ex, ey) || 1; q.p[jj] = px + ex / el * L; q.p[jj + 1] = py + ey / el * L;
+          /* "Swings at most": no joint bends further from how it was drawn than its share of the limit (more toward the tip).
+             It meets the limit softly and loses most of its speed there, so it cannot wind itself round its root. */
+          var dv = wrapA(Math.atan2(q.p[jj + 1] - py, q.p[jj] - px) - b00), mxa = lim * (0.3 + 0.7 * i / N);
+          if (dv > mxa || dv < -mxa) { var ca2 = b00 + clamp(dv, -mxa, mxa); q.p[jj] = px + Math.cos(ca2) * L; q.p[jj + 1] = py + Math.sin(ca2) * L; q.o[jj] += (q.p[jj] - q.o[jj]) * 0.7; q.o[jj + 1] += (q.p[jj + 1] - q.o[jj + 1]) * 0.7; }
         }
       }
       if (nameKey) { var bb0 = Math.atan2(uy, ux), old = st.shape ? st.shape[nameKey] : null, rel = []; for (i = 0; i < N; i++) rel.push(wrapA(Math.atan2(q.p[i * 2 + 3] - q.p[i * 2 + 1], q.p[i * 2 + 2] - q.p[i * 2]) - bb0)); (st.shape = st.shape || {})[nameKey] = { n: N, f: frame, rel: rel, was: old && old.n === N && old.f === frame - 1 ? old.rel : (old && old.f === frame ? old.was : rel) }; }
@@ -810,6 +855,9 @@
       moved.forEach(function (it) { var at = keep.indexOf(out.first[it.under]); if (at < 0) keep.unshift(it); else keep.splice(at, 0, it); });
       out.items = keep;
     }
+    /* COLOUR SETS in play: the drawing step recolours with them (see al-gl.js). The wave crosses the character's own box. */
+    var tones = []; (ch.palettes || []).forEach(function (p) { var w = opt.tones && opt.tones[p.id] != null ? opt.tones[p.id] : (S.tone ? S.tone[p.id] || 0 : 0); if (w > 0.002) (p.stops || []).forEach(function (q) { if (tones.length < 8) tones.push({ from: q.from, to: q.to, sat: q.sat, val: q.val, width: q.width, lv: w, soft: p.soft, blotch: p.blotch }); }); });
+    if (tones.length) { var k0 = M.ap(rootM, 0, 0), k1 = M.ap(rootM, ch.w, ch.h); out.colour = { stops: tones, box: [Math.min(k0[0], k1[0]), Math.min(k0[1], k1[1]), Math.max(k0[0], k1[0]), Math.max(k0[1], k1[1])], dir: (ch.settings || {}).toneDir == null ? 25 : ch.settings.toneDir }; }
     return out;
   };
 

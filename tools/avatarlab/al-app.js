@@ -29,7 +29,7 @@
     send: 'M4 12l16-8-6 16-3-7z', trash: 'M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13', loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 01-4 4H4',
     pin: 'M12 21s7-6.3 7-12a7 7 0 10-14 0c0 5.7 7 12 7 12zM12 6.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z', home: 'M4 11l8-7 8 7M6 10v10h12V10', note: 'M9 18V5l11-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM20 16a3 3 0 11-6 0 3 3 0 016 0z',
     smile: 'M12 3a9 9 0 100 18 9 9 0 000-18zM8 14a5 5 0 008 0M9 9.5v.5M15 9.5v.5', bolt: 'M13 3L5 14h6l-1 7 8-11h-6z', help: 'M12 3a9 9 0 100 18 9 9 0 000-18zM9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.2-1.5 2.3M12 17v.5',
-    mirror: 'M12 3v18M9 7l-5 5 5 5zM15 7l5 5-5 5z',
+    mirror: 'M12 3v18M9 7l-5 5 5 5zM15 7l5 5-5 5z', target: 'M12 2v5M12 17v5M2 12h5M17 12h5M12 8.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z',
     cut: 'M6 6a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM6 13a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM8 10l12-6M8 14l12 6', image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1 1 0 100 .1'
   };
   AL.icon = function (name) {
@@ -144,7 +144,7 @@
   };
   app.select = function (zone, feature, nodeId) {
     app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.live = app.mode === 'perform' ? app.live : false;
-    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.morph = null; app.shapeEdit = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
+    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.morph = null; app.shapeEdit = null; app.fitOn = null; app.eyedrop = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
   };
   app.selectByNode = function (id) {
     var ch = app.ch, zone = AL.zoneOf(ch, id), feature = null;
@@ -208,6 +208,8 @@
     } else if (!liveNow && app.ballTry) eo.tween = true;                     // previewing a round head turning, without leaving Build
     if (!liveNow && app.shapeEdit) eo.shapes = app.shapeEdit.w;                 // posing one shape of a part: that shape at full, the others off
     if (!liveNow && app.morph) { eo.morph = app.morph; eo.tween = true; }
+    if (!liveNow && app.poseEdit) { eo.poses = {}; eo.poses[app.poseEdit] = app.poseAmt == null ? 1 : app.poseAmt; }      // working on a stance: the character stands in it
+    if (!liveNow && app.toneTry) { eo.tones = {}; eo.tones[app.toneTry] = app.toneAmt == null ? 1 : app.toneAmt; }        // looking at a colour set
     var out = app.out = app.solver.eval(S, eo);
     if (bridge && bridge.ids && bridge.t == null) out.items.forEach(function (it) { if (!bridge.ids[it.id]) { it.a0 = it.a; it.a *= it.ghost ? 0 : 0.22; } });      // matching one piece: the rest steps back
     var ghostTint = bridge ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
@@ -220,7 +222,7 @@
       if (it.ghost) return ghostTint || [0.65, 0.55, 0.98, 0.55];
       if (ids && !ids[it.id]) return [0.03, 0.03, 0.05, 0.52];
       return null;
-    });
+    }, out.colour);
     app.drawOverlay(ov.getContext('2d'), dpr, liveNow, out);
     for (var i = 0; i < app.hooks.length; i++) app.hooks[i](dt, liveNow);
   };
@@ -257,7 +259,22 @@
     g.lineWidth = 2; g.strokeStyle = app.bridge ? 'rgba(228,228,231,.55)' : 'rgba(34,211,238,.8)';
     pins.forEach(function (p) { if (p.to && byKey[p.to]) { g.beginPath(); g.moveTo(p.sx, p.sy); g.lineTo(byKey[p.to].sx, byKey[p.to].sy); g.stroke(); } if (p.ring) { g.beginPath(); g.setLineDash([5, 5]); g.arc(p.sx, p.sy, p.ring * v.s, 0, 7); g.stroke(); g.setLineDash([]); } if (p.oval) { g.beginPath(); g.setLineDash([5, 5]); g.ellipse(p.sx, p.sy, Math.max(1, p.oval[0] * v.s), Math.max(1, p.oval[1] * v.s), 0, 0, 7); g.stroke(); g.setLineDash([]); } });
     g.font = '600 11px "IBM Plex Sans",system-ui,sans-serif'; g.textBaseline = 'middle';
+    pins.forEach(function (p) {                             // a transform box: its outline, drawn through the part's own move, turn and size
+      if (!p.box) return; g.beginPath();
+      p.box.forEach(function (q, bi) { var w = M.ap(p.m, q[0], q[1]); if (bi) g.lineTo(sx(w[0]), sy(w[1])); else g.moveTo(sx(w[0]), sy(w[1])); });
+      g.closePath(); g.strokeStyle = 'rgba(3,24,28,.9)'; g.lineWidth = 3; g.stroke(); g.strokeStyle = '#22d3ee'; g.lineWidth = 1.5; g.stroke();
+    });
     pins.forEach(function (p) {
+      if (p.kind === 'move') {                               // drag anywhere inside the box: a quiet four-way cross marks the middle
+        g.strokeStyle = 'rgba(3,24,28,.9)'; g.lineWidth = 4; g.beginPath(); g.moveTo(p.sx - 8, p.sy); g.lineTo(p.sx + 8, p.sy); g.moveTo(p.sx, p.sy - 8); g.lineTo(p.sx, p.sy + 8); g.stroke();
+        g.strokeStyle = '#e4e4e7'; g.lineWidth = 1.8; g.stroke(); return;
+      }
+      if (p.kind === 'corner') { g.fillStyle = 'rgba(3,24,28,.9)'; g.fillRect(p.sx - 7, p.sy - 7, 14, 14); g.fillStyle = '#22d3ee'; g.fillRect(p.sx - 5, p.sy - 5, 10, 10); return; }
+      if (p.kind === 'turn') {                               // the turn handle hangs below the box on a short stalk
+        g.strokeStyle = '#22d3ee'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(p.sx - (p.ox || 0), p.sy - (p.oy || 0)); g.lineTo(p.sx, p.sy); g.stroke();
+        g.beginPath(); g.arc(p.sx, p.sy, 10, 0, 7); g.fillStyle = 'rgba(3,24,28,.9)'; g.fill(); g.beginPath(); g.arc(p.sx, p.sy, 8, 0, 7); g.fillStyle = '#22d3ee'; g.fill();
+        g.strokeStyle = '#03181c'; g.lineWidth = 1.6; g.beginPath(); g.arc(p.sx, p.sy, 4, Math.PI * 0.2, Math.PI * 1.6); g.stroke(); g.beginPath(); g.moveTo(p.sx + 1.2, p.sy - 6.8); g.lineTo(p.sx + 1.4, p.sy - 3.2); g.lineTo(p.sx - 2.4, p.sy - 3.8); g.stroke(); return;
+      }
       if (p.ghost) {                                         // the other drawing's point: seen, not touched
         g.beginPath(); g.arc(p.sx, p.sy, 5.5, 0, 7); g.fillStyle = 'rgba(3,24,28,.85)'; g.fill(); g.beginPath(); g.arc(p.sx, p.sy, 3.5, 0, 7); g.fillStyle = p.color || '#f43f8e'; g.fill();
         if (p.label) { g.beginPath(); g.arc(p.sx, p.sy, 10 + 3 * Math.sin(Date.now() / 160), 0, 7); g.strokeStyle = p.color || '#f43f8e'; g.lineWidth = 1.5; g.stroke(); }
@@ -330,11 +347,11 @@
       /* the nearest pin; where two sit on top of each other, the one that says it comes first (prio) */
       var best = null, bd = 1e9; (app._pins || []).forEach(function (q) { if (q.ghost || q.fixed) return; var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d > (q.rad || (q.tap ? 16 : 26))) return; d -= (q.prio || 0); if (d < bd) { bd = d; best = q; } });
       if (best) { app.drag.pin = best; app.drag.off = { x: best.sx - p.x, y: best.sy - p.y }; return; }
-      if (app.moveArt && app.selIds) { var hit = AL.hit(app.out, c[0], c[1], null, app.selIds); if (hit) { app.drag.art = hit.id; app.drag.last = c; } }      // only the selected part, even under something faded
+      if (app.moveArt && app.selIds) { var hit = AL.hit(app.out, c[0], c[1], null, app.selIds); if (hit) { var ls = AL.ancestorWith(app.ch, hit.id, function (q) { return q.type === 'set' && q.pick && q.pick.by === 'reach'; }); app.drag.art = ls ? ls.id : hit.id; app.drag.last = c; } }      // only the selected part, even under something faded
     }
     function move(p) {
       var d = app.drag;
-      if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 5) { d.moved = true; if (((d.pin && !d.pin.tap) || d.art) && !isLive()) { app.hist.push(app.ch, d.pin ? 'Move ' + (d.pin.label || 'pin') : 'Move art'); app.syncUndo(); } }
+      if (!d.moved && Math.hypot(p.x - d.x0, p.y - d.y0) > 5) { d.moved = true; if (((d.pin && !d.pin.tap) || d.art) && !isLive()) { app.hist.push(app.ch, d.pin ? (d.pin.undo || 'Move ' + (d.pin.label || 'pin')) : 'Move art'); app.syncUndo(); } }
       if (!d.moved) return;
       if (!isLive()) {
         if (d.pin && !d.pin.tap) { var c = app.toChar(p.x + d.off.x - (d.pin.ox || 0), p.y + d.off.y - (d.pin.oy || 0)), l = M.ap(M.inv(d.pin.m), c[0], c[1]); d.pin.set(l[0], l[1]); d.pin.x = l[0]; d.pin.y = l[1]; app.touch(); return; }
@@ -350,6 +367,9 @@
         var c = app.toChar(d.x0, d.y0);
         if (app.bridge) { AL.bridge.tap(app, c, d.pin); return; }
         if (d.pin) { if (d.pin.pick) d.pin.pick(); return; }
+        if (app.eyedrop) { var ed = app.eyedrop; app.eyedrop = null; ed(AL.tone.colourAt(app.out, c[0], c[1])); return; }                 // tap a colour on the character
+        if (app.fitOn && app.fitOn.pins && AL.fit.tapPin(app, c)) return;                                                         // reshaping: a tap on the part drops a pin there
+        if (app.pickPiece) { var ph = AL.hit(app.out, c[0], c[1]); if (ph) { AL.fit.pick(app, ph.id); return; } }                // pick a piece: the very layer under the finger
         var hit = (app.selIds && AL.hit(app.out, c[0], c[1], null, app.selIds)) || AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return;
       }
       if (d.pin || d.art) { if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }
@@ -365,6 +385,9 @@
     function liveGrab(p) {
       var out = app.out, inp = app.inp, ch = app.ch, c = app.toChar(p.x, p.y), inner = app.toInner(c[0], c[1]), rad = 30 / app.view.s;
       var hand = nearestTip(c, [['armL', 'L'], ['armR', 'R']], rad), foot = nearestTip(c, [['legL', 'L'], ['legR', 'R']], rad);
+      if (!hand && !foot) AL.findAll(ch.root, function (q) { return q.type === 'set' && q.pick && q.pick.by === 'reach' && q.pick.hand && q.pick.hand.charAt(0) === 'F' && q.pick.hand !== 'FL' && q.pick.hand !== 'FR'; }).forEach(function (q) {      // the other legs of something with many
+        var pk = out.pins[out.picks[q.id]]; if (!pk || !pk.c) return; var dd = Math.hypot(pk.c[0] - c[0], pk.c[1] - c[1]); if (dd < rad && (!foot || dd < foot.d)) foot = { sd: q.pick.hand.slice(1), w: pk.c, d: dd };
+      });
       if (hand && foot) { if (Math.hypot(hand.w[0] - c[0], hand.w[1] - c[1]) <= Math.hypot(foot.w[0] - c[0], foot.w[1] - c[1])) foot = null; else hand = null; }
       var hit = hand || foot ? null : AL.hit(out, c[0], c[1]), zone = hit ? AL.zoneOf(ch, hit.id) : null, w;
       if (!hand && (zone === 'armL' || zone === 'armR') && (w = tipOf(zone))) hand = { sd: zone === 'armL' ? 'L' : 'R', w: w };
@@ -401,6 +424,25 @@
     }
   }
   app.say = function () { };
+  /**
+   * JOYBOT. His button sits in the upper right corner of every room, the same orb as in the Studio. On the phone it opens his
+   * chat. Here in the pilot it opens a short list of things to do from where you are, each with "take me there".
+   */
+  app.joybot = function () {
+    var body = h('div', { class: 'joytips' }), ch = app.ch, live = app.mode === 'perform';
+    function tip(title, text, fn) { body.appendChild(h('button', { title: title, onclick: function () { app.closeSheet(); fn(); } }, [h('div', null, [h('b', { text: title }), h('span', { text: text })])])); }
+    function build(fn) { return function () { if (app.mode !== 'build') app.setMode('build'); app.tab = 'parts'; fn(); }; }
+    tip('Start a new character', 'It is in the menu, top left. I will show you.', function () { var m = $('bmenu'); m.classList.add('nudge'); setTimeout(function () { m.classList.remove('nudge'); m.click(); }, 1500); });
+    tip('Put a piece in the right place', 'Tap any piece on the picture, then move, turn or resize it with the box. Or pin it and stretch it.', build(function () { app.pickPiece = true; app.refreshPanel(true); app.toast('Tap a piece on the picture.'); }));
+    if (app.zoneNode('body')) {
+      tip('Make it go onto all fours', 'A stance: the body tips forward and the hands walk as front feet. Any other whole-body pose works the same way.', build(function () { app.select('body'); setTimeout(function () { var el = Array.prototype.filter.call(document.querySelectorAll('#panelbody .lab'), function (q) { return /Stances/.test(q.textContent); })[0]; if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 80); }));
+      tip('Change its colours', 'A colour set repaints the same art at the press of a button. Give it a picture and it works the change out.', build(function () { app.select('body'); setTimeout(function () { var el = Array.prototype.filter.call(document.querySelectorAll('#panelbody .lab'), function (q) { return /Colour sets/.test(q.textContent); })[0]; if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 80); }));
+    }
+    if (!live) tip('See it alive', 'Perform: drag the head, the hands, the body. Talk. Record a take.', function () { app.setMode('perform'); });
+    else tip('Go back to building', 'Build: everything holds still so you can place pins and parts.', function () { app.setMode('build'); });
+    body.appendChild(app.ui.note('On the phone this button opens Joybot himself, and he flies to the thing he is showing you.'));
+    app.sheet('Joybot', body, []);
+  };
   /** Slide a drawing, and everything pinned to it, by (dx, dy). */
   app.nudge = function (n, dx, dy) {
     if (!n) return;
@@ -504,6 +546,7 @@
     ub.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     $('sheetx').onclick = app.closeSheet; $('scrim').onclick = app.closeSheet;
     $('bmenu').onclick = function () { AL.intake.menu(app); };
+    $('bjoy').onclick = function () { app.joybot(); };
     $('bname').onclick = function () { app.promptText('Name this character', app.ch.name, function (v) { app.edit(function () { app.ch.name = v; app.ch.root.name = v; }); $('chname').textContent = v; }); };
     Array.prototype.forEach.call($('modes').children, function (b) { b.onclick = function () { app.setMode(b.getAttribute('data-m')); }; });
     Array.prototype.forEach.call($('devseg').children, function (b) { b.onclick = function () { app.dev = b.getAttribute('data-d'); try { localStorage.setItem('al.dev', app.dev); } catch (e) { } app.layout(); app.userView = false; }; });

@@ -168,6 +168,48 @@ The owner: "almost ready to port it over to the phone". Three things first.
   circles "new character". That animation belongs to the Joybot sprite-sheet lane, which already knows how he moves;
   this lane supplies the target (which button, when).
 
+## Round 7 (11-20, night): stances, any number of legs, colour sets, fitting by hand
+The owner's notes after round 6, plus a note sent mid-build ("some characters start out as quadrupeds; as many legs as
+they want, a centipede; arms that can become feet with one toggle").
+- **Fit it by hand** (`al-fit.js`). *Pick a piece* on the stage bar: tap any layer on the picture, it is chosen alone and the
+  rest steps back. A transform box (drag inside to move, a corner to resize, the round handle below to turn) on any layer,
+  folder, head angle or whole stance; the part keeps a move, a turn and a size (`dx`, `dy`, `rot`, `sc`) and "Put it back"
+  clears them. *Reshape with pins*: tap the part to drop pins, drag one, the others hold (a Shape that is always on).
+  A whole head angle now has the box too, and its move blends between dots like its tip and size.
+- **Stances** (`al-stance.js`). A whole-body pose with its own button: each part moved, turned or resized by a set amount,
+  optionally swung round a point so it travels an arc. Eased on a spring. While a stance is being worked on, the box
+  writes to the stance. *All fours* is worked out from the art: the torso tips about the hips, the legs and tail are
+  turned back so they stay, the head rides down on the neck and stays level, the shoulders are slid to where front
+  legs stand. Pushed low on the ground line the character goes down by itself; pulled up it stands again.
+- **Any number of legs** (`al-walk.js`, rewritten). Every limb that walks takes part, each with a step timing; feet with
+  the same timing step together and the rest take turns in order, so a biped alternates, four legs walk hind-far,
+  fore-far, hind-near, fore-near, and a row of legs moves as a wave. *Copy this leg* on any leg card; *Move the whole
+  leg*; *Step timing*; *Lets go when lifted*. An arm told "these arms can become feet" plants whenever the ground is
+  within its reach and is an arm again when lifted out of reach: no other switch. The body map can be switched to a
+  four-legged one; every limb is listed on the Body card.
+- **Colour sets** (`al-tone.js`, a second shader program in `al-gl.js`). "This colour becomes that colour" by hue, greys
+  left alone, arriving as a wave with a blotchy front. *From a picture*: the picture is laid over the character and every
+  spot votes, so each main colour of the art becomes what the picture has there. Buttons in Perform; sets take turns.
+- **The body's own turn drawings.** Body card: the body becomes a set of angles on a pad (add pictures, copy an angle,
+  mirror), following the head by a chosen amount; with both sides drawn it keeps its width in the Smooth turn-around.
+- **Fixes.** The tail no longer spins when the character is picked up (a big sudden move of its root is mostly carried,
+  its speed is capped, and "swings at most" now holds for bendy parts too). Elbows and knees are round (each point is
+  turned about the joint by an in-between angle; denser mesh on limbs). Coming down from a jump the legs reach for
+  the ground as soon as it starts down. A hand changes owner (finger, rest, ground) over a few frames, not in one.
+- **Talking from the side.** Topps's side-view mouths are small in the file; the Jaw card has "The face stretches with
+  it" (a Shape called Talking on each face drawing). On in the built-in Topps.
+- **Joybot's button** is in the upper right corner, the Studio's orb with his own face (the app's `joybot_neutral.png`).
+  In the pilot it lists things to do with "take me there"; on the phone it opens him.
+- **Built-in Topps** now has: All fours, a Coral colour set made from the owner's reference picture (plus one stop added
+  by hand for the red marks), the jaw drop, the tail's swing limit at 60 and the right arm resting on drawing 5 ("04").
+- Proof: 588 card opens without an error; the box by numbers (move, 20 degrees, 1.25x, pivot drift 0); rendered strips
+  of the stance going down, the four-legged walk and its step order, a third and fourth leg stepping in a wave, the
+  push-low and pull-up, a jump and landing, the colour wave. **Not checked:** anything by hand or on a phone; the
+  feel of any of it in motion; the all-fours pose is a first guess the owner means to doctor (the front legs overlap
+  the far hind leg; the far arm's half-behind split shows a notch); "From a picture" on other art.
+- For the port: stances and colour sets are plain numbers in the character file; the walker is arithmetic; the colour
+  program is a second, small shader used only while a colour set is on (the Note 9 rule: program size is the cost).
+
 ## What is left
 - [ ] Owner tries the pilot (PC page with Topps; the artifact on the phone with Pip) and rules.
 - [ ] Not built in the pilot: clipping layers and blend modes from the PSD (Topps uses neither); eye whites
@@ -179,6 +221,8 @@ The owner: "almost ready to port it over to the phone". Three things first.
 - [ ] Joybot: the owner's verdict on the third draft (cuteness, hands, eyes, arms). The shell, badge, backpack, gloves
       and ring frames are still the kit's; the eyelid is cut from his half-lid lamp.
 - [ ] The owner's verdict on the new Match two angles, per-piece warps, Shapes and the walk.
+- [ ] The owner's verdict on round 7 (all fours and the four-legged walk, the box, reshape, colour sets, more legs,
+      the body's own angles, Joybot's button). Not built: drawn in-between poses used during the turn-around.
 - [ ] The owner's verdict on round 6 (the pop, Copy this angle, the Smooth turn). He said the pilot is nearly ready for the phone;
       the phone spec starts when he says go.
 - [ ] A blank start: the first-run door and the guided path for someone with no art ready (answered in chat 11-20, not built).

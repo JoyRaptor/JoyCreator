@@ -132,6 +132,13 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
     the tip and size blend. Landmarks cancel the depth slide toward the neighbour they match, so nothing jumps.
 23. **Turning right round three ways:** Smooth (tucks in, swaps, opens out; a two-sided head keeps turning), Instant,
     or a card swinging round.
+24. **Fit it by hand** (`al-fit.js`): pick a piece on the picture; a transform box on any part, angle or stance; reshape
+    with pins.
+25. **Stances** (`al-stance.js`): whole-body poses with a button, blended on a spring, parts swinging on arcs. All fours
+    is worked out from the art.
+26. **Any number of legs** (`al-walk.js`): every walking limb has a step timing; arms can be told they may become feet.
+27. **Colour sets** (`al-tone.js`): a hue lookup worked out from a picture, arriving as a wave.
+28. **The body's own turn drawings**, and a four-legged body map.
 
 ## Characters
 

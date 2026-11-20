@@ -142,7 +142,30 @@
     for (k in this.pinTouched) o['p:' + k] = true;
     return o;
   };
-  P.toggleTrig = function (id) { this.trig[id] = !this.trig[id]; if (this.recording) this.trigTouched[id] = true; };
+  P.toggleTrig = function (id) { this.setTrig(id, !this.trig[id]); };
+  /** Switch a button on or off. Colour sets take turns: switching one on switches the others off, so one melts into the next. */
+  P.setTrig = function (id, on) {
+    var self = this, ch = this.app.ch; on = !!on; if (!!this.trig[id] === on) return;
+    this.trig[id] = on; if (this.recording) this.trigTouched[id] = true;
+    if (on) (ch.palettes || []).forEach(function (p) { if (p.trig !== id) return; (ch.palettes || []).forEach(function (o) { if (o !== p && o.trig && self.trig[o.trig]) { self.trig[o.trig] = false; if (self.recording) self.trigTouched[o.trig] = true; } }); });
+    if (this.app.mode === 'perform' && this.app.refreshPanel && this === this.app.inp) { var a = this.app; clearTimeout(a._trigT); a._trigT = setTimeout(function () { a.refreshPanel(true); }, 30); }
+  };
+  /**
+   * STANCES ease in and out on a spring that starts gently and settles without a bump (or with a small one, if the stance
+   * is marked bouncy); COLOUR SETS sweep across at a steady pace. Both follow their buttons, so a take that recorded the
+   * button plays the same change back.
+   */
+  P.easeLevels = function (dt, S) {
+    var ch = this.app.ch, pl = this.poseLvl || (this.poseLvl = {}), pv = this.poseVel || (this.poseVel = {}), tl = this.toneLvl || (this.toneLvl = {});
+    (ch.poses || []).forEach(function (p) {
+      var tgt = p.trig && S.trig[p.trig] ? 1 : 0, x = pl[p.id] || 0, v = pv[p.id] || 0, om = 5.4 / Math.max(0.08, p.time == null ? 0.6 : p.time), z = p.bounce ? 0.6 : 1, h = dt / 3, i;
+      for (i = 0; i < 3; i++) { v += (om * om * (tgt - x) - 2 * z * om * v) * h; x += v * h; }
+      if (Math.abs(tgt - x) < 0.0006 && Math.abs(v) < 0.004) { x = tgt; v = 0; }
+      pl[p.id] = x; pv[p.id] = v;
+    });
+    (ch.palettes || []).forEach(function (p) { var tgt = p.trig && S.trig[p.trig] ? 1 : 0, x = tl[p.id] || 0, st = dt / Math.max(0.05, p.time == null ? 0.9 : p.time); tl[p.id] = x < tgt ? Math.min(tgt, x + st) : Math.max(tgt, x - st); });
+    S.pose = pl; S.tone = tl;
+  };
   P.record = function () {
     if (!this.take) this.take = { fps: 30, n: 0, ch: {} };
     this.backup = JSON.stringify(this.take);
@@ -273,6 +296,7 @@
       if (this.recording) { tk.n = Math.max(tk.n, i + 1); if (this.ph > 120) this.stop(); }
       else if (this.playing && this.ph >= tk.n / tk.fps) this.ph = 0;
     }
+    this.easeLevels(dt, S);
     return S;
   };
 })(typeof self !== 'undefined' ? self : this);

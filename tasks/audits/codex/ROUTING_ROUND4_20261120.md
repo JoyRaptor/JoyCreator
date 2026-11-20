@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| SAVE-ROTATE | Confirmed and fixed on `codex/r4-save-rotate` | Protect the readable backup during a recovery save. Real WorkLossStorageTest failed two assertions before. Afterward 49 passed, covering backup bytes, complete orphan recovery and rejection of partial staging. |

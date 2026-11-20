@@ -354,11 +354,23 @@ public class ProjectStorage {
         File tmp = new File(projectDir, PROJECT_FILE + ".tmp");
         File bak = new File(projectDir, PROJECT_FILE + ".bak");
 
+        if (tmp.isFile() && readableGeneration(tmp, projectId)
+                && !readableGeneration(file, projectId) && !readableGeneration(bak, projectId)) {
+            // A previous process stopped before publication. Do not truncate its only usable
+            // generation when opening the staging stream below.
+            if (bak.exists()) {
+                keepUnreadable(projectDir, bak);
+                if (!bak.delete()) return false;
+            }
+            if (!tmp.renameTo(bak)) return false;
+        }
+
         // sync() before the rename: without it a power cut or hard reboot can leave the renamed
         // file empty, because the rename reaches the disk before the bytes do.
+        java.security.MessageDigest stagedDigest = newDigest();
         try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp);
              java.io.Writer writer = new java.io.OutputStreamWriter(
-                     out, java.nio.charset.StandardCharsets.UTF_8)) {
+                     new java.security.DigestOutputStream(out, stagedDigest), java.nio.charset.StandardCharsets.UTF_8)) {
             writer.write(json);
             writer.flush();
             out.getFD().sync();
@@ -381,19 +393,23 @@ public class ProjectStorage {
                     : "; could not keep a copy of what it replaces"));
         }
 
-        // Keep the previous good copy as a backup, then move temp into place.
+        // Rotate only a readable generation. A recovery save can be replacing corrupt bytes
+        // while .bak still holds the project we just opened.
         if (file.exists()) {
-            bak.delete();
-            if (!file.renameTo(bak)) {
-                FLog.w(TAG, "Could not rotate previous project to .bak");
+            if (matchesLastPublication(file, projectId) || readableGeneration(file, projectId)) {
+                if (bak.exists() && !bak.delete()) return false;
+                if (!file.renameTo(bak)) return false;
+            } else {
+                keepUnreadable(projectDir, file);
+                if (!file.delete()) return false;
             }
         }
+        // Leave both the backup and the synced stage available on a failed rename.
         if (!tmp.renameTo(file)) {
-            FLog.e(TAG, "Failed to move temp project into place; restoring backup");
-            if (bak.exists()) bak.renameTo(file); // restore previous good copy
-            tmp.delete();
+            FLog.e(TAG, "Failed to publish staged project: " + projectId);
             return false;
         }
+        publishedDigests.put(projectId, stagedDigest.digest());
         // Keep the copy in the user's Joy Creator folder current (a few seconds later, off this thread).
         com.fadcam.joyfolder.studio.StudioMirror.onProjectSaved(context, projectId);
         return true;
@@ -577,6 +593,25 @@ public class ProjectStorage {
             }
         }
 
+        if (emptyMain == null) {
+            // The stable files take precedence over an uncommitted newer edit. This path is
+            // reserved for the interruption that left neither stable file usable.
+            File stage = new File(projectDir, PROJECT_FILE + ".tmp");
+            synchronized (writeLock(projectDir)) {
+                if (readableGeneration(stage, projectId)) {
+                    try (FileReader reader = new FileReader(stage)) {
+                        FaditorProject p = gson.fromJson(reader, FaditorProject.class);
+                        p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                        if (remember) seenOnDisk.put(projectId, stamp);
+                        healDanglingAnchors(p);
+                        return p;
+                    } catch (Exception e) {
+                        FLog.w(TAG, "Could not open interrupted save", e);
+                    }
+                }
+            }
+        }
+
         // Nothing better than a main file that opened but holds nothing yet (a blank project saved
         // before anything was added): that is still the project.
         if (emptyMain != null) {
@@ -588,6 +623,38 @@ public class ProjectStorage {
 
         FLog.d(TAG, "No loadable project found: " + projectId);
         return null;
+    }
+
+    private final java.util.concurrent.ConcurrentHashMap<String, byte[]> publishedDigests =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static java.security.MessageDigest newDigest() {
+        try { return java.security.MessageDigest.getInstance("SHA-256"); }
+        catch (java.security.NoSuchAlgorithmException impossible) { throw new AssertionError(impossible); }
+    }
+
+    private boolean matchesLastPublication(File file, String id) {
+        byte[] expected = publishedDigests.get(id);
+        if (expected == null) return false;
+        java.security.MessageDigest digest = newDigest();
+        try (java.io.InputStream input = new java.io.FileInputStream(file)) {
+            byte[] buffer = new byte[16384];
+            int n;
+            while ((n = input.read(buffer)) != -1) digest.update(buffer, 0, n);
+            return java.security.MessageDigest.isEqual(expected, digest.digest());
+        } catch (IOException e) { return false; }
+    }
+
+    private boolean readableGeneration(File f, String projectId) {
+        if (!f.isFile()) return false;
+        try (FileReader reader = new FileReader(f)) {
+            JsonObject data = gson.fromJson(reader, JsonObject.class);
+            if (data == null || !hasValue(data, "id") || !projectId.equals(data.get("id").getAsString())
+                    || !data.has("timeline") || !data.get("timeline").isJsonObject()) return false;
+            return gson.fromJson(data, FaditorProject.class) != null;
+        } catch (Exception invalid) {
+            return false;
+        }
     }
 
     private static void keepUnreadable(@NonNull File projectDir, @NonNull File file) {

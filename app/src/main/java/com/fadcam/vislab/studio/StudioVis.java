@@ -87,6 +87,7 @@ public final class StudioVis {
         @Nullable String drewLook;
         @Nullable Uri uri;
         @Nullable SoundClock sound;
+        final Features silence = new Features();
         double lastTime = Double.NaN;
         long usedAt;
         /** The clip's transcript words for the look's Words layers (S5), and their key. */
@@ -363,12 +364,12 @@ public final class StudioVis {
                 it.renderer.setScene(VisScene.parse(r.lookJson));
                 it.lookJson = r.lookJson;
             }
-            if (it.sound == null || (r.uri != null && !r.uri.equals(it.uri))) {
+            if (!java.util.Objects.equals(r.uri, it.uri)) {
                 it.uri = r.uri;
                 it.sound = r.uri != null ? new SoundClock(app, r.uri) : null;
                 it.renderer.setHitCounter(it.sound);
             }
-            Features f = it.sound != null ? it.sound.at(r.sourceMs / 1000.0) : new Features();
+            Features f = it.sound != null ? it.sound.at(r.sourceMs / 1000.0) : it.silence;
             double t = r.timelineMs / 1000.0;
             double dt = Double.isNaN(it.lastTime) ? 1.0 / 30 : Math.max(0, Math.min(0.1, t - it.lastTime));
             it.lastTime = t;

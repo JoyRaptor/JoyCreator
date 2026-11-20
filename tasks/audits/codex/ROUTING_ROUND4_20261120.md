@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| VIS-SOUND | Confirmed and fixed on `codex/r4-vis-sound` | StudioVisAudioBindingTest drove the production export entry through link, unlink, relink and backward seek. Base failed to clear the hit counter and reused the old features. Fixed JVM run passed. |

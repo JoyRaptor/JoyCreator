@@ -41,9 +41,54 @@ final class StudioPictures implements VisRenderer.ImageSource {
     @NonNull private final Pictures pictures;
     @NonNull private final Videos videos;
     @Nullable private volatile VisShow show;
-    private final Map<String, SpriteSheetRenderer> renderers = new HashMap<>();
+    private final Map<String, DecodedSheet> renderers = new HashMap<>();
     private final Map<String, AvatarItemPuppet> puppets = new HashMap<>();
     private final Map<String, Bitmap> spriteFrames = new HashMap<>();
+    private final Map<String, HeldCell> heldCells = new HashMap<>();
+    private long generation;
+
+    private static final class DecodedSheet {
+        final SpriteSheet sheet;
+        final long revision;
+        final SpriteSheetRenderer renderer;
+
+        DecodedSheet(SpriteSheet sheet, SpriteSheetRenderer renderer) {
+            this.sheet = sheet;
+            this.revision = sheet.decodeRevision();
+            this.renderer = renderer;
+        }
+    }
+
+    /** A grid or sequence cell may be reused only when its source, crop and alignment still match. */
+    private static final class HeldCell {
+        final SpriteSheetRenderer renderer;
+        final int cell, source, w, h;
+        final long geometry, generation;
+        final boolean flipH, flipV;
+        final float dx, dy, scale, rotation;
+
+        HeldCell(SpriteSheetRenderer r, SpriteSheet s, SpriteOverlayItem item, int cell, int w, int h, long gen) {
+            renderer = r; this.cell = cell; source = s.sourceCell(cell); geometry = s.geometryRevision();
+            this.w = w; this.h = h; generation = gen; flipH = item.isFlipH(); flipV = item.isFlipV();
+            SpriteSheet.CellXf xf = s.cellTransform(cell);
+            dx = xf == null ? 0f : xf.dx; dy = xf == null ? 0f : xf.dy;
+            scale = xf == null ? 1f : xf.scale; rotation = xf == null ? 0f : xf.rot;
+        }
+
+        boolean matches(SpriteSheetRenderer r, SpriteSheet s, SpriteOverlayItem item, int c, int width, int height) {
+            if (renderer != r || cell != c || source != s.sourceCell(c) || geometry != s.geometryRevision()
+                    || w != width || h != height || flipH != item.isFlipH() || flipV != item.isFlipV()) return false;
+            SpriteSheet.CellXf xf = s.cellTransform(c);
+            return xf == null ? dx == 0 && dy == 0 && scale == 1 && rotation == 0
+                    : dx == xf.dx && dy == xf.dy && scale == xf.scale && rotation == xf.rot;
+        }
+    }
+
+    @Override public long frameGeneration(@NonNull String ref) {
+        HeldCell held = heldCells.get(ref);
+        return held == null ? pictures.frameGeneration(ref) : held.generation;
+    }
+
     private final Paint spritePaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
 
     StudioPictures(@NonNull Context c) {
@@ -153,6 +198,10 @@ final class StudioPictures implements VisRenderer.ImageSource {
         int h = SPRITE_H;
         int w = Math.max(1, Math.round(h * (aspect > 0 ? aspect : 1f)));
         Bitmap b = spriteFrames.get(ref);
+        HeldCell held = heldCells.get(ref);
+        if (!o.hasAvatarPerformance() && b != null && !b.isRecycled() && held != null
+                && held.matches(r, sheet, o, cell, w, h)) return b;
+        heldCells.remove(ref);   // Failed draws and animated poses can never claim the previous pixels.
         if (b == null || b.isRecycled() || b.getWidth() != w || b.getHeight() != h) {
             if (b != null && !b.isRecycled()) b.recycle();
             b = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
@@ -171,16 +220,23 @@ final class StudioPictures implements VisRenderer.ImageSource {
         } catch (RuntimeException e) {
             return null;   // a sprite that cannot draw shows nothing, never breaks the look
         }
+        if (!o.hasAvatarPerformance()) heldCells.put(ref, new HeldCell(r, sheet, o, cell, w, h, ++generation));
         return b;
     }
 
     @Nullable
     private SpriteSheetRenderer rendererFor(@Nullable String sheetId) {
         if (sheetId == null) return null;
-        if (renderers.containsKey(sheetId)) return renderers.get(sheetId);
         SpriteSheet sheet = StudioArt.sheet(sheetId);
-        SpriteSheetRenderer r = sheet != null ? SpriteSheetRenderer.load(app, sheet, SPRITE_H * 2) : null;
-        renderers.put(sheetId, r);
+        if (sheet == null) return null;
+        DecodedSheet cached = renderers.get(sheetId);
+        if (cached != null && cached.sheet == sheet && cached.revision == sheet.decodeRevision()) return cached.renderer;
+        if (cached != null && cached.renderer != null) {
+            cached.renderer.recycle();
+            puppets.clear();
+        }
+        SpriteSheetRenderer r = SpriteSheetRenderer.load(app, sheet, SPRITE_H * 2);
+        renderers.put(sheetId, new DecodedSheet(sheet, r));
         return r;
     }
 
@@ -200,7 +256,8 @@ final class StudioPictures implements VisRenderer.ImageSource {
         videos.release();
         for (Bitmap b : spriteFrames.values()) if (b != null && !b.isRecycled()) b.recycle();
         spriteFrames.clear();
-        for (SpriteSheetRenderer r : renderers.values()) if (r != null) r.recycle();
+        heldCells.clear();
+        for (DecodedSheet cached : renderers.values()) if (cached.renderer != null) cached.renderer.recycle();
         renderers.clear();
         puppets.clear();
     }

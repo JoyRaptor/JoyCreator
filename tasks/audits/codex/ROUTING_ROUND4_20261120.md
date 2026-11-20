@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| VIS-SPRITE | Confirmed and fixed on `codex/r4-vis-sprite` | HeldSpriteTest reproduced three CPU draws for one held cell. Production provider and texture consumer now draw once and upload once per held picture. First/last holds, flips, same-ID sheet replacement and independent instances pass. Performing avatars continue rendering each requested pose. |

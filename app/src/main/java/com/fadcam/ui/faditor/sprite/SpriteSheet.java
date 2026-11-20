@@ -229,7 +229,15 @@ public class SpriteSheet {
     @NonNull public String getName() { return name; }
     public void setName(@NonNull String name) { this.name = name; }
     @NonNull public String getSheetUri() { return sheetUri; }
-    public void setSheetUri(@NonNull String sheetUri) { this.sheetUri = sheetUri; }
+    private long decodeRevision, geometryRevision;
+    /** Runtime-only versions for consumers holding a decoded sheet or drawing. */
+    public long decodeRevision() { return decodeRevision; }
+    public long geometryRevision() { return geometryRevision; }
+
+    public void setSheetUri(@NonNull String sheetUri) {
+        if (!this.sheetUri.equals(sheetUri)) decodeRevision++;
+        this.sheetUri = sheetUri;
+    }
     public int getCols() { return cols; }
     public int getRows() { return rows; }
     /**
@@ -242,6 +250,7 @@ public class SpriteSheet {
     }
 
     public void setGrid(int cols, int rows) {
+        geometryRevision++;
         this.cols = Math.max(1, cols);
         this.rows = Math.max(1, rows);
         dropOrderIfGridChanged();
@@ -251,10 +260,12 @@ public class SpriteSheet {
     public int getSpacingX() { return spacingX; }
     public int getSpacingY() { return spacingY; }
     public void setMargins(int marginX, int marginY) {
+        geometryRevision++;
         this.marginX = Math.max(0, marginX);
         this.marginY = Math.max(0, marginY);
     }
     public void setSpacing(int spacingX, int spacingY) {
+        geometryRevision++;
         this.spacingX = Math.max(0, spacingX);
         this.spacingY = Math.max(0, spacingY);
     }
@@ -264,12 +275,14 @@ public class SpriteSheet {
     public int getBgKeyColor() { return bgKeyColor; }
     public float getKeyTolerance() { return keyTolerance; }
     public void setBgKey(int color, float tolerance) {
+        if (bgKeyColor != color || keyTolerance != Math.max(0f, tolerance)) decodeRevision++;
         this.bgKeyColor = color;
         this.keyTolerance = Math.max(0f, tolerance);
     }
     public float getPivotX() { return pivotX; }
     public float getPivotY() { return pivotY; }
     public void setPivot(float x, float y) {
+        geometryRevision++;
         this.pivotX = clamp01(x);
         this.pivotY = clamp01(y);
     }
@@ -465,6 +478,7 @@ public class SpriteSheet {
 
     /** Turn this into a file-backed sequence over {@code uris} (order = cell order). */
     public void setSequenceFrames(@NonNull List<String> uris) {
+        decodeRevision++;
         this.kind = KIND_SEQUENCE;
         this.frameUris.clear();
         this.frameUris.addAll(uris);

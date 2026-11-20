@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| GL-SPAN | Confirmed and fixed on `codex/r4-gl-span` | Cull adjustments outside the export piece before allocating their passes. The production admission gate submitted 20 disjoint passes on base and zero after. The clock sweep retained every active frame, including open-ended layers and negative loop offsets. GPU timing remains unmeasured. |

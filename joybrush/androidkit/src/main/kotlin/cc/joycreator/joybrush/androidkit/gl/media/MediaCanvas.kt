@@ -1246,6 +1246,8 @@ class MediaCanvas(
                 finally { e.pasteSettle() }   // an unpaired last step's box back into the canvas everything else reads
             }
             MediaPhases.timer?.invoke("paste.steps (count)", steps.size.toDouble())
+            MediaPhases.timer?.invoke("paste.nbr us (count)", e.pasteNbrNs / 1000.0)
+            e.pasteNbrNs = 0L
         }
         if (failNextFrame) { failNextFrame = false; error("failed by the probe") }
         if (st.wet) e.wetFrame(wetIn, paper, DOC_PX_PER_MM, wq)

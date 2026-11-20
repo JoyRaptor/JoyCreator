@@ -300,7 +300,9 @@ object DrawingLibrary {
                     folderCopyOwed(file); tellFolderCopyFailed(app, file.name)
                     return@execute
                 }
+                val began = android.os.SystemClock.elapsedRealtime()
                 mirrorFile(app, jf, dir, file.name, contents.doc.id)
+                Log.i(TAG, "folder copy of ${file.name}: ${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
             } catch (e: Throwable) {
                 // Throwable: running out of memory here is an Error, and on this plain worker thread an Error that
                 // nobody catches closes the whole app, right after a save (work-loss audit 2026-11-10).

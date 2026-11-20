@@ -83,6 +83,14 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     /** The page-table uniforms for a pass whose target slots are `1 shl shift` (8 full resolution, 7 the bead field). */
     /** Media Atlas v2 B2: the page table becomes [map] (tile key -> slot), uploaded at once; the engine loses its window edge. */
     fun setResidency(map: Map<Long, Int>) {
+        val t0 = System.nanoTime()
+        try { setResidencyNow(map) } finally {
+            // Codex audit round 4, ATLAS-TABLE: what each whole-table definition costs on the CPU (bench report only).
+            MediaPhases.timer?.let { it("atlas.tableDef us (count)", (System.nanoTime() - t0) / 1000.0); it("atlas.tableCells (count)", (grid[2] * grid[3]).toDouble()) }
+        }
+    }
+
+    private fun setResidencyNow(map: Map<Long, Int>) {
         for (s in map.values) require(s in 0 until zeroSlot) { "slot $s is not a tile slot of this atlas" }
         val t = MediaAtlasPlacement.table(map, walls)
         free = true; resident = HashMap(map)

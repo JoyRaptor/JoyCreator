@@ -53,9 +53,8 @@ import java.util.List;
  * also why the composite reads the original through its own {@code uBaseSampler} — by then
  * {@code uTexSampler} holds the previous pass's output.</p>
  *
- * <p><b>Never throws on a driver failure.</b> {@code BlendModeGlEffect} does, and for a PiP that
- * is right — a missing overlay is a broken film. Here a lost grade is far better than a lost
- * export, so a compile failure degrades to passthrough.</p>
+ * <p>An active adjustment must render its complete ordered mask. Driver failures carry the
+ * layer and frame to the export service so an incomplete grade cannot be published.</p>
  */
 public final class AdjustmentLayerGlEffect implements GlEffect {
 
@@ -112,8 +111,6 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
          * and shared with the preview, because the same radius must mean the same blur in both.
          */
         private static final int KERNEL_HALF = FxGlSource.KERNEL_HALF;
-        /** Null once a compile has failed — the passthrough latch. */
-        private boolean degraded;
         private int width = 1, height = 1;
         /** The source this program was compiled from; a change means recompile. */
         @androidx.annotation.Nullable private String sourceKey;
@@ -148,7 +145,7 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                 // TIME GATE first: an adjustment layer is emitted into every clip's chain with
                 // the same offset and self-gates here, exactly as PipFrameOverlay.activeAt does
                 // for a PiP. That is why no per-clip slicing is needed.
-                if (degraded || !layer.activeAt(editorMs) || !layer.rendersAnything()) {
+                if (!layer.activeAt(editorMs) || !layer.rendersAnything()) {
                     passthrough(inputTexId);
                     return;
                 }
@@ -166,10 +163,6 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     passthrough(inputTexId);
                     return;
                 }
-                // Whatever count actually COMPILED — see the single-shape retry in
-                // ensurePrograms. Uploading more than the program declared would be an out-of-
-                // range write the driver is free to ignore or to fault on.
-                shapes = Math.min(shapes, compiledShapes);
                 float[] maskGeo4 = new float[shapes * 4];
                 float[] maskRot2 = new float[shapes * 2];
                 float[] maskCorner = new float[shapes];
@@ -266,18 +259,8 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
                     }
                 }
             } catch (Exception e) {
-                // A lost grade beats a lost export. Latch so a per-frame failure does not spam.
-                if (!degraded) {
-                    // WITH the throwable: a bare toString on an NPE names no line, and this
-                    // path is only ever reached on a device where a debugger is not attached.
-                    FLog.w("AdjustmentLayer", "degrading to passthrough", e);
-                    degraded = true;
-                }
-                try {
-                    passthrough(inputTexId);
-                } catch (Exception ignored) {
-                    throw new VideoFrameProcessingException(e);
-                }
+                throw new VideoFrameProcessingException("Adjustment " + layer.getName() + " (" + layer.getId()
+                        + ") failed at editor time " + editorMs + " ms", e, presentationTimeUs);
             }
         }
 
@@ -466,24 +449,12 @@ public final class AdjustmentLayerGlEffect implements GlEffect {
             if (!steps.isEmpty() && key.toString().equals(sourceKey)) return true;
 
             if (!buildSteps(plan, maskShapes)) {
-                // A many-shape mask is the one thing here that can outgrow a GPU's fragment
-                // uniform budget, and losing the grade entirely would be worse than the
-                // shape-0-only render this replaced. Retry at one shape, and remember what
-                // compiled so drawFrame uploads exactly that many.
-                if (maskShapes <= 1 || !buildSteps(plan, 1)) {
-                    degraded = true;
-                    return false;
-                }
-                compiledShapes = 1;
-            } else {
-                compiledShapes = maskShapes;
+                throw new VideoFrameProcessingException("Could not compile the full adjustment mask ("
+                        + maskShapes + " shapes)");
             }
             sourceKey = key.toString();
             return true;
         }
-
-        /** How many shapes the compiled programs' arrays hold. @see #ensurePrograms */
-        private int compiledShapes = 1;
 
         /** Compile every render of {@code plan} at {@code maskShapes}; false if any failed. */
         private boolean buildSteps(@NonNull FxCompiler.Plan plan, int maskShapes) {

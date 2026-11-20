@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| GL-MASK | Confirmed and fixed on `codex/r4-gl-mask` | Fail export explicitly when the complete mask cannot render. Host injected budgets of zero and one for four shapes. Original returned success with an incomplete mask. Fixed path attempts all four once and reports layer, editor time and presentation timestamp. A budget of four succeeds. |

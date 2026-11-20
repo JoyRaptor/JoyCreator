@@ -377,7 +377,7 @@ public class BakedAudioCache {
         FFmpegKit.executeAsync(cmd, session -> {
             if (ReturnCode.isSuccess(session.getReturnCode())
                     && tmp.exists() && tmp.length() >= MIN_VALID_BAKE_BYTES
-                    && validAudio(tmp, request.endMs) && commit(tmp, out)) {
+                    && validAudio(tmp, spanMs) && commit(tmp, out)) {
                 FLog.i(TAG, "Bake OK: " + out.getName() + " (" + out.length() / 1024 + " KB)");
                 callback.onComplete(result(request, out), null);
             } else {

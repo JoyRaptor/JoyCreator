@@ -7,3 +7,5 @@
 # Hook and guard scripts run under bash/perl: CRLF endings would break them (and every commit with them)
 .githooks/* text eol=lf
 tools/joyguard/* text eol=lf
+
+app/src/main/assets/studio_voice/*.rnnn -text

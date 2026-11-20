@@ -200,6 +200,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     // ── Core components ──────────────────────────────────────────────
     private FaditorProject project;
+    private android.os.CancellationSignal studioVoiceJob;
     private FaditorPlayerManager playerManager;
     private ExportManager exportManager;
     private SharedPreferencesManager prefsManager;
@@ -2403,6 +2404,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (studioVoiceJob != null) studioVoiceJob.cancel();
         if (handoffArrival != null) { handoffArrival.drop(); handoffArrival = null; }
         super.onDestroy();
         if (markerPopup != null) markerPopup.dismiss();
@@ -32869,7 +32871,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(getString(R.string.drawer_tab_clean), 0,
                 ctx -> com.fadcam.ui.faditor.tools.AudioDrawerTabs.cleanTab(ctx, ac, host,
                         projectStorage.projectDir(project.getId()),
-                        new com.fadcam.ui.faditor.audio.BakedAudioCache(this))));
+                        new com.fadcam.ui.faditor.audio.BakedAudioCache(this), () -> applyStudioVoice(ac))));
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles = new java.util.ArrayList<>();
         // JoyRaptor 2026-08-23: the ⇤/⇥ range CHIPS moved out of the bottom peek sheet and up here,
         // "on the left side of the mute button ... start here, end here, break, mute, shield".
@@ -46459,45 +46461,105 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 Toast.makeText(this, R.string.studio_d3_fix_audio_failed, Toast.LENGTH_LONG).show();
                 return;
             }
-            // Swap clip to baked file — one undo step (like Clean tab).
-            // The revert target is the TRUE original: a Fix on a clip that is already a bake
-            // (Clean, then Fix) used to record the earlier bake as "the original", so the
-            // Clean tab's Revert went back to the half-processed file, not the recording.
-            String originalUri = target.isBakedSource()
-                    ? target.getBakedFromUri() : target.getSourceUri().toString();
-            String bakedPath = result.bakedFile.getAbsolutePath();
-            String beforeUri = target.getSourceUri().toString();
-            String beforeBakedUri = target.getBakedFromUri();
-            String beforeBakedFile = target.getBakedFromFile();
-            android.net.Uri bakedUri = android.net.Uri.fromFile(result.bakedFile);
-            // Every swap ends the same way: the stored waveform is read again from the file
-            // the clip now plays (SourceWaveform), then the usual repaint, player and save.
-            final Runnable afterSwap = () -> {
-                com.fadcam.ui.faditor.audio.SourceWaveform.refresh(this, target, () -> {
-                    if (editorTimeline != null) editorTimeline.invalidate();
-                });
-                syncTimelineOverlays();
-                if (editorTimeline != null) editorTimeline.invalidate();
-                prepareAudioPlayer();
-                scheduleAutoSave();
-            };
-            target.setSourceUri(bakedUri);
-            target.setBakedFrom(originalUri, bakedPath);
-            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
-                    "Fix audio",
-                    () -> {
-                        target.setSourceUri(bakedUri);
-                        target.setBakedFrom(originalUri, bakedPath);
-                        afterSwap.run();
-                    },
-                    () -> {
-                        target.setSourceUri(android.net.Uri.parse(beforeUri));
-                        target.setBakedFrom(beforeBakedUri, beforeBakedFile);
-                        afterSwap.run();
-                    }));
-            afterSwap.run();
-            Toast.makeText(this, R.string.studio_toast_audio_fixed_revert_in_clean_tab, Toast.LENGTH_SHORT).show();
+            applyBakedAudio(target, result.bakedFile, "Fix audio");
         }));
+    }
+
+    private void applyStudioVoice(@NonNull AudioClip target) {
+        if (project == null || target.isBakedSource()) return;
+        final FaditorProject owner = project;
+        final Uri source = target.getSourceUri();
+        final long start = target.getInPointMs();
+        final long outPoint = target.getOutPointMs();
+        final long end = outPoint > start ? outPoint : target.getSourceDurationMs();
+        if (end <= start) {
+            Toast.makeText(this, R.string.studio_toast_audio_has_no_duration, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        android.app.ProgressDialog dialog = new android.app.ProgressDialog(this);
+        dialog.setTitle(R.string.studio_voice);
+        dialog.setMessage(getString(R.string.studio_voice_analyzing));
+        dialog.setProgressStyle(android.app.ProgressDialog.STYLE_HORIZONTAL);
+        dialog.setMax(100);
+        dialog.setIndeterminate(true);
+        dialog.setCanceledOnTouchOutside(false);
+        dialog.setButton(android.content.DialogInterface.BUTTON_NEGATIVE, getString(android.R.string.cancel),
+                (android.content.DialogInterface.OnClickListener) (ignored, which) -> dialog.cancel());
+        dialog.show();
+        android.os.CancellationSignal signal = com.fadcam.ui.faditor.audio.StudioVoiceRender.start(
+                this, projectStorage.projectDir(owner.getId()), source, start, end,
+                new com.fadcam.ui.faditor.audio.StudioVoiceRender.Listener() {
+                    @Override public void progress(int percent) {
+                        runOnUiThread(() -> {
+                            if (!dialog.isShowing() || isDestroyed()) return;
+                            dialog.setIndeterminate(false);
+                            dialog.setMessage(getString(R.string.studio_voice_rendering));
+                            dialog.setProgress(percent);
+                        });
+                    }
+                    @Override public void finished(File file, Exception error) {
+                        runOnUiThread(() -> {
+                            if (isDestroyed() || isFinishing() || !dialog.isShowing()) return;
+                            dialog.dismiss();
+                            studioVoiceJob = null;
+                            if (owner != project || !owner.getTimeline().getAudioClips().contains(target)
+                                    || !source.equals(target.getSourceUri()) || target.getInPointMs() != start
+                                    || target.getOutPointMs() != outPoint) return;
+                            if (error != null) {
+                                FLog.w(TAG, "Studio Voice: " + error);
+                                Toast.makeText(FaditorEditorActivity.this, error instanceof UnsupportedOperationException
+                                        ? R.string.studio_voice_layout : R.string.studio_voice_failed, Toast.LENGTH_LONG).show();
+                            } else if (file == null) {
+                                Toast.makeText(FaditorEditorActivity.this, R.string.studio_voice_already_quiet, Toast.LENGTH_SHORT).show();
+                            } else {
+                                applyBakedAudio(target, file, getString(R.string.studio_voice));
+                            }
+                        });
+                    }
+                });
+        studioVoiceJob = signal;
+        dialog.setOnCancelListener(ignored -> signal.cancel());
+    }
+
+    private void applyBakedAudio(AudioClip target, File bakedFile, String label) {
+        // Swap clip to baked file — one undo step (like Clean tab).
+        // The revert target is the TRUE original: a Fix on a clip that is already a bake
+        // (Clean, then Fix) used to record the earlier bake as "the original", so the
+        // Clean tab's Revert went back to the half-processed file, not the recording.
+        String originalUri = target.isBakedSource()
+                ? target.getBakedFromUri() : target.getSourceUri().toString();
+        String bakedPath = bakedFile.getAbsolutePath();
+        String beforeUri = target.getSourceUri().toString();
+        String beforeBakedUri = target.getBakedFromUri();
+        String beforeBakedFile = target.getBakedFromFile();
+        android.net.Uri bakedUri = android.net.Uri.fromFile(bakedFile);
+        // Every swap ends the same way: the stored waveform is read again from the file
+        // the clip now plays (SourceWaveform), then the usual repaint, player and save.
+        final Runnable afterSwap = () -> {
+            com.fadcam.ui.faditor.audio.SourceWaveform.refresh(this, target, () -> {
+                if (editorTimeline != null) editorTimeline.invalidate();
+            });
+            syncTimelineOverlays();
+            if (editorTimeline != null) editorTimeline.invalidate();
+            prepareAudioPlayer();
+            scheduleAutoSave();
+        };
+        target.setSourceUri(bakedUri);
+        target.setBakedFrom(originalUri, bakedPath);
+        undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.LambdaAction(
+                label,
+                () -> {
+                    target.setSourceUri(bakedUri);
+                    target.setBakedFrom(originalUri, bakedPath);
+                    afterSwap.run();
+                },
+                () -> {
+                    target.setSourceUri(android.net.Uri.parse(beforeUri));
+                    target.setBakedFrom(beforeBakedUri, beforeBakedFile);
+                    afterSwap.run();
+                }));
+        afterSwap.run();
+        Toast.makeText(this, R.string.studio_toast_audio_fixed_revert_in_clean_tab, Toast.LENGTH_SHORT).show();
     }
 
     // ── D6: Beat detection door ──

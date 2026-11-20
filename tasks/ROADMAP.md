@@ -255,3 +255,5 @@ The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE
    the OWNER DECISIONS sections and `DESIGN_JOY_CREATOR.md` for it and quote what was ruled. When a plan leaves this page,
    its row moves to `FUTURE_PLANS.md` with the reason.
    handoffs hang off the card, never off this page.
+
+- [STU-VOICE · One-tap cached dialogue cleanup](jobs/STU-VOICE_note9_cleanup.md) — ARM64 test build available. Rain and three controlled noises checked. Physical Note9 and listening comparison open.

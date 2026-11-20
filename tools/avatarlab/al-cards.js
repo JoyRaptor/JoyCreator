@@ -197,6 +197,7 @@
         mirrorChip(app, hd)
       ]);
       pb.appendChild(h('div', { class: 'padrow' }, [cards.turnPad(app, { moveDots: function () { return app.moveDots; } }), side]));
+      angleTools(app, pb, hd, cv);
       pb.appendChild(ui.note('The small <b>diamonds</b> between two dots are bridges. Tap one to match those two drawings, so the head bends from one into the other instead of jumping.'));
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
@@ -232,6 +233,50 @@
         { key: 'by', label: 'Top', x: ball.cx, y: ball.cy - ball.ry, node: null, color: '#fbbf24', set: function (x, y) { ball.ry = Math.max(8, Math.abs(ball.cy - y)); } });
       return p;
     };
+  }
+  /**
+   * COPY AN ANGLE. A head drawn level can stand in for the same head tipped up or down: copy its dot, drag the copy to where it
+   * should show, and turn or resize the whole copy. It is a full copy (every layer, mask, pin and shape), so its pieces can then be
+   * nudged on their own. It starts matched to the angle it came from, so the two turn into each other without a jump.
+   */
+  cards.copyAngle = function (app, set, kid) {
+    var ch = app.ch, made = null;
+    function spot() {
+      var a = kid.at || [0, 0], tries = [[0, -0.5], [0, 0.5], [-0.5, 0], [0.5, 0], [-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0, -0.25], [0, 0.25]];
+      for (var i = 0; i < tries.length; i++) { var x = a[0] + tries[i][0], y = a[1] + tries[i][1]; if (Math.abs(x) > 1 || Math.abs(y) > 1) continue; if (!set.kids.some(function (k) { return k.at && Math.hypot(k.at[0] - x, k.at[1] - y) < 0.2; })) return [x, y]; }
+      return [clamp(a[0] + 0.15, -1, 1), clamp(a[1] - 0.15, -1, 1)];
+    }
+    function tri(n) { var b = AL.boundsOf(n); if (!b) return null; return [[b.x0, b.y0], [b.x1, b.y0], [(b.x0 + b.x1) / 2, b.y1]].map(function (p) { return { a: [p[0], p[1]], b: [p[0], p[1]] }; }); }
+    app.edit(function () {
+      var at = spot(), c2;
+      if (kid.type === 'mirror') c2 = { id: AL.id('n'), name: kid.name, type: 'mirror', of: kid.of, rot: kid.rot || 0, sc: kid.sc == null ? 1 : kid.sc };
+      else {
+        var txt = JSON.stringify(kid), ids = []; AL.walk(kid, function (q) { ids.push(q.id); });
+        ids.forEach(function (old) { txt = txt.split('"' + old + '"').join('"' + AL.id('n') + '"'); });       // every link inside the copy (masks, riders, rest picks) follows it
+        c2 = JSON.parse(txt);
+        var pv = kid.pivot || set.pivot || (function () { var b = AL.boundsOf(kid); return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : null; })();
+        if (pv) { if (!kid.pivot) kid.pivot = { x: pv.x, y: pv.y }; c2.pivot = { x: pv.x, y: pv.y }; }
+        /* matched from birth: the same spots on both, for the whole head and for every piece that warps on its own */
+        var bs = set.bridges || (set.bridges = []), w = tri(kid); if (w) bs.push({ a: kid.id, b: c2.id, pts: w, meet: 0.5 });
+        for (var key in (set.warpWith || {})) if (set.warpWith[key] === 'own') { var pc = AL.find(kid, function (q) { return q !== kid && AL.bridge.key(q) === key; }), pt = pc ? tri(pc) : null; if (pt) bs.push({ a: kid.id, b: c2.id, part: key, pts: pt, meet: 0.5 }); }
+      }
+      c2.name = String(kid.name).replace(/ copy( \d+)?$/, '') + ' copy'; var nn = 2, base = c2.name; while (set.kids.some(function (k) { return k.name === c2.name; })) c2.name = base + ' ' + nn++;
+      c2.at = at; delete c2.auto; set.kids.push(c2); made = c2;
+    }, false, 'Copy an angle');
+    if (made) { app.moveDots = true; app.bt.x = made.at[0]; app.bt.y = made.at[1]; app.toast('Copied. Drag its dot to where it should show, then turn it with the slider.'); setTimeout(function () { app.resolveSel(); app.refreshPanel(true); }, 40); }
+    return made;
+  };
+  function angleTools(app, pb, hd, cv) {
+    var ui = app.ui, kid = cv && cv.kid; if (!kid || !kid.at) return;
+    function pivot() { if (kid.type !== 'mirror' && !kid.pivot) { var b = AL.boundsOf(kid), p = hd.pivot || (b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : null); if (p) kid.pivot = { x: p.x, y: p.y }; } }
+    pb.appendChild(ui.lab('This angle: ' + kid.name));
+    pb.appendChild(ui.row([
+      ui.chip('Copy this angle', { icon: 'plus', title: 'Make a copy of this drawing as a new dot: for the same head tipped up or down. Drag the new dot where it should show, then turn the copy.', fn: function () { cards.copyAngle(app, hd, kid); } }),
+      ui.chip('Rename', { cls: 'quiet', title: 'Give this angle another name', fn: function () { app.promptText('Name of this angle', kid.name, function (v) { app.edit(function () { kid.name = v; }, false, 'Rename an angle'); }); } }),
+      hd.kids.filter(function (k) { return k.at; }).length > 1 ? ui.chip('Remove', { cls: 'quiet', title: 'Take this angle away. Undo brings it back.', fn: function () { app.edit(function () { hd.kids = hd.kids.filter(function (k) { return k !== kid && !(k.type === 'mirror' && k.of === kid.id); }); hd.bridges = (hd.bridges || []).filter(function (b) { return hd.kids.some(function (k) { return k.id === b.a; }) && hd.kids.some(function (k) { return k.id === b.b; }); }); if (hd.pick && hd.pick.rest === kid.id) hd.pick.rest = hd.kids[0].id; app.bt.x = app.bt.y = 0; }, false, 'Remove an angle'); setTimeout(function () { app.resolveSel(); app.refreshPanel(true); }, 40); } }) : null
+    ]));
+    pb.appendChild(ui.slider('Tip the whole angle', { min: -60, max: 60, step: 1, value: kid.rot || 0, set: function (v) { pivot(); kid.rot = v; }, fmt: function (v) { return v + '°'; }, title: 'Turns every layer of this angle together, from the neck. Between two dots the tip blends.' }));
+    pb.appendChild(ui.slider('Size of the whole angle', { min: 60, max: 160, step: 1, value: Math.round((kid.sc == null ? 1 : kid.sc) * 100), set: function (v) { pivot(); kid.sc = v / 100; }, fmt: function (v) { return v + '%'; }, title: 'Makes every layer of this angle bigger or smaller together' }));
   }
   function mirrorChip(app, hd) {
     var auto = hd.kids.filter(function (k) { return k.type === 'mirror'; }), L = hd.kids.some(function (k) { return k.type !== 'mirror' && k.at && k.at[0] < -0.1; }), R = hd.kids.some(function (k) { return k.type !== 'mirror' && k.at && k.at[0] > 0.1; });
@@ -463,7 +508,11 @@
     pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'Drawn facing' }), ui.seg([['left', 'Left'], ['front', 'Front'], ['right', 'Right']], st.facing || 'front', function (v) { app.edit(function () { st.facing = v; }); }, 'Which way the body was drawn'), h('span')]));
     pb.appendChild(ui.toggle('Turn around by itself', !!st.autoFlip, function (v) { app.edit(function () { st.autoFlip = v; if (v && st.facing === 'front') st.facing = 'left'; }); }, 'When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways'));
     if (st.autoFlip) pb.appendChild(ui.slider('Flips past', { min: 0.1, max: 0.9, step: 0.05, value: st.flipAt == null ? 0.4 : st.flipAt, set: function (v) { st.flipAt = v; }, fmt: function (v) { return Math.round(v * 100) + '% turned'; } }));
-    if (st.facing !== 'front') pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'The turn is' }), ui.seg([['turn', 'A card turning', 'It swings round like a cardboard cut-out'], ['snap', 'Instant', 'Straight to the mirror image, for when the drawings already match closely']], st.flipStyle || 'turn', function (v) { app.edit(function () { st.flipStyle = v; }); }, 'How turning around looks'), h('span')]));
+    if (st.facing !== 'front') pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'The turn is' }), ui.seg([['smooth', 'Smooth', 'The body tucks in, swaps side while tucked and opens out again; a tail or an arm is pulled in behind the body and grows back out. A head with both sides drawn just keeps turning.'], ['snap', 'Instant', 'Straight to the mirror image, no in-between'], ['turn', 'A card', 'It swings round like a cardboard cut-out']], st.flipStyle || 'smooth', function (v) { app.edit(function () { st.flipStyle = v; }); app.refreshPanel(true); }, 'How turning around looks'), h('span')]));
+    if (st.facing !== 'front' && (st.flipStyle || 'smooth') === 'smooth') {
+      pb.appendChild(ui.slider('It takes', { min: 0.04, max: 0.6, step: 0.02, value: st.flipTime == null ? 0.14 : st.flipTime, set: function (v) { st.flipTime = v; }, fmt: function (v) { return Math.round(v * 24) + ' frames'; }, title: 'How long the turn lasts, in frames of film (24 a second)' }));
+      pb.appendChild(ui.slider('It tucks in', { min: 0, max: 0.9, step: 0.02, value: st.flipTuck == null ? 0.45 : st.flipTuck, set: function (v) { st.flipTuck = v; }, fmt: function (v) { return Math.round(v * 100) + '%'; }, title: 'How far the body, tail and arms pull in toward the middle before they swap sides. 0 swaps at full width.' }));
+    }
     pb.appendChild(ui.row([ui.chip('See it flipped', { on: !!app._bs && app._bs.flip, icon: 'flip', title: 'Show the mirrored side while building', fn: function () { app.buildSignals().flip = !app._bs.flip; app.refreshPanel(true); } })]));
     pb.appendChild(ui.lab('Walking'));
     var can = AL.walkDefaults(app.ch); cards.walkControls(app, pb, false); var wk = st.walk;

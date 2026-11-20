@@ -291,17 +291,24 @@
     if (live && set.autoFlip && F) { var th = set.flipAt == null ? 0.4 : set.flipAt, x = S.turnX * F; if (x < -th) want = 1; else if (x > -th * 0.45) want = 0; }
     st.flipWant = want;
     var target = (want ? 1 : 0) ^ (S.flip ? 1 : 0);
-    if (!live || set.flipStyle === 'snap') st.flip = target; else st.flip = st.flip < target ? Math.min(target, st.flip + dt / 0.16) : Math.max(target, st.flip - dt / 0.16);
-    var fx = Math.cos(st.flip * Math.PI); if (Math.abs(fx) < 0.03) fx = fx < 0 ? -0.03 : 0.03;
+    /* HOW it turns round. 'smooth' (the usual): the body tucks in toward its middle for a few frames, swaps to its mirror image while
+       tucked, and opens out again, so a tail or an arm is pulled in behind the body, changes side out of sight and grows back out.
+       A head with drawings for both sides does not tuck at all: it is already turning through its own angles, and the drawing
+       it shows just before the swap is the one it shows just after. 'turn': a card swinging round. 'snap': no in-between. */
+    var fstyle = set.flipStyle || 'smooth', fdur = fstyle === 'turn' ? 0.16 : (set.flipTime == null ? 0.14 : set.flipTime);
+    if (!live || fstyle === 'snap' || fdur <= 0) st.flip = target; else st.flip = st.flip < target ? Math.min(target, st.flip + dt / fdur) : Math.max(target, st.flip - dt / fdur);
+    var fx = Math.cos(st.flip * Math.PI), fy = 1, sqz = 1;
+    if (fstyle === 'smooth') { var tuck = clamp(set.flipTuck == null ? 0.45 : set.flipTuck, 0, 0.92); sqz = 1 - tuck * (1 - Math.pow(Math.abs(fx), 1.4)); fx = (st.flip > 0.5 ? -1 : 1) * sqz; fy = 1 + (1 - sqz) * 0.08; }
+    else if (Math.abs(fx) < 0.03) fx = fx < 0 ? -0.03 : 0.03;
     var axis = set.axisX == null ? ch.w / 2 : set.axisX;
     /* where the character stands on the stage (walking), how big (further away = smaller), then the mirror */
     var rt = S.root || { x: 0, y: 0 }, rs = S.rootScale || 1, gy = (set.walk && set.walk.groundY) || ch.h;
-    var TS = M.trs(rt.x, rt.y, 0, rs, rs, axis, gy), rootM = out.rootM = M.mul(TS, M.trs(0, 0, 0, fx, 1, axis, 0)), flipped = out.flipped = st.flip > 0.5;
+    var TS = M.trs(rt.x, rt.y, 0, rs, rs, axis, gy), rootM = out.rootM = M.mul(TS, M.trs(0, 0, 0, fx, fy, axis, gy)), flipped = out.flipped = st.flip > 0.5;
 
     /* springs and wind run in the character's own space, so turning the whole character around does not whip the hair */
     var invRoot = M.mul(TS, M.inv(rootM)), moving = live || !!opt.tween, frame = (st.frame = (st.frame || 0) + 1), windIn = (S.wind || 0) * (flipped ? -1 : 1);
     function windAcc(x) { return windIn * 1500 * (0.6 + 0.4 * Math.sin(S.t * 1.9 + x * 0.013) + 0.25 * Math.sin(S.t * 4.7 + x * 0.031)); }
-    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps }; if (over) for (var e in over) k[e] = over[e]; return k; }
+    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0 }; if (over) for (var e in over) k[e] = over[e]; return k; }
     /** The same context with a few things changed (ctx() is for stepping DOWN to a child; this stays on the same node). */
     function also(c, over) { var k = {}, e; for (e in c) k[e] = c[e]; for (e in over) k[e] = over[e]; return k; }
     /* a round head: where a point painted on the front of the ball is, once the ball has turned. Returns [x, y, depth]. */
@@ -467,7 +474,7 @@
       if (n.attach && ix.n[n.attach]) Mx = M.mul(c.rootIn, worldOf(n.attach));
       if (live && n.swing && n.swing.kind === 'stiff' && n.swing.on !== false) stepStiff(n, M.mul(invRoot, Mx));
       /* a PIECE of a turning head with landmarks of its own (or sharing another piece's) warps by those, not by the whole head's */
-      if (c.warps && n.name) { var wk = c.warps[String(n.name).toLowerCase().trim()]; if (wk !== undefined) c = also(c, { warp: wk, warps: null }); }
+      if (c.warps && n.name) { var wk = c.warps[String(n.name).toLowerCase().trim()]; if (wk !== undefined) c = also(c, { warp: wk, warps: null, P: wk && wk.par ? wk.par : (c.P0 || c.P) }); }
       /* pins on a folder or a set bend every drawing inside it (an eye made of parts, squeezed shut as one) */
       if (n.type !== 'art' && n.mesh && n.mesh.pins && n.mesh.pins.length) { var gp = pinTargets(n, sg(c), c); if (gp.moved) c = also(c, { warp: c.warp ? { P: c.warp.P.concat(gp.P), Q: c.warp.Q.concat(gp.Q) } : gp }); }
       /* ROUND SHAPE: this node is a ball (or a turned outline); parts inside marked "painted on" slide over it, parts marked "sticks out" ride its surface */
@@ -520,6 +527,20 @@
         var dl = pk.dial && S.dial ? S.dial[pk.dial] : null, tx = dl ? dl[0] * ((((c.mir ? 1 : 0) ^ (flipped ? 1 : 0))) ? -1 : 1) : s.turnX, ty = dl ? dl[1] : s.turnY, best = null, bd = 1e9, pd = 1e9;
         for (i = 0; i < kids.length; i++) { k = kids[i]; if (!k.at) continue; var d = hyp(k.at[0] - tx, k.at[1] - ty); if (d < bd) { bd = d; best = k; } if (k === prev) pd = d; }
         cur = (live && prev && prev.at && pd - bd < 0.07) ? prev : best;
+        /* turning right round: something with drawings for both sides keeps its full width while the body tucks */
+        if (sqz < 0.999 && !pk.dial && kids.some(function (q) { return q.at && q.at[0] < -0.1; }) && kids.some(function (q) { return q.at && q.at[0] > 0.1; })) {
+          var hb = n.pivot ? null : AL.boundsOf(n), hp = n.pivot || (hb ? { x: (hb.x0 + hb.x1) / 2, y: hb.y1 } : { x: axis, y: 0 });
+          Mx = M.mul(Mx, M.trs(0, 0, 0, 1 / sqz, 1 / fy, hp.x, hp.y));
+        }
+        /* ANGLES THAT ARE TURNED OR RESIZED (a copy of the level head, tipped up): between the dots the tip and the size blend, so two
+           copies of one drawing turn into each other with no jump. Each dot's pull falls off fast with distance, and is total on the dot. */
+        var effOf = function (q) { var qs = q.type === 'mirror' ? ix.n[q.of] : null; return qs ? { rot: (q.rot || 0) - (qs.rot || 0), sc: (q.sc == null ? 1 : q.sc) * (qs.sc == null ? 1 : qs.sc) } : { rot: q.rot || 0, sc: q.sc == null ? 1 : q.sc }; };
+        var mix = null;
+        if (moving && kids.some(function (q) { return q.at && (q.rot || (q.sc != null && q.sc !== 1)); })) {
+          var gw = 0, gr = 0, gs = 0;
+          kids.forEach(function (q) { if (!q.at) return; var ef = effOf(q), dq = hyp(q.at[0] - tx, q.at[1] - ty), g = 1 / (dq * dq * dq + 1e-6); gw += g; gr += g * ef.rot; gs += g * Math.log(Math.max(0.01, ef.sc)); });
+          if (gw) mix = { rot: gr / gw, sc: Math.exp(gs / gw) };
+        }
       } else if (pk.by === 'reach') {
         var hand = s.hand[pk.hand], foot = !!pk.hand && pk.hand.charAt(0) === 'F', restKid = ix.n[pk.rest] || null;
         if (!restKid || !restKid.limb) for (i = 0; i < kids.length; i++) if (kids[i].limb) { restKid = kids[i]; break; }
@@ -579,24 +600,39 @@
         if (pk.by === 'turn' && moving && !ghost && kid.at && n.bridges && n.bridges.length) {
           /* warp this angle toward each neighbour it is turning to */
           var warpOf = function (part) {
-            var BP = [], BQ = [];
+            var BP = [], BQ = [], rx = tx - kid.at[0], ry = ty - kid.at[1], toward = [];
             kids.forEach(function (o) {
               if (o === kid || !o.at) return;
               var br = AL.bridgeFor(ch, n, kid, o, part); if (!br) return;
               var ddx = o.at[0] - kid.at[0], ddy = o.at[1] - kid.at[1], d2 = ddx * ddx + ddy * ddy || 1, tt = ((tx - kid.at[0]) * ddx + (ty - kid.at[1]) * ddy) / d2, w = smooth(clamp(tt / 0.5, 0, 1));
+              if (tt > 0) toward.push([tt, ddx, ddy, d2]);
               if (w < 0.002) return;
               br.forEach(function (q) { var fxp = q.from[0], txp = q.from[0] + (q.to[0] - q.from[0]) * w; if (kid.type === 'mirror') { var axm = ax == null ? ch.w / 2 : ax; fxp = 2 * axm - fxp; txp = 2 * axm - txp; } BP.push([fxp, q.from[1]]); BQ.push([txp, q.from[1] + (q.to[1] - q.from[1]) * w]); });
             });
-            return BP.length ? { P: BP, Q: BQ } : null;
+            /* The landmarks already say how far everything travels toward that neighbour. The depth slide is a GUESS at the same
+               travel, made from each side: left in, the two drawings arrive at the swap pushed opposite ways and the piece jumps.
+               So the slide keeps only the part of the turn that no matched neighbour accounts for. */
+            toward.sort(function (p, q) { return q[0] - p[0]; }).forEach(function (q) { var t = (rx * q[1] + ry * q[2]) / q[3]; if (t > 0) { rx -= t * q[1]; ry -= t * q[2]; } });
+            return BP.length ? { P: BP, Q: BQ, par: [rx * dpx, ry * dpx] } : null;
           };
-          var whole = warpOf(''); if (whole) extra.warp = whole;
+          extra.P0 = extra.P;
+          var whole = warpOf(''); if (whole) { extra.warp = whole; extra.P = whole.par; }
           /* pieces that do not warp with the whole head: by their own landmarks, or by another piece's */
           if (n.warpWith) { var ws = {}, wn = 0; for (var wkey in n.warpWith) { var tg = n.warpWith[wkey]; tg = tg === 'own' ? wkey : (n.warpWith[tg] === 'own' ? tg : null); ws[wkey] = tg ? warpOf(tg) : whole; wn++; } if (wn) extra.warps = ws; }
         }
+        /* this angle's share of the blended tip and size (see above) */
+        var er = 0, es = 1;
+        if (mix && !ghost && kid.at) { var ek = effOf(kid); er = mix.rot - ek.rot; es = mix.sc / ek.sc; }
+        var pvA = function (q) { if (q.pivot) return q.pivot; if (n.pivot) return n.pivot; var qb = AL.boundsOf(q); return qb ? { x: (qb.x0 + qb.x1) / 2, y: (qb.y0 + qb.y1) / 2 } : { x: 0, y: 0 }; };
+        if (kid.type !== 'mirror' && (Math.abs(er) > 0.005 || Math.abs(es - 1) > 0.0005)) { var pk1 = pvA(kid); m2 = M.mul(Mx, M.trs(0, 0, er * DEG, es, es, pk1.x, pk1.y)); }
         if (kid.type === 'mirror') {
           src = ix.n[kid.of]; if (!src) return;
           if (ax == null) { var b = AL.boundsOf(src); ax = b ? (b.x0 + b.x1) / 2 : ch.w / 2; }
-          m2 = M.mul(Mx, M.flipX(ax)); extra.mir = !c.mir; extra.tag = (c.tag || '') + 'm'; if (extra.P) { extra.P = [-extra.P[0], extra.P[1]]; extra.rel = [-extra.rel[0], extra.rel[1]]; }
+          /* a mirrored angle can be tipped and resized on its own, like any other */
+          var mr = (kid.rot || 0) + er, ms = (kid.sc == null ? 1 : kid.sc) * es;
+          var mB = Mx;
+          if (Math.abs(mr) > 0.005 || Math.abs(ms - 1) > 0.0005) { var pk2 = pvA(src); mB = M.mul(Mx, M.trs(0, 0, mr * DEG, ms, ms, 2 * ax - pk2.x, pk2.y)); }
+          m2 = M.mul(mB, M.flipX(ax)); extra.mir = !c.mir; extra.tag = (c.tag || '') + 'm'; if (extra.P) { extra.P = [-extra.P[0], extra.P[1]]; extra.rel = [-extra.rel[0], extra.rel[1]]; if (extra.P0) extra.P0 = [-extra.P0[0], extra.P0[1]]; if (extra.warps) for (var fk in extra.warps) { var fw = extra.warps[fk]; if (fw && fw.par && !fw.flp) { fw.flp = 1; fw.par = [-fw.par[0], fw.par[1]]; } } }
           out.M[kid.id] = m2;
         }
         walk(src, kidCtx(c, m2, a, extra));

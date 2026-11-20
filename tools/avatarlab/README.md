@@ -128,6 +128,10 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
 20. **Round shapes by their own outline**, turned right round, with parts on the back; parts that keep their shape as
     they slide; a part inside two masks at once.
 21. **A small preview beside every part**, wherever a part is listed or picked.
+22. **Copy an angle.** Any head angle can be copied to a new dot, then tipped and resized as a whole; between dots
+    the tip and size blend. Landmarks cancel the depth slide toward the neighbour they match, so nothing jumps.
+23. **Turning right round three ways:** Smooth (tucks in, swaps, opens out; a two-sided head keeps turning), Instant,
+    or a card swinging round.
 
 ## Characters
 

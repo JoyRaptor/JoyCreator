@@ -147,6 +147,27 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 7. The whole character can turn around when the head turns the other way.
 8. Takes are layered: a second pass replaces only what you touch.
 
+## Round 6 (11-20, evening): the pop, copying an angle, turning round
+The owner: "almost ready to port it over to the phone". Three things first.
+- **The pop at half way (fixed).** A piece matched with landmarks slid right, jumped back left at the swap and
+  slid right again. Cause: the depth slide (a guess at how far a layer travels in a turn) was still added on top
+  of the landmarks, from each side in opposite directions (about 2 px each way at depth 0.6, 4 px across the
+  swap, far more when zoomed in). Now the slide keeps only the part of the turn that no matched neighbour
+  accounts for. Measured: a piece with its own landmarks steps 0.00 px across the swap. Pieces with no landmarks
+  at all still slide and cross-fade as before.
+- **Copy an angle.** Head card, "This angle": Copy this angle, Rename, Remove, "Tip the whole angle", "Size of the
+  whole angle". The copy is complete (every layer, mask, pin, shape), arrives matched to the angle it came from,
+  and its dot is ready to drag. Between dots the tip and size blend (measured 0.01 px step at the swap). A
+  mirrored angle can be copied and tipped too, but still follows its source drawing.
+- **Turning right round.** Three ways: Smooth (new, the usual one), Instant, A card. Smooth: the body tucks toward
+  its middle for about 3 frames, swaps side while tucked and opens out; a head with both sides drawn keeps its
+  width and simply keeps turning. Sliders: how long, how far it tucks. Not built: drawn in-between poses for the
+  body (a front view of the body used during the turn), which is what a studio would do.
+- Proof: numbers by script and one rendered strip. Nobody has driven it.
+- For the phone, noted from the owner: Topps opens ready to play; Joybot flies from his corner to the menu and
+  circles "new character". That animation belongs to the Joybot sprite-sheet lane, which already knows how he moves;
+  this lane supplies the target (which button, when).
+
 ## What is left
 - [ ] Owner tries the pilot (PC page with Topps; the artifact on the phone with Pip) and rules.
 - [ ] Not built in the pilot: clipping layers and blend modes from the PSD (Topps uses neither); eye whites
@@ -158,6 +179,8 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 - [ ] Joybot: the owner's verdict on the third draft (cuteness, hands, eyes, arms). The shell, badge, backpack, gloves
       and ring frames are still the kit's; the eyelid is cut from his half-lid lamp.
 - [ ] The owner's verdict on the new Match two angles, per-piece warps, Shapes and the walk.
+- [ ] The owner's verdict on round 6 (the pop, Copy this angle, the Smooth turn). He said the pilot is nearly ready for the phone;
+      the phone spec starts when he says go.
 - [ ] A blank start: the first-run door and the guided path for someone with no art ready (answered in chat 11-20, not built).
 - [ ] From the audit, before the port: one versioned character format shared by the web pilot and the phone,
       with round-trip test files; the list of native engines each tool maps to; a closed-loop phone test

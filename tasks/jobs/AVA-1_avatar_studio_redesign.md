@@ -101,6 +101,40 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
       punch in and out and survive a reload; the seam, riders, streams, loops and the ball by numbers; Joybot in
       an eight-pose sheet. **Not checked:** any of it by a person or on a phone. The 36-mouth sheet the owner
       pasted is not on disk, so it is not in Joybot yet.
+  - **Round 5 (11-20, later): the owner's first hands-on notes on round 4, and Joybot again.**
+    - **Match two angles, put right.** The owner called the two-tap flow a regression: the drawing swapped under his finger
+      and only one drawing's dots could be moved. Now one drawing is solid and the other a ghost, and nothing swaps: tap the
+      spot on the solid drawing, then on the ghost. The first drawing is always blue (dots and ghost), the second always
+      pink. Every dot of both drawings can be dragged at any time; where two overlap the solid drawing's dot is picked up.
+    - **Each piece of the head can warp by its own landmarks.** A frill, a horn or a snout that exists by name in both angles
+      can be matched alone (everything else steps back), so it bends on its own layer and slides over the rest. A piece
+      warps with the whole head (default), by its own landmarks, or with another piece (`bridges[].part`, `set.warpWith`).
+      The head pad now shows on every face-part card and every layer card inside the head.
+    - **Shapes.** Any part, or a folder of parts, gets pins and any number of named shapes posed by dragging them. A shape
+      is blended in by a signal or a button and can be bouncy, so shapes melt into each other (`shapes[]`, pins in `mesh`).
+    - **Blend two looks.** Two drawings of a part that swaps can be matched with landmarks the same way; changing look then
+      bends one into the other while they cross-fade. Looks can be renamed, mirrored, removed, added, and given a new
+      picture.
+    - **Walking.** Ground is a switch in Perform: on, there is a ground line where the character stands and pulling it up
+      is a jump; off, up and down the stage is walking too. It goes up on its toes before its feet leave the ground, folds
+      its legs going up and swings them forward coming down. A foot bar (heel to toe, two pins, guessed from the art) keeps
+      the foot level and rolls it. Walk settings are in Perform and on the Body card: stride, step height, body bob, step
+      (heel first to tiptoe), heel to toe, lean, arm swing. A character with no legs can float where the body is dragged.
+    - **A small preview beside every part** in the layer list, the Extras list and every part picker; a mirror icon; each
+      drawing of a hand that swaps by direction shows its picture and has its own Mirror.
+    - **Round shapes, more than a ball.** A part can turn by its own outline (an egg, a pear), be spun right round with a
+      slider in Perform, carry parts on its back, and painted-on parts can keep their shape instead of squashing. A part
+      can be inside two masks at once. A link can rock back and forth by itself. Hose limbs have a thickness.
+    - **Joybot, third draft.** Head and body are two round shapes on the egg's own outline, so the head turns far more than
+      the body; the shoulders sit on the body's surface and the arms and hands go behind the shell when turned away; he can
+      be turned right round to his backpack. The hover cone is one pendulum that lags and overshoots. Eyes change shape with
+      seven shapes on nine pins; all 36 of the owner's mouths are in (14 speech shapes, 11 on buttons). Plasma arms are
+      painted thick. Still local only; his art is not in the repository.
+    - **Checked by script and in stills:** every card opens for Topps and Joybot without an error in the built page; the
+      two-tap flow by script; a frill moving 15.8 px by its own landmarks while the face moves 5.2 px; a shape blending
+      in and out; walking, tiptoe, jump and landing in rendered strips; the hover cone lagging 13 degrees, overshooting 20
+      and settling. **Not checked:** any of it by a person or on a phone; the feel of the walk; blending two looks by
+      hand; the foot-bar guess on art other than Topps.
 
 ## What the pilot settles (proposed, the owner rules)
 1. First screen: a dotted body with a + on every part, and three doors for bringing a whole character in.
@@ -121,8 +155,10 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 - [ ] Not checked: face camera with a real face; microphone with a real voice; any phone.
 - [ ] Topps notes for the owner: "smile" sits off the face at Left Profile, Left Quarter and Frontal in the
       file itself (it is aligned at Right Quarter); the Upward mouth is hidden in the file and stays hidden.
-- [ ] Joybot: the owner's verdict on the draft; his 36 rimless mouths need to be a file on disk to be cut in
-      (the even-grid cut, "one part that swaps", does it in one go).
+- [ ] Joybot: the owner's verdict on the third draft (cuteness, hands, eyes, arms). The shell, badge, backpack, gloves
+      and ring frames are still the kit's; the eyelid is cut from his half-lid lamp.
+- [ ] The owner's verdict on the new Match two angles, per-piece warps, Shapes and the walk.
+- [ ] A blank start: the first-run door and the guided path for someone with no art ready (answered in chat 11-20, not built).
 - [ ] From the audit, before the port: one versioned character format shared by the web pilot and the phone,
       with round-trip test files; the list of native engines each tool maps to; a closed-loop phone test
       with Topps; soft-edged masks checked on the phone's GPU; the voice recording kept with a take; camera

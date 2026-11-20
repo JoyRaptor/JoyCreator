@@ -29,6 +29,7 @@
     send: 'M4 12l16-8-6 16-3-7z', trash: 'M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13', loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 01-4 4H4',
     pin: 'M12 21s7-6.3 7-12a7 7 0 10-14 0c0 5.7 7 12 7 12zM12 6.5a2.5 2.5 0 100 5 2.5 2.5 0 000-5z', home: 'M4 11l8-7 8 7M6 10v10h12V10', note: 'M9 18V5l11-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM20 16a3 3 0 11-6 0 3 3 0 016 0z',
     smile: 'M12 3a9 9 0 100 18 9 9 0 000-18zM8 14a5 5 0 008 0M9 9.5v.5M15 9.5v.5', bolt: 'M13 3L5 14h6l-1 7 8-11h-6z', help: 'M12 3a9 9 0 100 18 9 9 0 000-18zM9.5 9.5a2.5 2.5 0 114 2c-.9.6-1.5 1.2-1.5 2.3M12 17v.5',
+    mirror: 'M12 3v18M9 7l-5 5 5 5zM15 7l5 5-5 5z',
     cut: 'M6 6a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM6 13a2.5 2.5 0 100 5 2.5 2.5 0 000-5zM8 10l12-6M8 14l12 6', image: 'M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4M15 9.5a1 1 0 100 .1'
   };
   AL.icon = function (name) {
@@ -95,8 +96,10 @@
     o = o || {};
     if (app.inp) { app.inp.micStop(); app.inp.camStop(); }                      // the old character's microphone and camera go with it
     app.ch = ch; AL.reindex(ch); app.solver = new AL.Solver(ch); if (app.G) app.G.forget();
+    /* a leg made before feet had a bar gets one guessed, so it walks heel-to-toe without being asked (null = switched off on purpose) */
+    ['legL', 'legR'].forEach(function (r) { var s = AL.firstRole(ch.root, r); if (s && s.kids) s.kids.forEach(function (k) { if (k.limb && k.limb.foot === undefined && k.limb.style !== 'hose') k.limb.foot = AL.guessFoot(ch, k); }); });
     app.inp = new AL.Inputs(app); app.hist = new AL.History(); app.syncUndo();
-    app.force = {}; app.show = {}; app.bridge = null; app.lockForce = null; app.btd = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} }; app.live = false;
+    app.force = {}; app.show = {}; app.bridge = null; app.morph = null; app.shapeEdit = null; app.lockForce = null; app.btd = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} }; app.live = false;
     $('chname').textContent = ch.name;
     var first = null; AL.ZONES.forEach(function (z) { if (!first && app.zoneNode(z.id)) first = z.id; });
     app.sel = { zone: first, feature: null, node: null }; app.resolveSel();
@@ -141,7 +144,7 @@
   };
   app.select = function (zone, feature, nodeId) {
     app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.live = app.mode === 'perform' ? app.live : false;
-    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
+    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.morph = null; app.shapeEdit = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
   };
   app.selectByNode = function (id) {
     var ch = app.ch, zone = AL.zoneOf(ch, id), feature = null;
@@ -163,7 +166,7 @@
   };
   app.fit = function (snap) {
     var b = AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
-    if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.cfg()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * 0.05 }; }   // room to walk
+    if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.travels()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * 0.05 }; }   // room to walk
     app.fitTo(b, 14, snap);
   };
   app.focusSel = function () {
@@ -203,14 +206,18 @@
       if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = 0.6; eo.onionOver = true; }
       else eo.tween = true;
     } else if (!liveNow && app.ballTry) eo.tween = true;                     // previewing a round head turning, without leaving Build
+    if (!liveNow && app.shapeEdit) eo.shapes = app.shapeEdit.w;                 // posing one shape of a part: that shape at full, the others off
+    if (!liveNow && app.morph) { eo.morph = app.morph; eo.tween = true; }
     var out = app.out = app.solver.eval(S, eo);
+    if (bridge && bridge.ids && bridge.t == null) out.items.forEach(function (it) { if (!bridge.ids[it.id]) { it.a0 = it.a; it.a *= it.ghost ? 0 : 0.22; } });      // matching one piece: the rest steps back
+    var ghostTint = bridge ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
     if (ids && !bridge && app.liftArt !== false) {            // (not while looking at how a limb really sits behind the body)
       var firstSel = -1, ii; for (ii = 0; ii < out.items.length; ii++) if (ids[out.items[ii].id]) { firstSel = ii; break; }
       if (firstSel >= 0) for (ii = firstSel + 1; ii < out.items.length; ii++) { var fi = out.items[ii]; if (!ids[fi.id] && !fi.ghost) { fi.a0 = fi.a; fi.a *= 0.14; } }
     }
     app.G.draw(out.items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, function (it) {
-      if (it.ghost) return bridge ? [0.96, 0.25, 0.56, 0.62] : [0.65, 0.55, 0.98, 0.55];
+      if (it.ghost) return ghostTint || [0.65, 0.55, 0.98, 0.55];
       if (ids && !ids[it.id]) return [0.03, 0.03, 0.05, 0.52];
       return null;
     });
@@ -239,7 +246,7 @@
     }
     if (liveNow) {
       var wc = app.inp.walker.cfg();
-      if (wc && wc.ground !== 'plane') { var gyy = sy(wc.groundY); g.beginPath(); g.moveTo(0, gyy); g.lineTo(g.canvas.width / dpr, gyy); g.strokeStyle = 'rgba(228,228,231,.16)'; g.lineWidth = 1; g.setLineDash([2, 6]); g.stroke(); g.setLineDash([]); }
+      if (wc && app.inp.walker.grounded()) { var gyy = sy(wc.groundY + app.inp.walker.base); g.beginPath(); g.moveTo(0, gyy); g.lineTo(g.canvas.width / dpr, gyy); g.strokeStyle = 'rgba(228,228,231,.16)'; g.lineWidth = 1; g.setLineDash([2, 6]); g.stroke(); g.setLineDash([]); }
       /* quiet rings on the things you can grab */
       for (var id in out.pins) { var p = out.pins[id]; if (p.c) { g.beginPath(); g.arc(sx(p.c[0]), sy(p.c[1]), 13, 0, 7); g.strokeStyle = 'rgba(255,255,255,.34)'; g.lineWidth = 1.5; g.stroke(); } if (p.mesh) p.mesh.forEach(function (q) { g.beginPath(); g.arc(sx(q[0]), sy(q[1]), 9, 0, 7); g.strokeStyle = 'rgba(255,255,255,.34)'; g.lineWidth = 1.5; g.stroke(); }); }
       return;
@@ -247,7 +254,7 @@
     var pins = app.pinsNow(); app._pins = pins;
     /* links between pins (shoulder - elbow - hand) */
     var byKey = {}; pins.forEach(function (p) { byKey[p.key] = p; });
-    g.lineWidth = 2; g.strokeStyle = 'rgba(34,211,238,.8)';
+    g.lineWidth = 2; g.strokeStyle = app.bridge ? 'rgba(228,228,231,.55)' : 'rgba(34,211,238,.8)';
     pins.forEach(function (p) { if (p.to && byKey[p.to]) { g.beginPath(); g.moveTo(p.sx, p.sy); g.lineTo(byKey[p.to].sx, byKey[p.to].sy); g.stroke(); } if (p.ring) { g.beginPath(); g.setLineDash([5, 5]); g.arc(p.sx, p.sy, p.ring * v.s, 0, 7); g.stroke(); g.setLineDash([]); } if (p.oval) { g.beginPath(); g.setLineDash([5, 5]); g.ellipse(p.sx, p.sy, Math.max(1, p.oval[0] * v.s), Math.max(1, p.oval[1] * v.s), 0, 0, 7); g.stroke(); g.setLineDash([]); } });
     g.font = '600 11px "IBM Plex Sans",system-ui,sans-serif'; g.textBaseline = 'middle';
     pins.forEach(function (p) {
@@ -261,7 +268,8 @@
         g.beginPath(); g.arc(p.sx, p.sy, 5, Math.PI * 0.15, Math.PI * 1.55); g.stroke(); g.beginPath(); g.moveTo(p.sx + 1, p.sy - 8.5); g.lineTo(p.sx + 1.5, p.sy - 4); g.lineTo(p.sx - 3.2, p.sy - 4.6); g.stroke();
         return;
       }
-      var hot = app.drag && app.drag.pin && app.drag.pin.key === p.key, r = hot ? 10 : 7.5;
+      var hot = app.drag && app.drag.pin && app.drag.pin.key === p.key, r = hot ? 10 : p.small ? 5.5 : 7.5;
+      if (p.pulse || p.hot) { g.beginPath(); g.arc(p.sx, p.sy, r + 6 + (p.pulse ? 3 * Math.sin(Date.now() / 160) : 0), 0, 7); g.strokeStyle = p.color || '#22d3ee'; g.lineWidth = 1.5; g.stroke(); }
       g.beginPath(); g.arc(p.sx, p.sy, r + 2.5, 0, 7); g.fillStyle = 'rgba(3,24,28,.85)'; g.fill();
       g.beginPath(); g.arc(p.sx, p.sy, r, 0, 7); g.fillStyle = p.color || '#22d3ee'; g.fill();
       g.beginPath(); g.arc(p.sx, p.sy, 2, 0, 7); g.fillStyle = '#03181c'; g.fill();
@@ -319,7 +327,8 @@
       var c = app.toChar(p.x, p.y);
       app.drag = { x0: p.x, y0: p.y, x: p.x, y: p.y, moved: false };
       if (isLive()) return;
-      var best = null, bd = 26; (app._pins || []).forEach(function (q) { if (q.ghost) return; var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d < (q.tap ? Math.min(bd, 16) : bd)) { bd = d; best = q; } });
+      /* the nearest pin; where two sit on top of each other, the one that says it comes first (prio) */
+      var best = null, bd = 1e9; (app._pins || []).forEach(function (q) { if (q.ghost || q.fixed) return; var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d > (q.rad || (q.tap ? 16 : 26))) return; d -= (q.prio || 0); if (d < bd) { bd = d; best = q; } });
       if (best) { app.drag.pin = best; app.drag.off = { x: best.sx - p.x, y: best.sy - p.y }; return; }
       if (app.moveArt && app.selIds) { var hit = AL.hit(app.out, c[0], c[1], null, app.selIds); if (hit) { app.drag.art = hit.id; app.drag.last = c; } }      // only the selected part, even under something faded
     }
@@ -365,7 +374,7 @@
       var mp = null, md = 34 / app.view.s; for (var id in out.pins) if (out.pins[id].mesh) { var n = AL.node(ch, id); out.pins[id].mesh.forEach(function (q, i) { var dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd < md && n.mesh.pins[i]) { md = dd; mp = { pin: n.mesh.pins[i], q: q }; } }); }
       if (mp) { var qi = app.toInner(mp.q[0], mp.q[1]); if (inp.recording) inp.pinTouched[mp.pin.id] = true; return { kind: 'pin', pinId: mp.pin.id, off: [qi[0] - inner[0], qi[1] - inner[1]] }; }
       if (zone === 'head') { var hb = AL.boundsOf(app.zoneNode('head')); inp.held.head = true; return { kind: 'head', t0: [inp.pose.turnX, inp.pose.turnY], R: Math.max(40, (hb ? hb.x1 - hb.x0 : 160) * 0.42) }; }
-      if (zone === 'body' || zone === 'tail' || zone === 'legL' || zone === 'legR') { inp.held.body = true; if (inp.walker.cfg()) { inp.walker.grab(c); return { kind: 'walk' }; } return { kind: 'body' }; }
+      if (zone === 'body' || zone === 'tail' || zone === 'legL' || zone === 'legR') { inp.held.body = true; if (inp.walker.travels()) { inp.walker.grab(c); return { kind: 'walk' }; } return { kind: 'body' }; }
       return null;
     }
     function liveMove(g, p) {

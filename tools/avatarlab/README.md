@@ -119,6 +119,15 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
     edge), ride it in one piece (an eye with working lids), or stick out of it and pass behind.
 15. **Bouncy follows, and buttons as levels.** A follow can overshoot and settle; any button is also a smooth
     0..1 level that parts can follow; a part can shake or spin.
+16. **Match two angles without anything swapping.** One drawing solid, one a ghost; the first is always blue, the second
+    always pink; every dot of both can be dragged. A piece of the head (a frill, a horn) can have landmarks of its own.
+17. **Shapes.** Pins on a part, or on a folder of parts, posed into named shapes that a signal or a button blends in.
+18. **Blend two looks.** Two drawings of a part that swaps, matched with landmarks, melt into each other when the look changes.
+19. **Ground is a switch.** On: a ground line where it stands, and pulling up is a jump (tiptoe, fold, reach, land).
+    Off: up and down the stage is walking too. A foot bar keeps a foot level and rolls it heel to toe.
+20. **Round shapes by their own outline**, turned right round, with parts on the back; parts that keep their shape as
+    they slide; a part inside two masks at once.
+21. **A small preview beside every part**, wherever a part is listed or picked.
 
 ## Characters
 

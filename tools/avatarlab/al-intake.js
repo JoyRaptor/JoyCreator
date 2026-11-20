@@ -203,6 +203,29 @@
     return [set2];
   };
   /** A separate drawing carried by the end of a limb: a hand, a glove, a shoe, a sword. Several drawings become one part that swaps. */
+  /** Put a different picture in a drawing. Its place (by its middle), its pins, its button and everything set on it are kept. */
+  intake.swapPicture = function (app, art) {
+    pickImages(function (files) {
+      loadCanvas(files[0]).then(function (c) { return trim(c, nice(files[0].name)); }).then(function (p) {
+        if (!p) throw new Error('That picture was empty.');
+        var old = AL.img.get(art.img), cx = art.x + (old ? old.w / 2 : 0), cy = art.y + (old ? old.h / 2 : 0);
+        app.edit(function () { var id = AL.id('i'); AL.img.put(id, p.canvas, p.name); art.img = id; art.x = Math.round(cx - p.canvas.width / 2); art.y = Math.round(cy - p.canvas.height / 2); }, false, 'Change a picture');
+        app.toast('Picture changed. Its place and settings are kept.');
+      }).catch(function (e) { app.toast(e.message); });
+    });
+  };
+  /** More pictures as looks of a part that swaps: each lands where the part is. */
+  intake.addLook = function (app, set) {
+    pickImages(function (files) {
+      Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
+        pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
+        var b = AL.boundsOf(set) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h }, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, last = null;
+        app.edit(function () { pics.forEach(function (p) { var id = AL.id('i'); AL.img.put(id, p.canvas, p.name); last = { id: AL.id('n'), name: p.name, type: 'art', img: id, x: Math.round(cx - p.canvas.width / 2), y: Math.round(cy - p.canvas.height / 2) }; set.kids.push(last); }); }, true, 'Add looks');
+        if (last) app.force[set.id] = last.id; app.refreshPanel(true);
+        app.toast(pics.length === 1 ? 'Look added.' : pics.length + ' looks added.');
+      }).catch(function (e) { app.toast(e.message); });
+    });
+  };
   intake.addRider = function (app, set) {
     pickImages(function (files) {
       Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {

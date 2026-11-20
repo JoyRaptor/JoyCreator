@@ -1271,3 +1271,12 @@ running app (a screenshot), never off the order of constants or an enum.** (2) A
 call was still set in the next, and an install meant for the Note 9 went to the Fold. Both are test devices, so nothing was lost.
 **Rule: print the slot (`"slot: [$env:PHONE_SLOT]"`) and clear it at the top of every command that installs or taps, and read the
 device's own clock or model back before believing where it went.**
+
+## 2026-11-20 - Fixing one complaint must not take away what already worked
+
+The owner's complaint about matching two head angles was one thing: where two dots sat on top of each other he picked up the
+wrong one. I answered it by rebuilding the whole flow (the drawing swapped under the finger after the first tap, and only the
+solid drawing's dots could be moved). He called it a regression: "how you had it before was easier, where I could click on any
+of the buttons from any of the angles". **Rule: fix the thing that was reported and keep the rest of the interaction as it was;
+if a rebuild seems better, keep the old behaviour reachable and say so.** And when two states are told apart by colour, the
+colour belongs to the thing (this drawing is always blue, that one always pink), never to its state of the moment.

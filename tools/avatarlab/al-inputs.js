@@ -118,7 +118,7 @@
      while something live is driving it, then handed back to the old take over a quarter of a second. Whatever you
      did not touch is the same afterwards, sample for sample. One Undo takes the whole pass back. */
   var OWN = { turnX: 'head', turnY: 'head', roll: 'head', lookX: 'head', lookY: 'head', mouth: 'mouth', vis: 'mouth', browL: 'mood', browR: 'mood', lidUp: 'mood', lidLow: 'mood', lidTilt: 'mood',
-    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hRx: 'handR', hRy: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR',
+    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hRx: 'handR', hRy: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR', fLr: 'footL', fRr: 'footR', spin: 'body',
     sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind' };
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
   var STEP = { vis: 1, flip: 1 }, FADE = 0.25;
@@ -157,7 +157,7 @@
 
   function flat(S, trigs) {
     var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR,
-      lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0 }, k;
+      lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0, fLr: S.foot ? S.foot.FL : 0, fRr: S.foot ? S.foot.FR : 0, spin: S.spin || 0 }, k;
     for (k in HAND) { var hh = S.hand[HAND[k][0]]; o[k] = hh ? (HAND[k][1] ? hh.y : hh.x) : null; }      // null = at rest, and stays null through a saved file
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
@@ -171,6 +171,7 @@
     if (name === 'vis') S.viseme = AL.SHAPES[v] || 'Neutral';
     else if (name === 'rootX') S.root.x = v; else if (name === 'rootY') S.root.y = v; else if (name === 'rootS') S.rootScale = v;
     else if (name === 'flip') S.flip = v > 0.5;
+    else if (name === 'fLr') (S.foot = S.foot || {}).FL = v; else if (name === 'fRr') (S.foot = S.foot || {}).FR = v;
     else if (name.slice(0, 2) === 'g:') S.trig[name.slice(2)] = v > 0.5;
     else if (name.slice(0, 3) === 'dx:') (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[0] = v;
     else if (name.slice(0, 3) === 'dy:') (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[1] = v;
@@ -248,6 +249,7 @@
     S.hand.L = sm.hL ? { x: sm.hL.x, y: sm.hL.y } : null; S.hand.R = sm.hR ? { x: sm.hR.x, y: sm.hR.y } : null;
     var dn; S.dial = S.dial || {};
     for (dn in p.dial) { var dq = this.smd[dn] || (this.smd[dn] = [0, 0]); dq[0] = ease(dq[0], p.dial[dn][0], 11, dt); dq[1] = ease(dq[1], p.dial[dn][1], 11, dt); S.dial[dn] = [dq[0], dq[1]]; }
+    sm.spin = ease(sm.spin || 0, p.spin || 0, 7, dt); S.spin = sm.spin;                 // the whole character turned round (round bodies only)
     this.walker.step(dt, S);
     S.flip = !!p.flip; S.trig = {}; for (var id in this.trig) if (this.trig[id]) S.trig[id] = true;
 

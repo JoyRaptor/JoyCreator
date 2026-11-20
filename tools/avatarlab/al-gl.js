@@ -39,8 +39,8 @@
     this.tex[id] = { tex: tex, ver: im.ver };
     return tex;
   };
-  AL.GL.prototype.maskTarget = function () {
-    var gl = this.gl, c = this.canvas, m = this.mk;
+  AL.GL.prototype.maskTarget = function (slot) {
+    var gl = this.gl, c = this.canvas, key = slot ? 'mk2' : 'mk', m = this[key];
     if (m && m.w === c.width && m.h === c.height) return m;
     if (m) { gl.deleteTexture(m.tex); gl.deleteFramebuffer(m.fb); }
     var tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, tex);
@@ -49,7 +49,7 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     var fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.bindTexture(gl.TEXTURE_2D, null); gl.activeTexture(gl.TEXTURE0);
-    return (this.mk = { tex: tex, fb: fb, w: c.width, h: c.height });
+    return (this[key] = { tex: tex, fb: fb, w: c.width, h: c.height });
   };
   AL.GL.prototype.one = function (it, alpha, tc, masked) {
     var gl = this.gl, L = this.loc, tex = this.texture(it.img); if (!tex || alpha <= 0.003) return;
@@ -68,17 +68,34 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, m.fb);
     if (mask.inside) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); mask.inside.forEach(function (it) { self.one(it, 1, null, false); }); }
     else { gl.clearColor(1, 1, 1, 1); gl.clear(gl.COLOR_BUFFER_BIT); }
+    /* more shapes it must ALSO be inside (an eyelid inside its eye, and the eye inside the outline of the head): keep only where every one is */
+    (mask.more || []).forEach(function (list) {
+      var m2 = self.maskTarget(1);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, m2.fb); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); list.forEach(function (it) { self.one(it, 1, null, false); });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, m.fb); gl.blendFunc(gl.ZERO, gl.SRC_ALPHA); self.quad(m2.tex);
+    });
     gl.blendFunc(gl.ZERO, gl.ONE_MINUS_SRC_ALPHA);
     mask.cuts.forEach(function (list) { list.forEach(function (it) { self.one(it, 1, null, false); }); });
     gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, m.tex); gl.activeTexture(gl.TEXTURE0);
+  };
+  /** One picture over the whole canvas (a mask multiplied into another). */
+  AL.GL.prototype.quad = function (tex) {
+    var gl = this.gl, L = this.loc, c = this.canvas, v = this._view || { s: 1, ox: 0, oy: 0 };
+    gl.uniform4f(L.uv, 1, 1, 0, 0); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.vb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, c.width, 0, 0, c.height, c.width, c.height]), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(L.p, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tb); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 1, 1, 1, 0, 0, 1, 0]), gl.DYNAMIC_DRAW); gl.vertexAttribPointer(L.t, 2, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([0, 1, 2, 1, 3, 2]), gl.DYNAMIC_DRAW);
+    gl.uniform4f(L.uc, 0, 0, 0, 0); gl.uniform1f(L.ua, 1); gl.uniform1f(L.uk, 0);
+    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    gl.uniform4f(L.uv, v.s, v.s, v.ox, v.oy);
   };
   /** view = { s, ox, oy }: character pixels to canvas pixels. tint(item) may return [r,g,b,amount] or null. */
   AL.GL.prototype.draw = function (items, view, tint) {
     var gl = this.gl, L = this.loc, c = this.canvas; if (!gl) return;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, c.width, c.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.useProgram(this.pr);
+    gl.useProgram(this.pr); this._view = view;
     gl.uniform4f(L.uv, view.s, view.s, view.ox, view.oy); gl.uniform2f(L.ur, c.width, c.height); gl.uniform2f(L.uq, c.width, c.height);
     gl.enableVertexAttribArray(L.p); gl.enableVertexAttribArray(L.t);
     var last = null;

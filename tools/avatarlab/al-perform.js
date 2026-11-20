@@ -99,6 +99,8 @@
       ui.chip('Let go of everything', { cls: 'quiet', title: 'Head to the middle, hands to rest', fn: function () { inp.resetPose(); inp.S.pin = {}; app.refreshPanel(true); } })
     ])));
 
+    if (inp.walker.travels()) { pb.appendChild(ui.lab(inp.walker.cfg() ? 'Walking' : 'Floating')); AL.cards.walkControls(app, pb, true); }
+    if (AL.find(app.ch.root, function (n) { return n.ball && n.ball.on !== false && n.ball.spin; })) pb.appendChild(ui.slider('Turn right round', { min: -100, max: 100, step: 1, value: Math.round((inp.pose.spin || 0) * 100), undo: false, set: function (v) { inp.pose.spin = Math.abs(v) < 4 ? 0 : v / 100; inp.held.body = true; clearTimeout(inp._spt); inp._spt = setTimeout(function () { inp.held.body = false; }, 500); }, fmt: function (v) { return Math.abs(v) < 4 ? 'front' : Math.round(Math.abs(v) * 1.8) + '\u00b0 ' + (v < 0 ? 'left' : 'right'); }, title: 'Spin the whole character round: to its side, to its back' }));
     if (AL.hasLids(app.ch)) { pb.appendChild(ui.lab('Mood (eyelids and brows)')); pb.appendChild(ui.row(moodChips(app))); }
     if (hasSwing(app)) { pb.appendChild(ui.lab('Weather')); pb.appendChild(breeze(app)); }
     pb.appendChild(ui.lab('Alive by itself'));

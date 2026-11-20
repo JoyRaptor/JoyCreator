@@ -139,6 +139,8 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
 26. **Any number of legs** (`al-walk.js`): every walking limb has a step timing; arms can be told they may become feet.
 27. **Colour sets** (`al-tone.js`): a hue lookup worked out from a picture, arriving as a wave.
 28. **The body's own turn drawings**, and a four-legged body map.
+29. **A stance's own order** (`poses[].d[id].z = { how: 'under' | 'over' | 'front' | 'back', of, at }`): in a stance a
+    part can pass behind or in front of another; set on the part's card by tapping the other part on the picture.
 
 ## Characters
 

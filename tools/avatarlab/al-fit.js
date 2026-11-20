@@ -33,7 +33,7 @@
     if (!n.dx) delete n.dx; if (!n.dy) delete n.dy;
   };
   fit.moved = function (app, n) { var v = fit.get(app, n), p = fit.pose(app), d = p && p.d ? p.d[n.id] : null; if (d && d.auto) return Math.abs(v.x - (d.autoX || 0)) > 0.05 || Math.abs(v.y - (d.autoY || 0)) > 0.05 || Math.abs(v.rot - (d.autoRot || 0)) > 0.05 || v.sc !== 1; return !!(v.x || v.y || v.rot || v.sc !== 1); };
-  fit.reset = function (app, n) { var p = fit.pose(app); if (p) { var d = p.d && p.d[n.id]; if (d) { d.x = d.auto ? d.autoX || 0 : 0; d.y = d.auto ? d.autoY || 0 : 0; d.rot = d.auto ? d.autoRot || 0 : 0; delete d.sc; if (!d.auto) delete p.d[n.id]; } } else { delete n.dx; delete n.dy; delete n.rot; delete n.sc; } };
+  fit.reset = function (app, n) { var p = fit.pose(app); if (p) { var d = p.d && p.d[n.id]; if (d) { d.x = d.auto ? d.autoX || 0 : 0; d.y = d.auto ? d.autoY || 0 : 0; d.rot = d.auto ? d.autoRot || 0 : 0; delete d.sc; if (!d.auto && !d.z) delete p.d[n.id]; } } else { delete n.dx; delete n.dy; delete n.rot; delete n.sc; } };
   /** A part needs a point to turn and resize about. A drawing has its middle; a folder gets one the first time it is needed. */
   fit.needPivot = function (app, n) {
     if (n.pivot || n.type === 'art') return;
@@ -137,6 +137,32 @@
     return true;
   };
 
+  /** In a stance a part may sit in front of, or behind, something it is not in front of when standing. */
+  fit.orderRow = function (app, pb, n, pose) {
+    var ui = app.ui, ch = app.ch, d = pose.d && pose.d[n.id], z = d && d.z, tn = z && z.of ? AL.node(ch, z.of) : null, ask = app.orderPick && app.orderPick.node === n.id ? app.orderPick : null;
+    function set(v) { app.orderPick = null; app.edit(function () { var e = (pose.d = pose.d || {})[n.id] || (pose.d[n.id] = {}); if (v) e.z = v; else { delete e.z; if (!e.auto && !e.x && !e.y && !e.rot && (e.sc == null || e.sc === 1) && !e.orbit) delete pose.d[n.id]; } }, false, 'In front or behind, in ' + pose.name); }
+    function pick(how) { app.orderPick = ask && ask.how === how ? null : { node: n.id, how: how }; app.pickPiece = false; app.refreshPanel(true); }
+    pb.appendChild(ui.lab('In front or behind, in this stance'));
+    pb.appendChild(ui.row([
+      ui.chip('As when standing', { on: !z && !ask, title: 'The same order as when it stands', fn: function () { set(null); } }),
+      ui.chip(z && z.how === 'under' && tn ? 'Behind ' + tn.name : 'Behind a part…', { on: !!(z && z.how === 'under') || !!(ask && ask.how === 'under'), icon: 'target', title: 'Then tap the part on the picture that this should pass behind', fn: function () { pick('under'); } }),
+      ui.chip(z && z.how === 'over' && tn ? 'In front of ' + tn.name : 'In front of a part…', { on: !!(z && z.how === 'over') || !!(ask && ask.how === 'over'), icon: 'target', title: 'Then tap the part on the picture that this should pass in front of', fn: function () { pick('over'); } }),
+      ui.chip('In front of everything', { on: !!(z && z.how === 'front'), fn: function () { set({ how: 'front' }); } }),
+      ui.chip('Behind everything', { on: !!(z && z.how === 'back'), fn: function () { set({ how: 'back' }); } })
+    ]));
+    if (ask) pb.appendChild(ui.note('<b>Tap the part on the picture</b> that this should be ' + (ask.how === 'under' ? 'behind' : 'in front of') + '. Tapping the head means the whole head.'));
+    else if (z) pb.appendChild(ui.slider('Changes over at', { min: 5, max: 95, value: Math.round((z.at == null ? 0.5 : z.at) * 100), set: function (v) { z.at = v / 100; }, fmt: function (v) { return v + '% of the way in'; }, title: 'How far into the stance the order changes. Pick the moment the two parts are not touching and it cannot be seen.' }));
+    app.orderSet = set;
+  };
+  /** The tap that answers "behind which part?": the whole head, body or limb under the finger, or the layer itself. */
+  fit.orderTap = function (app, id) {
+    var ch = app.ch, q = app.orderPick, pose = fit.pose(app), n = q && AL.node(ch, q.node); if (!q || !pose || !n) { app.orderPick = null; return; }
+    var limb = AL.ancestorWith(ch, id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'reach'; }), zone = AL.zoneOf(ch, id), zn = zone !== 'extra' ? app.zoneNode(zone) : null, tgt = limb || zn || AL.node(ch, id);
+    if (!tgt || tgt.id === n.id || AL.ancestorWith(ch, tgt.id, function (a) { return a.id === n.id; })) { app.toast('Tap a different part'); return; }
+    var how = q.how; app.orderPick = null;
+    app.edit(function () { var e = (pose.d = pose.d || {})[n.id] || (pose.d[n.id] = {}); e.z = { how: how, of: tgt.id }; }, false, (how === 'under' ? 'Behind ' : 'In front of ') + tgt.name + ', in ' + pose.name);
+  };
+
   /** The section every part's card gets. */
   fit.section = function (app, pb, n) {
     var ui = app.ui, h = AL.h, pose = fit.pose(app), on = app.fitOn && app.fitOn.node === n.id ? app.fitOn : null, can = fit.can(app, n);
@@ -149,6 +175,7 @@
     pb.appendChild(ui.row(row));
     var pd0 = pose && pose.d ? pose.d[n.id] : null, ax0 = pd0 && pd0.auto ? pd0.autoX || 0 : 0, ay0 = pd0 && pd0.auto ? pd0.autoY || 0 : 0, ar0 = pd0 && pd0.auto ? pd0.autoRot || 0 : 0;      // in a worked-out stance, show only what the hand has added
     if (on && on.box) pb.appendChild(ui.note('Moved <b>' + Math.round(v.x - ax0) + ', ' + Math.round(v.y - ay0) + '</b> · turned <b>' + Math.round(v.rot - ar0) + '°</b> · size <b>' + Math.round(v.sc * 100) + '%</b>.' + (pose ? ' Only while it is in this stance.' : ' It stays like this.')));
+    if (pose) fit.orderRow(app, pb, n, pose);
     if (on && on.pins) {
       var fs = fit.fixShape(n), np = n.mesh ? n.mesh.pins.length : 0;
       pb.appendChild(ui.note(np ? '<b>Drag a pin</b> to stretch the part from there. Pins you leave alone hold it still. Tap the part for another pin.' : '<b>Tap the part</b> where it should stay put, and again where you want to pull it. Then drag a pin.'));

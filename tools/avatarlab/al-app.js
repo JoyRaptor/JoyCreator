@@ -144,7 +144,7 @@
   };
   app.select = function (zone, feature, nodeId) {
     app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.live = app.mode === 'perform' ? app.live : false;
-    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.morph = null; app.shapeEdit = null; app.fitOn = null; app.eyedrop = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
+    app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.morph = null; app.shapeEdit = null; app.fitOn = null; app.orderPick = null; app.eyedrop = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
   };
   app.selectByNode = function (id) {
     var ch = app.ch, zone = AL.zoneOf(ch, id), feature = null;
@@ -369,6 +369,7 @@
         if (d.pin) { if (d.pin.pick) d.pin.pick(); return; }
         if (app.eyedrop) { var ed = app.eyedrop; app.eyedrop = null; ed(AL.tone.colourAt(app.out, c[0], c[1])); return; }                 // tap a colour on the character
         if (app.fitOn && app.fitOn.pins && AL.fit.tapPin(app, c)) return;                                                         // reshaping: a tap on the part drops a pin there
+        if (app.orderPick) { var oh = AL.hit(app.out, c[0], c[1]); if (oh) AL.fit.orderTap(app, oh.id); return; }                    // in a stance: which part this one passes behind, or in front of
         if (app.pickPiece) { var ph = AL.hit(app.out, c[0], c[1]); if (ph) { AL.fit.pick(app, ph.id); return; } }                // pick a piece: the very layer under the finger
         var hit = (app.selIds && AL.hit(app.out, c[0], c[1], null, app.selIds)) || AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return;
       }

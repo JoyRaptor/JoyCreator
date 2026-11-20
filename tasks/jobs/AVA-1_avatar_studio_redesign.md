@@ -221,6 +221,11 @@ they want, a centipede; arms that can become feet with one toggle").
 - [ ] Joybot: the owner's verdict on the third draft (cuteness, hands, eyes, arms). The shell, badge, backpack, gloves
       and ring frames are still the kit's; the eyelid is cut from his half-lid lamp.
 - [ ] The owner's verdict on the new Match two angles, per-piece warps, Shapes and the walk.
+- [x] Round 7b (11-20, late): his report that both arms sit in front of the head on all fours. A stance can now put
+      a part behind or in front of another part (card: "In front or behind, in this stance", then tap the other part;
+      "Changes over at" picks the moment). Built-in Topps: both arms behind the head on all fours. Checked by a
+      rendered strip and a scripted pass through the card (set, undo); not driven by hand. Placing a part for one
+      stance only (move, turn, resize) was already there from round 7; the stance note now says so.
 - [ ] The owner's verdict on round 7 (all fours and the four-legged walk, the box, reshape, colour sets, more legs,
       the body's own angles, Joybot's button). Not built: drawn in-between poses used during the turn-around.
 - [ ] The owner's verdict on round 6 (the pop, Copy this angle, the Smooth turn). He said the pilot is nearly ready for the phone;

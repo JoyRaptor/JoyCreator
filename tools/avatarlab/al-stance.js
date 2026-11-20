@@ -65,7 +65,7 @@
     function keep(id, base) {
       var o = old[id] || {}; base.autoRot = base.autoRot || 0; base.autoX = base.autoX || 0; base.autoY = base.autoY || 0;
       base.x = Math.round((base.autoX + ((o.x || 0) - (o.autoX || 0))) * 10) / 10; base.y = Math.round((base.autoY + ((o.y || 0) - (o.autoY || 0))) * 10) / 10;
-      base.rot = base.autoRot + ((o.rot || 0) - (o.autoRot || 0)); if (o.sc != null && o.sc !== 1) base.sc = o.sc; base.auto = true; return base;
+      base.rot = base.autoRot + ((o.rot || 0) - (o.autoRot || 0)); if (o.sc != null && o.sc !== 1) base.sc = o.sc; if (o.z) base.z = o.z; base.auto = true; return base;
     }
     for (var id0 in old) if (!old[id0].auto) d[id0] = old[id0];
     var torso = P.torso;
@@ -117,6 +117,6 @@
       ui.chip('Done', { cls: 'go', fn: function () { app.poseEdit = null; app.fitOn = null; app.refreshPanel(true); } })
     ]));
     var n = Object.keys(ed.d || {}).length;
-    pb.appendChild(ui.note('The character is standing in <b>' + ed.name + '</b>. ' + (n ? n + ' part' + (n === 1 ? ' is' : 's are') + ' placed for it. ' : '') + 'Turn on <b>Pick a piece</b> and tap a part to place it for this stance only. Its button is in Perform' + (ed.fours ? ', and a walking character pushed low goes into it by itself.' : '.')));
+    pb.appendChild(ui.note('The character is standing in <b>' + ed.name + '</b>. ' + (n ? n + ' part' + (n === 1 ? ' is' : 's are') + ' placed for it. ' : '') + 'Turn on <b>Pick a piece</b> and tap a part: move, turn or resize it, and say what it passes in front of or behind, for this stance only. Standing is not touched. Its button is in Perform' + (ed.fours ? ', and a walking character pushed low goes into it by itself.' : '.')));
   };
 })(typeof self !== 'undefined' ? self : this);

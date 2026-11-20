@@ -183,7 +183,10 @@ stepped up to 7 px a frame at 8 fps on top of his smooth hover.
       screen are poses, left alone. Only `idle.webp` changes (5.29 MB in all, unchanged).
 - [x] [Joybot animation: principles and toolkit](../joybot/JOYBOT_ANIMATION_PRINCIPLES.md), linked from AGENT_START
       and the BOT-2, BOT-7 and FX-1 cards.
-- [ ] Cloud build; Note 9 recording of idle, measured; land.
+- [x] Cloud build 9dcc073a2 compiles; landed. Proof is in the frames themselves (the measurements above, and
+      `previews/idle_before_after.gif` in the v5 folder: the old head rises above a line, the new one stays on it).
+- [ ] Not yet seen on a device: the Note 9 was PIN-locked and the tablet and Fold not connected (11-20). A head
+      tracker for the recording is ready (counts 3 px jumps per second; old build at rest: 1-12 a second).
 
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)

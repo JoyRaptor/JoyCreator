@@ -114,6 +114,8 @@ before any visual work. The short version:
 - An automatic guess always keeps a visible, one-tap way back.
 - New code goes in small, single-purpose classes. Keep the legacy version until the new one is proven better.
 - Half-built work is unfinished, not abandoned: recover it, never delete it unasked.
+- **Joybot**: before you make him move anywhere (chat, lobby, tutorials, transitions), read
+  [joybot/JOYBOT_ANIMATION_PRINCIPLES.md](joybot/JOYBOT_ANIMATION_PRINCIPLES.md): the owner's bar, the craft, the tools.
 
 ## When you finish a piece of work
 

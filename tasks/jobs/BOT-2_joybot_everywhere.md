@@ -105,6 +105,7 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
       tip for a tool the person doesn't have).
 
 ## Specs, handoffs and evidence
+- [Joybot animation: principles and toolkit](../joybot/JOYBOT_ANIMATION_PRINCIPLES.md) (11-20): how he moves and acts, wherever he appears.
 - [Feature gaps](../joybot/FEATURE_GAPS_20261015.md) (M3, G2, G3), [INBOX 9-09](../INBOX.md) (empty-state copy).
 
 ## Files and traps

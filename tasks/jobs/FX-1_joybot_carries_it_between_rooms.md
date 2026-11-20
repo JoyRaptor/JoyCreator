@@ -173,6 +173,7 @@ the menu's Export for the whole drawing went only to the file picker. Both now g
   canvas is nearly invisible in a new project. That is right for laying a drawing over a film, wrong-looking for a new project.
 
 ## Rules that apply
+- Joybot's motion and acting: [principles and toolkit](../joybot/JOYBOT_ANIMATION_PRINCIPLES.md) (11-20).
 Phone-first; the owner's "three bars": his wife (impatient), toddlers, and himself as a pro. Nothing breaks, and no
 technical errors are ever shown. Effects are made of the same stuff as the scene (a warp of the real screens, not stickers).
 Joybot's actor and flight code belong to the joybot-sprites lane: use its API and agree any change with it.

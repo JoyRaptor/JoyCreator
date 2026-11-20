@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| AUD-RACE | Fixed on `codex/r4-aud-race` | Host regression `tools/jvm-harness/run-audio-bake-race.py`: baseline shares a temp path and unlink-before-rename loses an existing result. After fix two keys, two real AAC encodes, two callers on one key, interrupted waiter detaches, original and both outputs decode. Device cancellation/UI untested. |

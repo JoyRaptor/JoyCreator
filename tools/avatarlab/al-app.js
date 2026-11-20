@@ -65,7 +65,13 @@
 
   /* ── changing the character ── */
   app.edit = function (fn, quiet, label) { app.hist.push(app.ch, label || app.nextLabel || 'Change'); fn(); AL.reindex(app.ch); app.touch(); app.syncUndo(); if (!quiet) app.refreshPanel(); };
-  app.touch = function () { app.dirty = true; clearTimeout(app._sv); app._sv = setTimeout(app.autosave, 1800); };
+  app.touch = function () { app.dirty = true; app.saveState('unsaved'); clearTimeout(app._sv); app._sv = setTimeout(app.autosave, 1500); };
+  /** The dot by the name: steady = saved here, amber = not saved yet, red = this browser refused to keep it. */
+  app.saveState = function (st) {
+    var dot = $('bname') && $('bname').firstElementChild; if (!dot) return; app._state = st;
+    dot.style.background = st === 'failed' ? 'var(--danger)' : st === 'saved' ? '' : 'var(--warn)';
+    $('bname').title = (st === 'failed' ? 'Not saved: this browser would not keep it. Use Menu, Save this character.' : st === 'saved' ? 'Saved in this browser, with its take.' : 'Saving\u2026') + ' Tap to rename.';
+  };
   app.syncUndo = function () {
     var p = app.hist.past, f = app.hist.future;
     $('bundo').disabled = !p.length; $('bredo').disabled = !f.length;
@@ -87,6 +93,7 @@
 
   app.setCharacter = function (ch, o) {
     o = o || {};
+    if (app.inp) { app.inp.micStop(); app.inp.camStop(); }                      // the old character's microphone and camera go with it
     app.ch = ch; AL.reindex(ch); app.solver = new AL.Solver(ch); if (app.G) app.G.forget();
     app.inp = new AL.Inputs(app); app.hist = new AL.History(); app.syncUndo();
     app.force = {}; app.show = {}; app.bridge = null; app.lockForce = null; app.btd = {}; app.bt = { x: 0, y: 0 }; app.test = { mouth: null, blink: 0, lookX: 0, lookY: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, trig: {} }; app.live = false;
@@ -191,13 +198,17 @@
     var liveNow = app.mode === 'perform' || app.live;
     var S = liveNow ? app.inp.step(dt) : app.buildSignals();
     var onion = null; if (!liveNow && app.onion && app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') onion = app.selNodes[0].id;
-    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion };
+    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false };
     if (bridge) {                                            // matching two head angles: one on stage, the other ghosted over it; or the real turn, to preview it
       if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = 0.6; eo.onionOver = true; }
       else eo.tween = true;
-    }
+    } else if (!liveNow && app.ballTry) eo.tween = true;                     // previewing a round head turning, without leaving Build
     var out = app.out = app.solver.eval(S, eo);
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
+    if (ids && !bridge && app.liftArt !== false) {            // (not while looking at how a limb really sits behind the body)
+      var firstSel = -1, ii; for (ii = 0; ii < out.items.length; ii++) if (ids[out.items[ii].id]) { firstSel = ii; break; }
+      if (firstSel >= 0) for (ii = firstSel + 1; ii < out.items.length; ii++) { var fi = out.items[ii]; if (!ids[fi.id] && !fi.ghost) { fi.a0 = fi.a; fi.a *= 0.14; } }
+    }
     app.G.draw(out.items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, function (it) {
       if (it.ghost) return bridge ? [0.96, 0.25, 0.56, 0.62] : [0.65, 0.55, 0.98, 0.55];
       if (ids && !ids[it.id]) return [0.03, 0.03, 0.05, 0.52];
@@ -237,9 +248,14 @@
     /* links between pins (shoulder - elbow - hand) */
     var byKey = {}; pins.forEach(function (p) { byKey[p.key] = p; });
     g.lineWidth = 2; g.strokeStyle = 'rgba(34,211,238,.8)';
-    pins.forEach(function (p) { if (p.to && byKey[p.to]) { g.beginPath(); g.moveTo(p.sx, p.sy); g.lineTo(byKey[p.to].sx, byKey[p.to].sy); g.stroke(); } if (p.ring) { g.beginPath(); g.setLineDash([5, 5]); g.arc(p.sx, p.sy, p.ring * v.s, 0, 7); g.stroke(); g.setLineDash([]); } });
+    pins.forEach(function (p) { if (p.to && byKey[p.to]) { g.beginPath(); g.moveTo(p.sx, p.sy); g.lineTo(byKey[p.to].sx, byKey[p.to].sy); g.stroke(); } if (p.ring) { g.beginPath(); g.setLineDash([5, 5]); g.arc(p.sx, p.sy, p.ring * v.s, 0, 7); g.stroke(); g.setLineDash([]); } if (p.oval) { g.beginPath(); g.setLineDash([5, 5]); g.ellipse(p.sx, p.sy, Math.max(1, p.oval[0] * v.s), Math.max(1, p.oval[1] * v.s), 0, 0, 7); g.stroke(); g.setLineDash([]); } });
     g.font = '600 11px "IBM Plex Sans",system-ui,sans-serif'; g.textBaseline = 'middle';
     pins.forEach(function (p) {
+      if (p.ghost) {                                         // the other drawing's point: seen, not touched
+        g.beginPath(); g.arc(p.sx, p.sy, 5.5, 0, 7); g.fillStyle = 'rgba(3,24,28,.85)'; g.fill(); g.beginPath(); g.arc(p.sx, p.sy, 3.5, 0, 7); g.fillStyle = p.color || '#f43f8e'; g.fill();
+        if (p.label) { g.beginPath(); g.arc(p.sx, p.sy, 10 + 3 * Math.sin(Date.now() / 160), 0, 7); g.strokeStyle = p.color || '#f43f8e'; g.lineWidth = 1.5; g.stroke(); }
+        return;
+      }
       if (p.tap) {                                           // a small helper you tap, not drag
         g.beginPath(); g.arc(p.sx, p.sy, 10, 0, 7); g.fillStyle = p.on ? '#22d3ee' : 'rgba(13,13,16,.85)'; g.fill(); g.strokeStyle = p.on ? '#03181c' : '#e4e4e7'; g.lineWidth = 1.6;
         g.beginPath(); g.arc(p.sx, p.sy, 5, Math.PI * 0.15, Math.PI * 1.55); g.stroke(); g.beginPath(); g.moveTo(p.sx + 1, p.sy - 8.5); g.lineTo(p.sx + 1.5, p.sy - 4); g.lineTo(p.sx - 3.2, p.sy - 4.6); g.stroke();
@@ -303,9 +319,9 @@
       var c = app.toChar(p.x, p.y);
       app.drag = { x0: p.x, y0: p.y, x: p.x, y: p.y, moved: false };
       if (isLive()) return;
-      var best = null, bd = 26; (app._pins || []).forEach(function (q) { var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d < (q.tap ? Math.min(bd, 16) : bd)) { bd = d; best = q; } });
+      var best = null, bd = 26; (app._pins || []).forEach(function (q) { if (q.ghost) return; var d = Math.hypot(q.sx - p.x, q.sy - p.y); if (d < (q.tap ? Math.min(bd, 16) : bd)) { bd = d; best = q; } });
       if (best) { app.drag.pin = best; app.drag.off = { x: best.sx - p.x, y: best.sy - p.y }; return; }
-      if (app.moveArt && app.selIds) { var hit = AL.hit(app.out, c[0], c[1]); if (hit && app.selIds[hit.id]) { app.drag.art = hit.id; app.drag.last = c; } }
+      if (app.moveArt && app.selIds) { var hit = AL.hit(app.out, c[0], c[1], null, app.selIds); if (hit) { app.drag.art = hit.id; app.drag.last = c; } }      // only the selected part, even under something faded
     }
     function move(p) {
       var d = app.drag;
@@ -325,7 +341,7 @@
         var c = app.toChar(d.x0, d.y0);
         if (app.bridge) { AL.bridge.tap(app, c, d.pin); return; }
         if (d.pin) { if (d.pin.pick) d.pin.pick(); return; }
-        var hit = AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return;
+        var hit = (app.selIds && AL.hit(app.out, c[0], c[1], null, app.selIds)) || AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return;
       }
       if (d.pin || d.art) { if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }
     }
@@ -347,7 +363,7 @@
       if (hand) { var wi = app.toInner(hand.w[0], hand.w[1]); inp.held['hand' + hand.sd] = true; inp.pose['hand' + hand.sd] = { x: wi[0], y: wi[1] }; return { kind: 'hand', sd: hand.sd, off: [wi[0] - inner[0], wi[1] - inner[1]] }; }
       if (foot) { inp.held['foot' + foot.sd] = true; inp.pose['foot' + foot.sd] = { x: foot.w[0], y: foot.w[1] }; return { kind: 'foot', sd: foot.sd, off: [foot.w[0] - c[0], foot.w[1] - c[1]] }; }
       var mp = null, md = 34 / app.view.s; for (var id in out.pins) if (out.pins[id].mesh) { var n = AL.node(ch, id); out.pins[id].mesh.forEach(function (q, i) { var dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd < md && n.mesh.pins[i]) { md = dd; mp = { pin: n.mesh.pins[i], q: q }; } }); }
-      if (mp) { var qi = app.toInner(mp.q[0], mp.q[1]); return { kind: 'pin', pinId: mp.pin.id, off: [qi[0] - inner[0], qi[1] - inner[1]] }; }
+      if (mp) { var qi = app.toInner(mp.q[0], mp.q[1]); if (inp.recording) inp.pinTouched[mp.pin.id] = true; return { kind: 'pin', pinId: mp.pin.id, off: [qi[0] - inner[0], qi[1] - inner[1]] }; }
       if (zone === 'head') { var hb = AL.boundsOf(app.zoneNode('head')); inp.held.head = true; return { kind: 'head', t0: [inp.pose.turnX, inp.pose.turnY], R: Math.max(40, (hb ? hb.x1 - hb.x0 : 160) * 0.42) }; }
       if (zone === 'body' || zone === 'tail' || zone === 'legL' || zone === 'legR') { inp.held.body = true; if (inp.walker.cfg()) { inp.walker.grab(c); return { kind: 'walk' }; } return { kind: 'body' }; }
       return null;
@@ -417,7 +433,7 @@
     Array.prototype.forEach.call($('modes').children, function (b) { b.className = (b.getAttribute('data-m') === m ? 'on' : '') + (m === 'perform' && b.getAttribute('data-m') === m ? ' live' : ''); });
     $('app').classList.toggle('perform', m === 'perform');
     if (!app.ch || !app.inp) return;
-    if (m === 'build') { app.inp.stop(); app.inp.walker.reset(); app.inp.pose.flip = false; } else { app.solver.reset(); }
+    if (m === 'build') { app.inp.stop(); app.inp.micStop(); app.inp.camStop(); app.inp.walker.reset(); app.inp.pose.flip = false; } else { app.solver.reset(); }
     app.bridge = null; app.lockForce = null;
     app.userView = false; app.resolveSel(); app.refreshPanel(); app.focusSel();
   };
@@ -451,8 +467,12 @@
       } catch (e) { rej(e); }
     });
   }
-  app.autosave = function () { if (!app.ch || !app.dirty) return; app.dirty = false; var o = AL.toJson(app.ch, true); idb(function (s) { return s.put(o, 'current'); }).catch(function () { }); };
-  app.loadSaved = function () { return idb(function (s) { return s.get('current'); }).then(function (o) { return o && o.root ? AL.fromJson(o) : null; }).catch(function () { return null; }); };
+  app.autosave = function () {
+    if (!app.ch || !app.dirty) return; app.dirty = false;
+    var o = AL.toJson(app.ch, true); if (app.inp && app.inp.take && app.inp.take.n) o.take = app.inp.take;      // character and take are one document
+    return idb(function (s) { return s.put(o, 'current'); }).then(function () { if (!app.dirty) app.saveState('saved'); }, function () { app.saveState('failed'); });
+  };
+  app.loadSaved = function () { return idb(function (s) { return s.get('current'); }).then(function (o) { if (!o || AL.validate(o)) return null; app._take = o.take && o.take.ch ? o.take : null; delete o.take; return AL.fromJson(o); }).catch(function () { return null; }); };
 
   /* ── the desk around the phone ── */
   var SIZES = { tall: [411, 846], wide: [846, 411], tab: [1180, 740] };
@@ -491,8 +511,8 @@
     wire(); AL.intake.wire(app);
     var q = /[?&]open=([^&]+)/.exec(location.search), fresh = /[?&]demo\b/.test(location.search);
     var start = q ? AL.intake.openUrl(app, decodeURIComponent(q[1])) : (fresh ? Promise.resolve(null) : app.loadSaved()).then(function (ch) {
-      if (ch && !(ch.demo && ch.pilot !== AL.PILOT)) { app.setCharacter(ch, { quiet: true }); return; }
-      var want = /[?&]demo=pip\b/.test(location.search) || (ch && ch.demo === 'pip') ? 'pip' : 'topps';
+      if (ch && !(ch.demo && !ch.edited && ch.pilot !== AL.PILOT)) { app.setCharacter(ch, { quiet: true }); if (app._take) app.inp.take = app._take; app._take = null; app.saveState('saved'); return; }
+      var want = /[?&]demo=joybot\b/.test(location.search) || (ch && ch.demo === 'joybot') ? 'joybot' : /[?&]demo=pip\b/.test(location.search) || (ch && ch.demo === 'pip') ? 'pip' : 'topps';
       return AL.intake.builtIn(app, want).catch(function () { AL.img.map = {}; app.setCharacter(AL.demo(), { quiet: true }); });
     });
     start.catch(function (e) { console.error(e); app.setCharacter(AL.demo(), { quiet: true }); app.toast('That file would not open: ' + e.message); }).then(function () { requestAnimationFrame(app.frame); });

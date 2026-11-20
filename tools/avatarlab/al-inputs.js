@@ -19,23 +19,23 @@
   AL.Inputs = function (app) {
     this.app = app; this.t = 0;
     this.pose = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, brow: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, mood: 'Neutral', handL: null, handR: null, footL: null, footR: null, dial: {}, flip: false };
-    this.walker = new AL.Walker(app); this.smd = {};
+    this.walker = new AL.Walker(app, this); this.smd = {};
     this.sm = { turnX: 0, turnY: 0, roll: 0, sway: 0, bounce: 0, mouth: 0, lookX: 0, lookY: 0, browL: 0, browR: 0, lidUp: 0, lidLow: 0, lidTilt: 0, wind: 0, hL: null, hR: null };
     this.trig = {}; this.talking = false; this.auto = false; this.held = {};
     this.life = { next: 1.5, bt: -1, sx: 0, sy: 0, ns: 1 };
     this.babble = { env: 0, next: 0, vis: 'Aa', gap: 0 };
     this.mic = { on: false, level: 0, vis: 'Neutral', kind: null };
     this.cam = { on: false, v: null, swap: false, mode: 'talk', zero: null };
-    this.take = null; this.playing = false; this.recording = false; this.ph = 0; this.wrote = {};
+    this.take = null; this.playing = false; this.recording = false; this.ph = 0; this.wrote = {}; this.fade = {}; this.trigTouched = {}; this.pinTouched = {}; this.blinkManual = 0; this.backup = null;
     this.S = AL.restSignals();
   };
   var P = AL.Inputs.prototype;
 
   P.restHand = function (side) {
     var ch = this.app.ch, set = AL.firstRole(ch.root, side === 'L' ? 'armL' : 'armR'); if (!set || !set.pick) return null;
-    var k = AL.node(ch, set.pick.rest); return k && k.limb ? { x: k.limb.c.x, y: k.limb.c.y, ax: k.limb.a.x, ay: k.limb.a.y } : null;
+    var k = AL.node(ch, set.pick.rest), r = set.pick.restAt || (k && k.limb ? k.limb.c : null); return k && k.limb ? { x: r.x, y: r.y, ax: k.limb.a.x, ay: k.limb.a.y } : null;
   };
-  P.blinkNow = function () { this.life.bt = 0; };
+  P.blinkNow = function () { this.life.bt = 0; this.blinkManual = 0.2; };
   P.resetPose = function () { var p = this.pose; p.turnX = p.turnY = p.roll = p.sway = p.bounce = p.mouth = p.brow = p.lidUp = p.lidLow = p.lidTilt = p.wind = 0; p.mood = 'Neutral'; p.handL = p.handR = p.footL = p.footR = null; p.dial = {}; this.trig = {}; this.walker.home(); };
   /* a mood is three numbers for the lids and one for the brows */
   AL.MOODS = { Neutral: [0, 0, 0, 0], Relaxed: [0.42, 0, 0, 0], Sleepy: [0.72, 0, 0.12, -0.3], Angry: [0.3, 1, 0.18, -0.9], Sad: [0.26, -1, 0, 0.35], Cheery: [0, 0, 0.8, 0.45], Wary: [0.4, 0.35, 0.45, -0.4] };
@@ -57,7 +57,7 @@
   };
   P.playVoice = function (file) {
     var self = this, ac = this.audioGraph(); this.micStop();
-    var el = this.audioEl = new Audio(); el.src = URL.createObjectURL(file);
+    var el = this.audioEl = new Audio(); this.audioUrl = URL.createObjectURL(file); el.src = this.audioUrl;
     this.src = ac.createMediaElementSource(el); this.src.connect(this.an); this.an.connect(ac.destination); this.toSpeaker = true;
     el.onended = function () { self.micStop(); self.app.refreshPanel(); };
     this.mic.on = true; this.mic.kind = 'file';
@@ -66,6 +66,7 @@
   P.micStop = function () {
     if (this.stream) { this.stream.getTracks().forEach(function (t) { t.stop(); }); this.stream = null; }
     if (this.audioEl) { this.audioEl.pause(); this.audioEl = null; }
+    if (this.audioUrl) { URL.revokeObjectURL(this.audioUrl); this.audioUrl = null; }
     if (this.src) { try { this.src.disconnect(); } catch (e) { } this.src = null; }
     if (this.toSpeaker) { try { this.an.disconnect(); } catch (e2) { } this.toSpeaker = false; }
     this.mic.on = false; this.mic.level = 0; this.mic.kind = null;
@@ -92,10 +93,10 @@
       return mp.FilesetResolver.forVisionTasks(base + '/wasm').then(function (fs) {
         return mp.FaceLandmarker.createFromOptions(fs, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task', delegate: 'GPU' }, outputFaceBlendshapes: true, outputFacialTransformationMatrixes: true, runningMode: 'VIDEO', numFaces: 1 });
       });
-    }).then(function (lm) { self.cam.lm = lm; self.cam.on = true; self.cam.last = 0; self.cam.face = null; })
+    }).then(function (lm) { if (self.camGone) { self.camGone = false; self.camStop(); throw new Error('stopped'); } self.cam.lm = lm; self.cam.on = true; self.cam.last = 0; self.cam.face = null; })
       .catch(function (e) { self.camStop(); throw e; });
   };
-  P.camStop = function () { if (this.camStream) this.camStream.getTracks().forEach(function (t) { t.stop(); }); this.camStream = null; this.cam.on = false; this.cam.v = null; this.cam.lm = null; this.cam.face = null; };
+  P.camStop = function () { if (!this.cam.on && this.camStream) this.camGone = true; if (this.camStream) this.camStream.getTracks().forEach(function (t) { t.stop(); }); this.camStream = null; this.cam.on = false; this.cam.v = null; this.cam.lm = null; this.cam.face = null; };
   P.watch = function () {
     var c = this.cam, now = performance.now(); if (!c.lm || !c.v || c.v.readyState < 2 || now - c.last < 50) return;
     c.last = now;
@@ -111,42 +112,77 @@
     c.face = f;
   };
 
-  /* ── takes ── */
-  P.channels = function () { var out = []; for (var g in GROUPS) out = out.concat(GROUPS[g]); for (var dn in this.pose.dial) out.push('dx:' + dn, 'dy:' + dn); (this.app.ch.triggers || []).forEach(function (t) { out.push('g:' + t.id); }); return out; };
-  P.groupOf = function (name) { if (name.slice(0, 2) === 'g:') return 'trig'; if (name.slice(0, 3) === 'dx:' || name.slice(0, 3) === 'dy:') return 'head'; for (var g in GROUPS) if (GROUPS[g].indexOf(name) >= 0) return g; return 'body'; };
+  /* ── takes ──
+     A take stores signals per frame. Every signal has an OWNER (head, mouth, mood, blink, each hand, each foot, body,
+     wind, each button, each pinned point). Recording over a take is punch-in, punch-out: an owner is written only
+     while something live is driving it, then handed back to the old take over a quarter of a second. Whatever you
+     did not touch is the same afterwards, sample for sample. One Undo takes the whole pass back. */
+  var OWN = { turnX: 'head', turnY: 'head', roll: 'head', lookX: 'head', lookY: 'head', mouth: 'mouth', vis: 'mouth', browL: 'mood', browR: 'mood', lidUp: 'mood', lidLow: 'mood', lidTilt: 'mood',
+    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hRx: 'handR', hRy: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR',
+    sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind' };
+  var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
+  var STEP = { vis: 1, flip: 1 }, FADE = 0.25;
+  AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
+  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
+  P.channels = function () {
+    var seen = {}, out = [], k; function add(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }
+    for (k in OWN) add(k);
+    for (k in this.pose.dial) { add('dx:' + k); add('dy:' + k); }
+    (this.app.ch.triggers || []).forEach(function (t) { add('g:' + t.id); });
+    for (k in this.S.pin) { add('p:' + k + ':x'); add('p:' + k + ':y'); }
+    if (this.take) for (k in this.take.ch) add(k);                  // whatever the take holds is played, even after a reload
+    return out;
+  };
+  /** Who is being driven live, right now. */
+  P.owned = function (talking, faceOn) {
+    var hd = this.held, face = !!faceOn && !!this.cam.face, k;
+    var o = { head: !!hd.head || face, mouth: !!talking || this.mic.on || face, mood: !!hd.face || face, blink: !!this.blinkHold || this.blinkManual > 0 || face,
+      handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
+    for (k in this.trigTouched) o['g:' + k] = true;                 // a button pressed in this pass is yours to the end of it
+    for (k in this.pinTouched) o['p:' + k] = true;
+    return o;
+  };
+  P.toggleTrig = function (id) { this.trig[id] = !this.trig[id]; if (this.recording) this.trigTouched[id] = true; };
   P.record = function () {
     if (!this.take) this.take = { fps: 30, n: 0, ch: {} };
-    this.recording = true; this.playing = true; this.ph = 0; this.wrote = {}; this.fresh = this.take.n === 0;
+    this.backup = JSON.stringify(this.take);
+    this.recording = true; this.playing = true; this.scrub = false; this.ph = 0; this.wrote = {}; this.fade = {}; this.trigTouched = {}; this.pinTouched = {}; this.fresh = this.take.n === 0;
   };
-  P.stop = function () { if (this.recording && this.take) { this.take.n = Math.max(this.take.n, Math.floor(this.ph * this.take.fps)); } this.recording = false; this.playing = false; };
-  P.play = function () { if (!this.take || !this.take.n) return; this.playing = true; this.recording = false; if (this.ph >= this.take.n / this.take.fps - 0.05) this.ph = 0; };
-  P.clearTake = function () { this.stop(); this.take = null; this.ph = 0; };
+  P.stop = function () { var was = this.recording; if (was && this.take) this.take.n = Math.max(this.take.n, Math.floor(this.ph * this.take.fps)); this.recording = false; this.playing = false; if (was && this.app.touch) this.app.touch(); };
+  /** Take the last recording pass back, whole. */
+  P.undoPass = function () { if (!this.backup) return false; this.recording = false; this.playing = false; var t = JSON.parse(this.backup); this.backup = null; this.take = t.n ? t : null; this.ph = 0; if (this.app.touch) this.app.touch(); return true; };
+  P.play = function () { if (!this.take || !this.take.n) return; this.playing = true; this.recording = false; this.scrub = false; if (this.ph >= this.take.n / this.take.fps - 0.05) this.ph = 0; };
+  P.clearTake = function () { this.recording = false; this.playing = false; this.take = null; this.backup = null; this.ph = 0; if (this.app.touch) this.app.touch(); };
   P.duration = function () { return this.take ? this.take.n / this.take.fps : 0; };
 
   function flat(S, trigs) {
-    var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind,
-      hLx: S.hand.L ? S.hand.L.x : NaN, hLy: S.hand.L ? S.hand.L.y : NaN, hRx: S.hand.R ? S.hand.R.x : NaN, hRy: S.hand.R ? S.hand.R.y : NaN, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0,
-      fLx: S.hand.FL ? S.hand.FL.x : NaN, fLy: S.hand.FL ? S.hand.FL.y : NaN, fRx: S.hand.FR ? S.hand.FR.x : NaN, fRy: S.hand.FR ? S.hand.FR.y : NaN };
-    for (var dk in (S.dial || {})) { o['dx:' + dk] = S.dial[dk][0]; o['dy:' + dk] = S.dial[dk][1]; }
+    var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR,
+      lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0 }, k;
+    for (k in HAND) { var hh = S.hand[HAND[k][0]]; o[k] = hh ? (HAND[k][1] ? hh.y : hh.x) : null; }      // null = at rest, and stays null through a saved file
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
+    for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
+    for (k in (S.pin || {})) { o['p:' + k + ':x'] = S.pin[k].x; o['p:' + k + ':y'] = S.pin[k].y; }
     return o;
   }
   function unflat(S, name, v) {
+    if (v === undefined) return;
+    if (HAND[name]) { var hk = HAND[name]; if (!hk[1]) S.hand[hk[0]] = v == null || v !== v ? null : { x: v, y: S.hand[hk[0]] ? S.hand[hk[0]].y : 0 }; else if (S.hand[hk[0]] && v != null) S.hand[hk[0]].y = v; return; }
     if (v == null) return;
     if (name === 'vis') S.viseme = AL.SHAPES[v] || 'Neutral';
-    else if (name === 'hLx') S.hand.L = isNaN(v) ? null : { x: v, y: S.hand.L ? S.hand.L.y : 0 }; else if (name === 'hLy') { if (S.hand.L && !isNaN(v)) S.hand.L.y = v; }
-    else if (name === 'hRx') S.hand.R = isNaN(v) ? null : { x: v, y: S.hand.R ? S.hand.R.y : 0 }; else if (name === 'hRy') { if (S.hand.R && !isNaN(v)) S.hand.R.y = v; }
     else if (name === 'rootX') S.root.x = v; else if (name === 'rootY') S.root.y = v; else if (name === 'rootS') S.rootScale = v;
-    else if (name === 'fLx') S.hand.FL = isNaN(v) ? null : { x: v, y: S.hand.FL ? S.hand.FL.y : 0 }; else if (name === 'fLy') { if (S.hand.FL && !isNaN(v)) S.hand.FL.y = v; }
-    else if (name === 'fRx') S.hand.FR = isNaN(v) ? null : { x: v, y: S.hand.FR ? S.hand.FR.y : 0 }; else if (name === 'fRy') { if (S.hand.FR && !isNaN(v)) S.hand.FR.y = v; }
-    else if (name.slice(0, 3) === 'dx:') { (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[0] = v; } else if (name.slice(0, 3) === 'dy:') { (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[1] = v; }
-    else if (name === 'flip') S.flip = v > 0.5; else if (name.slice(0, 2) === 'g:') S.trig[name.slice(2)] = v > 0.5; else S[name] = v;
+    else if (name === 'flip') S.flip = v > 0.5;
+    else if (name.slice(0, 2) === 'g:') S.trig[name.slice(2)] = v > 0.5;
+    else if (name.slice(0, 3) === 'dx:') (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[0] = v;
+    else if (name.slice(0, 3) === 'dy:') (S.dial[name.slice(3)] = S.dial[name.slice(3)] || [0, 0])[1] = v;
+    else if (name.slice(0, 2) === 'p:') { var pid = name.slice(2, name.lastIndexOf(':')), ax = name.slice(-1); (S.pin[pid] = S.pin[pid] || { x: 0, y: 0 })[ax] = v; }
+    else S[name] = v;
   }
 
   /** One frame. Returns the signals to draw. */
   P.step = function (dt) {
     var app = this.app, ch = app.ch, set = ch.settings || {}, p = this.pose, sm = this.sm, S = this.S, L = this.life, held = this.held;
-    this.t += dt; var t = this.t;
+    this.t += dt; var t = (this.take && (this.playing || this.recording || this.scrub)) ? this.ph : this.t;
+    if (this.blinkManual > 0) this.blinkManual -= dt;
     var tg = { turnX: p.turnX, turnY: p.turnY, roll: p.roll, sway: p.sway, bounce: p.bounce, hL: p.handL, hR: p.handR }, mouth = p.mouth, vis = mouth > 0.08 ? 'Aa' : 'Neutral', brow = p.brow, lidUp = p.lidUp, lidLow = p.lidLow, lidTilt = p.lidTilt, talking = this.talking, look = null, blinkCam = null;
 
     if (this.auto) {
@@ -215,22 +251,25 @@
     this.walker.step(dt, S);
     S.flip = !!p.flip; S.trig = {}; for (var id in this.trig) if (this.trig[id]) S.trig[id] = true;
 
-    /* a take: play it back under whatever is being held live; record writes what is held */
+    /* a take: play it back under whatever is being driven live; recording writes only what is being driven */
     var tk = this.take;
     if (tk && (this.playing || this.recording || this.scrub)) {
-      var i = Math.floor(this.ph * tk.fps), live = flat(S, ch.triggers || []), names = this.channels(), n, g;
-      if (held.face || this.mic.on || talking) held.faceNow = true; else held.faceNow = false;
-      for (var q = 0; q < names.length; q++) {
-        n = names[q]; g = this.groupOf(n);
-        var isHeld = g === 'face' ? held.faceNow : g === 'trig' ? Object.keys(S.trig).length > 0 : (g === 'footL' || g === 'footR') ? (!!held[g] || !!held.body) : !!held[g];
-        if (this.recording && (this.fresh || isHeld || this.wrote[g])) {
-          if (isHeld || this.fresh) this.wrote[g] = true;
-          var arr = tk.ch[n] || (tk.ch[n] = []); while (arr.length < i) arr.push(arr.length ? arr[arr.length - 1] : live[n]); arr[i] = live[n];
-        } else if (!isHeld && tk.ch[n] && tk.ch[n].length) { unflat(S, n, tk.ch[n][Math.min(i, tk.ch[n].length - 1)]); }
+      var i = Math.floor(this.ph * tk.fps), live = flat(S, ch.triggers || []), names = this.channels(), own = this.owned(talking, faceOn), fade = this.fade || (this.fade = {}), n, g, q, arr, had, val;
+      for (q = 0; q < names.length; q++) {
+        n = names[q]; g = this.ownerOf(n); arr = tk.ch[n]; had = arr && arr.length ? arr[Math.min(i, arr.length - 1)] : undefined;
+        var mine = !!own[g], fading = !mine && fade[g] > 0;
+        if (this.recording && (this.fresh || mine || fading)) {
+          val = live[n];
+          if (fading) { if (had === undefined) continue; val = (STEP[n] || n.charAt(1) === ':' || had == null || val == null || typeof val !== 'number') ? had : had + (val - had) * (fade[g] / FADE); }
+          arr = arr || (tk.ch[n] = []); while (arr.length < i) arr.push(arr.length ? arr[arr.length - 1] : val); arr[i] = val; this.wrote[g] = true;
+          if (fading) unflat(S, n, val);
+        } else if (!mine && had !== undefined) unflat(S, n, had);
       }
+      for (g in fade) if (!own[g]) fade[g] = Math.max(0, fade[g] - dt);
+      for (g in own) if (own[g]) fade[g] = FADE;
       if (this.playing || this.recording) this.ph += dt;
-      if (this.recording) { tk.n = Math.max(tk.n, i + 1); if (this.ph > 60) this.stop(); }
-      else if (this.playing && this.ph >= tk.n / tk.fps) { this.ph = 0; }
+      if (this.recording) { tk.n = Math.max(tk.n, i + 1); if (this.ph > 120) this.stop(); }
+      else if (this.playing && this.ph >= tk.n / tk.fps) this.ph = 0;
     }
     return S;
   };

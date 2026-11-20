@@ -10,21 +10,27 @@
   'use strict';
   var AL = root.AL = root.AL || {};
   function hyp(x, y) { return Math.sqrt(x * x + y * y); }
-  function lc(s) { return (s || '').toLowerCase(); }
+  function lc(s) { return String(s || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/([A-Za-z])(\d)/g, '$1 $2').toLowerCase(); }      // run-together names are split into their words first
   function clean(s) { return (s || '').replace(/^\s*\+\s*/, '').replace(/\s+/g, ' ').trim() || 'Layer'; }
 
   /* ── reading a Photoshop file into a layer tree ── */
-  AL.importPsd = function (buf, name) {
-    var doc = root.ALPsd.parse(buf), jobs = [];
+  AL.importPsd = function (buf, name, onProgress) {
+    var doc = root.ALPsd.parse(buf), tasks = [], notes = { clip: 0, blend: 0 };
     function conv(L) {
       if (L.kind === 'group') return { name: L.name, kind: 'group', visible: L.visible, opacity: L.opacity, kids: L.children.map(conv).filter(Boolean) };
       if (!(L.w > 0 && L.h > 0)) return null;
+      if (L.clip) notes.clip++; if (L.blend && L.blend !== 'norm' && L.blend !== 'pass') notes.blend++;
       var id = AL.id('i'), o = { name: L.name, kind: 'layer', visible: L.visible, opacity: L.opacity, img: id, x: L.left, y: L.top };
-      jobs.push(root.ALPsd.decode(doc, L).then(function (im) { AL.img.fromRGBA(id, im.w, im.h, im.data, L.name); }));
+      tasks.push(function () { return root.ALPsd.decode(doc, L).then(function (im) { AL.img.fromRGBA(id, im.w, im.h, im.data, L.name); }); });
       return o;
     }
     var kids = doc.tree.map(conv).filter(Boolean);
-    return Promise.all(jobs).then(function () { return { name: name || 'Character', w: doc.width, h: doc.height, kids: kids, layers: doc.flat.length }; });
+    if (!tasks.length) return Promise.reject(new Error('That file has no layers in it (it was saved flattened). Save it from the art program with its layers, or use \u201cPin one whole drawing\u201d.'));
+    /* six layers at a time: a big file does not ask for all its memory at once, and the count can be shown */
+    var next = 0, done = 0;
+    function worker() { if (next >= tasks.length) return Promise.resolve(); var t = tasks[next++]; return t().then(function () { done++; if (onProgress && done % 10 === 0) onProgress(done, tasks.length); return worker(); }); }
+    var pool = []; for (var w = 0; w < 6; w++) pool.push(worker());
+    return Promise.all(pool).then(function () { return { name: name || 'Character', w: doc.width, h: doc.height, kids: kids, layers: doc.flat.length, notes: notes }; });
   };
 
   /* ── names ── */
@@ -103,7 +109,7 @@
    * Pins for a fan of limb drawings. The trick: drawings of one arm at many angles all overlap at the
    * SHOULDER, so the shoulder is simply where most of them are opaque at once. The hand is the far end.
    */
-  AL.guessFan = function (ch, set, near) {
+  AL.guessFan = function (ch, set, near, onlyNew) {
     var kids = (set.kids || []).filter(function (k) { return k.type === 'art' && AL.img.get(k.img); });
     if (!kids.length) return;
     var b = AL.boundsOf(set), bw = Math.ceil(b.x1 - b.x0), bh = Math.ceil(b.y1 - b.y0), cover = new Uint8Array(bw * bh), mx = 0, shoulder = null;
@@ -113,8 +119,10 @@
       for (var i = 0; i < cover.length; i++) if (cover[i] >= thr) { sx += i % bw; sy += (i / bw) | 0; c++; }
       if (c) shoulder = { x: b.x0 + sx / c, y: b.y0 + sy / c };
     }
+    var todo = onlyNew ? kids.filter(function (k) { return !k.limb; }) : kids, have = kids.filter(function (k) { return k.limb && todo.indexOf(k) < 0; });
+    if (have.length) { var hx = 0, hy = 0; have.forEach(function (k) { hx += k.limb.a.x; hy += k.limb.a.y; }); shoulder = { x: hx / have.length, y: hy / have.length }; }      // new drawings share the shoulder you already set
     var lens = [];
-    kids.forEach(function (k) {
+    todo.forEach(function (k) {
       var a = shoulder;
       if (!a) { var e = near ? ends(k) : plainEndFirst(k); if (!e) return; a = near ? (hyp(e[0].x - near.x, e[0].y - near.y) <= hyp(e[1].x - near.x, e[1].y - near.y) ? e[0] : e[1]) : e[0]; }
       var f = farthest(k, a); if (!f) return;
@@ -122,12 +130,12 @@
       var wl = hyp(wrist.x - a.x, wrist.y - a.y);
       var elbow = ringCentre(k, a, wl * 0.44, wl * 0.56) || { x: (a.x + wrist.x) / 2, y: (a.y + wrist.y) / 2 };
       var keep = k.limb || {};
-      k.limb = { a: { x: a.x, y: a.y }, b: elbow, c: wrist, flip: !!keep.flip, bend: keep.bend, guessed: true };
+      var nl = {}; for (var kq in keep) nl[kq] = keep[kq]; nl.a = { x: a.x, y: a.y }; nl.b = elbow; nl.c = wrist; nl.guessed = true; k.limb = nl;      // softness, stretch and the flip are kept
       lens.push(wl);
     });
     /* a drawing far shorter than its sisters points at the camera: keep its elbow simple */
     var med = lens.slice().sort(function (p, q) { return p - q; })[lens.length >> 1] || 0;
-    kids.forEach(function (k) { if (!k.limb) return; var l = k.limb, wl = hyp(l.c.x - l.a.x, l.c.y - l.a.y); if (wl < med * 0.5) l.b = { x: (l.a.x + l.c.x) / 2, y: (l.a.y + l.c.y) / 2 }; });
+    todo.forEach(function (k) { if (!k.limb) return; var l = k.limb, wl = hyp(l.c.x - l.a.x, l.c.y - l.a.y); if (wl < med * 0.5) l.b = { x: (l.a.x + l.c.x) / 2, y: (l.a.y + l.c.y) / 2 }; });
     var rest = null; kids.forEach(function (k) { if (k.limb && (!rest || k.limb.c.y > rest.limb.c.y)) rest = k; });
     set.pick = set.pick || {}; if (rest && (!set.pick.rest || !AL.node(ch, set.pick.rest))) set.pick.rest = rest.id;
   };
@@ -259,6 +267,7 @@
   /* ── the whole pass ── */
   AL.autoRig = function (doc) {
     var ch = AL.newCharacter(doc.name, doc.w, doc.h);
+    if (doc.notes && (doc.notes.clip || doc.notes.blend)) ch.importNotes = doc.notes;
     function conv(l) {
       var n = { id: AL.id('n'), name: clean(l.name), type: l.kind === 'group' ? 'group' : 'art' };
       if (l.visible === false) n.hidden = true;
@@ -324,14 +333,18 @@
     if (head && head.type === 'group') {
       var views = head.kids.filter(function (k) { return k.type === 'group' && viewPos(k.name); });
       if (views.length >= 2) {
-        head.type = 'set'; head.kids = head.kids.filter(function (k) { return k.type === 'group'; });
+        var firstView = head.kids.indexOf(views[0]), shared = head.kids.filter(function (k) { return k.type !== 'group'; });
+        function copyOf(n) { var c2 = JSON.parse(JSON.stringify(n)); (function re(q) { q.id = AL.id('n'); if (q.kids) q.kids.forEach(re); })(c2); c2.shared = true; return c2; }
+        head.type = 'set'; var groups = head.kids.filter(function (k) { return k.type === 'group'; });
+        groups.forEach(function (gk) { var over = [], under = []; shared.forEach(function (sn) { (head.kids.indexOf(sn) < firstView ? over : under).push(copyOf(sn)); }); gk.kids = over.concat(gk.kids, under); });
+        head.kids = groups; head.sharedCount = shared.length;
         var spare = 0;
         head.kids.forEach(function (k) { k.at = viewPos(k.name) || [Math.cos(spare) * 0.8, Math.sin(spare++) * 0.8]; delete k.hidden; });
         var front = null, fd = 9; head.kids.forEach(function (k) { var d = hyp(k.at[0], k.at[1]); if (d < fd) { fd = d; front = k; } });
         head.pick = { by: 'turn', depth: 12, fade: 110, rest: front.id };
         var fb = AL.boundsOf(front); if (fb) head.axisX = (fb.x0 + fb.x1) / 2;
         var hasL = head.kids.some(function (k) { return k.at[0] < -0.1; }), hasR = head.kids.some(function (k) { return k.at[0] > 0.1; });
-        if (hasL !== hasR) head.kids.slice().forEach(function (k) { if (Math.abs(k.at[0]) > 0.1) head.kids.push({ id: AL.id('n'), name: k.name.replace(/left/i, 'Right').replace(/right/i, 'Left') + ' (mirrored)', type: 'mirror', of: k.id, at: [-k.at[0], k.at[1]], auto: true }); });
+        if (hasL !== hasR) head.kids.slice().forEach(function (k) { if (Math.abs(k.at[0]) > 0.1) head.kids.push({ id: AL.id('n'), name: k.name.replace(/left|right/i, function (m) { return /left/i.test(m) ? 'Right' : 'Left'; }) + ' (mirrored)', type: 'mirror', of: k.id, at: [-k.at[0], k.at[1]], auto: true }); });
       }
     }
     if (head) {
@@ -358,6 +371,7 @@
             });
           }
           if (n.type === 'group' && n.kids.length && n.kids.every(function (k) { return k.role === 'blink' || k.hidden; })) n.hidden = true;   // this eye is not drawn at this angle
+          else if (n.type === 'group') AL.centreBlink(n, 0.55);
           n.depth = 0.6;
         } else if (r === 'browL' || r === 'browR') {
           var bb = AL.boundsOf(n); n.links = [{ sig: r, prop: 'y', amt: -Math.max(3, (bb ? bb.y1 - bb.y0 : 20) * 0.14) }]; n.depth = 0.6;
@@ -404,6 +418,45 @@
     return ch;
   };
 
+  /** How far each blink drawing of an eye sits, sideways, from the pupil it replaces. */
+  var WRAP_ON = { eyeL: 1, eyeR: 1, pupil: 1, eyeball: 1, blink: 1, lidU: 1, lidL: 1, browL: 1, browR: 1, nose: 1, mouth: 1, jaw: 1 };
+  /**
+   * A round head from what is already there. The ball is the face drawing; eyes, nose, mouth and brows are painted
+   * on it; hair, ears and horns stick out of it; anything unnamed is judged by where it sits. Every guess is one
+   * tap to change on the part's own card.
+   */
+  AL.guessBall = function (ch, hd) {
+    var views = hd.type === 'set' ? hd.kids.filter(function (k) { return k.type === 'group'; }) : [hd];
+    var rest = hd.type === 'set' ? (AL.node(ch, hd.pick && hd.pick.rest) || views[0]) : hd; if (!rest) return null;
+    var face = AL.find(rest, function (n) { return n.role === 'face' && n.type === 'art'; }), b = (face && AL.boundsOf(face)) || AL.boundsOf(rest); if (!b) return null;
+    var old = hd.ball || {}, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, rx = Math.max(8, (b.x1 - b.x0) / 2), ry = Math.max(8, (b.y1 - b.y0) / 2);
+    hd.ball = { cx: cx, cy: cy, rx: rx, ry: ry, yaw: old.yaw == null ? 55 : old.yaw, pitch: old.pitch == null ? 32 : old.pitch };
+    if (hd.type !== 'set' && face) hd.ball.shell = face.id;
+    views.forEach(function (v) {
+      (function w(n) {
+        if (n !== v) {
+          if (n.role === 'face') { delete n.wrap; return; }
+          if (WRAP_ON[n.role]) { n.wrap = 'on'; return; }
+          if (n.role === 'hair') { n.wrap = 'out'; return; }
+          if (n.type !== 'group' || !n.kids || !n.kids.length) { var q = AL.boundsOf(n); if (q) { var nx = ((q.x0 + q.x1) / 2 - cx) / rx, ny = ((q.y0 + q.y1) / 2 - cy) / ry; n.wrap = nx * nx + ny * ny < 0.72 ? 'on' : 'out'; } return; }
+        }
+        (n.kids || []).forEach(w);
+      })(v);
+    });
+    return hd.ball;
+  };
+
+  AL.blinkOffsets = function (eye) {
+    if (!eye || !eye.kids) return [];
+    var ref = eye.kids.filter(function (k) { return k.role === 'pupil' && k.type === 'art'; })[0] || eye.kids.filter(function (k) { return k.role === 'eyeball' && k.type === 'art'; })[0], rb = ref ? boxOf(ref) : null;
+    if (!rb) return [];
+    return eye.kids.filter(function (k) { return k.role === 'blink' && k.type === 'art'; }).map(function (k) { var bb = boxOf(k); return { blink: k, dx: rb.cx - bb.cx, w: rb.w }; });
+  };
+  /** A blink drawn clearly to one side of its eye (a layer pasted from another angle) is slid onto it. tol = fraction of the pupil's width. */
+  AL.centreBlink = function (eye, tol) {
+    var n = 0; AL.blinkOffsets(eye).forEach(function (q) { if (Math.abs(q.dx) > q.w * tol) { q.blink.x += Math.round(q.dx); n++; } });
+    return n;
+  };
   AL.makeLeg = function (ch, n, role, torso, tc) {
     var par = AL.parentOf(ch, n.id), at = par.kids.indexOf(n), set = { id: AL.id('n'), name: AL.ROLES[role].label, type: 'set', role: role, kids: [n] };
     delete n.role; delete n.hidden; par.kids[at] = set;
@@ -433,7 +486,7 @@
       set.pick = { by: 'reach', hand: role === 'armR' ? 'R' : 'L', fade: set.pick && set.pick.fade != null ? set.pick.fade : 110, rest: set.pick && set.pick.rest };
       if (torso) set.attach = torso.id;
       if (!set.links || !set.links.length) set.links = [{ sig: 'breath', prop: 'y', amt: -0.8 }];
-      AL.reindex(ch); AL.guessFan(ch, set, tc);
+      AL.reindex(ch); AL.guessFan(ch, set, tc, set.kids.some(function (k) { return !!k.limb; }));
     } else if ((role === 'legL' || role === 'legR') && n.type === 'art') {
       AL.makeLeg(ch, n, role, torso, tc);
     } else if (role === 'tail') {

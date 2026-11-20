@@ -15,7 +15,7 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 - [ ] A character made there drops into Studio with its take and still takes a hand-drag there.
 - [ ] STATE.md rows updated at each of those steps.
 
-## Where it stands (11-18)
+## Where it stands (11-20)
 - **Web pilot built** in `tools/avatarlab/` and published as a private Claude artifact. Agent-checked in the
   in-app browser at phone size (411x846) and sideways (846x411); not on a phone, not tried by the owner.
 - **Topps opens** (the owner's Character Animator PSD, 191 layers, read by a new dependency-free PSD reader):
@@ -62,6 +62,45 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
   - **Checked by script and in stills:** Topps walks right and left, turns to face, tucks when lifted, falls
     and lands; a walking take replays to the same footfalls; bridge points warp the face; every card opens.
     **Not checked:** any of it in motion by a person, many fingers with real fingers, the face camera.
+  - **Round 4 (11-20): the Codex audit, competitor research, general tools, and a second character.**
+    - **Audit fixes, data loss first.** A take is saved with the character and comes back after a reload. Recording
+      over a take is punch-in, punch-out per owner of a signal (head, mouth, mood, blink, each hand, body, each
+      button, each pin), handed back over a quarter second, and one tap takes a whole pass back. An unfinished
+      landmark is never saved (two taps, one undo step). Adding a drawing to an arm no longer re-guesses pins that
+      were set. A file is checked before it replaces anything; a bad one changes nothing. Backing out of "Pin one
+      whole drawing" gives back what was there. A hat beside the head angles is copied onto every angle instead of
+      dropped. The take strip can be dragged, and nudged with the arrow keys. The sheet cutter only removes
+      background that touches the edge. Pictures that share one canvas keep their places. The sprite sheet covers
+      the whole take, framed on everything it reaches, saved by two taps. The arm that comes round from behind is
+      cut exactly on a line, and a hand it carries goes behind the body with it. A saved character is now
+      `<Name>.character.json` (format `joycreator.character/1`), so it no longer shares a name with the phone
+      app's older `.avatar.json`; older pilot files still open.
+    - **From the research** (complaints about Character Animator, Cartoon Animator, Moho and Live2D; sources in
+      the session, not all pages could be read): **Update the art** re-opens the repainted layered file and keeps
+      every pin and setting, with new layers landing in Extras; run-together layer names ("LeftArm", "SadMouth")
+      are read; clipping and blend layers that were read as plain layers are counted and said.
+    - **General tools. None knows what character it is on; each has a control on a card.**
+      1. **Loop**: a part whose drawings are frames (`pick.by:'cycle'`; on a limb, `pick.loop`).
+      2. **Rubber-hose limb**: no elbow; it bows, stretches and wobbles (`limb.style:'hose'`), with a pin for
+         where the hand rests.
+      3. **Carried by**: any part rides the end of a limb or of a swinging part, turns with it on a loose wrist,
+         and can swap drawing by the way the limb points (`ride`, a set by `'dir'`).
+      4. **Stream**: one part sent out as copies that drift, grow and fade (`emit`).
+      5. **Round head**: one drawing turns like a ball. Parts are painted on (they slide and foreshorten), ride
+         it in one piece (an eye with its lids), or stick out and go behind (`ball`, `wrap`, `flat`).
+      6. **Follows**: a button as a smooth level, "all the time", shake, spin, and Bouncy (overshoot and settle).
+      7. A part's own Size, Turn and Mirror; a button for each look of a part; an even-grid cut with "one part
+         that swaps" and "frames of a loop".
+    - **Joybot draft**, built from those tools and pictures only (the owner's lamp, ear and mouth sheet; the kit's
+      shell, gloves, arc and ring frames): real upper and lower lids inside each lamp, moved by moods, blinks and
+      the face camera; eyes that swell and squash; a head that turns like a ball with ear plates that are thin
+      from the front; hose arms of looping plasma; gloves chosen by arm direction on loose wrists; a ring stream
+      that rounds out on a "Nervous" button; a pendulum peg. He is in the owner's private page and in
+      `tools/avatarlab/local/` only. **His art is not in the repository.**
+    - **Checked by script and in stills:** every card opens for Topps, Pip and Joybot without an error; takes
+      punch in and out and survive a reload; the seam, riders, streams, loops and the ball by numbers; Joybot in
+      an eight-pose sheet. **Not checked:** any of it by a person or on a phone. The 36-mouth sheet the owner
+      pasted is not on disk, so it is not in Joybot yet.
 
 ## What the pilot settles (proposed, the owner rules)
 1. First screen: a dotted body with a + on every part, and three doors for bringing a whole character in.
@@ -82,6 +121,13 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 - [ ] Not checked: face camera with a real face; microphone with a real voice; any phone.
 - [ ] Topps notes for the owner: "smile" sits off the face at Left Profile, Left Quarter and Frontal in the
       file itself (it is aligned at Right Quarter); the Upward mouth is hidden in the file and stays hidden.
+- [ ] Joybot: the owner's verdict on the draft; his 36 rimless mouths need to be a file on disk to be cut in
+      (the even-grid cut, "one part that swaps", does it in one go).
+- [ ] From the audit, before the port: one versioned character format shared by the web pilot and the phone,
+      with round-trip test files; the list of native engines each tool maps to; a closed-loop phone test
+      with Topps; soft-edged masks checked on the phone's GPU; the voice recording kept with a take; camera
+      and microphone let go when the room is left.
+- [ ] Asked for elsewhere and not built: pose keys beside performed takes; a library of saved looks.
 - [ ] Then the phone spec and the port. Engines to reuse are listed in `tools/avatarlab/README.md`.
 
 ## Specs, handoffs and evidence

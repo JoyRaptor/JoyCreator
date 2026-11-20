@@ -45,16 +45,20 @@
   };
   intake.saveCharacter = function (app) {
     var o = AL.toJson(app.ch, true); if (app.inp.take && app.inp.take.n) o.take = app.inp.take;
-    intake.saveFile((app.ch.name || 'character').replace(/[^\w\- ]+/g, '') + '.avatar.json', new Blob([JSON.stringify(o)], { type: 'application/json' }));
+    intake.saveFile((app.ch.name || 'character').replace(/[^\w\- ]+/g, '') + '.character.json', new Blob([JSON.stringify(o)], { type: 'application/json' }));
   };
 
   /* ── the built-in characters ── */
   intake.builtIn = function (app, which) {
     if (which === 'pip') { AL.img.map = {}; var p = AL.demo(); p.demo = 'pip'; p.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(p, { quiet: true }); return Promise.resolve(); }
     function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('missing'); return r.json(); }); }
-    /* in the published page he rides inside it; on the local page he is the file saved beside it */
+    if (which === 'joybot') {                                     // a draft built from the owner's kit; it rides in his own page, not in the repository
+      var jb = document.getElementById('builtin-joybot');
+      return (jb ? Promise.resolve().then(function () { return JSON.parse(jb.textContent); }) : get('local/joybot.character.json')).then(function (o) { delete o.take; AL.img.map = {}; return AL.fromJson(o).then(function (ch) { ch.demo = 'joybot'; ch.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(ch, { quiet: true }); }); });
+    }
+    /* in the published page he rides inside it; on the local page he is the file in characters/ */
     var inside = document.getElementById('builtin-topps');
-    return (inside ? Promise.resolve().then(function () { return JSON.parse(inside.textContent); }) : get('local/topps.avatar.json')).then(function (o) {
+    return (inside ? Promise.resolve().then(function () { return JSON.parse(inside.textContent); }) : get('characters/topps.character.json')).then(function (o) {
       delete o.take; AL.img.map = {};
       return AL.fromJson(o).then(function (ch) { ch.demo = 'topps'; ch.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(ch, { quiet: true }); });
     });
@@ -65,12 +69,44 @@
   /* ── a layered file ── */
   intake.openPsd = function (app, buf, name) {
     var old = AL.img.map; AL.img.map = {};
-    return AL.importPsd(buf, name).then(function (doc) { var ch = AL.autoRig(doc); app.setMode('build'); app.setCharacter(ch); intake.review(app, doc.layers); }).catch(function (e) { AL.img.map = old; throw e; });
+    return AL.importPsd(buf, name, function (done, all) { app.toast('Reading layer ' + done + ' of ' + all + '\u2026'); }).then(function (doc) { var ch = AL.autoRig(doc); app.setMode('build'); app.setCharacter(ch); intake.review(app, doc.layers); }).catch(function (e) { AL.img.map = old; throw e; });
   };
   intake.openJson = function (app, text) {
-    var o = JSON.parse(text); if (!o || !o.root) throw new Error('This is not a character file.');
-    var take = o.take; delete o.take; AL.img.map = {};
-    return AL.fromJson(o).then(function (ch) { app.setMode('build'); app.setCharacter(ch); if (take) app.inp.take = take; app.toast('Opened “' + ch.name + '”'); });
+    var o; try { o = JSON.parse(text); } catch (e) { throw new Error('That file could not be read as a character.'); }
+    var bad = AL.validate(o); if (bad) throw new Error(bad);
+    var take = o.take && o.take.ch ? o.take : null, old = AL.img.map; delete o.take; AL.img.map = {};
+    return AL.fromJson(o).then(function (ch) {
+      var lost = AL.findAll(ch.root, function (n) { return n.type === 'art' && !AL.img.get(n.img); }).length;
+      app.setMode('build'); app.setCharacter(ch); app.inp.take = take;
+      app.toast('Opened \u201c' + ch.name + '\u201d' + (take ? ', with its take' : '') + (lost ? '. ' + lost + (lost === 1 ? ' picture' : ' pictures') + ' inside it could not be read.' : ''));
+    }, function (e) { AL.img.map = old; throw e; });
+  };
+  /**
+   * The artist repainted the layered file. Bring the new paint in and keep every pin, hinge, mask and setting.
+   * Layers are matched by their folder path and name, then by name alone where that name is used once.
+   * New layers arrive in Extras; layers that are gone from the file stay as they were.
+   */
+  intake.updateArt = function (app, buf, name) {
+    var ch = app.ch;
+    function key(path) { return path.map(function (p) { return String(p).trim().toLowerCase(); }).join('/'); }
+    return AL.importPsd(buf, name).then(function (doc) {
+      var byPath = {}, byName = {};
+      (function w(n, path) { if (n.type === 'art') { var k = key(path.concat(n.name)); (byPath[k] = byPath[k] || []).push(n); var nm = key([n.name]); (byName[nm] = byName[nm] || []).push(n); } (n.kids || []).forEach(function (q) { w(q, n === ch.root ? [] : path.concat(n.name)); }); })(ch.root, []);
+      var hit = 0, moved = 0, fresh = [];
+      app.edit(function () {
+        (function w(L, path) {
+          if (L.kind === 'group') { L.kids.forEach(function (q) { w(q, path.concat(L.name)); }); return; }
+          var list = byPath[key(path.concat(L.name))] || (function () { var c = byName[key([L.name])] || []; return c.length === 1 || c.every(function (q) { return q.shared; }) ? c : []; })();
+          if (!list.length) { fresh.push(L); return; }
+          var same = list.every(function (q) { return q.shared; }) ? list : [list.shift()];      // a drawing copied onto every head angle is one layer in the file
+          same.forEach(function (n) { if (n.x !== L.x || n.y !== L.y) moved++; n.img = L.img; n.x = L.x; n.y = L.y; hit++; });
+        })({ kind: 'group', name: '', kids: doc.kids }, []);
+        fresh.forEach(function (L) { ch.root.kids.unshift({ id: AL.id('n'), name: L.name, type: 'art', img: L.img, x: L.x, y: L.y, role: 'prop' }); });
+        AL.reindex(ch);
+      }, false, 'Update the art');
+      app.solver.grids = {}; app.solver.geo = {}; if (app.G) app.G.forget();
+      app.toast(hit + ' drawings repainted, rigging kept' + (fresh.length ? '. ' + fresh.length + ' new ' + (fresh.length === 1 ? 'layer is' : 'layers are') + ' in Extras' : '') + (doc.w !== ch.w || doc.h !== ch.h ? '. The file is a different size, so check where things sit' : ''));
+    });
   };
   intake.openUrl = function (app, url) {
     return fetch(url).then(function (r) { if (!r.ok) throw new Error('not found'); return /\.json$/i.test(url) ? r.text().then(function (t) { return intake.openJson(app, t); }) : r.arrayBuffer().then(function (b) { return intake.openPsd(app, b, nice(url.split('/').pop())); }); });
@@ -87,6 +123,9 @@
     var ex = AL.cards.extras(app).length; if (ex) list.appendChild(h('button', { onclick: function () { app.closeSheet(); app.select('extra'); } }, [h('span', { class: 'badge warn', text: '?' }), h('span', { text: 'Not placed' }), h('small', { text: ex + ' layers: say what they are' })]));
     if (ch.triggers.length) list.appendChild(h('button', { onclick: function () { app.closeSheet(); app.select('extra'); } }, [h('span', { class: 'badge', text: '⚡' }), h('span', { text: 'Buttons' }), h('small', { text: ch.triggers.map(function (t) { return t.name; }).join(', ') })]));
     body.appendChild(list);
+    var nt = ch.importNotes, hdN = AL.firstRole(ch.root, 'head');
+    if (hdN && hdN.sharedCount) body.appendChild(ui.note(hdN.sharedCount + (hdN.sharedCount === 1 ? ' layer' : ' layers') + ' beside the head angles (a hat, say) ' + (hdN.sharedCount === 1 ? 'was' : 'were') + ' copied onto every angle.'));
+    if (nt && (nt.clip || nt.blend)) body.appendChild(ui.note('<b>Heads up:</b> ' + [nt.clip ? nt.clip + ' clipping ' + (nt.clip === 1 ? 'layer' : 'layers') : '', nt.blend ? nt.blend + (nt.blend === 1 ? ' layer' : ' layers') + ' with a blend mode' : ''].filter(Boolean).join(' and ') + ' came in as plain layers. If one looks wrong, flatten it in the art program.'));
     body.appendChild(ui.note('The <b>pins</b> (shoulder, elbow, hand, hinge) were guessed from the pixels. Have a look at the arms first; drag any pin that is off.'));
     app.sheet('Here is what I found', body, [{ label: 'Check the arms', cls: 'quiet', fn: function () { app.closeSheet(); app.select(d.armL ? 'armL' : d.armR ? 'armR' : 'head'); } }, { label: 'Perform it', cls: 'go', icon: 'play', fn: function () { app.closeSheet(); app.setMode('perform'); } }]);
   };
@@ -108,12 +147,14 @@
   /** Add pictures as the art of one body part. Must run inside app.edit(). */
   intake.place = function (app, zone, pics) {
     var ch = app.ch, P = AL._px, first = !AL.find(ch.root, function (n) { return n.type === 'art'; });
-    if (first) { var big = Math.max(pics[0].canvas.width, pics[0].canvas.height); ch.h = ch.w = Math.max(256, Math.round(zone === 'body' ? pics[0].canvas.height / 0.38 : big * 2.4)); }
+    /* exported "one file per layer, all the same size": they are already where they belong */
+    var common = pics.every(function (p) { return p.fullW === pics[0].fullW && p.fullH === pics[0].fullH; }) && (pics.length > 1 || pics[0].canvas.width < pics[0].fullW * 0.9 || pics[0].canvas.height < pics[0].fullH * 0.9);
+    if (first) { if (common) { ch.w = pics[0].fullW; ch.h = pics[0].fullH; } else { var big = Math.max(pics[0].canvas.width, pics[0].canvas.height); ch.h = ch.w = Math.max(256, Math.round(zone === 'body' ? pics[0].canvas.height / 0.38 : big * 2.4)); } }
     var so = sockets(app), s = so[zone] || so.extra, made = [];
     pics.forEach(function (p, i) {
       var id = AL.id('i'); AL.img.put(id, p.canvas, p.name);
       var art = { id: AL.id('n'), name: p.name || (ZL[zone] + ' ' + (i + 1)), type: 'art', img: id, x: 0, y: 0 }, w = p.canvas.width, hh = p.canvas.height;
-      var aligned = p.fullW === ch.w && p.fullH === ch.h && !first;
+      var aligned = p.fullW === ch.w && p.fullH === ch.h && (!first || common);
       if (aligned) { art.x = p.ox; art.y = p.oy; }
       else if (zone === 'armL' || zone === 'armR' || zone === 'tail') {
         var e = P.plainEndFirst(art) || [{ x: w / 2, y: 0 }, { x: w / 2, y: hh }], a = zone === 'tail' ? e[1] : e[0];   // an arm joins at its plain end, a tail at its thick end
@@ -141,6 +182,44 @@
     AL.reindex(ch);
     return made;
   };
+  /**
+   * Frames of one loop (a flame, a spinning ring, a plasma arc): one part that plays through them.
+   * On an arm or leg they become one limb that plays its frames while it reaches. Must run inside app.edit().
+   */
+  intake.placeLoop = function (app, zone, pics, fps, swap) {
+    var ch = app.ch, limb = /^(arm|leg)/.test(zone);
+    if (limb) {
+      var made = intake.place(app, zone, pics), set = app.zoneNode(zone), f0 = made[0];
+      made.forEach(function (a) { a.x = f0.x; a.y = f0.y; if (f0.limb) a.limb = JSON.parse(JSON.stringify(f0.limb)); });
+      set.pick.loop = fps || 12; set.pick.swap = false; set.pick.fade = 0; return made;
+    }
+    var set2 = { id: AL.id('n'), name: (pics[0].name || 'Loop').replace(/\s*\d+$/, '') || 'Loop', type: 'set', role: zone === 'extra' ? 'prop' : null, pick: { by: 'cycle', fps: fps || 12 }, kids: [] };
+    var one = intake.place(app, zone, [pics[0]])[0], par = AL.parentOf(ch, one.id), at = par.kids.indexOf(one);
+    pics.forEach(function (p, i) { var a = one; if (i) { var id = AL.id('i'); AL.img.put(id, p.canvas, p.name); a = { id: AL.id('n'), name: p.name, type: 'art', img: id, x: one.x, y: one.y }; } set2.kids.push(a); });
+    if (one.role) { set2.role = one.role; delete one.role; }
+    par.kids.splice(at, 1, set2); set2.pick.rest = set2.kids[0].id;
+    if (swap) { set2.pick = { by: 'default', rest: set2.kids[0].id }; set2.kids.forEach(function (k, i) { if (i) AL.buttonFor(ch, k); }); }      // one part, and a button for each of its other drawings
+    AL.reindex(ch);
+    return [set2];
+  };
+  /** A separate drawing carried by the end of a limb: a hand, a glove, a shoe, a sword. Several drawings become one part that swaps. */
+  intake.addRider = function (app, set) {
+    pickImages(function (files) {
+      Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
+        pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
+        var ch = app.ch, rest = AL.node(ch, set.pick && set.pick.rest) || set.kids.filter(function (k) { return k.limb; })[0], at = rest && rest.limb ? rest.limb.c : { x: ch.w / 2, y: ch.h / 2 }, node = null;
+        app.edit(function () {
+          var arts = pics.map(function (p) { var id = AL.id('i'); AL.img.put(id, p.canvas, p.name); return { id: AL.id('n'), name: p.name, type: 'art', img: id, x: Math.round(at.x - p.canvas.width / 2), y: Math.round(at.y - p.canvas.height / 2) }; });
+          node = arts.length === 1 ? arts[0] : { id: AL.id('n'), name: (AL.ROLES[set.role] ? AL.ROLES[set.role].label : set.name) + ' hand', type: 'set', pick: { by: 'default', rest: arts[0].id }, kids: arts };
+          node.ride = { of: set.id, turn: 1 }; node.role = 'prop'; if (node.type === 'set') node.kids.forEach(function (k, i) { if (i) AL.buttonFor(ch, k); });
+          var top = set, par; while ((par = AL.parentOf(ch, top.id)) && par !== ch.root) top = par;      // straight above the limb it belongs to
+          ch.root.kids.splice(Math.max(0, ch.root.kids.indexOf(top)), 0, node); AL.reindex(ch);
+        }, false, 'Add a hand');
+        app.sel = { zone: 'extra', feature: null, node: node.id }; app.resolveSel(); app.refreshPanel();
+        app.toast('It is carried by the end of the ' + (/^leg/.test(set.role) ? 'leg' : 'arm') + '. Use Move art to seat it, then Try it.');
+      }).catch(function (e) { app.toast(e.message); });
+    });
+  };
   intake.addPictures = function (app, files, zone) {
     return Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
       pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
@@ -164,9 +243,14 @@
   function cutter(app, sheet, zone0, name) {
     var W = sheet.width, H = sheet.height, sg = sheet.getContext('2d', { willReadFrequently: true }), id = sg.getImageData(0, 0, W, H), d = id.data, i, any = false;
     for (i = 3; i < d.length; i += 4 * 97) if (d[i] < 250) { any = true; break; }
-    if (!any) { /* no see-through background: knock out the colour of the corner */
-      var r0 = d[0], g0 = d[1], b0 = d[2];
-      for (i = 0; i < d.length; i += 4) if (Math.abs(d[i] - r0) + Math.abs(d[i + 1] - g0) + Math.abs(d[i + 2] - b0) < 46) d[i + 3] = 0;
+    if (!any) {
+      /* no see-through background: take away the corner's colour, but only where it is joined to the edge, so the
+         white of an eye or a highlight inside a part is left alone */
+      var r0 = d[0], g0 = d[1], b0 = d[2], seen = new Uint8Array(W * H), todo = new Int32Array(W * H), sp = 0, e;
+      var seed = function (q) { if (seen[q]) return; var o = q * 4; if (Math.abs(d[o] - r0) + Math.abs(d[o + 1] - g0) + Math.abs(d[o + 2] - b0) < 46) { seen[q] = 1; todo[sp++] = q; } };
+      for (e = 0; e < W; e++) { seed(e); seed((H - 1) * W + e); }
+      for (e = 0; e < H; e++) { seed(e * W); seed(e * W + W - 1); }
+      while (sp) { var q0 = todo[--sp], qx0 = q0 % W; d[q0 * 4 + 3] = 0; if (qx0 > 0) seed(q0 - 1); if (qx0 < W - 1) seed(q0 + 1); if (q0 >= W) seed(q0 - W); if (q0 < W * (H - 1)) seed(q0 + W); }
       sg.putImageData(id, 0, 0);
     }
     var f = Math.max(1, Math.ceil(Math.max(W, H) / 560)), lw = Math.ceil(W / f), lh = Math.ceil(H / f), mask = new Uint8Array(lw * lh), lab = new Int32Array(lw * lh), x, y;
@@ -182,8 +266,23 @@
       comps.push(c);
     }
     comps = comps.filter(function (c) { return c.n >= 14; });
+    var found = comps, mode = 'find', gc = 4, gr = 3, loop = false, grp = 'parts';
+    /* an even grid: every cell is one drawing (a mouth chart, a row of frames) */
+    function cells() { var out = [], cw = W / gc, chh = H / gr; for (var r = 0; r < gr; r++) for (var q = 0; q < gc; q++) out.push({ id: -1 - out.length, cell: { x: Math.round(q * cw), y: Math.round(r * chh), w: Math.round(cw), h: Math.round(chh) }, x0: q * cw / f, y0: r * chh / f, x1: (q + 1) * cw / f - 1, y1: (r + 1) * chh / f - 1, n: 1e9, sel: 0, used: false }); return out; }
     var ui = app.ui, full = app.full('Cut parts from “' + name + '”'), cv = h('canvas'), order = 0, zone = zone0 || 'head';
     full.body.appendChild(cv);
+    var tools = h('div', { class: 'rowf' });
+    function drawTools() {
+      tools.innerHTML = '';
+      tools.appendChild(ui.seg([['find', 'Find the parts', 'Each separate drawing on the sheet is one part'], ['grid', 'Even grid', 'The sheet is rows and columns of the same size: a mouth chart, frames of a loop']], mode, function (v) { mode = v; comps = v === 'grid' ? cells() : found; order = 0; found.forEach(function (c) { c.sel = 0; }); drawTools(); paint(); }, 'How the sheet is cut'));
+      if (mode === 'grid') {
+        var num = function (label, val, fn) { return h('label', { class: 'note', style: 'margin:0;display:flex;align-items:center;gap:4px' }, [label, h('input', { type: 'number', min: '1', max: '24', value: String(val), style: 'width:52px', 'aria-label': label, onchange: function (ev) { fn(Math.max(1, Math.min(24, Math.round(+ev.target.value || 1)))); comps = cells(); order = 0; paint(); } })]); };
+        tools.appendChild(num('across', gc, function (v) { gc = v; })); tools.appendChild(num('down', gr, function (v) { gr = v; }));
+        tools.appendChild(ui.chip('All', { title: 'Choose every cell, in reading order', fn: function () { order = 0; comps.forEach(function (c) { if (!c.used) c.sel = ++order; }); paint(); } }));
+      }
+      tools.appendChild(ui.seg([['parts', 'Separate drawings', 'Each one you tap is added by itself'], ['swap', 'One part that swaps', 'The drawings you tap are ONE part with several looks (expressions, hand shapes). The first is its usual look; each of the others gets a button'], ['loop', 'Frames of a loop', 'The drawings you tap are ONE part that plays through them in the order tapped (a flame, a spinning ring, a glowing arm)']], grp, function (v) { grp = v; loop = v !== 'parts'; drawTools(); paint(); }, 'What the drawings you tap are'));
+    }
+    full.foot.appendChild(tools);
     var noteEl = ui.note(''), zsel = h('select', { 'aria-label': 'Which part', onchange: function (e) { zone = e.target.value; paint(); } }, Object.keys(ZL).map(function (z) { return h('option', { value: z, text: ZL[z], selected: z === zone }); }));
     var go = ui.chip('Add', { cls: 'go', icon: 'plus', fn: add });
     full.foot.appendChild(noteEl); full.foot.appendChild(h('div', { class: 'rowf' }, [h('span', { class: 'note', style: 'margin:0', text: 'These are the' }), zsel, h('span', { style: 'flex:1' }), ui.chip('Done', { cls: 'quiet', fn: function () { app.closeFull(); app.refreshPanel(); } }), go]));
@@ -200,7 +299,7 @@
         if (c.used) { g.fillStyle = 'rgba(13,13,16,.55)'; g.fillRect(rx, ry, rw, rh); }
       });
       var n = comps.filter(function (c) { return c.sel; }).length;
-      noteEl.innerHTML = 'Found <b>' + comps.length + ' parts</b>. Tap every drawing of one body part' + (zone === 'armL' || zone === 'armR' ? ' (an arm at several angles is fine: it will swap between them)' : '') + ', then <b>Add</b>.';
+      noteEl.innerHTML = (mode === 'grid' ? '<b>' + comps.length + ' cells.</b> ' : 'Found <b>' + comps.length + ' parts</b>. ') + (grp === 'loop' ? 'Tap the frames in the order they play, then <b>Add</b>.' : grp === 'swap' ? 'Tap its usual look first, then its other looks, then <b>Add</b>.' : 'Tap every drawing of one body part') + (loop ? '' : '') + (zone === 'armL' || zone === 'armR' ? ' (an arm at several angles is fine: it will swap between them)' : '') + ', then <b>Add</b>.';
       go.lastChild.textContent = n ? 'Add ' + n + ' to ' + ZL[zone].toLowerCase() : 'Add'; go.disabled = !n;
     }
     cv.addEventListener('click', function (e) {
@@ -211,17 +310,25 @@
     function add() {
       var chosen = comps.filter(function (c) { return c.sel; }).sort(function (a, b) { return a.sel - b.sel; }); if (!chosen.length) return;
       var pics = chosen.map(function (c, n) {
-        var x0 = c.x0 * f, y0 = c.y0 * f, w = Math.min(W - x0, (c.x1 - c.x0 + 1) * f), hh = Math.min(H - y0, (c.y1 - c.y0 + 1) * f), t = document.createElement('canvas'); t.width = w; t.height = hh;
+        var x0 = c.cell ? c.cell.x : c.x0 * f, y0 = c.cell ? c.cell.y : c.y0 * f, w = c.cell ? c.cell.w : Math.min(W - x0, (c.x1 - c.x0 + 1) * f), hh = c.cell ? c.cell.h : Math.min(H - y0, (c.y1 - c.y0 + 1) * f), t = document.createElement('canvas'); t.width = w; t.height = hh;
         var tg = t.getContext('2d', { willReadFrequently: true }); tg.drawImage(sheet, -x0, -y0); var td = tg.getImageData(0, 0, w, hh), q = td.data;
-        for (var yy = 0; yy < hh; yy++) for (var xx = 0; xx < w; xx++) if (lab[(((y0 + yy) / f) | 0) * lw + (((x0 + xx) / f) | 0)] !== c.id) q[(yy * w + xx) * 4 + 3] = 0;
-        tg.putImageData(td, 0, 0); return trim(t, ZL[zone] + ' ' + (n + 1));
+        if (!c.cell) { for (var yy = 0; yy < hh; yy++) for (var xx = 0; xx < w; xx++) if (lab[(((y0 + yy) / f) | 0) * lw + (((x0 + xx) / f) | 0)] !== c.id) q[(yy * w + xx) * 4 + 3] = 0; tg.putImageData(td, 0, 0); }
+        return loop ? { canvas: t, name: ZL[zone] + ' ' + (n + 1) } : trim(t, ZL[zone] + ' ' + (n + 1));
       }).filter(Boolean);
-      app.edit(function () { intake.place(app, zone, pics); }, true);
+      if (loop) {
+        /* frames must stay registered: every frame is cropped to the SAME box, the one that holds all of them */
+        var bx0 = 1e9, by0 = 1e9, bx1 = -1, by1 = -1, mw = 0, mh = 0;
+        pics.forEach(function (p) { var t2 = trim(p.canvas, p.name); mw = Math.max(mw, p.canvas.width); mh = Math.max(mh, p.canvas.height); if (!t2) return; bx0 = Math.min(bx0, t2.ox); by0 = Math.min(by0, t2.oy); bx1 = Math.max(bx1, t2.ox + t2.canvas.width); by1 = Math.max(by1, t2.oy + t2.canvas.height); });
+        if (bx1 < 0) return;
+        pics = pics.map(function (p) { var t3 = document.createElement('canvas'); t3.width = bx1 - bx0; t3.height = by1 - by0; t3.getContext('2d').drawImage(p.canvas, -bx0, -by0); return { canvas: t3, name: p.name, ox: bx0, oy: by0, fullW: mw, fullH: mh }; });
+      }
+      if (!pics.length) return;
+      app.edit(function () { if (loop && pics.length > 1) intake.placeLoop(app, zone, pics, 12, grp === 'swap'); else intake.place(app, zone, pics); }, true, grp === 'loop' ? 'Add a loop' : 'Add drawings');
       chosen.forEach(function (c) { c.sel = 0; c.used = true; }); order = 0; $('empty').style.display = 'none';
-      app.toast(pics.length + ' added to the ' + ZL[zone].toLowerCase() + '. Pick the next part, or Done.');
+      app.toast(grp === 'swap' && pics.length > 1 ? 'One part with ' + pics.length + ' looks was added. Its buttons are in Perform.' : loop && pics.length > 1 ? 'A loop of ' + pics.length + ' frames was added to the ' + ZL[zone].toLowerCase() + '.' : pics.length + ' added to the ' + ZL[zone].toLowerCase() + '. Pick the next part, or Done.');
       if (zone0) { app.closeFull(); app.tab = 'parts'; app.fit(true); app.select(zone); } else { app.sel.zone = zone; paint(); }
     }
-    setTimeout(paint, 30);
+    drawTools(); setTimeout(paint, 30);
   }
 
   /* ── one finished drawing: tap where the head, hands and feet are ── */
@@ -231,16 +338,22 @@
     }, false);
   };
   intake.wholeFrom = function (app, c, name) {
-        var p = trim(c, name); if (!p) throw new Error('That picture was empty.');
-        var ch = AL.newCharacter(p.name, Math.round(p.canvas.width * 1.7), Math.round(p.canvas.height * 1.35)); AL.img.map = {};
-        var id = AL.id('i'); AL.img.put(id, p.canvas, p.name);
-        var art = { id: AL.id('n'), name: p.name, type: 'art', role: 'torso', img: id, x: Math.round((ch.w - p.canvas.width) / 2), y: Math.round((ch.h - p.canvas.height) / 2), mesh: { pins: [] } };
-        ch.root.kids.push(art); ch.settings.breathe = false; ch.settings.idle = false; AL.reindex(ch);
-        app.setMode('build'); app.setCharacter(ch); intake.pinWizard(app, art);
+    var p = trim(c, name); if (!p) throw new Error('That picture was empty.');
+    var was = { ch: app.ch, map: AL.img.map, take: app.inp ? app.inp.take : null, hist: app.hist, sel: app.sel };
+    var ch = AL.newCharacter(p.name, Math.round(p.canvas.width * 1.7), Math.round(p.canvas.height * 1.35)); AL.img.map = {};
+    var id = AL.id('i'); AL.img.put(id, p.canvas, p.name);
+    var art = { id: AL.id('n'), name: p.name, type: 'art', role: 'torso', img: id, x: Math.round((ch.w - p.canvas.width) / 2), y: Math.round((ch.h - p.canvas.height) / 2), mesh: { pins: [] } };
+    ch.root.kids.push(art); ch.settings.breathe = false; ch.settings.idle = false; AL.reindex(ch);
+    app.setMode('build'); app.setCharacter(ch, { quiet: true });               // not saved over your character until the pins are done
+    intake.pinWizard(app, art, function () {
+      AL.img.map = was.map;
+      if (was.ch) { app.setCharacter(was.ch, { quiet: true }); app.inp.take = was.take; app.hist = was.hist; app.sel = was.sel; app.resolveSel(); app.syncUndo(); app.refreshPanel(); }
+      app.toast('Nothing was changed.');
+    });
   };
   var STEPS = [['head', 'Head', 'the middle of the head'], ['handL', 'Left hand', 'its left hand (on your right if it faces you)'], ['handR', 'Right hand', 'its right hand'], ['hips', 'Hips', 'the hips. This pin holds the body still'], ['footL', 'Left foot', 'its left foot'], ['footR', 'Right foot', 'its right foot'], ['tail', 'Tail tip', 'the tip of the tail, if it has one']];
-  intake.pinWizard = function (app, art) {
-    var im = AL.img.get(art.img), ui = app.ui, full = app.full('Pin “' + art.name + '”'), cv = h('canvas'), pins = [], step = 0, view = { s: 1, ox: 0, oy: 0 };
+  intake.pinWizard = function (app, art, onCancel) {
+    var im = AL.img.get(art.img), ui = app.ui, full = app.full('Pin “' + art.name + '”', onCancel), cv = h('canvas'), pins = [], step = 0, did = [], view = { s: 1, ox: 0, oy: 0 };
     full.body.appendChild(cv);
     var noteEl = ui.note(''), bar = h('div', { class: 'rowf' });
     full.foot.appendChild(noteEl); full.foot.appendChild(bar);
@@ -254,8 +367,8 @@
       var s = STEPS[step];
       noteEl.innerHTML = s ? 'Tap <b>' + s[2] + '</b>.' : '<b>' + pins.length + ' pins.</b> That is enough to puppeteer it. Add more any time.';
       bar.innerHTML = '';
-      if (pins.length) bar.appendChild(ui.chip('Back', { cls: 'quiet', icon: 'back', fn: function () { pins.pop(); step = Math.max(0, step - 1); paint(); } }));
-      if (s) bar.appendChild(ui.chip('Skip ' + s[1].toLowerCase(), { cls: 'quiet', fn: function () { step++; paint(); } }));
+      if (did.length) bar.appendChild(ui.chip('Back', { cls: 'quiet', icon: 'back', title: 'Take back the last step', fn: function () { if (did.pop() === 'pin') pins.pop(); step = Math.max(0, step - 1); paint(); } }));
+      if (s) bar.appendChild(ui.chip('Skip ' + s[1].toLowerCase(), { cls: 'quiet', fn: function () { did.push('skip'); step++; paint(); } }));
       bar.appendChild(h('span', { style: 'flex:1' }));
       bar.appendChild(ui.chip('Done', { cls: 'go', disabled: pins.length < 2, title: pins.length < 2 ? 'Place at least two pins' : 'Use these pins', fn: finish }));
     }
@@ -263,11 +376,11 @@
       var s = STEPS[step]; if (!s) return;
       var r = cv.getBoundingClientRect(), k = cv.clientWidth / r.width, lx = ((e.clientX - r.left) * k - view.ox) / view.s, ly = ((e.clientY - r.top) * k - view.oy) / view.s;
       if (lx < 0 || ly < 0 || lx > im.w || ly > im.h) return;
-      pins.push({ id: AL.id('p'), name: s[1], role: s[0], lx: lx, ly: ly }); step++; paint();
+      pins.push({ id: AL.id('p'), name: s[1], role: s[0], lx: lx, ly: ly }); did.push('pin'); step++; paint();
     });
     function finish() {
       app.edit(function () { art.mesh = { pins: pins.map(function (p) { return { id: p.id, name: p.name, role: p.role, x: art.x + p.lx, y: art.y + p.ly }; }) }; });
-      app.closeFull(); app.tab = 'parts'; app.select('body'); app.setMode('perform'); app.toast('Pinned. Drag any pin to move it; double-tap empty space to let go.');
+      app.closeFull(); app.touch(); app.tab = 'parts'; app.select('body'); app.setMode('perform'); app.toast('Pinned. Drag any pin to move it; double-tap empty space to let go.');
     }
     setTimeout(paint, 30);
   };
@@ -287,9 +400,11 @@
       door('cut', 'Cut parts from a sheet', 'One picture with the parts laid out. Tap each part and say what it is.', function () { app.closeSheet(); intake.cutSheet(app, null); }),
       door('pin', 'Pin one whole drawing', 'A finished drawing in one piece. Tap the head, hands and feet and it bends.', function () { app.closeSheet(); intake.wholeDrawing(app); }),
       door('smile', 'Meet Topps', 'A finished character to poke at: seven head angles, arms that swap and bend, and he walks.', function () { app.closeSheet(); intake.builtIn(app, 'topps').catch(function () { intake.builtIn(app, 'pip'); }); }, true),
+      intake.hasJoybot() ? door('smile', 'Meet Joybot (draft)', 'Built only from general tools: a head that turns like a ball, hose arms of looping plasma, hands that ride them, a stream of hover rings.', function () { app.closeSheet(); intake.builtIn(app, 'joybot').catch(function () { app.toast('Joybot is not with this copy of the page.'); }); }, true) : null,
       door('smile', 'Meet Pip', 'A simple practice character, drawn in code.', function () { app.closeSheet(); intake.builtIn(app, 'pip'); }, true)
     ]);
   }
+  intake.hasJoybot = function () { return !!document.getElementById('builtin-joybot') || /^(localhost|127\.0\.0\.1)$/.test(location.hostname); };
   intake.addTo = function (app, zone) {
     var body = h('div'), ui = app.ui;
     body.appendChild(ui.note(zone === 'armL' || zone === 'armR' ? 'One drawing bends from shoulder and elbow. <b>Several drawings at different angles</b> are better: it swaps to the nearest and bends the rest of the way.' : zone === 'head' ? 'One drawing, or one for each direction it looks (name them Front, Left, Up…). Mouth, eyes and brows can be added on top.' : zone === 'tail' ? 'It will swing by itself.' : 'Pick the art for this part.'));
@@ -307,13 +422,15 @@
     item('layers', 'Open a layered file', function () { $('filePsd').value = ''; $('filePsd').click(); }, '.psd');
     item('cut', 'Cut parts from a sheet', function () { intake.cutSheet(app, null); });
     item('pin', 'Pin one whole drawing', function () { intake.wholeDrawing(app); });
+    item('layers', 'Update the art', function () { if (!AL.find(app.ch.root, function (n) { return n.type === 'art'; })) { app.toast('There is no character to update yet.'); return; } intake.psdMode = 'update'; $('filePsd').value = ''; $('filePsd').click(); }, 'repainted .psd, rigging kept');
     item('image', 'Add pictures', function () { pickImages(function (files) { intake.addPictures(app, files, null).catch(function (e) { app.toast(e.message); }); }); }, 'named by part');
     m.appendChild(h('hr'));
-    item('file', 'Open a character file', function () { $('fileJson').value = ''; $('fileJson').click(); }, '.avatar.json');
-    item('save', 'Save this character', function () { intake.saveCharacter(app); }, '.avatar.json');
+    item('file', 'Open a character file', function () { $('fileJson').value = ''; $('fileJson').click(); }, '.character.json');
+    item('save', 'Save this character', function () { intake.saveCharacter(app); }, 'with its take');
     item('send', 'Send to Studio', function () { intake.send(app); });
     m.appendChild(h('hr'));
     item('smile', 'Meet Topps', function () { intake.builtIn(app, 'topps').catch(function () { app.toast('Topps is not with this copy of the page.'); }); });
+    if (intake.hasJoybot()) item('smile', 'Meet Joybot (draft)', function () { intake.builtIn(app, 'joybot').catch(function () { app.toast('Joybot is not with this copy of the page.'); }); });
     item('smile', 'Meet Pip', function () { intake.builtIn(app, 'pip'); });
     item('help', 'What can this do?', function () { intake.about(app); });
     app.sheet('Avatar Studio', m, []);
@@ -335,34 +452,41 @@
       ui.note('In this web pilot it saves the same character file the phone will read, or a sprite sheet that Sprite Lab, VisLab and Studio already open today.')
     ]), [{ label: 'Sprite sheet', icon: 'grid', fn: function () { app.closeSheet(); intake.bakeSheet(app); } }, { label: 'Save the character file', cls: 'go', icon: 'save', fn: function () { app.closeSheet(); intake.saveCharacter(app); } }]);
   };
-  /** Bake the take (or two seconds of idle life) into a sprite sheet. Same solver as the stage. */
+  /** Bake the take (or a few seconds of idle life) into a sprite sheet. Same solver as the stage. */
   intake.bakeSheet = function (app) {
-    var ch = app.ch, inp = app.inp, tk = inp.take && inp.take.n ? inp.take : null, fps = 12, dur = tk ? Math.min(8, tk.n / tk.fps) : 2.5, n = Math.max(2, Math.min(64, Math.round(dur * fps)));
-    var b = AL.boundsOf(ch.root) || { x0: 0, y0: 0, x1: ch.w, y1: ch.h }, padX = (b.x1 - b.x0) * 0.25, padY = (b.y1 - b.y0) * 0.12;
-    b = { x0: b.x0 - padX, y0: b.y0 - padY, x1: b.x1 + padX, y1: b.y1 + padY };
-    var cell = 256, s = Math.min(cell / (b.x1 - b.x0), cell / (b.y1 - b.y0)), cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
-    var gc = document.createElement('canvas'); gc.width = gc.height = cell; var G = new AL.GL(gc), sol = new AL.Solver(ch);
-    var sheet = document.createElement('canvas'); sheet.width = cols * cell; sheet.height = rows * cell; var sg = sheet.getContext('2d');
-    var probe = new AL.Inputs(app); probe.take = tk; probe.auto = !tk;
-    for (var i = 0; i < n; i++) {
-      var S; if (tk) { probe.playing = true; probe.ph = i / fps; S = probe.step(1 / fps); } else S = probe.step(1 / fps);
-      var out = sol.eval(S, { live: true, dt: 1 / fps });
-      G.draw(out.items, { s: s, ox: (cell - (b.x1 - b.x0) * s) / 2 - b.x0 * s, oy: (cell - (b.y1 - b.y0) * s) / 2 - b.y0 * s });
-      sg.drawImage(gc, (i % cols) * cell, ((i / cols) | 0) * cell);
+    var ch = app.ch, inp = app.inp, tk = inp.take && inp.take.n ? inp.take : null, dur = tk ? tk.n / tk.fps : 2.5;
+    var fps = 12, MAXF = 96; if (dur * fps > MAXF) fps = Math.max(4, Math.floor(MAXF / dur));
+    var n = Math.max(2, Math.min(MAXF, Math.round(dur * fps))), cut = tk && n / fps < dur - 0.2;
+    function run(each) {
+      var sol = new AL.Solver(ch), probe = new AL.Inputs(app); probe.take = tk; probe.auto = !tk;
+      for (var i = 0; i < n; i++) { if (tk) { probe.playing = true; probe.ph = i / fps; } each(sol.eval(probe.step(1 / fps), { live: true, dt: 1 / fps }), i); }
     }
-    var base = (ch.name || 'character').replace(/[^\w\- ]+/g, '');
-    sheet.toBlob(function (blob) {
-      var first = intake.saveFile(base + '.png', blob);
-      /* field for field what Sprite Lab's SpriteSheet.fromJson() reads */
-      var frames = []; for (var k = 0; k < n; k++) frames.push(k);
-      var side = { spriteSchemaVersion: 1, name: base, sheetUri: base + '.png', cols: cols, rows: rows, fps: fps, pivotX: 0.5, pivotY: 0.5, presets: [{ id: 'p1', name: tk ? 'take' : 'idle', type: 'loop', fps: fps, frames: frames }], x_avatarstudio: { bakedFrom: ch.name, seconds: dur } };
-      first.then(function () { return new Promise(function (r) { setTimeout(r, 500); }); }).then(function () { intake.saveFile(base + '.sprite.json', new Blob([JSON.stringify(side, null, 2)], { type: 'application/json' })); });
-    }, 'image/png');
+    /* first pass: everything the performance reaches, so a raised arm or a walk is not cut off */
+    var b = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+    run(function (out) { out.items.forEach(function (it) { if (it.ghost) return; for (var k = 0; k < it.v.length; k += 2) { if (it.v[k] < b.x0) b.x0 = it.v[k]; if (it.v[k] > b.x1) b.x1 = it.v[k]; if (it.v[k + 1] < b.y0) b.y0 = it.v[k + 1]; if (it.v[k + 1] > b.y1) b.y1 = it.v[k + 1]; } }); });
+    if (b.x1 < b.x0) b = { x0: 0, y0: 0, x1: ch.w, y1: ch.h };
+    var pad = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 0.03; b = { x0: b.x0 - pad, y0: b.y0 - pad, x1: b.x1 + pad, y1: b.y1 + pad };
+    var cell = 256, s = Math.min(cell / (b.x1 - b.x0), cell / (b.y1 - b.y0)), cols = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / cols);
+    var gc = document.createElement('canvas'); gc.width = gc.height = cell; var G = new AL.GL(gc);
+    var sheet = document.createElement('canvas'); sheet.width = cols * cell; sheet.height = rows * cell; var sg = sheet.getContext('2d');
+    run(function (out, i) { G.draw(out.items, { s: s, ox: (cell - (b.x1 - b.x0) * s) / 2 - b.x0 * s, oy: (cell - (b.y1 - b.y0) * s) / 2 - b.y0 * s }); sg.drawImage(gc, (i % cols) * cell, ((i / cols) | 0) * cell); });
+    var base = (ch.name || 'character').replace(/[^\w\- ]+/g, ''), frames = []; for (var k = 0; k < n; k++) frames.push(k);
+    /* field for field what Sprite Lab's SpriteSheet.fromJson() reads */
+    var side = { spriteSchemaVersion: 1, name: base, sheetUri: base + '.png', cols: cols, rows: rows, fps: fps, pivotX: 0.5, pivotY: 0.5, presets: [{ id: 'p1', name: tk ? 'take' : 'idle', type: 'loop', fps: fps, frames: frames }], x_avatarstudio: { bakedFrom: ch.name, seconds: n / fps } };
+    var ui = app.ui, body = h('div'), prev = h('canvas', { style: 'width:100%;max-height:38vh;object-fit:contain;border-radius:10px;background:#000' }); prev.width = sheet.width; prev.height = sheet.height; prev.getContext('2d').drawImage(sheet, 0, 0);
+    body.appendChild(prev);
+    body.appendChild(ui.note('<b>' + n + ' frames</b> at ' + fps + ' a second (' + (Math.round(n / fps * 10) / 10) + ' s)' + (tk ? ', from your take' : ', of it idling') + (cut ? '. The take is longer than a sheet can hold, so this is its start' : '') + '. Sprite Lab, VisLab and Studio read the picture together with its settings file: save both.'));
+    /* two taps, two files: a browser will not let a page save a second file by itself */
+    app.sheet('Sprite sheet', body, [
+      { label: 'Save the picture', cls: 'go', icon: 'image', keep: true, fn: function () { sheet.toBlob(function (blob) { intake.saveFile(base + '.png', blob); }, 'image/png'); } },
+      { label: 'Save its settings', icon: 'save', keep: true, fn: function () { intake.saveFile(base + '.sprite.json', new Blob([JSON.stringify(side, null, 2)], { type: 'application/json' })); } },
+      { label: 'Done', cls: 'quiet', fn: app.closeSheet }
+    ]);
   };
 
   intake.wire = function (app) {
     function fail(e) { console.error(e); app.toast(e && e.message ? e.message : 'That would not open.'); }
-    $('filePsd').onchange = function () { var f = this.files[0]; if (!f) return; app.toast('Reading “' + f.name + '”…'); readBuf(f).then(function (b) { return intake.openPsd(app, b, nice(f.name)); }).catch(fail); };
+    $('filePsd').onchange = function () { var f = this.files[0], upd = intake.psdMode === 'update'; intake.psdMode = null; if (!f) return; app.toast('Reading “' + f.name + '”…'); readBuf(f).then(function (b) { return upd ? intake.updateArt(app, b, nice(f.name)) : intake.openPsd(app, b, nice(f.name)); }).catch(fail); };
     $('fileJson').onchange = function () { var f = this.files[0]; if (f) readText(f).then(function (t) { return intake.openJson(app, t); }).catch(fail); };
     $('fileAudio').onchange = function () { var f = this.files[0]; if (f) app.inp.playVoice(f).then(function () { app.refreshPanel(true); }).catch(function () { app.toast('That sound would not play.'); }); };
     document.addEventListener('dragover', function (e) { e.preventDefault(); });

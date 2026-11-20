@@ -19,7 +19,7 @@
   function triggerChips(app) {
     var inp = app.inp, ui = app.ui, out = [];
     (app.ch.triggers || []).forEach(function (t, i) {
-      out.push(ui.chip(t.name, { on: !!inp.trig[t.id], icon: 'bolt', title: 'Tap to switch “' + t.name + '” on and off' + (i < 9 ? ' (key ' + (i + 1) + ')' : ''), fn: function () { inp.trig[t.id] = !inp.trig[t.id]; app.refreshPanel(true); } }));
+      out.push(ui.chip(t.name, { on: !!inp.trig[t.id], icon: 'bolt', title: 'Tap to switch “' + t.name + '” on and off' + (i < 9 ? ' (key ' + (i + 1) + ')' : ''), fn: function () { inp.toggleTrig(t.id); app.refreshPanel(true); } }));
     });
     var bl = ui.chip('Blink', { icon: 'eye', title: 'Tap to blink. Hold to keep the eyes shut. (key B)' });
     bl.addEventListener('pointerdown', function (e) { try { bl.setPointerCapture(e.pointerId); } catch (x) { } inp.blinkHold = true; bl.classList.add('on'); });
@@ -38,7 +38,7 @@
     return Object.keys(AL.MOODS).map(function (m) { return app.ui.chip(m, { on: app.inp.pose.mood === m, title: 'Eyelids and brows: ' + m.toLowerCase(), fn: function () { app.inp.setMood(m); app.refreshPanel(true); } }); });
   }
   function breeze(app) {
-    return app.ui.slider('Breeze', { min: -1, max: 1, step: 0.05, value: app.inp.pose.wind, undo: false, set: function (v) { app.inp.pose.wind = Math.abs(v) < 0.06 ? 0 : v; app.inp.held.body = true; clearTimeout(app._wt); app._wt = setTimeout(function () { app.inp.held.body = false; }, 500); },
+    return app.ui.slider('Breeze', { min: -1, max: 1, step: 0.05, value: app.inp.pose.wind, undo: false, set: function (v) { app.inp.pose.wind = Math.abs(v) < 0.06 ? 0 : v; app.inp.held.wind = true; clearTimeout(app._wt); app._wt = setTimeout(function () { app.inp.held.wind = false; }, 600); },
       fmt: function (v) { return Math.abs(v) < 0.06 ? 'still' : (v < 0 ? '\u2190 ' : '') + Math.round(Math.abs(v) * 100) + (v > 0 ? ' \u2192' : ''); }, title: 'Wind. Hair, feathers, tails and chains with Breeze turned on lean and wave in it.' });
   }
 
@@ -60,15 +60,19 @@
     app.coach(inp.recording ? '<b>Recording.</b> ' + (inp.fresh ? 'Everything you do is kept.' : 'Only what you touch is replaced.') + ' Tap the square to stop.' : (inp.walker.cfg() ? '<b>Perform.</b> Drag the <b>body</b> and he walks. Drag the <b>head</b>, a <b>hand</b> or a <b>foot</b> with other fingers at the same time. Two fingers on empty space zoom.' : '<b>Perform.</b> Drag the <b>head</b> to turn, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap lets go.'));
 
     /* transport */
-    var rec = h('button', { class: 'recb' + (inp.recording ? ' on' : ''), title: inp.recording ? 'Stop recording' : (inp.take && inp.take.n ? 'Record another pass: only what you touch is replaced' : 'Record a take'), 'aria-pressed': String(inp.recording), onclick: function () { if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); } }, h('i'));
-    var tlc = h('canvas'), tl = h('div', { class: 'tl', title: 'The take. Drag to look through it.' }, tlc);
-    var play = h('button', { class: 'ib' + (inp.playing && !inp.recording ? ' on' : ''), title: inp.playing ? 'Stop' : 'Play the take', disabled: !(inp.take && inp.take.n), onclick: function () { if (inp.playing) inp.stop(); else inp.play(); inp.scrub = false; app.refreshPanel(true); } }, AL.icon(inp.playing && !inp.recording ? 'stop' : 'play'));
-    var clr = h('button', { class: 'ib', title: 'Throw this take away', disabled: !(inp.take && inp.take.n), onclick: function () { app.ask('Throw this take away?', 'The recorded performance is removed. The character is not touched.', 'Throw away', function () { inp.clearTake(); inp.scrub = false; app.refreshPanel(); }, true); } }, AL.icon('trash'));
-    ph.appendChild(h('div', { class: 'transport', style: 'flex:1;min-width:0' }, [rec, tl, play, clr]));
-    function scrubAt(e) { if (!inp.take || !inp.take.n || inp.recording) return; var r = tl.getBoundingClientRect(); inp.playing = false; inp.scrub = true; inp.ph = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * inp.duration(); }
-    tl.addEventListener('pointerdown', function (e) { tl.setPointerCapture(e.pointerId); tl._d = true; scrubAt(e); app.refreshPanel(true); });
-    tl.addEventListener('pointermove', function (e) { if (tl._d) scrubAt(e); });
-    tl.addEventListener('pointerup', function () { tl._d = false; });
+    var hasTake = !!(inp.take && inp.take.n);
+    var rec = h('button', { class: 'recb' + (inp.recording ? ' on' : ''), title: inp.recording ? 'Stop recording' : (hasTake ? 'Record over the take: only what you touch is replaced, and it is handed back when you let go' : 'Record a take'), 'aria-pressed': String(inp.recording), onclick: function () { if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); } }, h('i'));
+    var tlc = h('canvas'), tl = h('div', { class: 'tl', tabindex: '0', role: 'slider', 'aria-label': 'Place in the take', 'aria-valuemin': '0', 'aria-valuemax': String(Math.round(inp.duration() * 10) / 10), 'aria-valuenow': String(Math.round(inp.ph * 10) / 10), title: 'The take. Drag, or use the left and right arrow keys, to look through it.' }, tlc);
+    var play = h('button', { class: 'ib' + (inp.playing && !inp.recording ? ' on' : ''), title: inp.playing ? 'Stop' : 'Play the take', disabled: !hasTake, onclick: function () { if (inp.playing) inp.stop(); else inp.play(); inp.scrub = false; app.refreshPanel(true); } }, AL.icon(inp.playing && !inp.recording ? 'stop' : 'play'));
+    var back = h('button', { class: 'ib', title: 'Take back the last recording pass', disabled: !inp.backup || inp.recording, onclick: function () { if (inp.undoPass()) { app.toast('The last pass was taken back'); app.refreshPanel(true); } } }, AL.icon('undo'));
+    var clr = h('button', { class: 'ib', title: 'Throw this take away', disabled: !hasTake, onclick: function () { app.ask('Throw this take away?', 'The recorded performance is removed. The character is not touched.', 'Throw away', function () { inp.clearTake(); inp.scrub = false; app.refreshPanel(); }, true); } }, AL.icon('trash'));
+    ph.appendChild(h('div', { class: 'transport', style: 'flex:1;min-width:0' }, [rec, tl, play, back, clr]));
+    /* the strip stays put while it is dragged: rebuilding it under the finger is what lost the drag */
+    function scrubAt(x) { if (!inp.take || !inp.take.n || inp.recording) return; var r = tl.getBoundingClientRect(); inp.playing = false; inp.scrub = true; inp.ph = Math.max(0, Math.min(0.999, (x - r.left - 4) / (r.width - 8))) * inp.duration(); tl.setAttribute('aria-valuenow', String(Math.round(inp.ph * 10) / 10)); }
+    tl.addEventListener('pointerdown', function (e) { try { tl.setPointerCapture(e.pointerId); } catch (x) { } perform.scrubbing = true; scrubAt(e.clientX); });
+    tl.addEventListener('pointermove', function (e) { if (perform.scrubbing) scrubAt(e.clientX); });
+    ['pointerup', 'pointercancel'].forEach(function (ev) { tl.addEventListener(ev, function () { if (!perform.scrubbing) return; perform.scrubbing = false; app.refreshPanel(true); }); });
+    tl.addEventListener('keydown', function (e) { if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return; e.preventDefault(); if (!inp.take || !inp.take.n) return; inp.playing = false; inp.scrub = true; inp.ph = Math.max(0, Math.min(inp.duration() - 0.001, inp.ph + (e.key === 'ArrowLeft' ? -0.1 : 0.1))); });
     perform.tl = tlc;
 
     /* hands-on controls */
@@ -122,20 +126,23 @@
     var w = c.parentNode.clientWidth, hh = c.parentNode.clientHeight, dpr = root.devicePixelRatio || 1;
     if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(hh * dpr); }
     var g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, hh);
-    var tk = inp.take, dur = inp.duration(), lh = (hh - 10) / LANES.length;
+    var tk = inp.take, dur = inp.duration(), lanes = AL.TAKE_LANES, lh = (hh - 8) / lanes.length;
     g.font = '500 10px "IBM Plex Mono",monospace'; g.textBaseline = 'middle';
-    if (!tk || !tk.n) { g.fillStyle = '#71717a'; g.fillText(inp.recording ? 'recording…' : 'No take yet. Tap the red dot, then perform.', 10, hh / 2); if (!inp.recording) return; }
-    var total = Math.max(dur, inp.recording ? inp.ph : 0, 0.001);
-    LANES.forEach(function (ln, i) {
-      var names = ln === 'trig' ? (app.ch.triggers || []).map(function (t) { return 'g:' + t.id; }) : AL.TAKE_GROUPS[ln], len = 0;
-      names.forEach(function (n) { if (tk && tk.ch[n]) len = Math.max(len, tk.ch[n].length); });
-      if (!len) return;
-      g.fillStyle = inp.recording && inp.wrote[ln] ? '#f43f8e' : '#3a3a46'; g.beginPath(); g.roundRect(4, 5 + i * lh + 1, Math.max(3, (w - 8) * Math.min(1, (len / tk.fps) / total)), Math.max(2, lh - 2), 2); g.fill();
+    if (!tk || !tk.n) { g.fillStyle = '#71717a'; g.fillText(inp.recording ? 'recording\u2026' : 'No take yet. Tap the red dot, then perform.', 10, hh / 2); if (!inp.recording) return; }
+    var total = Math.max(dur, inp.recording ? inp.ph : 0, 0.001), len = {}, hot = {}, known = {}, k;
+    lanes.forEach(function (l) { known[l[0]] = 1; });
+    if (tk) for (k in tk.ch) { var o = inp.ownerOf(k), ln = known[o] ? o : (o === 'footL' || o === 'footR' ? 'body' : 'other'); len[ln] = Math.max(len[ln] || 0, tk.ch[k].length); if (inp.recording && inp.fade && inp.fade[o] > 0) hot[ln] = 1; }
+    lanes.forEach(function (l, i) {
+      if (!len[l[0]]) return;
+      g.fillStyle = hot[l[0]] ? '#f43f8e' : '#3a3a46'; g.beginPath(); g.roundRect(4, 4 + i * lh + 0.5, Math.max(3, (w - 8) * Math.min(1, (len[l[0]] / tk.fps) / total)), Math.max(1.5, lh - 1), 1.5); g.fill();
     });
     var px = 4 + (w - 8) * Math.min(1, inp.ph / total);
     g.fillStyle = inp.recording ? '#f43f8e' : '#22d3ee'; g.fillRect(px - 1, 2, 2, hh - 4);
-    g.fillStyle = '#e4e4e7'; g.textAlign = 'right'; g.fillText(inp.ph.toFixed(1) + ' / ' + total.toFixed(1) + ' s', w - 8, hh - 9); g.textAlign = 'left';
-    if (perform._rec !== inp.recording || perform._play !== inp.playing) { var changed = perform._rec !== undefined; perform._rec = inp.recording; perform._play = inp.playing; if (changed) app.refreshPanel(true); }
+    var names = lanes.filter(function (l) { return hot[l[0]]; }).map(function (l) { return l[1]; });
+    g.fillStyle = '#e4e4e7'; g.textAlign = 'right'; g.fillText(inp.ph.toFixed(1) + ' / ' + total.toFixed(1) + ' s', w - 8, hh - 9);
+    if (names.length) { g.fillStyle = '#f43f8e'; g.fillText('writing: ' + names.join(', '), w - 8, 9); }
+    g.textAlign = 'left';
+    if (perform._rec !== inp.recording || perform._play !== inp.playing) { var changed = perform._rec !== undefined; perform._rec = inp.recording; perform._play = inp.playing; if (changed && !perform.scrubbing) app.refreshPanel(true); }
   });
 
   perform.key = function (app, e, down) {
@@ -145,6 +152,6 @@
     if (k === 'b' || k === 'B') inp.blinkNow();
     else if (k === 'r' || k === 'R') { if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); }
     else if (k === 'p' || k === 'P') { if (inp.playing) inp.stop(); else inp.play(); app.refreshPanel(true); }
-    else if (k >= '1' && k <= '9') { var t = (app.ch.triggers || [])[parseInt(k, 10) - 1]; if (t) { inp.trig[t.id] = !inp.trig[t.id]; app.refreshPanel(true); } }
+    else if (k >= '1' && k <= '9') { var t = (app.ch.triggers || [])[parseInt(k, 10) - 1]; if (t) { inp.toggleTrig(t.id); app.refreshPanel(true); } }
   };
 })(typeof self !== 'undefined' ? self : this);

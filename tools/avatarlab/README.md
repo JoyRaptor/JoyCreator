@@ -106,6 +106,28 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
 7. **Lids without art**, in two modes, and moods built from them.
 8. **Stiff chains and a breeze**, beside the bendy swing the phone already has.
 
+9. **Takes that cannot eat your work.** Every signal has an owner; a pass writes only the owners you drive and
+   hands each back over a quarter second; one tap takes a pass back; the take is saved with the character.
+10. **Update the art.** Re-open the repainted layered file: layers are matched by folder path and name, every
+    pin and setting stays, new layers land in Extras.
+11. **Loops and rubber-hose limbs.** A part whose drawings are frames; a limb with no elbow that bows, stretches
+    and wobbles between its shoulder pin and wherever the hand is.
+12. **Carried by.** Any part rides the end of a limb or a swinging part, on a loose wrist, and can swap drawing
+    by the way the limb points. It goes behind the body when its limb does.
+13. **Streams.** One part sent out as copies that drift, grow and fade (rings, bubbles, sparks, dust).
+14. **A round head from one drawing.** Parts are painted on the ball (slide, foreshorten, vanish round the
+    edge), ride it in one piece (an eye with working lids), or stick out of it and pass behind.
+15. **Bouncy follows, and buttons as levels.** A follow can overshoot and settle; any button is also a smooth
+    0..1 level that parts can follow; a part can shake or spin.
+
+## Characters
+
+- `characters/topps.character.json` is the demo character (the owner's art, in the repository at his word).
+  `node build.mjs` folds it into the published page.
+- `local/` is ignored: the owner's PSD, and a Joybot draft (`local/joybot.character.json`, built by
+  `local/joybot-build.js` from pictures; no code of his own runs when he plays). `build.mjs` folds the draft into
+  the page when it is on the machine; `node build.mjs --no-local` leaves it out.
+
 ## Not checked
 
 - The face camera (MediaPipe in the browser) is written but has not been tried with a real face; that includes

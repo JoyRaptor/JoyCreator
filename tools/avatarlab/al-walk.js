@@ -29,7 +29,7 @@
     return { on: true, ground: 'line', air: 'tuck', fall: true, gait: 'walk', stride: Math.round(Math.max(18, len * 0.5)), stepH: Math.round(Math.max(5, len * 0.16)), bob: 0.8, lean: 0.5, armSwing: 18, face: true, depth: 0.35, groundY: Math.round(Math.max(a.limb.c.y, b.limb.c.y)) };
   };
 
-  AL.Walker = function (app) { this.app = app; this.reset(); };
+  AL.Walker = function (app, inp) { this.app = app; this.inp = inp || null; this.reset(); };
   var W = AL.Walker.prototype;
   W.reset = function () { this.x = this.y = this.tx = this.ty = 0; this.vx = this.vy = 0; this.fallV = 0; this.held = false; this.feet = null; this.sq = 0; this.idle = 0; this.swing = 0; this.lift = 0; };
   W.legs = function () {
@@ -50,7 +50,7 @@
 
   /** One frame. Writes where the character stands, where its feet are and how its arms swing into S. */
   W.step = function (dt, S) {
-    var app = this.app, ch = app.ch, set = ch.settings, legs = this.legs(), cfg = this.cfg(), inp = app.inp, self = this;
+    var app = this.app, ch = app.ch, set = ch.settings, legs = this.legs(), cfg = this.cfg(), inp = this.inp || app.inp, self = this;
     S.root = S.root || { x: 0, y: 0 }; S.rootScale = 1; S.walk = 0;
     if (!legs) { S.root.x = S.root.y = 0; S.hand.FL = S.hand.FR = null; return; }
     var axis = set.axisX == null ? ch.w / 2 : set.axisX, flip = !!inp.pose.flip;

@@ -20,10 +20,13 @@ body = body.replace(/<script src="([^"]+)"><\/script>/g, (_, src) => {
   if (js.includes('</script')) throw new Error(src + ' contains a closing script tag');
   return '<script>\n' + js + '\n</script>';
 });
-// The built-in character rides inside the page when it has been saved beside the pilot (local/ is never committed).
+// The built-in character rides inside the published page.
 let builtIn = '';
-const toppsFile = join(here, 'local', 'topps.avatar.json');
+const toppsFile = join(here, 'characters', 'topps.character.json');
 if (existsSync(toppsFile)) builtIn = '<script type="application/json" id="builtin-topps">' + readFileSync(toppsFile, 'utf8').replace(/</g, '\\u003c') + '</script>';
+// A draft character from the owner's own kit rides along when it is on this machine (tools/avatarlab/local/ is not in the repository).
+const joybotFile = join(here, 'local', 'joybot.character.json');
+if (existsSync(joybotFile) && !process.argv.includes('--no-local')) builtIn += '\n<script type="application/json" id="builtin-joybot">' + readFileSync(joybotFile, 'utf8').replace(/</g, '\\u003c') + '</script>';
 mkdirSync(join(here, 'dist'), { recursive: true });
 const out = [title, sides, fonts, style, builtIn, body].join('\n');
 writeFileSync(join(here, 'dist', 'avatar-studio.html'), out);

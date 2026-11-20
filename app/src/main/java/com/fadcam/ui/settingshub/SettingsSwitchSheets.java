@@ -11,7 +11,8 @@ import com.fadcam.ui.picker.PickerBottomSheetFragment;
 import java.util.ArrayList;
 
 /**
- * The two classic rows that open a one-switch sheet rather than a screen: Show the intro and Check
+ * The rows that open a one-switch sheet rather than a screen (FX-1's Hand-off animation joined
+ * the classic two). The classic rows that open a one-switch sheet rather than a screen: Show the intro and Check
  * for updates. The same sheet, keys, words and side effects as {@code SettingsHomeFragment}'s
  * {@code showOnboardingSwitchSheet} and {@code showAutoUpdateSwitchSheet}. The hub's row values
  * follow by themselves: it listens for preference changes. Both sheets show Joy Creator's
@@ -54,5 +55,19 @@ final class SettingsSwitchSheets {
                 host.getString(R.string.note_auto_update_check), title,
                 prefs.sharedPreferences.getBoolean(KEY_AUTO_UPDATE, true))
                 .show(host.getParentFragmentManager(), "auto_update_switch_sheet");
+    }
+
+    /** FX-1's switch: its own preference file, which the hub also listens to. */
+    static void handoff(@NonNull Fragment host) {
+        final String resultKey = "picker_result_handoff";
+        android.content.Context app = host.requireContext().getApplicationContext();
+        host.getParentFragmentManager().setFragmentResultListener(resultKey, host, (k, b) -> {
+            if (!b.containsKey(PickerBottomSheetFragment.BUNDLE_SWITCH_STATE)) return;
+            cc.joycreator.handoff.Handoff.setEnabled(app, b.getBoolean(PickerBottomSheetFragment.BUNDLE_SWITCH_STATE));
+        });
+        String title = host.getString(R.string.settingshub_handoff);
+        PickerBottomSheetFragment.newInstanceWithSwitch(title, new ArrayList<>(), null, resultKey,
+                host.getString(R.string.settingshub_handoff_desc), title, cc.joycreator.handoff.Handoff.enabled(app))
+                .show(host.getParentFragmentManager(), "handoff_switch_sheet");
     }
 }

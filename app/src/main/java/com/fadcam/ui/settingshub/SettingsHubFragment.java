@@ -85,7 +85,7 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
         main.removeCallbacks(reloadStatus);
         main.postDelayed(reloadStatus, 150);
     };
-    private SharedPreferences prefs;
+    private SharedPreferences prefs, handoffPrefs;
     private SettingsStatus status;
     private SettingsSearch search;
     private List<List<SettingsKey>> shown;
@@ -186,6 +186,9 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
         showOverlayIfHidden();
         prefs = SharedPreferencesManager.getInstance(requireContext()).sharedPreferences;
         prefs.registerOnSharedPreferenceChangeListener(prefsChanged);
+        // FX-1's Hand-off animation switch keeps its own file.
+        handoffPrefs = requireContext().getSharedPreferences(cc.joycreator.handoff.Handoff.PREFS, Context.MODE_PRIVATE);
+        handoffPrefs.registerOnSharedPreferenceChangeListener(prefsChanged);
         // Read again on every return: a folder chosen, a theme picked, Motion Lab switched on.
         reloadStatus();
     }
@@ -194,6 +197,7 @@ public class SettingsHubFragment extends BaseFragment implements com.fadcam.ui.s
     public void onPause() {
         keyboard.giveBack(getActivity());
         if (prefs != null) prefs.unregisterOnSharedPreferenceChangeListener(prefsChanged);
+        if (handoffPrefs != null) handoffPrefs.unregisterOnSharedPreferenceChangeListener(prefsChanged);
         main.removeCallbacks(reloadStatus);
         super.onPause();
     }

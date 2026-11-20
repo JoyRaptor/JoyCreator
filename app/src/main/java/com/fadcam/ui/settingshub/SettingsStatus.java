@@ -156,6 +156,7 @@ final class SettingsStatus {
         out.put(SettingsKey.SHOW_INTRO, onOff(c, p.isShowOnboarding()));
         // The classic row's key and default, exactly (SettingsHomeFragment.refreshAppInlineValues).
         out.put(SettingsKey.UPDATE_CHECK, onOff(c, p.sharedPreferences.getBoolean(SettingsSwitchSheets.KEY_AUTO_UPDATE, true)));
+        out.put(SettingsKey.HANDOFF, onOff(c, cc.joycreator.handoff.Handoff.enabled(c)));
         out.put(SettingsKey.DEBUG_LOG, onOff(c, p.isDebugLoggingEnabled()));
     }
 

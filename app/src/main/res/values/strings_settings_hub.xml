@@ -88,6 +88,10 @@
     <string name="settingshub_video_player_desc">Playback speed and quick speed</string>
     <string name="settingshub_video_player_names">player, playback, speed, quick speed, watch, fast forward, slow motion</string>
 
+    <string name="settingshub_handoff">Hand-off animation</string>
+    <string name="settingshub_handoff_desc">Joybot carries your work from one room to the next. Off: rooms open straight away.</string>
+    <string name="settingshub_handoff_names">hand-off, handoff, animation, carry, send, move between rooms, transition, joybot, motion</string>
+
     <!-- Recording -->
     <string name="settingshub_camera_video">Camera video</string>
     <string name="settingshub_camera_video_desc">Resolution, frame rate, bitrate, codec and camera</string>

@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| VIS-NEST | Confirmed and fixed on `codex/r4-vis-nest` | NestedTitleExportTest injected a child-only timeout through the production StudioVis export entry. The base completed the outer frame. Fixed cold and previously drawn parents reject it with the title and local time. Preview retains its prior-frame policy. |

@@ -53,8 +53,12 @@ final class StudioPictures implements VisRenderer.ImageSource {
     }
 
     /** What this frame's picture layers show (VisShow), or null for their own pictures. */
-    void setShow(@Nullable VisShow s) {
+    @Nullable private cc.joycreator.textlab.StudioTextLab.NestedExport export;
+
+    void setShow(@Nullable VisShow s, @Nullable cc.joycreator.textlab.StudioTextLab.NestedExport target) {
         show = s;
+        export = target;
+        pictures.setNestedExport(target);
     }
 
     @Nullable
@@ -98,8 +102,10 @@ final class StudioPictures implements VisRenderer.ImageSource {
     @Nullable
     private Bitmap lookTitle(@NonNull String ref, @NonNull TextOverlayItem o, long timelineMs) {
         float fontPx = Math.max(1f, o.getSizeFraction() * TEXT_FRAME_H);
-        cc.joycreator.textlab.StudioTextLab.Frame f = cc.joycreator.textlab.StudioTextLab.get(app).renderBlocking(
-                "vislab:" + o.getId(), o.getTextLook(), o.getText(), o.lookTime(timelineMs), fontPx);
+        cc.joycreator.textlab.StudioTextLab titles = cc.joycreator.textlab.StudioTextLab.get(app);
+        cc.joycreator.textlab.StudioTextLab.Frame f = export == null
+                ? titles.renderBlocking("vislab:" + o.getId(), o.getTextLook(), o.getText(), o.lookTime(timelineMs), fontPx)
+                : export.draw(titles, o.getId(), o.getTextLook(), o.getText(), o.lookTime(timelineMs), fontPx);
         if (f == null) return null;
         try {
             float k = (float) (fontPx / f.em);

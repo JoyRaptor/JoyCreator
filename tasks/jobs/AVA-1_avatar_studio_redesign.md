@@ -231,6 +231,9 @@ they want, a centipede; arms that can become feet with one toggle").
       on the first tap (the whole head) and the layer on the second. Built-in Topps: near hand in front on all fours.
       His report of a broken crest on the phone was NOT reproduced (the built-in crest is whole at every angle
       here); the likeliest cause is the crest layer moved with the box outside a stance. His file is needed to be sure.
+- [ ] Interface audit (11-21), asked for by the owner before the port: 34 findings, a layout per screen size, a
+      re-organisation of the Body and limb cards, and the list of controls that need a picture, in
+      [the audit](../audits/AVA-1_ui_audit_20261121.md). Nothing from it is built; he chooses what goes first.
 - [ ] The owner's verdict on round 7 (all fours and the four-legged walk, the box, reshape, colour sets, more legs,
       the body's own angles, Joybot's button). Not built: drawn in-between poses used during the turn-around.
 - [ ] The owner's verdict on round 6 (the pop, Copy this angle, the Smooth turn). He said the pilot is nearly ready for the phone;

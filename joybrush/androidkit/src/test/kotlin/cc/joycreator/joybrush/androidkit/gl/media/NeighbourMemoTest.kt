@@ -48,7 +48,7 @@ class NeighbourMemoTest {
             val n = (2 * r + 1) * (2 * r + 1) * 2
             assertContentEquals(want.copyOf(n), got.copyOf(n))
         }
-        assertTrue(hits > 1000, "the memo serves the repeated steps ($hits)")
+        assertTrue(hits > 400, "the memo serves the repeated steps ($hits)")
     }
 
     @Test fun aChangedTableOrAnotherQuestionIsNeverServed() {

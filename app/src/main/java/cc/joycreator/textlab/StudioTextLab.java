@@ -145,10 +145,41 @@ public final class StudioTextLab {
     @Nullable
     public Frame renderForExport(@NonNull String key, @NonNull TitleLook look, @NonNull String words, long localMs,
                                  double em) {
+        return renderForExport(key, look, words, localMs, em, null);
+    }
+
+    @Nullable
+    public Frame renderForExport(@NonNull String key, @NonNull TitleLook look, @NonNull String words, long localMs,
+                                 double em, @Nullable java.util.function.BooleanSupplier cancelled) {
         LookTicket<Frame> t = post(key, look, words, localMs, em);
-        LookTicket.Outcome o = t.await(EXPORT_WAIT_MS, null);
+        LookTicket.Outcome o = t.await(EXPORT_WAIT_MS, cancelled);
         if (o != LookTicket.Outcome.READY) throw new LookFailed("title look " + o + " for " + key + " at " + localMs + " ms");
         return t.take();
+    }
+
+    /** A parent export requires the exact nested title. The parent and child wait on the same cancellation. */
+    public static final class NestedExport {
+        private final String parent;
+        private final java.util.function.BooleanSupplier cancelled;
+        private volatile String waitingFor;
+
+        public NestedExport(String parent, java.util.function.BooleanSupplier cancelled) {
+            this.parent = parent;
+            this.cancelled = cancelled;
+        }
+
+        public String detail() {
+            String current = waitingFor;
+            return current == null ? "" : " while drawing " + current;
+        }
+
+        public Frame draw(StudioTextLab titles, String id, TitleLook look, String words, long localMs, double em) {
+            waitingFor = id + " at " + localMs + " ms";
+            Frame frame = titles.renderForExport(parent + "/title:" + id, look, words, localMs, em, cancelled);
+            if (frame == null) throw new LookFailed("Missing frame for " + waitingFor);
+            waitingFor = null;
+            return frame;
+        }
     }
 
     static final long EXPORT_WAIT_MS = 60_000;

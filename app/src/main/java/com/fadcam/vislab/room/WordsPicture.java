@@ -63,6 +63,12 @@ public final class WordsPicture {
      */
     private static final int MAX_SLOTS = 12;
 
+    @Nullable private cc.joycreator.textlab.StudioTextLab.NestedExport export;
+
+    void setNestedExport(@Nullable cc.joycreator.textlab.StudioTextLab.NestedExport target) {
+        export = target;
+    }
+
     WordsPicture(@NonNull Context c) {
         app = c.getApplicationContext();
     }
@@ -199,6 +205,9 @@ public final class WordsPicture {
 
     @NonNull
     private Bitmap draw(@NonNull Parsed p, long localMs) {
+        if (export != null) {
+            return export.draw(cc.joycreator.textlab.StudioTextLab.get(app), p.slot(), p.look, p.words, localMs, EM).bitmap;
+        }
         try {
             cc.joycreator.textlab.StudioTextLab.Frame f =
                     cc.joycreator.textlab.StudioTextLab.get(app).renderBlocking(p.slot(), p.look, p.words, localMs, EM);

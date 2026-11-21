@@ -192,14 +192,16 @@ public final class StudioVis {
         if (w <= 0 || h <= 0) return null;
         LookTicket<Bitmap> ticket = new LookTicket<>(Bitmap::recycle);
         Request r = new Request(lookJson, uri, sourceMs, timelineMs, w, h, ctl, words);
+        cc.joycreator.textlab.StudioTextLab.NestedExport child = new cc.joycreator.textlab.StudioTextLab.NestedExport(key,
+                () -> !ticket.begin() || (cancelled != null && cancelled.getAsBoolean()));
         gl.handler().post(() -> {
             if (!ticket.begin()) return;   // the export gave up on this frame
-            Bitmap b = draw(key, r);
+            Bitmap b = draw(key, r, child);
             ticket.finish(b, brokeDrawing);
         });
         LookTicket.Outcome o = ticket.await(EXPORT_WAIT_MS, cancelled);
         if (o != LookTicket.Outcome.READY) {
-            throw new LookFailed("VisLab look " + o + " for " + key + " at " + timelineMs + " ms");
+            throw new LookFailed("VisLab look " + o + " for " + key + " at " + timelineMs + " ms" + child.detail());
         }
         return ticket.take();
     }
@@ -241,7 +243,7 @@ public final class StudioVis {
                     r = pending.remove(key);
                 }
                 if (r == null) return;
-                Bitmap b = draw(key, r);
+                Bitmap b = draw(key, r, null);
                 if (b == null) {
                     // Say so: the view asks again and draws the classic style, not a blank.
                     if (cannotDraw(key, r.lookJson) && onReady != null) main.post(onReady);
@@ -332,7 +334,7 @@ public final class StudioVis {
     // ------------------------------------------------------------------ GL thread
 
     @Nullable
-    private Bitmap draw(@NonNull String key, @NonNull Request r) {
+    private Bitmap draw(@NonNull String key, @NonNull Request r, @Nullable cc.joycreator.textlab.StudioTextLab.NestedExport child) {
         brokeDrawing = false;
         if (!gl.ready()) {
             markCannotDraw(key, r.lookJson, true);
@@ -378,7 +380,7 @@ public final class StudioVis {
             it.renderer.setLookControls(r.ctl.bright, r.ctl.hue, r.ctl.size, r.ctl.speed);
             it.renderer.setLayerFollow(r.ctl.follow);   // layers following a Studio object (R8)
             // Picture layers showing a Studio picture, title, sprite or video (R9).
-            if (it.pictures != null) it.pictures.setShow(r.ctl.show);
+            if (it.pictures != null) it.pictures.setShow(r.ctl.show, child);
             it.renderer.setLayerImages(r.ctl.show != null ? r.ctl.show.pairs : null);
             // The clip's transcript, timed on the clip's own clock (S5); rebuilt only on a change.
             long wk = wordsKey(r.words);
@@ -405,9 +407,12 @@ public final class StudioVis {
             return out;
         } catch (RuntimeException | OutOfMemoryError e) {
             Log.w(TAG, "VisLab look failed to draw for " + key, e);
-            brokeDrawing = it != null && r.lookJson.equals(it.drewLook);
+            brokeDrawing = (child != null && e instanceof cc.joycreator.textlab.StudioTextLab.LookFailed)
+                    || (it != null && r.lookJson.equals(it.drewLook));
             if (!brokeDrawing) markCannotDraw(key, r.lookJson, true);   // never drew: classic, as export
             return null;
+        } finally {
+            if (child != null && it != null && it.pictures != null) it.pictures.setShow(r.ctl.show, null);
         }
     }
 }

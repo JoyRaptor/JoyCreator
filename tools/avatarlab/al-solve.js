@@ -158,17 +158,24 @@
   /** The direction a drawing-space angle points once a matrix has been applied (a mirror turns it over). */
   function wAng(m, a) { var cs = Math.cos(a), sn = Math.sin(a); return Math.atan2(m[1] * cs + m[3] * sn, m[0] * cs + m[2] * sn); }
 
+  /** How strongly a pin holds right now: a pin that belongs to a stance (pin.home = 'pose:<id>') holds as far as that stance is in. */
+  function pinHold(p, weightOf) { if (!p.home || p.home.slice(0, 5) !== 'pose:') return 1; var w = Math.abs(weightOf(p.home) || 0); return w > 1 ? 1 : w; }
+  AL.pinHold = pinHold;
+
   /* ── moving-least-squares, rigid (phone: PuppetRigSolver) ── */
-  function warpMLS(src, P, Q, geo) {
-    var out = new Float32Array(src.length), n = P.length;
-    if (!n) { out.set(src); return out; }
+  /* K (optional): how strongly each pin holds, 0..1. A pin dropped in a stance belongs to that stance: it comes in with it and has no
+     say at all while the character stands (0 = as if it were not there), so shaping a stance cannot disturb the standing shape. */
+  function warpMLS(src, P, Q, geo, K) {
+    var out = new Float32Array(src.length), n = P.length, live = n;
+    if (K) { live = 0; for (var k0 = 0; k0 < n; k0++) if (K[k0] > 1e-4) live++; }
+    if (!n || !live) { out.set(src); return out; }
     for (var i = 0; i < src.length; i += 2) {
       var x = src[i], y = src[i + 1], sw = 0, px = 0, py = 0, qx = 0, qy = 0, j, w, W = [], gi = -1;
       if (geo) gi = clamp(Math.floor((y - geo.y) / geo.cell), 0, geo.ch - 1) * geo.cw + clamp(Math.floor((x - geo.x) / geo.cell), 0, geo.cw - 1);
       for (j = 0; j < n; j++) {
         var dx = P[j][0] - x, dy = P[j][1] - y, d2 = dx * dx + dy * dy;
         if (geo) { var gd = geo.f[j][gi] * geo.cell; d2 = Math.max(d2, gd * gd); }          // the long way round, when there is one
-        w = 1 / Math.pow(d2 + 1e-3, 1.15); W.push(w); sw += w; px += w * P[j][0]; py += w * P[j][1]; qx += w * Q[j][0]; qy += w * Q[j][1];
+        w = 1 / Math.pow(d2 + 1e-3, 1.15); if (K) w *= K[j] > 1e-4 ? K[j] : 0; W.push(w); sw += w; px += w * P[j][0]; py += w * P[j][1]; qx += w * Q[j][0]; qy += w * Q[j][1];
       }
       px /= sw; py /= sw; qx /= sw; qy /= sw;
       var a = 0, b = 0;
@@ -258,6 +265,15 @@
     var key = im.ver + '|' + n.x + ',' + n.y + '|' + n.mesh.pins.map(function (p) { return p.id + ':' + Math.round(p.x) + ',' + Math.round(p.y); }).join(';'), g = this.geo[n.id];
     if (g && g.key === key) return g;
     g = this.geo[n.id] = geoFields(n, im, AL.img.alpha(n.img)); g.key = key; return g;
+  };
+  /** Where one spot of a part with pins is carried to when its shapes are worn at these strengths ({ shapeId: 0..1 }).
+      Used to drop a new pin onto a part that is already reshaped without the part moving under it (al-fit.js, dropPin). */
+  AL.Solver.prototype.warpAt = function (n, x, y, W) {
+    var pins = (n.mesh && n.mesh.pins) || [], shp = n.shapes || [], P = [], Q = [], K = [], any = false;
+    pins.forEach(function (p) { var q = [p.x, p.y]; shp.forEach(function (sh) { var w = W[sh.id] || 0, d = w && sh.d ? sh.d[p.id] : null; if (d) { q[0] += d[0] * w; q[1] += d[1] * w; any = true; } }); P.push([p.x, p.y]); Q.push(q); K.push(pinHold(p, function (id) { return W[id] || 0; })); });
+    if (!any) return [x, y];
+    var im = n.type === 'art' ? AL.img.get(n.img) : null, o = warpMLS(new Float32Array([x, y]), P, Q, im ? this.geoFor(n, im) : null, K);
+    return [o[0], o[1]];
   };
   AL.Solver.prototype.reset = function () { this.st = { pick: {}, fade: {}, swing: {}, flip: this.st.flip, frame: this.st.frame || 0 }; };
 
@@ -349,15 +365,16 @@
     function pinTargets(n, s, c) {
       var P = [], Q = [], pins = n.mesh.pins, shp = n.shapes || [], forced = opt.shapes && opt.shapes[n.id], W = [], i, j, moved = false;
       for (j = 0; j < shp.length; j++) { var sh = shp[j], w = 0; if (forced) w = forced[sh.id] || 0; else { var sv = sigVal(n, sh.sig, s); if (typeof sv === 'number') { w = clamp(sv * (sh.amt == null ? 1 : sh.amt), -1.5, 1.5); if (sh.bounce && moving) w = spring(n.id + ':s:' + sh.id + (c.tag || ''), w); } } W.push(w); }
+      var KK = [], wOf = function (id) { for (var k = 0; k < shp.length; k++) if (shp[k].id === id) return W[k]; return 0; };
       for (i = 0; i < pins.length; i++) {
         var p = pins[i], q = [p.x, p.y], hp = p.role === 'handL' ? s.hand.L : p.role === 'handR' ? s.hand.R : null;
         for (j = 0; j < shp.length; j++) { var d = W[j] && shp[j].d ? shp[j].d[p.id] : null; if (d) { q[0] += d[0] * W[j]; q[1] += d[1] * W[j]; moved = true; } }
         if (s.pin[p.id]) { q = [s.pin[p.id].x, s.pin[p.id].y]; moved = true; }
         else if (hp) { q = [hp.x, hp.y]; moved = true; }
         else if (p.role === 'head') { q = [q[0] + s.turnX * (n.mesh.headMove == null ? 10 : n.mesh.headMove), q[1] + s.turnY * 7 - s.breath * 1.5]; moved = true; }
-        P.push([p.x, p.y]); Q.push(q);
+        P.push([p.x, p.y]); Q.push(q); KK.push(p.home ? pinHold(p, wOf) : 1);
       }
-      return { P: P, Q: Q, moved: moved };
+      return { P: P, Q: Q, K: KK, moved: moved };
     }
     function centreOf(n) { if (n.pivot) return n.pivot; var b = AL.boundsOf(n); return b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 }; }
     if (this._mkIx !== ix) { this._mkIx = ix; var mk = this.maskIds = {}; AL.walk(ch.root, function (n) { if (n.clips) n.clips.forEach(function (q) { mk[q.by] = 1; }); }); }
@@ -499,7 +516,7 @@
       /* a PIECE of a turning head with landmarks of its own (or sharing another piece's) warps by those, not by the whole head's */
       if (c.warps && n.name) { var wk = c.warps[String(n.name).toLowerCase().trim()]; if (wk !== undefined) c = also(c, { warp: wk, warps: null, P: wk && wk.par ? wk.par : (c.P0 || c.P) }); }
       /* pins on a folder or a set bend every drawing inside it (an eye made of parts, squeezed shut as one) */
-      if (n.type !== 'art' && n.mesh && n.mesh.pins && n.mesh.pins.length) { var gp = pinTargets(n, sg(c), c); if (gp.moved) c = also(c, { warp: c.warp ? { P: c.warp.P.concat(gp.P), Q: c.warp.Q.concat(gp.Q) } : gp }); }
+      if (n.type !== 'art' && n.mesh && n.mesh.pins && n.mesh.pins.length) { var gp = pinTargets(n, sg(c), c); if (gp.moved) c = also(c, { warp: c.warp ? { P: c.warp.P.concat(gp.P), Q: c.warp.Q.concat(gp.Q), K: (c.warp.K || c.warp.P.map(function () { return 1; })).concat(gp.K) } : gp }); }
       /* ROUND SHAPE: this node is a ball (or a turned outline); parts inside marked "painted on" slide over it, parts marked "sticks out" ride its surface */
       if (n.ball && n.ball.on !== false) c = also(c, { ball: { b: n.ball, id: n.ball.shell || n.id, pr: n.ball.kind === 'lathe' ? self.lathe(n.ball) : null } });
       var out2 = null, an = null, dec = null, Mx0 = Mx;
@@ -572,6 +589,7 @@
         if (!restKid || !restKid.limb) for (i = 0; i < kids.length; i++) if (kids[i].limb) { restKid = kids[i]; break; }
         var rAt = pk.restAt && moving ? pk.restAt : (restKid ? restKid.limb.c : null);
         var Tw = hand ? ((foot || hand.w) ? [hand.x, hand.y] : M.ap(c.rootIn, hand.x, hand.y)) : (rAt ? M.ap(Mx, rAt.x, rAt.y) : null);
+        if (hand && hand.k != null && hand.k < 1 && Tw && rAt) { var fr0 = M.ap(Mx, rAt.x, rAt.y); Tw = [fr0[0] + (Tw[0] - fr0[0]) * hand.k, fr0[1] + (Tw[1] - fr0[1]) * hand.k]; }      // part-way to where it is wanted (a stance being eased in by its slider)
         if (!hand && !foot && restKid && live && s.walk) {             // nobody is holding this hand: it swings with the walk
           var sa = (set.walk && set.walk.armSwing != null ? set.walk.armSwing : 18) * DEG * s.walk * (s.armSide && s.armSide[pk.hand] != null ? s.armSide[pk.hand] : (pk.hand === 'L' ? 1 : -1)), la = restKid.limb.a, lc = rAt || restKid.limb.c, cs = Math.cos(sa), sn = Math.sin(sa);
           Tw = M.ap(Mx, la.x + cs * (lc.x - la.x) - sn * (lc.y - la.y), la.y + sn * (lc.x - la.x) + cs * (lc.y - la.y));
@@ -700,7 +718,7 @@
         for (i = 0; i < v.length; i += 2) { var bq = ballPt(bb, br4, v[i], v[i + 1], lf, n.back); wv[i] = bq[0]; wv[i + 1] = bq[1]; if (bq[2] < 0.08) (behind || (behind = new Uint8Array(v.length / 2)))[i >> 1] = 1; }
         v = wv;
       }
-      if (c.warp) v = warpMLS(v, c.warp.P, c.warp.Q);
+      if (c.warp) v = warpMLS(v, c.warp.P, c.warp.Q, null, c.warp.K);
       /* where this limb ends and which way it points there: hands and held things ride on it */
       function tipAt(x, y, ang) {
         if (c.ghost) return; var rl = c.restLimb || n.limb, hose = n.limb.style === 'hose';
@@ -724,7 +742,7 @@
       }
       if (meshOn) {
         var pt = pinTargets(n, s, c);
-        if (pt.moved) v = warpMLS(v, pt.P, pt.Q, self.geoFor(n, im));
+        if (pt.moved) v = warpMLS(v, pt.P, pt.Q, self.geoFor(n, im), pt.K);
         if (!n.mesh.quiet) out.pins[n.id] = { mesh: pt.Q.map(function (q) { return M.ap(Mx, q[0], q[1]); }) };      // quiet pins shape the part; they are not handles in Perform
       }
       if (brOn) {
@@ -867,14 +885,28 @@
     /* a stance's own order: these go last, so they have the final say */
     var zm = out.items.filter(function (it) { return it.zo; });
     if (zm.length) {
-      var rest = out.items.filter(function (it) { return !it.zo; }), nb = 0;
-      zm.forEach(function (it) {
+      var rest = out.items.filter(function (it) { return !it.zo; }), nb = 0, pend = zm, zg = 0;
+      /* A part may be placed against a part that has an order of its own (the body behind an arm that is itself behind the head).
+         That one has to be on the list first, so anything still waiting for its partner takes a later turn; "in front of everything"
+         waits for all that can be placed without it. force = nothing more can be settled (two parts each waiting for the other). */
+      var put = function (it, force) {
         var z = it.zo, tf = z.of && out.first[z.of], tl = z.of && out.last[z.of], at;
-        if (z.how === 'back') rest.splice(nb++, 0, it);
-        else if (z.how === 'under' && tf && (at = rest.indexOf(tf)) >= 0) rest.splice(at, 0, it);
-        else if (z.how === 'over' && tl && (at = rest.indexOf(tl)) >= 0) { at++; while (at < rest.length && rest[at].zo === z) at++; rest.splice(at, 0, it); }
-        else rest.push(it);
-      });
+        if (z.how === 'back') { rest.splice(nb++, 0, it); return true; }
+        if (z.how === 'front' && !force) return false;
+        if (z.how === 'under' && tf) { if ((at = rest.indexOf(tf)) >= 0) { rest.splice(at, 0, it); return true; } if (!force && tf.zo && tf.zo !== z) return false; }
+        else if (z.how === 'over' && tl) { if ((at = rest.indexOf(tl)) >= 0) { at++; while (at < rest.length && rest[at].zo === z) at++; rest.splice(at, 0, it); return true; } if (!force && tl.zo && tl.zo !== z) return false; }
+        rest.push(it); return true;
+      };
+      while (pend.length && zg++ < 12) {
+        var wait = pend.filter(function (it) { return !put(it, false); });
+        if (wait.length === pend.length) {                       // stuck: the fronts go on now, and the rest get another turn; with no fronts, they simply go on top
+          var fr = wait.filter(function (it) { return it.zo.how === 'front'; });
+          (fr.length ? fr : wait).forEach(function (it) { put(it, true); });
+          wait = fr.length ? wait.filter(function (it) { return it.zo.how !== 'front'; }) : [];
+        }
+        pend = wait;
+      }
+      pend.forEach(function (it) { rest.push(it); });
       out.items = rest;
     }
     /* COLOUR SETS in play: the drawing step recolours with them (see al-gl.js). The wave crosses the character's own box. */

@@ -36,10 +36,26 @@
 
   /** Where the order of this part is kept right now. */
   function getZ(app, n) { var p = AL.fit.pose(app); if (p) { var d = p.d && p.d[n.id]; return d && d.z ? d.z : null; } return n.zo || null; }
+  /** THE NEWEST WORD WINS. Another part may already say the opposite about this one: an arm that sits behind the head with its hand
+      brought round in front of it, when the head is now told to be in front of that arm, or of everything. Left alone the two fight,
+      the older one wins, and the button does nothing. So the older one lets go of just the piece that contradicts (same undo step). */
+  stack.settle = function (app, p, n, z) {
+    if (!z || z.how === 'back') return;                        // (a part tied to this one simply goes to the back with it)
+    function fix(tz, id) {
+      if (!tz || tz.of !== n.id || (z.of && z.of !== id)) return tz;
+      if (z.how === 'under') return tz.how === 'under' ? null : tz;      // it cannot be behind this one while this one is behind it
+      if (tz.how === 'over') return null;
+      if (tz.how === 'under' && tz.tip != null) delete tz.tip;           // its hand no longer comes in front
+      return tz;
+    }
+    if (p) { for (var id in (p.d || {})) { var e = p.d[id]; if (id === n.id || !e || !e.z) continue; if (!fix(e.z, id)) { delete e.z; if (!e.auto && !e.x && !e.y && !e.rot && (e.sc == null || e.sc === 1) && !e.orbit) delete p.d[id]; } } }
+    else AL.walk(app.ch.root, function (q) { if (q !== n && q.zo && !fix(q.zo, q.id)) delete q.zo; });
+  };
   function setZ(app, n, z, label) {
     var p = AL.fit.pose(app);
     app.liftArt = false;                                       // show it as it really sits, or the step could not be seen
     app.edit(function () {
+      stack.settle(app, p, n, z);
       if (p) { var e = (p.d = p.d || {})[n.id] || (p.d[n.id] = {}); if (z) e.z = z; else { delete e.z; if (!e.auto && !e.x && !e.y && !e.rot && (e.sc == null || e.sc === 1) && !e.orbit) delete p.d[n.id]; } }
       else if (z) n.zo = z; else delete n.zo;
     }, false, label);

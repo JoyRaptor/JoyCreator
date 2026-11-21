@@ -898,7 +898,12 @@
   }
   function shapePins(app, n) {
     var se = app.shapeEdit, sh = (n.shapes || []).filter(function (q) { return q.id === se.shape; })[0]; if (!sh || !n.mesh) { app.shapeEdit = null; return null; }
-    return function () { return n.mesh.pins.map(function (q) { var d = sh.d[q.id] || [0, 0]; return { key: q.id, label: q.name, x: q.x + d[0], y: q.y + d[1], node: n.id, color: '#a78bfa', set: function (x, y) { sh.d[q.id] = [Math.round((x - q.x) * 10) / 10, Math.round((y - q.y) * 10) / 10]; } }; }); };
+    /* a pin is shown where the picture has it: this shape's offset on top of whatever the other shapes on show (a standing reshape under
+       a stance's) already give it. Dragging changes this shape only, so the part does not jump by the other shape's offset at the first touch. */
+    var W = (se.w && se.w[n.id]) || {};
+    function under(q) { var bx = q.x, by = q.y; (n.shapes || []).forEach(function (o) { if (o === sh) return; var w = W[o.id] || 0, d = w && o.d ? o.d[q.id] : null; if (d) { bx += d[0] * w; by += d[1] * w; } }); return [bx, by]; }
+    /* (a pin that belongs to a stance is only there in that stance: it is not shown, and holds nothing, while another pose is on show) */
+    return function () { return n.mesh.pins.filter(function (q) { return AL.pinHold(q, function (id) { return W[id] || 0; }) > 0; }).map(function (q) { var d = sh.d[q.id] || [0, 0], b = under(q); return { key: q.id, label: q.name, x: b[0] + d[0], y: b[1] + d[1], node: n.id, color: '#a78bfa', set: function (x, y) { sh.d[q.id] = [Math.round((x - b[0]) * 10) / 10, Math.round((y - b[1]) * 10) / 10]; } }; }); };
   }
 
   /* ── a piece of a turning head: which pad position it is seen at, and whose landmarks bend it ── */

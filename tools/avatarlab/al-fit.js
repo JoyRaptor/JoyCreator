@@ -114,12 +114,46 @@
     var w = {}; w[n.id] = {}; w[n.id][sid] = 1; (n.shapes || []).forEach(function (q) { if (q.sig === 'always' && q.id !== sid) w[n.id][q.id] = 1; }); app.shapeEdit = { node: n.id, shape: sid, w: w, fit: true }; app.fitOn = { node: n.id, pins: true };
     app.refreshPanel(true);
   };
+  /** Which pose a pin belongs to: the one it was dropped in. (Pins from before this was kept: standing, unless only a stance ever moved them.) */
+  fit.pinHome = function (n, q) {
+    if (q.home) return q.home;
+    var has = (n.shapes || []).filter(function (s) { return s.d && s.d[q.id]; });
+    return !has.length || has.some(function (s) { return s.id === FIX; }) ? FIX : has[0].id;
+  };
+  fit.ownPins = function (app, n) { var sid = fit.shapeId(app); return ((n.mesh && n.mesh.pins) || []).filter(function (q) { return fit.pinHome(n, q) === sid; }); };
+  /** A NEW PIN, on a part that may already be reshaped, here or in another pose. The part must not move when the pin lands, in this pose
+      or in any other. Pins are shared by every pose of the part, and a pin with no offset holds its spot at the drawn shape: dropped
+      bare in a stance it pulled the STANDING reshape out of true (and the other way round). So in every shape that already bends the
+      part, the new pin is given the place that shape was already carrying that spot to. l = the spot under the finger, as drawn now. */
+  fit.dropPin = function (app, n, l) {
+    var S = app.solver, sid = fit.shapeId(app), shp = n.shapes || [], W = {}, x = l[0], y = l[1], i;
+    shp.forEach(function (s) { if (s.id === sid || s.sig === 'always') W[s.id] = 1; });
+    for (i = 0; i < 6; i++) { var w = S.warpAt(n, x, y, W); x += l[0] - w[0]; y += l[1] - w[1]; }       // the spot of the drawing that is under the finger
+    x = Math.round(x); y = Math.round(y);
+    var q = { id: AL.id('p'), name: 'Pin ' + (n.mesh.pins.length + 1), x: x, y: y, home: sid }, ride = {}, sx = 0, sy = 0;
+    shp.forEach(function (s) {
+      if (s.id === sid || !s.d || !Object.keys(s.d).length) return;
+      var one = {}; one[s.id] = 1; var w1 = S.warpAt(n, x, y, one), d = [Math.round((w1[0] - x) * 10) / 10, Math.round((w1[1] - y) * 10) / 10];
+      if (d[0] || d[1]) { ride[s.id] = d; if (W[s.id]) { sx += d[0]; sy += d[1]; } }
+    });
+    var cur = shp.filter(function (s) { return s.id === sid; })[0], here = S.warpAt(n, x, y, W), own = [Math.round((here[0] - x - sx) * 10) / 10, Math.round((here[1] - y - sy) * 10) / 10];
+    n.mesh.pins.push(q);
+    shp.forEach(function (s) { if (ride[s.id]) s.d[q.id] = ride[s.id]; });
+    if (cur && (own[0] || own[1])) (cur.d = cur.d || {})[q.id] = own;
+    return q;
+  };
+  /** Take out the last pin dropped in THIS pose (a stance cannot take out a pin the standing shape is made with). */
+  fit.removePin = function (app, n) {
+    var own = fit.ownPins(app, n), q = own[own.length - 1]; if (!q) return null;
+    n.mesh.pins.splice(n.mesh.pins.indexOf(q), 1); (n.shapes || []).forEach(function (s) { if (s.d) delete s.d[q.id]; });
+    return q;
+  };
   /** A tap on the part while reshaping: a new pin there. Returns true when it took the tap. */
   fit.tapPin = function (app, c) {
     var n = AL.node(app.ch, app.fitOn.node), m = n && app.out.M[n.id]; if (!n || !m || !n.mesh) return false;
     var hit = AL.hit(app.out, c[0], c[1], null, app.selIds); if (!hit) { app.toast('Tap on the part itself to drop a pin.'); return true; }
     var l = M.ap(M.inv(m), c[0], c[1]);
-    app.edit(function () { n.mesh.pins.push({ id: AL.id('p'), name: 'Pin ' + (n.mesh.pins.length + 1), x: Math.round(l[0]), y: Math.round(l[1]) }); }, false, 'Add a pin');
+    app.edit(function () { fit.dropPin(app, n, l); }, false, 'Add a pin');
     return true;
   };
 
@@ -150,7 +184,7 @@
   /** In a stance a part may sit in front of, or behind, something it is not in front of when standing. */
   fit.orderRow = function (app, pb, n, pose) {
     var ui = app.ui, ch = app.ch, d = pose.d && pose.d[n.id], z = d && d.z, tn = z && z.of ? AL.node(ch, z.of) : null, ask = app.orderPick && app.orderPick.node === n.id ? app.orderPick : null;
-    function set(v) { app.orderPick = null; app.edit(function () { var e = (pose.d = pose.d || {})[n.id] || (pose.d[n.id] = {}); if (v) e.z = v; else { delete e.z; if (!e.auto && !e.x && !e.y && !e.rot && (e.sc == null || e.sc === 1) && !e.orbit) delete pose.d[n.id]; } }, false, 'In front or behind, in ' + pose.name); }
+    function set(v) { app.orderPick = null; app.edit(function () { if (AL.stack) AL.stack.settle(app, pose, n, v); var e = (pose.d = pose.d || {})[n.id] || (pose.d[n.id] = {}); if (v) e.z = v; else { delete e.z; if (!e.auto && !e.x && !e.y && !e.rot && (e.sc == null || e.sc === 1) && !e.orbit) delete pose.d[n.id]; } }, false, 'In front or behind, in ' + pose.name); }
     function pick(how) { app.orderPick = ask && ask.how === how ? null : { node: n.id, how: how }; app.pickPiece = false; app.refreshPanel(true); }
     pb.appendChild(ui.lab('In front or behind, in this stance'));
     pb.appendChild(ui.row([
@@ -175,7 +209,7 @@
     var limb = AL.ancestorWith(ch, id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'reach'; }), zone = AL.zoneOf(ch, id), zn = zone !== 'extra' ? app.zoneNode(zone) : null, tgt = limb || zn || AL.node(ch, id);
     if (!tgt || tgt.id === n.id || AL.ancestorWith(ch, tgt.id, function (a) { return a.id === n.id; })) { app.toast('Tap a different part'); return; }
     var how = q.how; app.orderPick = null;
-    app.edit(function () { var e = (pose.d = pose.d || {})[n.id] || (pose.d[n.id] = {}); e.z = { how: how, of: tgt.id }; }, false, (how === 'under' ? 'Behind ' : 'In front of ') + tgt.name + ', in ' + pose.name);
+    app.edit(function () { if (AL.stack) AL.stack.settle(app, pose, n, { how: how, of: tgt.id }); var e = (pose.d = pose.d || {})[n.id] || (pose.d[n.id] = {}); e.z = { how: how, of: tgt.id }; }, false, (how === 'under' ? 'Behind ' : 'In front of ') + tgt.name + ', in ' + pose.name);
   };
 
   /** The section every part's card gets. */
@@ -192,11 +226,11 @@
     if (on && on.box) pb.appendChild(ui.note('Moved <b>' + Math.round(v.x - ax0) + ', ' + Math.round(v.y - ay0) + '</b> · turned <b>' + Math.round(v.rot - ar0) + '°</b> · size <b>' + Math.round(v.sc * 100) + '%</b>.' + (pose ? ' Only while it is in this stance.' : ' It stays like this.')));
     if (pose) AL.stack.section(app, pb, n);
     if (on && on.pins) {
-      var fs = fit.fixShape(n, app), np = n.mesh ? n.mesh.pins.length : 0;
+      var fs = fit.fixShape(n, app), np = n.mesh ? n.mesh.pins.length : 0, mine = fit.ownPins(app, n).length;
       if (pose) pb.appendChild(ui.note('This reshaping is for <b>' + pose.name + '</b> only. Standing, the part keeps its own shape.'));
       pb.appendChild(ui.note(np ? '<b>Drag a pin</b> to stretch the part from there. Pins you leave alone hold it still. Tap the part for another pin.' : '<b>Tap the part</b> where it should stay put, and again where you want to pull it. Then drag a pin.'));
       pb.appendChild(ui.row([
-        np ? ui.chip('Remove the last pin', { cls: 'quiet', fn: function () { app.edit(function () { var q = n.mesh.pins.pop(); if (q && fs && fs.d) delete fs.d[q.id]; }, false, 'Remove a pin'); } }) : null,
+        mine ? ui.chip('Remove the last pin', { cls: 'quiet', title: pose ? 'Takes out the last pin dropped in this stance. Pins dropped while standing are taken out there.' : 'Takes out the last pin dropped here', fn: function () { app.edit(function () { fit.removePin(app, n); }, false, 'Remove a pin'); } }) : null,
         fs && Object.keys(fs.d || {}).length ? ui.chip('Start again', { cls: 'quiet', title: 'Every pin back to where it was dropped', fn: function () { app.edit(function () { fs.d = {}; }, false, 'Clear the reshape'); } }) : null,
         ui.chip('Done', { cls: 'go', fn: function () { fit.reshapeOn(app, n, false); } })
       ]));

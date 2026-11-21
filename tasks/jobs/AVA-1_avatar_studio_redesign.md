@@ -328,6 +328,47 @@ they want, a centipede; arms that can become feet with one toggle").
       twice. Limits: outside the hand-placement cases the test only measures distance from the torso's box, which
       is coarse; Motion is checked settled, not mid-walk; it tests the all-fours stance only, not hand-made
       stances, colour sets, head angles or pins.
+- [x] Round 18 (11-21), "break test the rest of the room", done by a lighter model (Sonnet) and checked by the
+      lead. Six more test files beside the pilot, `tools/avatarlab/al-breaktest-<area>.js` (fit, reshape, turn,
+      stack, walk, stage; load after `al-breaktest.js`). It found four real faults; each was reproduced on his
+      saved Topps, fixed, and its check seen to fail on the old behaviour first:
+      1. **A held pose left the limbs stuck.** "Hold this pose" froze each limb on the drawing it was showing and
+         letting go never gave them back, so an arm stayed raised in Set up and Fit. `stages.letGo` puts back what
+         Hold changed (a drawing he chose himself while held stays his).
+      2. **A pin dropped in a stance changed the standing shape** (4 to 13 px), because pins are shared by every
+         pose and a bare pin holds its spot. A pin now belongs to the pose it was dropped in (`pin.home`): a
+         stance's pin holds nothing while standing (exact, 0 px) and comes in with the stance. A new pin lands
+         under the finger on the part as drawn and is given, in every shape that already bends the part, the
+         place that shape was carrying that spot to (`fit.dropPin`). "Remove the last pin" takes out the last pin
+         of the pose in hand only. Also found on the way: a pin the standing shape had moved jumped by that
+         offset at the first touch in a stance (pins are now shown, and dragged, from where the picture has them).
+      3. **Forward one / Back one / Very front did nothing in all fours** where another part's own rule said the
+         opposite (his Topps: the front left leg is behind the head with its hand in front of it). The newest
+         word now wins, in the same undo step (`stack.settle`); and the draw-order step places a part against a
+         part that has an order of its own (it used to drop it on top). All seven parts walk to both ends.
+      4. **The "See it" slider popped** (left front leg 65.6 px between 0.72 and 0.74, right 21.5 px at 0.6): the
+         hand was planted by a yes/no test at each slider position. Whether the stance plants a hand is now
+         settled at the full stance and the slider carries it there (worst step 5 px per 2%).
+      **Results on the fixed code, his saved Topps:** stage switching 43 checks 0 failures, hand-made stances 27/0,
+      the box 429/0, pins 66/0, draw order 186/0, head turning 33/0, walking 50/0, all fours 240/0 (and still 20
+      failures when fed the old all-fours behaviour). Built-in Topps: all fours 184/0, stances 27/0, pins 66/0.
+      Pip: stage 36/0, pins 66/0, stances and box 493 with one miss the helper had already judged a too-tight bar
+      (right leg moves 3.9 px against a 5 px bar when a stance comes on); one earlier Pip pins run missed once on an
+      eye mid-blink and passed on the re-run. With the real mouse on his Topps: Hold this pose then the Held pose
+      chip gives the arm back; two pins tapped in All fours land under the tap, one dragged follows the drag, a
+      third tapped on the reshaped frill lands under the tap; back on Standing the frill's box is identical.
+      Several of the helper's checks assumed things that are not so (a limb drawn in two pieces counted twice, the
+      two end buttons on a layer that is not offered them, a clean slate before Hold) and were corrected, each
+      noted in the test file.
+      Left as they are, by decision: "Very back" keeps parts that are tied behind this one behind it; "As when
+      standing" forgets a stance's own order (undo brings it back); Perform keeps the stance in hand for the way
+      back to Fit. **Known and not fixed:** dropping another pin on a part that is already reshaped still moves
+      the rest of the part a few pixels (2 to 7 px measured), because this warp refits round every pin; the spot
+      under the finger does not move. A pin added while standing moves a stance's own reshape by 0.5 to 2.8 px.
+      A mesh solver that keeps its shape when a pin is added would cure both; note it for the phone engine.
+      **Not run by anyone yet:** the walk sliders beyond Rise and fall and Jumps 0.2 (Stride, Step height, Lean,
+      Arm swing, Drops to all fours, ground moved); order on Pip and in hand-made stances; reshape on Pip and on
+      a layer inside a head angle; a real finger drag on a reshape pin; take playback in Perform.
 - [ ] Asked for 11-21, parked by him until the two fixes above are seen: a camera frame with aspect ratio in
       Perform, a close-up toggle, a Scene (background, foreground pieces, several characters), an export button
       with video and "performance to Studio" modes, scenes on the character shelf. Not designed yet.

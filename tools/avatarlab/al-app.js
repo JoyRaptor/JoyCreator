@@ -184,12 +184,18 @@
   app.plantPreview = function (S) {
     var ch = app.ch, legs = app.inp && app.inp.walker.legs(), list = legs ? legs.all : [], st = ch.settings, wk = st.walk || {};
     var p = app.poseEdit && AL.stance ? AL.stance.find(ch, app.poseEdit) : null, amt = app.poseAmt == null ? 1 : app.poseAmt, face = st.facing === 'left' ? -1 : st.facing === 'right' ? 1 : 0;
+    /* Whether a stance puts a hand on the ground is settled by the WHOLE stance, seen at full; the "See it" slider then carries the
+       hand there a little at a time. (It used to be asked afresh at every slider position, so the hand snapped to the ground part-way.) */
+    var full = amt >= 0.999, pid = p ? p.id : null, memo = app._plant && app._plant.ch === ch && app._plant.pose === pid ? app._plant : (app._plant = { ch: ch, pose: pid, on: {} });
+    var kk = full ? 1 : clamp((amt - 0.15) / 0.7, 0, 1); kk = kk * kk * (3 - 2 * kk);
     list.forEach(function (q) {
       if (!q.arm || !q.lift) return;
       var a = S.anchor && S.anchor[q.key], want = null;
-      if (p && amt >= 0.6 && a && wk.on !== false && wk.groundY != null) {
+      if (p && kk > 0 && a && wk.on !== false && wk.groundY != null) {
         var far = q.mate ? Math.max(0, wk.groundY - q.mate.foot.y) : 0, hy = wk.groundY - q.palm - far, hgt = hy - a[1];
-        if (hgt > 2 && hgt < q.len * (1 + q.stretch) * 1.12) want = { x: a[0] + face * q.len * 0.1, y: hy, w: true, pv: true };
+        var can = hgt > 2 && hgt < q.len * (1 + q.stretch) * 1.12;
+        if (full) memo.on[q.key] = can; else if (memo.on[q.key] != null) can = memo.on[q.key] && hgt > 2;
+        if (can) { want = { x: a[0] + face * q.len * 0.1, y: hy, w: true, pv: true }; if (kk < 1) want.k = kk; }
       }
       if (want) S.hand[q.key] = want; else if (S.hand[q.key] && S.hand[q.key].pv) S.hand[q.key] = null;
     });

@@ -37,11 +37,11 @@
   stages.go = function (app, s) {
     var from = stages.cur(app), ch = app.ch, pb = $('panelbody'), carry = null;
     (app._sc = app._sc || {})[app._cardKey] = pb ? pb.scrollTop : 0; app._scUse = true;          // each stage keeps its place on the card
-    if (s === 'perform') { app.held = null; if (app.mode !== 'perform') app.setMode('perform'); return; }
+    if (s === 'perform') { stages.letGo(app); if (app.mode !== 'perform') app.setMode('perform'); return; }
     /* dipping between Fit and Motion keeps the pose: the stance being fitted is the stance it moves in, and the other way round */
     if (from === 'fit' && s === 'motion') carry = app.poseEdit || 0;
     if (from === 'motion' && s === 'fit' && app.inp) { carry = 0; (ch.poses || []).forEach(function (p) { if (p.trig && app.inp.trig[p.trig]) carry = p.id; }); }
-    if (s === 'motion') { app.held = null; if (from === 'setup' || from === 'fit') app._from = from; }
+    if (s === 'motion') { stages.letGo(app); if (from === 'setup' || from === 'fit') app._from = from; }
     app.stage = s; try { localStorage.setItem('al.stage', s); } catch (e) { }
     if (s !== 'fit') { app.poseEdit = null; app.fitOn = null; app.moveArt = false; app.orderPick = null; }
     else if (from === 'motion') { app.poseEdit = carry || null; app.poseAmt = null; }
@@ -54,9 +54,17 @@
   /** Freeze the living picture exactly as it is and go to Set up: to mend a pin or a joint while it is bent the way that shows the fault. */
   stages.hold = function (app) {
     if (!app._S || !app.out) return;
-    var S = JSON.parse(JSON.stringify(app._S)), ch = app.ch;
-    AL.findAll(ch.root, function (q) { return q.type === 'set' && q.pick && q.pick.by === 'reach'; }).forEach(function (set) { var k = app.out.picks && app.out.picks[set.id]; if (k) app.force[set.id] = k; });
-    stages.go(app, 'setup'); app.held = S; app._heldCh = ch; app.refreshPanel(true); app.toast('Held. Mend it here, then tap Held pose to let go.');
+    var S = JSON.parse(JSON.stringify(app._S)), ch = app.ch, was = {};
+    stages.letGo(app);
+    AL.findAll(ch.root, function (q) { return q.type === 'set' && q.pick && q.pick.by === 'reach'; }).forEach(function (set) { var k = app.out.picks && app.out.picks[set.id]; if (k) { was[set.id] = { from: app.force[set.id] || null, to: k }; app.force[set.id] = k; } });
+    stages.go(app, 'setup'); app.held = S; app._heldCh = ch; app._heldWas = was; app.refreshPanel(true); app.toast('Held. Mend it here, then tap Held pose to let go.');
+  };
+
+  /** Let a held pose go. Holding also froze each limb on the drawing it was showing; that goes back too, or the arm would stay
+      raised in Set up and Fit after the pose was let go. (A drawing he chose himself while it was held stays his choice.) */
+  stages.letGo = function (app) {
+    var was = app._heldWas; app._heldWas = null; app.held = null;
+    if (was && app._heldCh === app.ch) for (var id in was) { if (app.force[id] !== was[id].to) continue; if (was[id].from) app.force[id] = was[id].from; else delete app.force[id]; }
   };
 
   /* ── WHERE YOU ARE: the path, as slanted tabs ──
@@ -144,7 +152,7 @@
   /** In Fit the box is simply there on whatever is in hand (a limb, outside a stance, slides whole instead: pins and all). */
   stages.before = function (app) {
     if (!stages.on() || app.mode !== 'build') return;
-    if (app.held && (app._heldCh !== app.ch || app.live)) app.held = null;
+    if ((app.held && (app._heldCh !== app.ch || app.live)) || (!app.held && app._heldWas)) stages.letGo(app);      // (however it was let go, the limbs are let go with it)
     if (app.bridge) { app.fitOn = null; app.moveArt = false; if (app._br !== app.bridge) { app._br = app.bridge; setTimeout(function () { app.userView = false; app.focusSel(); }, 0); } } else app._br = null;      // matching two angles: taps belong to the landmarks, so the box steps aside
     if (app.held) app.poseEdit = null;                          // (a held pose is the pose: no stance over it)
     if (app.stage !== 'fit' || app.live || app.bridge) { if (app.stage !== 'fit') app.moveArt = false; return; }
@@ -224,7 +232,7 @@
         mone(null); mlist.forEach(mone); sb.appendChild(mseg); stages.motionRow(app);
       }
     }
-    if (app.held && st !== 'motion') sb.appendChild(ui.chip('Held pose', { cls: 'veil on', icon: 'x', title: 'The character is frozen in the pose you held. Tap to let it go back to standing.', fn: function () { app.held = null; app.refreshPanel(true); } }));
+    if (app.held && st !== 'motion') sb.appendChild(ui.chip('Held pose', { cls: 'veil on', icon: 'x', title: 'The character is frozen in the pose you held. Tap to let it go back to standing.', fn: function () { stages.letGo(app); app.refreshPanel(true); } }));
     if (st === 'fit' && !app.held) {
       var seg = h('span', { class: 'seg veil poses', role: 'group', title: 'The pose this fit is for' }), list = ch.poses || [];
       function one(id, name, title) { var pic = stages.poseThumb(app, id); seg.appendChild(h('button', { class: (app.poseEdit || null) === id ? 'on' : '', title: title, onclick: function () { if ((app.poseEdit || null) === id) return; app.poseEdit = id; app.poseAmt = null; app.fitOn = null; app.orderPick = null; app.userView = false; app.refreshPanel(); } }, [pic ? h('img', { src: pic, alt: '' }) : null, name])); }

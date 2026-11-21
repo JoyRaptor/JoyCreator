@@ -13,7 +13,8 @@
 (function (root) {
   'use strict';
   var AL = root.AL, T = AL.breakTest = {}, SLACK = 14;
-  function raf(n) { return new Promise(function (r) { var k = n || 2; (function f() { if (k-- <= 0) return r(); requestAnimationFrame(f); })(); }); }
+  function raf(n) { var kit = AL.breakTest && AL.breakTest.kit; if (kit && kit._sim) return kit.step(n || 2);      // (simulated time, when al-breaktest-fit.js has it on: the pane draws a frame or two a second when not watched)
+    return new Promise(function (r) { var k = n || 2; (function f() { if (k-- <= 0) return r(); requestAnimationFrame(f); })(); }); }
   function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function parts(app) {
     var ch = app.ch, list = [], torso = AL.firstRole(ch.root, 'torso') || AL.firstRole(ch.root, 'body');

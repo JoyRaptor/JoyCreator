@@ -26,6 +26,15 @@ public final class VisScene {
 
     @NonNull private final JsonObject root;
     private int edits;
+    private final java.util.concurrent.CopyOnWriteArrayList<Runnable> editListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    public void addEditListener(@NonNull Runnable listener) {
+        editListeners.addIfAbsent(listener);
+    }
+
+    public void removeEditListener(@NonNull Runnable listener) {
+        editListeners.remove(listener);
+    }
 
     public VisScene(@NonNull JsonObject root) {
         this.root = root;
@@ -55,6 +64,7 @@ public final class VisScene {
     /** Call after changing the tree: the renderer picks the change up on its next frame. */
     public void touch() {
         edits++;
+        for (Runnable listener : editListeners) listener.run();
     }
 
     public int edits() {

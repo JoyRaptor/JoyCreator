@@ -51,7 +51,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     }
 
     private HandlerThread thread;
-    private Handler handler;
+    private volatile Handler handler;
     private volatile FeatureSource source;
     private volatile VisScene scene;
     private volatile boolean paused;
@@ -84,8 +84,9 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
      * frame). One frame is drawn on pausing, then only when the look is edited, the size changes or
      * {@link #requestRedraw()} asks.
      */
-    private volatile boolean redraw = true;
-    private int drawnEdits = -1, drawnW = -1, drawnH = -1;
+    private boolean framePosted, wasPaused;   // GL thread only
+    private final Runnable wakeFrame = this::scheduleFrame;
+    private final Runnable sceneEdited = () -> { if (paused) requestRedraw(); };
     private final Features held = new Features();
     private final HeatGuard heat;
     /** While the phone runs hot: a quarter of the pixels, so it cools without slowing down. */
@@ -114,9 +115,11 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     }
 
     public void setScene(@Nullable VisScene s) {
+        if (scene != null) scene.removeEditListener(sceneEdited);
         scene = s;
-        redraw = true;
         renderer.setScene(s);
+        if (s != null && handler != null) s.addEditListener(sceneEdited);
+        requestRedraw();
         ceilingUntilNs = 0;   // a new look may be lighter: let it climb
         ceilingStrikes = 0;
     }
@@ -131,14 +134,17 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
     }
 
     public void setPaused(boolean p) {
-        if (paused && !p) lastFrameNs = 0;   // no giant first step after a pause
         paused = p;
-        redraw = true;
+        requestRedraw();
     }
 
     /** Draw once more while paused (a change the scene's edit count does not show: brand colours). */
     public void requestRedraw() {
-        redraw = true;
+        Handler h = handler;
+        if (h != null) {
+            h.removeCallbacks(wakeFrame);
+            h.post(wakeFrame);
+        }
     }
 
     public boolean isPaused() {
@@ -166,11 +172,12 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         thread = new HandlerThread("vislab-gl");
         thread.start();
         handler = new Handler(thread.getLooper());
+        if (scene != null) scene.addEditListener(sceneEdited);
         handler.post(() -> {
             if (!setupEgl(st)) return;
             running = true;
             lastFrameNs = 0;
-            Choreographer.getInstance().postFrameCallback(frameCallback);
+            scheduleFrame();
         });
     }
 
@@ -179,6 +186,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         surfW = width;
         surfH = height;
         bufW = bufH = 0;   // TextureView reset the buffer to the view size: ask again
+        requestRedraw();
     }
 
     @Override
@@ -187,12 +195,15 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         Handler h = handler;
         thread = null;
         handler = null;
+        if (scene != null) scene.removeEditListener(sceneEdited);
         texture = null;
         if (h != null) {
             final Object done = new Object();
             final boolean[] finished = {false};
             h.post(() -> {
                 running = false;
+                framePosted = false;
+                h.removeCallbacks(wakeFrame);
                 Choreographer.getInstance().removeFrameCallback(frameCallback);
                 teardownEgl();
                 synchronized (done) {
@@ -224,25 +235,27 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
 
     // ------------------------------------------------------------------ frames
 
+    private void scheduleFrame() {
+        if (running && !framePosted) {
+            framePosted = true;
+            Choreographer.getInstance().postFrameCallback(frameCallback);
+        }
+    }
+
     private final Choreographer.FrameCallback frameCallback = new Choreographer.FrameCallback() {
         @Override
         public void doFrame(long frameTimeNanos) {
+            framePosted = false;
             if (!running) return;
-            Choreographer.getInstance().postFrameCallback(this);
             drawFrame(frameTimeNanos);
+            if (!paused) scheduleFrame();
         }
     };
 
     private void drawFrame(long nowNs) {
-        if (paused) {
-            VisScene s = scene;
-            int edits = s != null ? s.edits() : 0;
-            if (!redraw && edits == drawnEdits && surfW == drawnW && surfH == drawnH) return;
-            redraw = false;
-            drawnEdits = edits;
-            drawnW = surfW;
-            drawnH = surfH;
-        }
+        boolean hold = paused;
+        if (wasPaused && !hold) lastFrameNs = 0;
+        wasPaused = hold;
         double dt = lastFrameNs == 0 ? 1.0 / 60 : (nowNs - lastFrameNs) / 1e9;
         lastFrameNs = nowNs;
         dt = Math.max(0, Math.min(0.1, dt));
@@ -250,7 +263,7 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
         applyBufferSize();
         FeatureSource src = source;
         Features f;
-        if (paused) {
+        if (hold) {
             f = held;   // the sound as it was when paused: no analysis while paused
         } else {
             f = src != null ? src.next(dt) : silence;
@@ -263,12 +276,12 @@ public class VisTextureView extends TextureView implements TextureView.SurfaceTe
             int w = eglWH[0];
             EGL14.eglQuerySurface(display, surface, EGL14.EGL_HEIGHT, eglWH, 0);
             int h = eglWH[0];
-            renderer.render(f, clock, paused ? 0 : dt, 0, w > 0 ? w : surfW, h > 0 ? h : surfH);
+            renderer.render(f, clock, hold ? 0 : dt, 0, w > 0 ? w : surfW, h > 0 ? h : surfH);
         } catch (RuntimeException e) {
             Log.w(TAG, "frame failed", e);
         }
         EGL14.eglSwapBuffers(display, surface);
-        if (!paused) keepSmooth(dt, nowNs);
+        if (!hold) keepSmooth(dt, nowNs);
     }
 
     /** Ask for a window buffer of view size x scale; Android stretches it to the view. */

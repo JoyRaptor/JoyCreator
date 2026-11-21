@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| VIS-IDLE | Fixed on `codex/r4-vis-idle` | `tools/jvm-harness/r4_vis_idle.py` replays the production Java callback and timing logic. Before, the held frame plus 3,600 idle display ticks delivered 3,601 callbacks. After, just the held frame was delivered. In-place edits, explicit redraw, resize, scene replacement, held audio and clock, and the first resumed step passed. Device energy remains unmeasured. |

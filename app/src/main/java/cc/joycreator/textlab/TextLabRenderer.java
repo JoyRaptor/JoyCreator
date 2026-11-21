@@ -301,6 +301,11 @@ public final class TextLabRenderer {
         return out != null ? out.fbo() : 0;
     }
 
+    /** Borrowed CLEAR RGBA8 output, GL bottom row first. Valid until the next render or release. */
+    int clearTexture() {
+        return out.tex();
+    }
+
     private double[] photoFit() {
         double fieldA = (double) W / H, pic = photoAspect > 0 ? photoAspect : fieldA;
         return fieldA > pic ? new double[]{1, pic / fieldA} : new double[]{fieldA / pic, 1};

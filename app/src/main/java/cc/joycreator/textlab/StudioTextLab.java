@@ -64,7 +64,7 @@ public final class StudioTextLab {
         }
     }
 
-    private static final class Item {
+    static final class Item {
         TextLabRenderer r;
         String lookSig;
         /** The knob names this renderer was last given (TX-01: a removed one must go back to the look's value). */
@@ -98,6 +98,11 @@ public final class StudioTextLab {
     private synchronized Handler glThread() {
         if (gl == null) gl = new OffscreenGl();
         return gl.handler();
+    }
+
+    synchronized TextLabRenderer.Assets rendererAssets() throws java.io.IOException, org.json.JSONException {
+        if (assets == null) assets = TextLabRenderer.Assets.load(app.getAssets());
+        return assets;
     }
 
     @NonNull
@@ -358,49 +363,55 @@ public final class StudioTextLab {
 
     // ---- GL thread ------------------------------------------------------------------------------
 
+    /** Advance one renderer in its owning context. Bitmap and texture exports share this clock. */
+    static void drawMoment(Item it, TitleLook look, String words, long localMs, double em)
+            throws org.json.JSONException {
+        TextLabRenderer r = it.r;
+        String sig = look.lookSignature();
+        boolean jump = false;
+        // A knob the person had changed and has now taken back ("As it came", an undo) is not in
+        // knobs any more, and setKnob alone would leave the renderer on the old value: the preview
+        // would differ from an export, which starts from a fresh renderer. Set the look again then.
+        boolean knobTakenBack = false;
+        for (String k : it.knobNames) {
+            if (!look.knobs.has(k)) { knobTakenBack = true; break; }
+        }
+        if (!sig.equals(it.lookSig) || knobTakenBack) {
+            r.setLook(new org.json.JSONObject(look.look.toString()));
+            it.lookSig = sig;
+            jump = !knobTakenBack;
+        }
+        it.knobNames = new java.util.HashSet<>(look.knobs.keySet());
+        r.setText(words.isEmpty() ? look.sample() : words);
+        r.setEm(em, CAP);
+        apply(look, r, localMs);
+        double t = localMs / 1000.0;
+        // a jump (or the first frame, or a new look): that moment exactly; a step forward: on, as live
+        if (jump || Double.isNaN(it.lastT) || t < it.lastT || t - it.lastT > 0.25) {
+            r.still(t);
+            it.base = 1000 - t;
+        } else {
+            r.frame(it.base + t);
+        }
+        it.lastT = t;
+    }
+
     @Nullable
     private Frame draw(@NonNull String key, @NonNull Request q) {
         if (!gl.ready()) return null;
         long c0 = SystemClock.elapsedRealtimeNanos();
         try {
-            if (assets == null) assets = TextLabRenderer.Assets.load(app.getAssets());
             Item it = items.get(key);
             if (it == null) {
                 it = new Item();
-                it.r = new TextLabRenderer(assets, app);
+                it.r = new TextLabRenderer(rendererAssets(), app);
                 it.r.output = TextLabRenderer.CLEAR;
                 items.put(key, it);
             }
             it.usedAt = SystemClock.uptimeMillis();
             sweepLater();
             TextLabRenderer r = it.r;
-            String sig = q.look.lookSignature();
-            boolean jump = false;
-            // A knob the person had changed and has now taken back ("As it came", an undo) is not in
-            // knobs any more, and setKnob alone would leave the renderer on the old value: the preview
-            // would differ from an export, which starts from a fresh renderer. Set the look again then.
-            boolean knobTakenBack = false;
-            for (String k : it.knobNames) {
-                if (!q.look.knobs.has(k)) { knobTakenBack = true; break; }
-            }
-            if (!sig.equals(it.lookSig) || knobTakenBack) {
-                r.setLook(new org.json.JSONObject(q.look.look.toString()));
-                it.lookSig = sig;
-                jump = !knobTakenBack;
-            }
-            it.knobNames = new java.util.HashSet<>(q.look.knobs.keySet());
-            r.setText(q.words.isEmpty() ? q.look.sample() : q.words);
-            r.setEm(q.em, CAP);
-            apply(q.look, r, q.localMs);
-            double t = q.localMs / 1000.0;
-            // a jump (or the first frame, or a new look): that moment exactly; a step forward: on, as live
-            if (jump || Double.isNaN(it.lastT) || t < it.lastT || t - it.lastT > 0.25) {
-                r.still(t);
-                it.base = 1000 - t;
-            } else {
-                r.frame(it.base + t);
-            }
-            it.lastT = t;
+            drawMoment(it, q.look, q.words, q.localMs, q.em);
             if (!splitOn) return new Frame(r.readBitmap(), r.em());
             long c1 = SystemClock.elapsedRealtimeNanos();
             android.opengl.GLES30.glFinish();

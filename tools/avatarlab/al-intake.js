@@ -87,26 +87,54 @@
    * Layers are matched by their folder path and name, then by name alone where that name is used once.
    * New layers arrive in Extras; layers that are gone from the file stay as they were.
    */
+  /**
+   * THE SAME CHARACTER, PAINTED BIGGER. A layered file of the same shape as the character but a different size (Topps rigged at 512,
+   * repainted at 1024 or 2000) is brought into the character's own space: each layer's place is divided down, and its paint is kept at
+   * full resolution as finer art (AL.img.putFine). Nothing in the rig is touched, so nothing in the rig can break.
+   * Each layer's box is grown to whole character pixels first, so the paint sits exactly where it was painted.
+   * Returns the factor (0 = the file is the character's size, or a different shape: left alone).
+   */
+  intake.fitSize = function (doc, ch) {
+    var k = doc.w / ch.w; if (!(k > 0) || Math.abs(doc.h / ch.h - k) > 0.01 * k || Math.abs(k - 1) < 0.005) return 0;
+    (function w(L) {
+      if (L.kind === 'group') { (L.kids || []).forEach(w); return; }
+      var im = AL.img.get(L.img); if (!im || !im.w || !im.h) { L.x = Math.round(L.x / k); L.y = Math.round(L.y / k); return; }
+      var lx = Math.floor(L.x / k), ly = Math.floor(L.y / k), lw = Math.max(1, Math.ceil((L.x + im.w) / k) - lx), lh = Math.max(1, Math.ceil((L.y + im.h) / k) - ly);
+      var c = document.createElement('canvas'), g;
+      if (k > 1) { c.width = Math.round(lw * k); c.height = Math.round(lh * k); c.getContext('2d').drawImage(im.canvas, Math.round(L.x - lx * k), Math.round(L.y - ly * k)); AL.img.putFine(L.img, c, lw, lh, im.name); }
+      else { c.width = lw; c.height = lh; g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(im.canvas, L.x / k - lx, L.y / k - ly, im.w / k, im.h / k); AL.img.put(L.img, c, im.name); }
+      L.x = lx; L.y = ly;
+    })({ kind: 'group', kids: doc.kids });
+    return k;
+  };
   intake.updateArt = function (app, buf, name) {
     var ch = app.ch;
-    function key(path) { return path.map(function (p) { return String(p).trim().toLowerCase(); }).join('/'); }
+    function key(path) { return path.filter(function (p) { return String(p).trim() !== ''; }).map(function (p) { return String(p).replace(/^\s*\+\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase(); }).join('/'); }      // (as the rig names them: a leading + mark and stray spaces are not part of a name)
     return AL.importPsd(buf, name).then(function (doc) {
+      var kq = intake.fitSize(doc, ch);
       var byPath = {}, byName = {};
       (function w(n, path) { if (n.type === 'art') { var k = key(path.concat(n.name)); (byPath[k] = byPath[k] || []).push(n); var nm = key([n.name]); (byName[nm] = byName[nm] || []).push(n); } (n.kids || []).forEach(function (q) { w(q, n === ch.root ? [] : path.concat(n.name)); }); })(ch.root, []);
-      var hit = 0, moved = 0, fresh = [];
+      var hit = 0, moved = 0, fresh = [], later = [], taken = {};
+      /* the file says where each drawing sits (owner, 11-21: where things were moved in the pilot was experiment, the file is the truth) */
+      function place(n, L) { if (n.x !== L.x || n.y !== L.y) moved++; n.x = L.x; n.y = L.y; n.img = L.img; hit++; taken[n.id] = 1; }
       app.edit(function () {
         (function w(L, path) {
           if (L.kind === 'group') { L.kids.forEach(function (q) { w(q, path.concat(L.name)); }); return; }
-          var list = byPath[key(path.concat(L.name))] || (function () { var c = byName[key([L.name])] || []; return c.length === 1 || c.every(function (q) { return q.shared; }) ? c : []; })();
-          if (!list.length) { fresh.push(L); return; }
+          var list = byPath[key(path.concat(L.name))];
+          if (!list || !list.length) { later.push(L); return; }
           var same = list.every(function (q) { return q.shared; }) ? list : [list.shift()];      // a drawing copied onto every head angle is one layer in the file
-          same.forEach(function (n) { if (n.x !== L.x || n.y !== L.y) moved++; n.img = L.img; n.x = L.x; n.y = L.y; hit++; });
+          same.forEach(function (n) { place(n, L); });
         })({ kind: 'group', name: '', kids: doc.kids }, []);
-        fresh.forEach(function (L) { ch.root.kids.unshift({ id: AL.id('n'), name: L.name, type: 'art', img: L.img, x: L.x, y: L.y, role: 'prop' }); });
+        /* not where the file has it (moved to another folder in this room): by its name, if only one drawing of that name is still unclaimed */
+        later.forEach(function (L) {
+          var c = (byName[key([L.name])] || []).filter(function (q) { return !taken[q.id]; });
+          if (c.length === 1 || (c.length && c.every(function (q) { return q.shared; }))) c.forEach(function (n) { place(n, L); }); else fresh.push(L);
+        });
+        fresh.forEach(function (L) { ch.root.kids.unshift({ id: AL.id('n'), name: String(L.name).replace(/^\s*\+\s*/, '').trim() || 'Layer', type: 'art', img: L.img, x: L.x, y: L.y, role: 'prop' }); });
         AL.reindex(ch);
       }, false, 'Update the art');
       app.solver.grids = {}; app.solver.geo = {}; if (app.G) app.G.forget();
-      app.toast(hit + ' drawings repainted, rigging kept' + (fresh.length ? '. ' + fresh.length + ' new ' + (fresh.length === 1 ? 'layer is' : 'layers are') + ' in Extras' : '') + (doc.w !== ch.w || doc.h !== ch.h ? '. The file is a different size, so check where things sit' : ''));
+      app.toast(hit + ' drawings repainted, rigging kept' + (fresh.length ? '. ' + fresh.length + ' new ' + (fresh.length === 1 ? 'layer is' : 'layers are') + ' in Extras' : '') + (kq > 1 ? '. The file is ' + (Math.round(kq * 10) / 10) + ' times the size: it came in as finer art, and every pin is where it was' : kq ? '. The file is smaller than the character, so the art is coarser now' : doc.w !== ch.w || doc.h !== ch.h ? '. The file is a different shape, so check where things sit' : ''));
     });
   };
   intake.openUrl = function (app, url) {

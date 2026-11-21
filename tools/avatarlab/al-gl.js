@@ -59,7 +59,8 @@
     if (t && t.ver === im.ver) return t.tex;
     if (t) gl.deleteTexture(t.tex);
     var tex = gl.createTexture(); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im.canvas);
+    var src = im.canvas; if (im.hi) { var mx = this._maxTex || (this._maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE)); if (im.hi.width <= mx && im.hi.height <= mx) src = im.hi; }      // finer art is what is drawn (unless this device cannot hold it)
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, src);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     this.tex[id] = { tex: tex, ver: im.ver };

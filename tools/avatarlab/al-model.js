@@ -99,6 +99,14 @@
   AL.img = {
     map: {},
     put: function (id, canvas, name) { this.map[id] = { id: id, canvas: canvas, w: canvas.width, h: canvas.height, name: name || id, ver: (this.map[id] ? this.map[id].ver + 1 : 1), _a: null }; return id; },
+    /** FINER ART. A picture painted at a higher resolution than the character was rigged at. The character keeps its own size: every
+        pin, joint, stance and number stays exactly as it is. The picture is kept twice: a working copy at the character's size (canvas,
+        w, h: what hit tests, pin guesses, thumbnails and every measurement read) and the fine one (hi), which is what is drawn and saved.
+        lw, lh = the size it takes up in the character. */
+    putFine: function (id, hi, lw, lh, name) {
+      var c = document.createElement('canvas'); c.width = lw; c.height = lh; var g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(hi, 0, 0, lw, lh);
+      this.put(id, c, name); var im = this.map[id]; im.hi = hi; im.k = hi.width / lw; return id;
+    },
     get: function (id) { return this.map[id] || null; },
     /** Alpha plane (0..255), cached. Hit tests and the pin guesses read this. */
     alpha: function (id) {
@@ -131,7 +139,7 @@
     var o = JSON.parse(JSON.stringify(ch));
     if (withPictures) {
       o.pictures = {};
-      AL.walk(ch.root, function (n) { if (n.type === 'art' && n.img && !o.pictures[n.img]) { var im = AL.img.get(n.img); if (im) o.pictures[n.img] = im.canvas.toDataURL('image/png'); } });
+      AL.walk(ch.root, function (n) { if (n.type === 'art' && n.img && !o.pictures[n.img]) { var im = AL.img.get(n.img); if (im) { o.pictures[n.img] = (im.hi || im.canvas).toDataURL('image/png'); if (im.hi) (o.fine = o.fine || {})[n.img] = [im.w, im.h]; } } });      // (fine: the size a finer picture takes up in the character)
     }
     return o;
   };
@@ -145,10 +153,10 @@
     return bad;
   };
   AL.fromJson = function (o) {
-    var jobs = [];
+    var jobs = [], fine = o.fine || {}; delete o.fine;
     Object.keys(o.pictures || {}).forEach(function (id) {
       jobs.push(new Promise(function (res) {
-        var im = new Image(); im.onload = function () { var c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im, 0, 0); AL.img.put(id, c, id); res(); };
+        var im = new Image(); im.onload = function () { var c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im, 0, 0); var f = fine[id]; if (f && f[0] > 0 && f[1] > 0 && f[0] < c.width) AL.img.putFine(id, c, f[0], f[1], id); else AL.img.put(id, c, id); res(); };
         im.onerror = function () { res(); }; im.src = o.pictures[id];
       }));
     });

@@ -369,6 +369,21 @@ they want, a centipede; arms that can become feet with one toggle").
       **Not run by anyone yet:** the walk sliders beyond Rise and fall and Jumps 0.2 (Stride, Step height, Lean,
       Arm swing, Drops to all fours, ground moved); order on Pip and in hand-made stances; reshape on Pip and on
       a layer inside a head angle; a real finger drag on a reshape pin; take playback in Perform.
+- [x] Round 19 (11-21), his question: can a 512 Topps take the same file painted at 1024 or 2000 and get a
+      free upscale. **Yes, through Menu, Update the art.** A layered file of the same shape but another size
+      comes in as *finer art*: the character keeps its own size, so no pin, joint, stance or number changes at
+      all; each picture is kept twice (`AL.img.putFine`: a working copy at the character's size for hit tests
+      and measurements, the fine one for drawing and saving; saved under `fine` in the character file).
+      Tested with his own 1223 px Topps file onto his rigged 512 Topps: all 120 layers matched and finer, 0
+      strays in Extras, the picture within 1 px standing and on all fours, the rig's numbers identical, save
+      and reopen exact, one undo. Fed the old way first, the same check was 710 px out. Two older faults in
+      Update the art fixed on the way: layers were never matched by their folder (a stray empty name in the
+      path), only by a unique name, so 113 of his 120 layers went to Extras; and a leading + mark was not
+      ignored. The file decides where each drawing sits (his ruling: moves made in the pilot were experiment).
+      His 1223 px Topps is saved as a character file beside his test assets (12.8 MB; personal use, too big to
+      ship). Not checked: memory and speed with big art on a
+      phone (a 2000 px character is several times the texture memory); files whose shape differs; a file
+      smaller than the character (coded, coarser art, not run).
 - [ ] Asked for 11-21, parked by him until the two fixes above are seen: a camera frame with aspect ratio in
       Perform, a close-up toggle, a Scene (background, foreground pieces, several characters), an export button
       with video and "performance to Studio" modes, scenes on the character shelf. Not designed yet.

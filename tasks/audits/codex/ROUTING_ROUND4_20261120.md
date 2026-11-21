@@ -33,3 +33,9 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 | WET-UNDO | Waiting on the Fold: measure first. The `undo copy` log line (cells, KB, wet blocks of the sheet, history against the 128 MB cap) decides whether copy-on-write blocks are worth a Large change. | Same branch, commit 566affc60 |
 | WET-MAP | Waiting on the Fold: measure first. Readbacks run on view carry, cut, print and save-while-wet, not per frame; the readback ms/KB log decides it. | Same branch, commit 566affc60 |
 | VIS-IDLE | **Landed** | Host replay: 3600 idle ticks, no frame callbacks after the held frame; edits, resize, resume and detach all still redraw. Cloud APK build ok. Phone check of a paused VisLab preview still owed. |
+
+## Codex's own handoff (11-20), checked by the orchestrator
+Codex's handoff matches the table above, except that it was written before VIS-IDLE landed (828f15a4b). Two notes carried over from it, because its file sits in a git-ignored scratch folder:
+- **Before AUD-BAKE lands:** the AUD-RACE post-bake check (now judged against the source end time) must be changed to check the new segment's duration, because AUD-BAKE bakes segments, not source-clock files.
+- **TXT-TRANSFER's proof is a desktop GPU test** (eight readbacks down to zero, at most 1/255 off). Still needed on the Note 9 and the Fold: a decoded export of a pinned animated title with masks, seek, resize, a rebuilt graphics context, and the export time.
+- Rain clean-up quality stays the owner's listening test (matched loudness against CapCut). Codex's mixer notes (per-object effects, routing, stems) are product work for after launch, not launch fixes.

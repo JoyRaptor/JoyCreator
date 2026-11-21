@@ -377,7 +377,7 @@ public class BakedAudioCache {
         FFmpegKit.executeAsync(cmd, session -> {
             if (ReturnCode.isSuccess(session.getReturnCode())
                     && tmp.exists() && tmp.length() >= MIN_VALID_BAKE_BYTES
-                    && validAudio(tmp, spanMs) && commit(tmp, out)) {
+                    && validAudio(tmp, request.endMs) && commit(tmp, out)) {
                 FLog.i(TAG, "Bake OK: " + out.getName() + " (" + out.length() / 1024 + " KB)");
                 callback.onComplete(result(request, out), null);
             } else {
@@ -519,7 +519,7 @@ public class BakedAudioCache {
             String duration = metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_DURATION);
             String audio = metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO);
             return "yes".equalsIgnoreCase(audio) && duration != null
-                    && Math.abs(Long.parseLong(duration) - expectedMs) <= 150;
+                    && Long.parseLong(duration) >= expectedMs - 500; // truncated = the race symptom; the file runs to endMs on the source clock
         } catch (RuntimeException e) {
             return false;
         } finally {

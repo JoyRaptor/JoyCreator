@@ -1,0 +1,5 @@
+Studio Voice uses the somnolent-hogwash 2018-09-01 speech model from the upstream rnnoise-models collection.
+Source: https://github.com/GregorR/rnnoise-models/tree/master/somnolent-hogwash-2018-09-01
+Git blob: f86e9efd3d78ec91b2d18cfd2262fe991fcb1d35
+SHA-256: 70bb6685eb0c2a1d18e2918dca3fbfbd39317010b1802eb1b6ea73a92f3fdec0
+The upstream README states that its model data is not subject to copyright.

@@ -40,6 +40,10 @@
     var torso = AL.firstRole(ch.root, 'torso'), body = AL.firstRole(ch.root, 'body'), lL = AL.firstRole(ch.root, 'legL'), lR = AL.firstRole(ch.root, 'legR'), aL = AL.firstRole(ch.root, 'armL'), aR = AL.firstRole(ch.root, 'armR');
     var kl = restKid(ch, lL), kr = restKid(ch, lR), arms = [aL, aR].filter(function (a) { return a && a.type === 'set' && restKid(ch, a); });
     if (!(torso || body) || !kl || !kr || !arms.length) return null;
+    /* It has to be drawn from the side (or three-quarters on). A character drawn facing straight out has its legs side by side, and
+       tipping it about the hips swings the body sideways off one of them: no all fours is worked out for it (a stance can still be made by hand). */
+    var fc = (ch.settings || {}).facing, hd0 = AL.firstRole(ch.root, 'head'), hb0 = hd0 ? AL.boundsOf(hd0) : null, tb0 = AL.boundsOf(torso || body);
+    if (fc !== 'left' && fc !== 'right') { var hipX = (kl.limb.a.x + kr.limb.a.x) / 2; if (!hb0 || !tb0 || Math.abs((hb0.x0 + hb0.x1) / 2 - hipX) < (tb0.x1 - tb0.x0) * 0.18) return null; }
     return { torso: torso || body, legs: [lL, lR], arms: arms, head: AL.firstRole(ch.root, 'head'), tails: AL.byRole(ch.root, 'tail') };
   };
   /** Does `n` move when `torso` moves? (It hangs from it, or sits inside it.) */
@@ -66,11 +70,17 @@
        has no turn of its own worked out, has its hand turn changed by the same amount (ride: 'all'). Without this, parts fitted for a
        steep tip swing off the body at a shallow one. */
     var was = p.fours && typeof p.fours.angle === 'number' ? p.fours.angle * dir : sgnA, turn = (was - sgnA) * Math.PI / 180, ct = Math.cos(turn), sn = Math.sin(turn);
-    function keep(id, base, ride) {
+    function keep(id, base, ride, arm) {
       var o = old[id] || {}; base.autoRot = base.autoRot || 0; base.autoX = base.autoX || 0; base.autoY = base.autoY || 0;
-      var hx = (o.x || 0) - (o.autoX || 0), hy = (o.y || 0) - (o.autoY || 0), hr = (o.rot || 0) - (o.autoRot || 0);
-      if (ride && (hx || hy)) { var qx = ct * hx - sn * hy; hy = sn * hx + ct * hy; hx = qx; }
-      if (ride === 'all' && Math.abs(hr) > 0.05) hr += was - sgnA;
+      var hx = (o.x || 0) - (o.autoX || 0), hy = (o.y || 0) - (o.autoY || 0), hr = (o.rot || 0) - (o.autoRot || 0), qx;
+      if (ride === 'all' && Math.abs(hr) > 0.05) {
+        /* an arm turns about its pivot, and its shoulder is not always on that pivot: it is the SHOULDER that stays where it was put.
+           Its place (in the torso's frame) is the hand move plus what the hand turn swings it by; that whole is turned back by the change. */
+        var sc0 = o.sc == null ? 1 : o.sc, v = arm || { x: 0, y: 0 }, r0 = hr * Math.PI / 180, hr1 = hr + was - sgnA, r1 = hr1 * Math.PI / 180;
+        var dx0 = hx + sc0 * (Math.cos(r0) * v.x - Math.sin(r0) * v.y) - v.x, dy0 = hy + sc0 * (Math.sin(r0) * v.x + Math.cos(r0) * v.y) - v.y;
+        var dx1 = ct * dx0 - sn * dy0, dy1 = sn * dx0 + ct * dy0;
+        hx = dx1 - (sc0 * (Math.cos(r1) * v.x - Math.sin(r1) * v.y) - v.x); hy = dy1 - (sc0 * (Math.sin(r1) * v.x + Math.cos(r1) * v.y) - v.y); hr = hr1;
+      } else if (ride && (hx || hy)) { qx = ct * hx - sn * hy; hy = sn * hx + ct * hy; hx = qx; }
       base.x = Math.round((base.autoX + hx) * 10) / 10; base.y = Math.round((base.autoY + hy) * 10) / 10;
       base.rot = Math.round((base.autoRot + hr) * 10) / 10; if (o.sc != null && o.sc !== 1) base.sc = o.sc; if (o.z) base.z = o.z; base.auto = true; return base;
     }
@@ -96,7 +106,7 @@
       var base = { autoX: ca * wx + sa * wy, autoY: -sa * wx + ca * wy };
       var rides = carried(ch, a, torso);
       if (!rides) { base.autoRot = sgnA; base.orbit = { x: H.x, y: H.y, deg: sgnA }; base.autoX = wx; base.autoY = wy; }
-      d[a.id] = keep(a.id, base, rides ? 'all' : null); if (!a.pick.walk) a.pick.walk = { lift: true };
+      d[a.id] = keep(a.id, base, rides ? 'all' : null, { x: l.a.x - (a.pivot ? a.pivot.x : 0), y: l.a.y - (a.pivot ? a.pivot.y : 0) }); if (!a.pick.walk) a.pick.walk = { lift: true };
     });
     p.d = d; p.fours = { hip: H, angle: A, drop: drop, v: 2 }; if (p.time == null || p.time === 0.6) p.time = 0.7;
     wk.fours = p.id; if (wk.autoFours == null) wk.autoFours = true;
@@ -138,7 +148,7 @@
     if (!staged) pb.appendChild(ui.row(row));
     if (!ed) return;
     pb.appendChild(ui.slider('See it', { min: 0, max: 100, value: Math.round((app.poseAmt == null ? 1 : app.poseAmt) * 100), undo: false, set: function (v) { app.poseAmt = v / 100; }, fmt: function (v) { return v >= 100 ? 'fully in' : v <= 0 ? 'standing' : v + '%'; }, title: 'Slide to watch the character go into this stance and out again' }));
-    if (ed.fours) pb.appendChild(ui.slider('How far it tips', { min: 30, max: 125, value: ed.fours.angle, set: function (v) { stance.makeFours(ch, v); }, fmt: function (v) { return v + '°'; }, title: 'How far the body leans forward about the hips' }));
+    if (ed.fours) pb.appendChild(ui.slider('How far it tips', { min: 30, max: 125, value: ed.fours.angle, set: function (v) { stance.makeFours(ch, v); }, done: function () { app.refreshPanel(true); }, fmt: function (v) { return v + '°'; }, title: 'How far the body leans forward about the hips' }));
     if (ed.fours) pb.appendChild(ui.slider('Hips come down', { min: 0, max: 80, value: ed.fours.drop || 0, set: function (v) { ed.fours.drop = v; }, fmt: function (v) { return v ? v + ' px' : 'not at all'; }, title: 'How far the hips sink while it is on all fours. The feet stay planted, so the back legs fold. Watch the back legs as you slide.' }));
     var hm = stance.handMoves(ed);
     if (hm) pb.appendChild(ui.row([ui.chip(ed.fours ? 'Work it out again' : 'Put every part back', { icon: 'wand', title: 'Forget every part you placed by hand in this stance (' + hm + '): ' + (ed.fours ? 'back to All fours as it was worked out' : 'back to standing') + '. Undo brings them back.', fn: function () { app.edit(function () { stance.clearHand(ed); }, false, 'Put every part of ' + ed.name + ' back'); app.toast(ed.name + ' is back as it was worked out. Undo brings your moves back.'); } })]));

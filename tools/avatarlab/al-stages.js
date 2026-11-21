@@ -162,7 +162,7 @@
     if (app.stage === 'fit' && n && AL.fit.can(app, n)) {
       /* every part can be fitted, whether or not its card thought to offer it */
       var has = Array.prototype.some.call(pb.querySelectorAll('.lab'), function (l) { return /^Fit it by hand/.test(l.textContent); });
-      if (!has) { var tmp = document.createElement('div'), first = pb.querySelector(':scope > .lab'); AL.fit.section(app, tmp, n); if (!pb.querySelector('.stk')) AL.stack.section(app, tmp, n, { quiet: true }); while (tmp.firstChild) pb.insertBefore(tmp.firstChild, first); }      // (it goes first: it is what Fit is for)
+      if (!has) { var tmp = document.createElement('div'), first = pb.querySelector(':scope > .lab'); AL.fit.section(app, tmp, n); if (!pb.querySelector('.stk') && !tmp.querySelector('.stk')) AL.stack.section(app, tmp, n, { quiet: true }); while (tmp.firstChild) pb.insertBefore(tmp.firstChild, first); }      // (it goes first: it is what Fit is for)
     }
     if (app.stage === 'motion' && app.live) { pb.appendChild(ui.lab('Play with it', 'motion')); pb.appendChild(AL.perform.quick(app)); }
   };

@@ -314,6 +314,20 @@ they want, a centipede; arms that can become feet with one toggle").
       Stepping into a layer by a second tap no longer re-frames the picture. Checked with real mouse drags.
       Not done: the wider editing-flow pass he asked for (only these were walked); "Hips come down" shows a stale
       value after the tip is dragged; the Body card lists "In front or behind" twice; no pose row in Set up.
+- [x] Round 17 (11-21), "don't be lazy about testing how things can break". A break test now lives beside the
+      pilot: `tools/avatarlab/al-breaktest.js` (not in the built page; load it by a script tag and call
+      `AL.breakTest.run()`). It checks every tip, hip drop, ground height, blend, hand placements made at one tip
+      with the tip then changed, a body turned when standing, undo and redo, the stance removed and remade, Work it
+      out again, and Motion with the button on and off. **The first version passed the old broken behaviour, so it
+      was thrown out**; the kept one measures each part's joint and turn against the worked-out place, and was
+      shown to fail on the old behaviour (20 failures) before being trusted. It found two more faults, both fixed:
+      an arm whose shoulder is not on its pivot drifted up to 15 px when the tip changed; and a character drawn
+      facing straight out (Pip) was offered an all-fours that swings the body off one leg, so none is worked out
+      for it now. Result: his saved Topps 240 cases, 0 failures (two seeds); built-in Topps 156, 0. Also fixed:
+      "Hips come down" shows its real value after the tip is dragged; the Body card listed the draw-order section
+      twice. Limits: outside the hand-placement cases the test only measures distance from the torso's box, which
+      is coarse; Motion is checked settled, not mid-walk; it tests the all-fours stance only, not hand-made
+      stances, colour sets, head angles or pins.
 - [ ] Asked for 11-21, parked by him until the two fixes above are seen: a camera frame with aspect ratio in
       Perform, a close-up toggle, a Scene (background, foreground pieces, several characters), an export button
       with video and "performance to Studio" modes, scenes on the character shelf. Not designed yet.

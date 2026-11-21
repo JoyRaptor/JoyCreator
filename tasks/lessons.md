@@ -1296,3 +1296,4 @@ repair cannot reach the user's own saved copy, repair that copy too (once, undoa
 ## 2026-11-21: a value kept "relative" must say relative to what (AVA-1)
 - The all-fours stance kept each hand placement as a difference from the worked-out placement, in the torso's frame. Changing the tip turned that frame, so the same numbers meant a different place and the limbs came off the body. Rule: when a setting re-derives a pose, carry hand edits across in picture terms, and test the setting with a character that HAS hand edits, not the clean demo.
 - A script that only switches a feature on is not a test of it. Drag the real control with the mouse, then switch away and back.
+- 2026-11-21 (AVA-1): a test must be shown to FAIL on the fault before its pass means anything. My first break test passed the very bug it was written for (it measured distance to a bounding box). Feed every new test the old broken behaviour first.

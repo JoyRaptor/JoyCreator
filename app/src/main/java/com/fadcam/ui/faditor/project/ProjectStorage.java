@@ -167,7 +167,7 @@ public class ProjectStorage {
         // moment this save happened" regardless of what the caller touched.
         project.touch();
         final long seq = SAVE_SEQ.incrementAndGet();
-        String json = gson.toJson(project);
+        String json = jsonForSave(project);
         boolean ok = writeProjectJson(project.getId(), json, seq, false);
         if (ok) project.setDiskLastModifiedAtLastSync(project.getLastModified());
         return ok;
@@ -196,7 +196,7 @@ public class ProjectStorage {
         final String id = project.getId();
         final long syncedLastModified = project.getLastModified();
         final long seq = SAVE_SEQ.incrementAndGet();
-        final String json = gson.toJson(project);   // serialize on caller thread (no CME)
+        final String json = jsonForSave(project);   // serialize on caller thread (no CME)
         lastWrite = ioExecutor.submit(() -> {
             // Queued: dropped if a later save from this storage has already been written.
             if (writeProjectJson(id, json, seq, true)) {
@@ -293,6 +293,14 @@ public class ProjectStorage {
             FLog.w(TAG, "peekDiskLastModified: failed to read " + projectId, e);
         }
         return null;
+    }
+
+    /** Only the disk writer can attest that an empty edit was explicitly saved. */
+    private String jsonForSave(FaditorProject project) {
+        if (hasAnyContent(project) || project.hasLoadSkips()) return gson.toJson(project);
+        JsonObject json = gson.toJsonTree(project).getAsJsonObject();
+        json.addProperty("savedEmptyTimeline", true);
+        return gson.toJson(json);
     }
 
     /** Block (briefly) until queued async writes have flushed — call before the activity dies. */
@@ -421,6 +429,9 @@ public class ProjectStorage {
         if (p == null || p.getTimeline() == null) return false;
         Timeline t = p.getTimeline();
         return !t.isEmpty()
+                || !t.getOverlayClips().isEmpty()
+                || !t.getAdjustmentLayers().isEmpty()
+                || t.hasWaveformOverlays()
                 || t.hasAudioClips()
                 || !t.getTextOverlays().isEmpty()
                 || !t.getSpriteOverlays().isEmpty()
@@ -525,10 +536,18 @@ public class ProjectStorage {
         FaditorProject emptyMain = null;
         if (mainReader != null) {
             try (FileReader reader = mainReader) {
-                FaditorProject p = gson.fromJson(reader, FaditorProject.class);
-                // The folder says which project this is, not the file: see asProject.
-                if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, readWhole(file));
-                if (hasAnyContent(p)) {
+                JsonObject data = gson.fromJson(reader, JsonObject.class);
+                FaditorProject p = gson.fromJson(data, FaditorProject.class);
+                if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, data.toString());
+                boolean savedEmpty = p != null && !p.hasLoadSkips()
+                        && data.has("savedEmptyTimeline") && data.get("savedEmptyTimeline").isJsonPrimitive()
+                        && data.get("savedEmptyTimeline").getAsJsonPrimitive().isBoolean()
+                        && data.get("savedEmptyTimeline").getAsBoolean()
+                        && data.has("timeline") && data.get("timeline").isJsonObject()
+                        && data.getAsJsonObject("timeline").has("clips")
+                        && data.getAsJsonObject("timeline").get("clips").isJsonArray()
+                        && data.getAsJsonObject("timeline").getAsJsonArray("clips").size() == 0;
+                if (hasAnyContent(p) || savedEmpty) {
                     // Concurrent-instance guard (Stage 1 P0 fix): this copy is now known
                     // to match the file exactly — record its lastModified as the sync
                     // point so a LATER save from this same in-memory copy can detect if

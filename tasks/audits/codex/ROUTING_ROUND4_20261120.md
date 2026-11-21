@@ -17,3 +17,4 @@ Same rule as rounds 1 to 3: verify against today's `joy-creator` first, and reco
 ## Verdicts
 | Finding | Verdict | Proof |
 |---|---|---|
+| SAVE-CONTENT | Confirmed and fixed on `codex/r4-save-content` | Reopen the latest PiP, adjustment and intentionally empty cuts. SavedTimelineContentTest went from five failures to five passes. All 45 base storage checks also passed including the historical hollow-file backup. |

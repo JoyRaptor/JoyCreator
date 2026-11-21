@@ -35,6 +35,8 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     /** Free placement: tile key -> slot, as last set. */
     var resident: Map<Long, Int> = emptyMap(); private set
     private val upload = FloatUploadBuffer()
+    /** OIL-STEP: the last neighbourhood handed out, valid while the table is unchanged ([NeighbourMemo.changed]). */
+    private val memo = NeighbourMemo()
     val table: Int
     private val instBuf: Int
     private val dabBuf: Int
@@ -87,6 +89,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         val t = MediaAtlasPlacement.table(map, walls)
         free = true; resident = HashMap(map)
         slotOf = t::slotOf; grid = intArrayOf(t.x, t.y, t.w, t.h)
+        memo.changed()
         val cells = ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer()
         cells.put(t.data); cells.position(0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
@@ -101,6 +104,8 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      * broken table included).
      */
     fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false, r: Int = 1) {
+        // Codex audit round 4, OIL-STEP: the same question under the same table gets the same answer, copied.
+        if (memo.fill(tx, ty, r, withWalls, out)) return
         var i = 0
         for (dy in -r..r) for (dx in -r..r) {
             val x = tx + dx; val y = ty + dy
@@ -108,10 +113,11 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
             when {
                 withWalls && Tiles.key(x, y) in walls -> { out[i] = -2; out[i + 1] = -2 }
                 s < 0 -> { out[i] = -1; out[i + 1] = -1 }
-                else -> { val (ax, ay) = slotTexel(s); out[i] = ax; out[i + 1] = ay }
+                else -> { out[i] = (s % nx) shl MediaAtlasDraw.SHIFT; out[i + 1] = (s / nx) shl MediaAtlasDraw.SHIFT }   // slotTexel, no Pair
             }
             i += 2
         }
+        memo.remember(tx, ty, r, withWalls, out)
     }
 
     /** Slot [slot]'s first texel (full resolution). */
@@ -201,6 +207,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     fun setWalls(w: Set<Long>) {
         if (w == walls) return
         walls = w.toSet()
+        memo.changed()
         if (free) setResidency(resident)
     }
 

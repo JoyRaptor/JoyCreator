@@ -231,9 +231,27 @@ they want, a centipede; arms that can become feet with one toggle").
       on the first tap (the whole head) and the layer on the second. Built-in Topps: near hand in front on all fours.
       His report of a broken crest on the phone was NOT reproduced (the built-in crest is whole at every angle
       here); the likeliest cause is the crest layer moved with the box outside a stance. His file is needed to be sure.
+- [x] The crest and the "limp" (11-21, from his own saved file): the crest layer carried a 99 degree turn saved
+      outside any stance (how it got there is not known; the box's turn handle hidden behind the stage buttons is the
+      likeliest). The raised paw was the far front paw: hands that walk stood a guessed palm's height above the
+      ground. Built-in Topps now has both hands on the ground (`pick.walk.palm = 0`); a repaired copy of his file
+      went back to him (crest upright, far paw down, round 7b/7c order added, which his older copy did not have).
+- [x] Round 8 (11-21), his rulings on the audit: the small body map stays; the header gains shortcuts for the card in
+      hand; Stances go first on the Body card; "On four legs" puts the character in its all-fours stance; the drawer
+      becomes three file buttons plus a row of characters; on/off is a tick box and a sliding switch means two equal
+      choices; in front / behind gets one control (the stack, his ideas still to come). Built: all of those, folding
+      sections, the picture fitted clear of the hint and the stage buttons, a card opens at its top, a stance's
+      controls on a part chosen from the body map, the save dot no longer says "saved" for an untouched character.
+      Checked in the page by script and by screenshot at phone size; not by hand, not on a phone.
 - [ ] Interface audit (11-21), asked for by the owner before the port: 34 findings, a layout per screen size, a
       re-organisation of the Body and limb cards, and the list of controls that need a picture, in
-      [the audit](../audits/AVA-1_ui_audit_20261121.md). Nothing from it is built; he chooses what goes first.
+      [the audit](../audits/AVA-1_ui_audit_20261121.md). Round 8 built the phone-portrait part. Still open from
+      it: phone landscape and tablet layouts, one section for every front/behind control on the limb card (the
+      per-drawing three-way switch is still separate), the pictures on controls (an examples page is with the owner),
+      the raw error messages in the file doors, the empty undo step from Reshape with pins.
+- [ ] Known limits of the stack: two parts tied to the same third part (both arms "behind the head") can only be
+      stepped past each other as a pair; a step past a part that is in two pieces lands in front of both pieces.
+      The shelf has no way yet to take a character off it. Built-in characters get their picture after first opened.
 - [ ] The owner's verdict on round 7 (all fours and the four-legged walk, the box, reshape, colour sets, more legs,
       the body's own angles, Joybot's button). Not built: drawn in-between poses used during the turn-around.
 - [ ] The owner's verdict on round 6 (the pop, Copy this angle, the Smooth turn). He said the pilot is nearly ready for the phone;

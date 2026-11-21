@@ -49,7 +49,8 @@
   };
 
   /* ── the built-in characters ── */
-  intake.builtIn = function (app, which) {
+  intake.builtIn = function (app, which) { return builtIn0(app, which).then(function (r) { setTimeout(function () { AL.shelf.stockKeep(app, which); }, 400); return r; }); };
+  function builtIn0(app, which) {
     if (which === 'pip') { AL.img.map = {}; var p = AL.demo(); p.demo = 'pip'; p.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(p, { quiet: true }); return Promise.resolve(); }
     function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('missing'); return r.json(); }); }
     if (which === 'joybot') {                                     // a draft built from the owner's kit; it rides in his own page, not in the repository
@@ -456,22 +457,27 @@
   intake.menu = function (app) {
     var m = h('div', { class: 'menu' });
     function item(icon, label, fn, hint) { m.appendChild(h('button', { title: label, onclick: function () { app.closeSheet(); fn(); } }, [AL.icon(icon), h('span', { text: label }), hint ? h('small', { text: hint }) : null])); }
-    item('plus', 'New character', function () { app.ask('Start a new character?', 'This one is put away. Save it first if you want to keep it.', 'Start new', function () { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.newCharacter('New character', 512, 512)); }); });
-    item('layers', 'Open a layered file', function () { $('filePsd').value = ''; $('filePsd').click(); }, '.psd');
-    item('cut', 'Cut parts from a sheet', function () { intake.cutSheet(app, null); });
-    item('pin', 'Pin one whole drawing', function () { intake.wholeDrawing(app); });
+    /* the characters you have, as a row of cards; the three file buttons sit in the header beside the close button */
+    function away(then) { app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(then, then); }
+    function blank() { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.newCharacter('New character', 512, 512)); }
+    function fresh(which, miss) { return function () { return intake.builtIn(app, which).catch(function () { app.toast(miss); }); }; }
+    var stock = [{ key: 'topps', name: 'Topps', title: 'Topps as he comes: seven head angles, arms that swap and bend, and he walks', fn: fresh('topps', 'Topps is not with this copy of the page.') }];
+    if (intake.hasJoybot()) stock.push({ key: 'joybot', name: 'Joybot', hint: 'draft', title: 'Joybot, a draft built from your own kit', fn: fresh('joybot', 'Joybot is not with this copy of the page.') });
+    stock.push({ key: 'pip', name: 'Pip', title: 'Pip: a small character the page draws by itself', fn: function () { return intake.builtIn(app, 'pip'); } });
+    stock.forEach(function (q) { q.pic = AL.shelf.stockPic(q.key); });
+    var box = h('div', null, [AL.shelf.row(app, stock, function () {
+      app.closeSheet();
+      if (app._state === 'failed') app.ask('Start a new character?', 'This browser would not keep the one you are on. Save it to a file first if you want it.', 'Start new', blank); else away(blank);
+    }), m]);
     item('layers', 'Update the art', function () { if (!AL.find(app.ch.root, function (n) { return n.type === 'art'; })) { app.toast('There is no character to update yet.'); return; } intake.psdMode = 'update'; $('filePsd').value = ''; $('filePsd').click(); }, 'repainted .psd, rigging kept');
     item('image', 'Add pictures', function () { pickImages(function (files) { intake.addPictures(app, files, null).catch(function (e) { app.toast(e.message); }); }); }, 'named by part');
     m.appendChild(h('hr'));
-    item('file', 'Open a character file', function () { $('fileJson').value = ''; $('fileJson').click(); }, '.character.json');
-    item('save', 'Save this character', function () { intake.saveCharacter(app); }, 'with its take');
-    item('send', 'Send to Studio', function () { intake.send(app); });
-    m.appendChild(h('hr'));
-    item('smile', 'Meet Topps', function () { intake.builtIn(app, 'topps').catch(function () { app.toast('Topps is not with this copy of the page.'); }); });
-    if (intake.hasJoybot()) item('smile', 'Meet Joybot (draft)', function () { intake.builtIn(app, 'joybot').catch(function () { app.toast('Joybot is not with this copy of the page.'); }); });
-    item('smile', 'Meet Pip', function () { intake.builtIn(app, 'pip'); });
     item('help', 'What can this do?', function () { intake.about(app); });
-    app.sheet('Avatar Studio', m, []);
+    app.sheet('Avatar Studio', box, [], [
+      { icon: 'file', title: 'Open a character file', fn: function () { app.closeSheet(); $('fileJson').value = ''; $('fileJson').click(); } },
+      { icon: 'save', title: 'Save this character to a file, with its take', fn: function () { app.closeSheet(); intake.saveCharacter(app); } },
+      { icon: 'send', title: 'Send to Studio', fn: function () { app.closeSheet(); intake.send(app); } }
+    ]);
   };
   intake.about = function (app) {
     app.sheet('What Avatar Studio does', h('div', null, [

@@ -181,7 +181,7 @@
     pb.appendChild(ui.row(row));
     var pd0 = pose && pose.d ? pose.d[n.id] : null, ax0 = pd0 && pd0.auto ? pd0.autoX || 0 : 0, ay0 = pd0 && pd0.auto ? pd0.autoY || 0 : 0, ar0 = pd0 && pd0.auto ? pd0.autoRot || 0 : 0;      // in a worked-out stance, show only what the hand has added
     if (on && on.box) pb.appendChild(ui.note('Moved <b>' + Math.round(v.x - ax0) + ', ' + Math.round(v.y - ay0) + '</b> · turned <b>' + Math.round(v.rot - ar0) + '°</b> · size <b>' + Math.round(v.sc * 100) + '%</b>.' + (pose ? ' Only while it is in this stance.' : ' It stays like this.')));
-    if (pose) fit.orderRow(app, pb, n, pose);
+    if (pose) AL.stack.section(app, pb, n);
     if (on && on.pins) {
       var fs = fit.fixShape(n), np = n.mesh ? n.mesh.pins.length : 0;
       pb.appendChild(ui.note(np ? '<b>Drag a pin</b> to stretch the part from there. Pins you leave alone hold it still. Tap the part for another pin.' : '<b>Tap the part</b> where it should stay put, and again where you want to pull it. Then drag a pin.'));

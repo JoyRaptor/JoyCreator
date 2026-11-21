@@ -319,7 +319,7 @@
     function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0, nc: c.nc, zo: c.zo }; if (over) for (var e in over) k[e] = over[e]; return k; }
     /** The same context with a few things changed (ctx() is for stepping DOWN to a child; this stays on the same node). */
     /* a stance may put a part in front of, or behind, something else while the character is in it */
-    function zOf(n) { for (var i = PZ.length - 1; i >= 0; i--) { var d = PZ[i].p.d && PZ[i].p.d[n.id]; if (d && d.z && PZ[i].w > (d.z.at == null ? 0.5 : d.z.at)) return d.z; } return null; }
+    function zOf(n) { for (var i = PZ.length - 1; i >= 0; i--) { var d = PZ[i].p.d && PZ[i].p.d[n.id]; if (d && d.z && PZ[i].w > (d.z.at == null ? 0.5 : d.z.at)) return d.z; } return n.zo || null; }
     function also(c, over) { var k = {}, e; for (e in c) k[e] = c[e]; for (e in over) k[e] = over[e]; return k; }
     /* a round head: where a point painted on the front of the ball is, once the ball has turned. Returns [x, y, depth]. */
     /* how far round it has turned: the head's own turn, plus the whole character being spun round (S.spin, -1..1 = half a turn each way) */
@@ -526,7 +526,7 @@
       out.B[n.id] = Mx;                              // where this part sits before its own move, turn and size (the transform box works in this space)
       var L = local(n, c); if (L) Mx = M.mul(Mx, L);
       out.M[n.id] = Mx;
-      var zo1 = PZ.length ? zOf(n) : null; if (zo1) c = also(c, { zo: zo1 });
+      var zo1 = (PZ.length || n.zo) ? zOf(n) : null; if (zo1) c = also(c, { zo: zo1 });
       /* the tip of something that swings stiffly: a thing can ride on it (a lantern on a pole, a ring stream on a hover peg) */
       if (n.swing && n.swing.kind === 'stiff' && n.swing.tip && !c.ghost) { var pv0 = pivotOf(n), ra = Math.atan2(n.swing.tip.y - pv0.y, n.swing.tip.x - pv0.x); out.tips[n.id] = { p: M.ap(Mx, n.swing.tip.x, n.swing.tip.y), ang: wAng(Mx, ra), restP: M.ap(Mx0, n.swing.tip.x, n.swing.tip.y), rest: wAng(Mx0, ra), under: c.under || null }; }
       if (n.clips && n.clips.length) c = also(c, { clip: (c.clip || []).concat(n.clips) });

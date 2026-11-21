@@ -141,6 +141,18 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
 28. **The body's own turn drawings**, and a four-legged body map.
 29. **A stance's own order** (`poses[].d[id].z = { how: 'under' | 'over' | 'front' | 'back', of, at }`): in a stance a
     part can pass behind or in front of another; set on the part's card by tapping the other part on the picture.
+30. **The stack** (`al-stack.js`): one control for "in front or behind". A row of the parts in the order they are really
+    drawn (back on the left, front on the right, read from the draw list each frame), the part in hand in cyan. Step it,
+    or tap another part to step past it. In a stance it writes the stance's order (item 29); on a whole part it writes
+    the same sentence for always (`node.zo = { how, of, tip }`); on a layer inside a part it reorders the folder.
+31. **The shelf and the drawer** (`al-shelf.js`): the drawer opens with a row of characters (Create new, your own with
+    the last used first, then the built-in ones), sized so one is always cut off at the edge. Open, save and send are
+    three buttons beside the close button. A changed character is kept on the shelf by itself (`ch.uid`; browser store
+    keys `shelf` and `c:<uid>`).
+32. **Folding cards**: every titled section of a long card folds; the same titles are shortcuts in the card's header.
+    On/off controls are tick boxes; sliding switches are kept for two equal choices. The header's two-legs / four-legs
+    switch puts a character that has an all-fours stance into that stance. The picture is fitted clear of the hint line
+    and the stage buttons.
 
 ## Characters
 

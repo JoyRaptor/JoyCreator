@@ -23,7 +23,7 @@
     fit: 'M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5', onion: 'M9 4a8 8 0 100 16M15 4a8 8 0 110 16M15 4a8 8 0 000 16', mesh: 'M4 4h16v16H4zM4 12h16M12 4v16M4 20L20 4',
     flip: 'M12 3v18M8 8l-4 4 4 4M16 8l4 4-4 4', play: 'M8 5l11 7-11 7z', stop: 'M7 7h10v10H7z', mic: 'M12 3a3 3 0 00-3 3v6a3 3 0 006 0V6a3 3 0 00-3-3zM5 11a7 7 0 0014 0M12 18v3',
     cam: 'M3 8h12v8H3zM15 11l6-3v8l-6-3', eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z', eyeoff: 'M3 3l18 18M10 5.3A9.6 9.6 0 0112 5c6 0 10 7 10 7a17 17 0 01-3 3.7M6.4 6.6A16.8 16.8 0 002 12s4 7 10 7a9.6 9.6 0 004.3-1',
-    layers: 'M12 4l9 5-9 5-9-5zM3 14l9 5 9-5', plus: 'M12 5v14M5 12h14', back: 'M15 5l-7 7 7 7', wand: 'M4 20L15 9M17 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1zM6 4v4M4 6h4',
+    layers: 'M12 4l9 5-9 5-9-5zM3 14l9 5 9-5', plus: 'M12 5v14M5 12h14', back: 'M15 5l-7 7 7 7', fwd: 'M9 5l7 7-7 7', wand: 'M4 20L15 9M17 3l1 3 3 1-3 1-1 3-1-3-3-1 3-1zM6 4v4M4 6h4',
     file: 'M6 3h8l5 5v13H6zM14 3v5h5', grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z', person: 'M12 4a3 3 0 100 6 3 3 0 000-6zM6 21v-3a6 6 0 0112 0v3',
     save: 'M5 4h11l3 3v13H5zM8 4v5h7M8 20v-6h8v6', star: 'M12 3l2.7 5.6 6.3.9-4.5 4.4 1 6.1-5.5-3-5.5 3 1-6.1L3 9.5l6.3-.9z', move: 'M12 3v18M3 12h18M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3',
     send: 'M4 12l16-8-6 16-3-7z', trash: 'M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13', loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 014-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 01-4 4H4',
@@ -70,7 +70,8 @@
   /** The dot by the name: steady = saved here, amber = not saved yet, red = this browser refused to keep it. */
   app.saveState = function (st) {
     var dot = $('bname') && $('bname').firstElementChild; if (!dot) return; app._state = st;
-    dot.style.background = st === 'failed' ? 'var(--danger)' : st === 'saved' ? '' : 'var(--warn)';
+    dot.style.background = st === 'failed' ? 'var(--danger)' : st === 'saved' ? '' : st === 'fresh' ? 'var(--faint)' : 'var(--warn)';
+    if (st === 'fresh') { $('bname').title = 'Nothing has been changed yet, so there is nothing to keep. Tap to rename.'; return; }
     $('bname').title = (st === 'failed' ? 'Not saved: this browser would not keep it. Use Menu, Save this character.' : st === 'saved' ? 'Saved in this browser, with its take.' : 'Saving\u2026') + ' Tap to rename.';
   };
   app.syncUndo = function () {
@@ -105,7 +106,7 @@
     app.sel = { zone: first, feature: null, node: null }; app.resolveSel();
     $('empty').style.display = first ? 'none' : 'flex';
     app.vt = null; app.userView = false; app.fit(true);
-    app.refreshPanel(); if (!o.quiet) app.touch();
+    app.refreshPanel(); if (!o.quiet) app.touch(); else if (ch.demo && !ch.edited) app.saveState('fresh');
   };
 
   /* ── what is selected ── */
@@ -158,10 +159,14 @@
   /* ── the view: fit, focus, pan, pinch ── */
   app.stageSize = function () { var s = $('stage'); return { w: s.clientWidth, h: s.clientHeight }; };
   app.fitTo = function (b, pad, snap) {
-    var z = app.stageSize(), top = 44, w = Math.max(8, b.x1 - b.x0), hh = Math.max(8, b.y1 - b.y0);
-    var s = Math.min((z.w - pad * 2) / w, (z.h - top - pad * 1.4) / hh), full = app.ch ? Math.min(z.w / app.ch.w, z.h / app.ch.h) : 1;
+    /* the picture is fitted into what is left of the stage once the hint line (top) and the row of buttons (bottom) have taken their room,
+       so neither ever covers the feet, a pin or the box's turn handle */
+    var z = app.stageSize(), co = $('coach'), sb = $('stagebar'), w = Math.max(8, b.x1 - b.x0), hh = Math.max(8, b.y1 - b.y0);
+    var top = Math.max(44, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 4 : 0), bot = sb && sb.children.length && sb.offsetHeight ? z.h - sb.offsetTop + 4 : 0;
+    if (z.h - top - bot < 140) { top = 44; bot = 0; }
+    var s = Math.min((z.w - pad * 2) / w, (z.h - top - bot - pad * 1.4) / hh), full = app.ch ? Math.min(z.w / app.ch.w, z.h / app.ch.h) : 1;
     s = Math.min(s, full * 5);
-    var v = { s: s, ox: (z.w - w * s) / 2 - b.x0 * s, oy: top + (z.h - top - hh * s) / 2 - b.y0 * s };
+    var v = { s: s, ox: (z.w - w * s) / 2 - b.x0 * s, oy: top + (z.h - top - bot - hh * s) / 2 - b.y0 * s };
     if (snap) { app.view = v; app.vt = null; } else app.vt = v;
   };
   app.fit = function (snap) {
@@ -201,7 +206,7 @@
     var liveNow = app.mode === 'perform' || app.live;
     var S = liveNow ? app.inp.step(dt) : app.buildSignals();
     var onion = null; if (!liveNow && app.onion && app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') onion = app.selNodes[0].id;
-    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false };
+    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false && !app.poseEdit };
     if (bridge) {                                            // matching two head angles: one on stage, the other ghosted over it; or the real turn, to preview it
       if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = 0.6; eo.onionOver = true; }
       else eo.tween = true;
@@ -214,7 +219,7 @@
     if (bridge && bridge.ids && bridge.t == null) out.items.forEach(function (it) { if (!bridge.ids[it.id]) { it.a0 = it.a; it.a *= it.ghost ? 0 : 0.22; } });      // matching one piece: the rest steps back
     var ghostTint = bridge ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
-    if (ids && !bridge && app.liftArt !== false) {            // (not while looking at how a limb really sits behind the body)
+    if (ids && !bridge && app.liftArt !== false && !app.poseEdit) {            // (not while looking at how a limb really sits behind the body)
       var firstSel = -1, ii; for (ii = 0; ii < out.items.length; ii++) if (ids[out.items[ii].id]) { firstSel = ii; break; }
       if (firstSel >= 0) for (ii = firstSel + 1; ii < out.items.length; ii++) { var fi = out.items[ii]; if (!ids[fi.id] && !fi.ghost) { fi.a0 = fi.a; fi.a *= 0.14; } }
     }
@@ -460,8 +465,11 @@
   /* ── chrome: coach line, sheets, toasts ── */
   app.coach = function (html) { var c = $('coach'); c.firstElementChild.innerHTML = html || ''; c.style.display = html ? 'flex' : 'none'; c.className = (app.mode === 'perform' || app.live) ? 'live' : ''; };
   app.toast = function (msg) { var t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(app._tt); app._tt = setTimeout(function () { t.style.display = 'none'; }, 2600); };
-  app.sheet = function (title, body, actions) {
+  app.sheet = function (title, body, actions, tools) {
     var s = $('sheet'); s.querySelector('h3').textContent = title; var sb = s.querySelector('.sb'); sb.innerHTML = ''; sb.appendChild(body);
+    /* a few round buttons beside the close button, set a little apart from it (the drawer: open, save, send) */
+    var hx = s.querySelector('.shx') || s.querySelector('header').insertBefore(h('span', { class: 'shx' }), $('sheetx')); hx.innerHTML = '';
+    (tools || []).forEach(function (t) { hx.appendChild(h('button', { class: 'ib', title: t.title, 'aria-label': t.title, onclick: t.fn }, AL.icon(t.icon))); });
     var f = s.querySelector('footer'); f.innerHTML = ''; (actions || []).forEach(function (a) { f.appendChild(app.ui.chip(a.label, { cls: a.cls, fn: a.fn, icon: a.icon, title: a.title })); }); f.style.display = actions && actions.length ? 'flex' : 'none';
     s.style.display = 'flex'; $('scrim').style.display = 'block';
   };
@@ -494,8 +502,9 @@
     var pb = $('panelbody'), sc = pb.scrollTop;
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);
+    if (app.mode !== 'perform') AL.cards.fold(app);
     app.renderTools();
-    if (keepScroll) pb.scrollTop = sc;
+    pb.scrollTop = keepScroll ? sc : 0;                        // a different card always opens at its top
   };
   app.renderTools = function () {
     var t = $('tools'), liveNow = app.mode === 'perform' || app.live; t.innerHTML = '';
@@ -521,9 +530,11 @@
   }
   app.autosave = function () {
     if (!app.ch || !app.dirty) return; app.dirty = false;
+    if (AL.shelf) AL.shelf.tag(app.ch);
     var o = AL.toJson(app.ch, true); if (app.inp && app.inp.take && app.inp.take.n) o.take = app.inp.take;      // character and take are one document
-    return idb(function (s) { return s.put(o, 'current'); }).then(function () { if (!app.dirty) app.saveState('saved'); }, function () { app.saveState('failed'); });
+    return idb(function (s) { return s.put(o, 'current'); }).then(function () { if (!app.dirty) app.saveState('saved'); if (AL.shelf) AL.shelf.keep(app, o); }, function () { app.saveState('failed'); });
   };
+  app.idb = idb;
   app.loadSaved = function () { return idb(function (s) { return s.get('current'); }).then(function (o) { if (!o || AL.validate(o)) return null; app._take = o.take && o.take.ch ? o.take : null; delete o.take; return AL.fromJson(o); }).catch(function () { return null; }); };
 
   /* ── the desk around the phone ── */

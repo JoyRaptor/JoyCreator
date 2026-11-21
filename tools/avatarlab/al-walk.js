@@ -164,7 +164,7 @@
     });
     var crouch = legLen * 0.45;
     slack = Math.max(3, slack) + toeLen * 0.55 * Math.min(1, rollAmt);         // ...and up on the toes
-    var leave = slack + legLen * 0.38;             // the finger has to pull well past that before the feet let go: a small wobble of the hand is not a jump
+    var leave = slack + legLen * 0.7;             // the finger has to pull well past that before the feet let go: a small wobble of the hand is not a jump
     /* the all-fours stance, if there is one: how far into it the character is, and whether it has been asked for */
     var fp = this.stance(), lv4 = fp && inp.poseLvl ? clamp(inp.poseLvl[fp.id] || 0, 0, 1) : 0, on4 = !!(fp && fp.trig && inp.trig[fp.trig]);
 
@@ -178,7 +178,7 @@
       var want = this.ty - this.base;              // where the finger wants the hips, measured from the ground line (up is negative)
       /* pushed well down, and kept there a moment: onto all fours instead of a deeper squat. Pulled well up: back onto two legs. */
       if (fp && fp.trig && cfg.autoFours !== false && this.held && !this.air) {
-        if (!on4) { this.low = want > crouch * 0.5 ? this.low + dt : 0; if (this.low > 0.12) { inp.setTrig(fp.trig, true); on4 = true; this.low = 0; } }
+        if (!on4) { this.low = want > crouch * 0.82 ? this.low + dt : 0; if (this.low > 0.32) { inp.setTrig(fp.trig, true); on4 = true; this.low = 0; } }
         else if (-want > legLen * 0.22) { inp.setTrig(fp.trig, false); on4 = false; }
       }
       if (want > crouch) { want = crouch; this.ty = this.base + crouch; }

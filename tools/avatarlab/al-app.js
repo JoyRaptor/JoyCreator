@@ -298,10 +298,36 @@
     list.forEach(function (p) { var m = (p.node && app.out.M[p.node]) || app.out.rootM, w = M.ap(m, p.x, p.y); p.sx = w[0] * app.view.s + app.view.ox + (p.ox || 0); p.sy = w[1] * app.view.s + app.view.oy + (p.oy || 0); p.m = m; });
     return list;
   };
+  /* THE PART IN HAND, RINGED. Moving black-and-white dashes follow the outline of the art itself (its own transparency, not a box),
+     so it is plain which pieces are in the selection and which are not, on art of any colour.
+     The selected pieces are drawn alone into a second surface, that shape is fattened and the shape itself cut back out: what is
+     left is a ring, and the ring is filled with moving stripes. */
+  app.outline = function (g, dpr, out) {
+    if (!(AL.stages && AL.stages.on()) || app.mode !== 'build' || app.bridge || app.tab !== 'parts' || !out) return;
+    var ids = null;
+    if (app.fitOn && app.fitOn.box) { var bn = AL.node(app.ch, app.fitOn.node); if (bn) { ids = {}; AL.walk(bn, function (k) { ids[k.id] = 1; }); } }
+    else if (app.selIds && app.sel.zone !== 'body' && (app.sel.feature || app.sel.node || app.stage === 'fit')) ids = app.selIds;
+    if (!ids) return;
+    var items = out.items.filter(function (it) { return !it.ghost && ids[it.id]; }); if (!items.length) return;
+    var W = g.canvas.width, H = g.canvas.height, O = app._ol || (app._ol = {});
+    try {
+      if (!O.gc) { O.gc = document.createElement('canvas'); O.G = new AL.GL(O.gc); O.t = document.createElement('canvas'); O.p = document.createElement('canvas'); O.p.width = O.p.height = 12; var pg = O.p.getContext('2d'); pg.fillStyle = '#000'; pg.fillRect(0, 0, 12, 12); pg.fillStyle = '#fff'; pg.beginPath(); pg.moveTo(0, 0); pg.lineTo(6, 0); pg.lineTo(0, 6); pg.closePath(); pg.fill(); pg.beginPath(); pg.moveTo(12, 0); pg.lineTo(12, 6); pg.lineTo(6, 12); pg.lineTo(0, 12); pg.closePath(); pg.fill(); }
+      if (O.ch !== app.ch) { if (O.G.forget) O.G.forget(); O.ch = app.ch; }
+      if (O.gc.width !== W || O.gc.height !== H) { O.gc.width = O.t.width = W; O.gc.height = O.t.height = H; }
+      O.G.draw(items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, null, null);
+      var t = O.t.getContext('2d'), r = Math.max(2, Math.round(2.2 * dpr)), k;
+      t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, W, H);
+      for (k = 0; k < 8; k++) t.drawImage(O.gc, Math.round(Math.cos(k * Math.PI / 4) * r), Math.round(Math.sin(k * Math.PI / 4) * r));
+      t.globalCompositeOperation = 'destination-out'; t.drawImage(O.gc, 0, 0); t.drawImage(O.gc, 0, 0); t.drawImage(O.gc, 0, 0);
+      t.globalCompositeOperation = 'source-in'; var off = Math.floor(performance.now() / 70) % 12; t.translate(off, 0); t.fillStyle = t.createPattern(O.p, 'repeat'); t.fillRect(-12, 0, W + 24, H); t.setTransform(1, 0, 0, 1, 0, 0);
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(O.t, 0, 0); g.restore();
+    } catch (e) { }
+  };
   app.drawOverlay = function (g, dpr, liveNow, out) {
     var v = app.view, i;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, g.canvas.width, g.canvas.height);
     function sx(x) { return x * v.s + v.ox; } function sy(y) { return y * v.s + v.oy; }
+    if (!liveNow) app.outline(g, dpr, out);
     if (app.mesh && (app.selIds || liveNow)) {
       g.lineWidth = 0.6; g.strokeStyle = 'rgba(167,139,250,.75)'; g.beginPath();
       out.items.forEach(function (it) {
@@ -326,7 +352,9 @@
     pins.forEach(function (p) {                             // a transform box: its outline, drawn through the part's own move, turn and size
       if (!p.box) return; g.beginPath();
       p.box.forEach(function (q, bi) { var w = M.ap(p.m, q[0], q[1]); if (bi) g.lineTo(sx(w[0]), sy(w[1])); else g.moveTo(sx(w[0]), sy(w[1])); });
-      g.closePath(); g.strokeStyle = 'rgba(3,24,28,.9)'; g.lineWidth = 3; g.stroke(); g.strokeStyle = '#22d3ee'; g.lineWidth = 1.5; g.stroke();
+      g.closePath(); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.stroke();
+      /* the part in hand is ringed in moving white dashes: they show on any colour of art, cyan included */
+      g.strokeStyle = '#22d3ee'; g.lineWidth = 1; g.stroke();      // (the box is only the handles' frame: the moving dashes go round the art itself, see app.outline)
     });
     pins.forEach(function (p) {
       if (p.kind === 'move') {                               // drag anywhere inside the box: a quiet four-way cross marks the middle
@@ -437,7 +465,10 @@
         if (app.fitOn && app.fitOn.pins && AL.fit.tapPin(app, c)) return;                                                         // reshaping: a tap on the part drops a pin there
         if (app.orderPick) { var oh = AL.hit(app.out, c[0], c[1]); if (oh) AL.fit.orderTap(app, oh.id); return; }                    // in a stance: which part this one passes behind, or in front of
         if (app.pickPiece) { var ph = AL.hit(app.out, c[0], c[1]); if (ph) { AL.fit.pick(app, ph.id); return; } }                // pick a piece: the very layer under the finger
-        var hit = (app.selIds && AL.hit(app.out, c[0], c[1], null, app.selIds)) || AL.hit(app.out, c[0], c[1]); if (hit) app.selectByNode(hit.id); return;
+        var staged = AL.stages && AL.stages.on();
+        /* stages: a tap takes whatever is in FRONT under the finger (a horn over the frill), and a tap on empty space steps out one level */
+        var hit = staged ? AL.hit(app.out, c[0], c[1]) : ((app.selIds && AL.hit(app.out, c[0], c[1], null, app.selIds)) || AL.hit(app.out, c[0], c[1]));
+        if (hit) app.selectByNode(hit.id); else if (staged) AL.stages.up(app); return;
       }
       if (d.pin || d.art) { if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }
     }

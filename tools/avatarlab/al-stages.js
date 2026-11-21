@@ -59,6 +59,38 @@
     stages.go(app, 'setup'); app.held = S; app._heldCh = ch; app.refreshPanel(true); app.toast('Held. Mend it here, then tap Held pose to let go.');
   };
 
+  /* ── WHERE YOU ARE: the path, as slanted tabs ──
+     Topps > Head > Brows > Left eyebrow, each with a picture of itself. The last is where you are; tap any earlier one to step
+     back out to it (the ones after it fold away into it). A tap on empty space on the picture steps out one level too. */
+  stages.path = function (app) {
+    var ch = app.ch, sel = app.sel, P = [{ id: 'ch', name: ch.name || 'Character', node: ch.root, go: function () { app._hitId = null; app.tab = 'parts'; app.select('body'); } }];
+    if (app.tab !== 'parts' || !sel.zone) return P;
+    var zn = sel.zone !== 'extra' && sel.zone !== 'ground' ? app.zoneNode(sel.zone) : null;
+    if (sel.zone !== 'body') P.push({ id: 'z:' + sel.zone, name: zn ? AL.cards.nameOf(app, zn) : (sel.zone === 'ground' ? 'Ground' : 'Extras'), node: zn, go: function () { app._hitId = null; app.select(sel.zone); } });
+    if (sel.feature) {
+      var F = app.FEAT[sel.feature], list = app.featureNodes(sel.feature) || [];
+      P.push({ id: 'f:' + sel.feature, name: F ? F.label : sel.feature, node: list[0] || null, go: function () { app._hitId = null; app.select(sel.zone, sel.feature); } });
+      var t = stages.target(app); if (t && list.length > 1 && app._hitId) P.push({ id: 'n:' + t.id, name: t.name, node: t, go: function () { } });
+    } else if (sel.node) { var n = AL.node(ch, sel.node); if (n && n !== zn) P.push({ id: 'n:' + n.id, name: n.name, node: n, go: function () { } }); }
+    return P;
+  };
+  stages.up = function (app) { var P = stages.path(app); if (P.length > 2) P[P.length - 2].go(); };
+  stages.crumbs = function (app) {
+    var h = AL.h, P = stages.path(app), was = stages._path || [], same = 0, row = h('div', { class: 'crumbs' });
+    while (same < P.length && same < was.length && P[same].id === was[same]) same++;
+    P.forEach(function (q, i) {
+      var last = i === P.length - 1, url = q.node && AL.shelf ? AL.shelf.partPic(app, q.node, 48) : null;
+      var b = h('button', { class: 'crumb' + (last ? ' on' : '') + (i >= same && was.length ? ' in' : ''), title: last ? q.name + ': where you are' : 'Back out to ' + q.name, onclick: last ? null : function () {
+        Array.prototype.slice.call(row.children, i + 1).forEach(function (c) { c.classList.add('out'); });      // the deeper ones fold away into this one, then it is chosen
+        setTimeout(q.go, 150);
+      } }, [url ? h('img', { src: url, alt: '' }) : null, h('span', { text: q.name })]);
+      row.appendChild(b);
+    });
+    stages._path = P.map(function (q) { return q.id; });
+    setTimeout(function () { row.scrollLeft = row.scrollWidth; }, 0);
+    return row;
+  };
+
   /** The four-way row. */
   stages.rail = function (app) {
     var h = AL.h, cur = stages.cur(app), r = h('div', { class: 'rail', role: 'tablist', 'aria-label': 'What you are doing' });

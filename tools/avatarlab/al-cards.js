@@ -104,7 +104,7 @@
     if (AL.stages.on()) {
       /* the stages layout: the name, then the four-way row of what you are doing, then (when the card has enough of them) shortcuts to its sections */
       var lay = app.ui.chip('', { on: app.tab === 'layers', icon: 'layers', cls: 'lay', title: app.tab === 'layers' ? 'Back to the card' : 'Every layer of the file, as a list', fn: function () { app.tab = app.tab === 'layers' ? 'parts' : 'layers'; app.refreshPanel(); } });
-      ph.appendChild(h('div', { class: 'ptitle' }, [h('div', { class: 'ph1' }, [h('h2', null, [title, badge ? h('span', { class: 'badge ' + (badgeCls || ''), text: badge }) : null]), lay]), AL.stages.rail(app), desc ? h('p', { html: desc }) : null, h('div', { class: 'tabs' })]));
+      ph.appendChild(h('div', { class: 'ptitle' }, [h('div', { class: 'ph1' }, [h('h2', null, [title, badge ? h('span', { class: 'badge ' + (badgeCls || ''), text: badge }) : null]), AL.stages.crumbs(app, title), lay]), AL.stages.rail(app), desc ? h('p', { html: desc }) : null, h('div', { class: 'tabs' })]));
       return;
     }
     var tabs = h('div', { class: 'tabs' }, [
@@ -408,7 +408,7 @@
       pb.appendChild(ui.row(row));
     });
   }
-  function backToHead(app, pb, f) { var hd = app.zoneNode('head'); pb.appendChild(h('div', { class: 'rowf', style: 'align-items:flex-start' }, [app.ui.chip('Head', { icon: 'back', cls: 'quiet', title: 'Back to the whole head', fn: function () { app.select('head'); } }), h('span', { class: 'badge', text: ((app.curView() || {}).kid || {}).name || '' }), h('span', { style: 'flex:1' }), hd && hd.type === 'set' ? cards.turnPad(app, { small: true, bridges: false }) : null])); void f; }
+  function backToHead(app, pb, f) { var hd = app.zoneNode('head'); pb.appendChild(h('div', { class: 'rowf', style: 'align-items:flex-start' }, [app.ui.chip('Head', { icon: 'back', cls: 'quiet crumbback', title: 'Back to the whole head', fn: function () { app.select('head'); } }), h('span', { class: 'badge', text: ((app.curView() || {}).kid || {}).name || '' }), h('span', { style: 'flex:1' }), hd && hd.type === 'set' ? cards.turnPad(app, { small: true, bridges: false }) : null])); void f; }
 
   function feature(app, pb, f) {
     var ui = app.ui, cv = app.curView(), nodes = app.featureNodes(f), F = app.FEAT[f];

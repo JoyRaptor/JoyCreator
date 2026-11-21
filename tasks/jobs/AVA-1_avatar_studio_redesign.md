@@ -258,6 +258,34 @@ they want, a centipede; arms that can become feet with one toggle").
       map of where each control went: [the four stages](../design/AVA-1_stages_20261121.md). The earlier layout is kept
       and selectable. Checked by script for every part in every stage (taps, drags, stances, undo, switching layouts)
       and by phone-size screenshots; not by hand, not on a phone. **His verdict on the structure is owed.**
+- [x] Round 11 (11-21), his first pass through the four stages. He keeps them, likes that the long-card layout is
+      still offered (keep it as a user option), and approved every picture (gait as footprints going across).
+      Fixed: in a stance Fit now shows a limb exactly as Motion does (planted, on the one drawing it stands on; the
+      drawing last looked at no longer overrides it); the stray "Move art" button is gone from the stages layout (it
+      moved the standing arm from inside a stance); a part behind another shows as a cyan echo over the picture;
+      "Hips come down" is shown as he slides it (hips sink, feet stay); a tap in Motion chooses a part without taking
+      hold of it; turning to walk the other way turns the head with it unless a finger holds the head; stack tiles
+      are drawn as the stage draws them (no white patches). Built: "The drawing it stands on" (a hand on the ground
+      uses one drawing, chosen there); "Showing now" on a limb's Motion card with Flip and Mend its pins for the
+      drawing in use that instant; "Hold this pose" (freeze the living pose and mend it in Set up); dipping between
+      Fit and Motion keeps the stance, the part and the scroll, with a Back button; "Rise and fall" of the walk from
+      flat to cartoony. Checked by script and screenshots, not by hand.
+- [ ] **Codex pre-port review (11-21)**, branch `codex/avatar-round10-review-20261121`, file
+      `tasks/audits/codex/Avatar_Studio_Round10_Preport_Review_20261121.md`. Its advice: keep the four stages; before
+      porting the editor, fix the work-loss bugs and prove one editable character reaches a Studio video.
+      Fixed in round 11 (in this lane's own shelf code): a character opened from the shelf keeps its take; nothing
+      is dropped off the shelf at twelve; a save that failed is said before anything replaces the character, and the
+      work stays marked unsaved; a damaged shelf entry no longer empties the open character's pictures; Open, Save
+      and Send are 44 px targets, the stage row 36 px. **Not fixed, not yet verified by me:** a damaged FILE import
+      emptying the open rig's art; a take on an untouched built-in getting no shelf entry; sprite bake leaving out
+      colour changes; a late microphone permission starting capture after leaving Perform; Record ignoring the
+      timeline position; a repainted PSD layer that moved leaving its pins behind; the take clock clamped with the
+      frame step; a new pin track written back over earlier frames; saving re-encoding every image (181 to 400 ms);
+      still stages redrawing every frame; sheet focus and Escape; the landscape scrubber.
+- [ ] **For the phone, his idea (11-21): send one part to JoyBrush and back.** Select a part, "Send to JoyBrush": the
+      hand-off animation, a fresh canvas with that layer at pixel size, and a button on the board that remembers
+      where it came from ("Send back to Avatar Studio"). Coming back writes the layer into the layered file where it
+      was, and the puppet refreshes. Not buildable in the web pilot; it rides on the FX-1 hand-off moves.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and
       the seven he has not decided (second examples page); the cards re-ordered to his flow one by one (only the Body
       card and the shared tail of every card are done); phone landscape and tablet.

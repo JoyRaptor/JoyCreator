@@ -56,6 +56,8 @@
     var out = app.out, M0 = out && out.M[n.id], B0 = out && out.B && out.B[n.id];
     /* a limb is one drawing at a time: the box goes round the one on show, not round all of them at once */
     var shown = n.type === 'set' && n.pick && n.pick.by === 'reach' ? (AL.node(app.ch, out && out.picks && out.picks[n.id]) || AL.node(app.ch, n.pick.rest)) : null, b = AL.boundsOf(shown && (n.kids || []).indexOf(shown) >= 0 ? shown : n); if (!M0 || !B0 || !b) return [];
+    /* (and a limb is bent to where its hand is: the box goes round the arm as it is drawn, not round the unbent art) */
+    if (shown && app.drawnBounds) { var wb = app.drawnBounds([n]); if (wb) { var iv0 = M.inv(M0), cq = [[wb.x0, wb.y0], [wb.x1, wb.y0], [wb.x1, wb.y1], [wb.x0, wb.y1]].map(function (q) { return M.ap(iv0, q[0], q[1]); }); b = { x0: Math.min(cq[0][0], cq[1][0], cq[2][0], cq[3][0]), y0: Math.min(cq[0][1], cq[1][1], cq[2][1], cq[3][1]), x1: Math.max(cq[0][0], cq[1][0], cq[2][0], cq[3][0]), y1: Math.max(cq[0][1], cq[1][1], cq[2][1], cq[3][1]) }; } }
     var v0 = fit.get(app, n), inv = M.inv(B0), pv = n.pivot || (n.type === 'art' ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 });
     var cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, sgn = (B0[0] * B0[3] - B0[1] * B0[2]) < 0 ? -1 : 1;
     function par(x, y) { var w = M.ap(M0, x, y); return M.ap(inv, w[0], w[1]); }           // a point of the part, in the space its move is measured in

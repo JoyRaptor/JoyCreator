@@ -187,6 +187,10 @@
       }
       if (want) S.hand[q.key] = want; else if (S.hand[q.key] && S.hand[q.key].pv) S.hand[q.key] = null;
     });
+    /* the hips come down as far as the stance says, and the feet stay where they stand (so the legs fold): what the walker will do */
+    var drop = p && p.fours ? (p.fours.drop || 0) * amt : 0;
+    S.root.y = drop;
+    list.forEach(function (q) { if (q.arm) return; if (drop) S.hand[q.key] = { x: q.foot.x, y: q.foot.y, pv: true }; else if (S.hand[q.key] && S.hand[q.key].pv) S.hand[q.key] = null; });
   };
   /** The box the drawn picture of these parts fills right now (their pose, not how they were painted). null = everything. */
   app.drawnBounds = function (nodes) {
@@ -245,11 +249,13 @@
     if (gl.width !== Math.round(w * dpr) || gl.height !== Math.round(hh * dpr)) { gl.width = ov.width = Math.round(w * dpr); gl.height = ov.height = Math.round(hh * dpr); if (!app.userView) { app.vt = null; app.focusSel(); if (app.vt) { app.view = app.vt; app.vt = null; } } }
     if (app.vt) { var v = app.view, q = app.vt, k = 1 - Math.exp(-14 * dt); v.s += (q.s - v.s) * k; v.ox += (q.ox - v.ox) * k; v.oy += (q.oy - v.oy) * k; if (Math.abs(q.s - v.s) < 0.001 && Math.abs(q.ox - v.ox) < 0.3 && Math.abs(q.oy - v.oy) < 0.3) { app.view = q; app.vt = null; } }
     var liveNow = app.mode === 'perform' || app.live;
-    var S = liveNow ? app.inp.step(dt) : app.buildSignals();
-    if (!liveNow) app.plantPreview(S);
+    var S = liveNow ? app.inp.step(dt) : (app.held || app.buildSignals());                   // (a held pose: the living picture frozen, to be mended)
+    app._S = S;
+    if (!liveNow && !app.held) app.plantPreview(S);
     else if (AL.stages && AL.stages.is(app, 'motion')) AL.stages.tryOn(app, S);
     var onion = null; if (!liveNow && app.onion && app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') onion = app.selNodes[0].id;
-    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false && !app.poseEdit };
+    var fitNow = !liveNow && !!(AL.stages && AL.stages.is(app, 'fit'));
+    var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false && !app.poseEdit && !fitNow };
     if (bridge) {                                            // matching two head angles: one on stage, the other ghosted over it; or the real turn, to preview it
       if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = 0.6; eo.onionOver = true; }
       else eo.tween = true;
@@ -257,19 +263,26 @@
     if (!liveNow && app.shapeEdit) eo.shapes = app.shapeEdit.w;                 // posing one shape of a part: that shape at full, the others off
     if (!liveNow && app.morph) { eo.morph = app.morph; eo.tween = true; }
     if (!liveNow && app.poseEdit) { eo.poses = {}; eo.poses[app.poseEdit] = app.poseAmt == null ? 1 : app.poseAmt; }      // working on a stance: the character stands in it
+    if (!liveNow && app.poseEdit && eo.force) { var fo2 = {}; for (var fk2 in eo.force) { var fn2 = AL.node(app.ch, fk2); if (!(fn2 && fn2.type === 'set' && fn2.pick && fn2.pick.by === 'reach')) fo2[fk2] = eo.force[fk2]; } eo.force = fo2; }      // (so Fit and Motion show the same arm)
     if (!liveNow && app.toneTry) { eo.tones = {}; eo.tones[app.toneTry] = app.toneAmt == null ? 1 : app.toneAmt; }        // looking at a colour set
     var out = app.out = app.solver.eval(S, eo);
     if (!liveNow && app._pe !== (app.poseEdit || null)) { app._pe = app.poseEdit || null; setTimeout(function () { app.userView = false; app.focusSel(); }, 0); }      // into or out of a stance: frame it again, now that it is drawn there
     if (bridge && bridge.ids && bridge.t == null) out.items.forEach(function (it) { if (!bridge.ids[it.id]) { it.a0 = it.a; it.a *= it.ghost ? 0 : 0.22; } });      // matching one piece: the rest steps back
     var ghostTint = bridge ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
-    if (ids && !bridge && app.liftArt !== false && !app.poseEdit) {            // (not while looking at how a limb really sits behind the body)
+    if (ids && !bridge && app.liftArt !== false && !app.poseEdit && !fitNow) {            // (not while looking at how a limb really sits behind the body)
       var firstSel = -1, ii; for (ii = 0; ii < out.items.length; ii++) if (ids[out.items[ii].id]) { firstSel = ii; break; }
       if (firstSel >= 0) for (ii = firstSel + 1; ii < out.items.length; ii++) { var fi = out.items[ii]; if (!ids[fi.id] && !fi.ghost) { fi.a0 = fi.a; fi.a *= 0.14; } }
     }
+    /* FIT: a part that sits behind another is still the part in hand. A faint cyan echo of it is drawn over everything, so it can be seen and placed. */
+    if (fitNow && !bridge && app.selIds && app.tab === 'parts' && app.sel.zone !== 'body') {
+      var lastSel = -1, lastAny = -1, xi; for (xi = 0; xi < out.items.length; xi++) { var xq = out.items[xi]; if (xq.ghost) continue; lastAny = xi; if (app.selIds[xq.id]) lastSel = xi; }
+      if (lastSel >= 0 && lastSel < lastAny) { var xr = []; out.items.forEach(function (it) { if (it.ghost || !app.selIds[it.id]) return; var g = {}; for (var gk in it) g[gk] = it[gk]; g.ghost = true; g.xr = true; g.a = 0.45; xr.push(g); }); out.items = out.items.concat(xr); }
+    }
     app.G.draw(out.items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, function (it) {
+      if (it.xr) return [0.13, 0.83, 0.93, 0.62];
       if (it.ghost) return ghostTint || [0.65, 0.55, 0.98, 0.55];
-      if (ids && !ids[it.id]) return [0.03, 0.03, 0.05, 0.52];
+      if (ids && !ids[it.id] && !fitNow) return [0.03, 0.03, 0.05, 0.52];      // (Fit shows the true picture: the box and the echo mark the part)
       return null;
     }, out.colour);
     app.drawOverlay(ov.getContext('2d'), dpr, liveNow, out);
@@ -367,7 +380,7 @@
       if (e.target.closest && e.target.closest('button')) return;
       try { st.setPointerCapture(e.pointerId); } catch (x) { }
       var p = pos(e);
-      if (isLive()) { var gr = liveGrab(p); if (gr) { gr.x0 = p.x; gr.y0 = p.y; grabs[e.pointerId] = gr; return; } }
+      if (isLive()) { var snap0 = AL.stages && AL.stages.is(app, 'motion') ? JSON.stringify([app.inp.pose, app.inp.held]) : null, gr = liveGrab(p); if (gr) { gr.snap = snap0; gr.x0 = p.x; gr.y0 = p.y; grabs[e.pointerId] = gr; return; } }
       ptr[e.pointerId] = p;
       if (count() === 2) { endDrag(true); var ks = Object.keys(ptr), a = ptr[ks[0]], b = ptr[ks[1]]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; return; }
       if (count() === 1) begin(p);
@@ -382,7 +395,7 @@
       if (app.drag) move(p);
     });
     function up(e) {
-      if (grabs[e.pointerId]) { var g0 = grabs[e.pointerId], p0 = pos(e); liveEnd(g0); delete grabs[e.pointerId]; if (Math.hypot(p0.x - g0.x0, p0.y - g0.y0) < 6) liveTap(p0); return; }
+      if (grabs[e.pointerId]) { var g0 = grabs[e.pointerId], p0 = pos(e); liveEnd(g0); delete grabs[e.pointerId]; if (Math.hypot(p0.x - g0.x0, p0.y - g0.y0) < 6) { if (g0.snap) { var sp = JSON.parse(g0.snap), pk0; for (pk0 in app.inp.pose) if (!(pk0 in sp[0])) delete app.inp.pose[pk0]; for (pk0 in sp[0]) app.inp.pose[pk0] = sp[0][pk0]; for (pk0 in app.inp.held) app.inp.held[pk0] = !!sp[1][pk0]; } liveTap(p0); } return; }
       if (!ptr[e.pointerId]) return; delete ptr[e.pointerId]; if (count() < 2) pinch = null; if (count() === 0) endDrag(false);
     }
     st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
@@ -557,7 +570,7 @@
     app.renderTools();
     /* the same card drawn again stays where it was scrolled to; a different card opens at its top */
     var h2 = $('panelhead').querySelector('h2'), key = app.mode + '|' + app.tab + '|' + (app.stage || '') + '|' + (app.live ? 1 : 0) + '|' + (h2 && h2.firstChild ? h2.firstChild.textContent : '');
-    pb.scrollTop = (keepScroll || key === app._cardKey) ? sc : 0; app._cardKey = key;
+    pb.scrollTop = (keepScroll || key === app._cardKey) ? sc : (app._scUse && app._sc && app._sc[key]) || 0; app._scUse = false; app._cardKey = key;      // (a stage keeps its place on the card while you dip into another)
   };
   app.renderTools = function () {
     var t = $('tools'), liveNow = app.mode === 'perform' || app.live; t.innerHTML = '';
@@ -566,7 +579,7 @@
     if (!liveNow) {
       b('mesh', 'Show the bend mesh of the selected part', app.mesh, function () { app.mesh = !app.mesh; app.renderTools(); });
       if (app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') b('onion', 'Onion skin: ghost the other drawings of this part', app.onion, function () { app.onion = !app.onion; app.renderTools(); });
-      b('move', 'Move art: when ON, dragging the selected drawing slides it (pins come along)', app.moveArt, function () { app.moveArt = !app.moveArt; app.renderTools(); app.toast(app.moveArt ? 'Move art is ON: drag the selected drawing' : 'Move art is off'); });
+      if (!(AL.stages && AL.stages.on())) b('move', 'Move art: when ON, dragging the selected drawing slides it (pins come along)', app.moveArt, function () { app.moveArt = !app.moveArt; app.renderTools(); app.toast(app.moveArt ? 'Move art is ON: drag the selected drawing' : 'Move art is off'); });
     } else {
       b('mesh', 'Show the bend mesh', app.mesh, function () { app.mesh = !app.mesh; app.renderTools(); });
       b('flip', 'Turn the whole character around', app.inp.pose.flip, function () { app.inp.pose.flip = !app.inp.pose.flip; app.inp.held.body = true; setTimeout(function () { app.inp.held.body = false; }, 400); app.renderTools(); });
@@ -585,7 +598,7 @@
     if (!app.ch || !app.dirty) return; app.dirty = false;
     if (AL.shelf) AL.shelf.tag(app.ch);
     var o = AL.toJson(app.ch, true); if (app.inp && app.inp.take && app.inp.take.n) o.take = app.inp.take;      // character and take are one document
-    return idb(function (s) { return s.put(o, 'current'); }).then(function () { if (!app.dirty) app.saveState('saved'); if (AL.shelf) AL.shelf.keep(app, o); }, function () { app.saveState('failed'); });
+    return idb(function (s) { return s.put(o, 'current'); }).then(function () { if (!app.dirty) app.saveState('saved'); if (AL.shelf) AL.shelf.keep(app, o); }, function () { app.dirty = true; app.saveState('failed'); });
   };
   app.idb = idb;
   app.loadSaved = function () { return idb(function (s) { return s.get('current'); }).then(function (o) { if (!o || AL.validate(o)) return null; app._take = o.take && o.take.ch ? o.take : null; delete o.take; return AL.fromJson(o); }).catch(function () { return null; }); };

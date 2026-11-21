@@ -89,6 +89,7 @@
         };
       };
     }
+    function tilePic(u) { var url = AL.shelf ? AL.shelf.partPic(app, u, 68) : null; return url ? h('img', { class: 'mini', src: url, alt: '', style: 'width:34px;height:34px' }) : AL.cards.mini(face(app, u), 34); }      // drawn as the stage draws it
     function fill(r) {
       cur = r; strip.innerHTML = '';
       var seen = {}, count = {}; r.runs.forEach(function (q) { count[q.u.id] = (count[q.u.id] || 0) + 1; });
@@ -97,7 +98,7 @@
         var me = q.u === n, two = count[q.u.id] > 1, k = seen[q.u.id] = (seen[q.u.id] || 0) + 1, nm = AL.cards.nameOf(app, q.u);
         var part = two && isLimb(q.u) ? (k === 1 ? ' · top' : ' · ' + endOf(q.u)) : '';
         var title = me ? nm + part + ': the part you are placing. Hold and drag it along the row.' : (first < 0 || i < first ? 'Put ' + name + ' just behind ' + nm : 'Put ' + name + ' just in front of ' + nm);
-        var el = h('button', { class: (me ? 'me' : '') + (two ? ' half' : ''), title: title, 'aria-label': title, onclick: me ? null : function () { past(q.u, first < 0 || i < first); } }, [AL.cards.mini(face(app, q.u), 34), h('span', { text: nm + part })]);
+        var el = h('button', { class: (me ? 'me' : '') + (two ? ' half' : ''), title: title, 'aria-label': title, onclick: me ? null : function () { past(q.u, first < 0 || i < first); } }, [tilePic(q.u), h('span', { text: nm + part })]);
         el._u = q.u; if (me) grab(el); strip.appendChild(el);
       });
       var mineEl = strip.querySelector('.me'); if (mineEl && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = mineEl.offsetLeft - strip.clientWidth / 2 + 25;

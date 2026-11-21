@@ -200,7 +200,7 @@
     this.idle = going || this.held ? 0 : this.idle + dt;
 
     /* 2. face the way it is going */
-    if (cfg.face !== false && (set.facing === 'left' || set.facing === 'right') && Math.abs(this.vx) > stride * 0.8) { inp.pose.flip = (this.vx > 0) !== (set.facing === 'right'); flip = !!inp.pose.flip; }
+    if (cfg.face !== false && (set.facing === 'left' || set.facing === 'right') && Math.abs(this.vx) > stride * 0.8) { var nf = (this.vx > 0) !== (set.facing === 'right'); if (nf !== !!inp.pose.flip && !inp.held.head) inp.pose.turnX = -(inp.pose.turnX || 0); inp.pose.flip = nf; flip = nf; }
 
     /* 3. further up the stage is further away (a floor seen from above only) */
     var sc = deep ? clamp(1 + ((line ? this.base : this.y) / ch.h) * (cfg.depth || 0) * 2, 0.35, 2.2) : 1;
@@ -294,8 +294,10 @@
 
     /* 5. out. A rolled foot turns about its heel (toe up) or its toe (heel up), so the ankle rises and the leg has further to reach. */
     this.lift *= Math.exp(-9 * dt); this.sq *= Math.exp(-9 * dt);
+    this.mv = (this.mv || 0) + ((going && !air ? 1 : 0) - (this.mv || 0)) * (1 - Math.exp(-5 * dt));
     var bob = (cfg.bob == null ? 0.8 : cfg.bob);
-    S.root.x = this.x; S.root.y = this.y - bodyLift - bob * this.lift * legLen * 0.03 * (air ? 0 : 1); S.rootScale = sc;
+    /* the body rides a wave with every step: low as the weight comes down onto a foot, high as the other leg passes it */
+    S.root.x = this.x; S.root.y = this.y - bodyLift - bob * (this.lift - 0.42 * this.mv) * legLen * 0.11 * (air ? 0 : 1); S.rootScale = sc;
     all.forEach(function (L) {
       var f = F[L.key];
       if (L.arm) { if (f.down && f.pos) S.hand[L.key] = { x: f.pos.x, y: f.pos.y, w: true }; else if (f.reach) S.hand[L.key] = { x: f.home.x, y: f.home.y, w: true }; return; }      // a walking hand is planted on the stage, like a foot

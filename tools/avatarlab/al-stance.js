@@ -109,7 +109,7 @@
     if (!ed) return;
     pb.appendChild(ui.slider('See it', { min: 0, max: 100, value: Math.round((app.poseAmt == null ? 1 : app.poseAmt) * 100), undo: false, set: function (v) { app.poseAmt = v / 100; }, fmt: function (v) { return v >= 100 ? 'fully in' : v <= 0 ? 'standing' : v + '%'; }, title: 'Slide to watch the character go into this stance and out again' }));
     if (ed.fours) pb.appendChild(ui.slider('How far it tips', { min: 30, max: 125, value: ed.fours.angle, set: function (v) { stance.makeFours(ch, v); }, fmt: function (v) { return v + '°'; }, title: 'How far the body leans forward about the hips' }));
-    if (ed.fours) pb.appendChild(ui.slider('Hips come down', { min: 0, max: 80, value: ed.fours.drop || 0, set: function (v) { ed.fours.drop = v; }, fmt: function (v) { return v ? v + ' px' : 'not at all'; }, title: 'How much lower it stands on all fours' }));
+    if (ed.fours) pb.appendChild(ui.slider('Hips come down', { min: 0, max: 80, value: ed.fours.drop || 0, set: function (v) { ed.fours.drop = v; }, fmt: function (v) { return v ? v + ' px' : 'not at all'; }, title: 'How far the hips sink while it is on all fours. The feet stay planted, so the back legs fold. Watch the back legs as you slide.' }));
     pb.appendChild(ui.slider('It takes', { min: 0.15, max: 2, step: 0.05, value: ed.time == null ? 0.6 : ed.time, set: function (v) { ed.time = v; }, fmt: function (v) { return v.toFixed(2) + ' s'; }, title: 'How long it takes to get into and out of this stance' }));
     var wk = ch.settings.walk;
     pb.appendChild(ui.row([

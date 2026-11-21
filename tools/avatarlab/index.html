@@ -124,7 +124,7 @@ body.fill #devwrap{align-items:stretch} body.fill #device{width:100%;height:100%
 .ph1{display:flex;align-items:center;gap:8px} .ph1 h2{flex:1;min-width:0}
 .chip.lay{flex:none;width:32px;height:30px;padding:0;justify-content:center;gap:0}
 .rail{display:flex;background:var(--raised);border-radius:999px;padding:2px;margin:1px 0}
-.rail button{flex:1;min-width:0;height:30px;border-radius:999px;font:600 12.5px/1 var(--f-body);color:var(--dim);white-space:nowrap}
+.rail button{flex:1;min-width:0;height:36px;border-radius:999px;font:600 12.5px/1 var(--f-body);color:var(--dim);white-space:nowrap}
 .rail button.on{background:var(--sel);color:var(--on-sel)} .rail button.live.on{background:var(--live);color:#fff}
 .rail button.none:not(.on){color:var(--offink)}
 #app.stages .ptitle p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
@@ -148,6 +148,8 @@ svg.ic .a{stroke:var(--live)} svg.ic .f{fill:var(--live);stroke:none}
 .stk button{flex:none;width:50px;display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px 2px 5px;margin-left:-7px;border-radius:10px;background:var(--raised);box-shadow:-4px 0 8px rgba(0,0,0,.55),inset 0 0 0 1px var(--line2);font:500 9.5px/1 var(--f-body);color:var(--dim);position:relative}
 .stk button span{max-width:46px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .stk button canvas.mini{background:none}
+img.mini{flex:none;border-radius:5px;display:block;object-fit:contain}
+#sheet header .shx .ib{width:44px;height:44px}
 .stk button.me{background:var(--sel);color:var(--on-sel);font-weight:700;box-shadow:-4px 0 8px rgba(0,0,0,.55);cursor:default}
 .stk button:not(.me):hover{background:var(--pressed);color:var(--ink)}
 .rowf{display:flex;flex-wrap:wrap;gap:6px;align-items:center}

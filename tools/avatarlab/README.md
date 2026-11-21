@@ -164,6 +164,12 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
     box, per pose), Motion (alive), Perform. A section says which stage it belongs to (`ui.lab(text, 'setup' | 'fit' |
     'motion' | 'all')`, or two of them). The four-way row is in the panel header; in Fit a row on the picture chooses
     the pose (Standing or a stance). The earlier layout is kept: Menu, "One long card per part" (`AL.stages.set`).
+37. **Round 11**: in a stance a limb's forced drawing is ignored, so Fit and Motion show the same arm; a hand on the
+    ground uses one drawing (`pick.walk.kid`, "The drawing it stands on"); the part in hand is echoed in cyan when it
+    sits behind another (`item.xr`); `app.plantPreview` also sinks the hips and plants the feet; "Hold this pose"
+    (`app.held`, a frozen copy of the live signals, mended in Set up); "Showing now" on a limb in Motion; the walk's
+    "Rise and fall" (`settings.walk.bob`, 0 to 4); turning round mirrors the head unless it is held; part pictures
+    drawn by the solver (`shelf.partPic`).
 
 ## Characters
 

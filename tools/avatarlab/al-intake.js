@@ -458,7 +458,8 @@
     var m = h('div', { class: 'menu' });
     function item(icon, label, fn, hint) { m.appendChild(h('button', { title: label, onclick: function () { app.closeSheet(); fn(); } }, [AL.icon(icon), h('span', { text: label }), hint ? h('small', { text: hint }) : null])); }
     /* the characters you have, as a row of cards; the three file buttons sit in the header beside the close button */
-    function away(then) { app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(then, then); }
+    /* leaving a character: it is kept first; if this browser would not keep it, say so before anything replaces it */
+    function away(then) { function go() { if (app._state === 'failed') app.ask('Leave this character?', 'This browser would not keep it. Save it to a file first if you want it.', 'Leave it', then, true); else then(); } app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(go, go); }
     function blank() { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.newCharacter('New character', 512, 512)); }
     function fresh(which, miss) { return function () { return intake.builtIn(app, which).catch(function () { app.toast(miss); }); }; }
     var stock = [{ key: 'topps', name: 'Topps', title: 'Topps as he comes: seven head angles, arms that swap and bend, and he walks', fn: fresh('topps', 'Topps is not with this copy of the page.') }];
@@ -467,8 +468,8 @@
     stock.forEach(function (q) { q.pic = AL.shelf.stockPic(q.key); });
     var box = h('div', null, [AL.shelf.row(app, stock, function () {
       app.closeSheet();
-      if (app._state === 'failed') app.ask('Start a new character?', 'This browser would not keep the one you are on. Save it to a file first if you want it.', 'Start new', blank); else away(blank);
-    }), m]);
+      away(blank);
+    }, away), m]);
     item('layers', 'Update the art', function () { if (!AL.find(app.ch.root, function (n) { return n.type === 'art'; })) { app.toast('There is no character to update yet.'); return; } intake.psdMode = 'update'; $('filePsd').value = ''; $('filePsd').click(); }, 'repainted .psd, rigging kept');
     item('image', 'Add pictures', function () { pickImages(function (files) { intake.addPictures(app, files, null).catch(function (e) { app.toast(e.message); }); }); }, 'named by part');
     m.appendChild(h('hr'));

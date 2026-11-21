@@ -10,7 +10,7 @@
  */
 (function (root) {
   'use strict';
-  var AL = root.AL, h = AL.h, shelf = AL.shelf = {}, KEEP = 12;
+  var AL = root.AL, h = AL.h, shelf = AL.shelf = {}, KEEP = 400;      // (nothing is dropped off the shelf behind the user's back; taking one off is the user's act)
   function uid() { return 'c' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
 
   /** A small picture of the whole character as it stands, drawn the way the stage draws it (so eyelids, masks and colours are right). */
@@ -18,7 +18,7 @@
     var ch = app.ch; if (!ch || !AL.find(ch.root, function (n) { return n.type === 'art'; })) return null;
     try {
       var T = shelf._t || (shelf._t = (function () { var c = document.createElement('canvas'); c.width = c.height = 264; return { c: c, G: new AL.GL(c) }; })());
-      if (T.G.forget) T.G.forget();
+      if (T.G.forget) T.G.forget(); T.ch = null;
       var sol = new AL.Solver(ch), S = AL.restSignals(), o = null; S.mouth = 0;
       for (var f = 0; f < 6; f++) { S.t = f / 30; o = sol.eval(S, { live: true, dt: 1 / 30 }); }
       var b = AL.boundsOf(ch.root) || { x0: 0, y0: 0, x1: ch.w, y1: ch.h }, s = Math.min(252 / Math.max(8, b.x1 - b.x0), 252 / Math.max(8, b.y1 - b.y0));
@@ -33,7 +33,7 @@
     var ch = app.ch;
     try {
       var T = shelf._t || (shelf._t = (function () { var c = document.createElement('canvas'); c.width = c.height = 264; return { c: c, G: new AL.GL(c) }; })());
-      if (T.G.forget) T.G.forget();
+      if (T.G.forget) T.G.forget(); T.ch = null;
       var sol = new AL.Solver(ch), S = AL.restSignals(), o = null, opt = { live: false, dt: 1 / 30 }, k; for (k in eo) opt[k] = eo[k]; S.mouth = 0;
       for (var f = 0; f < 4; f++) { S.t = f / 30; o = sol.eval(S, opt); }
       var b = null; o.items.forEach(function (it) { if (it.ghost) return; var v = it.v; for (var i = 0; i < v.length; i += 2) { var x = v[i], y = v[i + 1]; if (!b) b = { x0: x, y0: y, x1: x, y1: y }; else { if (x < b.x0) b.x0 = x; if (x > b.x1) b.x1 = x; if (y < b.y0) b.y0 = y; if (y > b.y1) b.y1 = y; } } });
@@ -43,6 +43,25 @@
       var out = document.createElement('canvas'); out.width = out.height = px; out.getContext('2d').drawImage(T.c, 0, 0, px, px);
       return out.toDataURL('image/webp', 0.85);
     } catch (e) { return null; }
+  };
+  /** A small picture of one part as the stage draws it (masks, eyelids and all), for rows of parts. One solve serves every part until something changes. */
+  shelf.partPic = function (app, node, px) {
+    var ch = app.ch, ep = app.hist.past.length + ':' + app.hist.future.length, C = shelf._pp;
+    if (!C || C.ch !== ch || C.ep !== ep) C = shelf._pp = { ch: ch, ep: ep, pics: {}, out: null };
+    if (C.pics[node.id] !== undefined) return C.pics[node.id];
+    try {
+      var T = shelf._t || (shelf._t = (function () { var c = document.createElement('canvas'); c.width = c.height = 264; return { c: c, G: new AL.GL(c) }; })());
+      if (T.ch !== ch || T.ep !== ep) { if (T.G.forget) T.G.forget(); T.ch = ch; T.ep = ep; }
+      if (!C.out) { var sol = new AL.Solver(ch), S = AL.restSignals(); S.mouth = 0; for (var f = 0; f < 3; f++) { S.t = f / 30; C.out = sol.eval(S, { live: false, dt: 1 / 30 }); } }
+      var ids = {}, b = null; AL.walk(node, function (k) { if (k.type === 'art') ids[k.id] = 1; });
+      var items = C.out.items.filter(function (it) { return !it.ghost && ids[it.id]; });
+      items.forEach(function (it) { var v = it.v; for (var i = 0; i < v.length; i += 2) { var x = v[i], y = v[i + 1]; if (!b) b = { x0: x, y0: y, x1: x, y1: y }; else { if (x < b.x0) b.x0 = x; if (x > b.x1) b.x1 = x; if (y < b.y0) b.y0 = y; if (y > b.y1) b.y1 = y; } } });
+      if (!b) return (C.pics[node.id] = null);
+      var s = Math.min(252 / Math.max(8, b.x1 - b.x0), 252 / Math.max(8, b.y1 - b.y0));
+      T.G.draw(items, { s: s, ox: 132 - (b.x0 + b.x1) / 2 * s, oy: 132 - (b.y0 + b.y1) / 2 * s }, null, C.out.colour);
+      var o2 = document.createElement('canvas'); o2.width = o2.height = px; o2.getContext('2d').drawImage(T.c, 0, 0, px, px);
+      return (C.pics[node.id] = o2.toDataURL('image/webp', 0.85));
+    } catch (e) { return (C.pics[node.id] = null); }
   };
   /** A character worth keeping gets a name tag of its own, once, before it is first written. */
   shelf.tag = function (ch) { if (ch && !ch.uid && (ch.edited || !ch.demo)) ch.uid = uid(); };
@@ -68,14 +87,15 @@
     app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved');
     return Promise.resolve(app.autosave()).then(function () { return app.idb(function (s) { return s.get('c:' + id); }); }).then(function (o) {
       if (!o || AL.validate(o)) { app.toast('That character could not be opened.'); return; }
-      delete o.take; AL.img.map = {};
-      return AL.fromJson(o).then(function (ch) { app.setMode('build'); app.setCharacter(ch, { quiet: true }); app.dirty = true; app.autosave(); });
+      var take = o.take && o.take.ch ? o.take : null, was = AL.img.map; delete o.take; AL.img.map = {};                 // (its take comes back with it)
+      return AL.fromJson(o).then(function (ch) { app.setMode('build'); app.setCharacter(ch, { quiet: true }); if (take) app.inp.take = take; app.dirty = true; app.autosave(); }, function () { AL.img.map = was; app.toast('That character could not be opened. The one you were on is untouched.'); });
     });
   };
   shelf.remove = function (app, id) { return shelf.list(app).then(function (l) { return app.idb(function (s) { s.delete('c:' + id); return s.put(l.filter(function (e) { return e.uid !== id; }), 'shelf'); }); }); };
 
   /** The row itself. stock = [{ name, hint, fn, pic }] for the characters that come with the app. */
-  shelf.row = function (app, stock, onNew) {
+  shelf.row = function (app, stock, onNew, away) {
+    away = away || function (then) { then(); };
     var row = h('div', { class: 'shelf' }), wrap = h('div', { class: 'shelfw' }, row);
     function card(cls, pic, name, sub, title, fn) {
       return h('button', { class: 'sc ' + cls, title: title, 'aria-label': title, onclick: fn }, [pic, h('b', { text: name }), sub ? h('small', { text: sub }) : null]);
@@ -85,9 +105,9 @@
       row.appendChild(card('new', AL.icon('plus'), 'Create new', null, 'Start a new character. The one you are on is kept.', onNew));
       var cur = app.ch && app.ch.uid;
       mine.forEach(function (e) {
-        row.appendChild(card('own' + (e.uid === cur ? ' on' : ''), e.pic ? h('img', { src: e.pic, alt: '' }) : h('i'), e.name || 'Character', e.uid === cur ? 'open now' : null, e.uid === cur ? '“' + e.name + '” is the one you are on' : 'Open “' + e.name + '” as you left it', function () { if (e.uid === cur) { app.closeSheet(); return; } app.closeSheet(); shelf.open(app, e.uid); }));
+        row.appendChild(card('own' + (e.uid === cur ? ' on' : ''), e.pic ? h('img', { src: e.pic, alt: '' }) : h('i'), e.name || 'Character', e.uid === cur ? 'open now' : null, e.uid === cur ? '“' + e.name + '” is the one you are on' : 'Open “' + e.name + '” as you left it', function () { app.closeSheet(); if (e.uid !== cur) away(function () { shelf.open(app, e.uid); }); }));
       });
-      stock.forEach(function (s) { row.appendChild(card('stock', s.pic ? h('img', { src: s.pic, alt: '' }) : h('i', null, AL.icon('smile')), s.name, s.hint || 'built in', s.title, function () { app.closeSheet(); app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(s.fn, s.fn); })); });
+      stock.forEach(function (s) { row.appendChild(card('stock', s.pic ? h('img', { src: s.pic, alt: '' }) : h('i', null, AL.icon('smile')), s.name, s.hint || 'built in', s.title, function () { app.closeSheet(); away(s.fn); })); });
       size();
     }
     /* card width: as many as fit at about 96 wide, then squeezed or stretched so that the last one in view is cut in half */

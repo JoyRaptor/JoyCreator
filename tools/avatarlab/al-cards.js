@@ -546,6 +546,18 @@
     var many = kids.length > 1, idx = kids.indexOf(cur), leg = own ? own.pick.hand.charAt(0) === 'F' : /^leg/.test(zone), PN = leg ? ['Hip', 'Knee', 'Foot'] : ['Shoulder', 'Elbow', 'Hand'];
     head(app, ZN, many ? kids.length + ' drawings' : 'bends', many ? 'Shows the drawing whose ' + PN[2].toLowerCase() + ' is nearest to where you want it, then bends it the rest of the way.' : (leg ? 'Bends from the hip and knee, so the foot can stay planted while the body moves, and step when it walks.' : 'Bends from the shoulder and elbow so the hand lands where you drag it.'));
     app.coach('<b>' + ZN + '.</b> Three pins' + (many ? ' per drawing' : '') + ': <b>' + PN.join(', ').toLowerCase() + '</b>. They were guessed from the art; drag any that are off. The small round arrow turns the ' + PN[1].toLowerCase() + ' over.');
+    if (AL.stages.is(app, 'motion')) {
+      /* MOTION: which of its drawings is on show this instant, and a way to mend that very one */
+      pb.appendChild(ui.lab('Showing now', 'motion'));
+      var nowStrip = h('div', { class: 'thumbs' }, kids.map(function (k, i) { return th(k, (i + 1) + '. ' + k.name, false, set.pick && set.pick.rest === k.id, function () { }, 'Drawing ' + (i + 1)); })), nowId = null;
+      pb.appendChild(nowStrip);
+      (app.padDraws = app.padDraws || []).push(function () { var id = app.out && app.out.picks ? app.out.picks[set.id] : null; if (id === nowId) return; nowId = id; kids.forEach(function (k, i) { var el = nowStrip.children[i]; if (!el) return; el.classList.toggle('on', k.id === id); if (k.id === id) nowStrip.scrollLeft = Math.max(0, el.offsetLeft - 70); }); });
+      pb.appendChild(ui.row([
+        ui.chip('Flip ' + PN[1].toLowerCase(), { title: 'Bend the drawing that is showing right now the other way', fn: function () { var k = AL.node(ch, nowId); if (k && k.limb) app.edit(function () { k.limb.flip = !k.limb.flip; }, false, 'Flip ' + PN[1].toLowerCase() + ' of ' + k.name); } }),
+        ui.chip('Mend its pins', { icon: 'pin', title: 'Go to Set up with this very drawing open', fn: function () { if (nowId) app.force[set.id] = nowId; AL.stages.go(app, 'setup'); } })
+      ]));
+      pb.appendChild(ui.note('The cyan one is the drawing in use this instant. Move the character until the fault shows, then mend that drawing.'));
+    }
     pb.appendChild(ui.lab('Its drawings', 'setup fit'));
     pb.appendChild(h('div', { class: 'thumbs' }, kids.map(function (k, i) { return th(k, (i + 1) + '. ' + k.name, k === cur, set.pick && set.pick.rest === k.id, function () { app.force[set.id] = k.id; app.refreshPanel(true); }, 'Drawing ' + (i + 1) + (set.pick.rest === k.id ? ' (the resting pose)' : '')); })));
     var shared = app.sharedShoulder !== false;
@@ -827,7 +839,7 @@
     pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'It moves by' }), ui.seg([['walk', 'Steps', 'One foot at a time'], ['hop', 'Hops', 'Both feet together, the body arcs']], wk.gait || 'walk', function (v) { app.edit(function () { wk.gait = v; }); }, 'The gait'), h('span')]));
     pb.appendChild(ui.slider('Stride', { min: 8, max: 220, value: wk.stride, set: function (v) { wk.stride = v; }, fmt: function (v) { return v + ' px'; }, title: 'How far apart the footfalls are' }));
     pb.appendChild(ui.slider('Step height', { min: 0, max: 90, value: wk.stepH, set: function (v) { wk.stepH = v; }, fmt: function (v) { return v + ' px'; }, title: 'How high a foot lifts' }));
-    pb.appendChild(ui.slider('Body bob', { min: 0, max: 2.5, step: 0.05, value: wk.bob == null ? 0.8 : wk.bob, set: function (v) { wk.bob = v; }, fmt: function (v) { return v + '\u00d7'; }, title: 'How much the body rises and dips with each step' }));
+    pb.appendChild(ui.slider('Rise and fall', { min: 0, max: 4, step: 0.05, value: wk.bob == null ? 0.8 : wk.bob, set: function (v) { wk.bob = v; }, fmt: function (v) { return v < 0.05 ? 'flat' : v < 1.2 ? 'natural' : v < 2.5 ? 'bouncy' : 'cartoony'; }, title: 'The wave the body and head ride with every step: low as the weight lands on a foot, high as the other leg passes. From flat to cartoony.' }));
     pb.appendChild(ui.slider('Step', { min: -1, max: 1, step: 0.05, value: wk.style == null ? -0.4 : wk.style, set: function (v) { wk.style = v; }, fmt: function (v) { return v < -0.12 ? 'heel first' : v > 0.12 ? 'tiptoe' : 'flat'; }, title: 'Where the weight lands: reaching out with the heel, flat-footed, or up on the toes' }));
     pb.appendChild(ui.slider('Heel to toe', { min: 0, max: 1.6, step: 0.05, value: wk.roll == null ? 1 : wk.roll, set: function (v) { wk.roll = v; }, fmt: function (v) { return v < 0.03 ? 'none' : v + '\u00d7'; }, title: 'How much the foot rolls. None suits a ball or a peg for a foot.' }));
     if (!bars) pb.appendChild(ui.note('The last two need to know where the sole is: open a <b>leg</b> and switch on its <b>Foot bar</b>.'));
@@ -1041,13 +1053,22 @@
     }
   }
 
+  /** In a stance: the one drawing a hand uses while it is on the ground, shown and choosable, so there is nothing to guess. */
+  function standsOn(app, pb, set) {
+    if (!(set && set.type === 'set' && set.pick && set.pick.by === 'reach' && set.pick.hand && set.pick.hand.charAt(0) !== 'F') || !AL.walksOn(set)) return;
+    var ui = app.ui, ch = app.ch, kids = (set.kids || []).filter(function (k) { return k.type === 'art' && k.limb; }); if (kids.length < 2) return;
+    var cur = AL.node(ch, set.pick.walk && set.pick.walk.kid); if (!cur || kids.indexOf(cur) < 0) cur = AL.node(ch, set.pick.rest) || kids[0];
+    pb.appendChild(ui.lab('The drawing it stands on', 'fit'));
+    pb.appendChild(h('div', { class: 'thumbs' }, kids.map(function (k, i) { return th(k, (i + 1) + '. ' + k.name, k === cur, set.pick.rest === k.id, function () { app.edit(function () { (set.pick.walk = set.pick.walk || { lift: true }).kid = k.id; }, false, 'Stands on drawing ' + (i + 1)); }, 'Use this drawing while the hand is on the ground'); })));
+    pb.appendChild(ui.note('While this hand is on the ground it uses <b>one</b> drawing: the starred resting one unless you choose another here. Standing, reaching and waving keep all of their drawings.'));
+  }
   /* ── one layer, whatever it is ── */
   function nodeCard(app, pb, n) {
     var ui = app.ui, ch = app.ch, role = n.role && AL.ROLES[n.role];
     var pz = AL.fit.pose(app), nm = cards.nameOf(app, n);
     head(app, nm, role ? role.label : (n.type === 'art' ? 'drawing' : n.type === 'set' ? 'one of' : 'folder'), pz ? 'Where it sits and what it is in front of, while the character is in the stance <b>' + pz.name + '</b>. Standing is not touched.' : 'Tell Avatar Studio what this is and it will rig it; or make it follow something.');
     app.coach(pz ? '<b>' + nm + ', in ' + pz.name + '.</b> Move it with the box, or change what it is in front of.' : '<b>' + nm + '.</b> One layer. Say what it is, make it swing, mask it, or make it follow something.');
-    if (pz) { AL.fit.section(app, pb, n); pb.appendChild(ui.lab('The part itself', 'setup')); } else pb.appendChild(ui.lab('What it is', 'setup'));
+    if (pz) { AL.fit.section(app, pb, n); standsOn(app, pb, n); pb.appendChild(ui.lab('The part itself', 'setup')); } else pb.appendChild(ui.lab('What it is', 'setup'));
     pb.appendChild(ui.row([
       ui.chip('What is this?', { icon: 'wand', cls: 'go', title: 'Say which part of the body this is', fn: function () { rolePicker(app, n); } }),
       ui.chip(n.hidden ? 'Hidden' : 'Shown', { on: !n.hidden, icon: n.hidden ? 'eyeoff' : 'eye', title: 'Show or hide this', fn: function () { app.edit(function () { if (n.hidden) delete n.hidden; else n.hidden = true; }); } }),

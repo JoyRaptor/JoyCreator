@@ -2,6 +2,7 @@ package com.fadcam.ui.faditor.export;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Matrix;
 import android.opengl.GLES20;
 
 import androidx.annotation.NonNull;
@@ -13,6 +14,8 @@ import androidx.media3.common.util.Size;
 import androidx.media3.effect.BaseGlShaderProgram;
 import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.GlEffect;
+
+import cc.joycreator.textlab.ExportTitleTexture;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.fx.FxCompiler;
@@ -230,6 +233,13 @@ public final class TextFxGlEffect implements GlEffect {
 
         @NonNull private final TextOverlayItem item;
         @NonNull private final TextFrame frame;
+        @NonNull private final Context app;
+        @Nullable private ExportTitleTexture gpuTitle;
+        @Nullable private GlProgram textureProgram;
+        private boolean triedTexture;
+        private int width, height;
+        private final Matrix placement = new Matrix(), pin = new Matrix(), inverse = new Matrix();
+        private final float[] coefficients = new float[9], row = new float[3];
         private final long editorTimeOffsetMs;
         @Nullable private GlProgram program;
         private boolean degraded;
@@ -238,6 +248,7 @@ public final class TextFxGlEffect implements GlEffect {
                 throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
             this.item = item;
+            this.app = context;
             this.frame = new TextFrame(context, item, editorTimeOffsetMs);
             this.editorTimeOffsetMs = editorTimeOffsetMs;
             try {
@@ -290,9 +301,70 @@ public final class TextFxGlEffect implements GlEffect {
                                     + "  gl_FragColor = vec4(mix(base.rgb");
         }
 
+        private static final String TEXTURE_SAMPLE =
+                "  highp vec3 point = vec3(ovc, 1.0);\n"
+                + "  highp vec3 h = vec3(dot(uTitleX, point), dot(uTitleY, point), dot(uTitleW, point));\n"
+                + "  highp vec2 uv = h.xy / max(h.z, 0.0000001);\n"
+                + "  vec4 src = vec4(0.0);\n"
+                + "  if (h.z > 0.0 && all(greaterThanEqual(uv, vec2(0.0))) && all(lessThan(uv, vec2(1.0)))) {\n"
+                + "    src = texture2D(uTextTexSampler0, vec2(uv.x, 1.0 - uv.y));\n"
+                + "    src = floor(src * 255.0 + 0.5) / 255.0;\n"
+                + "  }";
+
+        /** The shader's FX coordinates stay in full-frame space on both paths. */
+        private void openTexture() {
+            triedTexture = true;
+            try {
+                String shader = fragmentFor(item)
+                        .replace("void main() {", "uniform highp vec3 uTitleX, uTitleY, uTitleW;\nvoid main() {")
+                        .replace("varying vec2 vTexSamplingCoord;", "varying highp vec2 vTexSamplingCoord;")
+                        .replace("vec2 ovc = vec2(", "highp vec2 ovc = vec2(")
+                        .replace("vec4 src = texture2D(uTextTexSampler0, ovc);", TEXTURE_SAMPLE);
+                if (textureProgram == null) {
+                    textureProgram = new GlProgram(VERTEX_SHADER.replace("varying vec2", "varying highp vec2"), shader);
+                    textureProgram.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
+                }
+                gpuTitle = ExportTitleTexture.open(app);
+                if (gpuTitle == null) {
+                    textureProgram.delete();
+                    textureProgram = null;
+                }
+            } catch (androidx.media3.common.util.GlUtil.GlException e) {
+                FLog.w("TextFx", "Title texture shader unavailable; using bitmap export", e);
+            }
+        }
+
+        private void bindPlacement(GlProgram program, long ms, float fontPx) {
+            float cx = item.animatedCenterX(ms) * width, cy = item.animatedCenterY(ms) * height;
+            float k = (float) (fontPx / gpuTitle.em());
+            float w = gpuTitle.width() * k, h = gpuTitle.height() * k;
+            float left = cx - w / 2f, top = cy - h / 2f;
+            // Same pixel-space operations and order as Canvas in TextFrame.
+            placement.setRotate(item.animatedRotation(ms), cx, cy);
+            if (item.cornerPinMatrix(pin, ms, left, top, w, h)) placement.preConcat(pin);
+            placement.preTranslate(left, top);
+            placement.preScale(w, h);
+            if (placement.invert(inverse)) {
+                inverse.preScale(width, height);
+                inverse.getValues(coefficients);
+            } else {
+                java.util.Arrays.fill(coefficients, 0f);
+            }
+            bindRow(program, "uTitleX", 0);
+            bindRow(program, "uTitleY", 3);
+            bindRow(program, "uTitleW", 6);
+        }
+
+        private void bindRow(GlProgram program, String name, int offset) {
+            System.arraycopy(coefficients, offset, row, 0, 3);
+            program.setFloatsUniform(name, row);
+        }
+
         @Override
         public Size configure(int inputWidth, int inputHeight) {
-            Size size = new Size(Math.max(1, inputWidth), Math.max(1, inputHeight));
+            width = Math.max(1, inputWidth);
+            height = Math.max(1, inputHeight);
+            Size size = new Size(width, height);
             frame.configure(size);
             return size;
         }
@@ -307,13 +379,27 @@ public final class TextFxGlEffect implements GlEffect {
                 // Gate on visibility here, not in the chain: this effect is emitted once for the
                 // whole clip and self-gates per frame, the way PipFrameOverlay.activeAt does.
                 if (degraded || p == null || item.isHidden() || !item.isVisibleAt(timelineMs)) {
+                    if (gpuTitle != null) {
+                        gpuTitle.release();
+                        gpuTitle = null;
+                        triedTexture = false;
+                    }
                     passthrough(inputTexId);
                     return;
                 }
+                if (item.hasTextLook() && !triedTexture) openTexture();
+                int texture;
+                if (gpuTitle != null) {
+                    float fontPx = Math.max(1f, item.animatedSizeFraction(timelineMs) * height);
+                    texture = gpuTitle.draw(item.getTextLook(), item.getText(), item.lookTime(timelineMs), fontPx);
+                    p = textureProgram;
+                    bindPlacement(p, timelineMs, fontPx);
+                } else {
+                    texture = frame.getTextureId(presentationTimeUs);
+                }
                 p.use();
                 p.setSamplerTexIdUniform("uVideoTexSampler0", inputTexId, 0);
-                p.setSamplerTexIdUniform("uTextTexSampler0",
-                        frame.getTextureId(presentationTimeUs), 1);
+                p.setSamplerTexIdUniform("uTextTexSampler0", texture, 1);
                 FxStack resolved = item.getFx() == null
                         ? null : item.getFx().resolveAt(timelineMs);
                 if (resolved != null) {
@@ -334,8 +420,12 @@ public final class TextFxGlEffect implements GlEffect {
                 }
                 p.bindAttributesAndUniforms();
                 GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+                if (gpuTitle != null) gpuTitle.sampled();
                 GlUtil.checkGlError();
             } catch (Exception e) {
+                if (item.hasTextLook()) {
+                    throw new VideoFrameProcessingException(e, presentationTimeUs);
+                }
                 if (!degraded) {
                     FLog.w("TextFx", "degrading to passthrough", e);
                     degraded = true;
@@ -378,6 +468,8 @@ public final class TextFxGlEffect implements GlEffect {
         public void release() throws VideoFrameProcessingException {
             super.release();
             try {
+                if (gpuTitle != null) gpuTitle.release();
+                if (textureProgram != null) textureProgram.delete();
                 if (program != null) program.delete();
                 if (passProgram != null) passProgram.delete();
                 frame.release();

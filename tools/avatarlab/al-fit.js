@@ -53,7 +53,9 @@
    * down, so nothing drifts however long the drag is.
    */
   fit.pins = function (app, n) {
-    var out = app.out, M0 = out && out.M[n.id], B0 = out && out.B && out.B[n.id], b = AL.boundsOf(n); if (!M0 || !B0 || !b) return [];
+    var out = app.out, M0 = out && out.M[n.id], B0 = out && out.B && out.B[n.id];
+    /* a limb is one drawing at a time: the box goes round the one on show, not round all of them at once */
+    var shown = n.type === 'set' && n.pick && n.pick.by === 'reach' ? (AL.node(app.ch, out && out.picks && out.picks[n.id]) || AL.node(app.ch, n.pick.rest)) : null, b = AL.boundsOf(shown && (n.kids || []).indexOf(shown) >= 0 ? shown : n); if (!M0 || !B0 || !b) return [];
     var v0 = fit.get(app, n), inv = M.inv(B0), pv = n.pivot || (n.type === 'art' ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : { x: 0, y: 0 });
     var cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, sgn = (B0[0] * B0[3] - B0[1] * B0[2]) < 0 ? -1 : 1;
     function par(x, y) { var w = M.ap(M0, x, y); return M.ap(inv, w[0], w[1]); }           // a point of the part, in the space its move is measured in
@@ -173,9 +175,9 @@
   fit.section = function (app, pb, n, tag) {
     var ui = app.ui, h = AL.h, pose = fit.pose(app), on = app.fitOn && app.fitOn.node === n.id ? app.fitOn : null, can = fit.can(app, n);
     if (!can && !n.limb) return;
-    pb.appendChild(ui.lab(pose ? 'Fit it by hand, for the stance “' + pose.name + '”' : 'Fit it by hand' + (tag ? ': ' + tag : '')));
+    pb.appendChild(ui.lab(pose ? 'Fit it by hand, for the stance “' + pose.name + '”' : 'Fit it by hand' + (tag ? ': ' + tag : ''), 'fit'));
     var v = fit.get(app, n), row = [];
-    if (can) row.push(ui.chip('Move, turn, resize', { on: !!(on && on.box), icon: 'move', cls: on ? '' : 'go', title: 'A box on the picture: drag inside it to move, a corner to resize, the round handle below to turn', fn: function () { fit.boxOn(app, n, !(on && on.box)); } }));
+    if (can && !AL.stages.is(app, 'fit')) row.push(ui.chip('Move, turn, resize', { on: !!(on && on.box), icon: 'move', cls: on ? '' : 'go', title: 'A box on the picture: drag inside it to move, a corner to resize, the round handle below to turn', fn: function () { fit.boxOn(app, n, !(on && on.box)); } }));
     if (can && !pose && n.type !== 'set') row.push(ui.chip('Reshape with pins', { on: !!(on && on.pins), icon: 'pin', title: 'Tap the part to drop pins, then drag one: the part stretches from there and the other pins hold the rest still', fn: function () { fit.reshapeOn(app, n, !(on && on.pins)); } }));
     if (can && fit.moved(app, n)) row.push(ui.chip('Put it back', { cls: 'quiet', title: pose ? 'Forget where this part was put for this stance' : 'Forget the move, the turn and the size: back to how it was drawn', fn: function () { app.edit(function () { fit.reset(app, n); }, false, 'Put it back'); } }));
     pb.appendChild(ui.row(row));

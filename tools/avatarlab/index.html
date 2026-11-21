@@ -120,6 +120,21 @@ body.fill #devwrap{align-items:stretch} body.fill #device{width:100%;height:100%
 .lab.fold.shut{color:var(--faint)} .lab.fold:hover{color:var(--ink)}
 .secb{padding-bottom:4px}
 .lab.sub{margin-top:12px}
+#app.stages #modes{display:none}
+.ph1{display:flex;align-items:center;gap:8px} .ph1 h2{flex:1;min-width:0}
+.chip.lay{flex:none;width:32px;height:30px;padding:0;justify-content:center;gap:0}
+.rail{display:flex;background:var(--raised);border-radius:999px;padding:2px;margin:1px 0}
+.rail button{flex:1;min-width:0;height:30px;border-radius:999px;font:600 12.5px/1 var(--f-body);color:var(--dim);white-space:nowrap}
+.rail button.on{background:var(--sel);color:var(--on-sel)} .rail button.live.on{background:var(--live);color:#fff}
+.rail button.none:not(.on){color:var(--offink)}
+#app.stages .ptitle p{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+#app.stages .ptitle .tabs:empty{display:none}
+#app.stages.perform #panelhead{flex-wrap:wrap} #app.stages.perform #panelhead>.rail{flex:1 0 100%}
+.seg.veil{background:var(--veil);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);max-width:100%;overflow-x:auto;scrollbar-width:none}
+.seg.veil::-webkit-scrollbar{display:none}
+.seg.poses button{height:32px;padding:0 13px;color:var(--ink)} .seg.poses button.on{color:var(--on-sel)} .seg.poses button.add{padding:0 9px;color:var(--dim)}
+.seg.poses button img{width:26px;height:26px;margin-left:-8px;object-fit:contain}
+.sw{display:inline-flex;margin-left:-4px;flex:none} .sw i{width:12px;height:12px;border-radius:50%;box-shadow:0 0 0 1.5px var(--raised);margin-left:-3px} .sw i:first-child{margin-left:0} .chip.on .sw i{box-shadow:0 0 0 1.5px var(--sel)}
 .stk button.me{cursor:grab}
 .seg button{display:inline-flex;align-items:center;gap:5px}
 .seg button svg.ic{margin-left:-5px}
@@ -306,6 +321,7 @@ kbd{font:500 10px/1 var(--f-mono);padding:2px 5px;border-radius:5px;background:v
 <script src="al-fit.js"></script>
 <script src="al-stack.js"></script>
 <script src="al-ground.js"></script>
+<script src="al-stages.js"></script>
 <script src="al-shelf.js"></script>
 <script src="al-stance.js"></script>
 <script src="al-tone.js"></script>

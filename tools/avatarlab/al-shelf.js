@@ -28,6 +28,22 @@
     } catch (e) { return null; }
   };
 
+  /** A small picture of the character posed some way (in a stance, say), drawn by the same solver as the stage. */
+  shelf.snap = function (app, eo, px) {
+    var ch = app.ch;
+    try {
+      var T = shelf._t || (shelf._t = (function () { var c = document.createElement('canvas'); c.width = c.height = 264; return { c: c, G: new AL.GL(c) }; })());
+      if (T.G.forget) T.G.forget();
+      var sol = new AL.Solver(ch), S = AL.restSignals(), o = null, opt = { live: false, dt: 1 / 30 }, k; for (k in eo) opt[k] = eo[k]; S.mouth = 0;
+      for (var f = 0; f < 4; f++) { S.t = f / 30; o = sol.eval(S, opt); }
+      var b = null; o.items.forEach(function (it) { if (it.ghost) return; var v = it.v; for (var i = 0; i < v.length; i += 2) { var x = v[i], y = v[i + 1]; if (!b) b = { x0: x, y0: y, x1: x, y1: y }; else { if (x < b.x0) b.x0 = x; if (x > b.x1) b.x1 = x; if (y < b.y0) b.y0 = y; if (y > b.y1) b.y1 = y; } } });
+      if (!b) return null;
+      var s = Math.min(252 / Math.max(8, b.x1 - b.x0), 252 / Math.max(8, b.y1 - b.y0));
+      T.G.draw(o.items, { s: s, ox: 132 - (b.x0 + b.x1) / 2 * s, oy: 132 - (b.y0 + b.y1) / 2 * s }, null, o.colour);
+      var out = document.createElement('canvas'); out.width = out.height = px; out.getContext('2d').drawImage(T.c, 0, 0, px, px);
+      return out.toDataURL('image/webp', 0.85);
+    } catch (e) { return null; }
+  };
   /** A character worth keeping gets a name tag of its own, once, before it is first written. */
   shelf.tag = function (ch) { if (ch && !ch.uid && (ch.edited || !ch.demo)) ch.uid = uid(); };
   /* the ones that come with the app leave a picture of themselves the first time they are opened */

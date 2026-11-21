@@ -53,7 +53,7 @@
     if (!others) return false;                                  // nothing to be in front of
     var layerMode = !R.whole && !pose, z = layerMode ? null : getZ(app, n), limb = isLimb(n), end = limb ? endOf(n) : '';
     var angle = !pose && AL.ancestorWith(ch, n.id, function (a) { return !!a.at; });
-    pb.appendChild(ui.lab('In front or behind' + (pose ? ', in the stance “' + pose.name + '”' : angle ? ', at this angle' : '')));
+    pb.appendChild(ui.lab('In front or behind' + (pose ? ', in the stance “' + pose.name + '”' : angle ? ', at this angle' : ''), 'fit'));
     var strip = h('div', { class: 'stk' }), sig = null, cur = R;
 
     /* one step past a part: behind it if it is further back, in front of it if it is further forward */

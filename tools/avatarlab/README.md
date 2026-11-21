@@ -160,6 +160,10 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
 35. **Round 9 rules**: sections are open (a long one folds, the seldom-used ones share one drawer, "More"); "Move it" on
     the stage gives the box for whatever part is in hand; in a stance Build shows walking hands planted, as Perform
     does; a walking hand's height is guessed against the feet (`AL.palmGuess`); the stack's cyan tile can be dragged.
+36. **The four stages** (`al-stages.js`, design note `tasks/design/AVA-1_stages_20261121.md`): Set up (pins), Fit (the
+    box, per pose), Motion (alive), Perform. A section says which stage it belongs to (`ui.lab(text, 'setup' | 'fit' |
+    'motion' | 'all')`, or two of them). The four-way row is in the panel header; in Fit a row on the picture chooses
+    the pose (Standing or a stance). The earlier layout is kept: Menu, "One long card per part" (`AL.stages.set`).
 
 ## Characters
 

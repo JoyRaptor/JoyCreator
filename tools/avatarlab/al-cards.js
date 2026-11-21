@@ -101,6 +101,12 @@
   function head(app, title, badge, desc, badgeCls) {
     var ph = $('panelhead'); ph.innerHTML = '';
     ph.appendChild(cards.bodyMap(app, false));
+    if (AL.stages.on()) {
+      /* the stages layout: the name, then the four-way row of what you are doing, then (when the card has enough of them) shortcuts to its sections */
+      var lay = app.ui.chip('', { on: app.tab === 'layers', icon: 'layers', cls: 'lay', title: app.tab === 'layers' ? 'Back to the card' : 'Every layer of the file, as a list', fn: function () { app.tab = app.tab === 'layers' ? 'parts' : 'layers'; app.refreshPanel(); } });
+      ph.appendChild(h('div', { class: 'ptitle' }, [h('div', { class: 'ph1' }, [h('h2', null, [title, badge ? h('span', { class: 'badge ' + (badgeCls || ''), text: badge }) : null]), lay]), AL.stages.rail(app), desc ? h('p', { html: desc }) : null, h('div', { class: 'tabs' })]));
+      return;
+    }
     var tabs = h('div', { class: 'tabs' }, [
       app.ui.chip('Parts', { on: app.tab === 'parts', icon: 'person', title: 'Work part by part, from the body map', fn: function () { app.tab = 'parts'; app.refreshPanel(); } }),
       app.ui.chip('Layers', { on: app.tab === 'layers', icon: 'layers', title: 'Every layer of the file, as a list', fn: function () { app.tab = 'layers'; app.refreshPanel(); } }),
@@ -111,6 +117,7 @@
   cards.head = head;
   function tryBar(app, canTry) {
     var sb = $('stagebar'); sb.innerHTML = '';
+    if (AL.stages.on()) return AL.stages.bar(app, sb);
     if (app.live) sb.appendChild(app.ui.chip('Done trying', { cls: 'veil on', icon: 'stop', title: 'Back to the still pose, where pins can be moved', fn: function () { app.setLive(false); } }));
     else if (canTry) sb.appendChild(app.ui.chip('Try it', { cls: 'veil', icon: 'play', title: 'Bring the character to life here: drag the head, the hands, the body', fn: function () { app.setLive(true); } }));
     if (app.live || !canTry) return;
@@ -140,7 +147,8 @@
   function isLab(k) { return !!(k && k.classList && k.classList.contains('lab')); }
   cards.fold = function (app) {
     var pb = $('panelbody'), ph = $('panelhead'), tabs = ph.querySelector('.tabs'), labs = Array.prototype.slice.call(pb.children).filter(isLab);
-    if (app.live || app.bridge || app.tab === 'layers' || labs.length < 2) return;
+    var staged = AL.stages.on();
+    if ((app.live && !staged) || app.bridge || app.tab === 'layers' || (!staged && labs.length < 2)) return;
     var h2 = ph.querySelector('h2'), card = h2 && h2.firstChild ? h2.firstChild.textContent : '', st = folds(), secs = [];
     labs.forEach(function (lab) {
       var name = lab.textContent, body = h('div', { class: 'secb' }), k = lab.nextSibling;
@@ -148,6 +156,7 @@
       pb.insertBefore(body, lab.nextSibling);
       secs.push({ name: name, lab: lab, body: body, rare: RARE.test(name) });
     });
+    if (staged) secs = AL.stages.filter(app, secs, pb);
     var rare = secs.filter(function (s) { return s.rare; }), main = secs;
     if (rare.length >= 2) {
       var ml = app.ui.lab('More'), mb = h('div', { class: 'secb' });
@@ -165,8 +174,8 @@
       show(open, true); s.show = show;
     });
     if (!tabs || main.length < 3) return;
-    Array.prototype.slice.call(tabs.children, 0, 2).forEach(function (c) { c.classList.add('ico'); });      // Parts and Layers shrink to their pictures, to leave the row to the shortcuts
-    tabs.appendChild(h('i', { class: 'sep' }));
+    if (staged) { var dp = ph.querySelector('.ptitle p'); if (dp) dp.style.display = 'none'; }      // the shortcuts take the line the description had
+    else { Array.prototype.slice.call(tabs.children, 0, 2).forEach(function (c) { c.classList.add('ico'); }); tabs.appendChild(h('i', { class: 'sep' })); }      // Parts and Layers shrink to their pictures, to leave the row to the shortcuts
     main.forEach(function (s) {
       tabs.appendChild(h('button', { class: 'chip jump', text: shortName(s.name), title: 'Go to \u201c' + s.name + '\u201d on this card', onclick: function () { s.show(true); pb.scrollTop = Math.max(0, s.lab.offsetTop - pb.offsetTop - 4); } }));
     });
@@ -184,7 +193,7 @@
     var hasArt = !!AL.find(app.ch.root, function (n) { return n.type === 'art'; });
     $('empty').style.display = hasArt ? 'none' : 'flex';
     if (!hasArt) { $('stagebar').innerHTML = ''; return AL.intake.emptyPanel(app); }
-    if (app.live) { tryBar(app, true); head(app, 'Trying it', 'alive', 'Drag the <b>head</b> to turn it, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap a part to let it go back.'); app.coach('<b>Trying it.</b> Everything moves. Tap <b>Done trying</b> to go back to the pins.'); pb.appendChild(AL.perform.quick(app)); return; }
+    if (app.live && !AL.stages.is(app, 'motion')) { tryBar(app, true); head(app, 'Trying it', 'alive', 'Drag the <b>head</b> to turn it, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap a part to let it go back.'); app.coach('<b>Trying it.</b> Everything moves. Tap <b>Done trying</b> to go back to the pins.'); pb.appendChild(AL.perform.quick(app)); return; }
     if (app.bridge) return AL.bridge.render(app, pb);
     tryBar(app, true);
     if (app.tab === 'layers') return layers(app, pb);
@@ -288,13 +297,14 @@
         ui.toggle('Move the dots', !!app.moveDots, function (v) { app.moveDots = v; app.refreshPanel(true); }, 'Drag a dot to change when its drawing shows', 'When ON, dragging a dot in the pad moves it'),
         mirrorChip(app, hd)
       ]);
+      pb.appendChild(ui.lab('Its angles', 'setup fit'));
       pb.appendChild(h('div', { class: 'padrow' }, [cards.turnPad(app, { moveDots: function () { return app.moveDots; } }), side]));
       angleTools(app, pb, hd, cv);
       pb.appendChild(ui.note('The small <b>diamonds</b> between two dots are bridges. Tap one to match those two drawings, so the head bends from one into the other instead of jumping.'));
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
-    if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts')); pb.appendChild(ui.row(feats.map(function (f) { return partChip(app.featureNodes(f)[0], app.FEAT[f].label, 'Open ' + app.FEAT[f].label, function () { app.select('head', f); }); }))); }
-    pb.appendChild(ui.lab('How it moves'));
+    if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts', 'all')); pb.appendChild(ui.row(feats.map(function (f) { return partChip(app.featureNodes(f)[0], app.FEAT[f].label, 'Open ' + app.FEAT[f].label, function () { app.select('head', f); }); }))); }
+    pb.appendChild(ui.lab('How it moves', 'motion'));
     if (isSet) {
       pb.appendChild(ui.slider('Depth', { min: 0, max: 30, value: hd.pick.depth == null ? 12 : hd.pick.depth, set: function (v) { hd.pick.depth = v; }, fmt: function (v) { return v + ' px'; }, title: 'How far the nose, eyes and frill slide between two angles. More depth feels rounder.' }));
       pb.appendChild(ui.slider('Cross-fade', { min: 0, max: 300, step: 10, value: hd.pick.fade == null ? 110 : hd.pick.fade, set: function (v) { hd.pick.fade = v; }, fmt: function (v) { return v ? v + ' ms' : 'cut'; }, title: 'How softly one angle gives way to the next' }));
@@ -303,7 +313,7 @@
     if (roll) pb.appendChild(ui.slider('Tilt', { min: 0, max: 40, value: roll.amt, set: function (v) { roll.amt = v; }, fmt: function (v) { return v + '°'; }, title: 'How far the head can tip from the neck pin' }));
     var ball = hd.ball && hd.ball.on !== false ? hd.ball : null;
     if (hd.kids && hd.kids.length) {
-      pb.appendChild(ui.lab('Round head'));
+      pb.appendChild(ui.lab('Round head', 'setup'));
       pb.appendChild(ui.toggle('Turn it like a ball', !!ball, function (v) { app.edit(function () { if (v) { if (hd.ball) hd.ball.on = true; else if (!AL.guessBall(app.ch, hd)) app.toast('There is no head drawing to make round yet.'); } else if (hd.ball) hd.ball.on = false; }); if (!v) { app.ballTry = false; app.bt.x = app.bt.y = 0; } }, 'The eyes, nose and mouth slide over a round head as it turns and squash toward its edge; ears and hair swing round behind. One drawing turns like many.'));
       if (ball) {
         pb.appendChild(ui.slider('Turns', { min: 0, max: 85, value: ball.yaw == null ? 55 : ball.yaw, set: function (v) { ball.yaw = v; }, fmt: function (v) { return v + '°'; }, title: 'How far round the head goes when it looks fully left or right' }));
@@ -362,12 +372,13 @@
   function angleTools(app, pb, hd, cv) {
     var ui = app.ui, kid = cv && cv.kid; if (!kid || !kid.at) return;
     function pivot() { if (kid.type !== 'mirror' && !kid.pivot) { var b = AL.boundsOf(kid), p = hd.pivot || (b ? { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 } : null); if (p) kid.pivot = { x: p.x, y: p.y }; } }
-    pb.appendChild(ui.lab('This angle: ' + kid.name));
+    pb.appendChild(ui.lab('This angle: ' + kid.name, 'setup'));
     pb.appendChild(ui.row([
       ui.chip('Copy this angle', { icon: 'plus', title: 'Make a copy of this drawing as a new dot: for the same head tipped up or down. Drag the new dot where it should show, then turn the copy.', fn: function () { cards.copyAngle(app, hd, kid); } }),
       ui.chip('Rename', { cls: 'quiet', title: 'Give this angle another name', fn: function () { app.promptText('Name of this angle', kid.name, function (v) { app.edit(function () { kid.name = v; }, false, 'Rename an angle'); }); } }),
       hd.kids.filter(function (k) { return k.at; }).length > 1 ? ui.chip('Remove', { cls: 'quiet', title: 'Take this angle away. Undo brings it back.', fn: function () { app.edit(function () { hd.kids = hd.kids.filter(function (k) { return k !== kid && !(k.type === 'mirror' && k.of === kid.id); }); hd.bridges = (hd.bridges || []).filter(function (b) { return hd.kids.some(function (k) { return k.id === b.a; }) && hd.kids.some(function (k) { return k.id === b.b; }); }); if (hd.pick && hd.pick.rest === kid.id) hd.pick.rest = hd.kids[0].id; app.bt.x = app.bt.y = 0; }, false, 'Remove an angle'); setTimeout(function () { app.resolveSel(); app.refreshPanel(true); }, 40); } }) : null
     ]));
+    pb.appendChild(ui.lab('Fit this angle', 'fit'));
     if (kid.type !== 'mirror') { var bx = !!(app.fitOn && app.fitOn.box && app.fitOn.node === kid.id); pb.appendChild(ui.row([ui.chip('Move, turn, resize on the picture', { on: bx, icon: 'move', cls: bx ? '' : 'go', title: 'A box round this whole angle: drag inside it to move every layer together, a corner to resize, the round handle below to turn', fn: function () { AL.fit.boxOn(app, kid, !bx); } }), AL.fit.moved(app, kid) ? ui.chip('Put it back', { cls: 'quiet', title: 'Forget the move, the turn and the size of this angle', fn: function () { app.edit(function () { AL.fit.reset(app, kid); }, false, 'Put an angle back'); } }) : null])); }
     pb.appendChild(ui.slider('Tip the whole angle', { min: -60, max: 60, step: 1, value: kid.rot || 0, set: function (v) { pivot(); kid.rot = v; }, fmt: function (v) { return v + '°'; }, title: 'Turns every layer of this angle together, from the neck. Between two dots the tip blends.' }));
     pb.appendChild(ui.slider('Size of the whole angle', { min: 60, max: 160, step: 1, value: Math.round((kid.sc == null ? 1 : kid.sc) * 100), set: function (v) { pivot(); kid.sc = v / 100; }, fmt: function (v) { return v + '%'; }, title: 'Makes every layer of this angle bigger or smaller together' }));
@@ -383,7 +394,7 @@
   function orderChips(app, pb, nodes) {
     var ui = app.ui, ch = app.ch; nodes = nodes.filter(function (n) { var p = AL.parentOf(ch, n.id); return p && p.type === 'group' && p.kids.length > 1; });
     if (!nodes.length) return;
-    pb.appendChild(ui.lab(AL.ancestorWith(ch, nodes[0].id, function (a) { return !!a.at; }) ? 'In front or behind, at this angle' : 'In front or behind'));
+    pb.appendChild(ui.lab(AL.ancestorWith(ch, nodes[0].id, function (a) { return !!a.at; }) ? 'In front or behind, at this angle' : 'In front or behind', 'fit'));
     nodes.forEach(function (n) {
       var par = AL.parentOf(ch, n.id), i = par.kids.indexOf(n), face = par.kids.filter(function (k) { return k.role === 'face'; })[0], fi = face ? par.kids.indexOf(face) : -1;
       function place(fn) { app.edit(function () { var k = par.kids.filter(function (x) { return x !== n; }); k.splice(fn(k), 0, n); par.kids = k; }, false, 'Reorder ' + n.name); }
@@ -408,9 +419,10 @@
       head(app, 'Eyes', null, 'The pupils drift toward where the head is going, and the eyes blink by themselves.');
       app.coach('<b>Eyes.</b> Set how far the pupils travel, and how often they blink.');
       var pup = AL.byRole(app.ch.root, 'pupil').filter(function (p) { return p.look; }), rx = pup.length ? pup[0].look.rx : 0, st = app.ch.settings;
+      pb.appendChild(ui.lab('Looking', 'motion'));
       if (pup.length) pb.appendChild(ui.slider('Pupils move', { min: 0, max: 14, step: 0.5, value: round1(rx), set: function (v) { pup.forEach(function (p) { p.look.rx = v; p.look.ry = v * 0.65; }); }, fmt: function (v) { return v + ' px'; }, title: 'How far a pupil slides when the eyes look to the side' }));
       pb.appendChild(ui.slider('Try: look', { min: -1, max: 1, step: 0.05, value: app.test.lookX, undo: false, set: function (v) { app.test.lookX = v; }, fmt: function (v) { return v < -0.05 ? 'left' : v > 0.05 ? 'right' : 'ahead'; } }));
-      pb.appendChild(ui.lab('Blinking'));
+      pb.appendChild(ui.lab('Blinking', 'motion'));
       pb.appendChild(ui.toggle('Blink by itself', st.blinkAuto !== false, function (v) { app.edit(function () { st.blinkAuto = v; }); }, 'Uneven, like a living thing: sometimes twice'));
       pb.appendChild(ui.slider('About every', { min: 1.5, max: 9, step: 0.1, value: st.blinkEvery || 3.6, set: function (v) { st.blinkEvery = v; }, fmt: function (v) { return v + ' s'; } }));
       pb.appendChild(ui.toggle('Eyes lead the head', st.eyesLead !== false, function (v) { app.edit(function () { st.eyesLead = v; }); }, 'The eyes get there first, then the head follows'));
@@ -418,7 +430,7 @@
       pb.appendChild(ui.row([ui.chip('Blink now', { icon: 'eye', fn: function () { app.test.blink = 1; setTimeout(function () { app.test.blink = 0; }, 260); } }),
         ui.chip('Hold the blink', { on: app.test.blink === 1 && app.holdBlink, title: 'Keep the eyes shut, to see where the blink drawing sits', fn: function () { app.holdBlink = !app.holdBlink; app.test.blink = app.holdBlink ? 1 : 0; app.refreshPanel(true); } }),
         off.length ? ui.chip('Centre the blink on the eye', { icon: 'wand', cls: 'go', title: 'At this angle the blink drawing sits ' + Math.round(Math.abs(off[0].dx)) + ' px to one side of the pupil. Slide it onto the eye.', fn: function () { app.edit(function () { off.forEach(function (q) { q.blink.x += Math.round(q.dx); }); }); app.toast('Blink centred at this angle'); } }) : null]));
-      pb.appendChild(ui.lab('Eyelids'));
+      pb.appendChild(ui.lab('Eyelids', 'setup motion'));
       var lm = AL.lidMode(app.ch), lids = AL.byRole(app.ch.root, 'lidU').concat(AL.byRole(app.ch.root, 'lidL'));
       if (!lm) {
         pb.appendChild(ui.note('An upper lid that comes down (relaxed), tilts (angry, or sad), and a lower lid that pushes up like a cheek (cheery). No art needed.'));
@@ -449,6 +461,7 @@
     if (f === 'brows') {
       head(app, 'Brows', null, 'They lift with surprise and when the mouth opens wide.'); app.coach('<b>Brows.</b> Set how far they lift.');
       var br = AL.byRole(app.ch.root, 'browL').concat(AL.byRole(app.ch.root, 'browR')), amt = br.length && br[0].links ? -br[0].links[0].amt : 4;
+      pb.appendChild(ui.lab('Brows', 'motion'));
       pb.appendChild(ui.slider('Lift', { min: 0, max: 16, step: 0.5, value: round1(amt), set: function (v) { br.forEach(function (b) { if (b.links && b.links[0]) b.links[0].amt = -v; }); }, fmt: function (v) { return v + ' px'; } }));
       pb.appendChild(ui.slider('Try', { min: -1, max: 1, step: 0.05, value: app.test.brow, undo: false, set: function (v) { app.test.brow = v; }, fmt: function (v) { return v > 0.05 ? 'up' : v < -0.05 ? 'down' : 'rest'; } }));
       return;
@@ -456,6 +469,7 @@
     if (f === 'jaw') {
       head(app, 'Jaw', null, 'Drops a little as the mouth opens, so the chin joins in.'); app.coach('<b>Jaw.</b> Set how far it drops with the mouth.');
       var jw = AL.byRole(app.ch.root, 'jaw'), ja = jw.length && jw[0].links ? jw[0].links[0].amt : 3;
+      pb.appendChild(ui.lab('Jaw', 'motion'));
       pb.appendChild(ui.slider('Drops', { min: 0, max: 14, step: 0.5, value: ja, set: function (v) { jw.forEach(function (j) { if (j.links && j.links[0]) j.links[0].amt = v; }); }, fmt: function (v) { return v + ' px'; } }));
       var jhd = app.zoneNode('head'), jks = jhd && jhd.type === 'set' ? jhd.kids.filter(function (k) { return k.type !== 'mirror' && AL.fit.jawParts(k); }) : (jhd && AL.fit.jawParts(jhd) ? [jhd] : []);
       if (jks.length) { var jon = jks.every(function (k) { return AL.fit.hasJawDrop(k); }); pb.appendChild(ui.toggle('The face stretches with it', jon, function (v) { app.edit(function () { jks.forEach(function (k) { AL.fit.jawDrop(k, v, Math.max(6, ja * 2)); }); }, false, 'Face stretches as it talks'); }, 'A small mouth drawn from the side opens only a little. On: the lower face drops with the jaw at every angle, so talking reads from any side. It is a Shape called Talking on each face drawing; open the face to change it.')); }
@@ -465,12 +479,13 @@
     head(app, F.label, null, 'Slides a little more or less than the face as the head turns, which is what makes a flat drawing feel round.');
     app.coach('<b>' + F.label + '.</b> Things in front slide further; things behind slide the other way.');
     var role = F.roles[0], list = AL.byRole(app.ch.root, role), dp = list.length ? (list[0].depth || 0) : 0;
+    pb.appendChild(ui.lab('How far it slides', 'motion'));
     pb.appendChild(ui.slider('Depth', { min: -1.5, max: 1.5, step: 0.1, value: dp, set: function (v) { list.forEach(function (n) { n.depth = v; }); }, fmt: function (v) { return v > 0.05 ? 'front ' + v : v < -0.05 ? 'behind ' + (-v) : 'flat'; }, title: 'Front slides with the turn, behind slides against it' }));
     nodes.forEach(function (n) { AL.fit.section(app, pb, n, nodes.length > 1 ? n.name : ''); });
     orderChips(app, pb, nodes);
     var first = nodes[0] ? (nodes[0].type === 'art' ? nodes[0] : AL.find(nodes[0], function (k) { return k.type === 'art'; })) : null;
     if (first && f === 'hair') {
-      pb.appendChild(ui.lab(nodes.length > 1 ? 'Swinging (\u201c' + first.name + '\u201d)' : 'Swinging'));
+      pb.appendChild(ui.lab(nodes.length > 1 ? 'Swinging (\u201c' + first.name + '\u201d)' : 'Swinging', 'motion'));
       swingControls(app, pb, first);
       if (first.swing) pb.appendChild(ui.row([ui.chip('Same on every angle', { title: 'Copy these settings to the same-named layer at every head angle', fn: function () { app.edit(function () { AL.findAll(app.ch.root, function (k) { return k.type === 'art' && k !== first && k.name === first.name && k.role === first.role; }).forEach(function (k) { var vw = AL.ancestorWith(app.ch, k.id, function (a) { return !!a.at; }), vb = AL.boundsOf(vw || k); AL.guessSwing(app.ch, k, vb ? { x: (vb.x0 + vb.x1) / 2, y: (vb.y0 + vb.y1) / 2 } : null, first.swing.kind); ['segs', 'stiff', 'damp', 'follow', 'hang', 'limit', 'wind', 'flutter', 'wag', 'on'].forEach(function (key) { k.swing[key] = first.swing[key]; }); }); }); app.toast('Copied to every angle'); } })]));
       app.pinProvider = function () { return swingPins(first).map(function (p) { p.node = first.id; return p; }); };
@@ -488,9 +503,10 @@
     if (isSet && m.pick.by === 'viseme') {
       head(app, 'Mouth', kids.length + ' shapes', 'One drawing per sound. The voice picks the shape, crisp, with no fade.');
       app.coach('<b>Mouth.</b> Tap a shape to see it. A voice in Perform chooses between them.');
+      pb.appendChild(ui.lab('Its shapes', 'setup'));
       pb.appendChild(h('div', { class: 'thumbs' }, kids.map(function (k) { return th(k, k.shape || k.name, forced === k, false, function () { app.force[m.id] = k.id; app.test.mouth = null; app.refreshPanel(true); }); })));
       if (forced && !mir) pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'This is the sound' }), h('select', { 'aria-label': 'Sound', onchange: function (e) { var v = e.target.value; app.edit(function () { forced.shape = v; }); } }, AL.SHAPES.map(function (s) { return h('option', { value: s, text: s, selected: forced.shape === s }); })), h('span')]));
-      pb.appendChild(ui.lab('Try a sound'));
+      pb.appendChild(ui.lab('Try a sound', 'setup motion'));
       pb.appendChild(ui.row(kids.filter(function (k) { return k.shape; }).map(function (k) { return ui.chip(k.shape, { on: app.test.mouth != null && app.test.vis === k.shape && !app.force[m.id], fn: function () { delete app.force[m.id]; app.test.mouth = 1; app.test.vis = k.shape; app.refreshPanel(true); } }); })));
       return;
     }
@@ -499,6 +515,7 @@
     app.coach(mode === 'hinge' ? '<b>Mouth.</b> Drag the <b>Hinge</b> pin to the corner of the mouth, then slide <b>Try: talk</b>.' : '<b>Mouth.</b> Slide <b>Try: talk</b> to see it move.');
     if (mir) return;
     function setMode(v) { app.edit(function () { var keep = cfg ? cfg.rest : 'open'; delete art.hinge; delete art.squash; if (v === 'hinge') { AL.guessMouth(ch, art, cv.node); if (!art.hinge) { delete art.squash; art.hinge = { rest: keep, angle: 30 }; } art.hinge.rest = keep; } else if (v === 'squash') { var b = AL._px.boxOf(art); art.squash = { rest: keep, min: 0.14 }; art.pivot = { x: b.cx, y: b.y0 + b.h * 0.15 }; } }); }
+    pb.appendChild(ui.lab('How it talks', 'setup motion'));
     pb.appendChild(ui.row([ui.seg([['hinge', 'Hinge', 'Swings open and shut around a pin'], ['squash', 'Squash', 'Flattens shut toward a line'], ['swap', 'Swap only', 'Does not move by itself']], mode, setMode, 'How the mouth talks')]));
     if (cfg) {
       pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'As drawn it is' }), ui.seg([['open', 'Open'], ['closed', 'Shut']], cfg.rest, function (v) { app.edit(function () { cfg.rest = v; }); }, 'Is the drawing an open mouth or a shut one?'), h('span')]));
@@ -512,7 +529,7 @@
     }
     var others = kids.filter(function (k) { return k !== art; });
     if (others.length) {
-      pb.appendChild(ui.lab('Other mouths (each gets a button in Perform)'));
+      pb.appendChild(ui.lab('Other mouths (each gets a button in Perform)', 'setup'));
       pb.appendChild(h('div', { class: 'thumbs' }, [th(art, 'talking', !forced || forced === art, true, function () { delete app.force[m.id]; app.refreshPanel(true); })].concat(others.map(function (k) { return th(k, k.name, forced === k, false, function () { app.force[m.id] = k.id; app.test.mouth = null; app.refreshPanel(true); }, 'Show “' + k.name + '” so it can be placed'); }))));
     }
     masksSection(app, pb, m);
@@ -529,6 +546,7 @@
     var many = kids.length > 1, idx = kids.indexOf(cur), leg = own ? own.pick.hand.charAt(0) === 'F' : /^leg/.test(zone), PN = leg ? ['Hip', 'Knee', 'Foot'] : ['Shoulder', 'Elbow', 'Hand'];
     head(app, ZN, many ? kids.length + ' drawings' : 'bends', many ? 'Shows the drawing whose ' + PN[2].toLowerCase() + ' is nearest to where you want it, then bends it the rest of the way.' : (leg ? 'Bends from the hip and knee, so the foot can stay planted while the body moves, and step when it walks.' : 'Bends from the shoulder and elbow so the hand lands where you drag it.'));
     app.coach('<b>' + ZN + '.</b> Three pins' + (many ? ' per drawing' : '') + ': <b>' + PN.join(', ').toLowerCase() + '</b>. They were guessed from the art; drag any that are off. The small round arrow turns the ' + PN[1].toLowerCase() + ' over.');
+    pb.appendChild(ui.lab('Its drawings', 'setup fit'));
     pb.appendChild(h('div', { class: 'thumbs' }, kids.map(function (k, i) { return th(k, (i + 1) + '. ' + k.name, k === cur, set.pick && set.pick.rest === k.id, function () { app.force[set.id] = k.id; app.refreshPanel(true); }, 'Drawing ' + (i + 1) + (set.pick.rest === k.id ? ' (the resting pose)' : '')); })));
     var shared = app.sharedShoulder !== false;
     pb.appendChild(ui.row([
@@ -538,11 +556,10 @@
       ui.chip('Flip ' + PN[1].toLowerCase(), { on: !!(cur.limb && cur.limb.flip), title: 'Bend this drawing the other way', fn: function () { app.edit(function () { if (cur.limb) cur.limb.flip = !cur.limb.flip; }); } }),
       ui.chip('Guess pins again', { icon: 'wand', title: 'Work out every pin of this arm from the art again', fn: function () { app.edit(function () { var tz = app.zoneNode('body'), b = tz ? AL._px.boxOf(tz) : null; AL.guessFan(ch, set, b ? { x: b.cx, y: b.cy } : null); }); app.toast('Pins guessed from the art'); } })
     ]));
-    pb.appendChild(ui.lab('How it moves'));
     var torsoN = app.zoneNode('body'), zmode = cur.zSplit ? 'half' : cur.zUnder ? 'behind' : 'front';
     pb.appendChild(ui.row([ui.chip('Try this drawing', { icon: 'play', cls: 'go', title: 'Bring it to life with ONLY this drawing, so you can drag the ' + PN[2].toLowerCase() + ' around and see how it bends', fn: function () { app.lockForce = {}; app.lockForce[set.id] = cur.id; app.setLive(true); } })]));
     if (torsoN) {
-      pb.appendChild(ui.lab('This drawing and the body'));
+      pb.appendChild(ui.lab('This drawing and the body', 'fit'));
       pb.appendChild(ui.row([ui.seg([['front', 'In front', 'The whole drawing is in front of the body'], ['behind', 'Behind', 'The whole drawing passes behind the body'], ['half', 'Half and half', 'It comes round the body: one end behind it, the other end in front']], zmode, function (v) {
         app.liftArt = false;
         app.edit(function () { var at = cur.zSplit ? cur.zSplit.at : 0.5, end = cur.zSplit ? cur.zSplit.behind : 'root', tgt = (cur.zSplit && cur.zSplit.under) || cur.zUnder || cur.zWas || torsoN.id; delete cur.zSplit; if (cur.zUnder) cur.zWas = cur.zUnder; delete cur.zUnder; if (v === 'behind') cur.zUnder = tgt; else if (v === 'half') cur.zSplit = { at: at, behind: end, under: tgt }; });
@@ -555,7 +572,7 @@
       if (zmode !== 'front') pb.appendChild(ui.toggle('Lift it to the front while I edit', app.liftArt !== false, function (v) { app.liftArt = v; app.refreshPanel(true); }, 'On: the whole drawing shows, to place pins. Off: it shows as it will really sit.'));
     }
     AL.stack.section(app, pb, set, { quiet: true });
-    pb.appendChild(ui.lab('How it bends'));
+    pb.appendChild(ui.lab('How it bends', 'motion'));
     var hose = !!(cur.limb && cur.limb.style === 'hose'), LIMB = leg ? 'leg' : 'arm', looped = !!set.pick.loop;
     pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'Bends' }), ui.seg([['joint', 'At the ' + PN[1].toLowerCase(), 'Two stiff halves that fold at the ' + PN[1].toLowerCase()], ['hose', 'Like a hose', 'No ' + PN[1].toLowerCase() + ': it bows along its whole length, and can stretch. Old-cartoon arms, ropes, tentacles, a beam between two points']], hose ? 'hose' : 'joint', function (v) {
       app.edit(function () { kids.forEach(function (k) { if (!k.limb) return; if (v === 'hose') { k.limb.style = 'hose'; if (k.limb.stretch == null || k.limb.stretch < 0.5) k.limb.stretch = 0.6; } else delete k.limb.style; }); });
@@ -577,7 +594,7 @@
     if (leg && cur.limb && !hose) pb.appendChild(ui.toggle('Foot bar (heel to toe)', !!cur.limb.foot, function (v) { app.edit(function () { kids.forEach(function (k) { if (!k.limb) return; if (v) k.limb.foot = AL.guessFoot(ch, k); else k.limb.foot = null; }); }); }, 'Tells it where the sole is. The foot then stays level instead of tipping with the shin, and rolls from heel to toe as it walks. Drag the two green pins to the heel and the toe.'));
     limbWalk(app, pb, set, leg);
     var riders = AL.findAll(ch.root, function (q) { return q.ride && q.ride.of === set.id; });
-    pb.appendChild(ui.lab(leg ? 'On its foot' : 'In its hand'));
+    pb.appendChild(ui.lab(leg ? 'On its foot' : 'In its hand', 'setup'));
     pb.appendChild(ui.row(riders.map(function (q) { return ui.chip(q.name, { icon: 'pin', title: 'Open “' + q.name + '”', fn: function () { app.sel = { zone: AL.zoneOf(ch, q.id), feature: null, node: q.id }; app.resolveSel(); app.refreshPanel(); } }); }).concat([ui.chip(leg ? 'Add a foot or shoe' : 'Add a hand, or a thing to hold', { icon: 'plus', title: 'A separate drawing carried by the end of this ' + LIMB + ', turning with it. Pick several drawings and it can swap between them.', fn: function () { AL.intake.addRider(app, set); } })])));
     if (!hose) pb.appendChild(ui.slider('Elbow softness', { min: 5, max: 60, value: Math.round((cur.limb && cur.limb.soft != null ? cur.limb.soft : 0.3) * 100), set: function (v) { kids.forEach(function (k) { if (k.limb) k.limb.soft = v / 100; }); }, fmt: function (v) { return v + '%'; }, title: 'A soft elbow curves like a noodle; a hard one creases' }));
     app.pinProvider = function () {
@@ -601,7 +618,7 @@
   function limbWalk(app, pb, set, leg) {
     var ui = app.ui, ch = app.ch, isRole = set.role === 'legL' || set.role === 'legR', walks = AL.walksOn(set), side = /R$/.test(set.role || '') ? 0.5 : 0;
     function wk() { return set.pick.walk || (set.pick.walk = leg ? {} : { lift: true }); }
-    pb.appendChild(ui.lab('Walking'));
+    pb.appendChild(ui.lab('Walking', 'motion'));
     if (!leg) {
       var pair = (set.role === 'armL' || set.role === 'armR') ? [AL.firstRole(ch.root, 'armL'), AL.firstRole(ch.root, 'armR')].filter(function (a) { return a && a.type === 'set' && a.pick && a.pick.by === 'reach'; }) : [set];
       pb.appendChild(ui.toggle(pair.length > 1 ? 'These arms can become feet' : 'This arm can become a foot', walks, function (v) { app.edit(function () { pair.forEach(function (a) { if (v) { a.pick.walk = a.pick.walk || { lift: true }; delete a.pick.walk.on; } else delete a.pick.walk; }); }, false, 'Arms can become feet'); }, 'When the ground comes within reach of the hand (the body tipped onto all fours, say) the hand plants and steps like a foot. Lifted out of reach, it is a hand again. Nothing else to set.'));
@@ -612,6 +629,7 @@
       if (leg) pb.appendChild(ui.toggle('Lets go when lifted', !!(set.pick.walk && set.pick.walk.lift), function (v) { app.edit(function () { wk().lift = v; }, false, 'A leg lets go'); }, 'On: lifted out of reach of the ground this leg hangs free, and plants again when it can reach. For the front legs of something that rears up.'));
       else pb.appendChild(ui.slider('Wrist above the ground', { min: 0, max: 60, value: Math.round(set.pick.walk && set.pick.walk.palm != null ? set.pick.walk.palm : AL.palmGuess(ch, AL.node(ch, (set.pick.walk && set.pick.walk.kid) || set.pick.rest) || set.kids[0])), set: function (v) { wk().palm = v; }, fmt: function (v) { return v + ' px'; }, title: 'How high the wrist pin stays when the hand is planted, so the palm or knuckles rest on the ground and do not sink into it' }));
     }
+    pb.appendChild(ui.lab('This ' + (leg ? 'leg' : 'arm'), 'setup'));
     var row = [];
     row.push(ui.chip('Copy this ' + (leg ? 'leg' : 'arm'), { icon: 'plus', title: leg ? 'Another leg just like this one, a little along the body, with the next step timing. Copy it again for as many as you like.' : 'Another arm just like this one, a little along the body', fn: function () { cards.copyLimb(app, set); } }));
     row.push(ui.chip('Move the whole ' + (leg ? 'leg' : 'arm'), { on: !!app.moveArt, icon: 'move', title: 'On: drag this limb on the picture to slide it, pins and all, to where it joins the body', fn: function () { app.moveArt = !app.moveArt; app.refreshPanel(true); } }));
@@ -644,7 +662,7 @@
   /** THE BODY'S OWN TURN DRAWINGS: a front view, the other side. It turns through them with the head, and passes through them when the whole character turns round. */
   function bodyAngles(app, pb, t) {
     var ui = app.ui, ch = app.ch;
-    pb.appendChild(ui.lab('Its own turn drawings'));
+    pb.appendChild(ui.lab('Its own turn drawings', 'setup'));
     if (t.type !== 'set') {
       pb.appendChild(ui.note('One drawing of the body for now. Give it its own angles (a front view, the other side) and it turns through them as the head turns, and passes through them when the whole character turns round, instead of only flipping.'));
       if (t.type === 'art') pb.appendChild(ui.row([ui.chip('Give the body its own angles', { icon: 'plus', title: 'The drawing you have becomes the first angle. Then add more, or copy this one and reshape it.', fn: function () {
@@ -672,15 +690,17 @@
     app.coach('<b>Body.</b> The ring is where the chest swells. The <b>Hips</b> pin is what it leans from.');
     AL.stance.section(app, pb);
     AL.tone.section(app, pb);
-    pb.appendChild(ui.lab('Breathing'));
+    pb.appendChild(ui.lab('Breathing', 'motion'));
     pb.appendChild(ui.toggle('Breathing', st.breathe !== false, function (v) { app.edit(function () { st.breathe = v; }); }, 'A slow swell of the chest; head and arms ride it'));
     if (tb.breathe) pb.appendChild(ui.slider('How deep', { min: 0, max: 3, step: 0.1, value: tb.breathe.amt == null ? 1 : tb.breathe.amt, set: function (v) { tb.breathe.amt = v; }, fmt: function (v) { return v + '×'; } }));
     pb.appendChild(ui.slider('Breaths a minute', { min: 6, max: 40, value: Math.round((st.breathRate || 0.28) * 60), set: function (v) { st.breathRate = v / 60; }, fmt: String }));
     pb.appendChild(ui.toggle('Never quite still', st.idle !== false, function (v) { app.edit(function () { st.idle = v; }); }, 'A slight drift of head and body when nothing else is happening'));
     var hung = AL.findAll(app.ch.root, function (n) { return n.swing && n !== t && AL.zoneOf(app.ch, n.id) === 'body'; });
-    if (hung.length) { pb.appendChild(ui.lab('Swinging on the body')); pb.appendChild(ui.row(hung.map(function (n) { return ui.chip(n.name, { icon: n.swing.kind === 'stiff' ? 'pin' : 'wand', title: 'Open \u201c' + n.name + '\u201d: how it swings', fn: function () { app.sel = { zone: 'body', feature: null, node: n.id }; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(); } }); }))); }
-    pb.appendChild(ui.lab('Which way it faces'));
+    if (hung.length) { pb.appendChild(ui.lab('Swinging on the body', 'motion')); pb.appendChild(ui.row(hung.map(function (n) { return ui.chip(n.name, { icon: n.swing.kind === 'stiff' ? 'pin' : 'wand', title: 'Open \u201c' + n.name + '\u201d: how it swings', fn: function () { app.sel = { zone: 'body', feature: null, node: n.id }; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(); } }); }))); }
+    pb.appendChild(ui.lab('Which way it faces', 'setup'));
     pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'Drawn facing' }), ui.seg([['left', 'Left'], ['front', 'Front'], ['right', 'Right']], st.facing || 'front', function (v) { app.edit(function () { st.facing = v; }); }, 'Which way the body was drawn'), h('span')]));
+    pb.appendChild(ui.row([ui.chip('See it flipped', { on: !!app._bs && app._bs.flip, icon: 'flip', title: 'Show the mirrored side while building', fn: function () { app.buildSignals().flip = !app._bs.flip; app.refreshPanel(true); } })]));
+    pb.appendChild(ui.lab('Turning around', 'motion'));
     pb.appendChild(ui.toggle('Turn around by itself', !!st.autoFlip, function (v) { app.edit(function () { st.autoFlip = v; if (v && st.facing === 'front') st.facing = 'left'; }); }, 'When the head turns the other way the whole character flips, so one three-quarter drawing faces both ways'));
     if (st.autoFlip) pb.appendChild(ui.slider('Flips past', { min: 0.1, max: 0.9, step: 0.05, value: st.flipAt == null ? 0.4 : st.flipAt, set: function (v) { st.flipAt = v; }, fmt: function (v) { return Math.round(v * 100) + '% turned'; } }));
     if (st.facing !== 'front') pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'The turn is' }), ui.seg([['smooth', 'Smooth', 'The body tucks in, swaps side while tucked and opens out again; a tail or an arm is pulled in behind the body and grows back out. A head with both sides drawn just keeps turning.'], ['snap', 'Instant', 'Straight to the mirror image, no in-between'], ['turn', 'A card', 'It swings round like a cardboard cut-out']], st.flipStyle || 'smooth', function (v) { app.edit(function () { st.flipStyle = v; }); app.refreshPanel(true); }, 'How turning around looks'), h('span')]));
@@ -688,7 +708,6 @@
       pb.appendChild(ui.slider('It takes', { min: 0.04, max: 0.6, step: 0.02, value: st.flipTime == null ? 0.14 : st.flipTime, set: function (v) { st.flipTime = v; }, fmt: function (v) { return Math.round(v * 24) + ' frames'; }, title: 'How long the turn lasts, in frames of film (24 a second)' }));
       pb.appendChild(ui.slider('It tucks in', { min: 0, max: 0.9, step: 0.02, value: st.flipTuck == null ? 0.45 : st.flipTuck, set: function (v) { st.flipTuck = v; }, fmt: function (v) { return Math.round(v * 100) + '%'; }, title: 'How far the body, tail and arms pull in toward the middle before they swap sides. 0 swaps at full width.' }));
     }
-    pb.appendChild(ui.row([ui.chip('See it flipped', { on: !!app._bs && app._bs.flip, icon: 'flip', title: 'Show the mirrored side while building', fn: function () { app.buildSignals().flip = !app._bs.flip; app.refreshPanel(true); } })]));
     var can = AL.walkDefaults(app.ch), wk = st.walk;
     limbsRow(app, pb);
     pb.appendChild(ui.row([ui.chip('Ground and walking', { icon: 'fwd', cls: 'quiet', title: 'Everything about walking is on one card: the bar under the feet on the body map', fn: function () { app.tab = 'parts'; app.select('ground'); } })]));
@@ -746,13 +765,14 @@
     head(app, 'Tail', art && art.swing ? 'swings' : 'in place', 'Swings by itself when the body moves, and settles again. Nothing to animate.');
     app.coach('<b>Tail.</b> <b>Root</b> is where it joins the body, <b>Tip</b> is the loose end.');
     if (!art) return;
+    pb.appendChild(app.ui.lab('Swinging', 'motion'));
     swingControls(app, pb, art);
     app.pinProvider = function () { return swingPins(art); };
   }
   /* ── masks: show a part only inside another, or hide it where another is ── */
   function masksSection(app, pb, n) {
     var ui = app.ui, ch = app.ch;
-    pb.appendChild(ui.lab('Masks'));
+    pb.appendChild(ui.lab('Masks', 'fit'));
     (n.clips || []).forEach(function (q, i) {
       var by = AL.node(ch, q.by); if (!by) return;
       pb.appendChild(h('div', { class: 'rowf', style: 'margin-top:4px' }, [h('span', { class: 'note', style: 'margin:0;flex:1;min-width:0', html: q.cut ? 'Hidden where <b>' + by.name + '</b> is' : 'Shows only inside <b>' + by.name + '</b>' }),
@@ -830,7 +850,7 @@
   function shapeOn(app, n, sh) { var w = {}; w[n.id] = {}; w[n.id][sh.id] = 1; app.shapeEdit = { node: n.id, shape: sh.id, w: w }; }
   function shapesSection(app, pb, n) {
     var ui = app.ui, ch = app.ch, se = app.shapeEdit && app.shapeEdit.node === n.id ? app.shapeEdit : null, pins = n.mesh && n.mesh.pins ? n.mesh.pins : [];
-    pb.appendChild(ui.lab('Shapes'));
+    pb.appendChild(ui.lab('Shapes', 'setup'));
     if (!pins.length) {
       pb.appendChild(ui.note('Give this part a few pins and it can be pushed into other shapes: an eye squeezed shut, a cheek puffed out, a body squashed. Each shape is blended in smoothly by a button, the mouth, a blink or the head turning.'));
       pb.appendChild(ui.row([ui.chip('Add pins around it', { cls: 'go', icon: 'pin', title: 'Eight pins round its edge and one in the middle. Drag them to where the shape should bend from.', fn: function () { app.edit(function () { ringPins(n); }, false, 'Add shape pins'); } })]));
@@ -870,7 +890,7 @@
   /* ── a piece of a turning head: which pad position it is seen at, and whose landmarks bend it ── */
   function pieceSection(app, pb, n, set) {
     var ui = app.ui, ch = app.ch, B = AL.bridge, ang = AL.ancestorWith(ch, n.id, function (a) { return AL.parentOf(ch, a.id) === set; }), direct = !!ang && AL.parentOf(ch, n.id) === ang, k = B.key(n), side = h('div', { class: 'side' });
-    pb.appendChild(ui.lab('When the head turns'));
+    pb.appendChild(ui.lab('When the head turns', 'fit'));
     if (direct) {
       var cur = B.warpsWith(set, k), own = Object.keys(set.warpWith || {}).filter(function (q) { return q !== k && set.warpWith[q] === 'own'; });
       side.appendChild(h('select', { 'aria-label': 'This piece warps with', title: 'A piece can bend with the whole head, with another piece, or by landmarks of its own', onchange: function (ev) { var v = ev.target.value; app.edit(function () { B.setWarpsWith(set, k, v); }, false, 'Warps with'); } },
@@ -891,7 +911,7 @@
   function biggest(arts) { var best = arts[0], ba = 0; arts.forEach(function (a) { var im = AL.img.get(a.img), ar = im ? im.w * im.h : 0; if (ar > ba) { ba = ar; best = a; } }); return best; }
   function roundSection(app, pb, n) {
     var ui = app.ui, bl = n.ball && n.ball.on !== false ? n.ball : null;
-    pb.appendChild(ui.lab('Round shape'));
+    pb.appendChild(ui.lab('Round shape', 'setup'));
     pb.appendChild(ui.toggle('It turns like a round thing', !!bl, function (v) { app.edit(function () { if (!v) { if (n.ball) n.ball.on = false; return; } if (n.ball) { n.ball.on = true; return; } var b = AL.boundsOf(n), arts = AL.findAll(n, function (q) { return q.type === 'art'; }); if (!b || !arts.length) return; n.ball = { cx: (b.x0 + b.x1) / 2, cy: (b.y0 + b.y1) / 2, rx: (b.x1 - b.x0) / 2, ry: (b.y1 - b.y0) / 2, yaw: 40, pitch: 20, kind: 'lathe', shell: biggest(arts).id }; }); }, 'A body, a belly, a barrel: the parts inside it can be painted on, and slide round it as the head turns'));
     if (!bl) return;
     pb.appendChild(ui.slider('Turns', { min: 0, max: 90, value: bl.yaw == null ? 50 : bl.yaw, set: function (v) { bl.yaw = v; }, fmt: function (v) { return v + '°'; }, title: 'How far round it goes when the head looks fully left or right. A body turns less than a head.' }));
@@ -906,7 +926,7 @@
   function follows(app, pb, n) {
     var ui = app.ui, ch = app.ch; n.links = n.links || [];
     var SG = SIGS.concat([['always', 'all the time']], (ch.triggers || []).map(function (t) { return ['trig:' + t.id, 'the “' + t.name + '” button']; }), [['+new', 'a new button…']]);
-    pb.appendChild(ui.lab('Follows'));
+    pb.appendChild(ui.lab('Follows', 'motion'));
     if (!n.links.length) pb.appendChild(ui.note('Make this part move with something else: lift with the mouth, shake with the voice, squash while a button is held, spin all the time.'));
     n.links.forEach(function (l, i) {
       var sName = (SG.filter(function (s) { return s[0] === l.sig; })[0] || [0, l.sig])[1], pName = (PROPS.filter(function (p) { return p[0] === l.prop; })[0] || [0, l.prop])[1], sc = isScale(l.prop);
@@ -931,7 +951,7 @@
     var ui = app.ui, ch = app.ch, e, p;
     var inLimb = (function () { var q = AL.parentOf(ch, n.id); return !!(n.limb || (q && q.pick && q.pick.by === 'reach')); })();
     if (!inLimb) {
-      pb.appendChild(ui.lab('Size and turn'));
+      pb.appendChild(ui.lab('Size and turn', 'fit'));
       var needPivot = function () { if (!n.pivot && n.type !== 'art') { var b = AL.boundsOf(n); if (b) n.pivot = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 }; } };
       pb.appendChild(ui.slider('Size', { min: 10, max: 300, step: 1, value: Math.round((n.sc == null ? 1 : n.sc) * 100), set: function (v) { needPivot(); n.sc = v / 100; }, fmt: function (v) { return v + '%'; }, title: 'Make this part bigger or smaller without redrawing it' }));
       pb.appendChild(ui.slider('Turn', { min: -180, max: 180, step: 1, value: n.rot || 0, set: function (v) { needPivot(); n.rot = v; }, fmt: function (v) { return v + '°'; } }));
@@ -940,7 +960,7 @@
     /* carried by the end of a limb or a swinging part */
     var hosts = AL.findAll(ch.root, function (q) { return q !== n && ((q.type === 'set' && q.pick && q.pick.by === 'reach') || (q.swing && q.swing.tip)) && !AL.find(n, function (d) { return d === q; }); });
     if (hosts.length || n.ride) {
-      pb.appendChild(ui.lab('Carried by'));
+      pb.appendChild(ui.lab('Carried by', 'setup'));
       var hostNow = n.ride ? AL.node(ch, n.ride.of) : null;
       pb.appendChild(ui.row([partChip(hostNow, hostNow ? hostName(hostNow) : 'Nothing: it stays where it is', 'Choose what carries this part: the hand of an arm, the foot of a leg, or the tip of something that swings', function () {
         pickPart(app, 'What carries “' + n.name + '”?', hosts, hostName, function (q) { app.edit(function () { if (!q) delete n.ride; else n.ride = { of: q.id, turn: n.ride && n.ride.turn != null ? n.ride.turn : 1 }; }, false, 'Carried by'); }, 'Nothing: it stays where it is');
@@ -967,7 +987,7 @@
     if (n.type === 'set' && n.kids && n.kids.length > 1) {
       var by = (n.pick && n.pick.by) || 'default';
       if (by === 'default') {
-        pb.appendChild(ui.lab('Its looks'));
+        pb.appendChild(ui.lab('Its looks', 'setup'));
         var restK = AL.node(ch, n.pick && n.pick.rest) || n.kids[0];
         pb.appendChild(h('div', { class: 'thumbs' }, n.kids.map(function (k, i) { return th(k, k.name, app.force[n.id] === k.id || (!app.force[n.id] && k === restK), k === restK, function () { app.force[n.id] = k.id; app.refreshPanel(true); }, k === restK ? 'Its usual look' : k.trig ? 'Shown by a button' : 'No button yet'); })));
         pb.appendChild(ui.row([
@@ -975,7 +995,7 @@
           app.force[n.id] && app.force[n.id] !== restK.id ? ui.chip('Make this its usual look', { icon: 'star', fn: function () { var id = app.force[n.id]; app.edit(function () { n.pick = n.pick || { by: 'default' }; n.pick.rest = id; var k = AL.node(ch, id); if (k) delete k.trig; }, false, 'Usual look'); } }) : null
         ]));
         var selK = AL.node(ch, app.force[n.id]) || restK, selArt = selK.type === 'art' ? selK : AL.find(selK, function (q) { return q.type === 'art'; });
-        pb.appendChild(ui.lab('The look “' + selK.name + '”'));
+        pb.appendChild(ui.lab('The look “' + selK.name + '”', 'setup'));
         pb.appendChild(ui.row([
           ui.chip('Rename', { title: 'Change the name of this look, and of its button', fn: function () { app.promptText('Name this look', selK.name, function (v) { app.edit(function () { var t = selK.trig && (ch.triggers || []).filter(function (q) { return q.id === selK.trig; })[0]; if (t && t.name === selK.name) t.name = v; selK.name = v; }, false, 'Rename a look'); }); } }),
           selArt ? ui.chip('Change its picture', { icon: 'image', title: 'Put a different picture in this look. Its place, its button and its settings are kept.', fn: function () { AL.intake.swapPicture(app, selArt); } }) : null,
@@ -988,14 +1008,14 @@
         ]));
       }
       if (by === 'cycle' || by === 'default') {
-        pb.appendChild(ui.lab('Loop'));
+        pb.appendChild(ui.lab('Loop', 'motion'));
         pb.appendChild(ui.toggle('Its drawings are frames of a loop', by === 'cycle', function (v) { app.edit(function () { n.pick = n.pick || {}; n.pick.by = v ? 'cycle' : 'default'; if (v && !n.pick.fps) n.pick.fps = 12; }); }, 'It plays through its drawings, top to bottom, over and over'));
         if (by === 'cycle') pb.appendChild(ui.slider('Loop speed', { min: 1, max: 30, value: n.pick.fps || 12, set: function (v) { n.pick.fps = v; }, fmt: function (v) { return v + ' a second'; } }));
       }
     }
     /* a stream of copies */
     e = n.emit && n.emit.on !== false ? n.emit : null;
-    pb.appendChild(ui.lab('Stream'));
+    pb.appendChild(ui.lab('Stream', 'motion'));
     pb.appendChild(ui.toggle('Send it out as a stream of copies', !!e, function (v) { app.edit(function () { if (!v) { if (n.emit) n.emit.on = false; return; } if (n.emit) n.emit.on = true; else n.emit = { n: 4, life: 1.4, dx: 0, dy: -60, s0: 0.6, s1: 1.3, fade: 0.4 }; }); }, 'Hover rings, bubbles, sparks, steam, dust. Each copy drifts, grows and fades. It shows when you Try it.'));
     if (e) {
       pb.appendChild(ui.slider('How many', { min: 1, max: 16, value: e.n || 4, set: function (v) { e.n = v; } }));
@@ -1012,7 +1032,7 @@
     /* on a round head */
     p = AL.parentOf(ch, n.id); while (p && !(p.ball && p.ball.on !== false)) p = AL.parentOf(ch, p.id);
     if (p) {
-      pb.appendChild(ui.lab('On the round shape'));
+      pb.appendChild(ui.lab('On the round shape', 'setup'));
       pb.appendChild(ui.row([ui.seg([['', 'Stays put', 'It does not move when the head turns'], ['on', 'Painted on', 'It slides over the head as the head turns, and squashes toward the edge'], ['out', 'Sticks out', 'It rides the head’s surface in one piece, and goes behind the head on the far side (ears, horns, hair)']], n.wrap || '', function (v) { app.edit(function () { if (v) n.wrap = v; else delete n.wrap; }); }, 'On the round head')]));
       if (n.wrap === 'out') pb.appendChild(ui.toggle('It lies flat against the head', !!n.flat, function (v) { app.edit(function () { n.flat = v; }); }, 'A disc or plate on the side of the head: thin from the front, round from the side'));
       if (n.wrap) pb.appendChild(ui.slider('Stands off the surface', { min: 0, max: 50, value: Math.round((n.lift || 0) * 100), set: function (v) { n.lift = v / 100; }, fmt: function (v) { return v ? v + '%' : 'flat on it'; }, title: 'A nose stands off the face, so it moves further and shows in profile' }));
@@ -1027,7 +1047,7 @@
     var pz = AL.fit.pose(app), nm = cards.nameOf(app, n);
     head(app, nm, role ? role.label : (n.type === 'art' ? 'drawing' : n.type === 'set' ? 'one of' : 'folder'), pz ? 'Where it sits and what it is in front of, while the character is in the stance <b>' + pz.name + '</b>. Standing is not touched.' : 'Tell Avatar Studio what this is and it will rig it; or make it follow something.');
     app.coach(pz ? '<b>' + nm + ', in ' + pz.name + '.</b> Move it with the box, or change what it is in front of.' : '<b>' + nm + '.</b> One layer. Say what it is, make it swing, mask it, or make it follow something.');
-    if (pz) { AL.fit.section(app, pb, n); pb.appendChild(ui.lab('The part itself')); }
+    if (pz) { AL.fit.section(app, pb, n); pb.appendChild(ui.lab('The part itself', 'setup')); } else pb.appendChild(ui.lab('What it is', 'setup'));
     pb.appendChild(ui.row([
       ui.chip('What is this?', { icon: 'wand', cls: 'go', title: 'Say which part of the body this is', fn: function () { rolePicker(app, n); } }),
       ui.chip(n.hidden ? 'Hidden' : 'Shown', { on: !n.hidden, icon: n.hidden ? 'eyeoff' : 'eye', title: 'Show or hide this', fn: function () { app.edit(function () { if (n.hidden) delete n.hidden; else n.hidden = true; }); } }),
@@ -1037,7 +1057,7 @@
     if (!pz) AL.fit.section(app, pb, n);
     pb.appendChild(ui.slider('Depth', { min: -1.5, max: 1.5, step: 0.1, value: n.depth || 0, set: function (v) { n.depth = v; }, fmt: function (v) { return v > 0.05 ? 'front ' + v : v < -0.05 ? 'behind ' + (-v) : 'flat'; } }));
     if (!AL.fit.pose(app) && !AL.stack.section(app, pb, n)) orderChips(app, pb, [n]);
-    if (n.type === 'art') { pb.appendChild(ui.lab('Swinging')); swingControls(app, pb, n); }
+    if (n.type === 'art') { pb.appendChild(ui.lab('Swinging', 'motion')); swingControls(app, pb, n); }
     var tset = AL.ancestorWith(ch, n.id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'turn'; });
     if (tset && tset !== n) pieceSection(app, pb, n, tset);
     follows(app, pb, n);
@@ -1054,7 +1074,7 @@
     if (app.fitOn && app.fitOn.box && app.fitOn.node === n.id) app.pinProvider = function () { return AL.fit.pins(app, n); };
   }
   function meshPins(app, pb, n) {
-    pb.appendChild(app.ui.lab('Pins on this drawing'));
+    pb.appendChild(app.ui.lab('Pins on this drawing', 'setup'));
     pb.appendChild(app.ui.row(n.mesh.pins.map(function (q) { return app.ui.chip(q.name, { icon: 'pin', title: 'Remove this pin', fn: function () { app.edit(function () { n.mesh.pins = n.mesh.pins.filter(function (k) { return k !== q; }); }); } }); }).concat([app.ui.chip('Pin it again', { icon: 'wand', fn: function () { AL.intake.pinWizard(app, n); } })])));
   }
   function rolePicker(app, n) {

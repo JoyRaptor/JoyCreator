@@ -473,6 +473,7 @@
     item('image', 'Add pictures', function () { pickImages(function (files) { intake.addPictures(app, files, null).catch(function (e) { app.toast(e.message); }); }); }, 'named by part');
     m.appendChild(h('hr'));
     item('help', 'What can this do?', function () { intake.about(app); });
+    m.appendChild(app.ui.toggle('One long card per part', !AL.stages.on(), function (v) { app.closeSheet(); AL.stages.set(app, !v); }, 'The earlier layout: Build and Perform at the top, and everything about a part on one card'));
     app.sheet('Avatar Studio', box, [], [
       { icon: 'file', title: 'Open a character file', fn: function () { app.closeSheet(); $('fileJson').value = ''; $('fileJson').click(); } },
       { icon: 'save', title: 'Save this character to a file, with its take', fn: function () { app.closeSheet(); intake.saveCharacter(app); } },

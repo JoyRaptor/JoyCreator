@@ -252,6 +252,12 @@ they want, a centipede; arms that can become feet with one toggle").
       map opening one walking card; sections open by default with the seldom-used ones behind one "More"; the pictures
       he approved on their controls. His order for a card, to hold everything to: bring it in, wire it up, make it look
       right in one place, then in every pose, then moving, then playing. Checked by script and phone-size screenshots.
+- [x] Round 10 (11-21), "really think through the UI": the room is re-laid in the order a character is made, as four
+      stages: Set up (pins), Fit (the box, per pose), Motion (alive), Perform. Every section of every card is assigned
+      to a stage; the floating modes (Try it, Move it, Pick a piece, stance editing) became places. Design and the full
+      map of where each control went: [the four stages](../design/AVA-1_stages_20261121.md). The earlier layout is kept
+      and selectable. Checked by script for every part in every stage (taps, drags, stances, undo, switching layouts)
+      and by phone-size screenshots; not by hand, not on a phone. **His verdict on the structure is owed.**
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and
       the seven he has not decided (second examples page); the cards re-ordered to his flow one by one (only the Body
       card and the shared tail of every card are done); phone landscape and tablet.

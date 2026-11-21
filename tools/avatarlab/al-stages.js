@@ -1,0 +1,163 @@
+/* AvatarLab: STAGES. The room is laid out in the order a character is made.
+ *
+ *   SET UP    what the pieces are and where they hinge.   The picture holds still and shows PINS.
+ *   FIT       make it look right: here, then in every pose. The picture holds still and shows THE BOX on the part in hand.
+ *   MOTION    how it moves by itself and when it is pulled. The picture is ALIVE: drag it while the sliders change.
+ *   PERFORM   play it and record.
+ *
+ * Every control answers one of three questions (what exists, how it looks, how it moves) and lives in that stage and nowhere
+ * else, so a card is short and nothing is hunted for. Two more things say where you are, and both are always on screen:
+ *   WHAT   the body map (and a tap on the picture, and the Layers list)
+ *   WHERE  in Fit, the pose the fit is for: Standing, or one of the stances (the row on the picture)
+ * So there are no hidden modes: "Try it" is the Motion stage, "Move it" is the Fit stage, a stance is a pose chosen in Fit.
+ *
+ * A card says which stage each of its sections belongs to: ui.lab('Pins', 'setup'). 'all' (or nothing) shows it everywhere.
+ * The earlier layout (one long card per part, Build / Perform at the top) is kept: Menu, "One long card per part".
+ * Phone: a four-way tab row at the top of the bottom panel; the same tags on the same sections.
+ */
+(function (root) {
+  'use strict';
+  var AL = root.AL, stages = AL.stages = {}, $ = function (id) { return document.getElementById(id); };
+  stages.LIST = [
+    ['setup', 'Set up', 'What the pieces are, and where they hinge. The picture holds still and shows the pins.'],
+    ['fit', 'Fit', 'Make it look right, here and then in every pose. Drag a part to move it; the box resizes and turns it.'],
+    ['motion', 'Motion', 'How it moves. It is alive here: drag it while you change things.'],
+    ['perform', 'Perform', 'Play it and record.']
+  ];
+  var SAY = { setup: 'to set up', fit: 'to fit', motion: 'that moves' };
+  stages.on = function () { if (stages._on == null) { try { stages._on = localStorage.getItem('al.layout') !== 'classic'; } catch (e) { stages._on = true; } } return stages._on; };
+  stages.set = function (app, on) {
+    stages._on = !!on; try { localStorage.setItem('al.layout', on ? 'stages' : 'classic'); } catch (e) { }
+    $('app').classList.toggle('stages', !!on); app.poseEdit = null; app.fitOn = null; app.moveArt = false; app.pickPiece = false;
+    if (app.mode === 'perform') app.refreshPanel(); else app.setLive(!!on && app.stage === 'motion');
+  };
+  stages.cur = function (app) { return app.mode === 'perform' ? 'perform' : (app.stage || 'setup'); };
+  stages.is = function (app, s) { return stages.on() && stages.cur(app) === s; };
+
+  stages.go = function (app, s) {
+    if (s === 'perform') { if (app.mode !== 'perform') app.setMode('perform'); return; }
+    app.stage = s; try { localStorage.setItem('al.stage', s); } catch (e) { }
+    if (s !== 'fit') { app.poseEdit = null; app.fitOn = null; app.moveArt = false; app.orderPick = null; }
+    app.pickPiece = false; app.bridge = null;
+    if (app.mode !== 'build') { app.live = false; app.setMode('build'); }
+    app.setLive(s === 'motion');
+  };
+
+  /** The four-way row. */
+  stages.rail = function (app) {
+    var h = AL.h, cur = stages.cur(app), r = h('div', { class: 'rail', role: 'tablist', 'aria-label': 'What you are doing' });
+    stages.LIST.forEach(function (q) {
+      r.appendChild(h('button', { class: (q[0] === cur ? 'on' : '') + (q[0] === 'perform' ? ' live' : ''), 'data-s': q[0], role: 'tab', 'aria-selected': String(q[0] === cur), title: q[1] + ': ' + q[2], text: q[1], onclick: function () { if (q[0] !== cur) stages.go(app, q[0]); } }));
+    });
+    return r;
+  };
+
+  /** The part the box is for: the layer picked, else the feature, else the whole part chosen on the map. */
+  stages.target = function (app) {
+    if (app.tab !== 'parts') return null;
+    if (app.sel.node) return AL.node(app.ch, app.sel.node);
+    if (app.sel.feature) {
+      var list = app.featureNodes(app.sel.feature) || [], ix = AL.ix(app.ch), q = app._hitId ? ix.n[app._hitId] : null;
+      while (q) { if (list.indexOf(q) >= 0) return q; q = ix.p[q.id]; }
+      return list[0] || null;
+    }
+    return app.sel.zone && app.sel.zone !== 'body' && app.sel.zone !== 'ground' && app.sel.zone !== 'extra' ? app.zoneNode(app.sel.zone) : null;
+  };
+  /** In Fit the box is simply there on whatever is in hand (a limb, outside a stance, slides whole instead: pins and all). */
+  stages.before = function (app) {
+    if (!stages.on() || app.mode !== 'build') return;
+    if (app.stage !== 'fit' || app.live || app.bridge) { if (app.stage !== 'fit') app.moveArt = false; return; }
+    var n = stages.target(app), fit = AL.fit;
+    if (app.fitOn && app.fitOn.pins && n && app.fitOn.node === n.id) { app.moveArt = false; return; }      // reshaping with pins: leave it be
+    if (app.fitOn && app.fitOn.box && n && app.fitOn.node !== n.id) { var k = AL.node(app.ch, app.fitOn.node), ixx = AL.ix(app.ch); while (k && k !== n) k = ixx.p[k.id]; if (k) { app.moveArt = false; return; } }      // the box was put on a piece of it (just this angle): leave it there
+    if (n && fit.can(app, n)) { if (!n.pivot && n.type !== 'art') fit.needPivot(app, n); app.fitOn = { node: n.id, box: true }; app.moveArt = false; }
+    else { app.fitOn = null; app.moveArt = !!(n && n.type === 'set' && n.pick && n.pick.by === 'reach'); }
+  };
+  /** Between drawing the card and sorting its sections: what a stage adds to every card. */
+  stages.extra = function (app, pb) {
+    if (!stages.on() || app.mode !== 'build' || app.bridge || app.tab !== 'parts' || !pb.children.length) return;
+    var ui = app.ui, n = stages.target(app);
+    if (app.stage === 'fit' && n && AL.fit.can(app, n)) {
+      /* every part can be fitted, whether or not its card thought to offer it */
+      var has = Array.prototype.some.call(pb.querySelectorAll('.lab'), function (l) { return /^Fit it by hand/.test(l.textContent); });
+      if (!has) { var tmp = document.createElement('div'), first = pb.querySelector(':scope > .lab'); AL.fit.section(app, tmp, n); if (!pb.querySelector('.stk')) AL.stack.section(app, tmp, n, { quiet: true }); while (tmp.firstChild) pb.insertBefore(tmp.firstChild, first); }      // (it goes first: it is what Fit is for)
+    }
+    if (app.stage === 'motion' && app.live) { pb.appendChild(ui.lab('Play with it', 'motion')); pb.appendChild(AL.perform.quick(app)); }
+  };
+  stages.after = function (app) {
+    if (!stages.on() || app.mode !== 'build' || app.bridge) return;
+    var n = stages.target(app), nm = n ? AL.cards.nameOf(app, n) : '', pose = AL.fit.pose(app);
+    if (app.live) { app.pinProvider = null; app.coach('<b>Motion.</b> It is alive: drag the head, a hand, the body. Tap a part to open what moves it.'); return; }
+    if (app.stage !== 'fit' || app.tab !== 'parts') return;
+    if (!(app.fitOn && (app.fitOn.box || app.fitOn.pins))) app.pinProvider = null;            // Fit shows the box, never the wiring pins
+    if (app.fitOn && app.fitOn.pins) return;                                                    // (reshaping has its own hint)
+    var forPose = pose ? ' For the stance <b>' + pose.name + '</b> only.' : '';
+    if (app.fitOn && app.fitOn.box) { var bn = AL.node(app.ch, app.fitOn.node); app.coach('<b>Fit.</b> Drag <b>' + (bn ? AL.cards.nameOf(app, bn) : nm) + '</b> to move it. A corner resizes it, the round handle turns it.' + forPose); }
+    else if (app.moveArt && n) app.coach('<b>Fit.</b> Drag <b>' + nm + '</b> to slide it, pins and all, to where it joins the body.');
+    else app.coach('<b>Fit.</b> Tap a part on the picture or the map, then drag it.' + forPose);
+  };
+  /** Motion: the "Try:" sliders on a card (talk, look, the lids) work on the living picture too, while they are off their rest. */
+  stages.tryOn = function (app, S) {
+    var t = app.test;
+    if (t.mouth != null) { S.mouth = t.mouth; if (t.vis) S.viseme = t.vis; }
+    if (t.lookX || t.lookY) { S.lookX = t.lookX; S.lookY = t.lookY; }
+    if (t.blink) S.blinkL = S.blinkR = t.blink;
+    if (t.brow) S.browL = S.browR = t.brow;
+    if (t.lidUp) S.lidUp = t.lidUp; if (t.lidLow) S.lidLow = t.lidLow; if (t.lidTilt) S.lidTilt = t.lidTilt;
+  };
+
+  /* a stance's button shows the character in that stance (and Standing shows it standing): the thing itself, not a sign for it */
+  stages.poseThumb = function (app, id) {
+    var ch = app.ch, p = id ? AL.stance.find(ch, id) : null;
+    if (stages._tc !== ch) { stages._tc = ch; stages._th = {}; }
+    var key = (id || 'stand') + ':' + app.hist.past.length + ':' + app.hist.future.length + (p ? ':' + JSON.stringify(p.d || {}).length + JSON.stringify(p.fours || 0) : '');
+    var hit = stages._th[id || 'stand']; if (hit && hit.key === key) return hit.url;
+    var eo = {}; if (id) { eo.poses = {}; eo.poses[id] = 1; }
+    var url = AL.shelf ? AL.shelf.snap(app, eo, 56) : null; stages._th[id || 'stand'] = { key: key, url: url };
+    return url;
+  };
+  /** The row on the picture. Fit: the pose this fit is for. Set up: nothing in the way. Motion: a way to make it talk. */
+  stages.bar = function (app, sb) {
+    var ui = app.ui, h = AL.h, ch = app.ch, st = stages.cur(app);
+    sb.innerHTML = '';
+    if (st === 'fit') {
+      var seg = h('span', { class: 'seg veil poses', role: 'group', title: 'The pose this fit is for' }), list = ch.poses || [];
+      function one(id, name, title) { var pic = stages.poseThumb(app, id); seg.appendChild(h('button', { class: (app.poseEdit || null) === id ? 'on' : '', title: title, onclick: function () { if ((app.poseEdit || null) === id) return; app.poseEdit = id; app.poseAmt = null; app.fitOn = null; app.orderPick = null; app.userView = false; app.refreshPanel(); } }, [pic ? h('img', { src: pic, alt: '' }) : null, name])); }
+      one(null, 'Standing', 'As it was drawn. What you move here is moved for good.');
+      list.forEach(function (p) { one(p.id, p.name, 'The stance “' + p.name + '”: what you move is moved for this stance only'); });
+      seg.appendChild(h('button', { class: 'add', title: 'A new stance: a whole-body pose with its own button', 'aria-label': 'Add a stance', onclick: function () { stages.addStance(app); } }, AL.icon('plus')));
+      sb.appendChild(seg);
+      var n = stages.target(app);
+      if (n && AL.fit.can(app, n) && AL.fit.moved(app, n)) sb.appendChild(ui.chip('Put it back', { cls: 'veil', title: app.poseEdit ? 'Forget where this part was put for this stance' : 'Forget the move, the turn and the size: back to how it was drawn', fn: function () { app.edit(function () { AL.fit.reset(app, n); }, false, 'Put it back'); } }));
+      var tz = app.toneTry && AL.tone.find(ch, app.toneTry);
+      if (tz) sb.appendChild(ui.chip(tz.name, { cls: 'veil on', icon: 'x', title: 'Showing this colour set. Tap to go back to its own colours.', fn: function () { app.toneTry = null; app.eyedrop = null; app.refreshPanel(true); } }));
+    }
+  };
+  stages.addStance = function (app) {
+    var ch = app.ch, S = AL.stance, acts = [];
+    function made(p) { if (p) { app.poseEdit = p.id; app.poseAmt = null; } app.closeSheet(); app.tab = 'parts'; app.select('body'); }
+    if (!S.fours(ch) && S.parts(ch)) acts.push({ label: 'All fours, worked out for me', cls: 'go', icon: 'wand', title: 'Tips the body forward about the hips until the hands reach the ground, and lets the hands walk as front feet', fn: function () { var p; app.edit(function () { p = S.makeFours(ch); }, true, 'Make an all-fours stance'); made(p); } });
+    acts.push({ label: 'A stance of my own', icon: 'plus', fn: function () { app.closeSheet(); app.promptText('Name this stance', 'Sitting', function (v) { var p; app.edit(function () { p = S.add(ch, v); }, true, 'Add a stance'); made(p); }); } });
+    app.sheet('A new stance', app.ui.note('A stance is a whole-body pose it melts into at the press of a button: all fours, sitting, a crouch. You place the parts for it with the same box as anywhere else.'), [{ label: 'Cancel', cls: 'quiet', fn: app.closeSheet }].concat(acts));
+  };
+
+  /** Keep the sections that belong to this stage. Returns them; says so when the part has nothing here. */
+  stages.filter = function (app, secs, pb) {
+    var st = stages.cur(app), has = { setup: 0, fit: 0, motion: 0 }, keep = [];
+    secs.forEach(function (s) {
+      var t = s.lab.getAttribute('data-st') || 'all';
+      ['setup', 'fit', 'motion'].forEach(function (k) { if (t.indexOf(k) >= 0) has[k]++; });
+      if (t === 'all' || t.indexOf(st) >= 0) keep.push(s); else { pb.removeChild(s.lab); pb.removeChild(s.body); }
+    });
+    var rail = $('panelhead').querySelector('.rail');
+    if (rail) Array.prototype.forEach.call(rail.children, function (b) { var k = b.getAttribute('data-s'); if (has[k] === 0 && secs.length) b.classList.add('none'); });
+    if (secs.length && !has[st] && !keep.some(function (s) { return (s.lab.getAttribute('data-st') || 'all') === 'all'; })) {
+      var h2 = $('panelhead').querySelector('h2'), nm = h2 && h2.firstChild ? h2.firstChild.textContent : 'this part', row = [];
+      stages.LIST.forEach(function (q) { if (has[q[0]]) row.push(app.ui.chip(q[1], { title: q[2], fn: function () { stages.go(app, q[0]); } })); });
+      var pic = st === 'setup' && app.pinProvider ? 'Its pins are on the picture: drag them. Nothing else ' + SAY[st] + ' here.' : st === 'fit' && stages.target(app) ? 'Drag it on the picture.' : 'Nothing ' + SAY[st] + ' on <b>' + nm + '</b>.';
+      pb.appendChild(app.ui.note(pic + (row.length ? ' More about it:' : '')));
+      if (row.length) pb.appendChild(app.ui.row(row));
+    }
+    return keep;
+  };
+})(typeof window !== 'undefined' ? window : globalThis);

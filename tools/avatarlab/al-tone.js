@@ -140,9 +140,11 @@
   function swatch(h, s, v) { return AL.h('span', { style: 'display:inline-block;width:22px;height:22px;border-radius:7px;flex:none;border:1px solid rgba(255,255,255,.18);background:' + tone.css(h, s == null ? 0.72 : s, v == null ? 0.5 : v) }); }
   tone.section = function (app, pb) {
     var ui = app.ui, h = AL.h, ch = app.ch, list = ch.palettes || [], ed = app.toneTry ? tone.find(ch, app.toneTry) : null;
-    pb.appendChild(ui.lab('Colour sets'));
+    pb.appendChild(ui.lab('Colour sets', 'fit'));
     if (!list.length) pb.appendChild(ui.note('Another set of colours for the same art, changed at the press of a button: a chameleon, a blush, night. Give it a picture of the character in its other colours and the change is worked out for you.'));
-    var row = list.map(function (p) { return ui.chip(p.name, { on: ed === p, icon: 'image', title: ed === p ? 'Back to its own colours' : 'Show this colour set and work on it', fn: function () { app.toneTry = ed === p ? null : p.id; app.toneAmt = null; app.eyedrop = null; app.refreshPanel(true); } }); });
+    var row = list.map(function (p) { return ui.chip(p.name, { on: ed === p, title: ed === p ? 'Back to its own colours' : 'Show this colour set and work on it', fn: function () { app.toneTry = ed === p ? null : p.id; app.toneAmt = null; app.eyedrop = null; app.refreshPanel(true); } }); });
+    /* a colour set's button shows its colours: the three it changes most */
+    row.forEach(function (c, i) { var sw = h('span', { class: 'sw' }); (list[i].stops || []).slice(0, 3).forEach(function (q) { var d = h('i'); d.style.background = 'hsl(' + Math.round(q.to) + ',' + Math.round(Math.min(1, 0.72 * (q.sat || 1)) * 100) + '%,' + Math.round(Math.min(0.7, 0.5 * (q.val || 1)) * 100) + '%)'; sw.appendChild(d); }); if (sw.children.length) c.insertBefore(sw, c.firstChild); });
     row.push(ui.chip('From a picture…', { icon: 'wand', cls: list.length ? '' : 'go', title: 'Choose a picture of the character in other colours. Its main colours are found and matched to this art, biggest to biggest.', fn: function () {
       var inp = h('input', { type: 'file', accept: 'image/png,image/webp,image/jpeg' }); inp.onchange = function () { var f = inp.files && inp.files[0]; if (!f) return; var url = URL.createObjectURL(f); tone.fromUrl(app, url, 'Colours ' + (list.length + 1), function () { URL.revokeObjectURL(url); }); }; inp.click();
     } }));
@@ -162,7 +164,7 @@
       pb.appendChild(ui.slider('Lighter', { min: 50, max: 160, step: 5, value: Math.round((q.val == null ? 1 : q.val) * 100), set: function (v) { q.val = v / 100; }, fmt: function (v) { return v + '%'; } }));
     });
     pb.appendChild(ui.row([ed.stops.length < 8 ? ui.chip('Another colour', { icon: 'plus', title: 'Tap a colour on the character; it joins this set and you choose what it becomes', fn: function () { app.eyedropAt = -1; app.eyedrop = function (c) { if (!c || c.s < 0.12) { app.toast('Tap a colour (greys, blacks and whites are left alone).'); app.refreshPanel(true); return; } app.edit(function () { ed.stops.push({ from: Math.round(c.h), to: Math.round((c.h + 180) % 360), sat: 1, val: 1, width: 30 }); }, false, 'Another colour'); }; app.toast('Tap the colour on the character.'); } }) : null]));
-    pb.appendChild(ui.lab('How it arrives'));
+    pb.appendChild(ui.lab('How it arrives', 'fit'));
     pb.appendChild(ui.slider('It takes', { min: 0.1, max: 4, step: 0.1, value: ed.time == null ? 0.9 : ed.time, set: function (v) { ed.time = v; }, fmt: function (v) { return v.toFixed(1) + ' s'; } }));
     pb.appendChild(ui.slider('Edge of the wave', { min: 2, max: 100, value: Math.round((ed.soft == null ? 0.22 : ed.soft) * 100), set: function (v) { ed.soft = v / 100; }, fmt: function (v) { return v < 12 ? 'sharp' : v > 60 ? 'all at once' : 'soft'; }, title: 'A sharp line crossing the character, or a soft one, or the whole thing melting together' }));
     pb.appendChild(ui.slider('Blotchy', { min: 0, max: 40, value: Math.round((ed.blotch == null ? 0.12 : ed.blotch) * 100), set: function (v) { ed.blotch = v / 100; }, fmt: function (v) { return v ? v + '%' : 'smooth' ; }, title: 'How ragged the front of the wave is: skin changing in patches' }));

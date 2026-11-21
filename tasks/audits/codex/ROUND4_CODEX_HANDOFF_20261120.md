@@ -18,7 +18,7 @@ Integration status at `856dde078`: Claude landed both saves, AUD-RACE, GL-SPAN, 
 
 ## Integration and device checks
 
-The eleven code and test patches applied together in a disposable Git index based on `f8d22f89a`. Together on that earlier integration snapshot, the save suites passed 49 and 5 assertions, and the real AAC race and segment regressions passed. Before taking AUD-BAKE, update the integrated duration check to validate the new segment duration rather than the old source end time. Each branch appends to the same routing table. Keep every verdict row when combining the documentation.
+The eleven code and test patches applied together in a disposable Git index based on `f8d22f89a`. Together on that earlier integration snapshot, the save suites passed 49 and 5 assertions, and the real AAC race and segment regressions passed. JUnit also passed all three VisLab tests with the TextLab changes present, using the Android Gradle mockable runtime. The classes were `NestedTitleExportTest`, `StudioVisAudioBindingTest` and `HeldSpriteTest`. The adjustment gate, mask-failure replay, paused-view scheduler and TextLab route checks passed in the combined tree. Before taking AUD-BAKE, update the integrated duration check to validate the new segment duration rather than the old source end time. Each branch appends to the same routing table. Keep every verdict row when combining the documentation.
 
 1. Save a recovered disposable Studio project again, kill the app at the save boundary, and reopen it. Compare the backup bytes, latest timeline contents and intentional empty cut.
 2. On the Note 9, reopen a project with two baked audio excerpts. Compare the selected words, effects, duration and waveform to the original clip after undo and redo.

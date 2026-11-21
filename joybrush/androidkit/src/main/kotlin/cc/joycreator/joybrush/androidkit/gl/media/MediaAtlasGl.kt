@@ -35,6 +35,12 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     /** Free placement: tile key -> slot, as last set. */
     var resident: Map<Long, Int> = emptyMap(); private set
     private val upload = FloatUploadBuffer()
+    /** OIL-STEP: the last neighbourhood handed out, valid while the table is unchanged ([NeighbourMemo.changed]). */
+    private val memo = NeighbourMemo()
+    /** ATLAS-TABLE: the table texture's current size and the staging buffer its cells go up through, both kept. */
+    private var texW = nx
+    private var texH = ny
+    private var staging: java.nio.IntBuffer? = null
     val table: Int
     private val instBuf: Int
     private val dabBuf: Int
@@ -95,10 +101,19 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         val t = MediaAtlasPlacement.table(map, walls)
         free = true; resident = HashMap(map)
         slotOf = t::slotOf; grid = intArrayOf(t.x, t.y, t.w, t.h)
-        val cells = ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer()
-        cells.put(t.data); cells.position(0)
+        memo.changed()
+        // Codex audit round 4, ATLAS-TABLE: the staging buffer is kept (grown only), and a table of the same size is written
+        // into the texture it already has instead of defining a new one. The same cells reach the same texels either way.
+        val cells = staging?.takeIf { it.capacity() >= t.data.size }
+            ?: ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer().also { staging = it }
+        cells.clear(); cells.put(t.data, 0, t.data.size); cells.position(0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
-        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
+        if (t.w == texW && t.h == texH)
+            GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, t.w, t.h, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
+        else {
+            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
+            texW = t.w; texH = t.h
+        }
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
     }
 
@@ -109,6 +124,8 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      * broken table included).
      */
     fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false, r: Int = 1) {
+        // OIL-STEP: the same question under the same table gets the same answer, copied.
+        if (memo.fill(tx, ty, r, withWalls, out)) return
         var i = 0
         for (dy in -r..r) for (dx in -r..r) {
             val x = tx + dx; val y = ty + dy
@@ -116,10 +133,11 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
             when {
                 withWalls && Tiles.key(x, y) in walls -> { out[i] = -2; out[i + 1] = -2 }
                 s < 0 -> { out[i] = -1; out[i + 1] = -1 }
-                else -> { val (ax, ay) = slotTexel(s); out[i] = ax; out[i + 1] = ay }
+                else -> { out[i] = (s % nx) shl MediaAtlasDraw.SHIFT; out[i + 1] = (s / nx) shl MediaAtlasDraw.SHIFT }   // slotTexel, no Pair
             }
             i += 2
         }
+        memo.remember(tx, ty, r, withWalls, out)
     }
 
     /** Slot [slot]'s first texel (full resolution). */
@@ -209,6 +227,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     fun setWalls(w: Set<Long>) {
         if (w == walls) return
         walls = w.toSet()
+        memo.changed()
         if (free) setResidency(resident)
     }
 

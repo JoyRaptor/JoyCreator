@@ -100,14 +100,18 @@
 
   /* ── reshape with pins ── */
   var FIX = 'fix';
-  fit.fixShape = function (n) { return (n.shapes || []).filter(function (q) { return q.id === FIX; })[0] || null; };
+  /* Reshaping is a Shape. Outside a stance it is always on ("Reshaped"). In a stance it is that stance's own shape: it comes in with the
+     stance's button and is gone when the character stands, so a chin can be pulled straight on all fours and left alone standing. */
+  fit.shapeId = function (app) { var p = app ? fit.pose(app) : null; return p ? 'pose:' + p.id : FIX; };
+  fit.fixShape = function (n, app) { var id = fit.shapeId(app); return (n.shapes || []).filter(function (q) { return q.id === id; })[0] || null; };
   fit.reshapeOn = function (app, n, on) {
     if (!on) { app.fitOn = null; app.shapeEdit = null; app.refreshPanel(true); return; }
-    if (!n.mesh || !n.mesh.pins || !fit.fixShape(n)) app.edit(function () {
+    var sid = fit.shapeId(app), pz = fit.pose(app);
+    if (!n.mesh || !n.mesh.pins || !fit.fixShape(n, app)) app.edit(function () {
       n.mesh = n.mesh || { pins: [], quiet: true }; n.mesh.pins = n.mesh.pins || [];
-      if (!fit.fixShape(n)) (n.shapes = n.shapes || []).unshift({ id: FIX, name: 'Reshaped', sig: 'always', amt: 1, d: {} });
+      if (!fit.fixShape(n, app)) (n.shapes = n.shapes || []).unshift(pz ? { id: sid, name: 'In ' + pz.name, sig: 'trig:' + pz.trig, amt: 1, d: {} } : { id: FIX, name: 'Reshaped', sig: 'always', amt: 1, d: {} });
     }, true, 'Reshape with pins');
-    var w = {}; w[n.id] = {}; w[n.id][FIX] = 1; app.shapeEdit = { node: n.id, shape: FIX, w: w }; app.fitOn = { node: n.id, pins: true };
+    var w = {}; w[n.id] = {}; w[n.id][sid] = 1; (n.shapes || []).forEach(function (q) { if (q.sig === 'always' && q.id !== sid) w[n.id][q.id] = 1; }); app.shapeEdit = { node: n.id, shape: sid, w: w }; app.fitOn = { node: n.id, pins: true };
     app.refreshPanel(true);
   };
   /** A tap on the part while reshaping: a new pin there. Returns true when it took the tap. */
@@ -181,14 +185,15 @@
     pb.appendChild(ui.lab(pose ? 'Fit it by hand, for the stance “' + pose.name + '”' : 'Fit it by hand' + (tag ? ': ' + tag : ''), 'fit'));
     var v = fit.get(app, n), row = [];
     if (can && !AL.stages.is(app, 'fit')) row.push(ui.chip('Move, turn, resize', { on: !!(on && on.box), icon: 'move', cls: on ? '' : 'go', title: 'A box on the picture: drag inside it to move, a corner to resize, the round handle below to turn', fn: function () { fit.boxOn(app, n, !(on && on.box)); } }));
-    if (can && !pose && n.type !== 'set') row.push(ui.chip('Reshape with pins', { on: !!(on && on.pins), icon: 'pin', title: 'Tap the part to drop pins, then drag one: the part stretches from there and the other pins hold the rest still', fn: function () { fit.reshapeOn(app, n, !(on && on.pins)); } }));
+    if (can && n.type !== 'set' && (!pose || pose.trig)) row.push(ui.chip('Reshape with pins', { on: !!(on && on.pins), icon: 'pin', title: 'Tap the part to drop pins, then drag one: the part stretches from there and the other pins hold the rest still', fn: function () { fit.reshapeOn(app, n, !(on && on.pins)); } }));
     if (can && fit.moved(app, n)) row.push(ui.chip('Put it back', { cls: 'quiet', title: pose ? 'Forget where this part was put for this stance' : 'Forget the move, the turn and the size: back to how it was drawn', fn: function () { app.edit(function () { fit.reset(app, n); }, false, 'Put it back'); } }));
     pb.appendChild(ui.row(row));
     var pd0 = pose && pose.d ? pose.d[n.id] : null, ax0 = pd0 && pd0.auto ? pd0.autoX || 0 : 0, ay0 = pd0 && pd0.auto ? pd0.autoY || 0 : 0, ar0 = pd0 && pd0.auto ? pd0.autoRot || 0 : 0;      // in a worked-out stance, show only what the hand has added
     if (on && on.box) pb.appendChild(ui.note('Moved <b>' + Math.round(v.x - ax0) + ', ' + Math.round(v.y - ay0) + '</b> · turned <b>' + Math.round(v.rot - ar0) + '°</b> · size <b>' + Math.round(v.sc * 100) + '%</b>.' + (pose ? ' Only while it is in this stance.' : ' It stays like this.')));
     if (pose) AL.stack.section(app, pb, n);
     if (on && on.pins) {
-      var fs = fit.fixShape(n), np = n.mesh ? n.mesh.pins.length : 0;
+      var fs = fit.fixShape(n, app), np = n.mesh ? n.mesh.pins.length : 0;
+      if (pose) pb.appendChild(ui.note('This reshaping is for <b>' + pose.name + '</b> only. Standing, the part keeps its own shape.'));
       pb.appendChild(ui.note(np ? '<b>Drag a pin</b> to stretch the part from there. Pins you leave alone hold it still. Tap the part for another pin.' : '<b>Tap the part</b> where it should stay put, and again where you want to pull it. Then drag a pin.'));
       pb.appendChild(ui.row([
         np ? ui.chip('Remove the last pin', { cls: 'quiet', fn: function () { app.edit(function () { var q = n.mesh.pins.pop(); if (q && fs && fs.d) delete fs.d[q.id]; }, false, 'Remove a pin'); } }) : null,

@@ -1129,7 +1129,8 @@
   function rowFor(app, n, depth, open) {
     var kind = n.role && AL.ROLES[n.role] ? AL.ROLES[n.role].label : n.type === 'set' ? 'one of' : n.type === 'mirror' ? 'mirror' : '';
     var has = n.kids && n.kids.length, isOpen = open && open[n.id];
-    return h('div', { class: 'tr' + (n.hidden ? ' hid' : '') + (app.sel.node === n.id ? ' sel' : ''), style: 'padding-left:' + (4 + depth * 12) + 'px', title: n.name, onclick: function () { app.sel = { zone: AL.zoneOf(app.ch, n.id), feature: null, node: n.id }; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(true); } }, [
+    return h('div', { class: 'tr' + (n.hidden ? ' hid' : '') + (app.sel.node === n.id ? ' sel' : ''), style: 'padding-left:' + (4 + depth * 12) + 'px', title: n.name, onclick: function () { if (AL.stages.on()) { app._hitId = n.id; app.tab = 'parts'; var keepP = app.poseEdit; app.select(AL.zoneOf(app.ch, n.id), null, n.id); if (keepP && app.poseEdit !== keepP) { app.poseEdit = keepP; app.refreshPanel(); } return; }      /* stages: a layer chosen in the list opens as the part in hand, in whatever stage and stance you are in */
+      app.sel = { zone: AL.zoneOf(app.ch, n.id), feature: null, node: n.id }; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(true); } }, [
       h('span', { class: 'tw', text: has ? (isOpen ? '▾' : '▸') : '', onclick: has ? function (e) { e.stopPropagation(); open[n.id] = !open[n.id]; app.refreshPanel(true); } : null }),
       cards.mini(n, 22), h('span', { class: 'nm', text: n.name }), kind ? h('span', { class: 'k', text: kind }) : null,
       n.type !== 'mirror' ? h('button', { class: 'ey', title: n.hidden ? 'Show' : 'Hide', onclick: function (e) { e.stopPropagation(); app.edit(function () { if (n.hidden) delete n.hidden; else n.hidden = true; }, true); app.refreshPanel(true); } }, AL.icon(n.hidden ? 'eyeoff' : 'eye')) : null
@@ -1138,7 +1139,7 @@
   function layers(app, pb) {
     var ch = app.ch, open = app.open || (app.open = {}), sel = app.sel.node && AL.node(ch, app.sel.node);
     if (!app._opened) { app._opened = true; AL.walk(ch.root, function (n, p, d) { if (d < 2) open[n.id] = true; }); }
-    head(app, 'Layers', null, 'Every layer of the file. Tap one to light it up on the stage; the eye hides it.');
+    head(app, 'Layers', null, AL.stages.on() ? 'Every layer of the file. Tap one to work on just that layer; the eye hides it.' : 'Every layer of the file. Tap one to light it up on the stage; the eye hides it.');
     app.coach(sel ? '<b>' + sel.name + '.</b> Lit on the stage.' : '<b>Layers.</b> Tap a layer to find it on the stage.');
     if (sel) pb.appendChild(app.ui.row([app.ui.chip('Open “' + sel.name + '”', { icon: 'wand', cls: 'go', title: 'Rig this layer: say what it is, make it follow something', fn: function () { app.tab = 'parts'; app.refreshPanel(); } }), app.ui.chip('Clear', { cls: 'quiet', fn: function () { app.sel.node = null; app.resolveSel(); app.refreshPanel(true); } })]));
     var tree = h('div', { class: 'tree', style: 'margin-top:8px' });

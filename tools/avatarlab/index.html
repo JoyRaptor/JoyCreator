@@ -126,9 +126,9 @@ body.fill #devwrap{align-items:stretch} body.fill #device{width:100%;height:100%
 .crumbs{flex:1;min-width:0;display:flex;overflow-x:auto;scrollbar-width:none;padding:1px 0}
 .crumbs::-webkit-scrollbar{display:none}
 /* the lobby's slanted tab: a leaning block with every corner softened alike; the first one stands straight on its left side */
-.crumb{flex:none;height:30px;display:inline-flex;align-items:center;gap:5px;padding:0 14px;margin-left:-3px;color:var(--dim);font:700 12px/1 var(--f-disp);white-space:nowrap;position:relative;z-index:0;transform-origin:left center;--cb:var(--raised)}
+.crumb{flex:none;height:30px;display:inline-flex;align-items:center;gap:5px;padding:0 14px 0 10px;margin-left:1px;color:var(--dim);font:700 12px/1 var(--f-disp);white-space:nowrap;position:relative;z-index:0;transform-origin:left center;--cb:var(--raised)}
 .crumb::before{content:"";position:absolute;inset:0 2px;background:var(--cb);border-radius:5px;transform:skewX(-17deg);z-index:-1}
-.crumb:first-child{margin-left:0;padding-left:10px}
+.crumb:first-child{margin-left:0;padding-left:8px}
 .crumb:first-child::after{content:"";position:absolute;left:0;top:0;bottom:0;width:55%;background:var(--cb);border-radius:5px 0 0 5px;z-index:-1}
 .crumb.on{font:800 16px/1 var(--f-disp);letter-spacing:-.01em}
 .crumb img{width:22px;height:22px;object-fit:contain;flex:none}

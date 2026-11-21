@@ -254,6 +254,7 @@
     var S = liveNow ? app.inp.step(dt) : (app.held || app.buildSignals());                   // (a held pose: the living picture frozen, to be mended)
     app._S = S;
     if (!liveNow && !app.held) app.plantPreview(S);
+    if (!liveNow && !app.held) { var pzt = app.poseEdit && AL.stance ? AL.stance.find(app.ch, app.poseEdit) : null, tr0 = app.test.trig || {}; if (pzt && pzt.trig && (app.poseAmt == null || app.poseAmt > 0.5)) { var tr1 = {}; for (var tk in tr0) tr1[tk] = tr0[tk]; tr1[pzt.trig] = true; S.trig = tr1; } }      // in a stance, what its button brings in (a shape made for the stance) is in too
     else if (AL.stages && AL.stages.is(app, 'motion')) AL.stages.tryOn(app, S);
     var onion = null; if (!liveNow && app.onion && app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') onion = app.selNodes[0].id;
     var fitNow = !liveNow && !!(AL.stages && AL.stages.is(app, 'fit'));
@@ -306,8 +307,8 @@
        Wash         a faint magenta wash over the part, gently pulsing, no line
      All are made from the same thing: the selected pieces drawn alone into a second surface (their true silhouette). */
   app.LOOKS = [['ants', 'Fine dashes'], ['glow', 'Glow'], ['spot', 'Spotlight'], ['corners', 'Corners'], ['wash', 'Wash']];
-  app.look = function () { if (!app._look) { try { app._look = localStorage.getItem('al.look') || 'ants'; } catch (e) { app._look = 'ants'; } } return app._look; };
-  app.nextLook = function () { var i = 0; app.LOOKS.forEach(function (q, k) { if (q[0] === app.look()) i = k; }); var n = app.LOOKS[(i + 1) % app.LOOKS.length]; app._look = n[0]; try { localStorage.setItem('al.look', n[0]); } catch (e) { } app.toast('Selection shown as: ' + n[1]); app.renderTools(); };
+  app.look = function () { if (!app._look) { try { app._look = localStorage.getItem('al.look2') || 'spot'; } catch (e) { app._look = 'spot'; } } return app._look; };
+  app.nextLook = function () { var i = 0; app.LOOKS.forEach(function (q, k) { if (q[0] === app.look()) i = k; }); var n = app.LOOKS[(i + 1) % app.LOOKS.length]; app._look = n[0]; try { localStorage.setItem('al.look2', n[0]); } catch (e) { } app.toast('Selection shown as: ' + n[1]); app.renderTools(); };
   app.outline = function (g, dpr, out) {
     if (!(AL.stages && AL.stages.on()) || app.mode !== 'build' || app.bridge || app.tab !== 'parts' || !out || app.selOff) return;
     var ids = null;
@@ -357,12 +358,14 @@
   /* GROUND card, in Motion: the three bands a finger moves the hips through (jump above, upright between, all fours below) */
   app.bands = function (g) {
     if (!(app.live && AL.stages && AL.stages.is(app, 'motion') && app.sel.zone === 'ground' && app.inp && app.inp.walker.band)) return;
-    var B = app.inp.walker.band, v = app.view, Wd = app.stageSize().w, yU = (B.y - B.up) * v.s + v.oy, yD = (B.y + B.down) * v.s + v.oy, has4 = !!(AL.stance && AL.stance.fours(app.ch));
-    g.save(); g.fillStyle = 'rgba(34,211,238,.07)'; g.fillRect(0, yU, Wd, (has4 ? yD : app.stageSize().h) - yU);
-    g.setLineDash([6, 5]); g.lineWidth = 1; g.font = '600 11px sans-serif';
-    g.strokeStyle = g.fillStyle = '#f43f8e'; g.beginPath(); g.moveTo(0, yU); g.lineTo(Wd, yU); g.stroke(); g.fillText('pull the hips above this line: it jumps', 10, yU - 5);
-    if (has4) { g.strokeStyle = g.fillStyle = '#a78bfa'; g.beginPath(); g.moveTo(0, yD); g.lineTo(Wd, yD); g.stroke(); g.fillText('push the hips below this line: all fours', 10, yD + 14); }
-    g.fillStyle = '#22d3ee'; g.fillText('between the lines it walks upright', 10, (yU + (has4 ? yD : yU + 60)) / 2 + 4);
+    var B = app.inp.walker.band, v = app.view, Z = app.stageSize(), yU = (B.y - B.up) * v.s + v.oy, yD = (B.y + B.down) * v.s + v.oy, has4 = !!(AL.stance && AL.stance.fours(app.ch));
+    function line(y, col) { g.strokeStyle = col; g.setLineDash([2, 6]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(0, y); g.lineTo(Z.w, y); g.stroke(); g.setLineDash([]); }
+    function pic(id, y, col) { var P = AL.PICS && AL.PICS[id]; if (!P) return; g.save(); g.translate(8, y - 9); g.scale(0.75, 0.75); g.lineWidth = 2; g.lineCap = g.lineJoin = 'round'; g.strokeStyle = col; g.fillStyle = col; [P.d, P.a].forEach(function (d) { if (d) g.stroke(new Path2D(d)); }); if (P.f) g.fill(new Path2D(P.f)); g.restore(); }
+    g.save();
+    line(yU, '#f43f8e'); if (has4) line(yD, '#a78bfa');
+    pic('air-jump', Math.max(40, yU - 16), '#f43f8e');                       // above the top line: a jump
+    pic('stand', (yU + (has4 ? yD : yU + 70)) / 2, '#a1a1aa');                 // between: upright
+    if (has4) pic('legs-four', yD + 16, '#a78bfa');                          // below the bottom line: all fours
     g.restore();
   };
   app.drawOverlay = function (g, dpr, liveNow, out) {
@@ -652,7 +655,6 @@
     function b(icon, title, on, fn) { t.appendChild(h('button', { class: 'ib' + (on ? ' on' : ''), title: title, 'aria-pressed': String(!!on), onclick: fn }, AL.icon(icon))); }
     b('fit', 'Fit: show the whole character', false, function () { app.userView = false; if (liveNow || !app.selIds) app.fit(false); else if (app.vt == null && app._fitAll) { app._fitAll = false; app.focusSel(); } else { app._fitAll = true; app.fit(false); } });
     if (!liveNow) {
-      if (AL.stages && AL.stages.on()) { var lk = 'Fine dashes'; app.LOOKS.forEach(function (q) { if (q[0] === app.look()) lk = q[1]; }); b('target', 'How the part in hand is shown: ' + lk + '. Tap for the next of five.', false, app.nextLook); }
       b('mesh', 'Show the bend mesh of the selected part', app.mesh, function () { app.mesh = !app.mesh; app.renderTools(); });
       if (app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') b('onion', 'Onion skin: ghost the other drawings of this part', app.onion, function () { app.onion = !app.onion; app.renderTools(); });
       if (!(AL.stages && AL.stages.on())) b('move', 'Move art: when ON, dragging the selected drawing slides it (pins come along)', app.moveArt, function () { app.moveArt = !app.moveArt; app.renderTools(); app.toast(app.moveArt ? 'Move art is ON: drag the selected drawing' : 'Move art is off'); });

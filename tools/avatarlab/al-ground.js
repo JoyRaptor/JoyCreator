@@ -19,9 +19,10 @@
 
     if (can && wk && wk.on !== false) {
       pb.appendChild(ui.lab('Upright, all fours, or a jump'));
-      if (AL.stance.fours(ch)) pb.appendChild(ui.slider('Drops to all fours', { min: 0.3, max: 1, step: 0.02, value: wk.fourAt == null ? 0.82 : wk.fourAt, set: function (v) { wk.fourAt = v; }, fmt: function (v) { return v < 0.5 ? 'at a light push' : v > 0.85 ? 'only pushed hard' : 'pushed ' + Math.round(v * 100) + '%'; }, title: 'How far down the body has to be pushed before it goes onto all fours instead of walking upright' }));
-      pb.appendChild(ui.slider('Jumps', { min: 0.2, max: 1.6, step: 0.05, value: wk.jumpAt == null ? 0.7 : wk.jumpAt, set: function (v) { wk.jumpAt = v; }, fmt: function (v) { return v < 0.45 ? 'at a light pull' : v > 1.1 ? 'only pulled hard' : 'pulled ' + Math.round(v * 100) + '%'; }, title: 'How far up the body has to be pulled before the feet leave the ground' }));
-      pb.appendChild(ui.note('In <b>Motion</b>, with this card open, the picture shows the three bands: pull the body above the top line and it jumps, push it below the bottom line and it goes onto all fours, and between them it walks upright.'));
+      function withPic(el, id) { var lb = el.querySelector('label'); if (lb) { lb.style.display = 'inline-flex'; lb.style.alignItems = 'center'; lb.style.gap = '5px'; lb.insertBefore(AL.icon(id), lb.firstChild); } return el; }
+      if (AL.stance.fours(ch)) pb.appendChild(withPic(ui.slider('Drops to all fours', { min: 0.3, max: 1, step: 0.02, value: wk.fourAt == null ? 0.82 : wk.fourAt, set: function (v) { wk.fourAt = v; }, fmt: function (v) { return v < 0.5 ? 'at a light push' : v > 0.85 ? 'only pushed hard' : 'pushed ' + Math.round(v * 100) + '%'; }, title: 'How far down the body has to be pushed before it goes onto all fours instead of walking upright' }), 'legs-four'));
+      pb.appendChild(withPic(ui.slider('Jumps', { min: 0.2, max: 1.6, step: 0.05, value: wk.jumpAt == null ? 0.7 : wk.jumpAt, set: function (v) { wk.jumpAt = v; }, fmt: function (v) { return v < 0.45 ? 'at a light pull' : v > 1.1 ? 'only pulled hard' : 'pulled ' + Math.round(v * 100) + '%'; }, title: 'How far up the body has to be pulled before the feet leave the ground' }), 'air-jump'));
+      pb.appendChild(ui.note('In <b>Motion</b>, with this card open, two dotted lines on the picture show the bands: above the top one it jumps, below the bottom one it goes onto all fours, between them it walks upright.'));
     }
     var limbs = AL.findAll(ch.root, isLimb);
     if (limbs.length) {

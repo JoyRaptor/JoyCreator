@@ -74,6 +74,7 @@
   };
   intake.openJson = function (app, text) {
     var o; try { o = JSON.parse(text); } catch (e) { throw new Error('That file could not be read as a character.'); }
+    if (o && o.format === 'joycreator.scene/1' && AL.scene) return AL.scene.open(app, o).then(function (ok) { if (ok) app.toast('Opened the scene “' + o.name + '”'); });      // a scene file: its set, its cast, its takes
     var bad = AL.validate(o); if (bad) throw new Error(bad);
     var take = o.take && o.take.ch ? o.take : null, old = AL.img.map; delete o.take; AL.img.map = {};
     return AL.fromJson(o).then(function (ch) {
@@ -287,6 +288,7 @@
       }).catch(function (e) { app.toast(e.message); });
     });
   };
+  intake.trim = trim;      // (a picture cut to its paint, remembering where on the whole canvas it sat: al-agent.js brings parts in the same way)
   intake.addPictures = function (app, files, zone) {
     return Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
       pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
@@ -487,7 +489,8 @@
     function item(icon, label, fn, hint) { m.appendChild(h('button', { title: label, onclick: function () { app.closeSheet(); fn(); } }, [AL.icon(icon), h('span', { text: label }), hint ? h('small', { text: hint }) : null])); }
     /* the characters you have, as a row of cards; the three file buttons sit in the header beside the close button */
     /* leaving a character: it is kept first; if this browser would not keep it, say so before anything replaces it */
-    function away(then) { function go() { if (app._state === 'failed') app.ask('Leave this character?', 'This browser would not keep it. Save it to a file first if you want it.', 'Leave it', then, true); else then(); } app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(go, go); }
+    function away(then) { if (AL.scene && app.scene) AL.scene.close(app, true);      /* a character is being opened: the scene is kept and left */
+      function go() { if (app._state === 'failed') app.ask('Leave this character?', 'This browser would not keep it. Save it to a file first if you want it.', 'Leave it', then, true); else then(); } app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(go, go); }
     function blank() { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.newCharacter('New character', 512, 512)); }
     function fresh(which, miss) { return function () { return intake.builtIn(app, which).catch(function () { app.toast(miss); }); }; }
     var stock = [{ key: 'topps', name: 'Topps', title: 'Topps as he comes: seven head angles, arms that swap and bend, and he walks', fn: fresh('topps', 'Topps is not with this copy of the page.') }];
@@ -497,7 +500,7 @@
     var box = h('div', null, [AL.shelf.row(app, stock, function () {
       app.closeSheet();
       away(blank);
-    }, away), m]);
+    }, away), AL.scene ? AL.scene.row(app) : null, m]);
     item('layers', 'Update the art', function () { if (!AL.find(app.ch.root, function (n) { return n.type === 'art'; })) { app.toast('There is no character to update yet.'); return; } intake.psdMode = 'update'; $('filePsd').value = ''; $('filePsd').click(); }, 'repainted .psd, rigging kept');
     item('image', 'Add pictures', function () { pickImages(function (files) { intake.addPictures(app, files, null).catch(function (e) { app.toast(e.message); }); }); }, 'named by part');
     m.appendChild(h('hr'));
@@ -505,8 +508,8 @@
     m.appendChild(app.ui.toggle('One long card per part', !AL.stages.on(), function (v) { app.closeSheet(); AL.stages.set(app, !v); }, 'The earlier layout: Build and Perform at the top, and everything about a part on one card'));
     app.sheet('Avatar Studio', box, [], [
       { icon: 'file', title: 'Open a character file', fn: function () { app.closeSheet(); $('fileJson').value = ''; $('fileJson').click(); } },
-      { icon: 'save', title: 'Save this character to a file, with its take', fn: function () { app.closeSheet(); intake.saveCharacter(app); } },
-      { icon: 'send', title: 'Send to Studio', fn: function () { app.closeSheet(); intake.send(app); } }
+      { icon: 'save', title: 'Save this character to a file, with its take', fn: function () { app.closeSheet(); if (AL.scene && AL.scene.on(app)) AL.scene.saveFile(app); else intake.saveCharacter(app); } },
+      { icon: 'send', title: 'Send to Studio', fn: function () { app.closeSheet(); if (AL.scene && AL.scene.on(app)) AL.scene.sendSheet(app); else intake.send(app); } }
     ]);
   };
   intake.about = function (app) {

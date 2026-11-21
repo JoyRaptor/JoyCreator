@@ -129,7 +129,7 @@
     this.pr = P.pr; this.loc = P.loc; this._tone = !!tone; this._inMask = false;
     var L = this.loc;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    gl.viewport(0, 0, c.width, c.height); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.viewport(0, 0, c.width, c.height); if (!this.keep) { gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); }      // (keep: a scene draws many things into one picture, al-scene-draw.js)
     gl.useProgram(this.pr); this._view = view;
     gl.uniform4f(L.uv, view.s, view.s, view.ox, view.oy); gl.uniform2f(L.ur, c.width, c.height); gl.uniform2f(L.uq, c.width, c.height);
     if (tone) {

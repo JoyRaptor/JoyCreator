@@ -384,9 +384,55 @@ they want, a centipede; arms that can become feet with one toggle").
       ship). Not checked: memory and speed with big art on a
       phone (a 2000 px character is several times the texture memory); files whose shape differs; a file
       smaller than the character (coded, coarser art, not run).
-- [ ] Asked for 11-21, parked by him until the two fixes above are seen: a camera frame with aspect ratio in
-      Perform, a close-up toggle, a Scene (background, foreground pieces, several characters), an export button
-      with video and "performance to Studio" modes, scenes on the character shelf. Not designed yet.
+- [x] **Scene (round 20, 11-21; he said "get set, GO", best judgment).** Rulings so far: the menu reads Create
+      new avatar, a line, Create new scene; a scene is its own thing on the shelf, not a tab in Set up; work
+      stays in house (a take or scene goes to Studio un-flattened and is rendered at Studio's final export),
+      quick video out is the side door; scenes, cast and camera shots are always at hand in Perform, and on a
+      tablet a tapped character's expressions sit right there. Plan as built in `tools/avatarlab/al-scene*.js`:
+      - **One rule for depth:** everything that stands in a scene stands on its feet. Drag it up the floor and it
+        goes back, shrinks and passes behind whatever stands lower. No layer list to manage.
+      - **Three kinds of thing:** Backdrop (fills the frame, behind all), Object (stands on the floor; one
+        picture or several as a loop; can sway in the wind), Foreground (in front of all), plus Characters
+        from the shelf, each with its own engine, hands, voice and take.
+      - **The frame is the shot:** a scene has a shape (16:9, 9:16, 1:1, 4:5, 4:3) and is 1920 on its long
+        side whatever the screen. Outside the frame stays visible but dimmed, so entrances can wait off-screen.
+        Safe margins (title, social) are an overlay, never the frame.
+      - **Shots, not a zoom toggle:** Wide, Two-shot, Close on each character (found from the head, and it
+        follows), and any view saved by hand. Tap cuts, hold eases. Cuts are recorded on a camera lane.
+      - **Passes:** the character in hand records; the others play their takes back in step; idle ones stay
+        alive. One clock for the scene.
+      - **Two stages:** Arrange and Perform; a character in the scene opens into its own four stages and
+        comes back.
+      - **Agents and Joybot:** every scene act is one named command with plain arguments
+        (`AL.agent.tools`, `AL.agent.run`), the same list Joybot and a connected model use.
+      Not in this round: video file export, the live Studio link itself (the scene file is the package),
+      characters walking in depth, props held in a hand, scene moods.
+      **Built and pushed 11-21 (round 20).** Five files beside the pilot (`al-scene.js` the scene and its cast,
+      `al-scene-draw.js` the frame loop and fingers, `al-scene-take.js` the clock, camera lane and shots,
+      `al-scene-ui.js` Arrange, the dock, the menu row, `al-agent.js` the room as named tools) and two one-line
+      hooks in the old engine (a take can run as long as the scene; the GL surface can draw without clearing).
+      What works: menu row (Create new avatar, a line, Create new scene and the scenes you have); four sets
+      that come with the room (Meadow, Room, Night, Studio); backdrops, objects (a loop from several pictures;
+      wind sway), foregrounds; any number of characters, the same one twice; the floor rule for depth with haze;
+      five frame shapes and two kinds of margin; Wide / Two-shot / Close on each / kept shots, cut or glide, a
+      close-up that follows; backdrop and foreground slide by depth when the camera moves; passes with one
+      clock; idle characters watch the one in hand; the camera lane with punch-in; the dock (one row with tabs
+      on a phone, three rows on a tablet) with Record and Play on it; a character opens into its four stages
+      and comes back; scenes kept on the shelf and reopened where you left off; a scene file that carries its
+      characters; Send to Studio sheet with what goes and what is behind it; Joybot's sheet in a scene; 18
+      tools (`AL.agent.manifest()`), including building a character from cut-out parts and puppeteering by word.
+      **Checked:** `al-breaktest-scene.js`, 46 checks, 0 failures, and each of 8 planted faults caught (order,
+      shape, the wrong one moved, passes, camera lane, the camera off the stage, undo, a file that lost its
+      takes); the older tests after the engine hooks (all fours 156/0, stages 43/0, stances 27/0, walking 50/0);
+      with the real mouse: a character dragged up the floor (smaller, one undo), a touch on the other character
+      taking it in hand and turning its head in the same drag, a cut to a close-up, the menu row, the Send
+      sheet; phone tall and tablet looked at. The agent path was run end to end by script (new character, two
+      parts landing where they were cut from, a scene, an object, 9:16 with margins, a mood, back to Topps).
+      **Not checked:** any phone; several characters' speed on the Note 9; the microphone, a voice file or the
+      face camera inside a scene; phone held sideways; a real picture file through the file picker (pictures
+      were made by script); a real model driving the tools. **Known limits:** a character walks in its own
+      space, not across the stage or into depth; Undo for scene changes works in Arrange only; the camera lane
+      has no list to edit, only Clear; nothing is exported as video; the Studio link is the saved file.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

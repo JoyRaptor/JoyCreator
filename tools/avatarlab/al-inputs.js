@@ -294,7 +294,7 @@
       for (g in own) if (own[g]) fade[g] = FADE;
       if (this.playing || this.recording) this.ph += dt;
       if (this.recording) { tk.n = Math.max(tk.n, i + 1); if (this.ph > 120) this.stop(); }
-      else if (this.playing && this.ph >= tk.n / tk.fps) this.ph = 0;
+      else if (this.playing && this.ph >= Math.max(tk.n / tk.fps, this.sceneLen || 0)) this.ph = 0;      // (in a scene the take runs as long as the longest one in it: al-scene-take.js)
     }
     this.easeLevels(dt, S);
     return S;

@@ -102,7 +102,7 @@
     }
     function fill(mine) {
       row.innerHTML = '';
-      row.appendChild(card('new', AL.icon('plus'), 'Create new', null, 'Start a new character. The one you are on is kept.', onNew));
+      row.appendChild(card('new', AL.icon('plus'), 'Create new avatar', null, 'Start a new character. The one you are on is kept.', onNew));
       var cur = app.ch && app.ch.uid;
       mine.forEach(function (e) {
         row.appendChild(card('own' + (e.uid === cur ? ' on' : ''), e.pic ? h('img', { src: e.pic, alt: '' }) : h('i'), e.name || 'Character', e.uid === cur ? 'open now' : null, e.uid === cur ? '“' + e.name + '” is the one you are on' : 'Open “' + e.name + '” as you left it', function () { app.closeSheet(); if (e.uid !== cur) away(function () { shelf.open(app, e.uid); }); }));

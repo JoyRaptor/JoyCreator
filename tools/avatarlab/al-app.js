@@ -34,6 +34,8 @@
   };
   AL.icon = function (name) {
     var s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('class', 'ic'); s.setAttribute('aria-hidden', 'true');
+    var P = AL.PICS && AL.PICS[name];                          // a picture in up to three parts: grey lines, a solid shape and lines in the mark colour
+    if (P) { if (P.f || P.a) s.setAttribute('class', 'ic two'); [['g', P.d], ['f', P.f], ['a', P.a]].forEach(function (q) { if (!q[1]) return; var e = document.createElementNS(NS, 'path'); e.setAttribute('class', q[0]); e.setAttribute('d', q[1]); s.appendChild(e); }); return s; }
     var p = document.createElementNS(NS, 'path'); p.setAttribute('d', ICON[name] || ICON.plus); s.appendChild(p); return s;
   };
 
@@ -46,13 +48,14 @@
   };
 
   /* ── small control kit ── */
+  function pic(kind, label, title) { var id = AL.picFor ? AL.picFor(kind, label, title) : null; return id ? AL.icon(id) : null; }
   app.ui = {
-    chip: function (label, o) { o = o || {}; return h('button', { class: 'chip' + (o.on ? ' on' : '') + (o.cls ? ' ' + o.cls : ''), title: o.title || label, onclick: o.fn ? function (ev) { app.nextLabel = o.undo || label; try { o.fn.call(this, ev); } finally { app.nextLabel = null; } } : null, disabled: o.disabled, 'aria-pressed': o.on == null ? null : String(!!o.on) }, [o.icon ? AL.icon(o.icon) : null, label]); },
+    chip: function (label, o) { o = o || {}; return h('button', { class: 'chip' + (o.on ? ' on' : '') + (o.cls ? ' ' + o.cls : ''), title: o.title || label, onclick: o.fn ? function (ev) { app.nextLabel = o.undo || label; try { o.fn.call(this, ev); } finally { app.nextLabel = null; } } : null, disabled: o.disabled, 'aria-pressed': o.on == null ? null : String(!!o.on) }, [pic('chip', label) || (o.icon ? AL.icon(o.icon) : null), label]); },
     lab: function (text) { return h('div', { class: 'lab', text: text }); },
     note: function (html) { return h('p', { class: 'note', html: html }); },
     row: function (kids) { return h('div', { class: 'rowf' }, kids); },
-    seg: function (opts, val, fn, title) { var s = h('span', { class: 'seg', role: 'group', title: title }); opts.forEach(function (o) { s.appendChild(h('button', { class: o[0] === val ? 'on' : '', text: o[1], title: o[2] || o[1], onclick: function () { app.nextLabel = (title ? title.replace(/\?$/, '') + ': ' : '') + o[1]; try { fn(o[0]); } finally { app.nextLabel = null; } } })); }); return s; },
-    toggle: function (label, on, fn, sub, title) { return h('button', { class: 'tg' + (on ? ' on' : ''), title: title || label, 'aria-pressed': String(!!on), onclick: function () { app.nextLabel = label + (on ? ' off' : ' on'); try { fn(!on); } finally { app.nextLabel = null; } } }, [h('i'), h('span', null, [label, sub ? h('small', { text: sub }) : null])]); },
+    seg: function (opts, val, fn, title) { var s = h('span', { class: 'seg', role: 'group', title: title }); opts.forEach(function (o) { s.appendChild(h('button', { class: o[0] === val ? 'on' : '', title: o[2] || o[1], onclick: function () { app.nextLabel = (title ? title.replace(/\?$/, '') + ': ' : '') + o[1]; try { fn(o[0]); } finally { app.nextLabel = null; } } }, [pic('seg', o[1], title), o[1]])); }); return s; },
+    toggle: function (label, on, fn, sub, title) { return h('button', { class: 'tg' + (on ? ' on' : ''), title: title || label, 'aria-pressed': String(!!on), onclick: function () { app.nextLabel = label + (on ? ' off' : ' on'); try { fn(!on); } finally { app.nextLabel = null; } } }, [h('i'), pic('tg', label), h('span', null, [label, sub ? h('small', { text: sub }) : null])]); },
     /** A slider that is one undo step per drag. get/set work on the model directly. */
     slider: function (label, o) {
       var out = h('output', { text: (o.fmt || String)(o.value) }), first = true;
@@ -158,6 +161,42 @@
 
   /* ── the view: fit, focus, pan, pinch ── */
   app.stageSize = function () { var s = $('stage'); return { w: s.clientWidth, h: s.clientHeight }; };
+  /* One-off, pilot only: copies of the built-in Topps kept in a browser from before 11-21 carry two faults the owner reported and could
+     not reach to fix (the crest layer turned on its side; no order for the arms on all fours). Put right once, as one undo step. */
+  function mendTopps() {
+    var ch = app.ch; if (!ch || ch.demo !== 'topps' || ch.mended || !AL.stance) return;
+    var fr = AL.node(ch, 'n5byqt'), p = AL.stance.fours(ch), hd = AL.node(ch, 'n3ubb0'), jobs = [];
+    if (fr && fr.rot && Math.abs(fr.rot) > 60) jobs.push(function () { delete fr.rot; });
+    if (p && hd) ['n3fn72', 'n3oyl7'].forEach(function (id, i) { var d = p.d && p.d[id]; if (d && !d.z && AL.node(ch, id)) jobs.push(function () { d.z = i ? { how: 'under', of: hd.id, at: 0.35 } : { how: 'under', of: hd.id, at: 0.35, tip: 0.5 }; }); });
+    if (!jobs.length) return;
+    app.edit(function () { jobs.forEach(function (f) { f(); }); ch.mended = 1; }, false, 'Topps put right (crest, arms behind the head)');
+    setTimeout(function () { app.toast('Topps\u2019s crest and front legs were put right. Undo brings them back as they were.'); }, 900);
+  }
+  /* In Build, a stance that puts the hands on the ground shows them planted there, as Perform will: the still picture must not
+     say something the moving one does not. (The same test the walker makes: is the ground within the arm's reach?) */
+  app.plantPreview = function (S) {
+    var ch = app.ch, legs = app.inp && app.inp.walker.legs(), list = legs ? legs.all : [], st = ch.settings, wk = st.walk || {};
+    var p = app.poseEdit && AL.stance ? AL.stance.find(ch, app.poseEdit) : null, amt = app.poseAmt == null ? 1 : app.poseAmt, face = st.facing === 'left' ? -1 : st.facing === 'right' ? 1 : 0;
+    list.forEach(function (q) {
+      if (!q.arm || !q.lift) return;
+      var a = S.anchor && S.anchor[q.key], want = null;
+      if (p && amt >= 0.6 && a && wk.on !== false && wk.groundY != null) {
+        var far = q.mate ? Math.max(0, wk.groundY - q.mate.foot.y) : 0, hy = wk.groundY - q.palm - far, hgt = hy - a[1];
+        if (hgt > 2 && hgt < q.len * (1 + q.stretch) * 1.12) want = { x: a[0] + face * q.len * 0.1, y: hy, w: true, pv: true };
+      }
+      if (want) S.hand[q.key] = want; else if (S.hand[q.key] && S.hand[q.key].pv) S.hand[q.key] = null;
+    });
+  };
+  /** The box the drawn picture of these parts fills right now (their pose, not how they were painted). null = everything. */
+  app.drawnBounds = function (nodes) {
+    var out = app.out, ids = null, b = null; if (!out) return null;
+    if (nodes) { ids = {}; nodes.forEach(function (n) { AL.walk(n.type === 'mirror' ? AL.node(app.ch, n.of) || n : n, function (k) { if (k.type === 'art') ids[k.id] = 1; }); }); }
+    out.items.forEach(function (it) {
+      if (it.ghost || (ids && !ids[it.id])) return; var v = it.v;
+      for (var i = 0; i < v.length; i += 2) { var x = v[i], y = v[i + 1]; if (!b) b = { x0: x, y0: y, x1: x, y1: y }; else { if (x < b.x0) b.x0 = x; if (x > b.x1) b.x1 = x; if (y < b.y0) b.y0 = y; if (y > b.y1) b.y1 = y; } }
+    });
+    return b;
+  };
   app.fitTo = function (b, pad, snap) {
     /* the picture is fitted into what is left of the stage once the hint line (top) and the row of buttons (bottom) have taken their room,
        so neither ever covers the feet, a pin or the box's turn handle */
@@ -170,7 +209,7 @@
     if (snap) { app.view = v; app.vt = null; } else app.vt = v;
   };
   app.fit = function (snap) {
-    var b = AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
+    var b = (app.poseEdit && app.mode !== 'perform' && !app.live && app.drawnBounds(null)) || AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
     if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.travels()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * 0.05 }; }   // room to walk
     app.fitTo(b, 14, snap);
   };
@@ -180,6 +219,7 @@
     if (!liveNow && app.selNodes && app.selNodes.length && app.sel.zone !== 'body') {
       app.selNodes.forEach(function (n) { var q = n.type === 'mirror' ? AL.boundsOf(AL.node(app.ch, n.of)) : (n.type === 'set' && n.pick && n.pick.by === 'turn' ? AL.boundsOf((app.curView() || {}).node || n) : AL.boundsOf(n)); if (q) b = b ? { x0: Math.min(b.x0, q.x0), y0: Math.min(b.y0, q.y0), x1: Math.max(b.x1, q.x1), y1: Math.max(b.y1, q.y1) } : q; });
     }
+    if (b && app.poseEdit) b = app.drawnBounds(app.selNodes) || b;          // in a stance the part is where the stance puts it, not where it was painted
     if (!b) return app.fit(false);
     var w = b.x1 - b.x0, hh = b.y1 - b.y0, grow = app.sel.feature ? Math.max(w, hh) * 0.9 + 26 : Math.max(w, hh) * 0.16 + 10;
     app.fitTo({ x0: b.x0 - grow, y0: b.y0 - grow, x1: b.x1 + grow, y1: b.y1 + grow }, 8, false);
@@ -205,6 +245,7 @@
     if (app.vt) { var v = app.view, q = app.vt, k = 1 - Math.exp(-14 * dt); v.s += (q.s - v.s) * k; v.ox += (q.ox - v.ox) * k; v.oy += (q.oy - v.oy) * k; if (Math.abs(q.s - v.s) < 0.001 && Math.abs(q.ox - v.ox) < 0.3 && Math.abs(q.oy - v.oy) < 0.3) { app.view = q; app.vt = null; } }
     var liveNow = app.mode === 'perform' || app.live;
     var S = liveNow ? app.inp.step(dt) : app.buildSignals();
+    if (!liveNow) app.plantPreview(S);
     var onion = null; if (!liveNow && app.onion && app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') onion = app.selNodes[0].id;
     var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false && !app.poseEdit };
     if (bridge) {                                            // matching two head angles: one on stage, the other ghosted over it; or the real turn, to preview it
@@ -216,6 +257,7 @@
     if (!liveNow && app.poseEdit) { eo.poses = {}; eo.poses[app.poseEdit] = app.poseAmt == null ? 1 : app.poseAmt; }      // working on a stance: the character stands in it
     if (!liveNow && app.toneTry) { eo.tones = {}; eo.tones[app.toneTry] = app.toneAmt == null ? 1 : app.toneAmt; }        // looking at a colour set
     var out = app.out = app.solver.eval(S, eo);
+    if (!liveNow && app._pe !== (app.poseEdit || null)) { app._pe = app.poseEdit || null; setTimeout(function () { app.userView = false; app.focusSel(); }, 0); }      // into or out of a stance: frame it again, now that it is drawn there
     if (bridge && bridge.ids && bridge.t == null) out.items.forEach(function (it) { if (!bridge.ids[it.id]) { it.a0 = it.a; it.a *= it.ghost ? 0 : 0.22; } });      // matching one piece: the rest steps back
     var ghostTint = bridge ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
@@ -503,8 +545,11 @@
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);
     if (app.mode !== 'perform') AL.cards.fold(app);
+    if (app.mode !== 'perform' && !app.live && app.fitOn && app.fitOn.box) { var bx = AL.node(app.ch, app.fitOn.node); if (bx) app.pinProvider = function () { return AL.fit.pins(app, bx); }; }      // the box shows on whichever card is open
     app.renderTools();
-    pb.scrollTop = keepScroll ? sc : 0;                        // a different card always opens at its top
+    /* the same card drawn again stays where it was scrolled to; a different card opens at its top */
+    var h2 = $('panelhead').querySelector('h2'), key = app.mode + '|' + app.tab + '|' + (app.live ? 1 : 0) + '|' + (h2 && h2.firstChild ? h2.firstChild.textContent : '');
+    pb.scrollTop = (keepScroll || key === app._cardKey) ? sc : 0; app._cardKey = key;
   };
   app.renderTools = function () {
     var t = $('tools'), liveNow = app.mode === 'perform' || app.live; t.innerHTML = '';
@@ -575,7 +620,7 @@
     wire(); AL.intake.wire(app);
     var q = /[?&]open=([^&]+)/.exec(location.search), fresh = /[?&]demo\b/.test(location.search);
     var start = q ? AL.intake.openUrl(app, decodeURIComponent(q[1])) : (fresh ? Promise.resolve(null) : app.loadSaved()).then(function (ch) {
-      if (ch && !(ch.demo && !ch.edited && ch.pilot !== AL.PILOT)) { app.setCharacter(ch, { quiet: true }); if (app._take) app.inp.take = app._take; app._take = null; app.saveState('saved'); return; }
+      if (ch && !(ch.demo && !ch.edited && ch.pilot !== AL.PILOT)) { app.setCharacter(ch, { quiet: true }); if (app._take) app.inp.take = app._take; app._take = null; app.saveState('saved'); mendTopps(); return; }
       var want = /[?&]demo=joybot\b/.test(location.search) || (ch && ch.demo === 'joybot') ? 'joybot' : /[?&]demo=pip\b/.test(location.search) || (ch && ch.demo === 'pip') ? 'pip' : 'topps';
       return AL.intake.builtIn(app, want).catch(function () { AL.img.map = {}; app.setCharacter(AL.demo(), { quiet: true }); });
     });

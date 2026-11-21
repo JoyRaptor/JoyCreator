@@ -170,10 +170,10 @@
   };
 
   /** The section every part's card gets. */
-  fit.section = function (app, pb, n) {
+  fit.section = function (app, pb, n, tag) {
     var ui = app.ui, h = AL.h, pose = fit.pose(app), on = app.fitOn && app.fitOn.node === n.id ? app.fitOn : null, can = fit.can(app, n);
     if (!can && !n.limb) return;
-    pb.appendChild(ui.lab(pose ? 'Fit it by hand, for the stance “' + pose.name + '”' : 'Fit it by hand'));
+    pb.appendChild(ui.lab(pose ? 'Fit it by hand, for the stance “' + pose.name + '”' : 'Fit it by hand' + (tag ? ': ' + tag : '')));
     var v = fit.get(app, n), row = [];
     if (can) row.push(ui.chip('Move, turn, resize', { on: !!(on && on.box), icon: 'move', cls: on ? '' : 'go', title: 'A box on the picture: drag inside it to move, a corner to resize, the round handle below to turn', fn: function () { fit.boxOn(app, n, !(on && on.box)); } }));
     if (can && !pose && n.type !== 'set') row.push(ui.chip('Reshape with pins', { on: !!(on && on.pins), icon: 'pin', title: 'Tap the part to drop pins, then drag one: the part stretches from there and the other pins hold the rest still', fn: function () { fit.reshapeOn(app, n, !(on && on.pins)); } }));

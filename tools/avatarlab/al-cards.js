@@ -12,6 +12,7 @@
 
   /* ── the body map: the character facing you, so ITS left arm is on your right ── */
   var SHAPES = [
+    ['ground', 'path', { d: 'M24 120 L78 120' }, true, [50, 120]],
     ['tail', 'path', { d: 'M64 84 Q82 96 92 110' }, true, [95, 114]], ['legR', 'path', { d: 'M43 84 L41 112' }, true, [38, 116]], ['legL', 'path', { d: 'M57 84 L59 112' }, true, [62, 116]],
     ['armR', 'path', { d: 'M34 50 L17 76' }, true, [12, 80]], ['armL', 'path', { d: 'M66 50 L83 76' }, true, [88, 80]],
     ['body', 'rect', { x: 33, y: 43, width: 34, height: 42, rx: 13 }, false, [50, 64]], ['head', 'circle', { cx: 50, cy: 23, r: 17 }, false, [50, 23]],
@@ -19,13 +20,14 @@
   ];
   /* the same parts for something that stands on four legs: drawn side on, its front legs where a biped has arms */
   var SHAPES4 = [
+    ['ground', 'path', { d: 'M22 117 L94 117' }, true, [58, 117]],
     ['tail', 'path', { d: 'M84 58 Q95 54 99 42' }, true, [99, 37]], ['legR', 'path', { d: 'M71 74 L69 106' }, true, [68, 111]], ['legL', 'path', { d: 'M80 74 L84 106' }, true, [86, 111]],
     ['armR', 'path', { d: 'M37 74 L33 106' }, true, [31, 111]], ['armL', 'path', { d: 'M46 74 L50 106' }, true, [52, 111]],
     ['body', 'rect', { x: 29, y: 48, width: 57, height: 28, rx: 13 }, false, [58, 62]], ['head', 'circle', { cx: 19, cy: 40, r: 15 }, false, [19, 40]],
     ['extra', 'rect', { x: 82, y: 6, width: 13, height: 13, rx: 4 }, false, [88.5, 12.5]]
   ];
-  var ZL2 = { head: 'Head', body: 'Body', armL: 'Left arm', armR: 'Right arm', legL: 'Left leg', legR: 'Right leg', tail: 'Tail', extra: 'Extras' };
-  var ZL4 = { head: 'Head', body: 'Body', armL: 'Front left leg', armR: 'Front right leg', legL: 'Back left leg', legR: 'Back right leg', tail: 'Tail', extra: 'Extras' };
+  var ZL2 = { head: 'Head', body: 'Body', armL: 'Left arm', armR: 'Right arm', legL: 'Left leg', legR: 'Right leg', tail: 'Tail', extra: 'Extras', ground: 'Ground and walking' };
+  var ZL4 = { head: 'Head', body: 'Body', armL: 'Front left leg', armR: 'Front right leg', legL: 'Back left leg', legR: 'Back right leg', tail: 'Tail', extra: 'Extras', ground: 'Ground and walking' };
   var ZLABEL = { head: 'Head', body: 'Body', armL: 'Left arm', armR: 'Right arm', legL: 'Left leg', legR: 'Right leg', tail: 'Tail', extra: 'Extras' };
   /* A character that has an all-fours stance is "on four legs" exactly while it stands in that stance: the switch in the card's header puts it
      there and stands it up again. One that was simply drawn on four legs only swaps the map. */
@@ -42,8 +44,8 @@
     var svg = document.createElementNS(NS, 'svg'); svg.setAttribute('viewBox', big ? '-14 -4 128 136' : '0 0 104 124'); svg.setAttribute('class', 'bmap' + (big ? ' big' : ''));
     svg.setAttribute('role', 'group'); svg.setAttribute('aria-label', 'Body map'); setLabels(app);
     (fourMap(app) ? SHAPES4 : SHAPES).forEach(function (s) {
-      var zone = s[0], has = zone === 'extra' ? cards.extras(app).length > 0 : !!app.zoneNode(zone);
-      if (big && zone === 'extra') return;
+      var zone = s[0], has = zone === 'ground' ? true : zone === 'extra' ? cards.extras(app).length > 0 : !!app.zoneNode(zone);
+      if (big && (zone === 'extra' || zone === 'ground')) return;
       var g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'z' + (s[3] ? ' line' : '') + (has ? ' has' : '') + (!big && app.sel.zone === zone && app.tab === 'parts' ? ' sel' : ''));
       g.setAttribute('tabindex', '0'); g.setAttribute('role', 'button');
       var t = document.createElementNS(NS, 'title'); t.textContent = ZLABEL[zone] + (has ? '' : ': nothing here yet. Tap to add art.'); g.appendChild(t);
@@ -106,46 +108,66 @@
     ]);
     ph.appendChild(h('div', { class: 'ptitle' }, [h('h2', null, [title, badge ? h('span', { class: 'badge ' + (badgeCls || ''), text: badge }) : null]), desc ? h('p', { html: desc }) : null, tabs]));
   }
+  cards.head = head;
   function tryBar(app, canTry) {
     var sb = $('stagebar'); sb.innerHTML = '';
     if (app.live) sb.appendChild(app.ui.chip('Done trying', { cls: 'veil on', icon: 'stop', title: 'Back to the still pose, where pins can be moved', fn: function () { app.setLive(false); } }));
     else if (canTry) sb.appendChild(app.ui.chip('Try it', { cls: 'veil', icon: 'play', title: 'Bring the character to life here: drag the head, the hands, the body', fn: function () { app.setLive(true); } }));
     if (app.live || !canTry) return;
     sb.appendChild(app.ui.chip('Pick a piece', { cls: 'veil' + (app.pickPiece ? ' on' : ''), icon: 'target', title: app.pickPiece ? 'On: tap any piece on the picture to work on it alone, with a box to move, turn and resize it. Tap here to switch it off.' : 'Then tap any piece on the picture: it is chosen by itself, everything else steps back, and a box lets you move, turn and resize it', fn: function () { app.pickPiece = !app.pickPiece; app.refreshPanel(true); } }));
+    /* MOVE IT: the box for whatever is in hand, always one tap away on the stage */
+    var mv = app.tab !== 'parts' ? null : app.sel.node ? AL.node(app.ch, app.sel.node) : app.sel.feature ? (app.featureNodes(app.sel.feature) || [])[0] : (app.sel.zone && app.sel.zone !== 'body' && app.sel.zone !== 'ground' ? app.zoneNode(app.sel.zone) : null);
+    if (mv && AL.fit.can(app, mv)) {
+      var mon = !!(app.fitOn && app.fitOn.box && app.fitOn.node === mv.id);
+      sb.appendChild(app.ui.chip('Move it', { cls: 'veil' + (mon ? ' on' : ''), icon: 'move', title: 'A box on the picture for this part: drag inside it to move, a corner to resize, the round handle to turn', fn: function () { AL.fit.boxOn(app, mv, !mon); } }));
+      if (mon && AL.fit.moved(app, mv)) sb.appendChild(app.ui.chip('Put it back', { cls: 'veil', title: 'Forget the move, the turn and the size: back to how it was drawn', fn: function () { app.edit(function () { AL.fit.reset(app, mv); }, false, 'Put it back'); } }));
+    } else if (mv && mv.type === 'set' && mv.pick && mv.pick.by === 'reach') sb.appendChild(app.ui.chip('Move it', { cls: 'veil' + (app.moveArt ? ' on' : ''), icon: 'move', title: 'On: drag this limb on the picture to slide it, pins and all, to where it joins the body', fn: function () { app.moveArt = !app.moveArt; app.refreshPanel(true); } }));
     var pz = app.poseEdit && AL.stance.find(app.ch, app.poseEdit), tz = app.toneTry && AL.tone.find(app.ch, app.toneTry);
-    if (pz) sb.appendChild(app.ui.chip('In stance: ' + pz.name, { cls: 'veil on', icon: 'x', title: 'The character is standing in this stance, and what you move is moved for it. Tap to stand it up again.', fn: function () { app.poseEdit = null; app.fitOn = null; app.refreshPanel(true); } }));
+    if (pz) sb.appendChild(app.ui.chip(pz.name, { cls: 'veil on', icon: 'x', title: 'The character is standing in this stance, and what you move is moved for it. Tap to stand it up again.', fn: function () { app.poseEdit = null; app.fitOn = null; app.refreshPanel(true); } }));
     if (tz) sb.appendChild(app.ui.chip('Colours: ' + tz.name, { cls: 'veil on', icon: 'x', title: 'Showing this colour set. Tap to go back to its own colours.', fn: function () { app.toneTry = null; app.eyedrop = null; app.refreshPanel(true); } }));
   }
   function all(app, role, fn) { AL.byRole(app.ch.root, role).forEach(fn); }
 
-  /* ── FOLDING SECTIONS and the header's shortcuts ──
-     A long card is a list of titled sections. Each title folds its section away; the first is open, the rest open when asked for and
-     stay as they were left. The same titles sit in the card's header as shortcuts, so the section wanted is one tap away however
-     long the card is. Nothing about a card has to be written for this: it reads the titles the card already has. */
-  var FOLDS = null;
-  function folds() { if (!FOLDS) { try { FOLDS = JSON.parse(localStorage.getItem('al.folds') || '{}') || {}; } catch (e) { FOLDS = {}; } } return FOLDS; }
-  function keepFolds() { try { localStorage.setItem('al.folds', JSON.stringify(FOLDS)); } catch (e) { } }
+  /* ── SECTIONS and the header's shortcuts ──
+     A card is a list of titled sections, most used first. They are OPEN: nothing has to be hunted for. A long section can be folded
+     away by its title and stays as it was left; a short one is simply there. The seldom-used ones (what a part follows, streams,
+     masks) are gathered at the end behind one title, "More". The same titles sit in the card's header as shortcuts.
+     Nothing about a card has to be written for this: it reads the titles the card already has. */
+  var FOLDS = null, RARE = /^(Follows|Shapes|Size and turn|Carried by|Stream|Round shape|Masks|How it arrives|Its own turn drawings|In its hand|Swinging on the body|The part itself)/;
+  function folds() { if (!FOLDS) { try { FOLDS = JSON.parse(localStorage.getItem('al.folds2') || '{}') || {}; } catch (e) { FOLDS = {}; } } return FOLDS; }
+  function keepFolds() { try { localStorage.setItem('al.folds2', JSON.stringify(FOLDS)); } catch (e) { } }
   function shortName(t) { t = t.split(',')[0].split(':')[0]; return t.length > 18 ? t.slice(0, 17) + '\u2026' : t; }
+  function isLab(k) { return !!(k && k.classList && k.classList.contains('lab')); }
   cards.fold = function (app) {
-    var pb = $('panelbody'), ph = $('panelhead'), tabs = ph.querySelector('.tabs'), kids = Array.prototype.slice.call(pb.children);
-    var labs = kids.filter(function (k) { return k.classList && k.classList.contains('lab'); });
-    if (app.live || app.bridge || app.tab === 'layers' || labs.length < 3) return;
+    var pb = $('panelbody'), ph = $('panelhead'), tabs = ph.querySelector('.tabs'), labs = Array.prototype.slice.call(pb.children).filter(isLab);
+    if (app.live || app.bridge || app.tab === 'layers' || labs.length < 2) return;
     var h2 = ph.querySelector('h2'), card = h2 && h2.firstChild ? h2.firstChild.textContent : '', st = folds(), secs = [];
-    labs.forEach(function (lab, i) {
+    labs.forEach(function (lab) {
       var name = lab.textContent, body = h('div', { class: 'secb' }), k = lab.nextSibling;
-      while (k && !(k.classList && k.classList.contains('lab'))) { var nx = k.nextSibling; body.appendChild(k); k = nx; }
+      while (k && !isLab(k)) { var nx = k.nextSibling; body.appendChild(k); k = nx; }
       pb.insertBefore(body, lab.nextSibling);
-      var key = card + '|' + name.split(',')[0], open = st[key] != null ? !!st[key] : (i === 0 || !!body.querySelector('.chip.on.go, .stk'));
-      function show(on, quiet) { open = on; lab.classList.toggle('shut', !on); body.style.display = on ? '' : 'none'; lab.setAttribute('aria-expanded', String(on)); if (!quiet) { st[key] = on ? 1 : 0; keepFolds(); } }
-      lab.classList.add('fold'); lab.setAttribute('role', 'button'); lab.tabIndex = 0; lab.title = 'Show or hide \u201c' + name + '\u201d';
-      lab.onclick = function () { show(!open); }; lab.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(!open); } };
-      show(open, true);
-      secs.push({ name: name, lab: lab, show: show });
+      secs.push({ name: name, lab: lab, body: body, rare: RARE.test(name) });
     });
-    if (!tabs) return;
+    var rare = secs.filter(function (s) { return s.rare; }), main = secs;
+    if (rare.length >= 2) {
+      var ml = app.ui.lab('More'), mb = h('div', { class: 'secb' });
+      rare.forEach(function (s) { s.lab.classList.add('sub'); mb.appendChild(s.lab); mb.appendChild(s.body); });
+      pb.appendChild(ml); pb.appendChild(mb);
+      main = secs.filter(function (s) { return !s.rare; }); main.push({ name: 'More', lab: ml, body: mb, more: true });
+    }
+    main.forEach(function (s) {
+      s.show = function () { };
+      if (!s.more && s.body.offsetHeight < 150) return;                       // a short section is simply there
+      var key = card + '|' + s.name.split(',')[0], open = st[key] != null ? !!st[key] : !s.more, lab = s.lab;
+      function show(on, quiet) { open = on; lab.classList.toggle('shut', !on); s.body.style.display = on ? '' : 'none'; lab.setAttribute('aria-expanded', String(on)); if (!quiet) { st[key] = on ? 1 : 0; keepFolds(); } }
+      lab.classList.add('fold'); lab.setAttribute('role', 'button'); lab.tabIndex = 0; lab.title = 'Show or hide \u201c' + s.name + '\u201d';
+      lab.onclick = function () { show(!open); }; lab.onkeydown = function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); show(!open); } };
+      show(open, true); s.show = show;
+    });
+    if (!tabs || main.length < 3) return;
     Array.prototype.slice.call(tabs.children, 0, 2).forEach(function (c) { c.classList.add('ico'); });      // Parts and Layers shrink to their pictures, to leave the row to the shortcuts
     tabs.appendChild(h('i', { class: 'sep' }));
-    secs.forEach(function (s) {
+    main.forEach(function (s) {
       tabs.appendChild(h('button', { class: 'chip jump', text: shortName(s.name), title: 'Go to \u201c' + s.name + '\u201d on this card', onclick: function () { s.show(true); pb.scrollTop = Math.max(0, s.lab.offsetTop - pb.offsetTop - 4); } }));
     });
   };
@@ -172,6 +194,7 @@
     if (sn && sn.limb && isLimb(sp) && !AL.fit.pose(app)) { app.force[sp.id] = sn.id; sn = sp; }
     if (isLimb(sn) && !AL.fit.pose(app)) return armCard(app, pb, sn.role && ZL2[sn.role] ? sn.role : (sn.pick.hand.charAt(0) === 'F' ? 'legL' : 'armL'), sn);
     if (sn) return nodeCard(app, pb, sn);
+    if (z === 'ground') return AL.ground.card(app, pb);
     if (z && z !== 'extra' && !app.zoneNode(z)) return extraCard(app, pb);            // this character has no such part (a hover-bot has no legs)
     /* in a stance, a part chosen on the body map gets the same card as one chosen with Pick a piece: where it sits and what it is in front of, for this stance */
     if (AL.fit.pose(app) && z !== 'body' && !app.sel.feature && app.zoneNode(z)) return nodeCard(app, pb, app.zoneNode(z));
@@ -443,6 +466,7 @@
     app.coach('<b>' + F.label + '.</b> Things in front slide further; things behind slide the other way.');
     var role = F.roles[0], list = AL.byRole(app.ch.root, role), dp = list.length ? (list[0].depth || 0) : 0;
     pb.appendChild(ui.slider('Depth', { min: -1.5, max: 1.5, step: 0.1, value: dp, set: function (v) { list.forEach(function (n) { n.depth = v; }); }, fmt: function (v) { return v > 0.05 ? 'front ' + v : v < -0.05 ? 'behind ' + (-v) : 'flat'; }, title: 'Front slides with the turn, behind slides against it' }));
+    nodes.forEach(function (n) { AL.fit.section(app, pb, n, nodes.length > 1 ? n.name : ''); });
     orderChips(app, pb, nodes);
     var first = nodes[0] ? (nodes[0].type === 'art' ? nodes[0] : AL.find(nodes[0], function (k) { return k.type === 'art'; })) : null;
     if (first && f === 'hair') {
@@ -586,7 +610,7 @@
       var ph = set.pick.walk && set.pick.walk.phase != null ? set.pick.walk.phase : side + (leg ? 0 : 0.25);
       pb.appendChild(ui.slider('Step timing', { min: 0, max: 95, step: 5, value: Math.round(ph * 100), set: function (v) { wk().phase = v / 100; }, fmt: function (v) { return v ? v + '% round' : 'first'; }, title: 'Its place in the round of steps. Feet with the same timing step together; the others take turns in order. Two legs: 0 and 50. Four: 0, 25, 50, 75. A long row: spread them out and they move as a wave.' }));
       if (leg) pb.appendChild(ui.toggle('Lets go when lifted', !!(set.pick.walk && set.pick.walk.lift), function (v) { app.edit(function () { wk().lift = v; }, false, 'A leg lets go'); }, 'On: lifted out of reach of the ground this leg hangs free, and plants again when it can reach. For the front legs of something that rears up.'));
-      else pb.appendChild(ui.slider('Wrist above the ground', { min: 0, max: 60, value: Math.round(set.pick.walk && set.pick.walk.palm != null ? set.pick.walk.palm : AL.handReach(AL.node(ch, (set.pick.walk && set.pick.walk.kid) || set.pick.rest) || set.kids[0]) * 0.8), set: function (v) { wk().palm = v; }, fmt: function (v) { return v + ' px'; }, title: 'How high the wrist pin stays when the hand is planted, so the palm or knuckles rest on the ground and do not sink into it' }));
+      else pb.appendChild(ui.slider('Wrist above the ground', { min: 0, max: 60, value: Math.round(set.pick.walk && set.pick.walk.palm != null ? set.pick.walk.palm : AL.palmGuess(ch, AL.node(ch, (set.pick.walk && set.pick.walk.kid) || set.pick.rest) || set.kids[0])), set: function (v) { wk().palm = v; }, fmt: function (v) { return v + ' px'; }, title: 'How high the wrist pin stays when the hand is planted, so the palm or knuckles rest on the ground and do not sink into it' }));
     }
     var row = [];
     row.push(ui.chip('Copy this ' + (leg ? 'leg' : 'arm'), { icon: 'plus', title: leg ? 'Another leg just like this one, a little along the body, with the next step timing. Copy it again for as many as you like.' : 'Another arm just like this one, a little along the body', fn: function () { cards.copyLimb(app, set); } }));
@@ -665,9 +689,9 @@
       pb.appendChild(ui.slider('It tucks in', { min: 0, max: 0.9, step: 0.02, value: st.flipTuck == null ? 0.45 : st.flipTuck, set: function (v) { st.flipTuck = v; }, fmt: function (v) { return Math.round(v * 100) + '%'; }, title: 'How far the body, tail and arms pull in toward the middle before they swap sides. 0 swaps at full width.' }));
     }
     pb.appendChild(ui.row([ui.chip('See it flipped', { on: !!app._bs && app._bs.flip, icon: 'flip', title: 'Show the mirrored side while building', fn: function () { app.buildSignals().flip = !app._bs.flip; app.refreshPanel(true); } })]));
-    pb.appendChild(ui.lab('Walking'));
-    var can = AL.walkDefaults(app.ch); cards.walkControls(app, pb, false); var wk = st.walk;
+    var can = AL.walkDefaults(app.ch), wk = st.walk;
     limbsRow(app, pb);
+    pb.appendChild(ui.row([ui.chip('Ground and walking', { icon: 'fwd', cls: 'quiet', title: 'Everything about walking is on one card: the bar under the feet on the body map', fn: function () { app.tab = 'parts'; app.select('ground'); } })]));
     bodyAngles(app, pb, t);
     app.pinProvider = function () {
       var pins = [];

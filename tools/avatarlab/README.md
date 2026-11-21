@@ -153,6 +153,13 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
     On/off controls are tick boxes; sliding switches are kept for two equal choices. The header's two-legs / four-legs
     switch puts a character that has an all-fours stance into that stance. The picture is fitted clear of the hint line
     and the stage buttons.
+33. **Ground and walking** (`al-ground.js`): one card for everything about walking, opened from the bar under the feet
+    on the body map: the ground pin, how it walks, every limb that walks with its own few settings, the all-fours stance.
+34. **Pictures on controls** (`al-icons.js`): the drawings the owner approved, found by a control's own words
+    (`AL.picFor`), drawn by `AL.icon` in up to three parts (grey lines, a solid shape and lines in the mark colour).
+35. **Round 9 rules**: sections are open (a long one folds, the seldom-used ones share one drawer, "More"); "Move it" on
+    the stage gives the box for whatever part is in hand; in a stance Build shows walking hands planted, as Perform
+    does; a walking hand's height is guessed against the feet (`AL.palmGuess`); the stack's cyan tile can be dragged.
 
 ## Characters
 

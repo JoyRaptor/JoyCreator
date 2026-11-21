@@ -243,6 +243,18 @@ they want, a centipede; arms that can become feet with one toggle").
       sections, the picture fitted clear of the hint and the stage buttons, a card opens at its top, a stance's
       controls on a part chosen from the body map, the save dot no longer says "saved" for an untouched character.
       Checked in the page by script and by screenshot at phone size; not by hand, not on a phone.
+- [x] Round 9 (11-21), from his second pass on the phone. Fixed: his browser's own Topps is put right once when it
+      opens (crest, arms behind the head; one undo step); a walking hand's height is guessed against the feet, so the
+      far front paw no longer hangs; a small tip no longer slides the arms off the shoulders; in a stance Build shows
+      the hands planted as Perform does; pressing a button no longer scrolls the card to its top; a part brought into
+      focus in a stance is framed where it is drawn, clear of the stage buttons. Built: "Move it" on the stage for any
+      part (and the box on the eyes, mouth, brows, nose and frill cards); drag in the stack; a Ground bar on the body
+      map opening one walking card; sections open by default with the seldom-used ones behind one "More"; the pictures
+      he approved on their controls. His order for a card, to hold everything to: bring it in, wire it up, make it look
+      right in one place, then in every pose, then moving, then playing. Checked by script and phone-size screenshots.
+- [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and
+      the seven he has not decided (second examples page); the cards re-ordered to his flow one by one (only the Body
+      card and the shared tail of every card are done); phone landscape and tablet.
 - [ ] Interface audit (11-21), asked for by the owner before the port: 34 findings, a layout per screen size, a
       re-organisation of the Body and limb cards, and the list of controls that need a picture, in
       [the audit](../audits/AVA-1_ui_audit_20261121.md). Round 8 built the phone-portrait part. Still open from

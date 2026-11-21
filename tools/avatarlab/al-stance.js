@@ -81,9 +81,11 @@
        far foot is). The slide is measured in the torso's own frame, so it swings round with the torso on the way down. */
     var tb = AL.boundsOf(torso), tlen = tb ? Math.max(20, H.y - tb.y0) : len, ar = sgnA * Math.PI / 180, ca = Math.cos(ar), sa = Math.sin(ar);
     P.arms.forEach(function (a) {
-      var l = restKid(ch, a).limb, alen = limbLen(l), lk = Math.abs(l.a.x - kl.a.x) < Math.abs(l.a.x - kr.a.x) ? kl : kr, far = Math.max(0, gy - lk.c.y), isFar = lk.c.y < Math.max(kl.c.y, kr.c.y) - 1, apalm = a.pick.walk && a.pick.walk.palm != null ? a.pick.walk.palm : Math.round(AL.handReach(restKid(ch, a)) * 0.8);
+      var l = restKid(ch, a).limb, alen = limbLen(l), lk = Math.abs(l.a.x - kl.a.x) < Math.abs(l.a.x - kr.a.x) ? kl : kr, far = Math.max(0, gy - lk.c.y), isFar = lk.c.y < Math.max(kl.c.y, kr.c.y) - 1, apalm = a.pick.walk && a.pick.walk.palm != null ? a.pick.walk.palm : AL.palmGuess(ch, restKid(ch, a));
       var vx = l.a.x - H.x, vy = l.a.y - H.y, rx = H.x + ca * vx - sa * vy, ry = H.y + sa * vx + ca * vy;            // where tipping alone leaves this shoulder
       var tx = H.x + dir * (tlen * 0.75 + (isFar ? Math.abs(kl.c.x - kr.c.x) * 0.45 : 0)), ty = gy + drop - far - apalm - alen * 0.9, wx = tx - rx, wy = ty - ry;       // where it should be, and so how far to slide it
+      /* the slide belongs to being down on the ground: a body only tipped a little keeps its arms on its shoulders */
+      var sf = Math.max(0, Math.min(1, (A - 40) / 35)); sf = sf * sf * (3 - 2 * sf); wx *= sf; wy *= sf;
       var base = { autoX: ca * wx + sa * wy, autoY: -sa * wx + ca * wy };
       if (!carried(ch, a, torso)) { base.autoRot = sgnA; base.orbit = { x: H.x, y: H.y, deg: sgnA }; base.autoX = wx; base.autoY = wy; }
       d[a.id] = keep(a.id, base); if (!a.pick.walk) a.pick.walk = { lift: true };

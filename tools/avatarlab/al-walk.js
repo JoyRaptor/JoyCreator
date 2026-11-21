@@ -64,6 +64,13 @@
     return toeRight ? { heel: { x: x0, y: y }, toe: { x: x1, y: y } } : { heel: { x: x1, y: y }, toe: { x: x0, y: y } };
   };
   /** How far the drawing goes on past the end pin of a limb (the hand beyond the wrist), measured along the forearm. */
+  /** How high above the ground line a walking hand's wrist pin stands when nothing says otherwise: so the lowest point of the hand is as low
+      as the lowest point of the feet. (A paw whose claws are drawn past the line, like the feet's, stands ON the line.) */
+  AL.palmGuess = function (ch, kid) {
+    var hand = AL.handReach(kid) * 0.8, sole = 0, n = 0;
+    ['legL', 'legR'].forEach(function (r) { var s = AL.firstRole(ch.root, r), k = s && s.kids ? (AL.node(ch, s.pick && s.pick.rest) || s.kids.filter(function (q) { return q.limb; })[0]) : null; if (k && k.limb) { sole += AL.handReach(k) * 0.8; n++; } });
+    return Math.max(0, Math.round(hand - (n ? sole / n : 0)));
+  };
   AL.handReach = function (kid) {
     var l = kid && kid.limb, im = kid && kid.type === 'art' ? AL.img.get(kid.img) : null; if (!l || !im) return 0;
     var dx = l.c.x - l.b.x, dy = l.c.y - l.b.y, d = hyp(dx, dy) || 1, ux = dx / d, uy = dy / d, al = AL.img.alpha(kid.img), far = 0, wide = d * 0.7, px, py;
@@ -91,7 +98,7 @@
       var l = k.limb, key = s.pick.hand, isFoot = key.charAt(0) === 'F', wk = s.pick.walk || {}, side = /L$/.test(s.role || '') ? 'L' : /R$/.test(s.role || '') ? 'R' : '';
       var rec = { key: key, held: isFoot ? 'foot' + key.slice(1) : 'hand' + key, id: s.id, side: side, hip: l.a, foot: l.c, bar: isFoot ? (l.foot || null) : null,
         len: hyp(l.b.x - l.a.x, l.b.y - l.a.y) + hyp(l.c.x - l.b.x, l.c.y - l.b.y), stretch: l.stretch == null ? 0.12 : l.stretch,
-        phase: wk.phase != null ? wk.phase : (side === 'R' ? 0.5 : 0) + (isFoot ? 0 : 0.25), autoPhase: wk.phase == null && !isFoot, lift: wk.lift != null ? !!wk.lift : !isFoot, arm: !isFoot, palm: wk.palm == null ? (isFoot ? 0 : Math.round(AL.handReach(k) * 0.8)) : wk.palm };
+        phase: wk.phase != null ? wk.phase : (side === 'R' ? 0.5 : 0) + (isFoot ? 0 : 0.25), autoPhase: wk.phase == null && !isFoot, lift: wk.lift != null ? !!wk.lift : !isFoot, arm: !isFoot, palm: wk.palm == null ? (isFoot ? 0 : AL.palmGuess(ch, k)) : wk.palm };
       used[key] = 1; list.push(rec); if (s.role === 'legL' && !L) L = rec; if (s.role === 'legR' && !R) R = rec;
     });
     var base = list.filter(function (q) { return !q.lift; });

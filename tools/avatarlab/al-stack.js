@@ -72,6 +72,23 @@
       if (j < 0 || j >= r.runs.length) return;
       past(r.runs[j].u, dir < 0);
     }
+    /* hold the cyan tile and drag it along the row: it lands just behind the first part to its right */
+    function grab(el) {
+      el.style.touchAction = 'none';
+      el.onpointerdown = function (ev) {
+        var x0 = ev.clientX, moved = false; try { el.setPointerCapture(ev.pointerId); } catch (e) { }
+        el.onpointermove = function (e) { var dx = e.clientX - x0; if (Math.abs(dx) > 5) moved = true; if (moved) { el.style.transform = 'translateX(' + dx + 'px) scale(1.08)'; el.style.zIndex = 5; } };
+        el.onpointerup = el.onpointercancel = function (e) {
+          el.onpointermove = el.onpointerup = el.onpointercancel = null; el.style.transform = ''; el.style.zIndex = '';
+          if (!moved) return;
+          var r0 = el.getBoundingClientRect(), cx = r0.left + r0.width / 2 + (e.clientX - x0), all = Array.prototype.slice.call(strip.children), others = all.filter(function (c) { return !c.classList.contains('me'); }), tgt = null;
+          for (var i = 0; i < others.length; i++) { var r = others[i].getBoundingClientRect(); if (r.left + r.width / 2 > cx) { tgt = others[i]; break; } }
+          var nextEl = all[all.indexOf(el) + 1]; while (nextEl && nextEl.classList.contains('me')) nextEl = all[all.indexOf(nextEl) + 1];
+          if (tgt === (nextEl || null) && all.filter(function (c) { return c.classList.contains('me'); }).length === 1) return;      // dropped where it was
+          if (tgt) past(tgt._u, true); else if (others.length) past(others[others.length - 1]._u, false);
+        };
+      };
+    }
     function fill(r) {
       cur = r; strip.innerHTML = '';
       var seen = {}, count = {}; r.runs.forEach(function (q) { count[q.u.id] = (count[q.u.id] || 0) + 1; });
@@ -79,8 +96,9 @@
       r.runs.forEach(function (q, i) {
         var me = q.u === n, two = count[q.u.id] > 1, k = seen[q.u.id] = (seen[q.u.id] || 0) + 1, nm = AL.cards.nameOf(app, q.u);
         var part = two && isLimb(q.u) ? (k === 1 ? ' · top' : ' · ' + endOf(q.u)) : '';
-        var title = me ? nm + part + ': the part you are placing' : (first < 0 || i < first ? 'Put ' + name + ' just behind ' + nm : 'Put ' + name + ' just in front of ' + nm);
-        strip.appendChild(h('button', { class: (me ? 'me' : '') + (two ? ' half' : ''), title: title, 'aria-label': title, onclick: me ? null : function () { past(q.u, first < 0 || i < first); } }, [AL.cards.mini(face(app, q.u), 34), h('span', { text: nm + part })]));
+        var title = me ? nm + part + ': the part you are placing. Hold and drag it along the row.' : (first < 0 || i < first ? 'Put ' + name + ' just behind ' + nm : 'Put ' + name + ' just in front of ' + nm);
+        var el = h('button', { class: (me ? 'me' : '') + (two ? ' half' : ''), title: title, 'aria-label': title, onclick: me ? null : function () { past(q.u, first < 0 || i < first); } }, [AL.cards.mini(face(app, q.u), 34), h('span', { text: nm + part })]);
+        el._u = q.u; if (me) grab(el); strip.appendChild(el);
       });
       var mineEl = strip.querySelector('.me'); if (mineEl && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = mineEl.offsetLeft - strip.clientWidth / 2 + 25;
     }
@@ -105,7 +123,7 @@
       if (z.tip != null) pb.appendChild(ui.slider('Comes in front from', { min: 10, max: 90, value: Math.round(z.tip * 100), set: function (v) { z.tip = v / 100; }, fmt: function (v) { return v < 40 ? 'near the top' : v > 60 ? 'near the ' + end : 'the middle'; }, title: 'Where along it the drawing goes from behind to in front. Put it where the limb is clear of the other part.' }));
     }
     if (pose && z) pb.appendChild(ui.slider('Changes over at', { min: 5, max: 95, value: Math.round((z.at == null ? 0.5 : z.at) * 100), set: function (v) { z.at = v / 100; }, fmt: function (v) { return v + '% of the way in'; }, title: 'How far into the stance the order changes. Pick the moment the two parts are not touching and it cannot be seen.' }));
-    if (!opts.quiet) pb.appendChild(ui.note('Left is the back, right is the front. <b>Tap a part</b> in the row to step past it' + (pose ? '. Only while it is in this stance.' : layerMode ? '.' : '. It stays like this.')));
+    if (!opts.quiet) pb.appendChild(ui.note('Left is the back, right is the front. <b>Drag the cyan one</b> along the row, or tap a part to step past it' + (pose ? '. Only while it is in this stance.' : layerMode ? '.' : '. It stays like this.')));
     return true;
   };
 })(typeof window !== 'undefined' ? window : globalThis);

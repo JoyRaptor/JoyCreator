@@ -8,6 +8,8 @@ The quiet-selection regression ran the production renderer against desktop FFmpe
 
 Run `python tools/jvm-harness/run-studio-voice-cache.py` with JDK 17+, FFmpeg and ffprobe on PATH. An optional first argument supplies a private recording with unprocessed rain during seconds 4–12. No recording is included in the repository.
 
+The Android ARM64 debug build passed for implementation commit `5eb08c3dd` (Actions run `44875034688`). The downloaded APK matched the build commit, passed ZIP integrity checks and contained the expected model SHA-256. All five StudioVoiceRecipe JUnit tests also passed locally. This build has not been installed or auditioned on the Note 9.
+
 ## Earlier prototype evidence
 
 **Android test build, November 19** · Branch `codex/note9-studio-voice-20261119`, based on `7c3e1f04d`.

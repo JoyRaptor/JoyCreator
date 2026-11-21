@@ -45,6 +45,7 @@
     if (!n || n.type === 'mirror') return false;
     if (n.limb) return false;
     var par = AL.parentOf(app.ch, n.id); if (par && par.pick && par.pick.by === 'reach') return false;
+    if (AL.stages && AL.stages.on()) return true;                 // stages layout: a limb takes the box like anything else
     return !(n.type === 'set' && n.pick && n.pick.by === 'reach' && !fit.pose(app));      // a limb is slid with "Move the whole limb"; in a stance it can be moved like anything else
   };
 

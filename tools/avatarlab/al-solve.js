@@ -367,7 +367,7 @@
     function sigs(mir) {
       if (!mir) return S;
       return { turnX: -S.turnX, turnY: S.turnY, roll: -S.roll, lookX: -S.lookX, lookY: S.lookY, blinkL: S.blinkR, blinkR: S.blinkL, browL: S.browR, browR: S.browL,
-        mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, foot: S.foot, spin: -(S.spin || 0), walk: -(S.walk || 0), trig: S.trig, pin: S.pin, t: S.t };
+        mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, foot: S.foot, spin: -(S.spin || 0), walk: -(S.walk || 0), armSide: S.armSide, trig: S.trig, pin: S.pin, t: S.t };
     }
     var SM = [S, sigs(true)];
     function sg(c) { return SM[(c.mir ? 1 : 0) ^ (flipped ? 1 : 0)]; }
@@ -573,7 +573,7 @@
         var rAt = pk.restAt && moving ? pk.restAt : (restKid ? restKid.limb.c : null);
         var Tw = hand ? ((foot || hand.w) ? [hand.x, hand.y] : M.ap(c.rootIn, hand.x, hand.y)) : (rAt ? M.ap(Mx, rAt.x, rAt.y) : null);
         if (!hand && !foot && restKid && live && s.walk) {             // nobody is holding this hand: it swings with the walk
-          var sa = (set.walk && set.walk.armSwing != null ? set.walk.armSwing : 18) * DEG * s.walk * (pk.hand === 'L' ? 1 : -1), la = restKid.limb.a, lc = rAt || restKid.limb.c, cs = Math.cos(sa), sn = Math.sin(sa);
+          var sa = (set.walk && set.walk.armSwing != null ? set.walk.armSwing : 18) * DEG * s.walk * (s.armSide && s.armSide[pk.hand] != null ? s.armSide[pk.hand] : (pk.hand === 'L' ? 1 : -1)), la = restKid.limb.a, lc = rAt || restKid.limb.c, cs = Math.cos(sa), sn = Math.sin(sa);
           Tw = M.ap(Mx, la.x + cs * (lc.x - la.x) - sn * (lc.y - la.y), la.y + sn * (lc.x - la.x) + cs * (lc.y - la.y));
         }
         if (Tw) { var iv = M.inv(Mx), tl = M.ap(iv, Tw[0], Tw[1]); T = { x: tl[0], y: tl[1] }; }

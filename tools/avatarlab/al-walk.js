@@ -162,9 +162,10 @@
       toeLen = Math.min(toeLen, q.bar ? hyp(q.bar.toe.x - q.foot.x, q.bar.toe.y - q.foot.y) : 0);
       slack = Math.min(slack, q.len * (1 + q.stretch) - (gy - q.hip.y));       // how far the hips can rise with every foot still down: legs straight, a little stretch
     });
-    var crouch = legLen * 0.45;
+    var crouch = legLen * 0.45, fourAt = cfg.fourAt == null ? 0.82 : cfg.fourAt;
     slack = Math.max(3, slack) + toeLen * 0.55 * Math.min(1, rollAmt);         // ...and up on the toes
-    var leave = slack + legLen * 0.7;             // the finger has to pull well past that before the feet let go: a small wobble of the hand is not a jump
+    var leave = slack + legLen * (cfg.jumpAt == null ? 0.7 : cfg.jumpAt);
+    this.band = { y: gy + this.base - legLen, down: crouch * fourAt, up: leave };          // where the hips are, and how far a finger must push or pull them: drawn on the picture by the Ground card             // the finger has to pull well past that before the feet let go: a small wobble of the hand is not a jump
     /* the all-fours stance, if there is one: how far into it the character is, and whether it has been asked for */
     var fp = this.stance(), lv4 = fp && inp.poseLvl ? clamp(inp.poseLvl[fp.id] || 0, 0, 1) : 0, on4 = !!(fp && fp.trig && inp.trig[fp.trig]);
 
@@ -178,7 +179,7 @@
       var want = this.ty - this.base;              // where the finger wants the hips, measured from the ground line (up is negative)
       /* pushed well down, and kept there a moment: onto all fours instead of a deeper squat. Pulled well up: back onto two legs. */
       if (fp && fp.trig && cfg.autoFours !== false && this.held && !this.air) {
-        if (!on4) { this.low = want > crouch * 0.82 ? this.low + dt : 0; if (this.low > 0.32) { inp.setTrig(fp.trig, true); on4 = true; this.low = 0; } }
+        if (!on4) { this.low = want > crouch * fourAt ? this.low + dt : 0; if (this.low > 0.32) { inp.setTrig(fp.trig, true); on4 = true; this.low = 0; } }
         else if (-want > legLen * 0.22) { inp.setTrig(fp.trig, false); on4 = false; }
       }
       if (want > crouch) { want = crouch; this.ty = this.base + crouch; }
@@ -311,6 +312,8 @@
     });
     var fl = F[legs.L.key], fr = F[legs.R.key], sw = fl.pos && fr.pos ? clamp(((fl.pos.x - fl.home.x) - (fr.pos.x - fr.home.x)) / stride, -1, 1) * (air ? 0.3 : 1) : 0;
     this.swing += (sw - this.swing) * (1 - Math.exp(-14 * dt)); S.walk = this.swing;
+    /* contra-body: an arm swings against the leg on ITS side (found by where it is drawn, since layer names cannot be trusted for sides) */
+    S.armSide = {}; all.forEach(function (q) { if (q.arm && q.mate) S.armSide[q.key] = q.mate === legs.L ? 1 : -1; });
     S.sway += clamp(this.vx / (stride * 9), -1, 1) * (cfg.lean == null ? 0.5 : cfg.lean) * 1.6 * (1 - lv4 * 0.6);
     S.bounce += -bob * this.lift * 0.9 + this.sq * 1.4 + (air ? -0.4 * smooth(-this.vy / 420) : 0);
   };

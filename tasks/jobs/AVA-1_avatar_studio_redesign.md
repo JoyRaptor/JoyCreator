@@ -286,6 +286,15 @@ they want, a centipede; arms that can become feet with one toggle").
       hand-off animation, a fresh canvas with that layer at pixel size, and a button on the board that remembers
       where it came from ("Send back to Avatar Studio"). Coming back writes the layer into the layered file where it
       was, and the puppet refreshes. Not buildable in the web pilot; it rides on the FX-1 hand-off moves.
+- [x] Rounds 12 and 13 (11-21/22): the part in hand is shown along its own outline, in five looks to compare (Fine
+      dashes, Glow, Spotlight, Corners, Wash; the round target button on the stage cycles them; **his pick is owed**);
+      the box is one cyan pixel; a tap takes what is in front, a tap on empty space steps out a level; the card's title
+      is a path of slanted tabs with pictures (lobby shape: every corner softened alike), and tapping the current tab
+      shows the part bare without leaving it; arms and the body take the box; walking upright / all fours / jump
+      thresholds are two sliders on the Ground card with the bands drawn on the picture in Motion; arms swing against
+      the leg on their own side.
+- [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
+      this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and
       the seven he has not decided (second examples page); the cards re-ordered to his flow one by one (only the Body
       card and the shared tail of every card are done); phone landscape and tablet.

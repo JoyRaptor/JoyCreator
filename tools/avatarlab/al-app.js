@@ -147,7 +147,7 @@
     app.selNodes = nodes; app.selIds = nodes.length ? ids : null;
   };
   app.select = function (zone, feature, nodeId) {
-    app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.live = app.mode === 'perform' ? app.live : !!(AL.stages && AL.stages.is(app, 'motion'));
+    app.sel = { zone: zone, feature: feature || null, node: nodeId || null }; app.selOff = false; app.live = app.mode === 'perform' ? app.live : !!(AL.stages && AL.stages.is(app, 'motion'));
     app.test.mouth = null; app.test.lidUp = app.test.lidLow = app.test.lidTilt = 0; app.show = {}; app.showLids = false; app.bridge = null; app.morph = null; app.shapeEdit = null; app.fitOn = null; app.orderPick = null; app.eyedrop = null; app.lockForce = null; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel();
   };
   app.selectByNode = function (id) {
@@ -277,7 +277,7 @@
       if (firstSel >= 0) for (ii = firstSel + 1; ii < out.items.length; ii++) { var fi = out.items[ii]; if (!ids[fi.id] && !fi.ghost) { fi.a0 = fi.a; fi.a *= 0.14; } }
     }
     /* FIT: a part that sits behind another is still the part in hand. A faint cyan echo of it is drawn over everything, so it can be seen and placed. */
-    if (fitNow && !bridge && app.selIds && app.tab === 'parts' && app.sel.zone !== 'body') {
+    if (fitNow && !bridge && !app.selOff && app.selIds && app.tab === 'parts' && app.sel.zone !== 'body') {
       var lastSel = -1, lastAny = -1, xi; for (xi = 0; xi < out.items.length; xi++) { var xq = out.items[xi]; if (xq.ghost) continue; lastAny = xi; if (app.selIds[xq.id]) lastSel = xi; }
       if (lastSel >= 0 && lastSel < lastAny) { var xr = []; out.items.forEach(function (it) { if (it.ghost || !app.selIds[it.id]) return; var g = {}; for (var gk in it) g[gk] = it[gk]; g.ghost = true; g.xr = true; g.a = 0.45; xr.push(g); }); out.items = out.items.concat(xr); }
     }
@@ -298,36 +298,78 @@
     list.forEach(function (p) { var m = (p.node && app.out.M[p.node]) || app.out.rootM, w = M.ap(m, p.x, p.y); p.sx = w[0] * app.view.s + app.view.ox + (p.ox || 0); p.sy = w[1] * app.view.s + app.view.oy + (p.oy || 0); p.m = m; });
     return list;
   };
-  /* THE PART IN HAND, RINGED. Moving black-and-white dashes follow the outline of the art itself (its own transparency, not a box),
-     so it is plain which pieces are in the selection and which are not, on art of any colour.
-     The selected pieces are drawn alone into a second surface, that shape is fattened and the shape itself cut back out: what is
-     left is a ring, and the ring is filled with moving stripes. */
+  /* THE PART IN HAND, SHOWN. Five ways, to be compared in use (the round button on the stage cycles them):
+       Fine dashes  a hairline of moving dashes along the art's own outline, with gaps the art shows through
+       Glow         a soft cyan halo outside the outline, nothing on the art
+       Spotlight    everything else steps back into shadow, nothing on the art
+       Corners      four small corners round it and a brief flash when it is chosen, then nothing on the art
+       Wash         a faint magenta wash over the part, gently pulsing, no line
+     All are made from the same thing: the selected pieces drawn alone into a second surface (their true silhouette). */
+  app.LOOKS = [['ants', 'Fine dashes'], ['glow', 'Glow'], ['spot', 'Spotlight'], ['corners', 'Corners'], ['wash', 'Wash']];
+  app.look = function () { if (!app._look) { try { app._look = localStorage.getItem('al.look') || 'ants'; } catch (e) { app._look = 'ants'; } } return app._look; };
+  app.nextLook = function () { var i = 0; app.LOOKS.forEach(function (q, k) { if (q[0] === app.look()) i = k; }); var n = app.LOOKS[(i + 1) % app.LOOKS.length]; app._look = n[0]; try { localStorage.setItem('al.look', n[0]); } catch (e) { } app.toast('Selection shown as: ' + n[1]); app.renderTools(); };
   app.outline = function (g, dpr, out) {
-    if (!(AL.stages && AL.stages.on()) || app.mode !== 'build' || app.bridge || app.tab !== 'parts' || !out) return;
+    if (!(AL.stages && AL.stages.on()) || app.mode !== 'build' || app.bridge || app.tab !== 'parts' || !out || app.selOff) return;
     var ids = null;
     if (app.fitOn && app.fitOn.box) { var bn = AL.node(app.ch, app.fitOn.node); if (bn) { ids = {}; AL.walk(bn, function (k) { ids[k.id] = 1; }); } }
-    else if (app.selIds && app.sel.zone !== 'body' && (app.sel.feature || app.sel.node || app.stage === 'fit')) ids = app.selIds;
+    else if (app.selIds && (app.sel.feature || app.sel.node || app.stage === 'fit')) ids = app.selIds;
     if (!ids) return;
     var items = out.items.filter(function (it) { return !it.ghost && ids[it.id]; }); if (!items.length) return;
-    var W = g.canvas.width, H = g.canvas.height, O = app._ol || (app._ol = {});
+    var W = g.canvas.width, H = g.canvas.height, O = app._ol || (app._ol = {}), mode = app.look(), now = performance.now();
     try {
-      if (!O.gc) { O.gc = document.createElement('canvas'); O.G = new AL.GL(O.gc); O.t = document.createElement('canvas'); O.p = document.createElement('canvas'); O.p.width = O.p.height = 12; var pg = O.p.getContext('2d'); pg.fillStyle = '#000'; pg.fillRect(0, 0, 12, 12); pg.fillStyle = '#fff'; pg.beginPath(); pg.moveTo(0, 0); pg.lineTo(6, 0); pg.lineTo(0, 6); pg.closePath(); pg.fill(); pg.beginPath(); pg.moveTo(12, 0); pg.lineTo(12, 6); pg.lineTo(6, 12); pg.lineTo(0, 12); pg.closePath(); pg.fill(); }
+      if (!O.gc) { O.gc = document.createElement('canvas'); O.G = new AL.GL(O.gc); O.t = document.createElement('canvas'); O.p = document.createElement('canvas'); O.p.width = O.p.height = 10; var pg = O.p.getContext('2d'); pg.fillStyle = '#fff'; pg.fillRect(0, 0, 5, 10); }
       if (O.ch !== app.ch) { if (O.G.forget) O.G.forget(); O.ch = app.ch; }
       if (O.gc.width !== W || O.gc.height !== H) { O.gc.width = O.t.width = W; O.gc.height = O.t.height = H; }
+      var key = items.length + ':' + items[0].id; if (key !== O.key) { O.key = key; O.t0 = now; }
       O.G.draw(items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, null, null);
-      var t = O.t.getContext('2d'), r = Math.max(2, Math.round(2.2 * dpr)), k;
-      t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.clearRect(0, 0, W, H);
-      for (k = 0; k < 8; k++) t.drawImage(O.gc, Math.round(Math.cos(k * Math.PI / 4) * r), Math.round(Math.sin(k * Math.PI / 4) * r));
-      t.globalCompositeOperation = 'destination-out'; t.drawImage(O.gc, 0, 0); t.drawImage(O.gc, 0, 0); t.drawImage(O.gc, 0, 0);
-      t.globalCompositeOperation = 'source-in'; var off = Math.floor(performance.now() / 70) % 12; t.translate(off, 0); t.fillStyle = t.createPattern(O.p, 'repeat'); t.fillRect(-12, 0, W + 24, H); t.setTransform(1, 0, 0, 1, 0, 0);
-      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.drawImage(O.t, 0, 0); g.restore();
+      var t = O.t.getContext('2d'), k, alpha = 1;
+      t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over'; t.filter = 'none'; t.clearRect(0, 0, W, H);
+      if (mode === 'ants') {
+        var r = Math.max(1, Math.round(dpr * 0.75));
+        [[r, 0], [-r, 0], [0, r], [0, -r]].forEach(function (q) { t.drawImage(O.gc, q[0], q[1]); });
+        t.globalCompositeOperation = 'destination-out'; for (k = 0; k < 4; k++) t.drawImage(O.gc, 0, 0);
+        t.globalCompositeOperation = 'source-in'; t.translate(Math.floor(now / 80) % 10, 0); t.fillStyle = t.createPattern(O.p, 'repeat'); t.fillRect(-10, 0, W + 20, H);
+      } else if (mode === 'glow') {
+        t.filter = 'blur(' + Math.round(5 * dpr) + 'px)'; t.drawImage(O.gc, 0, 0); t.drawImage(O.gc, 0, 0); t.filter = 'none';
+        t.globalCompositeOperation = 'source-in'; t.fillStyle = '#22d3ee'; t.fillRect(0, 0, W, H);
+        t.globalCompositeOperation = 'destination-out'; for (k = 0; k < 4; k++) t.drawImage(O.gc, 0, 0);
+        alpha = 0.75 + 0.25 * Math.sin(now / 420);
+      } else if (mode === 'spot') {
+        t.fillStyle = 'rgba(0,0,0,.58)'; t.fillRect(0, 0, W, H);
+        t.globalCompositeOperation = 'destination-out'; for (k = 0; k < 4; k++) t.drawImage(O.gc, 0, 0);
+      } else if (mode === 'wash') {
+        t.drawImage(O.gc, 0, 0); t.globalCompositeOperation = 'source-in'; t.fillStyle = '#f43f8e'; t.fillRect(0, 0, W, H);
+        alpha = 0.16 + 0.1 * Math.sin(now / 380);
+      } else {                                                      // corners
+        var age = now - (O.t0 || 0);
+        if (age < 480) { t.drawImage(O.gc, 0, 0); t.globalCompositeOperation = 'source-in'; t.fillStyle = '#ffffff'; t.fillRect(0, 0, W, H); alpha = 0.55 * (1 - age / 480); }
+      }
+      t.setTransform(1, 0, 0, 1, 0, 0); t.globalCompositeOperation = 'source-over';
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = alpha; g.drawImage(O.t, 0, 0); g.restore();
+      if (mode === 'corners') {
+        var b = null; items.forEach(function (it) { var v = it.v; for (var i = 0; i < v.length; i += 2) { var x = v[i], y = v[i + 1]; if (!b) b = { x0: x, y0: y, x1: x, y1: y }; else { if (x < b.x0) b.x0 = x; if (x > b.x1) b.x1 = x; if (y < b.y0) b.y0 = y; if (y > b.y1) b.y1 = y; } } });
+        if (b) { var vw = app.view, x0 = b.x0 * vw.s + vw.ox - 4, y0 = b.y0 * vw.s + vw.oy - 4, x1 = b.x1 * vw.s + vw.ox + 4, y1 = b.y1 * vw.s + vw.oy + 4, L = 9;
+          g.strokeStyle = '#ffffff'; g.lineWidth = 1; g.beginPath();
+          [[x0, y0, 1, 1], [x1, y0, -1, 1], [x1, y1, -1, -1], [x0, y1, 1, -1]].forEach(function (c) { g.moveTo(c[0] + c[2] * L, c[1]); g.lineTo(c[0], c[1]); g.lineTo(c[0], c[1] + c[3] * L); }); g.stroke(); }
+      }
     } catch (e) { }
+  };
+  /* GROUND card, in Motion: the three bands a finger moves the hips through (jump above, upright between, all fours below) */
+  app.bands = function (g) {
+    if (!(app.live && AL.stages && AL.stages.is(app, 'motion') && app.sel.zone === 'ground' && app.inp && app.inp.walker.band)) return;
+    var B = app.inp.walker.band, v = app.view, Wd = app.stageSize().w, yU = (B.y - B.up) * v.s + v.oy, yD = (B.y + B.down) * v.s + v.oy, has4 = !!(AL.stance && AL.stance.fours(app.ch));
+    g.save(); g.fillStyle = 'rgba(34,211,238,.07)'; g.fillRect(0, yU, Wd, (has4 ? yD : app.stageSize().h) - yU);
+    g.setLineDash([6, 5]); g.lineWidth = 1; g.font = '600 11px sans-serif';
+    g.strokeStyle = g.fillStyle = '#f43f8e'; g.beginPath(); g.moveTo(0, yU); g.lineTo(Wd, yU); g.stroke(); g.fillText('pull the hips above this line: it jumps', 10, yU - 5);
+    if (has4) { g.strokeStyle = g.fillStyle = '#a78bfa'; g.beginPath(); g.moveTo(0, yD); g.lineTo(Wd, yD); g.stroke(); g.fillText('push the hips below this line: all fours', 10, yD + 14); }
+    g.fillStyle = '#22d3ee'; g.fillText('between the lines it walks upright', 10, (yU + (has4 ? yD : yU + 60)) / 2 + 4);
+    g.restore();
   };
   app.drawOverlay = function (g, dpr, liveNow, out) {
     var v = app.view, i;
     g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, g.canvas.width, g.canvas.height);
     function sx(x) { return x * v.s + v.ox; } function sy(y) { return y * v.s + v.oy; }
-    if (!liveNow) app.outline(g, dpr, out);
+    if (!liveNow) app.outline(g, dpr, out); else app.bands(g);
     if (app.mesh && (app.selIds || liveNow)) {
       g.lineWidth = 0.6; g.strokeStyle = 'rgba(167,139,250,.75)'; g.beginPath();
       out.items.forEach(function (it) {
@@ -352,7 +394,7 @@
     pins.forEach(function (p) {                             // a transform box: its outline, drawn through the part's own move, turn and size
       if (!p.box) return; g.beginPath();
       p.box.forEach(function (q, bi) { var w = M.ap(p.m, q[0], q[1]); if (bi) g.lineTo(sx(w[0]), sy(w[1])); else g.moveTo(sx(w[0]), sy(w[1])); });
-      g.closePath(); g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.stroke();
+      g.closePath();
       /* the part in hand is ringed in moving white dashes: they show on any colour of art, cyan included */
       g.strokeStyle = '#22d3ee'; g.lineWidth = 1; g.stroke();      // (the box is only the handles' frame: the moving dashes go round the art itself, see app.outline)
     });
@@ -610,6 +652,7 @@
     function b(icon, title, on, fn) { t.appendChild(h('button', { class: 'ib' + (on ? ' on' : ''), title: title, 'aria-pressed': String(!!on), onclick: fn }, AL.icon(icon))); }
     b('fit', 'Fit: show the whole character', false, function () { app.userView = false; if (liveNow || !app.selIds) app.fit(false); else if (app.vt == null && app._fitAll) { app._fitAll = false; app.focusSel(); } else { app._fitAll = true; app.fit(false); } });
     if (!liveNow) {
+      if (AL.stages && AL.stages.on()) { var lk = 'Fine dashes'; app.LOOKS.forEach(function (q) { if (q[0] === app.look()) lk = q[1]; }); b('target', 'How the part in hand is shown: ' + lk + '. Tap for the next of five.', false, app.nextLook); }
       b('mesh', 'Show the bend mesh of the selected part', app.mesh, function () { app.mesh = !app.mesh; app.renderTools(); });
       if (app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') b('onion', 'Onion skin: ghost the other drawings of this part', app.onion, function () { app.onion = !app.onion; app.renderTools(); });
       if (!(AL.stages && AL.stages.on())) b('move', 'Move art: when ON, dragging the selected drawing slides it (pins come along)', app.moveArt, function () { app.moveArt = !app.moveArt; app.renderTools(); app.toast(app.moveArt ? 'Move art is ON: drag the selected drawing' : 'Move art is off'); });

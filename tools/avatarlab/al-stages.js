@@ -80,7 +80,7 @@
     while (same < P.length && same < was.length && P[same].id === was[same]) same++;
     P.forEach(function (q, i) {
       var last = i === P.length - 1, url = q.node && AL.shelf ? AL.shelf.partPic(app, q.node, 48) : null;
-      var b = h('button', { class: 'crumb' + (last ? ' on' : '') + (i >= same && was.length ? ' in' : ''), title: last ? q.name + ': where you are' : 'Back out to ' + q.name, onclick: last ? null : function () {
+      var b = h('button', { class: 'crumb' + (last ? (app.selOff ? ' on off' : ' on') : '') + (i >= same && was.length ? ' in' : ''), title: last ? (app.selOff ? q.name + ': tap to show its box and marks again' : q.name + ': where you are. Tap to see it bare, with no box or marks; you stay here.') : 'Back out to ' + q.name, onclick: last ? function () { app.selOff = !app.selOff; app.refreshPanel(true); } : function () {
         Array.prototype.slice.call(row.children, i + 1).forEach(function (c) { c.classList.add('out'); });      // the deeper ones fold away into this one, then it is chosen
         setTimeout(q.go, 150);
       } }, [url ? h('img', { src: url, alt: '' }) : null, h('span', { text: q.name })]);
@@ -109,7 +109,7 @@
       while (q) { if (list.indexOf(q) >= 0) return q; q = ix.p[q.id]; }
       return list[0] || null;
     }
-    return app.sel.zone && app.sel.zone !== 'body' && app.sel.zone !== 'ground' && app.sel.zone !== 'extra' ? app.zoneNode(app.sel.zone) : null;
+    return app.sel.zone && app.sel.zone !== 'ground' && app.sel.zone !== 'extra' ? app.zoneNode(app.sel.zone) : null;      // (the body too: its torso takes the box)
   };
   /** In Fit the box is simply there on whatever is in hand (a limb, outside a stance, slides whole instead: pins and all). */
   stages.before = function (app) {
@@ -119,6 +119,7 @@
     if (app.held) app.poseEdit = null;                          // (a held pose is the pose: no stance over it)
     if (app.stage !== 'fit' || app.live || app.bridge) { if (app.stage !== 'fit') app.moveArt = false; return; }
     var n = stages.target(app), fit = AL.fit;
+    if (app.selOff) { app.fitOn = null; app.moveArt = false; return; }          // looking at it bare: no box, no marks, same card
     if (app.fitOn && app.fitOn.pins && n && app.fitOn.node === n.id) { app.moveArt = false; return; }      // reshaping with pins: leave it be
     if (app.fitOn && app.fitOn.box && n && app.fitOn.node !== n.id) { var k = AL.node(app.ch, app.fitOn.node), ixx = AL.ix(app.ch); while (k && k !== n) k = ixx.p[k.id]; if (k) { app.moveArt = false; return; } }      // the box was put on a piece of it (just this angle): leave it there
     if (n && fit.can(app, n)) { if (!n.pivot && n.type !== 'art') fit.needPivot(app, n); app.fitOn = { node: n.id, box: true }; app.moveArt = false; }

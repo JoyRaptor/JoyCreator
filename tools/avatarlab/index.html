@@ -125,11 +125,16 @@ body.fill #devwrap{align-items:stretch} body.fill #device{width:100%;height:100%
 #app.stages .ph1 h2{display:none} #app.stages .crumbback{display:none}
 .crumbs{flex:1;min-width:0;display:flex;overflow-x:auto;scrollbar-width:none;padding:1px 0}
 .crumbs::-webkit-scrollbar{display:none}
-.crumb{flex:none;height:30px;display:inline-flex;align-items:center;gap:5px;padding:0 15px 0 13px;margin-left:-7px;background:var(--raised);color:var(--dim);font:700 12.5px/1 var(--f-disp);white-space:nowrap;clip-path:polygon(10px 0,100% 0,calc(100% - 10px) 100%,0 100%);transform-origin:left center}
-.crumb:first-child{margin-left:0;padding-left:9px;clip-path:polygon(0 0,100% 0,calc(100% - 10px) 100%,0 100%);border-radius:7px 0 0 7px}
+/* the lobby's slanted tab: a leaning block with every corner softened alike; the first one stands straight on its left side */
+.crumb{flex:none;height:30px;display:inline-flex;align-items:center;gap:5px;padding:0 14px;margin-left:-3px;color:var(--dim);font:700 12px/1 var(--f-disp);white-space:nowrap;position:relative;z-index:0;transform-origin:left center;--cb:var(--raised)}
+.crumb::before{content:"";position:absolute;inset:0 2px;background:var(--cb);border-radius:5px;transform:skewX(-17deg);z-index:-1}
+.crumb:first-child{margin-left:0;padding-left:10px}
+.crumb:first-child::after{content:"";position:absolute;left:0;top:0;bottom:0;width:55%;background:var(--cb);border-radius:5px 0 0 5px;z-index:-1}
+.crumb.on{font:800 16px/1 var(--f-disp);letter-spacing:-.01em}
 .crumb img{width:22px;height:22px;object-fit:contain;flex:none}
-.crumb.on{background:linear-gradient(135deg,var(--room),var(--room2));color:#fff;cursor:default}
-.crumb:not(.on):hover{background:var(--pressed);color:var(--ink)}
+.crumb.on{--cb:linear-gradient(135deg,var(--room),var(--room2));color:#fff}
+.crumb.on.off{--cb:none;color:var(--ink)} .crumb.on.off::before{box-shadow:inset 0 0 0 1.5px var(--line2)}
+.crumb:not(.on):hover{--cb:var(--pressed);color:var(--ink)}
 .crumb.in{animation:crumbIn .22s ease-out} .crumb.out{animation:crumbOut .15s ease-in forwards}
 @keyframes crumbIn{from{transform:translateX(-26px) scaleX(.3);opacity:0}to{transform:none;opacity:1}}
 @keyframes crumbOut{to{transform:translateX(-26px) scaleX(.2);opacity:0}}

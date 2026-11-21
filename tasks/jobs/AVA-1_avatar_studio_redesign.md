@@ -304,6 +304,16 @@ they want, a centipede; arms that can become feet with one toggle").
       under the finger at the angle showing (Head, then Face), and the path names the angle (Head › Frontal › Face).
       Eyes, mouth, brows and nose keep their own cards; limbs are unchanged. Known rough edge: the picture re-frames
       after each tap, so a second tap in the same place can land on a different thing.
+- [x] Round 16 (11-21), "the body gets all broken". Cause: the **How far it tips** slider. Parts placed by hand
+      for a steep tip kept their numbers in the torso's frame, so at a shallow tip the arms and legs swung off the
+      body (reproduced with his saved Topps). Now a hand placement stays where it was put on the picture when the
+      tip changes (`keep(…, ride)` in `al-stance.js`), a stance already left broken is put right when the character
+      opens (`stance.heal`, tested at 40°, 45° and 60°; a good stance is left alone; a mild case near 80° is not
+      detected), and the stance section has **Work it out again** (forgets every hand move, one undo). Motion has
+      the same pose row as Fit, alive: tap All fours and it goes down, and the row follows when it drops by itself.
+      Stepping into a layer by a second tap no longer re-frames the picture. Checked with real mouse drags.
+      Not done: the wider editing-flow pass he asked for (only these were walked); "Hips come down" shows a stale
+      value after the tip is dragged; the Body card lists "In front or behind" twice; no pose row in Set up.
 - [ ] Asked for 11-21, parked by him until the two fixes above are seen: a camera frame with aspect ratio in
       Perform, a close-up toggle, a Scene (background, foreground pieces, several characters), an export button
       with video and "performance to Studio" modes, scenes on the character shelf. Not designed yet.

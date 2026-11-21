@@ -83,7 +83,12 @@
     return P;
   };
   /** Open one layer or folder as the part in hand, keeping the stage and the stance. */
-  stages.open = function (app, id) { var keep = app.poseEdit, amt = app.poseAmt; app._hitId = id; app.tab = 'parts'; app.select(AL.zoneOf(app.ch, id), null, id); if (keep && app.poseEdit !== keep) { app.poseEdit = keep; app.poseAmt = amt; app.refreshPanel(); } };
+  stages.open = function (app, id, stay) {
+    var keep = app.poseEdit, amt = app.poseAmt, v = app.view, v0 = stay ? { s: v.s, ox: v.ox, oy: v.oy } : null, uv = app.userView;
+    app._hitId = id; app.tab = 'parts'; app.select(AL.zoneOf(app.ch, id), null, id);
+    if (v0) { app.view = v0; app.vt = null; app.userView = uv; }                // stepping in by a tap: the picture stays where it is, so the next tap lands where you see it
+    if (keep && app.poseEdit !== keep) { app.poseEdit = keep; app.poseAmt = amt; app.refreshPanel(); }
+  };
   /**
    * A second tap goes IN. The first tap on the head takes the whole head; a tap on it again takes the very layer under the finger,
    * at the angle the head is showing (its face, a horn). Inside, a tap on another layer of the same part goes straight to that layer.
@@ -97,7 +102,7 @@
     if (feat) return false;                                                   // an eye, the mouth: its own card
     if (sel.feature) return false;                                            // from a feature, a tap on the plain head goes back to the head
     if (sel.node === id) return true;                                         // already in hand
-    stages.open(app, id); return true;
+    stages.open(app, id, true); return true;
   };
   stages.up = function (app) { var P = stages.path(app); if (P.length > 2) P[P.length - 2].go(); };
   stages.crumbs = function (app) {
@@ -193,6 +198,13 @@
     var url = AL.shelf ? AL.shelf.snap(app, eo, 56) : null; stages._th[id || 'stand'] = { key: key, url: url };
     return url;
   };
+  /** Motion's pose row shows the stance the character is in right now (it changes by itself when it is pushed low). */
+  stages.motionRow = function (app) {
+    var row = stages._mrow; if (!row || !row.length || !row[0].b.parentNode || !app.inp) return;
+    var cur = null; row.forEach(function (r) { if (r.p && app.inp.trig[r.p.trig]) cur = r.p; });
+    row.forEach(function (r) { var on = r.p === cur; if (r.b.classList.contains('on') !== on) r.b.classList.toggle('on', on); });
+  };
+  if (AL.app && AL.app.hooks) AL.app.hooks.push(function () { if (AL.app.live && stages._mrow) stages.motionRow(AL.app); });
   /** The row on the picture. Fit: the pose this fit is for. Set up: nothing in the way. Motion: a way to make it talk. */
   stages.bar = function (app, sb) {
     var ui = app.ui, h = AL.h, ch = app.ch, st = stages.cur(app);
@@ -200,6 +212,17 @@
     if (st === 'motion') {
       if (app._from) sb.appendChild(ui.chip('Back to ' + (app._from === 'fit' ? 'Fit' : 'Set up'), { cls: 'veil', icon: 'back', title: 'Back to where you were, exactly as you left it', fn: function () { stages.go(app, app._from); } }));
       sb.appendChild(ui.chip('Hold this pose', { cls: 'veil', icon: 'pin', title: 'Freeze it exactly as it is now and go to Set up, to mend a pin or a joint while it is bent this way', fn: function () { stages.hold(app); } }));
+      /* the same pose row as in Fit, alive: tap a stance and it goes into it, tap Standing and it gets up. It follows what the
+         character does by itself (pushed low it drops to all fours, and the row shows it). */
+      var mlist = (ch.poses || []).filter(function (p) { return p.trig; });
+      if (mlist.length && app.inp) {
+        var mseg = h('span', { class: 'seg veil poses', role: 'group', title: 'The stance it is in. Tap one to send it there.' }); stages._mrow = [];
+        var mone = function (p) {
+          var pic = stages.poseThumb(app, p ? p.id : null), b = h('button', { title: p ? 'Go into “' + p.name + '”' : 'Stand up', onclick: function () { mlist.forEach(function (q) { app.inp.setTrig(q.trig, q === p); }); } }, [pic ? h('img', { src: pic, alt: '' }) : null, p ? p.name : 'Standing']);
+          stages._mrow.push({ b: b, p: p }); mseg.appendChild(b);
+        };
+        mone(null); mlist.forEach(mone); sb.appendChild(mseg); stages.motionRow(app);
+      }
     }
     if (app.held && st !== 'motion') sb.appendChild(ui.chip('Held pose', { cls: 'veil on', icon: 'x', title: 'The character is frozen in the pose you held. Tap to let it go back to standing.', fn: function () { app.held = null; app.refreshPanel(true); } }));
     if (st === 'fit' && !app.held) {

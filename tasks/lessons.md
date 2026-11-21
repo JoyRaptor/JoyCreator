@@ -1292,3 +1292,7 @@ wire it up, make it look right in one place, then in every pose, then moving, th
 seldom-used ones behind ONE drawer; the plain acts (move, turn, put back) are one tap from anywhere; a still view never shows
 what the moving one will not do; an edit never moves the page; a part in focus is never under the floating buttons.** When a
 repair cannot reach the user's own saved copy, repair that copy too (once, undoable) instead of asking him three times.
+
+## 2026-11-21: a value kept "relative" must say relative to what (AVA-1)
+- The all-fours stance kept each hand placement as a difference from the worked-out placement, in the torso's frame. Changing the tip turned that frame, so the same numbers meant a different place and the limbs came off the body. Rule: when a setting re-derives a pose, carry hand edits across in picture terms, and test the setting with a character that HAS hand edits, not the clean demo.
+- A script that only switches a feature on is not a test of it. Drag the real control with the mouse, then switch away and back.

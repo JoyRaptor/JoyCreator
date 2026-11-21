@@ -100,6 +100,7 @@
     o = o || {};
     if (app.inp) { app.inp.micStop(); app.inp.camStop(); }                      // the old character's microphone and camera go with it
     app.ch = ch; AL.reindex(ch); app.solver = new AL.Solver(ch); if (app.G) app.G.forget();
+    try { if (AL.stance && AL.stance.heal(ch)) setTimeout(function () { app.toast('All fours was put right: the parts you placed by hand follow the tip again.'); }, 1200); } catch (e) { }      // a stance left broken by an older page (see al-stance.js)
     /* a leg made before feet had a bar gets one guessed, so it walks heel-to-toe without being asked (null = switched off on purpose) */
     ['legL', 'legR'].forEach(function (r) { var s = AL.firstRole(ch.root, r); if (s && s.kids) s.kids.forEach(function (k) { if (k.limb && k.limb.foot === undefined && k.limb.style !== 'hose') k.limb.foot = AL.guessFoot(ch, k); }); });
     app.inp = new AL.Inputs(app); app.hist = new AL.History(); app.syncUndo();
@@ -165,6 +166,11 @@
   /* One-off, pilot only: copies of the built-in Topps kept in a browser from before 11-21 carry two faults the owner reported and could
      not reach to fix (the crest layer turned on its side; no order for the arms on all fours). Put right once, as one undo step. */
   function mendTopps() {
+    var ch0 = app.ch, f0 = ch0 && AL.stance ? AL.stance.fours(ch0) : null;
+    if (f0 && f0.fours && !f0.fours.v) {                          // an all-fours stance left broken by an older page: put right once
+      var healed = false; app.edit(function () { healed = AL.stance.heal(ch0); }, false, 'All fours put right');
+      if (healed) setTimeout(function () { app.toast('All fours was put right: the parts you placed by hand follow the tip again. Undo brings it back as it was.'); }, 1200);
+    }
     var ch = app.ch; if (!ch || ch.demo !== 'topps' || ch.mended || !AL.stance) return;
     var fr = AL.node(ch, 'n5byqt'), p = AL.stance.fours(ch), hd = AL.node(ch, 'n3ubb0'), jobs = [];
     if (fr && fr.rot && Math.abs(fr.rot) > 60) jobs.push(function () { delete fr.rot; });

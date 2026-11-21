@@ -61,18 +61,25 @@
     if (A == null) { A = 104; for (var t = 40; t <= 104; t++) if (gy - shoulderY(t) <= want) { A = t; break; } }
     drop = Math.max(0, Math.round(gy - shoulderY(A) - want));                        // arms too short even so: the hips come down the rest of the way
     var p = stance.fours(ch) || stance.add(ch, 'All fours'), old = p.d || {}, sgnA = A * dir, d = {};
-    /* what was nudged by hand stays nudged: each part keeps its own difference from what is worked out here */
-    function keep(id, base) {
+    /* What was placed by hand stays where it was placed ON THE PICTURE. A part that rides on the torso keeps its numbers in the torso's
+       frame, and that frame turns when the tip changes; so its hand move is turned back by the change (ride: 'pos'), and an arm, which
+       has no turn of its own worked out, has its hand turn changed by the same amount (ride: 'all'). Without this, parts fitted for a
+       steep tip swing off the body at a shallow one. */
+    var was = p.fours && typeof p.fours.angle === 'number' ? p.fours.angle * dir : sgnA, turn = (was - sgnA) * Math.PI / 180, ct = Math.cos(turn), sn = Math.sin(turn);
+    function keep(id, base, ride) {
       var o = old[id] || {}; base.autoRot = base.autoRot || 0; base.autoX = base.autoX || 0; base.autoY = base.autoY || 0;
-      base.x = Math.round((base.autoX + ((o.x || 0) - (o.autoX || 0))) * 10) / 10; base.y = Math.round((base.autoY + ((o.y || 0) - (o.autoY || 0))) * 10) / 10;
-      base.rot = base.autoRot + ((o.rot || 0) - (o.autoRot || 0)); if (o.sc != null && o.sc !== 1) base.sc = o.sc; if (o.z) base.z = o.z; base.auto = true; return base;
+      var hx = (o.x || 0) - (o.autoX || 0), hy = (o.y || 0) - (o.autoY || 0), hr = (o.rot || 0) - (o.autoRot || 0);
+      if (ride && (hx || hy)) { var qx = ct * hx - sn * hy; hy = sn * hx + ct * hy; hx = qx; }
+      if (ride === 'all' && Math.abs(hr) > 0.05) hr += was - sgnA;
+      base.x = Math.round((base.autoX + hx) * 10) / 10; base.y = Math.round((base.autoY + hy) * 10) / 10;
+      base.rot = Math.round((base.autoRot + hr) * 10) / 10; if (o.sc != null && o.sc !== 1) base.sc = o.sc; if (o.z) base.z = o.z; base.auto = true; return base;
     }
     for (var id0 in old) if (!old[id0].auto) d[id0] = old[id0];
     var torso = P.torso;
     d[torso.id] = keep(torso.id, { autoRot: sgnA, orbit: { x: H.x, y: H.y, deg: sgnA } });
-    P.legs.concat(P.tails).forEach(function (n) { if (carried(ch, n, torso)) d[n.id] = keep(n.id, { autoRot: -sgnA, orbit: { x: H.x, y: H.y, deg: -sgnA } }); });       // carried by the torso: turned back, so they stay put
+    P.legs.concat(P.tails).forEach(function (n) { if (carried(ch, n, torso)) d[n.id] = keep(n.id, { autoRot: -sgnA, orbit: { x: H.x, y: H.y, deg: -sgnA } }, 'pos'); });       // carried by the torso: turned back, so they stay put
     if (P.head) {
-      if (carried(ch, P.head, torso)) { if (!P.head.pivot) { var b = AL.boundsOf(P.head); if (b) P.head.pivot = { x: (b.x0 + b.x1) / 2, y: b.y1 }; } d[P.head.id] = keep(P.head.id, { autoRot: -sgnA }); }      // rides down on the neck, stays level
+      if (carried(ch, P.head, torso)) { if (!P.head.pivot) { var b = AL.boundsOf(P.head); if (b) P.head.pivot = { x: (b.x0 + b.x1) / 2, y: b.y1 }; } d[P.head.id] = keep(P.head.id, { autoRot: -sgnA }, 'pos'); }      // rides down on the neck, stays level
       else d[P.head.id] = keep(P.head.id, { autoRot: 0, orbit: { x: H.x, y: H.y, deg: sgnA } });
     }
     /* The arms go round with the torso and may now walk. A body drawn three-quarters on has one shoulder painted well to the side of
@@ -87,12 +94,35 @@
       /* the slide belongs to being down on the ground: a body only tipped a little keeps its arms on its shoulders */
       var sf = Math.max(0, Math.min(1, (A - 40) / 35)); sf = sf * sf * (3 - 2 * sf); wx *= sf; wy *= sf;
       var base = { autoX: ca * wx + sa * wy, autoY: -sa * wx + ca * wy };
-      if (!carried(ch, a, torso)) { base.autoRot = sgnA; base.orbit = { x: H.x, y: H.y, deg: sgnA }; base.autoX = wx; base.autoY = wy; }
-      d[a.id] = keep(a.id, base); if (!a.pick.walk) a.pick.walk = { lift: true };
+      var rides = carried(ch, a, torso);
+      if (!rides) { base.autoRot = sgnA; base.orbit = { x: H.x, y: H.y, deg: sgnA }; base.autoX = wx; base.autoY = wy; }
+      d[a.id] = keep(a.id, base, rides ? 'all' : null); if (!a.pick.walk) a.pick.walk = { lift: true };
     });
-    p.d = d; p.fours = { hip: H, angle: A, drop: drop }; if (p.time == null || p.time === 0.6) p.time = 0.7;
+    p.d = d; p.fours = { hip: H, angle: A, drop: drop, v: 2 }; if (p.time == null || p.time === 0.6) p.time = 0.7;
     wk.fours = p.id; if (wk.autoFours == null) wk.autoFours = true;
     return p;
+  };
+
+  /** How many parts of this stance were placed by hand on top of what was worked out. */
+  stance.handMoves = function (p) { var n = 0, d = p && p.d || {}; for (var id in d) { var e = d[id]; if (e.auto ? (Math.abs((e.x || 0) - (e.autoX || 0)) > 0.05 || Math.abs((e.y || 0) - (e.autoY || 0)) > 0.05 || Math.abs((e.rot || 0) - (e.autoRot || 0)) > 0.05 || (e.sc != null && e.sc !== 1)) : (e.x || e.y || e.rot || (e.sc != null && e.sc !== 1))) n++; } return n; };
+  /** Every hand move in the stance forgotten: back to how it was worked out (what is in front of what is kept). */
+  stance.clearHand = function (p) { var d = p.d || {}; Object.keys(d).forEach(function (id) { var e = d[id]; if (e.auto) { e.x = e.autoX || 0; e.y = e.autoY || 0; e.rot = e.autoRot || 0; delete e.sc; } else { delete e.x; delete e.y; delete e.rot; delete e.sc; if (!e.z && !e.orbit) delete d[id]; } }); };
+  /**
+   * A stance saved before hand moves followed the tip (no fours.v) may have been left broken: the tip was changed after the arms were
+   * fitted, and they swung off the body. The sign of it: an arm that rides on the torso is turned back well PAST straight down, which nobody does by hand. The tip
+   * the arms were fitted at is then read back from the arms themselves, and the hand moves are carried from there to the tip it has now.
+   * Returns true when it changed something.
+   */
+  stance.heal = function (ch) {
+    var p = stance.fours(ch), P = stance.parts(ch); if (!p || !p.fours || p.fours.v || !P) return false;
+    var set = ch.settings, kl = restKid(ch, P.legs[0]).limb, kr = restKid(ch, P.legs[1]).limb, Hx = (kl.a.x + kr.a.x) / 2, hb = P.head ? AL.boundsOf(P.head) : null;
+    var dir = set.facing === 'left' ? -1 : set.facing === 'right' ? 1 : (hb && (hb.x0 + hb.x1) / 2 < Hx ? -1 : 1), now = p.fours.angle, sum = 0, n = 0, off = 0;
+    P.arms.forEach(function (a) { var e = p.d && p.d[a.id]; if (!e || !e.auto || !carried(ch, a, P.torso)) return; var hr = (e.rot || 0) - (e.autoRot || 0); if (Math.abs(hr) < 0.05) return; n++; if (now + hr * dir < -30) { off++; sum += hr * -dir; } });      // (now + hr * dir: how far short of hanging straight down the arm is; untouched it equals the tip, hanging it is 0)
+    if (!off) { p.fours.v = 2; return false; }
+    var fitted = clamp(Math.round(sum / off), 30, 125);                           // the tip at which those arms hang straight down
+    if (Math.abs(fitted - now) < 12) { p.fours.v = 2; return false; }
+    var drop = p.fours.drop; p.fours.angle = fitted; stance.makeFours(ch, now); if (drop != null) p.fours.drop = drop;
+    return true;
   };
 
   /* ── the cards ── */
@@ -110,6 +140,8 @@
     pb.appendChild(ui.slider('See it', { min: 0, max: 100, value: Math.round((app.poseAmt == null ? 1 : app.poseAmt) * 100), undo: false, set: function (v) { app.poseAmt = v / 100; }, fmt: function (v) { return v >= 100 ? 'fully in' : v <= 0 ? 'standing' : v + '%'; }, title: 'Slide to watch the character go into this stance and out again' }));
     if (ed.fours) pb.appendChild(ui.slider('How far it tips', { min: 30, max: 125, value: ed.fours.angle, set: function (v) { stance.makeFours(ch, v); }, fmt: function (v) { return v + '°'; }, title: 'How far the body leans forward about the hips' }));
     if (ed.fours) pb.appendChild(ui.slider('Hips come down', { min: 0, max: 80, value: ed.fours.drop || 0, set: function (v) { ed.fours.drop = v; }, fmt: function (v) { return v ? v + ' px' : 'not at all'; }, title: 'How far the hips sink while it is on all fours. The feet stay planted, so the back legs fold. Watch the back legs as you slide.' }));
+    var hm = stance.handMoves(ed);
+    if (hm) pb.appendChild(ui.row([ui.chip(ed.fours ? 'Work it out again' : 'Put every part back', { icon: 'wand', title: 'Forget every part you placed by hand in this stance (' + hm + '): ' + (ed.fours ? 'back to All fours as it was worked out' : 'back to standing') + '. Undo brings them back.', fn: function () { app.edit(function () { stance.clearHand(ed); }, false, 'Put every part of ' + ed.name + ' back'); app.toast(ed.name + ' is back as it was worked out. Undo brings your moves back.'); } })]));
     pb.appendChild(ui.slider('It takes', { min: 0.15, max: 2, step: 0.05, value: ed.time == null ? 0.6 : ed.time, set: function (v) { ed.time = v; }, fmt: function (v) { return v.toFixed(2) + ' s'; }, title: 'How long it takes to get into and out of this stance' }));
     var wk = ch.settings.walk;
     pb.appendChild(ui.row([

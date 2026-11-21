@@ -214,7 +214,7 @@
     if (snap) { app.view = v; app.vt = null; } else app.vt = v;
   };
   app.fit = function (snap) {
-    var b = (app.poseEdit && app.mode !== 'perform' && !app.live && app.drawnBounds(null)) || AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
+    var b = ((app.poseEdit || app.held) && app.mode !== 'perform' && !app.live && app.drawnBounds(null)) || AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
     if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.travels()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * 0.05 }; }   // room to walk
     app.fitTo(b, 14, snap);
   };
@@ -224,9 +224,11 @@
     if (!liveNow && app.selNodes && app.selNodes.length && app.sel.zone !== 'body') {
       app.selNodes.forEach(function (n) { var q = n.type === 'mirror' ? AL.boundsOf(AL.node(app.ch, n.of)) : (n.type === 'set' && n.pick && n.pick.by === 'turn' ? AL.boundsOf((app.curView() || {}).node || n) : AL.boundsOf(n)); if (q) b = b ? { x0: Math.min(b.x0, q.x0), y0: Math.min(b.y0, q.y0), x1: Math.max(b.x1, q.x1), y1: Math.max(b.y1, q.y1) } : q; });
     }
-    if (b && app.poseEdit) b = app.drawnBounds(app.selNodes) || b;          // in a stance the part is where the stance puts it, not where it was painted
+    if (b && (app.poseEdit || app.held)) b = app.drawnBounds(app.selNodes) || b;          // in a stance (or a held pose) the part is where it is drawn, not where it was painted
+    if (!liveNow && app.bridge) { var bs = AL.node(app.ch, app.bridge.set); b = (bs && app.drawnBounds([bs])) || b; }      // matching two angles: close in on the head, so a landmark can be put where it is meant
+    else if (b && AL.stages && AL.stages.is(app, 'fit') && !app.sel.feature && !app.sel.node) b = null;      // fitting a whole part: keep the whole character in view, to see what it sits against
     if (!b) return app.fit(false);
-    var w = b.x1 - b.x0, hh = b.y1 - b.y0, grow = app.sel.feature ? Math.max(w, hh) * 0.9 + 26 : (AL.stages && AL.stages.is(app, 'fit')) ? Math.max(w, hh) * 0.6 + 24 : Math.max(w, hh) * 0.16 + 10;      // (fitting wants to see what the part sits against)
+    var w = b.x1 - b.x0, hh = b.y1 - b.y0, grow = app.bridge ? 14 : app.sel.feature ? Math.max(w, hh) * 0.9 + 26 : (AL.stages && AL.stages.is(app, 'fit')) ? Math.max(w, hh) * 0.6 + 24 : Math.max(w, hh) * 0.16 + 10;      // (fitting wants to see what the part sits against)
     app.fitTo({ x0: b.x0 - grow, y0: b.y0 - grow, x1: b.x1 + grow, y1: b.y1 + grow }, 8, false);
   };
   app.toChar = function (px, py) { var v = app.view; return [(px - v.ox) / v.s, (py - v.oy) / v.s]; };

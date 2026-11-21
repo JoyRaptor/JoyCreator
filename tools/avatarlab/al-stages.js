@@ -49,6 +49,7 @@
     if (app.mode !== 'build') { app.live = false; app.setMode('build'); }
     app.setLive(s === 'motion');
     if (s === 'motion' && carry !== null && app.inp) (ch.poses || []).forEach(function (p) { if (p.trig) app.inp.setTrig(p.trig, p.id === carry); });
+    if (s === 'motion' && carry) app.refreshPanel(true);              // (the body map shows it on four legs straight away)
   };
   /** Freeze the living picture exactly as it is and go to Set up: to mend a pin or a joint while it is bent the way that shows the fault. */
   stages.hold = function (app) {
@@ -82,7 +83,7 @@
   stages.before = function (app) {
     if (!stages.on() || app.mode !== 'build') return;
     if (app.held && (app._heldCh !== app.ch || app.live)) app.held = null;
-    if (app.bridge) { app.fitOn = null; app.moveArt = false; }      // matching two angles: taps belong to the landmarks, so the box steps aside
+    if (app.bridge) { app.fitOn = null; app.moveArt = false; if (app._br !== app.bridge) { app._br = app.bridge; setTimeout(function () { app.userView = false; app.focusSel(); }, 0); } } else app._br = null;      // matching two angles: taps belong to the landmarks, so the box steps aside
     if (app.held) app.poseEdit = null;                          // (a held pose is the pose: no stance over it)
     if (app.stage !== 'fit' || app.live || app.bridge) { if (app.stage !== 'fit') app.moveArt = false; return; }
     var n = stages.target(app), fit = AL.fit;

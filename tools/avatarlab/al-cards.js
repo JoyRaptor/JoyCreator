@@ -1059,6 +1059,9 @@
     var ui = app.ui, ch = app.ch, kids = (set.kids || []).filter(function (k) { return k.type === 'art' && k.limb; }); if (kids.length < 2) return;
     var cur = AL.node(ch, set.pick.walk && set.pick.walk.kid); if (!cur || kids.indexOf(cur) < 0) cur = AL.node(ch, set.pick.rest) || kids[0];
     pb.appendChild(ui.lab('The drawing it stands on', 'fit'));
+    var one = !(set.pick.walk && set.pick.walk.any);
+    pb.appendChild(ui.toggle('One drawing while it is on the ground', one, function (v) { app.edit(function () { var w = set.pick.walk = set.pick.walk || { lift: true }; if (v) delete w.any; else w.any = true; }, false, v ? 'One drawing on the ground' : 'Any drawing on the ground'); }, 'On: a hand on the ground uses the one drawing chosen below. Off: it swaps between its drawings as it reaches, as a free hand does.'));
+    if (!one) return;
     pb.appendChild(h('div', { class: 'thumbs' }, kids.map(function (k, i) { return th(k, (i + 1) + '. ' + k.name, k === cur, set.pick.rest === k.id, function () { app.edit(function () { (set.pick.walk = set.pick.walk || { lift: true }).kid = k.id; }, false, 'Stands on drawing ' + (i + 1)); }, 'Use this drawing while the hand is on the ground'); })));
     pb.appendChild(ui.note('While this hand is on the ground it uses <b>one</b> drawing: the starred resting one unless you choose another here. Standing, reaching and waving keep all of their drawings.'));
   }

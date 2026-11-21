@@ -82,6 +82,7 @@
   stages.before = function (app) {
     if (!stages.on() || app.mode !== 'build') return;
     if (app.held && (app._heldCh !== app.ch || app.live)) app.held = null;
+    if (app.bridge) { app.fitOn = null; app.moveArt = false; }      // matching two angles: taps belong to the landmarks, so the box steps aside
     if (app.held) app.poseEdit = null;                          // (a held pose is the pose: no stance over it)
     if (app.stage !== 'fit' || app.live || app.bridge) { if (app.stage !== 'fit') app.moveArt = false; return; }
     var n = stages.target(app), fit = AL.fit;

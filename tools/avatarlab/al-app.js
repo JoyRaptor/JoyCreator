@@ -566,7 +566,7 @@
     if (app.mode !== 'perform') AL.cards.fold(app);
     if (AL.stages) AL.stages.after(app);
     if (AL.stages && AL.stages.on() && app.mode === 'perform') { var prh = $('panelhead'); prh.insertBefore(AL.stages.rail(app), prh.firstChild); }
-    if (app.mode !== 'perform' && !app.live && app.fitOn && app.fitOn.box) { var bx = AL.node(app.ch, app.fitOn.node); if (bx) app.pinProvider = function () { return AL.fit.pins(app, bx); }; }      // the box shows on whichever card is open
+    if (app.mode !== 'perform' && !app.live && !app.bridge && app.fitOn && app.fitOn.box) { var bx = AL.node(app.ch, app.fitOn.node); if (bx) app.pinProvider = function () { return AL.fit.pins(app, bx); }; }      // the box shows on whichever card is open
     app.renderTools();
     /* the same card drawn again stays where it was scrolled to; a different card opens at its top */
     var h2 = $('panelhead').querySelector('h2'), key = app.mode + '|' + app.tab + '|' + (app.stage || '') + '|' + (app.live ? 1 : 0) + '|' + (h2 && h2.firstChild ? h2.firstChild.textContent : '');

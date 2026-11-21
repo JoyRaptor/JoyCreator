@@ -596,7 +596,7 @@
         } else cur = restKid || kids[0];
         /* a hand that is walking uses ONE drawing, the one chosen for it (the resting arm unless told otherwise): an arm fan drawn for
            reaching and waving would otherwise show its raised, palm-out drawings under a body that has tipped onto all fours */
-        if (hand && hand.w && !foot && T) { var wkid = pk.walk && pk.walk.kid ? ix.n[pk.walk.kid] : null; if (!wkid || ix.p[wkid.id] !== n || !wkid.limb) wkid = restKid; if (wkid) cur = wkid; }
+        if (hand && hand.w && !foot && T && !(pk.walk && pk.walk.any)) { var wkid = pk.walk && pk.walk.kid ? ix.n[pk.walk.kid] : null; if (!wkid || ix.p[wkid.id] !== n || !wkid.limb) wkid = restKid; if (wkid) cur = wkid; }
         if (pk.loop && moving && T) { var lf = kids.filter(function (q) { return q.limb && !q.trig; }); if (lf.length) cur = lf[Math.floor(Math.max(0, s.t) * pk.loop) % lf.length]; }      // its drawings are frames, not angles
       } else if (pk.by === 'cycle') {
         var fr = kids.filter(function (q) { return !q.trig; });

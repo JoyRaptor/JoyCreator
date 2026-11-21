@@ -81,7 +81,8 @@
     var ch = app.ch, n = AL.node(ch, id); if (!n) return;
     var limbSet = AL.ancestorWith(ch, id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'reach'; });
     if (limbSet && !fit.pose(app)) { app.pickPiece = false; app.selectByNode(id); return; }                  // a limb opens its own card (pins, drawings)
-    if (limbSet) n = limbSet;                                                                                // in a stance, the whole limb is the piece
+    if (limbSet) n = limbSet;
+    else if (fit.pose(app)) { var zone0 = AL.zoneOf(ch, id), zn0 = zone0 !== 'extra' ? app.zoneNode(zone0) : null; if (zn0 && zn0.id !== n.id && !(app.sel && app.sel.node === zn0.id)) n = zn0; }      // in a stance the first tap takes the whole part (the whole head); a second tap, the layer under the finger                                                                                // in a stance, the whole limb is the piece
     var keep = app.poseEdit;
     app.tab = 'parts'; app.select(AL.zoneOf(ch, n.id), null, n.id); app.poseEdit = keep;
     if (fit.can(app, n)) { if (!n.pivot && n.type !== 'art') app.edit(function () { fit.needPivot(app, n); }, true, 'A point to turn about'); app.fitOn = { node: n.id, box: true }; }
@@ -150,6 +151,11 @@
       ui.chip('In front of everything', { on: !!(z && z.how === 'front'), fn: function () { set({ how: 'front' }); } }),
       ui.chip('Behind everything', { on: !!(z && z.how === 'back'), fn: function () { set({ how: 'back' }); } })
     ]));
+    var isLimb = n.type === 'set' && n.pick && n.pick.by === 'reach', end = /^leg/.test(n.role || '') || (n.pick && n.pick.hand && n.pick.hand.charAt(0) === 'F') ? 'foot' : 'hand';
+    if (!ask && z && z.how === 'under' && tn && isLimb) {
+      pb.appendChild(ui.toggle('The ' + end + ' comes in front', z.tip != null, function (v) { app.edit(function () { if (v) z.tip = 0.5; else delete z.tip; }, false, 'The ' + end + ' in front of ' + tn.name); }, 'The near end stays behind ' + tn.name + ' and the ' + end + ' passes in front of it, like an arm coming round'));
+      if (z.tip != null) pb.appendChild(ui.slider('Comes in front from', { min: 10, max: 90, value: Math.round(z.tip * 100), set: function (v) { z.tip = v / 100; }, fmt: function (v) { return v < 40 ? 'near the top' : v > 60 ? 'near the ' + end : 'the middle'; }, title: 'Where along it the drawing goes from behind to in front. Put it where the limb is clear of ' + tn.name + ' and it cannot be seen.' }));
+    }
     if (ask) pb.appendChild(ui.note('<b>Tap the part on the picture</b> that this should be ' + (ask.how === 'under' ? 'behind' : 'in front of') + '. Tapping the head means the whole head.'));
     else if (z) pb.appendChild(ui.slider('Changes over at', { min: 5, max: 95, value: Math.round((z.at == null ? 0.5 : z.at) * 100), set: function (v) { z.at = v / 100; }, fmt: function (v) { return v + '% of the way in'; }, title: 'How far into the stance the order changes. Pick the moment the two parts are not touching and it cannot be seen.' }));
     app.orderSet = set;

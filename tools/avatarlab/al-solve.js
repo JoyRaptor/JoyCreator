@@ -311,6 +311,8 @@
     /* springs and wind run in the character's own space, so turning the whole character around does not whip the hair */
     var invRoot = M.mul(TS, M.inv(rootM)), moving = live || !!opt.tween, frame = (st.frame = (st.frame || 0) + 1), windIn = (S.wind || 0) * (flipped ? -1 : 1);
     /* the stances that are in play right now, and how far in each is (0..1, eased by whoever drives it; forced while one is being edited) */
+    var ZF = {};      /* a limb whose far end comes back in front of what its near end is behind: one shared order per target */
+    function zFront(z) { return ZF[z.of] || (ZF[z.of] = { how: 'over', of: z.of }); }
     var PZ = []; (ch.poses || []).forEach(function (p) { var w = opt.poses && opt.poses[p.id] != null ? opt.poses[p.id] : (S.pose ? S.pose[p.id] || 0 : 0); if (w > 0.0005 || w < -0.0005) PZ.push({ p: p, w: w }); });
     out.B = {};
     function windAcc(x) { return windIn * 1500 * (0.6 + 0.4 * Math.sin(S.t * 1.9 + x * 0.013) + 0.25 * Math.sin(S.t * 4.7 + x * 0.031)); }
@@ -688,7 +690,8 @@
       var wrapOn = moving && c.ball && c.wrap === 'on', behind = null;
       var dense = (meshOn || wrapOn || limbOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp) ? 1 : 0;
       var g = self.grid(n, im, dense), i, zs = (n.zSplit && n.limb && !c.lift && !c.ghost && !c.zo) ? n.zSplit : null;
-      if (zs) g = self.splitGrid(g, n.limb, zs.at == null ? 0.5 : zs.at, zs.behind === 'tip');
+      var zt = (c.zo && c.zo.how === 'under' && c.zo.tip != null && n.limb && !c.lift && !c.ghost) ? c.zo : null;      // in a stance: the shoulder behind something, the hand in front of it
+      if (zs) g = self.splitGrid(g, n.limb, zs.at == null ? 0.5 : zs.at, zs.behind === 'tip'); else if (zt) g = self.splitGrid(g, n.limb, zt.tip, false);
       var v = g.v;
       if (wrapOn) {
         /* painted on a round head: every point slides over the ball as it turns, so the part foreshortens toward the edge and
@@ -703,7 +706,7 @@
         if (c.ghost) return; var rl = c.restLimb || n.limb, hose = n.limb.style === 'hose';
         var t = { p: M.ap(Mx, x, y), ang: wAng(Mx, ang), restP: M.ap(Mx, rl.c.x, rl.c.y), rest: wAng(Mx, hose ? Math.atan2(rl.c.y - rl.a.y, rl.c.x - rl.a.x) : Math.atan2(rl.c.y - rl.b.y, rl.c.x - rl.b.x)) };
         t.under = c.lift ? null : zs ? (zs.behind === 'tip' ? (zs.under || n.zUnder || null) : null) : (n.zUnder || c.under || null);      // a hand goes where its arm goes: behind the body with it
-        if (c.zo && !c.lift) { t.under = null; t.zo = c.zo; }
+        if (c.zo && !c.lift) { t.under = null; t.zo = zt ? zFront(zt) : c.zo; }
         out.tips[n.id] = t; if (c.limbSet) out.tips[c.limbSet] = t;
         if (c.handKey) (S.tips || (S.tips = {}))[c.handKey] = t.p;
       }
@@ -734,7 +737,7 @@
       for (i = 0; i < v.length; i += 2) { w[i] = Mx[0] * v[i] + Mx[2] * v[i + 1] + Mx[4]; w[i + 1] = Mx[1] * v[i] + Mx[3] * v[i + 1] + Mx[5]; }
       var item = { id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: c.lift ? null : (n.zUnder || c.under || null), ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '', nc: !!c.nc };
       if (c.zo && !c.lift && !c.ghost) { item.under = null; item.zo = c.zo; }
-      if (behind && !zs) { var ki = [], gi = g.idx; for (i = 0; i < gi.length; i += 3) if (!behind[gi[i]] && !behind[gi[i + 1]] && !behind[gi[i + 2]]) ki.push(gi[i], gi[i + 1], gi[i + 2]); if (!ki.length) return; item.idx = new Uint16Array(ki); }
+      if (behind && !zs && !zt) { var ki = [], gi = g.idx; for (i = 0; i < gi.length; i += 3) if (!behind[gi[i]] && !behind[gi[i + 1]] && !behind[gi[i + 2]]) ki.push(gi[i], gi[i + 1], gi[i + 2]); if (!ki.length) return; item.idx = new Uint16Array(ki); }
       if (zs) {
         /* An arm that comes round from behind: the same drawing in two pieces, one under the body and one over it, meeting on a line across the
            limb. Put the line where the limb is clear of the body (the elbow, usually) and it cannot be seen. */
@@ -743,6 +746,7 @@
         if (back.idx.length) out.items.push(back);
         if (!item.idx.length) return;
       }
+      if (zt) { var zb = {}; for (var kz in item) zb[kz] = item[kz]; zb.idx = g.back; item.idx = g.front; item.zo = zFront(zt); if (zb.idx.length) out.items.push(zb); if (!item.idx.length) return; }
       out.items.push(item);
     }
 

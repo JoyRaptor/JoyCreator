@@ -71,8 +71,33 @@
       var F = app.FEAT[sel.feature], list = app.featureNodes(sel.feature) || [];
       P.push({ id: 'f:' + sel.feature, name: F ? F.label : sel.feature, node: list[0] || null, go: function () { app._hitId = null; app.select(sel.zone, sel.feature); } });
       var t = stages.target(app); if (t && list.length > 1 && app._hitId) P.push({ id: 'n:' + t.id, name: t.name, node: t, go: function () { } });
-    } else if (sel.node) { var n = AL.node(ch, sel.node); if (n && n !== zn) P.push({ id: 'n:' + n.id, name: n.name, node: n, go: function () { } }); }
+    } else if (sel.node) {
+      var n = AL.node(ch, sel.node);
+      if (n && n !== zn) {
+        var ix = AL.ix(ch), mid = [], q = ix.p[n.id];                       // the folders between the part and the layer (the head angle it belongs to) are named too
+        while (q && q !== zn && q !== ch.root && mid.length < 4) { if (q.type !== 'set') mid.unshift(q); q = ix.p[q.id]; }
+        if (zn && q === zn) mid.forEach(function (m) { P.push({ id: 'n:' + m.id, name: m.name, node: m, go: function () { stages.open(app, m.id); } }); });
+        P.push({ id: 'n:' + n.id, name: n.name, node: n, go: function () { } });
+      }
+    }
     return P;
+  };
+  /** Open one layer or folder as the part in hand, keeping the stage and the stance. */
+  stages.open = function (app, id) { var keep = app.poseEdit, amt = app.poseAmt; app._hitId = id; app.tab = 'parts'; app.select(AL.zoneOf(app.ch, id), null, id); if (keep && app.poseEdit !== keep) { app.poseEdit = keep; app.poseAmt = amt; app.refreshPanel(); } };
+  /**
+   * A second tap goes IN. The first tap on the head takes the whole head; a tap on it again takes the very layer under the finger,
+   * at the angle the head is showing (its face, a horn). Inside, a tap on another layer of the same part goes straight to that layer.
+   * Features with their own card (eyes, mouth, brows) and limbs keep opening as they did. Returns true when it took the tap.
+   */
+  stages.stepIn = function (app, id) {
+    var ch = app.ch, sel = app.sel; if (app.tab !== 'parts' || app.live || app.selOff) return false;
+    var zone = AL.zoneOf(ch, id); if (zone !== sel.zone || zone === 'extra' || zone === 'ground') return false;
+    if (AL.ancestorWith(ch, id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'reach'; })) return false;
+    var feat = null; if (zone === 'head') for (var f in app.FEAT) { if (AL.ancestorWith(ch, id, function (a) { return a.role && app.FEAT[f].roles.indexOf(a.role) >= 0; })) { feat = f; break; } }
+    if (feat) return false;                                                   // an eye, the mouth: its own card
+    if (sel.feature) return false;                                            // from a feature, a tap on the plain head goes back to the head
+    if (sel.node === id) return true;                                         // already in hand
+    stages.open(app, id); return true;
   };
   stages.up = function (app) { var P = stages.path(app); if (P.length > 2) P[P.length - 2].go(); };
   stages.crumbs = function (app) {

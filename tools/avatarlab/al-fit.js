@@ -111,7 +111,7 @@
       n.mesh = n.mesh || { pins: [], quiet: true }; n.mesh.pins = n.mesh.pins || [];
       if (!fit.fixShape(n, app)) (n.shapes = n.shapes || []).unshift(pz ? { id: sid, name: 'In ' + pz.name, sig: 'trig:' + pz.trig, amt: 1, d: {} } : { id: FIX, name: 'Reshaped', sig: 'always', amt: 1, d: {} });
     }, true, 'Reshape with pins');
-    var w = {}; w[n.id] = {}; w[n.id][sid] = 1; (n.shapes || []).forEach(function (q) { if (q.sig === 'always' && q.id !== sid) w[n.id][q.id] = 1; }); app.shapeEdit = { node: n.id, shape: sid, w: w }; app.fitOn = { node: n.id, pins: true };
+    var w = {}; w[n.id] = {}; w[n.id][sid] = 1; (n.shapes || []).forEach(function (q) { if (q.sig === 'always' && q.id !== sid) w[n.id][q.id] = 1; }); app.shapeEdit = { node: n.id, shape: sid, w: w, fit: true }; app.fitOn = { node: n.id, pins: true };
     app.refreshPanel(true);
   };
   /** A tap on the part while reshaping: a new pin there. Returns true when it took the tap. */

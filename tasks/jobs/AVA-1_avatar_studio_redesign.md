@@ -293,6 +293,20 @@ they want, a centipede; arms that can become feet with one toggle").
       shows the part bare without leaving it; arms and the body take the box; walking upright / all fours / jump
       thresholds are two sliders on the Ground card with the bands drawn on the picture in Motion; arms swing against
       the leg on their own side.
+- [x] Round 14 (11-21): Spotlight is the selection look; path-tab gaps; walk bands as two dotted lines with
+      pictures; a Layers row opens that layer as the part in hand; Reshape with pins inside a stance makes a shape
+      that comes in with the stance's button only.
+- [x] Round 15 (11-21), two things he reported. (1) A stance reshape stayed on when he chose Standing: the reshape
+      was still being held at full while the pose changed. It is now put down when the pose changes. Checked with
+      a real mouse drag of a pin on Topps' Face on all fours: stretched on all fours, as drawn standing, stretched
+      again on all fours. Not checked: the same in Motion (the shape should ease in with the stance's button).
+      (2) In Fit a second tap on the head did nothing. A tap on the part already in hand now goes into the layer
+      under the finger at the angle showing (Head, then Face), and the path names the angle (Head › Frontal › Face).
+      Eyes, mouth, brows and nose keep their own cards; limbs are unchanged. Known rough edge: the picture re-frames
+      after each tap, so a second tap in the same place can land on a different thing.
+- [ ] Asked for 11-21, parked by him until the two fixes above are seen: a camera frame with aspect ratio in
+      Perform, a close-up toggle, a Scene (background, foreground pieces, several characters), an export button
+      with video and "performance to Studio" modes, scenes on the character shelf. Not designed yet.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

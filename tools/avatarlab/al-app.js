@@ -513,6 +513,7 @@
         var staged = AL.stages && AL.stages.on();
         /* stages: a tap takes whatever is in FRONT under the finger (a horn over the frill), and a tap on empty space steps out one level */
         var hit = staged ? AL.hit(app.out, c[0], c[1]) : ((app.selIds && AL.hit(app.out, c[0], c[1], null, app.selIds)) || AL.hit(app.out, c[0], c[1]));
+        if (hit && staged && AL.stages.stepIn(app, hit.id)) return;                                                              // a second tap on the part in hand goes into it: the layer under the finger
         if (hit) app.selectByNode(hit.id); else if (staged) AL.stages.up(app); return;
       }
       if (d.pin || d.art) { if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }

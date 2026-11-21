@@ -187,6 +187,8 @@
     if (app.poseEdit && !AL.stance.find(app.ch, app.poseEdit)) app.poseEdit = null;
     if (app.toneTry && !AL.tone.find(app.ch, app.toneTry)) app.toneTry = null;
     if (app.shapeEdit && (app.sel.node !== app.shapeEdit.node || app.live)) app.shapeEdit = null;
+    /* a reshape belongs to the pose it was made in: change the pose and it is put down, or it would be held on in the other pose */
+    if (app.shapeEdit && app.shapeEdit.fit && app.shapeEdit.shape !== AL.fit.shapeId(app)) { app.shapeEdit = null; if (app.fitOn && app.fitOn.pins) app.fitOn = null; }
     if (app.morph && !app.bridge) app.morph = null;
     if (app.ballTry && (app.sel.zone !== 'head' || app.sel.feature || app.sel.node || app.live)) app.ballTry = false;
     if (app.showLids && !(app.sel.zone === 'head' && app.sel.feature === 'eyes')) { app.showLids = false; app.show = {}; }

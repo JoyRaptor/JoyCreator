@@ -1280,3 +1280,15 @@ solid drawing's dots could be moved). He called it a regression: "how you had it
 of the buttons from any of the angles". **Rule: fix the thing that was reported and keep the rest of the interaction as it was;
 if a rebuild seems better, keep the old behaviour reachable and say so.** And when two states are told apart by colour, the
 colour belongs to the thing (this drawing is always blue, that one always pink), never to its state of the moment.
+
+## 2026-11-21: folding everything away is not organising it (AVA-1 pilot, round 9)
+
+An audit said the cards were too long, so I folded every section shut and added more controls. The owner's next pass:
+"all the options are drilled closed so I keep having to open them", "a zillion drawers with one single button", and the simple
+acts ("I just want to nudge that part over", turn a part) were "frustratingly hidden". Two of my previews also lied: Build showed
+a stance with the hands in the air that Perform plants, and a slider detached the arms from the body. And a button press threw
+the card back to its top, away from what he had just changed. **Rules: order a surface by what the user does first (bring it in,
+wire it up, make it look right in one place, then in every pose, then moving, then playing); keep sections open and put only the
+seldom-used ones behind ONE drawer; the plain acts (move, turn, put back) are one tap from anywhere; a still view never shows
+what the moving one will not do; an edit never moves the page; a part in focus is never under the floating buttons.** When a
+repair cannot reach the user's own saved copy, repair that copy too (once, undoable) instead of asking him three times.

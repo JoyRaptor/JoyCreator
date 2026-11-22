@@ -7,6 +7,7 @@
  *
  * Parts and the faults planted for them:
  *   lr       lroff     the Left and right tick box is ignored         nodead   no dead zone: a little drift walks it
+ *            tilt      a head tilt (it swings the face sideways) walks it
  *   deep     float     it grows where it stands (the ground line does not come down)
  *            slide     a planted foot slides along with the body      nostep   the feet never step while it comes closer
  *   front    front     it never turns to its front drawing
@@ -65,6 +66,9 @@
       F('lr: your face to the right walks it right, to the left walks it left', right > 40 && left < right - 60, { right: Math.round(right), left: Math.round(left) });
       face(0, 0); await K.raf(30); face(0.1, 0); await K.raf(30); var t0 = w.tx; await K.raf(90);      // (the face settles first: the walk eases off on its way back to the middle)
       F('lr: a little drift of the face (inside the dead zone) walks nothing', Math.abs(w.tx - t0) < 0.5, { moved: r1(w.tx - t0) });
+      if (plant === 'tilt') fw.TILT = 9;
+      face(0, 0); await K.raf(30); FACE.roll = 0.55; face(0.38, 0); await K.raf(30); var t1 = w.tx; await K.raf(60); FACE.roll = 0;
+      F('lr: tilting the head toward a shoulder (which swings the face sideways) walks nothing', Math.abs(w.tx - t1) < 0.5, { moved: r1(w.tx - t1) });
     } finally { fw.on = on0; fw.DEAD.x = 0.18; }
   };
   part.deep = async function (X, F, plant, app) {
@@ -208,7 +212,7 @@
       }
       F('99 nothing thrown by the end', !scene._err);
     } catch (e) { X.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
-    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15;      // (whatever a planted fault replaced, back)
+    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.3; FACE.roll = 0;      // (whatever a planted fault replaced, back)
     try { var r0 = JSON.parse(room0); fw.room.lr = r0.lr; fw.room.depth = r0.depth; } catch (e) { }
     try { if (AL.app.scene) await scene.close(AL.app, true); } catch (e2) { }
     try { var mine = (await scene.list(AL.app)).filter(function (e) { return e.name === 'Face walk test'; }); for (var m = 0; m < mine.length; m++) await scene.forget(AL.app, mine[m].uid); } catch (e4) { }
@@ -216,7 +220,7 @@
     try { AL.app.inp._close = false; AL.app.inp._depth = false; } catch (e5) { }
     return { n: X.n, fails: X.fails, note: X.note };
   };
-  FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
+  FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], tilt: ['lr', /^lr: tilting the head/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
     front: ['front', /^front: walking toward/], stuck: ['close', /^close: /], drawer: ['drawer', /^drawer: /], order: ['scene', /^scene: \.\.\.and once/], flat: ['scene', /^scene: coming closer/], shrink: ['take', /^take: /],
     unowned: ['own', /^own: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /] };
   FWT.proof = async function (only) {

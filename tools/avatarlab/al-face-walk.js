@@ -21,6 +21,7 @@
   fw.DEAD = { x: 0.18, z: 0.15 };     // the middle of each that is not a walk
   fw.SPEED = 0.8;                       // body heights a second, the face right over to one side
   fw.CURVE = 1.6;                       // gentle near the middle, quick toward the edge
+  fw.TILT = 0.3;                        // the head tilted further than this (the face camera's roll) holds the sideways walk
   var ROOM = fw.room = (function () { try { var v = JSON.parse(localStorage.getItem('al.facewalk') || 'null'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } })();
   function keep() { try { localStorage.setItem('al.facewalk', JSON.stringify({ lr: !!ROOM.lr, depth: !!ROOM.depth })); } catch (e) { } }
   fw.on = function (k) { return !!ROOM[k]; };
@@ -49,7 +50,8 @@
     if (!replay && !w.held) {
       /* left and right: a rate, like the joystick */
       if (lr && face && w.travels()) {
-        var u = past(K.lx, fw.DEAD.x);
+        K.roll = (K.roll || 0) + (Math.abs(face.roll || 0) - (K.roll || 0)) * (1 - Math.exp(-8 * dt));
+        var u = K.roll > fw.TILT ? 0 : past(K.lx, fw.DEAD.x);      // (a head tilted toward a shoulder swings sideways about the neck and reads as a lean: the owner's Note 9 test, 11-22. A tilt is not a walk)
         if (u) { var b = AL.boundsOf(app.ch.root) || { y0: 0, y1: app.ch.h, x0: 0, x1: app.ch.w }, lim = w.lim || [-(b.x1 - b.x0) * 0.7, (b.x1 - b.x0) * 0.7];
           w.tx = clamp(w.tx + Math.sign(u) * Math.pow(Math.abs(u), fw.CURVE) * fw.SPEED * (b.y1 - b.y0) * dt, lim[0], lim[1]); drive = true; }
       }

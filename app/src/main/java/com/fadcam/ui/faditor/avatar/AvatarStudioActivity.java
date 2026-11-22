@@ -1035,6 +1035,17 @@ public class AvatarStudioActivity extends AppCompatActivity {
         });
         controls.addView(trackChip, chipLp());
 
+        // FACE-1: the face bench (the whole face engine on this phone: every expression, the neutral,
+        // the direction check, a private preview, passes). Leaving here stops Track (onPause), so the
+        // camera has one owner at a time.
+        TextView faceTest = chip("🙂 Face test");
+        faceTest.setOnClickListener(v -> startActivity(new android.content.Intent(this,
+                com.fadcam.ui.faditor.avatar.face.FaceBenchActivity.class)));
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            faceTest.setTooltipText("Face test: try every expression the camera reads, on a test face");
+        }
+        controls.addView(faceTest, chipLp());
+
         TextView clearCell = chip(getString(R.string.avatar_studio_clear_cell));
         clearCell.setOnClickListener(v -> clearArmedCell());
         controls.addView(clearCell, chipLp());

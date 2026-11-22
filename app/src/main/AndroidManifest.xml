@@ -140,6 +140,8 @@
 
         <!-- Avatar Studio matrix editor (PLAN_AVATAR_STUDIO A1-UI) -->
         <activity android:name="com.fadcam.ui.faditor.avatar.AvatarStudioActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" android:windowSoftInputMode="adjustPan" />
+        <!-- FACE-1: the face bench (the face engine on a real phone), opened from Avatar Studio's "Face test". -->
+        <activity android:name="com.fadcam.ui.faditor.avatar.face.FaceBenchActivity" android:theme="@style/Theme.FadCam.FaditorEditor" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden" android:exported="false" />
 
         <!-- Joy Brush drawing screen (JB-0.05) -->
         <!-- Reached from the lobby's Joy Brush room (JB-0.09). Not exported: `adb shell am start -n` can still open it. -->

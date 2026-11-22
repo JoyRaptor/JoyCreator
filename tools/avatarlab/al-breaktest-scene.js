@@ -298,12 +298,12 @@
       try {
         scene.go(app, 'perform'); FR.setShape(app, '9:16'); FR.set(app, true); await K.raf(4);
         var Gd = app.G, d0 = Gd.draw, firstPane = null; Gd.draw = function (items, v) { if (!firstPane && items.length && items[0].img && !items[0].id) { var vv = items[0].v, xs = [], ys = []; for (var vi = 0; vi < vv.length; vi += 2) { xs.push((vv[vi] * v.s + v.ox) / (window.devicePixelRatio > 2.5 ? 2.5 : window.devicePixelRatio || 1)); ys.push((vv[vi + 1] * v.s + v.oy) / (window.devicePixelRatio > 2.5 ? 2.5 : window.devicePixelRatio || 1)); } firstPane = [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)]; } return d0.apply(Gd, arguments); };
-        await K.raf(2); Gd.draw = d0; var Fr = app.scene.fr, fg = q('#frameground').getBoundingClientRect(), sg = q('#stage').getBoundingClientRect();
+        await K.raf(2); Gd.draw = d0; var Fr = app.scene.fr, fg = q('#frameground').getBoundingClientRect(), sg = q('#stage').getBoundingClientRect(), kz = sg.width / (q('#stage').clientWidth || sg.width);      // (the page may show the phone shrunk to fit the window: compare in the phone's own pixels)
         var cut = !!firstPane && firstPane[0] >= Fr.x - 1.5 && firstPane[2] <= Fr.x + Fr.w + 1.5 && firstPane[1] >= Fr.y - 1.5 && firstPane[3] <= Fr.y + Fr.h + 1.5;
-        F('24 in a scene, the set is cut at the frame and Studio\'s canvas texture is round it', q('#stage').classList.contains('desk') && cut && Math.abs(fg.left - sg.left - Fr.x) < 1.5 && Math.abs(fg.width - Fr.w) < 1.5, { desk: q('#stage').classList.contains('desk'), pane: firstPane && firstPane.map(Math.round), frame: [Fr.x, Fr.y, Fr.w, Fr.h].map(Math.round) });
+        F('24 in a scene, the set is cut at the frame and Studio\'s canvas texture is round it', q('#stage').classList.contains('desk') && cut && Math.abs((fg.left - sg.left) / kz - Fr.x) < 1.5 && Math.abs(fg.width / kz - Fr.w) < 1.5, { desk: q('#stage').classList.contains('desk'), pane: firstPane && firstPane.map(Math.round), frame: [Fr.x, Fr.y, Fr.w, Fr.h].map(Math.round) });
         FR.setShape(app, '16:9'); await scene.close(app); await K.raf(3); AL.stages.go(app, 'perform'); FR.set(app, true); await K.raf(10);
         var Fp = FR.plainRect(app), fg2 = q('#frameground').getBoundingClientRect();
-        F('24 in the empty scene, the frame on: the plain stage inside it, Studio\'s texture round it', q('#stage').classList.contains('desk') && Math.abs(fg2.width - Fp.w) < 1.5, { desk: q('#stage').classList.contains('desk') });
+        F('24 in the empty scene, the frame on: the plain stage inside it, Studio\'s texture round it', q('#stage').classList.contains('desk') && Math.abs(fg2.width / kz - Fp.w) < 1.5, { desk: q('#stage').classList.contains('desk') });
         FR.set(app, false); await K.raf(3);
         F('24 ...and with the frame off it is the plain stage exactly as before (no texture)', !q('#stage').classList.contains('desk') && getComputedStyle(q('#frameground')).display === 'none');
       } finally { FR.desk = desk0; }

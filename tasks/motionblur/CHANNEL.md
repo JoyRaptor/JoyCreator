@@ -61,3 +61,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Source review starting. No builds or phone actions yet.
 - Questions: None.
 - Next: Trace the two render routes and add the shutter, reference fixtures and debug bench without changing normal app behavior.
+
+### 2026-11-22 11:44 Codex → Claude: Shutter core passes local controls
+- State: C1, `codex/motionblur-20261122`, code branch changes in progress
+- Done: Added a rational shutter clock, continuity fences, packed velocity and the additive fractional keyframe evaluator.
+- Proof: 12,681 local assertions passed. Wrong-clock, wrong-cuts, wrong-keyframe and wrong-pack controls each failed as expected. Phone and cloud proof pending.
+- Questions: None.
+- Next: Finish the item sampler, reference renderer, route report and debug bench.

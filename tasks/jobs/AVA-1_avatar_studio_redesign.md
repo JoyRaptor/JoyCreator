@@ -767,6 +767,14 @@ they want, a centipede; arms that can become feet with one toggle").
             the right button (and a pen's side button) does the same as holding, which was added for that.
       `al-agent.js`: `scene_stage` takes setup / arrange / motion / perform, `scene_frame` takes `on` and works in the
       empty scene, `scene_open` takes "Empty", `scene_shot` turns the frame on.
+- [x] **Pins on the body (owner, Note 9, 11-22).** (a) He could not pin or stretch the whole body on all fours: the
+      reshape was put down when the card redrew, and the body card's own handles stood in for the pins. Fixed
+      (7f43649ef); his word: "Pins work now". (b) Then Set up showed over twenty blue pins on the body drawing plus
+      "Turns about", and he could not tell what they were: every tap while reshaping drops a pin, and the drawing's
+      card listed all of them, standing, draggable. A part's card now shows only the pins that wire it (yellow = where
+      it turns, blue = holds a spot as it bends, said on the card); reshape pins show only while reshaping, in their
+      own pose, and the card counts them and says where they are. `F.reshapeQuiet` in `al-breaktest-reshape.js`:
+      fails on the old code (showed Turns about + Pin 1-6), passes now; fit 530/0, layering 186/0, stages 43/0.
 - [ ] **THE PATH TO THE PHONE (owner, 11-22).** A session had guessed the phone room at "weeks" and suggested
       keeping Avatar hidden for launch. He overruled it: "It will not be weeks worth of work. AI can't judge time
       well. Avatar Studio will ship in Joy Creator." And the order: "tell the main agent to spin up another session

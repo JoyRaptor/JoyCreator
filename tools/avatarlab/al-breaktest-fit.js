@@ -238,6 +238,7 @@
       if (only.indexOf('box') >= 0) { var list = F.parts(app); if (opt.limit) list = list.slice(0, opt.limit); for (var i = 0; i < list.length; i++) await F.box(app, R, list[i], opt); }
       if (only.indexOf('reshape') >= 0) await F.reshape(app, R, opt);
       if (only.indexOf('reshape') >= 0 && F.reshapeWhole) await F.reshapeWhole(app, R);
+      if (only.indexOf('reshape') >= 0 && F.reshapeQuiet) await F.reshapeQuiet(app, R);
     } catch (e) { R.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 500) }); }
     K.restore(app, keep); await K.raf(2);
     return R;

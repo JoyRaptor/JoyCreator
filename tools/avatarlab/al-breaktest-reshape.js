@@ -17,6 +17,29 @@
   /** The owner's report, 11-22: on all fours he could not put pins in Topps's BODY or stretch it. The body is chosen on the body map
       as a whole part (no layer picked), and the card redraw put the reshape down; and the body card's own handles (ground, chest, hips)
       stood in place of the pins. Run through the real button, with the part chosen the way he chooses it. */
+  /** The owner's report, 11-22: over twenty blue pins on Topps's body in Set up that he could not make sense of. They were the pins he
+      dropped reshaping him on all fours. Drop a handful the same way, stand him up, open the body drawing's card in Set up: none of them
+      may show or be listed there, the card says where they are, and reshaping on all fours still has every one. */
+  F.reshapeQuiet = async function (app, R) {
+    var fit = AL.fit, S = AL.stance, ch0 = JSON.stringify(app.ch), pz = S.fours(app.ch);
+    if (!pz) { app.edit(function () { pz = S.add(app.ch, 'Pins test'); }, true, 'add'); }
+    var n = AL.findAll(app.ch.root, function (k) { return k.type === 'art' && (k.role === 'torso' || k.role === 'body'); })[0];
+    if (!n) { R.F('quiet pins: a body drawing to try it on', false); K.restore(app, ch0); return; }
+    K.stand(app); AL.stages.go(app, 'fit'); app.tab = 'parts'; app.sel = { zone: AL.zoneOf(app.ch, n.id), feature: null, node: n.id }; app.resolveSel(); app.poseEdit = pz.id; app.poseAmt = null; app.refreshPanel(true); await K.raf(3);
+    fit.reshapeOn(app, n, true); await K.raf(2);
+    var b = AL.boundsOf(n), made = [], i;
+    app.edit(function () { for (i = 0; i < 6; i++) made.push(fit.dropPin(app, n, [b.x0 + (b.x1 - b.x0) * (0.2 + i * 0.12), (b.y0 + b.y1) / 2]).id); }, false, 'pins'); await K.raf(2);
+    var onFours = (app.pinsNow() || []).filter(function (q) { return made.indexOf(q.key) >= 0; }).length;
+    R.F('quiet pins: reshaping on all fours shows all six pins dropped there', onFours === 6, onFours);
+    fit.reshapeOn(app, n, false); app.poseEdit = null; K.stand(app);
+    AL.stages.go(app, 'setup'); app.tab = 'parts'; app.sel = { zone: AL.zoneOf(app.ch, n.id), feature: null, node: n.id }; app.resolveSel(); app.refreshPanel(true); await K.raf(3);
+    var shown = (app.pinsNow() || []).filter(function (q) { return made.indexOf(q.key) >= 0; }).length;
+    R.F('quiet pins: none of them shows on the body drawing in Set up', shown === 0, { shown: shown, all: (app.pinsNow() || []).map(function (q) { return q.label; }) });
+    var txt = document.getElementById('panelbody').textContent, chips = Array.prototype.slice.call(document.querySelectorAll('#panelbody button')).filter(function (el) { return /^Pin \d+$/.test(el.textContent.trim()); }).length;
+    R.F('quiet pins: they are not listed as chips on its card', chips === 0, chips);
+    R.F('quiet pins: the card says where they are', /reshape pins?\b[\s\S]*Reshape with pins/.test(txt), txt.slice(0, 160));
+    app.fitOn = null; app.shapeEdit = null; K.restore(app, ch0); await K.raf(2);
+  };
   F.reshapeWhole = async function (app, R) {
     var fit = AL.fit, S = AL.stance, ch0 = JSON.stringify(app.ch), pz = S.fours(app.ch), made = false;
     if (!pz) { app.edit(function () { pz = S.add(app.ch, 'Pins test'); }, true, 'add'); made = true; }

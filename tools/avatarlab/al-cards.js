@@ -1116,14 +1116,24 @@
     AL.tone.partToggle(app, pb, n);
     if (n.type === 'art' && n.mesh) meshPins(app, pb, n);
     if (n.swing) app.pinProvider = function () { return swingPins(n); };
-    else if (n.pivot) app.pinProvider = function () { var p = [{ key: 'pv', label: 'Turns about', x: n.pivot.x, y: n.pivot.y, node: n.id, color: '#fbbf24', set: function (x, y) { n.pivot.x = x; n.pivot.y = y; } }]; if (n.mesh) n.mesh.pins.forEach(function (q) { p.push({ key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }); }); return p; };
-    else if (n.mesh) app.pinProvider = function () { return n.mesh.pins.map(function (q) { return { key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }; }); };
+    else if (n.pivot) app.pinProvider = function () { var p = [{ key: 'pv', label: 'Turns about', x: n.pivot.x, y: n.pivot.y, node: n.id, color: '#fbbf24', set: function (x, y) { n.pivot.x = x; n.pivot.y = y; } }]; if (n.mesh) wirePins(n).forEach(function (q) { p.push({ key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }); }); return p; };
+    else if (n.mesh) app.pinProvider = function () { return wirePins(n).map(function (q) { return { key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }; }); };
     if (app.shapeEdit && app.shapeEdit.node === n.id) { var spp = shapePins(app, n); if (spp) app.pinProvider = spp; }
     if (app.fitOn && app.fitOn.box && app.fitOn.node === n.id) app.pinProvider = function () { return AL.fit.pins(app, n); };
   }
+  /** THE PINS A PART'S CARD SHOWS. The owner, 11-22: over twenty blue pins on Topps's body in Set up, and no idea what they were. They were
+      the pins he had dropped reshaping him for all fours: every tap while reshaping is a pin, and the card listed them all, standing, at
+      their drawn spots, draggable (a drag here would have moved what the reshape is made from). A reshape's pins are seen while reshaping,
+      in the pose they were dropped in; the card shows only the pins that wire the drawing (the ones Pin it puts in). */
+  function reshapePin(n, q) { return !!q.home || !!(AL.fit && /^pose:/.test(AL.fit.pinHome(n, q))); }
+  function wirePins(n) { return ((n.mesh && n.mesh.pins) || []).filter(function (q) { return !reshapePin(n, q); }); }
+  cards.wirePins = wirePins;
   function meshPins(app, pb, n) {
+    var wp = wirePins(n), rs = n.mesh.pins.length - wp.length;
     pb.appendChild(app.ui.lab('Pins on this drawing', 'setup'));
-    pb.appendChild(app.ui.row(n.mesh.pins.map(function (q) { return app.ui.chip(q.name, { icon: 'pin', title: 'Remove this pin', fn: function () { app.edit(function () { n.mesh.pins = n.mesh.pins.filter(function (k) { return k !== q; }); }); } }); }).concat([app.ui.chip('Pin it again', { icon: 'wand', fn: function () { AL.intake.pinWizard(app, n); } })])));
+    if (wp.length) pb.appendChild(app.ui.note('The yellow pin is where it turns. Each blue pin holds a spot of the drawing as it bends.'));
+    if (rs) pb.appendChild(app.ui.note('<b>' + rs + ' reshape pin' + (rs > 1 ? 's' : '') + '</b> on this drawing show only while you reshape it (' + ((AL.stages && AL.stages.WORD2) || 'Arrange') + ', <b>Reshape with pins</b>).'));
+    pb.appendChild(app.ui.row(wp.map(function (q) { return app.ui.chip(q.name, { icon: 'pin', title: 'Remove this pin', fn: function () { app.edit(function () { n.mesh.pins = n.mesh.pins.filter(function (k) { return k !== q; }); }); } }); }).concat([app.ui.chip('Pin it again', { icon: 'wand', fn: function () { AL.intake.pinWizard(app, n); } })])));
   }
   function rolePicker(app, n) {
     var body = h('div', { class: 'menu' });

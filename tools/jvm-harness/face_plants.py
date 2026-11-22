@@ -17,6 +17,7 @@ PKG = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/"
 M, C, S, F, P, G = (PKG + n + ".java" for n in
                     ("FaceMapper", "FaceCalibration", "FaceStage", "FaceFollower", "FacePass", "FaceSignals"))
 JS = "tools/avatarlab/al-face.js"
+FR = PKG + "FaceFrame.java"
 
 PLANTS = [
     ("both eyes always blink alike (no wink)", [(M, "br = blink(cr, lookDown);", "br = bl;")]),
@@ -67,6 +68,10 @@ PLANTS = [
      [("app/src/main/java/com/fadcam/ui/faditor/avatar/AvatarParamTrack.java",
        "            com.fadcam.ui.faditor.avatar.face.FaceSignals.VIS)); // FACE-1: the camera's sheet-mouth shape",
        "            \"none\")); // planted")]),
+    ("the face's points stay in the camera's sideways frame (the outline a quarter turn off)",
+     [(FR, "case 270: return new float[]{y, 1f - x};", "case 270: return new float[]{x, y};")]),
+    ("a neutral saved in the sideways frame is kept (lean stays sideways)",
+     [(C, "if (v < 2) {", "if (false) {")]),
     ("looking down reads as a half blink", [(M, "return smoothstep(0.12f, 0.8f, closure - 0.4f * lookDown);",
                                              "return smoothstep(0.12f, 0.8f, closure);")]),
 ]

@@ -127,6 +127,21 @@ public class FaceEngineTest {
         FaceCalibration back = FaceCalibration.fromJson(fixed.withSwapSides(true).toJson());
         check(back.signYaw() == -1 && back.swapSides() && back.isNeutralSet()
                         && Math.abs(back.rest("browDownLeft") - 0.25f) < 1e-6, "calibration survives being saved and read back");
+        // The owner's 11-22 find: the outline sat a quarter turn off his face. Points come back in the
+        // camera's sideways frame and must turn exactly as the picture turns (clockwise by the rotation).
+        float[] r90 = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(0f, 0f, 90);
+        float[] r270 = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(0f, 0f, 270);
+        float[] r180 = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(0.2f, 0.3f, 180);
+        float[] mid = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(0.25f, 0.5f, 270);
+        check(r90[0] == 1f && r90[1] == 0f && r270[0] == 0f && r270[1] == 1f
+                        && Math.abs(r180[0] - 0.8f) < 1e-6 && Math.abs(r180[1] - 0.7f) < 1e-6
+                        && Math.abs(mid[0] - 0.5f) < 1e-6 && Math.abs(mid[1] - 0.75f) < 1e-6,
+                "the face's points turn upright exactly as the camera picture does (the outline sits on the face)");
+        com.google.gson.JsonObject saved1 = back.toJson();
+        saved1.addProperty("v", 1);
+        FaceCalibration old = FaceCalibration.fromJson(saved1);
+        check(!old.isNeutralSet() && old.rest(FaceCalibration.FACE_SIZE) == 0f && old.signYaw() == -1 && old.swapSides(),
+                "a neutral saved before that fix is re-taken by itself (its lean was sideways); directions are kept");
         FaceTuning t2 = FaceTuning.fromJson(mir.toJson());
         check(t2.mirror && FaceTuning.fromJson(null).blinkSync, "settings survive being saved and read back");
 

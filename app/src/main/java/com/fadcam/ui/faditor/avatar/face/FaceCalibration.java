@@ -37,6 +37,9 @@ public final class FaceCalibration {
      */
     public static final String FACE_X = "faceX", FACE_Y = "faceY", FACE_SIZE = "faceSize";
 
+    /** 2: face position measured upright (FaceFrame); a version 1 neutral is re-taken. */
+    public static final int VERSION = 2;
+
     /** The smallest span left above a resting value (a face resting at 0.95 still gets a range). */
     private static final float MIN_SPAN = 0.25f;
 
@@ -139,7 +142,7 @@ public final class FaceCalibration {
     @NonNull
     public JsonObject toJson() {
         JsonObject o = new JsonObject();
-        o.addProperty("v", 1);
+        o.addProperty("v", VERSION);
         o.addProperty("neutralSet", neutralSet);
         JsonObject r = new JsonObject();
         for (Map.Entry<String, Float> e : rest.entrySet()) r.addProperty(e.getKey(), e.getValue());
@@ -174,6 +177,17 @@ public final class FaceCalibration {
             }
             if (o.has("swapSides")) c.swapSides = o.get("swapSides").getAsBoolean();
             c.neutralSet = o.has("neutralSet") ? o.get("neutralSet").getAsBoolean() : !c.rest.isEmpty();
+            int v = o.has("v") ? o.get("v").getAsInt() : 1;
+            if (v < 2) {
+                // Version 1 (11-22, before FaceFrame) measured where the face sits in the camera's
+                // sideways frame: that part of the neutral and the lean direction are wrong. The head
+                // and eye directions stay; the next still half-second re-takes the neutral by itself.
+                c.rest.remove(FACE_X);
+                c.rest.remove(FACE_Y);
+                c.rest.remove(FACE_SIZE);
+                c.signLean = -1;
+                c.neutralSet = false;
+            }
         } catch (RuntimeException ignored) {
             // keep what was read
         }

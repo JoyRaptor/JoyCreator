@@ -22,7 +22,7 @@ Local evidence: `C:/workspace/motion-c2-evidence`. Originals are `sharp.mp4`, `b
 
 `20ae2c5e7482d23e6d61181d06c207dad1070cca` passes the edited piece duration to the shutter. Repeated, frozen and transition pieces keep the sharp placement path in this slice. The 735 ms HOLD jump should straddle the frame at 733.333 ms. [Android APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45072384922) · [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45072398360).
 
-Still open in C2: use the actual frame cadence, integrate text, pictures, sprites and PiP, add item controls and Inspect Frame, and compare the GPU accumulation with the CPU reference. Preview, effect layers, puppet motion, filmed-pixel tracking, sustained mobile performance and Exynos testing have separate gates.
+Still open in C2: use the actual frame cadence, integrate text, pictures, sprites and PiP, add item controls and Inspect Frame, and extend GPU-to-CPU comparisons to the other item routes. Preview, effect layers, puppet motion, filmed-pixel tracking, sustained mobile performance and Exynos testing have separate gates.
 
 ### Follow-up device proof · `20ae2c5e7`
 
@@ -35,3 +35,21 @@ Still open in C2: use the actual frame cadence, integrate text, pictures, sprite
 ### Persistence lint
 
 The first Studio run completed 61/62 suites. The lint matches private field names to JSON key literals and reported a mismatch for `rigidMotionBlurEnabled`. The Note 9 fixtures confirmed the existing key already round-tripped. `82899e6be42f298f4e2b0d5d0226cfffaf6e7a2d` aligns the private field name with the saved `rigidMotionBlur` key and passes the focused lint with its deliberate missing-key control. [Exact Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073080665) · [Exact APK run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073231068).
+
+### Linear-light device proof · `da3dd40c2`
+
+[Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073576707) and [exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073589982) passed. Studio reported **62/62** suites. The corrected pre-linear build `82899e6be` also passed 62/62 and the four Note 9 regressions.
+
+The Snapdragon Note 9 ran six fixtures on the exact linear-light build. The motion-only opt-in still selected full re-encode and the opt-out selected near-lossless trim. Their 30 decoded frames matched exactly. The animated sharp export also matched all 30 decoded sharp frames from the pre-linear build. The moving fixture retained the blur and passed the 735 ms HOLD fence. Idle median luma error was 0.005/255.
+
+The art test uses an opaque black-and-white stripe region, two 50%-alpha patches, and a clear gap. Studio presented it on a 1080 × 1920 canvas and exported SMPTE 170M SDR. The independent CPU check accounted for the image fit and compared three moving frames.
+
+| Art comparison | Result |
+|---|---|
+| Opaque transitions against linear-light oracle | 1.11–1.73/255 luma mean absolute error across 61,050 high-contrast pixels. |
+| Same transitions against encoded-space oracle | 42.80–43.08/255 mean absolute error. The deliberately encoded synthetic control failed the linear-light check. |
+| Semitransparent interiors | White matched its reference. Cyan luma error was at most 0.001/255 across the three sampled frames. |
+| Clear gap | Matched black on all 1,696 sampled pixels. |
+| Thermal state | Android status 0 throughout sampled device readings. Battery temperature 34.9–35.1 °C. |
+
+Evidence in the same local directory: `linear-*.mp4`, `linear-*.log`, `compare-da3dd40c2.json` and `art-da3dd40c2.json`. The phone claim was released. This verifies the SDR spine export slice. Preview throughput and sustained export timings are still owed.

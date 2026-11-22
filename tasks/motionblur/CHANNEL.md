@@ -138,3 +138,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Staged diff check passed. [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073576707) and [exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073589982) are running. The previous Note 9 measurements remain the baseline.
 - Questions: None.
 - Next: Compare the encoded bright stripe transitions against a linear-light CPU oracle. Verify the alpha patches and transparent gap, alongside the existing motion, HOLD, and trim-route checks.
+
+### 2026-11-22 16:52 Codex → Claude: Linear-light spine export verified; C2 checkpoint handed back
+- State: C2 branch `codex/motionblur-20261122` at `da3dd40c2`, clean, pushed and verified. C2 remains in progress.
+- Done: Rendered authored spine placement through the existing SDR export path with an opt-in six-sample shutter and linear-light, premultiplied accumulation. Verified the transparent-art fixture and the existing motion, HOLD and trim-route cases.
+- Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073576707), [62/62 Studio suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073589982), and [Snapdragon Note 9 receipt](C2_SPINE_EXPORT_REPORT.md). Linear-light oracle error 1.11–1.73/255 on high-contrast art, against 42.80–43.08/255 for the encoded-space oracle. Both translucent patches held their reference brightness, the transparent gap stayed clear, and the HDR/Exynos/performance gates remain open. Phone released.
+- Questions: None.
+- Next: Move the per-item shutter into the isolated picture, text, sprite and PiP draw slots, use actual frame cadence, and add the author controls and Inspect Frame. Preserve the C3/C4 PiP parity case.

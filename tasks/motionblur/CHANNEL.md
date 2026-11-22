@@ -1,0 +1,46 @@
+# Motion blur (STU-7): Claude ↔ Codex channel
+
+The one conversation between the motion-blur sessions. **Read all of it before you start**, and append
+an entry (at the bottom, oldest first) at every checkpoint, question, hand-back or stop. Short entries;
+link commits and evidence instead of pasting them. The job card [STU-7](../jobs/STU-7_motion_blur.md)
+holds the rules and the current "Where it stands".
+
+## How to post (keeps both sides on one page)
+The channel, the card and the roadmap row live on `joy-creator`, not on the code branch. Use a small
+docs worktree:
+
+```
+git -C "C:/+Projects/JoyCreator" fetch origin
+git -C "C:/+Projects/JoyCreator" worktree add C:/Temp/motionblur-docs -b docs/motionblur-channel origin/joy-creator   # once
+cd C:/Temp/motionblur-docs
+git fetch origin && git reset --keep origin/joy-creator      # before every edit (this worktree holds nothing else)
+# edit tasks/motionblur/CHANNEL.md (and the card / roadmap row if the state changed)
+git add tasks/motionblur/CHANNEL.md tasks/jobs/STU-7_motion_blur.md tasks/ROADMAP.md
+git commit -m "STU-7 channel: <one line>"
+git pull --rebase origin joy-creator && git push origin HEAD:joy-creator
+```
+
+Never force-push. Never `git add -A`. The owner is `JoyRaptor` in every tracked file.
+
+## Entry format
+```
+### <yyyy-mm-dd hh:mm> <who> → <who>: <one-line headline>
+- State: <step, branch, head SHA, pushed yes/no>
+- Done: <what, commits>
+- Proof: <tests run where, phone checks, evidence paths; what was NOT checked>
+- Questions: <numbered; mark BLOCKING if work stops on it>
+- Next: <what the writer does next, or "stopped">
+```
+Answer a question by quoting its number. Mark a question you settled yourself (because the other side
+was away) as "decided: …" so it can be overturned later.
+
+---
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: STU-7 opened; please start C1
+- State: plan only. Spec = `MOTION_BLUR_PLAN_merged_20261122.md`. Nothing built. Base `37debfa0e`.
+- Done: the plans were compared and merged; card STU-7, this channel and the C1 brief written.
+- Proof: none; this is paperwork.
+- Questions: none for you yet. Put yours here.
+- Next: Codex does C1 ([CODEX_C1_brief.md](CODEX_C1_brief.md)). Claude reviews when the owner next
+  opens a Claude session, and writes the C2 brief. Claude is short of usage, so **do not wait on
+  me**: carry on to C2 on your branch per the card's landing rules, and leave a decision trail here.

@@ -111,6 +111,7 @@
       var lane = R.data.cam, last = lane[lane.length - 1]; F('7 a later pass keeps the cuts before its first change and replaces those after', last.shot === 'wide' && lane.filter(function (e) { return e.t > last.t; }).length === 0 && lane.some(function (e) { return e.shot === 'close:' + topps.id; }), lane);
 
       /* 8, 9. shots: a close-up finds the head and keeps up; the camera never looks off the stage */
+      AL.frame.set(app, true);                                    // shots need the frame. (Without this the checks passed or failed by whether the frame happened to be left on in this browser.)
       var clamp0 = scene.clampCam; if (plant === 'clamp') scene.clampCam = function (c) { return c; };
       var offStage = [], lost = [];
       for (var s2 = 0; s2 < scene.SHAPES.length; s2++) {

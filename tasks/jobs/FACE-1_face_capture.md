@@ -1,6 +1,6 @@
 # FACE-1: Face capture (your face drives the character, premium)
 
-**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟢 engine built, PC-tested (every planted fault caught), and tried by the owner on the Note 9 with his face, 11-22 ("Done, all fine"); his find, the outline a quarter turn off, fixed in `0e999f1f4` and awaiting his look  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `0e999f1f4`
+**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟢 engine built, PC-tested (every planted fault caught), and tried by the owner on the Note 9 with his face, 11-22 ("Done, all fine"); his find, the outline a quarter turn off, fixed in `b25adf9ce` and awaiting his look  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `b25adf9ce`
 
 ## Why it matters (for the user)
 Hold the phone up, make a face, and the character makes it too: a wink is a wink, a half smile is a half
@@ -127,7 +127,7 @@ was on) and `new_bench_run_note9.csv`. No face was in front of the phone for any
 - **His find:** "the wireframe face in the preview is rotated 90 degrees clockwise, so it's not actually matching up
   with my face" (the picture itself was right). Cause: the face model reads the face upright but returns its 478 points
   in the camera's sideways frame; the picture was turned and the points were not. The same fault made lean (where
-  the face sits in the picture) sideways. **Fixed in `0e999f1f4`** (`FaceFrame` turns every point as the picture turns;
+  the face sits in the picture) sideways. **Fixed in `b25adf9ce`** (`FaceFrame` turns every point as the picture turns;
   a neutral saved before it is re-taken by itself, directions kept; a check and a planted fault for each). Not yet seen
   by him on the phone: the phone stopped answering over USB after he re-plugged it (Windows still saw it).
 - **His question, how many points:** 478 (468 on the face, 10 for the irises), plus 52 expression values and the head's
@@ -182,8 +182,8 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 - [x] The bench screen, reached from the old studio's 🙂 Face test; cloud-built and put on the Note 9 (below).
 - [x] The web pilot's face file (`al-face.js`) and the hook, written for the AVA-1 lead.
 - [x] **The owner's two minutes in front of the Note 9** (11-22): "Done, all fine"; he found the outline a quarter
-      turn off, fixed in `0e999f1f4`.
-- [ ] Put `0e999f1f4` (or later) on the Note 9 and let the owner see the outline sit on his face (the phone has to
+      turn off, fixed in `b25adf9ce`.
+- [ ] Put `b25adf9ce` (or later) on the Note 9 and let the owner see the outline sit on his face (the phone has to
       answer over USB again first); then the numbers with a face: faces a second and the delay.
 - [ ] Face pins (the owner's idea 1 and 2 above): the engine's point signals, then the room's tap-a-point,
       tap-the-character setup with a strength slider.

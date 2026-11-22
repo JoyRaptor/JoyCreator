@@ -112,8 +112,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
     @Nullable private volatile PreviewSink previewSink;
     private volatile boolean previewPicture = true;
     private volatile boolean useGpu = false;
-    /** Analysis-thread ring: MediaPipe stamp -> {analysis start, camera capture} in nanoTime. */
-    private final long[][] stampRing = new long[8][3];
+    /** Analysis-thread ring: MediaPipe stamp -> {stamp, analysis start, camera capture (nanoTime), rotation}. */
+    private final long[][] stampRing = new long[8][4];
+    /** The camera's turn of the last frame (the points come back in the camera's own sideways frame). */
+    private volatile int lastRotation = 0;
     private int stampAt = 0, previewTick = 0;
     @Nullable private volatile float[] lastOutline;
     /** Model time per frame, ms (smoothed), and which chip ran it. */
@@ -336,6 +338,8 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             slot[0] = stamp;
             slot[1] = startNanos;
             slot[2] = captureNanos(image.getImageInfo().getTimestamp(), startNanos);
+            slot[3] = rotation;
+            lastRotation = rotation;
             publishPreview(bmp, rotation);
             lm.detectAsync(mp, ipo, stamp);
         } finally {
@@ -433,9 +437,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         }
         lastEmitSeconds = tSeconds;
 
-        Map<String, Float> raw = resultToRaw(result);
+        int rotation = timing != null ? (int) timing[3] : lastRotation;
+        Map<String, Float> raw = resultToRaw(result, rotation);
         if (raw == null) return; // raced away between the guards — treat as loss
-        lastOutline = outline(result);
+        lastOutline = outline(result, rotation);
 
         l.onFrame(new TrackingFrame(tSeconds, raw, Float.NaN, TrackingFrame.NO_VISEME,
                 TrackingFrame.FACE_FOUND, timing != null ? timing[2] : -1L));
@@ -458,10 +463,11 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
     /**
      * FACE-1: the RAW face for the face stage: every expression value under MediaPipe's own name,
      * the head's three angles in degrees (before any neutral or sign), and where the face sits in
-     * the upright picture (centre and width, 0..1) for lean. Null without a face.
+     * the upright picture (centre and width, 0..1) for lean. Null without a face. {@code rotation} is
+     * the camera's turn: the points come back in its sideways frame and are turned upright here.
      */
     @Nullable
-    static Map<String, Float> resultToRaw(@NonNull FaceLandmarkerResult result) {
+    static Map<String, Float> resultToRaw(@NonNull FaceLandmarkerResult result, int rotation) {
         List<float[]> matrices = result.facialTransformationMatrixes().orElse(null);
         if (result.faceLandmarks().isEmpty() || matrices == null || matrices.isEmpty()) return null;
         Map<String, Float> raw = new java.util.HashMap<>();
@@ -484,7 +490,8 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
         for (int i : FACE_OVAL) {
             if (i >= pts.size()) continue;
-            float x = pts.get(i).x(), y = pts.get(i).y();
+            float[] u = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(pts.get(i).x(), pts.get(i).y(), rotation);
+            float x = u[0], y = u[1];
             minX = Math.min(minX, x); maxX = Math.max(maxX, x);
             minY = Math.min(minY, y); maxY = Math.max(maxY, y);
         }
@@ -512,7 +519,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
 
     /** FACE-1: the outline strokes in the mirrored preview's 0..1 space, NaN pairs between strokes. */
     @Nullable
-    private static float[] outline(@NonNull FaceLandmarkerResult result) {
+    private static float[] outline(@NonNull FaceLandmarkerResult result, int rotation) {
         if (result.faceLandmarks().isEmpty()) return null;
         List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark> pts =
                 result.faceLandmarks().get(0);
@@ -523,8 +530,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         for (int[] s : OUTLINE) {
             for (int i : s) {
                 boolean ok = i < pts.size();
-                out[k++] = ok ? 1f - pts.get(i).x() : Float.NaN; // mirrored like the picture
-                out[k++] = ok ? pts.get(i).y() : Float.NaN;
+                float[] u = ok ? com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(pts.get(i).x(), pts.get(i).y(), rotation)
+                        : null;
+                out[k++] = ok ? 1f - u[0] : Float.NaN; // upright, then mirrored like the picture
+                out[k++] = ok ? u[1] : Float.NaN;
             }
             out[k++] = Float.NaN;
             out[k++] = Float.NaN;

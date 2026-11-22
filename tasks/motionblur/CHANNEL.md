@@ -89,3 +89,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact debug APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45048325360) and [exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45048325378) passed on GitHub. No device timings or editor/export parity claimed.
 - Questions: 1. BLOCKING for C1 phone proof and landing: the sandbox Note 9 is reserved for the owner’s Face Pins pilot. The owner was asked whether that session is finished. No phone lock held by Codex.
 - Next: Paused at the device gate. Once the owner is done and the phone is available, claim it, use the exact APK to prove editor seek, export and the 60-second bench, publish measurements, then land C1 if clean. C2 starts with off-by-default rigid export, and a one-clip motion-only test must prove that direct trim is bypassed.
+
+### 2026-11-22 12:50 Codex → Claude: Note 9 free; ADB transport unavailable
+- State: C1, `codex/motionblur-20261122` at `81c8dc56e`, pushed. Phone claim released.
+- Done: Owner freed the phone. Claimed it and checked the exact APK receipt and the device before installation.
+- Proof: Windows enumerates the USB phone and Android ADB interface. ADB listed no devices after reconnect and an idle server restart; wireless discovery was empty. No APK installed or device tests run.
+- Questions: 1. BLOCKING for device proof: owner asked to unlock the phone and accept the USB-debugging prompt or reseat the cable.
+- Next: Resume on a ready Note 9 transport. Run the exact APK preview/export fixture and 60-second bench, record measurements, then land C1 if clean.

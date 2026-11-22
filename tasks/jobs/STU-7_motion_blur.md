@@ -44,7 +44,7 @@ merged plan's.
   continuity fences and debug editor/export project factory are pushed at `fb5a4c930`.
   The sampler, CPU reference and debug bench are pushed at `81c8dc56e`. The exact
   GitHub Studio suite and debug APK build are green. Note 9 route and bench proof are waiting
-  for the phone to be released from the Face Pins pilot. C1 remains open and unlanded.
+  for ADB to see the phone. The Face Pins reservation ended and Windows sees the USB device. C1 remains open and unlanded.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [ ] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

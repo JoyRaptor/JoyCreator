@@ -558,8 +558,10 @@ they want, a centipede; arms that can become feet with one toggle").
             keeps for walking (0.7 of the body's width each side). File `al-stick.js`.
       - Fixed on the way: the cyan "in hand" ring now follows a character that has walked; the scene's picture in the
         Set up card after a reload; a brief flash of the empty stage when changing scene.
-      - His question, the chair as the scene / character switch: answered in chat (kept as it is for now; the
-        suggestion was the chair picture on the scene's own path tab). Not built.
+      - [x] His question, the chair as the scene / character switch: kept the path tabs as the one place that says
+        what is in hand; the synthesis he approved (11-22) is built: the scene's own path tab wears the director's
+        chair, unlit with a character in hand, lit with the scene in hand; tapping it puts the scene in hand. Checked
+        by a real tap on the Note 9.
       **His next notes (11-21 later), built and checked on the Note 9:**
       - [x] No scene space left on the table: the frame is as big as the screen allows (no room round it), and the
             round buttons count as part of the drawer (a row under a wide frame, a column beside an upright one), pushing

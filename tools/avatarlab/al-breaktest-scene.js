@@ -20,6 +20,7 @@
  * and for the joystick's gestures:
  *   nogesture  a flick is never seen as one                                    tapsteer   a held steer is taken for a tap
  *   dbl        two taps also fire the one-tap act                              undo2      a gesture is changed behind Undo's back
+ *   nochair    the scene's path tab without the director's chair
  */
 (function (root) {
   'use strict';
@@ -153,7 +154,12 @@
       F('13 a character in hand: the room is on that character alone, at the stage asked for, the scene first on the path', !scene.on(app) && app.ch === R.actors[topps.id].ch && app.mode === 'build' && app.stage === 'fit' && AL.stages.path(app)[0].name === R.data.name && AL.stages.path(app)[1].name === app.ch.name, AL.stages.path(app).map(function (p) { return p.name; }));
       AL.stages.go(app, 'motion'); await K.raf(5); AL.stages.go(app, 'fit'); await K.raf(3);
       F('13 its rail works on it alone (Motion, then Arrange), the scene waiting', !scene.on(app) && app.stage === 'fit' && R.dive === topps.id && R.stage === 'fit');
-      AL.stages.path(app)[0].go(); await K.raf(4);
+      var chair0 = AL.strip.chair; if (plant === 'nochair') AL.strip.chair = null;
+      try {
+        app.refreshPanel(); var cr1 = q('#panelhead .crumb'), dimChair = !!(cr1 && cr1.querySelector('svg.chair')) && !cr1.classList.contains('on');
+        AL.stages.path(app)[0].go(); await K.raf(4); var cr2 = q('#panelhead .crumb'), litChair = !!(cr2 && cr2.querySelector('svg.chair')) && cr2.classList.contains('on');
+        F('13 the scene\'s path tab wears the director\'s chair: unlit with a character in hand, lit with the scene in hand', dimChair && litChair, { dim: dimChair, lit: litChair });
+      } finally { AL.strip.chair = chair0; }
       F('13 and back by the scene\'s path tab: the scene in hand, as it was left, on the same stage', scene.on(app) && clean(boxes(R)) === bIn && R.stage === 'fit' && R.hand === 'scene', { on: scene.on(app), stage: R.stage });
 
       /* 10. kept, closed, opened again */
@@ -357,7 +363,8 @@
     var out = {}, want = { order: /^2 the tree behind/, shape: /^3 changing the frame/, hand: /^5 \.\.\.and nobody else/, passes: /^6 while the second records/, camera: /^7 played back/, clamp: /^9 /, undo: /^11 undo of every/, trip: /^10 \.\.\.and every take/,
       fours: /^18 on all fours/, emptytake: /^19 \.\.\.and a scene opened/, emptydel: /^19 the empty scene cannot be deleted/, share: /^20 /, frameleave: /^21 in a scene, the frame off/, hold: /^22 a long press/, setup: /^22 a second tap on the character/,
       shrink: /^23 /, nodesk: /^24 in a scene/, noclip: /^24 in a scene/, stickdead: /^25 pushed right/,
-      nogesture: /^26 a flick up jumps/, tapsteer: /^26 a press held and steered/, dbl: /^26 two taps/, undo2: /^26 changing a gesture/ };
+      nogesture: /^26 a flick up jumps/, tapsteer: /^26 a press held and steered/, dbl: /^26 two taps/, undo2: /^26 changing a gesture/,
+      nochair: /^13 the scene's path tab wears/ };
     var only = arguments[0];
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await Sc.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 5) }; }
     return out;

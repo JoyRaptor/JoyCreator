@@ -124,7 +124,7 @@
       var b = h('button', { class: 'crumb' + (last ? (app.selOff && !own ? ' on off' : ' on') : '') + (i >= same && was.length ? ' in' : ''), title: own ? q.name + ': where you are' : last ? (app.selOff ? q.name + ': tap to show its box and marks again' : q.name + ': where you are. Tap to see it bare, with no box or marks; you stay here.') : 'Back out to ' + q.name, onclick: own ? q.tap : last ? function () { app.selOff = !app.selOff; app.refreshPanel(true); } : function () {
         Array.prototype.slice.call(row.children, i + 1).forEach(function (c) { c.classList.add('out'); });      // the deeper ones fold away into this one, then it is chosen
         setTimeout(q.go, 150);
-      } }, [url ? h('img', { src: url, alt: '' }) : null, h('span', { text: q.name })]);
+      } }, [q.glyph ? q.glyph() : url ? h('img', { src: url, alt: '' }) : null, h('span', { text: q.name })]);      // (q.glyph: the scene's tab wears the director's chair, al-scene-room.js)
       row.appendChild(b);
     });
     stages._path = P.map(function (q) { return q.id; });

@@ -48,6 +48,7 @@
     '.rb svg.frg text{font:700 6.3px/1 var(--f-mono);fill:currentColor;stroke:none;letter-spacing:-.02em}',
     '#chairmenu{position:absolute;right:0;bottom:calc(100% + 6px);display:none;flex-direction:column;align-items:flex-end;gap:5px}',
     '#chairmenu.open{display:flex} #chairmenu .chip{height:30px;padding:0 11px 0 9px;font-size:12px} #chairmenu .chip svg.ic{width:15px;height:15px}',
+    '.crumb svg.chair{width:19px;height:19px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}',
     '#roombtns.col{flex-direction:column} #roombtns.col #chairmenu{right:calc(100% + 6px);bottom:3px;flex-direction:row;align-items:center}',
     '.frshapes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}',
     '.frsh{width:58px;height:58px;border-radius:12px;background:var(--raised);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--dim);font:600 11px/1 var(--f-mono)}',
@@ -64,8 +65,9 @@
   document.head.appendChild(h('style', { text: CSS }));
 
   /* the director's chair, drawn: a backrest band on two posts, the seat, the crossed legs */
+  strip.chair = function () { return chair(); };      // (the same chair on the scene's path tab: the chair means the scene, everywhere)
   function chair() {
-    var s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true');
+    var s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('aria-hidden', 'true'); s.setAttribute('class', 'chair');
     var p = document.createElementNS(NS, 'path'); p.setAttribute('d', 'M6.5 3.5v9M17.5 3.5v9M6.5 4.5h11v3.6h-11M4.5 12.5h15M7 12.5l10 8M17 12.5l-10 8M5.5 20.5h3M15.5 20.5h3'); s.appendChild(p);
     return s;
   }

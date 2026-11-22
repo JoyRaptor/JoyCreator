@@ -1,7 +1,8 @@
 /* AvatarLab: ONE ROOM. The four stages and the path tabs work on whatever is in hand (the owner's second design, 11-21).
  *
  * In hand is the scene, or one character in it. The rail (Set up, Arrange, Motion, Perform) is the only rail, and the path tabs say
- * what is in hand: "Meadow > Topps > Head". A character in hand in the first three stages is alone on the plain stage, exactly as
+ * what is in hand: "Meadow > Topps > Head". The scene's tab wears the director's chair (the owner, 11-22: the chair means the scene,
+ * on the stage and on the path), and is lit while the scene is in hand. A character in hand in the first three stages is alone on the plain stage, exactly as
  * when it is opened by itself, and the tab with the scene's name puts the scene back in hand. Perform is always the whole scene,
  * with the character in hand. With no scene open (the empty scene) nothing here changes anything.
  * The scene in use, its stage and who is in hand are remembered through a reload.
@@ -25,7 +26,8 @@
   var path0 = stages.path;
   stages.path = function (app) {
     var R = app.scene; if (!R) return path0(app);
-    var me = { id: 'scene:' + R.data.uid, name: R.data.name, pic: scene.picNow ? scene.picNow(R) : null, go: function () { if (R.dive) scene.toScene(app); else { R.sel = null; app.refreshPanel(); } }, tap: function () { } };
+    /* the scene's tab wears the director's chair: the scene, here as on the stage (lit when the scene is in hand) */
+    var me = { id: 'scene:' + R.data.uid, name: R.data.name, glyph: AL.strip && AL.strip.chair, pic: scene.picNow ? scene.picNow(R) : null, go: function () { if (R.dive) scene.toScene(app); else { R.sel = null; app.refreshPanel(); } }, tap: function () { } };
     if (R.dive) return [me].concat(path0(app));
     var P = [me], it = R.sel ? scene.item(R, R.sel) : null;
     if (it) P.push({ id: 'item:' + it.id, name: it.name, pic: scene.picOf ? scene.picOf(R, it) : null, go: function () { }, tap: function () { } });

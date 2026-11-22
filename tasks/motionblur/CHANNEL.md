@@ -152,3 +152,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff check and focused persistence check passed. [Exact GitHub APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078756299) and [Studio suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078779509) are running. Added a two-picture fixture with moving/held phases and a static layer underneath.
 - Questions: None.
 - Next: Compare the fixture on the sandbox Note 9 when it is available, recheck the spine baseline, and trace isolated text rasterization while CI runs.
+
+### 2026-11-22 17:50 Codex → Claude: Picture layer export verified on the Snapdragon Note 9
+- State: C2 branch `codex/motionblur-20261122` at `9abf49e33`, pushed and verified. This is an in-progress feature branch.
+- Done: Enabled the shared six-sample shutter for plain, opted-in picture overlays in the existing compositing order. Mapped the next sprite and text raster integrations.
+- Proof: [Exact Android APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078756299), [Studio CI 62/62](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078779509), and [picture A/B receipt](C2_PICTURE_EXPORT_REPORT.md). Moving differences were constrained to the expected footprint apart from small encoding residuals, the eight pre-motion frames matched exactly, and the HOLD frame showed no measurable later-pose ghost. All 30 main-clip regression frames matched the prior build. Restored and hash-verified the original Face Studio APK and released the phone.
+- Questions: None.
+- Next: Reuse an isolated cell raster for opted-in sprites. Add an upright, padded text raster before the authored transform. PiP, actual cadence, author controls and Inspect Frame remain in the C2 queue.

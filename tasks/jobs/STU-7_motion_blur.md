@@ -47,6 +47,8 @@ merged plan's.
   math and scissor coverage tests pass.
 - 2026-11-22: The C2 branch has opt-in SDR main-clip placement blur and a single-clip
   trim-path and linear-light controls verified on Snapdragon Note 9. See [C2 spine checkpoint](../motionblur/C2_SPINE_EXPORT_REPORT.md).
+- 2026-11-22: Plain picture overlay blur is verified on the Snapdragon Note 9 at `9abf49e33`.
+  [Picture export evidence](../motionblur/C2_PICTURE_EXPORT_REPORT.md).
   The rest of C2 remains open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)

@@ -165,7 +165,8 @@ Ideas 1 and 2 above, built where Avatar Studio is designed (the web pilot), with
 | ✅ | **Recorded**: the point signals ride the take's channels, so a pass records them and a replay plays them with the camera off ("Buttons, wind, pins" on the strip) | built |
 | ✅ | **The pilot's face camera now reads faces the phone's way** (`al-face.js` hooked into `al-inputs.js`: neutral, continuous two-sided blinks and brows, lost and found); "Re-centre" takes a new neutral | built |
 | ✅ | **Break test** `al-breaktest-facepins.js`: 12 checks pass on Topps; all 7 planted faults caught (`AL.breakTest.facepins.proof()`) | browser, not phone |
-| ❓ | **On the Note 9 with the owner's face** | not yet |
+| ✅ | **Phone half compiles** (cloud build of `6d724a8c2`) and the pilot's own suites still pass with face pins in: the body test 184 cases, fit and reshape, stages, scenes | 11-22 |
+| ❓ | **On the Note 9 with the owner's face** (the pilot open there in Chrome, 11-22) | his try owed |
 
 Pilot files touched (announced to the lead, claimed on the BOARD): new `al-face.js` and `al-facepins.js`; one line each in
 `al-inputs.js` (`P.watch`, `P.step`, the take channels and owners), `al-solve.js` (face points ride a mirrored or

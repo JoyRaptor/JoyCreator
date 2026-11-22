@@ -871,7 +871,10 @@
       return;
     }
     var SG = [['', 'nothing yet']].concat(SIGS, [['blink', 'a blink on its own side'], ['lidUp', 'the mood: relaxed'], ['lidLow', 'the mood: cheery'], ['spin', 'the whole character turning round'], ['always', 'all the time']], (ch.triggers || []).map(function (t) { return ['trig:' + t.id, 'the “' + t.name + '” button']; }), [['+new', 'a new button…']]);
+    var fpins = (n.shapes || []).filter(function (sh) { return sh.face; }).length / 2;
+    if (fpins) pb.appendChild(ui.note(fpins + ' face pin' + (fpins > 1 ? 's' : '') + ' move this part (Perform, <b>Face pins</b>).'));   // FACE-1
     (n.shapes || []).forEach(function (sh) {
+      if (sh.face) return;                                        // a face pin's shapes live in Perform, Face pins
       var on = !!se && se.shape === sh.id;
       pb.appendChild(h('div', { class: 'rowf', style: 'margin-top:6px' }, [
         ui.chip(sh.name, { on: on, icon: 'pin', title: on ? 'Stop posing this shape' : 'Pose this shape: the pins jump to it, and dragging them changes it', fn: function () { if (on) app.shapeEdit = null; else shapeOn(app, n, sh); app.refreshPanel(true); } }),

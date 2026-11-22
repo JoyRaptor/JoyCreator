@@ -18,6 +18,7 @@ M, C, S, F, P, G = (PKG + n + ".java" for n in
                     ("FaceMapper", "FaceCalibration", "FaceStage", "FaceFollower", "FacePass", "FaceSignals"))
 JS = "tools/avatarlab/al-face.js"
 FR = PKG + "FaceFrame.java"
+PT = PKG + "FacePoints.java"
 
 PLANTS = [
     ("both eyes always blink alike (no wink)", [(M, "br = blink(cr, lookDown);", "br = bl;")]),
@@ -72,6 +73,15 @@ PLANTS = [
      [(FR, "case 270: return new float[]{y, 1f - x};", "case 270: return new float[]{x, y};")]),
     ("a neutral saved in the sideways frame is kept (lean stays sideways)",
      [(C, "if (v < 2) {", "if (false) {")]),
+    ("face pins move when the head turns (the head's turn not taken out)",
+     [(PT, "double ux = r[0] * x + r[3] * y + r[6] * z;", "double ux = x;"),
+      (PT, "double uy = r[1] * x + r[4] * y + r[7] * z;", "double uy = y;")]),
+    ("face pins move when the face comes closer (its size not taken out)",
+     [(PT, "double s = Math.sqrt(ss / STEADY.length);", "double s = 0.05;")]),
+    ("face pins go the wrong way across the screen",
+     [(PT, "out[k * 2] = (float) ((ux - rest[i * 3]) * side);", "out[k * 2] = (float) (ux - rest[i * 3]);")]),
+    ("the neutral forgets where the face points rest",
+     [(C, "                c.restPoints = pts;", "                /* forgotten */")]),
     ("looking down reads as a half blink", [(M, "return smoothstep(0.12f, 0.8f, closure - 0.4f * lookDown);",
                                              "return smoothstep(0.12f, 0.8f, closure);")]),
 ]

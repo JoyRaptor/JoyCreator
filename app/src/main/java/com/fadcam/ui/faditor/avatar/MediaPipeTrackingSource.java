@@ -113,7 +113,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
     private volatile boolean previewPicture = true;
     private volatile boolean useGpu = false;
     /** Analysis-thread ring: MediaPipe stamp -> {stamp, analysis start, camera capture (nanoTime), rotation}. */
-    private final long[][] stampRing = new long[8][4];
+    private final long[][] stampRing = new long[8][5];
     /** The camera's turn of the last frame (the points come back in the camera's own sideways frame). */
     private volatile int lastRotation = 0;
     private int stampAt = 0, previewTick = 0;
@@ -339,6 +339,10 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             slot[1] = startNanos;
             slot[2] = captureNanos(image.getImageInfo().getTimestamp(), startNanos);
             slot[3] = rotation;
+            // the upright picture's height over width, x1000 (the points' y goes into width units)
+            boolean sideways = rotation == 90 || rotation == 270;
+            slot[4] = Math.round(1000.0 * (sideways ? image.getWidth() : image.getHeight())
+                    / Math.max(1, sideways ? image.getHeight() : image.getWidth()));
             lastRotation = rotation;
             publishPreview(bmp, rotation);
             lm.detectAsync(mp, ipo, stamp);
@@ -442,8 +446,9 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         if (raw == null) return; // raced away between the guards — treat as loss
         lastOutline = outline(result, rotation);
 
+        float tall = timing != null && timing[4] > 0 ? timing[4] / 1000f : 4f / 3f;
         l.onFrame(new TrackingFrame(tSeconds, raw, Float.NaN, TrackingFrame.NO_VISEME,
-                TrackingFrame.FACE_FOUND, timing != null ? timing[2] : -1L));
+                TrackingFrame.FACE_FOUND, timing != null ? timing[2] : -1L, points(result, rotation, tall)));
     }
 
     /** FACE-1: the analysis start and capture time recorded for a stamp; updates the model time. */
@@ -516,6 +521,25 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             {61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185, 61},
             {78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191, 78},
     };
+
+    /**
+     * FACE-1 face pins: all the face's points, x, y, z each, in the upright picture (unmirrored), x and
+     * z in width units and y turned into width units by {@code tall} (the upright height over width).
+     */
+    @Nullable
+    private static float[] points(@NonNull FaceLandmarkerResult result, int rotation, float tall) {
+        if (result.faceLandmarks().isEmpty()) return null;
+        List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark> pts =
+                result.faceLandmarks().get(0);
+        float[] out = new float[pts.size() * 3];
+        for (int i = 0; i < pts.size(); i++) {
+            float[] u = com.fadcam.ui.faditor.avatar.face.FaceFrame.upright(pts.get(i).x(), pts.get(i).y(), rotation);
+            out[i * 3] = u[0];
+            out[i * 3 + 1] = u[1] * tall;
+            out[i * 3 + 2] = pts.get(i).z();
+        }
+        return out;
+    }
 
     /** FACE-1: the outline strokes in the mirrored preview's 0..1 space, NaN pairs between strokes. */
     @Nullable

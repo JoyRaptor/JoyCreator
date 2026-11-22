@@ -90,8 +90,9 @@
         else { inp.camStop(); app.refreshPanel(true); }
       } })
     ]);
-    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take the way you are facing now as straight ahead', fn: function () { inp.cam.zero = null; } }));
+    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take your face now as neutral: look at the screen, relaxed', fn: function () { inp.cam.zero = null; if (AL.face) AL.face.neutral(inp.cam); } }));
     if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
+    if (AL.facepins && !hosted && (inp.cam.on || AL.facepins.list(app.ch).length)) voice.appendChild(AL.facepins.chip(app));   // FACE-1
     if (AL.stick) { var jc = AL.stick.chip(app); if (stk) jc.classList.add('ico'); voice.appendChild(jc); }
     pb.appendChild(h('div', { class: 'padrow' + (stk ? ' stick' : '') }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice]), stk ? AL.stick.pad(app) : null]));
     morePads(app, pb, sets);

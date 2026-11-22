@@ -386,7 +386,8 @@
       return { turnX: -S.turnX, turnY: S.turnY, roll: -S.roll, lookX: -S.lookX, lookY: S.lookY, blinkL: S.blinkR, blinkR: S.blinkL, browL: S.browR, browR: S.browL,
         mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, foot: S.foot, spin: -(S.spin || 0), walk: -(S.walk || 0), armSide: S.armSide, trig: S.trig, pin: S.pin, t: S.t };
     }
-    var SM = [S, sigs(true)];
+    function sigsFull(mir) { var o = sigs(mir); if (mir) for (var k in S) if (k.slice(0, 3) === 'pt.') o[k] = S[k]; return o; }   // FACE-1 face pins ride a mirror as they are, like S.pin
+    var SM = [S, sigsFull(true)];
     function sg(c) { return SM[(c.mir ? 1 : 0) ^ (flipped ? 1 : 0)]; }
 
     function pivotOf(n) {

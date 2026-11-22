@@ -318,8 +318,98 @@ public class FaceEngineTest {
         check(shapes.sampleAt(50).get(FaceSignals.VIS) == 1f,
                 "on playback a sheet mouth steps from shape to shape (never flashes the shapes between)");
 
+        facePins();
+
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
         System.exit(fails == 0 ? 0 : 1);
+    }
+
+    // ── face pins (the owner's idea, 11-22): a point of the face drives a pin of the character ──
+
+    /** A made-up face of 478 points (a lumpy oval, depth on a dome), deterministic. */
+    static float[] cloud() {
+        float[] p = new float[com.fadcam.ui.faditor.avatar.face.FacePoints.COUNT * 3];
+        long seed = 12345;
+        for (int i = 0; i < p.length / 3; i++) {
+            seed = seed * 6364136223846793005L + 1442695040888963407L;
+            double a = ((seed >>> 11) & 0xFFFFF) / (double) 0xFFFFF * Math.PI * 2;
+            seed = seed * 6364136223846793005L + 1442695040888963407L;
+            double r = 0.2 + 0.8 * ((seed >>> 11) & 0xFFFFF) / (double) 0xFFFFF;
+            double x = Math.cos(a) * r * 0.08, y = Math.sin(a) * r * 0.11;
+            p[i * 3] = (float) (0.5 + x);
+            p[i * 3 + 1] = (float) (0.6 + y);
+            p[i * 3 + 2] = (float) (-0.06 * (1 - r * r));
+        }
+        return p;
+    }
+
+    /** The cloud turned (yaw, pitch, roll in degrees) about its middle, scaled and moved, like a head. */
+    static float[] posed(float[] p, double yaw, double pitch, double roll, double scale, double dx, double dy) {
+        double cy = Math.cos(Math.toRadians(yaw)), sy = Math.sin(Math.toRadians(yaw));
+        double cp = Math.cos(Math.toRadians(pitch)), sp = Math.sin(Math.toRadians(pitch));
+        double cr = Math.cos(Math.toRadians(roll)), sr = Math.sin(Math.toRadians(roll));
+        float[] o = new float[p.length];
+        for (int i = 0; i < p.length / 3; i++) {
+            double x = p[i * 3] - 0.5, y = p[i * 3 + 1] - 0.6, z = p[i * 3 + 2];
+            double x1 = cy * x + sy * z, z1 = -sy * x + cy * z;            // yaw about y
+            double y1 = cp * y - sp * z1, z2 = sp * y + cp * z1;           // pitch about x
+            double x2 = cr * x1 - sr * y1, y2 = sr * x1 + cr * y1;         // roll about z
+            o[i * 3] = (float) (0.5 + dx + x2 * scale);
+            o[i * 3 + 1] = (float) (0.6 + dy + y2 * scale);
+            o[i * 3 + 2] = (float) (z2 * scale);
+        }
+        return o;
+    }
+
+    static void facePins() {
+        int corner = 61;                                   // the person's right mouth corner
+        int[] chosen = {corner, 291, 0, 159};
+        float[] base = cloud();
+        float[] rest = com.fadcam.ui.faditor.avatar.face.FacePoints.normalize(base);
+        float[] turned = com.fadcam.ui.faditor.avatar.face.FacePoints.normalize(posed(base, 28, -12, 15, 1.35, 0.07, -0.04));
+        float[] off = com.fadcam.ui.faditor.avatar.face.FacePoints.offsets(rest, turned, chosen, -1);
+        float worst = 0;
+        for (float v : off) worst = Math.max(worst, Math.abs(v));
+        check(worst < 0.002f, "face pins: turning, tilting, nodding and coming closer move no pin (worst "
+                + String.format("%.4f", worst) + ")");
+
+        float[] smiling = base.clone();
+        smiling[corner * 3] -= 0.01f;                      // toward the picture's left = the person's right
+        smiling[corner * 3 + 1] -= 0.006f;                 // and up: a smile
+        float[] smileTurned = com.fadcam.ui.faditor.avatar.face.FacePoints.normalize(posed(smiling, 20, 8, -10, 0.9, -0.05, 0.02));
+        float[] so = com.fadcam.ui.faditor.avatar.face.FacePoints.offsets(rest, smileTurned, chosen, -1);
+        float steadySpread = spread(base);
+        boolean right = so[0] > 0 && Math.abs(so[0] - 0.01f / steadySpread) < 0.01f / steadySpread * 0.1f;
+        boolean up = so[1] < 0 && Math.abs(so[1] + 0.006f / steadySpread) < 0.006f / steadySpread * 0.1f;
+        boolean others = Math.abs(so[2]) < 0.002f && Math.abs(so[3]) < 0.002f && Math.abs(so[6]) < 0.002f;
+        check(right && up && others, "face pins: a smile moves its mouth-corner pin out and up (to the screen's right, "
+                + "like a reflection), even with the head turned, and nothing else");
+
+        // through the stage: a pin is put out only once it is watched, eases away with a lost face
+        FaceCalibration.Capture cap = new FaceCalibration.Capture(FaceCalibration.none(), 4);
+        for (int i = 0; i < 4; i++) cap.add(face(), rest);
+        FaceCalibration cal = cap.result();
+        check(cal.restPoints() != null && FaceCalibration.fromJson(cal.toJson()).restPoints() != null,
+                "face pins: the neutral keeps where every point rests (and that is saved)");
+        FaceStage st = new FaceStage(cal, new FaceTuning());
+        double t = 0;
+        Map<String, Float> o = st.process(face(), smiling, t);
+        check(!o.containsKey(FaceSignals.pointX(corner)), "face pins: an unwatched point costs nothing and puts out nothing");
+        st.setWatchedPoints(new int[]{corner});
+        o = st.process(face(), smiling, t += 1 / 15.0);
+        check(Math.abs(g(o, FaceSignals.pointX(corner)) - so[0]) < 0.002f, "face pins: a watched point is put out with the face");
+        for (int i = 0; i < 40; i++) o = st.process(null, null, t += 1 / 15.0);
+        check(Math.abs(g(o, FaceSignals.pointX(corner))) < 0.002f, "face pins: a lost face lets its pins settle back to rest");
+    }
+
+    static float spread(float[] p) {
+        int[] steady = {10, 151, 9, 8, 168, 6, 197, 195, 5, 4, 1, 33, 263, 133, 362, 234, 454, 127, 356, 21, 251, 54, 284};
+        double cx = 0, cy = 0, cz = 0;
+        for (int i : steady) { cx += p[i * 3]; cy += p[i * 3 + 1]; cz += p[i * 3 + 2]; }
+        cx /= steady.length; cy /= steady.length; cz /= steady.length;
+        double ss = 0;
+        for (int i : steady) ss += Math.pow(p[i * 3] - cx, 2) + Math.pow(p[i * 3 + 1] - cy, 2) + Math.pow(p[i * 3 + 2] - cz, 2);
+        return (float) Math.sqrt(ss / steady.length);
     }
 
     static TrackingFrame faceFrame(double t, Map<String, Float> raw) {

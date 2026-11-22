@@ -118,14 +118,25 @@ public final class FaceSignals {
         ALL = Collections.unmodifiableSet(s);
     }
 
+    // ── Face points (face pins): "pt.<mesh index>.x" / ".y", the point's movement from neutral ──
+    public static final String POINT_PREFIX = "pt.", LANE_POINTS = "points", G_POINT = "point";
+
+    @NonNull public static String pointX(int index) { return POINT_PREFIX + index + ".x"; }
+    @NonNull public static String pointY(int index) { return POINT_PREFIX + index + ".y"; }
+
+    /** True for a face point's signal ({@link #pointX}, {@link #pointY}). */
+    public static boolean isPoint(@NonNull String name) {
+        return name.startsWith(POINT_PREFIX);
+    }
+
     /** The lane a signal is recorded in, or null for names that are not face signals. */
     @Nullable
     public static String laneOf(@NonNull String name) {
-        return LANE_OF.get(name);
+        return isPoint(name) ? LANE_POINTS : LANE_OF.get(name);
     }
 
     public static boolean isFace(@NonNull String name) {
-        return GROUP_OF.containsKey(name);
+        return GROUP_OF.containsKey(name) || isPoint(name);
     }
 
     /** True for the signals that step instead of blending (mouth shape index, presence). */
@@ -133,8 +144,14 @@ public final class FaceSignals {
         return G_STEP.equals(GROUP_OF.get(name));
     }
 
+    @Nullable
+    private static String groupOf(@NonNull String name) {
+        return isPoint(name) ? G_POINT : GROUP_OF.get(name);
+    }
+
     /** -1..1 signals (directions); everything else is 0..1. */
     public static boolean isSigned(@NonNull String name) {
+        if (isPoint(name)) return true;
         switch (name) {
             case TURN_X: case TURN_Y: case ROLL: case YAW: case PITCH: case LOOK_X: case LOOK_Y:
             case BROW_L: case BROW_R: case MOUTH_X: case LID_TILT: case JAW_X: case LEAN_X: case LEAN_Y:
@@ -153,13 +170,14 @@ public final class FaceSignals {
      */
     @Nullable
     public static float[] smoothing(@NonNull String name) {
-        String g = GROUP_OF.get(name);
+        String g = groupOf(name);
         if (g == null) return null;
         switch (g) {
             case G_HEAD:  return new float[]{1.0f, 1.6f};
             case G_GAZE:  return new float[]{1.6f, 2.5f};
             case G_BLINK: return new float[]{6.0f, 4.0f};
             case G_MOUTH: return new float[]{3.0f, 3.0f};
+            case G_POINT: return new float[]{3.0f, 3.0f};
             case G_MOOD:  return new float[]{1.2f, 1.5f};
             default:      return null;
         }
@@ -173,13 +191,14 @@ public final class FaceSignals {
 
     /** Render-side follow speed (rad/s) per group; see {@link FaceFollower}. 0 = snap. */
     public static float followOmega(@NonNull String name) {
-        String g = GROUP_OF.get(name);
+        String g = groupOf(name);
         if (g == null) return 30f;
         switch (g) {
             case G_HEAD:  return 30f;
             case G_GAZE:  return 45f;
             case G_BLINK: return 80f;
             case G_MOUTH: return 55f;
+            case G_POINT: return 55f;
             case G_MOOD:  return 25f;
             default:      return 0f;
         }

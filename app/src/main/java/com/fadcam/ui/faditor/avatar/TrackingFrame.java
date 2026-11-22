@@ -59,6 +59,8 @@ public final class TrackingFrame {
     public final int face;
     /** FACE-1: when the camera took this picture ({@link System#nanoTime} clock), or -1 if unknown. */
     public final long captureNanos;
+    /** FACE-1 face pins: the face's points, x, y, z each (upright picture, width units), or null. */
+    @androidx.annotation.Nullable public final float[] points;
 
     public TrackingFrame(double tSeconds, @NonNull Map<String, Float> params, float audioDb) {
         this(tSeconds, params, audioDb, NO_VISEME);
@@ -72,6 +74,14 @@ public final class TrackingFrame {
     /** FACE-1: a face camera's frame. */
     public TrackingFrame(double tSeconds, @NonNull Map<String, Float> params, float audioDb,
                           int visemeClassIndex, int face, long captureNanos) {
+        this(tSeconds, params, audioDb, visemeClassIndex, face, captureNanos, null);
+    }
+
+    /** FACE-1: a face camera's frame with its points. */
+    public TrackingFrame(double tSeconds, @NonNull Map<String, Float> params, float audioDb,
+                          int visemeClassIndex, int face, long captureNanos,
+                          @androidx.annotation.Nullable float[] points) {
+        this.points = points;
         this.tSeconds = tSeconds;
         this.params = params;
         this.audioDb = audioDb;
@@ -83,7 +93,7 @@ public final class TrackingFrame {
     /** The same frame with the mic's level and mouth class stamped on (keeps the face fields). */
     @NonNull
     public TrackingFrame withAudio(float db, int viseme) {
-        return new TrackingFrame(tSeconds, params, db, viseme, face, captureNanos);
+        return new TrackingFrame(tSeconds, params, db, viseme, face, captureNanos, points);
     }
 
     /** Compose a pin-target param name for a part. */

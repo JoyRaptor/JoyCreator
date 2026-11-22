@@ -848,6 +848,7 @@ public class ExportManager {
                     // path is actually for: hasSpineTransform() is false unless a pose was
                     // authored.
                     && !project.getTimeline().getClip(0).hasSpineTransform()
+                    && !project.getTimeline().getClip(0).isRigidMotionBlurEnabled()
                     && !project.getTimeline().hasTextOverlays()
                     && !hasAnyVisibleCaptionBinding(project.getTimeline().getClip(0))
                     && !project.getTimeline().hasWaveformOverlays()
@@ -7162,10 +7163,8 @@ public class ExportManager {
         // canvas-shaped frame; this then places that frame. The two never share arithmetic, so
         // the crop fixes landed today are not in this path at all.
         //
-        // PREVIEW PARITY: SpineTransformExportEffect builds no maths of its own. It compiles
-        // SpineTransform.fragmentShader(...) and uploads SpineTransform.uniforms(...), which are
-        // the same two calls FxPreviewTextureView.drawSpineTransform makes. One method, two
-        // hosts -- not two transcriptions.
+        // The sharp path shares the preview's shader and placement. The opt-in export shutter
+        // evaluates that same underlying transform at several instants within this piece.
         //
         // NO-OP PROOF: gated at BUILD time on Clip.hasSpineTransform(), which is false unless a
         // static differs from the fit-centre identity or a keyframe track exists. Every clip in
@@ -7184,7 +7183,8 @@ public class ExportManager {
         // against the whole timeline; using it here would shift a spine key by the clip's
         // position in the project.
         if (!isTransitionItem && clip.hasSpineTransform()) {
-            videoEffects.add(new SpineTransformExportEffect(clip, clipLocalOriginMs));
+            videoEffects.add(new SpineTransformExportEffect(clip, clipLocalOriginMs,
+                    timelineCursorMs, pieceDurationMs));
         }
 
         // ── Clip opacity / master fade — the CLIP's picture only ──────────────────────

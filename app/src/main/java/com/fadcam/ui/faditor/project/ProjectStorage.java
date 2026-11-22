@@ -1988,6 +1988,7 @@ public class ProjectStorage {
             if (keys != null) st.add("keys", keys);
             clipJson.add("spineTransform", st);
         }
+        if (clip.isRigidMotionBlurEnabled()) clipJson.addProperty("rigidMotionBlur", true);
         return clipJson;
     }
 
@@ -2381,6 +2382,11 @@ public class ProjectStorage {
                                 st.getAsJsonObject("keys"));
                 if (ks != null) clip.setSpineTransform(ks);
             }
+        }
+        JsonElement rigidMotionBlur = clipObj.get("rigidMotionBlur");
+        if (rigidMotionBlur != null && rigidMotionBlur.isJsonPrimitive()
+                && rigidMotionBlur.getAsJsonPrimitive().isBoolean()) {
+            clip.setRigidMotionBlurEnabled(rigidMotionBlur.getAsBoolean());
         }
         // §4.5 per-object eye/lock (tolerant: absent = false).
         if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());

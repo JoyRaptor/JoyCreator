@@ -9,10 +9,12 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.net.Uri;
 
+import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
@@ -24,7 +26,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-/** Disposable synthetic C1 project driven through the regular editor and export service. */
+/** Disposable synthetic motion projects driven through the regular editor and export service. */
 final class MotionRouteFixture {
     private MotionRouteFixture() {}
 
@@ -103,6 +105,42 @@ final class MotionRouteFixture {
         timeline.addAdjustmentLayer(adjustment);
 
         if (!storage.save(project)) throw new IOException("Could not save the route fixture");
+        return project;
+    }
+
+    static FaditorProject createSpine(Context context, boolean enabled, boolean animated)
+            throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String label = !animated ? "motion only" : enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 " + label));
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create spine fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Spine fixture is shorter than 1 second");
+        Clip clip = clip(source, duration, 1_000L);
+        clip.setRigidMotionBlurEnabled(enabled);
+        if (animated) {
+            clip.setSpineScale(0.38f);
+            var keys = clip.getOrCreateSpineTransform();
+            var x = keys.getOrCreate(SpineTransform.X);
+            x.put(0, 0.24f, Easing.LINEAR);
+            x.put(250, 0.24f, Easing.LINEAR);
+            x.put(500, 0.76f, Easing.HOLD);
+            x.put(750, 0.38f, Easing.LINEAR);
+            var y = keys.getOrCreate(SpineTransform.Y);
+            y.put(0, 0.38f, Easing.LINEAR);
+            y.put(250, 0.38f, Easing.LINEAR);
+            y.put(500, 0.62f, Easing.HOLD);
+            y.put(750, 0.48f, Easing.LINEAR);
+            var rotation = keys.getOrCreate(SpineTransform.ROTATION);
+            rotation.put(0, 0f, Easing.LINEAR);
+            rotation.put(250, 0f, Easing.LINEAR);
+            rotation.put(500, 55f, Easing.HOLD);
+            rotation.put(750, -12f, Easing.LINEAR);
+        }
+        project.getTimeline().addClip(clip);
+        if (!storage.save(project)) throw new IOException("Could not save the spine fixture");
         return project;
     }
 

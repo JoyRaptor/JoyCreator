@@ -729,6 +729,7 @@ public class Clip implements AudioParams {
         this.spineScaleX = other.spineScaleX;
         this.spineScaleY = other.spineScaleY;
         this.spineRotationDeg = other.spineRotationDeg;
+        this.rigidMotionBlurEnabled = other.rigidMotionBlurEnabled;
         this.spineTransform = other.spineTransform != null
                 ? other.spineTransform.copy() : null;
         // SPEC ZB: the warp rides along, DEEP — beside the spine pose, not inside it. The
@@ -826,6 +827,7 @@ public class Clip implements AudioParams {
         c.spineScaleX = spineScaleX;
         c.spineScaleY = spineScaleY;
         c.spineRotationDeg = spineRotationDeg;
+        c.rigidMotionBlurEnabled = rigidMotionBlurEnabled;
         c.spineTransform = spineTransform != null ? spineTransform.copy() : null;
         // SPEC ZB: relinked()'s own javadoc promises to keep "every edit", and the warp is
         // one. Deep, like the copy constructor above, for the same aliasing reason.
@@ -1909,6 +1911,11 @@ public class Clip implements AudioParams {
     private float spineScaleX = 1f;
     private float spineScaleY = 1f;
     private float spineRotationDeg = 0f;
+    private boolean rigidMotionBlurEnabled;
+
+    public boolean isRigidMotionBlurEnabled() { return rigidMotionBlurEnabled; }
+
+    public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlurEnabled = enabled; }
 
     /**
      * Optional animation of the six numbers above, in CLIP-LOCAL milliseconds — the same time

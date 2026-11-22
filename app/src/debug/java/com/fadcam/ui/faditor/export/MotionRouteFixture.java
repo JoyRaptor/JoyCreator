@@ -192,6 +192,56 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createSprite(Context context, boolean enabled) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 sprite " + variant));
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create sprite fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Sprite fixture is shorter than 1 second");
+        project.getTimeline().addClip(clip(source, duration, 1_000L));
+
+        File art = new File(media, "shutter-cells.png");
+        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(art)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            paint.setColor(Color.RED);
+            canvas.drawRect(10, 8, 119, 84, paint);
+            paint.setColor(0x80FF4020);
+            canvas.drawRect(10, 87, 78, 122, paint);
+            paint.setColor(Color.CYAN);
+            canvas.drawRect(138, 8, 247, 84, paint);
+            paint.setColor(0x8000E0FF);
+            canvas.drawRect(138, 87, 206, 122, paint);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write shutter sprite cells");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        var sheet = new SpriteSheet("c2-sprite-cells", "C2 shutter cells", Uri.fromFile(art).toString());
+        sheet.setGrid(2, 1);
+        project.getSpriteSheets().add(sheet);
+        var sprite = SpriteOverlayItem.create(sheet.getId());
+        sprite.setCenter(0.22f, 0.58f);
+        sprite.setSizeFraction(0.26f);
+        sprite.setTimeRange(0, 899);
+        sprite.setOpacity(0.82f);
+        sprite.setRigidMotionBlurEnabled(enabled);
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0, 0));
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(367, 1)); // exposure at 366.667 ms crosses it
+        var x = sprite.getKeyframes().getOrCreate(KeyframeSet.X);
+        x.put(0, 0.22f, Easing.LINEAR);
+        x.put(220, 0.22f, Easing.LINEAR);
+        x.put(620, 0.75f, Easing.LINEAR);
+        project.getTimeline().addSpriteOverlay(sprite);
+        if (!storage.save(project)) throw new IOException("Could not save the sprite fixture");
+        return project;
+    }
+
     private static File createShutterArt(File directory) throws IOException {
         File file = new File(directory, "shutter-art.png");
         Bitmap bitmap = Bitmap.createBitmap(960, 540, Bitmap.Config.ARGB_8888);

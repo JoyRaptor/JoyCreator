@@ -53,6 +53,12 @@ public final class MotionShutter {
 
     public static Schedule sample(long centerUs, FrameRate frameRate, double angle, double phase,
                                   Shape shape, int count, MotionBreaks breaks) {
+        return sample(centerUs, frameRate, angle, phase, shape, count, breaks, MotionBreaks.none());
+    }
+
+    /** Intersect common continuity fences with source changes local to this exposure. */
+    public static Schedule sample(long centerUs, FrameRate frameRate, double angle, double phase,
+                                  Shape shape, int count, MotionBreaks breaks, MotionBreaks source) {
         Objects.requireNonNull(frameRate);
         Objects.requireNonNull(shape);
         Objects.requireNonNull(breaks);
@@ -66,6 +72,10 @@ public final class MotionShutter {
         double openUs = centerUs + phase * frameRate.periodUs() / 360.0;
         MotionBreaks.Window window = breaks.splitWindow(centerUs, openUs, openUs + durationUs);
         if (!window.hasSamples()) return center(centerUs);
+        if (source != MotionBreaks.none()) {
+            window = source.splitWindow(centerUs, window.openUs(), window.closeUs());
+            if (!window.hasSamples()) return center(centerUs);
+        }
 
         long[] times = new long[count];
         double[] weights = new double[count];

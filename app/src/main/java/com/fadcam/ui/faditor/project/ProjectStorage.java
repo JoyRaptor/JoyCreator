@@ -3254,6 +3254,7 @@ public class ProjectStorage {
                     // §4.5 per-object eye/lock (write-if-true).
                     if (so.isHidden()) sj.addProperty("objHidden", true);
                     if (so.isLocked()) sj.addProperty("objLocked", true);
+                    if (so.isRigidMotionBlurEnabled()) sj.addProperty("rigidMotionBlur", true);
                     spArray.add(sj);
                 }
                 timelineJson.add("spriteOverlays", spArray);
@@ -4384,6 +4385,9 @@ public class ProjectStorage {
                             // §4.5 per-object eye/lock (tolerant: absent = false).
                             if (hasValue(sj, "objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());
                             if (hasValue(sj, "objLocked")) so.setLocked(sj.get("objLocked").getAsBoolean());
+                            if (hasValue(sj, "rigidMotionBlur")) {
+                                so.setRigidMotionBlurEnabled(sj.get("rigidMotionBlur").getAsBoolean());
+                            }
                             project.getTimeline().addSpriteOverlay(so);
                         } catch (Exception ignored) { }
                     }

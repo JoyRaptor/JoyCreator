@@ -104,7 +104,7 @@ final class PipChainGl {
                 boolean oes = external != null && Boolean.TRUE.equals(external.get(i));
                 PictureBlur blur = blurs == null ? null : blurs.get(i);
                 if (blur != null) {
-                    if (pictureShutter == null) pictureShutter = new RigidTextureShutterPass(true);
+                    if (pictureShutter == null) pictureShutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PICTURE);
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo);
                     GLES20.glViewport(0, 0, w, h);
                     pictureShutter.draw(stillTex.get(i), w, h, blur.plan(), src, blur.opacity());

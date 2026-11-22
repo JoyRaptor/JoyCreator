@@ -6,6 +6,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
 import android.opengl.GLES20;
+import android.opengl.GLUtils;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -18,6 +19,13 @@ import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.PipGl;
+import com.fadcam.ui.faditor.motion.ItemMotionSampler;
+import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionItemAdapters;
+import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
+import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
+import com.fadcam.ui.faditor.sprite.SpriteSheetRenderer;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 
 import java.util.List;
@@ -49,7 +57,7 @@ import java.util.List;
  * like every other GL target and is sampled unflipped. Sampling either one the wrong way turns
  * the sprite upside-down.
  *
- * <p><b>Routing.</b> Emitted only for a sprite whose {@code wantsGl()} is true, and
+ * <p><b>Routing.</b> Emitted for a sprite whose {@link #routesToGl} is true, and
  * {@code CompositeExportOverlay.filterSpriteItems} drops exactly those from the Canvas pass —
  * the two decisions consult the SAME predicate, so a sprite is drawn once, in GL, or once, on
  * the Canvas, never twice and never nowhere. A sprite with no pin and no mesh takes neither
@@ -62,6 +70,14 @@ import java.util.List;
  * Canvas the sprite sat over the GL surface and no blend above it could ever see it.
  */
 final class SpriteBlendGlEffect implements GlEffect {
+    static boolean routesToGl(SpriteOverlayItem item) {
+        return item.wantsGl() || hasRigidMotion(item);
+    }
+
+    private static boolean hasRigidMotion(SpriteOverlayItem item) {
+        return item.isRigidMotionBlurEnabled() && item.getKeyframes().isAnimated()
+                && !item.isLinked() && !item.hasAvatarPerformance() && !item.wantsGl();
+    }
 
     @NonNull private final Context context;
     @NonNull private final SpriteOverlayItem item;
@@ -69,17 +85,22 @@ final class SpriteBlendGlEffect implements GlEffect {
     @NonNull private final List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs;
     private final long projectDurationMs;
     private final long editorTimeOffsetMs;
+    private final long motionStartUs;
+    private final long motionEndUs;
 
     SpriteBlendGlEffect(@NonNull Context context, @NonNull SpriteOverlayItem item,
                         @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets,
                         @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs,
-                        long projectDurationMs, long editorTimeOffsetMs) {
+                        long projectDurationMs, long editorTimeOffsetMs,
+                        long pieceStartMs, long motionPieceDurationMs) {
         this.context = context.getApplicationContext();
         this.item = item;
         this.sheets = sheets;
         this.rigs = rigs;
         this.projectDurationMs = projectDurationMs;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
+        motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
+        motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
     }
 
     @NonNull
@@ -89,7 +110,8 @@ final class SpriteBlendGlEffect implements GlEffect {
         if (useHdr) {
             throw new VideoFrameProcessingException("HDR sprite overlays are not supported");
         }
-        return new Program(context, item, sheets, rigs, projectDurationMs, editorTimeOffsetMs);
+        return new Program(context, item, sheets, rigs, projectDurationMs, editorTimeOffsetMs,
+                motionStartUs, motionEndUs);
     }
 
     /**
@@ -347,13 +369,20 @@ final class SpriteBlendGlEffect implements GlEffect {
         private final GlProgram glProgram;
         @Nullable private GlProgram passProgram;
         private int frameW = 1, frameH = 1;
+        private final long motionStartUs;
+        private final long motionEndUs;
+        @Nullable private final MotionBreaks shutterBreaks;
+        @Nullable private ItemMotionSampler shutterSampler;
+        @Nullable private RigidTextureShutterPass shutter;
+        private int cellTexture;
+        private int textureCell = SpriteFrameResolver.NO_CELL;
         private final Paint contentPaint =
                 new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
 
         Program(@NonNull Context context, @NonNull SpriteOverlayItem item,
                 @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets,
                 @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs,
-                long projectDurationMs, long editorTimeOffsetMs)
+                long projectDurationMs, long editorTimeOffsetMs, long motionStartUs, long motionEndUs)
                 throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
             this.appContext = context.getApplicationContext();
@@ -361,6 +390,16 @@ final class SpriteBlendGlEffect implements GlEffect {
             this.frame = new SpriteFrame(appContext, item, sheets, rigs, editorTimeOffsetMs);
             this.projectDurationMs = projectDurationMs;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
+            this.motionStartUs = motionStartUs;
+            this.motionEndUs = motionEndUs;
+            if (hasRigidMotion(item) && motionEndUs > motionStartUs) {
+                long startUs = item.getStartMs() * 1000L;
+                var fences = new MotionBreaks.Builder().add(motionStartUs).add(motionEndUs);
+                for (var track : item.getKeyframes().tracks()) fences.addSteps(track, startUs);
+                shutterBreaks = fences.build();
+            } else {
+                shutterBreaks = null;
+            }
             boolean wantMesh = false;
             com.fadcam.ui.faditor.compositor.MeshStampGl stamp = null;
             try {
@@ -408,6 +447,7 @@ final class SpriteBlendGlEffect implements GlEffect {
             frame.configure(size);
             frameW = size.getWidth();
             frameH = size.getHeight();
+            shutterSampler = null;
             if (meshStamp != null) meshStamp.configure(frameW, frameH);
             return size;
         }
@@ -422,6 +462,9 @@ final class SpriteBlendGlEffect implements GlEffect {
                 // clip and self-gates per frame, the way TextFxGlEffect does.
                 if (item.isHidden() || !item.isVisibleAt(timelineMs)) {
                     passthrough(inputTexId);
+                    return;
+                }
+                if (drawShutter(inputTexId, timelineMs, presentationTimeUs + editorTimeOffsetMs * 1000L)) {
                     return;
                 }
                 if (mesh && meshStamp != null && flatProgram != null) {
@@ -593,6 +636,69 @@ final class SpriteBlendGlEffect implements GlEffect {
             }
         }
 
+        /** Resolve the currently visible cell once and sample placement only within its exposure. */
+        private boolean drawShutter(int inputTexId, long timeMs, long timeUs)
+                throws GlUtil.GlException {
+            if (shutterBreaks == null || timeUs < motionStartUs || timeUs >= motionEndUs) return false;
+            float opacity = Math.round(Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))) * 255)
+                    / 255f;
+            if (opacity == 0f) return false;
+            var sheet = frame.sheetById(item.getSheetId());
+            if (sheet == null) return false;
+            int cell = SpriteFrameResolver.resolveCellAt(sheet, item, timeMs);
+            if (cell == SpriteFrameResolver.NO_CELL) return false;
+            var alignment = sheet.cellTransform(cell);
+            // The flat renderer can draw aligned art beyond the nominal cell rectangle.
+            if (alignment != null && !alignment.isIdentity()) return false;
+
+            var renderer = frame.rendererFor(item.getSheetId());
+            if (renderer == null || renderer.isCellMissing(cell)) return false;
+            if (shutterSampler == null) {
+                shutterSampler = MotionItemAdapters.sprite(item, frameW, frameH, renderer.cellAspect());
+            }
+            var cellBreaks = new MotionBreaks.Builder();
+            long halfExposureUs = RigidTextureShutterPass.naturalHalfExposureUs();
+            MotionTimelineBreaks.addSprite(cellBreaks, sheet, item,
+                    timeUs - halfExposureUs, timeUs + halfExposureUs);
+            var plan = RigidTextureShutterPass.naturalPlan(shutterSampler, timeUs, shutterBreaks,
+                    cellBreaks.build(), frameW, frameH);
+            if (plan == null || !prepareCellTexture(renderer, cell)) return false;
+            if (shutter == null) {
+                shutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PREMULTIPLIED_OVERLAY);
+            }
+            shutter.draw(cellTexture, frameW, frameH, plan, inputTexId, opacity);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            return true;
+        }
+
+        private boolean prepareCellTexture(SpriteSheetRenderer renderer, int cell) {
+            if (cellTexture != 0 && textureCell == cell) return true;
+            var rect = renderer.cellRectBitmap(cell);
+            if (rect.width() <= 0 || rect.height() <= 0) return false;
+            float scale = Math.min(1f, MAX_EDGE_PX / (float) Math.max(rect.width(), rect.height()));
+            int width = Math.max(1, Math.round(rect.width() * scale));
+            int height = Math.max(1, Math.round(rect.height() * scale));
+            Bitmap bitmap;
+            try {
+                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            } catch (OutOfMemoryError e) {
+                FLog.w("SpriteBlend", "Shutter cell texture allocation failed; drawing sharp", e);
+                return false;
+            }
+            try {
+                contentPaint.setAlpha(255);
+                renderer.drawCell(new Canvas(bitmap), cell, new RectF(0f, 0f, width, height),
+                        contentPaint);
+                if (cellTexture == 0) cellTexture = PipGl.newStillTexture();
+                GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, cellTexture);
+                GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
+                textureCell = cell;
+                return true;
+            } finally {
+                bitmap.recycle();
+            }
+        }
+
         /** Composite the CPU-baked frame (correct bitmap flip). */
         private void drawFlat(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
@@ -653,6 +759,10 @@ final class SpriteBlendGlEffect implements GlEffect {
                 try {
                     if (passProgram != null) passProgram.delete();
                 } catch (Exception ignored) { }
+                if (cellTexture != 0) GLES20.glDeleteTextures(1, new int[]{cellTexture}, 0);
+                if (shutter != null) {
+                    try { shutter.release(); } catch (GlUtil.GlException ignored) { }
+                }
                 glProgram.delete();
                 super.release();
             } catch (Exception e) {

@@ -30,22 +30,33 @@ final class RigidTextureShutterPass {
 
     static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs,
                                         MotionBreaks breaks, int width, int height) {
+        return naturalPlan(sampler, timeUs, breaks, MotionBreaks.none(), width, height);
+    }
+
+    static long naturalHalfExposureUs() {
+        return (long) Math.ceil(MotionShutter.Preset.NATURAL.angle * SHUTTER_RATE.periodUs() / 720.0);
+    }
+
+    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs, MotionBreaks breaks,
+                                        MotionBreaks sourceBreaks, int width, int height) {
         var preset = MotionShutter.Preset.NATURAL;
         var schedule = MotionShutter.sample(timeUs, SHUTTER_RATE, preset.angle, preset.phase(),
-                MotionShutter.Shape.BOX, SAMPLE_COUNT, breaks);
+                MotionShutter.Shape.BOX, SAMPLE_COUNT, breaks, sourceBreaks);
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }
 
+    enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY }
+
     private final GlProgram program;
-    private final boolean picture;
+    private final boolean overlay;
     private final float[] frame;
     private final float[] bounds = new float[4];
     private final float[][] rows = new float[SAMPLE_COUNT * 2][4];
 
-    RigidTextureShutterPass(boolean picture) throws GlUtil.GlException {
-        this.picture = picture;
-        frame = new float[picture ? 3 : 2];
-        program = new GlProgram(VERTEX_SHADER, fragmentShader(picture));
+    RigidTextureShutterPass(Source source) throws GlUtil.GlException {
+        overlay = source != Source.SPINE;
+        frame = new float[overlay ? 3 : 2];
+        program = new GlProgram(VERTEX_SHADER, fragmentShader(source));
         program.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
         float[] identity = GlUtil.create4x4IdentityMatrix();
         program.setFloatsUniform("uTransformationMatrix", identity);
@@ -63,7 +74,7 @@ final class RigidTextureShutterPass {
         bounds[3] = footprint.bottom();
         program.use();
         program.setSamplerTexIdUniform("uTexSampler", textureId, 0);
-        if (picture) {
+        if (overlay) {
             frame[2] = opacity;
             program.setSamplerTexIdUniform("uBackdrop", baseTexture, 1);
         }
@@ -97,7 +108,8 @@ final class RigidTextureShutterPass {
         program.delete();
     }
 
-    private static String fragmentShader(boolean picture) {
+    private static String fragmentShader(Source kind) {
+        boolean overlay = kind != Source.SPINE;
         // Statically named rows stay below the GLES 2 minimum fragment-uniform limit.
         StringBuilder source = new StringBuilder("""
                 #version 100
@@ -110,12 +122,12 @@ final class RigidTextureShutterPass {
                 uniform sampler2D uTexSampler;
                 uniform vec4 uBounds;
                 """);
-        source.append(picture ? "uniform vec3 uFrame;\nuniform sampler2D uBackdrop;\n"
+        source.append(overlay ? "uniform vec3 uFrame;\nuniform sampler2D uBackdrop;\n"
                 : "uniform vec2 uFrame;\n");
         for (int i = 0; i < SAMPLE_COUNT; i++) {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
-        if (picture) {
+        if (overlay) {
             source.append("""
                     vec3 toLinear(vec3 rgb) {
                       return mix(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3(2.4)),
@@ -146,13 +158,16 @@ final class RigidTextureShutterPass {
                   if (any(lessThanEqual(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))
                     return vec4(0.0);
                 """);
-        if (picture) {
+        if (overlay) {
             source.append("""
                     // Match the existing normal blend's RGB and alpha for uploaded bitmaps.
                     vec4 sampleColor = texture2D(uTexSampler, uv);
                     float alpha = sampleColor.a * rowX.w;
-                    return vec4(toLinear(sampleColor.rgb) * alpha, alpha);
                     """);
+            source.append(kind == Source.PICTURE
+                    ? "  vec3 rgb = sampleColor.rgb;\n"
+                    : "  vec3 rgb = clamp(sampleColor.rgb / max(sampleColor.a, 0.001), 0.0, 1.0);\n");
+            source.append("  return vec4(toLinear(rgb) * alpha, alpha);\n");
         } else {
             source.append("""
                     vec2 feather = max(vec2(length(rowX.xy), length(rowY.xy)), vec2(1e-5));
@@ -169,7 +184,7 @@ final class RigidTextureShutterPass {
                 void main() {
                   vec2 p = vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y) * uFrame.xy;
                 """);
-        source.append(picture
+        source.append(overlay
                 ? "  vec4 base = texture2D(uBackdrop, vTexSamplingCoord);\n"
                 : "  vec4 base = vec4(0.0);\n");
         source.append("""
@@ -191,7 +206,7 @@ final class RigidTextureShutterPass {
                   }
                   vec3 rgb = toSdr(clamp(color.rgb / color.a, 0.0, 1.0));
                 """);
-        source.append(picture
+        source.append(overlay
                 ? "  gl_FragColor = vec4(mix(base.rgb, rgb, color.a * uFrame.z), base.a);\n"
                 : "  gl_FragColor = vec4(rgb * color.a, color.a);\n");
         return source.append("}\n").toString();

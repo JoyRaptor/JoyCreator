@@ -182,6 +182,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         SpriteOverlayItem c = new SpriteOverlayItem(newId, sheetId);
         c.hidden = hidden;
         c.locked = locked;
+        c.rigidMotionBlur = rigidMotionBlur;
         c.name = name; // a copy keeps the person's name (owner ruling 10-14)
         c.centerX = centerX;
         c.centerY = centerY;
@@ -326,6 +327,12 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
 
     @NonNull public String getEndBehavior() { return endBehavior; }
     public void setEndBehavior(@NonNull String endBehavior) { this.endBehavior = endBehavior; }
+
+    private boolean rigidMotionBlur;
+
+    public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
+
+    public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
 
     @NonNull public FrameTrack getFrameTrack() { return frameTrack; }
     @NonNull public KeyframeSet getKeyframes() { return keyframes; }

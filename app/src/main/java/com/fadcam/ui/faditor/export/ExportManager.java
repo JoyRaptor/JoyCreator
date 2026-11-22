@@ -7571,7 +7571,7 @@ public class ExportManager {
             spriteBucketsZa.addAll(promotedSpritesZa);
             spriteBucketsZa.addAll(exportSpriteItems);
             for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBucketsZa) {
-                if (s.wantsGl()) glOverlaysBottomTop.add(s);
+                if (SpriteBlendGlEffect.routesToGl(s)) glOverlaysBottomTop.add(s);
             }
             final long overlayOffsetMs =
                     editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
@@ -7670,7 +7670,7 @@ public class ExportManager {
                     boolean img = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSp = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).wantsGl();
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o);
                     (img || glSp ? glSeq : canvasSeq).add(o);
                 }
                 boolean sandwiched = false;
@@ -7721,7 +7721,7 @@ public class ExportManager {
                     boolean image = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSprite = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && ((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o).wantsGl();
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o);
                     if (image || glSprite) {
                         if (!txtRun.isEmpty() || !sprRun.isEmpty()) {
                             CompositeExportOverlay run = new CompositeExportOverlay(
@@ -7757,7 +7757,8 @@ public class ExportManager {
                             videoEffects.add(new SpriteBlendGlEffect(context,
                                     (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
                                     project.getSpriteSheets(), project.getAvatarRigs(),
-                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                                    project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                    timelineCursorMs, shutterPieceDurationMs));
                         }
                     } else {
                         if (!imgRun.isEmpty()) {
@@ -7794,7 +7795,8 @@ public class ExportManager {
                         if (sp.isHidden()) continue;
                         videoEffects.add(new SpriteBlendGlEffect(context, sp,
                                 project.getSpriteSheets(), project.getAvatarRigs(),
-                                project.getTimeline().getTotalDurationMs(), overlayOffsetMs));
+                                project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
+                                timelineCursorMs, shutterPieceDurationMs));
                     }
                 }
             }

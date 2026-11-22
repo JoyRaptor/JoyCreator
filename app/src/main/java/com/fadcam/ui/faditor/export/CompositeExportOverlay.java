@@ -488,7 +488,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
      *
      * <p>SPEC_ZA: a sprite that belongs to the GL composite is dropped here, exactly as
      * {@code filterTextOverlays} drops an image that belongs to {@code ImageBlendGlEffect}.
-     * The two decisions consult the SAME single predicate — {@code wantsGl()} — and must
+     * The two decisions consult the SAME single predicate — {@link SpriteBlendGlEffect#routesToGl} — and must
      * stay exactly complementary: {@code ExportManager} emits a {@code SpriteBlendGlEffect}
      * for every sprite where it is true, so dropping anything else here would draw it
      * twice (once warped in the shader, once plain on top of the grade it moved to GL
@@ -502,7 +502,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : all) {
             if (o.getEndMs() < editorWindowStartMs) continue;
             if (o.getStartMs() > editorWindowEndMs) continue;
-            if (o.wantsGl()) continue;
+            if (SpriteBlendGlEffect.routesToGl(o)) continue;
             out.add(o);
         }
         return out;

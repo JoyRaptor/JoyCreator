@@ -306,10 +306,8 @@
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
     if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts', 'all')); pb.appendChild(ui.row(feats.map(function (f) { return partChip(app.featureNodes(f)[0], app.FEAT[f].label, 'Open ' + app.FEAT[f].label, function () { app.select('head', f); }); }))); }
-    if (AL.facepins && !(AL.intake && AL.intake.hosted)) {   // FACE-1: set up face pins while building the head
-      pb.appendChild(ui.lab('Your face', 'setup'));
-      pb.appendChild(ui.row([AL.facepins.chip(app)]));
-      pb.appendChild(ui.note('Pin a point of your face (a mouth corner, a brow, a lid) to the head: it follows that point as you perform.'));
+    if (AL.facepins && !(AL.intake && AL.intake.hosted)) {   // FACE-1: face pins on the head, in Set up and in Motion
+      AL.facepins.section(app, pb, hd);
     }
     pb.appendChild(ui.lab('How it moves', 'motion'));
     if (isSet) {
@@ -709,6 +707,7 @@
     app.coach('<b>Body.</b> The ring is where the chest swells. The <b>Hips</b> pin is what it leans from.');
     AL.stance.section(app, pb);
     AL.tone.section(app, pb);
+    if (AL.facepins) AL.facepins.section(app, pb, tb);                            // FACE-1: a face pin can pull the body too
     pb.appendChild(ui.lab('Breathing', 'motion'));
     pb.appendChild(ui.toggle('Breathing', st.breathe !== false, function (v) { app.edit(function () { st.breathe = v; }); }, 'A slow swell of the chest; head and arms ride it'));
     if (tb.breathe) pb.appendChild(ui.slider('How deep', { min: 0, max: 3, step: 0.1, value: tb.breathe.amt == null ? 1 : tb.breathe.amt, set: function (v) { tb.breathe.amt = v; }, fmt: function (v) { return v + '×'; } }));
@@ -873,7 +872,6 @@
   function shapesSection(app, pb, n) {
     var ui = app.ui, ch = app.ch, se = app.shapeEdit && app.shapeEdit.node === n.id ? app.shapeEdit : null, pins = n.mesh && n.mesh.pins ? n.mesh.pins : [];
     pb.appendChild(ui.lab('Shapes', 'setup'));
-    if (AL.facepins && !(AL.intake && AL.intake.hosted) && (!AL.fit || AL.fit.can(app, n))) pb.appendChild(ui.row([AL.facepins.chip(app)]));   // FACE-1: set up face pins while building
     if (!pins.length) {
       pb.appendChild(ui.note('Give this part a few pins and it can be pushed into other shapes: an eye squeezed shut, a cheek puffed out, a body squashed. Each shape is blended in smoothly by a button, the mouth, a blink or the head turning.'));
       pb.appendChild(ui.row([ui.chip('Add pins around it', { cls: 'go', icon: 'pin', title: 'Eight pins round its edge and one in the middle. Drag them to where the shape should bend from.', fn: function () { app.edit(function () { ringPins(n); }, false, 'Add shape pins'); } })]));
@@ -881,7 +879,7 @@
     }
     var SG = [['', 'nothing yet']].concat(SIGS, [['blink', 'a blink on its own side'], ['lidUp', 'the mood: relaxed'], ['lidLow', 'the mood: cheery'], ['spin', 'the whole character turning round'], ['always', 'all the time']], (ch.triggers || []).map(function (t) { return ['trig:' + t.id, 'the “' + t.name + '” button']; }), [['+new', 'a new button…']]);
     var fpins = (n.shapes || []).filter(function (sh) { return sh.face; }).length / 2;
-    if (fpins) pb.appendChild(ui.note(fpins + ' face pin' + (fpins > 1 ? 's' : '') + ' move this part (Perform, <b>Face pins</b>).'));   // FACE-1
+    if (fpins) pb.appendChild(ui.note(fpins + ' face pin' + (fpins > 1 ? 's' : '') + ' move this part (<b>Your face</b>, <b>Face pins</b>).'));   // FACE-1
     (n.shapes || []).forEach(function (sh) {
       if (sh.face) return;                                        // a face pin's shapes live in Perform, Face pins
       var on = !!se && se.shape === sh.id;
@@ -952,7 +950,12 @@
   }
 
   /* ── "follows": any part can ride any signal. This is how a frill lifts with the mouth or an ear twitches on a blink. ── */
-  var SIGS = [['mouth', 'the mouth opening'], ['turnX', 'the head turning left and right'], ['turnY', 'the head turning up and down'], ['roll', 'the head tilting'], ['lookX', 'the eyes looking sideways'], ['lookY', 'the eyes looking up and down'], ['blinkL', 'a blink'], ['browL', 'the brows'], ['breath', 'breathing'], ['sway', 'the body leaning'], ['bounce', 'the body bouncing'], ['shrug', 'the shoulders shrugging'], ['shrugL', 'the left shoulder shrugging'], ['shrugR', 'the right shoulder shrugging']];
+  var SIGS = [['mouth', 'the mouth opening'], ['turnX', 'the head turning left and right'], ['turnY', 'the head turning up and down'], ['roll', 'the head tilting'], ['lookX', 'the eyes looking sideways'], ['lookY', 'the eyes looking up and down'], ['blinkL', 'a blink'], ['browL', 'the brows'], ['breath', 'breathing'], ['sway', 'the body leaning'], ['bounce', 'the body bouncing'], ['shrug', 'the shoulders shrugging'], ['shrugL', 'the left shoulder shrugging'], ['shrugR', 'the right shoulder shrugging'],
+    // FACE-1: your face's expressions, for any part (the owner, 11-22: "puffing out my cheek to puff out an animal's stomach")
+    ['face.cheekPuff', 'your cheeks puffed out'], ['face.smile', 'your smile'], ['face.jaw', 'your jaw dropping'], ['face.mouthWide', 'your mouth stretched wide'],
+    ['face.pucker', 'your lips puckered'], ['face.wide', 'your eyes wide'], ['face.squint', 'your eyes squinting'], ['face.browInner', 'your brows raised'],
+    ['face.frown', 'your frown'], ['face.sneer', 'your sneer']];
+  cards.SIGS = SIGS;
   var PROPS = [['y', 'slides up and down'], ['x', 'slides sideways'], ['rot', 'turns'], ['s', 'grows and shrinks'], ['sy', 'stretches tall'], ['sx', 'stretches wide'], ['shake', 'shakes'], ['spin', 'spins']];
   function isScale(p) { return p === 's' || p === 'sx' || p === 'sy'; }
   function follows(app, pb, n) {
@@ -1105,6 +1108,7 @@
     var tset = AL.ancestorWith(ch, n.id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'turn'; });
     if (tset && tset !== n) pieceSection(app, pb, n, tset);
     follows(app, pb, n);
+    if (AL.facepins) AL.facepins.section(app, pb, n);                              // FACE-1: in Set up and in Motion, any part
     shapesSection(app, pb, n);
     tools(app, pb, n);
     if (n.type !== 'art' && !(n.role === 'head' || n.role === 'face')) roundSection(app, pb, n);

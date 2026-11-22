@@ -221,6 +221,23 @@ walks it toward the camera and further steps it back, scaling as it goes, and a 
 boxes in a Perform drawer, nice both on the plain stage and in a scene. Sent to the walk-stage session (the pilot's
 `leanX`, `leanY`, `near` already exist; walking toward and away from the camera does not yet).
 
+## Face pins where you build, tried as you place them (11-22, round 3)
+The owner, after round 2 worked: face pins are "better, more useful in motion. Or somewhere where it's zoomed in on the
+parts"; "It needs to be something where I can quickly test it"; "I might want to put a pin on my face in any part of the
+character ... puffing out my cheek to puff out an animal's stomach."
+
+| | Change | Checked |
+|---|---|---|
+| ✅ | **Your face** section, with Face pins, on the head's card, the body's card and any drawing's card (not an arm or a leg), in Set up and in Motion; Perform keeps its chip | break test 9 |
+| ✅ | Opening Face pins turns the camera on (Set up, Arrange and Motion turn it off) | browser |
+| ✅ | Placing: the first tap on the character zooms in on that spot, the second places the pin exactly | break test 10 |
+| ✅ | Tried at once: still zoomed in, the spot follows your face, even in Set up (the face drives the pins while trying; a part held in its reshape is let go meanwhile), with Strength, Remove and Done; Done goes back to the view you had | break test 11 |
+| ✅ | Your expressions for any part, in Links and Shapes: cheeks puffed out, smile, jaw dropping, mouth stretched wide, lips puckered, eyes wide, eyes squinting, brows raised, frown, sneer (`face.*`, recorded in takes with the face pins) | break test 12 (a link moves the head 24 px with a cheek puff) |
+
+Checks 9 to 12 written first and seen failing on the old code (5 of 18 failed); now 18 of 18, 12 of 12 planted faults
+caught; the pilot's other suites pass with it (body 184, fit and reshape, head turn, stage, walk, draw order, scene,
+walk across the stage, walk with your face). His look owed.
+
 ## The Face chip starts in "always" (11-22)
 The owner: "I turned the camera on, but it's not responsive until I actually do a hold to talk." The chip's first tap
 started "while talking". Now the first tap drives the character at once ("Face is on: the character moves with you"),

@@ -47,6 +47,34 @@
     });
     for (k in want) { var cur = sm[k] == null ? want[k] : sm[k]; cur += (want[k] - cur) * a; sm[k] = cur; S[k] = cur; }
     for (k in S) if (k.slice(0, 3) === 'pt.' && !(k in want)) { delete S[k]; delete sm[k]; }   // a removed pin lets go
+    fp.expressions(inp, face, dt);
+  };
+
+  /**
+   * Your face's expressions as signals any part can follow through Links and Shapes (the owner, 11-22: "puffing out my
+   * cheek to puff out an animal's stomach"; earlier: "eyes wide, more fire"). Named face.<name>; offered in al-cards.js.
+   */
+  fp.EXPR = ['cheekPuff', 'smile', 'jaw', 'mouthWide', 'pucker', 'wide', 'squint', 'browInner', 'frown', 'sneer'];
+  function exprOf(f, k) {
+    if (k === 'wide') return Math.max(+f.wideL || 0, +f.wideR || 0);
+    if (k === 'squint') return Math.max(+f.squintL || 0, +f.squintR || 0);
+    if (k === 'frown') return ((+f.frownL || 0) + (+f.frownR || 0)) / 2;
+    return +f[k] || 0;
+  }
+  fp.expressions = function (inp, face, dt) {
+    var S = inp.S, sm = inp.smExpr || (inp.smExpr = {}), a = 1 - Math.exp(-20 * (dt || 0));
+    fp.EXPR.forEach(function (n) { var k = 'face.' + n, v = face ? exprOf(face, n) : 0, cur = sm[k] == null ? v : sm[k]; cur += (v - cur) * a; sm[k] = cur; S[k] = cur; });
+  };
+
+  /** Where you build and where it moves (Set up and Motion): a part's card offers Face pins. Any part but an arm or a leg. */
+  fp.section = function (app, pb, n) {
+    if (AL.intake && AL.intake.hosted) return;
+    if (n && AL.fit && AL.fit.can && !AL.fit.can(app, n)) return;
+    var ui = app.ui, mine = n ? fp.list(app.ch).filter(function (q) { return q.node === n.id; }).length : 0;
+    pb.appendChild(ui.lab('Your face', 'setup motion'));
+    pb.appendChild(ui.row([fp.chip(app)]));
+    pb.appendChild(ui.note(mine ? mine + ' face pin' + (mine > 1 ? 's' : '') + ' pull this part. Tap <b>Face pins</b> to add, try or change them.'
+      : 'Pin a point of your face (a mouth corner, a cheek, a brow) to any spot on this part: it follows that point. Or let it follow an expression (cheeks puffed, a smile, wide eyes) in its <b>Links</b> or <b>Shapes</b>.'));
   };
 
   /** The Perform chip that opens the setup (shown while the face camera is on, or once there are face pins). */
@@ -200,11 +228,7 @@
         mode === 'pick' && fp._frozen ? ui.chip('Plain map', { title: 'Drop the picture: the map of your neutral face', fn: function () { fp._frozen = null; renderFoot(); draw(); } }) : null
       ]));
       if (!cam.on) {
-        foot.appendChild(ui.row([ui.chip('Turn on the face camera', { cls: 'go', icon: 'cam', title: 'Start the face camera here (the picture is never kept)', fn: function () {
-          app.toast('Starting the face camera…');
-          inp.camStart().then(function () { cam.mode = 'always'; app.toast('Look at the phone for a moment, relaxed: that is your neutral face.'); renderFoot(); setMode('live'); })
-            .catch(function () { app.toast('The face camera could not start here. It needs a camera and the PC page.'); });
-        } })]));
+        foot.appendChild(ui.row([ui.chip('Turn on the face camera', { cls: 'go', icon: 'cam', title: 'Start the face camera here (the picture is never kept)', fn: startCam })]));
       }
       var list = fp.list(ch), mine = sel != null ? list.filter(function (q) { return q.point === sel; }) : list;
       foot.appendChild(ui.note(mode === 'live' ? 'Move your face and watch the points. Switch to <b>Pick</b> to freeze this moment and tap a point.'
@@ -212,8 +236,15 @@
         : 'Tap a point of <b>your face</b>, then tap the <b>character</b> where it should pull. ' + (list.length ? list.length + ' face pin' + (list.length > 1 ? 's' : '') + ' live; tap a cyan point to change or remove it.' : 'No face pins yet.')));
       if (mode === 'pick') mine.forEach(function (q) { foot.appendChild(pinRow(q)); });
     }
+    /* the camera: Set up, Arrange and Motion turn it off, so opening Face pins from a part's card turns it on (your tap allows it) */
+    function startCam() {
+      app.toast('Starting the face camera…');
+      inp.camStart().then(function () { cam.mode = 'always'; app.toast('Look at the phone for a moment, relaxed: that is your neutral face.'); renderFoot(); setMode('live'); })
+        .catch(function () { app.toast('The face camera could not start here. It needs a camera and the PC page.'); renderFoot(); });
+    }
     renderFoot();
     requestAnimationFrame(loop);
+    if (!cam.on && !(AL.intake && AL.intake.hosted) && opts.camera !== false) startCam();
   };
 
   /** The direction check, in the pilot: five short moves, each answered by itself or skipped after 8 seconds. */
@@ -244,15 +275,38 @@
   };
 
   /** After a point is chosen: the next tap on the character says where it pulls. A banner says so, with Cancel. */
+  /** Is the view already close enough on the character to place a pin precisely? */
+  function close(app) {
+    var b = AL.boundsOf(app.ch.root), z = app.stageSize();
+    if (!b) return true;
+    var fitS = Math.min(z.w / Math.max(8, b.x1 - b.x0), z.h / Math.max(8, b.y1 - b.y0)) * 0.85;
+    return app.view.s > fitS * 1.6;
+  }
+  /** Zoom in on stage pixel p (the spot a pin will go): a box about a seventh of the character across. */
+  fp.zoomAt = function (app, p) {
+    var c = app.toChar(p.x, p.y), b = AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
+    var r = Math.max(12, Math.max(b.x1 - b.x0, b.y1 - b.y0) * 0.14);
+    app.userView = true;
+    app.fitTo({ x0: c[0] - r, y0: c[1] - r, x1: c[0] + r, y1: c[1] + r }, 8, false);
+    return true;
+  };
+  function banner(app, kids) {
+    var st = document.getElementById('stage');
+    var el = h('div', { role: 'status', style: 'position:absolute;left:8px;right:8px;top:8px;z-index:30;background:rgba(9,9,11,.86);border:1px solid #22d3ee;' +
+      'border-radius:14px;padding:8px 10px;pointer-events:auto;display:flex;flex-direction:column;gap:6px' }, kids);
+    ((st && st.parentNode) || document.body).appendChild(el);
+    return el;
+  }
+  /**
+   * Where the chosen face point pulls: the first tap zooms in on that spot (a cheek is a small target on a whole
+   * character), the second places the pin exactly; then it is tried at once (fp.tryPin), zoomed in, with your face.
+   */
   fp.place = function (app, pt) {
-    var st = document.getElementById('stage'), down = null;
+    var st = document.getElementById('stage'), down = null, near = close(app);
     if (!st) return;
-    var banner = h('div', { class: 'chip on', role: 'status',
-      style: 'position:absolute;left:50%;top:10px;transform:translateX(-50%);z-index:30;display:flex;gap:10px;align-items:center;pointer-events:auto' }, [
-      h('span', { text: 'Tap the character where ' + fp.nameOf(pt) + ' should pull' }),
-      h('button', { class: 'chip', title: 'Do not pin it', onclick: function () { done(); app.toast('No face pin made.'); } }, 'Cancel')
-    ]);
-    (st.parentNode || document.body).appendChild(banner);
+    var back = { view: { s: app.view.s, ox: app.view.ox, oy: app.view.oy }, user: !!app.userView };
+    var line = h('span', { text: near ? 'Tap exactly where ' + fp.nameOf(pt) + ' should pull' : 'Tap the character near where ' + fp.nameOf(pt) + ' should pull: it zooms in' });
+    var bar = banner(app, [line, app.ui.row([app.ui.chip('Cancel', { title: 'Do not pin it', fn: function () { done(); restore(app, back); app.toast('No face pin made.'); } })])]);
     function pos(e) { var r = st.getBoundingClientRect(), k = st.clientWidth / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; }
     function swallow(e) { e.stopImmediatePropagation(); e.stopPropagation(); e.preventDefault(); }
     function onDown(e) { swallow(e); down = pos(e); }
@@ -262,13 +316,56 @@
       var p = pos(e);
       if (!down || Math.hypot(p.x - down.x, p.y - down.y) > 14) { down = null; return; }
       down = null;
-      if (fp.pinAt(app, pt, p)) done();
+      if (!near && fp.zoomAt(app, p)) { near = true; line.textContent = 'Now tap exactly where ' + fp.nameOf(pt) + ' should pull'; return; }
+      var id = fp.pinAt(app, pt, p);
+      if (id) { done(); fp.tryPin(app, id, back); }
     }
     function done() {
       st.removeEventListener('pointerdown', onDown, true); st.removeEventListener('pointermove', onMove, true); st.removeEventListener('pointerup', onUp, true);
-      if (banner.parentNode) banner.parentNode.removeChild(banner);
+      if (bar.parentNode) bar.parentNode.removeChild(bar);
     }
     st.addEventListener('pointerdown', onDown, true); st.addEventListener('pointermove', onMove, true); st.addEventListener('pointerup', onUp, true);
+  };
+  function restore(app, back) { if (!back) return; app.vt = { s: back.view.s, ox: back.view.ox, oy: back.view.oy }; app.userView = back.user; }
+
+  /**
+   * Try it, straight after placing: still zoomed in, the pin follows your face, with its Strength, Remove and Done.
+   * Where the picture otherwise holds still (Set up) the face drives the pins for as long as this is open.
+   */
+  fp.tryPin = function (app, id, back) {
+    fp.tryDone(app, true);
+    var q = fp.list(app.ch).filter(function (r) { return r.id === id; })[0]; if (!q) return;
+    var ui = app.ui, inp = app.inp, cam = inp.cam;
+    // trying is its own moment: a part's shape being reshaped in Set up holds its other shapes at rest; let go while trying
+    var t = fp.trying = { id: id, back: back, shapeEdit: app.shapeEdit || null };
+    app.shapeEdit = null;
+    var kids = [h('span', { text: cam.on ? 'Try it: move ' + fp.nameOf(q.point) + '. This spot follows you.' : 'Turn on the face camera to try it.' })];
+    if (!cam.on) kids.push(ui.row([ui.chip('Turn on the face camera', { cls: 'go', icon: 'cam', title: 'Start the face camera (the picture is never kept)', fn: function () {
+      inp.camStart().then(function () { cam.mode = 'always'; kids[0].textContent = 'Try it: move ' + fp.nameOf(q.point) + '. This spot follows you.'; }).catch(function () { app.toast('The face camera could not start here.'); });
+    } })]));
+    kids.push(ui.slider('Strength', { min: 0, max: 4, step: 0.05, value: q.amt == null ? 1 : q.amt, fmt: function (v) { return (Math.round(v * 10) / 10) + '\u00d7'; },
+      title: 'How far this spot moves for how far your face moves', set: function (v) { fp.strength(app, id, v); } }));
+    kids.push(ui.row([
+      ui.chip('Remove', { icon: 'x', title: 'Take this face pin off (one Undo brings it back)', fn: function () { fp.remove(app, id); fp.tryDone(app); } }),
+      ui.chip('Done', { cls: 'go', title: 'Back to the view you had', fn: function () { fp.tryDone(app); } })
+    ]));
+    t.bar = banner(app, kids);
+    t.hook = function (dt, liveNow) {                    // where the picture holds still, your face drives the pins while trying
+      if (liveNow || !cam.on) return;
+      inp.watch(); fp.feed(inp, cam.face, dt);
+      [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in inp.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') S[k] = inp.S[k]; });
+    };
+    app.hooks.push(t.hook);
+  };
+  /** Close the try: the stage holds still again where it did, and the view goes back to how it was. */
+  fp.tryDone = function (app, quiet) {
+    var t = fp.trying; if (!t) return; fp.trying = null;
+    var i = app.hooks.indexOf(t.hook); if (i >= 0) app.hooks.splice(i, 1);
+    if (t.bar && t.bar.parentNode) t.bar.parentNode.removeChild(t.bar);
+    [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') delete S[k]; });
+    if (t.shapeEdit && !app.shapeEdit) app.shapeEdit = t.shapeEdit;
+    if (!quiet) restore(app, t.back);
+    if (!quiet && app.refreshPanel) app.refreshPanel(true);
   };
 
   /** Pin face point pt to the character at stage pixel p. One undo step. Returns true when it pinned. */
@@ -279,7 +376,7 @@
     if (!n || !m) { app.toast('That part cannot take a pin.'); return false; }
     if (AL.fit && AL.fit.can && !AL.fit.can(app, n)) { app.toast('Arms and legs follow the hands and feet. Try the head, the mouth, the brows or the cheeks.'); return false; }
     var l = M.ap(M.inv(m), c[0], c[1]);
-    var made = false, pin = null, reach = 28 / Math.max(0.05, app.view.s);
+    var made = false, pin = null, newId = null, reach = 28 / Math.max(0.05, app.view.s);
     app.edit(function () {
       if (!n.mesh) n.mesh = { pins: [], quiet: true };
       n.mesh.pins = n.mesh.pins || [];
@@ -287,10 +384,10 @@
       var bd = reach;
       n.mesh.pins.forEach(function (q) { var d = Math.hypot(q.x - l[0], q.y - l[1]); if (d < bd) { bd = d; pin = q; } });
       if (!pin) { pin = AL.fit.dropPin(app, n, l); made = true; }
-      fp.bind(app.ch, n, pin, pt, made);
+      newId = fp.bind(app.ch, n, pin, pt, made);
     }, false, 'Face pin');
-    app.toast('Pinned: ' + fp.nameOf(pt) + ' pulls ' + (n.name || 'this part') + '. Move that part of your face to try it.');
-    return true;
+    app.toast('Pinned: ' + fp.nameOf(pt) + ' pulls ' + (n.name || 'this part') + '.');
+    return newId || true;
   };
 
   /**

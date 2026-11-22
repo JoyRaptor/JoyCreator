@@ -24,7 +24,7 @@
   /* ── the maths (ShoulderStage.java) ── */
   P.SHRUG_L = 'shrugL'; P.SHRUG_R = 'shrugR'; P.SHRUG = 'shrug'; P.BODY = 'body'; P.LANE = 'shoulders';
   P.EAR_L = 7; P.EAR_R = 8; P.SHOULDER_L = 11; P.SHOULDER_R = 12; P.COUNT = 33;
-  var SEEN = 0.5, SPAN = 0.16, DEAD = 0.04, HOLD = 0.35, EASE_OUT = 0.8, EASE_IN = 0.3, RATE = 14, NEUTRAL_FRAMES = 5, STILL = 0.03;
+  var SEEN = 0.5, SPAN = 0.13, DEAD = 0.04, HOLD = 0.35, EASE_OUT = 0.8, EASE_IN = 0.3, RATE = 30, NEUTRAL_FRAMES = 5, STILL = 0.03;
   function vis(p, i) { return p[i * 3 + 2]; }
   function px(p, i) { return p[i * 3]; }
   function py(p, i, tall) { return p[i * 3 + 1] * tall; }
@@ -40,17 +40,20 @@
     if (w < 1e-4) return null;
     return [(py(xyv, P.SHOULDER_R, tall) - earY) / w, (py(xyv, P.SHOULDER_L, tall) - earY) / w];
   };
-  P.lift = function (nearer) { return clamp((nearer - DEAD) / (SPAN - DEAD), 0, 1); };
+  P.lift = function (nearer, sens) { return clamp((nearer - DEAD) * (sens == null ? 1 : sens) / (SPAN - DEAD), 0, 1); };
   function smooth(k) { return k * k * (3 - 2 * k); }
   function out(l, r, body) { var o = {}; o[P.SHRUG_L] = l; o[P.SHRUG_R] = r; o[P.SHRUG] = (l + r) / 2; o[P.BODY] = body; return o; }
 
   P.Stage = function () {
     this.restL = NaN; this.restR = NaN; this.wantNeutral = true; this.capN = 0;
     this.smL = 0; this.smR = 0; this.lastL = 0; this.lastR = 0; this.lastT = NaN; this.lostSince = NaN; this.presence = 0; this.tracking = false;
+    this.sensitivity = 1;
   };
   var S = P.Stage.prototype;
   S.requestNeutral = function () { this.wantNeutral = true; this.capN = 0; };
   S.hasNeutral = function () { return this.restL === this.restL; };
+  /** How little movement makes a full shrug (2 = half the movement); the dead zone stays. */
+  S.setSensitivity = function (s) { this.sensitivity = clamp(s, 0.25, 4); };
   /** One reading: drops from P.drops (null when not seen); mirror = the Mirror setting off. */
   S.process = function (drops, t, mirror) {
     var dt = this.lastT !== this.lastT ? 0 : clamp(t - this.lastT, 0, 0.5), trackL, trackR;
@@ -62,7 +65,7 @@
       var k = 1 - Math.exp(-RATE * dt);
       this.smL += (drops[0] - this.smL) * k;
       this.smR += (drops[1] - this.smR) * k;
-      var pl = P.lift(this.restL - this.smL), pr = P.lift(this.restR - this.smR);
+      var pl = P.lift(this.restL - this.smL, this.sensitivity), pr = P.lift(this.restR - this.smR, this.sensitivity);
       this.lastL = mirror ? pr : pl;
       this.lastR = mirror ? pl : pr;
       this.presence = Math.min(1, this.presence + dt / EASE_IN);
@@ -88,7 +91,10 @@
   var MODEL = 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
   var EVERY = 0.1;                                       // seconds between readings: shoulders move slowly
   P.DELEGATE = 'CPU';
-  P.KEY = 'al.pose.on';
+  P.KEY = 'al.pose.on'; P.SENS_KEY = 'al.pose.sens';
+  /** Shoulder sensitivity, kept on this device (a body, not a character): 1 as built, 2 = half the movement for a full shrug. */
+  P.sens = function () { var v = NaN; try { v = parseFloat(root.localStorage.getItem(P.SENS_KEY)); } catch (e) { /* none kept */ } return v === v ? clamp(v, 0.25, 4) : 1; };
+  P.setSens = function (v) { try { root.localStorage.setItem(P.SENS_KEY, String(v)); } catch (e) { /* kept for this visit */ } if (P.stage) P.stage.setSensitivity(v); };
   P.isOn = function () { try { return root.localStorage.getItem(P.KEY) !== '0'; } catch (e) { return true; } };
   P.setOn = function (on) { try { root.localStorage.setItem(P.KEY, on ? '1' : '0'); } catch (e) { /* kept for this visit */ } };
   P.stats = { n: 0, ms: 0, seen: 0 };                   // readings, average time of one, readings with shoulders in view
@@ -144,9 +150,10 @@
   }
   /** One reading of the body (from the worker, or a test's stand-in tracker). */
   P.reading = function (xyv, tall, t) {
-    var app = P.app, d = P.drops(xyv, tall);
+    var app = P.app, d = P.drops(xyv, tall), stg = P.stage || (P.stage = new P.Stage());
     if (d) P.stats.seen++;
-    P.out = (P.stage || (P.stage = new P.Stage())).process(d, t, !!(P.cam && P.cam.facing));
+    stg.setSensitivity(P.sens());
+    P.out = stg.process(d, t, !!(P.cam && P.cam.facing));
     if (d && !P.rigged && app && app.ch) { P.rigged = true; P.rig(app, true); }
     if (!d) { P.unseen = (P.unseen || 0) + EVERY; if (P.unseen > 2.5 && !P.hinted && app && app.toast) { P.hinted = true; app.toast('Shoulders: keep them in the picture to shrug (hold the phone a little further away).'); } }
     else P.unseen = 0;
@@ -215,21 +222,21 @@
   P.has = function (ch) { var p = parts(ch); return !!(shrugLinks(p.armL).length || shrugLinks(p.armR).length || shrugLinks(p.head).length); };
   /**
    * Give the character its shrug (once, unless asked again): each arm up with its side, the head down a little with both.
-   * Sized from the drawing: the arm lifts about a third of its length, the head sinks a bit under half of that.
+   * Sized from the drawing: the arm lifts six tenths of its length, the head sinks half of that (the owner, 11-22: "still too small").
    */
   P.rig = function (app, quiet) {
     var ch = app.ch; if (!ch || ch.noShrug) return false;
-    if (P.has(ch)) {                                     // the first shrugs (11-22) were too small to see (the owner): 1.75 times, once
-      var grew = false;
-      [parts(ch).armL, parts(ch).armR, parts(ch).head].forEach(function (n) { shrugLinks(n).forEach(function (l) { if (l.shrug === 1) { l.amt = Math.round(l.amt * 1.75 * 2) / 2; l.shrug = 2; grew = true; } }); });
-      if (grew && app.touch) app.touch();
-      return false;
+    if (P.has(ch)) {
+      // shrugs set up by an earlier round (11-22: "a bit too small", then "still too small") are set up again at today's size, once
+      var old = [parts(ch).armL, parts(ch).armR, parts(ch).head].some(function (n) { return shrugLinks(n).some(function (l) { return l.shrug < 3; }); });
+      if (!old) return false;
+      [parts(ch).armL, parts(ch).armR, parts(ch).head].forEach(function (n) { if (n && n.links) n.links = n.links.filter(function (l) { return !l.shrug; }); });
     }
     var p = parts(ch), added = 0;
-    function add(n, sig, amt) { if (!n) return; n.links = n.links || []; n.links.push({ sig: sig, prop: 'y', amt: Math.round(amt * 2) / 2, shrug: 2 }); added++; }
+    function add(n, sig, amt) { if (!n) return; n.links = n.links || []; n.links.push({ sig: sig, prop: 'y', amt: Math.round(amt * 2) / 2, shrug: 3 }); added++; }
     var lift = 0;
-    ['armL', 'armR'].forEach(function (z) { if (p[z]) { var l = armLength(p[z]) * 0.35; lift = Math.max(lift, l); add(p[z], z === 'armL' ? P.SHRUG_L : P.SHRUG_R, -l); } });
-    if (p.head) { var hb = AL.boundsOf(p.head); add(p.head, P.SHRUG, lift ? lift * 0.45 : (hb ? (hb.y1 - hb.y0) * 0.03 : 3)); }   // sinks a bit under half what the arms lift
+    ['armL', 'armR'].forEach(function (z) { if (p[z]) { var l = armLength(p[z]) * 0.6; lift = Math.max(lift, l); add(p[z], z === 'armL' ? P.SHRUG_L : P.SHRUG_R, -l); } });
+    if (p.head) { var hb = AL.boundsOf(p.head); add(p.head, P.SHRUG, lift ? lift * 0.5 : (hb ? (hb.y1 - hb.y0) * 0.05 : 5)); }   // sinks half what the arms lift
     if (!added) return false;
     if (app.touch) app.touch();
     if (quiet && app.toast) app.toast('Shrugs set up for ' + (ch.name || 'this character') + '. Set up, Body, Shrug changes how far.');
@@ -249,8 +256,15 @@
     if (!on) return;
     if (arms.length) pb.appendChild(ui.slider('Arms lift', { min: 0, max: 60, step: 0.5, value: -arms[0].amt, set: function (v) { arms.forEach(function (l) { l.amt = -v; }); }, fmt: function (v) { return v + ' px'; } }));
     if (hd.length) pb.appendChild(ui.slider('Head sinks', { min: 0, max: 30, step: 0.5, value: hd[0].amt, set: function (v) { hd.forEach(function (l) { l.amt = v; }); }, fmt: function (v) { return v + ' px'; } }));
+    pb.appendChild(P.sensSlider(app));
     var bs = app._bs || app.buildSignals(), tv = bs[P.SHRUG] || 0;
     pb.appendChild(ui.slider('Try', { min: 0, max: 1, step: 0.05, value: tv, undo: false, set: function (v) { var b = app._bs || app.buildSignals(); b[P.SHRUG_L] = b[P.SHRUG_R] = b[P.SHRUG] = v; }, fmt: function (v) { return v > 0.05 ? 'shrug' : 'rest'; } }));
+  };
+  /** The shoulder sensitivity slider (Perform, under the controls; Set up, Body, Shrug). A setting of this device, not the character. */
+  P.sensSlider = function (app) {
+    return app.ui.slider('Shoulder sensitivity', { min: 0.5, max: 3, step: 0.1, value: P.sens(), undo: false,
+      set: function (v) { P.setSens(v); }, fmt: function (v) { return (Math.round(v * 10) / 10) + '×'; },
+      title: 'Higher: a small shrug lifts the character all the way. Lower: it takes a big one. Kept on this device' });
   };
   /** Perform: the tick box, beside Mirror. */
   P.tick = function (app) {

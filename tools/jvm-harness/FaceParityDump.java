@@ -159,14 +159,19 @@ public class FaceParityDump {
                     : FaceEngineTest.body(0.045f, 0.1f, -10, 0, 0.9f, -0.04f, 0.95f);
         }
         JsonArray sframes = new JsonArray();
-        for (boolean mirror : new boolean[]{false, true}) {
+        for (int pass = 0; pass < 3; pass++) {
+            boolean mirror = pass == 1;
+            float sens = pass == 2 ? 1.6f : 1f;
             com.fadcam.ui.faditor.avatar.face.ShoulderStage ss = new com.fadcam.ui.faditor.avatar.face.ShoulderStage();
+            ss.setSensitivity(sens);
             t = 0;
             for (int i = 0; i < bodies.length; i++, t += 0.1) {
                 if (i == 50) ss.requestNeutral();
                 JsonObject fr = new JsonObject();
                 fr.addProperty("t", t);
                 fr.addProperty("mirror", mirror);
+                fr.addProperty("pass", pass);
+                fr.addProperty("sens", sens);
                 fr.addProperty("recentre", i == 50);
                 fr.add("xyv", gson.toJsonTree(bodies[i]));
                 float[] d = com.fadcam.ui.faditor.avatar.face.ShoulderStage.drops(bodies[i], FaceEngineTest.TALL);

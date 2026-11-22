@@ -1,6 +1,6 @@
 # SHRUG-1: shoulder shrugs from the camera
 
-**Milestone:** Avatar Studio (with FACE-1)  ·  **State:** 🟡  ·  **Owner:** "face capture scout" (side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `9991eae1c`
+**Milestone:** Avatar Studio (with FACE-1)  ·  **State:** ✅ (pilot)  ·  **Owner:** "face capture scout" (side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `9991eae1c`
 
 ## Why it matters (for the user)
 The owner asked while testing face capture on his Note 9 (11-22): "Is there a way for us to get the shoulders animated
@@ -58,10 +58,19 @@ up to 0.07 for the rest of the test, and a head tilt gave up to half a shrug.
 | ✅ | A glide every frame between readings (above) | browser |
 | ✅ | Arms lift about a third of their length (head a bit under half of that): 1.75 times; a character set up before is made bigger once | browser (Topps: arms 19 and 14.5 px, head 8.5 px) |
 | ✅ | A full shrug is 0.16 shoulder widths and less than 0.04 is none (was 0.14 and 0.02), from his numbers | PC checks |
-| | His look at the smoother, bigger shrug | owed |
+
+**Second try (11-22):** "Still too small." His shrugs peaked at half to nine tenths of full (short, 0.2 to 1 s, and
+smoothed twice); the glide was smooth (99% of frames under 0.03 of a shrug). Now the arms lift six tenths of their length
+and the head sinks half of that (Topps: about 33 and 16 px), a full shrug is 0.13 shoulder widths, the reading's own
+smoothing is lighter (the glide already smooths); characters set up earlier are set up again at that size, once.
+**Third try: "That looks good."** He asked for **shoulder sensitivity on a slider**: done, a setting of the device (2 =
+half the movement for a full shrug, 0.5 = twice), in Perform under the controls and in Set up, Body, Shrug; the dead zone
+stays, so turning it up never turns jitter into shrugs (2 checks written first, 3 plants caught, phone and pilot agree).
+He also found the face camera did nothing until Hold to talk: the Face chip now starts in "always" (a second tap is
+"only while talking").
 
 ## What is left
-- [ ] His look at the smoother, bigger shrug on the Note 9.
+- [x] His look: "That looks good" (11-22, third try), with sensitivity on a slider.
 - [ ] The drift after a one-sided shrug and the half shrug from a head tilt: find the cause (an ear out of view is the
       first suspect: one ear then stands for both) before widening the dead zone again.
 - [ ] Phone half (step 5) with the phone room: PoseLandmarker in `MediaPipeTrackingSource`, `ShoulderStage` per reading,

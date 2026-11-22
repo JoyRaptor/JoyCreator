@@ -221,6 +221,11 @@ walks it toward the camera and further steps it back, scaling as it goes, and a 
 boxes in a Perform drawer, nice both on the plain stage and in a scene. Sent to the walk-stage session (the pilot's
 `leanX`, `leanY`, `near` already exist; walking toward and away from the camera does not yet).
 
+## The Face chip starts in "always" (11-22)
+The owner: "I turned the camera on, but it's not responsive until I actually do a hold to talk." The chip's first tap
+started "while talking". Now the first tap drives the character at once ("Face is on: the character moves with you"),
+the second is "only while Talk is held", the third off. Checked in the browser.
+
 ## For walking with your face (11-22, from his numbers)
 The walk-stage session's "Walk with your face" reads `leanX` and `near`. His first test showed both reacting to head pose:
 `near` (the outline's width) moved -0.37 to +0.54 with a nod or a tilt, as much as coming closer; `leanX` moved +0.38

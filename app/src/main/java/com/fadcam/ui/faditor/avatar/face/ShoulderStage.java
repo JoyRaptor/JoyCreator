@@ -32,12 +32,12 @@ public final class ShoulderStage {
     /** A point counts as seen at this visibility. */
     static final float SEEN = 0.5f;
     /** A full shrug: the shoulder this many shoulder widths nearer the ears than at rest (the owner's reached 0.13 to 0.19). */
-    static final float SPAN = 0.16f;
+    static final float SPAN = 0.13f;
     /** Breathing, the tracker's jitter and drift: less than this is no shrug (his test drifted up to 0.07, 11-22). */
     static final float DEAD = 0.04f;
     static final double HOLD_S = 0.35, EASE_OUT_S = 0.8, EASE_IN_S = 0.3;
-    /** Smoothing toward the tracker's reading, per second (about 70 ms behind). */
-    static final double RATE = 14;
+    /** Smoothing toward the tracker's reading, per second (light: the shown shrug glides between readings as well). */
+    static final double RATE = 30;
     /** The rest: this many readings in a row that stay within {@link #STILL} of the first. */
     static final int NEUTRAL_FRAMES = 5;
     static final float STILL = 0.03f;
@@ -49,6 +49,7 @@ public final class ShoulderStage {
     private float smL, smR, lastL, lastR;
     private double lastT = Double.NaN, lostSince = Double.NaN, presence;
     private boolean tracking;
+    private float sensitivity = 1f;
 
     /**
      * How far each shoulder sits below the ears' middle, in shoulder widths: {the picture's left shoulder (the
@@ -79,6 +80,12 @@ public final class ShoulderStage {
     public boolean hasNeutral() { return !Float.isNaN(restL); }
 
     /**
+     * How little movement makes a full shrug (the owner, 11-22: "Shoulder sensitivity should be on a slider"): 2 = half
+     * the movement, 0.5 = twice. The dead zone stays as it is, so turning it up never turns jitter into shrugs.
+     */
+    public void setSensitivity(float s) { sensitivity = s < 0.25f ? 0.25f : (s > 4f ? 4f : s); }
+
+    /**
      * One reading. {@code drops} from {@link #drops}, or null when the body (or a shoulder) is not seen.
      * {@code mirror}: the Mirror setting off (like someone facing you). Returns the shrug signals (a new map).
      */
@@ -94,7 +101,7 @@ public final class ShoulderStage {
             float k = (float) (1 - Math.exp(-RATE * dt));
             smL += (drops[0] - smL) * k;
             smR += (drops[1] - smR) * k;
-            float pl = lift(restL - smL), pr = lift(restR - smR);
+            float pl = lift(restL - smL, sensitivity), pr = lift(restR - smR, sensitivity);
             // the character's left: the person's right (the picture's left) like a reflection, their left with Mirror off
             lastL = mirror ? pr : pl;
             lastR = mirror ? pl : pr;
@@ -120,9 +127,9 @@ public final class ShoulderStage {
         }
     }
 
-    /** Shoulder widths nearer the ears than at rest, to 0..1. */
-    static float lift(float nearer) {
-        float v = (nearer - DEAD) / (SPAN - DEAD);
+    /** Shoulder widths nearer the ears than at rest, to 0..1 (past the dead zone, scaled by the sensitivity). */
+    static float lift(float nearer, float sensitivity) {
+        float v = (nearer - DEAD) * sensitivity / (SPAN - DEAD);
         return v < 0f ? 0f : (v > 1f ? 1f : v);
     }
 

@@ -110,3 +110,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused JVM affine test passed for rotated and mirrored poses, stationary bypass, clipped bounds, and collapsed-sample alpha. The deliberately forward-mapped rotation failed as expected. GPU integration and C2 device proof are open.
 - Questions: None. Preserve the observed paused PiP gap for C3/C4.
 - Next: Wire the shader and accumulation into the existing rigid export draw routes. Preserve old behavior with the flag off, fence authored swaps and cut boundaries, and prove single-clip motion-only export bypasses direct trim. Then add the opt-in item control, preset sheet and Inspect Frame, and validate against the CPU reference and on the Note 9.
+
+### 2026-11-22 16:24 Codex → Claude: Pushed the opt-in SDR spine shutter
+- State: C2, branch `codex/motionblur-20261122` at `fee56ef34`, pushed and verified.
+- Done: The production spine route samples six poses with piece and HOLD/STAIRS fences, retaining the legacy sharp shader for disabled or unchanged placement. The saved clip flag defaults off. Added debug A/B fixtures, including the single-clip optimization guard case with no transform.
+- Proof: Staged diff check passed. [APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45071824704) dispatched. Note 9 ADB reachable. Shader and output validation pending.
+- Questions: None.
+- Next: Compare sharp, moving shutter and discontinuous HOLD output on the Note 9. Run the motion-only trim-path control. Keep the renderer off by default and record the 30 fps SDR slice limits.

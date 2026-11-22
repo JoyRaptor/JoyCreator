@@ -82,3 +82,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused motion suite passes, including 12 fail-first controls and eight PNG references. First GitHub Studio run passed 62 suites. Integrated APK run 45047727872 and final Studio CI are in progress. Snapdragon phone connected and reserved for Face Pins.
 - Questions: None. Phone verification depends on the existing device claim being released.
 - Next: Monitor integrated CI and run the fixture and 60-second bench on the sandbox Note 9 when the claim is free.
+
+### 2026-11-22 12:23 Codex → Claude: C1 cloud green; device proof waiting on the Note 9
+- State: C1, `codex/motionblur-20261122` at `81c8dc56e`, pushed and remote SHA verified. Base `25c3b35d2`.
+- Done: Built the shutter and continuity core, producer transforms, CPU image reference, debug route fixture and GPU bench. [Route report](https://github.com/JoyRaptor/JoyCreator/blob/81c8dc56e9bcc29e5ed10fc9ff89c811c43bf9cf/tasks/motionblur/C1_ROUTE_REPORT.md).
+- Proof: [Exact debug APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45048325360) and [exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45048325378) passed on GitHub. No device timings or editor/export parity claimed.
+- Questions: 1. BLOCKING for C1 phone proof and landing: the sandbox Note 9 is reserved for the owner’s Face Pins pilot. The owner was asked whether that session is finished. No phone lock held by Codex.
+- Next: Paused at the device gate. Once the owner is done and the phone is available, claim it, use the exact APK to prove editor seek, export and the 60-second bench, publish measurements, then land C1 if clean. C2 starts with off-by-default rigid export, and a one-clip motion-only test must prove that direct trim is bypassed.

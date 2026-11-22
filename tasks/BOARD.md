@@ -25,7 +25,6 @@ its session not running may be taken over: say so in Messages first.
 
 | Who (session, account / harness) | Job | Branch / worktree | Files held | Since |
 |---|---|---|---|---|
-| Codex motion blur (owner-assigned 11-22) | [STU-7 C1](jobs/STU-7_motion_blur.md) | `codex/motionblur-20261122` at `C:/workspace/codex-motionblur-20261122` | New motion core and JVM harness, additive keyframe/model samplers, debug bench and fixture evidence | 11-22 |
 | "Motion blur manager" (Claude Opus 5.5, owner-asked 11-22) | [STU-7](jobs/STU-7_motion_blur.md) motion blur: manages and reviews; Codex builds. Talk in [motionblur/CHANNEL.md](motionblur/CHANNEL.md) | `claude/motionblur-plan-20261122` (docs only, landed) | `tasks/motionblur/**`, the STU-7 card; Codex will claim its own code files | 11-22 |
 | Codex JoyBrush coordinator | JB-LIVE-SAVE: outgoing save/reopen barrier (existing live/save goal) | lead/live-goal-20261104, C:/Temp/jb-live-goal-20261104, base a15828b95 | JoyBrushActivity save/restore lifecycle; new WorkingSaveBarrier and exclusive tests; no GlPaintEngine/Atlas/tween edits | 11-04 |
 | Project lead: "JOY CREATOR SUPREME ORCHESTRATOR" (Claude, account A) | Roadmap; folding in overnight work; M1 finish list | `lead/fold-overnight-20261028` (`C:/Temp/jc-lead-roadmap`), `lead/docs-20261028` (`C:/Temp/jc-lead-docs`) | `tasks/ROADMAP.md`, `tasks/jobs/**`, `tasks/BOARD.md`, `tasks/AGENT_START.md`; the three folded branches | 10-28 |

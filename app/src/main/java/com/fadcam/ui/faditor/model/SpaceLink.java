@@ -167,15 +167,19 @@ public final class SpaceLink {
      * reference⁻¹" is the whole transform. False = inert (the parent is gone).
      */
     private boolean segAt(long t, @NonNull float[] o) {
+        return segAt(t, o, Double.NaN);
+    }
+
+    private boolean segAt(long t, @NonNull float[] o, double exactMs) {
         if (!solved) ensureSolved();
         Switch cur = switchAt(t);
         if (cur == null) {
-            if (parentRef != null) poseOf(parentRef, t, o);
+            if (parentRef != null) poseForSegment(parentRef, t, o, exactMs);
             else if (parentId.isEmpty()) primaryBase(o, 0);   // free until the first handoff
             else return false;
             primaryBase(o, 5);
         } else {
-            if (cur.ref != null && !cur.letsGo()) poseOf(cur.ref, t, o);
+            if (cur.ref != null && !cur.letsGo()) poseForSegment(cur.ref, t, o, exactMs);
             else System.arraycopy(cur.frozen, 0, o, 0, 5);
             System.arraycopy(cur.base, 0, o, 5, 5);
         }
@@ -184,6 +188,15 @@ public final class SpaceLink {
         if (!rotation) o[3] = o[8];
         if (!opacity) o[4] = o[9];
         return true;
+    }
+
+    private static void poseForSegment(LinkPose parent, long t, float[] out, double exactMs) {
+        if (Double.isNaN(exactMs)) {
+            poseOf(parent, t, out);
+        } else {
+            parent.motionPlacementAt(exactMs, out);
+            out[4] = parent.animatedOpacity(t);
+        }
     }
 
     /** Solve every switch's reference pose, in time order, for a seamless handoff. */
@@ -267,6 +280,19 @@ public final class SpaceLink {
     public void toWorld(float ownX, float ownY, long t, @NonNull float[] out) {
         float[] seg = new float[10];
         if (!segAt(t, seg)) { out[0] = ownX; out[1] = ownY; return; }
+        applyWorldPosition(ownX, ownY, seg, out);
+    }
+
+    /** Applies the same solved parent segment to a subframe's {x, y, size, rotation}. */
+    public void applyMotionPlacement(double timelineMs, @NonNull float[] pose) {
+        float[] seg = new float[10];
+        if (!segAt((long) Math.floor(timelineMs), seg, timelineMs)) return;
+        applyWorldPosition(pose[0], pose[1], seg, pose);
+        if (seg[7] >= 1e-5f) pose[2] *= Math.max(1e-4f, seg[2] / seg[7]);
+        pose[3] += seg[3] - seg[8];
+    }
+
+    private void applyWorldPosition(float ownX, float ownY, float[] seg, float[] out) {
         float k = seg[7] < 1e-5f ? 1f : Math.max(1e-4f, seg[2] / seg[7]);
         double r = Math.toRadians(seg[3] - seg[8]);
         float vx = (ownX - seg[5]) * aspect, vy = ownY - seg[6];

@@ -11,7 +11,10 @@ import java.util.Locale;
  * each stage's query is read back a few frames later. Used in debug builds to find where a look
  * spends its time; costs nothing when the phone has no timer queries or profiling is off.
  */
-final class GpuTimer {
+public final class GpuTimer {
+
+    /** Receives one validated timing from the existing asynchronous query ring. */
+    @FunctionalInterface public interface SampleConsumer { void accept(int stage, long nanos); }
 
     private static final int GL_TIME_ELAPSED = 0x88BF;
     private static final int GL_GPU_DISJOINT = 0x8FBB;
@@ -26,7 +29,7 @@ final class GpuTimer {
     private int open = -1;
     private final boolean ok;
 
-    GpuTimer(@NonNull String... stages) {
+    public GpuTimer(@NonNull String... stages) {
         names = stages;
         ids = new int[RING * stages.length];
         pending = new boolean[ids.length];
@@ -36,12 +39,12 @@ final class GpuTimer {
         if (ok) GLES30.glGenQueries(ids.length, ids, 0);
     }
 
-    boolean available() {
+    public boolean available() {
         return ok;
     }
 
     /** Start timing stage {@code i} (ends any stage still open). */
-    void begin(int i) {
+    public void begin(int i) {
         if (!ok) return;
         end();
         int q = slot * names.length + i;
@@ -51,14 +54,16 @@ final class GpuTimer {
         open = q;
     }
 
-    void end() {
+    public void end() {
         if (!ok || open < 0) return;
         GLES30.glEndQuery(GL_TIME_ELAPSED);
         open = -1;
     }
 
     /** Call once at the end of a frame: collects results that are ready, moves to the next slot. */
-    void frameDone() {
+    void frameDone() { frameDone(null); }
+
+    public void frameDone(SampleConsumer consumer) {
         if (!ok) return;
         end();
         int[] v = new int[1];
@@ -72,7 +77,11 @@ final class GpuTimer {
             if (v[0] == 0) continue;
             GLES30.glGetQueryObjectuiv(ids[q], GLES30.GL_QUERY_RESULT, v, 0);
             pending[q] = false;
-            if (!disjoint) sum[i] += (v[0] & 0xFFFFFFFFL) / 1e6;
+            if (!disjoint) {
+                long nanos = v[0] & 0xFFFFFFFFL;
+                sum[i] += nanos / 1e6;
+                if (consumer != null) consumer.accept(i, nanos);
+            }
         }
         frames++;
         slot = next;
@@ -95,7 +104,7 @@ final class GpuTimer {
         return b.toString();
     }
 
-    void release() {
+    public void release() {
         if (ok) GLES30.glDeleteQueries(ids.length, ids, 0);
     }
 }

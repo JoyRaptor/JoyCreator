@@ -1995,8 +1995,13 @@ public class Clip implements AudioParams {
      * screen and another in the file.</p>
      */
     public void spinePoseAt(long clipMs, @NonNull float[] out) {
+        spinePoseAt((double) clipMs, out);
+    }
+
+    /** Same spine pose mapping, sampled at an exact shutter instant. */
+    public void spinePoseAt(double clipMs, @NonNull float[] out) {
         com.fadcam.ui.faditor.keyframe.KeyframeSet ks = spineTransform;
-        long t = Math.max(0, clipMs);
+        double t = Math.max(0, clipMs);
         out[SpineTransform.CX] = ks == null ? spineCenterX
                 : ks.valueAt(SpineTransform.X, t, spineCenterX);
         out[SpineTransform.CY] = ks == null ? spineCenterY

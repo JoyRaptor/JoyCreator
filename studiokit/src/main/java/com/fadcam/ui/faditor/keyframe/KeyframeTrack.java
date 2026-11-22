@@ -83,6 +83,27 @@ public class KeyframeTrack {
         return last.value;
     }
 
+    /**
+     * Sub-frame evaluation for motion sampling. Integral inputs are delegated to the original
+     * evaluator to preserve its boundary rules and exact float arithmetic.
+     */
+    public float valueAt(double timeMs, float fallback) {
+        if (!Double.isFinite(timeMs)) throw new IllegalArgumentException("Non-finite keyframe time");
+        if (timeMs == Math.rint(timeMs)) return valueAt((long) timeMs, fallback);
+
+        for (int i = 1; i < keyframes.size(); i++) {
+            Keyframe b = keyframes.get(i);
+            if (timeMs >= b.timeMs) continue;
+            Keyframe a = keyframes.get(i - 1);
+            if (timeMs <= a.timeMs) return a.value;
+            float progress = (float) ((timeMs - a.timeMs) / (b.timeMs - (double) a.timeMs));
+            // Rounding to 1 in float before a discrete key would make HOLD jump early.
+            float eased = a.easing.apply(Math.min(progress, Math.nextDown(1f)));
+            return a.value + (b.value - a.value) * eased;
+        }
+        return keyframes.isEmpty() ? fallback : keyframes.get(keyframes.size() - 1).value;
+    }
+
     @NonNull
     public KeyframeTrack copy() {
         KeyframeTrack t = new KeyframeTrack(property);

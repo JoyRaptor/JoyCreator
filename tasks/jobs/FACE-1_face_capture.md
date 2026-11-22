@@ -177,6 +177,24 @@ shapes are not listed as plain shapes) and `index.html` (two script tags).
 (the tracker now carries all 478 points upright; the neutral keeps their rest). The phone room binds them the same way:
 two shapes on the part, or its own pin offsets.
 
+## The owner's first try of face pins (11-22, the pilot in Chrome on the Note 9) and what changed
+His words, in short: turning right made Topps turn to *his* right ("technically correct", but people expect a mirror:
+mirror by default, with a way back); looking up made Topps look down and the other way round; he "couldn't really see
+how face pins worked"; face pins belong in setting up too, not only Perform; he "couldn't figure out how to remove a pin".
+His design for the picker: a Live mode showing the camera with the pins on his face, and Pick freezing that moment with
+his face underneath, with a way back to the plain map.
+
+| | Change (commit `2334115c7`, then landed) | Checked |
+|---|---|---|
+| ✅ | Turning mirrors you by default; up and down the right way round (the pilot's head angles in the engine's directions). A **Mirror** tick box, on by default and kept on the device, replaces "Swap sides" | his look owed |
+| ✅ | **Check directions** in Perform: five short moves (turn right, look down, tilt right, lean right, close your right eye), each read by itself, the answers kept | in code; his look owed |
+| ✅ | Face pins: **Pick \| Live** switch. Live shows the camera picture (mirrored like a mirror) with the points riding on your face; back to Pick **freezes that moment**, your face under its points, to tap one; **Plain map** drops the picture. The picture lives only on this screen, in memory | stand-in picture in the browser, no errors |
+| ✅ | The face camera can be turned on from the Face pins screen | browser |
+| ✅ | Tap a pinned (cyan) point: its pins, each with Strength and a labelled **Remove**; pins start at 2x (at 1x the pull was hard to see) | browser, phone size |
+| ✅ | Face pins in **Set up**: the head's card has "Your face", a drawing's card has it beside Shapes | browser |
+| ✅ | Phone: his Directions answers on the Note 9 (roll the other way; the model names sides the person's own way) are now the defaults, so a phone needs no check; a neutral saved before is re-taken (calibration version 3) | PC checks; cloud build |
+| ✅ | **Found and fixed before it reached him:** the face's points were stored under the tracker's own name and would have stopped the camera after one frame. The face-pins break test now feeds its made-up face through the pilot's real camera code, and plants that fault (8 of 8 caught) | browser |
+
 ## The seam: what the phone room must call
 ```
 onCreate      FaceCapture face = new FaceCapture(this);

@@ -1,6 +1,6 @@
 # FACE-1: Face capture (your face drives the character, premium)
 
-**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟢 engine built, PC-tested (every planted fault caught), and tried by the owner on the Note 9 with his face, 11-22 ("Done, all fine"); his find, the outline a quarter turn off, fixed in `b25adf9ce` and awaiting his look  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `b25adf9ce`
+**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟢 engine built, PC-tested (every planted fault caught), and tried by the owner on the Note 9 with his face, 11-22 ("Done, all fine"); his find, the outline a quarter turn off, fixed in `b25adf9ce` and confirmed by him on the Note 9 ("Yes, it lines up")  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `b25adf9ce`
 
 ## Why it matters (for the user)
 Hold the phone up, make a face, and the character makes it too: a wink is a wink, a half smile is a half
@@ -128,8 +128,11 @@ was on) and `new_bench_run_note9.csv`. No face was in front of the phone for any
   with my face" (the picture itself was right). Cause: the face model reads the face upright but returns its 478 points
   in the camera's sideways frame; the picture was turned and the points were not. The same fault made lean (where
   the face sits in the picture) sideways. **Fixed in `b25adf9ce`** (`FaceFrame` turns every point as the picture turns;
-  a neutral saved before it is re-taken by itself, directions kept; a check and a planted fault for each). Not yet seen
-  by him on the phone: the phone stopped answering over USB after he re-plugged it (Windows still saw it).
+  a neutral saved before it is re-taken by itself, directions kept; a check and a planted fault for each). **He checked it on the Note 9: "Yes, it lines up."** On the way, the
+  phone stopped answering over USB after he re-plugged it: PdaNet (a tethering program on the PC, idle, internet on
+  Wi-Fi) had taken the phone's debugging link; closing it, with his OK, freed it at once. After the install the old
+  neutral was set aside and a new one taken by itself within a second; with his face in view the bench read about 14
+  faces a second, 85 to 120 ms from camera to character, the model 26 to 45 ms per face on the graphics chip.
 - **His question, how many points:** 478 (468 on the face, 10 for the irises), plus 52 expression values and the head's
   angle. The preview's outline draws about 130 of them (edge, eyes, brows, lips).
 
@@ -183,8 +186,7 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 - [x] The web pilot's face file (`al-face.js`) and the hook, written for the AVA-1 lead.
 - [x] **The owner's two minutes in front of the Note 9** (11-22): "Done, all fine"; he found the outline a quarter
       turn off, fixed in `b25adf9ce`.
-- [ ] Put `b25adf9ce` (or later) on the Note 9 and let the owner see the outline sit on his face (the phone has to
-      answer over USB again first); then the numbers with a face: faces a second and the delay.
+- [x] `b25adf9ce` on the Note 9; the owner sees the outline sit on his face ("Yes, it lines up", 11-22).
 - [ ] Face pins (the owner's idea 1 and 2 above): the engine's point signals, then the room's tap-a-point,
       tap-the-character setup with a strength slider.
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.

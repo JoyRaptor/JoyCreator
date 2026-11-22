@@ -131,8 +131,19 @@ public class FaceEngineTest {
         check(t2.mirror && FaceTuning.fromJson(null).blinkSync, "settings survive being saved and read back");
 
         // ── the stage: neutral, lost and found, steady shapes ──
-        FaceStage st = new FaceStage();
+        FaceStage fresh = new FaceStage();
         double t = 0;
+        float waited = 0, firstAfter = -1;
+        for (int i = 0; i < 12; i++, t += 1 / 15.0) {
+            Map<String, Float> fo = fresh.process(face(FaceCalibration.HEAD_YAW, 3f + 16f), t);
+            if (!fresh.calibration().isNeutralSet()) waited = Math.max(waited, Math.abs(g(fo, FaceSignals.TURN_X)) + g(fo, FaceSignals.FACE));
+            else if (firstAfter < 0) firstAfter = g(fo, FaceSignals.FACE);
+        }
+        check(waited == 0f && firstAfter >= 0f && firstAfter < 1f,
+                "before the first neutral lands the character waits at rest, then eases in (no jump as it lands)");
+
+        FaceStage st = new FaceStage();
+        t = 0;
         for (int i = 0; i < 12; i++, t += 1 / 15.0) st.process(face(FaceCalibration.HEAD_YAW, i % 2 == 0 ? 0f : 10f), t);
         check(!st.calibration().isNeutralSet(), "a head on the move is not taken as the neutral");
         for (int i = 0; i < 10; i++, t += 1 / 15.0) st.process(face(), t);
@@ -286,6 +297,11 @@ public class FaceEngineTest {
         AvatarParamTrack later = FacePass.shiftLane(after, FaceSignals.LANE_MOUTH, 100);
         check(Math.abs(later.sampleAt(1050).get(FaceSignals.MOUTH) - after.sampleAt(950).get(FaceSignals.MOUTH)) < 0.02f,
                 "afterwards: the mouth nudged later against the voice");
+        AvatarParamTrack shapes = new AvatarParamTrack();
+        shapes.add(0, Collections.singletonMap(FaceSignals.VIS, 1f));
+        shapes.add(100, Collections.singletonMap(FaceSignals.VIS, 4f));
+        check(shapes.sampleAt(50).get(FaceSignals.VIS) == 1f,
+                "on playback a sheet mouth steps from shape to shape (never flashes the shapes between)");
 
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
         System.exit(fails == 0 ? 0 : 1);

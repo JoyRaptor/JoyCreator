@@ -2,7 +2,7 @@
 # FACE-1: the face engine (com.fadcam.ui.faditor.avatar.face) and its seam in the tracking pipeline,
 # off the phone, in seconds. Pure Java + gson + the androidx annotation stubs: no Android classpath.
 #
-# Usage:  bash tools/jvm-harness/run-face.sh           # the checks
+# Usage:  bash tools/jvm-harness/run-face.sh           # the checks, then the phone/pilot parity (needs node)
 #         bash tools/jvm-harness/run-face.sh --proof   # plant each fault, expect a FAIL for every one
 set -u
 cd "$(dirname "$0")/../.." || exit 1
@@ -26,11 +26,18 @@ if [ -n "$PLANT" ]; then SP="$PLANT;$SP"; fi
   printf -- '-sourcepath "%s"\n' "$SP"; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/FaceEngineTest.java || exit 2
+javac @"$ARGS" tools/jvm-harness/FaceEngineTest.java tools/jvm-harness/FaceParityDump.java || exit 2
 [ -f "$OUT/FaceEngineTest.class" ] || { echo "no class file: the compile did not run"; exit 2; }
 
 # The engine must stay harness-runnable: no Android in the face package's pure files.
 if grep -lE "^import android\." app/src/main/java/com/fadcam/ui/faditor/avatar/face/Face{Signals,Tuning,Calibration,Mapper,Stage,Follower,Pass}.java; then
   echo "FAIL: an Android import leaked into the face engine"; exit 1
 fi
-java @"$RUNARGS" FaceEngineTest
+java @"$RUNARGS" FaceEngineTest; RC=$?
+# The web pilot's al-face.js must read every face exactly as the phone does.
+if command -v node >/dev/null 2>&1; then
+  java @"$RUNARGS" FaceParityDump "$OUT/face_parity.json" >/dev/null && node tools/jvm-harness/face_parity.mjs "$OUT/face_parity.json" || RC=1
+else
+  echo "SKIP  phone/pilot parity: no node on this machine"
+fi
+exit $RC

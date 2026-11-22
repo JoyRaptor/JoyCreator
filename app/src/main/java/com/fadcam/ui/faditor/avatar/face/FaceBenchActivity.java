@@ -77,7 +77,7 @@ public final class FaceBenchActivity extends AppCompatActivity {
     @Nullable private FacePass pass;
     private boolean playing;
     private long clockStart;
-    private int prompt = -1;
+    private int prompt = -1, answeredCount = 0;
     private long promptSince;
     private long lastLog;
     private float batteryC = Float.NaN;
@@ -287,6 +287,7 @@ public final class FaceBenchActivity extends AppCompatActivity {
     private void startPrompts() {
         if (!face.isRunning()) return;
         prompt = 0;
+        answeredCount = 0;
         askPrompt(System.nanoTime());
     }
 
@@ -302,10 +303,13 @@ public final class FaceBenchActivity extends AppCompatActivity {
         boolean answered = done != null && done.what().equals(PROMPTS[prompt][0]) && done.answer() != 0;
         boolean timedOut = now - promptSince > 8_000_000_000L;
         if (!answered && !timedOut) return;
+        if (answered) answeredCount++;
         prompt++;
         if (prompt >= PROMPTS.length) {
             prompt = -1;
-            hint.setText("Directions set for this phone");
+            hint.setText(answeredCount == 0 ? "No face seen, so nothing changed"
+                    : answeredCount == PROMPTS.length ? "Directions set for this phone"
+                    : "Directions set for " + answeredCount + " of " + PROMPTS.length + " (the rest are as they were)");
             return;
         }
         askPrompt(now);

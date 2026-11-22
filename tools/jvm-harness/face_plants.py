@@ -16,6 +16,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PKG = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/"
 M, C, S, F, P, G = (PKG + n + ".java" for n in
                     ("FaceMapper", "FaceCalibration", "FaceStage", "FaceFollower", "FacePass", "FaceSignals"))
+JS = "tools/avatarlab/al-face.js"
 
 PLANTS = [
     ("both eyes always blink alike (no wink)", [(M, "br = blink(cr, lookDown);", "br = bl;")]),
@@ -53,6 +54,19 @@ PLANTS = [
     ("the direction check is not applied", [(C, "return EYE.equals(what) ? cal.withSwapSides(answer < 0) : cal.withSign(what, answer);",
                                              "return cal;")]),
     ("lopsided blinks (no eye sync)", [(M, "if (tun.blinkSync) {", "if (false) {")]),
+    ("the first half-second shows the uncalibrated face, then jumps",
+     [(S, "if (autoNeutral && !c.isNeutralSet()) {", "if (false) {")]),
+    ("the pilot's blinks are on or off (pilot and phone disagree)",
+     [(JS, "function blink(closure, lookDown) { return smoothstep(0.12, 0.8, closure - 0.4 * lookDown); }",
+       "function blink(closure, lookDown) { return closure - 0.4 * lookDown > 0.5 ? 1 : 0; }")]),
+    ("the pilot moves both brows as one (pilot and phone disagree)",
+     [(JS, "o.browR = sgn((0.7 * cR('browOuterUp')", "o.browR = sgn((0.7 * cL('browOuterUp')")]),
+    ("the pilot's lost face freezes (pilot and phone disagree)",
+     [(JS, "if (t - this.lostSince >= HOLD) this.presence", "if (false) this.presence")]),
+    ("a played-back sheet mouth blends through other shapes",
+     [("app/src/main/java/com/fadcam/ui/faditor/avatar/AvatarParamTrack.java",
+       "            com.fadcam.ui.faditor.avatar.face.FaceSignals.VIS)); // FACE-1: the camera's sheet-mouth shape",
+       "            \"none\")); // planted")]),
     ("looking down reads as a half blink", [(M, "return smoothstep(0.12f, 0.8f, closure - 0.4f * lookDown);",
                                              "return smoothstep(0.12f, 0.8f, closure);")]),
 ]
@@ -65,9 +79,14 @@ def main():
         tmp = tempfile.mkdtemp(prefix="face_plant_")
         try:
             ok = True
+            env_extra = {}
             for path, old, new in edits:
                 src = os.path.join(ROOT, path)
-                dst = os.path.join(tmp, "plant", path.split("app/src/main/java/")[1])
+                if path == JS:
+                    dst = os.path.join(tmp, "al-face.js")
+                    env_extra["FACE_PILOT_JS"] = dst
+                else:
+                    dst = os.path.join(tmp, "plant", path.split("app/src/main/java/")[1])
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
                 text = open(dst if os.path.exists(dst) else src, encoding="utf-8").read()
                 if text.count(old) != 1:
@@ -79,7 +98,7 @@ def main():
                 print("BROKEN PLANT (text not found once): " + name)
                 continue
             env = dict(os.environ, FACE_PLANT_DIR=os.path.join(tmp, "plant").replace("\\", "/"),
-                       FACE_OUT=os.path.join(tmp, "out").replace("\\", "/"))
+                       FACE_OUT=os.path.join(tmp, "out").replace("\\", "/"), **env_extra)
             r = subprocess.run([bash, "tools/jvm-harness/run-face.sh"], cwd=ROOT, env=env,
                                capture_output=True, text=True, encoding="utf-8", errors="replace")
             fails = [l[6:] for l in r.stdout.splitlines() if l.startswith("FAIL  ")]

@@ -116,6 +116,14 @@ public final class FaceStage {
             found = true;
             calibrate(raw, c);
             c = cal; // a neutral may have just landed
+            if (autoNeutral && !c.isNeutralSet()) {
+                // The very first half-second: wait at rest for the neutral instead of showing the
+                // uncalibrated face and then jumping when the neutral lands; it eases in after.
+                if (Double.isNaN(lostSince)) lostSince = t;
+                Map<String, Float> wait = FaceSignals.rest();
+                lastOut = wait;
+                return new HashMap<>(wait);
+            }
             if (!Double.isNaN(lostSince)) {             // the face is back: cross over from what shows
                 crossFrom = new HashMap<>(lastOut);
                 crossK = 0;

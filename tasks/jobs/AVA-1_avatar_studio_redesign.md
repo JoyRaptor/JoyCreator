@@ -599,6 +599,58 @@ they want, a centipede; arms that can become feet with one toggle").
       - [x] 8 Menu: Create new avatar, the line, Create new scene and the scenes; choosing one opens Perform with the
             Scene part up and that scene chosen (Create new scene too).
       - [ ] 9 Voice kept with a take, 10 walking across the stage: not this session's.
+      - [x] 10 **Walking across the stage (walk session, 11-22; not on the phone, not seen by the owner).** In a scene, dragging
+            the body walks the character from its place across the whole stage and out of the picture on either side, up to a
+            third of the stage's width past each edge, and back. Same walker as alone (planted feet, turn-round, the four-legged
+            walk), feet on its own floor line, the same size all the way. Its place is still the scene item's (Arrange);
+            "Back to the middle" walks it home; held still (Set up, Arrange) it is back at its place.
+            - **How far:** the stage, not the frame (the frame is only a shape: changing it moves nothing). `walker.lim`, set by
+              the scene's frame loop from the place; the joystick and its dashes keep to the same limit. Alone on the plain stage
+              there is no limit and everything is as before.
+            - **A finger cannot leave the glass**, so a finger holding the body within 26 px of the side edge means "keep going":
+              it walks on out of the picture, faster the nearer the edge; brought back in, it comes back to the finger.
+            - **Waiting off-screen:** a character that cannot be seen (walked out, placed outside, or out of a close shot) has a
+              small tab at that edge of the glass with its picture and a hover label. Press it: that character is in hand and
+              walks to the edge; drag it: it walks in after the finger; the tab goes once it can be seen. That is the entrance.
+            - **Takes:** a walk is kept in the character's own units from its place, so it plays with the feet on the same spots
+              of the stage in every frame shape and every shot; a close-up on the walker follows it; the others watch where the
+              one in hand IS. Three rules in `al-take-walk.js`: walking hands (all fours) are kept in the take as walking (two
+              new lanes, `hLw` / `hRw`), so a replay plants them where they stood (before, they hung in the air on playback,
+              alone too); a body walked in a later pass is yours to the end of the pass (not handed back to the older take,
+              which would slide it across the stage); a playing take leads the walker, so taking the body half way, or stopping,
+              goes on from where it is seen, and a take starts facing the way it was recorded.
+            - **Put down:** taking another character in hand stops the first where it is, and a finger still on it moves nobody.
+            - **Small characters:** at phone size a character in a scene is about 90 px tall and the 30 px circles round its
+              hands and feet covered all of it, so the body could not be taken; in a scene those circles are now at most 13% of
+              the character's drawn height (touching an arm or a leg still takes its hand or foot).
+            - Files: new `al-stage-walk.js`, `al-take-walk.js`; small hooks in `al-walk.js` (the limit; led by a take),
+              `al-scene-draw.js` (sets the limit; the watchers), `al-scene.js` (`scene.hand` lets go), `al-stick.js` and
+              `al-stick-moves.js` (the limit), `al-app.js` (hand and foot circles; `app.dropFingers`). **`al-inputs.js`, only
+              these lines:** the take's owner list gains `hLw` / `hRw`, `STEP` gains them, `flat()` writes them, `unflat()` reads
+              them. Nothing in recording, the clock or the voice was touched.
+            - **Proof:** `al-breaktest-scene-walk.js`, 40 checks, 0 failures with his saved Topps; all 26 planted faults caught
+              (`AL.breakTest.sceneWalk.proof()`). Recorded walks from off-stage left to off-stage right and back, standing and on
+              all fours, compared frame by frame with their replays (feet and walking hands within 1 stage px, body within 0.5);
+              the same after all five frame shapes, after a close-up and back to Wide, and after save, close and reopen; on all
+              fours every limb's joint against the worked-out stance (as `al-breaktest-walk.js` measures it) all the way across,
+              out, turned round and back; two characters in two passes, then together; real pointer events for the finger at
+              the edge, the tab, the joystick and a finger left on a character put down. Rebased on the video/voice work and run
+              again there: this test 40/0; scene 84/0 and all 24 of its planted faults caught; all fours 184/0, walking 50/0,
+              stages 43/0, export 29/0.
+            - **Real mouse, phone tall (in-app browser):** the red dot; Topps dragged by the body to the right edge of the glass
+              (half out of the picture) and back to the left edge while recording; walked all the way out (the finger held at
+              the edge, by script: the browser tool cannot hold a button down); his tab dragged in with the mouse, and he walked
+              in after it; stop, Play, a cut to Close on Topps (it followed him) and back to Wide; during playback, off-stage,
+              his tab was there. On all fours: walked across, half out, then home, looked at up close: whole. A close-up follows
+              only to the stage's edge (the camera never looks past the stage, an older rule), so a walker leaving the stage
+              walks out of a close shot. Not checked: any phone (finger, Note 9), the owner's eye.
+            - **Choices where the brief was silent:** a third of the stage past either side, measured from the stage's edge;
+              walking only left and right (into depth is not this job); a walk recorded and then resized in Arrange plays that much
+              shorter or longer; the tab is the way back for a character out of sight (no "call everyone in" button). The one
+              change on the plain stage, on purpose: the walking-hands lanes, so an all-fours walk recorded alone also plays back
+              with its hands on the ground (it was the same fault there); everything else alone is untouched (checked).
+            - **Found, not changed:** the very first walk after the page opens differs a little from later identical walks
+              (the engine keeps some state from earlier frames; alone too). Harmless to the eye; the test walks once first.
       **His notes after trying it (11-21 late), built the same night and checked on the Note 9 in Chrome:**
       - [x] Studio's canvas texture outside the frame: the same picture Studio's CanvasFrameView paints
             (`studio_backdrop_graffiti.jpg`, kept in the pilot as `studio-backdrop.jpg`, byte for byte; the one-file build

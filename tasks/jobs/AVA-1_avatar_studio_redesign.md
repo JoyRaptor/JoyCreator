@@ -539,6 +539,27 @@ they want, a centipede; arms that can become feet with one toggle").
       - [x] 8 Menu: Create new avatar, the line, Create new scene and the scenes; choosing one opens Perform with the
             Scene part up and that scene chosen (Create new scene too).
       - [ ] 9 Voice kept with a take, 10 walking across the stage: not this session's.
+      **His notes after trying it (11-21 late), built the same night and checked on the Note 9 in Chrome:**
+      - [x] Studio's canvas texture outside the frame: the same picture Studio's CanvasFrameView paints
+            (`studio_backdrop_graffiti.jpg`, kept in the pilot as `studio-backdrop.jpg`, byte for byte; the one-file build
+            inlines it), over black, scaled to cover. Inside the picture area the plain dark stage; the set is cut at
+            the frame's edge, and what stands part-way out is drawn over the texture, a little darker. The empty scene with
+            the frame off is the plain stage exactly as before.
+      - [x] The strip pushes the frame the way Studio's transcript panel pushes the picture
+            (`transcriptDrawerShiftPx`): it moves by the part the strip would cover, only as far as its room allows,
+            never smaller; what is still covered stays under the see-through strip. Upright frames get the strip from
+            the side (its parts share the height), wide ones from the bottom, a square one from whichever side the
+            screen has more room on (Studio's `DrawerPlace` rule). The round buttons ride beside it.
+      - [x] The joystick (his mock-up): a Joystick button after Face; open, a pad the size of the head pad on the
+            right, Hold to talk steps in, Mic / Voice file / Face become their pictures (words in their hover labels).
+            It is a rate stick: push and the body keeps going, faster toward the rim (power 1.7), stops where it is let
+            go. It drives exactly what dragging the body drives (`Walker.grab/drag/release`, or the lean of a character
+            that does not walk), so recording and passes need nothing new. Travel is kept within the room the view
+            keeps for walking (0.7 of the body's width each side). File `al-stick.js`.
+      - Fixed on the way: the cyan "in hand" ring now follows a character that has walked; the scene's picture in the
+        Set up card after a reload; a brief flash of the empty stage when changing scene.
+      - His question, the chair as the scene / character switch: answered in chat (kept as it is for now; the
+        suggestion was the chair picture on the scene's own path tab). Not built.
       - [x] 11 `al-breaktest-scene.js` follows the new doorway: 67 checks, 0 failures with his saved Topps; new checks
             for all fours in a scene (down, turned round, up again), the empty scene, the strip's eight mixes, frame
             off and on, long press and second tap. All 15 planted faults caught (`AL.breakTest.scene.proof()`: the

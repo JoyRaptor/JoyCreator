@@ -41,10 +41,11 @@
   frame.setSafe = function (app, v) { if (app.scene) scene.edit(app, 'Margins', function (d) { d.safe = v; }, true); else { E.safe = v; frame.keep(); } changed(app); };
 
   /* ── where it is on the glass ── */
-  /** The room the picture has: the stage, less the hint line at the top and the strip and the round buttons at the bottom. */
+  frame.BAND = 44;                            // the row the two round buttons need at the bottom of the stage
+  /** The room the picture has: the stage, less the hint line at the top and the round buttons' row at the bottom. The strip is
+      NOT taken off: like Video Studio's transcript panel it pushes the picture aside (frame.push), and never shrinks it. */
   frame.area = function (app) {
-    var st = $('stage'), w = st.clientWidth, hh = st.clientHeight, co = $('coach'), top = Math.max(46, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 0), bot = 8;
-    ['strip', 'roombtns'].forEach(function (id) { var e = $(id); if (e && e.offsetHeight) bot = Math.max(bot, hh - e.offsetTop + 6); });
+    var st = $('stage'), w = st.clientWidth, hh = st.clientHeight, co = $('coach'), top = Math.max(46, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 0), b = $('roombtns'), bot = 8 + (b && b.offsetHeight ? frame.BAND : 0);
     return { x: 8, y: top, w: Math.max(40, w - 16), h: Math.max(80, hh - top - bot) };
   };
   frame.CUSHION = 0.06;
@@ -53,15 +54,55 @@
     var c = frame.CUSHION, m = 14, fw = Math.max(24, Math.min((A.w - 2 * m) / (1 + 2 * c), (A.h - 2 * m) / (1 + 2 * c) * ar)), fh = fw / ar;
     return { x: A.x + (A.w - fw) / 2, y: A.y + (A.h - fh) / 2, w: fw, h: fh };
   };
+  /** Where the strip comes in for a frame of this shape: an upright frame has its room at the sides, so the strip comes from the
+      side; a wide one from the bottom; a square one from whichever side the screen has more room on (Studio's DrawerPlace rule). */
+  frame.side = function (app) {
+    var ar = frame.ar(app); if (ar < 0.999) return 'side'; if (ar > 1.001) return 'bottom';
+    var A = frame.area(app), F = frame.fit(A, ar); return A.w - F.w >= A.h - F.h ? 'side' : 'bottom';
+  };
+  /** VIDEO STUDIO'S RULE for a drawer over the picture (FaditorEditorActivity.transcriptDrawerShiftPx): the picture moves away by
+      the part of it the drawer would cover, only as far as its own room on the other side allows, and is never made smaller;
+      whatever is still covered stays under the see-through drawer. Returns { dx, dy } for a rectangle on the glass. */
+  frame.push = function (app, F, A) {
+    var s = $('strip'), st = $('stage'); if (!s || !s.offsetHeight || !s.offsetWidth) return { dx: 0, dy: 0 };
+    if (s.classList.contains('side')) { var freeX = s.offsetLeft - 6, cx = Math.max(0, F.x + F.w - freeX); return { dx: -Math.min(cx, Math.max(0, F.x - A.x)), dy: 0 }; }
+    var freeY = s.offsetTop - frame.BAND - 6, cy = Math.max(0, F.y + F.h - freeY);
+    return { dx: 0, dy: -Math.min(cy, Math.max(0, F.y - A.y)) };
+  };
+  /* the push glides the way Studio's does (and the way the room's own view glides, so a picture and its frame move as one) */
+  var GL = { x: 0, y: 0, at: 0 };
+  function glide(d) { var now = performance.now(), k = GL.at ? 1 - Math.exp(-14 * Math.min(0.1, (now - GL.at) / 1000)) : 1; GL.at = now; GL.x += (d.dx - GL.x) * k; GL.y += (d.dy - GL.y) * k; if (Math.abs(d.dx - GL.x) < 0.3) GL.x = d.dx; if (Math.abs(d.dy - GL.y) < 0.3) GL.y = d.dy; return { dx: GL.x, dy: GL.y }; }
+  /** The frame on the glass, the strip's push included. now = gliding there (drawing); otherwise where it is going (fitting). */
+  frame.rect = function (app, ar, now) { var A = frame.area(app), F = frame.fit(A, ar), d = frame.push(app, F, A); if (now) d = glide(d); return { x: F.x + d.dx, y: F.y + d.dy, w: F.w, h: F.h }; };
   /** The frame on the plain stage (the empty scene), on the glass. */
-  frame.plainRect = function (app) { return frame.fit(frame.area(app), frame.ar(app)); };
+  frame.plainRect = function (app, now) { return frame.rect(app, frame.ar(app), now); };
+
+  /* ── VIDEO STUDIO'S CANVAS TEXTURE outside the picture ──
+     Studio's CanvasFrameView paints the owner's own backdrop (studio_backdrop_graffiti.jpg, kept here as studio-backdrop.jpg, the
+     same file) over black, scaled to cover, and the project's picture on top of it. Here the same: the stage shows the backdrop,
+     and the picture area shows the plain dark stage, so whatever stands in the picture, or part-way out of it, is drawn over them. */
+  var BACK = (root.AL_INLINE && root.AL_INLINE['studio-backdrop.jpg']) || 'studio-backdrop.jpg';
+  document.head.appendChild(h('style', { text: [
+    '#stage.desk{background:#000 url("' + BACK + '") center/cover no-repeat} #stage.desk::before{display:none}',
+    '#frameground{position:absolute;display:none;pointer-events:none;background:radial-gradient(120% 90% at 50% 38%,#1a1a22 0%,#0d0d10 62%,#050507 100%);overflow:hidden}',
+    '#frameground::before{content:"";position:absolute;inset:0;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:32px 32px;opacity:.16}',
+    '#stage.desk #frameground{display:block}'
+  ].join('\n') }));
+  var FG = h('div', { id: 'frameground', 'aria-hidden': 'true' }); $('stage').insertBefore(FG, $('gl'));
+  var DK = { on: null, r: '' };
+  /** Studio's canvas texture round the picture (rect, on the glass), or the plain stage as always (null). */
+  frame.desk = function (rect) {
+    var on = !!rect; if (DK.on !== on) { DK.on = on; $('stage').classList.toggle('desk', on); }
+    if (!on) return; var r = Math.round(rect.x) + ',' + Math.round(rect.y) + ',' + Math.round(rect.w) + ',' + Math.round(rect.h); if (r === DK.r) return; DK.r = r;
+    FG.style.left = Math.round(rect.x) + 'px'; FG.style.top = Math.round(rect.y) + 'px'; FG.style.width = Math.round(rect.w) + 'px'; FG.style.height = Math.round(rect.h) + 'px';
+  };
 
   /* ── drawing it ── */
   frame.dim = function (g, w, hh, F, fill) { g.fillStyle = fill; g.fillRect(0, 0, w, Math.max(0, F.y)); g.fillRect(0, F.y + F.h, w, Math.max(0, hh - F.y - F.h)); g.fillRect(0, F.y, Math.max(0, F.x), F.h); g.fillRect(F.x + F.w, F.y, Math.max(0, w - F.x - F.w), F.h); };
   /** The frame itself: a little darker outside, a zinc hairline, the margins when asked for, and its shape written quietly above it. */
   frame.paint = function (g, w, hh, F, safe, label) {
     g.save();
-    frame.dim(g, w, hh, F, 'rgba(9,9,11,.34)');
+    frame.dim(g, w, hh, F, 'rgba(9,9,11,.24)');                       // (a little darker outside: out of the shot, and Studio's texture stays quiet)
     g.strokeStyle = 'rgba(161,161,170,.6)'; g.lineWidth = 1; g.strokeRect(Math.round(F.x) + 0.5, Math.round(F.y) + 0.5, Math.round(F.w) - 1, Math.round(F.h) - 1);
     if (safe === 'title') {
       g.setLineDash([5, 4]); g.strokeStyle = 'rgba(34,211,238,.7)'; g.strokeRect(F.x + F.w * 0.05, F.y + F.h * 0.05, F.w * 0.9, F.h * 0.9);
@@ -108,12 +149,14 @@
     var s = Math.min((A.w - pad * 2) / w, (A.h - pad * 1.4) / hh, full * 5);
     return { s: s, ox: A.x + (A.w - w * s) / 2 - b.x0 * s, oy: A.y + (A.h - hh * s) / 2 - b.y0 * s };
   }
-  /* In Perform on the plain stage, with the frame on the picture is fitted INTO the frame; with the strip up it is fitted above the
-     strip. With neither it is the room's own fitting, untouched. */
+  /* In Perform on the plain stage, with the frame on the picture is fitted INTO the frame (which the strip pushes aside); with only
+     the strip up, the character is fitted as always and pushed aside the same way. With neither it is the room's own fitting. */
   var fitTo0 = app.fitTo;
   app.fitTo = function (b, pad, snap) {
     if (!plainPerform(app) || !(ROOM.frame || stripUp())) return fitTo0(b, pad, snap);
-    var v = into(b, ROOM.frame ? frame.plainRect(app) : frame.area(app), ROOM.frame ? 4 : pad);
+    var v;
+    if (ROOM.frame) v = into(b, frame.plainRect(app), 4);
+    else { var A = frame.area(app); v = into(b, A, pad); var d = frame.push(app, { x: v.ox + b.x0 * v.s, y: v.oy + b.y0 * v.s, w: (b.x1 - b.x0) * v.s, h: (b.y1 - b.y0) * v.s }, A); v.ox += d.dx; v.oy += d.dy; }
     if (snap) { app.view = v; app.vt = null; } else app.vt = v;
   };
   function same(a, b) { return !!(a && b && Math.abs(a.s - b.s) < 1e-3 * Math.max(1, a.s) && Math.abs(a.ox - b.ox) < 0.6 && Math.abs(a.oy - b.oy) < 0.6); }
@@ -173,9 +216,12 @@
 
   /* every frame on the plain stage in Perform: the frame on the glass, a close-up keeping up, and a view moved by hand is "By hand" */
   app.hooks.push(function () {
-    if (!plainPerform(app) || !ROOM.frame) { E.last = null; return; }
+    if (app.scene && !app.scene.dive) return;                          // (a scene draws its own frame and its own texture)
+    var on = plainPerform(app) && ROOM.frame, F = on ? frame.plainRect(app, true) : null;
+    frame.desk(F);                                                     // Studio's canvas texture round the frame; the plain stage as always without one
+    if (!on) { E.last = null; return; }
     var ov = $('ov'), st = $('stage'), w = st.clientWidth, hh = st.clientHeight, dpr = Math.min(2.5, root.devicePixelRatio || 1), g = ov.getContext('2d');
-    g.save(); g.setTransform(dpr, 0, 0, dpr, 0, 0); frame.paint(g, w, hh, frame.plainRect(app), E.safe, E.shape + '  ' + frame.plainShotName(app).toUpperCase()); g.restore();
+    g.save(); g.setTransform(dpr, 0, 0, dpr, 0, 0); frame.paint(g, w, hh, F, E.safe, E.shape + '  ' + frame.plainShotName(app).toUpperCase()); g.restore();
     var V = app.view;
     if (E.shot === 'wide' && !app.userView) E.tgt = wide(app);
     if (E.last && !app.vt && E.shot !== 'free' && !same(V, E.last) && !same(V, E.tgt)) { E.shot = 'free'; changed(app); }      // a pinch, a pan, the wheel: framed by hand

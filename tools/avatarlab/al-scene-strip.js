@@ -51,7 +51,14 @@
     '.frshapes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}',
     '.frsh{width:58px;height:58px;border-radius:12px;background:var(--raised);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--dim);font:600 11px/1 var(--f-mono)}',
     '.frsh:hover{background:var(--pressed);color:var(--ink)} .frsh.on{background:var(--sel);color:var(--on-sel)}',
-    '.frsh svg.frp{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6}'
+    '.frsh svg.frp{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.6}',
+    /* from the side (an upright frame): the parts share its height, each scrolls up and down by itself */
+    '#strip.side{left:auto;right:6px;width:92px;flex-direction:column}',
+    '#strip.side .spart{flex:1 1 0;min-height:0;padding:4px 5px 5px}',
+    '#strip.side .sph{height:auto;flex-direction:column;align-items:stretch;gap:3px;padding:2px 1px 1px}',
+    '#strip.side .sph b{text-align:center} #strip.side .sph .seg{display:flex} #strip.side .sph .seg button{flex:1;padding:0;justify-content:center}',
+    '#strip.side .spc{flex-direction:column;overflow-x:hidden;overflow-y:auto;flex:1;min-height:0}',
+    '#strip.side .sdc{width:100%;touch-action:pan-y} #strip.side .sdc.add{height:26px}'
   ].join('\n');
   document.head.appendChild(h('style', { text: CSS }));
 
@@ -174,7 +181,7 @@
   function sig(vis) {
     var R = app.scene, L = (scene._list || []).map(function (e) { return e.uid + ':' + e.at + ':' + e.name; }).join(','), cast = R ? scene.cast(R).map(function (it) { return it.id + it.name; }).join(',') : (app.ch ? app.ch.name : '');
     var sh = strip.parts().indexOf('sh') >= 0 ? shots().map(function (s) { return s.key + s.name; }).join(',') : '';
-    return [vis, open, ROOM.frame, ROOM.sc, ROOM.ch, ROOM.sh, ROOM.glide, frame.shape(app), R ? R.data.uid : '-', R ? R.stage : '', L, cast, sh, app.ch && app.ch.uid].join('|');
+    return [vis, open, ROOM.frame, ROOM.sc, ROOM.ch, ROOM.sh, ROOM.glide, frame.shape(app), vis ? frame.side(app) : '', R ? R.data.uid : '-', R ? R.stage : '', L, cast, sh, app.ch && app.ch.uid].join('|');
   }
   /** Keep the buttons and the strip true to the room. force = build it again even if nothing it shows has changed. */
   strip.sync = function (app, force) {
@@ -184,9 +191,10 @@
     var keep = {}; Array.prototype.forEach.call(box.querySelectorAll('.spc'), function (c) { keep[c.getAttribute('data-k')] = c.scrollLeft; });
     S.sig = s;
     btns.style.display = vis ? 'flex' : 'none';
-    var parts = vis ? strip.parts() : [], room = vis + ':' + parts.length;      // (what takes room from the picture)
-    box.innerHTML = ''; parts.forEach(function (k) { box.appendChild(part(k)); }); box.style.display = parts.length ? 'flex' : 'none';
-    btns.style.bottom = (parts.length ? box.offsetHeight + 12 : 8) + 'px';      // the two buttons sit just above the strip
+    var parts = vis ? strip.parts() : [], side = parts.length && frame.side(app) === 'side', room = vis + ':' + parts.length + ':' + side;      // (what pushes the picture aside)
+    box.innerHTML = ''; box.classList.toggle('side', !!side); parts.forEach(function (k) { box.appendChild(part(k)); }); box.style.display = parts.length ? 'flex' : 'none';
+    if (side) { var co = $('coach'), tl = $('tools'); box.style.top = Math.max(8, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 8, tl && tl.offsetHeight ? tl.offsetTop + tl.offsetHeight + 8 : 8) + 'px'; } else box.style.top = '';      // (below the hint line, and below the room's own round tools when they are there)
+    btns.style.bottom = (parts.length && !side ? box.offsetHeight + 12 : 8) + 'px'; btns.style.right = (side ? box.offsetWidth + 12 : 8) + 'px';      // the two buttons ride beside the strip
     Array.prototype.forEach.call(box.querySelectorAll('.spc'), function (c) { var k = c.getAttribute('data-k'); if (keep[k] != null) c.scrollLeft = keep[k]; });
     bf.className = 'rb' + (frame.on() ? ' on' : ''); bf.innerHTML = ''; bf.appendChild(frame.glyph(frame.shape(app)));
     bf.title = (frame.on() ? 'The frame is on (' + frame.shape(app) + '). Tap to hide it.' : 'Show the frame (' + frame.shape(app) + '): where the picture\'s edges are.') + ' Hold for its shapes and margins.';

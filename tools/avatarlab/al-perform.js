@@ -80,11 +80,11 @@
     /* hands-on controls */
     var sets = AL.cards.turnSets(app);
     var meter = h('div', { class: 'meter', title: 'How loud the voice is' }, h('i')); perform.meter = meter.firstChild;
-    var hosted = AL.intake.hosted;
-    var voice = h('div', { class: 'rowf' }, [
-      hosted ? null : ui.chip('Mic', { on: inp.mic.on && inp.mic.kind === 'mic', icon: 'mic', title: 'Lip-sync to your voice', fn: function () { if (inp.mic.on) { inp.micStop(); app.refreshPanel(true); } else inp.micStart().then(function () { app.refreshPanel(true); }).catch(function () { app.toast('No microphone here. Hold Talk, or play a voice file.'); }); } }),
-      ui.chip('Voice file', { on: inp.mic.on && inp.mic.kind === 'file', icon: 'note', title: 'Play a recording and lip-sync to it', fn: function () { if (inp.mic.kind === 'file') { inp.micStop(); app.refreshPanel(true); } else $('fileAudio').click(); } }),
-      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Tap again to change between "while Talk is held" and "always", then off. The picture is never shown or kept.', fn: function () {
+    var hosted = AL.intake.hosted, stk = !!(AL.stick && AL.stick.open()), ico = stk ? 'ico' : '';      // (the joystick open: these become their pictures, al-stick.js)
+    var voice = h('div', { class: 'rowf' + (stk ? ' ico' : '') }, [
+      hosted ? null : ui.chip('Mic', { cls: ico, on: inp.mic.on && inp.mic.kind === 'mic', icon: 'mic', title: 'Lip-sync to your voice', fn: function () { if (inp.mic.on) { inp.micStop(); app.refreshPanel(true); } else inp.micStart().then(function () { app.refreshPanel(true); }).catch(function () { app.toast('No microphone here. Hold Talk, or play a voice file.'); }); } }),
+      ui.chip('Voice file', { cls: ico, on: inp.mic.on && inp.mic.kind === 'file', icon: 'note', title: 'Play a recording and lip-sync to it', fn: function () { if (inp.mic.kind === 'file') { inp.micStop(); app.refreshPanel(true); } else $('fileAudio').click(); } }),
+      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { cls: ico, on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Tap again to change between "while Talk is held" and "always", then off. The picture is never shown or kept.', fn: function () {
         if (!inp.cam.on) { app.toast('Starting the face camera\u2026'); inp.cam.mode = 'talk'; inp.camStart().then(function () { app.toast('Face is ready. Hold Talk and it takes over from where your hand left the head.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It needs a webcam and the PC page.'); }); }
         else if (inp.cam.mode === 'talk') { inp.cam.mode = 'always'; inp.cam.zero = null; app.refreshPanel(true); }
         else { inp.camStop(); app.refreshPanel(true); }
@@ -92,7 +92,8 @@
     ]);
     if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take the way you are facing now as straight ahead', fn: function () { inp.cam.zero = null; } }));
     if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
-    pb.appendChild(h('div', { class: 'padrow' }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice])]));
+    if (AL.stick) { var jc = AL.stick.chip(app); if (stk) jc.classList.add('ico'); voice.appendChild(jc); }
+    pb.appendChild(h('div', { class: 'padrow' + (stk ? ' stick' : '') }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice]), stk ? AL.stick.pad(app) : null]));
     morePads(app, pb, sets);
 
     if (hosted) pb.appendChild(ui.note('The microphone and the face camera work on the PC page (tools/avatarlab). Here, hold Talk or play a voice file.'));

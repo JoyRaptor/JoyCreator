@@ -29,6 +29,13 @@
     var k = Math.max(W / im.w, H / im.h) * 1.06 * (it.s || 1), w = im.w * k, h = im.h * k, x0 = W / 2 + (it.x || 0) - w / 2, y0 = H / 2 + (it.y || 0) - h / 2;
     return { v: new Float32Array([x0, y0, x0 + w, y0, x0, y0 + h, x0 + w, y0 + h]), uv: new Float32Array(it.flip ? [1, 0, 0, 0, 1, 1, 0, 1] : [0, 0, 1, 0, 0, 1, 1, 1]), idx: QI, box: [x0, y0, x0 + w, y0 + h] };
   }
+  /* that quad cut to a rectangle on the glass (V = the view it is drawn with): what is cut away is not drawn at all */
+  function clipQuad(g, clip, V, flip) {
+    var b = g.box, cx0 = (clip.x - V.ox) / V.s, cy0 = (clip.y - V.oy) / V.s, cx1 = (clip.x + clip.w - V.ox) / V.s, cy1 = (clip.y + clip.h - V.oy) / V.s;
+    var x0 = Math.max(b[0], cx0), y0 = Math.max(b[1], cy0), x1 = Math.min(b[2], cx1), y1 = Math.min(b[3], cy1); if (x1 <= x0 || y1 <= y0) return null;
+    function u(x) { var t = (x - b[0]) / (b[2] - b[0]); return flip ? 1 - t : t; } function v(y) { return (y - b[1]) / (b[3] - b[1]); }
+    return { v: new Float32Array([x0, y0, x1, y0, x0, y1, x1, y1]), uv: new Float32Array([u(x0), v(y0), u(x1), v(y0), u(x0), v(y1), u(x1), v(y1)]), idx: QI, box: b };
+  }
   /* an object: stands on its bottom edge at (x, y); in the wind its top leans and the foot stays put */
   function objQuad(d, it, im, t) {
     var k = (it.s || 1) * scene.depth(d, it.y), w = im.w * k, h = im.h * k, n = it.sway ? 6 : 1, v = new Float32Array((n + 1) * 4), uv = new Float32Array((n + 1) * 4), idx = new Uint16Array(n * 6), r;
@@ -58,10 +65,13 @@
     /* where the stage sits on the glass. Alive: the FRAME, with room round it on every side (it stays put whether the frame line
        is shown or not, so turning the frame on and off moves nothing). Held still: the whole stage, the frame drawn on it. */
     var A = AL.frame.area(app);
-    if (live) { var F0 = AL.frame.fit(A, fr.w / fr.h); R.f = F0.w / fr.w; R.cx = F0.x + F0.w / 2; R.cy = F0.y + F0.h / 2; }
+    if (live) { var F0 = AL.frame.rect(app, fr.w / fr.h, true); R.f = F0.w / fr.w; R.cx = F0.x + F0.w / 2; R.cy = F0.y + F0.h / 2; }      // (the strip pushes it aside as Studio's transcript does; never smaller)
     else { R.f = Math.min(A.w / (W + 150), A.h / (H + 110)); R.cx = A.x + A.w / 2; R.cy = A.y + A.h / 2; }
     var cam = camOn ? scene.camNow(app, fr, dt) : (R.cam = { x: W / 2, y: H / 2, z: 1 }), V = R.V = viewOf(R, cam);
     R.fr = live ? F0 : { x: V.ox + fr.x * V.s, y: V.oy + fr.y * V.s, w: fr.w * V.s, h: fr.h * V.s };
+    /* the picture area: the frame when it is on and the scene is alive, otherwise the stage itself. The set is cut to it, and round it
+       is Video Studio's canvas texture; whatever stands part-way out is still drawn over that. */
+    R.clip = live && AL.frame.on() ? R.fr : { x: V.ox, y: V.oy, w: W * V.s, h: H * V.s }; AL.frame.desk(R.clip);
 
     var L = layers(d), stand = L.stand;
 
@@ -101,8 +111,9 @@
     var d = R.data, V = viewOf(R, cam), made = L.backs.filter(function (q) { return q.made; })[0], hz = made && scene.SETS[made.made] ? scene.SETS[made.made].haze : null, hk = d.haze == null ? 0.5 : d.haze;
     function pane(it, par) {
       var q = imgOf(it, R.t); if (!q) return;
-      var c = { x: W / 2 + (cam.x - W / 2) * (1 - par), y: H / 2 + (cam.y - H / 2) * (1 - par), z: 1 + (cam.z - 1) * (1 - par) }, g = paneQuad(it, q.im);
-      g.img = q.id; g.a = 1; it._box = g.box; G.draw([g], px(viewOf(R, c), dpr), null, null);
+      var c = { x: W / 2 + (cam.x - W / 2) * (1 - par), y: H / 2 + (cam.y - H / 2) * (1 - par), z: 1 + (cam.z - 1) * (1 - par) }, g = paneQuad(it, q.im), V2 = viewOf(R, c);
+      it._box = g.box; if (R.clip && !(skip && skip.noClip)) { g = clipQuad(g, R.clip, V2, !!it.flip); if (!g) return; }      // a backdrop stops at the picture's edge: outside it is Studio's canvas
+      g.img = q.id; g.a = 1; G.draw([g], px(V2, dpr), null, null);
     }
     if (!(skip && skip.set)) L.backs.forEach(function (it) { pane(it, it.par == null ? 0.22 : it.par); });
     L.stand.forEach(function (it) {
@@ -116,10 +127,10 @@
   /** One picture of the shot, w x h pixels, into its own canvas: what export saves. skip as in paint(). Returns a canvas or null. */
   scene.picture = function (app, w, h, skip) {
     var R = app.scene; if (!R || !R.cam) return null;
-    var X = AL.frame.gl(w, h), G = X.G, fr = scene.frame(R.data), keep = { f: R.f, cx: R.cx, cy: R.cy, t: R.t };
-    R.f = w / fr.w; R.cx = w / 2; R.cy = h / 2;
+    var X = AL.frame.gl(w, h), G = X.G, fr = scene.frame(R.data), keep = { f: R.f, cx: R.cx, cy: R.cy, t: R.t, clip: R.clip };
+    R.f = w / fr.w; R.cx = w / 2; R.cy = h / 2; R.clip = null;                // (the picture is the frame already: nothing to cut)
     try { G.keep = false; G.draw([], { s: 1, ox: 0, oy: 0 }, null, null); G.keep = true; paint(R, G, AL.frame.on() ? R.cam : { x: W / 2, y: H / 2, z: 1 }, 1, layers(R.data), skip || {}); }
-    finally { G.keep = false; R.f = keep.f; R.cx = keep.cx; R.cy = keep.cy; R.t = keep.t; }
+    finally { G.keep = false; R.f = keep.f; R.cx = keep.cx; R.cy = keep.cy; R.t = keep.t; R.clip = keep.clip; }
     var out = document.createElement('canvas'); out.width = w; out.height = h; out.getContext('2d').drawImage(X.c, 0, 0);
     return out;
   };
@@ -128,14 +139,14 @@
   scene.overlay = function (app, g, w, hh, live) {
     var R = app.scene, d = R.data, F = R.fr, V = R.V;
     g.save();
-    AL.frame.dim(g, w, hh, { x: V.ox, y: V.oy, w: W * V.s, h: H * V.s }, 'rgba(9,9,11,.55)');      // beyond the stage there is nothing: dimmed, frame or not
-    if (AL.frame.on()) AL.frame.paint(g, w, hh, F, d.safe, d.shape + (live ? '  ' + scene.shotName(app, R.shot).toUpperCase() : ''));
+    if (!AL.frame.on()) AL.frame.dim(g, w, hh, { x: V.ox, y: V.oy, w: W * V.s, h: H * V.s }, 'rgba(9,9,11,.24)');      // beyond the stage: Studio's canvas, a little darker
+    else AL.frame.paint(g, w, hh, F, d.safe, d.shape + (live ? '  ' + scene.shotName(app, R.shot).toUpperCase() : ''));
     if (live) {
       var run = scene.running(app);
       if (run === 'rec') { g.fillStyle = '#ef4444'; g.beginPath(); g.arc(F.x + F.w - 12, F.y + 12, 5, 0, 6.3); g.fill(); }
       var fa = R.actors[R.focus], fi = fa && scene.item(R, R.focus);
-      if (fa && fi && scene.cast(R).length > 1) {                  // who is in hand: a cyan mark at their feet
-        var fx = V.ox + fi.x * V.s, fy = V.oy + fi.y * V.s, rw = Math.max(16, 70 * fa.T.k * V.s);
+      if (fa && fi && scene.cast(R).length > 1) {                  // who is in hand: a cyan mark at their feet, wherever they have walked to
+        var fb = castBox(fa), fx = V.ox + (fb ? (fb[0] + fb[2]) / 2 : fi.x) * V.s, fy = V.oy + (fb ? Math.max(fi.y, fb[3] - 4) : fi.y) * V.s, rw = Math.max(16, 70 * fa.T.k * V.s);
         g.strokeStyle = 'rgba(34,211,238,.9)'; g.lineWidth = 2; g.beginPath(); g.ellipse(fx, fy, rw, rw * 0.22, 0, 0, 6.3); g.stroke();
       }
     }

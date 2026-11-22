@@ -14,6 +14,9 @@
  *   emptydel   the empty scene loses its guard and can be deleted            share      one part of the strip takes twice its share
  *   frameleave turning the frame off leaves the scene (round 20's way)       hold       a long press never comes
  *   setup      choosing a card never sets it up (it only takes it in hand)
+ * and for the owner's notes of 11-21 late (Studio's canvas, the push, the joystick):
+ *   shrink     the strip takes its room from the frame (round 20's way)       nodesk  no Studio texture round the picture
+ *   noclip     the set is not cut at the frame                                 stickdead  the joystick moves nothing
  */
 (function (root) {
   'use strict';
@@ -261,6 +264,56 @@
         if (sh1) await hold(sh1); var open2 = getComputedStyle(q('#sheet')).display !== 'none'; app.closeSheet();
         F('22 a long press on another shot goes there and opens its setup', !!sh1 && open2 && R.shot === k1, { shot: R.shot, want: k1 });
       } finally { scene.diveIn = dive0; AL.strip.HOLD = hold0; }
+
+      /* 23. the strip pushes the frame aside as Studio's transcript panel pushes the picture: never smaller; upright frames get it from the side */
+      var FR = AL.frame, area0 = FR.area, sizes = [], bad23 = [];
+      if (plant === 'shrink') FR.area = function (a) { var A0 = area0(a), s = document.getElementById('strip'); if (s && s.offsetHeight && !s.classList.contains('side')) A0.h -= s.offsetHeight; return A0; };      // round 20's way: the strip took the room
+      try {
+        scene.go(app, 'perform'); FR.set(app, true);
+        for (var sh3 = 0; sh3 < scene.SHAPES.length; sh3++) {
+          FR.setShape(app, scene.SHAPES[sh3][0]); ROOM.sc = ROOM.ch = ROOM.sh = false; AL.strip.sync(app, true); await K.raf(3); var Fa = FR.rect(app, FR.ar(app));
+          ROOM.sc = true; ROOM.ch = true; AL.strip.sync(app, true); await K.raf(3); var Fb = FR.rect(app, FR.ar(app)), sEl = q('#strip'), sideNow = sEl.classList.contains('side'), wantSide = FR.ar(app) < 1 || (FR.ar(app) === 1 && FR.side(app) === 'side');
+          if (Math.abs(Fa.w - Fb.w) > 0.5 || Math.abs(Fa.h - Fb.h) > 0.5) bad23.push(scene.SHAPES[sh3][0] + ' size ' + Math.round(Fa.w) + '->' + Math.round(Fb.w));
+          if (sideNow !== wantSide) bad23.push(scene.SHAPES[sh3][0] + ' came from the ' + (sideNow ? 'side' : 'bottom'));
+          var Aa = FR.area(app), covered = sideNow ? Fb.x + Fb.w > sEl.offsetLeft - 6 + 0.5 : Fb.y + Fb.h > sEl.offsetTop - FR.BAND - 6 + 0.5, room = sideNow ? Fb.x - Aa.x > 0.5 : Fb.y - Aa.y > 0.5;
+          if (covered && room) bad23.push(scene.SHAPES[sh3][0] + ' still covered with room to move');
+          var ps3 = Array.prototype.slice.call(document.querySelectorAll('#strip .spart')), dim = function (p) { return sideNow ? p.getBoundingClientRect().height : p.getBoundingClientRect().width; };
+          if (ps3.length !== 2 || Math.abs(dim(ps3[0]) - dim(ps3[1])) > 1.5) bad23.push(scene.SHAPES[sh3][0] + ' parts not shared equally');
+          sizes.push(scene.SHAPES[sh3][0] + (sideNow ? ' side' : ' bottom') + ' ' + Math.round(Fb.w) + 'x' + Math.round(Fb.h));
+        }
+      } finally { FR.area = area0; FR.setShape(app, '16:9'); }
+      F('23 the strip moves the frame aside and never makes it smaller; upright frames get it from the side, wide from the bottom, shared equally (all 5 shapes)', bad23.length === 0, bad23.length ? bad23 : sizes);
+
+      /* 24. Video Studio's canvas texture round the picture, and the set cut at the picture's edge; the empty scene with no frame stays the plain stage */
+      var desk0 = FR.desk; if (plant === 'nodesk') FR.desk = function () { return desk0(null); }; if (plant === 'noclip') FR.desk = function (r) { desk0(r); if (app.scene) app.scene.clip = null; };
+      try {
+        scene.go(app, 'perform'); FR.setShape(app, '9:16'); FR.set(app, true); await K.raf(4);
+        var Gd = app.G, d0 = Gd.draw, firstPane = null; Gd.draw = function (items, v) { if (!firstPane && items.length && items[0].img && !items[0].id) { var vv = items[0].v, xs = [], ys = []; for (var vi = 0; vi < vv.length; vi += 2) { xs.push((vv[vi] * v.s + v.ox) / (window.devicePixelRatio > 2.5 ? 2.5 : window.devicePixelRatio || 1)); ys.push((vv[vi + 1] * v.s + v.oy) / (window.devicePixelRatio > 2.5 ? 2.5 : window.devicePixelRatio || 1)); } firstPane = [Math.min.apply(null, xs), Math.min.apply(null, ys), Math.max.apply(null, xs), Math.max.apply(null, ys)]; } return d0.apply(Gd, arguments); };
+        await K.raf(2); Gd.draw = d0; var Fr = app.scene.fr, fg = q('#frameground').getBoundingClientRect(), sg = q('#stage').getBoundingClientRect();
+        var cut = !!firstPane && firstPane[0] >= Fr.x - 1.5 && firstPane[2] <= Fr.x + Fr.w + 1.5 && firstPane[1] >= Fr.y - 1.5 && firstPane[3] <= Fr.y + Fr.h + 1.5;
+        F('24 in a scene, the set is cut at the frame and Studio\'s canvas texture is round it', q('#stage').classList.contains('desk') && cut && Math.abs(fg.left - sg.left - Fr.x) < 1.5 && Math.abs(fg.width - Fr.w) < 1.5, { desk: q('#stage').classList.contains('desk'), pane: firstPane && firstPane.map(Math.round), frame: [Fr.x, Fr.y, Fr.w, Fr.h].map(Math.round) });
+        FR.setShape(app, '16:9'); await scene.close(app); await K.raf(3); AL.stages.go(app, 'perform'); FR.set(app, true); await K.raf(10);
+        var Fp = FR.plainRect(app), fg2 = q('#frameground').getBoundingClientRect();
+        F('24 in the empty scene, the frame on: the plain stage inside it, Studio\'s texture round it', q('#stage').classList.contains('desk') && Math.abs(fg2.width - Fp.w) < 1.5, { desk: q('#stage').classList.contains('desk') });
+        FR.set(app, false); await K.raf(3);
+        F('24 ...and with the frame off it is the plain stage exactly as before (no texture)', !q('#stage').classList.contains('desk') && getComputedStyle(q('#frameground')).display === 'none');
+      } finally { FR.desk = desk0; }
+
+      /* 25. the joystick: the other thumb walks the body, faster toward the rim, and stops where it is let go */
+      await scene.openId(app, uidBack, { stage: 'perform' }); await K.raf(8); R = app.scene; var tp5 = byName(R, 'Topps'); scene.hand(app, tp5.id); await K.raf(4);
+      var spd0 = AL.stick.SPEED; if (plant === 'stickdead') AL.stick.SPEED = 0;
+      try {
+        AL.stick.set(app, true); await K.raf(2); var pad5 = q('.stickpad'), w5 = app.inp.walker;
+        F('25 the joystick opens beside the head pad; Mic, Voice file and Face become their pictures', !!pad5 && document.querySelectorAll('#panelbody .rowf.ico .chip.ico').length >= 3);
+        var pr = pad5.getBoundingClientRect(), t5a = w5.tx, x5a = w5.x;
+        ev(pad5, 'pointerdown', { x: pr.left + pr.width * 0.62, y: pr.top + pr.height / 2 }); for (var f7 = 0; f7 < 15; f7++) await K.raf(1); var slow = w5.tx - t5a;
+        ev(pad5, 'pointermove', { x: pr.right - 2, y: pr.top + pr.height / 2 }); var t5b = w5.tx; for (var f8 = 0; f8 < 15; f8++) await K.raf(1); var fast = w5.tx - t5b, held5 = app.inp.held.body, t5c = w5.tx;
+        ev(pad5, 'pointerup', { x: pr.right - 2, y: pr.top + pr.height / 2 }); for (var f9 = 0; f9 < 40; f9++) await K.raf(1);
+        F('25 pushed right, the body walks right, faster at the rim than near the middle', slow > 0.5 && fast > slow * 1.8 && held5, { slow: Math.round(slow), fast: Math.round(fast) });
+        F('25 let go: the body stops where it was taken (not back home), and is no longer held', !app.inp.held.body && Math.abs(w5.tx - t5c) < 1 && w5.x > x5a + (t5c - t5a) * 0.5, { tx: Math.round(w5.tx), x: Math.round(w5.x), from: Math.round(x5a) });
+        AL.stick.set(app, false); await K.raf(2);
+        F('25 put away: the pad goes and Mic, Voice file and Face have their words again', !q('.stickpad') && !document.querySelector('#panelbody .chip.ico'));
+      } finally { AL.stick.SPEED = spd0; AL.stick.release(app); }
       F('99 no bad numbers and nothing thrown by the end', !scene._err && !(app.scene && bad(app.scene)), { err: !!scene._err });
     } catch (e) { R0.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
     try { var r0 = JSON.parse(room0), e0 = JSON.parse(empty0), RM = AL.frame.room, EM = AL.frame.empty; for (var rk in r0) RM[rk] = r0[rk]; EM.shape = e0.shape; EM.safe = e0.safe; EM.shots = e0.shots; AL.frame.keep(); } catch (e6) { }      // (the room's own settings, as they were)
@@ -271,7 +324,8 @@
   };
   Sc.proof = async function () {
     var out = {}, want = { order: /^2 the tree behind/, shape: /^3 changing the frame/, hand: /^5 \.\.\.and nobody else/, passes: /^6 while the second records/, camera: /^7 played back/, clamp: /^9 /, undo: /^11 undo of every/, trip: /^10 \.\.\.and every take/,
-      fours: /^18 on all fours/, emptytake: /^19 \.\.\.and a scene opened/, emptydel: /^19 the empty scene cannot be deleted/, share: /^20 /, frameleave: /^21 in a scene, the frame off/, hold: /^22 a long press/, setup: /^22 a second tap on the character/ };
+      fours: /^18 on all fours/, emptytake: /^19 \.\.\.and a scene opened/, emptydel: /^19 the empty scene cannot be deleted/, share: /^20 /, frameleave: /^21 in a scene, the frame off/, hold: /^22 a long press/, setup: /^22 a second tap on the character/,
+      shrink: /^23 /, nodesk: /^24 in a scene/, noclip: /^24 in a scene/, stickdead: /^25 pushed right/ };
     var only = arguments[0];
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await Sc.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 5) }; }
     return out;

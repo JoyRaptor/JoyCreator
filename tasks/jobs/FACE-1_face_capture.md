@@ -184,7 +184,7 @@ how face pins worked"; face pins belong in setting up too, not only Perform; he 
 His design for the picker: a Live mode showing the camera with the pins on his face, and Pick freezing that moment with
 his face underneath, with a way back to the plain map.
 
-| | Change (commit `2334115c7`, then landed) | Checked |
+| | Change (landed as `93c166292`) | Checked |
 |---|---|---|
 | ✅ | Turning mirrors you by default; up and down the right way round (the pilot's head angles in the engine's directions). A **Mirror** tick box, on by default and kept on the device, replaces "Swap sides" | his look owed |
 | ✅ | **Check directions** in Perform: five short moves (turn right, look down, tilt right, lean right, close your right eye), each read by itself, the answers kept | in code; his look owed |

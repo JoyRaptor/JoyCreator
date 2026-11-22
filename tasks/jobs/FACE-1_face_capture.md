@@ -148,7 +148,33 @@ was on) and `new_bench_run_note9.csv`. No face was in front of the phone for any
 2. **A strength slider on each pin** (a multiplier on its range).
 3. **Any face signal drives any property**, e.g. eyes wide makes a fire emitter throw more fire. The pilot already has
    links (a signal drives a property by an amount; `al-model.js`, the "links" on the cards); adding the camera's new
-   signals to that list makes this work without a new system. The fire emitter on a character is the new part.
+   signals to that list makes this work without a new system. **The fire is TextLab's** (the owner, 11-22: "Text Lab
+   already made super realistic fire that catches letters on fire"): the looks `blaze`, `spirit-flame` and `toon-fire`
+   on the fire simulation `app/src/main/assets/textlab/shaders/fire_step.frag` and `fire_draw.frag` (web: `tools/textlab-web`).
+   The face signal drives its strength; no new emitter is built.
+
+## Face pins (11-22, built in the web pilot; the owner: "build it here")
+Ideas 1 and 2 above, built where Avatar Studio is designed (the web pilot), with the matching engine on the phone.
+
+| | What | State |
+|---|---|---|
+| ✅ | **Face points** (`FacePoints.java`, the same in `al-face.js`): any of the 478 points as a signal, its movement from your neutral face in the head's own frame. The head's frame is fitted each frame to 23 points that do not move with expression (Horn's method), so turning, nodding, tilting, moving and coming closer move no pin; a smile moves the mouth-corner pin. The neutral keeps where every point rests | built; PC checks + planted faults; phone and pilot agree (8,312 values) |
+| ✅ | **The setup** (`tools/avatarlab/al-facepins.js`): Perform, **Face pins** (shown while Face is on, or once there are face pins). Your face map is made from **your own neutral face**, drawn like a mirror; tap a named point (mouth corners, lips, lids, brows, nostrils, nose tip, cheeks, chin, jaw corners) or turn on "All 478 points", then tap the character where it should pull. It pins to the nearest pin of that part, or makes one there. A banner says what to do, with Cancel | built, checked in the browser on Topps |
+| ✅ | **Strength slider on each pin** (0 to 4×; 1 = as it moved) and a live count ("2 face pins live"); remove a pin; one Undo step each | built |
+| ✅ | **How it moves the drawing**: a face pin is two of the part's own *shapes* (across, up and down), each driven by the point's signal, so it adds on top of whatever else moves the pin (the head's own turn, other shapes); the part's card says "N face pins move this part" and keeps their shapes out of its list | built |
+| ✅ | **Recorded**: the point signals ride the take's channels, so a pass records them and a replay plays them with the camera off ("Buttons, wind, pins" on the strip) | built |
+| ✅ | **The pilot's face camera now reads faces the phone's way** (`al-face.js` hooked into `al-inputs.js`: neutral, continuous two-sided blinks and brows, lost and found); "Re-centre" takes a new neutral | built |
+| ✅ | **Break test** `al-breaktest-facepins.js`: 12 checks pass on Topps; all 7 planted faults caught (`AL.breakTest.facepins.proof()`) | browser, not phone |
+| ❓ | **On the Note 9 with the owner's face** | not yet |
+
+Pilot files touched (announced to the lead, claimed on the BOARD): new `al-face.js` and `al-facepins.js`; one line each in
+`al-inputs.js` (`P.watch`, `P.step`, the take channels and owners), `al-solve.js` (face points ride a mirrored or
+flipped character, as `S.pin` does), `al-perform.js` (the chip; Re-centre takes a neutral), `al-cards.js` (a face pin's
+shapes are not listed as plain shapes) and `index.html` (two script tags).
+
+**Phone half:** `FaceCapture.watchPoints(int[])` puts the chosen points out as `pt.<i>.x` / `pt.<i>.y` in `sample()`
+(the tracker now carries all 478 points upright; the neutral keeps their rest). The phone room binds them the same way:
+two shapes on the part, or its own pin offsets.
 
 ## The seam: what the phone room must call
 ```
@@ -189,8 +215,8 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 - [x] **The owner's two minutes in front of the Note 9** (11-22): "Done, all fine"; he found the outline a quarter
       turn off, fixed in `b25adf9ce`.
 - [x] `b25adf9ce` on the Note 9; the owner sees the outline sit on his face ("Yes, it lines up", 11-22).
-- [ ] Face pins (the owner's idea 1 and 2 above): the engine's point signals, then the room's tap-a-point,
-      tap-the-character setup with a strength slider.
+- [x] Face pins (ideas 1 and 2): built in the web pilot with the phone engine half (11-22, above).
+- [ ] Face pins on the Note 9 with the owner's face (the pilot's local page in Chrome).
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.
 - [ ] The AVA-1 lead adds the pilot hook, and the owner tries the pilot's face on the PC page.
 - [ ] The phone room (AVA-1 "path to the phone") plugs in `FaceCapture` as written above, with a masked mouth and teeth

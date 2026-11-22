@@ -101,6 +101,7 @@
     var c = this.cam, now = performance.now(); if (!c.lm || !c.v || c.v.readyState < 2 || now - c.last < 50) return;
     c.last = now;
     var r; try { r = c.lm.detectForVideo(c.v, now); } catch (e) { return; }
+    if (AL.face) { c.face = AL.face.pilotFace(r, c, now / 1000); return; }   // FACE-1: neutral, two sides, lost and found, face pins
     if (!r || !r.faceBlendshapes || !r.faceBlendshapes.length) return;                       // no face: hold, do not fade
     var bs = {}; r.faceBlendshapes[0].categories.forEach(function (q) { bs[q.categoryName] = q.score; });
     var f = { mouth: clamp((bs.jawOpen || 0) * 1.8, 0, 1), blinkL: bs.eyeBlinkLeft > 0.5 ? 1 : 0, blinkR: bs.eyeBlinkRight > 0.5 ? 1 : 0,
@@ -123,13 +124,14 @@
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
   var STEP = { vis: 1, flip: 1, hLw: 1, hRw: 1 }, FADE = 0.25;      // (hLw, hRw: that hand is WALKING, planted on the stage like a foot; see al-take-walk.js)
   AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
-  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
+  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'pt.') return 'facepins'; if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
   P.channels = function () {
     var seen = {}, out = [], k; function add(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }
     for (k in OWN) add(k);
     for (k in this.pose.dial) { add('dx:' + k); add('dy:' + k); }
     (this.app.ch.triggers || []).forEach(function (t) { add('g:' + t.id); });
     for (k in this.S.pin) { add('p:' + k + ':x'); add('p:' + k + ':y'); }
+    for (k in this.S) if (k.slice(0, 3) === 'pt.') add(k);         // FACE-1 face pins
     if (this.take) for (k in this.take.ch) add(k);                  // whatever the take holds is played, even after a reload
     return out;
   };
@@ -137,7 +139,7 @@
   P.owned = function (talking, faceOn) {
     var hd = this.held, face = !!faceOn && !!this.cam.face, k;
     var o = { head: !!hd.head || face, mouth: !!talking || this.mic.on || face, mood: !!hd.face || face, blink: !!this.blinkHold || this.blinkManual > 0 || face,
-      handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
+      facepins: face, handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
     for (k in this.trigTouched) o['g:' + k] = true;                 // a button pressed in this pass is yours to the end of it
     for (k in this.pinTouched) o['p:' + k] = true;
     return o;
@@ -187,6 +189,7 @@
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
     for (k in (S.pin || {})) { o['p:' + k + ':x'] = S.pin[k].x; o['p:' + k + ':y'] = S.pin[k].y; }
+    for (var pk in S) if (pk.slice(0, 3) === 'pt.') o[pk] = S[pk];   // FACE-1 face pins
     return o;
   }
   function unflat(S, name, v) {
@@ -234,6 +237,7 @@
       var z = this.cam.zero;
       if (!held.head && z) { tg.turnX = z.px + (f.turnX - z.fx); tg.turnY = z.py + (f.turnY - z.fy); tg.roll = z.pr + (f.roll - z.fr); }
       if (!held.face || this.talking) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; lidUp = f.lidUp; lidLow = f.lidLow; lidTilt = f.lidTilt; blinkCam = f; } look = f; } }
+    if (AL.facepins) AL.facepins.feed(this, faceOn ? this.cam.face : null, dt);   // FACE-1 face pins
 
     /* a voice, or the Talk button's babble */
     if (this.mic.on) { this.listen(); mouth = Math.max(mouth, this.mic.level); vis = this.mic.vis; }
@@ -259,7 +263,8 @@
     L.ns -= dt; if (L.ns <= 0) { L.ns = 1.6 + Math.random() * 2.6; L.sx = (Math.random() - 0.5) * 0.5; L.sy = (Math.random() - 0.5) * 0.3; }
     var lx = look ? look.lookX : (set.eyesLead !== false ? clamp((tg.turnX - sm.turnX) * 2.6, -1, 1) : 0) + idle * L.sx, ly = look ? look.lookY : (set.eyesLead !== false ? clamp((tg.turnY - sm.turnY) * 2.6, -1, 1) : 0) + idle * L.sy;
     sm.lookX = ease(sm.lookX, clamp(lx, -1, 1), 26, dt); sm.lookY = ease(sm.lookY, clamp(ly, -1, 1), 26, dt);
-    sm.browL = ease(sm.browL, brow + (mouth > 0.75 ? 0.25 : 0), 14, dt); sm.browR = sm.browL;
+    var lift = mouth > 0.75 ? 0.25 : 0, bL = blinkCam && blinkCam.browL != null ? blinkCam.browL : brow, bR = blinkCam && blinkCam.browR != null ? blinkCam.browR : brow;
+    sm.browL = ease(sm.browL, bL + lift, 14, dt); sm.browR = ease(sm.browR, bR + lift, 14, dt);   // FACE-1: one brow can rise alone
     sm.lidUp = ease(sm.lidUp, lidUp, 12, dt); sm.lidLow = ease(sm.lidLow, lidLow, 12, dt); sm.lidTilt = ease(sm.lidTilt, lidTilt, 10, dt); sm.wind = ease(sm.wind, p.wind, 3, dt);
     /* blinks: uneven on purpose */
     var bl = 0;

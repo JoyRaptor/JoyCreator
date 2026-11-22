@@ -118,6 +118,16 @@ public final class FaceCapture {
 
     // ── one tap and the guided check ──
 
+    /**
+     * Face pins: put out the movement of these face points (mesh indices; {@link FacePoints#NAMED} lists
+     * the useful ones) as {@link FaceSignals#pointX} / {@link FaceSignals#pointY} in {@link #sample}:
+     * each point's movement from the neutral face, in the head's own frame, in face-size units.
+     */
+    public void watchPoints(@NonNull int[] meshIndices) { bus.face().setWatchedPoints(meshIndices); }
+
+    /** The neutral face's points (normalised; for drawing the face map), or null before a neutral. */
+    @Nullable public float[] restPoints() { return bus.face().calibration().restPoints(); }
+
     /** One tap: the next half-second of a still face becomes neutral (kept for next time). */
     public void setNeutral() { bus.face().requestNeutral(); }
 

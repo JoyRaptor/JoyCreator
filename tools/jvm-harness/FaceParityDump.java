@@ -67,6 +67,47 @@ public class FaceParityDump {
             frames.add(fr);
         }
         root.add("stage", frames);
+
+        // face pins: the same made-up face, posed and with a smile, through both engines
+        float[] base = FaceEngineTest.cloud();
+        float[] smiling = base.clone();
+        smiling[61 * 3] -= 0.01f;
+        smiling[61 * 3 + 1] -= 0.006f;
+        smiling[17 * 3 + 1] += 0.008f;
+        int[] chosen = {61, 291, 0, 17, 159, 386, 205};
+        JsonArray pcases = new JsonArray();
+        float[][] poses = {{0, 0, 0, 1, 0, 0}, {28, -12, 15, 1.35f, 0.07f, -0.04f}, {-20, 8, -10, 0.9f, -0.05f, 0.02f}};
+        for (float[] ps : poses) {
+            for (float[] face : new float[][]{base, smiling}) {
+                float[] now = FaceEngineTest.posed(face, ps[0], ps[1], ps[2], ps[3], ps[4], ps[5]);
+                JsonObject c = new JsonObject();
+                c.add("rest", gson.toJsonTree(base));
+                c.add("now", gson.toJsonTree(now));
+                c.add("chosen", gson.toJsonTree(chosen));
+                float[] off = com.fadcam.ui.faditor.avatar.face.FacePoints.offsets(
+                        com.fadcam.ui.faditor.avatar.face.FacePoints.normalize(base),
+                        com.fadcam.ui.faditor.avatar.face.FacePoints.normalize(now), chosen, -1);
+                c.add("out", gson.toJsonTree(off));
+                pcases.add(c);
+            }
+        }
+        root.add("points", pcases);
+        // a stage run that takes its neutral with points, then watches two of them
+        FaceStage ps = new FaceStage();
+        ps.setWatchedPoints(new int[]{61, 17});
+        JsonArray pframes = new JsonArray();
+        t = 0;
+        for (int i = 0; i < 40; i++, t += 1 / 15.0) {
+            float[] xyz = i < 20 ? base : i < 30 ? FaceEngineTest.posed(smiling, 15, 5, 8, 1.1, 0.02, 0) : null;
+            Map<String, Float> raw = xyz == null ? null : FaceEngineTest.face();
+            JsonObject fr = new JsonObject();
+            fr.addProperty("t", t);
+            fr.add("raw", raw == null ? null : gson.toJsonTree(raw));
+            fr.add("xyz", xyz == null ? null : gson.toJsonTree(xyz));
+            fr.add("out", gson.toJsonTree(ps.process(raw, xyz, t)));
+            pframes.add(fr);
+        }
+        root.add("pointStage", pframes);
         try (Writer w = new OutputStreamWriter(new FileOutputStream(a[0]), StandardCharsets.UTF_8)) {
             gson.toJson(root, w);
         }

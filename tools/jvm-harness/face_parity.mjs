@@ -32,6 +32,18 @@ dump.cases.forEach((c, i) => same(`face ${i}`, c.out, F.map(c.raw, cal, c.tun)))
 const st = new F.Stage(F.calibration(), {});
 dump.stage.forEach((fr, i) => same(`stage frame ${i}`, fr.out, st.process(fr.raw, fr.t)));
 
+// face pins: point movements, and a stage that takes its neutral with points and watches two
+dump.points.forEach((c, i) => {
+  const got = F.pointOffsets(F.normalizePoints(Float32Array.from(c.rest)), F.normalizePoints(Float32Array.from(c.now)), c.chosen, -1);
+  const phone = {}, pilot = {};
+  c.out.forEach((v, k) => { phone[k] = v; pilot[k] = got ? got[k] : undefined; });
+  same(`face pins ${i}`, phone, pilot);
+});
+const pst = new F.Stage(F.calibration(), {});
+pst.watchPoints([61, 17]);
+dump.pointStage.forEach((fr, i) => same(`face-pin stage frame ${i}`, fr.out,
+  pst.process(fr.raw, fr.t, fr.xyz ? Float32Array.from(fr.xyz) : null)));
+
 console.log(fails === 0
   ? `PASS  the pilot reads every face as the phone does (${compared} values, ${dump.cases.length} faces, ${dump.stage.length} stage frames)`
   : `FAIL  ${fails} of ${compared} values differ between the phone and the pilot`);

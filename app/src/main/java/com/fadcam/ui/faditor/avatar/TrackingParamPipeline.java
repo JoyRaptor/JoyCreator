@@ -103,7 +103,7 @@ public class TrackingParamPipeline {
     private Map<String, Float> processFace(@NonNull TrackingFrame frame, float db) {
         com.fadcam.ui.faditor.avatar.face.FaceStage st = face;
         Map<String, Float> sig = st.process(
-                frame.face == TrackingFrame.FACE_FOUND ? frame.params : null, frame.tSeconds);
+                frame.face == TrackingFrame.FACE_FOUND ? frame.params : null, frame.points, frame.tSeconds);
         Map<String, Float> out = new HashMap<>(faceSmoother.smooth(sig, frame.tSeconds));
         if (!Float.isNaN(frame.audioDb)) {
             Float p = out.get(com.fadcam.ui.faditor.avatar.face.FaceSignals.FACE);

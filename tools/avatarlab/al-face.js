@@ -8,15 +8,11 @@
  * continuous blinks that still land, the jaw apart from the lips, one-sided lips, lean, and a lost face
  * that holds a moment then eases to rest instead of freezing.
  *
- * The hook (for the AVA-1 lead; this file never edits al-inputs.js):
- *   index.html, before al-inputs.js:   <script src="al-face.js"></script>
- *   al-inputs.js, P.watch: replace everything after the `catch (e) { return; }` line with
- *       c.face = AL.face.pilotFace(r, c, now / 1000);
- *   (optional, al-inputs.js P.step: two-sided brows) replace `sm.browR = sm.browL;` with
- *       sm.browR = ease(sm.browR, (look && look.browR != null ? look.browR : brow) + (mouth > 0.75 ? 0.25 : 0), 14, dt);
- *     and feed sm.browL from look.browL the same way.
- * pilotFace returns the object al-inputs.js already reads (mouth, blinkL/R, brow, lookX/Y, smile, lidUp, lidLow,
- * lidTilt, turnX/Y, roll) plus every new signal (browL/R, jaw, jawX, lipUpL ..., leanX/Y, near, face), or null.
+ * Hooked in (11-22, FACE-1, the owner's go-ahead for face pins): index.html loads this before al-inputs.js; al-inputs.js
+ * P.watch hands every result to AL.face.pilotFace(r, cam, t) (the face, or null to ease a lost face to rest), and P.step
+ * moves the two brows apart. "Re-centre" in Perform is AL.face.neutral(cam). Face pins (al-facepins.js) read the points.
+ * pilotFace returns what al-inputs.js reads (mouth, blinkL/R, brow, lookX/Y, smile, lidUp, lidLow, lidTilt, turnX/Y, roll)
+ * plus every new signal (browL/R, jaw, jawX, lipUpL ..., leanX/Y, near, face) and the watched points ('pt.<i>.x' / '.y').
  * Phone: com.fadcam.ui.faditor.avatar.face.*.
  */
 (function (root) {
@@ -46,7 +42,8 @@
     o = o || {};
     var s = o.sign || {};
     return { rest: Object.assign({}, o.rest || {}), sign: { yaw: s.yaw < 0 ? -1 : 1, pitch: s.pitch < 0 ? -1 : 1, roll: s.roll < 0 ? -1 : 1, lean: s.lean > 0 ? 1 : -1 },
-      swapSides: !!o.swapSides, neutralSet: o.neutralSet != null ? !!o.neutralSet : !!(o.rest && Object.keys(o.rest).length) };
+      swapSides: !!o.swapSides, neutralSet: o.neutralSet != null ? !!o.neutralSet : !!(o.rest && Object.keys(o.rest).length),
+      points: o.points && o.points.length >= (F.POINT_COUNT - 10) * 3 ? Float32Array.from(o.points) : null };
   };
   function rest(cal, k) { return num(cal.rest[k]); }
   F.amount = function (cal, k, v) { var r = rest(cal, k), span = Math.max(MIN_SPAN, 1 - r); return clamp((v - r) / span, 0, 1); };
@@ -62,7 +59,18 @@
 
   /** A still stretch of face becomes the neutral (FaceCalibration.Capture). */
   F.Capture = function (base, frames) { this.base = base; this.need = Math.max(1, frames); this.restart(); };
-  F.Capture.prototype.restart = function () { this.sum = {}; this.n = 0; };
+  F.Capture.prototype.restart = function () { this.sum = {}; this.n = 0; this.pSum = null; this.pN = 0; };
+  /** One tracked frame with its face points (normalised, or null): FaceCalibration.Capture.add(raw, points). */
+  F.Capture.prototype.addWithPoints = function (raw, pts) {
+    var done = this.add(raw);
+    if (this.n === 1) { this.pSum = null; this.pN = 0; }
+    if (pts) {
+      if (!this.pSum || this.pSum.length !== pts.length) { this.pSum = new Float64Array(pts.length); this.pN = 0; }
+      for (var i = 0; i < pts.length; i++) this.pSum[i] += pts[i];
+      this.pN++;
+    }
+    return done;
+  };
   F.Capture.prototype.add = function (raw) {
     var yaw = num(raw[F.HEAD_YAW]), pitch = num(raw[F.HEAD_PITCH]);
     if (this.n === 0) { this.minY = this.maxY = yaw; this.minP = this.maxP = pitch; }
@@ -77,7 +85,9 @@
   F.Capture.prototype.result = function () {
     var c = F.calibration(this.base); c.rest = {};
     for (var k in this.sum) c.rest[k] = this.sum[k] / this.n;
-    c.neutralSet = true; return c;
+    c.neutralSet = true;
+    if (this.pSum && this.pN > 0) { var pts = new Float32Array(this.pSum.length); for (var i = 0; i < pts.length; i++) pts[i] = this.pSum[i] / this.pN; c.points = pts; }
+    return c;
   };
 
   /** One prompt of the direction check (yaw / pitch / roll / lean / eye), as on the phone. */
@@ -168,9 +178,99 @@
     return o;
   };
 
+  /* ── face points for face pins (FacePoints.java, line for line) ──
+     A point's movement from the neutral face with the head's turn, tilt, place and distance taken out:
+     the head's own frame is fitted to points that do not move with expression (Horn's method). */
+  F.POINT_COUNT = 478;
+  var STEADY = [10, 151, 9, 8, 168, 6, 197, 195, 5, 4, 1, 33, 263, 133, 362, 234, 454, 127, 356, 21, 251, 54, 284];
+  /** [mesh index, the person's side (1 right, -1 left, 0 middle), name]: the face map's named points. */
+  F.NAMED = [[61, 1, 'mouth corner'], [291, -1, 'mouth corner'],
+    [0, 0, 'upper lip'], [17, 0, 'lower lip'], [13, 0, 'upper lip, inside'], [14, 0, 'lower lip, inside'],
+    [37, 1, 'upper lip side'], [267, -1, 'upper lip side'], [84, 1, 'lower lip side'], [314, -1, 'lower lip side'],
+    [159, 1, 'upper lid'], [145, 1, 'lower lid'], [386, -1, 'upper lid'], [374, -1, 'lower lid'],
+    [107, 1, 'brow, inner'], [105, 1, 'brow, middle'], [70, 1, 'brow, outer'],
+    [336, -1, 'brow, inner'], [334, -1, 'brow, middle'], [300, -1, 'brow, outer'],
+    [98, 1, 'nostril'], [327, -1, 'nostril'], [1, 0, 'nose tip'],
+    [205, 1, 'cheek'], [425, -1, 'cheek'], [152, 0, 'chin'], [172, 1, 'jaw corner'], [397, -1, 'jaw corner']];
+  F.normalizePoints = function (xyz) {
+    var n = (xyz.length / 3) | 0, cx = 0, cy = 0, cz = 0, ss = 0, i;
+    if (n < F.POINT_COUNT - 10) return null;
+    STEADY.forEach(function (j) { cx += xyz[j * 3]; cy += xyz[j * 3 + 1]; cz += xyz[j * 3 + 2]; });
+    cx /= STEADY.length; cy /= STEADY.length; cz /= STEADY.length;
+    STEADY.forEach(function (j) { var dx = xyz[j * 3] - cx, dy = xyz[j * 3 + 1] - cy, dz = xyz[j * 3 + 2] - cz; ss += dx * dx + dy * dy + dz * dz; });
+    var s = Math.sqrt(ss / STEADY.length);
+    if (s < 1e-6) return null;
+    var out = new Float32Array(n * 3);
+    for (i = 0; i < n; i++) { out[i * 3] = (xyz[i * 3] - cx) / s; out[i * 3 + 1] = (xyz[i * 3 + 1] - cy) / s; out[i * 3 + 2] = (xyz[i * 3 + 2] - cz) / s; }
+    return out;
+  };
+  F.pointOffsets = function (rest, now, chosen, side) {
+    if (!rest || !now || rest.length !== now.length) return null;
+    var r = pointRotation(rest, now), out = new Float32Array(chosen.length * 2);
+    for (var k = 0; k < chosen.length; k++) {
+      var i = chosen[k];
+      if (i < 0 || i * 3 + 2 >= now.length) continue;
+      var x = now[i * 3], y = now[i * 3 + 1], z = now[i * 3 + 2];
+      var ux = r[0] * x + r[3] * y + r[6] * z, uy = r[1] * x + r[4] * y + r[7] * z;
+      out[k * 2] = (ux - rest[i * 3]) * side;
+      out[k * 2 + 1] = uy - rest[i * 3 + 1];
+    }
+    return out;
+  };
+  function pointRotation(a, b) {
+    var sxx = 0, sxy = 0, sxz = 0, syx = 0, syy = 0, syz = 0, szx = 0, szy = 0, szz = 0;
+    STEADY.forEach(function (i) {
+      var ax = a[i * 3], ay = a[i * 3 + 1], az = a[i * 3 + 2], bx = b[i * 3], by = b[i * 3 + 1], bz = b[i * 3 + 2];
+      sxx += ax * bx; sxy += ax * by; sxz += ax * bz; syx += ay * bx; syy += ay * by; syz += ay * bz; szx += az * bx; szy += az * by; szz += az * bz;
+    });
+    var q = topEigenvector([[sxx + syy + szz, syz - szy, szx - sxz, sxy - syx], [syz - szy, sxx - syy - szz, sxy + syx, szx + sxz],
+      [szx - sxz, sxy + syx, -sxx + syy - szz, syz + szy], [sxy - syx, szx + sxz, syz + szy, -sxx - syy + szz]]);
+    var w = q[0], x = q[1], y = q[2], z = q[3];
+    return [1 - 2 * (y * y + z * z), 2 * (x * y - w * z), 2 * (x * z + w * y), 2 * (x * y + w * z), 1 - 2 * (x * x + z * z), 2 * (y * z - w * x),
+      2 * (x * z - w * y), 2 * (y * z + w * x), 1 - 2 * (x * x + y * y)];
+  }
+  function topEigenvector(m) {
+    var a = m.map(function (r) { return r.slice(); }), v = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]], p, q, k;
+    for (var sweep = 0; sweep < 60; sweep++) {
+      var off = 0;
+      for (p = 0; p < 4; p++) for (q = p + 1; q < 4; q++) off += a[p][q] * a[p][q];
+      if (off < 1e-22) break;
+      for (p = 0; p < 4; p++) {
+        for (q = p + 1; q < 4; q++) {
+          if (Math.abs(a[p][q]) < 1e-30) continue;
+          var theta = (a[q][q] - a[p][p]) / (2 * a[p][q]);
+          var t = Math.sign(theta) / (Math.abs(theta) + Math.sqrt(theta * theta + 1));
+          if (theta === 0) t = 1;
+          var c = 1 / Math.sqrt(t * t + 1), s = t * c;
+          for (k = 0; k < 4; k++) { var akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+          for (k = 0; k < 4; k++) { var apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+          for (k = 0; k < 4; k++) { var vkp = v[k][p], vkq = v[k][q]; v[k][p] = c * vkp - s * vkq; v[k][q] = s * vkp + c * vkq; }
+        }
+      }
+    }
+    var best = 0;
+    for (var i = 1; i < 4; i++) if (a[i][i] > a[best][best]) best = i;
+    var e = [v[0][best], v[1][best], v[2][best], v[3][best]], len = Math.sqrt(e[0] * e[0] + e[1] * e[1] + e[2] * e[2] + e[3] * e[3]);
+    return e.map(function (x) { return x / len; });
+  }
+  /** All the face's points from a MediaPipe (JS) result, x, y, z each, y in width units (tall = height / width). */
+  F.facePoints = function (r, tall) {
+    if (!r || !r.faceLandmarks || !r.faceLandmarks.length) return null;
+    var p = r.faceLandmarks[0], out = new Float32Array(p.length * 3);
+    for (var i = 0; i < p.length; i++) { out[i * 3] = p[i].x; out[i * 3 + 1] = p[i].y * tall; out[i * 3 + 2] = p[i].z; }
+    return out;
+  };
+
   /* ── the stage: neutral, lost and found, gaze through blinks, steady sheet mouths (FaceStage.java) ── */
   var HOLD = 0.35, EASE_OUT = 0.8, EASE_IN = 0.3, NEUTRAL_FRAMES = 8;
-  function blend(a, b, k) { var o = {}; F.ALL.forEach(function (n) { var av = num(a[n]), bv = num(b[n]); o[n] = STEP[n] ? (k >= 0.5 ? bv : av) : av + (bv - av) * k; }); return o; }
+  function blend(a, b, k) {
+    var o = {};
+    function put(n) { var av = num(a[n]), bv = num(b[n]); o[n] = STEP[n] ? (k >= 0.5 ? bv : av) : av + (bv - av) * k; }
+    F.ALL.forEach(put);
+    for (var n in a) if (n.slice(0, 3) === 'pt.') put(n);        // face pins rest at 0
+    for (var m in b) if (m.slice(0, 3) === 'pt.') put(m);
+    return o;
+  }
   function sm(k) { return k * k * (3 - 2 * k); }
   F.Stage = function (cal, tun) {
     this.cal = cal || F.calibration(); this.tun = tun || {}; this.autoNeutral = true; this.wantNeutral = false;
@@ -180,17 +280,25 @@
   var S = F.Stage.prototype;
   S.requestNeutral = function () { this.wantNeutral = true; };
   S.check = function (what) { this.checking = new F.DirectionCheck(what, this.cal); };
-  S.process = function (raw, t) {
+  /** Face pins: put out the movement of these face points (mesh indices). */
+  S.watchPoints = function (list) { this.watched = (list || []).slice(); };
+  S.process = function (raw, t, xyz) {
+    var pts = raw && xyz ? F.normalizePoints(xyz) : null;
     var dt = this.lastT !== this.lastT ? 0 : clamp(t - this.lastT, 0, 0.5), target;
     this.lastT = t;
     if (raw) {
-      this.found = true; this.calibrate(raw);
+      this.found = true; this.calibrate(raw, pts);
       if (this.autoNeutral && !this.cal.neutralSet) {      // the first half-second: wait at rest for the neutral
         if (this.lostSince !== this.lostSince) this.lostSince = t;
         this.lastOut = F.rest(); return F.rest();
       }
       if (this.lostSince === this.lostSince) { this.cross = Object.assign({}, this.lastOut); this.crossK = 0; this.lostSince = NaN; }
       var m = F.map(raw, this.cal, this.tun);
+      var w = this.watched || [];
+      if (w.length) {
+        var off = F.pointOffsets(this.cal.points, pts, w, (this.tun.mirror ? -1 : 1) * this.cal.sign.lean);
+        for (var q = 0; q < w.length; q++) { m['pt.' + w[q] + '.x'] = off ? off[q * 2] : 0; m['pt.' + w[q] + '.y'] = off ? off[q * 2 + 1] : 0; }
+      }
       if (Math.max(m.blinkL, m.blinkR) > 0.55) { m.lookX = this.gx; m.lookY = this.gy; } else { this.gx = m.lookX; this.gy = m.lookY; }
       if (m.vis === this.vis) this.visN = 0; else if (m.vis === this.visPending) { if (++this.visN >= 2) { this.vis = m.vis; this.visN = 0; } } else { this.visPending = m.vis; this.visN = 1; }
       m.vis = this.vis;
@@ -210,11 +318,11 @@
     this.lastOut = target;
     return Object.assign({}, target);
   };
-  S.calibrate = function (raw) {
+  S.calibrate = function (raw, pts) {
     if (this.checking) { if (this.checking.add(raw)) { this.cal = this.checking.apply(); this.lastCheck = this.checking; this.checking = null; } return; }
     if (!(this.wantNeutral || (this.autoNeutral && !this.cal.neutralSet))) { this.capture = null; return; }
     if (!this.capture) this.capture = new F.Capture(this.cal, NEUTRAL_FRAMES);
-    if (this.capture.add(raw)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; F.save(this.cal); }
+    if (this.capture.addWithPoints(raw, pts)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; F.save(this.cal); }
   };
 
   /* ── a MediaPipe (JS) FaceLandmarker result to the raw face ── */
@@ -238,13 +346,18 @@
   /* ── the pilot's face camera (al-inputs.js cam object) ── */
   F.KEY = 'al.face.cal';
   F.load = function () { try { return F.calibration(JSON.parse(root.localStorage.getItem(F.KEY) || 'null') || {}); } catch (e) { return F.calibration(); } };
-  F.save = function (cal) { try { root.localStorage.setItem(F.KEY, JSON.stringify(cal)); } catch (e) { /* private mode: kept for this visit */ } };
+  F.save = function (cal) {
+    var o = Object.assign({}, cal);
+    if (cal.points) o.points = Array.prototype.map.call(cal.points, function (v) { return Math.round(v * 10000) / 10000; });
+    try { root.localStorage.setItem(F.KEY, JSON.stringify(o)); } catch (e) { /* private mode: kept for this visit */ }
+  };
   /** One tap: the next still half-second of the face becomes neutral. */
   F.neutral = function (cam) { if (cam && cam._faceStage) cam._faceStage.requestNeutral(); };
   F.pilotFace = function (r, cam, t) {
     var st = cam._faceStage || (cam._faceStage = new F.Stage(F.load(), {}));
     st.tun.mirror = !!cam.swap;
-    var o = st.process(F.rawFromResult(r), t);
+    var v = cam.v, tall = v && v.videoWidth ? v.videoHeight / v.videoWidth : 0.75;
+    var o = st.process(F.rawFromResult(r), t, F.facePoints(r, tall));
     o.brow = (o.browL + o.browR) / 2;
     o.smile = (o.smileL + o.smileR) / 2;
     return o;

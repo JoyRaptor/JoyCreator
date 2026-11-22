@@ -59,6 +59,8 @@ public final class FaceCalibration {
     private boolean swapSides = false;
     /** True once a neutral has been captured (a fresh calibration is captured automatically). */
     private boolean neutralSet = false;
+    /** FACE-1 face pins: every face point at rest, {@link FacePoints#normalize}d; null until a neutral has points. */
+    @Nullable private float[] restPoints;
 
     @NonNull
     public static FaceCalibration none() {
@@ -71,6 +73,8 @@ public final class FaceCalibration {
     public int signRoll() { return signRoll; }
     public int signLean() { return signLean; }
     public boolean swapSides() { return swapSides; }
+    /** The face points at rest (normalised), or null. Shared, never modified. */
+    @Nullable public float[] restPoints() { return restPoints; }
 
     /**
      * Lean from neutral in face widths: {x + = the person's right, y + = down, near + = closer},
@@ -115,6 +119,7 @@ public final class FaceCalibration {
         c.signLean = signLean;
         c.swapSides = swapSides;
         c.neutralSet = neutralSet;
+        c.restPoints = restPoints;
         return c;
     }
 
@@ -154,6 +159,11 @@ public final class FaceCalibration {
         s.addProperty("lean", signLean);
         o.add("sign", s);
         o.addProperty("swapSides", swapSides);
+        if (restPoints != null) {
+            com.google.gson.JsonArray a = new com.google.gson.JsonArray();
+            for (float v : restPoints) a.add(Math.round(v * 10000f) / 10000f);
+            o.add("points", a);
+        }
         return o;
     }
 
@@ -176,6 +186,12 @@ public final class FaceCalibration {
                 if (s.has("lean")) c.signLean = s.get("lean").getAsInt() < 0 ? -1 : 1;
             }
             if (o.has("swapSides")) c.swapSides = o.get("swapSides").getAsBoolean();
+            if (o.has("points") && o.get("points").isJsonArray()) {
+                com.google.gson.JsonArray a = o.getAsJsonArray("points");
+                float[] pts = new float[a.size()];
+                for (int i = 0; i < pts.length; i++) pts[i] = a.get(i).getAsFloat();
+                if (pts.length >= (FacePoints.COUNT - 10) * 3) c.restPoints = pts;
+            }
             c.neutralSet = o.has("neutralSet") ? o.get("neutralSet").getAsBoolean() : !c.rest.isEmpty();
             int v = o.has("v") ? o.get("v").getAsInt() : 1;
             if (v < 2) {
@@ -187,6 +203,7 @@ public final class FaceCalibration {
                 c.rest.remove(FACE_SIZE);
                 c.signLean = -1;
                 c.neutralSet = false;
+                c.restPoints = null;
             }
         } catch (RuntimeException ignored) {
             // keep what was read
@@ -207,7 +224,8 @@ public final class FaceCalibration {
         private final int need;
         private final FaceCalibration base;
         private final Map<String, Double> sum = new HashMap<>();
-        private int n = 0;
+        @Nullable private double[] pointSum;
+        private int n = 0, pointN = 0;
         private float minYaw, maxYaw, minPitch, maxPitch;
 
         public Capture(@NonNull FaceCalibration base, int frames) {
@@ -219,6 +237,20 @@ public final class FaceCalibration {
         public void restart() {
             sum.clear();
             n = 0;
+            pointSum = null;
+            pointN = 0;
+        }
+
+        /** One tracked frame with its face points ({@link FacePoints#normalize}d, or null). */
+        public boolean add(@NonNull Map<String, Float> raw, @Nullable float[] points) {
+            boolean done = add(raw);               // always counts this frame (after a restart, as the first)
+            if (n == 1) { pointSum = null; pointN = 0; }
+            if (points != null) {
+                if (pointSum == null || pointSum.length != points.length) { pointSum = new double[points.length]; pointN = 0; }
+                for (int i = 0; i < points.length; i++) pointSum[i] += points[i];
+                pointN++;
+            }
+            return done;
         }
 
         /** Feed one tracked frame's raw values; true when the neutral is complete. */
@@ -256,6 +288,11 @@ public final class FaceCalibration {
                 c.rest.put(e.getKey(), (float) (e.getValue() / n));
             }
             c.neutralSet = true;
+            if (pointSum != null && pointN > 0) {
+                float[] pts = new float[pointSum.length];
+                for (int i = 0; i < pts.length; i++) pts[i] = (float) (pointSum[i] / pointN);
+                c.restPoints = pts;
+            }
             return c;
         }
 

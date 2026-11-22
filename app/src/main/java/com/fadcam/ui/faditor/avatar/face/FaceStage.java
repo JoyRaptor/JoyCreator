@@ -41,6 +41,8 @@ public final class FaceStage {
     private volatile boolean autoNeutral = true;
     @Nullable private volatile String checkRequested;
     @Nullable private volatile FaceCalibration.DirectionCheck lastCheck;
+    /** FACE-1 face pins: the mesh points whose movement is put out as {@link FaceSignals#pointX}/Y. */
+    @NonNull private volatile int[] watched = new int[0];
 
     // ── tracker-thread state ──
     @Nullable private FaceCalibration.Capture capture;
@@ -90,6 +92,11 @@ public final class FaceStage {
     @NonNull public FaceTuning tuning() { return tuning; }
     public void setTuning(@NonNull FaceTuning t) { tuning = t.copy(); }
 
+    /** Face pins: put out the movement of these face points (mesh indices); empty for none. */
+    public void setWatchedPoints(@NonNull int[] points) { watched = points.clone(); }
+
+    @NonNull public int[] watchedPoints() { return watched.clone(); }
+
     /** True while a face is being tracked. */
     public boolean isFound() { return found; }
     /** True while a neutral is being captured (requested, or the automatic first one). */
@@ -106,6 +113,16 @@ public final class FaceStage {
      */
     @NonNull
     public Map<String, Float> process(@Nullable Map<String, Float> raw, double t) {
+        return process(raw, null, t);
+    }
+
+    /**
+     * One frame with the face's points too ({@code xyz}: x, y, z per point, y in width units; null if the
+     * tracker gives none). The points are kept with the neutral and the watched ones put out.
+     */
+    @NonNull
+    public Map<String, Float> process(@Nullable Map<String, Float> raw, @Nullable float[] xyz, double t) {
+        float[] pts = raw != null && xyz != null ? FacePoints.normalize(xyz) : null;
         double dt = Double.isNaN(lastT) ? 0 : Math.max(0, Math.min(0.5, t - lastT));
         lastT = t;
         FaceCalibration c = cal;
@@ -114,7 +131,7 @@ public final class FaceStage {
         Map<String, Float> target;
         if (raw != null) {
             found = true;
-            calibrate(raw, c);
+            calibrate(raw, pts, c);
             c = cal; // a neutral may have just landed
             if (autoNeutral && !c.isNeutralSet()) {
                 // The very first half-second: wait at rest for the neutral instead of showing the
@@ -130,6 +147,7 @@ public final class FaceStage {
                 lostSince = Double.NaN;
             }
             Map<String, Float> m = FaceMapper.map(raw, c, tun);
+            putPoints(m, pts, c, tun);
             holdGazeWhileBlinking(m);
             steadyShape(m);
             lastTracked = m;
@@ -176,7 +194,20 @@ public final class FaceStage {
 
     // ── pieces ──
 
-    private void calibrate(@NonNull Map<String, Float> raw, @NonNull FaceCalibration c) {
+    /** Face pins: each watched point's movement from neutral, in the head's own frame, screen-sided. */
+    private void putPoints(@NonNull Map<String, Float> m, @Nullable float[] pts, @NonNull FaceCalibration c,
+                           @NonNull FaceTuning tun) {
+        int[] w = watched;
+        if (w.length == 0) return;
+        int side = (tun.mirror ? -1 : 1) * c.signLean();
+        float[] off = FacePoints.offsets(c.restPoints(), pts, w, side);
+        for (int k = 0; k < w.length; k++) {
+            m.put(FaceSignals.pointX(w[k]), off != null ? off[k * 2] : 0f);
+            m.put(FaceSignals.pointY(w[k]), off != null ? off[k * 2 + 1] : 0f);
+        }
+    }
+
+    private void calibrate(@NonNull Map<String, Float> raw, @Nullable float[] pts, @NonNull FaceCalibration c) {
         String ask = checkRequested;
         if (ask != null) {
             checkRequested = null;
@@ -196,7 +227,7 @@ public final class FaceStage {
             return;
         }
         if (capture == null) capture = new FaceCalibration.Capture(c, NEUTRAL_FRAMES);
-        boolean done = capture.add(raw);
+        boolean done = capture.add(raw, pts);
         captureCount = capture.count();
         if (done) {
             cal = capture.result();
@@ -238,11 +269,15 @@ public final class FaceStage {
     @NonNull
     private static Map<String, Float> blend(@NonNull Map<String, Float> a, @NonNull Map<String, Float> b, float k) {
         Map<String, Float> o = new HashMap<>();
-        for (String n : FaceSignals.ALL) {
-            float av = get(a, n), bv = get(b, n);
-            o.put(n, FaceSignals.isStep(n) ? (k >= 0.5f ? bv : av) : av + (bv - av) * k);
-        }
+        for (String n : FaceSignals.ALL) put(o, n, a, b, k);
+        for (String n : a.keySet()) if (FaceSignals.isPoint(n)) put(o, n, a, b, k);  // face pins rest at 0
+        for (String n : b.keySet()) if (FaceSignals.isPoint(n)) put(o, n, a, b, k);
         return o;
+    }
+
+    private static void put(Map<String, Float> o, String n, Map<String, Float> a, Map<String, Float> b, float k) {
+        float av = get(a, n), bv = get(b, n);
+        o.put(n, FaceSignals.isStep(n) ? (k >= 0.5f ? bv : av) : av + (bv - av) * k);
     }
 
     private static float smooth(float k) {

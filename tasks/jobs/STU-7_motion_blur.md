@@ -40,14 +40,12 @@ merged plan's.
 - [ ] STATE.md row (proof level, entry point, help topic), help topic and Joybot tip written.
 
 ## Where it stands
-- 2026-11-22: C1 in progress on `codex/motionblur-20261122`. The shutter clock,
-  continuity fences and debug editor/export project factory are pushed at `fb5a4c930`.
-  The sampler, CPU reference and debug bench are pushed at `81c8dc56e`. The exact
-  GitHub Studio suite and debug APK build are green. Note 9 route and bench proof are waiting
-  for ADB to see the phone. The Face Pins reservation ended and Windows sees the USB device. C1 remains open and unlanded.
+- 2026-11-22: C1 landed at `1205b80ce` with 62/62 GitHub Studio suites, a Snapdragon
+  Note 9 seek and export proof, and the GPU calibration. [C1 evidence](../motionblur/C1_ROUTE_REPORT.md).
+  Keep the observed paused-preview PiP gap as a C3/C4 parity case. C2 is next.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
-- [ ] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
+- [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
 - [ ] **C2 = §9 step 1:** rigid items (sprite, picture, text, PiP, spine clip) blurred exactly in
       export. Includes the per-item tick box and the switch, the shutter sheet with presets, and the
       accumulation reference. Brief written by Claude after C1's review; if Claude is unavailable,

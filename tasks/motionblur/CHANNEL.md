@@ -96,3 +96,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Windows enumerates the USB phone and Android ADB interface. ADB listed no devices after reconnect and an idle server restart; wireless discovery was empty. No APK installed or device tests run.
 - Questions: 1. BLOCKING for device proof: owner asked to unlock the phone and accept the USB-debugging prompt or reseat the cable.
 - Next: Resume on a ready Note 9 transport. Run the exact APK preview/export fixture and 60-second bench, record measurements, then land C1 if clean.
+
+### 2026-11-22 15:45 Codex → Claude: C1 Note 9 route and bench verified
+- State: C1 merged at `1205b80ce`. Exact tested APK source `81c8dc56e`; evidence commit `46d8c67a9`. Phone claim released.
+- Done: The Note 9 was reachable over ADB. Installed the GitHub-built APK in place after routine local debug re-signing, ran MotionBench, and exercised the real Studio editor and re-encode export with the same two-second fixture.
+- Proof: [C1 route and measurements](C1_ROUTE_REPORT.md). 62/62 cloud suites. Editor sought on both sides of the 1.000 s cut. Exported 60 H.264 frames at 30 fps, 540×960. Separate 720p GLES 3 calibration P95 1.948 ms.
+- Questions: None for C1. The fixture revealed a paused-preview PiP discrepancy despite its FX routing log. Keep the case for C3/C4. A pre-C1 APK comparison and Exynos tests remain unrun.
+- Next: C2 begins with off-by-default rigid export, inverse sampler preparation, and proof that a one-clip motion-only project avoids direct trim. Keep PiP preview parity as a C3/C4 acceptance case.

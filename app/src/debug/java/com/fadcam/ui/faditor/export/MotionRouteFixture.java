@@ -127,17 +127,18 @@ final class MotionRouteFixture {
             x.put(0, 0.24f, Easing.LINEAR);
             x.put(250, 0.24f, Easing.LINEAR);
             x.put(500, 0.76f, Easing.HOLD);
-            x.put(750, 0.38f, Easing.LINEAR);
+            // The 30 fps frame at 733.333 ms has a shutter that straddles this jump.
+            x.put(735, 0.38f, Easing.LINEAR);
             var y = keys.getOrCreate(SpineTransform.Y);
             y.put(0, 0.38f, Easing.LINEAR);
             y.put(250, 0.38f, Easing.LINEAR);
             y.put(500, 0.62f, Easing.HOLD);
-            y.put(750, 0.48f, Easing.LINEAR);
+            y.put(735, 0.48f, Easing.LINEAR);
             var rotation = keys.getOrCreate(SpineTransform.ROTATION);
             rotation.put(0, 0f, Easing.LINEAR);
             rotation.put(250, 0f, Easing.LINEAR);
             rotation.put(500, 55f, Easing.HOLD);
-            rotation.put(750, -12f, Easing.LINEAR);
+            rotation.put(735, -12f, Easing.LINEAR);
         }
         project.getTimeline().addClip(clip);
         if (!storage.save(project)) throw new IOException("Could not save the spine fixture");

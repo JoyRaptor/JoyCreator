@@ -5463,7 +5463,7 @@ public class ExportManager {
                 /* isTransitionItem = */ false,
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ false,
-                clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs));
+                clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs), timelineDurationMs);
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));
@@ -5537,7 +5537,8 @@ public class ExportManager {
                 /* isTransitionItem = */ true,
                 /* preOverlayExtra = */ glTrans,
                 /* isLoopBeforeItem = */ false,
-                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, transInMs), Math.max(sourceDur, timelineDurMs));
+                com.fadcam.ui.faditor.model.TimeMap.clipLocalMsAt(clip, transInMs),
+                Math.max(sourceDur, timelineDurMs), 0L);
 
         // Audio: mirror the outgoing clip's mute/volume. Previously the transition
         // segment carried the clip's ORIGINAL audio at full volume — so a muted clip
@@ -5678,7 +5679,7 @@ public class ExportManager {
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
                 /* preOverlayExtra = */ null,
-                /* isLoopBeforeItem = */ isBefore, 0L, Math.max(sourceSpanMs, playedMs));
+                /* isLoopBeforeItem = */ isBefore, 0L, Math.max(sourceSpanMs, playedMs), 0L);
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             eb.setEffects(new Effects(audioProcessors, videoEffects));
@@ -5732,7 +5733,7 @@ public class ExportManager {
                 canvasDims, waveformSlots,
                 /* isTransitionItem = */ false,
                 /* preOverlayExtra = */ null,
-                /* isLoopBeforeItem = */ isBefore, 0L, extensionMs);
+                /* isLoopBeforeItem = */ isBefore, 0L, extensionMs, 0L);
 
         if (!videoEffects.isEmpty()) {
             eb.setEffects(new Effects(Collections.emptyList(), videoEffects));
@@ -6916,7 +6917,8 @@ public class ExportManager {
                                                   boolean isTransitionItem,
                                                   @Nullable Effect preOverlayExtra,
                                                   boolean isLoopBeforeItem,
-                                                  long clipLocalStartMs, long pieceDurationMs) {
+                                                  long clipLocalStartMs, long pieceDurationMs,
+                                                  long shutterPieceDurationMs) {
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
@@ -7184,7 +7186,7 @@ public class ExportManager {
         // position in the project.
         if (!isTransitionItem && clip.hasSpineTransform()) {
             videoEffects.add(new SpineTransformExportEffect(clip, clipLocalOriginMs,
-                    timelineCursorMs, pieceDurationMs));
+                    timelineCursorMs, shutterPieceDurationMs));
         }
 
         // ── Clip opacity / master fade — the CLIP's picture only ──────────────────────

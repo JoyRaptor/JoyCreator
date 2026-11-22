@@ -274,6 +274,7 @@
   function sm(k) { return k * k * (3 - 2 * k); }
   F.Stage = function (cal, tun) {
     this.cal = cal || F.calibration(); this.tun = tun || {}; this.autoNeutral = true; this.wantNeutral = false;
+    this.persist = false;                 // only the real face camera's stage keeps its neutral (pilotFace turns it on)
     this.lastTracked = F.rest(); this.lastOut = F.rest(); this.cross = null; this.crossK = 1; this.presence = 0;
     this.lastT = NaN; this.lostSince = NaN; this.gx = 0; this.gy = 0; this.vis = 0; this.visPending = 0; this.visN = 0; this.found = false;
   };
@@ -322,7 +323,7 @@
     if (this.checking) { if (this.checking.add(raw)) { this.cal = this.checking.apply(); this.lastCheck = this.checking; this.checking = null; } return; }
     if (!(this.wantNeutral || (this.autoNeutral && !this.cal.neutralSet))) { this.capture = null; return; }
     if (!this.capture) this.capture = new F.Capture(this.cal, NEUTRAL_FRAMES);
-    if (this.capture.addWithPoints(raw, pts)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; F.save(this.cal); }
+    if (this.capture.addWithPoints(raw, pts)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; if (this.persist) F.save(this.cal); }
   };
 
   /* ── a MediaPipe (JS) FaceLandmarker result to the raw face ── */
@@ -354,7 +355,8 @@
   /** One tap: the next still half-second of the face becomes neutral. */
   F.neutral = function (cam) { if (cam && cam._faceStage) cam._faceStage.requestNeutral(); };
   F.pilotFace = function (r, cam, t) {
-    var st = cam._faceStage || (cam._faceStage = new F.Stage(F.load(), {}));
+    var st = cam._faceStage;
+    if (!st) { st = cam._faceStage = new F.Stage(F.load(), {}); st.persist = true; }
     st.tun.mirror = !!cam.swap;
     var v = cam.v, tall = v && v.videoWidth ? v.videoHeight / v.videoWidth : 0.75;
     var o = st.process(F.rawFromResult(r), t, F.facePoints(r, tall));

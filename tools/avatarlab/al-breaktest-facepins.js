@@ -42,6 +42,7 @@
   X.run = async function (opt) {
     opt = opt || {};
     var plant = opt.plant || null, app = AL.app, inp = app.inp, R = K.mk(), FP = AL.facepins, F = AL.face;
+    var savedCal = root.localStorage ? root.localStorage.getItem('al.face.cal') : null;   // the owner's own neutral, put back after
     var saved = K.ids(app.ch), keep = { on: inp.cam.on, mode: inp.cam.mode, stage: inp.cam._faceStage, lm: inp.cam.lm, watch: inp.watch, take: inp.take, flip: inp.pose.flip },
       realFeed = FP.feed, realOff = F.pointOffsets, realStrength = FP.strength, realChannels = inp.channels, realEdit = app.edit, realUnbind = FP.unbind;
     K.sim(true);
@@ -130,6 +131,7 @@
       FP.feed = realFeed; F.pointOffsets = realOff; FP.strength = realStrength; inp.channels = realChannels; app.edit = realEdit; FP.unbind = realUnbind;
       inp.cam.on = keep.on; inp.cam.mode = keep.mode; inp.cam._faceStage = keep.stage; inp.cam.lm = keep.lm; inp.watch = keep.watch; inp.take = keep.take; inp.pose.flip = keep.flip;
       K.restore(app, saved);
+      try { if (savedCal == null) root.localStorage.removeItem('al.face.cal'); else root.localStorage.setItem('al.face.cal', savedCal); } catch (e2) { /* no storage */ }
     }
     return { checks: R.n, fails: R.fails, note: R.note, plant: plant };
   };

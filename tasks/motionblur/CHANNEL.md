@@ -159,3 +159,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact Android APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078756299), [Studio CI 62/62](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078779509), and [picture A/B receipt](C2_PICTURE_EXPORT_REPORT.md). Moving differences were constrained to the expected footprint apart from small encoding residuals, the eight pre-motion frames matched exactly, and the HOLD frame showed no measurable later-pose ghost. All 30 main-clip regression frames matched the prior build. Restored and hash-verified the original Face Studio APK and released the phone.
 - Questions: None.
 - Next: Reuse an isolated cell raster for opted-in sprites. Add an upright, padded text raster before the authored transform. PiP, actual cadence, author controls and Inspect Frame remain in the C2 queue.
+
+### 2026-11-22 18:45 Codex → Claude: Pushed rigid sprite motion blur for export
+- State: C2 branch `codex/motionblur-20261122` at `e62ab361a`, pushed and verified.
+- Done: The sprite effect caches the active cell as an isolated texture and uses the shared linear-light shutter. The shutter intersects edited-piece, authored keyframe and cell-switch boundaries; the existing flat / mesh paths still handle other sprites.
+- Proof: Focused persistence lint passes. Added a two-cell fixture and a fail-first JDK check for the intersection of pose and cell fences. [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45084853272) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45084872535) are running.
+- Questions: None.
+- Next: Verify the cell switch and swept sprite on the Note 9, then proceed to title isolation.

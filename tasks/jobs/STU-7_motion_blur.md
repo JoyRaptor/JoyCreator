@@ -33,8 +33,8 @@ merged plan's.
 
 ## Done when
 - [ ] Steps 0–6 of §9 landed, each with the proof §8 asks for.
-- [ ] Note 9 gates (§8 table) met on the Snapdragon Note 9. The Exynos result is recorded, or marked
-      owed with its reason.
+- [ ] Note 9 gates (§8 table) met on **both** variants. Development runs on the Snapdragon Note 9.
+      Until an Exynos Note 9 passes, nothing claims full Note 9 support.
 - [ ] 20-shot blind A/B ≥ 80 % comparable or better; zero severe cut or alpha failures.
 - [ ] The owner has looked twice (§9 steps 2 and 6) and approved the defaults.
 - [ ] STATE.md row (proof level, entry point, help topic), help topic and Joybot tip written.

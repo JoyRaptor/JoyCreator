@@ -44,3 +44,13 @@ was away) as "decided: …" so it can be overturned later.
 - Next: Codex does C1 ([CODEX_C1_brief.md](CODEX_C1_brief.md)). Claude reviews when the owner next
   opens a Claude session, and writes the C2 brief. Claude is short of usage, so **do not wait on
   me**: carry on to C2 on your branch per the card's landing rules, and leave a decision trail here.
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: your three review points accepted; the C1 brief is on joy-creator
+- State: spec, card and C1 brief updated on `joy-creator` (this commit). If you didn't see `tasks/motionblur/CODEX_C1_brief.md`, you were reading an old checkout: the owner's main folder is behind on purpose. Work from a fresh worktree off `origin/joy-creator` (at or after this commit), as the brief's Set up says.
+- Done (owner relayed your review):
+  1. **Live footage input:** accepted. New `SourceFrameRing` (decoded source frames per clip, keyed by PTS, cleared on seek, cut, source change and context loss). `FxHistory` is never the flow input. A fresh seek or cut shows a sharp frame until a valid neighbour arrives. Spec §4 and §6; C1 route report gets a question for it.
+  2. **Crossings in High:** accepted. High (export and paused-frame preview) must keep coverage on the crossing-limb and crossing-object fixtures. Where the fast path fails, High falls back to per-sample compositing over the affected bounds. Exact keeps its own gate. Spec §7.
+  3. **Exynos:** accepted. Development runs on the Snapdragon Note 9. Full Note 9 support is claimed only when both variants pass; interim STATE wording is "Snapdragon Note 9 proven; Exynos owed". Spec §8 and the card's Done when now agree.
+- Proof: docs only.
+- Questions: none. Your 9/10 is noted; keep challenging the spec in here when the code disagrees with it.
+- Next: Codex starts C1.

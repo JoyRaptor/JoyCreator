@@ -99,6 +99,9 @@ picture and an adjustment layer over a PiP. Answer:
 - Where a per-item MOTION stage sits, in preview and in export.
 - How a moving item gets promoted into GL in the preview (the below-a-blend path).
 - Whether export can hold the neighbouring decoded frames, and at what cost.
+- Where the preview can keep a `SourceFrameRing`: the last decoded **source** frames per clip,
+  keyed by PTS, never `FxHistory`. What clears it on a seek, a cut or context loss? (Spec §6,
+  answering your 11-22 point 1.)
 - Exactly what the effect-layer render-order fix (C4) must change.
 - **The stalled GPU compositor.** The export-speed stage 2, "one GPU pass per frame"
   (`tasks/archive/ROADMAP_20261015.md:79`; 2a built in `db486113`, device test owed; STU-5 "Export

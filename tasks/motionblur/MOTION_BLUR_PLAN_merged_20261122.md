@@ -139,7 +139,9 @@ app/.../motion/flow/
   FlowEstimator      interface; GpuPyramidFlow (fragment, DIS-style) and OpenCvDisFlow (CPU)
   FlowAnalyzer       background, range-first, cancellable; forward+backward, confidence
   FlowCache          versioned, quota-managed chunks; quantised + compressed
-  LiveFlow           1/8-res backward flow from FxHistory's previous frame for instant preview
+  SourceFrameRing    per clip: the last few DECODED SOURCE frames keyed by PTS (never FxHistory,
+                     which holds effect output); cleared on seek, cut, source change, context loss
+  LiveFlow           1/8-res backward flow from SourceFrameRing's previous source frame
 app/.../motion/
   MotionBench        GPU timer queries + presented-frame counters, temperature log
 ```
@@ -216,8 +218,11 @@ transforms and overlays are applied. Every vector has a documented sign, unit (s
 interval.
 
 - **Instant (preview), from A:**
-  - `LiveFlow` computes backward flow at 1/8 resolution from the previous decoded frame, so footage
-    blurs from the first play with no waiting.
+  - `LiveFlow` computes backward flow at 1/8 resolution from the previous decoded source frame, so
+    footage blurs from the first play with no waiting. That frame comes from `SourceFrameRing`,
+    keyed by PTS, never from `FxHistory` (which holds effect output, so it would give trails).
+    Codex review 11-22. After a fresh seek or a cut, the frame stays sharp until a valid neighbour
+    has been decoded (one frame), unless analysed flow already covers it.
   - Quality is "Fast": edge-aware upsampling, confidence-gated.
 - **Analysed (preview High and export), from B:**
   - `FlowAnalyzer` runs in the background, visible range first.
@@ -275,6 +280,11 @@ interval.
   averaged, and the average is placed at the effect's position in the stack. Overlays above the
   effect stay outside the temporal passes. Glow, grade and other effects keep their before/after
   order. This is also the reference that the interactive path is judged against.
+- **High must already get crossings right** (Codex review 11-22). On the crossing-limb and
+  crossing-object fixtures, High export and the paused-frame High preview must keep coverage: the
+  torso stays sharp and the limb's blur is not cut off. Where the fast path fails that check, High
+  switches to per-sample compositing over the affected bounds. Exact has its own export-time gate
+  (§8) and is not a crutch for High.
 - **Colour:** linear-light, premultiplied accumulation with normalised weights. Highlight streaks
   are optional. SDR only at first, and transparent art is in the first proof.
 
@@ -319,7 +329,9 @@ masking, variable speed, PTS gaps, loops, hold keys, plus the existing FX and ti
 low storage, cancellation, GL context recreation.
 
 **Note 9 gates** [B], on **both** SM-N960U and SM-N960F, release or profileable builds, with OS and
-driver versions recorded:
+driver versions recorded. Development and interim proofs run on the Snapdragon (the Note 9 here).
+"Full Note 9 support" (in STATE, help or marketing) is claimed only once **both** variants pass.
+Until then the STATE row says "Snapdragon Note 9 proven; Exynos owed". (Codex review 11-22.)
 
 | Gate | Target |
 |---|---|

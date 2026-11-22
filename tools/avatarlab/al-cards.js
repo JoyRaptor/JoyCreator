@@ -713,6 +713,7 @@
     pb.appendChild(ui.toggle('Breathing', st.breathe !== false, function (v) { app.edit(function () { st.breathe = v; }); }, 'A slow swell of the chest; head and arms ride it'));
     if (tb.breathe) pb.appendChild(ui.slider('How deep', { min: 0, max: 3, step: 0.1, value: tb.breathe.amt == null ? 1 : tb.breathe.amt, set: function (v) { tb.breathe.amt = v; }, fmt: function (v) { return v + '×'; } }));
     pb.appendChild(ui.slider('Breaths a minute', { min: 6, max: 40, value: Math.round((st.breathRate || 0.28) * 60), set: function (v) { st.breathRate = v / 60; }, fmt: String }));
+    if (AL.pose) AL.pose.section(app, pb);                                        // SHRUG-1
     pb.appendChild(ui.toggle('Never quite still', st.idle !== false, function (v) { app.edit(function () { st.idle = v; }); }, 'A slight drift of head and body when nothing else is happening'));
     var hung = AL.findAll(app.ch.root, function (n) { return n.swing && n !== t && AL.zoneOf(app.ch, n.id) === 'body'; });
     if (hung.length) { pb.appendChild(ui.lab('Swinging on the body', 'motion')); pb.appendChild(ui.row(hung.map(function (n) { return ui.chip(n.name, { icon: n.swing.kind === 'stiff' ? 'pin' : 'wand', title: 'Open \u201c' + n.name + '\u201d: how it swings', fn: function () { app.sel = { zone: 'body', feature: null, node: n.id }; app.resolveSel(); app.userView = false; app.focusSel(); app.refreshPanel(); } }); }))); }
@@ -950,7 +951,7 @@
   }
 
   /* ── "follows": any part can ride any signal. This is how a frill lifts with the mouth or an ear twitches on a blink. ── */
-  var SIGS = [['mouth', 'the mouth opening'], ['turnX', 'the head turning left and right'], ['turnY', 'the head turning up and down'], ['roll', 'the head tilting'], ['lookX', 'the eyes looking sideways'], ['lookY', 'the eyes looking up and down'], ['blinkL', 'a blink'], ['browL', 'the brows'], ['breath', 'breathing'], ['sway', 'the body leaning'], ['bounce', 'the body bouncing']];
+  var SIGS = [['mouth', 'the mouth opening'], ['turnX', 'the head turning left and right'], ['turnY', 'the head turning up and down'], ['roll', 'the head tilting'], ['lookX', 'the eyes looking sideways'], ['lookY', 'the eyes looking up and down'], ['blinkL', 'a blink'], ['browL', 'the brows'], ['breath', 'breathing'], ['sway', 'the body leaning'], ['bounce', 'the body bouncing'], ['shrug', 'the shoulders shrugging'], ['shrugL', 'the left shoulder shrugging'], ['shrugR', 'the right shoulder shrugging']];
   var PROPS = [['y', 'slides up and down'], ['x', 'slides sideways'], ['rot', 'turns'], ['s', 'grows and shrinks'], ['sy', 'stretches tall'], ['sx', 'stretches wide'], ['shake', 'shakes'], ['spin', 'spins']];
   function isScale(p) { return p === 's' || p === 'sx' || p === 'sy'; }
   function follows(app, pb, n) {

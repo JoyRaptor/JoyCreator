@@ -120,7 +120,8 @@
      did not touch is the same afterwards, sample for sample. One Undo takes the whole pass back. */
   var OWN = { turnX: 'head', turnY: 'head', roll: 'head', lookX: 'head', lookY: 'head', mouth: 'mouth', vis: 'mouth', browL: 'mood', browR: 'mood', lidUp: 'mood', lidLow: 'mood', lidTilt: 'mood',
     blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hLw: 'handL', hRx: 'handR', hRy: 'handR', hRw: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR', fLr: 'footL', fRr: 'footR', spin: 'body',
-    sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind' };
+    sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind',
+    shrugL: 'shoulders', shrugR: 'shoulders', shrug: 'shoulders' };    // SHRUG-1
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
   var STEP = { vis: 1, flip: 1, hLw: 1, hRw: 1 }, FADE = 0.25;      // (hLw, hRw: that hand is WALKING, planted on the stage like a foot; see al-take-walk.js)
   AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
@@ -139,7 +140,7 @@
   P.owned = function (talking, faceOn) {
     var hd = this.held, face = !!faceOn && !!this.cam.face, k;
     var o = { head: !!hd.head || face, mouth: !!talking || this.mic.on || face, mood: !!hd.face || face, blink: !!this.blinkHold || this.blinkManual > 0 || face,
-      facepins: face, handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
+      facepins: face, shoulders: !!(AL.pose && AL.pose.live), handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
     for (k in this.trigTouched) o['g:' + k] = true;                 // a button pressed in this pass is yours to the end of it
     for (k in this.pinTouched) o['p:' + k] = true;
     return o;
@@ -190,6 +191,7 @@
     for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
     for (k in (S.pin || {})) { o['p:' + k + ':x'] = S.pin[k].x; o['p:' + k + ':y'] = S.pin[k].y; }
     for (var pk in S) if (pk.slice(0, 3) === 'pt.') o[pk] = S[pk];   // FACE-1 face pins
+    o.shrugL = S.shrugL || 0; o.shrugR = S.shrugR || 0; o.shrug = S.shrug || 0;   // SHRUG-1
     return o;
   }
   function unflat(S, name, v) {
@@ -238,6 +240,7 @@
       if (!held.head && z) { tg.turnX = z.px + (f.turnX - z.fx); tg.turnY = z.py + (f.turnY - z.fy); tg.roll = z.pr + (f.roll - z.fr); }
       if (!held.face || this.talking) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; lidUp = f.lidUp; lidLow = f.lidLow; lidTilt = f.lidTilt; blinkCam = f; } look = f; } }
     if (AL.facepins) AL.facepins.feed(this, faceOn ? this.cam.face : null, dt);   // FACE-1 face pins
+    if (AL.pose) AL.pose.feed(this, faceOn, dt);                                    // SHRUG-1 shoulders
 
     /* a voice, or the Talk button's babble */
     if (this.mic.on) { this.listen(); mouth = Math.max(mouth, this.mic.level); vis = this.mic.vis; }

@@ -90,8 +90,9 @@
         else { inp.camStop(); app.refreshPanel(true); }
       } })
     ]);
-    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take your face now as neutral: look at the screen, relaxed', fn: function () { inp.cam.zero = null; if (AL.face) AL.face.neutral(inp.cam); } }));
+    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take your face now as neutral: look at the screen, relaxed', fn: function () { inp.cam.zero = null; if (AL.face) AL.face.neutral(inp.cam); if (AL.pose) AL.pose.neutral(); } }));
     if (inp.cam.on && AL.face) voice.appendChild(ui.toggle('Mirror', !inp.cam.facing, function (v) { AL.face.setFacing(inp.cam, !v); app.refreshPanel(true); }, null, 'On: the character moves like your reflection. Off: like someone facing you'));   // FACE-1
+    if (inp.cam.on && AL.pose) voice.appendChild(AL.pose.tick(app));   // SHRUG-1
     else if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
     if (inp.cam.on && AL.facepins) voice.appendChild(ui.chip('Check directions', { title: 'Five short moves that settle which way is which on this device', fn: function () { AL.facepins.directions(app); } }));   // FACE-1
     if (AL.facepins && !hosted && (inp.cam.on || AL.facepins.list(app.ch).length)) voice.appendChild(AL.facepins.chip(app));   // FACE-1
@@ -147,7 +148,7 @@
     if (!tk || !tk.n) { g.fillStyle = '#71717a'; g.fillText(inp.recording ? 'recording\u2026' : 'No take yet. Tap the red dot, then perform.', 10, hh / 2); if (!inp.recording) return; }
     var total = Math.max(dur, inp.recording ? inp.ph : 0, 0.001), len = {}, hot = {}, known = {}, k;
     lanes.forEach(function (l) { known[l[0]] = 1; });
-    if (tk) for (k in tk.ch) { var o = inp.ownerOf(k), ln = known[o] ? o : (o === 'footL' || o === 'footR' ? 'body' : 'other'); len[ln] = Math.max(len[ln] || 0, tk.ch[k].length); if (inp.recording && inp.fade && inp.fade[o] > 0) hot[ln] = 1; }
+    if (tk) for (k in tk.ch) { var o = inp.ownerOf(k), ln = known[o] ? o : (o === 'footL' || o === 'footR' || o === 'shoulders' ? 'body' : 'other'); len[ln] = Math.max(len[ln] || 0, tk.ch[k].length); if (inp.recording && inp.fade && inp.fade[o] > 0) hot[ln] = 1; }
     lanes.forEach(function (l, i) {
       if (!len[l[0]]) return;
       g.fillStyle = hot[l[0]] ? '#f43f8e' : '#3a3a46'; g.beginPath(); g.roundRect(4, 4 + i * lh + 0.5, Math.max(3, (w - 8) * Math.min(1, (len[l[0]] / tk.fps) / total)), Math.max(1.5, lh - 1), 1.5); g.fill();

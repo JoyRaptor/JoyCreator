@@ -22,8 +22,8 @@
 
   F.SHAPES = ['Neutral', 'Aa', 'Ee', 'Oh', 'W-Oo', 'M', 'F', 'L', 'S', 'D', 'R', 'Uh', 'Smile', 'Surprised'];
   F.HEAD_YAW = 'headYawDeg'; F.HEAD_PITCH = 'headPitchDeg'; F.HEAD_ROLL = 'headRollDeg';
-  F.FACE_X = 'faceX'; F.FACE_Y = 'faceY'; F.FACE_SIZE = 'faceSize';
-  var TURN_DEG = 32, NOD_DEG = 24, ROLL_DEG = 35, LEGACY_YAW_DEG = 45, LEGACY_PITCH_DEG = 30, MIN_SPAN = 0.25;
+  F.FACE_X = 'faceX'; F.FACE_Y = 'faceY'; F.FACE_SIZE = 'faceSize'; F.FACE_SPREAD = 'faceSpread';
+  var TURN_DEG = 32, NOD_DEG = 24, ROLL_DEG = 35, LEGACY_YAW_DEG = 45, LEGACY_PITCH_DEG = 30, MIN_SPAN = 0.25, TILT_SWING = 0.95;   // TILT_SWING: face widths from the face's middle down to the neck's turning point (the owner, 11-22)
   var STEP = { vis: 1, face: 1 };
   F.ALL = ['turnX', 'turnY', 'roll', 'yaw', 'pitch', 'lookX', 'lookY', 'blinkL', 'blinkR', 'squintL', 'squintR', 'wideL', 'wideR',
     'browL', 'browR', 'browInner', 'sneer', 'lidUp', 'lidLow', 'lidTilt', 'mouth', 'jawOpen', 'jaw', 'jawX', 'jawFwd', 'smileL', 'smileR',
@@ -54,10 +54,12 @@
     var s = axis === F.HEAD_YAW ? cal.sign.yaw : axis === F.HEAD_PITCH ? cal.sign.pitch : cal.sign.roll;
     return (deg - rest(cal, axis)) * s;
   }
-  function lean(cal, fx, fy, size) {
+  function lean(cal, fx, fy, size, spread) {
     var size0 = rest(cal, F.FACE_SIZE);
     if (!cal.neutralSet || size0 <= 0.02 || size <= 0.02) return null;
-    return [(fx - rest(cal, F.FACE_X)) * cal.sign.lean / size0, (fy - rest(cal, F.FACE_Y)) / size0, size / size0 - 1];
+    var spread0 = rest(cal, F.FACE_SPREAD);
+    var near = spread === spread && spread != null && spread0 > 1e-4 && spread > 1e-4 ? spread / spread0 - 1 : size / size0 - 1;   // the face's 3D size when there are points
+    return [(fx - rest(cal, F.FACE_X)) * cal.sign.lean / size0, (fy - rest(cal, F.FACE_Y)) / size0, near];
   }
 
   /** A still stretch of face becomes the neutral (FaceCalibration.Capture). */
@@ -143,7 +145,8 @@
     var yawR = headDeg(cal, F.HEAD_YAW, rw(F.HEAD_YAW)), down = headDeg(cal, F.HEAD_PITCH, rw(F.HEAD_PITCH)), tiltR = headDeg(cal, F.HEAD_ROLL, rw(F.HEAD_ROLL));
     o.turnX = sgn(flip * yawR / TURN_DEG * head); o.turnY = sgn(down / NOD_DEG * head); o.roll = sgn(flip * tiltR / ROLL_DEG * head);
     o.yaw = sgn(flip * yawR / LEGACY_YAW_DEG * head); o.pitch = sgn(-down / LEGACY_PITCH_DEG * head);
-    var ln = (F.FACE_SIZE in raw) ? lean(cal, rw(F.FACE_X), rw(F.FACE_Y), rw(F.FACE_SIZE)) : null;
+    var ln = (F.FACE_SIZE in raw) ? lean(cal, rw(F.FACE_X), rw(F.FACE_Y), rw(F.FACE_SIZE), (F.FACE_SPREAD in raw) ? rw(F.FACE_SPREAD) : NaN) : null;
+    if (ln) ln[0] -= TILT_SWING * Math.sin(tiltR * Math.PI / 180);      // a tipped head swings sideways about the neck: a tilt, not a lean
     o.leanX = ln ? sgn(flip * ln[0] * 1.5 * head) : 0; o.leanY = ln ? sgn(ln[1] * 1.5 * head) : 0; o.near = ln ? sgn(ln[2] * 2.5 * head) : 0;
 
     var lookDown = (a('eyeLookDownLeft') + a('eyeLookDownRight')) / 2, lookUp = (a('eyeLookUpLeft') + a('eyeLookUpRight')) / 2;
@@ -217,6 +220,15 @@
   F.GAP_LEFT = 'eyeGapLeft'; F.GAP_RIGHT = 'eyeGapRight';
   var LIDS = [[159, 145], [160, 144], [158, 153], [386, 374], [385, 380], [387, 373]], EYE_CORNERS = [[33, 133], [263, 362]];
   function pdist(p, a, b) { var dx = p[a * 3] - p[b * 3], dy = p[a * 3 + 1] - p[b * 3 + 1], dz = p[a * 3 + 2] - p[b * 3 + 2]; return Math.sqrt(dx * dx + dy * dy + dz * dz); }
+  /** The face's size in three dimensions (FacePoints.spread): the steady points' spread; turning, nodding, tilting leave it. */
+  F.spread = function (xyz) {
+    if (!xyz || ((xyz.length / 3) | 0) < F.POINT_COUNT - 10) return NaN;
+    var cx = 0, cy = 0, cz = 0, ss = 0, k, i;
+    for (k = 0; k < STEADY.length; k++) { i = STEADY[k]; cx += xyz[i * 3]; cy += xyz[i * 3 + 1]; cz += xyz[i * 3 + 2]; }
+    cx /= STEADY.length; cy /= STEADY.length; cz /= STEADY.length;
+    for (k = 0; k < STEADY.length; k++) { i = STEADY[k]; var dx = xyz[i * 3] - cx, dy = xyz[i * 3 + 1] - cy, dz = xyz[i * 3 + 2] - cz; ss += dx * dx + dy * dy + dz * dz; }
+    return Math.sqrt(ss / STEADY.length);
+  };
   F.eyeGaps = function (pts) {
     if (!pts || pts.length < F.POINT_COUNT * 3) return null;
     var out = [0, 0];
@@ -311,7 +323,7 @@
   S.process = function (raw, t, xyz) {
     var pts = raw && xyz ? F.normalizePoints(xyz) : null;
     var gaps = F.eyeGaps(pts);
-    if (gaps) { raw = Object.assign({}, raw); raw[F.GAP_LEFT] = gaps[0]; raw[F.GAP_RIGHT] = gaps[1]; }   // kept with the neutral like the rest
+    if (gaps) { raw = Object.assign({}, raw); raw[F.GAP_LEFT] = gaps[0]; raw[F.GAP_RIGHT] = gaps[1]; var sp = F.spread(xyz); if (sp === sp) raw[F.FACE_SPREAD] = sp; }   // kept with the neutral like the rest
     var dt = this.lastT !== this.lastT ? 0 : clamp(t - this.lastT, 0, 0.5), target;
     this.lastT = t;
     if (raw) {
@@ -348,7 +360,7 @@
   };
   S.calibrate = function (raw, pts) {
     if (this.checking) { if (this.checking.add(raw)) { this.cal = this.checking.apply(); this.lastCheck = this.checking; this.checking = null; if (this.persist) F.save(this.cal); } return; }
-    var noLids = raw[F.GAP_LEFT] != null && !(rest(this.cal, F.GAP_LEFT) > 0);      // a neutral saved before the lids: taken again
+    var noLids = (raw[F.GAP_LEFT] != null && !(rest(this.cal, F.GAP_LEFT) > 0)) || (raw[F.FACE_SPREAD] != null && !(rest(this.cal, F.FACE_SPREAD) > 0));      // a neutral saved before the lids or the face's 3D size: taken again
     if (!(this.wantNeutral || (this.autoNeutral && (!this.cal.neutralSet || noLids)))) { this.capture = null; return; }
     if (!this.capture) this.capture = new F.Capture(this.cal, NEUTRAL_FRAMES);
     if (this.capture.addWithPoints(raw, pts)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; if (this.persist) F.save(this.cal); }

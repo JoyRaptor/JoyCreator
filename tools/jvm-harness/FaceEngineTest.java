@@ -11,6 +11,7 @@ import com.fadcam.ui.faditor.avatar.face.FacePoints;
 import com.fadcam.ui.faditor.avatar.face.FaceSignals;
 import com.fadcam.ui.faditor.avatar.face.FaceStage;
 import com.fadcam.ui.faditor.avatar.face.FaceTuning;
+import com.fadcam.ui.faditor.avatar.face.ShoulderStage;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -327,6 +328,9 @@ public class FaceEngineTest {
 
         facePins();
         lids();
+        leanTilt();
+        near();
+        shoulders();
 
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
         System.exit(fails == 0 ? 0 : 1);
@@ -467,6 +471,141 @@ public class FaceEngineTest {
         FaceCalibration now = again.calibration();
         check(now.rest(FacePoints.GAP_LEFT) > 0.1f && now.signRoll() == -1,
                 "lids: a neutral saved before (no lids in it) is taken again by itself, the direction answers kept");
+    }
+
+    // ── lean apart from a head tilt (the owner's first test, 11-22: a 15° tilt moved lean more than his lean did) ──
+    static void leanTilt() {
+        FaceCalibration cal = neutral();
+        FaceTuning tun = new FaceTuning();
+        // his right-shoulder tilt: about 15°, the face 0.95 x sin(15°) of its width toward his right (the picture's left)
+        float swing = (float) (0.95 * Math.sin(Math.toRadians(15.3))) * 0.3f;
+        Map<String, Float> tilt = FaceMapper.map(face(FaceCalibration.HEAD_ROLL, 15.3f, FaceCalibration.FACE_X, 0.5f - swing), cal, tun);
+        check(Math.abs(g(tilt, FaceSignals.LEAN_X)) < 0.05f && g(tilt, FaceSignals.ROLL) > 0.3f,
+                "lean: tilting the head toward a shoulder is a tilt, not a lean (the swing about the neck is taken out)");
+        Map<String, Float> lean = FaceMapper.map(face(FaceCalibration.FACE_X, 0.5f - swing), cal, tun);
+        check(g(lean, FaceSignals.LEAN_X) > 0.3f, "lean: the same move with the head upright is a lean to the screen's right, like a reflection");
+    }
+
+    // ── closer and further (the owner's first test, 11-22: a nod or a tilt moved "near" as much as coming closer) ──
+    static void near() {
+        float[] base = cloud();
+        FaceStage st = new FaceStage(FaceCalibration.none(), new FaceTuning());
+        double t = 0;
+        for (int i = 0; i < 12; i++) st.process(face(), base, t += 1 / 15.0);
+        Map<String, Float> o = null;
+        // the outline reads a quarter wider when the head tips (his numbers); the face has not come any closer
+        for (int i = 0; i < 8; i++) o = st.process(face(FaceCalibration.FACE_SIZE, 0.38f), posed(base, 25, 15, 20, 1, 0, 0), t += 1 / 15.0);
+        check(Math.abs(g(o, FaceSignals.NEAR)) < 0.05f, "near: turning, nodding or tilting the head is not coming closer (read on the face's points)");
+        for (int i = 0; i < 8; i++) o = st.process(face(), posed(base, 0, 0, 0, 1.2, 0, 0), t += 1 / 15.0);
+        check(g(o, FaceSignals.NEAR) > 0.4f, "near: coming closer is closer");
+        for (int i = 0; i < 8; i++) o = st.process(face(), posed(base, 0, 0, 0, 0.85, 0, 0), t += 1 / 15.0);
+        check(g(o, FaceSignals.NEAR) < -0.3f, "near: going further is further");
+        FaceCalibration.Capture c = new FaceCalibration.Capture(FaceCalibration.none(), 4);
+        for (int i = 0; i < 4; i++) c.add(eyes(0.15f, 0.18f, 0.26f, 0.32f, 0.30f));
+        FaceStage again = new FaceStage(c.result(), new FaceTuning());
+        for (int i = 0; i < 12; i++) again.process(face(), base, t += 1 / 15.0);
+        check(again.calibration().rest(FaceCalibration.FACE_SPREAD) > 0f,
+                "near: a neutral saved with the lids but without the face's size is taken again by itself");
+    }
+
+    // ── shoulders (SHRUG-1, the owner, 11-22: "get the shoulders animated for shoulder shrugs") ──
+
+    static final float TALL = 0.75f;
+
+    /**
+     * A body as the tracker gives it (33 points: x, y, visibility, 0..1 of the picture), the person facing an unmirrored
+     * front camera: their right shoulder on the picture's left. {@code liftR}, {@code liftL}: the person's right and left
+     * shoulder raised by this much of the picture's height; the ears tipped {@code tiltDeg} about their middle and moved
+     * {@code earDy}; the whole body scaled by {@code scale} and moved by {@code dx} about the picture's middle.
+     */
+    static float[] body(float liftR, float liftL, float tiltDeg, float earDy, float scale, float dx, float vis) {
+        float[] p = new float[ShoulderStage.COUNT * 3];
+        for (int i = 0; i < ShoulderStage.COUNT; i++) { p[i * 3] = 0.5f; p[i * 3 + 1] = 0.5f; p[i * 3 + 2] = 0.9f; }
+        double a = Math.toRadians(tiltDeg), ca = Math.cos(a), sa = Math.sin(a);
+        float emx = 0.5f, emy = 0.30f + earDy, half = 0.05f;
+        // ears: the person's left ear (7) on the picture's right; tipped about their middle (y in width units for the turn)
+        float[][] ears = {{ShoulderStage.EAR_L, half}, {ShoulderStage.EAR_R, -half}};
+        for (float[] e : ears) {
+            int i = (int) e[0];
+            p[i * 3] = (float) (emx + e[1] * ca);
+            p[i * 3 + 1] = (float) (emy + e[1] * sa / TALL);
+        }
+        p[ShoulderStage.SHOULDER_L * 3] = 0.72f; p[ShoulderStage.SHOULDER_L * 3 + 1] = 0.62f - liftL;
+        p[ShoulderStage.SHOULDER_R * 3] = 0.28f; p[ShoulderStage.SHOULDER_R * 3 + 1] = 0.62f - liftR;
+        p[ShoulderStage.SHOULDER_L * 3 + 2] = vis; p[ShoulderStage.SHOULDER_R * 3 + 2] = vis;
+        for (int i = 0; i < ShoulderStage.COUNT; i++) {
+            p[i * 3] = 0.5f + (p[i * 3] - 0.5f) * scale + dx;
+            p[i * 3 + 1] = 0.5f + (p[i * 3 + 1] - 0.5f) * scale;
+        }
+        return p;
+    }
+
+    static float[] rest() { return body(0, 0, 0, 0, 1, 0, 0.95f); }
+
+    /** A stage that has taken its rest, fed {@code then} for a second at ten readings a second; returns the last output. */
+    static Map<String, Float> settle(float[] then, boolean mirror) {
+        ShoulderStage st = new ShoulderStage();
+        double t = 0;
+        for (int i = 0; i < 8; i++) st.process(ShoulderStage.drops(rest(), TALL), t += 0.1, mirror);
+        Map<String, Float> o = null;
+        for (int i = 0; i < 10; i++) o = st.process(ShoulderStage.drops(then, TALL), t += 0.1, mirror);
+        return o;
+    }
+
+    static void shoulders() {
+        String L = ShoulderStage.SHRUG_L, R = ShoulderStage.SHRUG_R;
+        Map<String, Float> both = settle(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), false);
+        check(g(both, L) > 0.95f && g(both, R) > 0.95f && g(both, ShoulderStage.SHRUG) > 0.95f, "shoulders: a full shrug lifts both sides all the way");
+        Map<String, Float> half = settle(body(0.045f, 0.045f, 0, 0, 1, 0, 0.95f), false);
+        check(g(half, L) > 0.2f && g(half, L) < 0.8f, "shoulders: half a shrug is half (continuous)");
+        Map<String, Float> right = settle(body(0.1f, 0, 0, 0, 1, 0, 0.95f), false);
+        check(g(right, L) > 0.95f && g(right, R) < 0.02f,
+                "shoulders: the right shoulder alone lifts the character's left, like a reflection, and only that one");
+        Map<String, Float> rightM = settle(body(0.1f, 0, 0, 0, 1, 0, 0.95f), true);
+        check(g(rightM, R) > 0.95f && g(rightM, L) < 0.02f, "shoulders: Mirror off swaps the side");
+        Map<String, Float> tilt = settle(body(0, 0, 22, 0, 1, 0, 0.95f), false);
+        check(g(tilt, L) < 0.02f && g(tilt, R) < 0.02f, "shoulders: tilting the head toward a shoulder is no shrug");
+        Map<String, Float> nod = settle(body(0, 0, 0, 0.01f, 1, 0, 0.95f), false);
+        check(g(nod, L) < 0.02f && g(nod, R) < 0.02f, "shoulders: a nod is no shrug");
+        Map<String, Float> near = settle(body(0, 0, 0, 0, 1.35f, 0.06f, 0.95f), false);
+        check(g(near, L) < 0.02f && g(near, R) < 0.02f, "shoulders: coming closer or leaning aside is no shrug");
+        Map<String, Float> nearShrug = settle(body(0.1f, 0.1f, 0, 0, 1.35f, 0, 0.95f), false);
+        check(g(nearShrug, L) > 0.95f, "shoulders: closer to the camera, a shrug is still a shrug");
+
+        // the rest, jitter, lost and found
+        ShoulderStage st = new ShoulderStage();
+        double t = 0;
+        Map<String, Float> o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
+        check(g(o, L) == 0f && !st.hasNeutral(), "shoulders: nothing moves until a rest has been taken");
+        for (int i = 0; i < 8; i++) st.process(ShoulderStage.drops(rest(), TALL), t += 0.1, false);
+        check(st.hasNeutral(), "shoulders: the first still half-second becomes the rest by itself");
+        ShoulderStage mv = new ShoulderStage();
+        double tm = 0;
+        for (int i = 0; i < 12; i++) mv.process(ShoulderStage.drops(body(i % 2 == 0 ? 0.1f : 0f, 0, 0, 0, 1, 0, 0.95f), TALL), tm += 0.1, false);
+        check(!mv.hasNeutral(), "shoulders: a body that keeps moving is never taken as the rest");
+        java.util.Random rnd = new java.util.Random(7);
+        float worst = 0;
+        for (int i = 0; i < 40; i++) {
+            float j = (rnd.nextFloat() - 0.5f) * 0.012f;
+            o = st.process(ShoulderStage.drops(body(j, -j, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
+            worst = Math.max(worst, Math.max(g(o, L), g(o, R)));
+        }
+        check(worst < 0.02f, "shoulders: the tracker's jitter and breathing make no shrug");
+        for (int i = 0; i < 10; i++) o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
+        float held = 0, gone = 1;
+        for (int i = 0; i < 15; i++) {
+            o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.2f), TALL), t += 0.1, false);
+            if (i == 2) held = g(o, L);
+            gone = g(o, L);
+        }
+        check(held > 0.9f && gone < 0.02f, "shoulders: out of the picture they hold a moment, then ease to rest");
+        o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
+        float back1 = g(o, L);
+        for (int i = 0; i < 6; i++) o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
+        check(back1 < 0.5f && g(o, L) > 0.9f, "shoulders: back in the picture they ease in (no jump)");
+        st.requestNeutral();
+        for (int i = 0; i < 8; i++) o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
+        check(g(o, L) < 0.05f, "shoulders: Re-centre takes the rest again");
     }
 
     /** {@link #cloud()} with two eyes drawn in, each lid gap a share of open (1 open, 0 shut): the person's right eye first. */

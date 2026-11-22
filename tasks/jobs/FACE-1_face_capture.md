@@ -204,7 +204,7 @@ tracker's own values beside the lids' gap measured on the face's points.
 | | What he saw or the numbers showed | What changed | Checked |
 |---|---|---|---|
 | ✅ | **Tilt ran against turning:** Mirror on, turning right was right but tilting was reversed; Mirror off, the other way round | The pilot's tilt now reads the same way round as the phone's (whose direction check he did on the bench) | **Owner: "Tilt is correct. Head turn is correct."** |
-| ✅ | **Blinks barely registered** ("the default Google face mask ... would move correctly with my face", the character's did not). Eyes held shut: the lids' gap closed about 90%, the character's eyes a third to half. A quick blink: the gap about 70%, the eyes about 30%. The tracker's own blink value stops near 0.66 with his eyes shut and its "looking down" rises with them, which the old curve took off again | The eyes now read **the lids' gap on the face's points** against his neutral, on the phone and in the pilot alike; the tracker's blink value only when there are no points. A neutral saved before is taken again by itself at the next still half-second (direction answers kept) | PC: his own frames give shut 1.0, a quick blink and a wink above 0.85, a smile and looking down 0. His look owed |
+| ✅ | **Blinks barely registered** ("the default Google face mask ... would move correctly with my face", the character's did not). Eyes held shut: the lids' gap closed about 90%, the character's eyes a third to half. A quick blink: the gap about 70%, the eyes about 30%. The tracker's own blink value stops near 0.66 with his eyes shut and its "looking down" rises with them, which the old curve took off again | The eyes now read **the lids' gap on the face's points** against his neutral, on the phone and in the pilot alike; the tracker's blink value only when there are no points. A neutral saved before is taken again by itself at the next still half-second (direction answers kept) | PC: his own frames give shut 1.0, a quick blink and a wink above 0.85, a smile and looking down 0. **Owner: "blinks look good now. winks work too now."** |
 | ✅ | Winks land on the right side (the gap and the tracker agree on which eye) | the same change: a wink now closes all the way | PC |
 | 🟡 | **A half smile** reads on both corners almost alike: the tracker's own limit | none yet. A face pin on one mouth corner gives a one-sided smile now; reading the corners on the points (as the lids now are) would fix it in the engine | numbers |
 | ✅ | "Ahh" opens the mouth with no smile; a closed smile reads clearly | none needed (the first test's smile with the mouth wide was most likely a grin) | numbers |
@@ -215,11 +215,20 @@ three guard that a smile or looking down is no blink and that a wink lands on it
 the phone/pilot comparison now runs his eye-test frames too (11,832 values agree), 8 new planted faults (44 of 44 caught
 in all); the pilot's face-pins break test still 12 checks, 8 of 8 plants caught.
 
-Ideas he gave while testing: **shoulder shrugs** (needs Google's separate body tracker; see full-body below) and
+Ideas he gave while testing: **shoulder shrugs** (Google's separate body tracker: now its own job, [SHRUG-1](SHRUG-1_shoulder_shrugs.md)) and
 **walking by your face** like Adobe Character Animator: face left or right of the camera walks the character, closer
 walks it toward the camera and further steps it back, scaling as it goes, and a plain closer/further switch, all as tick
 boxes in a Perform drawer, nice both on the plain stage and in a scene. Sent to the walk-stage session (the pilot's
 `leanX`, `leanY`, `near` already exist; walking toward and away from the camera does not yet).
+
+## For walking with your face (11-22, from his numbers)
+The walk-stage session's "Walk with your face" reads `leanX` and `near`. His first test showed both reacting to head pose:
+`near` (the outline's width) moved -0.37 to +0.54 with a nod or a tilt, as much as coming closer; `leanX` moved +0.38
+with a tilt against +0.27 for his lean. Now `near` is the face's 3D size (the steady points' spread, `FacePoints.spread`):
+a 25° turn with a 15° nod and a 20° tilt reads under 0.05, 20% closer +0.5. The tilt's sideways swing about the neck
+(0.95 face widths times the sine of the tilt, from his tilt) is taken out of `leanX`: his 15° tilt reads under 0.05, the
+same move with the head upright +0.37. A saved neutral without the 3D size is taken again by itself. Checks written
+first, planted faults caught, phone and pilot agree. Not yet seen on his face.
 
 ## The seam: what the phone room must call
 ```
@@ -262,10 +271,11 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 - [x] `b25adf9ce` on the Note 9; the owner sees the outline sit on his face ("Yes, it lines up", 11-22).
 - [x] Face pins (ideas 1 and 2): built in the web pilot with the phone engine half (11-22, above).
 - [x] Tilt the same way round as turning in the pilot: the owner confirmed both on the Note 9 (11-22).
-- [ ] His look at the blinks from the lids (pilot in Chrome, on the Note 9 now), then the phone build with it.
+- [x] Blinks from the lids: the owner on the Note 9 (pilot in Chrome), 11-22: "blinks look good now. winks work too now."
+- [ ] The phone build with the lids (`54e968522`) on the Note 9's bench.
 - [ ] Face pins round 2 (Mirror default, Live and Pick, labelled Remove, in Set up) with his face on the Note 9.
 - [ ] A one-sided smile from the mouth corners on the points, as the lids now are (the tracker reads both corners alike).
-- [ ] Walking by your face (owner's idea, 11-22): sent to the walk-stage session; the face signals exist.
+- [x] Walking by your face (owner's idea, 11-22): built by the walk-stage session, landed `31b23d449` (Perform, Walking: "Walk with your face", three tick boxes; reads `leanX`, `near`, `face`). Not yet tried with a real face.
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.
 - [ ] The AVA-1 lead adds the pilot hook, and the owner tries the pilot's face on the PC page.
 - [ ] The phone room (AVA-1 "path to the phone") plugs in `FaceCapture` as written above, with a masked mouth and teeth

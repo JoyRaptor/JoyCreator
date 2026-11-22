@@ -19,6 +19,8 @@ M, C, S, F, P, G = (PKG + n + ".java" for n in
 JS = "tools/avatarlab/al-face.js"
 FR = PKG + "FaceFrame.java"
 PT = PKG + "FacePoints.java"
+SH = PKG + "ShoulderStage.java"
+POSE = "tools/avatarlab/al-pose.js"
 
 PLANTS = [
     ("both eyes always blink alike (no wink)", [(M, "br = lids ? lidBlink(cr) : blink(cr, lookDown);", "br = bl;")]),
@@ -92,13 +94,42 @@ PLANTS = [
     ("the lids measured on the wrong eye", [(S, "raw.put(FacePoints.GAP_LEFT, gaps[0]);", "raw.put(FacePoints.GAP_LEFT, gaps[1]);"),
                                             (S, "raw.put(FacePoints.GAP_RIGHT, gaps[1]);", "raw.put(FacePoints.GAP_RIGHT, gaps[0]);")]),
     ("an old neutral keeps the weak blinks (never taken again)",
-     [(S, "boolean noLids = raw.containsKey(FacePoints.GAP_LEFT) && c.rest(FacePoints.GAP_LEFT) <= 0f;", "boolean noLids = false;")]),
+     [(S, "boolean noLids = (raw.containsKey(FacePoints.GAP_LEFT) && c.rest(FacePoints.GAP_LEFT) <= 0f)", "boolean noLids = false && ((raw.containsKey(FacePoints.GAP_LEFT) && c.rest(FacePoints.GAP_LEFT) <= 0f)"),
+      (S, "|| (raw.containsKey(FaceCalibration.FACE_SPREAD) && c.rest(FaceCalibration.FACE_SPREAD) <= 0f);", "|| (raw.containsKey(FaceCalibration.FACE_SPREAD) && c.rest(FaceCalibration.FACE_SPREAD) <= 0f));")]),
     ("a smile or looking down reads as a blink", [(M, "return smoothstep(0.3f, 0.75f, closure);", "return smoothstep(0.05f, 0.75f, closure);")]),
     ("the pilot ignores the lids (pilot and phone disagree)", [(JS, "var lids = gl >= 0 && gr >= 0;", "var lids = false;")]),
     ("the pilot measures the lids on the wrong eye (pilot and phone disagree)",
      [(JS, "raw[F.GAP_LEFT] = gaps[0]; raw[F.GAP_RIGHT] = gaps[1];", "raw[F.GAP_LEFT] = gaps[1]; raw[F.GAP_RIGHT] = gaps[0];")]),
     ("the pilot keeps an old neutral (pilot and phone disagree)",
-     [(JS, "var noLids = raw[F.GAP_LEFT] != null && !(rest(this.cal, F.GAP_LEFT) > 0);", "var noLids = false;")]),
+     [(JS, "var noLids = (raw[F.GAP_LEFT] != null", "var noLids = false && (raw[F.GAP_LEFT] != null"),
+      (JS, "|| (raw[F.FACE_SPREAD] != null && !(rest(this.cal, F.FACE_SPREAD) > 0));", "|| false;")]),
+    ("near read from the outline's width (a nod walks him closer)",
+     [(C, "float near = !Float.isNaN(faceSpread) && spread0 > 1e-4f && faceSpread > 1e-4f ? faceSpread / spread0 - 1f : faceSize / size0 - 1f;",
+       "float near = faceSize / size0 - 1f;")]),
+    ("an old neutral without the face's 3D size is kept", [(S, "|| (raw.containsKey(FaceCalibration.FACE_SPREAD) && c.rest(FaceCalibration.FACE_SPREAD) <= 0f);", ";")]),
+    ("the pilot reads near from the outline (pilot and phone disagree)",
+     [(JS, "var near = spread === spread && spread != null && spread0 > 1e-4 && spread > 1e-4 ? spread / spread0 - 1 : size / size0 - 1;", "var near = size / size0 - 1;")]),
+    ("a head tilt reads as a lean (the swing about the neck left in)", [(M, "static final double TILT_SWING = 0.95;", "static final double TILT_SWING = 0.0;")]),
+    ("the pilot leaves the tilt in its lean (pilot and phone disagree)", [(JS, "if (ln) ln[0] -= TILT_SWING * Math.sin(tiltR * Math.PI / 180);", "")]),
+    # shoulders (SHRUG-1)
+    ("a head tilt reads as a shrug (each shoulder measured from its own ear)",
+     [(SH, "return new float[]{(y(xyv, SHOULDER_R, tall) - earY) / w, (y(xyv, SHOULDER_L, tall) - earY) / w};",
+       "return new float[]{(y(xyv, SHOULDER_R, tall) - y(xyv, EAR_R, tall)) / w, (y(xyv, SHOULDER_L, tall) - y(xyv, EAR_L, tall)) / w};")]),
+    ("coming closer reads as a shrug (not measured in shoulder widths)", [(SH, "if (w < 1e-4f) return null;", "if (w < 1e-4f) return null; w = 0.44f;")]),
+    ("the shrug on the wrong side", [(SH, "lastL = mirror ? pr : pl;", "lastL = mirror ? pl : pr;"), (SH, "lastR = mirror ? pl : pr;", "lastR = mirror ? pr : pl;")]),
+    ("Mirror does nothing to the shoulders", [(SH, "lastL = mirror ? pr : pl;", "lastL = pl;"), (SH, "lastR = mirror ? pl : pr;", "lastR = pr;")]),
+    ("jitter and breathing shrug (no dead zone)", [(SH, "static final float DEAD = 0.04f;", "static final float DEAD = 0.0f;")]),
+    ("lost shoulders freeze", [(SH, "presence = Math.max(0, presence - dt / EASE_OUT_S);", "presence = presence;")]),
+    ("lost shoulders drop at once (a flicker is a loss)", [(SH, "static final double HOLD_S = 0.35, EASE_OUT_S = 0.8, EASE_IN_S = 0.3;",
+                                                          "static final double HOLD_S = 0.0, EASE_OUT_S = 0.8, EASE_IN_S = 0.3;")]),
+    ("returning shoulders jump", [(SH, "presence = Math.min(1, presence + dt / EASE_IN_S);", "presence = 1;")]),
+    ("no rest of its own (shrugs read from zero)", [(SH, "private boolean wantNeutral = true;", "private boolean wantNeutral = false;")]),
+    ("a moving body is taken as the rest", [(SH, "if (capN > 0 && (Math.abs(d[0] - cap0L) > STILL || Math.abs(d[1] - cap0R) > STILL)) capN = 0;", "")]),
+    ("Re-centre leaves the shoulders' rest", [(SH, "public void requestNeutral() { wantNeutral = true; capN = 0; }", "public void requestNeutral() { }")]),
+    ("the pilot's shrug on the wrong side (pilot and phone disagree)", [(POSE, "this.lastL = mirror ? pr : pl;", "this.lastL = mirror ? pl : pr;")]),
+    ("the pilot measures each shoulder from its own ear (pilot and phone disagree)",
+     [(POSE, "return [(py(xyv, P.SHOULDER_R, tall) - earY) / w, (py(xyv, P.SHOULDER_L, tall) - earY) / w];",
+       "return [(py(xyv, P.SHOULDER_R, tall) - py(xyv, P.EAR_R, tall)) / w, (py(xyv, P.SHOULDER_L, tall) - py(xyv, P.EAR_L, tall)) / w];")]),
 ]
 
 
@@ -115,6 +146,9 @@ def main():
                 if path == JS:
                     dst = os.path.join(tmp, "al-face.js")
                     env_extra["FACE_PILOT_JS"] = dst
+                elif path == POSE:
+                    dst = os.path.join(tmp, "al-pose.js")
+                    env_extra["POSE_PILOT_JS"] = dst
                 else:
                     dst = os.path.join(tmp, "plant", path.split("app/src/main/java/")[1])
                 os.makedirs(os.path.dirname(dst), exist_ok=True)

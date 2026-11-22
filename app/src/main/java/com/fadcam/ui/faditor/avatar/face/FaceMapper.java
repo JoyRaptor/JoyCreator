@@ -31,6 +31,8 @@ public final class FaceMapper {
     static final float TURN_DEG = 32f, NOD_DEG = 24f, ROLL_DEG = 35f;
     /** The old rigs' scale, kept so their head grids feel exactly as before. */
     static final float LEGACY_YAW_DEG = 45f, LEGACY_PITCH_DEG = 30f;
+    /** How far the face's middle sits above the neck's turning point, in face widths (the owner's tilt, 11-22). */
+    static final double TILT_SWING = 0.95;
 
     @NonNull
     public static Map<String, Float> map(@NonNull Map<String, Float> raw, @NonNull FaceCalibration cal,
@@ -51,8 +53,11 @@ public final class FaceMapper {
 
         // ── lean: the face's place in the picture against neutral, in face widths ──
         float[] lean = raw.containsKey(FaceCalibration.FACE_SIZE)
-                ? cal.lean(s.raw(FaceCalibration.FACE_X), s.raw(FaceCalibration.FACE_Y), s.raw(FaceCalibration.FACE_SIZE))
+                ? cal.lean(s.raw(FaceCalibration.FACE_X), s.raw(FaceCalibration.FACE_Y), s.raw(FaceCalibration.FACE_SIZE),
+                        raw.containsKey(FaceCalibration.FACE_SPREAD) ? s.raw(FaceCalibration.FACE_SPREAD) : Float.NaN)
                 : null;
+        // a head tipped toward a shoulder swings sideways about the neck: that is the tilt, not a lean (the owner, 11-22)
+        if (lean != null) lean[0] -= (float) (TILT_SWING * Math.sin(Math.toRadians(tiltR)));
         o.put(FaceSignals.LEAN_X, lean == null ? 0f : sgn(flip * lean[0] * 1.5f * tun.head));
         o.put(FaceSignals.LEAN_Y, lean == null ? 0f : sgn(lean[1] * 1.5f * tun.head));
         o.put(FaceSignals.NEAR, lean == null ? 0f : sgn(lean[2] * 2.5f * tun.head));

@@ -147,6 +147,36 @@ public class FaceParityDump {
             lframes.add(fr);
         }
         root.add("lidStage", lframes);
+
+        // shoulders (SHRUG-1): a body through the shoulder stage, both Mirror settings: rest, shrugs, a tilt, closer, lost, back
+        float[][] bodies = new float[60][];
+        for (int i = 0; i < 60; i++) {
+            bodies[i] = i < 8 ? FaceEngineTest.rest()
+                    : i < 16 ? FaceEngineTest.body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f)
+                    : i < 22 ? FaceEngineTest.body(0.06f, 0, 0, 0, 1, 0, 0.95f)
+                    : i < 28 ? FaceEngineTest.body(0, 0.03f, 18, 0.005f, 1.2f, 0.03f, 0.95f)
+                    : i < 40 ? FaceEngineTest.body(0.1f, 0.1f, 0, 0, 1, 0, 0.2f)
+                    : FaceEngineTest.body(0.045f, 0.1f, -10, 0, 0.9f, -0.04f, 0.95f);
+        }
+        JsonArray sframes = new JsonArray();
+        for (boolean mirror : new boolean[]{false, true}) {
+            com.fadcam.ui.faditor.avatar.face.ShoulderStage ss = new com.fadcam.ui.faditor.avatar.face.ShoulderStage();
+            t = 0;
+            for (int i = 0; i < bodies.length; i++, t += 0.1) {
+                if (i == 50) ss.requestNeutral();
+                JsonObject fr = new JsonObject();
+                fr.addProperty("t", t);
+                fr.addProperty("mirror", mirror);
+                fr.addProperty("recentre", i == 50);
+                fr.add("xyv", gson.toJsonTree(bodies[i]));
+                float[] d = com.fadcam.ui.faditor.avatar.face.ShoulderStage.drops(bodies[i], FaceEngineTest.TALL);
+                fr.add("drops", d == null ? null : gson.toJsonTree(d));
+                fr.add("out", gson.toJsonTree(ss.process(d, t, mirror)));
+                sframes.add(fr);
+            }
+        }
+        root.add("shoulders", sframes);
+        root.addProperty("tall", FaceEngineTest.TALL);
         try (Writer w = new OutputStreamWriter(new FileOutputStream(a[0]), StandardCharsets.UTF_8)) {
             gson.toJson(root, w);
         }

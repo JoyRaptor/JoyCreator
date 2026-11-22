@@ -93,6 +93,24 @@ public final class FacePoints {
         return out;
     }
 
+    /**
+     * The face's size for "closer" and "further": the spread of the steady points in three dimensions (width units).
+     * Turning, nodding or tilting the head leaves it as it is; the outline's width did not (the owner's Note 9, 11-22:
+     * a nod or a tilt moved "near" as much as coming closer did). NaN without enough points.
+     */
+    public static float spread(@Nullable float[] xyz) {
+        if (xyz == null || xyz.length / 3 < COUNT - 10) return Float.NaN;
+        double cx = 0, cy = 0, cz = 0;
+        for (int i : STEADY) { cx += xyz[i * 3]; cy += xyz[i * 3 + 1]; cz += xyz[i * 3 + 2]; }
+        cx /= STEADY.length; cy /= STEADY.length; cz /= STEADY.length;
+        double ss = 0;
+        for (int i : STEADY) {
+            double dx = xyz[i * 3] - cx, dy = xyz[i * 3 + 1] - cy, dz = xyz[i * 3 + 2] - cz;
+            ss += dx * dx + dy * dy + dz * dz;
+        }
+        return (float) Math.sqrt(ss / STEADY.length);
+    }
+
     /** The raw face's names for the lids' gap: "Left" is the picture's left, as the expression values are named. */
     public static final String GAP_LEFT = "eyeGapLeft", GAP_RIGHT = "eyeGapRight";
     /** Upper and lower lid points, three pairs an eye, and the eye's corners: the person's right eye, then their left. */

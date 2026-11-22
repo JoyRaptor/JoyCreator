@@ -36,6 +36,8 @@ public final class FaceCalibration {
      * width (0..1 of the picture's width). Lean is measured from the neutral's place, in face widths.
      */
     public static final String FACE_X = "faceX", FACE_Y = "faceY", FACE_SIZE = "faceSize";
+    /** The face's size in three dimensions (FacePoints.spread): what "near" reads when there are points. */
+    public static final String FACE_SPREAD = "faceSpread";
 
     /**
      * 2: face position measured upright (FaceFrame). 3: the phone's raw face arrives in the engine's own directions
@@ -85,12 +87,19 @@ public final class FaceCalibration {
      */
     @Nullable
     public float[] lean(float faceX, float faceY, float faceSize) {
+        return lean(faceX, faceY, faceSize, Float.NaN);
+    }
+
+    /** As above; with the face's 3D size ({@code faceSpread}, NaN if none) "near" is read from it, not the outline. */
+    public float[] lean(float faceX, float faceY, float faceSize, float faceSpread) {
         float size0 = rest(FACE_SIZE);
         if (!neutralSet || size0 <= 0.02f || faceSize <= 0.02f) return null;
+        float spread0 = rest(FACE_SPREAD);
+        float near = !Float.isNaN(faceSpread) && spread0 > 1e-4f && faceSpread > 1e-4f ? faceSpread / spread0 - 1f : faceSize / size0 - 1f;
         return new float[]{
                 (faceX - rest(FACE_X)) * signLean / size0,
                 (faceY - rest(FACE_Y)) / size0,
-                faceSize / size0 - 1f};
+                near};
     }
 
     public float rest(@NonNull String raw) {

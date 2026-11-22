@@ -48,6 +48,7 @@
     '.rb svg.frg text{font:700 6.3px/1 var(--f-mono);fill:currentColor;stroke:none;letter-spacing:-.02em}',
     '#chairmenu{position:absolute;right:0;bottom:calc(100% + 6px);display:none;flex-direction:column;align-items:flex-end;gap:5px}',
     '#chairmenu.open{display:flex} #chairmenu .chip{height:30px;padding:0 11px 0 9px;font-size:12px} #chairmenu .chip svg.ic{width:15px;height:15px}',
+    '#roombtns.col{flex-direction:column} #roombtns.col #chairmenu{right:calc(100% + 6px);bottom:3px;flex-direction:row;align-items:center}',
     '.frshapes{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px}',
     '.frsh{width:58px;height:58px;border-radius:12px;background:var(--raised);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--dim);font:600 11px/1 var(--f-mono)}',
     '.frsh:hover{background:var(--pressed);color:var(--ink)} .frsh.on{background:var(--sel);color:var(--on-sel)}',
@@ -191,10 +192,11 @@
     var keep = {}; Array.prototype.forEach.call(box.querySelectorAll('.spc'), function (c) { keep[c.getAttribute('data-k')] = c.scrollLeft; });
     S.sig = s;
     btns.style.display = vis ? 'flex' : 'none';
-    var parts = vis ? strip.parts() : [], side = parts.length && frame.side(app) === 'side', room = vis + ':' + parts.length + ':' + side;      // (what pushes the picture aside)
+    var parts = vis ? strip.parts() : [], fside = vis && frame.side(app) === 'side', side = parts.length && fside, room = vis + ':' + parts.length + ':' + fside;      // (what pushes the picture aside)
+    btns.classList.toggle('col', !!fside);                                     // beside an upright frame the two buttons stand in a column, out of its way
     box.innerHTML = ''; box.classList.toggle('side', !!side); parts.forEach(function (k) { box.appendChild(part(k)); }); box.style.display = parts.length ? 'flex' : 'none';
     if (side) { var co = $('coach'), tl = $('tools'); box.style.top = Math.max(8, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 8, tl && tl.offsetHeight ? tl.offsetTop + tl.offsetHeight + 8 : 8) + 'px'; } else box.style.top = '';      // (below the hint line, and below the room's own round tools when they are there)
-    btns.style.bottom = (parts.length && !side ? box.offsetHeight + 12 : 8) + 'px'; btns.style.right = (side ? box.offsetWidth + 12 : 8) + 'px';      // the two buttons ride beside the strip
+    btns.style.bottom = (parts.length && !fside ? box.offsetHeight + 12 : 8) + 'px'; btns.style.right = (side ? box.offsetWidth + 12 : 8) + 'px';      // the two buttons ride beside the strip
     Array.prototype.forEach.call(box.querySelectorAll('.spc'), function (c) { var k = c.getAttribute('data-k'); if (keep[k] != null) c.scrollLeft = keep[k]; });
     bf.className = 'rb' + (frame.on() ? ' on' : ''); bf.innerHTML = ''; bf.appendChild(frame.glyph(frame.shape(app)));
     bf.title = (frame.on() ? 'The frame is on (' + frame.shape(app) + '). Tap to hide it.' : 'Show the frame (' + frame.shape(app) + '): where the picture\'s edges are.') + ' Hold for its shapes and margins.';

@@ -560,6 +560,22 @@ they want, a centipede; arms that can become feet with one toggle").
         Set up card after a reload; a brief flash of the empty stage when changing scene.
       - His question, the chair as the scene / character switch: answered in chat (kept as it is for now; the
         suggestion was the chair picture on the scene's own path tab). Not built.
+      **His next notes (11-21 later), built and checked on the Note 9:**
+      - [x] No scene space left on the table: the frame is as big as the screen allows (no room round it), and the
+            round buttons count as part of the drawer (a row under a wide frame, a column beside an upright one), pushing
+            it the same Studio way. On the Note 9 a 9:16 frame went from 233 x 413 to 301 x 535. The old room round
+            the frame is a tick box in the frame's sheet ("Room round the frame"), to compare. The shape label sits
+            just inside the frame on a quiet tab when there is no room above it.
+      - [x] Gestures on the joystick (`al-stick-moves.js`): a quick tap or flick is a gesture, a held press steers.
+            Six slots (Tap, Two taps, Swipe up / down / left / right). Acts offered are only what the character can
+            do: Jump, Dash left / right, Back to the middle (walkers and floaters), Turn round, each of its own buttons
+            (its stances, faces, layers: a sitting stance or a flashlight appears once it has one), Blink, Next mood,
+            Show-off loop. Starts as: flick up Jump, flicks left / right Dash, tap its first stance (All fours for
+            Topps), two taps Turn round. A small sliders button in the pad's corner opens them all; each character
+            keeps its own (`ch.settings.stick`), a change is one Undo step, and the pad says what a gesture did.
+            Not offered (need moves the room does not have): tumble, clips, behaviour modes beyond the Show-off loop.
+            Choice: two taps only wait for a second tap when Two taps has an act; a character on the move faces the
+            way it goes, so Turn round takes when it stands.
       - [x] 11 `al-breaktest-scene.js` follows the new doorway: 67 checks, 0 failures with his saved Topps; new checks
             for all fours in a scene (down, turned round, up again), the empty scene, the strip's eight mixes, frame
             off and on, long press and second tap. All 15 planted faults caught (`AL.breakTest.scene.proof()`: the

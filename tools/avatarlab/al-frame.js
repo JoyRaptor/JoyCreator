@@ -24,7 +24,7 @@
   /* what is kept between visits: the frame on or off, which parts of the strip are up, cut or glide; and the empty scene's shape and shots */
   var ROOM = frame.room = load('al.room', { frame: false, sc: false, ch: false, sh: false, glide: false });
   var E = frame.empty = load('al.empty', { shape: '16:9', safe: 'off', shots: {} }); if (!E.shots) E.shots = {}; E.shot = 'wide';
-  frame.keep = function () { save('al.room', { frame: !!ROOM.frame, sc: !!ROOM.sc, ch: !!ROOM.ch, sh: !!ROOM.sh, glide: !!ROOM.glide }); save('al.empty', { shape: E.shape, safe: E.safe, shots: E.shots }); };
+  frame.keep = function () { save('al.room', { frame: !!ROOM.frame, sc: !!ROOM.sc, ch: !!ROOM.ch, sh: !!ROOM.sh, glide: !!ROOM.glide, air: !!ROOM.air }); save('al.empty', { shape: E.shape, safe: E.safe, shots: E.shots }); };
   function changed(app) { if (AL.strip) AL.strip.sync(app, true); }
 
   frame.on = function () { return !!ROOM.frame; };
@@ -41,17 +41,19 @@
   frame.setSafe = function (app, v) { if (app.scene) scene.edit(app, 'Margins', function (d) { d.safe = v; }, true); else { E.safe = v; frame.keep(); } changed(app); };
 
   /* ── where it is on the glass ── */
-  frame.BAND = 44;                            // the row the two round buttons need at the bottom of the stage
-  /** The room the picture has: the stage, less the hint line at the top and the round buttons' row at the bottom. The strip is
-      NOT taken off: like Video Studio's transcript panel it pushes the picture aside (frame.push), and never shrinks it. */
+  frame.BAND = 44;                            // what the two round buttons need: a row under a wide frame, a column beside an upright one
+  /** The room the picture has: the stage, less the hint line at the top. The strip and the round buttons are NOT taken off: like
+      Video Studio's transcript panel they push the picture aside (frame.push), and never make it smaller. */
   frame.area = function (app) {
-    var st = $('stage'), w = st.clientWidth, hh = st.clientHeight, co = $('coach'), top = Math.max(46, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 0), b = $('roombtns'), bot = 8 + (b && b.offsetHeight ? frame.BAND : 0);
-    return { x: 8, y: top, w: Math.max(40, w - 16), h: Math.max(80, hh - top - bot) };
+    var st = $('stage'), w = st.clientWidth, hh = st.clientHeight, co = $('coach'), top = Math.max(46, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 0);
+    return { x: 8, y: top, w: Math.max(40, w - 16), h: Math.max(80, hh - top - 8) };
   };
-  frame.CUSHION = 0.06;
-  /** The frame's rectangle in an area: as big as fits with room round it on every side (6% of its size, and 14 px more). */
+  /** As big as the screen allows (the owner, 11-21 late: "don't leave scene space on the table"). The earlier room round the frame
+      (6% of its size and 14 px on every side) stays one tick away in the frame's sheet, to compare. */
+  frame.air = function () { return ROOM.air ? { c: 0.06, m: 14 } : { c: 0, m: 0 }; };
+  /** The frame's rectangle in an area: the biggest of its shape that fits (with the room round it, when that is asked for). */
   frame.fit = function (A, ar) {
-    var c = frame.CUSHION, m = 14, fw = Math.max(24, Math.min((A.w - 2 * m) / (1 + 2 * c), (A.h - 2 * m) / (1 + 2 * c) * ar)), fh = fw / ar;
+    var a = frame.air(), c = a.c, m = a.m, fw = Math.max(24, Math.min((A.w - 2 * m) / (1 + 2 * c), (A.h - 2 * m) / (1 + 2 * c) * ar)), fh = fw / ar;
     return { x: A.x + (A.w - fw) / 2, y: A.y + (A.h - fh) / 2, w: fw, h: fh };
   };
   /** Where the strip comes in for a frame of this shape: an upright frame has its room at the sides, so the strip comes from the
@@ -64,9 +66,10 @@
       the part of it the drawer would cover, only as far as its own room on the other side allows, and is never made smaller;
       whatever is still covered stays under the see-through drawer. Returns { dx, dy } for a rectangle on the glass. */
   frame.push = function (app, F, A) {
-    var s = $('strip'), st = $('stage'); if (!s || !s.offsetHeight || !s.offsetWidth) return { dx: 0, dy: 0 };
-    if (s.classList.contains('side')) { var freeX = s.offsetLeft - 6, cx = Math.max(0, F.x + F.w - freeX); return { dx: -Math.min(cx, Math.max(0, F.x - A.x)), dy: 0 }; }
-    var freeY = s.offsetTop - frame.BAND - 6, cy = Math.max(0, F.y + F.h - freeY);
+    var s = $('strip'), st = $('stage'), b = $('roombtns'), up = !!(s && s.offsetHeight && s.offsetWidth), btn = !!(b && b.offsetHeight);
+    if (!up && !btn) return { dx: 0, dy: 0 };
+    if (frame.side(app) === 'side') { var freeX = (up ? s.offsetLeft : st.clientWidth) - (btn ? frame.BAND : 0) - 6, cx = Math.max(0, F.x + F.w - freeX); return { dx: -Math.min(cx, Math.max(0, F.x - A.x)), dy: 0 }; }      // the strip and the buttons beside it
+    var freeY = (up ? s.offsetTop : st.clientHeight) - (btn ? frame.BAND : 0) - 6, cy = Math.max(0, F.y + F.h - freeY);      // the strip and the buttons' row above it
     return { dx: 0, dy: -Math.min(cy, Math.max(0, F.y - A.y)) };
   };
   /* the push glides the way Studio's does (and the way the room's own view glides, so a picture and its frame move as one) */
@@ -111,7 +114,7 @@
       g.fillStyle = 'rgba(232,121,249,.14)'; g.fillRect(F.x, F.y, F.w, F.h * 0.12); g.fillRect(F.x, F.y + F.h * 0.78, F.w, F.h * 0.22); g.fillRect(F.x + F.w * 0.86, F.y + F.h * 0.12, F.w * 0.14, F.h * 0.66);
       g.setLineDash([5, 4]); g.strokeStyle = 'rgba(232,121,249,.75)'; g.strokeRect(F.x + 1, F.y + F.h * 0.12, F.w * 0.86 - 1, F.h * 0.66); g.setLineDash([]);
     }
-    if (label) { g.font = '500 9.5px "IBM Plex Mono", ui-monospace, monospace'; g.fillStyle = 'rgba(161,161,170,.78)'; var up = F.y > 16; g.textBaseline = up ? 'bottom' : 'top'; g.fillText(label, F.x + 1, up ? F.y - 3 : F.y + 5); }
+    if (label) { var co = $('coach'), cb = co && co.offsetHeight ? co.offsetTop + co.offsetHeight : 0; g.font = '500 9.5px "IBM Plex Mono", ui-monospace, monospace'; g.fillStyle = 'rgba(161,161,170,.78)'; var up = F.y - cb > 15; g.textBaseline = up ? 'bottom' : 'top'; if (!up) { g.fillStyle = 'rgba(9,9,11,.45)'; g.fillRect(F.x + 1, F.y + 1, g.measureText(label).width + 10, 16); g.fillStyle = 'rgba(212,212,216,.85)'; } g.fillText(label, F.x + 5, up ? F.y - 3 : F.y + 4); }      // (above the frame when there is room; otherwise just inside it, on a quiet tab)
     g.restore();
   };
   /** The frame button's picture: the shape written inside brackets. */
@@ -137,6 +140,8 @@
     body.appendChild(row);
     body.appendChild(ui.lab('Margins'));
     body.appendChild(ui.row([ui.seg([['off', 'None', 'Just the frame'], ['title', 'Title safe', 'The classic margins: keep action inside the cyan line and words inside the pink one'], ['social', 'App buttons', 'About where an app lays its own buttons and words over an upright video. Every app differs: treat it as a guide.']], frame.safe(app), function (v) { frame.setSafe(app, v); if (!frame.on()) frame.set(app, true); frame.sheet(app); }, 'Safe margins')]));
+    body.appendChild(ui.lab('Its size'));
+    body.appendChild(ui.toggle('Room round the frame', !!ROOM.air, function (v) { ROOM.air = v; frame.keep(); changed(app); frame.refit(app); frame.sheet(app); }, 'The earlier way: a margin all round, so a character part-way out is still on the screen. Off, the frame is as big as the screen allows.'));
     body.appendChild(ui.note('Changing the shape moves nothing: the frame is a window on the same stage. Export cuts the picture to it.' + (app.scene ? '' : ' This is the empty scene\'s frame; each scene keeps its own.')));
     app.sheet('The frame', body, [{ label: 'Done', cls: 'quiet', fn: app.closeSheet }]);
   };

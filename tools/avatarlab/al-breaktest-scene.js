@@ -17,6 +17,9 @@
  * and for the owner's notes of 11-21 late (Studio's canvas, the push, the joystick):
  *   shrink     the strip takes its room from the frame (round 20's way)       nodesk  no Studio texture round the picture
  *   noclip     the set is not cut at the frame                                 stickdead  the joystick moves nothing
+ * and for the joystick's gestures:
+ *   nogesture  a flick is never seen as one                                    tapsteer   a held steer is taken for a tap
+ *   dbl        two taps also fire the one-tap act                              undo2      a gesture is changed behind Undo's back
  */
 (function (root) {
   'use strict';
@@ -275,7 +278,7 @@
           ROOM.sc = true; ROOM.ch = true; AL.strip.sync(app, true); await K.raf(3); var Fb = FR.rect(app, FR.ar(app)), sEl = q('#strip'), sideNow = sEl.classList.contains('side'), wantSide = FR.ar(app) < 1 || (FR.ar(app) === 1 && FR.side(app) === 'side');
           if (Math.abs(Fa.w - Fb.w) > 0.5 || Math.abs(Fa.h - Fb.h) > 0.5) bad23.push(scene.SHAPES[sh3][0] + ' size ' + Math.round(Fa.w) + '->' + Math.round(Fb.w));
           if (sideNow !== wantSide) bad23.push(scene.SHAPES[sh3][0] + ' came from the ' + (sideNow ? 'side' : 'bottom'));
-          var Aa = FR.area(app), covered = sideNow ? Fb.x + Fb.w > sEl.offsetLeft - 6 + 0.5 : Fb.y + Fb.h > sEl.offsetTop - FR.BAND - 6 + 0.5, room = sideNow ? Fb.x - Aa.x > 0.5 : Fb.y - Aa.y > 0.5;
+          var Aa = FR.area(app), covered = sideNow ? Fb.x + Fb.w > sEl.offsetLeft - FR.BAND - 6 + 0.5 : Fb.y + Fb.h > sEl.offsetTop - FR.BAND - 6 + 0.5, room = sideNow ? Fb.x - Aa.x > 0.5 : Fb.y - Aa.y > 0.5;
           if (covered && room) bad23.push(scene.SHAPES[sh3][0] + ' still covered with room to move');
           var ps3 = Array.prototype.slice.call(document.querySelectorAll('#strip .spart')), dim = function (p) { return sideNow ? p.getBoundingClientRect().height : p.getBoundingClientRect().width; };
           if (ps3.length !== 2 || Math.abs(dim(ps3[0]) - dim(ps3[1])) > 1.5) bad23.push(scene.SHAPES[sh3][0] + ' parts not shared equally');
@@ -308,12 +311,40 @@
         var pr = pad5.getBoundingClientRect(), t5a = w5.tx, x5a = w5.x;
         ev(pad5, 'pointerdown', { x: pr.left + pr.width * 0.62, y: pr.top + pr.height / 2 }); for (var f7 = 0; f7 < 15; f7++) await K.raf(1); var slow = w5.tx - t5a;
         ev(pad5, 'pointermove', { x: pr.right - 2, y: pr.top + pr.height / 2 }); var t5b = w5.tx; for (var f8 = 0; f8 < 15; f8++) await K.raf(1); var fast = w5.tx - t5b, held5 = app.inp.held.body, t5c = w5.tx;
+        await realWait(420);                                                // (held, as a thumb steering is: not a flick)
         ev(pad5, 'pointerup', { x: pr.right - 2, y: pr.top + pr.height / 2 }); for (var f9 = 0; f9 < 40; f9++) await K.raf(1);
         F('25 pushed right, the body walks right, faster at the rim than near the middle', slow > 0.5 && fast > slow * 1.8 && held5, { slow: Math.round(slow), fast: Math.round(fast) });
         F('25 let go: the body stops where it was taken (not back home), and is no longer held', !app.inp.held.body && Math.abs(w5.tx - t5c) < 1 && w5.x > x5a + (t5c - t5a) * 0.5, { tx: Math.round(w5.tx), x: Math.round(w5.x), from: Math.round(x5a) });
         AL.stick.set(app, false); await K.raf(2);
         F('25 put away: the pad goes and Mic, Voice file and Face have their words again', !q('.stickpad') && !document.querySelector('#panelbody .chip.ico'));
       } finally { AL.stick.SPEED = spd0; AL.stick.release(app); }
+      /* 26. gestures on the joystick: a flick or a tap is an act, a held press is still the joystick; each character keeps its own */
+      var M = AL.stickMoves, T26 = { tm: AL.stick.TAP.ms, tv: AL.stick.TAP.move, sd: AL.stick.SWIPE.dist, db: M.DOUBLE }, mset0 = M.set, inp6 = app.inp, w6 = inp6.walker, ch6 = app.ch, flip6 = inp6.pose.flip, tr6 = JSON.stringify(inp6.trig);
+      if (plant === 'nogesture') AL.stick.SWIPE.dist = 99; if (plant === 'tapsteer') { AL.stick.TAP.ms = 1e9; AL.stick.TAP.move = 99; } if (plant === 'dbl') M.DOUBLE = 0;
+      if (plant === 'undo2') M.set = function (a, slot, key) { a.ch.settings.stick = a.ch.settings.stick || {}; a.ch.settings.stick[slot] = key; };      // (a change made behind Undo's back)
+      try {
+        AL.stick.set(app, true); await K.raf(2); var pad6 = q('.stickpad'), map6 = M.map(app), tId = map6.tap.slice(0, 5) === 'trig:' ? map6.tap.slice(5) : null, bw = AL.boundsOf(ch6.root), cw = bw.x1 - bw.x0;
+        var at6 = function () { pad6 = q('.stickpad'); var r = pad6.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, s: r.width }; };
+        var flick = function (dx, dy) { var c = at6(), e = { x: c.x + dx * c.s * 0.35, y: c.y + dy * c.s * 0.35 }; ev(pad6, 'pointerdown', c); ev(pad6, 'pointermove', e); ev(pad6, 'pointerup', e); };
+        var tapOnce = function () { var c = at6(); ev(pad6, 'pointerdown', c); ev(pad6, 'pointerup', c); };
+        F('26 a walking character starts with Jump on a flick up, a dash each way, its stance on a tap, Turn round on two taps', map6.up === 'jump' && map6.left === 'dash-l' && map6.right === 'dash-r' && !!tId && map6.dtap === 'flip', map6);
+        var y6 = w6.y, minY = y6, air6 = false; flick(0, -1);
+        for (var j6 = 0; j6 < 34; j6++) { await K.raf(1); await realWait(30); minY = Math.min(minY, w6.y); if (w6.air) air6 = true; }
+        F('26 a flick up jumps: up past where the feet let go, and down again', air6 && minY < y6 - 5 && Math.abs(w6.y - y6) < 8, { air: air6, rose: Math.round(y6 - minY), back: Math.round(w6.y - y6) });
+        w6.home(); await K.raf(40); var tx6 = w6.tx; flick(1, 0); await K.raf(2);      // (from the middle: the joystick check above left him at the edge of his room)
+        F('26 a flick right dashes right, a long way at once', w6.tx - tx6 > cw * 0.4, { dashed: Math.round(w6.tx - tx6), width: Math.round(cw) });
+        w6.home(); await K.raf(120);                                        // (standing still again: a character on the move faces the way it goes, whatever a tap says)
+        AL.stick.flash = null; var trB = !!inp6.trig[tId], c6 = at6(); ev(pad6, 'pointerdown', c6); ev(pad6, 'pointermove', { x: c6.x + c6.s * 0.12, y: c6.y }); await realWait(450); ev(pad6, 'pointerup', { x: c6.x + c6.s * 0.12, y: c6.y }); await realWait(M.DOUBLE + 150); await K.raf(2);
+        F('26 a press held and steered is the joystick, not a gesture (nothing fires)', !!inp6.trig[tId] === trB && !AL.stick.flash, { flash: AL.stick.flash && AL.stick.flash.text });
+        tapOnce(); await realWait(M.DOUBLE + 150); await K.raf(2);
+        F('26 a tap does its act (the stance on, or off)', !!inp6.trig[tId] !== trB, { was: trB, now: !!inp6.trig[tId] });
+        var fl6 = inp6.pose.flip, trC = !!inp6.trig[tId]; tapOnce(); await realWait(60); tapOnce(); await realWait(M.DOUBLE + 150); await K.raf(2);
+        F('26 two taps turn it round, and do not also do the one-tap act', inp6.pose.flip !== fl6 && !!inp6.trig[tId] === trC, { flip: inp6.pose.flip, was: fl6, trig: !!inp6.trig[tId], trigWas: trC });
+        var n6 = app.hist.past.length; M.set(app, 'up', 'blink'); var ok61 = M.map(app).up === 'blink' && app.hist.past.length === n6 + 1; app.undo(false, true); var ok62 = M.map(app).up === 'jump';
+        F('26 changing a gesture is one Undo step, kept with the character', ok61 && ok62, { set: ok61, undone: ok62 });
+        var acts6 = M.acts(app), keys6 = acts6.map(function (a) { return a.key; });
+        F('26 only what this character can do is offered: each of its buttons, and the moves of something that walks', (ch6.triggers || []).every(function (t) { return keys6.indexOf('trig:' + t.id) >= 0; }) && keys6.indexOf('jump') >= 0 && acts6.every(function (a) { return a.key.slice(0, 5) !== 'trig:' || (ch6.triggers || []).some(function (t) { return 'trig:' + t.id === a.key; }); }), keys6.length);
+      } finally { AL.stick.TAP.ms = T26.tm; AL.stick.TAP.move = T26.tv; AL.stick.SWIPE.dist = T26.sd; M.DOUBLE = T26.db; M.set = mset0; AL.stick.set(app, false); inp6.pose.flip = flip6; var tr0 = JSON.parse(tr6); Object.keys(inp6.trig).forEach(function (k) { if (!!inp6.trig[k] !== !!tr0[k]) inp6.setTrig(k, !!tr0[k]); }); }
       F('99 no bad numbers and nothing thrown by the end', !scene._err && !(app.scene && bad(app.scene)), { err: !!scene._err });
     } catch (e) { R0.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
     try { var r0 = JSON.parse(room0), e0 = JSON.parse(empty0), RM = AL.frame.room, EM = AL.frame.empty; for (var rk in r0) RM[rk] = r0[rk]; EM.shape = e0.shape; EM.safe = e0.safe; EM.shots = e0.shots; AL.frame.keep(); } catch (e6) { }      // (the room's own settings, as they were)
@@ -325,7 +356,8 @@
   Sc.proof = async function () {
     var out = {}, want = { order: /^2 the tree behind/, shape: /^3 changing the frame/, hand: /^5 \.\.\.and nobody else/, passes: /^6 while the second records/, camera: /^7 played back/, clamp: /^9 /, undo: /^11 undo of every/, trip: /^10 \.\.\.and every take/,
       fours: /^18 on all fours/, emptytake: /^19 \.\.\.and a scene opened/, emptydel: /^19 the empty scene cannot be deleted/, share: /^20 /, frameleave: /^21 in a scene, the frame off/, hold: /^22 a long press/, setup: /^22 a second tap on the character/,
-      shrink: /^23 /, nodesk: /^24 in a scene/, noclip: /^24 in a scene/, stickdead: /^25 pushed right/ };
+      shrink: /^23 /, nodesk: /^24 in a scene/, noclip: /^24 in a scene/, stickdead: /^25 pushed right/,
+      nogesture: /^26 a flick up jumps/, tapsteer: /^26 a press held and steered/, dbl: /^26 two taps/, undo2: /^26 changing a gesture/ };
     var only = arguments[0];
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await Sc.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 5) }; }
     return out;

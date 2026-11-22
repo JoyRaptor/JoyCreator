@@ -83,12 +83,35 @@
       var kx = m + K.x * r, ky = m + K.y * r;
       if (K.on) { g.strokeStyle = 'rgba(244,63,142,.45)'; g.lineWidth = 3; g.beginPath(); g.moveTo(m, m); g.lineTo(kx, ky); g.stroke(); }
       g.beginPath(); g.arc(kx, ky, 13, 0, 7); g.fillStyle = K.on ? '#f43f8e' : '#1c1c22'; g.fill(); g.strokeStyle = live ? '#f43f8e' : '#e4e4e7'; g.lineWidth = 2; g.stroke();
+      var fl = stick.flash; if (fl && performance.now() < fl.until) { g.font = '600 10.5px "IBM Plex Sans", system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'bottom'; g.fillStyle = 'rgba(9,9,11,.75)'; var tw = g.measureText(fl.text).width + 12; g.fillRect(m - tw / 2, s - 22, tw, 16); g.fillStyle = '#f43f8e'; g.fillText(fl.text, m, s - 8); g.textAlign = 'left'; }      // (what a gesture just did, for a moment)
     }
     (app.padDraws = app.padDraws || []).push(draw);
     function at(e) { var b = pad.getBoundingClientRect(), s = b.width, x = (e.clientX - b.left) / s * 2 - 1, y = (e.clientY - b.top) / s * 2 - 1, d = Math.hypot(x, y) / 0.8; if (d > 1) { x /= d; y /= d; } K.x = clamp(x / 0.8, -1, 1); K.y = clamp(y / 0.8, -1, 1); }
-    pad.addEventListener('pointerdown', function (e) { e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch (x) { } K.pid = e.pointerId; K.on = true; grab(app); at(e); });
-    pad.addEventListener('pointermove', function (e) { if (K.on && e.pointerId === K.pid) at(e); });
-    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) { pad.addEventListener(ev, function (e) { if (K.on && e.pointerId === K.pid) stick.release(app); }); });
+    function raw(e) { var b = pad.getBoundingClientRect(); return [(e.clientX - b.left) / b.width * 2 - 1, (e.clientY - b.top) / b.width * 2 - 1]; }
+    pad.addEventListener('pointerdown', function (e) {
+      if (e.target.closest && e.target.closest('.padset')) return;
+      e.preventDefault(); try { pad.setPointerCapture(e.pointerId); } catch (x) { } K.pid = e.pointerId; K.on = true; grab(app); at(e);
+      var w = K.inp && K.inp.walker; K.g = { t0: performance.now(), p0: raw(e), p: raw(e), far: 0, tx: w ? w.tx : 0, ty: w ? w.ty : 0 };
+    });
+    pad.addEventListener('pointermove', function (e) { if (!K.on || e.pointerId !== K.pid) return; at(e); if (K.g) { K.g.p = raw(e); K.g.far = Math.max(K.g.far, Math.hypot(K.g.p[0] - K.g.p0[0], K.g.p[1] - K.g.p0[1])); } });
+    ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(function (ev) { pad.addEventListener(ev, function (e) {
+      if (!K.on || e.pointerId !== K.pid) return;
+      var G = K.g, inp = K.inp, kind = ev === 'pointerup' && G ? stick.gestureOf(G, performance.now()) : null; K.g = null; stick.release(app);
+      if (!kind) return;
+      if (inp && inp.walker && inp.walker.travels()) { inp.walker.tx = G.tx; inp.walker.ty = G.ty; }      // a flick or a tap is not a steer: the little the body was nudged is taken back
+      if (AL.stickMoves) AL.stickMoves.gesture(app, kind);
+    }); });
+    if (AL.stickMoves) pad.appendChild(AL.stickMoves.button(app));
     return pad;
+  };
+
+  /* ── a gesture, or a steer: a quick touch is a TAP, a quick flick is a SWIPE, anything held is the joystick ── */
+  stick.TAP = { ms: 230, move: 0.2 };       // shorter than this and moved less than this (pad radii)
+  stick.SWIPE = { ms: 360, dist: 0.45 };    // shorter than this and moved at least this far
+  stick.gestureOf = function (G, now) {
+    var dt = now - G.t0, dx = G.p[0] - G.p0[0], dy = G.p[1] - G.p0[1], d = Math.hypot(dx, dy);
+    if (dt < stick.TAP.ms && G.far < stick.TAP.move) return 'tap';
+    if (dt < stick.SWIPE.ms && d >= stick.SWIPE.dist) return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+    return null;
   };
 })(typeof self !== 'undefined' ? self : this);

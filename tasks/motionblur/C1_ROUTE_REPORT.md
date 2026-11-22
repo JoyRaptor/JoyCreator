@@ -14,11 +14,19 @@ This fixture proves routing before there is an authored motion-blur effect. An e
 | Real Studio models | Cut jumps, both dissolve edges, repeat and ping-pong boundaries, sprite cell swaps, fractional link motion, text/image affine, sprite, PiP, spine and sampled scissor pass locally. The unfenced and rounded-parent controls fail as expected. |
 | CPU exposure reference | Slide, zoom, spin, parent/child, teleport and still controls fail for the targeted wrong behavior. A 128-versus-256-sample reference writes PNGs and reports coverage and average alpha difference. Still is bit-exact against the one-sample rendering. |
 | Existing Studio suites | `timemap`, `fx` and `key` pass locally. |
-| Debug route fixture APK | [GitHub Actions 45046174083](https://github.com/JoyRaptor/JoyCreator/actions/runs/45046174083), built from `fb5a4c930`. |
-| Snapdragon Note 9 | Device connected with Android 10. Route and benchmark runtime proof pending. |
+| Debug route fixture APK | [GitHub Actions 45048325360](https://github.com/JoyRaptor/JoyCreator/actions/runs/45048325360), built from `81c8dc56e`, installed in place with the project's local debug signature. [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45048325378): 62/62 suites. |
+| Snapdragon Note 9 | Android 10, Adreno 630. Editor seek and full export route observed. Paused PiP discrepancy below. |
 | Exynos Note 9 | Owed. |
 
 Bench runs have separate stages. `MotionBenchActivity` feeds a muted bundled clip through the actual GLES 2 Studio preview view at a 1280×720 internal compositor size for 60 seconds, with blur off. TextureView output-latch intervals are recorded as a compositor delivery measure. Compare them with SurfaceFlinger presentation data when available, and keep the two interpretations in the receipt. `MotionGatherCalibration` draws a separate 12-tap GLES 3 calibration over a 1280×720 RGBA8 target and consumes it in the screen pass. It uses the existing VisLab query ring and reports P50/P95/P99 over valid queries. The GLES 3 numbers give a device calibration and do not establish the GLES 2 effect cost. Neither stage measures the final ten-minute release workload.
+
+### Device results · 2026-11-22
+
+- Real Studio 720p baseline: 60.007 s, 1,798 TextureView latch intervals. P50 33.359 ms, P95 50.380 ms, P99 50.880 ms. These measure the compositor output latch.
+- Separate 1280×720 GLES 3 12-tap calibration: 180 valid timer queries, P50 1.934 ms, P95 1.948 ms, P99 1.950 ms. Android thermal status 0. Battery temperature 32.5–32.6 °C. This calibration does not time a production motion-blur pass.
+- The real editor sought to 0.647 s and 1.293 s around the 1.000 s cut. Both sides showed the authored title, sprite and half-opacity picture. The export service selected full re-encode, composed two items, and wrote a 540×960 H.264 MP4 with 60 frames at 30 fps and 2.000 s duration. Decoded frames near the two seek times show the cut and changing overlay placement.
+- **PiP discrepancy:** The export shows the PiP at 0.647 s. The paused editor omits it at 0.647 s on two fixture runs, including after 2.8 s to settle. The preview logs show the PiP routed into the FX composite. This is a route proof with an observed parity gap. C1 adds no motion-blur render stage. Reproduction against a separate pre-C1 APK was not run. Keep this case for the C3/C4 compositor parity check.
+- Local evidence: `C:/workspace/motion-c1-evidence`, filenames prefixed `note9-81c8dc56e-`.
 
 For the device proof, claim only the sandbox phone through `tools/phone.ps1`. Start the debug activity `com.fadcam.beta/com.fadcam.ui.faditor.export.ExportDebugActivity` with `--ez motion_route_fixture true --ez open_preview true`. Read the generated test project ID from the `ExportDebug` log. Seek across the cut in Studio. Run the same debug activity with `--es project_id <fixture-id>` to export, and check the export log for the full re-encode path and the generated file. The bench component is `com.fadcam.beta/com.fadcam.ui.faditor.motion.MotionBenchActivity`. Use the `MotionBench` log tag for the receipt. Release the phone afterward.
 

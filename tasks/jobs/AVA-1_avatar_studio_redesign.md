@@ -681,7 +681,7 @@ they want, a centipede; arms that can become feet with one toggle").
               picking by where the feet are now), `al-take-walk.js` (a take leads depth), `al-app.js` (room below alone),
               `al-cards.js` (the button and the drawer under Walking). `al-face.js` and `al-inputs.js` untouched.
             - **Proof:** `al-breaktest-face-walk.js` (a stand-in face, no camera needed): 19 checks, 0 failures with his saved
-              Topps; all 17 planted faults caught (the 16th: a head tilt walks it; the 17th: a guard so tight his real lean cannot walk it) (`AL.breakTest.faceWalk.proof()`): the tick ignored, no dead zone either way,
+              Topps; all 18 planted faults caught (the 16th: a head tilt walks it; the 17th: a guard so tight his real lean cannot walk it; the 18th: Play pressed while the face walk still has the body shows the live walk, found from a clean-profile run by the face-capture session and fixed). Both walking tests turn on simulated time themselves and pass with the built-in Topps in an empty profile at 430 wide (`AL.breakTest.faceWalk.proof()`): the tick ignored, no dead zone either way,
               growing where it stands (floating), a planted foot sliding, feet that never step, no front turn, Up close not
               walking back, the drawer never opening, the nearer one not drawn in front, no growing in a scene, a take that
               loses the size, a later pass not recording the face's walk, depth on the plain stage with every tick off, a leg

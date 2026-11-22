@@ -1,4 +1,5 @@
 /* AvatarLab: BREAK TEST, walking with your face, and toward the camera and away (al-face-walk.js, al-depth-walk.js, the walker's depth).
+ * It turns on simulated time itself (AL.breakTest.kit.sim(true)): reload the page after it, to get the page's own clock back.
  * Load after al-breaktest.js, al-breaktest-fit.js, al-breaktest-walk.js and al-breaktest-scene-walk.js. Uses the owner's saved Topps when it is
  * there. The face is a stand-in (AL.faceWalk.source is replaced for the run): the camera itself is not needed.
  *
@@ -15,7 +16,7 @@
  *   close    stuck     unticking Up close does not walk it back
  *   drawer   drawer    the drawer never opens
  *   scene    order     the nearer one is not drawn in front           flat     in a scene it does not grow as it comes closer
- *   take     shrink    a take loses how big it was drawn
+ *   take     shrink    a take loses how big it was drawn             keepown  Play does not take the body back from the face walk
  *   own      unowned   a later pass does not record what the face walked
  *   plain    always    the plain stage is given depth with every tick box off
  *   fours    leg       a leg comes off while it walks closer on all fours
@@ -176,15 +177,17 @@
     var R = await inScene(X, app), A = R.actors[X.tp.id], inp = A.inp, live = [], pb = [];
     scene.rec(app); for (var i = 0; i < 10; i++) { await K.raf(1); live.push({ ph: inp.ph, fy: dw.footY(R, X.tp), s: inp.S.rootScale, o: order(R, X) }); }
     inp._close = true; for (i = 0; i < 100; i++) { await K.raf(1); live.push({ ph: inp.ph, fy: dw.footY(R, X.tp), s: inp.S.rootScale, o: order(R, X) }); }
-    inp._close = false; for (i = 0; i < 120; i++) { await K.raf(1); live.push({ ph: inp.ph, fy: dw.footY(R, X.tp), s: inp.S.rootScale, o: order(R, X) }); }
-    scene.rec(app); await K.raf(4);
+    inp._close = false; for (i = 0; i < 24; i++) { await K.raf(1); live.push({ ph: inp.ph, fy: dw.footY(R, X.tp), s: inp.S.rootScale, o: order(R, X) }); }
+    scene.rec(app);      // (stopped while it is still walking back: the face walk still has the body, and Play must take it at once)
+    if (plant === 'keepown') fw.yields = false;
     if (plant === 'shrink') inp.take.ch.rootS = inp.take.ch.rootS.map(function (v) { return v == null ? v : 1 + (v - 1) * 0.8; });
-    inp.walker.home(); await K.raf(30); scene.play(app);
+    var ownedAtPlay = !!(inp._fw && inp._fw.own); scene.play(app);
     for (i = 0; i < live.length - 2; i++) { await K.raf(1); pb.push({ ph: inp.ph, fy: dw.footY(R, X.tp), s: inp.S.rootScale, o: order(R, X) }); }
     scene.stop(app);
     var by = {}, n = 0, off = 0, flips = 0, big = 1; pb.forEach(function (s) { by[s.ph.toFixed(5)] = s; });
     live.forEach(function (l, j) { var s = by[l.ph.toFixed(5)]; if (!s || !j) return; n++; big = Math.max(big, l.s); if (Math.abs(l.fy - s.fy) > 0.5 || Math.abs(l.s - s.s) > 1e-3) off++; if (l.o !== s.o) flips++; });
-    F('take: a walk toward the camera and back is recorded and plays back the same, frame by frame: where its feet are on the floor, its size, who is in front', n > live.length * 0.9 && big > 1.1 && off === 0 && flips === 0, { frames: n, biggest: r1(big * 100) / 100, off: off, orderDiffers: flips });
+    F('take: a walk toward the camera and back is recorded and plays back the same, frame by frame, even when Play is pressed while it is still walking back: where its feet are on the floor, its size, who is in front', n > live.length * 0.9 && big > 1.1 && off === 0 && flips === 0 && ownedAtPlay, { frames: n, biggest: r1(big * 100) / 100, off: off, orderDiffers: flips, faceHadIt: ownedAtPlay });
+    fw.yields = true;
   };
   part.own = async function (X, F, plant, app) {
     var R = await inScene(X, app), A = R.actors[X.tp.id], inp = A.inp, st0 = fw.step;
@@ -198,6 +201,7 @@
   };
 
   FWT.run = async function (opt) {
+    K.sim(true);      // (every count of frames here is a count of 33 ms steps, as in a take: on the page's own clock, 60 a second, they would be half as long. Reload the page afterwards)
     opt = opt || {}; var app = AL.app, X = K.mk(), F = X.F, plant = opt.plant || '', only = opt.only || PARTS, src0 = fw.source, room0 = JSON.stringify({ lr: fw.room.lr, depth: fw.room.depth });
     try {
       if (app.scene) await scene.close(app, true);
@@ -213,7 +217,7 @@
       }
       F('99 nothing thrown by the end', !scene._err);
     } catch (e) { X.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
-    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; FACE.roll = 0;      // (whatever a planted fault replaced, back)
+    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.yields = true; FACE.roll = 0;      // (whatever a planted fault replaced, back)
     try { var r0 = JSON.parse(room0); fw.room.lr = r0.lr; fw.room.depth = r0.depth; } catch (e) { }
     try { if (AL.app.scene) await scene.close(AL.app, true); } catch (e2) { }
     try { var mine = (await scene.list(AL.app)).filter(function (e) { return e.name === 'Face walk test'; }); for (var m = 0; m < mine.length; m++) await scene.forget(AL.app, mine[m].uid); } catch (e4) { }
@@ -223,7 +227,7 @@
   };
   FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], tilt: ['lr', /^lr: tilting the head/], tight: ['lr', /^lr: your face to the right/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
     front: ['front', /^front: walking toward/], stuck: ['close', /^close: /], drawer: ['drawer', /^drawer: /], order: ['scene', /^scene: \.\.\.and once/], flat: ['scene', /^scene: coming closer/], shrink: ['take', /^take: /],
-    unowned: ['own', /^own: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /] };
+    unowned: ['own', /^own: /], keepown: ['take', /^take: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /] };
   FWT.proof = async function (only) {
     var out = {}, want = FWT.WANT;
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await FWT.run({ plant: k, only: [want[k][0]] }); out[k] = { caught: r.fails.some(function (f) { return want[k][1].test(f.label); }), fails: r.fails.map(function (f) { return f.label.slice(0, 70); }).slice(0, 4) }; }

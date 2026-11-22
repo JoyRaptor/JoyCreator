@@ -65,11 +65,16 @@
         if (w.tz != null && (Math.abs(w.tz - w.base) > 0.5 || w.tz !== was)) { drive = true; K.drove = true; }
       }
     }
-    /* whatever the face walks is the body's (a take records it); handed back once it has stopped */
+    /* whatever the face walks is the body's (a take records it); handed back once it has stopped, and at once when a take starts playing (the take walks it then) */
+    if (replay && K.own && fw.yields) { if (!w.held) inp.held.body = false; K.own = false; return; }
     if (drive) { inp.held.body = true; K.own = true; K.still = 0; }
     else if (K.own) { K.still = (K.still || 0) + dt; if (K.still > 0.4) { if (!w.held) inp.held.body = false; K.own = false; } }
   };
   app.hooks.push(function (dt) { fw.step(app, dt || 1 / 30); });
+  /* ...and a take that starts playing has the body from its very first frame (the hook above runs after a frame) */
+  fw.yields = true;
+  var step0 = AL.Inputs.prototype.step;
+  AL.Inputs.prototype.step = function (dt) { var K = this._fw; if (fw.yields && K && K.own && this.take && !this.recording && (this.playing || this.scrub)) { if (!(this.walker && this.walker.held)) this.held.body = false; K.own = false; } return step0.call(this, dt); };
 
   /* ── the drawer: a button in the Walking row opens it ── */
   fw.chip = function (app) { return app.ui.chip('Walk with your face', { on: !!app.faceWalkOpen || fw.on('lr') || fw.on('depth') || fw.close(app.inp), icon: 'cam', title: 'Walk with your face: lean to a side to walk that way, come closer to walk toward the camera. And Up close.', fn: function () { app.faceWalkOpen = !app.faceWalkOpen; app.refreshPanel(true); } }); };

@@ -1,4 +1,5 @@
 /* AvatarLab: BREAK TEST, walking across the stage in a scene (al-stage-walk.js, al-take-walk.js, the walker's limit).
+ * It turns on simulated time itself (AL.breakTest.kit.sim(true)): reload the page after it, to get the page's own clock back.
  * Load after al-breaktest.js, al-breaktest-fit.js and al-breaktest-walk.js. Uses the owner's saved Topps
  * (local/owner-topps.character.json, hand edits and an all-fours stance) when it is there.
  *
@@ -436,6 +437,7 @@
   };
 
   SW.run = async function (opt) {
+    K.sim(true);      // (every count of frames here is a count of 33 ms steps, as in a take: on the page's own clock, 60 a second, they would be half as long. Reload the page afterwards)
     opt = opt || {}; var app = AL.app, X = K.mk(), F = X.F, plant = opt.plant || '', only = opt.only || PARTS;
     var room0 = JSON.stringify(AL.frame.room), keep = { beyond: sw.BEYOND, edge: sw.EDGE, k: tw.keep, l: tw.leads };
     try {

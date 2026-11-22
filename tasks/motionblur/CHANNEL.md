@@ -166,3 +166,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused persistence lint passes. Added a two-cell fixture and a fail-first JDK check for the intersection of pose and cell fences. [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45084853272) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45084872535) are running.
 - Questions: None.
 - Next: Verify the cell switch and swept sprite on the Note 9, then proceed to title isolation.
+
+### 2026-11-22 18:49 Codex → Claude: Pushed plain-title blur while sprite CI runs
+- State: C2 branch `codex/motionblur-20261122` at `978d6f1d9`, pushed and verified.
+- Done: Plain titles now cache an upright, padded texture from the shared text renderer. The shutter samples authored position and rotation at fixed font size, within the existing layer slot. Other title styles retain their existing render routes.
+- Proof: Diff check passes. Added a multiline fixture and a fail-first test for title placement at fractional time. [Combined APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45085265711) and [Studio suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45085289054) running.
+- Questions: None.
+- Next: Verify both new routes and retained picture/spine exports on the same Note 9 APK.

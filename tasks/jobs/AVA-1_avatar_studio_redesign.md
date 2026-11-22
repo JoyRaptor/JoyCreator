@@ -433,6 +433,68 @@ they want, a centipede; arms that can become feet with one toggle").
       were made by script); a real model driving the tools. **Known limits:** a character walks in its own
       space, not across the stage or into depth; Undo for scene changes works in Arrange only; the camera lane
       has no list to edit, only Clear; nothing is exported as video; the Studio link is the saved file.
+- [ ] **SCENE, SECOND DESIGN (the owner's, 11-21 night). THE SPEC FOR THE REBUILD. Supersedes the doorway of round 20.**
+      His verdict on round 20: the engine is welcome, the doorway is wrong. It read as "a separate app taped on":
+      a second room entered from the menu, hard to get into and out of, with Play in two places. Keep
+      `al-scene.js` (the scene, the cast, the acts), `al-scene-take.js` (clock, shots, lane), the drawing in
+      `al-scene-draw.js` and `al-agent.js`. Replace how it is reached and shown (`al-scene-ui.js`, the scene's own
+      rail, Arrange as a stage of its own, "Back to the scene", the dock's tabs and its Record / Play).
+      **His standing rule for this job: before building anything ask "does Video Studio already do this? Does it
+      do it well?" If yes, plug it in. If not well, fix it there, then use it.** (Voice recording, the export
+      button, the exporter.)
+      1. **One room.** Perform is the room it always was. There is no scene room, no second rail, no way "back".
+      2. **The four stages work on whatever is in hand**, shown by the path tabs: `Scene > Topps > Head`.
+         A character in hand: exactly as today, alone on the plain stage in the first three stages. The scene
+         in hand: Set up brings things in (the body-map slot shows a scene picture and a way to choose or add
+         scenes, not a biped or quadruped; backdrop, objects, foreground, characters); the second stage places
+         them (drag, size, how far back, flip, try other frame shapes); Motion is the scene alive without
+         recording (wind, loops, try the shots); Perform is the same room. The scene's Arrange panel of round
+         20 is taken apart into these.
+      3. **The second stage needs a word that fits a character and a scene.** He offered Place, Adjust, Modify,
+         Arrange. Lead's pick: **Arrange** (it covers where a thing is, what is in front, and a stance). Keep it
+         one constant so it can be changed in one place; the code id stays `fit`. He has not confirmed the word.
+      4. **Two quiet grey round buttons at the bottom right of the stage in Perform** (his sketches, 11-21):
+         - **The frame button** shows the shape in brackets, 16:9 to start. Tap: the frame on or off (on =
+           solid cyan). Long press: the other shapes and the margins. **The frame is only a shape**: it previews
+           the bounds and tells export what to cut. It is NOT a scene mode. It must look handsome and quiet: a
+           zinc-grey hairline, a little darker outside (not the 90% black of round 20), with room round it on
+           every side so the character can go part-way out, above, below and to the sides.
+         - **The director's chair** opens upward into three toggles: **Scene, Character, Shots**. Each goes
+           from grey to on. A strip above the stage rail (like round 20's dock) shows whichever are on and
+           shares its whole width between them: one alone has all of it, two have a half each, three a third
+           each. Each part scrolls sideways by itself and ends in its own add card.
+         - **Shots need the frame.** Turning Shots on turns the frame on; with the frame off there are no shots.
+         - **A card:** tap chooses it (the scene changes; the character is in hand and its expressions fill the
+           card below; the camera goes to the shot). **Long press, or a second tap on the one already chosen,
+           sets it up**: a scene or a character goes in hand at the second stage; a shot is framed by hand,
+           named, kept or removed. Cut or glide is a two-way switch in the Shots part (tap and hold can no
+           longer mean both).
+      5. **The empty scene is a scene, and always the first card.** It is the plain dark stage from before
+         scenes existed, left exactly as it is (he likes it: "quiet, clean"). It cannot be deleted. A take
+         recorded there is the character's own, as today. Other scenes are added from the Scene part and the
+         menu. The scene in use is remembered, through the frame going off and on and through a reload.
+      6. **One transport.** The existing take bar is the only Record / Play. In a scene with several characters
+         it is the scene's clock: red records the one in hand while the others play back; Play plays everything.
+      7. **Export button**: exactly Video Studio's export button (take it from the Studio code, do not redraw
+         it), in Avatar Studio's gradient, where the paper-plane icon is now. It offers the **Joy Creator file**
+         (the character or the scene, picked up live inside Joy Creator), **one frame** (a picture; a tick box
+         for see-through), and **video** (a key colour to set; no see-through video). Tick boxes for each
+         character and for the background. Show only what works: a dead choice is worse than a missing one.
+      8. **The menu** keeps Create new avatar, the line, Create new scene and the scenes. Choosing one opens
+         Perform with the Scene part up and that scene chosen.
+      9. **Voice** is kept with a take. On the phone that is Video Studio's recorder, plugged in.
+      10. **Walking across the stage**: dragging the body walks the character across the scene and off either
+          side (entrances), not only inside its own drawing space. Hard piece: for the frontier model.
+      11. **Tests**: `al-breaktest-scene.js` follows the new doorway and gains a character on all fours in a
+          scene (standing, turned round, walking). Fail first, as always.
+      **The broken Topps he saw inside a scene on his phone (limbs off on all fours, an old throat pin) is NOT
+      found.** Tried on the PC 11-21, all whole: his saved Topps on all fours in a scene; turned round; the
+      built-in Topps brought in by name; and an old broken copy (tip changed the old way, no version mark)
+      brought in through a scene, which is mended exactly as when opened alone. The copy on his phone is needed:
+      in the scene, Menu, the save icon, saves a scene file that carries its characters. Until then this is open.
+      **Who builds what (his question; agreed):** spec and the fault hunt with the lead; the room from this spec
+      by Opus in a fresh session; break tests by Sonnet; video export and walking across the stage back to the
+      frontier model.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

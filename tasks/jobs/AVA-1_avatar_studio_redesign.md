@@ -657,8 +657,8 @@ they want, a centipede; arms that can become feet with one toggle").
             - **Left and right with your face:** your face to one side of where it rests walks the character that way, faster the
               further over (a rate, like the joystick: in a scene it can walk off and back); back to the middle and it stops.
               Turning or tilting your head still turns its head. Dead zone in the middle (18%) so drift does not walk it, and a head
-              tilted toward a shoulder (roll over 0.3) holds it: on his Note 9 test a tilt swung leanX further (+0.38) than a
-              deliberate lean (+0.27). The face-capture session was asked to take that swing out of leanX at the source.
+              tilted toward a shoulder (|roll| over 0.36; his lean rolled 0.23, his tilt 0.44) holds it: on his Note 9 test a tilt swung leanX further (+0.38) than a
+              deliberate lean (+0.27). The face engine now takes that swing out of leanX itself (FACE-1), so this is a safety net.
             - **Closer and further with your face:** lean toward the camera and it walks toward you, growing as it comes; sit
               back and it takes a few steps away; where your face rests, it stands at its place (a position, not a rate). Dead
               zone 15%. Reads the face camera's `leanX` and `near` (al-face.js), never changes them; works with Face in either
@@ -681,7 +681,7 @@ they want, a centipede; arms that can become feet with one toggle").
               picking by where the feet are now), `al-take-walk.js` (a take leads depth), `al-app.js` (room below alone),
               `al-cards.js` (the button and the drawer under Walking). `al-face.js` and `al-inputs.js` untouched.
             - **Proof:** `al-breaktest-face-walk.js` (a stand-in face, no camera needed): 19 checks, 0 failures with his saved
-              Topps; all 16 planted faults caught (the 16th: a head tilt walks it) (`AL.breakTest.faceWalk.proof()`): the tick ignored, no dead zone either way,
+              Topps; all 17 planted faults caught (the 16th: a head tilt walks it; the 17th: a guard so tight his real lean cannot walk it) (`AL.breakTest.faceWalk.proof()`): the tick ignored, no dead zone either way,
               growing where it stands (floating), a planted foot sliding, feet that never step, no front turn, Up close not
               walking back, the drawer never opening, the nearer one not drawn in front, no growing in a scene, a take that
               loses the size, a later pass not recording the face's walk, depth on the plain stage with every tick off, a leg

@@ -21,7 +21,8 @@
   fw.DEAD = { x: 0.18, z: 0.15 };     // the middle of each that is not a walk
   fw.SPEED = 0.8;                       // body heights a second, the face right over to one side
   fw.CURVE = 1.6;                       // gentle near the middle, quick toward the edge
-  fw.TILT = 0.3;                        // the head tilted further than this (the face camera's roll) holds the sideways walk
+  fw.TILT = 0.36;                       // the head tilted further than this (the face camera's |roll|) holds the sideways walk: a safety net, the face
+                                        // engine takes the tilt's swing out of leanX itself. His Note 9 test (11-22): a lean rolled 0.23, a shoulder tilt 0.44
   var ROOM = fw.room = (function () { try { var v = JSON.parse(localStorage.getItem('al.facewalk') || 'null'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } })();
   function keep() { try { localStorage.setItem('al.facewalk', JSON.stringify({ lr: !!ROOM.lr, depth: !!ROOM.depth })); } catch (e) { } }
   fw.on = function (k) { return !!ROOM[k]; };

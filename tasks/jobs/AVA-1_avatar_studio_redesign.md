@@ -536,6 +536,66 @@ they want, a centipede; arms that can become feet with one toggle").
             Joybot gradient, where the paper plane was. Sheet: Joy Creator file (character or scene) or One frame
             (1920 on the long side at the frame's shape, see-through tick), with a tick per character and for the set
             in a scene. Not built: video (not this session's; no dead choice is shown). The old Sprite sheet stays.
+      - [x] 7 (video) and 9 (the voice kept with a take), built 11-22 by the video-and-voice session. On the PC page only: not on
+            the phone, not seen by the owner.
+            **The voice.** A take recorded with the Mic on, or with a Voice file playing, keeps what was heard as `take.voice`
+            (`{ rate, n, wav }`: a mono 16-bit WAV, 24 000 samples a second, as a data URL inside the take). It is exactly as long as
+            the take and starts with it, so it goes wherever the take goes: this browser's store (a reload), the character file and a
+            scene file. Passes follow the channels' rule. A pass with the voice on replaces it for the stretch it was on, with 6 ms
+            blended at each end. A pass without the voice leaves it alone. Undo takes a pass back, voice and all, and clearing the
+            take clears it. While the voice is being kept, the take's clock is the sound's own clock, so a slow frame cannot put them
+            out of step. Play plays the voice. In a scene each character keeps its own, and Play plays them all together (so does a
+            pass, for the others). Scrubbing is silent, and the old voice is not played over a new one being recorded. Files:
+            `al-voice.js` (keeping it) and `al-voice-play.js` (hearing it). `al-inputs.js` got four one-line hooks: record, stop,
+            taking back a pass, and the take's clock.
+            **Video.** A third choice in the Export sheet. It makes the take (a character alone, or the whole scene with its camera
+            lane) at the frame's shape, 30 pictures a second, as an MP4 (H.264 pictures, AAC sound) that any player opens. Its sound is
+            the voice; in a scene, every voice at its own time. The sheet's tick boxes (each character, the set) apply, and a
+            ticked-off character's voice is left out too. Behind it: the stage, or a key colour (Green, Blue, Magenta, or his own pick),
+            never see-through. That choice is offered only where something shows behind; a set that fills the picture says so.
+            Sizes: Video Studio's 1080p, 720p and 480p by the short side, and only the ones this browser's encoder accepts. The sheet
+            shows the first picture as it will be. While the video is being made a bar shows how far it has got, and Stop (or closing
+            the sheet) stops it with nothing saved. If it cannot be made, one plain sentence says so. Each picture is made by fresh
+            copies of the performers' engines, at its exact moment (never a screen recording), so the room is untouched and a slow
+            device makes the same video. Files: `al-video.js`, `al-mp4.js` (our own small MP4 writer; no outside script) and
+            `al-export-video.js`.
+            **Where it works.** Browsers with WebCodecs: Chrome and Edge, and Safari 16.4 or later for the pictures. Checked in this
+            PC's Chrome (the pilot page). Also checked in a locked-down sandboxed frame like the published page's (no origin): the
+            encoders and the voice tap both work there. Not tried: the published page itself (its download door with a big file),
+            Safari, Firefox, and the phone's Chrome. Where a browser cannot make a video, the Video choice is not shown and the sheet
+            says to use Chrome or Edge. The published page has no microphone; its Voice file path runs the same code.
+            **Choices where the brief was silent.** The key colour starts as green (Topps is green, so blue or magenta keys him
+            better: one tap away). A ticked-off character's voice is left out. On the plain stage the video keeps the view as it is
+            framed now (a close-up does not follow a walk). Characters without a take are alive by themselves, as in Play. Other
+            characters' voices stay audible while one records (Studio mutes playback on a speaker; the browser cannot tell a speaker
+            from headphones).
+            **Proof.** `al-breaktest-export.js`: 29 checks, 0 failures with his saved Topps, and all 18 planted faults caught. A made
+            file checked with ffprobe: H.264 High, 1280 x 720, 30 fps, 66 pictures, 2.2 s; AAC 48 kHz, 2.2 s; the voice starts at
+            0.700 s, the same moment as in the take. By hand, at phone-tall size with the real mouse: the red dot, a spoken voice
+            file playing (handed to the page's own file box, standing in for the Windows file dialog), Play, then Export, Video,
+            Blue, 720p, Make the video (the bar showed, then it saved). The file: 208 pictures, 6.933 s, and sound of 6.933 s that is
+            the voice file itself, sample for sample. In the take, the mouth and the voice's loudness line up best at 0 frames apart
+            (0.89). The older tests still pass: scene 84 checks, 0 failures, all 24 of its planted faults caught; stage 43 checks,
+            0 failures. Run the scene test in a pane tall enough for the phone-tall view at full size: where that view is shrunk
+            (82% in a 768-pixel-high pane), its check 24 compares on-screen sizes with full ones and fails twice. The browser pane
+            used here keeps no downloads; Chrome itself does. The listener for pages without an AudioWorklet (a page opened over plain
+            http from another device) was measured against the exact one: 5 ms apart before a correction, now aligned.
+            **For the phone room: what Video Studio plugs in.**
+            - Recording: `audio/VoiceoverRecorder` (AudioRecord from the MIC; a 44.1 kHz mono 16-bit WAV;
+              `start(ctx, playheadMs)`, `stop()` returns the file). Start it on the take's first frame and stop it with the take.
+              Apply the stretch rule and the 6 ms blend to the WAV after the pass.
+            - Lip-sync: VoiceoverRecorder has no level meter, so lip-sync stays on `avatar/MicVisemeSource`. That is a second
+              AudioRecord, so either run only one at a time or read the WAV afterwards.
+            - Hearing it: `audio/AudioLayerSync` (`armForPlay`, `tick`, `parkOnPause`) over `compositor/AudioClipPreviewPlayer`.
+            - The video: `export/ExportService` (ACTION_START_EXPORT with a project snapshot, progress broadcasts,
+              ACTION_CANCEL_EXPORT) and `export/ExportManager` (Media3 Transformer; H.264 + AAC MP4; `ExportSettings` 1080p, 720p
+              and 480p).
+            - The character goes in as an avatar `SpriteOverlayItem` playing its `AvatarParamTrack`, drawn each frame by
+              `avatar/AvatarItemPuppet` from `export/CompositeExportOverlay`. The voice goes in as an `AudioClip` at offset 0.
+            - The key colour is a solid-colour image clip underneath: Studio has no background colour of its own, and its chroma key
+              only removes colour from incoming layers.
+            - The take's voice format above (`take.voice`) goes into the shared character and scene file format; a WAV of any rate
+              reads back.
       - [x] 8 Menu: Create new avatar, the line, Create new scene and the scenes; choosing one opens Perform with the
             Scene part up and that scene chosen (Create new scene too).
       - [ ] 9 Voice kept with a take, 10 walking across the stage: not this session's.

@@ -170,10 +170,11 @@
     if (!this.take) this.take = { fps: 30, n: 0, ch: {} };
     this.backup = JSON.stringify(this.take);
     this.recording = true; this.playing = true; this.scrub = false; this.ph = 0; this.wrote = {}; this.fade = {}; this.trigTouched = {}; this.pinTouched = {}; this.fresh = this.take.n === 0;
+    if (AL.voice) AL.voice.pass(this);                                   // (the voice is kept with the take: al-voice.js)
   };
-  P.stop = function () { var was = this.recording; if (was && this.take) this.take.n = Math.max(this.take.n, Math.floor(this.ph * this.take.fps)); this.recording = false; this.playing = false; if (was && this.app.touch) this.app.touch(); };
+  P.stop = function () { var was = this.recording; if (was && this.take) this.take.n = Math.max(this.take.n, Math.floor(this.ph * this.take.fps)); this.recording = false; this.playing = false; if (was && AL.voice) AL.voice.endPass(this); if (was && this.app.touch) this.app.touch(); };
   /** Take the last recording pass back, whole. */
-  P.undoPass = function () { if (!this.backup) return false; this.recording = false; this.playing = false; var t = JSON.parse(this.backup); this.backup = null; this.take = t.n ? t : null; this.ph = 0; if (this.app.touch) this.app.touch(); return true; };
+  P.undoPass = function () { if (!this.backup) return false; if (AL.voice) AL.voice.cancel(this); this.recording = false; this.playing = false; var t = JSON.parse(this.backup); this.backup = null; this.take = t.n ? t : null; this.ph = 0; if (this.app.touch) this.app.touch(); return true; };
   P.play = function () { if (!this.take || !this.take.n) return; this.playing = true; this.recording = false; this.scrub = false; if (this.ph >= this.take.n / this.take.fps - 0.05) this.ph = 0; };
   P.clearTake = function () { this.recording = false; this.playing = false; this.take = null; this.backup = null; this.ph = 0; if (this.app.touch) this.app.touch(); };
   P.duration = function () { return this.take ? this.take.n / this.take.fps : 0; };
@@ -292,7 +293,7 @@
       }
       for (g in fade) if (!own[g]) fade[g] = Math.max(0, fade[g] - dt);
       for (g in own) if (own[g]) fade[g] = FADE;
-      if (this.playing || this.recording) this.ph += dt;
+      if (this.playing || this.recording) this.ph += AL.voice ? AL.voice.clock(this, dt) : dt;      // (while a voice is kept, the take keeps the sound's time)
       if (this.recording) { tk.n = Math.max(tk.n, i + 1); if (this.ph > 120) this.stop(); }
       else if (this.playing && this.ph >= Math.max(tk.n / tk.fps, this.sceneLen || 0)) this.ph = 0;      // (in a scene the take runs as long as the longest one in it: al-scene-take.js)
     }

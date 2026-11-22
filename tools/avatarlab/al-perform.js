@@ -117,7 +117,7 @@
 
     pb.appendChild(ui.lab('Use it'));
     pb.appendChild(ui.row([
-      ui.chip('Export', { icon: 'export', title: 'Export: the Joy Creator file (this character and its take, for Studio and the rest of Joy Creator), or one frame as a picture', fn: function () { AL.intake.send(app); } }),
+      ui.chip('Export', { icon: 'export', title: 'Export: the Joy Creator file (this character and its take, for Studio and the rest of Joy Creator), one frame as a picture, or the take as a video with its voice', fn: function () { AL.intake.send(app); } }),
       ui.chip('Sprite sheet', { icon: 'grid', title: 'Bake the take to a sprite sheet for Sprite Lab, VisLab and Studio', fn: function () { AL.intake.bakeSheet(app); } })
     ]));
   };

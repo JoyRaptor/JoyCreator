@@ -8,8 +8,9 @@
  *   Joy Creator file   the character with its take, or the scene with its characters, takes, set and camera: picked up live in
  *                      Joy Creator, nothing flattened (in this web pilot it is saved as the file the phone reads)
  *   One frame          a picture at the frame's shape, 1920 on its long side, as the camera sees it now; a tick box for see-through
- * and, in a scene, a tick box for each character and for the set. Video is not offered here yet: a choice that does nothing is
- * worse than a missing one.
+ *   Video              the take as an MP4 with its voice, at the frame's shape, over the stage or a key colour (al-export-video.js);
+ *                      offered only where this browser can make one
+ * and, in a scene, a tick box for each character and for the set.
  *
  * Phone: the same vector drawable with the room's gradient in place of Studio's; the sheet is a ModalBottomSheet; one frame is read
  * back from the stage's own GL surface drawn offscreen at the frame's size.
@@ -56,14 +57,17 @@
     g.drawImage(pic, 0, 0); return c;
   };
   function base(app) { var R = R0(app); return ((R ? R.data.name : app.ch && app.ch.name) || 'export').replace(/[^\w\- ]+/g, '').trim() || 'export'; }
+  exp.base = base;
   exp.saveFrame = function (app) { var c = exp.frame(app); if (!c) { app.toast('There is nothing to make a picture of yet.'); return Promise.resolve(false); } return new Promise(function (res) { c.toBlob(function (b) { res(AL.intake.saveFile(base(app) + '.png', b)); }, 'image/png'); }); };
   exp.saveFile = function (app) { var R = R0(app); return R ? scene.saveFile(app) : AL.intake.saveCharacter(app); };
 
   /* ── the sheet ── */
   exp.sheet = function (app) {
     if (!app.ch) return;
-    var R = R0(app), ui = app.ui, body = h('div'), acts = [];
-    body.appendChild(ui.row([ui.seg([['file', 'Joy Creator file', 'The character or the scene, still alive, for the rest of Joy Creator'], ['frame', 'One frame', 'A picture of the frame as it is now']], O.what, function (v) { O.what = v; exp.sheet(app); }, 'What to export')]));
+    var R = R0(app), ui = app.ui, body = h('div'), acts = [], vid = !!(exp.videoBody && AL.video && AL.video.can());
+    if (O.what === 'video' && !vid) O.what = 'file';
+    body.appendChild(ui.row([ui.seg([['file', 'Joy Creator file', 'The character or the scene, still alive, for the rest of Joy Creator'], ['frame', 'One frame', 'A picture of the frame as it is now']].concat(vid ? [['video', 'Video', 'The take as a video, with its voice: a file any player opens']] : []), O.what, function (v) { O.what = v; exp.sheet(app); }, 'What to export')]));
+    if (!vid && exp.videoBody) body.appendChild(ui.note(root.isSecureContext === false ? 'A video can only be made on a page opened safely: its https address, or on the computer it runs on.' : 'A video cannot be made in this browser. Chrome or Edge can make one, on a computer or an Android phone.'));
     if (R) {
       var s = send(R); body.appendChild(ui.lab('What goes'));
       scene.cast(R).forEach(function (it) { body.appendChild(ui.toggle(it.name, !s.skip[it.id], function (v) { if (v) delete s.skip[it.id]; else s.skip[it.id] = 1; scene.touch(app); exp.sheet(app); }, null, (s.skip[it.id] ? 'Put ' : 'Leave ') + it.name + (s.skip[it.id] ? ' back in' : ' out'))); });
@@ -75,7 +79,8 @@
       body.appendChild(ui.note('In this web pilot it is saved as the file the phone will read.'));
       if (!R) acts.push({ label: 'Sprite sheet', icon: 'grid', title: 'Bake the take to a sprite sheet for Sprite Lab, VisLab and Studio', fn: function () { app.closeSheet(); AL.intake.bakeSheet(app); } });
       acts.push({ label: R ? 'Save the scene file' : 'Save the character file', cls: 'go', icon: 'save', fn: function () { app.closeSheet(); exp.saveFile(app); } });
-    } else {
+    } else if (O.what === 'video') exp.videoBody(app, body, acts);
+    else {
       var z = frame.outSize(app), c = exp.frame(app);
       body.appendChild(ui.toggle('See-through', O.see, function (v) { O.see = v; exp.sheet(app); }, 'Where nothing is drawn, the picture is clear instead of the dark stage'));
       if (c) { var pv = h('canvas', { class: 'xprev', 'aria-label': 'What the picture will be' }); pv.width = c.width; pv.height = c.height; pv.getContext('2d').drawImage(c, 0, 0); body.appendChild(pv); }

@@ -131,3 +131,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: At 733.333 ms, the shutter straddles the HOLD jump. The decoded image had zero gain across 18,366 pixels occupied only by the later pose. A 40% injected copy of that pose was rejected. Both static routes again decoded identically. [C2 device and CPU evidence](C2_SPINE_EXPORT_REPORT.md). Focused persistence lint passes. [Studio](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073080665) and [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073231068) started for the field-name correction.
 - Questions: None. Note 9 released. The CPU comparison shows the initial GPU pass matches encoded SDR luma more closely than a linear-light oracle. Linear-light premultiplied accumulation remains part of C2.
 - Next: Recheck the exact corrected build. Apply the SDR transfer within the item shutter, preserve existing effects' working-space contract and validate transparent art. Reuse the isolated source draw slots for image/text, sprites and PiP.
+
+### 2026-11-22 16:43 Codex → Claude: Pushed SDR linear-light accumulation and a transparent-art fixture
+- State: C2 branch `codex/motionblur-20261122` at `da3dd40c2`, pushed and verified.
+- Done: Convert the isolated source's SDR samples to linear light, accumulate premultiplied RGB and alpha, and return premultiplied SDR to the existing downstream effects. Use Media3's default SDR transfer at this boundary. The new debug fixture includes opaque checker stripes, equal-alpha white and cyan patches, and a transparent gap.
+- Proof: Staged diff check passed. [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073576707) and [exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073589982) are running. The previous Note 9 measurements remain the baseline.
+- Questions: None.
+- Next: Compare the encoded bright stripe transitions against a linear-light CPU oracle. Verify the alpha patches and transparent gap, alongside the existing motion, HOLD, and trim-route checks.

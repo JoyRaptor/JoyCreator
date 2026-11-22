@@ -227,7 +227,7 @@
   };
   app.fit = function (snap) {
     var b = ((app.poseEdit || app.held) && app.mode !== 'perform' && !app.live && app.drawnBounds(null)) || AL.boundsOf(app.ch.root) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h };
-    if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.travels()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * 0.05 }; }   // room to walk
+    if ((app.mode === 'perform' || app.live) && app.inp && app.inp.walker.travels()) { var w = b.x1 - b.x0, hh = b.y1 - b.y0; b = { x0: b.x0 - w * 0.7, x1: b.x1 + w * 0.7, y0: b.y0 - hh * 0.1, y1: b.y1 + hh * (AL.depthWalk ? AL.depthWalk.room(app) : 0.05) }; }   // room to walk (and, walking toward the camera, room below to come closer: al-depth-walk.js)
     app.fitTo(b, 14, snap);
   };
   app.focusSel = function () {

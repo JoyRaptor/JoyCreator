@@ -838,8 +838,10 @@
       pb.appendChild(ui.row([
         ui.chip('Ground', { on: wkr.grounded(), icon: 'home', title: 'ON: there is a ground line where it stands now; pull it up to jump. OFF: it is always on the ground, so up and down the stage is walking too (stairs, a hill).', fn: function () { wkr.setGround(!wkr.grounded()); app.toast(wkr.grounded() ? 'Ground is here. Pull up to jump.' : 'No ground line: it walks wherever you take it.'); app.refreshPanel(true); } }),
         ui.chip('Walk settings', { on: !!app.walkOpen, title: 'Stride, body bob, heel and toe', fn: function () { app.walkOpen = !app.walkOpen; app.refreshPanel(true); } }),
-        ui.chip('Back to the middle', { cls: 'quiet', title: 'Walk back to where it started', fn: function () { wkr.home(); } })
+        ui.chip('Back to the middle', { cls: 'quiet', title: 'Walk back to where it started', fn: function () { wkr.home(); } }),
+        AL.faceWalk ? AL.faceWalk.chip(app) : null
       ]));
+      if (AL.faceWalk) AL.faceWalk.drawer(app, pb);      // (walk with your face: al-face-walk.js)
       if (!app.walkOpen) return;
     } else pb.appendChild(h('div', { class: 'sl' }, [h('label', { text: 'It starts' }), ui.seg([['line', 'On a ground line', 'Pulling the body up takes the feet off the ground: a jump'], ['plane', 'Walking anywhere', 'Up and down the stage is walking too, and further up can be further away']], wk.ground || 'line', function (v) { app.edit(function () { wk.ground = v; }); wkr.free = null; }, 'How it starts. The Ground button in Perform switches this at any moment.'), h('span')]));
     var bars = !!(wkr.legs() && wkr.legs().L.bar && wkr.legs().R.bar);

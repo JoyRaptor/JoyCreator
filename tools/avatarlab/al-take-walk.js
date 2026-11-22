@@ -53,8 +53,9 @@
     if (inp.recording && (inp.fresh || inp._walked === inp.wrote)) return;       // (everything, or the body, is being written live in this pass)
     var x = at(inp, 'rootX'), f = at(inp, 'flip'); if (x == null || x !== x) return;
     w.tx = x; w.led = true; if (f != null) inp.pose.flip = f > 0.5;
+    var s = at(inp, 'rootS'); if (s != null && s === s && w.z && w.z.inv) w.tz = w.z.inv(s);      // (toward the camera and away too: the take carries how big it is drawn, al-depth-walk.js)
     /* a take starts facing the way it was recorded: no turn-round of its own at the first frame because it was last left facing the other way */
-    if (tw.snap && start && f != null && inp.ph < 0.1) { var sv = solverOf(inp); if (sv && sv.st) sv.st.flip = (sv.st.flipWant ? 1 : 0) ^ (f > 0.5 ? 1 : 0); w.x = x; }
+    if (tw.snap && start && f != null && inp.ph < 0.1) { var sv = solverOf(inp); if (sv && sv.st) sv.st.flip = (sv.st.flipWant ? 1 : 0) ^ (f > 0.5 ? 1 : 0); w.x = x; if (w.tz != null && w.z) { var db = w.tz - w.base; w.base += db; w.y += db; w.ty += db; } }
   };
   var step0 = P.step;
   P.step = function (dt) { tw.lead(this); return step0.call(this, dt); };

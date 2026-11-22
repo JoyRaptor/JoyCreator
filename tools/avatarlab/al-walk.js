@@ -86,7 +86,7 @@
 
   AL.Walker = function (app, inp) { this.app = app; this.inp = inp || null; this.reset(); };
   var W = AL.Walker.prototype;
-  W.reset = function () { this.x = this.y = this.tx = this.ty = 0; this.base = 0; this.vx = this.vy = 0; this.fallV = 0; this.held = false; this.feet = null; this.sq = 0; this.idle = 0; this.swing = 0; this.lift = 0; this.air = false; this.free = null; this.lastPh = 0; this.low = 0; this.lim = null; this.led = false; };
+  W.reset = function () { this.x = this.y = this.tx = this.ty = 0; this.base = 0; this.vx = this.vy = 0; this.fallV = 0; this.held = false; this.feet = null; this.sq = 0; this.idle = 0; this.swing = 0; this.lift = 0; this.air = false; this.free = null; this.lastPh = 0; this.low = 0; this.lim = null; this.led = false; this.tz = null; this.vz = 0; this.fw = 0; };
   /** Every limb that walks, in the order they are found. */
   W.limbs = function () {
     var ch = this.app.ch, ix = AL.ix(ch); if (this._ix === ix) return this._limbs;
@@ -126,7 +126,7 @@
   W.grab = function (c) { this.held = true; this.g0 = { x: c[0], y: c[1], tx: this.x, ty: this.y }; this.fallV = 0; };
   W.drag = function (c) { if (!this.g0) return; this.tx = this.g0.tx + (c[0] - this.g0.x); this.ty = this.g0.ty + (c[1] - this.g0.y); };
   W.release = function () { this.held = false; this.g0 = null; };
-  W.home = function () { this.tx = 0; this.ty = 0; this.base = 0; this.held = false; };
+  W.home = function () { this.tx = 0; this.ty = 0; if (this.z && this.base) this.tz = 0; else this.base = 0; this.held = false; };      // (walking in depth, home is walked back to: al-depth-walk.js)
   /** The stance it drops into when pushed low (all fours), if it has one. */
   W.stance = function () { var ch = this.app.ch, w = ch.settings.walk, id = w && w.fours; if (!id) return null; var ps = ch.poses || []; for (var i = 0; i < ps.length; i++) if (ps[i].id === id) return ps[i]; return null; };
 
@@ -198,18 +198,27 @@
       }
     }
     this.vx += ((this.x - px) / dt - this.vx) * (1 - Math.exp(-14 * dt)); this.vy += ((this.y - py) / dt - this.vy) * (1 - Math.exp(-14 * dt));
-    var speed = line ? Math.abs(this.vx) : hyp(this.vx, this.vy), going = speed > stride * 0.35;
+    /* 1b. toward the camera and away (al-depth-walk.js gives this.z: how big it is drawn for where its ground line is, and how far it may go). The ground
+       line itself walks there, no faster than these legs go, and the body, its target and a finger's hold go with it, so nothing crouches or jumps. */
+    var dz = 0;
+    if (this.z && this.tz != null) {
+      var zl = this.z.lim, tz = clamp(this.tz, zl[0], zl[1]), capZ = stride * 4 * dt; dz = (tz - this.base) * (1 - Math.exp(-5 * dt)); if (Math.abs(dz) > capZ) dz *= capZ / Math.abs(dz);
+      if (Math.abs(tz - this.base) < 0.05) { dz = tz - this.base; }
+      this.base += dz; this.y += dz; this.ty += dz; if (this.g0) this.g0.ty += dz;
+    }
+    this.vz += (dz / dt - this.vz) * (1 - Math.exp(-14 * dt));
+    var speed = line ? hyp(this.vx, this.vz) : hyp(this.vx, this.vy), going = speed > stride * 0.35;
     this.idle = going || this.held ? 0 : this.idle + dt;
 
     /* 2. face the way it is going */
     if (cfg.face !== false && (set.facing === 'left' || set.facing === 'right') && Math.abs(this.vx) > stride * 0.8) { var nf = (this.vx > 0) !== (set.facing === 'right'); if (nf !== !!inp.pose.flip && !inp.held.head) inp.pose.turnX = -(inp.pose.turnX || 0); inp.pose.flip = nf; flip = nf; }
 
     /* 3. further up the stage is further away (a floor seen from above only) */
-    var sc = deep ? clamp(1 + ((line ? this.base : this.y) / ch.h) * (cfg.depth || 0) * 2, 0.35, 2.2) : 1;
+    var sc = (deep ? clamp(1 + ((line ? this.base : this.y) / ch.h) * (cfg.depth || 0) * 2, 0.35, 2.2) : 1) * (this.z ? this.z.s(this.base) : 1);
     var air = line && this.air, up = line ? -(this.y - this.base) : 0, tiptoe = air ? 0 : clamp((up - (slack - toeLen * 0.55)) / Math.max(1, toeLen * 0.55), 0, 1);
 
     /* 4. the feet: where each one belongs, and whether the ground is within its reach */
-    var F = this.feet || (this.feet = {}), dirx = speed > 1 ? this.vx / speed : 0, diry = !line && speed > 1 ? this.vy / speed : 0;
+    var F = this.feet || (this.feet = {}), dirx = speed > 1 ? this.vx / speed : 0, diry = speed > 1 ? (line ? this.vz : this.vy) / speed : 0;
     var reachAhead = stride * (0.5 + heel * 0.12 - tip * 0.1) * clamp(speed / (stride * 2.2), 0, 1), bodyLift = 0, yBase = line ? this.base : this.y;
     var anch = S.anchor || {}, tips = S.tips || {}, face = (set.facing === 'left' ? -1 : set.facing === 'right' ? 1 : 0) * (flip ? -1 : 1);
     all.forEach(function (L) {
@@ -316,6 +325,9 @@
     /* contra-body: an arm swings against the leg on ITS side (found by where it is drawn, since layer names cannot be trusted for sides) */
     S.armSide = {}; all.forEach(function (q) { if (q.arm && q.mate) S.armSide[q.key] = q.mate === legs.L ? 1 : -1; });
     S.sway += clamp(this.vx / (stride * 9), -1, 1) * (cfg.lean == null ? 0.5 : cfg.lean) * 1.6 * (1 - lv4 * 0.6);
+    /* coming toward the camera it turns to face it: its front drawing, if it has one (z.front, the head's turn to that drawing) */
+    var fz = this.z && this.z.front != null ? clamp(this.vz / (stride * 1.2), 0, 1) : 0; this.fw += (fz - this.fw) * (1 - Math.exp(-6 * dt));
+    if (this.fw > 0.005 && this.z && this.z.front != null && !inp.held.head) { S.turnX += (this.z.front - S.turnX) * this.fw; S.turnY += (0 - S.turnY) * this.fw * 0.5; }
     S.bounce += -bob * this.lift * 0.9 + this.sq * 1.4 + (air ? -0.4 * smooth(-this.vy / 420) : 0);
   };
 })(typeof self !== 'undefined' ? self : this);

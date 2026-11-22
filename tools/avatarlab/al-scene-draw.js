@@ -73,7 +73,7 @@
        is Video Studio's canvas texture; whatever stands part-way out is still drawn over that. */
     R.clip = live && AL.frame.on() ? R.fr : { x: V.ox, y: V.oy, w: W * V.s, h: H * V.s }; AL.frame.desk(R.clip);
 
-    var L = layers(d), stand = L.stand;
+    var L = layers(d, R), stand = L.stand;
 
     /* every performer, solved by its own engine */
     var lead = fa ? scene.item(R, R.focus) : null;
@@ -81,6 +81,7 @@
       if (it.kind !== 'cast') return; var a = R.actors[it.id]; if (!a) return;
       var T = a.T = scene.place(d, it, a.ch), S; a.view = { s: V.s * T.k, ox: V.ox + V.s * T.tx, oy: V.oy + V.s * T.ty };
       a.inp.walker.lim = live ? AL.stageWalk.reach(it, T) : null;        // how far it may walk from its place: across the stage and a third of it past either side (al-stage-walk.js)
+      a.inp.walker.z = live ? AL.depthWalk.scene(d, it, T, a.ch) : null;   // ...and toward the camera and away, by the scene's floor rule (al-depth-walk.js)
       if (a === fa) { app.view = { s: a.view.s, ox: a.view.ox, oy: a.view.oy }; app.vt = null; app.userView = true; }
       if (live && a === fa) { S = app._S = app.inp.step(dt); a.out = app.out = app.solver.eval(S, { live: true, dt: dt, force: app.lockForce || null, show: null, onion: null, lift: false }); }
       else if (live) {
@@ -100,10 +101,10 @@
     for (var i = 0; i < app.hooks.length; i++) app.hooks[i](dt, live && !!fa);
   };
   /* the scene's things in drawing order: backdrops, what stands (higher on the floor = further back = earlier), foregrounds */
-  function layers(d) {
+  function layers(d, R) {
     var backs = [], stand = [], fronts = [];
-    d.items.forEach(function (it, i) { it._i = i; (it.kind === 'back' ? backs : it.kind === 'front' ? fronts : stand).push(it); });
-    stand.sort(function (a, b) { return a.y - b.y || a._i - b._i; });
+    d.items.forEach(function (it, i) { it._i = i; it._fy = it.kind === 'cast' && R ? AL.depthWalk.footY(R, it) : it.y; (it.kind === 'back' ? backs : it.kind === 'front' ? fronts : stand).push(it); });      // (a character that has walked toward the camera stands where its feet are now: al-depth-walk.js)
+    stand.sort(function (a, b) { return a._fy - b._fy || a._i - b._i; });
     return { backs: backs, stand: stand, fronts: fronts };
   }
   /* Draw the scene, back to front, as the camera sees it through R.f / R.cx / R.cy. skip = { set: true, <item id>: true } leaves
@@ -119,7 +120,7 @@
     if (!(skip && skip.set)) L.backs.forEach(function (it) { pane(it, it.par == null ? 0.22 : it.par); });
     L.stand.forEach(function (it) {
       if (skip && (skip[it.id] || (skip.set && it.kind !== 'cast'))) return;
-      var far = clamp(1 - (it.y / H - d.floor.far) / (d.floor.near - d.floor.far), 0, 1) * hk * 0.22, tint = hz && far > 0.01 ? [hz[0], hz[1], hz[2], far] : null;
+      var far = clamp(1 - ((it._fy == null ? it.y : it._fy) / H - d.floor.far) / (d.floor.near - d.floor.far), 0, 1) * hk * 0.22, tint = hz && far > 0.01 ? [hz[0], hz[1], hz[2], far] : null;
       if (it.kind === 'cast') { var a = R.actors[it.id], T = a && a.T; if (!a || !a.out || !T) return; G.draw(skip ? a.out.items.filter(function (q) { return !q.ghost; }) : a.out.items, px({ s: V.s * T.k, ox: V.ox + V.s * T.tx, oy: V.oy + V.s * T.ty }, dpr), tint ? function (q) { return q.ghost ? null : tint; } : null, a.out.colour); }
       else { var q = imgOf(it, R.t); if (!q) return; var g = objQuad(d, it, q.im, R.t); g.img = q.id; g.a = 1; it._box = g.box; G.draw([g], px(V, dpr), tint ? function () { return tint; } : null, null); }
     });
@@ -130,7 +131,7 @@
     var R = app.scene; if (!R || !R.cam) return null;
     var X = AL.frame.gl(w, h), G = X.G, fr = scene.frame(R.data), keep = { f: R.f, cx: R.cx, cy: R.cy, t: R.t, clip: R.clip };
     R.f = w / fr.w; R.cx = w / 2; R.cy = h / 2; R.clip = null;                // (the picture is the frame already: nothing to cut)
-    try { G.keep = false; G.draw([], { s: 1, ox: 0, oy: 0 }, null, null); G.keep = true; paint(R, G, AL.frame.on() ? R.cam : { x: W / 2, y: H / 2, z: 1 }, 1, layers(R.data), skip || {}); }
+    try { G.keep = false; G.draw([], { s: 1, ox: 0, oy: 0 }, null, null); G.keep = true; paint(R, G, AL.frame.on() ? R.cam : { x: W / 2, y: H / 2, z: 1 }, 1, layers(R.data, R), skip || {}); }
     finally { G.keep = false; R.f = keep.f; R.cx = keep.cx; R.cy = keep.cy; R.t = keep.t; R.clip = keep.clip; }
     var out = document.createElement('canvas'); out.width = w; out.height = h; out.getContext('2d').drawImage(X.c, 0, 0);
     return out;
@@ -192,7 +193,7 @@
   /** The thing under a point on the glass: the nearest one first. castOnly = performers only. */
   scene.pick = function (R, p, castOnly) {
     var V = R.V, wx = (p.x - V.ox) / V.s, wy = (p.y - V.oy) / V.s, l = R.data.items.filter(function (q) { return q.kind === 'cast' || (!castOnly && q.kind === 'obj'); });
-    l.sort(function (a, b) { return b.y - a.y || b._i - a._i; });
+    l.sort(function (a, b) { return (b._fy == null ? b.y : b._fy) - (a._fy == null ? a.y : a._fy) || b._i - a._i; });
     for (var i = 0; i < l.length; i++) { var it = l[i]; if (it.kind === 'cast') { if (hitCast(R.actors[it.id], p)) return it; } else { var b = it._box; if (b && wx >= b[0] && wx <= b[2] && wy >= b[1] && wy <= b[3]) return it; } }
     return null;
   };

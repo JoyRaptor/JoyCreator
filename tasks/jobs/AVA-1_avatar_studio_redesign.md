@@ -651,6 +651,45 @@ they want, a centipede; arms that can become feet with one toggle").
               with its hands on the ground (it was the same fault there); everything else alone is untouched (checked).
             - **Found, not changed:** the very first walk after the page opens differs a little from later identical walks
               (the engine keeps some state from earlier frames; alone too). Harmless to the eye; the test walks once first.
+      - [x] **Walk with your face, and toward the camera and away (his request of 11-22, relayed by the face-capture session: "like
+            Character Animator"; walk session; not on the phone, not seen by the owner).** Under Walking in Perform, a button
+            "Walk with your face" opens a small drawer of three tick boxes (cyan knock-out ticks, each with a hover label):
+            - **Left and right with your face:** your face to one side of where it rests walks the character that way, faster the
+              further over (a rate, like the joystick: in a scene it can walk off and back); back to the middle and it stops.
+              Turning or tilting your head still turns its head. Dead zone in the middle (18%) so drift does not walk it.
+            - **Closer and further with your face:** lean toward the camera and it walks toward you, growing as it comes; sit
+              back and it takes a few steps away; where your face rests, it stands at its place (a position, not a rate). Dead
+              zone 15%. Reads the face camera's `leanX` and `near` (al-face.js), never changes them; works with Face in either
+              mode (the camera is looked at for the walk even while it is not driving the head).
+            - **Up close:** no face needed: it walks up to the camera and stays; untick and it walks back to its place.
+            - **The walk toward the camera** is the same walker: its ground line walks there at walking pace and the feet step to
+              where the new line puts them (planted feet never slide, none is left more than a stride behind), so it never
+              floats. Alone it grows from its eye line down (the top stays, the feet come down the screen), from about two
+              thirds of its size to nearly half as big again, and the view keeps room below for it. In a scene it follows the
+              scene's own floor rule (lower on the floor = nearer = bigger, the haze too) from the back of the floor to just
+              inside the picture's bottom edge (no more than a body's height either way), and whoever is nearer is drawn in
+              front, in playback and in export too. Coming toward the camera it turns to its front drawing (the head angle drawn
+              at the middle of the turn pad: Topps's Frontal), and back as it stops.
+            - **Takes:** what the face walks is the body's, so a later pass records it; the take carries the size, so a replay
+              stands at the same depth, the same size and in the same drawing order, frame by frame; a playing take leads the
+              walker in depth as well as across.
+            - Files: new `al-depth-walk.js` (how big for where its ground line is; how far; the front drawing; feet depth for
+              the drawing order), `al-face-walk.js` (the drawer and the driver); hooks in `al-walk.js` (the ground line walks to
+              `walker.tz`; feet step for it; the front turn), `al-scene-draw.js` (the scene's depth model; drawing order, haze and
+              picking by where the feet are now), `al-take-walk.js` (a take leads depth), `al-app.js` (room below alone),
+              `al-cards.js` (the button and the drawer under Walking). `al-face.js` and `al-inputs.js` untouched.
+            - **Proof:** `al-breaktest-face-walk.js` (a stand-in face, no camera needed): 18 checks, 0 failures with his saved
+              Topps; all 15 planted faults caught (`AL.breakTest.faceWalk.proof()`): the tick ignored, no dead zone either way,
+              growing where it stands (floating), a planted foot sliding, feet that never step, no front turn, Up close not
+              walking back, the drawer never opening, the nearer one not drawn in front, no growing in a scene, a take that
+              loses the size, a later pass not recording the face's walk, depth on the plain stage with every tick off, a leg
+              off on all fours. Looked at in the in-app browser at phone tall: the drawer, Up close ticked with the mouse (he
+              walks up and grows, whole, facing front), and in a scene walking past the other Topps and in front of it.
+            - **Not checked:** a real face (this PC's camera was not used: the face signals are the face-capture session's,
+              proven by it); any phone; the owner's eye; how it feels to steer with your face.
+            - **Choices:** left/right is a rate and closer/further a position (the owner's "a few steps back"); Up close is per
+              character and not kept through a reload, the two face ticks are the room's and are kept; nothing here is an Undo
+              step (performing settings, like Mirror). Walking in depth with a finger or the joystick is not built (not asked).
       **His notes after trying it (11-21 late), built the same night and checked on the Note 9 in Chrome:**
       - [x] Studio's canvas texture outside the frame: the same picture Studio's CanvasFrameView paints
             (`studio_backdrop_graffiti.jpg`, kept in the pilot as `studio-backdrop.jpg`, byte for byte; the one-file build

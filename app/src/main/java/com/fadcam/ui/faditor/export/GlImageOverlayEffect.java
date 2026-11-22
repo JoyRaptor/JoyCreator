@@ -17,6 +17,10 @@ import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.overlay.TextOverlayLayer;
+ import com.fadcam.ui.faditor.motion.ItemMotionSampler;
+import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionItemAdapters;
+import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,23 +56,28 @@ final class GlImageOverlayEffect implements GlEffect {
     private final List<TextOverlayItem> items;
     private final long projectDurationMs;
     private final long editorTimeOffsetMs;
+    private final long motionStartUs;
+    private final long motionEndUs;
     @Nullable
     private final CompositeExportOverlay textDrawer;
 
     GlImageOverlayEffect(@NonNull Context context, @NonNull List<TextOverlayItem> itemsBottomTop,
                          long projectDurationMs, long editorTimeOffsetMs) {
-        this(context, itemsBottomTop, projectDurationMs, editorTimeOffsetMs, null);
+        this(context, itemsBottomTop, projectDurationMs, editorTimeOffsetMs, null, 0L, 0L);
     }
 
     /** @param textDrawer draws the text boxes among the items; null = the run is images only */
     GlImageOverlayEffect(@NonNull Context context, @NonNull List<TextOverlayItem> itemsBottomTop,
                          long projectDurationMs, long editorTimeOffsetMs,
-                         @Nullable CompositeExportOverlay textDrawer) {
+                         @Nullable CompositeExportOverlay textDrawer,
+                         long pieceStartMs, long motionPieceDurationMs) {
         this.context = context.getApplicationContext();
         this.items = new ArrayList<>(itemsBottomTop);
         this.projectDurationMs = projectDurationMs;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.textDrawer = textDrawer;
+        motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
+        motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
     }
 
     @NonNull
@@ -76,7 +85,8 @@ final class GlImageOverlayEffect implements GlEffect {
     public BaseGlShaderProgram toGlShaderProgram(@NonNull Context ignored, boolean useHdr)
             throws VideoFrameProcessingException {
         if (useHdr) throw new VideoFrameProcessingException("HDR image overlays not supported");
-        return new Program(context, items, projectDurationMs, editorTimeOffsetMs, textDrawer);
+        return new Program(context, items, projectDurationMs, editorTimeOffsetMs, textDrawer,
+                motionStartUs, motionEndUs);
     }
 
     private static final class Program extends BaseGlShaderProgram {
@@ -102,6 +112,12 @@ final class GlImageOverlayEffect implements GlEffect {
          */
         private boolean zeroCopyText = true;
         private final List<Boolean> frameExternal = new ArrayList<>();
+        private final List<PipChainGl.PictureBlur> frameBlurs = new ArrayList<>();
+        private final Map<String, PictureMotion> pictureMotion = new HashMap<>();
+        private final long motionStartUs;
+        private final long motionEndUs;
+
+        private record PictureMotion(ItemMotionSampler sampler, MotionBreaks breaks) {}
 
         /** Draw o into tf's Surface and latch it; false = use the bitmap route. */
         private boolean drawThroughSurface(@NonNull TextFrame tf, @NonNull TextOverlayItem o,
@@ -145,13 +161,15 @@ final class GlImageOverlayEffect implements GlEffect {
 
         Program(@NonNull Context context, @NonNull List<TextOverlayItem> items,
                 long projectDurationMs, long editorTimeOffsetMs,
-                @Nullable CompositeExportOverlay textDrawer) {
+                @Nullable CompositeExportOverlay textDrawer, long motionStartUs, long motionEndUs) {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 2);
             this.context = context;
             this.textDrawer = textDrawer;
             this.items = items;
             this.projectDurationMs = projectDurationMs;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
+            this.motionStartUs = motionStartUs;
+            this.motionEndUs = motionEndUs;
         }
 
         /**
@@ -169,6 +187,7 @@ final class GlImageOverlayEffect implements GlEffect {
         @Override
         public Size configure(int inputWidth, int inputHeight) throws VideoFrameProcessingException {
             try {
+                if (inputWidth != chain.w || inputHeight != chain.h) pictureMotion.clear();
                 chain.configure(inputWidth, inputHeight);
             } catch (GlUtil.GlException e) {
                 throw new VideoFrameProcessingException(e);
@@ -187,6 +206,8 @@ final class GlImageOverlayEffect implements GlEffect {
                 frameVisible.clear();
                 frameTex.clear();
                 frameExternal.clear();
+                frameBlurs.clear();
+                long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
                 for (TextOverlayItem o : items) {
                     if (!o.isVisibleAt(t)) {
                         if (t > o.getEndMs()) forget(o);   // time only moves forward in an item
@@ -201,12 +222,14 @@ final class GlImageOverlayEffect implements GlEffect {
                                     0f, 1f, null, t, null, 0f, w, h, "txt#" + o.getId(), null, 0));
                             frameTex.add(tf.layer.oesTex);
                             frameExternal.add(true);
+                            frameBlurs.add(null);
                             continue;
                         }
                         frameVisible.add(FxPreviewTextureView.Pip.ofImage(0.5f, 0.5f, 0.5f, 0.5f,
                                 0f, 1f, null, t, null, 0f, w, h, "txt#" + o.getId(), tf.bmp, 1f));
                         frameTex.add(tf.tex);
                         frameExternal.add(false);
+                        frameBlurs.add(null);
                         continue;
                     }
                     Bitmap b = bitmapFor(o, w, h);
@@ -219,12 +242,40 @@ final class GlImageOverlayEffect implements GlEffect {
                     frameVisible.add(p);
                     frameTex.add(tex);
                     frameExternal.add(false);
+                    frameBlurs.add(pictureBlur(o, b, t, editorUs, w, h));
                 }
-                chain.composite(inputTexId, outFbo, frameVisible, frameTex, frameExternal);
+                chain.composite(inputTexId, outFbo, frameVisible, frameTex, frameExternal, frameBlurs);
                 GlErrors.drain("left by GlImageOverlayEffect");
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
             }
+        }
+
+        @Nullable
+        private PipChainGl.PictureBlur pictureBlur(TextOverlayItem item, Bitmap bitmap,
+                                                   long timeMs, long timeUs, int w, int h) {
+            if (!item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
+                    || !item.isAnimated() || item.isLinked() || item.hasCornerPin()
+                    || !item.isRotationPivotNeutral(null) || item.wantsGlExport()
+                    || CaptionAnimator.parsePreset(item.getTextAnimPreset()) != CaptionAnimator.Preset.NONE) {
+                return null;
+            }
+            PictureMotion motion = pictureMotion.computeIfAbsent(item.getId(), id -> {
+                long startUs = item.getStartMs() * 1000L;
+                MotionBreaks.Builder fences = new MotionBreaks.Builder()
+                        .add(motionStartUs).add(motionEndUs).add(startUs);
+                // The editor includes the last whole millisecond of the item.
+                if (item.getEndMs() != Long.MAX_VALUE) {
+                    fences.add((item.getEndMs() + 1L) * 1000L);
+                }
+                for (var track : item.getKeyframes().tracks()) fences.addSteps(track, startUs);
+                float boxWidth = h * (bitmap.getWidth() / (float) bitmap.getHeight());
+                return new PictureMotion(
+                        MotionItemAdapters.textOrImage(item, w, h, boxWidth, h), fences.build());
+            });
+            var plan = RigidTextureShutterPass.naturalPlan(motion.sampler(), timeUs, motion.breaks(), w, h);
+            return plan == null ? null : new PipChainGl.PictureBlur(plan,
+                    Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))));
         }
 
         /** The text box's picture at {@code t}, redrawn only when its signature moved. */
@@ -324,6 +375,7 @@ final class GlImageOverlayEffect implements GlEffect {
                 releaseText(texts.remove(id));
                 return;
             }
+            pictureMotion.remove(id);
             Integer tex = textures.remove(id);
             if (tex != null && tex != 0) GLES20.glDeleteTextures(1, new int[]{tex}, 0);
             Bitmap b = bitmaps.get(id);

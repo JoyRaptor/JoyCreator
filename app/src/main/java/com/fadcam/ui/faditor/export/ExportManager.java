@@ -7747,7 +7747,7 @@ public class ExportManager {
                         if (!imgRun.isEmpty()) {
                             videoEffects.add(new GlImageOverlayEffect(context, imgRun,
                                     project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                    glTextDrawer));
+                                    glTextDrawer, timelineCursorMs, shutterPieceDurationMs));
                             imgRun = new ArrayList<>();
                         }
                         if (im != null) {
@@ -7763,7 +7763,7 @@ public class ExportManager {
                         if (!imgRun.isEmpty()) {
                             videoEffects.add(new GlImageOverlayEffect(context, imgRun,
                                     project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                    glTextDrawer));
+                                    glTextDrawer, timelineCursorMs, shutterPieceDurationMs));
                             imgRun = new ArrayList<>();
                         }
                         if (o instanceof TextOverlayItem) txtRun.add((TextOverlayItem) o);
@@ -7773,7 +7773,7 @@ public class ExportManager {
                 if (!imgRun.isEmpty()) {
                     videoEffects.add(new GlImageOverlayEffect(context, imgRun,
                             project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                            glTextDrawer));
+                            glTextDrawer, timelineCursorMs, shutterPieceDurationMs));
                 }
                 if (sandwiched) {
                     exportTextOverlays = txtRun;     // the top run rides the final pass

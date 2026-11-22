@@ -150,6 +150,48 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createPicture(Context context, boolean enabled) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 picture " + variant));
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create picture fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Picture fixture is shorter than 1 second");
+        project.getTimeline().addClip(clip(source, duration, 1_000L));
+
+        String art = Uri.fromFile(createShutterArt(media)).toString();
+        var under = TextOverlayItem.createImage(art, 0.45f, 0.62f, 0.56f);
+        under.setTimeRange(0, 999);
+        under.setOpacity(0.35f);
+        project.getTimeline().addTextOverlay(under);
+
+        var picture = TextOverlayItem.createImage(art, 0.24f, 0.28f, 0.55f);
+        picture.setTimeRange(0, 899);
+        picture.setOpacity(0.72f);
+        picture.setRigidMotionBlurEnabled(enabled);
+        var keys = picture.getKeyframes();
+        var x = keys.getOrCreate(KeyframeSet.X);
+        x.put(0, 0.24f, Easing.LINEAR);
+        x.put(250, 0.24f, Easing.LINEAR);
+        x.put(500, 0.76f, Easing.HOLD);
+        x.put(735, 0.38f, Easing.LINEAR);
+        var y = keys.getOrCreate(KeyframeSet.Y);
+        y.put(0, 0.28f, Easing.LINEAR);
+        y.put(250, 0.28f, Easing.LINEAR);
+        y.put(500, 0.61f, Easing.HOLD);
+        y.put(735, 0.43f, Easing.LINEAR);
+        var rotation = keys.getOrCreate(KeyframeSet.ROTATION);
+        rotation.put(0, -10f, Easing.LINEAR);
+        rotation.put(250, -10f, Easing.LINEAR);
+        rotation.put(500, 40f, Easing.HOLD);
+        rotation.put(735, -20f, Easing.LINEAR);
+        project.getTimeline().addTextOverlay(picture);
+        if (!storage.save(project)) throw new IOException("Could not save the picture fixture");
+        return project;
+    }
+
     private static File createShutterArt(File directory) throws IOException {
         File file = new File(directory, "shutter-art.png");
         Bitmap bitmap = Bitmap.createBitmap(960, 540, Bitmap.Config.ARGB_8888);

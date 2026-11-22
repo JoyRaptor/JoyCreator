@@ -16,8 +16,6 @@ import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
-import com.fadcam.ui.faditor.motion.MotionShutter;
-import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 
 /**
  * Places the isolated spine clip on the export canvas.
@@ -86,29 +84,14 @@ public final class SpineTransformExportEffect implements GlEffect {
     /** The one pass. Full-frame, same size in as out; a bad pose passes the frame through. */
     private static final class Program extends BaseGlShaderProgram {
 
-        private static final String VERTEX_SHADER =
-                "#version 100\n"
-                + "attribute vec4 aFramePosition;\n"
-                + "uniform mat4 uTransformationMatrix;\n"
-                + "uniform mat4 uTexTransformationMatrix;\n"
-                + "varying vec2 vTexSamplingCoord;\n"
-                + "void main() {\n"
-                + "  gl_Position = uTransformationMatrix * aFramePosition;\n"
-                + "  vec4 texturePosition = vec4(aFramePosition.x * 0.5 + 0.5,\n"
-                + "                              aFramePosition.y * 0.5 + 0.5, 0.0, 1.0);\n"
-                + "  vTexSamplingCoord = (uTexTransformationMatrix * texturePosition).xy;\n"
-                + "}\n";
-
         @NonNull private final Clip clip;
         private final long clipTimelineOffsetMs;
         @NonNull private final GlProgram glProgram;
         private final long pieceStartUs;
         private final long pieceEndUs;
         private final MotionBreaks breaks;
-        // The initial SDR route uses the nominal Studio 30 fps shutter clock.
-        private static final MotionShutter.FrameRate SHUTTER_RATE = new MotionShutter.FrameRate(30, 1);
         private ItemMotionSampler sampler;
-        private RigidSpineShutterPass shutterPass;
+        private RigidTextureShutterPass shutterPass;
 
         private final float[] pose = new float[SpineTransform.POSE];
         private final float[] u = new float[SpineTransform.UNIFORMS];
@@ -129,7 +112,7 @@ public final class SpineTransformExportEffect implements GlEffect {
             this.breaks = breaks;
             try {
                 this.glProgram = new GlProgram(
-                        VERTEX_SHADER, SpineTransform.fragmentShader("vTexSamplingCoord"));
+                        RigidTextureShutterPass.VERTEX_SHADER, SpineTransform.fragmentShader("vTexSamplingCoord"));
                 this.glProgram.setBufferAttribute("aFramePosition",
                         GlUtil.getNormalizedCoordinateBounds(), 4);
                 float[] identity = GlUtil.create4x4IdentityMatrix();
@@ -161,15 +144,11 @@ public final class SpineTransformExportEffect implements GlEffect {
             try {
                 if (sampler != null && presentationTimeUs >= pieceStartUs
                         && presentationTimeUs < pieceEndUs) {
-                    var preset = MotionShutter.Preset.NATURAL;
-                    var schedule = MotionShutter.sample(presentationTimeUs, SHUTTER_RATE,
-                            preset.angle, preset.phase(), MotionShutter.Shape.BOX,
-                            RigidSpineShutterPass.SAMPLE_COUNT, breaks);
-                    var plan = RigidShutterPlan.prepare(sampler, presentationTimeUs,
-                            schedule, width, height, 1.0);
+                    var plan = RigidTextureShutterPass.naturalPlan(sampler, presentationTimeUs,
+                            breaks, width, height);
                     if (plan != null) {
-                        if (shutterPass == null) shutterPass = new RigidSpineShutterPass(VERTEX_SHADER);
-                        shutterPass.draw(inputTexId, width, height, plan);
+                        if (shutterPass == null) shutterPass = new RigidTextureShutterPass(false);
+                        shutterPass.draw(inputTexId, width, height, plan, 0, 1f);
                         return;
                     }
                 }

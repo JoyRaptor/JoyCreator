@@ -377,6 +377,7 @@ public class TextOverlayItem implements LinkFollower {
      * preview interaction, exactly like a PiP's pass-through).
      */
     private boolean passThrough;
+    private boolean rigidMotionBlur;
 
     /**
      * Per-item compositing (masks + chroma key + matte), the same {@link CompositingSpec} a
@@ -751,6 +752,7 @@ public class TextOverlayItem implements LinkFollower {
         c.rotationPivotY = rotationPivotY;
         System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
         c.passThrough = passThrough;
+        c.rigidMotionBlur = rigidMotionBlur;
         c.compositing = compositing == null ? null : compositing.copy();
         // SPEC E: a duplicate is the object's twin — its bend rides along (deep copy, never
         // shared; two items fed by one spec would bend together). Null stays null: every
@@ -1153,6 +1155,10 @@ public class TextOverlayItem implements LinkFollower {
     // ── Pass-through, blend, compositing ──────────────────────────────
 
     /** True when the preview ignores touch on this overlay (PiP-style pass-through). */
+    public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
+
+    public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
+
     public boolean isPassThrough() { return passThrough; }
 
     public void setPassThrough(boolean passThrough) { this.passThrough = passThrough; }

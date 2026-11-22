@@ -86,6 +86,12 @@ public class ExportDebugActivity extends Activity {
             FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
                     + " art=" + transparentArt);
         }
+        if (in.getBooleanExtra("motion_picture_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createPicture(this, enabled);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 picture fixture enabled=" + enabled);
+        }
         if (in.getBooleanExtra("motion_route_fixture", false)) {
             FaditorProject fixture = MotionRouteFixture.create(this);
             in.putExtra("project_id", fixture.getId());

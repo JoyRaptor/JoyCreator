@@ -2902,6 +2902,7 @@ public class ProjectStorage {
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
                 // so every pre-existing project stays byte-identical.
                 if (o.isPassThrough()) oJson.addProperty("passThrough", true);
+                if (o.isRigidMotionBlurEnabled()) oJson.addProperty("rigidMotionBlur", true);
                 if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
                 // SPEC B rotation pivot — sparse like the rest: a centre pivot (every overlay
                 // in every project written before this) writes nothing and stays
@@ -3866,6 +3867,9 @@ public class ProjectStorage {
                         // model so a project written before these keys load exactly as it
                         // always did.
                         if (hasValue(oObj, "passThrough")) o.setPassThrough(oObj.get("passThrough").getAsBoolean());
+                        if (hasValue(oObj, "rigidMotionBlur")) {
+                            o.setRigidMotionBlurEnabled(oObj.get("rigidMotionBlur").getAsBoolean());
+                        }
                         if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
                         // SPEC B rotation pivot — TOLERANT: absent keys are the centre pivot,
                         // so a project written before this loads and renders exactly as it

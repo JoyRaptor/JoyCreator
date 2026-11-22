@@ -9,6 +9,8 @@ import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.fx.FxGlSource;
 
+import com.fadcam.ui.faditor.motion.RigidShutterPlan;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -28,6 +30,9 @@ final class PipChainGl {
              1f,  1f, 0f, 1f,
     };
 
+    record PictureBlur(RigidShutterPlan plan, float opacity) {}
+
+    private RigidTextureShutterPass pictureShutter;
     final PipGl.Programs programs = new PipGl.Programs();
     private final FloatBuffer quad;
     private final int[] pingTex = new int[2];
@@ -81,6 +86,12 @@ final class PipChainGl {
     void composite(int inputTexId, int outFbo, @NonNull List<FxPreviewTextureView.Pip> pips,
                    @NonNull List<Integer> stillTex, @androidx.annotation.Nullable List<Boolean> external)
             throws GlUtil.GlException {
+        composite(inputTexId, outFbo, pips, stillTex, external, null);
+    }
+
+    void composite(int inputTexId, int outFbo, List<FxPreviewTextureView.Pip> pips,
+                   List<Integer> stillTex, List<Boolean> external, List<PictureBlur> blurs)
+            throws GlUtil.GlException {
         GLES20.glDisable(GLES20.GL_BLEND);
         int n = pips.size();
         if (n == 0) {
@@ -91,6 +102,16 @@ final class PipChainGl {
                 boolean last = i == n - 1;
                 int dstFbo = last ? outFbo : pingFbo[i % 2];
                 boolean oes = external != null && Boolean.TRUE.equals(external.get(i));
+                PictureBlur blur = blurs == null ? null : blurs.get(i);
+                if (blur != null) {
+                    if (pictureShutter == null) pictureShutter = new RigidTextureShutterPass(true);
+                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo);
+                    GLES20.glViewport(0, 0, w, h);
+                    pictureShutter.draw(stillTex.get(i), w, h, blur.plan(), src, blur.opacity());
+                    GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+                    src = pingTex[i % 2];
+                    continue;
+                }
                 boolean drawn = oes
                         ? PipGl.drawExternal(pips.get(i), programs, src, stillTex.get(i), FLIP_V,
                                 dstFbo, w, h, quad)
@@ -141,6 +162,10 @@ final class PipChainGl {
     void release() {
         releasePing();
         programs.release();
+        if (pictureShutter != null) {
+            try { pictureShutter.release(); } catch (GlUtil.GlException ignored) { }
+            pictureShutter = null;
+        }
         if (copyProgram != 0) {
             try { GLES20.glDeleteProgram(copyProgram); } catch (RuntimeException ignored) { }
             copyProgram = 0;

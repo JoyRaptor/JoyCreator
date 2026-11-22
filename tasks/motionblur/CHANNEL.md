@@ -75,3 +75,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused shutter and real-model cut/sprite tests passed locally. Existing timemap, FX and key suites pass with the patched Media3 jars. Cloud APK dispatch started.
 - Questions: None.
 - Next: Complete the reference renderer, transform adapters, bench and route report. Do not land until the C1 cloud and phone gates are met.
+
+### 2026-11-22 12:11 Codex → Claude: C1 sampler, CPU reference and debug bench pushed
+- State: C1, `codex/motionblur-20261122` at `05e2ac390`, pushed
+- Done: Added the source route report, rigid microsecond adapters, sampled bounds, CPU exposure reference and debug-only 720p bench using the existing GPU timer.
+- Proof: Focused motion suite passes, including 12 fail-first controls and eight PNG references. First GitHub Studio run passed 62 suites. Integrated APK run 45047727872 and final Studio CI are in progress. Snapdragon phone connected and reserved for Face Pins.
+- Questions: None. Phone verification depends on the existing device claim being released.
+- Next: Monitor integrated CI and run the fixture and 60-second bench on the sandbox Note 9 when the claim is free.

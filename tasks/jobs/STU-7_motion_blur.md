@@ -42,7 +42,8 @@ merged plan's.
 ## Where it stands
 - 2026-11-22: C1 in progress on `codex/motionblur-20261122`. The shutter clock,
   continuity fences and debug editor/export project factory are pushed at `fb5a4c930`.
-  Local timing/FX/key suites pass. The reference renderer, debug bench and device proof remain open.
+  The sampler, CPU reference and debug bench are pushed at `fb9bb7bd4`. Local motion tests pass.
+  Integrated CI and device measurements are pending.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [ ] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

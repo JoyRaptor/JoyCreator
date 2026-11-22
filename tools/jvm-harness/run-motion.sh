@@ -51,6 +51,8 @@ expect_failure 'sprite follows fractional parent motion' -Dmotion.wrongRoundedIt
 java @"$RUNARGS" MotionCoreTest
 java @"$RUNARGS" MotionTimelineBreaksTest
 java @"$RUNARGS" MotionItemAdaptersTest
+expect_failure "rotation maps a canvas pixel back to its UV" RigidShutterPlanTest wrong-direction
+java @"$RUNARGS" RigidShutterPlanTest
 expect_failure "fast slide spreads farther" MotionReferenceFixtureTest "$OUT/negative/slide" slide
 expect_failure "zoom must grow coverage about its pivot" MotionReferenceFixtureTest "$OUT/negative/zoom" zoom
 expect_failure "spin sweeps the narrow axis" MotionReferenceFixtureTest "$OUT/negative/spin" spin

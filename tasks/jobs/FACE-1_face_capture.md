@@ -278,7 +278,7 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 - [x] Tilt the same way round as turning in the pilot: the owner confirmed both on the Note 9 (11-22).
 - [x] Blinks from the lids: the owner on the Note 9 (pilot in Chrome), 11-22: "blinks look good now. winks work too now."
 - [x] The phone build with the lids (`54e968522`, cloud-built) installed on the Note 9 over the old app (11-22, 16:53, no uninstall); on the bench (Avatar Studio, 🙂 Face test) the owner: "Blinks look great". The later near and lean changes are not in that build yet.
-- [ ] Face pins round 2 (Mirror default, Live and Pick, labelled Remove, in Set up) with his face on the Note 9.
+- [x] Face pins round 2 with his face on the Note 9 (11-22): Live, Pick with the frozen face, a mouth-corner pin pulling on a smile with the head turned, Strength, Remove, Plain map, Face pins in Set up. The owner: "All worked".
 - [ ] A one-sided smile from the mouth corners on the points, as the lids now are (the tracker reads both corners alike).
 - [x] Walking by your face (owner's idea, 11-22): built by the walk-stage session, landed `31b23d449` (Perform, Walking: "Walk with your face", three tick boxes; reads `leanX`, `near`, `face`). Not yet tried with a real face.
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.

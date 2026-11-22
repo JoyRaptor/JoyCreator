@@ -1,6 +1,6 @@
 # AVA-1: Avatar Studio redesign (a real character studio, simple on a phone)
 
-**Milestone:** after launch (Avatar stays hidden for launch, see ANI-1)  ·  **State:** 🔨 web pilot built, owner's look owed  ·  **Owner:** "Avatar Studio" session (Claude Fable 5.2, owner-asked 11-18)  ·  **Checked:** 2026-11-18 against `ffb3af63b`
+**Milestone:** launch (owner, 11-22: "Avatar Studio will ship in Joy Creator"; this replaces "hidden for launch", see ANI-1)  ·  **State:** 🔨 web pilot through round 21, three pieces left, then the phone room  ·  **Owner:** "Avatar Studio" session (Claude Fable 5.2, owner-asked 11-18)  ·  **Checked:** 2026-11-18 against `ffb3af63b`
 
 ## Why it matters (for the user)
 The owner opened Avatar Studio as a newcomer and could not tell what it does: a 3x3 grid, yaw and pitch,
@@ -587,6 +587,21 @@ they want, a centipede; arms that can become feet with one toggle").
             the right button (and a pen's side button) does the same as holding, which was added for that.
       `al-agent.js`: `scene_stage` takes setup / arrange / motion / perform, `scene_frame` takes `on` and works in the
       empty scene, `scene_open` takes "Empty", `scene_shot` turns the frame on.
+- [ ] **THE PATH TO THE PHONE (owner, 11-22).** A session had guessed the phone room at "weeks" and suggested
+      keeping Avatar hidden for launch. He overruled it: "It will not be weeks worth of work. AI can't judge time
+      well. Avatar Studio will ship in Joy Creator." And the order: "tell the main agent to spin up another session
+      to finish the pilot, then it check it and then we handoff to yet another session or several to build it into
+      the phone". So:
+      1. Finish the pilot: walking across the stage (a character walks across the scene and off either side);
+         video export (a video choice in the Export sheet, with a key colour, no see-through) with the voice kept
+         in the take. Two sessions, on different files.
+      2. The lead checks both against this card, and the owner tries them.
+      3. The phone room, in sessions: a phone spec first (the screens; ONE character and scene file format shared
+         with the pilot, with round-trip test files; a port map from each pilot file's "Phone:" line; what Video
+         Studio already does that is plugged in, not rebuilt). Then slices, each proven on the phone: the
+         character room (four stages, Perform, recording); into Video Studio (dropped in with its take, still
+         draggable, on Studio's recorder and exporter); scenes (strip, frame, shots, joystick and gestures). Each
+         slice brings its Joybot tools. No time estimates: steps, and what each needs.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

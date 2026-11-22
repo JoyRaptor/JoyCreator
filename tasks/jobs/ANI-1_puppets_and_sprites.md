@@ -11,7 +11,7 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
       tape, tap a bone, watch a tail swing, rotate a rigged picture.
 - [ ] The finish ledger's open rows are closed or parked by the owner.
 - [ ] Sprites have their three missing doors (or the owner moves them after launch).
-- [ ] An owner decision on Avatar Studio for launch (STATE recommends: present but not reachable from the UI).
+- [x] An owner decision on Avatar Studio for launch: **it ships** (owner, 11-22: "Avatar Studio will ship in Joy Creator"). The room that ships is the redesign, [AVA-1](AVA-1_avatar_studio_redesign.md), built into the phone after its web pilot is finished; the earlier recommendation (present but not reachable) is withdrawn.
 - [ ] STATE §5 rows updated.
 
 ## Where it stands
@@ -33,7 +33,7 @@ the app. Puppet code has barely changed since 9-17, so this card is still accura
 - [ ] Sprite warp net looks detached from the sprite (owner report 10-15; see [STU-4](STU-4_studio_sweep_leftovers.md)).
 - [x] (list written 11-13: [SPRITELAB_PARITY_20261113.md](../SPRITELAB_PARITY_20261113.md); the gaps are still to build) SpriteLab web tool (`tools/spritelab/SpriteLab.html`) vs the phone editor: list what the web tool does that the phone
       cannot (phone-first rule) and the per-cell transforms the sprite format must hold.
-- [ ] Avatar Studio: an owner decision for launch.
+- [x] Avatar Studio: an owner decision for launch. Made 11-22: it ships, as the AVA-1 redesign.
 
 ## Specs, handoffs and evidence
 - [SPEC_20260915_PUPPET_UI.md](../SPEC_20260915_PUPPET_UI.md), [SPEC_20260904_PUPPET_ARCHITECTURE.md](../SPEC_20260904_PUPPET_ARCHITECTURE.md), [PUPPET_FINISH_LEDGER.md](../PUPPET_FINISH_LEDGER.md)

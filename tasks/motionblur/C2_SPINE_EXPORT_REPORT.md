@@ -23,3 +23,15 @@ Local evidence: `C:/workspace/motion-c2-evidence`. Originals are `sharp.mp4`, `b
 `20ae2c5e7482d23e6d61181d06c207dad1070cca` passes the edited piece duration to the shutter. Repeated, frozen and transition pieces keep the sharp placement path in this slice. The 735 ms HOLD jump should straddle the frame at 733.333 ms. [Android APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45072384922) · [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45072398360).
 
 Still open in C2: use the actual frame cadence, integrate text, pictures, sprites and PiP, add item controls and Inspect Frame, and compare the GPU accumulation with the CPU reference. Preview, effect layers, puppet motion, filmed-pixel tracking, sustained mobile performance and Exynos testing have separate gates.
+
+### Follow-up device proof · `20ae2c5e7`
+
+- All four 960 × 540 exports repeated successfully. Moving median luma difference was 1.701/255 and idle was 0.005/255. All 30 decoded no-transform frame hashes matched across full re-encode and near-lossless trim.
+- At 733.333 ms, the exposure overlaps the 735 ms HOLD jump. Luma gain was zero across 18,366 pixels occupied solely by the new pose. In a negative control, adding 40% of the following pose to that frame triggered the ghost check on 100% of those pixels. This control manipulates the decoded fixture; the device APK uses its normal shutter.
+- On the three frames at 300.000, 366.667 and 433.333 ms, an independent CPU six-sample reconstruction had 2.44–2.50/255 luma mean absolute error over the active image region. Using the sharp frame as the prediction had 9.18–12.26/255 error. This reconstruction works in encoded SDR luma and is a spatial check. Linear-light premultiplied accumulation remains an open C2 requirement.
+- Battery temperature 36.2–36.5 °C. Android thermal status 0. Release-performance testing remains pending.
+- Evidence in the same local directory: `hold-*.mp4`, `hold-*.log`, `compare-20ae2c5e7.json`, `oracle-20ae2c5e7.json` and `negative-hold.json`.
+
+### Persistence lint
+
+The first Studio run completed 61/62 suites. The lint matches private field names to JSON key literals and reported a mismatch for `rigidMotionBlurEnabled`. The Note 9 fixtures confirmed the existing key already round-tripped. `82899e6be42f298f4e2b0d5d0226cfffaf6e7a2d` aligns the private field name with the saved `rigidMotionBlur` key and passes the focused lint with its deliberate missing-key control. [Exact Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073080665) · [Exact APK run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073231068).

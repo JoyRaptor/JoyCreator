@@ -77,6 +77,17 @@ public class ExportDebugActivity extends Activity {
     }
 
     private boolean start(Intent in) throws Exception {
+        if (in.getBooleanExtra("motion_route_fixture", false)) {
+            FaditorProject fixture = MotionRouteFixture.create(this);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C1 route fixture project_id=" + fixture.getId());
+            if (in.getBooleanExtra("open_preview", false)) {
+                Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
+                preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, fixture.getId());
+                startActivity(preview);
+                return false;
+            }
+        }
         String id = in.getStringExtra("project_id");
         if (id == null) {
             FLog.w(TAG, "no project_id extra");

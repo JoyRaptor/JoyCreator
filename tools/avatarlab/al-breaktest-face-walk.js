@@ -23,12 +23,14 @@
  *   deadz    nodeadz   no dead zone for closer and further
  *   stick    stickflat the joystick in perspective still jumps and crouches   nogrid   no floor grid in the pad
  *            stickundo the perspective tick is changed behind Undo's back     noflick  a flick up no longer jumps in perspective
+ *   angle    flatgrow  overhead, it still grows as it comes nearer        gridflat the grid does not show the camera's angle
+ *            sceneangle in a scene the camera angle is not the scene's floor (or not one Undo step)
  */
 (function (root) {
   'use strict';
   var AL = root.AL, T = AL.breakTest, K = T.kit, Wk = T.walk, FWT = T.faceWalk = {}, scene = AL.scene, fw = AL.faceWalk, dw = AL.depthWalk, W = scene.W, H = scene.H;
-  var PARTS = ['lr', 'deep', 'front', 'close', 'drawer', 'scene', 'take', 'own', 'plain', 'fours', 'deadz', 'stick'];
-  var FACE = { leanX: 0, near: 0, face: 1 }, KEEP = { plain: dw.plain, front: dw.front, footY: dw.footY, scene: dw.scene, drawer: fw.drawer, step: fw.step, on: fw.on, sdOn: AL.stickDepth.on, sdGrid: AL.stickDepth.grid };
+  var PARTS = ['lr', 'deep', 'front', 'close', 'drawer', 'scene', 'take', 'own', 'plain', 'fours', 'deadz', 'stick', 'angle'];
+  var FACE = { leanX: 0, near: 0, face: 1 }, KEEP = { plain: dw.plain, front: dw.front, footY: dw.footY, scene: dw.scene, drawer: fw.drawer, step: fw.step, on: fw.on, sdOn: AL.stickDepth.on, sdGrid: AL.stickDepth.grid, sdSet: AL.stickDepth.setAngle };
   function q(sel) { return document.querySelector(sel); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function face(lx, nz) { FACE.leanX = lx; FACE.near = nz; }
@@ -163,7 +165,7 @@
     try {
       AL.stick.set(app, true); await K.raf(3); var pad = q('.stickpad'); if (!pad) { F('stick: the joystick in perspective walks away and toward you', false, 'no pad'); return; }
       var n0 = app.hist.past.length;
-      if (plant === 'stickundo') { st.stick = st.stick || {}; st.stick.depth = true; } else { var tick = sd.toggle(app); tick.click(); }
+      if (plant === 'stickundo') { st.stick = st.stick || {}; st.stick.depth = true; } else { var tick = sd.toggle(app).querySelector('.tg'); tick.click(); }
       var oneStep = app.hist.past.length === n0 + 1; await K.raf(4); pad = q('.stickpad');
       var lit = cyan(pad); st.stick.depth = false; app.refreshPanel(true); await K.raf(3); var dark = cyan(q('.stickpad')); st.stick.depth = true; app.refreshPanel(true); await K.raf(3); pad = q('.stickpad');
       F('stick: in the joystick\'s settings, "Up and down walk into the picture" is one Undo step, and a thin floor grid shows in the pad while it is on', oneStep && lit > 200 && dark < 20, { undoStep: oneStep, gridPixels: lit, without: dark });
@@ -177,6 +179,27 @@
       for (var i = 0; i < 34; i++) { await K.raf(1); await wait(30); if (w.air) air = true; top = Math.min(top, w.y); }
       F('stick: in perspective a flick up still jumps', air && top < y1 - 5, { air: air, rose: Math.round(y1 - top) });
     } finally { sd.on = on0; sd.grid = grid0; AL.stick.SWIPE.dist = sw0; st.stick = JSON.parse(keep) || undefined; AL.stick.release(app); AL.stick.set(app, false); await K.raf(2); }
+  };
+
+  /* the camera's angle (al-stick-depth.js): overhead no change of size, lower more; the grid shows it; in a scene it is the scene's floor */
+  function gridPic(deg) { var c = document.createElement('canvas'); c.width = c.height = 64; var g = c.getContext('2d'); AL.stickDepth.grid(g, 64, 32, 26, 0, deg); return g.getImageData(0, 0, 64, 64).data; }
+  async function closeScale(app) { var inp = app.inp, w = inp.walker; inp._close = true; await K.raf(110); var o = { s: inp.S.rootScale, b: w.base }; inp._close = false; await K.raf(160); return o; }
+  part.angle = async function (X, F, plant, app) {
+    var sd = AL.stickDepth, plain0 = dw.plain, grid0 = sd.grid, set0 = sd.setAngle, st = app.ch.settings, a0 = st.floorAngle;
+    if (plant === 'flatgrow') dw.plain = function (ch) { var keep = ch.settings.floorAngle; ch.settings.floorAngle = 45; try { return plain0(ch); } finally { ch.settings.floorAngle = keep; } };
+    if (plant === 'gridflat') sd.grid = function (g, s, m, r, ph) { return grid0(g, s, m, r, ph, 45); };
+    if (plant === 'sceneangle') sd.setAngle = function (a, deg) { if (!(a.scene && !a.scene.dive)) return set0.apply(sd, arguments); };
+    try {
+      await rest(app); st.floorAngle = 0; var flat = await closeScale(app); st.floorAngle = 45; var mid = await closeScale(app); st.floorAngle = 75; var low = await closeScale(app);
+      F('angle: overhead it walks toward you down the picture with no change of size; the lower the camera, the more it grows', flat.b > 50 && Math.abs(flat.s - 1) < 0.01 && mid.s > 1.2 && low.s > mid.s + 0.05, { overhead: r1(flat.s * 100) / 100, at45: r1(mid.s * 100) / 100, at75: r1(low.s * 100) / 100, cameDown: Math.round(flat.b) });
+      var p0 = gridPic(0), p75 = gridPic(75), diff = 0; for (var i = 3; i < p0.length; i += 4) if (Math.abs(p0[i] - p75[i]) > 40) diff++;
+      F('angle: the floor grid shows the camera angle (overhead and low are different floors)', diff > 150, { pixelsDiffer: diff });
+      st.floorAngle = a0;
+      var R = await inScene(X, app), sh0 = R.data.floor.shrink, n0 = R.hist.past.length;
+      sd.setAngle(app, 70, true); sd.setAngle(app, 72, false); var sh1 = R.data.floor.shrink, back = sd.angle(app), oneStep = R.hist.past.length === n0 + 1;
+      AL.scene.undo(app, false, true); var undone = R.data.floor.shrink;
+      F('angle: in a scene the camera angle is the scene\'s own floor (lower: smaller at the back), and a drag is one Undo step of the scene', sh1 < sh0 - 0.05 && Math.abs(back - 72) < 1.5 && oneStep && Math.abs(undone - sh0) < 1e-6, { shrink: [sh0, sh1, undone], readBack: r1(back), oneStep: oneStep });
+    } finally { dw.plain = plain0; sd.grid = grid0; sd.setAngle = set0; if (a0 == null) delete st.floorAngle; else st.floorAngle = a0; }
   };
 
   /* ── in a scene ── */
@@ -250,7 +273,7 @@
       }
       F('99 nothing thrown by the end', !scene._err);
     } catch (e) { X.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
-    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; AL.stickDepth.on = KEEP.sdOn; AL.stickDepth.grid = KEEP.sdGrid; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.yields = true; FACE.roll = 0;      // (whatever a planted fault replaced, back)
+    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; AL.stickDepth.on = KEEP.sdOn; AL.stickDepth.grid = KEEP.sdGrid; AL.stickDepth.setAngle = KEEP.sdSet; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.yields = true; FACE.roll = 0;      // (whatever a planted fault replaced, back)
     try { var r0 = JSON.parse(room0); fw.room.lr = r0.lr; fw.room.depth = r0.depth; } catch (e) { }
     try { if (AL.app.scene) await scene.close(AL.app, true); } catch (e2) { }
     try { var mine = (await scene.list(AL.app)).filter(function (e) { return e.name === 'Face walk test'; }); for (var m = 0; m < mine.length; m++) await scene.forget(AL.app, mine[m].uid); } catch (e4) { }
@@ -261,7 +284,8 @@
   FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], tilt: ['lr', /^lr: tilting the head/], tight: ['lr', /^lr: your face to the right/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
     front: ['front', /^front: walking toward/], stuck: ['close', /^close: /], drawer: ['drawer', /^drawer: /], order: ['scene', /^scene: \.\.\.and once/], flat: ['scene', /^scene: coming closer/], shrink: ['take', /^take: /],
     unowned: ['own', /^own: /], keepown: ['take', /^take: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /],
-    stickflat: ['stick', /^stick: pushed up/], nogrid: ['stick', /^stick: in the joystick/], stickundo: ['stick', /^stick: in the joystick/], noflick: ['stick', /^stick: in perspective a flick/] };
+    stickflat: ['stick', /^stick: pushed up/], nogrid: ['stick', /^stick: in the joystick/], stickundo: ['stick', /^stick: in the joystick/], noflick: ['stick', /^stick: in perspective a flick/],
+    flatgrow: ['angle', /^angle: overhead/], gridflat: ['angle', /^angle: the floor grid/], sceneangle: ['angle', /^angle: in a scene/] };
   FWT.proof = async function (only) {
     var out = {}, want = FWT.WANT;
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await FWT.run({ plant: k, only: [want[k][0]] }); out[k] = { caught: r.fails.some(function (f) { return want[k][1].test(f.label); }), fails: r.fails.map(function (f) { return f.label.slice(0, 70); }).slice(0, 4) }; }

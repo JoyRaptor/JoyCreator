@@ -701,12 +701,24 @@ they want, a centipede; arms that can become feet with one toggle").
             grid under the knob), `al-stick-moves.js` (the tick in the sheet), `al-face-walk.js`. Choice: up = into the background, as
             the scene's floor goes (higher = further back) and as in a game; where the joystick leaves it, it stays (the face's walk
             only takes back what the face or Up close did: that was a bug found by the new check and fixed).
-            Proof: 3 new checks in `al-breaktest-face-walk.js` (now 22 checks, 0 failures; 22 planted faults all caught: perspective
+            Proof: 3 new checks in `al-breaktest-face-walk.js` (22 checks then, all caught: perspective
             ignored, no grid, the tick behind Undo's back, a flick that no longer jumps). Looked at in the browser at phone tall: the
             tick in the sheet with the mouse, the grid in the pad. Also fixed: the walking tests now let the page's last real frame
             pass before simulated time (a frame already asked for came once with a real timestamp and put a take's clock off its
             33 ms steps: the first run after a page load could fail, as the face-capture session saw). Not checked: a thumb on a
             phone, the owner's eye.
+      - [x] **The camera angle (his idea, 11-22: one control from flat to perspective).** Under the tick, a slider "Camera angle" with
+            the floor grid beside it, live, and the pad's grid follows it. Overhead (0): the floor lies flat to the screen, so walking away
+            and toward you moves it up and down the picture with no change of size (his "plane parallel to the screen", the plain
+            walking-anywhere). Lower (up to 75): the floor tilts away and size changes more with depth; 45 is where it starts (as
+            before). The grid is the floor drawn as a plane tilted to that angle in perspective: a flat square grid overhead, lines
+            running to a point when low. Alone it is the character's own (`ch.settings.floorAngle`, one Undo step per drag) and the
+            face's Closer and further and Up close follow it too; in a scene it is the SHOT's: the scene's floor (`floor.shrink`), so the
+            set, the objects and every character agree, one Undo step of the scene per drag. Choice: the tick stays (pad up and down
+            walk the floor, or jump and crouch: the old way one tick away); the angle replaces nothing else. Proof: 3 more checks
+            (now 25, 0 failures; 25 planted faults all caught: growing overhead, a grid that ignores the angle, the scene's angle not
+            its floor or not one Undo step). Looked at with the mouse: the slider dragged to overhead (square grid) and to 75 (deep
+            floor), each drag one Undo step.
       **His notes after trying it (11-21 late), built the same night and checked on the Note 9 in Chrome:**
       - [x] Studio's canvas texture outside the frame: the same picture Studio's CanvasFrameView paints
             (`studio_backdrop_graffiti.jpg`, kept in the pilot as `studio-backdrop.jpg`, byte for byte; the one-file build

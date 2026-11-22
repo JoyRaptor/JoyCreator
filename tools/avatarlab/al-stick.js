@@ -81,7 +81,7 @@
       g.strokeStyle = '#2c2c35'; g.lineWidth = 1; g.beginPath(); g.arc(m, m, r, 0, 7); g.stroke(); g.beginPath(); g.arc(m, m, r * 0.45, 0, 7); g.stroke();
       g.strokeStyle = '#71717a'; g.lineWidth = 1.6; g.lineCap = 'round'; g.lineJoin = 'round';
       [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (d) { var tx = m + d[0] * (r + 9), ty = m + d[1] * (r + 9), px = -d[1], py = d[0]; g.beginPath(); g.moveTo(tx - d[0] * 5 + px * 4, ty - d[1] * 5 + py * 4); g.lineTo(tx, ty); g.lineTo(tx - d[0] * 5 - px * 4, ty - d[1] * 5 - py * 4); g.stroke(); });
-      if (AL.stickDepth && AL.stickDepth.on(AL.app)) AL.stickDepth.grid(g, s, m, r, AL.stickDepth.phase(AL.app));      // in perspective: a thin floor under the knob
+      if (AL.stickDepth && AL.stickDepth.on(AL.app)) AL.stickDepth.grid(g, s, m, r, AL.stickDepth.phase(AL.app), AL.stickDepth.angle(AL.app));      // in perspective: a thin floor under the knob
       var kx = m + K.x * r, ky = m + K.y * r;
       if (K.on) { g.strokeStyle = 'rgba(244,63,142,.45)'; g.lineWidth = 3; g.beginPath(); g.moveTo(m, m); g.lineTo(kx, ky); g.stroke(); }
       g.beginPath(); g.arc(kx, ky, 13, 0, 7); g.fillStyle = K.on ? '#f43f8e' : '#1c1c22'; g.fill(); g.strokeStyle = live ? '#f43f8e' : '#e4e4e7'; g.lineWidth = 2; g.stroke();

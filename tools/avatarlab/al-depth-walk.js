@@ -37,8 +37,8 @@
   };
   /** Alone on the plain stage: scale about its eye line (the top stays, the feet come down). */
   dw.plain = function (ch) {
-    var H = tall(ch);
-    return { s: function (b) { return clamp(1 + b / H, 0.3, 3); }, inv: function (s) { return (s - 1) * H; }, lim: [-dw.FAR * H, dw.NEAR * H], front: dw.front(ch), kind: 'plain' };
+    var H = tall(ch), a = ch.settings && ch.settings.floorAngle, k = AL.stickDepth ? AL.stickDepth.k(a == null ? AL.stickDepth.ANGLE : a) : 1;      // (the camera's angle: overhead, no change of size; lower, more: al-stick-depth.js)
+    return { s: function (b) { return clamp(1 + k * b / H, 0.3, 3); }, inv: k > 1e-3 ? function (s) { return (s - 1) * H / k; } : null, lim: [-dw.FAR * H, dw.NEAR * H], front: dw.front(ch), kind: 'plain', k: k };
   };
   /** In a scene: the scene's own floor rule, for a cast member standing at its place T (scene.place). */
   dw.scene = function (d, it, T, ch) {
@@ -64,7 +64,8 @@
     var w = inp.walker; if (!w || w.lim) return;                                 // (on a scene's stage the scene sets it: al-scene-draw.js)
     var want = !!inp._depth || (w.z && w.z.kind === 'plain' && (Math.abs(w.base) > 0.05 || (w.tz != null && Math.abs(w.tz) > 0.05)));
     if (!want) { if (w.z) { w.z = null; w.tz = null; } return; }
-    if (!w.z || w.z.kind !== 'plain' || w.z.ch !== inp.app.ch || w.z.ix !== AL.ix(inp.app.ch)) { w.z = dw.plain(inp.app.ch); w.z.ch = inp.app.ch; w.z.ix = AL.ix(inp.app.ch); }
+    var fa = inp.app.ch.settings && inp.app.ch.settings.floorAngle;
+    if (!w.z || w.z.kind !== 'plain' || w.z.ch !== inp.app.ch || w.z.ix !== AL.ix(inp.app.ch) || w.z.fa !== fa) { w.z = dw.plain(inp.app.ch); w.z.ch = inp.app.ch; w.z.ix = AL.ix(inp.app.ch); w.z.fa = fa; }
   };
   var step0 = P.step;
   P.step = function (dt) { dw.prep(this); return step0.call(this, dt); };

@@ -495,6 +495,59 @@ they want, a centipede; arms that can become feet with one toggle").
       **Who builds what (his question; agreed):** spec and the fault hunt with the lead; the room from this spec
       by Opus in a fresh session; break tests by Sonnet; video export and walking across the stage back to the
       frontier model.
+      **Build plan (Opus room session, 11-21 night, branch `claude/avatarlab-scene-room-ac08ad`):** keep the scene
+      engine; the scene's stage becomes the room's own four stages (`R.stage` = setup / fit / motion / perform,
+      `app.stage` carries it). What is in hand is `R.hand` (the scene, or the character in hand, which opens alone
+      on the plain stage as round 20's "dive" did, now without a Back button: the path tab `Scene` is the way out).
+      New small files: `al-frame.js` (the frame: shape, margins, on/off, the frame button, the empty scene's own
+      camera and shots), `al-scene-strip.js` (the director's chair, its three toggles and the strip),
+      `al-export.js` (Studio's export mark and the export sheet), `al-scene-room.js` (the rail, the path tabs and
+      what is in hand). `al-scene-ui.js` is rewritten as the scene's Set up, Arrange and Motion cards. The empty
+      scene is no scene open (`app.scene` null), so the plain stage is untouched.
+      **As built, point by point (11-21 night, room session; not on the phone, not seen by the owner):**
+      - [x] 1 One room: the scene's own rail, "Back to the scene", the dock's tabs and its Record / Play are gone.
+      - [x] 2 The rail and the path tabs act on what is in hand. Scene in hand: Set up (the scene's picture in the
+            body map's place, a tap on it chooses or adds scenes; add a character, object, backdrop, foreground; the set
+            with pictures, Plain included; what is in it; name, delete), Arrange (size, how far back, flip; the frame's
+            tick box, shapes and margins), Motion (alive, nothing recorded: wind, haze, an object's sway and loop speed,
+            Try the shots), Perform. A character in hand (Open, two taps on it, or holding its card) is alone on the
+            plain stage with its own four stages, path `Scene > Topps > Head`; the scene's tab brings the scene back.
+            Choice: Perform always shows the whole scene; the rail from Perform goes back to whatever was in hand.
+      - [x] 3 The second stage reads "Arrange" from one constant (`AL.stages.WORD2`, al-stages.js); code id stays `fit`.
+      - [x] 4 Two grey round buttons, bottom right of the stage in Perform (empty scene too): the frame (its shape in
+            brackets; tap on/off, solid cyan when on; hold for shapes and margins) and the director's chair (opens upward
+            into Scene / Character / Shots chips). The strip sits at the bottom of the stage, above the rail, and shares
+            its width equally; each part scrolls alone and ends in its add card (Scene: Empty first, your scenes, new;
+            Character: the cast, add; Shots: Cut | Glide switch, Wide, Two-shot, Close on each, yours, keep this view).
+            The frame is a zinc hairline, the stage a little darker outside it, with room round it (6% + 14 px) on every
+            side; the stage beyond its own edge is dimmed too. Shots turn the frame on; frame off folds Shots away and
+            the camera goes to Wide. Framing by hand (drag, pinch, wheel on empty stage) turns the frame on.
+            Choices: the two buttons sit side by side (the chair's menu opens upward without covering the frame
+            button); the part colours (green, violet, amber) are only a top edge and the label, as in his sketch.
+      - [x] 5 The empty scene is no scene open: the plain stage exactly as before (with the frame on, the character
+            is fitted inside the frame). First card, cannot be deleted, its take is the character's own. It has its own
+            shape, margins and shots (Wide, Close on the character, kept views), kept per character in this browser.
+            The scene in use, its stage and who is in hand are kept for a reload (`al.scene`, `al.sceneAt`).
+            Choices: adding a character in the empty scene makes a new Plain scene for the two of them; setting up
+            the empty scene (hold, or tap it again) is Arrange on its one character, as there is nothing else in it.
+      - [x] 6 One transport: the take bar. With two or more characters it runs the scene clock (red records the one
+            in hand while the others play back; Play plays the whole scene; the strip shows the scene's time).
+      - [x] 7 Export button: Studio's own mark (`ic_export_studio.xml`, path copied by script, 40 px bare) in the
+            Joybot gradient, where the paper plane was. Sheet: Joy Creator file (character or scene) or One frame
+            (1920 on the long side at the frame's shape, see-through tick), with a tick per character and for the set
+            in a scene. Not built: video (not this session's; no dead choice is shown). The old Sprite sheet stays.
+      - [x] 8 Menu: Create new avatar, the line, Create new scene and the scenes; choosing one opens Perform with the
+            Scene part up and that scene chosen (Create new scene too).
+      - [ ] 9 Voice kept with a take, 10 walking across the stage: not this session's.
+      - [x] 11 `al-breaktest-scene.js` follows the new doorway: 67 checks, 0 failures with his saved Topps; new checks
+            for all fours in a scene (down, turned round, up again), the empty scene, the strip's eight mixes, frame
+            off and on, long press and second tap. All 15 planted faults caught (`AL.breakTest.scene.proof()`: the
+            8 of round 20 and fours, emptytake, emptydel, share, frameleave, hold, setup). Older tests unchanged: all
+            fours 184/0, stages 43/0, fit stances 27/0, reshape 66/0. Real mouse at phone tall and tablet (see STATE).
+            The browser tool cannot hold a button down, so a finger's long press is timed by the test; with the mouse
+            the right button (and a pen's side button) does the same as holding, which was added for that.
+      `al-agent.js`: `scene_stage` takes setup / arrange / motion / perform, `scene_frame` takes `on` and works in the
+      empty scene, `scene_open` takes "Empty", `scene_shot` turns the frame on.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

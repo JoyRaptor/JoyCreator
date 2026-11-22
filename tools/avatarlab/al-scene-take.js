@@ -9,7 +9,7 @@
  *   Two-shot              everyone, framed together (two or more characters)
  *   Close on <character>  found from the head, and it follows them
  *   your own              any view you framed by hand and kept
- * Tap a shot to CUT to it. Hold it to EASE there. While recording, each change is written on the camera lane, and from
+ * A shot is CUT to, or EASED to, as the Cut | Glide switch on the strip says (al-scene-strip.js). While recording, each change is written on the camera lane, and from
  * the first change in a pass the camera is yours from there on (older cuts after it are replaced), like any other pass.
  *
  * Phone: the clock is the same 30 fps take clock; the lane is a list of { t, shot, ease } in the scene document.
@@ -75,7 +75,7 @@
     if (hd) { ids = {}; AL.walk(hd, function (k) { if (k.type === 'art') ids[k.id] = 1; }); b = boxOf(a, ids); if (b) return b; }
     b = boxOf(a, null); if (!b) return null; return { x0: b.x0, x1: b.x1, y0: b.y0, y1: b.y0 + (b.y1 - b.y0) * 0.45 };      // no head named: the top of it
   }
-  /** The shots on offer right now, in the order the dock shows them. */
+  /** The shots on offer right now, in the order the strip shows them. */
   scene.shots = function (app) {
     var R = app.scene, cast = scene.cast(R), l = [{ key: 'wide', name: 'Wide', kind: 'wide' }];
     if (cast.length > 1) l.push({ key: 'two', name: cast.length === 2 ? 'Two-shot' : 'Everyone', kind: 'two' });
@@ -126,7 +126,7 @@
   /** Take the camera by hand (drag the empty stage, pinch, the wheel). fn changes { x, y, z }. */
   scene.freeCam = function (app, fn) {
     var R = app.scene, fr = scene.frame(R.data); if (R.shot !== 'free' || !R.free) R.free = { x: R.cam.x, y: R.cam.y, z: R.cam.z };
-    fn(R.free); R.free = scene.clampCam(R.free, fr); if (R.shot !== 'free') { R.shot = 'free'; if (scene.dockSoon) scene.dockSoon(app); } R.easing = null; R.cutNow = true;
+    fn(R.free); R.free = scene.clampCam(R.free, fr); if (R.shot !== 'free') R.shot = 'free'; R.easing = null; R.cutNow = true;
   };
   /** Keep the view you framed by hand as a shot of this scene. */
   scene.keepShot = function (app, name) {

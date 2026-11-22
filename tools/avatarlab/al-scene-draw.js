@@ -7,10 +7,12 @@
  * The character in hand goes through the SAME path as when it is alone (app.inp, app.solver, app.out, app.view), so every
  * finger, the voice, the face camera, walking and the take lanes work in a scene with no change to them.
  *
- * ARRANGE  the whole stage is shown, the frame drawn on it, what is outside it dimmed. Tap a thing to take it; drag to
- *          move it (up = further back); the round handle resizes it; two taps on a character opens that character.
- * PERFORM  the frame is the picture. Touch a character to take it in hand. Drag the empty stage, pinch or roll the wheel
- *          to frame a shot by hand.
+ * SET UP and ARRANGE (the scene in hand, held still)  the whole stage is shown, the frame drawn on it when it is on. Tap a
+ *          thing to take it. In Arrange drag it (up = further back) and the round handle resizes it. Two taps on a character
+ *          puts that character in hand, alone on the plain stage.
+ * MOTION and PERFORM (alive)  the FRAME with room round it on every side, so a character can go part-way out. Touch a
+ *          character to take it in hand. Drag the empty stage, pinch or roll the wheel to frame a shot by hand (that needs
+ *          the frame, so it turns the frame on). In Motion a touch on an object takes it, for its wind and loop.
  *
  * Phone: pointer capture becomes pointerInput on the stage Box; the overlay canvas is a Compose Canvas.
  */
@@ -49,20 +51,19 @@
     var R = app.scene, d = R.data, dt = clamp((ts - (app._ts || ts)) / 1000, 0.001, 0.05); app._ts = ts;
     var st = $('stage'), gl = $('gl'), ov = $('ov'), dpr = Math.min(2.5, root.devicePixelRatio || 1), w = st.clientWidth, hh = st.clientHeight; if (!w || !hh) return;
     if (gl.width !== Math.round(w * dpr) || gl.height !== Math.round(hh * dpr)) { gl.width = ov.width = Math.round(w * dpr); gl.height = ov.height = Math.round(hh * dpr); }
-    R.t += dt; var live = R.stage === 'perform', G = app.G, fr = scene.frame(d);
+    R.t += dt; var live = R.stage === 'perform' || R.stage === 'motion', G = app.G, fr = scene.frame(d), camOn = live && AL.frame.on();
     var fa = R.focus ? R.actors[R.focus] || null : null; if (fa && app.inp === fa.inp) { fa.ch = app.ch; fa.solver = app.solver; }
     if (live) scene.tick(app, dt);
 
-    /* where the stage sits on the glass: Perform fits the FRAME, Arrange fits the whole stage with the frame drawn on it */
-    var dock = $('scenedock'), co = $('coach'), top = Math.max(46, co && co.offsetHeight ? co.offsetTop + co.offsetHeight + 6 : 0), bot = dock && dock.offsetHeight ? dock.offsetHeight + 14 : 10, pad = 8;
-    var fit = live ? fr : { w: W + 150, h: H + 110 };
-    R.f = Math.min((w - pad * 2) / fit.w, Math.max(80, hh - top - bot) / fit.h); R.cx = w / 2; R.cy = top + Math.max(80, hh - top - bot) / 2;
-    var cam = live ? scene.camNow(app, fr, dt) : { x: W / 2, y: H / 2, z: 1 }, V = R.V = viewOf(R, cam);
-    R.fr = live ? { x: R.cx - fr.w * R.f / 2, y: R.cy - fr.h * R.f / 2, w: fr.w * R.f, h: fr.h * R.f } : { x: V.ox + fr.x * V.s, y: V.oy + fr.y * V.s, w: fr.w * V.s, h: fr.h * V.s };
+    /* where the stage sits on the glass. Alive: the FRAME, with room round it on every side (it stays put whether the frame line
+       is shown or not, so turning the frame on and off moves nothing). Held still: the whole stage, the frame drawn on it. */
+    var A = AL.frame.area(app);
+    if (live) { var F0 = AL.frame.fit(A, fr.w / fr.h); R.f = F0.w / fr.w; R.cx = F0.x + F0.w / 2; R.cy = F0.y + F0.h / 2; }
+    else { R.f = Math.min(A.w / (W + 150), A.h / (H + 110)); R.cx = A.x + A.w / 2; R.cy = A.y + A.h / 2; }
+    var cam = camOn ? scene.camNow(app, fr, dt) : (R.cam = { x: W / 2, y: H / 2, z: 1 }), V = R.V = viewOf(R, cam);
+    R.fr = live ? F0 : { x: V.ox + fr.x * V.s, y: V.oy + fr.y * V.s, w: fr.w * V.s, h: fr.h * V.s };
 
-    var backs = [], stand = [], fronts = [];
-    d.items.forEach(function (it, i) { it._i = i; (it.kind === 'back' ? backs : it.kind === 'front' ? fronts : stand).push(it); });
-    stand.sort(function (a, b) { return a.y - b.y || a._i - b._i; });
+    var L = layers(d), stand = L.stand;
 
     /* every performer, solved by its own engine */
     var lead = fa ? scene.item(R, R.focus) : null;
@@ -79,46 +80,56 @@
     });
 
     /* back to front */
-    var made = backs.filter(function (q) { return q.made; })[0], hz = made && scene.SETS[made.made] ? scene.SETS[made.made].haze : null, hk = d.haze == null ? 0.5 : d.haze;
-    function pane(it, par) {
-      var q = imgOf(it, R.t); if (!q) return;
-      var c = { x: W / 2 + (cam.x - W / 2) * (1 - par), y: H / 2 + (cam.y - H / 2) * (1 - par), z: 1 + (cam.z - 1) * (1 - par) }, g = paneQuad(it, q.im);
-      g.img = q.id; g.a = 1; it._box = g.box; G.draw([g], px(viewOf(R, c), dpr), null, null);
-    }
     G.keep = false; G.draw([], px(V, dpr), null, null); G.keep = true;
-    try {
-      backs.forEach(function (it) { pane(it, it.par == null ? 0.22 : it.par); });
-      stand.forEach(function (it) {
-        var far = clamp(1 - (it.y / H - d.floor.far) / (d.floor.near - d.floor.far), 0, 1) * hk * 0.22, tint = hz && far > 0.01 ? [hz[0], hz[1], hz[2], far] : null;
-        if (it.kind === 'cast') { var a = R.actors[it.id]; if (!a || !a.out) return; G.draw(a.out.items, px(a.view, dpr), tint ? function (q) { return q.ghost ? null : tint; } : null, a.out.colour); }
-        else { var q = imgOf(it, R.t); if (!q) return; var g = objQuad(d, it, q.im, R.t); g.img = q.id; g.a = 1; it._box = g.box; G.draw([g], px(V, dpr), tint ? function () { return tint; } : null, null); }
-      });
-      fronts.forEach(function (it) { pane(it, it.par == null ? -0.15 : it.par); });
-    } finally { G.keep = false; }
+    try { paint(R, G, cam, dpr, L, null); } finally { G.keep = false; }
 
     var g2 = ov.getContext('2d');
     if (live && fa && fa.out) app.drawOverlay(g2, dpr, true, fa.out); else { g2.setTransform(dpr, 0, 0, dpr, 0, 0); g2.clearRect(0, 0, w, hh); }
     scene.overlay(app, g2, w, hh, live);
     for (var i = 0; i < app.hooks.length; i++) app.hooks[i](dt, live && !!fa);
-    if (scene.dockTick) scene.dockTick(app);
+  };
+  /* the scene's things in drawing order: backdrops, what stands (higher on the floor = further back = earlier), foregrounds */
+  function layers(d) {
+    var backs = [], stand = [], fronts = [];
+    d.items.forEach(function (it, i) { it._i = i; (it.kind === 'back' ? backs : it.kind === 'front' ? fronts : stand).push(it); });
+    stand.sort(function (a, b) { return a.y - b.y || a._i - b._i; });
+    return { backs: backs, stand: stand, fronts: fronts };
+  }
+  /* Draw the scene, back to front, as the camera sees it through R.f / R.cx / R.cy. skip = { set: true, <item id>: true } leaves
+     things out (export). The performers are drawn as they were solved this frame: nothing here moves anyone. */
+  function paint(R, G, cam, dpr, L, skip) {
+    var d = R.data, V = viewOf(R, cam), made = L.backs.filter(function (q) { return q.made; })[0], hz = made && scene.SETS[made.made] ? scene.SETS[made.made].haze : null, hk = d.haze == null ? 0.5 : d.haze;
+    function pane(it, par) {
+      var q = imgOf(it, R.t); if (!q) return;
+      var c = { x: W / 2 + (cam.x - W / 2) * (1 - par), y: H / 2 + (cam.y - H / 2) * (1 - par), z: 1 + (cam.z - 1) * (1 - par) }, g = paneQuad(it, q.im);
+      g.img = q.id; g.a = 1; it._box = g.box; G.draw([g], px(viewOf(R, c), dpr), null, null);
+    }
+    if (!(skip && skip.set)) L.backs.forEach(function (it) { pane(it, it.par == null ? 0.22 : it.par); });
+    L.stand.forEach(function (it) {
+      if (skip && (skip[it.id] || (skip.set && it.kind !== 'cast'))) return;
+      var far = clamp(1 - (it.y / H - d.floor.far) / (d.floor.near - d.floor.far), 0, 1) * hk * 0.22, tint = hz && far > 0.01 ? [hz[0], hz[1], hz[2], far] : null;
+      if (it.kind === 'cast') { var a = R.actors[it.id], T = a && a.T; if (!a || !a.out || !T) return; G.draw(skip ? a.out.items.filter(function (q) { return !q.ghost; }) : a.out.items, px({ s: V.s * T.k, ox: V.ox + V.s * T.tx, oy: V.oy + V.s * T.ty }, dpr), tint ? function (q) { return q.ghost ? null : tint; } : null, a.out.colour); }
+      else { var q = imgOf(it, R.t); if (!q) return; var g = objQuad(d, it, q.im, R.t); g.img = q.id; g.a = 1; it._box = g.box; G.draw([g], px(V, dpr), tint ? function () { return tint; } : null, null); }
+    });
+    if (!(skip && skip.set)) L.fronts.forEach(function (it) { pane(it, it.par == null ? -0.15 : it.par); });
+  }
+  /** One picture of the shot, w x h pixels, into its own canvas: what export saves. skip as in paint(). Returns a canvas or null. */
+  scene.picture = function (app, w, h, skip) {
+    var R = app.scene; if (!R || !R.cam) return null;
+    var X = AL.frame.gl(w, h), G = X.G, fr = scene.frame(R.data), keep = { f: R.f, cx: R.cx, cy: R.cy, t: R.t };
+    R.f = w / fr.w; R.cx = w / 2; R.cy = h / 2;
+    try { G.keep = false; G.draw([], { s: 1, ox: 0, oy: 0 }, null, null); G.keep = true; paint(R, G, AL.frame.on() ? R.cam : { x: W / 2, y: H / 2, z: 1 }, 1, layers(R.data), skip || {}); }
+    finally { G.keep = false; R.f = keep.f; R.cx = keep.cx; R.cy = keep.cy; R.t = keep.t; }
+    var out = document.createElement('canvas'); out.width = w; out.height = h; out.getContext('2d').drawImage(X.c, 0, 0);
+    return out;
   };
 
-  /* what is drawn over the picture: the frame, what is outside it, the margins, the thing in hand */
+  /* what is drawn over the picture: the stage's edge, the frame (when it is on), the margins, the thing in hand */
   scene.overlay = function (app, g, w, hh, live) {
     var R = app.scene, d = R.data, F = R.fr, V = R.V;
     g.save();
-    g.fillStyle = live ? 'rgba(9,9,11,.9)' : 'rgba(9,9,11,.5)';
-    g.fillRect(0, 0, w, Math.max(0, F.y)); g.fillRect(0, F.y + F.h, w, Math.max(0, hh - F.y - F.h)); g.fillRect(0, F.y, Math.max(0, F.x), F.h); g.fillRect(F.x + F.w, F.y, Math.max(0, w - F.x - F.w), F.h);
-    g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1; g.strokeRect(Math.round(F.x) + 0.5, Math.round(F.y) + 0.5, Math.round(F.w) - 1, Math.round(F.h) - 1);
-    if (d.safe === 'title') {
-      g.setLineDash([5, 4]); g.strokeStyle = 'rgba(34,211,238,.75)'; g.strokeRect(F.x + F.w * 0.05, F.y + F.h * 0.05, F.w * 0.9, F.h * 0.9);
-      g.strokeStyle = 'rgba(232,121,249,.8)'; g.strokeRect(F.x + F.w * 0.1, F.y + F.h * 0.1, F.w * 0.8, F.h * 0.8); g.setLineDash([]);
-    } else if (d.safe === 'social') {                              // where an app's own buttons and words sit over an upright video (about; every app differs)
-      g.fillStyle = 'rgba(232,121,249,.16)'; g.fillRect(F.x, F.y, F.w, F.h * 0.12); g.fillRect(F.x, F.y + F.h * 0.78, F.w, F.h * 0.22); g.fillRect(F.x + F.w * 0.86, F.y + F.h * 0.12, F.w * 0.14, F.h * 0.66);
-      g.setLineDash([5, 4]); g.strokeStyle = 'rgba(232,121,249,.8)'; g.strokeRect(F.x + 1, F.y + F.h * 0.12, F.w * 0.86 - 1, F.h * 0.66); g.setLineDash([]);
-    }
-    g.font = '600 10px ui-monospace, monospace'; g.fillStyle = 'rgba(255,255,255,.72)'; g.textBaseline = 'top';
-    g.fillText(d.shape + (live ? '  ' + scene.shotName(app, R.shot).toUpperCase() : '  THE SHOT'), F.x + 6, F.y + 6);
+    AL.frame.dim(g, w, hh, { x: V.ox, y: V.oy, w: W * V.s, h: H * V.s }, 'rgba(9,9,11,.55)');      // beyond the stage there is nothing: dimmed, frame or not
+    if (AL.frame.on()) AL.frame.paint(g, w, hh, F, d.safe, d.shape + (live ? '  ' + scene.shotName(app, R.shot).toUpperCase() : ''));
     if (live) {
       var run = scene.running(app);
       if (run === 'rec') { g.fillStyle = '#ef4444'; g.beginPath(); g.arc(F.x + F.w - 12, F.y + 12, 5, 0, 6.3); g.fill(); }
@@ -127,8 +138,9 @@
         var fx = V.ox + fi.x * V.s, fy = V.oy + fi.y * V.s, rw = Math.max(16, 70 * fa.T.k * V.s);
         g.strokeStyle = 'rgba(34,211,238,.9)'; g.lineWidth = 2; g.beginPath(); g.ellipse(fx, fy, rw, rw * 0.22, 0, 0, 6.3); g.stroke();
       }
-    } else {
-      R.handle = null;
+    }
+    R.handle = null; g.font = '600 10px ui-monospace, monospace'; g.textBaseline = 'top';
+    if (!live || (R.stage === 'motion' && R.sel && (scene.item(R, R.sel) || {}).kind === 'obj')) {
       if (R.drag && R.drag.kind === 'move' && R.drag.stands) {     // the floor, while something is being walked across it
         g.setLineDash([3, 5]); g.strokeStyle = 'rgba(255,255,255,.35)'; [d.floor.far, d.floor.near].forEach(function (q) { var y = V.oy + q * H * V.s; g.beginPath(); g.moveTo(V.ox, y); g.lineTo(V.ox + W * V.s, y); g.stroke(); }); g.setLineDash([]);
         g.fillStyle = 'rgba(255,255,255,.55)'; g.fillText('BACK', V.ox + 4, V.oy + d.floor.far * H * V.s - 13); g.fillText('FRONT', V.ox + 4, V.oy + d.floor.near * H * V.s + 4);
@@ -138,7 +150,7 @@
         var x0 = V.ox + b[0] * V.s, y0 = V.oy + b[1] * V.s, x1 = V.ox + b[2] * V.s, y1 = V.oy + b[3] * V.s;
         if (it.kind === 'back' || it.kind === 'front') { x0 = Math.max(x0, 3); y0 = Math.max(y0, 3); x1 = Math.min(x1, w - 3); y1 = Math.min(y1, hh - 3); }
         g.strokeStyle = '#22d3ee'; g.lineWidth = 1.5; g.setLineDash([6, 4]); g.strokeRect(x0, y0, x1 - x0, y1 - y0); g.setLineDash([]);
-        R.handle = { x: x1, y: y0 }; g.fillStyle = '#22d3ee'; g.beginPath(); g.arc(x1, y0, 8, 0, 6.3); g.fill(); g.strokeStyle = '#0b0b0d'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x1 - 3, y0 + 3); g.lineTo(x1 + 3, y0 - 3); g.moveTo(x1 + 3, y0 - 3); g.lineTo(x1 - 0.5, y0 - 3); g.moveTo(x1 + 3, y0 - 3); g.lineTo(x1 + 3, y0 + 0.5); g.stroke();
+        if (R.stage === 'fit') { R.handle = { x: x1, y: y0 }; g.fillStyle = '#22d3ee'; g.beginPath(); g.arc(x1, y0, 8, 0, 6.3); g.fill(); g.strokeStyle = '#0b0b0d'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x1 - 3, y0 + 3); g.lineTo(x1 + 3, y0 - 3); g.moveTo(x1 + 3, y0 - 3); g.lineTo(x1 - 0.5, y0 - 3); g.moveTo(x1 + 3, y0 - 3); g.lineTo(x1 + 3, y0 + 0.5); g.stroke(); }      // (resizing is Arrange's)
         if (it.kind === 'obj' || it.kind === 'cast') { g.fillStyle = '#22d3ee'; g.beginPath(); g.arc(V.ox + it.x * V.s, V.oy + it.y * V.s, 3.5, 0, 6.3); g.fill(); }
       }
     }
@@ -178,35 +190,39 @@
     var st = $('stage'), ptr = {}, pinch = null;
     function pos(e) { var r = st.getBoundingClientRect(), k = st.clientWidth / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; }
     function n() { return Object.keys(ptr).length; }
+    function live(R) { return R.stage === 'perform' || R.stage === 'motion'; }
+    /* framing by hand is a shot, and shots need the frame: the first move turns it on */
+    function frameOn() { if (AL.frame.on()) return; AL.frame.set(app, true); app.toast('The frame is on: you are framing the shot by hand.'); }
     st.addEventListener('pointerdown', function (e) {
-      if (!scene.on(app) || (e.target.closest && e.target.closest('button'))) return;
+      if (!scene.on(app) || (e.target.closest && e.target.closest('button,#strip,#roombtns'))) return;
       var R = app.scene, p = pos(e), it;
-      if (R.stage === 'perform') {
+      if (live(R)) {
         var fa = R.actors[R.focus];
         if (fa && hitCast(fa, p)) return;                          // on the one in hand: theirs, handled as always
         it = scene.pick(R, p, true);
         if (it && it.id !== R.focus) { scene.hand(app, it.id); return; }      // touched someone else: they are in hand, and this same touch goes on to move them
+        if (R.stage === 'motion') { var ob = scene.pick(R, p, false); if (ob && ob.kind === 'obj') { e.stopPropagation(); if (R.sel !== ob.id) { R.sel = ob.id; app.refreshPanel(true); } return; } }      // (Motion: an object is taken for its wind and its loop)
         e.stopPropagation(); try { st.setPointerCapture(e.pointerId); } catch (x) { }
         ptr[e.pointerId] = p; if (n() === 2) { var ks = Object.keys(ptr); pinch = { d: Math.hypot(ptr[ks[0]].x - ptr[ks[1]].x, ptr[ks[0]].y - ptr[ks[1]].y) }; R.drag = null; } else R.drag = { kind: 'cam', id: e.pointerId, p0: p, moved: false };
         return;
       }
       e.stopPropagation(); try { st.setPointerCapture(e.pointerId); } catch (x) { }
       var sel = R.sel ? scene.item(R, R.sel) : null;
-      if (sel && R.handle && Math.hypot(p.x - R.handle.x, p.y - R.handle.y) < 18) {
+      if (R.stage === 'fit' && sel && R.handle && Math.hypot(p.x - R.handle.x, p.y - R.handle.y) < 18) {
         var b = scene.boxOf(R, sel) || [0, 0, 1, 1], ax = sel.kind === 'obj' || sel.kind === 'cast' ? R.V.ox + sel.x * R.V.s : R.V.ox + (b[0] + b[2]) / 2 * R.V.s, ay = sel.kind === 'obj' || sel.kind === 'cast' ? R.V.oy + sel.y * R.V.s : R.V.oy + (b[1] + b[3]) / 2 * R.V.s;
         R.drag = { kind: 'size', id: e.pointerId, it: sel.id, s0: sel.s || 1, d0: Math.max(8, Math.hypot(p.x - ax, p.y - ay)), ax: ax, ay: ay, moved: false }; return;
       }
       it = scene.pick(R, p) || (sel && (sel.kind === 'back' || sel.kind === 'front') ? sel : null);
       if (!it) { if (R.sel) { R.sel = null; app.refreshPanel(); } return; }
       if (R.sel !== it.id) { R.sel = it.id; app.refreshPanel(); }
-      R.drag = { kind: 'move', id: e.pointerId, it: it.id, p0: p, x0: it.x || 0, y0: it.y || 0, stands: it.kind === 'obj' || it.kind === 'cast', moved: false };
+      if (R.stage === 'fit') R.drag = { kind: 'move', id: e.pointerId, it: it.id, p0: p, x0: it.x || 0, y0: it.y || 0, stands: it.kind === 'obj' || it.kind === 'cast', moved: false };      // (Set up holds still: it only takes the thing)
     }, true);
     st.addEventListener('pointermove', function (e) {
       if (!scene.on(app)) return; var R = app.scene, D = R.drag, p;
-      if (pinch && ptr[e.pointerId]) { e.stopPropagation(); ptr[e.pointerId] = pos(e); var ks = Object.keys(ptr); if (ks.length >= 2) { var dd = Math.hypot(ptr[ks[0]].x - ptr[ks[1]].x, ptr[ks[0]].y - ptr[ks[1]].y), f = dd / (pinch.d || 1); pinch.d = dd; scene.freeCam(app, function (c) { c.z *= f; }); } return; }
+      if (pinch && ptr[e.pointerId]) { e.stopPropagation(); ptr[e.pointerId] = pos(e); var ks = Object.keys(ptr); if (ks.length >= 2) { var dd = Math.hypot(ptr[ks[0]].x - ptr[ks[1]].x, ptr[ks[0]].y - ptr[ks[1]].y), f = dd / (pinch.d || 1); pinch.d = dd; frameOn(); scene.freeCam(app, function (c) { c.z *= f; }); } return; }
       if (!D || D.id !== e.pointerId) return;
       e.stopPropagation(); p = pos(e);
-      if (D.kind === 'cam') { if (!D.moved && Math.hypot(p.x - D.p0.x, p.y - D.p0.y) < 5) return; D.moved = true; var dx = p.x - D.p0.x, dy = p.y - D.p0.y; D.p0 = p; scene.freeCam(app, function (c) { c.x -= dx / (R.f * c.z); c.y -= dy / (R.f * c.z); }); return; }
+      if (D.kind === 'cam') { if (!D.moved && Math.hypot(p.x - D.p0.x, p.y - D.p0.y) < 5) return; D.moved = true; frameOn(); var dx = p.x - D.p0.x, dy = p.y - D.p0.y; D.p0 = p; scene.freeCam(app, function (c) { c.x -= dx / (R.f * c.z); c.y -= dy / (R.f * c.z); }); return; }
       var it = scene.item(R, D.it); if (!it) return;
       if (!D.moved) { if (D.kind === 'move' && Math.hypot(p.x - D.p0.x, p.y - D.p0.y) < 4) return; D.moved = true; snap(R, (D.kind === 'size' ? 'Resize ' : 'Move ') + it.name); }
       if (D.kind === 'size') it.s = Math.round(clamp(D.s0 * Math.hypot(p.x - D.ax, p.y - D.ay) / D.d0, 0.05, 8) * 1000) / 1000;
@@ -222,13 +238,13 @@
     st.addEventListener('pointerup', up, true); st.addEventListener('pointercancel', up, true);
     st.addEventListener('wheel', function (e) {
       if (!scene.on(app)) return; e.preventDefault(); e.stopPropagation(); var R = app.scene, f = Math.exp(-e.deltaY * 0.0015);
-      if (R.stage === 'perform') scene.freeCam(app, function (c) { c.z *= f; });
-      else if (R.sel) { var it = scene.item(R, R.sel); if (!it) return; if (!R._wh || R.t - R._wh > 0.8) snap(R, 'Resize ' + it.name); R._wh = R.t; it.s = Math.round(clamp((it.s || 1) * f, 0.05, 8) * 1000) / 1000; scene.touch(app); }
+      if (live(R)) { frameOn(); scene.freeCam(app, function (c) { c.z *= f; }); }
+      else if (R.stage === 'fit' && R.sel) { var it = scene.item(R, R.sel); if (!it) return; if (!R._wh || R.t - R._wh > 0.8) snap(R, 'Resize ' + it.name); R._wh = R.t; it.s = Math.round(clamp((it.s || 1) * f, 0.05, 8) * 1000) / 1000; scene.touch(app); }
     }, { passive: false, capture: true });
     st.addEventListener('dblclick', function (e) {
       if (!scene.on(app)) return; var R = app.scene, p = pos(e);
-      if (R.stage === 'perform') { var fa = R.actors[R.focus]; if (!(fa && hitCast(fa, p))) e.stopPropagation(); return; }
-      e.stopPropagation(); var it = scene.pick(R, p, true); if (it) scene.diveIn(app, it.id);
+      if (live(R)) { var fa = R.actors[R.focus]; if (!(fa && hitCast(fa, p))) e.stopPropagation(); return; }
+      e.stopPropagation(); var it = scene.pick(R, p, true); if (it) scene.diveIn(app, it.id, R.stage);      // two taps on a character: it is in hand, alone, on this stage
     }, true);
   }
   wire();

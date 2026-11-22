@@ -1,4 +1,5 @@
-/* AvatarLab: BREAK TEST, the scene room (al-scene*.js, al-agent.js). Load after al-breaktest.js and al-breaktest-fit.js.
+/* AvatarLab: BREAK TEST, scenes in the one room (al-scene*.js, al-frame.js, al-export.js, al-agent.js). Load after al-breaktest.js and
+ * al-breaktest-fit.js. Uses the owner's saved Topps (local/owner-topps.character.json, hand edits and all) when it is there.
  *
  *   await AL.breakTest.scene.run()                 every check
  *   await AL.breakTest.scene.proof()               feeds each main check the fault it is for; every one must be caught
@@ -8,10 +9,26 @@
  *   passes  the first character's take is thrown away before the second pass camera  the camera lane is emptied before playback
  *   clamp   the camera is let off the edge of the stage                      trip    the takes are dropped from the saved scene
  *   undo    the scene is changed behind Undo's back                          hand    the other character is moved by hand as well
+ * and for the one room (the owner's second design, 11-21):
+ *   fours      a leg is pulled off the body in the all-fours stance           emptytake  opening a scene takes the empty scene's take away
+ *   emptydel   the empty scene loses its guard and can be deleted            share      one part of the strip takes twice its share
+ *   frameleave turning the frame off leaves the scene (round 20's way)       hold       a long press never comes
+ *   setup      choosing a card never sets it up (it only takes it in hand)
  */
 (function (root) {
   'use strict';
   var AL = root.AL, T = AL.breakTest, K = T.kit, Sc = T.scene = {}, scene = AL.scene, W = scene.W, H = scene.H;
+  function realWait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function q(sel) { return document.querySelector(sel); }
+  function ev(el, type, o) { o = o || {}; el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 7, clientX: o.x || 0, clientY: o.y || 0, button: 0, isPrimary: true })); }
+  /** A real long press on a card: down, held past the hold, up, and the click a browser sends after it. */
+  async function hold(el) { var r = el.getBoundingClientRect(), p = { x: r.x + r.width / 2, y: r.y + r.height / 2 }; ev(el, 'pointerdown', p); await realWait(Math.min(AL.strip.HOLD, 1500) + 150); ev(el, 'pointerup', p); el.click(); await K.raf(3); }
+  /** The owner's saved Topps as the character you are on, else the one that comes with the room. */
+  async function ownTopps(app) {
+    var o = null; try { o = await fetch('local/owner-topps.character.json').then(function (r) { return r.ok ? r.json() : null; }); } catch (e) { o = null; }
+    if (!o) { await AL.intake.builtIn(app, 'topps'); return 'built in'; }
+    delete o.take; AL.img.map = {}; var ch = await AL.fromJson(o); app.setMode('build'); app.setCharacter(ch, { quiet: true }); return 'the owner\'s';
+  }
   function tree() { var c = document.createElement('canvas'); c.width = 200; c.height = 320; var g = c.getContext('2d'); g.fillStyle = '#6b4a2b'; g.fillRect(88, 180, 24, 140); g.fillStyle = '#2f8f46'; g.beginPath(); g.arc(100, 110, 95, 0, 7); g.fill(); return c; }
   function boxes(R) { var o = {}; R.data.items.forEach(function (it) { var b = scene.boxOf(R, it); o[it.id] = b ? Array.prototype.map.call(b, function (v) { return Math.round(v * 10) / 10; }) : null; }); return o; }
   function bad(R) { var n = 0; Object.keys(R.actors).forEach(function (id) { var a = R.actors[id]; if (!a.out) return; a.out.items.forEach(function (it) { for (var i = 0; i < it.v.length; i++) if (!isFinite(it.v[i])) n++; }); }); ['x', 'y', 'z'].forEach(function (k) { if (!isFinite(R.cam[k])) n++; }); return n; }
@@ -20,14 +37,17 @@
 
   Sc.run = async function (opt) {
     opt = opt || {}; var app = AL.app, R0 = K.mk(), plant = opt.plant || '', F = R0.F, keepSolo = app.scene ? null : app.ch;
+    var room0 = JSON.stringify(AL.frame.room), empty0 = JSON.stringify({ shape: AL.frame.empty.shape, safe: AL.frame.empty.safe, shots: AL.frame.empty.shots });
     try {
       if (app.scene) await scene.close(app, true);
-      await AL.intake.builtIn(app, 'topps'); await K.raf(6);
+      R0.note.push('Topps: ' + await ownTopps(app)); await K.raf(6);
       var soloCh = app.ch, soloInp = app.inp;
 
       /* 1. a new scene: the set, and the character you were on, standing in it */
       await scene.create(app, 'meadow', 'Break test'); await K.raf(6);
-      var R = app.scene; F('1 a scene opens with its set and the character in it', !!R && R.data.items.length === 2 && scene.cast(R).length === 1, R && R.data.items.map(function (i) { return i.kind; }));
+      var R = app.scene; F('1 a new scene opens in Perform, the character in hand', !!R && R.stage === 'perform' && app.mode === 'perform' && !!R.focus && app.inp === R.actors[R.focus].inp, R && R.stage);
+      scene.go(app, 'fit'); await K.raf(4);                                // (placing is measured held still: Arrange)
+      F('1 a scene opens with its set and the character in it', !!R && R.data.items.length === 2 && scene.cast(R).length === 1, R && R.data.items.map(function (i) { return i.kind; }));
       F('1 the frame is on the glass, inside the stage area', R.fr && R.fr.w > 50 && R.fr.h > 30 && R.fr.x >= -1 && R.fr.y >= 0, R.fr);
       F('1 nothing thrown in the frame loop, no bad numbers', !scene._err && bad(R) === 0, { err: !!scene._err, bad: bad(R) });
       var topps = scene.cast(R)[0];
@@ -54,8 +74,8 @@
       await scene.addCast(app, { stock: 'pip', name: 'Pip' }); await K.raf(6);
       var pip = byName(R, 'Pip'); F('4 a second character comes in with its own engine', !!R.actors[pip.id] && R.actors[pip.id].inp !== R.actors[topps.id].inp && R.actors[pip.id].solver !== R.actors[topps.id].solver);
       scene.set(app, pip.id, { x: 1300, y: Math.round(H * 0.9) }); scene.set(app, topps.id, { x: 620 });
-      var errs = 0; for (var g = 0; g < 8; g++) { try { scene.go(app, g % 2 ? 'arrange' : 'perform'); await K.raf(3); if (bad(R)) errs++; if ((R.stage === 'perform') !== (app.mode === 'perform')) errs++; } catch (e) { errs++; } }
-      F('4 Arrange and Perform eight times: nothing thrown, the room and the scene agree', errs === 0 && !scene._err, errs);
+      var errs = 0, ST = ['fit', 'perform', 'setup', 'motion', 'perform', 'fit', 'motion', 'setup', 'perform']; for (var g = 0; g < ST.length; g++) { try { AL.stages.go(app, ST[g]); await K.raf(3); if (bad(R)) errs++; if ((R.stage === 'perform') !== (app.mode === 'perform') || R.stage !== ST[g] || (ST[g] !== 'perform' && app.stage !== ST[g]) || app.live !== (ST[g] === 'motion')) errs++; } catch (e) { errs++; } }
+      F('4 the four stages on the rail, back and forth, the scene in hand: nothing thrown, the room and the scene agree', errs === 0 && !scene._err && !R.dive, errs);
       scene.go(app, 'perform'); await K.raf(4);
 
       /* 5. in hand: fingers move that one and only that one */
@@ -111,7 +131,7 @@
       scene.shot(app, 'wide', 0); await K.raf(2);
 
       /* 11. undo and redo, in Arrange */
-      scene.go(app, 'arrange'); await K.raf(3); var d0 = clean(R.data), n0 = R.hist.past.length;
+      scene.go(app, 'fit'); await K.raf(3); var d0 = clean(R.data), n0 = R.hist.past.length;
       if (plant === 'undo') R.data.wind = 0.123;                  // (a change made without telling Undo: what a drag that forgot its snapshot would do)
       scene.set(app, tr.id, { x: 900, s: 1.5 }); scene.setSet(app, 'night'); var cp = await scene.copy(app, tr.id); scene.remove(app, tr.id); scene.shape(app, '9:16');
       var d1 = clean(R.data), steps = R.hist.past.length - n0; for (var u = 0; u < steps; u++) app.undo(false, true); await K.raf(3);
@@ -119,20 +139,22 @@
       F('11 undo of every Arrange change gives the scene back exactly (' + steps + ' steps)', JSON.stringify(dU) === JSON.stringify(dZ), { steps: steps });
       for (var r = 0; r < steps; r++) app.undo(true, true); await K.raf(3); F('11 redo of them all gives the changed scene back', clean(R.data) === d1 || plant === 'undo');
       for (var u2 = 0; u2 < steps; u2++) app.undo(false, true); await K.raf(4);
-      F('11 Undo in Perform is still the character\'s own (the room\'s history is the one in hand)', (function () { scene.go(app, 'perform'); var ok = app.hist === R.actors[R.focus].hist; scene.go(app, 'arrange'); return ok; })());
+      F('11 Undo in Perform is still the character\'s own (the room\'s history is the one in hand)', (function () { scene.go(app, 'perform'); var ok = app.hist === R.actors[R.focus].hist; scene.go(app, 'fit'); return ok; })());
 
       /* 13. into a character and back */
-      await K.raf(3); var bIn = clean(boxes(R)); scene.diveIn(app, topps.id); await K.raf(4);
-      F('13 stepping into a character: the room is on that character alone', !scene.on(app) && app.ch === R.actors[topps.id].ch && app.mode === 'build');
-      AL.stages.go(app, 'motion'); await K.raf(5); AL.stages.go(app, 'fit'); await K.raf(3); scene.undive(app); await K.raf(4);
-      F('13 and back: the scene is as it was left', scene.on(app) && clean(boxes(R)) === bIn && R.stage === 'arrange', { on: scene.on(app) });
+      await K.raf(3); var bIn = clean(boxes(R)); scene.diveIn(app, topps.id, 'fit'); await K.raf(4);
+      F('13 a character in hand: the room is on that character alone, at the stage asked for, the scene first on the path', !scene.on(app) && app.ch === R.actors[topps.id].ch && app.mode === 'build' && app.stage === 'fit' && AL.stages.path(app)[0].name === R.data.name && AL.stages.path(app)[1].name === app.ch.name, AL.stages.path(app).map(function (p) { return p.name; }));
+      AL.stages.go(app, 'motion'); await K.raf(5); AL.stages.go(app, 'fit'); await K.raf(3);
+      F('13 its rail works on it alone (Motion, then Arrange), the scene waiting', !scene.on(app) && app.stage === 'fit' && R.dive === topps.id && R.stage === 'fit');
+      AL.stages.path(app)[0].go(); await K.raf(4);
+      F('13 and back by the scene\'s path tab: the scene in hand, as it was left, on the same stage', scene.on(app) && clean(boxes(R)) === bIn && R.stage === 'fit' && R.hand === 'scene', { on: scene.on(app), stage: R.stage });
 
       /* 10. kept, closed, opened again */
       var doc = scene.toJson(app, true), txt = JSON.stringify(doc), takesA = A.inp.take.n, laneN = R.data.cam.length, bx = clean(boxes(R)), names = R.data.items.map(function (i) { return i.name; }).join(',');
       var again = JSON.parse(txt); if (plant === 'trip') again.takes = {};
       await scene.close(app, true); await K.raf(3);
       F('14 leaving the scene: back on the character you were on, untouched', !app.scene && app.ch === soloCh && app.inp === soloInp && !document.getElementById('app').classList.contains('scene'));
-      await scene.open(app, again); await K.raf(8); R = app.scene;
+      await scene.open(app, again, { stage: 'fit' }); await K.raf(8); R = app.scene;
       var t2 = byName(R, 'Topps'), A2 = R.actors[t2.id];
       F('10 a scene file opened again has everything in it, where it was', R.data.items.map(function (i) { return i.name; }).join(',') === names && clean(boxes(R)) === bx, { names: R.data.items.map(function (i) { return i.name; }).join(',') });
       F('10 ...and every take and the camera lane came back with it', !!(A2 && A2.inp.take && A2.inp.take.n === takesA) && R.data.cam.length === laneN, { take: A2 && A2.inp.take && A2.inp.take.n, was: takesA, lane: R.data.cam.length });
@@ -144,7 +166,7 @@
       F('15 the same character twice: two performers, each its own', twins.length === 2 && R.actors[twins[0].id] && R.actors[twins[1].id] && R.actors[twins[0].id].ch !== R.actors[twins[1].id].ch);
       scene.go(app, 'perform'); scene.hand(app, twins[1].id); await K.raf(4); scene.rec(app); await K.raf(6); var th = 0; try { scene.remove(app, twins[1].id); await K.raf(6); } catch (e) { th = 1; }
       F('12 removing the character in hand while it records: nothing thrown, someone else is in hand, nothing still recording', !th && !scene._err && R.focus && R.focus !== twins[1].id && !scene.running(app) && bad(R) === 0, { focus: R.focus, run: scene.running(app) });
-      scene.go(app, 'arrange'); await scene.addCast(app, { uid: 'c-not-on-the-shelf', name: 'Ghost' }); await K.raf(4);
+      scene.go(app, 'fit'); await scene.addCast(app, { uid: 'c-not-on-the-shelf', name: 'Ghost' }); await K.raf(4);
       var ghost = byName(R, 'Ghost'); F('16 a character that is no longer on the shelf: marked missing, the scene still plays', !!(ghost && ghost.lost && !R.actors[ghost.id]) && !scene._err && bad(R) === 0);
       scene.remove(app, ghost.id); await K.raf(2);
 
@@ -157,16 +179,100 @@
       rr = await ag.run('scene_shot', { shot: 'Close on Pip', glide: 0 }); await K.raf(3); F('17 "Close on Pip" by name', rr.ok && R.shot === 'close:' + byName(R, 'Pip').id && R.stage === 'perform', rr.error);
       rr = await ag.run('perform', { character: 'Pip', mood: 'Cheery', look: { x: 0.5, y: 0 } }); F('17 a model can puppeteer: mood and look land on that character', rr.ok && R.actors[byName(R, 'Pip').id].inp.pose.mood === 'Cheery' && R.actors[byName(R, 'Pip').id].inp.pose.turnX === 0.5, rr.error);
       var man = ag.manifest(); F('17 the tool list is complete and well formed', man.length >= 15 && man.every(function (t) { return t.name && t.description && t.input_schema && t.input_schema.type === 'object'; }), man.length);
-      F('99 no bad numbers and nothing thrown by the end', !scene._err && bad(R) === 0, { err: !!scene._err });
+      rr = await ag.run('scene_stage', { stage: 'arrange' }); var okA = rr.ok && R.stage === 'fit' && R.hand === 'scene' && !R.dive; rr = await ag.run('scene_stage', { stage: 'motion' }); var okM = rr.ok && R.stage === 'motion' && app.live; rr = await ag.run('scene_stage', { stage: 'perform' });
+      F('17 scene_stage maps onto the room\'s four stages (arrange is the second)', okA && okM && rr.ok && R.stage === 'perform' && rr.result.stage === 'perform', { a: okA, m: okM, err: rr.error });
+      F('99 no bad numbers and nothing thrown by the end of the old checks', !scene._err && bad(R) === 0, { err: !!scene._err });
+
+      /* 18. a character on all fours inside a scene: down on all fours, turned round, stood up again. Nothing comes off the body. */
+      var ROOM = AL.frame.room, tp = byName(R, 'Topps'); scene.go(app, 'perform'); scene.hand(app, tp.id); await K.raf(10);
+      var S4 = AL.stance, a4 = R.actors[tp.id], p4 = S4.fours(a4.ch) || (S4.parts(a4.ch) ? S4.makeFours(a4.ch) : null);
+      if (!p4) R0.note.push('18 not run: no all fours can be worked out for this Topps');
+      else {
+        AL.reindex(a4.ch); a4.inp.setTrig(p4.trig, false); a4.inp.pose.flip = false; await K.wait(900);
+        var g0 = T.measure(app).gaps, nParts = Object.keys(g0).length;
+        var off = function (label) { var m = T.measure(app), worst = null; for (var k in m.gaps) { var gp = m.gaps[k], b0 = g0[k] != null ? Math.max(0, g0[k]) : 0; if (gp < 0) continue; if (gp - b0 > 14 && (!worst || gp - b0 > worst.by)) worst = { part: k, by: gp - b0 }; } F(label, !m.bad && !worst && app.out === a4.out && nParts >= 4, worst || (m.bad ? 'a number that is not a number' : { parts: nParts })); };
+        if (plant === 'fours') { var hd4 = AL.firstRole(a4.ch.root, 'head'); if (hd4) { var e4 = p4.d[hd4.id] || (p4.d[hd4.id] = {}); e4.x = (e4.x || 0) + 600; } }
+        a4.inp.setTrig(p4.trig, true); await K.wait(1700); off('18 on all fours in a scene: nothing comes off the body');
+        scene.set(app, tp.id, { flip: true }, 'Turn round'); await K.wait(900);
+        F('18 turned round in the scene: the performer is turned round', a4.inp.pose.flip === true && app.inp === a4.inp);
+        off('18 on all fours, turned round in the scene: nothing comes off the body');
+        a4.inp.setTrig(p4.trig, false); await K.wait(1500); off('18 stood up again, still turned round: nothing comes off the body');
+        scene.set(app, tp.id, { flip: false }, 'Turn back'); await K.raf(3);
+      }
+
+      /* 19. THE EMPTY SCENE: a real scene, the first card, never deleted; a take recorded there is the character's own */
+      var uidBack = R.data.uid; await scene.close(app); await K.raf(4);
+      F('19 the empty scene is the plain stage with the character you were on', !app.scene && app.ch === soloCh && app.inp === soloInp && !scene.on(app));
+      AL.stages.go(app, 'perform'); AL.strip.toggle(app, 'sc', true); await K.raf(4);
+      var first = q('#strip .p-sc .sdc'); F('19 the empty scene is the first card of the Scene part, chosen', !!first && first.getAttribute('data-sc') === scene.EMPTY && first.classList.contains('on'), first && first.getAttribute('data-sc'));
+      app.inp.clearTake(); app.inp.record(); for (var f6 = 0; f6 < 40; f6++) { app.inp.pose.turnX = Math.sin(f6 / 8) * 0.8; app.inp.held.head = true; await K.raf(1); } app.inp.stop(); app.inp.held.head = false; await K.raf(2);
+      var n1 = app.inp.take && app.inp.take.n;
+      F('19 a take recorded in the empty scene is the character\'s own', n1 >= 30 && app.inp === soloInp && !app.scene, n1);
+      await scene.openId(app, uidBack, { stage: 'perform' }); await K.raf(8); if (plant === 'emptytake' && app.scene) app.scene.solo.inp.take = null; await scene.close(app); await K.raf(4);
+      F('19 ...and a scene opened and left again does not take it away', app.inp === soloInp && !!(app.inp.take && app.inp.take.n === n1) && app.mode === 'perform', { n: app.inp.take && app.inp.take.n, was: n1 });
+      var E0 = scene.EMPTY, del; if (plant === 'emptydel') scene.EMPTY = '__planted__';
+      try { del = await scene.forget(app, 'empty'); } finally { scene.EMPTY = E0; }
+      AL.strip.sync(app, true); await K.raf(3); first = q('#strip .p-sc .sdc');
+      F('19 the empty scene cannot be deleted, and stays the first card', del === false && !!first && first.getAttribute('data-sc') === scene.EMPTY, { del: del });
+
+      /* 20. the strip: whichever parts are on share its whole width, and each ends in its own add card */
+      var mixes = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1], [0, 1, 1], [1, 1, 1], [0, 0, 0]], bad20 = [], st20 = null;
+      if (plant === 'share') { st20 = document.createElement('style'); st20.textContent = '#strip .spart:first-child{flex-grow:2}'; document.head.appendChild(st20); }
+      for (var mi = 0; mi < mixes.length; mi++) {
+        var m3 = mixes[mi]; ROOM.sc = !!m3[0]; ROOM.ch = !!m3[1]; ROOM.sh = false; if (m3[2]) AL.strip.toggle(app, 'sh', true); else AL.strip.sync(app, true); await K.raf(2);
+        var ps = Array.prototype.slice.call(document.querySelectorAll('#strip .spart')), nOn = m3[0] + m3[1] + m3[2], sb = q('#strip'), sw = sb.getBoundingClientRect().width, want = nOn ? (sw - 6 * (nOn - 1)) / nOn : 0;
+        var ws = ps.map(function (p) { return Math.round(p.getBoundingClientRect().width); }), ends = ps.every(function (p) { var c = p.querySelector('.spc'); return c && c.lastElementChild && c.lastElementChild.classList.contains('add'); });
+        if (ps.length !== nOn || ws.some(function (x) { return Math.abs(x - want) > 1.5; }) || (nOn === 0) !== (getComputedStyle(sb).display === 'none') || !ends) bad20.push(m3.join('') + ': ' + ws.join('/') + ' want ' + Math.round(want));
+      }
+      if (st20) st20.remove();
+      F('20 the strip shares its whole width equally among the parts that are on (all 8 mixes), each part ending in its add card', bad20.length === 0, bad20);
+
+      /* 21. the frame is only a shape: off and on again by its button, the same scene, still the one remembered for a reload */
+      var bfr = q('#bframe'), was21 = AL.frame.on(); bfr.click(); await K.raf(3); bfr.click(); await K.raf(3);
+      F('21 in the empty scene, the frame off and on again: still the empty scene', !app.scene && AL.frame.on() === was21 && app.ch === soloCh);
+      await scene.openId(app, uidBack, { stage: 'perform' }); await K.raf(8); R = app.scene; var R21 = R;
+      var set0 = AL.frame.set; if (plant === 'frameleave') AL.frame.set = function (a, on) { set0(a, on); if (!on && a.scene) scene.close(a); };
+      try { bfr = q('#bframe'); was21 = AL.frame.on(); bfr.click(); await K.raf(4); bfr.click(); await K.raf(4); } finally { AL.frame.set = set0; }
+      var at21 = null; try { at21 = JSON.parse(localStorage.getItem('al.sceneAt') || 'null'); } catch (e5) { }
+      F('21 in a scene, the frame off and on again (its button, twice): the same scene, still the one remembered for a reload', app.scene === R21 && R21.data.uid === uidBack && AL.frame.on() === was21 && localStorage.getItem('al.scene') === uidBack && !!at21 && at21.uid === uidBack, { same: app.scene === R21, kept: localStorage.getItem('al.scene') === uidBack });
+      if (!app.scene) { await scene.openId(app, uidBack, { stage: 'perform' }); await K.raf(8); }
+      R = app.scene;
+
+      /* 22. a card is set up by a long press, or by a second tap on the one already chosen */
+      var dive0 = scene.diveIn, hold0 = AL.strip.HOLD;
+      if (plant === 'setup') scene.diveIn = function (a, id) { scene.hand(a, id); };
+      if (plant === 'hold') AL.strip.HOLD = 1e9;
+      try {
+        ROOM.sc = true; ROOM.ch = true; AL.strip.sync(app, true); scene.go(app, 'perform'); await K.raf(4);
+        var fid = R.focus, chosen = q('#strip .p-ch .sdc.on'); if (chosen) chosen.click(); await K.raf(4);
+        F('22 a second tap on the character in hand sets it up: in hand alone, in ' + AL.stages.WORD2, !!chosen && R.dive === fid && app.stage === 'fit' && app.mode === 'build', { dive: R.dive, stage: app.stage });
+        AL.stages.go(app, 'perform'); await K.raf(4);
+        var other = Array.prototype.slice.call(document.querySelectorAll('#strip .p-ch .sdc[data-ch]')).filter(function (b) { return !b.classList.contains('on'); })[0], oid = other && other.getAttribute('data-ch');
+        if (other) await hold(other);
+        F('22 a long press on another character sets that one up (not only takes it in hand)', !!other && R.dive === oid && app.stage === 'fit', { dive: R.dive, want: oid });
+        AL.stages.go(app, 'perform'); await K.raf(4);
+        var scc = q('#strip .p-sc .sdc.on'); if (scc) await hold(scc);
+        F('22 a long press on the scene in use sets it up: the scene in hand, in ' + AL.stages.WORD2, !!scc && R.stage === 'fit' && !R.dive && R.hand === 'scene' && app.scene === R, { stage: R.stage, hand: R.hand });
+        scene.go(app, 'perform'); AL.strip.toggle(app, 'sh', true); await K.raf(4);
+        var sh0 = q('#strip .p-sh .sdc.on'); if (sh0) sh0.click(); await K.raf(2); var open1 = getComputedStyle(q('#sheet')).display !== 'none'; app.closeSheet();
+        F('22 a second tap on the shot in use opens its setup', !!sh0 && open1);
+        var sh1 = Array.prototype.slice.call(document.querySelectorAll('#strip .p-sh .sdc[data-shot]')).filter(function (b) { return !b.classList.contains('on'); })[0], k1 = sh1 && sh1.getAttribute('data-shot');
+        if (sh1) await hold(sh1); var open2 = getComputedStyle(q('#sheet')).display !== 'none'; app.closeSheet();
+        F('22 a long press on another shot goes there and opens its setup', !!sh1 && open2 && R.shot === k1, { shot: R.shot, want: k1 });
+      } finally { scene.diveIn = dive0; AL.strip.HOLD = hold0; }
+      F('99 no bad numbers and nothing thrown by the end', !scene._err && !(app.scene && bad(app.scene)), { err: !!scene._err });
     } catch (e) { R0.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
+    try { var r0 = JSON.parse(room0), e0 = JSON.parse(empty0), RM = AL.frame.room, EM = AL.frame.empty; for (var rk in r0) RM[rk] = r0[rk]; EM.shape = e0.shape; EM.safe = e0.safe; EM.shots = e0.shots; AL.frame.keep(); } catch (e6) { }      // (the room's own settings, as they were)
     try { if (AL.app.scene) await scene.close(AL.app, true); } catch (e2) { }
     try { var mine = (await scene.list(AL.app)).filter(function (e) { return e.name === 'Break test'; }); for (var m = 0; m < mine.length; m++) await scene.forget(AL.app, mine[m].uid); } catch (e4) { }      // (the test tidies its own scenes off the shelf)
     try { localStorage.removeItem('al.scene'); } catch (e3) { }
     return R0;
   };
   Sc.proof = async function () {
-    var out = {}, want = { order: /^2 the tree behind/, shape: /^3 changing the frame/, hand: /^5 \.\.\.and nobody else/, passes: /^6 while the second records/, camera: /^7 played back/, clamp: /^9 /, undo: /^11 undo of every/, trip: /^10 \.\.\.and every take/ };
-    for (var k in want) { var r = await Sc.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 4) }; }
+    var out = {}, want = { order: /^2 the tree behind/, shape: /^3 changing the frame/, hand: /^5 \.\.\.and nobody else/, passes: /^6 while the second records/, camera: /^7 played back/, clamp: /^9 /, undo: /^11 undo of every/, trip: /^10 \.\.\.and every take/,
+      fours: /^18 on all fours/, emptytake: /^19 \.\.\.and a scene opened/, emptydel: /^19 the empty scene cannot be deleted/, share: /^20 /, frameleave: /^21 in a scene, the frame off/, hold: /^22 a long press/, setup: /^22 a second tap on the character/ };
+    var only = arguments[0];
+    for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await Sc.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 5) }; }
     return out;
   };
 })(typeof self !== 'undefined' ? self : this);

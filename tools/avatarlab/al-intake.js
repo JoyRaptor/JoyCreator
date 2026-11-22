@@ -509,7 +509,7 @@
     app.sheet('Avatar Studio', box, [], [
       { icon: 'file', title: 'Open a character file', fn: function () { app.closeSheet(); $('fileJson').value = ''; $('fileJson').click(); } },
       { icon: 'save', title: 'Save this character to a file, with its take', fn: function () { app.closeSheet(); if (AL.scene && AL.scene.on(app)) AL.scene.saveFile(app); else intake.saveCharacter(app); } },
-      { icon: 'send', title: 'Send to Studio', fn: function () { app.closeSheet(); if (AL.scene && AL.scene.on(app)) AL.scene.sendSheet(app); else intake.send(app); } }
+      { icon: 'export', title: 'Export: the Joy Creator file, or one frame as a picture', fn: function () { app.closeSheet(); intake.send(app); } }
     ]);
   };
   intake.about = function (app) {

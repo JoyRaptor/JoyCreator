@@ -18,9 +18,12 @@
 (function (root) {
   'use strict';
   var AL = root.AL, stages = AL.stages = {}, $ = function (id) { return document.getElementById(id); };
+  /** The second stage's name, in one place (code id 'fit'). The owner offered Place, Adjust, Modify, Arrange; Arrange fits a
+      character and a scene. He has not confirmed it: change this one word to change it everywhere. */
+  stages.WORD2 = 'Arrange';
   stages.LIST = [
     ['setup', 'Set up', 'What the pieces are, and where they hinge. The picture holds still and shows the pins.'],
-    ['fit', 'Fit', 'Make it look right, here and then in every pose. Drag a part to move it; the box resizes and turns it.'],
+    ['fit', stages.WORD2, 'Make it look right, here and then in every pose. Drag a part to move it; the box resizes and turns it.'],
     ['motion', 'Motion', 'How it moves. It is alive here: drag it while you change things.'],
     ['perform', 'Perform', 'Play it and record.']
   ];
@@ -117,8 +120,8 @@
     var h = AL.h, P = stages.path(app), was = stages._path || [], same = 0, row = h('div', { class: 'crumbs' });
     while (same < P.length && same < was.length && P[same].id === was[same]) same++;
     P.forEach(function (q, i) {
-      var last = i === P.length - 1, url = q.node && AL.shelf ? AL.shelf.partPic(app, q.node, 48) : null;
-      var b = h('button', { class: 'crumb' + (last ? (app.selOff ? ' on off' : ' on') : '') + (i >= same && was.length ? ' in' : ''), title: last ? (app.selOff ? q.name + ': tap to show its box and marks again' : q.name + ': where you are. Tap to see it bare, with no box or marks; you stay here.') : 'Back out to ' + q.name, onclick: last ? function () { app.selOff = !app.selOff; app.refreshPanel(true); } : function () {
+      var last = i === P.length - 1, url = q.pic || (q.node && AL.shelf ? AL.shelf.partPic(app, q.node, 48) : null), own = last && q.tap;      // (q.pic, q.tap: a scene's tabs, al-scene-room.js)
+      var b = h('button', { class: 'crumb' + (last ? (app.selOff && !own ? ' on off' : ' on') : '') + (i >= same && was.length ? ' in' : ''), title: own ? q.name + ': where you are' : last ? (app.selOff ? q.name + ': tap to show its box and marks again' : q.name + ': where you are. Tap to see it bare, with no box or marks; you stay here.') : 'Back out to ' + q.name, onclick: own ? q.tap : last ? function () { app.selOff = !app.selOff; app.refreshPanel(true); } : function () {
         Array.prototype.slice.call(row.children, i + 1).forEach(function (c) { c.classList.add('out'); });      // the deeper ones fold away into this one, then it is chosen
         setTimeout(q.go, 150);
       } }, [url ? h('img', { src: url, alt: '' }) : null, h('span', { text: q.name })]);
@@ -182,9 +185,10 @@
     if (!(app.fitOn && (app.fitOn.box || app.fitOn.pins))) app.pinProvider = null;            // Fit shows the box, never the wiring pins
     if (app.fitOn && app.fitOn.pins) return;                                                    // (reshaping has its own hint)
     var forPose = pose ? ' For the stance <b>' + pose.name + '</b> only.' : '';
-    if (app.fitOn && app.fitOn.box) { var bn = AL.node(app.ch, app.fitOn.node); app.coach('<b>Fit.</b> Drag <b>' + (bn ? AL.cards.nameOf(app, bn) : nm) + '</b> to move it. A corner resizes it, the round handle turns it.' + forPose); }
-    else if (app.moveArt && n) app.coach('<b>Fit.</b> Drag <b>' + nm + '</b> to slide it, pins and all, to where it joins the body.');
-    else app.coach('<b>Fit.</b> Tap a part on the picture or the map, then drag it.' + forPose);
+    var W2 = '<b>' + stages.WORD2 + '.</b> ';
+    if (app.fitOn && app.fitOn.box) { var bn = AL.node(app.ch, app.fitOn.node); app.coach(W2 + 'Drag <b>' + (bn ? AL.cards.nameOf(app, bn) : nm) + '</b> to move it. A corner resizes it, the round handle turns it.' + forPose); }
+    else if (app.moveArt && n) app.coach(W2 + 'Drag <b>' + nm + '</b> to slide it, pins and all, to where it joins the body.');
+    else app.coach(W2 + 'Tap a part on the picture or the map, then drag it.' + forPose);
   };
   /** Motion: the "Try:" sliders on a card (talk, look, the lids) work on the living picture too, while they are off their rest. */
   stages.tryOn = function (app, S) {
@@ -218,7 +222,7 @@
     var ui = app.ui, h = AL.h, ch = app.ch, st = stages.cur(app);
     sb.innerHTML = '';
     if (st === 'motion') {
-      if (app._from) sb.appendChild(ui.chip('Back to ' + (app._from === 'fit' ? 'Fit' : 'Set up'), { cls: 'veil', icon: 'back', title: 'Back to where you were, exactly as you left it', fn: function () { stages.go(app, app._from); } }));
+      if (app._from) sb.appendChild(ui.chip('Back to ' + (app._from === 'fit' ? stages.WORD2 : 'Set up'), { cls: 'veil', icon: 'back', title: 'Back to where you were, exactly as you left it', fn: function () { stages.go(app, app._from); } }));
       sb.appendChild(ui.chip('Hold this pose', { cls: 'veil', icon: 'pin', title: 'Freeze it exactly as it is now and go to Set up, to mend a pin or a joint while it is bent this way', fn: function () { stages.hold(app); } }));
       /* the same pose row as in Fit, alive: tap a stance and it goes into it, tap Standing and it gets up. It follows what the
          character does by itself (pushed low it drops to all fours, and the row shows it). */

@@ -14,19 +14,26 @@
  *                        changing the shape never moves anything: the same performance can go out wide and upright.
  *                        What is outside the frame is still there, dimmed: that is where an entrance waits.
  *
+ * ONE ROOM (the owner's second design, 11-21). A scene is not a room of its own: the room's four stages work on whatever is in
+ * hand, the scene or one character in it. No scene open (app.scene null) is THE EMPTY SCENE: the plain dark stage, untouched.
+ *
  * FILES   al-scene.js       this: the scene itself, the cast, keeping it, the acts (every act is one plain function)
  *         al-scene-draw.js  the frame loop: camera, depth, drawing, fingers on the stage
  *         al-scene-take.js  one clock for the scene: passes, the camera lane, shots
- *         al-scene-ui.js    Arrange, the dock in Perform (scenes, cast, shots), the menu row
+ *         al-frame.js       the frame (only a shape) and its button; the empty scene's own shots
+ *         al-scene-ui.js    the scene in hand: its Set up, Arrange and Motion cards, the sheets, the menu row
+ *         al-scene-room.js  the four stages and the path tabs on whatever is in hand
+ *         al-scene-strip.js the director's chair and the strip in Perform (Scene, Character, Shots)
+ *         al-export.js      the export button and its sheet
  *         al-agent.js       the same acts as named tools, for Joybot and a connected model
  *
  * Format: joycreator.scene/1. Phone: the stage is a Compose Canvas over the same GL surface; each cast member is one
- * PuppetRig instance; the dock is a LazyRow; the scene document is one hand-readable JSON beside its pictures.
+ * PuppetRig instance; the strip is a Row of LazyRows; the scene document is one hand-readable JSON beside its pictures.
  */
 (function (root) {
   'use strict';
   var AL = root.AL, scene = AL.scene = {}, W = 1920, H = 1080;
-  scene.W = W; scene.H = H;
+  scene.W = W; scene.H = H; scene.EMPTY = 'empty';
   scene.SHAPES = [['16:9', 16 / 9, 'Wide: a TV, a laptop, YouTube'], ['4:3', 4 / 3, 'A classic screen'], ['1:1', 1, 'Square'], ['4:5', 4 / 5, 'A tall post'], ['9:16', 9 / 16, 'An upright phone: Shorts, Reels, TikTok']];
   scene.KIND = { back: 'Backdrop', obj: 'Object', front: 'Foreground', cast: 'Character' };
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
@@ -72,7 +79,7 @@
   /* ── the document ── */
   scene.blank = function (name, set) {
     var d = { format: 'joycreator.scene/1', uid: uid(), name: name || 'New scene', shape: '16:9', safe: 'off', floor: { near: 0.93, far: 0.62, shrink: 0.5 }, wind: 0.5, haze: 0.5, items: [], shots: [], cam: [] };
-    if (set) d.items.push({ id: AL.id('k'), kind: 'back', name: scene.SETS[set].name, made: set, x: 0, y: 0, s: 1 });
+    if (set && scene.SETS[set]) d.items.push({ id: AL.id('k'), kind: 'back', name: scene.SETS[set].name, made: set, x: 0, y: 0, s: 1 });
     return d;
   };
   /** The frame: the window on the stage that is the shot. */
@@ -169,49 +176,63 @@
     }).catch(function () { R.dirty = true; });
   };
   scene.touch = function (app) { var R = app.scene; if (!R) return; R.dirty = true; clearTimeout(R._sv); R._sv = setTimeout(function () { if (app.scene === R && R.dirty) scene.keep(app); }, 1400); };
-  /** Open a scene document. The character you were on is put aside, whole, and comes back when the scene is left. */
-  scene.open = function (app, doc) {
+  /** Open a scene document. The character you were on is put aside, whole, and comes back when the scene is left (the empty scene).
+      at = { stage, hand, focus }: which of the four stages it opens on (Perform unless said), what is in hand ('scene' or 'cast') and who. */
+  scene.open = function (app, doc, at) {
     if (!doc || doc.format !== 'joycreator.scene/1' || !Array.isArray(doc.items)) { app.toast('That is not a scene this room can open.'); return Promise.resolve(false); }
-    var back = app.scene ? scene.close(app, true) : Promise.resolve();
-    return back.then(function () {
+    at = at || {};
+    return Promise.resolve().then(function () {
       var pics = doc.pictures || {}, takes = doc.takes || {}, docs = doc.characters || null, jobs = [];
       delete doc.pictures; delete doc.takes; delete doc.characters;
       Object.keys(pics).forEach(function (id) { jobs.push(new Promise(function (res) { var im = new Image(); im.onload = function () { var c = canvas(im.width, im.height); c.getContext('2d').drawImage(im, 0, 0); AL.img.put(id, c, id); res(); }; im.onerror = function () { res(); }; im.src = pics[id]; })); });
       return Promise.all(jobs).then(function () {
+        if (app.scene) scene.close(app, true, true);                   // the scene in use is kept and put down in the same moment this one goes up: no empty stage between
         if (app.inp) { app.inp.stop(); app.inp.micStop(); app.inp.camStop(); }
-        var R = app.scene = { data: doc, actors: {}, loading: {}, stage: 'arrange', sel: null, focus: null, dive: null, t: 0,
+        var stage = /^(setup|fit|motion|perform)$/.test(at.stage) ? at.stage : at.stage === 'arrange' ? 'fit' : 'perform';
+        var R = app.scene = { data: doc, actors: {}, loading: {}, stage: stage, hand: at.hand === 'cast' ? 'cast' : 'scene', want: at.focus || null, sel: null, focus: null, dive: null, t: 0,
           cam: { x: W / 2, y: H / 2, z: 1 }, shot: 'wide', free: null, clock: { run: null, ph: 0, on: false }, hist: { past: [], future: [] },
-          solo: { ch: app.ch, solver: app.solver, inp: app.inp, hist: app.hist, stage: app.stage } };
+          solo: { ch: app.ch, solver: app.solver, inp: app.inp, hist: app.hist, stage: app.stage, mode: app.mode } };
         doc.floor = doc.floor || { near: 0.93, far: 0.62, shrink: 0.5 }; doc.shots = doc.shots || []; doc.cam = doc.cam || [];
         doc.items.forEach(function (it) { if (it.made) { it.img = it.img || AL.id('i'); if (!AL.img.get(it.img)) AL.img.put(it.img, scene.paintSet(it.made), it.name); } });
-        app.stage = 'setup'; app.mode = 'build'; app.live = false; app.fitOn = null; app.poseEdit = null; app.held = null;
-        document.getElementById('app').classList.add('scene'); document.getElementById('app').classList.remove('perform');
+        app.fitOn = null; app.poseEdit = null; app.held = null; app.bridge = null; app.selOff = false;
+        app.mode = stage === 'perform' ? 'perform' : 'build'; app.live = stage === 'motion'; if (stage !== 'perform') app.stage = stage;
+        document.getElementById('app').classList.add('scene'); document.getElementById('app').classList.toggle('perform', stage === 'perform');
         try { localStorage.setItem('al.scene', doc.uid); } catch (e) { }
         app.syncUndo(); app.refreshPanel();
-        return scene.sync(app, docs, takes).then(function () { scene.touch(app); return true; });
+        return scene.sync(app, docs, takes).then(function () { scene.settle(app); scene.touch(app); return true; });
       });
     });
   };
-  scene.openId = function (app, id) { return app.idb(function (s) { return s.get('s:' + id); }).then(function (o) { if (!o) { app.toast('That scene could not be opened.'); return false; } return scene.open(app, o); }); };
-  /** Leave the scene (it is kept), and be back on the character you were on. */
-  scene.close = function (app, quiet) {
+  /** Once the cast is on the stage: the stage it opened on, with the one asked for in hand. */
+  scene.settle = function (app) {
+    var R = app.scene; if (!R) return;
+    if (R.want && R.actors[R.want]) R.focus = R.want; R.want = null;
+    if (R.hand === 'cast' && R.stage !== 'perform' && R.focus && R.actors[R.focus]) return scene.diveIn(app, R.focus, R.stage);
+    R.hand = 'scene'; var s = R.stage; R.stage = null; scene.go(app, s);
+  };
+  scene.openId = function (app, id, at) { return app.idb(function (s) { return s.get('s:' + id); }).then(function (o) { if (!o) { app.toast('That scene could not be opened.'); return false; } return scene.open(app, o, at); }); };
+  /** Leave the scene (it is kept), and be back on the character you were on, in the empty scene, on the same stage. */
+  scene.close = function (app, quiet, swap) {
     var R = app.scene; if (!R) return Promise.resolve();
+    var st = R.dive ? app.stage : R.stage;
     if (R.dive) scene.undive(app, true);
     Object.keys(R.actors).forEach(function (id) { var a = R.actors[id]; a.inp.stop(); a.inp.micStop(); a.inp.camStop(); });
     clearTimeout(R._sv); var kept = scene.keep(app);
-    app.scene = null; try { localStorage.removeItem('al.scene'); } catch (e) { }
-    var so = R.solo; app.ch = so.ch; app.solver = so.solver; app.inp = so.inp; app.hist = so.hist; app.stage = so.stage || 'setup';
-    app.force = {}; app.show = {}; app.held = null; app.poseEdit = null; app.fitOn = null; app.live = false;
-    document.getElementById('app').classList.remove('scene');
+    app.scene = null; if (!swap) { try { localStorage.removeItem('al.scene'); } catch (e) { } }
+    var so = R.solo; app.ch = so.ch; app.solver = so.solver; app.inp = so.inp; app.hist = so.hist;
+    app.stage = st && st !== 'perform' ? st : (so.stage || 'setup');
+    app.force = {}; app.show = {}; app.held = null; app.poseEdit = null; app.fitOn = null; app.live = false; app.bridge = null; app.selOff = false;
+    document.getElementById('app').classList.remove('scene'); document.getElementById('app').classList.remove('dive');
     document.getElementById('chname').textContent = app.ch.name;
     var first = null; AL.ZONES.forEach(function (z) { if (!first && app.zoneNode(z.id)) first = z.id; });
     app.sel = { zone: first, feature: null, node: null }; app.resolveSel(); app.syncUndo();
-    app.setMode('build'); app.userView = false; app.fit(true); if (!quiet) app.refreshPanel();
+    app.setMode(st === 'perform' ? 'perform' : 'build'); app.userView = false; app.fit(true); if (!quiet) app.refreshPanel();
     return kept;
   };
 
-  /** Throw a scene away for good (the characters in it are not touched: they live on the shelf). */
+  /** Throw a scene away for good (the characters in it are not touched: they live on the shelf). The empty scene cannot be thrown away. */
   scene.forget = function (app, id) {
+    if (!id || id === scene.EMPTY) return Promise.resolve(false);
     var left = app.scene && app.scene.data.uid === id ? scene.close(app) : Promise.resolve();
     return left.then(function () { return scene.list(app); }).then(function (l) { return app.idb(function (s) { s.delete('s:' + id); return s.put(l.filter(function (e) { return e.uid !== id; }), 'scenes'); }); });
   };
@@ -229,8 +250,9 @@
   };
 
   /* ── the acts. Each is one plain function: the buttons call them, and so can Joybot or a connected model (al-agent.js) ── */
-  /** A new scene, on one of the sets that come with the room, with the character you are on already standing in it. */
-  scene.create = function (app, set, name) {
+  /** A new scene, on one of the sets that come with the room ('plain' = no set: the dark stage), with the character you are on
+      already standing in it. It opens in Perform (at = { stage } to open it elsewhere). */
+  scene.create = function (app, set, name, at) {
     var d = scene.blank(name || 'New scene', set || 'meadow'), ch = app.scene ? null : app.ch;
     if (ch && AL.find(ch.root, function (n) { return n.type === 'art'; })) {
       if (AL.shelf) AL.shelf.tag(ch);
@@ -238,7 +260,7 @@
       d.characters = {}; d.characters[d.items[d.items.length - 1].id] = AL.toJson(ch, false);      // as it is this minute (its pictures are already here)
       if (ch.uid) { app.dirty = true; app.autosave(); }                                               // and kept on the shelf, where the scene will look for it next time
     }
-    return scene.open(app, d);
+    return scene.open(app, d, at);
   };
   /** Pictures into the scene. kind: back | obj | front. Several pictures as one object are a loop. Returns the new item. */
   scene.addPictures = function (app, kind, canvases, name) {
@@ -276,36 +298,63 @@
   };
   scene.rename = function (app, name) { name = String(name || '').trim(); if (!name) return; scene.edit(app, 'Rename the scene', function (d) { d.name = name; }); };
 
-  /** Step into one character's own four stages, and come back. The scene waits as it is. */
-  scene.diveIn = function (app, id) {
+  /** A CHARACTER IN HAND, in Set up, Arrange or Motion: it is alone on the plain stage, exactly as when it is opened by itself, and
+      the path tab with the scene's name is the way back. (Perform is always the whole scene, with that character in hand.) */
+  scene.diveIn = function (app, id, stage) {
     var R = app.scene; if (!R || !R.actors[id]) return;
-    if (R.stage === 'perform') scene.go(app, 'arrange');
-    scene.hand(app, id, true); R.dive = id; app.stage = 'fit'; document.getElementById('app').classList.remove('scene');
-    document.getElementById('chname').textContent = app.ch.name; app.setMode('build'); app.userView = false; app.fit(true); app.refreshPanel();
+    stage = stage === 'arrange' ? 'fit' : stage || 'fit';
+    if (stage === 'perform') { R.hand = 'cast'; if (R.dive) scene.undive(app, true); scene.hand(app, id, true); R.stage = null; return scene.go(app, 'perform'); }
+    if (R.dive && R.dive !== id) scene.undive(app, true);
+    if (scene.stop) scene.stop(app);
+    Object.keys(R.actors).forEach(function (k) { var a = R.actors[k]; a.inp.stop(); a.inp.micStop(); a.inp.camStop(); a.inp.walker.reset(); });
+    R.hand = 'cast'; R.stage = stage; R.drag = null;
+    if (!R.dive) { scene.hand(app, id, true); R.dive = id; }
+    var el = document.getElementById('app'); el.classList.remove('scene'); el.classList.add('dive'); document.getElementById('chname').textContent = app.ch.name;
+    app.selOff = false; app.live = false;
+    (AL.stages.go0 || AL.stages.go)(app, stage);                        // the character's own stage change, exactly as when it is alone
+    app.userView = false; app.fit(true);
   };
+  /** The character in hand is put back in the scene (a change made to it stays: the scene follows your copy). */
   scene.undive = function (app, quiet) {
     var R = app.scene; if (!R || !R.dive) return;
     var a = R.actors[R.dive], it = scene.item(R, R.dive);
-    if (app.mode !== 'build') app.setMode('build'); app.live = false; app.stage = 'setup'; app.poseEdit = null; app.fitOn = null; app.held = null;
+    if (app.inp) { app.inp.stop(); app.inp.micStop(); app.inp.camStop(); }
+    app.live = false; app.poseEdit = null; app.fitOn = null; app.held = null; app.bridge = null; app.selOff = false; app.moveArt = false;
     if (a) { a.ch = app.ch; a.solver = app.solver; a.solver.grids = {}; try { a.pic = AL.shelf.thumb({ ch: a.ch }, 96); } catch (e) { } }
     if (it && a && a.ch.uid && it.uid !== a.ch.uid) { it.uid = a.ch.uid; it.stock = null; }      // a built-in one that was changed is yours now: the scene follows your copy
     if (it && a) it.name = a.ch.name;
-    R.dive = null; document.getElementById('app').classList.add('scene'); scene.touch(app); app.syncUndo(); if (!quiet) app.refreshPanel();
+    R.dive = null; var el = document.getElementById('app'); el.classList.add('scene'); el.classList.remove('dive');
+    scene.touch(app); app.syncUndo(); if (!quiet) app.refreshPanel();
   };
-  /** Arrange or Perform. */
+  /** One of the room's four stages, the scene in hand. Set up and Arrange hold still and show the whole stage; Motion is the scene
+      alive with nothing recorded; Perform is the scene alive, with the take bar. (A character in hand: scene.diveIn.) */
   scene.go = function (app, stage) {
-    var R = app.scene; if (!R || R.stage === stage) return;
-    R.stage = stage; R.sel = stage === 'perform' ? null : R.sel;
-    if (stage === 'perform') {
+    var R = app.scene; if (!R) return;
+    if (stage === 'arrange') stage = 'fit';
+    var dived = !!R.dive; if (dived) scene.undive(app, true);
+    if (stage !== 'perform') R.hand = 'scene';
+    var was = dived ? null : R.stage, live = stage === 'motion' || stage === 'perform', el = document.getElementById('app');
+    if (was === stage) { app.refreshPanel(); return; }
+    R.stage = stage; R.drag = null; el.classList.add('scene');
+    if (scene.stop) scene.stop(app);
+    Object.keys(R.actors).forEach(function (id) { var a = R.actors[id]; a.inp.stop(); a.inp.micStop(); a.inp.camStop(); if (!live) a.inp.walker.reset(); });
+    if (live) {
       if (!R.focus || !R.actors[R.focus]) { var c = scene.cast(R)[0]; R.focus = c ? c.id : null; }
       if (R.focus) scene.hand(app, R.focus, true);
-      app.setMode('perform');
-      scene.cast(R).forEach(function (it) { var a = R.actors[it.id]; a.solver.reset(); a.inp.pose.flip = !!it.flip; });
-    } else {
-      if (scene.stop) scene.stop(app);
-      Object.keys(R.actors).forEach(function (id) { var a = R.actors[id]; a.inp.stop(); a.inp.micStop(); a.inp.camStop(); a.inp.walker.reset(); });
-      R.shot = 'wide'; R.free = null; app.setMode('build'); app.live = false;
+      if (was !== 'motion' && was !== 'perform') scene.cast(R).forEach(function (it) { R.actors[it.id].solver.reset(); });
     }
+    app.poseEdit = null; app.fitOn = null; app.held = null; app.bridge = null; app.selOff = false;
+    var si = R.sel ? scene.item(R, R.sel) : null; if (!si || (live && si.kind !== 'obj')) R.sel = null;      // (alive, only an object is taken: a character is taken in hand instead)
+    if (stage !== 'perform') app.stage = stage;
+    app.setMode(stage === 'perform' ? 'perform' : 'build'); app.live = stage === 'motion';
+    scene.cast(R).forEach(function (it) { R.actors[it.id].inp.pose.flip = !!it.flip; });      // (setMode puts a performer's own flip back; the scene's flip is the one that counts)
     app.syncUndo(); app.refreshPanel();
+  };
+  /** The scene in hand, on the stage you are on (the path tab with its name). */
+  scene.toScene = function (app) {
+    var R = app.scene; if (!R) return;
+    var st = R.dive ? (app.mode === 'perform' ? 'perform' : app.stage) : R.stage;
+    if (R.dive) { scene.undive(app, true); R.stage = null; }
+    R.hand = 'scene'; scene.go(app, st || 'setup');
   };
 })(typeof self !== 'undefined' ? self : this);

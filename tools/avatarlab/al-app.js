@@ -659,6 +659,8 @@
     if (app.mode !== 'perform') AL.cards.fold(app);
     if (AL.stages) AL.stages.after(app);
     if (AL.stages && AL.stages.on() && app.mode === 'perform') { var prh = $('panelhead'); prh.insertBefore(AL.stages.rail(app), prh.firstChild); }
+    /* reshaping with pins: the pins are the handles, whichever card is open (the body's own card would otherwise show its chest and hips) */
+    if (app.mode !== 'perform' && !app.live && !app.bridge && app.fitOn && app.fitOn.pins && app.shapeEdit && app.shapeEdit.node === app.fitOn.node && AL.cards.shapePins) { var rn = AL.node(app.ch, app.fitOn.node), rp = rn ? AL.cards.shapePins(app, rn) : null; if (rp) app.pinProvider = rp; }
     if (app.mode !== 'perform' && !app.live && !app.bridge && app.fitOn && app.fitOn.box) { var bx = AL.node(app.ch, app.fitOn.node); if (bx) app.pinProvider = function () { return AL.fit.pins(app, bx); }; }      // the box shows on whichever card is open
     app.renderTools();
     /* the same card drawn again stays where it was scrolled to; a different card opens at its top */

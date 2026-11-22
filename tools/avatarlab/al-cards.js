@@ -186,7 +186,7 @@
     if (app.fitOn && (!AL.node(app.ch, app.fitOn.node) || app.live)) app.fitOn = null;
     if (app.poseEdit && !AL.stance.find(app.ch, app.poseEdit)) app.poseEdit = null;
     if (app.toneTry && !AL.tone.find(app.ch, app.toneTry)) app.toneTry = null;
-    if (app.shapeEdit && (app.sel.node !== app.shapeEdit.node || app.live)) app.shapeEdit = null;
+    if (app.shapeEdit && (app.live || (app.sel.node !== app.shapeEdit.node && !(app.shapeEdit.fit && AL.stages && AL.stages.target(app) && AL.stages.target(app).id === app.shapeEdit.node)))) app.shapeEdit = null;      // (a reshape of the whole part in hand, the body say, chosen on the map with no layer picked, is still the part in hand: keep it)
     /* a reshape belongs to the pose it was made in: change the pose and it is put down, or it would be held on in the other pose */
     if (app.shapeEdit && app.shapeEdit.fit && app.shapeEdit.shape !== AL.fit.shapeId(app)) { app.shapeEdit = null; if (app.fitOn && app.fitOn.pins) app.fitOn = null; }
     if (app.morph && !app.bridge) app.morph = null;
@@ -908,6 +908,7 @@
       ui.chip('Handles in Perform', { on: !n.mesh.quiet, title: 'On: each pin can be dragged while performing. Off: the pins only shape the part.', fn: function () { app.edit(function () { if (n.mesh.quiet) delete n.mesh.quiet; else n.mesh.quiet = true; }, false, 'Pins as handles'); } })
     ]));
   }
+  cards.shapePins = function (app, n) { return shapePins(app, n); };
   function shapePins(app, n) {
     var se = app.shapeEdit, sh = (n.shapes || []).filter(function (q) { return q.id === se.shape; })[0]; if (!sh || !n.mesh) { app.shapeEdit = null; return null; }
     /* a pin is shown where the picture has it: this shape's offset on top of whatever the other shapes on show (a standing reshape under

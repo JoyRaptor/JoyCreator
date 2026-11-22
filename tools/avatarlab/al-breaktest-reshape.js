@@ -14,6 +14,28 @@
     var out = [arts[0]]; if (grp[0]) out.push(grp[0]); if (arts[Math.floor(arts.length / 2)]) out.push(arts[Math.floor(arts.length / 2)]);
     return out;
   };
+  /** The owner's report, 11-22: on all fours he could not put pins in Topps's BODY or stretch it. The body is chosen on the body map
+      as a whole part (no layer picked), and the card redraw put the reshape down; and the body card's own handles (ground, chest, hips)
+      stood in place of the pins. Run through the real button, with the part chosen the way he chooses it. */
+  F.reshapeWhole = async function (app, R) {
+    var fit = AL.fit, S = AL.stance, ch0 = JSON.stringify(app.ch), pz = S.fours(app.ch), made = false;
+    if (!pz) { app.edit(function () { pz = S.add(app.ch, 'Pins test'); }, true, 'add'); made = true; }
+    K.stand(app); app.tab = 'parts'; app.select('body'); app.poseEdit = pz.id; app.poseAmt = null; app.refreshPanel(); await K.raf(4);
+    var n = AL.stages.target(app), btn = Array.prototype.slice.call(document.querySelectorAll('#panelbody button')).filter(function (b) { return b.textContent.trim() === 'Reshape with pins'; })[0];
+    R.F('whole body on all fours: Reshape with pins is offered', !!(n && btn), { target: n && n.name });
+    if (!n || !btn) { K.restore(app, ch0); return; }
+    btn.click(); await K.raf(3); app.refreshPanel(true); await K.raf(3);
+    R.F('whole body on all fours: the reshape stays up after the card is drawn again', !!(app.shapeEdit && app.shapeEdit.node === n.id), app.shapeEdit && app.shapeEdit.node);
+    var b = AL.boundsOf(n), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = b.x1 - b.x0;
+    app.edit(function () { fit.dropPin(app, n, [cx - w * 0.25, cy]); fit.dropPin(app, n, [cx + w * 0.25, cy]); }, false, 'pins'); await K.raf(3);
+    var pins = (app.pinsNow ? app.pinsNow() : []).filter(function (q) { return q.node === n.id; });
+    R.F('whole body on all fours: its two pins are the handles to drag', pins.length === 2, { handles: (app.pinsNow ? app.pinsNow() : []).map(function (q) { return q.label; }) });
+    if (pins.length === 2) {
+      var before = K.cloud(app, n); K.drag(app, pins[1], 0, 30); await K.raf(3); var after = K.cloud(app, n);
+      R.F('whole body on all fours: dragging a pin stretches the body', after && before && Math.abs(after.y1 - before.y1) > 2, { before: before && Math.round(before.y1), after: after && Math.round(after.y1) });
+    }
+    app.fitOn = null; app.shapeEdit = null; K.restore(app, ch0); await K.raf(2);
+  };
   F.reshape = async function (app, R, opt) {
     var fit = AL.fit, S = AL.stance, plant = opt.plant || '', ch0 = JSON.stringify(app.ch), tgt = F.reshapeTargets(app);
     for (var ti = 0; ti < tgt.length; ti++) {

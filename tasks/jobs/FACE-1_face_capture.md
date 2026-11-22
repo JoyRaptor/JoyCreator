@@ -1,6 +1,6 @@
 # FACE-1: Face capture (your face drives the character, premium)
 
-**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟡 engine built, tested on the PC (every planted fault caught) and bench-checked on the Note 9 without a face, 11-22; a face in front of the phone owed  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `0e999f1f4`
+**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟢 engine built, PC-tested (every planted fault caught), and tried by the owner on the Note 9 with his face, 11-22 ("Done, all fine"); his find, the outline a quarter turn off, fixed in `0e999f1f4` and awaiting his look  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `0e999f1f4`
 
 ## Why it matters (for the user)
 Hold the phone up, make a face, and the character makes it too: a wink is a wink, a half smile is a half
@@ -14,8 +14,7 @@ proven, and what is being built.
 - [x] A premium face engine with a clean seam for the phone room: continuous, two-sided expression; one-tap
       neutral; smoothing without jitter or lag; the face lost and found gracefully; a small private preview;
       recorded into a take in passes and editable afterwards. Tests shown failing on each fault first.
-- [ ] Proven on the Note 9 through a bench screen, with a real face (the bench runs there, 11-22; the face part needs
-      the owner for two minutes).
+- [x] Proven on the Note 9 through a bench screen, with a real face (the owner, 11-22: "Done, all fine").
 - [ ] The web pilot reads faces the same way (`al-face.js` built and checked equal to the phone, 11-22; the hook is the
       AVA-1 lead's).
 - [x] STATE.md rows updated (11-22).
@@ -95,9 +94,9 @@ one face stage across mounts and measures faces a second and delay. `LifeSignals
 random mask the 09-18 colour sweep broke is restored to `0x7FFFFFFF`. Every host of the bus (the old studio's Track,
 Studio's Record, the webcam bubble) gets the neutral, the smoothing and lost-and-found without a change of its own.
 
-**Tests** (`bash tools/jvm-harness/run-face.sh`): 48 checks, each named for what the owner would see, plus the
+**Tests** (`bash tools/jvm-harness/run-face.sh`): 50 checks, each named for what the owner would see, plus the
 phone/pilot parity (6,336 values over 54 faces and a 90-frame lost-and-found run agree within 0.0001).
-`run-face.sh --proof` plants 29 faults (26 in the phone engine and the take, 3 in the pilot's file) and all 29
+`run-face.sh --proof` plants 31 faults (28 in the phone engine and the take, 3 in the pilot's file) and all 31
 are caught (11-22). The older suites still pass: TrackingCore 18, OneEuro 6, ParamTrack 25, ReplayMapping 19,
 LifeMath 16. The tests found one real fault in this work before it shipped: the fill-in trailed a moving head by 0.10 of
 a full turn (it measured against the wrong moment); now 0.02.

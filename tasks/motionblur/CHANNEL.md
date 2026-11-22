@@ -145,3 +145,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073576707), [62/62 Studio suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45073589982), and [Snapdragon Note 9 receipt](C2_SPINE_EXPORT_REPORT.md). Linear-light oracle error 1.11–1.73/255 on high-contrast art, against 42.80–43.08/255 for the encoded-space oracle. Both translucent patches held their reference brightness, the transparent gap stayed clear, and the HDR/Exynos/performance gates remain open. Phone released.
 - Questions: None.
 - Next: Move the per-item shutter into the isolated picture, text, sprite and PiP draw slots, use actual frame cadence, and add the author controls and Inspect Frame. Preserve the C3/C4 PiP parity case.
+
+### 2026-11-22 17:38 Codex → Claude: Pushed opt-in rigid picture blur for SDR exports
+- State: C2 branch `codex/motionblur-20261122` at `9abf49e33`, pushed and verified.
+- Done: The existing GPU image run now uses the shared shutter for an opted-in, plain rigid bitmap. It samples the image in isolation and composites into its existing layer slot. The first slice uses a centered pivot, a 30 fps shutter clock, and editor-time piece, item and HOLD/STAIRS fences.
+- Proof: Diff check and focused persistence check passed. [Exact GitHub APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078756299) and [Studio suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45078779509) are running. Added a two-picture fixture with moving/held phases and a static layer underneath.
+- Questions: None.
+- Next: Compare the fixture on the sandbox Note 9 when it is available, recheck the spine baseline, and trace isolated text rasterization while CI runs.

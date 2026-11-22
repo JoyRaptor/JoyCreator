@@ -79,7 +79,7 @@ public final class FaceBenchActivity extends AppCompatActivity {
     private long clockStart;
     private int prompt = -1, answeredCount = 0;
     private long promptSince;
-    private long lastLog;
+    private long lastLog, lastStatus;
     private float batteryC = Float.NaN;
 
     @Override
@@ -143,7 +143,7 @@ public final class FaceBenchActivity extends AppCompatActivity {
         recordChip = chip("● Record", "Record a pass: only the lanes that are on are written");
         recordChip.setOnClickListener(v -> toggleRecord());
         r2.addView(recordChip);
-        playChip = chip("▶ Play", "Play the take");
+        playChip = chip("▶︎ Play", "Play the take"); // text arrow, not Samsung's emoji
         playChip.setOnClickListener(v -> togglePlay());
         r2.addView(playChip);
         undoChip = chip("Undo", "Take back the last pass or edit");
@@ -261,11 +261,15 @@ public final class FaceBenchActivity extends AppCompatActivity {
             case NEEDS_PERMISSION: state = "Camera not allowed"; break;
             default: state = "Camera off";
         }
-        String line = String.format(Locale.US, "%s · %.0f a second · %s behind you · model %s · phone %.1f °C · %s",
-                state, st.rate, Float.isNaN(st.delayMs) ? "–" : String.format(Locale.US, "%.0f ms", st.delayMs),
-                Float.isNaN(st.modelMs) ? "–" : String.format(Locale.US, "%.0f ms", st.modelMs), batteryC,
-                st.onGraphicsChip ? "graphics chip" : "processor");
-        status.setText(line);
+        // The numbers change slowly: four updates a second, not sixty (the bench should not cost more than the face).
+        if (now - lastStatus > 250_000_000L) {
+            lastStatus = now;
+            String line = String.format(Locale.US, "%s · %.0f a second · %s behind you · model %s · phone %.1f °C · %s",
+                    state, st.rate, Float.isNaN(st.delayMs) ? "–" : String.format(Locale.US, "%.0f ms", st.delayMs),
+                    Float.isNaN(st.modelMs) ? "–" : String.format(Locale.US, "%.0f ms", st.modelMs), batteryC,
+                    st.onGraphicsChip ? "graphics chip" : "processor");
+            status.setText(line);
+        }
         if (prompt < 0 && pass == null) {
             if (st.capturingNeutral && st.state == FaceCapture.State.TRACKING) {
                 hint.setText(String.format(Locale.US, "Hold still: taking your neutral face (%d of %d)",

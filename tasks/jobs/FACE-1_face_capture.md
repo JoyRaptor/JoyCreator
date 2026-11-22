@@ -124,6 +124,8 @@ was on) and `new_bench_run_note9.csv`. No face was in front of the phone for any
 
 ## The owner's own test (11-22, the Note 9, guided)
 - **His verdict:** "Done, all fine" after the guided test (expressions, head, lean, covering the camera, Directions).
+- **Low light** (his own check, 11-22): "I tried it in low light and it still worked on my Note 9 front camera, which is
+  pretty old." Glasses: not tried.
 - **His find:** "the wireframe face in the preview is rotated 90 degrees clockwise, so it's not actually matching up
   with my face" (the picture itself was right). Cause: the face model reads the face upright but returns its 478 points
   in the camera's sideways frame; the picture was turned and the points were not. The same fault made lean (where

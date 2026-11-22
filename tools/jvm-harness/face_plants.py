@@ -73,6 +73,8 @@ PLANTS = [
      [(FR, "case 270: return new float[]{y, 1f - x};", "case 270: return new float[]{x, y};")]),
     ("a neutral saved in the sideways frame is kept (lean stays sideways)",
      [(C, "if (v < 2) {", "if (false) {")]),
+    ("an older neutral keeps answers made for the old directions",
+     [(C, "if (v < 3) {", "if (false) {")]),
     ("face pins move when the head turns (the head's turn not taken out)",
      [(PT, "double ux = r[0] * x + r[3] * y + r[6] * z;", "double ux = x;"),
       (PT, "double uy = r[1] * x + r[4] * y + r[7] * z;", "double uy = y;")]),

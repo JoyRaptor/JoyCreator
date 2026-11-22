@@ -38,10 +38,13 @@
   F.rest = function () { var o = {}; F.ALL.forEach(function (n) { o[n] = 0; }); return o; };
 
   /* ── calibration: neutral and directions (FaceCalibration.java) ── */
+  F.VERSION = 3;   // as FaceCalibration.VERSION: 3 = the raw face in the engine's own directions (the owner, 11-22)
   F.calibration = function (o) {
     o = o || {};
+    var old = o.v != null ? o.v < F.VERSION : !!(o.rest && Object.keys(o.rest).length);   // saved before the directions were fixed
+    if (old) o = { sign: { lean: -1 } };                                                  // its neutral and answers are taken again
     var s = o.sign || {};
-    return { rest: Object.assign({}, o.rest || {}), sign: { yaw: s.yaw < 0 ? -1 : 1, pitch: s.pitch < 0 ? -1 : 1, roll: s.roll < 0 ? -1 : 1, lean: s.lean > 0 ? 1 : -1 },
+    return { v: F.VERSION, rest: Object.assign({}, o.rest || {}), sign: { yaw: s.yaw < 0 ? -1 : 1, pitch: s.pitch < 0 ? -1 : 1, roll: s.roll < 0 ? -1 : 1, lean: s.lean > 0 ? 1 : -1 },
       swapSides: !!o.swapSides, neutralSet: o.neutralSet != null ? !!o.neutralSet : !!(o.rest && Object.keys(o.rest).length),
       points: o.points && o.points.length >= (F.POINT_COUNT - 10) * 3 ? Float32Array.from(o.points) : null };
   };
@@ -320,22 +323,26 @@
     return Object.assign({}, target);
   };
   S.calibrate = function (raw, pts) {
-    if (this.checking) { if (this.checking.add(raw)) { this.cal = this.checking.apply(); this.lastCheck = this.checking; this.checking = null; } return; }
+    if (this.checking) { if (this.checking.add(raw)) { this.cal = this.checking.apply(); this.lastCheck = this.checking; this.checking = null; if (this.persist) F.save(this.cal); } return; }
     if (!(this.wantNeutral || (this.autoNeutral && !this.cal.neutralSet))) { this.capture = null; return; }
     if (!this.capture) this.capture = new F.Capture(this.cal, NEUTRAL_FRAMES);
     if (this.capture.addWithPoints(raw, pts)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; if (this.persist) F.save(this.cal); }
   };
+
+  /** The engine reads two-sided names as the picture shows them ("Left" = the person's right). The model names them the
+      person's own way (the owner's right eye read as "Right" on the Note 9, 11-22), so they swap once, here. */
+  F.pictureSide = function (n) { return /Left$/.test(n) ? n.slice(0, -4) + 'Right' : /Right$/.test(n) ? n.slice(0, -5) + 'Left' : n; };
 
   /* ── a MediaPipe (JS) FaceLandmarker result to the raw face ── */
   var OVAL = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109];
   F.rawFromResult = function (r) {
     if (!r || !r.faceBlendshapes || !r.faceBlendshapes.length || !r.faceLandmarks || !r.faceLandmarks.length) return null;
     var raw = {};
-    r.faceBlendshapes[0].categories.forEach(function (q) { if (q.categoryName && q.categoryName !== '_neutral') raw[q.categoryName] = q.score; });
+    r.faceBlendshapes[0].categories.forEach(function (q) { if (q.categoryName && q.categoryName !== '_neutral') raw[F.pictureSide(q.categoryName)] = q.score; });
     var mm = r.facialTransformationMatrixes && r.facialTransformationMatrixes[0] && r.facialTransformationMatrixes[0].data, D = 180 / Math.PI;
-    if (mm) {   // the pilot's own extraction (al-inputs.js watch), in degrees with its signs
-      raw[F.HEAD_YAW] = Math.atan2(mm[8], mm[10]) * D;
-      raw[F.HEAD_PITCH] = -Math.asin(clamp(-mm[9], -1, 1)) * D;
+    if (mm) {   // in degrees, + = the person's right / looking down (the owner, 11-22: both ran backwards before)
+      raw[F.HEAD_YAW] = -Math.atan2(mm[8], mm[10]) * D;
+      raw[F.HEAD_PITCH] = Math.asin(clamp(-mm[9], -1, 1)) * D;
       raw[F.HEAD_ROLL] = -Math.atan2(mm[1], mm[5]) * D;
     }
     var p = r.faceLandmarks[0], x0 = 1, x1 = 0, y0 = 1, y1 = 0;
@@ -352,12 +359,16 @@
     if (cal.points) o.points = Array.prototype.map.call(cal.points, function (v) { return Math.round(v * 10000) / 10000; });
     try { root.localStorage.setItem(F.KEY, JSON.stringify(o)); } catch (e) { /* private mode: kept for this visit */ }
   };
+  /** Mirror (the default): the character moves like your reflection. Off: like someone facing you. Kept on this device. */
+  F.setFacing = function (cam, facing) { cam.facing = !!facing; try { root.localStorage.setItem('al.face.facing', facing ? '1' : '0'); } catch (e) { /* kept for this visit */ } };
   /** One tap: the next still half-second of the face becomes neutral. */
   F.neutral = function (cam) { if (cam && cam._faceStage) cam._faceStage.requestNeutral(); };
   F.pilotFace = function (r, cam, t) {
     var st = cam._faceStage;
     if (!st) { st = cam._faceStage = new F.Stage(F.load(), {}); st.persist = true; }
-    st.tun.mirror = !!cam.swap;
+    if (cam.facing == null) { try { cam.facing = root.localStorage.getItem('al.face.facing') === '1'; } catch (e) { cam.facing = false; } }
+    st.tun.mirror = !!cam.facing;
+    cam.marks = r && r.faceLandmarks && r.faceLandmarks.length ? r.faceLandmarks[0] : null;   // for the Live picker; never kept
     var v = cam.v, tall = v && v.videoWidth ? v.videoHeight / v.videoWidth : 0.75;
     var o = st.process(F.rawFromResult(r), t, F.facePoints(r, tall));
     o.brow = (o.browL + o.browR) / 2;

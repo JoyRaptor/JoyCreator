@@ -306,6 +306,11 @@
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
     if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts', 'all')); pb.appendChild(ui.row(feats.map(function (f) { return partChip(app.featureNodes(f)[0], app.FEAT[f].label, 'Open ' + app.FEAT[f].label, function () { app.select('head', f); }); }))); }
+    if (AL.facepins && !(AL.intake && AL.intake.hosted)) {   // FACE-1: set up face pins while building the head
+      pb.appendChild(ui.lab('Your face', 'setup'));
+      pb.appendChild(ui.row([AL.facepins.chip(app)]));
+      pb.appendChild(ui.note('Pin a point of your face (a mouth corner, a brow, a lid) to the head: it follows that point as you perform.'));
+    }
     pb.appendChild(ui.lab('How it moves', 'motion'));
     if (isSet) {
       pb.appendChild(ui.slider('Depth', { min: 0, max: 30, value: hd.pick.depth == null ? 12 : hd.pick.depth, set: function (v) { hd.pick.depth = v; }, fmt: function (v) { return v + ' px'; }, title: 'How far the nose, eyes and frill slide between two angles. More depth feels rounder.' }));
@@ -865,6 +870,7 @@
   function shapesSection(app, pb, n) {
     var ui = app.ui, ch = app.ch, se = app.shapeEdit && app.shapeEdit.node === n.id ? app.shapeEdit : null, pins = n.mesh && n.mesh.pins ? n.mesh.pins : [];
     pb.appendChild(ui.lab('Shapes', 'setup'));
+    if (AL.facepins && !(AL.intake && AL.intake.hosted) && (!AL.fit || AL.fit.can(app, n))) pb.appendChild(ui.row([AL.facepins.chip(app)]));   // FACE-1: set up face pins while building
     if (!pins.length) {
       pb.appendChild(ui.note('Give this part a few pins and it can be pushed into other shapes: an eye squeezed shut, a cheek puffed out, a body squashed. Each shape is blended in smoothly by a button, the mouth, a blink or the head turning.'));
       pb.appendChild(ui.row([ui.chip('Add pins around it', { cls: 'go', icon: 'pin', title: 'Eight pins round its edge and one in the middle. Drag them to where the shape should bend from.', fn: function () { app.edit(function () { ringPins(n); }, false, 'Add shape pins'); } })]));

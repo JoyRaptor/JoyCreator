@@ -21,7 +21,7 @@ FR = PKG + "FaceFrame.java"
 PT = PKG + "FacePoints.java"
 
 PLANTS = [
-    ("both eyes always blink alike (no wink)", [(M, "br = blink(cr, lookDown);", "br = bl;")]),
+    ("both eyes always blink alike (no wink)", [(M, "br = lids ? lidBlink(cr) : blink(cr, lookDown);", "br = bl;")]),
     ("blinks are on or off", [(M, "return smoothstep(0.12f, 0.8f, closure - 0.4f * lookDown);",
                                "return closure - 0.4f * lookDown > 0.5f ? 1f : 0f;")]),
     ("one value for both brows", [(M, 'o.put(FaceSignals.BROW_R, sgn((0.7f * s.charR("browOuterUp")',
@@ -86,6 +86,19 @@ PLANTS = [
      [(C, "                c.restPoints = pts;", "                /* forgotten */")]),
     ("looking down reads as a half blink", [(M, "return smoothstep(0.12f, 0.8f, closure - 0.4f * lookDown);",
                                              "return smoothstep(0.12f, 0.8f, closure);")]),
+    # the lids (the owner's eye test, 11-22)
+    ("the lids ignored: only the tracker's weak blink value", [(M, "boolean lids = gl >= 0f && gr >= 0f;", "boolean lids = false;")]),
+    ("the stage never measures the lids", [(S, "float[] gaps = FacePoints.eyeGaps(pts);", "float[] gaps = null;")]),
+    ("the lids measured on the wrong eye", [(S, "raw.put(FacePoints.GAP_LEFT, gaps[0]);", "raw.put(FacePoints.GAP_LEFT, gaps[1]);"),
+                                            (S, "raw.put(FacePoints.GAP_RIGHT, gaps[1]);", "raw.put(FacePoints.GAP_RIGHT, gaps[0]);")]),
+    ("an old neutral keeps the weak blinks (never taken again)",
+     [(S, "boolean noLids = raw.containsKey(FacePoints.GAP_LEFT) && c.rest(FacePoints.GAP_LEFT) <= 0f;", "boolean noLids = false;")]),
+    ("a smile or looking down reads as a blink", [(M, "return smoothstep(0.3f, 0.75f, closure);", "return smoothstep(0.05f, 0.75f, closure);")]),
+    ("the pilot ignores the lids (pilot and phone disagree)", [(JS, "var lids = gl >= 0 && gr >= 0;", "var lids = false;")]),
+    ("the pilot measures the lids on the wrong eye (pilot and phone disagree)",
+     [(JS, "raw[F.GAP_LEFT] = gaps[0]; raw[F.GAP_RIGHT] = gaps[1];", "raw[F.GAP_LEFT] = gaps[1]; raw[F.GAP_RIGHT] = gaps[0];")]),
+    ("the pilot keeps an old neutral (pilot and phone disagree)",
+     [(JS, "var noLids = raw[F.GAP_LEFT] != null && !(rest(this.cal, F.GAP_LEFT) > 0);", "var noLids = false;")]),
 ]
 
 

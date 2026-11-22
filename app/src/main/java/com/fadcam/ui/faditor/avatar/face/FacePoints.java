@@ -93,6 +93,36 @@ public final class FacePoints {
         return out;
     }
 
+    /** The raw face's names for the lids' gap: "Left" is the picture's left, as the expression values are named. */
+    public static final String GAP_LEFT = "eyeGapLeft", GAP_RIGHT = "eyeGapRight";
+    /** Upper and lower lid points, three pairs an eye, and the eye's corners: the person's right eye, then their left. */
+    static final int[][] LIDS = {{159, 145}, {160, 144}, {158, 153}, {386, 374}, {385, 380}, {387, 373}};
+    static final int[][] EYE_CORNERS = {{33, 133}, {263, 362}};
+
+    /**
+     * How open each eye is, measured on the points (the owner, 11-22: the mesh's lids close with his,
+     * while the tracker's own blink value stopped near two thirds with his eyes shut): the lids' mean
+     * gap over the eye's width. {picture's left eye (the person's right), picture's right}, or null.
+     */
+    @Nullable
+    public static float[] eyeGaps(@Nullable float[] pts) {
+        if (pts == null || pts.length < COUNT * 3) return null;
+        float[] out = new float[2];
+        for (int e = 0; e < 2; e++) {
+            double gap = 0;
+            for (int k = 0; k < 3; k++) gap += dist(pts, LIDS[e * 3 + k][0], LIDS[e * 3 + k][1]);
+            double w = dist(pts, EYE_CORNERS[e][0], EYE_CORNERS[e][1]);
+            if (w < 1e-6) return null;
+            out[e] = (float) (gap / 3 / w);
+        }
+        return out;
+    }
+
+    private static double dist(float[] p, int a, int b) {
+        double dx = p[a * 3] - p[b * 3], dy = p[a * 3 + 1] - p[b * 3 + 1], dz = p[a * 3 + 2] - p[b * 3 + 2];
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     /**
      * The rotation (row-major 3x3) that best carries the steady points of {@code a} onto {@code b}
      * (both already centred and scaled): Horn's closed form, the top eigenvector of a 4x4 matrix.

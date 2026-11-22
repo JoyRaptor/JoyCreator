@@ -126,6 +126,7 @@
     return 'Aa';
   }
   function blink(closure, lookDown) { return smoothstep(0.12, 0.8, closure - 0.4 * lookDown); }
+  function lidBlink(closure) { return smoothstep(0.3, 0.75, closure); }
 
   F.map = function (raw, cal, tun) {
     tun = tun || {};
@@ -137,6 +138,7 @@
     function pL(b) { return a(b + (cal.swapSides ? 'Left' : 'Right')); }
     function cL(b) { return mirror ? pL(b) : pR(b); }
     function cR(b) { return mirror ? pR(b) : pL(b); }
+    function shut(k) { var v = raw[k], r = rest(cal, k); return v == null || v !== v || r < 1e-4 ? -1 : clamp(1 - v / r, 0, 1); }
     var o = {};
     var yawR = headDeg(cal, F.HEAD_YAW, rw(F.HEAD_YAW)), down = headDeg(cal, F.HEAD_PITCH, rw(F.HEAD_PITCH)), tiltR = headDeg(cal, F.HEAD_ROLL, rw(F.HEAD_ROLL));
     o.turnX = sgn(flip * yawR / TURN_DEG * head); o.turnY = sgn(down / NOD_DEG * head); o.roll = sgn(flip * tiltR / ROLL_DEG * head);
@@ -147,9 +149,12 @@
     var lookDown = (a('eyeLookDownLeft') + a('eyeLookDownRight')) / 2, lookUp = (a('eyeLookUpLeft') + a('eyeLookUpRight')) / 2;
     var towardR = ((pR('eyeLookOut') - pR('eyeLookIn')) + (pL('eyeLookIn') - pL('eyeLookOut'))) / 2;
     o.lookX = sgn(flip * towardR * 1.6 * eyes); o.lookY = sgn((lookDown - lookUp) * 1.6 * eyes);
-    var cl = cL('eyeBlink'), cr = cR('eyeBlink');
+    // the lids' gap on the points against the neutral when there are points (the owner, 11-22); else the blink value
+    var gl = shut('eyeGap' + ((mirror ? cal.swapSides : !cal.swapSides) ? 'Left' : 'Right')), gr = shut('eyeGap' + ((mirror ? cal.swapSides : !cal.swapSides) ? 'Right' : 'Left'));
+    var lids = gl >= 0 && gr >= 0;
+    var cl = lids ? gl : cL('eyeBlink'), cr = lids ? gr : cR('eyeBlink');
     if (sync) { var avg = (cl + cr) / 2, w = smoothstep(0.15, 0.35, Math.abs(cl - cr)); cl = avg + (cl - avg) * w; cr = avg + (cr - avg) * w; }
-    o.blinkL = amt(blink(cl, lookDown)); o.blinkR = amt(blink(cr, lookDown));
+    o.blinkL = amt(lids ? lidBlink(cl) : blink(cl, lookDown)); o.blinkR = amt(lids ? lidBlink(cr) : blink(cr, lookDown));
     o.squintL = amt((cL('eyeSquint') + 0.5 * cL('cheekSquint')) * eyes); o.squintR = amt((cR('eyeSquint') + 0.5 * cR('cheekSquint')) * eyes);
     o.wideL = amt(cL('eyeWide') * 1.3 * eyes); o.wideR = amt(cR('eyeWide') * 1.3 * eyes);
 
@@ -205,6 +210,23 @@
     if (s < 1e-6) return null;
     var out = new Float32Array(n * 3);
     for (i = 0; i < n; i++) { out[i * 3] = (xyz[i * 3] - cx) / s; out[i * 3 + 1] = (xyz[i * 3 + 1] - cy) / s; out[i * 3 + 2] = (xyz[i * 3 + 2] - cz) / s; }
+    return out;
+  };
+  /** How open each eye is on the points (FacePoints.eyeGaps): the lids' mean gap over the eye's width,
+      [picture's left eye (the person's right), picture's right], or null. */
+  F.GAP_LEFT = 'eyeGapLeft'; F.GAP_RIGHT = 'eyeGapRight';
+  var LIDS = [[159, 145], [160, 144], [158, 153], [386, 374], [385, 380], [387, 373]], EYE_CORNERS = [[33, 133], [263, 362]];
+  function pdist(p, a, b) { var dx = p[a * 3] - p[b * 3], dy = p[a * 3 + 1] - p[b * 3 + 1], dz = p[a * 3 + 2] - p[b * 3 + 2]; return Math.sqrt(dx * dx + dy * dy + dz * dz); }
+  F.eyeGaps = function (pts) {
+    if (!pts || pts.length < F.POINT_COUNT * 3) return null;
+    var out = [0, 0];
+    for (var e = 0; e < 2; e++) {
+      var gap = 0;
+      for (var k = 0; k < 3; k++) gap += pdist(pts, LIDS[e * 3 + k][0], LIDS[e * 3 + k][1]);
+      var w = pdist(pts, EYE_CORNERS[e][0], EYE_CORNERS[e][1]);
+      if (w < 1e-6) return null;
+      out[e] = gap / 3 / w;
+    }
     return out;
   };
   F.pointOffsets = function (rest, now, chosen, side) {
@@ -288,6 +310,8 @@
   S.watchPoints = function (list) { this.watched = (list || []).slice(); };
   S.process = function (raw, t, xyz) {
     var pts = raw && xyz ? F.normalizePoints(xyz) : null;
+    var gaps = F.eyeGaps(pts);
+    if (gaps) { raw = Object.assign({}, raw); raw[F.GAP_LEFT] = gaps[0]; raw[F.GAP_RIGHT] = gaps[1]; }   // kept with the neutral like the rest
     var dt = this.lastT !== this.lastT ? 0 : clamp(t - this.lastT, 0, 0.5), target;
     this.lastT = t;
     if (raw) {
@@ -324,7 +348,8 @@
   };
   S.calibrate = function (raw, pts) {
     if (this.checking) { if (this.checking.add(raw)) { this.cal = this.checking.apply(); this.lastCheck = this.checking; this.checking = null; if (this.persist) F.save(this.cal); } return; }
-    if (!(this.wantNeutral || (this.autoNeutral && !this.cal.neutralSet))) { this.capture = null; return; }
+    var noLids = raw[F.GAP_LEFT] != null && !(rest(this.cal, F.GAP_LEFT) > 0);      // a neutral saved before the lids: taken again
+    if (!(this.wantNeutral || (this.autoNeutral && (!this.cal.neutralSet || noLids)))) { this.capture = null; return; }
     if (!this.capture) this.capture = new F.Capture(this.cal, NEUTRAL_FRAMES);
     if (this.capture.addWithPoints(raw, pts)) { this.cal = this.capture.result(); this.capture = null; this.wantNeutral = false; if (this.persist) F.save(this.cal); }
   };
@@ -343,7 +368,7 @@
     if (mm) {   // in degrees, + = the person's right / looking down (the owner, 11-22: both ran backwards before)
       raw[F.HEAD_YAW] = -Math.atan2(mm[8], mm[10]) * D;
       raw[F.HEAD_PITCH] = Math.asin(clamp(-mm[9], -1, 1)) * D;
-      raw[F.HEAD_ROLL] = -Math.atan2(mm[1], mm[5]) * D;
+      raw[F.HEAD_ROLL] = Math.atan2(mm[1], mm[5]) * D;    // the owner, 11-22 (round 2): tilt ran against turning, Mirror on or off
     }
     var p = r.faceLandmarks[0], x0 = 1, x1 = 0, y0 = 1, y1 = 0;
     OVAL.forEach(function (i) { var q = p[i]; if (!q) return; x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); });

@@ -108,6 +108,45 @@ public class FaceParityDump {
             pframes.add(fr);
         }
         root.add("pointStage", pframes);
+
+        // the lids (11-22): the owner's eye-test frames against a neutral with the gap, both side namings
+        FaceCalibration.Capture lc = new FaceCalibration.Capture(FaceCalibration.none(), 4);
+        for (int i = 0; i < 4; i++) lc.add(FaceEngineTest.eyes(0.15f, 0.18f, 0.26f, 0.32f, 0.30f));
+        FaceCalibration lidCal = lc.result();
+        float[][] eyeFrames = {{0.66f, 0.82f, 0.75f, 0.03f, 0.046f}, {0.54f, 0.58f, 0.57f, 0.097f, 0.095f},
+                {0.62f, 0.29f, 0.47f, 0.105f, 0.24f}, {0.20f, 0.26f, 0.42f, 0.257f, 0.279f}, {0.3f, 0.3f, 0.3f, 0.16f, 0.15f}};
+        JsonArray lcases = new JsonArray();
+        for (FaceCalibration lcal : new FaceCalibration[]{lidCal, lidCal.withSwapSides(true)}) {
+            for (float[] e : eyeFrames) {
+                for (FaceTuning tun : tunings) {
+                    Map<String, Float> raw = FaceEngineTest.eyes(e[0], e[1], e[2], e[3], e[4]);
+                    JsonObject c = new JsonObject();
+                    c.add("cal", lcal.toJson());
+                    c.add("raw", gson.toJsonTree(raw));
+                    c.add("tun", tun.toJson());
+                    c.add("out", gson.toJsonTree(FaceMapper.map(raw, lcal, tun)));
+                    lcases.add(c);
+                }
+            }
+        }
+        root.add("lidCases", lcases);
+        // a stage on drawn eyes: an old neutral without lids (taken again), then a blink, a wink, a loss, a return
+        FaceStage ls = new FaceStage(cal, new FaceTuning());
+        root.add("lidStageCal", cal.toJson());
+        JsonArray lframes = new JsonArray();
+        t = 0;
+        for (int i = 0; i < 50; i++, t += 1 / 15.0) {
+            float[] xyz = i < 14 ? FaceEngineTest.eyeCloud(1f, 1f) : i < 20 ? FaceEngineTest.eyeCloud(0.05f, 0.05f)
+                    : i < 26 ? FaceEngineTest.eyeCloud(0.1f, 0.9f) : i < 34 ? null : FaceEngineTest.eyeCloud(0.5f, 0.5f);
+            Map<String, Float> raw = xyz == null ? null : FaceEngineTest.face();
+            JsonObject fr = new JsonObject();
+            fr.addProperty("t", t);
+            fr.add("raw", raw == null ? null : gson.toJsonTree(raw));
+            fr.add("xyz", xyz == null ? null : gson.toJsonTree(xyz));
+            fr.add("out", gson.toJsonTree(ls.process(raw, xyz, t)));
+            lframes.add(fr);
+        }
+        root.add("lidStage", lframes);
         try (Writer w = new OutputStreamWriter(new FileOutputStream(a[0]), StandardCharsets.UTF_8)) {
             gson.toJson(root, w);
         }

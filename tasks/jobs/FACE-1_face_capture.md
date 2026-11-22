@@ -195,6 +195,32 @@ his face underneath, with a way back to the plain map.
 | ✅ | Phone: his Directions answers on the Note 9 (roll the other way; the model names sides the person's own way) are now the defaults, so a phone needs no check; a neutral saved before is re-taken (calibration version 3) | PC checks; cloud build |
 | ✅ | **Found and fixed before it reached him:** the face's points were stored under the tracker's own name and would have stopped the camera after one frame. The face-pins break test now feeds its made-up face through the pilot's real camera code, and plants that fault (8 of 8 caught) | browser |
 
+## Round 2 on the Note 9 (11-22, the pilot in Chrome): the owner's tests and what changed
+Two guided tests on his own face, read from the page over USB (numbers only; no picture kept): 13 held moves (turn, look
+up and down, tilt, one eye, one brow, half smile, mouth wide, lean, cover the camera), then an eye test with a beep per
+step (eyes shut, blinks, a wink each side, "ahh", a smile, a half smile), every camera frame (about 15 a second) with the
+tracker's own values beside the lids' gap measured on the face's points.
+
+| | What he saw or the numbers showed | What changed | Checked |
+|---|---|---|---|
+| ✅ | **Tilt ran against turning:** Mirror on, turning right was right but tilting was reversed; Mirror off, the other way round | The pilot's tilt now reads the same way round as the phone's (whose direction check he did on the bench) | **Owner: "Tilt is correct. Head turn is correct."** |
+| ✅ | **Blinks barely registered** ("the default Google face mask ... would move correctly with my face", the character's did not). Eyes held shut: the lids' gap closed about 90%, the character's eyes a third to half. A quick blink: the gap about 70%, the eyes about 30%. The tracker's own blink value stops near 0.66 with his eyes shut and its "looking down" rises with them, which the old curve took off again | The eyes now read **the lids' gap on the face's points** against his neutral, on the phone and in the pilot alike; the tracker's blink value only when there are no points. A neutral saved before is taken again by itself at the next still half-second (direction answers kept) | PC: his own frames give shut 1.0, a quick blink and a wink above 0.85, a smile and looking down 0. His look owed |
+| ✅ | Winks land on the right side (the gap and the tracker agree on which eye) | the same change: a wink now closes all the way | PC |
+| 🟡 | **A half smile** reads on both corners almost alike: the tracker's own limit | none yet. A face pin on one mouth corner gives a one-sided smile now; reading the corners on the points (as the lids now are) would fix it in the engine | numbers |
+| ✅ | "Ahh" opens the mouth with no smile; a closed smile reads clearly | none needed (the first test's smile with the mouth wide was most likely a grin) | numbers |
+| ✅ | Covering the camera: the face eased away and came back | none needed | numbers |
+
+Tests: 10 new lid checks in `FaceEngineTest` on his own frames, written first: 7 failed before the change; the other
+three guard that a smile or looking down is no blink and that a wink lands on its own eye (each caught by its plant);
+the phone/pilot comparison now runs his eye-test frames too (11,832 values agree), 8 new planted faults (44 of 44 caught
+in all); the pilot's face-pins break test still 12 checks, 8 of 8 plants caught.
+
+Ideas he gave while testing: **shoulder shrugs** (needs Google's separate body tracker; see full-body below) and
+**walking by your face** like Adobe Character Animator: face left or right of the camera walks the character, closer
+walks it toward the camera and further steps it back, scaling as it goes, and a plain closer/further switch, all as tick
+boxes in a Perform drawer, nice both on the plain stage and in a scene. Sent to the walk-stage session (the pilot's
+`leanX`, `leanY`, `near` already exist; walking toward and away from the camera does not yet).
+
 ## The seam: what the phone room must call
 ```
 onCreate      FaceCapture face = new FaceCapture(this);
@@ -235,7 +261,11 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
       turn off, fixed in `b25adf9ce`.
 - [x] `b25adf9ce` on the Note 9; the owner sees the outline sit on his face ("Yes, it lines up", 11-22).
 - [x] Face pins (ideas 1 and 2): built in the web pilot with the phone engine half (11-22, above).
-- [ ] Face pins on the Note 9 with the owner's face (the pilot's local page in Chrome).
+- [x] Tilt the same way round as turning in the pilot: the owner confirmed both on the Note 9 (11-22).
+- [ ] His look at the blinks from the lids (pilot in Chrome, on the Note 9 now), then the phone build with it.
+- [ ] Face pins round 2 (Mirror default, Live and Pick, labelled Remove, in Set up) with his face on the Note 9.
+- [ ] A one-sided smile from the mouth corners on the points, as the lids now are (the tracker reads both corners alike).
+- [ ] Walking by your face (owner's idea, 11-22): sent to the walk-stage session; the face signals exist.
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.
 - [ ] The AVA-1 lead adds the pilot hook, and the owner tries the pilot's face on the PC page.
 - [ ] The phone room (AVA-1 "path to the phone") plugs in `FaceCapture` as written above, with a masked mouth and teeth

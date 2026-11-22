@@ -123,6 +123,12 @@ public final class FaceStage {
     @NonNull
     public Map<String, Float> process(@Nullable Map<String, Float> raw, @Nullable float[] xyz, double t) {
         float[] pts = raw != null && xyz != null ? FacePoints.normalize(xyz) : null;
+        float[] gaps = FacePoints.eyeGaps(pts);
+        if (gaps != null) {                    // the lids, measured on the points (kept with the neutral like the rest)
+            raw = new HashMap<>(raw);
+            raw.put(FacePoints.GAP_LEFT, gaps[0]);
+            raw.put(FacePoints.GAP_RIGHT, gaps[1]);
+        }
         double dt = Double.isNaN(lastT) ? 0 : Math.max(0, Math.min(0.5, t - lastT));
         lastT = t;
         FaceCalibration c = cal;
@@ -220,7 +226,9 @@ public final class FaceStage {
             return;
         }
         if (check != null) return; // no neutral while someone is turning their head on purpose
-        boolean want = neutralRequested || (autoNeutral && !c.isNeutralSet());
+        // a neutral saved before the lids were measured is taken again by itself (its direction answers kept)
+        boolean noLids = raw.containsKey(FacePoints.GAP_LEFT) && c.rest(FacePoints.GAP_LEFT) <= 0f;
+        boolean want = neutralRequested || (autoNeutral && (!c.isNeutralSet() || noLids));
         if (!want) {
             capture = null;
             captureCount = 0;

@@ -66,13 +66,18 @@ public final class FaceMapper {
         o.put(FaceSignals.LOOK_X, sgn(flip * towardR * 1.6f * tun.eyes));
         o.put(FaceSignals.LOOK_Y, sgn((lookDown - lookUp) * 1.6f * tun.eyes));
 
-        float cl = s.charL("eyeBlink"), cr = s.charR("eyeBlink");
+        // The lids' gap on the face's points against this person's neutral, when there are points: the
+        // tracker's own blink value stopped near two thirds with the owner's eyes shut and read closing
+        // eyes as looking down (Note 9, 11-22). Without points, its blink value as before.
+        float gl = s.shutL(), gr = s.shutR();
+        boolean lids = gl >= 0f && gr >= 0f;
+        float cl = lids ? gl : s.charL("eyeBlink"), cr = lids ? gr : s.charR("eyeBlink");
         if (tun.blinkSync) { // on the lids' own closure, before the blink curve sharpens any difference
             float avg = (cl + cr) / 2f, w = smoothstep(0.15f, 0.35f, Math.abs(cl - cr));
             cl = avg + (cl - avg) * w;
             cr = avg + (cr - avg) * w;
         }
-        float bl = blink(cl, lookDown), br = blink(cr, lookDown);
+        float bl = lids ? lidBlink(cl) : blink(cl, lookDown), br = lids ? lidBlink(cr) : blink(cr, lookDown);
         o.put(FaceSignals.BLINK_L, amt(bl));
         o.put(FaceSignals.BLINK_R, amt(br));
         o.put(FaceSignals.SQUINT_L, amt((s.charL("eyeSquint") + 0.5f * s.charL("cheekSquint")) * tun.eyes));
@@ -155,6 +160,14 @@ public final class FaceMapper {
         return smoothstep(0.12f, 0.8f, closure - 0.4f * lookDown);
     }
 
+    /**
+     * The lids' closure (1 - gap / neutral gap) to a blink. Looking down or a big smile narrows the
+     * gap by up to about a quarter: still open. A quick blink (the owner's: 70%) lands, shut is shut.
+     */
+    static float lidBlink(float closure) {
+        return smoothstep(0.3f, 0.75f, closure);
+    }
+
     static float smoothstep(float a, float b, float x) {
         float t = clamp((x - a) / (b - a), 0f, 1f);
         return t * t * (3f - 2f * t);
@@ -205,6 +218,22 @@ public final class FaceMapper {
 
         float charR(String base) {
             return mirror ? personR(base) : personL(base);
+        }
+
+        /** How far the character's left eye's lids have closed from the neutral gap, 0..1; -1 with no gap to read. */
+        float shutL() {
+            return shut("eyeGap" + ((mirror ? cal.swapSides() : !cal.swapSides()) ? "Left" : "Right"));
+        }
+
+        float shutR() {
+            return shut("eyeGap" + ((mirror ? cal.swapSides() : !cal.swapSides()) ? "Right" : "Left"));
+        }
+
+        private float shut(String k) {
+            Float v = raw.get(k);
+            float r = cal.rest(k);
+            if (v == null || v.isNaN() || r < 1e-4f) return -1f;
+            return clamp(1f - v / r, 0f, 1f);
         }
     }
 }

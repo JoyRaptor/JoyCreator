@@ -7,6 +7,7 @@ import com.fadcam.ui.faditor.avatar.face.FaceCalibration;
 import com.fadcam.ui.faditor.avatar.face.FaceFollower;
 import com.fadcam.ui.faditor.avatar.face.FaceMapper;
 import com.fadcam.ui.faditor.avatar.face.FacePass;
+import com.fadcam.ui.faditor.avatar.face.FacePoints;
 import com.fadcam.ui.faditor.avatar.face.FaceSignals;
 import com.fadcam.ui.faditor.avatar.face.FaceStage;
 import com.fadcam.ui.faditor.avatar.face.FaceTuning;
@@ -325,6 +326,7 @@ public class FaceEngineTest {
                 "on playback a sheet mouth steps from shape to shape (never flashes the shapes between)");
 
         facePins();
+        lids();
 
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
         System.exit(fails == 0 ? 0 : 1);
@@ -406,6 +408,85 @@ public class FaceEngineTest {
         check(Math.abs(g(o, FaceSignals.pointX(corner)) - so[0]) < 0.002f, "face pins: a watched point is put out with the face");
         for (int i = 0; i < 40; i++) o = st.process(null, null, t += 1 / 15.0);
         check(Math.abs(g(o, FaceSignals.pointX(corner))) < 0.002f, "face pins: a lost face lets its pins settle back to rest");
+    }
+
+    // ── the lids (the owner, 11-22): eyes held shut showed a third closed, blinks barely registered ──
+
+    /** The owner's eye test on the Note 9 (Chrome, 11-22), frame values as the tracker gave them. */
+    static Map<String, Float> eyes(float blinkL, float blinkR, float lookDown, float gapL, float gapR) {
+        return face("eyeBlinkLeft", blinkL, "eyeBlinkRight", blinkR, "eyeLookDownLeft", lookDown, "eyeLookDownRight", lookDown,
+                "eyeGapLeft", gapL, "eyeGapRight", gapR);
+    }
+
+    static void lids() {
+        FaceCalibration.Capture c = new FaceCalibration.Capture(FaceCalibration.none(), 4);
+        for (int i = 0; i < 4; i++) c.add(eyes(0.15f, 0.18f, 0.26f, 0.32f, 0.30f));
+        FaceCalibration cal = c.result();
+        FaceTuning tun = new FaceTuning();
+        Map<String, Float> shut = FaceMapper.map(eyes(0.66f, 0.82f, 0.75f, 0.03f, 0.046f), cal, tun);
+        check(g(shut, FaceSignals.BLINK_L) > 0.95f && g(shut, FaceSignals.BLINK_R) > 0.95f,
+                "lids: eyes held shut close all the way (the tracker's own blink value stops near two thirds, and calls it looking down)");
+        Map<String, Float> quick = FaceMapper.map(eyes(0.54f, 0.58f, 0.57f, 0.097f, 0.095f), cal, tun);
+        check(g(quick, FaceSignals.BLINK_L) > 0.85f && g(quick, FaceSignals.BLINK_R) > 0.85f,
+                "lids: a quick blink lands (it showed 30% before)");
+        Map<String, Float> wink = FaceMapper.map(eyes(0.62f, 0.29f, 0.47f, 0.105f, 0.24f), cal, tun);
+        check(g(wink, FaceSignals.BLINK_L) > 0.85f && g(wink, FaceSignals.BLINK_R) < 0.1f,
+                "lids: a wink of the right eye closes the character's left, like a reflection, and only that one");
+        FaceTuning mir = new FaceTuning(); mir.mirror = true;
+        Map<String, Float> winkM = FaceMapper.map(eyes(0.62f, 0.29f, 0.47f, 0.105f, 0.24f), cal, mir);
+        check(g(winkM, FaceSignals.BLINK_R) > 0.85f && g(winkM, FaceSignals.BLINK_L) < 0.1f, "lids: Mirror off swaps the winking eye");
+        Map<String, Float> smile = FaceMapper.map(eyes(0.20f, 0.26f, 0.42f, 0.257f, 0.279f), cal, tun);
+        check(g(smile, FaceSignals.BLINK_L) < 0.1f && g(smile, FaceSignals.BLINK_R) < 0.1f, "lids: a big smile's narrowed eyes stay open");
+        Map<String, Float> down = FaceMapper.map(eyes(0.35f, 0.38f, 0.8f, 0.24f, 0.225f), cal, tun);
+        check(g(down, FaceSignals.BLINK_L) < 0.1f, "lids: looking down (the lids follow the eyes a quarter of the way) is not a blink");
+        Map<String, Float> half = FaceMapper.map(eyes(0.3f, 0.3f, 0.3f, 0.16f, 0.15f), cal, tun);
+        check(g(half, FaceSignals.BLINK_L) > 0.15f && g(half, FaceSignals.BLINK_L) < 0.85f, "lids: a half-closed lid is half closed");
+
+        // through the stage: the gap measured on the face's points, its neutral kept with the rest
+        float[] open = eyeCloud(1f, 1f), closed = eyeCloud(0.044f, 0.044f);
+        FaceStage st = new FaceStage(FaceCalibration.none(), new FaceTuning());
+        double t = 0;
+        for (int i = 0; i < 12; i++) st.process(face(), open, t += 1 / 15.0);
+        Map<String, Float> o = null;
+        for (int i = 0; i < 6; i++) o = st.process(face("eyeBlinkLeft", 0.66f, "eyeBlinkRight", 0.66f,
+                "eyeLookDownLeft", 0.75f, "eyeLookDownRight", 0.75f), closed, t += 1 / 15.0);
+        check(g(o, FaceSignals.BLINK_L) > 0.9f && g(o, FaceSignals.BLINK_R) > 0.9f,
+                "lids: the stage measures the lids on the face's points, from the neutral it took itself");
+        FaceStage wk = new FaceStage(FaceCalibration.none(), new FaceTuning());
+        t = 0;
+        for (int i = 0; i < 12; i++) wk.process(face(), open, t += 1 / 15.0);
+        for (int i = 0; i < 6; i++) o = wk.process(face(), eyeCloud(0.05f, 1f), t += 1 / 15.0);
+        check(g(o, FaceSignals.BLINK_L) > 0.9f && g(o, FaceSignals.BLINK_R) < 0.1f,
+                "lids: a wink measured on the points closes the right eye's side (the character's left, like a reflection)");
+
+        // a neutral saved before the lids were measured: taken again by itself, the direction answers kept
+        FaceCalibration before = neutral().withSign(FaceCalibration.HEAD_ROLL, -1);
+        FaceStage again = new FaceStage(before, new FaceTuning());
+        t = 0;
+        for (int i = 0; i < 12; i++) again.process(face(), open, t += 1 / 15.0);
+        FaceCalibration now = again.calibration();
+        check(now.rest(FacePoints.GAP_LEFT) > 0.1f && now.signRoll() == -1,
+                "lids: a neutral saved before (no lids in it) is taken again by itself, the direction answers kept");
+    }
+
+    /** {@link #cloud()} with two eyes drawn in, each lid gap a share of open (1 open, 0 shut): the person's right eye first. */
+    static float[] eyeCloud(float right, float left) {
+        float[] p = cloud();
+        int[][] lid = {{159, 145}, {160, 144}, {158, 153}, {386, 374}, {385, 380}, {387, 373}};
+        int[][] corners = {{33, 133}, {263, 362}};
+        for (int e = 0; e < 2; e++) {
+            int a = corners[e][0], b = corners[e][1];
+            float x0 = e == 0 ? 0.455f : 0.545f, w = 0.03f, y = 0.57f, half = 0.0045f * (e == 0 ? right : left);
+            p[a * 3] = x0 - w / 2; p[a * 3 + 1] = y; p[b * 3] = x0 + w / 2; p[b * 3 + 1] = y;
+            p[a * 3 + 2] = p[b * 3 + 2] = 0f;
+            for (int k = 0; k < 3; k++) {
+                int up = lid[e * 3 + k][0], lo = lid[e * 3 + k][1];
+                float x = x0 + (k - 1) * w / 4;
+                p[up * 3] = x; p[up * 3 + 1] = y - half; p[lo * 3] = x; p[lo * 3 + 1] = y + half;
+                p[up * 3 + 2] = p[lo * 3 + 2] = 0f;
+            }
+        }
+        return p;
     }
 
     static float spread(float[] p) {

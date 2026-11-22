@@ -44,6 +44,13 @@ pst.watchPoints([61, 17]);
 dump.pointStage.forEach((fr, i) => same(`face-pin stage frame ${i}`, fr.out,
   pst.process(fr.raw, fr.t, fr.xyz ? Float32Array.from(fr.xyz) : null)));
 
+// the lids: the owner's eye-test frames, and a stage on drawn eyes that re-takes an old neutral
+(dump.lidCases || []).forEach((c, i) => same(`lids ${i}`, c.out, F.map(c.raw, F.calibration(c.cal), c.tun)));
+if (dump.lidStage) {
+  const lst = new F.Stage(F.calibration(dump.lidStageCal), {});
+  dump.lidStage.forEach((fr, i) => same(`lid stage frame ${i}`, fr.out, lst.process(fr.raw, fr.t, fr.xyz ? Float32Array.from(fr.xyz) : null)));
+}
+
 console.log(fails === 0
   ? `PASS  the pilot reads every face as the phone does (${compared} values, ${dump.cases.length} faces, ${dump.stage.length} stage frames)`
   : `FAIL  ${fails} of ${compared} values differ between the phone and the pilot`);

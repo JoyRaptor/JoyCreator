@@ -113,6 +113,7 @@
   };
   moves.sheet = function (app) {
     var ui = app.ui, m = moves.map(app), acts = moves.acts(app), body = h('div');
+    var dep = AL.stickDepth && AL.stickDepth.toggle(app, function () { moves.sheet(app); }); if (dep) body.appendChild(dep);      // (the pad in perspective: al-stick-depth.js)
     moves.SLOTS.forEach(function (s) {
       var cur = acts.filter(function (a) { return a.key === m[s[0]]; })[0];
       body.appendChild(h('div', { class: 'gsh' }, [moves.glyph(s[0]), h('span', { text: s[1] }), h('small', { text: cur ? cur.name : 'Nothing' })]));

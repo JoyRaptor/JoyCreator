@@ -66,7 +66,8 @@
     var w = inp.walker, z = size(app), g0 = w.g0; if (!g0) { grab(app); g0 = w.g0; if (!g0) return; }
     var sp = stick.SPEED * z.h * dt, lim = w.lim || [-z.w * 0.7, z.w * 0.7];                         // (alone: the room to walk the view keeps each side, app.fit. In a scene: across the stage and off either side, al-stage-walk.js)
     K.v[0] = clamp(K.v[0] + gx * sp, lim[0] - g0.tx, lim[1] - g0.tx);                                // stays within reach of the picture, or of the stage
-    K.v[1] = clamp(K.v[1] + gy * sp, w.base - z.h - g0.ty, w.base + z.h * 0.5 - g0.ty);              // up toward a jump, down toward a crouch, never off the ground for good
+    if (AL.stickDepth && AL.stickDepth.on(app)) { K.v[1] = 0; AL.stickDepth.step(app, K, dt); }      // in perspective: up and down walk into the picture and out (al-stick-depth.js)
+    else K.v[1] = clamp(K.v[1] + gy * sp, w.base - z.h - g0.ty, w.base + z.h * 0.5 - g0.ty);       // up toward a jump, down toward a crouch, never off the ground for good
     w.drag(K.v);
   };
   AL.app.hooks.push(function (dt) { if (K.on) stick.step(AL.app, dt || 1 / 30); });
@@ -80,6 +81,7 @@
       g.strokeStyle = '#2c2c35'; g.lineWidth = 1; g.beginPath(); g.arc(m, m, r, 0, 7); g.stroke(); g.beginPath(); g.arc(m, m, r * 0.45, 0, 7); g.stroke();
       g.strokeStyle = '#71717a'; g.lineWidth = 1.6; g.lineCap = 'round'; g.lineJoin = 'round';
       [[0, -1], [0, 1], [-1, 0], [1, 0]].forEach(function (d) { var tx = m + d[0] * (r + 9), ty = m + d[1] * (r + 9), px = -d[1], py = d[0]; g.beginPath(); g.moveTo(tx - d[0] * 5 + px * 4, ty - d[1] * 5 + py * 4); g.lineTo(tx, ty); g.lineTo(tx - d[0] * 5 - px * 4, ty - d[1] * 5 - py * 4); g.stroke(); });
+      if (AL.stickDepth && AL.stickDepth.on(AL.app)) AL.stickDepth.grid(g, s, m, r, AL.stickDepth.phase(AL.app));      // in perspective: a thin floor under the knob
       var kx = m + K.x * r, ky = m + K.y * r;
       if (K.on) { g.strokeStyle = 'rgba(244,63,142,.45)'; g.lineWidth = 3; g.beginPath(); g.moveTo(m, m); g.lineTo(kx, ky); g.stroke(); }
       g.beginPath(); g.arc(kx, ky, 13, 0, 7); g.fillStyle = K.on ? '#f43f8e' : '#1c1c22'; g.fill(); g.strokeStyle = live ? '#f43f8e' : '#e4e4e7'; g.lineWidth = 2; g.stroke();

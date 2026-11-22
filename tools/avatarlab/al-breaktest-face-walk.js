@@ -21,12 +21,14 @@
  *   plain    always    the plain stage is given depth with every tick box off
  *   fours    leg       a leg comes off while it walks closer on all fours
  *   deadz    nodeadz   no dead zone for closer and further
+ *   stick    stickflat the joystick in perspective still jumps and crouches   nogrid   no floor grid in the pad
+ *            stickundo the perspective tick is changed behind Undo's back     noflick  a flick up no longer jumps in perspective
  */
 (function (root) {
   'use strict';
   var AL = root.AL, T = AL.breakTest, K = T.kit, Wk = T.walk, FWT = T.faceWalk = {}, scene = AL.scene, fw = AL.faceWalk, dw = AL.depthWalk, W = scene.W, H = scene.H;
-  var PARTS = ['lr', 'deep', 'front', 'close', 'drawer', 'scene', 'take', 'own', 'plain', 'fours', 'deadz'];
-  var FACE = { leanX: 0, near: 0, face: 1 }, KEEP = { plain: dw.plain, front: dw.front, footY: dw.footY, scene: dw.scene, drawer: fw.drawer, step: fw.step, on: fw.on };
+  var PARTS = ['lr', 'deep', 'front', 'close', 'drawer', 'scene', 'take', 'own', 'plain', 'fours', 'deadz', 'stick'];
+  var FACE = { leanX: 0, near: 0, face: 1 }, KEEP = { plain: dw.plain, front: dw.front, footY: dw.footY, scene: dw.scene, drawer: fw.drawer, step: fw.step, on: fw.on, sdOn: AL.stickDepth.on, sdGrid: AL.stickDepth.grid };
   function q(sel) { return document.querySelector(sel); }
   function r1(v) { return Math.round(v * 10) / 10; }
   function face(lx, nz) { FACE.leanX = lx; FACE.near = nz; }
@@ -57,6 +59,9 @@
   function box(app) { var y0 = 1e9, y1 = -1e9; app.out.items.forEach(function (it) { if (it.ghost) return; for (var i = 1; i < it.v.length; i += 2) { y0 = Math.min(y0, it.v[i]); y1 = Math.max(y1, it.v[i]); } }); return { y0: y0, y1: y1 }; }
   function legKeys(w) { var l = w.legs(); return l ? l.base.map(function (q) { return q.key; }) : []; }
 
+  /** Simulated time, with the page's last real frame let through first: a frame the page had already asked for still comes once, with a real
+      timestamp, and would put every take's clock off its 33 ms steps for the rest of the run (the first run after a load failed that way). */
+  async function simOn() { if (K._sim) return; K.sim(true); await new Promise(function (r) { setTimeout(r, 1200); }); K._sim.now = performance.now() + 50; }
   var part = {};
   part.lr = async function (X, F, plant, app) {
     await rest(app); var w = app.inp.walker, on0 = fw.on;
@@ -146,6 +151,34 @@
     finally { fw.DEAD.z = 0.15; }
   };
 
+  /* the joystick in perspective (al-stick-depth.js): up walks away, down walks toward you, left and right as before, flicks still jump; a floor grid in the pad */
+  function cyan(pad) { var c = pad.querySelector('canvas'), g = c.getContext('2d'), d = g.getImageData(0, 0, c.width, c.height).data, n = 0; for (var i = 0; i < d.length; i += 4) if (d[i + 3] > 10 && d[i + 2] > d[i] + 40 && d[i + 1] > d[i] + 30) n++; return n; }
+  part.stick = async function (X, F, plant, app) {
+    await rest(app); var inp = app.inp, w = inp.walker, sd = AL.stickDepth, on0 = sd.on, grid0 = sd.grid, sw0 = AL.stick.SWIPE.dist, st = app.ch.settings, keep = JSON.stringify(st.stick || null);
+    var ev = function (el, type, x, y) { el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 5, clientX: x, clientY: y, button: 0, isPrimary: true })); };
+    var wait = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+    if (plant === 'stickflat') sd.on = function () { return false; };
+    if (plant === 'nogrid') sd.grid = function () { };
+    if (plant === 'noflick') AL.stick.SWIPE.dist = 99;
+    try {
+      AL.stick.set(app, true); await K.raf(3); var pad = q('.stickpad'); if (!pad) { F('stick: the joystick in perspective walks away and toward you', false, 'no pad'); return; }
+      var n0 = app.hist.past.length;
+      if (plant === 'stickundo') { st.stick = st.stick || {}; st.stick.depth = true; } else { var tick = sd.toggle(app); tick.click(); }
+      var oneStep = app.hist.past.length === n0 + 1; await K.raf(4); pad = q('.stickpad');
+      var lit = cyan(pad); st.stick.depth = false; app.refreshPanel(true); await K.raf(3); var dark = cyan(q('.stickpad')); st.stick.depth = true; app.refreshPanel(true); await K.raf(3); pad = q('.stickpad');
+      F('stick: in the joystick\'s settings, "Up and down walk into the picture" is one Undo step, and a thin floor grid shows in the pad while it is on', oneStep && lit > 200 && dark < 20, { undoStep: oneStep, gridPixels: lit, without: dark });
+      var r = pad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, y0 = w.y - w.base;
+      ev(pad, 'pointerdown', cx, r.top + 4); await K.raf(40); await wait(420); ev(pad, 'pointerup', cx, r.top + 4); await K.raf(10); var away = w.base, sAway = inp.S.rootScale, crouch = Math.abs(w.y - w.base - y0);
+      ev(pad, 'pointerdown', cx, r.bottom - 4); await K.raf(90); await wait(420); ev(pad, 'pointerup', cx, r.bottom - 4); await K.raf(40); var near = w.base, sNear = inp.S.rootScale;
+      ev(pad, 'pointerdown', r.left + 4, cy); await K.raf(25); await wait(420); ev(pad, 'pointerup', r.left + 4, cy); await K.raf(10); var left = w.tx;
+      F('stick: pushed up it walks away from you (smaller), pulled down it comes toward you (bigger), left still walks left, and it neither jumps nor crouches', away < -5 && sAway < 0.97 && near > 5 && sNear > 1.05 && left < -10 && crouch < 6 && !w.air, { away: Math.round(away), scaleAway: r1(sAway * 100) / 100, near: Math.round(near), scaleNear: r1(sNear * 100) / 100, left: Math.round(left), crouch: r1(crouch) });
+      w.home(); await K.raf(150); var y1 = w.y, air = false, top = w.y;
+      ev(pad, 'pointerdown', cx, cy); ev(pad, 'pointermove', cx, cy - r.height * 0.35); ev(pad, 'pointerup', cx, cy - r.height * 0.35);
+      for (var i = 0; i < 34; i++) { await K.raf(1); await wait(30); if (w.air) air = true; top = Math.min(top, w.y); }
+      F('stick: in perspective a flick up still jumps', air && top < y1 - 5, { air: air, rose: Math.round(y1 - top) });
+    } finally { sd.on = on0; sd.grid = grid0; AL.stick.SWIPE.dist = sw0; st.stick = JSON.parse(keep) || undefined; AL.stick.release(app); AL.stick.set(app, false); await K.raf(2); }
+  };
+
   /* ── in a scene ── */
   async function inScene(X, app) {
     if (!app.scene) { await scene.create(app, 'meadow', 'Face walk test'); await K.raf(8); }
@@ -201,7 +234,7 @@
   };
 
   FWT.run = async function (opt) {
-    K.sim(true);      // (every count of frames here is a count of 33 ms steps, as in a take: on the page's own clock, 60 a second, they would be half as long. Reload the page afterwards)
+    await simOn();      // (every count of frames here is a count of 33 ms steps, as in a take: on the page's own clock, 60 a second, they would be half as long. Reload the page afterwards)
     opt = opt || {}; var app = AL.app, X = K.mk(), F = X.F, plant = opt.plant || '', only = opt.only || PARTS, src0 = fw.source, room0 = JSON.stringify({ lr: fw.room.lr, depth: fw.room.depth });
     try {
       if (app.scene) await scene.close(app, true);
@@ -217,7 +250,7 @@
       }
       F('99 nothing thrown by the end', !scene._err);
     } catch (e) { X.fails.push({ label: 'THROWN', info: String(e && e.stack || e).slice(0, 700) }); }
-    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.yields = true; FACE.roll = 0;      // (whatever a planted fault replaced, back)
+    fw.source = src0; dw.plain = KEEP.plain; dw.front = KEEP.front; dw.footY = KEEP.footY; dw.scene = KEEP.scene; fw.drawer = KEEP.drawer; fw.step = KEEP.step; fw.on = KEEP.on; AL.stickDepth.on = KEEP.sdOn; AL.stickDepth.grid = KEEP.sdGrid; fw.DEAD.x = 0.18; fw.DEAD.z = 0.15; fw.TILT = 0.36; fw.yields = true; FACE.roll = 0;      // (whatever a planted fault replaced, back)
     try { var r0 = JSON.parse(room0); fw.room.lr = r0.lr; fw.room.depth = r0.depth; } catch (e) { }
     try { if (AL.app.scene) await scene.close(AL.app, true); } catch (e2) { }
     try { var mine = (await scene.list(AL.app)).filter(function (e) { return e.name === 'Face walk test'; }); for (var m = 0; m < mine.length; m++) await scene.forget(AL.app, mine[m].uid); } catch (e4) { }
@@ -227,7 +260,8 @@
   };
   FWT.WANT = { lroff: ['lr', /^lr: your face to the right/], tilt: ['lr', /^lr: tilting the head/], tight: ['lr', /^lr: your face to the right/], nodead: ['lr', /^lr: a little drift/], float: ['deep', /^deep: \.\.\.growing from its eye line/], slide: ['deep', /^deep: \.\.\.with real steps/], nostep: ['deep', /^deep: \.\.\.with real steps/],
     front: ['front', /^front: walking toward/], stuck: ['close', /^close: /], drawer: ['drawer', /^drawer: /], order: ['scene', /^scene: \.\.\.and once/], flat: ['scene', /^scene: coming closer/], shrink: ['take', /^take: /],
-    unowned: ['own', /^own: /], keepown: ['take', /^take: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /] };
+    unowned: ['own', /^own: /], keepown: ['take', /^take: /], always: ['plain', /^plain: /], leg: ['fours', /^fours: /], nodeadz: ['deadz', /^deadz: /],
+    stickflat: ['stick', /^stick: pushed up/], nogrid: ['stick', /^stick: in the joystick/], stickundo: ['stick', /^stick: in the joystick/], noflick: ['stick', /^stick: in perspective a flick/] };
   FWT.proof = async function (only) {
     var out = {}, want = FWT.WANT;
     for (var k in want) { if (only && only.indexOf(k) < 0) continue; var r = await FWT.run({ plant: k, only: [want[k][0]] }); out[k] = { caught: r.fails.some(function (f) { return want[k][1].test(f.label); }), fails: r.fails.map(function (f) { return f.label.slice(0, 70); }).slice(0, 4) }; }

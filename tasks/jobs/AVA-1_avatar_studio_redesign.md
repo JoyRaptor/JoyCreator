@@ -691,7 +691,22 @@ they want, a centipede; arms that can become feet with one toggle").
               proven by it); any phone; the owner's eye; how it feels to steer with your face.
             - **Choices:** left/right is a rate and closer/further a position (the owner's "a few steps back"); Up close is per
               character and not kept through a reload, the two face ticks are the room's and are kept; nothing here is an Undo
-              step (performing settings, like Mirror). Walking in depth with a finger or the joystick is not built (not asked).
+              step (performing settings, like Mirror). Walking in depth with a finger is not built (not asked).
+      - [x] **The joystick in perspective (his idea, 11-22).** In the joystick's settings (the sliders button in the pad's corner), a tick
+            box at the top: "Up and down walk into the picture". On: the pad's up walks the character away from you (smaller), down
+            toward you (bigger), with the same real steps as the face's Closer and further; left and right as before; flicks are still
+            gestures (a flick up still jumps). While it is on, a thin cyan floor grid lies in the pad under the magenta knob, lines running
+            away to the top, fading toward the pad's edge (a radial fade), and drifting as the character walks in or out. Each character
+            keeps its own (`ch.settings.stick.depth`), one Undo step. File `al-stick-depth.js`; hooks in `al-stick.js` (its step, the
+            grid under the knob), `al-stick-moves.js` (the tick in the sheet), `al-face-walk.js`. Choice: up = into the background, as
+            the scene's floor goes (higher = further back) and as in a game; where the joystick leaves it, it stays (the face's walk
+            only takes back what the face or Up close did: that was a bug found by the new check and fixed).
+            Proof: 3 new checks in `al-breaktest-face-walk.js` (now 22 checks, 0 failures; 22 planted faults all caught: perspective
+            ignored, no grid, the tick behind Undo's back, a flick that no longer jumps). Looked at in the browser at phone tall: the
+            tick in the sheet with the mouse, the grid in the pad. Also fixed: the walking tests now let the page's last real frame
+            pass before simulated time (a frame already asked for came once with a real timestamp and put a take's clock off its
+            33 ms steps: the first run after a page load could fail, as the face-capture session saw). Not checked: a thumb on a
+            phone, the owner's eye.
       **His notes after trying it (11-21 late), built the same night and checked on the Note 9 in Chrome:**
       - [x] Studio's canvas texture outside the frame: the same picture Studio's CanvasFrameView paints
             (`studio_backdrop_graffiti.jpg`, kept in the pilot as `studio-backdrop.jpg`, byte for byte; the one-file build

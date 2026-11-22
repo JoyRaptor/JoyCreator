@@ -181,6 +181,9 @@
     return { d: a.length === b.length ? d : 999, frames: n, steps: steps, turns: turns, fourFrames: fourFrames };
   }
 
+  /** Simulated time, with the page's last real frame let through first: a frame the page had already asked for still comes once, with a real
+      timestamp, and would put every take's clock off its 33 ms steps for the rest of the run (the first run after a load failed that way). */
+  async function simOn() { if (K._sim) return; K.sim(true); await new Promise(function (r) { setTimeout(r, 1200); }); K._sim.now = performance.now() + 50; }
   /* ── the parts ── */
   var part = {};
   part.far = async function (X, F, plant) {
@@ -437,7 +440,7 @@
   };
 
   SW.run = async function (opt) {
-    K.sim(true);      // (every count of frames here is a count of 33 ms steps, as in a take: on the page's own clock, 60 a second, they would be half as long. Reload the page afterwards)
+    await simOn();      // (every count of frames here is a count of 33 ms steps, as in a take: on the page's own clock, 60 a second, they would be half as long. Reload the page afterwards)
     opt = opt || {}; var app = AL.app, X = K.mk(), F = X.F, plant = opt.plant || '', only = opt.only || PARTS;
     var room0 = JSON.stringify(AL.frame.room), keep = { beyond: sw.BEYOND, edge: sw.EDGE, k: tw.keep, l: tw.leads };
     try {

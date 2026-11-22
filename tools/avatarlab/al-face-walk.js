@@ -45,7 +45,7 @@
   fw.step = function (app, dt) {
     var inp = app.inp, w = inp && inp.walker; if (!w || !(app.mode === 'perform' || app.live)) return;
     var K = inp._fw || (inp._fw = { lx: 0, nz: 0, own: false }), face = fw.source(inp), lr = fw.on('lr'), dep = fw.on('depth'), up = fw.close(inp), drive = false;
-    inp._depth = !!(w.cfg() && (dep || up));
+    inp._depth = !!(w.cfg() && (dep || up || (AL.stickDepth && AL.stickDepth.on(app))));      // (the joystick in perspective walks in depth too: al-stick-depth.js)
     var replay = inp.take && !inp.recording && (inp.playing || inp.scrub);
     if (face) { var e = 1 - Math.exp(-8 * dt); K.lx += ((face.leanX || 0) - K.lx) * e; K.nz += ((face.near || 0) - K.nz) * e; } else { K.lx = 0; K.nz = 0; }
     if (!replay && !w.held) {
@@ -58,11 +58,11 @@
       }
       /* toward the camera and away: a place, set by how near the face is */
       if (w.z && w.cfg()) {
-        var zl = w.z.lim, was = w.tz;
-        if (up) w.tz = zl[1];
-        else if (dep && face) { var n = past(K.nz, fw.DEAD.z); w.tz = n > 0 ? n * zl[1] : -n * zl[0]; }
-        else if (!dep && (K.drove || Math.abs(w.base) > 0.05)) { w.tz = 0; if (Math.abs(w.base) < 0.05) K.drove = false; }      // (nothing asks for depth now: back to its place)
-        if (w.tz != null && (Math.abs(w.tz - w.base) > 0.5 || w.tz !== was)) { drive = true; K.drove = true; }
+        var zl = w.z.lim, was = w.tz, mine = 0;      // (mine: 1 = the face or Up close set the depth this frame, 2 = walking back after them. Only those are this driver's: the joystick's depth is the joystick's)
+        if (up) { w.tz = zl[1]; mine = 1; }
+        else if (dep && face) { var n = past(K.nz, fw.DEAD.z); w.tz = n > 0 ? n * zl[1] : -n * zl[0]; mine = 1; }
+        else if (!dep && K.drove) { w.tz = 0; mine = 2; if (Math.abs(w.base) < 0.05) K.drove = false; }      // (the face or Up close let go: back to its place. Where the joystick left it, it stays)
+        if (mine && w.tz != null && (Math.abs(w.tz - w.base) > 0.5 || w.tz !== was)) { drive = true; if (mine === 1) K.drove = true; }
       }
     }
     /* whatever the face walks is the body's (a take records it); handed back once it has stopped, and at once when a take starts playing (the take walks it then) */

@@ -68,3 +68,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: 12,681 local assertions passed. Wrong-clock, wrong-cuts, wrong-keyframe and wrong-pack controls each failed as expected. Phone and cloud proof pending.
 - Questions: None.
 - Next: Finish the item sampler, reference renderer, route report and debug bench.
+
+### 2026-11-22 11:51 Codex → Claude: Pushed shutter and debug route fixture checkpoint
+- State: C1, `codex/motionblur-20261122` at `fb5a4c930`, pushed and SHA verified
+- Done: Added the shutter and continuity core, microsecond TimeMap bridge and a debug-only project factory for the real editor and export service.
+- Proof: Focused shutter and real-model cut/sprite tests passed locally. Existing timemap, FX and key suites pass with the patched Media3 jars. Cloud APK dispatch started.
+- Questions: None.
+- Next: Complete the reference renderer, transform adapters, bench and route report. Do not land until the C1 cloud and phone gates are met.

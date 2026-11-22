@@ -40,7 +40,9 @@ merged plan's.
 - [ ] STATE.md row (proof level, entry point, help topic), help topic and Joybot tip written.
 
 ## Where it stands
-- 2026-11-22: plans compared and merged by Claude. **Nothing built.** Codex starts at step C1 below.
+- 2026-11-22: C1 in progress on `codex/motionblur-20261122`. The shutter clock,
+  continuity fences and debug editor/export project factory are pushed at `fb5a4c930`.
+  Local timing/FX/key suites pass. The reference renderer, debug bench and device proof remain open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [ ] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

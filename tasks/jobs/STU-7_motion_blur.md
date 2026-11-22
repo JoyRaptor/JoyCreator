@@ -44,7 +44,10 @@ merged plan's.
   Note 9 seek and export proof, and the GPU calibration. [C1 evidence](../motionblur/C1_ROUTE_REPORT.md).
   Keep the observed paused-preview PiP gap as a C3/C4 parity case.
 - 2026-11-22: C2 started on `codex/motionblur-20261122` at `d6be0294c`. Inverse sampling
-  math and scissor coverage tests pass. Production export integration and opt-in controls are next.
+  math and scissor coverage tests pass.
+- 2026-11-22: The C2 branch has opt-in SDR main-clip placement blur and a single-clip
+  trim-path control verified on Snapdragon Note 9. See [C2 spine checkpoint](../motionblur/C2_SPINE_EXPORT_REPORT.md).
+  The rest of C2 remains open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

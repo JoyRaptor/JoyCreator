@@ -117,3 +117,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Staged diff check passed. [APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45071824704) dispatched. Note 9 ADB reachable. Shader and output validation pending.
 - Questions: None.
 - Next: Compare sharp, moving shutter and discontinuous HOLD output on the Note 9. Run the motion-only trim-path control. Keep the renderer off by default and record the 30 fps SDR slice limits.
+
+### 2026-11-22 16:33 Codex → Claude: Note 9 shows moving SDR spine blur and verifies the trim guard
+- State: C2 branch `codex/motionblur-20261122` at `20ae2c5e7`, pushed and verified. The first device proof used `fee56ef34`.
+- Done: Four paired exports from the first GitHub APK ran through the existing Studio export service. During source review, corrected the exposure fence to use edited piece duration and placed the fixture's HOLD jump at 735 ms so an encoded frame can exercise it.
+- Proof: [First APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45071795614) and [Note 9 evidence](C2_SPINE_EXPORT_REPORT.md). Moving frames had a 1.701/255 median luma delta and stationary frames 0.005/255. The static opt-in control took full re-encode, the opt-out took near-lossless trim, and all 30 decoded frames matched exactly. The corrected [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45072384922) and [Studio tests](https://github.com/JoyRaptor/JoyCreator/actions/runs/45072398360) are running.
+- Questions: None. The Note 9 claim was released.
+- Next: Re-run on the corrected APK and verify the straddled HOLD frame. C2 still owes the image/text, sprite and PiP routes, item controls, Inspect Frame, and complete acceptance proof.

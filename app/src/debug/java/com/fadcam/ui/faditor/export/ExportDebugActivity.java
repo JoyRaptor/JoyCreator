@@ -80,9 +80,11 @@ public class ExportDebugActivity extends Activity {
         if (in.getBooleanExtra("motion_spine_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             boolean animated = in.getBooleanExtra("motion_animated", true);
-            FaditorProject fixture = MotionRouteFixture.createSpine(this, enabled, animated);
+            boolean transparentArt = in.getBooleanExtra("motion_transparent_art", false);
+            FaditorProject fixture = MotionRouteFixture.createSpine(this, enabled, animated, transparentArt);
             in.putExtra("project_id", fixture.getId());
-            FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated);
+            FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
+                    + " art=" + transparentArt);
         }
         if (in.getBooleanExtra("motion_route_fixture", false)) {
             FaditorProject fixture = MotionRouteFixture.create(this);

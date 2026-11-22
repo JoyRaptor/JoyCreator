@@ -82,6 +82,15 @@ final class RigidSpineShutterPass {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
         source.append("""
+                // Match the default SDR transfer at Media3’s effect boundary (SMPTE 170M).
+                vec3 toLinear(vec3 rgb) {
+                  vec3 power = pow((rgb + 0.099) / 1.099, vec3(1.0 / 0.45));
+                  return mix(rgb / 4.5, power, step(vec3(0.081), rgb));
+                }
+                vec3 toSdr(vec3 rgb) {
+                  vec3 power = 1.099 * pow(rgb, vec3(0.45)) - 0.099;
+                  return mix(4.5 * rgb, power, step(vec3(0.018), rgb));
+                }
                 vec4 samplePose(vec3 pixel, vec4 rowX, vec4 rowY) {
                   if (rowX.w == 0.0) return vec4(0.0);
                   vec2 uv = vec2(dot(rowX.xyz, pixel), dot(rowY.xyz, pixel));
@@ -90,8 +99,11 @@ final class RigidSpineShutterPass {
                   vec2 feather = max(vec2(length(rowX.xy), length(rowY.xy)), vec2(1e-5));
                   vec2 coverage = smoothstep(vec2(0.0), feather, min(uv, 1.0 - uv));
                   // Canvas is top-left, while Media3's input texture starts at the bottom left.
-                  return texture2D(uTexSampler, vec2(uv.x, 1.0 - uv.y))
-                         * (coverage.x * coverage.y * rowX.w);
+                  vec4 source = texture2D(uTexSampler, vec2(uv.x, 1.0 - uv.y));
+                  if (source.a <= 0.0) return vec4(0.0);
+                  vec3 straight = clamp(source.rgb / source.a, 0.0, 1.0);
+                  float alpha = source.a * coverage.x * coverage.y * rowX.w;
+                  return vec4(toLinear(straight) * alpha, alpha);
                 }
                 void main() {
                   vec2 p = vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y) * uFrame;
@@ -106,6 +118,12 @@ final class RigidSpineShutterPass {
             source.append("  color += samplePose(pixel, uTapX").append(i)
                     .append(", uTapY").append(i).append(");\n");
         }
-        return source.append("  gl_FragColor = color;\n}\n").toString();
+        return source.append("""
+                  // Return premultiplied SDR to the existing clip opacity and overlay passes.
+                  gl_FragColor = color.a > 0.0
+                      ? vec4(toSdr(clamp(color.rgb / color.a, 0.0, 1.0)) * color.a, color.a)
+                      : vec4(0.0);
+                }
+                """).toString();
     }
 }

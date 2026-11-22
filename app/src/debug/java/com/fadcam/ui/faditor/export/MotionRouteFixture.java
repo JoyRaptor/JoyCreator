@@ -2,7 +2,9 @@ package com.fadcam.ui.faditor.export;
 
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -108,17 +110,20 @@ final class MotionRouteFixture {
         return project;
     }
 
-    static FaditorProject createSpine(Context context, boolean enabled, boolean animated)
-            throws IOException {
+    static FaditorProject createSpine(Context context, boolean enabled, boolean animated,
+                                      boolean transparentArt) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String label = !animated ? "motion only" : enabled ? "blur" : "sharp";
+        if (transparentArt) label = "art " + label;
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 " + label));
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create spine fixture media directory");
-        File source = copyAsset(context, media, "card2.mp4");
-        long duration = durationMs(source);
+        File source = transparentArt ? createShutterArt(media) : copyAsset(context, media, "card2.mp4");
+        long duration = transparentArt ? 1_000L : durationMs(source);
         if (duration < 1_000L) throw new IOException("Spine fixture is shorter than 1 second");
         Clip clip = clip(source, duration, 1_000L);
+        clip.setImageClip(transparentArt);
+        if (transparentArt) clip.setAudioMuted(true);
         clip.setRigidMotionBlurEnabled(enabled);
         if (animated) {
             clip.setSpineScale(0.38f);
@@ -143,6 +148,30 @@ final class MotionRouteFixture {
         project.getTimeline().addClip(clip);
         if (!storage.save(project)) throw new IOException("Could not save the spine fixture");
         return project;
+    }
+
+    private static File createShutterArt(File directory) throws IOException {
+        File file = new File(directory, "shutter-art.png");
+        Bitmap bitmap = Bitmap.createBitmap(960, 540, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            // Opaque black/white transitions distinguish linear and encoded averages.
+            for (int x = 96; x < 864; x += 24) {
+                paint.setColor(((x - 96) / 24) % 2 == 0 ? Color.WHITE : Color.BLACK);
+                canvas.drawRect(x, 54, x + 24, 270, paint);
+            }
+            paint.setColor(0x80FFFFFF);
+            canvas.drawRect(96, 324, 384, 486, paint);
+            paint.setColor(0x8000FFFF);
+            canvas.drawRect(576, 324, 864, 486, paint);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write shutter test art");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        return file;
     }
 
     private static Clip clip(File file, long duration, long trim) {

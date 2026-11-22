@@ -98,6 +98,12 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 sprite fixture enabled=" + enabled);
         }
+        if (in.getBooleanExtra("motion_title_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createTitle(this, enabled);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 title fixture enabled=" + enabled);
+        }
         if (in.getBooleanExtra("motion_route_fixture", false)) {
             FaditorProject fixture = MotionRouteFixture.create(this);
             in.putExtra("project_id", fixture.getId());

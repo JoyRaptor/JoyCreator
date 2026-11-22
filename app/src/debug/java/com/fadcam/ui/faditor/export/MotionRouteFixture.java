@@ -242,6 +242,47 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createTitle(Context context, boolean enabled) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 title " + variant));
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create title fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Title fixture is shorter than 1 second");
+        project.getTimeline().addClip(clip(source, duration, 1_000L));
+
+        var under = TextOverlayItem.createImage(Uri.fromFile(createShutterArt(media)).toString(),
+                0.55f, 0.54f, 0.56f);
+        under.setTimeRange(0, 999);
+        under.setOpacity(0.3f);
+        project.getTimeline().addTextOverlay(under);
+
+        var title = new TextOverlayItem("STUDIO\nMotion Blur", Color.WHITE, 0.22f, 0.34f, 0.12f, 0f);
+        title.setTimeRange(0, 899);
+        title.setOpacity(0.82f);
+        title.setRigidMotionBlurEnabled(enabled);
+        var x = title.getKeyframes().getOrCreate(KeyframeSet.X);
+        x.put(0, 0.22f, Easing.LINEAR);
+        x.put(250, 0.22f, Easing.LINEAR);
+        x.put(500, 0.76f, Easing.HOLD);
+        x.put(735, 0.39f, Easing.LINEAR);
+        var y = title.getKeyframes().getOrCreate(KeyframeSet.Y);
+        y.put(0, 0.34f, Easing.LINEAR);
+        y.put(250, 0.34f, Easing.LINEAR);
+        y.put(500, 0.59f, Easing.HOLD);
+        y.put(735, 0.45f, Easing.LINEAR);
+        var r = title.getKeyframes().getOrCreate(KeyframeSet.ROTATION);
+        r.put(0, -10f, Easing.LINEAR);
+        r.put(250, -10f, Easing.LINEAR);
+        r.put(500, 30f, Easing.HOLD);
+        r.put(735, -20f, Easing.LINEAR);
+        project.getTimeline().addTextOverlay(title);
+        if (!storage.save(project)) throw new IOException("Could not save the title fixture");
+        return project;
+    }
+
     private static File createShutterArt(File directory) throws IOException {
         File file = new File(directory, "shutter-art.png");
         Bitmap bitmap = Bitmap.createBitmap(960, 540, Bitmap.Config.ARGB_8888);

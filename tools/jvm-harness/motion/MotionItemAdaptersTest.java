@@ -53,6 +53,15 @@ public final class MotionItemAdaptersTest {
         close(.5 * W, text.at(100_250).x(.5, .5), "text fractional key");
         close(-360, text.at(100_250).xx(), "text reflection and fractional scale");
 
+        // Canvas titles ignore image mirroring/pivot and use their measured layout canvas.
+        var title = Boolean.getBoolean("motion.wrongTitlePlacement") ? text
+                : MotionItemAdapters.title(parent, W, H, W / 2, H, 200, 100);
+        var titlePose = title.at(100_250);
+        close(.5 * W / 2, titlePose.x(.5, .5), "upright title stays centered at fractional time");
+        close(.5 * H, titlePose.y(.5, .5), "title layout center");
+        close(100, titlePose.xx(), "title width uses the layout to output ratio");
+        close(100, titlePose.yy(), "title height stays at fixed font size");
+
         var clip = new Clip(null, 600_000);
         var pipKeys = new KeyframeSet();
         pipKeys.getOrCreate(KeyframeSet.X).put(0, .2f, Easing.LINEAR);

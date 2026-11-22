@@ -32,6 +32,21 @@ public final class MotionItemAdapters {
         };
     }
 
+    /** Sample the position and rotation of an upright title raster at a fixed font size. */
+    public static ItemMotionSampler title(TextOverlayItem item, int layoutW, int layoutH,
+                                          int frameW, int frameH, int textureW, int textureH) {
+        double xScale = frameW / (double) layoutW;
+        double yScale = frameH / (double) layoutH;
+        return timeUs -> {
+            float[] pose = new float[4];
+            item.motionPlacementAt(timeUs / 1000.0, pose);
+            var layout = quad(pose, layoutW, layoutH, textureW, textureH, 1, 1, 0, 0);
+            return new ItemMotionSampler.Affine(layout.xx() * xScale, layout.xy() * xScale,
+                    layout.yx() * yScale, layout.yy() * yScale, layout.tx() * xScale,
+                    layout.ty() * yScale);
+        };
+    }
+
     /** Per-cell static art corrections are baked into the selected cell texture by the producer. */
     public static ItemMotionSampler sprite(SpriteOverlayItem item, int frameWidth, int frameHeight,
                                            float cellAspect) {

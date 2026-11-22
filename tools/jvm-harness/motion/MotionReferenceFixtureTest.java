@@ -1,5 +1,9 @@
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
+import com.fadcam.ui.faditor.keyframe.KeyframeSet;
+import com.fadcam.ui.faditor.motion.ItemMotionSampler;
+import com.fadcam.ui.faditor.motion.MotionItemAdapters;
+import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionShutter;
 
@@ -55,6 +59,14 @@ public final class MotionReferenceFixtureTest {
         check(zoom.mass() > thin.mass() * 3.5 && zoom.mass() < thin.mass() * 5.3,
                 "zoom must grow coverage about its pivot");
         check(Math.abs(zoom.centerX() - 48) < 2, "zoom stays near the pivot");
+        var authored = new SpriteOverlayItem("reference-zoom", "reference-texture");
+        authored.setCenter(.5f, .5f);
+        authored.getKeyframes().getOrCreate(KeyframeSet.SCALE).put(90, .1f, Easing.LINEAR);
+        authored.getKeyframes().getOrCreate(KeyframeSet.SCALE).put(110, .3f, Easing.LINEAR);
+        ItemMotionSampler spriteZoom = MotionItemAdapters.sprite(authored, WIDTH, HEIGHT, 2.5f);
+        var studioZoom = metrics(fixture(output, "studio-sprite-zoom",
+                timeUs -> fromUnitQuad(spriteZoom.at(timeUs)), NO_BREAKS));
+        check(Math.abs(studioZoom.mass() - zoom.mass()) < 0.1, "Studio zoom matches reference coverage");
 
         var spin = metrics(fixture(output, "spin", at -> Transform.pose(48, 40, 1,
                 mutant.equals("spin") ? 0 : delta(at) * Math.PI / 2), NO_BREAKS));
@@ -81,7 +93,12 @@ public final class MotionReferenceFixtureTest {
         var stillImage = fixture(output, "still", still, NO_BREAKS);
         var sharp = render(at -> Transform.pose(48, 40, 1, 0), NO_BREAKS, 1);
         check(pixelExact(stillImage, sharp), "still image is bit exact");
-        System.out.println("MotionReferenceFixtureTest: 7 images, 128/256 convergence and motion assertions passed");
+        System.out.println("MotionReferenceFixtureTest: 8 images, 128/256 convergence and motion assertions passed");
+    }
+
+    private static Transform fromUnitQuad(ItemMotionSampler.Affine a) {
+        return new Transform(a.xx() / ART.getWidth(), a.xy() / ART.getHeight(),
+                a.yx() / ART.getWidth(), a.yy() / ART.getHeight(), a.x(.5, .5), a.y(.5, .5));
     }
 
     private static double delta(long timeUs) { return (timeUs - CENTER_US) / 10_000.0; }

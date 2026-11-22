@@ -32,6 +32,22 @@ public interface LinkFollower extends LinkPose {
     long getStartMs();
     boolean isVisibleAt(long timelineMs);
 
+    /** Fractional rigid placement on the same property and local-time tracks as the renderer. */
+    @Override
+    default void motionPlacementAt(double timelineMs, float[] placement) {
+        if (timelineMs == Math.rint(timelineMs)) {
+            LinkPose.super.motionPlacementAt(timelineMs, placement);
+            return;
+        }
+        double localMs = Math.max(0, timelineMs - getStartMs());
+        var keys = getKeyframes();
+        placement[0] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.X, localMs, getCenterX());
+        placement[1] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, localMs, getCenterY());
+        placement[2] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, localMs, getSizeFraction());
+        placement[3] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, localMs, getRotationDeg());
+        if (isLinked()) getSpaceLink().applyMotionPlacement(timelineMs, placement);
+    }
+
     /** An opaque copy of the pose (statics + keys) for undo; restored by {@link #restorePose}. */
     @NonNull Object snapshotPose();
     void restorePose(@NonNull Object snapshot);

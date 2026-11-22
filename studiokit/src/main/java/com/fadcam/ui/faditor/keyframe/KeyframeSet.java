@@ -218,6 +218,12 @@ public class KeyframeSet {
         return t == null ? fallback : t.valueAt(timeMs, fallback);
     }
 
+    /** Fractional-millisecond evaluation for the shutter sampler. */
+    public float valueAt(@NonNull String property, double timeMs, float fallback) {
+        KeyframeTrack track = tracks.get(property);
+        return track == null ? fallback : track.valueAt(timeMs, fallback);
+    }
+
     /** Drop a keyframe (or the whole track if it becomes empty). */
     public void removeKey(@NonNull String property, long timeMs) {
         KeyframeTrack t = tracks.get(property);

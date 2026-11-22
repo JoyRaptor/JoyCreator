@@ -2465,6 +2465,17 @@ public class TextOverlayItem implements LinkFollower {
                 localTime(timelineMs), scaleY);
     }
 
+    /** Per-axis multipliers sampled on the same local tracks at a shutter instant. */
+    public float motionScaleXAt(double timelineMs) {
+        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X,
+                Math.max(0, timelineMs - startMs), scaleX);
+    }
+
+    public float motionScaleYAt(double timelineMs) {
+        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y,
+                Math.max(0, timelineMs - startMs), scaleY);
+    }
+
     // ── How large is this image EVER drawn? (the decode bound) ────────────────────────────────
     //
     // THE CHANNEL THE DECODERS WERE READING WAS THE WRONG ONE. Both the preview cache and the

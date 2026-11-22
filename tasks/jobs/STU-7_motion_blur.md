@@ -42,7 +42,9 @@ merged plan's.
 ## Where it stands
 - 2026-11-22: C1 landed at `1205b80ce` with 62/62 GitHub Studio suites, a Snapdragon
   Note 9 seek and export proof, and the GPU calibration. [C1 evidence](../motionblur/C1_ROUTE_REPORT.md).
-  Keep the observed paused-preview PiP gap as a C3/C4 parity case. C2 is next.
+  Keep the observed paused-preview PiP gap as a C3/C4 parity case.
+- 2026-11-22: C2 started on `codex/motionblur-20261122` at `d6be0294c`. Inverse sampling
+  math and scissor coverage tests pass. Production export integration and opt-in controls are next.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

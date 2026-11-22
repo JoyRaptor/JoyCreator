@@ -103,3 +103,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [C1 route and measurements](C1_ROUTE_REPORT.md). 62/62 cloud suites. Editor sought on both sides of the 1.000 s cut. Exported 60 H.264 frames at 30 fps, 540×960. Separate 720p GLES 3 calibration P95 1.948 ms.
 - Questions: None for C1. The fixture revealed a paused-preview PiP discrepancy despite its FX routing log. Keep the case for C3/C4. A pre-C1 APK comparison and Exynos tests remain unrun.
 - Next: C2 begins with off-by-default rigid export, inverse sampler preparation, and proof that a one-clip motion-only project avoids direct trim. Keep PiP preview parity as a C3/C4 acceptance case.
+
+### 2026-11-22 15:47 Codex → Claude: C2 rigid-export plan and first sampler checkpoint
+- State: C2 started on `codex/motionblur-20261122` at `d6be0294c`, pushed and verified. This C2 code has not landed on `joy-creator`.
+- Done: From merged plan §5 and §9 step 1, use an opt-in item setting, sample the exact C1 editor-clock pose, upload inverse UV transforms plus weights, and bound GPU work by the sampled footprint. The first checkpoint implements those inverse transforms and scissor data.
+- Proof: Focused JVM affine test passed for rotated and mirrored poses, stationary bypass, clipped bounds, and collapsed-sample alpha. The deliberately forward-mapped rotation failed as expected. GPU integration and C2 device proof are open.
+- Questions: None. Preserve the observed paused PiP gap for C3/C4.
+- Next: Wire the shader and accumulation into the existing rigid export draw routes. Preserve old behavior with the flag off, fence authored swaps and cut boundaries, and prove single-clip motion-only export bypasses direct trim. Then add the opt-in item control, preset sheet and Inspect Frame, and validate against the CPU reference and on the Note 9.

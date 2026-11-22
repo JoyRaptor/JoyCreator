@@ -139,9 +139,15 @@ public class FaceEngineTest {
                 "the face's points turn upright exactly as the camera picture does (the outline sits on the face)");
         com.google.gson.JsonObject saved1 = back.toJson();
         saved1.addProperty("v", 1);
+        saved1.getAsJsonObject("sign").addProperty("lean", 1);
         FaceCalibration old = FaceCalibration.fromJson(saved1);
-        check(!old.isNeutralSet() && old.rest(FaceCalibration.FACE_SIZE) == 0f && old.signYaw() == -1 && old.swapSides(),
-                "a neutral saved before that fix is re-taken by itself (its lean was sideways); directions are kept");
+        check(!old.isNeutralSet() && old.rest(FaceCalibration.FACE_SIZE) == 0f && old.signLean() == -1,
+                "a neutral saved before the upright fix is re-taken by itself, and its sideways lean direction dropped");
+        com.google.gson.JsonObject saved2 = back.toJson();
+        saved2.addProperty("v", 2);
+        FaceCalibration two = FaceCalibration.fromJson(saved2);
+        check(!two.isNeutralSet() && two.signYaw() == 1 && !two.swapSides() && two.rest("browDownLeft") == 0f,
+                "a neutral saved before the phone's own directions is re-taken, its answers back to the new defaults");
         FaceTuning t2 = FaceTuning.fromJson(mir.toJson());
         check(t2.mirror && FaceTuning.fromJson(null).blinkSync, "settings survive being saved and read back");
 

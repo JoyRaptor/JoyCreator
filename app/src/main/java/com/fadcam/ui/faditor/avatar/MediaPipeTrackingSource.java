@@ -481,13 +481,14 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_YAW, deg[0]);
             // the old params read up as positive; the face stage reads down as positive (as the pilot)
             raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_PITCH, -deg[1]);
-            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_ROLL, deg[2]);
+            // the owner's direction check on the Note 9 (11-22): this extraction's roll runs the other way
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_ROLL, -deg[2]);
         }
         List<List<Category>> blends = result.faceBlendshapes().orElse(null);
         if (blends != null && !blends.isEmpty()) {
             for (Category c : blends.get(0)) {
                 String name = c.categoryName();
-                if (name != null && !name.isEmpty() && !"_neutral".equals(name)) raw.put(name, c.score());
+                if (name != null && !name.isEmpty() && !"_neutral".equals(name)) raw.put(pictureSide(name), c.score());
             }
         }
         List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark> pts =
@@ -506,6 +507,18 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.FACE_SIZE, maxX - minX);
         }
         return raw;
+    }
+
+    /**
+     * FACE-1: the face engine reads two-sided expression names as the picture shows them ("Left" = the picture's
+     * left, the person's right). This model names them the person's own way: the owner closing his right eye on the
+     * Note 9 read as "Right" (11-22). So Left and Right swap here, once, before the engine sees them.
+     */
+    @NonNull
+    static String pictureSide(@NonNull String name) {
+        if (name.endsWith("Left")) return name.substring(0, name.length() - 4) + "Right";
+        if (name.endsWith("Right")) return name.substring(0, name.length() - 5) + "Left";
+        return name;
     }
 
     // MediaPipe face mesh outlines (the canonical index loops): oval, both eyes, both brows, lips.

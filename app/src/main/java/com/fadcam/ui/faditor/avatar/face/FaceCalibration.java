@@ -37,8 +37,11 @@ public final class FaceCalibration {
      */
     public static final String FACE_X = "faceX", FACE_Y = "faceY", FACE_SIZE = "faceSize";
 
-    /** 2: face position measured upright (FaceFrame); a version 1 neutral is re-taken. */
-    public static final int VERSION = 2;
+    /**
+     * 2: face position measured upright (FaceFrame). 3: the phone's raw face arrives in the engine's own directions
+     * (the owner's answers, 11-22), so an older neutral and its direction answers are both taken again.
+     */
+    public static final int VERSION = 3;
 
     /** The smallest span left above a resting value (a face resting at 0.95 still gets a range). */
     private static final float MIN_SPAN = 0.25f;
@@ -194,6 +197,18 @@ public final class FaceCalibration {
             }
             c.neutralSet = o.has("neutralSet") ? o.get("neutralSet").getAsBoolean() : !c.rest.isEmpty();
             int v = o.has("v") ? o.get("v").getAsInt() : 1;
+            if (v < 3) {
+                // Before version 3 the phone's raw face came in other directions: the neutral's values and the
+                // answers both belong to that, so the next still half-second takes a new neutral and the
+                // directions start from the new defaults (which are the owner's own answers).
+                c.rest.clear();
+                c.signYaw = 1;
+                c.signPitch = 1;
+                c.signRoll = 1;
+                c.swapSides = false;
+                c.neutralSet = false;
+                c.restPoints = null;
+            }
             if (v < 2) {
                 // Version 1 (11-22, before FaceFrame) measured where the face sits in the camera's
                 // sideways frame: that part of the neutral and the lean direction are wrong. The head

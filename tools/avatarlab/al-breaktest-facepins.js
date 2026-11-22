@@ -11,7 +11,10 @@
  *   nofeed     the face points never reach the signals          noturn     the head's turn is not taken out of a point
  *   nostrength the strength slider does nothing                  norecord   a pass does not record the face pin
  *   noflip     a flipped character drops its face pins           noundo     making a face pin is not one undo step
- *   noremove   removing a face pin leaves it pulling
+ *   noremove   removing a face pin leaves it pulling             noread     the face camera stops reading after one frame
+ *
+ * The made-up face goes in through the pilot's own camera code (al-inputs.js watch) as a MediaPipe result would, so a fault
+ * in that path (as the 11-22 name clash that stopped the tracker after one frame) is caught too.
  */
 (function (root) {
   'use strict';
@@ -43,7 +46,7 @@
     opt = opt || {};
     var plant = opt.plant || null, app = AL.app, inp = app.inp, R = K.mk(), FP = AL.facepins, F = AL.face;
     var savedCal = root.localStorage ? root.localStorage.getItem('al.face.cal') : null;   // the owner's own neutral, put back after
-    var saved = K.ids(app.ch), keep = { on: inp.cam.on, mode: inp.cam.mode, stage: inp.cam._faceStage, lm: inp.cam.lm, watch: inp.watch, take: inp.take, flip: inp.pose.flip },
+    var saved = K.ids(app.ch), keep = { on: inp.cam.on, mode: inp.cam.mode, stage: inp.cam._faceStage, lm: inp.cam.lm, v: inp.cam.v, take: inp.take, flip: inp.pose.flip, pilotFace: F.pilotFace },
       realFeed = FP.feed, realOff = F.pointOffsets, realStrength = FP.strength, realChannels = inp.channels, realEdit = app.edit, realUnbind = FP.unbind;
     K.sim(true);
     try {
@@ -58,6 +61,7 @@
         realFeed(i, f, dt); for (var k in i.S) if (k.slice(0, 3) === 'pt.') Object.defineProperty(i.S, k, { value: i.S[k], enumerable: false, writable: true, configurable: true });
       };
       if (plant === 'noremove') FP.unbind = function (ch, id) { ch.facePins = FP.list(ch).filter(function (r) { return r.id !== id; }); };
+      if (plant === 'noread') F.pilotFace = function (r, cam, tt) { var o = keep.pilotFace(r, cam, tt); cam.lm = r && r.faceLandmarks ? r.faceLandmarks[0] : null; return o; };
 
       AL.stages.go(app, 'perform');
       inp.take = null; inp.pose.flip = false;
@@ -67,8 +71,17 @@
       var st = new F.Stage(F.calibration(), {});
       for (var i = 0; i < 12; i++) st.process(rawHead, (t += 1 / 30), base);
       R.F('1 the neutral keeps where every face point rests', !!(st.cal.neutralSet && st.cal.points));
-      inp.cam.on = true; inp.cam.mode = 'always'; inp.cam._faceStage = st; inp.cam.lm = {};
-      inp.watch = function () { this.cam.face = F.pilotFace ? st.process(rawHead, (t += 1 / 30), now.xyz) : null; };
+      // the camera: a stand-in for MediaPipe's FaceLandmarker and the video, read by the pilot's own watch()
+      var W = 640, Hh = 480, tall = Hh / W;
+      function result(xyz) {
+        var marks = []; for (var j = 0; j < 478; j++) marks.push({ x: xyz[j * 3], y: xyz[j * 3 + 1] / tall, z: xyz[j * 3 + 2] });
+        return { faceBlendshapes: [{ categories: [] }], facialTransformationMatrixes: [{ data: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] }], faceLandmarks: [marks] };
+      }
+      inp.cam.on = true; inp.cam.mode = 'always'; inp.cam._faceStage = st;
+      inp.cam.v = { readyState: 4, videoWidth: W, videoHeight: Hh };
+      inp.cam.lm = { detectForVideo: function () { return result(now.xyz); } };
+      var unthrottle = function () { inp.cam.last = -1e9; };                      // every simulated frame reads the camera
+      app.hooks.push(unthrottle);
       await K.step(8);
 
       // pin your right mouth corner to the part under the middle of the head
@@ -128,8 +141,9 @@
     } catch (e) {
       R.fails.push({ label: 'error: ' + (e && e.message), info: e && e.stack });
     } finally {
-      FP.feed = realFeed; F.pointOffsets = realOff; FP.strength = realStrength; inp.channels = realChannels; app.edit = realEdit; FP.unbind = realUnbind;
-      inp.cam.on = keep.on; inp.cam.mode = keep.mode; inp.cam._faceStage = keep.stage; inp.cam.lm = keep.lm; inp.watch = keep.watch; inp.take = keep.take; inp.pose.flip = keep.flip;
+      FP.feed = realFeed; F.pointOffsets = realOff; FP.strength = realStrength; inp.channels = realChannels; app.edit = realEdit; FP.unbind = realUnbind; F.pilotFace = keep.pilotFace;
+      if (typeof unthrottle === 'function' && app.hooks.indexOf(unthrottle) >= 0) app.hooks.splice(app.hooks.indexOf(unthrottle), 1);
+      inp.cam.on = keep.on; inp.cam.mode = keep.mode; inp.cam._faceStage = keep.stage; inp.cam.lm = keep.lm; inp.cam.v = keep.v; inp.take = keep.take; inp.pose.flip = keep.flip;
       K.restore(app, saved);
       try { if (savedCal == null) root.localStorage.removeItem('al.face.cal'); else root.localStorage.setItem('al.face.cal', savedCal); } catch (e2) { /* no storage */ }
     }
@@ -138,7 +152,7 @@
 
   X.proof = async function () {
     var out = {}, want = { nofeed: /^3 a smile/, noturn: /^4 turning/, nostrength: /^5 strength 0/, norecord: /^7 a pass records/,
-      noflip: /^6 a character turned/, noundo: /^2 \.\.\.as one undo step/, noremove: /^8 removing/ };
+      noflip: /^6 a character turned/, noundo: /^2 \.\.\.as one undo step/, noremove: /^8 removing/, noread: /^3 a smile/ };
     for (var k in want) { var r = await X.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 4) }; }
     return out;
   };

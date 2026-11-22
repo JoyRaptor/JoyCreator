@@ -91,7 +91,9 @@
       } })
     ]);
     if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take your face now as neutral: look at the screen, relaxed', fn: function () { inp.cam.zero = null; if (AL.face) AL.face.neutral(inp.cam); } }));
-    if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
+    if (inp.cam.on && AL.face) voice.appendChild(ui.toggle('Mirror', !inp.cam.facing, function (v) { AL.face.setFacing(inp.cam, !v); app.refreshPanel(true); }, null, 'On: the character moves like your reflection. Off: like someone facing you'));   // FACE-1
+    else if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
+    if (inp.cam.on && AL.facepins) voice.appendChild(ui.chip('Check directions', { title: 'Five short moves that settle which way is which on this device', fn: function () { AL.facepins.directions(app); } }));   // FACE-1
     if (AL.facepins && !hosted && (inp.cam.on || AL.facepins.list(app.ch).length)) voice.appendChild(AL.facepins.chip(app));   // FACE-1
     if (AL.stick) { var jc = AL.stick.chip(app); if (stk) jc.classList.add('ico'); voice.appendChild(jc); }
     pb.appendChild(h('div', { class: 'padrow' + (stk ? ' stick' : '') }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice]), stk ? AL.stick.pad(app) : null]));

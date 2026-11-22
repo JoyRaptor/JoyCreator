@@ -22,12 +22,12 @@ final class MotionGatherCalibration implements GLSurfaceView.Renderer {
     private static final int WARMUP = 30, COUNT = 180;
     private static final String VERTEX = """
             attribute vec2 a;
-            varying vec2 uv;
+            varying highp vec2 uv;
             void main(){ uv = a*0.5+0.5; gl_Position = vec4(a,0.0,1.0); }
             """;
     private static final String GATHER = """
             precision highp float;
-            varying vec2 uv;
+            varying highp vec2 uv;
             uniform sampler2D image;
             void main(){
                 vec4 sum = vec4(0.0);
@@ -40,7 +40,7 @@ final class MotionGatherCalibration implements GLSurfaceView.Renderer {
             """;
     private static final String PRESENT = """
             precision mediump float;
-            varying vec2 uv;
+            varying highp vec2 uv;
             uniform sampler2D image;
             void main(){ gl_FragColor = texture2D(image, uv); }
             """;

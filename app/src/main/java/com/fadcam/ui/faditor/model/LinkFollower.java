@@ -45,7 +45,8 @@ public interface LinkFollower extends LinkPose {
         placement[1] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.Y, localMs, getCenterY());
         placement[2] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE, localMs, getSizeFraction());
         placement[3] = keys.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.ROTATION, localMs, getRotationDeg());
-        if (isLinked()) getSpaceLink().applyMotionPlacement(timelineMs, placement);
+        SpaceLink link = getSpaceLink();
+        if (link != null && link.active()) link.applyMotionPlacement(timelineMs, placement);
     }
 
     /** An opaque copy of the pose (statics + keys) for undo; restored by {@link #restorePose}. */

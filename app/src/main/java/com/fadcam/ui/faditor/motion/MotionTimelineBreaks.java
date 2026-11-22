@@ -56,7 +56,8 @@ public final class MotionTimelineBreaks {
     }
 
     /**
-     * Queries only the shutter interval. The current renderer switches cells at whole milliseconds.
+     * Query from the earlier of shutter-open and centre to the later of shutter-close and centre.
+     * The current renderer switches cells at whole milliseconds.
      * Resolve each threshold with the playback resolver, including transitions to/from no cell.
      */
     public static void addSprite(MotionBreaks.Builder into, SpriteSheet sheet, SpriteOverlayItem item,

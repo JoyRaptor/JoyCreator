@@ -86,7 +86,7 @@
 
   AL.Walker = function (app, inp) { this.app = app; this.inp = inp || null; this.reset(); };
   var W = AL.Walker.prototype;
-  W.reset = function () { this.x = this.y = this.tx = this.ty = 0; this.base = 0; this.vx = this.vy = 0; this.fallV = 0; this.held = false; this.feet = null; this.sq = 0; this.idle = 0; this.swing = 0; this.lift = 0; this.air = false; this.free = null; this.lastPh = 0; this.low = 0; };
+  W.reset = function () { this.x = this.y = this.tx = this.ty = 0; this.base = 0; this.vx = this.vy = 0; this.fallV = 0; this.held = false; this.feet = null; this.sq = 0; this.idle = 0; this.swing = 0; this.lift = 0; this.air = false; this.free = null; this.lastPh = 0; this.low = 0; this.lim = null; this.led = false; };
   /** Every limb that walks, in the order they are found. */
   W.limbs = function () {
     var ch = this.app.ch, ix = AL.ix(ch); if (this._ix === ix) return this._limbs;
@@ -134,6 +134,7 @@
   W.step = function (dt, S) {
     var app = this.app, ch = app.ch, set = ch.settings, legs = this.legs(), cfg = this.cfg(), inp = this.inp || app.inp, self = this;
     S.root = S.root || { x: 0, y: 0 }; S.rootScale = 1; S.walk = 0; S.foot = S.foot || {};
+    if (this.lim) this.tx = clamp(this.tx, this.lim[0], this.lim[1]);      // on a scene's stage it may go this far to either side and no further (al-stage-walk.js); alone on the plain stage there is no such line
     if (!legs) {
       var hv = this.hover(); S.hand.FL = S.hand.FR = null; S.foot.FL = S.foot.FR = 0;
       if (!hv) { S.root.x = S.root.y = 0; return; }
@@ -170,7 +171,7 @@
     var fp = this.stance(), lv4 = fp && inp.poseLvl ? clamp(inp.poseLvl[fp.id] || 0, 0, 1) : 0, on4 = !!(fp && fp.trig && inp.trig[fp.trig]);
 
     /* 1. the body goes where the finger takes it, no faster than these legs can carry it */
-    var px = this.x, py = this.y, k = 1 - Math.exp(-(this.held ? 24 : 7) * dt), dx = (this.tx - this.x) * k, cap = stride * 11 * dt, dl = Math.abs(dx);
+    var px = this.x, py = this.y, k = 1 - Math.exp(-(this.held || this.led ? 24 : 7) * dt), dx = (this.tx - this.x) * k, cap = stride * 11 * dt, dl = Math.abs(dx);      // (led: a take that is playing is leading it, al-take-walk.js)
     if (dl > cap) dx *= cap / dl;
     this.x += dx;
     if (!line) {                                   // no ground line: up and down the stage is walking too

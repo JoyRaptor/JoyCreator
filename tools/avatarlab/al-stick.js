@@ -64,8 +64,8 @@
     inp.held.body = true;
     if (!K.walk) { inp.pose.sway = clamp(K.x, -1, 1); inp.pose.bounce = clamp(K.y, -1, 1); return; }      // a character that does not walk leans the way the knob is pushed
     var w = inp.walker, z = size(app), g0 = w.g0; if (!g0) { grab(app); g0 = w.g0; if (!g0) return; }
-    var sp = stick.SPEED * z.h * dt, lim = z.w * 0.7;                                                // (the room to walk the view keeps each side, app.fit)
-    K.v[0] = clamp(K.v[0] + gx * sp, -lim - g0.tx, lim - g0.tx);                                     // stays within reach of the picture
+    var sp = stick.SPEED * z.h * dt, lim = w.lim || [-z.w * 0.7, z.w * 0.7];                         // (alone: the room to walk the view keeps each side, app.fit. In a scene: across the stage and off either side, al-stage-walk.js)
+    K.v[0] = clamp(K.v[0] + gx * sp, lim[0] - g0.tx, lim[1] - g0.tx);                                // stays within reach of the picture, or of the stage
     K.v[1] = clamp(K.v[1] + gy * sp, w.base - z.h - g0.ty, w.base + z.h * 0.5 - g0.ty);              // up toward a jump, down toward a crouch, never off the ground for good
     w.drag(K.v);
   };

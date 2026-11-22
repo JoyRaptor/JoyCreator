@@ -84,7 +84,7 @@
       var band = w.band, up = band ? band.up * 1.35 + z.h * 0.05 : z.h * 0.35;
       if (w.grounded()) { w.grab([0, 0]); w.drag([0, -up]); inp.held.body = true; setTimeout(function () { if (w.g0) w.release(); inp.held.body = false; }, 230); }      // pulled up past where the feet let go, then let go: it falls by itself
       else { var y0 = w.ty; w.ty = y0 - z.h * 0.35; pulse(inp, 520); setTimeout(function () { w.ty = y0; }, 300); }      // (floating: up and back)
-    } else if (key === 'dash-l' || key === 'dash-r') { var lim = z.w * 0.7; w.tx = clamp(w.tx + (key === 'dash-r' ? 1 : -1) * z.w * 0.6, -lim, lim); pulse(inp, 900); }
+    } else if (key === 'dash-l' || key === 'dash-r') { var lim = w.lim || [-z.w * 0.7, z.w * 0.7]; w.tx = clamp(w.tx + (key === 'dash-r' ? 1 : -1) * z.w * 0.6, lim[0], lim[1]); pulse(inp, 900); }      // (in a scene the stage is its room: al-stage-walk.js)
     else if (key === 'home') { w.home(); pulse(inp, 900); }
     else if (key === 'flip') { inp.pose.flip = !inp.pose.flip; pulse(inp, 400); }
     else if (key === 'blink') inp.blinkNow();

@@ -80,11 +80,12 @@
     stand.forEach(function (it) {
       if (it.kind !== 'cast') return; var a = R.actors[it.id]; if (!a) return;
       var T = a.T = scene.place(d, it, a.ch), S; a.view = { s: V.s * T.k, ox: V.ox + V.s * T.tx, oy: V.oy + V.s * T.ty };
+      a.inp.walker.lim = live ? AL.stageWalk.reach(it, T) : null;        // how far it may walk from its place: across the stage and a third of it past either side (al-stage-walk.js)
       if (a === fa) { app.view = { s: a.view.s, ox: a.view.ox, oy: a.view.oy }; app.vt = null; app.userView = true; }
       if (live && a === fa) { S = app._S = app.inp.step(dt); a.out = app.out = app.solver.eval(S, { live: true, dt: dt, force: app.lockForce || null, show: null, onion: null, lift: false }); }
       else if (live) {
         S = a.inp.step(dt);
-        if (lead && !a._follow) { var dir = clamp((lead.x - it.x) / 420, -1, 1) * (S.flip ? -1 : 1); a.lk += (dir - a.lk) * (1 - Math.exp(-3 * dt)); S.lookX = clamp((S.lookX || 0) + a.lk * 0.85, -1, 1); S.turnX = clamp((S.turnX || 0) + a.lk * 0.4, -1, 1); }      // nobody is driving this one: it watches whoever is in hand
+        if (lead && !a._follow) { var dir = clamp((AL.stageWalk.at(R, lead) - AL.stageWalk.at(R, it)) / 420, -1, 1) * (S.flip ? -1 : 1); a.lk += (dir - a.lk) * (1 - Math.exp(-3 * dt)); S.lookX = clamp((S.lookX || 0) + a.lk * 0.85, -1, 1); S.turnX = clamp((S.turnX || 0) + a.lk * 0.4, -1, 1); }      // nobody is driving this one: it watches whoever is in hand
         a.out = a.solver.eval(S, { live: true, dt: dt, force: null, show: null });
       } else { S = a.rest || (a.rest = AL.restSignals()); a.out = a.solver.eval(S, { live: false, dt: dt, force: null, show: null, lift: false }); if (a === fa) app.out = a.out; }
     });

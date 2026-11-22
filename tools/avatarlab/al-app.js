@@ -463,6 +463,8 @@
     function pos(e) { var r = st.getBoundingClientRect(), k = st.clientWidth / r.width; return { x: (e.clientX - r.left) * k, y: (e.clientY - r.top) * k }; }
     function count() { return Object.keys(ptr).length; }
     function isLive() { return app.mode === 'perform' || app.live; }
+    /** The fingers that are on the character let go of it, as if lifted (in a scene: another character was taken in hand, and a finger still down on the first must move nobody). */
+    app.dropFingers = function () { grabs = {}; };
     st.addEventListener('pointerdown', function (e) {
       if (e.target.closest && e.target.closest('button')) return;
       try { st.setPointerCapture(e.pointerId); } catch (x) { }
@@ -539,7 +541,7 @@
     }
     function tipOf(role) { var set = AL.firstRole(app.ch.root, role), pk = set && app.out.pins[app.out.picks[set.id]]; return pk && pk.c ? pk.c : null; }
     function liveGrab(p) {
-      var out = app.out, inp = app.inp, ch = app.ch, c = app.toChar(p.x, p.y), inner = app.toInner(c[0], c[1]), rad = 30 / app.view.s;
+      var out = app.out, inp = app.inp, ch = app.ch, c = app.toChar(p.x, p.y), inner = app.toInner(c[0], c[1]), near = AL.stageWalk ? AL.stageWalk.near(app) : 1, rad = 30 / app.view.s * near;      // (near: in a scene a character is small, and its hands and feet must leave room to take the body; al-stage-walk.js)
       var hand = nearestTip(c, [['armL', 'L'], ['armR', 'R']], rad), foot = nearestTip(c, [['legL', 'L'], ['legR', 'R']], rad);
       if (!hand && !foot) AL.findAll(ch.root, function (q) { return q.type === 'set' && q.pick && q.pick.by === 'reach' && q.pick.hand && q.pick.hand.charAt(0) === 'F' && q.pick.hand !== 'FL' && q.pick.hand !== 'FR'; }).forEach(function (q) {      // the other legs of something with many
         var pk = out.pins[out.picks[q.id]]; if (!pk || !pk.c) return; var dd = Math.hypot(pk.c[0] - c[0], pk.c[1] - c[1]); if (dd < rad && (!foot || dd < foot.d)) foot = { sd: q.pick.hand.slice(1), w: pk.c, d: dd };
@@ -550,7 +552,7 @@
       if (!foot && (zone === 'legL' || zone === 'legR') && (w = tipOf(zone))) foot = { sd: zone === 'legL' ? 'L' : 'R', w: w };
       if (hand) { var wi = app.toInner(hand.w[0], hand.w[1]); inp.held['hand' + hand.sd] = true; inp.pose['hand' + hand.sd] = { x: wi[0], y: wi[1] }; return { kind: 'hand', sd: hand.sd, off: [wi[0] - inner[0], wi[1] - inner[1]] }; }
       if (foot) { inp.held['foot' + foot.sd] = true; inp.pose['foot' + foot.sd] = { x: foot.w[0], y: foot.w[1] }; return { kind: 'foot', sd: foot.sd, off: [foot.w[0] - c[0], foot.w[1] - c[1]] }; }
-      var mp = null, md = 34 / app.view.s; for (var id in out.pins) if (out.pins[id].mesh) { var n = AL.node(ch, id); out.pins[id].mesh.forEach(function (q, i) { var dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd < md && n.mesh.pins[i]) { md = dd; mp = { pin: n.mesh.pins[i], q: q }; } }); }
+      var mp = null, md = 34 / app.view.s * near; for (var id in out.pins) if (out.pins[id].mesh) { var n = AL.node(ch, id); out.pins[id].mesh.forEach(function (q, i) { var dd = Math.hypot(q[0] - c[0], q[1] - c[1]); if (dd < md && n.mesh.pins[i]) { md = dd; mp = { pin: n.mesh.pins[i], q: q }; } }); }
       if (mp) { var qi = app.toInner(mp.q[0], mp.q[1]); if (inp.recording) inp.pinTouched[mp.pin.id] = true; return { kind: 'pin', pinId: mp.pin.id, off: [qi[0] - inner[0], qi[1] - inner[1]] }; }
       if (zone === 'head') { var hb = AL.boundsOf(app.zoneNode('head')); inp.held.head = true; return { kind: 'head', t0: [inp.pose.turnX, inp.pose.turnY], R: Math.max(40, (hb ? hb.x1 - hb.x0 : 160) * 0.42) }; }
       if (zone === 'body' || zone === 'tail' || zone === 'legL' || zone === 'legR') { inp.held.body = true; if (inp.walker.travels()) { inp.walker.grab(c); return { kind: 'walk' }; } return { kind: 'body' }; }

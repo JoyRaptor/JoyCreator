@@ -118,10 +118,10 @@
      while something live is driving it, then handed back to the old take over a quarter of a second. Whatever you
      did not touch is the same afterwards, sample for sample. One Undo takes the whole pass back. */
   var OWN = { turnX: 'head', turnY: 'head', roll: 'head', lookX: 'head', lookY: 'head', mouth: 'mouth', vis: 'mouth', browL: 'mood', browR: 'mood', lidUp: 'mood', lidLow: 'mood', lidTilt: 'mood',
-    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hRx: 'handR', hRy: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR', fLr: 'footL', fRr: 'footR', spin: 'body',
+    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hLw: 'handL', hRx: 'handR', hRy: 'handR', hRw: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR', fLr: 'footL', fRr: 'footR', spin: 'body',
     sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind' };
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
-  var STEP = { vis: 1, flip: 1 }, FADE = 0.25;
+  var STEP = { vis: 1, flip: 1, hLw: 1, hRw: 1 }, FADE = 0.25;      // (hLw, hRw: that hand is WALKING, planted on the stage like a foot; see al-take-walk.js)
   AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
   P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
   P.channels = function () {
@@ -183,6 +183,7 @@
     var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR,
       lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0, fLr: S.foot ? S.foot.FL : 0, fRr: S.foot ? S.foot.FR : 0, spin: S.spin || 0 }, k;
     for (k in HAND) { var hh = S.hand[HAND[k][0]]; o[k] = hh ? (HAND[k][1] ? hh.y : hh.x) : null; }      // null = at rest, and stays null through a saved file
+    o.hLw = S.hand.L && S.hand.L.w ? 1 : 0; o.hRw = S.hand.R && S.hand.R.w ? 1 : 0;                       // a walking hand's place is on the stage, not on the body: the take has to say which it was
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
     for (k in (S.pin || {})) { o['p:' + k + ':x'] = S.pin[k].x; o['p:' + k + ':y'] = S.pin[k].y; }
@@ -192,6 +193,7 @@
     if (v === undefined) return;
     if (HAND[name]) { var hk = HAND[name]; if (!hk[1]) S.hand[hk[0]] = v == null || v !== v ? null : { x: v, y: S.hand[hk[0]] ? S.hand[hk[0]].y : 0 }; else if (S.hand[hk[0]] && v != null) S.hand[hk[0]].y = v; return; }
     if (v == null) return;
+    if (name === 'hLw' || name === 'hRw') { var hw = S.hand[name === 'hLw' ? 'L' : 'R']; if (hw) hw.w = v > 0.5; return; }
     if (name === 'vis') S.viseme = AL.SHAPES[v] || 'Neutral';
     else if (name === 'rootX') S.root.x = v; else if (name === 'rootY') S.root.y = v; else if (name === 'rootS') S.rootScale = v;
     else if (name === 'flip') S.flip = v > 0.5;

@@ -137,6 +137,7 @@
   scene.hand = function (app, id, quiet) {
     var R = app.scene, a = R && R.actors[id]; if (!a) return false;
     if (app.inp && app.inp !== a.inp) { if (app.inp.recording || app.inp.playing) app.inp.stop(); app.inp.micStop(); app.inp.camStop(); }      // the microphone goes with the one in hand
+    if (app.inp && app.inp !== a.inp && AL.stageWalk && Object.keys(R.actors).some(function (k) { return R.actors[k].inp === app.inp; })) AL.stageWalk.letGo(app.inp);      // ...and so do the fingers: the one put down stops where it is
     R.focus = id;
     app.ch = a.ch; app.solver = a.solver; app.inp = a.inp; app.hist = a.hist;
     app.force = {}; app.show = {}; app.bridge = null; app.morph = null; app.shapeEdit = null; app.lockForce = null; app.btd = {}; app.bt = { x: 0, y: 0 }; app.held = null; app.poseEdit = null; app.fitOn = null;

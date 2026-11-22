@@ -1,6 +1,6 @@
 # FACE-1: Face capture (your face drives the character, premium)
 
-**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🔨 inventory and first phone proof done 11-22; premium engine being built  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `078fb8f43`
+**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟡 engine built, tested on the PC (every planted fault caught) and bench-checked on the Note 9 without a face, 11-22; a face in front of the phone owed  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `48c739e06`
 
 ## Why it matters (for the user)
 Hold the phone up, make a face, and the character makes it too: a wink is a wink, a half smile is a half
@@ -11,12 +11,14 @@ proven, and what is being built.
 ## Done when
 - [x] Inventory of every piece of face capture in the repo, with where each is reached from (11-22, below).
 - [x] What exists run on the Note 9 and recorded (11-22, below; the parts that need a face are owed).
-- [ ] A premium face engine with a clean seam for the phone room: continuous, two-sided expression; one-tap
+- [x] A premium face engine with a clean seam for the phone room: continuous, two-sided expression; one-tap
       neutral; smoothing without jitter or lag; the face lost and found gracefully; a small private preview;
       recorded into a take in passes and editable afterwards. Tests shown failing on each fault first.
-- [ ] Proven on the Note 9 through a bench screen, with a real face (needs the owner for two minutes).
-- [ ] The web pilot reads faces the same way (a new file, hooked in by the AVA-1 lead).
-- [ ] STATE.md rows updated.
+- [ ] Proven on the Note 9 through a bench screen, with a real face (the bench runs there, 11-22; the face part needs
+      the owner for two minutes).
+- [ ] The web pilot reads faces the same way (`al-face.js` built and checked equal to the phone, 11-22; the hook is the
+      AVA-1 lead's).
+- [x] STATE.md rows updated (11-22).
 
 ## Where it stands (11-22, inventory against `078fb8f43`)
 
@@ -69,15 +71,107 @@ Evidence: [tasks/screens/FACE-1_20261122/](../screens/FACE-1_20261122/) (`old_*.
 | A face drives a character | ❓ **not checked**: no face was in front of the phone, and the test character has no art |
 | Frame rate, face-to-puppet delay, low light, glasses, turned face, lost and found | ❓ not checked: each needs a face. The code has no frame-rate or delay readout, so even with a face nothing would show them |
 
+## Built (11-22): the premium face engine
+All in `app/src/main/java/com/fadcam/ui/faditor/avatar/face/`, small single-purpose files; the old pieces are reused, not
+replaced (the same tracker, bus, pipeline, One-Euro filter, life signals and take format).
+
+| Piece | What the user gets |
+|---|---|
+| `FaceSignals` | One vocabulary with the web pilot. Head: turnX, turnY, roll (and the old yaw, pitch, now calibrated). Eyes: lookX, lookY from both eyes; blinkL, blinkR; squintL/R; wideL/R. Brows: browL, browR, browInner. **Jaw apart from lips** (the owner's 11-22 question): jaw, jawX (sideways), jawFwd; mouth = the lips' opening (jaw less lips held shut); lipUpL/R (upper lip lifted on one side), lipDownL/R; smileL/R, frownL/R; pucker, funnel, mouthWide, press, mouthX (the mouth slid sideways), cheekPuff, sneer; the pilot's lidUp, lidLow, lidTilt. **Lean** (a bust): leanX, leanY, near. A sheet mouth's shape (vis) and how much the live face drives (face). Lanes: head, mouth, mood, blink, lean |
+| `FaceMapper` | Two sides stay two sides; continuous blinks with a firm end; the false half-blink of looking down at a phone taken out; eyes that the tracker reads a little unevenly blink together while a real wink stays a wink; moves like your reflection, Mirror turns it round |
+| `FaceCalibration` | **One-tap neutral** (a still half-second; a resting frown, squint or a low-held phone become zero, a full expression still reaches its end); the first one is automatic. A **direction check** (turn right, look down, tilt right, lean right, close your right eye) settles which way is which on each phone: nobody had ever checked the old code or the pilot against a real face |
+| `FaceStage` | **Lost and found**: the last face holds a third of a second (a flicker is not a loss), then eases to a relaxed rest over 0.8 s while the idle life keeps blinking; a returning face crosses over in 0.3 s instead of jumping; eyes keep their gaze through a blink; a sheet mouth changes shape only when the new shape holds two frames; before the first neutral the character waits at rest |
+| Smoothing (`DriverParamSmoother` with a per-name tuner) | Each signal at its own speed: blinks barely smoothed (a blink lands in one tracker frame; the old single setting softened it to half), the head smoothed most while still (7% of the raw jitter left) and opened up as it moves |
+| `FaceFollower` | **No stair steps, no lag**: the tracker gives about 15 faces a second, the screen draws 60; this follows each signal along its own motion (critically damped, predicts one frame ahead), off by at most 0.02 of a full head turn on a moving head; a head that stops runs past by about 0.06 and settles |
+| `FacePass` | **Recorded in passes** like every other channel: a pass writes only its lanes, hands back over a quarter second, everything else identical sample for sample; **editable afterwards** by lane: clear, stronger or softer, smoother, earlier or later |
+| `FaceCapture` | The one object a room uses (below) |
+| `FacePreviewView` | A small preview of what the camera sees, mirrored like a mirror, never stored or recorded; tap for the outline only (eyes, brows, lips, the face's edge, no picture); cyan while a face is found; a dot while the camera is on |
+| `FaceBenchActivity` + `FaceBenchFace` | The bench: a test face showing every signal (the owner's mouth idea built in: lower teeth on the jaw, upper teeth on the head, both seen only through the lips' opening, which slides with the mouth), the preview, Neutral, Directions, Mirror, Graphics chip, Picture, Record by lane, Play, Undo, hold a lane to edit it, and a status line: faces a second, delay from the camera to the character, the model's time, the phone's temperature (also logged once a second under `FaceBench`). Reached from the old Avatar Studio's new **🙂 Face test** button, beside Track |
+
+Also changed: `MediaPipeTrackingSource` sends the raw face (all 52 values by their own names, head degrees, the face's
+place in the picture), a frame for "no face" (it used to send nothing, so characters froze), the camera's capture time,
+the preview, an optional graphics-chip model with the processor as fallback, and plain-words messages. The bus keeps
+one face stage across mounts and measures faces a second and delay. `LifeSignals` and `SyntheticTrackingSource`: the
+random mask the 09-18 colour sweep broke is restored to `0x7FFFFFFF`. Every host of the bus (the old studio's Track,
+Studio's Record, the webcam bubble) gets the neutral, the smoothing and lost-and-found without a change of its own.
+
+**Tests** (`bash tools/jvm-harness/run-face.sh`): 48 checks, each named for what the owner would see, plus the
+phone/pilot parity (6,336 values over 54 faces and a 90-frame lost-and-found run agree within 0.0001).
+`run-face.sh --proof` plants 29 faults (26 in the phone engine and the take, 3 in the pilot's file) and all 29
+are caught (11-22). The older suites still pass: TrackingCore 18, OneEuro 6, ParamTrack 25, ReplayMapping 19,
+LifeMath 16. The tests found one real fault in this work before it shipped: the fill-in trailed a moving head by 0.10 of
+a full turn (it measured against the wrong moment); now 0.02.
+
+## Proven on the Note 9: the bench (11-22, cloud builds `6f3aa52e0` and `48c739e06`, installed over the test build, no uninstall)
+Evidence: `tasks/screens/FACE-1_20261122/new_*.jpg` (the preview corner is blacked out in any shot where the picture
+was on) and `new_bench_run_note9.csv`. No face was in front of the phone for any of this.
+
+| Check | Result |
+|---|---|
+| Reach it | ✅ Lobby, the library card "Avatar", the old studio; 🙂 Face test sits beside 🎯 Track and opens the bench |
+| Camera | ✅ opens on entering (the phone reports the app holding the front camera); let go on Home (0 clients, app back to 3% of a core) |
+| Status line | ✅ "Looking for your face · 12 a second · 104 ms behind you · model 22 ms · phone 31.4 °C · processor" |
+| Faces a second | ✅ 12 to 14 (the tracker's cap is 15) |
+| Camera to character | ✅ about 100 ms (99 to 111) on the processor, 97 to 100 on the graphics chip: most of it is the camera itself, before the model sees the picture. With a face the model does more work, so expect a little more |
+| Graphics chip | ✅ starts on the Note 9 (about 2 s to load), the model's time per frame 22 → 16 ms (no face: only the "find a face" step) |
+| Picture / outline only | ✅ one tap; outline only shows no picture at all, just the frame and the pink camera dot |
+| Record, Play, Undo, edit a lane | ✅ "Take: 4.7 s. Play it, or record another pass"; holding a lane opens Clear / stronger / softer / earlier / later; Undo takes it back |
+| Directions with no face | ✅ "1 of 5: Turn your head to your right", then honestly "No face seen, so nothing changed" (it would have said "set") |
+| Old Track still works | ✅ the old studio's Track on the new pipeline: camera on, "Tracking (face)", no crash |
+| Heat, 4 minutes | Battery 31.4 → 32.5 °C, skin 32.0 → 33.4 °C, thermal status 0 (no throttling). Plugged into USB, so battery drain could not be read |
+| Cost | About 80 to 85% of one core, on the bench and on the old Track alike (final build `48c739e06`, `new_bench_run2_final_build.csv`, `new_old_track_run_final_build.csv`). Split by thread: the camera and the model about the same as before (the old build measured 55% in all), and drawing the screen about a third of a core, because a face that is not there now eases to rest and keeps blinking, so the character animates continuously instead of standing frozen. Cutting the bench's status text to four times a second changed nothing measurable |
+| Crashes | ✅ none logged |
+| **A face drives the test face** | ❓ **not checked: needs a person in front of the Note 9** (every expression, lost and found, low light, glasses, a turned face, the directions, and whether the outline lines up with the picture) |
+
+## The seam: what the phone room must call
+```
+onCreate      FaceCapture face = new FaceCapture(this);
+              face.setPreview(previewView, /*picture*/ true);       // FacePreviewView; false = outline only
+onResume      if (face.hasCameraPermission()) face.start();          // else ask for CAMERA, then start()
+              previewView.setCameraOn(face.isRunning());
+every frame   Map<String, Float> s = face.sample(System.nanoTime()); // FaceSignals names; drives the solver
+onPause       face.stop();                                           // the camera is let go with the room
+Neutral       face.setNeutral();                                     // status().capturingNeutral, neutralProgress
+Directions    face.checkDirection(FaceCalibration.DirectionCheck.YAW / PITCH / ROLL / LEAN / EYE);
+              face.lastDirectionCheck()                              // answer() != 0 when settled; saved for next time
+Settings      FaceTuning t = face.tuning(); t.mirror, t.head, t.eyes, t.brows, t.mouth (0..2), t.blinkSync;
+              face.setTuning(t);                                     // saved as small JSON
+Graphics chip face.setUseGpu(true) (next start); status().onGraphicsChip says where it really ran
+Status        face.status(): state OFF / NEEDS_PERMISSION / STARTING / LOOKING / TRACKING, presence, rate,
+              delayMs, modelMs                                       // the room says these in its own words
+Recording     FacePass pass = new FacePass(take, lanes);            // lanes from FaceSignals.LANES
+              pass.add(ms, s) each frame; take = pass.finish();      // one Undo = put the old take back
+Editing       FacePass.clearLane / scaleLane / smoothLane / shiftLane(take, lane, ...)
+```
+The take is the existing `AvatarParamTrack`, so a take recorded in the room plays in Studio through `AvatarItemPuppet`
+like any other. The room's solver (the port of the pilot's `al-solve.js`) reads the same names the pilot reads.
+
+**The web pilot:** `tools/avatarlab/al-face.js` (new; `al-inputs.js` untouched). The hook for the AVA-1 lead, written
+at the top of that file: add `<script src="al-face.js"></script>` before `al-inputs.js` in `index.html`, and in
+`al-inputs.js` `P.watch` replace everything after `catch (e) { return; }` with
+`c.face = AL.face.pilotFace(r, c, now / 1000);` (optional second line for two-sided brows in `P.step`).
+`AL.face.neutral(cam)` is the one-tap neutral there.
+
 ## What is left
-- [ ] Engine (`app/src/main/java/com/fadcam/ui/faditor/avatar/face/`), pure Java where it can be, each piece
+- [x] Engine (`app/src/main/java/com/fadcam/ui/faditor/avatar/face/`), pure Java where it can be, each piece
       harness-tested with its planted faults caught first.
-- [ ] Wire it into the tracker, the bus and the pipeline without breaking the old studio, Studio's Record and
-      the webcam bubble (they keep reading `yaw` and `pitch` as before, now calibrated).
-- [ ] A bench screen reached from the old studio's toolbar, then a cloud build on the Note 9 (the owner told
-      before installing).
-- [ ] The owner's two minutes in front of the Note 9 (the face checks above).
-- [ ] The web pilot's face file and the one-line hook for the AVA-1 lead.
+- [x] Wired into the tracker, the bus and the pipeline; the old studio, Studio's Record and the webcam bubble still
+      read `yaw` and `pitch` as before, now calibrated (type-checked; the cloud build compiles, 11-22).
+- [x] The bench screen, reached from the old studio's 🙂 Face test; cloud-built and put on the Note 9 (below).
+- [x] The web pilot's face file (`al-face.js`) and the hook, written for the AVA-1 lead.
+- [ ] **The owner's two minutes in front of the Note 9** (the checks that need a face): Avatar room, Open, 🙂 Face
+      test. Wink each eye, raise one brow, smile on one side, slide the jaw, sneer, turn and tilt, lean, cover the camera
+      and uncover it, try dim light and glasses. Then Directions once. Read the status line: faces a second and the
+      delay. This is also when the outline is checked against the picture (it has only been drawn by code).
+- [ ] The AVA-1 lead adds the pilot hook, and the owner tries the pilot's face on the PC page.
+- [ ] The phone room (AVA-1 "path to the phone") plugs in `FaceCapture` as written above, with a masked mouth and teeth
+      layers in the character if the owner wants his 11-22 idea (the signals for it exist; the rig part does not).
+- [ ] `VideoFaceSweeper` ("From video" in Studio) still writes the old raw values; move it onto the face stage so
+      a take from a clip and a live take speak the same names.
+- [ ] Full-body tracking (owner's question 11-22): not built. MediaPipe Pose (33 points) and Hands as a separate
+      mode with the phone on a stand; the bus already carries `pinTarget.<part>` for the limb solver. Its own job.
+- [ ] Studio's Record still replaces the whole take: give it passes through `FacePass` (one file, `FaditorEditorActivity`,
+      held by Studio sessions).
 
 ## Specs, handoffs and evidence
 - Earlier plan: [PLAN_AVATAR_STUDIO.md](../PLAN_AVATAR_STUDIO.md) (A2 tracking, D4 MediaPipe, A4 recorder).

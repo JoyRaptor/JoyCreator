@@ -1,6 +1,6 @@
 # FACE-1: Face capture (your face drives the character, premium)
 
-**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟡 engine built, tested on the PC (every planted fault caught) and bench-checked on the Note 9 without a face, 11-22; a face in front of the phone owed  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `48c739e06`
+**Milestone:** launch (part of Avatar Studio, [AVA-1](AVA-1_avatar_studio_redesign.md))  ·  **State:** 🟡 engine built, tested on the PC (every planted fault caught) and bench-checked on the Note 9 without a face, 11-22; a face in front of the phone owed  ·  **Owner:** "face capture scout" session (Claude Opus 5.5, side session of the 11-22 Avatar lead)  ·  **Checked:** 2026-11-22 against `0e999f1f4`
 
 ## Why it matters (for the user)
 Hold the phone up, make a face, and the character makes it too: a wink is a wink, a half smile is a half
@@ -123,6 +123,29 @@ was on) and `new_bench_run_note9.csv`. No face was in front of the phone for any
 | Crashes | ✅ none logged |
 | **A face drives the test face** | ❓ **not checked: needs a person in front of the Note 9** (every expression, lost and found, low light, glasses, a turned face, the directions, and whether the outline lines up with the picture) |
 
+## The owner's own test (11-22, the Note 9, guided)
+- **His verdict:** "Done, all fine" after the guided test (expressions, head, lean, covering the camera, Directions).
+- **His find:** "the wireframe face in the preview is rotated 90 degrees clockwise, so it's not actually matching up
+  with my face" (the picture itself was right). Cause: the face model reads the face upright but returns its 478 points
+  in the camera's sideways frame; the picture was turned and the points were not. The same fault made lean (where
+  the face sits in the picture) sideways. **Fixed in `0e999f1f4`** (`FaceFrame` turns every point as the picture turns;
+  a neutral saved before it is re-taken by itself, directions kept; a check and a planted fault for each). Not yet seen
+  by him on the phone: the phone stopped answering over USB after he re-plugged it (Windows still saw it).
+- **His question, how many points:** 478 (468 on the face, 10 for the irises), plus 52 expression values and the head's
+  angle. The preview's outline draws about 130 of them (edge, eyes, brows, lips).
+
+## The owner's ideas (11-22), for the Avatar room
+1. **Face pins**: tap a point on a face map, then tap the place on the character where that pin should live (a mouth
+   corner on the face drives the mouth corner of the drawing); the face map shows how many pins are live. Quick and
+   painless. Engine side owed: the chosen points' movement from neutral, measured in the head's own frame (so turning
+   the head does not drag every pin), as signals the take records in their own lane. A short named list first (each
+   mouth corner, the lips' middles and sides, each lid, each brow's inner, middle and outer, the nostrils, the cheeks,
+   the chin), all 478 on request.
+2. **A strength slider on each pin** (a multiplier on its range).
+3. **Any face signal drives any property**, e.g. eyes wide makes a fire emitter throw more fire. The pilot already has
+   links (a signal drives a property by an amount; `al-model.js`, the "links" on the cards); adding the camera's new
+   signals to that list makes this work without a new system. The fire emitter on a character is the new part.
+
 ## The seam: what the phone room must call
 ```
 onCreate      FaceCapture face = new FaceCapture(this);
@@ -159,10 +182,13 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
       read `yaw` and `pitch` as before, now calibrated (type-checked; the cloud build compiles, 11-22).
 - [x] The bench screen, reached from the old studio's 🙂 Face test; cloud-built and put on the Note 9 (below).
 - [x] The web pilot's face file (`al-face.js`) and the hook, written for the AVA-1 lead.
-- [ ] **The owner's two minutes in front of the Note 9** (the checks that need a face): Avatar room, Open, 🙂 Face
-      test. Wink each eye, raise one brow, smile on one side, slide the jaw, sneer, turn and tilt, lean, cover the camera
-      and uncover it, try dim light and glasses. Then Directions once. Read the status line: faces a second and the
-      delay. This is also when the outline is checked against the picture (it has only been drawn by code).
+- [x] **The owner's two minutes in front of the Note 9** (11-22): "Done, all fine"; he found the outline a quarter
+      turn off, fixed in `0e999f1f4`.
+- [ ] Put `0e999f1f4` (or later) on the Note 9 and let the owner see the outline sit on his face (the phone has to
+      answer over USB again first); then the numbers with a face: faces a second and the delay.
+- [ ] Face pins (the owner's idea 1 and 2 above): the engine's point signals, then the room's tap-a-point,
+      tap-the-character setup with a strength slider.
+- [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.
 - [ ] The AVA-1 lead adds the pilot hook, and the owner tries the pilot's face on the PC page.
 - [ ] The phone room (AVA-1 "path to the phone") plugs in `FaceCapture` as written above, with a masked mouth and teeth
       layers in the character if the owner wants his 11-22 idea (the signals for it exist; the rig part does not).

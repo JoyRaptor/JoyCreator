@@ -1158,7 +1158,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
             delegate.start(frame -> {
                 float db = mic.isActive() ? mic.currentAudioDb() : frame.audioDb;
                 int viseme = mic.isActive() ? mic.currentVisemeClassIndex() : frame.visemeClassIndex;
-                listener.onFrame(new TrackingFrame(frame.tSeconds, frame.params, db, viseme));
+                listener.onFrame(frame.withAudio(db, viseme)); // FACE-1: keeps the face fields
             });
         }
 

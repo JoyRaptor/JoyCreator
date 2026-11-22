@@ -97,6 +97,29 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
     /** Fired (main thread) on re-acquire after a &gt;1s loss — wired to bus.requestReset. */
     @Nullable private final Runnable onReacquireReset;
 
+    // ── FACE-1: the private preview, timing and the graphics-chip choice ──
+
+    /** What the small preview shows: the picture (upright, mirrored like a mirror) and the outline. */
+    public interface PreviewSink {
+        /**
+         * Analysis thread. {@code picture} is null when the picture is turned off (outline only);
+         * {@code outline} is x,y pairs in 0..1 of the mirrored picture, NaN pairs between strokes,
+         * or null when no face is found.
+         */
+        void onPreview(@Nullable Bitmap picture, @Nullable float[] outline, boolean found);
+    }
+
+    @Nullable private volatile PreviewSink previewSink;
+    private volatile boolean previewPicture = true;
+    private volatile boolean useGpu = false;
+    /** Analysis-thread ring: MediaPipe stamp -> {analysis start, camera capture} in nanoTime. */
+    private final long[][] stampRing = new long[8][3];
+    private int stampAt = 0, previewTick = 0;
+    @Nullable private volatile float[] lastOutline;
+    /** Model time per frame, ms (smoothed), and which chip ran it. */
+    private volatile float inferenceMs = Float.NaN;
+    private volatile boolean runningOnGpu = false;
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private final LifecycleRegistry lifecycle = new LifecycleRegistry(this);
 
@@ -137,6 +160,26 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         return lifecycle;
     }
 
+    /** FACE-1: show what the camera sees (null = no preview). {@code picture} false = outline only. */
+    public void setPreviewSink(@Nullable PreviewSink sink, boolean picture) {
+        previewSink = sink;
+        previewPicture = picture;
+    }
+
+    public void setPreviewPicture(boolean picture) {
+        previewPicture = picture;
+    }
+
+    /** FACE-1: run the model on the graphics chip (falls back to the processor if it will not start). */
+    public void setUseGpu(boolean gpu) {
+        useGpu = gpu;
+    }
+
+    public boolean isRunningOnGpu() { return runningOnGpu; }
+
+    /** FACE-1: the model's own time per frame in ms (smoothed); NaN before the first. */
+    public float inferenceMs() { return inferenceMs; }
+
     // ── Mount / unmount (mirrors SyntheticTrackingSource; camera-owning) ──────
 
     @Override
@@ -154,8 +197,9 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             if (!buildLandmarker()) {
                 // Host-neutral wording: the studio falls back to synthetic, the
                 // recorder bubble just shows a non-tracking (neutral) puppet.
+                // FACE-1: plain words, never a technical error.
                 Toast.makeText(appContext,
-                        "Face model failed to load — avatar won't track",
+                        "The face camera could not start, so the character will stay still",
                         Toast.LENGTH_LONG).show();
                 stopInternal();
                 return;
@@ -195,13 +239,26 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             frameBitmap = null;
         }
         listener = null;
+        lastOutline = null;
+        PreviewSink sink = previewSink;
+        if (sink != null) sink.onPreview(null, null, false); // the preview goes dark with the camera
     }
 
     private boolean buildLandmarker() {
+        // FACE-1: the graphics chip when asked for, the processor if it will not start there.
+        if (useGpu && buildLandmarker(Delegate.GPU)) {
+            runningOnGpu = true;
+            return true;
+        }
+        runningOnGpu = false;
+        return buildLandmarker(Delegate.CPU);
+    }
+
+    private boolean buildLandmarker(@NonNull Delegate delegate) {
         try {
             BaseOptions base = BaseOptions.builder()
                     .setModelAssetPath(MODEL_ASSET)
-                    .setDelegate(Delegate.CPU) // Note 9 baseline — no GPU delegate
+                    .setDelegate(delegate) // CPU = the Note 9 baseline; GPU only when asked
                     .build();
             FaceLandmarker.FaceLandmarkerOptions options =
                     FaceLandmarker.FaceLandmarkerOptions.builder()
@@ -240,7 +297,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
                         this, CameraSelector.DEFAULT_FRONT_CAMERA, analysis);
             } catch (Exception e) {
                 Toast.makeText(appContext,
-                        "Camera unavailable for face tracking", Toast.LENGTH_SHORT).show();
+                        "The front camera isn't free right now", Toast.LENGTH_SHORT).show();
             }
         }, ContextCompat.getMainExecutor(appContext));
     }
@@ -269,13 +326,59 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
             if (stamp <= lastStamp) stamp = lastStamp + 1;
             lastStamp = stamp;
 
+            int rotation = image.getImageInfo().getRotationDegrees();
             ImageProcessingOptions ipo = ImageProcessingOptions.builder()
-                    .setRotationDegrees(image.getImageInfo().getRotationDegrees())
+                    .setRotationDegrees(rotation)
                     .build();
+            // FACE-1: remember when this picture was taken and when its analysis began, by stamp.
+            long startNanos = System.nanoTime();
+            long[] slot = stampRing[stampAt++ % stampRing.length];
+            slot[0] = stamp;
+            slot[1] = startNanos;
+            slot[2] = captureNanos(image.getImageInfo().getTimestamp(), startNanos);
+            publishPreview(bmp, rotation);
             lm.detectAsync(mp, ipo, stamp);
         } finally {
             image.close();
         }
+    }
+
+    /**
+     * FACE-1: the camera's own timestamp in the {@link System#nanoTime} clock. Cameras stamp either
+     * since boot (elapsedRealtime) or with the monotonic clock; whichever is plausibly close wins,
+     * else the analysis start stands in (the delay then reads a little short, never invented).
+     */
+    private static long captureNanos(long sensorNanos, long nowNanos) {
+        long sinceBoot = SystemClock.elapsedRealtimeNanos();
+        long ageBoot = sinceBoot - sensorNanos;
+        if (ageBoot >= 0 && ageBoot < 1_000_000_000L) return nowNanos - ageBoot;
+        long ageMono = nowNanos - sensorNanos;
+        if (ageMono >= 0 && ageMono < 1_000_000_000L) return sensorNanos;
+        return nowNanos;
+    }
+
+    /**
+     * FACE-1: every other analysed frame, a small upright copy of the picture, mirrored the way a
+     * mirror shows you, for the preview. Never stored, never recorded; nothing at all when the
+     * preview is off or set to outline only.
+     */
+    private void publishPreview(@NonNull Bitmap frame, int rotation) {
+        PreviewSink sink = previewSink;
+        if (sink == null || (previewTick++ & 1) != 0) return;
+        Bitmap picture = null;
+        if (previewPicture) {
+            try {
+                float scale = 128f / Math.max(frame.getWidth(), frame.getHeight());
+                android.graphics.Matrix m = new android.graphics.Matrix();
+                m.postRotate(rotation);
+                m.postScale(-scale, scale); // mirrored: the preview behaves like a mirror
+                picture = Bitmap.createBitmap(frame, 0, 0, frame.getWidth(), frame.getHeight(), m, true);
+            } catch (RuntimeException e) {
+                picture = null;
+            }
+        }
+        float[] o = lastOutline;
+        sink.onPreview(picture, o, o != null);
     }
 
     /** RGBA_8888 ImageProxy → upright-agnostic Bitmap (rotation handled by MP). */
@@ -304,14 +407,19 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         FrameListener l = listener;
         if (l == null) return;
 
+        long[] timing = timingFor(result.timestampMs());
+        double tSeconds = result.timestampMs() / 1000.0;
         List<float[]> matrices = result.facialTransformationMatrixes().orElse(null);
-        // Loss: no face → emit NOTHING (bus freezes, life breathes). Track the
-        // gap so a long loss asks for a smoothing SNAP on re-acquire.
+        // FACE-1: loss is now a frame of its own (FACE_LOST): the face stage holds the last face a
+        // moment, then eases it to rest while the idle life takes over, instead of freezing. The
+        // gap is still tracked so a long loss asks for a smoothing SNAP on re-acquire.
         if (result.faceLandmarks().isEmpty() || matrices == null || matrices.isEmpty()) {
+            lastOutline = null;
+            l.onFrame(new TrackingFrame(tSeconds, new java.util.HashMap<>(), Float.NaN,
+                    TrackingFrame.NO_VISEME, TrackingFrame.FACE_LOST, timing != null ? timing[2] : -1L));
             return;
         }
 
-        double tSeconds = result.timestampMs() / 1000.0;
         boolean longGap = !Double.isNaN(lastEmitSeconds)
                 && (tSeconds - lastEmitSeconds) > REACQUIRE_GAP_S;
         // First frame after mount (NaN) also snaps — no stale state to glide from,
@@ -325,10 +433,103 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         }
         lastEmitSeconds = tSeconds;
 
-        Map<String, Float> params = resultToParams(result);
-        if (params == null) return; // raced away between the guards — treat as loss
+        Map<String, Float> raw = resultToRaw(result);
+        if (raw == null) return; // raced away between the guards — treat as loss
+        lastOutline = outline(result);
 
-        l.onFrame(new TrackingFrame(tSeconds, params, Float.NaN));
+        l.onFrame(new TrackingFrame(tSeconds, raw, Float.NaN, TrackingFrame.NO_VISEME,
+                TrackingFrame.FACE_FOUND, timing != null ? timing[2] : -1L));
+    }
+
+    /** FACE-1: the analysis start and capture time recorded for a stamp; updates the model time. */
+    @Nullable
+    private long[] timingFor(long stamp) {
+        for (long[] s : stampRing) {
+            if (s[0] == stamp && s[1] != 0) {
+                float ms = (System.nanoTime() - s[1]) / 1e6f;
+                float prev = inferenceMs;
+                inferenceMs = Float.isNaN(prev) ? ms : prev + (ms - prev) * 0.1f;
+                return s;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * FACE-1: the RAW face for the face stage: every expression value under MediaPipe's own name,
+     * the head's three angles in degrees (before any neutral or sign), and where the face sits in
+     * the upright picture (centre and width, 0..1) for lean. Null without a face.
+     */
+    @Nullable
+    static Map<String, Float> resultToRaw(@NonNull FaceLandmarkerResult result) {
+        List<float[]> matrices = result.facialTransformationMatrixes().orElse(null);
+        if (result.faceLandmarks().isEmpty() || matrices == null || matrices.isEmpty()) return null;
+        Map<String, Float> raw = new java.util.HashMap<>();
+        float[] deg = headDegrees(matrices.get(0));
+        if (deg != null) {
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_YAW, deg[0]);
+            // the old params read up as positive; the face stage reads down as positive (as the pilot)
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_PITCH, -deg[1]);
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.HEAD_ROLL, deg[2]);
+        }
+        List<List<Category>> blends = result.faceBlendshapes().orElse(null);
+        if (blends != null && !blends.isEmpty()) {
+            for (Category c : blends.get(0)) {
+                String name = c.categoryName();
+                if (name != null && !name.isEmpty() && !"_neutral".equals(name)) raw.put(name, c.score());
+            }
+        }
+        List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark> pts =
+                result.faceLandmarks().get(0);
+        float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+        for (int i : FACE_OVAL) {
+            if (i >= pts.size()) continue;
+            float x = pts.get(i).x(), y = pts.get(i).y();
+            minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+            minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+        }
+        if (maxX > minX) {
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.FACE_X, (minX + maxX) / 2f);
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.FACE_Y, (minY + maxY) / 2f);
+            raw.put(com.fadcam.ui.faditor.avatar.face.FaceCalibration.FACE_SIZE, maxX - minX);
+        }
+        return raw;
+    }
+
+    // MediaPipe face mesh outlines (the canonical index loops): oval, both eyes, both brows, lips.
+    static final int[] FACE_OVAL = {10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365,
+            379, 378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103,
+            67, 109, 10};
+    private static final int[][] OUTLINE = {
+            FACE_OVAL,
+            {33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246, 33},
+            {263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466, 263},
+            {46, 53, 52, 65, 55, 70, 63, 105, 66, 107},
+            {276, 283, 282, 295, 285, 300, 293, 334, 296, 336},
+            {61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 409, 270, 269, 267, 0, 37, 39, 40, 185, 61},
+            {78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191, 78},
+    };
+
+    /** FACE-1: the outline strokes in the mirrored preview's 0..1 space, NaN pairs between strokes. */
+    @Nullable
+    private static float[] outline(@NonNull FaceLandmarkerResult result) {
+        if (result.faceLandmarks().isEmpty()) return null;
+        List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark> pts =
+                result.faceLandmarks().get(0);
+        int n = 0;
+        for (int[] s : OUTLINE) n += s.length + 1;
+        float[] out = new float[n * 2];
+        int k = 0;
+        for (int[] s : OUTLINE) {
+            for (int i : s) {
+                boolean ok = i < pts.size();
+                out[k++] = ok ? 1f - pts.get(i).x() : Float.NaN; // mirrored like the picture
+                out[k++] = ok ? pts.get(i).y() : Float.NaN;
+            }
+            out[k++] = Float.NaN;
+            out[k++] = Float.NaN;
+        }
+        return out;
     }
 
     /**
@@ -377,7 +578,21 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
      * conventions — one tuning knob serves both.</p>
      */
     static void putHeadPose(@NonNull Map<String, Float> params, @NonNull float[] m) {
-        if (m.length < 16) return;
+        float[] d = headDegrees(m);
+        if (d == null) return;
+        params.put("yaw", clamp1(d[0] / YAW_DEG));
+        params.put("pitch", clamp1(d[1] / PITCH_DEG));
+        params.put("roll", clamp1(d[2] / ROLL_DEG));
+    }
+
+    /**
+     * FACE-1: the head's {yaw, pitch, roll} in degrees from the matrix, with the old signs (right
+     * and up positive as the old sliders read them; neither ever checked against a real face — the
+     * face stage's direction check settles each phone). Shared by the old normalised params above.
+     */
+    @Nullable
+    static float[] headDegrees(@NonNull float[] m) {
+        if (m.length < 16) return null;
         // Row-major 3x3 rotation block: rIJ = m[I*4 + J].
         float r00 = m[0], r10 = m[4], r20 = m[8];
         float r21 = m[9], r22 = m[10];
@@ -395,9 +610,7 @@ public final class MediaPipeTrackingSource implements TrackingSource, LifecycleO
         float yawDeg = (float) Math.toDegrees(yawRad) * MIRROR_YAW;
         float pitchDeg = (float) Math.toDegrees(pitchRad) * SIGN_PITCH;
         float rollDeg = (float) Math.toDegrees(rollRad) * MIRROR_YAW;
-        params.put("yaw", clamp1(yawDeg / YAW_DEG));
-        params.put("pitch", clamp1(pitchDeg / PITCH_DEG));
-        params.put("roll", clamp1(rollDeg / ROLL_DEG));
+        return new float[]{yawDeg, pitchDeg, rollDeg};
     }
 
     /** Front-camera mirror: head-right must read positive yaw (slider convention). */

@@ -19,8 +19,18 @@ import java.util.Map;
  */
 public class DriverParamSmoother {
 
+    /**
+     * FACE-1: per-name settings. Returns {minCutoff, beta} for a name, {@link #PASS} to leave a
+     * value unsmoothed (a step), or null for this smoother's own defaults.
+     */
+    public interface Tuner {
+        float[] PASS = new float[0];
+        @androidx.annotation.Nullable float[] tune(@NonNull String name);
+    }
+
     private final float minCutoff;
     private final float beta;
+    @androidx.annotation.Nullable private final Tuner tuner;
     private final Map<String, OneEuroFilter> filters = new HashMap<>();
 
     public DriverParamSmoother() {
@@ -28,8 +38,14 @@ public class DriverParamSmoother {
     }
 
     public DriverParamSmoother(float minCutoff, float beta) {
+        this(minCutoff, beta, null);
+    }
+
+    /** FACE-1: each name at its own speed (blinks barely smoothed, the head most at rest). */
+    public DriverParamSmoother(float minCutoff, float beta, @androidx.annotation.Nullable Tuner tuner) {
         this.minCutoff = minCutoff;
         this.beta = beta;
+        this.tuner = tuner;
     }
 
     /**
@@ -44,9 +60,16 @@ public class DriverParamSmoother {
             Float v = e.getValue();
             if (v == null || v.isNaN()) continue; // a bad tracker sample never
                                                   // enters filter state
+            float[] tune = tuner != null ? tuner.tune(e.getKey()) : null;
+            if (tune == Tuner.PASS) { // a step (a shape index, presence): smoothing would only delay it
+                out.put(e.getKey(), v);
+                continue;
+            }
             OneEuroFilter f = filters.get(e.getKey());
             if (f == null) {
-                f = new OneEuroFilter(minCutoff, beta, OneEuroFilter.DEFAULT_D_CUTOFF);
+                f = tune != null && tune.length >= 2
+                        ? new OneEuroFilter(tune[0], tune[1], OneEuroFilter.DEFAULT_D_CUTOFF)
+                        : new OneEuroFilter(minCutoff, beta, OneEuroFilter.DEFAULT_D_CUTOFF);
                 filters.put(e.getKey(), f);
             }
             out.put(e.getKey(), f.filter(v, tSeconds));

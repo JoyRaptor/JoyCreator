@@ -46,11 +46,24 @@ public class TrackingParamPipeline {
     private static final float NO_MIC_DB = -60f;
 
     private final DriverParamSmoother smoother = new DriverParamSmoother();
+    /** FACE-1: a face camera's signals, each smoothed at its own speed. */
+    private final DriverParamSmoother faceSmoother = new DriverParamSmoother(
+            OneEuroFilter.DEFAULT_MIN_CUTOFF, OneEuroFilter.DEFAULT_BETA,
+            com.fadcam.ui.faditor.avatar.face.FaceSignals.TUNER);
     private final AudioLevelViseme viseme = new AudioLevelViseme();
     private final LifeSignals life;
+    /** FACE-1: calibration, mapping and lost/found for face-camera frames (shared with the bus). */
+    @androidx.annotation.Nullable private final com.fadcam.ui.faditor.avatar.face.FaceStage face;
 
     public TrackingParamPipeline(long lifeSeed) {
+        this(lifeSeed, null);
+    }
+
+    /** FACE-1: with a face stage, frames from a face camera become face signals here. */
+    public TrackingParamPipeline(long lifeSeed,
+                                 @androidx.annotation.Nullable com.fadcam.ui.faditor.avatar.face.FaceStage face) {
         this.life = new LifeSignals(lifeSeed);
+        this.face = face;
     }
 
     /** Current idle-life blend weight (0 live … 1 idle) — for debug overlays. */
@@ -62,6 +75,7 @@ public class TrackingParamPipeline {
     @NonNull
     public Map<String, Float> process(@NonNull TrackingFrame frame) {
         float db = Float.isNaN(frame.audioDb) ? NO_MIC_DB : frame.audioDb;
+        if (face != null && frame.face != TrackingFrame.FACE_NONE) return processFace(frame, db);
 
         Map<String, Float> out =
                 new HashMap<>(smoother.smooth(frame.params, frame.tSeconds));
@@ -79,9 +93,39 @@ public class TrackingParamPipeline {
         return out;
     }
 
+    /**
+     * FACE-1: a face camera's frame. Raw face to signals (neutral, directions, lost and found) in
+     * the stage, each signal smoothed at its own speed, the voice opening the mouth while the face
+     * is not driving it, the idle life blinking for a lost face. Same order rules as above: the
+     * mic's envelope and the life are never One-Euro'd.
+     */
+    @NonNull
+    private Map<String, Float> processFace(@NonNull TrackingFrame frame, float db) {
+        com.fadcam.ui.faditor.avatar.face.FaceStage st = face;
+        Map<String, Float> sig = st.process(
+                frame.face == TrackingFrame.FACE_FOUND ? frame.params : null, frame.tSeconds);
+        Map<String, Float> out = new HashMap<>(faceSmoother.smooth(sig, frame.tSeconds));
+        if (!Float.isNaN(frame.audioDb)) {
+            Float p = out.get(com.fadcam.ui.faditor.avatar.face.FaceSignals.FACE);
+            float voice = viseme.update(frame.tSeconds, db) * (1f - (p == null ? 0f : p));
+            Float m = out.get(com.fadcam.ui.faditor.avatar.face.FaceSignals.MOUTH);
+            float mouth = Math.max(m == null ? 0f : m, voice);
+            out.put(com.fadcam.ui.faditor.avatar.face.FaceSignals.MOUTH, mouth);
+            out.put(AudioLevelViseme.PARAM_JAW_OPEN, mouth);
+        }
+        if (frame.visemeClassIndex != TrackingFrame.NO_VISEME) {
+            out.put(SpectralVisemeAnalyzer.PARAM_VISEME, (float) frame.visemeClassIndex);
+        }
+        Map<String, Float> lifeOut = life.update(frame.tSeconds, db);
+        out.putAll(lifeOut);
+        st.mergeLife(out, lifeOut);
+        return out;
+    }
+
     /** Tracking lost / source swapped: snap to the next truth, never glide. */
     public void reset() {
         smoother.reset();
+        faceSmoother.reset();
         viseme.reset();
         // LifeSignals keeps its schedule — idle motion continuing across a
         // source swap is correct (the puppet shouldn't "die" for a beat).

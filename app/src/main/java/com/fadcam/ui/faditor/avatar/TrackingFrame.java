@@ -48,16 +48,42 @@ public final class TrackingFrame {
     /** {@link SpectralVisemeAnalyzer} class index, or {@link #NO_VISEME}. */
     public final int visemeClassIndex;
 
+    /** FACE-1: not from a face camera (synthetic, scripted): params are plain driver params. */
+    public static final int FACE_NONE = 0;
+    /** FACE-1: a face camera found a face: params are its RAW values (blendshapes + head degrees). */
+    public static final int FACE_FOUND = 1;
+    /** FACE-1: a face camera looked and found no face this frame (params empty). */
+    public static final int FACE_LOST = 2;
+
+    /** FACE-1: which of the three above this frame is. */
+    public final int face;
+    /** FACE-1: when the camera took this picture ({@link System#nanoTime} clock), or -1 if unknown. */
+    public final long captureNanos;
+
     public TrackingFrame(double tSeconds, @NonNull Map<String, Float> params, float audioDb) {
         this(tSeconds, params, audioDb, NO_VISEME);
     }
 
     public TrackingFrame(double tSeconds, @NonNull Map<String, Float> params, float audioDb,
                           int visemeClassIndex) {
+        this(tSeconds, params, audioDb, visemeClassIndex, FACE_NONE, -1L);
+    }
+
+    /** FACE-1: a face camera's frame. */
+    public TrackingFrame(double tSeconds, @NonNull Map<String, Float> params, float audioDb,
+                          int visemeClassIndex, int face, long captureNanos) {
         this.tSeconds = tSeconds;
         this.params = params;
         this.audioDb = audioDb;
         this.visemeClassIndex = visemeClassIndex;
+        this.face = face;
+        this.captureNanos = captureNanos;
+    }
+
+    /** The same frame with the mic's level and mouth class stamped on (keeps the face fields). */
+    @NonNull
+    public TrackingFrame withAudio(float db, int viseme) {
+        return new TrackingFrame(tSeconds, params, db, viseme, face, captureNanos);
     }
 
     /** Compose a pin-target param name for a part. */

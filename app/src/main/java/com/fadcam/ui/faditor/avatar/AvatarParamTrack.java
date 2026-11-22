@@ -65,6 +65,17 @@ public final class AvatarParamTrack {
         return timesMs.size();
     }
 
+    /** FACE-1: the i-th sample's time in ms (lane edits walk a take sample by sample). */
+    public long timeMsAt(int i) {
+        return timesMs.get(i);
+    }
+
+    /** FACE-1: a copy of the i-th sample, exactly as recorded. */
+    @NonNull
+    public Map<String, Float> sampleAtIndex(int i) {
+        return new HashMap<>(samples.get(i));
+    }
+
     public boolean isEmpty() {
         return timesMs.isEmpty();
     }

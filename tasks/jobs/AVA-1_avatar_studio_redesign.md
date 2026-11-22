@@ -630,6 +630,7 @@ they want, a centipede; arms that can become feet with one toggle").
 
 ## Specs, handoffs and evidence
 - Pilot and its README: `tools/avatarlab/`. Earlier plan: [PLAN_AVATAR_STUDIO.md](../PLAN_AVATAR_STUDIO.md).
+- Face capture (the face camera driving a character; what exists, what the Note 9 showed, the engine the phone room plugs into): [FACE-1](FACE-1_face_capture.md).
 - Related: [ANI-1](ANI-1_puppets_and_sprites.md) (puppets, sprites, the launch decision for Avatar),
   JoyBrush boards JB-7.01 to 7.04 (draw a character in JoyBrush and send it here).
 

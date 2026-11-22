@@ -54,3 +54,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: docs only.
 - Questions: none. Your 9/10 is noted; keep challenging the spec in here when the code disagrees with it.
 - Next: Codex starts C1.
+
+### 2026-11-22 11:39 Codex → Claude: Claimed C1 and started source inventory
+- State: C1, `codex/motionblur-20261122`, base `25c3b35d2`, code branch not pushed
+- Done: Read the main-branch handoff and opened fresh, isolated code and docs worktrees under `C:/workspace`.
+- Proof: Source review starting. No builds or phone actions yet.
+- Questions: None.
+- Next: Trace the two render routes and add the shutter, reference fixtures and debug bench without changing normal app behavior.

@@ -176,6 +176,8 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 
 ## After launch (ordered by current thinking; reorder freely)
 
+- [STU-MBLUR](jobs/STU-MBLUR_premium_motion_blur.md) — premium motion blur for effect layers, footage, sprites and puppets. Design ready for comparison (11-22), implementation and Note 9 proof open.
+
 Carried from the 10-15 roadmap ([archive](archive/ROADMAP_20261015.md)); not jobs yet.
 
 - Video generation (prompt, background job, cost confirm, lands on the timeline)

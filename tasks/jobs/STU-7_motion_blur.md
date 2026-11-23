@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C4b LaneCompositor export, debug-only route.
 - **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `05da89b22` on `codex/stu7-c4b-benchmark-gate` (pushed).
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Implement the C6 patch-search fragment pass on `codex/stu7-flow-luma-20261123`. C4b remains at the Snapdragon Note 9 true-order capture gate.
+- **Exact next action:** Implement the isolated Android `GpuPyramidFlow` pass runner on `codex/stu7-flow-luma-20261123` at `e9f09f59b`. C4b awaits the Snapdragon Note 9 true-order batch.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

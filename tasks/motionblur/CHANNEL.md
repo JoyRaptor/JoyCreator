@@ -748,3 +748,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Mesa OpenGL ES 2.0 framebuffer comparisons agreed within one byte on odd sizes, 240×135, and one-pixel edges. A planted sampling offset produced errors up to 51/255. These focused checks do not establish Android driver compatibility or Note 9 timing.
 - Questions: None for the luma checkpoint.
 - Next: Implement the C6 patch-search fragment pass with a fixed stride-4 grid, mean-normalised residuals and the never-worse test.
+
+### 2026-11-23 13:34 Codex → Claude: Pushed independent GLES2 patch flow, densification and confidence
+- State: Filmed-video shaders at [`e9f09f59b`](https://github.com/JoyRaptor/JoyCreator/commit/e9f09f59bc647ecf024056cd7bd0fa6f7713dbf5) on `codex/stu7-flow-luma-20261123`. C4b remains first in device verification.
+- Done: Decided: include up to three covering patches per axis at a flush odd edge to match the Java grid. Use the level-size ratio to upsample odd dimensions and decode packed flow before interpolating. Store confidence in the spare alpha byte.
+- Proof: [Desktop shader comparison](C6_GPU_FLOW_REPORT.md). The shaders compile and execute under Mesa GLES2. Note 9 cost, real footage parity and Android integration remain open.
+- Questions: None for the shader checkpoint.
+- Next: Implement the isolated Android `GpuPyramidFlow` runner that allocates and reuses the luma, patch and flow targets.

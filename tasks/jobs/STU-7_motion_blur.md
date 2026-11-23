@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C4b LaneCompositor export, debug-only route.
-- **Code branch / head:** `codex/motionblur-20261122` @ `669cedcd9` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `584c56c32` (pushed).
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Run the corrected picture/order/CPU-reference controls on the exact `57ccca950` APK, then rerun mixed equivalence with `669cedcd9`.
+- **Exact next action:** Collect four raw controls at 66,000, 500,000 and 900,000 µs requests on `57ccca950`. If interrupted after installing, restore and hash-check the saved APK before releasing the claim.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

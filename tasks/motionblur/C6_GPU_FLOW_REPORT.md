@@ -20,3 +20,5 @@ Disabling mean normalisation raised the flash scene's mean analytic error to 16.
 ## Isolated Android pass runner
 
 `GpuPyramidFlow` allocates size-checked targets once per GL context. It builds the luma pyramids, reuses the coarse flow workspace for the optional reverse estimate, and outputs packed flow and confidence without a readback. A JVM stub run exercised one- and two-direction pass order, multiple frames without target reallocation, framebuffer/viewport/dither restoration and rejected framebuffer allocation cleanup. The stub run does not compile against the Android SDK. Obtain an exact GitHub APK and Studio suite before wiring the runner into the device bench. Then measure per-pass cost on the Snapdragon Note 9 and compare real pairs before enabling a caller.
+
+With the high-precision sampler revision, the shifting, long-shift and flash cases had mean endpoint differences versus Java of 0.05199, 0.04960 and 0.05232 px. Their P99 differences were 0.11968, 0.13929 and 0.14047 px. The flash negative rose to 17.19026 px analytic error. The luma tests stayed within 1/255. These repeat measurements are on the same desktop driver.

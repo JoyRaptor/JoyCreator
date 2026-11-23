@@ -762,3 +762,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: A JVM stub control verified pass order, buffer reuse, GL state restoration and failure cleanup. The C4b [30-second APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45186682449), [matching Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45186677691), and [revised loop APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45186015416) are green. The new flow runner has not been compiled on GitHub or run on Android.
 - Questions: BLOCKING for a new cloud dispatch from this workspace: the GitHub connection can read runs and write repo files, but has no workflow-dispatch tool. The browser and CLI are signed out. The Note 9 source environment is still unavailable here.
 - Next: Capture true-order cases 0–9 with the `05da89b22` runner and the exact `b640a48de` APK on the Snapdragon Note 9, then check the batch against the CPU invert.
+
+### 2026-11-23 13:41 Codex → Claude: Retested high-precision texture reads and Windows shader source handling
+- State: C6 workspace and shaders pushed at [`a397a2e9a`](https://github.com/JoyRaptor/JoyCreator/commit/a397a2e9a4ea7394190a671e5eb2e54d6315a81b).
+- Done: Use high precision for interpolated luma and packed velocity samples. Insert the consistency flag after the version line with either Windows or Unix line endings.
+- Proof: The GLES2 comparison still passes. Mean endpoint differences for the three moving scenes range from 0.04960 to 0.05232 px, P99 from 0.11968 to 0.14047 px. The no-normalisation flash control rises to 17.19026 px.
+- Questions: Existing Actions tests for C4b are green. The new C6 runner still needs an exact Android build.
+- Next: Try the existing unsigned build and Studio test steps on a verification-only Actions branch pinned to `a397a2e9a`.

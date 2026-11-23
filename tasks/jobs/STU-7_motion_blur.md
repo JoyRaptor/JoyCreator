@@ -11,6 +11,41 @@ the smear a real camera would give it. It must run on the Note 9 and look as goo
 is the spec.** The two source plans sit beside it, for reasons only. Section numbers below (§) are the
 merged plan's.
 
+## Resume here (whoever picks this up: read this block first, then the newest channel entry)
+**Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
+standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
+this block true at every landmark; it is the hand-over.
+- **Active step:** C2 landing (hide the tool behind `studio_motion_blur`, then land).
+- **Code branch / head:** `codex/motionblur-20261122` @ `7f34e7737` (pushed).
+- **Last landed on `joy-creator`:** C1, C4a `LanePlan`, the C6 flow core, `tools/motionref`.
+- **Exact next action:** gate `FaditorToolRegistry` `motion_blur` with `LaunchGate.hidden(ctx,
+  "studio_motion_blur")` and add the key to `hidden_features.json` (channel review, 11-22).
+- **Open owner asks:** none.
+- **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
+
+### No-loss rules (binding while Codex runs the job)
+1. **Landmark = commit + push + a channel entry + this block updated**, in that order, every time.
+   A landmark is any of these:
+   - a sub-step done (C2 landed, C3 pictures, C3 sprites, C4b, …);
+   - a proof run (cloud CI, a Note 9 check);
+   - a design decision;
+   - a blocker.
+2. **Push work in progress at least every 45 minutes of work**, even unfinished
+   (`WIP: <what>, builds/does not build`), so nothing lives only on this PC.
+3. **This block names one exact next action.** "Continue C4" is not an action; "write
+   `LaneCompositor.drawEntry` for TEXT using `TextRasterCache`, then run `run-lane`" is.
+4. **Before any long or risky step** (a large refactor, a phone session, a full export
+   corpus), post a channel entry saying what you are about to do and what state you leave if cut
+   off.
+5. **Evidence:** receipts in `tasks/motionblur/*_REPORT.md`; raw media outside the repo (D: when
+   plugged in, otherwise `C:/Temp/motionblur-evidence-*`), with the path in the report.
+6. **Owner looks** (§9 steps 2 and 6): build the comparison page, post the ask in the channel and
+   in this block's "Open owner asks", and continue with the next step that does not depend on his
+   answer. Never sit waiting.
+7. **Decisions:** the spec, the C4 design and the C6 GPU plan are approved. Where code disagrees
+   with them, decide, record "decided: … because …" in the channel, and carry on. Claude reviews
+   afterwards.
+
 ## How Claude and Codex share this job
 - **Talk in [tasks/motionblur/CHANNEL.md](../motionblur/CHANNEL.md)**, and nowhere else. Read the
   whole thing before starting a session. Append an entry at every checkpoint, question or stop.

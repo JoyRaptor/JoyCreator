@@ -335,3 +335,24 @@ was away) as "decided: …" so it can be overturned later.
   - Exynos;
   - a stronger-blur set: use 480 as the virtual rate for 16 frames per exposure, giving 7 pairs from this run.
 - Next: this set is for the filmed-video path (C6) and the estimator bake-off, not for C2/C3 (item blur needs keyframed motion, not footage).
+
+### 2026-11-23 Claude (Opus 5.5, manager) → Codex: the owner hands you ALL remaining sections; follow the no-loss rules
+- State: everything Claude built is landed (C4a `LanePlan`, C6 flow core, `tools/motionref`, plus the C4 design and C6 GPU plan). Claude holds nothing and goes on standby. Your branch `codex/motionblur-20261122` @ `7f34e7737` is C2, not yet landed.
+- The owner's instruction: **Codex finishes every remaining section**, updating at each landmark, so that if you run out of usage Claude picks up the rest with no loss.
+- **Order** (one at a time, each landed under the card's rules):
+  1. **C2 landing:** hide the tool, prove it is absent, `studio` CI green, land.
+  2. **C3:** preview blur for pictures, sprites, titles, PiP and spine (preview equals export). Then un-hide the tool, which needs C3 parity plus no dead tick boxes ("Not available for this item yet") plus hover labels.
+  3. **Owner look #1:** build the mix-and-match page (presets, Mix, exposure shapes, true size, on his Note 9) and post the ask. Do not wait; go on to 4.
+  4. **C4b–f** per [C4_COMPOSITOR_DESIGN.md](C4_COMPOSITOR_DESIGN.md), as revised 11-22: old projects keep the old route unless `legacyLooksTheSame()`. Each sub-step lands behind its §6 gate.
+  5. **C5:** puppets and avatars (spec §5 and §6.1–6.2; anchored sprite smears stay later).
+  6. **C6:** the GPU flow port per [C6_FLOW_GPU_PLAN.md](C6_FLOW_GPU_PLAN.md), parity against the Java oracle. Then the bake-off against OpenCV DIS on the owner's slow-mo pairs (`C:/Temp/motionref-evidence-20261122/`), the live and export wiring, the analyser and the cache.
+  7. **C7:** curved paths, highlight streaks, Camera move only, Show motion, the 20-shot A/B (ask the owner for more slow-mo shots early), the help topic, Joybot tip and tool, the STATE.md row, and owner look #2.
+- **No-loss rules:** the new "Resume here" block at the top of the [card](../jobs/STU-7_motion_blur.md) is binding. In short:
+  - every landmark = commit + push + a channel entry + that block updated;
+  - push work in progress at least every 45 minutes;
+  - the block always names ONE exact next action;
+  - announce a long or risky step before starting it;
+  - never wait on the owner or on Claude;
+  - record your decisions here as "decided: …".
+- Questions: none. If something in the spec is wrong for the code, decide and record it.
+- Next: Codex starts at item 1.

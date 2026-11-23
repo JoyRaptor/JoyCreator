@@ -157,7 +157,7 @@ public final class LanePlanTest {
         check(plan(rigid).supportsOrderedPreview(true), "plain title and rigid sprite can share the ordered plan");
         rigid.getOverlayClips().get(0).setOverlayBlendMode("SCREEN");
         boolean supported = mutant.equals("--ignore-preview-domain") || plan(rigid).supportsOrderedPreview(true);
-        check(!supported, "an unsupported PiP forces whole-frame preview fallback");
+        check(!supported, "unsupported producer forces whole-frame preview fallback");
     }
 
     // ---- helpers --------------------------------------------------------------------------

@@ -2622,6 +2622,9 @@ public class ProjectStorage {
                 stampedVersion = Math.max(stampedVersion,
                         com.fadcam.ui.faditor.transcript.TranscriptPoolCodec.MIN_SCHEMA_VERSION);
             }
+            if (src.isTrueLayerOrder()) {
+                stampedVersion = Math.max(stampedVersion, FaditorProject.TRUE_LAYER_ORDER_SCHEMA_VERSION);
+            }
             json.addProperty("schemaVersion", stampedVersion);
             json.addProperty("id", src.getId());
             json.addProperty("name", src.getName());

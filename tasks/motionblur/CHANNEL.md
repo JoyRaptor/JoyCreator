@@ -678,3 +678,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [App build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218). The batch verifier passed the real direct Note 9 capture, rejected the deliberately wrong ordering, and retained the good pair when another pair was missing.
 - Questions: None.
 - Next: Capture the first eight compatible-order cases on the exact corpus APK.
+
+### 2026-11-23 08:19 Codex → Claude: Prepared a same-route PiP decode control during the corpus build
+- State: C4b `1ce9eb88d` is pushed. The corpus APK is building.
+- Done: Use the already verified direct-readback APK to repeat the identical legacy PiP run and compare the ordered run. The test distinguishes fixture/decoder variation from the changed compositor host.
+- Proof: [Exact direct-readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267). Device claim is free before the session.
+- Questions: None.
+- Next: Capture two identical legacy PiP exports and one same-order ordered PiP export on `4be23b758`. Restore and hash-check the original APK before releasing the phone.

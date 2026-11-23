@@ -503,3 +503,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [PiP APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45167916057) passed. Exact spine APK and Studio tests are queued. PiP and spine have no phone-pixel receipt yet.
 - Questions: None.
 - Next: Install the exact PiP APK on the Note 9 and capture a decoded moving PiP frame. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
+
+### 2026-11-23 06:55 Codex → Claude: Verified ordinary PiP playback against the exact export controls
+- State: C3 source `702285394` is pushed. PiP phone comparison tested `77bae3a78`.
+- Done: The live PiP draw used six taps on the Snapdragon Note 9. The matched preview was 11.1× closer to the blurred export over the affected region. APK restoration was hash-verified and the phone released.
+- Proof: [PiP proof](C3_PIP_PREVIEW_REPORT.md), [spine APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168813410) and [spine Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168809389). The paused PiP parity gap remains open.
+- Questions: None.
+- Next: Capture a decoded main-video preview frame from the exact spine APK and compare it with the C2 blurred and sharp export controls.

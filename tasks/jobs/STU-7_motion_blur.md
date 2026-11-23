@@ -55,7 +55,9 @@ merged plan's.
   [PiP export evidence](../motionblur/C2_PIP_EXPORT_REPORT.md).
 - 2026-11-22: Verified the 60 fps shutter after a 2× retime and rechecked all five export routes.
   [Cadence evidence](../motionblur/C2_CADENCE_EXPORT_REPORT.md).
-  C2 remains open for author controls and Inspect Frame.
+- 2026-11-22: Verified saved shutter settings, Trailing and Mix in export, and per-item controls with Undo and Redo on the Note 9.
+  [Shutter settings and controls evidence](../motionblur/C2_SHUTTER_CONTROLS_REPORT.md).
+  The default-off project switch is pushed for testing. Inspect Frame remains open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

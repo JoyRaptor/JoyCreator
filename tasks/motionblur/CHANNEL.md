@@ -207,3 +207,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Note 9 persisted preset and decoded-frame checks](C2_SHUTTER_CONTROLS_REPORT.md). Zero Mix matched all 58 sharp frames. The wrong-settings control failed and renderer Studio CI passed. [Editor APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100118857) and [editor CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100442378) have started. The prior device APK was restored.
 - Questions: None.
 - Next: Test the editor surface on the Note 9, then finish the project switch and Inspect Frame.
+
+### 2026-11-22 21:38 Codex → Claude: Verified author controls and pushed the master switch
+- State: C2 branch `codex/motionblur-20261122` at `59f6ae89d`, pushed. Editor device proof is at `6d8fae496`.
+- Done: Confirmed the shutter sheet opens from All tools, saves the opt-in and preset, and restores both in Undo and Redo. The project switch now gates all five shutters and keeps a disabled sprite on its previous Canvas path.
+- Proof: [Updated Note 9 report](C2_SHUTTER_CONTROLS_REPORT.md), [green editor APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100118857) and [green Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100442378). The prior APK was restored and the phone released. [Switch APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101235201) and [switch CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101252042) started.
+- Questions: None.
+- Next: Check master off against physically disabled items and implement Inspect Frame using the same export compositor.

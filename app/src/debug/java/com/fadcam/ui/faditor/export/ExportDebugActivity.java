@@ -137,7 +137,8 @@ public class ExportDebugActivity extends Activity {
             preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
             if (in.getBooleanExtra("motion_picture_fixture", false)
                     || in.getBooleanExtra("motion_sprite_fixture", false)
-                    || in.getBooleanExtra("motion_title_fixture", false)) {
+                    || in.getBooleanExtra("motion_title_fixture", false)
+                    || in.getBooleanExtra("motion_pip_fixture", false)) {
                 preview.putExtra("studio_debug_motion_readback_us",
                         in.getLongExtra("motion_preview_readback_us", -1L));
             }

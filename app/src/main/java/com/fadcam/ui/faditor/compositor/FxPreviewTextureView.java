@@ -1112,6 +1112,8 @@ public class FxPreviewTextureView extends TextureView
 
     record StillShutter(RigidTextureShutterPass.Source source, StillExposure exposure) {}
 
+    record LivePipShutter(int sourceWidth, int sourceHeight, StillShutter shutter) {}
+
     record TimedStill(Pip pip, StillShutter shutter, long startUs, long endUs) {
         boolean covers(long timeUs) { return timeUs >= startUs && timeUs < endUs; }
     }
@@ -1130,23 +1132,28 @@ public class FxPreviewTextureView extends TextureView
 
         @Nullable final StillShutter shutter;
         @Nullable final List<TimedStill> neighboringCells;
+        @Nullable final LivePipShutter pipShutter;
 
         private Rung(@Nullable Pip pip, int layerIndex, @Nullable StillShutter shutter,
-                     @Nullable List<TimedStill> neighboringCells) {
+                     @Nullable List<TimedStill> neighboringCells, @Nullable LivePipShutter pipShutter) {
             this.pip = pip;
             this.layerIndex = layerIndex;
             this.shutter = shutter;
             this.neighboringCells = neighboringCells;
+            this.pipShutter = pipShutter;
         }
 
-        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null, null); }
+        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null, null, null); }
         @NonNull static Rung movingStill(@NonNull Pip p, @NonNull StillShutter shutter) {
-            return new Rung(p, -1, shutter, null);
+            return new Rung(p, -1, shutter, null, null);
         }
         @NonNull static Rung sprite(@NonNull TimedStill current, @NonNull List<TimedStill> cells) {
-            return new Rung(current.pip(), -1, current.shutter(), List.copyOf(cells));
+            return new Rung(current.pip(), -1, current.shutter(), List.copyOf(cells), null);
         }
-        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null, null); }
+        @NonNull static Rung movingPiP(@NonNull Pip p, @NonNull LivePipShutter motion) {
+            return new Rung(p, -1, null, null, motion);
+        }
+        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null, null, null); }
     }
 
     /**
@@ -2741,6 +2748,9 @@ public class FxPreviewTextureView extends TextureView
             java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
 
     private int drawRung(Rung rung, int src, int width, int height) {
+        if (rung.pipShutter != null) {
+            return drawLivePipShutter(rung.pip, rung.pipShutter, src, width, height);
+        }
         if (rung.neighboringCells != null && motionFrame != null) {
             for (var cell : rung.neighboringCells) {
                 if (cell.covers(motionFrame.editorTimeUs())) {
@@ -2785,6 +2795,77 @@ public class FxPreviewTextureView extends TextureView
         } finally {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         }
+    }
+
+    private int motionPipTex, motionPipFbo, motionPipWidth, motionPipHeight;
+
+    private int drawLivePipShutter(Pip p, LivePipShutter motion, int src, int width, int height) {
+        var frame = motionFrame;
+        var source = RigidTextureShutterPass.Source.VIDEO_OVERLAY;
+        var exposure = frame == null || failedStillShutters.contains(source) ? null
+                : motion.shutter().exposure().at(frame.editorTimeUs(), frame.periodUs(), width, height);
+        if (exposure == null) return drawPipRung(p, src, width, height);
+        if (!p.rendersAnything()) return src;
+        int slot = p.liveSlot;
+        SurfaceTexture input = slot >= 0 && slot < livePipInputs ? pipTextures[slot] : null;
+        if (input == null || !pipHasFrame[slot]) return src;
+        int dst = src == 0 ? 1 : 0;
+        try {
+            input.updateTexImage();
+            input.getTransformMatrix(pipTexMatrix[slot]);
+            float maxEdge = Math.min(2048, Math.max(width, height));
+            float scale = Math.min(1f, maxEdge / Math.max(motion.sourceWidth(), motion.sourceHeight()));
+            ensureMotionPipTarget(Math.max(1, Math.round(scale * motion.sourceWidth())),
+                    Math.max(1, Math.round(scale * motion.sourceHeight())));
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, motionPipFbo);
+            GLES20.glViewport(0, 0, motionPipWidth, motionPipHeight);
+            GLES20.glUseProgram(stageProgram);
+            bindQuad(stageProgram);
+            GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(stageProgram, "uTexMatrix"),
+                    1, false, pipTexMatrix[slot], 0);
+            setF(stageProgram, "uRotation", 0f);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexIds[slot]);
+            GLES20.glUniform1i(GLES20.glGetUniformLocation(stageProgram, "uOesTexture"), 0);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+            var pass = stillShutters.get(source);
+            if (pass == null) {
+                pass = new RigidTextureShutterPass(source);
+                stillShutters.put(source, pass);
+            }
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+            GLES20.glViewport(0, 0, width, height);
+            pass.draw(motionPipTex, width, height, exposure.plan(), targets[src][0], exposure.opacity());
+            if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
+                FLog.i(TAG, "live pip shutter editorUs=" + frame.editorTimeUs()
+                        + " periodUs=" + frame.periodUs() + " taps=" + exposure.plan().taps().size());
+            }
+            return dst;
+        } catch (RuntimeException | androidx.media3.common.util.GlUtil.GlException error) {
+            failedStillShutters.add(source);
+            FLog.w(TAG, "PiP shutter unavailable; drawing sharp", error);
+            return drawPipRung(p, src, width, height);
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        }
+    }
+
+    private void ensureMotionPipTarget(int width, int height)
+            throws androidx.media3.common.util.GlUtil.GlException {
+        if (motionPipFbo != 0 && motionPipWidth == width && motionPipHeight == height) return;
+        releaseMotionPipTarget();
+        motionPipTex = androidx.media3.common.util.GlUtil.createTexture(width, height, false);
+        motionPipFbo = androidx.media3.common.util.GlUtil.createFboForTexture(motionPipTex);
+        motionPipWidth = width;
+        motionPipHeight = height;
+    }
+
+    private void releaseMotionPipTarget() {
+        if (motionPipFbo != 0) GLES20.glDeleteFramebuffers(1, new int[]{motionPipFbo}, 0);
+        if (motionPipTex != 0) GLES20.glDeleteTextures(1, new int[]{motionPipTex}, 0);
+        motionPipFbo = 0;
+        motionPipTex = 0;
     }
 
     private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
@@ -3383,6 +3464,7 @@ public class FxPreviewTextureView extends TextureView
                     try { shutter.release(); } catch (Exception ignored) { }
                 }
                 stillShutters.clear();
+                releaseMotionPipTarget();
                 failedStillShutters.clear();
                 loggedStillShutters.clear();
                 releaseTargets();

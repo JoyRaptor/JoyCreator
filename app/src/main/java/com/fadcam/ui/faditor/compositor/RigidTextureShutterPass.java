@@ -42,7 +42,7 @@ public final class RigidTextureShutterPass {
 
     public record Exposure(RigidShutterPlan plan, float opacity) {}
 
-    public enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY, PIP }
+    public enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY, PIP, VIDEO_OVERLAY }
 
     private final GlProgram program;
     private final boolean overlay;
@@ -110,6 +110,7 @@ public final class RigidTextureShutterPass {
     private static String fragmentShader(Source kind) {
         boolean pip = kind == Source.PIP;
         boolean overlay = !pip && kind != Source.SPINE;
+        boolean bitmap = kind == Source.PICTURE || kind == Source.PREMULTIPLIED_OVERLAY;
         // Statically named rows stay below the GLES 2 minimum fragment-uniform limit.
         StringBuilder source = new StringBuilder("""
                 #version 100
@@ -127,7 +128,7 @@ public final class RigidTextureShutterPass {
         for (int i = 0; i < SAMPLE_COUNT; i++) {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
-        if (overlay) {
+        if (bitmap) {
             source.append("""
                     vec3 toLinear(vec3 rgb) {
                       return mix(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3(2.4)),
@@ -158,7 +159,7 @@ public final class RigidTextureShutterPass {
                   if (any(lessThanEqual(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))
                     return vec4(0.0);
                 """);
-        if (overlay) {
+        if (bitmap) {
             source.append("""
                     // Match the existing normal blend's RGB and alpha for uploaded bitmaps.
                     vec4 sampleColor = texture2D(uTexSampler, uv);

@@ -416,6 +416,9 @@ public final class FxLivePreviewController {
         List<TextOverlayItem> shutterOverlays = host.motionBlurEnabled()
                 ? ordinaryStillRun(timeline) : java.util.Collections.emptyList();
         boolean shutterSprites = host.motionBlurEnabled() && ordinarySpriteRun(timeline);
+        boolean shutterPiP = host.motionBlurEnabled()
+                && LayerPreviewController.visibleOverlayVideoClips(timeline).stream()
+                .anyMatch(FxLivePreviewController::eligibleLivePiP);
         // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
         // glImages. This second list is kept for the pre-3A.1 path where masks were NOT in the
         // gate and were stranded on Canvas; it is now empty for new code but the routing
@@ -505,7 +508,7 @@ public final class FxLivePreviewController {
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
-                && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites) {
+                && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites && !shutterPiP) {
             stop();
             return;
         }
@@ -835,7 +838,10 @@ public final class FxLivePreviewController {
                             FLog.d("FxMatte", "dangling matte peerId " + cs.mattePeerId + " for " + vc.getId() + " — unmatted");
                         }
                     }
-                    rungs.add(FxPreviewTextureView.Rung.pip(p)); pipRungs++;
+                    var pipShutter = pipShutter(vc, p, ov, size);
+                    rungs.add(pipShutter == null ? FxPreviewTextureView.Rung.pip(p)
+                            : FxPreviewTextureView.Rung.movingPiP(p, pipShutter));
+                    pipRungs++;
                 }
                 else if (!loggedNullPip) {
                     // ONCE, not per frame: a PiP with no geometry yet is the normal state for
@@ -1056,6 +1062,41 @@ public final class FxLivePreviewController {
         } catch (Exception ignored) {
             return null;   // never let a sprite cost the frame
         }
+    }
+
+    private static boolean eligibleLivePiP(Clip clip) {
+        var comp = clip.getCompositing();
+        return clip.isRigidMotionBlurEnabled() && RigidPipMotion.supports(clip)
+                && !clip.isImageClip() && clip.getSpeedMultiplier() == 1f
+                && com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()) == 0f
+                && (comp == null || comp.mattePeerId == null);
+    }
+
+    @Nullable
+    private FxPreviewTextureView.LivePipShutter pipShutter(Clip clip, FxPreviewTextureView.Pip p,
+                                                          OverlayVideoPreviewView overlay, int[] size) {
+        var clock = motionClock.anchor();
+        if (clock == null || !eligibleLivePiP(clip) || p.still != null
+                || p.maskOn || p.matteOn || p.fused != null) return null;
+        var source = overlay.motionSourceSize(clip);
+        if (source == null) return null;
+        var snapshot = new Clip(clip);
+        int width = size[0], height = size[1];
+        var sampler = com.fadcam.ui.faditor.motion.MotionItemAdapters.pip(snapshot, width, height,
+                source.getWidth(), source.getHeight(), OverlayVideoPreviewView.DEFAULT_X,
+                OverlayVideoPreviewView.DEFAULT_Y, OverlayVideoPreviewView.DEFAULT_SCALE);
+        var breaks = RigidPipMotion.fences(snapshot, clock.editorStartUs(), clock.editorEndUs());
+        var shutter = new FxPreviewTextureView.StillShutter(RigidTextureShutterPass.Source.VIDEO_OVERLAY,
+                (timeUs, periodUs, w, h) -> {
+                    if (timeUs < clock.editorStartUs() || timeUs >= clock.editorEndUs()
+                            || w != width || h != height) return null;
+                    float opacity = RigidPipMotion.opacity(snapshot, timeUs / 1000L);
+                    if (opacity <= 0.001f) return null;
+                    var plan = RigidTextureShutterPass.plan(snapshot.getRigidMotionShutter(),
+                            sampler, timeUs, periodUs, breaks, w, h);
+                    return plan == null ? null : new RigidTextureShutterPass.Exposure(plan, opacity);
+                });
+        return new FxPreviewTextureView.LivePipShutter(source.getWidth(), source.getHeight(), shutter);
     }
 
     /** Keep the first sprite route in its original surface order. */

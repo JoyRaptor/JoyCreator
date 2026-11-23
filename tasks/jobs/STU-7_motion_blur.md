@@ -15,10 +15,10 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C2 landing (launch gate pushed; exact device and Studio CI proof pending).
-- **Code branch / head:** `codex/motionblur-20261122` @ `f9500f145` (pushed).
-- **Last landed on `joy-creator`:** C1, C4a `LanePlan`, the C6 flow core, `tools/motionref`.
-- **Exact next action:** Verify [Studio CI run 45124984101](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) for f9500f145 before landing C2.
+- **Active step:** C3 live preview (ordinary pictures first).
+- **Code branch / head:** `codex/motionblur-20261122` @ `f9500f145` (landed via `665409126`).
+- **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
+- **Exact next action:** Add the decoder-to-texture timestamp pairing class `PreviewMotionClock` and its release-clock rejection test.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 
@@ -93,7 +93,7 @@ this block true at every landmark; it is the hand-over.
   [Shutter settings and controls evidence](../motionblur/C2_SHUTTER_CONTROLS_REPORT.md).
 - 2026-11-22: The switch and Inspect Frame are verified on the Snapdragon Note 9.
   C2 is implemented and tested on `codex/motionblur-20261122` at `7f34e7737`.
-  The code remains on the branch for review of the new tool entry under the default-off landing rule.
+  Landed as `665409126` after the tool was hidden and the gate was verified on the Note 9.
 - 2026-11-22: Claude reviewed C2: hide the tool behind LaunchGate `studio_motion_blur` until C3 parity, then Codex lands it (channel).
 - 2026-11-22: Claude wrote the [C4 design](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go for C4, with gates).
   Claude also landed the C6 flow core at `a7d01ad7f` (pure Java, not called by the app yet; `run-motionflow`, 63/63 Studio CI,
@@ -103,7 +103,7 @@ this block true at every landmark; it is the hand-over.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
-- [ ] **C2 = §9 step 1:** rigid items (sprite, picture, text, PiP, spine clip) blurred exactly in
+- [x] **C2 = §9 step 1:** rigid items (sprite, picture, text, PiP, spine clip) blurred exactly in
       export. Includes the per-item tick box and the switch, the shutter sheet with presets, and the
       accumulation reference. Brief written by Claude after C1's review; if Claude is unavailable,
       Codex drafts it in the channel from §5 and §9.

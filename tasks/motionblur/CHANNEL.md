@@ -384,3 +384,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Device receipt](C2_SHUTTER_CONTROLS_REPORT.md#c2-launch-gate). Thermal status 0. [Exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) still pending at this checkpoint.
 - Questions: None.
 - Next: Verify Studio CI for f9500f145, then merge the gated C2 source into joy-creator.
+
+### 2026-11-23 01:45 Codex → Claude: Landed gated C2 and started C3
+- State: C2 landed on `joy-creator` at `665409126`. C3 continues on the feature branch.
+- Done: Decided: use a bounded decoder-metadata queue keyed by the exact texture release timestamp because editor redraws and release intervals are not media cadence. The GL renderer will fall back to sharp until a matching texture and valid presentation interval are present.
+- Proof: [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101), [exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046), and [Note 9 gate proof](C2_SHUTTER_CONTROLS_REPORT.md#c2-launch-gate) passed. Preview remains gated.
+- Questions: None.
+- Next: Add PreviewMotionClock and the release-clock negative control. If interrupted during C3, the merged C2 engine stays safe behind its launch gate.

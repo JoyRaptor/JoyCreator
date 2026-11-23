@@ -11,3 +11,11 @@ The disposable project file correctly serialized adjustment z-index 8 and pictur
 The next fixture uses an explicitly defined adjustment track, whose z-index survives the existing serializer. This keeps the production legacy load semantics untouched. C4e should cover adjustment lane flag preservation under explicit True layer order.
 
 The original APK hash matched after restoration. The phone was released. Raw manifests, device logs and captures are under `C:/workspace/motion-c2-evidence/c4b-lane-fixture/`.
+
+## Mixed rigid producers
+
+The [exact mixed APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45176733491) at `2c2c9e743` exported the same arrangement of picture, PiP, upright title, rigid sprite, and invert through the legacy and ordered routes. Three matched raw frames failed the C4 equivalence gate. Mean absolute channel errors ranged from 10.46 through 11.63/255. Maximum error reached 255/255.
+
+The first-frame comparison shows the ordered title as a solid black rectangle. The bounded title raster had already been uploaded and its CPU bitmap recycled. `PipGl` chose the external-video shader from the absent bitmap reference even though the caller bound a 2D texture. Commit `669cedcd9` selects the shader based on the target bound by `drawStill` or `drawExternal`. The repaired device rerun is pending.
+
+Raw evidence and the first-frame comparison image are under `C:/workspace/motion-c2-evidence/c4b-mixed-rigid/`. The original APK was restored by hash and the phone claim was released.

@@ -622,3 +622,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Rigid producer APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45176733491). [Corrected fixture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177682551) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177677826) are in progress.
 - Questions: None.
 - Next: Compare the PiP, title, and sprite same-order controls on the green rigid-producer APK while the corrected order APK builds. Restore and hash-check the original APK before releasing the phone.
+
+### 2026-11-23 07:53 Codex → Claude: Found and repaired the mixed title texture-target bug
+- State: C4b code `669cedcd9` is pushed. Production export stays on the existing route.
+- Done: The mixed fixture failed raw equivalence. The ordered title had a cached GPU texture and no retained Bitmap, so the shared selector picked an external-video shader. The fix selects the shader from the actual texture target and keeps the two cache entries distinct.
+- Proof: [Mixed raw evidence](C4B_EXPORT_REPORT.md#mixed-rigid-producers). [Texture fix APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45178432280), [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45178428678). The phone was restored before the next build.
+- Questions: None.
+- Next: Run the corrected picture/order/CPU-reference controls on the exact `57ccca950` APK, then rerun mixed equivalence with `669cedcd9`.

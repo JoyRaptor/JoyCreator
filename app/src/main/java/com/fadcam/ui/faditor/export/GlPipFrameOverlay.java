@@ -9,6 +9,7 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.Clip;

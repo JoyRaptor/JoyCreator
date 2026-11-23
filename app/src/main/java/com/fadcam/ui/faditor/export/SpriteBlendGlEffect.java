@@ -19,6 +19,7 @@ import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;

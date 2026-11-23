@@ -14,6 +14,7 @@ import androidx.media3.effect.BaseGlShaderProgram;
 import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.model.TextOverlayItem;

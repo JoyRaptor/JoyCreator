@@ -5,6 +5,7 @@ import android.opengl.GLES20;
 import androidx.annotation.NonNull;
 import androidx.media3.common.util.GlUtil;
 
+import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.fx.FxGlSource;

@@ -11,6 +11,7 @@ import androidx.media3.effect.BaseGlShaderProgram;
 import androidx.media3.effect.GlEffect;
 import androidx.media3.effect.GlShaderProgram;
 
+import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;

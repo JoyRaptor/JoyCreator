@@ -23,7 +23,7 @@ import com.fadcam.ui.faditor.StudioDialog;
 import java.util.function.Consumer;
 import java.util.function.IntConsumer;
 
-/** Edits one item's export shutter as a single undo step. */
+/** Edits one item's transform shutter as a single undo step. */
 public final class MotionBlurSettingsSheet {
     public record State(boolean projectEnabled, boolean enabled, MotionShutter.Controls controls) {}
 
@@ -41,10 +41,10 @@ public final class MotionBlurSettingsSheet {
     private final SeekBar mix;
     private final ShutterStrip strip;
 
-    public static void show(Context context, State initial, Consumer<State> onApply,
-                            Consumer<State> onInspect) {
+    public static void show(Context context, State initial, @StringRes int coverage,
+                            Consumer<State> onApply, Consumer<State> onInspect) {
         var builder = StudioDialog.builder(context);
-        var sheet = new MotionBlurSettingsSheet(builder.getContext(), initial);
+        var sheet = new MotionBlurSettingsSheet(builder.getContext(), initial, coverage);
         var scroll = new ScrollView(builder.getContext());
         scroll.setFillViewport(true);
         scroll.addView(sheet.rows);
@@ -60,7 +60,7 @@ public final class MotionBlurSettingsSheet {
         dialog.show();
     }
 
-    private MotionBlurSettingsSheet(Context context, State initial) {
+    private MotionBlurSettingsSheet(Context context, State initial, @StringRes int coverage) {
         this.context = context;
         rows = new LinearLayout(context);
         rows.setOrientation(LinearLayout.VERTICAL);
@@ -76,6 +76,10 @@ public final class MotionBlurSettingsSheet {
         enabled.setText(R.string.studio_motion_enable_item);
         enabled.setChecked(initial.enabled());
         rows.addView(enabled);
+        var coverageNote = new TextView(context);
+        coverageNote.setText(coverage);
+        coverageNote.setPadding(0, 0, 0, SheetKit.dp(context, 12));
+        rows.addView(coverageNote);
         preset = selection(R.string.studio_motion_preset, R.array.studio_motion_presets);
         timing = selection(R.string.studio_motion_timing, R.array.studio_motion_timings);
         angle = slider(rows, R.string.studio_motion_angle_value, 0, 720, initial.controls().angle());

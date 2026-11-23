@@ -78,6 +78,7 @@ import com.fadcam.ui.faditor.player.FaditorPlayerManager;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.timeline.EditorTimelineView;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.model.TextStyleResolver;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
@@ -1031,7 +1032,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String projectId = project.getId();
         var before = new MotionBlurSettingsSheet.State(
                 project.isMotionBlurEnabled(), item.isRigidMotionBlurEnabled(), item.getRigidMotionShutter());
-        MotionBlurSettingsSheet.show(this, before, after -> {
+        MotionBlurSettingsSheet.show(this, before, motionBlurCoverage(item), after -> {
             if (after.equals(before) || project == null || !projectId.equals(project.getId())
                     || findMotionBlurItem(id) == null) return;
             applyMotionBlurSettings(project, id, after);
@@ -1040,6 +1041,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     () -> applyMotionBlurSettings(project, id, before)));
             scheduleAutoSave();
         }, state -> inspectMotionFrame(projectId, id, state));
+    }
+
+    @androidx.annotation.StringRes
+    private static int motionBlurCoverage(MotionBlurItem item) {
+        if (item instanceof Clip clip) {
+            if (clip.isOverlayClip()) return R.string.studio_motion_scope_pip;
+            return R.string.studio_motion_scope_clip;
+        }
+        if (item instanceof SpriteOverlayItem) return R.string.studio_motion_scope_sprite;
+        if (item instanceof TextOverlayItem overlay && overlay.isImage()) {
+            return R.string.studio_motion_scope_picture;
+        }
+        return R.string.studio_motion_scope_title;
     }
 
     @Nullable

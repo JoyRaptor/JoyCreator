@@ -26,6 +26,7 @@ import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
+import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
 import com.fadcam.ui.faditor.sprite.SpriteSheetRenderer;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -88,18 +89,29 @@ final class SpriteBlendGlEffect implements GlEffect {
     private final long editorTimeOffsetMs;
     private final long motionStartUs;
     private final long motionEndUs;
+    private final boolean orderedSprite;
 
     SpriteBlendGlEffect(@NonNull Context context, @NonNull SpriteOverlayItem item,
                         @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets,
                         @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs,
                         long projectDurationMs, long editorTimeOffsetMs,
                         long pieceStartMs, long motionPieceDurationMs) {
+        this(context, item, sheets, rigs, projectDurationMs, editorTimeOffsetMs,
+                pieceStartMs, motionPieceDurationMs, false);
+    }
+
+    SpriteBlendGlEffect(@NonNull Context context, @NonNull SpriteOverlayItem item,
+                        @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets,
+                        @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs,
+                        long projectDurationMs, long editorTimeOffsetMs,
+                        long pieceStartMs, long motionPieceDurationMs, boolean orderedSprite) {
         this.context = context.getApplicationContext();
         this.item = item;
         this.sheets = sheets;
         this.rigs = rigs;
         this.projectDurationMs = projectDurationMs;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
+        this.orderedSprite = orderedSprite;
         motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
         motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
     }
@@ -112,7 +124,7 @@ final class SpriteBlendGlEffect implements GlEffect {
             throw new VideoFrameProcessingException("HDR sprite overlays are not supported");
         }
         return new Program(context, item, sheets, rigs, projectDurationMs, editorTimeOffsetMs,
-                motionStartUs, motionEndUs);
+                motionStartUs, motionEndUs, orderedSprite);
     }
 
     /**
@@ -359,6 +371,7 @@ final class SpriteBlendGlEffect implements GlEffect {
         @NonNull private final Context appContext;
         @NonNull private final SpriteOverlayItem item;
         private final SpriteFrame frame;
+        private final boolean orderedSprite;
         private final long projectDurationMs;
         private final long editorTimeOffsetMs;
         /** True when this effect was built for a bent sprite (fixed at export start). */
@@ -384,9 +397,10 @@ final class SpriteBlendGlEffect implements GlEffect {
         Program(@NonNull Context context, @NonNull SpriteOverlayItem item,
                 @NonNull List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets,
                 @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> rigs,
-                long projectDurationMs, long editorTimeOffsetMs, long motionStartUs, long motionEndUs)
-                throws VideoFrameProcessingException {
+                long projectDurationMs, long editorTimeOffsetMs, long motionStartUs, long motionEndUs,
+                boolean orderedSprite) throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
+            this.orderedSprite = orderedSprite;
             this.appContext = context.getApplicationContext();
             this.item = item;
             this.frame = new SpriteFrame(appContext, item, sheets, rigs, editorTimeOffsetMs);
@@ -472,7 +486,9 @@ final class SpriteBlendGlEffect implements GlEffect {
                     passthrough(inputTexId);
                     return;
                 }
-                if (drawShutter(inputTexId, timelineMs, editorUs, periodUs)) {
+                if (drawShutter(inputTexId, timelineMs, editorUs, periodUs)) return;
+                if (orderedSprite) {
+                    drawOrderedSprite(inputTexId, timelineMs, editorUs);
                     return;
                 }
                 if (mesh && meshStamp != null && flatProgram != null) {
@@ -663,12 +679,42 @@ final class SpriteBlendGlEffect implements GlEffect {
             var plan = RigidSpriteMotion.plan(item, sheet, shutterSampler, shutterBreaks,
                     timeUs, periodUs, frameW, frameH);
             if (plan == null || !prepareCellTexture(renderer, cell)) return false;
+            drawCellPlan(plan, inputTexId, opacity);
+            return true;
+        }
+
+        private void drawOrderedSprite(int inputTexId, long timeMs, long timeUs)
+                throws GlUtil.GlException, VideoFrameProcessingException {
+            float opacity = RigidSpriteMotion.opacity(item, timeMs);
+            var sheet = frame.sheetById(item.getSheetId());
+            int cell = sheet == null ? SpriteFrameResolver.NO_CELL
+                    : RigidSpriteMotion.supportedCell(sheet, item, timeMs);
+            var renderer = cell == SpriteFrameResolver.NO_CELL ? null : frame.rendererFor(item.getSheetId());
+            if (opacity == 0f || renderer == null || renderer.isCellMissing(cell)) {
+                passthrough(inputTexId);
+                return;
+            }
+            if (shutterSampler == null) {
+                shutterSampler = MotionItemAdapters.sprite(item, frameW, frameH, renderer.cellAspect());
+            }
+            var plan = RigidShutterPlan.sharp(shutterSampler, timeUs, frameW, frameH);
+            if (plan == null) {
+                passthrough(inputTexId);
+                return;
+            }
+            if (!prepareCellTexture(renderer, cell)) {
+                throw new VideoFrameProcessingException("Could not upload the ordered sprite cell");
+            }
+            drawCellPlan(plan, inputTexId, opacity);
+        }
+
+        private void drawCellPlan(RigidShutterPlan plan, int inputTexId, float opacity)
+                throws GlUtil.GlException {
             if (shutter == null) {
                 shutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PREMULTIPLIED_OVERLAY);
             }
             shutter.draw(cellTexture, frameW, frameH, plan, inputTexId, opacity);
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
-            return true;
         }
 
         private boolean prepareCellTexture(SpriteSheetRenderer renderer, int cell) {

@@ -7307,7 +7307,7 @@ public class ExportManager {
                     var candidate = LaneCompositeGlEffect.create(context,
                             com.fadcam.ui.faditor.compositor.lane.LanePlan.of(timeline),
                             timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs,
-                            overlayH);
+                            overlayH, project.getSpriteSheets());
                     if (candidate.effect() != null) {
                         videoEffects.add(candidate.effect());
                         if (hasAnyVisibleCaptionBinding(clip) || audioCaptionOverlaps) {

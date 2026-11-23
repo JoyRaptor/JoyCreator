@@ -44,6 +44,16 @@ public record RigidShutterPlan(SweptBounds bounds, List<Tap> taps) {
         return new RigidShutterPlan(SweptBounds.ofPoses(poses, width, height, haloPx), taps);
     }
 
+    public static RigidShutterPlan sharp(ItemMotionSampler sampler, long timeUs,
+                                         int width, int height) {
+        ItemMotionSampler.Affine pose = sampler.at(timeUs);
+        if (!finite(pose)) return null;
+        ItemMotionSampler.Affine inverse = invert(pose);
+        if (inverse == null) return null;
+        return new RigidShutterPlan(SweptBounds.ofPoses(List.of(pose), width, height, 1),
+                List.of(new Tap(inverse, 1)));
+    }
+
     private static ItemMotionSampler.Affine invert(ItemMotionSampler.Affine a) {
         double determinant = a.xx() * a.yy() - a.xy() * a.yx();
         if (!Double.isFinite(determinant) || determinant == 0.0) return null;

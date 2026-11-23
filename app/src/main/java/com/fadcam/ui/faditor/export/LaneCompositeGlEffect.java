@@ -15,6 +15,7 @@ import com.fadcam.ui.faditor.compositor.RigidTitleRaster;
 import com.fadcam.ui.faditor.compositor.lane.LaneCompositor;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.sprite.SpriteSheet;
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
@@ -40,7 +41,8 @@ final class LaneCompositeGlEffect implements GlEffect {
     }
 
     static Candidate create(Context context, LanePlan plan, long totalDurationMs, long editorOffsetMs,
-                            long pieceStartMs, long motionDurationMs, int frameHeight) {
+                            long pieceStartMs, long motionDurationMs, int frameHeight,
+                            List<SpriteSheet> sheets) {
         var bindings = new ArrayList<Binding>();
         for (var entry : plan.entries()) {
             switch (entry.kind) {
@@ -68,6 +70,24 @@ final class LaneCompositeGlEffect implements GlEffect {
                             editorOffsetMs, null, pieceStartMs, motionDurationMs, true);
                     bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
                             title::isVisibleAt));
+                }
+                case SPRITE -> {
+                    var sprite = entry.item.getSprite();
+                    if (sprite == null || sprite.isLinked() || sprite.hasAvatarPerformance()
+                            || sprite.wantsGl() || sprite.hasCornerPin()
+                            || sprite.getFrameTrack().keys().stream().anyMatch(key -> key.presetId != null)) {
+                        return new Candidate(null, "sprite " + entry.id);
+                    }
+                    var atlas = sheets.stream().filter(sheet -> sheet.getId().equals(sprite.getSheetId()))
+                            .findFirst().orElse(null);
+                    if (atlas == null || atlas.isSequence()
+                            || atlas.getCellTransforms().values().stream().anyMatch(transform -> !transform.isIdentity())) {
+                        return new Candidate(null, "sprite cell source " + entry.id);
+                    }
+                    var effect = new SpriteBlendGlEffect(context, sprite, List.of(atlas), List.of(),
+                            totalDurationMs, editorOffsetMs, pieceStartMs, motionDurationMs, true);
+                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                            sprite::isVisibleAt));
                 }
                 case PIP -> {
                     var pip = entry.item.getClip();

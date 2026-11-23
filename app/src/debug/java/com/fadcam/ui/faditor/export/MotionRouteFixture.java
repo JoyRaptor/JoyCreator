@@ -161,7 +161,8 @@ final class MotionRouteFixture {
     }
 
     static FaditorProject createLanePicture(Context context, boolean adjustmentAbove,
-                                             boolean includePip, boolean includeTitle) throws IOException {
+                                             boolean includePip, boolean includeTitle,
+                                             boolean includeSprite) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName(
                 "TEST STU-7 C4 picture " + (adjustmentAbove ? "under effect" : "over effect")));
@@ -201,6 +202,22 @@ final class MotionRouteFixture {
             pip.setOverlayAudioEnabled(false);
             timeline.addOverlayClip(pip);
             timeline.getOrCreateTrackFlags("video").zIndex = 3;
+        }
+
+        if (includeSprite) {
+            var atlas = new SpriteSheet("c4-sprite-cells", "C4 atlas", Uri.fromFile(writeSpriteAtlas(media)).toString());
+            atlas.setGrid(2, 1);
+            project.getSpriteSheets().add(atlas);
+            var sprite = SpriteOverlayItem.create(atlas.getId());
+            sprite.setLayerId("sprite");
+            sprite.setTimeRange(0L, 999L);
+            sprite.setCenter(0.71f, 0.60f);
+            sprite.setSizeFraction(0.16f);
+            sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0, 0));
+            sprite.getFrameTrack().put(FrameTrack.Key.ofCell(367, 1));
+            timeline.addSpriteOverlay(sprite);
+            timeline.getOrCreateTrackFlags("sprite").zIndex = 4;
+            timeline.getOrCreateTrackFlags("text").zIndex = 5;
         }
 
         if (!storage.save(project)) throw new IOException("Could not save the lane fixture");
@@ -262,25 +279,8 @@ final class MotionRouteFixture {
         if (duration < 1_000L) throw new IOException("Sprite fixture is shorter than 1 second");
         project.getTimeline().addClip(clip(source, duration, 1_000L));
 
-        File art = new File(media, "shutter-cells.png");
-        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
-        try (FileOutputStream out = new FileOutputStream(art)) {
-            Canvas canvas = new Canvas(bitmap);
-            Paint paint = new Paint();
-            paint.setColor(Color.RED);
-            canvas.drawRect(10, 8, 119, 84, paint);
-            paint.setColor(0x80FF4020);
-            canvas.drawRect(10, 87, 78, 122, paint);
-            paint.setColor(Color.CYAN);
-            canvas.drawRect(138, 8, 247, 84, paint);
-            paint.setColor(0x8000E0FF);
-            canvas.drawRect(138, 87, 206, 122, paint);
-            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
-                throw new IOException("Could not write shutter sprite cells");
-            }
-        } finally {
-            bitmap.recycle();
-        }
+        File art = writeSpriteAtlas(media);
+
         var sheet = new SpriteSheet("c2-sprite-cells", "C2 shutter cells", Uri.fromFile(art).toString());
         sheet.setGrid(2, 1);
         project.getSpriteSheets().add(sheet);
@@ -385,6 +385,29 @@ final class MotionRouteFixture {
         project.getTimeline().addOverlayClip(pip);
         if (!storage.save(project)) throw new IOException("Could not save the PiP fixture");
         return project;
+    }
+
+    private static File writeSpriteAtlas(File media) throws IOException {
+        File art = new File(media, "shutter-cells.png");
+        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(art)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            paint.setColor(Color.RED);
+            canvas.drawRect(10, 8, 119, 84, paint);
+            paint.setColor(0x80FF4020);
+            canvas.drawRect(10, 87, 78, 122, paint);
+            paint.setColor(Color.CYAN);
+            canvas.drawRect(138, 8, 247, 84, paint);
+            paint.setColor(0x8000E0FF);
+            canvas.drawRect(138, 87, 206, 122, paint);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write shutter sprite cells");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        return art;
     }
 
     private static File createShutterArt(File directory) throws IOException {

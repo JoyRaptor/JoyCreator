@@ -1898,6 +1898,12 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private PreviewMotionClock.Frame motionFrame;
     private volatile boolean motionClockActive;
     @Nullable private volatile MotionPreviewReadback motionReadback;
+    private volatile boolean motionPreviewTiming;
+    private long lastTimedMotionFrameUs = Long.MIN_VALUE;
+
+    public void enableMotionPreviewTiming() {
+        if (com.fadcam.BuildConfig.DEBUG) motionPreviewTiming = true;
+    }
 
     PreviewMotionClock motionClock() { return motionClock; }
 
@@ -2070,9 +2076,15 @@ public class FxPreviewTextureView extends TextureView
 
             // 4 — present the finished frame, fit-centred, at view resolution.
             drawPresent(targets[cur][0]);
-            EGL14.eglSwapBuffers(eglDisplay, eglSurface);
+            boolean swapped = EGL14.eglSwapBuffers(eglDisplay, eglSurface);
             // Pilot measurement: frame time
             long frameNs = System.nanoTime() - frameStartNs;
+            if (motionPreviewTiming && swapped && !degraded && capture == null && motionFrame != null
+                    && motionFrame.editorTimeUs() > lastTimedMotionFrameUs) {
+                lastTimedMotionFrameUs = motionFrame.editorTimeUs();
+                FLog.i("MotionPreviewBench", "editorUs=" + lastTimedMotionFrameUs
+                        + " periodUs=" + motionFrame.periodUs() + " drawAndSwapNs=" + frameNs);
+            }
             pilotFrameCount++;
             pilotTotalFrameNs += frameNs;
             if (frameNs > pilotMaxFrameNs) pilotMaxFrameNs = frameNs;

@@ -143,6 +143,9 @@ public class ExportDebugActivity extends Activity {
                 preview.putExtra("studio_debug_motion_readback_us",
                         in.getLongExtra("motion_preview_readback_us", -1L));
             }
+            if (in.getBooleanExtra("motion_preview_timing", false)) {
+                preview.putExtra("studio_debug_motion_preview_timing", true);
+            }
             startActivity(preview);
             return false;
         }

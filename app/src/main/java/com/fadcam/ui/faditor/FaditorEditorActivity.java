@@ -31101,6 +31101,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     findViewById(R.id.fx_preview_view);
             if (v == null) return;
             if (com.fadcam.BuildConfig.DEBUG) {
+                if (getIntent().getBooleanExtra("studio_debug_motion_preview_timing", false)) {
+                    v.enableMotionPreviewTiming();
+                }
                 long captureTimeUs = getIntent().getLongExtra("studio_debug_motion_readback_us", -1L);
                 if (captureTimeUs >= 0L) v.requestMotionReadback(
                         new com.fadcam.ui.faditor.compositor.MotionPreviewReadback(this, captureTimeUs));

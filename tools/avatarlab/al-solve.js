@@ -721,12 +721,29 @@
         var m2 = Mx, src = kid, ax = n.axisX;
         if (pk.by === 'turn' && moving && !ghost && kid.at && n.bridges && n.bridges.length) {
           /* warp this angle toward each neighbour it is turning to */
+          /* HOW FAR TOWARD EACH NEIGHBOUR. The owner, 11-23: a turn from Left Quarter up to Upward popped at half way, the frill jumping,
+             once both had also been matched to Frontal. Frontal sits beside that path: measured on its own, the way toward it was as long
+             as the way toward Upward, so each drawing was pulled all the way to two meeting points at once and reached neither. The turn
+             is shared out instead: the neighbour that explains most of where the pad is takes its share first, the next only what is left
+             (Upward explains the whole of that path, so Frontal gets nothing there; on a straight Left Quarter to Frontal turn, the
+             other way round). Decided once for the whole head, so every piece agrees. */
+          var share = {}, cand = kids.filter(function (o) { return o !== kid && o.at && (AL.bridgeFor(ch, n, kid, o, '') || (n.warpWith && Object.keys(n.warpWith).some(function (p) { return AL.bridgeFor(ch, n, kid, o, p); }))); });
+          (function () {
+            var rx = tx - kid.at[0], ry = ty - kid.at[1], left = cand.slice();
+            while (left.length) {
+              var bi = -1, bl = 1e-6;
+              left.forEach(function (o, i) { var ddx = o.at[0] - kid.at[0], ddy = o.at[1] - kid.at[1], l = (rx * ddx + ry * ddy) / (Math.sqrt(ddx * ddx + ddy * ddy) || 1); if (l > bl) { bl = l; bi = i; } });
+              if (bi < 0) break;
+              var o = left.splice(bi, 1)[0], ddx = o.at[0] - kid.at[0], ddy = o.at[1] - kid.at[1], d2 = ddx * ddx + ddy * ddy || 1, tt = (rx * ddx + ry * ddy) / d2;
+              share[o.id] = tt; rx -= tt * ddx; ry -= tt * ddy;
+            }
+          })();
           var warpOf = function (part) {
             var BP = [], BQ = [], rx = tx - kid.at[0], ry = ty - kid.at[1], toward = [];
             kids.forEach(function (o) {
               if (o === kid || !o.at) return;
               var br = AL.bridgeFor(ch, n, kid, o, part); if (!br) return;
-              var ddx = o.at[0] - kid.at[0], ddy = o.at[1] - kid.at[1], d2 = ddx * ddx + ddy * ddy || 1, tt = ((tx - kid.at[0]) * ddx + (ty - kid.at[1]) * ddy) / d2, w = smooth(clamp(tt / 0.5, 0, 1));
+              var ddx = o.at[0] - kid.at[0], ddy = o.at[1] - kid.at[1], d2 = ddx * ddx + ddy * ddy || 1, tt = share[o.id] || 0, w = smooth(clamp(tt / 0.5, 0, 1));
               if (tt > 0) toward.push([tt, ddx, ddy, d2]);
               if (w < 0.002) return;
               br.forEach(function (q) { var fxp = q.from[0], txp = q.from[0] + (q.to[0] - q.from[0]) * w; if (kid.type === 'mirror') { var axm = ax == null ? ch.w / 2 : ax; fxp = 2 * axm - fxp; txp = 2 * axm - txp; } BP.push([fxp, q.from[1]]); BQ.push([txp, q.from[1] + (q.to[1] - q.from[1]) * w]); });
@@ -734,7 +751,7 @@
             /* The landmarks already say how far everything travels toward that neighbour. The depth slide is a GUESS at the same
                travel, made from each side: left in, the two drawings arrive at the swap pushed opposite ways and the piece jumps.
                So the slide keeps only the part of the turn that no matched neighbour accounts for. */
-            toward.sort(function (p, q) { return q[0] - p[0]; }).forEach(function (q) { var t = (rx * q[1] + ry * q[2]) / q[3]; if (t > 0) { rx -= t * q[1]; ry -= t * q[2]; } });
+            toward.forEach(function (q) { rx -= q[0] * q[1]; ry -= q[0] * q[2]; });      // (each neighbour's share, as shared out above)
             return BP.length ? { P: BP, Q: BQ, par: [rx * dpx, ry * dpx] } : null;
           };
           extra.P0 = extra.P;

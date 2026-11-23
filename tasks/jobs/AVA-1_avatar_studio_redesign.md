@@ -775,6 +775,16 @@ they want, a centipede; arms that can become feet with one toggle").
       it turns, blue = holds a spot as it bends, said on the card); reshape pins show only while reshaping, in their
       own pose, and the card counts them and says where they are. `F.reshapeQuiet` in `al-breaktest-reshape.js`:
       fails on the old code (showed Turns about + Pin 1-6), passes now; fit 530/0, layering 186/0, stages 43/0.
+- [x] **Match two angles popped at half way (owner, Note 20, 11-23, his file).** Left Quarter to Upward on the front frill:
+      smooth the night before, then the frill jumped at the swap. Both had also been matched to Frontal, which sits beside
+      that path; each neighbour's pull was measured on its own, so at the swap each drawing was pulled all the way toward
+      two meeting points and reached neither. The turn is now shared out (`al-solve.js`, turning sets): the neighbour that
+      explains most of the pad position takes its share first, the next only what is left, decided once for the whole
+      head. On his file the swap jump (pixels whose outline changes) went 7677 -> 3908 for Left Quarter to Upward (the
+      frill's 8 landmarks now land on their meeting points in both drawings), 3055 -> 2051 Frontal to Upward, 4089 -> 3778
+      Left Quarter to Frontal; one-neighbour turns unchanged. New `al-breaktest-bridge.js` (three squares, the third
+      beside the path): 3 of 5 fail on the old code (corners 8 and 17 px off), 5/0 now; head turning 33/0 on the built-in
+      Topps and on his file.
 - [ ] **THE PATH TO THE PHONE (owner, 11-22).** A session had guessed the phone room at "weeks" and suggested
       keeping Avatar hidden for launch. He overruled it: "It will not be weeks worth of work. AI can't judge time
       well. Avatar Studio will ship in Joy Creator." And the order: "tell the main agent to spin up another session

@@ -662,6 +662,8 @@ public final class FxLivePreviewController {
         var clock = motionClock.anchor();
         if (clock == null || clip == null || rotation != 0 || !clip.isRigidMotionBlurEnabled()
                 || !clip.isSpineTransformArmed() || !clip.hasSpineTransform()) return null;
+        var controls = clip.getRigidMotionShutter();
+        if (controls.mixPercent() == 0 || controls.angle() == 0) return null;
         var snapshot = new Clip(clip);
         long startUs = clock.editorStartUs();
         long endUs = clock.editorEndUs();

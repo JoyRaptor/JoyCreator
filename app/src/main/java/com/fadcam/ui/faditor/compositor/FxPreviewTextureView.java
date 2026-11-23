@@ -28,7 +28,10 @@ import com.fadcam.ui.faditor.fx.FxUniforms;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.CompositingSpec;
 import com.fadcam.ui.faditor.model.MaskSdf;
+import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.PreviewMotionClock;
+import com.fadcam.ui.faditor.motion.RigidShutterPlan;
+import com.fadcam.ui.faditor.motion.SweptBounds;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -1936,6 +1939,8 @@ public class FxPreviewTextureView extends TextureView
 
             // 1 — OES into an ordinary 2D texture, decoder transform applied once.
             drawStage(vw, vh);
+            CompositePlan cp = plan;
+            if (!degraded && motionClockActive) prepareShutterPrograms(cp, vw, vh);
             int cur = 0;
 
             // 1b — the CLIP CROP, BEFORE the grade — the export chain's order
@@ -1965,7 +1970,6 @@ public class FxPreviewTextureView extends TextureView
             //      COSTS NOTHING WHEN THERE IS NOTHING: spineLayerIndex is -1 unless
             //      FxLivePreviewController found an active stack on the playhead clip, and
             //      -1 skips the whole block — no pass, no ping-pong flip, no FBO.
-            CompositePlan cp = plan;
             boolean layersReady = false;
             if (!degraded && cp != null) {
                 layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
@@ -2763,6 +2767,55 @@ public class FxPreviewTextureView extends TextureView
         spineShutter = exposure;
     }
 
+    private static final RigidShutterPlan SHUTTER_WARMUP = new RigidShutterPlan(
+            new SweptBounds(0, 0, 1, 1),
+            List.of(new RigidShutterPlan.Tap(new ItemMotionSampler.Affine(1, 0, 0, 1, 0, 0), 1)));
+
+    private RigidTextureShutterPass shutterProgram(RigidTextureShutterPass.Source source)
+            throws androidx.media3.common.util.GlUtil.GlException {
+        var pass = stillShutters.get(source);
+        if (pass == null) {
+            pass = new RigidTextureShutterPass(source);
+            stillShutters.put(source, pass);
+        }
+        return pass;
+    }
+
+    private void prepareShutterPrograms(@Nullable CompositePlan composite, int width, int height) {
+        if (spineShutter != null) prepareShutter(RigidTextureShutterPass.Source.SPINE, width, height);
+        if (composite == null) return;
+        for (Rung rung : composite.rungs) {
+            if (rung.pipShutter != null) {
+                prepareShutter(rung.pipShutter.shutter().source(), width, height);
+            } else if (rung.shutter != null) {
+                prepareShutter(rung.shutter.source(), width, height);
+            }
+        }
+    }
+
+    /** Warm the driver's first draw on scratch before the first moving frame needs the shader. */
+    private void prepareShutter(RigidTextureShutterPass.Source source, int width, int height) {
+        if (stillShutters.containsKey(source) || failedStillShutters.contains(source)) return;
+        long startNs = System.nanoTime();
+        try {
+            var pass = shutterProgram(source);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[1][1]);
+            GLES20.glViewport(0, 0, 1, 1);
+            pass.draw(targets[0][0], 1, 1, SHUTTER_WARMUP, targets[0][0], 1f);
+            if (com.fadcam.BuildConfig.DEBUG) {
+                FLog.i(TAG, "prepared shutter " + source + " in "
+                        + (System.nanoTime() - startNs) / 1_000_000L + "ms");
+            }
+        } catch (androidx.media3.common.util.GlUtil.GlException error) {
+            failedStillShutters.add(source);
+            FLog.w(TAG, "Could not prepare " + source + " shutter; drawing sharp", error);
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
+            GLES20.glViewport(0, 0, width, height);
+        }
+    }
+
     private int drawSpineWithShutter(int src, int width, int height) {
         var frame = motionFrame;
         var sampler = spineShutter;
@@ -2772,11 +2825,7 @@ public class FxPreviewTextureView extends TextureView
             if (exposure != null) {
                 int dst = src == 0 ? 1 : 0;
                 try {
-                    var pass = stillShutters.get(source);
-                    if (pass == null) {
-                        pass = new RigidTextureShutterPass(source);
-                        stillShutters.put(source, pass);
-                    }
+                    var pass = shutterProgram(source);
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
                     GLES20.glViewport(0, 0, width, height);
                     pass.draw(targets[src][0], width, height, exposure.plan(), 0, 1f);
@@ -2824,11 +2873,7 @@ public class FxPreviewTextureView extends TextureView
         if (still == 0) return src;
         int dst = src == 0 ? 1 : 0;
         try {
-            var pass = stillShutters.get(source);
-            if (pass == null) {
-                pass = new RigidTextureShutterPass(source);
-                stillShutters.put(source, pass);
-            }
+            var pass = shutterProgram(source);
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
             GLES20.glViewport(0, 0, width, height);
             pass.draw(still, width, height, exposure.plan(), targets[src][0], exposure.opacity());
@@ -2880,11 +2925,7 @@ public class FxPreviewTextureView extends TextureView
             GLES20.glUniform1i(GLES20.glGetUniformLocation(stageProgram, "uOesTexture"), 0);
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
 
-            var pass = stillShutters.get(source);
-            if (pass == null) {
-                pass = new RigidTextureShutterPass(source);
-                stillShutters.put(source, pass);
-            }
+            var pass = shutterProgram(source);
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
             GLES20.glViewport(0, 0, width, height);
             pass.draw(motionPipTex, width, height, exposure.plan(), targets[src][0], exposure.opacity());

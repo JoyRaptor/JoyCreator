@@ -23,7 +23,7 @@ function sha256(path) {
     });
 }
 
-function caseArguments(test) {
+function caseArguments(test, requests) {
     if (!/^[a-z0-9-]{1,60}$/.test(test.label)
             || typeof test.ordered !== 'boolean' || typeof test.above !== 'boolean') {
         throw new Error('Invalid lane fixture case');
@@ -31,7 +31,7 @@ function caseArguments(test) {
     const args = ['--ez', 'motion_lane_fixture', 'true',
         '--ez', 'motion_lane_compositor', String(test.ordered),
         '--ez', 'motion_lane_adjustment_above', String(test.above),
-        '--ela', 'motion_lane_sample_us', REQUESTS.join(',')];
+        '--ela', 'motion_lane_sample_us', requests.join(',')];
     if (test.variant !== undefined) {
         if (!/^[a-z0-9-]{1,60}$/.test(test.variant)) throw new Error('Invalid fixture variant');
         args.push('--es', 'motion_lane_variant', test.variant);
@@ -58,7 +58,15 @@ async function main() {
 
     const cases = JSON.parse(await readFile(casePath, 'utf8'));
     if (!Array.isArray(cases) || !cases.length) throw new Error('No requested fixtures');
-    const work = cases.map(test => ({test, args: caseArguments(test)}));
+    const work = cases.map(test => {
+        const requests = test.times ?? REQUESTS;
+        if (!Array.isArray(requests) || requests.length !== 3
+                || requests.some((time, index) => !Number.isSafeInteger(time) || time < 0
+                        || (index > 0 && time <= requests[index - 1]))) {
+            throw new Error('Expected three increasing editor timestamps');
+        }
+        return {test, args: caseArguments(test, requests), requests};
+    });
     if (new Set(cases.map(c => c.label)).size !== cases.length) {
         throw new Error('Duplicate fixture receipt label');
     }
@@ -99,11 +107,11 @@ async function main() {
         await call('holds');
         installAttempted = true;
         await install(testApk);
-        for (const {test, args} of work) {
+        for (const {test, args, requests} of work) {
             const folder = join(output, test.label);
             await mkdir(folder, {recursive: true});
             await call('shell-write', 'am', 'force-stop', APP);
-            const scratch = REQUESTS.map(requested => 'cache/lane_frame_' + requested + '.rgba');
+            const scratch = requests.map(requested => 'cache/lane_frame_' + requested + '.rgba');
             await call('shell-write', 'run-as', APP, 'rm', '-f', ...scratch);
             const since = (await read('shell', "date '+%m-%d %H:%M:%S.000'")).trim();
             await call('start', ACTIVITY, ...args);

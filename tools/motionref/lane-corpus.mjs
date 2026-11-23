@@ -4,7 +4,9 @@ const compatible = [
     'base', 'picture-opacity', 'picture-offset', 'picture-rotation', 'picture-flip',
     'picture-keys', 'picture-stack', 'adjust-window', 'adjust-opacity', 'adjust-mask',
     'adjust-blend', 'spine-zoom', 'clip-trim', 'caption',
-].map(variant => ({label: variant, variant}));
+].map(variant => ({label: variant, variant,
+    ...(variant === 'clip-trim' ? {times: [66000, 500000, 800000]} : {}),
+}));
 
 const trueOrder = [
     'base', 'picture-opacity', 'picture-offset', 'picture-rotation', 'picture-flip',

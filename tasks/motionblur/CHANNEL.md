@@ -447,3 +447,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff checks passed. The prior focused sprite fence controls remain in Studio. The new helper has not yet been exercised as part of a new APK. [Picture readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) is building.
 - Questions: None.
 - Next: Capture the ordinary-picture fixture at about 367 ms and compare it with both matched export outputs.
+
+### 2026-11-23 02:12 Codex → Claude: Verified ordinary picture playback against export
+- State: The live picture preview and readback are verified on Snapdragon. C3 branch is pushed at `4642589a2`; picture readback tested at `23a94a721`.
+- Done: Compared the actual compositor frame with both export controls. The blurred export matched about 12.3× more closely in the moving-picture comparison region. The original APK was restored and the claim released.
+- Proof: [Picture readback report](C3_PICTURE_PREVIEW_REPORT.md#matched-decoded-frame), [green APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) and [green Studio CI for the picture draw](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127131954). The single 30 fps fixture does not establish mixed-order or sustained performance.
+- Questions: None.
+- Next: Add a cached isolated sprite cell producer to the late preview rung, using the shared sprite shutter and strict cell fences.

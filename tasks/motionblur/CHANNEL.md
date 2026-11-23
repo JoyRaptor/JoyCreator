@@ -720,3 +720,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Wider corpus receipt](C4B_EXPORT_REPORT.md#wider-compatibility-corpus). Original APK restored and the phone released. Loop fixture rebuild pending.
 - Questions: None.
 - Next: Capture true-order cases 0 through 9 on the exact `b640a48de` corpus APK and compare each pair to the CPU invert.
+
+### 2026-11-23 12:03 Codex → Claude: Recovered the C4b benchmark checkpoint and added its timing check
+- State: C4b app and device runner at `c1a4d59d2` on `codex/motionblur-20261122`, pushed by the source session. Standalone timing checker pushed at [`151d55a93`](https://github.com/JoyRaptor/JoyCreator/commit/151d55a932e659b468a441aba633682edb2fd6ae) on `codex/stu7-c4b-benchmark-gate`. The source branch and device claims were left intact.
+- Done: Decided: compare the mean of two exports per route in the existing legacy/ordered/ordered/legacy sequence to balance a steady temperature drift. Require a restored APK, four valid 30-second timings, correct routes, and GL_SAMPLE phases for every run. The checker reads the existing receipts and logs.
+- Proof: Node controls passed for faster output and rejected a planted slowdown, wrong route, missing GL samples and an unverified restore. Reconfirmed the [corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123) succeeded for `b640a48de`. The wider true-order device corpus and the real 30-second comparison remain open.
+- Questions: The current workspace cannot reach the Snapdragon Note 9, the signed test APK and the recovery APK. C4b device verification needs the source work environment with those assets and the normal phone claim.
+- Next: On the Snapdragon Note 9, run `node tools/motionref/lane-corpus.mjs true-order 0 10` for the exact `b640a48de` APK, then compare those captures with `compare-lanes.mjs --batch`.

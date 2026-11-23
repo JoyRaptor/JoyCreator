@@ -785,6 +785,10 @@ they want, a centipede; arms that can become feet with one toggle").
       Left Quarter to Frontal; one-neighbour turns unchanged. New `al-breaktest-bridge.js` (three squares, the third
       beside the path): 3 of 5 fail on the old code (corners 8 and 17 px off), 5/0 now; head turning 33/0 on the built-in
       Topps and on his file.
+- [x] **Onion skin while matching (owner, 11-23).** Faint interior shading is the landmark he needs, and the blue/pink
+      tint hides it. While matching two drawings the onion button on the stage is the tint: on (as before) blue and
+      pink; off, the other drawing in its own colours over this one, with a **See-through** slider (0 to 100, starts at
+      50); **Solid** swaps which is on top. Onion skin elsewhere is unchanged. Bridge 5/0, stages 43/0.
 - [ ] **THE PATH TO THE PHONE (owner, 11-22).** A session had guessed the phone room at "weeks" and suggested
       keeping Avatar hidden for launch. He overruled it: "It will not be weeks worth of work. AI can't judge time
       well. Avatar Studio will ship in Joy Creator." And the order: "tell the main agent to spin up another session
@@ -800,6 +804,18 @@ they want, a centipede; arms that can become feet with one toggle").
          character room (four stages, Perform, recording); into Video Studio (dropped in with its take, still
          draggable, on Studio's recorder and exporter); scenes (strip, frame, shots, joystick and gestures). Each
          slice brings its Joybot tools. No time estimates: steps, and what each needs.
+- [ ] **For the phone spec: ONE set of landmarks per piece (owner's design, 11-23).** The pilot matches angles pair by
+      pair, each pair with its own landmarks; three angles round one spot of the pad (Left Quarter, Upward, Frontal)
+      then pull one drawing toward different places (fixed in the pilot by sharing the turn out, 0e34e9121, but the
+      model is still pair by pair). On the phone a piece (the front frill) has one numbered set of landmarks, and every
+      angle places the SAME points where that spot is in its drawing: anywhere on the pad, between two angles or three,
+      each point blends between its own places, so nothing can fight. A new angle starts with the points already there,
+      to be dragged into place; point 3 is point 3 in every angle. The pilot's pair matches convert to it.
+      **Hidden landmarks (his caveat):** a point is not always there to see. The crest has 7 tips; in full profile 4
+      show and the others fold round behind. Each point can be marked, per angle, as **behind** (a ghost: it still
+      has a place, dragged where it would be, and still steers the bend toward that angle) or **not here** (a small
+      circle with a line through it, greyed: it can sit anywhere and does not touch the mesh in that angle). Choose
+      the point, then one button for each. Behind is the default guess for a point dragged off the drawing.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

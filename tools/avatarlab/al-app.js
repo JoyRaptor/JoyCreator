@@ -272,7 +272,7 @@
     var fitNow = !liveNow && !!(AL.stages && AL.stages.is(app, 'fit'));
     var bridge = !liveNow ? app.bridge : null, eo = { live: liveNow, dt: dt, force: liveNow ? (app.lockForce || null) : app.force, show: liveNow ? null : app.show, onion: onion, lift: app.liftArt !== false && !app.poseEdit && !fitNow };
     if (bridge) {                                            // matching two head angles: one on stage, the other ghosted over it; or the real turn, to preview it
-      if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = 0.6; eo.onionOver = true; }
+      if (bridge.t == null) { var fo = {}; for (var fk in app.force) fo[fk] = app.force[fk]; fo[bridge.set] = bridge.edit === 'a' ? bridge.a : bridge.b; eo.force = fo; eo.onion = bridge.set; eo.onionKid = bridge.edit === 'a' ? bridge.b : bridge.a; eo.onionAlpha = bridge.tint === false ? Math.max(0.001, bridge.see == null ? 0.5 : bridge.see) : 0.6; eo.onionOver = true; }      // (onion skin off: the other drawing in its own colours, as see-through as the slider says)
       else eo.tween = true;
     } else if (!liveNow && app.ballTry) eo.tween = true;                     // previewing a round head turning, without leaving Build
     if (!liveNow && app.shapeEdit) eo.shapes = app.shapeEdit.w;                 // posing one shape of a part: that shape at full, the others off
@@ -283,7 +283,7 @@
     var out = app.out = app.solver.eval(S, eo);
     if (!liveNow && app._pe !== (app.poseEdit || null)) { app._pe = app.poseEdit || null; setTimeout(function () { app.userView = false; app.focusSel(); }, 0); }      // into or out of a stance: frame it again, now that it is drawn there
     if (bridge && bridge.ids && bridge.t == null) out.items.forEach(function (it) { if (!bridge.ids[it.id]) { it.a0 = it.a; it.a *= it.ghost ? 0 : 0.22; } });      // matching one piece: the rest steps back
-    var ghostTint = bridge ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
+    var ghostTint = bridge && bridge.tint !== false ? AL.bridge.TINT[bridge.edit === 'a' ? 'b' : 'a'] : null;
     var ids = (!liveNow && app.selIds && app.sel.zone !== 'body' ) ? app.selIds : null;
     if (ids && !bridge && app.liftArt !== false && !app.poseEdit && !fitNow) {            // (not while looking at how a limb really sits behind the body)
       var firstSel = -1, ii; for (ii = 0; ii < out.items.length; ii++) if (ids[out.items[ii].id]) { firstSel = ii; break; }
@@ -296,7 +296,7 @@
     }
     app.G.draw(out.items, { s: app.view.s * dpr, ox: app.view.ox * dpr, oy: app.view.oy * dpr }, function (it) {
       if (it.xr) return [0.13, 0.83, 0.93, 0.62];
-      if (it.ghost) return ghostTint || [0.65, 0.55, 0.98, 0.55];
+      if (it.ghost) return ghostTint || (bridge ? null : [0.65, 0.55, 0.98, 0.55]);
       if (ids && !ids[it.id] && !fitNow) return [0.03, 0.03, 0.05, 0.52];      // (Fit shows the true picture: the box and the echo mark the part)
       return null;
     }, out.colour);
@@ -674,7 +674,9 @@
     b('fit', 'Fit: show the whole character', false, function () { app.userView = false; if (liveNow || !app.selIds) app.fit(false); else if (app.vt == null && app._fitAll) { app._fitAll = false; app.focusSel(); } else { app._fitAll = true; app.fit(false); } });
     if (!liveNow) {
       b('mesh', 'Show the bend mesh of the selected part', app.mesh, function () { app.mesh = !app.mesh; app.renderTools(); });
-      if (app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') b('onion', 'Onion skin: ghost the other drawings of this part', app.onion, function () { app.onion = !app.onion; app.renderTools(); });
+      /* matching two angles: the onion skin is the blue and pink. Off, the other drawing shows in its own colours, so faint shading can be found on both */
+      if (app.bridge && app.bridge.t == null) b('onion', app.bridge.tint === false ? 'Onion skin off: the other drawing in its own colours (the See-through slider sets how much). Tap for blue and pink' : 'Onion skin on: the other drawing tinted blue or pink. Tap to see it in its own colours', app.bridge.tint !== false, function () { app.bridge.tint = app.bridge.tint === false; app.renderTools(); app.refreshPanel(true); });
+      else if (app.selNodes && app.selNodes[0] && app.selNodes[0].type === 'set') b('onion', 'Onion skin: ghost the other drawings of this part', app.onion, function () { app.onion = !app.onion; app.renderTools(); });
       if (!(AL.stages && AL.stages.on())) b('move', 'Move art: when ON, dragging the selected drawing slides it (pins come along)', app.moveArt, function () { app.moveArt = !app.moveArt; app.renderTools(); app.toast(app.moveArt ? 'Move art is ON: drag the selected drawing' : 'Move art is off'); });
     } else {
       b('mesh', 'Show the bend mesh', app.mesh, function () { app.mesh = !app.mesh; app.renderTools(); });

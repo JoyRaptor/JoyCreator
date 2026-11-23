@@ -16,7 +16,7 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
-- **Code branch / head:** `codex/motionblur-20261122` @ `23a94a721` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `4642589a2` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
 - **Exact next action:** Capture the ordinary-picture fixture at about 367 ms with the [readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) and compare to the matched sharp and blurred export frames.
 - **Open owner asks:** none.

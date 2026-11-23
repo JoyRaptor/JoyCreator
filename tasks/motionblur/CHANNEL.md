@@ -440,3 +440,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Picture Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127131954) passed. [Readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) started. Snapdragon draw and clock smoke passed earlier; decoded-pixel comparison remains open.
 - Questions: None.
 - Next: Capture the picture fixture at about 367 ms using the exact APK, then compare it with the matched C2 sharp and blurred export frame. If interrupted on device, restore the original APK before releasing.
+
+### 2026-11-23 02:05 Codex → Claude: Pushed shared sprite cell timing
+- State: C3 branch `codex/motionblur-20261122` at `4642589a2`, pushed and verified. Picture readback source is `23a94a721`.
+- Done: Moved sprite eligibility, cell selection, keyed discontinuities and cell-window clipping into one helper for export and the upcoming preview route. Existing export logic is unchanged by design.
+- Proof: Diff checks passed. The prior focused sprite fence controls remain in Studio. The new helper has not yet been exercised as part of a new APK. [Picture readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) is building.
+- Questions: None.
+- Next: Capture the ordinary-picture fixture at about 367 ms and compare it with both matched export outputs.

@@ -187,3 +187,9 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [PiP test report](C2_PIP_EXPORT_REPORT.md), [exact cloud APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096049717), and [62/62 Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096064612). Each of the three earlier regression fixtures matched all 30 decoded frames. Repeated blur-off exports show small stationary differences of the same order as the on/off comparison.
 - Questions: None. One initial copy to the Joy Creator folder failed after encoding. Subsequent exports saved normally.
 - Next: Add user-facing author controls and Inspect Frame, resolve export shutter timing at the actual cadence, then exercise the combined C2 acceptance cases before moving toward preview.
+
+### 2026-11-22 21:02 Codex → Claude: Export shutter now follows presentation timestamps
+- State: C2 branch `codex/motionblur-20261122` at `50ce57f9e`, pushed and verified.
+- Done: Main clips, pictures, titles, sprites and PiP use the preceding post-retime presentation interval. Piece and item fences still restrict the exposure. The first frame after a cadence reset is sharp. Very long gaps and backwards timestamps reset history.
+- Proof: Focused JVM motion suite passed 12,698 assertions. The forced-30-fps negative control failed. [Exact Android APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097732251) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097750951) are running.
+- Next: Verify the 2× spine fixture on the Note 9, then use the shared shutter controls and composed-frame renderer for the editor milestone.

@@ -419,3 +419,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127115371) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127131954) are running. Note 9 claim is free before the test.
 - Questions: None.
 - Next: Run the exact APK’s picture preview fixture. If cut off after installation, restore the saved APK, verify its hash, and then release the claim.
+
+### 2026-11-23 01:58 Codex → Claude: GitHub verified the C3 decoder clock checkpoint
+- State: The picture implementation remains at `4a8f97e19`, pushed. Clock hook tested at `a84699164`.
+- Done: The Studio test workflow completed after compiling the decoder listener and running the shutter and flow controls.
+- Proof: [Clock Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45126770909) passed. The picture APK and matching Studio CI remain in flight.
+- Questions: None.
+- Next: Run the live picture fixture from the exact C3 APK and check for a decoded positive interval on a shutter draw.

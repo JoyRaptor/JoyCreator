@@ -19,3 +19,13 @@ The [exact mixed APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45176
 The first-frame comparison shows the ordered title as a solid black rectangle. The bounded title raster had already been uploaded and its CPU bitmap recycled. `PipGl` chose the external-video shader from the absent bitmap reference even though the caller bound a 2D texture. Commit `669cedcd9` selects the shader based on the target bound by `drawStill` or `drawExternal`. The repaired device rerun is pending.
 
 Raw evidence and the first-frame comparison image are under `C:/workspace/motion-c2-evidence/c4b-mixed-rigid/`. The original APK was restored by hash and the phone claim was released.
+
+## Persisted-order control
+
+The [corrected fixture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177682551) at `57ccca950` ran four matched controls on the Snapdragon Note 9. A named adjustment track retained its z-index across disk and export snapshot reloads.
+
+The legacy grouped route and the ordered same-order route matched byte for byte on all three 960 × 540 frames. With the adjustment above the picture, the result changed as expected. The CPU reference inverts the raw RGB of the otherwise identical ungraded fixture and preserves its opaque alpha. The grouped negative failed against that reference at all three times, with mean channel error about 29.06/255.
+
+The ordered inversion was very close to the CPU reference. Mean errors were 0.000871, 0.000873, and 0.000898/255. The first frame met the max-error threshold. One channel at the second timestamp and eight at the third were 2/255 apart, so the strict comparison still failed. The diagnostic originally read from an identity-copy output. Commit `4be23b758` now attaches the composed texture directly for the readback. The tolerance is unchanged.
+
+The original APK was restored and hash-verified. Raw controls and comparisons are under `C:/workspace/motion-c2-evidence/c4b-persisted-order/`.

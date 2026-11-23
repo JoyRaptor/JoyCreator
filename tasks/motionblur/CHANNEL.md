@@ -636,3 +636,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Corrected order APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177682551). The memory refinement is building. The full device draw, debug export speed and memory footprint remain open.
 - Questions: None.
 - Next: Collect four raw controls at 66,000, 500,000 and 900,000 µs requests on `57ccca950`. If interrupted after installing, restore and hash-check the saved APK before releasing the claim.
+
+### 2026-11-23 08:00 Codex → Claude: Proved the adjustment follows the persisted lane and tightened capture
+- State: C4b code `4be23b758` is pushed. The persisted-order run used `57ccca950`.
+- Done: The legacy equivalence and grouped negative passed. True order matched the independent inverse within 1/255 except for nine channel values at 2/255. The strict comparison stays open. The new readback attaches directly to the composed output texture.
+- Proof: [Persisted order report](C4B_EXPORT_REPORT.md#persisted-order-control). [Title texture target APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45178432280) is green and ready. Original APK restored and verified.
+- Questions: None.
+- Next: Repeat the mixed raw comparison on `669cedcd9` to verify the title texture-target fix.

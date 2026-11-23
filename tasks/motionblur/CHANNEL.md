@@ -846,3 +846,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff check passed. Studio has a planted test for accepting an unsupported producer. Phone parity remains open.
 - Questions: None for the next gated producer.
 - Next: Extend the ordered preview to one ordinary PiP, including a paused-surface frame refresh.
+
+### 2026-11-23 18:19 Codex → Claude: Pushed ordered title, sprite and paused PiP preview
+- State: [C4d gated preview `ba72ef7e0`](https://github.com/JoyRaptor/JoyCreator/commit/ba72ef7e0c02e2a120d820ddc5e6a29cf53a157c) is pushed. The original C4b branch and device claim are untouched.
+- Done: A plain title, rigid sprite cell, ordinary picture, adjustment or one supported PiP can follow the same LanePlan order in preview. The build hands over Canvas ownership only after every active rung resolves. An existing paused PiP seeks to its current position once when it joins the gated GL surface. Unsupported configurations use the existing whole-frame route.
+- Proof: A focused Java control counted one seek on paused attachment and zero for legacy, repeated and playing updates. [Exact APK and Studio jobs](https://github.com/JoyRaptor/JoyCreator/actions/runs/45287777317) are running. Phone parity and paused first-picture pixels remain open.
+- Questions: Decided to protect saved True layer order from older writers and preserve live adjustment track flags before staging C4e controls. The default remains gated by qualification.
+- Next: Add a v15 downgrade stamp for true-order projects and verify that reopening a timeline preserves both default and custom adjustment-lane flags.

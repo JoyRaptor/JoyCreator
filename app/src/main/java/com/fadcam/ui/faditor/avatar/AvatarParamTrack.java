@@ -94,9 +94,20 @@ public final class AvatarParamTrack {
      */
     @NonNull
     public Map<String, Float> sampleAt(long tMs) {
+        return sampleBetween(tMs, 0L);
+    }
+
+    /** Sample a shutter instant without rounding its recorded performance time to milliseconds. */
+    @NonNull
+    public Map<String, Float> sampleAtMicros(long tUs) {
+        return sampleBetween(Math.floorDiv(tUs, 1000L), Math.floorMod(tUs, 1000L));
+    }
+
+    @NonNull
+    private Map<String, Float> sampleBetween(long tMs, long residualUs) {
         int n = timesMs.size();
         if (n == 0) return new HashMap<>();
-        if (tMs <= timesMs.get(0)) return new HashMap<>(samples.get(0));
+        if (tMs < timesMs.get(0)) return new HashMap<>(samples.get(0));
         if (tMs >= timesMs.get(n - 1)) return new HashMap<>(samples.get(n - 1));
 
         // Binary search for the bracketing pair [lo, hi).
@@ -107,8 +118,9 @@ public final class AvatarParamTrack {
             else hi = mid;
         }
         long t0 = timesMs.get(lo), t1 = timesMs.get(hi);
-        if (t0 == tMs) return new HashMap<>(samples.get(lo));
-        float f = (tMs - t0) / (float) (t1 - t0);
+        if (t0 == tMs && residualUs == 0L) return new HashMap<>(samples.get(lo));
+        float f = residualUs == 0L ? (tMs - t0) / (float) (t1 - t0)
+                : (float) ((tMs - t0 + residualUs / 1000.0) / (t1 - t0));
 
         Map<String, Float> a = samples.get(lo), b = samples.get(hi);
         Map<String, Float> out = new HashMap<>();

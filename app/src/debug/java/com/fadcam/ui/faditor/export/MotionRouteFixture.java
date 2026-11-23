@@ -283,6 +283,49 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createPip(Context context, boolean enabled) throws IOException {
+        var storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 pip " + variant));
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create PiP fixture media directory");
+        File base = copyAsset(context, media, "card2.mp4");
+        File insert = copyAsset(context, media, "card1.mp4");
+        long duration = durationMs(base);
+        long insertDuration = durationMs(insert);
+        if (duration < 1_000L || insertDuration < 1_000L) {
+            throw new IOException("PiP fixture sources must be at least one second");
+        }
+        project.getTimeline().addClip(clip(base, duration, 1_000L));
+        var pip = clip(insert, insertDuration, 1_000L);
+        pip.setLayerId("video-c2-pip");
+        pip.setOverlayStartMs(0L);
+        pip.setOverlayAudioEnabled(false);
+        pip.setRigidMotionBlurEnabled(enabled);
+        var keys = new KeyframeSet();
+        var x = keys.getOrCreate(KeyframeSet.X);
+        x.put(0, 0.24f, Easing.LINEAR);
+        x.put(250, 0.24f, Easing.LINEAR);
+        x.put(500, 0.76f, Easing.HOLD);
+        x.put(735, 0.39f, Easing.LINEAR);
+        var y = keys.getOrCreate(KeyframeSet.Y);
+        y.put(0, 0.32f, Easing.LINEAR);
+        y.put(250, 0.32f, Easing.LINEAR);
+        y.put(500, 0.59f, Easing.HOLD);
+        y.put(735, 0.43f, Easing.LINEAR);
+        var rotation = keys.getOrCreate(KeyframeSet.ROTATION);
+        rotation.put(0, -10f, Easing.LINEAR);
+        rotation.put(250, -10f, Easing.LINEAR);
+        rotation.put(500, 40f, Easing.HOLD);
+        rotation.put(735, -20f, Easing.LINEAR);
+        keys.getOrCreate(KeyframeSet.SCALE).put(0, 0.42f, Easing.LINEAR);
+        keys.getOrCreate(KeyframeSet.OPACITY).put(0, 0.8f, Easing.LINEAR);
+        pip.setOverlayTransform(keys);
+        project.getTimeline().addOverlayClip(pip);
+        if (!storage.save(project)) throw new IOException("Could not save the PiP fixture");
+        return project;
+    }
+
     private static File createShutterArt(File directory) throws IOException {
         File file = new File(directory, "shutter-art.png");
         Bitmap bitmap = Bitmap.createBitmap(960, 540, Bitmap.Config.ARGB_8888);

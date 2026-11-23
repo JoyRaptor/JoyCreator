@@ -45,17 +45,19 @@ final class RigidTextureShutterPass {
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }
 
-    enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY }
+    enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY, PIP }
 
     private final GlProgram program;
     private final boolean overlay;
+    private final boolean pip;
     private final float[] frame;
     private final float[] bounds = new float[4];
     private final float[][] rows = new float[SAMPLE_COUNT * 2][4];
 
     RigidTextureShutterPass(Source source) throws GlUtil.GlException {
-        overlay = source != Source.SPINE;
-        frame = new float[overlay ? 3 : 2];
+        pip = source == Source.PIP;
+        overlay = !pip && source != Source.SPINE;
+        frame = new float[overlay || pip ? 3 : 2];
         program = new GlProgram(VERTEX_SHADER, fragmentShader(source));
         program.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
         float[] identity = GlUtil.create4x4IdentityMatrix();
@@ -74,8 +76,8 @@ final class RigidTextureShutterPass {
         bounds[3] = footprint.bottom();
         program.use();
         program.setSamplerTexIdUniform("uTexSampler", textureId, 0);
+        if (overlay || pip) frame[2] = opacity;
         if (overlay) {
-            frame[2] = opacity;
             program.setSamplerTexIdUniform("uBackdrop", baseTexture, 1);
         }
         program.setFloatsUniform("uFrame", frame);
@@ -109,7 +111,8 @@ final class RigidTextureShutterPass {
     }
 
     private static String fragmentShader(Source kind) {
-        boolean overlay = kind != Source.SPINE;
+        boolean pip = kind == Source.PIP;
+        boolean overlay = !pip && kind != Source.SPINE;
         // Statically named rows stay below the GLES 2 minimum fragment-uniform limit.
         StringBuilder source = new StringBuilder("""
                 #version 100
@@ -123,7 +126,7 @@ final class RigidTextureShutterPass {
                 uniform vec4 uBounds;
                 """);
         source.append(overlay ? "uniform vec3 uFrame;\nuniform sampler2D uBackdrop;\n"
-                : "uniform vec2 uFrame;\n");
+                : pip ? "uniform vec3 uFrame;\n" : "uniform vec2 uFrame;\n");
         for (int i = 0; i < SAMPLE_COUNT; i++) {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
@@ -182,8 +185,10 @@ final class RigidTextureShutterPass {
         source.append("""
                 }
                 void main() {
-                  vec2 p = vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y) * uFrame.xy;
                 """);
+        // The existing PiP compositor expects the same row order as a Canvas upload.
+        source.append(pip ? "  vec2 p = vTexSamplingCoord * uFrame.xy;\n"
+                : "  vec2 p = vec2(vTexSamplingCoord.x, 1.0 - vTexSamplingCoord.y) * uFrame.xy;\n");
         source.append(overlay
                 ? "  vec4 base = texture2D(uBackdrop, vTexSamplingCoord);\n"
                 : "  vec4 base = vec4(0.0);\n");
@@ -209,6 +214,7 @@ final class RigidTextureShutterPass {
         source.append(overlay
                 ? "  gl_FragColor = vec4(mix(base.rgb, rgb, color.a * uFrame.z), base.a);\n"
                 : "  gl_FragColor = vec4(rgb * color.a, color.a);\n");
+        if (pip) source.append("  gl_FragColor *= uFrame.z;\n");
         return source.append("}\n").toString();
     }
 }

@@ -7370,7 +7370,8 @@ public class ExportManager {
                 videoEffects.add(new BlendModeGlEffect(context, oc, matte,
                         editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
-                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L)));
+                                        ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
+                        timelineCursorMs, shutterPieceDurationMs));
             }
 
             // ── Text overlays that carry their OWN effects (M7) ────────────────────────────

@@ -1,12 +1,10 @@
 package com.fadcam.ui.faditor.export;
 
 import android.content.Context;
-import android.graphics.Bitmap;
 import android.opengl.GLES11Ext;
 import android.opengl.GLES20;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 
@@ -14,7 +12,10 @@ import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.Clip;
-import com.fadcam.ui.faditor.model.CompositingSpec;
+import com.fadcam.ui.faditor.model.ChromaKey;
+import com.fadcam.ui.faditor.motion.ItemMotionSampler;
+import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -40,6 +41,16 @@ final class GlPipFrameOverlay {
     private final long editorTimeOffsetMs;
 
     private final SurfaceFrameReader surfaceReader;
+    private final long motionStartUs;
+    private final long motionEndUs;
+    private final MotionBreaks shutterBreaks;
+    private static final float[] SOURCE_IDENTITY = GlUtil.create4x4IdentityMatrix();
+    private final float[] decoderMatrix = new float[16];
+    private ItemMotionSampler motionSampler;
+    private RigidTextureShutterPass shutter;
+    private boolean motionUnavailable;
+    private int sampledSourceW, sampledSourceH;
+    private int sourceTex, sourceFbo, sourceTextureW, sourceTextureH;
 
     private int frameW = 1, frameH = 1;
     private int overlayTexId = 0;
@@ -52,16 +63,32 @@ final class GlPipFrameOverlay {
     private boolean glInitialized = false;
     private int transparentTexId = 0;
 
-    GlPipFrameOverlay(@NonNull Context context, @NonNull Clip clip, long editorTimeOffsetMs) {
+    GlPipFrameOverlay(@NonNull Context context, @NonNull Clip clip, long editorTimeOffsetMs,
+                      long pieceStartMs, long motionPieceDurationMs) {
         this.context = context.getApplicationContext();
         this.clip = clip;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.surfaceReader = new SurfaceFrameReader(this.context, clip.getSourceUri());
+        motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
+        motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
+        KeyframeSet keys = clip.getOverlayTransform();
+        if (motionPieceDurationMs > 0 && clip.isRigidMotionBlurEnabled() && keys != null
+                && keys.isAnimated() && !clip.hasActiveFx() && !ChromaKey.isActive(clip.getCompositing())) {
+            long start = clip.getOverlayStartMs();
+            long end = start + Math.max(0, clip.getTrimmedDurationMs());
+            var fences = new MotionBreaks.Builder().add(motionStartUs).add(motionEndUs)
+                    .add(start * 1000L).add((end + 1L) * 1000L);
+            for (var track : keys.tracks()) fences.addSteps(track, 0L);
+            shutterBreaks = fences.build();
+        } else {
+            shutterBreaks = null;
+        }
     }
 
     void configure(@NonNull Size videoSize) {
         frameW = Math.max(1, videoSize.getWidth());
         frameH = Math.max(1, videoSize.getHeight());
+        motionSampler = null;
         // GL resources are created lazily on the effect thread (drawFrame) where EGL is current.
     }
 
@@ -104,7 +131,8 @@ final class GlPipFrameOverlay {
         }
 
         // Composite OES into full-frame FBO at the clip's position
-        return blitToOverlay(presentationTimeUs, timelineMs, opacity);
+        if (drawMotion(presentationTimeUs, opacity)) return overlayTexId;
+        return blitToOverlay(timelineMs, opacity);
     }
 
     private boolean ensureGlInitialized() {
@@ -213,7 +241,70 @@ final class GlPipFrameOverlay {
         return overlayTexId;
     }
 
-    private int blitToOverlay(long presentationTimeUs, long timelineMs, float opacity) {
+    private boolean drawMotion(long presentationTimeUs, float opacity) {
+        long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
+        if (motionUnavailable || shutterBreaks == null
+                || editorUs < motionStartUs || editorUs >= motionEndUs) return false;
+        int sourceW = surfaceReader.getDisplayWidth();
+        int sourceH = surfaceReader.getDisplayHeight();
+        if (sourceW <= 0 || sourceH <= 0) return false;
+        if (motionSampler == null || sourceW != sampledSourceW || sourceH != sampledSourceH) {
+            motionSampler = MotionItemAdapters.pip(clip, frameW, frameH, sourceW, sourceH,
+                    OverlayVideoPreviewView.DEFAULT_X, OverlayVideoPreviewView.DEFAULT_Y,
+                    OverlayVideoPreviewView.DEFAULT_SCALE);
+            sampledSourceW = sourceW;
+            sampledSourceH = sourceH;
+        }
+        var plan = RigidTextureShutterPass.naturalPlan(
+                motionSampler, editorUs, shutterBreaks, frameW, frameH);
+        if (plan == null) return false;
+
+        boolean blend = GLES20.glIsEnabled(GLES20.GL_BLEND);
+        boolean cull = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
+        try {
+            float limit = Math.min(2048, Math.max(frameW, frameH));
+            float scale = Math.min(1f, limit / Math.max(sourceW, sourceH));
+            int width = Math.max(1, Math.round(sourceW * scale));
+            int height = Math.max(1, Math.round(sourceH * scale));
+            if (sourceFbo == 0 || sourceTextureW != width || sourceTextureH != height) {
+                releaseMotionSource();
+                sourceTex = GlUtil.createTexture(width, height, false);
+                sourceFbo = GlUtil.createFboForTexture(sourceTex);
+                sourceTextureW = width;
+                sourceTextureH = height;
+            }
+            if (shutter == null) {
+                shutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PIP);
+            }
+            GLES20.glDisable(GLES20.GL_BLEND);
+            GLES20.glDisable(GLES20.GL_CULL_FACE);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, sourceFbo);
+            GLES20.glViewport(0, 0, width, height);
+            // Normalize decoder orientation once for the current decoded frame.
+            drawOes(SOURCE_IDENTITY, 1f);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fboId);
+            GLES20.glViewport(0, 0, frameW, frameH);
+            shutter.draw(sourceTex, frameW, frameH, plan, 0, opacity);
+            return true;
+        } catch (GlUtil.GlException | RuntimeException e) {
+            motionUnavailable = true;
+            FLog.w(TAG, "PiP shutter unavailable; drawing sharp", e);
+            return false;
+        } finally {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+            if (blend) GLES20.glEnable(GLES20.GL_BLEND);
+            if (cull) GLES20.glEnable(GLES20.GL_CULL_FACE);
+        }
+    }
+
+    private void releaseMotionSource() {
+        if (sourceFbo != 0) GLES20.glDeleteFramebuffers(1, new int[]{sourceFbo}, 0);
+        if (sourceTex != 0) GLES20.glDeleteTextures(1, new int[]{sourceTex}, 0);
+        sourceFbo = 0;
+        sourceTex = 0;
+    }
+
+    private int blitToOverlay(long timelineMs, float opacity) {
         KeyframeSet kf = clip.getOverlayTransform();
         float ddx = OverlayVideoPreviewView.DEFAULT_X;
         float ddy = OverlayVideoPreviewView.DEFAULT_Y;
@@ -247,14 +338,21 @@ final class GlPipFrameOverlay {
         boolean cullWas = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
         GLES20.glDisable(GLES20.GL_BLEND);
         GLES20.glDisable(GLES20.GL_CULL_FACE);
-        GLES20.glUseProgram(blitProgram);
+        drawOes(mvp, opacity);
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+        if (blendWas) GLES20.glEnable(GLES20.GL_BLEND);
+        if (cullWas) GLES20.glEnable(GLES20.GL_CULL_FACE);
+        try { GlUtil.checkGlError(); } catch (Exception ignored) {}
+        return overlayTexId;
+    }
 
+    private void drawOes(float[] mvp, float opacity) {
+        GLES20.glUseProgram(blitProgram);
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
         GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, surfaceReader.getOesTextureId());
         GLES20.glUniform1i(uOesTexLoc, 0);
-        float[] texMat = new float[16];
-        surfaceReader.getTransformMatrix(texMat);
-        GLES20.glUniformMatrix4fv(uTexMatrixLoc, 1, false, texMat, 0);
+        surfaceReader.getTransformMatrix(decoderMatrix);
+        GLES20.glUniformMatrix4fv(uTexMatrixLoc, 1, false, decoderMatrix, 0);
         GLES20.glUniform1f(uAlphaLoc, opacity);
         GLES20.glUniformMatrix4fv(uMvpLoc, 1, false, mvp, 0);
 
@@ -263,15 +361,15 @@ final class GlPipFrameOverlay {
         GLES20.glVertexAttribPointer(aPositionLoc, 2, GLES20.GL_FLOAT, false, 0, quadBuffer);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GLES20.glDisableVertexAttribArray(aPositionLoc);
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-        if (blendWas) GLES20.glEnable(GLES20.GL_BLEND);
-        if (cullWas) GLES20.glEnable(GLES20.GL_CULL_FACE);
-        try { GlUtil.checkGlError(); } catch (Exception ignored) {}
-        return overlayTexId;
     }
 
     void release() {
         surfaceReader.release();
+        releaseMotionSource();
+        if (shutter != null) {
+            try { shutter.release(); } catch (GlUtil.GlException ignored) { }
+            shutter = null;
+        }
         if (blitProgram != 0) { try { GLES20.glDeleteProgram(blitProgram); } catch (Exception ignored) {} blitProgram = 0; }
         if (fboId != 0) { int[] fbo = {fboId}; try { GLES20.glDeleteFramebuffers(1, fbo, 0); } catch (Exception ignored) {} fboId = 0; }
         if (overlayTexId != 0) { int[] tex = {overlayTexId}; try { GLES20.glDeleteTextures(1, tex, 0); } catch (Exception ignored) {} overlayTexId = 0; }

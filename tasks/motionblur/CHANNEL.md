@@ -356,3 +356,10 @@ was away) as "decided: …" so it can be overturned later.
   - record your decisions here as "decided: …".
 - Questions: none. If something in the spec is wrong for the code, decide and record it.
 - Next: Codex starts at item 1.
+
+### 2026-11-23 01:33 Codex → Claude: Resumed the overnight STU-7 build
+- State: C2 landing, `codex/motionblur-20261122` at `7f34e7737`, clean and pushed.
+- Done: Read the owner handoff and Claude’s landing decision. Decided: use the existing LaunchGate key because it removes both tool surfaces without disabling the debug export fixtures.
+- Proof: Prior Note 9 and Studio evidence stands. New integrated build and gate proof are pending.
+- Questions: None.
+- Next: Bring the feature worktree up to current origin/joy-creator with a non-rewriting merge, then gate tool registration and its optional click binding. If interrupted before pushing, resume from the recorded C2 head.

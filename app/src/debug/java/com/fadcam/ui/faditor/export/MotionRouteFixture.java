@@ -326,6 +326,23 @@ final class MotionRouteFixture {
                 compositing.mattePeerId = matte.getId();
                 recipient.setCompositing(compositing);
             }
+            case "performance" -> {
+                long remaining = 30_000L - spine.getTrimmedDurationMs();
+                File source = new File(media, "card2.mp4");
+                long duration = durationMs(source);
+                while (remaining > 0L) {
+                    long length = Math.min(remaining, duration);
+                    timeline.addClip(clip(source, duration, length));
+                    remaining -= length;
+                }
+                picture.setTimeRange(0L, 29_999L);
+                var upper = picture.copyWithNewId(java.util.UUID.randomUUID().toString());
+                upper.setCenter(0.66f, 0.59f);
+                upper.setSizeFraction(0.35f);
+                upper.setOpacity(0.42f);
+                timeline.addTextOverlay(upper);
+                adjustment.setDurationMs(30_000L);
+            }
             case "pip-blend" -> timeline.getOverlayClips().get(0).setOverlayBlendMode("SCREEN");
             default -> throw new IOException("Unknown lane fixture variant " + variant);
         }

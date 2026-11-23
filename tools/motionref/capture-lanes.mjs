@@ -30,8 +30,8 @@ function caseArguments(test, requests) {
     }
     const args = ['--ez', 'motion_lane_fixture', 'true',
         '--ez', 'motion_lane_compositor', String(test.ordered),
-        '--ez', 'motion_lane_adjustment_above', String(test.above),
-        '--ela', 'motion_lane_sample_us', requests.join(',')];
+        '--ez', 'motion_lane_adjustment_above', String(test.above)];
+    if (!test.measureOnly) args.push('--ela', 'motion_lane_sample_us', requests.join(','));
     if (test.variant !== undefined) {
         if (!/^[a-z0-9-]{1,60}$/.test(test.variant)) throw new Error('Invalid fixture variant');
         args.push('--es', 'motion_lane_variant', test.variant);
@@ -118,18 +118,36 @@ async function main() {
             let logs = '';
             let samples = [];
             let finished = false;
-            for (let i = 0; i < 35; i++) {
+            const attempts = test.measureOnly ? 145 : 35;
+            for (let i = 0; i < attempts; i++) {
                 await delay(650);
                 logs = await read('logcat', '-d', '-T', since, '-v', 'epoch', '-s',
                     'ExportDebug', 'ExportManager', 'ExportService', 'LaneReadback',
                     'LaneComposite', 'ProjectStorage');
                 samples = [...logs.matchAll(/frame=(lane_frame_(\d+)\.rgba) editorUs=(\d+) size=(\d+)x(\d+)/g)];
                 finished = /ExportService: Export (completed|error|failed)/i.test(logs);
-                if (finished && (samples.length === 3 || /ExportService: Export (error|failed)/i.test(logs))) break;
+                if (finished && (test.measureOnly || samples.length === 3
+                        || /ExportService: Export (error|failed)/i.test(logs))) break;
             }
             await writeFile(join(folder, 'device.log'), logs);
             const ordered = logs.includes('LANE_EXPORT');
             const expectedOrdered = test.expectedOrdered ?? test.ordered;
+            if (test.measureOnly) {
+                const start = logs.match(/^\s*(\d+\.\d+).*ExportManager: Export started/m);
+                const done = logs.match(/^\s*(\d+\.\d+).*ExportManager: TRACE_COMMIT/m);
+                const duration = logs.match(/EXPORT_ITEM total=(\d+)ms/);
+                if (!finished || ordered !== expectedOrdered || !start || !done || +duration?.[1] !== 30000) {
+                    receipt.caseFailures.push({label: test.label, ordered, expectedOrdered, finished,
+                        durationMs: duration ? +duration[1] : null});
+                    continue;
+                }
+                const stats = {label: test.label, ordered, timelineDurationMs: +duration[1],
+                    encodeMs: Math.round((+done[1] - +start[1]) * 1000),
+                    glSample: logs.split('\n').find(line => line.includes('GL_SAMPLE'))?.trim()};
+                await writeFile(join(folder, 'performance.json'), JSON.stringify(stats, null, 2));
+                receipt.runs.push(test.label);
+                continue;
+            }
             if (ordered !== expectedOrdered || samples.length !== 3 || !finished
                     || new Set(samples.map(match => match[2])).size !== 3) {
                 receipt.caseFailures.push({label: test.label, ordered, expectedOrdered,

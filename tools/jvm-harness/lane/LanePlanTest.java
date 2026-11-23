@@ -35,6 +35,7 @@ public final class LanePlanTest {
         scopeOnlyForEffectLayers();
         projectExportUsesProvenLegacyDomain();
         explicitOrderUsesProjectLayout();
+        picturePreviewRequiresOneSupportedPlan();
         System.out.println("LanePlanTest: " + assertions + " assertions");
     }
 
@@ -134,6 +135,22 @@ public final class LanePlanTest {
                 "legacy keeps the existing layout if effect order differs");
         check(changesLook.projectExportFallback(true) == null,
                 "explicit true order overrides the legacy equivalence requirement");
+    }
+
+    static void picturePreviewRequiresOneSupportedPlan() {
+        Timeline t = new Timeline();
+        var picture = TextOverlayItem.createImage("content://test/picture.png", 0.5f, 0.5f, 0.5f);
+        picture.setLayerId("text");
+        t.addTextOverlay(picture);
+        var adjustment = new AdjustmentLayer();
+        adjustment.setLayerId("adjustment");
+        t.addAdjustmentLayer(adjustment);
+        t.getOrCreateTrackFlags("adjustment").zIndex = 9;
+        check(!plan(t).supportsOrderedPicturePreview(false), "legacy preview keeps incompatible adjustment order");
+        check(plan(t).supportsOrderedPicturePreview(true), "ordered preview accepts one picture and adjustment plan");
+
+        boolean supported = mutant.equals("--ignore-preview-domain") || plan(base()).supportsOrderedPicturePreview(true);
+        check(!supported, "unsupported producer forces whole-frame preview fallback");
     }
 
     // ---- helpers --------------------------------------------------------------------------

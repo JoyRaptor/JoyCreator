@@ -9,6 +9,7 @@ import com.fadcam.ui.faditor.layers.TimedItem;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -138,6 +139,25 @@ public final class LanePlan {
             }
         }
         return null;
+    }
+
+    /** Both hosts draw this picture with the same isolated texture/placement path. */
+    public static boolean supportsOrderedPicture(@Nullable TextOverlayItem picture) {
+        return picture != null && picture.isImage() && !picture.hasMesh() && !picture.isLinked()
+                && !picture.wantsGlExport()
+                && CaptionAnimator.parsePreset(picture.getTextAnimPreset()) == CaptionAnimator.Preset.NONE;
+    }
+
+    /** First preview slice: the whole plan must fit the picture and adjustment domain. */
+    public boolean supportsOrderedPicturePreview(boolean trueLayerOrder) {
+        if (projectExportFallback(trueLayerOrder) != null) return false;
+        for (Entry entry : entries) {
+            if (entry.kind == Kind.IMAGE && supportsOrderedPicture(entry.item.getTextOverlay())) continue;
+            if (entry.kind == Kind.ADJUSTMENT && entry.item.getAdjustment() != null
+                    && !entry.item.getAdjustment().getFx().hearsMusic()) continue;
+            return false;
+        }
+        return true;
     }
 
     private static int surfaceRank(Kind kind) {

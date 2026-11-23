@@ -147,6 +147,14 @@ public class ExportDebugActivity extends Activity {
         if (in.getBooleanExtra("open_preview", false)) {
             Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
             preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
+            if (in.getBooleanExtra("motion_lane_project_order", false)) {
+                FaditorProject saved = new ProjectStorage(this).load(id);
+                if (saved == null) return false;
+                preview.putExtra(com.fadcam.ui.faditor.compositor.FxLivePreviewController.EXTRA_DEBUG_LANE_ORDER,
+                        saved.isTrueLayerOrder() ? "true" : "legacy");
+                preview.putExtra("studio_debug_motion_readback_us",
+                        in.getLongExtra("motion_preview_readback_us", -1L));
+            }
             if (in.getBooleanExtra("motion_spine_fixture", false)
                     || in.getBooleanExtra("motion_picture_fixture", false)
                     || in.getBooleanExtra("motion_sprite_fixture", false)

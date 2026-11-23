@@ -16,7 +16,6 @@ import com.fadcam.ui.faditor.compositor.lane.LaneCompositor;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.sprite.SpriteSheet;
-import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -48,10 +47,7 @@ final class LaneCompositeGlEffect implements GlEffect {
             switch (entry.kind) {
                 case IMAGE -> {
                     TextOverlayItem picture = entry.item.getTextOverlay();
-                    if (picture == null || picture.hasMesh() || picture.isLinked()
-                            || picture.wantsGlExport()
-                            || CaptionAnimator.parsePreset(picture.getTextAnimPreset())
-                                    != CaptionAnimator.Preset.NONE) {
+                    if (!LanePlan.supportsOrderedPicture(picture)) {
                         return new Candidate(null, "picture " + entry.id);
                     }
                     var effect = new GlImageOverlayEffect(context, List.of(picture), totalDurationMs,

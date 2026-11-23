@@ -14,6 +14,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -48,6 +49,7 @@ import java.util.List;
 public final class FxLivePreviewController {
 
     private static final String TAG = "FxLivePreview";
+    public static final String EXTRA_DEBUG_LANE_ORDER = "studio_debug_lane_order";
 
     /** What this controller needs from the editor, so it needs nothing else from it. */
     public interface Host {
@@ -319,12 +321,15 @@ public final class FxLivePreviewController {
      */
     @Nullable private ExoPlayer routedPlayer;
     private final PreviewDecoderClock motionClock;
+    @Nullable private final String debugLaneOrder;
+    private boolean orderedPicturePreviewActive;
     private final androidx.media3.common.Timeline.Window motionWindow =
             new androidx.media3.common.Timeline.Window();
 
     public FxLivePreviewController(@NonNull FxPreviewTextureView view, @NonNull Host host) {
         this.view = view;
         this.host = host;
+        debugLaneOrder = debugLaneOrder(view.getContext());
         motionClock = new PreviewDecoderClock(view.motionClock());
         view.setSurfaceListener(new FxPreviewTextureView.SurfaceListener() {
             @Override public void onFxInputSurfaceReady(@NonNull Surface s) {
@@ -359,6 +364,19 @@ public final class FxLivePreviewController {
                 host.onFxShaderUnavailable(reason);
             }
         });
+    }
+
+    @Nullable
+    private static String debugLaneOrder(android.content.Context context) {
+        if (!com.fadcam.BuildConfig.DEBUG) return null;
+        while (context instanceof android.content.ContextWrapper wrapper) {
+            if (wrapper instanceof android.app.Activity activity) {
+                String order = activity.getIntent().getStringExtra(EXTRA_DEBUG_LANE_ORDER);
+                return "true".equals(order) || "legacy".equals(order) ? order : null;
+            }
+            context = wrapper.getBaseContext();
+        }
+        return null;
     }
 
     /**
@@ -506,11 +524,13 @@ public final class FxLivePreviewController {
                 break;
             }
         }
+        LanePlan orderedPictures = anyLayerImage ? null : orderedPicturePlan(timeline);
         if (!anyBlendedViz) host.onGlOwnedVisualizers(java.util.Collections.emptySet());
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
-                && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites && !shutterPiP) {
+                && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites && !shutterPiP
+                && orderedPictures == null) {
             stop();
             return;
         }
@@ -611,14 +631,25 @@ public final class FxLivePreviewController {
         }
         bindMotionClock(timeline, playheadClip);
         view.setSpineShutter(spineShutter(playheadClip, size, rotation));
-        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages, shutterOverlays, shutterSprites));
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages,
+                shutterOverlays, shutterSprites, orderedPictures));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
         route();
     }
 
+    @Nullable
+    private LanePlan orderedPicturePlan(Timeline timeline) {
+        if (debugLaneOrder == null || timeline.hasTransitions() || timeline.hasWaveformOverlays()) return null;
+        Clip clip = host.clipAtPlayhead();
+        if (clip == null || clip.hasLoopExtension() || clip.hasRemovedSpans()
+                || clip.getSpeedMultiplier() != 1f) return null;
+        LanePlan plan = LanePlan.of(timeline);
+        return plan.supportsOrderedPicturePreview("true".equals(debugLaneOrder)) ? plan : null;
+    }
+
     private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip) {
-        if (!host.motionBlurEnabled() || clip == null || clip.isImageClip()
+        if ((!host.motionBlurEnabled() && debugLaneOrder == null) || clip == null || clip.isImageClip()
                 || clip.hasLoopExtension() || clip.hasRemovedSpans()) {
             clearMotionClock();
             return;
@@ -660,7 +691,7 @@ public final class FxLivePreviewController {
     private FxPreviewTextureView.ShutterExposure spineShutter(@Nullable Clip clip, int[] size,
                                                                int rotation) {
         var clock = motionClock.anchor();
-        if (clock == null || clip == null || rotation != 0 || !clip.isRigidMotionBlurEnabled()
+        if (!host.motionBlurEnabled() || clock == null || clip == null || rotation != 0 || !clip.isRigidMotionBlurEnabled()
                 || !clip.isSpineTransformArmed() || !clip.hasSpineTransform()) return null;
         var controls = clip.getRigidMotionShutter();
         if (controls.mixPercent() == 0 || controls.angle() == 0) return null;
@@ -728,7 +759,7 @@ public final class FxLivePreviewController {
     private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
             long playheadMs, @NonNull int[] size, boolean stacked,
             @NonNull List<TextOverlayItem> glImages, @NonNull List<TextOverlayItem> shutterOverlays,
-            boolean shutterSprites) {
+            boolean shutterSprites, @Nullable LanePlan orderedPictures) {
         List<AdjustmentLayer> live =
                 LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
@@ -786,6 +817,17 @@ public final class FxLivePreviewController {
                 snapshot.add(s);
             }
         }
+        if (orderedPictures != null) {
+            var ordered = buildOrderedPictureRungs(orderedPictures, layerIndex, snapshot, spineLayerIndex,
+                    playheadMs, size);
+            if (ordered != null) {
+                if (!orderedPicturePreviewActive) FLog.i(TAG, "LANE_PREVIEW ordered pictures and adjustments");
+                orderedPicturePreviewActive = true;
+                return ordered;
+            }
+        }
+        if (orderedPicturePreviewActive) FLog.i(TAG, "LANE_PREVIEW_FALLBACK existing preview");
+        orderedPicturePreviewActive = false;
         OverlayVideoPreviewView ov = host.overlayVideoLayer();
         // Ask for the extra composite inputs only once the project actually stacks. The request
         // only ever grows, and the GL side builds each input lazily, so a one-PiP project never
@@ -1026,6 +1068,38 @@ public final class FxLivePreviewController {
         return new FxPreviewTextureView.CompositePlan(snapshot, rungs, spineLayerIndex);
     }
 
+    @Nullable
+    private FxPreviewTextureView.CompositePlan buildOrderedPictureRungs(
+            LanePlan plan, java.util.Map<AdjustmentLayer, Integer> layerIndex,
+            List<FxPreviewTextureView.Layer> layers, int spineLayerIndex, long playheadMs, int[] size) {
+        var rungs = new ArrayList<FxPreviewTextureView.Rung>();
+        var owned = new java.util.HashSet<String>();
+        for (LanePlan.Entry entry : plan.entries()) {
+            if (entry.kind == LanePlan.Kind.ADJUSTMENT) {
+                Integer index = layerIndex.get(entry.item.getAdjustment());
+                if (index != null) rungs.add(FxPreviewTextureView.Rung.layer(index));
+                continue;
+            }
+            TextOverlayItem item = entry.item.getTextOverlay();
+            if (item == null || !item.isVisibleAt(playheadMs) || item.animatedOpacity(playheadMs) <= 0f) continue;
+            // Leave the entire frame on its usual route if any source is still decoding or editing.
+            if (host.isManipulatingOverlay(item)) return null;
+            FxPreviewTextureView.Pip p = host.imagePipFor(item, size[0], size[1]);
+            if (p == null || p.still == null || p.still.isRecycled()) return null;
+            var clock = motionClock.anchor();
+            RigidPictureMotion motion = host.motionBlurEnabled() && clock != null
+                    ? pictureMotion(item, p, size, clock) : null;
+            rungs.add(motion == null ? FxPreviewTextureView.Rung.pip(p)
+                    : FxPreviewTextureView.Rung.movingStill(p, new FxPreviewTextureView.StillShutter(
+                            RigidTextureShutterPass.Source.PICTURE, motion::exposure)));
+            owned.add(item.getId());
+        }
+        host.onGlOwnedImages(owned);
+        host.onGlOwnedSprites(java.util.Collections.emptySet());
+        host.onGlOwnedVisualizers(java.util.Collections.emptySet());
+        return new FxPreviewTextureView.CompositePlan(layers, rungs, spineLayerIndex);
+    }
+
     /**
      * One sprite as a GL quad — texture, pose, corner pin and bend.
      *
@@ -1104,7 +1178,7 @@ public final class FxLivePreviewController {
     private FxPreviewTextureView.LivePipShutter pipShutter(Clip clip, FxPreviewTextureView.Pip p,
                                                           OverlayVideoPreviewView overlay, int[] size) {
         var clock = motionClock.anchor();
-        if (clock == null || !eligibleLivePiP(clip) || p.still != null
+        if (!host.motionBlurEnabled() || clock == null || !eligibleLivePiP(clip) || p.still != null
                 || p.maskOn || p.matteOn || p.fused != null) return null;
         var source = overlay.motionSourceSize(clip);
         if (source == null) return null;

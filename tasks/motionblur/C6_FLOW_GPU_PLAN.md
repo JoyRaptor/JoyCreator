@@ -56,6 +56,9 @@ are RGBA8: velocity packed with `VelocityPack` (12+12 bit at 1/16 px, ±128 px),
    path (PBOs are ES 3 only, so on ES 2 read one frame late). Fit on the CPU.
 
 ## How it is judged
+
+**The footage reference tool is built** (`tools/motionref/MotionRef.java`, self test `tools/motionref/run-motionref.sh`): it matches an analytic smear exactly (0/255). Its negative controls are averaging in coded sRGB and whole frames only. Recipe: shoot a sharp 240 fps clip (fast shutter), `ffmpeg -i clip.mp4 in/%06d.png`, then `java MotionRef expose in 240 30 180 -90 out`, which writes `true_*` (the reference blur) and `sharp_*` (the 30 fps input the app blurs). Render the app's blur of `sharp_*`, then `java MotionRef compare out app true_ blur_` for MAE and PSNR. The 20-shot blind A/B and the estimator bake-off both use these pairs.
+
 - **Oracle parity (JVM + device).** Feed the same two luma frames (synthetic scenes from
   `FlowCoreTest`, plus 10 real 1/8-res frame pairs from the high-speed reference shoot) to the oracle
   and the GPU version. Read back the GPU field. Pass: mean |Δ| ≤ 0.1 px and the 99th percentile

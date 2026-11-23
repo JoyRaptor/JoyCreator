@@ -673,22 +673,9 @@ final class SpriteBlendGlEffect implements GlEffect {
 
         private boolean prepareCellTexture(SpriteSheetRenderer renderer, int cell) {
             if (cellTexture != 0 && textureCell == cell) return true;
-            var rect = renderer.cellRectBitmap(cell);
-            if (rect.width() <= 0 || rect.height() <= 0) return false;
-            float scale = Math.min(1f, MAX_EDGE_PX / (float) Math.max(rect.width(), rect.height()));
-            int width = Math.max(1, Math.round(rect.width() * scale));
-            int height = Math.max(1, Math.round(rect.height() * scale));
-            Bitmap bitmap;
+            Bitmap bitmap = RigidSpriteMotion.rasterCell(renderer, cell, contentPaint);
+            if (bitmap == null) return false;
             try {
-                bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            } catch (OutOfMemoryError e) {
-                FLog.w("SpriteBlend", "Shutter cell texture allocation failed; drawing sharp", e);
-                return false;
-            }
-            try {
-                contentPaint.setAlpha(255);
-                renderer.drawCell(new Canvas(bitmap), cell, new RectF(0f, 0f, width, height),
-                        contentPaint);
                 if (cellTexture == 0) cellTexture = PipGl.newStillTexture();
                 GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, cellTexture);
                 GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);

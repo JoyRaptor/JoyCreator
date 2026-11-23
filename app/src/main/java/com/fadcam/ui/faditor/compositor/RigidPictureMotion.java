@@ -6,7 +6,6 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
-import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 /** The isolated picture source and placement rules shared by preview and export. */
@@ -18,8 +17,6 @@ public final class RigidPictureMotion {
     private final int width;
     private final int height;
     private final ItemMotionSampler sampler;
-
-    public record Exposure(RigidShutterPlan plan, float opacity) {}
 
     /** The caller supplies an item owned by its renderer or a detached preview snapshot. */
     public RigidPictureMotion(TextOverlayItem item, float aspect, int width, int height,
@@ -52,16 +49,16 @@ public final class RigidPictureMotion {
     }
 
     @Nullable
-    Exposure exposure(long timeUs, long periodUs, int targetWidth, int targetHeight) {
+    RigidTextureShutterPass.Exposure exposure(long timeUs, long periodUs, int targetWidth, int targetHeight) {
         return width == targetWidth && height == targetHeight ? exposure(timeUs, periodUs) : null;
     }
 
     @Nullable
-    public Exposure exposure(long timeUs, long periodUs) {
+    public RigidTextureShutterPass.Exposure exposure(long timeUs, long periodUs) {
         if (periodUs <= 0 || timeUs < pieceStartUs || timeUs >= pieceEndUs) return null;
         var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), sampler,
                 timeUs, periodUs, fences, width, height);
         if (plan == null) return null;
-        return new Exposure(plan, Math.max(0f, Math.min(1f, item.animatedOpacity(timeUs / 1000L))));
+        return new RigidTextureShutterPass.Exposure(plan, Math.max(0f, Math.min(1f, item.animatedOpacity(timeUs / 1000L))));
     }
 }

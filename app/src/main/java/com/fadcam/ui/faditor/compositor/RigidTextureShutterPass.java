@@ -40,6 +40,8 @@ public final class RigidTextureShutterPass {
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }
 
+    public record Exposure(RigidShutterPlan plan, float opacity) {}
+
     public enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY, PIP }
 
     private final GlProgram program;

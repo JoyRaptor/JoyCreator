@@ -31179,6 +31179,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             return (overlayLayer != null && overlayLayer.isManipulatingImage(item))
                                     || (overlayLayerBelow != null && overlayLayerBelow.isManipulatingImage(item));
                         }
+                        @Override public com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell
+                                spriteMotionCell(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                                                 long playheadMs) {
+                            return spriteOverlayView == null ? null : spriteOverlayView.motionCellFor(item, playheadMs);
+                        }
                         @Override public android.graphics.Bitmap spriteRasterFor(
                                 @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp,
                                 int frameW, int frameH) {

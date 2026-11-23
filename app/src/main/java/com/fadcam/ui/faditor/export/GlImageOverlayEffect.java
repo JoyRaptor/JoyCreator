@@ -118,7 +118,7 @@ final class GlImageOverlayEffect implements GlEffect {
          */
         private boolean zeroCopyText = true;
         private final List<Boolean> frameExternal = new ArrayList<>();
-        private final List<RigidPictureMotion.Exposure> frameBlurs = new ArrayList<>();
+        private final List<RigidTextureShutterPass.Exposure> frameBlurs = new ArrayList<>();
         private final Map<String, RigidPictureMotion> pictureMotion = new HashMap<>();
         private final Map<String, UprightTitle> uprightTitles = new HashMap<>();
         private final long motionStartUs;
@@ -312,7 +312,7 @@ final class GlImageOverlayEffect implements GlEffect {
         }
 
         @Nullable
-        private RigidPictureMotion.Exposure pictureBlur(TextOverlayItem item, Bitmap bitmap,
+        private RigidTextureShutterPass.Exposure pictureBlur(TextOverlayItem item, Bitmap bitmap,
                                                         long timeUs, long periodUs, int w, int h) {
             if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs
                     || timeUs >= motionEndUs || !RigidPictureMotion.supports(item)) return null;
@@ -351,7 +351,7 @@ final class GlImageOverlayEffect implements GlEffect {
             frameVisible.add(null);
             frameTex.add(title.texture);
             frameExternal.add(false);
-            frameBlurs.add(new RigidPictureMotion.Exposure(plan, 1f));
+            frameBlurs.add(new RigidTextureShutterPass.Exposure(plan, 1f));
             return true;
         }
 

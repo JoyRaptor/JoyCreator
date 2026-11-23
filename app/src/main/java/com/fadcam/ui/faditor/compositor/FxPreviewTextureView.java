@@ -1105,6 +1105,17 @@ public class FxPreviewTextureView extends TextureView
         }
     }
 
+    @FunctionalInterface
+    interface StillExposure {
+        @Nullable RigidTextureShutterPass.Exposure at(long timeUs, long periodUs, int width, int height);
+    }
+
+    record StillShutter(RigidTextureShutterPass.Source source, StillExposure exposure) {}
+
+    record TimedStill(Pip pip, StillShutter shutter, long startUs, long endUs) {
+        boolean covers(long timeUs) { return timeUs >= startUs && timeUs < endUs; }
+    }
+
     /**
      * One rung of the z-ordered composite walk: a PiP to draw over the frame so far, or an
      * adjustment layer to grade it. The walk IS the export's chain order — both renderers read
@@ -1117,19 +1128,25 @@ public class FxPreviewTextureView extends TextureView
         /** Index into {@link CompositePlan#layers} when this rung is an adjustment layer. */
         final int layerIndex;
 
-        @Nullable final RigidPictureMotion pictureMotion;
+        @Nullable final StillShutter shutter;
+        @Nullable final List<TimedStill> neighboringCells;
 
-        private Rung(@Nullable Pip pip, int layerIndex, @Nullable RigidPictureMotion pictureMotion) {
+        private Rung(@Nullable Pip pip, int layerIndex, @Nullable StillShutter shutter,
+                     @Nullable List<TimedStill> neighboringCells) {
             this.pip = pip;
             this.layerIndex = layerIndex;
-            this.pictureMotion = pictureMotion;
+            this.shutter = shutter;
+            this.neighboringCells = neighboringCells;
         }
 
-        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null); }
-        @NonNull static Rung picture(@NonNull Pip p, @Nullable RigidPictureMotion motion) {
-            return new Rung(p, -1, motion);
+        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null, null); }
+        @NonNull static Rung movingStill(@NonNull Pip p, @NonNull StillShutter shutter) {
+            return new Rung(p, -1, shutter, null);
         }
-        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null); }
+        @NonNull static Rung sprite(@NonNull TimedStill current, @NonNull List<TimedStill> cells) {
+            return new Rung(current.pip(), -1, current.shutter(), List.copyOf(cells));
+        }
+        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null, null); }
     }
 
     /**
@@ -2003,8 +2020,7 @@ public class FxPreviewTextureView extends TextureView
                 for (int ri = 0; ri < cp.rungs.size(); ri++) {
                     Rung r = cp.rungs.get(ri);
                     if (r.pip != null) {
-                        cur = r.pictureMotion == null ? drawPipRung(r.pip, cur, vw, vh)
-                                : drawPictureMotion(r.pip, r.pictureMotion, cur, vw, vh);
+                        cur = drawRung(r, cur, vw, vh);
                     } else if (layersReady && r.layerIndex >= 0
                             && r.layerIndex < cp.layers.size() && r.layerIndex < compiled.size()) {
                         cur = drawOneLayer(cp.layers.get(r.layerIndex),
@@ -2717,34 +2733,53 @@ public class FxPreviewTextureView extends TextureView
      * yet to decode) contributes nothing — the slot stays {@code src}, matching the "absent
      * until ready" behaviour the sibling stills have always had.
      */
-    private RigidTextureShutterPass pictureShutter;
-    private boolean pictureShutterFailed;
-    private boolean pictureShutterLogged;
+    private final java.util.EnumMap<RigidTextureShutterPass.Source, RigidTextureShutterPass> stillShutters =
+            new java.util.EnumMap<>(RigidTextureShutterPass.Source.class);
+    private final java.util.EnumSet<RigidTextureShutterPass.Source> failedStillShutters =
+            java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
+    private final java.util.EnumSet<RigidTextureShutterPass.Source> loggedStillShutters =
+            java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
 
-    private int drawPictureMotion(Pip p, RigidPictureMotion motion, int src, int width, int height) {
+    private int drawRung(Rung rung, int src, int width, int height) {
+        if (rung.neighboringCells != null && motionFrame != null) {
+            for (var cell : rung.neighboringCells) {
+                if (cell.covers(motionFrame.editorTimeUs())) {
+                    return drawStillShutter(cell.pip(), cell.shutter(), src, width, height);
+                }
+            }
+            return drawPipRung(rung.pip, src, width, height);
+        }
+        return rung.shutter == null ? drawPipRung(rung.pip, src, width, height)
+                : drawStillShutter(rung.pip, rung.shutter, src, width, height);
+    }
+
+    private int drawStillShutter(Pip p, StillShutter shutter, int src, int width, int height) {
         var frame = motionFrame;
-        var exposure = frame == null || pictureShutterFailed ? null
-                : motion.exposure(frame.editorTimeUs(), frame.periodUs(), width, height);
+        var source = shutter.source();
+        var exposure = frame == null || failedStillShutters.contains(source) ? null
+                : shutter.exposure().at(frame.editorTimeUs(), frame.periodUs(), width, height);
         if (exposure == null) return drawPipRung(p, src, width, height);
         int still = stillTextureFor(p);
         if (still == 0) return src;
         int dst = src == 0 ? 1 : 0;
         try {
-            if (pictureShutter == null) {
-                pictureShutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PICTURE);
+            var pass = stillShutters.get(source);
+            if (pass == null) {
+                pass = new RigidTextureShutterPass(source);
+                stillShutters.put(source, pass);
             }
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
             GLES20.glViewport(0, 0, width, height);
-            pictureShutter.draw(still, width, height, exposure.plan(), targets[src][0], exposure.opacity());
-            if (com.fadcam.BuildConfig.DEBUG && !pictureShutterLogged) {
-                pictureShutterLogged = true;
-                FLog.i(TAG, "live picture shutter editorUs=" + frame.editorTimeUs()
-                        + " periodUs=" + frame.periodUs() + " taps=" + exposure.plan().taps().size());
+            pass.draw(still, width, height, exposure.plan(), targets[src][0], exposure.opacity());
+            if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
+                FLog.i(TAG, "live " + (source == RigidTextureShutterPass.Source.PICTURE ? "picture" : "sprite")
+                        + " shutter editorUs=" + frame.editorTimeUs() + " periodUs=" + frame.periodUs()
+                        + " taps=" + exposure.plan().taps().size());
             }
             return dst;
         } catch (androidx.media3.common.util.GlUtil.GlException e) {
-            pictureShutterFailed = true;
-            FLog.w(TAG, "Picture shutter unavailable; drawing sharp", e);
+            failedStillShutters.add(source);
+            FLog.w(TAG, "Still shutter unavailable; drawing sharp", e);
             return drawPipRung(p, src, width, height);
         } finally {
             GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -3343,12 +3378,12 @@ public class FxPreviewTextureView extends TextureView
         if (h != null) {
             h.post(() -> {
                 releasePrograms();
-                if (pictureShutter != null) {
-                    try { pictureShutter.release(); } catch (Exception ignored) { }
-                    pictureShutter = null;
+                for (var shutter : stillShutters.values()) {
+                    try { shutter.release(); } catch (Exception ignored) { }
                 }
-                pictureShutterFailed = false;
-                pictureShutterLogged = false;
+                stillShutters.clear();
+                failedStillShutters.clear();
+                loggedStillShutters.clear();
                 releaseTargets();
                 // The cached PiP programs and uploaded still textures belong to this context —
                 // free them while it is still current. Retired still bitmaps are recycled here

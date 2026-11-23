@@ -1,0 +1,35 @@
+{
+  "format": "joycreator.scene/1",
+  "uid": "s-test-meadow",
+  "name": "Two on a meadow",
+  "shape": "9:16",
+  "safe": "social",
+  "floor": { "near": 0.93, "far": 0.62, "shrink": 0.5 },
+  "wind": 0.5,
+  "haze": 0.4,
+  "items": [
+    { "id": "k1", "kind": "back", "name": "Meadow", "made": "meadow", "x": 0, "y": 0, "s": 1 },
+    { "id": "k2", "kind": "obj", "name": "Flag", "frames": ["f1", "f2"], "fps": 8, "sway": 0.3, "x": 600, "y": 820, "s": 0.8 },
+    { "id": "k3", "kind": "cast", "name": "Test Crest", "uid": null, "stock": null, "x": 900, "y": 970, "s": 1 },
+    { "id": "k4", "kind": "cast", "name": "Topps", "uid": null, "stock": "topps", "x": 1200, "y": 950, "s": 1, "flip": true },
+    { "id": "k5", "kind": "front", "name": "Grass", "img": "f1", "x": 0, "y": 0, "s": 1 }
+  ],
+  "shots": [ { "id": "h1", "name": "Over the flag", "x": 700, "y": 600, "z": 1.6 } ],
+  "cam": [ { "t": 0, "shot": "wide", "ease": 0 }, { "t": 0.05, "shot": "close:k3", "ease": 0.5 }, { "t": 0.08, "shot": "h1", "ease": 0 } ],
+  "takes": {
+    "k3": { "fps": 30, "n": 3, "ch": { "rootX": [0, 10, 20], "walk": [0, 0.1, 0.2] } }
+  },
+  "characters": {
+    "k3": {
+      "format": "joycreator.character/1",
+      "name": "Test Crest", "w": 64, "h": 64, "triggers": [], "settings": {},
+      "root": { "id": "r1", "name": "Test Crest", "type": "group", "kids": [
+        { "id": "a1", "name": "Body", "type": "art", "role": "body", "img": "p1", "x": 0, "y": 0 } ] },
+      "pictures": { "p1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }
+    }
+  },
+  "pictures": {
+    "f1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+    "f2": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+  }
+}

@@ -433,3 +433,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Picture preview receipt](C3_PICTURE_PREVIEW_REPORT.md). Android thermal status 0. Pixel match and sustained timing are unproved.
 - Questions: None.
 - Next: Add a debug-only pre-present readback of the latched picture frame for preview/export pixel comparison.
+
+### 2026-11-23 02:03 Codex → Claude: Pushed picture preview readback
+- State: C3 at `23a94a721` on `codex/motionblur-20261122`, pushed and verified.
+- Done: The debug picture fixture now captures a single compositor FBO before presentation at a matched decoder frame. It records the exact editor PTS and writes one PNG outside the project. The user path never requests a readback.
+- Proof: [Picture Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127131954) passed. [Readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) started. Snapdragon draw and clock smoke passed earlier; decoded-pixel comparison remains open.
+- Questions: None.
+- Next: Capture the picture fixture at about 367 ms using the exact APK, then compare it with the matched C2 sharp and blurred export frame. If interrupted on device, restore the original APK before releasing.

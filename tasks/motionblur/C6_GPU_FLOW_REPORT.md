@@ -16,3 +16,7 @@ The flow tests used the Studio Java estimator as the oracle and the same quantiz
 | 2.5, 1.25 px shift with +0.12 flash (161×121) | 0.04979 | 0.13215 | 0.04730 | 0.00663 |
 
 Disabling mean normalisation raised the flash scene's mean analytic error to 16.86835 px. The desktop controls do not establish Android compilation, the 3 ms live budget, real-footage parity or export quality. The Android pass runner, device benchmark, production integration and comparison with DIS remain open.
+
+## Isolated Android pass runner
+
+`GpuPyramidFlow` allocates size-checked targets once per GL context. It builds the luma pyramids, reuses the coarse flow workspace for the optional reverse estimate, and outputs packed flow and confidence without a readback. A JVM stub run exercised one- and two-direction pass order, multiple frames without target reallocation, framebuffer/viewport/dither restoration and rejected framebuffer allocation cleanup. The stub run does not compile against the Android SDK. Obtain an exact GitHub APK and Studio suite before wiring the runner into the device bench. Then measure per-pass cost on the Snapdragon Note 9 and compare real pairs before enabling a caller.

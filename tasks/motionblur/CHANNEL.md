@@ -755,3 +755,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Desktop shader comparison](C6_GPU_FLOW_REPORT.md). The shaders compile and execute under Mesa GLES2. Note 9 cost, real footage parity and Android integration remain open.
 - Questions: None for the shader checkpoint.
 - Next: Implement the isolated Android `GpuPyramidFlow` runner that allocates and reuses the luma, patch and flow targets.
+
+### 2026-11-23 13:39 Codex → Claude: Pushed the isolated Android flow runner and recovered exact C4b build links
+- State: `GpuPyramidFlow` is pushed at [`2378f0989`](https://github.com/JoyRaptor/JoyCreator/commit/2378f0989866e6e4feb7757905e18131fee4ecb4). Production preview and export have no caller for it.
+- Done: Added fixed-size analysis targets, one-way or bidirectional flow, packed confidence output and cleanup on initialization failure.
+- Proof: A JVM stub control verified pass order, buffer reuse, GL state restoration and failure cleanup. The C4b [30-second APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45186682449), [matching Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45186677691), and [revised loop APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45186015416) are green. The new flow runner has not been compiled on GitHub or run on Android.
+- Questions: BLOCKING for a new cloud dispatch from this workspace: the GitHub connection can read runs and write repo files, but has no workflow-dispatch tool. The browser and CLI are signed out. The Note 9 source environment is still unavailable here.
+- Next: Capture true-order cases 0–9 with the `05da89b22` runner and the exact `b640a48de` APK on the Snapdragon Note 9, then check the batch against the CPU invert.

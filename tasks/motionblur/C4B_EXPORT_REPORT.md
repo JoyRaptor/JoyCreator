@@ -44,3 +44,15 @@ The [fixed mixed APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45178
 The pre-PiP frame matched exactly. The two active PiP frames differed, and a same-route repeat is needed to distinguish decoder variance from the ordered host. Old projects containing these producers remain outside the automatic route until equivalence is proven. Explicit-order tests stay behind the debug switch.
 
 The original APK matched by SHA-256 and the phone claim was released. Raw controls, comparisons, and the title PNG are under `C:/workspace/motion-c2-evidence/c4b-mixed-fixed/`.
+
+## Direct composed-texture readback
+
+The [exact direct-readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267) at `4be23b758` ran the same four persisted controls through the committed Note 9 runner. The capture attached the composed input texture to an FBO before copying it forward for encoding.
+
+| Matched control | Max channel errors at the three editor times | Mean error | Result |
+| --- | --- | --- | --- |
+| Legacy grouped vs compatible order | 0, 0, 0 | 0/255 at each time | Byte-identical |
+| True order vs independent CPU RGB inverse | 1, 1, 1 | 0.000802–0.000817/255 | Strict pass |
+| Grouped order vs the same CPU inverse | 255, 255, 255 | 29.057/255 | Expected failure at every time |
+
+All comparisons used 960 × 540 raw frames at 66,666, 500,000 and 900,000 µs. The original installed APK matched its recovery copy by SHA-256 after the run and the claim was released. Exact [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179502031) passed. Records are under `C:/workspace/motion-c2-evidence/c4b-direct-rgba/`. This certifies the base picture/adjustment control; the larger corpus and mixed legacy eligibility remain open.

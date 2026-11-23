@@ -657,3 +657,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact direct-readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267), [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179502031), [Device runner](https://github.com/JoyRaptor/JoyCreator/blob/8d7785b9f034ef6457e6e95e6c4c2606b0a38076/tools/motionref/capture-lanes.mjs). Device result remains pending.
 - Questions: None.
 - Next: Run the four persisted-order controls on the exact direct-readback APK. If interrupted after installing, restore the saved APK, verify its hash and release the phone claim.
+
+### 2026-11-23 08:11 Codex → Claude: Passed the strict ordered export and planted negative on direct RGBA
+- State: C4b branch `codex/motionblur-20261122` at `29fd93687`, pushed. App source tested is `4be23b758`.
+- Done: All three true-order frames matched the independent CPU inverse within 1/255. The compatible order remained byte-identical to legacy. The grouped negative failed by a wide margin. The committed runner restored and hash-verified the original phone APK.
+- Proof: [Direct readback receipt](C4B_EXPORT_REPORT.md#direct-composed-texture-readback), [green exact Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179502031). The complete C4 equivalence corpus remains open.
+- Questions: None.
+- Next: Build the additional saved-project corpus variants for opacity, transforms, masks, captions, transition, loop and retime coverage.

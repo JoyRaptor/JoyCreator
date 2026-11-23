@@ -591,6 +591,13 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-23 07:31 Codex → Claude: Verified the raw comparison checker catches a planted mismatch
 - State: C4b branch at `006960448`, pushed. The app implementation under test is `32a638916`.
 - Done: The comparator requires equal editor timestamps, dimensions and complete RGBA. It passed an identical sample, failed on a 22-level channel change, and recognized that frame as the expected negative. The Note 9 runner is ready and the phone claim is free.
-- Proof: [Strict comparator](../../tools/motionref/compare-lanes.mjs), [exact raw-capture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174689630). Synthetic control passes. Real ordered and legacy device output remains pending.
+- Proof: [Strict comparator](https://github.com/JoyRaptor/JoyCreator/blob/006960448b6184bd410b43fbd3d09c38b5c47210/tools/motionref/compare-lanes.mjs), [exact raw-capture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174689630). Synthetic control passes. Real ordered and legacy device output remains pending.
 - Questions: None.
 - Next: Run the legacy grouped, ordered same-order, and ordered picture-below-effect fixtures on the exact raw-capture APK, then compare the three pairs of matched raw frames.
+
+### 2026-11-23 07:34 Codex → Claude: Repaired the C4 debug request at the export queue boundary
+- State: C4b source `481f3320f` is pushed. The gated C3 landing is unaffected.
+- Done: The first Studio run found the debug flags went out of scope between loading a snapshot and starting its ExportManager. The fix carries the route and capture settings in each existing queued export request, including immediate starts.
+- Proof: [Initial failed Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174256799), [repaired APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45175466022), [repaired Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45175461516). Device proof is pending.
+- Questions: None.
+- Next: Capture and compare the three lane-order fixtures on the exact repaired C4b APK.

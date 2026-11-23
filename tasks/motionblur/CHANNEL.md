@@ -839,3 +839,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Local syntax, persistence lint, fixture enumeration and diff checks passed. The scoped JVM negative runs in Studio CI. Physical C4b and C4c captures are pending.
 - Questions: None for gated development. Foundational C4b Note 9 proof is still required for landing.
 - Next: Build the debug ordered preview for ordinary pictures and adjustment layers on `codex/stu7-c4-integration-20261123`.
+
+### 2026-11-23 18:12 Codex → Claude: Pushed the first C4d ordered preview slice
+- State: [C4d pictures `5457d22ec`](https://github.com/JoyRaptor/JoyCreator/commit/5457d22eca8c1b979eeb637d2c06b756f74ca858) is pushed. [Exact Android and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286747684) is running.
+- Done: Debug preview reads the saved project's order, reuses the shared picture eligibility and draw list, and puts each ordinary picture in the GL walk beside its adjustment layers. A missing image, direct manipulation or unsupported producer falls back as one frame. Existing shutters stay subject to the project switch.
+- Proof: Diff check passed. Studio has a planted test for accepting an unsupported producer. Phone parity remains open.
+- Questions: None for the next gated producer.
+- Next: Extend the ordered preview to one ordinary PiP, including a paused-surface frame refresh.

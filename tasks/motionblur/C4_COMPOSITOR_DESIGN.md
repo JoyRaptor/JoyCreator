@@ -67,8 +67,17 @@ Today a text, sprite or caption lane placed *below* an adjustment layer is not a
 preview or export. Fixing that changes the look of any old project that has that arrangement.
 - **New field:** the project gets `layerOrder: "true"` (absent = `"legacy"`). New projects are
   created with `"true"`.
-- **Old projects** stay `"legacy"`: the compositor reproduces the old order, with adjustments seeing
-  only video and PiPs and the trailing block on top.
+- **Old projects** stay `"legacy"` and **keep today's pipeline untouched** (revised 11-22 by
+  Claude while building C4a). Reproducing the legacy draw order inside the new compositor would mean
+  copying a thicket of special cases: the below-video bucket, the equal-z tie that goes above the
+  video, text effects emitted before effect layers, below-blend promotions, the GL image pass and
+  sprite/text fixed surfaces. That copy would be fragile. Instead:
+  - **`LanePlan.legacyLooksTheSame()`** (built, conservative) says when a legacy project already
+    draws in true order. Typical case: no lane ever moved, every effect layer and PiP below the
+    text and sprites, no blends.
+  - **Such a project uses the lane compositor automatically**, because its look cannot change, and
+    gets the speed.
+  - Every other legacy project stays on the old route until the user ticks True layer order.
 - **Switching:** one project setting row, "True layer order" (tick box, hover label, plain
   sentence: "Effect layers change everything below them, including titles and sprites"). It turns
   it on, with one undo step. Keep old behaviour selectable (owner rule).
@@ -100,17 +109,20 @@ preview or export. Fixing that changes the look of any old project that has that
 
 ## 5. Order of work (each a landing)
 
-1. **C4a: `LanePlan` in studiokit.**
-   - One ordering authority over all item types, legacy and true orders both.
-   - JVM tests over real saved projects: legacy order reproduces today's draw order exactly, item
-     for item (a negative control swaps one item).
+1. **C4a: `LanePlan`. ✅ Built 11-22 by Claude** (`app/.../compositor/lane/LanePlan.java`, suite
+   `run-lane`).
+   - The true-order draw list over every visual item, on `orderedVisualItems`.
+   - `scopeBelow(i)` for effect layers.
+   - `legacyLooksTheSame()`.
+   - Negative controls: legacy-style grouping, and a looks-the-same test that only checks the first
+     rule.
 2. **C4b: `LaneCompositor` in export**, behind an internal switch (`lane_compositor` in a debug
    preference, off).
    - Supported domain first: spine, PiP without matte, pictures, plain text, rigid sprites,
      captions on top, adjustment layers.
    - Equivalence harness (§6).
-3. **C4c: switch export to the compositor by default** once §6 passes on the corpus. The old route
-   stays as the certified fallback.
+3. **C4c: switch export to the compositor for true-order projects and for legacy projects where
+   `legacyLooksTheSame()`**, once §6 passes on the corpus. Every other project keeps the old route.
 4. **C4d: preview on the compositor.**
    - Promote every supported item from Views into GL. Keep Views only for unsupported items, as
      whole-frame fallback.
@@ -127,7 +139,10 @@ planned. C4d then moves it onto the compositor without changing the look (parity
 - **Equivalence corpus.** At least 25 real project files, made by script from fixtures plus copies
   of the owner's project *structures*. Structures only: never his media and never his files. Cover
   every item type, blend modes, mattes, captions, transitions, loops, speed changes and adjustment
-  layers, in legacy order.
+  layers. The **equivalence half** holds projects where `legacyLooksTheSame()` is true: old route
+  vs. compositor, the thresholds below. It is also the check on that predicate, so any mismatch means
+  the predicate is too generous. The **true-order half** is checked against a CPU reference
+  compositor (the C1 reference renderer drawing a `LanePlan`).
   - Each frame is rendered by both routes into an FBO **before encode** and read back at three times
     per piece (start, middle, cut-adjacent).
   - **Pass:** max abs difference ≤ 1/255 per channel and mean ≤ 0.1/255, on the Snapdragon Note 9.

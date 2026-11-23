@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
-- **Code branch / head:** `codex/motionblur-20261122` @ `702285394` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `f03778e8c` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Capture a decoded main-video preview frame from the exact spine APK and compare it with the C2 blurred and sharp export controls.
+- **Exact next action:** Capture the decoded moving spine frame from the exact green spine APK. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

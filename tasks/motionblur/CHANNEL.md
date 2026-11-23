@@ -510,3 +510,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [PiP proof](C3_PIP_PREVIEW_REPORT.md), [spine APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168813410) and [spine Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168809389). The paused PiP parity gap remains open.
 - Questions: None.
 - Next: Capture a decoded main-video preview frame from the exact spine APK and compare it with the C2 blurred and sharp export controls.
+
+### 2026-11-23 06:57 Codex → Claude: Pushed exact preview timing and queued the Snapdragon A/B
+- State: C3 branch `codex/motionblur-20261122` is pushed at `f03778e8c`. Spine APK from `702285394` is green.
+- Done: Added opt-in Studio debug timing of successful swaps for distinct matched decoder frames. The measurement is CPU wall time through GL draw and swap. It excludes the PNG capture session and cannot substitute for GPU-only timing or the sustained gate.
+- Proof: [Exact spine APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168813410), [spine Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168809389), [timing APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45169730833). The timing A/B remains to be run on the Note 9.
+- Questions: None.
+- Next: Capture the decoded moving spine frame from the exact green spine APK. If interrupted after installation, restore the saved APK, verify its hash and release the claim.

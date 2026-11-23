@@ -160,6 +160,36 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createLanePicture(Context context, boolean adjustmentAbove) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        var project = new FaditorProject(storage.uniqueName(
+                "TEST STU-7 C4 picture " + (adjustmentAbove ? "under effect" : "over effect")));
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create lane fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Lane fixture source is too short");
+        var timeline = project.getTimeline();
+        timeline.addClip(clip(source, duration, 1_000L));
+
+        String uri = Uri.fromFile(createShutterArt(media)).toString();
+        var picture = TextOverlayItem.createImage(uri, 0.46f, 0.50f, 0.68f);
+        picture.setLayerId("text");
+        picture.setTimeRange(0L, 999L);
+        timeline.addTextOverlay(picture);
+        var adjustment = new AdjustmentLayer();
+        adjustment.setLayerId("adjustment");
+        adjustment.setStartMs(0L);
+        adjustment.setDurationMs(1_000L);
+        adjustment.getFx().add("invert");
+        timeline.addAdjustmentLayer(adjustment);
+        timeline.getOrCreateTrackFlags("text").zIndex = 4;
+        timeline.getOrCreateTrackFlags("adjustment").zIndex = adjustmentAbove ? 8 : 2;
+
+        if (!storage.save(project)) throw new IOException("Could not save the lane fixture");
+        return project;
+    }
+
     static FaditorProject createPicture(Context context, boolean enabled) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";

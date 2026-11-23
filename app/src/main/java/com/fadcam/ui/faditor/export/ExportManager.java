@@ -148,6 +148,10 @@ public class ExportManager {
     @NonNull
     private LoudnessTarget pendingLoudnessTarget = LoudnessTarget.OFF;
 
+    void setDebugLaneCompositor(boolean enabled) {
+        debugLaneCompositor = com.fadcam.BuildConfig.DEBUG && enabled;
+    }
+
     public void setPendingLoudnessTarget(@NonNull LoudnessTarget target) {
         this.pendingLoudnessTarget = target;
     }
@@ -3875,6 +3879,8 @@ public class ExportManager {
     private long pieceCutShiftMs = 0L;
     /** The kept piece being built starts part-way into its clip because of a jump before it. */
     private boolean buildingCutPiece = false;
+    private boolean debugLaneCompositor;
+    private boolean loggedLaneFallback;
     private boolean chunkVideoOnly = false;
     private int chunkClipStart = 0;
     private int chunkClipEnd = -1;
@@ -7285,6 +7291,31 @@ public class ExportManager {
                     if (audioCaptionOverlaps) break;
                 }
             }
+            if (debugLaneCompositor) {
+                var timeline = project.getTimeline();
+                String unavailable = null;
+                if (isTransitionItem || isLoopBeforeItem || buildingCutPiece || clip.hasLoopExtension()
+                        || clip.hasRemovedSpans() || clip.getSpeedMultiplier() != 1f) {
+                    unavailable = "transition, loop, cut or retime";
+                } else if (hasAnyVisibleCaptionBinding(clip) || audioCaptionOverlaps
+                        || !timeline.getWaveformOverlays().isEmpty()) {
+                    unavailable = "captions or waveforms";
+                } else {
+                    long offset = editorTimeOffsetForChunk(timeline, clip, timelineCursorMs);
+                    var candidate = LaneCompositeGlEffect.create(context,
+                            com.fadcam.ui.faditor.compositor.lane.LanePlan.of(timeline),
+                            timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs);
+                    if (candidate.effect() != null) {
+                        videoEffects.add(candidate.effect());
+                        return finishClipVideoEffects(videoEffects, canvasDims);
+                    }
+                    unavailable = candidate.fallbackReason();
+                }
+                if (unavailable != null && !loggedLaneFallback) {
+                    loggedLaneFallback = true;
+                    FLog.i(TAG, "LANE_FALLBACK " + unavailable);
+                }
+            }
             // M-EXPORT-1: the text/image/sticker overlay list comes from the SAME
             // shared authority the live preview feeds TextOverlayLayer from
             // (LayerPreviewController.visibleTextOverlays): every item on every
@@ -7900,6 +7931,11 @@ public class ExportManager {
                     + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
         }
 
+        return finishClipVideoEffects(videoEffects, canvasDims);
+    }
+
+    private static List<Effect> finishClipVideoEffects(List<Effect> videoEffects,
+                                                        @Nullable int[] canvasDims) {
         // Canvas resize applies to transition items TOO. The GL transition program
         // outputs frames at the outgoing clip's SOURCE size (its configure() returns
         // the input size), so without this the ~600ms transition segment was a

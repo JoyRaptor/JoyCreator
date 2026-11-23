@@ -97,6 +97,11 @@ public class ExportDebugActivity extends Activity {
             FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
                     + " art=" + transparentArt + " doubleSpeed=" + doubleSpeed);
         }
+        if (in.getBooleanExtra("motion_lane_fixture", false)) {
+            FaditorProject fixture = MotionRouteFixture.createLanePicture(this,
+                    in.getBooleanExtra("motion_lane_adjustment_above", true));
+            in.putExtra("project_id", fixture.getId());
+        }
         if (in.getBooleanExtra("motion_picture_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             FaditorProject fixture = MotionRouteFixture.createPicture(this, enabled);
@@ -193,6 +198,8 @@ public class ExportDebugActivity extends Activity {
         si.setAction(ExportService.ACTION_START_EXPORT);
         si.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snap.getAbsolutePath());
         si.putExtra(ExportService.EXTRA_AUDIO_ONLY, in.getBooleanExtra("audio_only", false));
+        si.putExtra(ExportService.EXTRA_DEBUG_LANE_COMPOSITOR,
+                in.getBooleanExtra("motion_lane_compositor", false));
         long a = in.getLongExtra("range_start_ms", -1L);
         long b = in.getLongExtra("range_end_ms", -1L);
         if (a >= 0 && b > a) {

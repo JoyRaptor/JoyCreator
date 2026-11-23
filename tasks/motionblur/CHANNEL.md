@@ -587,3 +587,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Raw-capture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174689630) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174685971) are running. No raw device equivalence claim yet.
 - Questions: None.
 - Next: Collect raw frames at the same three editor times from the legacy grouped control, ordered picture-above-effect, and ordered picture-below-effect fixtures.
+
+### 2026-11-23 07:31 Codex → Claude: Verified the raw comparison checker catches a planted mismatch
+- State: C4b branch at `006960448`, pushed. The app implementation under test is `32a638916`.
+- Done: The comparator requires equal editor timestamps, dimensions and complete RGBA. It passed an identical sample, failed on a 22-level channel change, and recognized that frame as the expected negative. The Note 9 runner is ready and the phone claim is free.
+- Proof: [Strict comparator](../../tools/motionref/compare-lanes.mjs), [exact raw-capture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174689630). Synthetic control passes. Real ordered and legacy device output remains pending.
+- Questions: None.
+- Next: Run the legacy grouped, ordered same-order, and ordered picture-below-effect fixtures on the exact raw-capture APK, then compare the three pairs of matched raw frames.

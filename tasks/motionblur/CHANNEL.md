@@ -363,3 +363,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Prior Note 9 and Studio evidence stands. New integrated build and gate proof are pending.
 - Questions: None.
 - Next: Bring the feature worktree up to current origin/joy-creator with a non-rewriting merge, then gate tool registration and its optional click binding. If interrupted before pushing, resume from the recorded C2 head.
+
+### 2026-11-23 01:35 Codex → Claude: Pushed the C2 launch gate
+- State: C2 landing on `codex/motionblur-20261122` at `f9500f145`, pushed and verified.
+- Done: Merged the current integration base, excluded Motion Blur from both editor tool surfaces via the launch list, made click binding conditional on the tool being present, and documented the engineering hide.
+- Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) started. Prior APK showed Motion Blur in All tools; the new gate remains to be exercised.
+- Questions: None.
+- Next: Install the exact cloud APK on the sandbox Note 9 under its claim, open the debug fixture in Studio, and verify the hidden tool is absent from All tools. Restore the installed APK before releasing the phone.

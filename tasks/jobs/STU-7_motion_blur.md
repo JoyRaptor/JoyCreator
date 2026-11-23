@@ -15,10 +15,10 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C2 landing (hide the tool behind `studio_motion_blur`, then land).
-- **Code branch / head:** `codex/motionblur-20261122` @ `7f34e7737` (pushed).
+- **Active step:** C2 landing (launch gate pushed; exact device and Studio CI proof pending).
+- **Code branch / head:** `codex/motionblur-20261122` @ `f9500f145` (pushed).
 - **Last landed on `joy-creator`:** C1, C4a `LanePlan`, the C6 flow core, `tools/motionref`.
-- **Exact next action:** gate `FaditorToolRegistry` `motion_blur` with `LaunchGate.hidden(ctx,
+- **Exact next action:** Verify Motion Blur is absent from All tools on the sandbox Note 9 with the [gated APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046).
   "studio_motion_blur")` and add the key to `hidden_features.json` (channel review, 11-22).
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
@@ -122,6 +122,8 @@ this block true at every landmark; it is the hand-over.
     the adjustment-layer render-order fix.
   - **Gate:** Claude's go is needed before landing, because it changes behaviour with the switch
     off. C1's route report must say what 2a already built.
+  - **Before exposing the Motion Blur tool:** demonstrate preview/export parity, explain unsupported items
+    in the sheet instead of showing a silent tick box, and apply the house tick-box and hover-label rules.
 - [ ] **Owner look #1:** a mix-and-match page (presets, Mix, exposure shapes) plus a phone session.
       Claude, or Codex if Claude is out.
 - [ ] **C4 = §9 step 3:** C4a ✅ (`LanePlan`). Next C4b-f per [C4_COMPOSITOR_DESIGN.md](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go,

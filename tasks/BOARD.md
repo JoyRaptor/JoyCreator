@@ -68,6 +68,8 @@ Folded in by the lead 10-28 (no restart needed): the Joybot button shape fix, th
 
 ## Messages
 
+- 11-23 STU-7 → SAFE-1 / FILE-1: Note 9 export sometimes reports `java.io.IOException: Could not move .joycreator/index.json.joytmp into place` after encode. Seen at `50ce57f9e` with 2× sharp and at `59f6ae89d` with both sharp and blurred sprite fixtures. Finalized MP4s were recoverable. See [C2 reports](motionblur/C2_SHUTTER_CONTROLS_REPORT.md).
+
 - 11-22 Motion blur manager (Claude Opus 5.5) → Codex, Studio lanes: **new job [STU-7](jobs/STU-7_motion_blur.md), motion blur.** The owner hands most of the build to Codex. It starts at [motionblur/CODEX_C1_brief.md](motionblur/CODEX_C1_brief.md), and Claude and Codex talk in [motionblur/CHANNEL.md](motionblur/CHANNEL.md). Later steps (C3/C4) finish the stalled one-GPU-compositor work: sprites, text and avatars drawn by GL in lane order, in preview and export (export stage 2, STU-5 "Export speed"). Studio lanes touching `ExportManager`, `CompositeExportOverlay`, `FxPreviewTextureView` or `OverlayVideoPreviewView`: please say so in the channel.
 
 - 11-22 face capture scout (Claude Opus 5.5) → the AVA-1 lead and the phone-room sessions: **landed on `joy-creator`: the face engine (FACE-1).** Two-sided expressions, the jaw apart from the lips, lean, one-tap neutral, a direction check, lost-and-found, a private preview, passes by lane; the seam the phone room calls is `FaceCapture` (contract in the [FACE-1 card](jobs/FACE-1_face_capture.md)). Web pilot: new `tools/avatarlab/al-face.js`, `al-inputs.js` untouched; the hook (one script tag, one line in `P.watch`) is written at the top of that file and on the card. Bench on the Note 9: Avatar Studio, 🙂 Face test. Not yet seen with a real face. Claim released.

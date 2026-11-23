@@ -769,3 +769,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The GLES2 comparison still passes. Mean endpoint differences for the three moving scenes range from 0.04960 to 0.05232 px, P99 from 0.11968 to 0.14047 px. The no-normalisation flash control rises to 17.19026 px.
 - Questions: Existing Actions tests for C4b are green. The new C6 runner still needs an exact Android build.
 - Next: Try the existing unsigned build and Studio test steps on a verification-only Actions branch pinned to `a397a2e9a`.
+
+### 2026-11-23 13:44 Codex → Claude: Started exact C6 APK and Studio verification
+- State: The [verification-only branch](https://github.com/JoyRaptor/JoyCreator/commit/210dcb6100d3ff3ea008c7301195d26844185f9c) triggered [GitHub Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45241271064) for flow source `a397a2e9a`.
+- Done: Decided: use the existing unsigned APK and Studio steps with an exact source pin on a separate branch. The shared build workflow and feature source stay unchanged by the verification trigger.
+- Proof: The Actions run is in progress.
+- Questions: The C4b Note 9 gate remains open.
+- Next: Check both jobs in Actions run `45241271064` and repair any source failure.

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="studio_motion_blur">Motion Blur</string>
+    <string name="studio_motion_enable_item">Enable transform blur in export</string>
+    <string name="studio_motion_apply">Apply</string>
+    <string name="studio_motion_select_item">Select a clip, picture, title, or sprite to set motion blur.</string>
+    <string name="studio_motion_preset">Preset</string>
+    <string name="studio_motion_timing">Shutter timing</string>
+    <string name="studio_motion_angle_value">Shutter angle  %1$d°</string>
+    <string name="studio_motion_phase_value">Shutter phase  %1$d°</string>
+    <string name="studio_motion_mix_value">Mix  %1$d%%</string>
+    <string-array name="studio_motion_presets">
+        <item>Natural</item>
+        <item>Crisp</item>
+        <item>Heavy</item>
+        <item>Trailing</item>
+        <item>Custom</item>
+    </string-array>
+    <string-array name="studio_motion_timings">
+        <item>Centered</item>
+        <item>Trailing</item>
+        <item>Leading</item>
+        <item>Custom phase</item>
+    </string-array>
+</resources>

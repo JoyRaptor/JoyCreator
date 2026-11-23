@@ -125,6 +125,9 @@ public final class FaditorToolRegistry {
         add(t, "sprites", R.id.tool_sprites, R.id.tool_sprites_icon, R.id.tool_sprites_label,
                 ctx.getString(R.string.faditor_tool_sprites), "directions_run",
                 FaditorTool.BindMode.CLICK, false);
+        add(t, "motion_blur", R.id.tool_motion_blur, R.id.tool_motion_blur_icon,
+                R.id.tool_motion_blur_label, ctx.getString(R.string.studio_motion_blur), "blur_on",
+                FaditorTool.BindMode.CLICK, false);
         // Adjust — open the effect stack for whatever is selected. The mark is the WORD "FX",
         // not a glyph: the icon font has nothing for the idea, and every near-miss borrowed
         // from it (stacked rhombi, a boolean-union pair of circles) reads as two abstract
@@ -175,7 +178,7 @@ public final class FaditorToolRegistry {
         switch (id) {
             case "speed": case "mute": case "opacity": case "rotate": case "flip": case "crop":
             case "split": case "delete": case "duplicate": case "move": case "loop":
-            case "filter": case "align": case "adjustment":
+            case "filter": case "align": case "adjustment": case "motion_blur":
                 return GROUP_ACT;
             case "add_asset": case "sticker": case "text": case "sprites": case "captions":
             case "visualizer": case "transitions":

@@ -68,6 +68,8 @@ import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
 import com.fadcam.ui.faditor.export.ExportService;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
+import com.fadcam.ui.faditor.motion.MotionBlurSettingsSheet;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.gltransitions.GlTransitionPreviewView;
 import com.fadcam.ui.faditor.player.FaditorPlayerManager;
@@ -1012,6 +1014,48 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         return getSelectedClip();
+    }
+
+    private void showMotionBlurForSelection() {
+        if (project == null) return;
+        String layerId = editorTimeline == null ? null : editorTimeline.getSelectedLayerItemId();
+        MotionBlurItem item = layerId == null ? getSelectedClip() : findMotionBlurItem(layerId);
+        if (item == null) {
+            Toast.makeText(this, R.string.studio_motion_select_item, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        if (askedAboutLockedSelection(this::showMotionBlurForSelection)) return;
+        String id = item.getId();
+        String projectId = project.getId();
+        var before = new MotionBlurSettingsSheet.State(
+                item.isRigidMotionBlurEnabled(), item.getRigidMotionShutter());
+        MotionBlurSettingsSheet.show(this, before, after -> {
+            if (after.equals(before) || project == null || !projectId.equals(project.getId())
+                    || findMotionBlurItem(id) == null) return;
+            applyMotionBlurSettings(id, after);
+            undoManager.recordAction(new EditActions.LambdaAction(
+                    getString(R.string.studio_motion_blur), () -> applyMotionBlurSettings(id, after),
+                    () -> applyMotionBlurSettings(id, before)));
+            scheduleAutoSave();
+        });
+    }
+
+    @Nullable
+    private MotionBlurItem findMotionBlurItem(@NonNull String id) {
+        if (project == null) return null;
+        Timeline timeline = project.getTimeline();
+        Clip clip = timeline.findClipById(id);
+        if (clip != null) return clip;
+        for (var item : timeline.getTextOverlays()) if (id.equals(item.getId())) return item;
+        for (var item : timeline.getSpriteOverlays()) if (id.equals(item.getId())) return item;
+        return null;
+    }
+
+    private void applyMotionBlurSettings(@NonNull String id, @NonNull MotionBlurSettingsSheet.State state) {
+        MotionBlurItem item = findMotionBlurItem(id);
+        if (item == null) return;
+        item.setRigidMotionBlurEnabled(state.enabled());
+        item.setRigidMotionShutter(state.controls());
     }
 
     /**
@@ -3805,6 +3849,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             sheet.show(getSupportFragmentManager(), "faditorSettings");
         });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
+        findViewById(R.id.tool_motion_blur).setOnClickListener(v -> showMotionBlurForSelection());
         View toolAdjustment = findViewById(R.id.tool_adjustment);
         if (toolAdjustment != null) {
             toolAdjustment.setOnClickListener(v -> openAdjustForSelection());

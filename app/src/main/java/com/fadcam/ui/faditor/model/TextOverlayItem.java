@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
 import com.fadcam.ui.faditor.motion.MotionShutter;
 
 import com.fadcam.ui.faditor.Studio;
@@ -22,7 +23,7 @@ import java.util.UUID;
  * <p>For v1 the overlay spans the entire timeline. Time-range trimming and image
  * (PNG) overlays reuse this same model and the same export path.</p>
  */
-public class TextOverlayItem implements LinkFollower {
+public class TextOverlayItem implements LinkFollower, MotionBlurItem {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19): the eye/lock
     // moved off the row gutter onto the object itself. Hidden = excluded from preview AND

@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
 import com.fadcam.ui.faditor.motion.MotionShutter;
 
 import android.net.Uri;
@@ -20,7 +21,7 @@ import com.fadcam.ui.faditor.effects.EffectStack;
  * <p>Immutable-style: use setters sparingly; prefer creating new instances
  * or using the Builder when scaling to multi-clip editing.</p>
  */
-public class Clip implements AudioParams {
+public class Clip implements AudioParams, MotionBlurItem {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19). Only honored
     // for OVERLAY/PiP clips (isOverlayClip()) — master tape clips ignore both (hiding a

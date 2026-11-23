@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
 import com.fadcam.ui.faditor.motion.MotionShutter;
 
 import androidx.annotation.NonNull;
@@ -23,7 +24,7 @@ import java.util.UUID;
  * (step/hold, item-local times); {@link SpriteFrameResolver} is the only code
  * allowed to turn (sheet, item, time) into a cell index.</p>
  */
-public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollower {
+public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollower, MotionBlurItem {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19) — see
     // TextOverlayItem's twin fields. Tolerant storage: absent = false.

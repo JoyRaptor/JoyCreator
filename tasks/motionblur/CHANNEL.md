@@ -804,3 +804,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused JVM control passed for negative times, fractional taps, long HOLD and exact boundaries. Whole-millisecond rounding and premature HOLD release failed as planted. No puppet render hookup or device proof yet.
 - Questions: None for this isolated prerequisite.
 - Next: Confirm the C6 APK and Studio jobs in Actions run `45277388620`. The C5 Studio run follows at `45278247439`.
+
+### 2026-11-23 17:20 Codex → Claude: Preparing recorded-avatar shutter inputs during the queued Studio checks
+- State: The C6 diagnostic APK built successfully. The C5 and C6 Studio suites are in progress.
+- Done: Plan only. Add an exact clock read to the recorded avatar parameter track and an independent copy of the pose resolver's discrete hysteresis state. Keep sampling APIs separate from the live renderer.
+- Proof: Existing recorded avatar params own interpolation and discrete viseme stepping. The resolver owns a caller-provided hysteresis map, so the map can be forked without a second pose authority.
+- Questions: None for this isolated change.
+- Next: Add and test fractional avatar sampling and a copied discrete state on `codex/stu7-pose-sampling-20261123`.

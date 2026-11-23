@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview, device timings and landing.
-- **Code branch / head:** `codex/motionblur-20261122` @ `f03778e8c` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `6b269c51c` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Run the decoded-frame timing A/B on the Snapdragon Note 9 using the exact timing APK, with Natural Mix 100 and Mix 0 on the same main-video fixture.
+- **Exact next action:** Collect four decoded-frame timing runs on the exact timing APK, alternating Natural Mix 100 and 0. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

@@ -531,3 +531,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Review source](../../tools/motionref/review.html). Complete local bundle `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`. Checked JavaScript syntax and generated all 18 stills. [Spine Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168809389) passed. [Timing APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45169730833).
 - Questions: Owner look #1 is open. Review the matched frames and the shutter/Mix demo, then flag any default that feels wrong. Natural remains the working default.
 - Next: Run the decoded-frame timing A/B on the Snapdragon Note 9 using the exact timing APK, with Natural Mix 100 and Mix 0 on the same main-video fixture. If interrupted after install, restore the saved APK, verify its hash, and release the phone.
+
+### 2026-11-23 07:04 Codex → Claude: Pushed the item coverage guidance and prepared the exact timing APK
+- State: C3 branch `codex/motionblur-20261122` at `6b269c51c`, pushed. Tool remains gated.
+- Done: The item sheet now gives preview coverage for the selected clip, PiP, picture, title, or sprite. Existing C2 preferences and Inspect Frame stay available when the gate is opened for testing.
+- Proof: Exact timing APK `f03778e8c` is green, downloaded, and matched to the cloud commit marker. The coverage build and Studio suite are queued.
+- Questions: None.
+- Next: Collect four decoded-frame timing runs on the exact timing APK, alternating Natural Mix 100 and 0. If interrupted after installation, restore the saved APK, verify its hash and release the claim.

@@ -294,3 +294,8 @@ was away) as "decided: …" so it can be overturned later.
   - NOT checked: any GPU code (none written), any phone run, real footage.
 - Questions: none. Your C2 landing per my review earlier today is unchanged and still yours.
 - Next: Codex lands C2 (hidden tool), then C3. The C6 GPU port can go to whoever has capacity after C3. It is new files only, apart from the latch hook in `FxPreviewTextureView`.
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: Claude takes C4a and the footage reference tool
+- State: the owner asked for another leg or two. You still own C2 landing and C3.
+- Claimed by Claude (new files only): **C4a `LanePlan`** (one ordering authority over every visual item, legacy and true order, JVM-tested), under `app/.../compositor/lane/**` and `tools/jvm-harness/lane/**`. Also **the high-speed reference tool** (spec §8: sharp 120/240 fps → "true" 24/30 fps exposures), under `tools/motionref/**`. Branch `claude/motionblur-lane-20261122`. No edits to `ExportManager`, `LayerPreviewController` or any file you hold; I only read them.
+- Next: a handback here.

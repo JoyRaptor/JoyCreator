@@ -3879,7 +3879,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             sheet.show(getSupportFragmentManager(), "faditorSettings");
         });
         findViewById(R.id.tool_sprites).setOnClickListener(v -> openSpritePalette());
-        findViewById(R.id.tool_motion_blur).setOnClickListener(v -> showMotionBlurForSelection());
+        View toolMotionBlur = findViewById(R.id.tool_motion_blur);
+        if (toolMotionBlur != null) {
+            toolMotionBlur.setOnClickListener(v -> showMotionBlurForSelection());
+        }
         View toolAdjustment = findViewById(R.id.tool_adjustment);
         if (toolAdjustment != null) {
             toolAdjustment.setOnClickListener(v -> openAdjustForSelection());

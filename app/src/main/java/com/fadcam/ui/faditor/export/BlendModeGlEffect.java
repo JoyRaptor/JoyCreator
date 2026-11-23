@@ -276,6 +276,12 @@ public final class BlendModeGlEffect implements GlEffect {
         }
 
         @Override
+        public void flush() {
+            glOverlay.resetCadence();
+            super.flush();
+        }
+
+        @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
             GlErrors.drain("pending when BlendModeGlEffect began (left by an earlier step)");

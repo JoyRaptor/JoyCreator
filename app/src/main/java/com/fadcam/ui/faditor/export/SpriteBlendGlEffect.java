@@ -22,6 +22,7 @@ import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
@@ -372,6 +373,7 @@ final class SpriteBlendGlEffect implements GlEffect {
         private final long motionStartUs;
         private final long motionEndUs;
         @Nullable private final MotionBreaks shutterBreaks;
+        private final MotionFrameCadence cadence = new MotionFrameCadence();
         @Nullable private ItemMotionSampler shutterSampler;
         @Nullable private RigidTextureShutterPass shutter;
         private int cellTexture;
@@ -448,8 +450,15 @@ final class SpriteBlendGlEffect implements GlEffect {
             frameW = size.getWidth();
             frameH = size.getHeight();
             shutterSampler = null;
+            cadence.reset();
             if (meshStamp != null) meshStamp.configure(frameW, frameH);
             return size;
+        }
+
+        @Override
+        public void flush() {
+            cadence.reset();
+            super.flush();
         }
 
         @Override
@@ -458,13 +467,15 @@ final class SpriteBlendGlEffect implements GlEffect {
             GlErrors.drain("pending when SpriteBlendGlEffect began (left by an earlier step)");
             try {
                 long timelineMs = presentationTimeUs / 1000L + editorTimeOffsetMs;
+                long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
+                long periodUs = shutterBreaks != null ? cadence.observe(editorUs) : 0L;
                 // Gate on visibility here, not in the chain: this effect is emitted once per
                 // clip and self-gates per frame, the way TextFxGlEffect does.
                 if (item.isHidden() || !item.isVisibleAt(timelineMs)) {
                     passthrough(inputTexId);
                     return;
                 }
-                if (drawShutter(inputTexId, timelineMs, presentationTimeUs + editorTimeOffsetMs * 1000L)) {
+                if (drawShutter(inputTexId, timelineMs, editorUs, periodUs)) {
                     return;
                 }
                 if (mesh && meshStamp != null && flatProgram != null) {
@@ -637,9 +648,9 @@ final class SpriteBlendGlEffect implements GlEffect {
         }
 
         /** Resolve the currently visible cell once and sample placement only within its exposure. */
-        private boolean drawShutter(int inputTexId, long timeMs, long timeUs)
+        private boolean drawShutter(int inputTexId, long timeMs, long timeUs, long periodUs)
                 throws GlUtil.GlException {
-            if (shutterBreaks == null || timeUs < motionStartUs || timeUs >= motionEndUs) return false;
+            if (periodUs <= 0 || shutterBreaks == null || timeUs < motionStartUs || timeUs >= motionEndUs) return false;
             float opacity = Math.round(Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))) * 255)
                     / 255f;
             if (opacity == 0f) return false;
@@ -657,10 +668,10 @@ final class SpriteBlendGlEffect implements GlEffect {
                 shutterSampler = MotionItemAdapters.sprite(item, frameW, frameH, renderer.cellAspect());
             }
             var cellBreaks = new MotionBreaks.Builder();
-            long halfExposureUs = RigidTextureShutterPass.naturalHalfExposureUs();
+            long halfExposureUs = RigidTextureShutterPass.naturalHalfExposureUs(periodUs);
             MotionTimelineBreaks.addSprite(cellBreaks, sheet, item,
                     timeUs - halfExposureUs, timeUs + halfExposureUs);
-            var plan = RigidTextureShutterPass.naturalPlan(shutterSampler, timeUs, shutterBreaks,
+            var plan = RigidTextureShutterPass.naturalPlan(shutterSampler, timeUs, periodUs, shutterBreaks,
                     cellBreaks.build(), frameW, frameH);
             if (plan == null || !prepareCellTexture(renderer, cell)) return false;
             if (shutter == null) {

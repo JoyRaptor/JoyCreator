@@ -15,6 +15,7 @@ import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 
 /**
@@ -92,6 +93,7 @@ public final class SpineTransformExportEffect implements GlEffect {
         private final MotionBreaks breaks;
         private ItemMotionSampler sampler;
         private RigidTextureShutterPass shutterPass;
+        private final MotionFrameCadence cadence = new MotionFrameCadence();
 
         private final float[] pose = new float[SpineTransform.POSE];
         private final float[] u = new float[SpineTransform.UNIFORMS];
@@ -133,9 +135,16 @@ public final class SpineTransformExportEffect implements GlEffect {
             width = Math.max(1, inputWidth);
             height = Math.max(1, inputHeight);
             if (breaks != null) {
+                cadence.reset();
                 sampler = MotionItemAdapters.spine(clip, clipTimelineOffsetMs * 1000L, width, height);
             }
             return new Size(width, height);
+        }
+
+        @Override
+        public void flush() {
+            cadence.reset();
+            super.flush();
         }
 
         @Override
@@ -145,7 +154,7 @@ public final class SpineTransformExportEffect implements GlEffect {
                 if (sampler != null && presentationTimeUs >= pieceStartUs
                         && presentationTimeUs < pieceEndUs) {
                     var plan = RigidTextureShutterPass.naturalPlan(sampler, presentationTimeUs,
-                            breaks, width, height);
+                            cadence.observe(presentationTimeUs), breaks, width, height);
                     if (plan != null) {
                         if (shutterPass == null) shutterPass = new RigidTextureShutterPass(RigidTextureShutterPass.Source.SPINE);
                         shutterPass.draw(inputTexId, width, height, plan, 0, 1f);

@@ -15,6 +15,7 @@ import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.ChromaKey;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 
 import java.nio.ByteBuffer;
@@ -44,6 +45,7 @@ final class GlPipFrameOverlay {
     private final long motionStartUs;
     private final long motionEndUs;
     private final MotionBreaks shutterBreaks;
+    private final MotionFrameCadence cadence = new MotionFrameCadence();
     private static final float[] SOURCE_IDENTITY = GlUtil.create4x4IdentityMatrix();
     private final float[] decoderMatrix = new float[16];
     private ItemMotionSampler motionSampler;
@@ -89,7 +91,12 @@ final class GlPipFrameOverlay {
         frameW = Math.max(1, videoSize.getWidth());
         frameH = Math.max(1, videoSize.getHeight());
         motionSampler = null;
+        resetCadence();
         // GL resources are created lazily on the effect thread (drawFrame) where EGL is current.
+    }
+
+    void resetCadence() {
+        cadence.reset();
     }
 
     boolean activeAt(long presentationTimeUs) {
@@ -111,6 +118,8 @@ final class GlPipFrameOverlay {
         if (!ensureGlInitialized()) return 0;
 
         long timelineMs = presentationTimeUs / 1000 + editorTimeOffsetMs;
+        long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
+        long periodUs = shutterBreaks != null ? cadence.observe(editorUs) : 0L;
         long start = clip.getOverlayStartMs();
         long end = start + Math.max(0, clip.getTrimmedDurationMs());
         if (timelineMs < start || timelineMs > end) {
@@ -131,7 +140,7 @@ final class GlPipFrameOverlay {
         }
 
         // Composite OES into full-frame FBO at the clip's position
-        if (drawMotion(presentationTimeUs, opacity)) return overlayTexId;
+        if (drawMotion(editorUs, periodUs, opacity)) return overlayTexId;
         return blitToOverlay(timelineMs, opacity);
     }
 
@@ -241,9 +250,8 @@ final class GlPipFrameOverlay {
         return overlayTexId;
     }
 
-    private boolean drawMotion(long presentationTimeUs, float opacity) {
-        long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
-        if (motionUnavailable || shutterBreaks == null
+    private boolean drawMotion(long editorUs, long periodUs, float opacity) {
+        if (periodUs <= 0 || motionUnavailable || shutterBreaks == null
                 || editorUs < motionStartUs || editorUs >= motionEndUs) return false;
         int sourceW = surfaceReader.getDisplayWidth();
         int sourceH = surfaceReader.getDisplayHeight();
@@ -256,7 +264,7 @@ final class GlPipFrameOverlay {
             sampledSourceH = sourceH;
         }
         var plan = RigidTextureShutterPass.naturalPlan(
-                motionSampler, editorUs, shutterBreaks, frameW, frameH);
+                motionSampler, editorUs, periodUs, shutterBreaks, frameW, frameH);
         if (plan == null) return false;
 
         boolean blend = GLES20.glIsEnabled(GLES20.GL_BLEND);

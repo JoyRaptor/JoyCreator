@@ -13,7 +13,6 @@ import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 /** Resolves several placements of the same isolated studio frame in one draw. */
 final class RigidTextureShutterPass {
     private static final int SAMPLE_COUNT = 6;
-    private static final MotionShutter.FrameRate SHUTTER_RATE = new MotionShutter.FrameRate(30, 1);
 
     static final String VERTEX_SHADER =
             "#version 100\n"
@@ -28,19 +27,22 @@ final class RigidTextureShutterPass {
             + "  vTexSamplingCoord = (uTexTransformationMatrix * texturePosition).xy;\n"
             + "}\n";
 
-    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs,
+    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs, long periodUs,
                                         MotionBreaks breaks, int width, int height) {
-        return naturalPlan(sampler, timeUs, breaks, MotionBreaks.none(), width, height);
+        return naturalPlan(sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height);
     }
 
-    static long naturalHalfExposureUs() {
-        return (long) Math.ceil(MotionShutter.Preset.NATURAL.angle * SHUTTER_RATE.periodUs() / 720.0);
+    static long naturalHalfExposureUs(long periodUs) {
+        return (long) Math.ceil(MotionShutter.Preset.NATURAL.angle * periodUs / 720.0);
     }
 
-    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs, MotionBreaks breaks,
-                                        MotionBreaks sourceBreaks, int width, int height) {
+    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs, long periodUs,
+                                        MotionBreaks breaks, MotionBreaks sourceBreaks,
+                                        int width, int height) {
+        if (periodUs <= 0) return null;
         var preset = MotionShutter.Preset.NATURAL;
-        var schedule = MotionShutter.sample(timeUs, SHUTTER_RATE, preset.angle, preset.phase(),
+        var frameRate = new MotionShutter.FrameRate(1_000_000, (int) periodUs);
+        var schedule = MotionShutter.sample(timeUs, frameRate, preset.angle, preset.phase(),
                 MotionShutter.Shape.BOX, SAMPLE_COUNT, breaks, sourceBreaks);
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }

@@ -22,6 +22,7 @@ import com.fadcam.ui.faditor.overlay.TextBoxRenderer;
 import com.fadcam.ui.faditor.overlay.TextOverlayLayer;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
@@ -120,6 +121,7 @@ final class GlImageOverlayEffect implements GlEffect {
         private final Map<String, UprightTitle> uprightTitles = new HashMap<>();
         private final long motionStartUs;
         private final long motionEndUs;
+        @Nullable private final MotionFrameCadence cadence;
 
         private record PictureMotion(ItemMotionSampler sampler, MotionBreaks breaks) {}
 
@@ -211,6 +213,9 @@ final class GlImageOverlayEffect implements GlEffect {
             this.editorTimeOffsetMs = editorTimeOffsetMs;
             this.motionStartUs = motionStartUs;
             this.motionEndUs = motionEndUs;
+            cadence = motionEndUs > motionStartUs
+                    && items.stream().anyMatch(TextOverlayItem::isRigidMotionBlurEnabled)
+                    ? new MotionFrameCadence() : null;
         }
 
         /**
@@ -228,6 +233,7 @@ final class GlImageOverlayEffect implements GlEffect {
         @Override
         public Size configure(int inputWidth, int inputHeight) throws VideoFrameProcessingException {
             try {
+                if (cadence != null) cadence.reset();
                 if (inputWidth != chain.w || inputHeight != chain.h) {
                     pictureMotion.clear();
                     for (var title : uprightTitles.values()) title.release();
@@ -238,6 +244,12 @@ final class GlImageOverlayEffect implements GlEffect {
                 throw new VideoFrameProcessingException(e);
             }
             return new Size(chain.w, chain.h);
+        }
+
+        @Override
+        public void flush() {
+            if (cadence != null) cadence.reset();
+            super.flush();
         }
 
         @Override
@@ -253,13 +265,14 @@ final class GlImageOverlayEffect implements GlEffect {
                 frameExternal.clear();
                 frameBlurs.clear();
                 long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
+                long periodUs = cadence != null ? cadence.observe(editorUs) : 0L;
                 for (TextOverlayItem o : items) {
                     if (!o.isVisibleAt(t)) {
                         if (t > o.getEndMs()) forget(o);   // time only moves forward in an item
                         continue;
                     }
                     if (!o.isImage()) {
-                        if (drawTitleMotion(o, t, editorUs, w, h)) continue;
+                        if (drawTitleMotion(o, t, editorUs, periodUs, w, h)) continue;
                         TextFrame tf = textFor(o, t);
                         if (tf == null) continue;
                         // The picture is the whole frame, laid over it unscaled.
@@ -288,7 +301,7 @@ final class GlImageOverlayEffect implements GlEffect {
                     frameVisible.add(p);
                     frameTex.add(tex);
                     frameExternal.add(false);
-                    frameBlurs.add(pictureBlur(o, b, t, editorUs, w, h));
+                    frameBlurs.add(pictureBlur(o, b, t, editorUs, periodUs, w, h));
                 }
                 chain.composite(inputTexId, outFbo, frameVisible, frameTex, frameExternal, frameBlurs);
                 GlErrors.drain("left by GlImageOverlayEffect");
@@ -299,8 +312,8 @@ final class GlImageOverlayEffect implements GlEffect {
 
         @Nullable
         private PipChainGl.PictureBlur pictureBlur(TextOverlayItem item, Bitmap bitmap,
-                                                   long timeMs, long timeUs, int w, int h) {
-            if (!item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
+                                                   long timeMs, long timeUs, long periodUs, int w, int h) {
+            if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
                     || !item.isAnimated() || item.isLinked() || item.hasCornerPin()
                     || !item.isRotationPivotNeutral(null) || item.wantsGlExport()
                     || CaptionAnimator.parsePreset(item.getTextAnimPreset()) != CaptionAnimator.Preset.NONE) {
@@ -311,13 +324,13 @@ final class GlImageOverlayEffect implements GlEffect {
                 return new PictureMotion(
                         MotionItemAdapters.textOrImage(item, w, h, boxWidth, h), itemFences(item));
             });
-            var plan = RigidTextureShutterPass.naturalPlan(motion.sampler(), timeUs, motion.breaks(), w, h);
+            var plan = RigidTextureShutterPass.naturalPlan(motion.sampler(), timeUs, periodUs, motion.breaks(), w, h);
             return plan == null ? null : new PipChainGl.PictureBlur(plan,
                     Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))));
         }
 
-        private boolean drawTitleMotion(TextOverlayItem item, long timeMs, long timeUs, int w, int h) {
-            if (!item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
+        private boolean drawTitleMotion(TextOverlayItem item, long timeMs, long timeUs, long periodUs, int w, int h) {
+            if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
                     || textDrawer == null || !hasUprightTitle(item)) return false;
             float opacity = item.animatedOpacity(timeMs);
             if (!(opacity > 0.001f)) return false;
@@ -332,7 +345,7 @@ final class GlImageOverlayEffect implements GlEffect {
                 return new UprightTitle(shown, fontPx, size, item, layoutW, layoutH, w, h, itemFences(item));
             });
             if (!title.fits()) return false;
-            var plan = RigidTextureShutterPass.naturalPlan(title.sampler, timeUs, title.breaks, w, h);
+            var plan = RigidTextureShutterPass.naturalPlan(title.sampler, timeUs, periodUs, title.breaks, w, h);
             if (plan == null) return false;
             if (title.uploadFailed) return false;
             if (title.texture == 0 && !uploadTitle(item, title, timeMs, opacity)) {

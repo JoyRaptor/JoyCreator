@@ -111,17 +111,20 @@ final class MotionRouteFixture {
     }
 
     static FaditorProject createSpine(Context context, boolean enabled, boolean animated,
-                                      boolean transparentArt) throws IOException {
+                                      boolean transparentArt, boolean doubleSpeed) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String label = !animated ? "motion only" : enabled ? "blur" : "sharp";
         if (transparentArt) label = "art " + label;
+        if (doubleSpeed) label = "2x " + label;
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 " + label));
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create spine fixture media directory");
         File source = transparentArt ? createShutterArt(media) : copyAsset(context, media, "card2.mp4");
         long duration = transparentArt ? 1_000L : durationMs(source);
-        if (duration < 1_000L) throw new IOException("Spine fixture is shorter than 1 second");
-        Clip clip = clip(source, duration, 1_000L);
+        long sourceSpan = doubleSpeed ? 2_000L : 1_000L;
+        if (duration < sourceSpan) throw new IOException("Spine fixture source is too short");
+        Clip clip = clip(source, duration, sourceSpan);
+        if (doubleSpeed) clip.setSpeedMultiplier(2f);
         clip.setImageClip(transparentArt);
         if (transparentArt) clip.setAudioMuted(true);
         clip.setRigidMotionBlurEnabled(enabled);

@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C2 landing (launch gate pushed; exact device and Studio CI proof pending).
 - **Code branch / head:** `codex/motionblur-20261122` @ `f9500f145` (pushed).
 - **Last landed on `joy-creator`:** C1, C4a `LanePlan`, the C6 flow core, `tools/motionref`.
-- **Exact next action:** Verify Motion Blur is absent from All tools on the sandbox Note 9 with the [gated APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046).
+- **Exact next action:** Verify [Studio CI run 45124984101](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) for f9500f145 before landing C2.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

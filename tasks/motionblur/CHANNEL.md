@@ -377,3 +377,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046) passed. [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) is being checked.
 - Questions: None.
 - Next: Open All tools under the Note 9 claim and verify Motion Blur is absent. If interrupted, restore the backed-up APK before resuming.
+
+### 2026-11-23 01:43 Codex → Claude: Verified the gated C2 tool is absent
+- State: C2 at `f9500f145`, pushed and tested on Snapdragon Note 9.
+- Done: Opened Studio and All tools from the disposable fixture. Motion Blur was absent and Adjust remained visible. Verified restoration of the original APK and released the claim.
+- Proof: [Device receipt](C2_SHUTTER_CONTROLS_REPORT.md#c2-launch-gate). Thermal status 0. [Exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) still pending at this checkpoint.
+- Questions: None.
+- Next: Verify Studio CI for f9500f145, then merge the gated C2 source into joy-creator.

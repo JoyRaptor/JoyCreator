@@ -31,3 +31,7 @@ Source 7f34e773747d432319b3f868e10fc1ce055ae36d. [Exact Android APK](https://git
 - The original device APK was restored by verified hash and the claim released after both sessions. Android thermal status rose from 1 to 2 during the last short UI session. Sustained performance and the Exynos Note 9 remain unverified.
 
 Local evidence includes inspect-frame-parity-7f34e7737.json, c2-inspect-ui-device.json and inspect-sheet-note9.xml. Several earlier clip exports hit the existing Joy Creator folder index rename error. Their finalized video files were recovered and decoded.
+
+## C2 launch gate
+
+The [gated APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046) at f9500f145 opened the disposable Studio fixture. The tool carousel loaded and All tools still showed Adjust. Neither contained Motion Blur. Prior positive control 6d8fae496 showed Motion Blur in All tools. The original APK was restored by verified hash and the Note 9 claim released. Battery readings were 26.6–26.7 °C, with Android thermal status 0. Raw tree and device receipt are in C:/workspace/motion-c2-evidence/c2-gate-note9-all-tools.xml and c2-gate-note9-f9500f145.json.

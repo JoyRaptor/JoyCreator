@@ -304,6 +304,7 @@ final class MotionRouteFixture {
                 spine.setSpeedMultiplier(2f);
             }
             case "clip-loop" -> {
+                spine.setLoopMode(Clip.LOOP_MODE_NORMAL);
                 spine.setOutPointMs(500L);
                 spine.setLoopAfterMs(500L);
             }

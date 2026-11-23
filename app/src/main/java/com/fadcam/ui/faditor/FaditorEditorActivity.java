@@ -70,6 +70,8 @@ import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.motion.MotionBlurItem;
 import com.fadcam.ui.faditor.motion.MotionBlurSettingsSheet;
+import com.fadcam.ui.faditor.motion.MotionFrameInspector;
+import com.fadcam.ui.faditor.export.ComposedFrame;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.gltransitions.GlTransitionPreviewView;
 import com.fadcam.ui.faditor.player.FaditorPlayerManager;
@@ -1032,18 +1034,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
         MotionBlurSettingsSheet.show(this, before, after -> {
             if (after.equals(before) || project == null || !projectId.equals(project.getId())
                     || findMotionBlurItem(id) == null) return;
-            applyMotionBlurSettings(id, after);
+            applyMotionBlurSettings(project, id, after);
             undoManager.recordAction(new EditActions.LambdaAction(
-                    getString(R.string.studio_motion_blur), () -> applyMotionBlurSettings(id, after),
-                    () -> applyMotionBlurSettings(id, before)));
+                    getString(R.string.studio_motion_blur), () -> applyMotionBlurSettings(project, id, after),
+                    () -> applyMotionBlurSettings(project, id, before)));
             scheduleAutoSave();
-        });
+        }, state -> inspectMotionFrame(projectId, id, state));
     }
 
     @Nullable
     private MotionBlurItem findMotionBlurItem(@NonNull String id) {
-        if (project == null) return null;
-        Timeline timeline = project.getTimeline();
+        return project == null ? null : findMotionBlurItem(project.getTimeline(), id);
+    }
+
+    @Nullable
+    private static MotionBlurItem findMotionBlurItem(@NonNull Timeline timeline, @NonNull String id) {
         Clip clip = timeline.findClipById(id);
         if (clip != null) return clip;
         for (var item : timeline.getTextOverlays()) if (id.equals(item.getId())) return item;
@@ -1051,12 +1056,35 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return null;
     }
 
-    private void applyMotionBlurSettings(@NonNull String id, @NonNull MotionBlurSettingsSheet.State state) {
-        MotionBlurItem item = findMotionBlurItem(id);
+    private static void applyMotionBlurSettings(@Nullable FaditorProject project, @NonNull String id,
+                                                @NonNull MotionBlurSettingsSheet.State state) {
+        if (project == null) return;
+        MotionBlurItem item = findMotionBlurItem(project.getTimeline(), id);
         if (item == null) return;
         project.setMotionBlurEnabled(state.projectEnabled());
         item.setRigidMotionBlurEnabled(state.enabled());
         item.setRigidMotionShutter(state.controls());
+    }
+
+    @Nullable private androidx.appcompat.app.AlertDialog motionFrameDialog;
+
+    private void inspectMotionFrame(String projectId, String itemId, MotionBlurSettingsSheet.State draft) {
+        if (project == null || !projectId.equals(project.getId()) || findMotionBlurItem(itemId) == null
+                || (motionFrameDialog != null && motionFrameDialog.isShowing())) return;
+        if (playerManager != null) playerManager.pause();
+        stopImagePlayback();
+        audioTailActive = false;
+        pauseAudioPlayer();
+        updatePlayPauseButton(false);
+        long frameMs = lastPlayheadAbsoluteMs;
+        String snapshot = projectStorage.toJson(project);
+        Context app = getApplicationContext();
+        motionFrameDialog = MotionFrameInspector.show(this, () -> {
+            FaditorProject copy = new ProjectStorage(app).fromJson(snapshot);
+            if (copy == null || Thread.currentThread().isInterrupted()) return null;
+            applyMotionBlurSettings(copy, itemId, draft);
+            return ComposedFrame.render(app, copy, frameMs);
+        });
     }
 
     /**
@@ -2448,6 +2476,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
+        if (motionFrameDialog != null) motionFrameDialog.dismiss();
         if (handoffArrival != null) { handoffArrival.drop(); handoffArrival = null; }
         super.onDestroy();
         if (markerPopup != null) markerPopup.dismiss();

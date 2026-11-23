@@ -41,19 +41,23 @@ public final class MotionBlurSettingsSheet {
     private final SeekBar mix;
     private final ShutterStrip strip;
 
-    public static void show(Context context, State initial, Consumer<State> onApply) {
+    public static void show(Context context, State initial, Consumer<State> onApply,
+                            Consumer<State> onInspect) {
         var builder = StudioDialog.builder(context);
         var sheet = new MotionBlurSettingsSheet(builder.getContext(), initial);
         var scroll = new ScrollView(builder.getContext());
         scroll.setFillViewport(true);
         scroll.addView(sheet.rows);
-        builder.setTitle(R.string.studio_motion_blur)
+        var dialog = builder.setTitle(R.string.studio_motion_blur)
                 .setView(scroll)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
-                .setPositiveButton(R.string.studio_motion_apply, (dialog, button) ->
-                        onApply.accept(new State(sheet.projectEnabled.isChecked(),
-                                sheet.enabled.isChecked(), sheet.controls())))
-                .show();
+                .setPositiveButton(R.string.studio_motion_apply, (ignored, button) ->
+                        onApply.accept(sheet.state()))
+                .setNeutralButton(R.string.studio_motion_inspect, null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL)
+                .setOnClickListener(view -> onInspect.accept(sheet.state())));
+        dialog.show();
     }
 
     private MotionBlurSettingsSheet(Context context, State initial) {
@@ -95,6 +99,10 @@ public final class MotionBlurSettingsSheet {
             angle.setProgress(selected.angle);
             syncSelections();
         });
+    }
+
+    private State state() {
+        return new State(projectEnabled.isChecked(), enabled.isChecked(), controls());
     }
 
     private MotionShutter.Controls controls() {

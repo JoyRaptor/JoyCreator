@@ -4,6 +4,7 @@ import com.fadcam.ui.faditor.motion.MotionShutter;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 
@@ -125,16 +126,16 @@ public class ExportDebugActivity extends Activity {
             FaditorProject fixture = MotionRouteFixture.create(this);
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C1 route fixture project_id=" + fixture.getId());
-            if (in.getBooleanExtra("open_preview", false)) {
-                Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
-                preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, fixture.getId());
-                startActivity(preview);
-                return false;
-            }
         }
         String id = in.getStringExtra("project_id");
         if (id == null) {
             FLog.w(TAG, "no project_id extra");
+            return false;
+        }
+        if (in.getBooleanExtra("open_preview", false)) {
+            Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
+            preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
+            startActivity(preview);
             return false;
         }
         ProjectStorage storage = new ProjectStorage(this);
@@ -146,6 +147,29 @@ public class ExportDebugActivity extends Activity {
         if (in.getBooleanExtra("motion_spine_fixture", false)) {
             FLog.i(TAG, "C2 stored shutter " + project.getTimeline().getClip(0).getRigidMotionShutter()
                     + " master=" + project.isMotionBlurEnabled());
+        }
+        long inspectMs = in.getLongExtra("motion_inspect_ms", -1L);
+        if (inspectMs >= 0) {
+            Context app = getApplicationContext();
+            new Thread(() -> {
+                android.graphics.Bitmap frame = ComposedFrame.render(app, project, inspectMs);
+                if (frame == null) {
+                    FLog.e(TAG, "C2 Inspect Frame returned no bitmap");
+                    return;
+                }
+                File png = new File(app.getCacheDir(), "motion_inspect_" + project.getId() + ".png");
+                try (FileOutputStream out = new FileOutputStream(png)) {
+                    if (!frame.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)) {
+                        throw new java.io.IOException("Could not encode inspected frame");
+                    }
+                    FLog.i(TAG, "C2 inspect frame=" + png.getName() + " at " + inspectMs + "ms");
+                } catch (Exception e) {
+                    FLog.e(TAG, "C2 Inspect Frame fixture could not save", e);
+                } finally {
+                    frame.recycle();
+                }
+            }, "motion-inspect-fixture").start();
+            return false;
         }
         File dir = new File(getFilesDir(), "faditor");
         //noinspection ResultOfMethodCallIgnored

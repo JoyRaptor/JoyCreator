@@ -1,5 +1,8 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -21,7 +24,7 @@ import java.util.UUID;
  * (step/hold, item-local times); {@link SpriteFrameResolver} is the only code
  * allowed to turn (sheet, item, time) into a cell index.</p>
  */
-public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollower {
+public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollower, MotionBlurItem {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19) — see
     // TextOverlayItem's twin fields. Tolerant storage: absent = false.
@@ -182,6 +185,8 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         SpriteOverlayItem c = new SpriteOverlayItem(newId, sheetId);
         c.hidden = hidden;
         c.locked = locked;
+        c.rigidMotionBlur = rigidMotionBlur;
+        c.rigidMotionShutter = rigidMotionShutter;
         c.name = name; // a copy keeps the person's name (owner ruling 10-14)
         c.centerX = centerX;
         c.centerY = centerY;
@@ -326,6 +331,19 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
 
     @NonNull public String getEndBehavior() { return endBehavior; }
     public void setEndBehavior(@NonNull String endBehavior) { this.endBehavior = endBehavior; }
+
+    private boolean rigidMotionBlur;
+    private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+
+    @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
+
+    public void setRigidMotionShutter(@NonNull MotionShutter.Controls controls) {
+        rigidMotionShutter = java.util.Objects.requireNonNull(controls);
+    }
+
+    public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
+
+    public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
 
     @NonNull public FrameTrack getFrameTrack() { return frameTrack; }
     @NonNull public KeyframeSet getKeyframes() { return keyframes; }

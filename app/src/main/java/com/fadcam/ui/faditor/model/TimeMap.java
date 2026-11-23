@@ -124,6 +124,11 @@ public final class TimeMap {
         return presentationTimeUs / 1000L + editorTimeOffsetMs;
     }
 
+    /** Microsecond counterpart for shutter samples. Pass the same piece offset as the preview/export map. */
+    public static long chunkToEditorUs(long presentationTimeUs, long editorTimeOffsetMs) {
+        return presentationTimeUs + editorTimeOffsetMs * 1000L;
+    }
+
     /** Where editor time {@code editorMs} lands in the exported file. */
     public long editorToFileMs(long editorMs) {
         long out = editorMs - cuts.cutBeforeMs(editorMs);

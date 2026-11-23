@@ -4,7 +4,6 @@ import androidx.annotation.NonNull;
 
 import java.util.HashMap;
 import java.util.Map;
-import com.fadcam.ui.faditor.Studio;
 
 /**
  * A-tier "life package" (MINED, binding: near-zero cost, huge feel): the idle
@@ -128,6 +127,6 @@ public class LifeSignals {
     /** Deterministic LCG in [0,1) — java.util.Random constants, own state. */
     private double rand() {
         lcg = lcg * 0x5DEECE66DL + 0xBL;
-        return ((lcg >>> 17) & Studio.alpha(Studio.INK, 0x7F)) / (double) (1L << 31);
+        return ((lcg >>> 17) & 0x7FFFFFFF) / (double) (1L << 31);
     }
 }

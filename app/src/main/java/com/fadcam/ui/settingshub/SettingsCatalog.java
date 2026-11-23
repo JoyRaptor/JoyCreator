@@ -83,7 +83,10 @@ final class SettingsCatalog {
                             R.string.settingshub_video_player_desc, R.string.settingshub_video_player_names),
                     // Joybot himself, the flat line-art face, not a generic robot glyph (owner, 11-15).
                     new Row(SettingsKey.AI_JOYBOT, "smart_toy", R.drawable.joybot_neutral, R.string.settingshub_ai_joybot,
-                            R.string.settingshub_ai_joybot_desc, R.string.settingshub_ai_joybot_names, Trail.OPEN)),
+                            R.string.settingshub_ai_joybot_desc, R.string.settingshub_ai_joybot_names, Trail.OPEN),
+                    // FX-1: Joybot carrying your work from room to room; on unless switched off.
+                    row(SettingsKey.HANDOFF, "animation", R.string.settingshub_handoff,
+                            R.string.settingshub_handoff_desc, R.string.settingshub_handoff_names)),
             new Section(R.string.settingshub_section_recording, R.string.settingshub_chip_recording, "videocam",
                     row(SettingsKey.CAMERA_VIDEO, "videocam", R.string.settingshub_camera_video,
                             R.string.settingshub_camera_video_desc, R.string.settingshub_camera_video_names),

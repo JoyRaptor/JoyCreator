@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Joy Creator Studio motion blur review</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#111018;color:#f7f4ff}
+*{box-sizing:border-box}body{margin:0 auto;padding:32px 20px 70px;max-width:1200px}
+h1{font-size:clamp(1.8rem,5vw,3rem);line-height:1.15;margin:0 0 28px;letter-spacing:-.035em}
+h2{font-size:1.2rem;margin-top:38px}p{color:#d0cbdc}
+.controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+select,input{font:inherit}select{border:1px solid #6d607f;border-radius:8px;padding:8px 12px;background:#201c2b}
+input[type=range]{accent-color:#da7bff;vertical-align:middle}
+figcaption{margin:8px 0 0;font-weight:600}figure{margin:0}
+.frames{display:grid;gap:12px;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:16px}
+.frames img,video,canvas{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;border:1px solid #3e384b;border-radius:10px}
+.side{display:grid;gap:22px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.side label{display:block;margin:10px 0}.help{font-size:.9rem}
+a{color:#efabff}
+@media(max-width:660px){.frames{grid-template-columns:1fr}.side{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Motion blur review</h1>
+<section aria-labelledby="device-heading">
+<h2 id="device-heading">Matched Note 9 frames</h2>
+<div class="controls">
+<label for="subject">Fixture</label>
+<select id="subject">
+<option value="picture">Picture</option><option value="sprite-before">Sprite before cell swap</option>
+<option value="sprite-after">Sprite after cell swap</option><option value="title">Animated title</option>
+<option value="pip">Picture in picture</option><option value="spine">Main video</option>
+</select>
+<span id="pts"></span>
+</div>
+<div class="frames">
+<figure><img id="preview" alt="Decoded Studio preview"><figcaption>Live preview</figcaption></figure>
+<figure><img id="blur" alt="Matching export with blur"><figcaption>Blurred export</figcaption></figure>
+<figure><img id="sharp" alt="Matching export with blur disabled"><figcaption>Sharp export</figcaption></figure>
+</div>
+</section>
+<div class="side">
+<section aria-labelledby="mix-heading">
+<h2 id="mix-heading">Trailing Mix from Studio export</h2>
+<label for="actual-mix">Mix
+<select id="actual-mix"><option value="0">0%</option><option value="40">40%</option><option value="100" selected>100%</option></select>
+</label>
+<video id="export-video" controls loop muted playsinline preload="metadata"></video>
+</section>
+<section aria-labelledby="shape-heading">
+<h2 id="shape-heading">Shutter and exposure shape</h2>
+<label for="preset">Preset
+<select id="preset"><option value="natural">Natural · 180° centred</option>
+<option value="crisp">Crisp · 90° centred</option><option value="heavy">Heavy · 270° centred</option>
+<option value="trailing">Trailing · 180°</option></select>
+</label>
+<label for="shape">Shape
+<select id="shape"><option value="box">Box</option><option value="soft">Soft</option><option value="tail">Fade-out tail</option></select>
+</label>
+<label for="sim-mix">Mix <input id="sim-mix" type="range" min="0" max="100" value="100"><output id="mix-value">100%</output></label>
+<canvas id="demo" width="640" height="360" aria-label="Simulated motion blur on a moving bar"></canvas>
+<p class="help">The bar illustrates the exposure models. Soft and Fade-out tail are planned controls.</p>
+</section>
+</div>
+<script>
+'use strict';
+const element = id => document.getElementById(id);
+const fixture = element('subject');
+const timestamps = {'sprite-after': '400.000 ms'};
+function selectFixture() {
+  const id = fixture.value;
+  element('pts').textContent = timestamps[id] || '366.666 ms';
+  for (const kind of ['preview', 'blur', 'sharp']) {
+    element(kind).src = 'review-' + id + '-' + kind + '.png';
+  }
+}
+fixture.addEventListener('change', selectFixture);
+selectFixture();
+
+const actualMix = element('actual-mix');
+const video = element('export-video');
+actualMix.addEventListener('change', selectMix);
+function selectMix() {
+  const time = video.currentTime;
+  const wasPlaying = !video.paused;
+  video.addEventListener('loadedmetadata', () => {
+    if (Number.isFinite(video.duration)) video.currentTime = Math.min(time, video.duration);
+    if (wasPlaying) video.play().catch(() => {});
+  }, {once:true});
+  video.src = 'c2-trailing-mix-' + actualMix.value + '.mp4';
+}
+selectMix();
+
+const presets = {
+  natural: [-.25, .25], crisp: [-.125, .125], heavy: [-.375, .375], trailing: [-.5, 0]
+};
+const shape = element('shape'), simMix = element('sim-mix'), preset = element('preset');
+const canvas = element('demo'), ctx = canvas.getContext('2d');
+function drawExposure() {
+  const mix = Number(simMix.value) / 100;
+  element('mix-value').textContent = simMix.value + '%';
+  const [open, close] = presets[preset.value];
+  const count = 60, streakPerFrame = 280, center = 320, barWidth = 46;
+  const weights = Array.from({length: count}, (_, i) => {
+    const phase = (i + .5) / count;
+    if (shape.value === 'soft') return Math.sin(Math.PI * phase) ** 2;
+    if (shape.value === 'tail') return phase;
+    return 1;
+  });
+  const sum = weights.reduce((a, b) => a + b, 0);
+  ctx.fillStyle = '#14101c';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  for (let x = 0; x < canvas.width; x++) {
+    let weighted = 0;
+    for (let i = 0; i < count; i++) {
+      const tap = open + (close - open) * (i + .5) / count;
+      if (Math.abs(x - center - streakPerFrame * tap) < barWidth / 2) weighted += weights[i];
+    }
+    const sharp = Math.abs(x - center) < barWidth / 2 ? 1 : 0;
+    const energy = (1 - mix) * sharp + mix * weighted / sum;
+    if (energy > 0) {
+      const a = Math.pow(energy, 1 / 2.2);
+      ctx.fillStyle = 'rgba(232, 145, 255, ' + a + ')';
+      ctx.fillRect(x, 96, 1, 168);
+    }
+  }
+  ctx.strokeStyle = '#a79bb7';
+  ctx.beginPath(); ctx.moveTo(center, 273); ctx.lineTo(center, 295); ctx.stroke();
+}
+for (const input of [shape, simMix, preset]) input.addEventListener('input', drawExposure);
+drawExposure();
+</script>
+</body>
+</html>

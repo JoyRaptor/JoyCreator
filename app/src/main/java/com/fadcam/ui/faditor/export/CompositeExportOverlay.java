@@ -387,7 +387,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs,
                                    long projectDurationMs,
                                    long editorTimeOffsetMs,
-                                   long headTransitionMs) {
+                                   long headTransitionMs, boolean motionBlurEnabled) {
         this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.headTransitionMs = headTransitionMs;
         this.projectDurationMs = projectDurationMs;
@@ -416,7 +416,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.editorWindowEndMs = clipTimelineStartMs + editorTimeOffsetMs
                 + Math.max(clip.getVisualDurationMs(), clip.getTrimmedDurationMs()) + WINDOW_PAD_MS;
         this.textOverlays = filterTextOverlays(allTextOverlays);
-        this.spriteItems = filterSpriteItems(allSpriteItems);
+        this.spriteItems = filterSpriteItems(allSpriteItems, motionBlurEnabled);
         this.spriteSheets = spriteSheets;
         this.avatarRigs = avatarRigs;
         this.waveformSlots = waveformSlots;
@@ -488,7 +488,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
      *
      * <p>SPEC_ZA: a sprite that belongs to the GL composite is dropped here, exactly as
      * {@code filterTextOverlays} drops an image that belongs to {@code ImageBlendGlEffect}.
-     * The two decisions consult the SAME single predicate — {@code wantsGl()} — and must
+     * The two decisions consult the SAME single predicate — {@link SpriteBlendGlEffect#routesToGl} — and must
      * stay exactly complementary: {@code ExportManager} emits a {@code SpriteBlendGlEffect}
      * for every sprite where it is true, so dropping anything else here would draw it
      * twice (once warped in the shader, once plain on top of the grade it moved to GL
@@ -497,12 +497,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
      * keep catching — the same arrangement the image path already relies on.
      */
     private List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> filterSpriteItems(
-            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all) {
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all, boolean motionBlurEnabled) {
         List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : all) {
             if (o.getEndMs() < editorWindowStartMs) continue;
             if (o.getStartMs() > editorWindowEndMs) continue;
-            if (o.wantsGl()) continue;
+            if (SpriteBlendGlEffect.routesToGl(o, motionBlurEnabled)) continue;
             out.add(o);
         }
         return out;

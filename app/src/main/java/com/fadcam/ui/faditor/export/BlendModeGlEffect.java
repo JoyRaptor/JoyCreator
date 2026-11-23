@@ -61,6 +61,8 @@ public final class BlendModeGlEffect implements GlEffect {
     private final Clip clip;
     private final long editorTimeOffsetMs;
     @Nullable private final Clip matteClip;
+    private final long pieceStartMs;
+    private final long motionPieceDurationMs;
 
     // NOTE: the old 2-arg constructor was DELETED rather than kept for convenience. It
     // hard-coded editorTimeOffsetMs = 0, so any future caller would have silently reintroduced
@@ -70,11 +72,14 @@ public final class BlendModeGlEffect implements GlEffect {
     /** @param matteClip the resolved matte peer (from {@code compositing.mattePeerId}),
      *                   or null. Resolution + peer-hiding is ExportManager's job. */
     public BlendModeGlEffect(@NonNull Context context, @NonNull Clip clip,
-                             @Nullable Clip matteClip, long editorTimeOffsetMs) {
+                             @Nullable Clip matteClip, long editorTimeOffsetMs,
+                             long pieceStartMs, long motionPieceDurationMs) {
         this.context = context.getApplicationContext();
         this.clip = clip;
         this.matteClip = matteClip;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
+        this.pieceStartMs = pieceStartMs;
+        this.motionPieceDurationMs = motionPieceDurationMs;
     }
 
     @NonNull
@@ -84,7 +89,7 @@ public final class BlendModeGlEffect implements GlEffect {
         if (useHdr) {
             throw new VideoFrameProcessingException("HDR blend modes are not supported");
         }
-        return new Program(context, clip, matteClip, editorTimeOffsetMs);
+        return new Program(context, clip, matteClip, editorTimeOffsetMs, pieceStartMs, motionPieceDurationMs);
     }
 
     private static final class Program extends BaseGlShaderProgram {
@@ -221,7 +226,7 @@ public final class BlendModeGlEffect implements GlEffect {
         private final long fxEditorTimeOffsetMs;
 
         Program(@NonNull Context context, @NonNull Clip clip, @Nullable Clip matteClip,
-                 long editorTimeOffsetMs)
+                 long editorTimeOffsetMs, long pieceStartMs, long motionPieceDurationMs)
                  throws VideoFrameProcessingException {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 1);
             this.clip = clip;
@@ -233,11 +238,12 @@ public final class BlendModeGlEffect implements GlEffect {
             // Measurement (PipFrameStats, 2026-08-28): 91% of JoyRaptor's overlay clips are unmasked,
             // so option 2 removes ~91% of the remaining convertMs while keeping the fallback trivial.
             // Full mask GL (option 1, second texture for feather) remains the follow-up for the 9%.
-            this.glOverlay = new GlPipFrameOverlay(context, clip, editorTimeOffsetMs);
+            this.glOverlay = new GlPipFrameOverlay(context, clip, editorTimeOffsetMs,
+                    pieceStartMs, matteClip == null ? motionPieceDurationMs : 0L);
             this.matteOverlay = matteClip != null
                     ? new PipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
             this.glMatteOverlay = matteClip != null
-                    ? new GlPipFrameOverlay(context, matteClip, editorTimeOffsetMs) : null;
+                    ? new GlPipFrameOverlay(context, matteClip, editorTimeOffsetMs, 0L, 0L) : null;
             // The wire-value → shader-code mapping moved out with the equations it selects; a
             // mode string that means 3 here and 3 in the FX fold is the whole point of one table.
             this.fxClip = clip;
@@ -267,6 +273,12 @@ public final class BlendModeGlEffect implements GlEffect {
             if (matteOverlay != null) matteOverlay.configure(size);
             if (glMatteOverlay != null) glMatteOverlay.configure(size);
             return size;
+        }
+
+        @Override
+        public void flush() {
+            glOverlay.resetCadence();
+            super.flush();
         }
 
         @Override

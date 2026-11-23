@@ -59,11 +59,13 @@
     $('stagebar').innerHTML = ''; ph.innerHTML = ''; pb.innerHTML = '';
     app.coach(inp.recording ? '<b>Recording.</b> ' + (inp.fresh ? 'Everything you do is kept.' : 'Only what you touch is replaced.') + ' Tap the square to stop.' : (inp.walker.cfg() ? '<b>Perform.</b> Drag the <b>body</b> and he walks. Drag the <b>head</b>, a <b>hand</b> or a <b>foot</b> with other fingers at the same time. Two fingers on empty space zoom.' : '<b>Perform.</b> Drag the <b>head</b> to turn, a <b>hand</b> to reach, the <b>body</b> to lean. Double-tap lets go.'));
 
-    /* transport */
-    var hasTake = !!(inp.take && inp.take.n);
-    var rec = h('button', { class: 'recb' + (inp.recording ? ' on' : ''), title: inp.recording ? 'Stop recording' : (hasTake ? 'Record over the take: only what you touch is replaced, and it is handed back when you let go' : 'Record a take'), 'aria-pressed': String(inp.recording), onclick: function () { if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); } }, h('i'));
+    /* transport: the one take bar. In a scene with several characters it is the scene's clock: red records the one in hand while the
+       others play their takes back in step, and Play plays everything (al-scene-take.js). */
+    var hasTake = !!(inp.take && inp.take.n), sc = perform.sceneClock(app), run = sc ? AL.scene.running(app) : null;
+    var rec = h('button', { class: 'recb' + (inp.recording ? ' on' : ''), title: inp.recording ? 'Stop recording' : sc ? 'Record ' + app.ch.name + '. Everyone else plays back in step.' : (hasTake ? 'Record over the take: only what you touch is replaced, and it is handed back when you let go' : 'Record a take'), 'aria-pressed': String(inp.recording), onclick: function () { if (sc) { AL.scene.rec(app); return; } if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); } }, h('i'));
     var tlc = h('canvas'), tl = h('div', { class: 'tl', tabindex: '0', role: 'slider', 'aria-label': 'Place in the take', 'aria-valuemin': '0', 'aria-valuemax': String(Math.round(inp.duration() * 10) / 10), 'aria-valuenow': String(Math.round(inp.ph * 10) / 10), title: 'The take. Drag, or use the left and right arrow keys, to look through it.' }, tlc);
-    var play = h('button', { class: 'ib' + (inp.playing && !inp.recording ? ' on' : ''), title: inp.playing ? 'Stop' : 'Play the take', disabled: !hasTake, onclick: function () { if (inp.playing) inp.stop(); else inp.play(); inp.scrub = false; app.refreshPanel(true); } }, AL.icon(inp.playing && !inp.recording ? 'stop' : 'play'));
+    var playing = sc ? run === 'play' : inp.playing && !inp.recording;
+    var play = h('button', { class: 'ib' + (playing ? ' on' : ''), title: playing ? 'Stop' : sc ? 'Play the whole scene' : 'Play the take', disabled: sc ? !(run || AL.scene.length(app) > 0) : !hasTake, onclick: function () { if (sc) { AL.scene.play(app); return; } if (inp.playing) inp.stop(); else inp.play(); inp.scrub = false; app.refreshPanel(true); } }, AL.icon(playing ? 'stop' : 'play'));
     var back = h('button', { class: 'ib', title: 'Take back the last recording pass', disabled: !inp.backup || inp.recording, onclick: function () { if (inp.undoPass()) { app.toast('The last pass was taken back'); app.refreshPanel(true); } } }, AL.icon('undo'));
     var clr = h('button', { class: 'ib', title: 'Throw this take away', disabled: !hasTake, onclick: function () { app.ask('Throw this take away?', 'The recorded performance is removed. The character is not touched.', 'Throw away', function () { inp.clearTake(); inp.scrub = false; app.refreshPanel(); }, true); } }, AL.icon('trash'));
     ph.appendChild(h('div', { class: 'transport', style: 'flex:1;min-width:0' }, [rec, tl, play, back, clr]));
@@ -78,20 +80,26 @@
     /* hands-on controls */
     var sets = AL.cards.turnSets(app);
     var meter = h('div', { class: 'meter', title: 'How loud the voice is' }, h('i')); perform.meter = meter.firstChild;
-    var hosted = AL.intake.hosted;
-    var voice = h('div', { class: 'rowf' }, [
-      hosted ? null : ui.chip('Mic', { on: inp.mic.on && inp.mic.kind === 'mic', icon: 'mic', title: 'Lip-sync to your voice', fn: function () { if (inp.mic.on) { inp.micStop(); app.refreshPanel(true); } else inp.micStart().then(function () { app.refreshPanel(true); }).catch(function () { app.toast('No microphone here. Hold Talk, or play a voice file.'); }); } }),
-      ui.chip('Voice file', { on: inp.mic.on && inp.mic.kind === 'file', icon: 'note', title: 'Play a recording and lip-sync to it', fn: function () { if (inp.mic.kind === 'file') { inp.micStop(); app.refreshPanel(true); } else $('fileAudio').click(); } }),
-      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Tap again to change between "while Talk is held" and "always", then off. The picture is never shown or kept.', fn: function () {
-        if (!inp.cam.on) { app.toast('Starting the face camera\u2026'); inp.cam.mode = 'talk'; inp.camStart().then(function () { app.toast('Face is ready. Hold Talk and it takes over from where your hand left the head.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It needs a webcam and the PC page.'); }); }
-        else if (inp.cam.mode === 'talk') { inp.cam.mode = 'always'; inp.cam.zero = null; app.refreshPanel(true); }
+    var hosted = AL.intake.hosted, stk = !!(AL.stick && AL.stick.open()), ico = stk ? 'ico' : '';      // (the joystick open: these become their pictures, al-stick.js)
+    var voice = h('div', { class: 'rowf' + (stk ? ' ico' : '') }, [
+      hosted ? null : ui.chip('Mic', { cls: ico, on: inp.mic.on && inp.mic.kind === 'mic', icon: 'mic', title: 'Lip-sync to your voice', fn: function () { if (inp.mic.on) { inp.micStop(); app.refreshPanel(true); } else inp.micStart().then(function () { app.refreshPanel(true); }).catch(function () { app.toast('No microphone here. Hold Talk, or play a voice file.'); }); } }),
+      ui.chip('Voice file', { cls: ico, on: inp.mic.on && inp.mic.kind === 'file', icon: 'note', title: 'Play a recording and lip-sync to it', fn: function () { if (inp.mic.kind === 'file') { inp.micStop(); app.refreshPanel(true); } else $('fileAudio').click(); } }),
+      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { cls: ico, on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Straight away; tap again for "only while Talk is held", then off. The picture is never shown or kept.', fn: function () {
+        if (!inp.cam.on) { app.toast('Starting the face camera\u2026'); inp.cam.mode = 'always'; inp.camStart().then(function () { app.toast('Face is on: the character moves with you. Tap Face again for only while Talk is held.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It needs a webcam and the PC page.'); }); }
+        else if (inp.cam.mode === 'always') { inp.cam.mode = 'talk'; inp.cam.zero = null; app.refreshPanel(true); }   // FACE-1 (the owner, 11-22): on drives at once; talk-only is the second tap
         else { inp.camStop(); app.refreshPanel(true); }
       } })
     ]);
-    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take the way you are facing now as straight ahead', fn: function () { inp.cam.zero = null; } }));
-    if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
-    pb.appendChild(h('div', { class: 'padrow' }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice])]));
+    if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take your face now as neutral: look at the screen, relaxed', fn: function () { inp.cam.zero = null; if (AL.face) AL.face.neutral(inp.cam); if (AL.pose) AL.pose.neutral(); } }));
+    if (inp.cam.on && AL.face) voice.appendChild(ui.toggle('Mirror', !inp.cam.facing, function (v) { AL.face.setFacing(inp.cam, !v); app.refreshPanel(true); }, null, 'On: the character moves like your reflection. Off: like someone facing you'));   // FACE-1
+    else if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
+    if (inp.cam.on && AL.pose) voice.appendChild(AL.pose.tick(app));   // SHRUG-1
+    if (inp.cam.on && AL.facepins) voice.appendChild(ui.chip('Check directions', { title: 'Five short moves that settle which way is which on this device', fn: function () { AL.facepins.directions(app); } }));   // FACE-1
+    if (AL.facepins && !hosted && (inp.cam.on || AL.facepins.list(app.ch).length)) voice.appendChild(AL.facepins.chip(app));   // FACE-1
+    if (AL.stick) { var jc = AL.stick.chip(app); if (stk) jc.classList.add('ico'); voice.appendChild(jc); }
+    pb.appendChild(h('div', { class: 'padrow' + (stk ? ' stick' : '') }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice]), stk ? AL.stick.pad(app) : null]));
     morePads(app, pb, sets);
+    if (inp.cam.on && AL.pose && AL.pose.isOn()) pb.appendChild(AL.pose.sensSlider(app));   // SHRUG-1: the owner, 11-22
 
     if (hosted) pb.appendChild(ui.note('The microphone and the face camera work on the PC page (tools/avatarlab). Here, hold Talk or play a voice file.'));
     pb.appendChild(ui.lab('Buttons'));
@@ -114,10 +122,13 @@
 
     pb.appendChild(ui.lab('Use it'));
     pb.appendChild(ui.row([
-      ui.chip('Send to Studio', { cls: 'go', icon: 'send', title: 'Put this character, and its take, into a video', fn: function () { AL.intake.send(app); } }),
+      ui.chip('Export', { icon: 'export', title: 'Export: the Joy Creator file (this character and its take, for Studio and the rest of Joy Creator), one frame as a picture, or the take as a video with its voice', fn: function () { AL.intake.send(app); } }),
       ui.chip('Sprite sheet', { icon: 'grid', title: 'Bake the take to a sprite sheet for Sprite Lab, VisLab and Studio', fn: function () { AL.intake.bakeSheet(app); } })
     ]));
   };
+
+  /** In a scene with more than one character the take bar runs the scene's clock. */
+  perform.sceneClock = function (app) { var S = AL.scene; return !!(S && S.on(app) && app.scene.stage === 'perform' && S.cast(app.scene).length > 1); };
 
   /* per frame: the take strip and the voice meter */
   AL.app.hooks.push(function () {
@@ -130,10 +141,15 @@
     var g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, hh);
     var tk = inp.take, dur = inp.duration(), lanes = AL.TAKE_LANES, lh = (hh - 8) / lanes.length;
     g.font = '500 10px "IBM Plex Mono",monospace'; g.textBaseline = 'middle';
+    if (perform.sceneClock(app) && app.scene.clock.on && !inp.recording && !inp.playing && !inp.scrub) {      // the scene playing, led by its clock (the one in hand has no take of its own)
+      var SL = Math.max(AL.scene.length(app), 0.001), sp = 4 + (w - 8) * Math.min(1, app.scene.clock.ph / SL);
+      g.fillStyle = '#22d3ee'; g.fillRect(sp - 1, 2, 2, hh - 4); g.fillStyle = '#e4e4e7'; g.textAlign = 'right'; g.fillText('scene ' + app.scene.clock.ph.toFixed(1) + ' / ' + SL.toFixed(1) + ' s', w - 8, hh - 9); g.textAlign = 'left';
+      if (!tk || !tk.n) return;
+    }
     if (!tk || !tk.n) { g.fillStyle = '#71717a'; g.fillText(inp.recording ? 'recording\u2026' : 'No take yet. Tap the red dot, then perform.', 10, hh / 2); if (!inp.recording) return; }
     var total = Math.max(dur, inp.recording ? inp.ph : 0, 0.001), len = {}, hot = {}, known = {}, k;
     lanes.forEach(function (l) { known[l[0]] = 1; });
-    if (tk) for (k in tk.ch) { var o = inp.ownerOf(k), ln = known[o] ? o : (o === 'footL' || o === 'footR' ? 'body' : 'other'); len[ln] = Math.max(len[ln] || 0, tk.ch[k].length); if (inp.recording && inp.fade && inp.fade[o] > 0) hot[ln] = 1; }
+    if (tk) for (k in tk.ch) { var o = inp.ownerOf(k), ln = known[o] ? o : (o === 'footL' || o === 'footR' || o === 'shoulders' ? 'body' : 'other'); len[ln] = Math.max(len[ln] || 0, tk.ch[k].length); if (inp.recording && inp.fade && inp.fade[o] > 0) hot[ln] = 1; }
     lanes.forEach(function (l, i) {
       if (!len[l[0]]) return;
       g.fillStyle = hot[l[0]] ? '#f43f8e' : '#3a3a46'; g.beginPath(); g.roundRect(4, 4 + i * lh + 0.5, Math.max(3, (w - 8) * Math.min(1, (len[l[0]] / tk.fps) / total)), Math.max(1.5, lh - 1), 1.5); g.fill();
@@ -151,9 +167,10 @@
     var inp = app.inp, k = e.key;
     if (k === ' ') { e.preventDefault(); inp.talking = down; inp.held.face = down; return; }
     if (!down) return;
+    var sc = perform.sceneClock(app);
     if (k === 'b' || k === 'B') inp.blinkNow();
-    else if (k === 'r' || k === 'R') { if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); }
-    else if (k === 'p' || k === 'P') { if (inp.playing) inp.stop(); else inp.play(); app.refreshPanel(true); }
+    else if (k === 'r' || k === 'R') { if (sc) return AL.scene.rec(app); if (inp.recording) inp.stop(); else inp.record(); app.refreshPanel(true); }
+    else if (k === 'p' || k === 'P') { if (sc) return AL.scene.play(app); if (inp.playing) inp.stop(); else inp.play(); app.refreshPanel(true); }
     else if (k >= '1' && k <= '9') { var t = (app.ch.triggers || [])[parseInt(k, 10) - 1]; if (t) { inp.toggleTrig(t.id); app.refreshPanel(true); } }
   };
 })(typeof self !== 'undefined' ? self : this);

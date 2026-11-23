@@ -173,6 +173,21 @@ celebrating hops in a circle, nearer and further. New art: taking notes (notepad
       frame-by-frame scan of his seat: Note 9 old build 16 flashes (39 frames), new build none in 2.8 min of arrival,
       16 taps, help, "no" and three tricks; test tablet old build 7, new build none (arrival and 16 taps).
 
+## 11-20: idle steadied; the principles written down
+Owner: the idle float looks great, but idle's frames "look a little bit jerky"; he guessed they were never aligned
+by difference. Right: idle was one of my six sets, and its art carried a 13 px bob (whole body and rings) that
+stepped up to 7 px a frame at 8 fps on top of his smooth hover.
+- [x] Sheet v5 (`art/Joybot-sprite-assets/aligned_v5_20261120`, README there): each idle frame slid onto home by
+      least difference, whole pixels. Frame to frame 3.6 px mean / 8 max -> 1.1 / 3 (his best sets: 1.0-1.1). The
+      other five of mine checked: talk, listening, spin within 2 px; listen's head tilt and showcasing-video's raised
+      screen are poses, left alone. Only `idle.webp` changes (5.29 MB in all, unchanged).
+- [x] [Joybot animation: principles and toolkit](../joybot/JOYBOT_ANIMATION_PRINCIPLES.md), linked from AGENT_START
+      and the BOT-2, BOT-7 and FX-1 cards.
+- [x] Cloud build 9dcc073a2 compiles; landed. Proof is in the frames themselves (the measurements above, and
+      `previews/idle_before_after.gif` in the v5 folder: the old head rises above a line, the new one stays on it).
+- [ ] Not yet seen on a device: the Note 9 was PIN-locked and the tablet and Fold not connected (11-20). A head
+      tracker for the recording is ready (counts 3 px jumps per second; old build at rest: 1-12 a second).
+
 ## What is left
 - [ ] Load the owner's labelled sheet; check each mood on the phone. (Owner: the sheet, and OK the names.)
 - [ ] Fly-to-corner and show-off moves.
@@ -182,6 +197,7 @@ celebrating hops in a circle, nearer and further. New art: taking notes (notepad
 - [ ] Replace the FadCam avatar toggle with Joybot (FadCam independence, [FREE-1](FREE-1_fadcam_inventory.md)).
 
 ## Specs, handoffs and evidence
+- **[Joybot animation: principles and toolkit](../joybot/JOYBOT_ANIMATION_PRINCIPLES.md)** (11-20): read first for any Joybot motion work.
 - [Plan A, "Joybot as a character"](../joybot/JOYBOT_PLAN_20261014.md), [INBOX 9-09 and 9-12](../INBOX.md).
 
 ## Files and traps

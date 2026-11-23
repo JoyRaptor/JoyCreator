@@ -1,5 +1,8 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import com.fadcam.ui.faditor.Studio;
 
 import androidx.annotation.NonNull;
@@ -20,7 +23,7 @@ import java.util.UUID;
  * <p>For v1 the overlay spans the entire timeline. Time-range trimming and image
  * (PNG) overlays reuse this same model and the same export path.</p>
  */
-public class TextOverlayItem implements LinkFollower {
+public class TextOverlayItem implements LinkFollower, MotionBlurItem {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19): the eye/lock
     // moved off the row gutter onto the object itself. Hidden = excluded from preview AND
@@ -377,6 +380,14 @@ public class TextOverlayItem implements LinkFollower {
      * preview interaction, exactly like a PiP's pass-through).
      */
     private boolean passThrough;
+    private boolean rigidMotionBlur;
+    private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+
+    @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
+
+    public void setRigidMotionShutter(@NonNull MotionShutter.Controls controls) {
+        rigidMotionShutter = java.util.Objects.requireNonNull(controls);
+    }
 
     /**
      * Per-item compositing (masks + chroma key + matte), the same {@link CompositingSpec} a
@@ -751,6 +762,8 @@ public class TextOverlayItem implements LinkFollower {
         c.rotationPivotY = rotationPivotY;
         System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
         c.passThrough = passThrough;
+        c.rigidMotionBlur = rigidMotionBlur;
+        c.rigidMotionShutter = rigidMotionShutter;
         c.compositing = compositing == null ? null : compositing.copy();
         // SPEC E: a duplicate is the object's twin — its bend rides along (deep copy, never
         // shared; two items fed by one spec would bend together). Null stays null: every
@@ -1153,6 +1166,10 @@ public class TextOverlayItem implements LinkFollower {
     // ── Pass-through, blend, compositing ──────────────────────────────
 
     /** True when the preview ignores touch on this overlay (PiP-style pass-through). */
+    public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
+
+    public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
+
     public boolean isPassThrough() { return passThrough; }
 
     public void setPassThrough(boolean passThrough) { this.passThrough = passThrough; }
@@ -2463,6 +2480,17 @@ public class TextOverlayItem implements LinkFollower {
     public float animatedScaleY(long timelineMs) {
         return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y,
                 localTime(timelineMs), scaleY);
+    }
+
+    /** Per-axis multipliers sampled on the same local tracks at a shutter instant. */
+    public float motionScaleXAt(double timelineMs) {
+        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_X,
+                Math.max(0, timelineMs - startMs), scaleX);
+    }
+
+    public float motionScaleYAt(double timelineMs) {
+        return keyframes.valueAt(com.fadcam.ui.faditor.keyframe.KeyframeSet.SCALE_Y,
+                Math.max(0, timelineMs - startMs), scaleY);
     }
 
     // ── How large is this image EVER drawn? (the decode bound) ────────────────────────────────

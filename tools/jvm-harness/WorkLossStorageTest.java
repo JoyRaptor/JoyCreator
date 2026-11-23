@@ -56,6 +56,33 @@ public class WorkLossStorageTest {
     public static void main(String[] args) throws Exception {
         root = Files.createTempDirectory("workloss-storage").toFile();
 
+        {
+            ProjectStorage first = storage();
+            FaditorProject saved = video("Readable backup");
+            first.save(saved);
+            saved.setName("Damaged main");
+            first.save(saved);
+            File dir = projectDir(saved.getId());
+            File main = new File(dir, "project.json");
+            File backup = new File(dir, "project.json.bak");
+            byte[] good = Files.readAllBytes(backup.toPath());
+            Files.write(main.toPath(), "{broken".getBytes(StandardCharsets.UTF_8));
+            ProjectStorage reopened = storage();
+            FaditorProject recovered = reopened.load(saved.getId());
+            recovered.setName("Recovered and edited");
+            check(reopened.save(recovered), "new recovered revision publishes");
+            check(java.util.Arrays.equals(good, Files.readAllBytes(backup.toPath())),
+                    "recovery save retains previous readable backup");
+            File stage = new File(dir, "project.json.tmp");
+            Files.move(main.toPath(), stage.toPath());
+            Files.write(backup.toPath(), "{broken".getBytes(StandardCharsets.UTF_8));
+            FaditorProject interrupted = storage().load(saved.getId());
+            check(interrupted != null && "Recovered and edited".equals(interrupted.getName()),
+                    "complete orphaned staging file recovers when committed files are unreadable");
+            Files.write(stage.toPath(), "{broken".getBytes(StandardCharsets.UTF_8));
+            check(storage().load(saved.getId()) == null, "partial orphan never opens");
+        }
+
         // ── 1. An audio-only project reopens as it was last saved, not one save behind ─────────
         {
             ProjectStorage ps = storage();

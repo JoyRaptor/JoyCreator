@@ -34,12 +34,25 @@ public class TrackingDriverBus {
     private volatile boolean resetRequested;
 
     /**
+     * FACE-1: the face's calibration, settings and lost/found state. One per bus, kept across
+     * mounts, so a neutral set once holds until the host lets the bus go.
+     */
+    @NonNull private final com.fadcam.ui.faditor.avatar.face.FaceStage face =
+            new com.fadcam.ui.faditor.avatar.face.FaceStage();
+    /** FACE-1: when the newest snapshot was published ({@link System#nanoTime}). */
+    private volatile long latestNanos = Long.MIN_VALUE;
+    /** FACE-1: camera picture to published snapshot, ms (smoothed); NaN when unknown. */
+    private volatile float delayMs = Float.NaN;
+    /** FACE-1: snapshots a second (smoothed). */
+    private volatile float rate = 0f;
+
+    /**
      * Mount and start a source. Any previous mount stops first (one source,
      * ever). {@code lifeSeed} seeds the deterministic life package.
      */
     public synchronized void start(@NonNull TrackingSource newSource, long lifeSeed) {
         stop();
-        final TrackingParamPipeline pipeline = new TrackingParamPipeline(lifeSeed);
+        final TrackingParamPipeline pipeline = new TrackingParamPipeline(lifeSeed, face);
         final Object token = new Object();
         mountToken = token;
         source = newSource;
@@ -54,9 +67,46 @@ public class TrackingDriverBus {
                 pipeline.reset();
             }
             Map<String, Float> params = pipeline.process(frame);
+            long now = System.nanoTime();
+            measure(frame, now);
             latestTSeconds = frame.tSeconds;
             latest = Collections.unmodifiableMap(params);
+            latestNanos = now;
         });
+    }
+
+    /** FACE-1: running delivery rate and camera-to-snapshot delay (source thread). */
+    private void measure(@NonNull TrackingFrame frame, long now) {
+        long prev = latestNanos;
+        if (prev != Long.MIN_VALUE && now > prev) {
+            float r = 1e9f / (now - prev);
+            rate = rate <= 0f ? r : rate + (r - rate) * 0.1f;
+        }
+        if (frame.captureNanos > 0 && now >= frame.captureNanos) {
+            float d = (now - frame.captureNanos) / 1e6f;
+            if (d < 2000f) delayMs = Float.isNaN(delayMs) ? d : delayMs + (d - delayMs) * 0.1f;
+        }
+    }
+
+    /** FACE-1: the face stage (neutral, direction check, calibration, settings, found or not). */
+    @NonNull
+    public com.fadcam.ui.faditor.avatar.face.FaceStage face() {
+        return face;
+    }
+
+    /** FACE-1: when {@link #latest()} was published ({@link System#nanoTime}); MIN_VALUE before any. */
+    public long latestNanos() {
+        return latestNanos;
+    }
+
+    /** FACE-1: snapshots per second, smoothed (0 before two). */
+    public float rate() {
+        return rate;
+    }
+
+    /** FACE-1: camera picture to snapshot in ms, smoothed; NaN when the source gives no capture time. */
+    public float delayMs() {
+        return delayMs;
     }
 
     /** Unmount: invalidate frames first, then release the source. Idempotent. */
@@ -68,6 +118,9 @@ public class TrackingDriverBus {
         }
         latest = null;
         latestTSeconds = Double.NaN;
+        latestNanos = Long.MIN_VALUE;
+        rate = 0f;
+        delayMs = Float.NaN;
     }
 
     public boolean isActive() {

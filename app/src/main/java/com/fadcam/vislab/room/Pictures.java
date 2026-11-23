@@ -45,6 +45,10 @@ public final class Pictures implements VisRenderer.ImageSource {
         words = new WordsPicture(app);
     }
 
+    public synchronized void setNestedExport(@Nullable cc.joycreator.textlab.StudioTextLab.NestedExport export) {
+        words.setNestedExport(export);
+    }
+
     @Override
     public synchronized boolean moves(@Nullable String ref) {
         return WordsPicture.is(ref) || videos.isVideo(ref);

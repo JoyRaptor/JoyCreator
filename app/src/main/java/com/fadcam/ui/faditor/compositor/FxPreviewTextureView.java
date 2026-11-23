@@ -28,6 +28,10 @@ import com.fadcam.ui.faditor.fx.FxUniforms;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.CompositingSpec;
 import com.fadcam.ui.faditor.model.MaskSdf;
+import com.fadcam.ui.faditor.motion.ItemMotionSampler;
+import com.fadcam.ui.faditor.motion.PreviewMotionClock;
+import com.fadcam.ui.faditor.motion.RigidShutterPlan;
+import com.fadcam.ui.faditor.motion.SweptBounds;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -1104,6 +1108,19 @@ public class FxPreviewTextureView extends TextureView
         }
     }
 
+    @FunctionalInterface
+    interface ShutterExposure {
+        @Nullable RigidTextureShutterPass.Exposure at(long timeUs, long periodUs, int width, int height);
+    }
+
+    record StillShutter(RigidTextureShutterPass.Source source, ShutterExposure exposure) {}
+
+    record LivePipShutter(int sourceWidth, int sourceHeight, StillShutter shutter) {}
+
+    record TimedStill(Pip pip, StillShutter shutter, long startUs, long endUs) {
+        boolean covers(long timeUs) { return timeUs >= startUs && timeUs < endUs; }
+    }
+
     /**
      * One rung of the z-ordered composite walk: a PiP to draw over the frame so far, or an
      * adjustment layer to grade it. The walk IS the export's chain order — both renderers read
@@ -1116,13 +1133,30 @@ public class FxPreviewTextureView extends TextureView
         /** Index into {@link CompositePlan#layers} when this rung is an adjustment layer. */
         final int layerIndex;
 
-        private Rung(@Nullable Pip pip, int layerIndex) {
+        @Nullable final StillShutter shutter;
+        @Nullable final List<TimedStill> neighboringCells;
+        @Nullable final LivePipShutter pipShutter;
+
+        private Rung(@Nullable Pip pip, int layerIndex, @Nullable StillShutter shutter,
+                     @Nullable List<TimedStill> neighboringCells, @Nullable LivePipShutter pipShutter) {
             this.pip = pip;
             this.layerIndex = layerIndex;
+            this.shutter = shutter;
+            this.neighboringCells = neighboringCells;
+            this.pipShutter = pipShutter;
         }
 
-        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1); }
-        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex); }
+        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null, null, null); }
+        @NonNull static Rung movingStill(@NonNull Pip p, @NonNull StillShutter shutter) {
+            return new Rung(p, -1, shutter, null, null);
+        }
+        @NonNull static Rung sprite(@NonNull TimedStill current, @NonNull List<TimedStill> cells) {
+            return new Rung(current.pip(), -1, current.shutter(), List.copyOf(cells), null);
+        }
+        @NonNull static Rung movingPiP(@NonNull Pip p, @NonNull LivePipShutter motion) {
+            return new Rung(p, -1, null, null, motion);
+        }
+        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null, null, null); }
     }
 
     /**
@@ -1197,6 +1231,7 @@ public class FxPreviewTextureView extends TextureView
      * flip - so an unplaced project runs the identical pass list it ran before this existed.</p>
      */
     @Nullable private volatile float[] spinePose;
+    @Nullable private volatile ShutterExposure spineShutter;
     /**
      * The BASE frame as a bitmap — an image master clip — or null to stage the decoder instead.
      *
@@ -1862,6 +1897,25 @@ public class FxPreviewTextureView extends TextureView
         return id;
     }
 
+    private final PreviewMotionClock motionClock = new PreviewMotionClock();
+    @Nullable private PreviewMotionClock.Frame motionFrame;
+    private volatile boolean motionClockActive;
+    @Nullable private volatile MotionPreviewReadback motionReadback;
+    private volatile boolean motionPreviewTiming;
+    private long lastTimedMotionFrameUs = Long.MIN_VALUE;
+
+    public void enableMotionPreviewTiming() {
+        if (com.fadcam.BuildConfig.DEBUG) motionPreviewTiming = true;
+    }
+
+    PreviewMotionClock motionClock() { return motionClock; }
+
+    void setMotionClockActive(boolean active) { motionClockActive = active; }
+
+    public void requestMotionReadback(@NonNull MotionPreviewReadback capture) {
+        if (com.fadcam.BuildConfig.DEBUG) motionReadback = capture;
+    }
+
     private void drawFrame() {
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
         long frameStartNs = System.nanoTime();
@@ -1874,6 +1928,7 @@ public class FxPreviewTextureView extends TextureView
             if (livePipInputs < wantPipInputs) ensurePipInputs();
             inputTexture.updateTexImage();
             inputTexture.getTransformMatrix(texMatrix);
+            motionFrame = motionClockActive ? motionClock.latch(inputTexture.getTimestamp()) : null;
 
             int vw = videoW > 0 ? videoW : surfaceW;
             int vh = videoH > 0 ? videoH : surfaceH;
@@ -1884,6 +1939,8 @@ public class FxPreviewTextureView extends TextureView
 
             // 1 — OES into an ordinary 2D texture, decoder transform applied once.
             drawStage(vw, vh);
+            CompositePlan cp = plan;
+            if (!degraded && motionClockActive) prepareShutterPrograms(cp, vw, vh);
             int cur = 0;
 
             // 1b — the CLIP CROP, BEFORE the grade — the export chain's order
@@ -1913,7 +1970,6 @@ public class FxPreviewTextureView extends TextureView
             //      COSTS NOTHING WHEN THERE IS NOTHING: spineLayerIndex is -1 unless
             //      FxLivePreviewController found an active stack on the playhead clip, and
             //      -1 skips the whole block — no pass, no ping-pong flip, no FBO.
-            CompositePlan cp = plan;
             boolean layersReady = false;
             if (!degraded && cp != null) {
                 layersReady = cp.layers.isEmpty() || ensurePrograms(cp.layers);
@@ -1940,8 +1996,7 @@ public class FxPreviewTextureView extends TextureView
             //       COSTS NOTHING WHEN THERE IS NOTHING: setSpinePose stores null for an
             //       identity pose, and null skips the whole block — no pass, no ping-pong flip,
             //       no clear.
-            float[] sp = spinePose;
-            if (!degraded && sp != null) cur = drawSpineTransform(sp, cur, vw, vh);
+            if (!degraded) cur = drawSpineWithShutter(cur, vw, vh);
 
             // 2c — THE CLIP FADE / OPACITY, on the base picture and nothing else. After the
             //      crop, the grade and the spine FxStack; before the below-blend raster, the
@@ -1982,7 +2037,7 @@ public class FxPreviewTextureView extends TextureView
                 for (int ri = 0; ri < cp.rungs.size(); ri++) {
                     Rung r = cp.rungs.get(ri);
                     if (r.pip != null) {
-                        cur = drawPipRung(r.pip, cur, vw, vh);
+                        cur = drawRung(r, cur, vw, vh);
                     } else if (layersReady && r.layerIndex >= 0
                             && r.layerIndex < cp.layers.size() && r.layerIndex < compiled.size()) {
                         cur = drawOneLayer(cp.layers.get(r.layerIndex),
@@ -2016,11 +2071,24 @@ public class FxPreviewTextureView extends TextureView
                 if (drawLayerOverlay(layerBmp, cur, dst, vw, vh)) cur = dst;
             }
 
+            MotionPreviewReadback capture = motionReadback;
+            if (com.fadcam.BuildConfig.DEBUG && capture != null && motionFrame != null
+                    && !degraded && capture.accepts(motionFrame.editorTimeUs())) {
+                motionReadback = null;
+                capture.capture(targets[cur][1], vw, vh, motionFrame.editorTimeUs());
+            }
+
             // 4 — present the finished frame, fit-centred, at view resolution.
             drawPresent(targets[cur][0]);
-            EGL14.eglSwapBuffers(eglDisplay, eglSurface);
+            boolean swapped = EGL14.eglSwapBuffers(eglDisplay, eglSurface);
             // Pilot measurement: frame time
             long frameNs = System.nanoTime() - frameStartNs;
+            if (motionPreviewTiming && swapped && !degraded && capture == null && motionFrame != null
+                    && motionFrame.editorTimeUs() > lastTimedMotionFrameUs) {
+                lastTimedMotionFrameUs = motionFrame.editorTimeUs();
+                FLog.i("MotionPreviewBench", "editorUs=" + lastTimedMotionFrameUs
+                        + " periodUs=" + motionFrame.periodUs() + " drawAndSwapNs=" + frameNs);
+            }
             pilotFrameCount++;
             pilotTotalFrameNs += frameNs;
             if (frameNs > pilotMaxFrameNs) pilotMaxFrameNs = frameNs;
@@ -2688,6 +2756,210 @@ public class FxPreviewTextureView extends TextureView
      * yet to decode) contributes nothing — the slot stays {@code src}, matching the "absent
      * until ready" behaviour the sibling stills have always had.
      */
+    private final java.util.EnumMap<RigidTextureShutterPass.Source, RigidTextureShutterPass> stillShutters =
+            new java.util.EnumMap<>(RigidTextureShutterPass.Source.class);
+    private final java.util.EnumSet<RigidTextureShutterPass.Source> failedStillShutters =
+            java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
+    private final java.util.EnumSet<RigidTextureShutterPass.Source> loggedStillShutters =
+            java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
+
+    void setSpineShutter(@Nullable ShutterExposure exposure) {
+        spineShutter = exposure;
+    }
+
+    private static final RigidShutterPlan SHUTTER_WARMUP = new RigidShutterPlan(
+            new SweptBounds(0, 0, 1, 1),
+            List.of(new RigidShutterPlan.Tap(new ItemMotionSampler.Affine(1, 0, 0, 1, 0, 0), 1)));
+
+    private RigidTextureShutterPass shutterProgram(RigidTextureShutterPass.Source source)
+            throws androidx.media3.common.util.GlUtil.GlException {
+        var pass = stillShutters.get(source);
+        if (pass == null) {
+            pass = new RigidTextureShutterPass(source);
+            stillShutters.put(source, pass);
+        }
+        return pass;
+    }
+
+    private void prepareShutterPrograms(@Nullable CompositePlan composite, int width, int height) {
+        if (spineShutter != null) prepareShutter(RigidTextureShutterPass.Source.SPINE, width, height);
+        if (composite == null) return;
+        for (Rung rung : composite.rungs) {
+            if (rung.pipShutter != null) {
+                prepareShutter(rung.pipShutter.shutter().source(), width, height);
+            } else if (rung.shutter != null) {
+                prepareShutter(rung.shutter.source(), width, height);
+            }
+        }
+    }
+
+    /** Warm the driver's first draw on scratch before the first moving frame needs the shader. */
+    private void prepareShutter(RigidTextureShutterPass.Source source, int width, int height) {
+        if (stillShutters.containsKey(source) || failedStillShutters.contains(source)) return;
+        long startNs = System.nanoTime();
+        try {
+            var pass = shutterProgram(source);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[1][1]);
+            GLES20.glViewport(0, 0, 1, 1);
+            pass.draw(targets[0][0], 1, 1, SHUTTER_WARMUP, targets[0][0], 1f);
+            if (com.fadcam.BuildConfig.DEBUG) {
+                FLog.i(TAG, "prepared shutter " + source + " in "
+                        + (System.nanoTime() - startNs) / 1_000_000L + "ms");
+            }
+        } catch (androidx.media3.common.util.GlUtil.GlException error) {
+            failedStillShutters.add(source);
+            FLog.w(TAG, "Could not prepare " + source + " shutter; drawing sharp", error);
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
+            GLES20.glViewport(0, 0, width, height);
+        }
+    }
+
+    private int drawSpineWithShutter(int src, int width, int height) {
+        var frame = motionFrame;
+        var sampler = spineShutter;
+        var source = RigidTextureShutterPass.Source.SPINE;
+        if (frame != null && sampler != null && !failedStillShutters.contains(source)) {
+            var exposure = sampler.at(frame.editorTimeUs(), frame.periodUs(), width, height);
+            if (exposure != null) {
+                int dst = src == 0 ? 1 : 0;
+                try {
+                    var pass = shutterProgram(source);
+                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+                    GLES20.glViewport(0, 0, width, height);
+                    pass.draw(targets[src][0], width, height, exposure.plan(), 0, 1f);
+                    if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
+                        FLog.i(TAG, "live spine shutter editorUs=" + frame.editorTimeUs()
+                                + " periodUs=" + frame.periodUs() + " taps="
+                                + exposure.plan().taps().size());
+                    }
+                    return dst;
+                } catch (androidx.media3.common.util.GlUtil.GlException error) {
+                    failedStillShutters.add(source);
+                    FLog.w(TAG, "Spine shutter unavailable; drawing sharp", error);
+                } finally {
+                    GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+                }
+            }
+        }
+        float[] pose = spinePose;
+        return pose == null ? src : drawSpineTransform(pose, src, width, height);
+    }
+
+    private int drawRung(Rung rung, int src, int width, int height) {
+        if (rung.pipShutter != null) {
+            return drawLivePipShutter(rung.pip, rung.pipShutter, src, width, height);
+        }
+        if (rung.neighboringCells != null && motionFrame != null) {
+            for (var cell : rung.neighboringCells) {
+                if (cell.covers(motionFrame.editorTimeUs())) {
+                    return drawStillShutter(cell.pip(), cell.shutter(), src, width, height);
+                }
+            }
+            return drawPipRung(rung.pip, src, width, height);
+        }
+        return rung.shutter == null ? drawPipRung(rung.pip, src, width, height)
+                : drawStillShutter(rung.pip, rung.shutter, src, width, height);
+    }
+
+    private int drawStillShutter(Pip p, StillShutter shutter, int src, int width, int height) {
+        var frame = motionFrame;
+        var source = shutter.source();
+        var exposure = frame == null || failedStillShutters.contains(source) ? null
+                : shutter.exposure().at(frame.editorTimeUs(), frame.periodUs(), width, height);
+        if (exposure == null) return drawPipRung(p, src, width, height);
+        int still = stillTextureFor(p);
+        if (still == 0) return src;
+        int dst = src == 0 ? 1 : 0;
+        try {
+            var pass = shutterProgram(source);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+            GLES20.glViewport(0, 0, width, height);
+            pass.draw(still, width, height, exposure.plan(), targets[src][0], exposure.opacity());
+            if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
+                FLog.i(TAG, "live " + (p.clipId.startsWith("title-motion#") ? "title"
+                        : source == RigidTextureShutterPass.Source.PICTURE ? "picture" : "sprite")
+                        + " shutter editorUs=" + frame.editorTimeUs() + " periodUs=" + frame.periodUs()
+                        + " taps=" + exposure.plan().taps().size());
+            }
+            return dst;
+        } catch (androidx.media3.common.util.GlUtil.GlException e) {
+            failedStillShutters.add(source);
+            FLog.w(TAG, "Still shutter unavailable; drawing sharp", e);
+            return drawPipRung(p, src, width, height);
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        }
+    }
+
+    private int motionPipTex, motionPipFbo, motionPipWidth, motionPipHeight;
+
+    private int drawLivePipShutter(Pip p, LivePipShutter motion, int src, int width, int height) {
+        var frame = motionFrame;
+        var source = RigidTextureShutterPass.Source.VIDEO_OVERLAY;
+        var exposure = frame == null || failedStillShutters.contains(source) ? null
+                : motion.shutter().exposure().at(frame.editorTimeUs(), frame.periodUs(), width, height);
+        if (exposure == null) return drawPipRung(p, src, width, height);
+        if (!p.rendersAnything()) return src;
+        int slot = p.liveSlot;
+        SurfaceTexture input = slot >= 0 && slot < livePipInputs ? pipTextures[slot] : null;
+        if (input == null || !pipHasFrame[slot]) return src;
+        int dst = src == 0 ? 1 : 0;
+        try {
+            input.updateTexImage();
+            input.getTransformMatrix(pipTexMatrix[slot]);
+            float maxEdge = Math.min(2048, Math.max(width, height));
+            float scale = Math.min(1f, maxEdge / Math.max(motion.sourceWidth(), motion.sourceHeight()));
+            ensureMotionPipTarget(Math.max(1, Math.round(scale * motion.sourceWidth())),
+                    Math.max(1, Math.round(scale * motion.sourceHeight())));
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, motionPipFbo);
+            GLES20.glViewport(0, 0, motionPipWidth, motionPipHeight);
+            GLES20.glUseProgram(stageProgram);
+            bindQuad(stageProgram);
+            GLES20.glUniformMatrix4fv(GLES20.glGetUniformLocation(stageProgram, "uTexMatrix"),
+                    1, false, pipTexMatrix[slot], 0);
+            setF(stageProgram, "uRotation", 0f);
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, pipTexIds[slot]);
+            GLES20.glUniform1i(GLES20.glGetUniformLocation(stageProgram, "uOesTexture"), 0);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+
+            var pass = shutterProgram(source);
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+            GLES20.glViewport(0, 0, width, height);
+            pass.draw(motionPipTex, width, height, exposure.plan(), targets[src][0], exposure.opacity());
+            if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
+                FLog.i(TAG, "live pip shutter editorUs=" + frame.editorTimeUs()
+                        + " periodUs=" + frame.periodUs() + " taps=" + exposure.plan().taps().size());
+            }
+            return dst;
+        } catch (RuntimeException | androidx.media3.common.util.GlUtil.GlException error) {
+            failedStillShutters.add(source);
+            FLog.w(TAG, "PiP shutter unavailable; drawing sharp", error);
+            return drawPipRung(p, src, width, height);
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        }
+    }
+
+    private void ensureMotionPipTarget(int width, int height)
+            throws androidx.media3.common.util.GlUtil.GlException {
+        if (motionPipFbo != 0 && motionPipWidth == width && motionPipHeight == height) return;
+        releaseMotionPipTarget();
+        motionPipTex = androidx.media3.common.util.GlUtil.createTexture(width, height, false);
+        motionPipFbo = androidx.media3.common.util.GlUtil.createFboForTexture(motionPipTex);
+        motionPipWidth = width;
+        motionPipHeight = height;
+    }
+
+    private void releaseMotionPipTarget() {
+        if (motionPipFbo != 0) GLES20.glDeleteFramebuffers(1, new int[]{motionPipFbo}, 0);
+        if (motionPipTex != 0) GLES20.glDeleteTextures(1, new int[]{motionPipTex}, 0);
+        motionPipFbo = 0;
+        motionPipTex = 0;
+    }
+
     private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
         if (!p.rendersAnything()) return src;
         // SPEC E mesh: bent images render via the shared stamp (frame-sized FBO) then composite
@@ -3280,6 +3552,13 @@ public class FxPreviewTextureView extends TextureView
         if (h != null) {
             h.post(() -> {
                 releasePrograms();
+                for (var shutter : stillShutters.values()) {
+                    try { shutter.release(); } catch (Exception ignored) { }
+                }
+                stillShutters.clear();
+                releaseMotionPipTarget();
+                failedStillShutters.clear();
+                loggedStillShutters.clear();
                 releaseTargets();
                 // The cached PiP programs and uploaded still textures belong to this context —
                 // free them while it is still current. Retired still bitmaps are recycled here

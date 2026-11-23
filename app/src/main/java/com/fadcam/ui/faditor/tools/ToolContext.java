@@ -61,19 +61,19 @@ public final class ToolContext {
             "split", "duplicate", "delete", "move", "opacity");
 
     private static final List<String> TEXT = Arrays.asList(
-            "text", "align", "captions", "transitions");
+            "text", "align", "captions", "transitions", "motion_blur");
 
     private static final List<String> VIDEO = Arrays.asList(
-            "speed", "crop", "filter", "rotate", "flip", "transitions", "canvas", "adjustment");
+            "speed", "crop", "filter", "rotate", "flip", "transitions", "canvas", "adjustment", "motion_blur");
 
     private static final List<String> IMAGE = Arrays.asList(
-            "crop", "rotate", "flip", "filter", "canvas", "align", "adjustment");
+            "crop", "rotate", "flip", "filter", "canvas", "align", "adjustment", "motion_blur");
 
     private static final List<String> AUDIO = Arrays.asList(
             "audio", "mute", "silence", "fix_audio", "beats", "visualizer", "speed");
 
     private static final List<String> SPRITE = Arrays.asList(
-            "sprites", "align", "rotate", "flip", "opacity");
+            "sprites", "align", "rotate", "flip", "opacity", "motion_blur");
 
     private static final List<String> CAPTION = Arrays.asList(
             "captions", "transcript", "text", "align");

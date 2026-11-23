@@ -22,6 +22,7 @@ public enum SettingsKey {
     EDITOR(null),
     VIDEO_PLAYER("group_video_player_settings"),
     AI_JOYBOT(null),
+    HANDOFF(null),
 
     // ── Recording ──
     CAMERA_VIDEO("group_video_quick"),

@@ -12,4 +12,13 @@ public interface LinkPose {
     float animatedSizeFraction(long timelineMs);
     float animatedRotation(long timelineMs);
     float animatedOpacity(long timelineMs);
+
+    /** X, Y, size, rotation for shutter sampling. Non-rigid parents use the existing pose clock. */
+    default void motionPlacementAt(double timelineMs, float[] placement) {
+        long ms = (long) Math.floor(timelineMs);
+        placement[0] = animatedCenterX(ms);
+        placement[1] = animatedCenterY(ms);
+        placement[2] = animatedSizeFraction(ms);
+        placement[3] = animatedRotation(ms);
+    }
 }

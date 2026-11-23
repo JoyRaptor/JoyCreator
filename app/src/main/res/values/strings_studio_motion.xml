@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="studio_motion_blur">Motion Blur</string>
+    <string name="studio_motion_enable_project">Enable motion blur for this project</string>
+    <string name="studio_motion_enable_item">Blur this item’s transform</string>
+    <string name="studio_motion_scope_clip">Position, scale, and rotation keyframes blur the clip’s placement. Loops, jump cuts, transitions, and still-image clips can show a sharp preview. Filmed-video motion analysis is planned separately.</string>
+    <string name="studio_motion_scope_pip">Live preview supports a single video overlay at normal speed with Normal blend. Masks, chroma key, track mattes, and clip effects can leave it sharp.</string>
+    <string name="studio_motion_scope_picture">Preview supports ordinary animated pictures. Linked pictures, corner pins, custom pivots, and effect or transition treatments can leave the picture sharp.</string>
+    <string name="studio_motion_scope_title">Preview supports plain animated titles. Linked, styled, warped, and preset-animated titles can remain sharp.</string>
+    <string name="studio_motion_scope_sprite">Preview supports a single ordinary animated sprite with directly keyed cells. Avatar rigs, preset sequences, and mixed overlay stacks can remain sharp.</string>
+    <string name="studio_motion_apply">Apply</string>
+    <string name="studio_motion_inspect">Inspect Frame</string>
+    <string name="studio_motion_inspect_working">Rendering the export frame…</string>
+    <string name="studio_motion_inspect_failed">Couldn’t render this frame.</string>
+    <string name="studio_motion_select_item">Select a clip, picture, title, or sprite to set motion blur.</string>
+    <string name="studio_motion_preset">Preset</string>
+    <string name="studio_motion_timing">Shutter timing</string>
+    <string name="studio_motion_angle_value">Shutter angle  %1$d°</string>
+    <string name="studio_motion_phase_value">Shutter phase  %1$d°</string>
+    <string name="studio_motion_mix_value">Mix  %1$d%%</string>
+    <string-array name="studio_motion_presets">
+        <item>Natural</item>
+        <item>Crisp</item>
+        <item>Heavy</item>
+        <item>Trailing</item>
+        <item>Custom</item>
+    </string-array>
+    <string-array name="studio_motion_timings">
+        <item>Centered</item>
+        <item>Trailing</item>
+        <item>Leading</item>
+        <item>Custom phase</item>
+    </string-array>
+</resources>

@@ -27,6 +27,9 @@ if (existsSync(toppsFile)) builtIn = '<script type="application/json" id="builti
 // A draft character from the owner's own kit rides along when it is on this machine (tools/avatarlab/local/ is not in the repository).
 const joybotFile = join(here, 'local', 'joybot.character.json');
 if (existsSync(joybotFile) && !process.argv.includes('--no-local')) builtIn += '\n<script type="application/json" id="builtin-joybot">' + readFileSync(joybotFile, 'utf8').replace(/</g, '\\u003c') + '</script>';
+// Pictures the page reads by name ride inside it as data (Studio's backdrop, al-frame.js reads AL_INLINE).
+const inline = {}; for (const f of ['studio-backdrop.jpg']) if (existsSync(join(here, f))) inline[f] = 'data:image/jpeg;base64,' + readFileSync(join(here, f)).toString('base64');
+body = '<script>window.AL_INLINE = ' + JSON.stringify(inline) + ';</script>\n' + body;
 mkdirSync(join(here, 'dist'), { recursive: true });
 const out = [title, sides, fonts, style, builtIn, body].join('\n');
 writeFileSync(join(here, 'dist', 'avatar-studio.html'), out);

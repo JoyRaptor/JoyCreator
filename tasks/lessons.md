@@ -1280,3 +1280,24 @@ solid drawing's dots could be moved). He called it a regression: "how you had it
 of the buttons from any of the angles". **Rule: fix the thing that was reported and keep the rest of the interaction as it was;
 if a rebuild seems better, keep the old behaviour reachable and say so.** And when two states are told apart by colour, the
 colour belongs to the thing (this drawing is always blue, that one always pink), never to its state of the moment.
+
+## 2026-11-21: folding everything away is not organising it (AVA-1 pilot, round 9)
+
+An audit said the cards were too long, so I folded every section shut and added more controls. The owner's next pass:
+"all the options are drilled closed so I keep having to open them", "a zillion drawers with one single button", and the simple
+acts ("I just want to nudge that part over", turn a part) were "frustratingly hidden". Two of my previews also lied: Build showed
+a stance with the hands in the air that Perform plants, and a slider detached the arms from the body. And a button press threw
+the card back to its top, away from what he had just changed. **Rules: order a surface by what the user does first (bring it in,
+wire it up, make it look right in one place, then in every pose, then moving, then playing); keep sections open and put only the
+seldom-used ones behind ONE drawer; the plain acts (move, turn, put back) are one tap from anywhere; a still view never shows
+what the moving one will not do; an edit never moves the page; a part in focus is never under the floating buttons.** When a
+repair cannot reach the user's own saved copy, repair that copy too (once, undoable) instead of asking him three times.
+
+## 2026-11-21: a value kept "relative" must say relative to what (AVA-1)
+- The all-fours stance kept each hand placement as a difference from the worked-out placement, in the torso's frame. Changing the tip turned that frame, so the same numbers meant a different place and the limbs came off the body. Rule: when a setting re-derives a pose, carry hand edits across in picture terms, and test the setting with a character that HAS hand edits, not the clean demo.
+- A script that only switches a feature on is not a test of it. Drag the real control with the mouse, then switch away and back.
+- 2026-11-21 (AVA-1): a test must be shown to FAIL on the fault before its pass means anything. My first break test passed the very bug it was written for (it measured distance to a bounding box). Feed every new test the old broken behaviour first.
+- 2026-11-21 (AVA-1): a test that reaches round the room (pushes a pin into the list, sets a flag to null) tests nothing the user can do, and hides the fault when the fix lives in the real function. The helper's pins and held-pose checks did this; they now call what the button calls. Also: a check that assumes a clean slate fails for the wrong reason after another test; compare before and after instead.
+- 2026-11-21 (AVA-1, Scenes): the owner asked for scenes to "integrate easily with" Perform and I built a second room beside it, with its own rail, its own Play and a menu-only way in. He called it "a separate app taped on". A new ability goes INSIDE the surface people already use, reached from where they already are; when the owner has sketched the way in, build that way in. An argument I won in talk ("a scene sits above the character") is not a licence to restructure the room. And before building: does Video Studio already do this, and well? Then plug it in.
+- 2026-11-22 (AVA-1): I told the owner building the phone room would be "weeks of work" and used it to argue for keeping Avatar Studio out of the launch. He: "AI can't judge time well. Avatar Studio will ship in Joy Creator." Never estimate work in human time or let a guessed duration steer a decision; give the steps and what each needs, and leave timing to him.
+- 2026-11-22 (FACE-1, face pins round 5): my check read the pins' positions from the numbers I had set (style left/top), so it passed while every pin was drawn 46 points above the finger on the phone (the layer sat against the page, not the stage). Measure what the eye sees (the drawn element's own box against the finger) and start a drag where the thing is drawn. Also check on the device, not only a PC window at phone size: the layout above the stage differs.

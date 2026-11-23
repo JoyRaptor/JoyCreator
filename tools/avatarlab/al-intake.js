@@ -49,7 +49,8 @@
   };
 
   /* ── the built-in characters ── */
-  intake.builtIn = function (app, which) {
+  intake.builtIn = function (app, which) { return builtIn0(app, which).then(function (r) { setTimeout(function () { AL.shelf.stockKeep(app, which); }, 400); return r; }); };
+  function builtIn0(app, which) {
     if (which === 'pip') { AL.img.map = {}; var p = AL.demo(); p.demo = 'pip'; p.pilot = AL.PILOT; app.setMode('build'); app.setCharacter(p, { quiet: true }); return Promise.resolve(); }
     function get(url) { return fetch(url).then(function (r) { if (!r.ok) throw new Error('missing'); return r.json(); }); }
     if (which === 'joybot') {                                     // a draft built from the owner's kit; it rides in his own page, not in the repository
@@ -73,6 +74,7 @@
   };
   intake.openJson = function (app, text) {
     var o; try { o = JSON.parse(text); } catch (e) { throw new Error('That file could not be read as a character.'); }
+    if (o && o.format === 'joycreator.scene/1' && AL.scene) return AL.scene.open(app, o).then(function (ok) { if (ok) app.toast('Opened the scene “' + o.name + '”'); });      // a scene file: its set, its cast, its takes
     var bad = AL.validate(o); if (bad) throw new Error(bad);
     var take = o.take && o.take.ch ? o.take : null, old = AL.img.map; delete o.take; AL.img.map = {};
     return AL.fromJson(o).then(function (ch) {
@@ -86,26 +88,54 @@
    * Layers are matched by their folder path and name, then by name alone where that name is used once.
    * New layers arrive in Extras; layers that are gone from the file stay as they were.
    */
+  /**
+   * THE SAME CHARACTER, PAINTED BIGGER. A layered file of the same shape as the character but a different size (Topps rigged at 512,
+   * repainted at 1024 or 2000) is brought into the character's own space: each layer's place is divided down, and its paint is kept at
+   * full resolution as finer art (AL.img.putFine). Nothing in the rig is touched, so nothing in the rig can break.
+   * Each layer's box is grown to whole character pixels first, so the paint sits exactly where it was painted.
+   * Returns the factor (0 = the file is the character's size, or a different shape: left alone).
+   */
+  intake.fitSize = function (doc, ch) {
+    var k = doc.w / ch.w; if (!(k > 0) || Math.abs(doc.h / ch.h - k) > 0.01 * k || Math.abs(k - 1) < 0.005) return 0;
+    (function w(L) {
+      if (L.kind === 'group') { (L.kids || []).forEach(w); return; }
+      var im = AL.img.get(L.img); if (!im || !im.w || !im.h) { L.x = Math.round(L.x / k); L.y = Math.round(L.y / k); return; }
+      var lx = Math.floor(L.x / k), ly = Math.floor(L.y / k), lw = Math.max(1, Math.ceil((L.x + im.w) / k) - lx), lh = Math.max(1, Math.ceil((L.y + im.h) / k) - ly);
+      var c = document.createElement('canvas'), g;
+      if (k > 1) { c.width = Math.round(lw * k); c.height = Math.round(lh * k); c.getContext('2d').drawImage(im.canvas, Math.round(L.x - lx * k), Math.round(L.y - ly * k)); AL.img.putFine(L.img, c, lw, lh, im.name); }
+      else { c.width = lw; c.height = lh; g = c.getContext('2d'); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(im.canvas, L.x / k - lx, L.y / k - ly, im.w / k, im.h / k); AL.img.put(L.img, c, im.name); }
+      L.x = lx; L.y = ly;
+    })({ kind: 'group', kids: doc.kids });
+    return k;
+  };
   intake.updateArt = function (app, buf, name) {
     var ch = app.ch;
-    function key(path) { return path.map(function (p) { return String(p).trim().toLowerCase(); }).join('/'); }
+    function key(path) { return path.filter(function (p) { return String(p).trim() !== ''; }).map(function (p) { return String(p).replace(/^\s*\+\s*/, '').replace(/\s+/g, ' ').trim().toLowerCase(); }).join('/'); }      // (as the rig names them: a leading + mark and stray spaces are not part of a name)
     return AL.importPsd(buf, name).then(function (doc) {
+      var kq = intake.fitSize(doc, ch);
       var byPath = {}, byName = {};
       (function w(n, path) { if (n.type === 'art') { var k = key(path.concat(n.name)); (byPath[k] = byPath[k] || []).push(n); var nm = key([n.name]); (byName[nm] = byName[nm] || []).push(n); } (n.kids || []).forEach(function (q) { w(q, n === ch.root ? [] : path.concat(n.name)); }); })(ch.root, []);
-      var hit = 0, moved = 0, fresh = [];
+      var hit = 0, moved = 0, fresh = [], later = [], taken = {};
+      /* the file says where each drawing sits (owner, 11-21: where things were moved in the pilot was experiment, the file is the truth) */
+      function place(n, L) { if (n.x !== L.x || n.y !== L.y) moved++; n.x = L.x; n.y = L.y; n.img = L.img; hit++; taken[n.id] = 1; }
       app.edit(function () {
         (function w(L, path) {
           if (L.kind === 'group') { L.kids.forEach(function (q) { w(q, path.concat(L.name)); }); return; }
-          var list = byPath[key(path.concat(L.name))] || (function () { var c = byName[key([L.name])] || []; return c.length === 1 || c.every(function (q) { return q.shared; }) ? c : []; })();
-          if (!list.length) { fresh.push(L); return; }
+          var list = byPath[key(path.concat(L.name))];
+          if (!list || !list.length) { later.push(L); return; }
           var same = list.every(function (q) { return q.shared; }) ? list : [list.shift()];      // a drawing copied onto every head angle is one layer in the file
-          same.forEach(function (n) { if (n.x !== L.x || n.y !== L.y) moved++; n.img = L.img; n.x = L.x; n.y = L.y; hit++; });
+          same.forEach(function (n) { place(n, L); });
         })({ kind: 'group', name: '', kids: doc.kids }, []);
-        fresh.forEach(function (L) { ch.root.kids.unshift({ id: AL.id('n'), name: L.name, type: 'art', img: L.img, x: L.x, y: L.y, role: 'prop' }); });
+        /* not where the file has it (moved to another folder in this room): by its name, if only one drawing of that name is still unclaimed */
+        later.forEach(function (L) {
+          var c = (byName[key([L.name])] || []).filter(function (q) { return !taken[q.id]; });
+          if (c.length === 1 || (c.length && c.every(function (q) { return q.shared; }))) c.forEach(function (n) { place(n, L); }); else fresh.push(L);
+        });
+        fresh.forEach(function (L) { ch.root.kids.unshift({ id: AL.id('n'), name: String(L.name).replace(/^\s*\+\s*/, '').trim() || 'Layer', type: 'art', img: L.img, x: L.x, y: L.y, role: 'prop' }); });
         AL.reindex(ch);
       }, false, 'Update the art');
       app.solver.grids = {}; app.solver.geo = {}; if (app.G) app.G.forget();
-      app.toast(hit + ' drawings repainted, rigging kept' + (fresh.length ? '. ' + fresh.length + ' new ' + (fresh.length === 1 ? 'layer is' : 'layers are') + ' in Extras' : '') + (doc.w !== ch.w || doc.h !== ch.h ? '. The file is a different size, so check where things sit' : ''));
+      app.toast(hit + ' drawings repainted, rigging kept' + (fresh.length ? '. ' + fresh.length + ' new ' + (fresh.length === 1 ? 'layer is' : 'layers are') + ' in Extras' : '') + (kq > 1 ? '. The file is ' + (Math.round(kq * 10) / 10) + ' times the size: it came in as finer art, and every pin is where it was' : kq ? '. The file is smaller than the character, so the art is coarser now' : doc.w !== ch.w || doc.h !== ch.h ? '. The file is a different shape, so check where things sit' : ''));
     });
   };
   intake.openUrl = function (app, url) {
@@ -214,6 +244,21 @@
       }).catch(function (e) { app.toast(e.message); });
     });
   };
+  /** More pictures as ANGLES of something that turns (a body's front view, its other side): each gets its own dot on the pad. */
+  intake.addAngle = function (app, set) {
+    pickImages(function (files) {
+      Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
+        pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
+        var b = AL.boundsOf(set) || { x0: 0, y0: 0, x1: app.ch.w, y1: app.ch.h }, cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, last = null, spots = [[0, 0], [0.6, 0], [-0.6, 0], [1, 0], [-1, 0], [0, -0.6], [0, 0.6], [0.3, 0], [-0.3, 0]];
+        app.edit(function () { pics.forEach(function (p) {
+          var id = AL.id('i'), at = spots.filter(function (q) { return !set.kids.some(function (k) { return k.at && Math.hypot(k.at[0] - q[0], k.at[1] - q[1]) < 0.2; }); })[0] || [0, 0.3];
+          AL.img.put(id, p.canvas, p.name); last = { id: AL.id('n'), name: p.name, type: 'art', img: id, x: Math.round(cx - p.canvas.width / 2), y: Math.round(cy - p.canvas.height / 2), at: [at[0], at[1]] }; set.kids.push(last);
+        }); }, true, 'Add an angle');
+        if (last) { app.bt.x = last.at[0]; app.bt.y = last.at[1]; app.moveDots = true; } app.refreshPanel(true);
+        app.toast(pics.length === 1 ? 'Angle added. Drag its dot to where it should show.' : pics.length + ' angles added. Drag their dots to where they should show.');
+      }).catch(function (e) { app.toast(e.message); });
+    });
+  };
   /** More pictures as looks of a part that swaps: each lands where the part is. */
   intake.addLook = function (app, set) {
     pickImages(function (files) {
@@ -243,6 +288,7 @@
       }).catch(function (e) { app.toast(e.message); });
     });
   };
+  intake.trim = trim;      // (a picture cut to its paint, remembering where on the whole canvas it sat: al-agent.js brings parts in the same way)
   intake.addPictures = function (app, files, zone) {
     return Promise.all(Array.prototype.map.call(files, function (f) { return loadCanvas(f).then(function (c) { return trim(c, nice(f.name)); }); })).then(function (pics) {
       pics = pics.filter(Boolean); if (!pics.length) throw new Error('Those pictures were empty.');
@@ -441,22 +487,30 @@
   intake.menu = function (app) {
     var m = h('div', { class: 'menu' });
     function item(icon, label, fn, hint) { m.appendChild(h('button', { title: label, onclick: function () { app.closeSheet(); fn(); } }, [AL.icon(icon), h('span', { text: label }), hint ? h('small', { text: hint }) : null])); }
-    item('plus', 'New character', function () { app.ask('Start a new character?', 'This one is put away. Save it first if you want to keep it.', 'Start new', function () { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.newCharacter('New character', 512, 512)); }); });
-    item('layers', 'Open a layered file', function () { $('filePsd').value = ''; $('filePsd').click(); }, '.psd');
-    item('cut', 'Cut parts from a sheet', function () { intake.cutSheet(app, null); });
-    item('pin', 'Pin one whole drawing', function () { intake.wholeDrawing(app); });
+    /* the characters you have, as a row of cards; the three file buttons sit in the header beside the close button */
+    /* leaving a character: it is kept first; if this browser would not keep it, say so before anything replaces it */
+    function away(then) { if (AL.scene && app.scene) AL.scene.close(app, true);      /* a character is being opened: the scene is kept and left */
+      function go() { if (app._state === 'failed') app.ask('Leave this character?', 'This browser would not keep it. Save it to a file first if you want it.', 'Leave it', then, true); else then(); } app.dirty = !!app.ch && (app.dirty || app._state === 'unsaved'); Promise.resolve(app.autosave()).then(go, go); }
+    function blank() { AL.img.map = {}; app.setMode('build'); app.setCharacter(AL.newCharacter('New character', 512, 512)); }
+    function fresh(which, miss) { return function () { return intake.builtIn(app, which).catch(function () { app.toast(miss); }); }; }
+    var stock = [{ key: 'topps', name: 'Topps', title: 'Topps as he comes: seven head angles, arms that swap and bend, and he walks', fn: fresh('topps', 'Topps is not with this copy of the page.') }];
+    if (intake.hasJoybot()) stock.push({ key: 'joybot', name: 'Joybot', hint: 'draft', title: 'Joybot, a draft built from your own kit', fn: fresh('joybot', 'Joybot is not with this copy of the page.') });
+    stock.push({ key: 'pip', name: 'Pip', title: 'Pip: a small character the page draws by itself', fn: function () { return intake.builtIn(app, 'pip'); } });
+    stock.forEach(function (q) { q.pic = AL.shelf.stockPic(q.key); });
+    var box = h('div', null, [AL.shelf.row(app, stock, function () {
+      app.closeSheet();
+      away(blank);
+    }, away), AL.scene ? AL.scene.row(app) : null, m]);
     item('layers', 'Update the art', function () { if (!AL.find(app.ch.root, function (n) { return n.type === 'art'; })) { app.toast('There is no character to update yet.'); return; } intake.psdMode = 'update'; $('filePsd').value = ''; $('filePsd').click(); }, 'repainted .psd, rigging kept');
     item('image', 'Add pictures', function () { pickImages(function (files) { intake.addPictures(app, files, null).catch(function (e) { app.toast(e.message); }); }); }, 'named by part');
     m.appendChild(h('hr'));
-    item('file', 'Open a character file', function () { $('fileJson').value = ''; $('fileJson').click(); }, '.character.json');
-    item('save', 'Save this character', function () { intake.saveCharacter(app); }, 'with its take');
-    item('send', 'Send to Studio', function () { intake.send(app); });
-    m.appendChild(h('hr'));
-    item('smile', 'Meet Topps', function () { intake.builtIn(app, 'topps').catch(function () { app.toast('Topps is not with this copy of the page.'); }); });
-    if (intake.hasJoybot()) item('smile', 'Meet Joybot (draft)', function () { intake.builtIn(app, 'joybot').catch(function () { app.toast('Joybot is not with this copy of the page.'); }); });
-    item('smile', 'Meet Pip', function () { intake.builtIn(app, 'pip'); });
     item('help', 'What can this do?', function () { intake.about(app); });
-    app.sheet('Avatar Studio', m, []);
+    m.appendChild(app.ui.toggle('One long card per part', !AL.stages.on(), function (v) { app.closeSheet(); AL.stages.set(app, !v); }, 'The earlier layout: Build and Perform at the top, and everything about a part on one card'));
+    app.sheet('Avatar Studio', box, [], [
+      { icon: 'file', title: 'Open a character file', fn: function () { app.closeSheet(); $('fileJson').value = ''; $('fileJson').click(); } },
+      { icon: 'save', title: 'Save this character to a file, with its take', fn: function () { app.closeSheet(); if (AL.scene && AL.scene.on(app)) AL.scene.saveFile(app); else intake.saveCharacter(app); } },
+      { icon: 'export', title: 'Export: the Joy Creator file, or one frame as a picture', fn: function () { app.closeSheet(); intake.send(app); } }
+    ]);
   };
   intake.about = function (app) {
     app.sheet('What Avatar Studio does', h('div', null, [

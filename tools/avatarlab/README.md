@@ -128,6 +128,48 @@ behind on the other; a tuft behind the head when he looks up). Any set of angles
 20. **Round shapes by their own outline**, turned right round, with parts on the back; parts that keep their shape as
     they slide; a part inside two masks at once.
 21. **A small preview beside every part**, wherever a part is listed or picked.
+22. **Copy an angle.** Any head angle can be copied to a new dot, then tipped and resized as a whole; between dots
+    the tip and size blend. Landmarks cancel the depth slide toward the neighbour they match, so nothing jumps.
+23. **Turning right round three ways:** Smooth (tucks in, swaps, opens out; a two-sided head keeps turning), Instant,
+    or a card swinging round.
+24. **Fit it by hand** (`al-fit.js`): pick a piece on the picture; a transform box on any part, angle or stance; reshape
+    with pins.
+25. **Stances** (`al-stance.js`): whole-body poses with a button, blended on a spring, parts swinging on arcs. All fours
+    is worked out from the art.
+26. **Any number of legs** (`al-walk.js`): every walking limb has a step timing; arms can be told they may become feet.
+27. **Colour sets** (`al-tone.js`): a hue lookup worked out from a picture, arriving as a wave.
+28. **The body's own turn drawings**, and a four-legged body map.
+29. **A stance's own order** (`poses[].d[id].z = { how: 'under' | 'over' | 'front' | 'back', of, at }`): in a stance a
+    part can pass behind or in front of another; set on the part's card by tapping the other part on the picture.
+30. **The stack** (`al-stack.js`): one control for "in front or behind". A row of the parts in the order they are really
+    drawn (back on the left, front on the right, read from the draw list each frame), the part in hand in cyan. Step it,
+    or tap another part to step past it. In a stance it writes the stance's order (item 29); on a whole part it writes
+    the same sentence for always (`node.zo = { how, of, tip }`); on a layer inside a part it reorders the folder.
+31. **The shelf and the drawer** (`al-shelf.js`): the drawer opens with a row of characters (Create new, your own with
+    the last used first, then the built-in ones), sized so one is always cut off at the edge. Open, save and send are
+    three buttons beside the close button. A changed character is kept on the shelf by itself (`ch.uid`; browser store
+    keys `shelf` and `c:<uid>`).
+32. **Folding cards**: every titled section of a long card folds; the same titles are shortcuts in the card's header.
+    On/off controls are tick boxes; sliding switches are kept for two equal choices. The header's two-legs / four-legs
+    switch puts a character that has an all-fours stance into that stance. The picture is fitted clear of the hint line
+    and the stage buttons.
+33. **Ground and walking** (`al-ground.js`): one card for everything about walking, opened from the bar under the feet
+    on the body map: the ground pin, how it walks, every limb that walks with its own few settings, the all-fours stance.
+34. **Pictures on controls** (`al-icons.js`): the drawings the owner approved, found by a control's own words
+    (`AL.picFor`), drawn by `AL.icon` in up to three parts (grey lines, a solid shape and lines in the mark colour).
+35. **Round 9 rules**: sections are open (a long one folds, the seldom-used ones share one drawer, "More"); "Move it" on
+    the stage gives the box for whatever part is in hand; in a stance Build shows walking hands planted, as Perform
+    does; a walking hand's height is guessed against the feet (`AL.palmGuess`); the stack's cyan tile can be dragged.
+36. **The four stages** (`al-stages.js`, design note `tasks/design/AVA-1_stages_20261121.md`): Set up (pins), Fit (the
+    box, per pose), Motion (alive), Perform. A section says which stage it belongs to (`ui.lab(text, 'setup' | 'fit' |
+    'motion' | 'all')`, or two of them). The four-way row is in the panel header; in Fit a row on the picture chooses
+    the pose (Standing or a stance). The earlier layout is kept: Menu, "One long card per part" (`AL.stages.set`).
+37. **Round 11**: in a stance a limb's forced drawing is ignored, so Fit and Motion show the same arm; a hand on the
+    ground uses one drawing (`pick.walk.kid`, "The drawing it stands on"); the part in hand is echoed in cyan when it
+    sits behind another (`item.xr`); `app.plantPreview` also sinks the hips and plants the feet; "Hold this pose"
+    (`app.held`, a frozen copy of the live signals, mended in Set up); "Showing now" on a limb in Motion; the walk's
+    "Rise and fall" (`settings.walk.bob`, 0 to 4); turning round mirrors the head unless it is held; part pictures
+    drawn by the solver (`shelf.partPic`).
 
 ## Characters
 

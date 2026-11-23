@@ -75,6 +75,7 @@ final class SettingsDestinations {
                         .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_ROOM, "LOBBY")
                         .putExtra(com.fadcam.ui.faditor.ai.ChatAssistantActivity.EXTRA_OPEN_SETTINGS, true));
                 break;
+            case HANDOFF:            SettingsSwitchSheets.handoff(host); break;
             // ── recording ──
             case CAMERA_VIDEO:       over(a, new VideoSettingsFragment()); break;
             case AUDIO:              over(a, new AudioSettingsFragment()); break;

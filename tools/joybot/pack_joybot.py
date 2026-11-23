@@ -10,7 +10,7 @@ So each animation is cut out into its own small picture, opened only while he pl
 Input is the folder the alignment work wrote (it holds sheet/joybot.png and joybot.animations.json).
 Edit joybot.animations.json (order, speed, "general", which frames loop), run this again, rebuild.
 
-    python tools/joybot/pack_joybot.py "art/Joybot-sprite-assets/aligned_v4_20261115"
+    python tools/joybot/pack_joybot.py "art/Joybot-sprite-assets/aligned_v5_20261120"
 
 Needs Pillow and numpy.
 """

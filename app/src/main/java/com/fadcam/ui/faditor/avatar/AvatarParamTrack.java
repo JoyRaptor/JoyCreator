@@ -40,8 +40,9 @@ public final class AvatarParamTrack {
 
     /** Params that are DISCRETE CLASS INDICES, not continuous values — replay
      *  steps them (hold-until-next-sample) instead of lerping. */
-    private static final java.util.Set<String> STEP_PARAMS =
-            java.util.Collections.singleton(SpectralVisemeAnalyzer.PARAM_VISEME);
+    private static final java.util.Set<String> STEP_PARAMS = new java.util.HashSet<>(java.util.Arrays.asList(
+            SpectralVisemeAnalyzer.PARAM_VISEME,
+            com.fadcam.ui.faditor.avatar.face.FaceSignals.VIS)); // FACE-1: the camera's sheet-mouth shape
 
     /** Parallel, timesMs strictly ascending. */
     private final List<Long> timesMs = new ArrayList<>();
@@ -63,6 +64,17 @@ public final class AvatarParamTrack {
 
     public int size() {
         return timesMs.size();
+    }
+
+    /** FACE-1: the i-th sample's time in ms (lane edits walk a take sample by sample). */
+    public long timeMsAt(int i) {
+        return timesMs.get(i);
+    }
+
+    /** FACE-1: a copy of the i-th sample, exactly as recorded. */
+    @NonNull
+    public Map<String, Float> sampleAtIndex(int i) {
+        return new HashMap<>(samples.get(i));
     }
 
     public boolean isEmpty() {

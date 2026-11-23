@@ -97,10 +97,19 @@
       .catch(function (e) { self.camStop(); throw e; });
   };
   P.camStop = function () { if (!this.cam.on && this.camStream) this.camGone = true; if (this.camStream) this.camStream.getTracks().forEach(function (t) { t.stop(); }); this.camStream = null; this.cam.on = false; this.cam.v = null; this.cam.lm = null; this.cam.face = null; };
+  /** Chrome pauses the camera's picture while the page is in the background and does not start it again: a frozen frame,
+      nothing followed (the owner's phone, 11-22). Start it again. */
+  P.camResume = function () {
+    var c = this.cam, v = c.v; if (!v || !v.paused || c.resuming || typeof v.play !== 'function') return;
+    c.resuming = true; var r; try { r = v.play(); } catch (e) { r = null; }
+    if (r && r.then) r.then(function () { c.resuming = false; }, function () { c.resuming = false; }); else c.resuming = false;
+  };
   P.watch = function () {
-    var c = this.cam, now = performance.now(); if (!c.lm || !c.v || c.v.readyState < 2 || now - c.last < 50) return;
+    var c = this.cam, now = performance.now(); if (c.v && c.v.paused) this.camResume();
+    if (!c.lm || !c.v || c.v.readyState < 2 || now - c.last < 50) return;
     c.last = now;
     var r; try { r = c.lm.detectForVideo(c.v, now); } catch (e) { return; }
+    if (AL.face) { c.face = AL.face.pilotFace(r, c, now / 1000); return; }   // FACE-1: neutral, two sides, lost and found, face pins
     if (!r || !r.faceBlendshapes || !r.faceBlendshapes.length) return;                       // no face: hold, do not fade
     var bs = {}; r.faceBlendshapes[0].categories.forEach(function (q) { bs[q.categoryName] = q.score; });
     var f = { mouth: clamp((bs.jawOpen || 0) * 1.8, 0, 1), blinkL: bs.eyeBlinkLeft > 0.5 ? 1 : 0, blinkR: bs.eyeBlinkRight > 0.5 ? 1 : 0,
@@ -118,18 +127,20 @@
      while something live is driving it, then handed back to the old take over a quarter of a second. Whatever you
      did not touch is the same afterwards, sample for sample. One Undo takes the whole pass back. */
   var OWN = { turnX: 'head', turnY: 'head', roll: 'head', lookX: 'head', lookY: 'head', mouth: 'mouth', vis: 'mouth', browL: 'mood', browR: 'mood', lidUp: 'mood', lidLow: 'mood', lidTilt: 'mood',
-    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hRx: 'handR', hRy: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR', fLr: 'footL', fRr: 'footR', spin: 'body',
-    sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind' };
+    blinkL: 'blink', blinkR: 'blink', hLx: 'handL', hLy: 'handL', hLw: 'handL', hRx: 'handR', hRy: 'handR', hRw: 'handR', fLx: 'footL', fLy: 'footL', fRx: 'footR', fRy: 'footR', fLr: 'footL', fRr: 'footR', spin: 'body',
+    sway: 'body', bounce: 'body', flip: 'body', rootX: 'body', rootY: 'body', rootS: 'body', walk: 'body', wind: 'wind',
+    shrugL: 'shoulders', shrugR: 'shoulders', shrug: 'shoulders' };    // SHRUG-1
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
-  var STEP = { vis: 1, flip: 1 }, FADE = 0.25;
+  var STEP = { vis: 1, flip: 1, hLw: 1, hRw: 1 }, FADE = 0.25;      // (hLw, hRw: that hand is WALKING, planted on the stage like a foot; see al-take-walk.js)
   AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
-  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
+  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'pt.' || name.slice(0, 5) === 'face.') return 'facepins'; if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
   P.channels = function () {
     var seen = {}, out = [], k; function add(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }
     for (k in OWN) add(k);
     for (k in this.pose.dial) { add('dx:' + k); add('dy:' + k); }
     (this.app.ch.triggers || []).forEach(function (t) { add('g:' + t.id); });
     for (k in this.S.pin) { add('p:' + k + ':x'); add('p:' + k + ':y'); }
+    for (k in this.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') add(k);   // FACE-1 face pins and expressions
     if (this.take) for (k in this.take.ch) add(k);                  // whatever the take holds is played, even after a reload
     return out;
   };
@@ -137,20 +148,44 @@
   P.owned = function (talking, faceOn) {
     var hd = this.held, face = !!faceOn && !!this.cam.face, k;
     var o = { head: !!hd.head || face, mouth: !!talking || this.mic.on || face, mood: !!hd.face || face, blink: !!this.blinkHold || this.blinkManual > 0 || face,
-      handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
+      facepins: face, shoulders: !!(AL.pose && AL.pose.live), handL: !!hd.handL, handR: !!hd.handR, footL: !!hd.footL || !!hd.body, footR: !!hd.footR || !!hd.body, body: !!hd.body, wind: !!hd.wind };
     for (k in this.trigTouched) o['g:' + k] = true;                 // a button pressed in this pass is yours to the end of it
     for (k in this.pinTouched) o['p:' + k] = true;
     return o;
   };
-  P.toggleTrig = function (id) { this.trig[id] = !this.trig[id]; if (this.recording) this.trigTouched[id] = true; };
+  P.toggleTrig = function (id) { this.setTrig(id, !this.trig[id]); };
+  /** Switch a button on or off. Colour sets take turns: switching one on switches the others off, so one melts into the next. */
+  P.setTrig = function (id, on) {
+    var self = this, ch = this.app.ch; on = !!on; if (!!this.trig[id] === on) return;
+    this.trig[id] = on; if (this.recording) this.trigTouched[id] = true;
+    if (on) (ch.palettes || []).forEach(function (p) { if (p.trig !== id) return; (ch.palettes || []).forEach(function (o) { if (o !== p && o.trig && self.trig[o.trig]) { self.trig[o.trig] = false; if (self.recording) self.trigTouched[o.trig] = true; } }); });
+    if (this.app.mode === 'perform' && this.app.refreshPanel && this === this.app.inp) { var a = this.app; clearTimeout(a._trigT); a._trigT = setTimeout(function () { a.refreshPanel(true); }, 30); }
+  };
+  /**
+   * STANCES ease in and out on a spring that starts gently and settles without a bump (or with a small one, if the stance
+   * is marked bouncy); COLOUR SETS sweep across at a steady pace. Both follow their buttons, so a take that recorded the
+   * button plays the same change back.
+   */
+  P.easeLevels = function (dt, S) {
+    var ch = this.app.ch, pl = this.poseLvl || (this.poseLvl = {}), pv = this.poseVel || (this.poseVel = {}), tl = this.toneLvl || (this.toneLvl = {});
+    (ch.poses || []).forEach(function (p) {
+      var tgt = p.trig && S.trig[p.trig] ? 1 : 0, x = pl[p.id] || 0, v = pv[p.id] || 0, om = 5.4 / Math.max(0.08, p.time == null ? 0.6 : p.time), z = p.bounce ? 0.6 : 1, h = dt / 3, i;
+      for (i = 0; i < 3; i++) { v += (om * om * (tgt - x) - 2 * z * om * v) * h; x += v * h; }
+      if (Math.abs(tgt - x) < 0.0006 && Math.abs(v) < 0.004) { x = tgt; v = 0; }
+      pl[p.id] = x; pv[p.id] = v;
+    });
+    (ch.palettes || []).forEach(function (p) { var tgt = p.trig && S.trig[p.trig] ? 1 : 0, x = tl[p.id] || 0, st = dt / Math.max(0.05, p.time == null ? 0.9 : p.time); tl[p.id] = x < tgt ? Math.min(tgt, x + st) : Math.max(tgt, x - st); });
+    S.pose = pl; S.tone = tl;
+  };
   P.record = function () {
     if (!this.take) this.take = { fps: 30, n: 0, ch: {} };
     this.backup = JSON.stringify(this.take);
     this.recording = true; this.playing = true; this.scrub = false; this.ph = 0; this.wrote = {}; this.fade = {}; this.trigTouched = {}; this.pinTouched = {}; this.fresh = this.take.n === 0;
+    if (AL.voice) AL.voice.pass(this);                                   // (the voice is kept with the take: al-voice.js)
   };
-  P.stop = function () { var was = this.recording; if (was && this.take) this.take.n = Math.max(this.take.n, Math.floor(this.ph * this.take.fps)); this.recording = false; this.playing = false; if (was && this.app.touch) this.app.touch(); };
+  P.stop = function () { var was = this.recording; if (was && this.take) this.take.n = Math.max(this.take.n, Math.floor(this.ph * this.take.fps)); this.recording = false; this.playing = false; if (was && AL.voice) AL.voice.endPass(this); if (was && this.app.touch) this.app.touch(); };
   /** Take the last recording pass back, whole. */
-  P.undoPass = function () { if (!this.backup) return false; this.recording = false; this.playing = false; var t = JSON.parse(this.backup); this.backup = null; this.take = t.n ? t : null; this.ph = 0; if (this.app.touch) this.app.touch(); return true; };
+  P.undoPass = function () { if (!this.backup) return false; if (AL.voice) AL.voice.cancel(this); this.recording = false; this.playing = false; var t = JSON.parse(this.backup); this.backup = null; this.take = t.n ? t : null; this.ph = 0; if (this.app.touch) this.app.touch(); return true; };
   P.play = function () { if (!this.take || !this.take.n) return; this.playing = true; this.recording = false; this.scrub = false; if (this.ph >= this.take.n / this.take.fps - 0.05) this.ph = 0; };
   P.clearTake = function () { this.recording = false; this.playing = false; this.take = null; this.backup = null; this.ph = 0; if (this.app.touch) this.app.touch(); };
   P.duration = function () { return this.take ? this.take.n / this.take.fps : 0; };
@@ -159,15 +194,19 @@
     var o = { turnX: S.turnX, turnY: S.turnY, roll: S.roll, lookX: S.lookX, lookY: S.lookY, mouth: S.mouth == null ? 0 : S.mouth, vis: AL.SHAPES.indexOf(S.viseme), browL: S.browL, browR: S.browR, blinkL: S.blinkL, blinkR: S.blinkR,
       lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: S.wind, sway: S.sway, bounce: S.bounce, flip: S.flip ? 1 : 0, rootX: S.root ? S.root.x : 0, rootY: S.root ? S.root.y : 0, rootS: S.rootScale || 1, walk: S.walk || 0, fLr: S.foot ? S.foot.FL : 0, fRr: S.foot ? S.foot.FR : 0, spin: S.spin || 0 }, k;
     for (k in HAND) { var hh = S.hand[HAND[k][0]]; o[k] = hh ? (HAND[k][1] ? hh.y : hh.x) : null; }      // null = at rest, and stays null through a saved file
+    o.hLw = S.hand.L && S.hand.L.w ? 1 : 0; o.hRw = S.hand.R && S.hand.R.w ? 1 : 0;                       // a walking hand's place is on the stage, not on the body: the take has to say which it was
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
     for (k in (S.pin || {})) { o['p:' + k + ':x'] = S.pin[k].x; o['p:' + k + ':y'] = S.pin[k].y; }
+    for (var pk in S) if (pk.slice(0, 3) === 'pt.' || pk.slice(0, 5) === 'face.') o[pk] = S[pk];   // FACE-1 face pins and expressions
+    o.shrugL = S.shrugL || 0; o.shrugR = S.shrugR || 0; o.shrug = S.shrug || 0;   // SHRUG-1
     return o;
   }
   function unflat(S, name, v) {
     if (v === undefined) return;
     if (HAND[name]) { var hk = HAND[name]; if (!hk[1]) S.hand[hk[0]] = v == null || v !== v ? null : { x: v, y: S.hand[hk[0]] ? S.hand[hk[0]].y : 0 }; else if (S.hand[hk[0]] && v != null) S.hand[hk[0]].y = v; return; }
     if (v == null) return;
+    if (name === 'hLw' || name === 'hRw') { var hw = S.hand[name === 'hLw' ? 'L' : 'R']; if (hw) hw.w = v > 0.5; return; }
     if (name === 'vis') S.viseme = AL.SHAPES[v] || 'Neutral';
     else if (name === 'rootX') S.root.x = v; else if (name === 'rootY') S.root.y = v; else if (name === 'rootS') S.rootScale = v;
     else if (name === 'flip') S.flip = v > 0.5;
@@ -208,6 +247,8 @@
       var z = this.cam.zero;
       if (!held.head && z) { tg.turnX = z.px + (f.turnX - z.fx); tg.turnY = z.py + (f.turnY - z.fy); tg.roll = z.pr + (f.roll - z.fr); }
       if (!held.face || this.talking) { mouth = f.mouth; vis = f.mouth > 0.12 ? (f.smile > 0.5 ? 'Ee' : 'Aa') : 'Neutral'; brow = f.brow; lidUp = f.lidUp; lidLow = f.lidLow; lidTilt = f.lidTilt; blinkCam = f; } look = f; } }
+    if (AL.facepins) AL.facepins.feed(this, faceOn ? this.cam.face : null, dt);   // FACE-1 face pins
+    if (AL.pose) AL.pose.feed(this, faceOn, dt);                                    // SHRUG-1 shoulders
 
     /* a voice, or the Talk button's babble */
     if (this.mic.on) { this.listen(); mouth = Math.max(mouth, this.mic.level); vis = this.mic.vis; }
@@ -233,7 +274,8 @@
     L.ns -= dt; if (L.ns <= 0) { L.ns = 1.6 + Math.random() * 2.6; L.sx = (Math.random() - 0.5) * 0.5; L.sy = (Math.random() - 0.5) * 0.3; }
     var lx = look ? look.lookX : (set.eyesLead !== false ? clamp((tg.turnX - sm.turnX) * 2.6, -1, 1) : 0) + idle * L.sx, ly = look ? look.lookY : (set.eyesLead !== false ? clamp((tg.turnY - sm.turnY) * 2.6, -1, 1) : 0) + idle * L.sy;
     sm.lookX = ease(sm.lookX, clamp(lx, -1, 1), 26, dt); sm.lookY = ease(sm.lookY, clamp(ly, -1, 1), 26, dt);
-    sm.browL = ease(sm.browL, brow + (mouth > 0.75 ? 0.25 : 0), 14, dt); sm.browR = sm.browL;
+    var lift = mouth > 0.75 ? 0.25 : 0, bL = blinkCam && blinkCam.browL != null ? blinkCam.browL : brow, bR = blinkCam && blinkCam.browR != null ? blinkCam.browR : brow;
+    sm.browL = ease(sm.browL, bL + lift, 14, dt); sm.browR = ease(sm.browR, bR + lift, 14, dt);   // FACE-1: one brow can rise alone
     sm.lidUp = ease(sm.lidUp, lidUp, 12, dt); sm.lidLow = ease(sm.lidLow, lidLow, 12, dt); sm.lidTilt = ease(sm.lidTilt, lidTilt, 10, dt); sm.wind = ease(sm.wind, p.wind, 3, dt);
     /* blinks: uneven on purpose */
     var bl = 0;
@@ -269,10 +311,11 @@
       }
       for (g in fade) if (!own[g]) fade[g] = Math.max(0, fade[g] - dt);
       for (g in own) if (own[g]) fade[g] = FADE;
-      if (this.playing || this.recording) this.ph += dt;
+      if (this.playing || this.recording) this.ph += AL.voice ? AL.voice.clock(this, dt) : dt;      // (while a voice is kept, the take keeps the sound's time)
       if (this.recording) { tk.n = Math.max(tk.n, i + 1); if (this.ph > 120) this.stop(); }
-      else if (this.playing && this.ph >= tk.n / tk.fps) this.ph = 0;
+      else if (this.playing && this.ph >= Math.max(tk.n / tk.fps, this.sceneLen || 0)) this.ph = 0;      // (in a scene the take runs as long as the longest one in it: al-scene-take.js)
     }
+    this.easeLevels(dt, S);
     return S;
   };
 })(typeof self !== 'undefined' ? self : this);

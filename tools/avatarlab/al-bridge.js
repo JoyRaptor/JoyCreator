@@ -131,6 +131,8 @@
         if (cur && cur !== 'own') pb.appendChild(ui.note('It follows that piece’s landmarks. Choose <b>its own landmarks</b> to mark some here.'));
       }
     }
+    /* onion skin off (the round button on the stage): the other drawing in its own colours over this one, as see-through as you like */
+    if (b.t == null && b.tint === false) pb.appendChild(ui.slider('See-through', { min: 0, max: 100, step: 5, value: Math.round((b.see == null ? 0.5 : b.see) * 100), undo: false, set: function (v) { b.see = v / 100; }, fmt: function (v) { return v < 3 ? 'only ' + solid.name.slice(0, 6) : v > 97 ? 'only ' + ghost.name.slice(0, 6) : v + '%'; }, title: 'How much of ' + ghost.name + ' shows over ' + solid.name + ', in its own colours. Slide to find faint shading on both, or switch Solid to swap which is on top.' }));
     if (b.pending) {
       pb.appendChild(ui.note('Landmark <b>' + (pts.length + 1) + '</b> is marked on ' + solid.name + '. Tap the same spot on the <b style="color:' + COL[gk] + '">' + WORD[gk] + ' ghost</b>. Nothing is saved until you do.'));
       pb.appendChild(ui.row([

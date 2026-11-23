@@ -51,6 +51,7 @@ a connected AI only makes it more flexible.
 - [ ] Every part checked on the Note 9 offline, then with a connected AI if the PC has a key.
 
 ## Rules that apply
+- Joybot's motion and acting: [principles and toolkit](../joybot/JOYBOT_ANIMATION_PRINCIPLES.md) (11-20).
 - Phone-first; one-handed; buttons before typing. Hover labels on every button. Joybot always animates (BOT-5).
 - Icons come from ICON-1 (the same icon in JoyBrush's Tools and in Joybot's create tree).
 - JoyBrush board presets go through a launch intent the JoyBrush screens lane provides; don't edit JoyBrush internals.

@@ -124,7 +124,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      * broken table included).
      */
     fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false, r: Int = 1) {
-        // OIL-STEP: the same question under the same table gets the same answer, copied.
+        // Codex audit round 4, OIL-STEP: the same question under the same table gets the same answer, copied.
         if (memo.fill(tx, ty, r, withWalls, out)) return
         var i = 0
         for (dy in -r..r) for (dx in -r..r) {

@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.project;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
@@ -167,7 +169,7 @@ public class ProjectStorage {
         // moment this save happened" regardless of what the caller touched.
         project.touch();
         final long seq = SAVE_SEQ.incrementAndGet();
-        String json = gson.toJson(project);
+        String json = jsonForSave(project);
         boolean ok = writeProjectJson(project.getId(), json, seq, false);
         if (ok) project.setDiskLastModifiedAtLastSync(project.getLastModified());
         return ok;
@@ -196,7 +198,7 @@ public class ProjectStorage {
         final String id = project.getId();
         final long syncedLastModified = project.getLastModified();
         final long seq = SAVE_SEQ.incrementAndGet();
-        final String json = gson.toJson(project);   // serialize on caller thread (no CME)
+        final String json = jsonForSave(project);   // serialize on caller thread (no CME)
         lastWrite = ioExecutor.submit(() -> {
             // Queued: dropped if a later save from this storage has already been written.
             if (writeProjectJson(id, json, seq, true)) {
@@ -295,6 +297,14 @@ public class ProjectStorage {
         return null;
     }
 
+    /** Only the disk writer can attest that an empty edit was explicitly saved. */
+    private String jsonForSave(FaditorProject project) {
+        if (hasAnyContent(project) || project.hasLoadSkips()) return gson.toJson(project);
+        JsonObject json = gson.toJsonTree(project).getAsJsonObject();
+        json.addProperty("savedEmptyTimeline", true);
+        return gson.toJson(json);
+    }
+
     /** Block (briefly) until queued async writes have flushed — call before the activity dies. */
     public void flushPendingWrites() {
         Future<?> f = lastWrite;
@@ -354,11 +364,23 @@ public class ProjectStorage {
         File tmp = new File(projectDir, PROJECT_FILE + ".tmp");
         File bak = new File(projectDir, PROJECT_FILE + ".bak");
 
+        if (tmp.isFile() && readableGeneration(tmp, projectId)
+                && !readableGeneration(file, projectId) && !readableGeneration(bak, projectId)) {
+            // A previous process stopped before publication. Do not truncate its only usable
+            // generation when opening the staging stream below.
+            if (bak.exists()) {
+                keepUnreadable(projectDir, bak);
+                if (!bak.delete()) return false;
+            }
+            if (!tmp.renameTo(bak)) return false;
+        }
+
         // sync() before the rename: without it a power cut or hard reboot can leave the renamed
         // file empty, because the rename reaches the disk before the bytes do.
+        java.security.MessageDigest stagedDigest = newDigest();
         try (java.io.FileOutputStream out = new java.io.FileOutputStream(tmp);
              java.io.Writer writer = new java.io.OutputStreamWriter(
-                     out, java.nio.charset.StandardCharsets.UTF_8)) {
+                     new java.security.DigestOutputStream(out, stagedDigest), java.nio.charset.StandardCharsets.UTF_8)) {
             writer.write(json);
             writer.flush();
             out.getFD().sync();
@@ -381,19 +403,23 @@ public class ProjectStorage {
                     : "; could not keep a copy of what it replaces"));
         }
 
-        // Keep the previous good copy as a backup, then move temp into place.
+        // Rotate only a readable generation. A recovery save can be replacing corrupt bytes
+        // while .bak still holds the project we just opened.
         if (file.exists()) {
-            bak.delete();
-            if (!file.renameTo(bak)) {
-                FLog.w(TAG, "Could not rotate previous project to .bak");
+            if (matchesLastPublication(file, projectId) || readableGeneration(file, projectId)) {
+                if (bak.exists() && !bak.delete()) return false;
+                if (!file.renameTo(bak)) return false;
+            } else {
+                keepUnreadable(projectDir, file);
+                if (!file.delete()) return false;
             }
         }
+        // Leave both the backup and the synced stage available on a failed rename.
         if (!tmp.renameTo(file)) {
-            FLog.e(TAG, "Failed to move temp project into place; restoring backup");
-            if (bak.exists()) bak.renameTo(file); // restore previous good copy
-            tmp.delete();
+            FLog.e(TAG, "Failed to publish staged project: " + projectId);
             return false;
         }
+        publishedDigests.put(projectId, stagedDigest.digest());
         // Keep the copy in the user's Joy Creator folder current (a few seconds later, off this thread).
         com.fadcam.joyfolder.studio.StudioMirror.onProjectSaved(context, projectId);
         return true;
@@ -421,6 +447,9 @@ public class ProjectStorage {
         if (p == null || p.getTimeline() == null) return false;
         Timeline t = p.getTimeline();
         return !t.isEmpty()
+                || !t.getOverlayClips().isEmpty()
+                || !t.getAdjustmentLayers().isEmpty()
+                || t.hasWaveformOverlays()
                 || t.hasAudioClips()
                 || !t.getTextOverlays().isEmpty()
                 || !t.getSpriteOverlays().isEmpty()
@@ -525,10 +554,18 @@ public class ProjectStorage {
         FaditorProject emptyMain = null;
         if (mainReader != null) {
             try (FileReader reader = mainReader) {
-                FaditorProject p = gson.fromJson(reader, FaditorProject.class);
-                // The folder says which project this is, not the file: see asProject.
-                if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, readWhole(file));
-                if (hasAnyContent(p)) {
+                JsonObject data = gson.fromJson(reader, JsonObject.class);
+                FaditorProject p = gson.fromJson(data, FaditorProject.class);
+                if (p != null && !projectId.equals(p.getId())) p = asProject(projectId, p, data.toString());
+                boolean savedEmpty = p != null && !p.hasLoadSkips()
+                        && data.has("savedEmptyTimeline") && data.get("savedEmptyTimeline").isJsonPrimitive()
+                        && data.get("savedEmptyTimeline").getAsJsonPrimitive().isBoolean()
+                        && data.get("savedEmptyTimeline").getAsBoolean()
+                        && data.has("timeline") && data.get("timeline").isJsonObject()
+                        && data.getAsJsonObject("timeline").has("clips")
+                        && data.getAsJsonObject("timeline").get("clips").isJsonArray()
+                        && data.getAsJsonObject("timeline").getAsJsonArray("clips").size() == 0;
+                if (hasAnyContent(p) || savedEmpty) {
                     // Concurrent-instance guard (Stage 1 P0 fix): this copy is now known
                     // to match the file exactly — record its lastModified as the sync
                     // point so a LATER save from this same in-memory copy can detect if
@@ -577,6 +614,25 @@ public class ProjectStorage {
             }
         }
 
+        if (emptyMain == null) {
+            // The stable files take precedence over an uncommitted newer edit. This path is
+            // reserved for the interruption that left neither stable file usable.
+            File stage = new File(projectDir, PROJECT_FILE + ".tmp");
+            synchronized (writeLock(projectDir)) {
+                if (readableGeneration(stage, projectId)) {
+                    try (FileReader reader = new FileReader(stage)) {
+                        FaditorProject p = gson.fromJson(reader, FaditorProject.class);
+                        p.setDiskLastModifiedAtLastSync(p.getLastModified());
+                        if (remember) seenOnDisk.put(projectId, stamp);
+                        healDanglingAnchors(p);
+                        return p;
+                    } catch (Exception e) {
+                        FLog.w(TAG, "Could not open interrupted save", e);
+                    }
+                }
+            }
+        }
+
         // Nothing better than a main file that opened but holds nothing yet (a blank project saved
         // before anything was added): that is still the project.
         if (emptyMain != null) {
@@ -588,6 +644,38 @@ public class ProjectStorage {
 
         FLog.d(TAG, "No loadable project found: " + projectId);
         return null;
+    }
+
+    private final java.util.concurrent.ConcurrentHashMap<String, byte[]> publishedDigests =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static java.security.MessageDigest newDigest() {
+        try { return java.security.MessageDigest.getInstance("SHA-256"); }
+        catch (java.security.NoSuchAlgorithmException impossible) { throw new AssertionError(impossible); }
+    }
+
+    private boolean matchesLastPublication(File file, String id) {
+        byte[] expected = publishedDigests.get(id);
+        if (expected == null) return false;
+        java.security.MessageDigest digest = newDigest();
+        try (java.io.InputStream input = new java.io.FileInputStream(file)) {
+            byte[] buffer = new byte[16384];
+            int n;
+            while ((n = input.read(buffer)) != -1) digest.update(buffer, 0, n);
+            return java.security.MessageDigest.isEqual(expected, digest.digest());
+        } catch (IOException e) { return false; }
+    }
+
+    private boolean readableGeneration(File f, String projectId) {
+        if (!f.isFile()) return false;
+        try (FileReader reader = new FileReader(f)) {
+            JsonObject data = gson.fromJson(reader, JsonObject.class);
+            if (data == null || !hasValue(data, "id") || !projectId.equals(data.get("id").getAsString())
+                    || !data.has("timeline") || !data.get("timeline").isJsonObject()) return false;
+            return gson.fromJson(data, FaditorProject.class) != null;
+        } catch (Exception invalid) {
+            return false;
+        }
     }
 
     private static void keepUnreadable(@NonNull File projectDir, @NonNull File file) {
@@ -1902,6 +1990,8 @@ public class ProjectStorage {
             if (keys != null) st.add("keys", keys);
             clipJson.add("spineTransform", st);
         }
+        if (clip.isRigidMotionBlurEnabled()) clipJson.addProperty("rigidMotionBlur", true);
+        writeRigidMotionShutter(clipJson, clip.getRigidMotionShutter());
         return clipJson;
     }
 
@@ -1933,6 +2023,41 @@ public class ProjectStorage {
      */
     private static boolean hasValue(@NonNull JsonObject o, @NonNull String key) {
         return o.has(key) && !o.get(key).isJsonNull();
+    }
+
+    private static void writeRigidMotionShutter(JsonObject item, MotionShutter.Controls controls) {
+        if (MotionShutter.Controls.NATURAL.equals(controls)) return;
+        JsonObject shutter = new JsonObject();
+        shutter.addProperty("angle", controls.angle());
+        shutter.addProperty("timing", controls.timing().name());
+        shutter.addProperty("phase", controls.customPhase());
+        shutter.addProperty("mix", controls.mixPercent());
+        item.add("rigidMotionShutter", shutter);
+    }
+
+    private static MotionShutter.Controls readRigidMotionShutter(JsonObject item) {
+        JsonElement entry = item.get("rigidMotionShutter");
+        if (entry == null || !entry.isJsonObject()) return MotionShutter.Controls.NATURAL;
+        JsonObject shutter = entry.getAsJsonObject();
+        JsonElement timingValue = shutter.get("timing");
+        MotionShutter.Timing timing = MotionShutter.Timing.CENTERED;
+        if (timingValue != null && timingValue.isJsonPrimitive()
+                && timingValue.getAsJsonPrimitive().isString()) {
+            try {
+                timing = MotionShutter.Timing.valueOf(timingValue.getAsString());
+            } catch (IllegalArgumentException ignored) {
+                // An older editor may encounter a timing mode from a newer project.
+            }
+        }
+        return new MotionShutter.Controls(readShutterNumber(shutter, "angle", 180), timing,
+                readShutterNumber(shutter, "phase", 0), readShutterNumber(shutter, "mix", 100));
+    }
+
+    private static int readShutterNumber(JsonObject shutter, String field, int fallback) {
+        JsonElement entry = shutter.get(field);
+        if (entry == null || !entry.isJsonPrimitive() || !entry.getAsJsonPrimitive().isNumber()) return fallback;
+        double value = entry.getAsDouble();
+        return Double.isFinite(value) ? (int) Math.max(-720, Math.min(720, Math.round(value))) : fallback;
     }
 
     private Clip deserializeClipObject(@NonNull File projectDir, @NonNull JsonObject clipObj) {
@@ -2296,6 +2421,12 @@ public class ProjectStorage {
                 if (ks != null) clip.setSpineTransform(ks);
             }
         }
+        JsonElement rigidMotionBlur = clipObj.get("rigidMotionBlur");
+        if (rigidMotionBlur != null && rigidMotionBlur.isJsonPrimitive()
+                && rigidMotionBlur.getAsJsonPrimitive().isBoolean()) {
+            clip.setRigidMotionBlurEnabled(rigidMotionBlur.getAsBoolean());
+        }
+        clip.setRigidMotionShutter(readRigidMotionShutter(clipObj));
         // §4.5 per-object eye/lock (tolerant: absent = false).
         if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
         if (hasValue(clipObj, "objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
@@ -2496,6 +2627,7 @@ public class ProjectStorage {
             json.addProperty("name", src.getName());
             json.addProperty("createdAt", src.getCreatedAt());
             json.addProperty("lastModified", src.getLastModified());
+            if (src.isMotionBlurEnabled()) json.addProperty("motionBlurEnabled", true);
 
             // Serialize timeline with clips
             JsonObject timelineJson = new JsonObject();
@@ -2810,6 +2942,8 @@ public class ProjectStorage {
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
                 // so every pre-existing project stays byte-identical.
                 if (o.isPassThrough()) oJson.addProperty("passThrough", true);
+                if (o.isRigidMotionBlurEnabled()) oJson.addProperty("rigidMotionBlur", true);
+                writeRigidMotionShutter(oJson, o.getRigidMotionShutter());
                 if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
                 // SPEC B rotation pivot — sparse like the rest: a centre pivot (every overlay
                 // in every project written before this) writes nothing and stays
@@ -3161,6 +3295,8 @@ public class ProjectStorage {
                     // §4.5 per-object eye/lock (write-if-true).
                     if (so.isHidden()) sj.addProperty("objHidden", true);
                     if (so.isLocked()) sj.addProperty("objLocked", true);
+                    if (so.isRigidMotionBlurEnabled()) sj.addProperty("rigidMotionBlur", true);
+                    writeRigidMotionShutter(sj, so.getRigidMotionShutter());
                     spArray.add(sj);
                 }
                 timelineJson.add("spriteOverlays", spArray);
@@ -3357,6 +3493,11 @@ public class ProjectStorage {
             // version, dropping the unknown newer data. Instead: keep the on-disk version,
             // and if it is newer than we understand, mark the project read-only so the
             // save path refuses to overwrite it.
+            JsonElement motionBlurEnabled = obj.get("motionBlurEnabled");
+            if (motionBlurEnabled != null && motionBlurEnabled.isJsonPrimitive()
+                    && motionBlurEnabled.getAsJsonPrimitive().isBoolean()) {
+                project.setMotionBlurEnabled(motionBlurEnabled.getAsBoolean());
+            }
             int runningVersion = com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION;
             if (schemaVersion > runningVersion) {
                 project.setSchemaVersion(schemaVersion);          // preserve the newer stamp
@@ -3774,6 +3915,10 @@ public class ProjectStorage {
                         // model so a project written before these keys load exactly as it
                         // always did.
                         if (hasValue(oObj, "passThrough")) o.setPassThrough(oObj.get("passThrough").getAsBoolean());
+                        if (hasValue(oObj, "rigidMotionBlur")) {
+                            o.setRigidMotionBlurEnabled(oObj.get("rigidMotionBlur").getAsBoolean());
+                        }
+                        o.setRigidMotionShutter(readRigidMotionShutter(oObj));
                         if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
                         // SPEC B rotation pivot — TOLERANT: absent keys are the centre pivot,
                         // so a project written before this loads and renders exactly as it
@@ -4288,6 +4433,10 @@ public class ProjectStorage {
                             // §4.5 per-object eye/lock (tolerant: absent = false).
                             if (hasValue(sj, "objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());
                             if (hasValue(sj, "objLocked")) so.setLocked(sj.get("objLocked").getAsBoolean());
+                            if (hasValue(sj, "rigidMotionBlur")) {
+                                so.setRigidMotionBlurEnabled(sj.get("rigidMotionBlur").getAsBoolean());
+                            }
+                            so.setRigidMotionShutter(readRigidMotionShutter(sj));
                             project.getTimeline().addSpriteOverlay(so);
                         } catch (Exception ignored) { }
                     }

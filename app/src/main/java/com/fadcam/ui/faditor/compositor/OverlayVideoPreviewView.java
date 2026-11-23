@@ -415,6 +415,14 @@ public class OverlayVideoPreviewView extends FrameLayout {
         return pipFor(clip, b.getWidth(), b.getHeight(), b, 0);
     }
 
+    /** The active ordinary decoder's display size, when its preview input is routed. */
+    @Nullable
+    public android.util.Size motionSourceSize(@NonNull Clip clip) {
+        if (clip != active || !fxRouted || player == null || videoW <= 0 || videoH <= 0
+                || player.getVideoSize().unappliedRotationDegrees != 0) return null;
+        return new android.util.Size(videoW, videoH);
+    }
+
     /**
      * Still-frame matte for live preview: same placement math as {@link #pipFor} but always
      * via the cached still, never a live decoder. This is the decoder-budget fallback

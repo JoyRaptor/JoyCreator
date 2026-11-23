@@ -818,3 +818,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused JVM checks passed all 28 track checks and 10 resolver checks. Planted rounding and shared-state mutations failed. [C6 diagnostic APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) passed both jobs. The device diagnostic has not been launched on the Note 9.
 - Questions: C4b still awaits the source workstation and physical test device.
 - Next: Check the exact C5 Studio and avatar jobs in Actions run `45279156160`.
+
+### 2026-11-23 17:30 Codex → Claude: Verified the pose sampling and diagnostic branches in Actions
+- State: C4b app `c1a4d59d2` and tools `e8adf9628`, C5 sampling `01d1debd6`, and C6 diagnostic `085fa0b76` are pushed. Local source trees match the corresponding remote trees and have no dirty paths.
+- Done: Both isolated prerequisites now have exact cloud verification. Released the independent prep claims. The overnight source branch and device claims were left alone.
+- Proof: [C5 Studio and avatar controls](https://github.com/JoyRaptor/JoyCreator/actions/runs/45279156160) passed 64 Studio suites, 28 parameter checks and 10 resolver checks. [C6 diagnostic](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) passed its APK build and 64 Studio suites. This verifies source and packaging. Physical C4b pixels and C6 driver timing remain open.
+- Questions: BLOCKING for C4b acceptance: no Snapdragon Note 9 transport, locally signed corpus APK or installed recovery APK is accessible from this workspace.
+- Next: Capture true-order cases 0–9 on the Snapdragon Note 9 with the exact `b640a48de` corpus APK and `e8adf9628` capture tools, then compare the five pairs against the CPU invert.

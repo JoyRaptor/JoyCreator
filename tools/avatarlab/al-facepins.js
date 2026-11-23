@@ -14,8 +14,56 @@
   'use strict';
   var AL = root.AL, h = AL.h, M = AL.M, fp = AL.facepins = {};
   var CYAN = '#22d3ee', GREY = '#71717a', FAINT = '#3f3f46', INK = '#e4e4e7';
-  /** A new pin starts at twice the face's own movement: at 1x the owner could not see it pull (11-22). */
-  var START = 2;
+  /** A new pin starts at the face's own movement. (Round 1 started at 2x, when 1x was hard to see on one slice; with dozens
+      of pins the owner found it "way bigger" (round 5), and the All pins dial now scales every pin at once.) */
+  var START = 1;
+  /** The All pins dial (the owner, round 5: "a global multiplier dial for all the points"): ch.settings.facePinGain, 1 = as set. */
+  fp.gain = function (ch) { var g = ch.settings && ch.settings.facePinGain; return typeof g === 'number' ? g : 1; };
+  fp.setGain = function (app, g) {
+    var ch = app.ch; (ch.settings = ch.settings || {}).facePinGain = g;
+    fp.list(ch).forEach(function (q) { var n = AL.node(ch, q.node); (n && n.shapes || []).forEach(function (s) { if (s.face === q.id) s.amt = (q.amt == null ? 1 : q.amt) * g; }); });
+  };
+
+  /**
+   * ONE PIECE (the owner, round 5, on Topps: his slices "free-floating and warped, sliding in unpredictable ways"; his idea:
+   * "treating the whole head as one piece, and having that pass be after all the other passes"). A face pin tapped on any slice
+   * of a head goes on that head's whole drawing (the angle of a turning head, or the head itself), whose pins bend it last, as
+   * one sheet, held still at its edges (al-solve.js, mesh.last). Off (ch.settings.faceSheet false): the slice alone, as before.
+   */
+  fp.sheetOf = function (ch, n) {
+    if (!n || (ch.settings && ch.settings.faceSheet === false)) return n;
+    var ix = AL.ix(ch), angle = AL.ancestorWith(ch, n.id, function (q) { var p = ix.p[q.id]; return !!(p && p.type === 'set' && p.pick && p.pick.by === 'turn'); });
+    if (angle) return angle;
+    var hd = AL.ancestorWith(ch, n.id, function (q) { return q.role === 'head'; });
+    return hd && hd.type !== 'art' ? hd : n;
+  };
+  function sheetMesh(n) {
+    if (!n.mesh) n.mesh = { pins: [], quiet: true };
+    n.mesh.pins = n.mesh.pins || [];
+    if (n.type !== 'art' && !n.mesh.pins.length) n.mesh.last = true;     // a drawing made of slices bends as one piece, last
+  }
+  /** Face pins still on a single slice inside a head (made before one piece): move each onto the whole head, where it shows now,
+      keeping its number, point and strength. One undo step. Returns how many moved. */
+  fp.toSheet = function (app) {
+    var ch = app.ch, list = fp.list(ch), todo = [];
+    list.forEach(function (q, i) {
+      var n = AL.node(ch, q.node), sh = n && fp.sheetOf(ch, n); if (!n || !sh || sh === n) return;
+      var at = stagePos(app, q), m = at && app.out && app.out.M[sh.id]; if (!at || !m) return;
+      var c = app.toChar(at.x, at.y); todo.push({ id: q.id, i: i, sh: sh, l: M.ap(M.inv(m), c[0], c[1]), point: q.point, amt: q.amt == null ? 1 : q.amt });
+    });
+    if (!todo.length) return 0;
+    app.edit(function () {
+      todo.forEach(function (t) {
+        fp.unbind(ch, t.id); sheetMesh(t.sh);
+        var pin = AL.fit.dropPin(app, t.sh, t.l), nid = fp.bind(ch, t.sh, pin, t.point, true), L = ch.facePins, moved = L.pop();
+        L.splice(Math.min(t.i, L.length), 0, moved); moved.amt = t.amt;
+        (t.sh.shapes || []).forEach(function (s) { if (s.face === nid) s.amt = t.amt * fp.gain(ch); });
+      });
+    }, false, 'Make face pins one piece');
+    return todo.length;
+  };
+  /** How many face pins still bend a single slice of a head. */
+  fp.onSlices = function (ch) { return fp.list(ch).filter(function (q) { var n = AL.node(ch, q.node); return n && fp.sheetOf(ch, n) !== n; }).length; };
 
   fp.list = function (ch) { return ch.facePins || []; };
   /** The face points the character's pins follow (each once). */
@@ -103,7 +151,7 @@
    */
   var COLORS = ['#22d3ee', '#f472b6', '#facc15', '#a3e635', '#60a5fa', '#fb923c', '#c084fc', '#34d399'];
   fp.colorOf = function (i) { return COLORS[i % COLORS.length]; };
-  function partName(app, q) { var n = AL.node(app.ch, q.node); return n ? (n.name || 'a part') : 'a part'; }
+  function partName(app, q) { var n = AL.node(app.ch, q.node); return n ? (n.type !== 'art' && n.mesh && n.mesh.last ? 'the whole ' + (n.name || 'head') : (n.name || 'a part')) : 'a part'; }
 
   fp.open = function (app, opts) {
     opts = opts || {};
@@ -305,16 +353,17 @@
     var n = AL.node(app.ch, it.id), m = n && app.out.M[n.id];
     if (!n || !m) { app.toast('That part cannot take a pin.'); return false; }
     if (AL.fit && AL.fit.can && !AL.fit.can(app, n)) { app.toast('Arms and legs follow the hands and feet. Try another spot.'); return false; }
+    var sh = fp.sheetOf(app.ch, n), ms = sh && app.out.M[sh.id];
+    if (sh && ms && sh !== n) { n = sh; m = ms; }                          // the head's whole drawing, as one piece
     var l = M.ap(M.inv(m), c[0], c[1]), at = list.indexOf(q), amt = q.amt == null ? START : q.amt, point = q.point, nid = null;
     app.edit(function () {
       fp.unbind(app.ch, id);
-      if (!n.mesh) n.mesh = { pins: [], quiet: true };
-      n.mesh.pins = n.mesh.pins || [];
+      sheetMesh(n);
       if (!(n.shapes || []).some(function (s) { return s.id === 'fix'; })) (n.shapes = n.shapes || []).unshift({ id: 'fix', name: 'Reshaped', sig: 'always', amt: 1, d: {} });
       var pin = AL.fit.dropPin(app, n, l);
       nid = fp.bind(app.ch, n, pin, point, true);
       var L = app.ch.facePins, moved = L.pop(); L.splice(at, 0, moved);         // its number stays
-      moved.amt = amt; (n.shapes || []).forEach(function (s) { if (s.face === nid) s.amt = amt; });
+      moved.amt = amt; (n.shapes || []).forEach(function (s) { if (s.face === nid) s.amt = amt * fp.gain(app.ch); });
     }, false, 'Move a face pin');
     if (app.fpMode) app.fpMode.pin = nid;
     app.refreshPanel(true);
@@ -456,6 +505,11 @@
       seg, follow, h('span', { style: 'flex:1' }),
       ui.chip('Done', { cls: 'go', title: 'Close Face pins and go back to where you were', fn: function () { fp.close(app); } })
     ]));
+    if (list.length) {                                                   // the All pins dial: every pin at once
+      var gs = ui.slider('All pins', { min: 0, max: 3, step: 0.05, value: fp.gain(app.ch), fmt: function (v) { return (Math.round(v * 100) / 100) + '\u00d7'; },
+        title: 'Every face pin at once: lower to calm them all, higher to make them all pull more. Each pin keeps its own strength on top', set: function (v) { fp.setGain(app, v); } });
+      gs.style.margin = '0 0 2px'; pb.appendChild(gs);
+    }
     // your face: the map, with its own small controls on top and the next step written under it
     if (!W.cv) { W.cv = h('canvas', { 'aria-label': 'Your face: tap a point, pinch to zoom, drag to pan', title: 'Your face: tap a point, then tap the character where it should pull. Pinch to zoom, drag to pan' }); faceHandlers(app, W.cv); }
     W.cv.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
@@ -477,6 +531,14 @@
     ]);
     pb.appendChild(box);
     if (!cam.on) pb.appendChild(ui.row([ui.chip('Turn on the face camera', { cls: 'go', icon: 'cam', title: 'Start the face camera (the picture is never kept)', fn: function () { startCam(app); } })]));
+    var sheetOn = !(app.ch.settings && app.ch.settings.faceSheet === false), loose = fp.onSlices(app.ch);
+    pb.appendChild(ui.toggle('Head bends as one piece', sheetOn, function (v) { app.edit(function () { (app.ch.settings = app.ch.settings || {}).faceSheet = v; }, true, 'Face pins: one piece'); app.refreshPanel(true); },
+      sheetOn ? 'A pin on any slice bends the whole drawing of the head, last, with its edges held' : 'Each pin bends only the slice it sits on',
+      'On: a face pin tapped on any slice of the head bends that whole drawing of the head as one piece, after everything else, so slices never tear apart. Off: a pin bends only the slice it sits on (stomach puffs and other single parts work either way)'));
+    if (sheetOn && loose) pb.appendChild(h('div', { class: 'rowf', style: 'align-items:center;gap:8px;margin:4px 0' }, [
+      h('span', { style: 'flex:1;font-size:13px;color:#a1a1aa', text: loose + ' pin' + (loose > 1 ? 's' : '') + ' still bend' + (loose > 1 ? '' : 's') + ' a single slice' }),
+      ui.chip('Make one piece', { cls: 'go', title: 'Move these pins onto the whole head, where they are now (one Undo puts them back)', fn: function () { var k = fp.toSheet(app); app.toast(k ? k + ' pin' + (k > 1 ? 's' : '') + ' now bend the whole head.' : 'Nothing to move.'); app.refreshPanel(true); } })
+    ]));
     list.forEach(function (q, i) {
       var on = W.pin === q.id;
       var row = h('div', { style: 'padding:6px 6px 2px;border-radius:10px;margin-top:4px;' + (on ? 'background:#18181b;outline:1px solid #3f3f46' : '') }, [
@@ -533,6 +595,8 @@
     var n = AL.node(app.ch, hit.id), m = n && app.out.M[n.id];
     if (!n || !m) { app.toast('That part cannot take a pin.'); return false; }
     if (AL.fit && AL.fit.can && !AL.fit.can(app, n)) { app.toast('Arms and legs follow the hands and feet. Try the head, the mouth, the brows or the cheeks.'); return false; }
+    var sh = fp.sheetOf(app.ch, n), ms = sh && app.out.M[sh.id];
+    if (sh && ms && sh !== n) { n = sh; m = ms; }                          // the head's whole drawing, as one piece
     var l = M.ap(M.inv(m), c[0], c[1]);
     var made = false, pin = null, newId = null, at = app.out.meshAt && app.out.meshAt[n.id], v = app.view;
     var near = null, bd = 12;                                              // a pin goes where you tap (an existing one only when drawn right there)
@@ -540,8 +604,7 @@
       var w = M.ap(at.M, at.Q[i][0], at.Q[i][1]), d = Math.hypot(w[0] * v.s + v.ox - p.x, w[1] * v.s + v.oy - p.y); if (d < bd) { bd = d; near = q.id; }
     });
     app.edit(function () {
-      if (!n.mesh) n.mesh = { pins: [], quiet: true };
-      n.mesh.pins = n.mesh.pins || [];
+      sheetMesh(n);
       if (!(n.shapes || []).some(function (q) { return q.id === 'fix'; })) (n.shapes = n.shapes || []).unshift({ id: 'fix', name: 'Reshaped', sig: 'always', amt: 1, d: {} });
       if (near) pin = n.mesh.pins.filter(function (q) { return q.id === near; })[0] || null;
       if (!pin) { pin = AL.fit.dropPin(app, n, l); made = true; }
@@ -560,8 +623,8 @@
     var id = AL.id('fp'), name = fp.nameOf(pt), dx = {}, dy = {};
     dx[pin.id] = [K, 0]; dy[pin.id] = [0, K];
     (n.shapes = n.shapes || []).push(
-      { id: 'fp:' + id + ':x', name: 'Face pin: ' + name + ' (across)', sig: 'pt.' + pt + '.x', amt: START, d: dx, face: id },
-      { id: 'fp:' + id + ':y', name: 'Face pin: ' + name + ' (up and down)', sig: 'pt.' + pt + '.y', amt: START, d: dy, face: id });
+      { id: 'fp:' + id + ':x', name: 'Face pin: ' + name + ' (across)', sig: 'pt.' + pt + '.x', amt: START * fp.gain(ch), d: dx, face: id },
+      { id: 'fp:' + id + ':y', name: 'Face pin: ' + name + ' (up and down)', sig: 'pt.' + pt + '.y', amt: START * fp.gain(ch), d: dy, face: id });
     (ch.facePins = ch.facePins || []).push({ id: id, point: pt, node: n.id, pin: pin.id, amt: START, made: !!made });
     return id;
   };
@@ -571,7 +634,7 @@
     var q = fp.list(app.ch).filter(function (r) { return r.id === id; })[0], n = q && AL.node(app.ch, q.node);
     if (!q || !n) return;
     q.amt = v;
-    (n.shapes || []).forEach(function (s) { if (s.face === id) s.amt = v; });
+    (n.shapes || []).forEach(function (s) { if (s.face === id) s.amt = v * fp.gain(app.ch); });
   };
 
   /** Take a face pin off (and the pin itself, if it was made for it and nothing else uses it). One undo step. */

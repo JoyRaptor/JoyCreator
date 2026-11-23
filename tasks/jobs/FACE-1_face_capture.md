@@ -278,6 +278,27 @@ no Test; 67 points off on a reshaped part; the camera never started again). 23 o
 (new: nolayer, noreshape, noresume, notest). Limit: dragging a pin while testing places it against your face as it is at
 that moment (a held neutral face is exact).
 
+## Round 6: the head bends as one piece (11-22, his idea), and the All pins dial
+On Topps (a head of 7 painted angles, 15 to 19 slices each) his 45 quick pins sat on 8 different slices; each slice bent by
+its own pins, so with Test "all the pieces are free-floating and warped, sliding in unpredictable ways"; a slice with one pin
+slid as a block. His idea: "treating the whole head as one piece, and having that pass be after all the other passes". He also
+asked for "a global multiplier dial for all the points" (every pin then started at 2x).
+
+| | Built | Check |
+|---|---|---|
+| ✅ | A face pin tapped on any slice of a head goes on that head's whole drawing (the angle of a turning head; else the head), and bends it LAST, as one sheet, after every slice's own moves and shapes (`al-solve.js`: `mesh.last`, the post pass) | 15 |
+| ✅ | The sheet is held still at its edges (a close ring of still points just outside its outline), so the face bends and the frill and outline stay | 15 |
+| ✅ | **All pins** dial above your face: every pin at once (0 to 3x); each pin keeps its own strength on top. New pins start at 1x | 16 |
+| ✅ | **Make one piece**: pins still on single slices (his 45) move onto the whole head where they show, one undo step | 17 |
+| ✅ | **Head bends as one piece** tick box (on); off keeps the old way (a pin bends its slice only), for single parts | 17 |
+
+Checks 15 to 17 failed first on round 5's code (a pin on the Face slice moved that one slice only; no dial; no Make one
+piece). 27 of 27 now, 22 planted faults caught (new: nosheet, nohold, nogain, noconvert). Cost on the Note 9 (a copy of
+Topps, 45 pins bending): the bend is worked out once a frame on a lattice over the head that every slice reads (it cannot
+tear between slices), with a close falloff and no power function: 26 ms a frame done per point, now 5.4 ms (1.3 at rest);
+his own 45 pins on single slices cost 4 ms. Open: pins live on one angle (his
+Frontal); the other angles and the in-betweens are the face mask's job (mockup next), and expression poses after it.
+
 ## The Face chip starts in "always" (11-22)
 The owner: "I turned the camera on, but it's not responsive until I actually do a hold to talk." The chip's first tap
 started "while talking". Now the first tap drives the character at once ("Face is on: the character moves with you"),

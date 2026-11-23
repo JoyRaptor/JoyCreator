@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C4b LaneCompositor export, debug-only route.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Timing checker @ `151d55a93` on `codex/stu7-c4b-benchmark-gate` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `05da89b22` on `codex/stu7-c4b-benchmark-gate` (pushed).
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** On the Snapdragon Note 9, run `node tools/motionref/lane-corpus.mjs true-order 0 10` for the exact `b640a48de` APK, then compare those captures with `compare-lanes.mjs --batch`.
+- **Exact next action:** Capture true-order cases 0–9 with the `05da89b22` runner and the exact `b640a48de` APK on the Snapdragon Note 9, then check the batch against the CPU invert.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

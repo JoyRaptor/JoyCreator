@@ -11,6 +11,7 @@ import androidx.media3.effect.BaseGlShaderProgram;
 import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.RigidTitleRaster;
 import com.fadcam.ui.faditor.compositor.lane.LaneCompositor;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
@@ -39,7 +40,7 @@ final class LaneCompositeGlEffect implements GlEffect {
     }
 
     static Candidate create(Context context, LanePlan plan, long totalDurationMs, long editorOffsetMs,
-                            long pieceStartMs, long motionDurationMs) {
+                            long pieceStartMs, long motionDurationMs, int frameHeight) {
         var bindings = new ArrayList<Binding>();
         for (var entry : plan.entries()) {
             switch (entry.kind) {
@@ -55,6 +56,31 @@ final class LaneCompositeGlEffect implements GlEffect {
                             editorOffsetMs, null, pieceStartMs, motionDurationMs);
                     bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
                             picture::isVisibleAt));
+                }
+                case TEXT -> {
+                    var title = entry.item.getTextOverlay();
+                    if (title == null || !RigidTitleRaster.supportsPlain(title)
+                            || !RigidTitleRaster.measure(title, title.getStartMs(), totalDurationMs,
+                                    frameHeight).fits()) {
+                        return new Candidate(null, "title " + entry.id);
+                    }
+                    var effect = new GlImageOverlayEffect(context, List.of(title), totalDurationMs,
+                            editorOffsetMs, null, pieceStartMs, motionDurationMs, true);
+                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                            title::isVisibleAt));
+                }
+                case PIP -> {
+                    var pip = entry.item.getClip();
+                    if (pip == null || pip.isImageClip() || PipFrameStats.isMasked(pip)
+                            || (pip.getCompositing() != null && pip.getCompositing().mattePeerId != null)) {
+                        return new Candidate(null, "PiP " + entry.id);
+                    }
+                    long start = pip.getOverlayStartMs();
+                    long end = start + Math.max(0L, pip.getTrimmedDurationMs());
+                    var effect = new BlendModeGlEffect(context, pip, null, editorOffsetMs,
+                            pieceStartMs, motionDurationMs);
+                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                            editorMs -> editorMs >= start && editorMs <= end));
                 }
                 case ADJUSTMENT -> {
                     var adjustment = entry.item.getAdjustment();

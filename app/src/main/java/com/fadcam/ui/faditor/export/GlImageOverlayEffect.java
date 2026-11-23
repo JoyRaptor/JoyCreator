@@ -62,6 +62,7 @@ final class GlImageOverlayEffect implements GlEffect {
     private final long editorTimeOffsetMs;
     private final long motionStartUs;
     private final long motionEndUs;
+    private final boolean isolatedTitles;
     @Nullable
     private final CompositeExportOverlay textDrawer;
 
@@ -75,11 +76,20 @@ final class GlImageOverlayEffect implements GlEffect {
                          long projectDurationMs, long editorTimeOffsetMs,
                          @Nullable CompositeExportOverlay textDrawer,
                          long pieceStartMs, long motionPieceDurationMs) {
+        this(context, itemsBottomTop, projectDurationMs, editorTimeOffsetMs, textDrawer,
+                pieceStartMs, motionPieceDurationMs, false);
+    }
+
+    GlImageOverlayEffect(@NonNull Context context, @NonNull List<TextOverlayItem> itemsBottomTop,
+                         long projectDurationMs, long editorTimeOffsetMs,
+                         @Nullable CompositeExportOverlay textDrawer,
+                         long pieceStartMs, long motionPieceDurationMs, boolean isolatedTitles) {
         this.context = context.getApplicationContext();
         this.items = new ArrayList<>(itemsBottomTop);
         this.projectDurationMs = projectDurationMs;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.textDrawer = textDrawer;
+        this.isolatedTitles = isolatedTitles;
         motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
         motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
     }
@@ -90,7 +100,7 @@ final class GlImageOverlayEffect implements GlEffect {
             throws VideoFrameProcessingException {
         if (useHdr) throw new VideoFrameProcessingException("HDR image overlays not supported");
         return new Program(context, items, projectDurationMs, editorTimeOffsetMs, textDrawer,
-                motionStartUs, motionEndUs);
+                motionStartUs, motionEndUs, isolatedTitles);
     }
 
     private static final class Program extends BaseGlShaderProgram {
@@ -173,6 +183,7 @@ final class GlImageOverlayEffect implements GlEffect {
         private final Context context;
         @Nullable
         private final CompositeExportOverlay textDrawer;
+        private final boolean isolatedTitles;
         private final Map<String, TextFrame> texts = new HashMap<>();
         private final List<TextOverlayItem> items;
         private final long projectDurationMs;
@@ -186,10 +197,12 @@ final class GlImageOverlayEffect implements GlEffect {
 
         Program(@NonNull Context context, @NonNull List<TextOverlayItem> items,
                 long projectDurationMs, long editorTimeOffsetMs,
-                @Nullable CompositeExportOverlay textDrawer, long motionStartUs, long motionEndUs) {
+                @Nullable CompositeExportOverlay textDrawer, long motionStartUs, long motionEndUs,
+                boolean isolatedTitles) {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 2);
             this.context = context;
             this.textDrawer = textDrawer;
+            this.isolatedTitles = isolatedTitles;
             this.items = items;
             this.projectDurationMs = projectDurationMs;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
@@ -255,6 +268,10 @@ final class GlImageOverlayEffect implements GlEffect {
                     }
                     if (!o.isImage()) {
                         if (drawTitleMotion(o, t, editorUs, periodUs, w, h)) continue;
+                        if (isolatedTitles) {
+                            drawOrderedTitle(o, t, w, h);
+                            continue;
+                        }
                         TextFrame tf = textFor(o, t);
                         if (tf == null) continue;
                         // The picture is the whole frame, laid over it unscaled.
@@ -305,17 +322,12 @@ final class GlImageOverlayEffect implements GlEffect {
 
         private boolean drawTitleMotion(TextOverlayItem item, long timeMs, long timeUs, long periodUs, int w, int h) {
             if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
-                    || textDrawer == null || !RigidTitleRaster.supports(item)) return false;
+                    || (textDrawer == null && !isolatedTitles)
+                    || !RigidTitleRaster.supports(item)) return false;
             float opacity = item.animatedOpacity(timeMs);
             if (!(opacity > 0.001f)) return false;
 
-            var title = uprightTitles.computeIfAbsent(item.getId(), id -> {
-                int layoutW = textDrawer.drawWidth();
-                int layoutH = textDrawer.drawHeight();
-                var raster = RigidTitleRaster.measure(item, timeMs, projectDurationMs, layoutH);
-                return new UprightTitle(raster, item, layoutW, layoutH, w, h,
-                        RigidPictureMotion.itemFences(item, motionStartUs, motionEndUs));
-            });
+            var title = titleFor(item, timeMs, w, h);
             if (!title.raster.fits()) return false;
             var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), title.sampler,
                     timeUs, periodUs, title.breaks, w, h);
@@ -332,6 +344,41 @@ final class GlImageOverlayEffect implements GlEffect {
             frameExternal.add(false);
             frameBlurs.add(new RigidTextureShutterPass.Exposure(plan, 1f));
             return true;
+        }
+
+        private UprightTitle titleFor(TextOverlayItem item, long timeMs, int w, int h) {
+            return uprightTitles.computeIfAbsent(item.getId(), id -> {
+                int layoutW = textDrawer == null ? w : textDrawer.drawWidth();
+                int layoutH = textDrawer == null ? h : textDrawer.drawHeight();
+                var raster = RigidTitleRaster.measure(item, timeMs, projectDurationMs, layoutH);
+                return new UprightTitle(raster, item, layoutW, layoutH, w, h,
+                        RigidPictureMotion.itemFences(item, motionStartUs, motionEndUs));
+            });
+        }
+
+        private void drawOrderedTitle(TextOverlayItem item, long timeMs, int w, int h)
+                throws VideoFrameProcessingException {
+            float opacity = item.animatedOpacity(timeMs);
+            if (!(opacity > 0.001f)) return;
+            var title = titleFor(item, timeMs, w, h);
+            if (!title.raster.fits() || title.uploadFailed) {
+                throw new VideoFrameProcessingException("Ordered title raster unavailable");
+            }
+            if (title.texture == 0 && !uploadTitle(item, title, timeMs, opacity)) {
+                title.uploadFailed = true;
+                throw new VideoFrameProcessingException("Could not upload ordered title raster");
+            }
+
+            float[] pose = new float[4];
+            item.motionPlacementAt(timeMs, pose);
+            var pip = FxPreviewTextureView.Pip.ofImage(pose[0], 1f - pose[1],
+                    title.raster.width() / (2f * w), title.raster.height() / (2f * h),
+                    -pose[3], 1f, null, timeMs, null, 0f, w, h,
+                    "ordered-title#" + item.getId(), null, 1f);
+            frameVisible.add(pip);
+            frameTex.add(title.texture);
+            frameExternal.add(false);
+            frameBlurs.add(null);
         }
 
         private boolean uploadTitle(TextOverlayItem item, UprightTitle title, long timeMs, float opacity) {

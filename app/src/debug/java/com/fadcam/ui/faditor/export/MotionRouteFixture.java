@@ -160,7 +160,8 @@ final class MotionRouteFixture {
         return project;
     }
 
-    static FaditorProject createLanePicture(Context context, boolean adjustmentAbove) throws IOException {
+    static FaditorProject createLanePicture(Context context, boolean adjustmentAbove,
+                                             boolean includePip, boolean includeTitle) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName(
                 "TEST STU-7 C4 picture " + (adjustmentAbove ? "under effect" : "over effect")));
@@ -177,6 +178,12 @@ final class MotionRouteFixture {
         picture.setLayerId("text");
         picture.setTimeRange(0L, 999L);
         timeline.addTextOverlay(picture);
+        if (includeTitle) {
+            var title = new TextOverlayItem("ORDER TEST", Color.MAGENTA, 0.56f, 0.30f, 0.09f, 0f);
+            title.setLayerId("text");
+            title.setTimeRange(0L, 999L);
+            timeline.addTextOverlay(title);
+        }
         var adjustment = new AdjustmentLayer();
         adjustment.setLayerId("adjustment");
         adjustment.setStartMs(0L);
@@ -185,6 +192,16 @@ final class MotionRouteFixture {
         timeline.addAdjustmentLayer(adjustment);
         timeline.getOrCreateTrackFlags("text").zIndex = 4;
         timeline.getOrCreateTrackFlags("adjustment").zIndex = adjustmentAbove ? 8 : 2;
+        if (includePip) {
+            File overlaySource = copyAsset(context, media, "card1.mp4");
+            long overlayDuration = durationMs(overlaySource);
+            Clip pip = clip(overlaySource, overlayDuration, Math.min(800L, overlayDuration));
+            pip.setLayerId("video");
+            pip.setOverlayStartMs(100L);
+            pip.setOverlayAudioEnabled(false);
+            timeline.addOverlayClip(pip);
+            timeline.getOrCreateTrackFlags("video").zIndex = 3;
+        }
 
         if (!storage.save(project)) throw new IOException("Could not save the lane fixture");
         return project;

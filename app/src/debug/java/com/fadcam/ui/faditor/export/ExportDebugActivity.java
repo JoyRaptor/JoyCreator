@@ -99,7 +99,9 @@ public class ExportDebugActivity extends Activity {
         }
         if (in.getBooleanExtra("motion_lane_fixture", false)) {
             FaditorProject fixture = MotionRouteFixture.createLanePicture(this,
-                    in.getBooleanExtra("motion_lane_adjustment_above", true));
+                    in.getBooleanExtra("motion_lane_adjustment_above", true),
+                    in.getBooleanExtra("motion_lane_include_pip", false),
+                    in.getBooleanExtra("motion_lane_include_title", false));
             in.putExtra("project_id", fixture.getId());
         }
         if (in.getBooleanExtra("motion_picture_fixture", false)) {

@@ -7300,16 +7300,27 @@ public class ExportManager {
                 if (isTransitionItem || isLoopBeforeItem || buildingCutPiece || clip.hasLoopExtension()
                         || clip.hasRemovedSpans() || clip.getSpeedMultiplier() != 1f) {
                     unavailable = "transition, loop, cut or retime";
-                } else if (hasAnyVisibleCaptionBinding(clip) || audioCaptionOverlaps
-                        || !timeline.getWaveformOverlays().isEmpty()) {
-                    unavailable = "captions or waveforms";
+                } else if (!timeline.getWaveformOverlays().isEmpty()) {
+                    unavailable = "waveforms";
                 } else {
                     long offset = editorTimeOffsetForChunk(timeline, clip, timelineCursorMs);
                     var candidate = LaneCompositeGlEffect.create(context,
                             com.fadcam.ui.faditor.compositor.lane.LanePlan.of(timeline),
-                            timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs);
+                            timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs,
+                            overlayH);
                     if (candidate.effect() != null) {
                         videoEffects.add(candidate.effect());
+                        if (hasAnyVisibleCaptionBinding(clip) || audioCaptionOverlaps) {
+                            var captions = new CompositeExportOverlay(context, timelineCursorMs, clip,
+                                    overlayW, overlayH, Collections.emptyList(), Collections.emptyList(),
+                                    timeline.getAudioClips(), Collections.emptyList(), project.getSpriteSheets(),
+                                    project.getAvatarRigs(), timeline.getTotalDurationMs(), offset,
+                                    pieceClipStartMs, motionBlurEnabled);
+                            if (captions.hasCaptions()) {
+                                captions.setCaptionsViaGl(true);
+                                videoEffects.add(new GlCaptionEffect(captions));
+                            }
+                        }
                         return finishClipVideoEffects(videoEffects, canvasDims, offset);
                     }
                     unavailable = candidate.fallbackReason();

@@ -75,9 +75,13 @@ async function checkBatch(casesPath, evidenceRoot) {
         const invertReference = labels.has(ungraded);
         const left = invertReference ? ungraded : name + '-legacy';
         if (!labels.has(left)) throw new Error('Missing reference case for ' + label);
-        const data = await checkPair(resolve(evidenceRoot, left, 'manifest.json'),
-                resolve(evidenceRoot, label, 'manifest.json'), {invertReference});
-        results.push({name, ...data});
+        try {
+            const data = await checkPair(resolve(evidenceRoot, left, 'manifest.json'),
+                    resolve(evidenceRoot, label, 'manifest.json'), {invertReference});
+            results.push({name, ...data});
+        } catch (error) {
+            results.push({name, passed: false, error: error.message});
+        }
     }
     if (!results.length) throw new Error('No paired controls in the requested batch');
     return {passed: results.every(result => result.passed), results};

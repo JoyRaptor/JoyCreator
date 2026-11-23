@@ -91,7 +91,7 @@ async function main() {
     const restoreHash = await sha256(recoveryApk);
     const output = resolve(outPath);
     await mkdir(output, {recursive: true});
-    const receipt = {sourceApkHash: await sha256(testApk), runs: [], restored: false};
+    const receipt = {sourceApkHash: await sha256(testApk), runs: [], caseFailures: [], restored: false};
     let installAttempted = false;
     await call('claim', HOLDER, 'STU-7 disposable lane-order framebuffer fixtures');
     try {
@@ -125,8 +125,9 @@ async function main() {
             const expectedOrdered = test.expectedOrdered ?? test.ordered;
             if (ordered !== expectedOrdered || samples.length !== 3 || !finished
                     || new Set(samples.map(match => match[2])).size !== 3) {
-                throw new Error('Unexpected result for ' + test.label
-                    + ' (ordered=' + ordered + ', samples=' + samples.length + ', finished=' + finished + ')');
+                receipt.caseFailures.push({label: test.label, ordered, expectedOrdered,
+                    samples: samples.length, finished});
+                continue;
             }
             const manifest = {label: test.label, ordered, samples: []};
             for (const [, file, requestUs, editorUs, width, height] of samples) {
@@ -159,7 +160,7 @@ async function main() {
         await writeFile(join(output, 'receipt.json'), JSON.stringify(receipt, null, 2));
     }
     console.log(JSON.stringify(receipt, null, 2));
-    if (receipt.error || receipt.restoreError) process.exitCode = 1;
+    if (receipt.error || receipt.restoreError || receipt.caseFailures.length) process.exitCode = 1;
 }
 
 main().catch(error => {

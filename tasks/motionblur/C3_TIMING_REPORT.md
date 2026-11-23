@@ -16,3 +16,18 @@ The fixed comparison window is 233,333–600,001 µs. In both Mix 100 trials, th
 This run identified a first-use playback hitch. Warmed timing, hardware GPU timing, seeking, the mixed ten-minute fixture, memory, and Exynos need their own gates.
 
 Raw `c3-timing-*.log`, `c3-preview-timing-receipt.json`, and `c3-preview-timing-summary.json` are under `C:/workspace/motion-c2-evidence/`.
+
+## After preparing the shutter program
+
+The [exact warm-up APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282) at `51e789204` repeated the same fixture and Mix order. The matched comparison window contains 12 samples per trial.
+
+| Trial | Mix | Distinct decoded frames | P50 (ms) | P95 (ms) | P99 (ms) | First shutter frame or same control PTS (ms) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 100% | 27 | 3.31 | 5.95 | 5.95 | 4.65 |
+| 2 | 0% | 28 | 3.99 | 6.24 | 6.24 | 1.69 |
+| 3 | 0% | 28 | 2.88 | 4.78 | 4.78 | 2.88 |
+| 4 | 100% | 29 | 4.10 | 8.19 | 8.19 | 4.10 |
+
+The preparatory draw took 37 ms and 6 ms. Log timestamps place it 5.34 and 7.08 seconds before the first shutter frame, while the disposable fixture was open and paused. Neither Mix 0 trial prepared a shutter program. The 55–99 ms first-motion stall dropped to 4.10–4.65 ms. Thermal status remained 0 at 26.1–26.3 °C. The original APK hash matched after restoration and the phone claim was released.
+
+These are short 540p CPU draw-and-swap timings. The specification’s 720p GPU P95, mixed ten-minute playback floor, memory and Exynos gates remain open. The baseline is preserved at `C:/workspace/motion-c2-evidence/timing-before-warm-up/`. The rerun uses `c3-timing-*.log` and `c3-preview-timing-*.json` in the parent folder.

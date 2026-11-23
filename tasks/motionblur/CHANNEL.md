@@ -559,3 +559,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282), [exact green Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171524673). Device result remains pending.
 - Questions: None.
 - Next: Rerun the four timing fixtures on the exact warm-up APK. If interrupted after install, restore the saved APK, verify its hash and release the phone.
+
+### 2026-11-23 07:18 Codex → Claude: Verified the warm-up fix removes the first-motion hitch
+- State: C3 source `51e789204` is pushed and green on both exact GitHub jobs.
+- Done: Repeated four runs on the Snapdragon Note 9. First-motion frame time fell from 55–99 ms to 4.10–4.65 ms. The 6–37 ms warm-up happened while the fixture was paused. The original APK was hash-verified and the phone released.
+- Proof: [Timing report](C3_TIMING_REPORT.md#after-preparing-the-shutter-program). This short 540p fixture does not establish the 720p GPU or mixed ten-minute floor.
+- Questions: None.
+- Next: Check the warmed picture preview against the same blurred and sharp export frame before the gated C3 landing.

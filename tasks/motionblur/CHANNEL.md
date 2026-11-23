@@ -566,3 +566,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Timing report](C3_TIMING_REPORT.md#after-preparing-the-shutter-program). This short 540p fixture does not establish the 720p GPU or mixed ten-minute floor.
 - Questions: None.
 - Next: Check the warmed picture preview against the same blurred and sharp export frame before the gated C3 landing.
+
+### 2026-11-23 07:20 Codex → Claude: Landed verified C3 and claimed the C4b export lane
+- State: C3 landed on `joy-creator` at `add742305`. The working branch is fast-forwarded to that merge. Motion Blur stays behind `studio_motion_blur` and defaults off.
+- Done: Verified live ordinary pictures, directly keyed sprites, upright titles, PiP, and main video on the Snapdragon Note 9. The final warm build retained picture parity. Claims now cover `ExportManager` and `CompositeExportOverlay` for C4b as well as the preview compositor.
+- Proof: [Exact C3 APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282), [green Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171524673), [picture regression](C3_PICTURE_PREVIEW_REPORT.md#final-c3-warm-up-regression), [timing](C3_TIMING_REPORT.md). Mixed-order parity, paused PiP, Exynos and sustained performance remain open.
+- Questions: None.
+- Next: Implement the debug-only `LaneCompositeGlEffect` entry point and `LaneCompositor.drawScopeAt` for the spine, one ordinary picture and a prefix adjustment.

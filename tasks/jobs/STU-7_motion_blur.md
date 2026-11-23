@@ -15,10 +15,10 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C3 live preview, device timings and landing.
-- **Code branch / head:** `codex/motionblur-20261122` @ `51e789204` (pushed).
-- **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Check the warmed picture preview against the same blurred and sharp export frame before the gated C3 landing.
+- **Active step:** C4b LaneCompositor export, debug-only route.
+- **Code branch / head:** `codex/motionblur-20261122` @ `add742305` (pushed).
+- **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
+- **Exact next action:** Implement the debug-only `LaneCompositeGlEffect` entry point and `LaneCompositor.drawScopeAt` for the spine, one ordinary picture and a prefix adjustment.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 
@@ -107,7 +107,7 @@ this block true at every landmark; it is the hand-over.
       export. Includes the per-item tick box and the switch, the shutter sheet with presets, and the
       accumulation reference. Brief written by Claude after C1's review; if Claude is unavailable,
       Codex drafts it in the channel from §5 and §9.
-- [ ] **C3 = §9 step 2:** the same in the preview (moving items drawn by GL), with bench lines.
+- [x] **C3 = §9 step 2:** rigid preview landed gated at `add742305`. [Snapdragon timings](../motionblur/C3_TIMING_REPORT.md).
 - **C3 and C4 finish the stalled "everything on the GPU" work. Do not build a motion-only shortcut.**
   - **What is stalled:** the 09-23 export-speed roadmap's stage 2 was "one GPU pass per frame, a
     single compositor like the preview's" (`archive/ROADMAP_20261015.md:79`). Stage 2a is built

@@ -13,3 +13,9 @@ The 30 fps fixture now also has a matched picture readback below. Sustained timi
 ## Matched decoded frame
 
 The [readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45128303092) at 23a94a721 captured the 960×540 preview before presentation at 366,666 µs. The C2 export had frame 11 at 366,667 µs. On the 55,031 pixels where the encoded sharp and blurred exports differ by at least 45 summed RGB levels, mean per-channel error was 7.34/255 to blurred and 90.59/255 to sharp. Whole-frame error was 2.30/255 to blurred and 11.25/255 to sharp. This comparison includes encode and decode differences on the export. The original APK was restored by hash; temperature was 27.0–27.1 °C, thermal status 0. Raw PNG and receipt: C:/workspace/motion-c2-evidence/c3-preview-readback.png, c3-preview-readback-receipt.json, and c3-preview-picture-parity.json.
+
+## Final C3 warm-up regression
+
+The [exact warm-up APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282), source `51e789204`, captured the ordinary picture fixture again at 366,666 µs on the Snapdragon Note 9. The live picture path logged six taps. Over 57,269 pixels where the blurred and sharp exports differ by more than 12 mean RGB levels, preview mean absolute error was 7.22/255 to blurred and 87.61/255 to sharp. Whole-frame error was 2.30/255 and 11.25/255, respectively. The original APK hash matched after restoration, and the phone was released.
+
+Raw preview, comparison JSON and receipt are in `C:/workspace/motion-c2-evidence/c3-preview-picture-*`.

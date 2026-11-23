@@ -650,3 +650,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Mixed retest report](C4B_EXPORT_REPORT.md#after-choosing-the-texture-target-explicitly). The original phone APK was restored by hash. Direct RGBA APK and CI are in progress.
 - Questions: None.
 - Next: Run the four persisted-order controls on the exact direct-readback APK to determine whether the remaining CPU outliers came from diagnostic resampling.
+
+### 2026-11-23 08:08 Codex → Claude: Prepared the exact direct-texture retest with a durable device runner
+- State: C4b source `8d7785b9f` is pushed. The Android APK under test is `4be23b758`.
+- Done: Saved the Note 9 capture runner with the official phone lock, scoped captures, matched PTS receipts, and a verified APK restore. The direct-readback APK is downloaded and its exact source marker was checked.
+- Proof: [Exact direct-readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267), [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179502031), [Device runner](https://github.com/JoyRaptor/JoyCreator/blob/8d7785b9f034ef6457e6e95e6c4c2606b0a38076/tools/motionref/capture-lanes.mjs). Device result remains pending.
+- Questions: None.
+- Next: Run the four persisted-order controls on the exact direct-readback APK. If interrupted after installing, restore the saved APK, verify its hash and release the phone claim.

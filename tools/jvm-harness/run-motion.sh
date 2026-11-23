@@ -50,8 +50,11 @@ expect_failure 'quarter millisecond interpolation' MotionCoreTest --wrong-keyfra
 expect_failure 'all signed 12-bit values round trip' MotionCoreTest --wrong-pack
 expect_failure 'cut start' -Dmotion.wrongNoFences=true MotionTimelineBreaksTest
 expect_failure 'sprite exposure intersects pose and cell fences' -Dmotion.wrongNoSpriteExposureFence=true MotionTimelineBreaksTest
+expect_failure 'preview cell holds only until the authored swap' -Dmotion.wrongPreviewCellWindow=true MotionTimelineBreaksTest
 expect_failure 'sprite follows fractional parent motion' -Dmotion.wrongRoundedItem=true MotionItemAdaptersTest
 expect_failure 'upright title stays centered at fractional time' -Dmotion.wrongTitlePlacement=true MotionItemAdaptersTest
+expect_failure "use presentation cadence after a skipped texture" PreviewMotionClockTest release-clock
+java @"$RUNARGS" PreviewMotionClockTest
 java @"$RUNARGS" MotionCoreTest
 java @"$RUNARGS" MotionTimelineBreaksTest
 java @"$RUNARGS" MotionItemAdaptersTest

@@ -1,7 +1,10 @@
 package com.fadcam.ui.faditor.motion;
 
+import androidx.annotation.Nullable;
+
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CutJumps;
+import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -27,6 +30,17 @@ public final class MotionTimelineBreaks {
         for (int index = 0; index < cuts.count(); index++) {
             into.exclude(cuts.startMs(index) * 1000L, cuts.endMs(index) * 1000L);
         }
+    }
+
+    /** Fences a spine transform to its source piece and forbids sampling across held steps. */
+    public static MotionBreaks spine(Clip clip, long clipStartUs, long pieceStartUs, long pieceEndUs) {
+        var breaks = new MotionBreaks.Builder().add(pieceStartUs).add(pieceEndUs);
+        var transform = clip.getSpineTransform();
+        for (String property : SpineTransform.tracks()) {
+            var track = transform.get(property);
+            if (track != null) breaks.addSteps(track, clipStartUs);
+        }
+        return breaks.build();
     }
 
     /** Adds visible clip boundaries and any repeated source discontinuity within the window. */
@@ -73,5 +87,41 @@ public final class MotionTimelineBreaks {
             if (cell != previous) into.add(ms * 1000L);
             previous = cell;
         }
+    }
+
+    public static int supportedCell(SpriteSheet sheet, SpriteOverlayItem item, long timeMs) {
+        int cell = SpriteFrameResolver.resolveCellAt(sheet, item, timeMs);
+        if (cell == SpriteFrameResolver.NO_CELL) return cell;
+        var alignment = sheet.cellTransform(cell);
+        // Aligned art can extend beyond the cell texture.
+        return alignment == null || alignment.isIdentity() ? cell : SpriteFrameResolver.NO_CELL;
+    }
+
+    public record CellWindow(int cell, long startUs, long endUs) {}
+
+    /** Exact holding interval for authored cells. Preset sequences use their regular route. */
+    @Nullable
+    public static CellWindow directCellWindow(SpriteSheet sheet, SpriteOverlayItem item, long timeMs) {
+        int cell = supportedCell(sheet, item, timeMs);
+        if (cell == SpriteFrameResolver.NO_CELL) return null;
+        long itemStart = item.getStartMs();
+        long start = itemStart;
+        long end = item.getEndMs();
+        int previous = SpriteFrameResolver.resolveCellAt(sheet, item, start);
+        for (var key : item.getFrameTrack().keys()) {
+            if (key.presetId != null) return null;
+            long edge = itemStart + key.timeMs;
+            if (edge >= end) break;
+            int next = SpriteFrameResolver.resolveCellAt(sheet, item, edge);
+            if (next == previous) continue;
+            if (edge > timeMs) {
+                end = edge;
+                break;
+            }
+            start = edge;
+            previous = next;
+        }
+        return new CellWindow(cell, start * 1000L,
+                end == Long.MAX_VALUE ? end : end * 1000L);
     }
 }

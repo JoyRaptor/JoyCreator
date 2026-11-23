@@ -9,10 +9,11 @@ import androidx.media3.common.util.GlUtil;
 import androidx.media3.common.util.Size;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
+import com.fadcam.ui.faditor.compositor.RigidPipMotion;
 import com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.Clip;
-import com.fadcam.ui.faditor.model.ChromaKey;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionFrameCadence;
@@ -73,18 +74,8 @@ final class GlPipFrameOverlay {
         this.surfaceReader = new SurfaceFrameReader(this.context, clip.getSourceUri());
         motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
         motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
-        KeyframeSet keys = clip.getOverlayTransform();
-        if (motionPieceDurationMs > 0 && clip.isRigidMotionBlurEnabled() && keys != null
-                && keys.isAnimated() && !clip.hasActiveFx() && !ChromaKey.isActive(clip.getCompositing())) {
-            long start = clip.getOverlayStartMs();
-            long end = start + Math.max(0, clip.getTrimmedDurationMs());
-            var fences = new MotionBreaks.Builder().add(motionStartUs).add(motionEndUs)
-                    .add(start * 1000L).add((end + 1L) * 1000L);
-            for (var track : keys.tracks()) fences.addSteps(track, 0L);
-            shutterBreaks = fences.build();
-        } else {
-            shutterBreaks = null;
-        }
+        shutterBreaks = motionPieceDurationMs > 0 && clip.isRigidMotionBlurEnabled()
+                && RigidPipMotion.supports(clip) ? RigidPipMotion.fences(clip, motionStartUs, motionEndUs) : null;
     }
 
     void configure(@NonNull Size videoSize) {
@@ -126,8 +117,7 @@ final class GlPipFrameOverlay {
             return getTransparentTexture();
         }
 
-        KeyframeSet kf = clip.getOverlayTransform();
-        float opacity = kf == null ? 1f : Math.max(0f, Math.min(1f, kf.valueAt(KeyframeSet.OPACITY, timelineMs, 1f)));
+        float opacity = RigidPipMotion.opacity(clip, timelineMs);
         if (opacity <= 0.001f) return getTransparentTexture();
 
         long sourceMs = clip.getInPointMs() + (timelineMs - start);

@@ -1651,6 +1651,11 @@ public class TextOverlayLayer extends FrameLayout {
         return imageBitmap(o);
     }
 
+    /** True while the overlay follows a direct authoring gesture. */
+    public boolean isManipulatingOverlay(@NonNull TextOverlayItem item) {
+        return item == manipulating || isLiveEditing(item);
+    }
+
     /**
      * This image overlay's placement for the GL composite, or null when it cannot be drawn there
      * yet (no content rect, no decoded picture).

@@ -2,7 +2,12 @@
 <resources>
     <string name="studio_motion_blur">Motion Blur</string>
     <string name="studio_motion_enable_project">Enable motion blur for this project</string>
-    <string name="studio_motion_enable_item">Enable transform blur in export</string>
+    <string name="studio_motion_enable_item">Blur this item’s transform</string>
+    <string name="studio_motion_scope_clip">Position, scale, and rotation keyframes blur the clip’s placement. Loops, jump cuts, transitions, and still-image clips can show a sharp preview. Filmed-video motion analysis is planned separately.</string>
+    <string name="studio_motion_scope_pip">Live preview supports a single video overlay at normal speed with Normal blend. Masks, chroma key, track mattes, and clip effects can leave it sharp.</string>
+    <string name="studio_motion_scope_picture">Preview supports ordinary animated pictures. Linked pictures, corner pins, custom pivots, and effect or transition treatments can leave the picture sharp.</string>
+    <string name="studio_motion_scope_title">Preview supports plain animated titles. Linked, styled, warped, and preset-animated titles can remain sharp.</string>
+    <string name="studio_motion_scope_sprite">Preview supports a single ordinary animated sprite with directly keyed cells. Avatar rigs, preset sequences, and mixed overlay stacks can remain sharp.</string>
     <string name="studio_motion_apply">Apply</string>
     <string name="studio_motion_inspect">Inspect Frame</string>
     <string name="studio_motion_inspect_working">Rendering the export frame…</string>

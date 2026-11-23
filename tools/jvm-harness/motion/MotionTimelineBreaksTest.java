@@ -76,6 +76,21 @@ public final class MotionTimelineBreaksTest {
             }
         }
 
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(32, 0));
+        var previewLeft = MotionTimelineBreaks.directCellWindow(sheet, sprite, 1_079);
+        var previewRight = MotionTimelineBreaks.directCellWindow(sheet, sprite, 1_080);
+        long leftEnd = Boolean.getBoolean("motion.wrongPreviewCellWindow")
+                ? sprite.getEndMs() * 1000L : previewLeft.endUs();
+        equal(1_080_000, leftEnd, "preview cell holds only until the authored swap");
+        equal(1_000_000, previewLeft.startUs(), "identical cell key does not break exposure");
+        equal(0, previewLeft.cell(), "previous drawing");
+        equal(1_080_000, previewRight.startUs(), "next drawing owns the exact swap");
+        equal(1_090_000, previewRight.endUs(), "preview fences empty cells");
+        equal(1, previewRight.cell(), "next drawing");
+        if (MotionTimelineBreaks.directCellWindow(sheet, sprite, 1_090) != null) {
+            throw new AssertionError("empty cell never becomes a texture donor");
+        }
+
         System.out.println("MotionTimelineBreaksTest: transition, cut, repeat, ping-pong and sprite assertions passed");
     }
 

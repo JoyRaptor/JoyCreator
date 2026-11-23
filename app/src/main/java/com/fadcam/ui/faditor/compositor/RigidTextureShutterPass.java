@@ -1,4 +1,4 @@
-package com.fadcam.ui.faditor.export;
+package com.fadcam.ui.faditor.compositor;
 
 import android.opengl.GLES20;
 
@@ -11,10 +11,10 @@ import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 
 /** Resolves several placements of the same isolated studio frame in one draw. */
-final class RigidTextureShutterPass {
+public final class RigidTextureShutterPass {
     private static final int SAMPLE_COUNT = 6;
 
-    static final String VERTEX_SHADER =
+    public static final String VERTEX_SHADER =
             "#version 100\n"
             + "attribute vec4 aFramePosition;\n"
             + "uniform mat4 uTransformationMatrix;\n"
@@ -27,12 +27,12 @@ final class RigidTextureShutterPass {
             + "  vTexSamplingCoord = (uTexTransformationMatrix * texturePosition).xy;\n"
             + "}\n";
 
-    static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
+    public static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
                                  long timeUs, long periodUs, MotionBreaks breaks, int width, int height) {
         return plan(controls, sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height);
     }
 
-    static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
+    public static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
                                  long timeUs, long periodUs, MotionBreaks breaks,
                                  MotionBreaks sourceBreaks, int width, int height) {
         if (periodUs <= 0 || controls.mixPercent() == 0 || controls.angle() == 0) return null;
@@ -40,7 +40,9 @@ final class RigidTextureShutterPass {
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }
 
-    enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY, PIP }
+    public record Exposure(RigidShutterPlan plan, float opacity) {}
+
+    public enum Source { SPINE, PICTURE, PREMULTIPLIED_OVERLAY, PIP, VIDEO_OVERLAY }
 
     private final GlProgram program;
     private final boolean overlay;
@@ -49,7 +51,7 @@ final class RigidTextureShutterPass {
     private final float[] bounds = new float[4];
     private final float[][] rows = new float[SAMPLE_COUNT * 2][4];
 
-    RigidTextureShutterPass(Source source) throws GlUtil.GlException {
+    public RigidTextureShutterPass(Source source) throws GlUtil.GlException {
         pip = source == Source.PIP;
         overlay = !pip && source != Source.SPINE;
         frame = new float[overlay || pip ? 3 : 2];
@@ -60,7 +62,7 @@ final class RigidTextureShutterPass {
         program.setFloatsUniform("uTexTransformationMatrix", identity);
     }
 
-    void draw(int textureId, int width, int height, RigidShutterPlan plan,
+    public void draw(int textureId, int width, int height, RigidShutterPlan plan,
               int baseTexture, float opacity) throws GlUtil.GlException {
         frame[0] = width;
         frame[1] = height;
@@ -101,13 +103,14 @@ final class RigidTextureShutterPass {
         GlUtil.checkGlError();
     }
 
-    void release() throws GlUtil.GlException {
+    public void release() throws GlUtil.GlException {
         program.delete();
     }
 
     private static String fragmentShader(Source kind) {
         boolean pip = kind == Source.PIP;
         boolean overlay = !pip && kind != Source.SPINE;
+        boolean bitmap = kind == Source.PICTURE || kind == Source.PREMULTIPLIED_OVERLAY;
         // Statically named rows stay below the GLES 2 minimum fragment-uniform limit.
         StringBuilder source = new StringBuilder("""
                 #version 100
@@ -125,7 +128,7 @@ final class RigidTextureShutterPass {
         for (int i = 0; i < SAMPLE_COUNT; i++) {
             source.append("uniform vec4 uTapX").append(i).append(", uTapY").append(i).append(";\n");
         }
-        if (overlay) {
+        if (bitmap) {
             source.append("""
                     vec3 toLinear(vec3 rgb) {
                       return mix(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3(2.4)),
@@ -156,7 +159,7 @@ final class RigidTextureShutterPass {
                   if (any(lessThanEqual(uv, vec2(0.0))) || any(greaterThanEqual(uv, vec2(1.0))))
                     return vec4(0.0);
                 """);
-        if (overlay) {
+        if (bitmap) {
             source.append("""
                     // Match the existing normal blend's RGB and alpha for uploaded bitmaps.
                     vec4 sampleColor = texture2D(uTexSampler, uv);

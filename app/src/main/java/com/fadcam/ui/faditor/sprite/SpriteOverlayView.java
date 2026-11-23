@@ -1,8 +1,10 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.RectF;
@@ -269,6 +271,38 @@ public class SpriteOverlayView extends View {
         }
     }
 
+    public record MotionCell(Bitmap bitmap, float aspect,
+            MotionTimelineBreaks.CellWindow window) {}
+
+    private record MotionCellKey(SpriteSheetRenderer owner, int artistCell, android.graphics.Rect rect) {}
+
+    // Do not recycle evicted copies here: an already published GL plan may still own one.
+    private final android.util.LruCache<MotionCellKey, Bitmap> motionCells =
+            new android.util.LruCache<>(16 * 1024 * 1024) {
+                @Override protected int sizeOf(MotionCellKey key, Bitmap value) {
+                    return value.getAllocationByteCount();
+                }
+            };
+
+    @Nullable
+    public MotionCell motionCellFor(@NonNull SpriteOverlayItem item, long playheadMs) {
+        if (callback == null || item == manipulating) return null;
+        var sheet = callback.lookupSheet(item.getSheetId());
+        var renderer = callback.lookupRenderer(item.getSheetId());
+        if (sheet == null || renderer == null || renderer.isSequence()) return null;
+        var window = MotionTimelineBreaks.directCellWindow(sheet, item, playheadMs);
+        if (window == null) return null;
+        var key = new MotionCellKey(renderer, sheet.sourceCell(window.cell()), renderer.cellRectBitmap(window.cell()));
+        Bitmap bitmap = motionCells.get(key);
+        if (bitmap == null) {
+            bitmap = com.fadcam.ui.faditor.compositor.RigidSpriteMotion.rasterCell(renderer,
+                    window.cell(), drawPaint);
+            if (bitmap == null) return null;
+            motionCells.put(key, bitmap);
+        }
+        return new MotionCell(bitmap, renderer.cellAspect(), window);
+    }
+
     private void drawSprite(@NonNull Canvas canvas, @NonNull SpriteOverlayItem o,
                             @NonNull RectF r) {
         // GL has this one — see setGlOwnedIds.
@@ -518,6 +552,7 @@ public class SpriteOverlayView extends View {
 
     @Override
     protected void onDetachedFromWindow() {
+        motionCells.evictAll();
         super.onDetachedFromWindow();
         for (com.fadcam.ui.faditor.avatar.AvatarItemPuppet p : puppets.values()) {
             if (p != null) p.release();

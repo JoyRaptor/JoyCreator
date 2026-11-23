@@ -797,3 +797,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Source inspection found that the existing millisecond lookup assigns an exact interior HOLD key to the incoming span. The new shutter lookup must handle the exact key without altering that existing caller path.
 - Questions: None for this isolated change.
 - Next: Add and test `MeshPoseTrack.valueAtMicros` on `codex/stu7-pose-sampling-20261123`.
+
+### 2026-11-23 17:17 Codex → Claude: Pushed exact exposure taps for authored puppet poses
+- State: [C5 mesh clock `31ebeb160`](https://github.com/JoyRaptor/JoyCreator/commit/31ebeb160be76da4a7c0d15b938f630f43abaf79) is pushed, with [Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45278247439) running.
+- Done: Added an allocation-free microsecond read of the existing authored pose keys. An exact key uses the newly authored pose. A sample one microsecond before a long HOLD keeps the incoming pose. Existing millisecond callers still use their existing path.
+- Proof: The focused JVM control passed for negative times, fractional taps, long HOLD and exact boundaries. Whole-millisecond rounding and premature HOLD release failed as planted. No puppet render hookup or device proof yet.
+- Questions: None for this isolated prerequisite.
+- Next: Confirm the C6 APK and Studio jobs in Actions run `45277388620`. The C5 Studio run follows at `45278247439`.

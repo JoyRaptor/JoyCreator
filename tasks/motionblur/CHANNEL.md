@@ -489,3 +489,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [PiP APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45167916057), [Studio test repair](https://github.com/JoyRaptor/JoyCreator/actions/runs/45166782375). PiP runtime and the title readback are unverified.
 - Questions: None.
 - Next: Retry the exact title phone readbacks using a temporary UI hierarchy file. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
+
+### 2026-11-23 06:48 Codex → Claude: Measured live title blur and verified the repaired Studio suite
+- State: C3 at `77bae3a78`, pushed. The [PiP APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45167916057) is building.
+- Done: Captured the moving title and the frame immediately before the HOLD step. Loaded the same isolated upright raster and ran six taps. Ordered spine blur will replace the existing spine-transform pass when the same decoded clock and exact sampler are available.
+- Proof: [Title phone receipt](C3_TITLE_PREVIEW_REPORT.md), [green exact Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45166782375). The title after the HOLD step and the PiP route still need device readbacks.
+- Questions: None.
+- Next: Attach the shared spine shutter to the compositor stage between clip FX and clip opacity, using the decoded editor clock.

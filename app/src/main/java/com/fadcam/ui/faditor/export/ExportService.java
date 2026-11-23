@@ -97,6 +97,7 @@ public class ExportService extends Service {
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
     public static final String EXTRA_DEBUG_LANE_COMPOSITOR = "debug_lane_compositor";
+    public static final String EXTRA_DEBUG_LANE_SAMPLE_US = "debug_lane_sample_us";
     /** Optional extension-free output basename for this export job. */
     public static final String EXTRA_OUTPUT_FILE_NAME = "output_file_name";
     /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
@@ -317,7 +318,8 @@ public class ExportService extends Service {
                     singleFrame ? intent.getLongExtra(EXTRA_FRAME_TIME_MS, -1L) : null,
                     intent.getBooleanExtra(EXTRA_FRAME_JPEG, false), range,
                     intent.getStringExtra(EXTRA_OUTPUT_FILE_NAME),
-                    intent.getBooleanExtra(EXTRA_DEBUG_LANE_COMPOSITOR, false));
+                    intent.getBooleanExtra(EXTRA_DEBUG_LANE_COMPOSITOR, false),
+                    intent.getLongArrayExtra(EXTRA_DEBUG_LANE_SAMPLE_US));
         }
 
         return START_NOT_STICKY;
@@ -377,18 +379,19 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
-        startExportInternal(snapshotPath, audioOnly, null, null, false, null, null, false);
+        startExportInternal(snapshotPath, audioOnly, null, null, false, null, null, false, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
-        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null, null, false);
+        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null, null, false, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly,
                                      @Nullable String loudnessTargetName,
                                      @Nullable Long frameTimeMs, boolean frameJpeg,
                                      @Nullable long[] range,
-                                     @Nullable String outputFileName, boolean debugLaneCompositor) {
+                                     @Nullable String outputFileName, boolean debugLaneCompositor,
+                                     @Nullable long[] debugLaneSampleUs) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -492,7 +495,7 @@ public class ExportService extends Service {
         // Create ExportManager and run
         SharedPreferencesManager prefsManager = SharedPreferencesManager.getInstance(this);
         exportManager = new ExportManager(this, prefsManager);
-        exportManager.setDebugLaneCompositor(debugLaneCompositor);
+        exportManager.setDebugLaneCompositor(debugLaneCompositor, debugLaneSampleUs);
         // C4: apply pending loudness target from dialog (via intent or prefs)
         String targetName = loudnessTargetName;
         if (targetName == null) {

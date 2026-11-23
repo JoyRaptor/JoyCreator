@@ -148,8 +148,10 @@ public class ExportManager {
     @NonNull
     private LoudnessTarget pendingLoudnessTarget = LoudnessTarget.OFF;
 
-    void setDebugLaneCompositor(boolean enabled) {
+    void setDebugLaneCompositor(boolean enabled, @Nullable long[] sampleTimesUs) {
         debugLaneCompositor = com.fadcam.BuildConfig.DEBUG && enabled;
+        debugLaneSamples = com.fadcam.BuildConfig.DEBUG && sampleTimesUs != null
+                && sampleTimesUs.length > 0 ? new LaneReadbackGlEffect.Samples(sampleTimesUs) : null;
     }
 
     public void setPendingLoudnessTarget(@NonNull LoudnessTarget target) {
@@ -3881,6 +3883,7 @@ public class ExportManager {
     private boolean buildingCutPiece = false;
     private boolean debugLaneCompositor;
     private boolean loggedLaneFallback;
+    @Nullable private LaneReadbackGlEffect.Samples debugLaneSamples;
     private boolean chunkVideoOnly = false;
     private int chunkClipStart = 0;
     private int chunkClipEnd = -1;
@@ -7307,7 +7310,7 @@ public class ExportManager {
                             timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs);
                     if (candidate.effect() != null) {
                         videoEffects.add(candidate.effect());
-                        return finishClipVideoEffects(videoEffects, canvasDims);
+                        return finishClipVideoEffects(videoEffects, canvasDims, offset);
                     }
                     unavailable = candidate.fallbackReason();
                 }
@@ -7931,11 +7934,14 @@ public class ExportManager {
                     + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
         }
 
-        return finishClipVideoEffects(videoEffects, canvasDims);
+        long readbackOffsetMs = debugLaneSamples == null ? 0L
+                : editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
+                        - (isLoopBeforeItem ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
+        return finishClipVideoEffects(videoEffects, canvasDims, readbackOffsetMs);
     }
 
-    private static List<Effect> finishClipVideoEffects(List<Effect> videoEffects,
-                                                        @Nullable int[] canvasDims) {
+    private List<Effect> finishClipVideoEffects(List<Effect> videoEffects,
+                                               @Nullable int[] canvasDims, long readbackOffsetMs) {
         // Canvas resize applies to transition items TOO. The GL transition program
         // outputs frames at the outgoing clip's SOURCE size (its configure() returns
         // the input size), so without this the ~600ms transition segment was a
@@ -7947,6 +7953,9 @@ public class ExportManager {
                     Presentation.LAYOUT_SCALE_TO_FIT));
         }
 
+        if (debugLaneSamples != null) {
+            videoEffects.add(new LaneReadbackGlEffect(context, readbackOffsetMs, debugLaneSamples));
+        }
         return videoEffects;
     }
 

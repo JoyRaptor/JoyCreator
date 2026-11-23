@@ -43,8 +43,7 @@ public final class LaneCompositor {
             throws VideoFrameProcessingException, GlUtil.GlException {
         try {
             if (passCount == 0) {
-                GlUtil.focusFramebufferUsingCurrentContext(outputFramebuffer, width, height);
-                copy(inputTexture);
+                drawCopy(inputTexture, outputFramebuffer);
                 return;
             }
             int prefix = inputTexture;
@@ -62,6 +61,11 @@ public final class LaneCompositor {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, outputFramebuffer);
             GLES20.glViewport(0, 0, width, height);
         }
+    }
+
+    public void drawCopy(int inputTexture, int outputFramebuffer) throws GlUtil.GlException {
+        GlUtil.focusFramebufferUsingCurrentContext(outputFramebuffer, width, height);
+        copy(inputTexture);
     }
 
     private void ensureTarget(int slot) throws GlUtil.GlException {

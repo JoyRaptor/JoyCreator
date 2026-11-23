@@ -20,12 +20,12 @@ import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
+import com.fadcam.ui.faditor.compositor.RigidSpriteMotion;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
-import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
 import com.fadcam.ui.faditor.sprite.SpriteSheetRenderer;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -77,8 +77,7 @@ final class SpriteBlendGlEffect implements GlEffect {
     }
 
     private static boolean hasRigidMotion(SpriteOverlayItem item) {
-        return item.isRigidMotionBlurEnabled() && item.getKeyframes().isAnimated()
-                && !item.isLinked() && !item.hasAvatarPerformance() && !item.wantsGl();
+        return item.isRigidMotionBlurEnabled() && RigidSpriteMotion.supports(item);
     }
 
     @NonNull private final Context context;
@@ -396,10 +395,7 @@ final class SpriteBlendGlEffect implements GlEffect {
             this.motionStartUs = motionStartUs;
             this.motionEndUs = motionEndUs;
             if (hasRigidMotion(item) && motionEndUs > motionStartUs) {
-                long startUs = item.getStartMs() * 1000L;
-                var fences = new MotionBreaks.Builder().add(motionStartUs).add(motionEndUs);
-                for (var track : item.getKeyframes().tracks()) fences.addSteps(track, startUs);
-                shutterBreaks = fences.build();
+                shutterBreaks = RigidSpriteMotion.fences(item, motionStartUs, motionEndUs);
             } else {
                 shutterBreaks = null;
             }
@@ -652,30 +648,20 @@ final class SpriteBlendGlEffect implements GlEffect {
         private boolean drawShutter(int inputTexId, long timeMs, long timeUs, long periodUs)
                 throws GlUtil.GlException {
             if (periodUs <= 0 || shutterBreaks == null || timeUs < motionStartUs || timeUs >= motionEndUs) return false;
-            float opacity = Math.round(Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))) * 255)
-                    / 255f;
+            float opacity = RigidSpriteMotion.opacity(item, timeMs);
             if (opacity == 0f) return false;
             var sheet = frame.sheetById(item.getSheetId());
             if (sheet == null) return false;
-            int cell = SpriteFrameResolver.resolveCellAt(sheet, item, timeMs);
+            int cell = RigidSpriteMotion.supportedCell(sheet, item, timeMs);
             if (cell == SpriteFrameResolver.NO_CELL) return false;
-            var alignment = sheet.cellTransform(cell);
-            // The flat renderer can draw aligned art beyond the nominal cell rectangle.
-            if (alignment != null && !alignment.isIdentity()) return false;
 
             var renderer = frame.rendererFor(item.getSheetId());
             if (renderer == null || renderer.isCellMissing(cell)) return false;
             if (shutterSampler == null) {
                 shutterSampler = MotionItemAdapters.sprite(item, frameW, frameH, renderer.cellAspect());
             }
-            var controls = item.getRigidMotionShutter();
-            var cellBreaks = new MotionBreaks.Builder();
-            long lookBackUs = (long) Math.floor(Math.min(0.0, controls.openOffsetUs(periodUs)));
-            long lookAheadUs = (long) Math.ceil(Math.max(0.0, controls.closeOffsetUs(periodUs)));
-            MotionTimelineBreaks.addSprite(cellBreaks, sheet, item,
-                    timeUs + lookBackUs, timeUs + lookAheadUs);
-            var plan = RigidTextureShutterPass.plan(controls, shutterSampler, timeUs, periodUs,
-                    shutterBreaks, cellBreaks.build(), frameW, frameH);
+            var plan = RigidSpriteMotion.plan(item, sheet, shutterSampler, shutterBreaks,
+                    timeUs, periodUs, frameW, frameH);
             if (plan == null || !prepareCellTexture(renderer, cell)) return false;
             if (shutter == null) {
                 shutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PREMULTIPLIED_OVERLAY);

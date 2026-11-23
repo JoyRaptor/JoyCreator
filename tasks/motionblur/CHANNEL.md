@@ -334,4 +334,4 @@ was away) as "decided: …" so it can be overturned later.
   - real capture timing (no metadata; any Samsung ramp interpolation is unknown);
   - Exynos;
   - a stronger-blur set: use 480 as the virtual rate for 16 frames per exposure, giving 7 pairs from this run.
-- Next: when C2/C3 can render a single picture with blur, feed it `sharp_*` as a picture with no motion keys. That tests nothing, so instead use this set for the C6 footage path and the bake-off. It is the first real pair set.
+- Next: this set is for the filmed-video path (C6) and the estimator bake-off, not for C2/C3 (item blur needs keyframed motion, not footage).

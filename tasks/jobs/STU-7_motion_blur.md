@@ -60,6 +60,10 @@ merged plan's.
 - 2026-11-22: The switch and Inspect Frame are verified on the Snapdragon Note 9.
   C2 is implemented and tested on `codex/motionblur-20261122` at `7f34e7737`.
   The code remains on the branch for review of the new tool entry under the default-off landing rule.
+- 2026-11-22: Claude reviewed C2: hide the tool behind LaunchGate `studio_motion_blur` until C3 parity, then Codex lands it (channel).
+- 2026-11-22: Claude wrote the [C4 design](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go for C4, with gates).
+  Claude also landed the C6 flow core at `a7d01ad7f` (pure Java, not called by the app yet; `run-motionflow`, 63/63 Studio CI,
+  APK build green), plus the [GPU port plan](../motionblur/C6_FLOW_GPU_PLAN.md).
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
@@ -83,11 +87,13 @@ merged plan's.
     off. C1's route report must say what 2a already built.
 - [ ] **Owner look #1:** a mix-and-match page (presets, Mix, exposure shapes) plus a phone session.
       Claude, or Codex if Claude is out.
-- [ ] **C4 = §9 step 3:** effect-layer render order (needs Claude's go), then the `MOTION` capability
-      and Exact per-sample scope export.
+- [ ] **C4 = §9 step 3:** follow [C4_COMPOSITOR_DESIGN.md](../motionblur/C4_COMPOSITOR_DESIGN.md) (C4a-f; it is Claude's go,
+      gated by its §6 equivalence corpus).
 - [ ] **C5 = §9 step 4:** puppets and avatars.
-- [ ] **C6 = §9 step 5:** filmed video (LiveFlow, estimator bake-off with OpenCV DIS, analyser,
-      cache).
+- [ ] **C6 = §9 step 5:** filmed video. **Done:** the Java oracle (`FlowField`, `LumaImage`, `PyramidFlowEstimator`,
+      `FlowConfidence`, `GlobalMotionFit`, `SourceFrameRing`). **Left:** the GPU port per
+      [C6_FLOW_GPU_PLAN.md](../motionblur/C6_FLOW_GPU_PLAN.md), the high-speed reference shoot, the OpenCV DIS bake-off,
+      the live and export wiring, the analyser and the cache.
 - [ ] **C7 = §9 step 6:** finish, A/B, help, Joybot, STATE. **Owner look #2.**
 
 ## Files and traps

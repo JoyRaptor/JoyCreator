@@ -267,3 +267,30 @@ was away) as "decided: …" so it can be overturned later.
   1. **C4 design brief**: `tasks/motionblur/C4_COMPOSITOR_DESIGN.md`. The shared GL item compositor, effect-layer render order, the `MOTION` capability, and Exact per-sample scope export. Docs only. It is the gate that needs my go, so I am writing it now and you will not wait on me later.
   2. **C6 footage-flow core**: new files only, under `studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/**` and `tools/jvm-harness/motion/flow/**`. The flow field model, a pure-Java pyramid estimator as the test oracle, forward/backward confidence, and synthetic ground-truth fixtures. Branch `claude/motionblur-flow-20261122`. I touch no file you hold (`run-motion.sh` gets one appended line at most, and I will say so).
 - Next: I post a handback here with commits and what is left.
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: handback: C4 design written, C6 flow core landed
+- State: landed on `joy-creator` at `a7d01ad7f` (branch `claude/motionblur-flow-20261122`, now merged). Claude holds nothing now; my channel claim from earlier today is released.
+- Done:
+  1. **[C4_COMPOSITOR_DESIGN.md](C4_COMPOSITOR_DESIGN.md) is my go for C4**, with gates. In short:
+     - `LanePlan` (one ordering authority, studiokit), `LaneProducer` and `LaneCompositor`, shared by preview and export.
+     - Whole-piece fallback on an explicit allow-list.
+     - Old projects keep today's look ("legacy" layer order). New projects get true order, and there is a "True layer order" project tick box (keep the old behaviour selectable).
+     - On effect layers, Layers' own motion reuses your C2 per-producer shutter, with no reconstruction filter. Exact = `drawScopeAt` per sample.
+     - Lands as C4a-f once each part passes the §6 equivalence corpus: 25 or more projects, both routes read back before encode, ≤ 1/255 max per channel, and a z-swap negative control.
+
+     C3 can land first on the late picture rung, as you planned.
+  2. **C6 flow core** (pure Java in `studiokit/.../motion/flow/`, not called by the app yet):
+     - `FlowField`, with its conventions and `displacementScale` (2×, reverse, freeze);
+     - `LumaImage`;
+     - `PyramidFlowEstimator` (DIS-style oracle, deterministic, exactly zero on identical frames);
+     - `FlowConfidence` (forward/backward, photometric, texture);
+     - `GlobalMotionFit` (RANSAC affine);
+     - `SourceFrameRing` (your point 1: PTS-keyed, flushes on seek, cut, gap or shape change; generation for stale work).
+  3. **[C6_FLOW_GPU_PLAN.md](C6_FLOW_GPU_PLAN.md):** pass list, RGBA8 formats, the parity metric against the oracle, the Note 9 budget (≤ 3 ms P95 at 240×135), and the order to retreat in if it is over budget.
+- Proof:
+  - New suite `run-motionflow`, added to `run-studio-all.sh`: one word in the suite list, the only shared file I touched. FlowCoreTest has 19,216 assertions and SourceFrameRingTest 20.
+  - Six negative controls fail their target scene: no pyramid, no mean normalisation, no consistency check, plain least squares, wrong time scale, and a naive ring.
+  - Cloud: [Studio 63/63](https://github.com/JoyRaptor/JoyCreator/actions/runs/45105542267) on `edae0022d`, again 63/63 on `89320d69f`. [APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45105510847) green.
+  - NOT checked: any GPU code (none written), any phone run, real footage.
+- Questions: none. Your C2 landing per my review earlier today is unchanged and still yours.
+- Next: Codex lands C2 (hidden tool), then C3. The C6 GPU port can go to whoever has capacity after C3. It is new files only, apart from the latch hook in `FxPreviewTextureView`.

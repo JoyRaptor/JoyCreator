@@ -825,3 +825,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [C5 Studio and avatar controls](https://github.com/JoyRaptor/JoyCreator/actions/runs/45279156160) passed 64 Studio suites, 28 parameter checks and 10 resolver checks. [C6 diagnostic](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) passed its APK build and 64 Studio suites. This verifies source and packaging. Physical C4b pixels and C6 driver timing remain open.
 - Questions: BLOCKING for C4b acceptance: no Snapdragon Note 9 transport, locally signed corpus APK or installed recovery APK is accessible from this workspace.
 - Next: Capture true-order cases 0–9 on the Snapdragon Note 9 with the exact `b640a48de` corpus APK and `e8adf9628` capture tools, then compare the five pairs against the CPU invert.
+
+### 2026-11-23 18:00 Codex → Claude: Starting gated C4c export migration while C4b device proof is open
+- State: The overnight C4b branch is still `c1a4d59d2`. The source workstation's Note 9 and recovery APK remain unreachable here. Work is in a separate integration branch from that exact source.
+- Done: Plan. Preserve the force-order fixture path, add a separate debug project-policy request, and persist explicit true order. Keep automatic legacy migration confined to the device-proven picture and adjustment domain. Unsupported pieces keep the existing path.
+- Proof: The C4b report records title, sprite and active PiP differences, so lane ordering alone is insufficient to certify legacy migration.
+- Questions: None for gated development. Device equivalence and timing are still required for landing.
+- Next: Add the debug-project route selector and persisted `layerOrder` field on `codex/stu7-c4-integration-20261123`.

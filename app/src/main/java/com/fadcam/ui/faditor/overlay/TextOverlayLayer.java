@@ -1652,7 +1652,7 @@ public class TextOverlayLayer extends FrameLayout {
     }
 
     /** True while the overlay follows a direct authoring gesture. */
-    public boolean isManipulatingImage(@NonNull TextOverlayItem item) {
+    public boolean isManipulatingOverlay(@NonNull TextOverlayItem item) {
         return item == manipulating || isLiveEditing(item);
     }
 

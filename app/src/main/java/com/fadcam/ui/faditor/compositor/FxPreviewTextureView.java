@@ -2772,7 +2772,8 @@ public class FxPreviewTextureView extends TextureView
             GLES20.glViewport(0, 0, width, height);
             pass.draw(still, width, height, exposure.plan(), targets[src][0], exposure.opacity());
             if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
-                FLog.i(TAG, "live " + (source == RigidTextureShutterPass.Source.PICTURE ? "picture" : "sprite")
+                FLog.i(TAG, "live " + (p.clipId.startsWith("title-motion#") ? "title"
+                        : source == RigidTextureShutterPass.Source.PICTURE ? "picture" : "sprite")
                         + " shutter editorUs=" + frame.editorTimeUs() + " periodUs=" + frame.periodUs()
                         + " taps=" + exposure.plan().taps().size());
             }

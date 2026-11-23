@@ -136,7 +136,8 @@ public class ExportDebugActivity extends Activity {
             Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
             preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
             if (in.getBooleanExtra("motion_picture_fixture", false)
-                    || in.getBooleanExtra("motion_sprite_fixture", false)) {
+                    || in.getBooleanExtra("motion_sprite_fixture", false)
+                    || in.getBooleanExtra("motion_title_fixture", false)) {
                 preview.putExtra("studio_debug_motion_readback_us",
                         in.getLongExtra("motion_preview_readback_us", -1L));
             }

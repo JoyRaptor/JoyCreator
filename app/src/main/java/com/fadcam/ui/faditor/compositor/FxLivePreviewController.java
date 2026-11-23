@@ -52,7 +52,7 @@ public final class FxLivePreviewController {
         /** The player rendering video right now — legacy or gapless. Null before preparation. */
         @Nullable ExoPlayer activeVideoPlayer();
         default boolean motionBlurEnabled() { return false; }
-        default boolean isManipulatingImage(@NonNull TextOverlayItem item) { return false; }
+        default boolean isManipulatingOverlay(@NonNull TextOverlayItem item) { return false; }
         @Nullable default com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell
                 spriteMotionCell(@NonNull SpriteOverlayItem item, long playheadMs) {
             return null;
@@ -413,8 +413,8 @@ public final class FxLivePreviewController {
         // runs on every playhead tick — asking twice is the same doubled cost partitionAroundVideo
         // already warns against, on the same per-frame path.
         List<TextOverlayItem> glImages = glImageOverlays(timeline);
-        List<TextOverlayItem> shutterPictures = host.motionBlurEnabled()
-                ? ordinaryPictureRun(timeline) : java.util.Collections.emptyList();
+        List<TextOverlayItem> shutterOverlays = host.motionBlurEnabled()
+                ? ordinaryStillRun(timeline) : java.util.Collections.emptyList();
         boolean shutterSprites = host.motionBlurEnabled() && ordinarySpriteRun(timeline);
         // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
         // glImages. This second list is kept for the pre-3A.1 path where masks were NOT in the
@@ -505,7 +505,7 @@ public final class FxLivePreviewController {
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
-                && !anyLayerImage && !anyMatte && shutterPictures.isEmpty() && !shutterSprites) {
+                && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites) {
             stop();
             return;
         }
@@ -604,7 +604,7 @@ public final class FxLivePreviewController {
             host.onLayerImageOverlayRouted(layerRouted);
         }
         bindMotionClock(timeline, playheadClip);
-        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages, shutterPictures, shutterSprites));
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages, shutterOverlays, shutterSprites));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
         route();
@@ -696,7 +696,7 @@ public final class FxLivePreviewController {
     @NonNull
     private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
             long playheadMs, @NonNull int[] size, boolean stacked,
-            @NonNull List<TextOverlayItem> glImages, @NonNull List<TextOverlayItem> shutterPictures,
+            @NonNull List<TextOverlayItem> glImages, @NonNull List<TextOverlayItem> shutterOverlays,
             boolean shutterSprites) {
         List<AdjustmentLayer> live =
                 LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
@@ -920,8 +920,14 @@ public final class FxLivePreviewController {
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
-            boolean shutterPicture = o != null && motionClock.anchor() != null && shutterPictures.contains(o);
-            if (o != null && (glImageIds.contains(o.getId()) || shutterPicture)) {
+            boolean movingStill = o != null && motionClock.anchor() != null && shutterOverlays.contains(o);
+            if (movingStill && !o.isImage()) {
+                if (addTitleMotion(rungs, o, size, playheadMs, timeline.getTotalDurationMs(), motionClock.anchor())) {
+                    glOwned.add(o.getId());
+                }
+                continue;
+            }
+            if (o != null && (glImageIds.contains(o.getId()) || movingStill)) {
                 FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
                 if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
                 // SPEC E mesh: enrich the flat Pip with a stamp snapshot (deep spec copy +
@@ -931,7 +937,7 @@ public final class FxLivePreviewController {
                 // path — byte-identical for every project without a bend.
                 FxPreviewTextureView.Pip mp = withMeshInputs(o, p, playheadMs, size, timeline);
                 if (mp != null) p = mp;
-                RigidPictureMotion motion = shutterPicture
+                RigidPictureMotion motion = movingStill
                         ? pictureMotion(o, p, size, motionClock.anchor()) : null;
                 rungs.add(motion == null ? FxPreviewTextureView.Rung.pip(p)
                         : FxPreviewTextureView.Rung.movingStill(p, new FxPreviewTextureView.StillShutter(
@@ -1129,29 +1135,81 @@ public final class FxLivePreviewController {
         return new FxPreviewTextureView.TimedStill(sharp, shutter, begin, end);
     }
 
-    /** The whole picture run moves to GL together so overlapping pictures keep their order. */
+    /** Move the entire ordinary still run together so titles and pictures keep their order. */
     @NonNull
-    private static List<TextOverlayItem> ordinaryPictureRun(@NonNull Timeline timeline) {
+    private static List<TextOverlayItem> ordinaryStillRun(@NonNull Timeline timeline) {
         if (!timeline.getWaveformOverlays().isEmpty()) return java.util.Collections.emptyList();
         List<TextOverlayItem> pictures = new ArrayList<>();
         boolean optedIn = false;
         for (var visual : LayerPreviewController.orderedVisualItems(timeline)) {
             if (visual.item.getCaptionSpan() != null) continue;
             var picture = visual.item.getTextOverlay();
-            if (picture == null || !picture.isImage() || picture.wantsGlExport()) {
+            if (picture == null || picture.wantsGlExport()
+                    || (!picture.isImage() && !RigidTitleRaster.supports(picture))) {
                 return java.util.Collections.emptyList();
             }
             pictures.add(picture);
-            optedIn |= picture.isRigidMotionBlurEnabled() && RigidPictureMotion.supports(picture);
+            optedIn |= picture.isRigidMotionBlurEnabled() && (picture.isImage()
+                    ? RigidPictureMotion.supports(picture) : RigidTitleRaster.supports(picture));
         }
         return optedIn ? pictures : java.util.Collections.emptyList();
+    }
+
+    private final android.util.LruCache<String, Bitmap> titleMotionTiles =
+            new android.util.LruCache<>(16 * 1024 * 1024) {
+                @Override protected int sizeOf(String key, Bitmap value) {
+                    return value.getAllocationByteCount();
+                }
+            };
+
+    private boolean addTitleMotion(List<FxPreviewTextureView.Rung> rungs, TextOverlayItem item,
+                                    int[] size, long playheadMs, long durationMs,
+                                    PreviewDecoderClock.Anchor clock) {
+        if (!item.isVisibleAt(playheadMs) || host.isManipulatingOverlay(item)) return false;
+        int width = size[0], height = size[1];
+        float opacity = item.animatedOpacity(playheadMs);
+        if (width <= 0 || height <= 0 || opacity <= 0.001f) return false;
+        String text = TextBoxRenderer.textAt(item, playheadMs, durationMs);
+        String key = OverlayTextureCache.keyForTextAt(item, text, width, height, playheadMs)
+                + "|" + item.getWrapEm() + "|" + item.isFitWidth() + "|" + opacity;
+        Bitmap raster = titleMotionTiles.get(key);
+        if (raster == null) {
+            raster = RigidTitleRaster.measure(item, playheadMs, durationMs, height)
+                    .draw(item, playheadMs, durationMs, opacity);
+            if (raster == null) return false;
+            titleMotionTiles.put(key, raster);
+        }
+        var position = new float[4];
+        item.motionPlacementAt(playheadMs, position);
+        var p = FxPreviewTextureView.Pip.ofImage(position[0], 1f - position[1],
+                raster.getWidth() / (2f * width), raster.getHeight() / (2f * height),
+                -position[3], 1f, null, playheadMs, null, 0f, width, height,
+                "title-motion#" + item.getId(), raster, 1f);
+        if (!item.isRigidMotionBlurEnabled()) {
+            rungs.add(FxPreviewTextureView.Rung.pip(p));
+            return true;
+        }
+        var snapshot = item.copyWithNewId(item.getId());
+        long start = clock.editorStartUs(), end = clock.editorEndUs();
+        var breaks = RigidPictureMotion.itemFences(snapshot, start, end);
+        var sampler = com.fadcam.ui.faditor.motion.MotionItemAdapters.title(snapshot, width, height,
+                width, height, raster.getWidth(), raster.getHeight());
+        var shutter = new FxPreviewTextureView.StillShutter(
+                RigidTextureShutterPass.Source.PICTURE, (timeUs, periodUs, w, h) -> {
+                    if (timeUs < start || timeUs >= end || w != width || h != height) return null;
+                    var plan = RigidTextureShutterPass.plan(snapshot.getRigidMotionShutter(),
+                            sampler, timeUs, periodUs, breaks, w, h);
+                    return plan == null ? null : new RigidTextureShutterPass.Exposure(plan, 1f);
+                });
+        rungs.add(FxPreviewTextureView.Rung.movingStill(p, shutter));
+        return true;
     }
 
     @Nullable
     private RigidPictureMotion pictureMotion(TextOverlayItem item, FxPreviewTextureView.Pip p,
                                               int[] size, PreviewDecoderClock.Anchor time) {
         if (!item.isRigidMotionBlurEnabled() || !RigidPictureMotion.supports(item)
-                || host.isManipulatingImage(item) || p.still == null) return null;
+                || host.isManipulatingOverlay(item) || p.still == null) return null;
         return new RigidPictureMotion(item.copyWithNewId(item.getId()),
                 p.still.getWidth() / (float) p.still.getHeight(), size[0], size[1],
                 time.editorStartUs(), time.editorEndUs());
@@ -1863,6 +1921,7 @@ public final class FxLivePreviewController {
         cachedBelowSignature = null;
         overlayTextureCache.clear();
         captionTextureCache.clear();
+        titleMotionTiles.evictAll();
         // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());

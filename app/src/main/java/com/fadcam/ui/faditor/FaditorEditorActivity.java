@@ -31175,9 +31175,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             return overlayLayerBelow == null
                                     ? null : overlayLayerBelow.fxPipFor(o, frameW, frameH);
                         }
-                        @Override public boolean isManipulatingImage(@NonNull TextOverlayItem item) {
-                            return (overlayLayer != null && overlayLayer.isManipulatingImage(item))
-                                    || (overlayLayerBelow != null && overlayLayerBelow.isManipulatingImage(item));
+                        @Override public boolean isManipulatingOverlay(@NonNull TextOverlayItem item) {
+                            return (overlayLayer != null && overlayLayer.isManipulatingOverlay(item))
+                                    || (overlayLayerBelow != null && overlayLayerBelow.isManipulatingOverlay(item));
                         }
                         @Override public com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell
                                 spriteMotionCell(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,

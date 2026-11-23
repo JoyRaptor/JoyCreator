@@ -16,17 +16,15 @@ import androidx.media3.effect.GlEffect;
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.compositor.RigidPictureMotion;
+import com.fadcam.ui.faditor.compositor.RigidTitleRaster;
 import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
-import com.fadcam.ui.faditor.keyframe.KeyframeSet;
-import com.fadcam.ui.faditor.overlay.TextBoxRenderer;
 import com.fadcam.ui.faditor.overlay.TextOverlayLayer;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
-import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -127,35 +125,18 @@ final class GlImageOverlayEffect implements GlEffect {
 
 
         private static final class UprightTitle {
-            private static final int MAX_EDGE = 2048;
-            final String text;
-            final float fontPx;
-            final float left;
-            final float top;
-            final int width;
-            final int height;
+            final RigidTitleRaster raster;
             final ItemMotionSampler sampler;
             final MotionBreaks breaks;
             int texture;
             boolean uploadFailed;
 
-            UprightTitle(String text, float fontPx, float[] size, TextOverlayItem item,
+            UprightTitle(RigidTitleRaster raster, TextOverlayItem item,
                          int layoutW, int layoutH, int frameW, int frameH, MotionBreaks breaks) {
-                this.text = text;
-                this.fontPx = fontPx;
-                // The shared layout already includes ink padding. Leave a further font-height
-                // margin for italic overhangs and accents before rotating the tile.
-                float pad = Math.max(4f, fontPx);
-                width = (int) Math.ceil(size[0] + 2f * pad);
-                height = (int) Math.ceil(size[1] + 2f * pad);
-                left = (width - size[0]) * 0.5f;
-                top = (height - size[1]) * 0.5f;
-                sampler = MotionItemAdapters.title(item, layoutW, layoutH, frameW, frameH, width, height);
+                this.raster = raster;
+                sampler = MotionItemAdapters.title(item, layoutW, layoutH, frameW, frameH,
+                        raster.width(), raster.height());
                 this.breaks = breaks;
-            }
-
-            boolean fits() {
-                return width > 0 && height > 0 && width <= MAX_EDGE && height <= MAX_EDGE;
             }
 
             void release() {
@@ -324,20 +305,18 @@ final class GlImageOverlayEffect implements GlEffect {
 
         private boolean drawTitleMotion(TextOverlayItem item, long timeMs, long timeUs, long periodUs, int w, int h) {
             if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
-                    || textDrawer == null || !hasUprightTitle(item)) return false;
+                    || textDrawer == null || !RigidTitleRaster.supports(item)) return false;
             float opacity = item.animatedOpacity(timeMs);
             if (!(opacity > 0.001f)) return false;
 
             var title = uprightTitles.computeIfAbsent(item.getId(), id -> {
                 int layoutW = textDrawer.drawWidth();
                 int layoutH = textDrawer.drawHeight();
-                String shown = TextBoxRenderer.textAt(item, timeMs, projectDurationMs);
-                float fontPx = Math.max(1f, item.animatedSizeFraction(timeMs) * layoutH);
-                float[] size = new float[2];
-                TextBoxRenderer.measure(item, shown, fontPx, size);
-                return new UprightTitle(shown, fontPx, size, item, layoutW, layoutH, w, h, RigidPictureMotion.itemFences(item, motionStartUs, motionEndUs));
+                var raster = RigidTitleRaster.measure(item, timeMs, projectDurationMs, layoutH);
+                return new UprightTitle(raster, item, layoutW, layoutH, w, h,
+                        RigidPictureMotion.itemFences(item, motionStartUs, motionEndUs));
             });
-            if (!title.fits()) return false;
+            if (!title.raster.fits()) return false;
             var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), title.sampler,
                     timeUs, periodUs, title.breaks, w, h);
             if (plan == null) return false;
@@ -355,31 +334,11 @@ final class GlImageOverlayEffect implements GlEffect {
             return true;
         }
 
-        private static boolean hasUprightTitle(TextOverlayItem item) {
-            if (!item.isAnimated() || item.isLinked() || item.isProxy() || item.hasMesh()
-                    || item.hasCornerPin() || item.hasTextLook() || item.isTimer() || item.isGeneratedSlide()
-                    || item.hasStyleSpans() || item.getStrokeWidthPx() > 0f
-                    || item.getGlowRadiusPx() > 0f || item.getShadowRadiusPx() > 0f
-                    || item.getImageFadeInMs() != 0 || item.getImageFadeOutMs() != 0
-                    || CaptionAnimator.parsePreset(item.getTextAnimPreset()) != CaptionAnimator.Preset.NONE) {
-                return false;
-            }
-            for (var track : item.getKeyframes().tracks()) {
-                if (!track.isEmpty() && !KeyframeSet.X.equals(track.property)
-                        && !KeyframeSet.Y.equals(track.property) && !KeyframeSet.ROTATION.equals(track.property)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
         private boolean uploadTitle(TextOverlayItem item, UprightTitle title, long timeMs, float opacity) {
-            Bitmap bitmap = null;
+            Bitmap bitmap = title.raster.draw(item, timeMs, projectDurationMs, opacity);
+            if (bitmap == null) return false;
             int texture = 0;
             try {
-                bitmap = Bitmap.createBitmap(title.width, title.height, Bitmap.Config.ARGB_8888);
-                TextBoxRenderer.draw(new Canvas(bitmap), item, title.text, title.left, title.top, title.fontPx,
-                        timeMs, projectDurationMs, true, opacity);
                 texture = PipGl.newStillTexture();
                 android.opengl.GLUtils.texImage2D(GLES20.GL_TEXTURE_2D, 0, bitmap, 0);
                 title.texture = texture;

@@ -482,3 +482,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Sprite phone report](C3_SPRITE_PREVIEW_REPORT.md), [exact title APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45130120777). Title preview pixels and HOLD behavior remain untested.
 - Questions: None.
 - Next: Read the ordinary title preview at 366,667 µs and immediately around its 735 ms HOLD boundary on the Note 9. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
+
+### 2026-11-23 06:45 Codex → Claude: Pushed the ordinary PiP draw and queued its cloud build
+- State: C3 branch `codex/motionblur-20261122` is pushed at `77bae3a78`. Tool remains gated.
+- Done: The PiP route samples the already-decoded live texture using the shared export transform and shutter. The title fixture opened the editor. The first phone session could not read the play control from a tty, so the original APK was restored and hash-checked.
+- Proof: [PiP APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45167916057), [Studio test repair](https://github.com/JoyRaptor/JoyCreator/actions/runs/45166782375). PiP runtime and the title readback are unverified.
+- Questions: None.
+- Next: Retry the exact title phone readbacks using a temporary UI hierarchy file. If interrupted after installation, restore the saved APK, verify its hash and release the claim.

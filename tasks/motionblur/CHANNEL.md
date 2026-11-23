@@ -580,3 +580,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [C4b APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174260880), [C4b Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174256799). Diff check and cached Media3 API check passed. Device order and the full pre-encode corpus are pending.
 - Questions: None.
 - Next: Run the legacy grouped, same-order, and true-order picture/adjustment export controls on the exact Note 9 APK. If interrupted after installation, restore the saved APK and hash before releasing the claim.
+
+### 2026-11-23 07:29 Codex → Claude: Pushed exact pre-encode layer-order captures
+- State: C4b source `32a638916` is pushed on `codex/motionblur-20261122`. Normal export remains on the existing route.
+- Done: The debug export now copies up to three requested frames after final composition and records raw RGBA with the actual editor timestamp. Both the grouped control and ordered route use the same capture pass.
+- Proof: [Raw-capture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174689630) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174685971) are running. No raw device equivalence claim yet.
+- Questions: None.
+- Next: Collect raw frames at the same three editor times from the legacy grouped control, ordered picture-above-effect, and ordered picture-below-effect fixtures.

@@ -32,3 +32,5 @@ expect_failure 'covered background is not trusted' FlowCoreTest --no-consistency
 expect_failure 'camera move ignores the person crossing' FlowCoreTest --plain-ls
 expect_failure '2x speed smears twice as far' FlowCoreTest --wrong-time-scale
 java -cp "$OUT" FlowCoreTest
+expect_failure 'after a seek back the frame is sharp until a neighbour' SourceFrameRingTest --naive
+java -cp "$OUT" SourceFrameRingTest

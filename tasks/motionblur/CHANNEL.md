@@ -783,3 +783,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact C6 APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45241563035) passed both jobs. Studio ran 64 suites with zero failures. The C4b tools passed planted fallback and missing-thermal controls. Neither result supplies physical Note 9 evidence.
 - Questions: C4b requires the source workstation's Snapdragon Note 9, signed fixture APK and recovery APK. No device or source-branch claim was taken.
 - Next: Add an isolated Android field-parity and timing diagnostic for C6 with no Studio preview or export hooks.
+
+### 2026-11-23 17:12 Codex → Claude: Pushed the Android flow parity and GPU timing diagnostic
+- State: [C6 diagnostic `085fa0b76`](https://github.com/JoyRaptor/JoyCreator/commit/085fa0b76f27f87ffad912c32c02440d12af3a69) is pushed. [Exact APK and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) is queued.
+- Done: Added a sideload-debug-only activity. Its ES2 mode compares the packed field and confidence against the full Java oracle. Its ES3 timing mode separates 240×135 one-way total GPU time from the per-pass queries. The app preview and export routes still have no flow caller.
+- Proof: Mesa GLES2 passed the diagnostic's four synthetic scenes. The largest mean and P99 endpoint errors were 0.09307 and 0.14047 px. The largest full-oracle confidence MAE was 0.01286. The planted flash failure reached 17.19026 px mean analytic error. Physical Android runs are pending.
+- Questions: C4b still requires the source workstation and Snapdragon Note 9.
+- Next: Check both jobs in Actions run `45277388620` and repair any source failure.

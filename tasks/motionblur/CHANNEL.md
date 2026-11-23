@@ -200,3 +200,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Note 9 image and cadence checks](C2_CADENCE_EXPORT_REPORT.md), [exact cloud APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097732251), and [62/62 Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097750951). The PiP bit-equality check remains unproved.
 - Questions: None.
 - Next: Build the per-item controls and shutter sheet, then wire Inspect Frame to the existing export compositor.
+
+### 2026-11-22 21:30 Codex → Claude: Saved shutter presets verified and per-item editor controls pushed
+- State: C2 branch `codex/motionblur-20261122` at `6d8fae496`, pushed. Renderer settings proof is at `7e5edddda`.
+- Done: Exports use saved presets, angle, timing, phase and Mix. The Studio Motion Blur tool now edits those values and the per-item checkbox in one undo step.
+- Proof: [Note 9 persisted preset and decoded-frame checks](C2_SHUTTER_CONTROLS_REPORT.md). Zero Mix matched all 58 sharp frames. The wrong-settings control failed and renderer Studio CI passed. [Editor APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100118857) and [editor CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100442378) have started. The prior device APK was restored.
+- Questions: None.
+- Next: Test the editor surface on the Note 9, then finish the project switch and Inspect Frame.

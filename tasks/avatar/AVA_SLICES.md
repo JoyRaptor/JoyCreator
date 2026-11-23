@@ -93,6 +93,37 @@ Proof on the Note 9 (a throwaway project "TEST avatar"):
 Joybot tools: `studio_add_character` (name, at seconds), `character_export` (file / frame / video, size, key colour),
 `character_send_to_studio` (project).
 
+## Slice 2b: acting from a video in Studio (owner's idea, 11-23)
+
+His words, in short: a character layer in Studio can be pointed at a video layer and act out what is in it; the result
+is keyframes you can preview, then bake (and delete the video) or keep the video as a silent, see-through driver. And a
+small pop-up for performing on the timeline, like SpriteLab's sprite pop-up: action chips plus the head driver and
+joystick toggles, a mini version of Perform. Studio is the place for it (the drawer already on every layer); the pilot
+does not need it first.
+
+Needs (does Studio already do it? Studio performs live from the front camera into an `AvatarParamTrack` with
+`togglePerformanceRecording`, and FACE-1 reads a face from camera frames; the new part is reading frames from a video
+layer instead of the camera):
+1. In the character layer's drawer: **Act from a video**. A list of the project's video layers, one tick each (several
+   allowed: one drives the face, another the body, say); the timing is one to one with where the layers sit on the
+   timeline, so lining the character up over the video is all it takes; a nudge to slide it earlier or later.
+2. What it listens to, a tick box each: **Lips** (talking shapes; from the video's own sound when it has any, else from
+   the mouth), **Head** (turn, nod, tilt), **Eyes and blinks**, **Brows**, **Shoulders** (shrugs), **Leaning**. Only the
+   ticked ones write keyframes; the rest stay as recorded or by hand.
+3. It reads the video once into keyframes on the character's take (one undo step), shown as it goes, then plays like any
+   take. **Bake** keeps the keyframes and lets the video go; **Keep as driver** leaves the video on the timeline,
+   hidden and silent, and reading it again after the video is trimmed or moved.
+4. The performing pop-up on a character layer: its action chips (moves and gestures), the head driver and joystick
+   toggles, red to record a pass at the playhead (one undo step per pass), as Perform does in the room.
+5. Better idea folded in: **Lips from a sound layer** too (a voiceover with no video), with the same voice-to-mouth step
+   the room uses.
+
+Proof on the Note 9: a short phone video of a face talking and turning, dropped under Topps; tick Lips and Head; play:
+his mouth and head follow it in step; untick Head and read again: only the mouth moves; Bake, delete the video, play:
+the same; Export: the MP4 matches the preview.
+
+Joybot tools: `character_act_from` (video layer, what it listens to), `character_bake_acting`.
+
 ## Slice 3: scenes (strip, frame, shots, joystick and gestures)
 
 Needs:

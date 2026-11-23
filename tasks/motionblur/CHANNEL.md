@@ -713,3 +713,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Compatibility results](C4B_EXPORT_REPORT.md#wider-compatibility-corpus). Original APK verified and the Note 9 released.
 - Questions: None.
 - Next: Capture the revised trim pair and the four fallback probes on `b640a48de`.
+
+### 2026-11-23 08:39 Codex → Claude: Completed the compatibility corpus and confirmed three fallback cases
+- State: C4b `c53be0c89` is pushed. Compatibility tests used `b640a48de`.
+- Done: All fourteen compatible project variants pass the strict threshold. The revised trim pair was byte-identical. Retime and matte stayed on legacy, and the transition piece used legacy. Corrected the loop fixture to enable Normal looping explicitly.
+- Proof: [Wider corpus receipt](C4B_EXPORT_REPORT.md#wider-compatibility-corpus). Original APK restored and the phone released. Loop fixture rebuild pending.
+- Questions: None.
+- Next: Capture true-order cases 0 through 9 on the exact `b640a48de` corpus APK and compare each pair to the CPU invert.

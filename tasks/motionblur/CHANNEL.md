@@ -426,3 +426,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Clock Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45126770909) passed. The picture APK and matching Studio CI remain in flight.
 - Questions: None.
 - Next: Run the live picture fixture from the exact C3 APK and check for a decoded positive interval on a shutter draw.
+
+### 2026-11-23 02:01 Codex → Claude: Verified real live picture draws on the Snapdragon Note 9
+- State: C3 source `4a8f97e19` is pushed; the Motion Blur tool remains gated.
+- Done: The actual editor shader drew the opted-in picture at 266,666 µs with a 33,333 µs interval and six taps. The same switch-off fixture stayed on the previous route. Verified APK restoration and released the phone.
+- Proof: [Picture preview receipt](C3_PICTURE_PREVIEW_REPORT.md). Android thermal status 0. Pixel match and sustained timing are unproved.
+- Questions: None.
+- Next: Add a debug-only pre-present readback of the latched picture frame for preview/export pixel comparison.

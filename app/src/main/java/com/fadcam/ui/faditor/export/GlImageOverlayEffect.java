@@ -62,7 +62,7 @@ final class GlImageOverlayEffect implements GlEffect {
     private final long editorTimeOffsetMs;
     private final long motionStartUs;
     private final long motionEndUs;
-    private final boolean isolatedTitles;
+    private final boolean isolatedLane;
     @Nullable
     private final CompositeExportOverlay textDrawer;
 
@@ -83,13 +83,13 @@ final class GlImageOverlayEffect implements GlEffect {
     GlImageOverlayEffect(@NonNull Context context, @NonNull List<TextOverlayItem> itemsBottomTop,
                          long projectDurationMs, long editorTimeOffsetMs,
                          @Nullable CompositeExportOverlay textDrawer,
-                         long pieceStartMs, long motionPieceDurationMs, boolean isolatedTitles) {
+                         long pieceStartMs, long motionPieceDurationMs, boolean isolatedLane) {
         this.context = context.getApplicationContext();
         this.items = new ArrayList<>(itemsBottomTop);
         this.projectDurationMs = projectDurationMs;
         this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.textDrawer = textDrawer;
-        this.isolatedTitles = isolatedTitles;
+        this.isolatedLane = isolatedLane;
         motionStartUs = (pieceStartMs + editorTimeOffsetMs) * 1000L;
         motionEndUs = motionStartUs + motionPieceDurationMs * 1000L;
     }
@@ -100,7 +100,7 @@ final class GlImageOverlayEffect implements GlEffect {
             throws VideoFrameProcessingException {
         if (useHdr) throw new VideoFrameProcessingException("HDR image overlays not supported");
         return new Program(context, items, projectDurationMs, editorTimeOffsetMs, textDrawer,
-                motionStartUs, motionEndUs, isolatedTitles);
+                motionStartUs, motionEndUs, isolatedLane);
     }
 
     private static final class Program extends BaseGlShaderProgram {
@@ -183,7 +183,7 @@ final class GlImageOverlayEffect implements GlEffect {
         private final Context context;
         @Nullable
         private final CompositeExportOverlay textDrawer;
-        private final boolean isolatedTitles;
+        private final boolean isolatedLane;
         private final Map<String, TextFrame> texts = new HashMap<>();
         private final List<TextOverlayItem> items;
         private final long projectDurationMs;
@@ -198,11 +198,11 @@ final class GlImageOverlayEffect implements GlEffect {
         Program(@NonNull Context context, @NonNull List<TextOverlayItem> items,
                 long projectDurationMs, long editorTimeOffsetMs,
                 @Nullable CompositeExportOverlay textDrawer, long motionStartUs, long motionEndUs,
-                boolean isolatedTitles) {
+                boolean isolatedLane) {
             super(/* useHighPrecisionColorComponents= */ false, /* texturePoolCapacity= */ 2);
             this.context = context;
             this.textDrawer = textDrawer;
-            this.isolatedTitles = isolatedTitles;
+            this.isolatedLane = isolatedLane;
             this.items = items;
             this.projectDurationMs = projectDurationMs;
             this.editorTimeOffsetMs = editorTimeOffsetMs;
@@ -234,7 +234,7 @@ final class GlImageOverlayEffect implements GlEffect {
                     for (var title : uprightTitles.values()) title.release();
                     uprightTitles.clear();
                 }
-                chain.configure(inputWidth, inputHeight);
+                chain.configure(inputWidth, inputHeight, !isolatedLane);
             } catch (GlUtil.GlException e) {
                 throw new VideoFrameProcessingException(e);
             }
@@ -268,7 +268,7 @@ final class GlImageOverlayEffect implements GlEffect {
                     }
                     if (!o.isImage()) {
                         if (drawTitleMotion(o, t, editorUs, periodUs, w, h)) continue;
-                        if (isolatedTitles) {
+                        if (isolatedLane) {
                             drawOrderedTitle(o, t, w, h);
                             continue;
                         }
@@ -322,7 +322,7 @@ final class GlImageOverlayEffect implements GlEffect {
 
         private boolean drawTitleMotion(TextOverlayItem item, long timeMs, long timeUs, long periodUs, int w, int h) {
             if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
-                    || (textDrawer == null && !isolatedTitles)
+                    || (textDrawer == null && !isolatedLane)
                     || !RigidTitleRaster.supports(item)) return false;
             float opacity = item.animatedOpacity(timeMs);
             if (!(opacity > 0.001f)) return false;

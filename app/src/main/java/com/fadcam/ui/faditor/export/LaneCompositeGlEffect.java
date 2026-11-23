@@ -55,7 +55,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                         return new Candidate(null, "picture " + entry.id);
                     }
                     var effect = new GlImageOverlayEffect(context, List.of(picture), totalDurationMs,
-                            editorOffsetMs, null, pieceStartMs, motionDurationMs);
+                            editorOffsetMs, null, pieceStartMs, motionDurationMs, true);
                     bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             picture::isVisibleAt));
                 }

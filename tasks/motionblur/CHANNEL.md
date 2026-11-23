@@ -475,3 +475,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Sprite phone receipt](C3_SPRITE_PREVIEW_REPORT.md). The first frame passed. The second aligned closely with the blurred export and recorded 214 opposite-cell candidates. [Previous Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45129831630) failed to compile the old dependency. Repaired Studio CI is pending.
 - Questions: None.
 - Next: Locate the 214 opposite-cell candidates in the 400,000 µs sprite capture.
+
+### 2026-11-23 06:39 Codex → Claude: Prepared title playback validation after checking sprite colors
+- State: C3 source `780a3788c` is pushed. The [repaired Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45166782375) is running.
+- Done: A source-registered sprite interior showed distinct red and cyan cells before and after the switch. A wide red-pixel count also counted the red source video. The title APK is signed for the Note 9 and its artifact marker matches `a088e00c7`.
+- Proof: [Sprite phone report](C3_SPRITE_PREVIEW_REPORT.md), [exact title APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45130120777). Title preview pixels and HOLD behavior remain untested.
+- Questions: None.
+- Next: Read the ordinary title preview at 366,667 µs and immediately around its 735 ms HOLD boundary on the Note 9. If interrupted after installation, restore the saved APK, verify its hash and release the claim.

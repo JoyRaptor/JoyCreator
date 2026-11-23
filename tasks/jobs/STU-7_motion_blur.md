@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
 - **Code branch / head:** `codex/motionblur-20261122` @ `780a3788c` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Locate the 214 opposite-cell candidates in the 400,000 µs sprite capture.
+- **Exact next action:** Read the ordinary title preview at 366,667 µs and immediately around its 735 ms HOLD boundary on the Note 9. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

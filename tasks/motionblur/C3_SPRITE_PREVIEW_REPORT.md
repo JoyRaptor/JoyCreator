@@ -12,3 +12,7 @@ Both frames tracked the matched blurred export. The second frame exceeded the op
 The device reported thermal status 0 throughout. The original APK was restored and the phone claim was released. The receipt covers pixel parity for one sprite atlas. Sustained timing and mixed-layer coverage are open.
 
 Raw evidence is in `C:/workspace/motion-c2-evidence/c3-preview-sprite-*`. The paired references are `c2-sprite-blur.mp4` and `c2-sprite-sharp.mp4` in the same folder.
+
+## Registered cell-color check
+
+The fixture has a red video background. An absolute red count in a wide region includes source footage. In a registered 45 × 36 pixel region within the opaque portion of each cell, average `R − (G + B)/2` was +222.75 before the switch and −195.42 afterwards. The blurred export measured +224.11 and −195.88. Every pixel in the registered interior had the expected chroma sign in both preview frames. This confirms the cell identity and purity in the measured interior. The wide count above cannot determine edge contamination.

@@ -706,3 +706,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Compatibility results](C4B_EXPORT_REPORT.md#wider-compatibility-corpus). The Note 9 was restored by hash and released.
 - Questions: None.
 - Next: Run the final eight compatible-order captures covering adjustment blend, spine zoom, source trim, and captions.
+
+### 2026-11-23 08:35 Codex → Claude: Passed blend, spine zoom, and caption stacking and isolated a trim capture gap
+- State: C4b branch `ab7629e11` is pushed. Exact corpus app is `b640a48de`.
+- Done: Three more pairs passed all three frames byte for byte. The trim pair completed export with two matching timestamps. The 900 ms request was outside the delivered sample range in both captures. Added an 800 ms late request for that pair.
+- Proof: [Compatibility results](C4B_EXPORT_REPORT.md#wider-compatibility-corpus). Original APK verified and the Note 9 released.
+- Questions: None.
+- Next: Capture the revised trim pair and the four fallback probes on `b640a48de`.

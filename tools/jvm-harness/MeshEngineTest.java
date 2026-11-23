@@ -38,6 +38,7 @@ public class MeshEngineTest {
         structuralChangeCarriesTheBend();
         foldIsRefused();
         poseTrackInterpolates();
+        poseTrackSamplesExposureTaps();
         poseTrackRefusesMixedArity();
         serialisationRoundTrips();
         serialisationIsTolerant();
@@ -49,6 +50,24 @@ public class MeshEngineTest {
                 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
         if (failed > 0) System.exit(1);
+    }
+
+    static void poseTrackSamplesExposureTaps() {
+        MeshPoseTrack track = new MeshPoseTrack(2);
+        track.setCurve((easing, t) -> "HOLD".equals(easing) && t < 1f ? 0f : t);
+        track.put(-2, new float[]{0, 10}, "LINEAR");
+        track.put(0, new float[]{4, 14}, "HOLD");
+        track.put(10_000_000, new float[]{8, 18}, "LINEAR");
+        track.put(10_000_002, new float[]{12, 22}, "LINEAR");
+        float[] out = new float[2];
+        check("a negative fractional tap keeps its submillisecond position",
+                track.valueAtMicros(-250, out) && out[0] == 3.5f && out[1] == 13.5f);
+        check("a long HOLD stays on the incoming pose until its exact key",
+                track.valueAtMicros(9_999_999_999L, out) && out[0] == 4f && out[1] == 14f);
+        check("the exact key produces the authored pose",
+                track.valueAtMicros(10_000_000_000L, out) && out[0] == 8f && out[1] == 18f);
+        check("outgoing shutter tap keeps its fractional pose",
+                track.valueAtMicros(10_000_000_250L, out) && out[0] == 8.5f && out[1] == 18.5f);
     }
 
     // ── 1. The bilinear foundation the subdivision proof rests on ────────

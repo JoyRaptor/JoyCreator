@@ -339,15 +339,50 @@ public final class MeshPoseTrack {
                     return true;
                 }
                 float t = (timeMs - a.timeMs) / (float) span;
-                float eased = curve == null ? t : curve.apply(a.easing, t);
-                for (int k = 0; k < n; k++) {
-                    out[k] = a.values[k] + (b.values[k] - a.values[k]) * eased;
-                }
+                interpolate(a, b, t, out);
                 return true;
             }
         }
         System.arraycopy(last.values, 0, out, 0, n);
         return true;
+    }
+
+    /** Sample an exposure tap without rounding its time or changing the authored millisecond keys. */
+    public boolean valueAtMicros(long timeUs, float[] out) {
+        if (poses.isEmpty() || out == null || out.length < arity) return false;
+        long wholeMs = Math.floorDiv(timeUs, 1000L);
+        long subMsUs = Math.floorMod(timeUs, 1000L);
+        int firstAfter = 0;
+        int end = poses.size();
+        while (firstAfter < end) {
+            int middle = (firstAfter + end) >>> 1;
+            if (poses.get(middle).timeMs <= wholeMs) firstAfter = middle + 1;
+            else end = middle;
+        }
+        Pose left = poses.get(Math.max(0, firstAfter - 1));
+        if (firstAfter == 0 || firstAfter == poses.size() || (wholeMs == left.timeMs && subMsUs == 0)) {
+            System.arraycopy(left.values, 0, out, 0, arity);
+            return true;
+        }
+        Pose right = poses.get(firstAfter);
+        double elapsed = millisBetween(wholeMs, left.timeMs) + subMsUs / 1000.0;
+        double span = millisBetween(right.timeMs, left.timeMs);
+        // A very long span can round up to 1f one microsecond early and release a HOLD.
+        float progress = Math.min(Math.nextDown(1f), (float) (elapsed / span));
+        interpolate(left, right, progress, out);
+        return true;
+    }
+
+    private void interpolate(Pose left, Pose right, float progress, float[] out) {
+        float eased = curve == null ? progress : curve.apply(left.easing, progress);
+        for (int k = 0; k < arity; k++) {
+            out[k] = left.values[k] + (right.values[k] - left.values[k]) * eased;
+        }
+    }
+
+    private static double millisBetween(long later, long earlier) {
+        long difference = later - earlier;
+        return difference >= 0 ? difference : (double) later - earlier;
     }
 
     /**

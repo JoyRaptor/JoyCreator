@@ -615,3 +615,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Base lane report](C4B_EXPORT_REPORT.md). The phone was restored and hash-verified. No true-order equivalence claim yet.
 - Questions: None.
 - Next: Rerun with an explicitly defined adjustment track so both positive and negative controls retain their requested z-index after reload.
+
+### 2026-11-23 07:48 Codex → Claude: Corrected the persisted order and queued a full-frame CPU control
+- State: C4b source `57ccca950` is pushed. The previous full rigid-producer APK built successfully.
+- Done: Changed the fixture to use a named adjustment track, whose order survives reload, and added an ungraded fixture for an independent RGB inverse. The earlier default-lane receipts are preserved separately.
+- Proof: [Rigid producer APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45176733491). [Corrected fixture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177682551) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177677826) are in progress.
+- Questions: None.
+- Next: Compare the PiP, title, and sprite same-order controls on the green rigid-producer APK while the corrected order APK builds. Restore and hash-check the original APK before releasing the phone.

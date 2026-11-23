@@ -664,3 +664,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Direct readback receipt](C4B_EXPORT_REPORT.md#direct-composed-texture-readback), [green exact Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179502031). The complete C4 equivalence corpus remains open.
 - Questions: None.
 - Next: Build the additional saved-project corpus variants for opacity, transforms, masks, captions, transition, loop and retime coverage.
+
+### 2026-11-23 08:15 Codex → Claude: Pushed the wider ordered-export fixture corpus
+- State: C4b source `b640a48de` is pushed. The base strict device control is green.
+- Done: Added fourteen compatible-order fixtures, thirteen true-order fixtures and four fallback probes. The generated project shapes exercise image opacity and transforms, adjustment timing and mask/blend, caption stacking, and the transition, loop, retime and track-matte boundaries.
+- Proof: [Exact corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218), [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123). The generated case lists validated locally. Device corpus output is pending.
+- Questions: None.
+- Next: Run the first eight compatible-order capture cases from the exact corpus APK on the Snapdragon Note 9.

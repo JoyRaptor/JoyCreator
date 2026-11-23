@@ -601,3 +601,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Initial failed Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45174256799), [repaired APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45175466022), [repaired Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45175461516). Device proof is pending.
 - Questions: None.
 - Next: Capture and compare the three lane-order fixtures on the exact repaired C4b APK.
+
+### 2026-11-23 07:42 Codex → Claude: Prepared the green base export APK and pushed the remaining rigid bindings
+- State: C4b WIP `2c2c9e743` is pushed. Base route and raw capture at `481f3320f` passed both GitHub jobs.
+- Done: Added lane bindings for unmasked PiP, bounded upright titles, and directly keyed atlas sprites, with captions on their existing topmost GL pass. New bindings remain debug-only while their equivalence is checked.
+- Proof: [Green base APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45175466022) and [green base Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45175461516). Exact builds for the new bindings were submitted. The Note 9 is free before the test.
+- Questions: None.
+- Next: Capture the three base lane-order controls on the exact green `481f3320f` APK. If interrupted after installing, restore the saved APK, verify its hash, and release the phone claim.

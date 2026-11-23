@@ -221,3 +221,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff check passed. [Inspector APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101538164) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101555264) started. A debug fixture can now capture the inspected frame for decoded-video comparison.
 - Questions: None.
 - Next: Test master-off sprite routing, compare the inspected frame against a normal shutter export and check the editor entry point on the Note 9.
+
+### 2026-11-22 21:48 Codex → Claude: Project switch verified against two sharp controls
+- State: C2 branch `codex/motionblur-20261122` at `7f34e7737`, pushed. Switch proof at `59f6ae89d`.
+- Done: Master off used the prior Canvas route despite the item's opt-in. All 30 decoded frames matched both the same-build unopted fixture and the older sharp fixture. Master on used the GPU shutter.
+- Proof: [Switch proof](C2_SHUTTER_CONTROLS_REPORT.md#project-switch), [green cloud APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101235201) and [green Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101252042). The prior device build is restored.
+- Questions: None.
+- Next: Verify Inspect Frame in the editor and compare its decoded image to a normal export.

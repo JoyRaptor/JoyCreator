@@ -44,6 +44,7 @@ expect_failure() {
 
 expect_failure 'sub-millisecond box midpoint' MotionCoreTest --wrong-clock
 expect_failure 'export shutter reads the 60 fps presentation interval' MotionCoreTest --wrong-fixed-export-rate
+expect_failure 'partial mix retains a sharp tap' MotionCoreTest --wrong-shutter-controls
 expect_failure 'previous shot cannot see the cut' MotionCoreTest --wrong-cuts
 expect_failure 'quarter millisecond interpolation' MotionCoreTest --wrong-keyframe
 expect_failure 'all signed 12-bit values round trip' MotionCoreTest --wrong-pack

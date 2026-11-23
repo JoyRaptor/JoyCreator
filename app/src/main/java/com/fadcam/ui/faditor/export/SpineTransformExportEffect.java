@@ -153,7 +153,7 @@ public final class SpineTransformExportEffect implements GlEffect {
             try {
                 if (sampler != null && presentationTimeUs >= pieceStartUs
                         && presentationTimeUs < pieceEndUs) {
-                    var plan = RigidTextureShutterPass.naturalPlan(sampler, presentationTimeUs,
+                    var plan = RigidTextureShutterPass.plan(clip.getRigidMotionShutter(), sampler, presentationTimeUs,
                             cadence.observe(presentationTimeUs), breaks, width, height);
                     if (plan != null) {
                         if (shutterPass == null) shutterPass = new RigidTextureShutterPass(RigidTextureShutterPass.Source.SPINE);

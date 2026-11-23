@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
@@ -183,6 +185,7 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         c.hidden = hidden;
         c.locked = locked;
         c.rigidMotionBlur = rigidMotionBlur;
+        c.rigidMotionShutter = rigidMotionShutter;
         c.name = name; // a copy keeps the person's name (owner ruling 10-14)
         c.centerX = centerX;
         c.centerY = centerY;
@@ -329,6 +332,13 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
     public void setEndBehavior(@NonNull String endBehavior) { this.endBehavior = endBehavior; }
 
     private boolean rigidMotionBlur;
+    private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+
+    @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
+
+    public void setRigidMotionShutter(@NonNull MotionShutter.Controls controls) {
+        rigidMotionShutter = java.util.Objects.requireNonNull(controls);
+    }
 
     public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
 

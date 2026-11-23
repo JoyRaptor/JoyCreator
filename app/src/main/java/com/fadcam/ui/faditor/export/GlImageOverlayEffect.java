@@ -324,7 +324,8 @@ final class GlImageOverlayEffect implements GlEffect {
                 return new PictureMotion(
                         MotionItemAdapters.textOrImage(item, w, h, boxWidth, h), itemFences(item));
             });
-            var plan = RigidTextureShutterPass.naturalPlan(motion.sampler(), timeUs, periodUs, motion.breaks(), w, h);
+            var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), motion.sampler(),
+                    timeUs, periodUs, motion.breaks(), w, h);
             return plan == null ? null : new PipChainGl.PictureBlur(plan,
                     Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))));
         }
@@ -345,7 +346,8 @@ final class GlImageOverlayEffect implements GlEffect {
                 return new UprightTitle(shown, fontPx, size, item, layoutW, layoutH, w, h, itemFences(item));
             });
             if (!title.fits()) return false;
-            var plan = RigidTextureShutterPass.naturalPlan(title.sampler, timeUs, periodUs, title.breaks, w, h);
+            var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), title.sampler,
+                    timeUs, periodUs, title.breaks, w, h);
             if (plan == null) return false;
             if (title.uploadFailed) return false;
             if (title.texture == 0 && !uploadTitle(item, title, timeMs, opacity)) {

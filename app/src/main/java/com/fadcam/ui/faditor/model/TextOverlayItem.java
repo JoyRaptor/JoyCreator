@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import com.fadcam.ui.faditor.Studio;
 
 import androidx.annotation.NonNull;
@@ -378,6 +380,13 @@ public class TextOverlayItem implements LinkFollower {
      */
     private boolean passThrough;
     private boolean rigidMotionBlur;
+    private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+
+    @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
+
+    public void setRigidMotionShutter(@NonNull MotionShutter.Controls controls) {
+        rigidMotionShutter = java.util.Objects.requireNonNull(controls);
+    }
 
     /**
      * Per-item compositing (masks + chroma key + matte), the same {@link CompositingSpec} a
@@ -753,6 +762,7 @@ public class TextOverlayItem implements LinkFollower {
         System.arraycopy(cornerPin, 0, c.cornerPin, 0, CornerPin.SIZE);
         c.passThrough = passThrough;
         c.rigidMotionBlur = rigidMotionBlur;
+        c.rigidMotionShutter = rigidMotionShutter;
         c.compositing = compositing == null ? null : compositing.copy();
         // SPEC E: a duplicate is the object's twin — its bend rides along (deep copy, never
         // shared; two items fed by one spec would bend together). Null stays null: every

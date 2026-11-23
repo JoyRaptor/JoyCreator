@@ -667,12 +667,14 @@ final class SpriteBlendGlEffect implements GlEffect {
             if (shutterSampler == null) {
                 shutterSampler = MotionItemAdapters.sprite(item, frameW, frameH, renderer.cellAspect());
             }
+            var controls = item.getRigidMotionShutter();
             var cellBreaks = new MotionBreaks.Builder();
-            long halfExposureUs = RigidTextureShutterPass.naturalHalfExposureUs(periodUs);
+            long lookBackUs = (long) Math.floor(Math.min(0.0, controls.openOffsetUs(periodUs)));
+            long lookAheadUs = (long) Math.ceil(Math.max(0.0, controls.closeOffsetUs(periodUs)));
             MotionTimelineBreaks.addSprite(cellBreaks, sheet, item,
-                    timeUs - halfExposureUs, timeUs + halfExposureUs);
-            var plan = RigidTextureShutterPass.naturalPlan(shutterSampler, timeUs, periodUs, shutterBreaks,
-                    cellBreaks.build(), frameW, frameH);
+                    timeUs + lookBackUs, timeUs + lookAheadUs);
+            var plan = RigidTextureShutterPass.plan(controls, shutterSampler, timeUs, periodUs,
+                    shutterBreaks, cellBreaks.build(), frameW, frameH);
             if (plan == null || !prepareCellTexture(renderer, cell)) return false;
             if (shutter == null) {
                 shutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PREMULTIPLIED_OVERLAY);

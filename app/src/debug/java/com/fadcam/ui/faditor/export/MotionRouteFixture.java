@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.export;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -111,11 +113,13 @@ final class MotionRouteFixture {
     }
 
     static FaditorProject createSpine(Context context, boolean enabled, boolean animated,
-                                      boolean transparentArt, boolean doubleSpeed) throws IOException {
+                                      boolean transparentArt, boolean doubleSpeed,
+                                      MotionShutter.Controls controls) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String label = !animated ? "motion only" : enabled ? "blur" : "sharp";
         if (transparentArt) label = "art " + label;
         if (doubleSpeed) label = "2x " + label;
+        if (!MotionShutter.Controls.NATURAL.equals(controls)) label += " preset " + controls.mixPercent();
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 " + label));
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create spine fixture media directory");
@@ -128,6 +132,7 @@ final class MotionRouteFixture {
         clip.setImageClip(transparentArt);
         if (transparentArt) clip.setAudioMuted(true);
         clip.setRigidMotionBlurEnabled(enabled);
+        clip.setRigidMotionShutter(controls);
         if (animated) {
             clip.setSpineScale(0.38f);
             var keys = clip.getOrCreateSpineTransform();

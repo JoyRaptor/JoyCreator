@@ -27,23 +27,16 @@ final class RigidTextureShutterPass {
             + "  vTexSamplingCoord = (uTexTransformationMatrix * texturePosition).xy;\n"
             + "}\n";
 
-    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs, long periodUs,
-                                        MotionBreaks breaks, int width, int height) {
-        return naturalPlan(sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height);
+    static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
+                                 long timeUs, long periodUs, MotionBreaks breaks, int width, int height) {
+        return plan(controls, sampler, timeUs, periodUs, breaks, MotionBreaks.none(), width, height);
     }
 
-    static long naturalHalfExposureUs(long periodUs) {
-        return (long) Math.ceil(MotionShutter.Preset.NATURAL.angle * periodUs / 720.0);
-    }
-
-    static RigidShutterPlan naturalPlan(ItemMotionSampler sampler, long timeUs, long periodUs,
-                                        MotionBreaks breaks, MotionBreaks sourceBreaks,
-                                        int width, int height) {
-        if (periodUs <= 0) return null;
-        var preset = MotionShutter.Preset.NATURAL;
-        var frameRate = new MotionShutter.FrameRate(1_000_000, (int) periodUs);
-        var schedule = MotionShutter.sample(timeUs, frameRate, preset.angle, preset.phase(),
-                MotionShutter.Shape.BOX, SAMPLE_COUNT, breaks, sourceBreaks);
+    static RigidShutterPlan plan(MotionShutter.Controls controls, ItemMotionSampler sampler,
+                                 long timeUs, long periodUs, MotionBreaks breaks,
+                                 MotionBreaks sourceBreaks, int width, int height) {
+        if (periodUs <= 0 || controls.mixPercent() == 0 || controls.angle() == 0) return null;
+        var schedule = controls.schedule(timeUs, periodUs, SAMPLE_COUNT, breaks, sourceBreaks);
         return RigidShutterPlan.prepare(sampler, timeUs, schedule, width, height, 1.0);
     }
 

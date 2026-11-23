@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.export;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Build;
@@ -82,8 +84,13 @@ public class ExportDebugActivity extends Activity {
             boolean animated = in.getBooleanExtra("motion_animated", true);
             boolean transparentArt = in.getBooleanExtra("motion_transparent_art", false);
             boolean doubleSpeed = !transparentArt && in.getBooleanExtra("motion_double_speed", false);
+            String presetName = in.getStringExtra("motion_preset");
+            var preset = presetName == null ? MotionShutter.Preset.NATURAL
+                    : MotionShutter.Preset.valueOf(presetName);
+            var controls = new MotionShutter.Controls(
+                    preset.angle, preset.timing, 0, in.getIntExtra("motion_mix", 100));
             FaditorProject fixture = MotionRouteFixture.createSpine(
-                    this, enabled, animated, transparentArt, doubleSpeed);
+                    this, enabled, animated, transparentArt, doubleSpeed, controls);
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
                     + " art=" + transparentArt + " doubleSpeed=" + doubleSpeed);
@@ -133,6 +140,9 @@ public class ExportDebugActivity extends Activity {
         if (project == null) {
             FLog.w(TAG, "no project " + id);
             return false;
+        }
+        if (in.getBooleanExtra("motion_spine_fixture", false)) {
+            FLog.i(TAG, "C2 stored shutter " + project.getTimeline().getClip(0).getRigidMotionShutter());
         }
         File dir = new File(getFilesDir(), "faditor");
         //noinspection ResultOfMethodCallIgnored

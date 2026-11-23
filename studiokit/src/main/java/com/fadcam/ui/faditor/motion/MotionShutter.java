@@ -49,6 +49,51 @@ public final class MotionShutter {
         public double phase() { return timing.phase(angle, 0.0); }
     }
 
+    /** Saved per-item shutter controls. Older items use the Natural preset. */
+    public record Controls(int angle, Timing timing, int customPhase, int mixPercent) {
+        public static final Controls NATURAL = fromPreset(Preset.NATURAL);
+
+        public Controls {
+            angle = Math.max(0, Math.min(720, angle));
+            timing = Objects.requireNonNull(timing);
+            customPhase = Math.max(-720, Math.min(720, customPhase));
+            mixPercent = Math.max(0, Math.min(100, mixPercent));
+        }
+
+        public static Controls fromPreset(Preset preset) {
+            return new Controls(preset.angle, preset.timing, 0, 100);
+        }
+
+        public double phase() { return timing.phase(angle, customPhase); }
+
+        public double openOffsetUs(long periodUs) { return phase() * periodUs / 360.0; }
+
+        public double closeOffsetUs(long periodUs) { return (phase() + angle) * periodUs / 360.0; }
+
+        /**
+         * Reserve one of the available texture taps for the sharp pose when the mix is partial.
+         * Mixing these weights with coverage in linear light preserves premultiplied edges.
+         */
+        public Schedule schedule(long centerUs, long periodUs, int taps,
+                                 MotionBreaks breaks, MotionBreaks sourceBreaks) {
+            if (periodUs <= 0 || mixPercent == 0 || angle == 0 || taps <= 1) return center(centerUs);
+            var rate = new FrameRate(1_000_000, Math.toIntExact(periodUs));
+            int exposureTaps = mixPercent == 100 ? taps : taps - 1;
+            Schedule exposure = sample(centerUs, rate, angle, phase(), Shape.BOX,
+                    exposureTaps, breaks, sourceBreaks);
+            if (mixPercent == 100 || exposure.timesUs().length == 1) return exposure;
+
+            double mix = mixPercent / 100.0;
+            int sharpIndex = exposure.timesUs().length;
+            long[] times = java.util.Arrays.copyOf(exposure.timesUs(), sharpIndex + 1);
+            double[] weights = java.util.Arrays.copyOf(exposure.weights(), sharpIndex + 1);
+            for (int i = 0; i < sharpIndex; i++) weights[i] *= mix;
+            times[sharpIndex] = centerUs;
+            weights[sharpIndex] = 1.0 - mix;
+            return new Schedule(times, weights);
+        }
+    }
+
     public record Schedule(long[] timesUs, double[] weights) {}
 
     public static Schedule sample(long centerUs, FrameRate frameRate, double angle, double phase,

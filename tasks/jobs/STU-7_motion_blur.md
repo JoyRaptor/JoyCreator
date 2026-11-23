@@ -11,6 +11,41 @@ the smear a real camera would give it. It must run on the Note 9 and look as goo
 is the spec.** The two source plans sit beside it, for reasons only. Section numbers below (§) are the
 merged plan's.
 
+## Resume here (whoever picks this up: read this block first, then the newest channel entry)
+**Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
+standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
+this block true at every landmark; it is the hand-over.
+- **Active step:** C2 landing (hide the tool behind `studio_motion_blur`, then land).
+- **Code branch / head:** `codex/motionblur-20261122` @ `7f34e7737` (pushed).
+- **Last landed on `joy-creator`:** C1, C4a `LanePlan`, the C6 flow core, `tools/motionref`.
+- **Exact next action:** gate `FaditorToolRegistry` `motion_blur` with `LaunchGate.hidden(ctx,
+  "studio_motion_blur")` and add the key to `hidden_features.json` (channel review, 11-22).
+- **Open owner asks:** none.
+- **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
+
+### No-loss rules (binding while Codex runs the job)
+1. **Landmark = commit + push + a channel entry + this block updated**, in that order, every time.
+   A landmark is any of these:
+   - a sub-step done (C2 landed, C3 pictures, C3 sprites, C4b, …);
+   - a proof run (cloud CI, a Note 9 check);
+   - a design decision;
+   - a blocker.
+2. **Push work in progress at least every 45 minutes of work**, even unfinished
+   (`WIP: <what>, builds/does not build`), so nothing lives only on this PC.
+3. **This block names one exact next action.** "Continue C4" is not an action; "write
+   `LaneCompositor.drawEntry` for TEXT using `TextRasterCache`, then run `run-lane`" is.
+4. **Before any long or risky step** (a large refactor, a phone session, a full export
+   corpus), post a channel entry saying what you are about to do and what state you leave if cut
+   off.
+5. **Evidence:** receipts in `tasks/motionblur/*_REPORT.md`; raw media outside the repo (D: when
+   plugged in, otherwise `C:/Temp/motionblur-evidence-*`), with the path in the report.
+6. **Owner looks** (§9 steps 2 and 6): build the comparison page, post the ask in the channel and
+   in this block's "Open owner asks", and continue with the next step that does not depend on his
+   answer. Never sit waiting.
+7. **Decisions:** the spec, the C4 design and the C6 GPU plan are approved. Where code disagrees
+   with them, decide, record "decided: … because …" in the channel, and carry on. Claude reviews
+   afterwards.
+
 ## How Claude and Codex share this job
 - **Talk in [tasks/motionblur/CHANNEL.md](../motionblur/CHANNEL.md)**, and nowhere else. Read the
   whole thing before starting a session. Append an entry at every checkpoint, question or stop.
@@ -42,7 +77,30 @@ merged plan's.
 ## Where it stands
 - 2026-11-22: C1 landed at `1205b80ce` with 62/62 GitHub Studio suites, a Snapdragon
   Note 9 seek and export proof, and the GPU calibration. [C1 evidence](../motionblur/C1_ROUTE_REPORT.md).
-  Keep the observed paused-preview PiP gap as a C3/C4 parity case. C2 is next.
+  Keep the observed paused-preview PiP gap as a C3/C4 parity case.
+- 2026-11-22: C2 started on `codex/motionblur-20261122` at `d6be0294c`. Inverse sampling
+  math and scissor coverage tests pass.
+- 2026-11-22: The C2 branch has opt-in SDR main-clip placement blur and a single-clip
+  trim-path and linear-light controls verified on Snapdragon Note 9. See [C2 spine checkpoint](../motionblur/C2_SPINE_EXPORT_REPORT.md).
+- 2026-11-22: Plain picture overlay blur is verified on the Snapdragon Note 9 at `9abf49e33`.
+  [Picture export evidence](../motionblur/C2_PICTURE_EXPORT_REPORT.md).
+- 2026-11-22: Sprite cells and plain titles verified in SDR export.
+  [Sprite/title evidence](../motionblur/C2_SPRITE_TITLE_EXPORT_REPORT.md).
+- 2026-11-22: Ordinary PiP placement blur verified on the Snapdragon Note 9 at `8d94fc4ac`.
+  [PiP export evidence](../motionblur/C2_PIP_EXPORT_REPORT.md).
+- 2026-11-22: Verified the 60 fps shutter after a 2× retime and rechecked all five export routes.
+  [Cadence evidence](../motionblur/C2_CADENCE_EXPORT_REPORT.md).
+- 2026-11-22: Verified saved shutter settings, Trailing and Mix in export, and per-item controls with Undo and Redo on the Note 9.
+  [Shutter settings and controls evidence](../motionblur/C2_SHUTTER_CONTROLS_REPORT.md).
+- 2026-11-22: The switch and Inspect Frame are verified on the Snapdragon Note 9.
+  C2 is implemented and tested on `codex/motionblur-20261122` at `7f34e7737`.
+  The code remains on the branch for review of the new tool entry under the default-off landing rule.
+- 2026-11-22: Claude reviewed C2: hide the tool behind LaunchGate `studio_motion_blur` until C3 parity, then Codex lands it (channel).
+- 2026-11-22: Claude wrote the [C4 design](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go for C4, with gates).
+  Claude also landed the C6 flow core at `a7d01ad7f` (pure Java, not called by the app yet; `run-motionflow`, 63/63 Studio CI,
+  APK build green), plus the [GPU port plan](../motionblur/C6_FLOW_GPU_PLAN.md).
+- 2026-11-22: Claude landed C4a `LanePlan` and the footage reference tool `tools/motionref` at `f4e80974e`
+  (64/64 Studio CI). C4 design revised: old projects keep the old route unless `legacyLooksTheSame()`.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
@@ -66,11 +124,13 @@ merged plan's.
     off. C1's route report must say what 2a already built.
 - [ ] **Owner look #1:** a mix-and-match page (presets, Mix, exposure shapes) plus a phone session.
       Claude, or Codex if Claude is out.
-- [ ] **C4 = §9 step 3:** effect-layer render order (needs Claude's go), then the `MOTION` capability
-      and Exact per-sample scope export.
+- [ ] **C4 = §9 step 3:** C4a ✅ (`LanePlan`). Next C4b-f per [C4_COMPOSITOR_DESIGN.md](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go,
+      gated by its §6 equivalence corpus).
 - [ ] **C5 = §9 step 4:** puppets and avatars.
-- [ ] **C6 = §9 step 5:** filmed video (LiveFlow, estimator bake-off with OpenCV DIS, analyser,
-      cache).
+- [ ] **C6 = §9 step 5:** filmed video. **Done:** the Java oracle (`FlowField`, `LumaImage`, `PyramidFlowEstimator`,
+      `FlowConfidence`, `GlobalMotionFit`, `SourceFrameRing`). **Left:** the GPU port per
+      [C6_FLOW_GPU_PLAN.md](../motionblur/C6_FLOW_GPU_PLAN.md), the high-speed reference shoot, the OpenCV DIS bake-off,
+      the live and export wiring, the analyser and the cache.
 - [ ] **C7 = §9 step 6:** finish, A/B, help, Joybot, STATE. **Owner look #2.**
 
 ## Files and traps

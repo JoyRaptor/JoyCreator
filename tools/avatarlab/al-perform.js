@@ -84,21 +84,22 @@
     var voice = h('div', { class: 'rowf' + (stk ? ' ico' : '') }, [
       hosted ? null : ui.chip('Mic', { cls: ico, on: inp.mic.on && inp.mic.kind === 'mic', icon: 'mic', title: 'Lip-sync to your voice', fn: function () { if (inp.mic.on) { inp.micStop(); app.refreshPanel(true); } else inp.micStart().then(function () { app.refreshPanel(true); }).catch(function () { app.toast('No microphone here. Hold Talk, or play a voice file.'); }); } }),
       ui.chip('Voice file', { cls: ico, on: inp.mic.on && inp.mic.kind === 'file', icon: 'note', title: 'Play a recording and lip-sync to it', fn: function () { if (inp.mic.kind === 'file') { inp.micStop(); app.refreshPanel(true); } else $('fileAudio').click(); } }),
-      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { cls: ico, on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Tap again to change between "while Talk is held" and "always", then off. The picture is never shown or kept.', fn: function () {
-        if (!inp.cam.on) { app.toast('Starting the face camera\u2026'); inp.cam.mode = 'talk'; inp.camStart().then(function () { app.toast('Face is ready. Hold Talk and it takes over from where your hand left the head.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It needs a webcam and the PC page.'); }); }
-        else if (inp.cam.mode === 'talk') { inp.cam.mode = 'always'; inp.cam.zero = null; app.refreshPanel(true); }
+      hosted ? null : ui.chip(!inp.cam.on ? 'Face' : inp.cam.mode === 'always' ? 'Face: always' : 'Face: while talking', { cls: ico, on: inp.cam.on, icon: 'cam', title: 'Drive the head, eyes and mouth with your own face. Straight away; tap again for "only while Talk is held", then off. The picture is never shown or kept.', fn: function () {
+        if (!inp.cam.on) { app.toast('Starting the face camera\u2026'); inp.cam.mode = 'always'; inp.camStart().then(function () { app.toast('Face is on: the character moves with you. Tap Face again for only while Talk is held.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here. It needs a webcam and the PC page.'); }); }
+        else if (inp.cam.mode === 'always') { inp.cam.mode = 'talk'; inp.cam.zero = null; app.refreshPanel(true); }   // FACE-1 (the owner, 11-22): on drives at once; talk-only is the second tap
         else { inp.camStop(); app.refreshPanel(true); }
       } })
     ]);
     if (inp.cam.on) voice.appendChild(ui.chip('Re-centre', { title: 'Take your face now as neutral: look at the screen, relaxed', fn: function () { inp.cam.zero = null; if (AL.face) AL.face.neutral(inp.cam); if (AL.pose) AL.pose.neutral(); } }));
     if (inp.cam.on && AL.face) voice.appendChild(ui.toggle('Mirror', !inp.cam.facing, function (v) { AL.face.setFacing(inp.cam, !v); app.refreshPanel(true); }, null, 'On: the character moves like your reflection. Off: like someone facing you'));   // FACE-1
-    if (inp.cam.on && AL.pose) voice.appendChild(AL.pose.tick(app));   // SHRUG-1
     else if (inp.cam.on) voice.appendChild(ui.chip('Swap sides', { on: inp.cam.swap, title: 'If the character turns the wrong way, swap left and right', fn: function () { inp.cam.swap = !inp.cam.swap; app.refreshPanel(true); } }));
+    if (inp.cam.on && AL.pose) voice.appendChild(AL.pose.tick(app));   // SHRUG-1
     if (inp.cam.on && AL.facepins) voice.appendChild(ui.chip('Check directions', { title: 'Five short moves that settle which way is which on this device', fn: function () { AL.facepins.directions(app); } }));   // FACE-1
     if (AL.facepins && !hosted && (inp.cam.on || AL.facepins.list(app.ch).length)) voice.appendChild(AL.facepins.chip(app));   // FACE-1
     if (AL.stick) { var jc = AL.stick.chip(app); if (stk) jc.classList.add('ico'); voice.appendChild(jc); }
     pb.appendChild(h('div', { class: 'padrow' + (stk ? ' stick' : '') }, [sets[0] ? AL.cards.turnPad(app, { set: sets[0].id }) : null, h('div', { class: 'side' }, [talkButton(app), meter, voice]), stk ? AL.stick.pad(app) : null]));
     morePads(app, pb, sets);
+    if (inp.cam.on && AL.pose && AL.pose.isOn()) pb.appendChild(AL.pose.sensSlider(app));   // SHRUG-1: the owner, 11-22
 
     if (hosted) pb.appendChild(ui.note('The microphone and the face camera work on the PC page (tools/avatarlab). Here, hold Talk or play a voice file.'));
     pb.appendChild(ui.lab('Buttons'));

@@ -266,6 +266,60 @@
     if (g && g.key === key) return g;
     g = this.geo[n.id] = geoFields(n, im, AL.img.alpha(n.img)); g.key = key; return g;
   };
+  /** A one-piece sheet (a folder whose pins bend it last, FACE-1) is held still at its edges: a close ring of points just
+      outside its rest bounds (seven a side; with the sheet's close falloff the outline between them cannot drift), so a face pin bends the face and not
+      the whole head. Cached per drawing (the bounds only change when the drawing does). */
+  var holdCache = {};
+  AL.sheetHold = function (n) {
+    var b = AL.boundsOf(n); if (!b) return [];
+    var key = n.id + '|' + b.x0 + ',' + b.y0 + ',' + b.x1 + ',' + b.y1; if (holdCache[key]) return holdCache[key];
+    var w = b.x1 - b.x0, hh = b.y1 - b.y0, x0 = b.x0 - w * 0.04, x1 = b.x1 + w * 0.04, y0 = b.y0 - hh * 0.04, y1 = b.y1 + hh * 0.04, o = [], N = 6;
+    for (var i = 0; i <= N; i++) { var t = i / N; o.push([x0 + (x1 - x0) * t, y0], [x0 + (x1 - x0) * t, y1]); if (i > 0 && i < N) o.push([x0, y0 + (y1 - y0) * t], [x1, y0 + (y1 - y0) * t]); }
+    if (Object.keys(holdCache).length > 200) holdCache = {};
+    return (holdCache[key] = o);
+  };
+  /** The sheet's bend, worked out once a frame on a lattice over it (about 16 units a cell), which every slice then reads:
+      cheap on the phone (45 pins over 18 slices: 26 ms a frame done per point on the Note 9), and the slices cannot tear apart
+      because they all read the one field. Returns how far each lattice point moves. */
+  function sheetLattice(n, P, Q, K) {
+    var b = AL.boundsOf(n); if (!b) return null;
+    var w = b.x1 - b.x0, hh = b.y1 - b.y0, x0 = b.x0 - w * 0.04, y0 = b.y0 - hh * 0.04, W = w * 1.08, H = hh * 1.08;
+    var nx = clamp(Math.round(W / 16), 4, 32), ny = clamp(Math.round(H / 16), 4, 32), src = new Float32Array((nx + 1) * (ny + 1) * 2), o = 0, i, j;
+    for (j = 0; j <= ny; j++) for (i = 0; i <= nx; i++) { src[o++] = x0 + W * i / nx; src[o++] = y0 + H * j / ny; }
+    var dst = rigidSheet(src, P, Q, K);
+    for (i = 0; i < dst.length; i++) dst[i] -= src[i];
+    return { x0: x0, y0: y0, W: W, H: H, nx: nx, ny: ny, d: dst };
+  }
+  /** Rigid moving-least-squares as warpMLS, with a closer falloff (1 / distance to the 4th): each pin bends its own
+      neighbourhood and the held outline stays put; and no power function, which is slow on the phone. */
+  function rigidSheet(src, P, Q, K) {
+    var out = new Float32Array(src.length), n = P.length, W = new Float32Array(n), j;
+    for (var i = 0; i < src.length; i += 2) {
+      var x = src[i], y = src[i + 1], sw = 0, px = 0, py = 0, qx = 0, qy = 0, w;
+      for (j = 0; j < n; j++) { var dx = P[j][0] - x, dy = P[j][1] - y, iv = 1 / (dx * dx + dy * dy + 1); w = iv * iv * (K[j] > 1e-4 ? K[j] : 0); W[j] = w; sw += w; px += w * P[j][0]; py += w * P[j][1]; qx += w * Q[j][0]; qy += w * Q[j][1]; }
+      if (!(sw > 0)) { out[i] = x; out[i + 1] = y; continue; }
+      px /= sw; py /= sw; qx /= sw; qy /= sw;
+      var a = 0, b = 0;
+      for (j = 0; j < n; j++) { var ax = P[j][0] - px, ay = P[j][1] - py, bx = Q[j][0] - qx, by = Q[j][1] - qy; a += W[j] * (ax * bx + ay * by); b += W[j] * (ax * by - ay * bx); }
+      var len = hyp(a, b);
+      if (len < 1e-9) { out[i] = x + (qx - px); out[i + 1] = y + (qy - py); continue; }
+      var c = a / len, s = b / len, vx = x - px, vy = y - py;
+      out[i] = qx + c * vx - s * vy; out[i + 1] = qy + s * vx + c * vy;
+    }
+    return out;
+  }
+  /** Bend a slice's drawn points (w, on the stage) by the sheet's lattice, in the sheet's own frame: each point moves as its
+      lattice cell's four corners do, blended. In place. */
+  function bendBySheet(w, cp) {
+    var L = cp.lat, CI = cp.I, CM = cp.M, D = L.d, r = L.nx + 1, sx = L.nx / L.W, sy = L.ny / L.H;
+    for (var i = 0; i < w.length; i += 2) {
+      var lx = CI[0] * w[i] + CI[2] * w[i + 1] + CI[4], ly = CI[1] * w[i] + CI[3] * w[i + 1] + CI[5];
+      var u = clamp((lx - L.x0) * sx, 0, L.nx), v = clamp((ly - L.y0) * sy, 0, L.ny), ci = u < L.nx ? Math.floor(u) : L.nx - 1, cj = v < L.ny ? Math.floor(v) : L.ny - 1, fu = u - ci, fv = v - cj;
+      var a = (cj * r + ci) * 2, b = a + 2, c = a + r * 2, d = c + 2, g0 = (1 - fu) * (1 - fv), g1 = fu * (1 - fv), g2 = (1 - fu) * fv, g3 = fu * fv;
+      lx += D[a] * g0 + D[b] * g1 + D[c] * g2 + D[d] * g3; ly += D[a + 1] * g0 + D[b + 1] * g1 + D[c + 1] * g2 + D[d + 1] * g3;
+      w[i] = CM[0] * lx + CM[2] * ly + CM[4]; w[i + 1] = CM[1] * lx + CM[3] * ly + CM[5];
+    }
+  }
   /** Where one spot of a part with pins is carried to when its shapes are worn at these strengths ({ shapeId: 0..1 }).
       Used to drop a new pin onto a part that is already reshaped without the part moving under it (al-fit.js, dropPin). */
   AL.Solver.prototype.warpAt = function (n, x, y, W) {
@@ -301,7 +355,7 @@
     opt = opt || {};
     var self = this, ch = this.ch, ix = AL.ix(ch), st = this.st, set = ch.settings || {};
     var live = !!opt.live, dt = clamp(opt.dt || 1 / 60, 0.001, 1 / 20), force = opt.force || {}, show = opt.show || {};
-    var out = { items: [], pins: {}, M: {}, picks: {}, first: {}, last: {}, tips: {}, rootM: null, flipped: false }, late = [];
+    var out = { items: [], pins: {}, M: {}, picks: {}, first: {}, last: {}, tips: {}, meshAt: {}, rootM: null, flipped: false }, late = [];
     /* every button is also a level that eases 0..1, so any part can follow a button ("nervous", "angry") smoothly */
     var lvl = st.lvl || (st.lvl = {}); (ch.triggers || []).forEach(function (t) { var w = S.trig && S.trig[t.id] ? 1 : 0; lvl[t.id] = live && lvl[t.id] != null ? lvl[t.id] + (w - lvl[t.id]) * Math.min(1, dt * 9) : w; });
 
@@ -332,7 +386,7 @@
     var PZ = []; (ch.poses || []).forEach(function (p) { var w = opt.poses && opt.poses[p.id] != null ? opt.poses[p.id] : (S.pose ? S.pose[p.id] || 0 : 0); if (w > 0.0005 || w < -0.0005) PZ.push({ p: p, w: w }); });
     out.B = {};
     function windAcc(x) { return windIn * 1500 * (0.6 + 0.4 * Math.sin(S.t * 1.9 + x * 0.013) + 0.25 * Math.sin(S.t * 4.7 + x * 0.031)); }
-    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0, nc: c.nc, zo: c.zo }; if (over) for (var e in over) k[e] = over[e]; return k; }
+    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0, nc: c.nc, zo: c.zo, post: c.post }; if (over) for (var e in over) k[e] = over[e]; return k; }
     /** The same context with a few things changed (ctx() is for stepping DOWN to a child; this stays on the same node). */
     /* a stance may put a part in front of, or behind, something else while the character is in it */
     function zOf(n) { for (var i = PZ.length - 1; i >= 0; i--) { var d = PZ[i].p.d && PZ[i].p.d[n.id]; if (d && d.z && PZ[i].w > (d.z.at == null ? 0.5 : d.z.at)) return d.z; } return n.zo || null; }
@@ -386,7 +440,7 @@
       return { turnX: -S.turnX, turnY: S.turnY, roll: -S.roll, lookX: -S.lookX, lookY: S.lookY, blinkL: S.blinkR, blinkR: S.blinkL, browL: S.browR, browR: S.browL,
         mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, foot: S.foot, spin: -(S.spin || 0), walk: -(S.walk || 0), armSide: S.armSide, trig: S.trig, pin: S.pin, t: S.t };
     }
-    function sigsFull(mir) { var o = sigs(mir); if (mir) { for (var k in S) if (k.slice(0, 3) === 'pt.') o[k] = S[k]; o.shrugL = S.shrugR; o.shrugR = S.shrugL; o.shrug = S.shrug; } return o; }   // FACE-1 face pins ride a mirror as they are, like S.pin; SHRUG-1 shrugs swap sides
+    function sigsFull(mir) { var o = sigs(mir); if (mir) { for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') o[k] = S[k]; o.shrugL = S.shrugR; o.shrugR = S.shrugL; o.shrug = S.shrug; } return o; }   // FACE-1 face pins ride a mirror as they are, like S.pin; SHRUG-1 shrugs swap sides
     var SM = [S, sigsFull(true)];
     function sg(c) { return SM[(c.mir ? 1 : 0) ^ (flipped ? 1 : 0)]; }
 
@@ -516,8 +570,11 @@
       if (live && n.swing && n.swing.kind === 'stiff' && n.swing.on !== false) stepStiff(n, M.mul(invRoot, Mx));
       /* a PIECE of a turning head with landmarks of its own (or sharing another piece's) warps by those, not by the whole head's */
       if (c.warps && n.name) { var wk = c.warps[String(n.name).toLowerCase().trim()]; if (wk !== undefined) c = also(c, { warp: wk, warps: null, P: wk && wk.par ? wk.par : (c.P0 || c.P) }); }
-      /* pins on a folder or a set bend every drawing inside it (an eye made of parts, squeezed shut as one) */
-      if (n.type !== 'art' && n.mesh && n.mesh.pins && n.mesh.pins.length) { var gp = pinTargets(n, sg(c), c); if (gp.moved) c = also(c, { warp: c.warp ? { P: c.warp.P.concat(gp.P), Q: c.warp.Q.concat(gp.Q), K: (c.warp.K || c.warp.P.map(function () { return 1; })).concat(gp.K) } : gp }); }
+      /* pins on a folder or a set bend every drawing inside it (an eye made of parts, squeezed shut as one). A folder whose pins
+         bend LAST (mesh.last: a head's drawing with face pins, FACE-1) bends as one piece over everything already drawn inside,
+         after each slice's own moves and shapes, so its slices can never tear apart or slide under each other */
+      var gp = null;
+      if (n.type !== 'art' && n.mesh && n.mesh.pins && n.mesh.pins.length) { gp = pinTargets(n, sg(c), c); if (gp.moved && !n.mesh.last) c = also(c, { warp: c.warp ? { P: c.warp.P.concat(gp.P), Q: c.warp.Q.concat(gp.Q), K: (c.warp.K || c.warp.P.map(function () { return 1; })).concat(gp.K) } : gp }); }
       /* ROUND SHAPE: this node is a ball (or a turned outline); parts inside marked "painted on" slide over it, parts marked "sticks out" ride its surface */
       if (n.ball && n.ball.on !== false) c = also(c, { ball: { b: n.ball, id: n.ball.shell || n.id, pr: n.ball.kind === 'lathe' ? self.lathe(n.ball) : null } });
       var out2 = null, an = null, dec = null, Mx0 = Mx;
@@ -544,6 +601,12 @@
       out.B[n.id] = Mx;                              // where this part sits before its own move, turn and size (the transform box works in this space)
       var L = local(n, c); if (L) Mx = M.mul(Mx, L);
       out.M[n.id] = Mx;
+      if (gp && !c.ghost) out.meshAt[n.id] = { Q: gp.Q, M: Mx };
+      if (n.type !== 'art' && n.mesh && n.mesh.last) {          // (the sheet's grid stays as fine at rest, and with no pins left, so nothing jumps)
+        var bend = !!(gp && gp.moved), hold = bend ? AL.sheetHold(n) : [];
+        var lat = bend ? sheetLattice(n, gp.P.concat(hold), gp.Q.concat(hold), gp.K.concat(hold.map(function () { return 1; }))) : null;
+        c = also(c, { post: lat ? { on: true, lat: lat, M: Mx, I: M.inv(Mx) } : { on: false } });
+      }
       var zo1 = (PZ.length || n.zo) ? zOf(n) : null; if (zo1) c = also(c, { zo: zo1 });
       /* the tip of something that swings stiffly: a thing can ride on it (a lantern on a pole, a ring stream on a hover peg) */
       if (n.swing && n.swing.kind === 'stiff' && n.swing.tip && !c.ghost) { var pv0 = pivotOf(n), ra = Math.atan2(n.swing.tip.y - pv0.y, n.swing.tip.x - pv0.x); out.tips[n.id] = { p: M.ap(Mx, n.swing.tip.x, n.swing.tip.y), ang: wAng(Mx, ra), restP: M.ap(Mx0, n.swing.tip.x, n.swing.tip.y), rest: wAng(Mx0, ra), under: c.under || null }; }
@@ -707,7 +770,7 @@
       var im = AL.img.get(n.img); if (!im) return;
       var s = sg(c), limbOn = n.limb && c.reach && n.limb.bend !== false, bendOn = n.swing && n.swing.kind !== 'stiff' && live && n.swing.on !== false, brOn = n.breathe && n.breathe.on !== false && s.breath, meshOn = n.mesh && n.mesh.pins && n.mesh.pins.length;
       var wrapOn = moving && c.ball && c.wrap === 'on', behind = null;
-      var dense = (meshOn || wrapOn || limbOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp) ? 1 : 0;
+      var dense = (meshOn || wrapOn || limbOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp || c.post) ? 1 : 0;
       var g = self.grid(n, im, dense), i, zs = (n.zSplit && n.limb && !c.lift && !c.ghost && !c.zo) ? n.zSplit : null;
       var zt = (c.zo && c.zo.how === 'under' && c.zo.tip != null && n.limb && !c.lift && !c.ghost) ? c.zo : null;      // in a stance: the shoulder behind something, the hand in front of it
       if (zs) g = self.splitGrid(g, n.limb, zs.at == null ? 0.5 : zs.at, zs.behind === 'tip'); else if (zt) g = self.splitGrid(g, n.limb, zt.tip, false);
@@ -745,6 +808,7 @@
         var pt = pinTargets(n, s, c);
         if (pt.moved) v = warpMLS(v, pt.P, pt.Q, self.geoFor(n, im), pt.K);
         if (!n.mesh.quiet) out.pins[n.id] = { mesh: pt.Q.map(function (q) { return M.ap(Mx, q[0], q[1]); }) };      // quiet pins shape the part; they are not handles in Perform
+        if (!c.ghost) out.meshAt[n.id] = { Q: pt.Q, M: Mx };      // where each of its pins is drawn now, every shape it wears (FACE-1: face pins show there)
       }
       if (brOn) {
         var br = n.breathe, kk = (br.amt == null ? 1 : br.amt) * 0.05 * s.breath, r2 = br.r * br.r, o2 = v === g.v ? new Float32Array(v) : v;
@@ -754,6 +818,9 @@
       if (bendOn) v = bendy(n, v === g.v ? new Float32Array(v) : v, Mx, c, s);
       var w = new Float32Array(v.length);
       for (i = 0; i < v.length; i += 2) { w[i] = Mx[0] * v[i] + Mx[2] * v[i + 1] + Mx[4]; w[i + 1] = Mx[1] * v[i] + Mx[3] * v[i + 1] + Mx[5]; }
+      if (c.post && c.post.on) {                                // the one-piece sheet this slice belongs to bends it last, in the sheet's own frame
+        bendBySheet(w, c.post);
+      }
       var item = { id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: c.lift ? null : (n.zUnder || c.under || null), ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '', nc: !!c.nc };
       if (c.zo && !c.lift && !c.ghost) { item.under = null; item.zo = c.zo; }
       if (behind && !zs && !zt) { var ki = [], gi = g.idx; for (i = 0; i < gi.length; i += 3) if (!behind[gi[i]] && !behind[gi[i + 1]] && !behind[gi[i + 2]]) ki.push(gi[i], gi[i + 1], gi[i + 2]); if (!ki.length) return; item.idx = new Uint16Array(ki); }

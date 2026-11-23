@@ -221,6 +221,89 @@ walks it toward the camera and further steps it back, scaling as it goes, and a 
 boxes in a Perform drawer, nice both on the plain stage and in a scene. Sent to the walk-stage session (the pilot's
 `leanX`, `leanY`, `near` already exist; walking toward and away from the camera does not yet).
 
+## Face pins where you build, tried as you place them (11-22, round 3)
+The owner, after round 2 worked: face pins are "better, more useful in motion. Or somewhere where it's zoomed in on the
+parts"; "It needs to be something where I can quickly test it"; "I might want to put a pin on my face in any part of the
+character ... puffing out my cheek to puff out an animal's stomach."
+
+| | Change | Checked |
+|---|---|---|
+| ✅ | **Your face** section, with Face pins, on the head's card, the body's card and any drawing's card (not an arm or a leg), in Set up and in Motion; Perform keeps its chip | break test 9 |
+| ✅ | Opening Face pins turns the camera on (Set up, Arrange and Motion turn it off) | browser |
+| ✅ | Placing: the first tap on the character zooms in on that spot, the second places the pin exactly | break test 10 |
+| ✅ | Tried at once: still zoomed in, the spot follows your face, even in Set up (the face drives the pins while trying; a part held in its reshape is let go meanwhile), with Strength, Remove and Done; Done goes back to the view you had | break test 11 |
+| ✅ | Your expressions for any part, in Links and Shapes: cheeks puffed out, smile, jaw dropping, mouth stretched wide, lips puckered, eyes wide, eyes squinting, brows raised, frown, sneer (`face.*`, recorded in takes with the face pins) | break test 12 (a link moves the head 24 px with a cheek puff) |
+
+Checks 9 to 12 written first and seen failing on the old code (5 of 18 failed); now 18 of 18, 12 of 12 planted faults
+caught; the pilot's other suites pass with it (body 184, fit and reshape, head turn, stage, walk, draw order, scene,
+walk across the stage, walk with your face). His look owed.
+
+## The Face pins screen, from his own mockup (11-22, round 4)
+He found round 3 "terribly thought out": "I can't see what I'm doing. It says 2 face pins. I don't see where the pins
+are. I can't drag and move the pins. I should be able to toggle whether the camera is affecting it." His design: your
+face and the character side by side, each zoomable, "tap to select the pin, tap on the other region to place. Tap, tap,
+tap, tap, back and forth", "I might be fixing dozens of pinpoints". A clickable mockup on his Note 9 (scratchpad, not in
+the repo); his verdict: **"Build it like this."**
+
+| | Built | Checked |
+|---|---|---|
+| ✅ | Face pins is one screen you stay in: the character on the real stage (only face pins shown there, Set up's own pins hidden), your face filling the panel (the panel's tabs hidden until Done) | browser at phone size; on his Note 9 |
+| ✅ | Tap a point of your face, tap the character: a pin, numbered and coloured the same on both; again and again (no tap-to-zoom: pinch, as he asked) | break test 10 |
+| ✅ | Tap a pin on the character to pick it; drag it to move where it pulls (on whatever part is under it), keeping its number and strength, one undo step | break test 10 |
+| ✅ | Follow my face: on, your face drives the character and its pins, even in Set up; off, everything holds still while you place and drag | break test 11 |
+| ✅ | A row per pin: where it comes from, what it pulls, Strength, Remove; Done goes back to the card you came from | break test 11 |
+| ✅ | Each half pinches and pans on its own; the face has Pick / Live, Plain map, All points, Fit | browser |
+
+Checks 10 and 11 rewritten first (they failed on round 3's code); 19 of 19 now, 14 of 14 planted faults caught (new:
+noplace, nomarkers, nodrag, nofollow); every other pilot suite passes with it. His look owed. Next (his idea, phase 2):
+a face template laid over the character's face, its key points dragged onto the features, every pin made at once.
+
+## Round 5: his first use of the real screen (11-22) and what was wrong
+He tapped a point, then Topps: the pin showed "about 5 millimeters north" of his finger; dragging it did nothing; zooming
+made the pins drift against Topps; Live showed "a weird picture", "not like the camera was on". He wants "place, test,
+place, test": put a pin down, press a button, move his face, adjust on the fly or stop.
+
+Measured on his Note 9 over the debugging link (numbers only, no picture kept):
+
+| | Fault | Cause | Fix | Check |
+|---|---|---|---|---|
+| ✅ | Pins drawn 46 points above the finger (his "5 mm north"), drifting on zoom | the pins' layer was placed against the page, not the stage, and the top bar is 46 points tall (my PC checks compared numbers, not what is drawn) | the layer lives inside the stage | 10 (now measures the drawn pins) |
+| ✅ | Dragging a pin did nothing | the finger went down on the pin as drawn, 46 points from where it was | as above; the finger grabs the pin as drawn, a fingertip's reach | 10 (drags from the drawn pin) |
+| ✅ | On a reshaped part (Topps's body) the pin was off again | the pin was drawn where the part rests, before its reshape | drawn where the solver draws it, every shape the part wears (`al-solve.js` hands out where each pin is drawn) | 13 (new) |
+| ✅ | Live showed a frozen, stale picture; nothing followed | Chrome paused the camera's picture while the page was in the background and nothing started it again (camera on, picture paused); the camera was also left on talk-only | the pilot starts a paused camera again (`al-inputs.js`); Test makes the camera follow always | 14 (new) |
+| ✅ | No quick way to try a pin | Follow my face was a small tick box | a **Test** button beside Pick/Live; it shows your face live and the character follows; **Stop** holds still to place; dragging still works while testing; the hint says what to do next | 11 |
+
+The new checks were run on round 4's code first: 7 failed, each for the reason he saw (46 points off; the drag missed;
+no Test; 67 points off on a reshaped part; the camera never started again). 23 of 23 now, 18 of 18 planted faults caught
+(new: nolayer, noreshape, noresume, notest). Limit: dragging a pin while testing places it against your face as it is at
+that moment (a held neutral face is exact).
+
+## Round 6: the head bends as one piece (11-22, his idea), and the All pins dial
+On Topps (a head of 7 painted angles, 15 to 19 slices each) his 45 quick pins sat on 8 different slices; each slice bent by
+its own pins, so with Test "all the pieces are free-floating and warped, sliding in unpredictable ways"; a slice with one pin
+slid as a block. His idea: "treating the whole head as one piece, and having that pass be after all the other passes". He also
+asked for "a global multiplier dial for all the points" (every pin then started at 2x).
+
+| | Built | Check |
+|---|---|---|
+| ✅ | A face pin tapped on any slice of a head goes on that head's whole drawing (the angle of a turning head; else the head), and bends it LAST, as one sheet, after every slice's own moves and shapes (`al-solve.js`: `mesh.last`, the post pass) | 15 |
+| ✅ | The sheet is held still at its edges (a close ring of still points just outside its outline), so the face bends and the frill and outline stay | 15 |
+| ✅ | **All pins** dial above your face: every pin at once (0 to 3x); each pin keeps its own strength on top. New pins start at 1x | 16 |
+| ✅ | **Make one piece**: pins still on single slices (his 45) move onto the whole head where they show, one undo step | 17 |
+| ✅ | **Head bends as one piece** tick box (on); off keeps the old way (a pin bends its slice only), for single parts | 17 |
+
+Checks 15 to 17 failed first on round 5's code (a pin on the Face slice moved that one slice only; no dial; no Make one
+piece). 27 of 27 now, 22 planted faults caught (new: nosheet, nohold, nogain, noconvert). Cost on the Note 9 (a copy of
+Topps, 45 pins bending): the bend is worked out once a frame on a lattice over the head that every slice reads (it cannot
+tear between slices), with a close falloff and no power function: 26 ms a frame done per point, now 5.4 ms (1.3 at rest);
+his own 45 pins on single slices cost 4 ms. Open: pins live on one angle (his
+Frontal); the other angles and the in-betweens are the face mask's job (mockup next), and expression poses after it.
+
+## The Face chip starts in "always" (11-22)
+The owner: "I turned the camera on, but it's not responsive until I actually do a hold to talk." The chip's first tap
+started "while talking". Now the first tap drives the character at once ("Face is on: the character moves with you"),
+the second is "only while Talk is held", the third off. Checked in the browser.
+
 ## For walking with your face (11-22, from his numbers)
 The walk-stage session's "Walk with your face" reads `leanX` and `near`. His first test showed both reacting to head pose:
 `near` (the outline's width) moved -0.37 to +0.54 with a nod or a tilt, as much as coming closer; `leanX` moved +0.38
@@ -272,8 +355,8 @@ at the top of that file: add `<script src="al-face.js"></script>` before `al-inp
 - [x] Face pins (ideas 1 and 2): built in the web pilot with the phone engine half (11-22, above).
 - [x] Tilt the same way round as turning in the pilot: the owner confirmed both on the Note 9 (11-22).
 - [x] Blinks from the lids: the owner on the Note 9 (pilot in Chrome), 11-22: "blinks look good now. winks work too now."
-- [ ] The phone build with the lids (`54e968522`) on the Note 9's bench.
-- [ ] Face pins round 2 (Mirror default, Live and Pick, labelled Remove, in Set up) with his face on the Note 9.
+- [x] The phone build with the lids (`54e968522`, cloud-built) installed on the Note 9 over the old app (11-22, 16:53, no uninstall); on the bench (Avatar Studio, 🙂 Face test) the owner: "Blinks look great". The later near and lean changes are not in that build yet.
+- [x] Face pins round 2 with his face on the Note 9 (11-22): Live, Pick with the frozen face, a mouth-corner pin pulling on a smile with the head turned, Strength, Remove, Plain map, Face pins in Set up. The owner: "All worked".
 - [ ] A one-sided smile from the mouth corners on the points, as the lids now are (the tracker reads both corners alike).
 - [x] Walking by your face (owner's idea, 11-22): built by the walk-stage session, landed `31b23d449` (Perform, Walking: "Walk with your face", three tick boxes; reads `leanX`, `near`, `face`). Not yet tried with a real face.
 - [ ] The camera's new signals in the pilot's links list (idea 3), and a fire emitter part if he wants one.

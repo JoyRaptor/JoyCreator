@@ -186,7 +186,7 @@
     if (app.fitOn && (!AL.node(app.ch, app.fitOn.node) || app.live)) app.fitOn = null;
     if (app.poseEdit && !AL.stance.find(app.ch, app.poseEdit)) app.poseEdit = null;
     if (app.toneTry && !AL.tone.find(app.ch, app.toneTry)) app.toneTry = null;
-    if (app.shapeEdit && (app.sel.node !== app.shapeEdit.node || app.live)) app.shapeEdit = null;
+    if (app.shapeEdit && (app.live || (app.sel.node !== app.shapeEdit.node && !(app.shapeEdit.fit && AL.stages && AL.stages.target(app) && AL.stages.target(app).id === app.shapeEdit.node)))) app.shapeEdit = null;      // (a reshape of the whole part in hand, the body say, chosen on the map with no layer picked, is still the part in hand: keep it)
     /* a reshape belongs to the pose it was made in: change the pose and it is put down, or it would be held on in the other pose */
     if (app.shapeEdit && app.shapeEdit.fit && app.shapeEdit.shape !== AL.fit.shapeId(app)) { app.shapeEdit = null; if (app.fitOn && app.fitOn.pins) app.fitOn = null; }
     if (app.morph && !app.bridge) app.morph = null;
@@ -306,10 +306,8 @@
     }
     var feats = Object.keys(app.FEAT).filter(function (f) { return app.featureNodes(f).length; });
     if (feats.length) { pb.appendChild(ui.lab(isSet ? 'On this angle' : 'Face parts', 'all')); pb.appendChild(ui.row(feats.map(function (f) { return partChip(app.featureNodes(f)[0], app.FEAT[f].label, 'Open ' + app.FEAT[f].label, function () { app.select('head', f); }); }))); }
-    if (AL.facepins && !(AL.intake && AL.intake.hosted)) {   // FACE-1: set up face pins while building the head
-      pb.appendChild(ui.lab('Your face', 'setup'));
-      pb.appendChild(ui.row([AL.facepins.chip(app)]));
-      pb.appendChild(ui.note('Pin a point of your face (a mouth corner, a brow, a lid) to the head: it follows that point as you perform.'));
+    if (AL.facepins && !(AL.intake && AL.intake.hosted)) {   // FACE-1: face pins on the head, in Set up and in Motion
+      AL.facepins.section(app, pb, hd);
     }
     pb.appendChild(ui.lab('How it moves', 'motion'));
     if (isSet) {
@@ -709,6 +707,7 @@
     app.coach('<b>Body.</b> The ring is where the chest swells. The <b>Hips</b> pin is what it leans from.');
     AL.stance.section(app, pb);
     AL.tone.section(app, pb);
+    if (AL.facepins) AL.facepins.section(app, pb, tb);                            // FACE-1: a face pin can pull the body too
     pb.appendChild(ui.lab('Breathing', 'motion'));
     pb.appendChild(ui.toggle('Breathing', st.breathe !== false, function (v) { app.edit(function () { st.breathe = v; }); }, 'A slow swell of the chest; head and arms ride it'));
     if (tb.breathe) pb.appendChild(ui.slider('How deep', { min: 0, max: 3, step: 0.1, value: tb.breathe.amt == null ? 1 : tb.breathe.amt, set: function (v) { tb.breathe.amt = v; }, fmt: function (v) { return v + '×'; } }));
@@ -873,7 +872,6 @@
   function shapesSection(app, pb, n) {
     var ui = app.ui, ch = app.ch, se = app.shapeEdit && app.shapeEdit.node === n.id ? app.shapeEdit : null, pins = n.mesh && n.mesh.pins ? n.mesh.pins : [];
     pb.appendChild(ui.lab('Shapes', 'setup'));
-    if (AL.facepins && !(AL.intake && AL.intake.hosted) && (!AL.fit || AL.fit.can(app, n))) pb.appendChild(ui.row([AL.facepins.chip(app)]));   // FACE-1: set up face pins while building
     if (!pins.length) {
       pb.appendChild(ui.note('Give this part a few pins and it can be pushed into other shapes: an eye squeezed shut, a cheek puffed out, a body squashed. Each shape is blended in smoothly by a button, the mouth, a blink or the head turning.'));
       pb.appendChild(ui.row([ui.chip('Add pins around it', { cls: 'go', icon: 'pin', title: 'Eight pins round its edge and one in the middle. Drag them to where the shape should bend from.', fn: function () { app.edit(function () { ringPins(n); }, false, 'Add shape pins'); } })]));
@@ -881,7 +879,7 @@
     }
     var SG = [['', 'nothing yet']].concat(SIGS, [['blink', 'a blink on its own side'], ['lidUp', 'the mood: relaxed'], ['lidLow', 'the mood: cheery'], ['spin', 'the whole character turning round'], ['always', 'all the time']], (ch.triggers || []).map(function (t) { return ['trig:' + t.id, 'the “' + t.name + '” button']; }), [['+new', 'a new button…']]);
     var fpins = (n.shapes || []).filter(function (sh) { return sh.face; }).length / 2;
-    if (fpins) pb.appendChild(ui.note(fpins + ' face pin' + (fpins > 1 ? 's' : '') + ' move this part (Perform, <b>Face pins</b>).'));   // FACE-1
+    if (fpins) pb.appendChild(ui.note(fpins + ' face pin' + (fpins > 1 ? 's' : '') + ' move this part (<b>Your face</b>, <b>Face pins</b>).'));   // FACE-1
     (n.shapes || []).forEach(function (sh) {
       if (sh.face) return;                                        // a face pin's shapes live in Perform, Face pins
       var on = !!se && se.shape === sh.id;
@@ -908,6 +906,7 @@
       ui.chip('Handles in Perform', { on: !n.mesh.quiet, title: 'On: each pin can be dragged while performing. Off: the pins only shape the part.', fn: function () { app.edit(function () { if (n.mesh.quiet) delete n.mesh.quiet; else n.mesh.quiet = true; }, false, 'Pins as handles'); } })
     ]));
   }
+  cards.shapePins = function (app, n) { return shapePins(app, n); };
   function shapePins(app, n) {
     var se = app.shapeEdit, sh = (n.shapes || []).filter(function (q) { return q.id === se.shape; })[0]; if (!sh || !n.mesh) { app.shapeEdit = null; return null; }
     /* a pin is shown where the picture has it: this shape's offset on top of whatever the other shapes on show (a standing reshape under
@@ -951,7 +950,12 @@
   }
 
   /* ── "follows": any part can ride any signal. This is how a frill lifts with the mouth or an ear twitches on a blink. ── */
-  var SIGS = [['mouth', 'the mouth opening'], ['turnX', 'the head turning left and right'], ['turnY', 'the head turning up and down'], ['roll', 'the head tilting'], ['lookX', 'the eyes looking sideways'], ['lookY', 'the eyes looking up and down'], ['blinkL', 'a blink'], ['browL', 'the brows'], ['breath', 'breathing'], ['sway', 'the body leaning'], ['bounce', 'the body bouncing'], ['shrug', 'the shoulders shrugging'], ['shrugL', 'the left shoulder shrugging'], ['shrugR', 'the right shoulder shrugging']];
+  var SIGS = [['mouth', 'the mouth opening'], ['turnX', 'the head turning left and right'], ['turnY', 'the head turning up and down'], ['roll', 'the head tilting'], ['lookX', 'the eyes looking sideways'], ['lookY', 'the eyes looking up and down'], ['blinkL', 'a blink'], ['browL', 'the brows'], ['breath', 'breathing'], ['sway', 'the body leaning'], ['bounce', 'the body bouncing'], ['shrug', 'the shoulders shrugging'], ['shrugL', 'the left shoulder shrugging'], ['shrugR', 'the right shoulder shrugging'],
+    // FACE-1: your face's expressions, for any part (the owner, 11-22: "puffing out my cheek to puff out an animal's stomach")
+    ['face.cheekPuff', 'your cheeks puffed out'], ['face.smile', 'your smile'], ['face.jaw', 'your jaw dropping'], ['face.mouthWide', 'your mouth stretched wide'],
+    ['face.pucker', 'your lips puckered'], ['face.wide', 'your eyes wide'], ['face.squint', 'your eyes squinting'], ['face.browInner', 'your brows raised'],
+    ['face.frown', 'your frown'], ['face.sneer', 'your sneer']];
+  cards.SIGS = SIGS;
   var PROPS = [['y', 'slides up and down'], ['x', 'slides sideways'], ['rot', 'turns'], ['s', 'grows and shrinks'], ['sy', 'stretches tall'], ['sx', 'stretches wide'], ['shake', 'shakes'], ['spin', 'spins']];
   function isScale(p) { return p === 's' || p === 'sx' || p === 'sy'; }
   function follows(app, pb, n) {
@@ -1104,6 +1108,7 @@
     var tset = AL.ancestorWith(ch, n.id, function (a) { return a.type === 'set' && a.pick && a.pick.by === 'turn'; });
     if (tset && tset !== n) pieceSection(app, pb, n, tset);
     follows(app, pb, n);
+    if (AL.facepins) AL.facepins.section(app, pb, n);                              // FACE-1: in Set up and in Motion, any part
     shapesSection(app, pb, n);
     tools(app, pb, n);
     if (n.type !== 'art' && !(n.role === 'head' || n.role === 'face')) roundSection(app, pb, n);
@@ -1111,14 +1116,24 @@
     AL.tone.partToggle(app, pb, n);
     if (n.type === 'art' && n.mesh) meshPins(app, pb, n);
     if (n.swing) app.pinProvider = function () { return swingPins(n); };
-    else if (n.pivot) app.pinProvider = function () { var p = [{ key: 'pv', label: 'Turns about', x: n.pivot.x, y: n.pivot.y, node: n.id, color: '#fbbf24', set: function (x, y) { n.pivot.x = x; n.pivot.y = y; } }]; if (n.mesh) n.mesh.pins.forEach(function (q) { p.push({ key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }); }); return p; };
-    else if (n.mesh) app.pinProvider = function () { return n.mesh.pins.map(function (q) { return { key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }; }); };
+    else if (n.pivot) app.pinProvider = function () { var p = [{ key: 'pv', label: 'Turns about', x: n.pivot.x, y: n.pivot.y, node: n.id, color: '#fbbf24', set: function (x, y) { n.pivot.x = x; n.pivot.y = y; } }]; if (n.mesh) wirePins(n).forEach(function (q) { p.push({ key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }); }); return p; };
+    else if (n.mesh) app.pinProvider = function () { return wirePins(n).map(function (q) { return { key: q.id, label: q.name, x: q.x, y: q.y, node: n.id, set: function (x, y) { q.x = x; q.y = y; } }; }); };
     if (app.shapeEdit && app.shapeEdit.node === n.id) { var spp = shapePins(app, n); if (spp) app.pinProvider = spp; }
     if (app.fitOn && app.fitOn.box && app.fitOn.node === n.id) app.pinProvider = function () { return AL.fit.pins(app, n); };
   }
+  /** THE PINS A PART'S CARD SHOWS. The owner, 11-22: over twenty blue pins on Topps's body in Set up, and no idea what they were. They were
+      the pins he had dropped reshaping him for all fours: every tap while reshaping is a pin, and the card listed them all, standing, at
+      their drawn spots, draggable (a drag here would have moved what the reshape is made from). A reshape's pins are seen while reshaping,
+      in the pose they were dropped in; the card shows only the pins that wire the drawing (the ones Pin it puts in). */
+  function reshapePin(n, q) { return !!q.home || !!(AL.fit && /^pose:/.test(AL.fit.pinHome(n, q))); }
+  function wirePins(n) { return ((n.mesh && n.mesh.pins) || []).filter(function (q) { return !reshapePin(n, q); }); }
+  cards.wirePins = wirePins;
   function meshPins(app, pb, n) {
+    var wp = wirePins(n), rs = n.mesh.pins.length - wp.length;
     pb.appendChild(app.ui.lab('Pins on this drawing', 'setup'));
-    pb.appendChild(app.ui.row(n.mesh.pins.map(function (q) { return app.ui.chip(q.name, { icon: 'pin', title: 'Remove this pin', fn: function () { app.edit(function () { n.mesh.pins = n.mesh.pins.filter(function (k) { return k !== q; }); }); } }); }).concat([app.ui.chip('Pin it again', { icon: 'wand', fn: function () { AL.intake.pinWizard(app, n); } })])));
+    if (wp.length) pb.appendChild(app.ui.note('The yellow pin is where it turns. Each blue pin holds a spot of the drawing as it bends.'));
+    if (rs) pb.appendChild(app.ui.note('<b>' + rs + ' reshape pin' + (rs > 1 ? 's' : '') + '</b> on this drawing show only while you reshape it (' + ((AL.stages && AL.stages.WORD2) || 'Arrange') + ', <b>Reshape with pins</b>).'));
+    pb.appendChild(app.ui.row(wp.map(function (q) { return app.ui.chip(q.name, { icon: 'pin', title: 'Remove this pin', fn: function () { app.edit(function () { n.mesh.pins = n.mesh.pins.filter(function (k) { return k !== q; }); }); } }); }).concat([app.ui.chip('Pin it again', { icon: 'wand', fn: function () { AL.intake.pinWizard(app, n); } })])));
   }
   function rolePicker(app, n) {
     var body = h('div', { class: 'menu' });

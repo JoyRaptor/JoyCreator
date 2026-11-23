@@ -652,6 +652,7 @@
   app.setLive = function (on) { if (AL.stages && AL.stages.on() && app.mode === 'build') app.stage = on ? 'motion' : (app.stage === 'motion' ? 'setup' : app.stage); app.live = on; if (on) { app.solver.reset(); } else { app.lockForce = null; app.inp.walker.reset(); app.inp.pose.flip = false; } app.userView = false; app.refreshPanel(); app.focusSel(); };
   app.refreshPanel = function (keepScroll) {
     var pb = $('panelbody'), sc = pb.scrollTop;
+    if (app.fpMode && AL.facepins && AL.facepins.panel) { AL.facepins.panel(app); if (keepScroll) pb.scrollTop = sc; return; }   // FACE-1: the Face pins screen
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (AL.stages) AL.stages.before(app);
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);
@@ -659,6 +660,8 @@
     if (app.mode !== 'perform') AL.cards.fold(app);
     if (AL.stages) AL.stages.after(app);
     if (AL.stages && AL.stages.on() && app.mode === 'perform') { var prh = $('panelhead'); prh.insertBefore(AL.stages.rail(app), prh.firstChild); }
+    /* reshaping with pins: the pins are the handles, whichever card is open (the body's own card would otherwise show its chest and hips) */
+    if (app.mode !== 'perform' && !app.live && !app.bridge && app.fitOn && app.fitOn.pins && app.shapeEdit && app.shapeEdit.node === app.fitOn.node && AL.cards.shapePins) { var rn = AL.node(app.ch, app.fitOn.node), rp = rn ? AL.cards.shapePins(app, rn) : null; if (rp) app.pinProvider = rp; }
     if (app.mode !== 'perform' && !app.live && !app.bridge && app.fitOn && app.fitOn.box) { var bx = AL.node(app.ch, app.fitOn.node); if (bx) app.pinProvider = function () { return AL.fit.pins(app, bx); }; }      // the box shows on whichever card is open
     app.renderTools();
     /* the same card drawn again stays where it was scrolled to; a different card opens at its top */

@@ -606,6 +606,18 @@ public class FaceEngineTest {
         st.requestNeutral();
         for (int i = 0; i < 8; i++) o = st.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), t += 0.1, false);
         check(g(o, L) < 0.05f, "shoulders: Re-centre takes the rest again");
+
+        // sensitivity (the owner, 11-22: "Shoulder sensitivity should be on a slider")
+        ShoulderStage keen = new ShoulderStage(), dull = new ShoulderStage();
+        keen.setSensitivity(2f); dull.setSensitivity(0.5f);
+        double tk = 0;
+        Map<String, Float> ok = null, od = null;
+        for (int i = 0; i < 8; i++) { keen.process(ShoulderStage.drops(rest(), TALL), tk += 0.1, false); dull.process(ShoulderStage.drops(rest(), TALL), tk, false); }
+        for (int i = 0; i < 10; i++) { ok = keen.process(ShoulderStage.drops(body(0.045f, 0.045f, 0, 0, 1, 0, 0.95f), TALL), tk += 0.1, false); od = dull.process(ShoulderStage.drops(body(0.1f, 0.1f, 0, 0, 1, 0, 0.95f), TALL), tk, false); }
+        check(g(ok, L) > 0.7f && g(od, L) < 0.8f, "shoulders: sensitivity up, half a shrug reads nearly full; down, a full shrug reads less");
+        float worstKeen = 0;
+        for (int i = 0; i < 30; i++) { float j = (rnd.nextFloat() - 0.5f) * 0.036f; ok = keen.process(ShoulderStage.drops(body(j, -j, 0, 0, 1, 0, 0.95f), TALL), tk += 0.1, false); worstKeen = Math.max(worstKeen, g(ok, L)); }
+        check(worstKeen < 0.02f, "shoulders: sensitivity up does not turn jitter into shrugs");
     }
 
     /** {@link #cloud()} with two eyes drawn in, each lid gap a share of open (1 open, 0 shut): the person's right eye first. */

@@ -54,9 +54,10 @@ if (dump.lidStage) {
 
 // shoulders (SHRUG-1): the same bodies through the pilot's shoulder stage, each Mirror setting with its own stage
 if (dump.shoulders) {
-  const PO = ctx.self.AL.pose; let sst = null, lastMirror = null;
+  const PO = ctx.self.AL.pose; let sst = null, lastPass = null;
   dump.shoulders.forEach((fr, i) => {
-    if (fr.mirror !== lastMirror) { sst = new PO.Stage(); lastMirror = fr.mirror; }
+    const pass = fr.pass != null ? fr.pass : fr.mirror;
+    if (pass !== lastPass) { sst = new PO.Stage(); if (fr.sens != null) sst.setSensitivity(fr.sens); lastPass = pass; }
     if (fr.recentre) sst.requestNeutral();
     const d = PO.drops(Float32Array.from(fr.xyv), dump.tall);
     if (fr.drops) same(`shoulder drops ${i}`, { l: fr.drops[0], r: fr.drops[1] }, d ? { l: d[0], r: d[1] } : {});

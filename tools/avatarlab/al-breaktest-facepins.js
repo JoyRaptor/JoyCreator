@@ -12,13 +12,24 @@
  *   nostrength the strength slider does nothing                  norecord   a pass does not record the face pin
  *   noflip     a flipped character drops its face pins           noundo     making a face pin is not one undo step
  *   noremove   removing a face pin leaves it pulling             noread     the face camera stops reading after one frame
+ *   noentry    Face pins only in Set up (not Motion)             noplace    a tap on the character does not place the pin
+ *   nomarkers  the pins are not shown on the character           nodrag     dragging a pin does not move it
+ *   nofollow   Test does nothing                                 noexpr     your cheeks puffing never reaches Links and Shapes
+ *   nolayer    the pins are drawn in a layer beside the stage, not on it (the 11-22 phone fault: 46 points too high)
+ *   noreshape  a pin on a reshaped part shows where the part was before its reshape
+ *   noresume   a camera picture Chrome paused (the page was in the background) is never started again
+ *   notest     Test leaves a talk-only camera on talk-only, so a live stage does not follow your face
+ *   nosheet    a face pin bends only the slice it sits on (round 5: Topps's slices tore and slid apart)
+ *   nohold     the one-piece head is not held at its edges, so a pin drags the whole head along
+ *   nogain     the All pins dial does nothing                    noconvert  Make one piece leaves the old pins on their slices
  *
  * The made-up face goes in through the pilot's own camera code (al-inputs.js watch) as a MediaPipe result would, so a fault
  * in that path (as the 11-22 name clash that stopped the tracker after one frame) is caught too.
  */
 (function (root) {
   'use strict';
-  var AL = root.AL, T = AL.breakTest = AL.breakTest || {}, K = T.kit, X = T.facepins = {};
+  var AL = root.AL, T = AL.breakTest = AL.breakTest || {}, K = T.kit, X = T.facepins = {}, M0 = AL.M;
+  function h0(tag) { return document.createElement(tag); }
 
   /** A made-up face: 478 points in a lumpy oval with a domed depth (the same recipe as the phone's FaceEngineTest). */
   function cloud() {
@@ -41,13 +52,49 @@
     return o;
   }
   function smileOf(p) { var o = Float32Array.from(p); o[61 * 3] -= 0.012; o[61 * 3 + 1] -= 0.008; return o; }   // out and up (the person's right corner)
+  function smileLeft(p) { var o = Float32Array.from(p); o[291 * 3] += 0.012; o[291 * 3 + 1] -= 0.008; return o; }   // the person's left corner
+  function dist(a, b) { return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 1e9; }
+  function ptr(el, type, cx, cy, buttons) {
+    el.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 78, pointerType: 'touch', isPrimary: true, clientX: cx, clientY: cy, button: 0, buttons: buttons }));
+  }
+  /** A finger on the stage from stage pixel a to b (a drag), in a few moves. */
+  function dragStage(a, b) {
+    var st = document.getElementById('stage'), r = st.getBoundingClientRect(), k = st.clientWidth / r.width;
+    function cx(p) { return r.left + p.x / k; } function cy(p) { return r.top + p.y / k; }
+    ptr(st, 'pointerdown', cx(a), cy(a), 1);
+    for (var i = 1; i <= 5; i++) { var t = i / 5; ptr(st, 'pointermove', cx(a) + (cx(b) - cx(a)) * t, cy(a) + (cy(b) - cy(a)) * t, 1); }
+    ptr(st, 'pointerup', cx(b), cy(b), 0);
+  }
+  /** A tap on face point i on the Face pins screen's map of your face. */
+  function tapFace(app, i) {
+    var at = AL.facepins.facePos(app, i); if (!at) return false;
+    ptr(at.el, 'pointerdown', at.x, at.y, 1); ptr(at.el, 'pointerup', at.x, at.y, 0); return true;
+  }
+  /** Where each face pin really shows on the screen (stage pixels), from the drawn markers' own boxes: what the eye sees. */
+  function shown(app) {
+    var W = app.fpMode, st = document.getElementById('stage'); if (!W || !W.mk || !st) return [];
+    var r = st.getBoundingClientRect(), k = st.clientWidth / (r.width || 1);
+    return AL.facepins.list(app.ch).map(function (q) {
+      var el = W.mk[q.id]; if (!el || !el.isConnected) return null; var b = el.getBoundingClientRect(); if (!b.width) return null;
+      return { id: q.id, x: (b.left + b.width / 2 - r.left) * k, y: (b.top + b.height / 2 - r.top) * k };
+    }).filter(Boolean);
+  }
+  function button(re) { return Array.prototype.filter.call(document.querySelectorAll('#panelbody button'), function (b) { return re.test(b.textContent.trim()); })[0] || null; }
+  /** A tap on the stage at stage pixel p, as a finger makes it (the pointer events the stage listens to). */
+  function tapStage(p) {
+    var st = document.getElementById('stage'), r = st.getBoundingClientRect(), k = st.clientWidth / r.width;
+    var o = { bubbles: true, cancelable: true, pointerId: 77, pointerType: 'touch', isPrimary: true, clientX: r.left + p.x / k, clientY: r.top + p.y / k, button: 0, buttons: 1 };
+    st.dispatchEvent(new PointerEvent('pointerdown', o)); o.buttons = 0; st.dispatchEvent(new PointerEvent('pointerup', o));
+  }
 
   X.run = async function (opt) {
     opt = opt || {};
     var plant = opt.plant || null, app = AL.app, inp = app.inp, R = K.mk(), FP = AL.facepins, F = AL.face;
     var savedCal = root.localStorage ? root.localStorage.getItem('al.face.cal') : null;   // the owner's own neutral, put back after
     var saved = K.ids(app.ch), keep = { on: inp.cam.on, mode: inp.cam.mode, stage: inp.cam._faceStage, lm: inp.cam.lm, v: inp.cam.v, take: inp.take, flip: inp.pose.flip, pilotFace: F.pilotFace },
-      realFeed = FP.feed, realOff = F.pointOffsets, realStrength = FP.strength, realChannels = inp.channels, realEdit = app.edit, realUnbind = FP.unbind;
+      realFeed = FP.feed, realOff = F.pointOffsets, realStrength = FP.strength, realChannels = inp.channels, realEdit = app.edit, realUnbind = FP.unbind,
+      realSection = FP.section, realTap = FP._tap, realDraw = FP._drawMarkers, realMove = FP.movePin, realFollow = FP.setFollow, realExpr = FP.expressions,
+      realHost = FP._layerHost, realDrawn = FP._drawnAt, realSheet = FP.sheetOf, realGain = FP.setGain, realConvert = FP.toSheet, realHold = AL.sheetHold;
     K.sim(true);
     try {
       if (plant === 'nofeed') FP.feed = function (i, f, dt) { realFeed(i, null, dt); };
@@ -61,11 +108,26 @@
         realFeed(i, f, dt); for (var k in i.S) if (k.slice(0, 3) === 'pt.') Object.defineProperty(i.S, k, { value: i.S[k], enumerable: false, writable: true, configurable: true });
       };
       if (plant === 'noremove') FP.unbind = function (ch, id) { ch.facePins = FP.list(ch).filter(function (r) { return r.id !== id; }); };
+      if (plant === 'noentry') FP.section = function (a, pb, n) { var w = h0('div'); realSection(a, w, n); w.querySelectorAll('[data-st]').forEach(function (e) { e.setAttribute('data-st', 'setup'); }); while (w.firstChild) pb.appendChild(w.firstChild); };
+      if (plant === 'noplace') FP._tap = function () {};
+      if (plant === 'nomarkers') FP._drawMarkers = function () {};
+      if (plant === 'nodrag') FP.movePin = function () { return false; };
+      if (plant === 'nofollow') FP.setFollow = function () {};
+      if (plant === 'noexpr') FP.expressions = function () {};
+      if (plant === 'nolayer') FP._layerHost = function (st) { return st.parentNode; };
+      if (plant === 'noreshape') FP._drawnAt = function () { return null; };
+      if (plant === 'noresume') inp.camResume = function () {};
+      if (plant === 'notest') FP.setFollow = function (a, on) { realFollow(a, on); if (on && a.inp.cam.on) a.inp.cam.mode = 'talk'; };
+      if (plant === 'nosheet') FP.sheetOf = function (ch, n) { return n; };
+      if (plant === 'nohold') AL.sheetHold = function () { return []; };
+      if (plant === 'nogain') FP.setGain = function () {};
+      if (plant === 'noconvert') FP.toSheet = function () { return 0; };
       if (plant === 'noread') F.pilotFace = function (r, cam, tt) { var o = keep.pilotFace(r, cam, tt); cam.lm = r && r.faceLandmarks ? r.faceLandmarks[0] : null; return o; };
 
       AL.stages.go(app, 'perform');
       inp.take = null; inp.pose.flip = false;
       var set = app.ch.settings = app.ch.settings || {}; set.breathe = false; set.idle = false;   // still, so only the face moves it
+      keep.sheet = set.faceSheet; keep.gain = set.facePinGain; delete set.faceSheet; delete set.facePinGain;   // one piece on, the dial at 1 (put back after)
       // the face: a stage whose neutral is the made-up face, fed whatever "the camera sees" now
       var base = cloud(), now = { xyz: base }, t = 0, rawHead = { headYawDeg: 0, headPitchDeg: 0, headRollDeg: 0 };
       var st = new F.Stage(F.calibration(), {});
@@ -75,11 +137,14 @@
       var W = 640, Hh = 480, tall = Hh / W;
       function result(xyz) {
         var marks = []; for (var j = 0; j < 478; j++) marks.push({ x: xyz[j * 3], y: xyz[j * 3 + 1] / tall, z: xyz[j * 3 + 2] });
-        return { faceBlendshapes: [{ categories: [] }], facialTransformationMatrixes: [{ data: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] }], faceLandmarks: [marks] };
+        return { faceBlendshapes: [{ categories: Object.keys(now.bs || {}).map(function (k) { return { categoryName: k, score: now.bs[k] }; }) }], facialTransformationMatrixes: [{ data: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1] }], faceLandmarks: [marks] };
       }
-      inp.cam.on = true; inp.cam.mode = 'always'; inp.cam._faceStage = st;
-      inp.cam.v = { readyState: 4, videoWidth: W, videoHeight: Hh };
-      inp.cam.lm = { detectForVideo: function () { return result(now.xyz); } };
+      function arm() {                                  // the camera on (leaving Perform turns it off; Face pins turns it back on)
+        inp.cam.on = true; inp.cam.mode = 'always'; inp.cam._faceStage = st;
+        inp.cam.v = { readyState: 4, videoWidth: W, videoHeight: Hh };
+        inp.cam.lm = { detectForVideo: function () { return result(now.xyz); } };
+      }
+      arm();
       var unthrottle = function () { inp.cam.last = -1e9; };                      // every simulated frame reads the camera
       app.hooks.push(unthrottle);
       await K.step(8);
@@ -97,8 +162,8 @@
       if (!q) throw new Error('no face pin to test');
       var part = AL.node(app.ch, q.node);
       function snap() { return K.snap(app); }
-      function cmp(a, b) {                                     // only the pinned part's drawing
-        var px = 0; for (var j = 0; j < a.ids.length; j++) { if (a.ids[j].split('#')[0] !== part.id) continue; var k = b.ids.indexOf(a.ids[j]); if (k < 0) return 1e9;
+      function cmp(a, b, only) {                               // only the pinned part's drawing (all of it: a head's whole drawing when the pin is on that)
+        var pid = (only || part).id, px = 0; for (var j = 0; j < a.ids.length; j++) { var aid = a.ids[j].split('#')[0]; if (aid !== pid && !AL.ancestorWith(app.ch, aid, function (k0) { return k0.id === pid; })) continue; var k = b.ids.indexOf(a.ids[j]); if (k < 0) return 1e9;
           for (var v = 0; v < a.v[j].length; v += 2) px = Math.max(px, Math.hypot(a.v[j][v] - b.v[k][v], a.v[j][v + 1] - b.v[k][v + 1])); }
         return px;
       }
@@ -138,13 +203,173 @@
       R.F('8 removing a face pin stops it pulling', after < 0.5 && !left && !FP.list(app.ch).length, { px: after, shapesLeft: left });
       app.undo();
       R.F('8 ...and Undo brings it back', FP.list(app.ch).length === 1);
+
+      // 9 reachable where you build and where it moves (the owner, 11-22): the head's card and the body's, Set up and Motion
+      var found = {}, stgs = ['setup', 'motion'], zs = ['head', 'body'];
+      for (var a1 = 0; a1 < stgs.length; a1++) for (var z1 = 0; z1 < zs.length; z1++) {
+        AL.stages.go(app, stgs[a1]); app.select(zs[z1]); app.refreshPanel(true);
+        found[stgs[a1] + ':' + zs[z1]] = Array.prototype.some.call(document.querySelectorAll('#panelbody button'), function (bt) { return /^Face pins/.test(bt.textContent.trim()); });
+      }
+      R.F("9 Face pins is on the head's and the body's card, in Set up and in Motion", Object.keys(found).every(function (k) { return found[k]; }), found);
+
+      // 10 the Face pins screen (the owner's design, 11-22): your face beside the character; tap a point, tap the character,
+      //    again and again; every pin shows on the character, numbered, where it pulls; drag one to move it
+      AL.stages.go(app, 'setup'); app.select('head'); app.refreshPanel(true); app.userView = false; app.fit(true); arm(); await K.step(3);
+      function stagePx(c) { return { x: c.x * app.view.s + app.view.ox, y: c.y * app.view.s + app.view.oy }; }
+      var n0 = FP.list(app.ch).length;
+      FP.open(app, { camera: false }); await K.step(3);
+      var spotA = { x: cc.x, y: cc.y + cc.h * 0.3 }, spotB = { x: cc.x - cc.w * 0.15, y: cc.y + cc.h * 0.12 };
+      var okA = tapFace(app, 291); tapStage(stagePx(spotA)); await K.step(3);
+      var okB = tapFace(app, 105); tapStage(stagePx(spotB)); await K.step(3);
+      var n2 = FP.list(app.ch).length, marks = shown(app);
+      var mA = marks[n2 - 2], mB = marks[n2 - 1];
+      R.F('10 tap a point of your face, tap the character, and again: each pin shows on the character, numbered, where it pulls',
+        okA && okB && n2 === n0 + 2 && marks.length === n2 && dist(mA, stagePx(spotA)) < 20 && dist(mB, stagePx(spotB)) < 20,
+        { pins: n2 - n0, shown: marks.length, offA: dist(mA, stagePx(spotA)), offB: dist(mB, stagePx(spotB)) });
+      var past2 = app.hist.past.length, to = stagePx({ x: cc.x + cc.w * 0.12, y: cc.y + cc.h * 0.2 });
+      dragStage(mB || stagePx(spotB), to); await K.step(3);                              // the finger goes down on the pin where it shows
+      var marks2 = shown(app), mB2 = marks2[marks2.length - 1];
+      R.F('10 dragging a pin moves where it pulls, as one undo step', FP.list(app.ch).length === n2 && dist(mB2, to) < 20 && app.hist.past.length === past2 + 1,
+        { off: dist(mB2, to), steps: app.hist.past.length - past2 });
+
+      // 11 Test (the owner, 11-22: "put a pin down and then press a button, move my face, and see if it moves correctly"):
+      //    before it everything holds still while you place and drag; with it the pins follow your face, even in Set up; Stop
+      var qA = FP.list(app.ch)[n2 - 2], partA = qA ? AL.node(app.ch, qA.node) : null;
+      now.xyz = base; await K.step(15); var f0 = snap(); now.xyz = smileLeft(base); await K.step(15);
+      var stillOff = partA ? cmp(f0, snap(), partA) : 1e9;
+      var tb = button(/^Test$/); if (tb) tb.click(); await K.step(2);
+      var liveShown = !!(app.fpMode && app.fpMode.mode === 'live');
+      now.xyz = base; await K.step(15); var f1 = snap(); now.xyz = smileLeft(base); await K.step(20);
+      var followOn = partA ? cmp(f1, snap(), partA) : 0;
+      R.F('11 Test: before it the character holds still; with it the pin follows your face, even in Set up, your face shown live', !!tb && stillOff < 0.5 && followOn > 2 && liveShown,
+        { button: !!tb, off: stillOff, on: followOn, live: liveShown });
+      var sb = button(/^Stop/); if (sb) sb.click(); await K.step(2);
+      now.xyz = base; await K.step(15); var f2 = snap(); now.xyz = smileLeft(base); await K.step(15);
+      var stopped = partA ? cmp(f2, snap(), partA) : 1e9;
+      R.F('11 ...Stop holds it still again and goes back to picking', !!sb && stopped < 0.5 && !!app.fpMode && app.fpMode.mode === 'pick', { button: !!sb, px: stopped, mode: app.fpMode && app.fpMode.mode });
+      if (FP.close) FP.close(app); await K.step(10);
+      now.xyz = base; await K.step(10); var t1 = snap(); now.xyz = smileLeft(base); await K.step(15); var stillAfter = partA ? cmp(t1, snap(), partA) : 1e9;
+      R.F('11 ...Done closes Face pins and Set up holds still again', !app.fpMode && stillAfter < 0.5, { open: !!app.fpMode, px: stillAfter });
+      now.xyz = base;
+
+      // 13 a reshaped part (Topps's body, 11-22): the pin shows where the finger was, on the reshaped picture
+      AL.stages.go(app, 'setup'); app.select('head'); app.refreshPanel(true); app.userView = false; app.fit(true); arm(); await K.step(3);
+      var spotC = { x: cc.x + cc.w * 0.05, y: cc.y + cc.h * 0.25 }, hitC = AL.hit(app.out, spotC.x, spotC.y), tn = hitC && AL.node(app.ch, hitC.id), tm = tn && app.out.M[tn.id];
+      if (!tn || !tm) throw new Error('no part to reshape');
+      var lc = M0.ap(M0.inv(tm), spotC.x, spotC.y), R0 = 40;
+      tn.mesh = { quiet: true, pins: [{ id: 'bt13a', x: lc[0], y: lc[1] }, { id: 'bt13b', x: lc[0] + R0, y: lc[1] }, { id: 'bt13c', x: lc[0] - R0, y: lc[1] + R0 }, { id: 'bt13d', x: lc[0], y: lc[1] - R0 }] };
+      tn.shapes = [{ id: 'fix', name: 'Reshaped', sig: 'always', amt: 1, d: { bt13a: [0, 30] } }];
+      AL.reindex(app.ch); app.touch(); await K.step(3);
+      var drawnC = M0.ap(tm, lc[0], lc[1] + 30), tapC = stagePx({ x: drawnC[0], y: drawnC[1] });
+      FP.open(app, { camera: false }); await K.step(3);
+      var nC0 = FP.list(app.ch).length, okC = tapFace(app, 61); tapStage(tapC); await K.step(3);
+      var marksC = shown(app), mC = FP.list(app.ch).length === nC0 + 1 ? marksC[marksC.length - 1] : null;
+      R.F('13 on a reshaped part, the pin shows where you tapped', okC && !!mC && dist(mC, tapC) < 6, { pinned: FP.list(app.ch).length - nC0, off: dist(mC, tapC) });
+      if (FP.close) FP.close(app); await K.step(3);
+
+      // 14 the face camera after Chrome paused it (the owner's phone, 11-22: Live showed a stale picture, nothing followed),
+      //    and Test where the stage is live, with a camera left on talk-only
+      AL.stages.go(app, 'perform'); arm(); now.xyz = base; await K.step(5);
+      var plays = 0; inp.cam.v = { readyState: 4, videoWidth: W, videoHeight: Hh, paused: true, play: function () { this.paused = false; plays++; return Promise.resolve(); } };
+      inp.cam.mode = 'talk';
+      FP.open(app, { camera: false }); await K.step(3);
+      var tb2 = button(/^Test$/); if (tb2) tb2.click();
+      var hd14 = AL.firstRole(app.ch.root, 'head') || hd, q14 = FP.list(app.ch)[0], part14 = q14 ? AL.node(app.ch, q14.node) : null;
+      now.xyz = base; await K.step(20); var g0 = snap(); now.xyz = smileOf(base); await K.step(20);
+      var moved14 = part14 ? cmp(g0, snap(), part14) : 0;
+      R.F('14 a camera picture Chrome paused starts again', plays >= 1 && inp.cam.v.paused === false, { plays: plays });
+      R.F('14 ...and Test follows your face in Perform, even with the camera left on talk-only', !!tb2 && moved14 > 2, { button: !!tb2, px: moved14, mode: inp.cam.mode });
+      if (FP.close) FP.close(app); await K.step(3);
+      now.xyz = base; void hd14;
+
+      // 15 one piece (the owner, 11-22, round 5: on Topps "all the pieces are free-floating and warped, sliding"): a face pin on any
+      //    slice of the head bends that whole drawing of the head as one piece, last, with the head's edges held still
+      AL.stages.go(app, 'setup'); app.select('head'); app.refreshPanel(true); app.userView = false; app.fit(true); arm(); await K.step(3);
+      FP.open(app, { camera: false }); await K.step(3);
+      function headSpot(cands) {                                 // a spot of the head with nothing in front of it (Topps's arm crosses his chin)
+        var got = null; cands.some(function (o) {
+          var sp = { x: cc.x + cc.w * o[0], y: cc.y + cc.h * o[1] }, ht = AL.hit(app.out, sp.x, sp.y), nd = ht && AL.node(app.ch, ht.id);
+          if (nd && AL.fit.can(app, nd) && AL.ancestorWith(app.ch, nd.id, function (k) { return k.role === 'head'; })) { got = { p: sp, n: nd }; return true; }
+          return false;
+        });
+        if (!got) throw new Error('no clear spot on the head'); return got;
+      }
+      var hsD = headSpot([[0.06, 0.28], [0.1, 0.15], [-0.1, 0.15], [0, 0.05], [0.15, 0.3], [-0.15, 0.3], [0.2, 0], [-0.2, 0]]), spotD = hsD.p, sliceD = hsD.n;
+      var toastsD = [], realToast = app.toast; app.toast = function (m) { toastsD.push(String(m).slice(0, 60)); return realToast.apply(this, arguments); };
+      var nD0 = FP.list(app.ch).length, okD = tapFace(app, 61), selD = app.fpMode && app.fpMode.sel; tapStage(stagePx(spotD)); await K.step(3);
+      app.toast = realToast;
+      var qD = FP.list(app.ch)[nD0], sheetD = qD ? AL.node(app.ch, qD.node) : null;
+      function under(id, top) { return !!(top && AL.ancestorWith(app.ch, id, function (k) { return k.id === top.id; })); }
+      function moves(a, b2, top) {                             // each drawing under top: how far it moved
+        var o = {}; for (var j = 0; j < a.ids.length; j++) { var pid = a.ids[j].split('#')[0]; if (!under(pid, top)) continue; var k = b2.ids.indexOf(a.ids[j]); if (k < 0) continue;
+          for (var v = 0; v < a.v[j].length; v += 2) o[pid] = Math.max(o[pid] || 0, Math.hypot(a.v[j][v] - b2.v[k][v], a.v[j][v + 1] - b2.v[k][v + 1])); }
+        return o;
+      }
+      var tbD = button(/^Test$/); if (tbD) tbD.click();
+      now.xyz = base; await K.step(15); var e0 = snap(); now.xyz = smileOf(base); await K.step(20); var e1 = snap();
+      var top = sheetD && sheetD.type !== 'art' ? sheetD : AL.parentOf(app.ch, sliceD.id), mv = moves(e0, e1, top), slices = Object.keys(mv).filter(function (k) { return mv[k] > 1.5; }).length;
+      R.F('15 a face pin on one slice bends the whole drawing of the head as one piece', !!sliceD && !!sheetD && sheetD !== sliceD && slices >= 3,
+        { slice: sliceD && sliceD.name, pinnedOn: sheetD && sheetD.name, slicesMoved: slices, faceTap: okD, sel: selD, pins: FP.list(app.ch).length - nD0, said: toastsD });
+      // the head's outline away from the pins (Topps's chin is the bottom edge of his drawing, right by the mouth: that may move)
+      var bD = top ? AL.boundsOf(top) : null, edge = 0, mT = top && app.out.M[top.id], pinsW = shown(app).map(function (m) { return [(m.x - app.view.ox) / app.view.s, (m.y - app.view.oy) / app.view.s]; });
+      if (bD && mT) { var bw = bD.x1 - bD.x0, bh = bD.y1 - bD.y0, mw = bw * 0.05, mh = bh * 0.05, far = Math.max(bw, bh) * 0.4, iT = M0.inv(mT);
+        for (var j2 = 0; j2 < e0.ids.length; j2++) { if (!under(e0.ids[j2].split('#')[0], top)) continue; var k2 = e1.ids.indexOf(e0.ids[j2]); if (k2 < 0 || e1.v[k2].length !== e0.v[j2].length) continue;
+          for (var v2 = 0; v2 < e0.v[j2].length; v2 += 2) { var wx = e0.v[j2][v2], wy = e0.v[j2][v2 + 1], lq = M0.ap(iT, wx, wy), x = lq[0], y = lq[1];
+            if (!(x < bD.x0 + mw || x > bD.x1 - mw || y < bD.y0 + mh || y > bD.y1 - mh)) continue;
+            if (pinsW.some(function (pw) { return Math.hypot(pw[0] - wx, pw[1] - wy) < far; })) continue;
+            edge = Math.max(edge, Math.hypot(wx - e1.v[k2][v2], wy - e1.v[k2][v2 + 1])); } } }
+      var most = Math.max.apply(null, Object.keys(mv).map(function (k) { return mv[k]; }).concat([0]));
+      R.F('15 ...and the head\'s edges hold still (only the face bends)', !!bD && most > 2 && edge < most * 0.15, { most: most, edge: edge });
+
+      // 16 the All pins dial (the owner: "a global multiplier dial for all the points"): every pin, at once
+      var gainOk = !!FP.setGain;
+      if (gainOk) {
+        FP.setGain(app, 0.5); now.xyz = base; await K.step(15); var g16 = snap(); now.xyz = smileOf(base); await K.step(20); var half = Math.max.apply(null, [0].concat(Object.values(moves(g16, snap(), top))));
+        FP.setGain(app, 0); now.xyz = base; await K.step(15); var z0 = snap(); now.xyz = smileOf(base); await K.step(20); var none = Math.max.apply(null, [0].concat(Object.values(moves(z0, snap(), top))));
+        FP.setGain(app, 1);
+        R.F('16 All pins at half pulls about half as far; at 0 holds still', half > most * 0.3 && half < most * 0.7 && none < 0.5, { full: most, half: half, zero: none });
+      } else R.F('16 All pins at half pulls about half as far; at 0 holds still', false, { dial: false });
+      var sb2 = button(/^Stop/); if (sb2) sb2.click(); now.xyz = base; await K.step(5);
+
+      // 17 pins made before one piece (his 45 on Topps's slices): one tap moves them onto the whole head, where they were, one undo step
+      var hsE = headSpot([[-0.12, 0.1], [0.12, 0.05], [-0.2, -0.05], [0.2, -0.1], [0, -0.15], [-0.1, 0.2]]);
+      app.ch.settings.faceSheet = false; var nE0 = FP.list(app.ch).length; tapFace(app, 291); tapStage(stagePx(hsE.p)); await K.step(3);
+      app.ch.settings.faceSheet = true;
+      var qE = FP.list(app.ch)[nE0], onSlice = qE && AL.node(app.ch, qE.node) && AL.node(app.ch, qE.node).type === 'art', before17 = shown(app)[nE0];
+      var past17 = app.hist.past.length, moved17 = FP.toSheet ? FP.toSheet(app) : 0; await K.step(3);
+      var qE2 = FP.list(app.ch)[nE0], nodeE2 = qE2 && AL.node(app.ch, qE2.node), after17 = shown(app)[nE0];
+      R.F('17 Make one piece moves old pins from their slice onto the whole head, where they were, as one undo step',
+        onSlice && moved17 >= 1 && !!nodeE2 && nodeE2.type !== 'art' && dist(before17, after17) < 3 && app.hist.past.length === past17 + 1,
+        { wasOnSlice: onSlice, moved: moved17, nowOn: nodeE2 && nodeE2.name, off: dist(before17, after17), steps: app.hist.past.length - past17 });
+      if (FP.close) FP.close(app); await K.step(3);
+
+      // 12 your cheeks puffing (or a smile, the jaw, wide eyes) drives any part through Links and Shapes
+      AL.stages.go(app, 'perform'); arm(); now.bs = {}; await K.step(20); var c0 = inp.S['face.cheekPuff'] || 0;
+      var hdNow = AL.firstRole(app.ch.root, 'head') || hd;      // (an Undo above put in a fresh copy of the character)
+      hdNow.links = (hdNow.links || []).concat([{ sig: 'face.cheekPuff', prop: 'y', amt: 24, test: 1 }]); await K.step(5);
+      function drawnMove(a, b) {                                // how far anything drawn moved
+        var px = 0; for (var j = 0; j < a.ids.length; j++) { var k = b.ids.indexOf(a.ids[j]); if (k < 0) continue;   // (breathing and idle are off: only the linked part can move)
+          for (var v = 0; v < a.v[j].length; v += 2) px = Math.max(px, Math.hypot(a.v[j][v] - b.v[k][v], a.v[j][v + 1] - b.v[k][v + 1])); }
+        return px;
+      }
+      var h0s = snap();
+      now.bs = { cheekPuff: 0.8 }; await K.step(25); var c1 = inp.S['face.cheekPuff'] || 0, h1s = snap(), linked = drawnMove(h0s, h1s);
+      hdNow.links = hdNow.links.filter(function (l) { return !l.test; }); now.bs = {};
+      R.F('12 your cheeks puffing reaches the signals, and a part linked to it moves', c0 < 0.1 && c1 > 0.5 && linked > 5,
+        { before: c0, after: c1, px: linked });
+      var offered = AL.cards && AL.cards.SIGS ? AL.cards.SIGS.map(function (q) { return q[0]; }) : [];
+      R.F('12 ...and it is offered in the Links and Shapes lists', ['face.cheekPuff', 'face.smile', 'face.jaw', 'face.wide'].every(function (k) { return offered.indexOf(k) >= 0; }), { offered: offered.filter(function (k) { return k.slice(0, 5) === 'face.'; }) });
     } catch (e) {
       R.fails.push({ label: 'error: ' + (e && e.message), info: e && e.stack });
     } finally {
       FP.feed = realFeed; F.pointOffsets = realOff; FP.strength = realStrength; inp.channels = realChannels; app.edit = realEdit; FP.unbind = realUnbind; F.pilotFace = keep.pilotFace;
+      FP.section = realSection; FP._tap = realTap; FP._drawMarkers = realDraw; FP.movePin = realMove; FP.setFollow = realFollow; FP.expressions = realExpr;
+      FP._layerHost = realHost; FP._drawnAt = realDrawn; delete inp.camResume; FP.sheetOf = realSheet; FP.setGain = realGain; FP.toSheet = realConvert; AL.sheetHold = realHold;
+      if (FP.close && app.fpMode) FP.close(app);
       if (typeof unthrottle === 'function' && app.hooks.indexOf(unthrottle) >= 0) app.hooks.splice(app.hooks.indexOf(unthrottle), 1);
       inp.cam.on = keep.on; inp.cam.mode = keep.mode; inp.cam._faceStage = keep.stage; inp.cam.lm = keep.lm; inp.cam.v = keep.v; inp.take = keep.take; inp.pose.flip = keep.flip;
       K.restore(app, saved);
+      var setB = app.ch.settings || {}; if (keep.sheet === undefined) delete setB.faceSheet; else setB.faceSheet = keep.sheet; if (keep.gain === undefined) delete setB.facePinGain; else setB.facePinGain = keep.gain;
       try { if (savedCal == null) root.localStorage.removeItem('al.face.cal'); else root.localStorage.setItem('al.face.cal', savedCal); } catch (e2) { /* no storage */ }
     }
     return { checks: R.n, fails: R.fails, note: R.note, plant: plant };
@@ -152,7 +377,10 @@
 
   X.proof = async function () {
     var out = {}, want = { nofeed: /^3 a smile/, noturn: /^4 turning/, nostrength: /^5 strength 0/, norecord: /^7 a pass records/,
-      noflip: /^6 a character turned/, noundo: /^2 \.\.\.as one undo step/, noremove: /^8 removing/, noread: /^3 a smile/ };
+      noflip: /^6 a character turned/, noundo: /^2 \.\.\.as one undo step/, noremove: /^8 removing/, noread: /^3 a smile/,
+      noentry: /^9 Face pins is on/, noplace: /^10 tap a point/, nomarkers: /^10 tap a point/, nodrag: /^10 dragging/, nofollow: /^11 Test/, noexpr: /^12 your cheeks puffing/,
+      nolayer: /^10 tap a point/, noreshape: /^13 on a reshaped/, noresume: /^14 a camera picture/, notest: /^14 \.\.\.and Test/,
+      nosheet: /^15 a face pin on one slice/, nohold: /^15 \.\.\.and the head/, nogain: /^16 All pins/, noconvert: /^17 Make one piece/ };
     for (var k in want) { var r = await X.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 4) }; }
     return out;
   };

@@ -517,3 +517,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact spine APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168813410), [spine Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168809389), [timing APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45169730833). The timing A/B remains to be run on the Note 9.
 - Questions: None.
 - Next: Capture the decoded moving spine frame from the exact green spine APK. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
+
+### 2026-11-23 06:59 Codex → Claude: Verified the shared main-video shutter on the Snapdragon Note 9
+- State: C3 source `f03778e8c` is pushed. The main-video proof used `702285394`.
+- Done: The Note 9 moving preview matched the blurred export 17.5× more closely in the affected region. The frame immediately before the HOLD jump stayed sharp. APK restoration was hash-checked and the phone was released.
+- Proof: [Spine preview proof](C3_SPINE_PREVIEW_REPORT.md), [timing APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45169730833). The paired on/off timing capture is queued.
+- Questions: None.
+- Next: Build the owner’s comparison page from the matched device captures and the existing Trailing/Mix export controls.

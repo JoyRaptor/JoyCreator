@@ -17,6 +17,7 @@ import com.fadcam.FLog;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.overlay.TextBoxRenderer;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -50,6 +51,9 @@ public final class FxLivePreviewController {
     public interface Host {
         /** The player rendering video right now — legacy or gapless. Null before preparation. */
         @Nullable ExoPlayer activeVideoPlayer();
+        default boolean motionBlurEnabled() { return false; }
+        default boolean gaplessVideoPlayer() { return false; }
+        @Nullable default String loadedVideoClipId() { return null; }
         /** Hand video output back to the PlayerView's own surface. */
         void restoreVideoOutput();
         /** The clip under the playhead, whose colour grade the preview must show. */
@@ -307,10 +311,14 @@ public final class FxLivePreviewController {
      * self-invalidating check {@link OverlayVideoPreviewView} needs for the keyed tier.
      */
     @Nullable private ExoPlayer routedPlayer;
+    private final PreviewDecoderClock motionClock;
+    private final androidx.media3.common.Timeline.Window motionWindow =
+            new androidx.media3.common.Timeline.Window();
 
     public FxLivePreviewController(@NonNull FxPreviewTextureView view, @NonNull Host host) {
         this.view = view;
         this.host = host;
+        motionClock = new PreviewDecoderClock(view.motionClock());
         view.setSurfaceListener(new FxPreviewTextureView.SurfaceListener() {
             @Override public void onFxInputSurfaceReady(@NonNull Surface s) {
                 inputSurface = s;
@@ -327,6 +335,7 @@ public final class FxLivePreviewController {
             }
             @Override public void onFxInputSurfaceLost() {
                 inputSurface = null;
+                clearMotionClock();
                 java.util.Arrays.fill(pipSurfaces, null);
                 OverlayVideoPreviewView ov = host.overlayVideoLayer();
                 if (ov != null) ov.setFxCompositeSurface(null);
@@ -589,7 +598,52 @@ public final class FxLivePreviewController {
         view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
+        bindMotionClock(timeline, playheadClip);
         route();
+    }
+
+    private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip) {
+        if (!host.motionBlurEnabled() || clip == null || clip.isImageClip()
+                || clip.hasLoopExtension() || clip.hasRemovedSpans()) {
+            clearMotionClock();
+            return;
+        }
+        ExoPlayer player = host.activeVideoPlayer();
+        if (player == null || player.getCurrentTimeline().isEmpty()) {
+            clearMotionClock();
+            return;
+        }
+        int index = timeline.getClips().indexOf(clip);
+        TimeMap map = TimeMap.of(timeline);
+        if (index < 0 || map.cuts().count() != 0 || map.headMs(index) > 0 || map.seamMs(index) > 0) {
+            clearMotionClock();
+            return;
+        }
+        int windowIndex = player.getCurrentMediaItemIndex();
+        if (windowIndex < 0 || windowIndex >= player.getCurrentTimeline().getWindowCount()) {
+            clearMotionClock();
+            return;
+        }
+        player.getCurrentTimeline().getWindow(windowIndex, motionWindow);
+        boolean gapless = host.gaplessVideoPlayer();
+        String playerClipId = gapless ? motionWindow.mediaItem.mediaId : host.loadedVideoClipId();
+        float speed = clip.getSpeedMultiplier();
+        if (!clip.getId().equals(playerClipId) || motionWindow.firstPeriodIndex != motionWindow.lastPeriodIndex
+                || !Float.isFinite(speed) || speed <= 0f) {
+            clearMotionClock();
+            return;
+        }
+        long originUs = motionWindow.getPositionInFirstPeriodUs()
+                + (gapless ? 0L : clip.getInPointMs() * 1000L);
+        motionClock.bind(player, new PreviewDecoderClock.Anchor(
+                motionWindow.uid, originUs, map.clipEditorStartMs(index) * 1000L,
+                map.clipEditorStartMs(index + 1) * 1000L, speed));
+        view.setMotionClockActive(motionClock.active());
+    }
+
+    private void clearMotionClock() {
+        view.setMotionClockActive(false);
+        motionClock.clear();
     }
 
     /** @see Host#onBaseStillRouted — told once per transition, not once per tick. */
@@ -1665,6 +1719,7 @@ public final class FxLivePreviewController {
      * adjustment layers at all, where this runs on every tick and must cost nothing.
      */
     public void stop() {
+        clearMotionClock();
         if (view.getVisibility() != View.GONE) view.setVisibility(View.GONE);
         // BEFORE the routed early-return: a project with an image clip and no live FX never
         // routes, and leaving the ImageView hidden there would blank the picture entirely.

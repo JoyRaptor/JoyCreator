@@ -28,6 +28,7 @@ import com.fadcam.ui.faditor.fx.FxUniforms;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.CompositingSpec;
 import com.fadcam.ui.faditor.model.MaskSdf;
+import com.fadcam.ui.faditor.motion.PreviewMotionClock;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -1862,6 +1863,14 @@ public class FxPreviewTextureView extends TextureView
         return id;
     }
 
+    private final PreviewMotionClock motionClock = new PreviewMotionClock();
+    @Nullable private PreviewMotionClock.Frame motionFrame;
+    private volatile boolean motionClockActive;
+
+    PreviewMotionClock motionClock() { return motionClock; }
+
+    void setMotionClockActive(boolean active) { motionClockActive = active; }
+
     private void drawFrame() {
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
         long frameStartNs = System.nanoTime();
@@ -1874,6 +1883,7 @@ public class FxPreviewTextureView extends TextureView
             if (livePipInputs < wantPipInputs) ensurePipInputs();
             inputTexture.updateTexImage();
             inputTexture.getTransformMatrix(texMatrix);
+            motionFrame = motionClockActive ? motionClock.latch(inputTexture.getTimestamp()) : null;
 
             int vw = videoW > 0 ? videoW : surfaceW;
             int vh = videoH > 0 ? videoH : surfaceH;

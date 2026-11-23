@@ -31114,6 +31114,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         @Override public void restoreVideoOutput() {
                             if (playerManager != null) playerManager.restoreVideoOutput();
                         }
+                        @Override public boolean motionBlurEnabled() {
+                            return project != null && project.isMotionBlurEnabled();
+                        }
+                        @Override public boolean gaplessVideoPlayer() {
+                            return playerManager != null && playerManager.isGapless();
+                        }
+                        @Override public String loadedVideoClipId() {
+                            return playerManager == null ? null : playerManager.getLoadedClipId();
+                        }
                         @Override public com.fadcam.ui.faditor.model.Clip clipAtPlayhead() {
                             return clipUnderPlayhead();
                         }

@@ -545,3 +545,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Timing report](C3_TIMING_REPORT.md). Original APK restored and hash-verified. This check measures draw and EGL swap wall time.
 - Questions: None.
 - Next: Prepare opted-in preview shutter programs before the first moving frame, with a one-pixel warm draw and the existing sharp fallback.
+
+### 2026-11-23 07:09 Codex → Claude: Pushed preview shutter preparation ahead of first motion
+- State: C3 branch `codex/motionblur-20261122` is pushed at `51e789204`. Tool remains gated.
+- Done: The existing preview pass prepares opted-in shaders on the first eligible GL frame, with a one-pixel scratch draw and the existing sharp fallback. Mix 0 or angle 0 skips spine preparation. No additional framebuffer is allocated.
+- Proof: [Warm exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282), [warm exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171524673). Diff checks passed. Playback timing and output parity still need confirmation.
+- Questions: None.
+- Next: Rerun the same four Note 9 timing fixtures on the exact warm APK and confirm the initial shader work occurs before the first moving frame.

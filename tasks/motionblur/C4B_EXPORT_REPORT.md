@@ -29,3 +29,18 @@ The legacy grouped route and the ordered same-order route matched byte for byte 
 The ordered inversion was very close to the CPU reference. Mean errors were 0.000871, 0.000873, and 0.000898/255. The first frame met the max-error threshold. One channel at the second timestamp and eight at the third were 2/255 apart, so the strict comparison still failed. The diagnostic originally read from an identity-copy output. Commit `4be23b758` now attaches the composed texture directly for the readback. The tolerance is unchanged.
 
 The original APK was restored and hash-verified. Raw controls and comparisons are under `C:/workspace/motion-c2-evidence/c4b-persisted-order/`.
+
+## After choosing the texture target explicitly
+
+The [fixed mixed APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45178432280) at `669cedcd9` produced eight paired route trials across mixed, title-only, sprite-only, and PiP-only variations of the persisted fixture. The black title rectangle was gone. The title’s registered glyph bounds differed by about one pixel horizontally and vertically in the tested pose. This still trips the strict per-channel criterion.
+
+| Added producer | Same-order mean RGBA error range | Max channel error |
+| --- | ---: | ---: |
+| Mixed | 0.242–0.306/255 | 223/255 |
+| Title | 0.216/255 | 223/255 |
+| Rigid sprite | 0.026–0.036/255 | 64/255 |
+| PiP | 0–0.060/255 | 99/255 |
+
+The pre-PiP frame matched exactly. The two active PiP frames differed, and a same-route repeat is needed to distinguish decoder variance from the ordered host. Old projects containing these producers remain outside the automatic route until equivalence is proven. Explicit-order tests stay behind the debug switch.
+
+The original APK matched by SHA-256 and the phone claim was released. Raw controls, comparisons, and the title PNG are under `C:/workspace/motion-c2-evidence/c4b-mixed-fixed/`.

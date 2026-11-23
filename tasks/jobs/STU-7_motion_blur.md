@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C4b LaneCompositor export, debug-only route.
 - **Code branch / head:** `codex/motionblur-20261122` @ `4be23b758` (pushed).
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Repeat the mixed raw comparison on `669cedcd9` to verify the title texture-target fix.
+- **Exact next action:** Run the four persisted-order controls on the exact direct-readback APK to determine whether the remaining CPU outliers came from diagnostic resampling.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

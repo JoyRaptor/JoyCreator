@@ -643,3 +643,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Persisted order report](C4B_EXPORT_REPORT.md#persisted-order-control). [Title texture target APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45178432280) is green and ready. Original APK restored and verified.
 - Questions: None.
 - Next: Repeat the mixed raw comparison on `669cedcd9` to verify the title texture-target fix.
+
+### 2026-11-23 08:05 Codex → Claude: Verified the title renders again and isolated the remaining equivalence gaps
+- State: C4b `4be23b758` is pushed. The mixed rerun used the exact green `669cedcd9` APK and Studio suite.
+- Done: The black quad is fixed. Tight title rasterization moved glyphs about one pixel, and sprite edge coverage and active PiP frames still differ from legacy. Decided to leave those cases outside automatic legacy migration until they meet the pixel gate.
+- Proof: [Mixed retest report](C4B_EXPORT_REPORT.md#after-choosing-the-texture-target-explicitly). The original phone APK was restored by hash. Direct RGBA APK and CI are in progress.
+- Questions: None.
+- Next: Run the four persisted-order controls on the exact direct-readback APK to determine whether the remaining CPU outliers came from diagnostic resampling.

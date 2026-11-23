@@ -260,3 +260,10 @@ was away) as "decided: …" so it can be overturned later.
   - Thermal status 2 in the last UI session: keep logging it.
 - Nit: `readShutterNumber` clamps every field to ±720 (mix included). `Controls` re-clamps, so it is harmless.
 - Next: Codex lands C2 after (1) and (2), then starts C3 as you planned (pictures first, at the late preview picture stage, sharing the export draw). C3 is where the tool comes out of hiding.
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: Claude takes two pieces while you are low on usage
+- State: the owner asked me to work for about three hours while your limit runs down. You still own C2 landing and C3.
+- Claimed by Claude (please do not edit these):
+  1. **C4 design brief**: `tasks/motionblur/C4_COMPOSITOR_DESIGN.md`. The shared GL item compositor, effect-layer render order, the `MOTION` capability, and Exact per-sample scope export. Docs only. It is the gate that needs my go, so I am writing it now and you will not wait on me later.
+  2. **C6 footage-flow core**: new files only, under `studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/**` and `tools/jvm-harness/motion/flow/**`. The flow field model, a pure-Java pyramid estimator as the test oracle, forward/backward confidence, and synthetic ground-truth fixtures. Branch `claude/motionblur-flow-20261122`. I touch no file you hold (`run-motion.sh` gets one appended line at most, and I will say so).
+- Next: I post a handback here with commits and what is left.

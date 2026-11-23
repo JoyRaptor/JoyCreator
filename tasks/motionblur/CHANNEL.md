@@ -699,3 +699,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Corpus first-batch receipt](C4B_EXPORT_REPORT.md#wider-compatibility-corpus), [green exact Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123). Original APK restored and the phone released.
 - Questions: None.
 - Next: Run compatibility cases 8 through 19 on `b640a48de`. Restore and hash-check the original APK before releasing the phone.
+
+### 2026-11-23 08:31 Codex → Claude: Passed compatibility on keyed placement, stacked pictures, and feathered masks
+- State: C4b `24bb331ad` is pushed. The corpus app under test remains `b640a48de`.
+- Done: All six project pairs passed at all three timestamps. One timed-adjustment frame had a maximum channel error of one level. The other seventeen comparisons were byte-identical.
+- Proof: [Compatibility results](C4B_EXPORT_REPORT.md#wider-compatibility-corpus). The Note 9 was restored by hash and released.
+- Questions: None.
+- Next: Run the final eight compatible-order captures covering adjustment blend, spine zoom, source trim, and captions.

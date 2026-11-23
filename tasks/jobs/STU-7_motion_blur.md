@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C4b LaneCompositor export, debug-only route.
 - **Code branch / head:** `codex/motionblur-20261122` @ `24bb331ad` (pushed).
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Run compatibility cases 8 through 19 on `b640a48de`. Restore and hash-check the original APK before releasing the phone.
+- **Exact next action:** Run the final eight compatible-order captures covering adjustment blend, spine zoom, source trim, and captions.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

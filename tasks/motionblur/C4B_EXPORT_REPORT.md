@@ -60,3 +60,5 @@ All comparisons used 960 × 540 raw frames at 66,666, 500,000 and 900,000 µs. T
 ## Wider compatibility corpus
 
 The first batch of the [exact corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218), source `b640a48de`, tested the base picture, reduced opacity, offset, and rotation. All twelve raw pairs matched byte for byte. Each fixture completed export. The original APK was restored and hash-verified. The phone was released. Evidence is under `C:/workspace/motion-c2-evidence/c4b-corpus/compatible-0/`. [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123) passed.
+
+The second batch passed all eighteen compatible-order frames across horizontal flip, keyed placement, stacked pictures, a timed adjustment, opacity keyframes, and a feathered mask. Seventeen were byte-identical. The frame after the timed adjustment ended had a maximum channel error of 1/255 and a mean of 0.000018/255. Original APK restored and hash-verified. Evidence is under `C:/workspace/motion-c2-evidence/c4b-corpus/compatible-8/`.

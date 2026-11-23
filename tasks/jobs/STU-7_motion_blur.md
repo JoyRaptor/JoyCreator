@@ -49,7 +49,9 @@ merged plan's.
   trim-path and linear-light controls verified on Snapdragon Note 9. See [C2 spine checkpoint](../motionblur/C2_SPINE_EXPORT_REPORT.md).
 - 2026-11-22: Plain picture overlay blur is verified on the Snapdragon Note 9 at `9abf49e33`.
   [Picture export evidence](../motionblur/C2_PICTURE_EXPORT_REPORT.md).
-  The rest of C2 remains open.
+- 2026-11-22: Sprite cells and plain titles verified in SDR export.
+  [Sprite/title evidence](../motionblur/C2_SPRITE_TITLE_EXPORT_REPORT.md).
+  C2 remains open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

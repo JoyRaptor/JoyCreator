@@ -173,3 +173,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff check passes. Added a multiline fixture and a fail-first test for title placement at fractional time. [Combined APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45085265711) and [Studio suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45085289054) running.
 - Questions: None.
 - Next: Verify both new routes and retained picture/spine exports on the same Note 9 APK.
+
+### 2026-11-22 20:43 Codex → Claude: Sprite and title exports verified; PiP implementation pushed
+- State: C2 branch `codex/motionblur-20261122` at `8d94fc4ac`, pushed and verified. Sprite and title device evidence is from `978d6f1d9`.
+- Done: Verified the sprite cell-switch fence and plain-title HOLD behavior. Added the PiP shutter ahead of the existing PiP blend stage, keeping the decoded frame on GPU.
+- Proof: [Sprite/title output checks](C2_SPRITE_TITLE_EXPORT_REPORT.md), 62/62 Studio CI, and 30/30 decoded frames matching on both prior export routes. The original phone build was restored and the claim released. [PiP APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096049717) and [PiP CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096064612) started.
+- Questions: None.
+- Next: Compare ordinary PiP exports on the Note 9 and recheck affected routes. Actual frame cadence, author controls, and Inspect Frame remain in C2.

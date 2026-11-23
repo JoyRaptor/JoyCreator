@@ -238,6 +238,26 @@ Checks 9 to 12 written first and seen failing on the old code (5 of 18 failed); 
 caught; the pilot's other suites pass with it (body 184, fit and reshape, head turn, stage, walk, draw order, scene,
 walk across the stage, walk with your face). His look owed.
 
+## The Face pins screen, from his own mockup (11-22, round 4)
+He found round 3 "terribly thought out": "I can't see what I'm doing. It says 2 face pins. I don't see where the pins
+are. I can't drag and move the pins. I should be able to toggle whether the camera is affecting it." His design: your
+face and the character side by side, each zoomable, "tap to select the pin, tap on the other region to place. Tap, tap,
+tap, tap, back and forth", "I might be fixing dozens of pinpoints". A clickable mockup on his Note 9 (scratchpad, not in
+the repo); his verdict: **"Build it like this."**
+
+| | Built | Checked |
+|---|---|---|
+| ✅ | Face pins is one screen you stay in: the character on the real stage (only face pins shown there, Set up's own pins hidden), your face filling the panel (the panel's tabs hidden until Done) | browser at phone size; on his Note 9 |
+| ✅ | Tap a point of your face, tap the character: a pin, numbered and coloured the same on both; again and again (no tap-to-zoom: pinch, as he asked) | break test 10 |
+| ✅ | Tap a pin on the character to pick it; drag it to move where it pulls (on whatever part is under it), keeping its number and strength, one undo step | break test 10 |
+| ✅ | Follow my face: on, your face drives the character and its pins, even in Set up; off, everything holds still while you place and drag | break test 11 |
+| ✅ | A row per pin: where it comes from, what it pulls, Strength, Remove; Done goes back to the card you came from | break test 11 |
+| ✅ | Each half pinches and pans on its own; the face has Pick / Live, Plain map, All points, Fit | browser |
+
+Checks 10 and 11 rewritten first (they failed on round 3's code); 19 of 19 now, 14 of 14 planted faults caught (new:
+noplace, nomarkers, nodrag, nofollow); every other pilot suite passes with it. His look owed. Next (his idea, phase 2):
+a face template laid over the character's face, its key points dragged onto the features, every pin made at once.
+
 ## The Face chip starts in "always" (11-22)
 The owner: "I turned the camera on, but it's not responsive until I actually do a hold to talk." The chip's first tap
 started "while talking". Now the first tap drives the character at once ("Face is on: the character moves with you"),

@@ -652,6 +652,7 @@
   app.setLive = function (on) { if (AL.stages && AL.stages.on() && app.mode === 'build') app.stage = on ? 'motion' : (app.stage === 'motion' ? 'setup' : app.stage); app.live = on; if (on) { app.solver.reset(); } else { app.lockForce = null; app.inp.walker.reset(); app.inp.pose.flip = false; } app.userView = false; app.refreshPanel(); app.focusSel(); };
   app.refreshPanel = function (keepScroll) {
     var pb = $('panelbody'), sc = pb.scrollTop;
+    if (app.fpMode && AL.facepins && AL.facepins.panel) { AL.facepins.panel(app); if (keepScroll) pb.scrollTop = sc; return; }   // FACE-1: the Face pins screen
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (AL.stages) AL.stages.before(app);
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);

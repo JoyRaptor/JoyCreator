@@ -15,6 +15,7 @@ import android.net.Uri;
 
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
+import com.fadcam.ui.faditor.layers.TrackKind;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
@@ -162,7 +163,7 @@ final class MotionRouteFixture {
 
     static FaditorProject createLanePicture(Context context, boolean adjustmentAbove,
                                              boolean includePip, boolean includeTitle,
-                                             boolean includeSprite) throws IOException {
+                                             boolean includeSprite, boolean enableAdjustment) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName(
                 "TEST STU-7 C4 picture " + (adjustmentAbove ? "under effect" : "over effect")));
@@ -185,14 +186,15 @@ final class MotionRouteFixture {
             title.setTimeRange(0L, 999L);
             timeline.addTextOverlay(title);
         }
+        String adjustmentLane = timeline.createLayerTrack(TrackKind.ADJUSTMENT, "C4 invert");
         var adjustment = new AdjustmentLayer();
-        adjustment.setLayerId("adjustment");
+        adjustment.setLayerId(adjustmentLane);
         adjustment.setStartMs(0L);
         adjustment.setDurationMs(1_000L);
-        adjustment.getFx().add("invert");
+        if (enableAdjustment) adjustment.getFx().add("invert");
         timeline.addAdjustmentLayer(adjustment);
         timeline.getOrCreateTrackFlags("text").zIndex = 4;
-        timeline.getOrCreateTrackFlags("adjustment").zIndex = adjustmentAbove ? 8 : 2;
+        timeline.getOrCreateTrackFlags(adjustmentLane).zIndex = adjustmentAbove ? 8 : 2;
         if (includePip) {
             File overlaySource = copyAsset(context, media, "card1.mp4");
             long overlayDuration = durationMs(overlaySource);

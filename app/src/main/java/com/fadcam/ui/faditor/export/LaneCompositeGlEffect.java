@@ -56,7 +56,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                     }
                     var effect = new GlImageOverlayEffect(context, List.of(picture), totalDurationMs,
                             editorOffsetMs, null, pieceStartMs, motionDurationMs);
-                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                    bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             picture::isVisibleAt));
                 }
                 case TEXT -> {
@@ -68,7 +68,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                     }
                     var effect = new GlImageOverlayEffect(context, List.of(title), totalDurationMs,
                             editorOffsetMs, null, pieceStartMs, motionDurationMs, true);
-                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                    bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             title::isVisibleAt));
                 }
                 case SPRITE -> {
@@ -86,7 +86,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                     }
                     var effect = new SpriteBlendGlEffect(context, sprite, List.of(atlas), List.of(),
                             totalDurationMs, editorOffsetMs, pieceStartMs, motionDurationMs, true);
-                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                    bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             sprite::isVisibleAt));
                 }
                 case PIP -> {
@@ -99,7 +99,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                     long end = start + Math.max(0L, pip.getTrimmedDurationMs());
                     var effect = new BlendModeGlEffect(context, pip, null, editorOffsetMs,
                             pieceStartMs, motionDurationMs);
-                    bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                    bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             editorMs -> editorMs >= start && editorMs <= end));
                 }
                 case ADJUSTMENT -> {
@@ -109,7 +109,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                     }
                     if (adjustment.rendersAnything()) {
                         var effect = new AdjustmentLayerGlEffect(context, adjustment, editorOffsetMs);
-                        bindings.add(new Binding(entry.id, c -> effect.toGlShaderProgram(c, false),
+                        bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                                 adjustment::activeAt));
                     }
                 }

@@ -102,7 +102,8 @@ public class ExportDebugActivity extends Activity {
                     in.getBooleanExtra("motion_lane_adjustment_above", true),
                     in.getBooleanExtra("motion_lane_include_pip", false),
                     in.getBooleanExtra("motion_lane_include_title", false),
-                    in.getBooleanExtra("motion_lane_include_sprite", false));
+                    in.getBooleanExtra("motion_lane_include_sprite", false),
+                    in.getBooleanExtra("motion_lane_enable_adjustment", true));
             in.putExtra("project_id", fixture.getId());
         }
         if (in.getBooleanExtra("motion_picture_fixture", false)) {

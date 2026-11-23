@@ -30,7 +30,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: a397a2e9a4ea7394190a671e5eb2e54d6315a81b
-          persist-credentials: false
 
       - name: Note the commit
         id: meta

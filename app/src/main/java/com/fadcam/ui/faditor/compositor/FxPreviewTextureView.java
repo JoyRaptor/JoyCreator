@@ -1872,10 +1872,15 @@ public class FxPreviewTextureView extends TextureView
     private final PreviewMotionClock motionClock = new PreviewMotionClock();
     @Nullable private PreviewMotionClock.Frame motionFrame;
     private volatile boolean motionClockActive;
+    @Nullable private volatile MotionPreviewReadback motionReadback;
 
     PreviewMotionClock motionClock() { return motionClock; }
 
     void setMotionClockActive(boolean active) { motionClockActive = active; }
+
+    public void requestMotionReadback(@NonNull MotionPreviewReadback capture) {
+        if (com.fadcam.BuildConfig.DEBUG) motionReadback = capture;
+    }
 
     private void drawFrame() {
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
@@ -2031,6 +2036,13 @@ public class FxPreviewTextureView extends TextureView
             if (!degraded && layerBmp != null && !layerBmp.isRecycled() && layerProgram != 0) {
                 int dst = cur == 0 ? 1 : 0;
                 if (drawLayerOverlay(layerBmp, cur, dst, vw, vh)) cur = dst;
+            }
+
+            MotionPreviewReadback capture = motionReadback;
+            if (com.fadcam.BuildConfig.DEBUG && capture != null && motionFrame != null
+                    && !degraded && capture.accepts(motionFrame.editorTimeUs())) {
+                motionReadback = null;
+                capture.capture(targets[cur][1], vw, vh, motionFrame.editorTimeUs());
             }
 
             // 4 — present the finished frame, fit-centred, at view resolution.

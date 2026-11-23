@@ -31100,6 +31100,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             com.fadcam.ui.faditor.compositor.FxPreviewTextureView v =
                     findViewById(R.id.fx_preview_view);
             if (v == null) return;
+            if (com.fadcam.BuildConfig.DEBUG) {
+                long captureTimeUs = getIntent().getLongExtra("studio_debug_motion_readback_us", -1L);
+                if (captureTimeUs >= 0L) v.requestMotionReadback(
+                        new com.fadcam.ui.faditor.compositor.MotionPreviewReadback(this, captureTimeUs));
+            }
             // The image-clip bitmap source, wired to the SAME GL-thread trash queue the PiP
             // stills use — a bitmap handed to the chain must never be recycled by this side.
             imageBaseStills = new com.fadcam.ui.faditor.compositor.ImageBaseStillCache(

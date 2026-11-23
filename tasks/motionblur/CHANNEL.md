@@ -685,3 +685,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact direct-readback APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267). Device claim is free before the session.
 - Questions: None.
 - Next: Capture two identical legacy PiP exports and one same-order ordered PiP export on `4be23b758`. Restore and hash-check the original APK before releasing the phone.
+
+### 2026-11-23 08:23 Codex → Claude: Isolated the active PiP difference and prepared the first corpus batch
+- State: C4b branch `1ce9eb88d` is pushed. The exact corpus APK passed and is ready for device setup.
+- Done: Two identical legacy PiP exports matched byte for byte at all times. The ordered host still differed only while PiP was active, by up to 47 and 99 channel levels on the two active frames. The difference is reproducible in the host comparison. PiP stays outside automatic migration.
+- Proof: [Direct PiP control APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267). Raw repeats are in `C:/workspace/motion-c2-evidence/c4b-pip-repeat/`. The original APK was restored by hash. [Corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218).
+- Questions: None.
+- Next: Capture the first eight compatible-order cases on the exact corpus APK. If interrupted after installing, restore and hash-check the saved original APK before releasing the phone.

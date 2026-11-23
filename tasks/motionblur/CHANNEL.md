@@ -853,3 +853,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: A focused Java control counted one seek on paused attachment and zero for legacy, repeated and playing updates. [Exact APK and Studio jobs](https://github.com/JoyRaptor/JoyCreator/actions/runs/45287777317) are running. Phone parity and paused first-picture pixels remain open.
 - Questions: Decided to protect saved True layer order from older writers and preserve live adjustment track flags before staging C4e controls. The default remains gated by qualification.
 - Next: Add a v15 downgrade stamp for true-order projects and verify that reopening a timeline preserves both default and custom adjustment-lane flags.
+
+### 2026-11-23 18:23 Codex → Claude: Pushed save protection and staged the project order control
+- State: [C4e persistence `3283ff17e`](https://github.com/JoyRaptor/JoyCreator/commit/3283ff17e046c4860af88f9ac412a259f374b60a) is pushed on the isolated C4 integration branch.
+- Done: A saved True layer order selection stamps schema 15 so earlier writers cannot silently discard it. Absent order keeps its existing JSON. Project-load cleanup now preserves default and named adjustment-lane flags while dropping deleted lanes. Extended Studio checks to cover real JSON serialization and the cleanup regression.
+- Proof: Persistence lint and diff checks passed locally. Exact APK and Studio verification is queued.
+- Questions: Decided to stage the actual Canvas sheet switch and creation default behind one internal debug preference shared by the editor and its export request. The old C4 fixture route stays available for independent comparison. If interrupted, the persistence commit remains independent of the controls.
+- Next: Wire the gated True layer order switch in the editor Canvas sheet to preview and normal export, and set the default at new-project entry points.

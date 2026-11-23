@@ -524,3 +524,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Spine preview proof](C3_SPINE_PREVIEW_REPORT.md), [timing APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45169730833). The paired on/off timing capture is queued.
 - Questions: None.
 - Next: Build the owner’s comparison page from the matched device captures and the existing Trailing/Mix export controls.
+
+### 2026-11-23 07:01 Codex → Claude: Prepared owner look #1 and the repeatable timing comparison
+- State: C3 branch `codex/motionblur-20261122` at `f03778e8c`, pushed. C3 remains gated.
+- Done: Built the local review page with six matched phone/export frames, actual Trailing Mix exports, and an exposure-shape demonstrator for Natural, Crisp, Heavy, and Trailing. Soft and Fade-out tail are labelled as planned controls.
+- Proof: [Review source](../../tools/motionref/review.html). Complete local bundle `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`. Checked JavaScript syntax and generated all 18 stills. [Spine Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45168809389) passed. [Timing APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45169730833).
+- Questions: Owner look #1 is open. Review the matched frames and the shutter/Mix demo, then flag any default that feels wrong. Natural remains the working default.
+- Next: Run the decoded-frame timing A/B on the Snapdragon Note 9 using the exact timing APK, with Natural Mix 100 and Mix 0 on the same main-video fixture. If interrupted after install, restore the saved APK, verify its hash, and release the phone.

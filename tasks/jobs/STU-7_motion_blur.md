@@ -15,11 +15,11 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C3 live preview (ordinary pictures first).
+- **Active step:** C3 live preview, device timings and landing.
 - **Code branch / head:** `codex/motionblur-20261122` @ `f03778e8c` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Build the owner’s comparison page from the matched device captures and the existing Trailing/Mix export controls.
-- **Open owner asks:** none.
+- **Exact next action:** Run the decoded-frame timing A/B on the Snapdragon Note 9 using the exact timing APK, with Natural Mix 100 and Mix 0 on the same main-video fixture.
+- **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 
 ### No-loss rules (binding while Codex runs the job)

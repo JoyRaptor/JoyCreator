@@ -69,9 +69,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                 }
                 case SPRITE -> {
                     var sprite = entry.item.getSprite();
-                    if (sprite == null || sprite.isLinked() || sprite.hasAvatarPerformance()
-                            || sprite.wantsGl() || sprite.hasCornerPin()
-                            || sprite.getFrameTrack().keys().stream().anyMatch(key -> key.presetId != null)) {
+                    if (!LanePlan.supportsOrderedSprite(sprite)) {
                         return new Candidate(null, "sprite " + entry.id);
                     }
                     var atlas = sheets.stream().filter(sheet -> sheet.getId().equals(sprite.getSheetId()))

@@ -9,6 +9,7 @@ import com.fadcam.ui.faditor.layers.TimedItem;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
+import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.transcript.CaptionAnimator;
 
 import java.util.ArrayList;
@@ -148,16 +149,36 @@ public final class LanePlan {
                 && CaptionAnimator.parsePreset(picture.getTextAnimPreset()) == CaptionAnimator.Preset.NONE;
     }
 
-    /** First preview slice: the whole plan must fit the picture and adjustment domain. */
-    public boolean supportsOrderedPicturePreview(boolean trueLayerOrder) {
+    /** The whole preview plan must fit the producer and decoder domains. */
+    public boolean supportsOrderedPreview(boolean trueLayerOrder) {
         if (projectExportFallback(trueLayerOrder) != null) return false;
+        int pipCount = 0;
         for (Entry entry : entries) {
             if (entry.kind == Kind.IMAGE && supportsOrderedPicture(entry.item.getTextOverlay())) continue;
             if (entry.kind == Kind.ADJUSTMENT && entry.item.getAdjustment() != null
                     && !entry.item.getAdjustment().getFx().hearsMusic()) continue;
+            if (entry.kind == Kind.PIP && ++pipCount == 1 && supportsOrderedPreviewPip(entry.item.getClip())) continue;
+            if (entry.kind == Kind.TEXT && entry.item.getTextOverlay() != null) continue;
+            if (entry.kind == Kind.SPRITE && supportsOrderedSprite(entry.item.getSprite())) continue;
             return false;
         }
         return true;
+    }
+
+    private static boolean supportsOrderedPreviewPip(@Nullable Clip clip) {
+        if (clip == null || clip.isImageClip() || clip.hasActiveFx() || clip.hasLoopExtension()
+                || clip.hasRemovedSpans() || clip.getSpeedMultiplier() != 1f
+                || com.fadcam.ui.faditor.model.BlendModes.modeCode(clip.getOverlayBlendMode()) != 0f) return false;
+        var compositing = clip.getCompositing();
+        return compositing == null || (!compositing.hasMasks() && compositing.mattePeerId == null
+                && !com.fadcam.ui.faditor.model.ChromaKey.isActive(compositing));
+    }
+
+    /** The host checks atlas metadata and can fall back if its cell source is missing. */
+    public static boolean supportsOrderedSprite(@Nullable SpriteOverlayItem sprite) {
+        return sprite != null && !sprite.isLinked() && !sprite.hasAvatarPerformance()
+                && !sprite.wantsGl() && !sprite.hasCornerPin()
+                && sprite.getFrameTrack().keys().stream().noneMatch(key -> key.presetId != null);
     }
 
     private static int surfaceRank(Kind kind) {

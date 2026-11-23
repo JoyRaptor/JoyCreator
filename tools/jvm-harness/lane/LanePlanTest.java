@@ -35,7 +35,7 @@ public final class LanePlanTest {
         scopeOnlyForEffectLayers();
         projectExportUsesProvenLegacyDomain();
         explicitOrderUsesProjectLayout();
-        picturePreviewRequiresOneSupportedPlan();
+        orderedPreviewRequiresOneSupportedPlan();
         System.out.println("LanePlanTest: " + assertions + " assertions");
     }
 
@@ -137,7 +137,7 @@ public final class LanePlanTest {
                 "explicit true order overrides the legacy equivalence requirement");
     }
 
-    static void picturePreviewRequiresOneSupportedPlan() {
+    static void orderedPreviewRequiresOneSupportedPlan() {
         Timeline t = new Timeline();
         var picture = TextOverlayItem.createImage("content://test/picture.png", 0.5f, 0.5f, 0.5f);
         picture.setLayerId("text");
@@ -146,11 +146,18 @@ public final class LanePlanTest {
         adjustment.setLayerId("adjustment");
         t.addAdjustmentLayer(adjustment);
         t.getOrCreateTrackFlags("adjustment").zIndex = 9;
-        check(!plan(t).supportsOrderedPicturePreview(false), "legacy preview keeps incompatible adjustment order");
-        check(plan(t).supportsOrderedPicturePreview(true), "ordered preview accepts one picture and adjustment plan");
+        check(!plan(t).supportsOrderedPreview(false), "legacy preview keeps incompatible adjustment order");
+        check(plan(t).supportsOrderedPreview(true), "ordered preview accepts one picture and adjustment plan");
+        t.addOverlayClip(new Clip(null, 5000));
+        check(plan(t).supportsOrderedPreview(true), "ordinary single PiP fits the ordered decoder domain");
+        t.addOverlayClip(new Clip(null, 5000));
+        check(!plan(t).supportsOrderedPreview(true), "stacked PiP keeps the original decoder fallback");
 
-        boolean supported = mutant.equals("--ignore-preview-domain") || plan(base()).supportsOrderedPicturePreview(true);
-        check(!supported, "unsupported producer forces whole-frame preview fallback");
+        Timeline rigid = base();
+        check(plan(rigid).supportsOrderedPreview(true), "plain title and rigid sprite can share the ordered plan");
+        rigid.getOverlayClips().get(0).setOverlayBlendMode("SCREEN");
+        boolean supported = mutant.equals("--ignore-preview-domain") || plan(rigid).supportsOrderedPreview(true);
+        check(!supported, "an unsupported PiP forces whole-frame preview fallback");
     }
 
     // ---- helpers --------------------------------------------------------------------------

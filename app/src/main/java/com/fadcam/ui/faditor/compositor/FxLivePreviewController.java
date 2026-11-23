@@ -322,7 +322,7 @@ public final class FxLivePreviewController {
     @Nullable private ExoPlayer routedPlayer;
     private final PreviewDecoderClock motionClock;
     @Nullable private final String debugLaneOrder;
-    private boolean orderedPicturePreviewActive;
+    private boolean orderedPreviewActive;
     private final androidx.media3.common.Timeline.Window motionWindow =
             new androidx.media3.common.Timeline.Window();
 
@@ -524,13 +524,13 @@ public final class FxLivePreviewController {
                 break;
             }
         }
-        LanePlan orderedPictures = anyLayerImage ? null : orderedPicturePlan(timeline);
+        LanePlan orderedLanes = anyLayerImage ? null : orderedPreviewPlan(timeline);
         if (!anyBlendedViz) host.onGlOwnedVisualizers(java.util.Collections.emptySet());
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
                 && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites && !shutterPiP
-                && orderedPictures == null) {
+                && orderedLanes == null) {
             stop();
             return;
         }
@@ -632,20 +632,20 @@ public final class FxLivePreviewController {
         bindMotionClock(timeline, playheadClip);
         view.setSpineShutter(spineShutter(playheadClip, size, rotation));
         view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages,
-                shutterOverlays, shutterSprites, orderedPictures));
+                shutterOverlays, shutterSprites, orderedLanes));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
         route();
     }
 
     @Nullable
-    private LanePlan orderedPicturePlan(Timeline timeline) {
+    private LanePlan orderedPreviewPlan(Timeline timeline) {
         if (debugLaneOrder == null || timeline.hasTransitions() || timeline.hasWaveformOverlays()) return null;
         Clip clip = host.clipAtPlayhead();
         if (clip == null || clip.hasLoopExtension() || clip.hasRemovedSpans()
                 || clip.getSpeedMultiplier() != 1f) return null;
         LanePlan plan = LanePlan.of(timeline);
-        return plan.supportsOrderedPicturePreview("true".equals(debugLaneOrder)) ? plan : null;
+        return plan.supportsOrderedPreview("true".equals(debugLaneOrder)) ? plan : null;
     }
 
     private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip) {
@@ -759,7 +759,7 @@ public final class FxLivePreviewController {
     private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
             long playheadMs, @NonNull int[] size, boolean stacked,
             @NonNull List<TextOverlayItem> glImages, @NonNull List<TextOverlayItem> shutterOverlays,
-            boolean shutterSprites, @Nullable LanePlan orderedPictures) {
+            boolean shutterSprites, @Nullable LanePlan orderedLanes) {
         List<AdjustmentLayer> live =
                 LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
@@ -817,18 +817,8 @@ public final class FxLivePreviewController {
                 snapshot.add(s);
             }
         }
-        if (orderedPictures != null) {
-            var ordered = buildOrderedPictureRungs(orderedPictures, layerIndex, snapshot, spineLayerIndex,
-                    playheadMs, size);
-            if (ordered != null) {
-                if (!orderedPicturePreviewActive) FLog.i(TAG, "LANE_PREVIEW ordered pictures and adjustments");
-                orderedPicturePreviewActive = true;
-                return ordered;
-            }
-        }
-        if (orderedPicturePreviewActive) FLog.i(TAG, "LANE_PREVIEW_FALLBACK existing preview");
-        orderedPicturePreviewActive = false;
         OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        if (ov != null) ov.setRefreshPausedFxFrame(orderedLanes != null);
         // Ask for the extra composite inputs only once the project actually stacks. The request
         // only ever grows, and the GL side builds each input lazily, so a one-PiP project never
         // allocates the second OES texture at all.
@@ -839,6 +829,17 @@ public final class FxLivePreviewController {
             ov.setFxExtraSurfaces(stacked ? pipSurfaces : null);
             ov.setFxStillTrash(view.stillTrash());
         }
+        if (orderedLanes != null) {
+            var ordered = buildOrderedPreviewRungs(orderedLanes, layerIndex, snapshot, spineLayerIndex,
+                    playheadMs, size, timeline.getTotalDurationMs(), offer ? ov : null);
+            if (ordered != null) {
+                if (!orderedPreviewActive) FLog.i(TAG, "LANE_PREVIEW ordered rigid producers and adjustments");
+                orderedPreviewActive = true;
+                return ordered;
+            }
+        }
+        if (orderedPreviewActive) FLog.i(TAG, "LANE_PREVIEW_FALLBACK existing preview");
+        orderedPreviewActive = false;
         List<FxPreviewTextureView.Rung> rungs = new ArrayList<>();
         int pipRungs = 0;
         // Plain images that must composite in GL because a blending image above needs a GL
@@ -1069,35 +1070,75 @@ public final class FxLivePreviewController {
     }
 
     @Nullable
-    private FxPreviewTextureView.CompositePlan buildOrderedPictureRungs(
+    private FxPreviewTextureView.CompositePlan buildOrderedPreviewRungs(
             LanePlan plan, java.util.Map<AdjustmentLayer, Integer> layerIndex,
-            List<FxPreviewTextureView.Layer> layers, int spineLayerIndex, long playheadMs, int[] size) {
+            List<FxPreviewTextureView.Layer> layers, int spineLayerIndex, long playheadMs, int[] size,
+            long projectDurationMs, @Nullable OverlayVideoPreviewView overlay) {
         var rungs = new ArrayList<FxPreviewTextureView.Rung>();
-        var owned = new java.util.HashSet<String>();
+        var ownedImages = new java.util.HashSet<String>();
+        var ownedSprites = new java.util.HashSet<String>();
+        var clock = host.motionBlurEnabled() ? motionClock.anchor() : null;
         for (LanePlan.Entry entry : plan.entries()) {
             if (entry.kind == LanePlan.Kind.ADJUSTMENT) {
                 Integer index = layerIndex.get(entry.item.getAdjustment());
                 if (index != null) rungs.add(FxPreviewTextureView.Rung.layer(index));
                 continue;
             }
+            if (entry.kind == LanePlan.Kind.PIP) {
+                Clip clip = entry.item.getClip();
+                if (clip == null) return null;
+                long start = clip.getOverlayStartMs();
+                if (playheadMs < start || playheadMs > start + clip.getTrimmedDurationMs()) continue;
+                var p = overlay == null ? null : overlay.fxPipFor(clip);
+                if (p == null) return null;
+                var shutter = pipShutter(clip, p, overlay, size);
+                rungs.add(shutter == null ? FxPreviewTextureView.Rung.pip(p)
+                        : FxPreviewTextureView.Rung.movingPiP(p, shutter));
+                continue;
+            }
+            if (entry.kind == LanePlan.Kind.SPRITE) {
+                SpriteOverlayItem sprite = entry.item.getSprite();
+                if (sprite == null) return null;
+                if (!sprite.isVisibleAt(playheadMs) || RigidSpriteMotion.opacity(sprite, playheadMs) <= 0f) continue;
+                if (!addOrderedSprite(rungs, sprite, size, playheadMs, clock)) return null;
+                ownedSprites.add(entry.id);
+                continue;
+            }
             TextOverlayItem item = entry.item.getTextOverlay();
-            if (item == null || !item.isVisibleAt(playheadMs) || item.animatedOpacity(playheadMs) <= 0f) continue;
+            if (item == null) return null;
+            if (!item.isVisibleAt(playheadMs) || item.animatedOpacity(playheadMs) <= 0f) continue;
             // Leave the entire frame on its usual route if any source is still decoding or editing.
             if (host.isManipulatingOverlay(item)) return null;
+            if (entry.kind == LanePlan.Kind.TEXT) {
+                if (!RigidTitleRaster.supportsPlain(item)
+                        || !addTitleMotion(rungs, item, size, playheadMs, projectDurationMs, clock)) return null;
+                ownedImages.add(entry.id);
+                continue;
+            }
             FxPreviewTextureView.Pip p = host.imagePipFor(item, size[0], size[1]);
             if (p == null || p.still == null || p.still.isRecycled()) return null;
-            var clock = motionClock.anchor();
-            RigidPictureMotion motion = host.motionBlurEnabled() && clock != null
-                    ? pictureMotion(item, p, size, clock) : null;
+            RigidPictureMotion motion = clock == null ? null : pictureMotion(item, p, size, clock);
             rungs.add(motion == null ? FxPreviewTextureView.Rung.pip(p)
                     : FxPreviewTextureView.Rung.movingStill(p, new FxPreviewTextureView.StillShutter(
                             RigidTextureShutterPass.Source.PICTURE, motion::exposure)));
-            owned.add(item.getId());
+            ownedImages.add(entry.id);
         }
-        host.onGlOwnedImages(owned);
-        host.onGlOwnedSprites(java.util.Collections.emptySet());
+        host.onGlOwnedImages(ownedImages);
+        host.onGlOwnedSprites(ownedSprites);
         host.onGlOwnedVisualizers(java.util.Collections.emptySet());
         return new FxPreviewTextureView.CompositePlan(layers, rungs, spineLayerIndex);
+    }
+
+    private boolean addOrderedSprite(List<FxPreviewTextureView.Rung> rungs, SpriteOverlayItem sprite,
+                                     int[] size, long playheadMs, @Nullable PreviewDecoderClock.Anchor clock) {
+        if (clock != null && sprite.isRigidMotionBlurEnabled() && RigidSpriteMotion.supports(sprite)
+                && addSpriteMotion(rungs, sprite, size, playheadMs, clock)) return true;
+        var cell = host.spriteMotionCell(sprite, playheadMs);
+        if (cell == null) return false;
+        var sharp = spriteCellPip(sprite, cell, size, playheadMs);
+        if (sharp == null) return false;
+        rungs.add(FxPreviewTextureView.Rung.pip(sharp));
+        return true;
     }
 
     /**
@@ -1251,19 +1292,11 @@ public final class FxLivePreviewController {
             com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cell, int[] size,
             long sharpTimeMs, PreviewDecoderClock.Anchor clock) {
         int width = size[0], height = size[1];
-        float sizeFraction = snapshot.animatedSizeFraction(sharpTimeMs);
         long begin = Math.max(clock.editorStartUs(), cell.window().startUs());
         long end = Math.min(clock.editorEndUs(), cell.window().endUs());
-        if (begin >= end || width <= 0 || height <= 0 || !(sizeFraction > 0) || !(cell.aspect() > 0)) {
-            return null;
-        }
-        var sharp = FxPreviewTextureView.Pip.ofImage(snapshot.animatedCenterX(sharpTimeMs),
-                1f - snapshot.animatedCenterY(sharpTimeMs),
-                sizeFraction * cell.aspect() * height / (2f * width) * (snapshot.isFlipH() ? -1f : 1f),
-                sizeFraction * 0.5f * (snapshot.isFlipV() ? -1f : 1f),
-                -snapshot.animatedRotation(sharpTimeMs), RigidSpriteMotion.opacity(snapshot, sharpTimeMs),
-                null, sharpTimeMs, null, 0f, width, height,
-                snapshot.getId() + "#cell" + cell.window().cell(), cell.bitmap(), 1f);
+        if (begin >= end) return null;
+        var sharp = spriteCellPip(snapshot, cell, size, sharpTimeMs);
+        if (sharp == null) return null;
         var breaks = RigidSpriteMotion.fences(snapshot, begin, end);
         var sampler = com.fadcam.ui.faditor.motion.MotionItemAdapters.sprite(
                 snapshot, width, height, cell.aspect());
@@ -1276,6 +1309,22 @@ public final class FxLivePreviewController {
                             plan, RigidSpriteMotion.opacity(snapshot, timeUs / 1000L));
                 });
         return new FxPreviewTextureView.TimedStill(sharp, shutter, begin, end);
+    }
+
+    @Nullable
+    private static FxPreviewTextureView.Pip spriteCellPip(SpriteOverlayItem item,
+            com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cell, int[] size, long timeMs) {
+        int width = size[0], height = size[1];
+        float scale = item.animatedSizeFraction(timeMs);
+        if (width <= 0 || height <= 0 || !(scale > 0f) || !(cell.aspect() > 0f)
+                || cell.bitmap().isRecycled()) return null;
+        return FxPreviewTextureView.Pip.ofImage(item.animatedCenterX(timeMs),
+                1f - item.animatedCenterY(timeMs),
+                scale * cell.aspect() * height / (2f * width) * (item.isFlipH() ? -1f : 1f),
+                scale * 0.5f * (item.isFlipV() ? -1f : 1f),
+                -item.animatedRotation(timeMs), RigidSpriteMotion.opacity(item, timeMs),
+                null, timeMs, null, 0f, width, height,
+                item.getId() + "#cell" + cell.window().cell(), cell.bitmap(), 1f);
     }
 
     /** Move the entire ordinary still run together so titles and pictures keep their order. */
@@ -1307,7 +1356,7 @@ public final class FxLivePreviewController {
 
     private boolean addTitleMotion(List<FxPreviewTextureView.Rung> rungs, TextOverlayItem item,
                                     int[] size, long playheadMs, long durationMs,
-                                    PreviewDecoderClock.Anchor clock) {
+                                    @Nullable PreviewDecoderClock.Anchor clock) {
         if (!item.isVisibleAt(playheadMs) || host.isManipulatingOverlay(item)) return false;
         int width = size[0], height = size[1];
         float opacity = item.animatedOpacity(playheadMs);
@@ -1328,7 +1377,7 @@ public final class FxLivePreviewController {
                 raster.getWidth() / (2f * width), raster.getHeight() / (2f * height),
                 -position[3], 1f, null, playheadMs, null, 0f, width, height,
                 "title-motion#" + item.getId(), raster, 1f);
-        if (!item.isRigidMotionBlurEnabled()) {
+        if (clock == null || !item.isRigidMotionBlurEnabled()) {
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             return true;
         }
@@ -2069,12 +2118,14 @@ public final class FxLivePreviewController {
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());
         host.onCaptionGlOwned(java.util.Collections.emptySet());
+        orderedPreviewActive = false;
+        OverlayVideoPreviewView ov = host.overlayVideoLayer();
+        if (ov != null) ov.setRefreshPausedFxFrame(false);
         if (!routed) return;
         routed = false;
         routedPlayer = null;
         view.setCompositePlan(null);
         view.setGrade(null);
-        OverlayVideoPreviewView ov = host.overlayVideoLayer();
         if (ov != null) ov.setFxCompositeSurface(null);   // give the PiP its own surface back
         host.restoreVideoOutput();
         FLog.i(TAG, "live FX preview released");

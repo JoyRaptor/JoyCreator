@@ -1,7 +1,10 @@
 package com.fadcam.ui.faditor.export;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import android.app.Activity;
 import android.content.Intent;
+import android.content.Context;
 import android.os.Build;
 import android.os.Bundle;
 
@@ -77,26 +80,95 @@ public class ExportDebugActivity extends Activity {
     }
 
     private boolean start(Intent in) throws Exception {
+        if (in.getBooleanExtra("motion_spine_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            boolean animated = in.getBooleanExtra("motion_animated", true);
+            boolean transparentArt = in.getBooleanExtra("motion_transparent_art", false);
+            boolean doubleSpeed = !transparentArt && in.getBooleanExtra("motion_double_speed", false);
+            String presetName = in.getStringExtra("motion_preset");
+            var preset = presetName == null ? MotionShutter.Preset.NATURAL
+                    : MotionShutter.Preset.valueOf(presetName);
+            var controls = new MotionShutter.Controls(
+                    preset.angle, preset.timing, 0, in.getIntExtra("motion_mix", 100));
+            FaditorProject fixture = MotionRouteFixture.createSpine(
+                    this, enabled, animated, transparentArt, doubleSpeed, controls,
+                    in.getBooleanExtra("motion_master_off", false));
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
+                    + " art=" + transparentArt + " doubleSpeed=" + doubleSpeed);
+        }
+        if (in.getBooleanExtra("motion_picture_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createPicture(this, enabled);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 picture fixture enabled=" + enabled);
+        }
+        if (in.getBooleanExtra("motion_sprite_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createSprite(
+                    this, enabled, in.getBooleanExtra("motion_master_off", false));
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 sprite fixture enabled=" + enabled);
+        }
+        if (in.getBooleanExtra("motion_title_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createTitle(this, enabled);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 title fixture enabled=" + enabled);
+        }
+        if (in.getBooleanExtra("motion_pip_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createPip(this, enabled);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C2 pip fixture enabled=" + enabled);
+        }
         if (in.getBooleanExtra("motion_route_fixture", false)) {
             FaditorProject fixture = MotionRouteFixture.create(this);
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C1 route fixture project_id=" + fixture.getId());
-            if (in.getBooleanExtra("open_preview", false)) {
-                Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
-                preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, fixture.getId());
-                startActivity(preview);
-                return false;
-            }
         }
         String id = in.getStringExtra("project_id");
         if (id == null) {
             FLog.w(TAG, "no project_id extra");
             return false;
         }
+        if (in.getBooleanExtra("open_preview", false)) {
+            Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
+            preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
+            startActivity(preview);
+            return false;
+        }
         ProjectStorage storage = new ProjectStorage(this);
         FaditorProject project = storage.load(id);
         if (project == null) {
             FLog.w(TAG, "no project " + id);
+            return false;
+        }
+        if (in.getBooleanExtra("motion_spine_fixture", false)) {
+            FLog.i(TAG, "C2 stored shutter " + project.getTimeline().getClip(0).getRigidMotionShutter()
+                    + " master=" + project.isMotionBlurEnabled());
+        }
+        long inspectMs = in.getLongExtra("motion_inspect_ms", -1L);
+        if (inspectMs >= 0) {
+            Context app = getApplicationContext();
+            new Thread(() -> {
+                android.graphics.Bitmap frame = ComposedFrame.render(app, project, inspectMs);
+                if (frame == null) {
+                    FLog.e(TAG, "C2 Inspect Frame returned no bitmap");
+                    return;
+                }
+                File png = new File(app.getCacheDir(), "motion_inspect_" + project.getId() + ".png");
+                try (FileOutputStream out = new FileOutputStream(png)) {
+                    if (!frame.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)) {
+                        throw new java.io.IOException("Could not encode inspected frame");
+                    }
+                    FLog.i(TAG, "C2 inspect frame=" + png.getName() + " at " + inspectMs + "ms");
+                } catch (Exception e) {
+                    FLog.e(TAG, "C2 Inspect Frame fixture could not save", e);
+                } finally {
+                    frame.recycle();
+                }
+            }, "motion-inspect-fixture").start();
             return false;
         }
         File dir = new File(getFilesDir(), "faditor");

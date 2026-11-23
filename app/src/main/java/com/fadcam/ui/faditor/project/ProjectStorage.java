@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.project;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import com.fadcam.Log;
 import com.fadcam.FLog;
 import android.content.Context;
@@ -1988,6 +1990,8 @@ public class ProjectStorage {
             if (keys != null) st.add("keys", keys);
             clipJson.add("spineTransform", st);
         }
+        if (clip.isRigidMotionBlurEnabled()) clipJson.addProperty("rigidMotionBlur", true);
+        writeRigidMotionShutter(clipJson, clip.getRigidMotionShutter());
         return clipJson;
     }
 
@@ -2019,6 +2023,41 @@ public class ProjectStorage {
      */
     private static boolean hasValue(@NonNull JsonObject o, @NonNull String key) {
         return o.has(key) && !o.get(key).isJsonNull();
+    }
+
+    private static void writeRigidMotionShutter(JsonObject item, MotionShutter.Controls controls) {
+        if (MotionShutter.Controls.NATURAL.equals(controls)) return;
+        JsonObject shutter = new JsonObject();
+        shutter.addProperty("angle", controls.angle());
+        shutter.addProperty("timing", controls.timing().name());
+        shutter.addProperty("phase", controls.customPhase());
+        shutter.addProperty("mix", controls.mixPercent());
+        item.add("rigidMotionShutter", shutter);
+    }
+
+    private static MotionShutter.Controls readRigidMotionShutter(JsonObject item) {
+        JsonElement entry = item.get("rigidMotionShutter");
+        if (entry == null || !entry.isJsonObject()) return MotionShutter.Controls.NATURAL;
+        JsonObject shutter = entry.getAsJsonObject();
+        JsonElement timingValue = shutter.get("timing");
+        MotionShutter.Timing timing = MotionShutter.Timing.CENTERED;
+        if (timingValue != null && timingValue.isJsonPrimitive()
+                && timingValue.getAsJsonPrimitive().isString()) {
+            try {
+                timing = MotionShutter.Timing.valueOf(timingValue.getAsString());
+            } catch (IllegalArgumentException ignored) {
+                // An older editor may encounter a timing mode from a newer project.
+            }
+        }
+        return new MotionShutter.Controls(readShutterNumber(shutter, "angle", 180), timing,
+                readShutterNumber(shutter, "phase", 0), readShutterNumber(shutter, "mix", 100));
+    }
+
+    private static int readShutterNumber(JsonObject shutter, String field, int fallback) {
+        JsonElement entry = shutter.get(field);
+        if (entry == null || !entry.isJsonPrimitive() || !entry.getAsJsonPrimitive().isNumber()) return fallback;
+        double value = entry.getAsDouble();
+        return Double.isFinite(value) ? (int) Math.max(-720, Math.min(720, Math.round(value))) : fallback;
     }
 
     private Clip deserializeClipObject(@NonNull File projectDir, @NonNull JsonObject clipObj) {
@@ -2382,6 +2421,12 @@ public class ProjectStorage {
                 if (ks != null) clip.setSpineTransform(ks);
             }
         }
+        JsonElement rigidMotionBlur = clipObj.get("rigidMotionBlur");
+        if (rigidMotionBlur != null && rigidMotionBlur.isJsonPrimitive()
+                && rigidMotionBlur.getAsJsonPrimitive().isBoolean()) {
+            clip.setRigidMotionBlurEnabled(rigidMotionBlur.getAsBoolean());
+        }
+        clip.setRigidMotionShutter(readRigidMotionShutter(clipObj));
         // §4.5 per-object eye/lock (tolerant: absent = false).
         if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
         if (hasValue(clipObj, "objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
@@ -2582,6 +2627,7 @@ public class ProjectStorage {
             json.addProperty("name", src.getName());
             json.addProperty("createdAt", src.getCreatedAt());
             json.addProperty("lastModified", src.getLastModified());
+            if (src.isMotionBlurEnabled()) json.addProperty("motionBlurEnabled", true);
 
             // Serialize timeline with clips
             JsonObject timelineJson = new JsonObject();
@@ -2896,6 +2942,8 @@ public class ProjectStorage {
                 // passThrough/scaleLinked false/true and blend "NORMAL" write nothing,
                 // so every pre-existing project stays byte-identical.
                 if (o.isPassThrough()) oJson.addProperty("passThrough", true);
+                if (o.isRigidMotionBlurEnabled()) oJson.addProperty("rigidMotionBlur", true);
+                writeRigidMotionShutter(oJson, o.getRigidMotionShutter());
                 if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
                 // SPEC B rotation pivot — sparse like the rest: a centre pivot (every overlay
                 // in every project written before this) writes nothing and stays
@@ -3247,6 +3295,8 @@ public class ProjectStorage {
                     // §4.5 per-object eye/lock (write-if-true).
                     if (so.isHidden()) sj.addProperty("objHidden", true);
                     if (so.isLocked()) sj.addProperty("objLocked", true);
+                    if (so.isRigidMotionBlurEnabled()) sj.addProperty("rigidMotionBlur", true);
+                    writeRigidMotionShutter(sj, so.getRigidMotionShutter());
                     spArray.add(sj);
                 }
                 timelineJson.add("spriteOverlays", spArray);
@@ -3443,6 +3493,11 @@ public class ProjectStorage {
             // version, dropping the unknown newer data. Instead: keep the on-disk version,
             // and if it is newer than we understand, mark the project read-only so the
             // save path refuses to overwrite it.
+            JsonElement motionBlurEnabled = obj.get("motionBlurEnabled");
+            if (motionBlurEnabled != null && motionBlurEnabled.isJsonPrimitive()
+                    && motionBlurEnabled.getAsJsonPrimitive().isBoolean()) {
+                project.setMotionBlurEnabled(motionBlurEnabled.getAsBoolean());
+            }
             int runningVersion = com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION;
             if (schemaVersion > runningVersion) {
                 project.setSchemaVersion(schemaVersion);          // preserve the newer stamp
@@ -3860,6 +3915,10 @@ public class ProjectStorage {
                         // model so a project written before these keys load exactly as it
                         // always did.
                         if (hasValue(oObj, "passThrough")) o.setPassThrough(oObj.get("passThrough").getAsBoolean());
+                        if (hasValue(oObj, "rigidMotionBlur")) {
+                            o.setRigidMotionBlurEnabled(oObj.get("rigidMotionBlur").getAsBoolean());
+                        }
+                        o.setRigidMotionShutter(readRigidMotionShutter(oObj));
                         if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
                         // SPEC B rotation pivot — TOLERANT: absent keys are the centre pivot,
                         // so a project written before this loads and renders exactly as it
@@ -4374,6 +4433,10 @@ public class ProjectStorage {
                             // §4.5 per-object eye/lock (tolerant: absent = false).
                             if (hasValue(sj, "objHidden")) so.setHidden(sj.get("objHidden").getAsBoolean());
                             if (hasValue(sj, "objLocked")) so.setLocked(sj.get("objLocked").getAsBoolean());
+                            if (hasValue(sj, "rigidMotionBlur")) {
+                                so.setRigidMotionBlurEnabled(sj.get("rigidMotionBlur").getAsBoolean());
+                            }
+                            so.setRigidMotionShutter(readRigidMotionShutter(sj));
                             project.getTimeline().addSpriteOverlay(so);
                         } catch (Exception ignored) { }
                     }

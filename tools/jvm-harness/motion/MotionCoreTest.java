@@ -1,6 +1,7 @@
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.motion.VelocityPack;
 
@@ -16,6 +17,8 @@ public final class MotionCoreTest {
     public static void main(String[] args) {
         MotionCoreTest test = new MotionCoreTest(args.length == 0 ? "" : args[0]);
         test.shutter();
+        test.cadence();
+        test.authorControls();
         test.breaks();
         test.keyframes();
         test.velocity();
@@ -49,6 +52,63 @@ public final class MotionCoreTest {
         expectLong(center, closed.timesUs()[0], "closed shutter is t");
         check(MotionShutter.sample(center, fps, 721, -360, MotionShutter.Shape.BOX, 2,
                 MotionBreaks.none()).timesUs()[1] == Math.round(center + fps.periodUs() / 2), "angle capped at 720");
+    }
+
+    private void cadence() {
+        var cadence = new MotionFrameCadence();
+        expectLong(0, cadence.observe(900_000), "first frame has no cadence history");
+        long period = cadence.observe(916_667);
+        if (mutant.equals("--wrong-fixed-export-rate")) period = 33_333;
+        expectLong(16_667, period, "export shutter reads the 60 fps presentation interval");
+        var measured = new MotionShutter.FrameRate(1_000_000, (int) period);
+        var schedule = MotionShutter.sample(916_667, measured, 180, -90,
+                MotionShutter.Shape.BOX, 2, MotionBreaks.none());
+        expectLong(914_584, schedule.timesUs()[0], "shorter 60 fps exposure");
+        var fenced = new MotionBreaks.Builder().add(917_000).build();
+        var beforeCut = MotionShutter.sample(916_667, measured, 180, -90,
+                MotionShutter.Shape.BOX, 6, fenced);
+        for (long sample : beforeCut.timesUs()) check(sample < 917_000, "measured cadence still stops at cut");
+        expectLong(41_708, cadence.observe(958_375), "variable cadence keeps exact microseconds");
+        expectLong(0, cadence.observe(958_375), "duplicate timestamp");
+        expectLong(0, cadence.observe(17_000), "time moved backwards");
+        expectLong(33_333, cadence.observe(50_333), "cadence recovered after seek");
+        expectLong(0, cadence.observe(1_900_000), "a long gap is not a frame period");
+        expectLong(50_000, cadence.observe(1_950_000), "cadence recovered after gap");
+        cadence.reset();
+        expectLong(0, cadence.observe(1_983_334), "flush forgets the previous frame");
+        expectLong(33_334, cadence.observe(2_016_668), "fractional NTSC timestamp alternation");
+    }
+
+    private void authorControls() {
+        long center = 100_000;
+        long period = 16_666;
+        var controls = new MotionShutter.Controls(270, MotionShutter.Timing.TRAILING, 0, 40);
+        var applied = mutant.equals("--wrong-shutter-controls") ? MotionShutter.Controls.NATURAL : controls;
+        var cuts = new MotionBreaks.Builder().add(93_000).build();
+        var schedule = applied.schedule(center, period, 6, cuts, MotionBreaks.none());
+        expectLong(center, schedule.timesUs()[5], "partial mix retains a sharp tap");
+        check(schedule.weights()[5] == 0.6, "sharp tap carries the unmixed fraction");
+        double blurredWeight = 0.0;
+        for (int i = 0; i < 5; i++) {
+            check(schedule.timesUs()[i] >= 93_000 && schedule.timesUs()[i] < center,
+                    "trailing preset respects the preceding cut");
+            blurredWeight += schedule.weights()[i];
+        }
+        check(Math.abs(blurredWeight - 0.4) < 1e-12, "exposure carries the requested mix fraction");
+        var custom = new MotionShutter.Controls(720, MotionShutter.Timing.CUSTOM, -450, 100);
+        check(custom.openOffsetUs(period) < -period && custom.closeOffsetUs(period) > 0,
+                "custom sprite lookup covers the whole offset exposure");
+        var cutAtCenter = new MotionBreaks.Builder().add(center).build();
+        expectLong(1, controls.schedule(center, period, 6, cutAtCenter, MotionBreaks.none()).timesUs().length,
+                "a fenced trailing exposure falls back to sharp");
+        var silent = new MotionShutter.Controls(180, MotionShutter.Timing.CENTERED, 0, 0);
+        expectLong(1, silent.schedule(center, period, 6, MotionBreaks.none(), MotionBreaks.none()).timesUs().length,
+                "zero mix produces one sharp sample");
+        var natural = MotionShutter.Controls.NATURAL.schedule(center, period, 6, cuts, MotionBreaks.none());
+        var original = MotionShutter.sample(center, new MotionShutter.FrameRate(1_000_000, (int) period),
+                180, -90, MotionShutter.Shape.BOX, 6, cuts);
+        check(java.util.Arrays.equals(natural.timesUs(), original.timesUs())
+                && java.util.Arrays.equals(natural.weights(), original.weights()), "Natural preserves the export shutter");
     }
 
     private void breaks() {

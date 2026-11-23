@@ -1,5 +1,8 @@
 package com.fadcam.ui.faditor.model;
 
+import com.fadcam.ui.faditor.motion.MotionBlurItem;
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import android.net.Uri;
 
 import androidx.annotation.NonNull;
@@ -18,7 +21,7 @@ import com.fadcam.ui.faditor.effects.EffectStack;
  * <p>Immutable-style: use setters sparingly; prefer creating new instances
  * or using the Builder when scaling to multi-clip editing.</p>
  */
-public class Clip implements AudioParams {
+public class Clip implements AudioParams, MotionBlurItem {
 
     // §4.5 per-OBJECT visibility/lock (LANE_BADGES spec, built 2026-07-19). Only honored
     // for OVERLAY/PiP clips (isOverlayClip()) — master tape clips ignore both (hiding a
@@ -729,6 +732,8 @@ public class Clip implements AudioParams {
         this.spineScaleX = other.spineScaleX;
         this.spineScaleY = other.spineScaleY;
         this.spineRotationDeg = other.spineRotationDeg;
+        this.rigidMotionBlur = other.rigidMotionBlur;
+        this.rigidMotionShutter = other.rigidMotionShutter;
         this.spineTransform = other.spineTransform != null
                 ? other.spineTransform.copy() : null;
         // SPEC ZB: the warp rides along, DEEP — beside the spine pose, not inside it. The
@@ -826,6 +831,8 @@ public class Clip implements AudioParams {
         c.spineScaleX = spineScaleX;
         c.spineScaleY = spineScaleY;
         c.spineRotationDeg = spineRotationDeg;
+        c.rigidMotionBlur = rigidMotionBlur;
+        c.rigidMotionShutter = rigidMotionShutter;
         c.spineTransform = spineTransform != null ? spineTransform.copy() : null;
         // SPEC ZB: relinked()'s own javadoc promises to keep "every edit", and the warp is
         // one. Deep, like the copy constructor above, for the same aliasing reason.
@@ -1909,6 +1916,18 @@ public class Clip implements AudioParams {
     private float spineScaleX = 1f;
     private float spineScaleY = 1f;
     private float spineRotationDeg = 0f;
+    private boolean rigidMotionBlur;
+    private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+
+    @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
+
+    public void setRigidMotionShutter(@NonNull MotionShutter.Controls controls) {
+        rigidMotionShutter = java.util.Objects.requireNonNull(controls);
+    }
+
+    public boolean isRigidMotionBlurEnabled() { return rigidMotionBlur; }
+
+    public void setRigidMotionBlurEnabled(boolean enabled) { rigidMotionBlur = enabled; }
 
     /**
      * Optional animation of the six numbers above, in CLIP-LOCAL milliseconds — the same time

@@ -14,6 +14,8 @@ nothing is hidden until he does (the list file is empty today). Sources: STATE.m
 
 **What the switch already honours (landed with L37):** lobby rooms (`room_*`), New chips (`new_*`), floor words (`floor_*`), Settings hub rows and their search (`setting_*`), the nine gadget rows in classic Settings and Capture's side menu (`gadget_*`, `gadget_stubs`), and Joybot's help answers, tips and Take me there for any hidden room or floor place. **Keys in this table that need their doors wired after JoyRaptor picks** (section 3 lists each door): `joybot_pictures`, `joybot_bridge`, `joybot_hands_free`, `joybot_recording_control`, `joybrush_palette_knife_3`, `joybrush_tile_board`, `joybrush_pen_diagnostics` (the JoyBrush module needs its own read of the list), `capture_fadmic`, `capture_profiles`, and the side doors of `room_avatar` (Library chip, Studio's avatar button, the rig action).
 
+**11-23 engineering hide:** `studio_motion_blur` removes the Studio carousel and All tools entry until C3 preview/export parity. The launch list keeps this hide independently of the owner picks below.
+
 ## 1. Features (most important first)
 
 | key | feature | where its door is | proof | proposal | why |

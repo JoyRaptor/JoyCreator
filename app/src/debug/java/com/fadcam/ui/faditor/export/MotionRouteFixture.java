@@ -1,18 +1,24 @@
 package com.fadcam.ui.faditor.export;
 
+import com.fadcam.ui.faditor.motion.MotionShutter;
+
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.net.Uri;
 
+import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
@@ -24,7 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
-/** Disposable synthetic C1 project driven through the regular editor and export service. */
+/** Disposable synthetic motion projects driven through the regular editor and export service. */
 final class MotionRouteFixture {
     private MotionRouteFixture() {}
 
@@ -104,6 +110,258 @@ final class MotionRouteFixture {
 
         if (!storage.save(project)) throw new IOException("Could not save the route fixture");
         return project;
+    }
+
+    static FaditorProject createSpine(Context context, boolean enabled, boolean animated,
+                                      boolean transparentArt, boolean doubleSpeed,
+                                      MotionShutter.Controls controls, boolean masterOff) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String label = !animated ? "motion only" : enabled ? "blur" : "sharp";
+        if (transparentArt) label = "art " + label;
+        if (doubleSpeed) label = "2x " + label;
+        if (enabled && masterOff) label += " master off";
+        if (!MotionShutter.Controls.NATURAL.equals(controls)) label += " preset " + controls.mixPercent();
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 " + label));
+        project.setMotionBlurEnabled(enabled && !masterOff);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create spine fixture media directory");
+        File source = transparentArt ? createShutterArt(media) : copyAsset(context, media, "card2.mp4");
+        long duration = transparentArt ? 1_000L : durationMs(source);
+        long sourceSpan = doubleSpeed ? 2_000L : 1_000L;
+        if (duration < sourceSpan) throw new IOException("Spine fixture source is too short");
+        Clip clip = clip(source, duration, sourceSpan);
+        if (doubleSpeed) clip.setSpeedMultiplier(2f);
+        clip.setImageClip(transparentArt);
+        if (transparentArt) clip.setAudioMuted(true);
+        clip.setRigidMotionBlurEnabled(enabled);
+        clip.setRigidMotionShutter(controls);
+        if (animated) {
+            clip.setSpineScale(0.38f);
+            var keys = clip.getOrCreateSpineTransform();
+            var x = keys.getOrCreate(SpineTransform.X);
+            x.put(0, 0.24f, Easing.LINEAR);
+            x.put(250, 0.24f, Easing.LINEAR);
+            x.put(500, 0.76f, Easing.HOLD);
+            // The 30 fps frame at 733.333 ms has a shutter that straddles this jump.
+            x.put(735, 0.38f, Easing.LINEAR);
+            var y = keys.getOrCreate(SpineTransform.Y);
+            y.put(0, 0.38f, Easing.LINEAR);
+            y.put(250, 0.38f, Easing.LINEAR);
+            y.put(500, 0.62f, Easing.HOLD);
+            y.put(735, 0.48f, Easing.LINEAR);
+            var rotation = keys.getOrCreate(SpineTransform.ROTATION);
+            rotation.put(0, 0f, Easing.LINEAR);
+            rotation.put(250, 0f, Easing.LINEAR);
+            rotation.put(500, 55f, Easing.HOLD);
+            rotation.put(735, -12f, Easing.LINEAR);
+        }
+        project.getTimeline().addClip(clip);
+        if (!storage.save(project)) throw new IOException("Could not save the spine fixture");
+        return project;
+    }
+
+    static FaditorProject createPicture(Context context, boolean enabled) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 picture " + variant));
+        project.setMotionBlurEnabled(enabled);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create picture fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Picture fixture is shorter than 1 second");
+        project.getTimeline().addClip(clip(source, duration, 1_000L));
+
+        String art = Uri.fromFile(createShutterArt(media)).toString();
+        var under = TextOverlayItem.createImage(art, 0.45f, 0.62f, 0.56f);
+        under.setTimeRange(0, 999);
+        under.setOpacity(0.35f);
+        project.getTimeline().addTextOverlay(under);
+
+        var picture = TextOverlayItem.createImage(art, 0.24f, 0.28f, 0.55f);
+        picture.setTimeRange(0, 899);
+        picture.setOpacity(0.72f);
+        picture.setRigidMotionBlurEnabled(enabled);
+        var keys = picture.getKeyframes();
+        var x = keys.getOrCreate(KeyframeSet.X);
+        x.put(0, 0.24f, Easing.LINEAR);
+        x.put(250, 0.24f, Easing.LINEAR);
+        x.put(500, 0.76f, Easing.HOLD);
+        x.put(735, 0.38f, Easing.LINEAR);
+        var y = keys.getOrCreate(KeyframeSet.Y);
+        y.put(0, 0.28f, Easing.LINEAR);
+        y.put(250, 0.28f, Easing.LINEAR);
+        y.put(500, 0.61f, Easing.HOLD);
+        y.put(735, 0.43f, Easing.LINEAR);
+        var rotation = keys.getOrCreate(KeyframeSet.ROTATION);
+        rotation.put(0, -10f, Easing.LINEAR);
+        rotation.put(250, -10f, Easing.LINEAR);
+        rotation.put(500, 40f, Easing.HOLD);
+        rotation.put(735, -20f, Easing.LINEAR);
+        project.getTimeline().addTextOverlay(picture);
+        if (!storage.save(project)) throw new IOException("Could not save the picture fixture");
+        return project;
+    }
+
+    static FaditorProject createSprite(Context context, boolean enabled, boolean masterOff) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 sprite " + variant + (enabled && masterOff ? " master off" : "")));
+        project.setMotionBlurEnabled(enabled && !masterOff);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create sprite fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Sprite fixture is shorter than 1 second");
+        project.getTimeline().addClip(clip(source, duration, 1_000L));
+
+        File art = new File(media, "shutter-cells.png");
+        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(art)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            paint.setColor(Color.RED);
+            canvas.drawRect(10, 8, 119, 84, paint);
+            paint.setColor(0x80FF4020);
+            canvas.drawRect(10, 87, 78, 122, paint);
+            paint.setColor(Color.CYAN);
+            canvas.drawRect(138, 8, 247, 84, paint);
+            paint.setColor(0x8000E0FF);
+            canvas.drawRect(138, 87, 206, 122, paint);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write shutter sprite cells");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        var sheet = new SpriteSheet("c2-sprite-cells", "C2 shutter cells", Uri.fromFile(art).toString());
+        sheet.setGrid(2, 1);
+        project.getSpriteSheets().add(sheet);
+        var sprite = SpriteOverlayItem.create(sheet.getId());
+        sprite.setCenter(0.22f, 0.58f);
+        sprite.setSizeFraction(0.26f);
+        sprite.setTimeRange(0, 899);
+        sprite.setOpacity(0.82f);
+        sprite.setRigidMotionBlurEnabled(enabled);
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0, 0));
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(367, 1)); // exposure at 366.667 ms crosses it
+        var x = sprite.getKeyframes().getOrCreate(KeyframeSet.X);
+        x.put(0, 0.22f, Easing.LINEAR);
+        x.put(220, 0.22f, Easing.LINEAR);
+        x.put(620, 0.75f, Easing.LINEAR);
+        project.getTimeline().addSpriteOverlay(sprite);
+        if (!storage.save(project)) throw new IOException("Could not save the sprite fixture");
+        return project;
+    }
+
+    static FaditorProject createTitle(Context context, boolean enabled) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 title " + variant));
+        project.setMotionBlurEnabled(enabled);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create title fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Title fixture is shorter than 1 second");
+        project.getTimeline().addClip(clip(source, duration, 1_000L));
+
+        var under = TextOverlayItem.createImage(Uri.fromFile(createShutterArt(media)).toString(),
+                0.55f, 0.54f, 0.56f);
+        under.setTimeRange(0, 999);
+        under.setOpacity(0.3f);
+        project.getTimeline().addTextOverlay(under);
+
+        var title = new TextOverlayItem("STUDIO\nMotion Blur", Color.WHITE, 0.22f, 0.34f, 0.12f, 0f);
+        title.setTimeRange(0, 899);
+        title.setOpacity(0.82f);
+        title.setRigidMotionBlurEnabled(enabled);
+        var x = title.getKeyframes().getOrCreate(KeyframeSet.X);
+        x.put(0, 0.22f, Easing.LINEAR);
+        x.put(250, 0.22f, Easing.LINEAR);
+        x.put(500, 0.76f, Easing.HOLD);
+        x.put(735, 0.39f, Easing.LINEAR);
+        var y = title.getKeyframes().getOrCreate(KeyframeSet.Y);
+        y.put(0, 0.34f, Easing.LINEAR);
+        y.put(250, 0.34f, Easing.LINEAR);
+        y.put(500, 0.59f, Easing.HOLD);
+        y.put(735, 0.45f, Easing.LINEAR);
+        var r = title.getKeyframes().getOrCreate(KeyframeSet.ROTATION);
+        r.put(0, -10f, Easing.LINEAR);
+        r.put(250, -10f, Easing.LINEAR);
+        r.put(500, 30f, Easing.HOLD);
+        r.put(735, -20f, Easing.LINEAR);
+        project.getTimeline().addTextOverlay(title);
+        if (!storage.save(project)) throw new IOException("Could not save the title fixture");
+        return project;
+    }
+
+    static FaditorProject createPip(Context context, boolean enabled) throws IOException {
+        var storage = new ProjectStorage(context);
+        String variant = enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 pip " + variant));
+        project.setMotionBlurEnabled(enabled);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create PiP fixture media directory");
+        File base = copyAsset(context, media, "card2.mp4");
+        File insert = copyAsset(context, media, "card1.mp4");
+        long duration = durationMs(base);
+        long insertDuration = durationMs(insert);
+        if (duration < 1_000L || insertDuration < 1_000L) {
+            throw new IOException("PiP fixture sources must be at least one second");
+        }
+        project.getTimeline().addClip(clip(base, duration, 1_000L));
+        var pip = clip(insert, insertDuration, 1_000L);
+        pip.setLayerId("video-c2-pip");
+        pip.setOverlayStartMs(0L);
+        pip.setOverlayAudioEnabled(false);
+        pip.setRigidMotionBlurEnabled(enabled);
+        var keys = new KeyframeSet();
+        var x = keys.getOrCreate(KeyframeSet.X);
+        x.put(0, 0.24f, Easing.LINEAR);
+        x.put(250, 0.24f, Easing.LINEAR);
+        x.put(500, 0.76f, Easing.HOLD);
+        x.put(735, 0.39f, Easing.LINEAR);
+        var y = keys.getOrCreate(KeyframeSet.Y);
+        y.put(0, 0.32f, Easing.LINEAR);
+        y.put(250, 0.32f, Easing.LINEAR);
+        y.put(500, 0.59f, Easing.HOLD);
+        y.put(735, 0.43f, Easing.LINEAR);
+        var rotation = keys.getOrCreate(KeyframeSet.ROTATION);
+        rotation.put(0, -10f, Easing.LINEAR);
+        rotation.put(250, -10f, Easing.LINEAR);
+        rotation.put(500, 40f, Easing.HOLD);
+        rotation.put(735, -20f, Easing.LINEAR);
+        keys.getOrCreate(KeyframeSet.SCALE).put(0, 0.42f, Easing.LINEAR);
+        keys.getOrCreate(KeyframeSet.OPACITY).put(0, 0.8f, Easing.LINEAR);
+        pip.setOverlayTransform(keys);
+        project.getTimeline().addOverlayClip(pip);
+        if (!storage.save(project)) throw new IOException("Could not save the PiP fixture");
+        return project;
+    }
+
+    private static File createShutterArt(File directory) throws IOException {
+        File file = new File(directory, "shutter-art.png");
+        Bitmap bitmap = Bitmap.createBitmap(960, 540, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(file)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            // Opaque black/white transitions distinguish linear and encoded averages.
+            for (int x = 96; x < 864; x += 24) {
+                paint.setColor(((x - 96) / 24) % 2 == 0 ? Color.WHITE : Color.BLACK);
+                canvas.drawRect(x, 54, x + 24, 270, paint);
+            }
+            paint.setColor(0x80FFFFFF);
+            canvas.drawRect(96, 324, 384, 486, paint);
+            paint.setColor(0x8000FFFF);
+            canvas.drawRect(576, 324, 864, 486, paint);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write shutter test art");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        return file;
     }
 
     private static Clip clip(File file, long duration, long trim) {

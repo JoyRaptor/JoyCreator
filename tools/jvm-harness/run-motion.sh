@@ -43,14 +43,20 @@ expect_failure() {
 }
 
 expect_failure 'sub-millisecond box midpoint' MotionCoreTest --wrong-clock
+expect_failure 'export shutter reads the 60 fps presentation interval' MotionCoreTest --wrong-fixed-export-rate
+expect_failure 'partial mix retains a sharp tap' MotionCoreTest --wrong-shutter-controls
 expect_failure 'previous shot cannot see the cut' MotionCoreTest --wrong-cuts
 expect_failure 'quarter millisecond interpolation' MotionCoreTest --wrong-keyframe
 expect_failure 'all signed 12-bit values round trip' MotionCoreTest --wrong-pack
 expect_failure 'cut start' -Dmotion.wrongNoFences=true MotionTimelineBreaksTest
+expect_failure 'sprite exposure intersects pose and cell fences' -Dmotion.wrongNoSpriteExposureFence=true MotionTimelineBreaksTest
 expect_failure 'sprite follows fractional parent motion' -Dmotion.wrongRoundedItem=true MotionItemAdaptersTest
+expect_failure 'upright title stays centered at fractional time' -Dmotion.wrongTitlePlacement=true MotionItemAdaptersTest
 java @"$RUNARGS" MotionCoreTest
 java @"$RUNARGS" MotionTimelineBreaksTest
 java @"$RUNARGS" MotionItemAdaptersTest
+expect_failure "rotation maps a canvas pixel back to its UV" RigidShutterPlanTest wrong-direction
+java @"$RUNARGS" RigidShutterPlanTest
 expect_failure "fast slide spreads farther" MotionReferenceFixtureTest "$OUT/negative/slide" slide
 expect_failure "zoom must grow coverage about its pivot" MotionReferenceFixtureTest "$OUT/negative/zoom" zoom
 expect_failure "spin sweeps the narrow axis" MotionReferenceFixtureTest "$OUT/negative/spin" spin

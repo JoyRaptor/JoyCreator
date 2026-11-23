@@ -3,6 +3,7 @@ import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -55,6 +56,25 @@ public final class MotionTimelineBreaksTest {
         var spriteBreaks = spriteChanges.build();
         equal(1_079_999, around(spriteBreaks, 1_075_000).lastValidUs(), "sprite swap");
         equal(1_089_999, around(spriteBreaks, 1_085_000).lastValidUs(), "sprite becomes empty");
+
+        var poseFences = new MotionBreaks.Builder().add(1_077_000).build();
+        var cellFences = Boolean.getBoolean("motion.wrongNoSpriteExposureFence")
+                ? MotionBreaks.none() : spriteBreaks;
+        var fps = new MotionShutter.FrameRate(30, 1);
+        var left = MotionShutter.sample(1_079_999, fps, 180, -90,
+                MotionShutter.Shape.BOX, 6, poseFences, cellFences);
+        for (long sample : left.timesUs()) {
+            if (sample < 1_077_000 || sample >= 1_080_000) {
+                throw new AssertionError("sprite exposure intersects pose and cell fences");
+            }
+        }
+        var right = MotionShutter.sample(1_080_000, fps, 180, -90,
+                MotionShutter.Shape.BOX, 6, poseFences, cellFences);
+        for (long sample : right.timesUs()) {
+            if (sample < 1_080_000 || sample >= 1_090_000) {
+                throw new AssertionError("cell swap time belongs to the new drawing");
+            }
+        }
 
         System.out.println("MotionTimelineBreaksTest: transition, cut, repeat, ping-pong and sprite assertions passed");
     }

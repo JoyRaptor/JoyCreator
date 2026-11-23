@@ -13,17 +13,16 @@ import androidx.media3.effect.GlShaderProgram;
 
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.SpineTransform;
+import com.fadcam.ui.faditor.motion.ItemMotionSampler;
+import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
+import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 
 /**
- * THE EXPORT HALF OF THE SPINE CANVAS TRANSFORM — and it is only a half in the sense of "which
- * surface runs it", not "which maths it uses".
+ * Places the isolated spine clip on the export canvas.
  *
- * <p>Every number this shader consumes comes out of {@link SpineTransform#uniforms} and every
- * line of GLSL out of {@link SpineTransform#fragmentShader}, both of which the live preview also
- * calls. There is no matrix built here, no aspect compensation written here and no out-of-frame
- * rule decided here, so there is nothing for this file to get subtly different from
- * {@code FxPreviewTextureView.drawSpineTransform}. Preview/export divergence in this repo has
- * always come from two transcriptions of one idea; this feature has one.</p>
+ * <p>The sharp pass shares its geometry and shader with live preview. When enabled, the
+ * SDR export shutter samples that same transform at subframe times.</p>
  *
  * <h3>Where it sits in the chain</h3>
  * <p>{@code ExportManager.assembleClipVideoEffects} appends it AFTER the canvas
@@ -45,16 +44,33 @@ public final class SpineTransformExportEffect implements GlEffect {
     @NonNull private final Clip clip;
     private final long clipTimelineOffsetMs;
 
-    public SpineTransformExportEffect(@NonNull Clip clip, long clipTimelineOffsetMs) {
+    private final long pieceStartUs;
+    private final long pieceEndUs;
+
+    public SpineTransformExportEffect(@NonNull Clip clip, long clipTimelineOffsetMs,
+                                      long pieceStartMs, long pieceDurationMs) {
         this.clip = clip;
         this.clipTimelineOffsetMs = clipTimelineOffsetMs;
+        pieceStartUs = pieceStartMs * 1000L;
+        pieceEndUs = (pieceStartMs + pieceDurationMs) * 1000L;
     }
 
     @NonNull
     @Override
     public GlShaderProgram toGlShaderProgram(@NonNull android.content.Context context, boolean hdr)
             throws VideoFrameProcessingException {
-        return new Program(clip, clipTimelineOffsetMs);
+        MotionBreaks breaks = null;
+        if (!hdr && clip.isRigidMotionBlurEnabled() && clip.isSpineTransformArmed()
+                && pieceEndUs > pieceStartUs) {
+            var builder = new MotionBreaks.Builder().add(pieceStartUs).add(pieceEndUs);
+            var transform = clip.getSpineTransform();
+            for (String property : SpineTransform.tracks()) {
+                var track = transform.get(property);
+                if (track != null) builder.addSteps(track, clipTimelineOffsetMs * 1000L);
+            }
+            breaks = builder.build();
+        }
+        return new Program(clip, clipTimelineOffsetMs, pieceStartUs, pieceEndUs, breaks);
     }
 
     @Override
@@ -69,22 +85,15 @@ public final class SpineTransformExportEffect implements GlEffect {
     /** The one pass. Full-frame, same size in as out; a bad pose passes the frame through. */
     private static final class Program extends BaseGlShaderProgram {
 
-        private static final String VERTEX_SHADER =
-                "#version 100\n"
-                + "attribute vec4 aFramePosition;\n"
-                + "uniform mat4 uTransformationMatrix;\n"
-                + "uniform mat4 uTexTransformationMatrix;\n"
-                + "varying vec2 vTexSamplingCoord;\n"
-                + "void main() {\n"
-                + "  gl_Position = uTransformationMatrix * aFramePosition;\n"
-                + "  vec4 texturePosition = vec4(aFramePosition.x * 0.5 + 0.5,\n"
-                + "                              aFramePosition.y * 0.5 + 0.5, 0.0, 1.0);\n"
-                + "  vTexSamplingCoord = (uTexTransformationMatrix * texturePosition).xy;\n"
-                + "}\n";
-
         @NonNull private final Clip clip;
         private final long clipTimelineOffsetMs;
         @NonNull private final GlProgram glProgram;
+        private final long pieceStartUs;
+        private final long pieceEndUs;
+        private final MotionBreaks breaks;
+        private ItemMotionSampler sampler;
+        private RigidTextureShutterPass shutterPass;
+        private final MotionFrameCadence cadence = new MotionFrameCadence();
 
         private final float[] pose = new float[SpineTransform.POSE];
         private final float[] u = new float[SpineTransform.UNIFORMS];
@@ -95,14 +104,17 @@ public final class SpineTransformExportEffect implements GlEffect {
         private int width = 1, height = 1;
         private int drawCounter = 0;
 
-        Program(@NonNull Clip clip, long clipTimelineOffsetMs)
-                throws VideoFrameProcessingException {
+        Program(@NonNull Clip clip, long clipTimelineOffsetMs, long pieceStartUs,
+                long pieceEndUs, MotionBreaks breaks) throws VideoFrameProcessingException {
             super(false, 2);
             this.clip = clip;
             this.clipTimelineOffsetMs = clipTimelineOffsetMs;
+            this.pieceStartUs = pieceStartUs;
+            this.pieceEndUs = pieceEndUs;
+            this.breaks = breaks;
             try {
                 this.glProgram = new GlProgram(
-                        VERTEX_SHADER, SpineTransform.fragmentShader("vTexSamplingCoord"));
+                        RigidTextureShutterPass.VERTEX_SHADER, SpineTransform.fragmentShader("vTexSamplingCoord"));
                 this.glProgram.setBufferAttribute("aFramePosition",
                         GlUtil.getNormalizedCoordinateBounds(), 4);
                 float[] identity = GlUtil.create4x4IdentityMatrix();
@@ -122,13 +134,33 @@ public final class SpineTransformExportEffect implements GlEffect {
             // is handed -- believes the canvas to be.
             width = Math.max(1, inputWidth);
             height = Math.max(1, inputHeight);
+            if (breaks != null) {
+                cadence.reset();
+                sampler = MotionItemAdapters.spine(clip, clipTimelineOffsetMs * 1000L, width, height);
+            }
             return new Size(width, height);
+        }
+
+        @Override
+        public void flush() {
+            cadence.reset();
+            super.flush();
         }
 
         @Override
         public void drawFrame(int inputTexId, long presentationTimeUs)
                 throws VideoFrameProcessingException {
             try {
+                if (sampler != null && presentationTimeUs >= pieceStartUs
+                        && presentationTimeUs < pieceEndUs) {
+                    var plan = RigidTextureShutterPass.plan(clip.getRigidMotionShutter(), sampler, presentationTimeUs,
+                            cadence.observe(presentationTimeUs), breaks, width, height);
+                    if (plan != null) {
+                        if (shutterPass == null) shutterPass = new RigidTextureShutterPass(RigidTextureShutterPass.Source.SPINE);
+                        shutterPass.draw(inputTexId, width, height, plan, 0, 1f);
+                        return;
+                    }
+                }
                 long clipMs = ExportManager.clipMsFor(presentationTimeUs, clipTimelineOffsetMs);
                 clip.spinePoseAt(clipMs, pose);
                 boolean identity = SpineTransform.isIdentity(pose);
@@ -177,7 +209,11 @@ public final class SpineTransformExportEffect implements GlEffect {
         public void release() throws VideoFrameProcessingException {
             super.release();
             try {
-                glProgram.delete();
+                try {
+                    if (shutterPass != null) shutterPass.release();
+                } finally {
+                    glProgram.delete();
+                }
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
             }

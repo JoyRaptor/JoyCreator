@@ -82,10 +82,19 @@ final class LaneReadbackGlEffect implements GlEffect {
             public void drawFrame(int inputTexture, long presentationTimeUs)
                     throws VideoFrameProcessingException {
                 try {
-                    copy.drawCopy(inputTexture, PipChainGl.boundFbo());
+                    int output = PipChainGl.boundFbo();
                     long editorUs = presentationTimeUs + editorOffsetUs;
                     long requested = samples.claim(editorUs);
-                    if (requested >= 0L) capture(width, height, requested, editorUs);
+                    if (requested >= 0L) {
+                        int readFramebuffer = GlUtil.createFboForTexture(inputTexture);
+                        try {
+                            GlUtil.focusFramebufferUsingCurrentContext(readFramebuffer, width, height);
+                            capture(width, height, requested, editorUs);
+                        } finally {
+                            GlUtil.deleteFbo(readFramebuffer);
+                        }
+                    }
+                    copy.drawCopy(inputTexture, output);
                 } catch (GlUtil.GlException error) {
                     throw new VideoFrameProcessingException(error);
                 }

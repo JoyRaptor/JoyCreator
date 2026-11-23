@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import {execFile} from 'node:child_process';
-import {createHash} from 'node:crypto';
+import {createHash, randomUUID} from 'node:crypto';
 import {createReadStream} from 'node:fs';
-import {mkdir, readFile, writeFile} from 'node:fs/promises';
+import {appendFile, mkdir, readFile, writeFile} from 'node:fs/promises';
 import {join, resolve} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {promisify} from 'node:util';
@@ -10,7 +10,6 @@ import {promisify} from 'node:util';
 const run = promisify(execFile);
 const APP = 'com.fadcam.beta';
 const ACTIVITY = APP + '/com.fadcam.ui.faditor.export.ExportDebugActivity';
-const HOLDER = 'codex-c4b-lane-proof';
 const REQUESTS = [66000, 500000, 900000];
 
 function sha256(path) {
@@ -71,9 +70,11 @@ async function main() {
         throw new Error('Duplicate fixture receipt label');
     }
 
+    const holder = 'codex-c4b-lane-' + randomUUID();
     const quote = arg => "'" + String(arg).replaceAll("'", "''") + "'";
     const call = (...args) => run('powershell.exe', ['-NoProfile', '-Command',
-        '$env:PHONE=' + quote(serial) + '; $env:JB_PHONE_HOLDER=' + quote(HOLDER)
+        "Remove-Item Env:PHONE_SLOT -ErrorAction SilentlyContinue; $env:PHONE=" + quote(serial)
+        + '; $env:JB_PHONE_HOLDER=' + quote(holder)
         + '; & ' + quote(resolve(phoneScript)) + ' ' + args.map(quote).join(' ')],
         {timeout: 65000, maxBuffer: 1048576});
     const adb = (...args) => run(resolve(adbExe), ['-s', serial, ...args],
@@ -99,14 +100,37 @@ async function main() {
     const restoreHash = await sha256(recoveryApk);
     const output = resolve(outPath);
     await mkdir(output, {recursive: true});
-    const receipt = {sourceApkHash: await sha256(testApk), runs: [], caseFailures: [], restored: false};
+    const receipt = {holder, sourceApkHash: await sha256(testApk), recoveryApkHash: restoreHash,
+        runs: [], caseFailures: [], restored: false};
+    const receiptPath = join(output, 'receipt.json');
+    const saveReceipt = options => writeFile(receiptPath, JSON.stringify(receipt, null, 2), options);
+    await saveReceipt({flag: 'wx'});
+    let claimed = false;
     let installAttempted = false;
-    await call('claim', HOLDER, 'STU-7 disposable lane-order framebuffer fixtures');
+    let nextThermalCheck = 0;
+    const sampleThermal = async force => {
+        const now = performance.now();
+        if (!force && now < nextThermalCheck) return;
+        nextThermalCheck = now + 30000;
+        const [battery, thermal] = await Promise.all([
+            read('shell', 'dumpsys', 'battery'), read('shell', 'dumpsys', 'thermalservice'),
+        ]);
+        const temperature = battery.match(/^\s*temperature:\s*(-?\d+)\s*$/m);
+        const status = thermal.match(/^\s*Thermal Status:\s*([0-6])\s*$/mi);
+        await appendFile(join(output, 'thermal.jsonl'), JSON.stringify({
+            time: new Date().toISOString(), batteryC: temperature ? Number(temperature[1]) / 10 : null,
+            status: status ? Number(status[1]) : null,
+        }) + '\n');
+    };
     try {
+        await call('claim', holder, 'STU-7 disposable lane-order framebuffer fixtures');
+        claimed = true;
         if (restoreHash !== await currentHash()) throw new Error('Recovery APK differs from installed APK');
-        await call('holds');
+        await sampleThermal(true);
+        await call('key', 'KEYCODE_HOME');
         installAttempted = true;
         await install(testApk);
+        if (receipt.sourceApkHash !== await currentHash()) throw new Error('Installed test APK hash mismatch');
         for (const {test, args, requests} of work) {
             const folder = join(output, test.label);
             await mkdir(folder, {recursive: true});
@@ -114,6 +138,8 @@ async function main() {
             const scratch = requests.map(requested => 'cache/lane_frame_' + requested + '.rgba');
             await call('shell-write', 'run-as', APP, 'rm', '-f', ...scratch);
             const since = (await read('shell', "date '+%m-%d %H:%M:%S.000'")).trim();
+            const marker = 'begin-' + randomUUID();
+            await call('shell-write', 'log', '-t', 'LaneFixture', marker);
             await call('start', ACTIVITY, ...args);
             let logs = '';
             let samples = [];
@@ -121,9 +147,13 @@ async function main() {
             const attempts = test.measureOnly ? 145 : 35;
             for (let i = 0; i < attempts; i++) {
                 await delay(650);
-                logs = await read('logcat', '-d', '-T', since, '-v', 'epoch', '-s',
+                await sampleThermal(false);
+                const buffer = await read('logcat', '-d', '-T', since, '-v', 'epoch', '-s', 'LaneFixture',
                     'ExportDebug', 'ExportManager', 'ExportService', 'LaneReadback',
                     'LaneComposite', 'ProjectStorage');
+                const startOfCase = buffer.indexOf('LaneFixture: ' + marker);
+                if (startOfCase < 0) continue;
+                logs = buffer.slice(startOfCase);
                 samples = [...logs.matchAll(/frame=(lane_frame_(\d+)\.rgba) editorUs=(\d+) size=(\d+)x(\d+)/g)];
                 finished = /ExportService: Export (completed|error|failed)/i.test(logs);
                 if (finished && (test.measureOnly || samples.length === 3
@@ -146,10 +176,12 @@ async function main() {
                     glSample: logs.split('\n').find(line => line.includes('GL_SAMPLE'))?.trim()};
                 await writeFile(join(folder, 'performance.json'), JSON.stringify(stats, null, 2));
                 receipt.runs.push(test.label);
+                await saveReceipt();
                 continue;
             }
+            const capturedRequests = new Set(samples.map(match => Number(match[2])));
             if (ordered !== expectedOrdered || samples.length !== 3 || !finished
-                    || new Set(samples.map(match => match[2])).size !== 3) {
+                    || !requests.every(request => capturedRequests.has(request))) {
                 receipt.caseFailures.push({label: test.label, ordered, expectedOrdered,
                     samples: samples.length, finished});
                 continue;
@@ -167,7 +199,9 @@ async function main() {
             await call('shell-write', 'run-as', APP, 'rm', '-f', ...scratch);
             await writeFile(join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
             receipt.runs.push(test.label);
+            await saveReceipt();
         }
+        await sampleThermal(true);
     } catch (error) {
         receipt.error = error.message;
     } finally {
@@ -178,11 +212,11 @@ async function main() {
                 if (restoreHash !== await currentHash()) throw new Error('Restored APK hash mismatch');
                 receipt.restored = true;
             }
-            receipt.lock = (await call('release', HOLDER)).stdout.trim();
+            if (claimed) receipt.lock = (await call('release', holder)).stdout.trim();
         } catch (error) {
             receipt.restoreError = error.message;
         }
-        await writeFile(join(output, 'receipt.json'), JSON.stringify(receipt, null, 2));
+        await saveReceipt();
     }
     console.log(JSON.stringify(receipt, null, 2));
     if (receipt.error || receipt.restoreError || receipt.caseFailures.length) process.exitCode = 1;

@@ -7,11 +7,14 @@ const MEAN_CHANNEL_ERROR = 0.1;
 
 async function manifest(path) {
     const record = JSON.parse(await readFile(path, 'utf8'));
-    if (!Array.isArray(record.samples) || record.samples.length === 0) {
-        throw new Error('Missing samples in ' + path);
+    const samples = record.samples;
+    if (!Array.isArray(samples) || samples.length !== 3
+            || samples.some(sample => !Number.isSafeInteger(sample.requestUs) || sample.requestUs < 0)
+            || new Set(samples.map(sample => sample.requestUs)).size !== 3) {
+        throw new Error('Expected three distinct frame requests in ' + path);
     }
     const directory = dirname(resolve(path));
-    return record.samples.map(sample => ({...sample, file: resolve(directory, sample.file)}))
+    return samples.map(sample => ({...sample, file: resolve(directory, sample.file)}))
             .sort((left, right) => left.requestUs - right.requestUs);
 }
 
@@ -52,7 +55,6 @@ async function compare(left, right, invertReference) {
 async function checkPair(leftPath, rightPath, options = {}) {
     const {expectDifferent = false, invertReference = false} = options;
     const [left, right] = await Promise.all([manifest(leftPath), manifest(rightPath)]);
-    if (left.length !== right.length) throw new Error('Sample count mismatch');
     const samples = [];
     for (let i = 0; i < left.length; i++) samples.push(await compare(left[i], right[i], invertReference));
     const passed = expectDifferent ? samples.every(sample => !sample.equivalent)
@@ -67,23 +69,29 @@ async function checkBatch(casesPath, evidenceRoot) {
     if (labels.size !== cases.length || [...labels].some(label => !/^[a-z0-9-]{1,60}$/.test(label))) {
         throw new Error('Invalid or duplicate fixture label');
     }
+    const names = new Set([...labels].map(label => {
+        const match = label.match(/^(.+)-(legacy|ungraded|ordered)$/);
+        if (!match) throw new Error('Invalid paired fixture label: ' + label);
+        return match[1];
+    }));
     const results = [];
-    for (const label of labels) {
-        if (!label.endsWith('-ordered')) continue;
-        const name = label.slice(0, -'-ordered'.length);
-        const ungraded = name + '-ungraded';
-        const invertReference = labels.has(ungraded);
-        const left = invertReference ? ungraded : name + '-legacy';
-        if (!labels.has(left)) throw new Error('Missing reference case for ' + label);
+    for (const name of names) {
+        const ordered = name + '-ordered';
+        const references = [name + '-legacy', name + '-ungraded'].filter(label => labels.has(label));
+        if (!labels.has(ordered) || references.length !== 1) {
+            results.push({name, passed: false, error: 'Expected one ordered and one reference case'});
+            continue;
+        }
+        const [reference] = references;
         try {
-            const data = await checkPair(resolve(evidenceRoot, left, 'manifest.json'),
-                    resolve(evidenceRoot, label, 'manifest.json'), {invertReference});
+            const data = await checkPair(resolve(evidenceRoot, reference, 'manifest.json'),
+                    resolve(evidenceRoot, ordered, 'manifest.json'),
+                    {invertReference: reference.endsWith('-ungraded')});
             results.push({name, ...data});
         } catch (error) {
             results.push({name, passed: false, error: error.message});
         }
     }
-    if (!results.length) throw new Error('No paired controls in the requested batch');
     return {passed: results.every(result => result.passed), results};
 }
 

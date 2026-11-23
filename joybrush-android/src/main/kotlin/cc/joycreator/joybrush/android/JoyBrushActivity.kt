@@ -753,8 +753,7 @@ class JoyBrushActivity : Activity() {
         // Debug stroke replay: a fresh unsaved drawing; the working file is neither read nor ever written (bench/BenchRunner).
         val bench =cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
         if (bench != null) {
-            // Codex round 4 A/B switches: the page table defined whole each time (ATLAS-TABLE), every neighbourhood looked up afresh (OIL-STEP).
-            cc.joycreator.joybrush.androidkit.gl.media.AtlasBench.keepTable = !intent.getBooleanExtra("jb_atlas_full_table", false)
+            // Codex round 4 A/B switch: every neighbourhood looked up afresh (OIL-STEP).
             cc.joycreator.joybrush.androidkit.gl.media.AtlasBench.memo = !intent.getBooleanExtra("jb_nbr_nomemo", false)
         }
         val life = if (bench != null) intent.getStringExtra("jb_bench_life")?.takeIf { it.matches(Regex("[a-z0-9]{1,16}")) } else null

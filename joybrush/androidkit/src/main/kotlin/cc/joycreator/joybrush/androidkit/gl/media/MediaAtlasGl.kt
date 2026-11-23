@@ -37,10 +37,6 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
     private val upload = FloatUploadBuffer()
     /** OIL-STEP: the last neighbourhood handed out, valid while the table is unchanged ([NeighbourMemo.changed]). */
     private val memo = NeighbourMemo()
-    /** ATLAS-TABLE: the table texture's current size and the staging buffer its cells go up through, both kept. */
-    private var texW = nx
-    private var texH = ny
-    private var staging: java.nio.IntBuffer? = null
     val table: Int
     private val instBuf: Int
     private val dabBuf: Int
@@ -102,18 +98,12 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
         free = true; resident = HashMap(map)
         slotOf = t::slotOf; grid = intArrayOf(t.x, t.y, t.w, t.h)
         memo.changed()
-        // Codex audit round 4, ATLAS-TABLE: the staging buffer is kept (grown only), and a table of the same size is written
-        // into the texture it already has instead of defining a new one. The same cells reach the same texels either way.
-        val cells = staging?.takeIf { it.capacity() >= t.data.size }
-            ?: ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer().also { staging = it }
-        cells.clear(); cells.put(t.data, 0, t.data.size); cells.position(0)
+        // Codex audit round 4, ATLAS-TABLE: keeping the texture and staging buffer was measured on the Note 9 (2026-11-23) and
+        // left out: every table definition of a full oil page together is about 0.5% of its paste time, and reusing them saved none of it.
+        val cells = ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer()
+        cells.put(t.data); cells.position(0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
-        if (AtlasBench.keepTable && t.w == texW && t.h == texH)
-            GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, t.w, t.h, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
-        else {
-            GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
-            texW = t.w; texH = t.h
-        }
+        GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, 0)
     }
 

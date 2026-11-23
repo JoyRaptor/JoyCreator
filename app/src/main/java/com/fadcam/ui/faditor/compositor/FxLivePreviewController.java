@@ -19,6 +19,8 @@ import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.motion.MotionItemAdapters;
+import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.overlay.TextBoxRenderer;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 
@@ -570,7 +572,8 @@ public final class FxLivePreviewController {
         view.setCompositeFrame(size[0], size[1], src[0], src[1]);
         OverlayVideoPreviewView ovFrame = host.overlayVideoLayer();
         if (ovFrame != null) ovFrame.setCompositeFrameSize(size[0], size[1]);
-        view.setVideoRotation(still != null ? 0 : rotationDegrees());
+        int rotation = still != null ? 0 : rotationDegrees();
+        view.setVideoRotation(rotation);
         // Text/sprite below-blend raster — two paths:
         // 1) full-frame bitmap for static (and pixel-changing fallback) content, cached by CONTENT signature (spec §2)
         // 2) per-item textured quads for pose-animated content via OverlayTextureCache (spec §3)
@@ -607,6 +610,7 @@ public final class FxLivePreviewController {
             host.onLayerImageOverlayRouted(layerRouted);
         }
         bindMotionClock(timeline, playheadClip);
+        view.setSpineShutter(spineShutter(playheadClip, size, rotation));
         view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages, shutterOverlays, shutterSprites));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
@@ -652,7 +656,29 @@ public final class FxLivePreviewController {
         view.setMotionClockActive(motionClock.anchor() != null);
     }
 
+    @Nullable
+    private FxPreviewTextureView.ShutterExposure spineShutter(@Nullable Clip clip, int[] size,
+                                                               int rotation) {
+        var clock = motionClock.anchor();
+        if (clock == null || clip == null || rotation != 0 || !clip.isRigidMotionBlurEnabled()
+                || !clip.isSpineTransformArmed() || !clip.hasSpineTransform()) return null;
+        var snapshot = new Clip(clip);
+        long startUs = clock.editorStartUs();
+        long endUs = clock.editorEndUs();
+        int width = size[0];
+        int height = size[1];
+        var fences = MotionTimelineBreaks.spine(snapshot, startUs, startUs, endUs);
+        var sampler = MotionItemAdapters.spine(snapshot, startUs, width, height);
+        return (timeUs, periodUs, w, h) -> {
+            if (timeUs < startUs || timeUs >= endUs || w != width || h != height) return null;
+            var shutter = RigidTextureShutterPass.plan(snapshot.getRigidMotionShutter(),
+                    sampler, timeUs, periodUs, fences, w, h);
+            return shutter == null ? null : new RigidTextureShutterPass.Exposure(shutter, 1f);
+        };
+    }
+
     private void clearMotionClock() {
+        view.setSpineShutter(null);
         view.setMotionClockActive(false);
         motionClock.clear();
     }

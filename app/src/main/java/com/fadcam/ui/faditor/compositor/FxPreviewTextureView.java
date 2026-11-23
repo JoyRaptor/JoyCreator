@@ -1106,11 +1106,11 @@ public class FxPreviewTextureView extends TextureView
     }
 
     @FunctionalInterface
-    interface StillExposure {
+    interface ShutterExposure {
         @Nullable RigidTextureShutterPass.Exposure at(long timeUs, long periodUs, int width, int height);
     }
 
-    record StillShutter(RigidTextureShutterPass.Source source, StillExposure exposure) {}
+    record StillShutter(RigidTextureShutterPass.Source source, ShutterExposure exposure) {}
 
     record LivePipShutter(int sourceWidth, int sourceHeight, StillShutter shutter) {}
 
@@ -1228,6 +1228,7 @@ public class FxPreviewTextureView extends TextureView
      * flip - so an unplaced project runs the identical pass list it ran before this existed.</p>
      */
     @Nullable private volatile float[] spinePose;
+    @Nullable private volatile ShutterExposure spineShutter;
     /**
      * The BASE frame as a bitmap — an image master clip — or null to stage the decoder instead.
      *
@@ -1985,8 +1986,7 @@ public class FxPreviewTextureView extends TextureView
             //       COSTS NOTHING WHEN THERE IS NOTHING: setSpinePose stores null for an
             //       identity pose, and null skips the whole block — no pass, no ping-pong flip,
             //       no clear.
-            float[] sp = spinePose;
-            if (!degraded && sp != null) cur = drawSpineTransform(sp, cur, vw, vh);
+            if (!degraded) cur = drawSpineWithShutter(cur, vw, vh);
 
             // 2c — THE CLIP FADE / OPACITY, on the base picture and nothing else. After the
             //      crop, the grade and the spine FxStack; before the below-blend raster, the
@@ -2746,6 +2746,45 @@ public class FxPreviewTextureView extends TextureView
             java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
     private final java.util.EnumSet<RigidTextureShutterPass.Source> loggedStillShutters =
             java.util.EnumSet.noneOf(RigidTextureShutterPass.Source.class);
+
+    void setSpineShutter(@Nullable ShutterExposure exposure) {
+        spineShutter = exposure;
+    }
+
+    private int drawSpineWithShutter(int src, int width, int height) {
+        var frame = motionFrame;
+        var sampler = spineShutter;
+        var source = RigidTextureShutterPass.Source.SPINE;
+        if (frame != null && sampler != null && !failedStillShutters.contains(source)) {
+            var exposure = sampler.at(frame.editorTimeUs(), frame.periodUs(), width, height);
+            if (exposure != null) {
+                int dst = src == 0 ? 1 : 0;
+                try {
+                    var pass = stillShutters.get(source);
+                    if (pass == null) {
+                        pass = new RigidTextureShutterPass(source);
+                        stillShutters.put(source, pass);
+                    }
+                    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+                    GLES20.glViewport(0, 0, width, height);
+                    pass.draw(targets[src][0], width, height, exposure.plan(), 0, 1f);
+                    if (com.fadcam.BuildConfig.DEBUG && loggedStillShutters.add(source)) {
+                        FLog.i(TAG, "live spine shutter editorUs=" + frame.editorTimeUs()
+                                + " periodUs=" + frame.periodUs() + " taps="
+                                + exposure.plan().taps().size());
+                    }
+                    return dst;
+                } catch (androidx.media3.common.util.GlUtil.GlException error) {
+                    failedStillShutters.add(source);
+                    FLog.w(TAG, "Spine shutter unavailable; drawing sharp", error);
+                } finally {
+                    GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+                }
+            }
+        }
+        float[] pose = spinePose;
+        return pose == null ? src : drawSpineTransform(pose, src, width, height);
+    }
 
     private int drawRung(Rung rung, int src, int width, int height) {
         if (rung.pipShutter != null) {

@@ -4,6 +4,7 @@ import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.CutJumps;
+import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -29,6 +30,17 @@ public final class MotionTimelineBreaks {
         for (int index = 0; index < cuts.count(); index++) {
             into.exclude(cuts.startMs(index) * 1000L, cuts.endMs(index) * 1000L);
         }
+    }
+
+    /** Fences a spine transform to its source piece and forbids sampling across held steps. */
+    public static MotionBreaks spine(Clip clip, long clipStartUs, long pieceStartUs, long pieceEndUs) {
+        var breaks = new MotionBreaks.Builder().add(pieceStartUs).add(pieceEndUs);
+        var transform = clip.getSpineTransform();
+        for (String property : SpineTransform.tracks()) {
+            var track = transform.get(property);
+            if (track != null) breaks.addSteps(track, clipStartUs);
+        }
+        return breaks.build();
     }
 
     /** Adds visible clip boundaries and any repeated source discontinuity within the window. */

@@ -18,6 +18,7 @@ import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionFrameCadence;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
+import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 
 /**
  * Places the isolated spine clip on the export canvas.
@@ -63,13 +64,8 @@ public final class SpineTransformExportEffect implements GlEffect {
         MotionBreaks breaks = null;
         if (!hdr && clip.isRigidMotionBlurEnabled() && clip.isSpineTransformArmed()
                 && pieceEndUs > pieceStartUs) {
-            var builder = new MotionBreaks.Builder().add(pieceStartUs).add(pieceEndUs);
-            var transform = clip.getSpineTransform();
-            for (String property : SpineTransform.tracks()) {
-                var track = transform.get(property);
-                if (track != null) builder.addSteps(track, clipTimelineOffsetMs * 1000L);
-            }
-            breaks = builder.build();
+            breaks = MotionTimelineBreaks.spine(clip, clipTimelineOffsetMs * 1000L,
+                    pieceStartUs, pieceEndUs);
         }
         return new Program(clip, clipTimelineOffsetMs, pieceStartUs, pieceEndUs, breaks);
     }

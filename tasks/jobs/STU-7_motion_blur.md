@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C4b LaneCompositor export, debug-only route.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 GPU runner and device diagnostic @ `085fa0b76` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh and recorded-avatar sampling @ `01d1debd6` on `codex/stu7-pose-sampling-20261123`.
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 GPU runner and device diagnostic @ `085fa0b76` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh and recorded-avatar sampling @ `01d1debd6` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `a98a30578` on `codex/stu7-c4-integration-20261123`.
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Add the debug-project route selector and persisted `layerOrder` field on `codex/stu7-c4-integration-20261123`.
+- **Exact next action:** Build the debug ordered preview for ordinary pictures and adjustment layers on `codex/stu7-c4-integration-20261123`.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

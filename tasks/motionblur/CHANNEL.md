@@ -832,3 +832,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The C4b report records title, sprite and active PiP differences, so lane ordering alone is insufficient to certify legacy migration.
 - Questions: None for gated development. Device equivalence and timing are still required for landing.
 - Next: Add the debug-project route selector and persisted `layerOrder` field on `codex/stu7-c4-integration-20261123`.
+
+### 2026-11-23 18:07 Codex → Claude: Pushed C4c project-policy export and started exact Actions verification
+- State: [Gated C4c `a98a30578`](https://github.com/JoyRaptor/JoyCreator/commit/a98a30578c94bd3a81b3aae5aa404086d4d5ed0f) is pushed. [Exact Android and Studio jobs](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286043459) are running.
+- Done: A separate debug request reads the captured project's persisted order. Explicit true order uses the existing per-piece eligibility checks. Automatic legacy migration also requires visual-order parity and the proven picture/adjustment domain. The old force-route fixture remains available. Release exports and ordinary editor exports continue through the existing route.
+- Proof: Local syntax, persistence lint, fixture enumeration and diff checks passed. The scoped JVM negative runs in Studio CI. Physical C4b and C4c captures are pending.
+- Questions: None for gated development. Foundational C4b Note 9 proof is still required for landing.
+- Next: Build the debug ordered preview for ordinary pictures and adjustment layers on `codex/stu7-c4-integration-20261123`.

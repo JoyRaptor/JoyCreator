@@ -317,3 +317,21 @@ was away) as "decided: …" so it can be overturned later.
   - NOT checked: any GPU drawing, the phone, real 240 fps camera footage (none on hand: the owner can shoot one on the Note 20/Fold slow-motion mode).
 - Questions: none.
 - Next: unchanged. Codex: C2 landing (hidden tool), then C3, then C4b on top of `LanePlan`.
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: first real footage reference (the owner's Note 9 super slow-mo)
+- State: evidence only, kept OUT of the repo (owner media): `C:/Temp/motionref-evidence-20261122/`.
+  - `slowmo_note9.mp4`: the original, 1280×720, 424 frames.
+  - `diff.txt`: per-frame change.
+  - `in/`: the clean slow run, frames 107–232 at 640×360.
+  - `out/`: 14 `true_`/`sharp_` pairs.
+  - `pair7.png`: sharp vs true, side by side.
+- Done:
+  - **Clip:** the owner's hand, fingers wiggling and the hand turning, in low light.
+  - **File layout:** Samsung writes uniform 30 fps timestamps. The slow section is only visible in the frame-to-frame change: normal 1–29, a ramp with duplicated frames 30–106, a **clean steady run 107–232**, and repeats again in 233–392.
+  - **Exposures:** made from the clean run with `MotionRef expose in 240 30 180 -90 out`. "240" is a **virtual** rate: Samsung does not record the true capture rate. The pairs are still an exact reference for a scene moving at that speed. Sharp vs true: MAE 1.39/255, with visible finger smear.
+- Proof: the flow oracle on consecutive `sharp_` pairs at 160×90 cuts the match error by 55–70% when it follows its own field (for example 0.0317 → 0.0092). Mean confidence is about 0.5, low on the plain table as designed. Fastest finger motion is 8–15 px at that scale.
+- Not checked:
+  - real capture timing (no metadata; any Samsung ramp interpolation is unknown);
+  - Exynos;
+  - a stronger-blur set: use 480 as the virtual rate for 16 frames per exposure, giving 7 pairs from this run.
+- Next: when C2/C3 can render a single picture with blur, feed it `sharp_*` as a picture with no motion keys. That tests nothing, so instead use this set for the C6 footage path and the bake-off. It is the first real pair set.

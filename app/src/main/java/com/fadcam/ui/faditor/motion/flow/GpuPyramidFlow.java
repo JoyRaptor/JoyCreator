@@ -22,6 +22,14 @@ public final class GpuPyramidFlow {
     /** RGB stores signed flow from the first texture to the second. Alpha stores confidence. */
     public record FieldTexture(int textureId, int width, int height) {}
 
+    public enum Pass { LUMA_FROM, LUMA_TO, PATCH_FORWARD, DENSE_FORWARD, PATCH_REVERSE, DENSE_REVERSE, CONFIDENCE }
+
+    /** Optional observer for non-nested GPU timing queries. Level zero is the finest level. */
+    public interface PassObserver {
+        void begin(Pass pass, int level);
+        void end();
+    }
+
     private final List<GlProgram> programs = new ArrayList<>();
     private final List<Target> targets = new ArrayList<>();
     private final List<Level> levels = new ArrayList<>();
@@ -98,6 +106,10 @@ public final class GpuPyramidFlow {
      * attributes are scratch state; the caller binds its own before drawing again.
      */
     public FieldTexture estimate(int fromTexture, int toTexture) throws GlUtil.GlException {
+        return estimate(fromTexture, toTexture, null);
+    }
+
+    public FieldTexture estimate(int fromTexture, int toTexture, PassObserver observer) throws GlUtil.GlException {
         if (released) throw new IllegalStateException("Flow workspace has been released");
         if (fromTexture <= 0 || toTexture <= 0) throw new IllegalArgumentException("Missing source texture");
 
@@ -107,23 +119,23 @@ public final class GpuPyramidFlow {
         GLES20.glDisable(GLES20.GL_DITHER);
         try {
             Level first = levels.get(0);
-            drawLuma(fromTexture, first.from);
-            drawLuma(toTexture, first.to);
+            drawLuma(fromTexture, first.from, observer, Pass.LUMA_FROM);
+            drawLuma(toTexture, first.to, observer, Pass.LUMA_TO);
             for (int i = 1; i < levels.size(); i++) {
                 Level previous = levels.get(i - 1);
                 Level level = levels.get(i);
-                drawHalf(previous.from, level.from);
-                drawHalf(previous.to, level.to);
+                drawHalf(previous.from, level.from, observer, Pass.LUMA_FROM, i);
+                drawHalf(previous.to, level.to, observer, Pass.LUMA_TO, i);
             }
-            estimateDirection(false);
-            if (backward != null) estimateDirection(true);
+            estimateDirection(false, observer);
+            if (backward != null) estimateDirection(true, observer);
 
             confidence.setSamplerTexIdUniform("uFrom", first.from.texture, 0);
             confidence.setSamplerTexIdUniform("uTo", first.to.texture, 1);
             confidence.setSamplerTexIdUniform("uForward", first.dense.texture, 2);
             if (backward != null) confidence.setSamplerTexIdUniform("uBackward", backward.texture, 3);
             confidence.setFloatsUniform("uLevelSize", output.size);
-            draw(confidence, output);
+            draw(confidence, output, observer, Pass.CONFIDENCE, 0);
             GlUtil.checkGlError();
             return result;
         } finally {
@@ -133,7 +145,7 @@ public final class GpuPyramidFlow {
         }
     }
 
-    private void estimateDirection(boolean reverse) throws GlUtil.GlException {
+    private void estimateDirection(boolean reverse, PassObserver observer) throws GlUtil.GlException {
         Target coarse = null;
         for (int i = levels.size() - 1; i >= 0; i--) {
             Level level = levels.get(i);
@@ -145,7 +157,7 @@ public final class GpuPyramidFlow {
             patch.setSamplerTexIdUniform("uCoarseFlow", coarse == null ? from.texture : coarse.texture, 2);
             patch.setFloatsUniform("uLevelSize", from.size);
             patch.setFloatsUniform("uCoarseSize", coarse == null ? NO_COARSE_LEVEL : coarse.size);
-            draw(patch, level.patches);
+            draw(patch, level.patches, observer, reverse ? Pass.PATCH_REVERSE : Pass.PATCH_FORWARD, i);
 
             Target dense = reverse && i == 0 ? backward : level.dense;
             densify.setSamplerTexIdUniform("uFrom", from.texture, 0);
@@ -153,28 +165,35 @@ public final class GpuPyramidFlow {
             densify.setSamplerTexIdUniform("uPatchFlow", level.patches.texture, 2);
             densify.setFloatsUniform("uLevelSize", from.size);
             densify.setFloatsUniform("uPatchGridSize", level.patches.size);
-            draw(densify, dense);
+            draw(densify, dense, observer, reverse ? Pass.DENSE_REVERSE : Pass.DENSE_FORWARD, i);
             coarse = dense;
         }
     }
 
-    private void drawLuma(int source, Target target) throws GlUtil.GlException {
+    private void drawLuma(int source, Target target, PassObserver observer, Pass pass) throws GlUtil.GlException {
         luma.setSamplerTexIdUniform("uSource", source, 0);
-        draw(luma, target);
+        draw(luma, target, observer, pass, 0);
     }
 
-    private void drawHalf(Target source, Target target) throws GlUtil.GlException {
+    private void drawHalf(Target source, Target target, PassObserver observer, Pass pass, int level)
+            throws GlUtil.GlException {
         half.setSamplerTexIdUniform("uSource", source.texture, 0);
         half.setFloatsUniform("uSourceTexel", source.texel);
-        draw(half, target);
+        draw(half, target, observer, pass, level);
     }
 
-    private static void draw(GlProgram program, Target target) throws GlUtil.GlException {
-        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, target.framebuffer);
-        GLES20.glViewport(0, 0, target.width, target.height);
-        program.use();
-        program.bindAttributesAndUniforms();
-        GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+    private static void draw(GlProgram program, Target target, PassObserver observer, Pass pass, int level)
+            throws GlUtil.GlException {
+        if (observer != null) observer.begin(pass, level);
+        try {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, target.framebuffer);
+            GLES20.glViewport(0, 0, target.width, target.height);
+            program.use();
+            program.bindAttributesAndUniforms();
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+        } finally {
+            if (observer != null) observer.end();
+        }
     }
 
     /** Release on the context that created this workspace. */

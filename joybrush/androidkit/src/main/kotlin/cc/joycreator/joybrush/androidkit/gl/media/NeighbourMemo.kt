@@ -30,3 +30,11 @@ internal class NeighbourMemo {
         this.tx = tx; this.ty = ty; this.r = r; walls = withWalls; gen = generation; valid = true
     }
 }
+
+/** Codex audit round 4 bench switches (debug benches only): false puts back the way before 11-20, to compare on a phone. */
+object AtlasBench {
+    /** ATLAS-TABLE: false defines the whole page table anew on every change (bench `jb_atlas_full_table`). */
+    @JvmField @Volatile var keepTable = true
+    /** OIL-STEP: false looks every neighbourhood up afresh (bench `jb_nbr_nomemo`). */
+    @JvmField @Volatile var memo = true
+}

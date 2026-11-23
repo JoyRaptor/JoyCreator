@@ -108,7 +108,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
             ?: ByteBuffer.allocateDirect(t.data.size * 4).order(ByteOrder.nativeOrder()).asIntBuffer().also { staging = it }
         cells.clear(); cells.put(t.data, 0, t.data.size); cells.position(0)
         GLES30.glBindTexture(GLES30.GL_TEXTURE_2D, table)
-        if (t.w == texW && t.h == texH)
+        if (AtlasBench.keepTable && t.w == texW && t.h == texH)
             GLES30.glTexSubImage2D(GLES30.GL_TEXTURE_2D, 0, 0, 0, t.w, t.h, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
         else {
             GLES30.glTexImage2D(GLES30.GL_TEXTURE_2D, 0, GLES30.GL_R32I, t.w, t.h, 0, GLES30.GL_RED_INTEGER, GLES30.GL_INT, cells)
@@ -125,7 +125,7 @@ internal class MediaAtlasGl(private val nx: Int, private val ny: Int, quadBuf: I
      */
     fun neighbours(tx: Int, ty: Int, out: IntArray, withWalls: Boolean = false, r: Int = 1) {
         // Codex audit round 4, OIL-STEP: the same question under the same table gets the same answer, copied.
-        if (memo.fill(tx, ty, r, withWalls, out)) return
+        if (AtlasBench.memo && memo.fill(tx, ty, r, withWalls, out)) return
         var i = 0
         for (dy in -r..r) for (dx in -r..r) {
             val x = tx + dx; val y = ty + dy

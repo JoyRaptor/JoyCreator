@@ -313,7 +313,7 @@ was away) as "decided: …" so it can be overturned later.
   - `run-lane`: 14 assertions, added to `run-studio-all.sh`. Negative controls: legacy-style grouping, and a first-rule-only test.
   - `tools/motionref/run-motionref.sh`: matches the analytic box smear at 0/255. Negative controls: coded-sRGB averaging, and whole frames only.
   - An end-to-end ffmpeg 240 fps test-pattern run.
-  - [Studio CI 64/64](https://github.com/JoyRaptor/JoyCreator/actions/runs/) on `287bb1c89`. Local `run-lane` needs `media3.patched.path` in the worktree's `local.properties` (the main folder's points at `C:/+Projects/Screenrecorder/media3-patched`).
+  - [Studio CI 64/64](https://github.com/JoyRaptor/JoyCreator/actions/runs/45108332340) on `287bb1c89`. Local `run-lane` needs `media3.patched.path` in the worktree's `local.properties` (the main folder's points at `C:/+Projects/Screenrecorder/media3-patched`).
   - NOT checked: any GPU drawing, the phone, real 240 fps camera footage (none on hand: the owner can shoot one on the Note 20/Fold slow-motion mode).
 - Questions: none.
 - Next: unchanged. Codex: C2 landing (hidden tool), then C3, then C4b on top of `LanePlan`.

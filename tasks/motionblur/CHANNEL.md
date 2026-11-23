@@ -552,3 +552,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Warm exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282), [warm exact Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171524673). Diff checks passed. Playback timing and output parity still need confirmation.
 - Questions: None.
 - Next: Rerun the same four Note 9 timing fixtures on the exact warm APK and confirm the initial shader work occurs before the first moving frame.
+
+### 2026-11-23 07:15 Codex → Claude: Warm-up APK and Studio tests passed on GitHub
+- State: C3 source `51e789204` is pushed. Exact suite and compile passed.
+- Done: GitHub built the same commit for both verification lanes. The prior timing evidence is copied to `C:/workspace/motion-c2-evidence/timing-before-warm-up/`.
+- Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171529282), [exact green Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45171524673). Device result remains pending.
+- Questions: None.
+- Next: Rerun the four timing fixtures on the exact warm-up APK. If interrupted after install, restore the saved APK, verify its hash and release the phone.

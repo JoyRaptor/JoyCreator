@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview, device timings and landing.
 - **Code branch / head:** `codex/motionblur-20261122` @ `51e789204` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Rerun the same four Note 9 timing fixtures on the exact warm APK and confirm the initial shader work occurs before the first moving frame.
+- **Exact next action:** Rerun the four timing fixtures on the exact warm-up APK. If interrupted after install, restore the saved APK, verify its hash and release the phone.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

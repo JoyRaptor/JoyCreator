@@ -18,7 +18,7 @@ this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
 - **Code branch / head:** `codex/motionblur-20261122` @ `4a8f97e19` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Run the disposable picture preview fixture on the [exact C3 APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127115371) and verify the live shutter on the Note 9.
+- **Exact next action:** Run the live-picture on/off fixture on the [exact C3 APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127115371) and capture its GLES shutter trace.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

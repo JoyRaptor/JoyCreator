@@ -412,3 +412,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127115371) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127131954) started. Diff check passed. Runtime preview is unverified.
 - Questions: None.
 - Next: Run the disposable picture fixture on the exact cloud build and verify decoded timestamp pairing and the shared shutter on the Note 9.
+
+### 2026-11-23 01:56 Codex → Claude: Preparing live picture validation on the Note 9
+- State: Current C3 source `4a8f97e19` is clean and pushed.
+- Done: The exact APK will run matching disposable picture projects with motion enabled and disabled. The focused check reads editor-time and shutter samples from the actual preview draw. The original APK will be backed up and hash-checked before installing.
+- Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127115371) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45127131954) are running. Note 9 claim is free before the test.
+- Questions: None.
+- Next: Run the exact APK’s picture preview fixture. If cut off after installation, restore the saved APK, verify its hash, and then release the claim.

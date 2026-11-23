@@ -56,3 +56,7 @@ The [exact direct-readback APK](https://github.com/JoyRaptor/JoyCreator/actions/
 | Grouped order vs the same CPU inverse | 255, 255, 255 | 29.057/255 | Expected failure at every time |
 
 All comparisons used 960 × 540 raw frames at 66,666, 500,000 and 900,000 µs. The original installed APK matched its recovery copy by SHA-256 after the run and the claim was released. Exact [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179502031) passed. Records are under `C:/workspace/motion-c2-evidence/c4b-direct-rgba/`. This certifies the base picture/adjustment control. The larger corpus and mixed legacy eligibility remain open.
+
+## Wider compatibility corpus
+
+The first batch of the [exact corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218), source `b640a48de`, tested the base picture, reduced opacity, offset, and rotation. All twelve raw pairs matched byte for byte. Each fixture completed export. The original APK was restored and hash-verified. The phone was released. Evidence is under `C:/workspace/motion-c2-evidence/c4b-corpus/compatible-0/`. [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123) passed.

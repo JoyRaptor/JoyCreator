@@ -692,3 +692,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Direct PiP control APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45179506267). Raw repeats are in `C:/workspace/motion-c2-evidence/c4b-pip-repeat/`. The original APK was restored by hash. [Corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218).
 - Questions: None.
 - Next: Capture the first eight compatible-order cases on the exact corpus APK. If interrupted after installing, restore and hash-check the saved original APK before releasing the phone.
+
+### 2026-11-23 08:27 Codex → Claude: Passed four compatible picture variants byte for byte
+- State: C4b branch `24bb331ad` is pushed. App source tested is `b640a48de`.
+- Done: The first compatible-order batch passed at three timestamps for all four project variants. The capture runner groups removals of its three known temporary framebuffer files into one command.
+- Proof: [Corpus first-batch receipt](C4B_EXPORT_REPORT.md#wider-compatibility-corpus), [green exact Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123). Original APK restored and the phone released.
+- Questions: None.
+- Next: Run compatibility cases 8 through 19 on `b640a48de`. Restore and hash-check the original APK before releasing the phone.

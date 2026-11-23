@@ -1,4 +1,3 @@
-import com.fadcam.ui.faditor.compositor.RigidSpriteMotion;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -78,8 +77,8 @@ public final class MotionTimelineBreaksTest {
         }
 
         sprite.getFrameTrack().put(FrameTrack.Key.ofCell(32, 0));
-        var previewLeft = RigidSpriteMotion.directCellWindow(sheet, sprite, 1_079);
-        var previewRight = RigidSpriteMotion.directCellWindow(sheet, sprite, 1_080);
+        var previewLeft = MotionTimelineBreaks.directCellWindow(sheet, sprite, 1_079);
+        var previewRight = MotionTimelineBreaks.directCellWindow(sheet, sprite, 1_080);
         long leftEnd = Boolean.getBoolean("motion.wrongPreviewCellWindow")
                 ? sprite.getEndMs() * 1000L : previewLeft.endUs();
         equal(1_080_000, leftEnd, "preview cell holds only until the authored swap");
@@ -88,7 +87,7 @@ public final class MotionTimelineBreaksTest {
         equal(1_080_000, previewRight.startUs(), "next drawing owns the exact swap");
         equal(1_090_000, previewRight.endUs(), "preview fences empty cells");
         equal(1, previewRight.cell(), "next drawing");
-        if (RigidSpriteMotion.directCellWindow(sheet, sprite, 1_090) != null) {
+        if (MotionTimelineBreaks.directCellWindow(sheet, sprite, 1_090) != null) {
             throw new AssertionError("empty cell never becomes a texture donor");
         }
 

@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.sprite;
 
+import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.Studio;
 
 import android.content.Context;
@@ -271,7 +272,7 @@ public class SpriteOverlayView extends View {
     }
 
     public record MotionCell(Bitmap bitmap, float aspect,
-            com.fadcam.ui.faditor.compositor.RigidSpriteMotion.CellWindow window) {}
+            MotionTimelineBreaks.CellWindow window) {}
 
     private record MotionCellKey(SpriteSheetRenderer owner, int artistCell, android.graphics.Rect rect) {}
 
@@ -289,7 +290,7 @@ public class SpriteOverlayView extends View {
         var sheet = callback.lookupSheet(item.getSheetId());
         var renderer = callback.lookupRenderer(item.getSheetId());
         if (sheet == null || renderer == null || renderer.isSequence()) return null;
-        var window = com.fadcam.ui.faditor.compositor.RigidSpriteMotion.directCellWindow(sheet, item, playheadMs);
+        var window = MotionTimelineBreaks.directCellWindow(sheet, item, playheadMs);
         if (window == null) return null;
         var key = new MotionCellKey(renderer, sheet.sourceCell(window.cell()), renderer.cellRectBitmap(window.cell()));
         Bitmap bitmap = motionCells.get(key);

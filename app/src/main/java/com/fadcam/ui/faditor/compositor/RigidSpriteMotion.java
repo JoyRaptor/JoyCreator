@@ -11,7 +11,6 @@ import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.motion.RigidShutterPlan;
-import com.fadcam.ui.faditor.sprite.SpriteFrameResolver;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.sprite.SpriteSheet;
 import com.fadcam.ui.faditor.sprite.SpriteSheetRenderer;
@@ -33,39 +32,7 @@ public final class RigidSpriteMotion {
     }
 
     public static int supportedCell(SpriteSheet sheet, SpriteOverlayItem item, long timeMs) {
-        int cell = SpriteFrameResolver.resolveCellAt(sheet, item, timeMs);
-        if (cell == SpriteFrameResolver.NO_CELL) return cell;
-        var alignment = sheet.cellTransform(cell);
-        // Aligned art can extend beyond the cell texture.
-        return alignment == null || alignment.isIdentity() ? cell : SpriteFrameResolver.NO_CELL;
-    }
-
-    public record CellWindow(int cell, long startUs, long endUs) {}
-
-    /** Exact holding interval for authored cells. Preset sequences use their regular route. */
-    @Nullable
-    public static CellWindow directCellWindow(SpriteSheet sheet, SpriteOverlayItem item, long timeMs) {
-        int cell = supportedCell(sheet, item, timeMs);
-        if (cell == SpriteFrameResolver.NO_CELL) return null;
-        long itemStart = item.getStartMs();
-        long start = itemStart;
-        long end = item.getEndMs();
-        int previous = SpriteFrameResolver.resolveCellAt(sheet, item, start);
-        for (var key : item.getFrameTrack().keys()) {
-            if (key.presetId != null) return null;
-            long edge = itemStart + key.timeMs;
-            if (edge >= end) break;
-            int next = SpriteFrameResolver.resolveCellAt(sheet, item, edge);
-            if (next == previous) continue;
-            if (edge > timeMs) {
-                end = edge;
-                break;
-            }
-            start = edge;
-            previous = next;
-        }
-        return new CellWindow(cell, start * 1000L,
-                end == Long.MAX_VALUE ? end : end * 1000L);
+        return MotionTimelineBreaks.supportedCell(sheet, item, timeMs);
     }
 
     /** The unplaced source cell used by both shutter draws. The caller owns this bitmap. */

@@ -398,3 +398,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused JDK test passed for irregular release cadence, dropped texture updates, paused redraw, duplicate delivery and seeks. The planted release-clock control failed as expected. There is no preview hook yet.
 - Questions: None.
 - Next: Wire PreviewMotionClock to the master ExoPlayer metadata listener and GL texture latch for ordinary video windows.
+
+### 2026-11-23 01:50 Codex → Claude: Pushed live decoder timestamp pairing
+- State: C3 clock hookup at `a84699164` on `codex/motionblur-20261122`, pushed and verified.
+- Done: Decided: anchor ordinary video to the current player window and TimeMap. Reset on route change or discontinuity. Decline loops, cut jumps, transitions and still master clips until their respective clocks are verified. There is no clock work in the default-off render path.
+- Proof: Core clock positive and negative controls passed. [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45126770909) started. There is no visual preview change yet.
+- Questions: None.
+- Next: Attach opted-in, ordinary pictures to the late picture rung with the shared export shutter. If interrupted, C2 remains gated and the C3 clock has no visual effect.

@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
-- **Code branch / head:** `codex/motionblur-20261122` @ `60405cd3b` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `a84699164` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Wire `PreviewMotionClock` to the master ExoPlayer metadata listener and GL texture latch for ordinary video windows.
+- **Exact next action:** Attach opted-in, ordinary pictures to the late preview picture rung using the shared export shutter.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

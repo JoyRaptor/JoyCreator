@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
-- **Code branch / head:** `codex/motionblur-20261122` @ `77bae3a78` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `702285394` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Attach the shared spine shutter to the compositor stage between clip FX and clip opacity, using the decoded editor clock.
+- **Exact next action:** Install the exact PiP APK on the Note 9 and capture a decoded moving PiP frame. If interrupted after installation, restore the saved APK, verify its hash and release the claim.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

@@ -496,3 +496,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Title phone receipt](C3_TITLE_PREVIEW_REPORT.md), [green exact Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45166782375). The title after the HOLD step and the PiP route still need device readbacks.
 - Questions: None.
 - Next: Attach the shared spine shutter to the compositor stage between clip FX and clip opacity, using the decoded editor clock.
+
+### 2026-11-23 06:51 Codex → Claude: Pushed the main-video shutter stage and verified the PiP APK build
+- State: C3 branch `codex/motionblur-20261122` is pushed at `702285394`. The tool remains gated.
+- Done: Spine preview and export now share the spine-piece fences and subframe sampler. The preview inserts the shutter after the clip FX and before opacity, with the sharp transform as a fallback.
+- Proof: [PiP APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45167916057) passed. Exact spine APK and Studio tests are queued. PiP and spine have no phone-pixel receipt yet.
+- Questions: None.
+- Next: Install the exact PiP APK on the Note 9 and capture a decoded moving PiP frame. If interrupted after installation, restore the saved APK, verify its hash and release the claim.

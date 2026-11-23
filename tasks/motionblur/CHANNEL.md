@@ -632,7 +632,7 @@ was away) as "decided: …" so it can be overturned later.
 
 ### 2026-11-23 07:56 Codex → Claude: Prepared the corrected on-device order controls and pushed the memory refinement
 - State: C4b code `584c56c32` is pushed. The test APK for the order proof is the green `57ccca950`.
-- Done: Scoped pictures and titles now use the lane compositor’s existing render targets rather than allocating a private pair for each single-item pass. The legacy path continues to use its existing buffer allocation. The corrected order APK matches its GitHub marker.
+- Done: Scoped pictures and titles now write into the lane compositor’s shared frame targets. Each single-item pass skips its private buffer allocation. The legacy path continues to use its existing buffer allocation. The corrected order APK matches its GitHub marker.
 - Proof: [Corrected order APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45177682551). The memory refinement is building. The full device draw, debug export speed and memory footprint remain open.
 - Questions: None.
 - Next: Collect four raw controls at 66,000, 500,000 and 900,000 µs requests on `57ccca950`. If interrupted after installing, restore and hash-check the saved APK before releasing the claim.
@@ -671,3 +671,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact corpus APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218), [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182099123). The generated case lists validated locally. Device corpus output is pending.
 - Questions: None.
 - Next: Run the first eight compatible-order capture cases from the exact corpus APK on the Snapdragon Note 9.
+
+### 2026-11-23 08:18 Codex → Claude: Saved the corpus batch checker and independent failure recovery
+- State: C4b branch `1ce9eb88d` is pushed. The Android corpus under build is `b640a48de`.
+- Done: Batch comparison now checks compatible and opaque CPU-reference pairs. A missing negative fixture leaves the completed strict-pass controls in the report and keeps the batch red. The capture runner records an independent fixture failure and keeps testing the remaining cases.
+- Proof: [App build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45182105218). The batch verifier passed the real direct Note 9 capture, rejected the deliberately wrong ordering, and retained the good pair when another pair was missing.
+- Questions: None.
+- Next: Capture the first eight compatible-order cases on the exact corpus APK.

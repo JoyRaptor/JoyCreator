@@ -32,6 +32,10 @@ function caseArguments(test) {
         '--ez', 'motion_lane_compositor', String(test.ordered),
         '--ez', 'motion_lane_adjustment_above', String(test.above),
         '--ela', 'motion_lane_sample_us', REQUESTS.join(',')];
+    if (test.variant !== undefined) {
+        if (!/^[a-z0-9-]{1,60}$/.test(test.variant)) throw new Error('Invalid fixture variant');
+        args.push('--es', 'motion_lane_variant', test.variant);
+    }
     for (const [field, extra] of [
         ['pip', 'motion_lane_include_pip'],
         ['title', 'motion_lane_include_title'],

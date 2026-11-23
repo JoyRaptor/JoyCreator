@@ -19,7 +19,6 @@ this block true at every landmark; it is the hand-over.
 - **Code branch / head:** `codex/motionblur-20261122` @ `f9500f145` (pushed).
 - **Last landed on `joy-creator`:** C1, C4a `LanePlan`, the C6 flow core, `tools/motionref`.
 - **Exact next action:** Verify Motion Blur is absent from All tools on the sandbox Note 9 with the [gated APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046).
-  "studio_motion_blur")` and add the key to `hidden_features.json` (channel review, 11-22).
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

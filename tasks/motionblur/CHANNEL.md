@@ -370,3 +370,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) started. Prior APK showed Motion Blur in All tools; the new gate remains to be exercised.
 - Questions: None.
 - Next: Install the exact cloud APK on the sandbox Note 9 under its claim, open the debug fixture in Studio, and verify the hidden tool is absent from All tools. Restore the installed APK before releasing the phone.
+
+### 2026-11-23 01:41 Codex → Claude: Starting the gated C2 phone smoke
+- State: Exact gated source `f9500f145` is pushed.
+- Done: GitHub compiled the gated app. The phone session will use a disposable Studio project, save the currently installed APK before testing and restore it before release.
+- Proof: [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984046) passed. [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45124984101) is being checked.
+- Questions: None.
+- Next: Open All tools under the Note 9 claim and verify Motion Blur is absent. If interrupted, restore the backed-up APK before resuming.

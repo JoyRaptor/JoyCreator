@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C3 live preview (ordinary pictures first).
-- **Code branch / head:** `codex/motionblur-20261122` @ `a088e00c7` (pushed).
+- **Code branch / head:** `codex/motionblur-20261122` @ `780a3788c` (pushed).
 - **Last landed on `joy-creator`:** C2 `665409126`; earlier C1, C4a `LanePlan`, C6 flow core and `tools/motionref`.
-- **Exact next action:** Capture decoded preview frames on either side of the 367 ms sprite cell swap on the [exact sprite APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45129811449).
+- **Exact next action:** Locate the 214 opposite-cell candidates in the 400,000 µs sprite capture.
 - **Open owner asks:** none.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

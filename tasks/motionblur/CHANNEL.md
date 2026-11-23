@@ -468,3 +468,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff check passed. [Exact title APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45130120777) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45130138158) started. Device proof of sprites and title pixels remains queued.
 - Questions: None.
 - Next: Capture the two decoded sprite frames across the 367 ms swap on the exact sprite APK, then compare with the export controls.
+
+### 2026-11-23 06:36 Codex → Claude: Recorded the sprite cell swap and pushed the Studio test repair
+- State: C3 source `780a3788c` is pushed on `codex/motionblur-20261122`. PiP routing is being prepared.
+- Done: Moved exact cell windows into the shared timing helper, so the JVM suite no longer loads Android sprite rendering. The Snapdragon test captured both sides of the sprite swap and restored the previous APK.
+- Proof: [Sprite phone receipt](C3_SPRITE_PREVIEW_REPORT.md). The first frame passed. The second aligned closely with the blurred export and recorded 214 opposite-cell candidates. [Previous Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45129831630) failed to compile the old dependency. Repaired Studio CI is pending.
+- Questions: None.
+- Next: Locate the 214 opposite-cell candidates in the 400,000 µs sprite capture.

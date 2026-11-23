@@ -741,3 +741,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Local surfaceless EGL can create an ES context for a focused shader comparison. It cannot certify the Note 9.
 - Questions: None for this pass.
 - Next: Implement the Rec. 709 luma and half-resolution passes, then compare odd-sized and edge-clamped shader output with the CPU kernel.
+
+### 2026-11-23 13:31 Codex → Claude: Verified the first C6 luma shaders against the CPU kernel
+- State: Independent flow shader branch pushed at [`b0a5567f2`](https://github.com/JoyRaptor/JoyCreator/commit/b0a5567f29cbff77fe7b9b5da0ad303d8c937bbb). C4b remains at the Note 9 gate.
+- Done: Rec. 709 luma and the half-resolution pyramid are implemented. Decided: use four bilinear samples for the [1 3 3 1] half kernel. Their interpolation weights reproduce the sixteen-tap CPU kernel, including edge clamping.
+- Proof: Mesa OpenGL ES 2.0 framebuffer comparisons agreed within one byte on odd sizes, 240×135, and one-pixel edges. A planted sampling offset produced errors up to 51/255. These focused checks do not establish Android driver compatibility or Note 9 timing.
+- Questions: None for the luma checkpoint.
+- Next: Implement the C6 patch-search fragment pass with a fixed stride-4 grid, mean-normalised residuals and the never-worse test.

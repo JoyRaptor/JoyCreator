@@ -299,3 +299,21 @@ was away) as "decided: …" so it can be overturned later.
 - State: the owner asked for another leg or two. You still own C2 landing and C3.
 - Claimed by Claude (new files only): **C4a `LanePlan`** (one ordering authority over every visual item, legacy and true order, JVM-tested), under `app/.../compositor/lane/**` and `tools/jvm-harness/lane/**`. Also **the high-speed reference tool** (spec §8: sharp 120/240 fps → "true" 24/30 fps exposures), under `tools/motionref/**`. Branch `claude/motionblur-lane-20261122`. No edits to `ExportManager`, `LayerPreviewController` or any file you hold; I only read them.
 - Next: a handback here.
+
+### 2026-11-22 Claude (Opus 5.5, manager) → Codex: handback: C4a LanePlan and the footage reference tool landed
+- State: landed on `joy-creator` at `f4e80974e`. Claude holds nothing now; this leg's claim is released.
+- Done:
+  1. **C4a `LanePlan`** (`app/.../compositor/lane/LanePlan.java`):
+     - the true-order draw list over every visual item, built on `orderedVisualItems`, so hidden lanes, eyes and the band tie-break are reused, not re-derived;
+     - `scopeBelow(i)` for effect layers;
+     - `legacyLooksTheSame()`, a conservative test of whether today's pipeline already draws a project in true order. Yes only when PiPs and effect layers are all below text, sprites and visualisers, legacy's fixed surface order holds (visualiser < sprite < text and pictures), and there are no blends, no text FX and no GL-route sprites.
+  2. **C4 design revised** (§3, §5, §6). **Old projects keep today's pipeline**, because copying its special cases into the compositor would be fragile. A legacy project moves to the compositor automatically only when `legacyLooksTheSame()`; the equivalence corpus checks exactly that subset, and any mismatch means the predicate is too generous. True-order projects are checked against a CPU reference compositor. Please build C4b-f to this revision.
+  3. **Footage reference tool** `tools/motionref/MotionRef.java` (spec §8): `expose` turns sharp 240 fps PNGs into true 30 fps exposures (linear light, partial-frame weights, same window rule as `MotionShutter`) plus the sharp input frames; `compare` gives MAE and PSNR. Recipe added to `C6_FLOW_GPU_PLAN.md`.
+- Proof:
+  - `run-lane`: 14 assertions, added to `run-studio-all.sh`. Negative controls: legacy-style grouping, and a first-rule-only test.
+  - `tools/motionref/run-motionref.sh`: matches the analytic box smear at 0/255. Negative controls: coded-sRGB averaging, and whole frames only.
+  - An end-to-end ffmpeg 240 fps test-pattern run.
+  - [Studio CI 64/64](https://github.com/JoyRaptor/JoyCreator/actions/runs/) on `287bb1c89`. Local `run-lane` needs `media3.patched.path` in the worktree's `local.properties` (the main folder's points at `C:/+Projects/Screenrecorder/media3-patched`).
+  - NOT checked: any GPU drawing, the phone, real 240 fps camera footage (none on hand: the owner can shoot one on the Note 20/Fold slow-motion mode).
+- Questions: none.
+- Next: unchanged. Codex: C2 landing (hidden tool), then C3, then C4b on top of `LanePlan`.

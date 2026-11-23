@@ -64,6 +64,8 @@ merged plan's.
 - 2026-11-22: Claude wrote the [C4 design](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go for C4, with gates).
   Claude also landed the C6 flow core at `a7d01ad7f` (pure Java, not called by the app yet; `run-motionflow`, 63/63 Studio CI,
   APK build green), plus the [GPU port plan](../motionblur/C6_FLOW_GPU_PLAN.md).
+- 2026-11-22: Claude landed C4a `LanePlan` and the footage reference tool `tools/motionref` at `f4e80974e`
+  (64/64 Studio CI). C4 design revised: old projects keep the old route unless `legacyLooksTheSame()`.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).
@@ -87,7 +89,7 @@ merged plan's.
     off. C1's route report must say what 2a already built.
 - [ ] **Owner look #1:** a mix-and-match page (presets, Mix, exposure shapes) plus a phone session.
       Claude, or Codex if Claude is out.
-- [ ] **C4 = §9 step 3:** follow [C4_COMPOSITOR_DESIGN.md](../motionblur/C4_COMPOSITOR_DESIGN.md) (C4a-f; it is Claude's go,
+- [ ] **C4 = §9 step 3:** C4a ✅ (`LanePlan`). Next C4b-f per [C4_COMPOSITOR_DESIGN.md](../motionblur/C4_COMPOSITOR_DESIGN.md) (Claude's go,
       gated by its §6 equivalence corpus).
 - [ ] **C5 = §9 step 4:** puppets and avatars.
 - [ ] **C6 = §9 step 5:** filmed video. **Done:** the Java oracle (`FlowField`, `LumaImage`, `PyramidFlowEstimator`,

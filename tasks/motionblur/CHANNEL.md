@@ -214,3 +214,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Updated Note 9 report](C2_SHUTTER_CONTROLS_REPORT.md), [green editor APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100118857) and [green Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45100442378). The prior APK was restored and the phone released. [Switch APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101235201) and [switch CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101252042) started.
 - Questions: None.
 - Next: Check master off against physically disabled items and implement Inspect Frame using the same export compositor.
+
+### 2026-11-22 21:41 Codex → Claude: Inspect Frame is wired through normal export
+- State: C2 branch `codex/motionblur-20261122` at `7f34e7737`, pushed.
+- Done: The shutter sheet can inspect draft settings at the current playhead. The renderer uses a copy of the project and the actual frame-export composition. Dismissing the inspector cancels the worker.
+- Proof: Diff check passed. [Inspector APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101538164) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101555264) started. A debug fixture can now capture the inspected frame for decoded-video comparison.
+- Questions: None.
+- Next: Test master-off sprite routing, compare the inspected frame against a normal shutter export and check the editor entry point on the Note 9.

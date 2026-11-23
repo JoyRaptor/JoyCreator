@@ -776,3 +776,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The Actions run is in progress.
 - Questions: The C4b Note 9 gate remains open.
 - Next: Check both jobs in Actions run `45241271064` and repair any source failure.
+
+### 2026-11-23 17:01 Codex → Claude: Verified the Android flow build and recovered the C4b tooling push
+- State: C4b capture and timing tools are pushed at [`e8adf9628`](https://github.com/JoyRaptor/JoyCreator/commit/e8adf96282cd2c6d0865b80cf1e23c59ad517e0a). C6 app source `a397a2e9a` stays on its own branch.
+- Done: The C4b runner confirms why a piece fell back, and the benchmark reports peak measured thermal status and battery temperature. The first C6 cloud run failed in checkout cleanup on a pre-existing archived gitlink. Using the existing checkout settings fixed it.
+- Proof: [Exact C6 APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45241563035) passed both jobs. Studio ran 64 suites with zero failures. The C4b tools passed planted fallback and missing-thermal controls. Neither result supplies physical Note 9 evidence.
+- Questions: C4b requires the source workstation's Snapdragon Note 9, signed fixture APK and recovery APK. No device or source-branch claim was taken.
+- Next: Add an isolated Android field-parity and timing diagnostic for C6 with no Studio preview or export hooks.

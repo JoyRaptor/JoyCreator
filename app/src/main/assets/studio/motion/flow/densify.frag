@@ -1,6 +1,7 @@
 #version 100
 
 precision highp float;
+precision highp sampler2D;
 uniform sampler2D uFrom;
 uniform sampler2D uTo;
 uniform sampler2D uPatchFlow;

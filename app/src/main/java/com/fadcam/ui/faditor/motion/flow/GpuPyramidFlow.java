@@ -61,8 +61,9 @@ public final class GpuPyramidFlow {
             densify = program(vertex, read(assets, "densify.frag") + "\n" + velocity);
             String confidenceSource = read(assets, "confidence.frag");
             if (checkReverse) {
-                confidenceSource = confidenceSource.replace("#version 100\n",
-                        "#version 100\n#define FLOW_HAS_REVERSE_FIELD\n");
+                int afterVersion = confidenceSource.indexOf('\n') + 1;
+                confidenceSource = confidenceSource.substring(0, afterVersion)
+                        + "#define FLOW_HAS_REVERSE_FIELD\n" + confidenceSource.substring(afterVersion);
             }
             confidence = program(vertex, confidenceSource + "\n" + velocity);
 

@@ -1,6 +1,7 @@
 #version 100
 
 precision highp float;
+precision highp sampler2D;
 uniform sampler2D uSource;
 varying highp vec2 vUv;
 

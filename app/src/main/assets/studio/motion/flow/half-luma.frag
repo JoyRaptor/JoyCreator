@@ -1,6 +1,7 @@
 #version 100
 
 precision highp float;
+precision highp sampler2D;
 // The previous luma level uses linear filtering and clamp-to-edge. Set the target size to
 // max(1, floor(sourceSize / 2)) per axis, with the viewport origin at (0, 0).
 uniform sampler2D uSource;

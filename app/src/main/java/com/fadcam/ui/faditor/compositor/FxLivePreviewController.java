@@ -52,6 +52,7 @@ public final class FxLivePreviewController {
         /** The player rendering video right now — legacy or gapless. Null before preparation. */
         @Nullable ExoPlayer activeVideoPlayer();
         default boolean motionBlurEnabled() { return false; }
+        default boolean isManipulatingImage(@NonNull TextOverlayItem item) { return false; }
         default boolean gaplessVideoPlayer() { return false; }
         @Nullable default String loadedVideoClipId() { return null; }
         /** Hand video output back to the PlayerView's own surface. */
@@ -407,7 +408,9 @@ public final class FxLivePreviewController {
         // lane view from the flat lists on each call (getLayers is not cached), and this method
         // runs on every playhead tick — asking twice is the same doubled cost partitionAroundVideo
         // already warns against, on the same per-frame path.
-        List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages = glImageOverlays(timeline);
+        List<TextOverlayItem> glImages = glImageOverlays(timeline);
+        List<TextOverlayItem> shutterPictures = host.motionBlurEnabled()
+                ? ordinaryPictureRun(timeline) : java.util.Collections.emptyList();
         // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
         // glImages. This second list is kept for the pre-3A.1 path where masks were NOT in the
         // gate and were stranded on Canvas; it is now empty for new code but the routing
@@ -497,7 +500,7 @@ public final class FxLivePreviewController {
         if (!anyRenders && g == null && !objectFx && !stacked && glImages.isEmpty() && !anyBlendedViz
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
-                && !anyLayerImage && !anyMatte) {
+                && !anyLayerImage && !anyMatte && shutterPictures.isEmpty()) {
             stop();
             return;
         }
@@ -595,10 +598,10 @@ public final class FxLivePreviewController {
             layerOverlayRouted = layerRouted;
             host.onLayerImageOverlayRouted(layerRouted);
         }
-        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages));
+        bindMotionClock(timeline, playheadClip);
+        view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages, shutterPictures));
         // Routed even while a still is the base: routing is per-PROJECT (see the class note), and
         // dropping it here would make every image→video crossing pay for a surface swap.
-        bindMotionClock(timeline, playheadClip);
         route();
     }
 
@@ -638,7 +641,7 @@ public final class FxLivePreviewController {
         motionClock.bind(player, new PreviewDecoderClock.Anchor(
                 motionWindow.uid, originUs, map.clipEditorStartMs(index) * 1000L,
                 map.clipEditorStartMs(index + 1) * 1000L, speed));
-        view.setMotionClockActive(motionClock.active());
+        view.setMotionClockActive(motionClock.anchor() != null);
     }
 
     private void clearMotionClock() {
@@ -688,7 +691,7 @@ public final class FxLivePreviewController {
     @NonNull
     private FxPreviewTextureView.CompositePlan buildPlan(@NonNull Timeline timeline,
             long playheadMs, @NonNull int[] size, boolean stacked,
-            @NonNull List<com.fadcam.ui.faditor.model.TextOverlayItem> glImages) {
+            @NonNull List<TextOverlayItem> glImages, @NonNull List<TextOverlayItem> shutterPictures) {
         List<AdjustmentLayer> live =
                 LayerPreviewController.visibleAdjustmentLayers(timeline, playheadMs);
         List<FxPreviewTextureView.Layer> snapshot = new ArrayList<>(live.size());
@@ -911,7 +914,8 @@ public final class FxLivePreviewController {
         for (LayerPreviewController.VisualItem v
                 : LayerPreviewController.orderedVisualItems(timeline)) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = v.item.getTextOverlay();
-            if (o != null && glImageIds.contains(o.getId())) {
+            boolean shutterPicture = o != null && motionClock.anchor() != null && shutterPictures.contains(o);
+            if (o != null && (glImageIds.contains(o.getId()) || shutterPicture)) {
                 FxPreviewTextureView.Pip p = host.imagePipFor(o, size[0], size[1]);
                 if (p == null) continue;   // not decoded yet: absent until ready, as a still PiP is
                 // SPEC E mesh: enrich the flat Pip with a stamp snapshot (deep spec copy +
@@ -921,7 +925,9 @@ public final class FxLivePreviewController {
                 // path — byte-identical for every project without a bend.
                 FxPreviewTextureView.Pip mp = withMeshInputs(o, p, playheadMs, size, timeline);
                 if (mp != null) p = mp;
-                rungs.add(FxPreviewTextureView.Rung.pip(p));
+                RigidPictureMotion motion = shutterPicture
+                        ? pictureMotion(o, p, size, motionClock.anchor()) : null;
+                rungs.add(FxPreviewTextureView.Rung.picture(p, motion));
                 glOwned.add(o.getId());
                 continue;
             }
@@ -1029,6 +1035,34 @@ public final class FxLivePreviewController {
         } catch (Exception ignored) {
             return null;   // never let a sprite cost the frame
         }
+    }
+
+    /** The whole picture run moves to GL together so overlapping pictures keep their order. */
+    @NonNull
+    private static List<TextOverlayItem> ordinaryPictureRun(@NonNull Timeline timeline) {
+        if (!timeline.getWaveformOverlays().isEmpty()) return java.util.Collections.emptyList();
+        List<TextOverlayItem> pictures = new ArrayList<>();
+        boolean optedIn = false;
+        for (var visual : LayerPreviewController.orderedVisualItems(timeline)) {
+            if (visual.item.getCaptionSpan() != null) continue;
+            var picture = visual.item.getTextOverlay();
+            if (picture == null || !picture.isImage() || picture.wantsGlExport()) {
+                return java.util.Collections.emptyList();
+            }
+            pictures.add(picture);
+            optedIn |= picture.isRigidMotionBlurEnabled() && RigidPictureMotion.supports(picture);
+        }
+        return optedIn ? pictures : java.util.Collections.emptyList();
+    }
+
+    @Nullable
+    private RigidPictureMotion pictureMotion(TextOverlayItem item, FxPreviewTextureView.Pip p,
+                                              int[] size, PreviewDecoderClock.Anchor time) {
+        if (!item.isRigidMotionBlurEnabled() || !RigidPictureMotion.supports(item)
+                || host.isManipulatingImage(item) || p.still == null) return null;
+        return new RigidPictureMotion(item.copyWithNewId(item.getId()),
+                p.still.getWidth() / (float) p.still.getHeight(), size[0], size[1],
+                time.editorStartUs(), time.editorEndUs());
     }
 
     /**

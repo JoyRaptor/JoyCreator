@@ -15,6 +15,7 @@ import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
+import com.fadcam.ui.faditor.compositor.RigidPictureMotion;
 import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
@@ -117,14 +118,13 @@ final class GlImageOverlayEffect implements GlEffect {
          */
         private boolean zeroCopyText = true;
         private final List<Boolean> frameExternal = new ArrayList<>();
-        private final List<PipChainGl.PictureBlur> frameBlurs = new ArrayList<>();
-        private final Map<String, PictureMotion> pictureMotion = new HashMap<>();
+        private final List<RigidPictureMotion.Exposure> frameBlurs = new ArrayList<>();
+        private final Map<String, RigidPictureMotion> pictureMotion = new HashMap<>();
         private final Map<String, UprightTitle> uprightTitles = new HashMap<>();
         private final long motionStartUs;
         private final long motionEndUs;
         @Nullable private final MotionFrameCadence cadence;
 
-        private record PictureMotion(ItemMotionSampler sampler, MotionBreaks breaks) {}
 
         private static final class UprightTitle {
             private static final int MAX_EDGE = 2048;
@@ -302,7 +302,7 @@ final class GlImageOverlayEffect implements GlEffect {
                     frameVisible.add(p);
                     frameTex.add(tex);
                     frameExternal.add(false);
-                    frameBlurs.add(pictureBlur(o, b, t, editorUs, periodUs, w, h));
+                    frameBlurs.add(pictureBlur(o, b, editorUs, periodUs, w, h));
                 }
                 chain.composite(inputTexId, outFbo, frameVisible, frameTex, frameExternal, frameBlurs);
                 GlErrors.drain("left by GlImageOverlayEffect");
@@ -312,23 +312,14 @@ final class GlImageOverlayEffect implements GlEffect {
         }
 
         @Nullable
-        private PipChainGl.PictureBlur pictureBlur(TextOverlayItem item, Bitmap bitmap,
-                                                   long timeMs, long timeUs, long periodUs, int w, int h) {
-            if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs || timeUs >= motionEndUs
-                    || !item.isAnimated() || item.isLinked() || item.hasCornerPin()
-                    || !item.isRotationPivotNeutral(null) || item.wantsGlExport()
-                    || CaptionAnimator.parsePreset(item.getTextAnimPreset()) != CaptionAnimator.Preset.NONE) {
-                return null;
-            }
-            PictureMotion motion = pictureMotion.computeIfAbsent(item.getId(), id -> {
-                float boxWidth = h * (bitmap.getWidth() / (float) bitmap.getHeight());
-                return new PictureMotion(
-                        MotionItemAdapters.textOrImage(item, w, h, boxWidth, h), itemFences(item));
-            });
-            var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), motion.sampler(),
-                    timeUs, periodUs, motion.breaks(), w, h);
-            return plan == null ? null : new PipChainGl.PictureBlur(plan,
-                    Math.max(0f, Math.min(1f, item.animatedOpacity(timeMs))));
+        private RigidPictureMotion.Exposure pictureBlur(TextOverlayItem item, Bitmap bitmap,
+                                                        long timeUs, long periodUs, int w, int h) {
+            if (periodUs <= 0 || !item.isRigidMotionBlurEnabled() || timeUs < motionStartUs
+                    || timeUs >= motionEndUs || !RigidPictureMotion.supports(item)) return null;
+            RigidPictureMotion motion = pictureMotion.computeIfAbsent(item.getId(), id ->
+                    new RigidPictureMotion(item, bitmap.getWidth() / (float) bitmap.getHeight(),
+                            w, h, motionStartUs, motionEndUs));
+            return motion.exposure(timeUs, periodUs);
         }
 
         private boolean drawTitleMotion(TextOverlayItem item, long timeMs, long timeUs, long periodUs, int w, int h) {
@@ -344,7 +335,7 @@ final class GlImageOverlayEffect implements GlEffect {
                 float fontPx = Math.max(1f, item.animatedSizeFraction(timeMs) * layoutH);
                 float[] size = new float[2];
                 TextBoxRenderer.measure(item, shown, fontPx, size);
-                return new UprightTitle(shown, fontPx, size, item, layoutW, layoutH, w, h, itemFences(item));
+                return new UprightTitle(shown, fontPx, size, item, layoutW, layoutH, w, h, RigidPictureMotion.itemFences(item, motionStartUs, motionEndUs));
             });
             if (!title.fits()) return false;
             var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), title.sampler,
@@ -360,7 +351,7 @@ final class GlImageOverlayEffect implements GlEffect {
             frameVisible.add(null);
             frameTex.add(title.texture);
             frameExternal.add(false);
-            frameBlurs.add(new PipChainGl.PictureBlur(plan, 1f));
+            frameBlurs.add(new RigidPictureMotion.Exposure(plan, 1f));
             return true;
         }
 
@@ -400,18 +391,6 @@ final class GlImageOverlayEffect implements GlEffect {
             } finally {
                 if (bitmap != null) bitmap.recycle();
             }
-        }
-
-        private MotionBreaks itemFences(TextOverlayItem item) {
-            long startUs = item.getStartMs() * 1000L;
-            MotionBreaks.Builder fences = new MotionBreaks.Builder()
-                    .add(motionStartUs).add(motionEndUs).add(startUs);
-            // The editor includes the last whole millisecond of the item.
-            if (item.getEndMs() != Long.MAX_VALUE) {
-                fences.add((item.getEndMs() + 1L) * 1000L);
-            }
-            for (var track : item.getKeyframes().tracks()) fences.addSteps(track, startUs);
-            return fences.build();
         }
 
         /** The text box's picture at {@code t}, redrawn only when its signature moved. */

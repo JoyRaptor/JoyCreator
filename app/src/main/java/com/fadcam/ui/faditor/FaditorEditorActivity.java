@@ -31170,6 +31170,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                             return overlayLayerBelow == null
                                     ? null : overlayLayerBelow.fxPipFor(o, frameW, frameH);
                         }
+                        @Override public boolean isManipulatingImage(@NonNull TextOverlayItem item) {
+                            return (overlayLayer != null && overlayLayer.isManipulatingImage(item))
+                                    || (overlayLayerBelow != null && overlayLayerBelow.isManipulatingImage(item));
+                        }
                         @Override public android.graphics.Bitmap spriteRasterFor(
                                 @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem sp,
                                 int frameW, int frameH) {

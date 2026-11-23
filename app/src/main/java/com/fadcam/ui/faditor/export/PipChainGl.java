@@ -6,11 +6,10 @@ import androidx.annotation.NonNull;
 import androidx.media3.common.util.GlUtil;
 
 import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
+import com.fadcam.ui.faditor.compositor.RigidPictureMotion;
 import com.fadcam.ui.faditor.compositor.FxPreviewTextureView;
 import com.fadcam.ui.faditor.compositor.PipGl;
 import com.fadcam.ui.faditor.fx.FxGlSource;
-
-import com.fadcam.ui.faditor.motion.RigidShutterPlan;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -30,8 +29,6 @@ final class PipChainGl {
             -1f,  1f, 0f, 1f,
              1f,  1f, 0f, 1f,
     };
-
-    record PictureBlur(RigidShutterPlan plan, float opacity) {}
 
     private RigidTextureShutterPass pictureShutter;
     final PipGl.Programs programs = new PipGl.Programs();
@@ -91,7 +88,7 @@ final class PipChainGl {
     }
 
     void composite(int inputTexId, int outFbo, List<FxPreviewTextureView.Pip> pips,
-                   List<Integer> stillTex, List<Boolean> external, List<PictureBlur> blurs)
+                   List<Integer> stillTex, List<Boolean> external, List<RigidPictureMotion.Exposure> blurs)
             throws GlUtil.GlException {
         GLES20.glDisable(GLES20.GL_BLEND);
         int n = pips.size();
@@ -103,7 +100,7 @@ final class PipChainGl {
                 boolean last = i == n - 1;
                 int dstFbo = last ? outFbo : pingFbo[i % 2];
                 boolean oes = external != null && Boolean.TRUE.equals(external.get(i));
-                PictureBlur blur = blurs == null ? null : blurs.get(i);
+                RigidPictureMotion.Exposure blur = blurs == null ? null : blurs.get(i);
                 if (blur != null) {
                     if (pictureShutter == null) pictureShutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PICTURE);
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo);

@@ -54,7 +54,7 @@ final class PreviewDecoderClock {
         installMetadataListener();
     }
 
-    boolean active() { return anchor != null; }
+    @Nullable Anchor anchor() { return anchor; }
 
     void clear() {
         if (player == null) return;

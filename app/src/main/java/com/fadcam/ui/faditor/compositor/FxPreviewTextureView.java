@@ -1117,13 +1117,19 @@ public class FxPreviewTextureView extends TextureView
         /** Index into {@link CompositePlan#layers} when this rung is an adjustment layer. */
         final int layerIndex;
 
-        private Rung(@Nullable Pip pip, int layerIndex) {
+        @Nullable final RigidPictureMotion pictureMotion;
+
+        private Rung(@Nullable Pip pip, int layerIndex, @Nullable RigidPictureMotion pictureMotion) {
             this.pip = pip;
             this.layerIndex = layerIndex;
+            this.pictureMotion = pictureMotion;
         }
 
-        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1); }
-        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex); }
+        @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null); }
+        @NonNull static Rung picture(@NonNull Pip p, @Nullable RigidPictureMotion motion) {
+            return new Rung(p, -1, motion);
+        }
+        @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null); }
     }
 
     /**
@@ -1992,7 +1998,8 @@ public class FxPreviewTextureView extends TextureView
                 for (int ri = 0; ri < cp.rungs.size(); ri++) {
                     Rung r = cp.rungs.get(ri);
                     if (r.pip != null) {
-                        cur = drawPipRung(r.pip, cur, vw, vh);
+                        cur = r.pictureMotion == null ? drawPipRung(r.pip, cur, vw, vh)
+                                : drawPictureMotion(r.pip, r.pictureMotion, cur, vw, vh);
                     } else if (layersReady && r.layerIndex >= 0
                             && r.layerIndex < cp.layers.size() && r.layerIndex < compiled.size()) {
                         cur = drawOneLayer(cp.layers.get(r.layerIndex),
@@ -2698,6 +2705,40 @@ public class FxPreviewTextureView extends TextureView
      * yet to decode) contributes nothing — the slot stays {@code src}, matching the "absent
      * until ready" behaviour the sibling stills have always had.
      */
+    private RigidTextureShutterPass pictureShutter;
+    private boolean pictureShutterFailed;
+    private boolean pictureShutterLogged;
+
+    private int drawPictureMotion(Pip p, RigidPictureMotion motion, int src, int width, int height) {
+        var frame = motionFrame;
+        var exposure = frame == null || pictureShutterFailed ? null
+                : motion.exposure(frame.editorTimeUs(), frame.periodUs(), width, height);
+        if (exposure == null) return drawPipRung(p, src, width, height);
+        int still = stillTextureFor(p);
+        if (still == 0) return src;
+        int dst = src == 0 ? 1 : 0;
+        try {
+            if (pictureShutter == null) {
+                pictureShutter = new RigidTextureShutterPass(RigidTextureShutterPass.Source.PICTURE);
+            }
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[dst][1]);
+            GLES20.glViewport(0, 0, width, height);
+            pictureShutter.draw(still, width, height, exposure.plan(), targets[src][0], exposure.opacity());
+            if (com.fadcam.BuildConfig.DEBUG && !pictureShutterLogged) {
+                pictureShutterLogged = true;
+                FLog.i(TAG, "live picture shutter editorUs=" + frame.editorTimeUs()
+                        + " periodUs=" + frame.periodUs() + " taps=" + exposure.plan().taps().size());
+            }
+            return dst;
+        } catch (androidx.media3.common.util.GlUtil.GlException e) {
+            pictureShutterFailed = true;
+            FLog.w(TAG, "Picture shutter unavailable; drawing sharp", e);
+            return drawPipRung(p, src, width, height);
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+        }
+    }
+
     private int drawPipRung(@NonNull Pip p, int src, int vw, int vh) {
         if (!p.rendersAnything()) return src;
         // SPEC E mesh: bent images render via the shared stamp (frame-sized FBO) then composite
@@ -3290,6 +3331,12 @@ public class FxPreviewTextureView extends TextureView
         if (h != null) {
             h.post(() -> {
                 releasePrograms();
+                if (pictureShutter != null) {
+                    try { pictureShutter.release(); } catch (Exception ignored) { }
+                    pictureShutter = null;
+                }
+                pictureShutterFailed = false;
+                pictureShutterLogged = false;
                 releaseTargets();
                 // The cached PiP programs and uploaded still textures belong to this context —
                 // free them while it is still current. Retired still bitmaps are recycled here

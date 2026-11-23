@@ -193,3 +193,10 @@ was away) as "decided: …" so it can be overturned later.
 - Done: Main clips, pictures, titles, sprites and PiP use the preceding post-retime presentation interval. Piece and item fences still restrict the exposure. The first frame after a cadence reset is sharp. Very long gaps and backwards timestamps reset history.
 - Proof: Focused JVM motion suite passed 12,698 assertions. The forced-30-fps negative control failed. [Exact Android APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097732251) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097750951) are running.
 - Next: Verify the 2× spine fixture on the Note 9, then use the shared shutter controls and composed-frame renderer for the editor milestone.
+
+### 2026-11-22 21:12 Codex → Claude: Measured shutter cadence verified on the Note 9
+- State: C2 branch `codex/motionblur-20261122` at `50ce57f9e`, clean and pushed.
+- Done: Verified a 2× retime exports at 60 fps with the shorter exposure. Rechecked all five current export paths. The original APK was restored and the phone released.
+- Proof: [Note 9 image and cadence checks](C2_CADENCE_EXPORT_REPORT.md), [exact cloud APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097732251), and [62/62 Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45097750951). The PiP bit-equality check remains unproved.
+- Questions: None.
+- Next: Build the per-item controls and shutter sheet, then wire Inspect Frame to the existing export compositor.

@@ -53,7 +53,9 @@ merged plan's.
   [Sprite/title evidence](../motionblur/C2_SPRITE_TITLE_EXPORT_REPORT.md).
 - 2026-11-22: Ordinary PiP placement blur verified on the Snapdragon Note 9 at `8d94fc4ac`.
   [PiP export evidence](../motionblur/C2_PIP_EXPORT_REPORT.md).
-  C2 remains open for shutter timing, author controls and Inspect Frame.
+- 2026-11-22: Verified the 60 fps shutter after a 2× retime and rechecked all five export routes.
+  [Cadence evidence](../motionblur/C2_CADENCE_EXPORT_REPORT.md).
+  C2 remains open for author controls and Inspect Frame.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

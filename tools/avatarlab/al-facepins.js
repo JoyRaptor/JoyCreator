@@ -95,9 +95,10 @@
    * Your face in the panel (Pick / Live, pinch and pan, Fit) and the character on the stage beside it (pinch and pan as
    * always), both in view the whole time. Tap a point of your face, then tap the character where it should pull: a pin,
    * numbered and coloured the same on both. Again and again, as many as you like. Only face pins show on the stage here.
-   * Tap a pin on the character to pick it; drag it to move where it pulls (one undo step). Follow my face: on, your face
-   * drives the character and its pins (even in Set up, where the picture otherwise holds still); off, everything holds
-   * still while you place and drag. A row for each pin: where it comes from, what it pulls, Strength, Remove. Done closes.
+   * Tap a pin on the character to pick it; drag it to move where it pulls (one undo step). Test (round 5, his "place, test,
+   * place, test"): your face drives the character and its pins (even in Set up, where the picture otherwise holds still) and
+   * shows live; Stop holds everything still to place and drag. The pins are drawn inside the stage, where the solver draws
+   * them (a reshape included). A row for each pin: where it comes from, what it pulls, Strength, Remove. Done closes.
    * The camera picture lives only on this screen and in memory, never stored.
    */
   var COLORS = ['#22d3ee', '#f472b6', '#facc15', '#a3e635', '#60a5fa', '#fb923c', '#c084fc', '#34d399'];
@@ -108,7 +109,7 @@
     opts = opts || {};
     var cam = app.inp.cam;
     if (!app.fpMode) {
-      var W = app.fpMode = { sel: null, pin: null, follow: !!fp._follow, mode: fp._mode || 'pick', all: !!fp._all, prevMode: cam.mode,
+      var W = app.fpMode = { sel: null, pin: null, follow: false, mode: fp._mode || 'pick', all: !!fp._all, prevMode: cam.mode, camWasOn: !!cam.on,
         shapeEdit: app.shapeEdit || null, face: { k: 1, x: 0, y: 0 } };
       app.shapeEdit = null;                                  // a part held in its reshape would hold the face pins still
       if (!cam.on) fp._frozen = null;                        // the camera is off: no picture is kept
@@ -125,7 +126,7 @@
     stageOff(app); markersOff(app);
     if (W.hook) { var i = app.hooks.indexOf(W.hook); if (i >= 0) app.hooks.splice(i, 1); W.hook = null; }
     clearStatic(app);
-    var cam = app.inp.cam; if (cam.mode === 'paused') cam.mode = W.prevMode && W.prevMode !== 'paused' ? W.prevMode : 'always';
+    var cam = app.inp.cam; if (cam.on) cam.mode = W.camWasOn && W.prevMode && W.prevMode !== 'paused' ? W.prevMode : 'always';
     if (W.raf) cancelAnimationFrame(W.raf);
     if (W.shapeEdit && !app.shapeEdit) app.shapeEdit = W.shapeEdit;
     var ph = document.getElementById('panelhead'); if (ph) ph.style.display = W.headShown || '';
@@ -142,13 +143,16 @@
     }).catch(function () { app.toast('The face camera could not start here. It needs a camera and the PC page.'); if (app.fpMode) app.refreshPanel(true); });
   }
 
-  /** Follow my face. On: your face drives the character and, where the picture holds still (Set up), its face pins. Off: nothing moves with you. */
+  /** Test. On: your face drives the character and, where the picture holds still (Set up), its face pins; your face shows live
+      beside it. Off (Stop): nothing moves with you, so you can place and drag. The camera follows always while testing, whatever
+      it was left on (talk-only included), and holds while not. */
   fp.setFollow = function (app, on) {
     var W = app.fpMode; if (!W) return;
     var cam = app.inp.cam;
-    W.follow = fp._follow = !!on;
-    if (on) { if (cam.mode === 'paused') cam.mode = 'always'; }
-    else if (cam.mode === 'always') cam.mode = 'paused';
+    W.follow = !!on;
+    if (cam.on) cam.mode = on ? 'always' : 'paused';
+    if (on && W.mode !== 'live') { W.testFrom = W.mode; W.mode = 'live'; W.face = { k: 1, x: 0, y: 0 }; }
+    else if (!on && W.testFrom) { W.mode = W.testFrom; W.testFrom = null; W.face = { k: 1, x: 0, y: 0 }; }
     if (on && !W.hook) {
       W.hook = function (dt, liveNow) {
         if (liveNow || !cam.on) return;
@@ -173,16 +177,27 @@
     });
     return { n: n, x: x, y: y };
   }
+  /** Where the pin's spot is drawn now, in stage pixels: the solver's own pin targets, so a part's reshape (Topps's body on
+      all fours) and every shape it wears are in it. Null until the part has been drawn with that pin. */
+  fp._drawnAt = function (app, q) {
+    var n = AL.node(app.ch, q.node), at = app.out && app.out.meshAt && app.out.meshAt[q.node], pins = n && n.mesh && n.mesh.pins;
+    if (!at || !pins || at.Q.length !== pins.length) return null;
+    for (var i = 0; i < pins.length; i++) if (pins[i].id === q.pin) { var w = M.ap(at.M, at.Q[i][0], at.Q[i][1]), v = app.view; return { x: w[0] * v.s + v.ox, y: w[1] * v.s + v.oy }; }
+    return null;
+  };
   function stagePos(app, q) {
-    var L = pinLocal(app, q); if (!L) return null;
+    var at = fp._drawnAt(app, q); if (at) return at;
+    var L = pinLocal(app, q); if (!L) return null;                         // (not drawn yet: where it rests, with its face shape)
     var m = app.out && app.out.M[L.n.id]; if (!m) return null;
     var w = M.ap(m, L.x, L.y), v = app.view;
     return { x: w[0] * v.s + v.ox, y: w[1] * v.s + v.oy };
   }
+  /** The markers live inside the stage, so they sit exactly on the picture whatever is above it (on the phone: the top bar). */
+  fp._layerHost = function (st) { return st; };
   function markersOn(app) {
     var W = app.fpMode, st = document.getElementById('stage'); if (!st) return;
-    W.layer = h('div', { 'aria-hidden': 'true', style: 'position:absolute;pointer-events:none;z-index:25;overflow:hidden' });
-    (st.parentNode || document.body).appendChild(W.layer);
+    W.layer = h('div', { 'aria-hidden': 'true', style: 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none;z-index:25;overflow:hidden' });
+    (fp._layerHost(st) || st).appendChild(W.layer);
     W.mk = {};
     W.mhook = function () { fp._drawMarkers(app); };
     app.hooks.push(W.mhook);
@@ -193,14 +208,12 @@
     if (W.layer && W.layer.parentNode) W.layer.parentNode.removeChild(W.layer);
   }
   fp._drawMarkers = function (app) {
-    var W = app.fpMode, st = document.getElementById('stage'); if (!W || !W.layer || !st) return;
-    var pr = W.layer.parentNode.getBoundingClientRect(), sr = st.getBoundingClientRect(), Ls = W.layer.style;
-    Ls.left = (sr.left - pr.left) + 'px'; Ls.top = (sr.top - pr.top) + 'px'; Ls.width = sr.width + 'px'; Ls.height = sr.height + 'px';
+    var W = app.fpMode; if (!W || !W.layer) return;
     var seen = {};
     fp.list(app.ch).forEach(function (q, i) {
       var at = W.dragAt && W.dragAt.id === q.id ? W.dragAt : stagePos(app, q); if (!at) return;
       var el = W.mk[q.id];
-      if (!el) { el = W.mk[q.id] = h('div', { style: 'position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:750 13px system-ui,sans-serif;color:#000;border:2px solid #000' }); W.layer.appendChild(el); }
+      if (!el) { el = W.mk[q.id] = h('div', { style: 'position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:750 13px system-ui,sans-serif;color:#000;border:2px solid #000;box-sizing:border-box' }); W.layer.appendChild(el); }
       el.textContent = String(i + 1); el.style.background = COLORS[i % COLORS.length];
       el.style.boxShadow = W.pin === q.id ? '0 0 0 3px #fff' : '0 0 0 2px rgba(255,255,255,0.3)';
       el.style.left = at.x + 'px'; el.style.top = at.y + 'px';
@@ -208,13 +221,17 @@
     });
     for (var id in W.mk) if (!seen[id]) { if (W.mk[id].parentNode) W.mk[id].parentNode.removeChild(W.mk[id]); delete W.mk[id]; }
   };
-  /** Where each face pin shows on the stage (stage pixels), in pin order, read from what is drawn there. */
+  /** Where each face pin shows on the stage (stage pixels), in pin order, read from the drawn markers' own boxes: what the eye sees, and what a finger grabs. */
   fp.markers = function (app) {
-    var W = app.fpMode; if (!W || !W.mk) return [];
-    return fp.list(app.ch).map(function (q) { var el = W.mk[q.id]; return el ? { id: q.id, x: parseFloat(el.style.left), y: parseFloat(el.style.top) } : null; }).filter(Boolean);
+    var W = app.fpMode, st = document.getElementById('stage'); if (!W || !W.mk || !st) return [];
+    var r = st.getBoundingClientRect(), k = st.clientWidth / (r.width || 1);
+    return fp.list(app.ch).map(function (q) {
+      var el = W.mk[q.id]; if (!el || !el.isConnected) return null; var b = el.getBoundingClientRect(); if (!b.width) return null;
+      return { id: q.id, x: (b.left + b.width / 2 - r.left) * k, y: (b.top + b.height / 2 - r.top) * k };
+    }).filter(Boolean);
   };
   function markerAt(app, p) {
-    var best = null, bd = 24;
+    var best = null, bd = 30;                                              // a fingertip's reach around a 26-point pin
     fp.markers(app).forEach(function (m) { var d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } });
     return best;
   }
@@ -345,7 +362,9 @@
     if (src.img) {
       g.save(); g.globalAlpha = 0.85;
       if (src.mirror) { g.translate(v.ox + src.w * v.s, v.oy); g.scale(-v.s, v.s); } else { g.translate(v.ox, v.oy); g.scale(v.s, v.s); }
-      g.drawImage(src.img, 0, 0, src.w, src.h); g.restore();
+      try { g.drawImage(src.img, 0, 0, src.w, src.h); } catch (e) { /* not a picture yet */ }
+      g.restore();
+      if (!src.lm || !src.lm.length) { g.fillStyle = 'rgba(9,9,11,.72)'; g.fillRect(0, r.height / 2 - 18, r.width, 36); g.fillStyle = INK; g.font = '600 14px system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('Looking for your face\u2026 face the phone', r.width / 2, r.height / 2); g.textBaseline = 'alphabetic'; }
     }
     var nm = namedPoints(), list = fp.list(app.ch), first = {};
     list.forEach(function (q, k) { if (first[q.point] == null) first[q.point] = k; });
@@ -426,9 +445,10 @@
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];      // only face pins on the stage here
     if (app.coach) app.coach('<b>Face pins.</b> Tap a point of your face below, then the character where it should pull. Drag a numbered pin to move it.');
     pb.innerHTML = '';
-    var follow = ui.toggle('Follow my face', W.follow, function (v) { fp.setFollow(app, v); app.refreshPanel(true); }, null,
-      'On: your face moves the character and its pins, so you can see them work. Off: everything holds still while you place and drag');
-    follow.style.width = 'auto'; follow.style.flex = 'none'; follow.style.margin = '0';
+    var follow = ui.chip(W.follow ? 'Stop' : 'Test', { on: W.follow, icon: W.follow ? 'stop' : 'play', cls: W.follow ? '' : 'go',
+      title: W.follow ? 'Stop testing: the character holds still again, to place and drag pins' : 'Test your pins: move your face and watch the character follow. You can still drag a pin while testing',
+      fn: function () { if (!cam.on) startCam(app); fp.setFollow(app, !W.follow); app.refreshPanel(true); } });
+    follow.style.flex = 'none';
     var seg = ui.seg([['pick', 'Pick', 'Tap a point of your face to pin it (coming back from Live keeps that moment of your face)'], ['live', 'Live', 'Watch the points ride on your face (the camera picture, only here, never kept)']],
       W.mode, function (v) { setMode(app, v); }, 'How your face shows');
     seg.style.flex = 'none';
@@ -439,8 +459,10 @@
     // your face: the map, with its own small controls on top and the next step written under it
     if (!W.cv) { W.cv = h('canvas', { 'aria-label': 'Your face: tap a point, pinch to zoom, drag to pan', title: 'Your face: tap a point, then tap the character where it should pull. Pinch to zoom, drag to pan' }); faceHandlers(app, W.cv); }
     W.cv.style.cssText = 'display:block;width:100%;height:100%;touch-action:none';
+    var pinNo = W.pin ? list.map(function (q) { return q.id; }).indexOf(W.pin) + 1 : 0;
     var hint = W.sel != null ? 'Now tap the <b>character</b> where <b>' + fp.nameOf(W.sel) + '</b> should pull'
-      : W.pin ? 'Pin <b>' + (list.map(function (q) { return q.id; }).indexOf(W.pin) + 1) + '</b>: drag it on the character to move it'
+      : W.follow ? (pinNo ? 'Move your face: pin <b>' + pinNo + '</b> should pull. Drag it to adjust, or <b>Stop</b>' : 'Move your face and watch the character. <b>Stop</b> to place more')
+      : pinNo ? 'Pin <b>' + pinNo + '</b>: tap <b>Test</b> and move your face, or drag it to move it'
       : list.length ? 'Tap the next point of <b>your face</b>, then the character' : 'Tap a point of <b>your face</b>, then the character where it should pull';
     var tools = h('div', { style: 'position:absolute;right:8px;top:8px;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end' }, [
       W.mode === 'pick' && fp._frozen ? ui.chip('Plain map', { title: 'Drop the picture: the map of your neutral face', fn: function () { fp._frozen = null; app.refreshPanel(true); } }) : null,
@@ -512,13 +534,16 @@
     if (!n || !m) { app.toast('That part cannot take a pin.'); return false; }
     if (AL.fit && AL.fit.can && !AL.fit.can(app, n)) { app.toast('Arms and legs follow the hands and feet. Try the head, the mouth, the brows or the cheeks.'); return false; }
     var l = M.ap(M.inv(m), c[0], c[1]);
-    var made = false, pin = null, newId = null, reach = 12 / Math.max(0.05, app.view.s);   // a pin goes where you tap (an existing one only when right there)
+    var made = false, pin = null, newId = null, at = app.out.meshAt && app.out.meshAt[n.id], v = app.view;
+    var near = null, bd = 12;                                              // a pin goes where you tap (an existing one only when drawn right there)
+    if (at && n.mesh && n.mesh.pins && at.Q.length === n.mesh.pins.length) n.mesh.pins.forEach(function (q, i) {
+      var w = M.ap(at.M, at.Q[i][0], at.Q[i][1]), d = Math.hypot(w[0] * v.s + v.ox - p.x, w[1] * v.s + v.oy - p.y); if (d < bd) { bd = d; near = q.id; }
+    });
     app.edit(function () {
       if (!n.mesh) n.mesh = { pins: [], quiet: true };
       n.mesh.pins = n.mesh.pins || [];
       if (!(n.shapes || []).some(function (q) { return q.id === 'fix'; })) (n.shapes = n.shapes || []).unshift({ id: 'fix', name: 'Reshaped', sig: 'always', amt: 1, d: {} });
-      var bd = reach;
-      n.mesh.pins.forEach(function (q) { var d = Math.hypot(q.x - l[0], q.y - l[1]); if (d < bd) { bd = d; pin = q; } });
+      if (near) pin = n.mesh.pins.filter(function (q) { return q.id === near; })[0] || null;
       if (!pin) { pin = AL.fit.dropPin(app, n, l); made = true; }
       newId = fp.bind(app.ch, n, pin, pt, made);
     }, false, 'Face pin');

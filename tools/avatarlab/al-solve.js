@@ -301,7 +301,7 @@
     opt = opt || {};
     var self = this, ch = this.ch, ix = AL.ix(ch), st = this.st, set = ch.settings || {};
     var live = !!opt.live, dt = clamp(opt.dt || 1 / 60, 0.001, 1 / 20), force = opt.force || {}, show = opt.show || {};
-    var out = { items: [], pins: {}, M: {}, picks: {}, first: {}, last: {}, tips: {}, rootM: null, flipped: false }, late = [];
+    var out = { items: [], pins: {}, M: {}, picks: {}, first: {}, last: {}, tips: {}, meshAt: {}, rootM: null, flipped: false }, late = [];
     /* every button is also a level that eases 0..1, so any part can follow a button ("nervous", "angry") smoothly */
     var lvl = st.lvl || (st.lvl = {}); (ch.triggers || []).forEach(function (t) { var w = S.trig && S.trig[t.id] ? 1 : 0; lvl[t.id] = live && lvl[t.id] != null ? lvl[t.id] + (w - lvl[t.id]) * Math.min(1, dt * 9) : w; });
 
@@ -745,6 +745,7 @@
         var pt = pinTargets(n, s, c);
         if (pt.moved) v = warpMLS(v, pt.P, pt.Q, self.geoFor(n, im), pt.K);
         if (!n.mesh.quiet) out.pins[n.id] = { mesh: pt.Q.map(function (q) { return M.ap(Mx, q[0], q[1]); }) };      // quiet pins shape the part; they are not handles in Perform
+        if (!c.ghost) out.meshAt[n.id] = { Q: pt.Q, M: Mx };      // where each of its pins is drawn now, every shape it wears (FACE-1: face pins show there)
       }
       if (brOn) {
         var br = n.breathe, kk = (br.amt == null ? 1 : br.amt) * 0.05 * s.breath, r2 = br.r * br.r, o2 = v === g.v ? new Float32Array(v) : v;

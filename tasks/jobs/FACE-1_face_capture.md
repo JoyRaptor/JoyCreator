@@ -258,6 +258,26 @@ Checks 10 and 11 rewritten first (they failed on round 3's code); 19 of 19 now, 
 noplace, nomarkers, nodrag, nofollow); every other pilot suite passes with it. His look owed. Next (his idea, phase 2):
 a face template laid over the character's face, its key points dragged onto the features, every pin made at once.
 
+## Round 5: his first use of the real screen (11-22) and what was wrong
+He tapped a point, then Topps: the pin showed "about 5 millimeters north" of his finger; dragging it did nothing; zooming
+made the pins drift against Topps; Live showed "a weird picture", "not like the camera was on". He wants "place, test,
+place, test": put a pin down, press a button, move his face, adjust on the fly or stop.
+
+Measured on his Note 9 over the debugging link (numbers only, no picture kept):
+
+| | Fault | Cause | Fix | Check |
+|---|---|---|---|---|
+| ✅ | Pins drawn 46 points above the finger (his "5 mm north"), drifting on zoom | the pins' layer was placed against the page, not the stage, and the top bar is 46 points tall (my PC checks compared numbers, not what is drawn) | the layer lives inside the stage | 10 (now measures the drawn pins) |
+| ✅ | Dragging a pin did nothing | the finger went down on the pin as drawn, 46 points from where it was | as above; the finger grabs the pin as drawn, a fingertip's reach | 10 (drags from the drawn pin) |
+| ✅ | On a reshaped part (Topps's body) the pin was off again | the pin was drawn where the part rests, before its reshape | drawn where the solver draws it, every shape the part wears (`al-solve.js` hands out where each pin is drawn) | 13 (new) |
+| ✅ | Live showed a frozen, stale picture; nothing followed | Chrome paused the camera's picture while the page was in the background and nothing started it again (camera on, picture paused); the camera was also left on talk-only | the pilot starts a paused camera again (`al-inputs.js`); Test makes the camera follow always | 14 (new) |
+| ✅ | No quick way to try a pin | Follow my face was a small tick box | a **Test** button beside Pick/Live; it shows your face live and the character follows; **Stop** holds still to place; dragging still works while testing; the hint says what to do next | 11 |
+
+The new checks were run on round 4's code first: 7 failed, each for the reason he saw (46 points off; the drag missed;
+no Test; 67 points off on a reshaped part; the camera never started again). 23 of 23 now, 18 of 18 planted faults caught
+(new: nolayer, noreshape, noresume, notest). Limit: dragging a pin while testing places it against your face as it is at
+that moment (a held neutral face is exact).
+
 ## The Face chip starts in "always" (11-22)
 The owner: "I turned the camera on, but it's not responsive until I actually do a hold to talk." The chip's first tap
 started "while talking". Now the first tap drives the character at once ("Face is on: the character moves with you"),

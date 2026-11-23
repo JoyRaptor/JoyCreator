@@ -97,8 +97,16 @@
       .catch(function (e) { self.camStop(); throw e; });
   };
   P.camStop = function () { if (!this.cam.on && this.camStream) this.camGone = true; if (this.camStream) this.camStream.getTracks().forEach(function (t) { t.stop(); }); this.camStream = null; this.cam.on = false; this.cam.v = null; this.cam.lm = null; this.cam.face = null; };
+  /** Chrome pauses the camera's picture while the page is in the background and does not start it again: a frozen frame,
+      nothing followed (the owner's phone, 11-22). Start it again. */
+  P.camResume = function () {
+    var c = this.cam, v = c.v; if (!v || !v.paused || c.resuming || typeof v.play !== 'function') return;
+    c.resuming = true; var r; try { r = v.play(); } catch (e) { r = null; }
+    if (r && r.then) r.then(function () { c.resuming = false; }, function () { c.resuming = false; }); else c.resuming = false;
+  };
   P.watch = function () {
-    var c = this.cam, now = performance.now(); if (!c.lm || !c.v || c.v.readyState < 2 || now - c.last < 50) return;
+    var c = this.cam, now = performance.now(); if (c.v && c.v.paused) this.camResume();
+    if (!c.lm || !c.v || c.v.readyState < 2 || now - c.last < 50) return;
     c.last = now;
     var r; try { r = c.lm.detectForVideo(c.v, now); } catch (e) { return; }
     if (AL.face) { c.face = AL.face.pilotFace(r, c, now / 1000); return; }   // FACE-1: neutral, two sides, lost and found, face pins

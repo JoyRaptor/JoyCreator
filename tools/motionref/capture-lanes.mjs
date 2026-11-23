@@ -103,9 +103,8 @@ async function main() {
             const folder = join(output, test.label);
             await mkdir(folder, {recursive: true});
             await call('shell-write', 'am', 'force-stop', APP);
-            for (const requested of REQUESTS) {
-                await call('shell-write', 'run-as', APP, 'rm', '-f', 'cache/lane_frame_' + requested + '.rgba');
-            }
+            const scratch = REQUESTS.map(requested => 'cache/lane_frame_' + requested + '.rgba');
+            await call('shell-write', 'run-as', APP, 'rm', '-f', ...scratch);
             const since = (await read('shell', "date '+%m-%d %H:%M:%S.000'")).trim();
             await call('start', ACTIVITY, ...args);
             let logs = '';
@@ -136,10 +135,10 @@ async function main() {
                     throw new Error('Incomplete raw frame ' + file);
                 }
                 await writeFile(join(folder, file), raw);
-                await call('shell-write', 'run-as', APP, 'rm', '-f', 'cache/' + file);
                 manifest.samples.push({file, requestUs: +requestUs, editorUs: +editorUs,
                     width: +width, height: +height});
             }
+            await call('shell-write', 'run-as', APP, 'rm', '-f', ...scratch);
             await writeFile(join(folder, 'manifest.json'), JSON.stringify(manifest, null, 2));
             receipt.runs.push(test.label);
         }

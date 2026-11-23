@@ -1,0 +1,199 @@
+# STU-7 verification only. This workflow runs the existing unsigned jobs against one exact commit.
+name: Verify STU-7 flow
+on:
+  push:
+    branches: [codex/stu7-flow-verify-20261123]
+    paths: [.github/workflows/stu7-flow-verify.yml]
+run-name: "Verify STU-7 flow @ a397a2e9a4ea7394190a671e5eb2e54d6315a81b"
+
+permissions:
+  contents: read
+
+env:
+  NDK_VERSION: 27.2.12479018
+  CMAKE_VERSION: 3.22.1
+  WHISPER_REPO: https://github.com/ggml-org/whisper.cpp.git
+  WHISPER_SHA: df7638d8229a243af8a4b5a8ae557e0d74e0a0ae
+  MEDIA3_REPO: https://github.com/anonfaded/media3-patched.git
+  MEDIA3_SHA: 0bdf7e73051142f3d5dd5eb8fefce39178fe8a10
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: [defaultDebug, tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - name: Check out a397a2e9a4ea7394190a671e5eb2e54d6315a81b
+        uses: actions/checkout@v4
+        with:
+          ref: a397a2e9a4ea7394190a671e5eb2e54d6315a81b
+          persist-credentials: false
+
+      - name: Note the commit
+        id: meta
+        run: |
+          echo "sha=$(git rev-parse --short=9 HEAD)" >> "$GITHUB_OUTPUT"
+          echo "Building $(git rev-parse HEAD) for ${{ matrix.variant }}"
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/share/swift /opt/hostedtoolcache/CodeQL
+          df -h / | tail -1
+
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Android SDK parts (platform 36, NDK, CMake)
+        run: |
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "platforms;android-36" "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" > /dev/null
+          ls "$ANDROID_HOME/ndk"
+
+      - name: Outside sources (whisper.cpp, patched Media3)
+        run: |
+          fetch_at() {  # repo sha dir
+            git init -q "$3"
+            git -C "$3" fetch -q --depth 1 "$1" "$2"
+            git -C "$3" checkout -q FETCH_HEAD
+          }
+          fetch_at "$WHISPER_REPO" "$WHISPER_SHA" "$RUNNER_TEMP/whisper.cpp"
+          fetch_at "$MEDIA3_REPO" "$MEDIA3_SHA" "$RUNNER_TEMP/media3-patched"
+          git -C "$RUNNER_TEMP/media3-patched" apply --whitespace=nowarn "$GITHUB_WORKSPACE/tools/cloud/media3-fadcam.patch"
+          echo "Media3 patch applied:"
+          git -C "$RUNNER_TEMP/media3-patched" diff --stat | tail -1
+
+      - name: Point the build at them (local.properties, no keys)
+        run: |
+          {
+            echo "sdk.dir=$ANDROID_HOME"
+            echo "media3.patched.path=$RUNNER_TEMP/media3-patched"
+            echo "whisper.cpp.path=$RUNNER_TEMP/whisper.cpp"
+          } > local.properties
+
+      - name: Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Gradle settings for this runner
+        run: |
+          # The repo's gradle.properties points temp files at C:/Temp (a Windows-only fix) and caps the
+          # heap at 2 GB for the crowded PC. This file overrides both for the 16 GB runner.
+          mkdir -p ~/.gradle
+          {
+            echo "org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8"
+            echo "org.gradle.parallel=true"
+            echo "org.gradle.workers.max=4"
+            echo "kotlin.daemon.jvmargs=-Xmx3g"
+          } >> ~/.gradle/gradle.properties
+
+      - name: Build
+        id: build
+        if: matrix.variant != 'tests'
+        run: |
+          V="${{ matrix.variant }}"
+          CAP="$(echo "${V:0:1}" | tr a-z A-Z)${V:1}"
+          case "$V" in
+            *Release) TASK=":app:bundle$CAP" ;;
+            *)        TASK=":app:assemble$CAP" ;;
+          esac
+          echo "task=$TASK" >> "$GITHUB_OUTPUT"
+          START=$(date +%s)
+          ./gradlew "$TASK" --stacktrace
+          echo "minutes=$(( ($(date +%s) - START + 59) / 60 ))" >> "$GITHUB_OUTPUT"
+
+      - name: Tests (variant tests)
+        id: tests
+        if: matrix.variant == 'tests'
+        env:
+          SUITES_IN: studio
+          TESTS_REF: a397a2e9a4ea7394190a671e5eb2e54d6315a81b
+          TESTS_SHA: ${{ steps.meta.outputs.sha }}
+        run: |
+          # The test runner itself comes from this workflow's own commit, so a branch made before it existed can
+          # still be tested; only these tool files are swapped, never the code under test.
+          git fetch -q --depth 1 origin "$GITHUB_SHA"
+          git checkout -q FETCH_HEAD -- tools/cloud
+          # The jvm-harness scripts were written on Windows: ';' class paths (java/javac stand-ins swap them),
+          # cygpath and `python`. The build lock they take is a file under TEMP, which this runner has to itself.
+          chmod +x tools/cloud/linux-shims/* tools/cloud/run-tests.sh
+          if [ "${SUITES_IN:-all}" = all ] || echo "$SUITES_IN" | grep -q studio; then
+            # frame-parity's checks; Ubuntu's own Python refuses pip without the second flag (this runner is throwaway)
+            python3 -m pip install --quiet --disable-pip-version-check --user --break-system-packages numpy pillow
+          fi
+          export PATH="$GITHUB_WORKSPACE/tools/cloud/linux-shims:$PATH"
+          export TEMP="$RUNNER_TEMP"
+          S="${SUITES_IN:-all}"
+          # The harnesses compile against the app's own build output (R.jar, BuildConfig, the patched Media3 and
+          # JoyBrush jars), so build that first when a harness suite is asked for.
+          if [ "$S" = all ] || echo "$S" | grep -q -E 'studio|joybot'; then
+            START=$(date +%s)
+            ./gradlew :app:compileDefaultDebugJavaWithJavac :joybrush-android:bundleLibCompileToJarDebug \
+              :studiokit:compileDebugJavaWithJavac > "$RUNNER_TEMP/prebuild.log" 2>&1 \
+              || { tail -60 "$RUNNER_TEMP/prebuild.log"; exit 1; }
+            ./gradlew -p joybrush :core:jvmJar > "$RUNNER_TEMP/prebuild-core.log" 2>&1 \
+              || { tail -60 "$RUNNER_TEMP/prebuild-core.log"; exit 1; }
+            echo "harness prebuild: $(( $(date +%s) - START )) s"
+          fi
+          code=0
+          tools/cloud/run-tests.sh $S || code=$?
+          echo "failed=$code" >> "$GITHUB_OUTPUT"
+          cat cloud-out/tests-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the test summary (kept 3 days)
+        if: always() && matrix.variant == 'tests'
+        uses: actions/upload-artifact@v4
+        with:
+          name: joycreator-tests-${{ steps.meta.outputs.sha }}
+          # The summary, plus the JUnit XML of only the test classes that failed (their captured output trimmed).
+          path: |
+            cloud-out/tests-summary.md
+            cloud-out/junit/
+          retention-days: 3
+          if-no-files-found: warn
+
+      - name: Fail the run when a suite failed
+        if: matrix.variant == 'tests' && steps.tests.outputs.failed != '0'
+        run: |
+          echo "${{ steps.tests.outputs.failed }} suite(s) failed; see the summary"
+          exit 1
+
+      - name: Collect outputs
+        if: matrix.variant != 'tests'
+        env:
+          REF_IN: a397a2e9a4ea7394190a671e5eb2e54d6315a81b
+        run: |
+          V="${{ matrix.variant }}"
+          mkdir -p cloud-out
+          case "$V" in
+            *Release)
+              find app/build/outputs/bundle -name '*.aab' -exec cp {} cloud-out/ \;
+              find app/build/outputs/mapping -name mapping.txt -exec cp {} cloud-out/ \; || true ;;
+            *)
+              find app/build/outputs/apk -name '*arm64-v8a*.apk' -exec cp {} cloud-out/ \; ;;
+          esac
+          git rev-parse HEAD > cloud-out/COMMIT.txt
+          ls -l cloud-out
+          [ "$(find cloud-out -name '*.apk' -o -name '*.aab' | wc -l)" -gt 0 ] || { echo "no APK or AAB was made"; exit 1; }
+          {
+            echo "### ${{ matrix.variant }} @ $REF_IN (${{ steps.meta.outputs.sha }})"
+            echo "Gradle: ${{ steps.build.outputs.task }}, ${{ steps.build.outputs.minutes }} min"
+            echo '```'
+            ls -l cloud-out
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload (kept 3 days)
+        if: matrix.variant != 'tests'
+        uses: actions/upload-artifact@v4
+        with:
+          name: joycreator-${{ matrix.variant }}-${{ steps.meta.outputs.sha }}
+          path: cloud-out/
+          retention-days: 3
+          compression-level: 6   # mapping.txt is ~100 MB of text; this PC's line can be slow
+          if-no-files-found: error

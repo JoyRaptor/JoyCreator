@@ -90,7 +90,8 @@ public class ExportDebugActivity extends Activity {
             var controls = new MotionShutter.Controls(
                     preset.angle, preset.timing, 0, in.getIntExtra("motion_mix", 100));
             FaditorProject fixture = MotionRouteFixture.createSpine(
-                    this, enabled, animated, transparentArt, doubleSpeed, controls);
+                    this, enabled, animated, transparentArt, doubleSpeed, controls,
+                    in.getBooleanExtra("motion_master_off", false));
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
                     + " art=" + transparentArt + " doubleSpeed=" + doubleSpeed);
@@ -103,7 +104,8 @@ public class ExportDebugActivity extends Activity {
         }
         if (in.getBooleanExtra("motion_sprite_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
-            FaditorProject fixture = MotionRouteFixture.createSprite(this, enabled);
+            FaditorProject fixture = MotionRouteFixture.createSprite(
+                    this, enabled, in.getBooleanExtra("motion_master_off", false));
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 sprite fixture enabled=" + enabled);
         }
@@ -142,7 +144,8 @@ public class ExportDebugActivity extends Activity {
             return false;
         }
         if (in.getBooleanExtra("motion_spine_fixture", false)) {
-            FLog.i(TAG, "C2 stored shutter " + project.getTimeline().getClip(0).getRigidMotionShutter());
+            FLog.i(TAG, "C2 stored shutter " + project.getTimeline().getClip(0).getRigidMotionShutter()
+                    + " master=" + project.isMotionBlurEnabled());
         }
         File dir = new File(getFilesDir(), "faditor");
         //noinspection ResultOfMethodCallIgnored

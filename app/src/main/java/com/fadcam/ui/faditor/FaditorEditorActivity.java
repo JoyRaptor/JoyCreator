@@ -1028,7 +1028,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         String id = item.getId();
         String projectId = project.getId();
         var before = new MotionBlurSettingsSheet.State(
-                item.isRigidMotionBlurEnabled(), item.getRigidMotionShutter());
+                project.isMotionBlurEnabled(), item.isRigidMotionBlurEnabled(), item.getRigidMotionShutter());
         MotionBlurSettingsSheet.show(this, before, after -> {
             if (after.equals(before) || project == null || !projectId.equals(project.getId())
                     || findMotionBlurItem(id) == null) return;
@@ -1054,6 +1054,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void applyMotionBlurSettings(@NonNull String id, @NonNull MotionBlurSettingsSheet.State state) {
         MotionBlurItem item = findMotionBlurItem(id);
         if (item == null) return;
+        project.setMotionBlurEnabled(state.projectEnabled());
         item.setRigidMotionBlurEnabled(state.enabled());
         item.setRigidMotionShutter(state.controls());
     }

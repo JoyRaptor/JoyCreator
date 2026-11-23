@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="studio_motion_blur">Motion Blur</string>
+    <string name="studio_motion_enable_project">Enable motion blur for this project</string>
     <string name="studio_motion_enable_item">Enable transform blur in export</string>
     <string name="studio_motion_apply">Apply</string>
     <string name="studio_motion_select_item">Select a clip, picture, title, or sprite to set motion blur.</string>

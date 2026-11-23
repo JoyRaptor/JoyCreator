@@ -848,7 +848,8 @@ public class ExportManager {
                     // path is actually for: hasSpineTransform() is false unless a pose was
                     // authored.
                     && !project.getTimeline().getClip(0).hasSpineTransform()
-                    && !project.getTimeline().getClip(0).isRigidMotionBlurEnabled()
+                    && (!project.isMotionBlurEnabled()
+                            || !project.getTimeline().getClip(0).isRigidMotionBlurEnabled())
                     && !project.getTimeline().hasTextOverlays()
                     && !hasAnyVisibleCaptionBinding(project.getTimeline().getClip(0))
                     && !project.getTimeline().hasWaveformOverlays()
@@ -6108,7 +6109,7 @@ public class ExportManager {
                     project.getAvatarRigs(),
                     project.getTimeline().getTotalDurationMs(),
                     overlayOffsetMs,
-                    pieceClipStartMs);
+                    pieceClipStartMs, false);
             // Captions belong to the final pass; this one draws its visualizer and nothing else.
             one.setCaptionsViaGl(true);
             out.add(new VisualizerBlendGlEffect(one, woi.getOverlayBlendMode()));
@@ -6918,7 +6919,9 @@ public class ExportManager {
                                                   @Nullable Effect preOverlayExtra,
                                                   boolean isLoopBeforeItem,
                                                   long clipLocalStartMs, long pieceDurationMs,
-                                                  long shutterPieceDurationMs) {
+                                                  long continuousPieceDurationMs) {
+        boolean motionBlurEnabled = project.isMotionBlurEnabled();
+        long shutterPieceDurationMs = motionBlurEnabled ? continuousPieceDurationMs : 0L;
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
@@ -7347,7 +7350,7 @@ public class ExportManager {
                         editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
-                        pieceClipStartMs);
+                        pieceClipStartMs, motionBlurEnabled);
                 videoEffects.add(new OverlayEffect(Collections.singletonList(belowOverlay)));
             }
             // Shared with the preview and with the overlay-audio sequence, so a matte peer
@@ -7477,7 +7480,7 @@ public class ExportManager {
                             project.getTimeline().getTotalDurationMs(),
                             editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                     - (isLoopBeforeItem ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
-                            pieceClipStartMs);
+                            pieceClipStartMs, motionBlurEnabled);
                     videoEffects.add(new OverlayEffect(Collections.singletonList(belowBlendOverlay)));
                 }
             }
@@ -7572,7 +7575,7 @@ public class ExportManager {
             spriteBucketsZa.addAll(promotedSpritesZa);
             spriteBucketsZa.addAll(exportSpriteItems);
             for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBucketsZa) {
-                if (SpriteBlendGlEffect.routesToGl(s)) glOverlaysBottomTop.add(s);
+                if (SpriteBlendGlEffect.routesToGl(s, motionBlurEnabled)) glOverlaysBottomTop.add(s);
             }
             final long overlayOffsetMs =
                     editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
@@ -7602,7 +7605,7 @@ public class ExportManager {
                         Collections.emptyList(), clipWaveformSlots, Collections.emptyList(),
                         Collections.emptyList(), project.getSpriteSheets(), project.getAvatarRigs(),
                         project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                        pieceClipStartMs);
+                        pieceClipStartMs, motionBlurEnabled);
                 vizPass.setCaptionsViaGl(true);   // captions belong to the final pass
                 videoEffects.add(new OverlayEffect(Collections.singletonList(vizPass)));
             }
@@ -7654,7 +7657,7 @@ public class ExportManager {
                                 Collections.emptyList(), Collections.emptyList(),
                                 project.getSpriteSheets(), project.getAvatarRigs(),
                                 project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                pieceClipStartMs);
+                                pieceClipStartMs, motionBlurEnabled);
                         glTextDrawer.setCaptionsViaGl(true);
                         break;
                     }
@@ -7671,7 +7674,7 @@ public class ExportManager {
                     boolean img = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSp = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o);
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o, motionBlurEnabled);
                     (img || glSp ? glSeq : canvasSeq).add(o);
                 }
                 boolean sandwiched = false;
@@ -7708,7 +7711,7 @@ public class ExportManager {
                                 project.getTimeline().getAudioClips(), bottomSprites,
                                 project.getSpriteSheets(), project.getAvatarRigs(),
                                 project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                pieceClipStartMs);
+                                pieceClipStartMs, motionBlurEnabled);
                         bottom.setCaptionsViaGl(true);   // captions belong to the final pass
                         videoEffects.add(new OverlayEffect(Collections.singletonList(bottom)));
                     }
@@ -7722,7 +7725,7 @@ public class ExportManager {
                     boolean image = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSprite = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o);
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o, motionBlurEnabled);
                     if (image || glSprite) {
                         if (!txtRun.isEmpty() || !sprRun.isEmpty()) {
                             CompositeExportOverlay run = new CompositeExportOverlay(
@@ -7731,7 +7734,7 @@ public class ExportManager {
                                     project.getTimeline().getAudioClips(), sprRun,
                                     project.getSpriteSheets(), project.getAvatarRigs(),
                                     project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                    pieceClipStartMs);
+                                    pieceClipStartMs, motionBlurEnabled);
                             run.setCaptionsViaGl(true);   // captions belong to the final pass only
                             videoEffects.add(new OverlayEffect(Collections.singletonList(run)));
                             txtRun = new ArrayList<>();
@@ -7877,7 +7880,7 @@ public class ExportManager {
                         editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
                                 - (isLoopBeforeItem
                                         ? headTransitionMsFor(project.getTimeline(), clip) : 0L),
-                        pieceClipStartMs);
+                        pieceClipStartMs, motionBlurEnabled);
                 // Captions leave this Canvas pass for GlCaptionEffect (same renderers, tight
                 // boxes, uploaded only when they change). The Canvas pass itself is dropped when
                 // captions were all it had to draw.

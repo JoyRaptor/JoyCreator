@@ -2627,6 +2627,7 @@ public class ProjectStorage {
             json.addProperty("name", src.getName());
             json.addProperty("createdAt", src.getCreatedAt());
             json.addProperty("lastModified", src.getLastModified());
+            if (src.isMotionBlurEnabled()) json.addProperty("motionBlurEnabled", true);
 
             // Serialize timeline with clips
             JsonObject timelineJson = new JsonObject();
@@ -3492,6 +3493,11 @@ public class ProjectStorage {
             // version, dropping the unknown newer data. Instead: keep the on-disk version,
             // and if it is newer than we understand, mark the project read-only so the
             // save path refuses to overwrite it.
+            JsonElement motionBlurEnabled = obj.get("motionBlurEnabled");
+            if (motionBlurEnabled != null && motionBlurEnabled.isJsonPrimitive()
+                    && motionBlurEnabled.getAsJsonPrimitive().isBoolean()) {
+                project.setMotionBlurEnabled(motionBlurEnabled.getAsBoolean());
+            }
             int runningVersion = com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION;
             if (schemaVersion > runningVersion) {
                 project.setSchemaVersion(schemaVersion);          // preserve the newer stamp

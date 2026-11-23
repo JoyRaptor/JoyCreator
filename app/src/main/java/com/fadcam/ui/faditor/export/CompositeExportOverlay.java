@@ -387,7 +387,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
                                    @NonNull List<com.fadcam.ui.faditor.avatar.AvatarRig> avatarRigs,
                                    long projectDurationMs,
                                    long editorTimeOffsetMs,
-                                   long headTransitionMs) {
+                                   long headTransitionMs, boolean motionBlurEnabled) {
         this.editorTimeOffsetMs = editorTimeOffsetMs;
         this.headTransitionMs = headTransitionMs;
         this.projectDurationMs = projectDurationMs;
@@ -416,7 +416,7 @@ public class CompositeExportOverlay extends BitmapOverlay {
         this.editorWindowEndMs = clipTimelineStartMs + editorTimeOffsetMs
                 + Math.max(clip.getVisualDurationMs(), clip.getTrimmedDurationMs()) + WINDOW_PAD_MS;
         this.textOverlays = filterTextOverlays(allTextOverlays);
-        this.spriteItems = filterSpriteItems(allSpriteItems);
+        this.spriteItems = filterSpriteItems(allSpriteItems, motionBlurEnabled);
         this.spriteSheets = spriteSheets;
         this.avatarRigs = avatarRigs;
         this.waveformSlots = waveformSlots;
@@ -497,12 +497,12 @@ public class CompositeExportOverlay extends BitmapOverlay {
      * keep catching — the same arrangement the image path already relies on.
      */
     private List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> filterSpriteItems(
-            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all) {
+            List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> all, boolean motionBlurEnabled) {
         List<com.fadcam.ui.faditor.sprite.SpriteOverlayItem> out = new ArrayList<>();
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem o : all) {
             if (o.getEndMs() < editorWindowStartMs) continue;
             if (o.getStartMs() > editorWindowEndMs) continue;
-            if (SpriteBlendGlEffect.routesToGl(o)) continue;
+            if (SpriteBlendGlEffect.routesToGl(o, motionBlurEnabled)) continue;
             out.add(o);
         }
         return out;

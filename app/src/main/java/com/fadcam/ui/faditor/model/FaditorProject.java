@@ -84,6 +84,12 @@ public class FaditorProject {
     @NonNull
     private final ExportSettings exportSettings;
 
+    private boolean motionBlurEnabled;
+
+    public boolean isMotionBlurEnabled() { return motionBlurEnabled; }
+
+    public void setMotionBlurEnabled(boolean enabled) { motionBlurEnabled = enabled; }
+
     /** Sprite-sheet definitions owned by this project (schema v9). Never null. */
     @NonNull
     private final java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets =

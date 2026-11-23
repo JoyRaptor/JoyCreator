@@ -71,8 +71,8 @@ import java.util.List;
  * Canvas the sprite sat over the GL surface and no blend above it could ever see it.
  */
 final class SpriteBlendGlEffect implements GlEffect {
-    static boolean routesToGl(SpriteOverlayItem item) {
-        return item.wantsGl() || hasRigidMotion(item);
+    static boolean routesToGl(SpriteOverlayItem item, boolean motionBlurEnabled) {
+        return item.wantsGl() || (motionBlurEnabled && hasRigidMotion(item));
     }
 
     private static boolean hasRigidMotion(SpriteOverlayItem item) {

@@ -114,13 +114,15 @@ final class MotionRouteFixture {
 
     static FaditorProject createSpine(Context context, boolean enabled, boolean animated,
                                       boolean transparentArt, boolean doubleSpeed,
-                                      MotionShutter.Controls controls) throws IOException {
+                                      MotionShutter.Controls controls, boolean masterOff) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String label = !animated ? "motion only" : enabled ? "blur" : "sharp";
         if (transparentArt) label = "art " + label;
         if (doubleSpeed) label = "2x " + label;
+        if (enabled && masterOff) label += " master off";
         if (!MotionShutter.Controls.NATURAL.equals(controls)) label += " preset " + controls.mixPercent();
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 " + label));
+        project.setMotionBlurEnabled(enabled && !masterOff);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create spine fixture media directory");
         File source = transparentArt ? createShutterArt(media) : copyAsset(context, media, "card2.mp4");
@@ -162,6 +164,7 @@ final class MotionRouteFixture {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 picture " + variant));
+        project.setMotionBlurEnabled(enabled);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create picture fixture media directory");
         File source = copyAsset(context, media, "card2.mp4");
@@ -200,10 +203,11 @@ final class MotionRouteFixture {
         return project;
     }
 
-    static FaditorProject createSprite(Context context, boolean enabled) throws IOException {
+    static FaditorProject createSprite(Context context, boolean enabled, boolean masterOff) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";
-        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 sprite " + variant));
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 sprite " + variant + (enabled && masterOff ? " master off" : "")));
+        project.setMotionBlurEnabled(enabled && !masterOff);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create sprite fixture media directory");
         File source = copyAsset(context, media, "card2.mp4");
@@ -254,6 +258,7 @@ final class MotionRouteFixture {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 title " + variant));
+        project.setMotionBlurEnabled(enabled);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create title fixture media directory");
         File source = copyAsset(context, media, "card2.mp4");
@@ -295,6 +300,7 @@ final class MotionRouteFixture {
         var storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C2 pip " + variant));
+        project.setMotionBlurEnabled(enabled);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create PiP fixture media directory");
         File base = copyAsset(context, media, "card2.mp4");

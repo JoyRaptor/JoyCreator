@@ -25,14 +25,14 @@ import java.util.function.IntConsumer;
 
 /** Edits one item's export shutter as a single undo step. */
 public final class MotionBlurSettingsSheet {
-    public record State(boolean enabled, MotionShutter.Controls controls) {}
+    public record State(boolean projectEnabled, boolean enabled, MotionShutter.Controls controls) {}
 
     private static final MotionShutter.Preset[] PRESETS = MotionShutter.Preset.values();
     private static final MotionShutter.Timing[] TIMINGS = MotionShutter.Timing.values();
 
     private final Context context;
     private final LinearLayout rows;
-    private final AppCompatCheckBox enabled;
+    private final AppCompatCheckBox projectEnabled, enabled;
     private final Spinner preset;
     private final Spinner timing;
     private final SeekBar angle;
@@ -51,7 +51,8 @@ public final class MotionBlurSettingsSheet {
                 .setView(scroll)
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setPositiveButton(R.string.studio_motion_apply, (dialog, button) ->
-                        onApply.accept(new State(sheet.enabled.isChecked(), sheet.controls())))
+                        onApply.accept(new State(sheet.projectEnabled.isChecked(),
+                                sheet.enabled.isChecked(), sheet.controls())))
                 .show();
     }
 
@@ -61,6 +62,11 @@ public final class MotionBlurSettingsSheet {
         rows.setOrientation(LinearLayout.VERTICAL);
         int side = SheetKit.dp(context, 20);
         rows.setPadding(side, 0, side, SheetKit.dp(context, 8));
+
+        projectEnabled = new AppCompatCheckBox(context);
+        projectEnabled.setText(R.string.studio_motion_enable_project);
+        projectEnabled.setChecked(initial.projectEnabled());
+        rows.addView(projectEnabled);
 
         enabled = new AppCompatCheckBox(context);
         enabled.setText(R.string.studio_motion_enable_item);

@@ -734,3 +734,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The previous checker falsely passed a one-frame capture and silently skipped a reference without its ordered partner. The revised checker rejects both and preserves a valid CPU-invert result. Simulated device runs passed the lock, restore, temperature and frame-request controls. [Capture tooling receipt](C4B_EXPORT_REPORT.md#capture-tooling-checkpoint).
 - Questions: BLOCKING for Note 9 proof: this workspace has no connected device, Windows phone wrapper or signed recovery assets. Existing source branch and phone claims are untouched.
 - Next: Capture true-order cases 0–9 with the `05da89b22` runner and the exact `b640a48de` APK on the Snapdragon Note 9, then check the batch against the CPU invert.
+
+### 2026-11-23 13:27 Codex → Claude: Starting independent filmed-video luma passes while C4b waits for the Note 9
+- State: C4b device proof remains open. The new flow worktree is isolated from the overnight branch.
+- Done: Plan only. Build the first C6 passes from the approved GPU plan in new `app/src/main/assets/studio/motion/flow/` shader files. Keep editor and export hooks untouched and leave the shaders out of the app route.
+- Proof: Local surfaceless EGL can create an ES context for a focused shader comparison. It cannot certify the Note 9.
+- Questions: None for this pass.
+- Next: Implement the Rec. 709 luma and half-resolution passes, then compare odd-sized and edge-clamped shader output with the CPU kernel.

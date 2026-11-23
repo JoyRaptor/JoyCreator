@@ -159,16 +159,21 @@ public class ExportService extends Service {
         @Nullable final Long frameTimeMs;
         final boolean frameJpeg;
         @Nullable final long[] range;
+        final boolean debugLaneCompositor;
+        @Nullable final long[] debugLaneSampleUs;
 
         QueuedExport(@NonNull FaditorProject project, boolean audioOnly,
                      @Nullable String loudnessTargetName, @Nullable Long frameTimeMs,
-                     boolean frameJpeg, @Nullable long[] range) {
+                     boolean frameJpeg, @Nullable long[] range, boolean debugLaneCompositor,
+                     @Nullable long[] debugLaneSampleUs) {
             this.project = project;
             this.audioOnly = audioOnly;
             this.loudnessTargetName = loudnessTargetName;
             this.frameTimeMs = frameTimeMs;
             this.frameJpeg = frameJpeg;
             this.range = range;
+            this.debugLaneCompositor = debugLaneCompositor;
+            this.debugLaneSampleUs = debugLaneSampleUs;
         }
     }
 
@@ -444,26 +449,29 @@ public class ExportService extends Service {
         FLog.d(TAG, "Export snapshot loaded from " + snapshotPath
                 + " — concurrent edits cannot affect this export");
 
+        var request = new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
+                frameJpeg, range, debugLaneCompositor, debugLaneSampleUs);
         if (isExporting) {
             // Was: "already in progress" and the request (its snapshot already deleted above)
             // silently vanished. Now it waits its turn.
-            queue.add(new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
-                    frameJpeg, range));
+            queue.add(request);
             FLog.i(TAG, "Export queued behind the running one (" + queue.size() + " waiting)");
             Intent queued = new Intent(ACTION_EXPORT_QUEUED);
             queued.putExtra(EXTRA_QUEUE_SIZE, queue.size());
             sendExportBroadcast(queued);
             return;
         }
-        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg,
-                range);
+        startExportForProject(request);
     }
 
     /** Start {@code project} now (nothing else is running). */
-    private void startExportForProject(@NonNull FaditorProject project, boolean audioOnly,
-                                       @Nullable String loudnessTargetName,
-                                       @Nullable Long frameTimeMs, boolean frameJpeg,
-                                       @Nullable long[] range) {
+    private void startExportForProject(@NonNull QueuedExport request) {
+        FaditorProject project = request.project;
+        boolean audioOnly = request.audioOnly;
+        String loudnessTargetName = request.loudnessTargetName;
+        Long frameTimeMs = request.frameTimeMs;
+        boolean frameJpeg = request.frameJpeg;
+        long[] range = request.range;
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
         final int gen = ++exportGeneration;
@@ -495,7 +503,7 @@ public class ExportService extends Service {
         // Create ExportManager and run
         SharedPreferencesManager prefsManager = SharedPreferencesManager.getInstance(this);
         exportManager = new ExportManager(this, prefsManager);
-        exportManager.setDebugLaneCompositor(debugLaneCompositor, debugLaneSampleUs);
+        exportManager.setDebugLaneCompositor(request.debugLaneCompositor, request.debugLaneSampleUs);
         // C4: apply pending loudness target from dialog (via intent or prefs)
         String targetName = loudnessTargetName;
         if (targetName == null) {
@@ -1096,8 +1104,7 @@ public class ExportService extends Service {
                 queue.addFirst(next);
                 return;
             }
-            startExportForProject(next.project, next.audioOnly, next.loudnessTargetName,
-                    next.frameTimeMs, next.frameJpeg, next.range);
+            startExportForProject(next);
         });
     }
 

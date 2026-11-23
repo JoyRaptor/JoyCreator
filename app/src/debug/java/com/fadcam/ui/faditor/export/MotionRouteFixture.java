@@ -171,10 +171,12 @@ final class MotionRouteFixture {
     static FaditorProject createLanePicture(Context context, boolean adjustmentAbove,
                                              boolean includePip, boolean includeTitle,
                                              boolean includeSprite, boolean enableAdjustment,
+                                             boolean trueLayerOrder,
                                              @NonNull String variant) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName(
                 "TEST STU-7 C4 " + variant + (adjustmentAbove ? " under effect" : " over effect")));
+        project.setTrueLayerOrder(trueLayerOrder);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create lane fixture media directory");
         File source = copyAsset(context, media, "card2.mp4");

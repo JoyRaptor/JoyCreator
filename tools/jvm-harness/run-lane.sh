@@ -40,4 +40,5 @@ expect_failure() {
 }
 expect_failure 'text ordered under the PiP draws under it' LanePlanTest --grouped
 expect_failure 'sprite over text differs from legacy' LanePlanTest --rule1-only
+expect_failure 'matching lane order cannot certify legacy pixels' LanePlanTest --assume-legacy-pixels
 java @"$RUNARGS" LanePlanTest

@@ -40,6 +40,8 @@ function caseArguments(test, requests) {
         ['title', 'motion_lane_include_title'],
         ['sprite', 'motion_lane_include_sprite'],
         ['adjustment', 'motion_lane_enable_adjustment'],
+        ['projectOrder', 'motion_lane_project_order'],
+        ['trueLayerOrder', 'motion_lane_true_order'],
     ]) {
         if (test[field] === undefined) continue;
         if (typeof test[field] !== 'boolean') throw new Error('Invalid fixture option ' + field);

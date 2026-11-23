@@ -90,6 +90,13 @@ public class FaditorProject {
 
     public void setMotionBlurEnabled(boolean enabled) { motionBlurEnabled = enabled; }
 
+    /** Opt-in to applying adjustment layers in the project's visual lane order. */
+    private boolean layerOrder;
+
+    public boolean isTrueLayerOrder() { return layerOrder; }
+
+    public void setTrueLayerOrder(boolean enabled) { layerOrder = enabled; }
+
     /** Sprite-sheet definitions owned by this project (schema v9). Never null. */
     @NonNull
     private final java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> spriteSheets =

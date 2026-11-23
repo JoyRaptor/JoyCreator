@@ -39,6 +39,20 @@ const groups = {
         {...fixture, label: fixture.label + '-ungraded', ordered: true, above: true, adjustment: false},
         {...fixture, label: fixture.label + '-ordered', ordered: true, above: true},
     ]),
+    'project-order': [
+        {label: 'automatic-legacy', ordered: false, above: false},
+        {label: 'automatic-ordered', ordered: false, above: false, projectOrder: true, expectedOrdered: true},
+        {label: 'explicit-ungraded', ordered: false, above: true, adjustment: false,
+            projectOrder: true, trueLayerOrder: true, expectedOrdered: true},
+        {label: 'explicit-ordered', ordered: false, above: true,
+            projectOrder: true, trueLayerOrder: true, expectedOrdered: true},
+    ],
+    'project-fallback': [
+        {label: 'legacy-different-order', above: true, expectedFallback: 'legacy lane order differs'},
+        {label: 'legacy-pip', above: false, pip: true, expectedFallback: 'legacy pixel equivalence unverified: PIP'},
+        {label: 'legacy-title', above: false, title: true, expectedFallback: 'legacy pixel equivalence unverified: TEXT'},
+        {label: 'legacy-sprite', above: false, sprite: true, expectedFallback: 'legacy pixel equivalence unverified: SPRITE'},
+    ].map(fixture => ({...fixture, ordered: false, projectOrder: true})),
     fallback: fallbacks.map(fixture => ({...fixture, ordered: true, above: false})),
     performance: [false, true, true, false].map((ordered, index) => ({
         label: (ordered ? 'ordered-' : 'legacy-') + (index + 1),
@@ -54,7 +68,7 @@ const groups = {
 const [group, offset, count, ...extra] = process.argv.slice(2);
 if (!Object.hasOwn(groups, group) || extra.length || (offset !== undefined && !/^\d+$/.test(offset))
         || (count !== undefined && !/^[1-9]\d*$/.test(count))) {
-    console.error('Usage: node lane-corpus.mjs compatible|true-order|fallback|pip-repeat|performance [offset count]');
+    console.error('Usage: node lane-corpus.mjs compatible|true-order|project-order|project-fallback|fallback|pip-repeat|performance [offset count]');
     process.exitCode = 2;
 } else {
     const start = Number(offset ?? 0);

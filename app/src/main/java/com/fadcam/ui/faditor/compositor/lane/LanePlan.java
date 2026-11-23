@@ -123,6 +123,23 @@ public final class LanePlan {
         return true;
     }
 
+    /**
+     * Project-policy gate for the ordered export path. The compositor still checks its own
+     * supported item and piece types after this. The legacy allow-list follows the C4b pixel corpus.
+     */
+    @Nullable
+    public String projectExportFallback(boolean trueLayerOrder) {
+        if (entries.isEmpty()) return "no ordered lane items";
+        if (trueLayerOrder) return null;
+        if (!legacyLooksTheSame()) return "legacy lane order differs";
+        for (Entry entry : entries) {
+            if (entry.kind != Kind.IMAGE && entry.kind != Kind.ADJUSTMENT) {
+                return "legacy pixel equivalence unverified: " + entry.kind;
+            }
+        }
+        return null;
+    }
+
     private static int surfaceRank(Kind kind) {
         switch (kind) {
             case VISUALIZER: return 0;

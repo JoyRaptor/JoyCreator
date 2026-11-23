@@ -51,6 +51,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.compositor.LayerPreviewController;
+import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.layers.BlendMode;
 import com.fadcam.ui.faditor.layers.TimedItem;
 import com.fadcam.ui.faditor.layers.Track;
@@ -148,8 +149,9 @@ public class ExportManager {
     @NonNull
     private LoudnessTarget pendingLoudnessTarget = LoudnessTarget.OFF;
 
-    void setDebugLaneCompositor(boolean enabled, @Nullable long[] sampleTimesUs) {
-        debugLaneCompositor = com.fadcam.BuildConfig.DEBUG && enabled;
+    void setDebugLaneCompositor(boolean forceOrdered, boolean projectOrder, @Nullable long[] sampleTimesUs) {
+        debugLaneCompositor = com.fadcam.BuildConfig.DEBUG && (forceOrdered || projectOrder);
+        debugProjectLaneOrder = com.fadcam.BuildConfig.DEBUG && projectOrder;
         debugLaneSamples = com.fadcam.BuildConfig.DEBUG && sampleTimesUs != null
                 && sampleTimesUs.length > 0 ? new LaneReadbackGlEffect.Samples(sampleTimesUs) : null;
     }
@@ -3882,6 +3884,7 @@ public class ExportManager {
     /** The kept piece being built starts part-way into its clip because of a jump before it. */
     private boolean buildingCutPiece = false;
     private boolean debugLaneCompositor;
+    private boolean debugProjectLaneOrder;
     private boolean loggedLaneFallback;
     @Nullable private LaneReadbackGlEffect.Samples debugLaneSamples;
     private boolean chunkVideoOnly = false;
@@ -7297,15 +7300,21 @@ public class ExportManager {
             if (debugLaneCompositor) {
                 var timeline = project.getTimeline();
                 String unavailable = null;
+                LanePlan lanePlan = null;
                 if (isTransitionItem || isLoopBeforeItem || buildingCutPiece || clip.hasLoopExtension()
                         || clip.hasRemovedSpans() || clip.getSpeedMultiplier() != 1f) {
                     unavailable = "transition, loop, cut or retime";
                 } else if (!timeline.getWaveformOverlays().isEmpty()) {
                     unavailable = "waveforms";
                 } else {
+                    lanePlan = LanePlan.of(timeline);
+                    if (debugProjectLaneOrder) {
+                        unavailable = lanePlan.projectExportFallback(project.isTrueLayerOrder());
+                    }
+                }
+                if (lanePlan != null && unavailable == null) {
                     long offset = editorTimeOffsetForChunk(timeline, clip, timelineCursorMs);
-                    var candidate = LaneCompositeGlEffect.create(context,
-                            com.fadcam.ui.faditor.compositor.lane.LanePlan.of(timeline),
+                    var candidate = LaneCompositeGlEffect.create(context, lanePlan,
                             timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs,
                             overlayH, project.getSpriteSheets());
                     if (candidate.effect() != null) {

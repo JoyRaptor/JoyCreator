@@ -2628,6 +2628,7 @@ public class ProjectStorage {
             json.addProperty("createdAt", src.getCreatedAt());
             json.addProperty("lastModified", src.getLastModified());
             if (src.isMotionBlurEnabled()) json.addProperty("motionBlurEnabled", true);
+            if (src.isTrueLayerOrder()) json.addProperty("layerOrder", "true");
 
             // Serialize timeline with clips
             JsonObject timelineJson = new JsonObject();
@@ -3497,6 +3498,11 @@ public class ProjectStorage {
             if (motionBlurEnabled != null && motionBlurEnabled.isJsonPrimitive()
                     && motionBlurEnabled.getAsJsonPrimitive().isBoolean()) {
                 project.setMotionBlurEnabled(motionBlurEnabled.getAsBoolean());
+            }
+            JsonElement layerOrder = obj.get("layerOrder");
+            if (layerOrder != null && layerOrder.isJsonPrimitive()
+                    && layerOrder.getAsJsonPrimitive().isString()) {
+                project.setTrueLayerOrder("true".equals(layerOrder.getAsString()));
             }
             int runningVersion = com.fadcam.ui.faditor.model.FaditorProject.SCHEMA_VERSION;
             if (schemaVersion > runningVersion) {

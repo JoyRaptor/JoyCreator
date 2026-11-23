@@ -105,6 +105,7 @@ public class ExportDebugActivity extends Activity {
                     in.getBooleanExtra("motion_lane_include_title", false),
                     in.getBooleanExtra("motion_lane_include_sprite", false),
                     in.getBooleanExtra("motion_lane_enable_adjustment", true),
+                    in.getBooleanExtra("motion_lane_true_order", false),
                     variant == null ? "base" : variant);
             in.putExtra("project_id", fixture.getId());
         }
@@ -206,6 +207,8 @@ public class ExportDebugActivity extends Activity {
         si.putExtra(ExportService.EXTRA_AUDIO_ONLY, in.getBooleanExtra("audio_only", false));
         si.putExtra(ExportService.EXTRA_DEBUG_LANE_COMPOSITOR,
                 in.getBooleanExtra("motion_lane_compositor", false));
+        si.putExtra(ExportService.EXTRA_DEBUG_PROJECT_LANE_ORDER,
+                in.getBooleanExtra("motion_lane_project_order", false));
         long[] laneSamples = in.getLongArrayExtra("motion_lane_sample_us");
         if (laneSamples != null) si.putExtra(ExportService.EXTRA_DEBUG_LANE_SAMPLE_US, laneSamples);
         long a = in.getLongExtra("range_start_ms", -1L);

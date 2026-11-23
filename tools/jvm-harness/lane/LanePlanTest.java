@@ -33,6 +33,8 @@ public final class LanePlanTest {
         blendedPictureIsNotPlain();
         hiddenThingsAreSkipped();
         scopeOnlyForEffectLayers();
+        projectExportUsesProvenLegacyDomain();
+        explicitOrderUsesProjectLayout();
         System.out.println("LanePlanTest: " + assertions + " assertions");
     }
 
@@ -107,6 +109,31 @@ public final class LanePlanTest {
         boolean threw = false;
         try { p.scopeBelow(text); } catch (IllegalArgumentException e) { threw = true; }
         check(threw, "only an effect layer has a scope");
+    }
+
+    static void projectExportUsesProvenLegacyDomain() {
+        Timeline mixed = base();
+        check(plan(mixed).legacyLooksTheSame(), "mixed case has compatible lane order");
+        String pixelFallback = mutant.equals("--assume-legacy-pixels") ? null
+                : plan(mixed).projectExportFallback(false);
+        check(pixelFallback != null && pixelFallback.startsWith("legacy pixel equivalence unverified"),
+                "matching lane order cannot certify legacy pixels");
+        Timeline pictures = new Timeline();
+        var picture = TextOverlayItem.createImage("content://test/picture.png", 0.5f, 0.5f, 0.5f);
+        picture.setLayerId("text");
+        pictures.addTextOverlay(picture);
+        check(plan(pictures).projectExportFallback(false) == null, "ordinary picture is eligible for legacy migration");
+        check(plan(new Timeline()).projectExportFallback(false) != null, "empty plans keep the existing route");
+    }
+
+    static void explicitOrderUsesProjectLayout() {
+        Timeline t = base();
+        t.getOrCreateTrackFlags("adjustment").zIndex = 9;
+        var changesLook = plan(t);
+        check("legacy lane order differs".equals(changesLook.projectExportFallback(false)),
+                "legacy keeps the existing layout if effect order differs");
+        check(changesLook.projectExportFallback(true) == null,
+                "explicit true order overrides the legacy equivalence requirement");
     }
 
     // ---- helpers --------------------------------------------------------------------------

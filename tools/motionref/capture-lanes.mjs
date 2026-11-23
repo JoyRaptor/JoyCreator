@@ -81,7 +81,9 @@ async function main() {
     };
 
     const property = (await read('shell', 'getprop', 'ro.product.model')).trim();
-    if (property !== 'SM_N960U') throw new Error('Expected the Snapdragon Note 9 sandbox');
+    if (property.replace(/[-_]/g, '') !== 'SMN960U') {
+        throw new Error('Expected the Snapdragon Note 9 sandbox');
+    }
     const restoreHash = await sha256(recoveryApk);
     const output = resolve(outPath);
     await mkdir(output, {recursive: true});

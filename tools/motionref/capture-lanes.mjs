@@ -162,12 +162,15 @@ async function main() {
             await writeFile(join(folder, 'device.log'), logs);
             const ordered = logs.includes('LANE_EXPORT');
             const expectedOrdered = test.expectedOrdered ?? test.ordered;
+            const fallback = [...logs.matchAll(/\bLANE_FALLBACK ([^\r\n]+)/g)].map(match => match[1]);
+            const routeMatches = ordered === expectedOrdered && (test.expectedFallback === undefined
+                    ? fallback.length === 0 : fallback.some(reason => reason.startsWith(test.expectedFallback)));
             if (test.measureOnly) {
                 const start = logs.match(/^\s*(\d+\.\d+).*ExportManager: Export started/m);
                 const done = logs.match(/^\s*(\d+\.\d+).*ExportManager: TRACE_COMMIT/m);
                 const duration = logs.match(/EXPORT_ITEM total=(\d+)ms/);
-                if (!finished || ordered !== expectedOrdered || !start || !done || +duration?.[1] !== 30000) {
-                    receipt.caseFailures.push({label: test.label, ordered, expectedOrdered, finished,
+                if (!finished || !routeMatches || !start || !done || +duration?.[1] !== 30000) {
+                    receipt.caseFailures.push({label: test.label, ordered, expectedOrdered, fallback, finished,
                         durationMs: duration ? +duration[1] : null});
                     continue;
                 }
@@ -180,9 +183,9 @@ async function main() {
                 continue;
             }
             const capturedRequests = new Set(samples.map(match => Number(match[2])));
-            if (ordered !== expectedOrdered || samples.length !== 3 || !finished
+            if (!routeMatches || samples.length !== 3 || !finished
                     || !requests.every(request => capturedRequests.has(request))) {
-                receipt.caseFailures.push({label: test.label, ordered, expectedOrdered,
+                receipt.caseFailures.push({label: test.label, ordered, expectedOrdered, fallback,
                     samples: samples.length, finished});
                 continue;
             }

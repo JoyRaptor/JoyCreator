@@ -38,8 +38,17 @@ async function compare(directory) {
 
     const legacyMs = (samples[0].encodeMs + samples[3].encodeMs) / 2;
     const orderedMs = (samples[1].encodeMs + samples[2].encodeMs) / 2;
+    const thermalLog = await readFile(join(directory, 'thermal.jsonl'), 'utf8').catch(error => {
+        if (error.code !== 'ENOENT') throw error;
+        return '';
+    });
+    const thermal = thermalLog.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+    const statuses = thermal.map(sample => sample.status).filter(status => Number.isInteger(status));
+    const temperatures = thermal.map(sample => sample.batteryC).filter(value => Number.isFinite(value));
     return {passed: orderedMs <= legacyMs, sourceApkHash: receipt.sourceApkHash,
-        legacyMs, orderedMs, deltaMs: orderedMs - legacyMs, samples};
+        legacyMs, orderedMs, deltaMs: orderedMs - legacyMs,
+        thermal: {sampleCount: thermal.length, maxStatus: statuses.length ? Math.max(...statuses) : null,
+            maxBatteryC: temperatures.length ? Math.max(...temperatures) : null}, samples};
 }
 
 try {

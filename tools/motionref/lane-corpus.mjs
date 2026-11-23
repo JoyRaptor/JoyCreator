@@ -17,11 +17,12 @@ const trueOrder = [
     {label: 'title-sprite', title: true, sprite: true},
 ]);
 
+const timeFallback = 'transition, loop, cut or retime';
 const fallbacks = [
-    {label: 'retime', variant: 'clip-retime', expectedOrdered: false},
-    {label: 'loop', variant: 'clip-loop', expectedOrdered: false},
-    {label: 'matte', variant: 'pip-matte', pip: true, expectedOrdered: false},
-    {label: 'transition', variant: 'clip-transition', expectedOrdered: true},
+    {label: 'retime', variant: 'clip-retime', expectedOrdered: false, expectedFallback: timeFallback},
+    {label: 'loop', variant: 'clip-loop', expectedOrdered: false, expectedFallback: timeFallback},
+    {label: 'matte', variant: 'pip-matte', pip: true, expectedOrdered: false, expectedFallback: 'PiP '},
+    {label: 'transition', variant: 'clip-transition', expectedOrdered: true, expectedFallback: timeFallback},
 ];
 
 const pipRepeats = [

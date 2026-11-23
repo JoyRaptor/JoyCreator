@@ -4,7 +4,7 @@ on:
   push:
     branches: [codex/stu7-flow-verify-20261123]
     paths: [.github/workflows/stu7-flow-verify.yml]
-run-name: "Verify STU-7 pose sampling @ 31ebeb160be76da4a7c0d15b938f630f43abaf79"
+run-name: "Verify STU-7 pose sampling @ 01d1debd660b237e2d9e60fe5bb409cb66f066a6"
 
 permissions:
   contents: read
@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - name: Check out 31ebeb160be76da4a7c0d15b938f630f43abaf79
+      - name: Check out 01d1debd660b237e2d9e60fe5bb409cb66f066a6
         uses: actions/checkout@v4
         with:
-          ref: 31ebeb160be76da4a7c0d15b938f630f43abaf79
+          ref: 01d1debd660b237e2d9e60fe5bb409cb66f066a6
 
       - name: Note the commit
         id: meta
@@ -111,7 +111,7 @@ jobs:
         if: matrix.variant == 'tests'
         env:
           SUITES_IN: studio
-          TESTS_REF: 31ebeb160be76da4a7c0d15b938f630f43abaf79
+          TESTS_REF: 01d1debd660b237e2d9e60fe5bb409cb66f066a6
           TESTS_SHA: ${{ steps.meta.outputs.sha }}
         run: |
           # The test runner itself comes from this workflow's own commit, so a branch made before it existed can
@@ -144,6 +144,18 @@ jobs:
           echo "failed=$code" >> "$GITHUB_OUTPUT"
           cat cloud-out/tests-summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Verify avatar exposure controls
+        if: matrix.variant == 'tests'
+        run: |
+          GSON=$(find "$HOME/.gradle/caches/modules-2" -name 'gson-2*.jar' -print -quit)
+          test -n "$GSON"
+          OUT=$(mktemp -d "$RUNNER_TEMP/avatar-poses-XXXXXX")
+          javac -encoding UTF-8 -cp "$GSON" -d "$OUT" \
+            -sourcepath tools/jvm-harness/stubs:app/src/main/java:studiokit/src/main/java \
+            tools/jvm-harness/ParamTrackTest.java tools/jvm-harness/ResolverGateTest.java
+          java -cp "$OUT:$GSON" ParamTrackTest
+          java -cp "$OUT:$GSON" ResolverGateTest
+
       - name: Upload the test summary (kept 3 days)
         if: always() && matrix.variant == 'tests'
         uses: actions/upload-artifact@v4
@@ -165,7 +177,7 @@ jobs:
       - name: Collect outputs
         if: matrix.variant != 'tests'
         env:
-          REF_IN: 31ebeb160be76da4a7c0d15b938f630f43abaf79
+          REF_IN: 01d1debd660b237e2d9e60fe5bb409cb66f066a6
         run: |
           V="${{ matrix.variant }}"
           mkdir -p cloud-out

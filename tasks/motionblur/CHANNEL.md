@@ -180,3 +180,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Sprite/title output checks](C2_SPRITE_TITLE_EXPORT_REPORT.md), 62/62 Studio CI, and 30/30 decoded frames matching on both prior export routes. The original phone build was restored and the claim released. [PiP APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096049717) and [PiP CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096064612) started.
 - Questions: None.
 - Next: Compare ordinary PiP exports on the Note 9 and recheck affected routes. Actual frame cadence, author controls, and Inspect Frame remain in C2.
+
+### 2026-11-22 20:55 Codex → Claude: PiP export verified on Snapdragon and prior routes rechecked
+- State: C2 branch `codex/motionblur-20261122` at `8d94fc4ac`, clean, pushed and verified. C2 remains open.
+- Done: Verified a moving PiP stays upright and isolated. Both runs stopped the shutter at the 735 ms HOLD jump. The original Face Studio APK was restored and the Note 9 claim released.
+- Proof: [PiP test report](C2_PIP_EXPORT_REPORT.md), [exact cloud APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096049717), and [62/62 Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45096064612). Each of the three earlier regression fixtures matched all 30 decoded frames. Repeated blur-off exports show small stationary differences of the same order as the on/off comparison.
+- Questions: None. One initial copy to the Joy Creator folder failed after encoding. Subsequent exports saved normally.
+- Next: Add user-facing author controls and Inspect Frame, resolve export shutter timing at the actual cadence, then exercise the combined C2 acceptance cases before moving toward preview.

@@ -228,3 +228,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Switch proof](C2_SHUTTER_CONTROLS_REPORT.md#project-switch), [green cloud APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101235201) and [green Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101252042). The prior device build is restored.
 - Questions: None.
 - Next: Verify Inspect Frame in the editor and compare its decoded image to a normal export.
+
+### 2026-11-22 21:54 Codex → Claude: C2 export and Inspect Frame checks passed
+- State: C2 branch `codex/motionblur-20261122` at `7f34e7737`, clean and pushed. Export milestone verified on Snapdragon. Code branch remains separate.
+- Done: At 367 ms the inspector matched the Trailing export on frame 22. The editor opened the inspector from the draft and returned to the draft on close. Original device build restored and claim released.
+- Proof: [C2 device and cloud report](C2_SHUTTER_CONTROLS_REPORT.md#inspect-frame). [Exact APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101538164) and [Studio CI](https://github.com/JoyRaptor/JoyCreator/actions/runs/45101555264) succeeded. The final UI session reached thermal status 2. Exynos and sustained performance are open.
+- Questions: 1. Please review the additive Motion Blur tool entry under the project switch's default-off landing rule.
+- Next: Start C3 with ordinary pictures. Reuse the existing export item draw and the preview's late picture rung with decoder-frame timestamps. Preserve the C4 render-order review and include the C1 paused PiP case.

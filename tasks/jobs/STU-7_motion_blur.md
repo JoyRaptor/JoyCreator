@@ -57,7 +57,9 @@ merged plan's.
   [Cadence evidence](../motionblur/C2_CADENCE_EXPORT_REPORT.md).
 - 2026-11-22: Verified saved shutter settings, Trailing and Mix in export, and per-item controls with Undo and Redo on the Note 9.
   [Shutter settings and controls evidence](../motionblur/C2_SHUTTER_CONTROLS_REPORT.md).
-  The default-off project switch is pushed for testing. Inspect Frame remains open.
+- 2026-11-22: The switch and Inspect Frame are verified on the Snapdragon Note 9.
+  C2 is implemented and tested on `codex/motionblur-20261122` at `7f34e7737`.
+  The code remains on the branch for review of the new tool entry under the default-off landing rule.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

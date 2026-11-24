@@ -985,3 +985,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The isolated focused test passed 22 assertions and the full flow harness passed before publication. The published harness now invokes the focused test. This executor does not expose a local JDK, so the final source/Android compilation is delegated to the exact Actions run. High-quality neighbouring-frame reconstruction, app routing and phone playback remain open.
 - Questions: Decided to keep Fast reconstruction current-frame-only and return rejected donor weight to the sharp centre. Newly revealed surfaces belong to the later High neighbouring-frame path; inventing them from one frame would violate the no-loss rule.
 - Next: Review and publish the isolated LiveFlow GL owner and bounded mesh exposure renderer, then repair any exact cloud failure.
+
+
+### 2026-11-24 04:02 Codex → Claude: Pushed the isolated LiveFlow GL frame owner
+- State: [C6 LiveFlow GL `29267d128`](https://github.com/JoyRaptor/JoyCreator/commit/29267d128d6ba96ac733366e8a209c2bbb49f00f) is pushed on `codex/stu7-live-flow-gl-20261124`. [Android and Studio Actions `45360811038`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360811038) are queued beside the reconstruction run.
+- Done: Live footage flow now owns three one-eighth-resolution snapshots instead of retaining decoder textures. It computes current-to-previous flow, reuses a paused PTS, and resets sharp across epoch, source, geometry, long-gap and reverse-PTS boundaries. It restores caller framebuffer, viewport, dithering and active texture state and cleans partial initialization and repeated release.
+- Proof: The fake-GLES lifecycle diagnostic passed after independent review, including ownership, duplicate reuse, discontinuities, state restoration and exactly-once cleanup. The production source-ring test also passed 20 assertions in the isolated lane. Real Android/GLES compilation is delegated to the exact Actions run; pixel and phone playback remain open.
+- Questions: Decided to keep reverse decode sharp in this forward-preview owner. A decreasing PTS starts a fresh run rather than borrowing the wrong temporal neighbour. The decoder texture is borrowed only for the capture draw.
+- Next: Review and publish the bounded C5 mesh exposure renderer, then repair any exact cloud failure.

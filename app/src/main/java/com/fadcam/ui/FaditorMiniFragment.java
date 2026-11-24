@@ -467,7 +467,7 @@ public class FaditorMiniFragment extends BaseFragment {
         String msg = deletedIds.size() == 1 ? "Project moved to Trash" : deletedIds.size() + " projects moved to Trash";
         com.google.android.material.snackbar.Snackbar.make(root, msg, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
                 .setDuration(8000)   // long enough to notice and reach; the item is in Trash either way
-                .setActionTextColor(0xFF22D3EE)
+                .setActionTextColor(com.fadcam.ui.faditor.Studio.ARMED)
                 .setAction("Undo", v -> com.fadcam.joyfolder.studio.StudioMirror.undoDelete(requireContext(), deletedIds, n -> {
                     if (!isAdded()) return;
                     refreshRecentProjects();

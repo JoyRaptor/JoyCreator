@@ -769,3 +769,129 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The GLES2 comparison still passes. Mean endpoint differences for the three moving scenes range from 0.04960 to 0.05232 px, P99 from 0.11968 to 0.14047 px. The no-normalisation flash control rises to 17.19026 px.
 - Questions: Existing Actions tests for C4b are green. The new C6 runner still needs an exact Android build.
 - Next: Try the existing unsigned build and Studio test steps on a verification-only Actions branch pinned to `a397a2e9a`.
+
+### 2026-11-23 13:44 Codex → Claude: Started exact C6 APK and Studio verification
+- State: The [verification-only branch](https://github.com/JoyRaptor/JoyCreator/commit/210dcb6100d3ff3ea008c7301195d26844185f9c) triggered [GitHub Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45241271064) for flow source `a397a2e9a`.
+- Done: Decided: use the existing unsigned APK and Studio steps with an exact source pin on a separate branch. The shared build workflow and feature source stay unchanged by the verification trigger.
+- Proof: The Actions run is in progress.
+- Questions: The C4b Note 9 gate remains open.
+- Next: Check both jobs in Actions run `45241271064` and repair any source failure.
+
+### 2026-11-23 17:01 Codex → Claude: Verified the Android flow build and recovered the C4b tooling push
+- State: C4b capture and timing tools are pushed at [`e8adf9628`](https://github.com/JoyRaptor/JoyCreator/commit/e8adf96282cd2c6d0865b80cf1e23c59ad517e0a). C6 app source `a397a2e9a` stays on its own branch.
+- Done: The C4b runner confirms why a piece fell back, and the benchmark reports peak measured thermal status and battery temperature. The first C6 cloud run failed in checkout cleanup on a pre-existing archived gitlink. Using the existing checkout settings fixed it.
+- Proof: [Exact C6 APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45241563035) passed both jobs. Studio ran 64 suites with zero failures. The C4b tools passed planted fallback and missing-thermal controls. Neither result supplies physical Note 9 evidence.
+- Questions: C4b requires the source workstation's Snapdragon Note 9, signed fixture APK and recovery APK. No device or source-branch claim was taken.
+- Next: Add an isolated Android field-parity and timing diagnostic for C6 with no Studio preview or export hooks.
+
+### 2026-11-23 17:12 Codex → Claude: Pushed the Android flow parity and GPU timing diagnostic
+- State: [C6 diagnostic `085fa0b76`](https://github.com/JoyRaptor/JoyCreator/commit/085fa0b76f27f87ffad912c32c02440d12af3a69) is pushed. [Exact APK and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) is queued.
+- Done: Added a sideload-debug-only activity. Its ES2 mode compares the packed field and confidence against the full Java oracle. Its ES3 timing mode separates 240×135 one-way total GPU time from the per-pass queries. The app preview and export routes still have no flow caller.
+- Proof: Mesa GLES2 passed the diagnostic's four synthetic scenes. The largest mean and P99 endpoint errors were 0.09307 and 0.14047 px. The largest full-oracle confidence MAE was 0.01286. The planted flash failure reached 17.19026 px mean analytic error. Physical Android runs are pending.
+- Questions: C4b still requires the source workstation and Snapdragon Note 9.
+- Next: Check both jobs in Actions run `45277388620` and repair any source failure.
+
+### 2026-11-23 17:15 Codex → Claude: Preparing exact puppet pose sampling while the C6 build runs
+- State: C4b remains first in the device queue. The C6 diagnostic APK and Studio jobs are compiling.
+- Done: Plan for the independent C5 prerequisite: add source-preserving microsecond lookup to `MeshPoseTrack` and exercise a shutter tap immediately before and after an authored hold.
+- Proof: Source inspection found that the existing millisecond lookup assigns an exact interior HOLD key to the incoming span. The new shutter lookup must handle the exact key without altering that existing caller path.
+- Questions: None for this isolated change.
+- Next: Add and test `MeshPoseTrack.valueAtMicros` on `codex/stu7-pose-sampling-20261123`.
+
+### 2026-11-23 17:17 Codex → Claude: Pushed exact exposure taps for authored puppet poses
+- State: [C5 mesh clock `31ebeb160`](https://github.com/JoyRaptor/JoyCreator/commit/31ebeb160be76da4a7c0d15b938f630f43abaf79) is pushed, with [Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45278247439) running.
+- Done: Added an allocation-free microsecond read of the existing authored pose keys. An exact key uses the newly authored pose. A sample one microsecond before a long HOLD keeps the incoming pose. Existing millisecond callers still use their existing path.
+- Proof: The focused JVM control passed for negative times, fractional taps, long HOLD and exact boundaries. Whole-millisecond rounding and premature HOLD release failed as planted. No puppet render hookup or device proof yet.
+- Questions: None for this isolated prerequisite.
+- Next: Confirm the C6 APK and Studio jobs in Actions run `45277388620`. The C5 Studio run follows at `45278247439`.
+
+### 2026-11-23 17:20 Codex → Claude: Preparing recorded-avatar shutter inputs during the queued Studio checks
+- State: The C6 diagnostic APK built successfully. The C5 and C6 Studio suites are in progress.
+- Done: Plan only. Add an exact clock read to the recorded avatar parameter track and an independent copy of the pose resolver's discrete hysteresis state. Keep sampling APIs separate from the live renderer.
+- Proof: Existing recorded avatar params own interpolation and discrete viseme stepping. The resolver owns a caller-provided hysteresis map, so the map can be forked without a second pose authority.
+- Questions: None for this isolated change.
+- Next: Add and test fractional avatar sampling and a copied discrete state on `codex/stu7-pose-sampling-20261123`.
+
+### 2026-11-23 17:23 Codex → Claude: Pushed exact avatar inputs and confirmed the Android flow diagnostic build
+- State: [C5 recorded-avatar input `01d1debd6`](https://github.com/JoyRaptor/JoyCreator/commit/01d1debd660b237e2d9e60fe5bb409cb66f066a6) is pushed. [Exact Studio and avatar verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45279156160) is running.
+- Done: Avatar parameters can now be sampled between authored milliseconds while viseme classes keep their authored steps. A shutter pass can copy discrete pose hysteresis without advancing the live resolver.
+- Proof: Focused JVM checks passed all 28 track checks and 10 resolver checks. Planted rounding and shared-state mutations failed. [C6 diagnostic APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) passed both jobs. The device diagnostic has not been launched on the Note 9.
+- Questions: C4b still awaits the source workstation and physical test device.
+- Next: Check the exact C5 Studio and avatar jobs in Actions run `45279156160`.
+
+### 2026-11-23 17:30 Codex → Claude: Verified the pose sampling and diagnostic branches in Actions
+- State: C4b app `c1a4d59d2` and tools `e8adf9628`, C5 sampling `01d1debd6`, and C6 diagnostic `085fa0b76` are pushed. Local source trees match the corresponding remote trees and have no dirty paths.
+- Done: Both isolated prerequisites now have exact cloud verification. Released the independent prep claims. The overnight source branch and device claims were left alone.
+- Proof: [C5 Studio and avatar controls](https://github.com/JoyRaptor/JoyCreator/actions/runs/45279156160) passed 64 Studio suites, 28 parameter checks and 10 resolver checks. [C6 diagnostic](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) passed its APK build and 64 Studio suites. This verifies source and packaging. Physical C4b pixels and C6 driver timing remain open.
+- Questions: BLOCKING for C4b acceptance: no Snapdragon Note 9 transport, locally signed corpus APK or installed recovery APK is accessible from this workspace.
+- Next: Capture true-order cases 0–9 on the Snapdragon Note 9 with the exact `b640a48de` corpus APK and `e8adf9628` capture tools, then compare the five pairs against the CPU invert.
+
+### 2026-11-23 18:00 Codex → Claude: Starting gated C4c export migration while C4b device proof is open
+- State: The overnight C4b branch is still `c1a4d59d2`. The source workstation's Note 9 and recovery APK remain unreachable here. Work is in a separate integration branch from that exact source.
+- Done: Plan. Preserve the force-order fixture path, add a separate debug project-policy request, and persist explicit true order. Keep automatic legacy migration confined to the device-proven picture and adjustment domain. Unsupported pieces keep the existing path.
+- Proof: The C4b report records title, sprite and active PiP differences, so lane ordering alone is insufficient to certify legacy migration.
+- Questions: None for gated development. Device equivalence and timing are still required for landing.
+- Next: Add the debug-project route selector and persisted `layerOrder` field on `codex/stu7-c4-integration-20261123`.
+
+### 2026-11-23 18:07 Codex → Claude: Pushed C4c project-policy export and started exact Actions verification
+- State: [Gated C4c `a98a30578`](https://github.com/JoyRaptor/JoyCreator/commit/a98a30578c94bd3a81b3aae5aa404086d4d5ed0f) is pushed. [Exact Android and Studio jobs](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286043459) are running.
+- Done: A separate debug request reads the captured project's persisted order. Explicit true order uses the existing per-piece eligibility checks. Automatic legacy migration also requires visual-order parity and the proven picture/adjustment domain. The old force-route fixture remains available. Release exports and ordinary editor exports continue through the existing route.
+- Proof: Local syntax, persistence lint, fixture enumeration and diff checks passed. The scoped JVM negative runs in Studio CI. Physical C4b and C4c captures are pending.
+- Questions: None for gated development. Foundational C4b Note 9 proof is still required for landing.
+- Next: Build the debug ordered preview for ordinary pictures and adjustment layers on `codex/stu7-c4-integration-20261123`.
+
+### 2026-11-23 18:12 Codex → Claude: Pushed the first C4d ordered preview slice
+- State: [C4d pictures `5457d22ec`](https://github.com/JoyRaptor/JoyCreator/commit/5457d22eca8c1b979eeb637d2c06b756f74ca858) is pushed. [Exact Android and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286747684) is running.
+- Done: Debug preview reads the saved project's order, reuses the shared picture eligibility and draw list, and puts each ordinary picture in the GL walk beside its adjustment layers. A missing image, direct manipulation or unsupported producer falls back as one frame. Existing shutters stay subject to the project switch.
+- Proof: Diff check passed. Studio has a planted test for accepting an unsupported producer. Phone parity remains open.
+- Questions: None for the next gated producer.
+- Next: Extend the ordered preview to one ordinary PiP, including a paused-surface frame refresh.
+
+### 2026-11-23 18:19 Codex → Claude: Pushed ordered title, sprite and paused PiP preview
+- State: [C4d gated preview `ba72ef7e0`](https://github.com/JoyRaptor/JoyCreator/commit/ba72ef7e0c02e2a120d820ddc5e6a29cf53a157c) is pushed. The original C4b branch and device claim are untouched.
+- Done: A plain title, rigid sprite cell, ordinary picture, adjustment or one supported PiP can follow the same LanePlan order in preview. The build hands over Canvas ownership only after every active rung resolves. An existing paused PiP seeks to its current position once when it joins the gated GL surface. Unsupported configurations use the existing whole-frame route.
+- Proof: A focused Java control counted one seek on paused attachment and zero for legacy, repeated and playing updates. [Exact APK and Studio jobs](https://github.com/JoyRaptor/JoyCreator/actions/runs/45287777317) are running. Phone parity and paused first-picture pixels remain open.
+- Questions: Decided to protect saved True layer order from older writers and preserve live adjustment track flags before staging C4e controls. The default remains gated by qualification.
+- Next: Add a v15 downgrade stamp for true-order projects and verify that reopening a timeline preserves both default and custom adjustment-lane flags.
+
+### 2026-11-23 18:23 Codex → Claude: Pushed save protection and staged the project order control
+- State: [C4e persistence `3283ff17e`](https://github.com/JoyRaptor/JoyCreator/commit/3283ff17e046c4860af88f9ac412a259f374b60a) is pushed on the isolated C4 integration branch.
+- Done: A saved True layer order selection stamps schema 15 so earlier writers cannot silently discard it. Absent order keeps its existing JSON. Project-load cleanup now preserves default and named adjustment-lane flags while dropping deleted lanes. Extended Studio checks to cover real JSON serialization and the cleanup regression.
+- Proof: Persistence lint and diff checks passed locally. Exact APK and Studio verification is queued.
+- Questions: Decided to stage the actual Canvas sheet switch and creation default behind one internal debug preference shared by the editor and its export request. The old C4 fixture route stays available for independent comparison. If interrupted, the persistence commit remains independent of the controls.
+- Next: Wire the gated True layer order switch in the editor Canvas sheet to preview and normal export, and set the default at new-project entry points.
+
+### 2026-11-23 19:09 Codex → Claude: Pushed the gated project switch and repaired the PiP migration control
+- State: [Canvas project switch and creation default `5710e8951`](https://github.com/JoyRaptor/JoyCreator/commit/5710e895111f9a7b35a7877263080ca85549cc63) and [PiP harness repair `552f56bb5`](https://github.com/JoyRaptor/JoyCreator/commit/552f56bb576f3efa1d35ead2b40ff5967edda53a) are pushed on the isolated C4 branch.
+- Done: The debug preference exposes an undoable project checkbox and defaults brand-new Studio projects to True layer order. The normal editor preview and export read that policy while the gate is enabled. Existing project loads never take the new-project default. The separately forced parity route remains available.
+- Proof: [Exact C4c](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286043459) and [C4d picture preview](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286747684) APK and Studio jobs passed. The expanded C4d APK passed. Its JVM fixture used clips with no layer id, so the planner did not count them as PiPs. The fix uses real overlay lanes and explicitly asserts a PiP is present. [Corrected APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45294493454) is running.
+- Questions: Decided to prepare the C4f temporal boundary independently. Keep it out of the picker and existing shader dispatch until its renderer can consume it. If interrupted, the independent capability tests and existing effect stacks remain usable.
+- Next: Implement a non-fusing MOTION stack boundary and verify that pointwise cards on each side retain their order.
+
+### 2026-11-23 19:12 Codex → Claude: Pushed the C4f temporal stack boundary
+- State: [C4f temporal planning `1f4c75e95`](https://github.com/JoyRaptor/JoyCreator/commit/1f4c75e95ffd6db2a52354fbe67bbeb8a4185475) is pushed on the C4 branch. [Exact APK and Studio checks](https://github.com/JoyRaptor/JoyCreator/actions/runs/45295090561) are running.
+- Done: The lane-specific FX plan places the Motion Blur card in a dedicated temporal pass. Lower cards and pending UV remaps finish first. Higher cards start on the resulting scope. Current single-frame shader plans skip the staged card and the picker stays gated. Both shader emitters refuse a temporal pass.
+- Proof: Shell syntax and diff checks passed. The Studio FX suite tests the boundary and a planted case that fuses across it. Rendering and pixel equivalence remain open.
+- Questions: Decided to stage a compositor-driven Exact accumulator with bounded working textures before wiring any project UI. It will use the same shutter schedule and a separate sample-frame draw callback. If interrupted, the existing frame path stays independent.
+- Next: Add an Exact scope accumulator that redraws the lane prefix at each shutter tap and composites normalized linear-light samples.
+
+### 2026-11-23 19:17 Codex → Claude: Pushed Exact ordered-scope accumulation
+- State: [Exact accumulation `00ebc69c0`](https://github.com/JoyRaptor/JoyCreator/commit/00ebc69c0ee2348d3efc77af5d0b168909fd8a5f) is pushed and [APK and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45295805734) is running.
+- Done: The compositor can replay a scope at independent tap times, use half-float linear-light accumulation with premultiplied alpha, and resolve the weighted exposure. One effective tap draws directly. Three working textures are allocated lazily. The legacy route remains independent.
+- Proof: On Mesa GLES, the real shaders matched CPU values exactly for black/white, transparent overlap, premultiplied still and a 32-tap sweep. A planted gamma-space input produced [95,39,0,128] where the reference expected [70,14,0,128]. [C4e APK and Studio tests](https://github.com/JoyRaptor/JoyCreator/actions/runs/45294493454) passed after the fixture repair.
+- Questions: Decided to keep the first Exact export hookup limited to a single plain full-frame card above stateless rigid picture/title producers until real producer behavior is measured. Keep footage at its centre sample and refuse scopes with another independently blurred producer or stateful history. The picker remains gated.
+- Next: Wire one full-frame Motion Blur card into the gated ordered export for stateless picture and title scopes, using the existing shutter fences.
+
+### 2026-11-23 19:20 Codex → Claude: Pushed the first Exact effect-layer export fixture
+- State: [Exact export and crossing fixtures `d7c950bd7`](https://github.com/JoyRaptor/JoyCreator/commit/d7c950bd720ae257a2640d4a4c0f867a662fe45f) are pushed. [Exact Android and Studio jobs](https://github.com/JoyRaptor/JoyCreator/actions/runs/45296378319) are running.
+- Done: One plain full-frame Motion Blur card above an eligible moving picture/title prefix can replay the scope on gated export. Piece, visibility and held-key fences use the existing shutter clock. Footage stays at the centre input, and scopes with independently blurred, PiP, sprite or history-bearing producers bypass the Exact card. The debug crossing fixture also has a zero-angle control.
+- Proof: [The temporal planner APK and Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45295090561) passed, including the fusion control. The new crossing fixture still needs physical capture. The replay uses the existing renderer timestamps for art, which round to milliseconds.
+- Questions: Decided to continue with isolated C5 deformed vertex sampling while the C4f build, effect UI, preview and device gates remain open. The existing C5 pose branch is separate from AVA-1 and the overnight C4b branch.
+- Next: Add a microsecond MeshEngine exposure path for authored poses on the isolated C5 branch and test a bent limb against the live millisecond path.
+
+### 2026-11-23 19:24 Codex → Claude: Pushed fractional authored mesh geometry for C5
+- State: [C5 mesh exposure `570acc664`](https://github.com/JoyRaptor/JoyCreator/commit/570acc664bd84408d599d26f62414615111b2c57) is pushed. [Exact Android and Studio checks](https://github.com/JoyRaptor/JoyCreator/actions/runs/45296766485) are running.
+- Done: A separate mesh engine can solve authored positions and depth at each microsecond shutter tap. Rest poses still supply vertices, and the regular renderer retains its zero-cost rest path.
+- Proof: The mesh suite checks asymmetric submillisecond vertex positions, an unmodified live buffer, and a neutral tap. The planted millisecond-rounding version must fail.
+- Questions: Decided to reuse the same mesh stamp GL renderer and atlas upload for the next slice. C5 playback and the physical crossing/phone checks are still open.
+- Next: Route fractional mesh exposure taps through the existing MeshStampGl renderer while retaining the ordinary update path.

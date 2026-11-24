@@ -128,3 +128,5 @@ If an agent finds contradictory docs, use this board plus exact source/receipts;
 report the contradiction and fix the entry instead of following an older queue.
 Do not mark the persistent engine goal complete until its live/save/recovery gates
 pass. Owner creative approval and physical pen feel remain separate and honestly labeled.
+
+**November 19 · source audit, follow-up open.** [PERF-4](../audits/codex/JoyCreator_Performance_and_Stability_20261119.md) traces the complete recovery copy after sparse saves, wet-sheet undo and coverage readback, atlas table admission and oil neighbor lookup. Existing ATLAS-SOLID phone evidence is the baseline. These are optimization and validation candidates.

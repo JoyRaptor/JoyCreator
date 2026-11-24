@@ -323,7 +323,7 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
     // ── Helper: add a titled row with a trailing switch ───────────────
 
     /**
-     * Adds a settings row: title + description on the left, a {@link MaterialSwitch} on the
+     * Adds a settings row: title + description on the left, a tick box on the
      * right. Only the switch toggles; the row is a card, not a button.
      */
     private void addSwitchRow(@NonNull LinearLayout parent,
@@ -332,7 +332,7 @@ public class FaditorSettingsBottomSheet extends BottomSheetDialogFragment {
                               @NonNull String description,
                               boolean initialChecked,
                               @NonNull OnToggle onToggle) {
-        MaterialSwitch toggle = new MaterialSwitch(requireContext());
+        com.google.android.material.checkbox.MaterialCheckBox toggle = SheetKit.tickBox(requireContext());
         toggle.setChecked(initialChecked);
         SheetKit.label(toggle, title);
         toggle.setOnCheckedChangeListener((buttonView, isChecked) -> onToggle.onToggle(isChecked));

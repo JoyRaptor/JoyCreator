@@ -31,7 +31,7 @@ import java.util.Locale;
 final class LookExportDialog {
 
     private static final int BLACK = 0xFF0B0B0C, PANEL = 0xFF141417, CONTROL = 0xFF1F1F26, ZINC = 0xFFD4D4D8,
-            ZINC_DIM = 0xFF8A8A96, CYAN = 0xFF22D3EE;
+            ZINC_DIM = 0xFF8A8A96, CYAN = com.fadcam.ui.faditor.Studio.ARMED;
     private static final String PREFS = "textlab_export";
 
     private static final int[] TYPES = {R.string.textlab_export_type_picture, R.string.textlab_export_type_video,

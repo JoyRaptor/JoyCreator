@@ -23,3 +23,13 @@ Nothing filmed yet; filming is week 3.
 ## What is left
 - [ ] Wait for M2's front door.
 - [ ] A shot list from STATE's best 🟢 features; the owner records; agents cut snippets and build pages.
+
+## 11-23: website first draft (build queue job 3)
+- Built in `docs/` (where GitHub Pages is pointed, per OWNER_CLICKS): home, JoyBrush, Studio, VisLab, TextLab, SpriteLab,
+  Avatar Studio, Library, Joybot, contact, plus the existing privacy, tester and names pages. Text lives in
+  `tools/site_pages.py`; rebuild with `python -B tools/make_site.py`. System fonts, no outside scripts or trackers, no prices.
+- Checked at 360 px wide in the browser pane: no sideways scroll. Not seen by the owner.
+- Placeholders (the page shows a Draft banner while any remain): sizzle video, a screenshot per room, Play Store link,
+  contact email (studio@joycreator.cc stand-in).
+- Owner decides: room colours (taken from the palette; JoyBrush magenta, Studio green, VisLab indigo, TextLab orange,
+  SpriteLab yellow, Avatar purple, Library blue, Joybot cyan), whether Avatar Studio gets a page before it ships, the email.

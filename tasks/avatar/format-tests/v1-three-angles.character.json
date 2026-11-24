@@ -1,0 +1,43 @@
+{
+  "format": "joycreator.character/1",
+  "name": "Test Lizard",
+  "w": 256, "h": 256,
+  "triggers": [],
+  "settings": { "facing": "front", "axisX": 128 },
+  "root": { "id": "r1", "name": "Test Lizard", "type": "group", "kids": [
+    { "id": "head", "name": "Head", "type": "set", "role": "head", "axisX": 128,
+      "pick": { "by": "turn", "depth": 12, "fade": 110, "rest": "FR" },
+      "warpWith": { "frill": "own" },
+      "kids": [
+        { "id": "LQ", "name": "Left Quarter", "type": "group", "at": [-0.6, 0], "kids": [
+          { "id": "LQface", "name": "Face", "type": "art", "img": "p1", "x": 20, "y": 20 },
+          { "id": "LQfrill", "name": "Frill", "type": "art", "img": "p1", "x": 10, "y": 10 } ] },
+        { "id": "FR", "name": "Frontal", "type": "group", "at": [0, 0], "kids": [
+          { "id": "FRface", "name": "Face", "type": "art", "img": "p1", "x": 40, "y": 20 },
+          { "id": "FRfrill", "name": "Frill", "type": "art", "img": "p1", "x": 30, "y": 10 } ] },
+        { "id": "UP", "name": "Upward", "type": "group", "at": [0, -0.7], "kids": [
+          { "id": "UPface", "name": "Face", "type": "art", "img": "p1", "x": 40, "y": 10 },
+          { "id": "UPfrill", "name": "Frill", "type": "art", "img": "p1", "x": 30, "y": 0 } ] },
+        { "id": "RQ", "name": "Right Quarter (mirrored)", "type": "mirror", "of": "LQ", "at": [0.6, 0], "auto": true }
+      ],
+      "bridges": [
+        { "a": "LQ", "b": "FR", "meet": 0.4, "pts": [
+          { "a": [100, 120], "b": [128, 120] },
+          { "a": [110, 200], "b": [128, 204] } ] },
+        { "a": "LQ", "b": "UP", "meet": 0.5, "pts": [
+          { "a": [101, 121], "b": [128, 100] },
+          { "a": [60, 80], "b": [70, 60] } ] },
+        { "a": "FR", "b": "UP", "meet": 0.5, "pts": [
+          { "a": [128, 120], "b": [128, 100] },
+          { "a": [128, 204], "b": [128, 190] } ] },
+        { "a": "UP", "b": "LQ", "meet": 0.5, "pts": [
+          { "a": [128, 191], "b": [150, 200] } ] },
+        { "a": "LQ", "b": "UP", "part": "frill", "meet": 0.5, "pts": [
+          { "a": [40, 40], "b": [50, 30] },
+          { "a": [30, 60], "b": [45, 50] } ] },
+        { "a": "LQ", "b": "FR", "part": "frill", "meet": 0.5, "pts": [
+          { "a": [40, 41], "b": [60, 40] } ] }
+      ] }
+  ] },
+  "pictures": { "p1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }
+}

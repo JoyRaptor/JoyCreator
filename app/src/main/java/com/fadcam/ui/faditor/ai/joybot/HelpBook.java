@@ -169,7 +169,7 @@ public final class HelpBook {
                             + "and your drawings open from its library.", "joybrush", null),
             new Topic("avatar", "avatar|puppet|vtuber|face track|lip sync",
                     "Avatar Studio turns a drawn character into a puppet that follows your face and voice. "
-                            + "Open it from the lobby (it needs a project).", "avatar", null),
+                            + "Open it from the lobby's Avatar door; it opens on its own, no project needed.", "avatar", null),
             new Topic("record", "record|screen record|camera|film|capture",
                     "Capture records your screen or your camera. Recordings land in the Library.",
                     "record", null),

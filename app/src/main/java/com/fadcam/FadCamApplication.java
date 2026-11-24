@@ -13,6 +13,7 @@ public class FadCamApplication extends Application implements LifecycleObserver 
     @Override
     public void onCreate() {
         super.onCreate();
+        com.fadcam.ui.faditor.util.HoverLabels.installEverywhere(this);
         com.fadcam.streaming.StreamingModeMigration.run(this);
         ProcessLifecycleOwner.get().getLifecycle().addObserver(this);
     }

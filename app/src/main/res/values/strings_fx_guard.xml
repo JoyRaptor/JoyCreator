@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- STU-6: an effect this phone's graphics driver would not run. Own file so no other lane's
+     strings file is touched. -->
+<resources>
+    <string name="faditor_fx_unavailable_short">Not available on this phone</string>
+    <string name="faditor_fx_unavailable_title">%1$s is not available on this phone</string>
+    <string name="faditor_fx_unavailable_body">This phone\'s graphics chip could not run %1$s, so it is not offered here. Your other effects are not affected, and a project that uses it still opens.</string>
+</resources>

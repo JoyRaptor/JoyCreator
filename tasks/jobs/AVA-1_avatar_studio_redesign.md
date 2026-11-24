@@ -10,7 +10,7 @@ Character Animator, Cartoon Animator and Moho for this job and far less tedious,
 
 ## Done when
 - [ ] The owner has tried the web pilot with his own Topps file and said what to keep and change.
-- [ ] The agreed design is written as the phone spec (screens, the character file, the port map).
+- [ ] The agreed design is written as the phone spec (screens, the character file, the port map). **Written 11-23**, [tasks/avatar/](../avatar/AVA_PHONE_SPEC.md); the owner's yes is owed.
 - [ ] The phone room is rebuilt to it, reusing the engines named in the pilot's README, and phone-proven.
 - [ ] A character made there drops into Studio with its take and still takes a hand-drag there.
 - [ ] STATE.md rows updated at each of those steps.
@@ -804,6 +804,17 @@ they want, a centipede; arms that can become feet with one toggle").
          character room (four stages, Perform, recording); into Video Studio (dropped in with its take, still
          draggable, on Studio's recorder and exporter); scenes (strip, frame, shots, joystick and gestures). Each
          slice brings its Joybot tools. No time estimates: steps, and what each needs.
+      **Step 3, the spec, written 11-23** (spec session; not reviewed by the owner yet; no phone code):
+      [AVA_PHONE_SPEC.md](../avatar/AVA_PHONE_SPEC.md) (every screen, phone portrait, landscape, tablet, with hover labels),
+      [AVA_FORMAT.md](../avatar/AVA_FORMAT.md) (ONE file: `joycreator.character/2` = `/1` with the landmarks below;
+      `joycreator.scene/1` unchanged), [format-tests/](../avatar/format-tests/) (`node tasks/avatar/format-tests/run.mjs`:
+      74 checks, 0 failures, 37 planted faults caught; converter and checker `tools/avatarlab/al-format.js`, not loaded by the
+      page), [AVA_PORT_MAP.md](../avatar/AVA_PORT_MAP.md), [AVA_STUDIO_REUSE.md](../avatar/AVA_STUDIO_REUSE.md) (plug in /
+      fix there first / new), [AVA_SLICES.md](../avatar/AVA_SLICES.md) (slice 0 pilot reads the file; 1 character room;
+      2 into Studio; 3 scenes), [AVA_HOVER_LABELS.md](../avatar/AVA_HOVER_LABELS.md) (207 controls harvested from the pilot).
+      Calls made there: Views, not Compose (the app has none; the pilot's `Phone:` lines are corrected); a new room
+      `cc.joycreator.avatar.AvatarRoomActivity` beside the old one; one Java solver proven against pilot golden files;
+      a take stays the file's take in Studio (not `AvatarParamTrack`).
 - [ ] **For the phone spec: ONE set of landmarks per piece (owner's design, 11-23).** The pilot matches angles pair by
       pair, each pair with its own landmarks; three angles round one spot of the pad (Left Quarter, Upward, Frontal)
       then pull one drawing toward different places (fixed in the pilot by sharing the turn out, 0e34e9121, but the
@@ -816,6 +827,9 @@ they want, a centipede; arms that can become feet with one toggle").
       has a place, dragged where it would be, and still steers the bend toward that angle) or **not here** (a small
       circle with a line through it, greyed: it can sit anywhere and does not touch the mesh in that angle). Choose
       the point, then one button for each. Behind is the default guess for a point dragged off the drawing.
+      **Specified 11-23** as `set.marks` ([AVA_FORMAT.md](../avatar/AVA_FORMAT.md) B2.1, screen A9 of the spec), with the
+      conversion from the pilot's pairs (`AL.format.upgrade`): on his matched head (`odd-mesh`, read on the PC) 199 pairs
+      became numbered landmarks in 10 pieces, no rule broken, every pair comes back. The pilot's solver does not read it yet.
 - [ ] **For the phone (his rule, 11-22):** take cyan and magenta from the app's global palette, never fixed values in
       this room, so they can be shifted in one place and match every wing.
 - [ ] Owed from round 9: stance and colour-set buttons showing the thing itself; the three icons he sent back and

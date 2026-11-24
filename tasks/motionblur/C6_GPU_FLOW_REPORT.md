@@ -22,3 +22,22 @@ Disabling mean normalisation raised the flash scene's mean analytic error to 16.
 `GpuPyramidFlow` allocates size-checked targets once per GL context. It builds the luma pyramids, reuses the coarse flow workspace for the optional reverse estimate, and outputs packed flow and confidence without a readback. A JVM stub run exercised one- and two-direction pass order, multiple frames without target reallocation, framebuffer/viewport/dither restoration and rejected framebuffer allocation cleanup. The stub run does not compile against the Android SDK. Obtain an exact GitHub APK and Studio suite before wiring the runner into the device bench. Then measure per-pass cost on the Snapdragon Note 9 and compare real pairs before enabling a caller.
 
 With the high-precision sampler revision, the shifting, long-shift and flash cases had mean endpoint differences versus Java of 0.05199, 0.04960 and 0.05232 px. Their P99 differences were 0.11968, 0.13929 and 0.14047 px. The flash negative rose to 17.19026 px analytic error. The luma tests stayed within 1/255. These repeat measurements are on the same desktop driver.
+
+## Android build
+
+[GitHub Actions run 45241563035](https://github.com/JoyRaptor/JoyCreator/actions/runs/45241563035) built the default debug APK at `a397a2e9a` and passed 64 of 64 Studio suites. The verification workflow lives on a separate branch. The Android flow class has no editor or export caller. Physical driver parity and timing remain open.
+
+## Physical diagnostic build
+
+[Run 45277388620](https://github.com/JoyRaptor/JoyCreator/actions/runs/45277388620) built the default-debug artifact `joycreator-defaultDebug-085fa0b76` and passed Studio. The diagnostic is scoped to that sideloaded debug variant.
+
+On the source workstation, use the existing device runbook and Note 9 claim. Verify the installed recovery APK hash, press Home before installing the exact locally signed debug APK in place, and use the claim-aware wrapper to launch the diagnostic.
+
+```powershell
+.\tools\phone.ps1 start com.fadcam.beta/com.fadcam.ui.faditor.motion.MotionFlowBenchActivity
+.\tools\phone.ps1 adb logcat -d -s MotionFlowBench
+.\tools\phone.ps1 start com.fadcam.beta/com.fadcam.ui.faditor.motion.MotionFlowBenchActivity --ez timing true
+.\tools\phone.ps1 adb logcat -d -s MotionFlowBench
+```
+
+Run timing only after the first activity finishes. Save the `PARITY`, total and per-pass GPU query, and thermal lines. Restore and hash-check the original APK before releasing the phone claim. Report missing timer queries as inconclusive. The run measures synthetic one-way flow at 240×135 and does not exercise playback, real-footage pairs or sustained thermal load.

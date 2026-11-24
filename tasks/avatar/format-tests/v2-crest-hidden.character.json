@@ -1,0 +1,39 @@
+{
+  "format": "joycreator.character/2",
+  "name": "Test Crest",
+  "w": 256, "h": 256,
+  "triggers": [ { "id": "t1", "name": "smile" }, { "id": "t2", "name": "All fours" }, { "id": "t3", "name": "Coral" } ],
+  "settings": { "facing": "front", "axisX": 128, "blinkAuto": true, "walk": { "groundY": 240 } },
+  "root": { "id": "r1", "name": "Test Crest", "type": "group", "kids": [
+    { "id": "body", "name": "Body", "type": "art", "role": "body", "img": "p1", "x": 60, "y": 120, "pivot": { "x": 128, "y": 180 } },
+    { "id": "head", "name": "Head", "type": "set", "role": "head", "axisX": 128,
+      "pick": { "by": "turn", "depth": 12, "fade": 110, "rest": "FR" },
+      "kids": [
+        { "id": "FR", "name": "Frontal", "type": "group", "at": [0, 0], "kids": [
+          { "id": "FRcrest", "name": "Crest", "type": "art", "img": "p1", "x": 60, "y": 0 } ] },
+        { "id": "LP", "name": "Left Profile", "type": "group", "at": [-1, 0], "kids": [
+          { "id": "LPcrest", "name": "Crest", "type": "art", "img": "p1", "x": 40, "y": 0 } ] },
+        { "id": "RP", "name": "Right Profile (mirrored)", "type": "mirror", "of": "LP", "at": [1, 0], "auto": true }
+      ],
+      "marks": {
+        "": {
+          "pts": [ { "n": 1, "name": "tip 1" }, { "n": 2, "name": "tip 2" }, { "n": 3, "name": "tip 3" }, { "n": 4, "name": "tip 4" },
+                   { "n": 5, "name": "tip 5" }, { "n": 6, "name": "tip 6" }, { "n": 7, "name": "tip 7" } ],
+          "at": {
+            "FR": [ [70, 10], [85, 5], [100, 2], [128, 0], [156, 2], [171, 5], [186, 10] ],
+            "LP": [ [60, 12], [72, 6], [86, 3], [100, 2], [112, 4, "behind"], [118, 8, "behind"], [120, 12, "off"] ]
+          },
+          "meets": [ { "a": "FR", "b": "LP", "at": 0.45 } ]
+        }
+      } },
+    { "id": "mouth", "name": "Mouth", "type": "set", "role": "mouth", "pick": { "by": "default", "rest": "m0" }, "kids": [
+      { "id": "m0", "name": "Neutral", "type": "art", "img": "p1", "x": 120, "y": 80 },
+      { "id": "m1", "name": "Smile", "type": "art", "img": "p1", "x": 120, "y": 80, "trig": "t1" } ],
+      "marks": { "": { "pts": [ { "n": 1 }, { "n": 2 } ], "at": { "m0": [ [118, 82], [138, 82] ], "m1": [ [116, 80], [140, 80] ] } } } }
+  ] },
+  "poses": [ { "id": "z1", "name": "All fours", "trig": "t2", "time": 0.7, "d": { "body": { "x": 0, "y": 0, "rot": -90, "orbit": { "x": 128, "y": 200, "deg": -90 } } } } ],
+  "palettes": [ { "id": "c1", "name": "Coral", "trig": "t3", "time": 1.1, "soft": 0.22, "blotch": 0.12, "stops": [ { "from": 120, "to": 10, "sat": 1, "val": 1.2, "width": 40 } ] } ],
+  "take": { "fps": 30, "n": 3, "ch": { "turnX": [0, 0.2, 0.4], "vis": ["Neutral", "Aa", "Aa"], "trig:t1": [0, 1], "hLw": [0, 0, 0] },
+    "voice": { "rate": 300, "n": 30, "wav": "data:audio/wav;base64,UklGRmAAAABXQVZFZm10IBAAAAABAAEALAEAAFgCAAACABAAZGF0YTwAAAAAADoKUxNMGmAeGx9qHJkWSg5pBAv6VvBa6PjiyOAJ4pXm7u1F95EBsQuIFBwbtB7rHrobfBXhDNsChPg=" } },
+  "pictures": { "p1": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==" }
+}

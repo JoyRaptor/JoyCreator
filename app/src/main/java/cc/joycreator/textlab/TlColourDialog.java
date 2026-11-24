@@ -32,7 +32,7 @@ import java.util.function.Consumer;
 final class TlColourDialog {
 
     private static final int PANEL = 0xFF141417, CONTROL = 0xFF1F1F26, INK = 0xFFD4D4D8, DIM = 0xFF8A8A96,
-            CYAN = 0xFF22D3EE, GROUND = 0xFF0B0B0C;
+            CYAN = com.fadcam.ui.faditor.Studio.ARMED, GROUND = 0xFF0B0B0C;
 
     private TlColourDialog() {}
 

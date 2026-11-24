@@ -48,6 +48,24 @@ public final class HoverLabels {
         });
     }
 
+    /**
+     * Every room at once: each activity of the app (any module in this process) gets
+     * {@link #watch} on its window when it is created. Call once from Application.onCreate.
+     */
+    public static void installEverywhere(@NonNull android.app.Application app) {
+        app.registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks() {
+            @Override public void onActivityCreated(@NonNull android.app.Activity a, android.os.Bundle b) {
+                watch(a.getWindow().getDecorView());
+            }
+            @Override public void onActivityStarted(@NonNull android.app.Activity a) {}
+            @Override public void onActivityResumed(@NonNull android.app.Activity a) {}
+            @Override public void onActivityPaused(@NonNull android.app.Activity a) {}
+            @Override public void onActivityStopped(@NonNull android.app.Activity a) {}
+            @Override public void onActivitySaveInstanceState(@NonNull android.app.Activity a, @NonNull android.os.Bundle b) {}
+            @Override public void onActivityDestroyed(@NonNull android.app.Activity a) {}
+        });
+    }
+
     /** Label every named, tappable view under {@code v} that has no hover label yet. */
     @RequiresApi(Build.VERSION_CODES.O)
     public static void fill(@NonNull View v) {

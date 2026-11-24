@@ -38,3 +38,9 @@ Left, with reason:
 - [x] Cloud build passed 11-23 (run 45297041125, defaultDebug, commit 6821c8f11).
 - [ ] Phone look (Note 9): owed, not checked.
 - [ ] JoybotSwitch decision (owner).
+
+## 11-24 check of screens added since 11-23 (hover-1 lane, from the code, nothing built or run)
+- Looked at the 156 app files changed since the STYLE-1 build and the new ones: the Studio effect swatch grid (`FxSwatchViews`, `FxSwatchRenderer`), part previews (`PartThumbs`), LUT swatches, transition glyphs, `MomentsReader` (Detect moments model), the path model and drawing (`model/path/*`, `PathDraw`; its options screen does not exist yet, the feature is behind a hidden switch), `KeptCopiesSheet`.
+- **Switches:** none of them builds a Switch, MaterialSwitch, SwitchCompat or CheckBox. The files that still do are the legacy `JoybotSwitch` pages already on this card (`AnnotationService`, `FadRecHomeFragment`, `DebugLogBottomSheetFragment`, `RemoteFragment`, the three sidebars, `SpriteSheetEditorActivity`'s converted rows): the owner's call, unchanged.
+- **Colours:** `tools/check_palette_hex.py` passes. The remaining typed hex in the new files is picture content (the swatches' sample sky, grass and sun, the transition glyphs' two scene colours, the path's default white stroke), not UI accent, so rule B does not apply. The editor swatch lists named above are user-pickable colours, already on this card.
+- Result: nothing to fix. The check should be repeated when the path options screen and the Detect moments screen get built.

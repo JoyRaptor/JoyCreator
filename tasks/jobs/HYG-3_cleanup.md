@@ -127,3 +127,5 @@ All 64 pushed to origin under `backup/<branch-name>` with `git push origin refs/
 | `claude/atlas-save-buffers-hold` | 2026-11-14 | 5 | HoverFootprint: the make-believe drag runs at least four brush widths, so a star | ATLAS-SOLID | yes |
 | `claude/atlas-solid-20261109` | 2026-11-14 | 5 | HoverFootprint: the make-believe drag runs at least four brush widths, so a star | ATLAS-SOLID | yes |
 | `claude/shell-launchtest-20261115` | 2026-11-15 | 4 | TEST ONLY (not for joy-creator): launch list with four keys to prove the switch  | launch switch test |  |
+
+**2026-11-24 specs (website lane):** 59 spec-named files sat in the `tasks/` root. Checked each by name against the whole repo (cards, STATE, roadmap, handoffs, source): 11 were named nowhere, and were moved with `git mv` to `tasks/archive/specs/` with an [INDEX](../archive/specs/INDEX.md) (one line each; the index says they may describe code that was built, so check before building from one). The other 48 are linked from something and stay. Nothing deleted. `check_joybrush_docs.py`: ok.

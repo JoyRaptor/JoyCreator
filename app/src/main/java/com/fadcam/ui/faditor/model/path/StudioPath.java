@@ -206,6 +206,15 @@ public final class StudioPath {
         }
     }
 
+    /**
+     * The path as a dense polyline (x,y interleaved, {@value #STEPS} points per curve), the one
+     * outline every renderer draws, so the preview and the export cannot draw two different curves.
+     */
+    public float[] polyline() {
+        build();
+        return table.clone();
+    }
+
     /** Total length, in the same units as the nodes. */
     public float length() {
         build();

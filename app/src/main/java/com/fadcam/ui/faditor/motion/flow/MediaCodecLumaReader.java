@@ -1,6 +1,8 @@
 package com.fadcam.ui.faditor.motion.flow;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.media.Image;
@@ -31,8 +33,11 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
     private static final long REQUEST_TIMEOUT_MS = 30_000L;
     private static final int MAX_STALLED_DRAINS = 2_000;
 
-    private final Context context;
-    private final Uri uri;
+    private interface DataSource {
+        void open(MediaExtractor extractor) throws IOException;
+    }
+
+    private final DataSource source;
     private final boolean seekToFirstRequest;
     @Nullable private MediaExtractor extractor;
     @Nullable private MediaCodec codec;
@@ -52,9 +57,25 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
      */
     public MediaCodecLumaReader(@NonNull Context context, @NonNull Uri uri,
                                 boolean seekToFirstRequest) {
-        this.context = context.getApplicationContext();
-        this.uri = uri;
+        this(uriSource(context.getApplicationContext(), uri), seekToFirstRequest);
+    }
+
+    private MediaCodecLumaReader(DataSource source, boolean seekToFirstRequest) {
+        this.source = source;
         this.seekToFirstRequest = seekToFirstRequest;
+    }
+
+    /** Opens an uncompressed bundled clip through the same decoder as a Studio media URI. */
+    public static MediaCodecLumaReader forAsset(AssetManager assets, String path) {
+        return new MediaCodecLumaReader(extractor -> {
+            try (AssetFileDescriptor asset = assets.openFd(path)) {
+                extractor.setDataSource(asset.getFileDescriptor(), asset.getStartOffset(), asset.getLength());
+            }
+        }, false);
+    }
+
+    private static DataSource uriSource(Context appContext, Uri uri) {
+        return extractor -> extractor.setDataSource(appContext, uri, null);
     }
 
     @Override
@@ -88,7 +109,7 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
         MediaExtractor candidateExtractor = new MediaExtractor();
         MediaCodec candidateCodec = null;
         try {
-            candidateExtractor.setDataSource(context, uri, null);
+            source.open(candidateExtractor);
             MediaFormat format = selectVideo(candidateExtractor);
             if (seekToFirstRequest && firstPtsUs > 0) {
                 candidateExtractor.seekTo(firstPtsUs, MediaExtractor.SEEK_TO_PREVIOUS_SYNC);

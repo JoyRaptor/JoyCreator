@@ -50,3 +50,5 @@ every build. Clutter is how work slips through the cracks.
 - Local branches: 315; 170 merged (none unpushed); 145 not merged, 60 of those exist on no remote.
 - Tracked junk candidates: `tasks/logcat_play.txt` (9.7 MB), `tasks/fade_debug_live.log`, `tools/jvm-harness/ln_*.log`, root `wf_ed.png` and `star-guy-spritesheet.png` (check references first), `design-assets/PSDs/fadcam_*.zip` (check use). No APKs or build output tracked.
 - Counts drift while sessions run; re-run before acting.
+
+**2026-11-23 inventory (website lane, read-only):** [HYG-3_worktree_inventory_20261123.md](../HYG-3_worktree_inventory_20261123.md) lists all 212 worktrees: 95 clean and landed, 34 clean on a remote branch, 54 with UNPUSHED commits, ~29 with uncommitted changes. Nothing removed. Next, with the lead's yes: back up the UNPUSHED ones to `backup/<name>`, then remove the clean and landed folders (check BOARD claims first). Branch deletion not started.

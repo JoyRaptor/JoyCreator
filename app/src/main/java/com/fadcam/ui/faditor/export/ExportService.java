@@ -96,6 +96,9 @@ public class ExportService extends Service {
     public static final String EXTRA_ERROR_CLASS = "error_class";
     /** Path of the serialized project snapshot the Activity wrote for this export job. */
     public static final String EXTRA_PROJECT_SNAPSHOT_PATH = "project_snapshot_path";
+    public static final String EXTRA_DEBUG_LANE_COMPOSITOR = "debug_lane_compositor";
+    public static final String EXTRA_DEBUG_PROJECT_LANE_ORDER = "debug_project_lane_order";
+    public static final String EXTRA_DEBUG_LANE_SAMPLE_US = "debug_lane_sample_us";
     /** Optional extension-free output basename for this export job. */
     public static final String EXTRA_OUTPUT_FILE_NAME = "output_file_name";
     /** Boolean: export only the composed audio mix to an {@code .m4a} (no video track). */
@@ -157,16 +160,23 @@ public class ExportService extends Service {
         @Nullable final Long frameTimeMs;
         final boolean frameJpeg;
         @Nullable final long[] range;
+        final boolean debugLaneCompositor;
+        final boolean debugProjectLaneOrder;
+        @Nullable final long[] debugLaneSampleUs;
 
         QueuedExport(@NonNull FaditorProject project, boolean audioOnly,
                      @Nullable String loudnessTargetName, @Nullable Long frameTimeMs,
-                     boolean frameJpeg, @Nullable long[] range) {
+                     boolean frameJpeg, @Nullable long[] range, boolean debugLaneCompositor, boolean debugProjectLaneOrder,
+                     @Nullable long[] debugLaneSampleUs) {
             this.project = project;
             this.audioOnly = audioOnly;
             this.loudnessTargetName = loudnessTargetName;
             this.frameTimeMs = frameTimeMs;
             this.frameJpeg = frameJpeg;
             this.range = range;
+            this.debugLaneCompositor = debugLaneCompositor;
+            this.debugProjectLaneOrder = debugProjectLaneOrder;
+            this.debugLaneSampleUs = debugLaneSampleUs;
         }
     }
 
@@ -315,7 +325,10 @@ public class ExportService extends Service {
                     intent.getBooleanExtra(EXTRA_AUDIO_ONLY, false), loudName,
                     singleFrame ? intent.getLongExtra(EXTRA_FRAME_TIME_MS, -1L) : null,
                     intent.getBooleanExtra(EXTRA_FRAME_JPEG, false), range,
-                    intent.getStringExtra(EXTRA_OUTPUT_FILE_NAME));
+                    intent.getStringExtra(EXTRA_OUTPUT_FILE_NAME),
+                    intent.getBooleanExtra(EXTRA_DEBUG_LANE_COMPOSITOR, false),
+                    intent.getBooleanExtra(EXTRA_DEBUG_PROJECT_LANE_ORDER, false),
+                    intent.getLongArrayExtra(EXTRA_DEBUG_LANE_SAMPLE_US));
         }
 
         return START_NOT_STICKY;
@@ -375,18 +388,19 @@ public class ExportService extends Service {
     // ── Export execution ─────────────────────────────────────────────
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly) {
-        startExportInternal(snapshotPath, audioOnly, null, null, false, null, null);
+        startExportInternal(snapshotPath, audioOnly, null, null, false, null, null, false, false, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly, @Nullable String loudnessTargetName) {
-        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null, null);
+        startExportInternal(snapshotPath, audioOnly, loudnessTargetName, null, false, null, null, false, false, null);
     }
 
     private void startExportInternal(@Nullable String snapshotPath, boolean audioOnly,
                                      @Nullable String loudnessTargetName,
                                      @Nullable Long frameTimeMs, boolean frameJpeg,
                                      @Nullable long[] range,
-                                     @Nullable String outputFileName) {
+                                     @Nullable String outputFileName, boolean debugLaneCompositor, boolean debugProjectLaneOrder,
+                                     @Nullable long[] debugLaneSampleUs) {
         // EDIT-SAFETY + OOP handoff in one move: the Activity serialized the project to a
         // file at export-tap time (an edit-immune deep snapshot — the same round-trip every
         // app-restart export already survives) and passed the path here. Reading it is the
@@ -439,26 +453,29 @@ public class ExportService extends Service {
         FLog.d(TAG, "Export snapshot loaded from " + snapshotPath
                 + " — concurrent edits cannot affect this export");
 
+        var request = new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
+                frameJpeg, range, debugLaneCompositor, debugProjectLaneOrder, debugLaneSampleUs);
         if (isExporting) {
             // Was: "already in progress" and the request (its snapshot already deleted above)
             // silently vanished. Now it waits its turn.
-            queue.add(new QueuedExport(project, audioOnly, loudnessTargetName, frameTimeMs,
-                    frameJpeg, range));
+            queue.add(request);
             FLog.i(TAG, "Export queued behind the running one (" + queue.size() + " waiting)");
             Intent queued = new Intent(ACTION_EXPORT_QUEUED);
             queued.putExtra(EXTRA_QUEUE_SIZE, queue.size());
             sendExportBroadcast(queued);
             return;
         }
-        startExportForProject(project, audioOnly, loudnessTargetName, frameTimeMs, frameJpeg,
-                range);
+        startExportForProject(request);
     }
 
     /** Start {@code project} now (nothing else is running). */
-    private void startExportForProject(@NonNull FaditorProject project, boolean audioOnly,
-                                       @Nullable String loudnessTargetName,
-                                       @Nullable Long frameTimeMs, boolean frameJpeg,
-                                       @Nullable long[] range) {
+    private void startExportForProject(@NonNull QueuedExport request) {
+        FaditorProject project = request.project;
+        boolean audioOnly = request.audioOnly;
+        String loudnessTargetName = request.loudnessTargetName;
+        Long frameTimeMs = request.frameTimeMs;
+        boolean frameJpeg = request.frameJpeg;
+        long[] range = request.range;
         isExporting = true;
         exportStartTimeMs = System.currentTimeMillis();
         final int gen = ++exportGeneration;
@@ -490,6 +507,8 @@ public class ExportService extends Service {
         // Create ExportManager and run
         SharedPreferencesManager prefsManager = SharedPreferencesManager.getInstance(this);
         exportManager = new ExportManager(this, prefsManager);
+        exportManager.setDebugLaneCompositor(request.debugLaneCompositor, request.debugProjectLaneOrder,
+                request.debugLaneSampleUs);
         // C4: apply pending loudness target from dialog (via intent or prefs)
         String targetName = loudnessTargetName;
         if (targetName == null) {
@@ -1090,8 +1109,7 @@ public class ExportService extends Service {
                 queue.addFirst(next);
                 return;
             }
-            startExportForProject(next.project, next.audioOnly, next.loudnessTargetName,
-                    next.frameTimeMs, next.frameJpeg, next.range);
+            startExportForProject(next);
         });
     }
 

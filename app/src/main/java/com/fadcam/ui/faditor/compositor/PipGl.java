@@ -86,26 +86,25 @@ public final class PipGl {
         private final Map<String, Integer> programs = new HashMap<>();
         private final Map<Integer, Integer> shapesCompiled = new HashMap<>();
 
-        public int programFor(@NonNull FxPreviewTextureView.Pip p) {
-            String key = (p.meshComposite ? "m" : (p.still == null ? "o" : "s"))
+        private int programFor(@NonNull FxPreviewTextureView.Pip p, boolean texture2d) {
+            String key = (p.meshComposite ? "m" : (texture2d ? "s" : "o"))
                     + (p.extras ? "x" : "-") + (p.pinned() ? "p" : "-")
                     + "m" + p.maskShapes + p.fxKey;
             Integer have = programs.get(key);
             if (have != null) return have;
-            boolean still = p.still != null;
-            int prog = tryBuild(FxPreviewTextureView.pipFragment(p.fused, still, p.extras,
+            int prog = tryBuild(FxPreviewTextureView.pipFragment(p.fused, texture2d, p.extras,
                     p.maskShapes, p.pinned(), p.meshComposite));
             if (prog == 0) {
-                prog = tryBuild(FxPreviewTextureView.pipFragment(null, still, p.extras,
+                prog = tryBuild(FxPreviewTextureView.pipFragment(null, texture2d, p.extras,
                         p.maskShapes, p.pinned(), p.meshComposite));
             }
             if (prog == 0 && p.maskShapes > 1) {
-                prog = tryBuild(FxPreviewTextureView.pipFragment(null, still, p.extras, 1,
+                prog = tryBuild(FxPreviewTextureView.pipFragment(null, texture2d, p.extras, 1,
                         p.pinned(), p.meshComposite));
                 if (prog != 0) shapesCompiled.put(prog, 1);
             }
             if (prog == 0 && p.pinned()) {
-                prog = tryBuild(FxPreviewTextureView.pipFragment(null, still, p.extras, 1,
+                prog = tryBuild(FxPreviewTextureView.pipFragment(null, texture2d, p.extras, 1,
                         false, false));
                 if (prog != 0) shapesCompiled.put(prog, 1);
             }
@@ -153,7 +152,7 @@ public final class PipGl {
     public static boolean drawStill(@NonNull FxPreviewTextureView.Pip p, @NonNull Programs programs,
                                     int srcTex, int stillTex, int dstFbo, int vw, int vh,
                                     @NonNull java.nio.FloatBuffer quad) {
-        int program = programs.programFor(p);
+        int program = programs.programFor(p, true);
         if (program == 0) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo);
         GLES20.glViewport(0, 0, vw, vh);
@@ -191,7 +190,7 @@ public final class PipGl {
                                        @NonNull Programs programs, int srcTex, int oesTex,
                                        @NonNull float[] texMatrix, int dstFbo, int vw, int vh,
                                        @NonNull java.nio.FloatBuffer quad) {
-        int program = programs.programFor(p);
+        int program = programs.programFor(p, false);
         if (program == 0) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, dstFbo);
         GLES20.glViewport(0, 0, vw, vh);

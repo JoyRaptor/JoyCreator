@@ -15,7 +15,11 @@ public record RigidTitleRaster(String text, float fontPx, int width, int height,
     private static final int MAX_EDGE = 2048;
 
     public static boolean supports(TextOverlayItem item) {
-        if (item.isImage() || !item.isAnimated() || item.isLinked() || item.isProxy() || item.hasMesh()
+        return item.isAnimated() && supportsPlain(item);
+    }
+
+    public static boolean supportsPlain(TextOverlayItem item) {
+        if (item.isImage() || item.isLinked() || item.isProxy() || item.hasMesh()
                 || item.hasCornerPin() || item.hasTextLook() || item.isTimer() || item.isGeneratedSlide()
                 || item.hasStyleSpans() || item.hasActiveFx() || item.wantsGlExport()
                 || item.getStrokeWidthPx() > 0f || item.getGlowRadiusPx() > 0f || item.getShadowRadiusPx() > 0f

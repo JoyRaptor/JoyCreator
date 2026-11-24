@@ -36,5 +36,14 @@ javac @"$ARGS" tools/jvm-harness/FxCompilerTest.java tools/jvm-harness/BlendMode
 [ -f "$OUT/CurveMigrationTest.class" ] || { echo "no CurveMigrationTest class"; exit 1; }
 
 java @"$RUNARGS" BlendModesTest || exit 1
+if negative=$(java @"$RUNARGS" FxCompilerTest --fuse-motion 2>&1); then
+    echo "Motion fusion negative control passed unexpectedly"
+    exit 1
+fi
+if [[ "$negative" != *"AssertionError: motion must split the FX stack"* ]]; then
+    printf '%s\n' "$negative"
+    exit 1
+fi
+echo "Negative control rejected: motion must split the FX stack"
 java @"$RUNARGS" FxCompilerTest || exit 1
 java @"$RUNARGS" CurveMigrationTest

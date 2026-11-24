@@ -51,6 +51,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.compositor.LayerPreviewController;
+import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.layers.BlendMode;
 import com.fadcam.ui.faditor.layers.TimedItem;
 import com.fadcam.ui.faditor.layers.Track;
@@ -147,6 +148,13 @@ public class ExportManager {
     /** C4 — pending loudness target for the next export (set by the export dialog, not persisted in model/). */
     @NonNull
     private LoudnessTarget pendingLoudnessTarget = LoudnessTarget.OFF;
+
+    void setDebugLaneCompositor(boolean forceOrdered, boolean projectOrder, @Nullable long[] sampleTimesUs) {
+        debugLaneCompositor = com.fadcam.BuildConfig.DEBUG && (forceOrdered || projectOrder);
+        debugProjectLaneOrder = com.fadcam.BuildConfig.DEBUG && projectOrder;
+        debugLaneSamples = com.fadcam.BuildConfig.DEBUG && sampleTimesUs != null
+                && sampleTimesUs.length > 0 ? new LaneReadbackGlEffect.Samples(sampleTimesUs) : null;
+    }
 
     public void setPendingLoudnessTarget(@NonNull LoudnessTarget target) {
         this.pendingLoudnessTarget = target;
@@ -3875,6 +3883,10 @@ public class ExportManager {
     private long pieceCutShiftMs = 0L;
     /** The kept piece being built starts part-way into its clip because of a jump before it. */
     private boolean buildingCutPiece = false;
+    private boolean debugLaneCompositor;
+    private boolean debugProjectLaneOrder;
+    private boolean loggedLaneFallback;
+    @Nullable private LaneReadbackGlEffect.Samples debugLaneSamples;
     private boolean chunkVideoOnly = false;
     private int chunkClipStart = 0;
     private int chunkClipEnd = -1;
@@ -7285,6 +7297,48 @@ public class ExportManager {
                     if (audioCaptionOverlaps) break;
                 }
             }
+            if (debugLaneCompositor) {
+                var timeline = project.getTimeline();
+                String unavailable = null;
+                LanePlan lanePlan = null;
+                if (isTransitionItem || isLoopBeforeItem || buildingCutPiece || clip.hasLoopExtension()
+                        || clip.hasRemovedSpans() || clip.getSpeedMultiplier() != 1f) {
+                    unavailable = "transition, loop, cut or retime";
+                } else if (!timeline.getWaveformOverlays().isEmpty()) {
+                    unavailable = "waveforms";
+                } else {
+                    lanePlan = LanePlan.of(timeline);
+                    if (debugProjectLaneOrder) {
+                        unavailable = lanePlan.projectExportFallback(project.isTrueLayerOrder());
+                    }
+                }
+                if (lanePlan != null && unavailable == null) {
+                    long offset = editorTimeOffsetForChunk(timeline, clip, timelineCursorMs);
+                    var candidate = LaneCompositeGlEffect.create(context, lanePlan,
+                            timeline.getTotalDurationMs(), offset, timelineCursorMs, shutterPieceDurationMs,
+                            overlayH, project.getSpriteSheets());
+                    if (candidate.effect() != null) {
+                        videoEffects.add(candidate.effect());
+                        if (hasAnyVisibleCaptionBinding(clip) || audioCaptionOverlaps) {
+                            var captions = new CompositeExportOverlay(context, timelineCursorMs, clip,
+                                    overlayW, overlayH, Collections.emptyList(), Collections.emptyList(),
+                                    timeline.getAudioClips(), Collections.emptyList(), project.getSpriteSheets(),
+                                    project.getAvatarRigs(), timeline.getTotalDurationMs(), offset,
+                                    pieceClipStartMs, motionBlurEnabled);
+                            if (captions.hasCaptions()) {
+                                captions.setCaptionsViaGl(true);
+                                videoEffects.add(new GlCaptionEffect(captions));
+                            }
+                        }
+                        return finishClipVideoEffects(videoEffects, canvasDims, offset);
+                    }
+                    unavailable = candidate.fallbackReason();
+                }
+                if (unavailable != null && !loggedLaneFallback) {
+                    loggedLaneFallback = true;
+                    FLog.i(TAG, "LANE_FALLBACK " + unavailable);
+                }
+            }
             // M-EXPORT-1: the text/image/sticker overlay list comes from the SAME
             // shared authority the live preview feeds TextOverlayLayer from
             // (LayerPreviewController.visibleTextOverlays): every item on every
@@ -7900,6 +7954,14 @@ public class ExportManager {
                     + clip.getId() + " (uri=" + clip.getSourceUri() + "); skipping overlay");
         }
 
+        long readbackOffsetMs = debugLaneSamples == null ? 0L
+                : editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
+                        - (isLoopBeforeItem ? headTransitionMsFor(project.getTimeline(), clip) : 0L);
+        return finishClipVideoEffects(videoEffects, canvasDims, readbackOffsetMs);
+    }
+
+    private List<Effect> finishClipVideoEffects(List<Effect> videoEffects,
+                                               @Nullable int[] canvasDims, long readbackOffsetMs) {
         // Canvas resize applies to transition items TOO. The GL transition program
         // outputs frames at the outgoing clip's SOURCE size (its configure() returns
         // the input size), so without this the ~600ms transition segment was a
@@ -7911,6 +7973,9 @@ public class ExportManager {
                     Presentation.LAYOUT_SCALE_TO_FIT));
         }
 
+        if (debugLaneSamples != null) {
+            videoEffects.add(new LaneReadbackGlEffect(context, readbackOffsetMs, debugLaneSamples));
+        }
         return videoEffects;
     }
 

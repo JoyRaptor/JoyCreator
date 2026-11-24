@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="studio_true_layer_order">True layer order</string>
     <string name="studio_motion_blur">Motion Blur</string>
     <string name="studio_motion_enable_project">Enable motion blur for this project</string>
     <string name="studio_motion_enable_item">Blur this item’s transform</string>

@@ -96,7 +96,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 ### Joybot
 
 - BOT-A3 (S) Read the request-size log with a free model on the Note 9 (PromptBudget)
-- BOT-A6 (M) Help topics for Capture: photo/screenshot, dual camera, Remote entry points, watermark switch, Settings hub v2, Home recorder, About
+- BOT-A6 (M) Help topics for Capture: photo/screenshot, dual camera, Remote entry points, watermark switch, Settings hub v2, Home recorder, About **checked 11-24 (website lane): all six topics exist in HelpBook (capture_photo, capture_screenshot, dual_camera, remote_lan, watermark, about, settings_find); Home recorder is `record`; DONE**
 - BOT-A8 (M) Phone-ask the 18 new help topics (JoyBrush/SpriteLab/Library) plus TextLab, Settings, Remote topics
 - BOT-A11 (S) Offline wording owner check (NetCheck, TipBook.offlineHope)
 - BOT-A13 (S) Owner voice test of the hands-free loop and OpenAI provider
@@ -105,7 +105,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 
 ### Studio
 
-- STU-A2 (M) Help mappings for Studio rows marked 'Help: PENDING'
+- STU-A2 (M) Help mappings for Studio rows marked 'Help: PENDING' **DONE 11-24 (website lane): topics `studio_strike_words`, `studio_tablet_drawers` added; the other pending Studio rows were already covered by `silence`, `fixaudio`, `studio_drawer_back`; STATE rows name them; help harness 1317 pass**
 - STU-B5 (M) Joybot marks undo limits (multi-step chat visit; recreated Studio)
 - STU-C1 (M) Re-run STU-1 phone backlog: Bend on text, corner-pinned text with effect export parity
 - STU-C2 (S) Re-run STU-1 phone backlog: drag a sprite's corner pin and sprite on transform surface
@@ -132,7 +132,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - SHELL-08 (M) Restyle the fullscreen camera preview and classic Studio list leftovers
 - SHELL-13 (S) Settings: choose a location glyph for 'Location in video files' and confirm location lands in a real recording
 - SHELL-16 (S) Settle the owner's open shell decisions: support_url, theme prune, Setup grouping, Library Clips kind
-- SHELL-23 (M) Land 'Send to Studio into an existing project' and prove it on the Note 9
+- SHELL-23 (M) Land 'Send to Studio into an existing project' and prove it on the Note 9 **TAKING (website lane, 11-24; = queue job 16; already on main, Note 9 check owed)**
 - SHELL-29 (M) JoyBrush half of the folder: paper in thumbnails, thumbnail = last view, Open... adds a new drawing
 - SHELL-38 (M) Ship a small demo project you can press play on
 - SHELL-39 (M) Empty-state illustrations and hero art for the lobby (asset-blocked)

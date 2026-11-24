@@ -568,6 +568,9 @@ public class IdeaEngineTest {
                     {"how do I change the look sliders on my title", "studio_title_sliders"},
                     {"can you show me a trick", "joybot_tricks"},
                     {"how do I report a reply", "joybot_report"},
+                    // STU-A2 (11-24)
+                    {"how do I strike a word out of the video", "studio_strike_words"},
+                    {"how do I put the drawer beside the picture on my tablet", "studio_tablet_drawers"},
                     // keys that must stay with their own topics
                     {"how do I add credits at the end", "slides"},
                     {"how do I use screen mode", "blend"},

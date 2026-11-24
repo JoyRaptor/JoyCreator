@@ -158,6 +158,19 @@ public final class HelpBook {
                     + "|bring back the drawer|open the drawer again",
                     "Closed a text's or picture's drawer? Tap the selected text or picture once more, on its timeline "
                             + "strip or its box in the preview, and its drawer comes back.", "studio", null),
+            // STU-A2 (11-24): Studio rows whose help was pending. Wording follows STATE.
+            new Topic("studio_strike_words", "strike a word|strike words|struck word|cut a word|remove a word from the video"
+                    + "|skip a word|restore a word|cut words from the transcript",
+                    "In the transcript, hold a word and drag across it to strike it, or tap a yellow silence gap. "
+                            + "Playback and the export then jump over it, picture and every sound together. The word "
+                            + "stays on the timeline, darkened, with a small black mark where the jump happens; tap the "
+                            + "word, or strike it again, to bring it back.", "studio", null),
+            new Topic("studio_tablet_drawers", "tablet drawer|drawer on a tablet|editing desk|tall column|wide screen drawer"
+                    + "|drawer beside the picture|left hand drawers|left-hand drawers|second drawer",
+                    "On a screen 600 dp or wider, an object's drawer stands beside the picture instead of covering it. "
+                            + "Its header has two switches: Editing desk or Tall column, and which side. Studio Settings → "
+                            + "Drawers on a wide screen has Tall column, Left-hand drawers and a second drawer. A phone held "
+                            + "upright keeps the old drawer.", "studio", null),
             new Topic("undo", "undo|go back|mistake|redo|history",
                     "The undo arrow is in the Studio's top bar; hold it to see the history. Everything I do is "
                             + "one undo step — or just tell me “undo that”.", "studio", null),

@@ -180,11 +180,33 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
             }
             sheet.setSheetUri(Uri.fromFile(dest).toString());
+            if (isNewSheet) applyGridFromName(src);
             reloadRenderer();
             markDirtyQuiet();   // a new or relinked picture is a change on disk: Home must save it
         } catch (Exception e) {
             Toast.makeText(this, R.string.sprite_editor_import_failed, Toast.LENGTH_LONG).show();
             if (isNewSheet) finish();
+        }
+    }
+
+    /**
+     * A sheet named {@code <Name>.<C>x<R>.sprite.png} says its own grid (the Library and TextLab write
+     * them that way). The picker route ignored the name and left the default 3 x 3, so a 2 x 2 sheet
+     * opened wrongly sliced (device check F13). Only a NEW sheet: a relink keeps the slicing it has.
+     */
+    private void applyGridFromName(@NonNull Uri src) {
+        String name = null;
+        try (android.database.Cursor c = getContentResolver().query(src,
+                new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) name = c.getString(0);
+        } catch (RuntimeException ignored) { }
+        if (name == null && src.getLastPathSegment() != null) name = new File(src.getLastPathSegment()).getName();
+        com.fadcam.joyfolder.SheetName hint = com.fadcam.joyfolder.SheetName.parse(name);
+        if (hint == null) return;
+        sheet.setGrid(hint.cols, hint.rows);
+        if (nameField != null && nameField.getText().toString().trim().equals(
+                getString(R.string.sprite_editor_default_name))) {
+            nameField.setText(hint.base);
         }
     }
 

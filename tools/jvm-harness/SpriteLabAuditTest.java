@@ -109,6 +109,14 @@ public class SpriteLabAuditTest {
         String back = body(src, "public void onBackPressed(");
         check("Back does not close the screen when the save failed",
                 back.contains("if (!save())"));
+        String imgBody = body(src, "private void importSheetImage(");
+        check("a picked sheet named <Name>.<C>x<R>.sprite.png takes its grid from the name",
+                imgBody.contains("applyGridFromName(") && src.contains("SheetName.parse("));
+        com.fadcam.joyfolder.SheetName hint = com.fadcam.joyfolder.SheetName.parse("Fire.2x2.sprite.png");
+        check("the name hint reads 2 x 2 and the base name",
+                hint != null && hint.cols == 2 && hint.rows == 2 && "Fire".equals(hint.base));
+        check("an ordinary picture name gives no hint",
+                com.fadcam.joyfolder.SheetName.parse("holiday.png") == null);
         String open = body(src, "private void openSheet(");
         check("opening another sheet does not close the screen when the save failed",
                 open.contains("if (!save(true))"));

@@ -51,6 +51,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
+    private static final int REQ_PSD = 43;
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -473,6 +474,65 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
     }
 
+    @Override
+    public void newFromLayeredFile() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*");
+        try {
+            startActivityForResult(i, REQ_PSD);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** Reads the layered file, builds the character (every layer's picture inside it), and puts it on the stage. */
+    private void layeredDoor(final Uri uri) {
+        JoyFolderHome.io().execute(() -> {
+            CharacterDoc made = null;
+            String say = null;
+            try (InputStream in = getContentResolver().openInputStream(uri)) {
+                if (in == null) throw new java.io.IOException(getString(R.string.avatar_psd_unreadable));
+                cc.joycreator.avatar.intake.PsdReader psd = cc.joycreator.avatar.intake.PsdReader.parse(readAll(in));
+                cc.joycreator.avatar.intake.PsdDoor.Summary sum = new cc.joycreator.avatar.intake.PsdDoor.Summary();
+                org.json.JSONObject doc = cc.joycreator.avatar.intake.PsdDoor.build(psd, getString(R.string.avatar_untitled), (w, h, rgba) -> {
+                    int[] px = new int[w * h];
+                    for (int k = 0; k < px.length; k++) {
+                        int o = k * 4;
+                        px[k] = ((rgba[o + 3] & 255) << 24) | ((rgba[o] & 255) << 16) | ((rgba[o + 1] & 255) << 8) | (rgba[o + 2] & 255);
+                    }
+                    android.graphics.Bitmap b = android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888);
+                    b.setPixels(px, 0, w, 0, 0, w, h);
+                    ByteArrayOutputStream png = new ByteArrayOutputStream();
+                    b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png);
+                    b.recycle();
+                    return "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP);
+                }, sum);
+                made = CharacterOpen.read(doc.toString());
+                if (made != null) say = getString(R.string.avatar_psd_found, sum.layers, sum.groups);
+            } catch (java.io.IOException e) {
+                say = e.getMessage();           // already one plain sentence
+            } catch (Exception | OutOfMemoryError e) {
+                Log.w(TAG, "layered file not opened", e);
+            }
+            final CharacterDoc result = made;
+            final String line = say;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (result == null) {
+                    Toast.makeText(this, line != null ? line : getString(R.string.avatar_psd_unreadable), Toast.LENGTH_LONG).show();
+                    return;
+                }
+                character = result;
+                characterPath = null;
+                unsaved = true;
+                inHand = null;
+                showCharacter();
+                setLayersShown(true);
+                Toast.makeText(this, line, Toast.LENGTH_LONG).show();
+                main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
     /** Reads each picked picture (at most 512 px on a side), builds the new character, and puts it on the stage. */
     private void pictureDoor(final List<Uri> uris) {
         JoyFolderHome.io().execute(() -> {
@@ -538,6 +598,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_PSD && res == RESULT_OK && data != null && data.getData() != null) {
+            layeredDoor(data.getData());
+            return;
+        }
         if (req == REQ_PICTURES && res == RESULT_OK && data != null) {
             java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
             if (data.getClipData() != null)

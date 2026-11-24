@@ -42,6 +42,9 @@ public final class RoomMenu {
 
         /** The "separate pictures" door: pick pictures, get a new character. */
         void newFromPictures();
+
+        /** The "layered file" door: pick a .psd or .psb, get a new character. */
+        void newFromLayeredFile();
     }
 
     private RoomMenu() {}
@@ -72,6 +75,7 @@ public final class RoomMenu {
         scroll.addView(row);
         box.addView(scroll);
 
+        box.addView(action(c, dp, c.getString(R.string.avatar_new_from_psd), c.getString(R.string.avatar_hover_new_from_psd), v -> { d.dismiss(); host.newFromLayeredFile(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_new_from_pictures), c.getString(R.string.avatar_hover_new_from_pictures), v -> { d.dismiss(); host.newFromPictures(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_open), c.getString(R.string.avatar_hover_open), v -> { d.dismiss(); host.openFromPicker(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_save), c.getString(R.string.avatar_hover_save), v -> { d.dismiss(); host.saveNow(); }));

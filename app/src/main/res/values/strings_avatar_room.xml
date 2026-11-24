@@ -69,5 +69,9 @@
     <string name="avatar_step_very_front">Bring %1$s very front</string>
     <string name="avatar_step_back_one">Move %1$s back one</string>
     <string name="avatar_step_forward_one">Move %1$s forward one</string>
+    <string name="avatar_new_from_psd">Create new avatar: layered file</string>
+    <string name="avatar_hover_new_from_psd">A layered file (.psd): every layer becomes a part</string>
+    <string name="avatar_psd_unreadable">That file could not be opened. Nothing was changed.</string>
+    <string name="avatar_psd_found">Found %1$d layers in %2$d groups. Every layer is a part now; look in Layers.</string>
 </resources>
 

@@ -41,3 +41,6 @@ DECISIONS"): Remote / Server Room and Smart Detection are launch features. Plann
 ## Files and traps
 - Never delete FadCam data stores (the Room DB, event logs): hide and repurpose (DESIGN §7 rule).
 - Keep FadCam's credit and licence in About (GPL-3).
+
+## 11-24 (website lane, no phone): Auto-markers spec and the mapping maths
+[SPEC_AUTO_MARKERS_20261124](../SPEC_AUTO_MARKERS_20261124.md): Detect's moments (`ai_event` rows, joined to a clip by its source uri) are *offered* as named timeline marks (chip, list sheet with a picture per moment, one Undo); never automatic. Built so far: only the pure mapping, `ui/faditor/markers/AutoMarkMapper` (trim, speed, reverse, two uses, de-duplication), with `tools/jvm-harness/run-automarks.sh`: 18 checks pass, and 5 fail when the speed and reverse maths is deliberately broken. Not wired into Studio (no reader, no chip, no sheet yet) and not on a phone. The owner's three decisions are at the end of the spec (offered or automatic; which kinds; clusters as regions).

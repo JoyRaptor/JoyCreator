@@ -159,3 +159,9 @@ Shots in `tasks/screens/tablet/`.
   ~36k-line activity: add the panel host beside the existing drawer host, do not rewrite the drawers.
 - The tablet is on Wi-Fi debugging (`PHONE_SLOT=tablet`); its rotation is locked to landscape by the owner:
   do not change it. Tablet portrait needs him to turn it.
+
+## 11-24 wide-screen check of rooms added since 11-15, from the code (hover-1 lane; not seen on a tablet)
+- **Studio effect picker** (`FxPanel.addRow`, tiles from `FxSwatchViews.tile`): three tiles per row, each a fixed square (`side` x `side`), grouped by family. Fixed-size tiles never stretch, so on a wide drawer the grid keeps its size and leaves empty space at the right; nothing overlaps or breaks. A wide-screen upgrade (more tiles per row from the drawer's width via `WindowSize`) is a design choice, not a fault: owner pick, owed.
+- **Part pickers** (`PartThumbs.listAdapter`, used in AlertDialog lists in the Avatar room and the Studio editor, and the LUT panel): platform dialogs cap their own width on tablets; the thumbnails are fixed-size. No break expected.
+- **Detect moments** and the **path options** screen: not built (a model and a hidden switch only), so nothing to check. Re-check when their screens exist.
+- Result: no layout fix needed. The tablet look (checked on the test tablet before) is still owed for these three.

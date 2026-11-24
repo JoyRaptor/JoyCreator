@@ -4252,7 +4252,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         // Warning icon (large emoji text)
         android.widget.TextView iconView = new android.widget.TextView(this);
-        iconView.setText("\u26A0\uFE0F");
+        iconView.setText("\u26A0\uFE0F"); // L18-ok: an emoji icon
         iconView.setTextSize(48f);
         iconView.setTextColor(Studio.DANGER);
         iconView.setGravity(android.view.Gravity.CENTER);
@@ -9352,7 +9352,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.EditText wField = new android.widget.EditText(this);
         wField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
                 | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        wField.setHint("W");
+        wField.setHint("W"); // L18-ok: a width letter on a size field
         wField.setGravity(Gravity.CENTER);
         if (customCropRatioW > 0f) wField.setText(trimNum(customCropRatioW));
         LinearLayout.LayoutParams wLp = new LinearLayout.LayoutParams(0,
@@ -9369,7 +9369,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         android.widget.EditText hField = new android.widget.EditText(this);
         hField.setInputType(android.text.InputType.TYPE_CLASS_NUMBER
                 | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-        hField.setHint("H");
+        hField.setHint("H"); // L18-ok: a height letter on a size field
         hField.setGravity(Gravity.CENTER);
         if (customCropRatioH > 0f) hField.setText(trimNum(customCropRatioH));
         LinearLayout.LayoutParams hLp = new LinearLayout.LayoutParams(0,
@@ -17888,7 +17888,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         updateRippleModeButton();
         scheduleAutoSave();
         // TODO(strings)
-        Toast.makeText(this, "gap".equals(after)
+        Toast.makeText(this, "gap".equals(after) // L18-ok: not a literal on screen: the text comes from getString below
                 ? getString(R.string.studio_opt_gap_mode_deleting_a_clip) : getString(R.string.studio_opt_ripple_mode_deleting_a_clip), Toast.LENGTH_SHORT).show();
     }
 
@@ -23663,7 +23663,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         kLabel.setTextSize(12);
         col.addView(kLabel);
         TextView kEx = new TextView(this);
-        kEx.setText("00:00.000 -> 00:00.320 Ten\n00:00.320 -> 00:00.610 rows,\n00:00.610 -> 00:00.910 ten toes,");
+        kEx.setText("00:00.000 -> 00:00.320 Ten\n00:00.320 -> 00:00.610 rows,\n00:00.610 -> 00:00.910 ten toes,"); // L18-ok: an example of the karaoke format, meant to stay English
         kEx.setTextColor(Studio.DRAWER_DIM);
         kEx.setTextSize(12);
         kEx.setTypeface(android.graphics.Typeface.MONOSPACE);
@@ -23684,7 +23684,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         sLabel.setTextSize(12);
         col.addView(sLabel);
         TextView sEx = new TextView(this);
-        sEx.setText("[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant");
+        sEx.setText("[00:00] And whereas thou sawest the feet and toes, part of potters' clay, and part of iron\n[00:08] And he said unto him, Well, thou good servant"); // L18-ok: an example of the subtitle format, meant to stay English
         sEx.setTextColor(Studio.DRAWER_DIM);
         sEx.setTextSize(12);
         sEx.setTypeface(android.graphics.Typeface.MONOSPACE);

@@ -11,7 +11,8 @@ The sweep that moves the existing ones into strings.xml (and their 11 translatio
     python -B tools/check_hardcoded_english.py            # fails if a file has more than its baseline
     python -B tools/check_hardcoded_english.py --update   # after you REMOVED some: lower the baseline
 
-The baseline is tools/hardcoded_english_baseline.json. A new file starts at 0: put its words in
+The baseline is tools/hardcoded_english_baseline.json. A line that must stay as typed (a placeholder like "██ MB", an example text, a key format) carries a
+"// L18-ok: why" comment and is not counted. A new file starts at 0: put its words in
 res/values/strings_<area>.xml instead.
 """
 import json
@@ -64,6 +65,8 @@ def count():
                     for line in fh:
                         s = line.strip()
                         if s.startswith(("//", "*", "/*")):
+                            continue
+                        if "L18-ok" in line:      # a line that is deliberately not translatable (placeholder, example, format)
                             continue
                         if any(is_words(r, line) for r in PATS):
                             n += 1

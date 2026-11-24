@@ -3011,7 +3011,7 @@ public class RecordsAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder
 
         // Step 2: Clear text content and set placeholder appearance
         holder.textViewRecord.setText("████████████████"); // Placeholder text
-        holder.textViewFileSize.setText("██ MB");
+        holder.textViewFileSize.setText("██ MB"); // L18-ok: a loading placeholder
         holder.textViewFileTime.setText("██████");
 
         // Make text views appear as placeholder blocks

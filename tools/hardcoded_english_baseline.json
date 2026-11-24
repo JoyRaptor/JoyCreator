@@ -1,8 +1,4 @@
 {
- "app/src/main/java/com/fadcam/ui/RecordsAdapter.java": 1,
- "app/src/main/java/com/fadcam/ui/RemoteFragment.java": 1,
- "app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java": 2,
- "app/src/main/java/com/fadcam/ui/faditor/ai/ChatAssistantActivity.java": 36,
  "app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java": 1,
  "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/UnibrushHostController.kt": 3,
  "joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/library/DrawingsActivity.kt": 3

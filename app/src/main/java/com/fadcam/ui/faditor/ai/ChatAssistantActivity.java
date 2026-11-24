@@ -3935,7 +3935,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         EditText inputKey = new EditText(this);
         inputKey.setText(currentKey);
-        inputKey.setHint("sk-or-v1-...");
+        inputKey.setHint("sk-or-v1-..."); // L18-ok: a key format example
         inputKey.setTextColor(Studio.INK);
         // Hidden like a password: the settings screen gets screenshotted and screen-recorded, and a
         // key on screen is a key someone else can spend (found while testing on the Note 9,

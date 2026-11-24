@@ -566,7 +566,7 @@ public class RemoteFragment extends BaseFragment {
             applyOnAirChip(false);
             animateStatusIndicator(false);
             
-            rootUrlText.setText("http://---.---.---.---:----/");
+            rootUrlText.setText("http://---.---.---.---:----/"); // L18-ok: an address placeholder
         }
         
         // Update quality display (FPS cap + bitrate)

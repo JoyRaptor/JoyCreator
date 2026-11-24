@@ -112,3 +112,8 @@ Select, symmetry, Send to Studio. Hover labels: ~220 controls done 10-15; the ch
 - `ai/joybot/HelpBook.java`, `IdeaEngine.java`, `ChatAssistantActivity.java`; JoyBrush's button lives in
   `JoyBrushActivity.kt` (JoyBrush lead's file: ask first). Its icon is stretched ~57% wide: the fix
   `ef5fcd84a` on `claude/joybot-icon-aspect-20261027` is the JoyBrush lead's to land.
+
+## Checked 2026-11-24 (Sonnet lane, no phone; queue row 21)
+- **Help for every STATE feature:** the "Help: pending" count in STATE went from 17 rows to 6: five rows were mapped (Joybot's own animation and arrival and the moving lobby heroes: not needed, automatic; the lobby stat line: `space`; editable-line watercolour: `joybrush_watercolour`, `joybrush_lines`; the board show: `send_to_studio` already named) and the rest are the Avatar rows (361-363) and face tracking (271), which stay pending on purpose while the Avatar room is hidden for launch.
+- **Hover labels:** `HoverLabels.installEverywhere` (HOVER-1, `79cefb069`) names every view with a name and `tools/check_hover_labels.py` reports 0 unnamed; the Joybot controls are covered by it. A real mouse / S Pen hover on a phone is owed.
+- **Every room opens him with fitting ideas:** needs the phone, room by room.

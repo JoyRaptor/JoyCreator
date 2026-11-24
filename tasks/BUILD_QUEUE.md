@@ -40,6 +40,8 @@ hardest work.
 | 17 | Studio sweep leftovers re-checked on the phone (caption motion, eye and outline, Invert, Puppet tab, Lanes pills, envelope) | [STU-4](jobs/STU-4_studio_sweep_leftovers.md) | yes | queued (added 11-23) |
 | 18 | Puppets proven on a phone: pins, a keyed pin, a live take, a dragged performance | [ANI-1](jobs/ANI-1_puppets_and_sprites.md) | yes | queued (added 11-23) |
 | 19 | Launch triage pool: every LAUNCH then POLISH row in `tasks/audits/launch_triage_20261114.md` that needs no phone; verify each against today's code first (many are fixed), fix the rest with tests, mark each row | [triage](audits/launch_triage_20261114.md) | no | worked 11-24 in seven batches (triage file sections 6; every launch and polish row a PC can prove is fixed or marked): built L27 key guard, L18 English ratchet, F13 sprite grid from file name, Export label, BOT-A29 screen recorder, BOT-A31 dope sheet; parked with reasons: BOT-A31 bake/export, BOT-A33, AN-06 F15, the rows that need the owner, a phone or the JoyBrush lane |
+| 20 | FILE-1 phone-free items (Joy Creator folder leftovers) | [FILE-1](jobs/FILE-1_folder_leftovers.md) | no | checked 11-24: the open storage-roots item was already done; the stale box ticked; what is left needs a phone, the owner or the JoyBrush lane |
+| 21 | BOT-2 open boxes that need no phone (help for every STATE feature, hover labels) | [BOT-2](jobs/BOT-2_joybot_everywhere.md) | no | 11-24: STATE "Help: pending" cut from 17 rows to 6 (the rest are the hidden Avatar room); hover labels covered by HOVER-1; per-room ideas need a phone |
 
 Waiting on the owner (not in the queue): S1 app ID, S4 privacy email, S6 Play account and testers, S10 removing 11
 unused FadCam classes, the icon picks, the hide list.

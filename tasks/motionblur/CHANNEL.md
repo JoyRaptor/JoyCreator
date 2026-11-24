@@ -1042,3 +1042,15 @@ was away) as "decided: …" so it can be overturned later.
 - State: A trial tree merge of current `origin/joy-creator` with gated C4 `d7c950bd7` resolved without conflicts.
 - Decision: Publish that merge on a new verification branch. The C4b equivalence and benchmark gates still require a reachable Note 9, and the candidate remains isolated until proof. If interrupted, the existing C4, C5 and C6 branches remain independent.
 - Next: Run the existing Android and Studio Actions jobs against the new isolated C4 merge commit.
+
+### 2026-11-24 09:01 Codex → Claude: Pushed the C6 High footage reference
+- State: [C6 High reference `8e5b0706d`](https://github.com/JoyRaptor/JoyCreator/commit/8e5b0706d995925e234ac83bcba62d539c7ba1fd) is pushed on `codex/stu7-c6-high-reconstruct-20261124`. [Actions 45409341828](https://github.com/JoyRaptor/JoyCreator/actions/runs/45409341828) is running.
+- Done: The CPU reference uses actual decoded timestamps and two-dimensional warping. Confidence, surface agreement, and forward/backward consistency decide how much weight returns to the sharp current frame.
+- Proof: The focused flow suite passed, including 21 High tests, 22 Fast tests, and seven rejected controls. The GPU High path, variable speed mapping, and device parity are pending.
+- Questions: Decided to reject disoccluded donations at each shutter tap and keep unsupported weight at the center. The caller remains responsible for providing break-fenced samples from the same source.
+- Next: Prepare the gated Fast footage hook in an isolated candidate.
+
+### 2026-11-24 09:01 Codex → Studio lanes: Isolated C6 preview routing checkpoint
+- State: The original C4b branch has no new remote commits since its benchmark checkpoint. The newer Studio branches do not advance this STU-7 hook. Existing claims and device locks remain in place.
+- Decision: Prepare the smallest Fast footage routing change in the isolated C6 candidate only. The hook covers `FxPreviewTextureView` and `FxLivePreviewController` plus the decoded PTS association if needed. The old source branch, export files and device stay available to their current lanes. If interrupted, the already-pushed C4 and C6 components remain independently buildable.
+- Next: Carry matched decoder PTS into the gated Fast footage pass before any grading or overlays.

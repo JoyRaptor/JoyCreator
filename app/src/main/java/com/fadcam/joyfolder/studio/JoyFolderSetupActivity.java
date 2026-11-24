@@ -23,6 +23,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.fadcam.R;
 import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.FolderIndex;
 import com.fadcam.joyfolder.JoyFolder;
@@ -187,8 +188,8 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         actions.removeAllViews();
         Uri tree = JoyFolderHome.treeUri(this);
         if (tree == null) {
-            where.setText("Not chosen yet");
-            detail.setText("Right now your projects only live inside the app. If the app is removed, they go with it.");
+            where.setText(getString(R.string.joyfolder_not_chosen));
+            detail.setText(getString(R.string.joyfolder_only_in_app));
             actions.addView(pill("Make my Joy Creator folder", true, v -> pick(
                     "In the next screen, tap the new-folder button, name it Joy Creator, then tap Use this folder.")));
             actions.addView(spacer());
@@ -209,7 +210,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             return;
         }
         where.setTextColor(TEXT);
-        detail.setText("Checking…");
+        detail.setText(getString(R.string.joyfolder_checking));
         JoyFolderHome.io().execute(() -> {
             int inFolder = countProjects();
             long atRisk = JoyFolderHome.copyMediaAllowed(this) ? 0 : StudioMirror.bytesAtRisk(this);
@@ -256,31 +257,31 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         try {
             picker.launch(JoyFolderHome.pickerIntent());
         } catch (android.content.ActivityNotFoundException e) {
-            progress.setText("This phone has no folder picker, so a folder can't be chosen here.");
+            progress.setText(getString(R.string.joyfolder_no_picker));
         }
     }
 
     private void onPicked(Uri tree) {
         if (isStorageRoot(tree)) {
-            progress.setText("That's the top of your storage itself. Make a folder there called Joy Creator, then pick that folder.");
+            progress.setText(getString(R.string.joyfolder_top_of_storage));
             return;
         }
         Uri previous = JoyFolderHome.treeUri(this);
         try {
             JoyFolderHome.choose(this, tree);
         } catch (SecurityException e) {
-            progress.setText("Android didn't allow Joy Creator to keep using that folder. Try another one.");
+            progress.setText(getString(R.string.joyfolder_not_allowed));
             return;
         }
         carryRecorderAlong(previous);
         busy = true;
-        progress.setText("Setting up your folder…");
+        progress.setText(getString(R.string.joyfolder_setting_up));
         JoyFolderHome.io().execute(() -> {
             JoyFolder jf = JoyFolderHome.open(this);
             if (jf == null) {
                 runOnUiThread(() -> {
                     busy = false;
-                    progress.setText("Couldn't write to that folder. Pick one on your phone's storage or SD card.");
+                    progress.setText(getString(R.string.joyfolder_cant_write));
                     refresh();
                 });
                 return;
@@ -317,7 +318,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         consent.setVisibility(View.GONE);
         JoyFolderHome.setCopyMediaAllowed(this, copyMedia);
         busy = true;
-        progress.setText("Copying your projects into the folder…");
+        progress.setText(getString(R.string.joyfolder_copying));
         JoyFolderHome.io().execute(() -> {
             int restored = 0;
             String problem = null;
@@ -348,7 +349,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
 
     private void restoreOnly() {
         busy = true;
-        progress.setText("Looking for projects in your folder…");
+        progress.setText(getString(R.string.joyfolder_looking));
         JoyFolderHome.io().execute(() -> {
             int n;
             String msg;
@@ -430,7 +431,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
             LinearLayout buttons = row();
             buttons.addView(pill("Save them here", true, v -> {
                 setRecordingsHere(true);
-                progress.setText("New recordings and exports will be saved in your Joy Creator folder.");
+                progress.setText(getString(R.string.joyfolder_new_saved_here));
                 refresh();
             }));
             box.addView(buttons);
@@ -490,7 +491,7 @@ public class JoyFolderSetupActivity extends AppCompatActivity {
         buttons.addView(pill("Make " + folder + " folder", true, v -> {
             com.fadcam.SharedPreferencesManager p = recorderPrefs();
             if (p.isRecordingInProgress() || p.isScreenRecordingInProgress()) {
-                progress.setText("Finish the recording that's running first, then try again.");
+                progress.setText(getString(R.string.joyfolder_finish_recording));
                 return;
             }
             busy = true;

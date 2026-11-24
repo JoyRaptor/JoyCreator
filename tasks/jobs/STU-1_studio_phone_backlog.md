@@ -69,3 +69,8 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 - **Play: PASS.** Playback runs; the frame counter at 4.17 s reads frame 127 (30 fps, `f1.png`), no hitch seen. The transition itself was not seen drawing (identical clips).
 - **Export: PASS.** The export sheet reads 00:35, 2 clips (36 s minus the 1 s transition overlap), Export Now ran to 99% Finalizing then "Export Complete", saved to the Joy Creator folder (`f2.png`, `f3.png`, `f4.png`). I did not play the exported file back, so export-versus-preview of the transition is not compared.
 - Still owed: VisLab in Studio, ducking with a real voice, a transition between two different clips, the other transition types, STU-6 on-clip checks, jobs 17 and 18.
+
+## 11-24 playing "Restore video test" (hover-1 lane, Note 9, build df093b915)
+- **Stained Glass on a clip: PASS in the preview (STU-6).** At 3.1 s the adjustment layer I added earlier turns the cat clip into stained-glass panes with dark lead lines; the text, sprites and pictures above it are untouched, as designed (`g2.png`; before it, `g1.png` at 0:00 shows the plain clip). No refusal, no crash, playback kept running. Frame time and export versus preview are not measured.
+- **VisLab in Studio: partly seen.** The VIZ lane plays under the picture and a faint dotted cyan line draws along the lower picture (`g1.png`, `g2.png`); its look and the Echo Trails settings were not examined here (only agent-tested 10-27, and the owner has not looked, S12).
+- Still owed: ducking with a real voice, other transition types between different clips, the other 11 STU-6 effects on a clip, frame times, jobs 17 and 18.

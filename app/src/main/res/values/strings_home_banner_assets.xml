@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): words that were typed into HomeFragment, JoyFolderBanner and AssetBrowserPanel. -->
+<resources>
+    <string name="home_recording_failed">Recording Failed</string>
+    <string name="home_dual_stop_error">Error stopping dual recording</string>
+    <string name="home_preview_could_not_start">Preview could not start. Try long-press again.</string>
+    <string name="home_no_activity_context">Error: Cannot access activity context</string>
+    <string name="home_no_torch">No torch available</string>
+    <string name="home_torch_choice">Torch: %1$s</string>
+    <string name="home_recording_in_progress">Recording in Progress</string>
+    <string name="home_stop_and_exit_question">Do you want to stop recording and exit?</string>
+    <string name="folder_banner_title">Joy Creator folder</string>
+    <string name="folder_banner_not_chosen">Not chosen. Your projects only live inside the app.</string>
+    <string name="folder_banner_keep_safe">Keep your work safe</string>
+    <string name="folder_banner_choose">Choose a Joy Creator folder so your projects survive even if the app is removed.</string>
+    <string name="folder_banner_unavailable">Joy Creator folder unavailable</string>
+    <string name="folder_banner_reconnect">Nothing has been lost. Tap to reconnect it.</string>
+    <string name="assets_only_folder_to_trash">Only files in your Joy Creator folder can go to Trash from here.</string>
+</resources>

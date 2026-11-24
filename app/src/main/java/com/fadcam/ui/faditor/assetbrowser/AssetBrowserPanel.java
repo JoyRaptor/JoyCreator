@@ -725,14 +725,14 @@ public class AssetBrowserPanel extends FrameLayout {
                     paths.add(rels.get(i));
                 }
                 if (paths.isEmpty()) {
-                    Toast.makeText(getContext(), "Only files in your Joy Creator folder can go to Trash from here.",
+                    Toast.makeText(getContext(), com.fadcam.R.string.assets_only_folder_to_trash,
                             Toast.LENGTH_LONG).show();
                     return;
                 }
                 final boolean[] ticked = new boolean[paths.size()];
                 java.util.Arrays.fill(ticked, true);
                 StudioDialog.builder(getContext())
-                        .setTitle("Files no project uses")
+                        .setTitle(com.fadcam.R.string.space_unused_title)
                         .setMultiChoiceItems(names.toArray(new String[0]), ticked, (d, which, on) -> ticked[which] = on)
                         .setPositiveButton("Move to Trash", (d, w) -> {
                             final List<String> chosen = new ArrayList<>();

@@ -2406,7 +2406,7 @@ public class HomeFragment extends BaseFragment {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(
             requireContext()
         )
-            .setTitle("Recording Failed")
+            .setTitle(com.fadcam.R.string.home_recording_failed)
             .setMessage(fullErrorMessage)
             .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
             .setNeutralButton("Copy Error", (dialog, which) -> {
@@ -5481,7 +5481,7 @@ public class HomeFragment extends BaseFragment {
             FLog.i(TAG, "Sent STOP_DUAL intent.");
         } catch (Exception e) {
             FLog.e(TAG, "Error sending STOP_DUAL intent: ", e);
-            Toast.makeText(getContext(), "Error stopping dual recording", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), com.fadcam.R.string.home_dual_stop_error, Toast.LENGTH_SHORT).show();
             resetUIButtonsToIdleState();
         }
         vibrateTouch();
@@ -8477,7 +8477,7 @@ public class HomeFragment extends BaseFragment {
                 tvPreviewHint.setText(getPreviewEnableHintResId());
             }
             setHintVisibilityAnimated(true);
-            Toast.makeText(requireContext(), "Preview could not start. Try long-press again.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), com.fadcam.R.string.home_preview_could_not_start, Toast.LENGTH_SHORT).show();
         };
         previewOnlyStartHandler.postDelayed(
                 pendingPreviewOnlyStartTimeoutRunnable,
@@ -8887,7 +8887,7 @@ public class HomeFragment extends BaseFragment {
                 getActivity().startService(switchIntent);
             } else {
                 FLog.e(TAG, "Activity context is null, cannot send camera switch intent");
-                Toast.makeText(getContext(), "Error: Cannot access activity context", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), com.fadcam.R.string.home_no_activity_context, Toast.LENGTH_SHORT).show();
                 isCameraSwitchInProgress = false;
                 return;
             }
@@ -9490,7 +9490,7 @@ public class HomeFragment extends BaseFragment {
             }
 
             if (currentId == null) {
-                Toast.makeText(requireContext(), "No torch available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), com.fadcam.R.string.home_no_torch, Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -9519,7 +9519,7 @@ public class HomeFragment extends BaseFragment {
                 editor.apply();
 
                 FLog.d(TAG, "Saved torch settings - Both: " + "both".equals(sel) + ", Source: " + sel + ", CameraId: " + torchIdToSave);
-                Toast.makeText(requireContext(), "Torch: " + sel, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), getString(com.fadcam.R.string.home_torch_choice, sel), Toast.LENGTH_SHORT).show();
             });
 
             com.fadcam.ui.picker.PickerBottomSheetFragment sheet =
@@ -10692,8 +10692,8 @@ public class HomeFragment extends BaseFragment {
         if (isRecordingOrPaused()) {
             // If recording is in progress, show a confirmation dialog
             new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Recording in Progress")
-                .setMessage("Do you want to stop recording and exit?")
+                .setTitle(com.fadcam.R.string.home_recording_in_progress)
+                .setMessage(com.fadcam.R.string.home_stop_and_exit_question)
                 .setPositiveButton("Stop and Exit", (dialog, which) -> {
                     stopRecording();
                     // Allow normal back behavior after stopping recording

@@ -49,6 +49,7 @@ hardest work.
 | 26 | STU-5: one snapping authority (Opus) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | yes (feel-check) | built 11-24: SnapAuthority decides every routed snap; 39 pinning checks against frozen copies of the old code; one deliberate fix (text drop time nearest); phone feel-check owed (hover lane) |
 | 27 | STU-5: one time authority, the preview half (Opus) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | yes (phone A/B) | built 11-24: PreviewClock gives the preview the export's clip starts, transition and blend length; unchanged where it was right (4,000 random timelines), five named fixes; Note 9 check owed |
 | 28 | STU-5: export speed checked, then the path primitive (Opus) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | phone for speed; owner for the path look | 11-24: export speed already 1.2x real time on the Note 9 (fine for launch; next lead written up for the phone lane); StudioPath core built (24 checks), no screen until the owner picks a design |
+| 29 | STU-5 paths step 2: the owner's options page and the hidden plumbing (Opus) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | owner picks | 11-24: options page published privately (`tasks/design/UI-Path-options.html`); PathItem saved and loaded behind a hidden switch (36 checks); the screens wait for his picks |
 
 Waiting on the owner (not in the queue): S1 app ID, S4 privacy email, S6 Play account and testers, S10 removing 11
 unused FadCam classes, the icon picks, the hide list.

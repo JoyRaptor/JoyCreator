@@ -265,6 +265,22 @@ public class Timeline {
      */
     public boolean usesAdjustmentLayers() { return !adjustmentLayers.isEmpty(); }
 
+    // ── Paths (STU-5 primitives; HIDDEN until PathItem.ENABLED) ──────────────
+
+    private final List<com.fadcam.ui.faditor.model.path.PathItem> pathItems = new ArrayList<>();
+
+    /** Unmodifiable view of the path items (empty on every project made before paths). */
+    @NonNull
+    public List<com.fadcam.ui.faditor.model.path.PathItem> getPathItems() {
+        return Collections.unmodifiableList(pathItems);
+    }
+
+    public void addPathItem(@NonNull com.fadcam.ui.faditor.model.path.PathItem p) { pathItems.add(p); }
+
+    public boolean removePathItem(@NonNull com.fadcam.ui.faditor.model.path.PathItem p) { return pathItems.remove(p); }
+
+    public boolean usesPathItems() { return !pathItems.isEmpty(); }
+
     // ── Floating overlay-video clips (M-COMP-2) ──────────────────────
 
     /** Unmodifiable view of the floating overlay (PiP) clips. */

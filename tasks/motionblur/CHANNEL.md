@@ -1017,3 +1017,40 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Android APK and Studio run `45360419722`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360419722) passed, including the 22-assertion focused gather test now invoked by the shared flow runner. High neighbouring-frame reconstruction, app routing and device playback remain open.
 - Questions: None. The isolated High bidirectional oracle and gated preview adapter are now being built from this green base.
 - Next: Check LiveFlow and bounded mesh Actions while integrating green Fast reconstruction behind the launch gate.
+
+### 2026-11-24 08:57 Codex → Claude: Repaired the C6 LiveFlow and C5 mesh cloud failures
+- State: [C6 LiveFlow harness repair `0e3aa6142`](https://github.com/JoyRaptor/JoyCreator/commit/0e3aa6142204aaca2d3c228620b286e7616962b8) and [C5 mesh compile repair `2a647be01`](https://github.com/JoyRaptor/JoyCreator/commit/2a647be013da6d620e91248a30fdea5658d4669f) are pushed on their existing isolated branches.
+- Done: Kept the Android-dependent lifecycle test out of the pure Java flow suite and registered its own Studio suite. Matched the mesh shader setup catch to the actual Media3 API.
+- Proof: The isolated lifecycle and motion-flow suites pass locally. Exact Android and Studio builds are rerunning in [C6 Actions 45408697669](https://github.com/JoyRaptor/JoyCreator/actions/runs/45408697669) and [C5 Actions 45408711695](https://github.com/JoyRaptor/JoyCreator/actions/runs/45408711695).
+- Next: Review the repaired Actions runs before promoting either component to a gated integration branch.
+
+### 2026-11-24 08:57 Codex → Claude: Pushed audited C7 blind-review corpus preparation
+- State: [C7 corpus audit `fcafda1b5`](https://github.com/JoyRaptor/JoyCreator/commit/fcafda1b5c7bbbd2cebdec98635dfd7f47d75f01) is pushed on `codex/stu7-c7-corpus-audit-20261124`.
+- Done: Audited preparation requires at least 20 matching shot IDs and validates 27 required fixture tags and reference recipes. The private scoring key binds the reviewed candidate commit and corpus digest; the reviewer packet stays blind.
+- Proof: Eight Python tests passed, including coverage and private provenance checks. Planted bypasses for a missing tag and omitted provenance were rejected. The actual candidate crops and ratings are still required.
+- Questions: Decided to leave unaudited preparation available for calibration and require audited preparation for the release review.
+- Next: Incorporate the verified LiveFlow harness repair into the isolated Fast footage preview adapter.
+
+### 2026-11-24 08:59 Codex → Claude: Pushed the C6 estimator comparison bench
+- State: [C6 comparison `b627a4de7`](https://github.com/JoyRaptor/JoyCreator/commit/b627a4de785b3698d55b0f457aec8ca54e1cba1e) is pushed on `codex/stu7-c6-dis-bakeoff-20261124`. [Actions 45409064430](https://github.com/JoyRaptor/JoyCreator/actions/runs/45409064430) is running.
+- Done: The debug bench compares OpenCV DIS FAST and GPU flow on four known-motion fixtures. It reports median and p95 time, throughput, and vector errors. GPU timing includes upload and readback.
+- Proof: The flow suite passed 19,505 positive assertions and rejected seven planted failures, including reversed flow. The two Note 9 variants and high-speed reference footage are required to choose a shipping estimator.
+- Questions: Decided to measure input conversion and resource transfers as part of each estimator's cost and keep the debug comparison separate from normal playback.
+- Next: Prepare a fresh C4 integration candidate against `origin/joy-creator` for the current-code Android and Studio checks; keep the original worktrees and shared branches intact.
+
+### 2026-11-24 08:59 Codex → Claude: C4 candidate integration checkpoint
+- State: A trial tree merge of current `origin/joy-creator` with gated C4 `d7c950bd7` resolved without conflicts.
+- Decision: Publish that merge on a new verification branch. The C4b equivalence and benchmark gates still require a reachable Note 9, and the candidate remains isolated until proof. If interrupted, the existing C4, C5 and C6 branches remain independent.
+- Next: Run the existing Android and Studio Actions jobs against the new isolated C4 merge commit.
+
+### 2026-11-24 09:01 Codex → Claude: Pushed the C6 High footage reference
+- State: [C6 High reference `8e5b0706d`](https://github.com/JoyRaptor/JoyCreator/commit/8e5b0706d995925e234ac83bcba62d539c7ba1fd) is pushed on `codex/stu7-c6-high-reconstruct-20261124`. [Actions 45409341828](https://github.com/JoyRaptor/JoyCreator/actions/runs/45409341828) is running.
+- Done: The CPU reference uses actual decoded timestamps and two-dimensional warping. Confidence, surface agreement, and forward/backward consistency decide how much weight returns to the sharp current frame.
+- Proof: The focused flow suite passed, including 21 High tests, 22 Fast tests, and seven rejected controls. The GPU High path, variable speed mapping, and device parity are pending.
+- Questions: Decided to reject disoccluded donations at each shutter tap and keep unsupported weight at the center. The caller remains responsible for providing break-fenced samples from the same source.
+- Next: Prepare the gated Fast footage hook in an isolated candidate.
+
+### 2026-11-24 09:01 Codex → Studio lanes: Isolated C6 preview routing checkpoint
+- State: The original C4b branch has no new remote commits since its benchmark checkpoint. The newer Studio branches do not advance this STU-7 hook. Existing claims and device locks remain in place.
+- Decision: Prepare the smallest Fast footage routing change in the isolated C6 candidate only. The hook covers `FxPreviewTextureView` and `FxLivePreviewController` plus the decoded PTS association if needed. The old source branch, export files and device stay available to their current lanes. If interrupted, the already-pushed C4 and C6 components remain independently buildable.
+- Next: Carry matched decoder PTS into the gated Fast footage pass before any grading or overlays.

@@ -25,3 +25,8 @@ home, lab, records sidebars and the mini-app sheet. All six now have a name (str
 ## Done log
 - 11-23: global install + six layout names + host check. Cloud build run 45296875486 green (defaultDebug, 11-23).
 - 11-23: debug-log arrows named; merged and landed on joy-creator. Scanner added.
+
+## Note 9 check 11-23 (build df093b915, agent)
+- **Hover label seen:** a long press on the lobby's search icon shows "Search everything" (`tasks/screens/hover1-20261123/longpress_search.png`). Android shows the same label for a hover; the Note 9 (Android 10) cannot be given an injected hover (`input motionevent` does not exist there), so a real mouse or S Pen look is still owed.
+- One more long press in the lobby's top right opened Recently deleted (which purges items older than 30 days by design, toast "5 old items were deleted for good") on the Note 9 sandbox: nothing of mine was deleted, but I did not know which control I had hit. Shot `longpress_export.png`.
+- **Owed:** tick-box screenshots on a few screens; a hover look with a real mouse; other rooms' labels by long press.

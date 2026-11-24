@@ -57,3 +57,9 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 ## 11-24 transitions project not on the phone (hover-1 lane)
 - The Library search "Untitled audio" on the Note 9 finds Untitled audio, 2, 3 and 4 (4 has three layers, 0:05) and **no "Untitled audio 5"**: the 9-transition test project named above is gone from this device (`d0.png`). A new test project with two or more clips and every transition type has to be built (Add two clips, then each cut's transition) before the transitions check; not done.
 - VisLab in Studio, ducking (needs a project with a voice lane: add a voice clip), jobs 17 and 18: not started.
+
+## 11-24 a transitions test project made on the phone (hover-1 lane)
+- **How:** lobby Project, Browse Device (system chooser: Files, Just once), picked `stu-b3-talk.mp4` from Downloads (a session test file, 18 s, no real voice) as new project **"Untitled 7"** (`e4.png`); Duplicate gives two clips (0:36); with a clip selected the toolbar's **Transitions** opens the picker (Crossfade, Fade Black, Fade White, Wipe, Radial, then More effects; `e8.png`).
+- **Radial placed on the cut: PASS for placement.** A blue transition block sits on the joint and the undo count rises (`e9.png`). Not a visual pass: both clips are the same frame-counter picture, so a wipe between them cannot be seen; use two different clips to see each transition draw. The other 8 listed types and the 47 shader transitions under More effects: not tried.
+- **Ducking:** this clip has no voice; ducking still needs a project with a real voice lane.
+- Still owed: VisLab in Studio, the rest of the 41 checks, jobs 17 and 18.

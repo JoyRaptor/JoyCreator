@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): the words of the screen-recording annotation tools, moved out of AnnotationService so they can be translated. -->
+<resources>
+    <string name="annotation_project_deleted">Project deleted</string>
+    <string name="annotation_project_delete_failed">Failed to delete project</string>
+    <string name="annotation_project_load_failed">❌ Failed to load project</string>
+    <string name="annotation_project_load_fresh">Could not load project — starting fresh</string>
+    <string name="annotation_mode_select">👆 Selection mode: Tap to select, drag to move</string>
+    <string name="annotation_mode_draw">🖊️ Draw mode</string>
+    <string name="annotation_layer_locked">Layer is locked</string>
+    <string name="annotation_text_deleted">🗑️ Text deleted!</string>
+    <string name="annotation_text_updated">✏️ Text updated!</string>
+    <string name="annotation_rename_dialog_error">Error showing rename dialog</string>
+    <string name="annotation_enabled_toast">✏️ Annotation Enabled - Draw freely</string>
+    <string name="annotation_disabled_toast">📱 Annotation Disabled - Use phone normally</string>
+    <string name="annotation_canvas_visible">👁️ Canvas Visible</string>
+    <string name="annotation_canvas_hidden_toast">Canvas Hidden - Pinned layers still visible</string>
+    <string name="annotation_text_added">✏️ Text added!</string>
+    <string name="annotation_project_loaded">✅ Loaded: %1$s</string>
+    <string name="annotation_project_new">📝 New Project: %1$s</string>
+    <string name="annotation_page_created">✨ Created: %1$s</string>
+    <string name="annotation_page_deleted">🗑️ Deleted: %1$s</string>
+    <string name="annotation_layer_picked">🎨 %1$s</string>
+    <string name="annotation_layer_created">✨ Created: %1$s</string>
+    <string name="annotation_page_picked">📄 %1$s</string>
+    <string name="annotation_current_project">Current: %1$s</string>
+    <string name="annotation_current_none">Current: None</string>
+    <string name="annotation_projects_path">Projects saved at: %1$s</string>
+    <string name="annotation_paused">⏸ PAUSED</string>
+    <string name="annotation_enable_desc">Enable to use annotation tools</string>
+    <string name="annotation_show_canvas">Show Canvas</string>
+    <string name="annotation_pinned_visible">Pinned layers still visible</string>
+</resources>

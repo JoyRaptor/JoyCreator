@@ -87,6 +87,34 @@ public class DiskStampTest {
         check(DiskStamp.keepCopy(dir, new File(dir, "nope.json"), DiskStamp.REPLACED_PREFIX, 3) == null,
                 "a missing source keeps nothing and does not throw");
 
+        // ── Bringing a kept copy back (no agent needed) ──
+        File rdir = Files.createTempDirectory("restore").toFile();
+        File rproject = new File(rdir, "project.json");
+        write(rproject, "{\"name\":\"the version I want\"}");
+        File good = DiskStamp.keepCopy(rdir, rproject, DiskStamp.REPLACED_PREFIX, 5);
+        write(rproject, "{\"name\":\"the version that overwrote it\"}");
+        check(DiskStamp.restore(rdir, good), "a kept copy restores");
+        check(new String(Files.readAllBytes(rproject.toPath()), StandardCharsets.UTF_8)
+                .contains("the version I want"), "project.json is the kept copy again");
+        List<File> before = DiskStamp.kept(rdir, DiskStamp.BEFORE_RESTORE_PREFIX);
+        check(before.size() == 1 && new String(Files.readAllBytes(before.get(0).toPath()),
+                StandardCharsets.UTF_8).contains("overwrote it"),
+                "what was there is kept first, so a restore never loses the current version");
+        check(!new File(rdir, "project.json.restoring").exists(), "no staging file is left behind");
+
+        // A cut-off kept copy is refused and the project is untouched.
+        File cut = new File(new File(rdir, DiskStamp.BACKUPS_DIR), "replaced-cut.json");
+        write(cut, "{\"name\":\"half a fi");
+        check(!DiskStamp.restore(rdir, cut), "a cut-off copy is refused");
+        check(new String(Files.readAllBytes(rproject.toPath()), StandardCharsets.UTF_8)
+                .contains("the version I want"), "...and the project is untouched");
+
+        // Only a project's own kept copies can be restored.
+        File stranger = new File(rdir, "elsewhere.json");
+        write(stranger, "{\"name\":\"stranger\"}");
+        check(!DiskStamp.restore(rdir, stranger), "a file outside backups/ is refused");
+        check(!DiskStamp.restore(rdir, new File(rdir, "backups/none.json")), "a missing copy is refused");
+
         System.out.println("DiskStampTest: " + passes + " passed, " + fails + " failed");
         if (fails > 0) System.exit(1);
     }

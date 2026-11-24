@@ -1349,6 +1349,10 @@ public class LobbyFragment extends BaseFragment {
             startActivity(new Intent(requireContext(), cc.joycreator.textlab.TextLabActivity.class));
             return;
         }
+        if (r.id == ROOM_AVATAR) {                                   // the new character room (AVA-1): Topps, ready to play
+            startActivity(new Intent(requireContext(), cc.joycreator.avatar.AvatarRoomActivity.class));
+            return;
+        }
         openProjects(r.id == ROOM_STUDIO);
     }
 

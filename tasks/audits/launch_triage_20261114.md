@@ -265,7 +265,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - VL-09 (L) Element packs with new shader pieces (vis-element): test-compiled, timed, off until turned on
 - VL-10 (L) Emitter as a VisLab layer (tl-particles: sparks off a logo or words)
 - VL-13 (S) Close or keep: visualizer studio Tier 3 (custom HTML visualisers, ffmpeg templates) (S24)
-- TX-05 (M) JVM tests for TextLab shelf, LookFrame, packs reader and linkSheets
+- TX-05 (M) JVM tests for TextLab shelf, LookFrame, packs reader and linkSheets **checked 11-24 (website lane): `TextLabRoomTest` already references `LookFrame` and `TextLookShelf` 13 times, `LooksComeHomeTest` runs 18 pass locally, pack tests live in `tools/joyfolder-tests`; `TextLabRoomTest` needs a built app (R.jar), so it was not run on this PC; DONE unless that run fails**
 - TX-06 (M) STU-6 stage 1: effect picker as pictures and a live swatch on every effect card (branch unlanded)
 - TX-07 (L) STU-6 stage 2: Generate cards (Tiles, Cells, Halftone/Stripes/Checks, Brushed metal, Chipped wear, Caustics, Glitter)
 - TX-08 (XL) STU-6 stage 3: over-video effects (Burn away, Stained glass, LED board, Flag wave, Steamed glass)
@@ -410,3 +410,11 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 
 ## 6. Added 11-24 by the website lane
 - SHELL-05 (Tips carousel for Joy Creator): the Settings Tips carousel was already rewritten (`tips_joycreator`, 11 tips, ca3b84e5c). The Home recorder's own tip line (`tips_widget`) still said "Join our Discord via the About section" (FadCam's Discord); English now says "Need help? Tap Joybot, in any room, and ask." The other languages' `tips_widget` arrays are not changed; translations owed.
+- **Phone-free POLISH rows left, not taken by the website lane (11-24):** JBX-04, JBX-02, JBX-06, JBX-31 (JoyBrush lead's engine and chrome files), JBX-10, STU-D1, BOT-A37, SHELL-06 (hover-label sweeps: hover-labels lane), STU-E2, STU-E3, STU-F6 (Studio time-map and blend engine, need a device to prove), L18 (about 300 hard-coded English strings across the app: a large mechanical change that wants its own lane and a translation pass), JBX-46, JBX-47, L26 (files in the owner's main folder, which no session may touch). STU-D2 and STU-D3 are already done (STATE 11-13: rotation dial, ramp and the English strings).
+
+### Batch 5 (2026-11-24, built, cloud green: build run 45357159960, joybot suites pass)
+
+| ID | Status |
+|---|---|
+| BOT-A29 | now done for the half that can be: Joybot reports, pauses, resumes and stops a SCREEN recording (`recording` with `target=screen`, `CaptureRules.decideScreen`, 7 new rule checks in `IdeaEngineTest`). Starting one stays the person's tap on Android's prompt, by design. The webcam bubble is not built. Not seen on a phone |
+| BOT-A31, BOT-A33, AN-06 F15 | stay parked (new behaviour or a screen feel; see batch 4) |

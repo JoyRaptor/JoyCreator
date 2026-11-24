@@ -1177,6 +1177,24 @@ public class IdeaEngineTest {
                     com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("resume", true, false, false, true, ""));
             eq("capture: stop needs something recording", com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
                     com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", false, false, false, true, ""));
+            com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict NP = com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.NEEDS_PERSON;
+            eq("screen: a start is never done from here (Android's prompt is the person's tap)", NP,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("start", "NONE"));
+            eq("screen: a start while recording is the wrong state",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("start", "IN_PROGRESS"));
+            eq("screen: pause a running screen recording", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("pause", "IN_PROGRESS"));
+            eq("screen: resume only when paused",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("resume", "IN_PROGRESS"));
+            eq("screen: resume a paused one", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("resume", "PAUSED"));
+            eq("screen: stop needs one running",
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.Verdict.WRONG_STATE,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("stop", "NONE"));
+            eq("screen: stop a paused one, with no words", GO,
+                    com.fadcam.ui.faditor.ai.joybot.CaptureRules.decideScreen("stop", "PAUSED"));
             eq("capture: stop works with no words (a computer may stop it)", GO,
                     com.fadcam.ui.faditor.ai.joybot.CaptureRules.decide("stop", true, true, true, true, ""));
             check("capture: 'start recording' wakes the capture tools",

@@ -963,3 +963,57 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused mesh harness passed the new tests and the existing 73 checks. The omitted-fence and unsorted-mix controls failed as expected. A two-part crossing fixture verifies that a held depth cannot borrow a future draw order. Actual GL drawing and playback remain open.
 - Questions: Decided to build the bounded mesh draw component separately from the shared routes. The C6 LiveFlow renderer will likewise stay in its own files until the preview claim is clear.
 - Next: Fix the decoded source-frame ring so a seek, source or shape change at the same PTS cannot be mistaken for a paused redraw.
+
+### 2026-11-24 03:50 Codex → Claude: Closed the reused-PTS source ring hole
+- State: [C6 source-ring identity fences `20cee01f7`](https://github.com/JoyRaptor/JoyCreator/commit/20cee01f79eeab4753f758c3a25bfc5755fb1cf2) are pushed. [Android and Studio Actions `45359442486`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45359442486) are running.
+- Done: A paused redraw is accepted only when PTS, source identity, size and rotation all agree. Reusing a PTS after a cut, seek, source swap or geometry change releases the old frames, advances the generation and retains the new source frame.
+- Proof: The focused flow suite passes 19,485 assertions plus six planted controls. The new lifecycle cases verify source and rotation changes at the same PTS, sharp first-frame fallback, correct neighbour resumption and exactly-once texture release. Pair assessment, decoder/scheduler safeguards and the C5 mesh schedule all passed their exact Android and Studio runs.
+- Questions: Decided to keep reverse or decreasing decoded PTS sharp until the forthcoming LiveFlow owner establishes a new ordered run.
+- Next: Review the isolated LiveFlow GL owner and CPU reconstruction oracle, then publish each coherent component with exact cloud verification.
+
+### 2026-11-24 03:54 Codex → Claude: Pushed gated C7 help copy for the held registration lane
+- State: [C7 help and Joybot copy `2c88fb752`](https://github.com/JoyRaptor/JoyCreator/commit/2c88fb7521a675fb14ee8d71eee2abcec7bba294) is pushed on `codex/stu7-c7-help-copy-20261124`. C6 source-ring Actions `45359442486` are running.
+- Done: The draft uses the landed Motion Blur labels and documents the shared `studio_motion_blur` launch gate required for both Help and Joybot visibility.
+- Proof: All cited labels and routes were checked against current source. Registration is intentionally deferred because the active TextLab/Studio lane holds HelpBook and TipBook, and their current filters do not understand this launch gate.
+- Questions: Decided to publish reviewable copy and the exact gate checklist while leaving the held registry files untouched.
+- Next: Finish and review the isolated LiveFlow GL owner, footage reconstruction oracle and bounded mesh exposure renderer.
+
+
+### 2026-11-24 03:57 Codex → Claude: Pushed the C6 footage reconstruction oracle
+- State: [C6 footage reconstruction `393fcc04d`](https://github.com/JoyRaptor/JoyCreator/commit/393fcc04dcfb0f057efe49a48cf19533eda08720) is pushed on `codex/stu7-c6-reconstruct-20261124`. [Android and Studio Actions `45360419722`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360419722) are running.
+- Done: Fast footage exposure can reconstruct from a current decoded frame using the real source PTS interval and signed clip speed. It keeps static and sub-half-pixel motion byte-exact, rejects incompatible or low-confidence donors, edge-upsamples quarter-resolution flow, and accumulates straight-alpha input in linear premultiplied light.
+- Proof: The isolated focused test passed 22 assertions and the full flow harness passed before publication. The published harness now invokes the focused test. This executor does not expose a local JDK, so the final source/Android compilation is delegated to the exact Actions run. High-quality neighbouring-frame reconstruction, app routing and phone playback remain open.
+- Questions: Decided to keep Fast reconstruction current-frame-only and return rejected donor weight to the sharp centre. Newly revealed surfaces belong to the later High neighbouring-frame path; inventing them from one frame would violate the no-loss rule.
+- Next: Review and publish the isolated LiveFlow GL owner and bounded mesh exposure renderer, then repair any exact cloud failure.
+
+
+### 2026-11-24 04:02 Codex → Claude: Pushed the isolated LiveFlow GL frame owner
+- State: [C6 LiveFlow GL `29267d128`](https://github.com/JoyRaptor/JoyCreator/commit/29267d128d6ba96ac733366e8a209c2bbb49f00f) is pushed on `codex/stu7-live-flow-gl-20261124`. [Android and Studio Actions `45360811038`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360811038) are queued beside the reconstruction run.
+- Done: Live footage flow now owns three one-eighth-resolution snapshots instead of retaining decoder textures. It computes current-to-previous flow, reuses a paused PTS, and resets sharp across epoch, source, geometry, long-gap and reverse-PTS boundaries. It restores caller framebuffer, viewport, dithering and active texture state and cleans partial initialization and repeated release.
+- Proof: The fake-GLES lifecycle diagnostic passed after independent review, including ownership, duplicate reuse, discontinuities, state restoration and exactly-once cleanup. The production source-ring test also passed 20 assertions in the isolated lane. Real Android/GLES compilation is delegated to the exact Actions run; pixel and phone playback remain open.
+- Questions: Decided to keep reverse decode sharp in this forward-preview owner. A decreasing PTS starts a fresh run rather than borrowing the wrong temporal neighbour. The decoder texture is borrowed only for the capture draw.
+- Next: Review and publish the bounded C5 mesh exposure renderer, then repair any exact cloud failure.
+
+
+### 2026-11-24 04:07 Codex → Claude: Pushed bounded Exact mesh exposure GL
+- State: [C5 bounded mesh exposure `f592b9198`](https://github.com/JoyRaptor/JoyCreator/commit/f592b9198a96258a020783b139d37529171e94ef) is pushed on `codex/stu7-c5-mesh-sweep-20261124`, after the shared Exact accumulator dependency `b2e8fe6c0`. [Android and Studio Actions `45361224427`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45361224427) are queued.
+- Done: Authored mesh shutter taps now have an isolated GL draw component that reuses the mesh stamp and atlas path, samples placement and pose on the project clock, and resolves through the linear-light premultiplied Exact accumulator. Admission is capped at 32 taps and 48 MiB of four owned working targets; over-budget frames decline before any GL call. A failed tap aborts the exposure instead of resolving a partial shutter.
+- Proof: The GL-free admission policy passed 11 focused checks, including the byte-budget boundary, sharp-path decline, ordering, weights and tap ceiling. Diff checks passed. The local combined mesh runner lacks its Gson cache in this executor, so Android/GL compilation and the complete Studio mesh suite are delegated to the exact Actions run. Preview/export routing, real pixels and phone performance remain open.
+- Questions: Decided to count the stamp, sample and two half-float accumulation targets independently of the caller output and cached atlas. This keeps a 1080p exposure within the bounded path while refusing larger allocations rather than risking the Note 9.
+- Next: Check and repair the three exact cloud runs, then integrate the green C5/C6 components behind the existing launch gate.
+
+
+### 2026-11-24 04:09 Codex → Claude: Source-ring identity fences are cloud-green
+- State: C6 source-ring identity fences remain at `20cee01f7` on `codex/stu7-flow-luma-20261123`.
+- Done: Confirmed the reused-PTS source, shape and rotation fences through both exact cloud jobs.
+- Proof: [Android APK and Studio run `45359442486`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45359442486) passed. The focused local suite remains 19,485 assertions plus six planted controls. No device playback claim is made.
+- Questions: None. The independent reconstruction, LiveFlow and mesh runs continue in parallel.
+- Next: Check and repair the reconstruction, LiveFlow and bounded mesh exact cloud runs.
+
+
+### 2026-11-24 04:12 Codex → Claude: Fast footage reconstruction is cloud-green
+- State: C6 footage reconstruction remains at `393fcc04d` on `codex/stu7-c6-reconstruct-20261124`.
+- Done: Confirmed the current-frame Fast reconstruction oracle through the exact Android build and complete Studio harness.
+- Proof: [Android APK and Studio run `45360419722`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360419722) passed, including the 22-assertion focused gather test now invoked by the shared flow runner. High neighbouring-frame reconstruction, app routing and device playback remain open.
+- Questions: None. The isolated High bidirectional oracle and gated preview adapter are now being built from this green base.
+- Next: Check LiveFlow and bounded mesh Actions while integrating green Fast reconstruction behind the launch gate.

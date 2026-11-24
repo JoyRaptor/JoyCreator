@@ -140,6 +140,23 @@ public final class DiskStamp {
         }
     }
 
+    /**
+     * When a kept copy was made, from its name ({@code <prefix>yyyyMMdd-HHmmss-SSS.json}), or its
+     * file time when the name does not say. For the "bring back an earlier copy" list.
+     */
+    public static long keptAt(File copy) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("[0-9]{8}-[0-9]{6}-[0-9]{3}")
+                .matcher(copy.getName());
+        try {
+            // Whatever the prefix is ("replaced-", "before-restore-"), the stamp is the digits.
+            if (m.find()) {
+                Date d = new SimpleDateFormat("yyyyMMdd-HHmmss-SSS", Locale.US).parse(m.group());
+                if (d != null) return d.getTime();
+            }
+        } catch (Exception ignored) { }
+        return copy.lastModified();
+    }
+
     /** The kept copies with this prefix, newest first. */
     public static List<File> kept(File projectDir, String prefix) {
         List<File> out = new ArrayList<>();

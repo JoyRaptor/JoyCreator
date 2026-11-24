@@ -115,6 +115,17 @@ public class DiskStampTest {
         check(!DiskStamp.restore(rdir, stranger), "a file outside backups/ is refused");
         check(!DiskStamp.restore(rdir, new File(rdir, "backups/none.json")), "a missing copy is refused");
 
+        // The list in the Library shows WHEN each copy was kept, read from its name.
+        long at = DiskStamp.keptAt(new File(rdir, "backups/replaced-20261123-143005-123.json"));
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.setTimeInMillis(at);
+        check(cal.get(java.util.Calendar.YEAR) == 2026 && cal.get(java.util.Calendar.MONTH) == 10
+                && cal.get(java.util.Calendar.DAY_OF_MONTH) == 23 && cal.get(java.util.Calendar.HOUR_OF_DAY) == 14
+                && cal.get(java.util.Calendar.MINUTE) == 30, "a kept copy's time is read from its name");
+        long at2 = DiskStamp.keptAt(new File(rdir, "backups/before-restore-20261123-143005-123.json"));
+        check(at2 == at, "the same time from a before-restore name (both prefixes end in a dash)");
+        check(DiskStamp.keptAt(good) > 0, "a real kept copy has a time");
+
         System.out.println("DiskStampTest: " + passes + " passed, " + fails + " failed");
         if (fails > 0) System.exit(1);
     }

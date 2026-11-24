@@ -82,6 +82,12 @@ final class LibraryItemSheet {
             actions.addView(SheetKit.row(c, "share", c.getString(R.string.library_action_share), false,
                     SheetKit.Trail.NONE, v -> { d.dismiss(); LibraryActions.share(c, it); }).view);
         }
+        // A project that was ever saved over somebody else's work keeps what it replaced; this is
+        // the way back to it (SAFE-1). Only offered when there is something to bring back.
+        if (KeptCopiesSheet.hasAny(c, it)) {
+            actions.addView(SheetKit.row(c, "history", c.getString(R.string.kept_copies_row), false,
+                    SheetKit.Trail.NONE, v -> { d.dismiss(); KeptCopiesSheet.show(c, it, l::onDone); }).view);
+        }
         if (LibraryActions.canTrash(it)) {
             final boolean[] armed = {false};
             final SheetKit.Row[] holder = new SheetKit.Row[1];

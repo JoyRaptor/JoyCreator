@@ -9,4 +9,15 @@
     <string name="sprite_editor_leave_unsaved_body">Your changes are still here, but they did not reach the disk. The phone may be full. Stay, free up some space and try again, or leave and lose them.</string>
     <string name="sprite_editor_leave_unsaved_stay">Stay</string>
     <string name="sprite_editor_leave_unsaved_leave">Leave anyway</string>
+    <string name="kept_copies_row">Bring back an earlier copy</string>
+    <string name="kept_copies_title">Earlier copies of %1$s</string>
+    <string name="kept_copies_item_replaced">Replaced by another save, %1$s</string>
+    <string name="kept_copies_item_before_restore">Kept before an earlier restore, %1$s</string>
+    <string name="kept_copies_none">There are no earlier copies of this project.</string>
+    <string name="kept_copies_confirm_title">Bring this copy back?</string>
+    <string name="kept_copies_confirm_body">The project goes back to this copy. The version it has now is kept too, so you can change your mind.</string>
+    <string name="kept_copies_confirm_go">Bring it back</string>
+    <string name="kept_copies_cancel">Cancel</string>
+    <string name="kept_copies_done">Brought back the earlier copy.</string>
+    <string name="kept_copies_failed">Could not bring that copy back. The project was not changed.</string>
 </resources>

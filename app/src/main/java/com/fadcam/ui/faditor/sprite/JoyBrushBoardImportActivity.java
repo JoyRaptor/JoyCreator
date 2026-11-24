@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.widget.Toast;
 import com.fadcam.ui.faditor.FaditorEditorActivity;
 import com.fadcam.ui.faditor.model.FaditorProject;
+import com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.CanvasPickerBottomSheet;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -123,7 +124,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
                 com.fadcam.ui.faditor.ai.AIChatState.putLayerInsert(existing.getId(),Uri.fromFile(keep));
                 projectId=existing.getId();
             } else {
-                FaditorProject project=new FaditorProject(name);
+                FaditorProject project=StudioLayerOrder.newProject(this, name);
                 File projectDir=storage.projectDir(project.getId());
                 ownProject=projectDir;
                 File assets=new File(projectDir,"assets");
@@ -205,7 +206,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             bounds.inJustDecodeBounds=true; android.graphics.BitmapFactory.decodeFile(png.getPath(),bounds);
             if(bounds.outWidth < 1 || bounds.outHeight < 1 || bounds.outWidth % sheet.getCols() != 0 || bounds.outHeight % sheet.getRows() != 0)
                 throw new IllegalArgumentException("The sheet image does not match its grid");
-            FaditorProject project=existing != null ? existing : new FaditorProject(sheet.getName());
+            FaditorProject project=existing != null ? existing : StudioLayerOrder.newProject(this, sheet.getName());
             // Only a project made here is deleted if the import fails; an existing one is never ours to remove.
             File projectDir=storage.projectDir(project.getId());
             if(existing == null) ownProject=projectDir;

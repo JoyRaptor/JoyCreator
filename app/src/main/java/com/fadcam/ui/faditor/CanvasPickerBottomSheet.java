@@ -89,6 +89,13 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
     }
 
     @Nullable private Callback callback;
+    @Nullable private java.util.function.Consumer<Boolean> layerOrderCallback;
+    private boolean trueLayerOrder;
+
+    void setLayerOrder(boolean enabled, @NonNull java.util.function.Consumer<Boolean> callback) {
+        trueLayerOrder = enabled;
+        layerOrderCallback = callback;
+    }
     @NonNull private String currentPreset = "original";
 
     /**
@@ -196,6 +203,18 @@ public class CanvasPickerBottomSheet extends BottomSheetDialogFragment {
             customRow.icon.setLayoutParams(iconLp);
         }
         root.addView(customRow.view);
+        if (layerOrderCallback != null) {
+            var order = new androidx.appcompat.widget.AppCompatCheckBox(requireContext());
+            order.setText(R.string.studio_true_layer_order);
+            order.setChecked(trueLayerOrder);
+            SheetKit.styleCheckbox(order);
+            int inset = SheetKit.dp(requireContext(), 16);
+            var orderLayout = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            orderLayout.setMargins(inset, inset, inset, 0);
+            root.addView(order, orderLayout);
+            order.setOnCheckedChangeListener((button, checked) -> layerOrderCallback.accept(checked));
+        }
 
         NestedScrollView scroll = new NestedScrollView(requireContext());
         scroll.setFillViewport(true);

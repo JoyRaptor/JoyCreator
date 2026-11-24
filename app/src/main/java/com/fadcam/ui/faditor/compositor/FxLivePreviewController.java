@@ -15,6 +15,7 @@ import android.graphics.Paint;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
+import com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.Timeline;
@@ -56,6 +57,7 @@ public final class FxLivePreviewController {
         /** The player rendering video right now — legacy or gapless. Null before preparation. */
         @Nullable ExoPlayer activeVideoPlayer();
         default boolean motionBlurEnabled() { return false; }
+        default boolean trueLayerOrder() { return false; }
         default boolean isManipulatingOverlay(@NonNull TextOverlayItem item) { return false; }
         @Nullable default com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell
                 spriteMotionCell(@NonNull SpriteOverlayItem item, long playheadMs) {
@@ -322,6 +324,7 @@ public final class FxLivePreviewController {
     @Nullable private ExoPlayer routedPlayer;
     private final PreviewDecoderClock motionClock;
     @Nullable private final String debugLaneOrder;
+    private final boolean projectLaneOrderEnabled;
     private boolean orderedPreviewActive;
     private final androidx.media3.common.Timeline.Window motionWindow =
             new androidx.media3.common.Timeline.Window();
@@ -330,6 +333,7 @@ public final class FxLivePreviewController {
         this.view = view;
         this.host = host;
         debugLaneOrder = debugLaneOrder(view.getContext());
+        projectLaneOrderEnabled = StudioLayerOrder.enabled(view.getContext());
         motionClock = new PreviewDecoderClock(view.motionClock());
         view.setSurfaceListener(new FxPreviewTextureView.SurfaceListener() {
             @Override public void onFxInputSurfaceReady(@NonNull Surface s) {
@@ -640,12 +644,14 @@ public final class FxLivePreviewController {
 
     @Nullable
     private LanePlan orderedPreviewPlan(Timeline timeline) {
-        if (debugLaneOrder == null || timeline.hasTransitions() || timeline.hasWaveformOverlays()) return null;
+        if ((!projectLaneOrderEnabled && debugLaneOrder == null)
+                || timeline.hasTransitions() || timeline.hasWaveformOverlays()) return null;
         Clip clip = host.clipAtPlayhead();
         if (clip == null || clip.hasLoopExtension() || clip.hasRemovedSpans()
                 || clip.getSpeedMultiplier() != 1f) return null;
         LanePlan plan = LanePlan.of(timeline);
-        return plan.supportsOrderedPreview("true".equals(debugLaneOrder)) ? plan : null;
+        boolean trueOrder = debugLaneOrder != null ? "true".equals(debugLaneOrder) : host.trueLayerOrder();
+        return plan.supportsOrderedPreview(trueOrder) ? plan : null;
     }
 
     private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip) {

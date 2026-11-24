@@ -80,6 +80,12 @@ public class ExportDebugActivity extends Activity {
     }
 
     private boolean start(Intent in) throws Exception {
+        if (in.hasExtra(com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder.DEBUG_SWITCH)) {
+            var key = com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder.DEBUG_SWITCH;
+            com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder.configureDebug(
+                    this, in.getBooleanExtra(key, false));
+            return false;
+        }
         if (in.getBooleanExtra("motion_spine_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             boolean animated = in.getBooleanExtra("motion_animated", true);

@@ -65,6 +65,7 @@ import com.fadcam.ui.InputActionBottomSheetFragment;
 import com.fadcam.ui.faditor.assetbrowser.AssetItem;
 import com.fadcam.ui.faditor.export.ExportManager;
 import com.fadcam.ui.faditor.compositor.MasterPlaybackEngine;
+import com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder;
 import com.fadcam.ui.faditor.export.ExportService;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
@@ -2020,7 +2021,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     private void startBlankAudioProject() {
         initViews();
-        project = new FaditorProject(new ProjectStorage(this).uniqueName("Untitled audio"));
+        project = StudioLayerOrder.newProject(this, new ProjectStorage(this).uniqueName("Untitled audio"));
         wireBookmarks();
         saveProjectNow();
         // E1 (bug hunt 11-15): this used to run initViews only, so Play, Export, Volume, Speed
@@ -5347,7 +5348,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             totalDuration += durationMs;
         }
 
-        project = new FaditorProject(new ProjectStorage(this).uniqueName(
+        project = StudioLayerOrder.newProject(this, new ProjectStorage(this).uniqueName(
                 videoUris.size() > 1 ? getString(R.string.studio_opt_batch_project) : getString(R.string.studio_opt_untitled)));
         updateEditorTitle();
         for (Uri uri : videoUris) {
@@ -9698,6 +9699,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String displayLabel = CanvasPickerBottomSheet.displayLabel(this, preset);
             Toast.makeText(this, getString(R.string.faditor_canvas_applied, displayLabel), Toast.LENGTH_SHORT).show();
         });
+        if (StudioLayerOrder.enabled(this) && !project.isLoadedFromNewerVersion()) {
+            String projectId = project.getId();
+            sheet.setLayerOrder(project.isTrueLayerOrder(), enabled -> {
+                if (project == null || !projectId.equals(project.getId())
+                        || project.isLoadedFromNewerVersion() || project.isTrueLayerOrder() == enabled) return;
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        getString(R.string.studio_true_layer_order),
+                        () -> project.setTrueLayerOrder(enabled),
+                        () -> project.setTrueLayerOrder(!enabled)));
+                project.setTrueLayerOrder(enabled);
+                syncAdjustmentPreview(Math.max(0L, lastPlayheadAbsoluteMs));
+                scheduleAutoSave();
+            });
+        }
         sheet.show(getSupportFragmentManager(), "canvas_picker");
     }
 
@@ -14668,6 +14683,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         serviceIntent.setAction(ExportService.ACTION_START_EXPORT);
         serviceIntent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
         serviceIntent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
+        if (StudioLayerOrder.enabled(this)) serviceIntent.putExtra(ExportService.EXTRA_DEBUG_PROJECT_LANE_ORDER, true);
         if (rangeStartMs >= 0 && rangeEndMs > rangeStartMs
                 && frameTimeMs == null) {
             serviceIntent.putExtra(ExportService.EXTRA_RANGE_START_MS, rangeStartMs);
@@ -14726,6 +14742,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 intent.setAction(ExportService.ACTION_START_EXPORT);
                 intent.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snapshotPath);
                 intent.putExtra(ExportService.EXTRA_AUDIO_ONLY, audioOnly);
+                if (StudioLayerOrder.enabled(this)) intent.putExtra(ExportService.EXTRA_DEBUG_PROJECT_LANE_ORDER, true);
                 intent.putExtra(ExportService.EXTRA_RANGE_START_MS, job.getStartMs());
                 intent.putExtra(ExportService.EXTRA_RANGE_END_MS, job.getEndMs());
                 // ExportSettings' serializer deliberately omits this transient name.
@@ -31138,6 +31155,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         @Override public boolean motionBlurEnabled() {
                             return project != null && project.isMotionBlurEnabled();
+                        }
+                        @Override public boolean trueLayerOrder() {
+                            return project != null && project.isTrueLayerOrder();
                         }
                         @Override public boolean gaplessVideoPlayer() {
                             return playerManager != null && playerManager.isGapless();

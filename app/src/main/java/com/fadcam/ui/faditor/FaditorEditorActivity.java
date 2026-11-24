@@ -11446,12 +11446,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Clip c = tl.getClip(i);
             if (c != null && c.getId().equals(clip.getId())) { idx = i; break; }
         }
-        long segStart = 0L;
-        for (int i = 0; i < idx && i < tl.getClipCount(); i++) {
-            Clip c = tl.getClip(i);
-            if (c != null) segStart += c.getTrimmedDurationMs();
+        if (idx >= 0) {
+            // The timeline's own clip start (an earlier clip's loop extension included), STU-5.
+            return com.fadcam.ui.faditor.model.PreviewClock.clipMediaMs(tl, idx, absoluteMs);
         }
-        long timelineOffset = Math.max(0L, absoluteMs - segStart);
+        long timelineOffset = Math.max(0L, absoluteMs);
         float speed = clip.getSpeedMultiplier();
         return speed > 0 ? (long) (timelineOffset * speed) : timelineOffset;
     }
@@ -11485,6 +11484,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         } else {
             idx = selectedClipIndex;
+        }
+        if (clip != null && idx >= 0) {
+            // The timeline's own clip start (an earlier clip's loop extension included; the sum of
+            // trimmed lengths here left it out, so overlays and the time ran early after it), STU-5.
+            return com.fadcam.ui.faditor.model.PreviewClock.editorMs(tl, idx, positionInCurrentSegmentMs);
         }
         long absoluteMs = 0;
         for (int i = 0; i < idx && i < tl.getClipCount(); i++) {
@@ -12593,11 +12597,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return;
             }
 
-            long clipDuration = Math.max(1L, clip.getTrimmedDurationMs());
+            // In MEDIA ms, the unit currentPos is in: the clip's own length and the export's
+            // clamped blend length at this clip's speed (they were mixed with timeline ms, so at 2x
+            // the blend opened a second early and at 0.5x never opened; STU-5).
+            long clipDuration = Math.max(1L, clip.getOutPointMs() - clip.getInPointMs());
             Transition seamTransition = getTransitionAtSeam(selectedClipIndex);
             if (seamTransition != null) {
-                long transitionSourceDuration = Math.max(1L,
-                        Math.min(clipDuration, (long) (seamTransition.durationMs * clip.getSpeedMultiplier())));
+                long transitionSourceDuration = com.fadcam.ui.faditor.model.PreviewClock.blendMediaMs(project.getTimeline(), selectedClipIndex);
                 // Warm the GL endpoint frames off-main BEFORE the window opens, so the
                 // blend can start on its first frame instead of eating decode latency.
                 if (seamTransition.isGlShader() && glTransitionPrefetchSeam != selectedClipIndex
@@ -12817,30 +12823,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (project == null || seam < 0) return null;
         Timeline timeline = project.getTimeline();
         if (seam >= timeline.getClipCount() - 1) return null;
-        List<Transition> transitions = timeline.getTransitions();
-        for (int i = transitions.size() - 1; i >= 0; i--) {
-            Transition t = transitions.get(i);
-            if (t.clipIndex == seam) return t;
-        }
-        return null;
+        // The one the EXPORT plays (the first listed on the seam; this read the last), so a seam
+        // with two transitions previews what it exports (STU-5 time authority, preview half).
+        return com.fadcam.ui.faditor.model.PreviewClock.transitionAt(timeline, seam);
     }
 
     private long getOutputPositionForCurrentPlayback(long relativePositionMs) {
-        Timeline timeline = project.getTimeline();
-        long output = 0;
-        for (int i = 0; i < selectedClipIndex && i < timeline.getClipCount(); i++) {
-            Clip c = timeline.getClip(i);
-            output += (long) (c.getTrimmedDurationMs() / Math.max(0.01f, c.getSpeedMultiplier()));
-            Transition t = getTransitionAtSeam(i);
-            if (t != null) {
-                output -= t.durationMs;
-            }
-        }
-        Clip current = timeline.getClip(selectedClipIndex);
-        if (current != null) {
-            output += (long) (relativePositionMs / Math.max(0.01f, current.getSpeedMultiplier()));
-        }
-        return Math.max(0, output);
+        // The EDITOR clock, the one the timeline and every other playhead tick shows. This used to
+        // show the file's clock (earlier transitions taken off) and divided earlier clips by their
+        // speed twice, so the playhead jumped back at a blend and forward at its end (STU-5).
+        return Math.max(0L, com.fadcam.ui.faditor.model.PreviewClock.editorMs(project.getTimeline(), selectedClipIndex, relativePositionMs));
     }
 
     private void renderTransitionPreview(float progress, long currentPos) {
@@ -12932,10 +12924,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (slideOutgoing) restoreSlideZOrder();
             return;
         }
-        long clipDuration = Math.max(1L, clip.getTrimmedDurationMs());
-        long transitionSourceDuration = Math.max(1L,
-                Math.min(clipDuration, (long) (seamTransition.durationMs * clip.getSpeedMultiplier())));
-        long startPosition = clipDuration - transitionSourceDuration;
+        // Media ms, as the playback poll (STU-5): the export's blend length at this clip's speed.
+        long transitionSourceDuration = com.fadcam.ui.faditor.model.PreviewClock.blendMediaMs(project.getTimeline(), segmentIndex);
+        long startPosition = com.fadcam.ui.faditor.model.PreviewClock.blendStartMediaMs(project.getTimeline(), segmentIndex);
         if (seekPosition < startPosition) {
             hideTransitionPreview();
             if (slideOutgoing) restoreSlideZOrder();

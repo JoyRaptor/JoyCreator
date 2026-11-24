@@ -151,6 +151,21 @@ public class PreviewClockTest {
         check("during the second blend, B at media 1400 is editor 3400 (the old blend playhead said 1800)",
                 PreviewClock.editorMs(three, 1, 1400) == 3400);
 
+        // 3. The live preview asks PreviewClock (a private copy creeping back in fails here).
+        String act = "";
+        try {
+            act = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                    "app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java")), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException ignored) { }
+        check("preview: the seam's transition comes from PreviewClock", act.contains("PreviewClock.transitionAt(timeline, seam)"));
+        check("preview: the blend window comes from PreviewClock (poll and scrub)",
+                act.contains("PreviewClock.blendMediaMs(project.getTimeline(), selectedClipIndex)")
+                        && act.contains("PreviewClock.blendStartMediaMs(project.getTimeline(), segmentIndex)"));
+        check("preview: the playhead clock and seeks come from PreviewClock",
+                act.contains("PreviewClock.editorMs(tl, idx, positionInCurrentSegmentMs)")
+                        && act.contains("PreviewClock.clipMediaMs(tl, idx, absoluteMs)")
+                        && act.contains("PreviewClock.editorMs(project.getTimeline(), selectedClipIndex, relativePositionMs)"));
+
         System.out.println("PreviewClockTest: " + passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
     }

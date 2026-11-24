@@ -206,6 +206,21 @@ public class ItemNameTest {
         check(strippedNamed.equals(strippedUnnamed),
                 "named vs unnamed saves are identical apart from the name members (rendering-neutral)");
 
+        // What the timeline bar says (NAMING_DESIGN, labels): the name when set, else the automatic label.
+        check("ItemLabel".length() > 0 && com.fadcam.ui.faditor.model.ItemLabel.of("Cat 2", "IMG").equals("Cat 2"),
+                "a named image's bar says its name");
+        check(com.fadcam.ui.faditor.model.ItemLabel.of(null, "IMG").equals("IMG"), "unnamed keeps IMG");
+        check(com.fadcam.ui.faditor.model.ItemLabel.of("   ", "VIZ").equals("VIZ"), "a blank name is no name");
+        check(com.fadcam.ui.faditor.model.ItemLabel.of("  Dino  ", "✦").equals("Dino"), "a name is trimmed");
+        String lr = new String(java.nio.file.Files.readAllBytes(new File(
+                "app/src/main/java/com/fadcam/ui/faditor/layers/LayerRowRenderer.java").toPath()),
+                java.nio.charset.StandardCharsets.UTF_8);
+        int lf = lr.indexOf("private String labelFor(");
+        String lfBody = lf < 0 ? "" : lr.substring(lf, Math.min(lr.length(), lf + 1800));
+        check(lfBody.contains("ItemLabel.of(o.getName()") && lfBody.contains("ItemLabel.of(item.getSprite().getName()")
+                        && lfBody.contains("ItemLabel.of(item.getWaveform().getName()"),
+                "the timeline bar labels read the item's name (text/image, sprite, visualizer)");
+
         System.out.println("\n" + passes + " passed, " + fails + " failed");
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAILED");
         System.exit(fails == 0 ? 0 : 1);

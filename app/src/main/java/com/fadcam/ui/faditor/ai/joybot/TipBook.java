@@ -94,6 +94,13 @@ public final class TipBook {
             t("joybrush_symmetry", Wing.JOYBRUSH, "JoyBrush's Helpers have Symmetry: mirror your brush across a line, eight ways round, or as a 16-copy kaleidoscope.", "joybrush"),
             t("joybrush_to_project", Wing.JOYBRUSH, "JoyBrush's Send to Studio can drop your drawing straight into a project you already have.", "joybrush"),
             t("joybrush_water_fast", Wing.JOYBRUSH, "if watercolour feels slow, the ⋯ menu's Water detail: Fast runs the water about twice as fast and keeps the paint sharp.", "joybrush"),
+            // 11-24 (BOT-A38): tips for features STATE lists since 11-13, each with a help topic.
+            t("joybrush_import_brushes", Wing.JOYBRUSH, "you can bring brushes in from Photoshop, Procreate, Krita and MyPaint: open the brush drawer and tap Import.", "joybrush"),
+            t("joybrush_guides", Wing.JOYBRUSH, "JoyBrush's Tools button has rulers and guides: grid, isometric, one to three-point perspective, and radial symmetry.", "joybrush"),
+            t("joybrush_pencil_colour", Wing.JOYBRUSH, "the realistic pencils draw in any colour you pick, and colours layer the way coloured pencils do.", "joybrush"),
+            t("joybrush_brush_editor", Wing.JOYBRUSH, "hold any brush to see a live test stroke, its pressure and tilt curves and its footprint while you tune it.", "joybrush"),
+            t("studio_strike_words", Wing.STUDIO, "in the transcript, hold a word and drag across it to strike it out of the video; tap it again to bring it back.", "studio"),
+            t("joybot_tricks", Wing.JOYBOT, "ask me to do a backflip, roll over or go to sleep, and I will.", null),
             // ── SpriteLab and puppets ──
             t("sprite_grid", Wing.SPRITELAB, "SpriteLab finds the grid of a sprite sheet for you, and remembers a name for every cell.", "spritelab"),
             t("sprite_animations", Wing.SPRITELAB, "a sprite sheet can hold saved animations, ready to drop into a video.", "spritelab"),

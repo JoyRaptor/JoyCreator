@@ -84,3 +84,16 @@ control), `SPEC_20260915_PUPPET_UI.md` including its own §7 gap list, and the c
 Every control was traced to the code that has to read it. If nothing read it, there were only ever
 two honest outcomes — wire it, or remove it — and which one depended on whether the engine could
 express the thing at all. `scale` could not (a pin is two numbers); `weight` could, and now does.
+
+---
+
+## Re-checked 2026-11-24 (Sonnet lane, no phone; queue row 23)
+
+Every row is still DONE or open with its reason, and none of the open ones is a PC job:
+- C1 (grab bar): seen working on the Fold and the tablet 11-15 (`7b9f28227`, `8befa6335`; `device_checks_20261115.md`). Closed.
+- C2 (the corner widget): waits for the owner's screenshot.
+- C3 ("Everything" chip): by its own rule, built only if the absence is felt; no one has said so.
+- C4 (face and voice drivers): done outside this ledger (FACE-1, the face pins); on the Avatar side.
+- C5, C6: done in code (checked 11-13).
+- C7 (hover-label sweep): done app-wide by HOVER-1 (`79cefb069`).
+- A phone finding the ledger does not list: the Puppet drawer covers the picture after the first pin on a phone-sized screen (F15, `tasks/audits/device_checks_20261115.md`); parked with the reason in the launch triage, batch 7.

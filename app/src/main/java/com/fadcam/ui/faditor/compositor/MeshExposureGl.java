@@ -124,7 +124,7 @@ public final class MeshExposureGl {
             program.setFloatsUniform("uTransformationMatrix", identity);
             program.setFloatsUniform("uTexTransformationMatrix", identity);
             return program;
-        } catch (GlUtil.GlException | RuntimeException | Error failure) {
+        } catch (RuntimeException | Error failure) {
             try {
                 program.delete();
             } catch (GlUtil.GlException cleanup) {

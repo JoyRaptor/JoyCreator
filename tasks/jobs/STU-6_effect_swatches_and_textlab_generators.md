@@ -1,6 +1,6 @@
 # STU-6: Effect swatches, and TextLab's pieces as Studio effects
 
-**Milestone:** M1  ·  **State:** ⬜ planned 2026-11-12  ·  **Owner:** the TextLab phone-engine / Studio session (Opus)  ·  **Checked:** 2026-11-12 against `402899218`+
+**Milestone:** M1  ·  **State:** 🔨 step 1 built 2026-11-23 (cloud green; not yet seen on the Note 9)  ·  **Owner:** the TextLab phone-engine / Studio session (Opus)  ·  **Checked:** 2026-11-12 against `402899218`+
 
 ## Why it matters (for the user)
 The owner, 2026-11-12: Studio's effect picker is "all just a text list"; every effect, Clouds included, should
@@ -90,3 +90,10 @@ same kind (`MaskSdf`), so "drips off a mask edge" is a later job; note it, do no
   (`tools/jvm-harness/FxCompilerTest.java`).
 - The phone: `tools/phone.ps1 claim/release`; never `adb shell monkey`; never uninstall or clear data; Note 9 is
   the sandbox; log battery temperature while timing.
+
+## Progress 2026-11-23 (Sonnet lane)
+Step 1 built, cloud build green (run 45300940592), phone look owed (the Avatar slice-1 lane held the Note 9 lock):
+- `tools/FxSwatchRenderer.java`: offscreen EGL pbuffer, the real `FxGlSource.fragment` + `FxUniforms`, one card alone at full opacity, no mask/key; returns null (plain tile) on Echo Trails or any GL failure. In-memory cache keyed by effect + values. Generators over flat grey, others over a drawn sample frame (sky, sun, hills, figure, edges; not a bundled photo).
+- `tools/FxSwatchViews.java`: picker tile and the card-header swatch (28dp, refreshed at most ~10/s on any value change via a wrapping Host), one worker thread.
+- `FxPanel`: picker chips became 3-across picture tiles (unavailable ones faded, still tappable); each card header carries its swatch, also when collapsed.
+Not done: disk PNG cache (memory only), bundled sample photo, Note 9 timings, steps 2 and 3.

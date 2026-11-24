@@ -39,6 +39,7 @@ hardest work.
 | 16 | Send to Studio into an existing project: land it after a Note 9 check | [DOOR-4](jobs/DOOR-4_interwoven.md) | yes | already on joy-creator (8b238c428); Note 9 check blocked: no small drawing to send (adb cannot paint); see card |
 | 17 | Studio sweep leftovers re-checked on the phone (caption motion, eye and outline, Invert, Puppet tab, Lanes pills, envelope) | [STU-4](jobs/STU-4_studio_sweep_leftovers.md) | yes | queued (added 11-23) |
 | 18 | Puppets proven on a phone: pins, a keyed pin, a live take, a dragged performance | [ANI-1](jobs/ANI-1_puppets_and_sprites.md) | yes | queued (added 11-23) |
+| 19 | Launch triage pool: every LAUNCH then POLISH row in `tasks/audits/launch_triage_20261114.md` that needs no phone; verify each against today's code first (many are fixed), fix the rest with tests, mark each row | [triage](audits/launch_triage_20261114.md) | no | started 11-24 (SAFE-1 lane) |
 
 Waiting on the owner (not in the queue): S1 app ID, S4 privacy email, S6 Play account and testers, S10 removing 11
 unused FadCam classes, the icon picks, the hide list.

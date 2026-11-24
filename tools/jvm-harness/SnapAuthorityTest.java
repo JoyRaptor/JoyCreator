@@ -154,6 +154,16 @@ public class SnapAuthorityTest {
         return best;
     }
 
+    /** The timeline's edge magnets (butt, align, fade knob) as they ran: best = thr + 1, strictly nearer wins. */
+    static long legacyEdges(long t, long[] cands, long thr) {
+        long best = Long.MIN_VALUE, bestDist = thr + 1;
+        for (long c : cands) {
+            long d = Math.abs(t - c);
+            if (d < bestDist) { bestDist = d; best = c; }
+        }
+        return best != Long.MIN_VALUE && bestDist <= thr ? best : Long.MIN_VALUE;
+    }
+
     static long[] sortedRandom(Random r, int n, int span) {
         long[] a = new long[n];
         for (int i = 0; i < n; i++) a[i] = r.nextInt(span);
@@ -169,7 +179,7 @@ public class SnapAuthorityTest {
     public static void main(String[] args) {
         Random r = new Random(20261124L);
         int beatBad = 0, onsetBad = 0, magnetBad = 0, axisBad = 0, flushBad = 0, rotBad = 0,
-                cardBad = 0, centreBad = 0, timeBad = 0, keyBad = 0, textFixedDiffers = 0;
+                cardBad = 0, centreBad = 0, timeBad = 0, keyBad = 0, edgeBad = 0, textFixedDiffers = 0;
         for (int i = 0; i < 40000; i++) {
             // Small spans on purpose: duplicates, exact ties and hits on the reach edge happen often.
             long[] beats = sortedRandom(r, r.nextInt(8), 200);
@@ -206,6 +216,10 @@ public class SnapAuthorityTest {
             if (got != legacySpriteTime(dt, edges, 250L)) timeBad++;
             if (got != legacyTextTimeBuggy(dt, edges, 250L)) textFixedDiffers++;
 
+            long thrE = r.nextInt(120);
+            int hitE = SnapAuthority.nearestIndex(dt, edges, edges.length, thrE, true);
+            if ((hitE < 0 ? Long.MIN_VALUE : edges[hitE]) != legacyEdges(dt, edges, thrE)) edgeBad++;
+
             long[] keys = new long[r.nextInt(5)];
             for (int k = 0; k < keys.length; k++) keys[k] = r.nextInt(500);
             long kt = r.nextInt(600);
@@ -221,6 +235,7 @@ public class SnapAuthorityTest {
         check("overlay and sprite centres snap as before (" + centreBad + " differ)", centreBad == 0);
         check("sprite drop times snap as before (" + timeBad + " differ)", timeBad == 0);
         check("opacity keyframes are found as before (" + keyBad + " differ)", keyBad == 0);
+        check("timeline edge magnets (butt, align, fade) pick as before (" + edgeBad + " differ)", edgeBad == 0);
         check("the random set does exercise the text-time fix (" + textFixedDiffers + " cases now nearest)",
                 textFixedDiffers > 0);
 
@@ -254,6 +269,31 @@ public class SnapAuthorityTest {
                         && SnapAuthority.snap(1080L, edgesT, 2, 250L, false) == 1100L);
         check("text drop time: the old code took the last edge within reach instead (1000 here)",
                 legacyTextTimeBuggy(1080L, new long[]{1100L, 1000L}, 250L) == 1000L);
+
+        // ── every surface asks the authority (a private copy creeping back in fails here) ──
+        String[][] sites = {
+                {"app/src/main/java/com/fadcam/ui/faditor/waveform/BeatDetector.java", "SnapAuthority.sortedBisect("},
+                {"app/src/main/java/com/fadcam/ui/faditor/waveform/OnsetDetector.java", "SnapAuthority.sorted("},
+                {"app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java", "SnapAuthority.sortedIndex("},
+                {"studiokit/src/main/java/com/fadcam/ui/faditor/transform/TransformOverlayView.java", "SnapAuthority.angleStep("},
+                {"studiokit/src/main/java/com/fadcam/ui/faditor/transform/TransformOverlayView.java", "SnapAuthority.axisFlush("},
+                {"app/src/main/java/com/fadcam/ui/faditor/overlay/PreviewHandlesOverlay.java", "SnapAuthority.cardinal("},
+                {"app/src/main/java/com/fadcam/ui/faditor/overlay/TextOverlayLayer.java", "SnapAuthority.snap("},
+                {"app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteOverlayView.java", "SnapAuthority.snap("},
+                {"app/src/main/java/com/fadcam/ui/faditor/model/Clip.java", "SnapAuthority.nearestIndex("},
+                {"app/src/main/java/com/fadcam/ui/faditor/layers/LayerGestureController.java", "SnapAuthority.nearestIndex("},
+        };
+        for (String[] site : sites) {
+            String src;
+            try {
+                src = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(site[0])),
+                        java.nio.charset.StandardCharsets.UTF_8);
+            } catch (java.io.IOException e) {
+                src = "";
+            }
+            check("routes through the authority: " + site[0].substring(site[0].lastIndexOf('/') + 1) + " " + site[1],
+                    src.contains(site[1]));
+        }
 
         System.out.println("SnapAuthorityTest: " + passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);

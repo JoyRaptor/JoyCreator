@@ -17480,9 +17480,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
             String n = overlays.get(i).getDisplayName();
             names[i] = (n == null || n.isEmpty()) ? "Overlay " + (i + 1) : n;
         }
+        String[] shownNames = new String[names.length];   // PREVIEW-1: the overlay's own picture beside its name
+        for (int i = 0; i < names.length; i++) shownNames[i] = names[i].toString();
         StudioDialog.builder(this)
                 .setTitle(R.string.studio_ui_drive_which_clip)                              // TODO(strings)
-                .setItems(names, (d, w) -> applyAudioReactiveLink(src, overlays.get(w), band, prop))
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, shownNames, new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) { return "ovl:" + overlays.get(i).getId(); }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        return com.fadcam.ui.faditor.PartThumbs.mediaFrame(FaditorEditorActivity.this, overlays.get(i).getSourceUri());
+                    }
+                }), (d, w) -> applyAudioReactiveLink(src, overlays.get(w), band, prop))
                 .setNegativeButton(android.R.string.cancel, null)
                 .show();
     }

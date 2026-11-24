@@ -118,6 +118,43 @@ public final class PartThumbs {
         return square(src, rc);
     }
 
+    /**
+     * The picture for a media clip: a still's own picture, or a video's first frame. Null when the source cannot be opened
+     * (the row keeps its blank square). Worker thread only.
+     */
+    @Nullable
+    public static Bitmap mediaFrame(@NonNull Context c, @NonNull android.net.Uri uri) {
+        try {
+            android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+            try {
+                r.setDataSource(c, uri);
+                Bitmap f = r.getFrameAtTime(0);
+                if (f != null) return square(f, new Rect(0, 0, f.getWidth(), f.getHeight()));
+            } finally {
+                r.release();
+            }
+        } catch (Exception ignored) {
+            // not a video; try it as a picture
+        }
+        try (java.io.InputStream in = c.getContentResolver().openInputStream(uri)) {
+            if (in == null) return null;
+            android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            android.graphics.BitmapFactory.decodeStream(in, null, o);
+            int sample = 1;
+            while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= PX_CAP) sample *= 2;
+            try (java.io.InputStream again = c.getContentResolver().openInputStream(uri)) {
+                if (again == null) return null;
+                android.graphics.BitmapFactory.Options d = new android.graphics.BitmapFactory.Options();
+                d.inSampleSize = sample;
+                Bitmap b = android.graphics.BitmapFactory.decodeStream(again, null, d);
+                return b == null ? null : square(b, new Rect(0, 0, b.getWidth(), b.getHeight()));
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     /** {@code region} of {@code src}, scaled to fit inside a square with its proportions kept. */
     @Nullable
     public static Bitmap square(@NonNull Bitmap src, @NonNull Rect region) {

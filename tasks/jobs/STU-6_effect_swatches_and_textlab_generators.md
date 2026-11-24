@@ -97,3 +97,9 @@ Step 1 built, cloud build green (run 45300940592), phone look owed (the Avatar s
 - `tools/FxSwatchViews.java`: picker tile and the card-header swatch (28dp, refreshed at most ~10/s on any value change via a wrapping Host), one worker thread.
 - `FxPanel`: picker chips became 3-across picture tiles (unavailable ones faded, still tappable); each card header carries its swatch, also when collapsed.
 Not done: disk PNG cache (memory only), bundled sample photo, Note 9 timings, steps 2 and 3.
+
+## Progress 2026-11-23, later (steps 2 and 3 built)
+- Step 2: `fx/FxTextLabDefs.java`: Tiles, Cells, Halftone/Stripes/Checks, Brushed Metal (streak position is a keyable slider, replacing tilt), Chipped Wear (mask or layered colours), Caustics, Glitter, all GENERATOR cards.
+- Step 3: `fx/FxTextLabDefs2.java`: Burn Away (POINTWISE, keyable progress), Stained Glass, LED Board, Flag Wave, Steamed Glass (SAMPLER; wipe the fog with the card's own masks).
+- They are TextLab's ideas re-expressed in Studio's conventions, not line-for-line copies of `shade.frag`, so they will not look identical to the TextLab looks yet. `FxBlurbs` lines added, registry now 46 effects, the fx JVM harness is green (registry self-check, every effect emits GLSL and AGSL, every effect has a picker sentence).
+- NOT proven: the GLSL has not been compiled by a phone GPU (no validator on the PC), no timing, no before/after screenshots, no export-versus-preview check. The Note 9 pass (swatches and all twelve new cards, timed) is the open gate. Fur, drips, rivets, bevels stay out (they grow from a letter's shape).

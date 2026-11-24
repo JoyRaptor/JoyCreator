@@ -32,6 +32,6 @@ Left, with reason:
 
 ## State
 - [x] Tick box helper, 4 switch sites converted, hex converted, host check passes.
-- [ ] Cloud build (`tools/cloud-build.ps1 run claude/tickbox-palette-fc3dc7`): see result below.
+- [x] Cloud build passed 11-23 (run 45297041125, defaultDebug, commit 6821c8f11).
 - [ ] Phone look (Note 9): owed, not checked.
 - [ ] JoybotSwitch decision (owner).

@@ -24,8 +24,7 @@ import java.nio.ByteBuffer;
  * {@link ExactDecodedLuma#adapter}; a seek request that lands on a different frame therefore fails
  * instead of poisoning a cache entry labelled with the requested time. Frames skipped while
  * decoding are released without conversion, and only one analysis-sized luma image is retained.
- * The image uses coded crop coordinates. The caller must map flow to upright coordinates before
- * applying it to a rotated source.
+ * Crop and container rotation are applied together, producing luma in upright coordinates.
  */
 public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, AutoCloseable {
     private static final long DEQUEUE_US = 10_000L;
@@ -39,6 +38,7 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
     @Nullable private MediaCodec codec;
     private boolean inputEnded;
     private boolean closed;
+    private int rotationDegrees;
     private long lastOutputPtsUs = Long.MIN_VALUE;
     @Nullable private ExactDecodedLuma.Frame lastFrame;
 
@@ -95,6 +95,9 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
             }
             String mime = format.getString(MediaFormat.KEY_MIME);
             if (mime == null) throw new IOException("video track has no MIME type");
+            int rotation = format.containsKey(MediaFormat.KEY_ROTATION)
+                    ? Math.floorMod(format.getInteger(MediaFormat.KEY_ROTATION), 360) : 0;
+            if (rotation % 90 != 0) throw new IOException("unsupported video rotation: " + rotation);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT,
                     MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible);
             candidateCodec = MediaCodec.createDecoderByType(mime);
@@ -102,6 +105,7 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
             candidateCodec.start();
             extractor = candidateExtractor;
             codec = candidateCodec;
+            rotationDegrees = rotation;
             inputEnded = false;
         } catch (Exception failure) {
             if (candidateCodec != null) try { candidateCodec.release(); } catch (Exception ignored) { }
@@ -149,7 +153,7 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
                         try (Image image = c.getOutputImage(output)) {
                             if (image == null) throw new IOException("decoder returned no YUV image");
                             return new ExactDecodedLuma.Frame(info.presentationTimeUs,
-                                    luma(image, width, height));
+                                    luma(image, width, height, rotationDegrees));
                         }
                     }
                 }
@@ -176,7 +180,8 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
         return false;
     }
 
-    private static LumaImage luma(Image image, int width, int height) throws IOException {
+    private static LumaImage luma(Image image, int width, int height, int rotationDegrees)
+            throws IOException {
         if (image.getFormat() != ImageFormat.YUV_420_888) {
             throw new IOException("decoder output is not flexible YUV");
         }
@@ -187,7 +192,7 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
                 + crop.left * plane.getPixelStride();
         try {
             return YPlaneLuma.boxDownsample(bytes, origin, plane.getRowStride(),
-                    plane.getPixelStride(), crop.width(), crop.height(), width, height);
+                    plane.getPixelStride(), crop.width(), crop.height(), width, height, rotationDegrees);
         } catch (IllegalArgumentException invalid) {
             throw new IOException("invalid decoded Y plane", invalid);
         }
@@ -199,6 +204,7 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
         MediaCodec oldCodec = codec; codec = null;
         MediaExtractor oldExtractor = extractor; extractor = null;
         inputEnded = false;
+        rotationDegrees = 0;
         lastOutputPtsUs = Long.MIN_VALUE;
         lastFrame = null;
         if (oldCodec != null) {

@@ -26,6 +26,24 @@ public final class YPlaneLumaTest {
                 "analysis never invents upsampled pixels");
         reject(() -> YPlaneLuma.boxDownsample(ByteBuffer.wrap(new byte[8]), 0, 5, 1, 5, 2, 2, 1),
                 "short planes are rejected before an indexed read");
+        boolean ignoreRotation = args.length == 1 && args[0].equals("--ignore-rotation");
+        LumaImage clockwise = YPlaneLuma.boxDownsample(plane, origin, rowStride, pixelStride,
+                5, 4, 2, 2, ignoreRotation ? 0 : 90);
+        near(clockwise.at(0, 0), average(20, 21, 30, 31) / 255f,
+                "clockwise rotation precedes upright box partition");
+        near(clockwise.at(1, 1), average(2, 3, 4, 12, 13, 14) / 255f,
+                "clockwise remainder stays on the correct edge");
+        LumaImage upsideDown = YPlaneLuma.boxDownsample(plane, origin, rowStride, pixelStride,
+                5, 4, 2, 2, 180);
+        near(upsideDown.at(0, 0), average(23, 24, 33, 34) / 255f, "half-turn top-left box");
+        LumaImage counterclockwise = YPlaneLuma.boxDownsample(plane, origin, rowStride, pixelStride,
+                5, 4, 2, 2, -90);
+        near(counterclockwise.at(0, 0), average(3, 4, 13, 14) / 255f, "negative quarter-turn box");
+        LumaImage portrait = YPlaneLuma.boxDownsample(plane, origin, rowStride, pixelStride,
+                5, 4, 4, 5, 90);
+        near(portrait.at(3, 4), 4 / 255f, "quarter-turn swaps axes without upsampling");
+        reject(() -> YPlaneLuma.boxDownsample(plane, origin, rowStride, pixelStride, 5, 4, 2, 2, 45),
+                "non-cardinal rotation is unsupported");
         System.out.println("YPlaneLumaTest: PASS");
     }
 

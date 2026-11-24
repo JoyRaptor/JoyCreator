@@ -38,5 +38,6 @@ java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowAnalyzerTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.DecodedFlowWorkTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.ExactDecodedLumaTest
+expect_failure 'clockwise rotation precedes upright box partition' com.fadcam.ui.faditor.motion.flow.YPlaneLumaTest --ignore-rotation
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.YPlaneLumaTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FootageGatherTest

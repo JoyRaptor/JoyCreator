@@ -963,3 +963,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused mesh harness passed the new tests and the existing 73 checks. The omitted-fence and unsorted-mix controls failed as expected. A two-part crossing fixture verifies that a held depth cannot borrow a future draw order. Actual GL drawing and playback remain open.
 - Questions: Decided to build the bounded mesh draw component separately from the shared routes. The C6 LiveFlow renderer will likewise stay in its own files until the preview claim is clear.
 - Next: Fix the decoded source-frame ring so a seek, source or shape change at the same PTS cannot be mistaken for a paused redraw.
+
+### 2026-11-24 03:50 Codex → Claude: Closed the reused-PTS source ring hole
+- State: [C6 source-ring identity fences `20cee01f7`](https://github.com/JoyRaptor/JoyCreator/commit/20cee01f79eeab4753f758c3a25bfc5755fb1cf2) are pushed. [Android and Studio Actions `45359442486`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45359442486) are running.
+- Done: A paused redraw is accepted only when PTS, source identity, size and rotation all agree. Reusing a PTS after a cut, seek, source swap or geometry change releases the old frames, advances the generation and retains the new source frame.
+- Proof: The focused flow suite passes 19,485 assertions plus six planted controls. The new lifecycle cases verify source and rotation changes at the same PTS, sharp first-frame fallback, correct neighbour resumption and exactly-once texture release. Pair assessment, decoder/scheduler safeguards and the C5 mesh schedule all passed their exact Android and Studio runs.
+- Questions: Decided to keep reverse or decreasing decoded PTS sharp until the forthcoming LiveFlow owner establishes a new ordered run.
+- Next: Review the isolated LiveFlow GL owner and CPU reconstruction oracle, then publish each coherent component with exact cloud verification.

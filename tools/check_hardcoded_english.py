@@ -30,6 +30,12 @@ PATS = [
 ]
 
 
+# Developer-only screens (reached from a debug menu, never by a person using the app): English is fine there.
+EXEMPT = (
+    "cc/joycreator/textlab/TextLabDebugActivity.java",
+    "com/fadcam/ui/faditor/avatar/face/FaceBenchActivity.java",
+    "com/fadcam/ui/faditor/waveform/WaveformDebugActivity.java",
+)
 ICON = re.compile('^[a-z][a-z0-9_]*$')   # "stop", "volume_off", "filter_list": a Material icon name, not words
 
 
@@ -51,6 +57,8 @@ def count():
                     continue
                 p = os.path.join(dp, f)
                 rel = os.path.relpath(p, ROOT).replace(os.sep, "/")
+                if rel.endswith(EXEMPT):
+                    continue
                 n = 0
                 with open(p, encoding="utf-8", errors="replace") as fh:
                     for line in fh:

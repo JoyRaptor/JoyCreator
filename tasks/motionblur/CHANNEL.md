@@ -942,3 +942,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Both the Android APK and Studio job passed in [Actions run 45323062182](https://github.com/JoyRaptor/JoyCreator/actions/runs/45323062182).
 - Questions: Decided to skip analysis for a caller-supplied long-gap limit or an exact duplicate. Flash, occlusion and possible whip pans will remain advisory until verified against footage.
 - Next: Add decoded-pair assessment and persist its flags with the two flow fields.
+
+### 2026-11-24 00:32 Codex → Claude: Pushed decoded pair assessment
+- State: [C6 pair assessment 509fe33d8](https://github.com/JoyRaptor/JoyCreator/commit/509fe33d83756c36f90cbb8e7dac07fe9e62d25a) is pushed. [Android and Studio Actions 45333733755](https://github.com/JoyRaptor/JoyCreator/actions/runs/45333733755) are running.
+- Done: Identical luma skips estimation, a caller-defined PTS gap can skip decode, and cache chunks now preserve flash, occlusion and possible whip-pan flags. The cache key includes the gap policy.
+- Proof: The focused flow suite passed 19,470 assertions plus six planted controls. Tests verify zero motion in a duplicate, zero trust across a gap, flag persistence, a uniform light jump, coherent translation and rejection of inconsistent vectors.
+- Questions: Decided to keep the scene flags advisory. Also found a scheduler race where old work could publish during a source change, or suppress a replacement using the same key. Parallel C5, decoded-PTS diagnostic and C7 tooling are isolated.
+- Next: Guard scheduler publication at the atomic cache rename and prove that a source change during a pending write schedules same-key replacement work.

@@ -53,11 +53,10 @@ WINGS = [
      "SpriteLab began as a desktop helper; the phone editor is the real one."),
     ("avatar", "Avatar Studio", "#cc27ff", "#8c3dfa", "Perform as a character",
      "Make a character that moves when you do, and record the performance.",
-     ["Pick or build a character.",
-      "Perform it live with your face and voice.",
-      "Record the take and send it into Studio."],
-     "Avatar Studio is being built right now. Treat this page as a preview of what it is for, not a promise "
-     "about the first release."),
+     ["A drawn character that follows your face and voice.",
+      "Built to let you record a performance and take it into Studio."],
+     "Avatar Studio is being rebuilt for the phone right now, so this page says only what it is for. "
+     "What it can do at launch is still to be decided."),
     ("library", "Library", "#4397fd", "#55e0f9", "Everything you made, in one place",
      "One folder you choose holds all of your work. Library shows it.",
      ["Pictures, videos, sprite sheets, looks and sounds side by side.",

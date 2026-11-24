@@ -22,6 +22,6 @@ fi
   tools/jvm-harness/liveflow-stubs/com/fadcam/ui/faditor/motion/flow/PyramidFlowEstimator.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/SourceFrameRing.java \
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/LiveFlowGl.java \
-  tools/jvm-harness/motion/flow/LiveFlowGlLifecycleTest.java
+  tools/jvm-harness/liveflow/LiveFlowGlLifecycleTest.java
 
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.LiveFlowGlLifecycleTest

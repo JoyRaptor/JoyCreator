@@ -457,6 +457,23 @@ public final class IdeaEngine {
         out.add(Idea.of("joybrush_whats_here", Idea.Kind.ASK, "What's in this drawing?")
                 .say("Tell me what's in this drawing: its size, layers and frames")
                 .hint("A quick read of the drawing; changes nothing").needsKey().priority(34).build());
+        // Later ideas (11-24): shown once the first ones have been used or hidden. They need the drawing read, and each is
+        // something the joybrush tools really do (layers, brush).
+        if (d != null && d.hasColourLayer() && !hasLayerNamed(d, "shading")) {
+            out.add(Idea.of("joybrush_shading_layer", Idea.Kind.ASK, "A layer for shading")
+                    .say("Add a layer called Shading above the colour layer and switch to it")
+                    .hint("Shadows and light on their own layer, so colour stays clean").needsKey().priority(33).build());
+        }
+        if (d != null) {
+            out.add(Idea.of("joybrush_pick_brush", Idea.Kind.ASK, "Pick a brush for me")
+                    .say("Pick a brush that suits sketching and switch to it")
+                    .hint("I'll choose from your brushes and tell you which").needsKey().priority(31).build());
+        }
+    }
+
+    private static boolean hasLayerNamed(DrawingFacts d, String name) {
+        for (String l : d.layers) if (l != null && l.trim().equalsIgnoreCase(name)) return true;
+        return false;
     }
 
     // ── words ───────────────────────────────────────────────────────────────

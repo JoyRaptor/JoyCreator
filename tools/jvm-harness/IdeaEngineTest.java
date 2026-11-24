@@ -322,6 +322,25 @@ public class IdeaEngineTest {
             check("drawing: an animation exists, so no Start an animation", !labels(o).contains("Start an animation"), labels(o));
             check("drawing: frames idea names the frame", labels(o).contains("Next frame from this one"), labels(o));
 
+            // later ideas: only once the first ones are used, and only with the drawing read
+            Set<String> usedJb = new HashSet<>(Arrays.asList("joybrush_show_hidden", "joybrush_next_frame", "joybrush_whats_here"));
+            IdeaEngine.Offer later = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, usedJb);
+            eq("drawing: after the first ones, a shading layer", "A layer for shading", later.ideas.get(0).label);
+            eq("drawing: then a brush", "Pick a brush for me", later.ideas.get(1).label);
+            check("drawing: first screen has no later idea", !labels(o).contains("A layer for shading"), labels(o));
+            com.fadcam.ui.faditor.ai.joybot.DrawingFacts withShading = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(
+                    anim.replace("Ink —", "Shading —"));
+            ProjectFacts f2 = new ProjectFacts();
+            f2.online = true;
+            f2.drawing = withShading;
+            check("drawing: a layer already called Shading, no shading idea",
+                    !labels(IdeaEngine.offer(f2, IdeaEngine.Room.JOYBRUSH, FLOWS, usedJb)).contains("A layer for shading"),
+                    labels(IdeaEngine.offer(f2, IdeaEngine.Room.JOYBRUSH, FLOWS, usedJb)));
+            f2.drawing = null;
+            check("drawing: unread drawing gets no later idea",
+                    !labels(IdeaEngine.offer(f2, IdeaEngine.Room.JOYBRUSH, FLOWS, usedJb)).contains("Pick a brush for me"),
+                    labels(IdeaEngine.offer(f2, IdeaEngine.Room.JOYBRUSH, FLOWS, usedJb)));
+
             String single = anim.replace("8 frames, on frame 3", "1 frame, on frame 1");
             f.drawing = com.fadcam.ui.faditor.ai.joybot.DrawingFacts.parse(single);
             o = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);

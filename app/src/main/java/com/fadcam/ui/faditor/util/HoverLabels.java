@@ -56,6 +56,7 @@ public final class HoverLabels {
         app.registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks() {
             @Override public void onActivityCreated(@NonNull android.app.Activity a, android.os.Bundle b) {
                 watch(a.getWindow().getDecorView());
+                watchDialogFragments(a);
             }
             @Override public void onActivityStarted(@NonNull android.app.Activity a) {}
             @Override public void onActivityResumed(@NonNull android.app.Activity a) {}
@@ -64,6 +65,28 @@ public final class HoverLabels {
             @Override public void onActivitySaveInstanceState(@NonNull android.app.Activity a, @NonNull android.os.Bundle b) {}
             @Override public void onActivityDestroyed(@NonNull android.app.Activity a) {}
         });
+    }
+
+    /**
+     * Bottom sheets and other DialogFragments live in their own window, which the activity's
+     * watch never sees. Watch each one's window as it starts (about fifty sheets in the app).
+     */
+    private static void watchDialogFragments(@NonNull android.app.Activity a) {
+        if (!(a instanceof androidx.fragment.app.FragmentActivity)) return;
+        ((androidx.fragment.app.FragmentActivity) a).getSupportFragmentManager()
+                .registerFragmentLifecycleCallbacks(
+                        new androidx.fragment.app.FragmentManager.FragmentLifecycleCallbacks() {
+                            @Override
+                            public void onFragmentStarted(
+                                    @NonNull androidx.fragment.app.FragmentManager fm,
+                                    @NonNull androidx.fragment.app.Fragment f) {
+                                if (!(f instanceof androidx.fragment.app.DialogFragment)) return;
+                                android.app.Dialog d = ((androidx.fragment.app.DialogFragment) f).getDialog();
+                                if (d != null && d.getWindow() != null) {
+                                    watch(d.getWindow().getDecorView());
+                                }
+                            }
+                        }, true);
     }
 
     /** Label every named, tappable view under {@code v} that has no hover label yet. */

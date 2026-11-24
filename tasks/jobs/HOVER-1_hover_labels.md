@@ -16,7 +16,7 @@ home, lab, records sidebars and the mini-app sheet. All six now have a name (str
 
 ## Owed (not yet done)
 - (Done 11-23) Code-built icon views: `tools/scan_hover_code.py` lists click-listened views with no name in their file (skips Avatar and motion-blur paths). 50 hits, nearly all text rows or already named through the Kit/label helpers; the one real gap, the Debug log's Previous/Next arrows, is named. Custom-drawn canvas views with their own touch handling (JoyBrush brush/layer panels, timeline) are not views with listeners and stay owed to a phone hover check.
-- Dialogs and popup windows are separate windows: `HoverLabels` only watches an activity's own window.
+- Dialogs and popup windows are separate windows. 11-24: DialogFragments and bottom sheets (about 52 in the app) are now watched too (`HoverLabels.watchDialogFragments`, built, cloud build pending). Plain `Dialog`/`AlertDialog` and `PopupWindow`s (lane menu, pickers) are still not covered.
 - JoyBrush engine/canvas custom views, Avatar/FACE and STU-7 files were not touched (claimed on BOARD).
 - Avatar Studio (`tools/avatarlab/**`, `tasks/avatar/**`, the avatar room classes, the lobby Avatar door): not touched, per the
   command session 11-23. Buttons there are owed their own pass after that lane lands; the global install already labels any that carry a name. Phone: the Avatar slice-1 lane holds the Note 9 lock, so the phone check waits.

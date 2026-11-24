@@ -67,7 +67,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
     public static final String EXTRA_RESULT_LOOK = "resultLook";
 
     static final int BLACK = 0xFF0B0B0C, PANEL = 0xFF141417, CONTROL = 0xFF1F1F26, INK = 0xFFD4D4D8,
-            DIM = 0xFF8A8A96, CYAN = 0xFF22D3EE;
+            DIM = 0xFF8A8A96, CYAN = com.fadcam.ui.faditor.Studio.ARMED;
     private static final int PICK_PICTURE = 41, PICK_FONT = 42;
     private static final String[][] STAGES = {{"", "The look's own"}, {"10", "Clear"}, {"0", "Black"},
             {"1", "Dark stage"}, {"7", "Smoke"}, {"2", "Brick wall"}, {"5", "Far lights"}, {"4", "Dusk grid"},

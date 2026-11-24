@@ -81,7 +81,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     private LinearLayout cellPanel;
     private TextView cellTitle;
     private EditText cellNameField;
-    private Switch cellEnabled;
+    private com.google.android.material.checkbox.MaterialCheckBox cellEnabled;
     private boolean onionMode = false;
     /** How many frames ghost behind and ahead. 0 turns that side off. */
     private int onionPast = 1;
@@ -448,7 +448,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         cellPanel.setOrientation(LinearLayout.VERTICAL);
         cellTitle = new TextView(this);
         cellNameField = new EditText(this);
-        cellEnabled = new Switch(this);
+        cellEnabled = com.fadcam.ui.faditor.SheetKit.tickBox(this);
 
         setContentView(root);
         handoffArrival = cc.joycreator.handoff.HandoffArrival.attach(this, null);
@@ -1213,7 +1213,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 (int) (170 * d), ViewGroup.LayoutParams.WRAP_CONTENT);
         cb.addView(cellNameField, nfLp);
 
-        cellEnabled = new Switch(this);
+        cellEnabled = com.fadcam.ui.faditor.SheetKit.tickBox(this);
         cellEnabled.setText(getString(R.string.sprite_editor_cell_enabled));
         cellEnabled.setTextColor(SpriteTheme.DIM);
         SpriteSheet.Cell meta = sheet.cellAt(cell);

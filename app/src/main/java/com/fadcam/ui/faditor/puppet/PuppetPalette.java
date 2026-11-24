@@ -36,10 +36,10 @@ public final class PuppetPalette {
     public static final int PIN = 0xFFFBBF24;
 
     /** Resists deformation. SpriteLab's pink — a warning hue, because a stiff patch refuses. */
-    public static final int STIFF = 0xFFF43F8E;
+    public static final int STIFF = com.fadcam.ui.faditor.Studio.LIVE;
 
     /** Simulated. SpriteLab's cyan, and the only type whose tape shows no keys at all. */
-    public static final int DANGLE = 0xFF22D3EE;
+    public static final int DANGLE = com.fadcam.ui.faditor.Studio.ARMED;
 
     /** Move, turn, scale — the app's existing guide violet. */
     public static final int FREE = HandleModel.COLOR_GUIDE;

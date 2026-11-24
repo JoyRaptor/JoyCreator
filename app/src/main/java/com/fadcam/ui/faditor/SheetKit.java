@@ -580,6 +580,24 @@ public final class SheetKit {
     }
 
     /**
+     * THE TICK BOX: the app's control for a plain on/off setting (owner rule, 11-21: a sliding
+     * switch is only for a choice between two equal options). ON is a solid cyan box with the
+     * tick knocked out in the dark ground ink, never an outlined box; OFF is a faint outline.
+     * Colours come from the shared palette (Studio.ARMED, s_on_go), nothing local. It is a
+     * CompoundButton, so setChecked / setOnCheckedChangeListener work as they did on a switch.
+     */
+    @NonNull
+    public static com.google.android.material.checkbox.MaterialCheckBox tickBox(@NonNull Context c) {
+        com.google.android.material.checkbox.MaterialCheckBox cb =
+                new com.google.android.material.checkbox.MaterialCheckBox(c);
+        styleCheckbox(cb);
+        int[][] states = {{android.R.attr.state_checked}, {}};
+        int cut = androidx.core.content.ContextCompat.getColor(c, R.color.s_on_go);
+        cb.setButtonIconTintList(new ColorStateList(states, new int[]{cut, cut}));
+        return cb;
+    }
+
+    /**
      * A pill button. {@code primary} wears the Studio gradient with ink-on-go — one per view,
      * that is the rule. Everything else is a flat RAISED pill.
      */

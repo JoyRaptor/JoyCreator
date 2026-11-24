@@ -16,7 +16,7 @@ hardest work.
 
 | # | Job | Card | Phone? | State |
 |---|---|---|---|---|
-| 1 | Hover-label sweep: every button in every room gets a hover label (owner rule) | [BOT-2](jobs/BOT-2_joybot_everywhere.md), memory rule | at the end | started 11-23 |
+| 1 | Hover-label sweep: every button in every room gets a hover label (owner rule) | [BOT-2](jobs/BOT-2_joybot_everywhere.md), memory rule | at the end | built 11-23, cloud build + phone look owed ([STYLE-1](jobs/STYLE-1_tickbox_and_palette.md)) |
 | 2 | Tick box and palette sweep: on/off becomes a cyan knock-out tick box, a switch only for two equal choices; cyan and magenta come from the shared palette, never a room's own hex (owner 11-21, 11-22) | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | started 11-23 |
 | 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | started 11-23 |
 | 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | queued |

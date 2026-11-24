@@ -34,7 +34,7 @@ import java.util.List;
  */
 public final class TextLookRow extends LinearLayout {
 
-    private static final int CYAN = 0xFF22D3EE, GROUND = 0xFF000000, CONTROL = 0xFF1F1F26, INK = 0xFFD4D4D8,
+    private static final int CYAN = com.fadcam.ui.faditor.Studio.ARMED, GROUND = 0xFF000000, CONTROL = 0xFF1F1F26, INK = 0xFFD4D4D8,
             DIM = 0xFF8A8A96;
 
     /** What the row needs from the editor. */

@@ -42,7 +42,7 @@ import java.util.function.IntConsumer;
  */
 public final class LookChipRow extends RecyclerView {
 
-    private static final int CYAN = 0xFF22D3EE, CONTROL = 0xFF1F1F26;
+    private static final int CYAN = com.fadcam.ui.faditor.Studio.ARMED, CONTROL = 0xFF1F1F26;
 
     /** One chip: the look's name, and its sheet once it is made (null until then). */
     public static final class Chip {

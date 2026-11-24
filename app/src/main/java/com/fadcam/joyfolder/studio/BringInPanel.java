@@ -30,7 +30,7 @@ import java.util.Map;
  */
 public final class BringInPanel {
 
-    private static final int CYAN = 0xFF22D3EE;
+    private static final int CYAN = com.fadcam.ui.faditor.Studio.ARMED;
     private static final int GROUND = 0xFF050507;
     private static final int PANEL_2 = 0xFF1C1C22;
     private static final int TEXT = 0xFFE9E9EE;

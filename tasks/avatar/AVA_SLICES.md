@@ -1,6 +1,7 @@
 # Part E: the slices (steps, no time estimates)
 
-Part of the [Avatar Studio phone spec](AVA_PHONE_SPEC.md). Written 2026-11-23. **Nothing here is started.** Each slice
+Part of the [Avatar Studio phone spec](AVA_PHONE_SPEC.md). Written 2026-11-23. **Started 11-23 (owner's go): slice 0 and slice 1; Claude and Codex coordinate in
+[CHANNEL.md](CHANNEL.md).** Each slice
 starts only on the owner's go-ahead, in its own session and worktree, and claims its files on the BOARD first.
 The owner's order (card, "the path to the phone"): the character room; into Video Studio; scenes. Slice 0 is the small
 pilot step the other three stand on.

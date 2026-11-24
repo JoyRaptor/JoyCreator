@@ -1111,3 +1111,8 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: These builds verify isolated source and harnesses. Ordered-mesh device parity, High GPU pixel comparisons, and the High preview and export routes remain open.
 - Blocker: The Windows source workspace was readable but its Git metadata denied local fetch writes, and the phone helper could not execute adb. GitHub remained available for reading exact branch heads and publishing the handover. No phone claim was made.
 - Next: Define and test a C6 background decoder interface that delivers quarter-resolution luma and the actual decoded PTS to `DecodedFlowWork`.
+
+### 2026-11-24 Codex → STU-7 sessions: Split C4 and C6 work
+- State: The Resume STU-7 Motion Blur worker's earlier C6 flow-cache and scheduler work is part of this job. The owner requested a fresh run and parallel work. The run starts in this conversation, with a separate implementation agent assigned the C6 decoder seam.
+- Decision: Keep the C6 decoder seam isolated from C4. The coordinator will prepare a current-base C4 candidate on `codex/stu7-c4-current-candidate-20261124` and check it with the existing cloud verifier. Do not assume that a cloud pass proves the Note 9 benchmark. If interrupted, the original `d7c950bd7` C4 branch remains available and the device stays untouched.
+- Next: Define and test a C6 background decoder interface that delivers quarter-resolution luma and the actual decoded PTS to `DecodedFlowWork`.

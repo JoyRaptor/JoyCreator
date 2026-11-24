@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 batch 3 (11-24): Joy Creator folder banner and some Home words. English only; translations owed. -->
+<resources>
+    <string name="banner_folder_title">Joy Creator folder</string>
+    <string name="banner_not_chosen">Not chosen. Your projects only live inside the app.</string>
+    <string name="banner_keep_safe">Keep your work safe</string>
+    <string name="banner_choose_folder">Choose a Joy Creator folder so your projects survive even if the app is removed.</string>
+    <string name="banner_unavailable">Joy Creator folder unavailable</string>
+    <string name="banner_reconnect">Nothing has been lost. Tap to reconnect it.</string>
+    <string name="home_err_stop_dual">Error stopping dual recording</string>
+    <string name="home_preview_failed">Preview could not start. Try long-press again.</string>
+    <string name="home_err_activity_context">Error: Cannot access activity context</string>
+    <string name="home_no_torch">No torch available</string>
+    <string name="home_rec_failed_title">Recording Failed</string>
+    <string name="home_rec_in_progress_title">Recording in Progress</string>
+    <string name="home_rec_stop_exit_msg">Do you want to stop recording and exit?</string>
+</resources>

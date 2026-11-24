@@ -2406,7 +2406,7 @@ public class HomeFragment extends BaseFragment {
         new com.google.android.material.dialog.MaterialAlertDialogBuilder(
             requireContext()
         )
-            .setTitle("Recording Failed")
+            .setTitle(getString(R.string.home_rec_failed_title))
             .setMessage(fullErrorMessage)
             .setPositiveButton("OK", (dialog, which) -> dialog.dismiss())
             .setNeutralButton("Copy Error", (dialog, which) -> {
@@ -5481,7 +5481,7 @@ public class HomeFragment extends BaseFragment {
             FLog.i(TAG, "Sent STOP_DUAL intent.");
         } catch (Exception e) {
             FLog.e(TAG, "Error sending STOP_DUAL intent: ", e);
-            Toast.makeText(getContext(), "Error stopping dual recording", Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), getString(R.string.home_err_stop_dual), Toast.LENGTH_SHORT).show();
             resetUIButtonsToIdleState();
         }
         vibrateTouch();
@@ -8477,7 +8477,7 @@ public class HomeFragment extends BaseFragment {
                 tvPreviewHint.setText(getPreviewEnableHintResId());
             }
             setHintVisibilityAnimated(true);
-            Toast.makeText(requireContext(), "Preview could not start. Try long-press again.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), getString(R.string.home_preview_failed), Toast.LENGTH_SHORT).show();
         };
         previewOnlyStartHandler.postDelayed(
                 pendingPreviewOnlyStartTimeoutRunnable,
@@ -8887,7 +8887,7 @@ public class HomeFragment extends BaseFragment {
                 getActivity().startService(switchIntent);
             } else {
                 FLog.e(TAG, "Activity context is null, cannot send camera switch intent");
-                Toast.makeText(getContext(), "Error: Cannot access activity context", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), getString(R.string.home_err_activity_context), Toast.LENGTH_SHORT).show();
                 isCameraSwitchInProgress = false;
                 return;
             }
@@ -9490,7 +9490,7 @@ public class HomeFragment extends BaseFragment {
             }
 
             if (currentId == null) {
-                Toast.makeText(requireContext(), "No torch available", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), getString(R.string.home_no_torch), Toast.LENGTH_SHORT).show();
                 return;
             }
 
@@ -10692,8 +10692,8 @@ public class HomeFragment extends BaseFragment {
         if (isRecordingOrPaused()) {
             // If recording is in progress, show a confirmation dialog
             new MaterialAlertDialogBuilder(requireContext())
-                .setTitle("Recording in Progress")
-                .setMessage("Do you want to stop recording and exit?")
+                .setTitle(getString(R.string.home_rec_in_progress_title))
+                .setMessage(getString(R.string.home_rec_stop_exit_msg))
                 .setPositiveButton("Stop and Exit", (dialog, which) -> {
                     stopRecording();
                     // Allow normal back behavior after stopping recording

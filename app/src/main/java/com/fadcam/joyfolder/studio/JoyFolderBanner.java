@@ -10,6 +10,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.fadcam.R;
 import com.fadcam.joyfolder.android.JoyFolderHome;
 
 /**
@@ -77,9 +78,9 @@ public final class JoyFolderBanner {
         Context c = card.getContext();
         TextView[] tv = (TextView[]) card.getTag();
         tv[0].setTextColor(TEXT);
-        tv[0].setText("Joy Creator folder");
+        tv[0].setText(c.getString(R.string.banner_folder_title));
         if (!JoyFolderHome.isChosen(c)) {
-            tv[1].setText("Not chosen. Your projects only live inside the app.");
+            tv[1].setText(c.getString(R.string.banner_not_chosen));
         } else if (!JoyFolderHome.isReachable(c)) {
             tv[0].setTextColor(CAREFUL);
             tv[1].setText(JoyFolderHome.describe(JoyFolderHome.treeUri(c)) + " · unavailable, tap to reconnect");
@@ -110,13 +111,13 @@ public final class JoyFolderBanner {
         TextView[] tv = (TextView[]) card.getTag();
         if (!JoyFolderHome.isChosen(c)) {
             tv[0].setTextColor(TEXT);
-            tv[0].setText("Keep your work safe");
-            tv[1].setText("Choose a Joy Creator folder so your projects survive even if the app is removed.");
+            tv[0].setText(c.getString(R.string.banner_keep_safe));
+            tv[1].setText(c.getString(R.string.banner_choose_folder));
             card.setVisibility(View.VISIBLE);
         } else if (!JoyFolderHome.isReachable(c)) {
             tv[0].setTextColor(CAREFUL);
-            tv[0].setText("Joy Creator folder unavailable");
-            tv[1].setText("Nothing has been lost. Tap to reconnect it.");
+            tv[0].setText(c.getString(R.string.banner_unavailable));
+            tv[1].setText(c.getString(R.string.banner_reconnect));
             card.setVisibility(View.VISIBLE);
         } else {
             card.setVisibility(View.GONE);

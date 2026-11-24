@@ -349,19 +349,22 @@ public final class AudioDrawerTabs {
 
         TextView clear = chip(ctx, ctx.getString(R.string.faditor_kf_clear));
         hoverLabel(clear, ctx.getString(R.string.lane_b_audio_clear_envelope));
-        clear.setOnClickListener(v -> {
-            if (!clip.hasVolumeKeyframes()) return;
-            List<VolumeKeyframe> before = copyKeyframes(clip);
-            clip.clearVolumeKeyframes();
-            host.recordUndo(ctx.getString(R.string.lane_b_audio_undo_clear_envelope),
-                    () -> { clip.setVolumeKeyframes(before); host.onChanged(); },
-                    () -> { clip.clearVolumeKeyframes(); host.onChanged(); });
+        // STU-4 (11-24): one press is ONE undo step. recordUndo takes redo FIRST; the old handler passed them the
+        // other way round (Undo cleared an already clear line) and never re-read the "10 pts" row. See EnvelopeClearStep.
+        final Runnable[] reread = new Runnable[1];
+        clear.setOnClickListener(v -> EnvelopeClearStep.press(new EnvelopeClearStep.Envelope() {
+            @Override public boolean has() { return clip.hasVolumeKeyframes(); }
+            @Override public List<VolumeKeyframe> snapshot() { return copyKeyframes(clip); }
+            @Override public void restore(List<VolumeKeyframe> keys) { clip.setVolumeKeyframes(keys); }
+            @Override public void clear() { clip.clearVolumeKeyframes(); }
+        }, ctx.getString(R.string.lane_b_audio_undo_clear_envelope), host::recordUndo, () -> {
             host.onChanged();
-        });
+            if (reread[0] != null) reread[0].run();
+        }));
         row.addView(clear);
         parent.addView(row);
 
-        return () -> {
+        reread[0] = () -> {
             int n = clip.getVolumeKeyframes().size();
             state.setText(n == 0
                     ? ctx.getString(R.string.lane_b_audio_env_flat)
@@ -369,6 +372,7 @@ public final class AudioDrawerTabs {
                             R.plurals.lane_b_audio_env_count, n, n));
             clear.setVisibility(n == 0 ? View.GONE : View.VISIBLE);
         };
+        return reread[0];
     }
 
     // ── Rows 2–3: FADE IN / FADE OUT ─────────────────────────────────────────────────────

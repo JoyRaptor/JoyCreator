@@ -172,7 +172,7 @@ One line per job. The card holds the detail. "Owner" is the session or harness t
 |---|---|---|---|---|---|
 | [SHOW-1](jobs/SHOW-1_play_build.md) | Play build: remove the disguise icons, the accessibility screenshot service, all-files storage access, cloud and streaming | 🟡 | Play build lane | Candidate signed bundle built and Note 9 smoke-tested (145 MB download, 21/21 aligned); upload bundle after the detector switch lands; owner: S1 app ID, key backup, Play account | 11-14 |
 | [SHOW-2](jobs/SHOW-2_store_and_legal.md) | Store and legal: privacy policy hosted, README, listing, closed test | ⛔ S4, S6 | owner + lead | | 10-27 |
-| [SHOW-3](jobs/SHOW-3_website_and_demos.md) | Website, screenshots, demo video, recordings of building things | ⬜ after M2 | open | The website design record is now in git | 10-27 |
+| [SHOW-3](jobs/SHOW-3_website_and_demos.md) | Website, screenshots, demo video, recordings of building things | 🔨 first draft built 11-23 | open | Draft site in `docs/` (home, 8 room pages, contact, privacy; built by `tools/make_site.py` from `tools/site_pages.py`). Placeholders: sizzle video, screenshots, Play link, contact email. Owner has not seen it | 11-23 |
 
 ---
 

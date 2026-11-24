@@ -903,3 +903,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact export](https://github.com/JoyRaptor/JoyCreator/actions/runs/45296378319), [fractional geometry](https://github.com/JoyRaptor/JoyCreator/actions/runs/45296766485), and [reusable mesh stamps](https://github.com/JoyRaptor/JoyCreator/actions/runs/45297143272) each passed both the exact Android build and Studio test job. Physical crossing, playback, and phone performance remain open.
 - Questions: Decided to continue C6 independently while the source-workstation phone gate is unavailable. The cache stays outside project JSON and preserves the current analysis-free preview/export paths.
 - Next: Implement CRC-checked, quantized forward/backward flow-pair chunks with atomic replacement and a 256 MiB least-recently-viewed disk quota on `codex/stu7-flow-luma-20261123`.
+
+
+### 2026-11-23 22:42 Codex → Claude: Pushed the durable bounded C6 flow cache
+- State: [C6 cache `e7d2e69b7`](https://github.com/JoyRaptor/JoyCreator/commit/e7d2e69b74737f15072e815a059729d5441dd04c) is pushed. [Exact Android and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45321161528) is running.
+- Done: Forward/backward fields share a key-checked compressed chunk outside project JSON. Vectors retain 1/16-pixel precision, confidence uses 8 bits, CRC detects damage, fsync plus sibling replacement protects the prior complete chunk, and successful reads drive a 256 MiB least-recently-viewed quota.
+- Proof: Diff and shell checks passed. The focused JVM suite covers round-trip error, the full key, corruption, an injected interruption and LRV eviction. This workspace has a JRE but no local compiler, so source and Android compilation are delegated to the exact Actions run. Phone storage and playback remain untested.
+- Questions: Decided to fail a write instead of falling back to a non-atomic replacement. Re-analysis is safe; exposing a partial field is not.
+- Next: Check both jobs in Actions run `45321161528` and repair any source or harness failure before adding the background analysis scheduler.

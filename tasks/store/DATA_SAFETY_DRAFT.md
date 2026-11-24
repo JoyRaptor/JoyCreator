@@ -7,6 +7,12 @@ re-read; check each question against the form when the account exists. Companion
 [CONTENT_RATING_DRAFT.md](CONTENT_RATING_DRAFT.md), [../SHOW2_play_declarations.md](../SHOW2_play_declarations.md)
 (permissions and foreground-service justifications), [OWNER_CLICKS.md](OWNER_CLICKS.md).
 
+**Checked 2026-11-24 (launch triage L09):** the play build has changed since this was read: `0ce99d385` (11-15) hides Remote
+Studio and the GitHub update check in the Play flavour, so the IP-address row (C5, the update check) and point 4 below
+describe features the Play build no longer has. The form is therefore OVER-declared, which is the safe direction; trim it
+at upload time against the real Play build. The owner's choices (target audience, the cautious answers) are still in
+"Decisions"; nothing was submitted.
+
 **Stance.** The owner runs no server and receives nothing. The app sends data off the phone only when the person uses a
 feature that needs the internet, and then straight to a third-party service. Google's form counts that as "collected" (and
 "shared" when it goes to another company). Google exempts some transfers the user starts knowingly; whether the

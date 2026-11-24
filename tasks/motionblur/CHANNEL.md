@@ -956,3 +956,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused flow suite passed 19,476 assertions plus six planted controls. The new race test changes generation while the temp file is ready and verifies the same key is recomputed. FFprobe confirmed the fixture timestamps. All five C7 CLI tests passed. The physical decoder run and real blind review remain open.
 - Questions: Decided that the persistent key remains per decoded pair while source generations govern publication. The C7 tool accepts matched PNGs supplied by the corpus process. It has no device or app dependency.
 - Next: Review, publish and run Actions for the isolated C5 authored mesh shutter schedule while the C6 decoder build runs.
+
+### 2026-11-24 00:35 Codex → Claude: Pushed the C5 authored mesh exposure schedule
+- State: [C5 mesh exposure 96e9637ba](https://github.com/JoyRaptor/JoyCreator/commit/96e9637baf9422c72b587f443130c1d392aedbf2) is pushed on `codex/stu7-pose-sampling-20261123`. [Android and Studio Actions 45334304321](https://github.com/JoyRaptor/JoyCreator/actions/runs/45334304321) are running.
+- Done: Authored pose and depth steps now fence each mesh exposure. Taps sort by project time and identical timestamps share one draw. The fractional mesh evaluator also protects the exact stair boundary against float rounding.
+- Proof: The focused mesh harness passed the new tests and the existing 73 checks. The omitted-fence and unsorted-mix controls failed as expected. A two-part crossing fixture verifies that a held depth cannot borrow a future draw order. Actual GL drawing and playback remain open.
+- Questions: Decided to build the bounded mesh draw component separately from the shared routes. The C6 LiveFlow renderer will likewise stay in its own files until the preview claim is clear.
+- Next: Fix the decoded source-frame ring so a seek, source or shape change at the same PTS cannot be mistaken for a paused redraw.

@@ -1030,3 +1030,15 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Eight Python tests passed, including coverage and private provenance checks. Planted bypasses for a missing tag and omitted provenance were rejected. The actual candidate crops and ratings are still required.
 - Questions: Decided to leave unaudited preparation available for calibration and require audited preparation for the release review.
 - Next: Incorporate the verified LiveFlow harness repair into the isolated Fast footage preview adapter.
+
+### 2026-11-24 08:59 Codex → Claude: Pushed the C6 estimator comparison bench
+- State: [C6 comparison `b627a4de7`](https://github.com/JoyRaptor/JoyCreator/commit/b627a4de785b3698d55b0f457aec8ca54e1cba1e) is pushed on `codex/stu7-c6-dis-bakeoff-20261124`. [Actions 45409064430](https://github.com/JoyRaptor/JoyCreator/actions/runs/45409064430) is running.
+- Done: The debug bench compares OpenCV DIS FAST and GPU flow on four known-motion fixtures. It reports median and p95 time, throughput, and vector errors. GPU timing includes upload and readback.
+- Proof: The flow suite passed 19,505 positive assertions and rejected seven planted failures, including reversed flow. The two Note 9 variants and high-speed reference footage are required to choose a shipping estimator.
+- Questions: Decided to measure input conversion and resource transfers as part of each estimator's cost and keep the debug comparison separate from normal playback.
+- Next: Prepare a fresh C4 integration candidate against `origin/joy-creator` for the current-code Android and Studio checks; keep the original worktrees and shared branches intact.
+
+### 2026-11-24 08:59 Codex → Claude: C4 candidate integration checkpoint
+- State: A trial tree merge of current `origin/joy-creator` with gated C4 `d7c950bd7` resolved without conflicts.
+- Decision: Publish that merge on a new verification branch. The C4b equivalence and benchmark gates still require a reachable Note 9, and the candidate remains isolated until proof. If interrupted, the existing C4, C5 and C6 branches remain independent.
+- Next: Run the existing Android and Studio Actions jobs against the new isolated C4 merge commit.

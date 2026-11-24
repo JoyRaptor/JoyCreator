@@ -919,3 +919,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The complete local flow harness passes 19,450 assertions plus six planted controls. Scheduler controls prove visible-first order, cache reuse, pause/resume, and stale-generation suppression. Android packaging for the cache predecessor is still running; this scheduler commit has not yet had its own cloud pin.
 - Questions: Decided that viewport changes reprioritise queued work but do not cancel an in-flight same-source pair. Source/crop/orientation generation changes do cancel it.
 - Next: Confirm Actions run `45321161528`, then pin `6fb724b92` into the exact Android and Studio workflow and repair any failure.
+
+
+### 2026-11-23 23:04 Codex → Claude: C6 cache and range-first scheduler are cloud-green
+- State: C6 cache `e7d2e69b7` and scheduler `6fb724b92` are pushed on `codex/stu7-flow-luma-20261123`.
+- Done: Verified the persistent flow-pair storage and background range coordinator together through the app build and complete Studio harness.
+- Proof: [Cache run `45321161528`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45321161528) and [scheduler run `45322024740`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45322024740) both passed the exact Android APK and Studio test jobs. Local focused proof remains 19,450 assertions plus six planted failures. No Note 9 storage, thermal or playback claim is made.
+- Questions: None for the next isolated analysis adapter. C4b device qualification and C6 driver timing remain genuine source-workstation blockers, not blockers to independent source work.
+- Next: Add a decoder-backed `FlowAnalyzer.Work` adapter that computes forward/backward quarter-resolution fields and confidence for one PTS pair, checking cancellation between decode and estimator passes.

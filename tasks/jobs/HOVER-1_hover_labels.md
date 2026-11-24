@@ -15,8 +15,7 @@ home, lab, records sidebars and the mini-app sheet. All six now have a name (str
 `watch_play_pause_cd`). The script now reports 0 and fails the build step if one comes back.
 
 ## Owed (not yet done)
-- Views built in code that carry no content description (custom-drawn icon views, glyph ligature labels): need a one-by-one
-  list per room. A rough count shows ~35 files create image views in code; most already name them.
+- (Done 11-23) Code-built icon views: `tools/scan_hover_code.py` lists click-listened views with no name in their file (skips Avatar and motion-blur paths). 50 hits, nearly all text rows or already named through the Kit/label helpers; the one real gap, the Debug log's Previous/Next arrows, is named. Custom-drawn canvas views with their own touch handling (JoyBrush brush/layer panels, timeline) are not views with listeners and stay owed to a phone hover check.
 - Dialogs and popup windows are separate windows: `HoverLabels` only watches an activity's own window.
 - JoyBrush engine/canvas custom views, Avatar/FACE and STU-7 files were not touched (claimed on BOARD).
 - Avatar Studio (`tools/avatarlab/**`, `tasks/avatar/**`, the avatar room classes, the lobby Avatar door): not touched, per the
@@ -25,3 +24,4 @@ home, lab, records sidebars and the mini-app sheet. All six now have a name (str
 
 ## Done log
 - 11-23: global install + six layout names + host check. Cloud build run 45296875486 green (defaultDebug, 11-23).
+- 11-23: debug-log arrows named; merged and landed on joy-creator. Scanner added.

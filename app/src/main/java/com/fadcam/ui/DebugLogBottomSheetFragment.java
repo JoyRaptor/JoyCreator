@@ -455,6 +455,7 @@ public class DebugLogBottomSheetFragment extends BottomSheetDialogFragment {
         b.setBackgroundResource(R.drawable.prefs_input_bg);
         b.setImageResource(up ? android.R.drawable.arrow_up_float : android.R.drawable.arrow_down_float);
         b.setColorFilter(resolveAccentColor());
+        b.setContentDescription(getString(up ? R.string.previous : R.string.next));
         b.setOnClickListener(v -> navigateToMatch(up ? -1 : 1));
         return b;
     }

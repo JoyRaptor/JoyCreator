@@ -142,3 +142,36 @@ Total: ~30 classes, ~4,500 lines (about 1% of the app).
 7. FREE-10 Recorder engine (A1 service + GL pipeline, A2 dual camera if wanted), last and hardest, behind a recording-safety test on two phones (Note 9, Note 20), then FREE-11 shared infrastructure (A17) and the shell (A18) and finally the package rename (FREE-2).
 
 **Owner decisions this list needs:** annotation (replace or cut), Forensics (cut for launch?), dual camera (keep?), Wear OS (cut?), clock widget and MiniApps (keep or hide), and whether Remote stays LAN-only.
+
+---
+
+## Update 2026-11-23 (website lane, build queue job 15): what changed since the 10-28 pass
+
+Read-only; same method as above, re-run at today's `joy-creator` (`be77fe896`). Calibration: run at the 10-28 commit `d28d73ba3` the script gives
+436,804 app Java lines and 160,576 still from the snapshot (36.8%), matching the 160,500 above, so the two dates compare. Not legal advice.
+
+| | 10-28 | 11-23 |
+|---|---|---|
+| App module Java lines | 436,804 | 483,232 |
+| Of which still from the fork snapshot | 160,576 (36.8%) | 152,926 (31.6%) |
+| Studio (`ui/faditor`) lines / still FadCam's | 245,286 / 9,466 (4%) | 266,954 / 9,153 (3%) |
+| Rest of `ui/` (Home, Records, players, Remote, Smart Detection, mini-apps) | 59,970 / 58,017 (97%) | 57,234 / 55,019 (96%) |
+| `fadrec/` screen recording and annotation | 25,128 / 22,263 (89%) | 25,253 / 22,242 (88%) |
+| `services/`, `service/`, `opengl/`, `streaming/`, `forensics/`, `dualcam/`, `utils/`, `playback/` | 92-99% FadCam's | 92-99% FadCam's |
+
+**Reading it:** the share fell because Joy Creator's own code grew (Studio, TextLab, Avatar Studio, hand-off, VisLab, Joy Creator folder), not because
+FadCam code left. The FadCam-derived total fell by about 7,600 lines (the dead-class and leftover removals, rewrites of Remote Studio's page and
+Smart Detection's colours); every recorder, Records, player, Remote, cloud, forensics and motion area is still 90-100% FadCam's own lines. **The
+verdicts in the 10-28 tables stand unchanged**, and so does the conclusion: no recorder or Records code has been rebuilt clean yet, so Joy Creator remains
+a GPL fork.
+
+**Closed since 10-28:**
+- The developer's own cloud: no file in `app/src/main` or the Studio kit mentions `supabase` or `fadseclab.com` any more (was the "worse than the plan says" item).
+- FadCam Pro and Ko-fi leftovers (L32 / SHELL-60, `f9dfb58b4`): one quiet support link on the About page remains (`strings_about.xml`); one `FadCam Pro` mention remains in `services/UpdateCheckService.java` (a wording to check).
+- `AvatarToggleView`: no longer in the tree; `JoybotSwitch` replaces it (one file still names the old one in a comment or reference: check).
+- FadCam-era folder names: FREE-2 step 3 (11-14) moves the old shared folders to Joy Creator names in the side-load build.
+- Remote Studio is locked by default with a pairing code (bug hunt B3); its web page is Joy Creator's (SHELL-49).
+
+**Still open (unchanged):** S10 (removing the 11 unused classes needs the owner's yes), the rebuild jobs for the camera recorder, screen recorder, Records and players if the
+owner wants the licence tie cut, and the owner's decision on keeping or cutting Smart Detection, dual camera and the cloud account. No new job cards were needed
+beyond FREE-2 and the existing rebuild rows; the owner has not yet seen this plan.

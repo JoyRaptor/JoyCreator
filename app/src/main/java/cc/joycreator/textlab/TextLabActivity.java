@@ -967,8 +967,11 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
         rows.add(new TlSheet.Row(getString(R.string.textlab_more_picture), getString(R.string.textlab_more_picture_tip),
                 false, () -> startActivityForResult(new Intent(Intent.ACTION_GET_CONTENT).setType("image/*")
                 .addCategory(Intent.CATEGORY_OPENABLE), PICK_PICTURE)));
+        // Save-as is offered in title mode too: when Studio is gone (the app was closed behind
+        // the room), "Use on the title" cannot deliver, and this is the only way not to lose the
+        // look the person just built (the message tells them to save it as a look).
+        rows.add(new TlSheet.Row(getString(R.string.textlab_more_save_as), getString(R.string.textlab_more_save_as_tip), false, () -> saveAs(null)));
         if (!titleMode) {
-            rows.add(new TlSheet.Row(getString(R.string.textlab_more_save_as), getString(R.string.textlab_more_save_as_tip), false, () -> saveAs(null)));
             if (editing != null && editing.from == TextLookShelf.From.MINE) {
                 rows.add(new TlSheet.Row(getString(R.string.textlab_more_rename), getString(R.string.textlab_more_rename_tip), false, this::askRename));
                 if (TlLookFiles.isCopyOfBuiltIn(editing)) {

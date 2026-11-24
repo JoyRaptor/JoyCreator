@@ -114,6 +114,13 @@ public class LooksComeHomeTest {
                 "app/src/main/java/cc/joycreator/textlab/TextLookShelf.java").toPath()), StandardCharsets.UTF_8);
         check("the shelf brings own-folder looks home before it lists the folder",
                 shelf.contains("TextLabPreviews.bringOwnLooksHome("));
+        String room = new String(Files.readAllBytes(new File(
+                "app/src/main/java/cc/joycreator/textlab/TextLabActivity.java").toPath()), StandardCharsets.UTF_8);
+        int more = room.indexOf("private void more()");
+        int saveAsRow = room.indexOf("textlab_more_save_as)", more);
+        int titleGate = room.indexOf("if (!titleMode) {", more);
+        check("Save as is offered while editing a title too (before the !titleMode block)",
+                more > 0 && saveAsRow > 0 && saveAsRow < titleGate);
         String session = new String(Files.readAllBytes(new File(
                 "app/src/main/java/com/fadcam/vislab/room/VisLabSession.java").toPath()), StandardCharsets.UTF_8);
         check("a VisLab part that fails to write is retried and the person told",

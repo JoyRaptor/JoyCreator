@@ -53,4 +53,4 @@ The tests that carry the proof (all run 2026-11-10):
 
 ## Second pass 2026-11-23 (job 13 of the build queue)
 Every row of the report re-checked against today's code (the card's "NOT STARTED" list was already done: F5, S11, S10, F6, F7). Seven new findings fixed with host tests, the kept-copy restore function built, four more suites now run in the cloud. The full table, what was found and not fixed, and the owed Note 9 list are in the report's "Second pass, 2026-11-23" section. Nothing here has been seen on a phone.
-- Open and not mine: J6 (JoyBrush engine lane); a screen to bring a kept copy back (the function `DiskStamp.restore` exists, no screen: needs a decision where it lives); TextLab title-edit with no Studio editor; where a VisLab look's pictures should live.
+- Open and not mine: J6 (JoyBrush engine lane); where a VisLab look's pictures should live; deleting a VisLab look while the folder is unreachable is a hard delete (owner's call on a local Trash). Built 11-23: the kept-copy screen (Library item sheet) and Save as in a TextLab title edit.

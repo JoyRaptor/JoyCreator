@@ -41,12 +41,14 @@ object PlainWords {
     )
 
     /** True when [sentence] names the app's insides. */
+    @JvmStatic
     fun isTechnical(sentence: String): Boolean = TECHNICAL.any { it.containsMatchIn(sentence) }
 
     /**
      * [message] as a person should read it: the plain sentences up to the first technical one; or
      * [fallback] when nothing plain is left. A message with nothing technical in it is returned as is.
      */
+    @JvmStatic @JvmOverloads
     fun forPerson(message: String?, fallback: String = FALLBACK): String {
         val m = message?.trim().orEmpty()
         if (m.isEmpty()) return fallback

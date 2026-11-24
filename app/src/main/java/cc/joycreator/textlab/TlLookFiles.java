@@ -114,7 +114,7 @@ public final class TlLookFiles {
             return new Done(rel, null);
         } catch (Exception e) {
             Log.w(TAG, "look not saved", e);
-            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_saved, e.getMessage()));
+            return new Done(null, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(c.getString(com.fadcam.R.string.textlab_not_saved, e.getMessage())));
         }
     }
 
@@ -138,7 +138,7 @@ public final class TlLookFiles {
             mine = new TextLookShelf.Item("folder:" + path, FileKind.baseOf(Placement.nameOf(path)), "My looks",
                     TextLookShelf.From.MINE, new JSONObject(new String(jf0.readAll(path), StandardCharsets.UTF_8)), path);
         } catch (Exception e) {
-            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_renamed, e.getMessage()));
+            return new Done(null, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(c.getString(com.fadcam.R.string.textlab_not_renamed, e.getMessage())));
         }
         try {
             JoyFolder jf = folder(c);
@@ -163,7 +163,7 @@ public final class TlLookFiles {
             return new Done(rel, null);
         } catch (Exception e) {
             Log.w(TAG, "look not renamed", e);
-            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_renamed, e.getMessage()));
+            return new Done(null, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(c.getString(com.fadcam.R.string.textlab_not_renamed, e.getMessage())));
         }
     }
 
@@ -184,7 +184,7 @@ public final class TlLookFiles {
             return new Done(null, null);
         } catch (Exception e) {
             Log.w(TAG, "look not deleted", e);
-            return new Done(null, c.getString(com.fadcam.R.string.textlab_not_deleted, e.getMessage()));
+            return new Done(null, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(c.getString(com.fadcam.R.string.textlab_not_deleted, e.getMessage())));
         }
     }
 

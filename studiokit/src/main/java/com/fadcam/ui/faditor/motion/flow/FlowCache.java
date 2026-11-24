@@ -14,6 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.zip.CRC32;
 import java.util.zip.DeflaterOutputStream;
@@ -39,7 +40,7 @@ public final class FlowCache {
     public static final long DEFAULT_MAX_BYTES = 256L * 1024L * 1024L;
 
     private static final int MAGIC = 0x4a464c57; // JFLW
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final int DIGEST_BYTES = 32;
     private static final int MAX_RAW_BYTES = 256 * 1024 * 1024;
     private static final float VECTOR_SCALE = 16f;
@@ -67,12 +68,28 @@ public final class FlowCache {
         enforceQuota();
     }
 
+    public enum Flag {
+        DUPLICATE(1), LONG_GAP(2), FLASH(4), OCCLUSION(8), POSSIBLE_WHIP_PAN(16);
+
+        final int bit;
+        Flag(int bit) { this.bit = bit; }
+    }
+
     /** A complete bidirectional estimate for one neighbouring source-frame pair. */
     public static final class Pair {
         public final FlowField forward;
         public final FlowField backward;
+        private final int flags;
 
         public Pair(FlowField forward, FlowField backward) {
+            this(forward, backward, 0);
+        }
+
+        Pair(FlowField forward, FlowField backward, EnumSet<Flag> assessment) {
+            this(forward, backward, assessment.stream().mapToInt(flag -> flag.bit).reduce(0, (a, b) -> a | b));
+        }
+
+        private Pair(FlowField forward, FlowField backward, int flags) {
             if (forward == null || backward == null
                     || forward.width != backward.width || forward.height != backward.height
                     || forward.fromPtsUs != backward.toPtsUs
@@ -81,7 +98,10 @@ public final class FlowCache {
             }
             this.forward = forward;
             this.backward = backward;
+            this.flags = flags;
         }
+
+        public boolean has(Flag flag) { return (flags & flag.bit) != 0; }
     }
 
     /** Every value that can make an analysed field geometrically or algorithmically different. */
@@ -98,13 +118,22 @@ public final class FlowCache {
         public final String detail;
         public final int width;
         public final int height;
+        public final long maxGapUs;
 
         public Key(String sourceFingerprint, int orientationDegrees,
                    int cropLeft, int cropTop, int cropRight, int cropBottom,
                    long fromPtsUs, long toPtsUs, String estimatorRevision, String detail,
                    int width, int height) {
+            this(sourceFingerprint, orientationDegrees, cropLeft, cropTop, cropRight, cropBottom,
+                    fromPtsUs, toPtsUs, estimatorRevision, detail, width, height, Long.MAX_VALUE);
+        }
+
+        public Key(String sourceFingerprint, int orientationDegrees,
+                   int cropLeft, int cropTop, int cropRight, int cropBottom,
+                   long fromPtsUs, long toPtsUs, String estimatorRevision, String detail,
+                   int width, int height, long maxGapUs) {
             if (sourceFingerprint == null || estimatorRevision == null || detail == null
-                    || width <= 0 || height <= 0 || fromPtsUs == toPtsUs) {
+                    || width <= 0 || height <= 0 || fromPtsUs == toPtsUs || maxGapUs <= 0) {
                 throw new IllegalArgumentException("invalid flow cache key");
             }
             this.sourceFingerprint = sourceFingerprint;
@@ -119,6 +148,7 @@ public final class FlowCache {
             this.detail = detail;
             this.width = width;
             this.height = height;
+            this.maxGapUs = maxGapUs;
         }
 
         byte[] digest() {
@@ -137,6 +167,7 @@ public final class FlowCache {
                 out.writeUTF(detail);
                 out.writeInt(width);
                 out.writeInt(height);
+                out.writeLong(maxGapUs);
                 out.close();
                 return MessageDigest.getInstance("SHA-256").digest(bytes.toByteArray());
             } catch (IOException impossible) {
@@ -231,6 +262,7 @@ public final class FlowCache {
     private static byte[] encode(Pair pair) throws IOException {
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         DataOutputStream out = new DataOutputStream(bytes);
+        out.writeByte(pair.flags);
         writeField(out, pair.forward);
         writeField(out, pair.backward);
         out.close();
@@ -254,10 +286,11 @@ public final class FlowCache {
 
     private static Pair decode(byte[] raw) throws IOException {
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(raw));
+        int flags = in.readUnsignedByte();
         FlowField forward = readField(in);
         FlowField backward = readField(in);
         if (in.read() != -1) throw new IOException("raw trailing bytes");
-        return new Pair(forward, backward);
+        return new Pair(forward, backward, flags);
     }
 
     private static FlowField readField(DataInputStream in) throws IOException {

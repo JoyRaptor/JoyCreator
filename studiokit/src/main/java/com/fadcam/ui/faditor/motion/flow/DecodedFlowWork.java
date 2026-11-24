@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.motion.flow;
 
+import java.util.EnumSet;
+
 /** One lazy decoded PTS pair for {@link FlowAnalyzer}; queued work retains no frame pixels. */
 public final class DecodedFlowWork implements FlowAnalyzer.Work {
     public interface Decoder {
@@ -34,12 +36,14 @@ public final class DecodedFlowWork implements FlowAnalyzer.Work {
 
     @Override public FlowCache.Pair analyze(FlowAnalyzer.Cancellation cancellation) throws Exception {
         if (cancellation.isCancelled()) return null;
+        if (FlowPairAssessment.longGap(key)) return zeroPair(FlowCache.Flag.LONG_GAP);
         LumaImage from = decoder.decode(key.fromPtsUs, key.width, key.height);
         if (cancellation.isCancelled()) return null;
-        LumaImage to = decoder.decode(key.toPtsUs, key.width, key.height);
         checkShape(from);
-        checkShape(to);
+        LumaImage to = decoder.decode(key.toPtsUs, key.width, key.height);
         if (cancellation.isCancelled()) return null;
+        checkShape(to);
+        if (FlowPairAssessment.identical(from, to)) return zeroPair(FlowCache.Flag.DUPLICATE);
         FlowField forward = estimator.estimate(from, to, key.fromPtsUs, key.toPtsUs);
         if (cancellation.isCancelled()) return null;
         FlowField backward = estimator.estimate(to, from, key.toPtsUs, key.fromPtsUs);
@@ -48,7 +52,20 @@ public final class DecodedFlowWork implements FlowAnalyzer.Work {
         if (cancellation.isCancelled()) return null;
         FlowField trustedBackward = FlowConfidence.attach(backward, forward, to, from, confidence);
         if (cancellation.isCancelled()) return null;
-        return new FlowCache.Pair(trustedForward, trustedBackward);
+        var assessment = FlowPairAssessment.assess(from, to, trustedForward, trustedBackward, confidence);
+        if (cancellation.isCancelled()) return null;
+        return new FlowCache.Pair(trustedForward, trustedBackward, assessment);
+    }
+
+    private FlowCache.Pair zeroPair(FlowCache.Flag flag) {
+        FlowField forward = FlowField.zero(key.width, key.height, key.fromPtsUs, key.toPtsUs);
+        FlowField backward = FlowField.zero(key.width, key.height, key.toPtsUs, key.fromPtsUs);
+        if (flag == FlowCache.Flag.LONG_GAP) {
+            float[] untrusted = new float[key.width * key.height];
+            forward = forward.withConfidence(untrusted);
+            backward = backward.withConfidence(untrusted);
+        }
+        return new FlowCache.Pair(forward, backward, EnumSet.of(flag));
     }
 
     private void checkShape(LumaImage image) {

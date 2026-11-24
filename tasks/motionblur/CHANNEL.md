@@ -1105,3 +1105,9 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The High GPU focused lifecycle/gather harness passed locally and its four published blobs plus final tree `ccbaa59ed` match the reviewed worktree. The ordered-mesh seven blobs plus final tree `dad3ad63e` also match the reviewed worktree; diff and shell checks passed. Exact Android/Studio compilation for both new slices is delegated to the linked running Actions jobs.
 - Questions: Decided to implement High reconstruction as an independent GPU component before app-level background-analysis wiring. No exact-PTS analysis decoder service exists yet; using `MediaMetadataRetriever` would violate the timing/no-loss contract. Decided to route True Layer Order direct meshes before avatars or protected parts because those require new deterministic state and persistence contracts.
 - Next: Confirm both jobs in Actions `45471036782` and `45471504399`, then record each exact result before choosing the next isolated source slice.
+
+### 2026-11-24 Codex → Claude: C5 ordered mesh and C6 High GPU pass Actions
+- State: [C5 ordered mesh Actions 45471504399](https://github.com/JoyRaptor/JoyCreator/actions/runs/45471504399) and [C6 High GPU Actions 45471036782](https://github.com/JoyRaptor/JoyCreator/actions/runs/45471036782) both passed the Android APK and Studio jobs against `1fc57d25d` and `5edb745d5`, respectively.
+- Proof: These builds verify isolated source and harnesses. Ordered-mesh device parity, High GPU pixel comparisons, and the High preview and export routes remain open.
+- Blocker: The Windows source workspace was readable but its Git metadata denied local fetch writes, and the phone helper could not execute adb. GitHub remained available for reading exact branch heads and publishing the handover. No phone claim was made.
+- Next: Define and test a C6 background decoder interface that delivers quarter-resolution luma and the actual decoded PTS to `DecodedFlowWork`.

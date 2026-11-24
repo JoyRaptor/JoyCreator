@@ -228,3 +228,8 @@ voiceover lane jumps the film under it too (one rule: a jump is a jump of the wh
 - ⬜ Not reached: Clean tab after Revert+Undo (could not find the tab in the drawer on this screen), caption-style chip undo (needs the speech model), old-style Fix audio re-time (no such project).
 
 - 11-15 later (tablet): ✅ Clean tab status line after Revert then Undo; ❌ F1 (tap on a cut handle) and F3 (audio clip undrawn until a lane is toggled) both reproduce on the tablet; ✅ SHELL-10 watermark in a saved video and photo (screen recording not run). Details: [device_checks_20261115](../audits/device_checks_20261115.md).
+
+## 11-24 audio envelope Clear on the Note 9 (hover-1 lane, build of joy-creator c0d9d4afc)
+- The audio drawer (hold the audio clip; Level, Pan, Envelope, In, Out) on a clip carrying the 17-key ducking envelope: its row reads "Envelope - 10 pts - slider drives the point under" with a Clear button (`n2.png`).
+- **Clear removes the envelope line from the clip (the line goes flat) but the drawer still reads "10 pts" and the Undo counter stays at 50, i.e. no new undo step (`n3.png`).** Pressing Undo then took the counter to 49 and the row read "Flat gain" (`n4.png`): that undid the earlier ducking, not the Clear. Redo brought the 10 points back (`n5.png`). So: Clear is probably **not undoable and the row label goes stale**. Reasoned from counters, not proven by an isolated test; a clean repeat (clear a fresh envelope, read Undo's name) would confirm. This is the card's "Audio envelope Clear / In oddities" row; the In slider was not touched.
+- Not run from this card: caption motion, hide-eye/outline swatch, puppet recording tab, sprite Lanes pills, warp net, OverlayNavUtil dismiss.

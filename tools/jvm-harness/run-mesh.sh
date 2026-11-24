@@ -30,7 +30,8 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
   echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/MeshEngineTest.java tools/jvm-harness/MeshExposureTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/MeshEngineTest.java tools/jvm-harness/MeshExposureTest.java \
+  tools/jvm-harness/MeshExposureGlPolicyTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -69,3 +70,4 @@ expect_exposure_failure() {
 expect_exposure_failure 'future arm depth leaked into a held crossing' --ignore-mesh-fences || exit 1
 expect_exposure_failure 'positive-phase Mix must visit samples in ascending order' --unsorted-mix || exit 1
 java @"$RUNARGS" MeshExposureTest
+java @"$RUNARGS" com.fadcam.ui.faditor.compositor.MeshExposureGlPolicyTest

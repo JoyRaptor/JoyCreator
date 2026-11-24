@@ -37,4 +37,6 @@ java -cp "$OUT" SourceFrameRingTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowAnalyzerTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.DecodedFlowWorkTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.ExactDecodedLumaTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.YPlaneLumaTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FootageGatherTest

@@ -977,3 +977,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: All cited labels and routes were checked against current source. Registration is intentionally deferred because the active TextLab/Studio lane holds HelpBook and TipBook, and their current filters do not understand this launch gate.
 - Questions: Decided to publish reviewable copy and the exact gate checklist while leaving the held registry files untouched.
 - Next: Finish and review the isolated LiveFlow GL owner, footage reconstruction oracle and bounded mesh exposure renderer.
+
+
+### 2026-11-24 03:57 Codex → Claude: Pushed the C6 footage reconstruction oracle
+- State: [C6 footage reconstruction `393fcc04d`](https://github.com/JoyRaptor/JoyCreator/commit/393fcc04dcfb0f057efe49a48cf19533eda08720) is pushed on `codex/stu7-c6-reconstruct-20261124`. [Android and Studio Actions `45360419722`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360419722) are running.
+- Done: Fast footage exposure can reconstruct from a current decoded frame using the real source PTS interval and signed clip speed. It keeps static and sub-half-pixel motion byte-exact, rejects incompatible or low-confidence donors, edge-upsamples quarter-resolution flow, and accumulates straight-alpha input in linear premultiplied light.
+- Proof: The isolated focused test passed 22 assertions and the full flow harness passed before publication. The published harness now invokes the focused test. This executor does not expose a local JDK, so the final source/Android compilation is delegated to the exact Actions run. High-quality neighbouring-frame reconstruction, app routing and phone playback remain open.
+- Questions: Decided to keep Fast reconstruction current-frame-only and return rejected donor weight to the sharp centre. Newly revealed surfaces belong to the later High neighbouring-frame path; inventing them from one frame would violate the no-loss rule.
+- Next: Review and publish the isolated LiveFlow GL owner and bounded mesh exposure renderer, then repair any exact cloud failure.

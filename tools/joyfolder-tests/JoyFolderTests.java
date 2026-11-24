@@ -5,6 +5,7 @@ import com.fadcam.joyfolder.Fingerprint;
 import com.fadcam.joyfolder.FolderIndex;
 import com.fadcam.joyfolder.JoyPack;
 import com.fadcam.joyfolder.PackFolders;
+import com.fadcam.joyfolder.SpaceErrors;
 import com.fadcam.joyfolder.FolderRoles;
 import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.JoyFs;
@@ -49,6 +50,7 @@ public final class JoyFolderTests {
         run("packs: manifest, sockets, unknown kept, unsafe paths refused", JoyFolderTests::packs);
         run("packs: installed shelf by socket, order, missing files, later levels", JoyFolderTests::packShelf);
         run("pack folders: the contract (names, safe paths, homes, hidden staging)", JoyFolderTests::packFolders);
+        run("large share-in: progress, no half file on failure, plain out-of-space words", JoyFolderTests::largeShareIn);
         run("placement: the three rules", JoyFolderTests::placement);
         run("roles: adopt by name, drop when gone", JoyFolderTests::roles);
         run("fingerprint: content identity, sampling", JoyFolderTests::fingerprint);
@@ -727,6 +729,58 @@ public final class JoyFolderTests {
         eq("share-in", jf.index.get(b).origin);
         check(jf.index.get(b).fingerprint != null, "fingerprinted on add");
         eq("", jf.prepareDir(Placement.What.RECORDING, null, null, null));
+    }
+
+    /** FILE-1, large share-ins: a big copy reports progress, never keeps a half file, and says "out of room" in plain words. */
+    static void largeShareIn() throws IOException {
+        FileJoyFs fs = tempFs();
+        JoyFolder jf = JoyFolder.open(fs);
+        // 5 MB streamed through: progress rises, ends at the full size, and arrives a few times, not 20 000
+        final int size = 5 * 1024 * 1024 + 123;
+        byte[] data = new byte[size];
+        for (int i = 0; i < size; i++) data[i] = (byte) (i * 31);
+        final java.util.List<Long> seen = new java.util.ArrayList<>();
+        String rel = jf.addFile("", "big clip.mp4", new java.io.ByteArrayInputStream(data), "share-in", seen::add);
+        eq("big clip.mp4", rel);
+        eq((long) size, fs.stat(rel).size);
+        check(seen.size() >= 4 && seen.size() <= 8, "progress is reported a handful of times: " + seen.size());
+        boolean rising = true;
+        for (int i = 1; i < seen.size(); i++) rising &= seen.get(i) > seen.get(i - 1);
+        check(rising, "progress only goes up");
+        eq((long) size, seen.get(seen.size() - 1));
+
+        // a source that fails part way (here: no room left) leaves no half-written file and the error survives
+        java.io.InputStream failing = new java.io.InputStream() {
+            long given = 0;
+            @Override public int read() throws IOException { throw new IOException("unused"); }
+            @Override public int read(byte[] b, int off, int len) throws IOException {
+                if (given > 600 * 1024) throw new IOException("write failed: ENOSPC (No space left on device)");
+                int n = Math.min(len, 128 * 1024);
+                given += n;
+                return n;
+            }
+        };
+        IOException thrown = null;
+        try {
+            jf.addFile("", "second.mp4", failing, "share-in");
+        } catch (IOException e) {
+            thrown = e;
+        }
+        check(thrown != null, "the failure is not swallowed");
+        check(fs.stat("second.mp4") == null, "no half file under the real name");
+        boolean tmpLeft = false;
+        for (JoyFs.Entry e : fs.list("")) tmpLeft |= e.name.endsWith(".tmp") || e.name.startsWith("second");
+        check(!tmpLeft, "no temporary file left behind");
+        check(thrown != null && SpaceErrors.isOutOfSpace(thrown), "the failure is recognised as out of space");
+        check(SpaceErrors.plain(thrown).startsWith("the phone ran out of room"), "and said plainly: " + SpaceErrors.plain(thrown));
+
+        // out-of-space is found through a cause chain, and other errors keep their own words
+        check(SpaceErrors.isOutOfSpace(new RuntimeException("wrapper", new IOException("No space left on device"))), "cause chain");
+        check(SpaceErrors.isOutOfSpace(new IOException("Not enough storage space")), "another phrasing");
+        check(!SpaceErrors.isOutOfSpace(new IOException("couldn't read the shared file")), "an ordinary failure is not 'out of room'");
+        eq("couldn't read the shared file", SpaceErrors.plain(new IOException("couldn't read the shared file")));
+        eq("an unknown problem", SpaceErrors.plain(new IOException()));
+        eq("an unknown problem", SpaceErrors.plain(null));
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

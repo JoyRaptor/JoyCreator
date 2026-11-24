@@ -466,7 +466,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void hideStatus() {
         runOnUiThread(() -> {
             statusSpinner.setVisibility(View.GONE);
-            statusText.setText("✓ Done");
+            statusText.setText(com.fadcam.R.string.chat_status_done);
             statusHandler.postDelayed(hideStatusRunnable, 2000);
         });
     }
@@ -573,7 +573,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void showAttachChooser() {
         if (projectId == null || projectId.isEmpty()) { pickImage(); return; }
         StudioDialog.builder(this)
-                .setTitle("Show the assistant…")
+                .setTitle(com.fadcam.R.string.chat_show_assistant_title)
                 .setItems(new String[]{"🎞  This frame (at the playhead)", "🖼  Pick an image…"},
                         (d, which) -> {
                             if (which == 0) attachFrameAtPlayhead(); else pickImage();
@@ -713,7 +713,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         scrollToBottom();
 
         if (inputField.getText().toString().trim().isEmpty()) {
-            inputField.setText("What do you see in this frame?");
+            inputField.setText(com.fadcam.R.string.chat_prompt_see_frame);
         }
 
         if (!AiService.ready(this, apiKey)) {
@@ -768,7 +768,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         // Caption text
         TextView caption = new TextView(this);
-        caption.setText("Picture attached");
+        caption.setText(com.fadcam.R.string.chat_picture_attached);
         caption.setTextColor(Studio.INK_FAINT);
         caption.setTextSize(12);
         wrapper.addView(caption);
@@ -812,7 +812,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     + " tell you what I see.)");
         }
         inputField.setText("");
-        inputField.setHint("What should I do with this picture?");
+        inputField.setHint(com.fadcam.R.string.chat_picture_hint);
         inputField.requestFocus();
     }
 
@@ -1008,7 +1008,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             return;
         }
         if (busy) {
-            Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.chat_still_working, Toast.LENGTH_SHORT).show();
             return;
         }
         // Thanked or praised: he takes a bow (owner, 11-15). Told no: he bins the idea (owner, 11-15 evening).
@@ -1028,7 +1028,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (stagedImage != null) {
             String image = stagedImage;
             stagedImage = null;
-            inputField.setHint("Ask anything…");
+            inputField.setHint(com.fadcam.R.string.chat_ask_anything);
             if (text.isEmpty()) text = "What do you see in this picture?";
             addUserMessage(text);
             inputField.setText("");
@@ -1099,7 +1099,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             }
             // Something else entirely (a question): the create questions let go.
             createFlow = null;
-            inputField.setHint("Ask anything…");
+            inputField.setHint(com.fadcam.R.string.chat_ask_anything);
         }
         // "Tell me a joke": his own roster, offline (owner 11-15).
         if (com.fadcam.ui.faditor.ai.joybot.JokeBook.asks(text)) {
@@ -1704,7 +1704,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** A tapped idea (or a typed sentence that matched one). */
     private void runIdea(@NonNull Idea idea, boolean sayIt) {
         if (busy) {
-            Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.chat_still_working, Toast.LENGTH_SHORT).show();
             return;
         }
         if (MY_RECIPES.key.equals(idea.key)) {
@@ -1887,7 +1887,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         box.setPadding(dp(20), dp(8), dp(20), 0);
         box.addView(field);
         StudioDialog.builder(this)
-                .setTitle("Name this recipe")
+                .setTitle(com.fadcam.R.string.chat_recipe_name_title)
                 .setView(box)
                 .setPositiveButton("Save", (d, w) -> saveRecipe(f, field.getText().toString(), card))
                 .setNegativeButton("Cancel", null)
@@ -2000,8 +2000,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void confirmDeleteRecipe(@NonNull RecipeStore.Saved s, @NonNull View row) {
         StudioDialog.danger(this)
-                .setTitle("Delete “" + s.recipe.name + "”?")
-                .setMessage("Its steps will be gone from My recipes.")
+                .setTitle(getString(com.fadcam.R.string.chat_recipe_delete_title, s.recipe.name))
+                .setMessage(com.fadcam.R.string.chat_recipe_delete_message)
                 .setPositiveButton("Delete", (d, w) -> aiExecutor.execute(() -> {
                     String failed = null;
                     try {
@@ -2114,7 +2114,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     /** False (with a note) while Joybot is still working: a card button must not start a second request. */
     private boolean idleOrSay() {
         if (!busy) return true;
-        Toast.makeText(this, "Joybot is still working — tap Stop first", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, com.fadcam.R.string.chat_still_working, Toast.LENGTH_SHORT).show();
         return false;
     }
 
@@ -2280,8 +2280,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
         String rest = after == 0 ? "This change will go."
                 : "This change and " + (after == 1 ? "the one after it" : "the " + after + " after it") + " will go.";
         StudioDialog.builder(this)
-                .setTitle("Undo from here?")
-                .setMessage("Put the project back how it was before this? " + rest)
+                .setTitle(com.fadcam.R.string.chat_undo_here_title)
+                .setMessage(getString(com.fadcam.R.string.chat_undo_here_message, rest))
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Undo from here", (d, w) -> undoFrom(pid, changes, index, rows))
                 .show();
@@ -2505,7 +2505,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     private void undoStep(@NonNull JoybotChatViews.Card card, @NonNull AIChatState.Step step) {
         if (projectId == null) return;
         if (AIChatState.peekStep(projectId) != step) {
-            Toast.makeText(this, "Undo the newer change first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.chat_undo_newer_first, Toast.LENGTH_SHORT).show();
             return;
         }
         if (busy) return;
@@ -2810,7 +2810,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             getTheme().resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, tv, true);
             mic.setBackgroundResource(tv.resourceId);
             mic.setImageTintList(android.content.res.ColorStateList.valueOf(Studio.INK_DIM));
-            inputField.setHint("Ask anything\u2026");
+            inputField.setHint(com.fadcam.R.string.chat_ask_anything);
         }
     }
 
@@ -3431,7 +3431,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (f == null) return;
         if (raw.isEmpty()) {
             createFlow = null;
-            inputField.setHint("Ask anything…");
+            inputField.setHint(com.fadcam.R.string.chat_ask_anything);
             addBotMessage("No problem: nothing was made.");
             refreshIdeas(false);
             return;
@@ -3456,7 +3456,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
                     : "Sorry, I didn't catch that." + (q != null && q.typeHint != null ? " Try " + q.typeHint.toLowerCase(java.util.Locale.US) + "." : " Tap one of the buttons."));
             return;
         }
-        inputField.setHint("Ask anything…");
+        inputField.setHint(com.fadcam.R.string.chat_ask_anything);
         askCreate();
     }
 
@@ -3954,7 +3954,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         eye.setTextSize(20);
         eye.setTextColor(Studio.INK_DIM);
         eye.setPadding(dp(10), dp(8), dp(4), dp(8));
-        eye.setContentDescription("Hold to show the key");
+        eye.setContentDescription(getString(com.fadcam.R.string.chat_key_eye));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(eye, "Hold to show the key");
         eye.setOnTouchListener((v, ev) -> {
             int a = ev.getActionMasked();
@@ -3975,7 +3975,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         root.addView(detected);
 
         TextView labelModel = new TextView(this);
-        labelModel.setText("Model:");
+        labelModel.setText(com.fadcam.R.string.chat_label_model);
         labelModel.setTextColor(Studio.INK_DIM);
         labelModel.setPadding(0, pad, 0, 0);
         root.addView(labelModel);
@@ -3987,7 +3987,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         root.addView(inputModel);
 
         TextView labelPic = new TextView(this);
-        labelPic.setText("Picture model (for pictures Joybot makes):");
+        labelPic.setText(com.fadcam.R.string.chat_label_picture_model);
         labelPic.setTextColor(Studio.INK_DIM);
         labelPic.setPadding(0, pad, 0, 0);
         root.addView(labelPic);
@@ -4001,7 +4001,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         root.addView(inputPic);
 
         TextView labelBase = new TextView(this);
-        labelBase.setText("Service address (optional):");
+        labelBase.setText(com.fadcam.R.string.chat_label_service_address);
         labelBase.setTextColor(Studio.INK_DIM);
         labelBase.setPadding(0, pad, 0, 0);
         root.addView(labelBase);
@@ -4032,13 +4032,13 @@ public class ChatAssistantActivity extends AppCompatActivity {
                         inputBase.setText("");
                     }
                     if (inputModel.getText().toString().trim().isEmpty()) inputModel.setText(DEFAULT_MODEL);
-                    detected.setText("✓ An OpenRouter key.");
+                    detected.setText(com.fadcam.R.string.chat_detected_openrouter);
                 } else {
                     if (base.isEmpty() || !base.equals(p.base)) inputBase.setText(p.base);
                     String m = inputModel.getText().toString().trim();
                     if (m.isEmpty() || m.equals(DEFAULT_MODEL) || m.contains("/")) {
                         inputModel.setText("");
-                        inputModel.setHint("you'll pick from your " + p.name + " models");
+                        inputModel.setHint(getString(com.fadcam.R.string.chat_model_hint, p.name));
                     }
                     detected.setText("✓ A " + p.name + " key — address filled in for you.");
                 }
@@ -4061,7 +4061,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
         // Joybot's voice: off unless asked for (it is a phone in a quiet room as often as not).
         CheckBox readAloud = new CheckBox(this);
-        readAloud.setText("Read Joybot's replies aloud");
+        readAloud.setText(com.fadcam.R.string.chat_read_aloud);
         readAloud.setTextColor(Studio.INK_DIM);
         readAloud.setChecked(JoybotVoice.readAloud(this));
         readAloud.setPadding(0, pad / 2, 0, 0);
@@ -4093,7 +4093,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         titleRow.addView(titleIcon);
 
         TextView titleText = new TextView(this);
-        titleText.setText("AI Assistant Settings");
+        titleText.setText(com.fadcam.R.string.chat_settings_title);
         titleText.setTextColor(Studio.INK);
         titleText.setTextSize(18);
         titleText.setTypeface(null, Typeface.BOLD);
@@ -4108,7 +4108,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         if (accountCount > 1) {
             builder.setNeutralButton("Remove account", (d, w) ->
                     StudioDialog.danger(this)
-                            .setMessage("Forget the " + account.name + " account and its key on this phone?")
+                            .setMessage(getString(com.fadcam.R.string.chat_forget_account, account.name))
                             .setPositiveButton("Forget it", (d2, w2) -> {
                                 AiAccounts.remove(this, account.id);
                                 reloadAccount();
@@ -4270,7 +4270,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             ClipboardManager cm = (ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             if (cm != null) {
                 cm.setPrimaryClip(ClipData.newPlainText("message", (CharSequence) v.getTag()));
-                Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, com.fadcam.R.string.bridge_copied, Toast.LENGTH_SHORT).show();
             }
         });
         wrapper.addView(copyBtn);
@@ -4289,7 +4289,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             flp.gravity = android.view.Gravity.BOTTOM | android.view.Gravity.END;
             flp.setMargins(0, 0, dp(30), dp(2));
             flag.setLayoutParams(flp);
-            flag.setContentDescription("Report this reply");
+            flag.setContentDescription(getString(com.fadcam.R.string.chat_report_flag));
             androidx.appcompat.widget.TooltipCompat.setTooltipText(flag, "Report this reply");
             // The bubble is born saying "Thinking…" and the answer is written into it later
             // (updateLastBotMessage), so the report reads the words the bubble holds when the flag is tapped.
@@ -4309,11 +4309,8 @@ public class ChatAssistantActivity extends AppCompatActivity {
      */
     private void confirmReport(@NonNull String reply) {
         StudioDialog.builder(this)
-                .setTitle("Report this reply?")
-                .setMessage("Joybot's answers can come from an AI, and an AI can be wrong or say something it "
-                        + "shouldn't. Reporting keeps this reply and your question in your Joy Creator folder "
-                        + "(Joybot/Reports) and opens an email to us with both filled in. Nothing is sent until "
-                        + "you press send in your email app.")
+                .setTitle(com.fadcam.R.string.chat_report_title)
+                .setMessage(com.fadcam.R.string.chat_report_message)
                 .setPositiveButton("Report", (d, w) -> sendReport(reply))
                 .setNegativeButton("Cancel", null)
                 .show();
@@ -4607,19 +4604,19 @@ public class ChatAssistantActivity extends AppCompatActivity {
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         Button notNow = new Button(this);
-        notNow.setText("Not now");
+        notNow.setText(com.fadcam.R.string.chat_not_now);
         notNow.setLayoutParams(blp);
-        notNow.setContentDescription("Don't export the video now");
+        notNow.setContentDescription(getString(com.fadcam.R.string.chat_not_now_description));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(notNow, "Don't export now");
         notNow.setOnClickListener(v -> {
             View sub = card.getChildAt(1);
-            if (sub instanceof TextView) ((TextView) sub).setText("Not exported.");
+            if (sub instanceof TextView) ((TextView) sub).setText(com.fadcam.R.string.chat_not_exported);
             setCardEnabled(card, false);
         });
         Button go = new Button(this);
-        go.setText("Export now");
+        go.setText(com.fadcam.R.string.chat_export_now);
         go.setLayoutParams(blp);
-        go.setContentDescription("Start the export now with these settings");
+        go.setContentDescription(getString(com.fadcam.R.string.chat_export_now_description));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(go, "Start the export with these settings");
         go.setOnClickListener(v -> { setCardEnabled(card, false); exportNow.onClick(v); });
         rowView.addView(notNow);
@@ -4751,15 +4748,15 @@ public class ChatAssistantActivity extends AppCompatActivity {
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(0,
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         Button discard = new Button(this);
-        discard.setText("Discard");
+        discard.setText(com.fadcam.R.string.chat_discard);
         discard.setLayoutParams(blp);
         discard.setOnClickListener(v -> {
             View sub = card.getChildAt(1);
-            if (sub instanceof TextView) ((TextView) sub).setText("Discarded.");
+            if (sub instanceof TextView) ((TextView) sub).setText(com.fadcam.R.string.chat_discarded);
             setCardEnabled(card, false);
         });
         Button applyBtn = new Button(this);
-        applyBtn.setText("Apply");
+        applyBtn.setText(com.fadcam.R.string.chat_apply);
         applyBtn.setLayoutParams(blp);
         applyBtn.setOnClickListener(v -> { setCardEnabled(card, false); apply.onClick(v); });
         androidx.appcompat.widget.TooltipCompat.setTooltipText(discard, "Don't make this change");
@@ -4917,7 +4914,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
         boolean hasKey = AiService.ready(this, apiKey);
         modelLabel.setVisibility(View.VISIBLE);
         if (!hasKey) {
-            modelLabel.setText("offline helper \u25BE");
+            modelLabel.setText(com.fadcam.R.string.chat_offline_helper);
             return;
         }
         if (ModelCatalog.talkingToPictures(this)) {
@@ -4980,7 +4977,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
             showSettingsDialog();
         });
         StudioDialog.builder(this)
-                .setTitle("Talk to\u2026")
+                .setTitle(com.fadcam.R.string.chat_talk_to)
                 .setItems(labels.toArray(new String[0]), (d, w) -> actions.get(w).run())
                 .show();
     }
@@ -5065,11 +5062,11 @@ public class ChatAssistantActivity extends AppCompatActivity {
             inputField.setInputType(android.text.InputType.TYPE_CLASS_TEXT
                     | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
                     | android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-            inputField.setHint("Paste your key here");
+            inputField.setHint(com.fadcam.R.string.chat_paste_key);
             inputField.requestFocus();
         } else {
             inputField.setInputType(chatInputType);
-            inputField.setHint("Ask anything\u2026");
+            inputField.setHint(com.fadcam.R.string.chat_ask_anything);
         }
     }
 

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): words that were typed into the Joybot chat screen (ChatAssistantActivity). -->
+<resources>
+    <string name="chat_status_done">✓ Done</string>
+    <string name="chat_show_assistant_title">Show the assistant…</string>
+    <string name="chat_prompt_see_frame">What do you see in this frame?</string>
+    <string name="chat_picture_attached">Picture attached</string>
+    <string name="chat_picture_hint">What should I do with this picture?</string>
+    <string name="chat_still_working">Joybot is still working — tap Stop first</string>
+    <string name="chat_ask_anything">Ask anything…</string>
+    <string name="chat_recipe_name_title">Name this recipe</string>
+    <string name="chat_recipe_delete_title">Delete “%1$s”?</string>
+    <string name="chat_recipe_delete_message">Its steps will be gone from My recipes.</string>
+    <string name="chat_undo_here_title">Undo from here?</string>
+    <string name="chat_undo_here_message">Put the project back how it was before this? %1$s</string>
+    <string name="chat_undo_newer_first">Undo the newer change first</string>
+    <string name="chat_key_eye">Hold to show the key</string>
+    <string name="chat_label_model">Model:</string>
+    <string name="chat_label_picture_model">Picture model (for pictures Joybot makes):</string>
+    <string name="chat_label_service_address">Service address (optional):</string>
+    <string name="chat_detected_openrouter">✓ An OpenRouter key.</string>
+    <string name="chat_model_hint">you\'ll pick from your %1$s models</string>
+    <string name="chat_read_aloud">Read Joybot\'s replies aloud</string>
+    <string name="chat_settings_title">AI Assistant Settings</string>
+    <string name="chat_forget_account">Forget the %1$s account and its key on this phone?</string>
+    <string name="chat_report_flag">Report this reply</string>
+    <string name="chat_report_title">Report this reply?</string>
+    <string name="chat_report_message">Joybot\'s answers can come from an AI, and an AI can be wrong or say something it shouldn\'t. Reporting keeps this reply and your question in your Joy Creator folder (Joybot/Reports) and opens an email to us with both filled in. Nothing is sent until you press send in your email app.</string>
+    <string name="chat_not_now">Not now</string>
+    <string name="chat_not_now_description">Don\'t export the video now</string>
+    <string name="chat_not_exported">Not exported.</string>
+    <string name="chat_export_now">Export now</string>
+    <string name="chat_export_now_description">Start the export now with these settings</string>
+    <string name="chat_discard">Discard</string>
+    <string name="chat_discarded">Discarded.</string>
+    <string name="chat_apply">Apply</string>
+    <string name="chat_offline_helper">offline helper ▾</string>
+    <string name="chat_talk_to">Talk to…</string>
+    <string name="chat_paste_key">Paste your key here</string>
+</resources>

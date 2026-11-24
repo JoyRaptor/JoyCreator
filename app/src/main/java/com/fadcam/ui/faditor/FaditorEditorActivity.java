@@ -44535,7 +44535,39 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         StudioDialog.builder(this)
                 .setTitle(R.string.avatar_studio_title)
-                .setItems(items, (d, which) -> {
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, items, new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    // PREVIEW-1: each avatar's neutral pose, small. The bake builds a view, so it runs on the main thread.
+                    @Override public String key(int i) {
+                        if (i == rigs.size()) return null;
+                        return i < rigs.size() ? "rig:" + rigs.get(i).getId() : "rig:" + lib.get(i - rigs.size() - 1).rig.getId();
+                    }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        final com.fadcam.ui.faditor.avatar.AvatarRig rig = i < rigs.size() ? rigs.get(i) : lib.get(i - rigs.size() - 1).rig;
+                        final java.util.List<com.fadcam.ui.faditor.sprite.SpriteSheet> sheets = i < rigs.size()
+                                ? project.getSpriteSheets() : lib.get(i - rigs.size() - 1).sheets;
+                        final java.io.File tmp = new java.io.File(getCacheDir(), "avatar-thumb-" + rig.getId() + ".png");
+                        final boolean[] ok = new boolean[1];
+                        final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+                        runOnUiThread(() -> {
+                            try {
+                                ok[0] = com.fadcam.ui.faditor.avatar.AvatarNeutralBaker.bakeNeutralPng(
+                                        FaditorEditorActivity.this, rig, sheets, tmp, 192);
+                            } finally {
+                                done.countDown();
+                            }
+                        });
+                        try {
+                            if (!done.await(10, java.util.concurrent.TimeUnit.SECONDS) || !ok[0]) return null;
+                            android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeFile(tmp.getPath());
+                            return b == null ? null : com.fadcam.ui.faditor.PartThumbs.square(b, new android.graphics.Rect(0, 0, b.getWidth(), b.getHeight()));
+                        } catch (InterruptedException e) {
+                            return null;
+                        } finally {
+                            //noinspection ResultOfMethodCallIgnored
+                            tmp.delete();
+                        }
+                    }
+                }), (d, which) -> {
                     if (which > rigs.size()) {
                         insertAvatarFromLibrary(lib.get(which - rigs.size() - 1));
                         return;

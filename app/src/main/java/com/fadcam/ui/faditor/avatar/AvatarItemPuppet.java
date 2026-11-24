@@ -53,6 +53,8 @@ public final class AvatarItemPuppet {
     @NonNull private PuppetPoseResolver.DiscreteState discrete =
             new PuppetPoseResolver.DiscreteState();
     private long lastLocalMs = Long.MIN_VALUE;
+    @Nullable private AvatarParamTrack lastTrack;
+    private boolean released;
 
     public AvatarItemPuppet(@NonNull Context context, @NonNull AvatarRig rig,
                             @NonNull Function<String, SpriteSheetRenderer> rendererLookup,
@@ -82,6 +84,7 @@ public final class AvatarItemPuppet {
             view.resetReplayState();
         }
         lastLocalMs = itemLocalMs;
+        lastTrack = track;
         view.setMediaClockMs(itemLocalMs);
         java.util.Map<String, Float> params = track.sampleAt(itemLocalMs);
         // Baked pinTarget.* params drive replay FABRIK exactly as live tracking
@@ -90,24 +93,74 @@ public final class AvatarItemPuppet {
         view.setTrackedPinTargets(TrackingDriverBus.extractPinTargets(params));
         view.setResolved(PuppetPoseResolver.resolve(rig, params, discrete));
 
-        int save;
-        if (alpha >= 0.999f) {
-            save = canvas.save();
-        } else {
-            save = canvas.saveLayerAlpha(dest.left, dest.top, dest.right, dest.bottom,
-                    Math.round(Math.max(0f, alpha) * 255));
-        }
+        int save = saveCanvas(canvas, dest, alpha);
         try {
-            canvas.translate(dest.left, dest.top);
-            canvas.scale(dest.width() / RENDER_SIZE, dest.height() / RENDER_SIZE);
+            mapToDestination(canvas, dest);
             view.draw(canvas);
         } finally {
             canvas.restoreToCount(save);
         }
     }
 
+    /**
+     * Fork the current sharp checkpoint before advancing it to the frame centre. The next
+     * sharp draw may occur before this exposure's last tap. A shutter that starts before the
+     * available checkpoint, or uses cadence-dependent dangle physics, must render sharp.
+     * The caller supplies an admitted, break-fenced schedule. Use a fork for one synchronous
+     * exposure while the item, take and rig are unchanged.
+     */
+    @Nullable
+    public Exposure beginExposure(@NonNull AvatarParamTrack track, long firstLocalUs) {
+        if (released || firstLocalUs < 0 || (lastTrack != null && lastTrack != track)
+                || firstLocalUs / 1000L < lastLocalMs
+                || rig.getParts().stream().anyMatch(part -> part.dangle)) return null;
+        return new Exposure(track, firstLocalUs);
+    }
+
+    public final class Exposure {
+        private final AvatarParamTrack track;
+        private final PuppetPoseResolver.DiscreteState tapDiscrete = discrete.copy();
+        private final AvatarReplayState tapReplay = view.copyReplayState();
+        private long lastTapUs;
+
+        private Exposure(AvatarParamTrack track, long firstLocalUs) {
+            this.track = track;
+            this.lastTapUs = firstLocalUs;
+        }
+
+        /** Draw an ordered shutter tap on the caller's sample target. */
+        public void draw(@NonNull Canvas canvas, @NonNull RectF dest, long localUs, float alpha) {
+            if (released || localUs < lastTapUs) {
+                throw new IllegalStateException("Exposure taps must advance on an open avatar");
+            }
+            lastTapUs = localUs;
+            var params = track.sampleAtMicros(localUs);
+            var targets = TrackingDriverBus.extractPinTargets(params);
+            var pose = PuppetPoseResolver.resolve(rig, params, tapDiscrete);
+            int save = saveCanvas(canvas, dest, alpha);
+            try {
+                mapToDestination(canvas, dest);
+                view.drawExposureTap(canvas, localUs, tapReplay, targets, pose);
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+
+    private static int saveCanvas(Canvas canvas, RectF dest, float alpha) {
+        if (alpha >= 0.999f) return canvas.save();
+        return canvas.saveLayerAlpha(dest.left, dest.top, dest.right, dest.bottom,
+                Math.round(Math.max(0f, alpha) * 255));
+    }
+
+    private static void mapToDestination(Canvas canvas, RectF dest) {
+        canvas.translate(dest.left, dest.top);
+        canvas.scale(dest.width() / RENDER_SIZE, dest.height() / RENDER_SIZE);
+    }
+
     /** Recycle the view's decoded cell-bitmap cache. The puppet is dead after. */
     public void release() {
+        released = true;
         view.bind(null, null);
     }
 

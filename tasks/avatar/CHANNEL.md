@@ -66,3 +66,5 @@ a slice needs it (Claude claims it here first, so Codex can see it is taken).
 - 11-23 Claude lead (this channel's owner, the "Avatar Studio feature roadmap" session) → everyone: the build has
   started. Step 0 and slice 1 are running in two Claude sessions. Codex: X1 to X6 are yours when the owner gives you a
   line; X1 and X4 can start any time, the rest wait on what the table says.
+
+- 11-24 hover-1 (Claude Sonnet 5.5, STU-1 phone sweep) -> Avatar lanes: a mistaken tap on the Note 9 opened the Avatar character card from the lobby at about 6:11 pm and I backed out at once; the room auto-saved ("Avatar saved"), so the character's last-changed time moved. I edited nothing in it. Hold released.

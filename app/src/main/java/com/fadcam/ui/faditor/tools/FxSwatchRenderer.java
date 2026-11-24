@@ -19,6 +19,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.fx.FxCompiler;
+import com.fadcam.ui.faditor.fx.FxDeviceGuard;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxGlSource;
 import com.fadcam.ui.faditor.fx.FxInstance;
@@ -224,8 +225,16 @@ public final class FxSwatchRenderer {
                 int renders = Math.max(1, pa.repeats);
                 for (int r = 0; r < renders; r++) {
                     boolean lastRender = lastPass && r == renders - 1;
-                    int prog = build(FxGlSource.VERTEX_SHADER,
-                            FxGlSource.fragment(pa, FxGlSource.KERNEL_HALF, lastRender, 1));
+                    int prog;
+                    try {
+                        prog = build(FxGlSource.VERTEX_SHADER,
+                                FxGlSource.fragment(pa, FxGlSource.KERNEL_HALF, lastRender, 1));
+                    } catch (RuntimeException refused) {
+                        // The driver will not take this effect: remember it, so the picker
+                        // stops offering it and nothing ever adds a card that cannot run here.
+                        for (FxInstance c : pa.cards) FxDeviceGuard.markFailed(c.effectId);
+                        return null;
+                    }
                     if (nProg < programs.length) programs[nProg++] = prog;
                     int dst = src == 1 ? 2 : 1;
                     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[dst]);

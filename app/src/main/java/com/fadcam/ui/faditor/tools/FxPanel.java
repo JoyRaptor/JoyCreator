@@ -1880,6 +1880,19 @@ public final class FxPanel {
                             .show());
                 } else {
                     c.setOnClickListener(v -> {
+                        // A shader this phone's driver refused is never added (STU-6 guard).
+                        if (com.fadcam.ui.faditor.fx.FxDeviceGuard.isUnavailable(def.id)) {
+                            StudioDialog.builder(ctx)
+                                    .setTitle(ctx.getString(
+                                            com.fadcam.R.string.faditor_fx_unavailable_title,
+                                            def.displayName))
+                                    .setMessage(ctx.getString(
+                                            com.fadcam.R.string.faditor_fx_unavailable_body,
+                                            def.displayName))
+                                    .setPositiveButton(com.fadcam.R.string.faditor_coachmark_got_it, null)
+                                    .show();
+                            return;
+                        }
                         picker.setVisibility(View.GONE);
                         structural(stack, host, rebuild,
                                 ctx.getString(com.fadcam.R.string.faditor_undo_fx_add, def.displayName),

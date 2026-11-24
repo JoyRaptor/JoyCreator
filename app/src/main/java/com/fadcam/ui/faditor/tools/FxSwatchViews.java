@@ -14,6 +14,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import com.fadcam.ui.faditor.Studio;
+import com.fadcam.ui.faditor.fx.FxDeviceGuard;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxParam;
@@ -63,8 +64,6 @@ final class FxSwatchViews {
         img.setBackgroundColor(Studio.RAISED);
         int side = Math.round(76 * d);
         col.addView(img, new LinearLayout.LayoutParams(side, side));
-        load(img, def, null, TILE_PX);
-
         TextView name = new TextView(ctx);
         name.setText(def.displayName);
         name.setTextColor(available ? Studio.INK : Studio.INK_FAINT);
@@ -76,6 +75,17 @@ final class FxSwatchViews {
                 side, LinearLayout.LayoutParams.WRAP_CONTENT);
         nlp.topMargin = Math.round(3 * d);
         col.addView(name, nlp);
+        // A shader this phone's driver refused: say so on the tile, now or once the swatch fails.
+        final Runnable markUnavailable = () -> {
+            name.setText(com.fadcam.R.string.faditor_fx_unavailable_short);
+            name.setTextColor(Studio.INK_FAINT);
+            img.setAlpha(0.4f);
+        };
+        if (FxDeviceGuard.isUnavailable(def.id)) markUnavailable.run();
+        else load(img, def, TILE_PX, () -> {
+            if (FxDeviceGuard.isUnavailable(def.id)) markUnavailable.run();
+        });
+
         if (!available) img.setAlpha(0.4f);
         return col;
     }
@@ -146,13 +156,13 @@ final class FxSwatchViews {
 
     // ── loading ─────────────────────────────────────────────────────────────
 
-    private static void load(@NonNull ImageView img, @NonNull FxEffectDef def,
-                             @Nullable FxInstance unused, int px) {
+    private static void load(@NonNull ImageView img, @NonNull FxEffectDef def, int px,
+                             @NonNull Runnable whenNoPicture) {
         Bitmap hit = FxSwatchRenderer.cached(def, px);
         if (hit != null) { img.setImageBitmap(hit); return; }
         WORKER.execute(() -> {
             final Bitmap b = FxSwatchRenderer.renderDefault(def, px);
-            if (b == null) return;
+            if (b == null) { MAIN.post(whenNoPicture); return; }
             MAIN.post(() -> { img.setImageBitmap(b); });
         });
     }

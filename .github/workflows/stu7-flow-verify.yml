@@ -4,7 +4,7 @@ on:
   push:
     branches: [codex/stu7-flow-verify-20261123]
     paths: [.github/workflows/stu7-flow-verify.yml]
-run-name: "Verify STU-7 C7 @ 575a72b116385a7fa74ebca72f022c520a0916f7"
+run-name: "Verify STU-7 C5 @ 23bc5f524585fcebbf6f1fbc719e689988e4a661"
 
 permissions:
   contents: read
@@ -26,13 +26,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - name: Check out 575a72b116385a7fa74ebca72f022c520a0916f7
+      - name: Check out 23bc5f524585fcebbf6f1fbc719e689988e4a661
         uses: actions/checkout@v4
         with:
-          ref: 575a72b116385a7fa74ebca72f022c520a0916f7
+          ref: 23bc5f524585fcebbf6f1fbc719e689988e4a661
 
       - name: C7 audited blind-review tool
-        if: matrix.variant == 'tests'
+        if: matrix.variant == 'tests' && hashFiles('tools/motionref/test_blind_review.py') != ''
         run: python3 -B -m unittest discover -s tools/motionref -p test_blind_review.py
 
       - name: Note the commit
@@ -115,7 +115,7 @@ jobs:
         if: matrix.variant == 'tests'
         env:
           SUITES_IN: studio
-          TESTS_REF: 575a72b116385a7fa74ebca72f022c520a0916f7
+          TESTS_REF: 23bc5f524585fcebbf6f1fbc719e689988e4a661
           TESTS_SHA: ${{ steps.meta.outputs.sha }}
         run: |
           # The test runner itself comes from this workflow's own commit, so a branch made before it existed can
@@ -169,7 +169,7 @@ jobs:
       - name: Collect outputs
         if: matrix.variant != 'tests'
         env:
-          REF_IN: 575a72b116385a7fa74ebca72f022c520a0916f7
+          REF_IN: 23bc5f524585fcebbf6f1fbc719e689988e4a661
         run: |
           V="${{ matrix.variant }}"
           mkdir -p cloud-out

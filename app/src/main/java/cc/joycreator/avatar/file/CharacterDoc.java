@@ -85,6 +85,6 @@ public final class CharacterDoc {
         JSONObject j = new JSONObject(text);
         String f = j.optString("format", "");
         if (!f.startsWith("joycreator.character/")) throw new JSONException("not a character");
-        return new CharacterDoc(j);
+        return new CharacterDoc(CharacterFile.upgrade(j).doc);   // an older file is read as the newest, in memory
     }
 }

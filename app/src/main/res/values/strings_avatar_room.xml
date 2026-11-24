@@ -20,4 +20,19 @@
     <string name="avatar_ask_stage_4">Play it and record takes.</string>
 
     <string name="avatar_hover_path_character">Take this character in hand</string>
+
+    <string name="avatar_topps">Topps</string>
+    <string name="avatar_open">Open</string>
+    <string name="avatar_save">Save</string>
+    <string name="avatar_close">Close</string>
+    <string name="avatar_saved">Saved in your Joy Creator folder.</string>
+    <string name="avatar_cannot_save">Could not save just now. Nothing was lost; it is still on the stage.</string>
+    <string name="avatar_hover_menu">Menu: your characters, open, save</string>
+    <string name="avatar_hover_open">Open a character from a file</string>
+    <string name="avatar_hover_save">Save it in your Joy Creator folder now</string>
+    <string name="avatar_hover_close">Close</string>
+    <string name="avatar_hover_open_one">%1$s: open</string>
+    <string name="avatar_hover_saved">Saved</string>
+    <string name="avatar_hover_not_saved">Not saved yet: Menu, Save puts it in your Joy Creator folder</string>
 </resources>
+

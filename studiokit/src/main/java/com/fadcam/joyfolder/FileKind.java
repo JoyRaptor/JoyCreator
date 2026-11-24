@@ -15,6 +15,9 @@ public enum FileKind {
     DRAWING(Group.WORK, null, ".joybrush"),
     SPRITE_SHEET(Group.WORK, null, ".sprite.json"),
     AVATAR(Group.WORK, null, ".avatar.json"),
+    /** Avatar Studio's character and scene (AVA-1): one readable file each, the format in tasks/avatar/AVA_FORMAT.md. */
+    CHARACTER(Group.WORK, null, ".character.json"),
+    SCENE(Group.WORK, null, ".scene.json"),
     // Supplies: what you make art with.
     BRUSH(Group.SUPPLY, "Brushes", ".brush.json"),
     PAPER(Group.SUPPLY, "Papers", ".paper.json"),

@@ -165,6 +165,13 @@ public class CharacterFormatTest {
             ok(a.equals(b), f + ": upgrade keeps every top-level field", b + " -> " + a);
         }
 
+        // the character that ships in the app (Topps) must open: rules before and after the in-memory upgrade
+        {
+            JSONObject topps = new JSONObject(new String(Files.readAllBytes(new File("app/src/main/assets/avatar/topps.character.json").toPath()), StandardCharsets.UTF_8));
+            ok(FormatCheck.check(topps).isEmpty(), "Topps (shipped asset): follows the rules", say(FormatCheck.check(topps)));
+            ok(FormatCheck.check(CharacterFile.upgrade(topps).doc).isEmpty(), "Topps (shipped asset): follows the rules after upgrade", say(FormatCheck.check(CharacterFile.upgrade(topps).doc)));
+        }
+
         // the conversion, by numbers (v1-three-angles)
         {
             JSONObject doc = load("v1-three-angles.character.json");

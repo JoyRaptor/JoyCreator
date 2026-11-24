@@ -97,3 +97,9 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 3. Hear a ducked export (the voice lane and the 17-keyframe envelope are in the "Restore video test" project).
 4. A transition between two different clips, each type, played and exported (Untitled 7 only has two identical clips).
 5. Jobs 17 (STU-4 leftovers) and 18 (puppets) are not started: they need projects built first and a screen map; see their cards.
+
+## 11-24 preview timing after PreviewClock (hover-1 lane, Note 9, build of joy-creator c0d9d4afc)
+- Installed a fresh cloud build over Wi-Fi (data kept) and used "Untitled 7" (two 18 s clips of a frame-counter picture, Radial transition on the cut; the picture shows its own time and frame number, so any jump is visible).
+- **Seek: PASS.** Tapping the overview bar at 17 s put the playhead at 16.992 and the picture read 00:00:17.000, frame 510 (`m2.png`): within 8 ms.
+- **Play across the cut: mostly clean, one thing to look at.** Playing from 16.99 s: at editor time 19.823 the picture read 1.867 s (frame 56), and at 22.874 it read 4.933 s (frame 148): both fit clip 2 starting at editor time 18 (offset 17.95 to 17.94), the clock only ever rose, nothing froze or went back (`m4.png`, `m5.png`). **But the first frame after the cut (`m3.png`) shows editor time 18.006 with the picture at 1.000 s, frame 30, about 1 s ahead of where the later frames put it, and the transport button still showed Play, not Pause.** One screenshot, not a recording: it may be the transition's incoming frame being drawn from the wrong offset, or the button lagging. A screen recording across the cut would settle it.
+- Not checked: audio staying in step, a seek while playing, a seek inside the transition.

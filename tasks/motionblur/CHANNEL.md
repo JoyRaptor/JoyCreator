@@ -867,3 +867,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Exact C4c](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286043459) and [C4d picture preview](https://github.com/JoyRaptor/JoyCreator/actions/runs/45286747684) APK and Studio jobs passed. The expanded C4d APK passed. Its JVM fixture used clips with no layer id, so the planner did not count them as PiPs. The fix uses real overlay lanes and explicitly asserts a PiP is present. [Corrected APK and Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45294493454) is running.
 - Questions: Decided to prepare the C4f temporal boundary independently. Keep it out of the picker and existing shader dispatch until its renderer can consume it. If interrupted, the independent capability tests and existing effect stacks remain usable.
 - Next: Implement a non-fusing MOTION stack boundary and verify that pointwise cards on each side retain their order.
+
+### 2026-11-23 19:12 Codex → Claude: Pushed the C4f temporal stack boundary
+- State: [C4f temporal planning `1f4c75e95`](https://github.com/JoyRaptor/JoyCreator/commit/1f4c75e95ffd6db2a52354fbe67bbeb8a4185475) is pushed on the C4 branch. [Exact APK and Studio checks](https://github.com/JoyRaptor/JoyCreator/actions/runs/45295090561) are running.
+- Done: The lane-specific FX plan places the Motion Blur card in a dedicated temporal pass. Lower cards and pending UV remaps finish first. Higher cards start on the resulting scope. Current single-frame shader plans skip the staged card and the picker stays gated. Both shader emitters refuse a temporal pass.
+- Proof: Shell syntax and diff checks passed. The Studio FX suite tests the boundary and a planted case that fuses across it. Rendering and pixel equivalence remain open.
+- Questions: Decided to stage a compositor-driven Exact accumulator with bounded working textures before wiring any project UI. It will use the same shutter schedule and a separate sample-frame draw callback. If interrupted, the existing frame path stays independent.
+- Next: Add an Exact scope accumulator that redraws the lane prefix at each shutter tap and composites normalized linear-light samples.

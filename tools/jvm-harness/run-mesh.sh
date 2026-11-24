@@ -27,10 +27,10 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 ARGS=$(mktemp); RUNARGS=$(mktemp)
 { echo "-nowarn"; echo "-encoding UTF-8"; echo "-d $OUT";
   printf -- '-cp "%s"\n' "$GSON";
-  echo '-sourcepath "app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
+  echo '-sourcepath "tools/jvm-harness/stubs;app/src/main/java;studiokit/src/main/java"'; } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/MeshEngineTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/MeshEngineTest.java tools/jvm-harness/MeshExposureTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -52,4 +52,20 @@ if [[ "$negative" != *"AssertionError: puppet exposure must keep fractional vert
   exit 1
 fi
 echo "Negative control rejected: puppet exposure must keep fractional vertex positions"
-java @"$RUNARGS" MeshEngineTest
+java @"$RUNARGS" MeshEngineTest || exit 1
+
+expect_exposure_failure() {
+  local expected=$1 mutant=$2 output
+  if output=$(java @"$RUNARGS" MeshExposureTest "$mutant" 2>&1); then
+    printf 'Negative control passed unexpectedly: %s\n' "$mutant" >&2
+    return 1
+  fi
+  if [[ "$output" != *"AssertionError: $expected"* ]]; then
+    printf '%s\n' "$output" >&2
+    return 1
+  fi
+  printf 'Negative control rejected: %s\n' "$expected"
+}
+expect_exposure_failure 'future arm depth leaked into a held crossing' --ignore-mesh-fences || exit 1
+expect_exposure_failure 'positive-phase Mix must visit samples in ascending order' --unsorted-mix || exit 1
+java @"$RUNARGS" MeshExposureTest

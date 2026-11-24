@@ -118,6 +118,9 @@ public final class MeshPoseTrack {
 
     public void setCurve(Curve c) { this.curve = c; }
 
+    /** Tracks without an easing adapter interpolate linearly, regardless of the saved names. */
+    public boolean hasCurve() { return curve != null; }
+
     /** The instants the drawer draws a diamond at — ONE per pose, never one per handle. */
     public long[] times() {
         long[] t = new long[poses.size()];
@@ -367,8 +370,13 @@ public final class MeshPoseTrack {
         Pose right = poses.get(firstAfter);
         double elapsed = millisBetween(wholeMs, left.timeMs) + subMsUs / 1000.0;
         double span = millisBetween(right.timeMs, left.timeMs);
-        // A very long span can round up to 1f one microsecond early and release a HOLD.
-        float progress = Math.min(Math.nextDown(1f), (float) (elapsed / span));
+        double exactProgress = elapsed / span;
+        // Rounding to a float must never release a hold or enter the next stair early.
+        float progress = Math.min(Math.nextDown(1f), (float) exactProgress);
+        if (curve != null && "STAIRS_4".equals(left.easing) && progress > exactProgress
+                && (progress == 0.25f || progress == 0.5f || progress == 0.75f)) {
+            progress = Math.nextDown(progress);
+        }
         interpolate(left, right, progress, out);
         return true;
     }

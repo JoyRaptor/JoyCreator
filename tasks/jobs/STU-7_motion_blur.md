@@ -16,7 +16,7 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C5 mesh exposure scheduling, C6 pair assessment and the Android decoded diagnostic are in Actions. C7 blind review tooling is pushed. C4b still awaits Note 9 access.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 decoded diagnostic and scheduler safeguards @ `57b56ab11` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh stamping @ `5c1198047` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`.
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 decoded diagnostic and scheduler safeguards @ `57b56ab11` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh stamp and exposure schedule @ `96e9637ba` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`. C7 blind review tool @ `583a31699` on `codex/stu7-c7-blind-review-20261124`.
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
 - **Exact next action:** Fix the decoded source-frame ring so a seek, source or shape change at the same PTS cannot be mistaken for a paused redraw.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.

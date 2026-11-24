@@ -379,6 +379,14 @@ public final class IdeaEngine {
         out.add(Idea.of("textlab_save", Idea.Kind.ASK, "Keep it as mine")
                 .say("Save this as a new look of mine")
                 .hint("Into Supplies, Looks, with its moving picture").needsKey().priority(34).build());
+        // Later ideas (11-24): they show once the first four have been used or hidden, and each asks for something the
+        // textlab tools really do (textlab_looks / textlab_pick_look / textlab_describe).
+        out.add(Idea.of("textlab_other_look", Idea.Kind.ASK, "Try another look")
+                .say("Show me a few looks that would suit these words and pick the best one")
+                .hint("I'll look through the looks and switch to one").needsKey().priority(32).build());
+        out.add(Idea.of("textlab_describe", Idea.Kind.ASK, "What is this look made of?")
+                .say("Describe this look in plain words")
+                .hint("Its pieces and what each one does").needsKey().priority(30).build());
     }
 
     private static void vislab(List<Idea> out) {
@@ -394,6 +402,16 @@ public final class IdeaEngine {
         out.add(Idea.of("vislab_layer", Idea.Kind.ASK, "Add something on top")
                 .say("Add a layer to this look that suits it")
                 .hint("Lasers, particles, a tunnel… I'll pick one that fits").needsKey().priority(34).build());
+        // Later ideas (11-24): shown once the first four have been used or hidden; each is a request the vislab tools carry out.
+        out.add(Idea.of("vislab_other_look", Idea.Kind.ASK, "Try another look")
+                .say("Pick a different look that suits this music")
+                .hint("I'll look through the looks and switch to one").needsKey().priority(32).build());
+        out.add(Idea.of("vislab_keep", Idea.Kind.ASK, "Keep it as mine")
+                .say("Save this look as a new look of mine")
+                .hint("A copy in your looks, with this name and colours").needsKey().priority(30).build());
+        out.add(Idea.of("vislab_float", Idea.Kind.ASK, "Float it over my music app")
+                .say("Float this look over my other apps while I play music")
+                .hint("The floating visualiser; I'll say if a permission is needed").needsKey().priority(28).build());
     }
 
     /**

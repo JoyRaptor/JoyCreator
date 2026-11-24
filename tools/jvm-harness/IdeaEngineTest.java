@@ -262,6 +262,21 @@ public class IdeaEngineTest {
             eq("vislab: kick idea first", "Hit harder on the kick", vis.ideas.get(0).label);
             check("vislab: no Studio ideas", !labels(vis).contains("Turn on captions"), labels(vis));
             check("vislab: no opener", vis.opener == null, String.valueOf(vis.opener));
+            // Later ideas appear as the first ones are used (the quiet list), never before.
+            Set<String> usedVis = new HashSet<>(Arrays.asList("vislab_kick", "vislab_calm", "vislab_brand", "vislab_layer"));
+            IdeaEngine.Offer vis2 = IdeaEngine.offer(f, IdeaEngine.Room.VISLAB, FLOWS, usedVis);
+            eq("vislab: after the first four, another look is offered", "Try another look", vis2.ideas.get(0).label);
+            check("vislab: first screen unchanged", !labels(vis).contains("Try another look"), labels(vis));
+            f.online = false;
+            IdeaEngine.Offer visOff = IdeaEngine.offer(f, IdeaEngine.Room.VISLAB, FLOWS, usedVis);
+            check("vislab: later ideas need a key (hidden offline)", !labels(visOff).contains("Try another look"), labels(visOff));
+            f.online = true;
+            Set<String> usedText = new HashSet<>(Arrays.asList("textlab_fire", "textlab_gold", "textlab_deeper", "textlab_save"));
+            IdeaEngine.Offer tl = IdeaEngine.offer(f, IdeaEngine.Room.TEXTLAB, FLOWS, usedText);
+            eq("textlab: after the first four, another look is offered", "Try another look", tl.ideas.get(0).label);
+            eq("textlab: then what the look is made of", "What is this look made of?", tl.ideas.get(1).label);
+            check("textlab: first screen has no later idea", !labels(IdeaEngine.offer(f, IdeaEngine.Room.TEXTLAB, FLOWS, NONE)).contains("Try another look"),
+                    "");
             // JoyBrush (BOT-1, 10-28): the open drawing's ideas, never the lobby's "Start a project".
             IdeaEngine.Offer jb = IdeaEngine.offer(f, IdeaEngine.Room.JOYBRUSH, FLOWS, NONE);
             eq("joybrush: colour layer first", "A layer to colour on", jb.ideas.get(0).label);

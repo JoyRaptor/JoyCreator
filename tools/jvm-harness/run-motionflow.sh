@@ -35,3 +35,4 @@ java -cp "$OUT" FlowCoreTest
 expect_failure 'after a seek back the frame is sharp until a neighbour' SourceFrameRingTest --naive
 java -cp "$OUT" SourceFrameRingTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowAnalyzerTest

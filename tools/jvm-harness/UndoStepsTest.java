@@ -1,8 +1,10 @@
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.transcript.NamedTranscript;
 import com.fadcam.ui.faditor.transcript.Transcript;
 import com.fadcam.ui.faditor.undo.CaptionTrackState;
+import com.fadcam.ui.faditor.undo.TextBoxLook;
 
 /**
  * The 11-24 undo sweep (owner rule: one press, one step): the caption-track and transcript-version
@@ -21,6 +23,7 @@ public class UndoStepsTest {
         trackEditsComeBack();
         audioClipToo();
         nothingChangedIsSame();
+        textBoxLookComesBack();
         System.out.println(pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
     }
@@ -95,6 +98,31 @@ public class UndoStepsTest {
         CaptionTrackState s = CaptionTrackState.of(c);
         c.getCaptionBindings().get(1).sizeFraction = 0.2f;
         check("any field of any track counts as a change", !CaptionTrackState.of(c).sameAs(s));
+    }
+
+    static void textBoxLookComesBack() {
+        TextOverlayItem o = new TextOverlayItem("Hello", 0xFFFFFFFF, 0.5f, 0.5f, 0.1f, 0f);
+        TextBoxLook before = TextBoxLook.of(o);
+        check("a text box's look is the same as itself (no empty step)", TextBoxLook.of(o).sameAs(before));
+        o.setColorInt(0xFFFF0000);
+        o.setFontFamily("serif");
+        o.setStrokeColorInt(0xFF000000);
+        o.setStrokeWidthPx(25f);
+        o.setGlowRadiusPx(40f);
+        o.setShadowAngleDeg(90f);
+        o.setBackgroundColorInt(0x80000000);
+        o.setWrapEm(10f);
+        o.setFitWidth(true);
+        o.setTextCase(TextOverlayItem.CASE_ALL_CAPS);
+        o.setTextAlign("left");
+        TextBoxLook after = TextBoxLook.of(o);
+        check("a drawer visit that changed the box is seen as a change", !after.sameAs(before));
+        before.applyTo(o);
+        check("Undo puts the whole-box look back", TextBoxLook.of(o).sameAs(before)
+                && o.getColorInt() == 0xFFFFFFFF && "default".equals(o.getFontFamily())
+                && o.getStrokeWidthPx() == 0f && !o.fitWidthSetting());
+        after.applyTo(o);
+        check("Redo puts the new look back", TextBoxLook.of(o).sameAs(after) && o.isFitWidth());
     }
 
     static void check(String what, boolean ok) {

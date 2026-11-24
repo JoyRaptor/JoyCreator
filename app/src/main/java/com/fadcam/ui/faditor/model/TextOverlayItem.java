@@ -222,6 +222,9 @@ public class TextOverlayItem implements LinkFollower, MotionBlurItem {
 
     public boolean isFitWidth() { return fitWidth && wrapEm > 0f; }
 
+    /** The stored Fit setting as chosen, even while wrap is auto (undo restores exactly this). */
+    public boolean fitWidthSetting() { return fitWidth; }
+
     public void setFitWidth(boolean fit) { this.fitWidth = fit; }
 
     public float getWrapEm() { return wrapEm; }

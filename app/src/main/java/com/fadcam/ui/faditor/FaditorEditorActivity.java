@@ -24154,6 +24154,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
         growChip.setOnClickListener(v -> {
             resolveBinding.run();
             if (bindRef[0] < 0) return;
+            // One tap is one undo step (before 11-24 these had none).
+            final Object capOwner = isAudioRef[0] ? getActiveAudioClip() : getActiveCaptionClip();
+            final com.fadcam.ui.faditor.undo.CaptionTrackState capBefore =
+                    capOwner == null ? null : captionTracksOf(capOwner);
             if (isAudioRef[0]) {
                 AudioClip ac = getActiveAudioClip();
                 if (ac == null) return;
@@ -24185,10 +24189,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             refreshGrowRow.run();
             scheduleAutoSave();
+            recordCaptionTracks(capBefore, getString(R.string.undo_step_caption_layout));
         });
         alignChip.setOnClickListener(v -> {
             resolveBinding.run();
             if (bindRef[0] < 0) return;
+            // One tap is one undo step (before 11-24 these had none).
+            final Object capOwner = isAudioRef[0] ? getActiveAudioClip() : getActiveCaptionClip();
+            final com.fadcam.ui.faditor.undo.CaptionTrackState capBefore =
+                    capOwner == null ? null : captionTracksOf(capOwner);
             if (isAudioRef[0]) {
                 AudioClip ac = getActiveAudioClip();
                 if (ac == null) return;
@@ -24218,10 +24227,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             refreshGrowRow.run();
             scheduleAutoSave();
+            recordCaptionTracks(capBefore, getString(R.string.undo_step_caption_layout));
         });
         allChip.setOnClickListener(v -> {
             resolveBinding.run();
             if (bindRef[0] < 0) return;
+            // One tap is one undo step (before 11-24 these had none).
+            final Object capOwner = isAudioRef[0] ? getActiveAudioClip() : getActiveCaptionClip();
+            final com.fadcam.ui.faditor.undo.CaptionTrackState capBefore =
+                    capOwner == null ? null : captionTracksOf(capOwner);
             int anchor, justify;
             if (isAudioRef[0]) {
                 AudioClip ac = getActiveAudioClip();
@@ -24242,6 +24256,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             editorTimeline.invalidate();
             scheduleAutoSave();
+            recordCaptionTracks(capBefore, getString(R.string.undo_step_caption_layout));
             Toast.makeText(this, R.string.caption_copy_all_done, Toast.LENGTH_SHORT).show();
         });
         growRow.addView(slideChip);
@@ -25185,10 +25200,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (activeTargetId != null) {
             String draftId = "customdraft_" + activeTargetId + "_b" + activeBindingIdx;
             com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+            final com.fadcam.ui.faditor.transcript.CaptionStyle was = cur.id.equals(draftId) ? cur.copyAs(draftId, cur.label) : null;
             com.fadcam.ui.faditor.transcript.CaptionStyle working = cur.id.equals(draftId) ? cur : cur.copyAs(draftId, cur.label);
             mutation.accept(working);
             com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(working);
             applyCaptionStyle(draftId);
+            recordCaptionTweak(draftId, was, working);
             return;
         }
         boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
@@ -25204,11 +25221,71 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         String draftId = "customdraft_" + targetId;
         com.fadcam.ui.faditor.transcript.CaptionStyle cur = currentCaptionStyle();
+        final com.fadcam.ui.faditor.transcript.CaptionStyle was = cur.id.equals(draftId) ? cur.copyAs(draftId, cur.label) : null;
         com.fadcam.ui.faditor.transcript.CaptionStyle working =
                 cur.id.equals(draftId) ? cur : cur.copyAs(draftId, cur.label);
         mutation.accept(working);
         com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(working);
         applyCaptionStyle(draftId);
+        recordCaptionTweak(draftId, was, working);
+    }
+
+    /** History version just after the last caption tweak's step, and when it was made. */
+    private int captionTweakVersion = -1;
+    private long captionTweakAt;
+    /** The open tweak step's "after", updated while the same gesture keeps tweaking. */
+    @Nullable private com.fadcam.ui.faditor.transcript.CaptionStyle[] captionTweakAfter;
+
+    /**
+     * ONE undo step per press for a caption style tweak (owner rule: one press, one step).
+     *
+     * <p>Before 11-24 only the FIRST tweak had a step: it switched the track onto its own draft
+     * style, and every later tweak edited that draft in place with no step, so Undo jumped
+     * straight back past all of them. Now each press (a chip, a slider drag) records the
+     * draft's content before and after. Tweaks that come within {@link #CAPTION_TWEAK_GESTURE_MS}
+     * of the last one while it is still the top step are one gesture (a slider drag) and fold in.</p>
+     *
+     * @param was the draft's content before this tweak, or null when this tweak CREATED the draft
+     *            (then the style switch {@link #applyCaptionStyle} just recorded is the step)
+     */
+    private void recordCaptionTweak(@NonNull String draftId, @Nullable com.fadcam.ui.faditor.transcript.CaptionStyle was,
+                                    @NonNull com.fadcam.ui.faditor.transcript.CaptionStyle working) {
+        long now = android.os.SystemClock.uptimeMillis();
+        boolean sameGesture = undoManager.getHistoryVersion() == captionTweakVersion
+                && now - captionTweakAt < CAPTION_TWEAK_GESTURE_MS;
+        captionTweakAt = now;
+        if (sameGesture) {
+            if (captionTweakAfter != null) captionTweakAfter[0] = working.copyAs(draftId, working.label);
+            return;   // a draft created by this gesture: its style switch step already ends here
+        }
+        if (was == null) {
+            captionTweakAfter = null;
+            captionTweakVersion = undoManager.getHistoryVersion();
+            return;
+        }
+        final com.fadcam.ui.faditor.transcript.CaptionStyle before = was;
+        final com.fadcam.ui.faditor.transcript.CaptionStyle[] after = {working.copyAs(draftId, working.label)};
+        captionTweakAfter = after;
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_caption_style),
+                () -> putCaptionStyleBack(after[0]), () -> putCaptionStyleBack(before)));
+        captionTweakVersion = undoManager.getHistoryVersion();
+    }
+
+    private static final long CAPTION_TWEAK_GESTURE_MS = 600;
+
+    /** Undo/redo of a caption tweak: the draft's content back in the store and on screen. */
+    private void putCaptionStyleBack(@NonNull com.fadcam.ui.faditor.transcript.CaptionStyle s) {
+        com.fadcam.ui.faditor.transcript.CaptionStyle copy = s.copyAs(s.id, s.label);
+        com.fadcam.ui.faditor.transcript.CaptionStyleStore.put(copy);
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : captionOverlays) {
+            if (v != null && copy.id.equals(v.getStyle().id)) v.setStyle(copy);
+        }
+        for (com.fadcam.ui.faditor.transcript.CaptionOverlayView v : audioCaptionOverlays) {
+            if (v != null && copy.id.equals(v.getStyle().id)) v.setStyle(copy);
+        }
+        if (editorTimeline != null) editorTimeline.invalidate();
+        refreshCaptionDrawerIfOpen();
+        scheduleAutoSave();
     }
 
     /** Floppy: name the working style and pin it to the bottom ticker. TODO(strings) */
@@ -34835,10 +34912,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
          * into an entry that is no longer top would merge two unrelated sessions. */
         boolean addUndoRecordedHere;
 
+        /** The whole-box look (colour, font, outline, glow, shadow, plate...) as the session opened. */
+        @NonNull final com.fadcam.ui.faditor.undo.TextBoxLook startLook;
+
         TextStyleSession(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem item) {
             this.item = item;
             this.spans = item.getOrCreateStyleSpans();
             this.startSpans = copySpansForUndo(item.getStyleSpans());
+            this.startLook = com.fadcam.ui.faditor.undo.TextBoxLook.of(item);
         }
 
         /** True when the drawer is really editing a RANGE (not base, not a caret, not a timer). */
@@ -35023,11 +35104,24 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void recordTextStyleUndo(@NonNull TextStyleSession session) {
         java.util.List<com.fadcam.ui.faditor.model.StyleSpan> endSpans =
                 TextStyleSession.copySpansForUndo(session.spans);
-        if (TextStyleResolver.spansEqual(session.startSpans, endSpans)) return;
+        // The whole-box look rides in the same step: before 11-24 a colour, font, outline, glow,
+        // shadow or plate change with no words selected had no undo step at all.
+        final com.fadcam.ui.faditor.undo.TextBoxLook endLook = com.fadcam.ui.faditor.undo.TextBoxLook.of(session.item);
+        final boolean spansChanged = !TextStyleResolver.spansEqual(session.startSpans, endSpans);
+        final boolean lookChanged = !endLook.sameAs(session.startLook);
+        if (!spansChanged && !lookChanged) return;
         EditActions.LambdaAction act = new EditActions.LambdaAction(
                 getString(R.string.faditor_text_style_undo),
-                () -> session.item.setStyleSpans(endSpans),
-                () -> session.item.setStyleSpans(session.startSpans));
+                () -> {
+                    if (spansChanged) session.item.setStyleSpans(endSpans);
+                    endLook.applyTo(session.item);
+                    refreshOverlayPreview();
+                },
+                () -> {
+                    if (spansChanged) session.item.setStyleSpans(session.startSpans);
+                    session.startLook.applyTo(session.item);
+                    refreshOverlayPreview();
+                });
         // Fold ONLY into the add-undo this very close recorded (amendTopAction undoes the fold
         // extra FIRST, so one press restores the style and removes the item). A stale
         // textOverlayAddRecorded from a PREVIOUS close must not pull unrelated entries under

@@ -84,14 +84,26 @@ work but record no step, or that take several presses to undo.
 **Batch 2 test:** `UndoManagerTest`, 7 new checks: the snapshot step is one press each way and is
 not marked as Joybot's. The ratchet baseline fell from 77 to 73.
 
-## Batch 3: still owed (found, not yet fixed)
+## Batch 3: fixed
 
-| Where | Action | Gap | Suggested fix |
+| Where | Action | Before | Now |
 |---|---|---|---|
-| Studio text drawer, no span selected | Whole-box colour, font, align, wrap, case, stroke, glow, shadow, plate | no step: `recordTextStyleUndo` only records span edits | snapshot those fields in `TextStyleSession` and record the difference on close (one step per drawer visit) |
-| Studio caption Fit tab | Fit chips, Truncate, floor slider, Slide, Grow, Align, apply to all | partly unrecorded: style tweaks after the first are not recorded | before/after per chip; the slider once on release |
-| Studio | Rename the project | no step | owner call: a project name is closer to a file name than an edit |
-| SpriteLab | Bake into a new sheet | no step (the snapshot holds one sheet only) | design call: needs a project-level step or a Put back chip like removal has |
+| Studio text drawer, no words selected | Whole-box colour, font, align, wrap and Fit, case, outline, glow, shadow, plate | no step: the drawer's step held the styled words only | in the drawer visit's ONE style step, through the new `undo/TextBoxLook` |
+| Studio captions, Style and Fit tabs | Every `tweakCaptionStyle` control (20 callers): Fit modes, Truncate, floor, Slide, colours, words per line and more | only the first tweak had a step (the switch onto the track's draft style); later tweaks edited the draft with no step, so Undo jumped back past all of them | one step per press. Tweaks within 600 ms while still the top step are one gesture (a slider drag) and fold in. |
+| Studio captions, Fit tab | Grow, Align, apply to all tracks | no step | one step each (`CaptionTrackState`) |
+
+**Batch 3 test:** `UndoStepsTest`, 4 new checks (`TextBoxLook` round trip); 20 pass.
+
+**Trade-off to know:** two separate caption chips tapped within 600 ms of each other fold into
+one step. That is the same window SpriteLab uses.
+
+## Still owed (owner or design calls, or a phone)
+
+| Where | Action | Why it is not fixed |
+|---|---|---|
+| Studio | Rename the project | Owner call: a project's name is closer to a file name than to an edit of the work. |
+| SpriteLab | Bake into a new sheet | Design call: SpriteLab's undo holds one sheet, and a bake adds a sheet to the project. It needs a project-level step, or a Put back chip like the one removal has. |
+| Studio text drawer | A slider moved while its stopwatch is armed (it writes a keyframe) | Unsure, and it needs a phone to confirm: the diamonds record their own steps, but a slider drag while armed may not. |
 
 **Noticed in passing, not an undo gap**
 - Caption pinch-resize multiplies the size at touch-down by `getScaleFactor()`. That factor is

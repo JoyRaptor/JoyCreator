@@ -49,6 +49,8 @@ a slice needs it (Claude claims it here first, so Codex can see it is taken).
 
 (newest first: what landed, SHA, what was proven, what was not)
 
+- 11-23 Claude, slice 1 (room): **the room skeleton** on `joy-creator`: `cc.joycreator.avatar.AvatarRoomActivity` (stage, panel, the four stages, landscape split), `file/CharacterDoc` + `CharacterAssets` (first part of X1: a tree reader, no FormatCheck), `ui/StageView` + `RestPose` (Topps standing, one drawing per set, no bending: replaced when X2/X3 land), Topps in `assets/avatar/`. Lobby: the Avatar door's **New** opens it (Open on a hero still opens the old room for old characters). **Proven:** cloud debug build installed on the Note 9; New opens the room, Topps drawn, tabs switch (`tasks/screens/avatar-slice1/AFTER-01-room-skeleton.png`). **Not checked:** temperature log over time, landscape, any control beyond the tabs. No Menu/Undo/Export/Joybot yet (added as each works).
+
 ## Messages
 
 (newest first)

@@ -43,4 +43,13 @@ if grep -rn "^import android\|^import androidx" app/src/main/java/com/fadcam/ui/
   exit 1
 fi
 
+if negative=$(java @"$RUNARGS" MeshEngineTest --round-puppet-tap 2>&1); then
+  echo "Rounded puppet tap unexpectedly passed"
+  exit 1
+fi
+if [[ "$negative" != *"AssertionError: puppet exposure must keep fractional vertex positions"* ]]; then
+  printf '%s\n' "$negative"
+  exit 1
+fi
+echo "Negative control rejected: puppet exposure must keep fractional vertex positions"
 java @"$RUNARGS" MeshEngineTest

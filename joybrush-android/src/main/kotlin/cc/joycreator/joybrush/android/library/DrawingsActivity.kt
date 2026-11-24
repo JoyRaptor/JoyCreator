@@ -169,25 +169,25 @@ class DrawingsActivity : Activity() {
         val input = EditText(this).apply { setText(d.name); setSelectAllOnFocus(true); setSingleLine(true) }
         val pad = FrameLayout(this).apply { setPadding(dp(20), dp(8), dp(20), 0); addView(input) }
         android.app.AlertDialog.Builder(this)
-            .setTitle("Rename drawing")
+            .setTitle(cc.joycreator.joybrush.android.R.string.jb_rename_title)
             .setView(pad)
-            .setPositiveButton("Rename") { _, _ ->
+            .setPositiveButton(cc.joycreator.joybrush.android.R.string.jb_rename) { _, _ ->
                 val name = input.text.toString()
                 val app = applicationContext
                 JoyFolderHome.io().execute {
                     val ok = DrawingLibrary.rename(app, d.file, name)
-                    runOnUiThread { if (!ok) toast("That name can't be used."); if (!isFinishing && !isDestroyed) refresh() }
+                    runOnUiThread { if (!ok) toast(getString(cc.joycreator.joybrush.android.R.string.jb_name_not_allowed)); if (!isFinishing && !isDestroyed) refresh() }
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 
     private fun delete(d: DrawingLibrary.Drawing) {
         android.app.AlertDialog.Builder(this)
-            .setTitle("Delete “${d.name}”?")
-            .setMessage("It goes to Trash. You can put it back from Settings → Storage Location → Recently deleted.")
-            .setPositiveButton("Delete") { _, _ ->
+            .setTitle(getString(cc.joycreator.joybrush.android.R.string.jb_delete_title, d.name))
+            .setMessage(cc.joycreator.joybrush.android.R.string.jb_delete_message)
+            .setPositiveButton(cc.joycreator.joybrush.android.R.string.jb_delete) { _, _ ->
                 val app = applicationContext
                 JoyFolderHome.io().execute {
                     val problem = DrawingLibrary.delete(app, d.file)
@@ -197,7 +197,7 @@ class DrawingsActivity : Activity() {
                     }
                 }
             }
-            .setNegativeButton("Cancel", null)
+            .setNegativeButton(android.R.string.cancel, null)
             .show()
     }
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): the words of the JoyBrush Drawings screen and the Unibrush dialogs, typed in Kotlin until now. -->
+<resources>
+    <string name="jb_tip_texture_title">Tip texture</string>
+    <string name="jb_new_brush_title">New brush</string>
+    <string name="jb_save">Save</string>
+    <string name="jb_stabilizer_title">Stabilizer</string>
+    <string name="jb_done">Done</string>
+    <string name="jb_rename_title">Rename drawing</string>
+    <string name="jb_rename">Rename</string>
+    <string name="jb_name_not_allowed">That name can\'t be used.</string>
+    <string name="jb_delete_title">Delete “%1$s”?</string>
+    <string name="jb_delete_message">It goes to Trash. You can put it back from Settings → Storage Location → Recently deleted.</string>
+    <string name="jb_delete">Delete</string>
+</resources>

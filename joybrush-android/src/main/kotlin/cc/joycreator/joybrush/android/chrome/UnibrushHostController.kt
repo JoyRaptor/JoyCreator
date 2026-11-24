@@ -271,9 +271,9 @@ class UnibrushHostController(
     private fun chooseImages(request:UnibrushAssetRequest,done:(List<String>?)->Unit,epoch:Long) {
         if(request.slot==UnibrushAssetSlot.tipTexture){
             val choices=PackagedBrushGrains.choices()
-            AlertDialog.Builder(activity).setTitle("Tip texture")
+            AlertDialog.Builder(activity).setTitle(cc.joycreator.joybrush.android.R.string.jb_tip_texture_title)
                 .setItems(choices.map{it.label}.toTypedArray()){_,index->if(epoch==sheetRevision)done(listOf(choices[index].fileName))}
-                .setNegativeButton("Cancel"){_,_->done(null)}.show()
+                .setNegativeButton(android.R.string.cancel){_,_->done(null)}.show()
             return
         }
         check(!sheetPreparing){"Finish the previous image preparation first"}
@@ -333,8 +333,8 @@ class UnibrushHostController(
         val pair=session?.current()?:return
         require(pair.recipe.id==recipe.id){"The brush selection changed"}
         val name=EditText(activity).apply{setSingleLine();hint="Mode name";setText(recipe.name);selectAll()}
-        val dialog=AlertDialog.Builder(activity).setTitle("New brush").setView(name)
-            .setNegativeButton("Cancel",null).setPositiveButton("Save",null).create()
+        val dialog=AlertDialog.Builder(activity).setTitle(cc.joycreator.joybrush.android.R.string.jb_new_brush_title).setView(name)
+            .setNegativeButton(android.R.string.cancel,null).setPositiveButton(cc.joycreator.joybrush.android.R.string.jb_save,null).create()
         saveDialog=dialog
         dialog.setOnShowListener{dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener{
             if(savingMode){name.error="Wait for the current save";return@setOnClickListener}
@@ -399,7 +399,7 @@ class UnibrushHostController(
         slider("String radius · screen px",512,value.mine.radiusPx.toInt()){update(value.copy(mine=value.mine.copy(radiusPx=it.toFloat())))}
         slider("Average samples",255,value.mine.windowSize-1,displayOffset=1){update(value.copy(mine=value.mine.copy(windowSize=it+1)))}
         val scroll=ScrollView(activity).apply{addView(body)}
-        AlertDialog.Builder(activity).setTitle("Stabilizer").setView(scroll).setPositiveButton("Done",null).show()
+        AlertDialog.Builder(activity).setTitle(cc.joycreator.joybrush.android.R.string.jb_stabilizer_title).setView(scroll).setPositiveButton(cc.joycreator.joybrush.android.R.string.jb_done,null).show()
     }
     fun close() {
         secondaryInk.cancel()

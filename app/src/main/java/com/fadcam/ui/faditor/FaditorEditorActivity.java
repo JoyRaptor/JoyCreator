@@ -13915,7 +13915,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 helperText = summary.toString();
             } catch (IllegalArgumentException exception) {
-                Toast.makeText(this, exception.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(this, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(exception.getMessage()), Toast.LENGTH_LONG).show();
                 return;
             }
         }
@@ -21385,7 +21385,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         : moved == 0 ? getString(R.string.studio_sheet_gather_already, g.plan.boxDir)
                         : getString(moved == 1 ? R.string.studio_sheet_gather_done_one : R.string.studio_sheet_gather_done_many, g.plan.boxDir, moved);
             } catch (Exception e) {
-                result = getString(R.string.studio_sheet_gather_failed, e.getMessage());
+                result = cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(R.string.studio_sheet_gather_failed, e.getMessage()));
             }
             final String r = result;
             runOnUiThread(() -> Toast.makeText(this, r, Toast.LENGTH_LONG).show());
@@ -21526,7 +21526,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 tmp.delete();
                 runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_d3_exported_files, r.manifest.fileCount, android.text.format.Formatter.formatShortFileSize(this, r.manifest.totalBytes)), android.widget.Toast.LENGTH_LONG).show());
             } catch (Exception e) {
-                runOnUiThread(() -> android.widget.Toast.makeText(this, getString(R.string.studio_fmt_export_copy_failed_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show());
+                runOnUiThread(() -> android.widget.Toast.makeText(this, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(R.string.studio_fmt_export_copy_failed_1_s, e.getMessage())), android.widget.Toast.LENGTH_LONG).show());
             }
         }).start();
     }
@@ -41727,7 +41727,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             scheduleAutoSave();
             android.widget.Toast.makeText(this, R.string.studio_toast_paragraph_moved, android.widget.Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            android.widget.Toast.makeText(this, getString(R.string.studio_fmt_reorder_error_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show();
+            android.widget.Toast.makeText(this, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(R.string.studio_fmt_reorder_error_1_s, e.getMessage())), android.widget.Toast.LENGTH_LONG).show();
             com.fadcam.FLog.e("Faditor", "Paragraph reorder failed", e);
         }
     }
@@ -47038,7 +47038,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         scheduleAutoSave();
                         android.widget.Toast.makeText(this, getString(R.string.studio_align_done, String.valueOf(res.offsetMs/1000.0), String.format(java.util.Locale.US, "%.2f", res.confidence)), android.widget.Toast.LENGTH_SHORT).show();
                     } catch (Exception e) {
-                        android.widget.Toast.makeText(this, getString(R.string.studio_fmt_align_failed_1_s, e.getMessage()), android.widget.Toast.LENGTH_LONG).show();
+                        android.widget.Toast.makeText(this, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(R.string.studio_fmt_align_failed_1_s, e.getMessage())), android.widget.Toast.LENGTH_LONG).show();
                     }
                 })
                 .setNegativeButton(R.string.studio_ui_cancel, null)

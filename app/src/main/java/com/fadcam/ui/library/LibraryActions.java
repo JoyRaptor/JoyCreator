@@ -180,7 +180,7 @@ final class LibraryActions {
                 } catch (Exception e) {
                     FLog.w("LibraryActions", "trash failed for " + it.key, e);
                     failed++;
-                    if (why == null) why = app.getString(R.string.library_trash_failed, String.valueOf(e.getMessage()));
+                    if (why == null) why = cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(app.getString(R.string.library_trash_failed, String.valueOf(e.getMessage())));
                 }
             }
             final String m;
@@ -256,7 +256,7 @@ final class LibraryActions {
                 changed = msg == null;
             } catch (Exception e) {
                 FLog.w("LibraryActions", "trash failed for " + it.key, e);
-                msg = app.getString(R.string.library_trash_failed, String.valueOf(e.getMessage()));
+                msg = cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(app.getString(R.string.library_trash_failed, String.valueOf(e.getMessage())));
             }
             final String m = msg == null ? app.getString(R.string.library_trashed) : msg;
             final boolean ch = changed;

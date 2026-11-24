@@ -1,0 +1,11 @@
+{
+ "app/src/main/java/com/fadcam/fadrec/services/ScreenRecordingService.java": 1,
+ "app/src/main/java/com/fadcam/forensics/ui/ForensicsExportCenterFragment.java": 1,
+ "app/src/main/java/com/fadcam/ui/DebugLogBottomSheetFragment.java": 2,
+ "app/src/main/java/com/fadcam/ui/InputActionBottomSheetFragment.java": 1,
+ "app/src/main/java/com/fadcam/ui/PrefsBackupBottomSheetFragment.java": 8,
+ "app/src/main/java/com/fadcam/ui/RecordsAdapter.java": 3,
+ "app/src/main/java/com/fadcam/ui/WatchRecordsFragment.java": 1,
+ "app/src/main/java/com/fadcam/ui/WatchVideoPlayerActivity.java": 1,
+ "app/src/main/java/com/fadcam/ui/bottomsheet/BatteryInfoBottomSheet.java": 2
+}

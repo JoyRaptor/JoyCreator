@@ -41,7 +41,7 @@ public final class PackOpenActivity extends Activity {
                 if (in == null) throw new java.io.IOException(getString(R.string.textlab_pack_file_not_opened));
                 r = PackInstaller.read(in);
             } catch (Exception e) {
-                problem = e.getMessage() != null ? e.getMessage() : getString(R.string.textlab_pack_not_readable);
+                problem = cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(e.getMessage(), getString(R.string.textlab_pack_not_readable));
             } catch (OutOfMemoryError tooBig) {
                 // A pack is read into memory whole; one too big for this phone must say so, not close the app.
                 r = null;

@@ -43479,9 +43479,34 @@ public class FaditorEditorActivity extends AppCompatActivity {
             labels[i] = e.displayName + "  ·  " + e.category;
             if (e.id.equals(transition.glTransitionId)) checked = i;
         }
+        String[] shownGl = new String[labels.length];   // PREVIEW-1: a tick before the one in use, the real effect half way before each
+        for (int i = 0; i < labels.length; i++) shownGl[i] = (i == checked ? "✓  " : "") + labels[i];
         StudioDialog.builder(this)
                 .setTitle(R.string.faditor_gl_transition_pick_title)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, shownGl, new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) { return "gl:" + entries.get(i).id; }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        // the card baker's strip (the same real shader render the transition cards use); its middle frame
+                        com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker.request(FaditorEditorActivity.this,
+                                entries.get(i).id, null);
+                        android.graphics.Bitmap strip = null;
+                        try {
+                            // request() does nothing if the baker already has this one queued, so wait for the strip to appear
+                            for (int t = 0; t < 100 && strip == null; t++) {
+                                strip = com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker.peek(entries.get(i).id);
+                                if (strip == null) Thread.sleep(300);
+                            }
+                        } catch (InterruptedException e) {
+                            return null;
+                        }
+                        if (strip == null) return null;
+                        int frames = com.fadcam.ui.faditor.gltransitions.GlTransitionCardBaker.FRAME_COUNT;
+                        int fw = strip.getWidth() / frames;
+                        if (fw <= 0) return null;
+                        int mid = (frames / 2) * fw;
+                        return com.fadcam.ui.faditor.PartThumbs.square(strip, new android.graphics.Rect(mid, 0, mid + fw, strip.getHeight()));
+                    }
+                }), (dialog, which) -> {
                     transition.glTransitionId = entries.get(which).id;
                     dialog.dismiss();
                     if (editorTimeline != null) {

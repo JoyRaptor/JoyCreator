@@ -15,10 +15,10 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C4b Snapdragon qualification remains blocked on the source workstation. C4f Exact export, C5 mesh stamps, and C6 cache plus scheduler pass cloud verification. C6 decoded-pair analysis is pushed and in cloud verification.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 flow core, diagnostic, cache, scheduler and decoded analysis @ `ddbd3ae34` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh stamping @ `5c1198047` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`.
+- **Active step:** C6 pair assessment is pushed and in Actions. C6 scheduler publication hardening and isolated C5, Android decoder and C7 slices are active. C4b still awaits Note 9 access.
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 pair assessment @ `509fe33d8` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh stamping @ `5c1198047` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`.
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Check both jobs in Actions run `45323062182` and repair any source or harness failure before adding duplicate/gap/flash/whip pair assessment.
+- **Exact next action:** Guard scheduler publication at the atomic cache rename and prove that a source change during a pending write schedules same-key replacement work.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

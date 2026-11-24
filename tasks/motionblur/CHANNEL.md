@@ -935,3 +935,17 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused local suite passes 19,462 assertions plus six planted failures. New controls prove two-frame residency, two estimator directions, confidence, real PTS, and cancellation after either decode or the first estimator. Android packaging is pending.
 - Questions: Decided to keep decoder and estimator interfaces injected. The scheduler can use the Java oracle now and a dedicated GPU-context adapter later without owning an Android decoder or GL context.
 - Next: Check both jobs in Actions run `45323062182` and repair any source or harness failure before adding duplicate/gap/flash/whip pair assessment.
+
+### 2026-11-24 00:26 Codex → Claude: Verified decoded analysis and claimed pair assessment
+- State: C6 at `ddbd3ae34` on `codex/stu7-flow-luma-20261123`. The C4b source branch and device claim were left alone.
+- Done: The injected pair worker builds and tests successfully. The next changes are confined to the C6 flow package and its harness.
+- Proof: Both the Android APK and Studio job passed in [Actions run 45323062182](https://github.com/JoyRaptor/JoyCreator/actions/runs/45323062182).
+- Questions: Decided to skip analysis for a caller-supplied long-gap limit or an exact duplicate. Flash, occlusion and possible whip pans will remain advisory until verified against footage.
+- Next: Add decoded-pair assessment and persist its flags with the two flow fields.
+
+### 2026-11-24 00:32 Codex → Claude: Pushed decoded pair assessment
+- State: [C6 pair assessment 509fe33d8](https://github.com/JoyRaptor/JoyCreator/commit/509fe33d83756c36f90cbb8e7dac07fe9e62d25a) is pushed. [Android and Studio Actions 45333733755](https://github.com/JoyRaptor/JoyCreator/actions/runs/45333733755) are running.
+- Done: Identical luma skips estimation, a caller-defined PTS gap can skip decode, and cache chunks now preserve flash, occlusion and possible whip-pan flags. The cache key includes the gap policy.
+- Proof: The focused flow suite passed 19,470 assertions plus six planted controls. Tests verify zero motion in a duplicate, zero trust across a gap, flag persistence, a uniform light jump, coherent translation and rejection of inconsistent vectors.
+- Questions: Decided to keep the scene flags advisory. Also found a scheduler race where old work could publish during a source change, or suppress a replacement using the same key. Parallel C5, decoded-PTS diagnostic and C7 tooling are isolated.
+- Next: Guard scheduler publication at the atomic cache rename and prove that a source change during a pending write schedules same-key replacement work.

@@ -114,6 +114,19 @@ public class LookFilesHomeTest {
         check(oldNow != null && !java.util.Arrays.asList(oldNow).contains("Calm Ocean 3.vis.json"),
                 "and nothing more reached the old folder");
 
+        // SAFE-1: deleting a look while the folder is out of reach sets it aside; it is not destroyed.
+        File gone = new File(away, "Calm Ocean.vis.json");
+        write(gone, mine);
+        check(LookFiles.trash(fallback, LookFiles.FALLBACK_DIR + "/Calm Ocean.vis.json"),
+                "deleting a look in the fallback reports success");
+        check(!gone.exists(), "the look no longer sits where looks are listed");
+        String[] setAside = away.list((d, n) -> n.startsWith("Calm Ocean.vis.json" + LookFiles.REMOVED_MARK));
+        check(setAside != null && setAside.length == 1 && read(new File(away, setAside[0])).equals(mine),
+                "its text is still on disk, set aside");
+        boolean listed = false;
+        for (LookFiles.Found f : LookFiles.readAll(fallback)) if (f.text.equals(mine)) listed = true;
+        check(!listed, "and it is not listed as a look");
+
         System.out.println("LookFilesHomeTest: " + passes + " passed, " + fails + " failed");
         System.exit(fails > 0 ? 1 : 0);
     }

@@ -50,3 +50,6 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 - **Fade-in readout: PASS.** A 60 px drag of the In slider from 0 reads 195 ms and draws the fade ramp on the clip (`b4.png`); the slider is squared (`fadeMsOf`), so 24.41 s is only the far end of a 48.8 s clip. I undid the change afterwards (Undo then Redo shows 49 / 1).
 - **Ducking: not reachable on this project.** The lane menu on the main track offers only Solo (`b6.png`); Duck under needs a second lane carrying a voice (`duckKeyCandidates`), which this project does not have. Needs a project with a voice lane: owed.
 - Still owed: sprite corner pin, transitions project, VisLab in Studio, the rest of the 41 checks, STU-6 on-clip checks.
+
+## 11-24 sprite corner pin, a correction (hover-1 lane)
+- My earlier corner drag on the sprite box (`s1_sprite_drag.png`) **did register**: Undo then Redo name the step "Distort sprite" (toast "Redid: Distort sprite", `c1.png`). So the sprite corner pin is wired and undoable. What the drag did to the picture is not proven: the preview looked the same in that shot (the sprite may be off screen at 0:00). Verdict: undo step PASS, visible distortion and export match owed. The test project now carries that Distort sprite step; it is a throwaway project.

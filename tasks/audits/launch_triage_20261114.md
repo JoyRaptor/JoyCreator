@@ -418,3 +418,10 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 |---|---|
 | BOT-A29 | now done for the half that can be: Joybot reports, pauses, resumes and stops a SCREEN recording (`recording` with `target=screen`, `CaptureRules.decideScreen`, 7 new rule checks in `IdeaEngineTest`). Starting one stays the person's tap on Android's prompt, by design. The webcam bubble is not built. Not seen on a phone |
 | BOT-A31, BOT-A33, AN-06 F15 | stay parked (new behaviour or a screen feel; see batch 4) |
+
+### Batch 6 (2026-11-24, all cloud suites green on `4220a23ca`: build 45366191699; jb-core 3020, jb-androidkit 1379, jb-android 606, studio 74, joybot all pass)
+
+| ID | Status |
+|---|---|
+| BOT-A31 | partly done: `describe_sprite_sheet` now returns `animationTiming`, a dope sheet (each animation's [cell, ticks held], fps, ticks, seconds; pure `sprite/DopeSheet`, 6 checks in `run-spritelab-audit.sh`). Background bake and export actions stay parked: they need the owner's words on where output goes |
+| BOT-A33, AN-06 F15 | parked as before |

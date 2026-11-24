@@ -63,3 +63,9 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 - **Radial placed on the cut: PASS for placement.** A blue transition block sits on the joint and the undo count rises (`e9.png`). Not a visual pass: both clips are the same frame-counter picture, so a wipe between them cannot be seen; use two different clips to see each transition draw. The other 8 listed types and the 47 shader transitions under More effects: not tried.
 - **Ducking:** this clip has no voice; ducking still needs a project with a real voice lane.
 - Still owed: VisLab in Studio, the rest of the 41 checks, jobs 17 and 18.
+
+## 11-24 transitions project played and exported (hover-1 lane, Note 9)
+- **Reopen: PASS.** "Untitled 7" reopens with its Radial transition kept (undo count 2, `f0.png`).
+- **Play: PASS.** Playback runs; the frame counter at 4.17 s reads frame 127 (30 fps, `f1.png`), no hitch seen. The transition itself was not seen drawing (identical clips).
+- **Export: PASS.** The export sheet reads 00:35, 2 clips (36 s minus the 1 s transition overlap), Export Now ran to 99% Finalizing then "Export Complete", saved to the Joy Creator folder (`f2.png`, `f3.png`, `f4.png`). I did not play the exported file back, so export-versus-preview of the transition is not compared.
+- Still owed: VisLab in Studio, ducking with a real voice, a transition between two different clips, the other transition types, STU-6 on-clip checks, jobs 17 and 18.

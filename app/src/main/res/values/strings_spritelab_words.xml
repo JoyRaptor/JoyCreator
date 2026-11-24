@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (hover-1 lane, 11-24). English only; translations owed. -->
+<resources>
+    <string name="spritelab_nothing_to_undo">Nothing to undo</string>
+    <string name="spritelab_the_difference_view_needs">The difference view needs Android 10 or newer</string>
+    <string name="spritelab_every_drawing_is_back">Every drawing is back where it started</string>
+    <string name="spritelab_no_art_loaded">No art loaded</string>
+    <string name="spritelab_this_frame_is_empty">This frame is empty — nothing to match to</string>
+    <string name="spritelab_no_ink_to_measure">No ink to measure</string>
+    <string name="spritelab_tap_cells_to_build">Tap cells to build a sequence first</string>
+    <string name="spritelab_fill_crops_whatever_does">Fill crops whatever does not fit the cell</string>
+    <string name="spritelab_jpg_has_no_transparency">JPG has no transparency — the sheet bakes onto white</string>
+    <string name="spritelab_json_copied">JSON copied</string>
+    <string name="spritelab_nothing_to_centre">Nothing to centre</string>
+    <string name="spritelab_drag">drag</string>
+    <string name="spritelab_tags">Tags</string>
+    <string name="spritelab_viseme">Viseme</string>
+    <string name="spritelab_no_animations_yet_build">No animations yet. Build a sequence in Play, then Save clip.</string>
+    <string name="spritelab_tap_a_clip_to">Tap a clip to see it on the sheet. Long-press to drag it somewhere else.</string>
+    <string name="spritelab_tap_a_sheet_to">Tap a sheet to open, rename or remove it.</string>
+    <string name="spritelab_merge_in">merge in</string>
+    <string name="spritelab_tap_cells_on_the">Tap cells on the sheet to build a sequence</string>
+    <string name="spritelab_joybot">Joybot</string>
+    <string name="spritelab_mouth_hand_blink">mouth, hand, blink…</string>
+    <string name="spritelab_new_tag">New tag</string>
+    <string name="spritelab_name_the_cells">Name the cells</string>
+    <string name="spritelab_preview_background">Preview background</string>
+    <string name="spritelab_drift">Drift</string>
+    <string name="spritelab_name_this_sequence">Name this sequence</string>
+    <string name="spritelab_name_this_animation">Name this animation</string>
+    <string name="spritelab_fps">fps</string>
+    <string name="spritelab_edit_clip">Edit clip</string>
+    <string name="spritelab_rename_sheet">Rename sheet</string>
+    <string name="spritelab_baked">Baked</string>
+    <string name="spritelab_alignment_travels_as_numbers">Alignment travels as numbers</string>
+</resources>

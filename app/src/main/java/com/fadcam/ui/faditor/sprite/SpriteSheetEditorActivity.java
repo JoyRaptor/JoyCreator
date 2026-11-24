@@ -542,7 +542,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         joy.setColorFilter(SpriteTheme.INK);
         joy.setBackground(pillBg(SpriteTheme.CONTROL, SpriteTheme.LINE, d));
         joy.setPadding((int) (5 * d), (int) (5 * d), (int) (5 * d), (int) (5 * d));
-        joy.setContentDescription("Joybot");
+        joy.setContentDescription(getString(R.string.spritelab_joybot));
         joybotButton = joy;
         androidx.appcompat.widget.TooltipCompat.setTooltipText(joy,
                 "Joybot — ideas for this sprite sheet");
@@ -759,7 +759,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     };
 
     private void undo() {
-        if (undoStack.isEmpty()) { Toast.makeText(this, "Nothing to undo", Toast.LENGTH_SHORT).show(); return; }
+        if (undoStack.isEmpty()) { Toast.makeText(this, getString(R.string.spritelab_nothing_to_undo), Toast.LENGTH_SHORT).show(); return; }
         redoStack.push(snapshot());
         restore(undoStack.pop());
         settled = snapshot();
@@ -853,7 +853,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             // approximation available here draws something that LOOKS like a difference and
             // is not one, and a tool you cannot trust is worse than a tool you cannot open.
             if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.Q) {
-                Toast.makeText(this, "The difference view needs Android 10 or newer",
+                Toast.makeText(this, getString(R.string.spritelab_the_difference_view_needs),
                         Toast.LENGTH_LONG).show();
                 return;
             }
@@ -1190,7 +1190,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // The word rides INSIDE the pill. Outside it, the wrap put "drag" at the end of the
         // previous line and left the segment orphaned underneath, labelling nothing.
         TextView dragLabel = new TextView(this);
-        dragLabel.setText("drag");
+        dragLabel.setText(getString(R.string.spritelab_drag));
         dragLabel.setTextSize(9.5f);
         dragLabel.setTextColor(SpriteTheme.DIMMER);
         dragLabel.setPadding((int) (7 * d), 0, (int) (3 * d), 0);
@@ -1210,7 +1210,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 markDirty();
                 refreshArt();
                 showSection("slice");
-                Toast.makeText(this, "Every drawing is back where it started",
+                Toast.makeText(this, getString(R.string.spritelab_every_drawing_is_back),
                         Toast.LENGTH_SHORT).show();
             });
             b.addView(reset);
@@ -1263,7 +1263,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // difference matters the moment you have forty cells and want every mouth shape.
         // The model has carried tags since S1 and nothing has ever been able to set one.
         TextView tLabel = new TextView(this);
-        tLabel.setText("Tags");
+        tLabel.setText(getString(R.string.spritelab_tags));
         tLabel.setTextColor(SpriteTheme.DIMMER);
         tLabel.setTextSize(10f);
         cb.addView(tLabel);
@@ -1287,9 +1287,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         addTag.setOnClickListener(x -> {
             final EditText in = new EditText(this);
             in.setSingleLine(true);
-            in.setHint("mouth, hand, blink\u2026");
+            in.setHint(getString(R.string.spritelab_mouth_hand_blink));
             StudioDialog.builder(this)
-                    .setTitle("New tag")
+                    .setTitle(getString(R.string.spritelab_new_tag))
                     .setView(in)
                     .setPositiveButton("Add", (dl, w) -> {
                         String t = in.getText().toString().trim().toLowerCase(java.util.Locale.US);
@@ -1307,7 +1307,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         // Visemes. A cell is not consumed by an assignment: "surprised" stays an expression
         // AND answers for OO, which is the whole economy of a small hand-made sheet.
         TextView vLabel = new TextView(this);
-        vLabel.setText("Viseme");
+        vLabel.setText(getString(R.string.spritelab_viseme));
         vLabel.setTextColor(SpriteTheme.DIMMER);
         vLabel.setTextSize(10f);
         cb.addView(vLabel);
@@ -1600,7 +1600,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         field.setOnEditorActionListener((v, action, e) -> { step.run(); return true; });
 
         StudioDialog.builder(this)
-                .setTitle("Name the cells")
+                .setTitle(getString(R.string.spritelab_name_the_cells))
                 .setView(box)
                 // "Next" keeps the dialog open by design — that is the whole point of it.
                 .setNeutralButton("Next \u203a", null)
@@ -1693,7 +1693,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
         // One button for the ground behind the art: tap cycles it, hold lists it.
         bgSwatch = new BgSwatch(this);
-        bgSwatch.setContentDescription("Preview background");
+        bgSwatch.setContentDescription(getString(R.string.spritelab_preview_background));
         androidx.appcompat.widget.TooltipCompat.setTooltipText(bgSwatch, "Preview background: tap to change it, hold to pick");
         bgSwatch.setOnClickListener(v -> {
             previewBg = (previewBg + 1) % BG_NAMES.length;
@@ -1702,7 +1702,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         });
         bgSwatch.setOnLongClickListener(v -> {
             StudioDialog.builder(this)
-                    .setTitle("Preview background")
+                    .setTitle(getString(R.string.spritelab_preview_background))
                     .setItems(BG_NAMES, (dl, which) -> {
                         previewBg = which;
                         bgSwatch.invalidate();
@@ -2026,14 +2026,14 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      * moved its own reference would be impossible to reason about.</p>
      */
     private void matchToCurrent() {
-        if (renderer == null) { Toast.makeText(this, "No art loaded", Toast.LENGTH_SHORT).show(); return; }
+        if (renderer == null) { Toast.makeText(this, getString(R.string.spritelab_no_art_loaded), Toast.LENGTH_SHORT).show(); return; }
         android.graphics.Bitmap bmp = renderer.getBitmap();
         if (bmp == null || bmp.isRecycled()) return;
         float toSource = renderer.sourceWidth() / (float) Math.max(1, bmp.getWidth());
         final int ref = currentCell();
         float[] target = inkBox(bmp, ref);
         if (target == null) {
-            Toast.makeText(this, "This frame is empty \u2014 nothing to match to",
+            Toast.makeText(this, getString(R.string.spritelab_this_frame_is_empty),
                     Toast.LENGTH_LONG).show();
             return;
         }
@@ -2094,7 +2094,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         java.util.List<Integer> cells = alignTargets();
         java.util.Map<Integer, float[]> boxes = inkBoxes(cells);
         if (boxes.isEmpty()) {
-            Toast.makeText(this, "No ink to measure", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.spritelab_no_ink_to_measure), Toast.LENGTH_SHORT).show();
             return;
         }
         float sx = 0, sy = 0;
@@ -2135,7 +2135,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         android.widget.ScrollView sv = new android.widget.ScrollView(this);
         sv.addView(t);
         StudioDialog.builder(this)
-                .setTitle("Drift")
+                .setTitle(getString(R.string.spritelab_drift))
                 .setView(sv)
                 .setPositiveButton("Close", null)
                 .setNeutralButton("Auto-centre it", (d, w) -> autoCentre(false))
@@ -2307,7 +2307,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             in.setText(rollName == null ? "" : rollName);
             in.setSelectAllOnFocus(true);
             StudioDialog.builder(this)
-                    .setTitle("Name this sequence")
+                    .setTitle(getString(R.string.spritelab_name_this_sequence))
                     .setView(in)
                     .setPositiveButton("Set", (dl, w) -> {
                         rollName = in.getText().toString().trim();
@@ -2367,7 +2367,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     /** The roll becomes a named animation on the sheet — which is what the drawer reads back. */
     private void saveLabClip() {
         if (labSeq.size() < 1) {
-            Toast.makeText(this, "Tap cells to build a sequence first", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.spritelab_tap_cells_to_build), Toast.LENGTH_SHORT).show();
             return;
         }
         final EditText input = new EditText(this);
@@ -2375,7 +2375,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         input.setText(rollName == null || rollName.isEmpty()
                 ? "clip" + (sheet.getPresets().size() + 1) : rollName);
         StudioDialog.builder(this)
-                .setTitle("Name this animation")
+                .setTitle(getString(R.string.spritelab_name_this_animation))
                 .setView(input)
                 .setPositiveButton("Save", (dl, w) -> {
                     String name = input.getText().toString().trim();
@@ -2484,7 +2484,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             pickedClip = null;
             gridView.setRoll(labSeq);
             TextView empty = new TextView(this);
-            empty.setText("No animations yet. Build a sequence in Play, then Save clip.");
+            empty.setText(getString(R.string.spritelab_no_animations_yet_build));
             empty.setTextColor(SpriteTheme.DIMMER);
             empty.setTextSize(11.5f);
             benchBody.addView(empty);
@@ -2492,7 +2492,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
 
         TextView hint = new TextView(this);
-        hint.setText("Tap a clip to see it on the sheet. Long-press to drag it somewhere else.");
+        hint.setText(getString(R.string.spritelab_tap_a_clip_to));
         hint.setTextColor(SpriteTheme.DIMMER);
         hint.setTextSize(10f);
         benchBody.addView(hint);
@@ -2613,12 +2613,12 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         final EditText fps = new EditText(this);
         fps.setSingleLine(true);
         fps.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
-        fps.setHint("fps");
+        fps.setHint(getString(R.string.spritelab_fps));
         fps.setText(String.valueOf((int) (pr.fps > 0 ? pr.fps : sheet.getFps())));
         box.addView(fps);
 
         StudioDialog.builder(this)
-                .setTitle("Edit clip")
+                .setTitle(getString(R.string.spritelab_edit_clip))
                 .setView(box)
                 .setPositiveButton("Save", (dl, w) -> {
                     String n = name.getText().toString().trim();
@@ -2776,7 +2776,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 : project.spriteSheetById(pickedSheet);
         if (picked == null) {
             TextView hint = new TextView(this);
-            hint.setText("Tap a sheet to open, rename or remove it.");
+            hint.setText(getString(R.string.spritelab_tap_a_sheet_to));
             hint.setTextColor(SpriteTheme.DIMMER);
             hint.setTextSize(10f);
             b.addView(hint);
@@ -2884,7 +2884,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         in.setText(target.getName());
         in.setSelectAllOnFocus(true);
         StudioDialog.builder(this)
-                .setTitle("Rename sheet")
+                .setTitle(getString(R.string.spritelab_rename_sheet))
                 .setView(in)
                 .setPositiveButton("Rename", (dl, w) -> {
                     String n = in.getText().toString().trim();
@@ -2986,7 +2986,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         if (!others.isEmpty()) {
             TextView lbl = new TextView(this);
-            lbl.setText("merge in");
+            lbl.setText(getString(R.string.spritelab_merge_in));
             lbl.setTextSize(9.5f);
             lbl.setTextColor(SpriteTheme.DIMMER);
             b.addView(lbl);
@@ -3024,7 +3024,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         fitFill.setOnClickListener(v -> {
             bakeFit = SpriteBaker.Fit.FILL;
             syncFit.run();
-            Toast.makeText(this, "Fill crops whatever does not fit the cell",
+            Toast.makeText(this, getString(R.string.spritelab_fill_crops_whatever_does),
                     Toast.LENGTH_LONG).show();
         });
         fitSeg.addView(fitArt); fitSeg.addView(fitCell); fitSeg.addView(fitFill);
@@ -3043,7 +3043,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         jpg.setOnClickListener(v -> {
             bakeJpeg = true;
             syncFmt.run();
-            Toast.makeText(this, "JPG has no transparency \u2014 the sheet bakes onto white",
+            Toast.makeText(this, getString(R.string.spritelab_jpg_has_no_transparency),
                     Toast.LENGTH_LONG).show();
         });
         fmtSeg.addView(png); fmtSeg.addView(jpg);
@@ -3084,7 +3084,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      */
     private void doBake(boolean framesOnly) {
         if (renderer == null) {
-            Toast.makeText(this, "No art loaded", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, getString(R.string.spritelab_no_art_loaded), Toast.LENGTH_SHORT).show();
             return;
         }
         final SpriteBaker.Options opt = new SpriteBaker.Options();
@@ -3196,7 +3196,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 labDirty = true;
                 save(true);
                 StudioDialog.builder(this)
-                        .setTitle("Baked")
+                        .setTitle(getString(R.string.spritelab_baked))
                         .setMessage(msg + " \u00b7 "
                                 + count(made.getPresets().size(), "animation")
                                 + (lost > 0 ? "\n\n" + count(lost, "animation")
@@ -3292,7 +3292,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     (android.content.ClipboardManager) getSystemService(CLIPBOARD_SERVICE);
             if (cb != null) {
                 cb.setPrimaryClip(android.content.ClipData.newPlainText("sprite.json", json));
-                Toast.makeText(this, "JSON copied", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.spritelab_json_copied), Toast.LENGTH_SHORT).show();
             }
         });
         b.addView(copy);
@@ -3336,7 +3336,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         filmBoxes.clear();
         if (labSeq.isEmpty()) {
             TextView hint = new TextView(this);
-            hint.setText("Tap cells on the sheet to build a sequence");
+            hint.setText(getString(R.string.spritelab_tap_cells_on_the));
             hint.setTextColor(SpriteTheme.DIMMER);
             hint.setTextSize(10.5f);
             filmRow.addView(hint);
@@ -3557,7 +3557,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
      * and falls and the feet follow it. That is why both exist.</p>
      */
     private void autoCentre(boolean feet) {
-        if (renderer == null) { Toast.makeText(this, "No art loaded", Toast.LENGTH_SHORT).show(); return; }
+        if (renderer == null) { Toast.makeText(this, getString(R.string.spritelab_no_art_loaded), Toast.LENGTH_SHORT).show(); return; }
         android.graphics.Bitmap bmp = renderer.getBitmap();
         if (bmp == null || bmp.isRecycled()) return;
         float toSource = renderer.sourceWidth() / (float) Math.max(1, bmp.getWidth());
@@ -3577,7 +3577,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             sumBottom += box[3];
             n++;
         }
-        if (n == 0) { Toast.makeText(this, "Nothing to centre", Toast.LENGTH_SHORT).show(); return; }
+        if (n == 0) { Toast.makeText(this, getString(R.string.spritelab_nothing_to_centre), Toast.LENGTH_SHORT).show(); return; }
         float avgBottom = sumBottom / n;
 
         for (java.util.Map.Entry<Integer, float[]> e : boxes.entrySet()) {
@@ -4403,7 +4403,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         }
         if (moved == 0) { exportSidecar(); return; }
         StudioDialog.builder(this)
-                .setTitle("Alignment travels as numbers")
+                .setTitle(getString(R.string.spritelab_alignment_travels_as_numbers))
                 .setMessage(count(moved, "frame") + " on this sheet " + (moved == 1 ? "has" : "have")
                         + " alignment on "
                         + (moved == 1 ? "it" : "them") + ".\n\nThe .sprite.json records that "

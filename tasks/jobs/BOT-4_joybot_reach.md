@@ -93,3 +93,7 @@ SpriteLab: grid, names, animations, sequences.
 - New families: one file in `ai/actions/` + one `add(...)` line; app-wide ones in `AppActions.build()`.
   One request = one undo (use `AIChatState.liveWriteRequest` as the group). Deletes ask first and take only the
   person's own yes (`PersonSaid`). Wing code belongs to its lead: agree the hook first.
+
+## 2026-11-24 (Sonnet lane, queue row 24): naming layers, the part a PC can finish
+- **Done and tested:** a timeline bar now shows an item's own name: text and image layers, sprite layers and visualiser layers (`LayerRowRenderer.labelFor` through the new pure `model/ItemLabel`; `run-itemname.sh` 33 checks, which need `media3.patched.path` in `local.properties` to compile on a PC). Without a name the bar says what it always said (the text, IMG, the sprite count, VIZ). Not seen on a phone.
+- **Still left, all of it screen work that wants a phone:** the drawer header rename and its `Cat 1 · Image` title, a long-press "Rename...", a name chip on the main strip, a sprite's default name from its sheet, an audio clip's default from its file name, hover labels on the rename control, and "Cat 2 (IMG_0042.jpg) is missing" in the missing-file messages.

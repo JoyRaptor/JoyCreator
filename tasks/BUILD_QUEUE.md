@@ -43,6 +43,9 @@ hardest work.
 | 20 | FILE-1 phone-free items (Joy Creator folder leftovers) | [FILE-1](jobs/FILE-1_folder_leftovers.md) | no | checked 11-24: the open storage-roots item was already done; the stale box ticked; what is left needs a phone, the owner or the JoyBrush lane |
 | 21 | BOT-2 open boxes that need no phone (help for every STATE feature, hover labels) | [BOT-2](jobs/BOT-2_joybot_everywhere.md) | no | 11-24: STATE "Help: pending" cut from 17 rows to 6 (the rest are the hidden Avatar room); hover labels covered by HOVER-1; per-room ideas need a phone |
 | 22 | BOT-3 "edits against a revision" (Studio first): a long Joybot job commits only if the project has not moved, else a clear conflict; proved in the bench with the fake model | [BOT-3](jobs/BOT-3_joybot_trust.md) | no | looked at 11-24 (website lane): design on the card, not built; needs a phone first (see card) |
+| 23 | ANI-1 finish ledger: code rows | [ledger](PUPPET_FINISH_LEDGER.md) | no | re-checked 11-24: every row done or waiting on a screenshot/phone; nothing a PC can prove |
+| 24 | BOT-4: naming layers (the part a PC can finish) | [BOT-4](jobs/BOT-4_joybot_reach.md) | no | timeline bars show the item name (ItemLabel, 33 checks); drawer rename, chips, missing-file text left (phone) |
+| 25 | STU-5: one snapping authority | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | no | not contained (540 mentions in the editor): written up for an Opus session, not started |
 
 Waiting on the owner (not in the queue): S1 app ID, S4 privacy email, S6 Play account and testers, S10 removing 11
 unused FadCam classes, the icon picks, the hide list.

@@ -52,6 +52,11 @@ public final class FxBlurbs {
         put("chipped_wear", "Paint worn through in chips; output a mask or the layered colours");
         put("caustics", "Moving net of light, like sun on a pool floor");
         put("glitter", "Tiny sparks that flash on their own clocks");
+        put("burn_away", "A ragged flame line eats the picture away, with a hair of ember");
+        put("stained_glass", "Panes of coloured glass, each taking the picture's colour, with dark lead lines");
+        put("led_board", "A board of lamps, each glowing with the picture's colour");
+        put("flag_wave", "The picture ripples like a flag in the wind, with lit folds");
+        put("steamed_glass", "Breath on a window: soft pale fog with tiny clear drops");
         // Distort
         put("offset", "Slides the picture sideways or up and down, wrapping round");
         put("glitch_tear", "Rows of the picture tear sideways in bursts");

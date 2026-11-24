@@ -531,6 +531,7 @@ public final class FxRegistry {
         FxVisLabDefs.addTo(defs);
         FxVisLabDefs2.addTo(defs);
         FxTextLabDefs.addTo(defs);
+        FxTextLabDefs2.addTo(defs);
 
         ALL = Collections.unmodifiableList(defs);
 

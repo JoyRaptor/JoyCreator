@@ -33,13 +33,14 @@ final class FxTextLabDefs {
      * 0..1 id of the nearest cell, from a 3x3 search around {@code (px, py)} (cell units).
      * {@code rnd} (0..1) is how far a cell's point strays from its centre; {@code seed} a float.
      */
-    private static String voronoi(String v, String px, String py, String rnd, String seed) {
+    static String voronoi(String v, String px, String py, String rnd, String seed) {
         return "vec2 " + v + "_p = vec2(" + px + ", " + py + ");\n"
                 + "vec2 " + v + "_i = floor(" + v + "_p);\n"
                 + "vec2 " + v + "_f = fract(" + v + "_p);\n"
                 + "float " + v + "_d1 = 8.0;\n"
                 + "float " + v + "_d2 = 8.0;\n"
                 + "float " + v + "_id = 0.0;\n"
+                + "vec2 " + v + "_c = vec2(0.0);\n"
                 + "for (int vj = -1; vj <= 1; vj++) {\n"
                 + "  for (int vi = -1; vi <= 1; vi++) {\n"
                 + "    vec2 vg = vec2(float(vi), float(vj));\n"
@@ -52,6 +53,7 @@ final class FxTextLabDefs {
                 + "      " + v + "_d2 = " + v + "_d1;\n"
                 + "      " + v + "_d1 = vd;\n"
                 + "      " + v + "_id = " + v + "h1;\n"
+                + "      " + v + "_c = " + v + "_i + vg + vo;\n"
                 + "    } else if (vd < " + v + "_d2) {\n"
                 + "      " + v + "_d2 = vd;\n"
                 + "    }\n"

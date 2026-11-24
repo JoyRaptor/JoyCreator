@@ -68,6 +68,32 @@ public final class PartThumbs {
         });
     }
 
+    /** What a list row needs to show its picture: a cache key and the way to draw it. */
+    public interface Source {
+        @Nullable String key(int position);
+        @Nullable Bitmap load(int position);
+    }
+
+    /** A plain list of names where each row gets its picture; a null key leaves a row as a name. For {@code setAdapter}. */
+    @NonNull
+    public static android.widget.ArrayAdapter<String> listAdapter(@NonNull Context c, @NonNull String[] names,
+                                                                  @NonNull Source source) {
+        return new android.widget.ArrayAdapter<String>(c, android.R.layout.simple_list_item_1, names) {
+            @NonNull
+            @Override
+            public android.view.View getView(int position, @Nullable android.view.View convertView,
+                                             @NonNull android.view.ViewGroup parent) {
+                android.view.View v = super.getView(position, convertView, parent);
+                if (v instanceof TextView) {
+                    String key = source.key(position);
+                    if (key != null) startOf((TextView) v, key, () -> source.load(position));
+                    else ((TextView) v).setCompoundDrawablesRelative(null, null, null, null);
+                }
+                return v;
+            }
+        };
+    }
+
     /** The same for a sheet row: the glyph gives way to the picture. */
     public static void onRow(@NonNull SheetKit.Row row, @NonNull String key, @NonNull Callable<Bitmap> loader) {
         if (row.icon != null) row.icon.setVisibility(android.view.View.GONE);

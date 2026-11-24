@@ -564,7 +564,7 @@ public class IdeaEngineTest {
                     {"how do I use radial symmetry", "joybrush_guides"},
                     {"what are paper fibres", "joybrush_fibres"},
                     {"how do I send my drawing to studio", "send_to_studio"},
-                    {"how do I open a sprite board in spritelab", "send_to_studio"},
+                    {"how do I open in spritelab from joybrush", "send_to_studio"},
                     {"how do I change the look sliders on my title", "studio_title_sliders"},
                     {"can you show me a trick", "joybot_tricks"},
                     {"how do I report a reply", "joybot_report"},

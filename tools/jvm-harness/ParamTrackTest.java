@@ -17,6 +17,7 @@ public class ParamTrackTest {
         appendAndExactLookup();
         monotonicGuardNudgesForward();
         midpointLerps();
+        fractionalTapKeepsDiscreteClass();
         oneSidedKeyHolds();
         clampsOutsideRange();
         jsonRoundTrips();
@@ -62,6 +63,19 @@ public class ParamTrackTest {
         check("lerp: pitch midpoint", near(mid.get("pitch"), 0.25f));
         Map<String, Float> q = t.sampleAt(50);
         check("lerp: yaw quarter", near(q.get("yaw"), -0.5f));
+    }
+
+    static void fractionalTapKeepsDiscreteClass() {
+        AvatarParamTrack t = new AvatarParamTrack();
+        t.add(0, map("yaw", 0f, "viseme", 2f));
+        t.add(2, map("yaw", 1f, "viseme", 5f));
+        t.add(4, map("yaw", 0f, "viseme", 1f));
+        Map<String, Float> tap = t.sampleAtMicros(750);
+        check("fractional tap lerps continuous params", near(tap.get("yaw"), 0.375f));
+        check("fractional tap holds discrete params", near(tap.get("viseme"), 2f));
+        check("discrete params release at the authored stamp",
+                near(t.sampleAtMicros(1999).get("viseme"), 2f)
+                        && near(t.sampleAtMicros(2000).get("viseme"), 5f));
     }
 
     static void oneSidedKeyHolds() {

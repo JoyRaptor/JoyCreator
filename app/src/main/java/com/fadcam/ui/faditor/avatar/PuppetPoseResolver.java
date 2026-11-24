@@ -51,6 +51,14 @@ public final class PuppetPoseResolver {
      *  tracks the cell its discrete props last came from). */
     public static class DiscreteState {
         final Map<String, Integer> partSourceCell = new HashMap<>(); // "domainId/partId" -> cell linear index
+
+        /** An exposure may evaluate on its own copy without advancing the live resolver. */
+        @NonNull
+        public DiscreteState copy() {
+            DiscreteState copy = new DiscreteState();
+            copy.partSourceCell.putAll(partSourceCell);
+            return copy;
+        }
     }
 
     /** Resolved state for one part at one instant. */

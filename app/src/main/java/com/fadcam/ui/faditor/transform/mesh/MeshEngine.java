@@ -58,8 +58,20 @@ public final class MeshEngine {
      *         the whole "a project with no deformation costs exactly zero" guarantee.
      */
     public boolean update(MeshWarpSpec spec, long timeMs) {
+        return update(spec, timeMs, false);
+    }
+
+    /**
+     * Evaluates deformed vertices and authored occlusion at a shutter tap.
+     * Use a separate engine from the live renderer. A neutral tap still supplies geometry.
+     */
+    public boolean updateForExposure(MeshWarpSpec spec, long timeUs) {
+        return update(spec, timeUs, true);
+    }
+
+    private boolean update(MeshWarpSpec spec, long time, boolean exact) {
         live = false;
-        if (spec == null || !spec.hasWarp()) return false;
+        if (spec == null || (!exact && !spec.hasWarp())) return false;
         MeshTopology topo = spec.topology();
         if (topo == null) return false;
         if (deformer == null || !topo.kind().equals(deformerKind) || !deformer.supports(topo)) {
@@ -70,14 +82,18 @@ public final class MeshEngine {
         buffers.bind(topo);
         int arity = topo.handleArity();
         if (pose.length != arity) pose = new float[arity];
-        if (!spec.handlesAt(timeMs, pose)) return false;
+        if (exact) {
+            spec.handlesAtMicros(time, pose);
+        } else if (!spec.handlesAt(time, pose)) {
+            return false;
+        }
         boolean identity = deformer.isIdentity(pose);
         // AN UNBENT PUPPET STILL NEEDS THIS PATH when its pieces are ordered. Bailing on an
         // identity pose is what keeps "a project with no deformation costs exactly zero" true, and
         // that stays true for everything with one draw group. But a character whose arm has been
         // put behind its body is a different picture from the flat texture even at rest, and the
         // only place that reordering happens is here.
-        if (identity && !spec.hasGroupDepth()) return false;
+        if (identity && !exact && !spec.hasGroupDepth()) return false;
         if (identity) {
             buffers.resetToRest();
         } else if (!deformer.solve(topo, buffers, pose)) {
@@ -86,8 +102,8 @@ public final class MeshEngine {
         if (buffers.groupOrder.length < buffers.groupCount()) {
             buffers.groupOrder = new int[buffers.groupCount()];
         }
-        spec.groupOrderAt(timeMs, buffers.groupOrder);
-        orderTriangles(spec, topo, timeMs);
+        if (!exact) spec.groupOrderAt(time, buffers.groupOrder);
+        orderTriangles(spec, topo, time, exact);
         live = true;
         return true;
     }
@@ -101,8 +117,16 @@ public final class MeshEngine {
      * shifted as a limb moved would pop the character inside out mid-gesture for no reason the
      * animator could see.
      */
-    private void orderTriangles(MeshWarpSpec spec, MeshTopology topo, long timeMs) {
+    private void orderTriangles(MeshWarpSpec spec, MeshTopology topo, long time, boolean exact) {
         int tris = buffers.indexCount() / 3;
+        if (exact) {
+            int handles = topo.handleCount();
+            int groups = Math.max(1, topo.groupCount());
+            if (handleZ.length != handles) handleZ = new float[handles];
+            if (groupZ.length != groups) groupZ = new float[groups];
+            spec.depthsAtMicros(time, handleZ, groupZ);
+            MeshWarpSpec.sortGroups(groupZ, groups, buffers.groupOrder);
+        }
         if (tris <= 0) return;
         if (!spec.hasGroupDepth()) {
             if (depthStamp != 0) {                     // depth was removed: back to built order
@@ -113,12 +137,14 @@ public final class MeshEngine {
             }
             return;
         }
-        int handles = topo.handleCount();
-        int groups = Math.max(1, topo.groupCount());
-        if (handleZ.length != handles) handleZ = new float[handles];
-        if (groupZ.length != groups) groupZ = new float[groups];
-        spec.handleZAt(timeMs, handleZ);
-        spec.groupZAt(timeMs, groupZ);
+        if (!exact) {
+            int handles = topo.handleCount();
+            int groups = Math.max(1, topo.groupCount());
+            if (handleZ.length != handles) handleZ = new float[handles];
+            if (groupZ.length != groups) groupZ = new float[groups];
+            spec.handleZAt(time, handleZ);
+            spec.groupZAt(time, groupZ);
+        }
 
         int stamp = MeshDepth.stampOf(handleZ, groupZ) * 31 + buffers.topologyStamp();
         if (stamp == depthStamp) return;

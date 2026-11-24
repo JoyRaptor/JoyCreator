@@ -127,7 +127,7 @@ public class ForensicsEventsAdapter extends RecyclerView.Adapter<ForensicsEvents
         boolean seen = isEventSeen(holder.itemView, row.eventUid);
         if (!seen && isRecent(row)) {
             holder.badge.setVisibility(View.VISIBLE);
-            holder.badge.setText("NEW");
+            holder.badge.setText(com.fadcam.R.string.badge_new);
         } else if (row.linkStatus != null && !row.linkStatus.isEmpty()) {
             holder.badge.setVisibility(View.VISIBLE);
             holder.badge.setText(row.linkStatus);

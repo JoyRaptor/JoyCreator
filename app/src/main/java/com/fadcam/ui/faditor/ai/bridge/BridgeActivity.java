@@ -133,7 +133,7 @@ public class BridgeActivity extends AppCompatActivity implements BridgeService.W
         if (qr != null) {
             ImageView iv = new ImageView(this);
             iv.setImageBitmap(qr);
-            iv.setContentDescription("Pairing code as a QR picture");
+            iv.setContentDescription(getString(com.fadcam.R.string.bridge_qr_description));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(size, size);
             lp.gravity = Gravity.CENTER_HORIZONTAL;
             iv.setLayoutParams(lp);
@@ -220,7 +220,7 @@ public class BridgeActivity extends AppCompatActivity implements BridgeService.W
         bottom.addView(pill("New code", "A new code; your computer will need the new words", v -> {
             BridgeService.forgetCode(this);
             BridgeService.stop(this);
-            Toast.makeText(this, "Open the door again for the new code", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.bridge_new_code, Toast.LENGTH_SHORT).show();
         }));
         col.addView(bottom);
     }
@@ -273,7 +273,7 @@ public class BridgeActivity extends AppCompatActivity implements BridgeService.W
     private void copy(@NonNull String s) {
         ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
         if (cm != null) cm.setPrimaryClip(ClipData.newPlainText("Joy Creator bridge", s));
-        Toast.makeText(this, "Copied", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, com.fadcam.R.string.bridge_copied, Toast.LENGTH_SHORT).show();
     }
 
     private void share(@NonNull String s) {

@@ -132,7 +132,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 AvatarLibrary.Entry e = AvatarLibrary.load(
                         new java.io.File(AvatarLibrary.libraryDir(this), dirName));
                 if (e == null) {
-                    Toast.makeText(this, "Library avatar missing", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, com.fadcam.R.string.avatar_library_missing, Toast.LENGTH_LONG).show();
                     finish();
                     return;
                 }
@@ -197,7 +197,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
         for (int i = 0; i < entries.size(); i++) items[i] = entries.get(i).rig.getName();
         items[entries.size()] = "+ New avatar from image…";
         StudioDialog.builder(this)
-                .setTitle("Avatar Studio — library")
+                .setTitle(com.fadcam.R.string.avatar_library_title)
                 .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, items, new com.fadcam.ui.faditor.PartThumbs.Source() {
                     @Override public String key(int i) { return i < entries.size() ? "lib:" + entries.get(i).rig.getName() : null; }
                     @Override public android.graphics.Bitmap load(int i) {
@@ -241,7 +241,7 @@ public class AvatarStudioActivity extends AppCompatActivity {
                 java.util.Collections.singletonList(sheet));
         AvatarLibrary.Entry e = dir != null ? AvatarLibrary.load(dir) : null;
         if (e == null) {
-            Toast.makeText(this, "Couldn't create the avatar bundle", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, com.fadcam.R.string.avatar_bundle_failed, Toast.LENGTH_LONG).show();
             if (rig == null) finish();
             return;
         }
@@ -330,10 +330,10 @@ public class AvatarStudioActivity extends AppCompatActivity {
             // Ask now; this session falls back to synthetic, next tap uses the camera.
             ActivityCompat.requestPermissions(this,
                     new String[]{Manifest.permission.CAMERA}, RC_FACE_CAMERA);
-            Toast.makeText(this, "Grant camera, then tap Track again for face tracking",
+            Toast.makeText(this, com.fadcam.R.string.avatar_grant_camera,
                     Toast.LENGTH_SHORT).show();
         } else if (!modelPresent) {
-            Toast.makeText(this, "Face model missing — using synthetic tracking",
+            Toast.makeText(this, com.fadcam.R.string.avatar_face_model_missing,
                     Toast.LENGTH_SHORT).show();
         }
         TrackingSource source = face

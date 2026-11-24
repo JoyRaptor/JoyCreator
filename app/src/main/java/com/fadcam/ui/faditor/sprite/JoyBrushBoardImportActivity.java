@@ -44,7 +44,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
         final boolean studio=getIntent().getBooleanExtra("joybrush_board_studio",false);
         image=studio && getIntent().getBooleanExtra("joybrush_board_image",false);
         handoff=state == null ? cc.joycreator.handoff.HandoffHost.open(this,studio) : null;
-        if(handoff == null) Toast.makeText(this,"Opening board…",Toast.LENGTH_SHORT).show();
+        if(handoff == null) Toast.makeText(this,com.fadcam.R.string.board_opening,Toast.LENGTH_SHORT).show();
         new Thread(() -> choose(bundle,studio),"joybrush-board-import").start();
     }
     /** Studio with projects on the phone asks where the board goes; everything else goes straight in. */
@@ -151,7 +151,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             });
         } catch(Exception e) {
             final String message=e.getMessage();
-            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,"Could not open board: "+message,Toast.LENGTH_LONG).show(); finish(); });
+            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,getString(com.fadcam.R.string.board_could_not_open,message),Toast.LENGTH_LONG).show(); finish(); });
         } finally {
             if(ownsStage) deleteOwned(stage);
             if(ownProject != null) deleteOwned(ownProject);
@@ -274,7 +274,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             });
         } catch(Exception e) {
             final String message=e.getMessage();
-            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,"Could not open board: "+message,Toast.LENGTH_LONG).show(); finish(); });
+            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,getString(com.fadcam.R.string.board_could_not_open,message),Toast.LENGTH_LONG).show(); finish(); });
         } finally {
             if(ownsStage) deleteOwned(stage);
             if(ownProject != null) deleteOwned(ownProject);

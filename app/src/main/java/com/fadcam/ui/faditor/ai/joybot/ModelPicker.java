@@ -64,7 +64,7 @@ public final class ModelPicker {
         root.addView(tabs);
 
         EditText search = new EditText(a);
-        search.setHint("Search: name, \"free\", \"vision\", \"image\"…");
+        search.setHint(com.fadcam.R.string.model_picker_search_hint);
         search.setSingleLine(true);
         search.setTextColor(Studio.INK);
         search.setHintTextColor(Studio.INK_FAINT);
@@ -88,7 +88,7 @@ public final class ModelPicker {
         final List<ModelCatalog.Model> shown = new ArrayList<>();
 
         AlertDialog dialog = StudioDialog.builder(a)
-                .setTitle("Choose a model")
+                .setTitle(com.fadcam.R.string.model_picker_title)
                 .setView(root)
                 .setNegativeButton("Close", null)
                 .create();
@@ -182,7 +182,7 @@ public final class ModelPicker {
                     status.setText("Couldn't load this account's models (offline, or the key was refused?). "
                             + "You can still type a model name in ⚙.");
                 } else if (c.size() <= 1) {
-                    status.setText("Couldn't load the full list (offline?) — showing what I know.");
+                    status.setText(com.fadcam.R.string.model_picker_offline);
                 }
                 refresh.run();
             });

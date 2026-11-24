@@ -78,7 +78,7 @@ public final class SequenceImportDialog {
         root.addView(count);
 
         TextView hint = new TextView(ctx);
-        hint.setText("How long should it run? You can change all of this later.");
+        hint.setText(com.fadcam.R.string.sequence_import_hint);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f);
         hint.setTextColor(SpriteTheme.DIM);
         hint.setPadding(0, 0, 0, dp(ctx, 14));
@@ -166,7 +166,7 @@ public final class SequenceImportDialog {
         render.run();
 
         StudioDialog.builder(ctx)
-                .setTitle("Import image sequence")
+                .setTitle(com.fadcam.R.string.sequence_import_title)
                 .setView(root)
                 .setPositiveButton("Import", (d, w) -> cb.onImport(SequenceTiming.clampFps(fps[0])))
                 .setNegativeButton("Cancel", null)

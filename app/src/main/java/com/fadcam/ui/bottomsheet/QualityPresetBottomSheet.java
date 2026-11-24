@@ -101,7 +101,7 @@ public class QualityPresetBottomSheet extends BottomSheetDialogFragment {
         
         // Check if preset changed
         if (selectedPreset == currentPreset) {
-            Toast.makeText(getContext(), "Quality already set to " + selectedPreset.getDisplayName(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), getString(com.fadcam.R.string.quality_already_set, selectedPreset.getDisplayName()), Toast.LENGTH_SHORT).show();
             dismiss();
             return;
         }

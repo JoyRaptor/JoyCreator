@@ -98,7 +98,7 @@ public class StreamOrientationBottomSheet extends BottomSheetDialogFragment {
         
         // Check if orientation changed
         if (selectedOrientation == currentOrientation) {
-            Toast.makeText(getContext(), "Orientation already set to " + selectedOrientation.getDisplayName(), Toast.LENGTH_SHORT).show();
+            Toast.makeText(getContext(), getString(com.fadcam.R.string.orientation_already_set, selectedOrientation.getDisplayName()), Toast.LENGTH_SHORT).show();
             dismiss();
             return;
         }

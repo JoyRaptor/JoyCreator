@@ -6,7 +6,7 @@ gets one (so it cannot quietly lose it), and leaves OWED when it does. OWED only
 import sys
 
 DONE = {
-    'app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java': 'sprite sheet manager, built-in transition type picker, reactive overlay picker',
+    'app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java': 'sprite sheet manager, built-in transition type picker, reactive overlay picker, avatar manager',
     'app/src/main/java/com/fadcam/ui/faditor/avatar/AvatarStudioActivity.java': 'avatar part chips, library, add-part and parent pickers',
     'app/src/main/java/com/fadcam/vislab/room/LookSheets.java': 'VisLab sprite sheet and TextLab look choosers',
     'app/src/main/java/com/fadcam/ui/faditor/text/TextStyleLibraryPanel.java': 'built-in text styles',
@@ -16,7 +16,7 @@ DONE = {
 OWED = [
     'VisLab look strip and Studio VisLab style chips', 'VisLab parts shelf and layer rows', 
 'the 26 GL transitions (need a GPU render)', 'duck-under lane picker (audio lanes: no picture to show)', 'Unibrush tip textures (JoyBrush lane)',
-    'Studio text lanes in the timeline', 'avatar manager in Studio', 'Avatar room stage tabs',
+    'Studio text lanes in the timeline', 'Avatar room stage tabs',
 ]
 bad = []
 for path, what in DONE.items():

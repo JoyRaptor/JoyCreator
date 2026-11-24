@@ -17,7 +17,7 @@ the Space screen. Live spec: [`SPEC_20261013_FILE_MANAGEMENT.md`](../SPEC_202610
 
 ## What is left
 - [x] Undo after a Move: 11-15 PASS on the test Fold with a 44 MB file (Joybot Copy / Move / Leave card; Studio Undo then Redo kept the clip and its picture; the original is not put back in Downloads, which is the Move). [Report](../audits/device_checks_20261115.md).
-- [ ] Space → "Move unused to Trash…" (multi-select): compiles, never on the phone.
+- [x] Space → "Move unused to Trash…" (multi-select): the Note 9 pass is in the next lines (11-10 PASS); this box was stale.
 - [x] 11-10 Share-in of a large file (over 25 MB) now asks Copy / Move / Leave (`ShareInActivity`, reusing `BringInDialog.Choice` + `OriginalsRemover`). Leave links only when the sharing app allows a lasting grant, else copies with a note. **Note 9 11-10 PASS** (a throwaway 31 MB file sent by an intent): the card "This is a large file (31 MB)" appears with Copy / Move / Leave / Cancel; Leave saved nothing in the folder and said "linked, not copied"; Move put a copy in the folder and removed the original. The first try exposed a bug (a `file://` share reported no size, so it skipped the choice); fixed by reading the size from the file. Not tried: Leave on a `content://` share whose app refuses a lasting link (falls back to copy; code path only), and Undo after a Move.
 - [x] 11-10 Space → "Move unused to Trash…" PASS on the Note 9: the list pre-ticks every unused file (careful on a real phone); with only my throwaway ticked, "1 file moved to Trash", the folder went 643 → 611 MB, the file left the folder, the Trash showed it.
 - [ ] In real use only (testing would litter his real folder): recording when the folder is missing, and the
@@ -32,3 +32,7 @@ the Space screen. Live spec: [`SPEC_20261013_FILE_MANAGEMENT.md`](../SPEC_202610
 ## Files and traps
 - Read the spec's §5 before building: it lists the existing parts this extends. Do not duplicate them.
 - Any "is this file used?" logic must read the folder's `.joyproject` copies as well as the app projects.
+
+## Checked 2026-11-24 (Sonnet lane, no phone; queue row 20)
+- **Storage roots outside the shared space:** avatars and fonts are done (work-loss F6, `AvatarFolderCopy`, `FontFolderCopy`); a project's imported pictures, extracted audio and voiceover recordings (kept in the app's own `faditor_audio`) are copied into the folder beside its `.joyproject` by `StudioMirror`, so an uninstall does not lose them; the JoyBrush drawing working copies are app-private on purpose (the folder gets the finished `.joybrush`). Nothing else in this list is a PC job.
+- **What is genuinely left:** the two in-real-use checks (recording with the folder missing; the "make a Recordings folder?" offer), the JoyBrush half of the folder (thumbnail = last view is the JoyBrush save/library lane's), the owner's later list (presets and settings into the folder, version history), and the Note 9 test leftovers to delete. None can be proven on a PC.

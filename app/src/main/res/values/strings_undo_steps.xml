@@ -11,5 +11,6 @@
     <string name="undo_step_delete_transcript_version">Delete transcript version</string>
     <string name="undo_step_import_transcript">Import timestamped text</string>
     <string name="undo_step_volume">Volume</string>
+    <string name="undo_step_pin_depth">Pin depth</string>
     <string name="undo_step_caption_layout">Caption layout</string>
 </resources>

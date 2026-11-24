@@ -36328,7 +36328,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     final com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
                     if (p == null || Math.abs(after - before) < 1e-4f) return;
                     final com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
-                    undoManager.recordAction(new EditActions.LambdaAction("Pin depth",
+                    undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.undo_step_pin_depth),
                             () -> puppetSetDepthOf(it, p, after),
                             () -> puppetSetDepthOf(it, p, before)));
                 }

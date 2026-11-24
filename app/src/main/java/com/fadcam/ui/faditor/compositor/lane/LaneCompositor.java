@@ -7,6 +7,7 @@ import androidx.media3.common.util.GlProgram;
 import androidx.media3.common.util.GlUtil;
 
 import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
+import com.fadcam.ui.faditor.motion.MotionShutter;
 
 /** Composes a bottom-to-top scope. Each pass receives the pixels of every earlier entry. */
 public final class LaneCompositor {
@@ -27,6 +28,7 @@ public final class LaneCompositor {
     private final int[] textures = new int[2];
     private final int[] framebuffers = new int[2];
     private GlProgram copy;
+    private ExactLaneExposure exact;
     private int width;
     private int height;
 
@@ -61,6 +63,19 @@ public final class LaneCompositor {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, outputFramebuffer);
             GLES20.glViewport(0, 0, width, height);
         }
+    }
+
+    /**
+     * Evaluate a prefix at every shutter tap. The caller's passes must be safe to replay.
+     * Unavailable source neighbours, stateful FX, and discontinuities must be handled before this call.
+     */
+    public void drawExactScope(int inputTexture, int outputFramebuffer, int passCount,
+                               MotionShutter.Schedule shutter, DrawPass pass)
+            throws VideoFrameProcessingException, GlUtil.GlException {
+        if (exact == null) exact = new ExactLaneExposure();
+        exact.configure(width, height);
+        exact.draw(outputFramebuffer, shutter,
+                (target, timeUs) -> drawScopeAt(inputTexture, target, passCount, timeUs, pass));
     }
 
     public void drawCopy(int inputTexture, int outputFramebuffer) throws GlUtil.GlException {
@@ -102,9 +117,15 @@ public final class LaneCompositor {
         try {
             releaseTargets();
         } finally {
-            if (copy != null) {
-                copy.delete();
+            try {
+                if (copy != null) copy.delete();
+            } finally {
                 copy = null;
+                if (exact != null) {
+                    var exposure = exact;
+                    exact = null;
+                    exposure.release();
+                }
             }
         }
     }

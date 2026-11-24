@@ -510,32 +510,25 @@ public class SpriteOverlayView extends View {
     }
 
     private float snap(float v, boolean isX) {
-        float best = v;
-        float bestDistance = SNAP_THRESHOLD;
-        float d = Math.abs(v - 0.5f);
-        if (d < bestDistance) { bestDistance = d; best = 0.5f; }
+        float[] t = new float[items.size() + 1];
+        int n = 0;
+        t[n++] = 0.5f;
         for (SpriteOverlayItem other : items) {
             if (other == manipulating) continue;
-            float target = isX ? other.getCenterX() : other.getCenterY();
-            d = Math.abs(v - target);
-            if (d < bestDistance) { bestDistance = d; best = target; }
+            t[n++] = isX ? other.getCenterX() : other.getCenterY();
         }
-        return best;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.snap(v, t, n, SNAP_THRESHOLD, false);
     }
 
     private long snapTimeMs(long timeMs) {
-        long best = timeMs;
-        long bestDistance = TIME_SNAP_MS;
+        long[] edges = new long[items.size() * 2];
+        int n = 0;
         for (SpriteOverlayItem other : items) {
             if (other == manipulating) continue;
-            long d = Math.abs(timeMs - other.getStartMs());
-            if (d < bestDistance) { bestDistance = d; best = other.getStartMs(); }
-            if (other.getEndMs() != Long.MAX_VALUE) {
-                d = Math.abs(timeMs - other.getEndMs());
-                if (d < bestDistance) { bestDistance = d; best = other.getEndMs(); }
-            }
+            edges[n++] = other.getStartMs();
+            if (other.getEndMs() != Long.MAX_VALUE) edges[n++] = other.getEndMs();
         }
-        return best;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.snap(timeMs, edges, n, TIME_SNAP_MS, false);
     }
 
     private float clamp(float v) {

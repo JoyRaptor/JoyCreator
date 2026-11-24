@@ -221,18 +221,8 @@ public final class OnsetDetector {
      * @param onsets ascending, as returned by {@link #detect}
      */
     public static long snap(@NonNull long[] onsets, long ms, long toleranceMs) {
-        if (onsets.length == 0 || toleranceMs <= 0) return ms;
-        int lo = 0, hi = onsets.length - 1;
-        while (lo < hi) {                       // binary search: this runs per drag frame
-            int mid = (lo + hi) >>> 1;
-            if (onsets[mid] < ms) lo = mid + 1; else hi = mid;
-        }
-        long best = onsets[lo];
-        long bestDist = Math.abs(best - ms);
-        if (lo > 0) {                           // the predecessor may be nearer
-            long d = Math.abs(onsets[lo - 1] - ms);
-            if (d < bestDist) { best = onsets[lo - 1]; bestDist = d; }
-        }
-        return bestDist <= toleranceMs ? best : ms;
+        // The search lives in the one snapping authority now (STU-5), unchanged; the word
+        // sync magnet asks the same question there, so it lights exactly when this snaps.
+        return com.fadcam.ui.faditor.tools.SnapAuthority.sorted(onsets, ms, toleranceMs);
     }
 }

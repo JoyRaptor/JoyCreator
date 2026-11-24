@@ -354,8 +354,7 @@ public class TransformOverlayView extends View {
                 c, com.fadcam.ui.faditor.tools.SnapSettings.Kind.ROTATION);
         if (reach <= 0f) return deg;
         int step = com.fadcam.ui.faditor.tools.SnapSettings.rotationStepDeg(c);
-        float nearest = Math.round(deg / step) * (float) step;
-        return Math.abs(deg - nearest) <= ROT_SNAP_REACH_DEG * reach ? nearest : deg;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.angleStep(deg, step, ROT_SNAP_REACH_DEG * reach);
     }
 
     /** Rotation snap's reach at Normal strength. */
@@ -2507,31 +2506,13 @@ public class TransformOverlayView extends View {
     /** Like {@link #snapAxis}, plus edge-to-opposite-edge, so objects can sit flush side by side. */
     @Nullable
     private static float[] snapAxisTo(float lo, float hi, float oLo, float oHi, float thr) {
-        float[] best = snapAxis(lo, hi, oLo, oHi, thr);
-        float bestD = best == null ? thr : Math.abs(best[0]);
-        float[][] flush = {{lo, oHi}, {hi, oLo}};
-        for (float[] p : flush) {
-            float d = Math.abs(p[1] - p[0]);
-            if (d <= bestD) { bestD = d; best = new float[]{p[1] - p[0], p[1]}; }
-        }
-        return best;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.axisFlush(lo, hi, oLo, oHi, thr);
     }
 
     /** {shift, guide} for the closest of centre/near-edge/far-edge within thr, or null. */
     @Nullable
     private static float[] snapAxis(float lo, float hi, float frameLo, float frameHi, float thr) {
-        float[][] pairs = {
-                {(lo + hi) / 2f, (frameLo + frameHi) / 2f},
-                {lo, frameLo},
-                {hi, frameHi},
-        };
-        float[] best = null;
-        float bestD = thr;
-        for (float[] p : pairs) {
-            float d = Math.abs(p[1] - p[0]);
-            if (d <= bestD) { bestD = d; best = new float[]{p[1] - p[0], p[1]}; }
-        }
-        return best;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.axis(lo, hi, frameLo, frameHi, thr);
     }
 
     private void drawSnapGuides(@NonNull Canvas c) {

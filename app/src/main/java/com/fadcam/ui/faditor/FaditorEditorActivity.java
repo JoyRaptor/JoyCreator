@@ -20712,14 +20712,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (uri != null && tolMs > 0) {
                 long[] onsets = com.fadcam.ui.faditor.transcript.WordSyncOnsets.get(this, uri, null);
                 if (onsets != null && onsets.length > 0) {
-                    int lo = 0, hi = onsets.length - 1;
-                    while (lo <= hi) {
-                        int mid = (lo + hi) >>> 1;
-                        long v = onsets[mid];
-                        if (v < desiredRawMs - tolMs) lo = mid + 1;
-                        else if (v > desiredRawMs + tolMs) hi = mid - 1;
-                        else { on = true; break; }
-                    }
+                    // The same question the snap itself asks (STU-5): lit exactly when it will snap.
+                    on = com.fadcam.ui.faditor.tools.SnapAuthority.sortedIndex(onsets, desiredRawMs, tolMs) >= 0;
                 }
             }
         }

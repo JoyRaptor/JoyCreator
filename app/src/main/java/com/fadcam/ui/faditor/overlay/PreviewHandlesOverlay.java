@@ -821,24 +821,9 @@ public final class PreviewHandlesOverlay extends View {
 
     /** Pull to the nearest cardinal when close — 0° above all, which is what "level" means. */
     private static float snapRotation(float deg) {
-        float norm = ((deg % 360f) + 360f) % 360f;
-        for (float cardinal : new float[]{0f, 90f, 180f, 270f, 360f}) {
-            if (Math.abs(norm - cardinal) < ROT_SNAP_DEG) {
-                // `cardinal - norm`, NOT `(cardinal % 360) - norm`. The modulo collapsed the 360
-                // entry to 0, which is right as an ANGLE and catastrophic as a CORRECTION: a small
-                // COUNTER-CLOCKWISE twist normalises to ~357°, matches the 360 cardinal, and was
-                // then corrected by (0 - 357) — snapping the object to MINUS A FULL TURN instead
-                // of to zero. Visually identical while static, so nothing looked wrong; but the
-                // value stored is -360, and the moment it sits in a keyframe track next to any
-                // other value the object spins all the way round between them. JoyRaptor (2026-08-12):
-                // keyed X/Y/SCALE, pinched, and "when it animated rotation, it animated three
-                // hundred and sixty degrees. That's not something I can accidentally do." The 360
-                // entry exists precisely so this wrap case snaps forward to the full turn rather
-                // than being left 3° short of it — so it has to keep its 360.
-                return deg + (cardinal - norm);
-            }
-        }
-        return deg;
+        // The wrap rule (a small counter-clockwise twist lands on level, never on minus a
+        // full turn: JoyRaptor 2026-08-12) is kept, word for word, in SnapAuthority.cardinal.
+        return com.fadcam.ui.faditor.tools.SnapAuthority.cardinal(deg, ROT_SNAP_DEG);
     }
 
     private boolean onDown(@NonNull Target t, float x, float y) {

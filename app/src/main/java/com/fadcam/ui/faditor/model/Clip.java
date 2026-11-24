@@ -2518,13 +2518,10 @@ public class Clip implements AudioParams, MotionBlurItem {
      * keyframes inside the window the first-match rule would edit the wrong one.
      */
     public int opacityKeyframeIndexAt(long timeMs) {
-        int best = -1;
-        long bestDelta = Long.MAX_VALUE;
-        for (int i = 0; i < opacityKeyframes.size(); i++) {
-            long d = Math.abs(opacityKeyframes.get(i).timeMs - timeMs);
-            if (d <= KEYFRAME_SNAP_MS && d < bestDelta) { bestDelta = d; best = i; }
-        }
-        return best;
+        long[] times = new long[opacityKeyframes.size()];
+        for (int i = 0; i < times.length; i++) times[i] = opacityKeyframes.get(i).timeMs;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.nearestIndex(
+                timeMs, times, times.length, KEYFRAME_SNAP_MS, true);
     }
 
     /**

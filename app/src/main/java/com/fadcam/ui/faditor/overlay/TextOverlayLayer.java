@@ -2120,61 +2120,42 @@ public class TextOverlayLayer extends FrameLayout {
 
     private float snapX(float x) {
         float limit = manipulating != null ? manipulating.getCenterLimitX() : 1f;
-        float best = clamp(x, limit);
-        float bestDistance = SNAP_THRESHOLD;
-        float[] targets = new float[]{0.5f};
-        for (TextOverlayItem other : overlays) {
-            if (other != manipulating) targets = append(targets, other.getCenterX());
-        }
-        for (float target : targets) {
-            float d = Math.abs(x - target);
-            if (d < bestDistance) {
-                bestDistance = d;
-                best = target;
-            }
-        }
-        return clamp(best, limit);
+        float[] t = centreTargets(true);
+        int i = com.fadcam.ui.faditor.tools.SnapAuthority.nearestIndex(x, t, t.length, SNAP_THRESHOLD, false);
+        return clamp(i < 0 ? clamp(x, limit) : t[i], limit);
     }
 
     private float snapY(float y) {
         float limit = manipulating != null ? manipulating.getCenterLimitY() : 1f;
-        float best = clamp(y, limit);
-        float bestDistance = SNAP_THRESHOLD;
+        float[] t = centreTargets(false);
+        int i = com.fadcam.ui.faditor.tools.SnapAuthority.nearestIndex(y, t, t.length, SNAP_THRESHOLD, false);
+        return clamp(i < 0 ? clamp(y, limit) : t[i], limit);
+    }
+
+    /** The frame's middle first, then every other overlay's centre on that axis. */
+    private float[] centreTargets(boolean isX) {
         float[] targets = new float[]{0.5f};
         for (TextOverlayItem other : overlays) {
-            if (other != manipulating) targets = append(targets, other.getCenterY());
+            if (other != manipulating) targets = append(targets, isX ? other.getCenterX() : other.getCenterY());
         }
-        for (float target : targets) {
-            float d = Math.abs(y - target);
-            if (d < bestDistance) {
-                bestDistance = d;
-                best = target;
-            }
-        }
-        return clamp(best, limit);
+        return targets;
     }
 
     private long snapTimeMs(long timeMs) {
-        long best = timeMs;
-        long bestDistance = TIME_SNAP_MS;
+        // Every other overlay's start and end. Through the one snapping authority this takes
+        // the NEAREST edge, as the sprite layer always did; the old helper below updated a
+        // copy of the best distance, so it kept the LAST edge within reach (STU-5).
+        long[] edges = new long[overlays.size() * 2];
+        int n = 0;
         for (TextOverlayItem other : overlays) {
             if (other == manipulating) continue;
-            best = snapToOneEdge(timeMs, best, bestDistance, other.getStartMs());
-            if (other.getEndMs() != Long.MAX_VALUE) {
-                best = snapToOneEdge(timeMs, best, bestDistance, other.getEndMs());
-            }
+            edges[n++] = other.getStartMs();
+            if (other.getEndMs() != Long.MAX_VALUE) edges[n++] = other.getEndMs();
         }
-        return best;
+        return com.fadcam.ui.faditor.tools.SnapAuthority.snap(timeMs, edges, n, TIME_SNAP_MS, false);
     }
 
-    private long snapToOneEdge(long timeMs, long best, long bestDistance, long edge) {
-        long d = Math.abs(timeMs - edge);
-        if (d < bestDistance) {
-            bestDistance = d;
-            best = edge;
-        }
-        return best;
-    }
+    
 
     private float[] append(float[] values, float value) {
         float[] out = java.util.Arrays.copyOf(values, values.length + 1);

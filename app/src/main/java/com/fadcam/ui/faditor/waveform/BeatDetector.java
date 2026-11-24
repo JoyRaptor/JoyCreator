@@ -163,15 +163,7 @@ public final class BeatDetector {
      * modifier key on a phone to hold down to defeat it.</p>
      */
     public static long snap(@NonNull long[] beatsMs, long timeMs, long toleranceMs) {
-        if (beatsMs.length == 0 || toleranceMs <= 0) return timeMs;
-        int lo = 0, hi = beatsMs.length - 1, best = 0;
-        long bestDist = Long.MAX_VALUE;
-        while (lo <= hi) {
-            int mid = (lo + hi) >>> 1;
-            long d = Math.abs(beatsMs[mid] - timeMs);
-            if (d < bestDist) { bestDist = d; best = mid; }
-            if (beatsMs[mid] < timeMs) lo = mid + 1; else hi = mid - 1;
-        }
-        return bestDist <= toleranceMs ? beatsMs[best] : timeMs;
+        // The search lives in the one snapping authority now (STU-5), unchanged.
+        return com.fadcam.ui.faditor.tools.SnapAuthority.sortedBisect(beatsMs, timeMs, toleranceMs);
     }
 }

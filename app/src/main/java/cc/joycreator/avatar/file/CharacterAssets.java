@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 /** The characters that ship inside the app (assets/avatar/). Topps is the demo and opens ready to play (owner's ruling). */
 public final class CharacterAssets {
     public static final String TOPPS = "avatar/topps.character.json";
+    public static final String PIP = "avatar/pip.character.json";
 
     private CharacterAssets() {}
 

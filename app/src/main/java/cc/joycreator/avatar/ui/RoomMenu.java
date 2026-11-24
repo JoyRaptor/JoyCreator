@@ -32,7 +32,8 @@ public final class RoomMenu {
     public interface Host {
         String characterName();
 
-        void openTopps();
+        /** One of the characters that come with the app ({@code CharacterAssets.TOPPS} or {@code PIP}). */
+        void openBuiltIn(String asset);
 
         void openFromFolder(CharacterStore.Entry entry);
 
@@ -69,7 +70,9 @@ public final class RoomMenu {
         LinearLayout row = new LinearLayout(c);
         row.setPadding(0, px(dp, 12), 0, px(dp, 12));
         row.addView(card(c, dp, c.getString(R.string.avatar_topps), c.getString(R.string.avatar_hover_open_one, c.getString(R.string.avatar_topps)),
-                v -> { d.dismiss(); host.openTopps(); }));
+                v -> { d.dismiss(); host.openBuiltIn(cc.joycreator.avatar.file.CharacterAssets.TOPPS); }));
+        row.addView(card(c, dp, c.getString(R.string.avatar_pip), c.getString(R.string.avatar_hover_open_one, c.getString(R.string.avatar_pip)),
+                v -> { d.dismiss(); host.openBuiltIn(cc.joycreator.avatar.file.CharacterAssets.PIP); }));
         for (CharacterStore.Entry e : mine)
             row.addView(card(c, dp, e.name, c.getString(R.string.avatar_hover_open_one, e.name), v -> { d.dismiss(); host.openFromFolder(e); }));
         scroll.addView(row);

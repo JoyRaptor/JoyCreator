@@ -528,14 +528,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
-    public void openTopps() {
+    public void openBuiltIn(String asset) {
         try {
-            character = CharacterAssets.load(this, CharacterAssets.TOPPS);
+            character = CharacterAssets.load(this, asset);
             characterPath = null;
             unsaved = false;
             showCharacter();
         } catch (Exception e) {
-            Log.w(TAG, "Topps did not open", e);
+            Log.w(TAG, "built-in character did not open", e);
             Toast.makeText(this, R.string.avatar_cannot_open, Toast.LENGTH_LONG).show();
         }
     }

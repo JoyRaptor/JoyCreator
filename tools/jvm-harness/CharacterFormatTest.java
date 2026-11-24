@@ -170,6 +170,9 @@ public class CharacterFormatTest {
             JSONObject topps = new JSONObject(new String(Files.readAllBytes(new File("app/src/main/assets/avatar/topps.character.json").toPath()), StandardCharsets.UTF_8));
             ok(FormatCheck.check(topps).isEmpty(), "Topps (shipped asset): follows the rules", say(FormatCheck.check(topps)));
             ok(FormatCheck.check(CharacterFile.upgrade(topps).doc).isEmpty(), "Topps (shipped asset): follows the rules after upgrade", say(FormatCheck.check(CharacterFile.upgrade(topps).doc)));
+            JSONObject pip = new JSONObject(new String(Files.readAllBytes(new File("app/src/main/assets/avatar/pip.character.json").toPath()), StandardCharsets.UTF_8));
+            ok(FormatCheck.check(pip).isEmpty(), "Pip (shipped asset): follows the rules", say(FormatCheck.check(pip)));
+            ok(FormatCheck.check(CharacterFile.upgrade(pip).doc).isEmpty(), "Pip (shipped asset): follows the rules after upgrade", say(FormatCheck.check(CharacterFile.upgrade(pip).doc)));
         }
 
         // the "separate pictures" door builds a file that follows the rules

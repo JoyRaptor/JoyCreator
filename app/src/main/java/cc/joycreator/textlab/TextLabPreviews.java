@@ -303,6 +303,44 @@ public final class TextLabPreviews {
         }
     }
 
+    /**
+     * Folder thread. Looks saved while the Joy Creator folder was out of reach live in the app's own
+     * folder; move each into the folder now that it is here (see {@link LooksComeHome}: nothing is
+     * deleted before its copy reads back identical). Quiet when there is nothing to do.
+     */
+    public static void bringOwnLooksHome(@NonNull Context app, @NonNull JoyFolder jf) {
+        File dir = new File(app.getFilesDir(), "textlab/looks");
+        if (!dir.isDirectory()) return;
+        final String mine = "Supplies/" + FileKind.LOOK.suppliesFolder;
+        List<String> moved = LooksComeHome.run(dir, new LooksComeHome.Folder() {
+            @Override public String holds(byte[] text) throws Exception {
+                if (jf.fs.stat(mine) == null) return null;
+                for (JoyFs.Entry e : jf.fs.list(mine)) {
+                    if (e.dir || !e.name.toLowerCase(java.util.Locale.ROOT).endsWith(TEXT_ENDING)) continue;
+                    String rel = Placement.join(mine, e.name);
+                    if (java.util.Arrays.equals(jf.readAll(rel), text)) return rel;
+                }
+                return null;
+            }
+
+            @Override public String put(String base, byte[] text) throws Exception {
+                String d = jf.prepareDir(Placement.What.SUPPLY, null, null, FileKind.LOOK);
+                String file = jf.freeName(d, base + TEXT_ENDING);
+                String rel = Placement.join(d, file);
+                TextLabPreviews.put(jf, rel, text);
+                return rel;
+            }
+
+            @Override public byte[] read(String rel) throws Exception {
+                return jf.readAll(rel);
+            }
+        });
+        if (!moved.isEmpty()) {
+            try { jf.saveIndex(); } catch (Exception e) { Log.w(TAG, "index not saved after looks came home", e); }
+            Log.i(TAG, moved.size() + " look(s) kept while the folder was away are now in the Joy Creator folder");
+        }
+    }
+
     @NonNull
     private static File freeFile(@NonNull File dir, @NonNull String base) {
         File f = new File(dir, base + TEXT_ENDING);

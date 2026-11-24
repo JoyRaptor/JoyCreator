@@ -15,7 +15,7 @@ STUDIO_SUITES="adjust align anchor audio-fx audio-fx2 audioid avatar-edit avatar
 clipwarp consolidate cutjumps cutspan downmix duck envelope flextime flip frame-parity frame-time fx gestureangle
 key lane lanechain mask matte mesh motion motionflow motionrange objtime para pinbudget pip preview-parity puppet rebase resample
 rotation scalesnap sequence sidecars specj-suite stereo speck specq specr spect splitcopy sheetcopies sprite spritelab-audit spritesplit textstyle
-timemap titlestyle undo visfollow workloss diskstamp vislab-home copy-lint deadstate-lint orphan-lint persist-lint stub-lint"
+timemap titlestyle undo visfollow workloss diskstamp vislab-home looks-home copy-lint deadstate-lint orphan-lint persist-lint stub-lint"
 
 SUITES="${*:-$STUDIO_SUITES}"
 LOCK="${TEMP:-$HOME/AppData/Local/Temp}/jb-gradle.lock"

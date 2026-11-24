@@ -135,6 +135,12 @@ public final class TextLookShelf {
         JoyFolder jf = JoyFolderHome.open(c);
         if (jf == null) return out;
         try {
+            // Looks saved while the folder was away come home first, so they are on this very list.
+            TextLabPreviews.bringOwnLooksHome(c.getApplicationContext(), jf);
+        } catch (Exception e) {
+            Log.w(TAG, "own-folder looks not brought home", e);
+        }
+        try {
             for (PackShelf.Found f : PackShelf.installed(jf.fs, "text-look")) {
                 try {
                     JSONObject look = new JSONObject(text(jf, f.rel));

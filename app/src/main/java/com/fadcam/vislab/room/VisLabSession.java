@@ -421,17 +421,35 @@ public final class VisLabSession {
         }
         com.fadcam.vislab.model.VisPart part = new com.fadcam.vislab.model.VisPart(name, from.name(), l);
         parts.add(0, part);
-        String text = part.toJson();
+        writePartWithRetry(name, part.toJson(), 0);
+    }
+
+    /** A part that would not write is tried again a few times and the person is told once. */
+    private void writePartWithRetry(@NonNull String name, @NonNull String text, int attempt) {
         JoyFolderHome.io().execute(() -> {
             LookFiles.Home h = keptHome();
             try {
                 LookFiles.writePart(h, name, text);
                 LookFiles.saveIndex(h);
             } catch (IOException | RuntimeException e) {
-                FLog.w(TAG, "Couldn't save the part " + name, e);
+                // Used to be log-only: the part showed on the shelf this session and was gone
+                // after a restart, with no word to the person (SAFE-1 second pass).
+                FLog.w(TAG, "Couldn't save the part " + name + " (try " + (attempt + 1) + ")", e);
+                if (attempt == 0) {
+                    main.post(() -> android.widget.Toast.makeText(app,
+                            app.getString(com.fadcam.R.string.vl_save_failed),
+                            android.widget.Toast.LENGTH_LONG).show());
+                }
+                if (attempt < PART_RETRIES) {
+                    long wait = Math.min(RETRY_MAX_MS, RETRY_FIRST_MS << attempt);
+                    main.postDelayed(() -> writePartWithRetry(name, text, attempt + 1), wait);
+                }
             }
         });
     }
+
+    /** How many times a part that would not write is tried again (2 s, 4 s, ... up to a minute). */
+    private static final int PART_RETRIES = 6;
 
     /** Copy the look on screen under a new name, and show the copy. An undo step. */
     @NonNull

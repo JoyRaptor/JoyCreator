@@ -6,7 +6,7 @@ gets one (so it cannot quietly lose it), and leaves OWED when it does. OWED only
 import sys
 
 DONE = {
-    'app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java': 'sprite sheet manager, built-in transition type picker, reactive overlay picker, avatar manager',
+    'app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java': 'sprite sheet manager, built-in transition type picker, reactive overlay picker, avatar manager, GL transition picker',
     'app/src/main/java/com/fadcam/ui/faditor/avatar/AvatarStudioActivity.java': 'avatar part chips, library, add-part and parent pickers',
     'app/src/main/java/com/fadcam/vislab/room/LookSheets.java': 'VisLab sprite sheet and TextLab look choosers',
     'app/src/main/java/com/fadcam/ui/faditor/text/TextStyleLibraryPanel.java': 'built-in text styles',

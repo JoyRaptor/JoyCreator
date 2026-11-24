@@ -159,6 +159,35 @@ public final class HelpBook {
                     "Closed a text's or picture's drawer? Tap the selected text or picture once more, on its timeline "
                             + "strip or its box in the preview, and its drawer comes back.", "studio", null),
             // STU-A2 (11-24): Studio rows whose help was pending. Wording follows STATE.
+            // JBX-49 (11-24): JoyBrush rows whose help was pending. Wording follows STATE.
+            new Topic("joybrush_pencil_colour", "coloured pencil|colored pencil|pencil in colour|pencil in color|pencil colour"
+                    + "|pencil color|pencils draw black",
+                    "In JoyBrush's brush drawer, on the Pencils shelf, pick any colour and the pencil draws in it. "
+                            + "Colours layer and mix the way coloured pencils do (yellow over blue reads green); black is "
+                            + "graphite, a grey lightens the lead and white is a white pencil.", "joybrush", null),
+            new Topic("joybrush_brush_editor", "brush editor|brush settings screen|test stroke|footprint of a brush"
+                    + "|tilt curve|pressure curve|edit a brush|tune a brush",
+                    "Hold any brush in the drawer to open its editor. It shows a live test stroke, the pen's pressure and "
+                            + "tilt curves, the brush's footprint at three tilts, and every slider with words and a small "
+                            + "picture at each end. Done keeps your changes and the cross puts the brush back.",
+                    "joybrush", null),
+            new Topic("joybrush_new_brushes", "new brushes|brush set|glaze brush|granulating|impasto|charcoal|pastel brush"
+                    + "|airbrush|stipple|hatch brush|which brushes",
+                    "The brush drawer has watercolour (Glaze, Granulating wash, Bloom, Rigger, Mop, Edge softener), oil "
+                            + "(Impasto flat, Filbert, Oil liner) and Unibrush brushes (Chalk, Charcoal, Pastel, Technical, "
+                            + "Airbrush, Ribbon, Rainbow, Foliage, Stipple, Dashes, Hatch). Hold one to see its settings.",
+                    "joybrush", null),
+            new Topic("joybrush_menu_open", "open a file in joybrush|bring a file into joybrush|open a picture in joybrush"
+                    + "|import a picture into joybrush|more menu|three dots menu|rename a drawing",
+                    "In JoyBrush the ⋯ menu is grouped: Drawing, Files, Pen, Watercolour and Layers. Open… brings a "
+                            + "file in as a new drawing and leaves the current one as it is. Renaming a drawing renames its "
+                            + "file too.", "joybrush", null),
+            new Topic("joybrush_tablet", "joybrush on a tablet|pull out the layer column|layer column on a tablet"
+                    + "|star a brush|starred brushes|brush panel|paper beside panels",
+                    "On a screen 600 dp or wider, pull JoyBrush's layer column out by the grip on its left edge to see "
+                            + "each layer's name, opacity and buttons. On 840 dp or wider the brush button on the rail opens "
+                            + "a panel that stays open while you work: tap the star on a brush to keep it, and ★ Mine lists "
+                            + "them. ⋯ → Paper beside panels slides the drawing aside.", "joybrush", null),
             new Topic("studio_strike_words", "strike a word|strike words|struck word|cut a word|remove a word from the video"
                     + "|skip a word|restore a word|cut words from the transcript",
                     "In the transcript, hold a word and drag across it to strike it, or tap a yellow silence gap. "

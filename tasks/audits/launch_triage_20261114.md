@@ -79,7 +79,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 
 | ID | Size | What | Owner? | Phone? |
 |---|---|---|---|---|
-| L09 | M | Draft the Play data-safety and permissions answers. | no | no |
+| L09 | M | Draft the Play data-safety and permissions answers. | no | no | **DONE (checked 11-24, website lane): drafts in `tasks/store/DATA_SAFETY_DRAFT.md`, `CONTENT_RATING_DRAFT.md` and `tasks/SHOW2_play_declarations.md`; owner pastes them into Play (OWNER_CLICKS step 4)**
 | L10 | L | Add the 'play' product flavour (no disguise icons, accessibility service, all-files access, black screen). | no | yes |
 | L11 | M | Launcher-icon switcher and its Settings UI vanish in the play build. | no | yes |
 | L15 | M | Release signing and versioning: real app ID, no beta suffix, upload key handled privately. | yes | no |
@@ -87,7 +87,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 | L22 | M | Smoke test that every wing opens on the release build without a crash. | no | yes |
 | L27 | S | Remove tasks/api.txt from the project folder, rotate the key, add a guard. | yes | no |
 | L28 | S | What's New and intro copy approved (owner's 9-09 text still missing). | yes | no |
-| L30 | L | First website skeleton on GitHub Pages; a one-page version serves the privacy policy Play needs. | no | no |
+| L30 | L | First website skeleton on GitHub Pages; a one-page version serves the privacy policy Play needs. | no | no | **DONE (checked 11-24): site in `docs/` with privacy, testers and room pages (SHOW-3, `af2cf7f40`); owner turns on Pages (OWNER_CLICKS step 1); no more website work until the app is done (owner ruling 11-23)**
 | L32 | M | Remove stale FadCam Pro / donation strings; owner's own links in a non-blocking prompt. | yes | yes |
 | L37 | L | A single switch that hides the unproven yellow features at launch. | yes | yes |
 
@@ -154,7 +154,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - VL-12 (M) Owner-deferred checks: R1 audit (floating visualiser, needs Start now), R2 audit (Android 12+), D2 hour-long heat test
 - TX-04 (S) Rename the lobby 'uArc' name clash (lightning knob vs tube share) **DONE** (renamed uPenArc 11-12; comment caught up 11-15)
 - TX-09 (M) TextLab phone engine speed: per-pass GPU timing; app ~2x slower than the look book **DONE** (TlGpuTimer and T13 speed on joy-creator before 11-15)
-- TX-17 (S) STATE and help mapping for TextLab rows after owner tries
+- TX-17 (S) STATE and help mapping for TextLab rows after owner tries **DONE 11-24 (website lane): every user-facing TextLab row names its help topic (textlab, textlab_title, textlab_light, textlab_save, textlab_export, textlab_pack); engine-only rows say none**
 
 ### JoyBrush
 
@@ -162,7 +162,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-08 (S) Phone-look the hover outline (never seen working) and fix the lean direction if wrong
 - JBX-10 (M) Sweep JoyBrush chrome for missing hover labels
 - JBX-11 (M) Group the long more menu (about 20+ rows) into sections — DONE 11-15 (58f256930), tablet-checked
-- JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings
+- JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings **DONE 11-24 for help mappings (website lane): every JoyBrush STATE row now has a help topic or says why not; the 11-04 and 11-23 passes added the missing rows; JoyBrush lane keeps the 5.6 rows true**
 - JBX-14 (S) Doc name follows a drawing's rename — DONE 11-15 (58f256930), tablet-checked
 - JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one — DONE 11-15 (58f256930), tablet-checked
 - JBX-17 (L) Wire the tap-fill (bucket) tool
@@ -177,14 +177,14 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-43 (L) Frame duplication: captured and joint cases, plus owner UI acceptance
 - JBX-46 (S) Decide and land the tuft-tuning orphan files from the owner's main folder
 - JBX-47 (S) Commit the untracked JoyBrush handoffs and reviews in the owner's main folder
-- JBX-49 (M) Joybot help mappings for pending JoyBrush rows
+- JBX-49 (M) Joybot help mappings for pending JoyBrush rows **DONE 11-24 (website lane): topics joybrush_pencil_colour, joybrush_brush_editor, joybrush_new_brushes, joybrush_menu_open, joybrush_tablet (plus 11-23: import, guides, fibres, send_to_studio); STATE rows name them; help harness 1332 pass**
 
 ### Launch and hygiene
 
 - L17 (M) Clean the 11 translations: leftover 'FadCam' in 10-44 strings each; new strings_*.xml files have no translations **DONE 11-15** (12 languages, `tools/check_strings.py`; branch claude/translations-20261115-bea302; reading by a native speaker still owed)
 - L26 (S) HYG-1 leftovers: land or drop the JoyBrush tuft-tuning files and staged tween reviews in the main folder
-- L29 (M) SHOW-3 prep: shot list, store screenshots plan, feature graphic and demo-video storyboard from the ðŸŸ¢ STATE rows
-- L33 (S) Letter to the FadCam author and licence/credit review
+- L29 (M) SHOW-3 prep: shot list, store screenshots plan, feature graphic and demo-video storyboard from the ðŸŸ¢ STATE rows **DONE (checked 11-24): `tasks/show/` has SIZZLE_STORYBOARD, SHOT_LIST, STORE_SHOTS, REEL_PER_ROOM (11-15)**
+- L33 (S) Letter to the FadCam author and licence/credit review **DONE 11-24 (website lane): [credit review and draft letter](../FADCAM_CREDIT_REVIEW_AND_LETTER_20261124.md); nothing sent; the owner edits and sends it**
 
 ## 4. AFTER (not needed to launch)
 
@@ -360,3 +360,50 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 | JBX-04 | open, needs the JoyBrush lane (guide edits are not in Undo) | |
 | JBX-17 | open, needs the JoyBrush lane (bucket tool: `FloodFill` exists, no tool strip button or dispatch) | |
 | JBX-31 | engine lane | |
+
+### Batch 2 (2026-11-24)
+
+| ID | Status | Evidence / what is left |
+|---|---|---|
+| L10, L11, SHELL-43 | already fixed | `6e24eac34` play flavour, `80ed7af99`; owner picks the app ID (S1) |
+| L16, SHELL-44 | partly fixed (new files named Joy Creator `f8076efc4`, `d5b87712a`, `3b217ce10`; old folders moved `72b76559e`, `7cf53a4ba`); left: the `Faditor_Std_` / `Faditor_Merge_` / `FadShot_` file prefixes (`Constants.java:464-468`) are how old files are recognised (`FastFileScanner.java:744`, `RecordsFragment.java:5962`), so a rename must keep recognising the old names: a design change that wants a phone | the app-ID move waits for the owner |
+| SHELL-36, SHELL-37, L22 | already fixed | `e712f8106`, `e63283bb8`, `ce89ea3f0`, `e52c155d6`; release smoke `80ed7af99` |
+| L27 | fixed 11-24 | `tasks/api.txt` is now git-ignored and `.githooks/keyguard.sh` (run first by `pre-commit`) refuses staged key patterns and key files; `bash tools/githooks-test/run-keyguard.sh` 9 checks. The owner still rotates the old key |
+| L37 | switch done (`8aa41790e`, `17207abd2`, `6ca8009bd`); the hide list holds only `studio_motion_blur`: the owner picks from `tasks/audits/launch_hide_list_20261115.md` | |
+| SHELL-16 | needs the owner: all four sub-decisions (support_url empty, theme prune, Setup grouping, Library Clips kind) still unanswered | |
+| SHELL-23, SHELL-38 | already fixed (`8b238c428`; `3f6a74c1a`, `bc0bcfb24`); SHELL-23's four Note 9 checks owed | |
+| SHELL-39 | needs the owner's art | |
+| SHELL-61 | mostly fixed (TAB-1 width-class code); Capture / recorder tablet layout not found | |
+| STU-F1, STU-F6 | built; phone look owed | |
+| STU-F7, STU-C1, STU-C2, STU-C3, STU-C6 | need the phone (STU-C2 also hides a possible code bug, F13: a sprite sheet made via "New sprite sheet" did not appear in Studio's sprite panel; not investigated) | |
+| STU-C5 | already fixed (`7b9f28227`) | |
+| STU-D1 | already fixed (`79cefb069`; `tools/check_hover_labels.py` reports 0) | |
+| STU-D4 | already fixed (`40601c5df`, `75dcad2df`); three stock `ProgressDialog`s remain (`FaditorEditorActivity.java:21323, 46578, 46613`) | |
+| JBX-10 | probably done by `79cefb069`; JoyBrush's canvas-drawn views and popups still owe a look | |
+| JBX-23, JBX-26, JBX-38, JBX-43 | owner or engine lane | |
+| JBX-25 | open: needs a dated audit report and a phone run; no fill tool button exists yet (JBX-17) | |
+| JBX-46, JBX-47 | main-folder files: the owner's; the tuft files exist only on `origin/rescue/main-folder-20261027` (`94a5f7e69`); the JoyBrush lead decides | |
+| AN-06, AN-09 | need the phone; two code findings are open: F15 (the Puppet drawer covers the picture after the first pin on a phone-sized screen) and F13 (above) | |
+| VL-12, BOT-A13, BOT-A3 | need the owner or the phone | |
+| TX-04 | already fixed (`241ea1409`, `1a15b7caa`) | |
+| BOT-A8 | already fixed (`77524240b`, `6d91571d6`; 37 questions asked on the Note 9) | |
+| BOT-A27 | partly fixed (`28da8b869` Joybot switch, `0c8444ca3` room tour); first-run guide is the owner's call | |
+| STU-B3 | already fixed (`c93fd7d29` and the five after it) | |
+| DONE? rows | BOT-A16 done (`73aad9221`); BOT-A7 done, STATE already maps the rows it named; JBX-18 done (`c04379a6c`...); **BOT-A29 NOT done** (camera only: screen recording and the webcam bubble through Joybot missing, class AFTER); **BOT-A31 NOT done** (background bake, dope sheet, export actions missing); **BOT-A33 NOT done** (model routing per step missing); **L18 NOT done** (only the audit list exists, `a7398222b`: about 97 literal Toasts and 192 literal `setText`s remain; class stays LAUNCH-minus: a big sweep); L19 mostly done (`79cefb069`; dialogs and popups still owe labels) | |
+
+### Batch 3 (2026-11-24, built, cloud green)
+
+| ID | Status |
+|---|---|
+| STU-C2 / device check F13 | fixed 11-24: a sprite sheet picked as `<Name>.<C>x<R>.sprite.png` now takes its grid and name from the file name (`SpriteSheetEditorActivity.applyGridFromName`; `run-spritelab-audit.sh` 20). The other half of F13 (the sheet not listed in Studio after Save and Back) was not reproduced and stays open for a phone |
+| Device check: Export button read "Export . %1$d" | fixed 11-24 (`TimelineMarksPopup`: described by what it shows; source check in `run-looks-home.sh`) |
+| F10 (marks popup throws away a half-made region), F11 (speech model download has no percentage), F14 (caption chip stays selected after Undo), F15 (Puppet drawer covers the picture) | open; each changes how a screen behaves and wants a phone to judge |
+
+### Batch 4 (2026-11-24)
+
+| ID | Status |
+|---|---|
+| L18 | the sweep itself (moving about 300 literal Toast / setText / dialog lines in 61 files into `strings_*.xml`, then 11 translations each) is NOT done: it is large and every new string wants native review. Built instead: a ratchet, `tools/check_hardcoded_english.py` (in the cloud Studio run as `english-lint`), which fails when any file gains hard-coded English; baseline `tools/hardcoded_english_baseline.json` (301 lines). Remove literals, then `--update` to lower it |
+| BOT-A29 | parked: starting a SCREEN recording needs Android's own consent dialog (a person taps Start now), so Joybot cannot start one; stop/pause could be added, and the webcam bubble: a design call with a phone check |
+| BOT-A31, BOT-A33 | parked: background bake / dope sheet / export actions and model routing per step are new Joybot behaviour with no spec in the cards; they need the owner's words on what Joybot should do before code |
+| AN-06 F15 | parked: the Puppet drawer's height on a phone-sized screen is a layout feel decision that must be seen on the Fold and Note 9 |

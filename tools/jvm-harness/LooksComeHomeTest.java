@@ -121,6 +121,11 @@ public class LooksComeHomeTest {
         int titleGate = room.indexOf("if (!titleMode) {", more);
         check("Save as is offered while editing a title too (before the !titleMode block)",
                 more > 0 && saveAsRow > 0 && saveAsRow < titleGate);
+        String marks = new String(Files.readAllBytes(new File(
+                "app/src/main/java/com/fadcam/ui/faditor/markers/TimelineMarksPopup.java").toPath()), StandardCharsets.UTF_8);
+        check("the marks popup's buttons are described by what they show, never a raw format string",
+                !marks.contains("setContentDescription(context.getString(text))")
+                        && marks.contains("exportButton.setContentDescription(exportButton.getText())"));
         String session = new String(Files.readAllBytes(new File(
                 "app/src/main/java/com/fadcam/vislab/room/VisLabSession.java").toPath()), StandardCharsets.UTF_8);
         check("a VisLab part that fails to write is retried and the person told",

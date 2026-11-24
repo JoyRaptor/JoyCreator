@@ -180,6 +180,7 @@ public final class TimelineMarksPopup {
         long count = 0;
         for (MarkerWorkspace.Region region : state.regions) if (region.exportEnabled) count++;
         exportButton.setText(context.getString(R.string.timeline_marks_export_count, count));
+        exportButton.setContentDescription(exportButton.getText());
         if (editingId != null) {
             status.setText(context.getString(R.string.timeline_marks_editing_label, displayName(editingId)));
             status.setTextColor(Studio.ARMED);
@@ -888,7 +889,9 @@ public final class TimelineMarksPopup {
         }
         button.setMinHeight(dp(42));
         button.setMinWidth(dp(44));
-        button.setContentDescription(context.getString(text));
+        // What is SHOWN, not the raw resource: a format string ("Export . %1$d") read out as is
+        // is what a screen reader and the hover label said (device check, Export button).
+        button.setContentDescription(button.getText());
         return button;
     }
 

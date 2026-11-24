@@ -249,13 +249,22 @@ final class LookFiles {
         }
     }
 
-    /** Move a look's file to the folder's Trash (restorable there); in the fallback, delete it. */
+    /** What a look deleted while the folder was out of reach is renamed to (never listed as a look). */
+    static final String REMOVED_MARK = ".removed-";
+
+    /**
+     * Move a look's file to the folder's Trash (restorable there). In the fallback (the folder is
+     * out of reach) the file is NOT deleted: it is renamed {@code <file>.removed-<time>}, which no
+     * reader lists as a look, so deleting by mistake and closing VisLab no longer loses it (SAFE-1).
+     */
     @WorkerThread
     static boolean trash(@NonNull Home h, @NonNull String rel) {
         try {
             if (h.fs.stat(rel) == null) return true;   // already gone
             if (h.folder != null) h.folder.trash(rel, System.currentTimeMillis());
-            else h.fs.delete(rel);
+            else if (!h.fs.rename(rel, Placement.nameOf(rel) + REMOVED_MARK + System.currentTimeMillis())) {
+                return false;   // could not set it aside: say so rather than delete it
+            }
             return true;
         } catch (IOException | RuntimeException e) {
             FLog.w(TAG, "Couldn't move " + rel + " to Trash", e);

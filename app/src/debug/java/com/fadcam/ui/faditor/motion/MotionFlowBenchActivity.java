@@ -30,10 +30,11 @@ public final class MotionFlowBenchActivity extends Activity {
             decodedWorker.start();
             return;
         }
-        boolean timing = getIntent().getBooleanExtra("timing", false);
+        boolean bakeoff = getIntent().getBooleanExtra("bakeoff", false);
+        boolean timing = !bakeoff && getIntent().getBooleanExtra("timing", false);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(timing ? 3 : 2);
-        surface.setRenderer(new MotionFlowBenchRenderer(getAssets(), timing, () -> main.post(() -> {
+        surface.setRenderer(new MotionFlowBenchRenderer(getAssets(), timing, bakeoff, () -> main.post(() -> {
             temperature();
             finish();
         })));

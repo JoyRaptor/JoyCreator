@@ -37,3 +37,6 @@ java -cp "$OUT" SourceFrameRingTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowAnalyzerTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.DecodedFlowWorkTest
+expect_failure 'wrong displacement must worsen endpoint error' \
+  com.fadcam.ui.faditor.motion.flow.FlowEstimatorBakeoffTest --reverse-motion
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowEstimatorBakeoffTest

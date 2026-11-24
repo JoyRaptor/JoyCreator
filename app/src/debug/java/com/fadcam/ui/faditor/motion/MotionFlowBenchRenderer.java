@@ -8,8 +8,11 @@ import android.util.Log;
 import androidx.media3.common.util.GlUtil;
 
 import com.fadcam.ui.faditor.motion.flow.FlowConfidence;
+import com.fadcam.ui.faditor.motion.flow.FlowEstimatorBakeoff;
+import com.fadcam.ui.faditor.motion.flow.FlowField;
 import com.fadcam.ui.faditor.motion.flow.GpuPyramidFlow;
 import com.fadcam.ui.faditor.motion.flow.LumaImage;
+import com.fadcam.ui.faditor.motion.flow.OpenCvDisEstimator;
 import com.fadcam.ui.faditor.motion.flow.PyramidFlowEstimator;
 import com.fadcam.vislab.gl.GpuTimer;
 
@@ -23,12 +26,14 @@ import javax.microedition.khronos.opengles.GL10;
 final class MotionFlowBenchRenderer implements GLSurfaceView.Renderer {
     private static final String TAG = MotionFlowBenchActivity.TAG;
     private static final int WARMUP = 30, SAMPLES = 180, DRAIN = 8;
+    private static final int BAKEOFF_WARMUP = 3, BAKEOFF_SAMPLES = 15;
     private static final int MAX_LEVELS = PyramidFlowEstimator.Settings.DEFAULT.maxLevels();
     private static final GpuPyramidFlow.Pass[] PASSES = GpuPyramidFlow.Pass.values();
     private static final int STAGE_COUNT = 1 + PASSES.length * MAX_LEVELS;
 
     private final AssetManager assets;
     private final boolean timing;
+    private final boolean bakeoff;
     private final Runnable finished;
     private final int[] inputs = new int[2];
     private final long[][] times = new long[STAGE_COUNT][SAMPLES];
@@ -48,9 +53,10 @@ final class MotionFlowBenchRenderer implements GLSurfaceView.Renderer {
         }
     };
 
-    MotionFlowBenchRenderer(AssetManager assets, boolean timing, Runnable finished) {
+    MotionFlowBenchRenderer(AssetManager assets, boolean timing, boolean bakeoff, Runnable finished) {
         this.assets = assets;
         this.timing = timing;
+        this.bakeoff = bakeoff;
         this.finished = finished;
     }
 
@@ -81,6 +87,12 @@ final class MotionFlowBenchRenderer implements GLSurfaceView.Renderer {
     @Override public void onDrawFrame(GL10 ignored) {
         if (done) return;
         try {
+            if (bakeoff) {
+                runBakeoff();
+                Log.i(TAG, "BAKEOFF_COMPLETE: synthetic estimator comparison");
+                complete();
+                return;
+            }
             if (!timing) {
                 runParity();
                 Log.i(TAG, "PARITY_PASS: identity, subpixel, long shift and flash");
@@ -124,6 +136,79 @@ final class MotionFlowBenchRenderer implements GLSurfaceView.Renderer {
         verify(w, h, "subpixel", 1, 3.4, -1.7, 0);
         verify(w, h, "long-shift", 1, 17, 9, 0);
         verify(w, h, "flash", 2, 2.5, 1.25, 0.12);
+    }
+
+    private void runBakeoff() throws Exception {
+        int width = 240;
+        int height = 135;
+        prepare(width, height, false);
+        int[] readbackFbo = new int[1];
+        GLES20.glGenFramebuffers(1, readbackFbo, 0);
+        try (var dis = new OpenCvDisEstimator(OpenCvDisEstimator.Preset.FAST)) {
+            var pixels = ByteBuffer.allocateDirect(width * height * 4);
+            Log.i(TAG, "BAKEOFF from decoded luma: DIS includes conversion; GPU includes upload + readback");
+            Log.i(TAG, "BAKEOFF " + FlowEstimatorBakeoff.Result.tsvHeader());
+            FlowEstimatorBakeoff.Estimator gpu = (from, to, fromPtsUs, toPtsUs) ->
+                    runBakeoffGpu(from, to, fromPtsUs, toPtsUs, pixels, readbackFbo[0]);
+            compareBakeoff("still", width, height, 0, 0, 0, dis, gpu);
+            compareBakeoff("subpixel", width, height, 3.4, -1.7, 0, dis, gpu);
+            compareBakeoff("long-shift", width, height, 17, 9, 0, dis, gpu);
+            compareBakeoff("flash", width, height, 2.5, 1.25, 0.12, dis, gpu);
+        } finally {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+            GLES20.glDeleteFramebuffers(1, readbackFbo, 0);
+        }
+    }
+
+    private static void compareBakeoff(String name, int w, int h, double dx, double dy, double flash,
+                                       OpenCvDisEstimator dis, FlowEstimatorBakeoff.Estimator gpu)
+            throws Exception {
+        int seed = flash == 0 ? 1 : 2;
+        var from = new LumaImage(w, h, scene(w, h, seed, 0, 0, 0));
+        var to = new LumaImage(w, h, scene(w, h, seed, dx, dy, flash));
+        float[] u = new float[w * h], v = new float[u.length], confidence = new float[u.length];
+        Arrays.fill(u, (float) dx);
+        Arrays.fill(v, (float) dy);
+        for (int y = 24; y < h - 24; y++) {
+            Arrays.fill(confidence, y * w + 24, y * w + w - 24, 1f);
+        }
+        var reference = new FlowField(w, h, u, v, confidence, 0, 33_367);
+        var sample = new FlowEstimatorBakeoff.Sample(name, from, to, reference);
+        var cpu = FlowEstimatorBakeoff.run("opencv-dis-fast", sample, BAKEOFF_WARMUP,
+                BAKEOFF_SAMPLES, dis::estimate, System::nanoTime);
+        var gpuResult = FlowEstimatorBakeoff.run("gpu-pyramid", sample, BAKEOFF_WARMUP,
+                BAKEOFF_SAMPLES, gpu, System::nanoTime);
+        Log.i(TAG, "BAKEOFF " + cpu.toTsv());
+        Log.i(TAG, "BAKEOFF " + gpuResult.toTsv());
+    }
+
+    private FlowField runBakeoffGpu(LumaImage from, LumaImage to, long fromPtsUs, long toPtsUs,
+                                    ByteBuffer pixels, int readbackFbo) throws GlUtil.GlException {
+        uploadLuma(inputs[0], from, pixels);
+        uploadLuma(inputs[1], to, pixels);
+        var field = flow.estimate(inputs[0], inputs[1]);
+        pixels.clear();
+        readField(field, readbackFbo, pixels);
+        float[] u = new float[from.width * from.height], v = new float[u.length];
+        for (int i = 0; i < u.length; i++) {
+            int rgba = pixels.getInt();
+            u[i] = (float) VelocityPack.xPixels(rgba);
+            v[i] = (float) VelocityPack.yPixels(rgba);
+        }
+        return new FlowField(from.width, from.height, u, v, null, fromPtsUs, toPtsUs);
+    }
+
+    private static void uploadLuma(int texture, LumaImage image, ByteBuffer pixels)
+            throws GlUtil.GlException {
+        pixels.clear();
+        for (int y = 0; y < image.height; y++) {
+            for (int x = 0; x < image.width; x++) {
+                byte channel = (byte) Math.round(image.at(x, y) * 255);
+                pixels.put(channel).put(channel).put(channel).put((byte) 255);
+            }
+        }
+        pixels.flip();
+        uploadTexture(texture, image.width, image.height, pixels);
     }
 
     private void verify(int w, int h, String name, int seed, double dx, double dy, double flash)
@@ -196,19 +281,28 @@ final class MotionFlowBenchRenderer implements GLSurfaceView.Renderer {
         int[] fbo = new int[1];
         GLES20.glGenFramebuffers(1, fbo, 0);
         try {
-            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo[0]);
+            var bytes = ByteBuffer.allocateDirect(field.width() * field.height() * 4);
+            readField(field, fbo[0], bytes);
+            return bytes;
+        } finally {
+            GLES20.glDeleteFramebuffers(1, fbo, 0);
+        }
+    }
+
+    private static void readField(GpuPyramidFlow.FieldTexture field, int fbo, ByteBuffer bytes)
+            throws GlUtil.GlException {
+        try {
+            GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, fbo);
             GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0,
                     GLES20.GL_TEXTURE_2D, field.textureId(), 0);
             if (GLES20.glCheckFramebufferStatus(GLES20.GL_FRAMEBUFFER) != GLES20.GL_FRAMEBUFFER_COMPLETE) {
                 throw new IllegalStateException("Incomplete flow readback framebuffer");
             }
-            var bytes = ByteBuffer.allocateDirect(field.width() * field.height() * 4);
-            GLES20.glReadPixels(0, 0, field.width(), field.height(), GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, bytes);
+            GLES20.glReadPixels(0, 0, field.width(), field.height(), GLES20.GL_RGBA,
+                    GLES20.GL_UNSIGNED_BYTE, bytes);
             GlUtil.checkGlError();
-            return bytes;
         } finally {
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
-            GLES20.glDeleteFramebuffers(1, fbo, 0);
         }
     }
 
@@ -219,6 +313,11 @@ final class MotionFlowBenchRenderer implements GLSurfaceView.Renderer {
             pixels.put(channel).put(channel).put(channel).put((byte) 255);
         }
         pixels.flip();
+        uploadTexture(texture, w, h, pixels);
+    }
+
+    private static void uploadTexture(int texture, int w, int h, ByteBuffer pixels)
+            throws GlUtil.GlException {
         GLES20.glBindTexture(GLES20.GL_TEXTURE_2D, texture);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
         GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);

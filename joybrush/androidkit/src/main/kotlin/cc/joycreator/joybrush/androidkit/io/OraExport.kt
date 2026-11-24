@@ -204,6 +204,14 @@ object OraExport {
             val why = omittedBecause(layer, frameId)
             if (why == null) kept.add(layer) else omitted.add(layer to why)
         }
+        // Said to the PERSON as well as written into stack.xml (EXPORT-FORMATS audit 11-24): the
+        // menu promises "every layer kept separate", so a layer that is not in the file is named.
+        if (omitted.isNotEmpty()) {
+            onWarning(
+                (if (omitted.size == 1) "1 layer was left out of the layered file: " else "${omitted.size} layers were left out of the layered file: ") +
+                    omitted.joinToString("; ") { (layer, why) -> "\"${layer.name}\" ($why)" }
+            )
+        }
 
         // DOCUMENT ORDER, BOTTOM FIRST — which is what `asReversed` in [stackXml] turns into the
         // top-first order OpenRaster reads, and what a `data/<n>.png` number follows. So `data/0.png`

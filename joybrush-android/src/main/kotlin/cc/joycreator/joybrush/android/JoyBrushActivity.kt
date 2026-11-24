@@ -448,7 +448,7 @@ class JoyBrushActivity : Activity() {
         object Working : SaveDest()
         class Copy(val uri: Uri) : SaveDest()
         class Open(val selection: StagedDrawing) : SaveDest()
-        class Png(val uri: Uri, val target: PngTarget) : SaveDest()
+        class Png(val uri: Uri, val target: PngTarget) : SaveDest() { var warnings: List<String> = emptyList() }
         class BoardExport(val uri: Uri, val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest,
             var warnings: List<String> = emptyList()) : SaveDest()
         class BoardHandoff(val target: cc.joycreator.joybrush.androidkit.io.BoardExportRequest) : SaveDest() {
@@ -2841,8 +2841,11 @@ class JoyBrushActivity : Activity() {
                     // working file is up to date: `changes` is left exactly as it was.
                     toast("Copy saved")
                 } else if (problem == null && dest is SaveDest.Png && !destroyed) {
-                    if (dest.target.toStudio) sendPictureToStudio(dest.uri)
-                    else toast(if (dest.target.layered) "Layered file exported" else "Picture exported")
+                    if (dest.target.toStudio) {
+                        sendPictureToStudio(dest.uri)
+                        if (dest.warnings.isNotEmpty()) toast(dest.warnings.joinToString(". "))
+                    }
+                    else toast((listOf(if (dest.target.layered) "Layered file exported" else "Picture exported") + dest.warnings).joinToString(". "))
                 } else if (problem == null && dest is SaveDest.BoardExport && !destroyed) {
                     val saved=if(dest.target.folder) "Board files exported into a new folder" else "Board exported"
                     toast((listOf(saved)+dest.warnings).joinToString(". "))
@@ -2925,10 +2928,16 @@ class JoyBrushActivity : Activity() {
                         is SaveDest.Png -> {
                             // Encode and validate completely before touching the chosen destination.
                             if (contents.doc.id != dest.target.documentId) throw JbArchiveException("the drawing changed; choose the board to export again")
-                            val bytes = exportBytes(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents), dest.target)
-                            val output = contentResolver.openOutputStream(dest.uri, "wt")
-                                ?: throw JbArchiveException("the export destination could not be opened")
-                            output.use { it.write(bytes) }
+                            // Warnings (a paper that would not load, layers the layered file left out) now
+                            // reach the person, and the write is checked for arriving whole
+                            // (EXPORT-FORMATS audit 11-24).
+                            val warned = ArrayList<String>()
+                            val bytes = exportBytes(cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents), dest.target) { warned.add(it) }
+                            cc.joycreator.joybrush.android.board.ExportWrite.write(bytes,
+                                open = { contentResolver.openOutputStream(dest.uri, "wt") },
+                                writtenSize = { contentResolver.openFileDescriptor(dest.uri, "r")?.use { it.statSize }?.takeIf { it >= 0L } },
+                                remove = { runCatching { android.provider.DocumentsContract.deleteDocument(contentResolver, dest.uri) }.getOrDefault(false) })
+                            dest.warnings = warned
                         }
                         is SaveDest.BoardExport -> dest.warnings = cc.joycreator.joybrush.android.board.BoardExportCoordinator.write(
                             contentResolver,dest.uri,cc.joycreator.joybrush.androidkit.io.ExportPicture.asShown(contents),dest.target,cacheDir)
@@ -3475,15 +3484,15 @@ class JoyBrushActivity : Activity() {
     }
 
     /** The chosen export, encoded in full before the destination is touched. File thread. */
-    private fun exportBytes(shown: JbContents, t: PngTarget): ByteArray {
+    private fun exportBytes(shown: JbContents, t: PngTarget, onWarning: (String) -> Unit = {}): ByteArray {
         val board = t.boardId
         if (!t.layered) return if (board == null) CanvasPng.encodeRegion(shown,
-            cc.joycreator.joybrush.androidkit.io.ExportPicture.wholeDrawing(shown), t.includePaper)
-            else CanvasPng.encodeBoard(shown, board, t.includePaper, t.frameId)
+            cc.joycreator.joybrush.androidkit.io.ExportPicture.wholeDrawing(shown), t.includePaper, onWarning = onWarning)
+            else CanvasPng.encodeBoard(shown, board, t.includePaper, t.frameId, onWarning = onWarning)
         return java.io.ByteArrayOutputStream().also { out ->
             if (board == null) cc.joycreator.joybrush.androidkit.io.OraExport.write(out, shown, "", null, t.includePaper,
-                brushLookup = null, region = cc.joycreator.joybrush.androidkit.io.ExportPicture.wholeDrawing(shown))
-            else cc.joycreator.joybrush.androidkit.io.OraExport.write(out, shown, board, t.frameId, t.includePaper)
+                onWarning = onWarning, brushLookup = null, region = cc.joycreator.joybrush.androidkit.io.ExportPicture.wholeDrawing(shown))
+            else cc.joycreator.joybrush.androidkit.io.OraExport.write(out, shown, board, t.frameId, t.includePaper, null, onWarning)
         }.toByteArray()
     }
 

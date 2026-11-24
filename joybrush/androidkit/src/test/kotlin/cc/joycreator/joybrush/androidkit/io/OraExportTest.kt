@@ -679,6 +679,27 @@ class OraExportTest {
 
     // ── nothing is dropped silently ────────────────────────────────────────────
 
+    /** EXPORT-FORMATS audit 11-24: the person is TOLD which layers the layered file left out. */
+    @Test
+    fun leftOutLayersAreSaidToThePersonNotOnlyWrittenInTheStack() {
+        val d = doc(
+            layers = listOf(
+                ink(),
+                background(id = "hidden", name = "Sketch", visible = false),
+                background(id = "zero", name = "Wash", opacity = 0f),
+            ),
+        )
+        val warnings = ArrayList<String>()
+        OraExport.write(ByteArrayOutputStream(), contents(d), BOARD, null, false, onWarning = { warnings.add(it) })
+        val said = warnings.joinToString(" | ")
+        assertTrue(said.contains("\"Sketch\"") && said.contains("hidden"), "the hidden layer is named: $said")
+        assertTrue(said.contains("\"Wash\"") && said.contains("0%"), "the 0% layer is named: $said")
+        val none = ArrayList<String>()
+        OraExport.write(ByteArrayOutputStream(), contents(doc(layers = listOf(ink()))), BOARD, null, false,
+            onWarning = { none.add(it) })
+        assertTrue(none.none { it.contains("left out") }, "nothing left out, nothing said: $none")
+    }
+
     @Test
     fun emptyInkAndHiddenLayersStillProduceAFileThatOpens() {
         val d = doc(

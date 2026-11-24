@@ -107,7 +107,7 @@ public final class PackInstaller {
     private static String findOrName(@NonNull JoyFolder jf, @NonNull JoyPack p) throws IOException {
         String top = TextLookShelf.PACKS_DIR;
         for (com.fadcam.joyfolder.JoyFs.Entry d : jf.fs.list(top)) {
-            if (!d.dir || d.name.startsWith(".")) continue;
+            if (!d.dir || !com.fadcam.joyfolder.PackFolders.isPackFolderName(d.name)) continue;
             String m = Placement.join(Placement.join(top, d.name), JoyPack.MANIFEST);
             try {
                 if (jf.fs.stat(m) != null && JoyPack.parse(new String(jf.readAll(m), StandardCharsets.UTF_8)).id.equals(p.id)) {
@@ -117,9 +117,8 @@ public final class PackInstaller {
                 // another pack's unreadable manifest: not this one
             }
         }
-        String base = ReadableNames.sanitize(p.name).trim();
-        if (base.isEmpty()) base = "Pack";
-        return Placement.join(top, jf.freeName(top, base));
+        // the pack folder contract: a readable name, never empty (com.fadcam.joyfolder.PackFolders)
+        return Placement.join(top, jf.freeName(top, com.fadcam.joyfolder.PackFolders.folderName(p.name)));
     }
 
     /** A path inside the pack: relative, no "..", no drive. */

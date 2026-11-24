@@ -149,3 +149,16 @@ the audio branch records one).
 - `studiokit/.../joyfolder/FileKind.java` (endings and Supplies folders), `FolderIndex` (a folder with `plugin.json`
   is one item: a pack folder with `joypack.json` should be treated the same way).
 - The TextLab lead owns `app/src/main/assets/textlab/**`: built-in pack manifests live in `assets/packs/`, outside it.
+
+## The pack folder contract (11-24, written and implemented by the website lane; roadmap plan row 7)
+Where a `.joypack` and what is inside it live in the person's Joy Creator folder. Code: `studiokit/.../joyfolder/PackFolders` (pure Java, tested by `tools/joyfolder-tests/run.sh`: 28 pass, and the pack-folder test fails when the safe-path rule or the hidden-folder rule is deliberately broken).
+
+1. **One flat folder, one folder per pack.** An installed pack is its unzipped self in `Supplies/Packs/<Pack name>/`: `joypack.json` at its top, its files beside or below it with their usual readable endings (`.text.json`, `.brush.json`, `.ttf`, `.cube`...). Nothing else lives in `Supplies/Packs/`.
+2. **Readable names.** The folder is named after the pack as a person would write it ("Film titles"), never its id or a number; a second pack with a taken name becomes "Film titles 2" (`JoyFolder.freeName`). A name that cannot be used (empty, only dots, illegal characters) becomes "Pack". `PackFolders.folderName`.
+3. **Hand-editable.** Plain JSON and ordinary files: open and change them in any editor. An **update of the same pack id replaces the pack's folder as one step** (`PackPublish`), so a change made *inside* a pack folder is lost on update. The app's Save never writes into a pack: it saves **the person's own copy** in the usual home for that kind (`PackFolders.homeFor(socket)`: looks, grades, caption styles, VisLab looks and parts in `Supplies/Looks/`; brushes `Supplies/Brushes/`; papers `Supplies/Papers/`; palettes `Supplies/Palettes/`; fonts `Supplies/Fonts/`). **The person's copy always wins** and is never touched by a pack update or removal. A socket this app does not know yet has no home: its files stay in the pack, listed as "needs a newer Joy Creator".
+4. **Nothing lost on uninstall.** The folder is outside the app: removing the app removes nothing. Removing a pack moves its folder to the Trash (the usual one, with Undo). The original `.joypack` file is **not kept** (the folder is the pack); sharing a pack again zips the folder, named `PackFolders.shareFileName`, "Film titles 1.0.joypack".
+5. **Hidden work stays hidden.** Folder names that start with a dot (`.Film titles.installing`, `.Film titles.replaced`, the staging `PackPublish` uses) and names ending `.installing` or `.replaced` are never packs (`PackFolders.isPackFolderName`; `PackShelf` and `PackInstaller` use it).
+6. **Safe paths.** Every file a pack names stays inside its own folder: no absolute path, no drive, no `..` (`PackFolders.entryPath`, the same rule `JoyPack` and `PackInstaller` apply). A pack with one unsafe path is refused whole.
+7. **Size limits** (already in `PackInstaller`): 300 MB and 5,000 files per pack; a pack is read whole before anything is written.
+
+Not decided here (owner or later job): the pack manager screen (list, remove, update; after launch), pack signing and the shop, JoyBrush's brush shelf reading `Supplies/Packs/`.

@@ -4,6 +4,7 @@ import com.fadcam.joyfolder.FileKind;
 import com.fadcam.joyfolder.Fingerprint;
 import com.fadcam.joyfolder.FolderIndex;
 import com.fadcam.joyfolder.JoyPack;
+import com.fadcam.joyfolder.PackFolders;
 import com.fadcam.joyfolder.FolderRoles;
 import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.JoyFs;
@@ -47,6 +48,7 @@ public final class JoyFolderTests {
         run("kinds: endings and bases", JoyFolderTests::kinds);
         run("packs: manifest, sockets, unknown kept, unsafe paths refused", JoyFolderTests::packs);
         run("packs: installed shelf by socket, order, missing files, later levels", JoyFolderTests::packShelf);
+        run("pack folders: the contract (names, safe paths, homes, hidden staging)", JoyFolderTests::packFolders);
         run("placement: the three rules", JoyFolderTests::placement);
         run("roles: adopt by name, drop when gone", JoyFolderTests::roles);
         run("fingerprint: content identity, sampling", JoyFolderTests::fingerprint);
@@ -147,6 +149,62 @@ public final class JoyFolderTests {
             }
             check(refused, "not a manifest: " + bad);
         }
+    }
+
+    /** The pack folder contract (PACK-1 / FILE-1): where a pack and its files live, and what is never a pack. */
+    static void packFolders() {
+        eq("Supplies/Packs", PackFolders.DIR);
+        eq("Supplies/Packs/Film titles", PackFolders.packDir("Film titles"));
+        // readable, safe, never empty
+        eq("Neon nights", PackFolders.folderName("Neon nights"));
+        eq("Pack", PackFolders.folderName(""));
+        eq("Pack", PackFolders.folderName(null));
+        eq("Pack", PackFolders.folderName("..."));
+        check(!PackFolders.folderName("a/b:c*d").contains("/") && !PackFolders.folderName("a/b:c*d").contains(":"),
+                "illegal characters are taken out of a pack folder's name");
+        check(!PackFolders.folderName(".hidden pack").startsWith("."), "a pack folder never starts with a dot");
+
+        // what is a pack folder and what is hidden work
+        check(PackFolders.isPackFolderName("Film titles"), "a readable folder may be a pack");
+        check(!PackFolders.isPackFolderName(".Film titles.installing"), "a dot folder is staging, not a pack");
+        check(!PackFolders.isPackFolderName(".Film titles.replaced"), "the set-aside folder is not a pack");
+        check(!PackFolders.isPackFolderName("Film titles.installing"), "an installing folder is not a pack even without the dot");
+        check(!PackFolders.isPackFolderName(""), "empty is not a pack");
+
+        // a pack's own files stay inside its folder
+        String dir = PackFolders.packDir("Film titles");
+        eq("Supplies/Packs/Film titles/looks/Dark Steel.text.json", PackFolders.entryPath(dir, "looks/Dark Steel.text.json"));
+        eq("Supplies/Packs/Film titles/looks/a.text.json", PackFolders.entryPath(dir, "./looks//a.text.json"));
+        eq("Supplies/Packs/Film titles/fonts/x.ttf", PackFolders.entryPath(dir, "fonts\\x.ttf"));
+        for (String bad : new String[]{"../evil.txt", "a/../../b", "/etc/x", "C:/x", "", "  ", "..", "looks/../../x"}) {
+            check(PackFolders.entryPath(dir, bad) == null, "refused: '" + bad + "'");
+        }
+        check(PackFolders.entryPath(dir, null) == null && PackFolders.entryPath(null, "a") == null, "null in, null out");
+        // the same rule JoyPack uses when it reads a manifest
+        for (String ok : new String[]{"looks/a.text.json", "cover.png"}) {
+            check(PackFolders.entryPath(dir, ok) != null, "allowed: " + ok);
+        }
+
+        // the person's own copy goes where the rest of Supplies keeps that kind; the pack never overwrites it
+        eq("Supplies/Looks", PackFolders.homeFor("text-look"));
+        eq("Supplies/Looks", PackFolders.homeFor("vis-look"));
+        eq("Supplies/Looks", PackFolders.homeFor("vis-part"));
+        eq("Supplies/Looks", PackFolders.homeFor("grade"));
+        eq("Supplies/Looks", PackFolders.homeFor("caption-style"));
+        eq("Supplies/Brushes", PackFolders.homeFor("brush"));
+        eq("Supplies/Papers", PackFolders.homeFor("paper"));
+        eq("Supplies/Palettes", PackFolders.homeFor("palette"));
+        eq("Supplies/Fonts", PackFolders.homeFor("font"));
+        eq("Supplies/Fonts", PackFolders.homeFor("FONT"));      // matched without regard to case, like JoyPack
+        check(PackFolders.homeFor("hologram-room") == null, "a socket this app does not know yet has no home (kept in the pack)");
+        check(PackFolders.homeFor(null) == null, "null socket");
+        // every socket JoyPack says it can use has a home, so no known kind is left homeless
+        for (String socket : JoyPack.SOCKETS) check(PackFolders.homeFor(socket) != null, "known socket has a home: " + socket);
+
+        // the file a shared pack is named
+        eq("Film titles 1.0.joypack", PackFolders.shareFileName("Film titles", "1.0"));
+        eq("Film titles.joypack", PackFolders.shareFileName("Film titles", ""));
+        eq("Film titles.joypack", PackFolders.shareFileName("Film titles", null));
     }
 
     static void packShelf() throws IOException {

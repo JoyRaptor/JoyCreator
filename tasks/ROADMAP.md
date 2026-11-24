@@ -216,7 +216,7 @@ The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE
 | 4 | Auto-markers from motion/noise on long recordings (timeline marks now exist to receive them) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |
 | 5 | Re-run the 41-check device sweep (14 features never looked at) | [STU-1](jobs/STU-1_studio_phone_backlog.md), [HYG-5](jobs/HYG-5_state_sync.md) |
 | 6 | The 09-22 nav spec: search palette, live strip, hold-to-fan floor ([`NAV_SPEC.md`](NAV_SPEC.md), [`NAV_PLAN.md`](NAV_PLAN.md)) | [DOOR-2](jobs/DOOR-2_lobby_landing.md) |
-| 7 | Pack folder contract (before launch; the pack manager comes after) | [FILE-1](jobs/FILE-1_folder_leftovers.md) |
+| 7 | Pack folder contract (before launch; the pack manager comes after): **done 11-24**, [contract](jobs/PACK-1_joypacks.md) and `PackFolders` helpers with tests | [FILE-1](jobs/FILE-1_folder_leftovers.md) |
 | 8 | Sprites get a row in Add asset | [ANI-1](jobs/ANI-1_puppets_and_sprites.md) |
 | 9 | App-wide hover-label sweep | [UI-1](jobs/UI-1_app_ui_leftovers.md) |
 | 10 | A remote phone as a second camera (multicam) | [FOLD-1](jobs/FOLD-1_fold_fadcam_features_in.md) |

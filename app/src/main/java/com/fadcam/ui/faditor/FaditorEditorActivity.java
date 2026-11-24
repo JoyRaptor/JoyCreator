@@ -5665,7 +5665,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                     + "), so it's linked where it is, not copied. Joybot can bring it into your Joy Creator folder.",
                             com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
                     .setDuration(10_000)
-                    .setActionTextColor(0xFF22D3EE)
+                    .setActionTextColor(com.fadcam.ui.faditor.Studio.ARMED)
                     .setAction("Ask Joybot", v -> {
                         View bot = findViewById(R.id.btn_ai_assistant);
                         if (bot != null) bot.performClick();
@@ -46670,7 +46670,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         snapLabel.setTextColor(Studio.INK_DIM);
         snapLabel.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         snapRow.addView(snapLabel);
-        androidx.appcompat.widget.SwitchCompat snapSwitch = new androidx.appcompat.widget.SwitchCompat(this);
+        com.google.android.material.checkbox.MaterialCheckBox snapSwitch = SheetKit.tickBox(this);
         // The SAME setting as the magnet panel's Beats row (SnapSettings), not a private copy:
         // two switches for one thing drifted apart (Studio sweep, 2026-09-25).
         snapSwitch.setChecked(com.fadcam.ui.faditor.tools.SnapSettings.kindOn(

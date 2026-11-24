@@ -59,14 +59,14 @@ public final class SpriteTheme {
     public static final int ON_ACCENT = 0xFF0D0D10;
 
     // ── state (rule 1 — never reused as a section accent) ───────────────
-    public static final int SELECTED  = 0xFF22D3EE;   // cyan
-    public static final int LIVE      = 0xFFF43F8E;   // pink
+    public static final int SELECTED  = com.fadcam.ui.faditor.Studio.ARMED;   // cyan
+    public static final int LIVE      = com.fadcam.ui.faditor.Studio.LIVE;   // pink
 
     // ── section accents ─────────────────────────────────────────────────
     public static final int ACCENT_GRID  = 0xFFFBBF24;   // amber  — grid & slicing
     public static final int ACCENT_CELL  = 0xFFA78BFA;   // violet — a single cell's identity
-    public static final int ACCENT_SEQ   = 0xFFF43F8E;   // pink   — the sequence you are building
-    public static final int ACCENT_ALIGN = 0xFF22D3EE;   // cyan   — alignment
+    public static final int ACCENT_SEQ   = com.fadcam.ui.faditor.Studio.LIVE;   // pink   — the sequence you are building
+    public static final int ACCENT_ALIGN = com.fadcam.ui.faditor.Studio.ARMED;   // cyan   — alignment
     public static final int ACCENT_VIEW  = 0xFF60A5FA;   // blue   — onion and other viewing aids
     public static final int ACCENT_CLIPS = 0xFFA78BFA;   // violet — saved animations
     public static final int ACCENT_OUT   = 0xFF35F6BF;   // green  — export

@@ -74,7 +74,7 @@ public class SnapSettingsSheet extends BottomSheetDialogFragment {
 
         // The magnet, as the first row: the same switch the transport button flips.
         final java.util.List<View> kindRows = new java.util.ArrayList<>();
-        MaterialSwitch master = new MaterialSwitch(ctx);
+        com.google.android.material.checkbox.MaterialCheckBox master = SheetKit.tickBox(ctx);
         master.setChecked(SnapSettings.master(ctx));
         SheetKit.label(master, getString(R.string.snap_master));
         master.setOnCheckedChangeListener((b, on) -> {
@@ -98,7 +98,7 @@ public class SnapSettingsSheet extends BottomSheetDialogFragment {
     private View kindRow(@NonNull Context ctx, @NonNull SnapSettings.Kind k) {
         LinearLayout block = new LinearLayout(ctx);
         block.setOrientation(LinearLayout.VERTICAL);
-        MaterialSwitch sw = new MaterialSwitch(ctx);
+        com.google.android.material.checkbox.MaterialCheckBox sw = SheetKit.tickBox(ctx);
         sw.setChecked(SnapSettings.kindOn(ctx, k));
         SheetKit.label(sw, getString(titleOf(k)));
         block.addView(SheetKit.detailRow(ctx, null, 0, getString(titleOf(k)),

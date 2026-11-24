@@ -101,4 +101,11 @@
     <string name="studio_ui_paste_srt_webvtt_or_mm_ss">Paste SRT, WebVTT, or [mm:ss] stamped lines</string>
     <string name="studio_ui_m_ss">m:ss</string>
     <string name="studio_ui_rename_transcript">Rename transcript</string>
+    <string name="studio_voice">Studio Voice</string>
+    <string name="studio_voice_hint">Clean dialogue offline and keep the original for Undo.</string>
+    <string name="studio_voice_analyzing">Checking the recording…</string>
+    <string name="studio_voice_rendering">Cleaning dialogue…</string>
+    <string name="studio_voice_already_quiet">The recording is already quiet. Original audio kept.</string>
+    <string name="studio_voice_failed">Could not clean this audio. The original is still available.</string>
+    <string name="studio_voice_layout">Studio Voice supports mono, stereo and 5.1 with a labeled center channel.</string>
 </resources>

@@ -499,7 +499,8 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
     @NonNull
     public static View cleanTab(@NonNull Context ctx, @NonNull AudioParams clip,
                                 @NonNull Host host, @NonNull java.io.File projectDir,
-                                @NonNull com.fadcam.ui.faditor.audio.BakedAudioCache cache) {
+                                @NonNull com.fadcam.ui.faditor.audio.BakedAudioCache cache,
+                                @NonNull Runnable studioVoice) {
         LinearLayout root = column(ctx);
         final android.os.Handler main = new android.os.Handler(android.os.Looper.getMainLooper());
         // Seeded from the CLIP-id registry, not a fresh local: a reopen mid-bake must show
@@ -636,6 +637,10 @@ private static Runnable fadeRow(@NonNull Context ctx, @NonNull LinearLayout pare
                         }));
             }
         }
+        TextView voice = chip(ctx, ctx.getString(R.string.studio_voice));
+        hoverLabel(voice, ctx.getString(R.string.studio_voice_hint));
+        voice.setOnClickListener(v -> studioVoice.run());
+        applyChips.add(voice);
         TextView dn = chip(ctx, ctx.getString(R.string.lane_b_audio_denoise));
         hoverLabel(dn, ctx.getString(R.string.lane_b_audio_denoise_desc));
         dn.setOnClickListener(v -> new Apply(

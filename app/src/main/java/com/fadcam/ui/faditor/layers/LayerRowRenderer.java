@@ -4092,14 +4092,18 @@ public final class LayerRowRenderer {
         if (item.getTextOverlay() != null) {
             com.fadcam.ui.faditor.model.TextOverlayItem o = item.getTextOverlay();
             if (o.isProxy()) return "◎ " + o.getText();   // ◎ marks a proxy's tape
-            return o.isImage() ? "IMG" : o.getText();
+            // The person's own name wins ("Cat 2"); without one, the text or "IMG" as before.
+            return com.fadcam.ui.faditor.model.ItemLabel.of(o.getName(), o.isImage() ? "IMG" : o.getText());
         }
         if (item.getAudioClip() != null) return item.getAudioClip().getLabel();
         if (item.getSprite() != null) {
             int keys = item.getSprite().getFrameTrack().size();
-            return keys > 1 ? "✦ " + keys : "✦";
+            return com.fadcam.ui.faditor.model.ItemLabel.of(item.getSprite().getName(),
+                    keys > 1 ? "✦ " + keys : "✦");
         }
-        if (item.getWaveform() != null) return "VIZ";
+        if (item.getWaveform() != null) {
+            return com.fadcam.ui.faditor.model.ItemLabel.of(item.getWaveform().getName(), "VIZ");
+        }
         if (item.getCaptionSpan() != null) return "CC";
         if (item.getAdjustment() != null) {
             // The layer's own name, so several are told apart at a glance. The effect count is

@@ -360,3 +360,33 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 | JBX-04 | open, needs the JoyBrush lane (guide edits are not in Undo) | |
 | JBX-17 | open, needs the JoyBrush lane (bucket tool: `FloodFill` exists, no tool strip button or dispatch) | |
 | JBX-31 | engine lane | |
+
+### Batch 2 (2026-11-24)
+
+| ID | Status | Evidence / what is left |
+|---|---|---|
+| L10, L11, SHELL-43 | already fixed | `6e24eac34` play flavour, `80ed7af99`; owner picks the app ID (S1) |
+| L16, SHELL-44 | partly fixed (new files named Joy Creator `f8076efc4`, `d5b87712a`, `3b217ce10`; old folders moved `72b76559e`, `7cf53a4ba`); left: the `Faditor_Std_` / `Faditor_Merge_` / `FadShot_` file prefixes (`Constants.java:464-468`) are how old files are recognised (`FastFileScanner.java:744`, `RecordsFragment.java:5962`), so a rename must keep recognising the old names: a design change that wants a phone | the app-ID move waits for the owner |
+| SHELL-36, SHELL-37, L22 | already fixed | `e712f8106`, `e63283bb8`, `ce89ea3f0`, `e52c155d6`; release smoke `80ed7af99` |
+| L27 | fixed 11-24 | `tasks/api.txt` is now git-ignored and `.githooks/keyguard.sh` (run first by `pre-commit`) refuses staged key patterns and key files; `bash tools/githooks-test/run-keyguard.sh` 9 checks. The owner still rotates the old key |
+| L37 | switch done (`8aa41790e`, `17207abd2`, `6ca8009bd`); the hide list holds only `studio_motion_blur`: the owner picks from `tasks/audits/launch_hide_list_20261115.md` | |
+| SHELL-16 | needs the owner: all four sub-decisions (support_url empty, theme prune, Setup grouping, Library Clips kind) still unanswered | |
+| SHELL-23, SHELL-38 | already fixed (`8b238c428`; `3f6a74c1a`, `bc0bcfb24`); SHELL-23's four Note 9 checks owed | |
+| SHELL-39 | needs the owner's art | |
+| SHELL-61 | mostly fixed (TAB-1 width-class code); Capture / recorder tablet layout not found | |
+| STU-F1, STU-F6 | built; phone look owed | |
+| STU-F7, STU-C1, STU-C2, STU-C3, STU-C6 | need the phone (STU-C2 also hides a possible code bug, F13: a sprite sheet made via "New sprite sheet" did not appear in Studio's sprite panel; not investigated) | |
+| STU-C5 | already fixed (`7b9f28227`) | |
+| STU-D1 | already fixed (`79cefb069`; `tools/check_hover_labels.py` reports 0) | |
+| STU-D4 | already fixed (`40601c5df`, `75dcad2df`); three stock `ProgressDialog`s remain (`FaditorEditorActivity.java:21323, 46578, 46613`) | |
+| JBX-10 | probably done by `79cefb069`; JoyBrush's canvas-drawn views and popups still owe a look | |
+| JBX-23, JBX-26, JBX-38, JBX-43 | owner or engine lane | |
+| JBX-25 | open: needs a dated audit report and a phone run; no fill tool button exists yet (JBX-17) | |
+| JBX-46, JBX-47 | main-folder files: the owner's; the tuft files exist only on `origin/rescue/main-folder-20261027` (`94a5f7e69`); the JoyBrush lead decides | |
+| AN-06, AN-09 | need the phone; two code findings are open: F15 (the Puppet drawer covers the picture after the first pin on a phone-sized screen) and F13 (above) | |
+| VL-12, BOT-A13, BOT-A3 | need the owner or the phone | |
+| TX-04 | already fixed (`241ea1409`, `1a15b7caa`) | |
+| BOT-A8 | already fixed (`77524240b`, `6d91571d6`; 37 questions asked on the Note 9) | |
+| BOT-A27 | partly fixed (`28da8b869` Joybot switch, `0c8444ca3` room tour); first-run guide is the owner's call | |
+| STU-B3 | already fixed (`c93fd7d29` and the five after it) | |
+| DONE? rows | BOT-A16 done (`73aad9221`); BOT-A7 done, STATE already maps the rows it named; JBX-18 done (`c04379a6c`...); **BOT-A29 NOT done** (camera only: screen recording and the webcam bubble through Joybot missing, class AFTER); **BOT-A31 NOT done** (background bake, dope sheet, export actions missing); **BOT-A33 NOT done** (model routing per step missing); **L18 NOT done** (only the audit list exists, `a7398222b`: about 97 literal Toasts and 192 literal `setText`s remain; class stays LAUNCH-minus: a big sweep); L19 mostly done (`79cefb069`; dialogs and popups still owe labels) | |

@@ -378,7 +378,8 @@ public class AIToolExecutor {
                 dimensions, its grid (cols/rows/margins/spacing — the sheet's stored
                 grid, or an auto-detected suggestion for a raw image), and per-cell
                 bounding boxes + occupancy (fraction of non-transparent pixels) + any
-                existing cell names. Use before author_avatar_rig to understand what art
+                existing cell names, and "animationTiming": each animation's [cell, ticks held]
+                frames, fps, total ticks and seconds (a dope sheet). Use before author_avatar_rig to understand what art
                 is on the sheet. Deterministic, no network. Omit both args to list the
                 project's sheets.
                 args: {"sheetId":"..."}  OR  {"imageUri":"file://…|content://…"}
@@ -1644,6 +1645,25 @@ public class AIToolExecutor {
                 known.put(String.valueOf(i), k);
             }
             if (known.length() > 0) out.put("namesAndTags", known);
+            // The dope sheet (BOT-A31): each animation's cells, how long each holds, and its length.
+            JSONArray dope = new JSONArray();
+            for (com.fadcam.ui.faditor.sprite.DopeSheet.Row r
+                    : com.fadcam.ui.faditor.sprite.DopeSheet.of(sheet)) {
+                JSONObject rj = new JSONObject();
+                rj.put("id", r.id);
+                rj.put("name", r.name);
+                rj.put("type", r.type);
+                rj.put("fps", r.fps);
+                JSONArray fr = new JSONArray();
+                for (int i = 0; i < r.frames.length; i++) {
+                    fr.put(new JSONArray().put(r.frames[i]).put(r.holds[i]));   // [cell, ticks held]
+                }
+                rj.put("frames", fr);
+                rj.put("ticks", r.ticks);
+                rj.put("seconds", r.seconds);
+                dope.put(rj);
+            }
+            if (dope.length() > 0) out.put("animationTiming", dope);
             out.put("imageWidth", trueW);
             out.put("imageHeight", trueH);
             JSONObject grid = new JSONObject();

@@ -44,6 +44,9 @@ public class LutLibraryPanel extends LinearLayout {
             button.setGravity(android.view.Gravity.CENTER_VERTICAL);
             button.setSingleLine(true);
             button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            // PREVIEW-1: the grade applied to a small scene, to the left of its name
+            final android.content.Context appCtx = getContext().getApplicationContext();
+            com.fadcam.ui.faditor.PartThumbs.startOf(button, "lut:" + preset.id, () -> LutSwatches.of(appCtx, preset.id));
             com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.pressable(button);
             button.setOnClickListener(v -> {
                 if (callback != null) callback.onLutSelected(preset);

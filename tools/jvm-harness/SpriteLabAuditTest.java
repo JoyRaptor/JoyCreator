@@ -19,6 +19,7 @@ public class SpriteLabAuditTest {
         reorderSurvivesSaveAndReopen();
         cellCopyKeepsTags();
         saveSafetyOfTheEditorScreen();
+        dopeSheetReadsTheTiming();
         System.out.println("SpriteLabAuditTest: " + passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
     }
@@ -70,6 +71,29 @@ public class SpriteLabAuditTest {
                         && k.tags.contains("happy") && !k.enabled);
         k.tags.add("more");
         check("cell copy's tags are its own", c.tags.size() == 2);
+    }
+
+    static void dopeSheetReadsTheTiming() {
+        SpriteSheet s = new SpriteSheet("id", "walk", "");
+        s.setFps(10f);
+        SpriteSheet.Preset loop = new SpriteSheet.Preset("p1", "walk");
+        loop.frames.add(0); loop.frames.add(1); loop.frames.add(2);
+        loop.weights.add(1); loop.weights.add(3); loop.weights.add(1);
+        s.getPresets().add(loop);
+        SpriteSheet.Preset pp = new SpriteSheet.Preset("p2", "breathe");
+        pp.type = "pingpong"; pp.fps = 5f;
+        pp.frames.add(4); pp.frames.add(5); pp.frames.add(6);
+        s.getPresets().add(pp);
+        java.util.List<com.fadcam.ui.faditor.sprite.DopeSheet.Row> rows = com.fadcam.ui.faditor.sprite.DopeSheet.of(s);
+        check("dope sheet: one row per animation", rows.size() == 2);
+        com.fadcam.ui.faditor.sprite.DopeSheet.Row a = rows.get(0);
+        check("dope sheet: the weighted frame holds 3 ticks", a.holds[1] == 3 && a.holds[0] == 1);
+        check("dope sheet: a loop is the sum of its weights, 5 ticks at 10 fps = 0.5 s", a.ticks == 5 && a.seconds == 0.5);
+        com.fadcam.ui.faditor.sprite.DopeSheet.Row b = rows.get(1);
+        check("dope sheet: a ping-pong of 3 even frames is 4 ticks (the ends are not repeated)", b.ticks == 4);
+        check("dope sheet: its own fps wins over the sheet's, 4 ticks at 5 fps = 0.8 s", b.fps == 5f && b.seconds == 0.8);
+        check("dope sheet: a sheet with no animations gives no rows",
+                com.fadcam.ui.faditor.sprite.DopeSheet.of(new SpriteSheet("x", "empty", "")).isEmpty());
     }
 
     // ── SAFE-1 second pass: the editor screen cannot run on the JVM, so its save rules are pinned

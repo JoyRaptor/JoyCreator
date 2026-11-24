@@ -418,3 +418,15 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 |---|---|
 | BOT-A29 | now done for the half that can be: Joybot reports, pauses, resumes and stops a SCREEN recording (`recording` with `target=screen`, `CaptureRules.decideScreen`, 7 new rule checks in `IdeaEngineTest`). Starting one stays the person's tap on Android's prompt, by design. The webcam bubble is not built. Not seen on a phone |
 | BOT-A31, BOT-A33, AN-06 F15 | stay parked (new behaviour or a screen feel; see batch 4) |
+
+### Batch 6 (2026-11-24, all cloud suites green on `4220a23ca`: build 45366191699; jb-core 3020, jb-androidkit 1379, jb-android 606, studio 74, joybot all pass)
+
+| ID | Status |
+|---|---|
+| BOT-A31 | partly done: `describe_sprite_sheet` now returns `animationTiming`, a dope sheet (each animation's [cell, ticks held], fps, ticks, seconds; pure `sprite/DopeSheet`, 6 checks in `run-spritelab-audit.sh`). Background bake and export actions stay parked: they need the owner's words on where output goes |
+| BOT-A33, AN-06 F15 | parked as before |
+
+### Batch 7 (2026-11-24): why BOT-A33 and AN-06 F15 are still parked
+
+- **AN-06 F15** (Puppet drawer covers the picture after the first pin on a phone-sized screen): every Studio drawer shares one height rule in `ObjectDrawer` (55 percent of the screen height, `MAX_HEIGHT_FRACTION`, or the height the person dragged it to, up to 82 percent). The Puppet panel is a tab inside that shared drawer, so a smaller cap just for it means the drawer must know which tab is showing and change height as tabs change, in code every other drawer also runs through. The result (how much picture is left, how much scrolling) can only be judged on the Fold and Note 9 by eye, and a wrong guess would change every drawer. Not changed. Smallest safe attempt when a phone is free: pass a per-tab fraction (for example 0.38 for Puppet while the screen is narrower than 600 dp) through `ObjectDrawer.Tab`, then look at all object drawers.
+- **BOT-A33 model routing**: Joybot has one configured model (`ai_model`, `AiAccounts`); routing planning, vision and simple steps to different models needs a Settings design (which models, which step kinds, what happens when one is missing) before any code. Needs the owner's words.

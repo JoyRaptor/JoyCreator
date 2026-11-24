@@ -44,3 +44,9 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 
 ## 11-24 second run (hover-1 lane): audio fade/ducking not reached
 - Selecting the project's audio lane and tapping Volume opens a volume bar (113%) with a Keyframe stopwatch, a mute and a close; the fade-in and fade-out sliders and "Duck under" were not found in two taps (they are on another route, probably a drawer opened from the lane or its menu). I toggled Keyframe on and back off, closed it, and changed nothing in the project. Shots `a1.png`-`a3.png`. Ducking and the fade readout remain owed; whoever takes this next should look for the audio drawer first (`AudioDrawerTabs`).
+
+## 11-24 third run (hover-1 lane, Note 9, build df093b915)
+- **How to reach the audio drawer:** HOLD (about a second) the audio clip in the timeline; a double-tap by two adb taps did not register. The drawer opens with Level, Pan, In and Out fades, and tabs A/V Sync, FX, Clean (`b3.png`).
+- **Fade-in readout: PASS.** A 60 px drag of the In slider from 0 reads 195 ms and draws the fade ramp on the clip (`b4.png`); the slider is squared (`fadeMsOf`), so 24.41 s is only the far end of a 48.8 s clip. I undid the change afterwards (Undo then Redo shows 49 / 1).
+- **Ducking: not reachable on this project.** The lane menu on the main track offers only Solo (`b6.png`); Duck under needs a second lane carrying a voice (`duckKeyCandidates`), which this project does not have. Needs a project with a voice lane: owed.
+- Still owed: sprite corner pin, transitions project, VisLab in Studio, the rest of the 41 checks, STU-6 on-clip checks.

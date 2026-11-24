@@ -154,7 +154,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - VL-12 (M) Owner-deferred checks: R1 audit (floating visualiser, needs Start now), R2 audit (Android 12+), D2 hour-long heat test
 - TX-04 (S) Rename the lobby 'uArc' name clash (lightning knob vs tube share) **DONE** (renamed uPenArc 11-12; comment caught up 11-15)
 - TX-09 (M) TextLab phone engine speed: per-pass GPU timing; app ~2x slower than the look book **DONE** (TlGpuTimer and T13 speed on joy-creator before 11-15)
-- TX-17 (S) STATE and help mapping for TextLab rows after owner tries **TAKING (website lane, 11-24)**
+- TX-17 (S) STATE and help mapping for TextLab rows after owner tries **DONE 11-24 (website lane): every user-facing TextLab row names its help topic (textlab, textlab_title, textlab_light, textlab_save, textlab_export, textlab_pack); engine-only rows say none**
 
 ### JoyBrush
 
@@ -162,7 +162,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-08 (S) Phone-look the hover outline (never seen working) and fix the lean direction if wrong
 - JBX-10 (M) Sweep JoyBrush chrome for missing hover labels
 - JBX-11 (M) Group the long more menu (about 20+ rows) into sections — DONE 11-15 (58f256930), tablet-checked
-- JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings **TAKING (website lane, 11-24)**
+- JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings **DONE 11-24 for help mappings (website lane): every JoyBrush STATE row now has a help topic or says why not; the 11-04 and 11-23 passes added the missing rows; JoyBrush lane keeps the 5.6 rows true**
 - JBX-14 (S) Doc name follows a drawing's rename — DONE 11-15 (58f256930), tablet-checked
 - JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one — DONE 11-15 (58f256930), tablet-checked
 - JBX-17 (L) Wire the tap-fill (bucket) tool
@@ -177,7 +177,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-43 (L) Frame duplication: captured and joint cases, plus owner UI acceptance
 - JBX-46 (S) Decide and land the tuft-tuning orphan files from the owner's main folder
 - JBX-47 (S) Commit the untracked JoyBrush handoffs and reviews in the owner's main folder
-- JBX-49 (M) Joybot help mappings for pending JoyBrush rows **TAKING (website lane, 11-24)**
+- JBX-49 (M) Joybot help mappings for pending JoyBrush rows **DONE 11-24 (website lane): topics joybrush_pencil_colour, joybrush_brush_editor, joybrush_new_brushes, joybrush_menu_open, joybrush_tablet (plus 11-23: import, guides, fibres, send_to_studio); STATE rows name them; help harness 1332 pass**
 
 ### Launch and hygiene
 

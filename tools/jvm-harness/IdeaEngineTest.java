@@ -568,6 +568,12 @@ public class IdeaEngineTest {
                     {"how do I change the look sliders on my title", "studio_title_sliders"},
                     {"can you show me a trick", "joybot_tricks"},
                     {"how do I report a reply", "joybot_report"},
+                    // JBX-49 (11-24)
+                    {"how do I draw with a coloured pencil", "joybrush_pencil_colour"},
+                    {"where is the brush editor", "joybrush_brush_editor"},
+                    {"which new brushes are there", "joybrush_new_brushes"},
+                    {"how do I open a file in joybrush", "joybrush_menu_open"},
+                    {"how do I star a brush on my tablet", "joybrush_tablet"},
                     // STU-A2 (11-24)
                     {"how do I strike a word out of the video", "studio_strike_words"},
                     {"how do I put the drawer beside the picture on my tablet", "studio_tablet_drawers"},

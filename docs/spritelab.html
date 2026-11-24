@@ -1,0 +1,50 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SpriteLab | Joy Creator</title><style>
+:root{color-scheme:dark;--bg:#050507;--panel:#111114;--line:#232329;--ink:#ececf1;--dim:#a1a1aa;--sel:#22d3ee;--warn:#faa03d;--bg2:#0a0a0d}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:46rem;margin:0 auto;padding:1.5rem 16px 4rem}
+header.site{max-width:46rem;margin:0 auto;padding:1rem 16px 0;display:flex;gap:1.25rem;flex-wrap:wrap;align-items:baseline}
+header.site a{color:var(--dim);text-decoration:none}header.site a.brand{color:var(--ink);font-weight:800;font-size:1.1rem}
+header.site a:hover{color:var(--sel)}
+h1{font-size:2rem;line-height:1.2;margin:1.2rem 0 .6rem}h2{font-size:1.3rem;margin:2rem 0 .5rem;border-top:1px solid var(--line);padding-top:1rem}
+a{color:var(--sel)}p,li{max-width:42rem}
+table{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.95rem}
+th,td{border:1px solid var(--line);padding:.5rem .6rem;text-align:left;vertical-align:top}th{background:var(--panel)}
+.tablewrap{overflow-x:auto}
+code{background:var(--panel);padding:.1rem .3rem;border-radius:4px}
+.draft{border:1px solid var(--warn);color:var(--warn);padding:.6rem .9rem;border-radius:8px;margin:1rem 0}
+footer{max-width:46rem;margin:0 auto;padding:0 16px 3rem;color:var(--dim);font-size:.9rem}
+.btn{display:inline-block;background:var(--sel);color:#001;padding:.6rem 1rem;border-radius:999px;font-weight:700;text-decoration:none;margin:.3rem .4rem .3rem 0}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+@media (prefers-color-scheme:light){:root{--bg:#fff;--panel:#f4f4f6;--line:#d8d8de;--ink:#17171c;--dim:#55555f;--sel:#0a7f94;--warn:#a85a00;--bg2:#ebebef}.btn{color:#fff}}
+
+.hero{margin:1rem 0 1.5rem;padding:1.25rem 16px;border-radius:14px;background:var(--panel);border:1px solid var(--line);border-left:6px solid var(--a,var(--sel))}
+.hero.big{border-left:0;background:linear-gradient(135deg,var(--panel),var(--bg2))}
+.hero h1{margin:.2rem 0 .6rem;font-size:2.1rem}
+.eyebrow{margin:0;color:var(--a,var(--sel));font-weight:700;text-transform:uppercase;letter-spacing:.06em;font-size:.8rem}
+.lead{font-size:1.1rem;color:var(--ink)}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin:1rem 0}
+.card{display:flex;flex-direction:column;gap:.2rem;padding:.8rem;border-radius:12px;background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--a);text-decoration:none;color:var(--ink)}
+.card span{color:var(--dim);font-size:.9rem}.card:hover{border-color:var(--a)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:1.5rem 0}
+.chip{padding:.35rem .8rem;border-radius:999px;border:1px solid var(--a);color:var(--ink);text-decoration:none;font-size:.9rem}
+.chip.on{background:var(--a);color:#050507;font-weight:700}
+.ticks{list-style:none;padding:0}.ticks li{padding-left:1.4rem;position:relative;margin:.4rem 0}
+.ticks li::before{content:"";position:absolute;left:0;top:.55em;width:.7em;height:.7em;border-radius:3px;background:var(--a,var(--sel))}
+.shot{display:flex;align-items:center;justify-content:center;min-height:11rem;margin:1.2rem 0;border:2px dashed var(--line);border-radius:14px;color:var(--dim);text-align:center;padding:1rem}
+.shot.wide{min-height:14rem}
+.note{color:var(--dim)}
+@media (prefers-color-scheme:light){.chip.on,.hero{color:#17171c}}
+</style></head><body><header class="site"><a class="brand" href="index.html">Joy Creator</a><a href="testers.html">Test it</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></header><main><p class="draft"><strong>Draft.</strong> The owner has not reviewed this page yet; the parts in square brackets are still to be filled in.</p>
+<div class="hero" style="--a:#f9f462;--b:#ffc341">
+<p class="eyebrow">Characters and puppets</p>
+<h1>SpriteLab</h1>
+<p class="lead">Cut sprite sheets, build animations, and puppeteer a character on your timeline.</p>
+</div>
+<h2>What you can do</h2>
+<ul class="ticks"><li>Cut a sheet into frames and line them up.</li><li>Build animations from the frames.</li><li>Puppeteer a character in Studio.</li><li>Everything the sprite editor makes is stored with your project.</li></ul>
+<div class="shot" style="--a:#f9f462"><span>[SCREENSHOT OF SPRITELAB]</span></div>
+<p class="note"><strong>Good to know.</strong> SpriteLab began as a desktop helper; the phone editor is the real one.</p>
+<nav class="chips" aria-label="Rooms"><a class="chip" style="--a:#f43f8e" href="joybrush.html">JoyBrush</a><a class="chip" style="--a:#35f6bf" href="studio.html">Studio</a><a class="chip" style="--a:#5c43fd" href="vislab.html">VisLab</a><a class="chip" style="--a:#faa03d" href="textlab.html">TextLab</a><a class="chip on" style="--a:#f9f462" href="spritelab.html">SpriteLab</a><a class="chip" style="--a:#cc27ff" href="avatar.html">Avatar Studio</a><a class="chip" style="--a:#4397fd" href="library.html">Library</a><a class="chip" style="--a:#22d3ee" href="joybot.html">Joybot</a></nav>
+<p><a class="btn" href="index.html#play">Get it on Google Play</a><a class="btn ghost" href="index.html">Back to all rooms</a></p>
+</main><footer>Joy Creator is free software (GNU GPL v3), built on FadCam by FadSec Lab. "Joy Creator" and "JoyBrush" are the owner's marks.</footer></body></html>

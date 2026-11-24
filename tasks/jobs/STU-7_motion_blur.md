@@ -16,9 +16,9 @@ merged plan's.
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
 - **Active step:** C4b Snapdragon qualification remains blocked on the source workstation. A C4f debug Exact crossing candidate is in cloud verification. Independent C5 mesh exposure can proceed.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 GPU runner and device diagnostic @ `085fa0b76` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh and recorded-avatar sampling @ `01d1debd6` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`.
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 GPU runner and device diagnostic @ `085fa0b76` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh and recorded-avatar sampling @ `570acc664` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`.
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Add a microsecond MeshEngine exposure path for authored poses on the isolated C5 branch and test a bent limb against the live millisecond path.
+- **Exact next action:** Route fractional mesh exposure taps through the existing MeshStampGl renderer while retaining the ordinary update path.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

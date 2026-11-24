@@ -2,7 +2,7 @@
 """Builds the small GitHub Pages site in docs/ from the repository's own text files.
 
 Run:  python -B tools/make_site.py        (no packages needed)
-Pages: docs/index.html (written below), docs/privacy.html (from PRIVACY.md),
+Pages: docs/index.html, one page per wing and docs/contact.html (text in tools/site_pages.py), docs/privacy.html (from PRIVACY.md),
        docs/testers.html (from tasks/SHOW2_tester_invite.md), docs/trademark.html (from TRADEMARK.md).
 While a source still holds a [PLACEHOLDER IN CAPITALS] the page shows a "draft, not reviewed by the owner" banner.
 Block quotes (the internal draft notes at the top of the sources) are not published.
@@ -12,6 +12,9 @@ import html
 import pathlib
 import re
 import sys
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+import site_pages as sp
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
@@ -34,11 +37,13 @@ code{background:var(--panel);padding:.1rem .3rem;border-radius:4px}
 footer{max-width:46rem;margin:0 auto;padding:0 16px 3rem;color:var(--dim);font-size:.9rem}
 .btn{display:inline-block;background:var(--sel);color:#001;padding:.6rem 1rem;border-radius:999px;font-weight:700;text-decoration:none;margin:.3rem .4rem .3rem 0}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
-@media (prefers-color-scheme:light){:root{--bg:#fff;--panel:#f4f4f6;--line:#d8d8de;--ink:#17171c;--dim:#55555f;--sel:#0a7f94;--warn:#a85a00}.btn{color:#fff}}
+@media (prefers-color-scheme:light){:root{--bg:#fff;--panel:#f4f4f6;--line:#d8d8de;--ink:#17171c;--dim:#55555f;--sel:#0a7f94;--warn:#a85a00;--bg2:#ebebef}.btn{color:#fff}}
 """
+CSS += sp.EXTRA_CSS.replace("var(--line2,#3a3a46)", "var(--line)")
+CSS = CSS.replace("--warn:#faa03d}", "--warn:#faa03d;--bg2:#0a0a0d}",1)
 
 NAV = ('<header class="site"><a class="brand" href="index.html">Joy Creator</a>'
-       '<a href="testers.html">Test it</a><a href="privacy.html">Privacy</a><a href="trademark.html">Names</a></header>')
+       '<a href="testers.html">Test it</a><a href="privacy.html">Privacy</a><a href="contact.html">Contact</a></header>')
 
 
 def inline(t):
@@ -136,33 +141,19 @@ def build_md_page(src, dest):
     return dest
 
 
-INDEX = """
-<h1>Joy Creator</h1>
-<p><strong>A creative studio on your phone.</strong> Paint and animate, edit video, make music visuals and film-poster
-title looks, build characters, and keep everything in one folder you choose. Free for good: no ads, no subscription,
-no watermark, no account.</p>
-<p><a class="btn" href="testers.html">Help test it</a><a class="btn ghost" href="privacy.html">Privacy policy</a></p>
-<h2>What is inside</h2>
-<ul>
-<li><strong>JoyBrush</strong>: painting and animation with brushes made to feel real.</li>
-<li><strong>Studio</strong>: a video and audio editor with titles, effects, transitions and captions.</li>
-<li><strong>VisLab</strong>: music visualisers built from parts you can mix.</li>
-<li><strong>TextLab</strong>: title looks like chrome, gold, neon and fire.</li>
-<li><strong>SpriteLab</strong>: sprite sheets, characters and puppets.</li>
-<li><strong>Joybot</strong>: an AI helper that knows the whole app. You bring your own key; it is optional.</li>
-</ul>
-<p>Joy Creator is in beta and is coming to Google Play. This page will grow into the full site; until then it holds the
-privacy policy and the tester sign-up.</p>
-<p>Contact: studio@joycreator.cc</p>
-"""
-
-
 def main():
     DOCS.mkdir(exist_ok=True)
     (DOCS / ".nojekyll").write_text("", encoding="utf-8")
-    (DOCS / "index.html").write_text(page("Joy Creator: a creative studio for your phone", INDEX, False),
+    (DOCS / "index.html").write_text(page("Joy Creator: a creative studio for your phone", sp.index_body(), True),
                                      encoding="utf-8", newline="\n")
     built = ["index.html"]
+    for w in sp.WINGS:
+        (DOCS / (w[0] + ".html")).write_text(page(w[1] + " | Joy Creator", sp.wing_page(w[0]), True),
+                                             encoding="utf-8", newline="\n")
+        built.append(w[0] + ".html")
+    (DOCS / "contact.html").write_text(page("Contact | Joy Creator", sp.CONTACT, True),
+                                       encoding="utf-8", newline="\n")
+    built.append("contact.html")
     built.append(build_md_page("PRIVACY.md", "privacy.html"))
     built.append(build_md_page("tasks/SHOW2_tester_invite.md", "testers.html"))
     built.append(build_md_page("TRADEMARK.md", "trademark.html"))

@@ -1,9 +1,10 @@
-"""Create and score a private-mapping STU-7 blind crop review (§8)."""
+"""Audit, prepare and score a private-mapping STU-7 blind crop review (§8)."""
 
 import argparse
 import csv
 import hashlib
 import json
+import re
 import secrets
 import struct
 import sys
@@ -15,6 +16,16 @@ MIN_SHOTS = 20
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 PNG_LABEL_CHUNKS = {b"tEXt", b"zTXt", b"iTXt", b"eXIf", b"tIME"}
 SIDES = {"a", "b"}
+CORPUS_KINDS = {"authored", "footage"}
+# The fail-first fixture list in merged plan section 8. One shot may cover several tags, but the
+# private corpus record must account for every risk before a 20-shot packet can be called complete.
+REQUIRED_CORPUS_TAGS = {
+    "still", "translation", "zoom", "spoked-wheel", "crossing", "bezier-arm", "tracked-hand-arc",
+    "alternate-drawing", "flipbook-hold", "fence-pan", "person-crossing", "flash",
+    "low-light", "dolly-zoom", "whip-pan", "hard-cut", "dissolve", "retime-2x",
+    "reverse", "freeze", "speed-ramp", "loop", "ping-pong", "step-key",
+    "highlight-streak", "transparent-black", "transparent-white",
+}
 
 
 def sha(data):
@@ -93,8 +104,11 @@ def assign(shots, seed):
             for i, shot in enumerate(order_of_shots, 1)]
 
 
-def prepare(manifest, output, seed):
+def prepare(manifest, output, seed, corpus=None):
     shots = read_shots(manifest)
+    audit = check_corpus(shots, corpus) if corpus is not None else None
+    if audit is not None and not audit["passed"]:
+        raise ValueError("missing corpus tags: " + ", ".join(audit["missing_tags"]))
     assignments = assign(shots, seed)
     template = Path(__file__).with_name("blind_review.html").read_text(encoding="utf-8")
     output.mkdir()
@@ -120,6 +134,8 @@ def prepare(manifest, output, seed):
                           "studio_sha256": studio_hash, "reference_sha256": reference_hash}
 
     private = {"schema": 1, "seed": seed, "pairs": pairs}
+    if audit is not None:
+        private["corpus_audit"] = audit
     packet = sha(canonical(private))
     private["packet"] = packet
     public = json.dumps({"packet": packet, "pairs": list(pairs)})
@@ -156,7 +172,7 @@ def score(key, ratings):
                 raise ValueError(f"{pair}: invalid severe {kind} rating")
             if rating[kind] in (studio_side, "both"):
                 severe[kind].append(assignment["shot"])
-    return {
+    result = {
         "packet": packet,
         "shots": len(pairs),
         "comparable_or_better": comparable_or_better,
@@ -165,6 +181,9 @@ def score(key, ratings):
         "severe_studio_alpha_shots": severe["alpha"],
         "passed": 5 * comparable_or_better >= 4 * len(pairs) and not any(severe.values()),
     }
+    if "corpus_audit" in key:
+        result["corpus_audit"] = key["corpus_audit"]
+    return result
 
 
 def unique_json(path):
@@ -179,6 +198,74 @@ def unique_json(path):
     return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
 
 
+def audit_corpus(manifest, corpus):
+    """Cross-check the private review corpus against every section 8 risk fixture."""
+    return check_corpus(read_shots(manifest), corpus)
+
+
+def check_corpus(shots, corpus):
+    shot_ids = set(shots)
+    if not isinstance(corpus, dict) or corpus.keys() != {"schema", "candidate_commit", "shots"}:
+        raise ValueError("corpus must contain only schema, candidate_commit and shots")
+    if type(corpus["schema"]) is not int or corpus["schema"] != 1:
+        raise ValueError("unsupported corpus schema")
+    candidate = corpus["candidate_commit"]
+    if not isinstance(candidate, str) or not re.fullmatch(r"[0-9a-f]{40}", candidate):
+        raise ValueError("candidate_commit must be one exact lowercase Git commit")
+    rows = corpus["shots"]
+    if not isinstance(rows, list):
+        raise ValueError("corpus shots must be a list")
+
+    seen = set()
+    kind_counts = {kind: 0 for kind in sorted(CORPUS_KINDS)}
+    tag_counts = {tag: 0 for tag in sorted(REQUIRED_CORPUS_TAGS)}
+    for index, row in enumerate(rows, 1):
+        if not isinstance(row, dict) or row.keys() != {
+                "shot_id", "kind", "tags", "reference_recipe"}:
+            raise ValueError(f"corpus shot {index} has unexpected or missing fields")
+        shot = row["shot_id"]
+        if not isinstance(shot, str) or not shot.strip() or shot != shot.strip():
+            raise ValueError(f"corpus shot {index} has an invalid shot_id")
+        if shot in seen:
+            raise ValueError(f"duplicate corpus shot ID: {shot}")
+        seen.add(shot)
+        kind = row["kind"]
+        if not isinstance(kind, str) or kind not in CORPUS_KINDS:
+            raise ValueError(f"{shot}: kind must be authored or footage")
+        tags = row["tags"]
+        if (not isinstance(tags, list) or not tags
+                or any(not isinstance(tag, str) for tag in tags)):
+            raise ValueError(f"{shot}: tags must be a non-empty string list")
+        if len(tags) != len(set(tags)):
+            raise ValueError(f"{shot}: duplicate corpus tag")
+        unknown = set(tags) - REQUIRED_CORPUS_TAGS
+        if unknown:
+            raise ValueError(f"{shot}: unknown corpus tags: {', '.join(sorted(unknown))}")
+        recipe = row["reference_recipe"]
+        if not isinstance(recipe, str) or not recipe.strip():
+            raise ValueError(f"{shot}: missing reference recipe")
+        kind_counts[kind] += 1
+        for tag in tags:
+            tag_counts[tag] += 1
+
+    if seen != shot_ids:
+        missing = sorted(shot_ids - seen)
+        extra = sorted(seen - shot_ids)
+        raise ValueError(f"corpus shot IDs do not match manifest; missing={missing}, extra={extra}")
+    if any(count == 0 for count in kind_counts.values()):
+        raise ValueError("corpus must contain both authored and footage shots")
+    missing_tags = [tag for tag, count in tag_counts.items() if count == 0]
+    return {
+        "candidate_commit": candidate,
+        "corpus_sha256": sha(canonical(corpus)),
+        "shots": len(rows),
+        "kind_counts": kind_counts,
+        "tag_counts": tag_counts,
+        "missing_tags": missing_tags,
+        "passed": not missing_tags,
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -186,15 +273,25 @@ def main():
     pack.add_argument("manifest", type=Path)
     pack.add_argument("output", type=Path, help="new directory outside Git")
     pack.add_argument("--seed", help="private reproducibility seed (random if omitted)")
+    pack.add_argument("--corpus", type=Path, help="private provenance for a gate review")
     mark = commands.add_parser("score", help="score complete blind ratings")
     mark.add_argument("private_key", type=Path)
     mark.add_argument("ratings", type=Path)
+    check = commands.add_parser("audit", help="prove the private corpus covers section 8")
+    check.add_argument("manifest", type=Path)
+    check.add_argument("corpus", type=Path)
     args = parser.parse_args()
     try:
         if args.command == "prepare":
-            print(prepare(args.manifest, args.output, args.seed or secrets.token_hex(16)))
+            corpus = unique_json(args.corpus) if args.corpus is not None else None
+            if args.corpus is not None and not isinstance(corpus, dict):
+                raise ValueError("corpus must contain a JSON object")
+            print(prepare(args.manifest, args.output, args.seed or secrets.token_hex(16), corpus))
             return 0
-        result = score(unique_json(args.private_key), unique_json(args.ratings))
+        if args.command == "score":
+            result = score(unique_json(args.private_key), unique_json(args.ratings))
+        else:
+            result = audit_corpus(args.manifest, unique_json(args.corpus))
         print(json.dumps(result, indent=2))
         return 0 if result["passed"] else 1
     except (OSError, ValueError, KeyError, TypeError, AttributeError, csv.Error) as error:

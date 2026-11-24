@@ -45,9 +45,9 @@ class BlindReviewTest(unittest.TestCase):
             writer.writerow(["shot_id", "studio", "reference"])
             writer.writerows(self.rows)
 
-    def pack(self, name="packet"):
+    def pack(self, name="packet", corpus=None):
         path = self.root / name
-        identifier = review.prepare(self.manifest, path, "private-seed")
+        identifier = review.prepare(self.manifest, path, "private-seed", corpus)
         key = review.unique_json(path / "private-key.json")
         self.assertEqual(key["packet"], identifier)
         return path, key
@@ -60,6 +60,18 @@ class BlindReviewTest(unittest.TestCase):
             choice = ("comparable" if i % 2 else studio) if i < passing_shots else reference
             values[pair] = {"preference": choice, "cut": "neither", "alpha": "neither"}
         return {"packet": key["packet"], "ratings": values}
+
+    def corpus(self):
+        tags = sorted(review.REQUIRED_CORPUS_TAGS)
+        rows = []
+        for i, shot in enumerate(self.rows):
+            rows.append({
+                "shot_id": shot[0],
+                "kind": "authored" if i % 2 == 0 else "footage",
+                "tags": tags[i::len(self.rows)],
+                "reference_recipe": f"reference recipe {i}",
+            })
+        return {"schema": 1, "candidate_commit": "a" * 40, "shots": rows}
 
     def test_deterministic_balanced_packet_keeps_identity_private(self):
         path, key = self.pack()
@@ -136,6 +148,62 @@ class BlindReviewTest(unittest.TestCase):
         (self.root / self.rows[0][1]).write_bytes(bad)
         with self.assertRaisesRegex(ValueError, "bad PNG checksum"):
             self.pack("corrupt")
+
+    def test_corpus_audit_covers_every_fixture_and_exact_candidate(self):
+        result = review.audit_corpus(self.manifest, self.corpus())
+        self.assertTrue(result["passed"])
+        self.assertEqual(20, result["shots"])
+        self.assertEqual({"authored": 10, "footage": 10}, result["kind_counts"])
+        self.assertEqual([], result["missing_tags"])
+
+        incomplete = self.corpus()
+        for shot in incomplete["shots"]:
+            if "whip-pan" in shot["tags"]:
+                shot["tags"].remove("whip-pan")
+        failed = review.audit_corpus(self.manifest, incomplete)
+        self.assertFalse(failed["passed"])
+        self.assertEqual(["whip-pan"], failed["missing_tags"])
+
+    def test_corpus_audit_rejects_untraceable_or_mismatched_records(self):
+        corpus = self.corpus()
+        corpus["candidate_commit"] = "short"
+        with self.assertRaisesRegex(ValueError, "exact lowercase Git commit"):
+            review.audit_corpus(self.manifest, corpus)
+
+        corpus = self.corpus()
+        corpus["shots"][0]["tags"].append("made-up-risk")
+        with self.assertRaisesRegex(ValueError, "unknown corpus tags"):
+            review.audit_corpus(self.manifest, corpus)
+
+        corpus = self.corpus()
+        corpus["shots"][0]["shot_id"] = "not-in-packet"
+        with self.assertRaisesRegex(ValueError, "shot IDs do not match manifest"):
+            review.audit_corpus(self.manifest, corpus)
+
+    def test_audited_packet_binds_candidate_privately_and_rejects_missing_fixture(self):
+        corpus = self.corpus()
+        path, key = self.pack(corpus=corpus)
+        self.assertEqual("a" * 40, key["corpus_audit"]["candidate_commit"])
+        self.assertEqual(review.sha(review.canonical(corpus)), key["corpus_audit"]["corpus_sha256"])
+        html = (path / "review/index.html").read_text(encoding="utf-8")
+        self.assertNotIn("candidate_commit", html)
+        self.assertNotIn("corpus_audit", html)
+        ratings = self.ratings(key, 16)
+        score = review.score(key, ratings)
+        self.assertTrue(score["passed"])
+        self.assertEqual(key["corpus_audit"], score["corpus_audit"])
+
+        key["corpus_audit"]["candidate_commit"] = "b" * 40
+        with self.assertRaisesRegex(ValueError, "private key does not match the packet"):
+            review.score(key, ratings)
+
+        for shot in corpus["shots"]:
+            if "whip-pan" in shot["tags"]:
+                shot["tags"].remove("whip-pan")
+        output = self.root / "missing-fixture"
+        with self.assertRaisesRegex(ValueError, "missing corpus tags: whip-pan"):
+            review.prepare(self.manifest, output, "private-seed", corpus)
+        self.assertFalse(output.exists())
 
 
 if __name__ == "__main__":

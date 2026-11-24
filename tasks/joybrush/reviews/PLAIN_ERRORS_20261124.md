@@ -7,3 +7,15 @@ By Claude Opus 5.5. JoyBrush's three bars include "no technical errors ever show
 
 ## The same rule for Studio, TextLab and the Library (2026-11-24, code `da7088327`, cloud build 45434400996, Studio harness 79 and JoyBrush Android 616 pass)
 Every place in those rooms that put an exception's own text on screen now goes through `PlainWords.forPerson` (callable from Java): TextLab saving, renaming and deleting a look and opening a pack (`TlLookFiles`, `PackOpenActivity`), the Library's move to Trash (`LibraryActions`), and five Studio messages (export copy, gather, reorder, align, one export error). VisLab and SpriteLab had none. A ratchet, `tools/check_plain_errors.py` (in the cloud Studio run as `plain-errors`), fails when a screen shows `e.getMessage()` directly; Studio, TextLab and the Library are at 0. Still on the baseline, outside these rooms: 20 lines in 9 older screens (settings backup, recordings, the watch screens, the debug log, screen recording, battery, forensics), for a later pass; the ratchet stops them growing.
+
+## VisLab and SpriteLab pass (11-24)
+
+- VisLab: nothing to fix. VisRenderer's `lastError` and broken-layer reasons hold exception text, but they
+  reach only the log (VisTextureView's fps line; its StatsListener has no caller). Save failures already
+  toast `vl_save_failed`.
+- SpriteLab: the sprite editor's bake and export messages were already plain. The JoyBrush board import
+  (`JoyBrushBoardImportActivity`, both catch sites) toasted "Could not open board: <exception text>"; both
+  now go through `PlainWords.forPerson`, pinned in PlainWordsTest ("Could not open board: null" reads
+  "Could not open board.").
+- Ratchet limit: `check_plain_errors.py` reads one line at a time, so an exception's text saved into a local
+  first (as the board import did) is not counted. Reviewed by hand for VisLab and SpriteLab.

@@ -151,7 +151,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             });
         } catch(Exception e) {
             final String message=e.getMessage();
-            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,getString(com.fadcam.R.string.board_could_not_open,message),Toast.LENGTH_LONG).show(); finish(); });
+            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(com.fadcam.R.string.board_could_not_open,message)),Toast.LENGTH_LONG).show(); finish(); });
         } finally {
             if(ownsStage) deleteOwned(stage);
             if(ownProject != null) deleteOwned(ownProject);
@@ -274,7 +274,7 @@ public final class JoyBrushBoardImportActivity extends Activity {
             });
         } catch(Exception e) {
             final String message=e.getMessage();
-            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,getString(com.fadcam.R.string.board_could_not_open,message),Toast.LENGTH_LONG).show(); finish(); });
+            runOnUiThread(() -> { if(handoff != null) handoff.fail(); Toast.makeText(this,cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(com.fadcam.R.string.board_could_not_open,message)),Toast.LENGTH_LONG).show(); finish(); });
         } finally {
             if(ownsStage) deleteOwned(stage);
             if(ownProject != null) deleteOwned(ownProject);

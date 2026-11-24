@@ -26,6 +26,10 @@ class PlainWordsTest {
             PlainWords.forPerson("The autosave did not work: zip entry layers/a/b.rgba runs outside the file"))
         assertEquals("That recent drawing could not be opened.",
             PlainWords.forPerson("That recent drawing could not be opened: this archive cannot be read: ZipException: invalid END header"))
+        // SpriteLab's board import (JoyBrushBoardImportActivity), with no message and with an inside one.
+        assertEquals("Could not open board.", PlainWords.forPerson("Could not open board: null"))
+        assertEquals("Could not open board.",
+            PlainWords.forPerson("Could not open board: this archive has no \"document.json\" entry"))
     }
 
     @Test

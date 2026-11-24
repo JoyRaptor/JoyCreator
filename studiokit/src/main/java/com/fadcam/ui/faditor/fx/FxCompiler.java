@@ -108,6 +108,8 @@ public final class FxCompiler {
          * bind that history as {@link #U_PREV} and set {@link #U_PREV_VALID} and {@link #U_DT}.
          */
         public boolean feedback;
+        /** Temporal pass input for a renderer that can evaluate an ordered lane scope. */
+        @androidx.annotation.Nullable public FxInstance motion;
         /** Separable kernels declare 2; the compiler emits H and V with {@link #U_DIR}. */
         public int repeats = 1;
 
@@ -142,6 +144,15 @@ public final class FxCompiler {
      */
     @NonNull
     public static Plan plan(@NonNull FxStack stack) {
+        return plan(stack, false);
+    }
+
+    @NonNull
+    public static Plan planWithLaneMotion(@NonNull FxStack stack) {
+        return plan(stack, true);
+    }
+
+    private static Plan plan(FxStack stack, boolean laneMotion) {
         Plan plan = new Plan();
         Pass current = null;
         List<FxInstance> pendingRemaps = new ArrayList<>();
@@ -149,6 +160,15 @@ public final class FxCompiler {
         for (FxInstance card : stack.active()) {
             FxEffectDef def = card.def();
             if (def == null) continue;
+            if (def.capability == FxEffectDef.Capability.MOTION) {
+                if (!laneMotion) continue;
+                appendRemaps(plan, pendingRemaps);
+                Pass temporal = new Pass();
+                temporal.motion = card;
+                plan.passes.add(temporal);
+                current = null;
+                continue;
+            }
             if (def.capability == FxEffectDef.Capability.UV_REMAP) {
                 pendingRemaps.add(card);
                 continue;
@@ -176,12 +196,7 @@ public final class FxCompiler {
         // A trailing remap run still has to happen, so it costs one 1-tap resample pass. Folding
         // it into a preceding pointwise pass would apply it to the WRONG image — the remap must
         // move pixels that already exist, not the ones being computed.
-        if (!pendingRemaps.isEmpty()) {
-            Pass p = new Pass();
-            p.sampler = true;
-            p.remaps.addAll(pendingRemaps);
-            plan.passes.add(p);
-        }
+        appendRemaps(plan, pendingRemaps);
         // A feedback pass is never the last: the last render also mixes the layer back over the
         // picture by mask and opacity, and that mix must not be fed back into next frame's
         // history. A plain pass after it carries the composite instead.
@@ -191,11 +206,27 @@ public final class FxCompiler {
         return plan;
     }
 
+    private static void appendRemaps(Plan plan, List<FxInstance> pendingRemaps) {
+        if (pendingRemaps.isEmpty()) return;
+        Pass p = new Pass();
+        p.sampler = true;
+        p.remaps.addAll(pendingRemaps);
+        plan.passes.add(p);
+        pendingRemaps.clear();
+    }
+
+    private static void requireShaderPass(Pass pass) {
+        if (pass.motion != null) {
+            throw new IllegalArgumentException("Motion passes require the lane compositor");
+        }
+    }
+
     // ── Emit ────────────────────────────────────────────────────────────────
 
     /** GLSL ES 1.00 fragment source for one pass. This is the byte the export path compiles. */
     @NonNull
     public static String emitGlsl(@NonNull Pass pass, int kernelHalf) {
+        requireShaderPass(pass);
         StringBuilder sb = new StringBuilder(2048);
         sb.append("precision highp float;\n")
           .append("varying vec2 vFxUv;\n")
@@ -227,6 +258,7 @@ public final class FxCompiler {
     /** AGSL source for the same pass — the preview's translation of the very same bodies. */
     @NonNull
     public static String emitAgsl(@NonNull Pass pass, int kernelHalf) {
+        requireShaderPass(pass);
         StringBuilder sb = new StringBuilder(2048);
         sb.append("uniform shader inputShader;\n")
           .append("uniform float2 ").append(U_ORIGIN).append(";\n")

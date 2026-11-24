@@ -33,10 +33,15 @@ public class FxCompilerTest {
     private static int passed = 0, failed = 0;
 
     public static void main(String[] args) {
+        if (args.length == 1 && args[0].equals("--fuse-motion")) {
+            laneMotionBoundary(true);
+            return;
+        }
         registryIsValid();
         everyEffectCompilesToBothBackends();
         dialectLeaksNothing();
         fusionCounts();
+        laneMotionBoundary(false);
         uniformsAreCollisionFree();
         goldenStrings();
         gradientRampModel();
@@ -89,6 +94,41 @@ public class FxCompilerTest {
         }
         check("every registry effect emits GLSL" + (allGlsl ? "" : " — " + bad), allGlsl);
         check("every registry effect emits AGSL" + (allAgsl ? "" : " — " + bad), allAgsl);
+    }
+
+    static void laneMotionBoundary(boolean fuseMotion) {
+        String id = FxRegistry.LANE_MOTION_ID;
+        FxStack stack = stackOf("brightness", "offset", id, "invert");
+        var plan = fuseMotion ? FxCompiler.plan(stack) : FxCompiler.planWithLaneMotion(stack);
+        if (plan.passes.size() != 4) throw new AssertionError("motion must split the FX stack");
+        var remap = plan.passes.get(1);
+        var temporal = plan.passes.get(2);
+        check("below, pending UV remap, motion and above keep their order",
+                plan.passes.get(0).cards.equals(List.of(stack.cards().get(0)))
+                        && remap.sampler && remap.remaps.equals(List.of(stack.cards().get(1)))
+                        && temporal.motion == stack.cards().get(2) && temporal.cards.isEmpty()
+                        && plan.passes.get(3).cards.equals(List.of(stack.cards().get(3))));
+        check("motion is hidden from pickers until a lane renderer is wired",
+                FxRegistry.all().stream().noneMatch(def -> def.id.equals(id))
+                        && !com.fadcam.ui.faditor.fx.FxPreviewTier.canExport(FxRegistry.require(id)));
+        check("current shader planning skips the unqualified card",
+                FxCompiler.plan(stack).passes.stream().allMatch(pass -> pass.motion == null));
+        stack.cards().get(2).enabled = false;
+        check("a disabled motion card adds no boundary",
+                FxCompiler.planWithLaneMotion(stack).passes.size() == FxCompiler.plan(stack).passes.size());
+        boolean rejectedGlsl = false;
+        boolean rejectedAgsl = false;
+        try {
+            FxCompiler.emitGlsl(temporal, K);
+        } catch (IllegalArgumentException expected) {
+            rejectedGlsl = true;
+        }
+        try {
+            FxCompiler.emitAgsl(temporal, K);
+        } catch (IllegalArgumentException expected) {
+            rejectedAgsl = true;
+        }
+        check("motion cannot be emitted as either shader dialect", rejectedGlsl && rejectedAgsl);
     }
 
     static void dialectLeaksNothing() {

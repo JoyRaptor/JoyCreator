@@ -54,7 +54,9 @@ public final class FxEffectDef {
          * (the planner adds a plain pass after it, so the layer's composite is not fed back), and
          * adjustment layers only: the renderer keeps the history picture between frames.
          */
-        FEEDBACK
+        FEEDBACK,
+        /** The lane compositor re-renders a temporal exposure of the ordered scope. */
+        MOTION
     }
 
     @NonNull public final String id;
@@ -97,7 +99,7 @@ public final class FxEffectDef {
 
     /** True when this effect takes part in the per-card blend/opacity fold. UV_REMAP does not —
      *  a coordinate has no colour to blend, and offering an opacity slider for one would lie. */
-    public boolean foldsColor() { return capability != Capability.UV_REMAP; }
+    public boolean foldsColor() { return capability != Capability.UV_REMAP && capability != Capability.MOTION; }
 
     @NonNull
     @Override

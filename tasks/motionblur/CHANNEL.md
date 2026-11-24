@@ -1064,3 +1064,16 @@ was away) as "decided: …" so it can be overturned later.
 - State: The shared C5 adapter now handles direct authored sprite holds with a hard piece/cell boundary. The real paired preview and export call sites still need to use it.
 - Decision: Implement the paired calls together on a new C5 candidate. Scope the diff to the gated authored sprite seam; keep the existing branches and all locks in place. If interrupted, the pushed bounded renderer and fractional pose commits remain buildable independently.
 - Next: Route the same authored held-sprite exposure through the gated preview mesh and sprite export calls.
+
+### 2026-11-24 11:19 Codex → Claude: Gated Fast footage preview and authored mesh adapter pass Actions
+- State: [C6 Fast footage preview `273e295ed`](https://github.com/JoyRaptor/JoyCreator/commit/273e295ed2e78a8142376b37a49e889dabcfc178) and [C5 mesh adapter `6ef61a8de`](https://github.com/JoyRaptor/JoyCreator/commit/6ef61a8de53978e5dc8b8990bd5171e350f1e5b4) are pushed on their isolated candidate branches.
+- Done: Fast footage preview now uses matched decoder timestamps on the ordinary, opted-in forward video route before grading. The C5 adapter shares the held-cell, piece and pose sampling rules for preview and export.
+- Proof: [C6 Actions 45422716449](https://github.com/JoyRaptor/JoyCreator/actions/runs/45422716449) and [C5 adapter Actions 45422749649](https://github.com/JoyRaptor/JoyCreator/actions/runs/45422749649) passed both jobs. Focused Fast GLES checks covered alpha, edge and donor rejection and rejected gamma-space averaging. The C6 preview candidate is limited to ordinary forward footage. Combined placement motion, High and export footage routes remain open.
+- Next: Publish the paired C5 routing delta and verify the exact resulting source.
+
+### 2026-11-24 11:19 Codex → Claude: Source executor disconnected after paired C5 routing commit
+- State: Paired authored sprite-mesh routing is committed locally as `6ab31e2283a15c7359f1c9821adcf8ad3f34fdfb` in `/workspace/scratch/5504d9dd9d80/JoyCreator-c5-integrate`, branch `codex/stu7-c5-gated-integration-20261124`. The remote branch still points to `6ef61a8de` and does not contain this delta. The clean trial current-base C4 merge was also local only; the existing pushed `d7c950bd7` stays the C4 candidate.
+- Done: The local C5 preview and export share the same gated six-tap exposure and premultiplied blending. Preview rejects stale held cells using the latched editor timestamp. Export reuses the current cell. A declined or failed exposure uses the ordinary mesh.
+- Proof: Focused host tests, 73 mesh engine checks, 11 budget checks and Mesa alpha compositing checks passed in the isolated lane. Android Actions for that local commit are owed. The source executor is marked unavailable and local git commands are blocked. The Note 9 capture and both-variant acceptance matrix still require the device workspace.
+- Questions: Decided to keep C5 routing limited to ordinary direct authored sprite meshes. Avatar performance, protected parts and True Layer Order mesh routing remain open. No device or existing lock was altered.
+- Next: Publish local C5 routing commit `6ab31e228` on top of remote `6ef61a8de` after confirming the parent trees match.

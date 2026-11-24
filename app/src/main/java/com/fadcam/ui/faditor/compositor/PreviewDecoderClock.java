@@ -13,7 +13,7 @@ import com.fadcam.ui.faditor.motion.PreviewMotionClock;
 @androidx.annotation.OptIn(markerClass = UnstableApi.class)
 final class PreviewDecoderClock {
     record Anchor(Object windowUid, long mediaOriginUs, long editorStartUs,
-                  long editorEndUs, float speed) {
+                  long editorEndUs, float speed, @Nullable String footageSourceKey) {
         long toEditorUs(long sourceUs) {
             return editorStartUs + Math.round((sourceUs - mediaOriginUs) / (double) speed);
         }
@@ -75,7 +75,8 @@ final class PreviewDecoderClock {
         metadata = (presentationUs, releaseNs, format, mediaFormat) -> {
             long editorUs = currentAnchor.toEditorUs(presentationUs);
             if (editorUs >= currentAnchor.editorStartUs && editorUs < currentAnchor.editorEndUs) {
-                frames.onFrame(generation, releaseNs, editorUs);
+                frames.onFrame(generation, releaseNs, editorUs, presentationUs,
+                        currentAnchor.footageSourceKey);
             }
         };
         currentPlayer.setVideoFrameMetadataListener(metadata);

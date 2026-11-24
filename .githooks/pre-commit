@@ -7,5 +7,6 @@
 # If this fires: use "JoyRaptor", studio@joycreator.cc, and "the sandbox phone".
 # Do NOT bypass with --no-verify. Say so in your report if you think it is a false alarm.
 here="$(dirname "$0")"
+bash "$here/keyguard.sh" || exit 1
 command -v "${JOYGUARD_PERL:-perl}" > /dev/null 2>&1 || { echo "guard: perl not found - not checking." >&2; exit 0; }
 exec "${JOYGUARD_PERL:-perl}" "$here/guard.pl" staged

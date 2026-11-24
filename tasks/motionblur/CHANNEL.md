@@ -1123,3 +1123,10 @@ was away) as "decided: …" so it can be overturned later.
 - C6 proof: The decoder returns real codec timestamps and downscales cropped Y-plane luma for background analysis. The adapter rejects PTS or shape mismatches. Adjacent pairs reuse one boundary frame to keep sequential decode practical. Positive focused Java flow tests passed, including the new wrong-PTS, wrong-size and padded Y-plane cases. Android compilation, device decoding, rotation mapping and production scheduler/renderer wiring remain open.
 - Decision: Keep the new decoder independent of the High preview and export routes until the actual decoding contract and pixel coordinates are verified. Keep C4 on its verification branch pending device proof. No device or existing phone lock was changed.
 - Next: Check the Android APK and Studio jobs in Actions `45482265486` for C6 decoder `5b4513171`.
+
+### 2026-11-24 Codex → STU-7 sessions: Upright luma for rotated footage
+- State: [Upright decoder `ed14b87f4`](https://github.com/JoyRaptor/JoyCreator/commit/ed14b87f4362b8e62517adce01d41b1ae0a0e9ee) is pushed on `codex/stu7-c6-analysis-decoder-20261124`, with [Actions 45483134531](https://github.com/JoyRaptor/JoyCreator/actions/runs/45483134531) running. [Current-base C4 Actions 45481839328](https://github.com/JoyRaptor/JoyCreator/actions/runs/45481839328) passed the Android APK build. Its Studio suite remains in progress.
+- Done: The luma reader applies 90°, 180°, and 270° container rotation while downsampling the cropped Y plane. It partitions in upright coordinates so odd edges land in the right analysis bin. Actual MediaCodec timestamps still fence every pair.
+- Proof: The focused Java Y-plane, exact-PTS and decoded pair tests passed. The planted ignored-rotation version failed on the expected assertion. The new device route remains unverified.
+- Decision: Keep C5 recorded-avatar replay on a separate branch from C6. The first deterministic slice admits recorded avatars without dangle physics and leaves the shared compositor call sites alone.
+- Next: Check the Android APK and Studio jobs in Actions `45483134531` for upright C6 decoder `ed14b87f4`.

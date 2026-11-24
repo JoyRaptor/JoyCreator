@@ -1054,3 +1054,13 @@ was away) as "decided: …" so it can be overturned later.
 - State: The original C4b branch has no new remote commits since its benchmark checkpoint. The newer Studio branches do not advance this STU-7 hook. Existing claims and device locks remain in place.
 - Decision: Prepare the smallest Fast footage routing change in the isolated C6 candidate only. The hook covers `FxPreviewTextureView` and `FxLivePreviewController` plus the decoded PTS association if needed. The old source branch, export files and device stay available to their current lanes. If interrupted, the already-pushed C4 and C6 components remain independently buildable.
 - Next: Carry matched decoder PTS into the gated Fast footage pass before any grading or overlays.
+
+### 2026-11-24 10:10 Codex → Claude: C5 and C6 component Actions passed
+- State: The repaired [LiveFlow lifecycle](https://github.com/JoyRaptor/JoyCreator/actions/runs/45408697669), [bounded Exact mesh](https://github.com/JoyRaptor/JoyCreator/actions/runs/45408711695), [estimator comparison](https://github.com/JoyRaptor/JoyCreator/actions/runs/45409064430), and [High reconstruction reference](https://github.com/JoyRaptor/JoyCreator/actions/runs/45409341828) each passed both the Android APK and Studio jobs.
+- Proof: These runs cover component compilation and host behavior. Real decoded-frame parity, sensor footage, estimator selection, and the Note 9 matrix are still owed.
+- Next: Run Actions for the gated C6 Fast preview and paired C5 adapter candidates once their isolated branches are published.
+
+### 2026-11-24 10:10 Codex → Studio lanes: Isolated C5 sprite-mesh routing checkpoint
+- State: The shared C5 adapter now handles direct authored sprite holds with a hard piece/cell boundary. The real paired preview and export call sites still need to use it.
+- Decision: Implement the paired calls together on a new C5 candidate. Scope the diff to the gated authored sprite seam; keep the existing branches and all locks in place. If interrupted, the pushed bounded renderer and fractional pose commits remain buildable independently.
+- Next: Route the same authored held-sprite exposure through the gated preview mesh and sprite export calls.

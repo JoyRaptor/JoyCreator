@@ -43638,6 +43638,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (v instanceof TextView && position < missing.length && missing[position]) {
                     ((TextView) v).setTextColor(Studio.DANGER); // red tint for missing sheets
                 }
+                if (v instanceof TextView && position < sheets.size()) { // PREVIEW-1: its first cell beside the name
+                    com.fadcam.ui.faditor.sprite.SpriteSheet shown = sheets.get(position);
+                    com.fadcam.ui.faditor.PartThumbs.startOf((TextView) v, "mgr:" + shown.getId(),
+                            () -> com.fadcam.ui.faditor.PartThumbs.sheetCell(FaditorEditorActivity.this, shown, 0));
+                } else if (v instanceof TextView) {
+                    ((TextView) v).setCompoundDrawablesRelative(null, null, null, null);
+                }
                 return v;
             }
         };

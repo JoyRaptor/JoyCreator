@@ -624,6 +624,11 @@ public class AvatarStudioActivity extends AppCompatActivity {
         partChipRow.addView(add, lp);
         for (AvatarRig.Part part : rig.getParts()) {
             TextView pc = chip(part.parentId != null ? part.id + " ↳" + part.parentId : part.id);
+            SpriteSheet partSheet = lookupSheet(part.sheetId);   // PREVIEW-1: the part's own art beside its name
+            if (partSheet != null) {
+                com.fadcam.ui.faditor.PartThumbs.startOf(pc, "part:" + part.sheetId,
+                        () -> com.fadcam.ui.faditor.PartThumbs.sheetCell(this, partSheet, 0));
+            }
             if (part.id.equals(selectedPartId)) {
                 pc.setBackgroundColor(Studio.FILM_EDGE);
                 pc.setTypeface(Typeface.DEFAULT_BOLD);

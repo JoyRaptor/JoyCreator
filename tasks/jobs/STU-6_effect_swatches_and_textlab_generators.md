@@ -103,3 +103,18 @@ Not done: disk PNG cache (memory only), bundled sample photo, Note 9 timings, st
 - Step 3: `fx/FxTextLabDefs2.java`: Burn Away (POINTWISE, keyable progress), Stained Glass, LED Board, Flag Wave, Steamed Glass (SAMPLER; wipe the fog with the card's own masks).
 - They are TextLab's ideas re-expressed in Studio's conventions, not line-for-line copies of `shade.frag`, so they will not look identical to the TextLab looks yet. `FxBlurbs` lines added, registry now 46 effects, the fx JVM harness is green (registry self-check, every effect emits GLSL and AGSL, every effect has a picker sentence).
 - NOT proven: the GLSL has not been compiled by a phone GPU (no validator on the PC), no timing, no before/after screenshots, no export-versus-preview check. The Note 9 pass (swatches and all twelve new cards, timed) is the open gate. Fur, drips, rivets, bevels stay out (they grow from a letter's shape).
+
+## Safety guard and the owed Note 9 pass (2026-11-23)
+What happens if this phone's driver refuses a shader (host-proven, not on a phone):
+- Live preview: `FxPreviewTextureView.ensurePrograms` already catches a compile/link failure, shows the picture ungraded, says so once, and does not retry that stack every frame.
+- Export: `AdjustmentLayerGlEffect` degrades to passthrough (no crash, no black frame).
+- Picker (new): `fx/FxDeviceGuard` remembers an effect the driver refused (fed by the swatch renderer, the first thing to compile each effect). The tile then reads "Not available on this phone", and tapping it explains instead of adding. `FxCompilerTest.textLabEffectsAreSafe` fails if a refused shader throws or stays offered.
+- All twelve new effects are one pass, no feedback, and their bodies hold no `if`/`else` (the Voronoi nearest-cell search and the halftone pattern choice are mix/step arithmetic). The test pins this. They still do per-pixel work: Caustics runs two Voronoi layers (18 cells) and is the heaviest; time it first.
+- Not covered: a saved project carrying a card the other phone could run but this one cannot still shows ungraded in preview and exports with that layer passed through; the other cards on that layer are skipped with it.
+
+**Owed on the Note 9 (nobody has run any of this on a phone; take the phone lock first):**
+1. Open the effect picker: every tile should show a picture; note any that read "Not available on this phone".
+2. Compile every new effect (add each: Tiles, Cells, Halftone, Brushed Metal, Chipped Wear, Caustics, Glitter, Burn Away, Stained Glass, LED Board, Flag Wave, Steamed Glass) on a clip and on an adjustment layer; note any ungraded preview or toast.
+3. Time each card on a 1080p clip (frame time with and without), logging battery temperature; compare with a same-hour main. Heaviest suspects: Caustics, Steamed Glass, Stained Glass.
+4. Before/after screenshots into `tasks/screens/` for the picker grid, one card header swatch, and each new effect.
+5. Export a short clip with a new card on; compare against the preview.

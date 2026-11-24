@@ -49,14 +49,13 @@ final class FxTextLabDefs {
                 + FxVisLabDefs.hash12(v + "h2", "vc.y + " + seed + " * 1.7", "vc.x + 17.0")
                 + "    vec2 vo = mix(vec2(0.5), vec2(" + v + "h1, " + v + "h2), " + rnd + ");\n"
                 + "    float vd = length(vg + vo - " + v + "_f);\n"
-                + "    if (vd < " + v + "_d1) {\n"
-                + "      " + v + "_d2 = " + v + "_d1;\n"
-                + "      " + v + "_d1 = vd;\n"
-                + "      " + v + "_id = " + v + "h1;\n"
-                + "      " + v + "_c = " + v + "_i + vg + vo;\n"
-                + "    } else if (vd < " + v + "_d2) {\n"
-                + "      " + v + "_d2 = vd;\n"
-                + "    }\n"
+                // Branch-free: the Note 9's driver crawls on per-pixel branches, so the nearest /
+                // second-nearest bookkeeping is mix() on a 0/1 step, never an if.
+                + "    float vl = step(vd, " + v + "_d1);\n"
+                + "    " + v + "_d2 = mix(min(" + v + "_d2, vd), " + v + "_d1, vl);\n"
+                + "    " + v + "_d1 = min(" + v + "_d1, vd);\n"
+                + "    " + v + "_id = mix(" + v + "_id, " + v + "h1, vl);\n"
+                + "    " + v + "_c = mix(" + v + "_c, " + v + "_i + vg + vo, vl);\n"
                 + "  }\n"
                 + "}\n";
     }
@@ -120,15 +119,13 @@ final class FxTextLabDefs {
             + " : FX_P(size);\n"
             + "float pat = FX_P(kind);\n"
             + "vec2 f = fract(r) - vec2(0.5);\n"
-            + "float k;\n"
-            + "if (pat < 0.5) {\n"
-            + "  float rad = sqrt(clamp(sz, 0.0, 1.0)) * 0.7;\n"
-            + "  k = 1.0 - smoothstep(rad - 0.04, rad + 0.04, length(f));\n"
-            + "} else if (pat < 1.5) {\n"
-            + "  k = 1.0 - smoothstep(sz * 0.5 - 0.04, sz * 0.5 + 0.04, abs(f.y));\n"
-            + "} else {\n"
-            + "  k = mod(floor(r.x) + floor(r.y), 2.0);\n"
-            + "}\n"
+            // Branch-free: all three patterns are computed and picked with 0/1 steps on the
+            // slider, so no pixel takes a different path from its neighbour.
+            + "float rad = sqrt(clamp(sz, 0.0, 1.0)) * 0.7;\n"
+            + "float kDots = 1.0 - smoothstep(rad - 0.04, rad + 0.04, length(f));\n"
+            + "float kStripes = 1.0 - smoothstep(sz * 0.5 - 0.04, sz * 0.5 + 0.04, abs(f.y));\n"
+            + "float kChecks = mod(floor(r.x) + floor(r.y), 2.0);\n"
+            + "float k = mix(mix(kDots, kStripes, step(0.5, pat)), kChecks, step(1.5, pat));\n"
             + "return vec4(mix(src.rgb, mix(FX_P(paper), FX_P(ink), k), FX_P(amount)), src.a);\n";
 
     // ── Brushed metal ───────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 import com.fadcam.ui.faditor.fx.FxBlurbs;
 import com.fadcam.ui.faditor.fx.FxCompiler;
 import com.fadcam.ui.faditor.fx.FxCost;
+import com.fadcam.ui.faditor.fx.FxDeviceGuard;
 import com.fadcam.ui.faditor.fx.FxEffectDef;
 import com.fadcam.ui.faditor.fx.FxInstance;
 import com.fadcam.ui.faditor.fx.FxParam;
@@ -34,6 +35,7 @@ public class FxCompilerTest {
 
     public static void main(String[] args) {
         registryIsValid();
+        textLabEffectsAreSafe();
         everyEffectCompilesToBothBackends();
         dialectLeaksNothing();
         fusionCounts();
@@ -58,6 +60,46 @@ public class FxCompilerTest {
     private static final int K = 8;   // kernel half-width used throughout
 
     // ── Registry ────────────────────────────────────────────────────────────
+
+    /**
+     * STU-6 safety: TextLab's twelve effects have never run on the Note 9's driver, which crawls
+     * on per-pixel branches and fails big programs. Pins (a) each is ONE pass, no feedback, no
+     * if/else in its body (selection is mix/step), and (b) a shader the driver refuses is
+     * remembered and the card is not offered, without throwing. Remove FxDeviceGuard's catch in
+     * probe() and (b) fails.
+     */
+    static void textLabEffectsAreSafe() {
+        String[] ids = {"tiles", "cells", "halftone", "brushed_metal", "chipped_wear", "caustics",
+                "glitter", "burn_away", "stained_glass", "led_board", "flag_wave", "steamed_glass"};
+        for (String id : ids) {
+            FxEffectDef d = FxRegistry.get(id);
+            check(id + " exists", d != null);
+            if (d == null) continue;
+            check(id + " is one pass and not feedback",
+                    d.passes == 1 && d.capability != FxEffectDef.Capability.FEEDBACK);
+            check(id + " has no if/else in its body",
+                    !d.glslBody.contains("if (") && !d.glslBody.contains("else"));
+        }
+        FxDeviceGuard.reset();
+        List<FxEffectDef> defs = new java.util.ArrayList<>();
+        for (String id : ids) defs.add(FxRegistry.get(id));
+        int refused = FxDeviceGuard.probe(defs, d -> {
+            if (d.id.equals("caustics") || d.id.equals("tiles")) {
+                throw new IllegalStateException("link failed (fake driver)");
+            }
+        });
+        check("a refused shader does not throw and is counted: " + refused, refused == 2);
+        check("a refused effect is unavailable", FxDeviceGuard.isUnavailable("caustics")
+                && FxDeviceGuard.isUnavailable("tiles"));
+        check("an accepted effect stays available", !FxDeviceGuard.isUnavailable("glitter"));
+        FxStack s = new FxStack();
+        s.add("glitter");
+        s.add("caustics");
+        check("a stack from another phone reports its unavailable card",
+                FxDeviceGuard.unavailableIn(s).size() == 1
+                        && FxDeviceGuard.unavailableIn(s).get(0).effectId.equals("caustics"));
+        FxDeviceGuard.reset();
+    }
 
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();

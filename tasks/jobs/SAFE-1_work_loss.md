@@ -50,3 +50,7 @@ The tests that carry the proof (all run 2026-11-10):
   `ProjectStorage` calls must be added there too, or four harness suites stop compiling.
 - A test that uses `ProjectStorage.saveAsync` must end with `System.exit`: the writer thread keeps the JVM open.
 - `DrawingLibrary` puts any `.joybrush` file in its folder back on the list. Never leave a stray one there.
+
+## Second pass 2026-11-23 (job 13 of the build queue)
+Every row of the report re-checked against today's code (the card's "NOT STARTED" list was already done: F5, S11, S10, F6, F7). Seven new findings fixed with host tests, the kept-copy restore function built, four more suites now run in the cloud. The full table, what was found and not fixed, and the owed Note 9 list are in the report's "Second pass, 2026-11-23" section. Nothing here has been seen on a phone.
+- Open and not mine: J6 (JoyBrush engine lane); a screen to bring a kept copy back (the function `DiskStamp.restore` exists, no screen: needs a decision where it lives); TextLab title-edit with no Studio editor; where a VisLab look's pictures should live.

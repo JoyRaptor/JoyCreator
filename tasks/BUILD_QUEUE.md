@@ -33,7 +33,7 @@ hardest work.
 | 10 | Joybot create-tree landings not yet seen: image, tile, sprite, perspective, sprite edit, find | [BOT-7](jobs/BOT-7_lobby_wizard_and_room_colours.md) | yes | waits for a phone |
 | 11 | Engine round 4 last three checks (save, wet undo, wet map) | engine-r4 lane | yes | waits for the Note 9 |
 | 12 | Land Codex's branches as they appear (audit round 5, sparse leaving save, load split, mask multipass, title transfer) | `tasks/audits/codex/` | depends | as they come |
-| 13 | No lost work: fix the remaining findings of the work-loss report, each with a test that fails first | [SAFE-1](jobs/SAFE-1_work_loss.md) | at the end | queued (added 11-23) |
+| 13 | No lost work: fix the remaining findings of the work-loss report, each with a test that fails first | [SAFE-1](jobs/SAFE-1_work_loss.md) | at the end | second pass built 11-23: 7 findings fixed with tests, kept-copy restore function, 4 suites now in the cloud run; phone list owed; open items in the report |
 | 14 | Joybot help: a help topic for every STATE feature on the HYG-5 owed list (text and help data) | [BOT-2](jobs/BOT-2_joybot_everywhere.md) | no | done 11-23: seven topics + harness cases, 1311 pass |
 | 15 | FadCam inventory: every package, screen, service and resource from FadCam, with a keep/rebuild/replace/cut verdict | [FREE-1](jobs/FREE-1_fadcam_inventory.md) | no | refreshed 11-23 (addendum to the 10-28 inventory); owner has not seen the plan |
 | 16 | Send to Studio into an existing project: land it after a Note 9 check | [DOOR-4](jobs/DOOR-4_interwoven.md) | yes | queued (added 11-23) |

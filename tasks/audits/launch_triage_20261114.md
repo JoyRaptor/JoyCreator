@@ -398,3 +398,12 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 | STU-C2 / device check F13 | fixed 11-24: a sprite sheet picked as `<Name>.<C>x<R>.sprite.png` now takes its grid and name from the file name (`SpriteSheetEditorActivity.applyGridFromName`; `run-spritelab-audit.sh` 20). The other half of F13 (the sheet not listed in Studio after Save and Back) was not reproduced and stays open for a phone |
 | Device check: Export button read "Export . %1$d" | fixed 11-24 (`TimelineMarksPopup`: described by what it shows; source check in `run-looks-home.sh`) |
 | F10 (marks popup throws away a half-made region), F11 (speech model download has no percentage), F14 (caption chip stays selected after Undo), F15 (Puppet drawer covers the picture) | open; each changes how a screen behaves and wants a phone to judge |
+
+### Batch 4 (2026-11-24)
+
+| ID | Status |
+|---|---|
+| L18 | the sweep itself (moving about 300 literal Toast / setText / dialog lines in 61 files into `strings_*.xml`, then 11 translations each) is NOT done: it is large and every new string wants native review. Built instead: a ratchet, `tools/check_hardcoded_english.py` (in the cloud Studio run as `english-lint`), which fails when any file gains hard-coded English; baseline `tools/hardcoded_english_baseline.json` (301 lines). Remove literals, then `--update` to lower it |
+| BOT-A29 | parked: starting a SCREEN recording needs Android's own consent dialog (a person taps Start now), so Joybot cannot start one; stop/pause could be added, and the webcam bubble: a design call with a phone check |
+| BOT-A31, BOT-A33 | parked: background bake / dope sheet / export actions and model routing per step are new Joybot behaviour with no spec in the cards; they need the owner's words on what Joybot should do before code |
+| AN-06 F15 | parked: the Puppet drawer's height on a phone-sized screen is a layout feel decision that must be seen on the Fold and Note 9 |

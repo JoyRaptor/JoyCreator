@@ -101,7 +101,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - BOT-A11 (S) Offline wording owner check (NetCheck, TipBook.offlineHope)
 - BOT-A13 (S) Owner voice test of the hands-free loop and OpenAI provider
 - BOT-A27 (L) Joybot as first-run guide and tour; tap-for-voice, hold-for-chat; replace FadCam avatar toggle
-- BOT-A39 (S) Re-run the JVM harness and bench after 11-04 to 11-13 changes; keep BOT docs current
+- BOT-A39 (S) Re-run the JVM harness and bench after 11-04 to 11-13 changes; keep BOT docs current **DONE 11-24 (website lane): cloud `joybot` suite on `claude/preview1-build` 11-23: flights 88, bench 65/65 (fake model), bridge 26 pass; `run-ideas.sh` 1317 pass, 0 fail**
 
 ### Studio
 

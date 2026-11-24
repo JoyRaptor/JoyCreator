@@ -568,6 +568,7 @@ public class IdeaEngineTest {
                     {"how do I change the look sliders on my title", "studio_title_sliders"},
                     {"can you show me a trick", "joybot_tricks"},
                     {"how do I report a reply", "joybot_report"},
+                    {"how do I add the moments detect found as marks", "detect_marks"},
                     // JBX-49 (11-24)
                     {"how do I draw with a coloured pencil", "joybrush_pencil_colour"},
                     {"where is the brush editor", "joybrush_brush_editor"},

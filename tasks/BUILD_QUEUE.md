@@ -2,7 +2,9 @@
 
 The owner, 11-23: "get agents building round the clock to get Joy Creator done. Doesn't have to be a ton in parallel,
 but constant building." The orchestrator keeps **about three Claude lanes building at once**. When one finishes, the
-next job down this list starts. An hourly check-in refills the lanes. Codex takes the hard builds (prompts given to the
+next job down this list starts. **Each lane pulls its own next job**: when it finishes, it claims the next unclaimed
+row that fits (phone-free unless a phone is free) and carries on in the same session. The orchestrator's hourly
+check-in nudges any lane that has gone idle. (New sessions can't be started from an automated turn, so lanes chain.) Codex takes the hard builds (prompts given to the
 owner 11-23) on its own budget.
 
 Rules for every lane: read `tasks/AGENT_START.md` and `tasks/BOARD.md` first; claim your files on BOARD; use your own
@@ -18,8 +20,8 @@ hardest work.
 |---|---|---|---|---|
 | 1 | Hover-label sweep: every button in every room gets a hover label (owner rule) | [BOT-2](jobs/BOT-2_joybot_everywhere.md), memory rule | at the end | built 11-23, cloud build + phone look owed ([STYLE-1](jobs/STYLE-1_tickbox_and_palette.md)) |
 | 2 | Tick box and palette sweep: on/off becomes a cyan knock-out tick box, a switch only for two equal choices; cyan and magenta come from the shared palette, never a room's own hex (owner 11-21, 11-22) | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | started 11-23 |
-| 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | started 11-23 |
-| 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | queued |
+| 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | ✅ first draft landed af2cf7f40 (`docs/`); owner look owed |
+| 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | started 11-23 (website lane) |
 | 5 | Clutter inventory: worktrees and branches; file away only what is landed or empty; never delete unique work | [HYG-3](jobs/HYG-3_cleanup.md) | no | queued |
 | 6 | A picture for every Studio effect (picker grid, live swatch on each card) | [STU-6](jobs/STU-6_effect_swatches_and_textlab_generators.md) | at the end | queued |
 | 7 | A tiny preview beside every part wherever one is listed or picked (owner 11-20) | memory rule; new card | at the end | queued |

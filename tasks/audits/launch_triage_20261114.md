@@ -321,3 +321,42 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-18 (L) Give brush imports (ABR, Procreate, Krita, MyPaint) a user entry point
 - L18 (L) Hard-coded English: about 117 literal Toasts and 183 literal setText in Java/Kotlin
 - L19 (L) Hover labels: finish the app-wide sweep (FadCam-inherited layouts, 19 ImageButtons without contentDescription)
+
+## 6. Status check, 2026-11-24 (Claude Sonnet 5.5, queue job 19), batch 1
+
+Each row was read against today's code, git log and STATE. "Fixed" cites the commit. Rows that need a phone or the owner were not worked.
+
+| ID | Status | Evidence / what is left |
+|---|---|---|
+| L09 | already fixed (draft) | `tasks/store/DATA_SAFETY_DRAFT.md`, `76f0f73a8`, `85764ef27`; 11-24 note added: the Play build hides Remote and the update check, so the form over-declares (safe). Console entry is the owner's |
+| L30 | already fixed in repo | `docs/` site, `1827539e2`, `af2cf7f40`. Owner turns Pages on (`tasks/store/OWNER_CLICKS.md`) |
+| BOT-A6 | already fixed | `863fb8020` (Capture help topics) |
+| BOT-A11 | needs the owner | offline wording is in `TipBook.offlineHope`; only he can say if it is right |
+| BOT-A39 | already fixed 11-15 (`863fb8020`); re-run 11-24 on `joy-creator` (`3973b5554`): flights 88, bench 65/65 (fake model), bridge 26, all pass | |
+| STU-A2 | already fixed | `f27807f3f`, `908008fd2`, `be77fe896`; STATE has no "Help: PENDING" left |
+| STU-B5 | open, PC-doable, parked | chat visit with several parked steps marks only the top step (`ChatAssistantActivity.java:3833`, `JoybotAgent.java:2079`, `DirectRunner.java:87`). Wiring needs a phone check; not done |
+| STU-D5 | partly fixed (`954a19caf`); rest is the owner's taste | puppet row min-height, blend popover radius |
+| STU-D6 | already fixed | `318317c72` |
+| STU-E2 | D7 fixed (`3cd4eeca8`); D9 and the blend playhead open, parked | the playhead during a transition feeds an output-clock position (and divides by speed twice, `FaditorEditorActivity.java:12723-12735`) to a timeline that runs on the editor clock; cause not traced, changing it moves what people see during playback: wants a phone |
+| STU-E3 | open, parked | transition piece has no volume curve or fades (`ExportManager.java:5544-5563`); changes what exports contain, rule 5 wants a preview-versus-export check on a phone |
+| STU-F9 | already fixed | `318317c72` |
+| STU-G9 | open, low value | no `onTrimMemory`; the 5-minute Media3 check needs a device |
+| SHELL-02 | already fixed | `214024d13`, `78848e58a` |
+| SHELL-07 | already fixed | `251416676` |
+| SHELL-08 | fixed except two cosmetic leftovers (hold line under the bar, thin tile outlines): needs a phone | `3b6ee782d` |
+| SHELL-13 | glyph fixed (`214024d13`); location inside a real file needs a phone with location on | |
+| SHELL-29 | paper in thumbnails `c070fb5e1`, Open adds a drawing `58f256930`; "thumbnail = last view" open: JoyBrush save/library lane (Codex) | |
+| SHELL-49 | fixed except the viewer page loads hls.js and flatpickr from `cdn.jsdelivr.net` (`assets/web/index.html:879-882`), so it is not LAN-only; bundling needs the owner's OK to download the files | `9874e93f6`, `d00014e9a`, `264a624f5` |
+| SHELL-51 | pass 1 done (`847fa3c49`, `3ae7cb152`, `41bd48941`); triggered capture as a Capture mode and the evidence-board decor open (design calls) | |
+| SHELL-62 | needs the owner (which dark theme survives) | |
+| AN-01 | needs the owner's screenshot | |
+| AN-08 | already fixed | `7b9f28227`, `8befa6335` |
+| TX-17 | fixed 11-24 | STATE TextLab intro no longer says nothing is in the app; the five help topics are named |
+| L26, L33 | need the owner / JoyBrush lead | |
+| L29 | already fixed | `fefb19bae` (shot list, store shots, storyboard); real recordings are asset work |
+| JBX-08 | hover outline now has a STATE row (11-24); looking at it on the Note 9 is owed | |
+| JBX-12 | partly fixed 11-24 (hover-outline row); the line clipboard row still missing | |
+| JBX-49 | partly fixed (`908008fd2`: import, guides, fibres); the paper Tint/Bite wording not added: needs the exact owner words | |
+| JBX-04 | open, needs the JoyBrush lane (guide edits are not in Undo) | |
+| JBX-17 | open, needs the JoyBrush lane (bucket tool: `FloodFill` exists, no tool strip button or dispatch) | |
+| JBX-31 | engine lane | |

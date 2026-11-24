@@ -90,7 +90,7 @@ class UnibrushHostController(
     }
     private fun publishLibrary()=libraryChanged(library())
     private fun main(block:()->Unit)=activity.runOnUiThread { if(!destroyed)block() }
-    private fun say(error:Exception)=refusal(error.message?:"The brush could not be prepared")
+    private fun say(error:Exception)=refusal(PlainWords.forPerson(error.message, "The brush could not be prepared"))
 
     /** Caller must preserve saved ToolMemory until success AND initial user-resource selection completes. */
     fun start(ready:(Boolean)->Unit) {

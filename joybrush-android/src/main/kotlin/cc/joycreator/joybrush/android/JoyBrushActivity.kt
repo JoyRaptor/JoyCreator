@@ -661,7 +661,9 @@ class JoyBrushActivity : Activity() {
             override fun sampleScreen(points: FloatArray,ready: (IntArray) -> Unit) = canvas.sampleScreen(points,ready)
             override fun refreshBackdrop(changed: () -> Unit) { boardBackdrop?.refresh(changed) }
             override fun frost(canvas: android.graphics.Canvas,view: View) { boardBackdrop?.draw(canvas,view) }
-            override fun refusal(message: String) { Toast.makeText(this@JoyBrushActivity, message, Toast.LENGTH_SHORT).show() }
+            override fun refusal(message: String) {
+                Toast.makeText(this@JoyBrushActivity, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(message), Toast.LENGTH_SHORT).show()
+            }
             override fun export(boardId: String) { pngOptions(layersBtn, boardId) }
             override fun exportScene() { canvas.ensureBoardDocument { boardExports.showScene(it) } }
             override fun selectionChanged(bounds: cc.joycreator.joybrush.core.doc.RectPx?) { updateLayerPreviewAspect(bounds); updateAnimationLayerMarkers(); boardThumbnailRevision++; refreshThumbs() }
@@ -3588,7 +3590,11 @@ class JoyBrushActivity : Activity() {
     }
 
     private fun toast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        // No technical errors ever shown (JoyBrush's three bars): an exception's own text on the end
+        // of a message is dropped for the person and kept in the log.
+        val shown = cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(message)
+        if (shown != message) android.util.Log.w("JoyBrush", "shown as plain words: $message")
+        Toast.makeText(this, shown, Toast.LENGTH_LONG).show()
     }
 
     // ── Select (JB-5.20e): the tool on the canvas, backed by the editable lines (NATIVE_LINES_V1) ──

@@ -39,5 +39,5 @@ object ExportWrite {
     private fun cutOff(gone: Boolean, why: String?): String =
         (if (gone) "the file did not arrive whole, so it was removed rather than left cut off"
         else "the file did not arrive whole and could not be removed; delete it and export again") +
-            (if (why.isNullOrBlank()) "" else " ($why)")
+            (if (why.isNullOrBlank()) "." else ". $why")
 }

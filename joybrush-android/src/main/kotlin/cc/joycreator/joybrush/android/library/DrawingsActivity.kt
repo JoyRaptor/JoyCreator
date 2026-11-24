@@ -192,7 +192,7 @@ class DrawingsActivity : Activity() {
                 JoyFolderHome.io().execute {
                     val problem = DrawingLibrary.delete(app, d.file)
                     runOnUiThread {
-                        toast(if (problem == null) "Moved to Trash." else "Not deleted: $problem.")
+                        toast(if (problem == null) "Moved to Trash." else cc.joycreator.joybrush.android.chrome.PlainWords.forPerson("Not deleted: $problem."))
                         if (!isFinishing && !isDestroyed) refresh()
                     }
                 }

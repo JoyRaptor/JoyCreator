@@ -29,7 +29,7 @@ public class RecordingStopActivity extends Activity {
 
         } catch (Exception e) {
             FLog.e(TAG, "Error stopping recording via shortcut", e);
-            Toast.makeText(this, "Failed to stop recording", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.recording_stop_failed, Toast.LENGTH_SHORT).show();
         } finally {
             // Prevent app from coming to foreground
             moveTaskToBack(true);

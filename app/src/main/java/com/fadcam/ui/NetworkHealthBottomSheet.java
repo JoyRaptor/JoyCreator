@@ -118,7 +118,7 @@ public class NetworkHealthBottomSheet extends BottomSheetDialogFragment {
             }
             lastTestedText.setText("Last tested: " + timeStr);
         } else {
-            lastTestedText.setText("Last tested: Never");
+            lastTestedText.setText(com.fadcam.R.string.network_last_tested_never);
         }
 
         // Signal Strength

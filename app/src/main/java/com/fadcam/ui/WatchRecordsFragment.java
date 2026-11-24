@@ -206,7 +206,7 @@ public class WatchRecordsFragment extends Fragment {
             startActivity(intent);
         } catch (Exception e) {
             FLog.e(TAG, "Failed to start player", e);
-            Toast.makeText(requireContext(), "Cannot play: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(requireContext(), getString(com.fadcam.R.string.watch_cannot_play, e.getMessage()), Toast.LENGTH_LONG).show();
         }
     }
 

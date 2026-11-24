@@ -1087,7 +1087,7 @@ public class FadRecHomeFragment extends HomeFragment {
         final java.util.List<com.fadcam.ui.faditor.model.WaveformStyle> styles =
                 com.fadcam.visualizer.LiveVisualizer.loadLiveEligibleBuiltins(requireContext());
         if (styles.isEmpty()) {
-            Toast.makeText(requireContext(), "No live-eligible visualizer styles found",
+            Toast.makeText(requireContext(), com.fadcam.R.string.fadrec_no_live_styles,
                     Toast.LENGTH_SHORT).show();
             return;
         }
@@ -1121,7 +1121,7 @@ public class FadRecHomeFragment extends HomeFragment {
         final androidx.appcompat.app.AlertDialog dialog =
                 new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                         // TODO(strings): hardcoded title (file precedent).
-                        .setTitle("Live visualizer style")
+                        .setTitle(com.fadcam.R.string.fadrec_live_style_title)
                         .setView(wrapScroll(container))
                         .setNegativeButton(android.R.string.cancel, null)
                         .create();
@@ -1497,7 +1497,7 @@ public class FadRecHomeFragment extends HomeFragment {
                             pendingPreviewOnlyPermission = false;
                             pendingPreviewOpenUntilSurfaceReady = false;
                             updateUIForRecordingState();
-                            Toast.makeText(context, "Screen recording permission denied", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(context, com.fadcam.R.string.fadrec_permission_denied, Toast.LENGTH_SHORT).show();
                             break;
                             
                         case Constants.ACTION_PAUSE_SCREEN_RECORDING:
@@ -1696,7 +1696,7 @@ public class FadRecHomeFragment extends HomeFragment {
         buttonFadRecMute.setEnabled(true);
         buttonFadRecMute.setAlpha(1.0f);
         if (isRecordingActive) {
-            buttonFadRecMute.setContentDescription("Toggle mute (during recording)");
+            buttonFadRecMute.setContentDescription(getString(com.fadcam.R.string.fadrec_toggle_mute));
         } else {
             buttonFadRecMute.setContentDescription(
                 getString(com.fadcam.R.string.fadrec_audio_source_choose)

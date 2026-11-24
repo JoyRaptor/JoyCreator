@@ -108,8 +108,8 @@ public class MiniAppInfoBottomSheetFragment extends BottomSheetDialogFragment {
                 break;
 
             default:
-                if (titleTv != null) titleTv.setText("Mini App");
-                if (descTv != null) descTv.setText("Learn more about this upcoming feature");
+                if (titleTv != null) titleTv.setText(com.fadcam.R.string.miniapp_title);
+                if (descTv != null) descTv.setText(com.fadcam.R.string.miniapp_desc);
         }
     }
 

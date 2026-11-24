@@ -671,10 +671,10 @@ public class VideoInfoBottomSheet extends BottomSheetDialogFragment {
             if (clipboard != null) {
                 ClipData clip = ClipData.newPlainText("Video Info", videoInfo);
                 clipboard.setPrimaryClip(clip);
-                Toast.makeText(getContext(), "Video info copied to clipboard", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), com.fadcam.R.string.videoinfo_copied, Toast.LENGTH_SHORT).show();
             } else {
                 FLog.e(TAG, "ClipboardManager service is null");
-                Toast.makeText(getContext(), "Could not access clipboard", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getContext(), com.fadcam.R.string.videoinfo_no_clipboard, Toast.LENGTH_SHORT).show();
             }
         });
     }

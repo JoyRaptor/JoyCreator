@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): words that were typed into the FadRec, remote-control and small player screens. -->
+<resources>
+    <string name="fadrec_no_live_styles">No live-eligible visualizer styles found</string>
+    <string name="fadrec_live_style_title">Live visualizer style</string>
+    <string name="fadrec_toggle_mute">Toggle mute (during recording)</string>
+    <string name="clients_none">No clients connected</string>
+    <string name="clients_api_zero">API Calls: 0 (GET: 0, POST: 0)</string>
+    <string name="clients_helper">📥 GET: status queries  •  📤 POST: control commands</string>
+    <string name="clients_ip_copied">IP copied: %1$s</string>
+    <string name="webcam_avatar_off">Avatar off — webcam shows</string>
+    <string name="webcam_avatar_name">Avatar: %1$s</string>
+    <string name="webcam_avatar_missing">Saved avatar missing — webcam shows</string>
+    <string name="miniapp_title">Mini App</string>
+    <string name="miniapp_desc">Learn more about this upcoming feature</string>
+    <string name="videoinfo_copied">Video info copied to clipboard</string>
+    <string name="videoinfo_no_clipboard">Could not access clipboard</string>
+    <string name="watch_no_video_uri">No video URI</string>
+    <string name="watch_cannot_play_video">Cannot play video: %1$s</string>
+    <string name="recording_start_failed">Failed to start recording</string>
+    <string name="recording_stop_failed">Failed to stop recording</string>
+    <string name="annotation_no_projects">No projects found</string>
+    <string name="endpoints_copied">Copied: %1$s</string>
+    <string name="network_last_tested_never">Last tested: Never</string>
+    <string name="watch_cannot_play">Cannot play: %1$s</string>
+    <string name="annotation_delete_all_message">This will permanently delete ALL projects. This action cannot be undone!</string>
+    <string name="annotation_delete_project_title">Delete Project?</string>
+    <string name="annotation_delete_project_message">Delete \"%1$s\"? This cannot be undone.</string>
+    <string name="annotation_continue_message">Continue with your last saved project \"%1$s\" or start a new one?</string>
+</resources>

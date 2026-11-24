@@ -288,7 +288,7 @@ public class MainActivity extends AppCompatActivity {
                     com.google.android.material.badge.BadgeDrawable badge = 
                         bottomNavigationView.getOrCreateBadge(R.id.navigation_remote);
                     badge.setVisible(true);
-                    badge.setText("NEW"); // Show "NEW" text instead of number
+                    badge.setText(com.fadcam.R.string.badge_new); // Show "NEW" text instead of number
                     badge.setBackgroundColor(0xFF4CAF50); // Green background
                     badge.setBadgeTextColor(0xFFFFFFFF); // White text color
                     FLog.d("MainActivity", "Badge shown for remote");

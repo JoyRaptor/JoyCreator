@@ -498,12 +498,12 @@ public class FloatingWebcamService extends Service {
         int next = idx + 1;
         if (next >= entries.size()) {
             prefs.edit().remove("avatarEntryDir").apply();
-            android.widget.Toast.makeText(this, "Avatar off — webcam shows",
+            android.widget.Toast.makeText(this, com.fadcam.R.string.webcam_avatar_off,
                     android.widget.Toast.LENGTH_SHORT).show();
         } else {
             AvatarLibrary.Entry e = entries.get(next);
             prefs.edit().putString("avatarEntryDir", e.dir.getName()).apply();
-            android.widget.Toast.makeText(this, "Avatar: " + e.rig.getName(),
+            android.widget.Toast.makeText(this, getString(com.fadcam.R.string.webcam_avatar_name, e.rig.getName()),
                     android.widget.Toast.LENGTH_SHORT).show();
         }
         applyAvatarSelection();
@@ -543,7 +543,7 @@ public class FloatingWebcamService extends Service {
             // Stale selection (entry deleted since) — honest fallback to webcam.
             getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                     .edit().remove("avatarEntryDir").apply();
-            android.widget.Toast.makeText(this, "Saved avatar missing — webcam shows",
+            android.widget.Toast.makeText(this, com.fadcam.R.string.webcam_avatar_missing,
                     android.widget.Toast.LENGTH_SHORT).show();
             exitAvatarMode();
             return;

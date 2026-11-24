@@ -97,7 +97,7 @@ public class EndpointsBottomSheetFragment extends BottomSheetDialogFragment {
         copyButton.setOnClickListener(v -> {
             if (!fullUrl.contains("not active")) {
                 copyToClipboard(fullUrl);
-                Toast.makeText(requireContext(), "Copied: " + endpoint, Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), getString(com.fadcam.R.string.endpoints_copied, endpoint), Toast.LENGTH_SHORT).show();
             }
         });
 

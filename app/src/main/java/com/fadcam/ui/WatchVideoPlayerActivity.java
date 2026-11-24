@@ -140,7 +140,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
         final String uriString = getIntent().getStringExtra(EXTRA_URI);
         if (uriString == null || uriString.isEmpty()) {
             FLog.e(TAG, "No URI to play — finishing");
-            Toast.makeText(this, "No video URI", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.watch_no_video_uri, Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
@@ -158,7 +158,7 @@ public class WatchVideoPlayerActivity extends AppCompatActivity {
             initPlayer(Uri.parse(uriString));
         } catch (Exception e) {
             FLog.e(TAG, "Failed to initialize player: " + e.getMessage(), e);
-            Toast.makeText(this, "Cannot play video: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, getString(com.fadcam.R.string.watch_cannot_play_video, e.getMessage()), Toast.LENGTH_LONG).show();
             finish();
         }
 

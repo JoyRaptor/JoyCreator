@@ -30,6 +30,18 @@ PATS = [
 ]
 
 
+ICON = re.compile('^[a-z][a-z0-9_]*$')   # "stop", "volume_off", "filter_list": a Material icon name, not words
+
+
+def is_words(rx, line):
+    """True when the line puts real words on screen. An all-lowercase-underscore literal is an icon ligature."""
+    m = rx.search(line)
+    if not m:
+        return False
+    lit = re.search('"([^"\\\\]*)"', m.group(0))
+    return not (lit and ICON.match(lit.group(1)))
+
+
 def count():
     out = {}
     for d in DIRS:
@@ -45,7 +57,7 @@ def count():
                         s = line.strip()
                         if s.startswith(("//", "*", "/*")):
                             continue
-                        if any(r.search(line) for r in PATS):
+                        if any(is_words(r, line) for r in PATS):
                             n += 1
                 if n:
                     out[rel] = n

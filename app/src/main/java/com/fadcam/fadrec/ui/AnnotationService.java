@@ -464,7 +464,7 @@ public class AnnotationService extends Service {
 
         androidx.appcompat.app.AlertDialog deleteAllDialog = builder
                 .setTitle(getString(R.string.annotation_delete_all_title))
-                .setMessage("This will permanently delete ALL projects. This action cannot be undone!")
+                .setMessage(com.fadcam.R.string.annotation_delete_all_message)
                 .setPositiveButton(getString(R.string.annotation_delete_all_btn), (dialog, which) -> {
                     File[] projects = projectFileManager.listProjects();
                     if (projects != null) {
@@ -592,8 +592,8 @@ public class AnnotationService extends Service {
             MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(themedContext);
 
             androidx.appcompat.app.AlertDialog deleteDialog = builder
-                    .setTitle("Delete Project?")
-                    .setMessage("Delete \"" + displayName + "\"? This cannot be undone.")
+                    .setTitle(com.fadcam.R.string.annotation_delete_project_title)
+                    .setMessage(AnnotationService.this.getString(com.fadcam.R.string.annotation_delete_project_message, displayName))
                     .setPositiveButton("Delete", (dialog, which) -> {
                         boolean deleted = projectFileManager.deleteProject(folderName);
                         if (deleted) {
@@ -826,7 +826,7 @@ public class AnnotationService extends Service {
 
         androidx.appcompat.app.AlertDialog startupDialog = builder
                 .setTitle(getString(R.string.annotation_welcome_back))
-                .setMessage("Continue with your last saved project \"" + sanitizedName + "\" or start a new one?")
+                .setMessage(getString(com.fadcam.R.string.annotation_continue_message, sanitizedName))
                 .setPositiveButton("Continue", (dialog, which) -> {
                     dialog.dismiss();
                     FLog.i(TAG, "User chose to continue with: " + existingProjectName);

@@ -74,7 +74,7 @@ public class RecordingStartActivity extends Activity {
 
         } catch (Exception e) {
             FLog.e(TAG, "Error starting recording via shortcut", e);
-            Toast.makeText(this, "Failed to start recording", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, com.fadcam.R.string.recording_start_failed, Toast.LENGTH_SHORT).show();
         } finally {
             // Prevent app from coming to foreground
             moveTaskToBack(true);

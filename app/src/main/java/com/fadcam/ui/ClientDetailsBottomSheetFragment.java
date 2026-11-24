@@ -63,7 +63,7 @@ public class ClientDetailsBottomSheetFragment extends BottomSheetDialogFragment 
 
         if (clientIPs.isEmpty()) {
             TextView noClients = new TextView(requireContext());
-            noClients.setText("No clients connected");
+            noClients.setText(com.fadcam.R.string.clients_none);
             noClients.setTextSize(14);
             noClients.setPadding(16, 16, 16, 16);
             clientsContainer.addView(noClients);
@@ -115,7 +115,7 @@ public class ClientDetailsBottomSheetFragment extends BottomSheetDialogFragment 
                 apiStatsText.setText(String.format("API Calls: %d (GET: %d, POST: %d)",
                     totalApiCalls, metrics.getGetRequestsCount(), metrics.getPostRequestsCount()));
             } else {
-                apiStatsText.setText("API Calls: 0 (GET: 0, POST: 0)");
+                apiStatsText.setText(com.fadcam.R.string.clients_api_zero);
             }
             
             apiStatsText.setTextSize(11);
@@ -130,7 +130,7 @@ public class ClientDetailsBottomSheetFragment extends BottomSheetDialogFragment 
             
             // Add helper text explaining GET vs POST
             TextView helperText = new TextView(requireContext());
-            helperText.setText("📥 GET: status queries  •  📤 POST: control commands");
+            helperText.setText(com.fadcam.R.string.clients_helper);
             helperText.setTextSize(10);
             helperText.setTextColor(android.graphics.Color.parseColor("#6e7681"));
             helperText.setAlpha(0.75f);
@@ -149,7 +149,7 @@ public class ClientDetailsBottomSheetFragment extends BottomSheetDialogFragment 
             ClipboardManager clipboard = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
             ClipData clip = ClipData.newPlainText("Client IP", ip);
             clipboard.setPrimaryClip(clip);
-            Toast.makeText(requireContext(), "IP copied: " + ip, Toast.LENGTH_SHORT).show();
+            Toast.makeText(requireContext(), getString(com.fadcam.R.string.clients_ip_copied, ip), Toast.LENGTH_SHORT).show();
         });
 
         // Event logs button click listener

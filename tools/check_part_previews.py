@@ -10,10 +10,12 @@ DONE = {
     'app/src/main/java/com/fadcam/ui/faditor/avatar/AvatarStudioActivity.java': 'avatar part chips, library, add-part and parent pickers',
     'app/src/main/java/com/fadcam/vislab/room/LookSheets.java': 'VisLab sprite sheet and TextLab look choosers',
     'app/src/main/java/com/fadcam/ui/faditor/text/TextStyleLibraryPanel.java': 'built-in text styles',
+    'app/src/main/java/com/fadcam/ui/faditor/FilterBottomSheet.java': 'colour grade chooser',
+    'app/src/main/java/com/fadcam/ui/faditor/effects/LutLibraryPanel.java': 'grades drawer list',
 }
 OWED = [
     'VisLab look strip and Studio VisLab style chips', 'VisLab parts shelf and layer rows', 
-    'LUT and grade look pickers (needs a CPU .cube apply, untested)', 'the 26 GL transitions (need a GPU render)', 'reactive and duck-under pickers', 'Unibrush tip textures (JoyBrush lane)',
+'the 26 GL transitions (need a GPU render)', 'reactive and duck-under pickers', 'Unibrush tip textures (JoyBrush lane)',
     'Studio text lanes in the timeline', 'avatar manager in Studio', 'Avatar room stage tabs',
 ]
 bad = []

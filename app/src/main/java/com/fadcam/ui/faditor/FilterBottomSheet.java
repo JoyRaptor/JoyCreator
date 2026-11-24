@@ -326,9 +326,17 @@ public class FilterBottomSheet extends BottomSheetDialogFragment {
             labels[i + 1] = presets.get(i).displayName;
             if (presets.get(i).id.equals(stack.getLutId())) checked = i + 1;
         }
+        String[] shown = new String[labels.length];   // PREVIEW-1: a tick before the grade in use, its picture before each name
+        for (int i = 0; i < labels.length; i++) shown[i] = (i == checked ? "✓  " : "") + labels[i];
+        final android.content.Context appCtx = requireContext().getApplicationContext();
         StudioDialog.builder(requireContext())
                 .setTitle(R.string.faditor_filter_lut)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                .setAdapter(PartThumbs.listAdapter(requireContext(), shown, new PartThumbs.Source() {
+                    @Override public String key(int i) { return i == 0 ? null : "lut:" + presets.get(i - 1).id; }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        return com.fadcam.ui.faditor.effects.LutSwatches.of(appCtx, presets.get(i - 1).id);
+                    }
+                }), (dialog, which) -> {
                     if (which == 0) {
                         stack.setLutEnabled(false);
                         stack.setLutId(null);

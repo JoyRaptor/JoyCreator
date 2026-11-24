@@ -148,9 +148,14 @@ public final class LanePlanTest {
         t.getOrCreateTrackFlags("adjustment").zIndex = 9;
         check(!plan(t).supportsOrderedPreview(false), "legacy preview keeps incompatible adjustment order");
         check(plan(t).supportsOrderedPreview(true), "ordered preview accepts one picture and adjustment plan");
-        t.addOverlayClip(new Clip(null, 5000));
-        check(plan(t).supportsOrderedPreview(true), "ordinary single PiP fits the ordered decoder domain");
-        t.addOverlayClip(new Clip(null, 5000));
+        var firstPip = new Clip(null, 5000);
+        firstPip.setLayerId("video");
+        t.addOverlayClip(firstPip);
+        check(kinds(plan(t)).contains("PIP") && plan(t).supportsOrderedPreview(true),
+                "ordinary single PiP fits the ordered decoder domain");
+        var secondPip = new Clip(null, 5000);
+        secondPip.setLayerId("video-upper");
+        t.addOverlayClip(secondPip);
         check(!plan(t).supportsOrderedPreview(true), "stacked PiP keeps the original decoder fallback");
 
         Timeline rigid = base();

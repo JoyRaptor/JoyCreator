@@ -260,3 +260,8 @@ The full list (106 plans and ideas, 94 rulings) is in [`FUTURE_PLANS.md`](FUTURE
    handoffs hang off the card, never off this page.
 
 - [STU-VOICE · One-tap cached dialogue cleanup](jobs/STU-VOICE_note9_cleanup.md) is on the audio review branch. Note 9 and listening checks remain open.
+## Suite performance and stability review
+
+| Job | State | Evidence |
+|---|---|---|
+| PERF-4 | Audit delivered November 19 · 20 ranked findings, runtime follow-up open | [Audit card](jobs/PERF-4_suite_audit.md) |

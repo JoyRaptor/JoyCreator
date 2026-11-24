@@ -2660,6 +2660,16 @@ public class ProjectStorage {
                 timelineJson.add("adjustmentLayers", adjustArray);
             }
 
+            // Paths (STU-5 primitives, hidden). Written only when there is one, so every project
+            // without paths saves byte for byte as before.
+            if (src.getTimeline().usesPathItems()) {
+                JsonArray pathArray = new JsonArray();
+                for (com.fadcam.ui.faditor.model.path.PathItem pi : src.getTimeline().getPathItems()) {
+                    pathArray.add(pi.toJson());
+                }
+                timelineJson.add("pathItems", pathArray);
+            }
+
             // Serialize audio clips
             JsonArray audioArray = new JsonArray();
             for (AudioClip ac : src.getTimeline().getAudioClips()) {
@@ -3553,6 +3563,19 @@ public class ProjectStorage {
                 }
                 // Adjustment layers — M3. Absent on every project written before them, and a
                 // malformed one is skipped per-item rather than taking the load down.
+                // Paths (STU-5, hidden): a malformed one is skipped, never the whole load.
+                if (hasValue(timelineJson, "pathItems")) {
+                    JsonArray pathArr = timelineJson.getAsJsonArray("pathItems");
+                    for (int i = 0; i < pathArr.size(); i++) {
+                        try {
+                            com.fadcam.ui.faditor.model.path.PathItem pi =
+                                    com.fadcam.ui.faditor.model.path.PathItem.fromJson(pathArr.get(i).getAsJsonObject());
+                            if (pi != null) project.getTimeline().addPathItem(pi);
+                        } catch (Exception ignored) {
+                            // one bad path never costs the project
+                        }
+                    }
+                }
                 if (hasValue(timelineJson, "adjustmentLayers")) {
                     JsonArray adjArr = timelineJson.getAsJsonArray("adjustmentLayers");
                     for (int i = 0; i < adjArr.size(); i++) {

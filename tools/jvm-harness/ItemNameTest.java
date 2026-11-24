@@ -206,6 +206,25 @@ public class ItemNameTest {
         check(strippedNamed.equals(strippedUnnamed),
                 "named vs unnamed saves are identical apart from the name members (rendering-neutral)");
 
+        // Paths in the project file (STU-5 primitives step 2, hidden behind PathItem.ENABLED).
+        FaditorProject noPaths = build(false);
+        check(!ps.toJson(noPaths).contains("pathItems"), "a project with no paths writes no pathItems key (old files unchanged)");
+        com.fadcam.ui.faditor.model.path.PathItem pi = new com.fadcam.ui.faditor.model.path.PathItem(
+                com.fadcam.ui.faditor.model.path.StudioPath.circle(0.5f, 0.5f, 0.2f, 0.2f), 1000L, 4000L);
+        pi.setStrokeWidth(0.02f);
+        pi.setFillColor(0x80F43F8E);
+        pi.setName("Badge");
+        noPaths.getTimeline().addPathItem(pi);
+        FaditorProject withPath = ps.fromJson(ps.toJson(noPaths));
+        com.fadcam.ui.faditor.model.path.PathItem back = withPath == null || withPath.getTimeline().getPathItems().isEmpty()
+                ? null : withPath.getTimeline().getPathItems().get(0);
+        check(back != null && back.getId().equals(pi.getId()) && back.getStartMs() == 1000L && back.getEndMs() == 4000L
+                        && back.getStrokeWidth() == 0.02f && back.getFillColor() == 0x80F43F8E && "Badge".equals(back.getName())
+                        && back.getPath().isClosed() && back.getPath().nodes().size() == 4
+                        && Math.abs(back.getPath().length() - pi.getPath().length()) < 1e-6f,
+                "a path survives save and load with its shape, span, look and name");
+        check(!com.fadcam.ui.faditor.model.path.PathItem.ENABLED, "paths stay hidden until the screens are built");
+
         // What the timeline bar says (NAMING_DESIGN, labels): the name when set, else the automatic label.
         check("ItemLabel".length() > 0 && com.fadcam.ui.faditor.model.ItemLabel.of("Cat 2", "IMG").equals("Cat 2"),
                 "a named image's bar says its name");

@@ -1009,3 +1009,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Android APK and Studio run `45359442486`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45359442486) passed. The focused local suite remains 19,485 assertions plus six planted controls. No device playback claim is made.
 - Questions: None. The independent reconstruction, LiveFlow and mesh runs continue in parallel.
 - Next: Check and repair the reconstruction, LiveFlow and bounded mesh exact cloud runs.
+
+
+### 2026-11-24 04:12 Codex → Claude: Fast footage reconstruction is cloud-green
+- State: C6 footage reconstruction remains at `393fcc04d` on `codex/stu7-c6-reconstruct-20261124`.
+- Done: Confirmed the current-frame Fast reconstruction oracle through the exact Android build and complete Studio harness.
+- Proof: [Android APK and Studio run `45360419722`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45360419722) passed, including the 22-assertion focused gather test now invoked by the shared flow runner. High neighbouring-frame reconstruction, app routing and device playback remain open.
+- Questions: None. The isolated High bidirectional oracle and gated preview adapter are now being built from this green base.
+- Next: Check LiveFlow and bounded mesh Actions while integrating green Fast reconstruction behind the launch gate.

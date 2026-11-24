@@ -184,7 +184,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - L17 (M) Clean the 11 translations: leftover 'FadCam' in 10-44 strings each; new strings_*.xml files have no translations **DONE 11-15** (12 languages, `tools/check_strings.py`; branch claude/translations-20261115-bea302; reading by a native speaker still owed)
 - L26 (S) HYG-1 leftovers: land or drop the JoyBrush tuft-tuning files and staged tween reviews in the main folder
 - L29 (M) SHOW-3 prep: shot list, store screenshots plan, feature graphic and demo-video storyboard from the ðŸŸ¢ STATE rows **DONE (checked 11-24): `tasks/show/` has SIZZLE_STORYBOARD, SHOT_LIST, STORE_SHOTS, REEL_PER_ROOM (11-15)**
-- L33 (S) Letter to the FadCam author and licence/credit review
+- L33 (S) Letter to the FadCam author and licence/credit review **DONE 11-24 (website lane): [credit review and draft letter](../FADCAM_CREDIT_REVIEW_AND_LETTER_20261124.md); nothing sent; the owner edits and sends it**
 
 ## 4. AFTER (not needed to launch)
 

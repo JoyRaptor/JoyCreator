@@ -10,7 +10,7 @@ the newer wings. For a newcomer, a feature Joybot can't explain is a feature tha
 ## Done when
 - [ ] Every room that has a Joybot button opens him with ideas that fit that room (phone-checked per room).
 - [ ] His help answers a question about every feature in STATE (with "Take me there" or "Show me how").
-- [ ] Every Joybot control has a hover label.
+- [x] Every Joybot control has a hover label. Checked from the code 11-24 (hover-1 lane, not on a phone): the chat activity and its model picker tabs name every control (`tab(a, text, tooltip)`, layout descriptions; `tools/check_hover_labels.py` reports 0 unnamed icons), and the Joybot button of every room is named (lobby `lobbyv2_joybot`, Studio `btn_ai_assistant` "AI Assistant", TextLab `textlab_hover_joybot`, VisLab `vl_room_joybot`, SpriteLab "Joybot"); every activity and bottom sheet gets the app-wide `HoverLabels` watch. Not covered: Avatar room (claimed), plain dialogs and pop-up windows. A hover look on a phone with a mouse is owed.
 
 ## Where it stands (verified 10-28)
 Room ideas exist for Studio, Lobby, SpriteLab, Library and VisLab (`IdeaEngine.collect`). JoyBrush opens the

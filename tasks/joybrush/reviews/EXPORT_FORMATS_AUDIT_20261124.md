@@ -36,3 +36,10 @@ Files: the export classes (`io/*`, `board/BoardExport*`) are not claimed on BOAR
 
 ## Owed on a phone (phone lane)
 Export the whole drawing as a flat picture and as a layered file; open the `.ora` in a real program (Krita or GIMP on the PC is enough) and check every visible layer is there; export a GIF after the 11-15 timing change and check the delays; run a Play all export once.
+
+## Fixed the same day (2026-11-24, approved by the lead session with the JoyBrush lead offline)
+Risks 1 to 3 are fixed outside the paint engine, touching only the export lines of `JoyBrushActivity.kt` (`SaveDest.Png`, its branch in the save worker, `exportBytes` and its success toast), not the save and restore lifecycle Codex holds.
+1. **A write that does not arrive whole is never left looking like a good file.** `board/ExportWrite` writes, reads back the size the place holds, and when it is short or the write died part-way removes the cut-off file (where the folder allows) and says so in plain words; if it cannot be removed, it tells the person to delete it. `ExportWriteTest` 6 checks.
+2. **The flat picture, the layered file and the whole-drawing Send to Studio now show their warnings** (a paper texture that would not load), as the board sheet always did: `exportBytes` passes a warning sink and the success toast carries them.
+3. **The layered file names the layers it left out** ("2 layers were left out of the layered file: "Sketch" (it is hidden); "Wash" (it is 0% opaque)"), through `OraExport`'s own warning receiver: `OraExportTest.leftOutLayersAreSaidToThePersonNotOnlyWrittenInTheStack` (fails on the old code).
+Proof: cloud build 45422934066 green; androidkit 1380 tests and the Android suite 612 tests pass on `eaee17345` (the Android suite's first run stopped on a Gradle configuration-cache error before any test ran; the re-run passed). Not seen on a phone: export a layered file with a hidden layer and read the message; the cut-off case needs a full phone or a pulled card.

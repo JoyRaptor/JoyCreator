@@ -407,3 +407,6 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 | BOT-A29 | parked: starting a SCREEN recording needs Android's own consent dialog (a person taps Start now), so Joybot cannot start one; stop/pause could be added, and the webcam bubble: a design call with a phone check |
 | BOT-A31, BOT-A33 | parked: background bake / dope sheet / export actions and model routing per step are new Joybot behaviour with no spec in the cards; they need the owner's words on what Joybot should do before code |
 | AN-06 F15 | parked: the Puppet drawer's height on a phone-sized screen is a layout feel decision that must be seen on the Fold and Note 9 |
+
+## 6. Added 11-24 by the website lane
+- SHELL-05 (Tips carousel for Joy Creator): the Settings Tips carousel was already rewritten (`tips_joycreator`, 11 tips, ca3b84e5c). The Home recorder's own tip line (`tips_widget`) still said "Join our Discord via the About section" (FadCam's Discord); English now says "Need help? Tap Joybot, in any room, and ask." The other languages' `tips_widget` arrays are not changed; translations owed.

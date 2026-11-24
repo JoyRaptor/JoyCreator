@@ -5507,8 +5507,71 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public float fps() { return projectFps(); }
             @Override public void seek(long ms) { seekMarkerPosition(ms); }
             @Override public void exportRegions(java.util.List<com.fadcam.ui.faditor.markers.MarkerWorkspace.Region> regions) { showExportConfirmation(regions); }
+            @Override public void addDetectedMoments() { addDetectMomentsAsMarks(); }
         });
         markerPopup.show(editorTimeline, pointId);
+    }
+
+    /**
+     * FOLD-1 auto-markers (tasks/SPEC_AUTO_MARKERS_20261124.md): the moments Detect found in the project's recordings, as named
+     * marks. Offered by the marks popup's button, never automatic; one undo step; a moment already marked is not added twice.
+     */
+    private void addDetectMomentsAsMarks() {
+        if (project == null || markerState == null) return;
+        final com.fadcam.ui.faditor.model.Timeline tl = project.getTimeline();
+        final int n = tl.getClipCount();
+        final String[] uris = new String[n];
+        final long[][] play = new long[n][3];            // in ms, out ms, timeline start ms
+        final float[] speeds = new float[n];
+        for (int i = 0; i < n; i++) {
+            com.fadcam.ui.faditor.model.Clip clip = tl.getClip(i);
+            uris[i] = clip.getSourceUri() == null ? null : clip.getSourceUri().toString();
+            play[i][0] = clip.getInPointMs();
+            play[i][1] = clip.getOutPointMs();
+            play[i][2] = tl.getClipStartMs(i);
+            speeds[i] = clip.getSpeedMultiplier();
+        }
+        final android.content.Context app = getApplicationContext();
+        new Thread(() -> {
+            java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> wanted = new java.util.ArrayList<>();
+            for (int i = 0; i < n; i++) {
+                if (uris[i] == null) continue;
+                java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Moment> moments =
+                        com.fadcam.ui.faditor.markers.MomentsReader.forUri(app, uris[i]);
+                if (moments.isEmpty()) continue;
+                for (com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark m : com.fadcam.ui.faditor.markers.AutoMarkMapper
+                        .map(moments, play[i][0], play[i][1], speeds[i], false, play[i][2]).marks) {
+                    wanted.add(new com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark(m.timelineMs,
+                            m.label + " " + TimeFormatter.formatAuto(m.timelineMs)));
+                }
+            }
+            runOnUiThread(() -> {
+                if (isFinishing() || isDestroyed() || markerState == null) return;
+                if (wanted.isEmpty()) {
+                    Toast.makeText(this, R.string.timeline_marks_moments_none, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> existing = new java.util.ArrayList<>();
+                for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : markerState.points) {
+                    existing.add(new com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark(p.timeMs, p.name));
+                }
+                java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> fresh =
+                        com.fadcam.ui.faditor.markers.AutoMarkMapper.withoutDuplicates(wanted, existing, 500L);
+                if (fresh.size() > 50) fresh = fresh.subList(0, 50);     // a day of motion is not fifty marks a minute
+                if (fresh.isEmpty()) {
+                    Toast.makeText(this, R.string.timeline_marks_moments_all_there, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                com.fadcam.ui.faditor.markers.MarkerWorkspace.State next = markerState.copy();
+                for (com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark m : fresh) {
+                    next.points.add(new com.fadcam.ui.faditor.markers.MarkerWorkspace.Point(m.label, m.timelineMs, 0));
+                }
+                changeMarkerState(next, getString(R.string.timeline_marks_undo_add_moments));
+                Toast.makeText(this, getString(R.string.timeline_marks_moments_added, fresh.size()), Toast.LENGTH_SHORT).show();
+                if (markerPopup != null) markerPopup.dismiss();
+                showTimelineMarks(null);
+            });
+        }, "detect-moments").start();
     }
 
     private boolean markerMediaPlaying() {
@@ -20649,14 +20712,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (uri != null && tolMs > 0) {
                 long[] onsets = com.fadcam.ui.faditor.transcript.WordSyncOnsets.get(this, uri, null);
                 if (onsets != null && onsets.length > 0) {
-                    int lo = 0, hi = onsets.length - 1;
-                    while (lo <= hi) {
-                        int mid = (lo + hi) >>> 1;
-                        long v = onsets[mid];
-                        if (v < desiredRawMs - tolMs) lo = mid + 1;
-                        else if (v > desiredRawMs + tolMs) hi = mid - 1;
-                        else { on = true; break; }
-                    }
+                    // The same question the snap itself asks (STU-5): lit exactly when it will snap.
+                    on = com.fadcam.ui.faditor.tools.SnapAuthority.sortedIndex(onsets, desiredRawMs, tolMs) >= 0;
                 }
             }
         }

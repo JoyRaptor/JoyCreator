@@ -188,6 +188,11 @@ public final class HelpBook {
                             + "each layer's name, opacity and buttons. On 840 dp or wider the brush button on the rail opens "
                             + "a panel that stays open while you work: tap the star on a brush to keep it, and ★ Mine lists "
                             + "them. ⋯ → Paper beside panels slides the drawing aside.", "joybrush", null),
+            new Topic("detect_marks", "detect moments|moments detect found|marks from detect|detect marks|smart detection marks"
+                    + "|mark where something moved|mark the moments",
+                    "If you recorded with Detect switched on, open the timeline marks (tap the time, or hold it) and tap "
+                            + "Moments Detect found. Each thing it saw in the recordings of this project becomes a named mark "
+                            + "(Person 0:42), all in one Undo. Nothing is added unless you tap it.", "studio", null),
             new Topic("studio_strike_words", "strike a word|strike words|struck word|cut a word|remove a word from the video"
                     + "|skip a word|restore a word|cut words from the transcript",
                     "In the transcript, hold a word and drag across it to strike it, or tap a yellow silence gap. "

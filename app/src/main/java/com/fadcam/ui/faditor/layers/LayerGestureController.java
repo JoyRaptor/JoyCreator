@@ -1389,7 +1389,7 @@ public final class LayerGestureController {
                 // Cross-lane snap §2.4: snap t to other items' clip edges and fade inner boundaries
                 long fadeSnapThrMs = Math.abs(xToTime.map(x + snapRadiusPx) - t);
                 if (fadeSnapThrMs > 0 && fadeSnapThrMs < 200) {
-                    long best = Long.MIN_VALUE; long bestDist = fadeSnapThrMs + 1;
+                    snapCands.clear();
                     for (com.fadcam.ui.faditor.layers.Track row : rowRenderer.laidOutTracks()) {
                         if (activeTrack != null && row.getId().equals(activeTrack.getId())) continue; // other lanes only (spec)
                         for (com.fadcam.ui.faditor.layers.TimedItem other : row.getItems()) {
@@ -1404,26 +1404,24 @@ public final class LayerGestureController {
                                 // looked dead (JoyRaptor's fade-out bug). Only snap where the
                                 // fade can still exist.
                                 if (fadeIn ? c <= startMs : c >= endMs) continue;
-                                long d = Math.abs(t - c);
-                                if (d < bestDist) { bestDist = d; best = c; }
+                                snapCands.add(c);
                             }
                             // other fade inner edges
                             long[] otherFades = rowRenderer.clampedFadeMs(other, totalMs);
                             if (otherFades[0] > 0) {
                                 long c = os + otherFades[0];
+                                // (as before: an excluded fade-in edge also skips this item's fade-out edge)
                                 if (fadeIn ? c <= startMs : c >= endMs) continue;
-                                long d = Math.abs(t - c);
-                                if (d < bestDist) { bestDist = d; best = c; }
+                                snapCands.add(c);
                             }
                             if (otherFades[1] > 0) {
                                 long c = oe - otherFades[1];
                                 if (fadeIn ? c <= startMs : c >= endMs) continue;
-                                long d = Math.abs(t - c);
-                                if (d < bestDist) { bestDist = d; best = c; }
+                                snapCands.add(c);
                             }
                         }
                     }
-                    if (best != Long.MIN_VALUE && bestDist <= fadeSnapThrMs) t = best;
+                    t = com.fadcam.ui.faditor.tools.SnapAuthority.snap(t, snapCands.items, snapCands.size, fadeSnapThrMs, true);
                 }
                 if (isAudioFade && !isImageFade) {
                     // Audio: §5.4 cross-fade creation when dragging past start
@@ -2083,7 +2081,10 @@ public final class LayerGestureController {
         // SPEC W §3 — no butt magnet for or against a full-span object (same rule as
         // nearestFreeStart; the magnet is the before/after shortcut in miniature).
         if (isActiveDragFullSpan(totalMs)) return Long.MIN_VALUE;
-        long bestStart = Long.MIN_VALUE, bestJoint = 0, bestDist = thrMs + 1;
+        // Candidates in the order they were always tried (each sibling: before, then after),
+        // with the joint each one would make; the one snapping authority picks (STU-5).
+        snapCands.clear();
+        snapJoints.clear();
         for (TimedItem sib : row.getItems()) {
             if (sib.getId().equals(activeItem.getId())) continue;
             long ss = sib.getTimelineStartMs();
@@ -2094,18 +2095,13 @@ public final class LayerGestureController {
             if (Timeline.isFullSpanRange(ss, se - ss, totalMs)) continue;
             long before = ss - draggedDur;   // our end butts the sibling's start
             long after = se;                  // our start butts the sibling's end
-            if (before >= 0 && Math.abs(prospective - before) < bestDist) {
-                bestDist = Math.abs(prospective - before);
-                bestStart = before;
-                bestJoint = ss;
-            }
-            if (Math.abs(prospective - after) < bestDist) {
-                bestDist = Math.abs(prospective - after);
-                bestStart = after;
-                bestJoint = se;
-            }
+            if (before >= 0) { snapCands.add(before); snapJoints.add(ss); }
+            snapCands.add(after);
+            snapJoints.add(se);
         }
-        if (bestStart == Long.MIN_VALUE || bestDist > thrMs) return Long.MIN_VALUE;
+        int hit = com.fadcam.ui.faditor.tools.SnapAuthority.nearestIndex(prospective, snapCands.items, snapCands.size, thrMs, true);
+        if (hit < 0) return Long.MIN_VALUE;
+        long bestStart = snapCands.items[hit], bestJoint = snapJoints.items[hit];
         bookendJointMs = bestJoint;
         bookendSnapStartMs = bestStart;
         bookendAfter = bestStart >= bestJoint;
@@ -2139,7 +2135,7 @@ public final class LayerGestureController {
         // SPEC W §3 — a full-span object aligns with nothing: every edge pairing is
         // the whole timeline, so the magnet can only mislead.
         if (isActiveDragFullSpan(totalMs)) return Long.MIN_VALUE;
-        long bestStart = Long.MIN_VALUE, bestDist = thrMs + 1;
+        snapCands.clear();
         for (Track row : rowRenderer.laidOutTracks()) {
             // The landing row is the butt-magnet's business, not ours — offering the same edges
             // twice under two different rules is how two magnets start fighting over one finger.
@@ -2151,20 +2147,30 @@ public final class LayerGestureController {
                 // Candidate STARTS for us that line an edge of ours up with an edge of theirs.
                 long[] candidates = {os, oe, os - draggedDur, oe - draggedDur};
                 for (long c : candidates) {
-                    if (c < 0) continue;
-                    long d = Math.abs(prospective - c);
-                    if (d < bestDist) {
-                        bestDist = d;
-                        bestStart = c;
-                    }
+                    if (c >= 0) snapCands.add(c);
                 }
             }
         }
-        return bestDist <= thrMs ? bestStart : Long.MIN_VALUE;
+        int hit = com.fadcam.ui.faditor.tools.SnapAuthority.nearestIndex(prospective, snapCands.items, snapCands.size, thrMs, true);
+        return hit < 0 ? Long.MIN_VALUE : snapCands.items[hit];
     }
 
     /** ms from the item's start to the finger's grab point, captured on first move. */
     private long moveGrabOffsetMs = -1;
+
+    /** Snap candidates, reused every drag frame (no allocation per move). */
+    private final LongBuf snapCands = new LongBuf(), snapJoints = new LongBuf();
+
+    /** A growable list of longs; {@link #items} is valid up to {@link #size}. */
+    private static final class LongBuf {
+        long[] items = new long[32];
+        int size;
+        void clear() { size = 0; }
+        void add(long v) {
+            if (size == items.length) items = java.util.Arrays.copyOf(items, size * 2);
+            items[size++] = v;
+        }
+    }
 
     /**
      * Place the dragged item at an EXACT start (bookend/home snap) — no grab-offset math.

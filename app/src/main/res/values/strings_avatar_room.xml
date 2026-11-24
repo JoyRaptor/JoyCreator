@@ -22,6 +22,7 @@
     <string name="avatar_hover_path_character">Take this character in hand</string>
 
     <string name="avatar_topps">Topps</string>
+    <string name="avatar_pip">Pip</string>
     <string name="avatar_open">Open</string>
     <string name="avatar_save">Save</string>
     <string name="avatar_close">Close</string>
@@ -34,5 +35,49 @@
     <string name="avatar_hover_open_one">%1$s: open</string>
     <string name="avatar_hover_saved">Saved</string>
     <string name="avatar_hover_not_saved">Not saved yet: Menu, Save puts it in your Joy Creator folder</string>
+    <string name="avatar_parts">Parts</string>
+    <string name="avatar_layers">Layers</string>
+    <string name="avatar_hover_parts">Work part by part, from the body map</string>
+    <string name="avatar_hover_layers">Every layer of the file, as a list</string>
+    <string name="avatar_hover_layer">%1$s: take it in hand</string>
+    <string name="avatar_hover_hide">Hide %1$s</string>
+    <string name="avatar_hover_show">Show %1$s</string>
+    <string name="avatar_step_hide">Hide %1$s</string>
+    <string name="avatar_step_show">Show %1$s</string>
+    <string name="avatar_hover_undo">Undo: %1$s</string>
+    <string name="avatar_hover_redo">Redo: %1$s</string>
+    <string name="avatar_hover_undo_none">Nothing to undo</string>
+    <string name="avatar_hover_redo_none">Nothing to redo</string>
+    <string name="avatar_new_from_pictures">Create new avatar: separate pictures</string>
+    <string name="avatar_hover_new_from_pictures">Separate pictures: one per part</string>
+    <string name="avatar_picture_n">Picture %1$d</string>
+    <string name="avatar_no_pictures">Those pictures could not be read. Nothing was changed.</string>
+    <string name="avatar_hover_part">%1$s: take it in hand</string>
+    <string name="avatar_pick_a_part">Pick a part above, or tap it in the Layers list.</string>
+    <string name="avatar_its_drawings">Its drawings</string>
+    <string name="avatar_hover_try">Try %1$s on the picture</string>
+    <string name="avatar_try_note">Trying a drawing only looks at it: nothing in the file changes.</string>
+    <string name="avatar_in_front_or_behind">In front or behind</string>
+    <string name="avatar_very_back">Very back</string>
+    <string name="avatar_back_one">Back one</string>
+    <string name="avatar_forward_one">Forward one</string>
+    <string name="avatar_very_front">Very front</string>
+    <string name="avatar_hover_very_back">Send this part behind everything beside it</string>
+    <string name="avatar_hover_back_one">Move this part back one place</string>
+    <string name="avatar_hover_forward_one">Move this part forward one place</string>
+    <string name="avatar_hover_very_front">Bring this part in front of everything beside it</string>
+    <string name="avatar_step_very_back">Send %1$s very back</string>
+    <string name="avatar_step_very_front">Bring %1$s very front</string>
+    <string name="avatar_step_back_one">Move %1$s back one</string>
+    <string name="avatar_step_forward_one">Move %1$s forward one</string>
+    <string name="avatar_new_from_psd">Create new avatar: layered file</string>
+    <string name="avatar_hover_new_from_psd">A layered file (.psd): every layer becomes a part</string>
+    <string name="avatar_psd_unreadable">That file could not be opened. Nothing was changed.</string>
+    <string name="avatar_psd_found">Found %1$d layers in %2$d groups. Every layer is a part now; look in Layers.</string>
+    <string name="avatar_step_joybot_show">Joybot: show %1$s</string>
+    <string name="avatar_step_joybot_hide">Joybot: hide %1$s</string>
+    <!-- Studio's own Undo / Redo hover names the step (shared with the Avatar room's) -->
+    <string name="faditor_undo_named">Undo: %1$s</string>
+    <string name="faditor_redo_named">Redo: %1$s</string>
 </resources>
 

@@ -17,18 +17,39 @@ public final class StageView extends View {
     private RestPose pose;
     private final Paint hint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private String hintText = "";
+    private String selected;
+    private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     public StageView(Context c) {
         super(c);
         setBackgroundColor(0xFF000000);
         hint.setColor(0xFFA1A1AA);
         hint.setTextSize(12f * c.getResources().getDisplayMetrics().density);
+        line.setStyle(Paint.Style.STROKE);
+        line.setColor(com.fadcam.ui.faditor.Studio.ARMED);
+        line.setStrokeWidth(Math.max(1f, c.getResources().getDisplayMetrics().density));
     }
 
     public void setCharacter(CharacterDoc d) {
-        if (pose != null) pose.release();
+        if (pose != null && d != null && pose.samePictures(d)) {
+            pose.retarget(d);      // an edit of the tree: the decoded pictures stay
+        } else {
+            if (pose != null) pose.release();
+            pose = d == null ? null : new RestPose(d);
+        }
         doc = d;
-        pose = d == null ? null : new RestPose(d);
+        invalidate();
+    }
+
+    /** Look at one drawing of a set without changing the file; null puts the set back as it was. */
+    public void tryDrawing(String setId, String kidId) {
+        if (pose != null) pose.tryDrawing(setId, kidId);
+        invalidate();
+    }
+
+    /** The part in hand: a cyan hairline round where it is on the picture (the Spotlight look comes with the stage buttons). */
+    public void setSelected(String id) {
+        selected = id;
         invalidate();
     }
 
@@ -51,6 +72,14 @@ public final class StageView extends View {
             c.translate(ox, oy);
             c.scale(s, s);
             pose.draw(c);
+            if (selected != null) {
+                CharacterDoc.Node n = doc.find(selected);
+                android.graphics.RectF r = n == null ? null : pose.bounds(n);
+                if (r != null) {
+                    line.setStrokeWidth(Math.max(1f, dp) / s);
+                    c.drawRect(r, line);
+                }
+            }
             c.restoreToCount(save);
         }
         if (!hintText.isEmpty()) c.drawText(hintText, 12 * dp, getHeight() - 10 * dp, hint);

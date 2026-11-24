@@ -32,13 +32,20 @@ public final class RoomMenu {
     public interface Host {
         String characterName();
 
-        void openTopps();
+        /** One of the characters that come with the app ({@code CharacterAssets.TOPPS} or {@code PIP}). */
+        void openBuiltIn(String asset);
 
         void openFromFolder(CharacterStore.Entry entry);
 
         void openFromPicker();
 
         void saveNow();
+
+        /** The "separate pictures" door: pick pictures, get a new character. */
+        void newFromPictures();
+
+        /** The "layered file" door: pick a .psd or .psb, get a new character. */
+        void newFromLayeredFile();
     }
 
     private RoomMenu() {}
@@ -63,12 +70,16 @@ public final class RoomMenu {
         LinearLayout row = new LinearLayout(c);
         row.setPadding(0, px(dp, 12), 0, px(dp, 12));
         row.addView(card(c, dp, c.getString(R.string.avatar_topps), c.getString(R.string.avatar_hover_open_one, c.getString(R.string.avatar_topps)),
-                v -> { d.dismiss(); host.openTopps(); }));
+                v -> { d.dismiss(); host.openBuiltIn(cc.joycreator.avatar.file.CharacterAssets.TOPPS); }));
+        row.addView(card(c, dp, c.getString(R.string.avatar_pip), c.getString(R.string.avatar_hover_open_one, c.getString(R.string.avatar_pip)),
+                v -> { d.dismiss(); host.openBuiltIn(cc.joycreator.avatar.file.CharacterAssets.PIP); }));
         for (CharacterStore.Entry e : mine)
             row.addView(card(c, dp, e.name, c.getString(R.string.avatar_hover_open_one, e.name), v -> { d.dismiss(); host.openFromFolder(e); }));
         scroll.addView(row);
         box.addView(scroll);
 
+        box.addView(action(c, dp, c.getString(R.string.avatar_new_from_psd), c.getString(R.string.avatar_hover_new_from_psd), v -> { d.dismiss(); host.newFromLayeredFile(); }));
+        box.addView(action(c, dp, c.getString(R.string.avatar_new_from_pictures), c.getString(R.string.avatar_hover_new_from_pictures), v -> { d.dismiss(); host.newFromPictures(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_open), c.getString(R.string.avatar_hover_open), v -> { d.dismiss(); host.openFromPicker(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_save), c.getString(R.string.avatar_hover_save), v -> { d.dismiss(); host.saveNow(); }));
         box.addView(action(c, dp, c.getString(R.string.avatar_close), c.getString(R.string.avatar_hover_close), v -> d.dismiss()));

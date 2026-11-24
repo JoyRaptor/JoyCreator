@@ -97,13 +97,31 @@ not marked as Joybot's. The ratchet baseline fell from 77 to 73.
 **Trade-off to know:** two separate caption chips tapped within 600 ms of each other fold into
 one step. That is the same window SpriteLab uses.
 
+## Batch 4: the last two gaps, and the sweep closed
+
+| Where | Action | Before | Now |
+|---|---|---|---|
+| Studio | Add an audio file from the picker | no step (a voiceover had one) | one step (`AddAudioClipAction`, the voiceover's door) |
+| Studio | Tap a silence to cut it, or tap a cut one to put it back | no step: tapping again was the only way back | one step each way |
+
+**Every method the ratchet counts has been read (11-24).** Each of the 73 is one of these:
+- housekeeping: migration, repair, lifecycle, export settings;
+- recorded by its caller or container: drawer undo sinks, `beginEdit`/`endEdit` brackets, gesture
+  commits, the transform hosts;
+- the undo or redo body itself;
+- dead code: `showWordEditDialog`, `applyWordAbsStart`, the decoration controls;
+- a file or tool setting rather than an edit: asset rename on disk, the folder history, Puppet lock
+  and record-armed.
+
+The armed-slider question is settled in the code: the outline and glow sliders write the base
+value, which is in `TextBoxLook`; only the diamond writes a key, and it records its own step.
+
 ## Still owed (owner or design calls, or a phone)
 
 | Where | Action | Why it is not fixed |
 |---|---|---|
 | Studio | Rename the project | Owner call: a project's name is closer to a file name than to an edit of the work. |
 | SpriteLab | Bake into a new sheet | Design call: SpriteLab's undo holds one sheet, and a bake adds a sheet to the project. It needs a project-level step, or a Put back chip like the one removal has. |
-| Studio text drawer | A slider moved while its stopwatch is armed (it writes a keyframe) | Unsure, and it needs a phone to confirm: the diamonds record their own steps, but a slider drag while armed may not. |
 
 **Noticed in passing, not an undo gap**
 - Caption pinch-resize multiplies the size at touch-down by `getScaleFactor()`. That factor is

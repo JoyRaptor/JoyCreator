@@ -118,3 +118,9 @@ What happens if this phone's driver refuses a shader (host-proven, not on a phon
 3. Time each card on a 1080p clip (frame time with and without), logging battery temperature; compare with a same-hour main. Heaviest suspects: Caustics, Steamed Glass, Stained Glass.
 4. Before/after screenshots into `tasks/screens/` for the picker grid, one card header swatch, and each new effect.
 5. Export a short clip with a new card on; compare against the preview.
+
+## Note 9 pass 11-23 (build df093b915, agent, throwaway project "Restore video test")
+- **Picker: PASS.** All twelve new tiles draw a real picture on the Note 9's GPU (Tiles, Cells, Halftone, Brushed Metal, Chipped Wear, Caustics, Glitter, Burn Away, Stained Glass, LED Board, Flag Wave, Steamed Glass); none reads "Not available on this phone". The swatch renderer is the first thing to compile each effect, so all twelve shaders compile on this driver. Shots: `tasks/screens/hover1-20261123/picker2.png`, `picker3.png`, `picker4.png`.
+- Stained Glass added to an adjustment layer: its card and sliders (Randomness, Lead width, Light through, Lead colour, Seed, Opacity, Blend) open, no crash (`stained.png`). The preview did not visibly change at 0:00 because full-screen picture layers sit above the clip in this project: **not a pass for "draws on a clip"**.
+- Battery temperature 29.7-30.1 C through the run (no throttling).
+- **Still owed:** each effect added to a clip and to an adjustment layer in a project where the clip shows; per-card frame times (Caustics, Steamed Glass, Stained Glass first); export versus preview. Not run, not claimed.

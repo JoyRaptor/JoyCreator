@@ -90,3 +90,10 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 - **Corner pin: still not proven.** With the sprite lane selected, its box and four corner squares show (`k1.png`); an adb swipe of the lower-right corner (700 ms) changed nothing on screen (`k2.png`, same as `k1.png`), twice now. An earlier drag did leave a "Distort sprite" undo step, so the control is wired; a swipe that starts on the handle does not move it reliably. A finger or a scripted touch with a press-and-hold is needed.
 - **STU-5 snapping feel: not checked.** Whether a drag snaps "as before" is a feel judgement that scripted swipes cannot give; it needs the owner's hand or a recorded side-by-side with the old build.
 - Jobs 17 and 18: not started.
+
+## Owner's hands-on list (things an agent cannot judge or drive; added 11-24)
+1. **Corner pin on a sprite by dragging a corner:** three adb swipes (300, 700 and 1400 ms) on the lower-right corner of the selected sprite's box moved nothing on screen (`k2.png`, `k3.png`); an earlier drag left a "Distort sprite" undo step. Try it with a finger and say whether the picture bends.
+2. **STU-5 snapping feel:** drag clips, text and sprites and say whether they snap as before.
+3. Hear a ducked export (the voice lane and the 17-keyframe envelope are in the "Restore video test" project).
+4. A transition between two different clips, each type, played and exported (Untitled 7 only has two identical clips).
+5. Jobs 17 (STU-4 leftovers) and 18 (puppets) are not started: they need projects built first and a screen map; see their cards.

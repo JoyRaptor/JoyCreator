@@ -15,7 +15,7 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C5 bounded mesh rendering and C6 source-ring, reconstruction and LiveFlow ownership are in Actions. C7 blind review tooling and gated help copy are pushed. C4b still awaits Note 9 access.
+- **Active step:** C6 source-ring identity fences are cloud-green. C5 bounded mesh rendering plus C6 reconstruction and LiveFlow ownership remain in Actions. C7 blind review tooling and gated help copy are pushed. C4b still awaits Note 9 access.
 - **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 source ring and decoded safeguards @ `20cee01f7` on `codex/stu7-flow-luma-20261123`; footage reconstruction oracle @ `393fcc04d` on `codex/stu7-c6-reconstruct-20261124`; LiveFlow GL owner @ `29267d128` on `codex/stu7-live-flow-gl-20261124`. Independent C5 mesh stamp and exposure schedule @ `96e9637ba` on `codex/stu7-pose-sampling-20261123`; bounded Exact mesh renderer @ `f592b9198` on `codex/stu7-c5-mesh-sweep-20261124`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`. C7 blind review tool @ `583a31699` and gated help copy @ `2c88fb752` on isolated C7 branches.
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
 - **Exact next action:** Check and repair the three exact cloud runs, then integrate the green C5/C6 components behind the existing launch gate.

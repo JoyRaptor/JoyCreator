@@ -19,7 +19,9 @@ home, lab, records sidebars and the mini-app sheet. All six now have a name (str
   list per room. A rough count shows ~35 files create image views in code; most already name them.
 - Dialogs and popup windows are separate windows: `HoverLabels` only watches an activity's own window.
 - JoyBrush engine/canvas custom views, Avatar/FACE and STU-7 files were not touched (claimed on BOARD).
+- Avatar Studio (`tools/avatarlab/**`, `tasks/avatar/**`, the avatar room classes, the lobby Avatar door): not touched, per the
+  command session 11-23. Buttons there are owed their own pass after that lane lands; the global install already labels any that carry a name. Phone: the Avatar slice-1 lane holds the Note 9 lock, so the phone check waits.
 - Phone check (hover event on the Note 9) owed; cloud build result recorded below.
 
 ## Done log
-- 11-23: global install + six layout names + host check. Cloud build: see below.
+- 11-23: global install + six layout names + host check. Cloud build run 45296875486 green (defaultDebug, 11-23).

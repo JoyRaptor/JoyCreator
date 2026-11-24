@@ -36,3 +36,8 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 ## Code read 11-23 (hover-1 lane, no phone run)
 - **Fade-in readout "24.41 s"** (`AudioDrawerTabs.fadeMsOf`): the slider maps squared (`f*f*maxFade`) onto 0..half the clip, so 24.41 s is exactly the slider's far end on a 48.8 s clip: a short drag that started at or reached the end reads the maximum. Not a wrong number by itself; whether the thumb sat at the end before the drag is the one thing to check on the phone.
 - The rest of this card, the 41-check sweep and STU-6's on-clip checks are still owed (they need a long phone session of their own).
+
+## Note 9 items 11-24 (hover-1 lane, build df093b915, "Restore video test")
+- **Bend on text: preview PASS.** "hello 2" selected, Bend is on, the bend path and corner pin handles show and the letters draw curved (`tasks/screens/hover1-20261123/s1_text.png`). Export versus preview NOT compared (not exported): still owed.
+- **Sprite transform surface: INCONCLUSIVE.** The sprite layer selects and shows the transform box with rotate handle (`s1_sprite.png`); one drag of its top-right corner by adb swipe changed nothing (`s1_sprite_drag.png`), and there is no corner-pin control in the visible toolbar. Not a pass, not proven a fault: the handle may need a slower press or the pin lives under another button. Owed.
+- Not started: ducking with a voice lane, VisLab in Studio, the transitions project, the rest of the 41 checks.

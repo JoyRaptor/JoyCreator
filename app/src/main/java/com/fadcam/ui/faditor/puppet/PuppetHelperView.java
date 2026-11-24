@@ -78,6 +78,8 @@ public class PuppetHelperView extends View {
         /** 0..1 depth of the selected pin, or 0.5 when nothing is selected. */
         float depth();
         void setDepth(float v);
+        /** A depth scrub ended: ONE undo step for the whole drag (owner rule: one press, one step). */
+        default void depthScrubEnded(float before, float after) { }
 
         /** Place a pin of {@code type} at this point in THIS VIEW's parent coordinates. */
         void placePinAt(float parentX, float parentY, @NonNull PuppetPin.Type type);
@@ -543,7 +545,11 @@ public class PuppetHelperView extends View {
                 invalidate();
                 if (idx < 0) return false;
                 if (wasHeld || wasSwipe) return true;
-                if (wasScrub) { host.onChanged(); return true; }
+                if (wasScrub) {
+                    host.depthScrubEnded(scrubBase, host.depth());
+                    host.onChanged();
+                    return true;
+                }
                 if (System.currentTimeMillis() - downAt > HOLD_MS) { onHold(idx); return true; }
                 onTap(idx);
                 return true;

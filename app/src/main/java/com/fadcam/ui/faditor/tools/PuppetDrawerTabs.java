@@ -612,7 +612,7 @@ public final class PuppetDrawerTabs {
         LinearLayout pinToggles = row(ctx);
         addToggle(ctx, host, pinToggles, d, ctx.getString(pin.muted
                         ? R.string.lane_b_puppet_pin_muted : R.string.lane_b_puppet_pin_active),
-                !pin.muted, v -> { pin.muted = !v; host.onRigStructureChanged(); });
+                !pin.muted, v -> { pin.muted = !v; host.onRigStructureChanged(); }, true);
         addToggle(ctx, host, pinToggles, d, ctx.getString(R.string.lane_b_puppet_pin_reach_ring),
                 rig.showReach, v -> rig.showReach = v);
         root.addView(pinToggles);
@@ -626,7 +626,7 @@ public final class PuppetDrawerTabs {
         addToggle(ctx, host, weightRow, d, ctx.getString(R.string.lane_b_puppet_pin_auto_pull),
                 pin.weightIsAuto(),
                 v -> { pin.weight = v ? PuppetPin.WEIGHT_AUTO : 1f;
-                       host.onRigStructureChanged(); });
+                       host.onRigStructureChanged(); }, true);
         root.addView(weightRow);
         gap(ctx, root, d, 7);
         if (!pin.weightIsAuto()) {
@@ -879,11 +879,11 @@ public final class PuppetDrawerTabs {
         // STRETCHY and FLIP ELBOW, two to a line.
         LinearLayout bits = row(ctx);
         addToggle(ctx, host, bits, d, ctx.getString(R.string.lane_b_puppet_bone_stretchy),
-                bone.stretchy, v -> bone.stretchy = v);
+                bone.stretchy, v -> bone.stretchy = v, true);
         // FLIP ELBOW. One bit instead of a pole-target object to position — SPEC §3. It was
         // stored, saved and honoured by FabrikSolver long before anything set it.
         addToggle(ctx, host, bits, d, ctx.getString(R.string.lane_b_puppet_bone_flip_elbow),
-                bone.bendSign < 0, v -> bone.bendSign = v ? -1 : 1);
+                bone.bendSign < 0, v -> bone.bendSign = v ? -1 : 1, true);
         root.addView(bits);
         gap(ctx, root, d, 7);
 
@@ -906,7 +906,7 @@ public final class PuppetDrawerTabs {
 
         LinearLayout limits = row(ctx);
         addToggle(ctx, host, limits, d, ctx.getString(R.string.lane_b_puppet_bone_joint_limits),
-                bone.jointLimits, v -> bone.jointLimits = v);
+                bone.jointLimits, v -> bone.jointLimits = v, true);
         root.addView(limits);
         gap(ctx, root, d, 7);
 
@@ -1219,9 +1219,22 @@ public final class PuppetDrawerTabs {
      * ink. It replaces a boxed cell with a GO-green pip — GO is the colour of pressing to make
      * something happen, and a toggle's state is not that.
      */
+    /** A view or tool setting (show pins, reach ring, record on touch): not an edit, no undo step. */
     private static void addToggle(@NonNull Context ctx, @NonNull Host host,
                                   @NonNull LinearLayout parent, float d,
                                   @NonNull String label, boolean on, @NonNull BoolSink sink) {
+        addToggle(ctx, host, parent, d, label, on, sink, false);
+    }
+
+    /**
+     * {@code edit}: the toggle changes the rig's performance (mute, auto pull, stretchy, flip
+     * elbow, joint limits), so one press is one undo step (owner rule: one press, one step).
+     * Before 11-24 these changed the rig with no undo step at all.
+     */
+    private static void addToggle(@NonNull Context ctx, @NonNull Host host,
+                                  @NonNull LinearLayout parent, float d,
+                                  @NonNull String label, boolean on, @NonNull BoolSink sink,
+                                  boolean edit) {
         LinearLayout cell = row(ctx);
         cell.setGravity(Gravity.CENTER_VERTICAL);
         cell.setMinimumHeight(pad(d, 44));
@@ -1251,6 +1264,11 @@ public final class PuppetDrawerTabs {
             sink.accept(!on);
             host.rebuildRows();
             host.onChanged();
+            if (edit) {
+                host.recordUndo(label,
+                        () -> { sink.accept(!on); host.rebuildRows(); host.onChanged(); },
+                        () -> { sink.accept(on); host.rebuildRows(); host.onChanged(); });
+            }
         });
 
         LinearLayout.LayoutParams lp =

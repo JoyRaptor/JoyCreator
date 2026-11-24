@@ -332,6 +332,25 @@ public class Clip implements AudioParams, MotionBlurItem {
             c.justify = justify;
             return c;
         }
+
+        /**
+         * Put every field back from {@code o} (the same fields {@link #copy} carries), keeping
+         * THIS object: undo steps hold bindings by reference, so a restore must not swap them.
+         */
+        public void setFrom(@NonNull CaptionBinding o) {
+            transcriptId = o.transcriptId;
+            styleId = o.styleId;
+            enabled = o.enabled;
+            centerX = o.centerX;
+            centerY = o.centerY;
+            sizeFraction = o.sizeFraction;
+            label = o.label;
+            fadeInMs = o.fadeInMs;
+            fadeOutMs = o.fadeOutMs;
+            boxWidthFraction = o.boxWidthFraction;
+            anchor = o.anchor;
+            justify = o.justify;
+        }
     }
 
     @NonNull

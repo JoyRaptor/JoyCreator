@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Names of undo steps added in the 11-24 undo sweep (one press, one step). They show in
+     Studio's undo history and on its Undo button's hover label. -->
+<resources>
+    <string name="undo_step_add_caption_track">Add caption track</string>
+    <string name="undo_step_rename_caption_track">Rename caption track</string>
+    <string name="undo_step_delete_caption_track">Delete caption track</string>
+    <string name="undo_step_show_hide_caption_track">Show or hide caption track</string>
+    <string name="undo_step_switch_transcript_version">Switch transcript version</string>
+    <string name="undo_step_rename_transcript_version">Rename transcript version</string>
+    <string name="undo_step_delete_transcript_version">Delete transcript version</string>
+    <string name="undo_step_import_transcript">Import timestamped text</string>
+    <string name="undo_step_volume">Volume</string>
+    <string name="undo_step_hide">Hide</string>
+    <string name="undo_step_lock">Lock</string>
+    <string name="undo_step_pass_through">Pass-through</string>
+</resources>

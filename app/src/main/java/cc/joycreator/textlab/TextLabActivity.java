@@ -641,6 +641,7 @@ public final class TextLabActivity extends Activity implements TlKnobPanel.Host 
 
     @Override
     public void settled() {
+        if (look != null && !jbGrouped) undo.settledAt(look.toString(), words);
         changed();
     }
 

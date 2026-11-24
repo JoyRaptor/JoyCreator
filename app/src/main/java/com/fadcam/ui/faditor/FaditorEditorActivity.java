@@ -7125,6 +7125,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (!dragging && Math.abs(dy) > slop) {
                             dragging = true;
                             v.removeCallbacks(longPress); // it's a drag, not a hold/tap
+                            volumeEditBefore = selectedVolumeState();
                             showVolumeDragHud();
                         }
                         if (dragging) {
@@ -7143,6 +7144,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (dragging) {
                             hideVolumeDragHud();
                             scheduleAutoSave(); // persist the drag-adjusted volume/keyframe
+                            recordVolumeEdit();  // one drag, one undo step (before 11-24: none)
                         } else if (!longPressFired) {
                             v.performClick();
                             showVolumeControl(); // tap → open the sheet (top drawer)
@@ -7152,6 +7154,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     case MotionEvent.ACTION_CANCEL:
                         v.removeCallbacks(longPress);
                         hideVolumeDragHud();
+                        if (dragging) recordVolumeEdit();   // what the drag already changed
                         dragging = false;
                         return true;
                 }
@@ -7512,6 +7515,93 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * selected audio clip, write/update a keyframe at the playhead (so the envelope tracks the
      * drag); otherwise set the whole-clip volume. Applies the gain live to the player.
      */
+    /** A clip's or audio clip's level, mute and volume keyframes: the two ends of a volume step. */
+    private static final class VolumeState {
+        final Object owner;
+        final float level;
+        final boolean muted;
+        final java.util.List<com.fadcam.ui.faditor.model.VolumeKeyframe> keys = new java.util.ArrayList<>();
+
+        VolumeState(@NonNull Object owner) {
+            this.owner = owner;
+            java.util.List<? extends com.fadcam.ui.faditor.model.VolumeKeyframe> live;
+            if (owner instanceof AudioClip) {
+                AudioClip ac = (AudioClip) owner;
+                level = ac.getVolumeLevel();
+                muted = ac.isMuted();
+                live = ac.getVolumeKeyframes();
+            } else {
+                Clip c = (Clip) owner;
+                level = c.getVolumeLevel();
+                muted = c.isAudioMuted();
+                live = c.getVolumeKeyframes();
+            }
+            for (com.fadcam.ui.faditor.model.VolumeKeyframe k : live) {
+                keys.add(new com.fadcam.ui.faditor.model.VolumeKeyframe(k.timeMs, k.volume));
+            }
+        }
+
+        boolean same(@NonNull VolumeState o) {
+            if (owner != o.owner || level != o.level || muted != o.muted || keys.size() != o.keys.size()) return false;
+            for (int i = 0; i < keys.size(); i++) {
+                if (keys.get(i).timeMs != o.keys.get(i).timeMs || keys.get(i).volume != o.keys.get(i).volume) return false;
+            }
+            return true;
+        }
+    }
+
+    /** Where a volume drag, bar drag or Mute tap started; null when no volume edit is open. */
+    @Nullable private VolumeState volumeEditBefore;
+
+    /** The volume state of whatever the volume controls act on (the selected audio clip, else the clip). */
+    @Nullable
+    private VolumeState selectedVolumeState() {
+        if (project == null || editorTimeline == null) return null;
+        int audioIdx = editorTimeline.getSelectedAudioIndex();
+        if (audioIdx >= 0 && project.getTimeline().hasAudioClips()) {
+            AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
+            if (ac != null) return new VolumeState(ac);
+        }
+        Clip clip = getSelectedClip();
+        return clip != null ? new VolumeState(clip) : null;
+    }
+
+    /**
+     * Close the open volume edit as ONE undo step (owner rule: one press, one step). Before
+     * 11-24 the volume tool drag, the drawer's volume bar and its Mute had no undo step.
+     */
+    private void recordVolumeEdit() {
+        final VolumeState before = volumeEditBefore;
+        volumeEditBefore = null;
+        if (before == null) return;
+        final VolumeState after = new VolumeState(before.owner);
+        if (after.same(before)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.undo_step_volume),
+                () -> applyVolumeState(after), () -> applyVolumeState(before)));
+    }
+
+    private void applyVolumeState(@NonNull VolumeState s) {
+        if (s.owner instanceof AudioClip) {
+            AudioClip ac = (AudioClip) s.owner;
+            ac.setVolumeLevel(s.level);
+            ac.setMuted(s.muted);
+            ac.setVolumeKeyframes(s.keys);
+            applyAudioLivePlayerGain(ac);
+        } else {
+            Clip c = (Clip) s.owner;
+            c.setVolumeLevel(s.level);
+            c.setAudioMuted(s.muted);
+            c.setVolumeKeyframes(s.keys);
+            if (playerManager != null && project != null && c == getSelectedClip()) {
+                playerManager.setVolume(com.fadcam.ui.faditor.compositor.LayerPreviewController
+                        .effectiveMasterVolume(project.getTimeline(), c));
+            }
+        }
+        if (editorTimeline != null) editorTimeline.invalidate();
+        if (volumeDrawer != null && volumeDrawer.getVisibility() == View.VISIBLE) refreshVolumeDrawer();
+        scheduleAutoSave();
+    }
+
     private void applyDraggedVolume(float volume) {
         volume = Math.max(0f, Math.min(volume, 2.0f));
         int audioIdx = editorTimeline.getSelectedAudioIndex();
@@ -7607,10 +7697,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (volumeBar != null) {
             volumeBar.setListener(new com.fadcam.ui.faditor.VolumeBarView.Listener() {
                 @Override public void onVolumeSet(float volume) {
+                    if (volumeEditBefore == null) volumeEditBefore = selectedVolumeState();
                     applyDraggedVolume(volume); // reuse: keyframe-at-playhead when armed, else whole-clip
                     refreshVolumeDrawerChrome();
                 }
-                @Override public void onVolumeCommitted() { scheduleAutoSave(); }
+                @Override public void onVolumeCommitted() {
+                    scheduleAutoSave();
+                    recordVolumeEdit();   // one drag of the bar, one undo step (before 11-24: none)
+                }
             });
         }
         // Keyframe arming stopwatch (gray off / green on).
@@ -7623,6 +7717,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Mute toggle.
         if (volumeDrawerMute != null) {
             volumeDrawerMute.setOnClickListener(v -> {
+                volumeEditBefore = selectedVolumeState();
                 int audioIdx = editorTimeline.getSelectedAudioIndex();
                 if (audioIdx >= 0 && project.getTimeline().hasAudioClips()) {
                     AudioClip ac = project.getTimeline().getAudioClip(audioIdx);
@@ -7644,6 +7739,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 refreshVolumeDrawer();
                 scheduleAutoSave();
+                recordVolumeEdit();   // one tap of Mute, one undo step (before 11-24: none)
             });
         }
         View close = findViewById(R.id.volume_drawer_close);
@@ -20397,6 +20493,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         scheduleAutoSave();
     }
 
+    @NonNull
+    private static long[] wordStarts(@Nullable com.fadcam.ui.faditor.transcript.Transcript t) {
+        if (t == null) return new long[0];
+        long[] out = new long[t.words.size()];
+        for (int i = 0; i < out.length; i++) out[i] = t.words.get(i).startMs;
+        return out;
+    }
+
     private void centerSelectedWord() {
         if (wordScrubCurrentIndex < 0 || transcriptView == null) return;
         Clip clip = getSelectedClip();
@@ -20431,11 +20535,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
         long deltaMs = newStartMs - firstWord.startMs;
 
+        // One press of Centre is one undo step (before 11-24 it had none; Nudge did).
+        final com.fadcam.ui.faditor.transcript.Transcript tt = transcriptView.getTranscript();
+        final long[] startsBefore = wordStarts(tt);
         for (int i = 0; i < wordScrubGroupLength; i++) {
             int idx = wordScrubCurrentIndex + i;
             com.fadcam.ui.faditor.transcript.TranscriptWord w = transcriptView.getWord(idx);
             if (w == null) continue;
             transcriptView.setWordStart(idx, Math.max(0, w.startMs + deltaMs));
+        }
+        final long[] startsAfter = wordStarts(tt);
+        if (tt != null && !java.util.Arrays.equals(startsBefore, startsAfter)) {
+            undoManager.recordAction(new com.fadcam.ui.faditor.undo.EditActions.WordTimingAction(
+                    tt, startsBefore, startsAfter));
         }
 
         refreshWordScrubChrome();
@@ -22621,47 +22733,53 @@ public class FaditorEditorActivity extends AppCompatActivity {
             chipsRow.addView(chip);
         }
 
+        // Each button is ONE undo step through vizUndoable (before 11-24 none had one).
         // Action buttons: ＋ add · ⧉ duplicate · 🗑 delete · ◀ ▶ reorder.
         final java.util.List<com.fadcam.ui.faditor.model.VizLayer> fLayers = layers;
         chipsRow.addView(makeVizActionBtn("＋", R.string.studio_hover_viz_add_layer, dp, v -> {
-            com.fadcam.ui.faditor.model.VizLayer nl = fLayers.isEmpty()
-                    ? new com.fadcam.ui.faditor.model.VizLayer()
-                    : fLayers.get(Math.min(visualizerSelectedLayer, fLayers.size() - 1)).copy();
-            fLayers.add(nl);
-            visualizerSelectedLayer = fLayers.size() - 1;
-            commitVisualizerWorkingStyle(overlay);
+            vizUndoable(overlay, () -> {
+                com.fadcam.ui.faditor.model.VizLayer nl = fLayers.isEmpty()
+                        ? new com.fadcam.ui.faditor.model.VizLayer()
+                        : fLayers.get(Math.min(visualizerSelectedLayer, fLayers.size() - 1)).copy();
+                fLayers.add(nl);
+                visualizerSelectedLayer = fLayers.size() - 1;
+            });
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
         chipsRow.addView(makeVizActionBtn("⧉", R.string.studio_hover_viz_duplicate_layer, dp, v -> {
-            if (fLayers.isEmpty()) return;
-            com.fadcam.ui.faditor.model.VizLayer dup = fLayers.get(visualizerSelectedLayer).copy();
-            fLayers.add(visualizerSelectedLayer + 1, dup);
-            visualizerSelectedLayer = visualizerSelectedLayer + 1;
-            commitVisualizerWorkingStyle(overlay);
+            vizUndoable(overlay, () -> {
+                if (fLayers.isEmpty()) return;
+                com.fadcam.ui.faditor.model.VizLayer dup = fLayers.get(visualizerSelectedLayer).copy();
+                fLayers.add(visualizerSelectedLayer + 1, dup);
+                visualizerSelectedLayer = visualizerSelectedLayer + 1;
+            });
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
         chipsRow.addView(makeVizActionBtn("🗑", R.string.studio_hover_viz_delete_layer, dp, v -> {
-            if (fLayers.size() <= 1) { // min 1 layer stays
-                Toast.makeText(this, R.string.studio_toast_at_least_one_lane, Toast.LENGTH_SHORT).show();
-                return;
-            }
-            fLayers.remove(visualizerSelectedLayer);
-            if (visualizerSelectedLayer >= fLayers.size()) visualizerSelectedLayer = fLayers.size() - 1;
-            commitVisualizerWorkingStyle(overlay);
+            vizUndoable(overlay, () -> {
+                if (fLayers.size() <= 1) { // min 1 layer stays
+                    Toast.makeText(this, R.string.studio_toast_at_least_one_lane, Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                fLayers.remove(visualizerSelectedLayer);
+                if (visualizerSelectedLayer >= fLayers.size()) visualizerSelectedLayer = fLayers.size() - 1;
+            });
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
         chipsRow.addView(makeVizActionBtn("◀︎", R.string.studio_hover_viz_move_layer_left, dp, v -> {
-            if (visualizerSelectedLayer <= 0) return;
-            java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer - 1);
-            visualizerSelectedLayer--;
-            commitVisualizerWorkingStyle(overlay);
+            vizUndoable(overlay, () -> {
+                if (visualizerSelectedLayer <= 0) return;
+                java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer - 1);
+                visualizerSelectedLayer--;
+            });
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
         chipsRow.addView(makeVizActionBtn("▶︎", R.string.studio_hover_viz_move_layer_right, dp, v -> {
-            if (visualizerSelectedLayer >= fLayers.size() - 1) return;
-            java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer + 1);
-            visualizerSelectedLayer++;
-            commitVisualizerWorkingStyle(overlay);
+            vizUndoable(overlay, () -> {
+                if (visualizerSelectedLayer >= fLayers.size() - 1) return;
+                java.util.Collections.swap(fLayers, visualizerSelectedLayer, visualizerSelectedLayer + 1);
+                visualizerSelectedLayer++;
+            });
             rebuildVisualizerLayers(overlay, styles, dp, chipsRow, propBox);
         }));
 
@@ -23516,15 +23634,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (useAudio) {
                     if (idx >= audio.getCaptionBindings().size()) { refreshCaptionDrawerIfOpen(); return; }
                     AudioClip.CaptionBinding b = audio.getCaptionBindings().get(idx);
+                    final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(audio);
                     b.enabled = !b.enabled;
                     audio.syncLegacyFromBindings();
                     rebuildAudioCaptionOverlays(audio);
+                    recordCaptionTracks(before, getString(R.string.undo_step_show_hide_caption_track));
                 } else if (vClip != null) {
                     if (idx >= vClip.getCaptionBindings().size()) { refreshCaptionDrawerIfOpen(); return; }
                     Clip.CaptionBinding b = vClip.getCaptionBindings().get(idx);
+                    final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(vClip);
                     b.enabled = !b.enabled;
                     vClip.syncLegacyFromBindings();
                     rebuildCaptionOverlays(vClip);
+                    recordCaptionTracks(before, getString(R.string.undo_step_show_hide_caption_track));
                 }
                 editorTimeline.invalidate();
                 scheduleAutoSave();
@@ -23608,6 +23730,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Create a caption binding for the newest imported transcript on the import target. */
     private void wireNewCaptionTrack(@NonNull String transcriptId) {
+        Object owner = editorTimeline.getSelectedAudioIndex() >= 0
+                && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size()
+                ? project.getTimeline().getAudioClips().get(editorTimeline.getSelectedAudioIndex())
+                : getSelectedClip();
+        final com.fadcam.ui.faditor.undo.CaptionTrackState before = owner != null ? captionTracksOf(owner) : null;
+        wireNewCaptionTrackNow(transcriptId);
+        recordCaptionTracks(before, getString(R.string.undo_step_add_caption_track));
+    }
+
+    private void wireNewCaptionTrackNow(@NonNull String transcriptId) {
         float baseY = 0.38f;
         if (editorTimeline.getSelectedAudioIndex() >= 0
                 && editorTimeline.getSelectedAudioIndex() < project.getTimeline().getAudioClips().size()) {
@@ -23713,16 +23845,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         StudioDialog.dangerNeutral(this)
                 .setTitle(R.string.studio_ui_caption_track)
                 .setView(input)
-                .setPositiveButton(R.string.studio_ui_rename, (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
+                .setPositiveButton(R.string.studio_ui_rename, (d,w) -> { final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip); b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); recordCaptionTracks(before, getString(R.string.undo_step_rename_caption_track)); })
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setNeutralButton(R.string.studio_ui_delete, (d,w) -> {
                     if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, R.string.studio_toast_at_least_one_track_required, android.widget.Toast.LENGTH_SHORT).show(); return; }
                     StudioDialog.danger(this).setTitle(R.string.studio_ui_delete_track).setMessage(getString(R.string.studio_caption_track_delete_message, b.label)).setPositiveButton(R.string.studio_ui_delete, (dd,ww) -> {
+                        final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip);
                         clip.removeCaptionBinding(idx);
                         if (activeCaptionBindingIndex >= clip.getCaptionBindings().size()) activeCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
                         rebuildCaptionOverlays(clip);
                         // hide removed overlay view already handled via remove
                         editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave();
+                        recordCaptionTracks(before, getString(R.string.undo_step_delete_caption_track));
                     }).setNegativeButton(R.string.studio_ui_cancel, null).show();
                 })
                 .show();
@@ -23736,15 +23870,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         StudioDialog.dangerNeutral(this)
                 .setTitle(R.string.studio_ui_caption_track)
                 .setView(input)
-                .setPositiveButton(R.string.studio_ui_rename, (d,w) -> { b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); })
+                .setPositiveButton(R.string.studio_ui_rename, (d,w) -> { final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip); b.label = input.getText().toString().trim(); if (b.label.isEmpty()) b.label = "Track " + (idx+1); clip.syncLegacyFromBindings(); editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); recordCaptionTracks(before, getString(R.string.undo_step_rename_caption_track)); })
                 .setNegativeButton(R.string.studio_ui_cancel, null)
                 .setNeutralButton(R.string.studio_ui_delete, (d,w) -> {
                     if (clip.getCaptionBindings().size() <= 1) { android.widget.Toast.makeText(this, R.string.studio_toast_at_least_one_track_required, android.widget.Toast.LENGTH_SHORT).show(); return; }
                     StudioDialog.danger(this).setTitle(R.string.studio_ui_delete_track).setMessage(getString(R.string.studio_caption_track_delete_message, b.label)).setPositiveButton(R.string.studio_ui_delete, (dd,ww) -> {
+                        final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip);
                         clip.removeCaptionBinding(idx);
                         if (activeAudioCaptionBindingIndex >= clip.getCaptionBindings().size()) activeAudioCaptionBindingIndex = Math.max(0, clip.getCaptionBindings().size()-1);
                         rebuildAudioCaptionOverlays(clip);
                         editorTimeline.invalidate(); refreshCaptionDrawerIfOpen(); scheduleAutoSave();
+                        recordCaptionTracks(before, getString(R.string.undo_step_delete_caption_track));
                     }).setNegativeButton(R.string.studio_ui_cancel, null).show();
                 })
                 .show();
@@ -23770,7 +23906,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     String label = "Track " + (clip.getCaptionBindings().size()+1);
                     Clip.CaptionBinding nb = new Clip.CaptionBinding(nt.id, "pop", true, 0.5f, baseY, 0.06f, label);
+                    final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip);
                     clip.addCaptionBinding(nb);
+                    recordCaptionTracks(before, getString(R.string.undo_step_add_caption_track));
                     setActiveCaptionBinding(clip.getCaptionBindings().size()-1);
                     rebuildCaptionOverlays(clip);
                     editorTimeline.invalidate();
@@ -23800,7 +23938,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     }
                     String label = "Track " + (clip.getCaptionBindings().size()+1);
                     AudioClip.CaptionBinding nb = new AudioClip.CaptionBinding(nt.id, "pop", true, 0.5f, baseY, 0.06f, label);
+                    final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip);
                     clip.addCaptionBinding(nb);
+                    recordCaptionTracks(before, getString(R.string.undo_step_add_caption_track));
                     setActiveAudioCaptionBinding(clip.getCaptionBindings().size()-1);
                     rebuildAudioCaptionOverlays(clip);
                     editorTimeline.invalidate();
@@ -24946,16 +25086,20 @@ public class FaditorEditorActivity extends AppCompatActivity {
             AudioClip ac = getActiveAudioClip();
             if (ac == null || activeAudioCaptionBindingIndex < 0
                     || activeAudioCaptionBindingIndex >= ac.getCaptionBindings().size()) return;
+            final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(ac);
             ac.getCaptionBindings().get(activeAudioCaptionBindingIndex).enabled = enabled;
             ac.syncLegacyFromBindings();
             rebuildAudioCaptionOverlays(ac);
+            recordCaptionTracks(before, getString(R.string.undo_step_show_hide_caption_track));
         } else {
             Clip c = getActiveCaptionClip();
             if (c == null || activeCaptionBindingIndex < 0
                     || activeCaptionBindingIndex >= c.getCaptionBindings().size()) return;
+            final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(c);
             c.getCaptionBindings().get(activeCaptionBindingIndex).enabled = enabled;
             c.syncLegacyFromBindings();
             rebuildCaptionOverlays(c);
+            recordCaptionTracks(before, getString(R.string.undo_step_show_hide_caption_track));
         }
         if (editorTimeline != null) editorTimeline.invalidate();
         refreshCaptionDrawerIfOpen();
@@ -35813,6 +35957,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
     /** How near a key has to be for a key edit to mean THAT key. Two frames at 30fps. */
     private static final long SNAP_TO_KEY_MS = 66L;
 
+    /** Undo/redo of a depth scrub: put {@code pin}'s depth back on {@code it}'s mesh. */
+    private void puppetSetDepthOf(@Nullable com.fadcam.ui.faditor.model.TextOverlayItem it,
+                                  @NonNull com.fadcam.ui.faditor.puppet.PuppetPin pin, float v) {
+        pin.depth = v;
+        if (it != null && it.getMesh() != null && it.getMesh().topology()
+                instanceof com.fadcam.ui.faditor.transform.mesh.PuppetTopology) {
+            com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.applyDepth(it.getMesh(), it.getPuppet());
+        }
+        if (it == puppetItem) repaintPuppetPicture();
+        if (objectDrawer != null) objectDrawer.refreshCurrentTab();
+        scheduleAutoSave();
+    }
+
     /** Drop or delete a key for the selected pin, as one undo step. */
     private void puppetKeyEdit(@NonNull String label, boolean drop) {
         com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec = puppetSpec();
@@ -36002,6 +36159,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     com.fadcam.ui.faditor.puppet.PuppetMeshBuilder.applyDepth(
                             puppetSpec(), puppetItem == null ? null : puppetItem.getPuppet());
                     repaintPuppetPicture();
+                }
+
+                // The depth scrub had no undo step at all before 11-24. One drag is one step,
+                // bound to the pin it moved (the selection may change before Undo is pressed).
+                @Override public void depthScrubEnded(float before, float after) {
+                    final com.fadcam.ui.faditor.puppet.PuppetPin p = puppetSelectedPinOrNull();
+                    if (p == null || Math.abs(after - before) < 1e-4f) return;
+                    final com.fadcam.ui.faditor.model.TextOverlayItem it = puppetItem;
+                    undoManager.recordAction(new EditActions.LambdaAction("Pin depth",
+                            () -> puppetSetDepthOf(it, p, after),
+                            () -> puppetSetDepthOf(it, p, before)));
                 }
 
                 @Override public void placePinAt(float parentX, float parentY,
@@ -38864,33 +39032,55 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
+        // Each tap is ONE undo step (owner rule: one press, one step); before 11-24 Hide, Lock
+        // and Pass-through changed the object with no undo step, and Hide changes the export.
+        final Runnable flipHidden = () -> {
+            o.setHidden(!o.isHidden());
+            refreshAfterMarqueeBatchDelete();
+            requestGlPreviewResync();   // an image drawn by the GL preview must hide/show while paused too
+            scheduleAutoSave();
+        };
+        final Runnable flipLocked = () -> {
+            o.setLocked(!o.isLocked());
+            scheduleAutoSave();
+        };
+        final Runnable flipPass = () -> {
+            o.setPassThrough(!o.isPassThrough());
+            refreshAfterMarqueeBatchDelete();
+            scheduleAutoSave();
+        };
+        // Undo and redo run away from the drawer, so they also repaint its buttons.
+        final java.util.function.Function<Runnable, Runnable> andShow = r -> () -> {
+            r.run();
+            if (objectDrawer != null) objectDrawer.refreshCurrentTab();
+        };
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 o::isHidden,
                 () -> {
-                    o.setHidden(!o.isHidden());
-                    refreshAfterMarqueeBatchDelete();
-                    requestGlPreviewResync();   // an image drawn by the GL preview must hide/show while paused too
-                    scheduleAutoSave();
+                    flipHidden.run();
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.undo_step_hide), andShow.apply(flipHidden), andShow.apply(flipHidden)));
                 }, true));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_lock, R.drawable.ic_lock,
                 o::isLocked,
                 () -> {
-                    o.setLocked(!o.isLocked());
-                    scheduleAutoSave();
+                    flipLocked.run();
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.undo_step_lock), andShow.apply(flipLocked), andShow.apply(flipLocked)));
                 }, false));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
                 o::isPassThrough,
                 () -> {
-                    o.setPassThrough(!o.isPassThrough());
+                    flipPass.run();
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.undo_step_pass_through), andShow.apply(flipPass), andShow.apply(flipPass)));
                     android.widget.Toast.makeText(this,
                             o.isPassThrough()
                                     ? getString(R.string.studio_opt_taps_now_pass_through_this) : getString(R.string.studio_opt_touchable_in_the_preview_again),
                             android.widget.Toast.LENGTH_SHORT).show();
-                    refreshAfterMarqueeBatchDelete();
-                    scheduleAutoSave();
                 }, false));
         return toggles;
     }
@@ -42603,6 +42793,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
             @Override public void onScaleEnd(android.view.ScaleGestureDetector d) {
                 if (!Float.isNaN(captionPinchBaseSize)) {
+                    // One pinch is one undo step (before 11-24 a pinch had none; the size slider did).
+                    recordCaptionSizeUndo(captionPinchBaseSize);
                     scheduleAutoSave();
                     editorTimeline.invalidate();
                 }
@@ -43476,11 +43668,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         StudioDialog.builder(this)
                 .setTitle(R.string.faditor_transition_duration_title)
                 .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    final TransitionLook before = new TransitionLook(transition);
                     transition.durationMs = presets[which];
                     if (editorTimeline != null) {
                         editorTimeline.setTransitions(project.getTimeline().getTransitions());
                     }
                     saveProjectNow();
+                    recordTransitionChange(transition, index, before,
+                            getString(R.string.faditor_transition_duration_title));
                     showTransitionInspector(index);
                     dialog.dismiss();
                 })
@@ -43510,6 +43705,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     @Override public String key(int i) { return types[i] == Transition.Type.GL_SHADER ? null : "trans:" + types[i]; }
                     @Override public android.graphics.Bitmap load(int i) { return com.fadcam.ui.faditor.TransitionGlyphs.of(types[i]); }
                 }), (dialog, which) -> {
+                    final TransitionLook before = new TransitionLook(transition);
                     Transition.Type picked = types[which];
                     transition.type = picked;
                     if (editorTimeline != null) {
@@ -43518,12 +43714,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     saveProjectNow();
                     dialog.dismiss();
                     if (glTransitionPreviewView != null) glTransitionPreviewView.clear();
+                    // Type then direction (or GL effect) is ONE choice to the person: the
+                    // follow-up picker records the whole of it as one step, picked or cancelled.
                     if (picked == Transition.Type.GL_SHADER) {
                         if (transition.glTransitionId == null) transition.glTransitionId = "CrossZoom";
-                        showGlTransitionPicker(transition, index);
+                        showGlTransitionPicker(transition, index, before);
                     } else if (picked == Transition.Type.WIPE_LEFT || picked == Transition.Type.PUSH_LEFT) {
-                        showTransitionDirectionPicker(transition, index, picked == Transition.Type.PUSH_LEFT);
+                        showTransitionDirectionPicker(transition, index, picked == Transition.Type.PUSH_LEFT, before);
                     } else {
+                        recordTransitionChange(transition, index, before,
+                                getString(R.string.faditor_transition_type_title));
                         showTransitionInspector(index);
                     }
                 })
@@ -43532,7 +43732,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Pick the direction for a wipe/push transition (the "+"-badge option). */
-    private void showTransitionDirectionPicker(@NonNull Transition transition, int index, boolean push) {
+    private void showTransitionDirectionPicker(@NonNull Transition transition, int index, boolean push,
+                                               @NonNull TransitionLook before) {
         final Transition.Type[] types = push
                 ? new Transition.Type[]{Transition.Type.PUSH_LEFT, Transition.Type.PUSH_RIGHT,
                         Transition.Type.PUSH_UP, Transition.Type.PUSH_DOWN}
@@ -43556,11 +43757,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     showTransitionInspector(index);
                 })
                 .setNegativeButton(android.R.string.cancel, null)
+                // picked, cancelled or backed out of: the type already changed, so one step
+                .setOnDismissListener(d -> recordTransitionChange(transition, index, before,
+                        getString(R.string.faditor_transition_type_title)))
                 .show();
     }
 
     /** Choose which of the 26 GL transitions a GL_SHADER transition uses (from the catalog). */
-    private void showGlTransitionPicker(@NonNull Transition transition, int index) {
+    private void showGlTransitionPicker(@NonNull Transition transition, int index,
+                                        @NonNull TransitionLook before) {
         java.util.List<com.fadcam.ui.faditor.gltransitions.GLTransitionCatalog.Entry> entries =
                 com.fadcam.ui.faditor.gltransitions.GLTransitionCatalog.entries();
         CharSequence[] labels = new CharSequence[entries.size()];
@@ -43608,7 +43813,57 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     if (glTransitionPreviewView != null) glTransitionPreviewView.clear();
                 })
                 .setNegativeButton(android.R.string.cancel, null)
+                .setOnDismissListener(d -> recordTransitionChange(transition, index, before,
+                        getString(R.string.faditor_gl_transition_pick_title)))
                 .show();
+    }
+
+    /** What a transition picker can change: its length, type and GL effect. */
+    private static final class TransitionLook {
+        final long durationMs;
+        final Transition.Type type;
+        @Nullable final String glId;
+
+        TransitionLook(@NonNull Transition t) {
+            durationMs = t.durationMs;
+            type = t.type;
+            glId = t.glTransitionId;
+        }
+
+        void applyTo(@NonNull Transition t) {
+            t.durationMs = durationMs;
+            t.type = type;
+            t.glTransitionId = glId;
+        }
+
+        boolean same(@NonNull TransitionLook o) {
+            return durationMs == o.durationMs && type == o.type
+                    && (glId == null ? o.glId == null : glId.equals(o.glId));
+        }
+    }
+
+    /**
+     * ONE undo step for a transition picker (owner rule: one press, one step). Before 11-24 the
+     * duration, type, direction and GL pickers changed the transition with no undo step at all.
+     */
+    private void recordTransitionChange(@NonNull Transition t, int index,
+                                        @NonNull TransitionLook before, @NonNull String label) {
+        final TransitionLook after = new TransitionLook(t);
+        if (after.same(before)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(label,
+                () -> applyTransitionLook(t, index, after),
+                () -> applyTransitionLook(t, index, before)));
+    }
+
+    private void applyTransitionLook(@NonNull Transition t, int index, @NonNull TransitionLook look) {
+        look.applyTo(t);
+        if (project != null && editorTimeline != null) {
+            editorTimeline.setTransitions(project.getTimeline().getTransitions());
+        }
+        resyncPlayerForTransitionChange();
+        View inspector = findViewById(R.id.transition_inspector);
+        if (inspector != null && inspector.getVisibility() == View.VISIBLE) showTransitionInspector(index);
+        scheduleAutoSave();
     }
 
     private void hideTransitionInspector() {
@@ -45784,6 +46039,15 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** Switch which transcript version is active (panel + captions follow). */
     private void switchTranscriptVersion(int index) {
+        AudioClip owner = versionBarAudioOwner();
+        Clip vOwner = owner == null ? getSelectedClip() : null;
+        final com.fadcam.ui.faditor.undo.CaptionTrackState before = owner != null ? captionTracksOf(owner)
+                : vOwner != null ? captionTracksOf(vOwner) : null;
+        switchTranscriptVersionNow(index);
+        recordCaptionTracks(before, getString(R.string.undo_step_switch_transcript_version));
+    }
+
+    private void switchTranscriptVersionNow(int index) {
         AudioClip ac = versionBarAudioOwner();
         if (ac != null) {
             transcriptIsForAudio = true;
@@ -45935,6 +46199,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             final Runnable commit = () -> {
                 String name = input.getText().toString().trim();
                 if (!name.isEmpty() && !name.equals(nt.label)) {
+                    final String was = nt.label;
+                    undoManager.recordAction(new EditActions.LambdaAction(
+                            getString(R.string.undo_step_rename_transcript_version),
+                            () -> { nt.label = name; refreshTranscriptVersionBar(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); },
+                            () -> { nt.label = was; refreshTranscriptVersionBar(); refreshCaptionDrawerIfOpen(); scheduleAutoSave(); }));
                     nt.label = name;
                     refreshTranscriptVersionBar();      // chips + header
                     refreshCaptionDrawerIfOpen(); // add-track chooser labels (§7.1.5: in place)
@@ -46022,10 +46291,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     boolean preferAudio = (editorTimeline.getSelectedAudioIndex() >= 0
                             && editorTimeline.getSelectedAudioIndex()
                                     < project.getTimeline().getAudioClips().size());
+                    final com.fadcam.ui.faditor.undo.CaptionTrackState before;
                     if (preferAudio) {
-                        project.getTimeline().getAudioClips()
-                                .get(editorTimeline.getSelectedAudioIndex()).addTranscript(named);
+                        AudioClip target = project.getTimeline().getAudioClips()
+                                .get(editorTimeline.getSelectedAudioIndex());
+                        before = captionTracksOf(target);
+                        target.addTranscript(named);
                     } else if (getSelectedClip() != null) {
+                        before = captionTracksOf(getSelectedClip());
                         getSelectedClip().addTranscript(named);
                     } else {
                         return;
@@ -46052,8 +46325,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 if ("import".equals(nt.engine)) newest = nt; // last wins = newest
                             }
                         }
-                        if (newest != null) wireNewCaptionTrack(newest.id);
+                        if (newest != null) {
+                            captionTracksBatch++;
+                            try { wireNewCaptionTrack(newest.id); } finally { captionTracksBatch--; }
+                        }
                     }
+                    recordCaptionTracks(before, getString(R.string.undo_step_import_transcript));
                     Toast.makeText(this, getString(R.string.studio_d3_imported_words, parsed.words.size()),
                             Toast.LENGTH_SHORT).show();
                 })
@@ -46076,6 +46353,60 @@ public class FaditorEditorActivity extends AppCompatActivity {
      * indices are all stale the instant it returns — a stale pill tap used to index past the
      * end of the shrunken binding list and throw IndexOutOfBoundsException.
      */
+    /**
+     * Above 0 while an edit that records ONE step for itself is running inner edits that would
+     * otherwise each record one (an import that also wires a new caption track).
+     */
+    private int captionTracksBatch;
+
+    @NonNull
+    private com.fadcam.ui.faditor.undo.CaptionTrackState captionTracksOf(@NonNull Object owner) {
+        return owner instanceof AudioClip ? com.fadcam.ui.faditor.undo.CaptionTrackState.of((AudioClip) owner)
+                : com.fadcam.ui.faditor.undo.CaptionTrackState.of((Clip) owner);
+    }
+
+    /**
+     * ONE undo step for a change to a clip's transcript versions or caption tracks, from
+     * {@code before} to how they are now (owner rule: one press, one step). Before 11-24
+     * deleting a version, importing one, renaming, switching, and adding, renaming, deleting,
+     * showing or hiding a caption track had no undo step at all.
+     */
+    private void recordCaptionTracks(@Nullable com.fadcam.ui.faditor.undo.CaptionTrackState before, @NonNull String label) {
+        if (before == null || captionTracksBatch > 0) return;
+        final com.fadcam.ui.faditor.undo.CaptionTrackState after = captionTracksOf(before.owner());
+        if (after.sameAs(before)) return;
+        undoManager.recordAction(new EditActions.LambdaAction(label,
+                () -> applyCaptionTracks(after), () -> applyCaptionTracks(before)));
+    }
+
+    private void applyCaptionTracks(@NonNull com.fadcam.ui.faditor.undo.CaptionTrackState s) {
+        s.restore();
+        AudioClip ac = s.owner() instanceof AudioClip ? (AudioClip) s.owner() : null;
+        Clip clip = s.owner() instanceof Clip ? (Clip) s.owner() : null;
+        afterCaptionBindingsShrank(ac, clip);
+        String ownerId = ac != null ? ac.getId() : clip.getId();
+        if (ownerId.equals(transcriptClipId) && transcriptView != null) {
+            currentTranscript = ac != null ? ac.getTranscript() : clip.getTranscript();
+            if (currentTranscript != null) {
+                transcriptModelChoice.setVisibility(View.GONE);
+                transcriptView.setVisibility(View.VISIBLE);
+                transcriptView.setTranscript(currentTranscript);
+            } else {
+                transcriptView.setVisibility(View.GONE);
+                transcriptModelChoice.setVisibility(View.VISIBLE);
+                updateModelChoiceReadyLabels();
+            }
+            refreshTranscriptVersionBar();
+        }
+        if (ac != null) {
+            int ai = project.getTimeline().getAudioClips().indexOf(ac);
+            if (ai >= 0 && editorTimeline != null) editorTimeline.setAudioClipTranscript(ai, ac.getTranscript());
+        } else {
+            syncTimelineTranscript();
+        }
+        scheduleAutoSave();
+    }
+
     private void afterCaptionBindingsShrank(@Nullable AudioClip ac, @Nullable Clip clip) {
         if (ac != null) {
             int n = ac.getCaptionBindings().size();
@@ -46103,6 +46434,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (ac == null || index < 0 || index >= ac.getTranscripts().size()) return;
             versions = ac.getTranscripts();
             delete = () -> {
+                final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(ac);
                 ac.removeTranscript(index);
                 afterCaptionBindingsShrank(ac, null);
                 currentTranscript = ac.getTranscript();
@@ -46115,12 +46447,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 refreshTranscriptVersionBar();
                 saveProjectNow();
+                recordCaptionTracks(before, getString(R.string.undo_step_delete_transcript_version));
             };
         } else {
             Clip clip = getSelectedClip();
             if (clip == null || index < 0 || index >= clip.getTranscripts().size()) return;
             versions = clip.getTranscripts();
             delete = () -> {
+                final com.fadcam.ui.faditor.undo.CaptionTrackState before = captionTracksOf(clip);
                 clip.removeTranscript(index);
                 afterCaptionBindingsShrank(null, clip);
                 currentTranscript = clip.getTranscript();
@@ -46133,6 +46467,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 }
                 refreshTranscriptVersionBar();
                 saveProjectNow();
+                recordCaptionTracks(before, getString(R.string.undo_step_delete_transcript_version));
             };
         }
         String label = versions.get(index).label;

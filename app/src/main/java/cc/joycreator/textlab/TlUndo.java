@@ -39,6 +39,16 @@ final class TlUndo {
         ahead.clear();
     }
 
+    /**
+     * A change has settled at {@code look}/{@code words}: if it changed nothing (a slider tapped without moving, a
+     * colour dialog closed on the same colour), the step it opened would cost an Undo press that does nothing, so it
+     * is dropped (11-24 undo sweep).
+     */
+    void settledAt(@NonNull String look, @NonNull String words) {
+        Step top = back.peek();
+        if (top != null && !typing && top.look.equals(look) && top.words.equals(words)) back.pop();
+    }
+
     /** Undo: the step to go back to (the current state is kept for redo), or null. */
     @Nullable
     Step undo(@NonNull String look, @NonNull String words) {

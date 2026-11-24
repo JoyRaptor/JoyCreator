@@ -188,23 +188,32 @@ final class TlKnobPanel extends LinearLayout {
         s.setContentDescription(k.label);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) s.setTooltipText(k.label);
         s.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            /** A finger is on the slider: its touch-down already opened the step. */
+            private boolean tracking;
+
             @Override
             public void onProgressChanged(SeekBar sb, int pr, boolean user) {
                 if (!user) return;
+                // A key or TalkBack step has no touch-down: each press opens its own step (before
+                // 11-24 it changed the look with no undo step at all).
+                if (!tracking) host.beginChange(k.label);
                 double v = k.min + pr / 1000.0 * span;
                 if (k.step > 0) v = k.min + Math.round((v - k.min) / k.step) * k.step;
                 v = Math.round(v * 10000) / 10000.0;
                 out.setText(fmt(v));
                 host.knob(k.name, v);
+                if (!tracking) host.settled();
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar sb) {
+                tracking = true;
                 host.beginChange(k.label);
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar sb) {
+                tracking = false;
                 markUsed();
                 host.settled();
             }

@@ -1006,6 +1006,9 @@ final class KnobPanel extends LinearLayout {
                     }
                 }
                 if (v == last) return;   // held on a magnet: nothing changed
+                // A key or TalkBack step has no touch-down, so nothing opened a step for it: each
+                // press is its own (before 11-24 these changed the look with no undo step).
+                if (snap == null) host.beginEdit(k.label);
                 last = v;
                 setBase(holder, k.id, v);
                 val.setText(fmt(v));

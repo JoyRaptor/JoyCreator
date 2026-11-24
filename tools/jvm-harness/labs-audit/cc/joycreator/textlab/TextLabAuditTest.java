@@ -20,6 +20,7 @@ public final class TextLabAuditTest {
         aDraftKeepsEverything();
         badDraftsAreRefused();
         stopEndsTheCopy();
+        aChangeOfNothingCostsNoPress();
         System.out.println(pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
     }
@@ -106,6 +107,24 @@ public final class TextLabAuditTest {
             stopped = true;
         }
         check("Stop ends the copy at the next piece", stopped);
+    }
+
+    // ---- 11-24 undo sweep: a slider tapped without moving, a colour dialog closed unchanged ----
+
+    static void aChangeOfNothingCostsNoPress() {
+        TlUndo u = new TlUndo();
+        u.before("{\"a\":1}", "HI", "Size");
+        u.settledAt("{\"a\":2}", "HI");                        // a real change: the step stays
+        check("a real change keeps its step", u.canUndo());
+        u.before("{\"a\":2}", "HI", "Glow");
+        u.settledAt("{\"a\":2}", "HI");                        // touched, not moved: dropped
+        TlUndo.Step s = u.undo("{\"a\":2}", "HI");
+        check("a change of nothing is not a step: one Undo goes back past the real change",
+                s != null && s.look.equals("{\"a\":1}") && !u.canUndo());
+        TlUndo t = new TlUndo();
+        t.typed("{}", "H", "Words");
+        t.settledAt("{}", "H");                                // never drops a typing run
+        check("a typing run is never dropped by settling", t.canUndo());
     }
 
     static void check(String what, boolean ok) {

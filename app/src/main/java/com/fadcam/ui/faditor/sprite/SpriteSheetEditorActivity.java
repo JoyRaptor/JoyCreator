@@ -182,7 +182,9 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             sheet.setSheetUri(Uri.fromFile(dest).toString());
             if (isNewSheet) applyGridFromName(src);
             reloadRenderer();
-            markDirtyQuiet();   // a new or relinked picture is a change on disk: Home must save it
+            // A new or relinked picture is a change on disk: Home must save it. A relink on an
+            // existing sheet is also its own undo step; before 11-24 it rode on the next edit's.
+            if (isNewSheet) markDirtyQuiet(); else markDirty();
         } catch (Exception e) {
             Toast.makeText(this, R.string.sprite_editor_import_failed, Toast.LENGTH_LONG).show();
             if (isNewSheet) finish();
@@ -733,6 +735,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         long now = android.os.SystemClock.uptimeMillis();
         if (settled == null) { settled = snapshot(); burstAt = now; return; }
         if (now - burstAt > burstMs) {
+            // A "change" that changed nothing (Detect that found no grid, a Put back, a rename
+            // to the same name) must not cost an Undo press that does nothing (11-24 sweep).
+            if (benchBody != null) benchBody.removeCallbacks(settle);
+            if (settled.equals(snapshot())) { burstAt = now; return; }
             undoStack.push(settled);
             // SPEC_20260910_SPRITELAB_UI §10 asks for 100. A snapshot is one serialised
             // sheet, so the whole stack weighs less than a single decoded frame of the art.
@@ -2154,7 +2160,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         xf.dx += ddx;
         xf.dy += ddy;
         sheet.setCellTransform(cell, xf);
-        markDirty();
+        gestureStep();
         refreshArt();
     }
 
@@ -2175,7 +2181,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         while (r < 0f) r += 360f;
         xf.rot = Math.round(r);
         sheet.setCellTransform(cell, xf);
-        markDirty();
+        gestureStep();
         refreshArt();
     }
 
@@ -2187,13 +2193,39 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         SpriteSheet.CellXf xf = t == null ? new SpriteSheet.CellXf() : t.copy();
         xf.scale = Math.max(0.05f, Math.min(8f, xf.scale * factor));
         sheet.setCellTransform(cell, xf);
-        markDirty();
+        gestureStep();
         refreshArt();
     }
 
     /** The hand came off the preview: let the numbers show what the drag did. */
     void alignGestureEnded() {
+        closeGestureStep();
         if ("play".equals(labSection)) showSection("play");
+    }
+
+    /** The hand is off the preview: the next edit opens a step of its own. */
+    void closeGestureStep() {
+        if (!gestureOpen) return;
+        gestureOpen = false;
+        burstMs = 600;
+    }
+
+    private boolean gestureOpen;
+
+    /**
+     * A drag, twist or pinch on the preview: ONE undo step from touch to lift, however long the
+     * hand pauses (before 11-24 a pause of 0.6 s split it in two), and never folded into the
+     * edit before it.
+     */
+    private void gestureStep() {
+        if (!gestureOpen) {
+            gestureOpen = true;
+            burstMs = 0;                  // the first move always opens a new step...
+            markDirty();
+            burstMs = Integer.MAX_VALUE;  // ...and every later one folds into it until lift
+            return;
+        }
+        markDirty();
     }
 
     private interface XfEdit { void apply(@NonNull SpriteSheet.CellXf xf); }
@@ -4030,6 +4062,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     downX = e.getRawX();
                     dragged = false;
                     burstMs = 4000;   // the whole gesture is one undo step
+                    burstAt = 0;      // ...and its OWN step, never the tail of the last edit
                     // Inside two nested scrollers; without this the first millimetre of a
                     // horizontal drag is stolen and the number never moves.
                     if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -4355,6 +4388,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             sheet.setBgKey(0, 0f);
             reloadRenderer(); // re-decode without the key
             syncKeyChip();
+            markDirty();      // one undo step, and saved (before 11-24: neither)
             Toast.makeText(this, R.string.sprite_editor_key_cleared, Toast.LENGTH_SHORT).show();
             return;
         }
@@ -4373,6 +4407,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         reloadRenderer(); // one-time color→alpha at decode (preview==export pixels)
         syncKeyChip();
         syncControls();
+        markDirty();      // one undo step, and saved (before 11-24: neither)
     }
 
     private void syncKeyChip() {
@@ -4821,6 +4856,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
                     if (dragging) { dragging = false; activity.alignGestureEnded(); }
+                    else activity.closeGestureStep();   // a lift straight out of a twist
                     getParent().requestDisallowInterceptTouchEvent(false);
                     return true;
                 default:

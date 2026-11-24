@@ -1,0 +1,10 @@
+{
+ "app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java": 65,
+ "app/src/main/java/com/fadcam/ui/faditor/puppet/PuppetHelperView.java": 3,
+ "app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java": 1,
+ "app/src/main/java/com/fadcam/ui/faditor/tools/AudioDrawerTabs.java": 1,
+ "app/src/main/java/com/fadcam/ui/faditor/tools/PuppetDrawerTabs.java": 2,
+ "app/src/main/java/com/fadcam/ui/faditor/transform/AffineTransformHost.java": 1,
+ "app/src/main/java/com/fadcam/ui/faditor/transform/CornerPinTransformHost.java": 3,
+ "app/src/main/java/com/fadcam/ui/faditor/transform/MeshBendSeam.java": 1
+}

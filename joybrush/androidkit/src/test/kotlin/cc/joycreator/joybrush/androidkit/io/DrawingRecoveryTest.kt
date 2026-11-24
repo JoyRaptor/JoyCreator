@@ -115,4 +115,50 @@ class DrawingRecoveryTest {
         assertFalse(File(dir, "opened.joybrush").exists())
         assertFalse(File(dir, "opened.joybrush.bak").exists())
     }
+
+    // Codex audit round 4, JB-SAVE-IO: a working save is kept for the restore by holding the saved file, not by copying it.
+    // Where the file system cannot tell files apart (a JVM on Windows) the recovery copies as before, and these say nothing.
+    private fun pinning(dir: File) = DrawingRecovery.identity(dir) != null
+
+    @Test fun aWorkingSaveIsKeptWithoutACopy() = inDirectory { dir, recovery ->
+        if (!pinning(dir)) return@inDirectory
+        recovery.rememberOpened(art(value = 10))
+        val working = File(dir, "current.joybrush")
+        JbArchive.save(working, art(value = 20)); recovery.rememberWorking(working)
+        JbArchive.save(working, art(value = 30)); recovery.rememberWorking(working)
+        // The opened drawing's copy is gone once two saves stand in for it, and nothing was copied in its place.
+        assertEquals(setOf("current.joybrush", "current.joybrush.bak"), dir.list()!!.toSet())
+        same(art(value = 30), recovery.read("drawing"))
+        assertEquals(setOf("current.joybrush", "current.joybrush.bak"), dir.list()!!.toSet())
+    }
+    @Test fun aWorkingFileRemovedAfterItsSaveIsStillRestored() = inDirectory { dir, recovery ->
+        if (!pinning(dir)) return@inDirectory
+        recovery.rememberOpened(art(value = 10))
+        val working = File(dir, "current.joybrush")
+        JbArchive.save(working, art(value = 20)); recovery.rememberWorking(working)
+        assertTrue(working.delete())   // put in the Trash from the lobby, say, while this screen was away
+        same(art(value = 20), recovery.read("drawing"))
+        assertFalse(working.exists())
+    }
+    @Test fun aWorkingFileReplacedByAnotherWriterGivesBackThisScreensSave() = inDirectory { dir, recovery ->
+        if (!pinning(dir)) return@inDirectory
+        recovery.rememberOpened(art(value = 10))
+        val working = File(dir, "current.joybrush")
+        JbArchive.save(working, art(value = 20)); recovery.rememberWorking(working)
+        JbArchive.save(working, art(value = 30)); recovery.rememberWorking(working)
+        // Another screen saves the same drawing twice: both of this screen's generations are gone from the folder.
+        JbArchive.save(working, art(value = 70)); JbArchive.save(working, art(value = 80))
+        same(art(value = 30), recovery.read("drawing"))
+        same(art(value = 30), recovery.read("drawing"))   // and a second restore just the same
+        assertEquals(80, JbArchive.open(working).tiles.values.single()[0].toInt())
+    }
+    @Test fun theOlderSaveServesWhenTheNewestIsDamagedAndGone() = inDirectory { dir, recovery ->
+        if (!pinning(dir)) return@inDirectory
+        recovery.rememberOpened(art(value = 10))
+        val working = File(dir, "current.joybrush")
+        JbArchive.save(working, art(value = 20)); recovery.rememberWorking(working)
+        JbArchive.save(working, art(value = 30)); recovery.rememberWorking(working)
+        working.writeText("broken")   // never done by the app (it writes a new file and renames it), but the older save still serves
+        same(art(value = 20), recovery.read("drawing"))
+    }
 }

@@ -1142,6 +1142,9 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
     /** One step of a paste brush: the brush trades with the canvas under it, both sides from the same state. */
     // Its three passes are systrace sections only: a paste stroke makes a dozen steps a frame, and timing each (glFinish
     // brackets) would measure the brackets. The canvas times all of a frame's steps at once (paste.frame).
+    /** Codex audit round 4, OIL-STEP: CPU time the paste steps spent asking the page table for their 5x5 tiles (bench report). */
+    @JvmField var pasteNbrNs = 0L
+
     fun pasteStep(st: PasteStep, b: PasteBrush, paper: MediaPaperGl, pxPerMm: Double, seed: Int) {
         finishWaterJob()   // it reads or writes what a water job does
         traced("JB.media.paper.bake") { bakePaper(paper) }
@@ -1176,8 +1179,10 @@ class MediaLayerEngine(private val shaders: ShaderLibrary = ShaderLibrary(), val
             if (floor((rect[0] - reach) / MediaAtlasDraw.SIDE).toInt() < ctx - 2 || floor((rect[1] - reach) / MediaAtlasDraw.SIDE).toInt() < cty - 2 ||
                 floor((rect[2] + reach) / MediaAtlasDraw.SIDE).toInt() > ctx + 2 || floor((rect[3] + reach) / MediaAtlasDraw.SIDE).toInt() > cty + 2)
                 android.util.Log.w("JoyBrushMediaAtlas", "a paste step wider than 5 tiles: its brush reads past what it is handed")
+            val n0 = System.nanoTime()
             a.neighbours(ctx, cty, nbrSlots5, r = 2)
             nbrTile[0] = ctx; nbrTile[1] = cty; bu.i2v("u_nbrTile", nbrTile); bu.i2v("u_nbrSlot", nbrSlots5)
+            pasteNbrNs += System.nanoTime() - n0
         }
         MediaUniforms.paste(bu, st, b, cap, t, pxPerMm, seed, bakeTex, src.p0, src.p1)
         MediaUniforms.pasteBrush(bu, cur.b0, cur.b1, b.wick, w, h, PASTE_LANES, PASTE_DEPTH)

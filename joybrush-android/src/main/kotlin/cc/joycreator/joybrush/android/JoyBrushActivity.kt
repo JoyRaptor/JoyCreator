@@ -752,11 +752,19 @@ class JoyBrushActivity : Activity() {
         }
         // Debug stroke replay: a fresh unsaved drawing; the working file is neither read nor ever written (bench/BenchRunner).
         val bench =cc.joycreator.joybrush.android.bench.BenchRunner.spec(intent, applicationInfo)
+        if (bench != null) {
+            // Codex round 4 A/B switch: every neighbourhood looked up afresh (OIL-STEP).
+            cc.joycreator.joybrush.androidkit.gl.media.AtlasBench.memo = !intent.getBooleanExtra("jb_nbr_nomemo", false)
+        }
         val life = if (bench != null) intent.getStringExtra("jb_bench_life")?.takeIf { it.matches(Regex("[a-z0-9]{1,16}")) } else null
         if (bench != null && life != null) {
             // Not bench mode: every save is real. A first start begins from no file and paints; a screen Android built
             // again (a saved state came with it) opens the file as any screen would and reports what it holds.
-            val f = File(cacheDir, "bench-life-$life.joybrush")
+            // jb_bench_life_ext: the drawing where real drawings live (shared storage), not in the cache (JB-SAVE-IO bench).
+            // jb_recovery_copy: the recovery copies each save whole again, as before 11-20 (to compare).
+            if (intent.getBooleanExtra("jb_recovery_copy", false)) cc.joycreator.joybrush.androidkit.io.DrawingRecovery.holdSaved = false
+            val f = File((if (intent.getBooleanExtra("jb_bench_life_ext", false)) getExternalFilesDir("bench")?.takeIf { it.isDirectory || it.mkdirs() } else null) ?: cacheDir,
+                "bench-life-$life.joybrush")
             benchLifeFile = f
             if (savedInstanceState == null) {
                 benchLifeSpec = bench
@@ -2902,9 +2910,15 @@ class JoyBrushActivity : Activity() {
                             // One line a save, for whoever reads the log after a slow or odd one: what it carried and how long it took.
                             android.util.Log.i("JoyBrushSave", "working save: ${workingSaveMemo?.carried ?: 0} entries carried, ${workingSaveMemo?.fresh ?: -1} compressed, " +
                                 "${file.length() shr 10} KB in ${android.os.SystemClock.elapsedRealtime() - began} ms")
+                            val saved = android.os.SystemClock.elapsedRealtime()
                             recovery.rememberWorking(file)
+                            val kept = android.os.SystemClock.elapsedRealtime()
                             // Thumbnail and the Joy Creator folder copy; never fails the save.
                             if (benchLifeFile == null) cc.joycreator.joybrush.android.library.DrawingLibrary.onSaved(this, file, contents, whole = given.whole, leaving = leaving)
+                            // Codex audit round 4, JB-SAVE-IO: each part of the save timed on its own (the folder copy runs on its
+                            // own thread afterwards and logs under JoyBrushLibrary).
+                            android.util.Log.i("JoyBrushSave", "save parts: working file ${saved - began} ms, kept for a restore (${recovery.lastKept}) in ${kept - saved} ms " +
+                                "(${file.length() shr 10} KB file), thumbnail ${android.os.SystemClock.elapsedRealtime() - kept} ms")
                         }
                         is SaveDest.Copy -> writeCopy(dest.uri, contents)
                         is SaveDest.Open -> DrawingHistory.preserve(historyDirectory(), contents)

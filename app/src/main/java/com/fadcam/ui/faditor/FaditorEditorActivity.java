@@ -3829,6 +3829,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             btnRedo.setTextColor(canRedo ? Studio.INK : STUDIO_OFF);
             btnUndo.setEnabled(canUndo);
             btnRedo.setEnabled(canRedo);
+            // the hover names the step (owner 11-19, "as in Studio"; Avatar Studio does the same): "Undo: Split clip"
+            String uWhat = undoManager.peekUndoDescription(), rWhat = undoManager.peekRedoDescription();
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnUndo, uWhat == null ? getString(R.string.faditor_undo) : getString(R.string.faditor_undo_named, uWhat));
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnRedo, rWhat == null ? getString(R.string.faditor_redo) : getString(R.string.faditor_redo_named, rWhat));
 
             int uCount = undoManager.getUndoCount();
             int rCount = undoManager.getRedoCount();
@@ -43400,9 +43404,14 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < types.length; i++) {
             if (types[i] == transition.type) checked = i;
         }
+        String[] shown = new String[labels.length];   // PREVIEW-1: a tick before the current one, a small picture before each
+        for (int i = 0; i < labels.length; i++) shown[i] = (i == checked ? "✓  " : "") + labels[i];
         StudioDialog.builder(this)
                 .setTitle(R.string.faditor_transition_type_title)
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, shown, new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) { return types[i] == Transition.Type.GL_SHADER ? null : "trans:" + types[i]; }
+                    @Override public android.graphics.Bitmap load(int i) { return com.fadcam.ui.faditor.TransitionGlyphs.of(types[i]); }
+                }), (dialog, which) -> {
                     Transition.Type picked = types[which];
                     transition.type = picked;
                     if (editorTimeline != null) {

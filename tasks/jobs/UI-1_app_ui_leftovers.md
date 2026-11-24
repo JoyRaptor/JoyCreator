@@ -74,3 +74,10 @@ Shots in `tasks/screens/tablet/`. Agent-run; I did not grant any system permissi
 - New screens follow the benchmark packages `ui/library`, `ui/settingshub`, `ui/trash`: thin fragment, bottom dock,
   small classes, tests, own strings file. Keep the legacy screen reachable ("Classic …") until the new one is proven.
 - Launching with `am start -n com.fadcam.beta/com.fadcam.SplashActivity` can bring a JoyBrush drawing to the front: look before tapping.
+
+## Checked against the code 2026-11-23 (Sonnet lane, no phone)
+Phone-free pass over every open line above; nothing new was built because the rest is already done or needs a person:
+- **Wide-screen onboarding / What's New / folder step:** already done by TAB-1: `OnboardingActivity` calls `ContentColumn.watch`, the permissions and human slides implement `ContentColumn.Page`, `WhatsNewActivity` calls `ContentColumn.keep`, `JoyFolderSetupActivity` centres a column (`COLUMN_MAX_DP`) on the Joy Creator ground. The 11-13/11-14 tablet notes describe the screens BEFORE that; a fresh tablet look is owed, not new code.
+- **Retire `AvatarToggleView`:** the class is gone from the code (only a comment in `JoybotSwitch` names it). What remains is its eye-colour preference and the `toggle_*_cyan/violet` drawables, mapped in `HomeFragment` and `FullscreenPreviewActivity`. Retiring them is tied to the open owner call on `JoybotSwitch` (see [STYLE-1](STYLE-1_tickbox_and_palette.md)), so I left them.
+- **Unused files:** `forensics_board_doodles`, `forensics_doodle_pattern`, `forensics_empty_icon_bg` have no references anywhere in `app/src/main`; `fadcam_server_room_bg_rounded.webp` is still used by `assets/web/css/style.css`, so it stays. The card says remove only with S10, so none were removed.
+- **Still needing a person or the phone:** landscape Home structure (rotation not allowed), revoked-overlay Menu switch, screen-recording watermark, Beta/Pro update sheets, mode popup, a translated screen, and the S9 owner calls (About link, Camera label, ring colours, Smart Detection chip colours).

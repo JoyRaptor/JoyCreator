@@ -198,7 +198,19 @@ public class AvatarStudioActivity extends AppCompatActivity {
         items[entries.size()] = "+ New avatar from image…";
         StudioDialog.builder(this)
                 .setTitle("Avatar Studio — library")
-                .setItems(items, (d, which) -> {
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, items, new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) { return i < entries.size() ? "lib:" + entries.get(i).rig.getName() : null; }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        // the avatar's first part, as drawn from its own sheet (PREVIEW-1)
+                        AvatarLibrary.Entry e = entries.get(i);
+                        if (e.rig.getParts().isEmpty()) return null;
+                        String sid = e.rig.getParts().get(0).sheetId;
+                        for (SpriteSheet s : e.sheets) {
+                            if (s.getId().equals(sid)) return com.fadcam.ui.faditor.PartThumbs.sheetCell(AvatarStudioActivity.this, s, 0);
+                        }
+                        return null;
+                    }
+                }), (d, which) -> {
                     if (which == entries.size()) {
                         newAvatarImagePicker.launch(new String[]{"image/*"});
                     } else {
@@ -529,7 +541,12 @@ public class AvatarStudioActivity extends AppCompatActivity {
         for (int i = 0; i < sheets.size(); i++) items[i] = sheets.get(i).getName();
         StudioDialog.builder(this)
                 .setTitle(R.string.avatar_studio_pick_sheet)
-                .setItems(items, (d, which) -> promptPartName(sheets.get(which).getId()))
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, items, new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) { return "sheetpick:" + sheets.get(i).getId(); }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        return com.fadcam.ui.faditor.PartThumbs.sheetCell(AvatarStudioActivity.this, sheets.get(i), 0);
+                    }
+                }), (d, which) -> promptPartName(sheets.get(which).getId()))
                 .show();
     }
 
@@ -580,7 +597,17 @@ public class AvatarStudioActivity extends AppCompatActivity {
         if (candidates.isEmpty()) return;
         StudioDialog.builder(this)
                 .setTitle(getString(R.string.avatar_studio_parent_pick_title, part.id))
-                .setItems(candidates.toArray(new String[0]), (d, which) -> {
+                .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, candidates.toArray(new String[0]), new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) {
+                        AvatarRig.Part cp = rig.partById(candidates.get(i));
+                        return cp == null ? null : "part:" + cp.sheetId;
+                    }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        AvatarRig.Part cp = rig.partById(candidates.get(i));
+                        SpriteSheet s = cp == null ? null : lookupSheet(cp.sheetId);
+                        return s == null ? null : com.fadcam.ui.faditor.PartThumbs.sheetCell(AvatarStudioActivity.this, s, 0);
+                    }
+                }), (d, which) -> {
                     // Cycle guard: walking up from the chosen parent must not reach us.
                     String cursor = candidates.get(which);
                     int hops = 0;

@@ -44,6 +44,11 @@ public class TextStyleLibraryPanel extends LinearLayout {
             button.setGravity(android.view.Gravity.CENTER_VERTICAL);
             button.setSingleLine(true);
             button.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            // PREVIEW-1: the style drawn on "Aa", small, to the left of its name
+            com.fadcam.ui.faditor.PartThumbs.startOf(button, "tstyle:" + style.getName(), () -> {
+                android.graphics.Bitmap big = TextStyleRenderer.render(style, "Aa", 600, 600);
+                return com.fadcam.ui.faditor.PartThumbs.square(big, new android.graphics.Rect(0, 0, big.getWidth(), big.getHeight()));
+            });
             com.fadcam.ui.faditor.tools.TextOverlayDrawer.Kit.pressable(button);
             button.setOnClickListener(v -> {
                 if (callback != null) callback.onTextStyleSelected(style);

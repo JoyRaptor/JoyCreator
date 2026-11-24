@@ -63,3 +63,9 @@ face), SpriteLab cell film strip and animation presets, TextLab look chips, JoyB
 **Built (this branch, `claude/website-f86389`):** `ui/faditor/PartThumbs` (one place that draws the small square, 36 dp, cached, off the main
 thread, blank placeholder so rows do not jump, stale rows ignored; `sheetCell`, `square`, `startOf`, `onRow`), used in four places above. Not
 yet a host check naming each list. Cloud build run 45303840002 (defaultDebug, 11-23): green; the APK download was cut off, no phone attached. Not looked at on a phone.
+
+**11-23 later:** the avatar library, add-part and parent pickers got previews too (`PartThumbs.listAdapter`), plus the host check
+`tools/check_part_previews.py` (done files must keep using `PartThumbs`; the owed list is in the script and only shrinks). Cloud build
+run 45309374777 on `0543b0c06`: green. Still owed: everything under "Not started" above, and one look on the Note 9 per room.
+
+**11-23 night:** built-in text styles (drawn on "Aa") and the built-in transition type picker (a schematic glyph per type, `TransitionGlyphs`; the current type gets a tick) now have previews. Cloud build run 45313181581 on `0b74b1ad4`: green. **Left, with the reason each stays owed:** the 26 GL transitions (need a GPU render, like the effect swatches); LUT and grade pickers (need the `.cube` grade applied to a sample frame on the CPU; `LutManager.loadBitmap` layout untested, so not guessed); VisLab look strip and style chips, parts shelf and layer rows (`StudioVis` renders are GL-bound and keyed per item; the strip already shows five palette dots); reactive and duck-under pickers and text lanes (clip thumbnail providers live inside `EditorTimelineView`); Unibrush tips (JoyBrush's files); Avatar room stage tabs and the Studio avatar manager (the new room is another lane's). Phone look per room: owed (the Note 9 is held by the hover-labels lane).

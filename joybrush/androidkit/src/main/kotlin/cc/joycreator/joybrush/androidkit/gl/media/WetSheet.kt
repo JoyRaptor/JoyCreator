@@ -554,11 +554,13 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val x0 = floor(c[0]).toInt(); val y0 = floor(c[1]).toInt(); val x1 = ceil(c[2]).toInt(); val y1 = ceil(c[3]).toInt()
         val w = x1 - x0; val h = y1 - y0
         if (w <= 0 || h <= 0) return null
+        val t0 = System.nanoTime()
         val px = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fboOn(e.lookTexture(), ground = false))
         GLES30.glPixelStorei(GLES30.GL_PACK_ALIGNMENT, 4)
         GLES30.glReadPixels(x0, y0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        val t1 = System.nanoTime()
         var bx0 = Int.MAX_VALUE; var by0 = Int.MAX_VALUE; var bx1 = Int.MIN_VALUE; var by1 = Int.MIN_VALUE
         for (y in 0 until h) {
             var i = y * w * 4 + 3
@@ -575,6 +577,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             val i = (by * bw + bx) * 4
             if (a[i] > 0f || a[i + 1] > 0f) out = union(out, floatArrayOf(bx * 16f, by * 16f, bx * 16f + 16f, by * 16f + 16f))
         }
+        android.util.Log.i(TAG, "tight content: $w x $h cells read back (${w * h * 4 shr 10} KB) in ${"%.1f".format((t1 - t0) / 1e6)} ms, scanned in ${"%.1f".format((System.nanoTime() - t1) / 1e6)} ms")
         return out?.let(::clamp)
     }
 
@@ -587,11 +590,13 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
         val x0 = floor(c[0]).toInt(); val y0 = floor(c[1]).toInt(); val x1 = ceil(c[2]).toInt(); val y1 = ceil(c[3]).toInt()
         val w = x1 - x0; val h = y1 - y0
         if (w <= 0 || h <= 0) return emptyList()
+        val t0 = System.nanoTime()
         val px = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, fboOn(e.lookTexture(), ground = false))
         GLES30.glPixelStorei(GLES30.GL_PACK_ALIGNMENT, 4)
         GLES30.glReadPixels(x0, y0, w, h, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, px)
         GLES30.glBindFramebuffer(GLES30.GL_FRAMEBUFFER, 0)
+        val t1 = System.nanoTime()
         val t = Tiles.SIZE
         val own = pieces()
         val out = ArrayList<Long>()
@@ -611,6 +616,7 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             }
             if (hit) out.add(Tiles.key(tx, ty))
         }
+        android.util.Log.i(TAG, "covered tiles: $w x $h cells read back (${w * h * 4 shr 10} KB) in ${"%.1f".format((t1 - t0) / 1e6)} ms, scanned in ${"%.1f".format((System.nanoTime() - t1) / 1e6)} ms; ${out.size} tiles")
         return out
     }
 
@@ -775,9 +781,11 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             for (rec in recs.values) {
                 if (held <= SNAPSHOT_CAP_BYTES) break
                 val b = rec.before
-                if (b is Was.Held) { drop(b); rec.before = Was.Lost; held = bytes() }
+                if (b is Was.Held) { drop(b); rec.before = Was.Lost; held = bytes(); android.util.Log.i(TAG, "undo copy let go at the cap: that step can no longer be undone") }
             }
         }
+
+        fun heldBytes(): Long = bytes()
 
         private fun bytes(): Long {
             val seen = HashSet<Snap>()
@@ -829,8 +837,28 @@ class WetSheet(private val paint: GlPaintEngine, private val shaders: ShaderLibr
             MediaTex.deleteTex(*tex.values.toIntArray())
             throw x
         }
-        return Snap(id, plane, originX, originY, cell, grid, intArrayOf(r[0], r[1], r[0] + w, r[1] + h), tex, e.wetRect?.copyOf(),
+        val snap = Snap(id, plane, originX, originY, cell, grid, intArrayOf(r[0], r[1], r[0] + w, r[1] + h), tex, e.wetRect?.copyOf(),
             w.toLong() * h * 8 * tex.size)
+        logKeep(e, r, w, h, snap.bytes)
+        return snap
+    }
+
+    /**
+     * Codex audit round 4, WET-UNDO: what one undo copy of the sheet costs, and how much of it the water could have changed
+     * since the last copy (the 16-cell blocks its last measurement found water or dampness in: the blocks its passes draw).
+     * The rest is what copy-on-write blocks would save. Log only.
+     */
+    private fun logKeep(e: MediaLayerEngine, r: IntArray, w: Int, h: Int, bytes: Long) {
+        val a = e.lastActivity
+        val bw = grid.w / 16; val bh = grid.h / 16
+        var boxBlocks = 0; var wetBlocks = 0
+        for (by in r[1] / 16..(r[1] + h - 1) / 16) for (bx in r[0] / 16..(r[0] + w - 1) / 16) {
+            boxBlocks++
+            val i = (by * bw + bx) * 4
+            if (a != null && bx < bw && by < bh && i + 1 < a.size && (a[i] > 0f || a[i + 1] > 0f)) wetBlocks++
+        }
+        android.util.Log.i(TAG, "undo copy: $w x $h cells, ${bytes shr 10} KB; water in $wetBlocks of $boxBlocks blocks; " +
+            "sheet ${grid.w} x ${grid.h}; history holds ${history.heldBytes() shr 10} KB of ${SNAPSHOT_CAP_BYTES shr 10} KB")
     }
 
     /** Bench only (WetSheetFailureProbe): the next copies of the sheet, the next sheet engines, fail as with no graphics memory. */

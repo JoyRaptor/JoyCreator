@@ -867,3 +867,5 @@ change** (48 MB on the final build's run). Total PSS 327 MB against 267 MB.
 **What is left of item 2.** The load split over several GL tasks (needed before the paint room is raised: one task that
 inflates and uploads everything grows with the drawing and must stay under the two 30 s watchdogs; a save must not start
 between the steps, so `loadingDrawing` stays true until the last one). Not started.
+
+**Codex round 4 engine findings (2026-11-23).** JB-SAVE-IO landed (autosave holds the saved file for the restore instead of copying it; Note 9 lifecycle gate passed). OIL-STEP landed with no noticeable gain; ATLAS-TABLE, WET-UNDO and WET-MAP measured on the Note 9 and judged not worth it now. Numbers: `tasks/audits/codex/ROUTING_ROUND4_20261120.md`.

@@ -72,6 +72,74 @@ public final class DiskStamp {
         return copy;
     }
 
+    /** What {@link #restore} keeps of the project as it was just before it is put back. */
+    public static final String BEFORE_RESTORE_PREFIX = "before-restore-";
+
+    /**
+     * Bring a kept copy back as the project (work-loss audit: until now only an agent could).
+     *
+     * <p>Never loses what is there: the current {@code project.json} is kept first as
+     * {@code backups/before-restore-*.json} (and the restore is refused if that cannot be done),
+     * the copy must look like a whole project file, and the swap goes through a staged file so a
+     * cut-off restore leaves either the old file or the new one, never half of either.</p>
+     *
+     * @return true when {@code project.json} is now the copy.
+     */
+    public static boolean restore(File projectDir, File copy) {
+        if (copy == null || !copy.isFile() || copy.length() < 2) return false;
+        File dir = new File(projectDir, BACKUPS_DIR);
+        try {
+            // Only files this project keeps in its own backups folder can be restored.
+            if (!copy.getCanonicalFile().getParentFile().equals(dir.getCanonicalFile())) return false;
+        } catch (IOException e) {
+            return false;
+        }
+        if (!looksWhole(copy)) return false;
+        File file = new File(projectDir, "project.json");
+        File stage = new File(projectDir, "project.json.restoring");
+        File bak = new File(projectDir, "project.json.bak");
+        if (file.isFile() && keepCopy(projectDir, file, BEFORE_RESTORE_PREFIX, 5) == null) return false;
+        try (FileInputStream in = new FileInputStream(copy);
+             FileOutputStream out = new FileOutputStream(stage)) {
+            byte[] buf = new byte[65536];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            out.flush();
+            out.getFD().sync();
+        } catch (IOException e) {
+            stage.delete();
+            return false;
+        }
+        if (stage.length() != copy.length()) { stage.delete(); return false; }
+        boolean hadFile = file.isFile();
+        if (hadFile) {
+            if (bak.exists() && !bak.delete()) { stage.delete(); return false; }
+            if (!file.renameTo(bak)) { stage.delete(); return false; }
+        }
+        if (!stage.renameTo(file)) {
+            if (hadFile) bak.renameTo(file);   // put the old one straight back
+            stage.delete();
+            return false;
+        }
+        return true;
+    }
+
+    /** Starts with an opening brace and ends with a closing one: a cut-off file does not. */
+    private static boolean looksWhole(File f) {
+        try (FileInputStream in = new FileInputStream(f)) {
+            byte[] all = new byte[(int) Math.min(f.length(), 64L * 1024 * 1024)];
+            int off = 0, r;
+            while (off < all.length && (r = in.read(all, off, all.length - off)) > 0) off += r;
+            if (off != f.length()) return false;
+            int a = 0, b = off - 1;
+            while (a < off && Character.isWhitespace(all[a])) a++;
+            while (b > a && Character.isWhitespace(all[b])) b--;
+            return a < b && all[a] == '{' && all[b] == '}';
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     /** The kept copies with this prefix, newest first. */
     public static List<File> kept(File projectDir, String prefix) {
         List<File> out = new ArrayList<>();

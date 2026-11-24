@@ -17,7 +17,7 @@ public final class FootageGather {
     private static final double MIN_CONFIDENCE = 0.25;
     private static final double FULL_CONFIDENCE = 0.75;
     // The shared UI/spec threshold: sub-half-pixel motion must remain byte-exact.
-    private static final double MIN_TRAVEL_PX = 0.5;
+    static final double MIN_TRAVEL_PX = 0.5;
     private static final double[] LINEAR = new double[256];
 
     static {
@@ -101,8 +101,9 @@ public final class FootageGather {
         return result;
     }
 
-    private static FlowField fullResolution(int[] argb, int width, int height, FlowField field,
-                                            LumaImage guide) {
+    /** Shared edge-aware expansion for the High neighbouring-frame reference. */
+    static FlowField fullResolution(int[] argb, int width, int height, FlowField field,
+                                    LumaImage guide) {
         if (field.width == width && field.height == height) return field;
         if (guide == null || guide.width != field.width || guide.height != field.height) {
             throw new IllegalArgumentException("coarse flow requires its current-frame luma");
@@ -180,13 +181,13 @@ public final class FootageGather {
         return accepted;
     }
 
-    private static double trust(float confidence) {
+    static double trust(float confidence) {
         if (!Float.isFinite(confidence)) return 0;
         return Math.max(0, Math.min(1, (confidence - MIN_CONFIDENCE)
                 / (FULL_CONFIDENCE - MIN_CONFIDENCE)));
     }
 
-    private static final class ColorSum {
+    static final class ColorSum {
         private double red, green, blue, alpha;
 
         void clear() { red = green = blue = alpha = 0; }

@@ -38,3 +38,6 @@ java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowAnalyzerTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.DecodedFlowWorkTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FootageGatherTest
+expect_failure 'disoccluded donor stays sharp' \
+  com.fadcam.ui.faditor.motion.flow.HighFootageGatherTest --ignore-confidence
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.HighFootageGatherTest

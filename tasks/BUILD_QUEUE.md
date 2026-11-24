@@ -25,7 +25,7 @@ hardest work.
 | 2 | Tick box and palette sweep: on/off becomes a cyan knock-out tick box, a switch only for two equal choices; cyan and magenta come from the shared palette, never a room's own hex (owner 11-21, 11-22) | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | started 11-23 |
 | 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | ✅ first draft landed af2cf7f40 (`docs/`); ⏸ paused by the owner 11-23: app first |
 | 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | third pass done 11-23 (STATE rows, help owed list on the card) |
-| 5 | Clutter inventory: worktrees and branches; file away only what is landed or empty; never delete unique work | [HYG-3](jobs/HYG-3_cleanup.md) | no | started 11-23 (website lane): inventory written ([list](HYG-3_worktree_inventory_20261123.md)); nothing removed, removals need the lead's yes |
+| 5 | Clutter inventory: worktrees and branches; file away only what is landed or empty; never delete unique work | [HYG-3](jobs/HYG-3_cleanup.md) | no | started 11-23 (website lane): inventory written ([list](HYG-3_worktree_inventory_20261123.md)); 45 safe worktrees removed, 65 local-only branches listed for the lead; rest owed |
 | 6 | A picture for every Studio effect (picker grid, live swatch on each card) | [STU-6](jobs/STU-6_effect_swatches_and_textlab_generators.md) | at the end | queued |
 | 7 | A tiny preview beside every part wherever one is listed or picked (owner 11-20) | memory rule; new card | at the end | queued |
 | 8 | App UI leftovers: legacy-themed screens, watermark text, What's New, update sheets | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | queued |

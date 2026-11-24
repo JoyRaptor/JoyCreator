@@ -32,3 +32,7 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 ## Files and traps
 - Use throwaway projects only ("Restore video test", "Redo test clip"); never the owner's real projects.
 - Phone lock and no `monkey`: see [AGENT_START.md](../AGENT_START.md).
+
+## Code read 11-23 (hover-1 lane, no phone run)
+- **Fade-in readout "24.41 s"** (`AudioDrawerTabs.fadeMsOf`): the slider maps squared (`f*f*maxFade`) onto 0..half the clip, so 24.41 s is exactly the slider's far end on a 48.8 s clip: a short drag that started at or reached the end reads the maximum. Not a wrong number by itself; whether the thumb sat at the end before the drag is the one thing to check on the phone.
+- The rest of this card, the 41-check sweep and STU-6's on-clip checks are still owed (they need a long phone session of their own).

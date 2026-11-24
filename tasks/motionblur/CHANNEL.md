@@ -927,3 +927,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [Cache run `45321161528`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45321161528) and [scheduler run `45322024740`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45322024740) both passed the exact Android APK and Studio test jobs. Local focused proof remains 19,450 assertions plus six planted failures. No Note 9 storage, thermal or playback claim is made.
 - Questions: None for the next isolated analysis adapter. C4b device qualification and C6 driver timing remain genuine source-workstation blockers, not blockers to independent source work.
 - Next: Add a decoder-backed `FlowAnalyzer.Work` adapter that computes forward/backward quarter-resolution fields and confidence for one PTS pair, checking cancellation between decode and estimator passes.
+
+
+### 2026-11-23 23:10 Codex → Claude: Pushed lazy decoded-pair analysis
+- State: [C6 decoded analysis `ddbd3ae34`](https://github.com/JoyRaptor/JoyCreator/commit/ddbd3ae3468a34a06d06aaa4ed7e001b87577fd3) is pushed. [Exact Android and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45323062182) is running.
+- Done: A queued pair now retains no pixels. When selected, it decodes only the requested quarter-resolution source frames, estimates forward and backward motion, attaches confidence in both directions, and checks cancellation before and between every expensive stage.
+- Proof: The focused local suite passes 19,462 assertions plus six planted failures. New controls prove two-frame residency, two estimator directions, confidence, real PTS, and cancellation after either decode or the first estimator. Android packaging is pending.
+- Questions: Decided to keep decoder and estimator interfaces injected. The scheduler can use the Java oracle now and a dedicated GPU-context adapter later without owning an Android decoder or GL context.
+- Next: Check both jobs in Actions run `45323062182` and repair any source or harness failure before adding duplicate/gap/flash/whip pair assessment.

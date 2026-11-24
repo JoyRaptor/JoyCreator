@@ -6,13 +6,14 @@ gets one (so it cannot quietly lose it), and leaves OWED when it does. OWED only
 import sys
 
 DONE = {
-    'app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java': 'sprite sheet manager',
+    'app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java': 'sprite sheet manager, built-in transition type picker',
     'app/src/main/java/com/fadcam/ui/faditor/avatar/AvatarStudioActivity.java': 'avatar part chips, library, add-part and parent pickers',
     'app/src/main/java/com/fadcam/vislab/room/LookSheets.java': 'VisLab sprite sheet and TextLab look choosers',
+    'app/src/main/java/com/fadcam/ui/faditor/text/TextStyleLibraryPanel.java': 'built-in text styles',
 }
 OWED = [
-    'VisLab look strip and Studio VisLab style chips', 'VisLab parts shelf and layer rows', 'transition type and GL transition pickers',
-    'LUT and grade look pickers, built-in text styles', 'reactive and duck-under pickers', 'Unibrush tip textures (JoyBrush lane)',
+    'VisLab look strip and Studio VisLab style chips', 'VisLab parts shelf and layer rows', 
+    'LUT and grade look pickers (needs a CPU .cube apply, untested)', 'the 26 GL transitions (need a GPU render)', 'reactive and duck-under pickers', 'Unibrush tip textures (JoyBrush lane)',
     'Studio text lanes in the timeline', 'avatar manager in Studio', 'Avatar room stage tabs',
 ]
 bad = []

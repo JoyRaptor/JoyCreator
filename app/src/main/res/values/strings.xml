@@ -2303,6 +2303,7 @@ Recommended: 192000 bps, 48000 Hz for most users.</string>
 
     <!-- Tips Navigation Strings -->
     <string name="close">Close</string>
+    <string name="watch_play_pause_cd">Play or pause</string>
     <string name="previous">Previous</string>
     <string name="next">Next</string>
     <string name="done">Done</string>

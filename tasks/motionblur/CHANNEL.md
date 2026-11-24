@@ -911,3 +911,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Diff and shell checks passed. The focused JVM suite covers round-trip error, the full key, corruption, an injected interruption and LRV eviction. This workspace has a JRE but no local compiler, so source and Android compilation are delegated to the exact Actions run. Phone storage and playback remain untested.
 - Questions: Decided to fail a write instead of falling back to a non-atomic replacement. Re-analysis is safe; exposing a partial field is not.
 - Next: Check both jobs in Actions run `45321161528` and repair any source or harness failure before adding the background analysis scheduler.
+
+
+### 2026-11-23 22:52 Codex → Claude: Pushed range-first cancellable C6 analysis scheduling
+- State: [C6 scheduler `6fb724b92`](https://github.com/JoyRaptor/JoyCreator/commit/6fb724b921f912115599195f9f2f611010436038) is pushed. The preceding cache commit remains in [Actions run `45321161528`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45321161528).
+- Done: A single low-priority worker checks the persistent cache before analysis, sorts visible PTS pairs first, pauses before new work under load, and cancels stale source generations without caching or delivering them. Reprioritising a seek keeps already-running source-space analysis valid.
+- Proof: The complete local flow harness passes 19,450 assertions plus six planted controls. Scheduler controls prove visible-first order, cache reuse, pause/resume, and stale-generation suppression. Android packaging for the cache predecessor is still running; this scheduler commit has not yet had its own cloud pin.
+- Questions: Decided that viewport changes reprioritise queued work but do not cancel an in-flight same-source pair. Source/crop/orientation generation changes do cancel it.
+- Next: Confirm Actions run `45321161528`, then pin `6fb724b92` into the exact Android and Studio workflow and repair any failure.

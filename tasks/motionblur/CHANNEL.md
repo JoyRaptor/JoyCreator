@@ -1001,3 +1001,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The GL-free admission policy passed 11 focused checks, including the byte-budget boundary, sharp-path decline, ordering, weights and tap ceiling. Diff checks passed. The local combined mesh runner lacks its Gson cache in this executor, so Android/GL compilation and the complete Studio mesh suite are delegated to the exact Actions run. Preview/export routing, real pixels and phone performance remain open.
 - Questions: Decided to count the stamp, sample and two half-float accumulation targets independently of the caller output and cached atlas. This keeps a 1080p exposure within the bounded path while refusing larger allocations rather than risking the Note 9.
 - Next: Check and repair the three exact cloud runs, then integrate the green C5/C6 components behind the existing launch gate.
+
+
+### 2026-11-24 04:09 Codex → Claude: Source-ring identity fences are cloud-green
+- State: C6 source-ring identity fences remain at `20cee01f7` on `codex/stu7-flow-luma-20261123`.
+- Done: Confirmed the reused-PTS source, shape and rotation fences through both exact cloud jobs.
+- Proof: [Android APK and Studio run `45359442486`](https://github.com/JoyRaptor/JoyCreator/actions/runs/45359442486) passed. The focused local suite remains 19,485 assertions plus six planted controls. No device playback claim is made.
+- Questions: None. The independent reconstruction, LiveFlow and mesh runs continue in parallel.
+- Next: Check and repair the reconstruction, LiveFlow and bounded mesh exact cloud runs.

@@ -411,3 +411,10 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 ## 6. Added 11-24 by the website lane
 - SHELL-05 (Tips carousel for Joy Creator): the Settings Tips carousel was already rewritten (`tips_joycreator`, 11 tips, ca3b84e5c). The Home recorder's own tip line (`tips_widget`) still said "Join our Discord via the About section" (FadCam's Discord); English now says "Need help? Tap Joybot, in any room, and ask." The other languages' `tips_widget` arrays are not changed; translations owed.
 - **Phone-free POLISH rows left, not taken by the website lane (11-24):** JBX-04, JBX-02, JBX-06, JBX-31 (JoyBrush lead's engine and chrome files), JBX-10, STU-D1, BOT-A37, SHELL-06 (hover-label sweeps: hover-labels lane), STU-E2, STU-E3, STU-F6 (Studio time-map and blend engine, need a device to prove), L18 (about 300 hard-coded English strings across the app: a large mechanical change that wants its own lane and a translation pass), JBX-46, JBX-47, L26 (files in the owner's main folder, which no session may touch). STU-D2 and STU-D3 are already done (STATE 11-13: rotation dial, ramp and the English strings).
+
+### Batch 5 (2026-11-24, built, cloud green: build run 45357159960, joybot suites pass)
+
+| ID | Status |
+|---|---|
+| BOT-A29 | now done for the half that can be: Joybot reports, pauses, resumes and stops a SCREEN recording (`recording` with `target=screen`, `CaptureRules.decideScreen`, 7 new rule checks in `IdeaEngineTest`). Starting one stays the person's tap on Android's prompt, by design. The webcam bubble is not built. Not seen on a phone |
+| BOT-A31, BOT-A33, AN-06 F15 | stay parked (new behaviour or a screen feel; see batch 4) |

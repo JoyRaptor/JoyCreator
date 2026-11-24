@@ -61,6 +61,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private static final int[] STAGE_ASKS = {
             R.string.avatar_ask_stage_1, R.string.avatar_ask_stage_2, R.string.avatar_ask_stage_3, R.string.avatar_ask_stage_4};
 
+    private static volatile java.lang.ref.WeakReference<AvatarRoomActivity> current;
+
+    /** The room on screen, or null (Joybot's hands call {@link AvatarRoom}, which asks here). */
+    static AvatarRoomActivity current() {
+        java.lang.ref.WeakReference<AvatarRoomActivity> r = current;
+        return r == null ? null : r.get();
+    }
+
     private final Handler main = new Handler(Looper.getMainLooper());
     private float dp;
     private LinearLayout root;
@@ -89,6 +97,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         dp = getResources().getDisplayMetrics().density;
+        current = new java.lang.ref.WeakReference<>(this);
         try {
             character = CharacterAssets.load(this, CharacterAssets.TOPPS);
         } catch (Exception e) {
@@ -379,8 +388,104 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         });
     }
 
+    // ── Joybot's hands (AvatarRoom calls these on the main thread; every change is one named undo step) ──
+
+    /** The character in words: its name, the stage, the part in hand, and the parts and layers it has. */
+    String joybotDescribe() {
+        if (character == null) return "No character is open.";
+        final StringBuilder parts = new StringBuilder();
+        final int[] layers = {0, 0};
+        final java.util.Set<String> seen = new java.util.LinkedHashSet<>();
+        character.walk((n, depth, p) -> {
+            if (p == null) return;
+            layers[0]++;
+            if (n.hidden) layers[1]++;
+            if (!n.role.isEmpty() && seen.add(n.role)) parts.append(parts.length() == 0 ? "" : ", ").append(n.name.isEmpty() ? n.role : n.name).append(" (").append(n.role).append(")");
+        });
+        CharacterDoc.Node hand = inHand == null ? null : character.find(inHand);
+        return characterName() + ": " + layers[0] + " layers (" + layers[1] + " hidden). Stage: " + getString(STAGE_NAMES[stageIndex])
+                + ". In hand: " + (hand == null ? "nothing" : (hand.name.isEmpty() ? hand.id : hand.name))
+                + ". Parts: " + (parts.length() == 0 ? "none named yet" : parts) + ". "
+                + (unsaved || characterPath == null ? "Not saved yet." : "Saved in the Joy Creator folder.");
+    }
+
+    /** Finds a layer by what a person would call it: its name, or its part (role), ignoring case. */
+    private CharacterDoc.Node byName(String what) {
+        if (character == null || what == null) return null;
+        final String w = what.trim().toLowerCase(java.util.Locale.ROOT);
+        final CharacterDoc.Node[] hit = {null, null};
+        character.walk((n, d, p) -> {
+            if (p == null) return;
+            String nm = n.name.toLowerCase(java.util.Locale.ROOT);
+            if (hit[0] == null && nm.equals(w)) hit[0] = n;
+            if (hit[1] == null && (nm.contains(w) || n.role.toLowerCase(java.util.Locale.ROOT).equals(w))) hit[1] = n;
+        });
+        return hit[0] != null ? hit[0] : hit[1];
+    }
+
+    /** Puts a part in hand by name; false when no layer is called that. */
+    boolean joybotChoose(String what) {
+        CharacterDoc.Node n = byName(what);
+        if (n == null) return false;
+        inHand = n.id;
+        stage.setSelected(inHand);
+        layers.show(character, inHand);
+        parts.show(character, inHand, stageIndex);
+        return true;
+    }
+
+    /** Switches to a stage by name (set up / arrange / motion / perform); false when it is not one. */
+    boolean joybotStage(String name) {
+        String w = name == null ? "" : name.trim().toLowerCase(java.util.Locale.ROOT).replace(" ", "");
+        for (int i = 0; i < 4; i++) {
+            if (getString(STAGE_NAMES[i]).toLowerCase(java.util.Locale.ROOT).replace(" ", "").equals(w)) {
+                selectStage(i);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Shows or hides a layer by name as one undo step; returns a sentence, or null when no layer is called that. */
+    String joybotShown(String what, boolean shown) {
+        CharacterDoc.Node n = byName(what);
+        if (n == null) return null;
+        if (n.hidden != shown) return (n.name.isEmpty() ? n.id : n.name) + " is already " + (shown ? "shown." : "hidden.");
+        final String id = n.id;
+        final String label = n.name.isEmpty() ? n.id : n.name;
+        edit.apply(getString(shown ? R.string.avatar_step_joybot_show : R.string.avatar_step_joybot_hide, label), doc -> {
+            org.json.JSONObject j = doc.find(id).json;
+            if (shown) j.remove("hidden");
+            else j.put("hidden", true);
+        });
+        return (shown ? "Showing " : "Hid ") + label + ".";
+    }
+
+    /** Moves a layer in front or behind its neighbours: "back one", "forward one", "very back", "very front". */
+    String joybotStack(String what, String how) {
+        CharacterDoc.Node n = byName(what);
+        if (n == null) return null;
+        String h = how == null ? "" : how.trim().toLowerCase(java.util.Locale.ROOT);
+        int by = h.contains("very back") ? Integer.MIN_VALUE : h.contains("very front") ? Integer.MAX_VALUE
+                : h.contains("back") ? -1 : h.contains("forward") || h.contains("front") ? 1 : 0;
+        if (by == 0) return "";
+        restack(n.id, by);
+        return "Moved " + (n.name.isEmpty() ? n.id : n.name) + " " + h + ".";
+    }
+
+    /** Saves into the Joy Creator folder now (the same as Menu, Save). */
+    void joybotSave() {
+        saveNow();
+    }
+
     private void autosaveNow() {
         if (unsaved && character != null) saveQuietly();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (current() == this) current = null;
     }
 
     @Override

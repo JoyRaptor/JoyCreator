@@ -18,6 +18,7 @@ public class SpriteLabAuditTest {
         reorderedSequenceShowsTheMovedPicture();
         reorderSurvivesSaveAndReopen();
         cellCopyKeepsTags();
+        saveSafetyOfTheEditorScreen();
         System.out.println("SpriteLabAuditTest: " + passed + " passed, " + failed + " failed");
         if (failed > 0) System.exit(1);
     }
@@ -69,5 +70,51 @@ public class SpriteLabAuditTest {
                         && k.tags.contains("happy") && !k.enabled);
         k.tags.add("more");
         check("cell copy's tags are its own", c.tags.size() == 2);
+    }
+
+    // ── SAFE-1 second pass: the editor screen cannot run on the JVM, so its save rules are pinned
+    // by reading its source. Each check fails on the code from before the fix.
+
+    static String body(String src, String signature) {
+        int at = src.indexOf(signature);
+        if (at < 0) return "";
+        int open = src.indexOf('{', at);
+        int depth = 0;
+        for (int i = open; i < src.length(); i++) {
+            char ch = src.charAt(i);
+            if (ch == '{') depth++;
+            else if (ch == '}' && --depth == 0) return src.substring(open, i + 1);
+        }
+        return "";
+    }
+
+    static void saveSafetyOfTheEditorScreen() {
+        String src;
+        try {
+            src = new String(java.nio.file.Files.readAllBytes(java.nio.file.Paths.get(
+                    "app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java")),
+                    java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException e) {
+            check("the editor source can be read: " + e, false);
+            return;
+        }
+        String imp = body(src, "private void importSidecar(");
+        check("importing a sidecar is an undo step that reaches the disk (markDirty)",
+                imp.contains("markDirty();"));
+        String img = body(src, "private void importSheetImage(");
+        check("a new or relinked sheet picture marks the sheet changed",
+                img.contains("markDirtyQuiet();") || img.contains("markDirty();"));
+        check("save() reports whether the write worked",
+                src.contains("private boolean save(boolean quiet)") && src.contains("return ok;"));
+        String back = body(src, "public void onBackPressed(");
+        check("Back does not close the screen when the save failed",
+                back.contains("if (!save())"));
+        String open = body(src, "private void openSheet(");
+        check("opening another sheet does not close the screen when the save failed",
+                open.contains("if (!save(true))"));
+        check("the Save button never marks the sheet clean by itself",
+                !src.contains("save(); labDirty = false;"));
+        check("removing a second sheet does not overwrite the first (a list, not one slot)",
+                src.contains("removedSheets.add(target)") && !src.contains("removedSheet = target;"));
     }
 }

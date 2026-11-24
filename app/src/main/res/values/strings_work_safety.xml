@@ -5,4 +5,8 @@
     <string name="studio_undo_transcription">Transcription</string>
     <string name="studio_consolidate_some_failed">Copied %1$d file(s), but these could not be copied in and still use the original: %2$s. Keep those originals; run it again to retry.</string>
     <string name="studio_toast_changed_elsewhere">Brought in changes made to this project elsewhere</string>
+    <string name="sprite_editor_leave_unsaved_title">Could not save this sheet</string>
+    <string name="sprite_editor_leave_unsaved_body">Your changes are still here, but they did not reach the disk. The phone may be full. Stay, free up some space and try again, or leave and lose them.</string>
+    <string name="sprite_editor_leave_unsaved_stay">Stay</string>
+    <string name="sprite_editor_leave_unsaved_leave">Leave anyway</string>
 </resources>

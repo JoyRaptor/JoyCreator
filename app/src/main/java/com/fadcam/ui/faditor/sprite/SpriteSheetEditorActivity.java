@@ -181,6 +181,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             }
             sheet.setSheetUri(Uri.fromFile(dest).toString());
             reloadRenderer();
+            markDirtyQuiet();   // a new or relinked picture is a change on disk: Home must save it
         } catch (Exception e) {
             Toast.makeText(this, R.string.sprite_editor_import_failed, Toast.LENGTH_LONG).show();
             if (isNewSheet) finish();
@@ -199,19 +200,21 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         onCellSelected(gridView.getSelectedCell());
     }
 
-    private void save() { save(false); }
+    private boolean save() { return save(false); }
 
     /**
      * @param quiet true for an autosave — no toast, and never the "picker was cancelled"
      *              finish(), because the user did not ask for anything to close.
+     * @return false ONLY when the write itself failed (full phone, I/O error): the edits are
+     *         still in memory and the caller must not close the screen over them.
      */
-    private void save(boolean quiet) {
+    private boolean save(boolean quiet) {
         sheet.setName(nameField.getText().toString().trim().isEmpty()
                 ? getString(R.string.sprite_editor_default_name)
                 : nameField.getText().toString().trim());
         if (isNewSheet && sheet.getSheetUri().isEmpty()) {
             if (!quiet) finish();   // picker cancelled
-            return;
+            return true;
         }
         if (isNewSheet && project.spriteSheetById(sheet.getId()) == null) {
             project.getSpriteSheets().add(sheet);
@@ -224,6 +227,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             Toast.makeText(this, ok ? R.string.sprite_editor_saved : R.string.sprite_editor_save_failed,
                     Toast.LENGTH_SHORT).show();
         }
+        return ok;
     }
 
     @Override
@@ -307,7 +311,17 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         // Autosave semantics, matching the rest of the app (editor autosaves on pause).
-        save();
+        // A save that FAILED must not close the screen over the edits: they are only in memory.
+        if (!save()) {
+            StudioDialog.builder(this)
+                    .setTitle(R.string.sprite_editor_leave_unsaved_title)
+                    .setMessage(R.string.sprite_editor_leave_unsaved_body)
+                    .setPositiveButton(R.string.sprite_editor_leave_unsaved_stay, null)
+                    .setNegativeButton(R.string.sprite_editor_leave_unsaved_leave,
+                            (d, w) -> SpriteSheetEditorActivity.super.onBackPressed())
+                    .show();
+            return;
+        }
         super.onBackPressed();
     }
 
@@ -523,7 +537,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         top.addView(joy, new LinearLayout.LayoutParams((int) (28 * d), (int) (28 * d)));
 
         saveBtn = ichip("save");
-        saveBtn.setOnClickListener(v -> { save(); labDirty = false; syncSaveBtn(); });
+        saveBtn.setOnClickListener(v -> { save(); syncSaveBtn(); });
         top.addView(saveBtn);
         syncSaveBtn();
         space(top, d, 5);
@@ -1009,7 +1023,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
         dragBtns.clear();
         clipShelf = null;
         clipDragFrom = -1;
-        if (!"out".equals(id)) { pickedSheet = null; removedSheet = null; }
+        if (!"out".equals(id)) { pickedSheet = null; removedSheets.clear(); removedAts.clear(); }
         // A picked clip lights its own frames on the grid. Leaving the section without
         // dropping it left those badges sitting over a roll that had nothing to do with them.
         if (!"clips".equals(id) && pickedClip != null) {
@@ -2632,9 +2646,11 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
 
     /** Which sheet the Sheets group has selected, or null for none. */
     @Nullable private String pickedSheet;
-    /** The last sheet removed on this screen, kept so it can be put back. */
-    @Nullable private SpriteSheet removedSheet;
-    private int removedAt;
+    /** Every sheet removed on this screen, kept so each can be put back (a second removal used to
+     *  overwrite the first, which then could never come back). Parallel lists: the sheet and the
+     *  place it sat. */
+    private final java.util.ArrayList<SpriteSheet> removedSheets = new java.util.ArrayList<>();
+    private final java.util.ArrayList<Integer> removedAts = new java.util.ArrayList<>();
 
     /**
      * A row in the Sheets group: name, one line of truth, no picture.
@@ -2716,14 +2732,17 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             b.addView(chip);
         }
 
-        if (removedSheet != null) {
-            TextView undo = ichip("undo", "Put \u201c" + removedSheet.getName() + "\u201d back");
+        for (int ri = removedSheets.size() - 1; ri >= 0; ri--) {
+            final SpriteSheet gone = removedSheets.get(ri);
+            final int goneAt = removedAts.get(ri);
+            TextView undo = ichip("undo", "Put \u201c" + gone.getName() + "\u201d back");
             tintToggle(undo, true, SpriteTheme.WARN);
             undo.setOnClickListener(v -> {
                 java.util.List<SpriteSheet> list = project.getSpriteSheets();
-                int at = Math.max(0, Math.min(list.size(), removedAt));
-                list.add(at, removedSheet);
-                removedSheet = null;
+                int at = Math.max(0, Math.min(list.size(), goneAt));
+                list.add(at, gone);
+                int k = removedSheets.indexOf(gone);
+                if (k >= 0) { removedSheets.remove(k); removedAts.remove(k); }
                 markDirty();
                 save(true);
                 showSection("out");
@@ -2872,8 +2891,8 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
                     // thing you actually asked to undo. Recovery is the chip below instead,
                     // which is visible and honest about how long it lasts.
                     java.util.List<SpriteSheet> all = project.getSpriteSheets();
-                    removedAt = all.indexOf(target);
-                    removedSheet = target;
+                    removedAts.add(all.indexOf(target));
+                    removedSheets.add(target);
                     all.remove(target);
                     pickedSheet = null;
                     markDirty();
@@ -3196,7 +3215,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
     }
 
     private void openSheet(@NonNull String sheetId) {
-        save(true);
+        if (!save(true)) {   // the new screen would load the stale file: stay with the edits
+            Toast.makeText(this, R.string.sprite_editor_save_failed, Toast.LENGTH_LONG).show();
+            return;
+        }
         android.content.Intent i = new android.content.Intent(this, SpriteSheetEditorActivity.class);
         i.putExtra(EXTRA_PROJECT_ID, project.getId());
         i.putExtra(EXTRA_SHEET_ID, sheetId);
@@ -4473,6 +4495,10 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             }
             gridChanged();
             reloadRenderer();
+            // The import REPLACES the sheet's slicing, names, alignment and animations. It must
+            // be an undo step and reach the disk like any other edit (it was neither: Home then a
+            // kill kept the old sheet, Undo skipped back past it).
+            markDirty();
             Toast.makeText(this, R.string.sprite_editor_sidecar_imported, Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             Toast.makeText(this, R.string.sprite_editor_sidecar_import_failed, Toast.LENGTH_LONG).show();

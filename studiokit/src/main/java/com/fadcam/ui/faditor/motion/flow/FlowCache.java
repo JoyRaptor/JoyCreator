@@ -195,6 +195,13 @@ public final class FlowCache {
     }
 
     public void put(Key key, Pair pair) throws IOException {
+        put(key, pair, (temporary, target) -> {
+            renameChunk(temporary, target);
+            return true;
+        });
+    }
+
+    void put(Key key, Pair pair, CommitGate commit) throws IOException {
         if (pair.forward.width != key.width || pair.forward.height != key.height
                 || pair.forward.fromPtsUs != key.fromPtsUs
                 || pair.forward.toPtsUs != key.toPtsUs) {
@@ -223,11 +230,11 @@ public final class FlowCache {
                 stream.getFD().sync();
             }
             if (commitHook != null) commitHook.beforeMove(temp, target);
-            if (!temp.renameTo(target)) throw new IOException("could not atomically replace flow chunk");
-            moved = true;
+            moved = commit.renameIfCurrent(temp, target);
         } finally {
             if (!moved) temp.delete();
         }
+        if (!moved) return;
         target.setLastModified(System.currentTimeMillis());
         enforceQuota();
     }
@@ -370,5 +377,14 @@ public final class FlowCache {
 
     interface CommitHook {
         void beforeMove(File temporary, File target) throws IOException;
+    }
+
+    /** The caller may serialize this short rename with its generation changes. */
+    interface CommitGate {
+        boolean renameIfCurrent(File temporary, File target) throws IOException;
+    }
+
+    static void renameChunk(File temporary, File target) throws IOException {
+        if (!temporary.renameTo(target)) throw new IOException("could not atomically replace flow chunk");
     }
 }

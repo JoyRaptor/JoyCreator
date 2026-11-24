@@ -1,5 +1,6 @@
 package com.fadcam.ui.faditor.motion.flow;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,9 +28,10 @@ public final class FlowAnalyzer implements AutoCloseable {
         FlowCache.Pair analyze(Cancellation cancellation) throws Exception;
     }
 
+    /** Invoked on the worker. Post any longer work and recheck the generation when it runs. */
     public interface Listener {
-        void ready(FlowCache.Key key, FlowCache.Pair pair, boolean fromCache);
-        void failed(FlowCache.Key key, Exception problem);
+        void ready(long sourceGeneration, FlowCache.Key key, FlowCache.Pair pair, boolean fromCache);
+        void failed(long sourceGeneration, FlowCache.Key key, Exception problem);
     }
 
     private final Object lock = new Object();
@@ -37,12 +39,12 @@ public final class FlowAnalyzer implements AutoCloseable {
     private final Listener listener;
     private final ExecutorService worker;
     private final List<Entry> pending = new ArrayList<>();
-    private final Set<String> scheduled = new HashSet<>();
     private long generation = Long.MIN_VALUE;
+    private long epoch;
     private long order;
     private boolean paused;
     private boolean closed;
-    private String runningId;
+    private Entry running;
 
     public FlowAnalyzer(FlowCache cache, Listener listener) {
         this(cache, listener, runnable -> {
@@ -75,14 +77,11 @@ public final class FlowAnalyzer implements AutoCloseable {
             if (closed) return;
             if (sourceGeneration != generation) {
                 generation = sourceGeneration;
-                pending.clear();
-                scheduled.clear();
-                if (runningId != null) scheduled.add(runningId);
-            } else {
-                pending.clear();
-                scheduled.clear();
-                if (runningId != null) scheduled.add(runningId);
+                epoch++;
             }
+            pending.clear();
+            Set<String> scheduled = new HashSet<>();
+            if (running != null && running.epoch == epoch) scheduled.add(running.id);
             for (Work item : work) {
                 FlowCache.Key key = item.key();
                 String id = id(key);
@@ -90,7 +89,7 @@ public final class FlowAnalyzer implements AutoCloseable {
                 long midpoint = key.fromPtsUs + (key.toPtsUs - key.fromPtsUs) / 2;
                 long distance = midpoint < visibleStartUs ? visibleStartUs - midpoint
                         : midpoint > visibleEndUs ? midpoint - visibleEndUs : 0;
-                pending.add(new Entry(sourceGeneration, distance, order++, id, item));
+                pending.add(new Entry(epoch, distance, order++, id, key, item));
             }
             pending.sort(Entry::compare);
             lock.notifyAll();
@@ -112,9 +111,7 @@ public final class FlowAnalyzer implements AutoCloseable {
     @Override public void close() {
         synchronized (lock) {
             closed = true;
-            generation++;
             pending.clear();
-            scheduled.clear();
             lock.notifyAll();
         }
         worker.shutdownNow();
@@ -133,36 +130,51 @@ public final class FlowAnalyzer implements AutoCloseable {
                 }
                 if (closed) return;
                 entry = pending.remove(0);
-                runningId = entry.id;
+                running = entry;
             }
             run(entry);
             synchronized (lock) {
-                scheduled.remove(entry.id);
-                if (entry.id.equals(runningId)) runningId = null;
+                running = null;
             }
         }
     }
 
     private void run(Entry entry) {
         Cancellation cancellation = () -> {
-            synchronized (lock) { return closed || generation != entry.generation; }
+            synchronized (lock) { return !isCurrent(entry); }
         };
         try {
-            FlowCache.Pair pair = cache.get(entry.work.key());
+            FlowCache.Pair pair = cache.get(entry.key);
             boolean fromCache = pair != null;
             if (pair == null) pair = entry.work.analyze(cancellation);
             if (pair == null || cancellation.isCancelled()) return;
             if (!fromCache) {
-                cache.put(entry.work.key(), pair);
-                if (cancellation.isCancelled()) return;
+                try {
+                    cache.put(entry.key, pair, (temporary, target) -> {
+                        synchronized (lock) {
+                            if (!isCurrent(entry)) return false;
+                            FlowCache.renameChunk(temporary, target);
+                            return true;
+                        }
+                    });
+                } catch (IOException unwritableCache) {
+                    // The current frame can still use its valid in-memory analysis.
+                }
             }
-            listener.ready(entry.work.key(), pair, fromCache);
+            synchronized (lock) {
+                if (isCurrent(entry)) listener.ready(generation, entry.key, pair, fromCache);
+            }
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (Exception problem) {
-            if (!cancellation.isCancelled()) listener.failed(entry.work.key(), problem);
+            synchronized (lock) {
+                if (isCurrent(entry)) listener.failed(generation, entry.key, problem);
+            }
         }
     }
+
+    // Called with lock held, so membership, the final rename and delivery cannot race plan().
+    private boolean isCurrent(Entry entry) { return !closed && epoch == entry.epoch; }
 
     private static String id(FlowCache.Key key) {
         byte[] digest = key.digest();
@@ -172,17 +184,19 @@ public final class FlowAnalyzer implements AutoCloseable {
     }
 
     private static final class Entry {
-        final long generation;
+        final long epoch;
         final long distance;
         final long order;
         final String id;
+        final FlowCache.Key key;
         final Work work;
 
-        Entry(long generation, long distance, long order, String id, Work work) {
-            this.generation = generation;
+        Entry(long epoch, long distance, long order, String id, FlowCache.Key key, Work work) {
+            this.epoch = epoch;
             this.distance = distance;
             this.order = order;
             this.id = id;
+            this.key = key;
             this.work = work;
         }
 

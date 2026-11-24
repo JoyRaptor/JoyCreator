@@ -13,15 +13,23 @@ import android.os.PowerManager;
 import android.util.Log;
 import android.view.WindowManager;
 
-/** Synthetic footage diagnostics for the test phone. No Studio project or device data is edited. */
+/** Footage diagnostics for the test phone. No Studio project or device data is edited. */
 public final class MotionFlowBenchActivity extends Activity {
     static final String TAG = "MotionFlowBench";
     private final Handler main = new Handler(Looper.getMainLooper());
     private GLSurfaceView surface;
+    private Thread decodedWorker;
 
     @Override protected void onCreate(Bundle state) {
         super.onCreate(state);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        temperature();
+        main.postDelayed(this::logTemperature, 30_000L);
+        if (getIntent().getBooleanExtra("decoded", false)) {
+            decodedWorker = new Thread(this::runDecoded, "Studio decoded flow diagnostic");
+            decodedWorker.start();
+            return;
+        }
         boolean timing = getIntent().getBooleanExtra("timing", false);
         surface = new GLSurfaceView(this);
         surface.setEGLContextClientVersion(timing ? 3 : 2);
@@ -32,8 +40,25 @@ public final class MotionFlowBenchActivity extends Activity {
         surface.setRenderMode(timing ? GLSurfaceView.RENDERMODE_CONTINUOUSLY
                 : GLSurfaceView.RENDERMODE_WHEN_DIRTY);
         setContentView(surface);
-        temperature();
-        main.postDelayed(this::logTemperature, 30_000L);
+    }
+
+    private void runDecoded() {
+        try {
+            DecodedFlowDiagnostic.run(getAssets());
+        } catch (InterruptedException cancelled) {
+            Thread.currentThread().interrupt();
+            return;
+        } catch (Exception failure) {
+            Log.e(TAG, "DECODED_FAIL", failure);
+        }
+        if (!Thread.currentThread().isInterrupted()) {
+            main.post(() -> {
+                if (!isFinishing()) {
+                    temperature();
+                    finish();
+                }
+            });
+        }
     }
 
     private void logTemperature() {
@@ -52,6 +77,7 @@ public final class MotionFlowBenchActivity extends Activity {
 
     @Override protected void onPause() {
         main.removeCallbacksAndMessages(null);
+        if (decodedWorker != null) decodedWorker.interrupt();
         if (surface != null) surface.onPause();
         super.onPause();
         finish();

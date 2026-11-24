@@ -1,6 +1,7 @@
 package com.fadcam.ui.faditor.motion.flow;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
@@ -18,6 +19,8 @@ public final class FlowAnalyzerTest {
         test.visibleRangeRunsFirstAndCacheReuses();
         test.pauseAndResume();
         test.sourceGenerationCancelsStaleResult();
+        test.sourceChangeDuringCacheCommit();
+        test.storageFailureStillDeliversCurrentPair();
         System.out.println("FlowAnalyzerTest: " + test.assertions + " assertions");
     }
 
@@ -93,6 +96,59 @@ public final class FlowAnalyzerTest {
         deleteTree(root);
     }
 
+    private void sourceChangeDuringCacheCommit() throws Exception {
+        File root = Files.createTempDirectory("flow-analyzer-commit-race").toFile();
+        CountDownLatch beforeRename = new CountDownLatch(1);
+        CountDownLatch allowRename = new CountDownLatch(1);
+        CountDownLatch ready = new CountDownLatch(1);
+        AtomicInteger writes = new AtomicInteger();
+        AtomicInteger analyses = new AtomicInteger();
+        List<String> delivered = Collections.synchronizedList(new java.util.ArrayList<>());
+        FlowCache cache = new FlowCache(root, 1_000_000, (temporary, target) -> {
+            if (writes.incrementAndGet() != 1) return;
+            beforeRename.countDown();
+            try {
+                if (!allowRename.await(3, TimeUnit.SECONDS)) throw new IOException("test rename timeout");
+            } catch (InterruptedException stop) {
+                Thread.currentThread().interrupt();
+                throw new IOException(stop);
+            }
+        });
+        try (FlowAnalyzer analyzer = new FlowAnalyzer(cache, listener(delivered, ready))) {
+            var item = work("same-key", 0, 10, analyses);
+            analyzer.plan(1, 0, 10, Collections.singletonList(item));
+            check(beforeRename.await(3, TimeUnit.SECONDS), "old pair reaches publication fence");
+            analyzer.plan(2, 0, 10, Collections.singletonList(item));
+            allowRename.countDown();
+            check(ready.await(3, TimeUnit.SECONDS), "replacement using the same key completes");
+            check(writes.get() == 2 && analyses.get() == 2
+                    && delivered.equals(Collections.singletonList("same-key:false")),
+                    "cancelled rename leaves a cache miss for the replacement analysis");
+            check(cache.get(item.key()) != null, "only the replacement publishes the cache chunk");
+        } finally {
+            allowRename.countDown();
+            deleteTree(root);
+        }
+    }
+
+    private void storageFailureStillDeliversCurrentPair() throws Exception {
+        File root = Files.createTempDirectory("flow-analyzer-unwritable").toFile();
+        CountDownLatch ready = new CountDownLatch(1);
+        var delivered = Collections.synchronizedList(new java.util.ArrayList<String>());
+        FlowCache cache = new FlowCache(root, 1_000_000, (temporary, target) -> {
+            throw new IOException("injected storage failure");
+        });
+        try (FlowAnalyzer analyzer = new FlowAnalyzer(cache, listener(delivered, ready))) {
+            var item = work("memory-only", 0, 10, new AtomicInteger());
+            analyzer.plan(1, 0, 10, Collections.singletonList(item));
+            check(ready.await(3, TimeUnit.SECONDS) && delivered.get(0).equals("memory-only:false"),
+                    "current analysis is delivered when storage fails");
+            check(cache.get(item.key()) == null, "failed cache write leaves no corrupt result");
+        } finally {
+            deleteTree(root);
+        }
+    }
+
     private static FlowAnalyzer.Work work(String source, long from, long to, AtomicInteger analyses) {
         return new FlowAnalyzer.Work() {
             final FlowCache.Key key = FlowAnalyzerTest.key(source, from, to);
@@ -106,11 +162,11 @@ public final class FlowAnalyzerTest {
 
     private static FlowAnalyzer.Listener listener(List<String> delivered, CountDownLatch ready) {
         return new FlowAnalyzer.Listener() {
-            public void ready(FlowCache.Key key, FlowCache.Pair pair, boolean fromCache) {
+            public void ready(long generation, FlowCache.Key key, FlowCache.Pair pair, boolean fromCache) {
                 delivered.add(key.sourceFingerprint + ":" + fromCache);
                 ready.countDown();
             }
-            public void failed(FlowCache.Key key, Exception problem) {
+            public void failed(long generation, FlowCache.Key key, Exception problem) {
                 throw new AssertionError("analysis failed for " + key.sourceFingerprint, problem);
             }
         };

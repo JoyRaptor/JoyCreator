@@ -85,3 +85,8 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 - **Result:** choosing the lane that holds the music gave the toast "Nothing to duck under - no speech found in that lane" (`j7.png`, by design); choosing the voice lane gave **"Ducked - 17 keyframes from levels"** and a cyan volume envelope with dots now dips under the speech on the audio lane (`j8.png`). The test project "Restore video test" keeps that envelope and the voice lane (throwaway).
 - **Not done:** listening to the ducked result in an export; "transcript" as the speech source.
 - Still owed: corner pin picture check, jobs 17 and 18, other transition types, STU-6 on-clip checks for 11 effects.
+
+## 11-24 corner pin picture check and snapping feel (hover-1 lane, Note 9)
+- **Corner pin: still not proven.** With the sprite lane selected, its box and four corner squares show (`k1.png`); an adb swipe of the lower-right corner (700 ms) changed nothing on screen (`k2.png`, same as `k1.png`), twice now. An earlier drag did leave a "Distort sprite" undo step, so the control is wired; a swipe that starts on the handle does not move it reliably. A finger or a scripted touch with a press-and-hold is needed.
+- **STU-5 snapping feel: not checked.** Whether a drag snaps "as before" is a feel judgement that scripted swipes cannot give; it needs the owner's hand or a recorded side-by-side with the old build.
+- Jobs 17 and 18: not started.

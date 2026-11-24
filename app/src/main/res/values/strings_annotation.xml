@@ -7,7 +7,6 @@
     <string name="annotation_project_load_fresh">Could not load project — starting fresh</string>
     <string name="annotation_mode_select">👆 Selection mode: Tap to select, drag to move</string>
     <string name="annotation_mode_draw">🖊️ Draw mode</string>
-    <string name="annotation_layer_locked">Layer is locked</string>
     <string name="annotation_text_deleted">🗑️ Text deleted!</string>
     <string name="annotation_text_updated">✏️ Text updated!</string>
     <string name="annotation_rename_dialog_error">Error showing rename dialog</string>

@@ -41,6 +41,8 @@ public final class TimelineMarksPopup {
         float fps();
         void seek(long ms);
         void exportRegions(List<MarkerWorkspace.Region> regions);
+        /** FOLD-1: offer the moments Detect found in this project's recordings as marks (one undo step). */
+        void addDetectedMoments();
     }
 
     private static final int TAB_POINTS = 0;
@@ -330,6 +332,13 @@ public final class TimelineMarksPopup {
         addPoint.addView(add, new LinearLayout.LayoutParams(-1, dp(44)));
         add.setOnClickListener(v -> addPoint());
         root.addView(addPoint);
+
+        LinearLayout moments = new LinearLayout(context);   // FOLD-1: moments Detect found become marks, only when asked
+        moments.setGravity(Gravity.CENTER);
+        TextView addMoments = textButton(R.string.timeline_marks_add_moments, 0);
+        moments.addView(addMoments, new LinearLayout.LayoutParams(-1, dp(44)));
+        addMoments.setOnClickListener(v -> host.addDetectedMoments());
+        root.addView(moments);
 
         LinearLayout footer = new LinearLayout(context);
         footer.setGravity(Gravity.CENTER_VERTICAL);

@@ -60,6 +60,11 @@
     <string name="timeline_marks_bookmark_number">Bookmark %1$d</string>
     <string name="timeline_marks_region_number">Region %1$d</string>
     <string name="timeline_marks_bookmark_added">Bookmark saved</string>
+    <string name="timeline_marks_add_moments">＋  Moments Detect found</string>
+    <string name="timeline_marks_undo_add_moments">Add Detect moments</string>
+    <string name="timeline_marks_moments_none">Detect found no moments in this project\'s recordings</string>
+    <string name="timeline_marks_moments_added">Added %1$d moments Detect found</string>
+    <string name="timeline_marks_moments_all_there">Those moments are already marked</string>
     <string name="timeline_marks_in_captured">Region In captured</string>
     <string name="timeline_marks_region_added">Region saved</string>
     <string name="timeline_marks_nothing_to_export">Select at least one region to export</string>

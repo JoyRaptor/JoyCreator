@@ -18,7 +18,7 @@ import com.fadcam.ui.faditor.ai.joybot.CaptureRules;
  * door, back / front / dual camera), pause and resume through the recording service's own intents
  * (as the Remote Studio page sends them), stop through {@code RecordingStopActivity} (which knows
  * dual from single). The rules ({@link CaptureRules}): the camera starts only on the person's own
- * words, and permissions stay the person's tap. Screen recording is not covered yet.
+ * words, and permissions stay the person's tap. Screen recording: status, pause, resume and stop only (its start is Android's own prompt).
  */
 final class CaptureActions {
     private CaptureActions() { }
@@ -28,18 +28,25 @@ final class CaptureActions {
                 .help("Capture's camera recorder. step: status (is it recording), start, pause, resume, stop."
                         + " camera (start only): back (default), front or dual. The camera starts only when the person"
                         + " asked in their own words to record; Android's camera and microphone permissions are theirs"
-                        + " to allow (if missing, say so and offer to open Capture with open_room record). Screen"
-                        + " recording is not covered: send them to Capture for that.")
+                        + " to allow (if missing, say so and offer to open Capture with open_room record). target=screen"
+                        + " works the screen recorder: status, pause, resume, stop; STARTING a screen recording is"
+                        + " Android's own prompt, so send the person to Capture's Screen button for that.")
                 .wing("APP", "capture").effect(Effect.EDIT)
                 .where("Capture › the record button")
                 .choice("step", true, "What to do", java.util.Arrays.asList("status", "start", "pause", "resume", "stop"))
                 .choice("camera", false, "Which camera, for start", java.util.Arrays.asList("back", "front", "dual"))
+                .choice("target", false, "camera (default) or screen: screen can status, pause, resume and stop;"
+                        + " starting a screen recording is Android's own prompt, the person's tap",
+                        java.util.Arrays.asList("camera", "screen"))
                 .build(), CaptureActions::run);
     }
 
     @NonNull
     private static ActionResult run(@NonNull AppCtx ctx, @NonNull Args a) throws ActionError {
         String step = a.choice("step", java.util.Arrays.asList("status", "start", "pause", "resume", "stop"));
+        if ("screen".equals(a.choice("target", java.util.Arrays.asList("camera", "screen")))) {
+            return runScreen(ctx, step);
+        }
         com.fadcam.SharedPreferencesManager sp = com.fadcam.SharedPreferencesManager.getInstance(ctx.app);
         boolean recording = sp.isRecordingInProgress();
         boolean paused = recording && com.fadcam.streaming.RemoteStreamManager.getInstance().isPaused();
@@ -94,6 +101,36 @@ final class CaptureActions {
                 return ActionResult.changed("Recording stopped; it's in your Library.", new java.util.ArrayList<>());
             }
         }
+    }
+
+    /** The screen recorder: pause, resume, stop and status through its service's own intents. */
+    @NonNull
+    private static ActionResult runScreen(@NonNull AppCtx ctx, @NonNull String step) throws ActionError {
+        String state = com.fadcam.SharedPreferencesManager.getInstance(ctx.app).getScreenRecordingState();
+        boolean paused = "PAUSED".equals(state);
+        boolean recording = paused || "IN_PROGRESS".equals(state);
+        switch (CaptureRules.decideScreen(step, state)) {
+            case STATUS:
+                return ActionResult.unchanged(!recording ? "Screen is not recording."
+                        : paused ? "Screen recording, paused." : "Screen recording now.");
+            case NEEDS_PERSON:
+                throw new ActionError("Only you can start a screen recording: Android asks you to allow it.\n"
+                        + "Not done: offer to open Capture (open_room record), where the Screen button starts it.");
+            case WRONG_STATE:
+                throw new ActionError(recording ? (paused ? "The screen recording is already paused." : "Already recording the screen.")
+                        : "No screen recording is running.");
+            case UNKNOWN:
+                throw new ActionError("step is status, pause, resume or stop.");
+            default:
+                break;
+        }
+        String action = "pause".equals(step) ? com.fadcam.Constants.INTENT_ACTION_PAUSE_SCREEN_RECORDING
+                : "resume".equals(step) ? com.fadcam.Constants.INTENT_ACTION_RESUME_SCREEN_RECORDING
+                : com.fadcam.Constants.INTENT_ACTION_STOP_SCREEN_RECORDING;
+        ctx.app.startService(new Intent(ctx.app, com.fadcam.fadrec.services.ScreenRecordingService.class).setAction(action));
+        return ActionResult.changed("pause".equals(step) ? "Screen recording paused."
+                : "resume".equals(step) ? "Screen recording again." : "Screen recording stopped; it's in your Library.",
+                new java.util.ArrayList<>());
     }
 
     private static boolean granted(@NonNull AppCtx ctx, @NonNull String perm) {

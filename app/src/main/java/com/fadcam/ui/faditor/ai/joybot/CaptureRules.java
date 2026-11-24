@@ -23,7 +23,9 @@ public final class CaptureRules {
         /** Camera or microphone permission missing: only the person can allow it. */ NO_PERMISSION,
         /** Already recording (start) / not recording (pause, resume, stop). */ WRONG_STATE,
         /** Dual camera recording has no pause here. */ NO_DUAL_PAUSE,
-        /** Not a known step. */ UNKNOWN
+        /** Not a known step. */ UNKNOWN,
+        /** Screen recording starts only through Android's own "Start now" prompt: the person's tap. */
+        NEEDS_PERSON
     }
 
     private static final Pattern ASKED_TO_RECORD = Pattern.compile(
@@ -33,6 +35,21 @@ public final class CaptureRules {
     public static boolean askedToRecord(@Nullable String personSaid) {
         return personSaid != null && ASKED_TO_RECORD.matcher(personSaid).find()
                 && !personSaid.toLowerCase(Locale.US).matches("(?s).*\\b(stop|pause|don't|do not|end)\\b.*record.*");
+    }
+
+    /**
+     * The same rules for the SCREEN recorder (BOT-A29, second half). Starting one needs Android's own
+     * consent prompt, which only the person can accept, so a start is never done from here: it is
+     * answered NEEDS_PERSON (after the "already recording" check). Pause, resume and stop follow the
+     * service's own state string (NONE, IN_PROGRESS or PAUSED); a computer on the bridge may stop one.
+     */
+    @NonNull
+    public static Verdict decideScreen(@Nullable String step, @Nullable String state) {
+        boolean paused = "PAUSED".equals(state);
+        boolean recording = paused || "IN_PROGRESS".equals(state);
+        String s = step == null ? "status" : step.trim().toLowerCase(Locale.US);
+        if ("start".equals(s)) return recording ? Verdict.WRONG_STATE : Verdict.NEEDS_PERSON;
+        return decide(s, recording, paused, false, true, null);
     }
 
     @NonNull

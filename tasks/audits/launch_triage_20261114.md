@@ -79,7 +79,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 
 | ID | Size | What | Owner? | Phone? |
 |---|---|---|---|---|
-| L09 | M | Draft the Play data-safety and permissions answers. | no | no |
+| L09 | M | Draft the Play data-safety and permissions answers. | no | no | **DONE (checked 11-24, website lane): drafts in `tasks/store/DATA_SAFETY_DRAFT.md`, `CONTENT_RATING_DRAFT.md` and `tasks/SHOW2_play_declarations.md`; owner pastes them into Play (OWNER_CLICKS step 4)**
 | L10 | L | Add the 'play' product flavour (no disguise icons, accessibility service, all-files access, black screen). | no | yes |
 | L11 | M | Launcher-icon switcher and its Settings UI vanish in the play build. | no | yes |
 | L15 | M | Release signing and versioning: real app ID, no beta suffix, upload key handled privately. | yes | no |
@@ -87,7 +87,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 | L22 | M | Smoke test that every wing opens on the release build without a crash. | no | yes |
 | L27 | S | Remove tasks/api.txt from the project folder, rotate the key, add a guard. | yes | no |
 | L28 | S | What's New and intro copy approved (owner's 9-09 text still missing). | yes | no |
-| L30 | L | First website skeleton on GitHub Pages; a one-page version serves the privacy policy Play needs. | no | no |
+| L30 | L | First website skeleton on GitHub Pages; a one-page version serves the privacy policy Play needs. | no | no | **DONE (checked 11-24): site in `docs/` with privacy, testers and room pages (SHOW-3, `af2cf7f40`); owner turns on Pages (OWNER_CLICKS step 1); no more website work until the app is done (owner ruling 11-23)**
 | L32 | M | Remove stale FadCam Pro / donation strings; owner's own links in a non-blocking prompt. | yes | yes |
 | L37 | L | A single switch that hides the unproven yellow features at launch. | yes | yes |
 
@@ -154,7 +154,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - VL-12 (M) Owner-deferred checks: R1 audit (floating visualiser, needs Start now), R2 audit (Android 12+), D2 hour-long heat test
 - TX-04 (S) Rename the lobby 'uArc' name clash (lightning knob vs tube share) **DONE** (renamed uPenArc 11-12; comment caught up 11-15)
 - TX-09 (M) TextLab phone engine speed: per-pass GPU timing; app ~2x slower than the look book **DONE** (TlGpuTimer and T13 speed on joy-creator before 11-15)
-- TX-17 (S) STATE and help mapping for TextLab rows after owner tries
+- TX-17 (S) STATE and help mapping for TextLab rows after owner tries **TAKING (website lane, 11-24)**
 
 ### JoyBrush
 
@@ -162,7 +162,7 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-08 (S) Phone-look the hover outline (never seen working) and fix the lean direction if wrong
 - JBX-10 (M) Sweep JoyBrush chrome for missing hover labels
 - JBX-11 (M) Group the long more menu (about 20+ rows) into sections — DONE 11-15 (58f256930), tablet-checked
-- JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings
+- JBX-12 (M) Write the missing and stale JoyBrush STATE rows and help mappings **TAKING (website lane, 11-24)**
 - JBX-14 (S) Doc name follows a drawing's rename — DONE 11-15 (58f256930), tablet-checked
 - JBX-16 (M) Hold-to-open: make 'Open...' bring a file in as a new drawing instead of replacing the current one — DONE 11-15 (58f256930), tablet-checked
 - JBX-17 (L) Wire the tap-fill (bucket) tool
@@ -177,13 +177,13 @@ Overlaps inside LAUNCH (same job counted twice): L10 + L11 + SHELL-43 (Play buil
 - JBX-43 (L) Frame duplication: captured and joint cases, plus owner UI acceptance
 - JBX-46 (S) Decide and land the tuft-tuning orphan files from the owner's main folder
 - JBX-47 (S) Commit the untracked JoyBrush handoffs and reviews in the owner's main folder
-- JBX-49 (M) Joybot help mappings for pending JoyBrush rows
+- JBX-49 (M) Joybot help mappings for pending JoyBrush rows **TAKING (website lane, 11-24)**
 
 ### Launch and hygiene
 
 - L17 (M) Clean the 11 translations: leftover 'FadCam' in 10-44 strings each; new strings_*.xml files have no translations **DONE 11-15** (12 languages, `tools/check_strings.py`; branch claude/translations-20261115-bea302; reading by a native speaker still owed)
 - L26 (S) HYG-1 leftovers: land or drop the JoyBrush tuft-tuning files and staged tween reviews in the main folder
-- L29 (M) SHOW-3 prep: shot list, store screenshots plan, feature graphic and demo-video storyboard from the ðŸŸ¢ STATE rows
+- L29 (M) SHOW-3 prep: shot list, store screenshots plan, feature graphic and demo-video storyboard from the ðŸŸ¢ STATE rows **DONE (checked 11-24): `tasks/show/` has SIZZLE_STORYBOARD, SHOT_LIST, STORE_SHOTS, REEL_PER_ROOM (11-15)**
 - L33 (S) Letter to the FadCam author and licence/credit review
 
 ## 4. AFTER (not needed to launch)

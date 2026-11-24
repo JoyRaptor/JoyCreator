@@ -530,6 +530,7 @@ public final class FxRegistry {
         // stays readable. They go through the same validate() below as everything above.
         FxVisLabDefs.addTo(defs);
         FxVisLabDefs2.addTo(defs);
+        FxTextLabDefs.addTo(defs);
 
         ALL = Collections.unmodifiableList(defs);
 

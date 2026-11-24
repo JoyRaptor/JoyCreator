@@ -62,10 +62,10 @@ public class FxCompilerTest {
     static void registryIsValid() {
         List<String> problems = FxRegistry.validate();
         check("the registry self-check passes: " + problems, problems.isEmpty());
-        check("all 34 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
+        check("all 41 effects are present (12 v1 + Solid Color + Gradient + Brightness + the legacy "
                         + "grade's two halves, color_grade and film, + VisLab's ten finishes + its "
-                        + "six looks: glow, flash, vignette, ripple, swirl, warp, + Echo Trails)",
-                FxRegistry.all().size() == 34);
+                        + "six looks: glow, flash, vignette, ripple, swirl, warp, + Echo Trails + TextLab's seven pattern makers)",
+                FxRegistry.all().size() == 41);
     }
 
     static void everyEffectCompilesToBothBackends() {

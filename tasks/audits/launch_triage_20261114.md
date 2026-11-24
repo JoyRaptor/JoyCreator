@@ -390,3 +390,11 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 | BOT-A27 | partly fixed (`28da8b869` Joybot switch, `0c8444ca3` room tour); first-run guide is the owner's call | |
 | STU-B3 | already fixed (`c93fd7d29` and the five after it) | |
 | DONE? rows | BOT-A16 done (`73aad9221`); BOT-A7 done, STATE already maps the rows it named; JBX-18 done (`c04379a6c`...); **BOT-A29 NOT done** (camera only: screen recording and the webcam bubble through Joybot missing, class AFTER); **BOT-A31 NOT done** (background bake, dope sheet, export actions missing); **BOT-A33 NOT done** (model routing per step missing); **L18 NOT done** (only the audit list exists, `a7398222b`: about 97 literal Toasts and 192 literal `setText`s remain; class stays LAUNCH-minus: a big sweep); L19 mostly done (`79cefb069`; dialogs and popups still owe labels) | |
+
+### Batch 3 (2026-11-24, built, cloud green)
+
+| ID | Status |
+|---|---|
+| STU-C2 / device check F13 | fixed 11-24: a sprite sheet picked as `<Name>.<C>x<R>.sprite.png` now takes its grid and name from the file name (`SpriteSheetEditorActivity.applyGridFromName`; `run-spritelab-audit.sh` 20). The other half of F13 (the sheet not listed in Studio after Save and Back) was not reproduced and stays open for a phone |
+| Device check: Export button read "Export . %1$d" | fixed 11-24 (`TimelineMarksPopup`: described by what it shows; source check in `run-looks-home.sh`) |
+| F10 (marks popup throws away a half-made region), F11 (speech model download has no percentage), F14 (caption chip stays selected after Undo), F15 (Puppet drawer covers the picture) | open; each changes how a screen behaves and wants a phone to judge |

@@ -1137,6 +1137,12 @@ public final class FxLivePreviewController {
 
     private boolean addOrderedSprite(List<FxPreviewTextureView.Rung> rungs, SpriteOverlayItem sprite,
                                      int[] size, long playheadMs, @Nullable PreviewDecoderClock.Anchor clock) {
+        if (AuthoredSpriteMeshExposure.supportsDirectMesh(sprite)) {
+            var mesh = spritePip(sprite, playheadMs, size);
+            if (mesh == null) return false;
+            rungs.add(FxPreviewTextureView.Rung.pip(mesh));
+            return true;
+        }
         if (clock != null && sprite.isRigidMotionBlurEnabled() && RigidSpriteMotion.supports(sprite)
                 && addSpriteMotion(rungs, sprite, size, playheadMs, clock)) return true;
         var cell = host.spriteMotionCell(sprite, playheadMs);

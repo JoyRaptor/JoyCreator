@@ -42,4 +42,5 @@ expect_failure 'text ordered under the PiP draws under it' LanePlanTest --groupe
 expect_failure 'sprite over text differs from legacy' LanePlanTest --rule1-only
 expect_failure 'matching lane order cannot certify legacy pixels' LanePlanTest --assume-legacy-pixels
 expect_failure 'unsupported producer forces whole-frame preview fallback' LanePlanTest --ignore-preview-domain
+expect_failure 'direct authored mesh stays in the True Layer Order plan' LanePlanTest --reject-ordered-mesh
 java @"$RUNARGS" LanePlanTest

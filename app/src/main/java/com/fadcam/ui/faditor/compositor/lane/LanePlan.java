@@ -3,6 +3,7 @@ package com.fadcam.ui.faditor.compositor.lane;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposure;
 import com.fadcam.ui.faditor.compositor.LayerPreviewController;
 import com.fadcam.ui.faditor.layers.BlendMode;
 import com.fadcam.ui.faditor.layers.TimedItem;
@@ -177,7 +178,9 @@ public final class LanePlan {
     /** The host checks atlas metadata and can fall back if its cell source is missing. */
     public static boolean supportsOrderedSprite(@Nullable SpriteOverlayItem sprite) {
         return sprite != null && !sprite.isLinked() && !sprite.hasAvatarPerformance()
-                && !sprite.wantsGl() && !sprite.hasCornerPin()
+                && (!sprite.wantsGl()
+                || AuthoredSpriteMeshExposure.supportsDirectMesh(sprite))
+                && !sprite.hasCornerPin()
                 && sprite.getFrameTrack().keys().stream().noneMatch(key -> key.presetId != null);
     }
 

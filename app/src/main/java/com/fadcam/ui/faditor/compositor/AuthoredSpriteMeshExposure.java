@@ -33,16 +33,25 @@ public final class AuthoredSpriteMeshExposure {
         exposure = new MeshExposure(mesh, startUs, endUs, fences);
     }
 
+    /**
+     * The direct authored-mesh domain shared by ordinary and True Layer Order routing.
+     * This is structural only: launch/project/item opt-in remains in {@link #prepare}.
+     */
+    public static boolean supportsDirectMesh(@Nullable SpriteOverlayItem item) {
+        if (item == null || item.isHidden() || item.isLinked() || item.hasAvatarPerformance()
+                || item.hasCornerPin() || item.getFadeInMs() != 0 || item.getFadeOutMs() != 0
+                || !item.hasMesh()) return false;
+        return item.getStartMs() >= 0 && item.getStartMs() < Long.MAX_VALUE / 1000L
+                && (item.getEndMs() == Long.MAX_VALUE || (item.getEndMs() >= item.getStartMs()
+                && item.getEndMs() < Long.MAX_VALUE / 1000L));
+    }
+
     /** Rebuild when the item changes. Both switches must be enabled before any snapshot is taken. */
     @Nullable
     public static AuthoredSpriteMeshExposure prepare(boolean launchEnabled, boolean projectEnabled,
                                                      SpriteOverlayItem item) {
-        if (!launchEnabled || !projectEnabled || !item.isRigidMotionBlurEnabled() || item.isHidden()
-                || item.isLinked() || item.hasAvatarPerformance() || item.hasCornerPin()
-                || item.getFadeInMs() != 0 || item.getFadeOutMs() != 0 || !item.hasMesh()) return null;
-        if (item.getStartMs() < 0 || item.getStartMs() >= Long.MAX_VALUE / 1000L
-                || (item.getEndMs() != Long.MAX_VALUE && (item.getEndMs() < item.getStartMs()
-                || item.getEndMs() >= Long.MAX_VALUE / 1000L))) return null;
+        if (!launchEnabled || !projectEnabled || !item.isRigidMotionBlurEnabled()
+                || !supportsDirectMesh(item)) return null;
         SpriteOverlayItem snapshot = item.copyWithNewId(item.getId());
         return new AuthoredSpriteMeshExposure(snapshot, snapshot.getMesh());
     }

@@ -29,12 +29,29 @@ public final class AuthoredSpriteMeshExposureTest {
         require(AuthoredSpriteMeshExposure.prepare(true, true, sprite) == null,
                 "newly created item is sharp");
         sprite.setRigidMotionBlurEnabled(true);
+        require(AuthoredSpriteMeshExposure.supportsDirectMesh(sprite),
+                "direct authored mesh is structurally supported");
         require(AuthoredSpriteMeshExposure.prepare(false, true, sprite) == null,
                 "launch gate blocks opted-in item");
         require(AuthoredSpriteMeshExposure.prepare(true, false, sprite) == null,
                 "project gate blocks opted-in item");
         AuthoredSpriteMeshExposure motion = AuthoredSpriteMeshExposure.prepare(true, true, sprite);
         require(motion != null, "eligible authored mesh prepares");
+        SpriteOverlayItem faded = sprite.copyWithNewId("faded");
+        faded.setFadeInMs(1);
+        require(!AuthoredSpriteMeshExposure.supportsDirectMesh(faded),
+                "fade stays outside the direct mesh domain");
+        SpriteOverlayItem pinned = sprite.copyWithNewId("pinned");
+        pinned.setCornerPin(new float[]{.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f});
+        require(!AuthoredSpriteMeshExposure.supportsDirectMesh(pinned),
+                "corner pin stays outside the direct mesh domain");
+        SpriteOverlayItem avatar = sprite.copyWithNewId("avatar");
+        var performance = new com.fadcam.ui.faditor.avatar.AvatarParamTrack();
+        performance.add(0L, java.util.Map.of());
+        avatar.setAvatarRigId("rig");
+        avatar.setAvatarTrack(performance);
+        require(!AuthoredSpriteMeshExposure.supportsDirectMesh(avatar),
+                "stateful avatar stays outside the direct mesh domain");
         SpriteSheet wrongSheet = new SpriteSheet("other-sheet", "test", "test");
         wrongSheet.setGrid(2, 1);
         require(motion.plan(wrongSheet, 1_079_999L, 40_000L, 8, 1_076_000L, 1_200_000L) == null,

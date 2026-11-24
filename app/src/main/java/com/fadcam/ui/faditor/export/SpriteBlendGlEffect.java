@@ -435,7 +435,7 @@ final class SpriteBlendGlEffect implements GlEffect {
             this.mesh = wantMesh;
             this.meshStamp = stamp;
             // The caller supplies a nonempty shutter piece only when the project switch is on.
-            this.authoredMesh = wantMesh && !orderedSprite && motionEndUs > motionStartUs
+            this.authoredMesh = wantMesh && motionEndUs > motionStartUs
                     ? AuthoredSpriteMeshExposure.prepare(
                             !LaunchGate.hidden(appContext, "studio_motion_blur"), true, item) : null;
             GlProgram flat = null;
@@ -500,13 +500,13 @@ final class SpriteBlendGlEffect implements GlEffect {
                     return;
                 }
                 if (drawShutter(inputTexId, timelineMs, editorUs, periodUs)) return;
-                if (orderedSprite) {
-                    drawOrderedSprite(inputTexId, timelineMs, editorUs);
-                    return;
-                }
                 if (mesh && meshStamp != null && flatProgram != null) {
                     if (drawAuthoredMesh(inputTexId, editorUs, periodUs)) return;
                     drawMeshFrame(inputTexId, presentationTimeUs, timelineMs);
+                    return;
+                }
+                if (orderedSprite) {
+                    drawOrderedSprite(inputTexId, timelineMs, editorUs);
                     return;
                 }
                 drawFlat(inputTexId, presentationTimeUs);

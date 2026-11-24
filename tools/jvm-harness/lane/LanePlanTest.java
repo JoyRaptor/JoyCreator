@@ -4,6 +4,7 @@ import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
+import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,6 +37,7 @@ public final class LanePlanTest {
         projectExportUsesProvenLegacyDomain();
         explicitOrderUsesProjectLayout();
         orderedPreviewRequiresOneSupportedPlan();
+        orderedDirectMeshUsesOnePlan();
         System.out.println("LanePlanTest: " + assertions + " assertions");
     }
 
@@ -163,6 +165,25 @@ public final class LanePlanTest {
         rigid.getOverlayClips().get(0).setOverlayBlendMode("SCREEN");
         boolean supported = mutant.equals("--ignore-preview-domain") || plan(rigid).supportsOrderedPreview(true);
         check(!supported, "unsupported producer forces whole-frame preview fallback");
+    }
+
+    static void orderedDirectMeshUsesOnePlan() {
+        Timeline t = base();
+        SpriteOverlayItem sprite = t.getSpriteOverlays().get(0);
+        MeshWarpSpec mesh = MeshWarpSpec.lattice(2);
+        mesh.handles()[0] += .1f;
+        sprite.setMesh(mesh);
+        boolean accepted = mutant.equals("--reject-ordered-mesh")
+                ? false : plan(t).supportsOrderedPreview(true);
+        check(accepted, "direct authored mesh stays in the True Layer Order plan");
+
+        sprite.setFadeInMs(1);
+        check(!plan(t).supportsOrderedPreview(true),
+                "unsupported mesh fade forces the whole-plan fallback");
+        sprite.setFadeInMs(0);
+        sprite.setCornerPin(new float[]{.1f, 0f, 0f, 0f, 0f, 0f, 0f, 0f});
+        check(!plan(t).supportsOrderedPreview(true),
+                "corner-pinned mesh forces the whole-plan fallback");
     }
 
     // ---- helpers --------------------------------------------------------------------------

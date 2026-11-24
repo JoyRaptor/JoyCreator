@@ -416,7 +416,7 @@ layers, and a floating visualiser over other apps. Lead docs: `tasks/VISLAB_SPEC
 ## 5.55 TEXTLAB — film-poster title text (2026-11-11, name pending)
 
 Words made of chrome, gold, steel, neon and fire, lit like a film title. A PILOT so far: the looks are real and run on the
-phone's GPU, but nothing is in the app. Job card: `tasks/jobs/TEXT-1_textlab.md`. Do not promote; no help mapping yet.
+phone's GPU, and since 11-12 the room, its lobby door, the Library and Studio round trip are in the app (rows below). Job card: `tasks/jobs/TEXT-1_textlab.md`. Do not promote to LIVE until the owner has tried it. Help: the topics `textlab`, `textlab_save`, `textlab_title`, `textlab_light` and `textlab_export` exist in `HelpBook` (checked 11-24 against the code).
 
 | Feature | Level | Notes |
 |---|---|---|

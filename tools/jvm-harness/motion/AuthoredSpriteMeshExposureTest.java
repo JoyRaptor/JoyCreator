@@ -4,10 +4,13 @@ import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.motion.MotionBreaks;
 import com.fadcam.ui.faditor.motion.MotionShutter;
+import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.sprite.SpriteSheet;
 import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
+
+import java.util.Arrays;
 
 public final class AuthoredSpriteMeshExposureTest {
     public static void main(String[] args) {
@@ -49,6 +52,15 @@ public final class AuthoredSpriteMeshExposureTest {
         var after = motion.plan(sheet, 1_080_000L, 40_000L, 8, 1_076_000L, 1_200_000L);
         require(after != null && after.sourceCell() == 1, "cell one owns the exact change");
         require(after.schedule().timesUs()[0] >= 1_080_000L, "new cell cannot use older cell");
+        var previousCell = MotionTimelineBreaks.directCellWindow(sheet, sprite, 1079);
+        var matchingCell = MotionTimelineBreaks.directCellWindow(sheet, sprite, 1080);
+        require(motion.planHeldCell(previousCell, 1_080_000L, 40_000L, 8, 1_076_000L, 1_200_000L) == null,
+                "stale preview atlas must not blur across the decoded cell change");
+        var preview = motion.planHeldCell(matchingCell, 1_080_000L, 40_000L, 8, 1_076_000L, 1_200_000L);
+        require(preview != null && preview.sourceCell() == after.sourceCell()
+                && Arrays.equals(preview.schedule().timesUs(), after.schedule().timesUs())
+                && Arrays.equals(preview.schedule().weights(), after.schedule().weights()),
+                "matching preview and export frames share the held cell and exposure weights");
 
         sprite.getKeyframes().getOrCreate(KeyframeSet.X).put(80, 0f, Easing.LINEAR);
         sprite.getKeyframes().getOrCreate(KeyframeSet.X).put(81, 1f, Easing.LINEAR);

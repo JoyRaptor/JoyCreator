@@ -1205,11 +1205,29 @@ public final class FxLivePreviewController {
                     // No caption-style preset on a sprite: identity scale, no offset, full reveal.
                     1f, 1f, 0f, 0f,
                     alpha, 1f, pins,
-                    sp.isFlipH() ? -1f : 1f, sp.isFlipV() ? -1f : 1f);
+                    sp.isFlipH() ? -1f : 1f, sp.isFlipV() ? -1f : 1f,
+                    authoredMeshShutter(sp, playheadMs));
             FxPreviewTextureView.Pip mp = p.withMesh(mi);
             return mp != null ? mp : p;
         } catch (Exception ignored) {
             return null;   // never let a sprite cost the frame
+        }
+    }
+
+    @Nullable
+    private FxPreviewTextureView.AuthoredMeshShutter authoredMeshShutter(SpriteOverlayItem sprite, long playheadMs) {
+        var clock = motionClock.anchor();
+        if (clock == null || !host.motionBlurEnabled() || !sprite.isRigidMotionBlurEnabled()
+                || com.fadcam.launch.LaunchGate.hidden(view.getContext(), "studio_motion_blur")) return null;
+        try {
+            var exposure = AuthoredSpriteMeshExposure.prepare(true, true, sprite);
+            if (exposure == null) return null;
+            var cell = host.spriteMotionCell(sprite, playheadMs);
+            if (cell == null) return null;
+            return new FxPreviewTextureView.AuthoredMeshShutter(exposure, cell,
+                    clock.editorStartUs(), clock.editorEndUs());
+        } catch (RuntimeException ignored) {
+            return null; // The ordinary mesh still has a valid draw.
         }
     }
 
@@ -1516,7 +1534,7 @@ public final class FxLivePreviewController {
                     pivOffX, pivOffY, applyPivot, rot,
                     preset.scaleX, preset.scaleY, dxNorm, dyNorm,
                     alpha, reveal, pins,
-                    mirrorX, mirrorY);
+                    mirrorX, mirrorY, null);
             return p.withMesh(mi);
         } catch (Exception ignored) {
             return null; // never let a bend cost the picture — flat path below

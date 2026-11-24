@@ -64,6 +64,7 @@ public final class ExactLaneExposure {
     private final float[] weightUniform = new float[1];
     private final int[] textures = new int[3];
     private final int[] framebuffers = new int[3];
+    private final int[] previousFramebuffer = new int[1];
     private GlProgram accumulate;
     private GlProgram resolve;
     private int width;
@@ -80,6 +81,19 @@ public final class ExactLaneExposure {
     /** The scope needs a distinct source from every target assigned to it in this call. */
     public void draw(int outputFramebuffer, MotionShutter.Schedule shutter, Scope scope)
             throws VideoFrameProcessingException, GlUtil.GlException {
+        draw(outputFramebuffer, shutter, scope, false);
+    }
+
+    /** Returns a borrowed premultiplied texture until the next draw or resize. */
+    public int drawToTexture(MotionShutter.Schedule shutter, Scope scope)
+            throws VideoFrameProcessingException, GlUtil.GlException {
+        GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, previousFramebuffer, 0);
+        draw(previousFramebuffer[0], shutter, scope, true);
+        return textures[SAMPLE];
+    }
+
+    private void draw(int outputFramebuffer, MotionShutter.Schedule shutter, Scope scope,
+                      boolean resolveToSample) throws VideoFrameProcessingException, GlUtil.GlException {
         if (width <= 0 || height <= 0) throw new IllegalStateException("Exposure target is not configured");
         long[] times = shutter.timesUs();
         double[] weights = shutter.weights();
@@ -107,7 +121,8 @@ public final class ExactLaneExposure {
         boolean wasScissoring = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
         try {
             if (!distinctTimes) {
-                scope.drawAt(outputFramebuffer, times[firstTap]);
+                if (resolveToSample) ensureTargets();
+                scope.drawAt(resolveToSample ? framebuffers[SAMPLE] : outputFramebuffer, times[firstTap]);
                 return;
             }
             ensureTargets();
@@ -132,7 +147,8 @@ public final class ExactLaneExposure {
                 next = next == FIRST_ACCUMULATION ? SECOND_ACCUMULATION : FIRST_ACCUMULATION;
             }
 
-            focus(outputFramebuffer);
+            // The last accumulation texture is distinct from the sample input used by the taps.
+            focus(resolveToSample ? framebuffers[SAMPLE] : outputFramebuffer);
             resolve.use();
             resolve.setSamplerTexIdUniform("uLinear", textures[previous], 0);
             drawQuad(resolve);

@@ -19,6 +19,9 @@ import androidx.media3.effect.BitmapOverlay;
 import androidx.media3.effect.GlEffect;
 
 import com.fadcam.FLog;
+import com.fadcam.launch.LaunchGate;
+import com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposure;
+import com.fadcam.ui.faditor.compositor.MeshExposureGl;
 import com.fadcam.ui.faditor.compositor.RigidTextureShutterPass;
 import com.fadcam.ui.faditor.compositor.RigidSpriteMotion;
 import com.fadcam.ui.faditor.compositor.PipGl;
@@ -378,6 +381,12 @@ final class SpriteBlendGlEffect implements GlEffect {
         private final boolean mesh;
         /** Shared stamp (own FBO on THIS effect thread; lazy GL init inside). Null when flat. */
         @Nullable private final com.fadcam.ui.faditor.compositor.MeshStampGl meshStamp;
+        @Nullable private final AuthoredSpriteMeshExposure authoredMesh;
+        @Nullable private MeshExposureGl meshExposure;
+        @Nullable private Bitmap meshExposureCell;
+        private int meshExposureCellIndex = SpriteFrameResolver.NO_CELL;
+        private final int[] outputFramebuffer = new int[1];
+        private boolean loggedMeshExposureFailure;
         /** Flat program (correct flip for the bitmap) — mesh effects hold both. */
         @Nullable private final GlProgram flatProgram;
         private final GlProgram glProgram;
@@ -425,6 +434,10 @@ final class SpriteBlendGlEffect implements GlEffect {
             }
             this.mesh = wantMesh;
             this.meshStamp = stamp;
+            // The caller supplies a nonempty shutter piece only when the project switch is on.
+            this.authoredMesh = wantMesh && !orderedSprite && motionEndUs > motionStartUs
+                    ? AuthoredSpriteMeshExposure.prepare(
+                            !LaunchGate.hidden(appContext, "studio_motion_blur"), true, item) : null;
             GlProgram flat = null;
             String fragment;
             if (mesh) {
@@ -479,7 +492,7 @@ final class SpriteBlendGlEffect implements GlEffect {
             try {
                 long timelineMs = presentationTimeUs / 1000L + editorTimeOffsetMs;
                 long editorUs = presentationTimeUs + editorTimeOffsetMs * 1000L;
-                long periodUs = shutterBreaks != null ? cadence.observe(editorUs) : 0L;
+                long periodUs = shutterBreaks != null || authoredMesh != null ? cadence.observe(editorUs) : 0L;
                 // Gate on visibility here, not in the chain: this effect is emitted once per
                 // clip and self-gates per frame, the way TextFxGlEffect does.
                 if (item.isHidden() || !item.isVisibleAt(timelineMs)) {
@@ -492,6 +505,7 @@ final class SpriteBlendGlEffect implements GlEffect {
                     return;
                 }
                 if (mesh && meshStamp != null && flatProgram != null) {
+                    if (drawAuthoredMesh(inputTexId, editorUs, periodUs)) return;
                     drawMeshFrame(inputTexId, presentationTimeUs, timelineMs);
                     return;
                 }
@@ -500,6 +514,37 @@ final class SpriteBlendGlEffect implements GlEffect {
                 throw e;
             } catch (Exception e) {
                 throw new VideoFrameProcessingException(e);
+            }
+        }
+
+        private boolean drawAuthoredMesh(int inputTexId, long editorUs, long periodUs) {
+            if (authoredMesh == null || meshStamp == null || periodUs <= 0L) return false;
+            try {
+                var sheet = frame.sheetById(item.getSheetId());
+                if (sheet == null) return false;
+                var taps = authoredMesh.plan(sheet, editorUs, periodUs, AuthoredSpriteMeshExposure.RENDER_TAPS,
+                        motionStartUs, motionEndUs);
+                if (taps == null) return false;
+                var renderer = frame.rendererFor(item.getSheetId());
+                if (renderer == null || renderer.isSequence()) return false;
+                int cell = taps.sourceCell();
+                if (meshExposureCell == null || meshExposureCellIndex != cell) {
+                    var bitmap = RigidSpriteMotion.rasterCell(renderer, cell, contentPaint);
+                    if (bitmap == null) return false;
+                    if (meshExposureCell != null) meshExposureCell.recycle();
+                    meshExposureCell = bitmap;
+                    meshExposureCellIndex = cell;
+                }
+                if (meshExposure == null) meshExposure = new MeshExposureGl(meshStamp);
+                GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outputFramebuffer, 0);
+                return meshExposure.compositeSprite(outputFramebuffer[0], inputTexId, frameW, frameH,
+                        cell, renderer.cellAspect(), meshExposureCell, taps);
+            } catch (Exception error) {
+                if (!loggedMeshExposureFailure) {
+                    FLog.w("SpriteBlend", "authored mesh shutter failed; drawing the ordinary mesh", error);
+                    loggedMeshExposureFailure = true;
+                }
+                return false;
             }
         }
 
@@ -783,6 +828,13 @@ final class SpriteBlendGlEffect implements GlEffect {
                 try {
                     frame.release();
                 } catch (Exception ignored) { }
+                try {
+                    if (meshExposure != null) meshExposure.release();
+                } catch (Exception ignored) { }
+                if (meshExposureCell != null) {
+                    meshExposureCell.recycle();
+                    meshExposureCell = null;
+                }
                 try {
                     if (meshStamp != null) meshStamp.release();
                 } catch (Exception ignored) { }

@@ -395,6 +395,10 @@ public class FxPreviewTextureView extends TextureView
         default void onFxShaderUnavailable(@NonNull String reason) { }
     }
 
+    record AuthoredMeshShutter(AuthoredSpriteMeshExposure exposure,
+                               com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cell,
+                               long pieceStartUs, long pieceEndUs) {}
+
     /**
      * SPEC E mesh stamp inputs — one immutable snapshot per frame per bent image, built on the
      * MAIN thread (see {@code FxLivePreviewController}) and read on the GL thread. All placement
@@ -418,12 +422,13 @@ public class FxPreviewTextureView extends TextureView
          * (1,1) draws exactly what shipped.
          */
         final float mirrorX, mirrorY;
+        @Nullable final AuthoredMeshShutter shutter;
         MeshInputs(@NonNull com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec, long localMs,
                    float cx, float cy, float wNorm, float hNorm,
                    float pivOffX, float pivOffY, boolean applyPivot, float rotDeg,
                    float presetScaleX, float presetScaleY, float presetDx, float presetDy,
                    float alpha, float reveal, @Nullable float[] cornerPin8,
-                   float mirrorX, float mirrorY) {
+                   float mirrorX, float mirrorY, @Nullable AuthoredMeshShutter shutter) {
             this.spec = spec;
             this.localMs = localMs;
             this.cx = cx; this.cy = cy; this.wNorm = wNorm; this.hNorm = hNorm;
@@ -435,6 +440,7 @@ public class FxPreviewTextureView extends TextureView
             this.cornerPin8 = cornerPin8 == null ? null : cornerPin8.clone();
             this.mirrorX = mirrorX < 0f ? -1f : 1f;
             this.mirrorY = mirrorY < 0f ? -1f : 1f;
+            this.shutter = shutter;
         }
     }
 
@@ -1362,6 +1368,8 @@ public class FxPreviewTextureView extends TextureView
      * export effect thread owns its own instances. Released with the context.
      */
     @NonNull private final MeshStampGl meshStamp = new MeshStampGl();
+    @Nullable private MeshExposureGl authoredMeshExposure;
+    private boolean loggedMeshExposureFailure;
 
     /** Echo Trails' previous frames, per adjustment layer and feedback pass. GL thread only. */
     @NonNull private final FxHistory history = new FxHistory();
@@ -1808,6 +1816,7 @@ public class FxPreviewTextureView extends TextureView
             // names is a defined no-op) so the next meshed frame rebuilds them lazily. No bend
             // still costs nothing: renderToStamp returns before creating anything when idle.
             try { meshStamp.release(); } catch (Exception ignored) { }
+            releaseAuthoredMeshExposure();
             // Same for the PiP inputs: whatever sits in these slots names objects in a context
             // that no longer exists, and ensurePipInputs decides "already built" from the count.
             java.util.Arrays.fill(pipTextures, null);
@@ -2996,6 +3005,8 @@ public class FxPreviewTextureView extends TextureView
         MeshInputs mi = p.mesh;
         android.graphics.Bitmap bmp = p.still;
         if (mi == null || mi.spec == null || bmp == null || bmp.isRecycled()) return src;
+        int dst = src == 0 ? 1 : 0;
+        if (drawAuthoredMesh(mi.shutter, src, dst, vw, vh)) return dst;
         meshStamp.configure(vw, vh);
         int stampTex = 0;
         try {
@@ -3009,7 +3020,6 @@ public class FxPreviewTextureView extends TextureView
             FLog.w(TAG, "mesh stamp failed; drawing flat", e);
             stampTex = 0;
         }
-        int dst = src == 0 ? 1 : 0;
         if (stampTex == 0) {
             int tex = stillTextureFor(p);
             if (tex == 0) return src;
@@ -3017,6 +3027,35 @@ public class FxPreviewTextureView extends TextureView
         }
         Pip comp = p.meshCompositePip();
         return drawPip(comp, src, dst, vw, vh, stampTex) ? dst : src;
+    }
+
+    private boolean drawAuthoredMesh(@Nullable AuthoredMeshShutter shutter, int src, int dst,
+                                     int width, int height) {
+        var frame = motionFrame;
+        if (shutter == null || frame == null || frame.periodUs() <= 0L) return false;
+        var cell = shutter.cell();
+        try {
+            var taps = shutter.exposure().planHeldCell(cell.window(), frame.editorTimeUs(), frame.periodUs(),
+                    AuthoredSpriteMeshExposure.RENDER_TAPS, shutter.pieceStartUs(), shutter.pieceEndUs());
+            if (taps == null || cell.bitmap().isRecycled()) return false;
+            if (authoredMeshExposure == null) authoredMeshExposure = new MeshExposureGl(meshStamp);
+            return authoredMeshExposure.compositeSprite(targets[dst][1], targets[src][0], width, height,
+                    cell.window().cell(), cell.aspect(), cell.bitmap(), taps);
+        } catch (Exception error) {
+            if (!loggedMeshExposureFailure) {
+                FLog.w(TAG, "authored mesh shutter failed; drawing the ordinary mesh", error);
+                loggedMeshExposureFailure = true;
+            }
+            return false;
+        }
+    }
+
+    private void releaseAuthoredMeshExposure() {
+        if (authoredMeshExposure != null) {
+            try { authoredMeshExposure.release(); } catch (Exception ignored) { }
+            authoredMeshExposure = null;
+        }
+        loggedMeshExposureFailure = false;
     }
 
     /**
@@ -3601,6 +3640,7 @@ public class FxPreviewTextureView extends TextureView
                 overlayKeysInFrame.clear();
                 // SPEC E mesh stamp owns GL objects in this context — free them while current.
                 try { meshStamp.release(); } catch (Exception ignored) { }
+                releaseAuthoredMeshExposure();
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

@@ -15,6 +15,9 @@ import java.util.Arrays;
 
 /** Shared preview/export planning for one isolated authored mesh holding a direct sprite cell. */
 public final class AuthoredSpriteMeshExposure {
+    /** Initial bounded quality shared by the preview and export routes. */
+    public static final int RENDER_TAPS = 6;
+
     private final SpriteOverlayItem sprite;
     private final MeshWarpSpec mesh;
     private final MeshExposure exposure;
@@ -77,22 +80,29 @@ public final class AuthoredSpriteMeshExposure {
     @Nullable
     public Taps plan(SpriteSheet sheet, long centerUs, long periodUs, int maxTaps,
                      long pieceStartUs, long pieceEndUs) {
-        if (!sprite.getSheetId().equals(sheet.getId()) || centerUs < pieceStartUs || centerUs >= pieceEndUs
-                || periodUs <= 0 || periodUs > Integer.MAX_VALUE
+        if (!sprite.getSheetId().equals(sheet.getId())) return null;
+        var cell = MotionTimelineBreaks.directCellWindow(sheet, sprite, Math.floorDiv(centerUs, 1000L));
+        return planHeldCell(cell, centerUs, periodUs, maxTaps, pieceStartUs, pieceEndUs);
+    }
+
+    /** Plan against the cell and hold interval already resolved with the caller's unplaced bitmap. */
+    @Nullable
+    Taps planHeldCell(@Nullable MotionTimelineBreaks.CellWindow cell, long centerUs, long periodUs,
+                      int maxTaps, long pieceStartUs, long pieceEndUs) {
+        if (cell == null || centerUs < pieceStartUs || centerUs >= pieceEndUs
+                || centerUs < cell.startUs() || centerUs >= cell.endUs() || periodUs <= 0 || periodUs > Integer.MAX_VALUE
                 || maxTaps < 2 || maxTaps > MeshExposureGlPolicy.MAX_TAPS) return null;
         MotionShutter.Controls controls = sprite.getRigidMotionShutter();
         if (controls.angle() == 0 || controls.mixPercent() == 0) return null;
-        long centerMs = Math.floorDiv(centerUs, 1000L);
-        if (!sprite.isVisibleAt(centerMs)) return null;
-        var cell = MotionTimelineBreaks.directCellWindow(sheet, sprite, centerMs);
-        if (cell == null || centerUs < cell.startUs() || centerUs >= cell.endUs()) return null;
+        if (!sprite.isVisibleAt(Math.floorDiv(centerUs, 1000L))) return null;
         MotionBreaks frameFences = new MotionBreaks.Builder().add(pieceStartUs).add(pieceEndUs)
                 .add(cell.startUs()).add(cell.endUs()).build();
         MotionShutter.Schedule schedule = exposure.schedule(controls, centerUs, periodUs, maxTaps, frameFences);
         if (schedule.timesUs().length < 2) return null;
 
         Placement center = placement(centerUs);
-        if (center == null) return null;
+        // Ordinary preview does not build a mesh rung below this visibility cutoff.
+        if (center == null || center.alpha() < 0.005f) return null;
         boolean moves = false;
         Placement[] placements = new Placement[schedule.timesUs().length];
         for (int i = 0; i < placements.length; i++) {

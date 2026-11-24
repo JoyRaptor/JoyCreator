@@ -22,6 +22,18 @@ public final class MeshExposureGl {
               gl_FragColor = texture2D(uStamp, vTexSamplingCoord);
             }
             """;
+    private static final String COMPOSITE_FRAGMENT_SHADER = """
+            #version 100
+            precision mediump float;
+            varying vec2 vTexSamplingCoord;
+            uniform sampler2D uBase;
+            uniform sampler2D uStamp;
+            void main() {
+              vec4 base = texture2D(uBase, vTexSamplingCoord);
+              vec4 stamp = texture2D(uStamp, vTexSamplingCoord);
+              gl_FragColor = vec4(base.rgb * (1.0 - stamp.a) + stamp.rgb, base.a);
+            }
+            """;
 
     /** Placement in the stamp's normalized, top-left coordinate system. */
     public record Placement(float cx, float cy, float width, float height,
@@ -34,19 +46,61 @@ public final class MeshExposureGl {
         Placement sample(long projectTimeUs);
     }
 
-    private final MeshStampGl stamp = new MeshStampGl();
+    private final MeshStampGl stamp;
+    private final boolean ownsStamp;
     private final ExactLaneExposure accumulator = new ExactLaneExposure();
+    private final int[] blendFactors = new int[4];
     private GlProgram copy;
+    private GlProgram composite;
 
-    /** Draws one planned authored sprite using its cached, unplaced source cell. */
-    public boolean drawSprite(int outputFramebuffer, int width, int height,
-                              int sourceCell, Bitmap atlas, AuthoredSpriteMeshExposure.Taps taps)
+    public MeshExposureGl() { this(new MeshStampGl(), true); }
+
+    /** Borrow the caller's existing sharp mesh stamp on the same GL thread. */
+    public MeshExposureGl(MeshStampGl stamp) { this(stamp, false); }
+
+    private MeshExposureGl(MeshStampGl stamp, boolean ownsStamp) {
+        this.stamp = stamp;
+        this.ownsStamp = ownsStamp;
+    }
+
+    /** Draws the premultiplied exposure over the existing picture at the sprite's lane position. */
+    public boolean compositeSprite(int outputFramebuffer, int baseTexture, int width, int height,
+                                   int sourceCell, float sourceAspect, Bitmap atlas,
+                                   AuthoredSpriteMeshExposure.Taps taps)
+            throws GlUtil.GlException, VideoFrameProcessingException {
+        int stampTexture = drawSprite(width, height, sourceCell, sourceAspect, atlas, taps);
+        if (stampTexture == 0) return false;
+        boolean blend = GLES20.glIsEnabled(GLES20.GL_BLEND);
+        boolean scissor = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
+        boolean depth = GLES20.glIsEnabled(GLES20.GL_DEPTH_TEST);
+        boolean cull = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
+        try {
+            GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
+            focus(outputFramebuffer, width, height);
+            if (composite == null) composite = createProgram(COMPOSITE_FRAGMENT_SHADER);
+            composite.use();
+            composite.setSamplerTexIdUniform("uBase", baseTexture, 0);
+            composite.setSamplerTexIdUniform("uStamp", stampTexture, 1);
+            drawQuad(composite);
+            return true;
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            setEnabled(GLES20.GL_BLEND, blend);
+            setEnabled(GLES20.GL_SCISSOR_TEST, scissor);
+            setEnabled(GLES20.GL_DEPTH_TEST, depth);
+            setEnabled(GLES20.GL_CULL_FACE, cull);
+        }
+    }
+
+    private int drawSprite(int width, int height, int sourceCell, float sourceAspect,
+                           Bitmap atlas, AuthoredSpriteMeshExposure.Taps taps)
             throws GlUtil.GlException, VideoFrameProcessingException {
         if (taps == null || sourceCell != taps.sourceCell() || atlas == null || atlas.isRecycled()) {
-            return false;
+            return 0;
         }
-        float widthPerHeight = (atlas.getWidth() / (float) atlas.getHeight()) / (width / (float) height);
-        return draw(outputFramebuffer, width, height, atlas, taps.mesh(), taps.exposure(), taps.schedule(),
+        if (!(sourceAspect > 0f) || !Float.isFinite(sourceAspect)) return 0;
+        float widthPerHeight = sourceAspect * height / width;
+        return render(0, true, width, height, atlas, taps.mesh(), taps.exposure(), taps.schedule(),
                 projectUs -> {
                     var pose = taps.placementAt(projectUs);
                     return new Placement(pose.cx(), pose.cy(), pose.height() * widthPerHeight, pose.height(),
@@ -71,9 +125,16 @@ public final class MeshExposureGl {
                         Bitmap atlas, MeshWarpSpec spec, MeshExposure exposure,
                         MotionShutter.Schedule schedule, PlacementSampler placement)
             throws GlUtil.GlException, VideoFrameProcessingException {
+        return render(outputFramebuffer, false, width, height, atlas, spec, exposure, schedule, placement) != 0;
+    }
+
+    private int render(int outputFramebuffer, boolean resolveToTexture, int width, int height,
+                       Bitmap atlas, MeshWarpSpec spec, MeshExposure exposure,
+                       MotionShutter.Schedule schedule, PlacementSampler placement)
+            throws GlUtil.GlException, VideoFrameProcessingException {
         if (schedule == null) throw new IllegalArgumentException("Missing mesh exposure schedule");
         if (!MeshExposureGlPolicy.admits(width, height, schedule.timesUs(), schedule.weights())) {
-            return false;
+            return 0;
         }
         if (atlas == null || atlas.isRecycled() || spec == null || exposure == null
                 || placement == null) {
@@ -83,15 +144,22 @@ public final class MeshExposureGl {
         boolean scissor = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
         boolean depth = GLES20.glIsEnabled(GLES20.GL_DEPTH_TEST);
         boolean cull = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
+        GLES20.glGetIntegerv(GLES20.GL_BLEND_SRC_RGB, blendFactors, 0);
+        GLES20.glGetIntegerv(GLES20.GL_BLEND_DST_RGB, blendFactors, 1);
+        GLES20.glGetIntegerv(GLES20.GL_BLEND_SRC_ALPHA, blendFactors, 2);
+        GLES20.glGetIntegerv(GLES20.GL_BLEND_DST_ALPHA, blendFactors, 3);
         GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
         try {
             stamp.configure(width, height);
             accumulator.configure(width, height);
-            accumulator.draw(outputFramebuffer, schedule, (target, projectUs) ->
+            ExactLaneExposure.Scope scope = (target, projectUs) ->
                     drawTap(target, width, height, atlas, spec, exposure.localTimeUs(projectUs),
-                            placement.sample(projectUs)));
-            return true;
+                            placement.sample(projectUs));
+            if (resolveToTexture) return accumulator.drawToTexture(schedule, scope);
+            accumulator.draw(outputFramebuffer, schedule, scope);
+            return 1;
         } finally {
+            GLES20.glBlendFuncSeparate(blendFactors[0], blendFactors[1], blendFactors[2], blendFactors[3]);
             setEnabled(GLES20.GL_SCISSOR_TEST, scissor);
             setEnabled(GLES20.GL_DEPTH_TEST, depth);
             setEnabled(GLES20.GL_CULL_FACE, cull);
@@ -117,10 +185,14 @@ public final class MeshExposureGl {
         if (texture == 0) throw new VideoFrameProcessingException("Mesh exposure tap could not be drawn");
 
         focus(targetFramebuffer, width, height);
-        if (copy == null) copy = createCopyProgram();
+        if (copy == null) copy = createProgram(COPY_FRAGMENT_SHADER);
         copy.use();
         copy.setSamplerTexIdUniform("uStamp", texture, 0);
-        copy.bindAttributesAndUniforms();
+        drawQuad(copy);
+    }
+
+    private static void drawQuad(GlProgram program) throws GlUtil.GlException {
+        program.bindAttributesAndUniforms();
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GlUtil.checkGlError();
     }
@@ -132,8 +204,8 @@ public final class MeshExposureGl {
         GlUtil.focusFramebufferUsingCurrentContext(framebuffer, width, height);
     }
 
-    private static GlProgram createCopyProgram() throws GlUtil.GlException {
-        GlProgram program = new GlProgram(RigidTextureShutterPass.VERTEX_SHADER, COPY_FRAGMENT_SHADER);
+    private static GlProgram createProgram(String fragment) throws GlUtil.GlException {
+        GlProgram program = new GlProgram(RigidTextureShutterPass.VERTEX_SHADER, fragment);
         try {
             program.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
             float[] identity = GlUtil.create4x4IdentityMatrix();
@@ -155,17 +227,23 @@ public final class MeshExposureGl {
         else GLES20.glDisable(cap);
     }
 
-    /** Releases the cached atlas, stamp, accumulator, and copy program on the owning GL thread. */
+    /** Releases owned GL resources. The caller releases its borrowed stamp separately. */
     public void release() throws GlUtil.GlException {
         GlProgram oldCopy = copy;
+        GlProgram oldComposite = composite;
         copy = null;
+        composite = null;
         try {
-            stamp.release();
+            if (ownsStamp) stamp.release();
         } finally {
             try {
                 accumulator.release();
             } finally {
-                if (oldCopy != null) oldCopy.delete();
+                try {
+                    if (oldCopy != null) oldCopy.delete();
+                } finally {
+                    if (oldComposite != null) oldComposite.delete();
+                }
             }
         }
     }

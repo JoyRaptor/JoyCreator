@@ -3829,6 +3829,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
             btnRedo.setTextColor(canRedo ? Studio.INK : STUDIO_OFF);
             btnUndo.setEnabled(canUndo);
             btnRedo.setEnabled(canRedo);
+            // the hover names the step (owner 11-19, "as in Studio"; Avatar Studio does the same): "Undo: Split clip"
+            String uWhat = undoManager.peekUndoDescription(), rWhat = undoManager.peekRedoDescription();
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnUndo, uWhat == null ? getString(R.string.faditor_undo) : getString(R.string.faditor_undo_named, uWhat));
+            androidx.appcompat.widget.TooltipCompat.setTooltipText(btnRedo, rWhat == null ? getString(R.string.faditor_redo) : getString(R.string.faditor_redo_named, rWhat));
 
             int uCount = undoManager.getUndoCount();
             int rCount = undoManager.getRedoCount();

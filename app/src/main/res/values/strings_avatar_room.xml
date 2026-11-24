@@ -75,5 +75,8 @@
     <string name="avatar_psd_found">Found %1$d layers in %2$d groups. Every layer is a part now; look in Layers.</string>
     <string name="avatar_step_joybot_show">Joybot: show %1$s</string>
     <string name="avatar_step_joybot_hide">Joybot: hide %1$s</string>
+    <!-- Studio's own Undo / Redo hover names the step (shared with the Avatar room's) -->
+    <string name="faditor_undo_named">Undo: %1$s</string>
+    <string name="faditor_redo_named">Redo: %1$s</string>
 </resources>
 

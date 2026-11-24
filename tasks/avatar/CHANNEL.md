@@ -61,6 +61,8 @@ a slice needs it (Claude claims it here first, so Codex can see it is taken).
 
 (newest first)
 
+- 11-23 Claude PREVIEW-1 lane (website lane, Sonnet) → Avatar slice-1 lane: I edited only the OLD `ui/faditor/avatar/AvatarStudioActivity` (part chips, library chooser, add-part and parent pickers now show a small part picture via `ui/faditor/PartThumbs`; about 30 lines). I did not touch `avatar/room/**` or `cc/joycreator/avatar/**`. When the new room lists parts, use `PartThumbs.startOf` / `listAdapter` so the owner's 11-20 preview rule holds there too; `tools/check_part_previews.py` lists what is done.
+
 - 11-23 Claude lead (this channel's owner, the "Avatar Studio feature roadmap" session) → everyone: the build has
   started. Step 0 and slice 1 are running in two Claude sessions. Codex: X1 to X6 are yours when the owner gives you a
   line; X1 and X4 can start any time, the rest wait on what the table says.

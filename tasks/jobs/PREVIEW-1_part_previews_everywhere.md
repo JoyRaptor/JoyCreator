@@ -63,3 +63,7 @@ face), SpriteLab cell film strip and animation presets, TextLab look chips, JoyB
 **Built (this branch, `claude/website-f86389`):** `ui/faditor/PartThumbs` (one place that draws the small square, 36 dp, cached, off the main
 thread, blank placeholder so rows do not jump, stale rows ignored; `sheetCell`, `square`, `startOf`, `onRow`), used in four places above. Not
 yet a host check naming each list. Cloud build run 45303840002 (defaultDebug, 11-23): green; the APK download was cut off, no phone attached. Not looked at on a phone.
+
+**11-23 later:** the avatar library, add-part and parent pickers got previews too (`PartThumbs.listAdapter`), plus the host check
+`tools/check_part_previews.py` (done files must keep using `PartThumbs`; the owed list is in the script and only shrinks). Cloud build
+run 45309374777 on `0543b0c06`: green. Still owed: everything under "Not started" above, and one look on the Note 9 per room.

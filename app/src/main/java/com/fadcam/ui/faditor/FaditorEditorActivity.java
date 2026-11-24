@@ -39143,7 +39143,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         motionState.setTextColor(Studio.DRAWER_LABEL);
         motionState.setTextSize(11);
         motionState.setPadding(pad, 0, 0, 0);
-        motionState.setMaxLines(1);
+        // STU-4 (11-24): "Type · 25% in / 0% out of this box" was cut off on one line; two lines show all of it.
+        motionState.setMaxLines(2);
         motionState.setEllipsize(android.text.TextUtils.TruncateAt.END);
         row.addView(motionIcon);
         row.addView(motionState, new android.widget.LinearLayout.LayoutParams(

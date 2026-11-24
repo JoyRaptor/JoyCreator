@@ -266,11 +266,11 @@ public class SpaceActivity extends AppCompatActivity {
     private void clearCaches() {
         if (busy) return;
         if (com.fadcam.ui.faditor.export.ExportService.isRunning(this)) {
-            Toast.makeText(this, "An export is running. Clear this once it's done.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, com.fadcam.R.string.space_export_running, Toast.LENGTH_LONG).show();
             return;
         }
         if (ShareInbox.openProjectId() != null) {
-            Toast.makeText(this, "Close the project you have open first, then clear this.", Toast.LENGTH_LONG).show();
+            Toast.makeText(this, com.fadcam.R.string.space_close_project_first, Toast.LENGTH_LONG).show();
             return;
         }
         busy = true;
@@ -283,7 +283,7 @@ public class SpaceActivity extends AppCompatActivity {
             final long f = freed;
             runOnUiThread(() -> {
                 busy = false;
-                Toast.makeText(this, "Freed " + size(f) + ".", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, getString(com.fadcam.R.string.space_freed, size(f)), Toast.LENGTH_LONG).show();
                 load();
             });
         });
@@ -309,8 +309,8 @@ public class SpaceActivity extends AppCompatActivity {
     private void confirmTrash(FolderIndex.Item it) {
         String name = Placement.nameOf(it.path);
         StudioDialog.builder(this)
-                .setTitle("Move “" + name + "” to Trash?")
-                .setMessage("No project uses it. You can put it back from Settings → Recently deleted.")
+                .setTitle(getString(com.fadcam.R.string.space_move_title, name))
+                .setMessage(com.fadcam.R.string.space_move_message)
                 .setPositiveButton("Move to Trash", (d, w) -> {
                     final Context app = getApplicationContext();
                     JoyFolderHome.io().execute(() -> {
@@ -343,7 +343,7 @@ public class SpaceActivity extends AppCompatActivity {
             ticked[i] = true;
         }
         StudioDialog.builder(this)
-                .setTitle("Files no project uses")
+                .setTitle(com.fadcam.R.string.space_unused_title)
                 .setMultiChoiceItems(labels, ticked, (d, which, isChecked) -> ticked[which] = isChecked)
                 .setPositiveButton("Move to Trash", (d, w) -> {
                     List<String> paths = new ArrayList<>();
@@ -351,7 +351,7 @@ public class SpaceActivity extends AppCompatActivity {
                         if (ticked[i]) paths.add(unused.get(i).path);
                     }
                     if (paths.isEmpty()) {
-                        Toast.makeText(this, "No files were ticked.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(this, com.fadcam.R.string.space_none_ticked, Toast.LENGTH_SHORT).show();
                         return;
                     }
                     final Context app = getApplicationContext();

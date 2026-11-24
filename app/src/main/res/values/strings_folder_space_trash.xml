@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): words that were typed into JoyFolderSetupActivity, SpaceActivity and TrashAdapter. -->
+<resources>
+    <string name="folder_setup_not_chosen">Not chosen yet</string>
+    <string name="folder_setup_only_in_app">Right now your projects only live inside the app. If the app is removed, they go with it.</string>
+    <string name="folder_setup_checking">Checking…</string>
+    <string name="folder_setup_no_picker">This phone has no folder picker, so a folder can\'t be chosen here.</string>
+    <string name="folder_setup_top_of_storage">That\'s the top of your storage itself. Make a folder there called Joy Creator, then pick that folder.</string>
+    <string name="folder_setup_not_allowed">Android didn\'t allow Joy Creator to keep using that folder. Try another one.</string>
+    <string name="folder_setup_setting_up">Setting up your folder…</string>
+    <string name="folder_setup_cant_write">Couldn\'t write to that folder. Pick one on your phone\'s storage or SD card.</string>
+    <string name="folder_setup_copying">Copying your projects into the folder…</string>
+    <string name="folder_setup_looking">Looking for projects in your folder…</string>
+    <string name="folder_setup_new_saved_here">New recordings and exports will be saved in your Joy Creator folder.</string>
+    <string name="folder_setup_finish_recording">Finish the recording that\'s running first, then try again.</string>
+    <string name="space_export_running">An export is running. Clear this once it\'s done.</string>
+    <string name="space_close_project_first">Close the project you have open first, then clear this.</string>
+    <string name="space_freed">Freed %1$s.</string>
+    <string name="space_move_title">Move “%1$s” to Trash?</string>
+    <string name="space_move_message">No project uses it. You can put it back from Settings → Recently deleted.</string>
+    <string name="space_unused_title">Files no project uses</string>
+    <string name="space_none_ticked">No files were ticked.</string>
+    <string name="trash_hold_to_select">Press and hold to select it, then Restore.</string>
+    <string name="trash_cannot_locate">Cannot locate file.</string>
+</resources>

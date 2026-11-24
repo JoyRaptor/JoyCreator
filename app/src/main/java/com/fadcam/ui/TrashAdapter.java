@@ -401,7 +401,7 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
             itemView.setOnClickListener(v -> {
                 if (selectedItems.isEmpty() && inJoyFolder) {
                     // Nothing to play: say how to bring it back instead.
-                    Toast.makeText(context, "Press and hold to select it, then Restore.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(context, com.fadcam.R.string.trash_hold_to_select, Toast.LENGTH_SHORT).show();
                 } else if (selectedItems.isEmpty()) {
                     if (interactionListener != null) {
                         File trashDirectory = TrashManager.getTrashDirectory(context);
@@ -410,10 +410,10 @@ public class TrashAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> 
                             if (trashedFile.exists()) {
                                 interactionListener.onPlayVideoRequested(item);
                             } else {
-                                Toast.makeText(context, "File not found in trash.", Toast.LENGTH_SHORT).show();
+                                Toast.makeText(context, com.fadcam.R.string.trash_file_not_found, Toast.LENGTH_SHORT).show();
                             }
                         } else {
-                            Toast.makeText(context, "Cannot locate file.", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(context, com.fadcam.R.string.trash_cannot_locate, Toast.LENGTH_SHORT).show();
                         }
                     }
                 } else {

@@ -112,6 +112,31 @@ final class LookSheets {
      * Which TextLab look a picture layer's words wear (T15): the looks that come with the app, the packs' and the
      * person's own, each with where it is from. The one worn now is ticked.
      */
+    /** PREVIEW-1: a TextLab look's first frame, from the same cached sheet the TextLab chips use. Worker thread only. */
+    @Nullable
+    private static android.graphics.Bitmap textLookFirstFrame(@NonNull Context c, @NonNull cc.joycreator.textlab.TextLookShelf.Item it) {
+        java.io.File[] got = new java.io.File[1];
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        cc.joycreator.textlab.TextLabPreviews.get(c).chip(it.look, it.look.optString("sample", "TEXT"), f -> {
+            got[0] = f;
+            done.countDown();
+        });
+        try {
+            if (!done.await(8, java.util.concurrent.TimeUnit.SECONDS) || got[0] == null) return null;
+            com.fadcam.joyfolder.SheetName n = com.fadcam.joyfolder.SheetName.parse(got[0].getName());
+            android.graphics.BitmapRegionDecoder d = android.graphics.BitmapRegionDecoder.newInstance(got[0].getPath(), false);
+            try {
+                android.graphics.Rect cell = new android.graphics.Rect(0, 0, d.getWidth() / (n != null ? n.cols : 1),
+                        d.getHeight() / (n != null ? n.rows : 1));
+                return com.fadcam.ui.faditor.PartThumbs.square(d.decodeRegion(cell, null), new android.graphics.Rect(0, 0, cell.width(), cell.height()));
+            } finally {
+                d.recycle();
+            }
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     static void chooseTextLook(@NonNull Context c, @NonNull java.util.List<cc.joycreator.textlab.TextLookShelf.Item> looks,
                                @Nullable String currentKey, @NonNull Consumer<cc.joycreator.textlab.TextLookShelf.Item> onPick) {
         BottomSheetDialog d = sheet(c);
@@ -124,6 +149,7 @@ final class LookSheets {
                 d.dismiss();
                 onPick.accept(it);
             });
+            com.fadcam.ui.faditor.PartThumbs.onRow(r, "tl:" + it.key, () -> textLookFirstFrame(c, it));
             SheetKit.label(r.view, c.getString(R.string.vl_sheet_textlab_row_tip, it.name, it.pack));
             list.addView(r.view);
         }
@@ -187,6 +213,8 @@ final class LookSheets {
                 d.dismiss();
                 onPick.accept(e);
             });
+            com.fadcam.ui.faditor.PartThumbs.onRow(r, "sheet:" + e.name + "|" + e.where, () ->
+                    com.fadcam.ui.faditor.PartThumbs.sheetCell(c, com.fadcam.ui.faditor.sprite.SpriteSheet.fromJson(e.sheet), 0));
             SheetKit.label(r.view, c.getString(R.string.vl_sheet_sprite_row_tip, e.name, e.where));
             list.addView(r.view);
         }

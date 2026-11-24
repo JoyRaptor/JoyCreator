@@ -2,8 +2,13 @@
 
 The owner, 11-23: "get agents building round the clock to get Joy Creator done. Doesn't have to be a ton in parallel,
 but constant building." The orchestrator keeps **about three Claude lanes building at once**. When one finishes, the
-next job down this list starts. An hourly check-in refills the lanes. Codex takes the hard builds (prompts given to the
+next job down this list starts. **Each lane pulls its own next job**: when it finishes, it claims the next unclaimed
+row that fits (phone-free unless a phone is free) and carries on in the same session. The orchestrator's hourly
+check-in nudges any lane that has gone idle. (New sessions can't be started from an automated turn, so lanes chain.) Codex takes the hard builds (prompts given to the
 owner 11-23) on its own budget.
+
+**Owner 11-23 evening: the app comes first.** No more website or sizzle-video work until the app is done; the
+website draft stays as it is. Pick app jobs only.
 
 Rules for every lane: read `tasks/AGENT_START.md` and `tasks/BOARD.md` first; claim your files on BOARD; use your own
 worktree; build and test in the cloud (`tools/cloud-build.ps1`), never with local Gradle; land on `joy-creator` only
@@ -18,11 +23,11 @@ hardest work.
 |---|---|---|---|---|
 | 1 | Hover-label sweep: every button in every room gets a hover label (owner rule) | [BOT-2](jobs/BOT-2_joybot_everywhere.md), memory rule | at the end | built and landed 11-23, cloud green ([HOVER-1](jobs/HOVER-1_hover_labels.md)); owed: Avatar buttons, phone hover check |
 | 2 | Tick box and palette sweep: on/off becomes a cyan knock-out tick box, a switch only for two equal choices; cyan and magenta come from the shared palette, never a room's own hex (owner 11-21, 11-22) | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | started 11-23 |
-| 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | started 11-23 |
-| 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | queued |
-| 5 | Clutter inventory: worktrees and branches; file away only what is landed or empty; never delete unique work | [HYG-3](jobs/HYG-3_cleanup.md) | no | queued |
-| 6 | A picture for every Studio effect (picker grid, live swatch on each card) | [STU-6](jobs/STU-6_effect_swatches_and_textlab_generators.md) | at the end | queued |
-| 7 | A tiny preview beside every part wherever one is listed or picked (owner 11-20) | memory rule; new card | at the end | queued |
+| 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | ✅ first draft landed af2cf7f40 (`docs/`); ⏸ paused by the owner 11-23: app first |
+| 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | third pass done 11-23 (STATE rows, help owed list on the card) |
+| 5 | Clutter inventory: worktrees and branches; file away only what is landed or empty; never delete unique work | [HYG-3](jobs/HYG-3_cleanup.md) | no | started 11-23 (website lane): inventory written ([list](HYG-3_worktree_inventory_20261123.md)); 45 safe worktrees removed, 65 local-only branches listed for the lead; rest owed |
+| 6 | A picture for every Studio effect (picker grid, live swatch on each card) | [STU-6](jobs/STU-6_effect_swatches_and_textlab_generators.md) | at the end | built 11-23 (swatches, 7 Generate cards, 5 over-video effects); cloud green; GLSL not yet compiled on a phone, Note 9 pass owed |
+| 7 | A tiny preview beside every part wherever one is listed or picked (owner 11-20) | [PREVIEW-1](jobs/PREVIEW-1_part_previews_everywhere.md) | at the end | first four lists built, cloud green 11-23; the rest of the card's list and a phone look owed |
 | 8 | App UI leftovers: legacy-themed screens, watermark text, What's New, update sheets | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | queued |
 | 9 | Studio phone backlog and the 41-check sweep (14 features never looked at) | [STU-1](jobs/STU-1_studio_phone_backlog.md) | yes | waits for a phone |
 | 10 | Joybot create-tree landings not yet seen: image, tile, sprite, perspective, sprite edit, find | [BOT-7](jobs/BOT-7_lobby_wizard_and_room_colours.md) | yes | waits for a phone |

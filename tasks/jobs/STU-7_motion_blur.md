@@ -15,10 +15,10 @@ merged plan's.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.
-- **Active step:** C6 source-ring identity fences are in Actions. C5 mesh, C6 reconstruction and LiveFlow GL slices are active in isolated branches. C7 blind review tooling and gated help copy are pushed. C4b still awaits Note 9 access.
-- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 source ring and decoded safeguards @ `20cee01f7` on `codex/stu7-flow-luma-20261123`. Independent C5 mesh stamp and exposure schedule @ `96e9637ba` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`. C7 blind review tool @ `583a31699` and gated help copy @ `2c88fb752` on isolated C7 branches.
+- **Active step:** C6 source-ring identity fences and footage reconstruction are in Actions. C5 bounded mesh rendering and the LiveFlow GL owner remain active in isolated branches. C7 blind review tooling and gated help copy are pushed. C4b still awaits Note 9 access.
+- **Code branch / head:** `codex/motionblur-20261122` @ `c1a4d59d2` (pushed). Capture and timing tools @ `e8adf9628` on `codex/stu7-c4b-benchmark-gate`. Independent C6 source ring and decoded safeguards @ `20cee01f7` on `codex/stu7-flow-luma-20261123`; footage reconstruction oracle @ `393fcc04d` on `codex/stu7-c6-reconstruct-20261124`. Independent C5 mesh stamp and exposure schedule @ `96e9637ba` on `codex/stu7-pose-sampling-20261123`. Gated C4 integration @ `d7c950bd7` on `codex/stu7-c4-integration-20261123`. C7 blind review tool @ `583a31699` and gated help copy @ `2c88fb752` on isolated C7 branches.
 - **Last landed on `joy-creator`:** C3 `add742305` and C2 `665409126`. C4a `LanePlan`, C6 flow core and `tools/motionref` also landed.
-- **Exact next action:** Finish and review the isolated LiveFlow GL owner, footage reconstruction oracle and bounded mesh exposure renderer.
+- **Exact next action:** Review and publish the isolated LiveFlow GL owner and bounded mesh exposure renderer.
 - **Open owner asks:** Look #1. Review the controls and matched frames in the local bundle at `C:/workspace/motion-c2-evidence/C3_OWNER_REVIEW.zip`, and flag any default that feels wrong.
 - **Evidence outside the repo:** `C:/Temp/motionref-evidence-20261122/` (owner slow-mo pairs).
 

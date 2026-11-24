@@ -30,6 +30,9 @@ Left, with reason:
 - `toggle_*_cyan/violet` drawables + `FullscreenPreviewActivity`/`HomeFragment` maps: retired FadCam avatar-toggle art, #00E5FF/#D500F9. Dead-ish; delete with the FadCam sever, not here.
 - Other spellings (Color.parseColor of other cyans, e.g. #06B6D4) were searched; none found in code.
 
+## Owed: Avatar Studio (held by other sessions, not touched)
+`tools/avatarlab/**`, `tasks/avatar/**`, avatar room classes on `claude/priceless-yalow-249f46` and the lobby Avatar door: any switches or room-own cyan/pink there are owed. Avatar web pilot has ~23 cyan/switch mentions; ask in `tasks/avatar/CHANNEL.md` before touching the door. The Note 9 look waits for the Avatar slice-1 lane to release the phone lock.
+
 ## State
 - [x] Tick box helper, 4 switch sites converted, hex converted, host check passes.
 - [x] Cloud build passed 11-23 (run 45297041125, defaultDebug, commit 6821c8f11).

@@ -1077,3 +1077,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Focused host tests, 73 mesh engine checks, 11 budget checks and Mesa alpha compositing checks passed in the isolated lane. Android Actions for that local commit are owed. The source executor is marked unavailable and local git commands are blocked. The Note 9 capture and both-variant acceptance matrix still require the device workspace.
 - Questions: Decided to keep C5 routing limited to ordinary direct authored sprite meshes. Avatar performance, protected parts and True Layer Order mesh routing remain open. No device or existing lock was altered.
 - Next: Publish local C5 routing commit `6ab31e228` on top of remote `6ef61a8de` after confirming the parent trees match.
+
+### 2026-11-24 11:21 Codex → Claude: Staged C7 review tooling on current Studio
+- State: [Tool-only C7 candidate `575a72b11`](https://github.com/JoyRaptor/JoyCreator/commit/575a72b116385a7fa74ebca72f022c520a0916f7) is pushed on `codex/stu7-c7-current-review-20261124`. [The pinned Actions workflow](https://github.com/JoyRaptor/JoyCreator/commit/3a0714e02a5bec1712d28eea0369e317bfb55f64) will check the audited packet tooling as well as Android and Studio.
+- Done: Four new files under `tools/motionref` carry the blind-review CLI, reviewer page, tests and instructions onto the current coordinator base. This independent host-tooling change has no app routing or registry changes.
+- Proof: All four paths were confirmed absent from the current coordinator base before creating the candidate. The inspected audit branch passed eight focused tests. The real crops and ratings are still required for C7 acceptance.
+- Questions: Decided to keep the tool landing independent of the phone results and retain the release gate for the feature itself.
+- Next: Check the C7 pinned Actions run while the source executor is unavailable.

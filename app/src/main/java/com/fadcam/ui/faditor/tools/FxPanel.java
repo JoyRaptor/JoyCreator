@@ -279,7 +279,7 @@ public final class FxPanel {
 
     @NonNull
     private static View card(@NonNull Context ctx, @NonNull FxStack stack,
-                             @NonNull FxInstance fx, int index, @NonNull Host host,
+                             @NonNull FxInstance fx, int index, @NonNull Host realHost,
                              @NonNull Runnable rebuild, float d,
                              @NonNull FxPreviewTier.Subject subject,
                              @NonNull RefreshState rs) {
@@ -296,6 +296,10 @@ public final class FxPanel {
         FxEffectDef def = fx.def();
         if (def == null) return card;
 
+        // STU-6: the small live picture of THIS card alone; any value change refreshes it.
+        final FxSwatchViews.CardSwatch swatch = new FxSwatchViews.CardSwatch(ctx, fx);
+        final Host host = FxSwatchViews.watching(realHost, swatch);
+
         // ── header: caret · name · enable · move · delete ──
         LinearLayout head = new LinearLayout(ctx);
         head.setOrientation(LinearLayout.HORIZONTAL);
@@ -311,6 +315,11 @@ public final class FxPanel {
         head.addView(caret);
         installDragHandle(ctx, head, card, stack,
                 (stack.size() - 1) - index, stack.size(), host, rebuild, d);
+
+        LinearLayout.LayoutParams swLp = new LinearLayout.LayoutParams(
+                Math.round(28 * d), Math.round(28 * d));
+        swLp.setMarginStart(Math.round(2 * d));
+        head.addView(swatch, swLp);
 
         TextView name = new TextView(ctx);
         name.setText(def.displayName);
@@ -1854,23 +1863,13 @@ public final class FxPanel {
                 // at all now, and the tap explains itself and OFFERS THE FIX rather than
                 // leaving the user to infer what an adjustment layer is.
                 boolean canRender = FxPreviewTier.canExportOn(def, subject);
-                TextView c = chip(ctx, def.displayName, d);
+                // STU-6: a picture of the effect over its name, drawn by the real compiler.
+                View c = FxSwatchViews.tile(ctx, def, d, canRender);
                 // What it does, not just its name (every button gets a hover label).
                 TextOverlayDrawer.Kit.describe(c, def.displayName + ": "
                         + com.fadcam.ui.faditor.fx.FxBlurbs.of(def));
                 if (!canRender) {
-                    // Unavailable HERE, but still legible and still answerable. It was the chip at
-                    // 40% alpha — grey on grey, the same "can't read the off state" defect as the
-                    // text drawer's toggles. Now: no fill, only its ring, in label ink. An outline
-                    // with nothing inside reads as "not this one" without becoming invisible.
-                    // The Kit's pill, transparent, ring only; Kit.background keeps the chip's
-                    // padding (drawer audit 2026-09-24, F6). Inset 5dp top and bottom like
-                    // Kit.setChipOn's, so the ring is the same 29dp pill as its neighbours.
-                    int inset = Math.round(5 * d);
-                    ObjectDrawer.Kit.background(c, new android.graphics.drawable.InsetDrawable(
-                            ObjectDrawer.Kit.pill(ctx, Studio.alpha(Studio.GROUND, 0),
-                                    ObjectDrawer.Kit.RING), 0, inset, 0, inset));
-                    c.setTextColor(TXT_DIM);
+                    // Unavailable HERE: the tile is faded, still tappable for the explanation.
                     c.setOnClickListener(v -> StudioDialog
                             .builder(ctx)
                             .setTitle(ctx.getString(com.fadcam.R.string.faditor_fx_needs_pass_title,

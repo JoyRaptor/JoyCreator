@@ -53,3 +53,7 @@ nobody has driven on a phone. Built-but-unproven is where one-star reviews come 
 
 ## 11-24 sprite corner pin, a correction (hover-1 lane)
 - My earlier corner drag on the sprite box (`s1_sprite_drag.png`) **did register**: Undo then Redo name the step "Distort sprite" (toast "Redid: Distort sprite", `c1.png`). So the sprite corner pin is wired and undoable. What the drag did to the picture is not proven: the preview looked the same in that shot (the sprite may be off screen at 0:00). Verdict: undo step PASS, visible distortion and export match owed. The test project now carries that Distort sprite step; it is a throwaway project.
+
+## 11-24 transitions project not on the phone (hover-1 lane)
+- The Library search "Untitled audio" on the Note 9 finds Untitled audio, 2, 3 and 4 (4 has three layers, 0:05) and **no "Untitled audio 5"**: the 9-transition test project named above is gone from this device (`d0.png`). A new test project with two or more clips and every transition type has to be built (Add two clips, then each cut's transition) before the transitions check; not done.
+- VisLab in Studio, ducking (needs a project with a voice lane: add a voice clip), jobs 17 and 18: not started.

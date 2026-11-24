@@ -61,3 +61,16 @@ and JoyBrush requests are not resumable. The bench runs 53 tasks with a fake mod
 - `ai/joybot/JoybotAgent.java`, `JobFile.java`, `JoybotStorage.java`, `ai/actions/*`. Keep the bench green
   after every change (`bash tools/jvm-harness/run-joybot-bench.sh`). Live runs: free models only, never paid
   without the owner's yes; never print a key.
+
+## 11-24 look at "Edits against a revision" (website lane, no phone; nothing built)
+- **How it works today:** each mutating tool loads the project from storage, changes it and saves (`AIToolExecutor`, `JoybotStorage`), and a tool that names an id that no
+  longer exists refuses it (the bench's `deleteItem` / `userEdit` events already prove that). So a user edit made *between* two of Joybot's steps is not overwritten; what is
+  missing is the model *knowing* the project moved, so it can keep acting on positions and times it read earlier.
+- **Smallest design:** in `JoybotAgent.Run`, after every tool (read or write) remember a digest of the project as the agent last saw or left it; before the next changing tool
+  compare it with the project now; if it differs, refuse that one step with one plain sentence ("The project changed while I was working, so I stopped before changing
+  it. Reading it again.") and have the model read it again (`get_project_state`) before going on. Director runs already keep `lastAfter` for the Review card, which is the
+  same idea for Studio.
+- **Why it is not built:** while the editor is on screen it re-saves the file itself (the "editor came back on screen" case in that loop), so a digest taken from the file can
+  differ from what the agent left even when the person changed nothing. That would make the agent stop and re-read for no reason, and only a phone with a live model shows how
+  often. The check must compare structure the agent cares about (items, times, ids), not raw JSON, and needs a bench task where the editor re-saves unchanged (it fails on a
+  raw-JSON digest) beside the existing `userEdit` task (it must refuse). Do both before shipping it; Studio only, VisLab and JoyBrush later.

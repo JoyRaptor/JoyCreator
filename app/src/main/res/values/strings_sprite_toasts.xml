@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- L18 (11-24): the last two words typed into SpriteSheetEditorActivity. -->
+<resources>
+    <string name="sprite_diff_toast">Difference against the previous frame — black means identical</string>
+    <string name="sprite_playing_all">Playing all %1$d frames</string>
+</resources>

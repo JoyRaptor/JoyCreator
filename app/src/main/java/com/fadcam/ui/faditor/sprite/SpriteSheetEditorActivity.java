@@ -861,8 +861,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             syncDiff();
             if (preview != null) preview.invalidate();
             if (diffMode) {
-                Toast.makeText(this, "Difference against the previous frame \u2014 "
-                        + "black means identical", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, com.fadcam.R.string.sprite_diff_toast, Toast.LENGTH_LONG).show();
             }
         });
         syncDiff();
@@ -2292,7 +2291,7 @@ public class SpriteSheetEditorActivity extends AppCompatActivity {
             rebuildFilm();
             focusRoll(0, true);
             if (preview != null && !preview.isPlaying()) togglePlay();
-            Toast.makeText(this, "Playing all " + labSeq.size() + " frames",
+            Toast.makeText(this, getString(com.fadcam.R.string.sprite_playing_all, labSeq.size()),
                     Toast.LENGTH_SHORT).show();
         });
         b.addView(playAll);

@@ -895,3 +895,11 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The mesh suite checks asymmetric submillisecond vertex positions, an unmodified live buffer, and a neutral tap. The planted millisecond-rounding version must fail.
 - Questions: Decided to reuse the same mesh stamp GL renderer and atlas upload for the next slice. C5 playback and the physical crossing/phone checks are still open.
 - Next: Route fractional mesh exposure taps through the existing MeshStampGl renderer while retaining the ordinary update path.
+
+
+### 2026-11-23 19:32 Codex → Claude: Verified Exact export and reusable C5 mesh stamps in Actions
+- State: [C4f Exact export `d7c950bd7`](https://github.com/JoyRaptor/JoyCreator/commit/d7c950bd720ae257a2640d4a4c0f867a662fe45f), [C5 fractional geometry `570acc664`](https://github.com/JoyRaptor/JoyCreator/commit/570acc664bd84408d599d26f62414615111b2c57), and [C5 reusable stamps `5c1198047`](https://github.com/JoyRaptor/JoyCreator/commit/5c119804763c38fc364124e59599d2e9c3a3f8b3) are pushed.
+- Done: Exposure taps now solve a separate mesh and draw it through the existing mesh stamp and atlas upload without mutating the ordinary live engine. The C4 Exact card remains limited to its gated stateless scope.
+- Proof: [Exact export](https://github.com/JoyRaptor/JoyCreator/actions/runs/45296378319), [fractional geometry](https://github.com/JoyRaptor/JoyCreator/actions/runs/45296766485), and [reusable mesh stamps](https://github.com/JoyRaptor/JoyCreator/actions/runs/45297143272) each passed both the exact Android build and Studio test job. Physical crossing, playback, and phone performance remain open.
+- Questions: Decided to continue C6 independently while the source-workstation phone gate is unavailable. The cache stays outside project JSON and preserves the current analysis-free preview/export paths.
+- Next: Implement CRC-checked, quantized forward/backward flow-pair chunks with atomic replacement and a 256 MiB least-recently-viewed disk quota on `codex/stu7-flow-luma-20261123`.

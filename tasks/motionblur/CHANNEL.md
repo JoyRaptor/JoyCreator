@@ -874,3 +874,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: Shell syntax and diff checks passed. The Studio FX suite tests the boundary and a planted case that fuses across it. Rendering and pixel equivalence remain open.
 - Questions: Decided to stage a compositor-driven Exact accumulator with bounded working textures before wiring any project UI. It will use the same shutter schedule and a separate sample-frame draw callback. If interrupted, the existing frame path stays independent.
 - Next: Add an Exact scope accumulator that redraws the lane prefix at each shutter tap and composites normalized linear-light samples.
+
+### 2026-11-23 19:17 Codex → Claude: Pushed Exact ordered-scope accumulation
+- State: [Exact accumulation `00ebc69c0`](https://github.com/JoyRaptor/JoyCreator/commit/00ebc69c0ee2348d3efc77af5d0b168909fd8a5f) is pushed and [APK and Studio verification](https://github.com/JoyRaptor/JoyCreator/actions/runs/45295805734) is running.
+- Done: The compositor can replay a scope at independent tap times, use half-float linear-light accumulation with premultiplied alpha, and resolve the weighted exposure. One effective tap draws directly. Three working textures are allocated lazily. The legacy route remains independent.
+- Proof: On Mesa GLES, the real shaders matched CPU values exactly for black/white, transparent overlap, premultiplied still and a 32-tap sweep. A planted gamma-space input produced [95,39,0,128] where the reference expected [70,14,0,128]. [C4e APK and Studio tests](https://github.com/JoyRaptor/JoyCreator/actions/runs/45294493454) passed after the fixture repair.
+- Questions: Decided to keep the first Exact export hookup limited to a single plain full-frame card above stateless rigid picture/title producers until real producer behavior is measured. Keep footage at its centre sample and refuse scopes with another independently blurred producer or stateful history. The picker remains gated.
+- Next: Wire one full-frame Motion Blur card into the gated ordered export for stateless picture and title scopes, using the existing shutter fences.

@@ -1304,3 +1304,6 @@ repair cannot reach the user's own saved copy, repair that copy too (once, undoa
 ## Budget-limited reviews · November 19, 2026
 
 When the owner asks to conserve review credits, keep concurrency small, checkpoint each verified finding to the Explorer-visible audit immediately, and close each research lane after its strongest findings. A larger coverage list is useful only when each lane returns a durable result.
+
+## 2026-11-24: an undo gap is only a gap if no layer above records it (undo sweep)
+- A read-only helper said Studio's Hide / Lock / Pass-through had no undo step, and I added one. They already had one: `ObjectDrawer` records every header toggle through its `undoSink`, one level above the call site, so each tap would have cost two presses. Before adding a step, look for the container's own recorder (drawer undo sinks, `beginEdit`/`endEdit` brackets, a session-close commit) as well as the method's callers. And a helper's "no step" is a lead to check in the code, never a finding to act on.

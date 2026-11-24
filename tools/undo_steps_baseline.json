@@ -1,5 +1,5 @@
 {
- "app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java": 65,
+ "app/src/main/java/com/fadcam/ui/faditor/FaditorEditorActivity.java": 61,
  "app/src/main/java/com/fadcam/ui/faditor/puppet/PuppetHelperView.java": 3,
  "app/src/main/java/com/fadcam/ui/faditor/sprite/SpriteSheetEditorActivity.java": 1,
  "app/src/main/java/com/fadcam/ui/faditor/tools/AudioDrawerTabs.java": 1,

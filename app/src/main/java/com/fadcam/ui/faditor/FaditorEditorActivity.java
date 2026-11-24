@@ -4896,6 +4896,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     relinked.setInPointMs(newIn);
                     relinked.setOutPointMs(newOut);
                 }
+                // Part of the same press as the relink just recorded: fold it into that step, so
+                // one Undo puts every clip back (before 11-24 the siblings stayed relinked).
+                undoManager.amendOrRecord(new EditActions.ReplaceClipSourceAction(tl, i, c, relinked));
                 tl.removeClip(i);
                 tl.addClip(i, relinked);
                 found++;
@@ -7197,6 +7200,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         if (!dragging && Math.abs(dy) > slop) {
                             dragging = true;
                             v.removeCallbacks(longPress);
+                            // With the drawer open its session records the step on close;
+                            // with it shut, this drag is its own step (before 11-24: none).
+                            Clip oc = opacityDrawerOpen ? null : getSelectedClip();
+                            opacityDragClip = oc;
+                            opacityDragBefore = oc == null ? null : copyOpacityKfs(oc.getOpacityKeyframes());
                         }
                         if (dragging) {
                             curOpacity = Math.max(0f, Math.min(1f, curOpacity + dy / (unitPx * 2f)));
@@ -7209,6 +7217,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         v.removeCallbacks(longPress);
                         if (dragging) {
                             scheduleAutoSave();
+                            recordOpacityDrag();
                         } else if (!longPressFired) {
                             v.performClick();
                             showOpacityControl();
@@ -7217,6 +7226,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         return true;
                     case MotionEvent.ACTION_CANCEL:
                         v.removeCallbacks(longPress);
+                        if (dragging) recordOpacityDrag();
                         dragging = false;
                         return true;
                 }
@@ -7350,9 +7360,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (captionStyleKeyframeMode) {
             // First activation: create an initial keyframe at time 0 with current state
             if (!clip.hasCaptionStyleKeyframes()) {
+                // The first key it lays (and captions switched on) is an edit: one undo step,
+                // since 11-24. Arming the stopwatch alone is a mode, not an edit.
+                final java.util.List<Clip.CaptionStyleKeyframe> kfsBefore = snapshotCaptionStyleKeyframes(clip);
+                final boolean wasEnabled = clip.isCaptionsEnabled();
                 String initialStyle = clip.isCaptionsEnabled() ? clip.getCaptionStyleId() : "hidden";
                 clip.addOrUpdateCaptionStyleKeyframe(0, initialStyle);
                 clip.setCaptionsEnabled(true);
+                final EditActions.CaptionStyleKeyframesAction keys = new EditActions.CaptionStyleKeyframesAction(
+                        clip, kfsBefore, snapshotCaptionStyleKeyframes(clip));
+                undoManager.recordAction(new EditActions.LambdaAction(keys.getDescription(),
+                        () -> { keys.execute(); clip.setCaptionsEnabled(true); refreshCaptionKeyframeDrawer(); scheduleAutoSave(); },
+                        () -> { keys.undo(); clip.setCaptionsEnabled(wasEnabled); refreshCaptionKeyframeDrawer(); scheduleAutoSave(); }));
             }
             Toast.makeText(this, R.string.studio_toast_caption_style_keyframes_on_tap_a, Toast.LENGTH_SHORT).show();
         } else {
@@ -7380,6 +7399,21 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return clip.opacityAtClipMs(lastPositionInSegmentMs);
         }
         return 1f;
+    }
+
+    @Nullable private Clip opacityDragClip;
+    @Nullable private java.util.List<Clip.OpacityKeyframe> opacityDragBefore;
+
+    /** A drag of the Opacity tool with its drawer shut: ONE undo step for the keys it moved. */
+    private void recordOpacityDrag() {
+        final Clip c = opacityDragClip;
+        final java.util.List<Clip.OpacityKeyframe> before = opacityDragBefore;
+        opacityDragClip = null;
+        opacityDragBefore = null;
+        if (c == null || before == null) return;
+        java.util.List<Clip.OpacityKeyframe> after = copyOpacityKfs(c.getOpacityKeyframes());
+        if (opacityKfsEqual(before, after)) return;
+        undoManager.recordAction(new EditActions.OpacityKeyframesAction(c, before, after));
     }
 
     private void applyDraggedOpacity(float opacity) {
@@ -24787,6 +24821,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.invalidate();
     }
 
+    /**
+     * The drawer's Start here / End here / whole-span chips (and their typed times): ONE undo
+     * step each, as the timeline carrots already were (before 11-24 the chips had none).
+     */
+    private void recordMotionRangeEdit(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                       long beforeS, long beforeE) {
+        final long afterS = o.getMotionStartMs(), afterE = o.getMotionEndMs();
+        if (afterS == beforeS && afterE == beforeE) return;
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.faditor_text_motion_range),
+                () -> { putMotionRange(o, afterS, afterE); refreshAfterTimerEdit(o); },
+                () -> { putMotionRange(o, beforeS, beforeE); refreshAfterTimerEdit(o); }));
+    }
+
+    private static void putMotionRange(@NonNull com.fadcam.ui.faditor.model.TextOverlayItem o,
+                                       long s, long e) {
+        if (s < 0 || e < 0) o.clearMotionRange();
+        else o.setMotionRange(s, e);
+    }
+
     private View makeTextMotionIcon(float d) {
         View v = new View(this) {
             @Override
@@ -26063,12 +26117,25 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void onVisualizerStyleImported(
             @NonNull com.fadcam.ui.faditor.model.WaveformOverlayInstance target,
             @NonNull com.fadcam.ui.faditor.model.WaveformStyle imported) {
-        target.setStyleId(imported.id);
+        final String styleWas = target.getStyleId();
+        final String styleNow = imported.id;
+        target.setStyleId(styleNow);
         if (waveformOverlayView != null) {
             waveformOverlayView.putStyle(imported);
             waveformOverlayView.invalidate();
         }
         scheduleAutoSave();
+        // One import is one undo step (before 11-24 it had none). The imported style stays
+        // known to the view, so Redo can show it again.
+        if (styleWas == null || !styleWas.equals(styleNow)) {
+            final Runnable repaint = () -> {
+                if (waveformOverlayView != null) waveformOverlayView.invalidate();
+                scheduleAutoSave();
+            };
+            undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_undo_viz_style),
+                    () -> { target.setStyleId(styleNow); repaint.run(); },
+                    () -> { target.setStyleId(styleWas); repaint.run(); }));
+        }
         Toast.makeText(this, getString(R.string.studio_fmt_imported_1_s, imported.displayName), Toast.LENGTH_SHORT).show();
     }
 
@@ -39032,55 +39099,33 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem o) {
         java.util.List<com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle> toggles =
                 new java.util.ArrayList<>();
-        // Each tap is ONE undo step (owner rule: one press, one step); before 11-24 Hide, Lock
-        // and Pass-through changed the object with no undo step, and Hide changes the export.
-        final Runnable flipHidden = () -> {
-            o.setHidden(!o.isHidden());
-            refreshAfterMarqueeBatchDelete();
-            requestGlPreviewResync();   // an image drawn by the GL preview must hide/show while paused too
-            scheduleAutoSave();
-        };
-        final Runnable flipLocked = () -> {
-            o.setLocked(!o.isLocked());
-            scheduleAutoSave();
-        };
-        final Runnable flipPass = () -> {
-            o.setPassThrough(!o.isPassThrough());
-            refreshAfterMarqueeBatchDelete();
-            scheduleAutoSave();
-        };
-        // Undo and redo run away from the drawer, so they also repaint its buttons.
-        final java.util.function.Function<Runnable, Runnable> andShow = r -> () -> {
-            r.run();
-            if (objectDrawer != null) objectDrawer.refreshCurrentTab();
-        };
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_visibility_off, R.drawable.ic_visibility_on_24,
                 o::isHidden,
                 () -> {
-                    flipHidden.run();
-                    undoManager.recordAction(new EditActions.LambdaAction(
-                            getString(R.string.undo_step_hide), andShow.apply(flipHidden), andShow.apply(flipHidden)));
+                    o.setHidden(!o.isHidden());
+                    refreshAfterMarqueeBatchDelete();
+                    requestGlPreviewResync();   // an image drawn by the GL preview must hide/show while paused too
+                    scheduleAutoSave();
                 }, true));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_lock, R.drawable.ic_lock,
                 o::isLocked,
                 () -> {
-                    flipLocked.run();
-                    undoManager.recordAction(new EditActions.LambdaAction(
-                            getString(R.string.undo_step_lock), andShow.apply(flipLocked), andShow.apply(flipLocked)));
+                    o.setLocked(!o.isLocked());
+                    scheduleAutoSave();
                 }, false));
         toggles.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Toggle(
                 R.drawable.ic_touch_press_off_24, R.drawable.ic_touch_press_24,
                 o::isPassThrough,
                 () -> {
-                    flipPass.run();
-                    undoManager.recordAction(new EditActions.LambdaAction(
-                            getString(R.string.undo_step_pass_through), andShow.apply(flipPass), andShow.apply(flipPass)));
+                    o.setPassThrough(!o.isPassThrough());
                     android.widget.Toast.makeText(this,
                             o.isPassThrough()
                                     ? getString(R.string.studio_opt_taps_now_pass_through_this) : getString(R.string.studio_opt_touchable_in_the_preview_again),
                             android.widget.Toast.LENGTH_SHORT).show();
+                    refreshAfterMarqueeBatchDelete();
+                    scheduleAutoSave();
                 }, false));
         return toggles;
     }
@@ -40216,7 +40261,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         ObjectMenuSheet.ValueFormat fmt = v -> Math.round(v) + "%";
         ObjectMenuSheet.OnKeyQuery onKey = ms -> overlayPropOnKeyAt(o, key, ms);
         Runnable dropKey = () -> {
+            // One tap of the diamond is one undo step, as Delete key already was (11-24 sweep).
+            com.fadcam.ui.faditor.model.TextOverlayItem.TransformSnapshot before =
+                    o.snapshotTransform();
             set.write(get.at(lastPlayheadAbsoluteMs), lastPlayheadAbsoluteMs);
+            recordOverlayMenuUndo(o, before, getString(R.string.studio_label_add_keyframe));
             refreshOverlayPreview();
             scheduleAutoSave();
         };
@@ -40737,16 +40786,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
             View startBtn = markerChip(d, MARKER_COLOR_MOTION,
                     R.drawable.ic_marker_flag_start,
                     getString(R.string.faditor_motion_start_here), () -> {
+                final long mS0 = item.getMotionStartMs(), mE0 = item.getMotionEndMs(); 
                 long start = lastPlayheadAbsoluteMs;
                 long end = item.hasMotionRange()
                         ? Math.max(item.getMotionEndMs(), start + 1) : item.getEndMs();
                 item.setMotionRange(start, end);
                 refreshOverlayPreview();
                 scheduleAutoSave();
+                recordMotionRangeEdit(item, mS0, mE0);
             }, () -> promptForTimeMs(R.string.faditor_motion_start_here,
                     item.motionRangeStartMs(),
-                    ms -> { item.setMotionRange(ms, Math.max(ms + 1, item.getMotionEndMs()));
-                            refreshOverlayPreview(); scheduleAutoSave(); }),
+                    ms -> { final long mS0 = item.getMotionStartMs(), mE0 = item.getMotionEndMs(); item.setMotionRange(ms, Math.max(ms + 1, item.getMotionEndMs()));
+                            refreshOverlayPreview(); scheduleAutoSave(); recordMotionRangeEdit(item, mS0, mE0); }),
                     () -> item.hasMotionRange()
                             && Math.abs(item.getMotionStartMs() - lastPlayheadAbsoluteMs)
                                     < MARKER_CHIP_EPSILON_MS);
@@ -40755,25 +40806,29 @@ public class FaditorEditorActivity extends AppCompatActivity {
             View spanBtn = markerChip(d, MARKER_COLOR_MOTION,
                     R.drawable.ic_marker_flag_span,
                     getString(R.string.faditor_motion_span_whole), () -> {
+                final long mS0 = item.getMotionStartMs(), mE0 = item.getMotionEndMs(); 
                 item.clearMotionRange();
                 refreshOverlayPreview();
                 scheduleAutoSave();
+                recordMotionRangeEdit(item, mS0, mE0);
             }, null, () -> !item.hasMotionRange());
             mRow.addView(spanBtn);
 
             View endBtn = markerChip(d, MARKER_COLOR_MOTION,
                     R.drawable.ic_marker_flag_end,
                     getString(R.string.faditor_motion_end_here), () -> {
+                final long mS0 = item.getMotionStartMs(), mE0 = item.getMotionEndMs(); 
                 long end = lastPlayheadAbsoluteMs;
                 long start = item.hasMotionRange()
                         ? Math.min(item.getMotionStartMs(), end - 1) : item.getStartMs();
                 item.setMotionRange(start, end);
                 refreshOverlayPreview();
                 scheduleAutoSave();
+                recordMotionRangeEdit(item, mS0, mE0);
             }, () -> promptForTimeMs(R.string.faditor_motion_end_here,
                     item.motionRangeEndMs(project.getTimeline().getTotalDurationMs()),
-                    ms -> { item.setMotionRange(Math.min(item.getMotionStartMs(), ms - 1), ms);
-                            refreshOverlayPreview(); scheduleAutoSave(); }),
+                    ms -> { final long mS0 = item.getMotionStartMs(), mE0 = item.getMotionEndMs(); item.setMotionRange(Math.min(item.getMotionStartMs(), ms - 1), ms);
+                            refreshOverlayPreview(); scheduleAutoSave(); recordMotionRangeEdit(item, mS0, mE0); }),
                     () -> item.hasMotionRange()
                             && Math.abs(item.getMotionEndMs() - lastPlayheadAbsoluteMs)
                                     < MARKER_CHIP_EPSILON_MS);
@@ -41825,6 +41880,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         for (int i = 0; i < paras.paragraphCount(); i++) order.add(i);
         int moved = order.remove(from);
         order.add(to, moved);
+        // One drag is ONE undo step (before 11-24 it had none): the move splits and reorders
+        // clips, so the step restores the project as it was by value. Taken before anything below
+        // changes; the chapter titles and speakers are also kept to put back if the move fails.
+        final String reorderBefore = captureEditorUndoSnapshot();
+        final java.util.Map<Integer, String> chaptersWere = new java.util.HashMap<>(currentTranscript.chapterTitles);
+        final java.util.Map<Integer, String> speakersWere = new java.util.HashMap<>(currentTranscript.paragraphSpeakers);
+        final Runnable putLabelsBack = () -> {
+            currentTranscript.chapterTitles.clear();
+            currentTranscript.chapterTitles.putAll(chaptersWere);
+            currentTranscript.paragraphSpeakers.clear();
+            currentTranscript.paragraphSpeakers.putAll(speakersWere);
+        };
         // D4/D5 — chapter titles and speaker labels ride the paragraph when it moves
         {
             java.util.Map<Integer,String> newChapters = new java.util.HashMap<>();
@@ -41873,6 +41940,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (snapped > prevBoundary + 100) boundary = snapped;
                 prevBoundary = boundary;
                 if (boundary <= inPoint + 100 || boundary >= outPoint - 100) {
+                    putLabelsBack.run();   // refused: the titles and speakers must not move alone
                     android.widget.Toast.makeText(this, R.string.studio_toast_paragraph_boundary_outside_clip_trim, android.widget.Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -41907,9 +41975,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             applier.setContext(this);
             com.fadcam.ui.faditor.ai.EditScriptApplier.Result result = applier.apply(project, script);
             if (!result.success) {
+                putLabelsBack.run();
                 android.widget.Toast.makeText(this, getString(R.string.studio_fmt_reorder_failed_1_s, result.error), android.widget.Toast.LENGTH_LONG).show();
                 return;
             }
+            undoManager.recordSnapshotStep(getString(R.string.studio_toast_paragraph_moved), reorderBefore);
             projectStorage.save(project);
             editorTimeline.setTimeline(tl, -1);
             syncTimelineOverlays();
@@ -41917,6 +41987,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             scheduleAutoSave();
             android.widget.Toast.makeText(this, R.string.studio_toast_paragraph_moved, android.widget.Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
+            putLabelsBack.run();
             android.widget.Toast.makeText(this, cc.joycreator.joybrush.android.chrome.PlainWords.forPerson(getString(R.string.studio_fmt_reorder_error_1_s, e.getMessage())), android.widget.Toast.LENGTH_LONG).show();
             com.fadcam.FLog.e("Faditor", "Paragraph reorder failed", e);
         }
@@ -43552,6 +43623,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         // Undo record + player resync (transition ⇒ gapless-ineligible ⇒ legacy fallback).
         addTransitionUndoable(transition, replaced);
+        undoManager.clearMergeNextIntoTop();   // armed only by a split above; never left armed
         editorTimeline.setTransitions(timeline.getTransitions());
         editorTimeline.setSelectedTransitionIndex(timeline.getTransitions().size() - 1);
         updateTransitionSelection();
@@ -43604,9 +43676,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (sourceSplitMs <= clip.getInPointMs() + 250 || sourceSplitMs >= clip.getOutPointMs() - 250) {
             return Math.max(0, Math.min(seg, maxSeam));
         }
+        final java.util.List<com.fadcam.ui.faditor.model.Transition> transitionsBeforeSplit =
+                timeline.snapshotTransitions();
         int splitIndex = timeline.splitAt(seg, sourceSplitMs);
         if (splitIndex < 0) return Math.max(0, Math.min(bestSeam, maxSeam));
         timeline.shiftTransitionsAfterSplit(splitIndex);
+        // The split made for the new transition is part of the same press: record it, and fold
+        // the transition's own step into it (before 11-24 the split had no step, so one Undo
+        // took the transition away and left the clip cut in two).
+        undoManager.recordAction(new EditActions.SplitClipAction(timeline, seg, clip,
+                timeline.getClip(splitIndex), timeline.getClip(splitIndex + 1), transitionsBeforeSplit));
+        undoManager.mergeNextIntoTop();
         selectedClipIndex = splitIndex + 1;
         editorTimeline.setTimeline(timeline, selectedClipIndex);
         editorTimeline.setTrimFromClip(timeline.getClip(selectedClipIndex));

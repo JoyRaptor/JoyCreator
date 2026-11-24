@@ -805,16 +805,32 @@ public class UndoManager {
      * every request becomes its own undo step instead of one step for the whole visit.
      */
     public boolean recordAiCheckpoint(@NonNull String description, @Nullable String snapshot) {
+        return pushSnapshotStep(description, snapshot, true);
+    }
+
+    /**
+     * A person's edit that rebuilds too much of the project to describe as an {@link EditAction}
+     * (a transcript paragraph dragged to a new place splits and reorders clips): ONE step that
+     * restores {@code snapshotBefore} by value. Like an AI step, but not marked as Joybot's.
+     */
+    public boolean recordSnapshotStep(@NonNull String description, @Nullable String snapshotBefore) {
+        return pushSnapshotStep(description, snapshotBefore, false);
+    }
+
+    private boolean pushSnapshotStep(@NonNull String description, @Nullable String snapshot, boolean ai) {
         if (snapshot == null) return false;
 
-        undoStack.push(new HistoryEntry(null, description, snapshot, true));
+        undoStack.push(new HistoryEntry(null, description, snapshot, ai));
         redoStack.clear();
         changedSinceOpen = true;
         while (undoStack.size() > maxHistory) {
             ((ArrayDeque<HistoryEntry>) undoStack).removeLast();
         }
         enforceSnapshotBudget();
-        FLog.i(TAG, "Recorded AI checkpoint: " + description
+        // A person's snapshot step happens in this editor, so the next edit's before-state is
+        // the state just after it (an AI step is followed by a project swap that resets it).
+        if (!ai) scheduleBaselineRefresh(false);
+        FLog.i(TAG, (ai ? "Recorded AI checkpoint: " : "Recorded snapshot step: ") + description
                 + " (undo=" + undoStack.size() + ", redo=0)");
         notifyListener();
         return true;

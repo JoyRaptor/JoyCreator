@@ -588,6 +588,24 @@ public class UndoManagerTest {
             eq("amend: the snapshot step restored its snapshot", "before", m.state);
         }
 
+        // ── A person's snapshot step (11-24: a transcript paragraph moved) ───────────────
+        {
+            Model m = new Model("P0");
+            UndoManager um = new UndoManager();
+            FakeRestorer r = new FakeRestorer(m);
+            um.setSnapshotRestorer(r);
+            um.resetBaseline();
+            String before = r.captureSnapshot();
+            m.state = "P1";                                   // the reorder rebuilds the clips
+            eqB("snapshot step: recorded", true, um.recordSnapshotStep("Move paragraph", before));
+            eqB("snapshot step: not marked as Joybot's", false, um.getUndoHistory().get(0).isAiOrigin());
+            eqB("snapshot step: one press undoes it", true, um.undo());
+            eq("snapshot step: the project is back", "P0", m.state);
+            eqB("snapshot step: one press redoes it", true, um.redo());
+            eq("snapshot step: the move is back", "P1", m.state);
+            eqB("snapshot step: no before, no step", false, um.recordSnapshotStep("x", null));
+        }
+
         System.out.println("\n" + pass + " passed, " + fail + " failed");
         if (fail > 0) System.exit(1);
     }

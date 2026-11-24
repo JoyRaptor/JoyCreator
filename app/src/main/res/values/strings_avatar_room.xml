@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Avatar Studio, the character room (AVA-1 slice 1). Words and hover labels from tasks/avatar/AVA_PHONE_SPEC.md. -->
+    <string name="avatar_untitled">New character</string>
+    <string name="avatar_cannot_open">That file is not a character this room can open. Nothing was changed.</string>
+    <string name="avatar_hint_rest">Topps, standing. Moving him comes with the next step.</string>
+
+    <!-- The four stages. The second one's word is one string, so it changes in one place. -->
+    <string name="avatar_stage_1">Set up</string>
+    <string name="avatar_stage_2">Arrange</string>
+    <string name="avatar_stage_3">Motion</string>
+    <string name="avatar_stage_4">Perform</string>
+    <string name="avatar_hover_stage_1">Set up: bring parts in and place their pins</string>
+    <string name="avatar_hover_stage_2">Arrange: make it look right in every pose</string>
+    <string name="avatar_hover_stage_3">Motion: how it moves and behaves</string>
+    <string name="avatar_hover_stage_4">Perform: play it and record takes</string>
+    <string name="avatar_ask_stage_1">What exists, and where does it hinge?</string>
+    <string name="avatar_ask_stage_2">Does it look right here, then in every pose?</string>
+    <string name="avatar_ask_stage_3">How does it move?</string>
+    <string name="avatar_ask_stage_4">Play it and record takes.</string>
+
+    <string name="avatar_hover_path_character">Take this character in hand</string>
+</resources>

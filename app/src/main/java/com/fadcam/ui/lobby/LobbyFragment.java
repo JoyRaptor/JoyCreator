@@ -1424,12 +1424,8 @@ public class LobbyFragment extends BaseFragment {
                 startActivity(i);
                 return;
             }
-            if (idx == ROOM_AVATAR && projectId != null) {
-                Intent i = new Intent(requireContext(),
-                        com.fadcam.ui.faditor.avatar.AvatarStudioActivity.class);
-                i.putExtra(com.fadcam.ui.faditor.avatar.AvatarStudioActivity.EXTRA_PROJECT_ID,
-                        projectId);
-                startActivity(i);
+            if (idx == ROOM_AVATAR) {   // the new character room (AVA-1); the older room stays in the code
+                startActivity(new Intent(requireContext(), cc.joycreator.avatar.AvatarRoomActivity.class));
                 return;
             }
         } catch (Exception e) {

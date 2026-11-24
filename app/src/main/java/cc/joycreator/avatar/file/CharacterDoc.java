@@ -49,7 +49,7 @@ public final class CharacterDoc {
     /** Picture id to its text ("data:image/png;base64,..." or a path beside the file). */
     public final Map<String, String> pictures = new LinkedHashMap<>();
 
-    private CharacterDoc(JSONObject j) throws JSONException {
+    CharacterDoc(JSONObject j) throws JSONException {
         json = j;
         format = j.optString("format", "");
         name = j.optString("name", "");
@@ -78,6 +78,33 @@ public final class CharacterDoc {
             }
         }
         return n;
+    }
+
+    /** Reads the tree again after the JSON was edited in place (the pictures stay as they are). */
+    public CharacterDoc reread() throws JSONException {
+        return new CharacterDoc(json);
+    }
+
+    /** Every node, depth first, with how deep it is. */
+    public interface Visitor {
+        void at(Node n, int depth, Node parent);
+    }
+
+    public void walk(Visitor v) {
+        walk(root, 0, null, v);
+    }
+
+    private static void walk(Node n, int depth, Node parent, Visitor v) {
+        v.at(n, depth, parent);
+        for (Node k : n.kids) walk(k, depth + 1, n, v);
+    }
+
+    public Node find(String id) {
+        final Node[] hit = {null};
+        walk((n, d, p) -> {
+            if (hit[0] == null && n.id.equals(id)) hit[0] = n;
+        });
+        return hit[0];
     }
 
     /** Reads a character; throws {@link JSONException} for anything that is not one (the caller says one plain sentence). */

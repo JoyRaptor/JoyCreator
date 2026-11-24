@@ -172,6 +172,16 @@ public class CharacterFormatTest {
             ok(FormatCheck.check(CharacterFile.upgrade(topps).doc).isEmpty(), "Topps (shipped asset): follows the rules after upgrade", say(FormatCheck.check(CharacterFile.upgrade(topps).doc)));
         }
 
+        // the "separate pictures" door builds a file that follows the rules
+        {
+            List<cc.joycreator.avatar.file.LooseCharacter.Pic> pics = new ArrayList<>();
+            for (int i = 0; i < 6; i++) pics.add(new cc.joycreator.avatar.file.LooseCharacter.Pic("Picture " + (i + 1), 100 + i, 80, "data:image/png;base64,AAAA"));
+            JSONObject made = cc.joycreator.avatar.file.LooseCharacter.build("Test", pics);
+            ok(FormatCheck.check(made).isEmpty(), "separate pictures: the new character follows the rules", say(FormatCheck.check(made)));
+            ok(FormatCheck.check(CharacterFile.upgrade(made).doc).isEmpty(), "separate pictures: and after upgrade", null);
+            ok(made.getInt("h") == 512 && made.getJSONObject("pictures").length() == 6, "separate pictures: 6 pictures on a 4-wide grid make 2 rows", made.getInt("h") + "");
+        }
+
         // the conversion, by numbers (v1-three-angles)
         {
             JSONObject doc = load("v1-three-angles.character.json");

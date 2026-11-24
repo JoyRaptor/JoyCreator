@@ -14,5 +14,6 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/cc/joycreator/avatar/file/Js.java \
   app/src/main/java/cc/joycreator/avatar/file/CharacterFile.java \
   app/src/main/java/cc/joycreator/avatar/file/FormatCheck.java \
+  app/src/main/java/cc/joycreator/avatar/file/LooseCharacter.java \
   tools/jvm-harness/CharacterFormatTest.java || exit 1
 java -cp "$OUT" CharacterFormatTest

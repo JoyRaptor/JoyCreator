@@ -24,6 +24,8 @@ import cc.joycreator.avatar.file.CharacterAssets;
 import cc.joycreator.avatar.file.CharacterDoc;
 import cc.joycreator.avatar.file.CharacterOpen;
 import cc.joycreator.avatar.file.CharacterStore;
+import cc.joycreator.avatar.ui.LayersView;
+import cc.joycreator.avatar.ui.RoomEdit;
 import cc.joycreator.avatar.ui.RoomMenu;
 import cc.joycreator.avatar.ui.StageView;
 
@@ -44,9 +46,10 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
+    private static final int REQ_PICTURES = 42;
 
     /** The four stages, in the order the owner reads them (spec A2). The second one's word is one string. */
     private static final int[] STAGE_NAMES = {
@@ -63,6 +66,13 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host 
     private LinearLayout panel;
     private TextView pathName;
     private TextView card;
+    private LayersView layers;
+    private TextView partsTab, layersTab, undoButton, redoButton;
+    private boolean showLayers;
+    private String inHand;
+    private RoomEdit edit;
+    private boolean fromEdit;
+    private final Runnable autosave = this::autosaveNow;
     private View saveDot;
     private final TextView[] stageTabs = new TextView[4];
     private CharacterDoc character;
@@ -114,7 +124,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host 
         card.setTextColor(0xFFD4D4D8);
         card.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         card.setPadding(px(16), px(14), px(16), px(14));
-        panel.addView(card, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        layers = new LayersView(this, this);
+        android.widget.FrameLayout body = new android.widget.FrameLayout(this);
+        body.addView(card, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        body.addView(layers, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(panel);
 
         setContentView(root);
@@ -148,13 +162,21 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host 
         TextView menu = roundButton("☰", getString(R.string.avatar_hover_menu));
         menu.setOnClickListener(v -> openMenu());
         bar.addView(menu, new LinearLayout.LayoutParams(px(36), px(36)));
+        undoButton = roundButton("\u21B6", getString(R.string.avatar_hover_undo_none));
+        undoButton.setOnClickListener(v -> { if (edit != null) edit.undo(); });
+        LinearLayout.LayoutParams ul = new LinearLayout.LayoutParams(px(36), px(36));
+        ul.leftMargin = px(8);
+        bar.addView(undoButton, ul);
+        redoButton = roundButton("\u21B7", getString(R.string.avatar_hover_redo_none));
+        redoButton.setOnClickListener(v -> { if (edit != null) edit.redo(); });
+        bar.addView(redoButton, ul);
         // the save dot (spec A2): never says "saved" for a character nobody has saved; says so on a long press or hover
         saveDot = new View(this);
         LinearLayout.LayoutParams dot = new LinearLayout.LayoutParams(px(8), px(8));
         dot.leftMargin = px(10);
         bar.addView(saveDot, dot);
         paintSaveDot();
-        // Undo, Redo, Export and Joybot join the bar as each one works.
+        // Export and Joybot join the bar as each one works.
         return bar;
     }
 
@@ -177,8 +199,43 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host 
         pathName.setTextColor(0xFFFAFAFA);
         pathName.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
         TooltipCompat.setTooltipText(pathName, getString(R.string.avatar_hover_path_character));
-        h.addView(pathName);
+        h.addView(pathName, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        // Parts | Layers: two equal ways to look at the same character, so a two-way switch (rule A0)
+        partsTab = switchHalf(getString(R.string.avatar_parts), getString(R.string.avatar_hover_parts));
+        layersTab = switchHalf(getString(R.string.avatar_layers), getString(R.string.avatar_hover_layers));
+        partsTab.setOnClickListener(v -> setLayersShown(false));
+        layersTab.setOnClickListener(v -> setLayersShown(true));
+        h.addView(partsTab, new LinearLayout.LayoutParams(px(64), px(32)));
+        h.addView(layersTab, new LinearLayout.LayoutParams(px(64), px(32)));
+        setLayersShown(false);
         return h;
+    }
+
+    private TextView switchHalf(String label, String hover) {
+        TextView t = new TextView(this);
+        t.setText(label);
+        t.setGravity(Gravity.CENTER);
+        t.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        TooltipCompat.setTooltipText(t, hover);
+        t.setContentDescription(hover);
+        return t;
+    }
+
+    private void setLayersShown(boolean on) {
+        showLayers = on;
+        for (int i = 0; i < 2; i++) {
+            TextView t = i == 0 ? partsTab : layersTab;
+            boolean chosen = (i == 1) == on;
+            GradientDrawable g = new GradientDrawable();
+            g.setCornerRadius(px(10));
+            g.setColor(chosen ? Studio.ARMED : 0xFF27272A);
+            t.setBackground(g);
+            t.setTextColor(chosen ? Studio.GROUND : 0xFFA1A1AA);
+        }
+        if (layers != null) {
+            layers.setVisibility(on ? View.VISIBLE : View.GONE);
+            card.setVisibility(on ? View.GONE : View.VISIBLE);
+        }
     }
 
     private LinearLayout buildStageRow() {
@@ -231,9 +288,84 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host 
     /** Puts {@link #character} on the stage and its name in the panel header. */
     private void showCharacter() {
         if (character == null) return;
-        stage.setCharacter(character);
+        fromEdit = false;
+        if (edit == null) edit = new RoomEdit(character, this::edited);
+        edit.reset(character);
         pathName.setText(character.name.isEmpty() ? getString(R.string.avatar_untitled) : character.name);
         paintSaveDot();
+    }
+
+    /** RoomEdit says the character changed (a step, an undo, a redo, or a new one on the stage). */
+    private void edited(CharacterDoc d) {
+        character = d;
+        stage.setCharacter(d);
+        stage.setSelected(inHand);
+        layers.show(d, inHand);
+        paintUndo();
+        if (fromEdit) {
+            unsaved = true;
+            paintSaveDot();
+            main.removeCallbacks(autosave);
+            main.postDelayed(autosave, 1500);   // it saves by itself in a moment
+        }
+        fromEdit = true;
+    }
+
+    private void paintUndo() {
+        String u = edit.undoName(), r = edit.redoName();
+        paintHistoryButton(undoButton, u == null ? getString(R.string.avatar_hover_undo_none) : getString(R.string.avatar_hover_undo, u), u != null);
+        paintHistoryButton(redoButton, r == null ? getString(R.string.avatar_hover_redo_none) : getString(R.string.avatar_hover_redo, r), r != null);
+    }
+
+    private void paintHistoryButton(TextView b, String hover, boolean live) {
+        b.setAlpha(live ? 1f : 0.35f);
+        TooltipCompat.setTooltipText(b, hover);
+        b.setContentDescription(hover);
+    }
+
+    @Override
+    public void inHand(String id) {
+        inHand = id.equals(inHand) ? null : id;
+        stage.setSelected(inHand);
+        layers.show(character, inHand);
+    }
+
+    @Override
+    public void eye(CharacterDoc.Node node) {
+        final boolean hide = !node.hidden;
+        final String label = node.name.isEmpty() ? node.id : node.name;
+        edit.apply(getString(hide ? R.string.avatar_step_hide : R.string.avatar_step_show, label), doc -> {
+            org.json.JSONObject j = doc.find(node.id).json;
+            if (hide) j.put("hidden", true);
+            else j.remove("hidden");
+        });
+    }
+
+    private void autosaveNow() {
+        if (unsaved && character != null) saveQuietly();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        main.removeCallbacks(autosave);
+        if (unsaved && character != null) saveQuietly();
+    }
+
+    private void saveQuietly() {
+        final CharacterDoc d = character;
+        final String path = characterPath;
+        JoyFolderHome.io().execute(() -> {
+            String rel = CharacterStore.save(this, d, path);
+            main.post(() -> {
+                if (rel == null) return;       // still on the stage; tried again with the next change
+                characterPath = rel;
+                if (character == d) {
+                    unsaved = false;
+                    paintSaveDot();
+                }
+            });
+        });
     }
 
     // ── the Menu ──────────────────────────────────────────────────────────────────────────────────
@@ -294,8 +426,89 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host 
     }
 
     @Override
+    public void newFromPictures() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*")
+                .putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+        try {
+            startActivityForResult(i, REQ_PICTURES);
+        } catch (Exception e) {
+            Log.w(TAG, "no file picker", e);
+        }
+    }
+
+    /** Reads each picked picture (at most 512 px on a side), builds the new character, and puts it on the stage. */
+    private void pictureDoor(final List<Uri> uris) {
+        JoyFolderHome.io().execute(() -> {
+            java.util.ArrayList<cc.joycreator.avatar.file.LooseCharacter.Pic> pics = new java.util.ArrayList<>();
+            int n = 0;
+            for (Uri u : uris) {
+                try (InputStream in = getContentResolver().openInputStream(u)) {
+                    if (in == null) continue;
+                    byte[] raw = readAll(in);
+                    android.graphics.BitmapFactory.Options o = new android.graphics.BitmapFactory.Options();
+                    o.inJustDecodeBounds = true;
+                    android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+                    int sample = 1;
+                    while (Math.max(o.outWidth, o.outHeight) / (sample * 2) >= 512) sample *= 2;
+                    o.inJustDecodeBounds = false;
+                    o.inSampleSize = sample;
+                    android.graphics.Bitmap b = android.graphics.BitmapFactory.decodeByteArray(raw, 0, raw.length, o);
+                    if (b == null) continue;
+                    ByteArrayOutputStream png = new ByteArrayOutputStream();
+                    b.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, png);
+                    String url = "data:image/png;base64," + android.util.Base64.encodeToString(png.toByteArray(), android.util.Base64.NO_WRAP);
+                    n++;
+                    pics.add(new cc.joycreator.avatar.file.LooseCharacter.Pic(getString(R.string.avatar_picture_n, n), b.getWidth(), b.getHeight(), url));
+                    b.recycle();
+                } catch (Exception | OutOfMemoryError e) {
+                    Log.w(TAG, "picture not read", e);
+                }
+            }
+            CharacterDoc made = null;
+            if (!pics.isEmpty()) {
+                try {
+                    made = CharacterOpen.read(cc.joycreator.avatar.file.LooseCharacter.build(getString(R.string.avatar_untitled), pics).toString());
+                } catch (Exception e) {
+                    Log.w(TAG, "character not made", e);
+                }
+            }
+            final CharacterDoc result = made;
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (result == null) {
+                    Toast.makeText(this, R.string.avatar_no_pictures, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                character = result;
+                characterPath = null;
+                unsaved = true;
+                inHand = null;
+                showCharacter();
+                setLayersShown(true);      // the pictures are the layers: show them
+                main.postDelayed(autosave, 1500);
+            });
+        });
+    }
+
+    private static byte[] readAll(InputStream in) throws java.io.IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buf = new byte[64 * 1024];
+        int n;
+        while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+        return out.toByteArray();
+    }
+
+    @Override
     protected void onActivityResult(int req, int res, Intent data) {
         super.onActivityResult(req, res, data);
+        if (req == REQ_PICTURES && res == RESULT_OK && data != null) {
+            java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
+            if (data.getClipData() != null)
+                for (int i = 0; i < data.getClipData().getItemCount(); i++) uris.add(data.getClipData().getItemAt(i).getUri());
+            else if (data.getData() != null) uris.add(data.getData());
+            if (!uris.isEmpty()) pictureDoor(uris);
+            return;
+        }
         if (req != REQ_OPEN || res != RESULT_OK || data == null || data.getData() == null) return;
         final Uri uri = data.getData();
         JoyFolderHome.io().execute(() -> {

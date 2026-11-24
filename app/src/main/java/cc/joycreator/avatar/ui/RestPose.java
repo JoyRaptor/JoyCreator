@@ -3,6 +3,7 @@ package cc.joycreator.avatar.ui;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.RectF;
 import android.graphics.Paint;
 import android.util.Base64;
 
@@ -20,12 +21,21 @@ import java.util.Map;
  * {@code CharacterSolver} lands, and it is replaced then, not extended.</p>
  */
 final class RestPose {
-    private final CharacterDoc doc;
+    private CharacterDoc doc;
     private final Map<String, Bitmap> bitmaps = new HashMap<>();
     private final Paint paint = new Paint(Paint.FILTER_BITMAP_FLAG | Paint.ANTI_ALIAS_FLAG);
 
     RestPose(CharacterDoc doc) {
         this.doc = doc;
+    }
+
+    /** The same character after an edit of its tree: the pictures are the same, so the decoded ones are kept. */
+    void retarget(CharacterDoc d) {
+        doc = d;
+    }
+
+    boolean samePictures(CharacterDoc d) {
+        return doc.pictures == d.pictures || doc.pictures.size() == d.pictures.size() && doc.name.equals(d.name) && doc.pictures.keySet().equals(d.pictures.keySet());
     }
 
     /** Draws into the rectangle at the origin of the canvas, sized doc.w x doc.h (the caller scales). */
@@ -80,6 +90,38 @@ final class RestPose {
         }
         if (b != null) bitmaps.put(img, b);
         return b;
+    }
+
+    /** Where a part is on the picture (the drawings it shows now), or null when it shows nothing. */
+    RectF bounds(CharacterDoc.Node n) {
+        RectF out = new RectF();
+        boolean[] any = {false};
+        grow(n, out, any);
+        return any[0] ? out : null;
+    }
+
+    private void grow(CharacterDoc.Node n, RectF out, boolean[] any) {
+        if (n.hidden) return;
+        switch (n.type) {
+            case "art": {
+                Bitmap b = bitmap(n.img);
+                if (b == null) return;
+                RectF r = new RectF(n.x, n.y, n.x + b.getWidth(), n.y + b.getHeight());
+                if (any[0]) out.union(r);
+                else out.set(r);
+                any[0] = true;
+                return;
+            }
+            case "set": {
+                CharacterDoc.Node k = pick(n);
+                if (k != null) grow(k, out, any);
+                return;
+            }
+            case "mirror":
+                return;
+            default:
+                for (CharacterDoc.Node k : n.kids) grow(k, out, any);
+        }
     }
 
     void release() {

@@ -34,5 +34,22 @@
     <string name="avatar_hover_open_one">%1$s: open</string>
     <string name="avatar_hover_saved">Saved</string>
     <string name="avatar_hover_not_saved">Not saved yet: Menu, Save puts it in your Joy Creator folder</string>
+    <string name="avatar_parts">Parts</string>
+    <string name="avatar_layers">Layers</string>
+    <string name="avatar_hover_parts">Work part by part, from the body map</string>
+    <string name="avatar_hover_layers">Every layer of the file, as a list</string>
+    <string name="avatar_hover_layer">%1$s: take it in hand</string>
+    <string name="avatar_hover_hide">Hide %1$s</string>
+    <string name="avatar_hover_show">Show %1$s</string>
+    <string name="avatar_step_hide">Hide %1$s</string>
+    <string name="avatar_step_show">Show %1$s</string>
+    <string name="avatar_hover_undo">Undo: %1$s</string>
+    <string name="avatar_hover_redo">Redo: %1$s</string>
+    <string name="avatar_hover_undo_none">Nothing to undo</string>
+    <string name="avatar_hover_redo_none">Nothing to redo</string>
+    <string name="avatar_new_from_pictures">Create new avatar: separate pictures</string>
+    <string name="avatar_hover_new_from_pictures">Separate pictures: one per part</string>
+    <string name="avatar_picture_n">Picture %1$d</string>
+    <string name="avatar_no_pictures">Those pictures could not be read. Nothing was changed.</string>
 </resources>
 

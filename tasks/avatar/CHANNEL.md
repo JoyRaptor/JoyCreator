@@ -43,6 +43,7 @@ a slice needs it (Claude claims it here first, so Codex can see it is taken).
 |---|---|---|---|---|
 | Claude, "Avatar Studio phone spec" session (Opus) | Step 0: the pilot reads and writes the shared format, the landmarks screen, `AL.golden` | its own worktree branch | `tools/avatarlab/**` (pilot only) | 11-23 |
 | Claude, "Avatar Studio slice 1: the room" session (Opus) | Slice 1 items 4 to 8: the room's screens, doors, Perform and recording, undo, Joybot tools | its own worktree branch | new `avatar/room/**` classes; it claims X1 to X3 here before touching them if Codex has not | 11-23 |
+| Claude, "Avatar Studio slice 1: the room" session (Opus) | **X1 (first part only)**: reading a character file into a tree (`CharacterDoc`, `CharacterAssets`) so the room can draw Topps at rest; `FormatCheck` (the 74 checks) stays open for Codex | same branch | new `app/src/main/java/cc/joycreator/avatar/file/CharacterDoc.java`, `CharacterAssets.java` (Codex: build `CharacterFile` / `FormatCheck` beside them, do not edit these two) | 11-23 |
 
 ## Landings
 

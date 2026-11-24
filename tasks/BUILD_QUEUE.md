@@ -45,7 +45,7 @@ hardest work.
 | 22 | BOT-3 "edits against a revision" (Studio first): a long Joybot job commits only if the project has not moved, else a clear conflict; proved in the bench with the fake model | [BOT-3](jobs/BOT-3_joybot_trust.md) | no | looked at 11-24 (website lane): design on the card, not built; needs a phone first (see card) |
 | 23 | ANI-1 finish ledger: code rows | [ledger](PUPPET_FINISH_LEDGER.md) | no | re-checked 11-24: every row done or waiting on a screenshot/phone; nothing a PC can prove |
 | 24 | BOT-4: naming layers (the part a PC can finish) | [BOT-4](jobs/BOT-4_joybot_reach.md) | no | timeline bars show the item name (ItemLabel, 33 checks); drawer rename, chips, missing-file text left (phone) |
-| 25 | STU-5: one snapping authority | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | no | not contained (540 mentions in the editor): written up for an Opus session, not started |
+| 25 | STU-5: one snapping authority | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | no | written up 11-24, then built the same day on Opus: see row 26 |
 | 26 | STU-5: one snapping authority (Opus) | [STU-5](jobs/STU-5_studio_structure_and_primitives.md) | yes (feel-check) | built 11-24: SnapAuthority decides every routed snap; 39 pinning checks against frozen copies of the old code; one deliberate fix (text drop time nearest); phone feel-check owed (hover lane) |
 
 Waiting on the owner (not in the queue): S1 app ID, S4 privacy email, S6 Play account and testers, S10 removing 11

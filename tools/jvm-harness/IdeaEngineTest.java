@@ -557,6 +557,17 @@ public class IdeaEngineTest {
                     {"how do I turn on the torch", "capture_modes"},
                     {"what are the words at the bottom of the lobby", "lobby_floor"},
                     {"where are the settings", "settings_find"},
+                    // job 14 (11-23): STATE features whose help was pending
+                    {"how do I import a Photoshop brush", "joybrush_import"},
+                    {"can I bring in brushes from Procreate", "joybrush_import"},
+                    {"where are the perspective guides", "joybrush_guides"},
+                    {"how do I use radial symmetry", "joybrush_guides"},
+                    {"what are paper fibres", "joybrush_fibres"},
+                    {"how do I send my drawing to studio", "send_to_studio"},
+                    {"how do I open a sprite board in spritelab", "send_to_studio"},
+                    {"how do I change the look sliders on my title", "studio_title_sliders"},
+                    {"can you show me a trick", "joybot_tricks"},
+                    {"how do I report a reply", "joybot_report"},
                     // keys that must stay with their own topics
                     {"how do I add credits at the end", "slides"},
                     {"how do I use screen mode", "blend"},

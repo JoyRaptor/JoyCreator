@@ -696,7 +696,47 @@ public final class HelpBook {
                     null, null),
             new Topic("hands_free", "hands free|hands-free|voice only|without touching|talk to you",
                     "Hold the mic, say what you want and stop talking — it sends itself. I'll read my answer "
-                            + "out and listen for 'yes', 'undo' or 'stop'.", null, null)));
+                            + "out and listen for 'yes', 'undo' or 'stop'.", null, null),
+            // HYG-5 / BOT-2 job 14 (11-23): features STATE lists as built whose help was pending. Wording follows STATE.
+            new Topic("joybrush_import", "import brush|import a brush|bring in brushes|bring in a brush|photoshop brush"
+                    + "|procreate brush|brushset|krita brush|mypaint|abr file|brush file",
+                    "In JoyBrush, open the brush drawer, tap Import… under the shelf names and pick a file: Photoshop "
+                            + "(.abr), Procreate (.brush, .brushset), Krita (.kpp, .bundle) or MyPaint (.myb). I'll tell "
+                            + "you how many came in and which couldn't. Each brush is saved as one readable file in your "
+                            + "Joy Creator folder, so it survives an uninstall. Bristle brushes and Photoshop pattern "
+                            + "textures aren't brought in yet.", "joybrush", null),
+            new Topic("joybrush_guides", "rulers and guides|perspective guide|perspective grid|isometric|vanishing point"
+                    + "|one point perspective|two point perspective|three point perspective|radial symmetry|drawing grid",
+                    "In JoyBrush, tap Tools at the top. Under Rulers and guides you'll find a grid, isometric, one, two "
+                            + "and three-point perspective, a ruler, symmetry and radial symmetry (six copies around a "
+                            + "centre to start; the line's plus and minus set how many).", "joybrush", null),
+            new Topic("joybrush_fibres", "paper fibres|paper fibers|thirsty paper|watercolour fibres|watercolor fibers"
+                    + "|feather along the paper",
+                    "In JoyBrush, the ⋯ menu → Watercolour has Paper fibres: Off, On or Strong. With it on, a wet "
+                            + "stroke feathers out along the paper's fibres and keeps creeping for a few seconds; rice "
+                            + "paper shows it most. It starts Off, and a page of wet washes can run a little slower with "
+                            + "it on.", "joybrush", null),
+            new Topic("send_to_studio", "send to studio|send my drawing to studio|send a board|open in spritelab"
+                    + "|send this to studio|export to another place|use my drawing in a video",
+                    "In JoyBrush, a board's Export sheet has Send to Studio (an animation or picture board) or Open in "
+                            + "SpriteLab (a sprite board). The ⋯ menu's Export → Whole drawing → Flat picture has Send to "
+                            + "Studio too. A picture arrives as a picture: a new project made of it, or, in a project you "
+                            + "pick, a new layer.", "joybrush", null),
+            new Topic("studio_title_sliders", "look sliders|title look sliders|change my title's look|as it came"
+                    + "|adjust the look of my title",
+                    "When a title wears a TextLab look, its text drawer shows Look sliders. They open TextLab's own panel "
+                            + "over the editor and the title redraws as you drag; each grab is one undo step, and 'As it "
+                            + "came' puts the look's own values back.", "studio", null),
+            new Topic("joybot_tricks", "show me a trick|do a trick|do a backflip|roll over|play dead|joybot trick"
+                    + "|do a little dance|hop on one foot|go to sleep",
+                    "Ask me for a trick and I'll do one: sleep, hop, backflip, beg, roll over or shake. With an AI "
+                            + "connected I can pick one for anything close, or to celebrate a job. It never changes your "
+                            + "project.", null, null),
+            new Topic("joybot_report", "report a reply|report this reply|report joybot|flag a reply|flag an answer"
+                    + "|bad answer from joybot|report an answer",
+                    "Tap the small flag beside Copy under any of my answers. It asks first, then saves the answer and "
+                            + "your question as a readable file in your Joy Creator folder (Joybot/Reports) and opens an "
+                            + "email with both filled in. Nothing is sent unless you send that email.", null, null)));
 
     /**
      * L37: no answer about a place on the launch list, nor a topic listed by itself as {@code help_<id>}

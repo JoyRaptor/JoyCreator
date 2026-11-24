@@ -27,9 +27,11 @@ fi
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/LiveFlowGl.java \
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/FastFootagePreviewOwner.java \
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/FastFootageGatherGl.java \
+  app/src/main/java/com/fadcam/ui/faditor/motion/flow/HighFootageGatherGl.java \
   tools/jvm-harness/liveflow/LiveFlowGlLifecycleTest.java \
-  tools/jvm-harness/liveflow/{FastFootagePreviewOwnerTest,FastFootageGatherGlTest}.java
+  tools/jvm-harness/liveflow/{FastFootagePreviewOwnerTest,FastFootageGatherGlTest,HighFootageGatherGlTest}.java
 
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.LiveFlowGlLifecycleTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FastFootagePreviewOwnerTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FastFootageGatherGlTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.HighFootageGatherGlTest

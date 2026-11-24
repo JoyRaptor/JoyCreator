@@ -19,11 +19,21 @@ public final class AutoMarkMapper {
     public static final class Moment {
         public final long startMs, endMs;
         public final String label;
+        /** How sure Detect was (0..1); 0 when unknown. Used to pick the best ones. */
+        public final float confidence;
+        /** The recording this moment is in, so a picture can be taken from it; may be null. */
+        public final String sourceUri;
 
         public Moment(long startMs, long endMs, String label) {
+            this(startMs, endMs, label, 0f, null);
+        }
+
+        public Moment(long startMs, long endMs, String label, float confidence, String sourceUri) {
             this.startMs = startMs;
             this.endMs = endMs;
             this.label = label;
+            this.confidence = confidence;
+            this.sourceUri = sourceUri;
         }
     }
 
@@ -31,10 +41,21 @@ public final class AutoMarkMapper {
     public static final class Mark {
         public final long timelineMs;
         public final String label;
+        /** Carried from the moment: how sure Detect was, and where in the recording to take a picture from. */
+        public final float confidence;
+        public final String sourceUri;
+        public final long sourceMs;
 
         public Mark(long timelineMs, String label) {
+            this(timelineMs, label, 0f, null, 0L);
+        }
+
+        public Mark(long timelineMs, String label, float confidence, String sourceUri, long sourceMs) {
             this.timelineMs = timelineMs;
             this.label = label;
+            this.confidence = confidence;
+            this.sourceUri = sourceUri;
+            this.sourceMs = sourceMs;
         }
     }
 
@@ -56,10 +77,20 @@ public final class AutoMarkMapper {
             // where the played part first meets this moment: its start (its end, going backwards), or the clip's edge if it began earlier
             long played = reversed ? Math.min(end, outMs) : Math.max(m.startMs, inMs);
             long fromEdge = reversed ? outMs - played : played - inMs;
-            r.marks.add(new Mark(startMs + Math.round(fromEdge / (double) sp), m.label));
+            r.marks.add(new Mark(startMs + Math.round(fromEdge / (double) sp), m.label, m.confidence, m.sourceUri, played));
         }
         r.marks.sort((a, b) -> Long.compare(a.timelineMs, b.timelineMs));
         return r;
+    }
+
+    /** The {@code n} most confident marks, kept in timeline order (a moment with unknown confidence counts as 0). */
+    public static List<Mark> best(List<Mark> marks, int n) {
+        if (marks.size() <= n) return new ArrayList<>(marks);
+        List<Mark> byConfidence = new ArrayList<>(marks);
+        byConfidence.sort((a, b) -> Float.compare(b.confidence, a.confidence));
+        List<Mark> top = new ArrayList<>(byConfidence.subList(0, n));
+        top.sort((a, b) -> Long.compare(a.timelineMs, b.timelineMs));
+        return top;
     }
 
     /**

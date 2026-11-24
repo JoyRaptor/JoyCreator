@@ -78,7 +78,14 @@ public final class PartThumbs {
     @NonNull
     public static android.widget.ArrayAdapter<String> listAdapter(@NonNull Context c, @NonNull String[] names,
                                                                   @NonNull Source source) {
-        return new android.widget.ArrayAdapter<String>(c, android.R.layout.simple_list_item_1, names) {
+        return listAdapter(c, names, source, android.R.layout.simple_list_item_1);
+    }
+
+    /** The same with a chosen row layout (for example {@code simple_list_item_multiple_choice} for ticks). */
+    @NonNull
+    public static android.widget.ArrayAdapter<String> listAdapter(@NonNull Context c, @NonNull String[] names,
+                                                                  @NonNull Source source, int rowLayout) {
+        return new android.widget.ArrayAdapter<String>(c, rowLayout, names) {
             @NonNull
             @Override
             public android.view.View getView(int position, @Nullable android.view.View convertView,
@@ -152,6 +159,25 @@ public final class PartThumbs {
             }
         } catch (Exception e) {
             return null;
+        }
+    }
+
+    /** One frame of a video at {@code ms}, fitted into the small square; null when it cannot be read. Worker thread only. */
+    @Nullable
+    public static Bitmap videoFrameAt(@NonNull Context c, @NonNull android.net.Uri uri, long ms) {
+        android.media.MediaMetadataRetriever r = new android.media.MediaMetadataRetriever();
+        try {
+            r.setDataSource(c, uri);
+            Bitmap f = r.getFrameAtTime(Math.max(0L, ms) * 1000L, android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+            return f == null ? null : square(f, new Rect(0, 0, f.getWidth(), f.getHeight()));
+        } catch (Exception e) {
+            return null;
+        } finally {
+            try {
+                r.release();
+            } catch (Exception ignored) {
+                // nothing to release
+            }
         }
     }
 

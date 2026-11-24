@@ -29,7 +29,8 @@ public final class MomentsReader {
             List<AiEventEntity> events = db.aiEventDao().getByMediaUid(media.mediaUid);
             if (events == null) return out;
             for (AiEventEntity e : events) {
-                out.add(new AutoMarkMapper.Moment(e.startMs, e.endMs, label(e)));
+                out.add(new AutoMarkMapper.Moment(e.startMs, e.endMs, label(e),
+                        Math.max(e.confidence, e.peakConfidence), sourceUri));
             }
         } catch (Throwable ignored) {
             // no database, a locked one, a schema from another build: no moments, never a crash

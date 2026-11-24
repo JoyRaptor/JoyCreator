@@ -65,6 +65,16 @@ public class AutoMarkMapperTest {
         eq("the dog survives", "Dog", kept.get(0).label);
         eq("the first of two near each other survives", 9_000L, kept.get(1).timelineMs);
 
+        // the best N by confidence, kept in time order; confidence, uri and the source moment travel with the mark
+        r = AutoMarkMapper.map(Arrays.asList(new Moment(11_000, 12_000, "A", 0.3f, "u"), new Moment(15_000, 16_000, "B", 0.9f, "u"),
+                new Moment(20_000, 21_000, "C", 0.6f, "u")), 10_000, 40_000, 1f, false, 0);
+        eq("confidence carried", 0.9f, r.marks.get(1).confidence);
+        eq("source moment carried", 15_000L, r.marks.get(1).sourceMs);
+        eq("uri carried", "u", r.marks.get(1).sourceUri);
+        List<Mark> top = AutoMarkMapper.best(r.marks, 2);
+        eq("best 2 are B and C", "B,C", top.get(0).label + "," + top.get(1).label);
+        eq("fewer than N: all of them", 3, AutoMarkMapper.best(r.marks, 5).size());
+
         // a zero or bad speed does not divide by zero
         r = AutoMarkMapper.map(Arrays.asList(m(20_000, 21_000, "X")), 10_000, 40_000, 0f, false, 0);
         eq("bad speed treated as 1x", 10_000L, r.marks.get(0).timelineMs);

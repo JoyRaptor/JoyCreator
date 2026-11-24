@@ -5542,7 +5542,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 for (com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark m : com.fadcam.ui.faditor.markers.AutoMarkMapper
                         .map(moments, play[i][0], play[i][1], speeds[i], false, play[i][2]).marks) {
                     wanted.add(new com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark(m.timelineMs,
-                            m.label + " " + TimeFormatter.formatAuto(m.timelineMs)));
+                            m.label + " " + TimeFormatter.formatAuto(m.timelineMs), m.confidence, m.sourceUri, m.sourceMs));
                 }
             }
             runOnUiThread(() -> {
@@ -5555,23 +5555,65 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 for (com.fadcam.ui.faditor.markers.MarkerWorkspace.Point p : markerState.points) {
                     existing.add(new com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark(p.timeMs, p.name));
                 }
-                java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> fresh =
+                final java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> fresh =
                         com.fadcam.ui.faditor.markers.AutoMarkMapper.withoutDuplicates(wanted, existing, 500L);
-                if (fresh.size() > 50) fresh = fresh.subList(0, 50);     // a day of motion is not fifty marks a minute
                 if (fresh.isEmpty()) {
                     Toast.makeText(this, R.string.timeline_marks_moments_all_there, Toast.LENGTH_SHORT).show();
                     return;
                 }
+                showDetectMomentsSheet(fresh);
+            });
+        }, "detect-moments").start();
+    }
+
+    /** FOLD-1: the list of moments with a picture each; the best 20 ticked; Add marks drops the ticked ones, one undo step. */
+    private void showDetectMomentsSheet(@NonNull java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> fresh) {
+        final java.util.List<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> all = new java.util.ArrayList<>(fresh);
+        final java.util.Set<com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark> ticked = new java.util.HashSet<>(
+                com.fadcam.ui.faditor.markers.AutoMarkMapper.best(all, 20));
+        final String[] names = new String[all.size()];
+        for (int i = 0; i < names.length; i++) names[i] = all.get(i).label;
+        final android.content.Context app = getApplicationContext();
+        final android.widget.ArrayAdapter<String> adapter = com.fadcam.ui.faditor.PartThumbs.listAdapter(this, names,
+                new com.fadcam.ui.faditor.PartThumbs.Source() {
+                    @Override public String key(int i) {
+                        com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark m = all.get(i);
+                        return m.sourceUri == null ? null : "moment:" + m.sourceUri + "@" + m.sourceMs;
+                    }
+                    @Override public android.graphics.Bitmap load(int i) {
+                        com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark m = all.get(i);
+                        return com.fadcam.ui.faditor.PartThumbs.videoFrameAt(app, android.net.Uri.parse(m.sourceUri), m.sourceMs);
+                    }
+                }, android.R.layout.simple_list_item_multiple_choice);
+        final androidx.appcompat.app.AlertDialog dialog = StudioDialog.builder(this)
+                .setTitle(R.string.timeline_marks_moments_title)
+                .setAdapter(adapter, null)
+                .setPositiveButton(R.string.timeline_marks_moments_add, null)
+                .setNegativeButton(android.R.string.cancel, null)
+                .create();
+        dialog.setOnShowListener(d -> {
+            final android.widget.ListView list = dialog.getListView();
+            list.setChoiceMode(android.widget.ListView.CHOICE_MODE_MULTIPLE);
+            for (int i = 0; i < all.size(); i++) list.setItemChecked(i, ticked.contains(all.get(i)));
+            dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+                if (markerState == null) { dialog.dismiss(); return; }
+                final android.util.SparseBooleanArray on = list.getCheckedItemPositions();
                 com.fadcam.ui.faditor.markers.MarkerWorkspace.State next = markerState.copy();
-                for (com.fadcam.ui.faditor.markers.AutoMarkMapper.Mark m : fresh) {
-                    next.points.add(new com.fadcam.ui.faditor.markers.MarkerWorkspace.Point(m.label, m.timelineMs, 0));
+                int added = 0;
+                for (int i = 0; i < all.size(); i++) {
+                    if (!on.get(i)) continue;
+                    next.points.add(new com.fadcam.ui.faditor.markers.MarkerWorkspace.Point(all.get(i).label, all.get(i).timelineMs, 0));
+                    added++;
                 }
+                dialog.dismiss();
+                if (added == 0) return;
                 changeMarkerState(next, getString(R.string.timeline_marks_undo_add_moments));
-                Toast.makeText(this, getString(R.string.timeline_marks_moments_added, fresh.size()), Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, getString(R.string.timeline_marks_moments_added, added), Toast.LENGTH_SHORT).show();
                 if (markerPopup != null) markerPopup.dismiss();
                 showTimelineMarks(null);
             });
-        }, "detect-moments").start();
+        });
+        dialog.show();
     }
 
     private boolean markerMediaPlaying() {

@@ -65,6 +65,9 @@
     <string name="timeline_marks_moments_none">Detect found no moments in this project\'s recordings</string>
     <string name="timeline_marks_moments_added">Added %1$d moments Detect found</string>
     <string name="timeline_marks_moments_all_there">Those moments are already marked</string>
+    <string name="timeline_marks_moments_title">Moments Detect found</string>
+    <string name="timeline_marks_moments_add">Add marks</string>
+    <string name="timeline_marks_moments_hint">%1$d moments; the %2$d it was surest of are ticked</string>
     <string name="timeline_marks_in_captured">Region In captured</string>
     <string name="timeline_marks_region_added">Region saved</string>
     <string name="timeline_marks_nothing_to_export">Select at least one region to export</string>

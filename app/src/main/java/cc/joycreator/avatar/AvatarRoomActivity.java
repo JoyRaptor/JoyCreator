@@ -25,6 +25,7 @@ import cc.joycreator.avatar.file.CharacterDoc;
 import cc.joycreator.avatar.file.CharacterOpen;
 import cc.joycreator.avatar.file.CharacterStore;
 import cc.joycreator.avatar.ui.LayersView;
+import cc.joycreator.avatar.ui.PartsView;
 import cc.joycreator.avatar.ui.RoomEdit;
 import cc.joycreator.avatar.ui.RoomMenu;
 import cc.joycreator.avatar.ui.StageView;
@@ -46,7 +47,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -65,7 +66,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private StageView stage;
     private LinearLayout panel;
     private TextView pathName;
-    private TextView card;
+    private PartsView parts;
     private LayersView layers;
     private TextView partsTab, layersTab, undoButton, redoButton;
     private boolean showLayers;
@@ -120,13 +121,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         panel.setBackgroundColor(0xFF09090B);
         panel.addView(buildPanelHeader(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(44)));
         panel.addView(buildStageRow(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, px(36)));
-        card = new TextView(this);
-        card.setTextColor(0xFFD4D4D8);
-        card.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        card.setPadding(px(16), px(14), px(16), px(14));
+        parts = new PartsView(this, this);
         layers = new LayersView(this, this);
         android.widget.FrameLayout body = new android.widget.FrameLayout(this);
-        body.addView(card, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        body.addView(parts, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         body.addView(layers, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(panel);
@@ -234,7 +232,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         if (layers != null) {
             layers.setVisibility(on ? View.VISIBLE : View.GONE);
-            card.setVisibility(on ? View.GONE : View.VISIBLE);
+            parts.setVisibility(on ? View.GONE : View.VISIBLE);
         }
     }
 
@@ -267,7 +265,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             stageTabs[i].setBackground(g);
             stageTabs[i].setTextColor(on ? Studio.GROUND : 0xFFA1A1AA);
         }
-        card.setText(STAGE_ASKS[idx]);
+        if (character != null) parts.show(character, inHand, stageIndex);
     }
 
     private TextView roundButton(String glyph, String hover) {
@@ -301,6 +299,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stage.setCharacter(d);
         stage.setSelected(inHand);
         layers.show(d, inHand);
+        parts.show(d, inHand, stageIndex);
         paintUndo();
         if (fromEdit) {
             unsaved = true;
@@ -328,6 +327,44 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         inHand = id.equals(inHand) ? null : id;
         stage.setSelected(inHand);
         layers.show(character, inHand);
+        parts.show(character, inHand, stageIndex);
+    }
+
+    @Override
+    public void tryDrawing(String setId, String kidId) {
+        stage.tryDrawing(setId, kidId);
+    }
+
+    @Override
+    public void restack(String id, int by) {
+        CharacterDoc.Node node = character.find(id);
+        if (node == null) return;
+        final CharacterDoc.Node[] parent = {null};
+        character.walk((n, d, p) -> {
+            if (n.id.equals(id)) parent[0] = p;
+        });
+        if (parent[0] == null) return;
+        final String parentId = parent[0].id;
+        final int count = parent[0].kids.size();
+        int at = 0;
+        for (int i = 0; i < count; i++) if (parent[0].kids.get(i).id.equals(id)) at = i;
+        final int from = at;
+        final int to = by == Integer.MIN_VALUE ? 0 : by == Integer.MAX_VALUE ? count - 1 : Math.max(0, Math.min(count - 1, at + by));
+        if (to == from) return;
+        String label = node.name.isEmpty() ? node.id : node.name;
+        int word = by == Integer.MIN_VALUE ? R.string.avatar_step_very_back : by == Integer.MAX_VALUE ? R.string.avatar_step_very_front
+                : by < 0 ? R.string.avatar_step_back_one : R.string.avatar_step_forward_one;
+        edit.apply(getString(word, label), doc -> {
+            org.json.JSONArray kids = doc.find(parentId).json.getJSONArray("kids");
+            Object moved = kids.get(from);
+            kids.remove(from);
+            org.json.JSONArray rebuilt = new org.json.JSONArray();
+            for (int i = 0, j = 0; i < count; i++) {
+                if (i == to) rebuilt.put(moved);
+                else rebuilt.put(kids.get(j++));
+            }
+            doc.find(parentId).json.put("kids", rebuilt);
+        });
     }
 
     @Override

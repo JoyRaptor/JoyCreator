@@ -51,5 +51,23 @@
     <string name="avatar_hover_new_from_pictures">Separate pictures: one per part</string>
     <string name="avatar_picture_n">Picture %1$d</string>
     <string name="avatar_no_pictures">Those pictures could not be read. Nothing was changed.</string>
+    <string name="avatar_hover_part">%1$s: take it in hand</string>
+    <string name="avatar_pick_a_part">Pick a part above, or tap it in the Layers list.</string>
+    <string name="avatar_its_drawings">Its drawings</string>
+    <string name="avatar_hover_try">Try %1$s on the picture</string>
+    <string name="avatar_try_note">Trying a drawing only looks at it: nothing in the file changes.</string>
+    <string name="avatar_in_front_or_behind">In front or behind</string>
+    <string name="avatar_very_back">Very back</string>
+    <string name="avatar_back_one">Back one</string>
+    <string name="avatar_forward_one">Forward one</string>
+    <string name="avatar_very_front">Very front</string>
+    <string name="avatar_hover_very_back">Send this part behind everything beside it</string>
+    <string name="avatar_hover_back_one">Move this part back one place</string>
+    <string name="avatar_hover_forward_one">Move this part forward one place</string>
+    <string name="avatar_hover_very_front">Bring this part in front of everything beside it</string>
+    <string name="avatar_step_very_back">Send %1$s very back</string>
+    <string name="avatar_step_very_front">Bring %1$s very front</string>
+    <string name="avatar_step_back_one">Move %1$s back one</string>
+    <string name="avatar_step_forward_one">Move %1$s forward one</string>
 </resources>
 

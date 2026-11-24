@@ -63,8 +63,18 @@ final class RestPose {
         }
     }
 
+    /** "Try this drawing": the drawing the person chose to look at for a set, kept only while they look. */
+    private final Map<String, String> tried = new HashMap<>();
+
+    void tryDrawing(String setId, String kidId) {
+        if (kidId == null) tried.remove(setId);
+        else tried.put(setId, kidId);
+    }
+
     /** The drawing a set shows when nothing drives it. */
-    private static CharacterDoc.Node pick(CharacterDoc.Node set) {
+    private CharacterDoc.Node pick(CharacterDoc.Node set) {
+        String t = tried.get(set.id);
+        if (t != null) for (CharacterDoc.Node k : set.kids) if (k.id.equals(t) && !k.hidden) return k;
         CharacterDoc.Node first = null;
         for (CharacterDoc.Node k : set.kids) {
             if (k.hidden) continue;

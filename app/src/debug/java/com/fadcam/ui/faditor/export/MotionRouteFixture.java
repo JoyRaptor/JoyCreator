@@ -263,6 +263,28 @@ final class MotionRouteFixture {
                 upper.setOpacity(0.55f);
                 timeline.addTextOverlay(upper);
             }
+            case "exact-crossing", "exact-crossing-sharp" -> {
+                project.setMotionBlurEnabled(true);
+                project.setTrueLayerOrder(true);
+                var fx = new com.fadcam.ui.faditor.fx.FxStack();
+                var blur = fx.add(com.fadcam.ui.faditor.fx.FxRegistry.LANE_MOTION_ID);
+                blur.set(blur.def().param("angle"), variant.endsWith("-sharp") ? 0f : 720f);
+                adjustment.setFx(fx);
+
+                picture.setSizeFraction(0.42f);
+                picture.getKeyframes().getOrCreate(KeyframeSet.X).put(300, 0.25f, Easing.LINEAR);
+                picture.getKeyframes().getOrCreate(KeyframeSet.X).put(700, 0.75f, Easing.LINEAR);
+                var upper = TextOverlayItem.createImage(picture.getImageUri(), 0.75f, 0.52f, 0.30f);
+                String lane = timeline.createLayerTrack(TrackKind.TEXT, "Crossing picture");
+                upper.setLayerId(lane);
+                timeline.getOrCreateTrackFlags(lane).zIndex = 6;
+                upper.setTimeRange(0L, 999L);
+                upper.setFlipH(true);
+                upper.setOpacity(0.7f);
+                upper.getKeyframes().getOrCreate(KeyframeSet.X).put(300, 0.75f, Easing.LINEAR);
+                upper.getKeyframes().getOrCreate(KeyframeSet.X).put(700, 0.25f, Easing.LINEAR);
+                timeline.addTextOverlay(upper);
+            }
             case "picture-edge" -> picture.setCenter(0.12f, 0.26f);
             case "adjust-window" -> {
                 adjustment.setStartMs(150L);

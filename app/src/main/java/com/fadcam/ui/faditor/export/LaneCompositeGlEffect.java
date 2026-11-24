@@ -14,7 +14,14 @@ import com.fadcam.FLog;
 import com.fadcam.ui.faditor.compositor.RigidTitleRaster;
 import com.fadcam.ui.faditor.compositor.lane.LaneCompositor;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
+import com.fadcam.ui.faditor.fx.FxInstance;
+import com.fadcam.ui.faditor.fx.FxRegistry;
+import com.fadcam.ui.faditor.model.AdjustmentLayer;
+import com.fadcam.ui.faditor.model.BlendModes;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.motion.MotionBreaks;
+import com.fadcam.ui.faditor.motion.MotionFrameCadence;
+import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.sprite.SpriteSheet;
 
 import java.util.ArrayList;
@@ -29,20 +36,35 @@ final class LaneCompositeGlEffect implements GlEffect {
     }
 
     private record Binding(String id, ProgramFactory program, LongPredicate activeAt) {}
+    private record ExactScope(int boundary, AdjustmentLayer layer, MotionShutter.Controls controls,
+                              MotionBreaks fences, long firstUs, long endUs) {
+        boolean appliesAt(long presentationUs, long editorMs) {
+            return presentationUs >= firstUs && presentationUs < endUs && layer.activeAt(editorMs);
+        }
+    }
+
     record Candidate(@Nullable LaneCompositeGlEffect effect, @Nullable String fallbackReason) {}
 
     private final List<Binding> bindings;
     private final long editorOffsetMs;
+    @Nullable private final ExactScope exactScope;
 
-    private LaneCompositeGlEffect(List<Binding> bindings, long editorOffsetMs) {
+    private LaneCompositeGlEffect(List<Binding> bindings, long editorOffsetMs, @Nullable ExactScope exactScope) {
         this.bindings = bindings;
         this.editorOffsetMs = editorOffsetMs;
+        this.exactScope = exactScope;
     }
 
     static Candidate create(Context context, LanePlan plan, long totalDurationMs, long editorOffsetMs,
                             long pieceStartMs, long motionDurationMs, int frameHeight,
                             List<SpriteSheet> sheets) {
         var bindings = new ArrayList<Binding>();
+        ExactScope exactScope = null;
+        boolean replayablePrefix = true;
+        boolean hasMovingProducer = false;
+        long firstUs = pieceStartMs * 1000L;
+        long endUs = firstUs + motionDurationMs * 1000L;
+        var fences = new MotionBreaks.Builder().add(firstUs).add(endUs);
         for (var entry : plan.entries()) {
             switch (entry.kind) {
                 case IMAGE -> {
@@ -54,6 +76,8 @@ final class LaneCompositeGlEffect implements GlEffect {
                             editorOffsetMs, null, pieceStartMs, motionDurationMs, true);
                     bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             picture::isVisibleAt));
+                    replayablePrefix &= addExactFences(fences, picture, editorOffsetMs);
+                    hasMovingProducer |= picture.isAnimated();
                 }
                 case TEXT -> {
                     var title = entry.item.getTextOverlay();
@@ -66,8 +90,11 @@ final class LaneCompositeGlEffect implements GlEffect {
                             editorOffsetMs, null, pieceStartMs, motionDurationMs, true);
                     bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                             title::isVisibleAt));
+                    replayablePrefix &= addExactFences(fences, title, editorOffsetMs);
+                    hasMovingProducer |= title.isAnimated();
                 }
                 case SPRITE -> {
+                    replayablePrefix = false;
                     var sprite = entry.item.getSprite();
                     if (!LanePlan.supportsOrderedSprite(sprite)) {
                         return new Candidate(null, "sprite " + entry.id);
@@ -84,6 +111,7 @@ final class LaneCompositeGlEffect implements GlEffect {
                             sprite::isVisibleAt));
                 }
                 case PIP -> {
+                    replayablePrefix = false;
                     var pip = entry.item.getClip();
                     if (pip == null || pip.isImageClip() || PipFrameStats.isMasked(pip)
                             || (pip.getCompositing() != null && pip.getCompositing().mattePeerId != null)) {
@@ -101,7 +129,24 @@ final class LaneCompositeGlEffect implements GlEffect {
                     if (adjustment == null || adjustment.getFx().hearsMusic()) {
                         return new Candidate(null, "adjustment " + entry.id);
                     }
+                    var cards = adjustment.getFx().active();
+                    if (cards.size() == 1 && FxRegistry.LANE_MOTION_ID.equals(cards.get(0).effectId)) {
+                        if (exactScope == null && motionDurationMs > 0 && replayablePrefix && hasMovingProducer
+                                && supportsExactLayer(adjustment, cards.get(0))) {
+                            long start = (adjustment.getStartMs() - editorOffsetMs) * 1000L;
+                            fences.add(start);
+                            if (adjustment.getDurationMs() > 0) {
+                                fences.add((adjustment.getEndMs() - editorOffsetMs) * 1000L);
+                            }
+                            exactScope = new ExactScope(bindings.size(), adjustment, controls(cards.get(0)),
+                                    fences.build(), firstUs, endUs);
+                        }
+                        replayablePrefix = false;
+                        continue;
+                    }
+                    // Adjustment stacks can hold history or use effect-local clock state.
                     if (adjustment.rendersAnything()) {
+                        replayablePrefix = false;
                         var effect = new AdjustmentLayerGlEffect(context, adjustment, editorOffsetMs);
                         bindings.add(new Binding(entry.kind.name() + ":" + entry.id, c -> effect.toGlShaderProgram(c, false),
                                 adjustment::activeAt));
@@ -113,7 +158,32 @@ final class LaneCompositeGlEffect implements GlEffect {
             }
         }
         return new Candidate(bindings.isEmpty() ? null
-                : new LaneCompositeGlEffect(bindings, editorOffsetMs), null);
+                : new LaneCompositeGlEffect(bindings, editorOffsetMs, exactScope), null);
+    }
+
+    private static boolean addExactFences(MotionBreaks.Builder fences, TextOverlayItem item, long editorOffsetMs) {
+        if (item.isRigidMotionBlurEnabled()) return false;
+        long startUs = (item.getStartMs() - editorOffsetMs) * 1000L;
+        fences.add(startUs);
+        if (item.getEndMs() != Long.MAX_VALUE) {
+            fences.add((item.getEndMs() + 1L - editorOffsetMs) * 1000L);
+        }
+        for (var track : item.getKeyframes().tracks()) fences.addSteps(track, startUs);
+        return true;
+    }
+
+    private static boolean supportsExactLayer(AdjustmentLayer layer, FxInstance card) {
+        return layer.getCompositing().isEmpty() && BlendModes.NORMAL.equals(layer.getBlendMode())
+                && (layer.getTransform() == null || layer.getTransform().isEmpty())
+                && !layer.getFx().isAnimated() && card.opacity == 1f
+                && BlendModes.NORMAL.equals(card.blendMode);
+    }
+
+    private static MotionShutter.Controls controls(FxInstance card) {
+        var def = FxRegistry.require(FxRegistry.LANE_MOTION_ID);
+        return new MotionShutter.Controls(Math.round(card.getScalar(def.param("angle"))),
+                MotionShutter.Timing.values()[Math.round(card.getScalar(def.param("timing")))],
+                Math.round(card.getScalar(def.param("phase"))), Math.round(card.getScalar(def.param("mix"))));
     }
 
     @NonNull
@@ -130,7 +200,7 @@ final class LaneCompositeGlEffect implements GlEffect {
             releasePrograms(programs, error);
             throw error;
         }
-        return new Program(bindings, programs, editorOffsetMs);
+        return new Program(bindings, programs, editorOffsetMs, exactScope);
     }
 
     private static VideoFrameProcessingException releasePrograms(List<BaseGlShaderProgram> programs,
@@ -152,12 +222,20 @@ final class LaneCompositeGlEffect implements GlEffect {
         private final List<BaseGlShaderProgram> active = new ArrayList<>();
         private final LaneCompositor compositor = new LaneCompositor();
         private final long editorOffsetMs;
+        @Nullable private final ExactScope exactScope;
+        @Nullable private final LaneCompositor exactPrefix;
+        private final List<BaseGlShaderProgram> activePrefix = new ArrayList<>();
+        private final MotionFrameCadence cadence = new MotionFrameCadence();
+        private boolean loggedExact;
 
-        Program(List<Binding> bindings, List<BaseGlShaderProgram> programs, long editorOffsetMs) {
+        Program(List<Binding> bindings, List<BaseGlShaderProgram> programs, long editorOffsetMs,
+                @Nullable ExactScope exactScope) {
             super(false, 2);
             this.bindings = bindings;
             this.programs = programs;
             this.editorOffsetMs = editorOffsetMs;
+            this.exactScope = exactScope;
+            exactPrefix = exactScope == null ? null : new LaneCompositor();
         }
 
         @Override
@@ -168,6 +246,7 @@ final class LaneCompositeGlEffect implements GlEffect {
         public Size configure(int width, int height) throws VideoFrameProcessingException {
             try {
                 compositor.configure(width, height);
+                if (exactPrefix != null) exactPrefix.configure(width, height);
                 for (var program : programs) {
                     Size output = program.configure(width, height);
                     if (output.getWidth() != width || output.getHeight() != height) {
@@ -187,13 +266,48 @@ final class LaneCompositeGlEffect implements GlEffect {
         public void drawFrame(int inputTexture, long presentationTimeUs)
                 throws VideoFrameProcessingException {
             long editorMs = presentationTimeUs / 1000L + editorOffsetMs;
+            long periodUs = exactScope == null ? 0L : cadence.observe(presentationTimeUs);
+            boolean expose = periodUs > 0 && exactScope.appliesAt(presentationTimeUs, editorMs);
+            int first = expose ? exactScope.boundary() : 0;
             active.clear();
-            for (int i = 0; i < bindings.size(); i++) {
+            for (int i = first; i < bindings.size(); i++) {
                 if (bindings.get(i).activeAt().test(editorMs)) active.add(programs.get(i));
             }
             try {
-                compositor.drawScopeAt(inputTexture, PipChainGl.boundFbo(), active.size(),
-                        presentationTimeUs, (i, prefix, time) -> active.get(i).drawFrame(prefix, time));
+                int target = PipChainGl.boundFbo();
+                if (expose) {
+                    var schedule = exactScope.controls().schedule(presentationTimeUs, periodUs, 32,
+                            exactScope.fences(), MotionBreaks.none());
+                    compositor.drawScopeAt(inputTexture, target, active.size() + 1,
+                            presentationTimeUs, (i, prefix, time) -> {
+                                if (i == 0) drawPrefixExposure(inputTexture, schedule);
+                                else active.get(i - 1).drawFrame(prefix, time);
+                            });
+                } else {
+                    compositor.drawScopeAt(inputTexture, target, active.size(),
+                            presentationTimeUs, (i, prefix, time) -> active.get(i).drawFrame(prefix, time));
+                }
+            } catch (GlUtil.GlException error) {
+                throw new VideoFrameProcessingException(error);
+            }
+        }
+
+        private void drawPrefixExposure(int inputTexture, MotionShutter.Schedule schedule)
+                throws VideoFrameProcessingException {
+            if (!loggedExact && schedule.timesUs().length > 1) {
+                FLog.i("LaneComposite", "LANE_EXACT " + schedule.timesUs().length + " taps");
+                loggedExact = true;
+            }
+            try {
+                exactPrefix.drawExposure(PipChainGl.boundFbo(), schedule, (target, timeUs) -> {
+                    activePrefix.clear();
+                    long editorMs = Math.floorDiv(timeUs, 1000L) + editorOffsetMs;
+                    for (int i = 0; i < exactScope.boundary(); i++) {
+                        if (bindings.get(i).activeAt().test(editorMs)) activePrefix.add(programs.get(i));
+                    }
+                    exactPrefix.drawScopeAt(inputTexture, target, activePrefix.size(), timeUs,
+                            (i, prefix, time) -> activePrefix.get(i).drawFrame(prefix, time));
+                });
             } catch (GlUtil.GlException error) {
                 throw new VideoFrameProcessingException(error);
             }
@@ -201,6 +315,7 @@ final class LaneCompositeGlEffect implements GlEffect {
 
         @Override
         public void flush() {
+            cadence.reset();
             for (var program : programs) program.flush();
             super.flush();
         }
@@ -215,7 +330,11 @@ final class LaneCompositeGlEffect implements GlEffect {
             }
             failure = releasePrograms(programs, failure);
             try {
-                compositor.release();
+                try {
+                    compositor.release();
+                } finally {
+                    if (exactPrefix != null) exactPrefix.release();
+                }
             } catch (GlUtil.GlException error) {
                 if (failure == null) failure = new VideoFrameProcessingException(error);
                 else failure.addSuppressed(error);

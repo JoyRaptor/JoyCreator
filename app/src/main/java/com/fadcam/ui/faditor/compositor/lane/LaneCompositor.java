@@ -66,16 +66,15 @@ public final class LaneCompositor {
     }
 
     /**
-     * Evaluate a prefix at every shutter tap. The caller's passes must be safe to replay.
-     * Unavailable source neighbours, stateful FX, and discontinuities must be handled before this call.
+     * Evaluate a scope at every shutter tap. The callback may call drawScopeAt with the
+     * supplied target. Unavailable neighbours and discontinuities must already be fenced.
      */
-    public void drawExactScope(int inputTexture, int outputFramebuffer, int passCount,
-                               MotionShutter.Schedule shutter, DrawPass pass)
+    public void drawExposure(int outputFramebuffer, MotionShutter.Schedule shutter,
+                             ExactLaneExposure.Scope scope)
             throws VideoFrameProcessingException, GlUtil.GlException {
         if (exact == null) exact = new ExactLaneExposure();
         exact.configure(width, height);
-        exact.draw(outputFramebuffer, shutter,
-                (target, timeUs) -> drawScopeAt(inputTexture, target, passCount, timeUs, pass));
+        exact.draw(outputFramebuffer, shutter, scope);
     }
 
     public void drawCopy(int inputTexture, int outputFramebuffer) throws GlUtil.GlException {

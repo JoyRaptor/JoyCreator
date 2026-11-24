@@ -7,6 +7,9 @@ row that fits (phone-free unless a phone is free) and carries on in the same ses
 check-in nudges any lane that has gone idle. (New sessions can't be started from an automated turn, so lanes chain.) Codex takes the hard builds (prompts given to the
 owner 11-23) on its own budget.
 
+**Owner 11-23 evening: the app comes first.** No more website or sizzle-video work until the app is done; the
+website draft stays as it is. Pick app jobs only.
+
 Rules for every lane: read `tasks/AGENT_START.md` and `tasks/BOARD.md` first; claim your files on BOARD; use your own
 worktree; build and test in the cloud (`tools/cloud-build.ps1`), never with local Gradle; land on `joy-creator` only
 when it is proven (no dirty overlap, nobody mid-edit, guard on); update the job card, the ROADMAP row and STATE.
@@ -20,7 +23,7 @@ hardest work.
 |---|---|---|---|---|
 | 1 | Hover-label sweep: every button in every room gets a hover label (owner rule) | [BOT-2](jobs/BOT-2_joybot_everywhere.md), memory rule | at the end | built 11-23, cloud build + phone look owed ([STYLE-1](jobs/STYLE-1_tickbox_and_palette.md)) |
 | 2 | Tick box and palette sweep: on/off becomes a cyan knock-out tick box, a switch only for two equal choices; cyan and magenta come from the shared palette, never a room's own hex (owner 11-21, 11-22) | [UI-1](jobs/UI-1_app_ui_leftovers.md) | at the end | started 11-23 |
-| 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | ✅ first draft landed af2cf7f40 (`docs/`); owner look owed |
+| 3 | Website first draft from the design record in git | [SHOW-3](jobs/SHOW-3_website_and_demos.md) | no | ✅ first draft landed af2cf7f40 (`docs/`); ⏸ paused by the owner 11-23: app first |
 | 4 | STATE and help truth after the 11-17 to 11-23 landings | [HYG-5](jobs/HYG-5_state_sync.md) | no | third pass done 11-23 (STATE rows, help owed list on the card) |
 | 5 | Clutter inventory: worktrees and branches; file away only what is landed or empty; never delete unique work | [HYG-3](jobs/HYG-3_cleanup.md) | no | started 11-23 (website lane): inventory written ([list](HYG-3_worktree_inventory_20261123.md)); nothing removed, removals need the lead's yes |
 | 6 | A picture for every Studio effect (picker grid, live swatch on each card) | [STU-6](jobs/STU-6_effect_swatches_and_textlab_generators.md) | at the end | queued |

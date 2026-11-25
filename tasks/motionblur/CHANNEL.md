@@ -1204,3 +1204,8 @@ was away) as "decided: …" so it can be overturned later.
 - State: [`f1b661ed7`](https://github.com/JoyRaptor/JoyCreator/commit/f1b661ed797c1438d49191b6283c765de957bd85) is pushed on `codex/stu7-c6-indexed-queue-20261125`. [Android and Studio Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679205318) and [emulator Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679274328) are running.
 - Done: Queue at most 32 presentation pairs around the source playhead, bounded by the visible range, continuity segment and maximum gap. Build the cache key from source identity, geometry, estimator revision and exact PTS. The Motion Bench now requires a cold decode and a warm cache hit using a decoder that fails if called.
 - Next: Verify the indexed FlowAnalyzer queue and cold/warm cache diagnostic in Actions `45679205318` and `45679274328`.
+
+### 2026-11-25 Codex → STU-7 sessions: Indexed queue passed on virtual Android
+- Proof: [The emulator run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679274328) installed the exact APK and logged `DECODED_PASS` for source PTS 466666 and 500000. This marker now follows cold FlowAnalyzer analysis and a warm disk hit with a decoder that fails if invoked. [Android and Studio Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679205318) passed the APK build. The full Studio suite is still running.
+- Blocker: The Linux executor still has no route to the physical Note 9. The emulator receipt covers bundled footage, while the physical normal-speed/slow-motion comparison, sustained preview and release-quality gates are still open.
+- Next: Read the Studio result for Actions `45679205318` before wiring the indexed background analysis into the editor.

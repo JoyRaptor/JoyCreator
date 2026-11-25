@@ -1,10 +1,10 @@
 # STU-7 verification only. This workflow runs the existing unsigned jobs against one exact commit.
-name: Verify STU-7 C6
+name: Verify STU-7
 on:
   push:
     branches: [codex/stu7-flow-verify-20261123]
     paths: [.github/workflows/stu7-flow-verify.yml]
-run-name: "Verify STU-7 C6 indexed analysis queue @ f1b661ed797c1438d49191b6283c765de957bd85"
+run-name: "Verify STU-7 C5 avatar preview recovery @ 24f1d2b17686c97b9b18e8b97c0628d3762aaa8b"
 
 permissions:
   contents: read
@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     steps:
-      - name: Check out f1b661ed797c1438d49191b6283c765de957bd85
+      - name: Check out 24f1d2b17686c97b9b18e8b97c0628d3762aaa8b
         uses: actions/checkout@v4
         with:
-          ref: f1b661ed797c1438d49191b6283c765de957bd85
+          ref: 24f1d2b17686c97b9b18e8b97c0628d3762aaa8b
 
       - name: C7 audited blind-review tool
         if: matrix.variant == 'tests' && hashFiles('tools/motionref/test_blind_review.py') != ''
@@ -115,7 +115,7 @@ jobs:
         if: matrix.variant == 'tests'
         env:
           SUITES_IN: studio
-          TESTS_REF: f1b661ed797c1438d49191b6283c765de957bd85
+          TESTS_REF: 24f1d2b17686c97b9b18e8b97c0628d3762aaa8b
           TESTS_SHA: ${{ steps.meta.outputs.sha }}
         run: |
           # The test runner itself comes from this workflow's own commit, so a branch made before it existed can
@@ -169,7 +169,7 @@ jobs:
       - name: Collect outputs
         if: matrix.variant != 'tests'
         env:
-          REF_IN: f1b661ed797c1438d49191b6283c765de957bd85
+          REF_IN: 24f1d2b17686c97b9b18e8b97c0628d3762aaa8b
         run: |
           V="${{ matrix.variant }}"
           mkdir -p cloud-out

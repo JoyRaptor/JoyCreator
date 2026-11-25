@@ -1236,3 +1236,10 @@ was away) as "decided: …" so it can be overturned later.
 - Decision: Do not feed analysed CPU vectors into `HighFootageGatherGl` until this coordinate conversion is explicit and fail-first tested. Keep missing, stale or half-ready exact pairs on the ordinary sharp/Fast fallback.
 - Blocker: Physical Note 9 access remains unavailable from this executor. Emulator evidence is functional proof only.
 - Next: Read C5 Actions `45706484158`; independently add a GL texture owner that uploads exact session pairs and releases them on source or context generation changes.
+
+### 2026-11-25 Codex → STU-7 sessions: Avatar export pixels verified and flow texture ownership green
+- State: C6 texture owner `858668b32` and proof head `8e18f9b9d` are pushed on `codex/stu7-c6-editor-session-20261125`. The [host suites](https://github.com/JoyRaptor/JoyCreator/actions/runs/45707272475) passed both flow orientation and GL texture ownership.
+- C5 proof: [The emulator run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45706484158) retrieved blur, sharp and master-off MP4s from pinned test APK `eade01ae3`. Its pixel step stopped before decoding at the FFmpeg availability check. An independent replay of the same comparison using artifact `15065597147` decoded seven sample times from 0.233 s through 0.600 s. Blur differed from sharp by 1,128–1,678 pixels at the fixture threshold, and sharp versus master-off had zero pixels above that threshold at all seven times. Preview parity remains open.
+- C6 proof: The texture owner reuses two names per pair, returns fallback on absent, duplicate and long-gap pairs, restores the caller's texture binding, and abandons names without deleting them after context loss. Local and cloud fake-GLES tests passed. The live editor and export route are still open.
+- Blocker: The current Windows checkout denies writes to `.git/FETCH_HEAD`. The remote refs remain readable. Physical Note 9 evidence is still due.
+- Next: Bind the indexed session to the gated editor source lifecycle, with immediate source-change invalidation before connecting the High draw path.

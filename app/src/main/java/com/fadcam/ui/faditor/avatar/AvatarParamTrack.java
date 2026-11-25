@@ -86,6 +86,25 @@ public final class AvatarParamTrack {
         return timesMs.isEmpty() ? 0 : timesMs.get(timesMs.size() - 1);
     }
 
+    /** Exact changes of the held mouth classes, including one-sided samples. */
+    public void addShutterBreaks(com.fadcam.ui.faditor.motion.MotionBreaks.Builder breaks,
+                                long itemStartUs) {
+        for (int i = 1; i < timesMs.size(); i++) {
+            long earlier = Math.addExact(itemStartUs, Math.multiplyExact(timesMs.get(i - 1), 1000L));
+            long later = Math.addExact(itemStartUs, Math.multiplyExact(timesMs.get(i), 1000L));
+            Map<String, Float> before = samples.get(i - 1);
+            Map<String, Float> after = samples.get(i);
+            for (String key : STEP_PARAMS) {
+                Float a = before.get(key);
+                Float b = after.get(key);
+                if (java.util.Objects.equals(a, b)) continue;
+                // Between keys the sampler holds whichever side supplies a missing class.
+                // A newly appearing class starts 1 µs after the earlier exact sample.
+                breaks.add(a == null ? Math.addExact(earlier, 1L) : later);
+            }
+        }
+    }
+
     /**
      * Interpolated params at {@code tMs}: clamped to the first/last sample
      * outside the recorded range, exact at a sample, lerped between brackets

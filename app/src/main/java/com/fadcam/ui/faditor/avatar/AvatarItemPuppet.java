@@ -77,6 +77,18 @@ public final class AvatarItemPuppet {
      */
     public void draw(@NonNull Canvas canvas, @NonNull RectF dest,
                      @NonNull AvatarParamTrack track, long itemLocalMs, float alpha) {
+        advanceSharp(track, itemLocalMs);
+        int save = saveCanvas(canvas, dest, alpha);
+        try {
+            mapToDestination(canvas, dest);
+            view.draw(canvas);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
+    /** Advance the ordinary pose history even when the caller draws a shutter exposure. */
+    public void advanceSharp(@NonNull AvatarParamTrack track, long itemLocalMs) {
         if (itemLocalMs < lastLocalMs) {
             // Rewind: replay state must be a function of (track, time), never
             // of the scrub path taken to get here.
@@ -91,14 +103,6 @@ public final class AvatarItemPuppet {
         // recorded with IK limbs replays rigid, live ≠ replay.
         view.setTrackedPinTargets(TrackingDriverBus.extractPinTargets(params));
         view.setResolved(PuppetPoseResolver.resolve(rig, params, discrete));
-
-        int save = saveCanvas(canvas, dest, alpha);
-        try {
-            mapToDestination(canvas, dest);
-            view.draw(canvas);
-        } finally {
-            canvas.restoreToCount(save);
-        }
     }
 
     /**

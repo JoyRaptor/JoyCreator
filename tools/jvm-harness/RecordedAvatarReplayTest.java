@@ -84,6 +84,22 @@ public final class RecordedAvatarReplayTest {
                 90_000, center, MotionBreaks.none()) == null, "piece end is exclusive");
         require(AvatarShutterSchedule.plan(controls, center, 30_000, 80_000, center + 1,
                 90_000, 108_000, MotionBreaks.none()) == null, "one valid instant stays sharp");
+
+        var mouth = new AvatarParamTrack();
+        String viseme = SpectralVisemeAnalyzer.PARAM_VISEME;
+        mouth.add(0, Map.of());
+        mouth.add(10, Map.of(viseme, 1f));
+        mouth.add(20, Map.of(viseme, 2f));
+        mouth.add(30, Map.of());
+        var mouthFences = new MotionBreaks.Builder();
+        mouth.addShutterBreaks(mouthFences, 100_000L);
+        var mouthBreaks = mouthFences.build();
+        require(mouthBreaks.splitWindow(100_000, 90_000, 140_000).lastValidUs() == 100_000,
+                "first one-sided viseme starts after the exact key");
+        require(mouthBreaks.splitWindow(110_000, 90_000, 140_000).lastValidUs() == 119_999,
+                "changing visemes cannot bleed across their recorded boundary");
+        require(mouthBreaks.splitWindow(120_000, 90_000, 140_000).lastValidUs() == 129_999,
+                "missing right-side viseme is held until that exact key");
         System.out.println("RecordedAvatarReplayTest PASS");
     }
 

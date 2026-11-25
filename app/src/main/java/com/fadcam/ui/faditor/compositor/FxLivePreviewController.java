@@ -441,7 +441,10 @@ public final class FxLivePreviewController {
         List<TextOverlayItem> glImages = glImageOverlays(timeline);
         List<TextOverlayItem> shutterOverlays = host.motionBlurEnabled()
                 ? ordinaryStillRun(timeline) : java.util.Collections.emptyList();
-        boolean shutterSprites = host.motionBlurEnabled() && ordinarySpriteRun(timeline);
+        boolean shutterSprites = host.motionBlurEnabled() && (ordinarySpriteRun(timeline)
+                || (!host.trueLayerOrder()
+                && !LaunchGate.hidden(view.getContext(), "studio_motion_blur")
+                && RecordedAvatarMotion.ordinaryAvatarRun(timeline)));
         boolean shutterPiP = host.motionBlurEnabled()
                 && LayerPreviewController.visibleOverlayVideoClips(timeline).stream()
                 .anyMatch(FxLivePreviewController::eligibleLivePiP);
@@ -1067,7 +1070,8 @@ public final class FxLivePreviewController {
             if (sp == null || !sp.isVisibleAt(playheadMs)) continue;
             PreviewDecoderClock.Anchor clock = motionClock.anchor();
             if (shutterSprites && clock != null && sp.isRigidMotionBlurEnabled()
-                    && RigidSpriteMotion.supports(sp) && addSpriteMotion(rungs, sp, size, playheadMs, clock)) {
+                    && (RigidSpriteMotion.supports(sp) ? addSpriteMotion(rungs, sp, size, playheadMs, clock)
+                    : addAvatarMotion(rungs, sp, size, playheadMs, clock))) {
                 glSprites.add(sp.getId());
                 continue;
             }
@@ -1177,7 +1181,7 @@ public final class FxLivePreviewController {
         if (clock != null && sprite.isRigidMotionBlurEnabled() && RigidSpriteMotion.supports(sprite)
                 && addSpriteMotion(rungs, sprite, size, playheadMs, clock)) return true;
         var cell = host.spriteMotionCell(sprite, playheadMs);
-        if (cell == null) return false;
+        if (cell == null || cell.window() == null) return false;
         var sharp = spriteCellPip(sprite, cell, size, playheadMs);
         if (sharp == null) return false;
         rungs.add(FxPreviewTextureView.Rung.pip(sharp));
@@ -1320,7 +1324,7 @@ public final class FxLivePreviewController {
     private boolean addSpriteMotion(List<FxPreviewTextureView.Rung> rungs, SpriteOverlayItem item,
                                     int[] size, long playheadMs, PreviewDecoderClock.Anchor clock) {
         var cell = host.spriteMotionCell(item, playheadMs);
-        if (cell == null) return false;
+        if (cell == null || cell.window() == null) return false;
         var snapshot = item.copyWithNewId(item.getId());
         var current = spriteMotionCell(snapshot, cell, size, playheadMs, clock);
         if (current == null) return false;
@@ -1346,6 +1350,32 @@ public final class FxLivePreviewController {
         }
         rungs.add(FxPreviewTextureView.Rung.sprite(current, alternatives));
         return true;
+    }
+
+    private boolean addAvatarMotion(List<FxPreviewTextureView.Rung> rungs, SpriteOverlayItem item,
+                                    int[] size, long editorMs, PreviewDecoderClock.Anchor clock) {
+        if (!RecordedAvatarMotion.supports(item)) return false;
+        try {
+            var motion = host.spriteMotionCell(item, editorMs);
+            if (motion == null || motion.avatar() == null || motion.bitmap().isRecycled()) return false;
+            float scale = item.animatedSizeFraction(editorMs);
+            float aspect = motion.aspect();
+            if (!(scale > 0f) || !(aspect > 0f) || size[0] <= 0 || size[1] <= 0) return false;
+            var sharp = FxPreviewTextureView.Pip.ofImage(item.animatedCenterX(editorMs),
+                    1f - item.animatedCenterY(editorMs),
+                    scale * aspect * size[1] / (2f * size[0]) * (item.isFlipH() ? -1f : 1f),
+                    scale * 0.5f * (item.isFlipV() ? -1f : 1f), -item.animatedRotation(editorMs),
+                    RigidSpriteMotion.opacity(item, editorMs), null, editorMs, null, 0f,
+                    size[0], size[1], item.getId() + "#avatar", motion.bitmap(), 1f);
+            var placement = RecordedAvatarMotion.snapshotPlacement(item);
+            rungs.add(FxPreviewTextureView.Rung.avatar(sharp,
+                    new FxPreviewTextureView.AvatarShutter(motion.avatar(), placement,
+                            RecordedAvatarMotion.placementFences(placement),
+                            clock.editorStartUs(), clock.editorEndUs())));
+            return true;
+        } catch (RuntimeException | OutOfMemoryError unavailable) {
+            return false;
+        }
     }
 
     @Nullable

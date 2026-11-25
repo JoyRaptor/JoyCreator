@@ -29,6 +29,18 @@ public final class RecordedAvatarStampGl {
             }
             """;
     private static final int MAX_RASTER_EDGE = 512;
+    private static final String COMPOSITE = """
+            #version 100
+            precision mediump float;
+            varying vec2 vTexSamplingCoord;
+            uniform sampler2D uBase;
+            uniform sampler2D uStamp;
+            void main() {
+              vec4 base = texture2D(uBase, vTexSamplingCoord);
+              vec4 stamp = texture2D(uStamp, vTexSamplingCoord);
+              gl_FragColor = vec4(base.rgb * (1.0 - stamp.a) + stamp.rgb, base.a);
+            }
+            """;
 
     @FunctionalInterface
     public interface Opacity {
@@ -43,6 +55,7 @@ public final class RecordedAvatarStampGl {
     private final float[] opacity = new float[1];
     private final RectF bounds = new RectF();
     private GlProgram copy;
+    private GlProgram composite;
     private Bitmap bitmap;
     private Canvas canvas;
     private int texture;
@@ -120,6 +133,40 @@ public final class RecordedAvatarStampGl {
         texture = GlUtil.createTexture(edge, edge, false);
     }
 
+    public void composite(int targetFramebuffer, int baseTexture, int stampTexture, int width, int height)
+            throws GlUtil.GlException {
+        if (composite == null) {
+            composite = new GlProgram(RigidTextureShutterPass.VERTEX_SHADER, COMPOSITE);
+            composite.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
+            var identity = GlUtil.create4x4IdentityMatrix();
+            composite.setFloatsUniform("uTransformationMatrix", identity);
+            composite.setFloatsUniform("uTexTransformationMatrix", identity);
+        }
+        boolean blend = GLES20.glIsEnabled(GLES20.GL_BLEND);
+        boolean scissor = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
+        boolean depth = GLES20.glIsEnabled(GLES20.GL_DEPTH_TEST);
+        boolean cull = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
+        try {
+            GLES20.glDisable(GLES20.GL_BLEND);
+            GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
+            GLES20.glDisable(GLES20.GL_DEPTH_TEST);
+            GLES20.glDisable(GLES20.GL_CULL_FACE);
+            GlUtil.focusFramebufferUsingCurrentContext(targetFramebuffer, width, height);
+            composite.use();
+            composite.setSamplerTexIdUniform("uBase", baseTexture, 0);
+            composite.setSamplerTexIdUniform("uStamp", stampTexture, 1);
+            composite.bindAttributesAndUniforms();
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+            GlUtil.checkGlError();
+        } finally {
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
+            restore(GLES20.GL_BLEND, blend);
+            restore(GLES20.GL_SCISSOR_TEST, scissor);
+            restore(GLES20.GL_DEPTH_TEST, depth);
+            restore(GLES20.GL_CULL_FACE, cull);
+        }
+    }
+
     private static void restore(int state, boolean enabled) {
         if (enabled) GLES20.glEnable(state);
         else GLES20.glDisable(state);
@@ -139,8 +186,14 @@ public final class RecordedAvatarStampGl {
             exposure.release();
         } finally {
             GlProgram oldCopy = copy;
+            GlProgram oldComposite = composite;
             copy = null;
-            if (oldCopy != null) oldCopy.delete();
+            composite = null;
+            try {
+                if (oldCopy != null) oldCopy.delete();
+            } finally {
+                if (oldComposite != null) oldComposite.delete();
+            }
         }
     }
 }

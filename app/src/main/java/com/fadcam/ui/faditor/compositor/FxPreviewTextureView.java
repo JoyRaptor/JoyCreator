@@ -1132,6 +1132,11 @@ public class FxPreviewTextureView extends TextureView
         boolean covers(long timeUs) { return timeUs >= startUs && timeUs < endUs; }
     }
 
+    record AvatarShutter(RecordedAvatarMotion.Source source,
+                         com.fadcam.ui.faditor.sprite.SpriteOverlayItem placement,
+                         com.fadcam.ui.faditor.motion.MotionBreaks placementBreaks,
+                         long pieceStartUs, long pieceEndUs) {}
+
     /**
      * One rung of the z-ordered composite walk: a PiP to draw over the frame so far, or an
      * adjustment layer to grade it. The walk IS the export's chain order — both renderers read
@@ -1147,14 +1152,22 @@ public class FxPreviewTextureView extends TextureView
         @Nullable final StillShutter shutter;
         @Nullable final List<TimedStill> neighboringCells;
         @Nullable final LivePipShutter pipShutter;
+        @Nullable final AvatarShutter avatar;
 
         private Rung(@Nullable Pip pip, int layerIndex, @Nullable StillShutter shutter,
                      @Nullable List<TimedStill> neighboringCells, @Nullable LivePipShutter pipShutter) {
+            this(pip, layerIndex, shutter, neighboringCells, pipShutter, null);
+        }
+
+        private Rung(@Nullable Pip pip, int layerIndex, @Nullable StillShutter shutter,
+                     @Nullable List<TimedStill> neighboringCells, @Nullable LivePipShutter pipShutter,
+                     @Nullable AvatarShutter avatar) {
             this.pip = pip;
             this.layerIndex = layerIndex;
             this.shutter = shutter;
             this.neighboringCells = neighboringCells;
             this.pipShutter = pipShutter;
+            this.avatar = avatar;
         }
 
         @NonNull public static Rung pip(@NonNull Pip p) { return new Rung(p, -1, null, null, null); }
@@ -1166,6 +1179,9 @@ public class FxPreviewTextureView extends TextureView
         }
         @NonNull static Rung movingPiP(@NonNull Pip p, @NonNull LivePipShutter motion) {
             return new Rung(p, -1, null, null, motion);
+        }
+        @NonNull static Rung avatar(@NonNull Pip sharp, @NonNull AvatarShutter motion) {
+            return new Rung(sharp, -1, null, null, null, motion);
         }
         @NonNull public static Rung layer(int layerIndex) { return new Rung(null, layerIndex, null, null, null); }
     }
@@ -1822,6 +1838,7 @@ public class FxPreviewTextureView extends TextureView
             // still costs nothing: renderToStamp returns before creating anything when idle.
             try { meshStamp.release(); } catch (Exception ignored) { }
             releaseAuthoredMeshExposure();
+            releaseAvatarShutter();
             // Same for the PiP inputs: whatever sits in these slots names objects in a context
             // that no longer exists, and ensurePipInputs decides "already built" from the count.
             java.util.Arrays.fill(pipTextures, null);
@@ -2069,6 +2086,9 @@ public class FxPreviewTextureView extends TextureView
             //     the sibling-View stills that used to paint UNGRADED over this chain.
             stillKeysInFrame.clear();
             matteKeysInFrame.clear();
+            if (avatarReplay != null && (cp == null || cp.rungs.stream().noneMatch(r -> r.avatar != null))) {
+                releaseAvatarShutter();
+            }
             // `cp` and `layersReady` were resolved at 2a above — ONE ensurePrograms call per
             // frame, over the one layer list that now also carries the spine stack.
             if (!degraded && cp != null) {
@@ -2954,6 +2974,11 @@ public class FxPreviewTextureView extends TextureView
     }
 
     private int drawRung(Rung rung, int src, int width, int height) {
+        if (rung.avatar != null) {
+            var frame = motionFrame;
+            if (frame != null && !rung.avatar.placement().isVisibleAt(frame.editorTimeUs() / 1000L)) return src;
+            return drawAvatarShutter(rung, src, width, height);
+        }
         if (rung.pipShutter != null) {
             return drawLivePipShutter(rung.pip, rung.pipShutter, src, width, height);
         }
@@ -2967,6 +2992,71 @@ public class FxPreviewTextureView extends TextureView
         }
         return rung.shutter == null ? drawPipRung(rung.pip, src, width, height)
                 : drawStillShutter(rung.pip, rung.shutter, src, width, height);
+    }
+
+    private RecordedAvatarMotion.Source avatarSource;
+    private RecordedAvatarMotion.PreviewReplay avatarReplay;
+    private RecordedAvatarStampGl avatarStamp;
+    private boolean avatarShutterUnavailable;
+
+    private int drawAvatarShutter(Rung rung, int src, int width, int height) {
+        var motion = rung.avatar;
+        var frame = motionFrame;
+        if (motion == null || frame == null || avatarShutterUnavailable) {
+            return drawPipRung(rung.pip, src, width, height);
+        }
+        try {
+            long editorUs = frame.editorTimeUs();
+            var item = motion.placement();
+            long itemStartUs = item.getStartMs() * 1000L;
+            var source = motion.source();
+            var segment = source.takeBreaks().splitWindow(editorUs,
+                    Math.max(itemStartUs, motion.pieceStartUs()),
+                    Math.min(RecordedAvatarMotion.itemEndUs(item), motion.pieceEndUs()));
+            if (segment.hasSamples()) {
+                var schedule = RecordedAvatarMotion.plan(item, editorUs, frame.periodUs(),
+                        segment.firstValidUs(), segment.lastValidUs() + 1L, motion.placementBreaks());
+                if (schedule != null) {
+                    if (source != avatarSource) {
+                        releaseAvatarShutter();
+                        avatarReplay = source.open(getContext(), Math.max(256, Math.max(width, height)));
+                        avatarSource = source;
+                    }
+                    long[] times = schedule.timesUs();
+                    var taps = avatarReplay.begin(times[0] - itemStartUs, times[times.length - 1] - itemStartUs);
+                    if (taps != null) {
+                        if (avatarStamp == null) avatarStamp = new RecordedAvatarStampGl();
+                        int stamp = avatarStamp.render(width, height, schedule, itemStartUs, taps,
+                                com.fadcam.ui.faditor.motion.MotionItemAdapters.sprite(
+                                        item, width, height, source.aspect()),
+                                us -> RecordedAvatarMotion.opacity(item, us));
+                        if (stamp != 0) {
+                            int dst = src == 0 ? 1 : 0;
+                            avatarStamp.composite(targets[dst][1], targets[src][0], stamp, width, height);
+                            return dst;
+                        }
+                    }
+                }
+            }
+        } catch (Exception | OutOfMemoryError failure) {
+            releaseAvatarShutter();
+            avatarShutterUnavailable = true;
+            FLog.w(TAG, "Recorded avatar shutter unavailable; drawing sharp", failure);
+        }
+        return drawPipRung(rung.pip, src, width, height);
+    }
+
+    private void releaseAvatarShutter() {
+        if (avatarStamp != null) {
+            try { avatarStamp.release(); } catch (Exception ignored) { }
+        }
+        if (avatarReplay != null) {
+            try { avatarReplay.release(); } catch (Exception ignored) { }
+        }
+        avatarReplay = null;
+        avatarSource = null;
+        avatarStamp = null;
+        avatarShutterUnavailable = false;
     }
 
     private int drawStillShutter(Pip p, StillShutter shutter, int src, int width, int height) {
@@ -3740,6 +3830,7 @@ public class FxPreviewTextureView extends TextureView
                 // SPEC E mesh stamp owns GL objects in this context — free them while current.
                 try { meshStamp.release(); } catch (Exception ignored) { }
                 releaseAuthoredMeshExposure();
+                releaseAvatarShutter();
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

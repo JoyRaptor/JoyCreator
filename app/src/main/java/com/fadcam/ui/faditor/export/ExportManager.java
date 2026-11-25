@@ -51,6 +51,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.compositor.LayerPreviewController;
+import com.fadcam.ui.faditor.compositor.RecordedAvatarMotion;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.layers.BlendMode;
 import com.fadcam.ui.faditor.layers.TimedItem;
@@ -6934,6 +6935,10 @@ public class ExportManager {
                                                   long continuousPieceDurationMs) {
         boolean motionBlurEnabled = project.isMotionBlurEnabled();
         long shutterPieceDurationMs = motionBlurEnabled ? continuousPieceDurationMs : 0L;
+        boolean recordedAvatarRun = GL_IMAGE_PASS && shutterPieceDurationMs > 0
+                && !isTransitionItem && !isLoopBeforeItem && !project.isTrueLayerOrder()
+                && !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur")
+                && RecordedAvatarMotion.ordinaryAvatarRun(project.getTimeline());
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
@@ -7629,7 +7634,9 @@ public class ExportManager {
             spriteBucketsZa.addAll(promotedSpritesZa);
             spriteBucketsZa.addAll(exportSpriteItems);
             for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBucketsZa) {
-                if (SpriteBlendGlEffect.routesToGl(s, motionBlurEnabled)) glOverlaysBottomTop.add(s);
+                if (SpriteBlendGlEffect.routesToGl(s, motionBlurEnabled, recordedAvatarRun)) {
+                    glOverlaysBottomTop.add(s);
+                }
             }
             final long overlayOffsetMs =
                     editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
@@ -7728,7 +7735,8 @@ public class ExportManager {
                     boolean img = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSp = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o, motionBlurEnabled);
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
+                                    motionBlurEnabled, recordedAvatarRun);
                     (img || glSp ? glSeq : canvasSeq).add(o);
                 }
                 boolean sandwiched = false;
@@ -7779,7 +7787,8 @@ public class ExportManager {
                     boolean image = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSprite = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o, motionBlurEnabled);
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
+                                    motionBlurEnabled, recordedAvatarRun);
                     if (image || glSprite) {
                         if (!txtRun.isEmpty() || !sprRun.isEmpty()) {
                             CompositeExportOverlay run = new CompositeExportOverlay(
@@ -7816,7 +7825,7 @@ public class ExportManager {
                                     (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
                                     project.getSpriteSheets(), project.getAvatarRigs(),
                                     project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                    timelineCursorMs, shutterPieceDurationMs));
+                                    timelineCursorMs, shutterPieceDurationMs, false, recordedAvatarRun));
                         }
                     } else {
                         if (!imgRun.isEmpty()) {

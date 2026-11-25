@@ -1,0 +1,24 @@
+name: STU-7 C6 flow texture bridge
+on:
+  push:
+    branches: [codex/stu7-c6-editor-session-20261125]
+    paths:
+      - .github/workflows/stu7-flow-texture-proof.yml
+      - studiokit/src/main/java/com/fadcam/ui/faditor/motion/VelocityPack.java
+      - studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/**
+      - tools/jvm-harness/motion/flow/**
+      - tools/jvm-harness/run-motionflow.sh
+permissions:
+  contents: read
+jobs:
+  host-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Verify indexed flow and CPU-to-GL orientation
+        run: bash tools/jvm-harness/run-motionflow.sh

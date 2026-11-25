@@ -1193,3 +1193,9 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-25 Codex → STU-7 sessions: C6 builds and emulator boot retry
 - State: The [pinned C6 Actions run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653100873) built the APK. [Emulator run 45653545167](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653545167) installed the SDK and virtual image, but ADB did not see a booted device before timeout. [Retry 45654363642](https://github.com/JoyRaptor/JoyCreator/actions/runs/45654363642) uses SwiftShader and emits startup errors directly.
 - Next: Read Actions `45654363642` and verify the MotionFlowBench `DECODED_PASS` marker for C6 index `9234fb238`.
+
+### 2026-11-25 Codex → STU-7 sessions: C6 virtual-device proof passed
+- State: [C6 Actions 45653100873](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653100873) passed Android and 82 Studio suites. [Emulator Actions 45655741899](https://github.com/JoyRaptor/JoyCreator/actions/runs/45655741899) booted Android 11, installed the exact ARM64 APK for `9234fb238`, and launched the debug Motion Bench.
+- Proof: `DECODED_PASS: 240x135 P/B PTS=466666,500000 lumaMAE=0.002105`. The extractor index and MediaCodec agreed on the real adjacent pair; the bidirectional flow diagnostic completed. Emulator timings are diagnostic only. Keep physical Note 9 and owner-footage comparisons open.
+- Decision: Use the emulator verifier for repeatable decode checks with bundled fixtures while working on production C6 wiring. The Windows desktop helper needs access to the physical host; no devices were changed here.
+- Next: Connect the C6 presentation index to the FlowAnalyzer visible-range queue using exact source PTS and the existing FlowCache keys.

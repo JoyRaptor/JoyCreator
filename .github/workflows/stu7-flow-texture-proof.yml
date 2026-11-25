@@ -5,6 +5,10 @@ on:
     paths:
       - .github/workflows/stu7-flow-texture-proof.yml
       - studiokit/src/main/java/com/fadcam/ui/faditor/motion/VelocityPack.java
+      - app/src/main/java/com/fadcam/ui/faditor/motion/flow/**
+      - tools/jvm-harness/liveflow/**
+      - tools/jvm-harness/liveflow-stubs/**
+      - tools/jvm-harness/run-live-flow-gl.sh
       - studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/**
       - tools/jvm-harness/motion/flow/**
       - tools/jvm-harness/run-motionflow.sh

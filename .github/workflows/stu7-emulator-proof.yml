@@ -52,7 +52,10 @@ jobs:
         run: |
           set -euo pipefail
           adb -e logcat -c
-          adb -e shell am start -W -n com.fadcam/com.fadcam.ui.faditor.motion.MotionFlowBenchActivity --ez decoded true
+          adb -e shell pm path com.fadcam.beta | grep -q '^package:'
+          launch=$(timeout 60 adb -e shell am start -W -n com.fadcam.beta/com.fadcam.ui.faditor.motion.MotionFlowBenchActivity --ez decoded true)
+          printf '%s\n' "$launch"
+          grep -q '^Status: ok' <<< "$launch"
           for attempt in {1..60}; do
             adb -e logcat -d -s MotionFlowBench AndroidRuntime > "$RUNNER_TEMP/stu7-logcat.txt"
             if grep -qE 'DECODED_FAIL|FATAL EXCEPTION' "$RUNNER_TEMP/stu7-logcat.txt"; then

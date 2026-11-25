@@ -12,6 +12,11 @@ is the spec.** The two source plans sit beside it, for reasons only. Section num
 merged plan's.
 
 ## Resume here (whoever picks this up: read this block first, then the newest channel entry)
+
+**11-25 continuation plan:** Fence the indexed session at the gated editor source boundary and
+drive analysis from actual latched PTS. Prove identical-PTS replacement drops stale results.
+Then stage matching color frames for High gather and retain the Fast/sharp fallback. Verify
+the export route independently before paired emulator checks and the physical/release corpus.
 **Owner, 2026-11-23: Codex finishes ALL remaining sections (C2 landing through C7).** Claude is
 standby. If Codex runs out of usage, Claude continues from this block with no loss. Codex keeps
 this block true at every landmark; it is the hand-over.

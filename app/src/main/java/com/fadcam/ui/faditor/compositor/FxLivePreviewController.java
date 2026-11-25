@@ -2208,6 +2208,7 @@ public final class FxLivePreviewController {
         // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());
+        host.onGlOwnedSprites(java.util.Collections.emptySet());
         host.onCaptionGlOwned(java.util.Collections.emptySet());
         orderedPreviewActive = false;
         OverlayVideoPreviewView ov = host.overlayVideoLayer();

@@ -19,6 +19,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo chmod a+rw /dev/kvm
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           sdkmanager 'emulator' 'platform-tools' 'system-images;android-30;google_apis;x86_64'
           export ANDROID_USER_HOME="$RUNNER_TEMP/stu7-android"

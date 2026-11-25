@@ -231,10 +231,6 @@ public class PuppetPreviewView extends View {
         this.resolved = r;
     }
 
-    AvatarReplayState copyReplayState() {
-        return replay.copy();
-    }
-
     /** Synchronous offscreen draw for an admitted non-dangle avatar. The cell cache is shared. */
     void drawExposureTap(@NonNull Canvas canvas, long localUs, @NonNull AvatarReplayState tapReplay,
                          @Nullable Map<String, float[]> targets,
@@ -248,7 +244,7 @@ public class PuppetPreviewView extends View {
             replay = tapReplay;
             exposureClockUs = localUs;
             trackedPinTargets = targets;
-            rememberResolved(pose);
+            resolved = pose;
             draw(canvas);
         } finally {
             resolved = savedPose;

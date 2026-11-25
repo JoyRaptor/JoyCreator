@@ -53,7 +53,7 @@ public final class AvatarItemPuppet {
     @NonNull private PuppetPoseResolver.DiscreteState discrete =
             new PuppetPoseResolver.DiscreteState();
     private long lastLocalMs = Long.MIN_VALUE;
-    @Nullable private AvatarParamTrack lastTrack;
+    @Nullable private RecordedAvatarReplay recordedReplay;
     private boolean released;
 
     public AvatarItemPuppet(@NonNull Context context, @NonNull AvatarRig rig,
@@ -84,7 +84,6 @@ public final class AvatarItemPuppet {
             view.resetReplayState();
         }
         lastLocalMs = itemLocalMs;
-        lastTrack = track;
         view.setMediaClockMs(itemLocalMs);
         java.util.Map<String, Float> params = track.sampleAt(itemLocalMs);
         // Baked pinTarget.* params drive replay FABRIK exactly as live tracking
@@ -103,44 +102,44 @@ public final class AvatarItemPuppet {
     }
 
     /**
-     * Fork the current sharp checkpoint before advancing it to the frame centre. The next
-     * sharp draw may occur before this exposure's last tap. A shutter that starts before the
-     * available checkpoint, or uses cadence-dependent dangle physics, must render sharp.
-     * The caller supplies an admitted, break-fenced schedule. Use a fork for one synchronous
-     * exposure while the item, take and rig are unchanged.
+     * Open a synchronous exposure over a break-fenced schedule. Build the replay from the
+     * recorded sample clock so duplicate, dropped or skipped presentation frames cannot
+     * change a tap. A cold seek can need multiple calls to prepare; use the sharp path meanwhile.
      */
     @Nullable
-    public Exposure beginExposure(@NonNull AvatarParamTrack track, long firstLocalUs) {
-        if (released || firstLocalUs < 0 || (lastTrack != null && lastTrack != track)
-                || firstLocalUs / 1000L < lastLocalMs
-                || rig.getParts().stream().anyMatch(part -> part.dangle)) return null;
-        return new Exposure(track, firstLocalUs);
+    public Exposure beginExposure(@NonNull AvatarParamTrack track, long firstLocalUs,
+                                  long lastLocalUs) {
+        if (released || rig.getParts().stream().anyMatch(part -> part.dangle)) return null;
+        if (recordedReplay == null || !recordedReplay.matches(track)) {
+            recordedReplay = new RecordedAvatarReplay(rig, track);
+        }
+        if (!recordedReplay.prepare(firstLocalUs, lastLocalUs)) return null;
+        return new Exposure(recordedReplay, firstLocalUs, lastLocalUs);
     }
 
     public final class Exposure {
-        private final AvatarParamTrack track;
-        private final PuppetPoseResolver.DiscreteState tapDiscrete = discrete.copy();
-        private final AvatarReplayState tapReplay = view.copyReplayState();
+        private final RecordedAvatarReplay source;
+        private final long endUs;
         private long lastTapUs;
 
-        private Exposure(AvatarParamTrack track, long firstLocalUs) {
-            this.track = track;
+        private Exposure(RecordedAvatarReplay source, long firstLocalUs, long lastLocalUs) {
+            this.source = source;
             this.lastTapUs = firstLocalUs;
+            this.endUs = lastLocalUs;
         }
 
         /** Draw an ordered shutter tap on the caller's sample target. */
         public void draw(@NonNull Canvas canvas, @NonNull RectF dest, long localUs, float alpha) {
-            if (released || localUs < lastTapUs) {
-                throw new IllegalStateException("Exposure taps must advance on an open avatar");
+            if (released || localUs < lastTapUs || localUs > endUs) {
+                throw new IllegalStateException("Exposure tap is outside its prepared avatar interval");
             }
             lastTapUs = localUs;
-            var params = track.sampleAtMicros(localUs);
-            var targets = TrackingDriverBus.extractPinTargets(params);
-            var pose = PuppetPoseResolver.resolve(rig, params, tapDiscrete);
+            var tap = source.sample(localUs);
+            var targets = TrackingDriverBus.extractPinTargets(tap.params());
             int save = saveCanvas(canvas, dest, alpha);
             try {
                 mapToDestination(canvas, dest);
-                view.drawExposureTap(canvas, localUs, tapReplay, targets, pose);
+                view.drawExposureTap(canvas, localUs, tap.replay(), targets, tap.pose());
             } finally {
                 canvas.restoreToCount(save);
             }
@@ -161,6 +160,7 @@ public final class AvatarItemPuppet {
     /** Recycle the view's decoded cell-bitmap cache. The puppet is dead after. */
     public void release() {
         released = true;
+        recordedReplay = null;
         view.bind(null, null);
     }
 

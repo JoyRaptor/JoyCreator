@@ -31,6 +31,7 @@ ARGS=$(mktemp); RUNARGS=$(mktemp)
 printf -- '-cp "%s;%s"\n' "$OUT" "$GSON" > "$RUNARGS"
 
 javac @"$ARGS" tools/jvm-harness/PuppetContourTest.java tools/jvm-harness/PuppetSolverTest.java tools/jvm-harness/PuppetWeightsTest.java tools/jvm-harness/PuppetIslandTest.java tools/jvm-harness/PuppetKnobsTest.java tools/jvm-harness/PuppetRigSolverTest.java tools/jvm-harness/PuppetDrawOrderTest.java tools/jvm-harness/PuppetDepthFieldTest.java tools/jvm-harness/PuppetDangleBakeTest.java tools/jvm-harness/PuppetHoleTest.java tools/jvm-harness/PuppetRigTest.java tools/jvm-harness/PuppetTapeTest.java tools/jvm-harness/PuppetKeysTest.java tools/jvm-harness/PuppetRetimeTest.java tools/jvm-harness/MeshEasingFitTest.java tools/jvm-harness/DangleTest.java tools/jvm-harness/PinWarpTest.java tools/jvm-harness/AvatarReplayStateTest.java || exit 1
+javac @"$ARGS" tools/jvm-harness/RecordedAvatarReplayTest.java || exit 1
 
 # Positive control on the COMPILE itself: an empty out dir means the command never ran, which a
 # grep for "error:" would report as success.
@@ -82,4 +83,19 @@ for fault in --share-state --millisecond-clock; do
     fi
 done
 java @"$RUNARGS" AvatarReplayStateTest || exit 1
+RECORDED_AVATAR_TEST=com.fadcam.ui.faditor.avatar.RecordedAvatarReplayTest
+expect_avatar_rejection() {
+    local log
+    if log=$(java @"$RUNARGS" "-D$1=true" "$RECORDED_AVATAR_TEST" 2>&1); then
+        echo "FAIL: recorded avatar accepted planted fault $1"
+        return 1
+    fi
+    case "$log" in
+        *"AssertionError: $2"*) echo "Recorded avatar rejected: $2" ;;
+        *) printf 'Recorded avatar failed for the wrong reason:\n%s\n' "$log"; return 1 ;;
+    esac
+}
+expect_avatar_rejection avatar.wrongPresentationClock 'presentation cadence cannot move the recorded cell swap' || exit 1
+expect_avatar_rejection avatar.wrongTapOrder 'sharp mix tap is reinserted in chronological order with its weight' || exit 1
+java @"$RUNARGS" "$RECORDED_AVATAR_TEST" || exit 1
 java @"$RUNARGS" PinWarpTest

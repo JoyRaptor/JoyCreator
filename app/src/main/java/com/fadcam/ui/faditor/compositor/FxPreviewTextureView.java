@@ -2120,7 +2120,8 @@ public class FxPreviewTextureView extends TextureView
             //     the sibling-View stills that used to paint UNGRADED over this chain.
             stillKeysInFrame.clear();
             matteKeysInFrame.clear();
-            if (avatarReplay != null && (cp == null || cp.rungs.stream().noneMatch(r -> r.avatar != null))) {
+            if ((avatarSource != null || failedAvatarSource != null)
+                    && (cp == null || cp.rungs.stream().noneMatch(r -> r.avatar != null))) {
                 releaseAvatarShutter();
             }
             // `cp` and `layersReady` were resolved at 2a above — ONE ensurePrograms call per
@@ -3132,19 +3133,20 @@ public class FxPreviewTextureView extends TextureView
     private RecordedAvatarMotion.Source avatarSource;
     private RecordedAvatarMotion.PreviewReplay avatarReplay;
     private RecordedAvatarStampGl avatarStamp;
-    private boolean avatarShutterUnavailable;
+    // A failed replay should fall back for this source without blocking a replacement.
+    private RecordedAvatarMotion.Source failedAvatarSource;
 
     private int drawAvatarShutter(Rung rung, int src, int width, int height) {
         var motion = rung.avatar;
         var frame = motionFrame;
-        if (motion == null || frame == null || avatarShutterUnavailable) {
+        if (motion == null || frame == null || motion.source() == failedAvatarSource) {
             return drawPipRung(rung.pip, src, width, height);
         }
+        var source = motion.source();
         try {
             long editorUs = frame.editorTimeUs();
             var item = motion.placement();
             long itemStartUs = item.getStartMs() * 1000L;
-            var source = motion.source();
             var segment = source.takeBreaks().splitWindow(editorUs,
                     Math.max(itemStartUs, motion.pieceStartUs()),
                     Math.min(RecordedAvatarMotion.itemEndUs(item), motion.pieceEndUs()));
@@ -3175,7 +3177,7 @@ public class FxPreviewTextureView extends TextureView
             }
         } catch (Exception | OutOfMemoryError failure) {
             releaseAvatarShutter();
-            avatarShutterUnavailable = true;
+            failedAvatarSource = source;
             FLog.w(TAG, "Recorded avatar shutter unavailable; drawing sharp", failure);
         }
         return drawPipRung(rung.pip, src, width, height);
@@ -3191,7 +3193,7 @@ public class FxPreviewTextureView extends TextureView
         avatarReplay = null;
         avatarSource = null;
         avatarStamp = null;
-        avatarShutterUnavailable = false;
+        failedAvatarSource = null;
     }
 
     private int drawStillShutter(Pip p, StillShutter shutter, int src, int width, int height) {

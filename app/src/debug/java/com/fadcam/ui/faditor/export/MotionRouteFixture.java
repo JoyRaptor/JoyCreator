@@ -15,6 +15,8 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 
+import com.fadcam.ui.faditor.avatar.AvatarParamTrack;
+import com.fadcam.ui.faditor.avatar.AvatarRig;
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
 import com.fadcam.ui.faditor.layers.TrackKind;
@@ -37,6 +39,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Map;
 
 /** Disposable synthetic motion projects driven through the regular editor and export service. */
 final class MotionRouteFixture {
@@ -446,6 +449,69 @@ final class MotionRouteFixture {
         x.put(620, 0.75f, Easing.LINEAR);
         project.getTimeline().addSpriteOverlay(sprite);
         if (!storage.save(project)) throw new IOException("Could not save the sprite fixture");
+        return project;
+    }
+
+    static FaditorProject createRecordedAvatar(Context context, boolean enabled, boolean masterOff)
+            throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = !enabled ? "sharp" : masterOff ? "master off" : "blur";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C5 avatar " + variant));
+        project.setMotionBlurEnabled(enabled && !masterOff);
+        project.setTrueLayerOrder(false);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create avatar fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Avatar fixture source is too short");
+        var timeline = project.getTimeline();
+        timeline.addClip(clip(source, duration, 1_000L));
+
+        // Each cell has an opaque upper block and a shorter translucent block on its left.
+        var sheet = new SpriteSheet("c5-avatar-cells", "C5 avatar atlas",
+                Uri.fromFile(writeSpriteAtlas(media)).toString());
+        sheet.setGrid(2, 1);
+        project.getSpriteSheets().add(sheet);
+
+        var rig = AvatarRig.create("C5 recorded pose");
+        var part = new AvatarRig.Part("panel", sheet.getId());
+        rig.getParts().add(part);
+        var turns = new AvatarRig.PoseDomain("turn");
+        turns.cols = 2;
+        for (int column = 0; column < turns.cols; column++) {
+            var cell = new AvatarRig.Cell();
+            cell.col = column;
+            var pose = new AvatarRig.PartPose(part.id);
+            pose.cellIndex = column;
+            pose.x = column == 0 ? -0.16f : 0.16f;
+            pose.y = column == 0 ? -0.10f : 0.10f;
+            pose.rotationDeg = column == 0 ? -24f : 31f;
+            cell.poses.add(pose);
+            turns.cells.add(cell);
+        }
+        rig.getDomains().add(turns);
+        project.getAvatarRigs().add(rig);
+
+        var take = new AvatarParamTrack();
+        take.add(0L, Map.of("yaw", -1f));
+        take.add(120L, Map.of("yaw", -1f));
+        take.add(220L, Map.of("yaw", 1f));
+        take.add(400L, Map.of("yaw", 1f));
+        take.add(510L, Map.of("yaw", -1f));
+        take.add(799L, Map.of("yaw", -1f));
+        var sprite = SpriteOverlayItem.create(sheet.getId());
+        sprite.setAvatarRigId(rig.getId());
+        sprite.setAvatarTrack(take);
+        sprite.setCenter(0.50f, 0.52f);
+        sprite.setSizeFraction(0.75f);
+        sprite.setTimeRange(100L, 899L);
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0, 0));
+        sprite.setRigidMotionBlurEnabled(enabled);
+        sprite.setRigidMotionShutter(
+                new MotionShutter.Controls(270, MotionShutter.Timing.LEADING, 0, 65));
+        timeline.addSpriteOverlay(sprite);
+
+        if (!storage.save(project)) throw new IOException("Could not save the avatar fixture");
         return project;
     }
 

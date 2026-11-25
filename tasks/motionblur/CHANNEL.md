@@ -1228,3 +1228,11 @@ was away) as "decided: …" so it can be overturned later.
 - Decision: Keep the C5 source candidate unchanged until three real videos produce a pixel result. The failure was in evidence collection, with no evidence yet of a renderer defect.
 - Blocker: Physical Note 9 access remains unavailable from this executor. Emulator receipts remain functional proof only.
 - Next: Read Actions `45704863932`, then wire the green C6 session into the gated editor path.
+
+### 2026-11-25 16:40 ET Codex → STU-7 sessions: C6 flow-texture bridge green; C5 retrieval corrected
+- State: C6 source commit [`660165067`](https://github.com/JoyRaptor/JoyCreator/commit/660165067e30019873b53aea14b32a267cc9166d) and proof head [`5b9d1310b`](https://github.com/JoyRaptor/JoyCreator/commit/5b9d1310b978e87e4cc38d3048d0660793047884) are pushed on `codex/stu7-c6-editor-session-20261125`. [Actions 45706169972](https://github.com/JoyRaptor/JoyCreator/actions/runs/45706169972) passed. C5 verifier [Actions 45706484158](https://github.com/JoyRaptor/JoyCreator/actions/runs/45706484158) is running.
+- Done: Added the pure-Java bridge from top-down analysed flow into packed RGBA8 GL texture bytes. It reverses rows, negates vertical motion exactly once, keeps X unchanged, and carries clamped confidence in alpha. Added asymmetric orientation checks plus planted no-row-flip and no-V-invert failures.
+- Proof: The complete motion-flow harness passed on GitHub, including the new bridge, the 23 indexed-session assertions and every existing negative control. The preceding C5 run completed all three exports serially, but Android 11 denied retrieval from app-specific external storage; the next attempt proved those files are not MediaStore rows. The current disposable-emulator verifier uses root adbd only to retrieve the completed bytes. No product source or launch gate changed.
+- Decision: Do not feed analysed CPU vectors into `HighFootageGatherGl` until this coordinate conversion is explicit and fail-first tested. Keep missing, stale or half-ready exact pairs on the ordinary sharp/Fast fallback.
+- Blocker: Physical Note 9 access remains unavailable from this executor. Emulator evidence is functional proof only.
+- Next: Read C5 Actions `45706484158`; independently add a GL texture owner that uploads exact session pairs and releases them on source or context generation changes.

@@ -309,6 +309,7 @@ public final class FxLivePreviewController {
 
     /** The decoder-facing surface, once the GL thread has published one. */
     @Nullable private Surface inputSurface;
+    private java.util.Set<String> plannedGlSprites = java.util.Collections.emptySet();
     /**
      * The PiP decoder-facing surfaces, by live slot, as the GL thread publishes them. Slot 0 is
      * the one that has always existed; the rest appear only after {@link #buildPlan} asks for
@@ -340,6 +341,7 @@ public final class FxLivePreviewController {
         view.setSurfaceListener(new FxPreviewTextureView.SurfaceListener() {
             @Override public void onFxInputSurfaceReady(@NonNull Surface s) {
                 inputSurface = s;
+                host.onGlOwnedSprites(plannedGlSprites);
                 // The surface arrives a frame or so after the view is laid out, which is usually
                 // AFTER the first sync asked to route. Re-running the decision here is what makes
                 // the deferred attach actually happen.
@@ -353,6 +355,7 @@ public final class FxLivePreviewController {
             }
             @Override public void onFxInputSurfaceLost() {
                 inputSurface = null;
+                host.onGlOwnedSprites(java.util.Collections.emptySet());
                 clearMotionClock();
                 java.util.Arrays.fill(pipSurfaces, null);
                 OverlayVideoPreviewView ov = host.overlayVideoLayer();
@@ -1081,7 +1084,7 @@ public final class FxLivePreviewController {
             rungs.add(FxPreviewTextureView.Rung.pip(p));
             glSprites.add(sp.getId());
         }
-        host.onGlOwnedSprites(glSprites);
+        publishPlannedGlSprites(glSprites);
         host.onGlOwnedVisualizers(glViz);
         // Logged when it changes only (this runs every frame): which blended visualizers the
         // composite owns and how many reached it with a frame.
@@ -1165,7 +1168,7 @@ public final class FxLivePreviewController {
             ownedImages.add(entry.id);
         }
         host.onGlOwnedImages(ownedImages);
-        host.onGlOwnedSprites(ownedSprites);
+        publishPlannedGlSprites(ownedSprites);
         host.onGlOwnedVisualizers(java.util.Collections.emptySet());
         return new FxPreviewTextureView.CompositePlan(layers, rungs, spineLayerIndex);
     }
@@ -2164,6 +2167,11 @@ public final class FxLivePreviewController {
         return p == null ? 0 : p.getVideoSize().unappliedRotationDegrees;
     }
 
+    private void publishPlannedGlSprites(java.util.Set<String> ids) {
+        plannedGlSprites = ids;
+        if (inputSurface != null) host.onGlOwnedSprites(ids);
+    }
+
     /** Attach the decoder to the GL view, if it is not already there. */
     private void route() {
         Surface s = inputSurface;
@@ -2208,7 +2216,7 @@ public final class FxLivePreviewController {
         // Same reason, for image OVERLAYS: this chain is no longer drawing them, so their own
         // views have to come back. Cheap to repeat — the layer ignores an unchanged set.
         host.onGlOwnedImages(java.util.Collections.emptySet());
-        host.onGlOwnedSprites(java.util.Collections.emptySet());
+        publishPlannedGlSprites(java.util.Collections.emptySet());
         host.onCaptionGlOwned(java.util.Collections.emptySet());
         orderedPreviewActive = false;
         OverlayVideoPreviewView ov = host.overlayVideoLayer();

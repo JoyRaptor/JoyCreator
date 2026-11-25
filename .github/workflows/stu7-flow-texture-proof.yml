@@ -26,3 +26,5 @@ jobs:
           java-version: '17'
       - name: Verify indexed flow and CPU-to-GL orientation
         run: bash tools/jvm-harness/run-motionflow.sh
+      - name: Verify exact flow texture GL ownership
+        run: bash tools/jvm-harness/run-live-flow-gl.sh

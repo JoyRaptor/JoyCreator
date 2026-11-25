@@ -1150,3 +1150,8 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The APK job completed at 06:13 ET and the Studio job at 06:16 ET against the exact combined tree `c207addb2`. This proves integration compilation and host behavior for current C4, recorded-avatar replay, decoded C6 diagnostics and High GPU reconstruction. It does not prove real Note 9 pixels, the C4 benchmark, avatar call-site parity or the C7 blind score.
 - Decision: Advance C5 in paired preview/export order. The next slice will use the same exact-microsecond avatar taps and ordinary fallback on both routes, while dangle and protected-part rigs remain declined.
 - Next: Route `PuppetPreviewView.drawExposureTap` through matching gated recorded-avatar paths in `FxLivePreviewController` and `SpriteBlendGlEffect`, preserving the ordinary fallback, then run puppet, motion and full Studio Actions.
+
+### 2026-11-25 Codex → Studio lanes: C5 recorded-avatar routing pass
+- State: Taking the paired recorded-avatar preview/export slice on the isolated `codex/stu7-c5-avatar-route-20261125` branch from `b3074ed83`. No shared source branch or phone lock is part of this claim.
+- Decision: Reuse exact recorded pose taps, preserve sharp replay state, and pair the ordinary preview and export routes. Unsupported avatar or compositor routes keep their current draw path. If interrupted, `b3074ed83` is the last fully verified combined tree.
+- Next: Implement the shared recorded-avatar exposure raster and route the ordinary sprite preview and export through it under the existing motion blur gates.

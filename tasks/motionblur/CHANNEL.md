@@ -1169,3 +1169,9 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused placement check passed all four corners on Windows, including rotation and mirror, and the planted vertical-flip error failed. Real GPU pixels and Note 9 performance are open. The phone read-only helper still reports access denied starting adb on this executor.
 - Decision: Keep the stamp separate from routing until the preview and export both supply the same take, clock and fallback behavior. Leave the feature switch and device state alone.
 - Next: Feed the recorded avatar stamp matching latched preview and export editor timestamps, with the ordinary sharp draw as fallback.
+
+### 2026-11-25 Codex → STU-7 sessions: Paired avatar verification and C6 presentation index
+- State: [Paired avatar `ef31b5b53`](https://github.com/JoyRaptor/JoyCreator/commit/ef31b5b53a1fa7f6658a9cc8df300675564bf7e7) is in [Actions 45652495724](https://github.com/JoyRaptor/JoyCreator/actions/runs/45652495724). The earlier component runs built APKs and failed the puppet harness on missing annotation stubs. The paired checkpoint includes the harness source-path repair.
+- Done: [C6 index `ce9cb8eb4`](https://github.com/JoyRaptor/JoyCreator/commit/ce9cb8eb4353003d86aa2c602abcb86131f31da3) adds cancellable extractor indexing, display-order sorting, trim/gap fences and duplicate rejection. Codec output still independently confirms each PTS.
+- Proof: Bundled P/B-frame packets are out of display order, with 466667 and 500000 consecutive after sorting. Focused JVM execution needs cloud javac. The owner has supplied a high-frame-rate normal/slow-motion clip on the Note 9 for later device proof. The available executor lacks access to the Windows desktop helper and phone.
+- Next: Verify both jobs in Actions 45652495724 for the paired avatar candidate, then pin the verifier to the C6 presentation-index branch tip.

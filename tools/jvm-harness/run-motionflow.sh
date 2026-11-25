@@ -8,6 +8,7 @@ cd "$(dirname "$0")/../.."
 OUT=tools/jvm-harness/out-motionflow
 rm -rf "$OUT"; mkdir -p "$OUT"
 javac -nowarn -encoding UTF-8 -d "$OUT" \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/VelocityPack.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/*.java \
   tools/jvm-harness/motion/flow/*.java
 
@@ -36,6 +37,11 @@ expect_failure 'B frames use display neighbours' \
     com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --decode-order
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest
+expect_failure 'OpenGL row zero comes from the image bottom' \
+  com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-row-flip
+expect_failure 'downward image motion becomes upward OpenGL motion' \
+  com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-v-invert
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest
 expect_failure 'after a seek back the frame is sharp until a neighbour' SourceFrameRingTest --naive
 java -cp "$OUT" SourceFrameRingTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest

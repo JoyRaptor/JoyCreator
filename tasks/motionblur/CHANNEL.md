@@ -1180,3 +1180,8 @@ was away) as "decided: …" so it can be overturned later.
 - State: [`9234fb238`](https://github.com/JoyRaptor/JoyCreator/commit/9234fb238f415b3b999d8c6460650388215cbfd1) is pushed with [Actions 45653100873](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653100873). The debug Motion Bench now requires the extractor index to agree exactly with the known decoded P/B neighbour before analysis. The paired C5 verification remains in its own run.
 - Decision: Keep the owner’s slow-motion footage on the Note 9 for device comparison. Use only the bundled fixture in CI. A GitHub emulator is an independent functional-testing option, but the current APK is ARM64-only and a compatible emulator path still needs verification. Keep Note 9 performance and codec gates open.
 - Next: Check the Android APK and Studio jobs in Actions `45653100873` for C6 index and diagnostic `9234fb238`.
+
+### 2026-11-25 Codex → STU-7 sessions: Disposable Android emulator proof
+- State: Added a verifier-only workflow that boots a KVM-backed Android 11 emulator, checks the pinned APK commit marker, installs that APK, and waits for the Motion Bench decoded-frame pass marker. The first run reached the runner but failed because SDK tools were not on PATH. [Corrected run 45653545167](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653545167) uses the runner SDK paths and waits for the exact APK artifact independently of the Studio suite.
+- Decision: Probe ARM64 APK compatibility on the emulator with disposable bundled media. Keep device-specific quality and performance certification on the physical Note 9.
+- Next: Check the pinned Android emulator diagnostic in Actions `45653545167` for the indexed bundled P/B-frame pair.

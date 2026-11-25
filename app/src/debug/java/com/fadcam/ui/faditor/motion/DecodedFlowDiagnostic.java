@@ -27,11 +27,17 @@ final class DecodedFlowDiagnostic {
 
     static void run(AssetManager assets) throws Exception {
         try (MediaCodecLumaReader reader = MediaCodecLumaReader.forAsset(assets, CLIP)) {
+            var index = reader.scanPresentationIndex(() -> Thread.currentThread().isInterrupted());
+            if (index == null) throw new IOException("Bundled clip has no presentation index");
             long startMs = SystemClock.elapsedRealtime();
             // The known fractional P-frame time can round to either adjacent microsecond.
             ExactDecodedLuma.Frame first = reader.read(FIRST_PTS_US - 1, WIDTH, HEIGHT);
             if (Math.abs(first.ptsUs() - FIRST_PTS_US) > 1) {
                 throw new IOException("Unexpected first decoded PTS: " + first.ptsUs());
+            }
+            var next = index.next(first.ptsUs(), 0, Long.MAX_VALUE, 40_000);
+            if (next == null || next.toPtsUs() != SECOND_PTS_US) {
+                throw new IOException("Extractor display neighbours did not match the decoded fixture");
             }
             long[] decodeMs = {SystemClock.elapsedRealtime() - startMs};
             FlowCache.Key key = new FlowCache.Key("bundled:" + CLIP, 0,

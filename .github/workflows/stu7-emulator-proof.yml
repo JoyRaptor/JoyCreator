@@ -12,8 +12,8 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: '45679205318'
-      SOURCE_COMMIT: 'f1b661ed797c1438d49191b6283c765de957bd85'
+      SOURCE_RUN: '45685994855'
+      SOURCE_COMMIT: '576952f067fb9adaa9d69501110fcf7904c1f4cb'
     steps:
       - name: Configure emulator
         run: |
@@ -48,7 +48,7 @@ jobs:
           test -n "$apk"
           adb -e shell getprop ro.product.cpu.abilist
           adb -e install "$apk"
-      - name: Verify indexed P and B frames
+      - name: Verify exact flow-session reads for indexed P and B frames
         run: |
           set -euo pipefail
           adb -e logcat -c

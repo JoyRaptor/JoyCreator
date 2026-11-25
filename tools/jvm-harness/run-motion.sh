@@ -54,6 +54,9 @@ expect_failure 'preview cell holds only until the authored swap' -Dmotion.wrongP
 expect_failure 'an authored sprite tap must stay inside its held cell' \
     com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposureTest --unfenced-cell
 java @"$RUNARGS" com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposureTest
+expect_failure 'avatar corners retain top-left editor y' \
+    com.fadcam.ui.faditor.compositor.RecordedAvatarStampGlTest --wrong-y
+java @"$RUNARGS" com.fadcam.ui.faditor.compositor.RecordedAvatarStampGlTest
 expect_failure 'sprite follows fractional parent motion' -Dmotion.wrongRoundedItem=true MotionItemAdaptersTest
 expect_failure 'upright title stays centered at fractional time' -Dmotion.wrongTitlePlacement=true MotionItemAdaptersTest
 expect_failure "use presentation cadence after a skipped texture" PreviewMotionClockTest release-clock

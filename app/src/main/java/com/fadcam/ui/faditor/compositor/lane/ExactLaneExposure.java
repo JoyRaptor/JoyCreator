@@ -12,6 +12,9 @@ import com.fadcam.ui.faditor.motion.MotionShutter;
 
 /** Replays an ordered scope at each shutter tap into a linear-light premultiplied accumulation. */
 public final class ExactLaneExposure {
+    /** Encoding of straight RGB after removing coverage from each input tap. */
+    public enum Encoding { VIDEO_SDR, SRGB }
+
     @FunctionalInterface
     public interface Scope {
         /** Draw one complete SDR, premultiplied scope, without advancing any persistent FX state. */
@@ -33,8 +36,7 @@ public final class ExactLaneExposure {
             uniform float uWeight;
 
             vec3 toLinear(vec3 rgb) {
-              return mix(rgb / 4.5, pow((rgb + 0.099) / 1.099, vec3(1.0 / 0.45)),
-                         step(vec3(0.081), rgb));
+              return DECODE_TRANSFER;
             }
             void main() {
               vec4 cur = texture2D(uSample, vTexSamplingCoord);
@@ -51,8 +53,7 @@ public final class ExactLaneExposure {
             varying vec2 vTexSamplingCoord;
             uniform sampler2D uLinear;
             vec3 toSdr(vec3 rgb) {
-              return mix(4.5 * rgb, 1.099 * pow(rgb, vec3(0.45)) - 0.099,
-                         step(vec3(0.018), rgb));
+              return ENCODE_TRANSFER;
             }
             void main() {
               vec4 color = texture2D(uLinear, vTexSamplingCoord);
@@ -61,6 +62,7 @@ public final class ExactLaneExposure {
             }
             """;
 
+    private final Encoding encoding;
     private final float[] weightUniform = new float[1];
     private final int[] textures = new int[3];
     private final int[] framebuffers = new int[3];
@@ -69,6 +71,10 @@ public final class ExactLaneExposure {
     private GlProgram resolve;
     private int width;
     private int height;
+
+    public ExactLaneExposure() { this(Encoding.VIDEO_SDR); }
+
+    public ExactLaneExposure(Encoding encoding) { this.encoding = encoding; }
 
     public void configure(int width, int height) throws GlUtil.GlException {
         if (width <= 0 || height <= 0) throw new IllegalArgumentException("Invalid exposure target size");
@@ -126,8 +132,18 @@ public final class ExactLaneExposure {
                 return;
             }
             ensureTargets();
-            if (accumulate == null) accumulate = program(ACCUMULATE);
-            if (resolve == null) resolve = program(RESOLVE);
+            if (accumulate == null) {
+                String decode = encoding == Encoding.SRGB
+                        ? "mix(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), rgb))"
+                        : "mix(rgb / 4.5, pow((rgb + 0.099) / 1.099, vec3(1.0 / 0.45)), step(vec3(0.081), rgb))";
+                accumulate = program(ACCUMULATE.replace("DECODE_TRANSFER", decode));
+            }
+            if (resolve == null) {
+                String encode = encoding == Encoding.SRGB
+                        ? "mix(12.92 * rgb, 1.055 * pow(rgb, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), rgb))"
+                        : "mix(4.5 * rgb, 1.099 * pow(rgb, vec3(0.45)) - 0.099, step(vec3(0.018), rgb))";
+                resolve = program(RESOLVE.replace("ENCODE_TRANSFER", encode));
+            }
 
             int previous = SAMPLE;
             int next = FIRST_ACCUMULATION;

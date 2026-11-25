@@ -78,6 +78,36 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
         return extractor -> extractor.setDataSource(appContext, uri, null);
     }
 
+    /** Scan on a background worker. Decode still independently confirms each requested PTS. */
+    @Nullable
+    public VideoPresentationIndex scanPresentationIndex(FlowAnalyzer.Cancellation cancellation)
+            throws IOException, InterruptedException {
+        if (Thread.currentThread().isInterrupted() || cancellation.isCancelled()) {
+            throw new InterruptedException();
+        }
+        MediaExtractor scan = new MediaExtractor();
+        try {
+            source.open(scan);
+            selectVideo(scan);
+            var index = new VideoPresentationIndex.Builder();
+            while (scan.getSampleTrackIndex() >= 0) {
+                if (Thread.currentThread().isInterrupted() || cancellation.isCancelled()) {
+                    throw new InterruptedException();
+                }
+                if ((scan.getSampleFlags() & (MediaExtractor.SAMPLE_FLAG_ENCRYPTED
+                        | MediaExtractor.SAMPLE_FLAG_PARTIAL_FRAME)) != 0
+                        || !index.add(scan.getSampleTime())) return null;
+                if (!scan.advance()) break;
+            }
+            if (Thread.currentThread().isInterrupted() || cancellation.isCancelled()) {
+                throw new InterruptedException();
+            }
+            return index.finish();
+        } finally {
+            scan.release();
+        }
+    }
+
     @Override
     public synchronized ExactDecodedLuma.Frame read(long requestedPtsUs, int width, int height)
             throws Exception {

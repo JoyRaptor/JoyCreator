@@ -1,0 +1,139 @@
+name: STU-7 C5 avatar export diagnostic
+on:
+  push:
+    branches: [codex/stu7-flow-verify-20261123]
+    paths: [.github/workflows/stu7-avatar-export-proof.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  avatar-export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '45685511058'
+      SOURCE_COMMIT: 'eade01ae33801e45272b330e120b6b7e08ea1ee7'
+    steps:
+      - name: Configure emulator
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sdkmanager 'emulator' 'platform-tools' 'system-images;android-30;google_apis;x86_64'
+          export ANDROID_USER_HOME="$RUNNER_TEMP/stu7-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | avdmanager create avd --name stu7 --package 'system-images;android-30;google_apis;x86_64'
+          test -s "$ANDROID_AVD_HOME/stu7.ini"
+          "$ANDROID_HOME/emulator/emulator" -avd stu7 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emu_pid=$!
+          for attempt in {1..120}; do
+            if adb -e get-state 2>/dev/null | grep -qx device; then break; fi
+            if ! kill -0 "$emu_pid" 2>/dev/null; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
+            sleep 2
+          done
+          if ! adb -e get-state | grep -qx device; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
+          timeout 300 bash -c 'until [ "$(adb -e shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 2; done'
+      - name: Fetch pinned APK
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            if gh run download --repo "$GITHUB_REPOSITORY" "$SOURCE_RUN" --name "joycreator-defaultDebug-${SOURCE_COMMIT:0:9}" --dir "$RUNNER_TEMP/stu7-apk"; then break; fi
+            sleep 10
+          done
+          test "$(cat "$RUNNER_TEMP/stu7-apk/COMMIT.txt")" = "$SOURCE_COMMIT"
+          apk=$(find "$RUNNER_TEMP/stu7-apk" -name '*.apk' -print -quit)
+          test -n "$apk"
+          adb -e shell getprop ro.product.cpu.abilist
+          adb -e install "$apk"
+      - name: Export the three avatar controls
+        run: |
+          set -euo pipefail
+          pkg=com.fadcam.beta
+          fixture="$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity"
+          test "$(adb -e shell getprop ro.kernel.qemu | tr -d '\r')" = 1
+          adb -e shell pm path "$pkg" | grep -q '^package:'
+          mkdir -p "$RUNNER_TEMP/avatar"
+          capture() {
+            local name=$1 enabled=$2 master_off=$3 log path
+            log="$RUNNER_TEMP/avatar/$name.log"
+            adb -e shell am force-stop "$pkg"
+            adb -e logcat -c
+            adb -e shell am start -W -n "$fixture" \
+              --ez motion_avatar_fixture true --ez motion_enabled "$enabled" \
+              --ez motion_master_off "$master_off" | tee "$log"
+            grep -q '^Status: ok' "$log"
+            for attempt in {1..90}; do
+              adb -e logcat -d -s ExportDebug ExportService SpriteBlend AndroidRuntime > "$log"
+              if grep -qE 'debug export failed to start|Export failed|FATAL EXCEPTION' "$log"; then
+                cat "$log"
+                return 1
+              fi
+              path=$(sed -n 's/.*Export completed: //p' "$log" | tail -1 | tr -d '\r')
+              if [[ -n "$path" ]]; then
+                if ! adb -e pull "$path" "$RUNNER_TEMP/avatar/$name.mp4"; then
+                  adb -e exec-out run-as "$pkg" cat "$path" > "$RUNNER_TEMP/avatar/$name.mp4"
+                fi
+                test -s "$RUNNER_TEMP/avatar/$name.mp4"
+                return
+              fi
+              sleep 2
+            done
+            cat "$log"
+            return 1
+          }
+          capture blur true false
+          capture sharp false false
+          capture master-off true true
+      - name: Check avatar export pixels
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/avatar"
+          command -v ffmpeg
+          python3 - <<'PY'
+          import subprocess
+
+          def frame(name, at):
+              pixels = subprocess.check_output([
+                  "ffmpeg", "-v", "error", "-ss", str(at), "-i", name + ".mp4",
+                  "-frames:v", "1", "-vf", "scale=320:-2", "-f", "rawvideo", "-pix_fmt", "rgb24", "-",
+              ])
+              if not pixels or len(pixels) % 3:
+                  raise SystemExit(f"no RGB control frame for {name} at {at}")
+              return pixels
+
+          def changed(first, second):
+              if len(first) != len(second):
+                  raise SystemExit("avatar controls have different frame dimensions")
+              return sum(
+                  sum(abs(first[i + c] - second[i + c]) for c in range(3)) > 36
+                  for i in range(0, len(first), 3)
+              )
+
+          largest_effect = 0
+          largest_control_error = 0
+          for at in (0.233, 0.267, 0.300, 0.333, 0.433, 0.567, 0.600):
+              blur, sharp, off = [frame(name, at) for name in ("blur", "sharp", "master-off")]
+              effect, control_error = changed(blur, sharp), changed(sharp, off)
+              largest_effect = max(largest_effect, effect)
+              largest_control_error = max(largest_control_error, control_error)
+              print(f"{at:.3f}s blurred/sharp changed={effect}, sharp/master-off changed={control_error}")
+          if largest_effect < 100 or largest_effect <= 4 * largest_control_error:
+              raise SystemExit("recorded avatar blur did not produce a distinct export")
+          if largest_control_error > 32:
+              raise SystemExit("sharp and master-off controls did not agree")
+          print("AVATAR_EXPORT_PIXELS_PASS")
+          PY
+      - name: Print boot diagnostics on failure
+        if: failure()
+        run: tail -100 "$RUNNER_TEMP/emulator.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stu7-avatar-export-diagnostic
+          path: |
+            ${{ runner.temp }}/emulator.log
+            ${{ runner.temp }}/avatar/
+          retention-days: 3

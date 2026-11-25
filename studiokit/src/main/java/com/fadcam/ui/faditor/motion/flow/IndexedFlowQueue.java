@@ -1,7 +1,9 @@
 package com.fadcam.ui.faditor.motion.flow;
 
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 /** Submits bounded, lazy analysis work for one visible continuity segment in source time. */
 public final class IndexedFlowQueue {
@@ -43,10 +45,21 @@ public final class IndexedFlowQueue {
 
     public void plan(long playheadUs, long visibleStartUs, long visibleEndUs,
                      long segmentStartUs, long segmentEndUs) {
+        submit(visibleStartUs, visibleEndUs, visiblePairs(playheadUs, visibleStartUs, visibleEndUs,
+                segmentStartUs, segmentEndUs), Set.of());
+    }
+
+    List<VideoPresentationIndex.Pair> visiblePairs(long playheadUs, long visibleStartUs,
+            long visibleEndUs, long segmentStartUs, long segmentEndUs) {
+        return index.visiblePairs(playheadUs, visibleStartUs, visibleEndUs,
+                segmentStartUs, segmentEndUs, source.maxGapUs(), MAX_QUEUED_PAIRS);
+    }
+
+    void submit(long visibleStartUs, long visibleEndUs, List<VideoPresentationIndex.Pair> pairs,
+                Set<VideoPresentationIndex.Pair> ready) {
         var work = new ArrayList<DecodedFlowWork>();
-        for (var pair : index.visiblePairs(playheadUs, visibleStartUs, visibleEndUs,
-                segmentStartUs, segmentEndUs, source.maxGapUs(), MAX_QUEUED_PAIRS)) {
-            work.add(new DecodedFlowWork(source.key(pair), decoder));
+        for (var pair : pairs) {
+            if (!ready.contains(pair)) work.add(new DecodedFlowWork(source.key(pair), decoder));
         }
         analyzer.plan(generation, visibleStartUs, visibleEndUs, work);
     }

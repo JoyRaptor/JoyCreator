@@ -6,19 +6,17 @@ import android.util.Log;
 
 import com.fadcam.ui.faditor.motion.flow.DecodedFlowWork;
 import com.fadcam.ui.faditor.motion.flow.ExactDecodedLuma;
-import com.fadcam.ui.faditor.motion.flow.FlowAnalyzer;
 import com.fadcam.ui.faditor.motion.flow.FlowCache;
 import com.fadcam.ui.faditor.motion.flow.FlowField;
 import com.fadcam.ui.faditor.motion.flow.LumaImage;
 import com.fadcam.ui.faditor.motion.flow.MediaCodecLumaReader;
 import com.fadcam.ui.faditor.motion.flow.IndexedFlowQueue;
+import com.fadcam.ui.faditor.motion.flow.IndexedFlowSession;
 import com.fadcam.ui.faditor.motion.flow.VideoPresentationIndex;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Locale;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /** Verifies the decoded-pair analysis on consecutive P and B frames of the bundled clip. */
 final class DecodedFlowDiagnostic {
@@ -51,7 +49,7 @@ final class DecodedFlowDiagnostic {
                     "diagnostic-cpu-v1", "quarter", WIDTH, HEIGHT, 40_000);
             var cache = new FlowCache(new File(cacheRoot, "motion-flow-diagnostic"), 16L << 20);
             DecodedFlowWork.Decoder exact = ExactDecodedLuma.adapter(reader);
-            FlowCache.Pair pair = runQueued(cache, index, source, next, false, (pts, width, height) -> {
+            FlowCache.Pair pair = runQueued(cache, index, source, next, (pts, width, height) -> {
                 long before = SystemClock.elapsedRealtime();
                 LumaImage luma = exact.decode(pts, width, height);
                 decodeMs[0] += SystemClock.elapsedRealtime() - before;
@@ -68,7 +66,7 @@ final class DecodedFlowDiagnostic {
             }
             double lumaDifference = meanDifference(first.luma(), exact.decode(SECOND_PTS_US, WIDTH, HEIGHT));
             if (!(lumaDifference > 0)) throw new IOException("Decoded luma frames are identical");
-            runQueued(cache, index, source, next, true, (pts, width, height) -> {
+            runQueued(cache, index, source, next, (pts, width, height) -> {
                 throw new IOException("Warm replay unexpectedly decoded footage");
             });
             Log.i(MotionFlowBenchActivity.TAG, String.format(Locale.ROOT,
@@ -78,25 +76,25 @@ final class DecodedFlowDiagnostic {
     }
 
     private static FlowCache.Pair runQueued(FlowCache cache, VideoPresentationIndex index,
-            IndexedFlowQueue.Source source, VideoPresentationIndex.Pair expected, boolean warm,
+            IndexedFlowQueue.Source source, VideoPresentationIndex.Pair expected,
             DecodedFlowWork.Decoder decoder) throws Exception {
-        var result = new CompletableFuture<FlowCache.Pair>();
-        try (var analyzer = new FlowAnalyzer(cache, new FlowAnalyzer.Listener() {
-            @Override public void ready(long generation, FlowCache.Key key, FlowCache.Pair pair,
-                                        boolean fromCache) {
-                if (generation == 1 && key.fromPtsUs == expected.fromPtsUs()
-                        && key.toPtsUs == expected.toPtsUs() && fromCache == warm) result.complete(pair);
-                else result.completeExceptionally(new IOException("Unexpected indexed queue result"));
-            }
-
-            @Override public void failed(long generation, FlowCache.Key key, Exception problem) {
-                result.completeExceptionally(problem);
-            }
-        })) {
-            var queue = new IndexedFlowQueue(analyzer, index, source, decoder, 1);
-            queue.plan(expected.fromPtsUs(), expected.fromPtsUs(), expected.toPtsUs(),
+        try (var session = new IndexedFlowSession(cache)) {
+            long generation = session.setSource(index, source, decoder);
+            session.plan(generation, expected.fromPtsUs(), expected.fromPtsUs(), expected.toPtsUs(),
                     expected.fromPtsUs(), expected.toPtsUs() + 1);
-            return result.get(45, TimeUnit.SECONDS);
+            long deadlineMs = SystemClock.elapsedRealtime() + 45_000;
+            do {
+                FlowCache.Pair pair = session.ready(generation, expected.fromPtsUs(), expected.toPtsUs());
+                if (pair != null) {
+                    if (session.ready(generation - 1, expected.fromPtsUs(), expected.toPtsUs()) != null
+                            || session.ready(generation, expected.fromPtsUs(), expected.toPtsUs() + 1) != null) {
+                        throw new IOException("Flow session accepted stale or inexact renderer timestamps");
+                    }
+                    return pair;
+                }
+                Thread.sleep(5);
+            } while (SystemClock.elapsedRealtime() < deadlineMs);
+            throw new IOException("Indexed flow session did not publish the exact decoded pair");
         }
     }
 

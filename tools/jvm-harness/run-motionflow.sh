@@ -35,6 +35,7 @@ java -cp "$OUT" FlowCoreTest
 expect_failure 'B frames use display neighbours' \
     com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --decode-order
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest
 expect_failure 'after a seek back the frame is sharp until a neighbour' SourceFrameRingTest --naive
 java -cp "$OUT" SourceFrameRingTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest

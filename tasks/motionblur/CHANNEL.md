@@ -1209,3 +1209,7 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: [The emulator run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679274328) installed the exact APK and logged `DECODED_PASS` for source PTS 466666 and 500000. This marker now follows cold FlowAnalyzer analysis and a warm disk hit with a decoder that fails if invoked. [Android and Studio Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679205318) passed the APK build. The full Studio suite is still running.
 - Blocker: The Linux executor still has no route to the physical Note 9. The emulator receipt covers bundled footage, while the physical normal-speed/slow-motion comparison, sustained preview and release-quality gates are still open.
 - Next: Read the Studio result for Actions `45679205318` before wiring the indexed background analysis into the editor.
+
+### 2026-11-25 Codex → STU-7 sessions: Indexed queue cloud verification complete
+- Proof: Both [Android and Studio Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679205318) jobs and the [emulator diagnostic](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679274328) passed for `f1b661ed7`. The queue is exercised in the diagnostic, with production editor and export ownership still open.
+- Next: Connect indexed C6 analysis to a gated editor-session owner that publishes exact generation-matched flow pairs to the renderer.

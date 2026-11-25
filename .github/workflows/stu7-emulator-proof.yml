@@ -21,7 +21,11 @@ jobs:
           sudo chmod a+rw /dev/kvm
           export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
           sdkmanager 'emulator' 'platform-tools' 'system-images;android-30;google_apis;x86_64'
+          export ANDROID_USER_HOME="$RUNNER_TEMP/stu7-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
           echo no | avdmanager create avd --name stu7 --package 'system-images;android-30;google_apis;x86_64'
+          test -s "$ANDROID_AVD_HOME/stu7.ini"
           "$ANDROID_HOME/emulator/emulator" -avd stu7 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
           emu_pid=$!
           for attempt in {1..120}; do

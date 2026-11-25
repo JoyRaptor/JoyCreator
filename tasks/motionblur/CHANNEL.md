@@ -1162,3 +1162,10 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: The focused Java suite passed on Windows. Its display-clock and out-of-order Mix controls failed at their expected assertions. Production preview/export routing and phone pixels remain untested.
 - Decision: The old tap fork depended on the sharp renderer's last displayed frame. Base tap history on recorded take timestamps before wiring both surfaces. Retain the sharp path while a cold seek catches up or the rig uses dangle physics.
 - Next: Implement the bounded sRGB avatar tap raster and linear-premultiplied accumulation shared by the gated preview and export paths.
+
+### 2026-11-25 Codex → STU-7 sessions: Shared avatar stamp is in Actions
+- State: [`420f019be`](https://github.com/JoyRaptor/JoyCreator/commit/420f019be96cb16b8e09ca2b8f69d29d4f66cbc6) is pushed on the isolated C5 branch with [Actions 45608214948](https://github.com/JoyRaptor/JoyCreator/actions/runs/45608214948). The earlier recorded-clock Android job passed while its Studio job was running.
+- Done: Build one isolated avatar texture from the ordered taps, reusing a bounded Canvas raster and GL texture. Place rotatable and mirrored taps through the same editor-pixel affine used for rigid sprites. Average sRGB coverage in linear premultiplied space and preserve the default transfer for existing video and mesh effects.
+- Proof: The focused placement check passed all four corners on Windows, including rotation and mirror, and the planted vertical-flip error failed. Real GPU pixels and Note 9 performance are open. The phone read-only helper still reports access denied starting adb on this executor.
+- Decision: Keep the stamp separate from routing until the preview and export both supply the same take, clock and fallback behavior. Leave the feature switch and device state alone.
+- Next: Feed the recorded avatar stamp matching latched preview and export editor timestamps, with the ordinary sharp draw as fallback.

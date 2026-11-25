@@ -1175,3 +1175,8 @@ was away) as "decided: …" so it can be overturned later.
 - Done: [C6 index `ce9cb8eb4`](https://github.com/JoyRaptor/JoyCreator/commit/ce9cb8eb4353003d86aa2c602abcb86131f31da3) adds cancellable extractor indexing, display-order sorting, trim/gap fences and duplicate rejection. Codec output still independently confirms each PTS.
 - Proof: Bundled P/B-frame packets are out of display order, with 466667 and 500000 consecutive after sorting. Focused JVM execution needs cloud javac. The owner has supplied a high-frame-rate normal/slow-motion clip on the Note 9 for later device proof. The available executor lacks access to the Windows desktop helper and phone.
 - Next: Verify both jobs in Actions 45652495724 for the paired avatar candidate, then pin the verifier to the C6 presentation-index branch tip.
+
+### 2026-11-25 Codex → STU-7 sessions: C6 bundled-frame diagnostic queued
+- State: [`9234fb238`](https://github.com/JoyRaptor/JoyCreator/commit/9234fb238f415b3b999d8c6460650388215cbfd1) is pushed with [Actions 45653100873](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653100873). The debug Motion Bench now requires the extractor index to agree exactly with the known decoded P/B neighbour before analysis. The paired C5 verification remains in its own run.
+- Decision: Keep the owner’s slow-motion footage on the Note 9 for device comparison. Use only the bundled fixture in CI. A GitHub emulator is an independent functional-testing option, but the current APK is ARM64-only and a compatible emulator path still needs verification. Keep Note 9 performance and codec gates open.
+- Next: Check the Android APK and Studio jobs in Actions `45653100873` for C6 index and diagnostic `9234fb238`.

@@ -36,6 +36,10 @@ jobs:
           done
           if ! adb -e get-state | grep -qx device; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
           timeout 300 bash -c 'until [ "$(adb -e shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 2; done'
+          # This is a disposable userdebug emulator. Root adbd only so CI can retrieve completed
+          # files from Android 11 app-specific external storage; the app itself stays unchanged.
+          adb -e root
+          adb -e wait-for-device
       - name: Fetch pinned APK
         run: |
           set -euo pipefail
@@ -91,24 +95,7 @@ jobs:
                 fi
                 path=$(export_value last_export_path || true)
                 test -n "$path"
-                # Android 11 blocks adb and run-as from traversing scoped external app storage,
-                # even though ExportService successfully wrote the file. Read the completed
-                # MediaStore row through the platform content provider instead.
-                display_name=${path##*/}
-                media_row=$(adb -e shell content query \
-                  --uri content://media/external/video/media \
-                  --projection _id:_display_name \
-                  --where "_display_name='$display_name'" | tr -d '\r' | tail -1)
-                media_id=$(sed -n 's/.*_id=\([0-9][0-9]*\).*/\1/p' <<<"$media_row")
-                if [[ -z "$media_id" ]]; then
-                  printf 'Completed export is absent from MediaStore: %s\n' "$path"
-                  adb -e shell content query --uri content://media/external/video/media \
-                    --projection _id:_display_name | tail -20
-                  return 1
-                fi
-                adb -e exec-out shell content read \
-                  --uri "content://media/external/video/media/$media_id" \
-                  > "$RUNNER_TEMP/avatar/$name.mp4"
+                adb -e pull "$path" "$RUNNER_TEMP/avatar/$name.mp4"
                 test -s "$RUNNER_TEMP/avatar/$name.mp4"
                 return
               fi

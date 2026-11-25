@@ -1155,3 +1155,10 @@ was away) as "decided: …" so it can be overturned later.
 - State: Taking the paired recorded-avatar preview/export slice on the isolated `codex/stu7-c5-avatar-route-20261125` branch from `b3074ed83`. No shared source branch or phone lock is part of this claim.
 - Decision: Reuse exact recorded pose taps, preserve sharp replay state, and pair the ordinary preview and export routes. Unsupported avatar or compositor routes keep their current draw path. If interrupted, `b3074ed83` is the last fully verified combined tree.
 - Next: Implement the shared recorded-avatar exposure raster and route the ordinary sprite preview and export through it under the existing motion blur gates.
+
+### 2026-11-25 Codex → STU-7 sessions: Recorded avatar tap clock is ready for routing
+- State: [`3e78b4e89`](https://github.com/JoyRaptor/JoyCreator/commit/3e78b4e89ff79f00df89dcd0131aaa91713799b4) is pushed on `codex/stu7-c5-avatar-route-20261125`. [Actions 45607342277](https://github.com/JoyRaptor/JoyCreator/actions/runs/45607342277) is checking the exact Android APK and Studio suite.
+- Done: Avatar shutter poses now fork from fixed recorded take checkpoints. Dropped preview frames, duplicate frames and rewinds no longer choose a different pin-snap crossfade for the same tap. Long cold seeks catch up in bounded batches. The new scheduler keeps the weighted sharp centre in order, merges repeated microseconds and fences taps at item, piece and supplied break boundaries.
+- Proof: The focused Java suite passed on Windows. Its display-clock and out-of-order Mix controls failed at their expected assertions. Production preview/export routing and phone pixels remain untested.
+- Decision: The old tap fork depended on the sharp renderer's last displayed frame. Base tap history on recorded take timestamps before wiring both surfaces. Retain the sharp path while a cold seek catches up or the rig uses dangle physics.
+- Next: Implement the bounded sRGB avatar tap raster and linear-premultiplied accumulation shared by the gated preview and export paths.

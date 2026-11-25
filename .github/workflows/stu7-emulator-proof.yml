@@ -1,0 +1,63 @@
+name: STU-7 emulator diagnostic
+on:
+  push:
+    branches: [codex/stu7-flow-verify-20261123]
+    paths: [.github/workflows/stu7-emulator-proof.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  decoded-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '45653100873'
+      SOURCE_COMMIT: '9234fb238f415b3b999d8c6460650388215cbfd1'
+    steps:
+      - name: Configure emulator
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          sdkmanager 'emulator' 'platform-tools' 'system-images;android-30;google_apis;x86_64'
+          echo no | avdmanager create avd --name stu7 --package 'system-images;android-30;google_apis;x86_64'
+          "$ANDROID_HOME/emulator/emulator" -avd stu7 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          timeout 180 adb -e wait-for-device
+          timeout 300 bash -c 'until [ "$(adb -e shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 2; done'
+      - name: Fetch pinned APK
+        run: |
+          set -euo pipefail
+          gh run watch --repo "$GITHUB_REPOSITORY" "$SOURCE_RUN" --exit-status
+          gh run download --repo "$GITHUB_REPOSITORY" "$SOURCE_RUN" --name "joycreator-defaultDebug-${SOURCE_COMMIT:0:9}" --dir "$RUNNER_TEMP/stu7-apk"
+          test "$(cat "$RUNNER_TEMP/stu7-apk/COMMIT.txt")" = "$SOURCE_COMMIT"
+          apk=$(find "$RUNNER_TEMP/stu7-apk" -name '*.apk' -print -quit)
+          test -n "$apk"
+          adb -e shell getprop ro.product.cpu.abilist
+          adb -e install "$apk"
+      - name: Verify indexed P and B frames
+        run: |
+          set -euo pipefail
+          adb -e logcat -c
+          adb -e shell am start -W -n com.fadcam/com.fadcam.ui.faditor.motion.MotionFlowBenchActivity --ez decoded true
+          for attempt in {1..60}; do
+            adb -e logcat -d -s MotionFlowBench AndroidRuntime > "$RUNNER_TEMP/stu7-logcat.txt"
+            if grep -qE 'DECODED_FAIL|FATAL EXCEPTION' "$RUNNER_TEMP/stu7-logcat.txt"; then
+              cat "$RUNNER_TEMP/stu7-logcat.txt"
+              exit 1
+            fi
+            if grep -q 'DECODED_PASS:' "$RUNNER_TEMP/stu7-logcat.txt"; then
+              cat "$RUNNER_TEMP/stu7-logcat.txt"
+              exit 0
+            fi
+            sleep 2
+          done
+          cat "$RUNNER_TEMP/stu7-logcat.txt"
+          exit 1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stu7-emulator-diagnostic
+          path: |
+            ${{ runner.temp }}/emulator.log
+            ${{ runner.temp }}/stu7-logcat.txt
+          retention-days: 3

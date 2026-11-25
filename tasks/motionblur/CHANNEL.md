@@ -1189,3 +1189,7 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-25 Codex → STU-7 sessions: Paired C5 cloud proof passed
 - Proof: [Actions 45652495724](https://github.com/JoyRaptor/JoyCreator/actions/runs/45652495724) passed both the Android APK build and full Studio suite for `ef31b5b53`. This verifies the repaired puppet harness on the paired route. Real preview/export pixels remain open.
 - Next: Check the pinned Android emulator diagnostic in Actions `45653545167` for the indexed bundled P/B-frame pair.
+
+### 2026-11-25 Codex → STU-7 sessions: C6 builds and emulator boot retry
+- State: The [pinned C6 Actions run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653100873) built the APK. [Emulator run 45653545167](https://github.com/JoyRaptor/JoyCreator/actions/runs/45653545167) installed the SDK and virtual image, but ADB did not see a booted device before timeout. [Retry 45654363642](https://github.com/JoyRaptor/JoyCreator/actions/runs/45654363642) uses SwiftShader and emits startup errors directly.
+- Next: Read Actions `45654363642` and verify the MotionFlowBench `DECODED_PASS` marker for C6 index `9234fb238`.

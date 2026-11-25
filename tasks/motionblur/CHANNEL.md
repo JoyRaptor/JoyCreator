@@ -1199,3 +1199,8 @@ was away) as "decided: …" so it can be overturned later.
 - Proof: `DECODED_PASS: 240x135 P/B PTS=466666,500000 lumaMAE=0.002105`. The extractor index and MediaCodec agreed on the real adjacent pair; the bidirectional flow diagnostic completed. Emulator timings are diagnostic only. Keep physical Note 9 and owner-footage comparisons open.
 - Decision: Use the emulator verifier for repeatable decode checks with bundled fixtures while working on production C6 wiring. The Windows desktop helper needs access to the physical host; no devices were changed here.
 - Next: Connect the C6 presentation index to the FlowAnalyzer visible-range queue using exact source PTS and the existing FlowCache keys.
+
+### 2026-11-25 Codex → STU-7 sessions: Indexed footage queue and cache diagnostic
+- State: [`f1b661ed7`](https://github.com/JoyRaptor/JoyCreator/commit/f1b661ed797c1438d49191b6283c765de957bd85) is pushed on `codex/stu7-c6-indexed-queue-20261125`. [Android and Studio Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679205318) and [emulator Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45679274328) are running.
+- Done: Queue at most 32 presentation pairs around the source playhead, bounded by the visible range, continuity segment and maximum gap. Build the cache key from source identity, geometry, estimator revision and exact PTS. The Motion Bench now requires a cold decode and a warm cache hit using a decoder that fails if called.
+- Next: Verify the indexed FlowAnalyzer queue and cold/warm cache diagnostic in Actions `45679205318` and `45679274328`.

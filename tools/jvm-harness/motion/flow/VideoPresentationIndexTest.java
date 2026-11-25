@@ -14,6 +14,13 @@ public final class VideoPresentationIndexTest {
         require(index.next(0, 1, 301_000, 101_000) == null, "trim excludes centre");
         require(index.next(100_000, 0, 301_000, 101_000) == null, "gap stays sharp");
         require(index.next(300_000, 0, 301_000, 101_000) == null, "end stays sharp");
+        var visible = index.visiblePairs(70_000, 60_000, 105_000, 0, 105_000, 40_000, 32);
+        require(visible.equals(java.util.List.of(new VideoPresentationIndex.Pair(67_111, 100_000),
+                new VideoPresentationIndex.Pair(33_367, 67_111))), "visible pairs are nearest first and fenced");
+        require(index.visiblePairs(102_000, 101_000, 105_000, 99_000, 105_000, 40_000, 32)
+                .isEmpty(), "no pair when the next frame crosses the segment");
+        require(index.visiblePairs(70_000, 60_000, 105_000, 0, 105_000, 40_000, 1).size() == 1,
+                "prefetch pair count is bounded");
         builder.add(33_367);
         require(builder.finish() == null && index.size() == 5, "reject duplicate PTS and preserve snapshot");
         var invalid = new VideoPresentationIndex.Builder();

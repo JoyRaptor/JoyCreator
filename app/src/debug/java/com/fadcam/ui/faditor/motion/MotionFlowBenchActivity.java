@@ -44,7 +44,7 @@ public final class MotionFlowBenchActivity extends Activity {
 
     private void runDecoded() {
         try {
-            DecodedFlowDiagnostic.run(getAssets());
+            DecodedFlowDiagnostic.run(getAssets(), getCacheDir());
         } catch (InterruptedException cancelled) {
             Thread.currentThread().interrupt();
             return;

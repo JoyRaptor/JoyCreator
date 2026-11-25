@@ -21,6 +21,8 @@ fi
   tools/jvm-harness/liveflow-stubs/androidx/media3/common/util/GlProgram.java \
   tools/jvm-harness/liveflow-stubs/com/fadcam/ui/faditor/motion/flow/GpuPyramidFlow.java \
   tools/jvm-harness/liveflow-stubs/com/fadcam/ui/faditor/motion/flow/PyramidFlowEstimator.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/VelocityPack.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/{FlowField,FlowCache,FlowTexturePixels}.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/SourceFrameRing.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/keyframe/{Easing,Keyframe,KeyframeTrack}.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/{MotionBreaks,MotionShutter}.java \
@@ -28,10 +30,12 @@ fi
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/FastFootagePreviewOwner.java \
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/FastFootageGatherGl.java \
   app/src/main/java/com/fadcam/ui/faditor/motion/flow/HighFootageGatherGl.java \
+  app/src/main/java/com/fadcam/ui/faditor/motion/flow/FlowPairTexturesGl.java \
   tools/jvm-harness/liveflow/LiveFlowGlLifecycleTest.java \
-  tools/jvm-harness/liveflow/{FastFootagePreviewOwnerTest,FastFootageGatherGlTest,HighFootageGatherGlTest}.java
+  tools/jvm-harness/liveflow/{FastFootagePreviewOwnerTest,FastFootageGatherGlTest,HighFootageGatherGlTest,FlowPairTexturesGlTest}.java
 
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.LiveFlowGlLifecycleTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FastFootagePreviewOwnerTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FastFootageGatherGlTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.HighFootageGatherGlTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowPairTexturesGlTest

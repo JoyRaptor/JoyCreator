@@ -1,5 +1,7 @@
 package android.opengl;
 
+import java.nio.Buffer;
+
 public final class GLES20 {
     public static final int GL_FRAMEBUFFER = 0x8D40;
     public static final int GL_FRAMEBUFFER_BINDING = 0x8CA6;
@@ -7,21 +9,35 @@ public final class GLES20 {
     public static final int GL_ACTIVE_TEXTURE = 0x84E0;
     public static final int GL_DITHER = 0x0BD0;
     public static final int GL_TEXTURE0 = 0x84C0;
+    public static final int GL_TEXTURE_2D = 0x0DE1;
+    public static final int GL_TEXTURE_BINDING_2D = 0x8069;
+    public static final int GL_TEXTURE_MIN_FILTER = 0x2801;
+    public static final int GL_TEXTURE_MAG_FILTER = 0x2800;
+    public static final int GL_TEXTURE_WRAP_S = 0x2802;
+    public static final int GL_TEXTURE_WRAP_T = 0x2803;
+    public static final int GL_NEAREST = 0x2600;
+    public static final int GL_CLAMP_TO_EDGE = 0x812F;
+    public static final int GL_RGBA = 0x1908;
+    public static final int GL_UNSIGNED_BYTE = 0x1401;
     public static final int GL_TRIANGLE_STRIP = 0x0005;
 
     public static int framebuffer = 41;
     public static final int[] viewport = {7, 8, 901, 503};
     public static int activeTexture = GL_TEXTURE0 + 5;
+    public static int boundTexture = 73;
     public static boolean dither = true;
     public static int draws;
     public static int deletedFramebuffers;
     public static int deletedTextures;
+    public static int generatedTextures;
+    public static int textureUploads;
 
     private GLES20() {}
 
     public static void glGetIntegerv(int name, int[] value, int offset) {
         if (name == GL_FRAMEBUFFER_BINDING) value[offset] = framebuffer;
         else if (name == GL_ACTIVE_TEXTURE) value[offset] = activeTexture;
+        else if (name == GL_TEXTURE_BINDING_2D) value[offset] = boundTexture;
         else if (name == GL_VIEWPORT) System.arraycopy(viewport, 0, value, offset, 4);
     }
 
@@ -29,6 +45,18 @@ public final class GLES20 {
     public static void glDisable(int capability) { if (capability == GL_DITHER) dither = false; }
     public static void glEnable(int capability) { if (capability == GL_DITHER) dither = true; }
     public static void glActiveTexture(int texture) { activeTexture = texture; }
+    public static void glBindTexture(int target, int texture) { boundTexture = texture; }
+    public static void glGenTextures(int count, int[] names, int offset) {
+        for (int i = 0; i < count; i++) names[offset + i] = 100 + generatedTextures++;
+    }
+    public static void glTexParameteri(int target, int name, int value) {}
+    public static void glTexImage2D(int target, int level, int internal, int width, int height,
+                                    int border, int format, int type, Buffer pixels) {
+        if (boundTexture <= 0 || width <= 0 || height <= 0 || pixels == null) {
+            throw new IllegalArgumentException("invalid fake texture upload");
+        }
+        textureUploads++;
+    }
     public static void glBindFramebuffer(int target, int name) { framebuffer = name; }
     public static void glViewport(int x, int y, int width, int height) {
         viewport[0] = x; viewport[1] = y; viewport[2] = width; viewport[3] = height;

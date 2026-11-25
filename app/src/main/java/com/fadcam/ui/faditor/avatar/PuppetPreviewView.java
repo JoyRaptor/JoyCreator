@@ -33,7 +33,7 @@ import java.util.Map;
  * (the plan's "GL renderer" premise was wrong: Canvas mesh-draw does sparse
  * vertex warps natively, which keeps preview/export on the same drawing stack).
  * The resolver's {@code swapped} signal starts a PIN-SNAP CROSSFADE: the
- * previous cell draws over the new one for {@value #CROSSFADE_MS}ms with both
+ * previous cell draws over the new one for 130ms with both
  * warped by the SAME vertex grid — the swap happens over identical geometry and
  * reads as a smooth turn (plan §Pin-warp). Convention violations (short chain,
  * non-monotonic rest pins, missing art) fall back to the rigid draw — never
@@ -65,9 +65,6 @@ public class PuppetPreviewView extends View {
     private static int segmentsOf(@NonNull float[] verts) {
         return verts.length / 4 - 1;
     }
-    /** Pin-snap crossfade window after a discrete cell swap (plan §Pin-warp). */
-    private static final long CROSSFADE_MS = 130;
-
     public interface Listener {
         /** Drag while a cell is armed: deltas normalized to the view's size. */
         void onPartDragged(float dxNorm, float dyNorm);
@@ -106,10 +103,8 @@ public class PuppetPreviewView extends View {
     // draw needs its own Bitmap). Keyed sheetId/cellIndex; cleared on bind().
     private final java.util.Map<String, android.graphics.Bitmap> cellBitmaps =
             new java.util.HashMap<>();
-    /** partId → crossfade state from the resolver's swapped signal. */
-    private final java.util.Map<String, long[]> swapAtMs = new java.util.HashMap<>();
-    /** partId → the cell shown BEFORE the current one (crossfade source). */
-    private final java.util.Map<String, Integer> lastCell = new java.util.HashMap<>();
+    private AvatarReplayState replay = new AvatarReplayState();
+    @Nullable private Long exposureClockUs;
 
     // A6 dangle physics: one verlet chain per dangle-tagged part, stepped ONCE
     // per frame in onDraw's preamble (warpVertsFor may run twice per frame when
@@ -187,17 +182,17 @@ public class PuppetPreviewView extends View {
         this.mediaClockMs = ms;
     }
 
-    /** Current time for crossfade bookkeeping: media clock when set, else wall. */
-    private long clockNowMs() {
-        return mediaClockMs != null ? mediaClockMs
-                : android.os.SystemClock.uptimeMillis();
+    /** The live and sharp replay clocks retain their original millisecond precision. */
+    private long clockNowUs() {
+        if (exposureClockUs != null) return exposureClockUs;
+        long ms = mediaClockMs != null ? mediaClockMs : android.os.SystemClock.uptimeMillis();
+        return java.util.concurrent.TimeUnit.MILLISECONDS.toMicros(ms);
     }
 
     /** Replay rewind (scrub back / new export pass): drop time-derived state so
      *  a replay from any earlier point is deterministic. Keeps decoded bitmaps. */
     public void resetReplayState() {
-        swapAtMs.clear();
-        lastCell.clear();
+        replay.clear();
         dangleSims.clear();
         lastMediaClockMs = null;
         lastFrameNanos = 0;
@@ -211,8 +206,7 @@ public class PuppetPreviewView extends View {
             if (b != null && !b.isRecycled()) b.recycle();
         }
         cellBitmaps.clear();
-        swapAtMs.clear();
-        lastCell.clear();
+        replay.clear();
         dangleSims.clear();
         lastFrameNanos = 0;
         invalidate();
@@ -220,21 +214,49 @@ public class PuppetPreviewView extends View {
 
     /** New resolved state from the activity's resolve pass. */
     public void setResolved(@Nullable Map<String, PuppetPoseResolver.PartState> r) {
+        rememberResolved(r);
+        invalidate();
+    }
+
+    private void rememberResolved(@Nullable Map<String, PuppetPoseResolver.PartState> r) {
         // A6 pin-snap crossfade bookkeeping: catch the swapped edge BEFORE the
         // draw pass consumes the new cell, remembering which cell fades out.
         if (r != null) {
-            long now = clockNowMs();
+            long now = clockNowUs();
             for (Map.Entry<String, PuppetPoseResolver.PartState> e : r.entrySet()) {
                 PuppetPoseResolver.PartState ps = e.getValue();
-                Integer prev = lastCell.get(e.getKey());
-                if (ps.swapped && prev != null && prev != ps.cellIndex) {
-                    swapAtMs.put(e.getKey(), new long[]{now, prev});
-                }
-                lastCell.put(e.getKey(), ps.cellIndex);
+                replay.observe(e.getKey(), ps.cellIndex, ps.swapped, now);
             }
         }
         this.resolved = r;
-        invalidate();
+    }
+
+    AvatarReplayState copyReplayState() {
+        return replay.copy();
+    }
+
+    /** Synchronous offscreen draw for an admitted non-dangle avatar. The cell cache is shared. */
+    void drawExposureTap(@NonNull Canvas canvas, long localUs, @NonNull AvatarReplayState tapReplay,
+                         @Nullable Map<String, float[]> targets,
+                         @NonNull Map<String, PuppetPoseResolver.PartState> pose) {
+        AvatarReplayState savedReplay = replay;
+        Map<String, float[]> savedTargets = trackedPinTargets;
+        Map<String, PuppetPoseResolver.PartState> savedPose = resolved;
+        Long savedClock = exposureClockUs;
+        int savedWarpAlpha = warpPaint.getAlpha();
+        try {
+            replay = tapReplay;
+            exposureClockUs = localUs;
+            trackedPinTargets = targets;
+            rememberResolved(pose);
+            draw(canvas);
+        } finally {
+            resolved = savedPose;
+            trackedPinTargets = savedTargets;
+            exposureClockUs = savedClock;
+            replay = savedReplay;
+            warpPaint.setAlpha(savedWarpAlpha);
+        }
     }
 
     public void setSelectedPart(@Nullable String partId) {
@@ -418,8 +440,26 @@ public class PuppetPreviewView extends View {
         }
         if (rig == null || resolved == null) return;
 
-        // A6 dangle preamble: step every dangle chain exactly once this frame.
-        // dt comes from the media clock during replay (deterministic), else wall.
+        if (exposureClockUs == null) updateDangle();
+
+        // Draw order: resolved z ascending, stable on the rig's part order.
+        List<AvatarRig.Part> order = new ArrayList<>(rig.getParts());
+        java.util.Collections.sort(order, (a, b) -> {
+            PuppetPoseResolver.PartState sa = resolved.get(a.id), sb = resolved.get(b.id);
+            return Integer.compare(sa != null ? sa.z : a.z, sb != null ? sb.z : b.z);
+        });
+        for (AvatarRig.Part part : order) {
+            PuppetPoseResolver.PartState ps = resolved.get(part.id);
+            if (ps == null) continue;
+            workMatrix.set(worldMatrix(part));
+            drawPart(canvas, part, ps, workMatrix);
+        }
+
+        drawPinEditing(canvas);
+    }
+
+    /** Step each dangle chain once with the original sharp replay or live clock. */
+    private void updateDangle() {
         float dt;
         if (mediaClockMs != null) {
             dt = lastMediaClockMs != null
@@ -444,20 +484,9 @@ public class PuppetPreviewView extends View {
             }
         }
         if (anyDangle) postInvalidateOnAnimation();
+    }
 
-        // Draw order: resolved z ascending, stable on the rig's part order.
-        List<AvatarRig.Part> order = new ArrayList<>(rig.getParts());
-        java.util.Collections.sort(order, (a, b) -> {
-            PuppetPoseResolver.PartState sa = resolved.get(a.id), sb = resolved.get(b.id);
-            return Integer.compare(sa != null ? sa.z : a.z, sb != null ? sb.z : b.z);
-        });
-        for (AvatarRig.Part part : order) {
-            PuppetPoseResolver.PartState ps = resolved.get(part.id);
-            if (ps == null) continue;
-            workMatrix.set(worldMatrix(part));
-            drawPart(canvas, part, ps, workMatrix);
-        }
-
+    private void drawPinEditing(@NonNull Canvas canvas) {
         // A6 pin authoring overlay: handles + chain links for the edited list,
         // drawn in VIEW space so handle size stays finger-sized at any part scale.
         if (pinEditing != null && selectedPartId != null) {
@@ -568,8 +597,8 @@ public class PuppetPreviewView extends View {
             // A6: warp when the part carries a valid rest chain and the resolver
             // supplied matching posed pins; anything off-contract = rigid draw.
             float[] verts = warpVertsFor(part, ps, dw, dh);
-            long[] swap = swapAtMs.get(part.id);
-            float fade = crossfadeAlpha(swap);
+            AvatarReplayState.Fade swap = replay.fade(part.id);
+            float fade = swap != null ? swap.alphaAt(clockNowUs()) : 0f;
             if (verts != null) {
                 int meshH = segmentsOf(verts); // matches whatever built these verts
                 android.graphics.Bitmap cell = cellBitmapFor(part.sheetId, r, ps.cellIndex);
@@ -580,13 +609,13 @@ public class PuppetPreviewView extends View {
                     // swap happens over identical geometry (plan §Pin-warp).
                     if (fade > 0f && swap != null) {
                         android.graphics.Bitmap prev =
-                                cellBitmapFor(part.sheetId, r, (int) swap[1]);
+                                cellBitmapFor(part.sheetId, r, swap.oldCell());
                         if (prev != null) {
                             warpPaint.setAlpha(Math.round(fade * 255));
                             canvas.drawBitmapMesh(prev, 1, meshH, verts, 0, null, 0, warpPaint);
                             warpPaint.setAlpha(255);
                         }
-                        postInvalidateOnAnimation();
+                        if (exposureClockUs == null) postInvalidateOnAnimation();
                     }
                 } else {
                     r.drawCell(canvas, ps.cellIndex, workRect, null);
@@ -596,9 +625,9 @@ public class PuppetPreviewView extends View {
                 if (fade > 0f && swap != null) {
                     // Rigid parts crossfade too (same signal, same window).
                     warpPaint.setAlpha(Math.round(fade * 255));
-                    r.drawCell(canvas, (int) swap[1], workRect, warpPaint);
+                    r.drawCell(canvas, swap.oldCell(), workRect, warpPaint);
                     warpPaint.setAlpha(255);
-                    postInvalidateOnAnimation();
+                    if (exposureClockUs == null) postInvalidateOnAnimation();
                 }
             }
         } else {
@@ -610,16 +639,6 @@ public class PuppetPreviewView extends View {
             canvas.drawRect(workRect, selectPaint);
         }
         canvas.restore();
-    }
-
-    /** Fading weight of a crossfade window, 0 when absent/expired. Negative age
-     *  (media clock stepped back without a resetReplayState) counts as expired —
-     *  never over-brighten. */
-    private float crossfadeAlpha(@Nullable long[] swap) {
-        if (swap == null) return 0f;
-        long age = clockNowMs() - swap[0];
-        if (age < 0 || age >= CROSSFADE_MS) return 0f;
-        return 1f - age / (float) CROSSFADE_MS;
     }
 
     /**
@@ -700,7 +719,7 @@ public class PuppetPreviewView extends View {
         java.util.List<float[]> srcPins = null;
         float[] target = trackedPinTargets != null ? trackedPinTargets.get(part.id) : null;
         if (target != null) srcPins = trackedPins(part, resolvedPins, target, box);
-        if (srcPins == null) srcPins = frameDanglePins.get(part.id);
+        if (srcPins == null && exposureClockUs == null) srcPins = frameDanglePins.get(part.id);
         if (srcPins == null) srcPins = resolvedPins;
         java.util.List<float[]> posed = new java.util.ArrayList<>(srcPins.size());
         for (float[] pin : srcPins) {

@@ -24,8 +24,31 @@ public class ResolverGateTest {
         finding3_tolerantFromJson();
         pinRenormalization();
         hysteresisStillWorks();
+        exposureStateIsIndependent();
         System.out.println(failures == 0 ? "ALL GREEN" : failures + " FAILURES");
         System.exit(failures == 0 ? 0 : 1);
+    }
+
+    static void exposureStateIsIndependent() {
+        AvatarRig rig = new AvatarRig("r", "t");
+        rig.getParts().add(new AvatarRig.Part("hand", "s"));
+        AvatarRig.PoseDomain domain = new AvatarRig.PoseDomain("hand_angles");
+        domain.driverX = "angle";
+        domain.cols = 2;
+        domain.rows = 1;
+        domain.cells.add(cell(0, 0, pose("hand", 2)));
+        domain.cells.add(cell(1, 0, pose("hand", 3)));
+        rig.getDomains().add(domain);
+
+        var live = new PuppetPoseResolver.DiscreteState();
+        PuppetPoseResolver.resolve(rig, Map.of("angle", -1f), live);
+        var exposure = live.copy();
+        check(PuppetPoseResolver.resolve(rig, Map.of("angle", 0.05f), exposure).get("hand").cellIndex == 2,
+                "exposure inherits the live choice inside the hysteresis band");
+        check(PuppetPoseResolver.resolve(rig, Map.of("angle", 1f), exposure).get("hand").cellIndex == 3,
+                "exposure can independently cross the discrete boundary");
+        check(PuppetPoseResolver.resolve(rig, Map.of("angle", 0.05f), live).get("hand").cellIndex == 2,
+                "an exposure tap cannot advance the live resolver");
     }
 
     /** cols=3 strip; handL cellIndex=5 authored at col0+col2, col1 poses armL only.

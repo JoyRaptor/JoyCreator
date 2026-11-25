@@ -13,7 +13,7 @@ cd "$(dirname "$0")/../.." || exit 1
 
 STUDIO_SUITES="adjust align anchor audio-fx audio-fx2 audioid avatar-edit avatar-format avatar-psd avatar-take avatar-voice bakepop beats caption
 clipwarp consolidate cutjumps cutspan downmix duck envelope flextime flip frame-parity frame-time fx gestureangle
-key lane lanechain mask matte mesh motion motionflow motionrange objtime para pinbudget pip preview-parity puppet rebase resample
+key lane lanechain live-flow-gl mask matte mesh motion motionflow motionrange objtime para pinbudget pip preview-parity puppet rebase resample
 rotation scalesnap sequence sidecars specj-suite stereo speck specq specr spect splitcopy sheetcopies sprite spritelab-audit spritesplit textstyle
 timemap titlestyle undo visfollow snap previewclock studiopath pathplan workloss diskstamp vislab-home looks-home english-lint plain-errors undo-lint undosteps copy-lint deadstate-lint orphan-lint persist-lint stub-lint"
 

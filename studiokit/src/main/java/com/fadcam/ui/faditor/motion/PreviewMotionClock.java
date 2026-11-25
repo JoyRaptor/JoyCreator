@@ -5,8 +5,21 @@ import java.util.ArrayDeque;
 /** Pairs a latched preview texture with the decoded frame's editor timestamp. */
 public final class PreviewMotionClock {
     private static final int MAX_PENDING = 32;
+    private static final long NO_SOURCE_PTS = Long.MIN_VALUE;
 
-    public record Frame(long editorTimeUs, long periodUs) {}
+    public record Frame(long editorTimeUs, long periodUs, long decodedPtsUs, long continuityEpoch,
+                        String footageSourceKey) {
+        public Frame(long editorTimeUs, long periodUs) {
+            this(editorTimeUs, periodUs, NO_SOURCE_PTS, 0, null);
+        }
+
+        public boolean hasDecodedPts() { return decodedPtsUs != NO_SOURCE_PTS; }
+
+        /** Prevent a source change with the same reused PTS from borrowing the old texture. */
+        public boolean hasDecodedPtsFor(String sourceKey) {
+            return hasDecodedPts() && sourceKey != null && sourceKey.equals(footageSourceKey);
+        }
+    }
 
     private record Pending(long releaseTimeNs, Frame frame) {}
 
@@ -24,12 +37,19 @@ public final class PreviewMotionClock {
     }
 
     /** The release time identifies the texture. The decoded presentation time measures the shutter. */
-    public synchronized void onFrame(long epoch, long releaseTimeNs, long editorTimeUs) {
+    public void onFrame(long epoch, long releaseTimeNs, long editorTimeUs) {
+        onFrame(epoch, releaseTimeNs, editorTimeUs, NO_SOURCE_PTS, null);
+    }
+
+    /** Preserve the decoded source PTS separately from the retimed editor clock. */
+    public synchronized void onFrame(long epoch, long releaseTimeNs, long editorTimeUs,
+                                     long decodedPtsUs, String footageSourceKey) {
         if (epoch != generation) return;
         Pending last = pending.peekLast();
         if (last != null && last.releaseTimeNs == releaseTimeNs) return;
         if (latched != null && latched.releaseTimeNs == releaseTimeNs) return;
-        Frame frame = new Frame(editorTimeUs, cadence.observe(editorTimeUs));
+        Frame frame = new Frame(editorTimeUs, cadence.observe(editorTimeUs), decodedPtsUs, epoch,
+                footageSourceKey);
         if (pending.size() == MAX_PENDING) pending.removeFirst();
         pending.addLast(new Pending(releaseTimeNs, frame));
     }

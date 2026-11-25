@@ -262,6 +262,11 @@ public final class MeshWarpSpec {
             float[] animated = new float[n];
             if (groupZTrack.valueAt(timeMs, animated)) at = animated;
         }
+        sortGroups(at, n, out);
+        return true;
+    }
+
+    static void sortGroups(float[] at, int n, int[] out) {
         for (int i = 0; i < n; i++) out[i] = i;
         for (int i = 1; i < n; i++) {
             int v = out[i];
@@ -273,7 +278,6 @@ public final class MeshWarpSpec {
             }
             out[j + 1] = v;
         }
-        return true;
     }
 
     /** Create the track on first keyframe. One diamond, whatever the topology. */
@@ -309,6 +313,22 @@ public final class MeshWarpSpec {
         if (track != null && track.valueAt(timeMs, out)) return true;
         System.arraycopy(handles, 0, out, 0, n);
         return true;
+    }
+
+    void handlesAtMicros(long timeUs, float[] out) {
+        if (track != null && track.valueAtMicros(timeUs, out)) return;
+        System.arraycopy(handles, 0, out, 0, arity());
+    }
+
+    void depthsAtMicros(long timeUs, float[] handlesOut, float[] groupsOut) {
+        readDepthAtMicros(handleZTrack, handleZ(), timeUs, handlesOut);
+        readDepthAtMicros(groupZTrack, groupZ(), timeUs, groupsOut);
+    }
+
+    private static void readDepthAtMicros(MeshPoseTrack track, float[] base,
+                                          long timeUs, float[] out) {
+        if (track != null && track.arity() == base.length && track.valueAtMicros(timeUs, out)) return;
+        System.arraycopy(base, 0, out, 0, base.length);
     }
 
     /**

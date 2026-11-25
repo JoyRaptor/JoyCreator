@@ -74,6 +74,9 @@ public final class MeshStampGl {
             * LatticeTopology.tessellationFor(LatticeTopology.L3) * 6;
 
     private final MeshEngine engine = new MeshEngine();
+    @Nullable private MeshEngine exposureEngine;
+    @Nullable private MeshEngine lastUploadedEngine;
+    private final int[] previousFramebuffer = new int[1];
 
     private int frameW = 1, frameH = 1;
     /** The size the stamp texture's storage was last allocated at (see {@link #fitStamp}). */
@@ -155,13 +158,40 @@ public final class MeshStampGl {
                              float alpha, float reveal,
                              @Nullable float[] cornerPin8,
                              float mirrorX, float mirrorY) {
+        return render(src, spec, localMs, false, cx, cy, wNorm, hNorm, pivOffX, pivOffY, applyPivot,
+                rotDeg, presetScaleX, presetScaleY, presetDxNorm, presetDyNorm, alpha, reveal,
+                cornerPin8, mirrorX, mirrorY);
+    }
+
+    /**
+     * Stamp one authored mesh tap. The caller supplies its sampled placement and the same cached
+     * premultiplied art on each tap. Consume the returned texture before stamping the next tap.
+     */
+    public int renderExposureTap(@NonNull Bitmap src, @NonNull MeshWarpSpec spec, long localUs,
+                                 float cx, float cy, float wNorm, float hNorm,
+                                 float pivOffX, float pivOffY, boolean applyPivot, float rotDeg,
+                                 float alpha, @Nullable float[] cornerPin8, float mirrorX, float mirrorY) {
+        return render(src, spec, localUs, true, cx, cy, wNorm, hNorm, pivOffX, pivOffY, applyPivot,
+                rotDeg, 1f, 1f, 0f, 0f, alpha, 1f, cornerPin8, mirrorX, mirrorY);
+    }
+
+    private int render(@Nullable Bitmap src, @Nullable MeshWarpSpec spec, long time, boolean exposure,
+                       float cx, float cy, float wNorm, float hNorm,
+                       float pivOffX, float pivOffY, boolean applyPivot, float rotDeg,
+                       float presetScaleX, float presetScaleY, float presetDxNorm, float presetDyNorm,
+                       float alpha, float reveal, @Nullable float[] cornerPin8, float mirrorX, float mirrorY) {
         if (degraded) return 0;
         if (src == null || src.isRecycled() || src.getWidth() <= 0 || src.getHeight() <= 0) return 0;
-        if (spec == null || !spec.hasWarp()) return 0;
-        if (alpha <= 0.001f) return 0;
-        // CPU first: identity pose returns false with NO GL objects created — the zero-cost gate.
-        if (!engine.update(spec, localMs)) return 0;
-        MeshBuffers b = engine.buffers();
+        if (spec == null || (!exposure && !spec.hasWarp()) || alpha <= 0.001f) return 0;
+        MeshEngine drawEngine = engine;
+        if (exposure) {
+            if (exposureEngine == null) exposureEngine = new MeshEngine();
+            drawEngine = exposureEngine;
+            if (!drawEngine.updateForExposure(spec, time)) return 0;
+        } else if (!drawEngine.update(spec, time)) {
+            return 0;
+        }
+        MeshBuffers b = drawEngine.buffers();
         if (!b.hasGeometry()) return 0;
         if (!ensureGlInitialized()) return 0;
         if (!fitStamp()) return 0;
@@ -183,7 +213,8 @@ public final class MeshStampGl {
 
         // Static arrays only on topology change; positions every frame. No allocation: reused
         // direct buffers, sized once to the coarsest lattice.
-        if (b.topologyStamp() != lastTopologyStamp || b.drawOrderStamp != lastDrawOrderStamp) {
+        if (drawEngine != lastUploadedEngine
+                || b.topologyStamp() != lastTopologyStamp || b.drawOrderStamp != lastDrawOrderStamp) {
             int vc = b.vertexCount() * 2;
             int ic = b.indexCount();
             if (vc > MAX_VERTS * 2 || ic > MAX_INDICES) {
@@ -205,6 +236,7 @@ public final class MeshStampGl {
                     ? b.drawIndices : b.indices;
             for (int i = 0; i < ic; i++) idxBuf.put(drawList[i]);
             idxBuf.position(0);
+            lastUploadedEngine = drawEngine;
             lastTopologyStamp = b.topologyStamp();
             lastDrawOrderStamp = b.drawOrderStamp;
         }
@@ -215,11 +247,10 @@ public final class MeshStampGl {
 
         // Save the caller's output binding (media3 owns it on the effect thread; the preview owns
         // its composite targets) so the stamp never hijacks the frame it is stamping for.
-        int[] prevFbo = new int[1];
         try {
-            GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, prevFbo, 0);
+            GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, previousFramebuffer, 0);
         } catch (Exception ignored) {
-            prevFbo[0] = 0;
+            previousFramebuffer[0] = 0;
         }
         // Whatever the caller left in the GL error queue is the CALLER's, not ours. Drained here
         // so the stage probe below can only ever name a fault this class caused.
@@ -302,7 +333,7 @@ public final class MeshStampGl {
             return 0;
         } finally {
             try {
-                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, prevFbo[0]);
+                GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, previousFramebuffer[0]);
             } catch (Exception ignored) { }
             // THE STAMP MUST NEVER POISON ITS CALLER'S ERROR CHECK. The export composites the
             // stamp and then calls media3's GlUtil.checkGlError(), which reports the FIRST flag
@@ -325,7 +356,7 @@ public final class MeshStampGl {
                 }
                 if (st != GLES20.GL_FRAMEBUFFER_COMPLETE) {
                     loggedFboRestore = true;
-                    FLog.w(TAG, "handed back fbo=" + prevFbo[0] + " which is not complete (0x"
+                    FLog.w(TAG, "handed back fbo=" + previousFramebuffer[0] + " which is not complete (0x"
                             + Integer.toHexString(st) + ") — the caller's next draw will fail");
                 }
             }
@@ -614,5 +645,7 @@ public final class MeshStampGl {
         sourceUploaded = null;
         stampW = stampH = 0;
         glInitialized = false;
+        lastUploadedEngine = null;
+        exposureEngine = null;
     }
 }

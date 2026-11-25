@@ -23,8 +23,8 @@ import java.util.function.Consumer;
  *       and bumps the generation. Async work stamped with an older generation must be dropped
  *       ({@link #isCurrent}).</li>
  *   <li>Capacity is fixed; the oldest frame is released when a new one arrives.</li>
- *   <li>A frame with the same PTS as the newest (a paused redraw) is released at once; the held
- *       copy stays.</li>
+ *   <li>A frame with the same PTS, source and shape as the newest (a paused redraw) is released
+ *       at once; the held copy stays.</li>
  *   <li>Until a valid neighbour exists, {@link #previous} returns null and the caller draws sharp.</li>
  * </ul>
  */
@@ -84,11 +84,12 @@ public final class SourceFrameRing<T> {
         Frame<T> last = frames.peekLast();
         if (last != null) {
             long gap = frame.ptsUs - last.ptsUs;
-            if (gap == 0) {          // same frame redrawn (paused): keep the one we have
+            if (!last.sameShape(frame) || frame.ptsUs < last.ptsUs || gap < 0 || gap > maxGapUs) {
+                invalidate();
+            } else if (gap == 0) {   // same frame redrawn (paused): keep the one we have
                 release.accept(frame.handle);
                 return;
             }
-            if (gap < 0 || gap > maxGapUs || !last.sameShape(frame)) invalidate();
         }
         frames.addLast(frame);
         while (frames.size() > capacity) release.accept(frames.pollFirst().handle);

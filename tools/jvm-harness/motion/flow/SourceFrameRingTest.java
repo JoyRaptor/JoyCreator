@@ -29,7 +29,29 @@ public final class SourceFrameRingTest {
         boolean naive = args.length > 0 && args[0].equals("--naive");
         SourceFrameRingTest t = new SourceFrameRingTest();
         t.run(naive);
+        if (!naive) t.reusedPtsAfterSourceOrShapeChange();
         System.out.println("SourceFrameRingTest: " + t.assertions + " assertions");
+    }
+
+    private void reusedPtsAfterSourceOrShapeChange() {
+        Ring r = realRing(2, 100_000);
+        r.push(0, "clipA", 64, 36, 0, 101);
+        r.push(33_367, "clipA", 64, 36, 0, 102);
+        long beforeCut = r.generation();
+        r.push(33_367, "clipB", 64, 36, 0, 103);
+        check(r.generation() != beforeCut && r.previous(33_367) == null,
+                "same-PTS source switch clears old neighbours");
+        check(count(101) == 1 && count(102) == 1 && count(103) == 0,
+                "same-PTS source switch retains the new source frame");
+        r.push(66_734, "clipB", 64, 36, 0, 104);
+        check(eq(r.previous(66_734), 103), "new source resumes from its own first frame");
+
+        long beforeRotate = r.generation();
+        r.push(66_734, "clipB", 36, 64, 90, 105);
+        check(r.generation() != beforeRotate && r.previous(66_734) == null,
+                "same-PTS rotation or resize clears the old geometry");
+        r.invalidate();
+        for (int h = 101; h <= 105; h++) check(count(h) == 1, "handle " + h + " released once");
     }
 
     private final Map<Integer, Integer> released = new HashMap<>();

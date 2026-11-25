@@ -14,6 +14,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 
 import com.fadcam.FLog;
+import com.fadcam.launch.LaunchGate;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
@@ -23,6 +24,7 @@ import com.fadcam.ui.faditor.model.TimeMap;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 import com.fadcam.ui.faditor.motion.MotionTimelineBreaks;
+import com.fadcam.ui.faditor.motion.flow.FastFootagePreviewOwner;
 import com.fadcam.ui.faditor.overlay.TextBoxRenderer;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 
@@ -443,6 +445,10 @@ public final class FxLivePreviewController {
         boolean shutterPiP = host.motionBlurEnabled()
                 && LayerPreviewController.visibleOverlayVideoClips(timeline).stream()
                 .anyMatch(FxLivePreviewController::eligibleLivePiP);
+        boolean fastFootage = host.motionBlurEnabled()
+                && !LaunchGate.hidden(view.getContext(), FastFootagePreviewOwner.LAUNCH_KEY);
+        boolean shutterFootage = fastFootage && !timeline.hasTransitions()
+                && timeline.getClips().stream().anyMatch(FxLivePreviewController::eligibleFastFootage);
         // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
         // glImages. This second list is kept for the pre-3A.1 path where masks were NOT in the
         // gate and were stranded on Canvas; it is now empty for new code but the routing
@@ -534,6 +540,7 @@ public final class FxLivePreviewController {
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
                 && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites && !shutterPiP
+                && !shutterFootage
                 && orderedLanes == null) {
             stop();
             return;
@@ -633,7 +640,7 @@ public final class FxLivePreviewController {
             layerOverlayRouted = layerRouted;
             host.onLayerImageOverlayRouted(layerRouted);
         }
-        bindMotionClock(timeline, playheadClip);
+        bindMotionClock(timeline, playheadClip, shutterFootage);
         view.setSpineShutter(spineShutter(playheadClip, size, rotation));
         view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages,
                 shutterOverlays, shutterSprites, orderedLanes));
@@ -654,7 +661,7 @@ public final class FxLivePreviewController {
         return plan.supportsOrderedPreview(trueOrder) ? plan : null;
     }
 
-    private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip) {
+    private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip, boolean shutterFootage) {
         if ((!host.motionBlurEnabled() && debugLaneOrder == null) || clip == null || clip.isImageClip()
                 || clip.hasLoopExtension() || clip.hasRemovedSpans()) {
             clearMotionClock();
@@ -687,10 +694,33 @@ public final class FxLivePreviewController {
         }
         long originUs = motionWindow.getPositionInFirstPeriodUs()
                 + (gapless ? 0L : clip.getInPointMs() * 1000L);
+        long startUs = map.clipEditorStartMs(index) * 1000L;
+        long endUs = map.clipEditorStartMs(index + 1) * 1000L;
+        // Relinking preserves the clip ID. Also fence a rebased trim or speed change between
+        // the decoder callback and the GL thread's settings snapshot.
+        String footageSourceKey = shutterFootage && eligibleFastFootage(clip)
+                ? clip.getId() + "\n" + clip.getSourceUri() + "\n"
+                        + originUs + ":" + startUs + ":" + endUs + ":" + speed
+                : null;
         motionClock.bind(player, new PreviewDecoderClock.Anchor(
-                motionWindow.uid, originUs, map.clipEditorStartMs(index) * 1000L,
-                map.clipEditorStartMs(index + 1) * 1000L, speed));
+                motionWindow.uid, originUs, startUs, endUs, speed, footageSourceKey));
+        view.setFastFootageInput(footageSourceKey == null ? null
+                : new FxPreviewTextureView.FastFootageInput(footageSourceKey, startUs, endUs, speed,
+                        clip.getRigidMotionShutter()));
         view.setMotionClockActive(motionClock.anchor() != null);
+    }
+
+    private static boolean eligibleFastFootage(Clip clip) {
+        // The initial route covers ordinary sources. Animated placement keeps the existing
+        // rigid-only exposure until footage and placement can share one trajectory.
+        if (clip.isImageClip() || !clip.isRigidMotionBlurEnabled() || clip.hasLoopExtension()
+                || clip.hasRemovedSpans() || clip.effectiveCropFractions() != null
+                || clip.hasMesh() || clip.hasCornerPin()
+                || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) {
+            return false;
+        }
+        var shutter = clip.getRigidMotionShutter();
+        return shutter.mixPercent() > 0 && shutter.angle() > 0 && shutter.angle() <= 360;
     }
 
     @Nullable
@@ -717,6 +747,7 @@ public final class FxLivePreviewController {
     }
 
     private void clearMotionClock() {
+        view.setFastFootageInput(null);
         view.setSpineShutter(null);
         view.setMotionClockActive(false);
         motionClock.clear();
@@ -1137,6 +1168,12 @@ public final class FxLivePreviewController {
 
     private boolean addOrderedSprite(List<FxPreviewTextureView.Rung> rungs, SpriteOverlayItem sprite,
                                      int[] size, long playheadMs, @Nullable PreviewDecoderClock.Anchor clock) {
+        if (AuthoredSpriteMeshExposure.supportsDirectMesh(sprite)) {
+            var mesh = spritePip(sprite, playheadMs, size);
+            if (mesh == null) return false;
+            rungs.add(FxPreviewTextureView.Rung.pip(mesh));
+            return true;
+        }
         if (clock != null && sprite.isRigidMotionBlurEnabled() && RigidSpriteMotion.supports(sprite)
                 && addSpriteMotion(rungs, sprite, size, playheadMs, clock)) return true;
         var cell = host.spriteMotionCell(sprite, playheadMs);
@@ -1205,11 +1242,29 @@ public final class FxLivePreviewController {
                     // No caption-style preset on a sprite: identity scale, no offset, full reveal.
                     1f, 1f, 0f, 0f,
                     alpha, 1f, pins,
-                    sp.isFlipH() ? -1f : 1f, sp.isFlipV() ? -1f : 1f);
+                    sp.isFlipH() ? -1f : 1f, sp.isFlipV() ? -1f : 1f,
+                    authoredMeshShutter(sp, playheadMs));
             FxPreviewTextureView.Pip mp = p.withMesh(mi);
             return mp != null ? mp : p;
         } catch (Exception ignored) {
             return null;   // never let a sprite cost the frame
+        }
+    }
+
+    @Nullable
+    private FxPreviewTextureView.AuthoredMeshShutter authoredMeshShutter(SpriteOverlayItem sprite, long playheadMs) {
+        var clock = motionClock.anchor();
+        if (clock == null || !host.motionBlurEnabled() || !sprite.isRigidMotionBlurEnabled()
+                || com.fadcam.launch.LaunchGate.hidden(view.getContext(), "studio_motion_blur")) return null;
+        try {
+            var exposure = AuthoredSpriteMeshExposure.prepare(true, true, sprite);
+            if (exposure == null) return null;
+            var cell = host.spriteMotionCell(sprite, playheadMs);
+            if (cell == null) return null;
+            return new FxPreviewTextureView.AuthoredMeshShutter(exposure, cell,
+                    clock.editorStartUs(), clock.editorEndUs());
+        } catch (RuntimeException ignored) {
+            return null; // The ordinary mesh still has a valid draw.
         }
     }
 
@@ -1516,7 +1571,7 @@ public final class FxLivePreviewController {
                     pivOffX, pivOffY, applyPivot, rot,
                     preset.scaleX, preset.scaleY, dxNorm, dyNorm,
                     alpha, reveal, pins,
-                    mirrorX, mirrorY);
+                    mirrorX, mirrorY, null);
             return p.withMesh(mi);
         } catch (Exception ignored) {
             return null; // never let a bend cost the picture — flat path below

@@ -56,9 +56,19 @@ jobs:
           test "$(adb -e shell getprop ro.kernel.qemu | tr -d '\r')" = 1
           adb -e shell pm path "$pkg" | grep -q '^package:'
           mkdir -p "$RUNNER_TEMP/avatar"
+          export_value() {
+            local key=$1
+            adb -e exec-out run-as "$pkg" cat shared_prefs/faditor_export.xml 2>/dev/null |
+              sed -n "s/.*<string name=\"$key\">\([^<]*\)<\/string>.*/\1/p" | tail -1
+          }
+          export_time() {
+            adb -e exec-out run-as "$pkg" cat shared_prefs/faditor_export.xml 2>/dev/null |
+              sed -n 's/.*<long name="last_export_time" value="\([0-9]*\)".*/\1/p' | tail -1
+          }
           capture() {
-            local name=$1 enabled=$2 master_off=$3 log path
+            local name=$1 enabled=$2 master_off=$3 log path status previous current
             log="$RUNNER_TEMP/avatar/$name.log"
+            previous=$(export_time || true)
             adb -e shell am force-stop "$pkg"
             adb -e logcat -c
             adb -e shell am start -W -n "$fixture" \
@@ -67,12 +77,20 @@ jobs:
             grep -q '^Status: ok' "$log"
             for attempt in {1..90}; do
               adb -e logcat -d -s ExportDebug ExportService SpriteBlend AndroidRuntime > "$log"
-              if grep -qE 'debug export failed to start|Export failed|FATAL EXCEPTION' "$log"; then
+              if grep -qE 'debug export failed to start|Export failed|Export did not start|FATAL EXCEPTION' "$log"; then
                 cat "$log"
                 return 1
               fi
-              path=$(sed -n 's/.*Export completed: //p' "$log" | tail -1 | tr -d '\r')
-              if [[ -n "$path" ]]; then
+              current=$(export_time || true)
+              if [[ -n "$current" && "$current" != "$previous" ]]; then
+                status=$(export_value last_export_status || true)
+                if [[ "$status" != completed ]]; then
+                  cat "$log"
+                  adb -e exec-out run-as "$pkg" cat shared_prefs/faditor_export.xml || true
+                  return 1
+                fi
+                path=$(export_value last_export_path || true)
+                test -n "$path"
                 if ! adb -e pull "$path" "$RUNNER_TEMP/avatar/$name.mp4"; then
                   adb -e exec-out run-as "$pkg" cat "$path" > "$RUNNER_TEMP/avatar/$name.mp4"
                 fi
@@ -82,6 +100,7 @@ jobs:
               sleep 2
             done
             cat "$log"
+            adb -e exec-out run-as "$pkg" cat shared_prefs/faditor_export.xml || true
             return 1
           }
           capture blur true false

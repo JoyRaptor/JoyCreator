@@ -4183,6 +4183,31 @@ public class FaditorEditorActivity extends AppCompatActivity {
         editorTimeline.post(this::checkMissingMedia);
     }
 
+    /** Run the same discrete seek as the time dialog after the opening decoder frame. */
+    private void runDebugPausedPreviewSeek() {
+        if (!com.fadcam.BuildConfig.DEBUG || editorTimeline == null || playerManager == null) return;
+        String key = com.fadcam.ui.faditor.compositor.MotionPreviewReadback.EXTRA_PAUSED_SEEK_MS;
+        long requestedMs = getIntent().getLongExtra(key, -1L);
+        if (requestedMs < 0L) return;
+        getIntent().removeExtra(key);
+        editorTimeline.post(() -> {
+            if (isFinishing() || isDestroyed()) return;
+            playerManager.pause();
+            editorTimeline.seekToTimelineMs(requestedMs);
+            editorTimeline.postDelayed(() -> {
+                if (isFinishing() || isDestroyed()) return;
+                if (playerManager.getPlayWhenReady()
+                        || editorTimeline.getPlayheadPositionMs() != requestedMs) {
+                    FLog.w("MotionPreviewReadback", "Paused seek did not hold at editorMs=" + requestedMs);
+                    return;
+                }
+                android.view.TextureView view = findViewById(R.id.fx_preview_view);
+                com.fadcam.ui.faditor.compositor.MotionPreviewReadback.capturePresented(
+                        this, view, requestedMs);
+            }, 2_800L);
+        });
+    }
+
     // ── Relink missing media (catalog-based, à la After Effects) ──────
 
     private boolean isSourceAccessible(@NonNull Uri uri) {
@@ -6036,6 +6061,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // as "my effects were lost" — the preview only syncs on a playhead tick, and
                 // opening a project produces none.
                 syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+                if (com.fadcam.BuildConfig.DEBUG) runDebugPausedPreviewSeek();
             }
 
             @Override

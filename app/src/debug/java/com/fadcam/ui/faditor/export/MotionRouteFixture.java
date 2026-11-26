@@ -42,7 +42,7 @@ import java.nio.ByteBuffer;
 final class MotionRouteFixture {
     private MotionRouteFixture() {}
 
-    static FaditorProject create(Context context) throws IOException {
+    static FaditorProject create(Context context, boolean includePip) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 route"));
         var timeline = project.getTimeline();
@@ -103,11 +103,13 @@ final class MotionRouteFixture {
         sprite.addPropertyKeyframeAt(KeyframeSet.X, endMs - 1, 0.72f);
         timeline.addSpriteOverlay(sprite);
 
-        var pip = clip(second, normalMs, afterMs);
-        pip.setLayerId("video-c1-pip");
-        pip.setOverlayStartMs(Math.min(250L, cutMs / 2));
-        pip.setOverlayAudioEnabled(false);
-        timeline.addOverlayClip(pip);
+        if (includePip) {
+            var pip = clip(second, normalMs, afterMs);
+            pip.setLayerId("video-c1-pip");
+            pip.setOverlayStartMs(Math.min(250L, cutMs / 2));
+            pip.setOverlayAudioEnabled(false);
+            timeline.addOverlayClip(pip);
+        }
 
         var adjustment = new AdjustmentLayer();
         adjustment.setLayerId("adjustment-c1");

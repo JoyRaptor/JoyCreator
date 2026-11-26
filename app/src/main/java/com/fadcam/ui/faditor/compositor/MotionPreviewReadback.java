@@ -3,6 +3,10 @@ package com.fadcam.ui.faditor.compositor;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.opengl.GLES20;
+import android.view.TextureView;
+import android.view.View;
+
+import androidx.annotation.Nullable;
 
 import com.fadcam.FLog;
 
@@ -10,8 +14,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 
-/** One debug-only read of the pre-present compositor output on a decoded frame. */
+/** Debug-only reads of the compositor buffer or its last presented texture. */
 public final class MotionPreviewReadback {
+    public static final String EXTRA_PAUSED_SEEK_MS = "studio_debug_motion_paused_seek_ms";
     private static final String TAG = "MotionPreviewReadback";
     private final File folder;
     private final long earliestUs;
@@ -30,6 +35,34 @@ public final class MotionPreviewReadback {
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, framebuffer);
         GLES20.glReadPixels(0, 0, width, height, GLES20.GL_RGBA, GLES20.GL_UNSIGNED_BYTE, pixels);
         new Thread(() -> save(pixels, width, height, timeUs), "studio-motion-readback").start();
+    }
+
+    /** Read the held output without requesting a compositor draw that might hide a stale frame. */
+    public static void capturePresented(Context context, @Nullable TextureView view, long editorMs) {
+        if (!com.fadcam.BuildConfig.DEBUG) return;
+        if (view == null || view.getVisibility() != View.VISIBLE || !view.isAvailable()) {
+            FLog.w(TAG, "Paused seek has no presented texture at editorMs=" + editorMs);
+            return;
+        }
+        Bitmap image = view.getBitmap();
+        if (image == null) {
+            FLog.w(TAG, "Paused seek returned no pixels at editorMs=" + editorMs);
+            return;
+        }
+        File png = new File(context.getCacheDir(), "motion_paused_" + editorMs + ".png");
+        new Thread(() -> {
+            try (FileOutputStream stream = new FileOutputStream(png)) {
+                if (!image.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
+                    throw new java.io.IOException("Could not encode presented preview");
+                }
+                FLog.i(TAG, "frame=" + png.getName() + " editorMs=" + editorMs
+                        + " size=" + image.getWidth() + "x" + image.getHeight());
+            } catch (Exception e) {
+                FLog.w(TAG, "Presented preview capture failed", e);
+            } finally {
+                image.recycle();
+            }
+        }, "studio-motion-paused-readback").start();
     }
 
     private void save(ByteBuffer pixels, int width, int height, long timeUs) {

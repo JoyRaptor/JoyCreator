@@ -141,7 +141,8 @@ public class ExportDebugActivity extends Activity {
             FLog.i(TAG, "C2 pip fixture enabled=" + enabled);
         }
         if (in.getBooleanExtra("motion_route_fixture", false)) {
-            FaditorProject fixture = MotionRouteFixture.create(this);
+            FaditorProject fixture = MotionRouteFixture.create(this,
+                    !in.getBooleanExtra("motion_route_without_pip", false));
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C1 route fixture project_id=" + fixture.getId());
         }
@@ -153,6 +154,13 @@ public class ExportDebugActivity extends Activity {
         if (in.getBooleanExtra("open_preview", false)) {
             Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
             preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
+            long pausedSeekMs = in.getLongExtra("motion_preview_paused_seek_ms", -1L);
+            if (pausedSeekMs >= 0L && (in.getBooleanExtra("motion_route_fixture", false)
+                    || in.getBooleanExtra("motion_lane_fixture", false))) {
+                preview.putExtra(
+                        com.fadcam.ui.faditor.compositor.MotionPreviewReadback.EXTRA_PAUSED_SEEK_MS,
+                        pausedSeekMs);
+            }
             if (in.getBooleanExtra("motion_lane_project_order", false)) {
                 FaditorProject saved = new ProjectStorage(this).load(id);
                 if (saved == null) return false;

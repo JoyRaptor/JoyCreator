@@ -2447,20 +2447,25 @@ public class FxPreviewTextureView extends TextureView
                 avatarBaseStage = new GlProgram(getContext(),
                         "shaders/vertex_shader_transformation_es2.glsl",
                         "shaders/fragment_shader_transformation_sdr_external_es2.glsl");
-                avatarBaseStage.setBufferAttribute("aFramePosition",
-                        GlUtil.getNormalizedCoordinateBounds(), 4);
+                // Match the fan and corner order used by Media3's DefaultShaderProgram.
+                avatarBaseStage.setBufferAttribute("aFramePosition", new float[]{
+                        -1f, -1f, 0f, 1f,
+                        -1f, 1f, 0f, 1f,
+                        1f, 1f, 0f, 1f,
+                        1f, -1f, 0f, 1f
+                }, 4);
                 float[] identity = GlUtil.create4x4IdentityMatrix();
                 avatarBaseStage.setFloatsUniform("uTransformationMatrix", identity);
                 avatarBaseStage.setFloatsUniform("uRgbMatrix", identity);
                 avatarBaseStage.setIntUniform("uOutputColorTransfer",
-                        androidx.media3.common.C.COLOR_TRANSFER_SDR_VIDEO);
+                        androidx.media3.common.C.COLOR_TRANSFER_SDR);
                 avatarBaseStage.setIntUniform("uSdrWorkingColorSpace", 0);
             }
             avatarBaseStage.use();
             avatarBaseStage.setFloatsUniform("uTexTransformationMatrix", texMatrix);
             avatarBaseStage.setSamplerTexIdUniform("uTexSampler", oesTexId, 0);
             avatarBaseStage.bindAttributesAndUniforms();
-            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4);
             GlUtil.checkGlError();
             return true;
         } catch (Exception e) {

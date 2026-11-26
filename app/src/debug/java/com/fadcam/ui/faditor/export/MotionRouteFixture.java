@@ -452,7 +452,31 @@ final class MotionRouteFixture {
         return project;
     }
 
-    static FaditorProject createRecordedAvatar(Context context, boolean enabled, boolean masterOff)
+    static FaditorProject createFootage(Context context, boolean enabled, boolean slow,
+                                       boolean secondSource) throws IOException {
+        var storage = new ProjectStorage(context);
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C6 footage"));
+        project.setMotionBlurEnabled(enabled);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Could not create footage fixture folder");
+        for (String name : secondSource ? new String[]{"card1.mp4", "card2.mp4"}
+                : new String[]{"card1.mp4"}) {
+            File file = copyAsset(context, media, name);
+            var clip = clip(file, durationMs(file), 900L);
+            clip.setInPointMs(233L);
+            clip.setAudioMuted(true);
+            clip.setSpeedMultiplier(slow ? 0.5f : 1f);
+            clip.setRigidMotionBlurEnabled(true);
+            clip.setRigidMotionShutter(new MotionShutter.Controls(270,
+                    MotionShutter.Timing.CENTERED, 0, 100));
+            project.getTimeline().addClip(clip);
+        }
+        if (!storage.save(project)) throw new IOException("Could not save the footage fixture");
+        return project;
+    }
+
+    static FaditorProject createRecordedAvatar(Context context, boolean enabled, boolean masterOff,
+                                               boolean parityLoop)
             throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = !enabled ? "sharp" : masterOff ? "master off" : "blur";
@@ -465,7 +489,8 @@ final class MotionRouteFixture {
         long duration = durationMs(source);
         if (duration < 1_000L) throw new IOException("Avatar fixture source is too short");
         var timeline = project.getTimeline();
-        timeline.addClip(clip(source, duration, 1_000L));
+        long clipLength = parityLoop ? 3_800L : 1_000L;
+        timeline.addClip(clip(source, duration, clipLength));
 
         // Each cell has an opaque upper block and a shorter translucent block on its left.
         var sheet = new SpriteSheet("c5-avatar-cells", "C5 avatar atlas",
@@ -499,12 +524,21 @@ final class MotionRouteFixture {
         take.add(400L, Map.of("yaw", 1f));
         take.add(510L, Map.of("yaw", -1f));
         take.add(799L, Map.of("yaw", -1f));
+        if (parityLoop) {
+            for (long offset = 800L; offset < clipLength; offset += 800L) {
+                take.add(offset, Map.of("yaw", -1f));
+                take.add(offset + 120L, Map.of("yaw", -1f));
+                take.add(offset + 220L, Map.of("yaw", 1f));
+                take.add(offset + 400L, Map.of("yaw", 1f));
+                take.add(offset + 510L, Map.of("yaw", -1f));
+            }
+        }
         var sprite = SpriteOverlayItem.create(sheet.getId());
         sprite.setAvatarRigId(rig.getId());
         sprite.setAvatarTrack(take);
         sprite.setCenter(0.50f, 0.52f);
         sprite.setSizeFraction(0.75f);
-        sprite.setTimeRange(100L, 899L);
+        sprite.setTimeRange(100L, parityLoop ? clipLength - 1 : 899L);
         sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0, 0));
         sprite.setRigidMotionBlurEnabled(enabled);
         sprite.setRigidMotionShutter(

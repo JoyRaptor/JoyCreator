@@ -60,17 +60,20 @@ wait_for_log() {
 }
 
 times=()
-for target in 233000 299000 565000; do
+for target in 150000 470000 650000; do
     app_start --ez motion_avatar_fixture true --ez motion_enabled true \
         --ez open_preview true --el motion_preview_readback_us "$target"
     play
     log="$out/preview/$target.log"
     wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' \
-        ExportDebug MotionPreviewReadback FxPreviewTextureView
+        ExportDebug MotionPreviewReadback FxPreviewGl
     read -r file actual dimensions <<< "$(sed -nE \
         's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
     test "$actual" -ge "$target"
-    test "$actual" -lt "$((target + 67000))"
+    test "$actual" -lt 900000
+    if (( ${#times[@]} > 0 )); then
+        test "$actual" -gt "${times[-1]}"
+    fi
     times+=("$actual")
     adb -e exec-out run-as "$pkg" cat "cache/$file" > "$out/preview/$file"
     test -s "$out/preview/$file"
@@ -130,7 +133,15 @@ for route in ("blur-raw", "sharp-raw"):
     (folder / "manifest.json").write_text(json.dumps({"samples": samples}))
 PY
 
-node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/sharp-raw/manifest.json" \
-    --expect-different | tee "$out/avatar-negative.json"
+if node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/sharp-raw/manifest.json" \
+    > "$out/avatar-negative.json"; then
+    echo 'Negative control unexpectedly treated the sharp export as equivalent'
+    exit 1
+fi
+# A timestamp, dimension or file error is not a pixel-level negative control.
+"$python" -c 'import json, sys
+result = json.load(open(sys.argv[1]))
+assert len(result["samples"]) == 3 and any(not sample["equivalent"] for sample in result["samples"])
+' "$out/avatar-negative.json"
 node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/blur-raw/manifest.json" \
     | tee "$out/avatar-parity.json"

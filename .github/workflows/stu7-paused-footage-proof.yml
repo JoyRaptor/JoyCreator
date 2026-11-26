@@ -1,0 +1,68 @@
+name: STU-7 paused High footage proof
+on:
+  push:
+    branches: [codex/stu7-c6-paused-proof-20261126]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  paused-footage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN: '45836328274'
+      SOURCE_COMMIT: 'c0a9420b6b83efaf900b4895087cbfd7165b94b2'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure emulator
+        run: |
+          set -euo pipefail
+          sudo chmod a+rw /dev/kvm
+          echo "$ANDROID_HOME/platform-tools" >> "$GITHUB_PATH"
+          export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+          sdkmanager 'emulator' 'platform-tools' 'system-images;android-30;google_apis;x86_64'
+          export ANDROID_USER_HOME="$RUNNER_TEMP/stu7-android"
+          export ANDROID_AVD_HOME="$ANDROID_USER_HOME/avd"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo no | avdmanager create avd --name stu7 --package 'system-images;android-30;google_apis;x86_64'
+          test -s "$ANDROID_AVD_HOME/stu7.ini"
+          "$ANDROID_HOME/emulator/emulator" -avd stu7 -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader -accel on > "$RUNNER_TEMP/emulator.log" 2>&1 &
+          emu_pid=$!
+          for attempt in {1..120}; do
+            if adb -e get-state 2>/dev/null | grep -qx device; then break; fi
+            if ! kill -0 "$emu_pid" 2>/dev/null; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
+            sleep 2
+          done
+          if ! adb -e get-state | grep -qx device; then cat "$RUNNER_TEMP/emulator.log"; exit 1; fi
+          timeout 300 bash -c 'until [ "$(adb -e shell getprop sys.boot_completed | tr -d "\r")" = 1 ]; do sleep 2; done'
+          adb -e wait-for-device
+      - name: Fetch pinned APK
+        id: apk
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            if gh run download --repo "$GITHUB_REPOSITORY" "$SOURCE_RUN" --name "joycreator-defaultDebug-${SOURCE_COMMIT:0:9}" --dir "$RUNNER_TEMP/stu7-apk"; then break; fi
+            sleep 10
+          done
+          test "$(cat "$RUNNER_TEMP/stu7-apk/COMMIT.txt")" = "$SOURCE_COMMIT"
+          apk=$(find "$RUNNER_TEMP/stu7-apk" -name '*.apk' -print -quit)
+          test -n "$apk"
+          adb -e shell getprop ro.product.cpu.abilist
+          adb -e install "$apk"
+      - name: Verify matching paused colors and export source PTS
+        run: |
+          python3 -m venv "$RUNNER_TEMP/stu7-pixels"
+          "$RUNNER_TEMP/stu7-pixels/bin/pip" install Pillow
+          PYTHON="$RUNNER_TEMP/stu7-pixels/bin/python" bash tools/motionref/capture-paused-footage.sh "$RUNNER_TEMP/paused-footage"
+      - name: Print boot diagnostics on failure
+        if: failure()
+        run: tail -100 "$RUNNER_TEMP/emulator.log" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: stu7-paused-footage-proof
+          path: |
+            ${{ runner.temp }}/emulator.log
+            ${{ runner.temp }}/paused-footage/
+          retention-days: 3

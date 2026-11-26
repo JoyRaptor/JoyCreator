@@ -11,8 +11,8 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: '45836328274'
-      SOURCE_COMMIT: 'c0a9420b6b83efaf900b4895087cbfd7165b94b2'
+      SOURCE_RUN: '45838060635'
+      SOURCE_COMMIT: '793aaf5ac9f56a7ba537ad253fc8502c43d4c123'
     steps:
       - uses: actions/checkout@v4
       - name: Configure emulator

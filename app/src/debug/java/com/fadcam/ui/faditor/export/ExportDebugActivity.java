@@ -142,7 +142,8 @@ public class ExportDebugActivity extends Activity {
             FaditorProject fixture = MotionRouteFixture.createFootage(this, enabled,
                     in.getBooleanExtra("motion_slow", false),
                     in.getBooleanExtra("motion_second_source", false),
-                    in.getBooleanExtra("motion_private_reference", false));
+                    in.getBooleanExtra("motion_private_reference", false),
+                    in.getBooleanExtra("motion_footage_calibration", false));
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C6 footage fixture project_id=" + fixture.getId() + " enabled=" + enabled);
         }

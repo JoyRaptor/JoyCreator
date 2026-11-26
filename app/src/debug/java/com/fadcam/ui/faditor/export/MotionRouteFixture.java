@@ -453,7 +453,11 @@ final class MotionRouteFixture {
     }
 
     static FaditorProject createFootage(Context context, boolean enabled, boolean slow,
-                                       boolean secondSource, boolean privateReference) throws IOException {
+                                       boolean secondSource, boolean privateReference, boolean calibration)
+            throws IOException {
+        if (calibration && (!privateReference || slow || secondSource)) {
+            throw new IllegalArgumentException("Calibration needs a single untrimmed private reference");
+        }
         var storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C6 footage"));
         project.setMotionBlurEnabled(enabled);
@@ -464,16 +468,16 @@ final class MotionRouteFixture {
         for (String name : names) {
             File file = privateReference ? new File(context.getExternalFilesDir(null), name)
                     : copyAsset(context, media, name);
-            long startMs = privateReference && slow ? 3_600L : 233L;
-            long endMs = privateReference && slow ? 4_400L : 900L;
             long duration = durationMs(file);
+            long startMs = calibration ? 0L : privateReference && slow ? 3_600L : 233L;
+            long endMs = calibration ? duration : privateReference && slow ? 4_400L : 900L;
             if (duration < endMs) throw new IOException("Footage fixture source is shorter than its trim");
             var clip = clip(file, duration, endMs);
             clip.setInPointMs(startMs);
             clip.setAudioMuted(true);
             clip.setSpeedMultiplier(slow && !privateReference ? 0.5f : 1f);
             clip.setRigidMotionBlurEnabled(true);
-            clip.setRigidMotionShutter(new MotionShutter.Controls(270,
+            clip.setRigidMotionShutter(new MotionShutter.Controls(calibration ? 180 : 270,
                     MotionShutter.Timing.CENTERED, 0, 100));
             project.getTimeline().addClip(clip);
         }

@@ -44,6 +44,8 @@ expect_failure 'OpenGL row zero comes from the image bottom' \
   com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-row-flip
 expect_failure 'downward image motion becomes upward OpenGL motion' \
   com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-v-invert
+expect_failure 'cold and warm textures round half steps in source coordinates' \
+  com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --round-after-flip
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest
 expect_failure 'after a seek back the frame is sharp until a neighbour' SourceFrameRingTest --naive
 java -cp "$OUT" SourceFrameRingTest

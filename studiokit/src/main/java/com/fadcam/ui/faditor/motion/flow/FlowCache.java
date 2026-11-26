@@ -328,6 +328,10 @@ public final class FlowCache {
         return Math.max(Short.MIN_VALUE, Math.min(Short.MAX_VALUE, Math.round(value * VECTOR_SCALE)));
     }
 
+    static float canonicalVector(float value) {
+        return quantizeVector(value) / VECTOR_SCALE;
+    }
+
     private static int quantizeConfidence(float value) {
         if (!Float.isFinite(value)) value = 0f;
         return Math.max(0, Math.min(255, Math.round(value * 255f)));

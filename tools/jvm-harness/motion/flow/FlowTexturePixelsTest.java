@@ -14,6 +14,7 @@ public final class FlowTexturePixelsTest {
         test.checkBottomRow(pixels, noFlip, noInvert);
         test.checkTopRow(pixels);
         test.checkConfidenceSafety();
+        test.checkColdWarmRounding(args.length > 0 && args[0].equals("--round-after-flip"));
         System.out.println("FlowTexturePixelsTest: " + test.assertions + " assertions");
     }
 
@@ -51,6 +52,15 @@ public final class FlowTexturePixelsTest {
         check(VelocityPack.order(packed(pixels, 0)) == 0, "negative confidence clamps to zero");
         check(VelocityPack.order(packed(pixels, 1)) == 0, "non-finite confidence rejects the sample");
         check(VelocityPack.order(packed(pixels, 2)) == 255, "high confidence clamps to one");
+    }
+
+    private void checkColdWarmRounding(boolean roundAfterFlip) {
+        var cold = new FlowField(1, 1, new float[]{0}, new float[]{1f / 32f}, null, 1, 2);
+        var warm = new FlowField(1, 1, new float[]{0}, new float[]{1f / 16f}, null, 1, 2);
+        int coldPacked = roundAfterFlip ? VelocityPack.pack(0, -cold.v(0, 0), 255)
+                : packed(FlowTexturePixels.rgba(cold), 0);
+        check(coldPacked == packed(FlowTexturePixels.rgba(warm), 0),
+                "cold and warm textures round half steps in source coordinates");
     }
 
     private static int packed(byte[] pixels, int pixel) {

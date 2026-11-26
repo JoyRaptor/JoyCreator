@@ -21,7 +21,10 @@ public final class FlowTexturePixels {
         for (int glY = 0; glY < field.height; glY++) {
             int imageY = field.height - 1 - glY;
             for (int x = 0; x < field.width; x++) {
-                int packed = VelocityPack.pack(field.u(x, imageY), -field.v(x, imageY),
+                // Quantize in source coordinates first, exactly as the disk cache does.
+                // At a half step, rounding after negating V can change a warm render.
+                int packed = VelocityPack.pack(FlowCache.canonicalVector(field.u(x, imageY)),
+                        -FlowCache.canonicalVector(field.v(x, imageY)),
                         confidenceByte(field.confidence(x, imageY)));
                 int offset = (glY * field.width + x) * 4;
                 pixels[offset] = (byte) (packed >>> 24);

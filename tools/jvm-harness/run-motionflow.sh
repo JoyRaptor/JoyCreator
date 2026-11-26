@@ -37,6 +37,8 @@ expect_failure '2x speed smears twice as far' FlowCoreTest --wrong-time-scale
 java -cp "$OUT" FlowCoreTest
 expect_failure 'B frames use display neighbours' \
     com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --decode-order
+expect_failure 'paused exposure uses the immediately preceding decoded PTS' \
+    com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --skip-donor
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest --preview-binding

@@ -337,7 +337,7 @@ public final class FxLivePreviewController {
         this.host = host;
         debugLaneOrder = debugLaneOrder(view.getContext());
         projectLaneOrderEnabled = StudioLayerOrder.enabled(view.getContext());
-        motionClock = new PreviewDecoderClock(view.motionClock());
+        motionClock = new PreviewDecoderClock(view.motionClock(), view::setPausedFootage);
         view.setSurfaceListener(new FxPreviewTextureView.SurfaceListener() {
             @Override public void onFxInputSurfaceReady(@NonNull Surface s) {
                 inputSurface = s;

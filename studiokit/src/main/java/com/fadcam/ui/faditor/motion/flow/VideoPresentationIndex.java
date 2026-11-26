@@ -63,6 +63,16 @@ public final class VideoPresentationIndex {
                 ? new Pair(fromPtsUs, next) : null;
     }
 
+    /** Find the previous display frame within the same trim and continuity limit. */
+    public Pair previous(long toPtsUs, long startUs, long endUs, long maximumGapUs) {
+        if (toPtsUs < startUs || toPtsUs >= endUs || maximumGapUs <= 0) return null;
+        int i = Arrays.binarySearch(times, toPtsUs);
+        if (i <= 0) return null;
+        long previous = times[i - 1];
+        return previous >= startUs && toPtsUs - previous <= maximumGapUs
+                ? new Pair(previous, toPtsUs) : null;
+    }
+
     public static final class Builder {
         private long[] times = new long[1024];
         private int size;

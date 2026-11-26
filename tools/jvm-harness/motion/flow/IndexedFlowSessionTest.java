@@ -42,7 +42,7 @@ public final class IndexedFlowSessionTest {
         var oldRetiring = new CountDownLatch(1);
         var nextOpening = new CountDownLatch(1);
         try (var binding = new PreviewIndexedFlow(() -> new FlowCache(root.toFile(), 1_000_000))) {
-            binding.setSource(new PreviewIndexedFlow.Source("old", 200, 301,
+            binding.setSource(new PreviewIndexedFlow.Source("old", 100, 301,
                     cancel -> new PreviewIndexedFlow.Prepared(index(), source("old"),
                             (pts, w, h) -> FLAT, () -> {
                                 oldRetiring.countDown();
@@ -54,6 +54,8 @@ public final class IndexedFlowSessionTest {
             binding.observe(oldFrame);
             check(awaitPreviewPair(binding, oldFrame) != null,
                     "editor plans from latched source PTS rather than editor time");
+            check(new PreviewIndexedFlow.Neighbours(100, 300).equals(binding.neighbours(oldFrame)),
+                    "paused donors follow the exact PTS of the latched texture");
             var replacement = new PreviewIndexedFlow.Source("next", 200, 301, cancel -> {
                 nextOpening.countDown();
                 return new PreviewIndexedFlow.Prepared(index(), source("next"),
@@ -64,12 +66,15 @@ public final class IndexedFlowSessionTest {
                 binding.setSource(replacement);
                 check(binding.ready(oldFrame, 200, 300) == null,
                         "editor source switch immediately rejects the old latched pair");
+                check(binding.neighbours(oldFrame) == null,
+                        "editor source switch immediately rejects the old color donor request");
             }
             check(oldRetiring.await(3, TimeUnit.SECONDS), "previous source retires off the render thread");
             binding.observe(oldFrame);
             check(nextOpening.getCount() == 1, "old latched PTS cannot plan the replacement source");
 
             long nextGeneration = clock.reset();
+            check(!clock.isCurrent(oldFrame), "seek or source rebind fences the previously latched frame");
             clock.onFrame(nextGeneration, 11_000, 10_000, 200, "next");
             var nextFrame = clock.latch(11_000);
             binding.observe(nextFrame);
@@ -77,6 +82,8 @@ public final class IndexedFlowSessionTest {
                     "replacement at identical PTS starts on fallback");
             finishOld.countDown();
             check(awaitPreviewPair(binding, nextFrame) != null, "replacement publishes its own pair");
+            check(binding.neighbours(nextFrame) == null,
+                    "same-PTS replacement cannot reuse a donor before its trim");
             check(binding.ready(oldFrame, 200, 300) == null, "old frame cannot borrow replacement flow");
             check(binding.ready(nextFrame, 200, 301) == null, "inexact neighbour cannot borrow flow");
             binding.setSource(null);

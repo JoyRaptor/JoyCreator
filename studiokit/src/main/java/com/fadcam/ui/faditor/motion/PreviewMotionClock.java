@@ -67,4 +67,9 @@ public final class PreviewMotionClock {
         }
         return null;
     }
+
+    /** A seek can invalidate an already latched frame while the renderer gathers its exposure. */
+    public synchronized boolean isCurrent(Frame frame) {
+        return latched != null && latched.frame == frame;
+    }
 }

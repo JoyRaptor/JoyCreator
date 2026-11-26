@@ -23,6 +23,8 @@ public final class PreviewIndexedFlow implements AutoCloseable {
 
     public record Source(String key, long startUs, long endUs, Loader loader) {}
 
+    public record Neighbours(long previousUs, long nextUs) {}
+
     private record Request(Source source, PreviewMotionClock.Frame frame) {}
     private record Active(Source source, long generation, Prepared media) {}
 
@@ -77,6 +79,22 @@ public final class PreviewIndexedFlow implements AutoCloseable {
                 || (frame.decodedPtsUs() != fromUs && frame.decodedPtsUs() != toUs)) return null;
         FlowCache.Pair pair = session.ready(current.generation(), fromUs, toUs);
         return current == active && current.source() == source ? pair : null;
+    }
+
+    /** Uses only exact decoder neighbours for the active trim. */
+    public Neighbours neighbours(PreviewMotionClock.Frame frame) {
+        Active current = active;
+        if (current == null || current.source() != source || frame == null
+                || !frame.hasDecodedPtsFor(current.source().key())) return null;
+        Source bound = current.source();
+        Prepared media = current.media();
+        long gap = media.geometry().maxGapUs();
+        long centre = frame.decodedPtsUs();
+        var before = media.index().previous(centre, bound.startUs(), bound.endUs(), gap);
+        var after = media.index().next(centre, bound.startUs(), bound.endUs(), gap);
+        return before != null && current == active && current.source() == source
+                ? new Neighbours(before.fromPtsUs(), after == null ? Long.MIN_VALUE : after.toPtsUs())
+                : null;
     }
 
     private void schedule() {

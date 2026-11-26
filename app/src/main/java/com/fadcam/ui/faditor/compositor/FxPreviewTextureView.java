@@ -113,7 +113,7 @@ public class FxPreviewTextureView extends TextureView
      * The decoder's transform matrix (rotation, crop, and on some devices a vertical flip) is
      * applied HERE, once, so no effect body ever has to know about it.
      */
-    private static final String STAGE_FRAGMENT =
+    static final String STAGE_FRAGMENT =
             "#version 100\n"
             + "#extension GL_OES_EGL_image_external : require\n"
             + "precision mediump float;\n"
@@ -1946,14 +1946,20 @@ public class FxPreviewTextureView extends TextureView
                             long sourceStartUs, long sourceEndUs) {}
 
     private record FastFootageExposure(FastFootageInput input, MotionBreaks fences) {}
+    private record FootagePause(boolean paused, long epoch) {}
 
     @Nullable private volatile FastFootageExposure fastFootage;
     @Nullable private volatile PreviewIndexedFlow indexedFootage;
+    private volatile FootagePause footagePause = new FootagePause(false, 0);
     @Nullable private FastFootagePreviewOwner footageFlow;
     @Nullable private FastFootageGatherGl footageGather;
     private boolean fastFootageFailed;
     @Nullable private HighFootageGatherGl highFootageGather;
     @Nullable private FlowPairTexturesGl highFootageFlow;
+    @Nullable private FlowPairTexturesGl pausedFootageAfter;
+    @Nullable private PausedFootageColorWorker pausedColorWorker;
+    @Nullable private PausedFootageColorWorker.Colors pausedColors;
+    private boolean loggedPausedGather;
     private boolean highFootageFailed;
     private final int[][] highFootageTargets = new int[2][2];
     private int highFootageWidth, highFootageHeight;
@@ -1963,6 +1969,13 @@ public class FxPreviewTextureView extends TextureView
     private long previousFootagePts = Long.MIN_VALUE, newestFootagePts = Long.MIN_VALUE;
     // x, y, width, height of the viewport that actually staged the decoder, then source size.
     private final int[] footageStage = new int[6];
+
+    /** Published synchronously by the current player's application-thread listener. */
+    void setPausedFootage(boolean paused) {
+        var previous = footagePause;
+        if (previous.paused() != paused) footagePause = new FootagePause(paused, previous.epoch() + 1);
+        if (paused || previous.paused()) requestFrame();
+    }
 
     /** Published on the editor thread. Null selects the regular sharp footage path. */
     void setFastFootageInput(@Nullable FastFootageInput input) {
@@ -2208,6 +2221,7 @@ public class FxPreviewTextureView extends TextureView
                 || frame.editorTimeUs() < input.startUs() || frame.editorTimeUs() >= input.endUs()) {
             if (footageFlow != null) footageFlow.reset();
             clearHighFootageHistory();
+            clearPausedFootageColors();
             if (input == null) releaseHighFootage();
             return 0;
         }
@@ -2257,12 +2271,22 @@ public class FxPreviewTextureView extends TextureView
                 releaseHighFootage();
                 highFootageGather = new HighFootageGatherGl(getContext().getAssets());
                 highFootageFlow = new FlowPairTexturesGl();
+                pausedFootageAfter = new FlowPairTexturesGl();
+                highFootageWidth = width;
+                highFootageHeight = height;
+            }
+            var pause = footagePause;
+            if (pause.paused()) {
+                clearHighFootageHistory();
+                releaseHighFootageTargets(true);
+                return drawPausedHighFootage(exposure, indexed, frame, source, width, height, pause);
+            }
+            clearPausedFootageColors();
+            if (highFootageTargets[0][0] == 0) {
                 for (int[] target : highFootageTargets) {
                     target[0] = androidx.media3.common.util.GlUtil.createTexture(width, height, false);
                     target[1] = androidx.media3.common.util.GlUtil.createFboForTexture(target[0]);
                 }
-                highFootageWidth = width;
-                highFootageHeight = height;
             }
             long pts = frame.decodedPtsUs();
             if (!source.equals(highFootageGeometry) || highFootageEpoch != frame.continuityEpoch()
@@ -2315,6 +2339,70 @@ public class FxPreviewTextureView extends TextureView
         }
     }
 
+    private boolean drawPausedHighFootage(FastFootageExposure exposure, PreviewIndexedFlow indexed,
+                                          PreviewMotionClock.Frame frame, LiveFlowGl.SourceGeometry source,
+                                          int width, int height, FootagePause pause)
+            throws java.io.IOException, androidx.media3.common.util.GlUtil.GlException {
+        var neighbours = indexed.neighbours(frame);
+        if (neighbours == null || source.rotationDegrees() != 0 || !motionClock.isCurrent(frame)) {
+            clearPausedFootageColors();
+            return false;
+        }
+        long center = frame.decodedPtsUs(), previous = neighbours.previousUs(), next = neighbours.nextUs();
+        var input = exposure.input();
+        var stage = new PausedFootageColorWorker.Stage(width, height, footageStage[0], footageStage[1],
+                footageStage[2], footageStage[3], footageStage[4], footageStage[5]);
+        var key = new PausedFootageColorWorker.Key(input.sourceKey(), input.uri(),
+                frame.continuityEpoch(), pause.epoch(), center, previous, next, stage);
+        if (pausedColors != null && !pausedColors.key().equals(key)) {
+            pausedColors.release();
+            pausedColors = null;
+            loggedPausedGather = false;
+        }
+        var before = indexed.ready(frame, previous, center);
+        var after = next == Long.MIN_VALUE ? null : indexed.ready(frame, center, next);
+        if (before == null || (next != Long.MIN_VALUE && after == null)) {
+            clearPausedFootageColors();
+            return false;
+        }
+        if (after != null && (before.forward.width != after.forward.width
+                || before.forward.height != after.forward.height)) return false;
+        if (pausedColorWorker == null) {
+            pausedColorWorker = new PausedFootageColorWorker(getContext(), eglDisplay, eglContext,
+                    this::requestFrame);
+        }
+        if (pausedColors == null) pausedColors = pausedColorWorker.request(key);
+        if (pausedColors == null) return false;
+        long period = Math.round((center - previous) / (double) input.speed());
+        var taps = input.shutter().schedule(frame.editorTimeUs(), period,
+                HighFootageGatherGl.MAX_TAPS, exposure.fences(), MotionBreaks.none());
+        var uploadedBefore = highFootageFlow.set(before);
+        var uploadedAfter = pausedFootageAfter.set(after);
+        if (uploadedBefore == null || (after != null && uploadedAfter == null)) return false;
+        var staged = new HighFootageGatherGl.Frame(pausedColors.previous(), targets[0][0],
+                pausedColors.next(), uploadedBefore, uploadedAfter, input.speed(),
+                source.left(), source.bottom(), source.right(), source.top());
+        boolean drawn = highFootageGather.draw(staged, targets[2][1], width, height,
+                before.forward.width, before.forward.height, frame.editorTimeUs(), taps);
+        boolean accepted = drawn && exposure == fastFootage && pause == footagePause && motionClock.isCurrent(frame)
+                && indexed.ready(frame, previous, center) == before
+                && (after == null || indexed.ready(frame, center, next) == after);
+        if (accepted && motionPreviewTiming && !loggedPausedGather) {
+            FLog.i("MotionPreviewBench", "HIGH_FOOTAGE_PAUSED editorUs=" + frame.editorTimeUs()
+                    + " previousPtsUs=" + previous + " centerPtsUs=" + center
+                    + " nextPtsUs=" + next + " periodUs=" + period);
+            loggedPausedGather = true;
+        }
+        return accepted;
+    }
+
+    private void clearPausedFootageColors() {
+        if (pausedColorWorker != null) pausedColorWorker.request(null);
+        if (pausedColors != null) pausedColors.release();
+        pausedColors = null;
+        loggedPausedGather = false;
+    }
+
     private void clearHighFootageHistory() {
         highFootageGeometry = null;
         previousFootagePts = newestFootagePts = Long.MIN_VALUE;
@@ -2324,6 +2412,16 @@ public class FxPreviewTextureView extends TextureView
         clearHighFootageHistory();
         boolean contextCurrent = eglContext != EGL14.EGL_NO_CONTEXT
                 && eglContext.equals(EGL14.eglGetCurrentContext());
+        if (pausedColorWorker != null) pausedColorWorker.close(contextCurrent);
+        pausedColorWorker = null;
+        if (pausedColors != null && contextCurrent) pausedColors.release();
+        pausedColors = null;
+        loggedPausedGather = false;
+        if (pausedFootageAfter != null) {
+            if (contextCurrent) pausedFootageAfter.release();
+            else pausedFootageAfter.abandon();
+        }
+        pausedFootageAfter = null;
         if (highFootageFlow != null) {
             if (contextCurrent) highFootageFlow.release();
             else highFootageFlow.abandon();
@@ -2336,12 +2434,16 @@ public class FxPreviewTextureView extends TextureView
         }
         highFootageFlow = null;
         highFootageGather = null;
+        releaseHighFootageTargets(contextCurrent);
+        highFootageWidth = highFootageHeight = 0;
+    }
+
+    private void releaseHighFootageTargets(boolean contextCurrent) {
         for (int[] target : highFootageTargets) {
             if (contextCurrent && target[1] != 0) GLES20.glDeleteFramebuffers(1, target, 1);
             if (contextCurrent && target[0] != 0) GLES20.glDeleteTextures(1, target, 0);
             java.util.Arrays.fill(target, 0);
         }
-        highFootageWidth = highFootageHeight = 0;
     }
 
     private void releaseFastFootage() {

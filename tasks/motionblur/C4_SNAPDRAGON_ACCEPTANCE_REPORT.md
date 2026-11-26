@@ -15,4 +15,6 @@ After 50 warm-up seeks per mode, the next 50 added 136 KiB graphics PSS in each 
 
 Raw evidence is under `C:/Temp/stu7-c4-physical-20261125/`: `corpus/receipt.json`, `*-results.json`, `performance-retest-comparison.json`, `preview-latch.log`, `legacy-json-receipt.json`, and the ordered/legacy `*seek-*-meminfo.txt` series. No owner media is checked in.
 
-The C4 candidate remains isolated. Paused PiP pixel parity and the landing decision remain open. No Exynos or release-profile claim is made.
+The isolated PiP latch fix at `fb2269d17c5250ec328098d963905babe54e561f` [built in Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45832403927). On Snapdragon all six fixture captures completed. Plain and blended PiP each matched legacy repeat and ordered output bit-for-bit at 66,666, 500,000, and 900,000 µs. All six runs logged 25 decoded GL frames and zero rewinds. The original APK was restored by hash and the phone lock released. See `pip-exact-085757/` for the receipt, device logs, and four comparisons.
+
+The C4 candidate remains isolated. The earlier paused-preview comparison, speed and memory acceptance, and the landing decision remain open. No Exynos or release-profile claim is made.

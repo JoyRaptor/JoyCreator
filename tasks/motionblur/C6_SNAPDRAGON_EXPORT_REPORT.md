@@ -34,3 +34,11 @@ The debug-only fixture a9334c439 from [Actions 45835093208](https://github.com/J
 High had more whole-frame error than the sharp control at all three times. In the reference-defined motion region (pixels with more than eight code values of contrast against its clean sharp frame), it reduced mean error from 15.629 to 15.188 and from 16.436 to 16.119 in the first and third samples. Error rose from 10.593 to 10.715 in the second. Quality on this low-light shot remains open. The 14 frames are one shot for C7. These three diagnostics do not provide a blind-review score.
 
 Raw pixels, local previews and metrics are in C:/Temp/stu7-c4-physical-20261125/reference-device-091014/.
+
+## Paused High preview on Snapdragon
+
+The isolated [c0a9420b6 debug APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45836328274) used the gated candidate ef9607b54. The real editor paused at editor time 300,333 µs and latched source PTS 533,333 µs. The draw logged matching preceding and next source PTS 500,000 and 566,666 µs. Cold and repeated 960×540 readbacks were byte-identical, and High differed from the master-off readback in 18,432 pixels (maximum 46/255, RGB RMS 1.559).
+
+Inspect Frame produced distinct High and sharp PNGs at the same requested position (RGB RMS 1.900). The preview/Inspect cross-route RMS was 2.923 for High and 2.837 for sharp. Inspect passes through the encoder and its route marker reports the first successful High frame. The exact pre-encode service export comparison is tracked separately. The previous installation was verified by hash after both runs and the device lock was released.
+
+The readbacks and logs are in C:/Temp/stu7-c4-physical-20261125/paused-device-091908/ and paused-device-092024/.

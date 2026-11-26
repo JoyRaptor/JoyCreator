@@ -577,6 +577,9 @@ final class SpriteBlendGlEffect implements GlEffect {
                 puppet.advanceSharp(track, item.toLocalMs(editorUs / 1000L));
                 GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, outputFramebuffer, 0);
                 avatarStamp.composite(outputFramebuffer[0], inputTexId, stampTexture, frameW, frameH);
+                com.fadcam.ui.faditor.compositor.AvatarParityTrace.capture(
+                        "export", editorUs, periodUs, schedule, inputTexId, stampTexture,
+                        outputFramebuffer[0], frameW, frameH);
                 return true;
             } catch (Exception | OutOfMemoryError error) {
                 if (!loggedAvatarFailure) {

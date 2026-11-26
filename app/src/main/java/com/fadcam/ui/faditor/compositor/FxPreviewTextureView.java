@@ -3175,6 +3175,10 @@ public class FxPreviewTextureView extends TextureView
                         if (stamp != 0) {
                             int dst = src == 0 ? 1 : 0;
                             avatarStamp.composite(targets[dst][1], targets[src][0], stamp, width, height);
+                            if (motionReadback != null && motionReadback.accepts(editorUs)) {
+                                AvatarParityTrace.capture("preview", editorUs, frame.periodUs(), schedule,
+                                        targets[src][0], stamp, targets[dst][1], width, height);
+                            }
                             return dst;
                         }
                     }

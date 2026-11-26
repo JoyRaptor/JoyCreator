@@ -1315,6 +1315,7 @@ public class FxPreviewTextureView extends TextureView
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
+    private final float[] avatarBaseTransform = new float[16];
     @Nullable private GlProgram avatarBaseStage;
     private boolean avatarBaseStageUnavailable;
     private int stageProgram, presentProgram, gradeProgram, cropProgram, layerProgram;
@@ -2435,7 +2436,7 @@ public class FxPreviewTextureView extends TextureView
         if (b != null && !b.isRecycled() && drawStageStill(b, vw, vh)) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
         stageViewport(vw, vh, stage);
-        if (avatarBase && rotation == 0 && drawAvatarBaseStage()) return true;
+        if (avatarBase && rotation == 0 && drawAvatarBaseStage(vw, vh)) return true;
         GLES20.glUseProgram(stageProgram);
         bindQuad(stageProgram);
         GLES20.glUniformMatrix4fv(
@@ -2448,7 +2449,7 @@ public class FxPreviewTextureView extends TextureView
         return true;
     }
 
-    private boolean drawAvatarBaseStage() {
+    private boolean drawAvatarBaseStage(int width, int height) {
         if (avatarBaseStageUnavailable) return false;
         try {
             if (avatarBaseStage == null) {
@@ -2469,8 +2470,14 @@ public class FxPreviewTextureView extends TextureView
                         androidx.media3.common.C.COLOR_TRANSFER_SDR);
                 avatarBaseStage.setIntUniform("uSdrWorkingColorSpace", 0);
             }
+            System.arraycopy(texMatrix, 0, avatarBaseTransform, 0, texMatrix.length);
+            boolean pixelCenters = texMatrix[1] == 0 && texMatrix[4] == 0
+                    && restoreDecoderInset(avatarBaseTransform, 0, 12, sourceW > 0 ? sourceW : width)
+                    && restoreDecoderInset(avatarBaseTransform, 5, 13, sourceH > 0 ? sourceH : height);
             avatarBaseStage.use();
-            avatarBaseStage.setFloatsUniform("uTexTransformationMatrix", texMatrix);
+            avatarBaseStage.setExternalTexturesRequireNearestSampling(pixelCenters);
+            avatarBaseStage.setFloatsUniform("uTexTransformationMatrix",
+                    pixelCenters ? avatarBaseTransform : texMatrix);
             avatarBaseStage.setSamplerTexIdUniform("uTexSampler", oesTexId, 0);
             avatarBaseStage.bindAttributesAndUniforms();
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_FAN, 0, 4);
@@ -2481,6 +2488,26 @@ public class FxPreviewTextureView extends TextureView
             avatarBaseStageUnavailable = true;
             return false;
         }
+    }
+
+    /** Restore a symmetric one-texel filter inset only when the observed crop lands on texels. */
+    private static boolean restoreDecoderInset(float[] matrix, int scaleIndex, int offsetIndex, int visible) {
+        float scale = matrix[scaleIndex];
+        float extent = Math.abs(scale);
+        float offset = matrix[offsetIndex];
+        float low = Math.min(offset, offset + scale);
+        if (extent == 1f && low == 0f) return true;
+        if (visible <= 2 || extent <= 0 || extent >= 1) return false;
+        int buffer = Math.round((visible - 2) / extent);
+        int firstInset = Math.round(low * buffer);
+        if (buffer < visible || buffer > visible + 256
+                || Math.abs(extent - (visible - 2f) / buffer) > 0.000001f
+                || Math.abs(low * buffer - firstInset) > 0.001f
+                || firstInset < 1 || firstInset + visible - 1 > buffer) return false;
+        float restored = Math.copySign((float) visible / buffer, scale);
+        matrix[scaleIndex] = restored;
+        matrix[offsetIndex] = offset + (scale - restored) * 0.5f;
+        return true;
     }
 
     /**

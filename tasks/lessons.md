@@ -1,5 +1,14 @@
 # Lessons Learned
 
+## Handed-over work and Android render evidence
+
+- A follow-up to finish a pasted takeover handoff is an execution request. Start at the live job
+  card, verify the active source and claims, and continue the implementation from the exact handoff.
+- Bind capture logs to the process that owns the operation. Studio preview runs in the app process
+  and export runs in `:export`. Use actual latched PTS in the comparison and reject stale receipts.
+- Compile the assembled GLSL on a real GLES implementation. Fake-GLES ownership checks can pass
+  even when a language-reserved identifier prevents the shader from compiling.
+
 ## `MediaMetadataRetriever` is not thread-safe and must not be allocated per frame
 
 **Pattern:** `android.media.MediaMetadataRetriever` holds a native parser tied to

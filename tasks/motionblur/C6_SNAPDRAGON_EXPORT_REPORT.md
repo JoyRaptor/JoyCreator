@@ -20,3 +20,17 @@ Evidence under `C:/Temp/stu7-c4-physical-20261125/footage-device-024927/` includ
 The [`0e3494ccf` test APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45778341242) exported two trims from the owner's local recording. Normal-speed High took 16,630 ms from export start to mux commit, compared with 825 ms for sharp. The steady slow-motion High trim took 17,563 ms, compared with 1,113 ms for sharp. High changed pixels at all six matched editor PTS values. Peak channel differences ranged from 54 to 74 in normal footage and from 114 to 127 in the slow-motion section. This comparison establishes the effect's output. Blind quality scoring and the full performance gate remain open.
 
 Inspect Frame at 300 ms produced a bitmap after the High gather marker on the bundled clip. Direct live-preview parity, device seek/context-loss checks for High, and Exynos testing remain open. Private evidence is under `C:/Temp/stu7-c4-physical-20261125/footage-device-030512/`. The staged source copy was removed from the sandbox and the original APK was restored by hash before release of the lock.
+
+## Independent centered-shutter calibration
+
+The debug-only fixture a9334c439 from [Actions 45835093208](https://github.com/JoyRaptor/JoyCreator/actions/runs/45835093208) used the full untrimmed 14-frame, 640×360, 30 fps BT.709 sharp sequence. It used the same centered 180-degree shutter as the 240 fps integrated reference. Both exports read the same 640×360 frames at the exact matched timestamps. No reference resizing was needed. The private source was staged on the phone, removed after the run, and retained locally only. The previous APK was restored by hash and the lock released.
+
+| Editor PTS | Reference frame | High mean absolute error | Sharp mean absolute error | High / sharp PSNR |
+|---|---:|---:|---:|---:|
+| 100,000 µs | 4 | 2.241 / 255 | 1.720 / 255 | 34.94 / 37.23 dB |
+| 200,000 µs | 7 | 2.038 / 255 | 1.501 / 255 | 36.13 / 40.43 dB |
+| 333,333 µs | 11 | 2.358 / 255 | 1.817 / 255 | 34.23 / 36.94 dB |
+
+High had more whole-frame error than the sharp control at all three times. In the reference-defined motion region (pixels with more than eight code values of contrast against its clean sharp frame), it reduced mean error from 15.629 to 15.188 and from 16.436 to 16.119 in the first and third samples. Error rose from 10.593 to 10.715 in the second. Quality on this low-light shot remains open. The 14 frames are one shot for C7. These three diagnostics do not provide a blind-review score.
+
+Raw pixels, local previews and metrics are in C:/Temp/stu7-c4-physical-20261125/reference-device-091014/.

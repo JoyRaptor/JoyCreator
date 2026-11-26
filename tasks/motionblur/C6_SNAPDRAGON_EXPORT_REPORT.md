@@ -54,3 +54,5 @@ The isolated [793aaf5ac APK](https://github.com/JoyRaptor/JoyCreator/actions/run
 | High minus sharp, preview vs export | 6 | 0.00781 | 1,178 |
 
 Both the High and sharp pair miss the strict 1/255 maximum. Most of the difference is already present in the sharp base. The difference of the two motion effects is considerably smaller and still exceeds 1/255. Exact staged preview/export pixel parity remains open. Evidence is in C:/Temp/stu7-c4-physical-20261125/paused-raw-device-134854/.
+
+The corrected [emulator run](https://github.com/JoyRaptor/JoyCreator/actions/runs/45881985564) completed all five preview and raw service comparisons plus both Inspect controls. High preview and raw export were bit-exact at editor PTS 300,333 µs, and the sharp pair was bit-exact too. Both sharp controls differed from their own High render. This isolates the outstanding pixel gap to the physical Note 9 path.

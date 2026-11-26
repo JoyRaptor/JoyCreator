@@ -21,7 +21,7 @@ With the exact-latch APK, the 30-second legacy runs took 6,479 and 7,156 ms. The
 
 On the exact-latch APK, 100 warm-up seeks were followed by 50 measured seeks per mode. Ordered graphics PSS remained exactly 73,336 KiB at all six checkpoints, and legacy rose from 69,276 to 69,300 KiB. EGL remained 50,784 KiB and GL remained 768 KiB in both modes. The ordered mode passed the measured steady-state no-growth check. This result follows warm-up and does not erase the cold allocation or approximately 4 MiB ordered graphics PSS premium. See `settled-seeks-090343/` for raw samples and the route logs. The original APK was restored and the lock released.
 
-The C4 candidate remains isolated. The earlier paused-preview PiP comparison and the landing decision remain open. No Exynos or release-profile claim is made.
+The first export and memory checks ran on isolated C4 candidates. The paused comparison and current integration are recorded below. No Exynos or release-profile claim is made.
 
 ## Paused PiP reproduction
 

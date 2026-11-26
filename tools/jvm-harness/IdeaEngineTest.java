@@ -894,6 +894,25 @@ public class IdeaEngineTest {
             }
             eq("tips: no two share an id", tips.size(), tipIds.size());
             eq("tips: every wing has some", com.fadcam.ui.faditor.ai.joybot.TipBook.Wing.values().length, wings.size());
+            String feature = "studio_motion_blur";
+            var onlyMotionUnseen = new java.util.HashSet<String>();
+            for (var tip : tips) if (!feature.equals(tip.id)) onlyMotionUnseen.add(tip.id);
+            com.fadcam.launch.LaunchList.set(java.util.Collections.singleton(feature));
+            var hiddenMotion = com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I use motion blur");
+            check("motion blur help stays hidden with the feature",
+                    hiddenMotion == null || !feature.equals(hiddenMotion.id), "");
+            check("motion blur model help stays hidden with the feature",
+                    !com.fadcam.ui.faditor.ai.joybot.HelpBook.forModel().contains("Shutter angle"), "");
+            var hiddenTip = com.fadcam.ui.faditor.ai.joybot.TipBook.pick(
+                    java.util.Collections.emptyMap(), onlyMotionUnseen, new java.util.Random(0));
+            check("motion blur stays out of the tip fallback", !feature.equals(hiddenTip.id), "");
+            com.fadcam.launch.LaunchList.set(null);
+            var openMotion = com.fadcam.ui.faditor.ai.joybot.HelpBook.find("how do I use motion blur");
+            eq("motion blur help selects its tool when shown", "motion_blur",
+                    openMotion == null ? null : openMotion.tool);
+            eq("motion blur tip is available when shown", feature,
+                    com.fadcam.ui.faditor.ai.joybot.TipBook.pick(java.util.Collections.emptyMap(),
+                            onlyMotionUnseen, new java.util.Random(0)).id);
             // SHELL-04 (11-13): every route a tip, a help topic or open_room names is a real case of the chat's
             // route() (read as text), so "Take me there" never silently does nothing.
             try {

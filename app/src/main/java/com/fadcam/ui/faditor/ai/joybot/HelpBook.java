@@ -57,6 +57,14 @@ public final class HelpBook {
     private static final String STRIP = "the Studio's tool strip (tap “more” at its end to see every tool)";
 
     public static final List<Topic> TOPICS = Collections.unmodifiableList(java.util.Arrays.asList(
+            new Topic("studio_motion_blur", "motion blur|shutter angle|shutter timing|inspect frame",
+                    "In Studio, move the playhead to a part where your clip, picture, title or sprite moves. "
+                            + "Select it and open Motion Blur in the tool strip. Tick Enable motion blur for this project "
+                            + "and Blur this item’s transform. Start with Natural. Adjust Shutter angle for the length "
+                            + "of the streak, Shutter timing for where it falls around the playhead, and Mix for how much "
+                            + "blur you see. Tap Inspect Frame to see the current frame with your draft settings, "
+                            + "then Apply to keep them. The sheet tells you what can stay sharp during live preview.",
+                    "studio", null, "motion_blur"),
             new Topic("transcribe", "transcri|subtitle|speech to text|words of",
                     "Select a clip in the Studio and tap Transcript in " + STRIP + ". It runs on the phone, "
                             + "no internet needed after the one-time model download. Or I can do it for you.",
@@ -791,7 +799,8 @@ public final class HelpBook {
      */
     public static boolean shown(@NonNull Topic t) {
         return !com.fadcam.launch.LaunchList.hiddenRoute(t.route)
-                && !com.fadcam.launch.LaunchList.hidden("help_" + t.id);
+                && !com.fadcam.launch.LaunchList.hidden("help_" + t.id)
+                && !("studio_motion_blur".equals(t.id) && com.fadcam.launch.LaunchList.hidden(t.id));
     }
 
     /** The best topic for a question, or null. */

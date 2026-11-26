@@ -49,6 +49,7 @@ public final class TipBook {
             t("studio_greenscreen", Wing.STUDIO, "the Studio can key out a green screen right on your phone.", "studio"),
             t("studio_bend", Wing.STUDIO, "pictures and sprites can bend: warp them with a mesh, or pin their corners onto something in the video.", "studio"),
             t("studio_keyframes", Wing.STUDIO, "almost anything can be keyframed with easing, so titles and pictures can glide, grow and fade on their own.", "studio"),
+            t("studio_motion_blur", Wing.STUDIO, "the Crisp preset in Motion Blur gives a fast-moving title a shorter streak? Try Inspect Frame to check the edges before you tap Apply.", "studio"),
             t("studio_masks", Wing.STUDIO, "masks let one clip show through a shape in another.", "studio"),
             t("studio_fx_layer", Wing.STUDIO, "an adjustment layer puts one look over everything under it, for as long as you stretch it.", "studio"),
             t("studio_vislab_fx", Wing.STUDIO, "VisLab's finishes work in the Studio too: VHS, glitch, scanlines, kaleidoscope, CRT bend and more, and their sliders can follow the music.", "studio"),
@@ -138,6 +139,7 @@ public final class TipBook {
      */
     /** True when the tip is about a place on the launch list (com.fadcam.launch.LaunchList). */
     static boolean launchHidden(@NonNull Tip t) {
+        if ("studio_motion_blur".equals(t.id) && com.fadcam.launch.LaunchList.hidden(t.id)) return true;
         if (com.fadcam.launch.LaunchList.hiddenRoute(t.route)) return true;
         switch (t.wing) {
             case VISLAB:    return com.fadcam.launch.LaunchList.hiddenRoute("vislab");
@@ -154,7 +156,9 @@ public final class TipBook {
         // L37: no tip about a place on the launch list (its wing or where "Take me there" goes).
         List<Tip> open = new ArrayList<>();
         for (Tip x : TIPS) if (!launchHidden(x)) open.add(x);
-        if (open.isEmpty()) open = new ArrayList<>(TIPS);
+        if (open.isEmpty()) {
+            for (Tip x : TIPS) if (!"studio_motion_blur".equals(x.id)) open.add(x);
+        }
         List<Tip> fresh = new ArrayList<>();
         for (Tip x : open) if (!seen.contains(x.id)) fresh.add(x);
         if (fresh.isEmpty()) fresh = new ArrayList<>(open);

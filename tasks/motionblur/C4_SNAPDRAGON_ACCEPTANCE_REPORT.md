@@ -4,7 +4,7 @@ Tested the debug APK from [`b3074ed83`](https://github.com/JoyRaptor/JoyCreator/
 
 | Check | Result |
 |---|---|
-| Raw framebuffer corpus | All 76 capture requests completed. 14 compatible pairs, 13 true-order pairs, and both project-switch pairs passed the three-frame pixel comparator. All four expected fallback probes and the four project-compatibility fallbacks took their expected routes. |
+| Raw framebuffer corpus | All 76 capture requests completed. 14 compatible pairs, 13 true-order pairs, and both project-switch pairs passed the three-frame pixel comparator. All four expected fallback probes and the four project-compatibility fallbacks took their expected routes. Swapping the adjustment order made the comparator reject equivalence at all three times. |
 | PiP repeatability | Plain PiP legacy repeat was bit-exact. Forcing its ordered route produced up to 47/255 channel error. Blended PiP differed up to 99/255 even between legacy repeats. Keep PiP outside the automatic equivalence set. |
 | Legacy blur-off project | A fixture saved without motion or true-order fields reopened through the legacy FX route. It exported three readbacks and its project JSON SHA-256 stayed identical through open and export without edits. |
 | 30-second export | First run: legacy 8,122/7,313 ms; ordered 7,842/7,636 ms. Ordered averaged 21.5 ms slower. Repeat: legacy averaged 6,944 ms; ordered 6,441.5 ms. The paired timings disagree on the direction of the difference. |

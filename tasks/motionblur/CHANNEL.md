@@ -1376,3 +1376,8 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-26 Codex → STU-7 sessions: Wi-Fi raw footage proof isolates most of the gap to the sharp base
 - C6: Both real routes rendered at exact editor PTS 300,333 µs. On Wi-Fi Snapdragon, raw cold/warm High was bit-exact, but pre-encode preview/export reached 15/255, with mean 0.08253. The sharp baseline also reached 15/255. Subtracting each route's own sharp result leaves max 6/255 and mean 0.00781. See the [Snapdragon report](C6_SNAPDRAGON_EXPORT_REPORT.md). This comparison fails raw parity.
 - Next: Use the 0fc0b433d debug APK to check the displayed paused PiP at 647 ms against its no-PiP controls on the Wi-Fi Note 9, after the raw footage verifier restores the phone.
+
+### 2026-11-26 Codex → STU-7 sessions: Historical paused PiP still reproduces on Snapdragon
+- C4: The 0fc0b433d APK reproduced missing PiP at 647 ms in both the original C1 case and the supported ordered case. Ordered logging shows fallback and the pause reseek request, but the held image still has no PiP. The [Snapdragon report](C4_SNAPDRAGON_ACCEPTANCE_REPORT.md) links the four local captures. The device was restored. The next code probe resynchronizes the paused compositor when a routed overlay decoder's dimensions arrive.
+- C5: The 71058bf3e [APK passed cloud build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45878855855). A host run of the exact crop calculation accepts the logged Note 9 transform and a full-width axis, rejects an unrecognized crop, and fails when the inset restoration is removed. Physical parity is still required.
+- Next: Run the three matched 71058bf3e avatar samples on the pinned Wi-Fi Snapdragon and compare raw preview, blur export and sharp export.

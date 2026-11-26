@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# Disposable emulator only. Compare the same recorded pose times before export encoding.
+set -euo pipefail
+out=$1
+python=$2
+pkg=com.fadcam.beta
+fixture="$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity"
+test "$(adb -e shell getprop ro.kernel.qemu | tr -d '\r')" = 1
+mkdir -p "$out"/{preview,blur-raw,sharp-raw}
+
+app_start() {
+    adb -e shell am force-stop "$pkg"
+    adb -e logcat -c
+    adb -e shell am start -W -n "$fixture" "$@" | tee "$out/start.log"
+    grep -q '^Status: ok' "$out/start.log"
+}
+
+play_button() {
+    adb -e shell uiautomator dump /sdcard/stu7-window.xml >/dev/null &&
+        adb -e exec-out cat /sdcard/stu7-window.xml | "$python" -c '
+import re
+import sys
+import xml.etree.ElementTree as xml
+for node in xml.parse(sys.stdin).iter("node"):
+    if node.attrib.get("resource-id") == "com.fadcam.beta:id/btn_play_pause":
+        left, top, right, bottom = map(int, re.findall(r"\d+", node.attrib["bounds"]))
+        if left < right and top < bottom:
+            print((left + right) // 2, (top + bottom) // 2)
+            sys.exit(0)
+sys.exit(1)'
+}
+
+play() {
+    local coords
+    for ((attempt = 0; attempt < 20; attempt++)); do
+        if coords=$(play_button); then
+            read -r x y <<< "$coords"
+            adb -e shell input tap "$x" "$y"
+            return
+        fi
+        sleep 1
+    done
+    return 1
+}
+
+wait_for_log() {
+    local result=$1 pattern=$2
+    shift 2
+    for ((attempt = 0; attempt < 75; attempt++)); do
+        adb -e logcat -d -s "$@" AndroidRuntime > "$result"
+        if grep -qiE 'FATAL EXCEPTION|Export failed|debug export failed|shutter (unavailable|failed)' "$result"; then
+            cat "$result"
+            return 1
+        fi
+        if grep -qE "$pattern" "$result"; then return; fi
+        sleep 1
+    done
+    cat "$result"
+    return 1
+}
+
+times=()
+for target in 233000 299000 565000; do
+    app_start --ez motion_avatar_fixture true --ez motion_enabled true \
+        --ez open_preview true --el motion_preview_readback_us "$target"
+    play
+    log="$out/preview/$target.log"
+    wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' \
+        ExportDebug MotionPreviewReadback FxPreviewTextureView
+    read -r file actual dimensions <<< "$(sed -nE \
+        's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
+    test "$actual" -ge "$target"
+    test "$actual" -lt "$((target + 67000))"
+    times+=("$actual")
+    adb -e exec-out run-as "$pkg" cat "cache/$file" > "$out/preview/$file"
+    test -s "$out/preview/$file"
+    printf '%s %s %s\n' "$file" "$actual" "$dimensions" >> "$out/preview/samples"
+done
+project=$(sed -nE 's/.*C5 avatar fixture project_id=([^ ]+).*/\1/p' "$log" | tail -1)
+test -n "$project"
+sample_arg=$(IFS=,; echo "${times[*]}")
+
+export_raw() {
+    local folder=$1
+    shift
+    for actual in "${times[@]}"; do
+        adb -e shell run-as "$pkg" rm -f "cache/lane_frame_$actual.rgba"
+    done
+    app_start "$@" --ela motion_lane_sample_us "$sample_arg"
+    wait_for_log "$folder/device.log" 'ExportService: Export completed' \
+        ExportDebug LaneReadback ExportService SpriteBlend
+    for actual in "${times[@]}"; do
+        adb -e exec-out run-as "$pkg" cat "cache/lane_frame_$actual.rgba" > "$folder/lane_frame_$actual.rgba"
+    done
+}
+
+export_raw "$out/blur-raw" --es project_id "$project"
+export_raw "$out/sharp-raw" --ez motion_avatar_fixture true --ez motion_enabled false
+
+"$python" - "$out" <<'PY'
+import json
+from pathlib import Path
+import re
+import sys
+from PIL import Image
+
+root = Path(sys.argv[1])
+preview = []
+for line in (root / "preview/samples").read_text().splitlines():
+    filename, pts, shape = line.split()
+    width, height = map(int, shape.split("x"))
+    with Image.open(root / "preview" / filename) as image:
+        if image.size != (width, height):
+            raise SystemExit("Preview framebuffer dimensions disagree")
+        rgba = image.convert("RGBA").transpose(Image.Transpose.FLIP_TOP_BOTTOM).tobytes()
+    filename = Path(filename).with_suffix(".rgba").name
+    (root / "preview" / filename).write_bytes(rgba)
+    preview.append(dict(file=filename, requestUs=int(pts), editorUs=int(pts), width=width, height=height))
+(root / "preview/manifest.json").write_text(json.dumps({"samples": preview}))
+
+for route in ("blur-raw", "sharp-raw"):
+    folder = root / route
+    log = (folder / "device.log").read_text()
+    samples = []
+    for request, pts, width, height in re.findall(
+        r"frame=lane_frame_(\d+)\.rgba editorUs=(\d+) size=(\d+)x(\d+)", log
+    ):
+        samples.append(dict(file=f"lane_frame_{request}.rgba", requestUs=int(request),
+                            editorUs=int(pts), width=int(width), height=int(height)))
+    (folder / "manifest.json").write_text(json.dumps({"samples": samples}))
+PY
+
+node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/sharp-raw/manifest.json" \
+    --expect-different | tee "$out/avatar-negative.json"
+node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/blur-raw/manifest.json" \
+    | tee "$out/avatar-parity.json"

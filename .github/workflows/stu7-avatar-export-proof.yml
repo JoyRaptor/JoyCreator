@@ -1,8 +1,7 @@
-name: STU-7 C5 avatar export diagnostic
+name: STU-7 C5 avatar preview and export parity
 on:
   push:
-    branches: [codex/stu7-flow-verify-20261123]
-    paths: [.github/workflows/stu7-avatar-export-proof.yml]
+    branches: [codex/stu7-c5-preview-proof-20261125]
 permissions:
   contents: read
   actions: read
@@ -15,6 +14,7 @@ jobs:
       SOURCE_RUN: '45685511058'
       SOURCE_COMMIT: 'eade01ae33801e45272b330e120b6b7e08ea1ee7'
     steps:
+      - uses: actions/checkout@v4
       - name: Configure emulator
         run: |
           set -euo pipefail
@@ -52,6 +52,11 @@ jobs:
           test -n "$apk"
           adb -e shell getprop ro.product.cpu.abilist
           adb -e install "$apk"
+      - name: Compare raw avatar preview and export
+        run: |
+          python3 -m venv "$RUNNER_TEMP/stu7-pixels"
+          "$RUNNER_TEMP/stu7-pixels/bin/pip" install Pillow
+          bash tools/motionref/capture-avatar-parity.sh "$RUNNER_TEMP/avatar" "$RUNNER_TEMP/stu7-pixels/bin/python"
       - name: Export the three avatar controls
         run: |
           set -euo pipefail
@@ -108,6 +113,8 @@ jobs:
           capture blur true false
           capture sharp false false
           capture master-off true true
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Check avatar export pixels
         run: |
           set -euo pipefail

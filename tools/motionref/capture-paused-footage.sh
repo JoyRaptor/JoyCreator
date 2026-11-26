@@ -44,7 +44,7 @@ preview() {
         --el motion_preview_seek_ms "$seek" --el motion_preview_source_pts_us "$pts"
     wait_for "$name" "MotionPreviewReadback.*frame=${png}"
     if [[ "$mode" == high ]]; then
-        grep -E 'HIGH_FOOTAGE_PAUSED.*previousPtsUs=500000 centerPtsUs=533333 nextPtsUs=566667' "$out/$name.log"
+        grep -E 'HIGH_FOOTAGE_PAUSED.*previousPtsUs=500000 centerPtsUs=533333 nextPtsUs=566666' "$out/$name.log"
     else
         ! grep -q 'HIGH_FOOTAGE_PAUSED' "$out/$name.log"
     fi

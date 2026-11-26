@@ -151,11 +151,14 @@ public class ExportManager {
     @NonNull
     private LoudnessTarget pendingLoudnessTarget = LoudnessTarget.OFF;
 
-    void setDebugLaneCompositor(boolean forceOrdered, boolean projectOrder, @Nullable long[] sampleTimesUs) {
+    void setDebugLaneCompositor(boolean forceOrdered, boolean projectOrder, @Nullable long[] sampleTimesUs,
+                                @Nullable String pausedFootageProjectId) {
         debugLaneCompositor = com.fadcam.BuildConfig.DEBUG && (forceOrdered || projectOrder);
         debugProjectLaneOrder = com.fadcam.BuildConfig.DEBUG && projectOrder;
+        debugPausedFootageProjectId = com.fadcam.BuildConfig.DEBUG ? pausedFootageProjectId : null;
         debugLaneSamples = com.fadcam.BuildConfig.DEBUG && sampleTimesUs != null
-                && sampleTimesUs.length > 0 ? new LaneReadbackGlEffect.Samples(sampleTimesUs) : null;
+                && sampleTimesUs.length > 0
+                ? new LaneReadbackGlEffect.Samples(sampleTimesUs, debugPausedFootageProjectId != null) : null;
     }
 
     public void setPendingLoudnessTarget(@NonNull LoudnessTarget target) {
@@ -1028,6 +1031,7 @@ public class ExportManager {
     private boolean highFootageExportEnabled(FaditorProject project) {
         return project.isMotionBlurEnabled()
                 && (com.fadcam.ui.faditor.motion.PausedFootageProof.active(project.getId())
+                || project.getId().equals(debugPausedFootageProjectId)
                 || !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur"));
     }
 
@@ -3924,6 +3928,7 @@ public class ExportManager {
     private boolean debugProjectLaneOrder;
     private boolean loggedLaneFallback;
     @Nullable private LaneReadbackGlEffect.Samples debugLaneSamples;
+    @Nullable private String debugPausedFootageProjectId;
     private boolean chunkVideoOnly = false;
     private int chunkClipStart = 0;
     private int chunkClipEnd = -1;

@@ -242,6 +242,10 @@ public class ExportDebugActivity extends Activity {
                 in.getBooleanExtra("motion_lane_project_order", false));
         long[] laneSamples = in.getLongArrayExtra("motion_lane_sample_us");
         if (laneSamples != null) si.putExtra(ExportService.EXTRA_DEBUG_LANE_SAMPLE_US, laneSamples);
+        if (in.getBooleanExtra("motion_footage_fixture", false)
+                && com.fadcam.ui.faditor.motion.PausedFootageProof.active(project.getId())) {
+            si.putExtra(ExportService.EXTRA_DEBUG_PAUSED_FOOTAGE_PROJECT_ID, project.getId());
+        }
         long a = in.getLongExtra("range_start_ms", -1L);
         long b = in.getLongExtra("range_end_ms", -1L);
         if (a >= 0 && b > a) {

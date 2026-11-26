@@ -22,18 +22,23 @@ final class LaneReadbackGlEffect implements GlEffect {
     static final class Samples {
         private final long[] editorTimesUs;
         private final boolean[] captured;
+        private final boolean exact;
 
-        Samples(long[] editorTimesUs) {
+        Samples(long[] editorTimesUs, boolean exact) {
             this.editorTimesUs = java.util.Arrays.copyOf(editorTimesUs,
                     Math.min(editorTimesUs.length, 3));
             captured = new boolean[this.editorTimesUs.length];
+            this.exact = exact;
         }
 
         synchronized long claim(long editorUs) {
             for (int i = 0; i < editorTimesUs.length; i++) {
                 long request = editorTimesUs[i];
-                if (!captured[i] && request >= 0 && request <= editorUs
-                        && editorUs - request < 100_000L) {
+                if (exact && !captured[i] && Math.abs(editorUs - request) <= 40_000L) {
+                    FLog.d("LaneReadback", "exactRequestUs=" + request + " candidateEditorUs=" + editorUs);
+                }
+                if (!captured[i] && request >= 0
+                        && (exact ? editorUs == request : request <= editorUs && editorUs - request < 100_000L)) {
                     captured[i] = true;
                     return request;
                 }

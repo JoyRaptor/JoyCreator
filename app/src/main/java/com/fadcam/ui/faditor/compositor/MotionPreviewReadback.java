@@ -51,6 +51,10 @@ public final class MotionPreviewReadback {
     private void save(ByteBuffer pixels, int width, int height, long timeUs) {
         Bitmap image = null;
         try {
+            String name = exactSourcePtsUs >= 0
+                    ? "motion_paused_" + (expectHigh ? "high_" : "sharp_") + exactSourcePtsUs
+                    : "motion_preview_" + timeUs;
+            if (exactSourcePtsUs >= 0) saveRaw(pixels.duplicate(), name);
             int[] argb = new int[width * height];
             for (int y = 0; y < height; y++) {
                 int dst = (height - 1 - y) * width;
@@ -63,9 +67,6 @@ public final class MotionPreviewReadback {
                 }
             }
             image = Bitmap.createBitmap(argb, width, height, Bitmap.Config.ARGB_8888);
-            String name = exactSourcePtsUs >= 0
-                    ? "motion_paused_" + (expectHigh ? "high_" : "sharp_") + exactSourcePtsUs
-                    : "motion_preview_" + timeUs;
             File png = new File(folder, name + ".png");
             try (FileOutputStream stream = new FileOutputStream(png)) {
                 if (!image.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
@@ -77,6 +78,18 @@ public final class MotionPreviewReadback {
             FLog.w(TAG, "Preview frame capture failed", e);
         } finally {
             if (image != null) image.recycle();
+        }
+    }
+
+    /** Same bottom-up RGBA layout as the pre-encode export readback. */
+    private void saveRaw(ByteBuffer pixels, String name) throws java.io.IOException {
+        try (FileOutputStream stream = new FileOutputStream(new File(folder, name + ".rgba"))) {
+            byte[] chunk = new byte[65_536];
+            while (pixels.hasRemaining()) {
+                int count = Math.min(pixels.remaining(), chunk.length);
+                pixels.get(chunk, 0, count);
+                stream.write(chunk, 0, count);
+            }
         }
     }
 }

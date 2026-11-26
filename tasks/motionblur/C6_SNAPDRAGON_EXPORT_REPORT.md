@@ -42,3 +42,15 @@ The isolated [c0a9420b6 debug APK](https://github.com/JoyRaptor/JoyCreator/actio
 Inspect Frame produced distinct High and sharp PNGs at the same requested position (RGB RMS 1.900). The preview/Inspect cross-route RMS was 2.923 for High and 2.837 for sharp. Inspect passes through the encoder and its route marker reports the first successful High frame. The exact pre-encode service export comparison is tracked separately. The previous installation was verified by hash after both runs and the device lock was released.
 
 The readbacks and logs are in C:/Temp/stu7-c4-physical-20261125/paused-device-091908/ and paused-device-092024/.
+
+## Exact pre-encode paused preview/export comparison
+
+The isolated [793aaf5ac APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45838060635) ran through Wi-Fi debugging on the Snapdragon. The preview and Android export service both wrote full 960×540 bottom-up RGBA at exact editor PTS 300,333 µs. Cold and warm High preview matched bit-for-bit. Preview and export each differed from their own sharp control, with maximum High-versus-sharp error 46/255 on both.
+
+| Comparison | Max error | Mean error | Channels above 1 |
+|---|---:|---:|---:|
+| High preview vs export | 15 | 0.08253 | 32,048 |
+| Sharp preview vs export | 15 | 0.08056 | 31,755 |
+| High minus sharp, preview vs export | 6 | 0.00781 | 1,178 |
+
+Both the High and sharp pair miss the strict 1/255 maximum. Most of the difference is already present in the sharp base. The difference of the two motion effects is considerably smaller and still exceeds 1/255. Exact staged preview/export pixel parity remains open. Evidence is in C:/Temp/stu7-c4-physical-20261125/paused-raw-device-134854/.

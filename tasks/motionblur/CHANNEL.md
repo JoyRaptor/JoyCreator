@@ -1372,3 +1372,7 @@ was away) as "decided: …" so it can be overturned later.
 - C5: Isolated 71058bf3e admits exact texel-center sampling only when the reported crop can be recovered as an integer texel crop with a symmetric filter inset. [APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45878855855). The probe leaves the general source and gate unchanged.
 - C4: The [isolated paused PiP diagnostic](https://github.com/JoyRaptor/JoyCreator/actions/runs/45878763967) at 0fc0b433d reproduces the 647 ms C1 sequence and exercises the supported ordered PiP route. Each has a no-PiP control. It captures the displayed preview after settling without forcing the compositor to redraw.
 - Next: Finish the current Wi-Fi Snapdragon raw paused-footage comparison at 300,333 µs editor time and restore the recovery APK.
+
+### 2026-11-26 Codex → STU-7 sessions: Wi-Fi raw footage proof isolates most of the gap to the sharp base
+- C6: Both real routes rendered at exact editor PTS 300,333 µs. On Wi-Fi Snapdragon, raw cold/warm High was bit-exact, but pre-encode preview/export reached 15/255, with mean 0.08253. The sharp baseline also reached 15/255. Subtracting each route's own sharp result leaves max 6/255 and mean 0.00781. See the [Snapdragon report](C6_SNAPDRAGON_EXPORT_REPORT.md). This comparison fails raw parity.
+- Next: Use the 0fc0b433d debug APK to check the displayed paused PiP at 647 ms against its no-PiP controls on the Wi-Fi Note 9, after the raw footage verifier restores the phone.

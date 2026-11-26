@@ -26,6 +26,7 @@ public class AdjustmentLaneTest {
     public static void main(String[] args) {
         laneEmissionAndZ();
         interleavedZOrder();
+        adjustmentFlagsSurviveLoadCleanup();
         duplicateCopiesAreDeep();
         perObjectFx();
         System.out.println(failed == 0 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
@@ -39,6 +40,27 @@ public class AdjustmentLaneTest {
         a.setDurationMs(dur);
         a.setLayerId("adjustment");
         return a;
+    }
+
+    static void adjustmentFlagsSurviveLoadCleanup() {
+        Timeline timeline = new Timeline();
+        AdjustmentLayer defaultLane = layer(0, 5000);
+        defaultLane.setLayerId("");
+        timeline.addAdjustmentLayer(defaultLane);
+        AdjustmentLayer customLane = layer(0, 5000);
+        customLane.setLayerId("grade-pass");
+        timeline.addAdjustmentLayer(customLane);
+
+        timeline.getOrCreateTrackFlags("adjustment").zIndex = 9;
+        timeline.getOrCreateTrackFlags("grade-pass").hidden = true;
+        timeline.getOrCreateTrackFlags("deleted-grade-pass").locked = true;
+
+        check("cleanup drops only the deleted lane",
+                timeline.pruneOrphanedTrackFlags().equals(List.of("deleted-grade-pass")));
+        check("the default adjustment lane keeps its order",
+                timeline.getAllTrackFlags().get("adjustment").zIndex == 9);
+        check("an imported adjustment lane keeps its hidden flag",
+                timeline.getAllTrackFlags().get("grade-pass").hidden);
     }
 
     // ── Lane emission and z ─────────────────────────────────────────────────

@@ -548,17 +548,29 @@ public final class FxRegistry {
         }
     }
 
+    /** Deserializable for the lane temporal renderer while the picker stays gated. */
+    public static final String LANE_MOTION_ID = "lane_motion_blur";
+    private static final FxEffectDef LANE_MOTION = new FxEffectDef(
+            LANE_MOTION_ID, "Motion Blur", FxEffectDef.Family.BLUR, FxEffectDef.Capability.MOTION,
+            1, 0f, "",
+            FxParam.flt("angle", "Shutter angle", 0f, 720f, 180f),
+            FxParam.enumOf("timing", "Timing", 0, "Centered", "Trailing", "Leading", "Custom"),
+            FxParam.flt("phase", "Shutter phase", -720f, 720f, 0f),
+            FxParam.flt("mix", "Mix", 0f, 100f, 100f));
+
     @NonNull
     public static List<FxEffectDef> all() { return ALL; }
 
     @Nullable
-    public static FxEffectDef get(@NonNull String id) { return BY_ID.get(id); }
+    public static FxEffectDef get(@NonNull String id) {
+        return LANE_MOTION_ID.equals(id) ? LANE_MOTION : BY_ID.get(id);
+    }
 
     /** Throws rather than returning null — an unknown id in a project file is a bug in the caller,
      *  which should have used {@link #get} and skipped the card. */
     @NonNull
     public static FxEffectDef require(@NonNull String id) {
-        FxEffectDef d = BY_ID.get(id);
+        FxEffectDef d = get(id);
         if (d == null) throw new IllegalArgumentException("no such effect: " + id);
         return d;
     }

@@ -13,17 +13,25 @@ import android.media.MediaFormat;
 import android.media.MediaMuxer;
 import android.net.Uri;
 
+import androidx.annotation.NonNull;
+
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
+import com.fadcam.ui.faditor.layers.TrackKind;
 import com.fadcam.ui.faditor.model.AdjustmentLayer;
 import com.fadcam.ui.faditor.model.Clip;
+import com.fadcam.ui.faditor.model.CompositingSpec;
 import com.fadcam.ui.faditor.model.FaditorProject;
 import com.fadcam.ui.faditor.model.SpineTransform;
 import com.fadcam.ui.faditor.model.TextOverlayItem;
+import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.sprite.SpriteSheet;
+import com.fadcam.ui.faditor.transcript.NamedTranscript;
+import com.fadcam.ui.faditor.transcript.Transcript;
+import com.fadcam.ui.faditor.transcript.TranscriptWord;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -160,6 +168,210 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createLanePicture(Context context, boolean adjustmentAbove,
+                                             boolean includePip, boolean includeTitle,
+                                             boolean includeSprite, boolean enableAdjustment,
+                                             boolean trueLayerOrder,
+                                             @NonNull String variant) throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        var project = new FaditorProject(storage.uniqueName(
+                "TEST STU-7 C4 " + variant + (adjustmentAbove ? " under effect" : " over effect")));
+        project.setTrueLayerOrder(trueLayerOrder);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create lane fixture media directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Lane fixture source is too short");
+        var timeline = project.getTimeline();
+        Clip spine = clip(source, duration, 1_000L);
+        timeline.addClip(spine);
+
+        String uri = Uri.fromFile(createShutterArt(media)).toString();
+        var picture = TextOverlayItem.createImage(uri, 0.46f, 0.50f, 0.68f);
+        picture.setLayerId("text");
+        picture.setTimeRange(0L, 999L);
+        timeline.addTextOverlay(picture);
+        if (includeTitle) {
+            var title = new TextOverlayItem("ORDER TEST", Color.MAGENTA, 0.56f, 0.30f, 0.09f, 0f);
+            title.setLayerId("text");
+            title.setTimeRange(0L, 999L);
+            timeline.addTextOverlay(title);
+        }
+        String adjustmentLane = timeline.createLayerTrack(TrackKind.ADJUSTMENT, "C4 invert");
+        var adjustment = new AdjustmentLayer();
+        adjustment.setLayerId(adjustmentLane);
+        adjustment.setStartMs(0L);
+        adjustment.setDurationMs(1_000L);
+        if (enableAdjustment) adjustment.getFx().add("invert");
+        timeline.addAdjustmentLayer(adjustment);
+        timeline.getOrCreateTrackFlags("text").zIndex = 4;
+        timeline.getOrCreateTrackFlags(adjustmentLane).zIndex = adjustmentAbove ? 8 : 2;
+        if (includePip) {
+            File overlaySource = copyAsset(context, media, "card1.mp4");
+            long overlayDuration = durationMs(overlaySource);
+            Clip pip = clip(overlaySource, overlayDuration, Math.min(800L, overlayDuration));
+            pip.setLayerId("video");
+            pip.setOverlayStartMs(100L);
+            pip.setOverlayAudioEnabled(false);
+            timeline.addOverlayClip(pip);
+            timeline.getOrCreateTrackFlags("video").zIndex = 3;
+        }
+
+        if (includeSprite) {
+            var atlas = new SpriteSheet("c4-sprite-cells", "C4 atlas", Uri.fromFile(writeSpriteAtlas(media)).toString());
+            atlas.setGrid(2, 1);
+            project.getSpriteSheets().add(atlas);
+            var sprite = SpriteOverlayItem.create(atlas.getId());
+            sprite.setLayerId("sprite");
+            sprite.setTimeRange(0L, 999L);
+            sprite.setCenter(0.71f, 0.60f);
+            sprite.setSizeFraction(0.16f);
+            sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0, 0));
+            sprite.getFrameTrack().put(FrameTrack.Key.ofCell(367, 1));
+            timeline.addSpriteOverlay(sprite);
+            timeline.getOrCreateTrackFlags("sprite").zIndex = 4;
+            timeline.getOrCreateTrackFlags("text").zIndex = 5;
+        }
+
+        tuneLaneFixture(context, media, project, spine, picture, adjustment, variant);
+        if (!storage.save(project)) throw new IOException("Could not save the lane fixture");
+        return project;
+    }
+
+    private static void tuneLaneFixture(Context context, File media, FaditorProject project,
+                                        Clip spine, TextOverlayItem picture, AdjustmentLayer adjustment,
+                                        String variant) throws IOException {
+        var timeline = project.getTimeline();
+        switch (variant) {
+            case "base" -> { }
+            case "picture-opacity" -> picture.setOpacity(0.42f);
+            case "picture-offset" -> picture.setCenter(0.28f, 0.65f);
+            case "picture-rotation" -> picture.setRotationDeg(19f);
+            case "picture-flip" -> picture.setFlipH(true);
+            case "picture-vertical-flip" -> picture.setFlipV(true);
+            case "picture-scale" -> picture.setSizeFraction(0.48f);
+            case "picture-keys" -> {
+                var motion = picture.getKeyframes().getOrCreate(KeyframeSet.X);
+                motion.put(0, 0.28f, Easing.LINEAR);
+                motion.put(500, 0.69f, Easing.HOLD);
+                motion.put(770, 0.44f, Easing.LINEAR);
+            }
+            case "picture-stack" -> {
+                var upper = picture.copyWithNewId(java.util.UUID.randomUUID().toString());
+                upper.setCenter(0.67f, 0.65f);
+                upper.setSizeFraction(0.38f);
+                upper.setOpacity(0.55f);
+                timeline.addTextOverlay(upper);
+            }
+            case "exact-crossing", "exact-crossing-sharp" -> {
+                project.setMotionBlurEnabled(true);
+                project.setTrueLayerOrder(true);
+                var fx = new com.fadcam.ui.faditor.fx.FxStack();
+                var blur = fx.add(com.fadcam.ui.faditor.fx.FxRegistry.LANE_MOTION_ID);
+                blur.set(blur.def().param("angle"), variant.endsWith("-sharp") ? 0f : 720f);
+                adjustment.setFx(fx);
+
+                picture.setSizeFraction(0.42f);
+                picture.getKeyframes().getOrCreate(KeyframeSet.X).put(300, 0.25f, Easing.LINEAR);
+                picture.getKeyframes().getOrCreate(KeyframeSet.X).put(700, 0.75f, Easing.LINEAR);
+                var upper = TextOverlayItem.createImage(picture.getImageUri(), 0.75f, 0.52f, 0.30f);
+                String lane = timeline.createLayerTrack(TrackKind.TEXT, "Crossing picture");
+                upper.setLayerId(lane);
+                timeline.getOrCreateTrackFlags(lane).zIndex = 6;
+                upper.setTimeRange(0L, 999L);
+                upper.setFlipH(true);
+                upper.setOpacity(0.7f);
+                upper.getKeyframes().getOrCreate(KeyframeSet.X).put(300, 0.75f, Easing.LINEAR);
+                upper.getKeyframes().getOrCreate(KeyframeSet.X).put(700, 0.25f, Easing.LINEAR);
+                timeline.addTextOverlay(upper);
+            }
+            case "picture-edge" -> picture.setCenter(0.12f, 0.26f);
+            case "adjust-window" -> {
+                adjustment.setStartMs(150L);
+                adjustment.setDurationMs(595L);
+            }
+            case "adjust-opacity" -> {
+                var keys = new KeyframeSet();
+                var opacity = keys.getOrCreate(KeyframeSet.OPACITY);
+                opacity.put(0, 0.30f, Easing.LINEAR);
+                opacity.put(999, 0.86f, Easing.LINEAR);
+                adjustment.setTransform(keys);
+            }
+            case "adjust-mask" -> {
+                var mask = adjustment.getCompositing().addShape();
+                mask.cx = 0.43f;
+                mask.cy = 0.62f;
+                mask.w = 0.58f;
+                mask.h = 0.51f;
+                mask.rotationDeg = 12f;
+                mask.feather = 0.10f;
+            }
+            case "adjust-blend" -> adjustment.setBlendMode("SCREEN");
+            case "spine-zoom" -> {
+                spine.setSpineScale(0.68f);
+                spine.setSpineRotationDeg(11f);
+            }
+            case "clip-trim" -> {
+                spine.setOutPointMs(1233L);
+                spine.setInPointMs(233L);
+            }
+            case "caption" -> {
+                var text = new Transcript();
+                text.words.add(new TranscriptWord("LANE", 150L, 480L));
+                text.words.add(new TranscriptWord("CAPTION", 480L, 920L));
+                spine.addTranscript(new NamedTranscript("C4 captions", "fixture", text));
+                spine.setCaptionsEnabled(true);
+                spine.setCaptionCenter(0.58f, 0.80f);
+            }
+            case "clip-retime" -> {
+                spine.setOutPointMs(2000L);
+                spine.setSpeedMultiplier(2f);
+            }
+            case "clip-loop" -> {
+                spine.setLoopMode(Clip.LOOP_MODE_NORMAL);
+                spine.setOutPointMs(500L);
+                spine.setLoopAfterMs(500L);
+            }
+            case "clip-transition" -> {
+                File later = copyAsset(context, media, "card1.mp4");
+                timeline.addClip(clip(later, durationMs(later), 1000L));
+                timeline.addTransition(new Transition(Transition.Type.CROSS_DISSOLVE, 240L, 0, 0f));
+            }
+            case "pip-matte" -> {
+                if (timeline.getOverlayClips().isEmpty()) throw new IOException("PiP matte requires a recipient");
+                Clip recipient = timeline.getOverlayClips().get(0);
+                File source = new File(media, "card1.mp4");
+                Clip matte = clip(source, durationMs(source), 800L);
+                matte.setOverlayStartMs(100L);
+                matte.setOverlayAudioEnabled(false);
+                matte.setLayerId(timeline.createLayerTrack(TrackKind.VIDEO, "C4 matte"));
+                timeline.addOverlayClip(matte);
+                var compositing = new CompositingSpec();
+                compositing.mattePeerId = matte.getId();
+                recipient.setCompositing(compositing);
+            }
+            case "performance" -> {
+                long remaining = 30_000L - spine.getTrimmedDurationMs();
+                File source = new File(media, "card2.mp4");
+                long duration = durationMs(source);
+                while (remaining > 0L) {
+                    long length = Math.min(remaining, duration);
+                    timeline.addClip(clip(source, duration, length));
+                    remaining -= length;
+                }
+                picture.setTimeRange(0L, 29_999L);
+                var upper = picture.copyWithNewId(java.util.UUID.randomUUID().toString());
+                upper.setCenter(0.66f, 0.59f);
+                upper.setSizeFraction(0.35f);
+                upper.setOpacity(0.42f);
+                timeline.addTextOverlay(upper);
+                adjustment.setDurationMs(30_000L);
+            }
+            case "pip-blend" -> timeline.getOverlayClips().get(0).setOverlayBlendMode("SCREEN");
+            default -> throw new IOException("Unknown lane fixture variant " + variant);
+        }
+    }
+
     static FaditorProject createPicture(Context context, boolean enabled) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";
@@ -215,25 +427,8 @@ final class MotionRouteFixture {
         if (duration < 1_000L) throw new IOException("Sprite fixture is shorter than 1 second");
         project.getTimeline().addClip(clip(source, duration, 1_000L));
 
-        File art = new File(media, "shutter-cells.png");
-        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
-        try (FileOutputStream out = new FileOutputStream(art)) {
-            Canvas canvas = new Canvas(bitmap);
-            Paint paint = new Paint();
-            paint.setColor(Color.RED);
-            canvas.drawRect(10, 8, 119, 84, paint);
-            paint.setColor(0x80FF4020);
-            canvas.drawRect(10, 87, 78, 122, paint);
-            paint.setColor(Color.CYAN);
-            canvas.drawRect(138, 8, 247, 84, paint);
-            paint.setColor(0x8000E0FF);
-            canvas.drawRect(138, 87, 206, 122, paint);
-            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
-                throw new IOException("Could not write shutter sprite cells");
-            }
-        } finally {
-            bitmap.recycle();
-        }
+        File art = writeSpriteAtlas(media);
+
         var sheet = new SpriteSheet("c2-sprite-cells", "C2 shutter cells", Uri.fromFile(art).toString());
         sheet.setGrid(2, 1);
         project.getSpriteSheets().add(sheet);
@@ -338,6 +533,29 @@ final class MotionRouteFixture {
         project.getTimeline().addOverlayClip(pip);
         if (!storage.save(project)) throw new IOException("Could not save the PiP fixture");
         return project;
+    }
+
+    private static File writeSpriteAtlas(File media) throws IOException {
+        File art = new File(media, "shutter-cells.png");
+        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(art)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            paint.setColor(Color.RED);
+            canvas.drawRect(10, 8, 119, 84, paint);
+            paint.setColor(0x80FF4020);
+            canvas.drawRect(10, 87, 78, 122, paint);
+            paint.setColor(Color.CYAN);
+            canvas.drawRect(138, 8, 247, 84, paint);
+            paint.setColor(0x8000E0FF);
+            canvas.drawRect(138, 87, 206, 122, paint);
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write shutter sprite cells");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        return art;
     }
 
     private static File createShutterArt(File directory) throws IOException {

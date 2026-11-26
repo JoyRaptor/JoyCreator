@@ -55,8 +55,12 @@ public class FaditorProject {
      * older build would ignore it and autosave the title without it, silently losing the look and its recorded
      * light. Stamped 14 only when some title wears a look, so every other project keeps its old stamp and
      * byte-identical JSON.</p>
+     *
+     * <p>v15 protects the saved True layer order selection from older writers. The stamp is
+     * required only for projects that explicitly request the new order.</p>
      */
-    public static final int SCHEMA_VERSION = 14;
+    public static final int TRUE_LAYER_ORDER_SCHEMA_VERSION = 15;
+    public static final int SCHEMA_VERSION = TRUE_LAYER_ORDER_SCHEMA_VERSION;
 
     /**
      * URI scheme used in saved project JSON for assets that live inside the project
@@ -89,6 +93,13 @@ public class FaditorProject {
     public boolean isMotionBlurEnabled() { return motionBlurEnabled; }
 
     public void setMotionBlurEnabled(boolean enabled) { motionBlurEnabled = enabled; }
+
+    /** Opt-in to applying adjustment layers in the project's visual lane order. */
+    private boolean layerOrder;
+
+    public boolean isTrueLayerOrder() { return layerOrder; }
+
+    public void setTrueLayerOrder(boolean enabled) { layerOrder = enabled; }
 
     /** Sprite-sheet definitions owned by this project (schema v9). Never null. */
     @NonNull

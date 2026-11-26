@@ -315,6 +315,13 @@ public class OverlayVideoPreviewView extends FrameLayout {
      * better than a black PiP.</p>
      */
     private boolean extraLiveFailed;
+    private boolean refreshPausedFxFrame;
+
+    void setRefreshPausedFxFrame(boolean enabled) {
+        boolean changed = refreshPausedFxFrame != enabled;
+        refreshPausedFxFrame = enabled;
+        if (changed && fxRouted && player == fxRoutedPlayer) refreshPausedFxFrame();
+    }
 
     /** Route the PiP into {@code s}, or pass null to hand it back to this view's own surface. */
     public void setFxCompositeSurface(@Nullable Surface s) {
@@ -584,7 +591,16 @@ public class OverlayVideoPreviewView extends FrameLayout {
         fxRouted = true;
         fxRoutedPlayer = player;
         textureView.setAlpha(0f);
+        refreshPausedFxFrame();
         FLog.i(TAG, "PiP routed into the FX composite");
+    }
+
+    private void refreshPausedFxFrame() {
+        if (refreshPausedFxFrame && player != null && !player.getPlayWhenReady()) {
+            // A paused decoder may not send a frame after a VideoSurface change.
+            player.seekTo(player.getCurrentPosition());
+            FLog.d(TAG, "LANE_PREVIEW_PIP_REFRESH requested the current paused position");
+        }
     }
 
     /**

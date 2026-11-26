@@ -80,6 +80,12 @@ public class ExportDebugActivity extends Activity {
     }
 
     private boolean start(Intent in) throws Exception {
+        if (in.hasExtra(com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder.DEBUG_SWITCH)) {
+            var key = com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder.DEBUG_SWITCH;
+            com.fadcam.ui.faditor.compositor.lane.StudioLayerOrder.configureDebug(
+                    this, in.getBooleanExtra(key, false));
+            return false;
+        }
         if (in.getBooleanExtra("motion_spine_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             boolean animated = in.getBooleanExtra("motion_animated", true);
@@ -96,6 +102,18 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 spine fixture enabled=" + enabled + " animated=" + animated
                     + " art=" + transparentArt + " doubleSpeed=" + doubleSpeed);
+        }
+        if (in.getBooleanExtra("motion_lane_fixture", false)) {
+            String variant = in.getStringExtra("motion_lane_variant");
+            FaditorProject fixture = MotionRouteFixture.createLanePicture(this,
+                    in.getBooleanExtra("motion_lane_adjustment_above", true),
+                    in.getBooleanExtra("motion_lane_include_pip", false),
+                    in.getBooleanExtra("motion_lane_include_title", false),
+                    in.getBooleanExtra("motion_lane_include_sprite", false),
+                    in.getBooleanExtra("motion_lane_enable_adjustment", true),
+                    in.getBooleanExtra("motion_lane_true_order", false),
+                    variant == null ? "base" : variant);
+            in.putExtra("project_id", fixture.getId());
         }
         if (in.getBooleanExtra("motion_picture_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
@@ -135,6 +153,14 @@ public class ExportDebugActivity extends Activity {
         if (in.getBooleanExtra("open_preview", false)) {
             Intent preview = new Intent(this, com.fadcam.ui.faditor.FaditorEditorActivity.class);
             preview.putExtra(com.fadcam.ui.faditor.FaditorEditorActivity.EXTRA_PROJECT_ID, id);
+            if (in.getBooleanExtra("motion_lane_project_order", false)) {
+                FaditorProject saved = new ProjectStorage(this).load(id);
+                if (saved == null) return false;
+                preview.putExtra(com.fadcam.ui.faditor.compositor.FxLivePreviewController.EXTRA_DEBUG_LANE_ORDER,
+                        saved.isTrueLayerOrder() ? "true" : "legacy");
+                preview.putExtra("studio_debug_motion_readback_us",
+                        in.getLongExtra("motion_preview_readback_us", -1L));
+            }
             if (in.getBooleanExtra("motion_spine_fixture", false)
                     || in.getBooleanExtra("motion_picture_fixture", false)
                     || in.getBooleanExtra("motion_sprite_fixture", false)
@@ -193,6 +219,12 @@ public class ExportDebugActivity extends Activity {
         si.setAction(ExportService.ACTION_START_EXPORT);
         si.putExtra(ExportService.EXTRA_PROJECT_SNAPSHOT_PATH, snap.getAbsolutePath());
         si.putExtra(ExportService.EXTRA_AUDIO_ONLY, in.getBooleanExtra("audio_only", false));
+        si.putExtra(ExportService.EXTRA_DEBUG_LANE_COMPOSITOR,
+                in.getBooleanExtra("motion_lane_compositor", false));
+        si.putExtra(ExportService.EXTRA_DEBUG_PROJECT_LANE_ORDER,
+                in.getBooleanExtra("motion_lane_project_order", false));
+        long[] laneSamples = in.getLongArrayExtra("motion_lane_sample_us");
+        if (laneSamples != null) si.putExtra(ExportService.EXTRA_DEBUG_LANE_SAMPLE_US, laneSamples);
         long a = in.getLongExtra("range_start_ms", -1L);
         long b = in.getLongExtra("range_end_ms", -1L);
         if (a >= 0 && b > a) {

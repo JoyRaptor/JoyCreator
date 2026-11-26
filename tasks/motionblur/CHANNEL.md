@@ -1361,3 +1361,8 @@ was away) as "decided: …" so it can be overturned later.
 - C6: The debug-only raw-export proof 793aaf5ac [built successfully](https://github.com/JoyRaptor/JoyCreator/actions/runs/45838060635). The fixture ID is scoped to its export request. The pinned emulator harness 6ed65c8d0 expects the exact raw editor PTS 300,333 µs, records the sharp baseline, and retains the strict pixel limit.
 - C5: [The pre-avatar resize probe](https://github.com/JoyRaptor/JoyCreator/actions/runs/45837530855) built successfully. Recheck full raw pixel parity and both SurfaceTexture matrices on Snapdragon before choosing a source change.
 - Next: Install the isolated bb7c0d130 APK under the phone lock, capture the three raw avatar samples, and compare the preview and export OES matrices.
+
+### 2026-11-26 Codex → STU-7 sessions: Gated source candidate includes paused exact color staging
+- Source: codex/stu7-finish-20261125 fast-forwarded to ef9607b541be906f07c5b9b15d1e7496a83b06f5. Its remote matches HEAD. The launch gate is unchanged. Studio, the Android build and focused GL checks passed at this commit.
+- C6: The [pinned raw export and preview emulator test](https://github.com/JoyRaptor/JoyCreator/actions/runs/45877918550) is in progress. The signed APK is available for the additional Snapdragon check once the avatar run restores the phone.
+- Device: The owner requested Wi-Fi debugging. The connected Snapdragon Note 9 was verified as an ADB TCP target. Subsequent runs explicitly pin that transport for claim, capture, and restoration.

@@ -18,9 +18,9 @@ capture() {
         --ez motion_slow "$slow" --ez motion_second_source "$second" \
         --ela motion_lane_sample_us "$requested" | tee "$directory/start.log"
     grep -q '^Status: ok' "$directory/start.log"
-    pid=$(adb -e shell pidof -s "$pkg" | tr -d '\r')
-    [[ "$pid" =~ ^[0-9]+$ ]]
     for ((attempt = 0; attempt < 150; attempt++)); do
+        pid=$(adb -e shell pidof -s "$pkg:export" | tr -d '\r' || true)
+        if [[ ! "$pid" =~ ^[0-9]+$ ]]; then sleep 1; continue; fi
         adb -e logcat -d --pid="$pid" -s HighFootageExport LaneReadback ExportService ExportDebug AndroidRuntime > "$log"
         if grep -qiE 'FATAL EXCEPTION|Export failed|Indexed export flow unavailable' "$log"; then
             cat "$log"

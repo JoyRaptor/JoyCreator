@@ -44,11 +44,11 @@ play() {
 }
 
 wait_for_log() {
-    local result=$1 pattern=$2 pid
-    shift 2
-    pid=$(adb -e shell pidof -s "$pkg" | tr -d '\r')
-    [[ "$pid" =~ ^[0-9]+$ ]]
+    local result=$1 pattern=$2 process=$3 pid
+    shift 3
     for ((attempt = 0; attempt < 75; attempt++)); do
+        pid=$(adb -e shell pidof -s "$process" | tr -d '\r' || true)
+        if [[ ! "$pid" =~ ^[0-9]+$ ]]; then sleep 1; continue; fi
         adb -e logcat -d --pid="$pid" -s "$@" AndroidRuntime > "$result"
         if grep -qiE 'FATAL EXCEPTION|Export failed|debug export failed|shutter (unavailable|failed)' "$result"; then
             cat "$result"
@@ -57,7 +57,7 @@ wait_for_log() {
         if grep -qE "$pattern" "$result"; then return; fi
         sleep 1
     done
-    cat "$result"
+    if [[ -f "$result" ]]; then cat "$result"; fi
     return 1
 }
 
@@ -68,7 +68,7 @@ for target in 150000 1450000 2750000; do
         --ez open_preview true --el motion_preview_readback_us "$target"
     play
     log="$out/preview/$target.log"
-    wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' \
+    wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' "$pkg" \
         ExportDebug MotionPreviewReadback FxPreviewGl
     read -r file actual dimensions <<< "$(sed -nE \
         's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
@@ -93,7 +93,7 @@ export_raw() {
         adb -e shell run-as "$pkg" rm -f "cache/lane_frame_$actual.rgba"
     done
     app_start "$@" --ela motion_lane_sample_us "$sample_arg"
-    wait_for_log "$folder/device.log" 'ExportService: Export completed' \
+    wait_for_log "$folder/device.log" 'ExportService: Export completed' "$pkg:export" \
         ExportDebug LaneReadback ExportService SpriteBlend
     for actual in "${times[@]}"; do
         adb -e exec-out run-as "$pkg" cat "cache/lane_frame_$actual.rgba" > "$folder/lane_frame_$actual.rgba"

@@ -60,8 +60,9 @@ wait_for_log() {
 }
 
 times=()
-for target in 150000 470000 650000; do
+for target in 150000 1450000 2750000; do
     app_start --ez motion_avatar_fixture true --ez motion_enabled true \
+        --ez motion_avatar_parity_loop true \
         --ez open_preview true --el motion_preview_readback_us "$target"
     play
     log="$out/preview/$target.log"
@@ -70,7 +71,7 @@ for target in 150000 470000 650000; do
     read -r file actual dimensions <<< "$(sed -nE \
         's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
     test "$actual" -ge "$target"
-    test "$actual" -lt 900000
+    test "$actual" -lt "$((target + 1250000))"
     if (( ${#times[@]} > 0 )); then
         test "$actual" -gt "${times[-1]}"
     fi
@@ -98,7 +99,8 @@ export_raw() {
 }
 
 export_raw "$out/blur-raw" --es project_id "$project"
-export_raw "$out/sharp-raw" --ez motion_avatar_fixture true --ez motion_enabled false
+export_raw "$out/sharp-raw" --ez motion_avatar_fixture true --ez motion_enabled false \
+    --ez motion_avatar_parity_loop true
 
 "$python" - "$out" <<'PY'
 import json

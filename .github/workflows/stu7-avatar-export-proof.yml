@@ -1,4 +1,4 @@
-name: STU-7 C5 avatar preview and export parity
+name: STU-7 avatar parity and High footage diagnostic
 on:
   push:
     branches: [codex/stu7-c5-preview-proof-20261125]
@@ -11,8 +11,8 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: '45685511058'
-      SOURCE_COMMIT: 'eade01ae33801e45272b330e120b6b7e08ea1ee7'
+      SOURCE_RUN: '45774467018'
+      SOURCE_COMMIT: '012c26c46e8019ff1b4a9ac1902cacac3938f821'
     steps:
       - uses: actions/checkout@v4
       - name: Configure emulator
@@ -41,6 +41,7 @@ jobs:
           adb -e root
           adb -e wait-for-device
       - name: Fetch pinned APK
+        id: apk
         run: |
           set -euo pipefail
           for attempt in {1..60}; do
@@ -52,7 +53,10 @@ jobs:
           test -n "$apk"
           adb -e shell getprop ro.product.cpu.abilist
           adb -e install "$apk"
+      - name: Verify High footage export and exact cold/warm output
+        run: bash tools/motionref/capture-footage-export.sh "$RUNNER_TEMP/footage"
       - name: Compare raw avatar preview and export
+        if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
         run: |
           python3 -m venv "$RUNNER_TEMP/stu7-pixels"
           "$RUNNER_TEMP/stu7-pixels/bin/pip" install Pillow
@@ -164,4 +168,5 @@ jobs:
           path: |
             ${{ runner.temp }}/emulator.log
             ${{ runner.temp }}/avatar/
+            ${{ runner.temp }}/footage/
           retention-days: 3

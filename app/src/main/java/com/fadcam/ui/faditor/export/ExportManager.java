@@ -1190,7 +1190,7 @@ public class ExportManager {
             long leadFillerMs = plan.coveringLeadFillerMs();
             long localTargetMs = plan.coveringLocalTargetMs();
             long compTargetMs = leadFillerMs + localTargetMs;
-            long clampLocalMs = Math.min(natural, localTargetMs + FRAME_CLAMP_LOOKAHEAD_MS);
+            long clampLocalMs = Math.min(natural, localTargetMs + frameLookaheadMs(project));
             FLog.i(TAG, "single-frame: T=" + frameTimeMs + "ms → item#" + covering
                     + " compTarget=" + compTargetMs + "ms lead=" + leadFillerMs
                     + "ms natural=" + natural + "ms clamp=" + clampLocalMs + "ms");
@@ -4293,6 +4293,22 @@ public class ExportManager {
     /** Composition ms of trailing coverage past the requested frame in a clamp pass. */
     private static final long FRAME_CLAMP_LOOKAHEAD_MS = 120L;
 
+    private long frameLookaheadMs(FaditorProject project) {
+        if (!highFootageExportEnabled(project) || project.getTimeline().hasTransitions()) {
+            return FRAME_CLAMP_LOOKAHEAD_MS;
+        }
+        long lookaheadMs = FRAME_CLAMP_LOOKAHEAD_MS;
+        for (Clip clip : project.getTimeline().getClips()) {
+            if (!eligibleHighFootage(clip)) continue;
+            // Keep the exact next decoder frame when a slow clip stretches its source interval.
+            // One extra source millisecond covers the composition builder's integer trim.
+            long needed = (long) Math.ceil((1 + com.fadcam.ui.faditor.motion.flow.IndexedFootageMedia.MAX_GAP_US
+                    / 1000d) / clip.getSpeedMultiplier());
+            lookaheadMs = Math.max(lookaheadMs, needed);
+        }
+        return lookaheadMs;
+    }
+
     @NonNull
     private Composition buildComposition(@NonNull FaditorProject project) {
         return buildComposition(project, null);
@@ -4552,7 +4568,7 @@ public class ExportManager {
                     try {
                         piece = buildClipItem(project, clip, pieceIn, pieceOut,
                                 timelineCursorMs, outW, outH, canvasDims,
-                                waveformSlots, projectSampleRate, frameDirective == null);
+                                waveformSlots, projectSampleRate, true);
                     } finally {
                         buildingCutPiece = false;
                     }
@@ -4564,7 +4580,7 @@ public class ExportManager {
             } else if (mainSiteEmits) {
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
-                        waveformSlots, projectSampleRate, frameDirective == null);
+                        waveformSlots, projectSampleRate, true);
                 if (frameDirective != null) {
                     frameDirective.noteItem(timelineCursorMs, mainItem.durationUs / 1000,
                             mainEditorStartMs, mainEditorLenMs);

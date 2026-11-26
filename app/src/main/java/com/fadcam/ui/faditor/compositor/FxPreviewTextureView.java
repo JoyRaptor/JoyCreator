@@ -2321,8 +2321,13 @@ public class FxPreviewTextureView extends TextureView
 
     private void releaseHighFootage() {
         clearHighFootageHistory();
-        if (highFootageFlow != null) highFootageFlow.release();
-        if (highFootageGather != null) {
+        boolean contextCurrent = eglContext != EGL14.EGL_NO_CONTEXT
+                && eglContext.equals(EGL14.eglGetCurrentContext());
+        if (highFootageFlow != null) {
+            if (contextCurrent) highFootageFlow.release();
+            else highFootageFlow.abandon();
+        }
+        if (highFootageGather != null && contextCurrent) {
             try { highFootageGather.release(); }
             catch (androidx.media3.common.util.GlUtil.GlException failure) {
                 FLog.w(TAG, "Could not release indexed footage gather", failure);
@@ -2331,8 +2336,8 @@ public class FxPreviewTextureView extends TextureView
         highFootageFlow = null;
         highFootageGather = null;
         for (int[] target : highFootageTargets) {
-            if (target[1] != 0) GLES20.glDeleteFramebuffers(1, target, 1);
-            if (target[0] != 0) GLES20.glDeleteTextures(1, target, 0);
+            if (contextCurrent && target[1] != 0) GLES20.glDeleteFramebuffers(1, target, 1);
+            if (contextCurrent && target[0] != 0) GLES20.glDeleteTextures(1, target, 0);
             java.util.Arrays.fill(target, 0);
         }
         highFootageWidth = highFootageHeight = 0;

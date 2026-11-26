@@ -14,9 +14,10 @@ launch() {
     shift
     adb -e shell am force-stop "$pkg"
     adb -e logcat -c
-    adb -e shell am start -W -n "$fixture" --ez motion_footage_fixture true "$@" |
+    # Inspect Frame can finish before Android reports a displayed activity.
+    timeout 20 adb -e shell am start -n "$fixture" --ez motion_footage_fixture true "$@" |
         tee "$out/$name.start"
-    grep -q '^Status: ok' "$out/$name.start"
+    grep -q '^Starting: Intent' "$out/$name.start"
 }
 
 wait_for() {

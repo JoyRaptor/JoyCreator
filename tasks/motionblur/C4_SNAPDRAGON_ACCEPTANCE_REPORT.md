@@ -9,8 +9,10 @@ Tested the debug APK from [`b3074ed83`](https://github.com/JoyRaptor/JoyCreator/
 | Legacy blur-off project | A fixture saved without motion or true-order fields reopened through the legacy FX route. It exported three readbacks and its project JSON SHA-256 stayed identical through open and export without edits. |
 | 30-second export | First run: legacy 8,122/7,313 ms; ordered 7,842/7,636 ms. Ordered averaged 21.5 ms slower. Repeat: legacy averaged 6,944 ms; ordered 6,441.5 ms. The paired timings disagree on the direction of the difference. |
 | 60-second blur-off latch | 1,795 intervals at 1280×720 internal size. P50 33.322 ms, P95 50.331 ms, P99 51.119 ms. P95 passed the 50.380 ms C1 budget at thermal status 0. |
-| 50-seek memory | Identical seek gestures took each mode from 00:00 to 00:20. Ordered graphics PSS went from 57,668 to 71,420 KiB; legacy went from 51,256 to 67,100 KiB. Both ended at 48,864 KiB EGL PSS. The final ten seeks added 156 KiB graphics PSS ordered and 1,040 KiB legacy. Both modes grew from cold; the no-growth gate remains open. |
+| 50-seek memory | Identical seek gestures took each mode from 00:00 to 00:20. Ordered graphics PSS went from 57,668 to 71,420 KiB; legacy went from 51,256 to 67,100 KiB. Both ended at 48,864 KiB EGL PSS. The final ten seeks added 156 KiB graphics PSS ordered and 1,040 KiB legacy. Both modes grew from cold. |
+
+After 50 warm-up seeks per mode, the next 50 added 136 KiB graphics PSS in each mode. Ordered rose from 73,184 to 73,320 KiB, and legacy from 69,236 to 69,372 KiB. EGL held at 50,784 KiB and GL at 768 KiB in both modes. The ordered graphics PSS premium stayed at 3,948 KiB. See `warm-seeks-084255/` for the memory samples and thermal logs.
 
 Raw evidence is under `C:/Temp/stu7-c4-physical-20261125/`: `corpus/receipt.json`, `*-results.json`, `performance-retest-comparison.json`, `preview-latch.log`, `legacy-json-receipt.json`, and the ordered/legacy `*seek-*-meminfo.txt` series. No owner media is checked in.
 
-The C4 candidate remains isolated. Paused PiP pixel parity, the memory gate, and the unambiguous landing decision remain open. No Exynos or release-profile claim is made.
+The C4 candidate remains isolated. Paused PiP pixel parity and the landing decision remain open. No Exynos or release-profile claim is made.

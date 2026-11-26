@@ -104,6 +104,15 @@ public class PipExportTest {
         check(oldUsed[0] == 30 && maxLead(oldShown, 30) > 1_000_000L / 24,
                 "NEGCTRL: the old reader uses 30 frames and runs " + maxLead(oldShown, 30) + " us ahead");
         check(!DecodedFrameCursor.holds(Long.MIN_VALUE, 0L), "nothing held answers nothing");
+        check(DecodedFrameCursor.matchesSurfaceTimestamp(166_666, 166_666_000),
+                "a PiP texture answers the codec's exact render timestamp");
+        check(!DecodedFrameCursor.matchesSurfaceTimestamp(166_666, 133_333_000),
+                "a newer PiP codec timestamp cannot label an older texture");
+        check(!DecodedFrameCursor.matchesSurfaceTimestamp(166_666, 166_666_999),
+                "a rounded surface timestamp cannot masquerade as an exact latch");
+        check(DecodedFrameCursor.matchesSurfaceTimestamp(0, 0)
+                        && !DecodedFrameCursor.matchesSurfaceTimestamp(Long.MAX_VALUE, -1000),
+                "zero PTS is valid and a wrapped nanosecond timestamp is not");
 
         // ── R2-FX-04: the effect clock ───────────────────────────────────────
         check(TimeMap.chunkToEditorMs(2_500_000L, 12_000L) == 14_500L, "piece clock 2.5 s + piece start 12 s = editor 14.5 s");

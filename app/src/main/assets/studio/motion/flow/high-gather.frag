@@ -66,14 +66,14 @@ void donor(sampler2D color, sampler2D field, sampler2D inverse,
     vec2 point = inverseWarp(field, outputPoint, fraction);
     vec2 inset = 0.5 / (uStageSize * uRegion.zw);
     if (any(lessThan(point, inset)) || any(greaterThan(point, 1.0 - inset))) return;
-    vec4 packed = texture2D(field, point);
+    vec4 encodedFlow = texture2D(field, point);
     if (!consistent(field, inverse, point)) return;
-    vec2 velocity = unpackVelocity(packed);
+    vec2 velocity = unpackVelocity(encodedFlow);
     vec2 neighbour = unpackVelocity(texture2D(field, point + vec2(1.0) / uFlowSize));
     vec2 difference = (velocity - neighbour) * uSourcePerFlowPixel;
     velocity *= uSourcePerFlowPixel;
     if (dot(difference, difference) > 0.5625 + dot(velocity, velocity) / 16.0) return;
-    float usable = weight * trust(packed.a);
+    float usable = weight * trust(encodedFlow.a);
     if (usable <= 0.0) return;
     vec2 uv = uRegion.xy + point * uRegion.zw;
     vec4 sampleColor = toLinear(texture2D(color, uv));

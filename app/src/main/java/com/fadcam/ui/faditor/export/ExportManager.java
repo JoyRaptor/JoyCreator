@@ -7166,7 +7166,12 @@ public class ExportManager {
         // (preOverlayExtra, added above), so the GL transition program still sees its INPUT
         // size and blends the incoming leg against it; only the finished blend is scaled to the
         // canvas, which the overlay passes below need to place titles and pictures at 1:1.
-        if (overlayW > 0 && overlayH > 0) {
+        boolean sameSizeAvatarProbe = com.fadcam.BuildConfig.DEBUG && recordedAvatarRun
+                && isVideo && videoEffects.isEmpty()
+                && getSourceWidth(clip) == overlayW && getSourceHeight(clip) == overlayH;
+        if (sameSizeAvatarProbe) {
+            FLog.i("AvatarParity", "Skipping same-size pre-avatar Presentation");
+        } else if (overlayW > 0 && overlayH > 0) {
             videoEffects.add(Presentation.createForWidthAndHeight(
                     overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT));
         }

@@ -270,3 +270,19 @@ index 310f6c3..3950617 100644
        int supportedEncodingLevel =
            EncoderUtil.findHighestSupportedEncodingLevel(
                encoderInfo, mimeType, expectedEncodingProfile);
+diff --git a/libraries/effect/src/main/java/androidx/media3/effect/ExternalTextureManager.java b/libraries/effect/src/main/java/androidx/media3/effect/ExternalTextureManager.java
+--- a/libraries/effect/src/main/java/androidx/media3/effect/ExternalTextureManager.java
++++ b/libraries/effect/src/main/java/androidx/media3/effect/ExternalTextureManager.java
+@@ -418,6 +418,12 @@
+           currentFrame.format.height);
+     }
+
++    android.util.Log.i("AvatarParity", "exportOes ptsUs=" + presentationTimeUs
++        + " size=" + currentFrame.format.width + "x" + currentFrame.format.height
++        + " adjust=" + experimentalAdjustSurfaceTextureTransformationMatrix
++        + " color=" + currentFrame.format.colorInfo
++        + " GL=" + android.opengl.GLES20.glGetString(android.opengl.GLES20.GL_VERSION)
++        + " matrix=" + java.util.Arrays.toString(textureTransformMatrix));
+     checkNotNull(externalShaderProgram).setTextureTransformMatrix(textureTransformMatrix);
+     checkNotNull(externalShaderProgram)
+         .queueInputFrame(

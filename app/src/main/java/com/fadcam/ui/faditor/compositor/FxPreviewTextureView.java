@@ -2037,6 +2037,14 @@ public class FxPreviewTextureView extends TextureView
             boolean stagedVideo = drawStage(vw, vh, footage != null ? footageStage : null,
                     avatarBase);
             var indexed = indexedFootage;
+            MotionPreviewReadback parityReadback = motionReadback;
+            if (avatarBase && motionFrame != null && parityReadback != null
+                    && parityReadback.accepts(motionFrame.editorTimeUs())) {
+                FLog.i("AvatarParity", "previewOes ptsUs=" + motionFrame.editorTimeUs()
+                        + " size=" + vw + "x" + vh
+                        + " GL=" + GLES20.glGetString(GLES20.GL_VERSION)
+                        + " matrix=" + java.util.Arrays.toString(texMatrix));
+            }
             if (!degraded && motionClockActive) prepareShutterPrograms(cp, vw, vh);
             int cur = drawFootage(footage, indexed, stagedVideo, vw, vh);
 

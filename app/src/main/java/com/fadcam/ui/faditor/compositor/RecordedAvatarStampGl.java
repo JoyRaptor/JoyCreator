@@ -19,9 +19,8 @@ import com.fadcam.ui.faditor.motion.MotionShutter;
 public final class RecordedAvatarStampGl {
     private static final String SAMPLE = """
             #version 100
-            precision highp float;
-            precision highp sampler2D;
-            varying highp vec2 vTexSamplingCoord;
+            precision mediump float;
+            varying vec2 vTexSamplingCoord;
             uniform sampler2D uAvatar;
             uniform float uOpacity;
             void main() {
@@ -32,9 +31,8 @@ public final class RecordedAvatarStampGl {
     private static final int MAX_RASTER_EDGE = 512;
     private static final String COMPOSITE = """
             #version 100
-            precision highp float;
-            precision highp sampler2D;
-            varying highp vec2 vTexSamplingCoord;
+            precision mediump float;
+            varying vec2 vTexSamplingCoord;
             uniform sampler2D uBase;
             uniform sampler2D uStamp;
             void main() {
@@ -75,7 +73,6 @@ public final class RecordedAvatarStampGl {
         boolean depth = GLES20.glIsEnabled(GLES20.GL_DEPTH_TEST);
         boolean cull = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
         boolean scissor = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
-        boolean dither = GLES20.glIsEnabled(GLES20.GL_DITHER);
         GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, priorFramebuffer, 0);
         GLES20.glGetIntegerv(GLES20.GL_VIEWPORT, priorViewport, 0);
         GLES20.glGetFloatv(GLES20.GL_COLOR_CLEAR_VALUE, priorClearColor, 0);
@@ -83,7 +80,6 @@ public final class RecordedAvatarStampGl {
             GLES20.glDisable(GLES20.GL_DEPTH_TEST);
             GLES20.glDisable(GLES20.GL_CULL_FACE);
             GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
-            GLES20.glDisable(GLES20.GL_DITHER);
             prepareRaster(Math.min(MAX_RASTER_EDGE, Math.max(width, height)));
             exposure.configure(width, height);
             return exposure.drawToTexture(schedule, (target, editorUs) -> {
@@ -116,7 +112,6 @@ public final class RecordedAvatarStampGl {
             restore(GLES20.GL_DEPTH_TEST, depth);
             restore(GLES20.GL_CULL_FACE, cull);
             restore(GLES20.GL_SCISSOR_TEST, scissor);
-            restore(GLES20.GL_DITHER, dither);
             GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, priorFramebuffer[0]);
             GLES20.glViewport(priorViewport[0], priorViewport[1], priorViewport[2], priorViewport[3]);
             GLES20.glClearColor(priorClearColor[0], priorClearColor[1], priorClearColor[2], priorClearColor[3]);
@@ -151,13 +146,11 @@ public final class RecordedAvatarStampGl {
         boolean scissor = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
         boolean depth = GLES20.glIsEnabled(GLES20.GL_DEPTH_TEST);
         boolean cull = GLES20.glIsEnabled(GLES20.GL_CULL_FACE);
-        boolean dither = GLES20.glIsEnabled(GLES20.GL_DITHER);
         try {
             GLES20.glDisable(GLES20.GL_BLEND);
             GLES20.glDisable(GLES20.GL_SCISSOR_TEST);
             GLES20.glDisable(GLES20.GL_DEPTH_TEST);
             GLES20.glDisable(GLES20.GL_CULL_FACE);
-            GLES20.glDisable(GLES20.GL_DITHER);
             GlUtil.focusFramebufferUsingCurrentContext(targetFramebuffer, width, height);
             composite.use();
             composite.setSamplerTexIdUniform("uBase", baseTexture, 0);
@@ -171,7 +164,6 @@ public final class RecordedAvatarStampGl {
             restore(GLES20.GL_SCISSOR_TEST, scissor);
             restore(GLES20.GL_DEPTH_TEST, depth);
             restore(GLES20.GL_CULL_FACE, cull);
-            restore(GLES20.GL_DITHER, dither);
         }
     }
 

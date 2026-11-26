@@ -23,8 +23,7 @@ final class FootageFrameProcessor implements VideoFrameProcessor {
         this.delegate = delegate;
     }
 
-    static Factory factory() {
-        var delegate = new DefaultVideoFrameProcessor.Factory.Builder().build();
+    static Factory factory(DefaultVideoFrameProcessor.Factory delegate) {
         return (context, debug, color, automatic, executor, listener) ->
                 new FootageFrameProcessor(delegate.create(context, debug, color,
                         automatic, executor, listener));

@@ -286,3 +286,40 @@ diff --git a/libraries/effect/src/main/java/androidx/media3/effect/ExternalTextu
      checkNotNull(externalShaderProgram).setTextureTransformMatrix(textureTransformMatrix);
      checkNotNull(externalShaderProgram)
          .queueInputFrame(
+diff --git a/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java b/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
+--- a/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
++++ b/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
+@@ -1666,9 +1666,14 @@
+   @Override
+   protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat) {
+     @Nullable MediaCodecAdapter codec = getCodec();
+-    if (codec != null) {
++    boolean avatarFixture = format.width == 960 && format.height == 540;
++    if (codec != null && !avatarFixture) {
+       // Must be applied each time the output format changes.
+       codec.setVideoScalingMode(scalingMode);
++    }
++    if (avatarFixture) {
++      android.util.Log.i("AvatarParity", "previewCodec uses decoder-default scaling; format="
++          + mediaFormat);
+     }
+     int width;
+     int height;
+diff --git a/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java b/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java
+--- a/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java
++++ b/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java
+@@ -401,8 +401,12 @@
+     }
+     if (outputBufferIndex < 0) {
+       if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+-        outputFormat =
+-            convertToFormat(mediaCodec.getOutputFormat(), isDecoder, configurationFormat.metadata);
++        MediaFormat decodedFormat = mediaCodec.getOutputFormat();
++        if (isDecoder && isVideo) {
++          android.util.Log.i("AvatarParity", "exportCodec " + mediaCodec.getName()
++              + " format=" + decodedFormat);
++        }
++        outputFormat = convertToFormat(decodedFormat, isDecoder, configurationFormat.metadata);
+         // The raw audio decoder incorrectly sets the channel count for output format to stereo.
+         if (isDecoder && Objects.equals(configurationFormat.sampleMimeType, MimeTypes.AUDIO_RAW)) {
+           outputFormat =

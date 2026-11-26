@@ -17,4 +17,6 @@ Raw evidence is under `C:/Temp/stu7-c4-physical-20261125/`: `corpus/receipt.json
 
 The isolated PiP latch fix at `fb2269d17c5250ec328098d963905babe54e561f` [built in Actions](https://github.com/JoyRaptor/JoyCreator/actions/runs/45832403927). On Snapdragon all six fixture captures completed. Plain and blended PiP each matched legacy repeat and ordered output bit-for-bit at 66,666, 500,000, and 900,000 µs. All six runs logged 25 decoded GL frames and zero rewinds. The original APK was restored by hash and the phone lock released. See `pip-exact-085757/` for the receipt, device logs, and four comparisons.
 
-The C4 candidate remains isolated. The earlier paused-preview comparison, speed and memory acceptance, and the landing decision remain open. No Exynos or release-profile claim is made.
+With the exact-latch APK, the 30-second legacy runs took 6,479 and 7,156 ms. The ordered runs took 6,497 and 6,653 ms. Ordered averaged 242.5 ms faster (3.6%). GL draw represented 19% of samples in both legacy runs and 17% and 16% in ordered runs. Thermal status remained 0, and peak battery temperature was 30.3 °C. See `perf-exact-090105/comparison.json` for the complete GL phases.
+
+The C4 candidate remains isolated. The earlier paused-preview comparison, the strict memory gate, and the landing decision remain open. No Exynos or release-profile claim is made.

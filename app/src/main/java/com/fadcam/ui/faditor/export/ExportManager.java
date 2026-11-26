@@ -1027,7 +1027,8 @@ public class ExportManager {
 
     private boolean highFootageExportEnabled(FaditorProject project) {
         return project.isMotionBlurEnabled()
-                && !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur");
+                && (com.fadcam.ui.faditor.motion.PausedFootageProof.active(project.getId())
+                || !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur"));
     }
 
     private boolean recordedAvatarExportEnabled(FaditorProject project) {

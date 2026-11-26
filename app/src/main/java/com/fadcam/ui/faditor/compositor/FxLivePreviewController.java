@@ -59,6 +59,8 @@ public final class FxLivePreviewController {
         /** The player rendering video right now — legacy or gapless. Null before preparation. */
         @Nullable ExoPlayer activeVideoPlayer();
         default boolean motionBlurEnabled() { return false; }
+        default boolean pausedFootageProof() { return false; }
+        default void onPausedFootageProofRouted() {}
         default boolean trueLayerOrder() { return false; }
         default boolean isManipulatingOverlay(@NonNull TextOverlayItem item) { return false; }
         @Nullable default com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell
@@ -452,7 +454,8 @@ public final class FxLivePreviewController {
                 && LayerPreviewController.visibleOverlayVideoClips(timeline).stream()
                 .anyMatch(FxLivePreviewController::eligibleLivePiP);
         boolean fastFootage = host.motionBlurEnabled()
-                && !LaunchGate.hidden(view.getContext(), FastFootagePreviewOwner.LAUNCH_KEY);
+                && (host.pausedFootageProof()
+                || !LaunchGate.hidden(view.getContext(), FastFootagePreviewOwner.LAUNCH_KEY));
         boolean shutterFootage = fastFootage && !timeline.hasTransitions()
                 && timeline.getClips().stream().anyMatch(FxLivePreviewController::eligibleFastFootage);
         // With hasExportMask() now in wantsGlExport() (3A.1), masked images are already in
@@ -546,7 +549,7 @@ public final class FxLivePreviewController {
                 && maskedImages.isEmpty() && belowBlendImages.isEmpty() && !anyBelowTextSprite && !anyCrop
                 && !anySpineTransform
                 && !anyLayerImage && !anyMatte && shutterOverlays.isEmpty() && !shutterSprites && !shutterPiP
-                && !shutterFootage
+                && !shutterFootage && !host.pausedFootageProof()
                 && orderedLanes == null) {
             stop();
             return;
@@ -668,7 +671,8 @@ public final class FxLivePreviewController {
     }
 
     private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip, boolean shutterFootage) {
-        if ((!host.motionBlurEnabled() && debugLaneOrder == null) || clip == null || clip.isImageClip()
+        if ((!host.motionBlurEnabled() && debugLaneOrder == null && !host.pausedFootageProof())
+                || clip == null || clip.isImageClip()
                 || clip.hasLoopExtension() || clip.hasRemovedSpans()) {
             clearMotionClock();
             return;
@@ -2185,6 +2189,7 @@ public final class FxLivePreviewController {
             routed = true;
             routedPlayer = p;
             FLog.i(TAG, "live FX preview engaged");
+            if (host.pausedFootageProof()) host.onPausedFootageProofRouted();
         } catch (RuntimeException e) {
             FLog.w(TAG, "could not route video to the FX preview: " + e);
         }

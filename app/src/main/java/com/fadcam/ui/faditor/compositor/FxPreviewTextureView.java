@@ -1936,6 +1936,7 @@ public class FxPreviewTextureView extends TextureView
     @Nullable private PreviewMotionClock.Frame motionFrame;
     private volatile boolean motionClockActive;
     @Nullable private volatile MotionPreviewReadback motionReadback;
+    @Nullable private PreviewMotionClock.Frame pausedHighReadbackFrame;
     private volatile boolean motionPreviewTiming;
     private long lastTimedMotionFrameUs = Long.MIN_VALUE;
 
@@ -2018,6 +2019,7 @@ public class FxPreviewTextureView extends TextureView
 
     private void drawFrame() {
         if (eglSurface == EGL14.EGL_NO_SURFACE || inputTexture == null) return;
+        pausedHighReadbackFrame = null;
         long frameStartNs = System.nanoTime();
         try {
             EGL14.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
@@ -2179,7 +2181,8 @@ public class FxPreviewTextureView extends TextureView
 
             MotionPreviewReadback capture = motionReadback;
             if (com.fadcam.BuildConfig.DEBUG && capture != null && motionFrame != null
-                    && !degraded && capture.accepts(motionFrame.editorTimeUs())) {
+                    && !degraded && capture.accepts(motionFrame, pausedHighReadbackFrame == motionFrame,
+                    motionClock.isCurrent(motionFrame))) {
                 motionReadback = null;
                 capture.capture(targets[cur][1], vw, vh, motionFrame.editorTimeUs());
             }
@@ -2393,6 +2396,7 @@ public class FxPreviewTextureView extends TextureView
                     + " nextPtsUs=" + next + " periodUs=" + period);
             loggedPausedGather = true;
         }
+        if (accepted) pausedHighReadbackFrame = frame;
         return accepted;
     }
 

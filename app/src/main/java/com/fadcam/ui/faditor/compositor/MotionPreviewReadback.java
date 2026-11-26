@@ -5,6 +5,7 @@ import android.graphics.Bitmap;
 import android.opengl.GLES20;
 
 import com.fadcam.FLog;
+import com.fadcam.ui.faditor.motion.PreviewMotionClock;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -15,14 +16,29 @@ public final class MotionPreviewReadback {
     private static final String TAG = "MotionPreviewReadback";
     private final File folder;
     private final long earliestUs;
+    private final long exactSourcePtsUs;
+    private final boolean expectHigh;
 
     public MotionPreviewReadback(Context context, long earliestUs) {
-        folder = context.getCacheDir();
-        this.earliestUs = earliestUs;
+        this(context, earliestUs, -1, false);
     }
 
-    boolean accepts(long timeUs) {
-        return timeUs >= earliestUs;
+    public static MotionPreviewReadback pausedFootage(Context context, long exactSourcePtsUs,
+                                                      boolean expectHigh) {
+        return new MotionPreviewReadback(context, 0, exactSourcePtsUs, expectHigh);
+    }
+
+    private MotionPreviewReadback(Context context, long earliestUs, long exactSourcePtsUs,
+                                  boolean expectHigh) {
+        folder = context.getCacheDir();
+        this.earliestUs = earliestUs;
+        this.exactSourcePtsUs = exactSourcePtsUs;
+        this.expectHigh = expectHigh;
+    }
+
+    boolean accepts(PreviewMotionClock.Frame frame, boolean highDrawn, boolean currentFrame) {
+        if (exactSourcePtsUs < 0) return frame.editorTimeUs() >= earliestUs;
+        return currentFrame && frame.decodedPtsUs() == exactSourcePtsUs && highDrawn == expectHigh;
     }
 
     void capture(int framebuffer, int width, int height, long timeUs) {
@@ -47,7 +63,10 @@ public final class MotionPreviewReadback {
                 }
             }
             image = Bitmap.createBitmap(argb, width, height, Bitmap.Config.ARGB_8888);
-            File png = new File(folder, "motion_preview_" + timeUs + ".png");
+            String name = exactSourcePtsUs >= 0
+                    ? "motion_paused_" + (expectHigh ? "high_" : "sharp_") + exactSourcePtsUs
+                    : "motion_preview_" + timeUs;
+            File png = new File(folder, name + ".png");
             try (FileOutputStream stream = new FileOutputStream(png)) {
                 if (!image.compress(Bitmap.CompressFormat.PNG, 100, stream)) {
                     throw new java.io.IOException("Could not encode preview frame");

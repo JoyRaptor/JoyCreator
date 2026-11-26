@@ -128,6 +128,16 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 sprite fixture enabled=" + enabled);
         }
+        if (in.getBooleanExtra("motion_footage_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            FaditorProject fixture = MotionRouteFixture.createFootage(this, enabled,
+                    in.getBooleanExtra("motion_slow", false),
+                    in.getBooleanExtra("motion_second_source", false),
+                    in.getBooleanExtra("motion_private_reference", false));
+            com.fadcam.ui.faditor.motion.PausedFootageProof.register(fixture.getId());
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C6 footage fixture project_id=" + fixture.getId() + " enabled=" + enabled);
+        }
         if (in.getBooleanExtra("motion_title_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             FaditorProject fixture = MotionRouteFixture.createTitle(this, enabled);
@@ -170,6 +180,13 @@ public class ExportDebugActivity extends Activity {
                         in.getLongExtra("motion_preview_readback_us", -1L));
             }
             if (in.getBooleanExtra("motion_preview_timing", false)) {
+                preview.putExtra("studio_debug_motion_preview_timing", true);
+            }
+            if (in.getBooleanExtra("motion_footage_fixture", false)) {
+                preview.putExtra("studio_debug_paused_footage_seek_ms",
+                        in.getLongExtra("motion_preview_seek_ms", -1L));
+                preview.putExtra("studio_debug_paused_footage_source_pts_us",
+                        in.getLongExtra("motion_preview_source_pts_us", -1L));
                 preview.putExtra("studio_debug_motion_preview_timing", true);
             }
             startActivity(preview);

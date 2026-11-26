@@ -31529,6 +31529,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 long captureTimeUs = getIntent().getLongExtra("studio_debug_motion_readback_us", -1L);
                 if (captureTimeUs >= 0L) v.requestMotionReadback(
                         new com.fadcam.ui.faditor.compositor.MotionPreviewReadback(this, captureTimeUs));
+                long sourcePtsUs = getIntent().getLongExtra("studio_debug_paused_footage_source_pts_us", -1L);
+                if (sourcePtsUs >= 0 && project != null
+                        && com.fadcam.ui.faditor.motion.PausedFootageProof.active(project.getId())) {
+                    v.requestMotionReadback(com.fadcam.ui.faditor.compositor.MotionPreviewReadback.pausedFootage(
+                            this, sourcePtsUs, project.isMotionBlurEnabled()));
+                }
             }
             // The image-clip bitmap source, wired to the SAME GL-thread trash queue the PiP
             // stills use — a bitmap handed to the chain must never be recycled by this side.
@@ -31546,6 +31552,17 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         }
                         @Override public boolean motionBlurEnabled() {
                             return project != null && project.isMotionBlurEnabled();
+                        }
+                        @Override public boolean pausedFootageProof() {
+                            return com.fadcam.BuildConfig.DEBUG && project != null
+                                    && com.fadcam.ui.faditor.motion.PausedFootageProof.active(project.getId());
+                        }
+                        private boolean proofSeekStarted;
+                        @Override public void onPausedFootageProofRouted() {
+                            long seekMs = getIntent().getLongExtra("studio_debug_paused_footage_seek_ms", -1L);
+                            if (proofSeekStarted || seekMs < 0 || editorTimeline == null) return;
+                            proofSeekStarted = true;
+                            editorTimeline.post(() -> seekMarkerPosition(seekMs));
                         }
                         @Override public boolean trueLayerOrder() {
                             return project != null && project.isTrueLayerOrder();

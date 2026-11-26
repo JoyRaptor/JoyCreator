@@ -34,6 +34,7 @@ public final class TipUsage {
     /** A tip for now, leaning to what this person makes; remembered as seen. Any thread. */
     @NonNull
     public static TipBook.Tip next(@NonNull Context context) {
+        com.fadcam.launch.LaunchGate.hiddenKeys(context);
         SharedPreferences p = prefs(context);
         refreshFromLibraryIfStale(context, p);
         Set<String> seen = new HashSet<>(p.getStringSet(SEEN, new HashSet<String>()));

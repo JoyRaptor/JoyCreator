@@ -201,6 +201,7 @@ public class ChatAssistantActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        com.fadcam.launch.LaunchGate.hiddenKeys(this);
 
         // The window stays see-through and undimmed: the drawer itself is the ~55% see-through
         // layer (owner: drawers never opaque; Frost only adds blur). ChatArrival opens it.
@@ -3601,7 +3602,6 @@ public class ChatAssistantActivity extends AppCompatActivity {
 
     private void startTour() {
         createFlow = null;
-        com.fadcam.launch.LaunchGate.hiddenKeys(this);   // make sure the launch list has been read
         tourStops = com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tour(com.fadcam.launch.LaunchList::hiddenRoute);
         tourAt = 0;
         addBotMessage(com.fadcam.ui.faditor.ai.joybot.LobbyGuide.tourIntro(tourStops.size()));

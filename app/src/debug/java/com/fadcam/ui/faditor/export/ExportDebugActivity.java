@@ -243,11 +243,6 @@ public class ExportDebugActivity extends Activity {
                 in.getBooleanExtra("motion_lane_compositor", false));
         si.putExtra(ExportService.EXTRA_DEBUG_PROJECT_LANE_ORDER,
                 in.getBooleanExtra("motion_lane_project_order", false));
-        long inspectMs = in.getLongExtra("motion_inspect_frame_ms", -1L);
-        if (in.getBooleanExtra("motion_footage_fixture", false) && inspectMs >= 0) {
-            si.putExtra(ExportService.EXTRA_SINGLE_FRAME, true);
-            si.putExtra(ExportService.EXTRA_FRAME_TIME_MS, inspectMs);
-        }
         long[] laneSamples = in.getLongArrayExtra("motion_lane_sample_us");
         if (laneSamples != null) si.putExtra(ExportService.EXTRA_DEBUG_LANE_SAMPLE_US, laneSamples);
         long a = in.getLongExtra("range_start_ms", -1L);

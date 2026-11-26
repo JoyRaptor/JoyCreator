@@ -11,8 +11,9 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: '45778966923'
-      SOURCE_COMMIT: 'fe8ac0683b9caa65d50d79d38733c60aea752dfe'
+      SOURCE_RUN: '45780777601'
+      SOURCE_COMMIT: '7124aca6c6e16eee763d6654aa7161639a5604b4'
+      AVATAR_TRACE_ONLY: 'true'
     steps:
       - uses: actions/checkout@v4
       - name: Configure emulator
@@ -54,6 +55,7 @@ jobs:
           adb -e shell getprop ro.product.cpu.abilist
           adb -e install "$apk"
       - name: Verify High footage export and exact cold/warm output
+        if: env.AVATAR_TRACE_ONLY != 'true'
         run: bash tools/motionref/capture-footage-export.sh "$RUNNER_TEMP/footage"
       - name: Compare raw avatar preview and export
         if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
@@ -62,6 +64,7 @@ jobs:
           "$RUNNER_TEMP/stu7-pixels/bin/pip" install Pillow
           bash tools/motionref/capture-avatar-parity.sh "$RUNNER_TEMP/avatar" "$RUNNER_TEMP/stu7-pixels/bin/python"
       - name: Export the three avatar controls
+        if: env.AVATAR_TRACE_ONLY != 'true'
         run: |
           set -euo pipefail
           pkg=com.fadcam.beta
@@ -118,8 +121,10 @@ jobs:
           capture sharp false false
           capture master-off true true
       - name: Install FFmpeg
+        if: env.AVATAR_TRACE_ONLY != 'true'
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Check avatar export pixels
+        if: env.AVATAR_TRACE_ONLY != 'true'
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP/avatar"

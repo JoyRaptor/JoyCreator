@@ -69,7 +69,7 @@ for target in 150000 1450000 2750000; do
     play
     log="$out/preview/$target.log"
     wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' "$pkg" \
-        ExportDebug MotionPreviewReadback FxPreviewGl
+        ExportDebug MotionPreviewReadback FxPreviewGl AvatarParity
     read -r file actual dimensions <<< "$(sed -nE \
         's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
     test "$actual" -ge "$target"
@@ -94,7 +94,7 @@ export_raw() {
     done
     app_start "$@" --ela motion_lane_sample_us "$sample_arg"
     wait_for_log "$folder/device.log" 'ExportService: Export completed' "$pkg:export" \
-        ExportDebug LaneReadback ExportService SpriteBlend
+        ExportDebug LaneReadback ExportService SpriteBlend AvatarParity
     for actual in "${times[@]}"; do
         adb -e exec-out run-as "$pkg" cat "cache/lane_frame_$actual.rgba" > "$folder/lane_frame_$actual.rgba"
     done
@@ -135,6 +135,19 @@ for route in ("blur-raw", "sharp-raw"):
         samples.append(dict(file=f"lane_frame_{request}.rgba", requestUs=int(request),
                             editorUs=int(pts), width=int(width), height=int(height)))
     (folder / "manifest.json").write_text(json.dumps({"samples": samples}))
+
+trace = {}
+for screen in ("preview", "blur-raw"):
+    logs = "".join(path.read_text() for path in sorted((root / screen).glob("*.log")))
+    kind = "preview" if screen == "preview" else "export"
+    trace[screen] = {
+        sample["editorUs"]: [
+            line.split("AvatarParity: ", 1)[1] for line in logs.splitlines()
+            if f"AvatarParity: {kind} editorUs={sample['editorUs']} " in line
+        ]
+        for sample in preview
+    }
+(root / "avatar-stage-trace.json").write_text(json.dumps(trace, indent=2))
 PY
 
 if node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/sharp-raw/manifest.json" \

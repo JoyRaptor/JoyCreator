@@ -453,19 +453,25 @@ final class MotionRouteFixture {
     }
 
     static FaditorProject createFootage(Context context, boolean enabled, boolean slow,
-                                       boolean secondSource) throws IOException {
+                                       boolean secondSource, boolean privateReference) throws IOException {
         var storage = new ProjectStorage(context);
         var project = new FaditorProject(storage.uniqueName("TEST STU-7 C6 footage"));
         project.setMotionBlurEnabled(enabled);
         File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Could not create footage fixture folder");
-        for (String name : secondSource ? new String[]{"card1.mp4", "card2.mp4"}
-                : new String[]{"card1.mp4"}) {
-            File file = copyAsset(context, media, name);
-            var clip = clip(file, durationMs(file), 900L);
-            clip.setInPointMs(233L);
+        String[] names = privateReference ? new String[]{"studio-stu7-reference.mp4"}
+                : secondSource ? new String[]{"card1.mp4", "card2.mp4"} : new String[]{"card1.mp4"};
+        for (String name : names) {
+            File file = privateReference ? new File(context.getExternalFilesDir(null), name)
+                    : copyAsset(context, media, name);
+            long startMs = privateReference && slow ? 3_600L : 233L;
+            long endMs = privateReference && slow ? 4_400L : 900L;
+            long duration = durationMs(file);
+            if (duration < endMs) throw new IOException("Footage fixture source is shorter than its trim");
+            var clip = clip(file, duration, endMs);
+            clip.setInPointMs(startMs);
             clip.setAudioMuted(true);
-            clip.setSpeedMultiplier(slow ? 0.5f : 1f);
+            clip.setSpeedMultiplier(slow && !privateReference ? 0.5f : 1f);
             clip.setRigidMotionBlurEnabled(true);
             clip.setRigidMotionShutter(new MotionShutter.Controls(270,
                     MotionShutter.Timing.CENTERED, 0, 100));

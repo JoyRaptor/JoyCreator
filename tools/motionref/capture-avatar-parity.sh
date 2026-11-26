@@ -62,7 +62,7 @@ wait_for_log() {
 }
 
 times=()
-for target in 150000 1450000 2750000; do
+for target in 350000 1450000 2750000; do
     app_start --ez motion_avatar_fixture true --ez motion_enabled true \
         --ez motion_avatar_parity_loop true \
         --ez open_preview true --el motion_preview_readback_us "$target"

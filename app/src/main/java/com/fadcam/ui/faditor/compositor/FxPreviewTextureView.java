@@ -18,6 +18,8 @@ import android.view.TextureView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.media3.common.util.GlProgram;
+import androidx.media3.common.util.GlUtil;
 
 import com.fadcam.FLog;
 import com.fadcam.ui.faditor.fx.FxCompiler;
@@ -1313,6 +1315,8 @@ public class FxPreviewTextureView extends TextureView
     private volatile int surfaceW, surfaceH;
 
     /** Staging (OES→2D) and presentation (2D→screen) programs. Built once, never rebuilt. */
+    @Nullable private GlProgram avatarBaseStage;
+    private boolean avatarBaseStageUnavailable;
     private int stageProgram, presentProgram, gradeProgram, cropProgram, layerProgram;
     /** @see #PICTURE_ALPHA_FRAGMENT - compiled with the rest, used only while fading. */
     private int pictureAlphaProgram;
@@ -1819,6 +1823,7 @@ public class FxPreviewTextureView extends TextureView
             degraded = false;
             failedKey = null;
             compiledKey = null;
+            avatarBaseStageUnavailable = false;
             stageProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_FRAGMENT);
             stageStillProgram = buildProgram(FxGlSource.VERTEX_SHADER, STAGE_STILL_FRAGMENT);
             presentProgram = buildProgram(FxGlSource.VERTEX_SHADER, FxGlSource.PASSTHROUGH_FRAGMENT);
@@ -2026,9 +2031,12 @@ public class FxPreviewTextureView extends TextureView
 
             // 1 — OES into an ordinary 2D texture, decoder transform applied once.
             FastFootageExposure footage = fastFootage;
-            boolean stagedVideo = drawStage(vw, vh, footage != null ? footageStage : null);
-            var indexed = indexedFootage;
             CompositePlan cp = plan;
+            boolean avatarBase = com.fadcam.BuildConfig.DEBUG && motionClockActive && cp != null
+                    && cp.rungs.stream().anyMatch(r -> r.avatar != null);
+            boolean stagedVideo = drawStage(vw, vh, footage != null ? footageStage : null,
+                    avatarBase);
+            var indexed = indexedFootage;
             if (!degraded && motionClockActive) prepareShutterPrograms(cp, vw, vh);
             int cur = drawFootage(footage, indexed, stagedVideo, vw, vh);
 
@@ -2414,11 +2422,12 @@ public class FxPreviewTextureView extends TextureView
         return new float[]{(1f - w) / 2f, (1f - h) / 2f, w, h};
     }
 
-    private boolean drawStage(int vw, int vh, @Nullable int[] stage) {
+    private boolean drawStage(int vw, int vh, @Nullable int[] stage, boolean avatarBase) {
         android.graphics.Bitmap b = baseStill;
         if (b != null && !b.isRecycled() && drawStageStill(b, vw, vh)) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
         stageViewport(vw, vh, stage);
+        if (avatarBase && rotation == 0 && drawAvatarBaseStage()) return true;
         GLES20.glUseProgram(stageProgram);
         bindQuad(stageProgram);
         GLES20.glUniformMatrix4fv(
@@ -2429,6 +2438,36 @@ public class FxPreviewTextureView extends TextureView
         GLES20.glUniform1i(GLES20.glGetUniformLocation(stageProgram, "uOesTexture"), 0);
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         return true;
+    }
+
+    private boolean drawAvatarBaseStage() {
+        if (avatarBaseStageUnavailable) return false;
+        try {
+            if (avatarBaseStage == null) {
+                avatarBaseStage = new GlProgram(getContext(),
+                        "shaders/vertex_shader_transformation_es2.glsl",
+                        "shaders/fragment_shader_transformation_sdr_external_es2.glsl");
+                avatarBaseStage.setBufferAttribute("aFramePosition",
+                        GlUtil.getNormalizedCoordinateBounds(), 4);
+                float[] identity = GlUtil.create4x4IdentityMatrix();
+                avatarBaseStage.setFloatsUniform("uTransformationMatrix", identity);
+                avatarBaseStage.setFloatsUniform("uRgbMatrix", identity);
+                avatarBaseStage.setIntUniform("uOutputColorTransfer",
+                        androidx.media3.common.C.COLOR_TRANSFER_SDR_VIDEO);
+                avatarBaseStage.setIntUniform("uSdrWorkingColorSpace", 0);
+            }
+            avatarBaseStage.use();
+            avatarBaseStage.setFloatsUniform("uTexTransformationMatrix", texMatrix);
+            avatarBaseStage.setSamplerTexIdUniform("uTexSampler", oesTexId, 0);
+            avatarBaseStage.bindAttributesAndUniforms();
+            GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
+            GlUtil.checkGlError();
+            return true;
+        } catch (Exception e) {
+            FLog.w("AvatarParity", "Media3 staging shader unavailable: " + e);
+            avatarBaseStageUnavailable = true;
+            return false;
+        }
     }
 
     /**
@@ -3979,6 +4018,10 @@ public class FxPreviewTextureView extends TextureView
                 try { meshStamp.release(); } catch (Exception ignored) { }
                 releaseAuthoredMeshExposure();
                 releaseAvatarShutter();
+                if (avatarBaseStage != null) {
+                    try { avatarBaseStage.delete(); } catch (GlUtil.GlException ignored) { }
+                    avatarBaseStage = null;
+                }
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }

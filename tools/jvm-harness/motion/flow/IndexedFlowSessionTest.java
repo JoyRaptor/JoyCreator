@@ -1,5 +1,7 @@
 package com.fadcam.ui.faditor.motion.flow;
 
+import com.fadcam.ui.faditor.motion.PreviewMotionClock;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -19,15 +21,80 @@ public final class IndexedFlowSessionTest {
         var test = new IndexedFlowSessionTest();
         Path root = Files.createTempDirectory("studio-flow-session");
         try {
-            test.replacementRejectsOldSource(root.resolve("replacement"));
-            test.keepsOnlyNearestExactPairs(root.resolve("resident"));
-            test.warmPairsAndOversizedSource(root.resolve("warm"));
+            if (args.length == 1 && args[0].equals("--preview-binding")) {
+                test.editorBindingUsesLatchedSourcePts(root);
+            } else {
+                test.replacementRejectsOldSource(root.resolve("replacement"));
+                test.keepsOnlyNearestExactPairs(root.resolve("resident"));
+                test.warmPairsAndOversizedSource(root.resolve("warm"));
+            }
         } finally {
             try (var paths = Files.walk(root)) {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
             }
         }
         System.out.println("IndexedFlowSessionTest: " + test.assertions + " assertions");
+    }
+
+    private void editorBindingUsesLatchedSourcePts(Path root) throws Exception {
+        var clock = new PreviewMotionClock();
+        var finishOld = new CountDownLatch(1);
+        var oldRetiring = new CountDownLatch(1);
+        var nextOpening = new CountDownLatch(1);
+        try (var binding = new PreviewIndexedFlow(() -> new FlowCache(root.toFile(), 1_000_000))) {
+            binding.setSource(new PreviewIndexedFlow.Source("old", 200, 301,
+                    cancel -> new PreviewIndexedFlow.Prepared(index(), source("old"),
+                            (pts, w, h) -> FLAT, () -> {
+                                oldRetiring.countDown();
+                                finishOld.await(3, TimeUnit.SECONDS);
+                            })));
+            long oldGeneration = clock.reset();
+            clock.onFrame(oldGeneration, 10_000, 9_000, 200, "old");
+            var oldFrame = clock.latch(10_000);
+            binding.observe(oldFrame);
+            check(awaitPreviewPair(binding, oldFrame) != null,
+                    "editor plans from latched source PTS rather than editor time");
+            var replacement = new PreviewIndexedFlow.Source("next", 200, 301, cancel -> {
+                nextOpening.countDown();
+                return new PreviewIndexedFlow.Prepared(index(), source("next"),
+                        (pts, w, h) -> FLAT, () -> {});
+            });
+            // Hold the index worker at the drain boundary to test the immediate fence.
+            synchronized (binding) {
+                binding.setSource(replacement);
+                check(binding.ready(oldFrame, 200, 300) == null,
+                        "editor source switch immediately rejects the old latched pair");
+            }
+            check(oldRetiring.await(3, TimeUnit.SECONDS), "previous source retires off the render thread");
+            binding.observe(oldFrame);
+            check(nextOpening.getCount() == 1, "old latched PTS cannot plan the replacement source");
+
+            long nextGeneration = clock.reset();
+            clock.onFrame(nextGeneration, 11_000, 10_000, 200, "next");
+            var nextFrame = clock.latch(11_000);
+            binding.observe(nextFrame);
+            check(binding.ready(nextFrame, 200, 300) == null,
+                    "replacement at identical PTS starts on fallback");
+            finishOld.countDown();
+            check(awaitPreviewPair(binding, nextFrame) != null, "replacement publishes its own pair");
+            check(binding.ready(oldFrame, 200, 300) == null, "old frame cannot borrow replacement flow");
+            check(binding.ready(nextFrame, 200, 301) == null, "inexact neighbour cannot borrow flow");
+            binding.setSource(null);
+            check(binding.ready(nextFrame, 200, 300) == null, "route teardown immediately clears flow");
+        } finally {
+            finishOld.countDown();
+        }
+    }
+
+    private static FlowCache.Pair awaitPreviewPair(PreviewIndexedFlow binding,
+            PreviewMotionClock.Frame frame) throws InterruptedException {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
+        do {
+            var pair = binding.ready(frame, 200, 300);
+            if (pair != null) return pair;
+            Thread.sleep(5);
+        } while (System.nanoTime() < deadline);
+        return null;
     }
 
     private void replacementRejectsOldSource(Path root) throws Exception {

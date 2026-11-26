@@ -9,6 +9,8 @@ OUT=tools/jvm-harness/out-motionflow
 rm -rf "$OUT"; mkdir -p "$OUT"
 javac -nowarn -encoding UTF-8 -d "$OUT" \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/VelocityPack.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/MotionFrameCadence.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/PreviewMotionClock.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/*.java \
   tools/jvm-harness/motion/flow/*.java
 
@@ -37,6 +39,7 @@ expect_failure 'B frames use display neighbours' \
     com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --decode-order
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest
 java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest --preview-binding
 expect_failure 'OpenGL row zero comes from the image bottom' \
   com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-row-flip
 expect_failure 'downward image motion becomes upward OpenGL motion' \

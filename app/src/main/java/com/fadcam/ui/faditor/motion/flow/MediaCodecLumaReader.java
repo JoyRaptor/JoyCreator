@@ -82,13 +82,23 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
     @Nullable
     public VideoPresentationIndex scanPresentationIndex(FlowAnalyzer.Cancellation cancellation)
             throws IOException, InterruptedException {
+        var media = scanSource(cancellation);
+        return media == null ? null : media.index();
+    }
+
+    public record IndexedSource(VideoPresentationIndex index, int rotation, int left, int top,
+                                int right, int bottom) {}
+
+    @Nullable
+    public IndexedSource scanSource(FlowAnalyzer.Cancellation cancellation)
+            throws IOException, InterruptedException {
         if (Thread.currentThread().isInterrupted() || cancellation.isCancelled()) {
             throw new InterruptedException();
         }
         MediaExtractor scan = new MediaExtractor();
         try {
             source.open(scan);
-            selectVideo(scan);
+            MediaFormat format = selectVideo(scan);
             var index = new VideoPresentationIndex.Builder();
             while (scan.getSampleTrackIndex() >= 0) {
                 if (Thread.currentThread().isInterrupted() || cancellation.isCancelled()) {
@@ -102,10 +112,21 @@ public final class MediaCodecLumaReader implements ExactDecodedLuma.Reader, Auto
             if (Thread.currentThread().isInterrupted() || cancellation.isCancelled()) {
                 throw new InterruptedException();
             }
-            return index.finish();
+            VideoPresentationIndex presentation = index.finish();
+            int rotation = geometryValue(format, MediaFormat.KEY_ROTATION, 0);
+            int left = geometryValue(format, "crop-left", 0);
+            int top = geometryValue(format, "crop-top", 0);
+            int right = geometryValue(format, "crop-right", format.getInteger(MediaFormat.KEY_WIDTH) - 1) + 1;
+            int bottom = geometryValue(format, "crop-bottom", format.getInteger(MediaFormat.KEY_HEIGHT) - 1) + 1;
+            return presentation == null ? null
+                    : new IndexedSource(presentation, rotation, left, top, right, bottom);
         } finally {
             scan.release();
         }
+    }
+
+    private static int geometryValue(MediaFormat format, String key, int fallback) {
+        return format.containsKey(key) ? format.getInteger(key) : fallback;
     }
 
     @Override

@@ -37,6 +37,11 @@ import com.fadcam.ui.faditor.motion.SweptBounds;
 import com.fadcam.ui.faditor.motion.flow.FastFootageGatherGl;
 import com.fadcam.ui.faditor.motion.flow.FastFootagePreviewOwner;
 import com.fadcam.ui.faditor.motion.flow.LiveFlowGl;
+import com.fadcam.ui.faditor.motion.flow.FlowCache;
+import com.fadcam.ui.faditor.motion.flow.IndexedFlowQueue;
+import com.fadcam.ui.faditor.motion.flow.ExactDecodedLuma;
+import com.fadcam.ui.faditor.motion.flow.MediaCodecLumaReader;
+import com.fadcam.ui.faditor.motion.flow.PreviewIndexedFlow;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -1938,11 +1943,13 @@ public class FxPreviewTextureView extends TextureView
     private static final long FAST_FOOTAGE_MAX_GAP_US = 100_000L;
 
     record FastFootageInput(String sourceKey, long startUs, long endUs, float speed,
-                            MotionShutter.Controls shutter) {}
+                            MotionShutter.Controls shutter, android.net.Uri uri,
+                            long sourceStartUs, long sourceEndUs) {}
 
     private record FastFootageExposure(FastFootageInput input, MotionBreaks fences) {}
 
     @Nullable private volatile FastFootageExposure fastFootage;
+    @Nullable private volatile PreviewIndexedFlow indexedFootage;
     @Nullable private FastFootagePreviewOwner footageFlow;
     @Nullable private FastFootageGatherGl footageGather;
     private boolean fastFootageFailed;
@@ -1953,9 +1960,60 @@ public class FxPreviewTextureView extends TextureView
     void setFastFootageInput(@Nullable FastFootageInput input) {
         var previous = fastFootage;
         if (java.util.Objects.equals(input, previous == null ? null : previous.input())) return;
+        if (input == null) {
+            var indexed = indexedFootage;
+            indexedFootage = null;
+            if (indexed != null) indexed.close();
+        } else if (previous == null || !previous.input().sourceKey().equals(input.sourceKey())
+                || previous.input().sourceStartUs() != input.sourceStartUs()
+                || previous.input().sourceEndUs() != input.sourceEndUs()) {
+            var context = getContext().getApplicationContext();
+            var indexed = indexedFootage;
+            if (indexed == null) {
+                indexed = new PreviewIndexedFlow(() -> new FlowCache(
+                        new java.io.File(context.getCacheDir(), "studio-indexed-flow")));
+            }
+            // Until the media revision is fingerprinted, cache entries are scoped to this bind.
+            String fingerprint = java.util.UUID.randomUUID().toString();
+            indexed.setSource(new PreviewIndexedFlow.Source(input.sourceKey(), input.sourceStartUs(),
+                    input.sourceEndUs(), cancelled -> openIndexedFootage(
+                            context, input.uri(), fingerprint, cancelled)));
+            indexedFootage = indexed;
+        }
         fastFootage = input == null ? null : new FastFootageExposure(input,
                 new MotionBreaks.Builder().add(input.startUs()).add(input.endUs()).build());
         requestFrame();
+    }
+
+    @Nullable
+    private static PreviewIndexedFlow.Prepared openIndexedFootage(android.content.Context context,
+            android.net.Uri uri, String fingerprint,
+            com.fadcam.ui.faditor.motion.flow.FlowAnalyzer.Cancellation cancelled) throws Exception {
+        var reader = new MediaCodecLumaReader(context, uri);
+        boolean transferred = false;
+        try {
+            var media = reader.scanSource(cancelled);
+            if (media == null) return null;
+            int width = media.right() - media.left();
+            int height = media.bottom() - media.top();
+            if (Math.floorMod(media.rotation(), 180) == 90) {
+                int unrotatedWidth = width;
+                width = height;
+                height = unrotatedWidth;
+            }
+            if (width <= 0 || height <= 0) return null;
+            double scale = Math.min(0.25d, 240d / Math.max(width, height));
+            var geometry = new IndexedFlowQueue.Source(fingerprint, media.rotation(),
+                    media.left(), media.top(), media.right(), media.bottom(), "decoded-pyramid-v1",
+                    "quarter", Math.max(1, (int) (width * scale)),
+                    Math.max(1, (int) (height * scale)), FAST_FOOTAGE_MAX_GAP_US);
+            var prepared = new PreviewIndexedFlow.Prepared(media.index(), geometry,
+                    ExactDecodedLuma.adapter(reader), reader);
+            transferred = true;
+            return prepared;
+        } finally {
+            if (!transferred) reader.close();
+        }
     }
 
     public void enableMotionPreviewTiming() {
@@ -1994,6 +2052,8 @@ public class FxPreviewTextureView extends TextureView
             // 1 — OES into an ordinary 2D texture, decoder transform applied once.
             FastFootageExposure footage = fastFootage;
             boolean stagedVideo = drawStage(vw, vh, footage != null ? footageStage : null);
+            var indexed = indexedFootage;
+            if (stagedVideo && footage != null && indexed != null) indexed.observe(motionFrame);
             CompositePlan cp = plan;
             if (!degraded && motionClockActive) prepareShutterPrograms(cp, vw, vh);
             int cur = drawFastFootage(footage, stagedVideo, vw, vh);

@@ -709,7 +709,8 @@ public final class FxLivePreviewController {
                 motionWindow.uid, originUs, startUs, endUs, speed, footageSourceKey));
         view.setFastFootageInput(footageSourceKey == null ? null
                 : new FxPreviewTextureView.FastFootageInput(footageSourceKey, startUs, endUs, speed,
-                        clip.getRigidMotionShutter()));
+                        clip.getRigidMotionShutter(), clip.getSourceUri(),
+                        clip.getInPointMs() * 1000L, clip.getOutPointMs() * 1000L));
         view.setMotionClockActive(motionClock.anchor() != null);
     }
 

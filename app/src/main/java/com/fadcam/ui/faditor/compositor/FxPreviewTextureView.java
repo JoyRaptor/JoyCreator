@@ -1293,7 +1293,9 @@ public class FxPreviewTextureView extends TextureView
     private EGLContext eglContext = EGL14.EGL_NO_CONTEXT;
     private EGLSurface eglSurface = EGL14.EGL_NO_SURFACE;
     private int oesTexId;
-    @Nullable private SurfaceTexture inputTexture;
+    @Nullable private volatile SurfaceTexture inputTexture;
+    @Nullable private SurfaceTexture avatarSizedInput;
+    private int avatarInputWidth, avatarInputHeight;
     @Nullable private Surface inputSurface;
     private final float[] texMatrix = new float[16];
     /**
@@ -1519,7 +1521,25 @@ public class FxPreviewTextureView extends TextureView
      */
     public void setCompositePlan(@Nullable CompositePlan next) {
         plan = next;
+        sizeAvatarInput(next);
         requestFrame();
+    }
+
+    private synchronized void sizeAvatarInput(@Nullable CompositePlan current) {
+        if (!com.fadcam.BuildConfig.DEBUG || current == null || sourceW <= 0 || sourceH <= 0
+                || current.rungs.stream().noneMatch(rung -> rung.avatar != null)) return;
+        SurfaceTexture texture = inputTexture;
+        if (texture == null || (texture == avatarSizedInput
+                && sourceW == avatarInputWidth && sourceH == avatarInputHeight)) return;
+        try {
+            texture.setDefaultBufferSize(sourceW, sourceH);
+            avatarSizedInput = texture;
+            avatarInputWidth = sourceW;
+            avatarInputHeight = sourceH;
+            FLog.i("AvatarParity", "Preview decoder buffer default=" + sourceW + "x" + sourceH);
+        } catch (RuntimeException retiredTexture) {
+            FLog.w("AvatarParity", "Could not size preview decoder buffer", retiredTexture);
+        }
     }
 
     /**
@@ -1868,6 +1888,7 @@ public class FxPreviewTextureView extends TextureView
             oesTexId = newOesTexture();
 
             inputTexture = new SurfaceTexture(oesTexId);
+            sizeAvatarInput(plan);
             inputTexture.setOnFrameAvailableListener(this);
             inputSurface = new Surface(inputTexture);
 
@@ -4038,6 +4059,7 @@ public class FxPreviewTextureView extends TextureView
                 for (android.graphics.Bitmap b; (b = stillTrash.poll()) != null; ) b.recycle();
                 if (inputSurface != null) { inputSurface.release(); inputSurface = null; }
                 if (inputTexture != null) { inputTexture.release(); inputTexture = null; }
+                avatarSizedInput = null;
                 int built = livePipInputs;
                 livePipInputs = 0;
                 for (int i = 0; i < built; i++) {

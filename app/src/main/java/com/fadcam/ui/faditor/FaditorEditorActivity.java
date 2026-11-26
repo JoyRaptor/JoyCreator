@@ -27480,6 +27480,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
 
             @Override
+            public void onPausedFxPipReady() {
+                syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+            }
+
+            @Override
             public float overlayVolumeFor(@NonNull Clip clip) {
                 // SPEC_PIP_AUDIO: one authority shared with the export audio sequence.
                 // 0 for every PiP that has not opted in — the default, and exactly the

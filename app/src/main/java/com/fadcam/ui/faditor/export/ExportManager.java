@@ -20,6 +20,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.effect.Crop;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -1007,9 +1008,19 @@ public class ExportManager {
         if (encoderFactory != null) {
             builder.setEncoderFactory(encoderFactory);
         }
-        if (highFootageExportEnabled(project)
-                && project.getTimeline().getClips().stream().anyMatch(ExportManager::eligibleHighFootage)) {
-            builder.setVideoFrameProcessorFactory(FootageFrameProcessor.factory());
+        boolean highFootage = highFootageExportEnabled(project)
+                && project.getTimeline().getClips().stream().anyMatch(ExportManager::eligibleHighFootage);
+        boolean recordedAvatar = recordedAvatarExportEnabled(project);
+        if (highFootage || recordedAvatar) {
+            var factory = new DefaultVideoFrameProcessor.Factory.Builder();
+            if (recordedAvatar) {
+                // The live stage uses the decoder's SurfaceTexture crop and linear sampling.
+                // Media3 otherwise removes the crop inset and samples with nearest filtering.
+                factory.setExperimentalAdjustSurfaceTextureTransformationMatrix(false);
+            }
+            var processor = factory.build();
+            builder.setVideoFrameProcessorFactory(highFootage
+                    ? FootageFrameProcessor.factory(processor) : processor);
         }
         return builder;
     }
@@ -1017,6 +1028,11 @@ public class ExportManager {
     private boolean highFootageExportEnabled(FaditorProject project) {
         return project.isMotionBlurEnabled()
                 && !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur");
+    }
+
+    private boolean recordedAvatarExportEnabled(FaditorProject project) {
+        return GL_IMAGE_PASS && !project.isTrueLayerOrder() && highFootageExportEnabled(project)
+                && RecordedAvatarMotion.ordinaryAvatarRun(project.getTimeline());
     }
 
     private static boolean eligibleHighFootage(Clip clip) {
@@ -6978,10 +6994,8 @@ public class ExportManager {
                                                   long continuousPieceDurationMs) {
         boolean motionBlurEnabled = project.isMotionBlurEnabled();
         long shutterPieceDurationMs = motionBlurEnabled ? continuousPieceDurationMs : 0L;
-        boolean recordedAvatarRun = GL_IMAGE_PASS && shutterPieceDurationMs > 0
-                && !isTransitionItem && !isLoopBeforeItem && !project.isTrueLayerOrder()
-                && !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur")
-                && RecordedAvatarMotion.ordinaryAvatarRun(project.getTimeline());
+        boolean recordedAvatarRun = shutterPieceDurationMs > 0 && !isTransitionItem
+                && !isLoopBeforeItem && recordedAvatarExportEnabled(project);
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;

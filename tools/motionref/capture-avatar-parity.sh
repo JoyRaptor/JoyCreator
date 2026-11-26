@@ -44,10 +44,12 @@ play() {
 }
 
 wait_for_log() {
-    local result=$1 pattern=$2
+    local result=$1 pattern=$2 pid
     shift 2
+    pid=$(adb -e shell pidof -s "$pkg" | tr -d '\r')
+    [[ "$pid" =~ ^[0-9]+$ ]]
     for ((attempt = 0; attempt < 75; attempt++)); do
-        adb -e logcat -d -s "$@" AndroidRuntime > "$result"
+        adb -e logcat -d --pid="$pid" -s "$@" AndroidRuntime > "$result"
         if grep -qiE 'FATAL EXCEPTION|Export failed|debug export failed|shutter (unavailable|failed)' "$result"; then
             cat "$result"
             return 1

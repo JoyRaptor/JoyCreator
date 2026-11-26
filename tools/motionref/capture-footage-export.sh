@@ -8,7 +8,7 @@ test "$(adb -e shell getprop ro.kernel.qemu | tr -d '\r')" = 1
 mkdir -p "$out"
 
 capture() {
-    local name=$1 enabled=$2 slow=$3 second=$4 expected=$5 requested=$6
+    local name=$1 enabled=$2 slow=$3 second=$4 expected=$5 requested=$6 pid
     local directory="$out/$name" log="$out/$name/device.log"
     mkdir -p "$directory"
     adb -e shell am force-stop "$pkg"
@@ -18,8 +18,10 @@ capture() {
         --ez motion_slow "$slow" --ez motion_second_source "$second" \
         --ela motion_lane_sample_us "$requested" | tee "$directory/start.log"
     grep -q '^Status: ok' "$directory/start.log"
+    pid=$(adb -e shell pidof -s "$pkg" | tr -d '\r')
+    [[ "$pid" =~ ^[0-9]+$ ]]
     for ((attempt = 0; attempt < 150; attempt++)); do
-        adb -e logcat -d -s HighFootageExport LaneReadback ExportService ExportDebug AndroidRuntime > "$log"
+        adb -e logcat -d --pid="$pid" -s HighFootageExport LaneReadback ExportService ExportDebug AndroidRuntime > "$log"
         if grep -qiE 'FATAL EXCEPTION|Export failed|Indexed export flow unavailable' "$log"; then
             cat "$log"
             return 1

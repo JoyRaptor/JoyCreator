@@ -27,6 +27,7 @@ public final class PreviewIndexedFlow implements AutoCloseable {
     private record Active(Source source, long generation, Prepared media) {}
 
     private final CacheFactory cacheFactory;
+    private final Runnable onReady;
     private volatile IndexedFlowSession session;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(work -> {
         var thread = new Thread(work, "Studio footage index");
@@ -44,7 +45,12 @@ public final class PreviewIndexedFlow implements AutoCloseable {
     private long plannedPts = Long.MIN_VALUE;
 
     public PreviewIndexedFlow(CacheFactory cacheFactory) {
+        this(cacheFactory, () -> {});
+    }
+
+    public PreviewIndexedFlow(CacheFactory cacheFactory, Runnable onReady) {
         this.cacheFactory = cacheFactory;
+        this.onReady = onReady;
     }
 
     /** Publish synchronously so a renderer holding the old timestamp loses access immediately. */
@@ -115,7 +121,7 @@ public final class PreviewIndexedFlow implements AutoCloseable {
         try {
             opened = selected.loader().open(() -> source != selected);
             if (opened == null || source != selected) return;
-            if (session == null) session = new IndexedFlowSession(cacheFactory.open());
+            if (session == null) session = new IndexedFlowSession(cacheFactory.open(), onReady);
             long generation = session.setSource(opened.index(), opened.geometry(), opened.decoder());
             active = new Active(selected, generation, opened);
             opened = null;

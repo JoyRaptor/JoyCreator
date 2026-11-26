@@ -28,14 +28,23 @@ public final class IndexedFlowSession implements AutoCloseable {
     }
 
     IndexedFlowSession(FlowCache cache, long residentBytes) {
+        this(cache, residentBytes, () -> {});
+    }
+
+    IndexedFlowSession(FlowCache cache, Runnable onReady) {
+        this(cache, DEFAULT_RESIDENT_BYTES, onReady);
+    }
+
+    private IndexedFlowSession(FlowCache cache, long residentBytes, Runnable onReady) {
         if (residentBytes <= 0) throw new IllegalArgumentException("invalid flow memory budget");
         this.residentBytes = residentBytes;
         analyzer = new FlowAnalyzer(cache, new FlowAnalyzer.Listener() {
             @Override public void ready(long readyGeneration, FlowCache.Key key, FlowCache.Pair pair,
                                         boolean fromCache) {
                 SourceWindow window = active;
-                if (window != null && window.generation == readyGeneration) {
-                    window.publish(new VideoPresentationIndex.Pair(key.fromPtsUs, key.toPtsUs), pair);
+                if (window != null && window.generation == readyGeneration
+                        && window.publish(new VideoPresentationIndex.Pair(key.fromPtsUs, key.toPtsUs), pair)) {
+                    onReady.run();
                 }
             }
 
@@ -127,11 +136,12 @@ public final class IndexedFlowSession implements AutoCloseable {
             ready = Map.copyOf(kept);
         }
 
-        synchronized void publish(VideoPresentationIndex.Pair timestamps, FlowCache.Pair pair) {
-            if (!wanted.contains(timestamps)) return;
+        synchronized boolean publish(VideoPresentationIndex.Pair timestamps, FlowCache.Pair pair) {
+            if (!wanted.contains(timestamps)) return false;
             var next = new HashMap<>(ready);
             next.put(timestamps, pair);
             ready = Map.copyOf(next);
+            return true;
         }
     }
 }

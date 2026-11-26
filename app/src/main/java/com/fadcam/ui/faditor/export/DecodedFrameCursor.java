@@ -18,4 +18,10 @@ public final class DecodedFrameCursor {
     public static boolean holds(long heldPtsUs, long targetUs) {
         return heldPtsUs != Long.MIN_VALUE && heldPtsUs >= targetUs;
     }
+
+    /** SurfaceTexture reports the codec's explicit render timestamp in nanoseconds. */
+    public static boolean matchesSurfaceTimestamp(long decodedPtsUs, long textureTimestampNs) {
+        return decodedPtsUs >= 0 && decodedPtsUs <= Long.MAX_VALUE / 1000L
+                && textureTimestampNs == decodedPtsUs * 1000L;
+    }
 }

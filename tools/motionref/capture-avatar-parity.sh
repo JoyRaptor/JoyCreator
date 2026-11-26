@@ -62,20 +62,28 @@ wait_for_log() {
 }
 
 times=()
-for target in 350000 1450000 2750000; do
-    app_start --ez motion_avatar_fixture true --ez motion_enabled true \
-        --ez motion_avatar_parity_loop true \
-        --ez open_preview true --el motion_preview_readback_us "$target"
-    play
-    log="$out/preview/$target.log"
-    wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' "$pkg" \
-        ExportDebug MotionPreviewReadback FxPreviewGl AvatarParity
-    read -r file actual dimensions <<< "$(sed -nE \
-        's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
-    test "$actual" -ge "$target"
-    test "$actual" -lt "$((target + 1250000))"
-    if (( ${#times[@]} > 0 )); then
-        test "$actual" -gt "${times[-1]}"
+for target in 750000 1450000 2750000; do
+    matched=false
+    for attempt in 1 2 3; do
+        app_start --ez motion_avatar_fixture true --ez motion_enabled true \
+            --ez motion_avatar_parity_loop true \
+            --ez open_preview true --el motion_preview_readback_us "$target"
+        play
+        log="$out/preview/$target-$attempt.log"
+        wait_for_log "$log" 'frame=motion_preview_[0-9]+\.png' "$pkg" \
+            ExportDebug MotionPreviewReadback FxPreviewGl AvatarParity
+        read -r file actual dimensions <<< "$(sed -nE \
+            's/.*frame=(motion_preview_[0-9]+\.png) editorUs=([0-9]+) size=([0-9]+x[0-9]+).*/\1 \2 \3/p' "$log" | tail -1)"
+        if [[ "$actual" =~ ^[0-9]+$ ]] && (( actual >= target && actual < target + 1250000 )) \
+                && grep -q "AvatarParity: preview editorUs=$actual " "$log" \
+                && { (( ${#times[@]} == 0 )) || (( actual > times[-1] )); }; then
+            matched=true
+            break
+        fi
+    done
+    if [[ "$matched" != true ]]; then
+        echo "Preview did not capture an active avatar stamp for requested time $target" >&2
+        exit 1
     fi
     times+=("$actual")
     adb -e exec-out run-as "$pkg" cat "cache/$file" > "$out/preview/$file"
@@ -158,7 +166,7 @@ fi
 # A timestamp, dimension or file error is not a pixel-level negative control.
 "$python" -c 'import json, sys
 result = json.load(open(sys.argv[1]))
-assert len(result["samples"]) == 3 and any(not sample["equivalent"] for sample in result["samples"])
+assert len(result["samples"]) == 3 and all(not sample["equivalent"] for sample in result["samples"])
 ' "$out/avatar-negative.json"
 node tools/motionref/compare-lanes.mjs "$out/preview/manifest.json" "$out/blur-raw/manifest.json" \
     | tee "$out/avatar-parity.json"

@@ -11,8 +11,8 @@ jobs:
     timeout-minutes: 30
     env:
       GH_TOKEN: ${{ github.token }}
-      SOURCE_RUN: '45831425413'
-      SOURCE_COMMIT: '6d2378fc24b10c5e26aa17df2664d84bd6401f65'
+      SOURCE_RUN: '45834718405'
+      SOURCE_COMMIT: '94c80ff6a0c1b73c11f25c66543f68194169695d'
       AVATAR_TRACE_ONLY: 'true'
     steps:
       - uses: actions/checkout@v4

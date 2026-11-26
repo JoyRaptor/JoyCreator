@@ -29,15 +29,25 @@ public final class RecordedAvatarStampGl {
             }
             """;
     private static final int MAX_RASTER_EDGE = 512;
+    private static final String COMPOSITE_VERTEX = """
+            #version 100
+            attribute vec4 aFramePosition;
+            void main() { gl_Position = aFramePosition; }
+            """;
     private static final String COMPOSITE = """
             #version 100
+            #ifdef GL_FRAGMENT_PRECISION_HIGH
+            precision highp float;
+            #else
             precision mediump float;
-            varying vec2 vTexSamplingCoord;
+            #endif
             uniform sampler2D uBase;
             uniform sampler2D uStamp;
+            uniform vec2 uFrameSize;
             void main() {
-              vec4 base = texture2D(uBase, vTexSamplingCoord);
-              vec4 stamp = texture2D(uStamp, vTexSamplingCoord);
+              vec2 uv = gl_FragCoord.xy / uFrameSize;
+              vec4 base = texture2D(uBase, uv);
+              vec4 stamp = texture2D(uStamp, uv);
               gl_FragColor = vec4(base.rgb * (1.0 - stamp.a) + stamp.rgb, base.a);
             }
             """;
@@ -52,6 +62,7 @@ public final class RecordedAvatarStampGl {
     private final int[] priorViewport = new int[4];
     private final float[] priorClearColor = new float[4];
     private final float[] transform = GlUtil.create4x4IdentityMatrix();
+    private final float[] frameSize = new float[2];
     private final float[] opacity = new float[1];
     private final RectF bounds = new RectF();
     private GlProgram copy;
@@ -136,11 +147,8 @@ public final class RecordedAvatarStampGl {
     public void composite(int targetFramebuffer, int baseTexture, int stampTexture, int width, int height)
             throws GlUtil.GlException {
         if (composite == null) {
-            composite = new GlProgram(RigidTextureShutterPass.VERTEX_SHADER, COMPOSITE);
+            composite = new GlProgram(COMPOSITE_VERTEX, COMPOSITE);
             composite.setBufferAttribute("aFramePosition", GlUtil.getNormalizedCoordinateBounds(), 4);
-            var identity = GlUtil.create4x4IdentityMatrix();
-            composite.setFloatsUniform("uTransformationMatrix", identity);
-            composite.setFloatsUniform("uTexTransformationMatrix", identity);
         }
         boolean blend = GLES20.glIsEnabled(GLES20.GL_BLEND);
         boolean scissor = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
@@ -155,7 +163,15 @@ public final class RecordedAvatarStampGl {
             composite.use();
             composite.setSamplerTexIdUniform("uBase", baseTexture, 0);
             composite.setSamplerTexIdUniform("uStamp", stampTexture, 1);
+            frameSize[0] = width;
+            frameSize[1] = height;
+            composite.setFloatsUniform("uFrameSize", frameSize);
             composite.bindAttributesAndUniforms();
+            // The resolved stamp already has one texel per output pixel.
+            GLES20.glActiveTexture(GLES20.GL_TEXTURE1);
+            int target = GLES20.GL_TEXTURE_2D;
+            GLES20.glTexParameteri(target, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+            GLES20.glTexParameteri(target, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
             GlUtil.checkGlError();
         } finally {

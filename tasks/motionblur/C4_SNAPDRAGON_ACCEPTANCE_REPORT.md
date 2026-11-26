@@ -19,4 +19,6 @@ The isolated PiP latch fix at `fb2269d17c5250ec328098d963905babe54e561f` [built 
 
 With the exact-latch APK, the 30-second legacy runs took 6,479 and 7,156 ms. The ordered runs took 6,497 and 6,653 ms. Ordered averaged 242.5 ms faster (3.6%). GL draw represented 19% of samples in both legacy runs and 17% and 16% in ordered runs. Thermal status remained 0, and peak battery temperature was 30.3 °C. See `perf-exact-090105/comparison.json` for the complete GL phases.
 
-The C4 candidate remains isolated. The earlier paused-preview comparison, the strict memory gate, and the landing decision remain open. No Exynos or release-profile claim is made.
+On the exact-latch APK, 100 warm-up seeks were followed by 50 measured seeks per mode. Ordered graphics PSS remained exactly 73,336 KiB at all six checkpoints, and legacy rose from 69,276 to 69,300 KiB. EGL remained 50,784 KiB and GL remained 768 KiB in both modes. The ordered mode passed the measured steady-state no-growth check. This result follows warm-up and does not erase the cold allocation or approximately 4 MiB ordered graphics PSS premium. See `settled-seeks-090343/` for raw samples and the route logs. The original APK was restored and the lock released.
+
+The C4 candidate remains isolated. The earlier paused-preview PiP comparison and the landing decision remain open. No Exynos or release-profile claim is made.

@@ -91,6 +91,8 @@ public class OverlayVideoPreviewView extends FrameLayout {
         void onOverlayVideoChanged();
         /** A drag/pinch finished; record ONE undo step from the snapshot. */
         void onOverlayVideoManipulated(@NonNull Clip clip, @NonNull KeyframeSet before);
+        /** A paused FX-routed PiP can now supply a composite descriptor. */
+        default void onPausedFxPipReady() { }
 
         /**
          * The user TAPPED this PiP on the canvas — select it.
@@ -316,6 +318,15 @@ public class OverlayVideoPreviewView extends FrameLayout {
      */
     private boolean extraLiveFailed;
     private boolean refreshPausedFxFrame;
+    private final Runnable notifyPausedFxPipReady = () -> {
+        Callback host = callback;
+        if (host == null || !pausedFxPipReady()) return;
+        if (com.fadcam.BuildConfig.DEBUG) {
+            FLog.d(TAG, "PAUSED_FX_PIP_READY editorMs=" + currentTimeMs
+                    + " size=" + videoW + "x" + videoH);
+        }
+        host.onPausedFxPipReady();
+    };
 
     void setRefreshPausedFxFrame(boolean enabled) {
         boolean changed = refreshPausedFxFrame != enabled;
@@ -329,6 +340,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
         fxSurface = s;
         if (s == null) releaseExtraLive();   // the tier exists only inside the composite
         if (s == null && fxRouted) {
+            removeCallbacks(notifyPausedFxPipReady);
             fxRouted = false;
             textureView.setAlpha(1f);
             if (keyedView != null) keyedView.setAlpha(1f);
@@ -592,7 +604,23 @@ public class OverlayVideoPreviewView extends FrameLayout {
         fxRoutedPlayer = player;
         textureView.setAlpha(0f);
         refreshPausedFxFrame();
+        postPausedFxPipReady();
         FLog.i(TAG, "PiP routed into the FX composite");
+    }
+
+    private boolean pausedFxPipReady() {
+        return fxRouted && player != null && player == fxRoutedPlayer
+                && !masterPlaying && !player.getPlayWhenReady()
+                && videoW > 0 && videoH > 0 && active != null
+                && active == topVisibleAt(currentTimeMs);
+    }
+
+    private void postPausedFxPipReady() {
+        if (!pausedFxPipReady()) return;
+        // The route and dimensions can arrive in either order. Post after the current
+        // sync finishes so the host can rebuild the plan without reentering the PiP route.
+        removeCallbacks(notifyPausedFxPipReady);
+        post(notifyPausedFxPipReady);
     }
 
     private void refreshPausedFxFrame() {
@@ -776,6 +804,7 @@ public class OverlayVideoPreviewView extends FrameLayout {
 
     /** Release the overlay decoder entirely (activity onDestroy / export start). */
     public void releasePlayer() {
+        removeCallbacks(notifyPausedFxPipReady);
         // The tier below goes with it: every caller here (export start, onDestroy, a decoder
         // error) is a reason to be holding no overlay codecs at all.
         releaseExtraLive();
@@ -1358,10 +1387,12 @@ public class OverlayVideoPreviewView extends FrameLayout {
             player.addListener(new Player.Listener() {
                 @Override public void onVideoSizeChanged(@NonNull VideoSize size) {
                     if (size.width > 0 && size.height > 0) {
+                        boolean changed = videoW != size.width || videoH != size.height;
                         videoW = size.width;
                         videoH = size.height;
                         updateBaseLayout();
                         if (active != null) applyTransform(active);
+                        if (changed) postPausedFxPipReady();
                     }
                 }
 

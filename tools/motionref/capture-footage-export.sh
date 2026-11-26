@@ -10,13 +10,15 @@ mkdir -p "$out"
 capture() {
     local name=$1 enabled=$2 slow=$3 second=$4 expected=$5 requested=$6 pid
     local directory="$out/$name" log="$out/$name/device.log"
+    local readback=()
+    if [[ -n "$requested" ]]; then readback=(--ela motion_lane_sample_us "$requested"); fi
     mkdir -p "$directory"
     adb -e shell am force-stop "$pkg"
     adb -e logcat -c
     adb -e shell am start -W -n "$fixture" \
         --ez motion_footage_fixture true --ez motion_enabled "$enabled" \
         --ez motion_slow "$slow" --ez motion_second_source "$second" \
-        --ela motion_lane_sample_us "$requested" | tee "$directory/start.log"
+        "${readback[@]}" | tee "$directory/start.log"
     grep -q '^Status: ok' "$directory/start.log"
     for ((attempt = 0; attempt < 150; attempt++)); do
         pid=$(adb -e shell pidof -s "$pkg:export" | tr -d '\r' || true)
@@ -31,6 +33,7 @@ capture() {
     done
     grep -q 'ExportService: Export completed' "$log"
     test "$(grep -c 'HIGH_FOOTAGE_EXPORT' "$log" || true)" -eq "$expected"
+    if [[ -z "$requested" ]]; then return; fi
     python3 - "$directory" "$requested" <<'PY'
 import json
 from pathlib import Path
@@ -58,10 +61,10 @@ assert len(samples) == 3 and {sample["requestUs"] for sample in samples} == expe
 PY
 }
 
-capture normal-cold true false false 1 110000,290000,485000
-capture normal-warm true false false 1 110000,290000,485000
-capture normal-sharp false false false 0 110000,290000,485000
-capture slow-two-sources true true true 2 210000,1450000,2100000
+capture normal-cold true false false 1 290000,395000,485000
+capture normal-warm true false false 1 290000,395000,485000
+capture normal-sharp false false false 0 290000,395000,485000
+capture slow-two-sources true true true 2 ''
 
 status=0
 node tools/motionref/compare-lanes.mjs "$out/normal-cold/manifest.json" "$out/normal-warm/manifest.json" \

@@ -1243,3 +1243,9 @@ was away) as "decided: …" so it can be overturned later.
 - C6 proof: The texture owner reuses two names per pair, returns fallback on absent, duplicate and long-gap pairs, restores the caller's texture binding, and abandons names without deleting them after context loss. Local and cloud fake-GLES tests passed. The live editor and export route are still open.
 - Blocker: The current Windows checkout denies writes to `.git/FETCH_HEAD`. The remote refs remain readable. Physical Note 9 evidence is still due.
 - Next: Bind the indexed session to the gated editor source lifecycle, with immediate source-change invalidation before connecting the High draw path.
+
+### 2026-11-25 Codex → STU-7 sessions: Gated editor source and actual PTS wired
+- State: `3a55b408e1c80e2869576a0e83e1f4bf002c689b` is pushed to `codex/stu7-finish-20261125` from `8e18f9b9d`. The local and remote heads match. Fetch worked on Windows; no device lock held.
+- Done: Start background indexing only after gated footage first stages matching decoder metadata. Source replacement clears renderer access immediately, and analysis planning uses the video's actual latched PTS within trim bounds. Cache identity is scoped to each bind until stable media-revision identity is wired.
+- Proof: The full `run-motionflow.sh` suite passed, including nine editor-binding assertions. Removing the immediate source identity fence caused the same-PTS source replacement check to fail. [Android build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45725849865) and [Studio suite](https://github.com/JoyRaptor/JoyCreator/actions/runs/45725868802) were dispatched.
+- Next: Stage previous decoded color keyed by exact latched PTS and continuity epoch, then connect the matched resident pair to the preview High gather.

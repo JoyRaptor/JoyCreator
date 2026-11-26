@@ -4552,7 +4552,7 @@ public class ExportManager {
                     try {
                         piece = buildClipItem(project, clip, pieceIn, pieceOut,
                                 timelineCursorMs, outW, outH, canvasDims,
-                                waveformSlots, projectSampleRate, true);
+                                waveformSlots, projectSampleRate, frameDirective == null);
                     } finally {
                         buildingCutPiece = false;
                     }
@@ -4564,7 +4564,7 @@ public class ExportManager {
             } else if (mainSiteEmits) {
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
-                        waveformSlots, projectSampleRate, true);
+                        waveformSlots, projectSampleRate, frameDirective == null);
                 if (frameDirective != null) {
                     frameDirective.noteItem(timelineCursorMs, mainItem.durationUs / 1000,
                             mainEditorStartMs, mainEditorLenMs);
@@ -5497,7 +5497,7 @@ public class ExportManager {
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ false,
                 clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs), timelineDurationMs);
-        if (sourceFootage && frameDirective == null && highFootageExportEnabled(project)
+        if (sourceFootage && highFootageExportEnabled(project)
                 && eligibleHighFootage(clip) && !project.getTimeline().hasTransitions()) {
             var config = mediaItem.localConfiguration;
             if (config != null) {

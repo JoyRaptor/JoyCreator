@@ -108,6 +108,8 @@ this block true at every landmark; it is the hand-over.
   (64/64 Studio CI). C4 design revised: old projects keep the old route unless `legacyLooksTheSame()`.
 - 2026-11-26: [C4 Snapdragon acceptance report](../motionblur/C4_SNAPDRAGON_ACCEPTANCE_REPORT.md).
   Ordering, compatibility, legacy JSON stability and blur-off latch were exercised. PiP and seek memory remain open.
+- 2026-11-26: [C6 Snapdragon export report](../motionblur/C6_SNAPDRAGON_EXPORT_REPORT.md).
+  Exact repeated export and sharp controls passed on bundled footage. The physical recording and release corpus remain open.
 
 ## What is left (the queue; Codex works down it unless the channel says otherwise)
 - [x] **C1 = §9 step 0: route proof, bench and shutter core.** Brief: [tasks/motionblur/CODEX_C1_brief.md](../motionblur/CODEX_C1_brief.md).

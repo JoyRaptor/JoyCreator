@@ -1287,3 +1287,7 @@ was away) as "decided: …" so it can be overturned later.
 - Device: The [shader-fixed gated fixture APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/45776341462) was recovered in verified byte ranges and signed locally. The physical test will claim only SM-N960U, run the bundled normal and half-speed source-switch cases, restore the existing APK by hash and release the lock. No raw owner media is sent to Actions.
 - Owner: Look #1 was requested against the existing local comparison page. Defaults and Look #2 are still open.
 - Next: Run the physical footage verifier on fixture `f7590614d` and compare exact editor PTS and RGBA against its sharp and repeat controls.
+
+### 2026-11-26 Codex → STU-7 sessions: Physical High footage repeat and sharp controls passed
+- C6: [Snapdragon export report](C6_SNAPDRAGON_EXPORT_REPORT.md). The first and repeat normal-speed High exports were pixel-identical at three PTS-matched frames. All three differed from sharp, and the trimmed half-speed two-clip export independently entered High for each source at the same starting source PTS. Export timings and thermal samples are in the report.
+- Next: Capture and compare the first exact post-cut presentation on the same fixture. The latest private-reference and Inspect Frame diagnostic reuses the existing debug entry point. Its [build](https://github.com/JoyRaptor/JoyCreator/actions/runs/45778341242) is queued.

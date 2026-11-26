@@ -22,7 +22,7 @@ public final class IndexedFlowQueue {
             }
         }
 
-        private FlowCache.Key key(VideoPresentationIndex.Pair pair) {
+        public FlowCache.Key key(VideoPresentationIndex.Pair pair) {
             return new FlowCache.Key(fingerprint, orientation, left, top, right, bottom,
                     pair.fromPtsUs(), pair.toPtsUs(), estimatorRevision, detail, width, height, maxGapUs);
         }

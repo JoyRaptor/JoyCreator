@@ -1007,7 +1007,26 @@ public class ExportManager {
         if (encoderFactory != null) {
             builder.setEncoderFactory(encoderFactory);
         }
+        if (highFootageExportEnabled(project)
+                && project.getTimeline().getClips().stream().anyMatch(ExportManager::eligibleHighFootage)) {
+            builder.setVideoFrameProcessorFactory(FootageFrameProcessor.factory());
+        }
         return builder;
+    }
+
+    private boolean highFootageExportEnabled(FaditorProject project) {
+        return project.isMotionBlurEnabled()
+                && !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur");
+    }
+
+    private static boolean eligibleHighFootage(Clip clip) {
+        if (clip.isImageClip() || !clip.isRigidMotionBlurEnabled() || clip.hasLoopExtension()
+                || clip.hasMesh() || clip.hasCornerPin() || clip.effectiveCropFractions() != null
+                || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) return false;
+        var shutter = clip.getRigidMotionShutter();
+        float speed = clip.getSpeedMultiplier();
+        return Float.isFinite(speed) && speed > 0
+                && shutter.mixPercent() > 0 && shutter.angle() > 0 && shutter.angle() <= 360;
     }
 
     /**
@@ -4533,7 +4552,7 @@ public class ExportManager {
                     try {
                         piece = buildClipItem(project, clip, pieceIn, pieceOut,
                                 timelineCursorMs, outW, outH, canvasDims,
-                                waveformSlots, projectSampleRate);
+                                waveformSlots, projectSampleRate, true);
                     } finally {
                         buildingCutPiece = false;
                     }
@@ -4545,7 +4564,7 @@ public class ExportManager {
             } else if (mainSiteEmits) {
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
-                        waveformSlots, projectSampleRate);
+                        waveformSlots, projectSampleRate, true);
                 if (frameDirective != null) {
                     frameDirective.noteItem(timelineCursorMs, mainItem.durationUs / 1000,
                             mainEditorStartMs, mainEditorLenMs);
@@ -4756,7 +4775,7 @@ public class ExportManager {
                         part.setDisplayName("Tail filler"); // TODO(strings)
                         EditedMediaItem partItem = buildClipItem(project, part, 0L, len,
                                 timelineCursorMs, outW, outH, canvasDims, waveformSlots,
-                                projectSampleRate);
+                                projectSampleRate, false);
                         items.add(partItem);
                         timelineCursorMs += partItem.durationUs / 1000;
                         tailMs -= partItem.durationUs / 1000;
@@ -4770,7 +4789,7 @@ public class ExportManager {
                 filler.setAudioMuted(true);
                 filler.setDisplayName("Tail filler"); // TODO(strings)
                 EditedMediaItem fillItem = buildClipItem(project, filler, 0L, tailMs,
-                        timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate);
+                        timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate, false);
                 if (frameDirective != null) {
                     frameDirective.noteItem(timelineCursorMs, fillItem.durationUs / 1000,
                             editorCursorMs, Math.max(1L, tailMs));
@@ -5367,7 +5386,7 @@ public class ExportManager {
                                            int outW, int outH,
                                            @Nullable int[] canvasDims,
                                            @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots,
-                                           int projectSampleRate) {
+                                           int projectSampleRate, boolean sourceFootage) {
         float speed = clip.getSpeedMultiplier();
 
         MediaItem mediaItem;
@@ -5478,6 +5497,14 @@ public class ExportManager {
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ false,
                 clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs), timelineDurationMs);
+        if (sourceFootage && frameDirective == null && highFootageExportEnabled(project)
+                && eligibleHighFootage(clip) && !project.getTimeline().hasTransitions()) {
+            var config = mediaItem.localConfiguration;
+            if (config != null) {
+                videoEffects.add(0, new HighFootageExportEffect(config.uri, clipInMs * 1000L,
+                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter()));
+            }
+        }
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));

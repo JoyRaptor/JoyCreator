@@ -37,10 +37,7 @@ import com.fadcam.ui.faditor.motion.SweptBounds;
 import com.fadcam.ui.faditor.motion.flow.FastFootageGatherGl;
 import com.fadcam.ui.faditor.motion.flow.FastFootagePreviewOwner;
 import com.fadcam.ui.faditor.motion.flow.LiveFlowGl;
-import com.fadcam.ui.faditor.motion.flow.FlowCache;
-import com.fadcam.ui.faditor.motion.flow.IndexedFlowQueue;
-import com.fadcam.ui.faditor.motion.flow.ExactDecodedLuma;
-import com.fadcam.ui.faditor.motion.flow.MediaCodecLumaReader;
+import com.fadcam.ui.faditor.motion.flow.IndexedFootageMedia;
 import com.fadcam.ui.faditor.motion.flow.PreviewIndexedFlow;
 import com.fadcam.ui.faditor.motion.flow.FlowPairTexturesGl;
 import com.fadcam.ui.faditor.motion.flow.HighFootageGatherGl;
@@ -1942,7 +1939,7 @@ public class FxPreviewTextureView extends TextureView
     private volatile boolean motionPreviewTiming;
     private long lastTimedMotionFrameUs = Long.MIN_VALUE;
 
-    private static final long FAST_FOOTAGE_MAX_GAP_US = 100_000L;
+    private static final long FAST_FOOTAGE_MAX_GAP_US = IndexedFootageMedia.MAX_GAP_US;
 
     record FastFootageInput(String sourceKey, long startUs, long endUs, float speed,
                             MotionShutter.Controls shutter, android.net.Uri uri,
@@ -1981,50 +1978,17 @@ public class FxPreviewTextureView extends TextureView
             var context = getContext().getApplicationContext();
             var indexed = indexedFootage;
             if (indexed == null) {
-                indexed = new PreviewIndexedFlow(() -> new FlowCache(
-                        new java.io.File(context.getCacheDir(), "studio-indexed-flow")), this::requestFrame);
+                indexed = new PreviewIndexedFlow(() -> IndexedFootageMedia.cache(context),
+                        this::requestFrame);
             }
-            // Until the media revision is fingerprinted, cache entries are scoped to this bind.
-            String fingerprint = java.util.UUID.randomUUID().toString();
             indexed.setSource(new PreviewIndexedFlow.Source(input.sourceKey(), input.sourceStartUs(),
-                    input.sourceEndUs(), cancelled -> openIndexedFootage(
-                            context, input.uri(), fingerprint, cancelled)));
+                    input.sourceEndUs(), cancelled -> IndexedFootageMedia.open(
+                            context, input.uri(), cancelled)));
             indexedFootage = indexed;
         }
         fastFootage = input == null ? null : new FastFootageExposure(input,
                 new MotionBreaks.Builder().add(input.startUs()).add(input.endUs()).build());
         requestFrame();
-    }
-
-    @Nullable
-    private static PreviewIndexedFlow.Prepared openIndexedFootage(android.content.Context context,
-            android.net.Uri uri, String fingerprint,
-            com.fadcam.ui.faditor.motion.flow.FlowAnalyzer.Cancellation cancelled) throws Exception {
-        var reader = new MediaCodecLumaReader(context, uri);
-        boolean transferred = false;
-        try {
-            var media = reader.scanSource(cancelled);
-            if (media == null) return null;
-            int width = media.right() - media.left();
-            int height = media.bottom() - media.top();
-            if (Math.floorMod(media.rotation(), 180) == 90) {
-                int unrotatedWidth = width;
-                width = height;
-                height = unrotatedWidth;
-            }
-            if (width <= 0 || height <= 0) return null;
-            double scale = Math.min(0.25d, 240d / Math.max(width, height));
-            var geometry = new IndexedFlowQueue.Source(fingerprint, media.rotation(),
-                    media.left(), media.top(), media.right(), media.bottom(), "decoded-pyramid-v1",
-                    "quarter", Math.max(1, (int) (width * scale)),
-                    Math.max(1, (int) (height * scale)), FAST_FOOTAGE_MAX_GAP_US);
-            var prepared = new PreviewIndexedFlow.Prepared(media.index(), geometry,
-                    ExactDecodedLuma.adapter(reader), reader);
-            transferred = true;
-            return prepared;
-        } finally {
-            if (!transferred) reader.close();
-        }
     }
 
     public void enableMotionPreviewTiming() {

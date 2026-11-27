@@ -582,9 +582,13 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         // graphics thread, so nothing can change between the two.
         canvas.snapshot({ a ->
             val want = SaveSums(a)
+            System.gc()
+            val asked = benchHeapMb()
             val t0 = android.os.SystemClock.elapsedRealtime()
             canvas.snapshotSparse({ s ->
                 val t1 = android.os.SystemClock.elapsedRealtime()
+                System.gc()
+                val got = benchHeapMb()
                 val report = canvas.lastSparseReport
                 if (!s.streamed) Log.w(TAG, "then: savestream: NOT STREAMED (switch off, no fingerprints, or nothing changed): $report")
                 if (change == "undo") canvas.undo()
@@ -610,7 +614,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                     }
                     ui.post {
                         Log.i(TAG, "then: savestream${if (change.isNotEmpty()) " $change" else ""}: $verdict; streamed ${s.streamed}; the pen waited ${t1 - t0} ms ($report); " +
-                            "$outcome; heap ${h0} MB before, peak ${peak} MB during the save")
+                            "$outcome; heap ${asked} MB before the read, ${got} MB with the snapshot in hand (it holds ${got - asked} MB), peak ${peak} MB during the save")
                     }
                 }, "bench-savestream").start()
             }, { why -> Log.w(TAG, "then: savestream: snapshot failed: $why") })

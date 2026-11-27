@@ -17,6 +17,7 @@ import androidx.media3.effect.MatrixTransformation;
 import androidx.media3.effect.Presentation;
 
 import com.fadcam.ui.faditor.compositor.RecordedAvatarMotion;
+import com.fadcam.FLog;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,6 +61,10 @@ final class FootageFrameProcessor implements VideoFrameProcessor {
                 boolean identity = bound.isEmpty() && type == INPUT_TYPE_SURFACE
                         && RecordedAvatarMotion.canStageNativeVideo(format)
                         && presentation.isNoOp(format.width, format.height);
+                FLog.i("AvatarParity", "export identity=" + identity + " inputType=" + type
+                        + " size=" + format.width + "x" + format.height
+                        + " pixelRatio=" + format.pixelWidthHeightRatio
+                        + " rotation=" + format.rotationDegrees);
                 if (!identity) bound.add(presentation);
             } else {
                 bound.add(effect);

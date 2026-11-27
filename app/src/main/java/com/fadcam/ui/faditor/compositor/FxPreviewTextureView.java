@@ -2532,7 +2532,13 @@ public class FxPreviewTextureView extends TextureView
         if (b != null && !b.isRecycled() && drawStageStill(b, vw, vh)) return false;
         GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, targets[0][1]);
         stageViewport(vw, vh, stage);
-        if (avatarBase && drawAvatarBaseStage()) return true;
+        if (avatarBase && drawAvatarBaseStage()) {
+            if (motionReadback != null && motionReadback.accepts(motionFrame.editorTimeUs())) {
+                FLog.i("AvatarParity", "preview native-stage editorUs=" + motionFrame.editorTimeUs()
+                        + " size=" + vw + "x" + vh);
+            }
+            return true;
+        }
         GLES20.glUseProgram(stageProgram);
         bindQuad(stageProgram);
         GLES20.glUniformMatrix4fv(
@@ -3330,6 +3336,10 @@ public class FxPreviewTextureView extends TextureView
                         if (stamp != 0) {
                             int dst = src == 0 ? 1 : 0;
                             avatarStamp.composite(targets[dst][1], targets[src][0], stamp, width, height);
+                            if (motionReadback != null && motionReadback.accepts(editorUs)) {
+                                AvatarParityTrace.capture("preview", editorUs, frame.periodUs(), schedule,
+                                        targets[src][0], stamp, targets[dst][1], width, height);
+                            }
                             return dst;
                         }
                     }

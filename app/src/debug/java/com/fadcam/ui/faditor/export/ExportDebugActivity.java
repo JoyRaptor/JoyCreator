@@ -134,6 +134,15 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 title fixture enabled=" + enabled);
         }
+        if (in.getBooleanExtra("motion_avatar_fixture", false)) {
+            boolean enabled = in.getBooleanExtra("motion_enabled", true);
+            boolean masterOff = in.getBooleanExtra("motion_master_off", false);
+            FaditorProject fixture = MotionRouteFixture.createRecordedAvatar(this, enabled, masterOff,
+                    in.getBooleanExtra("motion_avatar_parity_loop", false));
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "C5 avatar fixture project_id=" + fixture.getId()
+                    + " item=" + enabled + " master=" + fixture.isMotionBlurEnabled());
+        }
         if (in.getBooleanExtra("motion_pip_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             FaditorProject fixture = MotionRouteFixture.createPip(this, enabled);
@@ -164,6 +173,7 @@ public class ExportDebugActivity extends Activity {
             if (in.getBooleanExtra("motion_spine_fixture", false)
                     || in.getBooleanExtra("motion_picture_fixture", false)
                     || in.getBooleanExtra("motion_sprite_fixture", false)
+                    || in.getBooleanExtra("motion_avatar_fixture", false)
                     || in.getBooleanExtra("motion_title_fixture", false)
                     || in.getBooleanExtra("motion_pip_fixture", false)) {
                 preview.putExtra("studio_debug_motion_readback_us",

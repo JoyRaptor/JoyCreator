@@ -71,6 +71,7 @@ public final class StickPad extends View {
             c.drawLine(tx - d[0] * 5 * dp + px * 4 * dp, ty - d[1] * 5 * dp + py * 4 * dp, tx, ty, ring);
             c.drawLine(tx, ty, tx - d[0] * 5 * dp - px * 4 * dp, ty - d[1] * 5 * dp - py * 4 * dp, ring);
         }
+        if (stick.depthOn()) floor(c, m, r, stick.phase(), stick.angle());      // in perspective: a thin floor under the knob
         boolean on = stick.pressed();
         float kx = m + (float) stick.knobX() * r, ky = m + (float) stick.knobY() * r;
         if (on) {
@@ -106,6 +107,42 @@ public final class StickPad extends View {
             text.setColor(Studio.LIVE);
             c.drawText(fl, m, w - 12 * dp, text);
         }
+    }
+
+    /**
+     * The floor, so you can see the pad walks in depth: a square plane tilted to the camera's angle (a flat square grid overhead,
+     * lines running away to a point when low), fading toward the pad's edge, drifting as the character walks in or out.
+     */
+    private void floor(Canvas g, float m, float r, double phase, double deg) {
+        double th = Math.toRadians(Math.max(0, Math.min(75, deg)));
+        float R = r * 1.25f, D = R * 2.6f, cs = (float) Math.cos(th), sn = (float) Math.sin(th);
+        int rgb = Studio.ARMED & 0xFFFFFF;
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        p.setStyle(Paint.Style.STROKE);
+        p.setStrokeCap(Paint.Cap.ROUND);
+        p.setStrokeWidth(0.9f * dp);
+        p.setShader(new android.graphics.RadialGradient(m, m, r * 1.12f, new int[]{0x8C000000 | rgb, 0x47000000 | rgb, rgb}, new float[]{0.13f, 0.6f, 1f}, android.graphics.Shader.TileMode.CLAMP));
+        android.graphics.Path path = new android.graphics.Path();
+        int L = 8, n = 6;
+        for (int i = 0; i <= L; i++) {
+            float u = -1 + 2f * i / L;
+            float[] a = floorAt(u, -1, m, r, R, D, cs, sn), b = floorAt(u, 1, m, r, R, D, cs, sn);
+            path.moveTo(a[0], a[1]);
+            path.lineTo(b[0], b[1]);
+        }
+        for (int i = 0; i <= n; i++) {                                    // across, drifting toward you as it comes nearer
+            double v = 1 - 2 * (((i + phase) % (n + 1)) / n);
+            if (v < -1 || v > 1) continue;
+            float[] a = floorAt(-1, (float) v, m, r, R, D, cs, sn), b = floorAt(1, (float) v, m, r, R, D, cs, sn);
+            path.moveTo(a[0], a[1]);
+            path.lineTo(b[0], b[1]);
+        }
+        g.drawPath(path, p);
+    }
+
+    private static float[] floorAt(float u, float v, float m, float r, float R, float D, float cs, float sn) {
+        float X = u * R, Y = v * R * cs, Z = v * R * sn, f = D / (D + Z);
+        return new float[]{m + X * f, m + r * 0.08f - Y * f};
     }
 
     /** Called each frame, so a flash shows and fades while no finger is on the pad. */

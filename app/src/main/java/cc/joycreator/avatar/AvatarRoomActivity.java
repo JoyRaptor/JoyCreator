@@ -1176,7 +1176,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             double[] b = k == null || pr == null ? null : pr.restBounds(k);
             if (b != null && b.length >= 4) bodyBox = b;
         }
-        boolean depth = walker.canWalk() && (faceWalk.closer() || faceWalk.upClose());   // (+ the joystick in perspective: slice 1)
+        boolean depth = walker.canWalk() && (faceWalk.closer() || faceWalk.upClose() || (stick != null && stick.depthOn()));
         cc.joycreator.avatar.perform.DepthWalk.prep(walker, depth, character.json, bodyBox);
         double h = bodyBox == null ? character.json.optDouble("h", 512) : bodyBox[3] - bodyBox[1];
         double lim = 0.7 * (bodyBox == null ? character.json.optDouble("w", 512) : bodyBox[2] - bodyBox[0]);
@@ -1186,6 +1186,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             legsOf = walker;
         }
         faceWalk.step(dt, inputs.faceNow(), legs, h, lim, replay);
+        // room for it to come close: below the feet and either side (the pilot's Perform fit while depth is in use)
+        boolean room = walker.z != null && bodyBox != null;
+        stage.setRoom(room ? (float) (0.495 * h) : 0, room ? (float) (lim) : 0);
     }
 
     @Override
@@ -1275,7 +1278,22 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     @Override
     public void openStickGestures() {
         if (stick == null) return;
-        cc.joycreator.avatar.ui.StickSheet.show(this, stick, characterName(), (slot, key, step) -> edit.apply(step, doc -> cc.joycreator.avatar.perform.Stick.setSlot(doc.json, slot, key)));
+        cc.joycreator.avatar.ui.StickSheet.show(this, stick, characterName(), new cc.joycreator.avatar.ui.StickSheet.Host() {
+            @Override
+            public void setSlot(String slot, String key, String step) {
+                edit.apply(step, doc -> cc.joycreator.avatar.perform.Stick.setSlot(doc.json, slot, key));
+            }
+
+            @Override
+            public void setDepth(boolean on, String step) {
+                edit.apply(step, doc -> cc.joycreator.avatar.perform.Stick.setDepth(doc.json, on));
+            }
+
+            @Override
+            public void setAngle(int deg, String step) {
+                edit.apply(step, doc -> cc.joycreator.avatar.perform.Stick.setAngle(doc.json, deg));
+            }
+        });
     }
 
     @Override

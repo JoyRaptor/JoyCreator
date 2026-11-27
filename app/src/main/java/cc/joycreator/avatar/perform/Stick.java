@@ -20,6 +20,7 @@ public final class Stick {
     public static final double TAP_MOVE = 0.2;   // pad radii
     public static final long SWIPE_MS = 360;
     public static final double SWIPE_DIST = 0.45;
+    public static final double DEPTH_SPEED = 0.6;   // body heights a second, the knob at the rim, walking into the picture (al-stick-depth.js)
     public static final long DOUBLE_MS = 280;    // a first tap waits this long for a second (only when Two taps has an act)
 
     /** The six slots: key, then what the sheet calls it. */
@@ -124,8 +125,52 @@ public final class Stick {
         }
         double sp = SPEED * bodyH * dt, lo = -bodyW * 0.7, hi = bodyW * 0.7;
         v[0] = clamp(v[0] + gx * sp, lo - g0[2], hi - g0[2]);                                         // stays within reach of the picture
-        v[1] = clamp(v[1] + gy * sp, walker.baseY - bodyH - g0[3], walker.baseY + bodyH * 0.5 - g0[3]);  // up toward a jump, down toward a crouch
+        if (depthOn() && walker.z != null) {                                                          // in perspective: up and down walk into the picture and out
+            v[1] = 0;
+            double from = walker.tz == null ? walker.baseY : walker.tz;
+            walker.tz = clamp(from + gy * DEPTH_SPEED * walker.z.H * dt, walker.z.lim[0], walker.z.lim[1]);
+        } else v[1] = clamp(v[1] + gy * sp, walker.baseY - bodyH - g0[3], walker.baseY + bodyH * 0.5 - g0[3]);  // up toward a jump, down toward a crouch
         walker.drag(v[0], v[1]);
+    }
+
+    // ── the pad in perspective (al-stick-depth.js) ─────────────────────────────────────────────────
+
+    /** Is the pad in perspective for this character? (Only for something that walks on legs.) */
+    public boolean depthOn() {
+        JSONObject st = ch.optJSONObject("settings"), s = st == null ? null : st.optJSONObject("stick");
+        return s != null && s.optBoolean("depth", false) && walker != null && walker.canWalk();
+    }
+
+    /** Can the pad be put in perspective at all? */
+    public boolean canDepth() {
+        return walker != null && walker.canWalk();
+    }
+
+    /** The camera's angle for the character: its own, or where it starts. */
+    public double angle() {
+        JSONObject st = ch.optJSONObject("settings");
+        return st != null && st.has("floorAngle") && !st.isNull("floorAngle") ? st.optDouble("floorAngle", DepthWalk.ANGLE) : DepthWalk.ANGLE;
+    }
+
+    /** How far the floor has drifted, for the grid under the knob (so it moves as the character walks in or out). */
+    public double phase() {
+        if (walker == null || walker.z == null) return 0;
+        double p = walker.baseY / (walker.z.H * 0.25);
+        return ((p % 1) + 1) % 1;
+    }
+
+    public static void setDepth(JSONObject character, boolean on) throws org.json.JSONException {
+        JSONObject st = character.optJSONObject("settings");
+        if (st == null) character.put("settings", st = new JSONObject());
+        JSONObject s = st.optJSONObject("stick");
+        if (s == null) st.put("stick", s = new JSONObject());
+        s.put("depth", on);
+    }
+
+    public static void setAngle(JSONObject character, double deg) throws org.json.JSONException {
+        JSONObject st = character.optJSONObject("settings");
+        if (st == null) character.put("settings", st = new JSONObject());
+        st.put("floorAngle", Math.round(clamp(deg, 0, DepthWalk.MAX_ANGLE)));
     }
 
     // ── a gesture, or a steer ──────────────────────────────────────────────────────────────────────

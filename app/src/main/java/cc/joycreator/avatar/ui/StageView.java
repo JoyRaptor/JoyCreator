@@ -469,6 +469,16 @@ public final class StageView extends View {
         }
     }
 
+    /** Room round the picture while a character walks toward you: below the feet and each side, in character pixels (0 = none). */
+    public void setRoom(float below, float side) {
+        if (below == roomBelow && side == roomSide) return;
+        roomBelow = below;
+        roomSide = side;
+        invalidate();
+    }
+
+    private float roomBelow, roomSide;
+
     public void setHint(String s) {
         hintText = s == null ? "" : s;
         invalidate();
@@ -481,9 +491,10 @@ public final class StageView extends View {
         float right = getWidth() - 52 * dp;       // the stage buttons' column
         if (doc != null && pose != null && doc.w > 0 && doc.h > 0) {
             float pad = 8 * dp;
-            float s = Math.min((right - 2 * pad) / doc.w, (bottom - 2 * pad) / doc.h);
-            float ox = pad + ((right - 2 * pad) - doc.w * s) / 2f;
-            float oy = pad + ((bottom - 2 * pad) - doc.h * s) / 2f;
+            float fw = doc.w + 2 * roomSide, fh = doc.h + roomBelow;
+            float s = Math.min((right - 2 * pad) / fw, (bottom - 2 * pad) / fh);
+            float ox = pad + ((right - 2 * pad) - fw * s) / 2f + roomSide * s;
+            float oy = pad + ((bottom - 2 * pad) - fh * s) / 2f;
             int save = c.save();
             fitS = s;
             fitX = ox;

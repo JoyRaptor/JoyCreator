@@ -28,6 +28,12 @@ public final class StickSheet {
     public interface Host {
         /** Fill a slot: one named undo step. */
         void setSlot(String slot, String key, String stepName);
+
+        /** "Up and down walk into the picture": one named undo step. */
+        void setDepth(boolean on, String stepName);
+
+        /** The camera's angle, 0 (overhead) to 75: one named undo step. */
+        void setAngle(int deg, String stepName);
     }
 
     private StickSheet() {
@@ -46,8 +52,71 @@ public final class StickSheet {
         d.show();
     }
 
+    /** The tick box and the camera angle, at the top: up and down walk into the picture. */
+    private static void depth(Context c, LinearLayout body, Stick stick, String characterName, Host host, float dp) {
+        final boolean on = stick.depthOn();
+        LinearLayout row = new LinearLayout(c);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView box = new TextView(c);
+        box.setGravity(Gravity.CENTER);
+        box.setTextSize(15);
+        box.setText(on ? "\u2713" : "");
+        box.setTextColor(Studio.GROUND);                                    // ON = solid cyan with the tick punched out
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(5 * dp);
+        g.setColor(on ? Studio.ARMED : 0xFF27272A);
+        if (!on) g.setStroke((int) Math.max(1, dp), 0xFF52525B);
+        box.setBackground(g);
+        row.addView(box, new LinearLayout.LayoutParams((int) (24 * dp), (int) (24 * dp)));
+        TextView label = new TextView(c);
+        label.setText(R.string.avatar_stick_depth);
+        label.setTextColor(0xFFE4E4E7);
+        label.setTextSize(13);
+        label.setPadding((int) (10 * dp), 0, 0, 0);
+        row.addView(label);
+        row.setOnClickListener(v -> {
+            host.setDepth(!on, c.getString(R.string.avatar_stick_depth_step, c.getString(on ? R.string.avatar_stick_depth_off : R.string.avatar_stick_depth_on)));
+            fill(c, body, stick, characterName, host, dp);
+        });
+        TooltipCompat.setTooltipText(row, c.getString(R.string.avatar_hover_stick_depth));
+        row.setContentDescription(c.getString(R.string.avatar_hover_stick_depth));
+        body.addView(row);
+        if (!on) return;
+        final TextView angle = new TextView(c);
+        angle.setTextColor(0xFF71717A);
+        angle.setTextSize(11);
+        angle.setPadding(0, (int) (10 * dp), 0, 0);
+        paintAngle(c, angle, (int) Math.round(stick.angle()));
+        body.addView(angle);
+        android.widget.SeekBar sb = new android.widget.SeekBar(c);
+        sb.setMax(75);
+        sb.setProgress((int) Math.round(stick.angle()));
+        sb.getProgressDrawable().setTint(Studio.ARMED);
+        sb.getThumb().setTint(Studio.ARMED);
+        sb.setOnSeekBarChangeListener(new android.widget.SeekBar.OnSeekBarChangeListener() {
+            public void onProgressChanged(android.widget.SeekBar s, int p, boolean user) {
+                paintAngle(c, angle, p);
+            }
+
+            public void onStartTrackingTouch(android.widget.SeekBar s) {
+            }
+
+            public void onStopTrackingTouch(android.widget.SeekBar s) {
+                host.setAngle(s.getProgress(), c.getString(R.string.avatar_stick_angle_step));
+            }
+        });
+        TooltipCompat.setTooltipText(sb, c.getString(R.string.avatar_hover_stick_angle));
+        sb.setContentDescription(c.getString(R.string.avatar_hover_stick_angle));
+        body.addView(sb);
+    }
+
+    private static void paintAngle(Context c, TextView t, int deg) {
+        t.setText(c.getString(R.string.avatar_stick_angle, deg < 3 ? c.getString(R.string.avatar_stick_overhead) : deg + "\u00B0"));
+    }
+
     private static void fill(Context c, LinearLayout body, Stick stick, String characterName, Host host, float dp) {
         body.removeAllViews();
+        if (stick.canDepth()) depth(c, body, stick, characterName, host, dp);
         Map<String, String> m = stick.map();
         java.util.List<Stick.Act> acts = stick.acts();
         for (String[] s : Stick.SLOTS) {

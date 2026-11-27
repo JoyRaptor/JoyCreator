@@ -269,5 +269,14 @@
     <string name="avatar_cutter_make">Make</string>
     <string name="avatar_cutter_make_n">Make a character of %1$d</string>
     <string name="avatar_hover_cutter_make">Make a new character from the drawings you tapped</string>
+    <string name="avatar_stick_depth">Up and down walk into the picture</string>
+    <string name="avatar_hover_stick_depth">Push up and it walks away from you; pull down and it comes toward you. Flicks still jump.</string>
+    <string name="avatar_stick_depth_step">Joystick: up and down %1$s</string>
+    <string name="avatar_stick_depth_on">into the picture</string>
+    <string name="avatar_stick_depth_off">jump and crouch</string>
+    <string name="avatar_stick_angle">Camera angle: %1$s</string>
+    <string name="avatar_stick_overhead">overhead</string>
+    <string name="avatar_stick_angle_step">Camera angle</string>
+    <string name="avatar_hover_stick_angle">How the camera looks at the floor. Overhead: walking away and toward you moves it up and down with no change of size. Lower: the further away, the smaller.</string>
 </resources>
 

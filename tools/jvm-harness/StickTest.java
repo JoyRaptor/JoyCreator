@@ -157,6 +157,31 @@ public class StickTest {
         ok(h.in.flip() != fl, "two taps run the Two taps act (Turn round)");
         ok(h.q.run.isEmpty(), "the waiting single tap was cancelled");
 
+        // the pad in perspective: up walks away, down comes closer, inside the walk's own limits; flicks are untouched
+        Rig dz = new Rig();
+        ok(dz.st.canDepth() && !dz.st.depthOn(), "a walker can be put in perspective; it starts off");
+        Stick.setDepth(dz.doc, true);
+        ok(dz.st.depthOn(), "the tick box turns it on");
+        cc.joycreator.avatar.perform.DepthWalk.prep(dz.w, true, dz.doc, new double[]{0, 0, 300, 600});
+        ok(dz.w.z != null, "depth is being used, so the walker has its depth model");
+        dz.st.press();
+        dz.push(0, -1, 40);
+        ok(dz.w.tz != null && dz.w.tz < -20, "knob up walks it away from you (" + dz.w.tz + ")");
+        dz.push(0, -1, 600);
+        ok(dz.w.tz >= dz.w.z.lim[0] - 1e-9, "and stops at how far away it may go (" + dz.w.tz + " vs " + dz.w.z.lim[0] + ")");
+        dz.push(0, 1, 800);
+        ok(dz.w.tz <= dz.w.z.lim[1] + 1e-9 && dz.w.tz > 0, "knob down brings it toward you, no further than it may come (" + dz.w.tz + ")");
+        ok(dz.w.ty == 0, "and up and down no longer pull the body up toward a jump");
+        Rig off = new Rig();
+        cc.joycreator.avatar.perform.DepthWalk.prep(off.w, true, off.doc, new double[]{0, 0, 300, 600});
+        off.st.press();
+        off.push(0, -1, 40);
+        ok(off.w.tz == null, "with the tick box off the pad does not walk in depth");
+        Stick.setAngle(dz.doc, 200);
+        ok(dz.st.angle() == 75, "the camera angle stops at how low it may go (" + dz.st.angle() + ")");
+        Stick.setAngle(dz.doc, 30);
+        ok(dz.st.angle() == 30 && dz.doc.getJSONObject("settings").getInt("floorAngle") == 30, "the camera angle is the character's own");
+
         // a character that does not walk leans
         JSONObject plain = topps();
         plain.getJSONObject("settings").put("walk", new JSONObject().put("on", false));

@@ -16,7 +16,7 @@ import java.util.Map;
  * </ul>
  * The middle of each is a dead zone (the face is noisy at its edges). Whatever the face walks is the body's, so a take records
  * it like a finger's walk; while a take plays, the take walks it. The two depth boxes need a walker that walks in depth
- * ({@link Legs#depth}); on the phone that half of walking is still to be ported, so they wait for it.
+ * ({@link Legs#depth}: the phone's Walker with its {@code DepthWalk}, made by the room while either box is on).
  */
 public final class FaceWalk {
     public static final double DEAD_X = 0.18, DEAD_Z = 0.15;   // the middle of each that is not a walk

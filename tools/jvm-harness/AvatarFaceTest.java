@@ -1,3 +1,4 @@
+import cc.joycreator.avatar.perform.Inputs;
 import cc.joycreator.avatar.face.FaceDrive;
 import cc.joycreator.avatar.face.FaceWalk;
 import com.fadcam.ui.faditor.avatar.face.FaceCalibration;
@@ -199,6 +200,76 @@ public class AvatarFaceTest {
         wp.setCloser(true);
         for (int i = 0; i < 30; i++) wp.step(dt, sig("near", 0.8, "face", 1), P, H, LIM, false);
         check(P.tz == null, "on a walker that does not walk in depth yet, Closer and further asks nothing of it");
+
+        // ── in the room's own hands (Inputs, with the character's life on: idle, blinks by themselves, eyes lead) ──
+        long now = 0;
+        Inputs in = new Inputs();
+        in.setSettings(new org.json.JSONObject());
+        in.head(0.3, 0);
+        in.releaseHead();
+        for (int i = 0; i < 60; i++) in.frame(dt, now += 33);
+        in.face(true);
+        double lo = 9, hi = -9, mouthTalk;
+        int blinks = 0;
+        Map<String, Object> f = null;
+        for (int i = 0; i < 300; i++) {                        // ten seconds looking straight at the phone, eyes open
+            in.faceSaw(sig("turnX", 0.1, "turnY", 0, "roll", 0, "mouth", 0, "blinkL", 0, "blinkR", 0, "smileL", 0.6, "smileR", 0.6));
+            f = in.frame(dt, now += 33);
+            double x = ((Number) f.get("turnX")).doubleValue();
+            if (i > 30) { lo = Math.min(lo, x); hi = Math.max(hi, x); }
+            if (((Number) f.get("blinkL")).doubleValue() > 0.5) blinks++;
+        }
+        check(Math.abs(lo - 0.3) < 0.005 && Math.abs(hi - 0.3) < 0.005,
+                "in the room: the face takes the head from where the pad left it, and the idle sway rests while it drives (" + r(lo) + " to " + r(hi) + ")");
+        check(blinks == 0, "the face's own eyes blink for him: no blinks by themselves while yours are open (" + blinks + ")");
+        check(in.owners(now).containsAll(java.util.Arrays.asList("head", "mouth", "blink", "facepins")) && in.channels().contains("face.smile")
+                && Math.abs(((Number) f.get("face.smile")).doubleValue() - 0.6) < 0.01, "while it drives, the head, mouth, blinks and the face's lanes are its own, and the lanes are in a take's list");
+        for (int i = 0; i < 60; i++) {
+            in.faceSaw(sig("turnX", 0.6, "turnY", 0, "roll", 0, "mouth", 0, "blinkL", 1, "blinkR", 0));
+            f = in.frame(dt, now += 33);
+        }
+        check(Math.abs(((Number) f.get("turnX")).doubleValue() - 0.8) < 0.01 && ((Number) f.get("blinkL")).doubleValue() == 1 && ((Number) f.get("blinkR")).doubleValue() == 0,
+                "turn your head and his turns as far, from the pad's place; a wink is a wink (" + r(((Number) f.get("turnX")).doubleValue()) + ")");
+        in.faceDrive().setMode(FaceDrive.Mode.TALK);           // the chip's second tap: only while Hold to talk is held
+        for (int i = 0; i < 60; i++) {
+            in.faceSaw(sig("turnX", 0.6, "turnY", 0, "roll", 0, "mouth", 0.2));
+            f = in.frame(dt, now += 33);
+        }
+        boolean quiet = !in.owners(now).contains("head") && Math.abs(((Number) f.get("turnX")).doubleValue() - 0.3) < 0.06;
+        in.talk(true);
+        double mx = 0;
+        for (int i = 0; i < 60; i++) {
+            in.faceSaw(sig("turnX", 0.6, "turnY", 0, "roll", 0, "mouth", 0.2));
+            f = in.frame(dt, now += 33);
+            if (i > 20) mx = Math.max(mx, ((Number) f.get("mouth")).doubleValue());
+        }
+        mouthTalk = mx;
+        check(quiet && in.owners(now).contains("head") && Math.abs(mouthTalk - 0.2) < 0.02,
+                "while talking only: the head goes back to the pad until you talk; talking, the mouth is yours, not a babble (" + r(mouthTalk) + ")");
+        in.talk(false);
+        in.face(false);
+        for (int i = 0; i < 60; i++) f = in.frame(dt, now += 33);
+        check(!in.owners(now).contains("head") && Math.abs(((Number) f.get("turnX")).doubleValue() - 0.3) < 0.06 && Math.abs(((Number) f.get("face.smile")).doubleValue()) < 0.01,
+                "Face off: the head goes back to the pad's place and the face's lanes ease to rest");
+
+        // ── the face's lanes reach the solver (a face pin's Shapes follow pt.<i>; Links and Shapes follow face.<name>) ──
+        Inputs pin = new Inputs();
+        pin.face(true);
+        Map<String, Object> pf = null;
+        for (int i = 0; i < 30; i++) {
+            pin.faceSaw(sig("turnX", 0, "pt.61.x", 0.2, "pt.61.y", -0.1, "smileL", 0.5, "smileR", 0.5));
+            pf = pin.frame(dt, now += 33);
+        }
+        cc.joycreator.avatar.solve.Signals ps = cc.joycreator.avatar.ui.SignalMap.toSignals(pf, 0, 0);
+        Map<String, Object> mm = new HashMap<>();
+        mm.put("mk.3.y", -0.25);
+        mm.put("mp.smile", 0.7);
+        mm.put("shrugL", 0.4);
+        mm.put("shrugging", 0.9);
+        cc.joycreator.avatar.solve.Signals ms = cc.joycreator.avatar.ui.SignalMap.toSignals(mm, 0, 0);
+        check(ps.num("pt.61.x") != null && Math.abs(ps.num("pt.61.x") - 0.2) < 0.01 && ps.num("face.smile") != null && Math.abs(ps.num("face.smile") - 0.5) < 0.01
+                && ms.num("mk.3.y") != null && ms.num("mp.smile") != null && ms.num("shrugL") != null && ms.num("shrugging") == null,
+                "the face's lanes reach the solver: face pins (pt.*), expressions (face.*), the mask (mk.*, mp.*) and the shoulders");
 
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);

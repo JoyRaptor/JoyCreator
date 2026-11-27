@@ -106,17 +106,22 @@ public class InputsTest {
         mf = m.frame(DT, now += 33);
         ok(((Number) mf.get("mouth")).doubleValue() == 0.0 && !m.owners(now).contains("mouth"), "and lets go when it is switched off");
 
-        // the face camera: head, mouth, brows and blinks are the face's while it is on
+        // the face camera: head, mouth, brows and blinks are the face's while it is on (the head from where the pad was: the
+        // first face seen is "straight ahead", then it turns as far as your head turns, as the pilot's)
         Inputs fc = new Inputs();
         fc.face(true);
         Map<String, Float> seen = new java.util.HashMap<>();
-        seen.put("turnX", 0.4f);
+        seen.put("turnX", 0.1f);
+        fc.faceSaw(seen);
+        fc.frame(DT, now += 33);
+        seen = new java.util.HashMap<>();
+        seen.put("turnX", 0.5f);
         seen.put("mouth", 0.7f);
         seen.put("vis", 1f);
         seen.put("blinkL", 1f);
         fc.faceSaw(seen);
         Map<String, Object> ff = fc.frame(DT, now += 33);
-        ok(((Number) ff.get("turnX")).doubleValue() > 0.39 && ((Number) ff.get("mouth")).doubleValue() > 0.69 && "Aa".equals(ff.get("vis")) && ((Number) ff.get("blinkL")).doubleValue() == 1.0, "the face drives head, mouth and blinks");
+        ok(Math.abs(((Number) ff.get("turnX")).doubleValue() - 0.4) < 1e-6 && ((Number) ff.get("mouth")).doubleValue() > 0.69 && "Aa".equals(ff.get("vis")) && ((Number) ff.get("blinkL")).doubleValue() == 1.0, "the face drives head, mouth and blinks");
         ok(fc.owners(now).containsAll(Arrays.asList("head", "mouth", "mood", "blink")), "and owns them while it is on");
         fc.face(false);
         ff = fc.frame(DT, now += 33);

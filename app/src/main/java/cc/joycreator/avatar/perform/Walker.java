@@ -25,7 +25,8 @@ import java.util.Map;
  * and it goes onto all fours); off, it is always on the ground wherever it is. Everything here is arithmetic on a few numbers
  * per frame; the solver gives it where the hips and hands are ({@code anchor}, {@code tips}) from the frame before.</p>
  *
- * <p>Not ported yet: walking toward and away from the camera ({@code al-depth-walk.js}) and the scene's side limits; and a
+ * <p>Toward and away from the camera ({@code al-depth-walk.js}): {@link #z} (a {@link DepthWalk}) and {@link #tz} (ported 11-27,
+ * the face capture scout). Not ported yet: the scene's side limits; and a
  * walking hand's palm height is the limb's own {@code walk.palm} (the pilot guesses it from the picture when it is absent).</p>
  */
 public final class Walker {
@@ -86,6 +87,10 @@ public final class Walker {
     // state
     public double x, y, tx, ty, baseY, vx, vy, vz, fallV, sq, idle, swing, lift, lastPh, low, mv, fw;
     public boolean held, air, led;
+    /** Walking toward the camera: how big it is drawn for where its ground line is, and how far it may go (null: no depth). */
+    public DepthWalk z;
+    /** Where its ground line should walk to, toward (+) or away (-) from its place; null: nowhere. */
+    public Double tz;
     private Boolean free;
     private final Map<String, Foot> feet = new LinkedHashMap<>();
     private double[] g0;                           // where the body was grabbed, and where it was: {gx, gy, tx, ty}
@@ -111,6 +116,7 @@ public final class Walker {
         baseY = 0;
         vx = vy = vz = fallV = 0;
         held = false;
+        tz = null;
         feet.clear();
         sq = idle = swing = lift = lastPh = low = mv = fw = 0;
         air = false;
@@ -311,7 +317,8 @@ public final class Walker {
     public void home() {
         tx = 0;
         ty = 0;
-        baseY = 0;
+        if (z != null && baseY != 0) tz = 0.0;                     // walking in depth, home is walked back to (al-depth-walk.js)
+        else baseY = 0;
         held = false;
     }
 
@@ -455,8 +462,20 @@ public final class Walker {
         }
         vx += ((x - px) / dt - vx) * (1 - Math.exp(-14 * dt));
         vy += ((y - py) / dt - vy) * (1 - Math.exp(-14 * dt));
-        // 1b. toward the camera and away: not ported yet
+        // 1b. toward the camera and away (DepthWalk gives z: how big it is drawn for where its ground line is, and how far it may
+        //     go). The ground line itself walks there, no faster than these legs go, and the body, its target and a finger's hold
+        //     go with it, so nothing crouches or jumps.
         double dz = 0;
+        if (z != null && tz != null) {
+            double tzc = clamp(tz, z.lim[0], z.lim[1]), capZ = stride * 4 * dt;
+            dz = (tzc - baseY) * (1 - Math.exp(-5 * dt));
+            if (Math.abs(dz) > capZ) dz *= capZ / Math.abs(dz);
+            if (Math.abs(tzc - baseY) < 0.05) dz = tzc - baseY;
+            baseY += dz;
+            y += dz;
+            ty += dz;
+            if (g0 != null) g0[3] += dz;
+        }
         vz += (dz / dt - vz) * (1 - Math.exp(-14 * dt));
         double speed = line ? hyp(vx, vz) : hyp(vx, vy);
         final boolean going = speed > stride * 0.35;
@@ -473,7 +492,7 @@ public final class Walker {
         final boolean flipF = flip;
 
         // 3. further up the stage is further away (a floor seen from above only)
-        final double sc = deep ? clamp(1 + ((line ? baseY : y) / ch.optDouble("h", 512)) * (cfg.optDouble("depth", 0)) * 2, 0.35, 2.2) : 1;
+        final double sc = (deep ? clamp(1 + ((line ? baseY : y) / ch.optDouble("h", 512)) * (cfg.optDouble("depth", 0)) * 2, 0.35, 2.2) : 1) * (z != null ? z.s(baseY) : 1);
         final boolean airF = line && air;
         double up = line ? -(y - baseY) : 0, tiptoe = airF ? 0 : clamp((up - (slack - toeLen * 0.55)) / Math.max(1, toeLen * 0.55), 0, 1);
 
@@ -725,7 +744,13 @@ public final class Walker {
         S.armSide = new LinkedHashMap<>();
         for (Limb q : all) if (q.arm && q.mate != null) S.armSide.put(q.key, q.mate == legL ? 1.0 : -1.0);
         S.sway += clamp(vx / (stride * 9), -1, 1) * (cfg.has("lean") ? cfg.optDouble("lean") : 0.5) * 1.6 * (1 - lv4 * 0.6);
-        fw += (0 - fw) * (1 - Math.exp(-6 * dt));
+        // coming toward the camera it turns to face it: its front drawing, if it has one (z.front, the head's turn to that drawing)
+        double fz = z != null && z.front != null ? clamp(vz / (stride * 1.2), 0, 1) : 0;
+        fw += (fz - fw) * (1 - Math.exp(-6 * dt));
+        if (fw > 0.005 && z != null && z.front != null && !body.heldHead()) {
+            S.turnX += (z.front - S.turnX) * fw;
+            S.turnY += (0 - S.turnY) * fw * 0.5;
+        }
         S.bounce += -bob * lift * 0.9 + sq * 1.4 + (airF ? -0.4 * smooth(-vy / 420) : 0);
     }
 

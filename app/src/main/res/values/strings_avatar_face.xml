@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The phone room's face (cc.joycreator.avatar.face): the Face chip's modes and Walk with your face. Words as the web pilot's. -->
 <resources>
-    <string name="avatar_face_talk">Face while talking</string>
-    <string name="avatar_hover_face_cycle">Your face drives the character. Tap again: only while Hold to talk is held. Again: off</string>
+    <string name="avatar_face_always">Face: always</string>
+    <string name="avatar_face_talk">Face: while talking</string>
+    <string name="avatar_hover_face_cycle">Drive the head, eyes and mouth with your own face. Straight away; tap again for only while Hold to talk is held, then off. The picture is never kept.</string>
     <string name="avatar_face_walk">Walk with your face</string>
     <string name="avatar_hover_face_walk">Walk with your face: lean to a side to walk that way, come closer to walk toward the camera. And Up close.</string>
     <string name="avatar_face_walk_lr">Left and right with your face</string>
@@ -14,5 +15,5 @@
     <string name="avatar_face_walk_up">Up close</string>
     <string name="avatar_face_walk_up_sub">It walks up to the camera; untick and it walks back</string>
     <string name="avatar_hover_face_walk_up">On: the character walks up to the camera and stays there. Off: it walks back to its place. No face needed.</string>
-    <string name="avatar_face_walk_needs_face">Turn on Face above: these follow your face.</string>
+    <string name="avatar_face_walk_needs_face">These two follow your face: turn on Face above. Up close works without it.</string>
 </resources>

@@ -36534,19 +36534,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         puppetHelper.setX(at[0]);
         puppetHelper.setY(at[1]);
-        // TEMP-WEBSITE-LANE: remove after the puppet strip placement is proven.
-        {
-            int[] dl2 = new int[2], pl2 = new int[2], sl2 = new int[2];
-            if (objectDrawer != null) objectDrawer.getLocationOnScreen(dl2);
-            pc.getLocationOnScreen(pl2);
-            puppetHelper.getLocationOnScreen(sl2);
-            android.util.Log.i("PuppetStrip", "corner=" + puppetHelper.corner() + " parent=" + pc.getWidth() + "x" + pc.getHeight()
-                    + " at=" + at[0] + "," + at[1] + " left=" + puppetHelper.getLeft() + " x=" + puppetHelper.getX()
-                    + " screen=" + sl2[0] + "," + sl2[1] + " w=" + puppetHelper.getWidth() + " h=" + puppetHelper.getHeight()
-                    + " drawerShowing=" + (objectDrawer != null && objectDrawer.isShowing())
-                    + " drawerTop=" + dl2[1] + " drawerH=" + (objectDrawer == null ? -1 : objectDrawer.getHeight())
-                    + " parentTop=" + pl2[1] + " gravity=" + (puppetHelper.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams ? ((android.widget.FrameLayout.LayoutParams) puppetHelper.getLayoutParams()).gravity : -9));
-        }
     }
 
     /** Place a pin dragged out of the strip, in the OVERLAY's pixels. */
@@ -47274,6 +47261,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     || id == R.id.transcript_reopen_tab) {
                 continue;
             }
+            // The puppet helper strip is parked by parkPuppetHelper (setX/setY are its translation). Writing the picture's
+            // shift over it put it back at the container's origin whenever a drawer opened or changed: top left, over the
+            // drawer's first rows, whatever side it had been parked on (STU-4 11-27, found with a log on the Note 9).
+            if (child == puppetHelper) continue;
             if (animate) {
                 child.animate().translationX(dx).translationY(dy).setDuration(220)
                         .setInterpolator(new android.view.animation.DecelerateInterpolator())
@@ -47285,6 +47276,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             }
         }
         if (canvasFrame != null) canvasFrame.setCanvasOffset(dx, dy);
+        if (puppetHelper != null && puppetHelper.getVisibility() == View.VISIBLE) parkPuppetHelper();
     }
 
     /**

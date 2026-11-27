@@ -59,14 +59,18 @@ class FootprintView(private val kit: ChromeKit, onTap: (() -> Unit)? = null) : V
     private fun nearest(t: Float): Int =
         if (!t.isFinite()) -1 else tiltsDeg.indices.minByOrNull { abs(tiltsDeg[it] - t * 180f / PI.toFloat()) } ?: -1
 
+    /** Stacked top to bottom (0 over 35 over 70 degrees), as the brush editor's pen row has them (BRUSH-UI §L 6). */
+    var vertical = false
+        set(v) { field = v; invalidate() }
+
     override fun onDraw(c: Canvas) {
         val w = width.toFloat(); val h = height.toFloat()
         if (w <= 0f || h <= 0f || marks.isEmpty()) return
         val n = marks.size
         val label = kit.dp(10f)
         val pad = kit.dp(4f)
-        val cellW = (w - pad * 2) / n
-        val cellH = h - pad * 2 - label
+        val cellW = if (vertical) w - pad * 2 else (w - pad * 2) / n
+        val cellH = if (vertical) (h - pad * 2) / n - label else h - pad * 2 - label
         // Each mark centred in its cell on its own middle; one scale for all, so they compare: the largest fits.
         var spanX = 0.0; var spanY = 0.0
         for (m in marks) { spanX = max(spanX, m.maxOf { it[0] } - m.minOf { it[0] }); spanY = max(spanY, m.maxOf { it[1] } - m.minOf { it[1] }) }
@@ -76,7 +80,8 @@ class FootprintView(private val kit: ChromeKit, onTap: (() -> Unit)? = null) : V
         val lit = nearest(liveTilt)
         words.textSize = kit.dp(8.5f); words.color = kit.p.drawerDim
         for ((i, m) in marks.withIndex()) {
-            val cx = pad + cellW * (i + .5f); val cy = pad + cellH / 2f
+            val cx = if (vertical) w / 2f else pad + cellW * (i + .5f)
+            val cy = if (vertical) pad + (cellH + label) * i + cellH / 2f else pad + cellH / 2f
             val mx = ((m.maxOf { it[0] } + m.minOf { it[0] }) / 2).toFloat(); val my = ((m.maxOf { it[1] } + m.minOf { it[1] }) / 2).toFloat()
             path.rewind()
             for ((j, pt) in m.withIndex()) {
@@ -88,7 +93,8 @@ class FootprintView(private val kit: ChromeKit, onTap: (() -> Unit)? = null) : V
             line.strokeWidth = kit.dp(1.2f)
             line.color = if (i == lit) kit.p.stateSelected else kit.ink(.6f)
             c.drawPath(path, line)
-            c.drawText(if (n > 1) "${tiltsDeg[i]}°" else "same at any tilt", cx, h - pad, words)
+            val labelY = if (vertical) pad + (cellH + label) * (i + 1) - kit.dp(1f) else h - pad
+            c.drawText(if (n > 1) "${tiltsDeg[i]}°" else if (vertical) "any tilt" else "same at any tilt", cx, labelY, words)
         }
     }
 

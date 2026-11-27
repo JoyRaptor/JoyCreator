@@ -66,13 +66,25 @@ class UnibrushSettingsView(
         kit.label(this, "Settings could not be applied. The previous valid brush is kept")
     }
     private val pen = PenReadingView(kit)
-    /** The tip seen edge-on, beside the pen pad (BRUSH-UI item 4). */
-    private val tipSection = TipSectionView(kit)
     /** BRUSH-UI section K.4: the mark it leaves from above; tapping it opens the tip's shape editor. */
     private val footprint = FootprintView(kit) { openShapeEditor() }
     /** Where "Tip" starts in the list (the shape editor, or the switch that turns it on). */
     private var tipStart: View? = null
-    private val input = LinearLayout(context).apply { orientation = HORIZONTAL }
+    /**
+     * §L 3 (owner, 11-27): the brush's Pressure and Tilt response as the two small curve boxes every brush has, in place
+     * of the big "Pressure → Tilt" pad; they were also two big boxes down in Dynamics, now gone from there.
+     */
+    private val pressureCurve = CurveEditorView(kit, "Pressure", initial.response.pressure) { h, done ->
+        if (!edit(done) { it.copy(response = it.response.copy(pressure = h)) }) setCurve(true)
+    }
+    private val tiltCurve = CurveEditorView(kit, "Tilt", initial.response.tilt) { h, done ->
+        if (!edit(done) { it.copy(response = it.response.copy(tilt = h)) }) setCurve(false)
+    }
+    private fun setCurve(pressure: Boolean) {
+        if (pressure) pressureCurve.setHandles(model.response.pressure) else tiltCurve.setHandles(model.response.tilt)
+    }
+    /** The pen row every brush editor shares (§L 4-6). */
+    private val input = PenHearingRow(kit, pen, footprint, pressureCurve, tiltCurve)
     private val scroll = ScrollView(context)
 
     init {
@@ -91,16 +103,6 @@ class UnibrushSettingsView(
         addView(preview, LayoutParams(MATCH, kit.dpi(BrushSettingsView.PREVIEW_DP)).apply {
             setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(2f))
         })
-        input.addView(pen, LayoutParams(kit.dpi(64f), kit.dpi(92f)))
-        input.addView(UnibrushPreviewPad(kit) { pressure, tilt ->
-            pen.show(pressure, tilt, 0f)
-            try { onPreviewInput(pressure, tilt) } catch (e: Exception) { showError(e.message ?: "The preview could not be updated") }
-        }, LayoutParams(0, kit.dpi(92f), 1f).apply { marginStart = kit.dpi(8f) })
-        // The tip from the side over its footprint from above, stacked to keep the row narrow.
-        val tipColumn = LinearLayout(context).apply { orientation = VERTICAL }
-        tipColumn.addView(tipSection, LayoutParams(MATCH, kit.dpi(40f)))
-        tipColumn.addView(footprint, LayoutParams(MATCH, kit.dpi(48f)).apply { topMargin = kit.dpi(4f) })
-        input.addView(tipColumn, LayoutParams(kit.dpi(96f), kit.dpi(92f)).apply { marginStart = kit.dpi(8f) })
         addView(error, LayoutParams(MATCH, WRAP))
         scroll.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
         addView(scroll, LayoutParams(MATCH, 0, 1f))
@@ -127,6 +129,9 @@ class UnibrushSettingsView(
     fun showReading(pressure: Float, tiltRadians: Float, orientationRadians: Float) {
         pen.show(pressure, tiltRadians, orientationRadians)
         footprint.showTilt(tiltRadians)
+        // §L 3: the curves fill while the pen presses, and keep a grey marker where the last stroke ended.
+        pressureCurve.showReading(if (pressure > 0f) pressure else Float.NaN, pressure > 0f)
+        tiltCurve.showReading(cc.joycreator.joybrush.core.chrome.BrushKnobs.tiltCurveInput(model, tiltRadians), pressure > 0f)
     }
 
     /** Tapping the footprint: the list goes to the tip's shape editor (or the switch that turns it on), and it blinks. */
@@ -173,13 +178,14 @@ class UnibrushSettingsView(
         val oldScroll = if (resetScroll) 0 else scroll.scrollY
         body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear(); groupStarts.clear(); tipStart = null
         endRows.clear()
-        body.addView(input, LayoutParams(MATCH, kit.dpi(92f)))
+        (input.parent as? ViewGroup)?.removeView(input)
+        body.addView(input, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(6f)) })
+        setCurve(true); setCurve(false)
         if (!initialValid) { info("The brush has not changed. Close this sheet and choose a valid Unibrush mode."); return }
         quick(); shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
         // In the top bar's order: shape, pressure & tilt, colour, paper, stroke ends, feel.
         fadeControls(); sampledControls(); dualControls(); behaviors(); dynamics(); colorControls()
         grainControls(tip = true); grainControls(tip = false); endsControls(); stabilizerControls()
-        tipSection.show(model.tip.profile, model.tip.hardness.base)
         footprint.show(model)
         scroll.post { if (!closed) scroll.scrollTo(0, oldScroll) }
     }
@@ -225,7 +231,7 @@ class UnibrushSettingsView(
     private fun refreshEnds() { for (r in endRows.toList()) askEnds(r) }
 
     private fun refreshControls(forceThumb: Boolean = false) {
-        tipSection.show(model.tip.profile, model.tip.hardness.base)
+        setCurve(true); setCurve(false)
         footprint.show(model)
         refreshers.toList().forEach { it() }; rows.toList().forEach { it.refresh(forceThumb) }
     }
@@ -435,13 +441,7 @@ class UnibrushSettingsView(
         number("Scatter copies", 1f, 16f, { it.scatter.count.toFloat() }, { p, v -> p.copy(scatter = p.scatter.copy(count = v.toInt())) }, integer = true)
         number("Copy jitter", 0f, 1f, { it.scatter.countJitter }, { p, v -> p.copy(scatter = p.scatter.copy(countJitter = v)) }, format = ::percent)
         toggle("Scatter both axes", { model.scatter.bothAxes }) { value -> edit(true) { it.copy(scatter = it.scatter.copy(bothAxes = value)) } }
-        responseCurve("Pressure response", { it.response.pressure }, { p, h -> p.copy(response = p.response.copy(pressure = h)) })
-        responseCurve("Tilt response", { it.response.tilt }, { p, h -> p.copy(response = p.response.copy(tilt = h)) })
-    }
-    private fun responseCurve(title: String, read: (BrushPreset) -> List<Float>, write: (BrushPreset, List<Float>) -> BrushPreset) {
-        lateinit var curve: UnibrushBezierEditorView
-        curve = UnibrushBezierEditorView(kit, title, read(model)) { h, done, _ -> if (!edit(done) { write(it, h) }) curve.setHandles(read(model)) }
-        curves += curve; body.addView(curve, LayoutParams(MATCH, WRAP))
+        // The Pressure and Tilt response curves sit in the pen row at the top now (§L 3).
     }
 
     private fun secondaryColourControl() {

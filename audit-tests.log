@@ -1,0 +1,42 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :core:compileTestKotlinJvm
+> Task :core:compileJvmTestJava NO-SOURCE
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :core:jvmTestClasses
+
+> Task :core:jvmTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.03b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GrainTextures.kt:6:42 Unresolved reference 'PaperCatalogues'.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.03b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GrainTextures.kt:97:27 Unresolved reference 'PaperCatalogues'.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.03b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GrainTextures.kt:97:96 Cannot infer type for this parameter. Specify it explicitly.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jb-9.03b/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/gl/GrainTextures.kt:97:111 Unresolved reference 'file'.
+
+> Task :androidkit:compileKotlin FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':androidkit:compileKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 3m 36s
+5 actionable tasks: 5 executed

@@ -32,8 +32,8 @@ import java.util.List;
 public final class SheetCutterView extends FrameLayout {
 
     public interface Listener {
-        /** The chosen drawings, in the order tapped. */
-        void make(List<SheetCutter.Piece> pieces);
+        /** The chosen drawings, in the order tapped, what part they are ({@code SheetParts.ZONES} key) and how they are grouped. */
+        void make(List<SheetCutter.Piece> pieces, String zone, String group);
 
         void cancel();
     }
@@ -44,10 +44,13 @@ public final class SheetCutterView extends FrameLayout {
     private List<SheetCutter.Comp> comps;
     private final List<SheetCutter.Comp> order = new ArrayList<>();
     private boolean grid;
+    private String zone = "head", group = cc.joycreator.avatar.intake.SheetParts.PARTS;
+    private final LinearLayout zoneRow, groupRow;
     private int across = 4, down = 3;
     private final View canvas;
     private final TextView note;
-    private final LinearLayout tools, bar;
+    private final LinearLayout tools;
+    private LinearLayout bar;
     private final float dp;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG), text = new Paint(Paint.ANTI_ALIAS_FLAG);
     private float scale = 1, ox, oy;
@@ -95,6 +98,17 @@ public final class SheetCutterView extends FrameLayout {
         tools.setGravity(Gravity.CENTER_VERTICAL);
         tools.setPadding(px(12), px(2), px(12), px(2));
         col.addView(tools);
+        groupRow = new LinearLayout(c);
+        groupRow.setPadding(px(12), px(2), px(12), px(2));
+        zoneRow = new LinearLayout(c);
+        android.widget.HorizontalScrollView zs = new android.widget.HorizontalScrollView(c), gs = new android.widget.HorizontalScrollView(c);
+        zs.setHorizontalScrollBarEnabled(false);
+        gs.setHorizontalScrollBarEnabled(false);
+        zs.setPadding(px(12), px(2), px(12), px(2));
+        gs.addView(groupRow);
+        zs.addView(zoneRow);
+        col.addView(gs);
+        col.addView(zs);
         bar = new LinearLayout(c);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(px(12), px(4), px(12), px(14));
@@ -151,7 +165,8 @@ public final class SheetCutterView extends FrameLayout {
 
     private void refresh() {
         Context c = getContext();
-        note.setText(grid ? c.getString(R.string.avatar_cutter_note_grid, comps.size()) : c.getString(R.string.avatar_cutter_note_found, comps.size()));
+        String how = cc.joycreator.avatar.intake.SheetParts.LOOP.equals(group) ? c.getString(R.string.avatar_cutter_how_loop) : cc.joycreator.avatar.intake.SheetParts.SWAP.equals(group) ? c.getString(R.string.avatar_cutter_how_swap) : c.getString(R.string.avatar_cutter_how_parts);
+        note.setText((grid ? c.getString(R.string.avatar_cutter_note_grid, comps.size()) : c.getString(R.string.avatar_cutter_note_found, comps.size())) + " " + how);
         tools.removeAllViews();
         tools.addView(chip(c.getString(R.string.avatar_cutter_find), !grid, true, c.getString(R.string.avatar_hover_cutter_find), v -> setMode(false)));
         tools.addView(chip(c.getString(R.string.avatar_cutter_grid), grid, true, c.getString(R.string.avatar_hover_cutter_grid), v -> setMode(true)));
@@ -180,6 +195,21 @@ public final class SheetCutterView extends FrameLayout {
                 refresh();
             }));
         }
+        groupRow.removeAllViews();
+        String[][] groups = {{cc.joycreator.avatar.intake.SheetParts.PARTS, c.getString(R.string.avatar_cutter_parts), c.getString(R.string.avatar_hover_cutter_parts)},
+                {cc.joycreator.avatar.intake.SheetParts.SWAP, c.getString(R.string.avatar_cutter_swap), c.getString(R.string.avatar_hover_cutter_swap)},
+                {cc.joycreator.avatar.intake.SheetParts.LOOP, c.getString(R.string.avatar_cutter_loop), c.getString(R.string.avatar_hover_cutter_loop)}};
+        for (String[] g : groups) groupRow.addView(chip(g[1], g[0].equals(group), true, g[2], v -> {
+            group = g[0];
+            refresh();
+        }));
+        zoneRow.removeAllViews();
+        TextView these = label(c.getString(R.string.avatar_cutter_these));
+        zoneRow.addView(these);
+        for (String[] z : cc.joycreator.avatar.intake.SheetParts.ZONES) zoneRow.addView(chip(z[1], z[0].equals(zone), true, c.getString(R.string.avatar_hover_cutter_zone, z[1]), v -> {
+            zone = z[0];
+            refresh();
+        }));
         bar.removeAllViews();
         bar.addView(chip(c.getString(R.string.avatar_wizard_cancel), false, true, c.getString(R.string.avatar_hover_wizard_cancel), v -> listener.cancel()));
         View gap = new View(c);
@@ -196,7 +226,9 @@ public final class SheetCutterView extends FrameLayout {
             SheetCutter.Piece p = SheetCutter.extract(sheet, c);
             if (p != null) out.add(p);
         }
-        if (!out.isEmpty()) listener.make(out);
+        if (out.isEmpty()) return;
+        if (cc.joycreator.avatar.intake.SheetParts.LOOP.equals(group) && out.size() > 1) out = SheetCutter.align(out);   // frames stay in register
+        listener.make(out, zone, group);
     }
 
     private TextView label(String s) {

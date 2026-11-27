@@ -49,11 +49,15 @@ public final class SheetCutter {
     public static final class Piece {
         public final int[] px;
         public final int w, h;
+        /** Where its top left sat on the sheet (so frames of a loop can be kept in register). */
+        public final int sx, sy;
 
-        Piece(int[] px, int w, int h) {
+        Piece(int[] px, int w, int h, int sx, int sy) {
             this.px = px;
             this.w = w;
             this.h = h;
+            this.sx = sx;
+            this.sy = sy;
         }
     }
 
@@ -198,6 +202,26 @@ public final class SheetCutter {
         int tw = tx1 - tx0 + 1, th = ty1 - ty0 + 1;
         int[] out = new int[tw * th];
         for (int y = 0; y < th; y++) System.arraycopy(t, (ty0 + y) * w + tx0, out, y * tw, tw);
-        return new Piece(out, tw, th);
+        return new Piece(out, tw, th, x0 + tx0, y0 + ty0);
+    }
+
+    /** Frames of a loop: every frame in the SAME box, the one that holds all of them, so they stay in register when they play. */
+    public static List<Piece> align(List<Piece> in) {
+        if (in.isEmpty()) return in;
+        int ux0 = Integer.MAX_VALUE, uy0 = Integer.MAX_VALUE, ux1 = -1, uy1 = -1;
+        for (Piece p : in) {
+            ux0 = Math.min(ux0, p.sx);
+            uy0 = Math.min(uy0, p.sy);
+            ux1 = Math.max(ux1, p.sx + p.w);
+            uy1 = Math.max(uy1, p.sy + p.h);
+        }
+        int w = ux1 - ux0, h = uy1 - uy0;
+        List<Piece> out = new ArrayList<>();
+        for (Piece p : in) {
+            int[] px = new int[w * h];
+            for (int y = 0; y < p.h; y++) System.arraycopy(p.px, y * p.w, px, (p.sy - uy0 + y) * w + (p.sx - ux0), p.w);
+            out.add(new Piece(px, w, h, ux0, uy0));
+        }
+        return out;
     }
 }

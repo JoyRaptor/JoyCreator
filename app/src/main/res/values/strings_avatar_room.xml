@@ -278,5 +278,16 @@
     <string name="avatar_stick_overhead">overhead</string>
     <string name="avatar_stick_angle_step">Camera angle</string>
     <string name="avatar_hover_stick_angle">How the camera looks at the floor. Overhead: walking away and toward you moves it up and down with no change of size. Lower: the further away, the smaller.</string>
+    <string name="avatar_cutter_parts">Separate drawings</string>
+    <string name="avatar_hover_cutter_parts">Each one you tap is added by itself</string>
+    <string name="avatar_cutter_swap">One part that swaps</string>
+    <string name="avatar_hover_cutter_swap">The drawings you tap are ONE part with several looks (expressions, hand shapes). The first is its usual look; each of the others gets a button</string>
+    <string name="avatar_cutter_loop">Frames of a loop</string>
+    <string name="avatar_hover_cutter_loop">The drawings you tap are ONE part that plays through them in the order tapped (a flame, a spinning ring)</string>
+    <string name="avatar_cutter_these">These are the</string>
+    <string name="avatar_hover_cutter_zone">These drawings are the %1$s</string>
+    <string name="avatar_cutter_how_parts">Tap every drawing of one body part.</string>
+    <string name="avatar_cutter_how_swap">Tap its usual look first, then its other looks.</string>
+    <string name="avatar_cutter_how_loop">Tap the frames in the order they play.</string>
 </resources>
 

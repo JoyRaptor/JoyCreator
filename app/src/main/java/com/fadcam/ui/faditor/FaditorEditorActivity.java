@@ -1034,6 +1034,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (objectDrawer != null) objectDrawer.showTabTitled(getString(R.string.drawer_tab_effects));
     }
 
+    /** Motion Blur stays out of sight until STU-7 ships (assets/launch/hidden_features.json). */
+    private static boolean motionBlurHidden(@NonNull Context ctx) {
+        return com.fadcam.launch.LaunchGate.hidden(ctx, "studio_motion_blur");
+    }
+
     /** The object's Motion Blur card, filled in place; empty while the blur is off. */
     @Nullable private android.widget.LinearLayout motionSlot;
     @Nullable private String motionSlotId;
@@ -1081,7 +1086,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
      */
     @Nullable
     private View motionBlurTile(@NonNull Context ctx, @NonNull String id, @NonNull Runnable close) {
-        if (findMotionBlurItem(id) == null) return null;
+        // Hidden until STU-7 is approved, exactly like the tool button (launch key below).
+        if (motionBlurHidden(ctx) || findMotionBlurItem(id) == null) return null;
         return com.fadcam.ui.faditor.motion.card.MotionBlurCard.pickerTile(ctx, () -> {
             close.run();
             MotionBlurItem item = findMotionBlurItem(id);
@@ -30983,10 +30989,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 title, getString(R.string.drawer_tab_transform), R.drawable.ic_transform_24,
                 ctx -> buildSpriteTransformTab(s, host)));
         // STU-7 §K: sprites have no shader stack, so their Effects tab holds the Motion Blur
-        // card alone (or its tile while it is off).
-        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
-                title, getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
-                ctx -> withMotionBlurCard(ctx, s.getId(), null)));
+        // card alone (or its tile while it is off). No tab at all while motion blur is hidden.
+        if (!motionBlurHidden(this)) {
+            tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                    title, getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
+                    ctx -> withMotionBlurCard(ctx, s.getId(), null)));
+        }
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 title, getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
                 ctx -> buildLanesTab(com.fadcam.ui.faditor.layers.TimedItem.ofSprite(s))));

@@ -41,6 +41,9 @@ public final class PartsView extends ScrollView {
         /** One step in the stack: -1 back one, +1 forward one, Integer.MIN_VALUE very back, Integer.MAX_VALUE very front. */
         void restack(String id, int by);
 
+        /** "Put it back": clears the part's move, turn and size, as one step. */
+        void putBack(String id);
+
         /** Match the angles of this head (the landmarks screen). */
         void openLandmarks(String setId);
     }
@@ -108,6 +111,7 @@ public final class PartsView extends ScrollView {
     // ── Set up: its drawings ──────────────────────────────────────────────────────────────────────
 
     private void setUp(CharacterDoc doc, CharacterDoc.Node node) {
+        column.addView(body(getContext().getString(R.string.avatar_pins_hint)));
         if (!"set".equals(node.type) || node.kids.isEmpty()) {
             column.addView(body(getContext().getString(R.string.avatar_ask_stage_1)));
             return;
@@ -155,6 +159,12 @@ public final class PartsView extends ScrollView {
         column.addView(scroll);
         LinearLayout buttons = new LinearLayout(getContext());
         buttons.setPadding(0, px(8), 0, 0);
+        LinearLayout box = new LinearLayout(getContext());
+        box.setPadding(0, px(8), 0, 0);
+        box.addView(chip(getContext().getString(R.string.avatar_put_back), false, v -> host.putBack(node.id), getContext().getString(R.string.avatar_hover_put_back)));
+        column.addView(label(getContext().getString(R.string.avatar_size_and_turn)));
+        column.addView(body(getContext().getString(R.string.avatar_box_hint)));
+        column.addView(box);
         buttons.addView(chip(getContext().getString(R.string.avatar_very_back), false, v -> host.restack(node.id, Integer.MIN_VALUE), getContext().getString(R.string.avatar_hover_very_back)));
         buttons.addView(chip(getContext().getString(R.string.avatar_back_one), false, v -> host.restack(node.id, -1), getContext().getString(R.string.avatar_hover_back_one)));
         buttons.addView(chip(getContext().getString(R.string.avatar_forward_one), false, v -> host.restack(node.id, 1), getContext().getString(R.string.avatar_hover_forward_one)));

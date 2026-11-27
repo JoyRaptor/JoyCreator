@@ -73,7 +73,7 @@ public final class PerformPopup implements PerformPanel.Host {
     private Dialog dialog;
     private StageView stage;
     private PerformPanel panel;
-    private TextView rec;
+    private boolean playing;
     private boolean looping;
     private long lastNs;
     @Nullable private VoiceoverRecorder voice;
@@ -117,10 +117,6 @@ public final class PerformPopup implements PerformPanel.Host {
         LinearLayout bar = new LinearLayout(a);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(0, pad / 2, 0, pad / 2);
-        rec = SheetKit.chip(a, a.getString(R.string.ava_perform_record));
-        SheetKit.label(rec, a.getString(R.string.ava_perform_record_hover));
-        rec.setOnClickListener(v -> toggleRecord());
-        bar.addView(rec);
         TextView hint = new TextView(a);
         hint.setText(R.string.ava_perform_hint);
         hint.setTextColor(Studio.INK_FAINT);
@@ -143,7 +139,7 @@ public final class PerformPopup implements PerformPanel.Host {
         }
         inputs.setButtons(ids);
         panel = new PerformPanel(a, this);
-        panel.bind(doc, false);
+        panel.bind(doc, true);   // the room's own take bar: red records a pass, play, take back
         col.addView(panel, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, SheetKit.dp(a, 300)));
 
         dialog = new Dialog(a);
@@ -161,7 +157,6 @@ public final class PerformPopup implements PerformPanel.Host {
         looping = true;
         lastNs = 0;
         Choreographer.getInstance().postFrameCallback(loop);
-        paintRec();
     }
 
     private final Choreographer.FrameCallback loop = new Choreographer.FrameCallback() {
@@ -201,7 +196,7 @@ public final class PerformPopup implements PerformPanel.Host {
         passAtMs = host.playheadMs();
         if (inputs.micOn()) restartVoice();   // the voice kept with the pass starts with it
         host.play();
-        paintRec();
+        panel.tick();
     }
 
     private void endPass() {
@@ -215,14 +210,35 @@ public final class PerformPopup implements PerformPanel.Host {
         }
         Take t = inputs.recorder.take();
         if (t != null) host.passDone(item, StudioCharacter.json(t), heard, passAtMs);
-        paintRec();
+        panel.tick();
     }
 
-    @Override public void togglePlay() {}
+    /** Play: Studio's own playback (the character follows the playhead). */
+    @Override
+    public void togglePlay() {
+        if (inputs.recorder.recording()) return;
+        if (playing) host.pause();
+        else host.play();
+        playing = !playing;
+    }
 
-    @Override public void takeBack() {}
+    /** Take back: Studio's Undo takes the last pass back (each pass is one step there). */
+    @Override
+    public void takeBack() {
+        Toast.makeText(a, R.string.ava_perform_take_back, Toast.LENGTH_SHORT).show();
+    }
 
-    @Override public void clearTake() {}
+    @Override
+    public void clearTake() {
+        Toast.makeText(a, R.string.ava_perform_take_back, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override public CharacterDoc.Node inHandNode() { return null; }
+
+    @Override public cc.joycreator.avatar.ui.PoseRenderer renderer() { return stage.renderer(); }
+
+    /** Only the room's Motion stage edits how parts move; Studio's pop-up shows Perform only. */
+    @Override public cc.joycreator.avatar.ui.MotionSections.Host motion() { return null; }
 
     @Override
     public void toggleMic() {
@@ -315,17 +331,6 @@ public final class PerformPopup implements PerformPanel.Host {
     public void setSetting(String key, boolean on, String stepName) {
         // a character's own settings are the room's to change; Studio only performs it
         Toast.makeText(a, R.string.ava_perform_settings_in_room, Toast.LENGTH_SHORT).show();
-    }
-
-    private void paintRec() {
-        boolean on = inputs.recorder.recording();
-        rec.setText(on ? R.string.ava_perform_stop : R.string.ava_perform_record);
-        GradientDrawable g = new GradientDrawable();
-        g.setCornerRadius(SheetKit.dp(a, 16));
-        g.setColor(on ? Studio.LIVE : 0x00000000);
-        g.setStroke(SheetKit.dp(a, 1), Studio.LIVE);
-        rec.setBackground(g);
-        rec.setTextColor(on ? Studio.GROUND : Studio.LIVE);
     }
 
     /** Leaving: the pass ends, the camera and the microphone let go at once. */

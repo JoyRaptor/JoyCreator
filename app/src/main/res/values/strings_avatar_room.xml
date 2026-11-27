@@ -153,5 +153,15 @@
     <string name="avatar_step_mark_state">Landmark %1$d: %2$s</string>
     <string name="avatar_step_remove_mark">Remove landmark %1$d</string>
     <string name="avatar_step_meet">Change where two angles meet</string>
+    <string name="avatar_step_move_pin">Move a pin</string>
+    <string name="avatar_pins_hint">Yellow pins are where it turns; blue pins hold a spot as it bends. Drag one on the picture: a loupe follows your finger.</string>
+    <string name="avatar_put_back">Put it back</string>
+    <string name="avatar_hover_put_back">Put it back: clear its move, turn and size</string>
+    <string name="avatar_size_and_turn">Size and turn</string>
+    <string name="avatar_box_hint">Drag inside the box to move the part, a corner to resize it, the ring below it to turn it.</string>
+    <string name="avatar_step_box_move">Move %1$s</string>
+    <string name="avatar_step_box_turn">Turn %1$s</string>
+    <string name="avatar_step_box_size">Resize %1$s</string>
+    <string name="avatar_step_put_back">Put %1$s back</string>
 </resources>
 

@@ -29,6 +29,8 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
         fun add(on: Boolean)
         fun ringSize(dp: Float)
         fun backToBox()
+        /** Done: end the selection. Tapping empty paper does the same, but nobody finds that alone. */
+        fun done()
     }
 
     /** What the bar shows. */
@@ -107,6 +109,7 @@ class SelectBarView(private val kit: ChromeKit, private val chips: Chips) : Line
                 "Keep line thickness when you resize, or let it grow and shrink with the box") { chips.keepWeights(!m.keepWeights) }
             if (m.offerAdd) chip(JbIcon.PLUS, null, m.addArmed, "Add: taps, loops, the crosshair, fan and count add lines, or remove ones already selected") { chips.add(!m.addArmed) }
         }
+        chip(JbIcon.DONE, null, false, "Done: let go of the selection (tapping empty paper does too)") { chips.done() }
         repaint()
     }
 

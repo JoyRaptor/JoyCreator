@@ -88,6 +88,20 @@ public final class StageView extends View {
 
         int ghostTint();
 
+        /** A finger went down on empty picture inside the thing being moved (the box): true to take the drag. */
+        default boolean beginMove(float x, float y) {
+            return false;
+        }
+
+        /** The finger that {@link #beginMove} took has moved ({@code last}: lifted). */
+        default void moveBy(float x, float y, boolean last) {
+        }
+
+        /** True while dragging should show the loupe (pins). */
+        default boolean loupe() {
+            return false;
+        }
+
         java.util.List<Dot> dots();
 
         /** A tap on empty picture, at character pixels. */
@@ -101,6 +115,7 @@ public final class StageView extends View {
 
     private LandmarkLayer marks;
     private Dot dragging;
+    private boolean moving;
     private float dragX, dragY, fitS = 1, fitX, fitY;
     private final Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG), dotText = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -110,9 +125,20 @@ public final class StageView extends View {
         invalidate();
     }
 
+    /** The part being drawn: the pose as it is, so a layer with no solid or ghost (the pins) shows the whole character. */
+    public PoseRenderer renderer() {
+        return pose;
+    }
+
     private void drawMarks(Canvas c, float dp) {
+        if (marks.solid() == null && marks.ghost() == null) pose.draw(c);
         if (marks.ghost() != null) pose.drawSubtree(c, marks.ghost(), marks.ghostTint(), 120);
         if (marks.solid() != null) pose.drawSubtree(c, marks.solid(), 0, 255);
+        drawDots(c, dp, false);
+    }
+
+    /** The dots; {@code zoomed} in the loupe, where they are drawn at the same size as on the stage. */
+    private void drawDots(Canvas c, float dp, boolean zoomed) {
         for (Dot d : marks.dots()) {
             float x = d == dragging ? dragX : d.x, y = d == dragging ? dragY : d.y;
             float r = (d.small ? 4.5f : 7f) * dp / fitS;
@@ -141,6 +167,33 @@ public final class StageView extends View {
         }
     }
 
+    /** While a dot is dragged: a round loupe above the finger, three times the size, that follows it (the pin-placing ruling). */
+    private void drawLoupe(Canvas c, float dp) {
+        float r = 46 * dp, lx = Math.max(r, Math.min(getWidth() - r, fitX + dragX * fitS)), ly = fitY + dragY * fitS - 84 * dp;
+        if (ly < r) ly = fitY + dragY * fitS + 84 * dp;
+        int save = c.save();
+        android.graphics.Path clip = new android.graphics.Path();
+        clip.addCircle(lx, ly, r, android.graphics.Path.Direction.CW);
+        c.clipPath(clip);
+        c.drawColor(0xFF09090B);
+        float z = fitS * 3f;
+        c.translate(lx - dragX * z, ly - dragY * z);
+        c.scale(z, z);
+        pose.draw(c);
+        float oldFit = fitS;
+        fitS = z;
+        drawDots(c, dp, true);
+        fitS = oldFit;
+        c.restoreToCount(save);
+        dotPaint.setStyle(Paint.Style.STROKE);
+        dotPaint.setStrokeWidth(2 * dp);
+        dotPaint.setColor(0xFFFAFAFA);
+        c.drawCircle(lx, ly, r, dotPaint);
+        dotPaint.setStyle(Paint.Style.FILL);
+        dotPaint.setColor(com.fadcam.ui.faditor.Studio.ARMED);
+        c.drawCircle(lx, ly, 2.5f * dp, dotPaint);
+    }
+
     private Dot hit(float cx, float cy) {
         if (marks == null) return null;
         float dp = getResources().getDisplayMetrics().density, reach = 24 * dp / fitS;
@@ -165,18 +218,27 @@ public final class StageView extends View {
                 dragging = hit(cx, cy);
                 dragX = cx;
                 dragY = cy;
+                moving = false;
                 if (dragging != null) marks.picked(dragging);
+                else moving = marks.beginMove(cx, cy);
                 invalidate();
                 return true;
             case android.view.MotionEvent.ACTION_MOVE:
                 if (dragging != null) {
                     dragX = cx;
                     dragY = cy;
+                    marks.moved(dragging, cx, cy, false);
+                    invalidate();
+                } else if (moving) {
+                    marks.moveBy(cx, cy, false);
                     invalidate();
                 }
                 return true;
             case android.view.MotionEvent.ACTION_UP:
-                if (dragging != null) {
+                if (moving) {
+                    moving = false;
+                    marks.moveBy(cx, cy, true);
+                } else if (dragging != null) {
                     boolean moved = Math.hypot(dragX - dragging.x, dragY - dragging.y) > 2 / fitS;
                     Dot d = dragging;
                     dragging = null;
@@ -226,6 +288,7 @@ public final class StageView extends View {
             }
             c.restoreToCount(save);
         }
+        if (marks != null && dragging != null && doc != null && pose != null && marks.loupe()) drawLoupe(c, dp);
         if (!hintText.isEmpty()) c.drawText(hintText, 12 * dp, getHeight() - 10 * dp, hint);
     }
 

@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studio Motion Blur card picks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Page: one column; each choice is a full-width option holding a drawer crop at phone width (548 dp, the Note 9 as he runs it).
+   Drawer parts copy the app's own Kit values (ObjectDrawer/FxPanel), so what he picks is what gets built. */
+:root {
+  --ground: #000000;
+  --panel: #111114;
+  --raised: #1c1c22;
+  --line: #2c2c35;
+  --ink: #e4e4e7;
+  --dim: #a1a1aa;
+  --faint: #71717a;
+  --armed: #22d3ee;          /* chosen on this page = solid cyan */
+  --on-armed: #050507;
+  /* app drawer tokens (Studio.java / ObjectDrawer.Kit) */
+  --d-ink: #f2f2f5;
+  --d-dim: #c9c9d3;
+  --d-label: #c4c4ce;
+  --ctl: rgba(255,255,255,.10);
+  --ring: rgba(255,255,255,.12);
+  --track: rgba(255,255,255,.18);
+  --careful: #fbbf24;
+  --go: #35f6bf;             /* Studio room, start */
+  --go2: #97fe8b;            /* Studio room, end */
+  --on-go: #050507;
+  --slate: #8a8a94;          /* ObjectPalette.ADJUSTMENT */
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--ground); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.5;
+  padding-left: max(14px, env(safe-area-inset-left, 0px));
+  padding-right: max(14px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 130px;
+}
+main { max-width: 600px; margin: 0 auto; display: grid; gap: 30px; }
+h1 { font-family: var(--display); font-size: 22px; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.lede { color: var(--dim); margin: 6px 0 0; max-width: 62ch; }
+.lede b { color: var(--ink); font-weight: 600; }
+section { display: grid; gap: 10px; }
+h2 { font-family: var(--display); font-size: 15px; margin: 0; display: flex; gap: 8px; align-items: baseline; }
+h2 .key { font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.q { color: var(--dim); margin: 0; font-size: 13px; max-width: 62ch; }
+.opts { display: grid; gap: 12px; }
+.opt {
+  all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 8px; padding: 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-width: 0;
+}
+.opt:focus-visible { outline: 2px solid var(--armed); outline-offset: 2px; }
+.opt[aria-pressed="true"] { border-color: var(--armed); box-shadow: inset 0 0 0 1px var(--armed); }
+.opt .head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.opt .tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 99px; background: var(--raised); color: var(--dim); }
+.opt[aria-pressed="true"] .tag { background: var(--armed); color: var(--on-armed); }
+.opt .name { font-weight: 600; font-size: 13px; }
+.opt .mine { font-family: var(--mono); font-size: 10px; color: var(--go); border: 1px solid rgba(53,246,191,.4); border-radius: 99px; padding: 1px 7px; }
+.opt p { margin: 0; color: var(--dim); font-size: 12px; max-width: 66ch; }
+.opt .reuse { color: var(--faint); font-size: 11px; }
+.foot {
+  position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+  padding: 12px max(14px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
+}
+.foot .row { max-width: 600px; margin: 0 auto; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+#picks { font-family: var(--mono); font-size: 13px; flex: 1 1 220px; min-width: 0; user-select: all; }
+#copy { all: unset; cursor: pointer; font-weight: 600; font-size: 13px; padding: 8px 16px; border-radius: 99px; background: var(--armed); color: var(--on-armed); }
+#copy:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* ---------- the stage: a picture behind a see-through drawer ---------- */
+.stage {
+  position: relative; width: 100%; max-width: 548px; border-radius: 10px; overflow: hidden;
+  background:
+    radial-gradient(60% 80% at 78% 30%, #5b3a1f 0%, transparent 60%),
+    radial-gradient(50% 70% at 20% 80%, #13324a 0%, transparent 65%),
+    linear-gradient(160deg, #1d1f2a, #0b0c10);
+}
+.stage .subject {            /* a moving ball with a motion trail, under the drawer */
+  position: absolute; right: 12%; bottom: 12%; width: 54px; height: 54px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffe6b0, #e48a2b 60%, #7a3a0a);
+  box-shadow: -26px 0 18px -6px rgba(228,138,43,.45), -52px 0 22px -10px rgba(228,138,43,.25);
+}
+.drawer {
+  position: relative; background: rgba(0,0,0,.5); border-radius: 0 0 18px 18px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.10); padding: 0 10px 10px; color: var(--d-ink);
+}
+.dh { display: flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 2px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); flex: none; }
+.dtitle { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.tabs { display: flex; gap: 6px; margin-left: 8px; }
+.tab { height: 24px; padding: 0 10px; border-radius: 7px; background: var(--ctl); font-size: 11px; font-weight: 600; color: var(--d-dim); display: flex; align-items: center; }
+.tab.on { background: color-mix(in srgb, var(--acc) 70%, transparent); color: var(--acc-ink); font-weight: 700; }
+.hbtn { margin-left: auto; display: flex; gap: 6px; }
+.hb { width: 28px; height: 28px; border-radius: 50%; background: var(--ctl); box-shadow: inset 0 0 0 1px var(--ring); display: grid; place-items: center; font-size: 12px; color: var(--d-dim); }
+.dsec { font-family: var(--mono); font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: var(--d-label); padding: 7px 2px 3px; }
+
+/* effect card (FxPanel) */
+.card { background: var(--ctl); border-radius: 10px; padding: 6px 8px 8px; margin-bottom: 6px; }
+.card.collapsed { padding: 4px 8px; }
+.ch { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+.caret { width: 18px; text-align: center; font-size: 12px; color: var(--d-dim); }
+.grab { width: 16px; display: grid; gap: 3px; }
+.grab i { display: block; height: 2px; border-radius: 1px; background: rgba(242,242,245,.4); }
+.sw { width: 28px; height: 28px; border-radius: 6px; background: var(--raised); flex: none; position: relative; overflow: hidden; }
+.cname { font-size: 13px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cname small { font-size: 10px; color: var(--d-dim); margin-left: 6px; }
+.en { height: 22px; min-width: 34px; border-radius: 99px; display: grid; place-items: center; font-size: 11px; background: color-mix(in srgb, var(--acc) 70%, transparent); color: var(--acc-ink); font-weight: 700; padding: 0 8px; }
+.x { width: 22px; text-align: center; color: var(--d-dim); font-size: 13px; }
+
+/* chips, rows, sliders, keys */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+.chip { height: 29px; padding: 0 13px; border-radius: 99px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--d-dim); background: var(--ctl); box-shadow: inset 0 0 0 1px var(--ring); white-space: nowrap; }
+.chip.on { background: color-mix(in srgb, var(--acc) 70%, transparent); color: var(--acc-ink); box-shadow: none; font-weight: 700; }
+.chip.ghost { opacity: .4; }
+.row { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+.rl { width: 86px; flex: none; font-size: 11px; color: var(--d-label); }
+.sl { flex: 1; height: 15px; position: relative; display: flex; align-items: center; min-width: 60px; }
+.sl::before { content: ""; position: absolute; left: 0; right: 0; height: 4px; border-radius: 2px; background: var(--track); }
+.sl .f { position: absolute; left: 0; height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--acc) 70%, transparent); }
+.sl .t { position: absolute; width: 15px; height: 15px; margin-left: -7.5px; border-radius: 50%; background: var(--d-ink); }
+.val { width: 44px; flex: none; text-align: right; font-family: var(--mono); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.kf { flex: none; display: flex; align-items: center; gap: 2px; color: var(--d-dim); font-size: 13px; }
+.kf .d { width: 9px; height: 9px; transform: rotate(45deg); border: 1.5px solid var(--d-dim); margin: 0 4px; }
+.kf .d.on { background: var(--careful); border-color: var(--careful); }
+.tick { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--d-ink); }
+.tick .bx { width: 18px; height: 18px; border-radius: 5px; box-shadow: inset 0 0 0 1.5px var(--d-label); display: grid; place-items: center; }
+.tick .bx.on { background: var(--armed); box-shadow: none; }
+.tick .bx.on::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--on-go); border-bottom: 2px solid var(--on-go); transform: rotate(-45deg) translate(1px,-1px); }
+.note { font-size: 10px; color: var(--d-dim); padding: 2px 0 2px 94px; }
+.note.full { padding-left: 2px; }
+.go-pill { height: 32px; padding: 0 16px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--on-go); background: linear-gradient(90deg, var(--go), var(--go2)); }
+.flat-pill { height: 32px; padding: 0 14px; border-radius: 99px; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: var(--d-ink); background: var(--ctl); box-shadow: inset 0 0 0 1px var(--ring); }
+.acts { display: flex; gap: 8px; flex-wrap: wrap; padding-top: 6px; }
+.status { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--d-dim); }
+.status i { width: 6px; height: 6px; border-radius: 50%; background: var(--careful); }
+
+/* the motion swatch: a little ball leaving a streak (STU-6 live swatch stand-in) */
+.sw.mb::before { content: ""; position: absolute; top: 9px; left: 3px; width: 18px; height: 10px; border-radius: 6px; background: linear-gradient(90deg, transparent, var(--sw1)); opacity: .8; filter: blur(1.5px); }
+.sw.mb::after { content: ""; position: absolute; top: 8px; right: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--sw2); }
+.sw.glow::after { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px 3px #ffd37a; }
+
+/* colour contexts */
+.ctx-adj { --acc: var(--slate); --acc-ink: #050507; --sw1: var(--go); --sw2: var(--go2); }
+.ctx-studio { --acc: var(--go); --acc-ink: var(--on-go); --sw1: var(--go); --sw2: var(--go2); }
+.ctx-sprite { --acc: #ff008c; --acc-ink: #ffffff; --sw1: var(--go); --sw2: var(--go2); }
+.own-studio { --acc: var(--go); --acc-ink: var(--on-go); }           /* inside a card: Studio owns the ON states */
+.edge-studio { position: relative; padding-left: 12px; }
+.edge-studio::before { content: ""; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: linear-gradient(180deg, var(--go), var(--go2)); }
+
+/* shutter strip */
+.strip { display: block; width: 100%; height: auto; }
+.legend { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9px; color: var(--d-dim); padding: 0 2px; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.cmp .half { height: 70px; border-radius: 8px; position: relative; overflow: hidden; background: linear-gradient(160deg, #1d1f2a, #0b0c10); }
+.cmp .half .ball { position: absolute; top: 18px; right: 22%; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ffe6b0, #e48a2b 60%, #7a3a0a); }
+.cmp .half.blur .ball { box-shadow: -18px 0 12px -4px rgba(228,138,43,.55), -36px 0 16px -8px rgba(228,138,43,.3); filter: blur(.6px); }
+.cmp .lab { position: absolute; left: 6px; bottom: 4px; font-family: var(--mono); font-size: 9px; color: var(--d-dim); }
+@media (max-width: 420px) { .rl { width: 70px; } .note { padding-left: 78px; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Motion Blur: the card</h1>
+    <p class="lede">Motion blur is <b>Studio's own</b> effect: fast moves smear the way a real camera sees them. These are mockups of the card at phone width, built from the app's own drawer parts and sizes. <b>Tap one choice in each row</b>; the line at the bottom gathers your picks to send back. Where I would choose, the option says <span style="color:var(--go);font-family:var(--mono);font-size:11px">my pick</span>, but it is your call.</p>
+  </header>
+
+  <!-- ===================== A: where it lives ===================== -->
+  <section data-key="A">
+    <h2><span class="key">A</span> Where does it live?</h2>
+    <p class="q">Today Codex built it as its own tool button with a pop-up box. The other effects all live in an object's <i>Effects</i> stack, on a clip, a picture, a sprite or an effect layer.</p>
+    <div class="opts">
+      <button class="opt" data-pick="A1" aria-pressed="false">
+        <div class="head"><span class="tag">A1</span><span class="name">A card in the Effects stack, like every other effect</span><span class="mine">my pick</span></div>
+        <div class="stage ctx-adj"><div class="subject"></div>
+          <div class="drawer">
+            <div class="dh"><span class="dot"></span><span class="dtitle">Effect layer 1</span>
+              <div class="tabs"><span class="tab on">Effects</span></div>
+              <div class="hbtn"><span class="hb">❄</span><span class="hb">✕</span></div></div>
+            <div class="card collapsed"><div class="ch"><span class="caret">▸</span><span class="grab"><i></i><i></i></span><span class="sw glow"></span><span class="cname">Glow</span><span class="en">◉</span><span class="x">✕</span></div></div>
+            <div class="card collapsed"><div class="ch"><span class="caret">▸</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur<small>Natural · 180°</small></span><span class="en">◉</span><span class="x">✕</span></div></div>
+            <div class="acts"><span class="go-pill">＋ Add effect</span></div>
+          </div></div>
+        <p>On an effect layer it blurs everything below that moves. On one clip, picture or sprite it blurs just that thing. One place to learn, the same undo, keys and on/off as every other effect.</p>
+        <p class="reuse">Reuses: FxPanel cards, Add effect picker, the effect's live swatch. The Motion Blur tool button goes away.</p>
+      </button>
+      <button class="opt" data-pick="A2" aria-pressed="false">
+        <div class="head"><span class="tag">A2</span><span class="name">Its own "Motion" tab in every object's drawer</span></div>
+        <div class="stage ctx-studio"><div class="subject"></div>
+          <div class="drawer">
+            <div class="dh"><span class="dot"></span><span class="dtitle">Clip 2</span>
+              <div class="tabs"><span class="tab">Edit</span><span class="tab">Effects</span><span class="tab on">Motion</span></div>
+              <div class="hbtn"><span class="hb">❄</span><span class="hb">✕</span></div></div>
+            <div class="row"><span class="tick"><span class="bx on"></span>Motion blur</span></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+          </div></div>
+        <p>Easy to find on any object, but it sits apart from the other effects, so it can't be put before or after them in the stack.</p>
+        <p class="reuse">Reuses: drawer tabs, tick box, chips.</p>
+      </button>
+      <button class="opt" data-pick="A3" aria-pressed="false">
+        <div class="head"><span class="tag">A3</span><span class="name">Keep a Motion Blur tool, restyled as a drawer</span></div>
+        <div class="stage ctx-studio"><div class="subject"></div>
+          <div class="drawer">
+            <div class="dh"><span class="dot"></span><span class="dtitle">Motion Blur</span><span class="status" style="margin-left:8px">for: Clip 2</span>
+              <div class="hbtn"><span class="hb">❄</span><span class="hb">✕</span></div></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+          </div></div>
+        <p>What Codex built, given the house style. A second home for an effect: the rest of Studio would not work this way.</p>
+        <p class="reuse">Reuses: drawer frame, chips. Keeps the All tools button.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== B: card layout ===================== -->
+  <section data-key="B">
+    <h2><span class="key">B</span> How the open card reads</h2>
+    <p class="q">The shutter is how long the camera "looks" at each frame. A wider shutter means a longer smear. All three have the four presets; they differ in how you set the shutter itself.</p>
+    <div class="opts">
+      <button class="opt" data-pick="B1" aria-pressed="false">
+        <div class="head"><span class="tag">B1</span><span class="name">Presets, a shutter strip, plain sliders</span><span class="mine">my pick</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="card own-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span><span class="chip">Custom</span></div>
+            <svg class="strip" viewBox="0 0 520 44" aria-hidden="true">
+              <defs><linearGradient id="gB1" x1="0" x2="1"><stop offset="0" stop-color="#35f6bf"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs>
+              <rect x="10" y="20" width="500" height="3" rx="1.5" fill="rgba(255,255,255,.18)"/>
+              <line x1="10" y1="12" x2="10" y2="32" stroke="rgba(255,255,255,.35)"/><line x1="260" y1="8" x2="260" y2="36" stroke="#f2f2f5" stroke-width="1.5"/><line x1="510" y1="12" x2="510" y2="32" stroke="rgba(255,255,255,.35)"/>
+              <rect x="197" y="16" width="126" height="11" rx="5.5" fill="url(#gB1)"/>
+            </svg>
+            <div class="legend"><span>last frame</span><span>this frame</span><span>next frame</span></div>
+            <div class="row"><span class="rl">Shutter</span><div class="sl"><span class="f" style="width:25%"></span><span class="t" style="left:25%"></span></div><span class="val">180°</span><span class="kf">‹<span class="d"></span>›</span></div>
+            <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d on"></span>›</span></div>
+            <div class="row"><span class="rl">Timing</span><div class="chips" style="padding:0"><span class="chip on">Centred</span><span class="chip">Behind</span><span class="chip">Ahead</span></div></div>
+          </div></div></div>
+        <p>The strip shows when the shutter is open around the frame. The slider sets the angle; timing chips slide the bar. It looks like every other effect card.</p>
+        <p class="reuse">Reuses: chips, slider row, keyframe diamonds. New: the strip (one small view).</p>
+      </button>
+      <button class="opt" data-pick="B2" aria-pressed="false">
+        <div class="head"><span class="tag">B2</span><span class="name">A shutter dial you turn</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="card own-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
+            <div style="display:flex;gap:12px;align-items:center">
+              <svg width="104" height="104" viewBox="0 0 104 104" aria-hidden="true" style="flex:none">
+                <defs><linearGradient id="gB2" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#35f6bf"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs>
+                <circle cx="52" cy="52" r="44" fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.18)" stroke-width="2"/>
+                <path d="M52 52 L52 8 A44 44 0 0 1 52 96 Z" fill="url(#gB2)" opacity=".85"/>
+                <circle cx="52" cy="52" r="20" fill="#16161b"/>
+                <text x="52" y="56" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="12" font-weight="600" fill="#f2f2f5">180°</text>
+                <circle cx="52" cy="8" r="6" fill="#f2f2f5"/><circle cx="52" cy="96" r="6" fill="#f2f2f5"/>
+              </svg>
+              <div style="flex:1;min-width:0">
+                <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+                <div class="note full">Drag the dots to open or close the shutter; turn the whole slice to move it behind or ahead.</div>
+              </div>
+            </div>
+            <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
+          </div></div></div>
+        <p>A real film shutter is a spinning disc: the slice is the open part. Very tactile and very "camera", but a new kind of control in Studio, and fiddly to key.</p>
+        <p class="reuse">New: the dial. Reuses chips and the slider row for Mix.</p>
+      </button>
+      <button class="opt" data-pick="B3" aria-pressed="false">
+        <div class="head"><span class="tag">B3</span><span class="name">Drag the strip itself</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="card own-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+            <svg class="strip" viewBox="0 0 520 64" aria-hidden="true">
+              <defs><linearGradient id="gB3" x1="0" x2="1"><stop offset="0" stop-color="#35f6bf"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs>
+              <rect x="10" y="26" width="500" height="4" rx="2" fill="rgba(255,255,255,.18)"/>
+              <line x1="260" y1="10" x2="260" y2="46" stroke="#f2f2f5" stroke-width="1.5"/>
+              <rect x="185" y="18" width="150" height="20" rx="10" fill="url(#gB3)"/>
+              <rect x="180" y="14" width="12" height="28" rx="6" fill="#f2f2f5"/><rect x="328" y="14" width="12" height="28" rx="6" fill="#f2f2f5"/>
+              <text x="260" y="60" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="#c9c9d3">180° · centred</text>
+            </svg>
+            <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
+          </div></div></div>
+        <p>One control does both: pull the ends to widen, drag the middle to move it. Clear, but big handles are needed for a thumb.</p>
+        <p class="reuse">New: a two-handle strip. Reuses chips and the Mix row.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== C: colour ===================== -->
+  <section data-key="C">
+    <h2><span class="key">C</span> Studio's colour on the card</h2>
+    <p class="q">Today an effect card takes its drawer's colour: grey on an effect layer, aqua on a clip, pink on a sprite. Motion blur is Studio's, so where should the aqua-to-lime show? (The house rule: <i>gradient means an action, flat means identity</i>.)</p>
+    <div class="opts">
+      <button class="opt" data-pick="C1" aria-pressed="false">
+        <div class="head"><span class="tag">C1</span><span class="name">Studio colour inside the card, everywhere</span><span class="mine">my pick</span></div>
+        <div class="stage ctx-sprite"><div class="drawer">
+          <div class="dh"><span class="dot"></span><span class="dtitle">Runner (sprite)</span><div class="tabs"><span class="tab on">Effects</span></div></div>
+          <div class="card own-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+            <svg class="strip" viewBox="0 0 520 30" aria-hidden="true"><defs><linearGradient id="gC1" x1="0" x2="1"><stop offset="0" stop-color="#35f6bf"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs><rect x="10" y="13" width="500" height="3" rx="1.5" fill="rgba(255,255,255,.18)"/><line x1="260" y1="3" x2="260" y2="27" stroke="#f2f2f5" stroke-width="1.5"/><rect x="197" y="9" width="126" height="11" rx="5.5" fill="url(#gC1)"/></svg>
+            <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
+          </div></div></div>
+        <p>The drawer keeps the sprite's pink (dot, tab); inside the Motion Blur card the chosen chips, slider fill and shutter bar are Studio aqua, wherever the card sits. You always know it is Studio's effect.</p>
+        <p class="reuse">Rule: the card's own controls use Studio flat aqua at 70%; the shutter bar is the aqua-to-lime gradient.</p>
+      </button>
+      <button class="opt" data-pick="C2" aria-pressed="false">
+        <div class="head"><span class="tag">C2</span><span class="name">Like every other card; Studio only on its swatch and edge</span></div>
+        <div class="stage ctx-sprite"><div class="drawer">
+          <div class="dh"><span class="dot"></span><span class="dtitle">Runner (sprite)</span><div class="tabs"><span class="tab on">Effects</span></div></div>
+          <div class="card edge-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+            <svg class="strip" viewBox="0 0 520 30" aria-hidden="true"><defs><linearGradient id="gC2" x1="0" x2="1"><stop offset="0" stop-color="#35f6bf"/><stop offset="1" stop-color="#97fe8b"/></linearGradient></defs><rect x="10" y="13" width="500" height="3" rx="1.5" fill="rgba(255,255,255,.18)"/><line x1="260" y1="3" x2="260" y2="27" stroke="#f2f2f5" stroke-width="1.5"/><rect x="197" y="9" width="126" height="11" rx="5.5" fill="url(#gC2)"/></svg>
+            <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
+          </div></div></div>
+        <p>Chips and sliders follow the drawer (pink here, grey on an effect layer), exactly like Glow or Blur. A thin aqua-to-lime edge, the swatch and the shutter bar say "Studio's".</p>
+        <p class="reuse">Rule: unchanged effect-card colours; Studio gradient on a 3 dp left edge and the shutter bar.</p>
+      </button>
+      <button class="opt" data-pick="C3" aria-pressed="false">
+        <div class="head"><span class="tag">C3</span><span class="name">Exactly like every other card</span></div>
+        <div class="stage ctx-sprite"><div class="drawer">
+          <div class="dh"><span class="dot"></span><span class="dtitle">Runner (sprite)</span><div class="tabs"><span class="tab on">Effects</span></div></div>
+          <div class="card"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb"></span><span class="cname">Motion Blur</span><span class="en">◉</span><span class="x">✕</span></div>
+            <div class="chips"><span class="chip on">Natural</span><span class="chip">Crisp</span><span class="chip">Heavy</span><span class="chip">Trailing</span></div>
+            <svg class="strip" viewBox="0 0 520 30" aria-hidden="true"><rect x="10" y="13" width="500" height="3" rx="1.5" fill="rgba(255,255,255,.18)"/><line x1="260" y1="3" x2="260" y2="27" stroke="#f2f2f5" stroke-width="1.5"/><rect x="197" y="9" width="126" height="11" rx="5.5" fill="rgba(255,0,140,.7)"/></svg>
+            <div class="row"><span class="rl">Mix</span><div class="sl"><span class="f" style="width:100%"></span><span class="t" style="left:100%"></span></div><span class="val">100%</span><span class="kf">‹<span class="d"></span>›</span></div>
+          </div></div></div>
+        <p>No special colour at all: it follows the drawer like the rest. Only the swatch hints at Studio.</p>
+        <p class="reuse">Rule: unchanged.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== D: things it can't blur yet ===================== -->
+  <section data-key="D">
+    <h2><span class="key">D</span> When a thing can't be blurred yet</h2>
+    <p class="q">Some objects aren't covered yet (for example a picture with a colour key, or a bent sprite). A knob that does nothing is worse than none: what should you see?</p>
+    <div class="opts">
+      <button class="opt" data-pick="D1" aria-pressed="false">
+        <div class="head"><span class="tag">D1</span><span class="name">The card says why, in one line</span><span class="mine">my pick</span></div>
+        <div class="stage ctx-studio"><div class="drawer">
+          <div class="card own-studio"><div class="ch"><span class="caret">▾</span><span class="grab"><i></i><i></i></span><span class="sw mb" style="opacity:.4"></span><span class="cname" style="color:var(--d-label)">Motion Blur</span><span class="chip ghost" style="height:22px">off</span><span class="x">✕</span></div>
+            <div class="note full" style="font-size:11px;color:var(--d-ink)">Not available for this clip yet: it has a colour key. Turn the key off to blur it, or blur it from an effect layer above.</div>
+          </div></div></div>
+        <p>No dead controls: the card stays, says why in plain words, and points at what does work.</p>
+      </button>
+      <button class="opt" data-pick="D2" aria-pressed="false">
+        <div class="head"><span class="tag">D2</span><span class="name">Greyed in the Add effect picker; never added</span></div>
+        <div class="stage ctx-studio"><div class="drawer">
+          <div class="dsec">Time</div>
+          <div style="display:flex;gap:8px">
+            <div style="width:84px;display:grid;gap:4px;opacity:.4"><div class="sw mb" style="width:76px;height:76px;border-radius:8px"></div><span style="font-size:11px">Motion Blur</span></div>
+            <div style="width:84px;display:grid;gap:4px"><div class="sw" style="width:76px;height:76px;border-radius:8px"></div><span style="font-size:11px">Echo Trails</span></div>
+            <div style="flex:1;font-size:10.5px;color:var(--d-dim);align-self:center">Tap the grey tile: "Not for colour-keyed clips yet."</div>
+          </div></div></div>
+        <p>You can't add it where it would do nothing; tapping the grey tile tells you why.</p>
+        <p class="reuse">Reuses: the picker's existing "can't render here" grey (40%).</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== E: compare ===================== -->
+  <section data-key="E">
+    <h2><span class="key">E</span> Seeing the difference</h2>
+    <p class="q">Blur is subtle when paused. How do you check it is doing what you want?</p>
+    <div class="opts">
+      <button class="opt" data-pick="E1" aria-pressed="false">
+        <div class="head"><span class="tag">E1</span><span class="name">Hold to see it sharp, plus "Show exact frame"</span><span class="mine">my pick</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="acts"><span class="flat-pill">◐ Hold to compare</span><span class="go-pill">◉ Show exact frame</span></div>
+          <div class="note full">Hold: the picture shows without blur until you let go. Show exact frame: the paused frame drawn at full export quality.</div>
+        </div></div>
+        <p>One-handed: hold with your thumb, let go to see it blurred again. The exact frame is Codex's Inspect Frame, renamed.</p>
+        <p class="reuse">Reuses: Inspect Frame (built). Gradient pill = an action.</p>
+      </button>
+      <button class="opt" data-pick="E2" aria-pressed="false">
+        <div class="head"><span class="tag">E2</span><span class="name">Side by side in the card</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="cmp"><div class="half"><span class="ball"></span><span class="lab">sharp</span></div><div class="half blur"><span class="ball"></span><span class="lab">blurred</span></div></div>
+          <div class="acts"><span class="go-pill">◉ Show exact frame</span></div>
+        </div></div>
+        <p>Always visible, but it takes room in the drawer and is small on a phone.</p>
+      </button>
+      <button class="opt" data-pick="E3" aria-pressed="false">
+        <div class="head"><span class="tag">E3</span><span class="name">A wipe on the picture</span></div>
+        <div class="stage ctx-adj" style="height:120px"><div class="subject" style="bottom:30%"></div>
+          <div style="position:absolute;top:0;bottom:0;left:55%;width:2px;background:#f2f2f5"></div>
+          <div style="position:absolute;top:44%;left:55%;transform:translate(-50%,-50%);width:26px;height:26px;border-radius:50%;background:#f2f2f5;color:#050507;display:grid;place-items:center;font-size:11px">⇆</div>
+          <span class="lab" style="position:absolute;left:8px;bottom:6px;font-family:var(--mono);font-size:9px;color:var(--d-dim)">sharp ◂ │ ▸ blurred</span>
+        </div>
+        <p>Drag a line across the picture: sharp on one side, blurred on the other. Great on a big screen, harder one-handed.</p>
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== F: advanced ===================== -->
+  <section data-key="F">
+    <h2><span class="key">F</span> The deeper controls</h2>
+    <p class="q">Samples, quality, ignoring tiny jiggles, a cap on long streaks, and for filmed video how motion is tracked. Most people never need them.</p>
+    <div class="opts">
+      <button class="opt" data-pick="F1" aria-pressed="false">
+        <div class="head"><span class="tag">F1</span><span class="name">"More" folds open at the foot of the card</span><span class="mine">my pick</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="card own-studio">
+            <div class="dsec">▾ More</div>
+            <div class="row"><span class="rl">Preview</span><div class="chips" style="padding:0"><span class="chip">Fast</span><span class="chip on">Auto</span><span class="chip">High</span></div></div>
+            <div class="row"><span class="rl">Export</span><div class="chips" style="padding:0"><span class="chip">Standard</span><span class="chip on">High</span><span class="chip">Exact</span></div></div>
+            <div class="row"><span class="rl">Ignore under</span><div class="sl"><span class="f" style="width:12%"></span><span class="t" style="left:12%"></span></div><span class="val">0.5px</span></div>
+            <div class="row"><span class="rl">Longest streak</span><div class="sl"><span class="f" style="width:40%"></span><span class="t" style="left:40%"></span></div><span class="val">96px</span></div>
+            <div class="dsec">Filmed video</div>
+            <div class="row"><span class="rl">Track motion</span><div class="chips" style="padding:0"><span class="chip on">Things + video</span><span class="chip">Things only</span><span class="chip">Camera move only</span></div></div>
+            <div class="row"><span class="status"><i></i>Studying this clip… 40%</span></div>
+            <div class="row"><span class="tick"><span class="bx"></span>Keep words sharp</span></div>
+          </div></div></div>
+        <p>All in one card, closed by default. Rows only appear when they apply (no "Filmed video" on a sprite).</p>
+      </button>
+      <button class="opt" data-pick="F2" aria-pressed="false">
+        <div class="head"><span class="tag">F2</span><span class="name">A small "Quality" chip row, the rest hidden</span></div>
+        <div class="stage ctx-adj"><div class="drawer">
+          <div class="card own-studio">
+            <div class="row"><span class="rl">Quality</span><div class="chips" style="padding:0"><span class="chip">Fast</span><span class="chip on">Balanced</span><span class="chip">Best</span></div></div>
+            <div class="note full">Studio picks samples, streak limits and tracking for you from this one choice.</div>
+          </div></div></div>
+        <p>Simplest, but you lose the handles a pro would reach for (After Effects and ReelSmart both expose them).</p>
+      </button>
+    </div>
+  </section>
+</main>
+
+<div class="foot">
+  <div class="row">
+    <span id="picks">Motion blur picks: A? B? C? D? E? F?</span>
+    <button id="copy" type="button">Copy picks</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var keys = ['A', 'B', 'C', 'D', 'E', 'F'];
+  var chosen = {};
+  var line = document.getElementById('picks');
+  function render() {
+    line.textContent = 'Motion blur picks: ' + keys.map(function (k) { return chosen[k] || (k + '?'); }).join(' ');
+  }
+  document.querySelectorAll('section[data-key]').forEach(function (sec) {
+    var key = sec.getAttribute('data-key');
+    sec.querySelectorAll('.opt').forEach(function (b) {
+      b.addEventListener('click', function () {
+        sec.querySelectorAll('.opt').forEach(function (o) { o.setAttribute('aria-pressed', 'false'); });
+        b.setAttribute('aria-pressed', 'true');
+        chosen[key] = b.getAttribute('data-pick');
+        render();
+      });
+    });
+  });
+  var copy = document.getElementById('copy');
+  copy.addEventListener('click', function () {
+    var text = line.textContent;
+    function done() { copy.textContent = 'Copied'; setTimeout(function () { copy.textContent = 'Copy picks'; }, 1500); }
+    try { navigator.clipboard.writeText(text).then(done, selectLine); } catch (e) { selectLine(); }
+  });
+  function selectLine() {
+    var r = document.createRange(); r.selectNodeContents(line);
+    var s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    copy.textContent = 'Selected: copy it';
+  }
+  render();
+})();
+</script>
+</body>
+</html>

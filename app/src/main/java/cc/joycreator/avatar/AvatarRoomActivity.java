@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -81,6 +81,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private PartsView parts;
     private PerformPanel performPanel;
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
+    private final cc.joycreator.avatar.ui.PinsLayer pins = new cc.joycreator.avatar.ui.PinsLayer(this);
+    private final cc.joycreator.avatar.ui.BoxLayer box = new cc.joycreator.avatar.ui.BoxLayer(this);
     private android.widget.FrameLayout panelBody;
     private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
     private static final int REQ_MIC = 44;
@@ -260,6 +262,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             t.setTextColor(chosen ? Studio.GROUND : 0xFFA1A1AA);
         }
         applyPanels();
+        refreshPins();
     }
 
     /** Layers when asked for; otherwise the performer's panel on Motion and Perform, the parts card on the first two. */
@@ -292,6 +295,113 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     /** Chosen = solid cyan with the label punched out to the ground colour; the rest grey (rule: ON = solid cyan). */
+    // ── Set up: the pins of the part in hand ──────────────────────────────────────────────────────
+
+    @Override
+    public CharacterDoc doc() {
+        return character;
+    }
+
+    @Override
+    public String inHand() {
+        return inHand;
+    }
+
+    @Override
+    public cc.joycreator.avatar.ui.PoseRenderer renderer() {
+        return stage.renderer();
+    }
+
+    @Override
+    public void movePin(String nodeId, String path, float x, float y) {
+        edit.apply(getString(R.string.avatar_step_move_pin), d -> {
+            org.json.JSONObject j = d.find(nodeId).json;
+            org.json.JSONObject at;
+            if (path.startsWith("limb.")) at = j.getJSONObject("limb").getJSONObject(path.substring(5));
+            else if (path.equals("swing.tip")) at = j.getJSONObject("swing").getJSONObject("tip");
+            else at = j.getJSONObject(path);
+            at.put("x", x);
+            at.put("y", y);
+        });
+    }
+
+    /** Pins show on Set up for the part in hand, unless the landmarks screen has the stage. */
+    private void refreshPins() {
+        if (stage == null || (landmarks != null && landmarks.isOpen())) return;
+        boolean on = inHand != null && !showLayers;
+        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? box : null);
+    }
+
+    // ── Motion: values of the part in hand and of the character ────────────────────────────────────
+
+    @Override
+    public CharacterDoc.Node inHandNode() {
+        return character == null || inHand == null ? null : character.find(inHand);
+    }
+
+    @Override
+    public cc.joycreator.avatar.ui.MotionSections.Host motion() {
+        return this;
+    }
+
+    private static org.json.JSONObject walkTo(org.json.JSONObject root, String[] parts, int upTo) throws org.json.JSONException {
+        org.json.JSONObject o = root;
+        for (int i = 0; i < upTo; i++) {
+            org.json.JSONObject next = o.optJSONObject(parts[i]);
+            if (next == null) {
+                next = new org.json.JSONObject();
+                o.put(parts[i], next);
+            }
+            o = next;
+        }
+        return o;
+    }
+
+    @Override
+    public void setValue(String nodeId, String path, Object value, String stepName) {
+        edit.apply(stepName, d -> {
+            org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;
+            String[] parts = path.split("\\.");
+            walkTo(root, parts, parts.length - 1).put(parts[parts.length - 1], value);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    @Override
+    public void remove(String nodeId, String path, String stepName) {
+        edit.apply(stepName, d -> {
+            org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;
+            String[] parts = path.split("\\.");
+            walkTo(root, parts, parts.length - 1).remove(parts[parts.length - 1]);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
+    // ── Arrange: the box on the part in hand ──────────────────────────────────────────────────────
+
+    @Override
+    public void redraw() {
+        stage.invalidate();
+    }
+
+    @Override
+    public void commitBox(String nodeId, double dx, double dy, double rot, double sc) {
+        CharacterDoc.Node n = character.find(nodeId);
+        if (n == null) return;
+        final String label = n.name.isEmpty() ? n.id : n.name;
+        double rot0 = n.json.optDouble("rot", 0), sc0 = n.json.optDouble("sc", 1);
+        int word = Math.abs(rot - rot0) > 1e-6 ? R.string.avatar_step_box_turn : Math.abs(sc - sc0) > 1e-6 ? R.string.avatar_step_box_size : R.string.avatar_step_box_move;
+        edit.apply(getString(word, label), d -> cc.joycreator.avatar.ui.BoxLayer.put(d.find(nodeId).json, dx, dy, rot, sc));
+    }
+
+    @Override
+    public void putBack(String id) {
+        CharacterDoc.Node n = character.find(id);
+        if (n == null) return;
+        if (!(n.json.has("dx") || n.json.has("dy") || n.json.has("rot") || n.json.has("sc"))) return;
+        edit.apply(getString(R.string.avatar_step_put_back, n.name.isEmpty() ? n.id : n.name), d -> cc.joycreator.avatar.ui.BoxLayer.put(d.find(id).json, 0, 0, 0, 1));
+    }
+
     @Override
     public void openLandmarks(String setId) {
         if (character == null || landmarks == null) return;
@@ -304,6 +414,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (landmarks != null) landmarks.close();
         applyPanels();
         if (character != null) parts.show(character, inHand, stageIndex);
+        refreshPins();
     }
 
     @Override
@@ -331,6 +442,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             performPanel.bind(character, stageIndex == 3);
         }
         applyPanels();
+        refreshPins();
     }
 
     private TextView roundButton(String glyph, String hover) {
@@ -618,6 +730,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stage.setSelected(inHand);
         layers.show(character, inHand);
         parts.show(character, inHand, stageIndex);
+        refreshPins();
+        if (stageIndex == 2) performPanel.bind(character, false);
     }
 
     @Override

@@ -73,6 +73,7 @@
     <string name="ava_perform_allow_then_tap">Allow it, then tap again.</string>
     <string name="ava_perform_mic_failed">The microphone did not start. Try again.</string>
     <string name="ava_perform_settings_in_room">Change the character\'s habits in Avatar Studio.</string>
+    <string name="ava_perform_take_back">Each pass is one step: Studio\'s Undo takes it back.</string>
     <string name="ava_perform_pass_undo">Perform pass</string>
     <string name="ava_perform_pass_done">Pass recorded</string>
 

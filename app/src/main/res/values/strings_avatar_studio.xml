@@ -9,4 +9,14 @@
     <string name="ava_studio_solid_added">Solid colour added (%1$s)</string>
     <string name="ava_studio_solid_undo">Add solid colour</string>
     <string name="ava_studio_solid_failed">Could not make the colour clip. Try again.</string>
+
+    <!-- A character in Studio (Add sheet) -->
+    <string name="ava_studio_character_row">Character (Avatar Studio)</string>
+    <string name="ava_studio_character_row_hover">A character from Avatar Studio, with its recorded performance and voice</string>
+    <string name="ava_studio_character_title">Add a character</string>
+    <string name="ava_studio_character_new">Make a new one in Avatar Studio</string>
+    <string name="ava_studio_character_failed">That character could not be opened. Try another, or open it in Avatar Studio first.</string>
+    <string name="ava_studio_character_undo">Add %1$s</string>
+    <string name="ava_studio_character_added">%1$s added at the playhead</string>
+    <string name="ava_studio_character_voice">%1$s\'s voice</string>
 </resources>

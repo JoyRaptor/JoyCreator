@@ -142,6 +142,22 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
     /** Recorded performance (item-local ms), or null when none recorded yet. */
     @Nullable private com.fadcam.ui.faditor.avatar.AvatarParamTrack avatarTrack;
 
+    // ── A new-format character (Avatar build, slice 2): additive, sparse, tolerant read ──
+    // The character itself stays its own file (the Joy Creator folder's <Name>.character.json, or a built-in one),
+    // found by characterRef; the item keeps its take (AVA_FORMAT.md B4, voice left out: the voice is an AudioClip
+    // beside it) and what it acts from (slice 2b). Its sprite sheet is the character's standing picture, so an item
+    // whose character cannot be found still shows it, never a blank.
+    /** "asset:avatar/topps.character.json" or a path in the Joy Creator folder; null for every other sprite. */
+    @Nullable private String characterRef;
+    /** The character's uid (its shelf identity), to find it again after a rename. */
+    @Nullable private String characterUid;
+    /** The take, as the format's JSON text. */
+    @Nullable private String characterTake;
+    /** Acting from a video: {@code cc.joycreator.avatar.studio.Acting.Plan} as JSON text. */
+    @Nullable private String characterActing;
+    /** Where in the take this item starts (a split's right half starts part way in), ms. */
+    private long characterTakeOffsetMs;
+
     /** Eased whole-unit transform animation (x/y/scale/rotation/opacity), item-local times. */
     @NonNull private final KeyframeSet keyframes = new KeyframeSet();
 
@@ -217,6 +233,12 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
         // it (audit STUDIO-02). It used to be dropped, which left a duplicate (or the right
         // half of a split) standing still; sharing it would alias one track across two puppets.
         c.avatarTrack = avatarTrack != null ? avatarTrack.copy() : null;
+        // the same for a character's take: strings, so the copy is its own
+        c.characterRef = characterRef;
+        c.characterUid = characterUid;
+        c.characterTake = characterTake;
+        c.characterActing = characterActing;
+        c.characterTakeOffsetMs = characterTakeOffsetMs;
         return c;
     }
 
@@ -249,6 +271,8 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
             frameTrack.put(nk);
         }
         if (avatarTrack != null) avatarTrack = avatarTrack.sliceFrom(localMs);
+        // a character's take is not cut: the right half starts that much further into it (nothing is lost)
+        if (characterRef != null) characterTakeOffsetMs += Math.max(0, localMs);
     }
 
     public SpriteOverlayItem(@NonNull String id, @NonNull String sheetId) {
@@ -357,6 +381,22 @@ public class SpriteOverlayItem implements com.fadcam.ui.faditor.model.LinkFollow
 
     public void setAvatarTrack(@Nullable com.fadcam.ui.faditor.avatar.AvatarParamTrack t) {
         this.avatarTrack = t;
+    }
+
+    @Nullable public String getCharacterRef() { return characterRef; }
+    public void setCharacterRef(@Nullable String ref) { this.characterRef = ref; }
+    @Nullable public String getCharacterUid() { return characterUid; }
+    public void setCharacterUid(@Nullable String uid) { this.characterUid = uid; }
+    @Nullable public String getCharacterTake() { return characterTake; }
+    public void setCharacterTake(@Nullable String takeJson) { this.characterTake = takeJson; }
+    @Nullable public String getCharacterActing() { return characterActing; }
+    public void setCharacterActing(@Nullable String planJson) { this.characterActing = planJson; }
+    public long getCharacterTakeOffsetMs() { return characterTakeOffsetMs; }
+    public void setCharacterTakeOffsetMs(long ms) { this.characterTakeOffsetMs = Math.max(0, ms); }
+
+    /** True for a new-format character (Avatar build, slice 2), drawn by {@code CharacterItemPuppet}. */
+    public boolean isCharacter() {
+        return characterRef != null;
     }
 
     /** True when this item should render as a LIVE puppet (rig + recorded track). */

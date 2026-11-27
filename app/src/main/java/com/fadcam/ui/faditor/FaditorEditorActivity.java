@@ -45148,6 +45148,115 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
     }
 
+    // ── Avatar build, slice 2: new-format characters in Studio ──────────────────────────────────
+
+    /** Add sheet → Character: the shelf (Topps, Pip, the folder's characters), then the drop. */
+    private void pickStudioCharacter() {
+        if (project == null) return;
+        cc.joycreator.avatar.studio.StudioCharacter.shelf(this, choices -> {
+            if (isFinishing() || project == null) return;
+            String[] names = new String[choices.size() + 1];
+            for (int i = 0; i < choices.size(); i++) names[i] = choices.get(i).name;
+            names[choices.size()] = getString(R.string.ava_studio_character_new);
+            StudioDialog.builder(this)
+                    .setTitle(R.string.ava_studio_character_title)
+                    .setAdapter(com.fadcam.ui.faditor.PartThumbs.listAdapter(this, names,
+                            new com.fadcam.ui.faditor.PartThumbs.Source() {
+                                @Override public String key(int i) {
+                                    return i < choices.size() ? "character:" + choices.get(i).ref : null;
+                                }
+                                @Override public android.graphics.Bitmap load(int i) {
+                                    return i < choices.size() ? cc.joycreator.avatar.studio.StudioCharacter.thumb(
+                                            FaditorEditorActivity.this, choices.get(i).ref, 192) : null;
+                                }
+                            }), (d, which) -> {
+                        if (which >= choices.size()) {
+                            startActivity(new android.content.Intent(this, cc.joycreator.avatar.AvatarRoomActivity.class));
+                            return;
+                        }
+                        dropStudioCharacter(choices.get(which).ref);
+                    })
+                    .show();
+        });
+    }
+
+    /** Makes the character ready off the main thread, then drops it at the playhead. */
+    private void dropStudioCharacter(@NonNull String ref) {
+        if (project == null) return;
+        java.io.File assetsDir = new java.io.File(projectStorage.projectDir(project.getId()), "assets");
+        final long at = Math.max(0, lastPlayheadAbsoluteMs);
+        cc.joycreator.avatar.studio.StudioCharacter.prepare(this, ref, assetsDir, p -> {
+            if (isFinishing() || project == null) return;
+            if (p == null) {
+                Toast.makeText(this, R.string.ava_studio_character_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            insertStudioCharacter(p, at);
+        });
+    }
+
+    /**
+     * Slice 2, item 3: the character as a sprite of its standing picture on its own lane at {@code atMs}, as long as
+     * its take, carrying its take; its voice as an audio clip at the same start. All of it is one undo step.
+     */
+    private void insertStudioCharacter(@NonNull cc.joycreator.avatar.studio.StudioCharacter.Prepared p, long atMs) {
+        final Timeline tl = project.getTimeline();
+        com.fadcam.ui.faditor.sprite.SpriteSheet sheet = project.spriteSheetById(p.sheetId());
+        final boolean newSheet = sheet == null;
+        if (newSheet) {
+            sheet = new com.fadcam.ui.faditor.sprite.SpriteSheet(p.sheetId(), p.name,
+                    android.net.Uri.fromFile(p.picture).toString());
+            sheet.setGrid(1, 1);   // the whole picture is the one cell
+        } else {
+            sheet.setSheetUri(android.net.Uri.fromFile(p.picture).toString());
+        }
+        final com.fadcam.ui.faditor.sprite.SpriteSheet fSheet = sheet;
+        final com.fadcam.ui.faditor.sprite.SpriteOverlayItem item =
+                com.fadcam.ui.faditor.sprite.SpriteOverlayItem.create(sheet.getId());
+        item.setLayerId(Timeline.spriteLayerIdFor(item));
+        item.getFrameTrack().put(com.fadcam.ui.faditor.sprite.FrameTrack.Key.ofCell(0, 0));
+        item.setTimeRange(atMs, atMs + p.lengthMs);
+        item.setName(p.name);
+        item.setSizeFraction(0.6f);   // a character stands most of the frame tall, not sprite-small
+        item.setCharacterRef(p.ref);
+        item.setCharacterUid(p.uid);
+        item.setCharacterTake(p.takeJson);
+        final com.fadcam.ui.faditor.model.AudioClip voice;
+        if (p.voice != null) {
+            voice = new com.fadcam.ui.faditor.model.AudioClip(android.net.Uri.fromFile(p.voice), p.lengthMs);
+            voice.setLabel(getString(R.string.ava_studio_character_voice, p.name));
+            voice.setOffsetMs(atMs);
+        } else {
+            voice = null;
+        }
+        final Runnable add = () -> {
+            if (newSheet && project.spriteSheetById(fSheet.getId()) == null) project.getSpriteSheets().add(fSheet);
+            tl.addSpriteOverlay(item);
+            if (voice != null) tl.addAudioClip(voice);
+            refreshAfterCharacterEdit();
+        };
+        final Runnable remove = () -> {
+            tl.removeSpriteOverlay(item);
+            if (voice != null) tl.removeAudioClip(voice);
+            if (newSheet) project.getSpriteSheets().remove(fSheet);
+            refreshAfterCharacterEdit();
+        };
+        add.run();
+        undoManager.recordAction(new EditActions.LambdaAction(
+                getString(R.string.ava_studio_character_undo, p.name), add, remove));
+        scheduleAutoSave();
+        selectAndRevealNewObject(item.getId());
+        Toast.makeText(this, getString(R.string.ava_studio_character_added, p.name), Toast.LENGTH_SHORT).show();
+    }
+
+    /** After a character's item or voice changed: the lanes, the audio players and the picture. */
+    private void refreshAfterCharacterEdit() {
+        syncTimelineOverlays();
+        editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
+        prepareAudioPlayer();
+        if (spriteOverlayView != null) spriteOverlayView.invalidate();
+    }
+
     /** Opens the panel; reuses an existing transcript, picks a model, or transcribes. */
     private void openTranscriptPanel() {
         if (inCropMode) exitCropMode(false);
@@ -49241,6 +49350,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override
             public void onSolidColourSelected() {
                 pickSolidColourClip();
+            }
+
+            @Override
+            public void onCharacterSelected() {
+                pickStudioCharacter();
             }
 
             @Override

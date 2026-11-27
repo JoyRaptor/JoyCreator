@@ -44,6 +44,9 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         /** Avatar build, Studio reuse item 6: a Solid colour clip (a key colour behind a character, a backdrop). */
         default void onSolidColourSelected() { }
 
+        /** Avatar build, slice 2: a character from Avatar Studio, dropped at the playhead with its take and voice. */
+        default void onCharacterSelected() { }
+
         /** Called when the user selects audio. */
         void onAudioSelected();
 
@@ -196,6 +199,12 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
                 getString(R.string.studio_addasset_sprite), "directions_run",
                 () -> { if (callback != null) callback.onSpriteSelected(); },
                 getString(R.string.studio_addasset_sprite_hover)));
+
+        // A character from Avatar Studio (the new room's format): its standing picture, its take, its voice.
+        root.addView(createOptionRow(
+                getString(R.string.ava_studio_character_row), "face",
+                () -> { if (callback != null) callback.onCharacterSelected(); },
+                getString(R.string.ava_studio_character_row_hover)));
 
         // Audio row
         root.addView(createOptionRow(

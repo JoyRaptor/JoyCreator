@@ -41,7 +41,7 @@ It replaces the stale October list (`SELECT_LINES_GAPS_20261023.md`): G2, G4, G5
 
 | Concepts can | JoyBrush today | Side |
 |---|---|---|
-| Stroke eraser: touch a stroke, the whole stroke goes | **Core only** (`core/vector/InkErase.WHOLE_STROKE`, `VectorEraser`; no caller in the app) | UI route possible: hit-test like Select's "touching" loop and delete through Select's one-step delete. The canvas eraser route goes through `JbCanvasView` (engine). |
+| Stroke eraser: touch a stroke, the whole stroke goes | **Built 11-27:** the Whole lines eraser in the Erasers shelf, one undo step per stroke (log below) | UI (done) |
 | Slice / trim to intersections | **Core only** (`VectorEraser` `TO_INTERSECTION`, crossing search; spec D24). No Slice preset. | Engine: it replaces one line with pieces through the line commit path |
 | Erase part of a line, and it stays a line in pieces | **Not a split.** Erasing over a line today stacks an erase mark on top (`JbCanvasView` 2504-2512). It looks right, but the line underneath stays whole. Unsure whether moving the line later shows the erased part again. | Engine (`InkErase.PARTIAL` exists in core) |
 
@@ -94,7 +94,13 @@ Fixes go to `joy-creator` in steps, each with host tests. Progress is logged bel
   - The shipped Fill pen and Wire, and any paint-behind brush, now say "makes pixels" and offer no switch. Before, they defaulted to lines that the canvas refused at every pen-down.
   - `BrushLinePreferencesTest` +1.
 - **11-27, UI step 4, done:** More, then Same colour or Same brush, widens a line selection to the matching lines on the layer. It records no undo step, because selecting is not an edit. `SelectionSyncTest` +1.
-- **UI step 3, the stroke eraser, is not done here.**
-  - The person expects it on the Eraser button. That pen-down routing is `JbCanvasView` (the paint-engine session's), so it goes there with this plan: in a "Stroke" eraser mode, hit-test each pen sample against the lines as Select's "touching" loop does (`core/select/LineLasso`, `InkErase.WHOLE_STROKE`), collect the touched addresses, and delete them on lift through Select's one-step `deleteLines`.
-  - A Select-side stand-in is possible: loop, Touching, then Delete. That is two actions, and they work today.
+- **11-27, UI step 3, done (orchestrator gave this lane `JbCanvasView`'s eraser pen-down routing for it):**
+  - **The tool:** the **Whole lines** eraser is a new brush in the Erasers shelf (`brushes/lineeraser`, `joybrush.eraser.lines`). With it in the hand, `androidkit/select/StrokeEraserTool` stands in front of Select's tool on the canvas.
+  - **What a stroke does:** every editable line the stroke touches on the active layer vanishes as the eraser crosses it (lifted and shown empty) and is deleted on lift through Select's one-step delete. One stroke is one undo step.
+  - **What it leaves alone:** locked lines stay; a cancelled stroke takes nothing; one finger pans once a pen has been seen. The pen button's lasso, hover and every other tool pass straight on to Select.
+  - **How a touch is decided:** `core/select/StrokeEraseHit` sweeps a disc the eraser's size (never under 4 screen px) along the path and tests it against the lines as ribbons.
+  - **`JbCanvasView` change:** only one read-only getter (`fingersDraw`).
+  - **Tests:** `StrokeEraseHitTest` 6, `StrokeEraserToolTest` 6; the shipped-brush lists now include the new folder.
+  - **Paint is untouched by this eraser;** the ordinary eraser rubs out paint. Erasing part of a line and keeping the pieces as lines is still engine work.
+  - **Phone check owed:** on the Note 9, draw three crossing lines, pick Eraser, then Whole lines, and stroke across two of them. Both should go at once and one Undo should bring both back. SelectBench runs only on the phone, so it has not been run.
 - **UI step 5 is not done:** the "lines" tag on layer rows. The row subtitle shows only on wide-screen pulled-out rows, and keeping it current needs a refresh hook on every line edit. It is low value for the cost; listed for the layer-column owner.

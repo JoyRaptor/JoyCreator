@@ -44,16 +44,16 @@ Updated 11-27 by the lead.
 | Face capture on the phone, walk with your face | 5 | ⬜ | slice 1 |
 | Side-by-side pass against the pilot: every control, every word, polish | 8 | ⬜ | slice 1 + lead |
 | **Slice 2: characters inside Video Studio** | | | |
-| X4 voice recorder gives its sound to lip sync | 2 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| X5 export sheet parts shared with Studio | 3 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| A solid colour clip in Studio (key colour) | 2 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| A character drawn in Studio's preview and export | 5 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| Add a character to a project with its take and voice | 3 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| Still draggable; record a pass in Studio | 3 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| Send to Studio, the room's export sheet, video with a key colour | 5 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| X4 voice recorder gives its sound to lip sync | 2 | ✅ landed (`PcmBlocks`; 18 checks, WAV bytes unchanged) | slice 2 (cloud) |
+| X5 export sheet parts shared with Studio | 3 | ✅ landed (`ExportSheetParts`); Studio sheet screenshots owed | slice 2 (cloud) |
+| A solid colour clip in Studio (key colour) | 2 | ✅ landed (Add › Solid colour; 23 checks) | slice 2 (cloud) |
+| A character drawn in Studio's preview and export | 5 | 🟡 built: seam, `CharacterItemPuppet`, `ItemPuppets`; draws its standing picture until X3 installs and STU-7 answers on the 3 draw sites | slice 2 (cloud) |
+| Add a character to a project with its take and voice | 3 | ✅ landed (Add › Character; one undo step) | slice 2 (cloud) |
+| Still draggable; record a pass in Studio | 3 | 🟡 drag as a sprite; a pass via the Perform pop-up; finger-on-a-hand driving not built | slice 2 (cloud) |
+| Send to Studio, the room's export sheet, video with a key colour | 5 | 🟡 built (`RoomExportSheet`, Studio drop-on-open); the room's button is slice 1's file | slice 2 (cloud) |
 | **Slice 2b: acting from a video** | | | |
-| Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ⬜ claimed 11-27 | slice 2 (cloud) |
-| The performing pop-up on the timeline | 5 | ⬜ claimed 11-27 | slice 2 (cloud) |
+| Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ✅ landed (cloud-compiled; engine 50 checks); no phone run | slice 2 (cloud) |
+| The performing pop-up on the timeline | 5 | ✅ landed (room's PerformPanel + Mic via X4); no joystick yet (the room has none) | slice 2 (cloud) |
 | **Slice 3: scenes** | | | |
 | Scene file and clock, the camera lane | 3 | ⬜ | after slice 1 |
 | Path tabs, the chair, the frame, the strip | 5 | ⬜ | after slice 1 |

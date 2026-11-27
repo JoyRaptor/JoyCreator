@@ -25,6 +25,12 @@
     bl.addEventListener('pointerdown', function (e) { try { bl.setPointerCapture(e.pointerId); } catch (x) { } inp.blinkHold = true; bl.classList.add('on'); });
     ['pointerup', 'pointercancel'].forEach(function (ev) { bl.addEventListener(ev, function () { inp.blinkHold = false; bl.classList.remove('on'); }); });
     out.push(bl);
+    if (JSON.stringify(app.ch.root).indexOf('"face.cheekPuff"') >= 0) {      // the cheek puff (the face camera never sees one): only where a part follows it
+      var pf = ui.chip('Puff', { title: 'Hold to puff the cheeks. The face camera cannot see a puff, so this button does it; a take records it.' });
+      pf.addEventListener('pointerdown', function (e) { try { pf.setPointerCapture(e.pointerId); } catch (x) { } inp.puffHold = true; pf.classList.add('on'); });
+      ['pointerup', 'pointercancel'].forEach(function (ev) { pf.addEventListener(ev, function () { inp.puffHold = false; pf.classList.remove('on'); }); });
+      out.push(pf);
+    }
     return out;
   }
 

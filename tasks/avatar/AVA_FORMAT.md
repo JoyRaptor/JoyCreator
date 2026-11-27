@@ -154,7 +154,8 @@ settings, not in either file.
 - **The face camera's own lanes** (agreed 11-27 by the pilot and the phone room, `FaceDrive.ownerOf` = the pilot's
   `ownerOf`), all owned by `facepins` except the shoulders: `pt.<mesh index>.x` / `.y` (each watched face point, from
   its place in the neutral face), `face.<name>` (the expressions any part can follow: `cheekPuff`, `smile`, `jaw`,
-  `mouthWide`, `pucker`, `wide`, `squint`, `browInner`, `frown`, `sneer`; 0..1), `mk.<point n>.x` / `.y` (the face
+  `mouthWide`, `pucker`, `wide`, `squint`, `browInner`, `frown`, `sneer`; 0..1; `face.cheekPuff` is owned by `puff`, the
+  Puff button, since the camera never sees a puff), `mk.<point n>.x` / `.y` (the face
   mask's points, FACE-2) and `mp.<pose id>` (how strong each mask pose is, 0..1); `shrugL`, `shrugR`, `shrug` are
   the `shoulders`'. A take that has them plays them back even where the face camera is off; a reader that does not
   use a lane keeps it.

@@ -271,6 +271,32 @@ public class AvatarFaceTest {
                 && ms.num("mk.3.y") != null && ms.num("mp.smile") != null && ms.num("shrugL") != null && ms.num("shrugging") == null,
                 "the face's lanes reach the solver: face pins (pt.*), expressions (face.*), the mask (mk.*, mp.*) and the shoulders");
 
+        // ── the Puff button (the lead, 11-27: the tracker never sees a cheek puff): held, the cheek puff a part follows rises,
+        //    no camera needed; its lane has an owner of its own, so a pass with it held leaves the face's other lanes alone ──
+        Inputs pb = new Inputs();
+        pb.puff(true);
+        Map<String, Object> pq = null;
+        for (int i = 0; i < 10; i++) pq = pb.frame(dt, now += 33);
+        double held = ((Number) pq.get("face.cheekPuff")).doubleValue();
+        boolean ownPuff = pb.owners(now).contains("puff") && !pb.owners(now).contains("facepins");
+        pb.puff(false);
+        for (int i = 0; i < 30; i++) pq = pb.frame(dt, now += 33);
+        check(held > 0.9 && ownPuff && ((Number) pq.get("face.cheekPuff")).doubleValue() < 0.02,
+                "the Puff button: held, the cheeks puff (no camera needed) and the lane is the puff's own; let go, they settle (" + r(held) + ")");
+        Inputs rp = new Inputs();
+        rp.record();
+        for (int i = 0; i < 30; i++) rp.frame(dt, now += 33);                   // a first pass: everything is written
+        rp.recorder.stop();
+        rp.record();
+        rp.puff(true);
+        for (int i = 0; i < 20; i++) rp.frame(dt, now += 33);
+        rp.puff(false);
+        java.util.Set<String> wrote = rp.recorder.wroteOwners();
+        rp.recorder.stop();
+        check("puff".equals(cc.joycreator.avatar.perform.TakeRecorder.ownerOf("face.cheekPuff")) && "facepins".equals(cc.joycreator.avatar.perform.TakeRecorder.ownerOf("face.smile"))
+                        && "puff".equals(FaceDrive.ownerOf("face.cheekPuff")) && wrote.contains("puff") && !wrote.contains("facepins"),
+                "a pass with Puff held records the puff and nothing else of the face (" + wrote + ")");
+
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);
     }

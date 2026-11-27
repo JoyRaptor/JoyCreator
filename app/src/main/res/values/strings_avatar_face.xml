@@ -4,6 +4,8 @@
     <string name="avatar_face_always">Face: always</string>
     <string name="avatar_face_talk">Face: while talking</string>
     <string name="avatar_hover_face_cycle">Drive the head, eyes and mouth with your own face. Straight away; tap again for only while Hold to talk is held, then off. The picture is never kept.</string>
+    <string name="avatar_puff">Puff</string>
+    <string name="avatar_hover_puff">Puff (hold to puff the cheeks). The face camera cannot see a puff, so this button does it; a take records it</string>
     <string name="avatar_face_walk">Walk with your face</string>
     <string name="avatar_hover_face_walk">Walk with your face: lean to a side to walk that way, come closer to walk toward the camera. And Up close.</string>
     <string name="avatar_face_walk_lr">Left and right with your face</string>

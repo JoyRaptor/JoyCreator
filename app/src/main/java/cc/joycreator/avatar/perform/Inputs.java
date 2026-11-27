@@ -252,6 +252,11 @@ public final class Inputs implements Walker.Body {
         return faceDrive;
     }
 
+    /** The Puff button (held, like Blink): the cheek puff a part can follow, camera or not. */
+    public void puff(boolean on) {
+        faceDrive.puff(on);
+    }
+
     /** What the face camera saw this frame, as it came (null: none), for walking with your face. */
     public Map<String, Float> faceNow() {
         return faceOn ? face : null;
@@ -340,7 +345,9 @@ public final class Inputs implements Walker.Body {
             o.add("mood");
             o.add("blink");
             o.add("facepins");
+            o.add("puff");
         }
+        if (faceDrive.puffing()) o.add("puff");
         if (nowMs < moodUntil) o.add("mood");
         if (blinkHold || nowMs < blinkUntil) o.add("blink");
         if (nowMs < windUntil) o.add("wind");

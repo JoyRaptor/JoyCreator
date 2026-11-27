@@ -114,6 +114,7 @@
       if (plant === 'nodrag') FP.movePin = function () { return false; };
       if (plant === 'nofollow') FP.setFollow = function () {};
       if (plant === 'noexpr') FP.expressions = function () {};
+      if (plant === 'nopuff') FP.expressions = function (i, f, d) { var hp = i.puffHold; i.puffHold = false; realExpr(i, f, d); i.puffHold = hp; };
       if (plant === 'nolayer') FP._layerHost = function (st) { return st.parentNode; };
       if (plant === 'noreshape') FP._drawnAt = function () { return null; };
       if (plant === 'noresume') inp.camResume = function () {};
@@ -358,11 +359,17 @@
       R.F('12 your cheeks puffing reaches the signals, and a part linked to it moves', c0 < 0.1 && c1 > 0.5 && linked > 5,
         { before: c0, after: c1, px: linked });
       var offered = AL.cards && AL.cards.SIGS ? AL.cards.SIGS.map(function (q) { return q[0]; }) : [];
+      // 18 the Puff button (11-27: the face camera never sees a puff): held, the cheek puff rises with the camera off, under the puff's own owner
+      var camWas = inp.cam.on; inp.cam.on = false; await K.step(10);
+      inp.puffHold = true; await K.step(20); var pu1 = inp.S['face.cheekPuff'] || 0, pow = inp.owned(false, false);
+      inp.puffHold = false; await K.step(30); var pu2 = inp.S['face.cheekPuff'] || 0; inp.cam.on = camWas;
+      R.F('18 the Puff button: held, the cheeks puff with the camera off, under the puff\'s own owner; let go, they settle', pu1 > 0.9 && pu2 < 0.05 && pow.puff && !pow.facepins && inp.ownerOf('face.cheekPuff') === 'puff' && inp.ownerOf('face.smile') === 'facepins',
+        { held: pu1, after: pu2, puff: pow.puff, facepins: pow.facepins });
       R.F('12 ...and it is offered in the Links and Shapes lists', ['face.cheekPuff', 'face.smile', 'face.jaw', 'face.wide'].every(function (k) { return offered.indexOf(k) >= 0; }), { offered: offered.filter(function (k) { return k.slice(0, 5) === 'face.'; }) });
     } catch (e) {
       R.fails.push({ label: 'error: ' + (e && e.message), info: e && e.stack });
     } finally {
-      FP.feed = realFeed; F.pointOffsets = realOff; FP.strength = realStrength; inp.channels = realChannels; app.edit = realEdit; FP.unbind = realUnbind; F.pilotFace = keep.pilotFace;
+      inp.puffHold = false; FP.feed = realFeed; F.pointOffsets = realOff; FP.strength = realStrength; inp.channels = realChannels; app.edit = realEdit; FP.unbind = realUnbind; F.pilotFace = keep.pilotFace;
       FP.section = realSection; FP._tap = realTap; FP._drawMarkers = realDraw; FP.movePin = realMove; FP.setFollow = realFollow; FP.expressions = realExpr;
       FP._layerHost = realHost; FP._drawnAt = realDrawn; delete inp.camResume; FP.sheetOf = realSheet; FP.setGain = realGain; FP.toSheet = realConvert; AL.sheetHold = realHold;
       if (FP.close && app.fpMode) FP.close(app);
@@ -378,7 +385,7 @@
   X.proof = async function () {
     var out = {}, want = { nofeed: /^3 a smile/, noturn: /^4 turning/, nostrength: /^5 strength 0/, norecord: /^7 a pass records/,
       noflip: /^6 a character turned/, noundo: /^2 \.\.\.as one undo step/, noremove: /^8 removing/, noread: /^3 a smile/,
-      noentry: /^9 Face pins is on/, noplace: /^10 tap a point/, nomarkers: /^10 tap a point/, nodrag: /^10 dragging/, nofollow: /^11 Test/, noexpr: /^12 your cheeks puffing/,
+      noentry: /^9 Face pins is on/, noplace: /^10 tap a point/, nomarkers: /^10 tap a point/, nodrag: /^10 dragging/, nofollow: /^11 Test/, noexpr: /^12 your cheeks puffing/, nopuff: /^18 the Puff button/,
       nolayer: /^10 tap a point/, noreshape: /^13 on a reshaped/, noresume: /^14 a camera picture/, notest: /^14 \.\.\.and Test/,
       nosheet: /^15 a face pin on one slice/, nohold: /^15 \.\.\.and the head/, nogain: /^16 All pins/, noconvert: /^17 Make one piece/ };
     for (var k in want) { var r = await X.run({ plant: k }); out[k] = { caught: r.fails.some(function (f) { return want[k].test(f.label); }), fails: r.fails.map(function (f) { return f.label; }).slice(0, 4) }; }

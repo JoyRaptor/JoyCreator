@@ -67,7 +67,7 @@ public final class SolverPoser implements CharacterPoser {
         }
         try {
             if (solver == null) {
-                pics = new BitmapPics(doc.json, (id, src) -> pictures.get(id));
+                pics = BitmapPics.read(doc.json, (id, src) -> pictures.get(id));
                 solver = new CharacterSolver(doc.json, pics);
             }
             if (gl == null) {

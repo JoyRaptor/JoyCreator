@@ -5,7 +5,7 @@ import cc.joycreator.avatar.solve.Signals;
 import java.util.Map;
 
 /** The room's per-frame signals (the take's lane names) as the solver reads them ({@link Signals}). */
-final class SignalMap {
+public final class SignalMap {
     private SignalMap() {}
 
     private static double num(Map<String, Object> m, String k) {
@@ -13,7 +13,7 @@ final class SignalMap {
         return v instanceof Number ? ((Number) v).doubleValue() : 0;
     }
 
-    static Signals toSignals(Map<String, Object> m, double t, double breath) {
+    public static Signals toSignals(Map<String, Object> m, double t, double breath) {
         Signals s = new Signals();
         s.t = t;
         s.breath = breath;

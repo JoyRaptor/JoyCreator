@@ -190,5 +190,11 @@
     <string name="avatar_step_rename_stance">Rename a stance</string>
     <string name="avatar_step_remove_stance">Remove a stance</string>
     <string name="avatar_no_fours">This character cannot be put on all fours: it needs a torso, two legs that bend and an arm that bends, drawn from the side.</string>
+    <string name="avatar_guess_pins">Guess pins again</string>
+    <string name="avatar_guess_hinge">Guess the hinge again</string>
+    <string name="avatar_hover_guess_fan">Find the shoulder, elbow and wrist of every drawing again from the pixels</string>
+    <string name="avatar_hover_guess_mouth">Find the hinge or squash of the mouth again from the pixels</string>
+    <string name="avatar_hover_guess_swing">Find the root and tip of this swinging part again from the pixels</string>
+    <string name="avatar_step_guess_pins">Guess the pins of %1$s</string>
 </resources>
 

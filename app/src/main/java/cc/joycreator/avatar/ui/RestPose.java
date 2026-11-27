@@ -259,6 +259,47 @@ final class RestPose implements PoseRenderer {
     }
 
     @Override
+    public cc.joycreator.avatar.solve.Pics pics() {
+        return new cc.joycreator.avatar.solve.Pics() {
+            private final Map<String, byte[]> alphas = new HashMap<>();
+
+            @Override
+            public boolean has(String img) {
+                return bitmap(img) != null;
+            }
+
+            @Override
+            public int w(String img) {
+                return Math.round(shownSize(img, bitmap(img))[0]);
+            }
+
+            @Override
+            public int h(String img) {
+                return Math.round(shownSize(img, bitmap(img))[1]);
+            }
+
+            @Override
+            public int ver(String img) {
+                return 1;
+            }
+
+            @Override
+            public byte[] alpha(String img) {
+                byte[] a = alphas.get(img);
+                if (a != null) return a;
+                Bitmap b = bitmap(img);
+                int bw = b.getWidth(), bh = b.getHeight(), w = w(img), h = h(img);
+                int[] px = new int[bw * bh];
+                b.getPixels(px, 0, bw, 0, 0, bw, bh);
+                a = new byte[w * h];
+                for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) a[y * w + x] = (byte) (px[Math.min(bh - 1, y * bh / h) * bw + Math.min(bw - 1, x * bw / w)] >>> 24);
+                alphas.put(img, a);
+                return a;
+            }
+        };
+    }
+
+    @Override
     public double[] restBounds(CharacterDoc.Node n) {
         double[] b = {1e9, 1e9, -1e9, -1e9};
         growAll(n, b);

@@ -701,6 +701,43 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     }
 
     @Override
+    public void guessPins(String nodeId, String kind) {
+        final cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
+        if (r == null || character == null) return;
+        final cc.joycreator.avatar.solve.Pics pics = r.pics();
+        CharacterDoc.Node n = character.find(nodeId);
+        if (n == null) return;
+        final String label = n.name.isEmpty() ? n.id : n.name;
+        // the torso's middle says which end of a limb is the shoulder, when the drawings do not overlap enough to tell
+        final double[][] tc = {null};
+        character.walk((k, d, p) -> {
+            if (tc[0] == null && ("torso".equals(k.role) || "body".equals(k.role))) {
+                double[] b = r.restBounds(k);
+                if (b != null) tc[0] = new double[]{(b[0] + b[2]) / 2, (b[1] + b[3]) / 2};
+            }
+        });
+        edit.apply(getString(R.string.avatar_step_guess_pins, label), d -> {
+            org.json.JSONObject j = d.find(nodeId).json;
+            if (kind.equals("fan")) cc.joycreator.avatar.file.PinGuess.guessFan(j, pics, tc[0], false);
+            else if (kind.equals("swing")) cc.joycreator.avatar.file.PinGuess.guessSwing(j, pics, tc[0], null);
+            else {
+                org.json.JSONObject art = j;
+                if ("set".equals(j.optString("type"))) {
+                    String rest = j.optJSONObject("pick") == null ? "" : j.getJSONObject("pick").optString("rest", "");
+                    org.json.JSONArray ks = j.optJSONArray("kids");
+                    for (int i = 0; ks != null && i < ks.length(); i++) if (ks.getJSONObject(i).optString("id").equals(rest)) art = ks.getJSONObject(i);
+                }
+                double[][] nose = {null}, face = {null};
+                d.walk((k, dd, p) -> {
+                    if (nose[0] == null && "nose".equals(k.role)) nose[0] = r.restBounds(k);
+                    if (face[0] == null && "face".equals(k.role)) face[0] = r.restBounds(k);
+                });
+                cc.joycreator.avatar.file.PinGuess.guessMouth(art, pics, nose[0], face[0]);
+            }
+        });
+    }
+
+    @Override
     public void openLandmarks(String setId) {
         if (character == null || landmarks == null) return;
         landmarks.open(character, setId);

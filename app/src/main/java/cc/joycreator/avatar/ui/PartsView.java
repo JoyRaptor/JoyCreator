@@ -47,6 +47,9 @@ public final class PartsView extends ScrollView {
         /** "Put it back": clears the part's move, turn and size, as one step. */
         void putBack(String id);
 
+        /** Guess pins again from the pixels: "fan" (a limb's drawings), "mouth", "swing"; one named undo step. */
+        void guessPins(String nodeId, String kind);
+
         /** Match the angles of this head (the landmarks screen). */
         void openLandmarks(String setId);
     }
@@ -115,6 +118,15 @@ public final class PartsView extends ScrollView {
 
     private void setUp(CharacterDoc doc, CharacterDoc.Node node) {
         column.addView(body(getContext().getString(R.string.avatar_pins_hint)));
+        // pins guessed from the pixels, one tap to guess again
+        LinearLayout guess = new LinearLayout(getContext());
+        if ("reach".equals(node.pickBy))
+            guess.addView(chip(getContext().getString(R.string.avatar_guess_pins), false, v -> host.guessPins(node.id, "fan"), getContext().getString(R.string.avatar_hover_guess_fan)));
+        if ("mouth".equals(node.role))
+            guess.addView(chip(getContext().getString(R.string.avatar_guess_hinge), false, v -> host.guessPins(node.id, "mouth"), getContext().getString(R.string.avatar_hover_guess_mouth)));
+        if (node.json.optJSONObject("swing") != null)
+            guess.addView(chip(getContext().getString(R.string.avatar_guess_pins), false, v -> host.guessPins(node.id, "swing"), getContext().getString(R.string.avatar_hover_guess_swing)));
+        if (guess.getChildCount() > 0) column.addView(guess);
         if (!"set".equals(node.type) || node.kids.isEmpty()) {
             column.addView(body(getContext().getString(R.string.avatar_ask_stage_1)));
             return;

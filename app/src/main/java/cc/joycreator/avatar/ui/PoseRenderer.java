@@ -39,6 +39,9 @@ public interface PoseRenderer {
     /** Where a part is when everything under it is drawn (every drawing of every set, as laid out): [x0, y0, x1, y1], or null. */
     double[] restBounds(CharacterDoc.Node n);
 
+    /** The character's pictures as the solver's {@code Pics} (size and alpha), for guessing pins from the pixels. */
+    cc.joycreator.avatar.solve.Pics pics();
+
     /** The drawing under a point (character pixels), topmost first, ignoring see-through pixels; null when there is none. */
     CharacterDoc.Node hit(float x, float y);
 

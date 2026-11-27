@@ -396,3 +396,59 @@ precision stall.
 | Art damage on sprites | Holds default; smear only with anchors; alternate-drawing fixture |
 | Thermal | Ordered load fallback; sustained-hot runs in the gates |
 | Exact export cost | Only for effect-layer scope; Standard/High default; ≤ 4× gate |
+
+---
+
+## K. The card, as locked by the owner (2026-11-27)
+
+Owner picks: **A1 B3 C1 D1 E1 F1**, plus two additions of his. The picture of it is
+`tasks/design/UI-Motion-blur-card-options.html`, section "Your picks, put together". That page
+overrides §3 wherever they differ.
+
+| Part | Locked |
+|---|---|
+| A1, where it lives | A **card in the Effects stack** (`FxPanel` card shape: `CTL` fill, 10dp radius, caret, drag bars, 28dp swatch, name, enable chip, ✕), on a clip, picture, sprite, puppet or effect layer. The separate tool button and the `MotionBlurSettingsSheet` dialog go away. "Add effect" lists it with the others |
+| B3, card layout | Preset chips (Natural / Crisp / Heavy / Trailing). Under them, **one draggable shutter strip**: pull an end to change the angle, drag the middle to change the timing. Handles are at least 28dp for a thumb. **The owner added B1's frame labels**: tick marks and mono 8–9sp labels "last frame · this frame · next frame" under the strip. Then one value row, "Shutter 180° · centred", with its ‹◆› keyframe control (angle and phase key together), and the Mix slider with ‹◆› |
+| C1, colour | Studio's colour **inside the card, everywhere it sits**: chosen chips and slider fills in flat Studio aqua `GO`; the strip's open part and the action pills ("Show exact frame") in the `GO`→`GO_END` gradient. The drawer around it keeps its own room colour (SpriteLab pink, VisLab orange, effect-layer slate). Tick boxes stay `ARMED` cyan (app-wide rule) |
+| D1, can't blur yet | The card stays and says why in one plain line, plus what to do instead. No greyed, dead controls |
+| E1, compare | Hold the card's swatch (or the preview) to see the frame sharp; let go to see it blurred. A "Show exact frame" gradient pill renders the paused frame at export quality |
+| F1, deeper controls | A "▸ More" fold at the foot, closed by default. Rows appear only when they apply (no "Filmed video" group on a sprite) |
+
+### K.1 The shutter strip
+
+- Range 0–720° (§3). At the default zoom the strip runs from last frame to next frame, so the whole
+  720° range fits. Snap stops at 45/90/180/270/360/720 with a light tick of haptics; double-tap the
+  middle to go back to the preset.
+- The value row under it always states the numbers ("270° · behind"), so it never relies on the
+  picture alone. TalkBack reads the same words.
+- Dragging the left end past "last frame" while at 720° offers **Long trail** (a one-tap chip
+  "Longer? Turn on Long trail"). It never switches mode on its own.
+
+### K.2 Long trail (owner's addition: "really force things")
+
+A stylised trail longer than any camera shutter can make. Off by default; a tick box on the card
+(not hidden in More), because it is a look people go looking for.
+
+| Control | Behaviour |
+|---|---|
+| Long trail | Tick box. When on, the strip shows the trail window (fading toward the past) and the rows below appear |
+| Length | 1–32 frames back, keyframable |
+| Fade | 0–100 %, how fast older parts disappear (weight curve over the window), keyframable |
+| Look | Smear (continuous) / Copies (separate ghosts) / Both |
+| Copies | 2–12, shown only for Copies or Both |
+
+Engine rules:
+1. **The trail is built from where things really were**, never by stretching one velocity. Studio
+   items, sprites and puppets are re-posed at the earlier sample times, so curved and spinning
+   moves trail along the curve. Filmed video uses the real earlier source frames through
+   `SourceFrameRing`, not flow.
+2. **Never from previous output** (`FxHistory`/feedback): the frame at time t is the same whether you
+   played into it or jumped to it. Required test: render t after playback and after a cold seek;
+   they must be bit-identical. A feedback version must fail this test first (negative control).
+3. MotionBreaks fence the trail as they do the shutter: no trail across a cut, a step key or a loop
+   restart.
+4. Bounded cost: preview takes at most 8 samples spread over the window (Smear), or the Copies count.
+   Export and "Show exact frame" take enough samples that Smear shows no visible steps. Footage
+   samples live in the ring at preview resolution, inside the §8 memory budget; if the budget would
+   be broken, preview uses fewer samples and shows the Auto chip, and export stays exact.
+5. Mix still applies on top. Long trail with Mix 0 shows nothing.

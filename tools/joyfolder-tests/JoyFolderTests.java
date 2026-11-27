@@ -6,6 +6,7 @@ import com.fadcam.joyfolder.FolderIndex;
 import com.fadcam.joyfolder.JoyPack;
 import com.fadcam.joyfolder.PackFolders;
 import com.fadcam.joyfolder.SpaceErrors;
+import com.fadcam.joyfolder.TrashBatch;
 import com.fadcam.joyfolder.FolderRoles;
 import com.fadcam.joyfolder.JoyFolder;
 import com.fadcam.joyfolder.JoyFs;
@@ -51,6 +52,7 @@ public final class JoyFolderTests {
         run("packs: installed shelf by socket, order, missing files, later levels", JoyFolderTests::packShelf);
         run("pack folders: the contract (names, safe paths, homes, hidden staging)", JoyFolderTests::packFolders);
         run("large share-in: progress, no half file on failure, plain out-of-space words", JoyFolderTests::largeShareIn);
+        run("space: move unused to Trash (stale use, partial failure, plain summary)", JoyFolderTests::trashBatch);
         run("placement: the three rules", JoyFolderTests::placement);
         run("roles: adopt by name, drop when gone", JoyFolderTests::roles);
         run("fingerprint: content identity, sampling", JoyFolderTests::fingerprint);
@@ -781,6 +783,61 @@ public final class JoyFolderTests {
         eq("couldn't read the shared file", SpaceErrors.plain(new IOException("couldn't read the shared file")));
         eq("an unknown problem", SpaceErrors.plain(new IOException()));
         eq("an unknown problem", SpaceErrors.plain(null));
+    }
+
+    /** FILE-1, Space's "Move unused to Trash": a file now in use is left alone; one failure does not stop or hide the rest. */
+    static void trashBatch() throws Exception {
+        // plan: ticked only, and never a file a project uses NOW
+        java.util.List<String> paths = java.util.Arrays.asList("a.mp4", "b.mp4", "c.mp4", "d.mp4");
+        java.util.Set<String> usedNow = new java.util.HashSet<>(java.util.Arrays.asList("b.mp4"));
+        TrashBatch.Plan plan = TrashBatch.plan(paths, new boolean[]{true, true, false, true}, usedNow);
+        eq("[a.mp4, d.mp4]", plan.toTrash.toString());
+        eq("[b.mp4]", plan.inUse.toString());
+        eq("[]", TrashBatch.plan(paths, new boolean[]{false, false, false, false}, usedNow).toTrash.toString());
+        eq("[a.mp4, b.mp4]", TrashBatch.plan(paths, new boolean[]{true, true}, null).toTrash.toString());   // short tick list, no use list
+
+        // run: three real files plus one that is gone; the middle one fails to move; the others still go and the index is saved
+        final FileJoyFs real = tempFs();
+        for (String n : new String[]{"one.mp4", "two bad.mp4", "three.mp4"}) {
+            try (java.io.OutputStream o = real.create(n)) { o.write(new byte[]{1, 2, 3}); }
+        }
+        JoyFs flaky = (JoyFs) java.lang.reflect.Proxy.newProxyInstance(JoyFs.class.getClassLoader(), new Class[]{JoyFs.class},
+                (proxy, method, args) -> {
+                    try {
+                        if (method.getName().equals("move") && args != null && String.valueOf(args[0]).contains("bad")) {
+                            throw new IOException("write failed: ENOSPC (No space left on device)");
+                        }
+                        return method.invoke(real, args);
+                    } catch (java.lang.reflect.InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+        JoyFolder jf = JoyFolder.open(flaky);
+        jf.index.scan(jf.fs);
+        TrashBatch.Result r = TrashBatch.run(jf, java.util.Arrays.asList("one.mp4", "gone.mp4", "two bad.mp4", "three.mp4"), T);
+        eq("[one.mp4, three.mp4]", r.moved.toString());
+        eq(1, r.missing);
+        eq(1, r.failed.size());
+        check(r.failed.get(0).equals("two bad.mp4"), "the failing file is named: " + r.failed);
+        check(r.failedWhy.get(0).startsWith("the phone ran out of room"), "and why, in plain words: " + r.failedWhy.get(0));
+        check(real.stat("one.mp4") == null && real.stat("three.mp4") == null, "the two that could move are out of the folder");
+        check(real.stat("two bad.mp4") != null, "the one that could not move is still where it was, not lost");
+        eq(2, JoyFolder.open(real).trashItems().size());   // both are listed in Trash after a fresh open: the log and index were saved
+
+        // the sentence
+        String said = TrashBatch.summary(r, 1);
+        check(said.contains("2 files moved to Trash"), said);
+        check(said.contains("1 file was left because a project uses it now"), said);
+        check(said.contains("Couldn't move two bad.mp4") && said.contains("Nothing was lost"), said);
+        eq("1 file moved to Trash. Put them back from Settings \u2192 Recently deleted.", TrashBatch.summary(oneMoved(), 0));
+        eq("Nothing needed moving.", TrashBatch.summary(new TrashBatch.Result(), 0));
+        check(TrashBatch.summary(new TrashBatch.Result(), 3).equals("3 files were left because a project uses them now."), "all in use");
+    }
+
+    private static TrashBatch.Result oneMoved() {
+        TrashBatch.Result r = new TrashBatch.Result();
+        r.moved.add("x.mp4");
+        return r;
     }
 
     // ── helpers ──────────────────────────────────────────────────────────

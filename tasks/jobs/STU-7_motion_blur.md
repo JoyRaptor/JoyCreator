@@ -127,7 +127,7 @@ merged plan's.
     in the sheet instead of showing a silent tick box, and apply the house tick-box and hover-label rules.
 - [ ] **Owner look #1:** a mix-and-match page (presets, Mix, exposure shapes) plus a phone session.
       Claude, or Codex if Claude is out.
-  - [x] 2026-11-27 card design locked: A1 B3 C1 D1 E1 F1 + frame labels + Long trail (spec §K, `tasks/design/UI-Motion-blur-card-options.html`). Card build and Long trail are owed (channel 11-27).
+  - [x] 2026-11-27 card design locked: A1 B3 C1 D1 E1 F1 + frame labels + Long trail (spec §K, `tasks/design/UI-Motion-blur-card-options.html`). Card build and Long trail are owed; Claude builds them after Codex's handoff (owner, 11-27).
 - [x] **C4 = §9 step 3:** gated shared compositor landed at `3c0179278`. See the [Snapdragon acceptance report](../motionblur/C4_SNAPDRAGON_ACCEPTANCE_REPORT.md) and [C4 design](../motionblur/C4_COMPOSITOR_DESIGN.md). True Layer Order remains behind its internal switch.
 - [ ] **C5 = §9 step 4:** puppets and avatars.
 - [ ] **C6 = §9 step 5:** filmed video. **Done:** the Java oracle (`FlowField`, `LumaImage`, `PyramidFlowEstimator`,

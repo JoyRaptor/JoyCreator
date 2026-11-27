@@ -3523,8 +3523,13 @@ public class FxPreviewTextureView extends TextureView
                     AuthoredSpriteMeshExposure.RENDER_TAPS, shutter.pieceStartUs(), shutter.pieceEndUs());
             if (taps == null || cell.bitmap().isRecycled()) return false;
             if (authoredMeshExposure == null) authoredMeshExposure = new MeshExposureGl(meshStamp);
-            return authoredMeshExposure.compositeSprite(targets[dst][1], targets[src][0], width, height,
+            boolean drawn = authoredMeshExposure.compositeSprite(targets[dst][1], targets[src][0], width, height,
                     cell.window().cell(), cell.aspect(), cell.bitmap(), taps);
+            if (drawn && com.fadcam.BuildConfig.DEBUG && motionReadback != null) {
+                FLog.i("PuppetMeshParity", "preview editorUs=" + frame.editorTimeUs()
+                        + " cell=" + taps.sourceCell());
+            }
+            return drawn;
         } catch (Exception error) {
             if (!loggedMeshExposureFailure) {
                 FLog.w(TAG, "authored mesh shutter failed; drawing the ordinary mesh", error);

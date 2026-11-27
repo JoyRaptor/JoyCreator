@@ -48,7 +48,7 @@ Updated 11-27 by the lead.
 | X4 voice recorder gives its sound to lip sync | 2 | ✅ landed (`PcmBlocks`; 18 checks, WAV bytes unchanged) | slice 2 (cloud) |
 | X5 export sheet parts shared with Studio | 3 | ✅ landed (`ExportSheetParts`); Studio sheet screenshots owed | slice 2 (cloud) |
 | A solid colour clip in Studio (key colour) | 2 | ✅ landed (Add › Solid colour; 23 checks) | slice 2 (cloud) |
-| A character drawn in Studio's preview and export | 5 | 🟡 built: seam, `CharacterItemPuppet`, `ItemPuppets`; draws its standing picture until X3 installs and STU-7 answers on the 3 draw sites | slice 2 (cloud) |
+| A character drawn in Studio's preview and export | 5 | ✅ landed 11-27: `SolverPoser` (CharacterSolver + CharacterGl off screen) behind the 3 draw sites; emulator `AvatarStudioDrawTest`: moves with its take, export = preview; fault `rest` fails | slice 2 (cloud) + X2/X3 session |
 | Add a character to a project with its take and voice | 3 | ✅ landed (Add › Character; one undo step) | slice 2 (cloud) |
 | Still draggable; record a pass in Studio | 3 | 🟡 drag as a sprite; a pass via the Perform pop-up; finger-on-a-hand driving not built | slice 2 (cloud) |
 | Send to Studio, the room's export sheet, video with a key colour | 5 | 🟡 built (`RoomExportSheet`, Studio drop-on-open); the room's button is wired (export mark at the bar's right end, saves first); not tried on a phone | slice 2 (cloud) |

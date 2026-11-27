@@ -44,7 +44,10 @@ import java.util.Map;
 import cc.joycreator.avatar.AvatarRoomActivity;
 import cc.joycreator.avatar.face.DirectionPrompts;
 import cc.joycreator.avatar.face.FaceDrive;
+import cc.joycreator.avatar.face.FacePins;
 import cc.joycreator.avatar.face.FaceWalk;
+import cc.joycreator.avatar.file.CharacterDoc;
+import cc.joycreator.avatar.ui.StageView;
 import cc.joycreator.avatar.perform.Inputs;
 import cc.joycreator.avatar.ui.RoomEdit;
 
@@ -204,6 +207,48 @@ public class AvatarFaceReplayTest {
             check(held > 0.9 && owned, "held, Puff puffs: the cheek puff lane " + f(held) + ", the puff's own owner");
             check(moved > 0.002, "...and the part that follows it moves on the stage (" + f(moved * 100) + "% of the stage changed)");
             check(after < 0.1, "let go, it settles (" + f(after) + ")");
+            // face pins in Set up, by real taps: the head in hand, Face pins, his right mouth corner, a tap on Topps's mouth
+            Emu.tap(tabs[0]);
+            Emu.sleep(1500);
+            CharacterDoc doc0 = (CharacterDoc) field(a, "character");
+            CharacterDoc.Node head = null;
+            for (CharacterDoc.Node k : nodes(doc0)) if ("head".equals(k.role)) { head = k; break; }
+            assertNotNull("Topps has a head", head);
+            final String headId = head.id;
+            Emu.ins().runOnMainSync(() -> a.inHand(headId));
+            Emu.sleep(1000);
+            tapText(a, a.getString(R.string.avatar_facepins));
+            Emu.sleep(600);
+            tapText(a, FacePins.nameOf(61));
+            Emu.sleep(400);
+            assertEquals("his right mouth corner picked", 61, a.pendingPoint());
+            StageView sv = (StageView) field(a, "stage");
+            double[] hb = sv.renderer().restBounds(head);
+            float cx = (float) ((hb[0] + hb[2]) / 2), cy = (float) (hb[1] + (hb[3] - hb[1]) * 0.62);     // (the lower face: the mouth)
+            int[] sat = new int[2];
+            float[] sc = new float[3];
+            Emu.ins().runOnMainSync(() -> { sv.getLocationOnScreen(sat); sc[0] = sv.viewScale(); sc[1] = sv.viewX(); sc[2] = sv.viewY(); });
+            tapAt(sat[0] + sc[1] + cx * sc[0], sat[1] + sc[2] + cy * sc[0]);
+            Emu.sleep(1500);
+            JSONArray fpl = FacePins.list(((CharacterDoc) field(a, "character")).json);
+            shot(out, "18-face-pin-placed");
+            check(fpl.length() == 1 && fpl.getJSONObject(0).getInt("point") == 61, "a face pin made by real taps: his right mouth corner, on Topps's head (" + fpl.length() + " pins)");
+            check(a.pendingPoint() < 0, "...and the point is used (a new tap needs a new point)");
+            Emu.tap(tabs[3]);                                            // Perform: his smile pulls the pin's point
+            Emu.sleep(1500);
+            replay.play(21.6, 22.4);
+            double pull = 0;
+            long until2 = SystemClock.uptimeMillis() + 20000;
+            while ((replay.playing || replay.now < 22.3) && SystemClock.uptimeMillis() < until2) {
+                pull = Math.max(pull, Math.hypot(sig(a, "pt.61.x"), sig(a, "pt.61.y")));
+                Emu.sleep(80);
+            }
+            check(pull > 0.02, "his smile moves the pinned point: the camera watches it (" + f(pull) + ")");
+            Emu.tap(tabs[0]);
+            Emu.sleep(1200);
+            Emu.tap((View) field(a, "undoButton"));
+            Emu.sleep(1200);
+            check(FacePins.list(((CharacterDoc) field(a, "character")).json).length() == 0, "one Undo takes the face pin away (one step)");
             Emu.ins().runOnMainSync(() -> fc[0].bus().stop());
             assertFalse("the room closed", a.isFinishing());
         } finally {
@@ -433,6 +478,24 @@ public class AvatarFaceReplayTest {
         Emu.ins().runOnMainSync(() -> v.requestRectangleOnScreen(new Rect(0, 0, v.getWidth(), v.getHeight()), true));
         Emu.sleep(300);
         Emu.tap(v);
+    }
+
+    /** A real tap at a screen point. */
+    private static void tapAt(float x, float y) {
+        long t = SystemClock.uptimeMillis();
+        MotionEvent d = MotionEvent.obtain(t, t, MotionEvent.ACTION_DOWN, x, y, 0), u = MotionEvent.obtain(t, t + 60, MotionEvent.ACTION_UP, x, y, 0);
+        d.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        u.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        Emu.ins().getUiAutomation().injectInputEvent(d, true);
+        Emu.ins().getUiAutomation().injectInputEvent(u, true);
+        d.recycle();
+        u.recycle();
+    }
+
+    private static List<CharacterDoc.Node> nodes(CharacterDoc d) {
+        List<CharacterDoc.Node> out = new ArrayList<>();
+        d.walk((n, depth, parent) -> out.add(n));
+        return out;
     }
 
     private static void down(View v) { touch(v, MotionEvent.ACTION_DOWN); }

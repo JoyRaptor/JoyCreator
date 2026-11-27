@@ -40,6 +40,23 @@ uniform highp ivec2 u_nbrTile;           // the tile this draw covers (v_slot.zw
 uniform highp ivec2 u_nbrSlot[JB_NBR_N * JB_NBR_N];   // full-resolution slot origins (atlas texels) of tiles u_nbrTile +
                                          // (-R..R, -R..R), row by row; -1 = not here, JB_NBR_WALL = a wall for this (water) pass
 const highp int JB_NBR_WALL = -2;
+#ifdef JB_X_QUAD
+// EXPERIMENT: per fragment, the offsets (atlas texel - layer cell, full resolution) of the 2x2 tiles toward the fragment's
+// corner of its tile, and where a read crosses into the neighbour (as qf * dir >= edge).
+highp ivec2 jbO00, jbO10, jbO01, jbO11, jbDir, jbEdgeS;
+void jb_quadInit() {
+    highp ivec2 c = ((ivec2(gl_FragCoord.xy) - v_slot.xy) << (8 - u_atlasShift)) + (v_slot.zw << 8);
+    highp ivec2 lo = u_nbrTile << 8;
+    highp ivec2 dir = ivec2(c.x - lo.x >= 128 ? 1 : -1, c.y - lo.y >= 128 ? 1 : -1);
+    highp int ix = 4 + dir.x, iy = 4 + 3 * dir.y, ixy = 4 + dir.x + 3 * dir.y;
+    jbO00 = u_nbrSlot[4] - (u_nbrTile << 8);
+    jbO10 = u_nbrSlot[ix] - ((u_nbrTile + ivec2(dir.x, 0)) << 8);
+    jbO01 = u_nbrSlot[iy] - ((u_nbrTile + ivec2(0, dir.y)) << 8);
+    jbO11 = u_nbrSlot[ixy] - ((u_nbrTile + dir) << 8);
+    jbDir = dir;
+    jbEdgeS = ivec2(dir.x > 0 ? lo.x + 256 : 1 - lo.x, dir.y > 0 ? lo.y + 256 : 1 - lo.y);
+}
+#endif
 #endif
 #endif
 
@@ -95,6 +112,17 @@ highp ivec2 jb_atS(highp ivec2 q, highp int shift, out bool ok) {
     // Branch-free: the index is clamped into the 3x3 and ok says whether it had to be. A wall reads the reader's own cell
     // nearest q (jb_ownCell). Half-resolution fields (shift 7) sit at half the full-resolution origins.
     highp int down = JB_SLOT_SHIFT - shift;
+#ifdef JB_X_QUAD
+    // EXPERIMENT: the fragment's quadrant picks the 2x2 block of tiles its reads can reach (once per fragment, in
+    // jb_quadInit); a read then picks one of those four offsets with two compares and three selects. No per-read index.
+    {
+        ok = true;
+        highp ivec2 qf = q << down;
+        bool sx = qf.x * jbDir.x >= jbEdgeS.x, sy = qf.y * jbDir.y >= jbEdgeS.y;
+        highp ivec2 off = sy ? (sx ? jbO11 : jbO01) : (sx ? jbO10 : jbO00);
+        return q + (off >> down);
+    }
+#endif
 #ifdef JB_X_OWN
     // EXPERIMENT (timing only, wrong data): every read lands in the draw's own slot, no array, no walls.
     ok = true;

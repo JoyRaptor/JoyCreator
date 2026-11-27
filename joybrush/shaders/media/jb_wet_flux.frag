@@ -116,6 +116,9 @@ bool outside(ivec2 q) {
 }
 
 void main() {
+#ifdef JB_X_QUAD
+    jb_quadInit();
+#endif
     ivec2 c = jb_cell();
     ivec2 size = textureSize(u_w0, 0);
     vec2 docPx = u_layerOrigin + jb_fragPx() / u_layerScale;

@@ -1,5 +1,6 @@
 package cc.joycreator.joybrush.core.fill
 
+import cc.joycreator.joybrush.core.brush.BrushJson
 import cc.joycreator.joybrush.core.paint.Tiles
 import cc.joycreator.joybrush.core.select.SelectionMask
 
@@ -180,11 +181,17 @@ object MaskPaint {
      *   nothing.
      * @param opacity 0..1, clamped; a NaN opacity is 1, because a NaN that silently returned
      *   nothing would look exactly like a mask that missed.
+     * @param maxChangedTiles the most tiles one call may touch. See [MAX_PAINT_TILES] — this
+     *   function holds a full copy of every tile it changes, and the lasso's own ceiling is 64 x 64
+     *   tiles, which is 1 GiB. The default refuses before allocating rather than after.
      * @return the changed tiles, in the mask's own tile order (so a caller logging a change set
      *   gets the same order twice), `null` for a tile that is now empty.
      * @throws IllegalArgumentException if a tile the mask reaches is not [Tiles.SIZE]² x 4 bytes.
      *   That is a caller bug rather than a request — a short tile has no pixel 40,000 to read, and
      *   every index after it would be a different pixel of the same tile.
+     * @throws IllegalArgumentException if the mask reaches more than [maxChangedTiles] tiles. That
+     *   is a request rather than a bug, and the sentence says so, in the same style as
+     *   [FloodFill]'s refusal.
      */
     fun apply(
         layer: Map<Long, ByteArray>,
@@ -192,6 +199,7 @@ object MaskPaint {
         argb: Int,
         opacity: Float,
         mode: MaskPaintMode,
+        maxChangedTiles: Int = MAX_PAINT_TILES,
     ): Map<Long, ByteArray?> {
         if (mask.isEmpty) return emptyMap()
         // An opacity of zero is a no-op in ALL THREE modes, and provably so rather than
@@ -200,6 +208,18 @@ object MaskPaint {
         // byte-identical and report nothing — this is the same answer, found without rasterising
         // a 2048-square mask to discover there was nothing to do.
         if (opacityOf(opacity) <= 0.0) return emptyMap()
+
+        // BEFORE the loop below, because that loop is what allocates. Every tile this touches is
+        // copied and retained in the returned map, so the peak is `tiles x 256 KiB`, and the only
+        // thing bounding it was `MAX_SELECT_SPAN` in the lasso — which allows 4096 tiles, which is
+        // a gigabyte on a phone. A 4096-square board is 256 tiles, so the default still allows the
+        // largest board anyone ships and refuses the runaway.
+        val reached = mask.tileKeys.size
+        require(reached <= maxChangedTiles) {
+            "this shape reaches $reached tiles and one call may touch $maxChangedTiles " +
+                "(${(maxChangedTiles.toLong() * TILE_BYTES) / (1024L * 1024L)} MiB of tiles held at " +
+                "once). Fill a smaller area, or a piece of it at a time."
+        }
 
         for (entry in mask.tiles) {
             val key = entry.key
@@ -307,4 +327,42 @@ object MaskPaint {
      * of "empty canvas" in the program at once. Same rule, same reason, as `SelectionMask.FULL_TILE`.
      */
     private val TRANSPARENT_TILE = ByteArray(TILE_BYTES)
+
+    /**
+     * The most tiles one [apply] call may touch: 256, which is 64 MiB of tiles held at once.
+     *
+     * WHY THIS NUMBER. [apply] keeps a full `copyOf()` of every tile it changes, because the caller
+     * hands the whole change set to `GlPaintEngine.replaceTiles` as one undoable step. So the peak is
+     * `tiles x 256 KiB` and the only thing bounding it used to be the lasso's own
+     * `MAX_SELECT_SPAN` — 16384 document px, which is 64 x 64 = **4096 tiles, a gigabyte**, on a
+     * phone whose per-app heap `RegionRenderer` measures at 256 MB.
+     *
+     * 256 tiles is a 4096 x 4096 document, which is larger than any board this app ships, so the
+     * default does not stand in the way of real work. It only refuses the runaway.
+     *
+     * Stated here rather than imported from `render.MAX_REGION_PX` or `FloodFill.MAX_FILL_PX` for
+     * the reason `FloodFill.kt:39-44` gives: those are REGION budgets and this is a TILE budget, so
+     * importing one would make the number mean two things.
+     */
+    const val MAX_PAINT_TILES = 256
+
+    /**
+     * The brush file's `blend` word, as a [MaskPaintMode].
+     *
+     * `BrushPreset.blend` is validated and versioned (`BrushJson.kt:154`, VERSION_FILL) and its maths
+     * has been finished and tested here since `JB-2.07a` — `MaskPaintMode.BEHIND` is what makes a
+     * fill pen useful on the SAME layer as the drawing. But nothing ever read the word: the only
+     * reader in the whole view path is `JbCanvasView`'s erase test, which matches `"erase"` and
+     * nothing else, so `"behind"` was a valid file that silently behaved like `"normal"`.
+     *
+     * This is the missing reader, and it is the whole of what is left on the core side. Turning
+     * `blend: "behind"` into a live fill still needs the Lead to call it from the fill arm of
+     * `JbCanvasView.startStroke`, which is a hot file.
+     */
+    fun modeFor(blend: String): MaskPaintMode = when (blend) {
+        "erase" -> MaskPaintMode.ERASE
+        // `BrushJson.BLEND_BEHIND`, spelled out because that constant is not visible from here.
+        "behind" -> MaskPaintMode.BEHIND
+        else -> MaskPaintMode.FILL
+    }
 }

@@ -78,7 +78,14 @@ class AdaptiveBrushFilesTest {
         assertTrue(firm.radius > soft.radius)
         assertTrue(firm.cap > soft.cap)
         assertTrue(firm.paperDepth > soft.paperDepth, "paper engagement must vary inside a stroke")
-        assertTrue(firm.hardness > soft.hardness, "pressure must firm the near edge")
+        // The SHIPPED Pencil, deliberately left uncorrected: on 2026-10-02 the owner asked for it to be
+        // forked so an experiment costs nothing, and `brushes/pencil/brush.json` was reverted to
+        // exactly what shipped. So this assertion pins the CONTROL, not a recommendation — hardness
+        // really does firm with pressure here, which is why the owner called it "a semi decent marker
+        // ish and a terrible pencil". JB-6.03 ruled the opposite (hardnessLight 0.9 / hardnessFull
+        // 0.15, ":26-32" and ":328-329") and that ruling is exercised on Brush Test 01 instead, in
+        // PencilWorksByDefaultTest. If this line ever goes red, someone corrected the control.
+        assertTrue(firm.hardness > soft.hardness, "the shipped Pencil firms with pressure; it is the control")
         assertTrue(firm.radius * 2f <= 110f, "a leaned contact remains bounded")
     }
 

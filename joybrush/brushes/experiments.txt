@@ -1,0 +1,18 @@
+# Declared EXPERIMENTS — not curated presets.
+#
+# `index.txt` is the shipped pill and its order is the product (JB-1.07). The folders below are on
+# that pill so the owner can hold them, but they are scratch instruments, not presets this project
+# stands behind, and they are expected to be deleted once there is a way to curate what has been
+# built. One line per folder, one folder name, exactly as in index.txt.
+#
+# WHY THIS FILE EXISTS. Four shipped-set guards assert the exact folder set, the exact ids, the exact
+# pill order, and that only Pencil carries grain. Those guards are RIGHT and they caught the first
+# attempt at this work — three brushes went into index.txt and six tests went red, which is precisely
+# what those tests are for. The fix is NOT to weaken them: it is to declare the experiments in one
+# place, so the guards subtract a known list and still fire on anything nobody declared.
+#
+# Owner direction, 2026-10-02: "We can save them out and then later clean up the ones that we don't
+# like once we have the ability to curate everything that we've built."
+brushtest01
+brushtest02
+brushtest03

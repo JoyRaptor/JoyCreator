@@ -70,7 +70,12 @@ class ShippedBrushFilesTest {
     fun everyFolderIsInTheIndexAndEveryIndexNameIsAFolder() {
         val brushes = brushesDir()
         val listed = indexFolderNames()
-        val folders = brushFolders().map { it.name }
+        // The RAW walk, not [brushFolders]: this test's whole job is to catch a folder nobody listed
+        // anywhere, so it must see the experiments too. [brushFolders] filters them out on purpose,
+        // because the shipped-set guards elsewhere are not about scratch instruments.
+        val folders = (brushes.listFiles() ?: emptyArray())
+            .filter { it.isDirectory && File(it, "brush.json").isFile }
+            .map { it.name }
 
         assertEquals(
             folders.toSet(), listed.toSet(),
@@ -82,6 +87,12 @@ class ShippedBrushFilesTest {
             listed.size, listed.toSet().size,
             "brushes/index.txt names a folder twice; the pill would show that brush twice: $listed",
         )
+        // An experiment has to be ON the pill, or declaring one quietly un-lists it and it can never
+        // be held on the phone — which is the only reason any of this exists.
+        val declared = declaredExperiments()
+        assertEquals(declared, declared.intersect(listed.toSet()),
+            "brushes/experiments.txt declares a folder that index.txt does not list, so it would " +
+                "never reach the pill: ${declared - listed.toSet()}")
     }
 
     /**
@@ -100,7 +111,7 @@ class ShippedBrushFilesTest {
         val expected = finished.filter { landed.contains(it) }
 
         assertEquals(
-            expected, indexFolderNames(),
+            expected, indexFolderNames().filterNot { it in declaredExperiments() },
             "brushes/index.txt is not in the pill's order. Expected $expected. Not on disk yet, and " +
                 "so removed from the expected list: $notYet. Folders on disk: $landed.",
         )

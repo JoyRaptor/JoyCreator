@@ -522,10 +522,18 @@ class DefaultPresetsTest {
  * Every directory under `brushes/` that holds a `brush.json`, sorted by name. The `brush.json` filter is
  * the right one for a folder holding a `tip.png`; the companion check for a folder somebody made and
  * forgot is in [ShippedBrushFilesTest], beside the walk it belongs to.
+ *
+ * DECLARED EXPERIMENTS ARE EXCLUDED HERE, and this is the one place that happens, because every
+ * shipped-set guard in this file reads this list. A brush the owner has declared as a scratch
+ * instrument in `brushes/experiments.txt` is deliberately not a shipped preset: it must not have to be
+ * named in the expected id set, must not be allowed to hold grain just because it feels like the
+ * Pencil, and must not fail the "no preset is a copy of another" rule for being a fork of it. Nothing
+ * else is excused — a brush nobody declares still fails every one of those guards.
  */
 internal fun brushFolders(): List<File> =
     (brushesDir().listFiles() ?: emptyArray())
         .filter { it.isDirectory && File(it, "brush.json").isFile }
+        .filterNot { it.name in declaredExperiments() }
         .sortedBy { it.name }
 
 /** `joybrush/brushes`, found by the same walk [joybrushRoot] uses. */
@@ -537,6 +545,20 @@ internal fun brushesDir(): File = File(joybrushRoot(), "brushes")
  * ONE root-finder for the whole source set, and it is here rather than duplicated: two walks of the same
  * kind are two things to get wrong, and the second one is the one nobody reads.
  */
+/**
+ * The folders `joybrush/brushes/experiments.txt` declares as scratch instruments.
+ *
+ * These brushes ARE on the pill, so they load and can be held on the phone, but they are not presets
+ * this project stands behind and they are meant to be deleted. Every shipped-set guard subtracts this
+ * list rather than being relaxed, so the guards still fire on a brush nobody declared — which is the
+ * whole point of them, and is why the first attempt at this work went red and was correct to.
+ */
+internal fun declaredExperiments(): Set<String> =
+    File(joybrushRoot(), "brushes/experiments.txt").readLines()
+        .map { it.substringBefore('#').trim() }
+        .filter { it.isNotEmpty() }
+        .toSet()
+
 internal fun joybrushRoot(): File {
     var dir: File? = File("").absoluteFile
     while (dir != null) {

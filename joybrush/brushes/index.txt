@@ -12,3 +12,21 @@ softair
 smudge
 eraser
 fill
+
+# Owner experiments, 2026-10-02. THREE brushes forked from the Pencil so a judgement about one is never
+# a judgement about the others. The shipped Pencil was deliberately REVERTED and left carrying its
+# original inverted hardness and swapped size axes, so it is the control these are judged against.
+# Delete freely once there is a way to curate what has been built; nothing else may depend on them.
+#   Brush Test 01 - graphite. Pressure is a ~3x width axis and the ANGLE is the primary one,
+#                   hardness FALLS with pressure (crisp hairline, soft fade at the belly), and the
+#                   paper tooth belongs to the lean rather than to the pressure. Graded against
+#                   Infinite Painter's pencil: narrow marks clean and solid, broad marks toothy.
+#   Brush Test 02 - the same geometry, pushed wet. Low flat hardness, granulating grain, more flow.
+#   Brush Test 03 - watercolour. Every lever that exists: paper.wet 0.9, accumulate "buildup" so it
+#                   pools and is toned at commit, high flow and wide spacing so it spreads along the
+#                   stroke, near-zero hardness so there is no edge anywhere, low grain depth for
+#                   granulation. IT CANNOT YET BLEED PAST ITS OWN EDGE: edge darkening, bloom and
+#                   wet-lite flow are JB-6.01 and JB-6.02, and there is no code for any of them.
+brushtest01
+brushtest02
+brushtest03

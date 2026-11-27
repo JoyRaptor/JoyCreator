@@ -184,10 +184,23 @@ object BrushKnobs {
             show = { p -> "${p.angleJitter.roundToInt()}°" }),
     )
 
-    private val GRAIN = knob("stamp.grain", "Paper grain", "How much the paper's grain shows through the stroke.",
-        { p -> p.paperGrain.depth.base.coerceIn(0f, 1f) },
-        { p, v -> p.copy(paperGrain = p.paperGrain.copy(depth = p.paperGrain.depth.copy(base = v))) })
+    // INVERTED 2026-10-02. This knob used to read and write `paperGrain.depth.base` directly, so a
+    // user dragging it right, as the label asks, made the grain go AWAY. `depth` is how deep the brush
+    // presses into the height field, not how much texture is visible: `jb_heightCoverage` computes
+    // `threshold = 1 - level`, so depth UP means LESS of the paper takes paint. `jb_grain.glsl:7-10`
+    // states the model — "light pressure, only the tops of the bumps catch paint; heavy pressure, paint
+    // fills the pits too". Both directions are inverted here so the control matches its own label.
+    private val GRAIN = knob("stamp.grain", "Paper grain", "How much the paper's grain shows through the stroke. Right is more tooth.",
+        { p -> (1f - p.paperGrain.depth.base).coerceIn(0f, 1f) },
+        { p, v -> p.copy(paperGrain = p.paperGrain.copy(depth = p.paperGrain.depth.copy(base = 1f - v))) })
 
+    // `smudge.paint` and `smudge.texturePickup` are deliberately NOT knobs yet. They decide whether the
+    // smudge does anything on bare canvas and whether it carries separate marks, so they are the two
+    // the owner most needs — but `BrushValidate` refuses both below brush version 7 (": smudge.paint
+    // needs brush version 7", caught by BrushTuningTest), and the shipped Smudge preset is version 3.
+    // Exposing a control the format refuses is worse than not exposing it. The route is to rule on
+    // whether Smudge moves to version 7 (which also makes its contact fields live), not to add the
+    // knobs ahead of that. See tasks/joybrush/specs/BRUSH_DEFECTS_20261002.md section 2.
     private val SMUDGE: List<Knob> = listOf(
         knob("smudge.pickup", "Pick up", "How quickly the smudge takes on the colour it drags over.",
             { p -> p.smudge.pickup }, { p, v -> p.copy(smudge = p.smudge.copy(pickup = v)) }),

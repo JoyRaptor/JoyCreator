@@ -29,17 +29,27 @@ object BrushShelf {
         "softair" to Kind.AIRBRUSH,
         "soft air" to Kind.AIRBRUSH,
         "spray" to Kind.AIRBRUSH,
+        // Flat Paint borrows the smudge ENGINE, and the engine rule below used to file it on the
+        // SMUDGE shelf beside the Smudge utility brush, where nobody looks for a paint brush. A
+        // native brush that names itself outranks the engine it borrows.
+        "flat paint" to Kind.PAINT,
+        "flatpaint" to Kind.PAINT,
     )
 
-    fun kindOf(p: BrushPreset): Kind = when {
+    fun kindOf(p: BrushPreset): Kind {
         // What it DOES outranks where it came from: an imported eraser is found with the erasers.
-        p.blend == "erase" -> Kind.ERASERS
-        p.engine == ENGINE_SMUDGE || p.engine == ENGINE_PUSH -> Kind.SMUDGE
-        p.engine == ENGINE_FILL -> Kind.FILL
-        p.sourceFormat != "native" -> Kind.IMPORTED
-        else -> {
+        if (p.blend == "erase") return Kind.ERASERS
+        // And the fill engine outranks the name, or "Fill pen" reads as an INK because it contains
+        // "pen" (BrushTuningTest caught that when this rule was first written the other way round).
+        if (p.engine == ENGINE_FILL) return Kind.FILL
+        if (p.sourceFormat == "native") {
             val words = (p.id + " " + p.name).lowercase()
-            WORDS.firstOrNull { words.contains(it.first) }?.second ?: Kind.PAINT
+            WORDS.firstOrNull { words.contains(it.first) }?.let { return it.second }
+        }
+        return when {
+            p.engine == ENGINE_SMUDGE || p.engine == ENGINE_PUSH -> Kind.SMUDGE
+            p.sourceFormat != "native" -> Kind.IMPORTED
+            else -> Kind.PAINT
         }
     }
 

@@ -1,0 +1,148 @@
+{
+  "format": "joybrush.brush",
+  "version": 7,
+  "id": "joybrush.brushtest03",
+  "name": "Brush Test 03",
+  "engine": "stamp",
+  "tip": {
+    "corner": 2,
+    "aspect": 0,
+    "aspectDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [ 0, 0 ],
+            [ 0.15, -0.4 ],
+            [ 0.35, -0.72 ],
+            [ 0.5, -0.8 ],
+            [ 1, -0.85 ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "anchorDynamics": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [ 0, 0 ],
+            [ 0.15, 0.42 ],
+            [ 0.35, 0.74 ],
+            [ 0.5, 0.82 ],
+            [ 1, 0.88 ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "angle": {
+      "base": 0,
+      "inputs": [
+        {
+          "input": "lean",
+          "curve": [
+            [ 0, -180 ],
+            [ 1, 180 ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "hardness": {
+      "base": 1,
+      "inputs": [
+        {
+          "input": "pressure",
+          "curve": [
+            [ 0, 0.5 ],
+            [ 0.4, 0.2 ],
+            [ 1, 0.03 ]
+          ]
+        }
+      ]
+    },
+    "minPx": 0.6
+  },
+  "size": {
+    "base": 8,
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [ 0, 0.6 ],
+          [ 0.25, 1.05 ],
+          [ 0.5, 1.5 ],
+          [ 0.75, 2.1 ],
+          [ 1, 3 ]
+        ]
+      },
+      {
+        "input": "tilt",
+        "curve": [
+          [ 0, 1 ],
+          [ 0.1, 1.5 ],
+          [ 0.25, 4.5 ],
+          [ 0.5, 12 ],
+          [ 1, 22 ]
+        ]
+      }
+    ]
+  },
+  "opacity": {
+    "base": 1,
+    "inputs": [
+      {
+        "input": "pressure",
+        "curve": [
+          [ 0, 0.04 ],
+          [ 0.2, 0.14 ],
+          [ 0.5, 0.34 ],
+          [ 1, 0.7 ]
+        ]
+      }
+    ]
+  },
+  "flow": { "base": 0.85 },
+  "spacing": 0.06,
+  "paperGrain": {
+    "enabled": true,
+    "source": "cloud",
+    "depth": {
+      "base": 0.3,
+      "inputs": [
+        {
+          "input": "tilt",
+          "curve": [
+            [ 0, 0.16 ],
+            [ 0.5, -0.04 ],
+            [ 1, -0.08 ]
+          ]
+        },
+        {
+          "input": "pressure",
+          "curve": [
+            [ 0, 0 ],
+            [ 0.5, 0.08 ],
+            [ 1, 0.18 ]
+          ]
+        }
+      ],
+      "combine": "add"
+    },
+    "edge": 0.3,
+    "tiltGradient": 0.5,
+    "radial": 0.08
+  },
+  "paper": {
+    "influence": 1,
+    "directional": 0.1,
+    "wet": 0.9
+  },
+  "accumulate": "buildup",
+  "smoothing": 0.12,
+  "license": "CC0"
+}

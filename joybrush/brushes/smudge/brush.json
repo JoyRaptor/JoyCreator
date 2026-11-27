@@ -22,6 +22,6 @@
   "accumulate": "buildup",
   "blend": "normal",
   "smoothing": 0.4,
-  "smudge": { "pickup": 0.08, "load": 0 },
+  "smudge": { "pickup": 0.45, "load": 0 },
   "license": "CC0"
 }

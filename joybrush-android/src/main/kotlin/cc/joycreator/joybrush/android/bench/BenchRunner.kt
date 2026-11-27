@@ -577,7 +577,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
 
     private fun benchSaveStream(change: String) {
         val file = java.io.File(canvas.context.cacheDir, "bench-savestream.joybrush")
-        if (benchStreamMemo == null) { file.delete(); java.io.File(file.path + ".bak").delete() }
+        val words = change.split(' ').filter { it.isNotEmpty() }
+        // "keep": the file from an earlier run stays (a save killed while writing must leave it whole: JBX-36 S4 on the phone).
+        if (benchStreamMemo == null && "keep" !in words) { file.delete(); java.io.File(file.path + ".bak").delete() }
+        if ("keep" in words) Log.i(TAG, "then: savestream keep: before this save ${file.name} is ${file.length()} bytes, .tmp ${java.io.File(file.path + ".tmp").exists()}, .bak ${java.io.File(file.path + ".bak").length()} bytes")
         // The truth, read the old way and kept as checksums only; the streamed snapshot is asked for right behind it on the
         // graphics thread, so nothing can change between the two.
         canvas.snapshot({ a ->
@@ -591,7 +594,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 val got = benchHeapMb()
                 val report = canvas.lastSparseReport
                 if (!s.streamed) Log.w(TAG, "then: savestream: NOT STREAMED (switch off, no fingerprints, or nothing changed): $report")
-                if (change == "undo") canvas.undo()
+                if ("undo" in words) canvas.undo()
+                if ("keep" in words) Log.i(TAG, "then: savestream keep: writing now")
                 val memoBefore = benchStreamMemo
                 Thread({
                     System.gc()

@@ -498,6 +498,26 @@ class SelectTool(
         return selectAddresses(remaining)
     }
 
+    /** What [selectAlike] matches on (Concepts' "select by" filters, owner 11-27). */
+    enum class Alike { COLOUR, BRUSH }
+
+    /**
+     * Select every pickable line on the active layer that shares a colour (or a brush) with the lines selected now: pick
+     * one red stroke, then Same colour takes all the red ones. False when nothing is selected or nothing matches.
+     */
+    fun selectAlike(by: Alike): Boolean {
+        val selected = (state.current as? SelectionState.Lines)?.ids ?: return false
+        lines = visibleLines()
+        val chosen = lines.filter { it.address in selected }.map { it.record }
+        if (chosen.isEmpty()) return false
+        val colours = chosen.mapTo(HashSet()) { it.colorArgb }
+        val brushes = chosen.mapTo(HashSet()) { it.brushId }
+        val alike = activeLines().filter { (state.pickLocked || !it.locked) &&
+            when (by) { Alike.COLOUR -> it.record.colorArgb in colours; Alike.BRUSH -> it.record.brushId in brushes } }
+            .map { it.address }
+        return selectAddresses((selected + alike).distinct())
+    }
+
     /** Select an exact set of addresses that are currently visible. Used after Paste and history reconciliation. */
     fun selectAddresses(ids: Collection<LineAddress>): Boolean {
         lines = visibleLines()

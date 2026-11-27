@@ -301,6 +301,22 @@ class SelectionSyncTest {
         assertNotNull(b.tool.boxDoc)
     }
 
+    @Test fun sameColourAndSameBrushWidenASelectionOnThisLayerWithoutAStep() {
+        val b = Bench()
+        val red = 0xFFFF0000.toInt()
+        b.rig.publish(mapOf(planeP to listOf(lineRecord("a", 1).copy(colorArgb = red), lineRecord("b", 2, y = 30f).copy(colorArgb = red),
+            lineRecord("d", 3, y = 70f)), planeQ to listOf(lineRecord("c", 1, y = 50f).copy(colorArgb = red))))
+        b.select("a")
+        assertTrue(b.tool.selectAlike(SelectTool.Alike.COLOUR))
+        assertEquals("the other red line on this layer joins; another layer's does not", setOf("a", "b"), b.selectedIds())
+        assertTrue("selecting is not an edit", b.rig.canvas.submitted.isEmpty())
+        b.tool.end(); b.select("d")
+        assertTrue(b.tool.selectAlike(SelectTool.Alike.BRUSH))
+        assertTrue(b.selectedIds().containsAll(setOf("a", "b", "d")))
+        b.tool.end()
+        assertFalse("nothing selected, nothing to match", b.tool.selectAlike(SelectTool.Alike.COLOUR))
+    }
+
     @Test fun cutDeletesTheCopiedLinesAsOneStepOnlyWhileTheyAreStillTheSelection() {
         val b = Bench()
         b.select("a")

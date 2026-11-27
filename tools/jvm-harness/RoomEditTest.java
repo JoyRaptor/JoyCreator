@@ -70,6 +70,14 @@ public class RoomEditTest {
         e.undo();
         ok(!e.undo(), "undo with nothing left says no");
         ok(!hidden(e, ids[0]) && !hidden(e, ids[1]), "all the way back is the file as opened");
+        // a take is part of a step: recording a pass is one undo step, and undo puts the old take back
+        int oldN = e.doc().json.getJSONObject("take").getInt("n");
+        ok(e.apply("Record a pass", doc -> doc.json.put("take", new org.json.JSONObject().put("fps", 30).put("n", 5).put("ch", new org.json.JSONObject()))), "a pass is a step");
+        ok(e.doc().json.getJSONObject("take").getInt("n") == 5, "the new take is in the file after the step");
+        ok(e.undo() && e.doc().json.getJSONObject("take").getInt("n") == oldN, "undo puts the old take back");
+        ok(e.redo() && e.doc().json.getJSONObject("take").getInt("n") == 5, "redo puts the new take back");
+        ok(e.apply("Throw the take away", doc -> doc.json.remove("take")) && !e.doc().json.has("take"), "throwing a take away is a step");
+        ok(e.undo() && e.doc().json.has("take"), "and undo brings it back");
         System.out.println((fail > 0 ? "FAILED " : "PASSED ") + pass + " checks, " + fail + " failures");
         System.exit(fail > 0 ? 1 : 0);
     }

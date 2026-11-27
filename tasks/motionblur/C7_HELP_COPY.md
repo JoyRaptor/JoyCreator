@@ -1,6 +1,6 @@
 # STU-7 Motion Blur help and Joybot copy
 
-This is candidate copy for the rigid-item Motion Blur sheet, grounded in the landed C2 export and C3 preview. Commit `0c995b4a9` on `codex/stu7-finish-20261125` registers the help topic and Joybot tip behind the same `studio_motion_blur` launch key. The host tests verified both states. The deployed sheet and help remain hidden.
+This copy covers the rigid-item Motion Blur sheet, grounded in the landed C2 export and C3 preview. The help topic and Joybot tip landed at `51b838070` behind the same `studio_motion_blur` launch key. [Studio and Joybot](https://github.com/JoyRaptor/JoyCreator/actions/runs/45917532951) passed for the exact help-only source. The host tests verified both gate states. The deployed sheet and help remain hidden.
 
 ## Motion Blur help
 

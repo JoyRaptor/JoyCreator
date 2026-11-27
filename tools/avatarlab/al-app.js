@@ -437,8 +437,15 @@
       var hot = app.drag && app.drag.pin && app.drag.pin.key === p.key, r = hot ? 10 : p.small ? 5.5 : 7.5;
       if (p.pulse || p.hot) { g.beginPath(); g.arc(p.sx, p.sy, r + 6 + (p.pulse ? 3 * Math.sin(Date.now() / 160) : 0), 0, 7); g.strokeStyle = p.color || '#22d3ee'; g.lineWidth = 1.5; g.stroke(); }
       g.beginPath(); g.arc(p.sx, p.sy, r + 2.5, 0, 7); g.fillStyle = 'rgba(3,24,28,.85)'; g.fill();
-      g.beginPath(); g.arc(p.sx, p.sy, r, 0, 7); g.fillStyle = p.color || '#22d3ee'; g.fill();
-      g.beginPath(); g.arc(p.sx, p.sy, 2, 0, 7); g.fillStyle = '#03181c'; g.fill();
+      if (p.state === 'behind') {                            // a landmark round the back: a dashed ring, still in its drawing's colour
+        g.beginPath(); g.setLineDash([3, 2.5]); g.arc(p.sx, p.sy, r - 0.8, 0, 7); g.strokeStyle = p.color || '#22d3ee'; g.lineWidth = 2.2; g.stroke(); g.setLineDash([]);
+      } else if (p.state === 'off') {                        // not here: a grey dot with a line through it
+        g.beginPath(); g.arc(p.sx, p.sy, r - 0.8, 0, 7); g.strokeStyle = p.color || '#71717a'; g.lineWidth = 1.6; g.stroke();
+        g.beginPath(); g.moveTo(p.sx - r * 0.62, p.sy + r * 0.62); g.lineTo(p.sx + r * 0.62, p.sy - r * 0.62); g.stroke();
+      } else {
+        g.beginPath(); g.arc(p.sx, p.sy, r, 0, 7); g.fillStyle = p.color || '#22d3ee'; g.fill();
+        g.beginPath(); g.arc(p.sx, p.sy, 2, 0, 7); g.fillStyle = '#03181c'; g.fill();
+      }
       if (p.label) {
         var tw = g.measureText(p.label).width, lx = p.sx + 14, ly = p.sy + (p.dy || 0); if (lx + tw + 14 > g.canvas.width / dpr) lx = p.sx - 22 - tw;
         g.fillStyle = 'rgba(13,13,16,.78)'; g.beginPath(); g.roundRect(lx - 6, ly - 10, tw + 12, 20, 10); g.fill(); g.fillStyle = '#e4e4e7'; g.fillText(p.label, lx, ly + 0.5);
@@ -530,7 +537,7 @@
         if (hit && staged && AL.stages.stepIn(app, hit.id)) return;                                                              // a second tap on the part in hand goes into it: the layer under the finger
         if (hit) app.selectByNode(hit.id); else if (staged) AL.stages.up(app); return;
       }
-      if (d.pin || d.art) { if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }
+      if (d.pin || d.art) { if (d.pin && d.pin.drop) d.pin.drop(); if (d.pin && d.pin.pick) d.pin.pick(); app.refreshPanel(true); }      // (drop: a guess made when it is let go, inside the same undo step)
     }
 
     /* Perform: what did this finger land on? */
@@ -653,6 +660,7 @@
   app.refreshPanel = function (keepScroll) {
     var pb = $('panelbody'), sc = pb.scrollTop;
     if (app.fpMode && AL.facepins && AL.facepins.panel) { AL.facepins.panel(app); if (keepScroll) pb.scrollTop = sc; return; }   // FACE-1: the Face pins screen
+    if (app.maskMode && AL.maskScreen) { AL.maskScreen.panel(app); if (keepScroll) pb.scrollTop = sc; return; }   // FACE-2: the face mask screen
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (AL.stages) AL.stages.before(app);
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);

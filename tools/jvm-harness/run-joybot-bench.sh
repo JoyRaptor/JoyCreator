@@ -10,6 +10,7 @@
 # Other flags: --out <file.md> (results table), --repeat <n> (live: runs per task), --probe (list tools),
 # --bridge (BOT-6: the computer bridge end to end over HTTP, BridgeE2E).
 # --resume (BOT-A16: a killed VisLab / JoyBrush / TextLab / Studio job carries on, JobResumeE2E).
+# --landings (BOT-7: every create-tree bubble that opens JoyBrush builds the right launch preset, CreateLandingE2E).
 # --recipes (BOT-A33: the recipe file's "offer for new recordings" switch and the trigger, RecipeE2E).
 # Live runs only ever use models whose id ends in ":free" (or openrouter/free) unless --allow-paid is
 # given, which needs the owner's OK. The key is read from the environment and never printed.
@@ -34,7 +35,7 @@ printf -- '-cp "%s"\n' "$CP" > "$OUT/cp.txt"
 javac -nowarn -encoding UTF-8 -d "$OUT/bench" @"$OUT/cp.txt" $(find tools/jvm-harness/joybot-bench/src -name '*.java') || exit 1
 
 MAIN=JoybotBench
-for arg in "$@"; do [ "$arg" = "--probe" ] && MAIN=Probe; [ "$arg" = "--bridge" ] && MAIN=BridgeE2E; [ "$arg" = "--resume" ] && MAIN=com.fadcam.ui.faditor.ai.joybot.JobResumeE2E; [ "$arg" = "--recipes" ] && MAIN=com.fadcam.ui.faditor.ai.joybot.RecipeE2E; done
+for arg in "$@"; do [ "$arg" = "--probe" ] && MAIN=Probe; [ "$arg" = "--bridge" ] && MAIN=BridgeE2E; [ "$arg" = "--resume" ] && MAIN=com.fadcam.ui.faditor.ai.joybot.JobResumeE2E; [ "$arg" = "--recipes" ] && MAIN=com.fadcam.ui.faditor.ai.joybot.RecipeE2E; [ "$arg" = "--landings" ] && MAIN=com.fadcam.ui.faditor.ai.joybot.CreateLandingE2E; done
 [ "$MAIN" != JoybotBench ] && set --
 # jdk.net.unixdomain.tmpdir: on this PC no AF_UNIX socket works under %LOCALAPPDATA%, so any JVM that
 # opens a selector (the fake service, OkHttp) dies with "Unable to establish loopback connection".

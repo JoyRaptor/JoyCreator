@@ -36421,6 +36421,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
             float lowest = pc.getHeight() - puppetHelper.heightPx()
                     - 10f * getResources().getDisplayMetrics().density;
             if (at[1] < floor) at[1] = Math.max(at[1], Math.min(floor, lowest));
+            // STU-4 11-27: when the picture is too short for the strip to sit below the drawer it lies over the drawer's
+            // rows. It then keeps to the RIGHT edge (as in the Selected scope), where the Recording rows leave room for
+            // it (PuppetDrawerTabs reserves its width), instead of dodging left over "Record on touch" and the slider ends.
+            if (at[1] < floor + 1f && puppetHelper.getHeight() > 0 && at[1] + puppetHelper.heightPx() > floor) {
+                at[0] = pc.getWidth() - puppetHelper.widthPx() - 10f * getResources().getDisplayMetrics().density;
+            }
         }
         puppetHelper.setX(at[0]);
         puppetHelper.setY(at[1]);
@@ -47692,10 +47698,42 @@ public class FaditorEditorActivity extends AppCompatActivity {
     }
 
     /** Toggle a tapped yellow candidate: add cut if not cut, remove cut if already cut. */
+    /**
+     * A tap on a silence cuts it, or puts a cut silence back: ONE undo step each way (before
+     * 11-24 neither had a step; tapping again was the only way back).
+     */
     private void convertSilenceCandidate(int segIndex, long startMs, long endMs) {
         Timeline tl = project.getTimeline();
         if (segIndex < 0 || segIndex >= tl.getClipCount()) return;
-        Clip clip = tl.getClip(segIndex);
+        final Clip clip = tl.getClip(segIndex);
+        final List<long[]> spansBefore = copySpans(clip.getRemovedSpans());
+        final List<long[]> candsBefore = copySpans(clip.getSilenceCandidates());
+        convertSilenceCandidateNow(clip, startMs, endMs);
+        final List<long[]> spansAfter = copySpans(clip.getRemovedSpans());
+        final List<long[]> candsAfter = copySpans(clip.getSilenceCandidates());
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.undo_step_silence_cut),
+                () -> putSilenceSpans(clip, spansAfter, candsAfter),
+                () -> putSilenceSpans(clip, spansBefore, candsBefore)));
+    }
+
+    @NonNull
+    private static List<long[]> copySpans(@NonNull List<long[]> src) {
+        List<long[]> out = new ArrayList<>(src.size());
+        for (long[] s : src) out.add(s.clone());
+        return out;
+    }
+
+    private void putSilenceSpans(@NonNull Clip clip, @NonNull List<long[]> spans,
+                                 @NonNull List<long[]> cands) {
+        clip.setRemovedSpans(copySpans(spans));
+        clip.setSilenceCandidates(copySpans(cands));
+        editorTimeline.setTimeline(project.getTimeline(), selectedClipIndex);
+        editorTimeline.invalidate();
+        refreshTotalTimeDisplay();
+        scheduleAutoSave();
+    }
+
+    private void convertSilenceCandidateNow(@NonNull Clip clip, long startMs, long endMs) {
 
         // Check if this span is already in the removedSpans (already cut)
         boolean alreadyCut = false;
@@ -48402,6 +48440,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         long playheadMs = editorTimeline != null ? editorTimeline.getPlayheadPositionMs() : 0;
         ac.setOffsetMs(playheadMs);
         project.getTimeline().addAudioClip(ac);
+        // One undo step, through the same door a voiceover uses (before 11-24 a picked audio
+        // file had no step at all).
+        undoManager.recordAction(new EditActions.AddAudioClipAction(project.getTimeline(), ac, null, false, 1f));
         editorTimeline.setAudioClips(project.getTimeline().getAudioClips());
         selectAndRevealNewObject(ac.getId());   // SPEC_U §3
         // AV4: first-ever audio add → offer eager/lazy waveform analysis (once).

@@ -226,8 +226,22 @@ public final class JoyFolder {
         return r.dir;
     }
 
+    /** Told how many bytes of a copy have been written so far (called on the copying thread, at most every ~1 MB, and at the end). */
+    public interface Progress {
+        void copied(long bytes);
+    }
+
     /** Copy a stream into the folder as a new file, atomically, and index it. */
     public synchronized String addFile(String dir, String desiredName, InputStream in, String origin)
+            throws IOException {
+        return addFile(dir, desiredName, in, origin, null);
+    }
+
+    /**
+     * The same, reporting progress for a big file (FILE-1, large share-ins). The copy streams in 256 KB pieces, so memory
+     * stays flat whatever the size; a failure part way (a stopped source, no room left) deletes the half-written file.
+     */
+    public synchronized String addFile(String dir, String desiredName, InputStream in, String origin, Progress progress)
             throws IOException {
         String name = freeName(dir, desiredName);
         String rel = Placement.join(dir, name);
@@ -235,7 +249,16 @@ public final class JoyFolder {
         try (OutputStream out = fs.create(tmp)) {
             byte[] buf = new byte[256 * 1024];
             int n;
-            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            long total = 0, lastReported = 0;
+            while ((n = in.read(buf)) > 0) {
+                out.write(buf, 0, n);
+                total += n;
+                if (progress != null && total - lastReported >= 1024 * 1024) {
+                    progress.copied(total);
+                    lastReported = total;
+                }
+            }
+            if (progress != null && total != lastReported) progress.copied(total);
         } catch (IOException | RuntimeException e) {
             // the source failed or was stopped part way: no half-written file is left behind
             try {
@@ -268,8 +291,23 @@ public final class JoyFolder {
         JsonObject log = trashLog();
         // Rename in place first so the move into Trash can never collide with another item's name.
         if (!trashName.equals(name) && !fs.rename(rel, trashName)) throw new IOException("Could not trash " + rel);
-        if (!fs.move(Placement.join(dir, trashName), TRASH)) {
-            fs.rename(Placement.join(dir, trashName), name);
+        boolean moved;
+        try {
+            moved = fs.move(Placement.join(dir, trashName), TRASH);
+        } catch (IOException | RuntimeException e) {
+            // A move that THROWS (a full disk, a lost grant) must put the file back under its own name, exactly as one that
+            // returns false does: before, the file stayed in place under its Trash stamp, renamed and not in Trash.
+            if (!trashName.equals(name)) {
+                try {
+                    fs.rename(Placement.join(dir, trashName), name);
+                } catch (IOException | RuntimeException ignored) {
+                    // the first failure is the one to report
+                }
+            }
+            throw e;
+        }
+        if (!moved) {
+            if (!trashName.equals(name)) fs.rename(Placement.join(dir, trashName), name);
             throw new IOException("Could not trash " + rel);
         }
         JsonObject entry = new JsonObject();

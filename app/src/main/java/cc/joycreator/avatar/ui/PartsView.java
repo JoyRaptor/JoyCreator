@@ -40,6 +40,9 @@ public final class PartsView extends ScrollView {
 
         /** One step in the stack: -1 back one, +1 forward one, Integer.MIN_VALUE very back, Integer.MAX_VALUE very front. */
         void restack(String id, int by);
+
+        /** Match the angles of this head (the landmarks screen). */
+        void openLandmarks(String setId);
     }
 
     private final Host host;
@@ -125,6 +128,11 @@ public final class PartsView extends ScrollView {
         scroll.addView(row);
         column.addView(scroll);
         column.addView(body(getContext().getString(R.string.avatar_try_note)));
+        if ("turn".equals(node.pickBy) && node.kids.size() > 1) {
+            LinearLayout lm = new LinearLayout(getContext());
+            lm.addView(chip(getContext().getString(R.string.avatar_marks_title), false, v -> host.openLandmarks(node.id), getContext().getString(R.string.avatar_hover_marks_open)));
+            column.addView(lm);
+        }
     }
 
     // ── Arrange: in front or behind ───────────────────────────────────────────────────────────────

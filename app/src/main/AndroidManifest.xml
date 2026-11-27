@@ -170,6 +170,7 @@
         <!-- "Share to Joy Creator": pictures, clips and sounds from any app land in the Joy Creator folder. -->
         <activity android:name="com.fadcam.joyfolder.studio.ShareInActivity"
             android:theme="@style/Theme.FadCam.ChatAssistant"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|uiMode"
             android:excludeFromRecents="true"
             android:exported="true">
             <intent-filter>

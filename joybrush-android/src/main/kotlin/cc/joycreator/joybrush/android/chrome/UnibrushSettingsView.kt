@@ -140,7 +140,8 @@ class UnibrushSettingsView(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val available = MeasureSpec.getSize(heightMeasureSpec).takeIf { MeasureSpec.getMode(heightMeasureSpec) != MeasureSpec.UNSPECIFIED }
             ?: resources.displayMetrics.heightPixels
-        val cap = minOf(available, (resources.displayMetrics.heightPixels * .70f).toInt())
+        // 70% of a short screen, never more than the Note 9's 70% (592 dp): a taller phone keeps the drawn sizes.
+        val cap = minOf(available, (resources.displayMetrics.heightPixels * .70f).toInt(), kit.dpi(592f))
         preview.layoutParams.height = kit.dpi(if (cap < kit.dpi(400f)) 44f else 84f)
         super.onMeasure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(cap, MeasureSpec.EXACTLY))
     }

@@ -95,7 +95,8 @@ for s in $SUITES; do
         joybot)
             harness joybot-flight "flights," bash tools/jvm-harness/run-joybot-flight.sh
             harness joybot-bench "FAKE run|tasks" bash tools/jvm-harness/run-joybot-bench.sh
-            harness joybot-bridge "passed, .* failed" bash tools/jvm-harness/run-joybot-bench.sh --bridge ;;
+            harness joybot-bridge "passed, .* failed" bash tools/jvm-harness/run-joybot-bench.sh --bridge
+            harness joybot-landings "passed, .* failed" bash tools/jvm-harness/run-joybot-bench.sh --landings ;;
         *) record "$s" 0 0 "unknown suite (known: jb-core jb-androidkit jb-android studio joybot)" ;;
     esac
 done

@@ -358,11 +358,25 @@ public class SpaceActivity extends AppCompatActivity {
                     JoyFolderHome.io().execute(() -> {
                         String msg;
                         try {
-                            int n = StudioMirror.trashFiles(app, paths);
-                            msg = (n == 1 ? "1 file" : n + " files")
-                                    + " moved to Trash. Put them back from Settings → Recently deleted.";
+                            // FILE-1: use is read again NOW (a project may have started using a file since this screen loaded),
+                            // and one failure never stops the others or hides what did move (see TrashBatch).
+                            JoyFolder jf = JoyFolderHome.open(app);
+                            SafJoyFs saf = jf == null ? null : JoyFolderHome.fsOf(jf);
+                            Set<String> usedNow = new java.util.HashSet<>();
+                            if (saf != null) {
+                                Set<String> used = StudioMirror.usedByAnyProject(app);
+                                for (String path : paths) {
+                                    if (used.contains(StudioMirror.usageKey(saf.documentUri(path).toString()))) usedNow.add(path);
+                                }
+                            }
+                            boolean[] allTicked = new boolean[paths.size()];
+                            java.util.Arrays.fill(allTicked, true);
+                            com.fadcam.joyfolder.TrashBatch.Plan plan = com.fadcam.joyfolder.TrashBatch.plan(paths, allTicked, usedNow);
+                            com.fadcam.joyfolder.TrashBatch.Result res = jf == null ? new com.fadcam.joyfolder.TrashBatch.Result()
+                                    : com.fadcam.joyfolder.TrashBatch.run(jf, plan.toTrash, System.currentTimeMillis());
+                            msg = com.fadcam.joyfolder.TrashBatch.summary(res, plan.inUse.size());
                         } catch (Exception e) {
-                            msg = "Couldn't move them all: " + e.getMessage() + ". Nothing was lost.";
+                            msg = "Couldn't move them: " + com.fadcam.joyfolder.SpaceErrors.plain(e) + ". Nothing was lost.";
                         }
                         final String m = msg;
                         runOnUiThread(() -> {

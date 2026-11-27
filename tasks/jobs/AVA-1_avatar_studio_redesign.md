@@ -808,13 +808,23 @@ they want, a centipede; arms that can become feet with one toggle").
       [AVA_PHONE_SPEC.md](../avatar/AVA_PHONE_SPEC.md) (every screen, phone portrait, landscape, tablet, with hover labels),
       [AVA_FORMAT.md](../avatar/AVA_FORMAT.md) (ONE file: `joycreator.character/2` = `/1` with the landmarks below;
       `joycreator.scene/1` unchanged), [format-tests/](../avatar/format-tests/) (`node tasks/avatar/format-tests/run.mjs`:
-      74 checks, 0 failures, 37 planted faults caught; converter and checker `tools/avatarlab/al-format.js`, not loaded by the
-      page), [AVA_PORT_MAP.md](../avatar/AVA_PORT_MAP.md), [AVA_STUDIO_REUSE.md](../avatar/AVA_STUDIO_REUSE.md) (plug in /
+      74 checks, 0 failures, 37 planted faults caught; converter and checker `tools/avatarlab/al-format.js`, loaded by the
+      page since step 0), [AVA_PORT_MAP.md](../avatar/AVA_PORT_MAP.md), [AVA_STUDIO_REUSE.md](../avatar/AVA_STUDIO_REUSE.md) (plug in /
       fix there first / new), [AVA_SLICES.md](../avatar/AVA_SLICES.md) (slice 0 pilot reads the file; 1 character room;
       2 into Studio; 3 scenes), [AVA_HOVER_LABELS.md](../avatar/AVA_HOVER_LABELS.md) (207 controls harvested from the pilot).
       Calls made there: Views, not Compose (the app has none; the pilot's `Phone:` lines are corrected); a new room
       `cc.joycreator.avatar.AvatarRoomActivity` beside the old one; one Java solver proven against pilot golden files;
       a take stays the file's take in Studio (not `AvatarParamTrack`).
+      **Step 0 landed 11-27** (spec session): the pilot reads and writes the shared file (`/1` is upgraded on open; saves
+      are `/2`); the solver reads `set.marks`; the landmarks screen replaces Match two angles (numbered points shared by every
+      angle, Here / Behind / Not here, a new point "not here" in the other angles, a dot let go off the drawing guessed
+      behind, points of other angles hidden, onion skin and See-through kept); Copy an angle copies the landmarks; Joybot
+      tools `marks_add`, `marks_place`, `marks_remove`; `AL.golden` and [golden/topps.golden.json](../avatar/golden/README.md)
+      for the phone solver. Checked by script in the in-app browser: bridge 10/0 with all 5 planted faults caught (the old
+      pair model among them), head turning 33/0 (built-in Topps and his matched head), scene 84/0, stages 43/0, export 29/0,
+      format 74/0. His matched head turns Left Quarter to Upward exactly as the 11-23 fix did (pixels changing at the swap
+      21,697 against 21,738 on the old code): carried over, no worse and no better. Published as his test page v31.
+      **Not checked:** by hand on a phone; his eye on the landmarks screen (owed before slice 1 copies it).
 - [ ] **For the phone spec: ONE set of landmarks per piece (owner's design, 11-23).** The pilot matches angles pair by
       pair, each pair with its own landmarks; three angles round one spot of the pad (Left Quarter, Upward, Frontal)
       then pull one drawing toward different places (fixed in the pilot by sharing the turn out, 0e34e9121, but the

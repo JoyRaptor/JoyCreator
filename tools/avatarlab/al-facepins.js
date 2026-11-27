@@ -86,6 +86,7 @@
    */
   fp.feed = function (inp, face, dt) {
     var ch = inp.app.ch, pts = fp.points(ch), S = inp.S, st = inp.cam && inp.cam._faceStage, k;
+    if (AL.mask && AL.mask.watch) AL.mask.watch(ch).forEach(function (i) { if (pts.indexOf(i) < 0) pts.push(i); });   // FACE-2: the face mask's points too
     if (st && st.watchPoints) st.watchPoints(pts);
     var want = {}, sm = inp.smPins || (inp.smPins = {}), a = 1 - Math.exp(-30 * (dt || 0));
     pts.forEach(function (i) {
@@ -95,6 +96,7 @@
     });
     for (k in want) { var cur = sm[k] == null ? want[k] : sm[k]; cur += (want[k] - cur) * a; sm[k] = cur; S[k] = cur; }
     for (k in S) if (k.slice(0, 3) === 'pt.' && !(k in want)) { delete S[k]; delete sm[k]; }   // a removed pin lets go
+    if (AL.mask && AL.mask.drive) AL.mask.drive(inp, S);                                        // FACE-2: the mask follows
     fp.expressions(inp, face, dt);
   };
 
@@ -120,7 +122,8 @@
     if (n && AL.fit && AL.fit.can && !AL.fit.can(app, n)) return;
     var ui = app.ui, mine = n ? fp.list(app.ch).filter(function (q) { return q.node === n.id; }).length : 0;
     pb.appendChild(ui.lab('Your face', 'setup motion'));
-    pb.appendChild(ui.row([fp.chip(app)]));
+    var isHead = n && AL.mask && AL.maskScreen && AL.mask.headSet(app.ch) === n;
+    pb.appendChild(ui.row(isHead ? [AL.maskScreen.chip(app), fp.chip(app)] : [fp.chip(app)]));          // FACE-2: the face mask, on the turning head
     pb.appendChild(ui.note(mine ? mine + ' face pin' + (mine > 1 ? 's' : '') + ' pull this part. Tap <b>Face pins</b> to add, try or change them.'
       : 'Pin a point of your face (a mouth corner, a cheek, a brow) to any spot on this part: it follows that point. Or let it follow an expression (cheeks puffed, a smile, wide eyes) in its <b>Links</b> or <b>Shapes</b>.'));
   };
@@ -205,12 +208,18 @@
       W.hook = function (dt, liveNow) {
         if (liveNow || !cam.on) return;
         app.inp.watch(); fp.feed(app.inp, cam.face, dt);
-        [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in app.inp.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') S[k] = app.inp.S[k]; });
+        [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in app.inp.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 3) === 'mk.' || k.slice(0, 5) === 'face.') S[k] = app.inp.S[k]; });
       };
       app.hooks.push(W.hook);
     } else if (!on && W.hook) { app.hooks.splice(app.hooks.indexOf(W.hook), 1); W.hook = null; clearStatic(app); }
   };
-  function clearStatic(app) { [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') delete S[k]; }); }
+  function clearStatic(app) { [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 3) === 'mk.' || k.slice(0, 3) === 'mp.' || k.slice(0, 5) === 'face.') delete S[k]; }); }
+  fp.clearStatic = clearStatic;
+  /** For any screen that tries the face in Set up (where the picture otherwise holds still): one frame of the face into the build signals. */
+  fp.tryHook = function (app) {
+    return function (dt, liveNow) { var cam = app.inp.cam; if (liveNow || !cam.on) return; app.inp.watch(); fp.feed(app.inp, cam.face, dt);
+      [app._bs, app.held].forEach(function (S) { if (!S) return; for (var k in S) if (k.slice(0, 3) === 'mp.' && !(k in app.inp.S)) delete S[k]; for (var k2 in app.inp.S) if (k2.slice(0, 3) === 'pt.' || k2.slice(0, 3) === 'mk.' || k2.slice(0, 3) === 'mp.' || k2.slice(0, 5) === 'face.') S[k2] = app.inp.S[k2]; }); };
+  };
 
   /* ── the pins on the stage: numbered, coloured, where they pull now ── */
   function pinLocal(app, q) {

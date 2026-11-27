@@ -6,11 +6,16 @@ import android.graphics.Paint
 import android.graphics.Path
 import android.view.View
 import cc.joycreator.joybrush.core.brush.BrushPreset
+import cc.joycreator.joybrush.core.brush.ENGINE_MEDIA
+import cc.joycreator.joybrush.core.brush.ENGINE_TUFT
+import cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR
+import cc.joycreator.joybrush.core.chrome.Footprint
 import cc.joycreator.joybrush.core.brush.mediaScale
 import cc.joycreator.joybrush.core.brush.scaled
 import cc.joycreator.joybrush.core.media.DOC_PX_PER_MM
 import cc.joycreator.joybrush.core.media.MediaInput
 import kotlin.math.PI
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -56,6 +61,7 @@ class HoverOutlineView(context: Context) : View(context) {
         invalidate()
     }
     private var lastLog = 0L
+    private companion object { const val TRACE_PX = 64f }
 
     fun hide() { if (shown) { shown = false; invalidate() } }
 
@@ -81,11 +87,46 @@ class HoverOutlineView(context: Context) : View(context) {
                 slab(canvas, bx, by, (paste.lenMm * (0.25 + 0.75 * 0.6) * (1 + 0.4 * t)).toFloat() * mm, half, dark, light)
             }
             else -> {
-                val r = max(1.5f * density, p.size.base.toFloat() * zoom / 2)
-                canvas.drawCircle(px, py, r, dark)
-                canvas.drawCircle(px, py, r, light)
+                val shape = dabOutline(p, t)
+                if (shape != null) {
+                    // BRUSH-UI K hover outline: the dab this brush would lay with the pen held like this (Footprint, the same
+                    // outline the editor shows), traced at 64 px and scaled to the brush's size, turned to the pen's lean.
+                    val k = p.size.base.toFloat() * zoom / TRACE_PX
+                    val a = atan2(by, bx)
+                    val ca = cos(a); val sa = sin(a)
+                    path.rewind()
+                    shape.forEachIndexed { i, pt ->
+                        val x = pt[0].toFloat() * k; val y = pt[1].toFloat() * k
+                        val X = px + x * ca - y * sa; val Y = py + x * sa + y * ca
+                        if (i == 0) path.moveTo(X, Y) else path.lineTo(X, Y)
+                    }
+                    path.close()
+                    canvas.drawPath(path, dark)
+                    canvas.drawPath(path, light)
+                } else {
+                    val r = max(1.5f * density, p.size.base.toFloat() * zoom / 2)
+                    canvas.drawCircle(px, py, r, dark)
+                    canvas.drawCircle(px, py, r, light)
+                }
             }
         }
+    }
+
+    private var cachedFor: BrushPreset? = null
+    private var cachedTilt = -1f
+    private var cachedShape: List<DoubleArray>? = null
+
+    /** The dab's outline for this hold, or null for brushes whose footprint is just a circle. Kept while brush and tilt (to 0.05 rad) are unchanged. */
+    private fun dabOutline(p: BrushPreset, t: Float): List<DoubleArray>? {
+        val tiltRad = (Math.round(tilt / 0.05f) * 0.05f).coerceIn(0f, (MediaInput.REACH_DEG * PI / 180).toFloat())
+        if (cachedFor !== p || cachedTilt != tiltRad) {
+            cachedFor = p; cachedTilt = tiltRad
+            cachedShape = try {
+                val o = Footprint.outline(p, Footprint.held(p, tiltRad))
+                if (p.engine in setOf(ENGINE_MEDIA, ENGINE_TUFT, ENGINE_WATERCOLOUR)) null else o
+            } catch (e: Exception) { null }
+        }
+        return cachedShape
     }
 
     /** A strip from the pen's point along ([bx], [by]), [len] px long and [half] px to each side, its far end rounded. */

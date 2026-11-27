@@ -70,3 +70,12 @@ At the end of a non-live blend the preview holds clip B at the blend's length (B
 - `model/path/PathPlan` (pure) works out, once per frame size, everything that decides a path's look: the outline in pixels (`StudioPath.polyline`, 48 points a curve), the line width as a share of the frame HEIGHT (so a 720p preview and a 4K export draw the same thing), the colours, and the rule that only a closed path is filled. `overlay/PathDraw` is the one routine that turns that plan into Canvas calls (fill, then a round-ended line), for both surfaces.
 - Parity test: `run-pathplan.sh` 12 (the export's outline is the preview's scaled point for point; line width follows height; same colours; open paths never filled; empty paths draw nothing; the draw routine reads only the plan; the switch is off).
 - **Not wired into the preview or the export yet, on purpose:** where a path sits among the layers (its z order, and so which preview view and which export pass draws it) is the owner's pick E on the options page (its own Shapes lane, or with the pictures). Wiring is one call in the chosen preview layer and one in `CompositeExportOverlay` (plus its "nothing to draw" check), both through `PathDraw.draw`.
+
+## Owner ruling 11-27: transitions overlap (choice A), with a ripple check
+Clips overlap at a transition, so the project gets shorter by the transition, the way the export already works. That is
+safe only with a check. When adding, lengthening or removing a transition would change the project's length and there
+are layers above it (images, sprites, text, audio) placed after that point, show a light, unintrusive check. It says
+what will happen ("this makes the project 1 s shorter; 6 layers start after this point") and offers, right there:
+move those layers with their clips, or leave them where they are. A "don't ask again" switch for people who know what
+they're doing, and the whole change is one undo step. Owner's options page first (wording, placement, default), then
+the build. This also fixes the odd frame at the cut (preview shows the second clip's head twice).

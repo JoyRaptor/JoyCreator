@@ -356,7 +356,7 @@
     opt = opt || {};
     var self = this, ch = this.ch, ix = AL.ix(ch), st = this.st, set = ch.settings || {};
     var live = !!opt.live, dt = clamp(opt.dt || 1 / 60, 0.001, 1 / 20), force = opt.force || {}, show = opt.show || {};
-    var out = { items: [], pins: {}, M: {}, picks: {}, first: {}, last: {}, tips: {}, meshAt: {}, rootM: null, flipped: false }, late = [];
+    var out = { items: [], pins: {}, M: {}, picks: {}, first: {}, last: {}, tips: {}, meshAt: {}, maskAt: {}, rootM: null, flipped: false }, late = [];
     /* every button is also a level that eases 0..1, so any part can follow a button ("nervous", "angry") smoothly */
     var lvl = st.lvl || (st.lvl = {}); (ch.triggers || []).forEach(function (t) { var w = S.trig && S.trig[t.id] ? 1 : 0; lvl[t.id] = live && lvl[t.id] != null ? lvl[t.id] + (w - lvl[t.id]) * Math.min(1, dt * 9) : w; });
 
@@ -380,6 +380,7 @@
     var TS = M.trs(rt.x, rt.y, 0, rs, rs, axis, gy), rootM = out.rootM = M.mul(TS, M.trs(0, 0, 0, fx, fy, axis, gy)), flipped = out.flipped = st.flip > 0.5;
 
     /* springs and wind run in the character's own space, so turning the whole character around does not whip the hair */
+    var mswap = AL.mask && AL.mask.swapsNow ? AL.mask.swapsNow(ch, S) : null;      // FACE-2: the parts your poses swap now
     var invRoot = M.mul(TS, M.inv(rootM)), moving = live || !!opt.tween, frame = (st.frame = (st.frame || 0) + 1), windIn = (S.wind || 0) * (flipped ? -1 : 1);
     /* the stances that are in play right now, and how far in each is (0..1, eased by whoever drives it; forced while one is being edited) */
     var ZF = {};      /* a limb whose far end comes back in front of what its near end is behind: one shared order per target */
@@ -387,7 +388,7 @@
     var PZ = []; (ch.poses || []).forEach(function (p) { var w = opt.poses && opt.poses[p.id] != null ? opt.poses[p.id] : (S.pose ? S.pose[p.id] || 0 : 0); if (w > 0.0005 || w < -0.0005) PZ.push({ p: p, w: w }); });
     out.B = {};
     function windAcc(x) { return windIn * 1500 * (0.6 + 0.4 * Math.sin(S.t * 1.9 + x * 0.013) + 0.25 * Math.sin(S.t * 4.7 + x * 0.031)); }
-    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0, nc: c.nc, zo: c.zo, post: c.post }; if (over) for (var e in over) k[e] = over[e]; return k; }
+    function ctx(c, Mx, over) { var k = { M: Mx, a: c.a, mir: c.mir, P: c.P, rootIn: c.rootIn, clip: c.clip, tag: c.tag, vs: c.vs, ghost: c.ghost, warp: c.warp, reach: null, ball: c.ball, wrap: c.wrap, rel: c.rel, under: c.under, phase: c.phase, warps: c.warps, P0: c.P0, nc: c.nc, zo: c.zo, post: c.post, post2: c.post2 }; if (over) for (var e in over) k[e] = over[e]; return k; }
     /** The same context with a few things changed (ctx() is for stepping DOWN to a child; this stays on the same node). */
     /* a stance may put a part in front of, or behind, something else while the character is in it */
     function zOf(n) { for (var i = PZ.length - 1; i >= 0; i--) { var d = PZ[i].p.d && PZ[i].p.d[n.id]; if (d && d.z && PZ[i].w > (d.z.at == null ? 0.5 : d.z.at)) return d.z; } return n.zo || null; }
@@ -441,7 +442,7 @@
       return { turnX: -S.turnX, turnY: S.turnY, roll: -S.roll, lookX: -S.lookX, lookY: S.lookY, blinkL: S.blinkR, blinkR: S.blinkL, browL: S.browR, browR: S.browL,
         mouth: S.mouth, viseme: S.viseme, lidUp: S.lidUp, lidLow: S.lidLow, lidTilt: S.lidTilt, wind: -S.wind, breath: S.breath, sway: -S.sway, bounce: S.bounce, hand: S.hand, foot: S.foot, spin: -(S.spin || 0), walk: -(S.walk || 0), armSide: S.armSide, trig: S.trig, pin: S.pin, t: S.t };
     }
-    function sigsFull(mir) { var o = sigs(mir); if (mir) { for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') o[k] = S[k]; o.shrugL = S.shrugR; o.shrugR = S.shrugL; o.shrug = S.shrug; } return o; }   // FACE-1 face pins ride a mirror as they are, like S.pin; SHRUG-1 shrugs swap sides
+    function sigsFull(mir) { var o = sigs(mir); if (mir) { for (var k in S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 3) === 'mk.' || k.slice(0, 3) === 'mp.' || k.slice(0, 5) === 'face.') o[k] = S[k]; o.shrugL = S.shrugR; o.shrugR = S.shrugL; o.shrug = S.shrug; } return o; }   // FACE-1 face pins ride a mirror as they are, like S.pin; SHRUG-1 shrugs swap sides
     var SM = [S, sigsFull(true)];
     function sg(c) { return SM[(c.mir ? 1 : 0) ^ (flipped ? 1 : 0)]; }
 
@@ -603,6 +604,20 @@
       var L = local(n, c); if (L) Mx = M.mul(Mx, L);
       out.M[n.id] = Mx;
       if (gp && !c.ghost) out.meshAt[n.id] = { Q: gp.Q, M: Mx };
+      /* FACE-2: a drawing of a head that wears the face mask bends last, as one piece, by the mask (al-mask.js bendFor): your face's
+         movement turned to this drawing's real turn, held at the drawing's edges. In the head's frame (where the mask is placed). */
+      var tset = ix.p[n.id];
+      if (tset && tset.face && tset.type === 'set' && tset.pick && tset.pick.by === 'turn' && AL.mask && AL.mask.bendFor) {
+        var mb = AL.mask.bendFor(tset, n, sg(c)), Ms = out.M[tset.id] || Mx;
+        if (mb && c.warp && mb.P.length && AL.mask.turnFollow !== false) {                       // mid-turn: the mask's points are where the turn's own bend has carried them (stage 4)
+          var fl = new Float32Array(mb.P.length * 2); mb.P.forEach(function (q, i) { fl[i * 2] = q[0]; fl[i * 2 + 1] = q[1]; });
+          var wv = warpMLS(fl, c.warp.P, c.warp.Q, null, c.warp.K);
+          mb.Q = mb.Q.map(function (q, i) { return [wv[i * 2] + q[0] - mb.P[i][0], wv[i * 2 + 1] + q[1] - mb.P[i][1]]; }); mb.P = mb.P.map(function (q, i) { return [wv[i * 2], wv[i * 2 + 1]]; });
+        }
+        if (mb && !c.ghost) out.maskAt[n.id] = mb;
+        if (mb) { var lat2 = null; if (mb.moved) { var hold2 = AL.sheetHold(n); lat2 = sheetLattice(n, mb.P.concat(hold2), mb.Q.concat(hold2), mb.P.map(function () { return 1; }).concat(hold2.map(function () { return 1; }))); }
+          c = also(c, { post2: lat2 ? { on: true, lat: lat2, M: Ms, I: M.inv(Ms) } : { on: false } }); }
+      }
       if (n.type !== 'art' && n.mesh && n.mesh.last) {          // (the sheet's grid stays as fine at rest, and with no pins left, so nothing jumps)
         var bend = !!(gp && gp.moved), hold = bend ? AL.sheetHold(n) : [];
         var lat = bend ? sheetLattice(n, gp.P.concat(hold), gp.Q.concat(hold), gp.K.concat(hold.map(function () { return 1; }))) : null;
@@ -626,6 +641,7 @@
       var s = sg(c), pk = n.pick || {}, kids = n.kids || [], cur = null, i, k;
       if (!kids.length) return;
       var forced = force[n.id] && ix.n[force[n.id]] && ix.p[force[n.id]] === n ? ix.n[force[n.id]] : null;
+      if (!forced && mswap && mswap[n.id] && ix.n[mswap[n.id]] && ix.p[mswap[n.id]] === n) forced = ix.n[mswap[n.id]];      // FACE-2: a strong pose shows another drawing (an open mouth)
       var trigKid = null;
       for (i = 0; i < kids.length; i++) if (kids[i].trig && s.trig[kids[i].trig]) { trigKid = kids[i]; break; }
       var prevId = st.pick[n.id], prev = prevId && ix.p[prevId] === n ? ix.n[prevId] : null, T = null;
@@ -788,7 +804,7 @@
       var im = AL.img.get(n.img); if (!im) return;
       var s = sg(c), limbOn = n.limb && c.reach && n.limb.bend !== false, bendOn = n.swing && n.swing.kind !== 'stiff' && live && n.swing.on !== false, brOn = n.breathe && n.breathe.on !== false && s.breath, meshOn = n.mesh && n.mesh.pins && n.mesh.pins.length;
       var wrapOn = moving && c.ball && c.wrap === 'on', behind = null;
-      var dense = (meshOn || wrapOn || limbOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp || c.post) ? 1 : 0;
+      var dense = (meshOn || wrapOn || limbOn) ? 2 : (n.limb || (n.swing && n.swing.kind !== 'stiff') || n.breathe || c.warp || c.post || c.post2) ? 1 : 0;
       var g = self.grid(n, im, dense), i, zs = (n.zSplit && n.limb && !c.lift && !c.ghost && !c.zo) ? n.zSplit : null;
       var zt = (c.zo && c.zo.how === 'under' && c.zo.tip != null && n.limb && !c.lift && !c.ghost) ? c.zo : null;      // in a stance: the shoulder behind something, the hand in front of it
       if (zs) g = self.splitGrid(g, n.limb, zs.at == null ? 0.5 : zs.at, zs.behind === 'tip'); else if (zt) g = self.splitGrid(g, n.limb, zt.tip, false);
@@ -839,6 +855,7 @@
       if (c.post && c.post.on) {                                // the one-piece sheet this slice belongs to bends it last, in the sheet's own frame
         bendBySheet(w, c.post);
       }
+      if (c.post2 && c.post2.on) bendBySheet(w, c.post2);        // FACE-2: the face mask, last of all
       var item = { id: n.id, img: n.img, v: w, uv: g.uv, idx: g.idx, a: c.a * (n.opacity == null ? 1 : n.opacity), under: c.lift ? null : (n.zUnder || c.under || null), ghost: !!c.ghost, nx: g.nx, ny: g.ny, clip: c.clip || null, tag: c.tag || '', nc: !!c.nc };
       if (c.zo && !c.lift && !c.ghost) { item.under = null; item.zo = c.zo; }
       if (behind && !zs && !zt) { var ki = [], gi = g.idx; for (i = 0; i < gi.length; i += 3) if (!behind[gi[i]] && !behind[gi[i + 1]] && !behind[gi[i + 2]]) ki.push(gi[i], gi[i + 1], gi[i + 2]); if (!ki.length) return; item.idx = new Uint16Array(ki); }

@@ -133,14 +133,14 @@
   var HAND = { hLx: ['L', 0], hLy: ['L', 1], hRx: ['R', 0], hRy: ['R', 1], fLx: ['FL', 0], fLy: ['FL', 1], fRx: ['FR', 0], fRy: ['FR', 1] };
   var STEP = { vis: 1, flip: 1, hLw: 1, hRw: 1 }, FADE = 0.25;      // (hLw, hRw: that hand is WALKING, planted on the stage like a foot; see al-take-walk.js)
   AL.TAKE_LANES = [['head', 'Head'], ['mouth', 'Mouth'], ['mood', 'Mood'], ['blink', 'Blink'], ['handL', 'Left hand'], ['handR', 'Right hand'], ['body', 'Body and feet'], ['other', 'Buttons, wind, pins']];
-  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'pt.' || name.slice(0, 5) === 'face.') return 'facepins'; if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
+  P.ownerOf = function (name) { if (OWN[name]) return OWN[name]; var p = name.slice(0, 3); if (p === 'pt.' || p === 'mk.' || p === 'mp.' || name.slice(0, 5) === 'face.') return 'facepins'; if (p === 'dx:' || p === 'dy:') return 'head'; if (name.slice(0, 2) === 'p:') return name.slice(0, name.lastIndexOf(':')); return name; };
   P.channels = function () {
     var seen = {}, out = [], k; function add(n) { if (!seen[n]) { seen[n] = 1; out.push(n); } }
     for (k in OWN) add(k);
     for (k in this.pose.dial) { add('dx:' + k); add('dy:' + k); }
     (this.app.ch.triggers || []).forEach(function (t) { add('g:' + t.id); });
     for (k in this.S.pin) { add('p:' + k + ':x'); add('p:' + k + ':y'); }
-    for (k in this.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 5) === 'face.') add(k);   // FACE-1 face pins and expressions
+    for (k in this.S) if (k.slice(0, 3) === 'pt.' || k.slice(0, 3) === 'mk.' || k.slice(0, 3) === 'mp.' || k.slice(0, 5) === 'face.') add(k);   // FACE-1 face pins and expressions; FACE-2 the face mask
     if (this.take) for (k in this.take.ch) add(k);                  // whatever the take holds is played, even after a reload
     return out;
   };
@@ -198,7 +198,7 @@
     trigs.forEach(function (t) { o['g:' + t.id] = S.trig[t.id] ? 1 : 0; });
     for (k in (S.dial || {})) { o['dx:' + k] = S.dial[k][0]; o['dy:' + k] = S.dial[k][1]; }
     for (k in (S.pin || {})) { o['p:' + k + ':x'] = S.pin[k].x; o['p:' + k + ':y'] = S.pin[k].y; }
-    for (var pk in S) if (pk.slice(0, 3) === 'pt.' || pk.slice(0, 5) === 'face.') o[pk] = S[pk];   // FACE-1 face pins and expressions
+    for (var pk in S) if (pk.slice(0, 3) === 'pt.' || pk.slice(0, 3) === 'mk.' || pk.slice(0, 3) === 'mp.' || pk.slice(0, 5) === 'face.') o[pk] = S[pk];   // FACE-1 face pins and expressions; FACE-2 the mask
     o.shrugL = S.shrugL || 0; o.shrugR = S.shrugR || 0; o.shrug = S.shrug || 0;   // SHRUG-1
     return o;
   }

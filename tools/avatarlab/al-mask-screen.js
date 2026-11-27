@@ -45,11 +45,26 @@
   }
   ms.close = function (app) {
     var W = app.maskMode; if (!W) return;
+    ms.test(app, false);
     stageOff(app); layerOff(app);
     if (W.hadForce) app.force[W.set] = W.prevForce; else delete app.force[W.set];
     if (W.shapeEdit && !app.shapeEdit) app.shapeEdit = W.shapeEdit;
     var ph = $('panelhead'); if (ph) ph.style.display = W.headShown || '';
     app.maskMode = null; app.refreshPanel(true);
+  };
+  /** Test: your face drives the mask (in Set up too, where the picture otherwise holds still); the camera follows always while testing. */
+  ms.test = function (app, on) {
+    var W = app.maskMode; if (!W) return;
+    var cam = app.inp.cam;
+    if (on && !W.tryHook) {
+      W.camMode = cam.mode; W.camWasOn = !!cam.on;
+      if (!cam.on && !(AL.intake && AL.intake.hosted)) { app.toast('Starting the face camera\u2026'); app.inp.camStart().then(function () { cam.mode = 'always'; app.toast('Relax and look at the phone: that is your neutral face.'); app.refreshPanel(true); }).catch(function () { app.toast('The face camera could not start here.'); }); }
+      else cam.mode = 'always';
+      W.tryHook = AL.facepins.tryHook(app); app.hooks.push(W.tryHook);
+    } else if (!on && W.tryHook) {
+      var k = app.hooks.indexOf(W.tryHook); if (k >= 0) app.hooks.splice(k, 1); W.tryHook = null; AL.facepins.clearStatic(app);
+      if (cam.on) cam.mode = W.camWasOn && W.camMode ? W.camMode : 'always';
+    }
   };
   /** Show another drawing of the head. */
   ms.goTo = function (app, id) { var W = app.maskMode; if (!W) return; W.angle = id; W.sel = null; W.adding = false; app.force[W.set] = id; app.refreshPanel(true); frame(app); };
@@ -60,12 +75,14 @@
   /** Each point of the mask on the drawing shown, in stage pixels, from its landmark row (what is drawn there). */
   ms.points = function (app) {
     var W = app.maskMode, set = setOf(app), mk = set && AL.mask.piece(set); if (!W || !mk) return [];
-    var row = mk.at[W.angle] || [];
+    var row = mk.at[W.angle] || [], see = W.pose ? (W.see == null ? 1 : W.see) : 0;
     return mk.pts.map(function (p, i) {
-      var q = row[i], at = W.drag && W.drag.i === i ? W.drag : toStage(app, set, q); if (!at) return null;
+      var q = row[i], off = W.pose && AL.maskPoses ? AL.maskPoses.offsetOf(set, W.pose, W.angle, p.n) : null;
+      if (q && off) q = [q[0] + off[0] * see, q[1] + off[1] * see].concat(q.length > 2 ? [q[2]] : []);
+      var at = W.drag && W.drag.i === i ? W.drag : toStage(app, set, q); if (!at) return null;
       var st = AL.marks.stateOf(q), ours = AL.mask.ours(p);
       return { i: i, x: at.x, y: at.y, p: p, state: st, mine: !ours || AL.mask.isMine(set, W.angle, i), ours: ours, big: !!p.handle,
-        shown: !ours || !!p.handle || p.mask || W.all || W.sel === i || AL.mask.isMine(set, W.angle, i) };
+        shown: !ours || !!p.handle || p.mask || W.all || W.sel === i || AL.mask.isMine(set, W.angle, i) || !!(W.pose && p.face) };
     });
   };
 
@@ -76,8 +93,13 @@
     W.svg.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none;z-index:25;overflow:visible';
     st.appendChild(W.svg);
     W.hook = function () { ms.draw(app); }; app.hooks.push(W.hook);
+    W.preHook = function () {                                          // a pose open: the head shows it at See it at (Set up holds still otherwise)
+      var bs = app._bs; if (!bs || W.tryHook) return; for (var k in bs) if (k.slice(0, 3) === 'mp.') delete bs[k];
+      if (W.pose) bs['mp.' + W.pose] = W.see == null ? 1 : W.see;
+    };
+    app.hooks.unshift(W.preHook);
   }
-  function layerOff(app) { var W = app.maskMode; if (W.hook) { var i = app.hooks.indexOf(W.hook); if (i >= 0) app.hooks.splice(i, 1); } if (W.svg && W.svg.parentNode) W.svg.parentNode.removeChild(W.svg); }
+  function layerOff(app) { var W = app.maskMode; if (W.capT) clearTimeout(W.capT); [W.hook, W.preHook].forEach(function (hk) { var i = hk ? app.hooks.indexOf(hk) : -1; if (i >= 0) app.hooks.splice(i, 1); }); var bs = app._bs; if (bs) for (var k in bs) if (k.slice(0, 3) === 'mp.') delete bs[k]; if (W.svg && W.svg.parentNode) W.svg.parentNode.removeChild(W.svg); }
   function el(tag, at) { var e = document.createElementNS(NS, tag); for (var k in at) e.setAttribute(k, at[k]); return e; }
   ms.draw = function (app) {
     var W = app.maskMode; if (!W || !W.svg) return;
@@ -159,6 +181,12 @@
   /** Drop point i where the finger let go (stage pixels): yours there, the rest of the mask refits round it. */
   ms.movePoint = function (app, i, p) {
     var W = app.maskMode, set = setOf(app), l = set && toSet(app, set, p); if (!l) return false;
+    if (W.pose && AL.maskPoses) {                                      // posing: the point's move in this pose, at full strength
+      var mk0 = AL.mask.piece(set), q0 = mk0.at[W.angle] && mk0.at[W.angle][i], see = W.see == null ? 1 : W.see; if (!q0) return false;
+      var pz = AL.maskPoses.get(set, W.pose), n0 = mk0.pts[i].n;
+      app.edit(function () { AL.maskPoses.move(set, W.pose, W.angle, n0, (l[0] - q0[0]) / Math.max(0.1, see), (l[1] - q0[1]) / Math.max(0.1, see)); }, false, 'Pose ' + (pz ? pz.name : '') + ': move ' + (mk0.pts[i].name || 'a point'));
+      W.sel = i; app.refreshPanel(true); return true;
+    }
     var name = (AL.mask.piece(set).pts[i] || {}).name || 'a point';
     app.edit(function () { AL.mask.place(set, W.angle, i, Math.round(l[0] * 10) / 10, Math.round(l[1] * 10) / 10); }, false, 'Move ' + name);
     W.sel = i; app.refreshPanel(true); return true;
@@ -174,7 +202,7 @@
   function stripOf(app, set, sol) {
     var W = app.maskMode;
     return h('div', { style: 'display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;margin:0 0 4px' }, AL.mask.angles(set).map(function (k) {
-      var A = sol.angles[k.id] || {}, you = A.placed > 0 || A.ok, on = k.id === W.angle;
+      var A = sol.angles[k.id] || {}, you = W.pose && AL.maskPoses ? AL.maskPoses.statusOn(set, W.pose, k.id) === 'you' : A.placed > 0 || A.ok, on = k.id === W.angle;
       var dot = h('span', { style: 'position:absolute;right:3px;top:3px;width:9px;height:9px;border-radius:50%;' + (you ? 'background:' + CYAN : 'border:2px solid ' + PINK + ';box-sizing:border-box') });
       return h('button', { style: 'flex:none;width:66px;padding:3px;border-radius:10px;background:' + (on ? '#18181b' : 'transparent') + ';border:1px solid ' + (on ? CYAN : '#27272a') + ';color:#d4d4d8;position:relative',
         title: k.name + ': ' + (A.turn ? AL.mask.turnWords(A.turn, true) : '') + (you ? ' · placed by you' : ' · carried, worth a look'), onclick: function () { ms.goTo(app, k.id); } }, [
@@ -190,10 +218,19 @@
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (app.coach) app.coach(W.adding ? '<b>Add a point:</b> tap the drawing where it goes (a horn tip, a frill edge).' : '<b>Face mask.</b> Drag the big handles onto his eyes, nose and mouth ends; the rest follows. A point you place stays put.');
     pb.innerHTML = '';
+    var testing = !!W.tryHook;
     pb.appendChild(h('div', { class: 'rowf', style: 'align-items:center;gap:8px;margin:2px 0 6px' }, [
       h('b', { style: 'font-size:15px', text: 'Face mask' }), h('span', { style: 'flex:1;font-size:12px;color:#a1a1aa', text: kid ? kid.name + ' · ' + AL.mask.turnWords(A.turn) : '' }),
+      ui.chip(testing ? 'Stop' : 'Test', { on: testing, icon: testing ? 'stop' : 'play', cls: testing ? '' : 'go', title: testing ? 'Stop testing: the head holds still again' : 'Test the mask: move your face and watch the head follow, on this drawing', fn: function () { ms.test(app, !testing); app.refreshPanel(true); } }),
       ui.chip('Done', { cls: 'go', title: 'Close the face mask and go back to the head', fn: function () { ms.close(app); } })]));
+    var gs = ui.slider('All points', { min: 0, max: 3, step: 0.05, value: AL.mask.gain(set), fmt: function (v) { return (Math.round(v * 100) / 100) + '\u00d7'; },
+      title: 'How far the whole mask moves for how far your face moves', set: function (v) { AL.mask.setGain(set, v); } });
+    gs.style.margin = '0 0 4px'; pb.appendChild(gs);
+    pb.appendChild(ui.seg([['mask', 'Mask', 'Put the mask on each drawing'], ['poses', 'Poses', 'Your expressions: make the face, then pose him']], W.tab || 'mask', function (v) {
+      if (v === 'poses' && AL.maskPoses && !AL.maskPoses.list(set).length) app.edit(function () { AL.maskPoses.ensure(set); AL.maskPoses.carry(set); }, false, 'Poses');
+      W.tab = v; W.pose = null; W.sel = null; W.adding = false; app.refreshPanel(true); }, 'Face mask'));
     pb.appendChild(stripOf(app, set, sol));
+    if (W.tab === 'poses' && AL.maskPoses) { posesPanel(app, set, pb); return true; }
     var counts = { you: 0, carried: 0 }; Object.keys(sol.angles).forEach(function (id) { var a = sol.angles[id]; if (a.placed > 0 || a.ok) counts.you++; else counts.carried++; });
     pb.appendChild(ui.note('<b>' + counts.you + '</b> placed by you · <b>' + counts.carried + '</b> carried, worth a look. Every drawing starts from your others, turned to it; you only fix what reads wrong.'));
     pb.appendChild(ui.row([
@@ -249,6 +286,72 @@
     }
     return box;
   }
+  /* ── poses ── */
+  function posesPanel(app, set, pb) {
+    var W = app.maskMode, ui = app.ui, MP = AL.maskPoses, f = AL.mask.data(set);
+    if (W.pose && MP.get(set, W.pose)) { posePanel(app, set, pb, MP.get(set, W.pose)); return; }
+    W.pose = null;
+    pb.appendChild(ui.note('Each pose is two steps: <b>make the face</b> at the camera, then <b>pose him</b>: drag his points into your version of it. Made on one drawing, it is carried to the others.'));
+    MP.list(set).forEach(function (p) {
+      var on = Object.keys(p.at || {}).filter(function (a) { return Object.keys(p.at[a]).length; }).length;
+      pb.appendChild(h('div', { class: 'rowf', style: 'align-items:center;gap:8px;padding:6px 4px;border-bottom:1px solid #27272a' }, [
+        h('span', { style: 'flex:1;min-width:0' }, [h('b', { text: p.name }), h('div', { style: 'font-size:12px;color:#a1a1aa', text: (p.face ? 'face kept' : 'face not made yet') + ' · ' + (on ? 'posed on ' + on + ' drawing' + (on > 1 ? 's' : '') : 'not posed yet') })]),
+        ui.chip('Open', { title: 'Make the face and pose him for ' + p.name, fn: function () { W.pose = p.id; W.see = 1; W.sel = null; app.refreshPanel(true); } })]));
+    });
+    pb.appendChild(ui.row([ui.chip('Add your own', { icon: 'plus', title: 'A pose of your own (a sneer, a roar)', fn: function () { var id; app.edit(function () { id = MP.add(set); }, false, 'Add a pose'); W.pose = id; W.see = 1; app.refreshPanel(true); } })]));
+    pb.appendChild(ui.slider('Directly', { min: 0, max: 1, step: 0.05, value: f.direct == null ? 1 : f.direct, fmt: function (v) { return Math.round(v * 100) + '%'; },
+      title: 'What your poses do not explain still follows your face directly, this much', set: function (v) { f.direct = v; } }));
+  }
+  function posePanel(app, set, pb, p) {
+    var W = app.maskMode, ui = app.ui, MP = AL.maskPoses, st = MP.statusOn(set, p.id, W.angle), kid = AL.node(app.ch, W.angle);
+    var name = h('input', { type: 'text', value: p.name, 'aria-label': 'Pose name', title: 'The pose’s name', style: 'flex:1;min-width:0;background:#0c0c0e;border:1px solid #27272a;border-radius:8px;color:#e4e4e7;padding:6px 8px;font:inherit;font-weight:650' });
+    name.addEventListener('change', function () { var v = name.value; app.edit(function () { MP.rename(set, p.id, v); }, false, 'Rename a pose'); app.refreshPanel(true); });
+    pb.appendChild(h('div', { class: 'rowf', style: 'align-items:center;gap:8px;margin:4px 0' }, [ui.chip('All poses', { icon: 'back', title: 'Back to the list of poses', fn: function () { W.pose = null; W.sel = null; app.refreshPanel(true); } }), name]));
+    var cam = app.inp.cam;
+    pb.appendChild(h('div', { style: 'border:1px solid #27272a;border-radius:12px;padding:8px;margin:6px 0' }, [
+      h('div', { style: 'font-weight:650', text: (p.face ? '✓ ' : '1 · ') + 'Make the face' }),
+      ui.note(p.cue + ' Hold it and tap <b>Capture</b>. Only where the points of your face are is kept, never a picture.'),
+      ui.row([ui.chip(W.capturing ? 'Hold it… ' + W.capturing : p.face ? 'Again' : 'Capture', { icon: 'cam', cls: p.face ? '' : 'go', title: 'Count three, then keep your face as it is then', fn: function () { capture(app, set, p); } })])
+    ]));
+    pb.appendChild(h('div', { style: 'border:1px solid #27272a;border-radius:12px;padding:8px;margin:6px 0' }, [
+      h('div', { style: 'font-weight:650', text: '2 · Pose him' + (kid ? ' on ' + kid.name : '') }),
+      ui.note(p.idea + ' Drag any point; the whole head bends as one piece. ' + (st === 'you' ? 'Posed by you on this drawing.' : st === 'carried' ? 'Carried here from another drawing: fix it here if it reads wrong.' : 'Not posed yet.')),
+      ui.row([
+        p.face ? ui.chip('Start from your face', { title: 'Begin from the face you made, turned to this drawing', fn: function () { app.edit(function () { MP.guess(set, p.id, W.angle); }, false, 'Pose from your face'); app.refreshPanel(true); } }) : null,
+        st === 'you' ? ui.chip('Clear here', { icon: 'x', title: 'Take this pose off this drawing (it is carried from the others again)', fn: function () { app.edit(function () { MP.clearAngle(set, p.id, W.angle); }, false, 'Clear the pose here'); app.refreshPanel(true); } }) : null
+      ].filter(Boolean)),
+      ui.slider('See it at', { min: 0, max: 1, step: 0.05, value: W.see == null ? 1 : W.see, undo: false, fmt: function (v) { return Math.round(v * 100) + '%'; }, title: 'How strong the pose shows here, to check the in-between', set: function (v) { W.see = v; } })
+    ]));
+    var parts = kid ? MP.swappable(kid) : [];
+    if (parts.length) {
+      var box = h('div', { style: 'border:1px solid #27272a;border-radius:12px;padding:8px;margin:6px 0' }, [h('div', { style: 'font-weight:650', text: 'Swap a drawing (optional)' }), ui.note('While this pose is strong, a part can show another of its drawings on this drawing (his open mouth).')]);
+      var cur = (p.swap && p.swap[W.angle]) || {};
+      parts.forEach(function (sp) {
+        box.appendChild(h('div', { style: 'font-size:12px;color:#a1a1aa;margin-top:4px', text: sp.name || 'A part' }));
+        box.appendChild(ui.row([ui.chip('As painted', { on: !cur[sp.id], fn: function () { app.edit(function () { MP.swapSet(set, p.id, W.angle, sp.id, null); }, false, 'Swap: as painted'); app.refreshPanel(true); } })].concat((sp.kids || []).map(function (k2) {
+          return ui.chip(k2.name || k2.shape || 'drawing', { on: cur[sp.id] === k2.id, title: 'Show this drawing while the pose is strong', fn: function () { app.edit(function () { MP.swapSet(set, p.id, W.angle, sp.id, k2.id); }, false, 'Swap a drawing'); app.refreshPanel(true); } });
+        }))));
+      });
+      pb.appendChild(box);
+    }
+    if (!/^(smile|jaw|brows|puff|pucker)$/.test(p.id)) pb.appendChild(ui.row([ui.chip('Remove this pose', { cls: 'quiet', icon: 'x', fn: function () { app.edit(function () { MP.remove(set, p.id); }, false, 'Remove a pose'); W.pose = null; app.refreshPanel(true); } })]));
+    void cam;
+  }
+  /** Make the face: three, two, one, then keep how the mask's face points moved (the camera on; Test switched on for it). */
+  function capture(app, set, p) {
+    var W = app.maskMode; if (W.capturing) return;
+    if (!W.tryHook) ms.test(app, true);
+    var n = 3; W.capturing = n; app.refreshPanel(true);
+    var tick = function () {
+      if (!app.maskMode || app.maskMode !== W) return;
+      n--; if (n > 0) { W.capturing = n; app.refreshPanel(true); W.capT = setTimeout(tick, 700); return; }
+      W.capturing = null; var raw = app.inp._mkRaw, ok = false;
+      app.edit(function () { ok = AL.maskPoses.capture(set, p.id, raw); }, false, 'Make the face: ' + p.name);
+      app.toast(ok ? 'Kept. Now pose him: drag his points.' : 'No face seen. Look at the phone and try again.'); app.refreshPanel(true);
+    };
+    W.capT = setTimeout(tick, 700);
+  }
+  ms.capture = function (app, id) { var set = setOf(app), p = AL.maskPoses.get(set, id); if (p) capture(app, set, p); };
   ms.naming = function (app) {
     var rows = AL.mask.NAMING.map(function (r) { return h('div', { style: 'padding:4px 0;border-bottom:1px solid #27272a' }, [h('b', { text: r[0] }), r[1] ? h('span', { style: 'color:#a1a1aa', text: '  ' + r[1] }) : null]); });
     app.sheet('Naming guide', h('div', null, [app.ui.note('Name the slices of each drawing like this and <b>Snap to parts</b> puts the mask on for you. Left and right are the character’s own; capitals and spaces do not matter.')].concat(rows)),

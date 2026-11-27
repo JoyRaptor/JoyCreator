@@ -1,0 +1,19 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :core:compileTestKotlinJvm
+> Task :core:compileJvmTestJava NO-SOURCE
+> Task :core:jvmTestClasses
+
+> Task :core:jvmTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 1m 40s
+4 actionable tasks: 4 executed

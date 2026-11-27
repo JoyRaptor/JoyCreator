@@ -1,0 +1,35 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Error while receiving file changes
+net.rubygrapefruit.platform.NativeException: Error received when handling events, error = 87: C:\Users\JoyRaptor\AppData\Local\Temp\jbclean\joybrush
+	at org.gradle.fileevents.internal.AbstractNativeFileEventFunctions$NativeFileWatcher.executeRunLoop0(Native Method)
+	at org.gradle.fileevents.internal.AbstractNativeFileEventFunctions$NativeFileWatcher.executeRunLoop(AbstractNativeFileEventFunctions.java:32)
+	at org.gradle.fileevents.internal.AbstractFileEventFunctions$AbstractFileWatcher$1.run(AbstractFileEventFunctions.java:154)
+> Task :core:compileKotlinJvm UP-TO-DATE
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses UP-TO-DATE
+> Task :core:jvmJar UP-TO-DATE
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :androidkit:compileKotlin UP-TO-DATE
+> Task :androidkit:compileJava NO-SOURCE
+> Task :androidkit:processResources UP-TO-DATE
+> Task :androidkit:classes UP-TO-DATE
+> Task :androidkit:jar UP-TO-DATE
+> Task :androidkit:compileTestKotlin UP-TO-DATE
+> Task :androidkit:compileTestJava NO-SOURCE
+> Task :androidkit:processTestResources NO-SOURCE
+> Task :androidkit:testClasses UP-TO-DATE
+> Task :androidkit:test UP-TO-DATE
+> Task :core:compileTestKotlinJvm
+> Task :core:compileJvmTestJava NO-SOURCE
+> Task :core:jvmTestClasses
+
+> Task :core:jvmTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 31s
+9 actionable tasks: 2 executed, 7 up-to-date

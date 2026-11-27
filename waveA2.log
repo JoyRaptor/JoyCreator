@@ -1,0 +1,409 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+Error while receiving file changes
+net.rubygrapefruit.platform.NativeException: Error received when handling events, error = 87: C:\Users\JoyRaptor\AppData\Local\Temp\jbclean\joybrush
+	at org.gradle.fileevents.internal.AbstractNativeFileEventFunctions$NativeFileWatcher.executeRunLoop0(Native Method)
+	at org.gradle.fileevents.internal.AbstractNativeFileEventFunctions$NativeFileWatcher.executeRunLoop(AbstractNativeFileEventFunctions.java:32)
+	at org.gradle.fileevents.internal.AbstractFileEventFunctions$AbstractFileWatcher$1.run(AbstractFileEventFunctions.java:154)
+> Task :core:compileKotlinJvm UP-TO-DATE
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses UP-TO-DATE
+> Task :core:jvmJar UP-TO-DATE
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :androidkit:compileKotlin UP-TO-DATE
+> Task :androidkit:compileJava NO-SOURCE
+> Task :androidkit:processResources UP-TO-DATE
+> Task :androidkit:classes UP-TO-DATE
+> Task :androidkit:jar UP-TO-DATE
+> Task :androidkit:processTestResources NO-SOURCE
+> Task :androidkit:compileTestKotlin
+> Task :androidkit:compileTestJava NO-SOURCE
+> Task :androidkit:testClasses UP-TO-DATE
+
+> Task :androidkit:test
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+> Task :core:compileTestKotlinJvm FAILED
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt:258:40 Unresolved reference 'genericTypeArguments'.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt:263:41 Argument type mismatch: actual type is 'Type!', but 'Class<*>' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt:266:75 Argument type mismatch: actual type is 'Type!', but 'Class<*>' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:287:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:287:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:288:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:288:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:289:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:289:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:290:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:290:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:291:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:291:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:292:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:292:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:293:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:293:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:294:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:294:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:295:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:295:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:296:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:296:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:297:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:297:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:302:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:302:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:303:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:303:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:304:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:304:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:305:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:305:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:306:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:306:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:307:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:307:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:308:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:308:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:309:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:309:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:310:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:310:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:311:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:311:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:312:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:312:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:313:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:313:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:314:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:314:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:315:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:315:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:316:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:316:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:317:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:317:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:318:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:318:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:322:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:322:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:323:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:323:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:324:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:324:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:325:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:325:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:326:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:326:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:327:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:327:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:328:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:328:19 None of the following candidates is applicable:
+fun le32(b: ByteArray, at: Int): Long
+fun le32(bytes: ByteArray, at: Int, what: String): Long
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:329:19 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/brush/imports/KritaBundleInflateTest.kt:329:19 None of the following candidates is applicable:
+fun le16(b: ByteArray, at: Int): Int
+fun le16(bytes: ByteArray, at: Int, what: String): Int
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':core:compileTestKotlinJvm'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 1m 6s
+8 actionable tasks: 3 executed, 5 up-to-date

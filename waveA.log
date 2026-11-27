@@ -1,0 +1,84 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :androidkit:processResources
+> Task :androidkit:processTestResources NO-SOURCE
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :androidkit:compileKotlin
+> Task :androidkit:compileJava NO-SOURCE
+> Task :androidkit:classes
+> Task :androidkit:jar
+> Task :androidkit:compileTestKotlin
+> Task :androidkit:compileTestJava NO-SOURCE
+> Task :androidkit:testClasses UP-TO-DATE
+
+> Task :androidkit:test
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+> Task :core:compileTestKotlinJvm FAILED
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:107:52 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:109:53 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:118:52 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:118:58 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:119:53 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:119:59 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:120:46 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/ImportSupportTest.kt:120:58 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/PngChunksTest.kt:281:43 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/commonTest/kotlin/cc/joycreator/joybrush/core/brush/imports/PngChunksTest.kt:281:49 Argument type mismatch: actual type is 'Int', but 'Byte' was expected.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt:190:31 Method 'iterator()' is ambiguous for this expression. Applicable candidates:
+fun <T> Enumeration<T>.iterator(): Iterator<T>
+fun <T> Iterator<T>.iterator(): Iterator<T>
+fun <K, V> Map<out K, V>.iterator(): Iterator<Map.Entry<K, V>>
+fun <K, V> MutableMap<K, V>.iterator(): MutableIterator<MutableMap.MutableEntry<K, V>>
+fun CharSequence.iterator(): CharIterator
+fun BufferedInputStream.iterator(): ByteIterator
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/anim/FilmStripNoSecondCopyTest.kt:190:31 Unresolved reference 'genericTypeArguments'.
+e: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/core/src/jvmTest/kotlin/cc/joycreator/joybrush/core/sprite/CellRollShapeTest.kt:321:37 None of the following candidates is applicable:
+constructor(p0: String!, p1: Int): File
+constructor(p0: String!, p1: File!): File
+
+> Task :androidkit:test
+
+AnimExportTest > anExportOverThePixelBudgetIsRefusedBeforeAnyFrameIsRendered FAILED
+    java.lang.AssertionError at AnimExportTest.kt:769
+
+153 tests completed, 1 failed
+
+> Task :androidkit:test FAILED
+
+FAILURE: Build completed with 2 failures.
+
+1: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':core:compileTestKotlinJvm'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+==============================================================================
+
+2: Task failed with an exception.
+-----------
+* What went wrong:
+Execution failed for task ':androidkit:test'.
+> There were failing tests. See the report at: file:///C:/Users/JoyRaptor/AppData/Local/Temp/jbclean/joybrush/androidkit/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+==============================================================================
+
+BUILD FAILED in 58s
+8 actionable tasks: 8 executed

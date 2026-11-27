@@ -35,6 +35,9 @@ class StrokeEraserTool(
      */
     private val mode: () -> cc.joycreator.joybrush.core.vector.InkEraseMode = { cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE },
 ) : CanvasTool {
+    /** The tool behind this one (Select's): the benches read Select through it, since this one fronts the canvas slot. */
+    val behind: CanvasTool? get() = next()
+
     private val pathX = ArrayList<Double>()
     private val pathY = ArrayList<Double>()
     private var radius = 0.0

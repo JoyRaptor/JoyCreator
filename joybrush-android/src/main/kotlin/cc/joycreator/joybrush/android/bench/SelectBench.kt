@@ -35,7 +35,8 @@ import kotlin.math.hypot
 class SelectBench(private val canvas: JbCanvasView, private val runId: String, private val finished: () -> Unit) {
     private val ui = Handler(Looper.getMainLooper())
     private val g = SelectGestures(canvas)
-    private val tool get() = canvas.tool as? SelectTool
+    /** Select's tool: the canvas slot holds the whole-line eraser in front of it (11-27), so look behind that. */
+    private val tool get() = (canvas.tool.let { (it as? cc.joycreator.joybrush.androidkit.select.StrokeEraserTool)?.behind ?: it }) as? SelectTool
     private fun activeLines() = tool?.benchActiveLines().orEmpty()
     private val editableBefore = canvas.editableLines
     private val restoreClipboard = cc.joycreator.joybrush.android.select.LineSelectionClipboard.preserveForBench()

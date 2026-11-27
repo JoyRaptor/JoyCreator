@@ -52,7 +52,7 @@ internal class SelectBrushModeBench(private val canvas: JbCanvasView, private va
         }
         canvas.benchFreshDrawing {
             if (!active) return@benchFreshDrawing
-            if ((canvas.tool as? SelectTool)?.selection != null) {
+            if (((canvas.tool.let { (it as? cc.joycreator.joybrush.androidkit.select.StrokeEraserTool)?.behind ?: it }) as? SelectTool)?.selection != null) {
                 stop("a10Setup", "fresh drawing retained a selection"); return@benchFreshDrawing
             }
             pickBrush(ink) {
@@ -167,7 +167,7 @@ internal class SelectBrushModeBench(private val canvas: JbCanvasView, private va
             if (rows.size != 1) { stop("a10Precondition", "brush row is ambiguous: ${target.id}"); return@shelf }
             ensureVisible(rows.single(), 0) { gestures.tapView(rows.single()) {
                 if (!active) return@tapView
-                if (canvas.preset?.id != target.id || (canvas.tool as? SelectTool)?.selectToolInHand != false)
+                if (canvas.preset?.id != target.id || ((canvas.tool.let { (it as? cc.joycreator.joybrush.androidkit.select.StrokeEraserTool)?.behind ?: it }) as? SelectTool)?.selectToolInHand != false)
                     stop("a10Precondition", "UI picked a different brush/tool than ${target.id}")
                 else next()
             } }

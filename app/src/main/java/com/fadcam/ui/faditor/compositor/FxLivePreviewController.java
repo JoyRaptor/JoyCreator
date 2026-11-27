@@ -646,7 +646,10 @@ public final class FxLivePreviewController {
             layerOverlayRouted = layerRouted;
             host.onLayerImageOverlayRouted(layerRouted);
         }
-        bindMotionClock(timeline, playheadClip, shutterFootage);
+        boolean orderedMesh = orderedLanes != null && authoredMeshVisible()
+                && orderedLanes.entries().stream().anyMatch(entry -> entry.kind == LanePlan.Kind.SPRITE
+                        && AuthoredSpriteMeshExposure.supportsDirectMesh(entry.item.getSprite()));
+        bindMotionClock(timeline, playheadClip, shutterFootage, orderedMesh);
         view.setSpineShutter(spineShutter(playheadClip, size, rotation));
         view.setCompositePlan(buildPlan(timeline, playheadMs, size, stacked, glImages,
                 shutterOverlays, shutterSprites, orderedLanes));
@@ -667,8 +670,9 @@ public final class FxLivePreviewController {
         return plan.supportsOrderedPreview(trueOrder) ? plan : null;
     }
 
-    private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip, boolean shutterFootage) {
-        if ((!host.motionBlurEnabled() && debugLaneOrder == null) || clip == null || clip.isImageClip()
+    private void bindMotionClock(@NonNull Timeline timeline, @Nullable Clip clip, boolean shutterFootage,
+                                 boolean orderedMesh) {
+        if ((!host.motionBlurEnabled() && debugLaneOrder == null && !orderedMesh) || clip == null || clip.isImageClip()
                 || clip.hasLoopExtension() || clip.hasRemovedSpans()) {
             clearMotionClock();
             return;
@@ -1215,7 +1219,9 @@ public final class FxLivePreviewController {
             // rectangle. Routing GL sprites through that placeholder was this lane's regression
             // on 2026-09-13: a bent sprite previewed as a blue box while the export rasterised
             // real cells (caught by the ZA lane, finding 1).
-            android.graphics.Bitmap tex = host.spriteRasterFor(sp, size[0], size[1]);
+            var authored = authoredMeshSource(sp, playheadMs);
+            android.graphics.Bitmap tex = authored == null ? host.spriteRasterFor(sp, size[0], size[1])
+                    : authored.cells().get(0).bitmap();
             if (tex == null || tex.isRecycled() || tex.getHeight() <= 0) return null;
             float alpha = sp.animatedOpacity(playheadMs);
             if (alpha < 0.005f) return null;
@@ -1244,14 +1250,15 @@ public final class FxLivePreviewController {
             com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec src = sp.getMesh();
             if (src == null || !src.hasWarp()) return p;
             FxPreviewTextureView.MeshInputs mi = new FxPreviewTextureView.MeshInputs(
-                    src.copy(), sp.meshLocalTime(playheadMs), cx, cy, wNorm, hNorm,
+                    authored == null ? src.copy() : authored.item().getMesh(), sp.meshLocalTime(playheadMs),
+                    cx, cy, wNorm, hNorm,
                     // No stored rotation pivot on a sprite, so the fold is about the centre.
                     0f, 0f, false, rot,
                     // No caption-style preset on a sprite: identity scale, no offset, full reveal.
                     1f, 1f, 0f, 0f,
                     alpha, 1f, pins,
                     sp.isFlipH() ? -1f : 1f, sp.isFlipV() ? -1f : 1f,
-                    authoredMeshShutter(sp, playheadMs));
+                    authored);
             FxPreviewTextureView.Pip mp = p.withMesh(mi);
             return mp != null ? mp : p;
         } catch (Exception ignored) {
@@ -1259,21 +1266,35 @@ public final class FxLivePreviewController {
         }
     }
 
+    private boolean authoredMeshVisible() {
+        return !LaunchGate.hidden(view.getContext(), "studio_motion_blur");
+    }
+
     @Nullable
-    private FxPreviewTextureView.AuthoredMeshShutter authoredMeshShutter(SpriteOverlayItem sprite, long playheadMs) {
+    private FxPreviewTextureView.AuthoredMeshSource authoredMeshSource(SpriteOverlayItem sprite, long playheadMs) {
         var clock = motionClock.anchor();
-        if (clock == null || !host.motionBlurEnabled() || !sprite.isRigidMotionBlurEnabled()
-                || com.fadcam.launch.LaunchGate.hidden(view.getContext(), "studio_motion_blur")) return null;
-        try {
-            var exposure = AuthoredSpriteMeshExposure.prepare(true, true, sprite);
-            if (exposure == null) return null;
-            var cell = host.spriteMotionCell(sprite, playheadMs);
-            if (cell == null) return null;
-            return new FxPreviewTextureView.AuthoredMeshShutter(exposure, cell,
-                    clock.editorStartUs(), clock.editorEndUs());
-        } catch (RuntimeException ignored) {
-            return null; // The ordinary mesh still has a valid draw.
+        if (clock == null || !AuthoredSpriteMeshExposure.supportsDirectMesh(sprite) || !authoredMeshVisible()) {
+            return null;
         }
+        var current = host.spriteMotionCell(sprite, playheadMs);
+        if (current == null || current.window() == null) return null;
+        var cells = new ArrayList<com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell>(3);
+        cells.add(current);
+        // The decoder can latch either side of a cell swap while the UI's render plan is queued.
+        long previous = current.window().startUs() / 1000L - 1L;
+        if (previous >= sprite.getStartMs() && playheadMs - previous <= 100L) {
+            var cell = host.spriteMotionCell(sprite, previous);
+            if (cell != null) cells.add(cell);
+        }
+        long next = current.window().endUs() / 1000L;
+        if (next <= sprite.getEndMs() && next - playheadMs <= 100L) {
+            var cell = host.spriteMotionCell(sprite, next);
+            if (cell != null) cells.add(cell);
+        }
+        var snapshot = sprite.copyWithNewId(sprite.getId());
+        var shutter = AuthoredSpriteMeshExposure.prepareSnapshot(host.motionBlurEnabled(), snapshot);
+        return new FxPreviewTextureView.AuthoredMeshSource(snapshot, shutter, List.copyOf(cells),
+                clock.editorStartUs(), clock.editorEndUs());
     }
 
     private static boolean eligibleLivePiP(Clip clip) {

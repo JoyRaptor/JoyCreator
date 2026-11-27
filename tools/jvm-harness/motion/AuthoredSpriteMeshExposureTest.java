@@ -81,6 +81,13 @@ public final class AuthoredSpriteMeshExposureTest {
 
         sprite.getKeyframes().getOrCreate(KeyframeSet.X).put(80, 0f, Easing.LINEAR);
         sprite.getKeyframes().getOrCreate(KeyframeSet.X).put(81, 1f, Easing.LINEAR);
+        var snapshot = sprite.copyWithNewId(sprite.getId());
+        require(AuthoredSpriteMeshExposure.prepareSnapshot(false, snapshot) == null,
+                "a master-off snapshot still samples a sharp pose");
+        long sharpUs = args.length == 1 && "--sharp-at-ui-time".equals(args[0]) ? 1_081_000L : 1_080_999L;
+        var sharp = AuthoredSpriteMeshExposure.sharpPoseAt(snapshot, sharpUs);
+        require(sharp != null && sharp.localMs() == 80L && sharp.cx() == 0f,
+                "sharp mesh uses the decoder frame's pose even when the UI tick has advanced");
         sprite.setRigidMotionShutter(new MotionShutter.Controls(180, MotionShutter.Timing.LEADING, 0, 50));
         var fractional = AuthoredSpriteMeshExposure.prepare(true, true, sprite)
                 .plan(sheet, 1_080_000L, 1000L, 5, 1_076_000L, 1_200_000L);

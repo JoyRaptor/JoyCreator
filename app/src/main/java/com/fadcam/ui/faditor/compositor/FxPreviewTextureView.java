@@ -408,9 +408,19 @@ public class FxPreviewTextureView extends TextureView
         default void onFxShaderUnavailable(@NonNull String reason) { }
     }
 
-    record AuthoredMeshShutter(AuthoredSpriteMeshExposure exposure,
-                               com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cell,
-                               long pieceStartUs, long pieceEndUs) {}
+    record AuthoredMeshSource(com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                              @Nullable AuthoredSpriteMeshExposure shutter,
+                              List<com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell> cells,
+                              long pieceStartUs, long pieceEndUs) {
+        @Nullable com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cellAt(long editorUs) {
+            for (var cell : cells) {
+                var window = cell.window();
+                if (window != null && editorUs >= window.startUs() && editorUs < window.endUs()
+                        && !cell.bitmap().isRecycled()) return cell;
+            }
+            return null;
+        }
+    }
 
     /**
      * SPEC E mesh stamp inputs — one immutable snapshot per frame per bent image, built on the
@@ -435,13 +445,13 @@ public class FxPreviewTextureView extends TextureView
          * (1,1) draws exactly what shipped.
          */
         final float mirrorX, mirrorY;
-        @Nullable final AuthoredMeshShutter shutter;
+        @Nullable final AuthoredMeshSource authored;
         MeshInputs(@NonNull com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec spec, long localMs,
                    float cx, float cy, float wNorm, float hNorm,
                    float pivOffX, float pivOffY, boolean applyPivot, float rotDeg,
                    float presetScaleX, float presetScaleY, float presetDx, float presetDy,
                    float alpha, float reveal, @Nullable float[] cornerPin8,
-                   float mirrorX, float mirrorY, @Nullable AuthoredMeshShutter shutter) {
+                   float mirrorX, float mirrorY, @Nullable AuthoredMeshSource authored) {
             this.spec = spec;
             this.localMs = localMs;
             this.cx = cx; this.cy = cy; this.wNorm = wNorm; this.hNorm = hNorm;
@@ -453,7 +463,7 @@ public class FxPreviewTextureView extends TextureView
             this.cornerPin8 = cornerPin8 == null ? null : cornerPin8.clone();
             this.mirrorX = mirrorX < 0f ? -1f : 1f;
             this.mirrorY = mirrorY < 0f ? -1f : 1f;
-            this.shutter = shutter;
+            this.authored = authored;
         }
     }
 
@@ -3487,10 +3497,45 @@ public class FxPreviewTextureView extends TextureView
      */
     private int drawMeshRung(@NonNull Pip p, int src, int vw, int vh) {
         MeshInputs mi = p.mesh;
+        if (mi == null) return src;
+        var authored = mi.authored;
+        var frame = motionFrame;
+        if (authored != null && frame != null && motionClock.isCurrent(frame)) {
+            long editorUs = frame.editorTimeUs();
+            if (editorUs >= authored.pieceStartUs() && editorUs < authored.pieceEndUs()) {
+                long editorMs = Math.floorDiv(editorUs, 1000L);
+                if (!authored.item().isVisibleAt(editorMs)) return src;
+                var cell = authored.cellAt(editorUs);
+                if (cell != null) {
+                    int dst = src == 0 ? 1 : 0;
+                    if (drawAuthoredMesh(authored, cell, frame, src, dst, vw, vh)) return dst;
+                    return drawSharpAuthoredMesh(authored, cell, editorUs, src, vw, vh);
+                }
+            }
+        }
+        return drawMeshStamp(p, mi, src, vw, vh);
+    }
+
+    private int drawSharpAuthoredMesh(AuthoredMeshSource authored,
+            com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cell, long editorUs,
+            int src, int width, int height) {
+        var item = authored.item();
+        var pose = AuthoredSpriteMeshExposure.sharpPoseAt(item, editorUs);
+        if (pose == null) return src;
+        float wNorm = pose.height() * cell.aspect() * height / width;
+        Pip sharp = Pip.ofImage(pose.cx(), pose.cy(), wNorm / 2f, pose.height() / 2f,
+                pose.rotation(), pose.alpha(), null, pose.editorMs(), null, 0f, width, height,
+                item.getId(), cell.bitmap(), 1f);
+        var mesh = new MeshInputs(item.getMesh(), pose.localMs(), pose.cx(), pose.cy(), wNorm, pose.height(),
+                0f, 0f, false, pose.rotation(), 1f, 1f, 0f, 0f, pose.alpha(), 1f, null,
+                pose.mirrorX(), pose.mirrorY(), null);
+        return drawMeshStamp(sharp, mesh, src, width, height);
+    }
+
+    private int drawMeshStamp(Pip p, MeshInputs mi, int src, int vw, int vh) {
         android.graphics.Bitmap bmp = p.still;
-        if (mi == null || mi.spec == null || bmp == null || bmp.isRecycled()) return src;
+        if (bmp == null || bmp.isRecycled()) return src;
         int dst = src == 0 ? 1 : 0;
-        if (drawAuthoredMesh(mi.shutter, src, dst, vw, vh)) return dst;
         meshStamp.configure(vw, vh);
         int stampTex = 0;
         try {
@@ -3513,15 +3558,15 @@ public class FxPreviewTextureView extends TextureView
         return drawPip(comp, src, dst, vw, vh, stampTex) ? dst : src;
     }
 
-    private boolean drawAuthoredMesh(@Nullable AuthoredMeshShutter shutter, int src, int dst,
-                                     int width, int height) {
-        var frame = motionFrame;
-        if (shutter == null || frame == null || frame.periodUs() <= 0L) return false;
-        var cell = shutter.cell();
+    private boolean drawAuthoredMesh(AuthoredMeshSource authored,
+            com.fadcam.ui.faditor.sprite.SpriteOverlayView.MotionCell cell, PreviewMotionClock.Frame frame,
+            int src, int dst, int width, int height) {
+        var shutter = authored.shutter();
+        if (shutter == null || frame.periodUs() <= 0L) return false;
         try {
-            var taps = shutter.exposure().planHeldCell(cell.window(), frame.editorTimeUs(), frame.periodUs(),
-                    AuthoredSpriteMeshExposure.RENDER_TAPS, shutter.pieceStartUs(), shutter.pieceEndUs());
-            if (taps == null || cell.bitmap().isRecycled()) return false;
+            var taps = shutter.planHeldCell(cell.window(), frame.editorTimeUs(), frame.periodUs(),
+                    AuthoredSpriteMeshExposure.RENDER_TAPS, authored.pieceStartUs(), authored.pieceEndUs());
+            if (taps == null) return false;
             if (authoredMeshExposure == null) authoredMeshExposure = new MeshExposureGl(meshStamp);
             return authoredMeshExposure.compositeSprite(targets[dst][1], targets[src][0], width, height,
                     cell.window().cell(), cell.aspect(), cell.bitmap(), taps);

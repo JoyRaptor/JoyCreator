@@ -473,6 +473,12 @@ class SelectController(
                 tool.groupSelection(id); refresh()
             }
             item(null, "Invert", "Select the other unlocked lines on this layer") { tool.invertSelection(); refresh() }
+            item(null, "Same colour", "Also select every line on this layer in the same colour") {
+                tool.selectAlike(cc.joycreator.joybrush.androidkit.select.SelectTool.Alike.COLOUR); refresh()
+            }
+            item(null, "Same brush", "Also select every line on this layer drawn with the same brush") {
+                tool.selectAlike(cc.joycreator.joybrush.androidkit.select.SelectTool.Alike.BRUSH); refresh()
+            }
         }
         if (list.childCount == 0) return
         showScrollableMenu(list, anchor, Popovers.Side.BELOW, widthDp = 220f)

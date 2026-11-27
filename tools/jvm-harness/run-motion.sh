@@ -51,6 +51,14 @@ expect_failure 'all signed 12-bit values round trip' MotionCoreTest --wrong-pack
 expect_failure 'cut start' -Dmotion.wrongNoFences=true MotionTimelineBreaksTest
 expect_failure 'sprite exposure intersects pose and cell fences' -Dmotion.wrongNoSpriteExposureFence=true MotionTimelineBreaksTest
 expect_failure 'preview cell holds only until the authored swap' -Dmotion.wrongPreviewCellWindow=true MotionTimelineBreaksTest
+expect_failure 'an authored sprite tap must stay inside its held cell' \
+    com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposureTest --unfenced-cell
+expect_failure "sharp mesh uses the decoder frame's pose even when the UI tick has advanced" \
+    com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposureTest --sharp-at-ui-time
+java @"$RUNARGS" com.fadcam.ui.faditor.compositor.AuthoredSpriteMeshExposureTest
+expect_failure 'avatar corners retain top-left editor y' \
+    com.fadcam.ui.faditor.compositor.RecordedAvatarStampGlTest --wrong-y
+java @"$RUNARGS" com.fadcam.ui.faditor.compositor.RecordedAvatarStampGlTest
 expect_failure 'sprite follows fractional parent motion' -Dmotion.wrongRoundedItem=true MotionItemAdaptersTest
 expect_failure 'upright title stays centered at fractional time' -Dmotion.wrongTitlePlacement=true MotionItemAdaptersTest
 expect_failure "use presentation cadence after a skipped texture" PreviewMotionClockTest release-clock

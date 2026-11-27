@@ -53,6 +53,8 @@ public final class AvatarItemPuppet {
     @NonNull private PuppetPoseResolver.DiscreteState discrete =
             new PuppetPoseResolver.DiscreteState();
     private long lastLocalMs = Long.MIN_VALUE;
+    @Nullable private RecordedAvatarReplay recordedReplay;
+    private boolean released;
 
     public AvatarItemPuppet(@NonNull Context context, @NonNull AvatarRig rig,
                             @NonNull Function<String, SpriteSheetRenderer> rendererLookup,
@@ -75,6 +77,18 @@ public final class AvatarItemPuppet {
      */
     public void draw(@NonNull Canvas canvas, @NonNull RectF dest,
                      @NonNull AvatarParamTrack track, long itemLocalMs, float alpha) {
+        advanceSharp(track, itemLocalMs);
+        int save = saveCanvas(canvas, dest, alpha);
+        try {
+            mapToDestination(canvas, dest);
+            view.draw(canvas);
+        } finally {
+            canvas.restoreToCount(save);
+        }
+    }
+
+    /** Advance the ordinary pose history even when the caller draws a shutter exposure. */
+    public void advanceSharp(@NonNull AvatarParamTrack track, long itemLocalMs) {
         if (itemLocalMs < lastLocalMs) {
             // Rewind: replay state must be a function of (track, time), never
             // of the scrub path taken to get here.
@@ -89,25 +103,68 @@ public final class AvatarItemPuppet {
         // recorded with IK limbs replays rigid, live ≠ replay.
         view.setTrackedPinTargets(TrackingDriverBus.extractPinTargets(params));
         view.setResolved(PuppetPoseResolver.resolve(rig, params, discrete));
+    }
 
-        int save;
-        if (alpha >= 0.999f) {
-            save = canvas.save();
-        } else {
-            save = canvas.saveLayerAlpha(dest.left, dest.top, dest.right, dest.bottom,
-                    Math.round(Math.max(0f, alpha) * 255));
+    /**
+     * Open a synchronous exposure over a break-fenced schedule. Build the replay from the
+     * recorded sample clock so duplicate, dropped or skipped presentation frames cannot
+     * change a tap. A cold seek can need multiple calls to prepare; use the sharp path meanwhile.
+     */
+    @Nullable
+    public Exposure beginExposure(@NonNull AvatarParamTrack track, long firstLocalUs,
+                                  long lastLocalUs) {
+        if (released || rig.getParts().stream().anyMatch(part -> part.dangle)) return null;
+        if (recordedReplay == null || !recordedReplay.matches(track)) {
+            recordedReplay = new RecordedAvatarReplay(rig, track);
         }
-        try {
-            canvas.translate(dest.left, dest.top);
-            canvas.scale(dest.width() / RENDER_SIZE, dest.height() / RENDER_SIZE);
-            view.draw(canvas);
-        } finally {
-            canvas.restoreToCount(save);
+        if (!recordedReplay.prepare(firstLocalUs, lastLocalUs)) return null;
+        return new Exposure(recordedReplay, firstLocalUs, lastLocalUs);
+    }
+
+    public final class Exposure {
+        private final RecordedAvatarReplay source;
+        private final long endUs;
+        private long lastTapUs;
+
+        private Exposure(RecordedAvatarReplay source, long firstLocalUs, long lastLocalUs) {
+            this.source = source;
+            this.lastTapUs = firstLocalUs;
+            this.endUs = lastLocalUs;
         }
+
+        /** Draw an ordered shutter tap on the caller's sample target. */
+        public void draw(@NonNull Canvas canvas, @NonNull RectF dest, long localUs, float alpha) {
+            if (released || localUs < lastTapUs || localUs > endUs) {
+                throw new IllegalStateException("Exposure tap is outside its prepared avatar interval");
+            }
+            lastTapUs = localUs;
+            var tap = source.sample(localUs);
+            var targets = TrackingDriverBus.extractPinTargets(tap.params());
+            int save = saveCanvas(canvas, dest, alpha);
+            try {
+                mapToDestination(canvas, dest);
+                view.drawExposureTap(canvas, localUs, tap.replay(), targets, tap.pose());
+            } finally {
+                canvas.restoreToCount(save);
+            }
+        }
+    }
+
+    private static int saveCanvas(Canvas canvas, RectF dest, float alpha) {
+        if (alpha >= 0.999f) return canvas.save();
+        return canvas.saveLayerAlpha(dest.left, dest.top, dest.right, dest.bottom,
+                Math.round(Math.max(0f, alpha) * 255));
+    }
+
+    private static void mapToDestination(Canvas canvas, RectF dest) {
+        canvas.translate(dest.left, dest.top);
+        canvas.scale(dest.width() / RENDER_SIZE, dest.height() / RENDER_SIZE);
     }
 
     /** Recycle the view's decoded cell-bitmap cache. The puppet is dead after. */
     public void release() {
+        released = true;
+        recordedReplay = null;
         view.bind(null, null);
     }
 

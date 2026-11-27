@@ -20,6 +20,7 @@ import androidx.media3.common.MimeTypes;
 import androidx.media3.common.audio.SonicAudioProcessor;
 import androidx.media3.common.audio.SpeedChangingAudioProcessor;
 import androidx.media3.effect.Crop;
+import androidx.media3.effect.DefaultVideoFrameProcessor;
 import androidx.media3.effect.OverlayEffect;
 import androidx.media3.effect.Presentation;
 import androidx.media3.effect.ScaleAndRotateTransformation;
@@ -51,6 +52,7 @@ import com.fadcam.ui.faditor.model.TextOverlayItem;
 import com.fadcam.ui.faditor.model.Timeline;
 import com.fadcam.ui.faditor.model.Transition;
 import com.fadcam.ui.faditor.compositor.LayerPreviewController;
+import com.fadcam.ui.faditor.compositor.RecordedAvatarMotion;
 import com.fadcam.ui.faditor.compositor.lane.LanePlan;
 import com.fadcam.ui.faditor.layers.BlendMode;
 import com.fadcam.ui.faditor.layers.TimedItem;
@@ -1006,7 +1008,40 @@ public class ExportManager {
         if (encoderFactory != null) {
             builder.setEncoderFactory(encoderFactory);
         }
+        boolean highFootage = highFootageExportEnabled(project)
+                && project.getTimeline().getClips().stream().anyMatch(ExportManager::eligibleHighFootage);
+        boolean recordedAvatar = recordedAvatarExportEnabled(project);
+        if (highFootage || recordedAvatar) {
+            var factory = new DefaultVideoFrameProcessor.Factory.Builder();
+            if (recordedAvatar) {
+                // The live stage uses the decoder's SurfaceTexture crop and linear sampling.
+                // Media3 otherwise removes the crop inset and samples with nearest filtering.
+                factory.setExperimentalAdjustSurfaceTextureTransformationMatrix(false);
+            }
+            var processor = factory.build();
+            builder.setVideoFrameProcessorFactory(FootageFrameProcessor.factory(processor));
+        }
         return builder;
+    }
+
+    private boolean highFootageExportEnabled(FaditorProject project) {
+        return project.isMotionBlurEnabled()
+                && !com.fadcam.launch.LaunchGate.hidden(context, "studio_motion_blur");
+    }
+
+    private boolean recordedAvatarExportEnabled(FaditorProject project) {
+        return GL_IMAGE_PASS && !project.isTrueLayerOrder() && highFootageExportEnabled(project)
+                && RecordedAvatarMotion.ordinaryAvatarRun(project.getTimeline());
+    }
+
+    private static boolean eligibleHighFootage(Clip clip) {
+        if (clip.isImageClip() || !clip.isRigidMotionBlurEnabled() || clip.hasLoopExtension()
+                || clip.hasMesh() || clip.hasCornerPin() || clip.effectiveCropFractions() != null
+                || (clip.isSpineTransformArmed() && clip.hasSpineTransform())) return false;
+        var shutter = clip.getRigidMotionShutter();
+        float speed = clip.getSpeedMultiplier();
+        return Float.isFinite(speed) && speed > 0
+                && shutter.mixPercent() > 0 && shutter.angle() > 0 && shutter.angle() <= 360;
     }
 
     /**
@@ -1170,7 +1205,7 @@ public class ExportManager {
             long leadFillerMs = plan.coveringLeadFillerMs();
             long localTargetMs = plan.coveringLocalTargetMs();
             long compTargetMs = leadFillerMs + localTargetMs;
-            long clampLocalMs = Math.min(natural, localTargetMs + FRAME_CLAMP_LOOKAHEAD_MS);
+            long clampLocalMs = Math.min(natural, localTargetMs + frameLookaheadMs(project));
             FLog.i(TAG, "single-frame: T=" + frameTimeMs + "ms → item#" + covering
                     + " compTarget=" + compTargetMs + "ms lead=" + leadFillerMs
                     + "ms natural=" + natural + "ms clamp=" + clampLocalMs + "ms");
@@ -4273,6 +4308,22 @@ public class ExportManager {
     /** Composition ms of trailing coverage past the requested frame in a clamp pass. */
     private static final long FRAME_CLAMP_LOOKAHEAD_MS = 120L;
 
+    private long frameLookaheadMs(FaditorProject project) {
+        if (!highFootageExportEnabled(project) || project.getTimeline().hasTransitions()) {
+            return FRAME_CLAMP_LOOKAHEAD_MS;
+        }
+        long lookaheadMs = FRAME_CLAMP_LOOKAHEAD_MS;
+        for (Clip clip : project.getTimeline().getClips()) {
+            if (!eligibleHighFootage(clip)) continue;
+            // Keep the exact next decoder frame when a slow clip stretches its source interval.
+            // One extra source millisecond covers the composition builder's integer trim.
+            long needed = (long) Math.ceil((1 + com.fadcam.ui.faditor.motion.flow.IndexedFootageMedia.MAX_GAP_US
+                    / 1000d) / clip.getSpeedMultiplier());
+            lookaheadMs = Math.max(lookaheadMs, needed);
+        }
+        return lookaheadMs;
+    }
+
     @NonNull
     private Composition buildComposition(@NonNull FaditorProject project) {
         return buildComposition(project, null);
@@ -4532,7 +4583,7 @@ public class ExportManager {
                     try {
                         piece = buildClipItem(project, clip, pieceIn, pieceOut,
                                 timelineCursorMs, outW, outH, canvasDims,
-                                waveformSlots, projectSampleRate);
+                                waveformSlots, projectSampleRate, true);
                     } finally {
                         buildingCutPiece = false;
                     }
@@ -4544,7 +4595,7 @@ public class ExportManager {
             } else if (mainSiteEmits) {
                 EditedMediaItem mainItem = buildClipItem(project, clip, clipInMs, mainOutMs,
                         timelineCursorMs, outW, outH, canvasDims,
-                        waveformSlots, projectSampleRate);
+                        waveformSlots, projectSampleRate, true);
                 if (frameDirective != null) {
                     frameDirective.noteItem(timelineCursorMs, mainItem.durationUs / 1000,
                             mainEditorStartMs, mainEditorLenMs);
@@ -4755,7 +4806,7 @@ public class ExportManager {
                         part.setDisplayName("Tail filler"); // TODO(strings)
                         EditedMediaItem partItem = buildClipItem(project, part, 0L, len,
                                 timelineCursorMs, outW, outH, canvasDims, waveformSlots,
-                                projectSampleRate);
+                                projectSampleRate, false);
                         items.add(partItem);
                         timelineCursorMs += partItem.durationUs / 1000;
                         tailMs -= partItem.durationUs / 1000;
@@ -4769,7 +4820,7 @@ public class ExportManager {
                 filler.setAudioMuted(true);
                 filler.setDisplayName("Tail filler"); // TODO(strings)
                 EditedMediaItem fillItem = buildClipItem(project, filler, 0L, tailMs,
-                        timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate);
+                        timelineCursorMs, outW, outH, canvasDims, waveformSlots, projectSampleRate, false);
                 if (frameDirective != null) {
                     frameDirective.noteItem(timelineCursorMs, fillItem.durationUs / 1000,
                             editorCursorMs, Math.max(1L, tailMs));
@@ -5366,7 +5417,7 @@ public class ExportManager {
                                            int outW, int outH,
                                            @Nullable int[] canvasDims,
                                            @NonNull List<CompositeExportOverlay.WaveformSlot> waveformSlots,
-                                           int projectSampleRate) {
+                                           int projectSampleRate, boolean sourceFootage) {
         float speed = clip.getSpeedMultiplier();
 
         MediaItem mediaItem;
@@ -5477,6 +5528,14 @@ public class ExportManager {
                 /* preOverlayExtra = */ null,
                 /* isLoopBeforeItem = */ false,
                 clipLocalStartMs, Math.max(sourceDurationMs, timelineDurationMs), timelineDurationMs);
+        if (sourceFootage && highFootageExportEnabled(project)
+                && eligibleHighFootage(clip) && !project.getTimeline().hasTransitions()) {
+            var config = mediaItem.localConfiguration;
+            if (config != null) {
+                videoEffects.add(0, new HighFootageExportEffect(config.uri, clipInMs * 1000L,
+                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter()));
+            }
+        }
 
         if (!audioProcessors.isEmpty() || !videoEffects.isEmpty()) {
             editedBuilder.setEffects(new Effects(audioProcessors, videoEffects));
@@ -6934,6 +6993,8 @@ public class ExportManager {
                                                   long continuousPieceDurationMs) {
         boolean motionBlurEnabled = project.isMotionBlurEnabled();
         long shutterPieceDurationMs = motionBlurEnabled ? continuousPieceDurationMs : 0L;
+        boolean recordedAvatarRun = shutterPieceDurationMs > 0 && !isTransitionItem
+                && !isLoopBeforeItem && recordedAvatarExportEnabled(project);
         List<Effect> videoEffects = new ArrayList<>();
         // The export clock at which this clip's own clock reads 0 (may lie before this item).
         final long clipLocalOriginMs = timelineCursorMs - clipLocalStartMs;
@@ -7105,8 +7166,11 @@ public class ExportManager {
         // size and blends the incoming leg against it; only the finished blend is scaled to the
         // canvas, which the overlay passes below need to place titles and pictures at 1:1.
         if (overlayW > 0 && overlayH > 0) {
-            videoEffects.add(Presentation.createForWidthAndHeight(
-                    overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT));
+            Presentation canvas = Presentation.createForWidthAndHeight(
+                    overlayW, overlayH, Presentation.LAYOUT_SCALE_TO_FIT);
+            // Keep the resize unless the registered decoder output matches this canvas.
+            videoEffects.add(recordedAvatarRun && isVideo && videoEffects.isEmpty()
+                    ? new FootageFrameProcessor.AvatarCanvas(canvas) : canvas);
         }
 
         // ── M7: a MASTER (spine) clip's OWN FxStack ───────────────────────────────────
@@ -7629,7 +7693,9 @@ public class ExportManager {
             spriteBucketsZa.addAll(promotedSpritesZa);
             spriteBucketsZa.addAll(exportSpriteItems);
             for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem s : spriteBucketsZa) {
-                if (SpriteBlendGlEffect.routesToGl(s, motionBlurEnabled)) glOverlaysBottomTop.add(s);
+                if (SpriteBlendGlEffect.routesToGl(s, motionBlurEnabled, recordedAvatarRun)) {
+                    glOverlaysBottomTop.add(s);
+                }
             }
             final long overlayOffsetMs =
                     editorTimeOffsetForChunk(project.getTimeline(), clip, timelineCursorMs)
@@ -7728,7 +7794,8 @@ public class ExportManager {
                     boolean img = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSp = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o, motionBlurEnabled);
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
+                                    motionBlurEnabled, recordedAvatarRun);
                     (img || glSp ? glSeq : canvasSeq).add(o);
                 }
                 boolean sandwiched = false;
@@ -7779,7 +7846,8 @@ public class ExportManager {
                     boolean image = o instanceof TextOverlayItem
                             && (((TextOverlayItem) o).isImage() || glTextBox((TextOverlayItem) o));
                     boolean glSprite = o instanceof com.fadcam.ui.faditor.sprite.SpriteOverlayItem
-                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o, motionBlurEnabled);
+                            && SpriteBlendGlEffect.routesToGl((com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
+                                    motionBlurEnabled, recordedAvatarRun);
                     if (image || glSprite) {
                         if (!txtRun.isEmpty() || !sprRun.isEmpty()) {
                             CompositeExportOverlay run = new CompositeExportOverlay(
@@ -7816,7 +7884,7 @@ public class ExportManager {
                                     (com.fadcam.ui.faditor.sprite.SpriteOverlayItem) o,
                                     project.getSpriteSheets(), project.getAvatarRigs(),
                                     project.getTimeline().getTotalDurationMs(), overlayOffsetMs,
-                                    timelineCursorMs, shutterPieceDurationMs));
+                                    timelineCursorMs, shutterPieceDurationMs, false, recordedAvatarRun));
                         }
                     } else {
                         if (!imgRun.isEmpty()) {

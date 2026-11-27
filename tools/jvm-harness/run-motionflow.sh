@@ -8,6 +8,9 @@ cd "$(dirname "$0")/../.."
 OUT=tools/jvm-harness/out-motionflow
 rm -rf "$OUT"; mkdir -p "$OUT"
 javac -nowarn -encoding UTF-8 -d "$OUT" \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/VelocityPack.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/MotionFrameCadence.java \
+  studiokit/src/main/java/com/fadcam/ui/faditor/motion/PreviewMotionClock.java \
   studiokit/src/main/java/com/fadcam/ui/faditor/motion/flow/*.java \
   tools/jvm-harness/motion/flow/*.java
 
@@ -32,5 +35,29 @@ expect_failure 'covered background is not trusted' FlowCoreTest --no-consistency
 expect_failure 'camera move ignores the person crossing' FlowCoreTest --plain-ls
 expect_failure '2x speed smears twice as far' FlowCoreTest --wrong-time-scale
 java -cp "$OUT" FlowCoreTest
+expect_failure 'B frames use display neighbours' \
+    com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --decode-order
+expect_failure 'paused exposure uses the immediately preceding decoded PTS' \
+    com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest --skip-donor
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.VideoPresentationIndexTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.IndexedFlowSessionTest --preview-binding
+expect_failure 'OpenGL row zero comes from the image bottom' \
+  com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-row-flip
+expect_failure 'downward image motion becomes upward OpenGL motion' \
+  com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --no-v-invert
+expect_failure 'cold and warm textures round half steps in source coordinates' \
+  com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest --round-after-flip
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowTexturePixelsTest
 expect_failure 'after a seek back the frame is sharp until a neighbour' SourceFrameRingTest --naive
 java -cp "$OUT" SourceFrameRingTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowCacheTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FlowAnalyzerTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.DecodedFlowWorkTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.ExactDecodedLumaTest
+expect_failure 'clockwise rotation precedes upright box partition' com.fadcam.ui.faditor.motion.flow.YPlaneLumaTest --ignore-rotation
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.YPlaneLumaTest
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.FootageGatherTest
+expect_failure 'disoccluded donor stays sharp' \
+  com.fadcam.ui.faditor.motion.flow.HighFootageGatherTest --ignore-confidence
+java -cp "$OUT" com.fadcam.ui.faditor.motion.flow.HighFootageGatherTest

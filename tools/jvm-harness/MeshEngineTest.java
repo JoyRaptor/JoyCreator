@@ -30,6 +30,10 @@ public class MeshEngineTest {
     private static int passed = 0, failed = 0;
 
     public static void main(String[] args) {
+        if (args.length == 1 && args[0].equals("--round-puppet-tap")) {
+            puppetTopologySlotsIn(true);
+            return;
+        }
         latticeIsBilinearAtLevelOne();
         identityReproducesRest();
         subdivisionTwoToThreeIsExact();
@@ -38,17 +42,36 @@ public class MeshEngineTest {
         structuralChangeCarriesTheBend();
         foldIsRefused();
         poseTrackInterpolates();
+        poseTrackSamplesExposureTaps();
         poseTrackRefusesMixedArity();
         serialisationRoundTrips();
         serialisationIsTolerant();
         hotPathDoesNotAllocate();
-        puppetTopologySlotsIn();
+        puppetTopologySlotsIn(false);
         homographyMatchesTransformQuad();
 
         System.out.println(failed == 0
                 ? "ALL GREEN (" + passed + "/" + (passed + failed) + ")"
                 : "FAILURES: " + failed + " (passed " + passed + ")");
         if (failed > 0) System.exit(1);
+    }
+
+    static void poseTrackSamplesExposureTaps() {
+        MeshPoseTrack track = new MeshPoseTrack(2);
+        track.setCurve((easing, t) -> "HOLD".equals(easing) && t < 1f ? 0f : t);
+        track.put(-2, new float[]{0, 10}, "LINEAR");
+        track.put(0, new float[]{4, 14}, "HOLD");
+        track.put(10_000_000, new float[]{8, 18}, "LINEAR");
+        track.put(10_000_002, new float[]{12, 22}, "LINEAR");
+        float[] out = new float[2];
+        check("a negative fractional tap keeps its submillisecond position",
+                track.valueAtMicros(-250, out) && out[0] == 3.5f && out[1] == 13.5f);
+        check("a long HOLD stays on the incoming pose until its exact key",
+                track.valueAtMicros(9_999_999_999L, out) && out[0] == 4f && out[1] == 14f);
+        check("the exact key produces the authored pose",
+                track.valueAtMicros(10_000_000_000L, out) && out[0] == 8f && out[1] == 18f);
+        check("outgoing shutter tap keeps its fractional pose",
+                track.valueAtMicros(10_000_000_250L, out) && out[0] == 8.5f && out[1] == 18.5f);
     }
 
     // ── 1. The bilinear foundation the subdivision proof rests on ────────
@@ -497,7 +520,7 @@ public class MeshEngineTest {
      * engine and the wire format all serve it with NO change. That is the property the whole
      * architecture exists for, and this test is what stops a future edit quietly re-fusing them.
      */
-    static void puppetTopologySlotsIn() {
+    static void puppetTopologySlotsIn(boolean roundTap) {
         MeshTopologies.register(FakePuppetTopology.KIND,
                 new MeshTopologies.Factory() {
                     @Override public MeshTopology create(float[] p) { return new FakePuppetTopology(); }
@@ -524,6 +547,22 @@ public class MeshEngineTest {
         check("and produced the neutral buffers a renderer already knows how to draw",
                 e.buffers().indexCount() == t.indexCount() && e.buffers().vertexCount() == t.vertexCount());
         check("the puppet actually deformed", e.buffers().positions[0] != e.buffers().rest[0]);
+
+        MeshEngine shutter = new MeshEngine();
+        long tapUs = 500_500L;
+        boolean evaluated = roundTap ? shutter.update(s, tapUs / 1000L) : shutter.updateForExposure(s, tapUs);
+        float halfFrameX = rest[0] + 0.3f * 0.5005f;
+        if (!evaluated || Math.abs(shutter.buffers().positions[0] - halfFrameX) > 1e-6f) {
+            throw new AssertionError("puppet exposure must keep fractional vertex positions");
+        }
+        check("the shutter's mesh scratch leaves live geometry untouched",
+                near(e.buffers().positions[0], moved[0]));
+        check("a neutral exposure tap returns topology and rest vertices",
+                shutter.updateForExposure(s, 0L)
+                        && java.util.Arrays.equals(shutter.buffers().positions, shutter.buffers().rest));
+        check("the ordinary renderer still skips neutral un-ordered geometry", !e.update(s, 0L));
+        if (roundTap) return;
+        e.update(s, 1000L);
 
         // Fold guard: unchanged code, irregular triangles.
         check("the fold guard accepts a sane puppet pose", MeshGuard.isValid(e.buffers()));

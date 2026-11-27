@@ -12,6 +12,9 @@ import com.fadcam.ui.faditor.motion.MotionShutter;
 
 /** Replays an ordered scope at each shutter tap into a linear-light premultiplied accumulation. */
 public final class ExactLaneExposure {
+    /** Encoding of straight RGB after removing coverage from each input tap. */
+    public enum Encoding { VIDEO_SDR, SRGB }
+
     @FunctionalInterface
     public interface Scope {
         /** Draw one complete SDR, premultiplied scope, without advancing any persistent FX state. */
@@ -33,8 +36,7 @@ public final class ExactLaneExposure {
             uniform float uWeight;
 
             vec3 toLinear(vec3 rgb) {
-              return mix(rgb / 4.5, pow((rgb + 0.099) / 1.099, vec3(1.0 / 0.45)),
-                         step(vec3(0.081), rgb));
+              return DECODE_TRANSFER;
             }
             void main() {
               vec4 cur = texture2D(uSample, vTexSamplingCoord);
@@ -51,8 +53,7 @@ public final class ExactLaneExposure {
             varying vec2 vTexSamplingCoord;
             uniform sampler2D uLinear;
             vec3 toSdr(vec3 rgb) {
-              return mix(4.5 * rgb, 1.099 * pow(rgb, vec3(0.45)) - 0.099,
-                         step(vec3(0.018), rgb));
+              return ENCODE_TRANSFER;
             }
             void main() {
               vec4 color = texture2D(uLinear, vTexSamplingCoord);
@@ -61,13 +62,19 @@ public final class ExactLaneExposure {
             }
             """;
 
+    private final Encoding encoding;
     private final float[] weightUniform = new float[1];
     private final int[] textures = new int[3];
     private final int[] framebuffers = new int[3];
+    private final int[] previousFramebuffer = new int[1];
     private GlProgram accumulate;
     private GlProgram resolve;
     private int width;
     private int height;
+
+    public ExactLaneExposure() { this(Encoding.VIDEO_SDR); }
+
+    public ExactLaneExposure(Encoding encoding) { this.encoding = encoding; }
 
     public void configure(int width, int height) throws GlUtil.GlException {
         if (width <= 0 || height <= 0) throw new IllegalArgumentException("Invalid exposure target size");
@@ -80,6 +87,19 @@ public final class ExactLaneExposure {
     /** The scope needs a distinct source from every target assigned to it in this call. */
     public void draw(int outputFramebuffer, MotionShutter.Schedule shutter, Scope scope)
             throws VideoFrameProcessingException, GlUtil.GlException {
+        draw(outputFramebuffer, shutter, scope, false);
+    }
+
+    /** Returns a borrowed premultiplied texture until the next draw or resize. */
+    public int drawToTexture(MotionShutter.Schedule shutter, Scope scope)
+            throws VideoFrameProcessingException, GlUtil.GlException {
+        GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, previousFramebuffer, 0);
+        draw(previousFramebuffer[0], shutter, scope, true);
+        return textures[SAMPLE];
+    }
+
+    private void draw(int outputFramebuffer, MotionShutter.Schedule shutter, Scope scope,
+                      boolean resolveToSample) throws VideoFrameProcessingException, GlUtil.GlException {
         if (width <= 0 || height <= 0) throw new IllegalStateException("Exposure target is not configured");
         long[] times = shutter.timesUs();
         double[] weights = shutter.weights();
@@ -107,12 +127,23 @@ public final class ExactLaneExposure {
         boolean wasScissoring = GLES20.glIsEnabled(GLES20.GL_SCISSOR_TEST);
         try {
             if (!distinctTimes) {
-                scope.drawAt(outputFramebuffer, times[firstTap]);
+                if (resolveToSample) ensureTargets();
+                scope.drawAt(resolveToSample ? framebuffers[SAMPLE] : outputFramebuffer, times[firstTap]);
                 return;
             }
             ensureTargets();
-            if (accumulate == null) accumulate = program(ACCUMULATE);
-            if (resolve == null) resolve = program(RESOLVE);
+            if (accumulate == null) {
+                String decode = encoding == Encoding.SRGB
+                        ? "mix(rgb / 12.92, pow((rgb + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), rgb))"
+                        : "mix(rgb / 4.5, pow((rgb + 0.099) / 1.099, vec3(1.0 / 0.45)), step(vec3(0.081), rgb))";
+                accumulate = program(ACCUMULATE.replace("DECODE_TRANSFER", decode));
+            }
+            if (resolve == null) {
+                String encode = encoding == Encoding.SRGB
+                        ? "mix(12.92 * rgb, 1.055 * pow(rgb, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), rgb))"
+                        : "mix(4.5 * rgb, 1.099 * pow(rgb, vec3(0.45)) - 0.099, step(vec3(0.018), rgb))";
+                resolve = program(RESOLVE.replace("ENCODE_TRANSFER", encode));
+            }
 
             int previous = SAMPLE;
             int next = FIRST_ACCUMULATION;
@@ -132,7 +163,8 @@ public final class ExactLaneExposure {
                 next = next == FIRST_ACCUMULATION ? SECOND_ACCUMULATION : FIRST_ACCUMULATION;
             }
 
-            focus(outputFramebuffer);
+            // The last accumulation texture is distinct from the sample input used by the taps.
+            focus(resolveToSample ? framebuffers[SAMPLE] : outputFramebuffer);
             resolve.use();
             resolve.setSamplerTexIdUniform("uLinear", textures[previous], 0);
             drawQuad(resolve);

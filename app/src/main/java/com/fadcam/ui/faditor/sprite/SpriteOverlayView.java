@@ -272,7 +272,63 @@ public class SpriteOverlayView extends View {
     }
 
     public record MotionCell(Bitmap bitmap, float aspect,
-            MotionTimelineBreaks.CellWindow window) {}
+            @Nullable MotionTimelineBreaks.CellWindow window,
+            @Nullable com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.Source avatar) {
+        public MotionCell(Bitmap bitmap, float aspect, MotionTimelineBreaks.CellWindow window) {
+            this(bitmap, aspect, window, null);
+        }
+    }
+
+    private record AvatarMotionSource(SpriteOverlayItem item,
+            com.fadcam.ui.faditor.avatar.AvatarRig rig,
+            com.fadcam.ui.faditor.avatar.AvatarParamTrack take, int samples, long startMs,
+            com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.Source source) {}
+
+    @Nullable private AvatarMotionSource avatarMotionSource;
+    @Nullable private MotionCell avatarSharpCell;
+    private long avatarSharpTimeMs = Long.MIN_VALUE;
+
+    @Nullable
+    private MotionCell avatarMotionCell(SpriteOverlayItem item, long editorMs) {
+        var take = item.getAvatarTrack();
+        var rigId = item.getAvatarRigId();
+        if (take == null || rigId == null) return null;
+        var rig = callback.lookupAvatarRig(rigId);
+        if (!com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.supportsRig(rig)) return null;
+        var renderer = callback.lookupRenderer(item.getSheetId());
+        if (renderer == null || renderer.isSequence()) return null;
+        var puppet = puppetFor(item);
+        if (puppet == null) return null;
+        var saved = avatarMotionSource;
+        if (saved == null || saved.item() != item || saved.rig() != rig || saved.take() != take
+                || saved.samples() != take.size() || saved.startMs() != item.getStartMs()) {
+            var sheets = new java.util.HashMap<String, SpriteSheet>();
+            for (var part : rig.getParts()) {
+                var sheet = callback.lookupSheet(part.sheetId);
+                if (sheet == null) return null;
+                sheets.put(part.sheetId, sheet);
+            }
+            var source = new com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.Source(
+                    rig, take, sheets, renderer.cellAspect(), item.getStartMs() * 1000L);
+            saved = new AvatarMotionSource(item, rig, take, take.size(), item.getStartMs(), source);
+            avatarMotionSource = saved;
+            avatarSharpCell = null;
+        }
+        if (editorMs == avatarSharpTimeMs && avatarSharpCell != null
+                && !avatarSharpCell.bitmap().isRecycled()) return avatarSharpCell;
+        Bitmap sharp = null;
+        try {
+            sharp = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888);
+            puppet.draw(new Canvas(sharp), new RectF(0, 0, 512, 512), take,
+                    item.toLocalMs(editorMs), 1f);
+            avatarSharpTimeMs = editorMs;
+            avatarSharpCell = new MotionCell(sharp, saved.source().aspect(), null, saved.source());
+            return avatarSharpCell;
+        } catch (RuntimeException | OutOfMemoryError error) {
+            if (sharp != null) sharp.recycle();
+            return null;
+        }
+    }
 
     private record MotionCellKey(SpriteSheetRenderer owner, int artistCell, android.graphics.Rect rect) {}
 
@@ -287,6 +343,11 @@ public class SpriteOverlayView extends View {
     @Nullable
     public MotionCell motionCellFor(@NonNull SpriteOverlayItem item, long playheadMs) {
         if (callback == null || item == manipulating) return null;
+        if (item.hasAvatarPerformance()) {
+            if (!item.isRigidMotionBlurEnabled() || !item.isVisibleAt(playheadMs)
+                    || !com.fadcam.ui.faditor.compositor.RecordedAvatarMotion.supports(item)) return null;
+            return avatarMotionCell(item, playheadMs);
+        }
         var sheet = callback.lookupSheet(item.getSheetId());
         var renderer = callback.lookupRenderer(item.getSheetId());
         if (sheet == null || renderer == null || renderer.isSequence()) return null;
@@ -538,6 +599,10 @@ public class SpriteOverlayView extends View {
     /** Drop an item's cached replay puppet (e.g. after a re-record replaced
      *  its track) so the next draw rebuilds with fresh replay state. */
     public void resetAvatarPuppet(@NonNull String itemId) {
+        if (avatarMotionSource != null && avatarMotionSource.item().getId().equals(itemId)) {
+            avatarMotionSource = null;
+            avatarSharpCell = null;
+        }
         com.fadcam.ui.faditor.avatar.AvatarItemPuppet p = puppets.remove(itemId);
         if (p != null) p.release();
         invalidate();
@@ -546,6 +611,8 @@ public class SpriteOverlayView extends View {
     @Override
     protected void onDetachedFromWindow() {
         motionCells.evictAll();
+        avatarMotionSource = null;
+        avatarSharpCell = null;
         super.onDetachedFromWindow();
         for (com.fadcam.ui.faditor.avatar.AvatarItemPuppet p : puppets.values()) {
             if (p != null) p.release();

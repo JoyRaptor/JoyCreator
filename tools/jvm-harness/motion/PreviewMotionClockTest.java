@@ -30,7 +30,36 @@ public final class PreviewMotionClockTest {
         }
         if (clock.latch(2_110_000_000L) != null) throw new AssertionError("bounded queue");
         expect(clock.latch(2_110_000_034L), 4_033_345L, 16_667L, "newest retained texture");
+        matchedSourceTimeline();
         System.out.println("PASS PreviewMotionClockTest");
+    }
+
+    private static void matchedSourceTimeline() {
+        PreviewMotionClock clock = new PreviewMotionClock();
+        long epoch = clock.reset();
+        clock.onFrame(epoch, 17, 4_000, 80_000, "first source");
+        clock.onFrame(epoch, 31, 20_683, 113_367, "first source");
+        var frame = clock.latch(31);
+        expect(frame, 20_683, 16_683, "real editor cadence retained beside source PTS");
+        if (!frame.hasDecodedPtsFor("first source") || frame.decodedPtsUs() != 113_367
+                || frame.continuityEpoch() != epoch || frame.hasDecodedPtsFor("second source")) {
+            throw new AssertionError("matched texture must carry its own source identity, PTS and epoch");
+        }
+        if (clock.latch(31) != frame) throw new AssertionError("same texture keeps the same frame");
+
+        long next = clock.reset();
+        clock.onFrame(epoch, 50, 37_366, 146_734, "first source");
+        if (clock.latch(50) != null) throw new AssertionError("seek rejects old source metadata");
+        clock.onFrame(next, 51, 20_683, 113_367, "second source");
+        var reused = clock.latch(51);
+        if (reused == null || reused.continuityEpoch() != next || reused.decodedPtsUs() != 113_367
+                || !reused.hasDecodedPtsFor("second source") || reused.hasDecodedPtsFor("first source")) {
+            throw new AssertionError("reused PTS has the new epoch and source identity");
+        }
+        clock.onFrame(next, 55, 37_366);
+        if (clock.latch(55).hasDecodedPts()) {
+            throw new AssertionError("legacy editor-only callback must not invent source PTS");
+        }
     }
 
     private static void callback(PreviewMotionClock clock, long generation, long releaseNs,

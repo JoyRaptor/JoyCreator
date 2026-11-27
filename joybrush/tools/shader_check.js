@@ -184,9 +184,27 @@ S.paperFixtures = ['paper-raster-fixture.json', 'paper-raster-large-fixture.json
       out vec2 v_offset; out vec2 v_dabCentre; out float v_radius; out float v_angle; out float v_flow; out float v_cap; flat out vec2 v_travel; flat out vec4 v_contact; flat out vec4 v_pen; flat out float v_live;
       void main(){gl_Position=vec4(a,0,1);v_offset=a*vec2(1024,128);v_dabCentre=vec2(1024,128);
         v_radius=2048.0;v_angle=0.0;v_flow=1.0;v_cap=1.0;v_travel=vec2(0);v_contact=vec4(0);v_pen=vec4(0);v_live=0.0;}`;
+    function dabControlFragment(source) {
+      const pattern = /\bhPaper\s*=\s*jb_(?:paperGrainHeight|tilePaperHeight)\s*\(\s*docPx\s*\)\s*;/g;
+      const matches = source.match(pattern) || [];
+      if (matches.length !== 1) throw new Error('dab control expects exactly one hPaper paper-height callsite, found ' + matches.length);
+      return source.replace(pattern, 'hPaper = texture(u_paperSurface, docPx / 1024.0).b;');
+    }
+    // Bounded self-checks (no GL): legacy/new + whitespace accept, missing/ambiguous reject.
+    (function dabControlSelfCheck() {
+      const legacy = 'hPaper = jb_paperGrainHeight(docPx);';
+      const next = 'hPaper = jb_tilePaperHeight(docPx);';
+      const spaced = 'hPaper  =  jb_paperGrainHeight ( docPx ) ;';
+      if (!dabControlFragment(legacy).includes('texture(u_paperSurface, docPx / 1024.0).b')) throw new Error('dab control self-check: legacy');
+      if (!dabControlFragment(next).includes('texture(u_paperSurface, docPx / 1024.0).b')) throw new Error('dab control self-check: tile');
+      if (!dabControlFragment(spaced).includes('texture(u_paperSurface, docPx / 1024.0).b')) throw new Error('dab control self-check: whitespace');
+      let rejected = 0;
+      try { dabControlFragment('float hPaper = 1.0;'); } catch (e) { rejected++; }
+      try { dabControlFragment(legacy + '\n' + next); } catch (e) { rejected++; }
+      if (rejected !== 2) throw new Error('dab control self-check: missing/ambiguous must reject');
+    })();
     function dabCorrelation(control) {
-      const fragment = control ? S['jb_dab.frag'].replace('return jb_paperHeight(docPx);',
-        'return texture(u_paperSurface, docPx / 1024.0).b;') : S['jb_dab.frag'];
+      const fragment = control ? dabControlFragment(S['jb_dab.frag']) : S['jb_dab.frag'];
       const p = prog(paperDabV, fragment); gl.useProgram(p); paperUniforms(p);
       gl.uniform1i(u(p,'u_tipGrain'),0);gl.uniform1i(u(p,'u_paperSurface'),1);
       gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,dummy);

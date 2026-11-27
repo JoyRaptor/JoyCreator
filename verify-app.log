@@ -1,0 +1,83 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+Calculating task graph as no cached configuration is available for tasks: :joybrush-android:cleanTestDebugUnitTest :joybrush-android:testDebugUnitTest
+> Task :joybrush:androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:compileKotlinJvm UP-TO-DATE
+> Task :joybrush:core:compileJvmMainJava NO-SOURCE
+> Task :joybrush:core:jvmProcessResources NO-SOURCE
+> Task :joybrush:core:processJvmMainResources SKIPPED
+> Task :joybrush:core:jvmMainClasses UP-TO-DATE
+> Task :joybrush:core:jvmJar
+> Task :joybrush:androidkit:compileKotlin UP-TO-DATE
+> Task :joybrush:androidkit:compileJava NO-SOURCE
+> Task :joybrush:androidkit:processResources
+> Task :joybrush:androidkit:classes
+> Task :joybrush:androidkit:jar
+> Task :joybrush-android:cleanTestDebugUnitTest
+> Task :joybrush-android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush-android:preBuild UP-TO-DATE
+> Task :joybrush-android:preDebugBuild UP-TO-DATE
+> Task :joybrush-android:generateDebugResValues UP-TO-DATE
+> Task :joybrush-android:generateDebugResources UP-TO-DATE
+> Task :joybrush-android:packageDebugResources UP-TO-DATE
+> Task :joybrush-android:processDebugNavigationResources UP-TO-DATE
+> Task :joybrush-android:parseDebugLocalResources UP-TO-DATE
+> Task :joybrush-android:generateDebugRFile UP-TO-DATE
+> Task :studiokit:preBuild UP-TO-DATE
+> Task :studiokit:preDebugBuild UP-TO-DATE
+> Task :studiokit:generateDebugResValues UP-TO-DATE
+> Task :studiokit:generateDebugResources UP-TO-DATE
+> Task :studiokit:packageDebugResources UP-TO-DATE
+> Task :studiokit:processDebugNavigationResources UP-TO-DATE
+> Task :studiokit:parseDebugLocalResources UP-TO-DATE
+> Task :studiokit:generateDebugRFile UP-TO-DATE
+> Task :studiokit:javaPreCompileDebug UP-TO-DATE
+> Task :studiokit:compileDebugJavaWithJavac UP-TO-DATE
+> Task :studiokit:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :joybrush-android:compileDebugKotlin UP-TO-DATE
+> Task :joybrush-android:javaPreCompileDebug UP-TO-DATE
+> Task :joybrush-android:compileDebugJavaWithJavac NO-SOURCE
+> Task :joybrush-android:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :joybrush-android:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :joybrush-android:preDebugUnitTestBuild UP-TO-DATE
+> Task :joybrush-android:writeDebugAarMetadata UP-TO-DATE
+> Task :studiokit:writeDebugAarMetadata UP-TO-DATE
+> Task :joybrush-android:checkDebugUnitTestAarMetadata UP-TO-DATE
+> Task :joybrush-android:compileDebugLibraryResources UP-TO-DATE
+> Task :joybrush-android:generateDebugUnitTestResValues UP-TO-DATE
+> Task :joybrush-android:mapDebugUnitTestSourceSetPaths UP-TO-DATE
+> Task :joybrush-android:generateDebugUnitTestResources UP-TO-DATE
+> Task :joybrush-android:mergeDebugUnitTestResources UP-TO-DATE
+> Task :joybrush-android:extractDeepLinksDebug UP-TO-DATE
+> Task :joybrush-android:processDebugManifest UP-TO-DATE
+> Task :studiokit:extractDeepLinksDebug UP-TO-DATE
+> Task :studiokit:processDebugManifest UP-TO-DATE
+> Task :joybrush-android:processDebugUnitTestManifest UP-TO-DATE
+> Task :studiokit:compileDebugLibraryResources UP-TO-DATE
+> Task :joybrush-android:processDebugUnitTestResources UP-TO-DATE
+> Task :joybrush-android:compileDebugUnitTestKotlin UP-TO-DATE
+> Task :joybrush-android:javaPreCompileDebugUnitTest UP-TO-DATE
+> Task :joybrush-android:compileDebugUnitTestJavaWithJavac NO-SOURCE
+> Task :joybrush-android:generateDebugUnitTestAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugShaders UP-TO-DATE
+> Task :joybrush-android:compileDebugShaders NO-SOURCE
+> Task :joybrush-android:generateDebugAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugAssets UP-TO-DATE
+> Task :studiokit:mergeDebugShaders UP-TO-DATE
+> Task :studiokit:compileDebugShaders NO-SOURCE
+> Task :studiokit:generateDebugAssets UP-TO-DATE
+> Task :studiokit:mergeDebugAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugUnitTestAssets UP-TO-DATE
+> Task :joybrush-android:packageDebugUnitTestForUnitTest UP-TO-DATE
+> Task :joybrush-android:generateDebugUnitTestConfig UP-TO-DATE
+> Task :joybrush-android:processDebugJavaRes UP-TO-DATE
+> Task :joybrush-android:processDebugUnitTestJavaRes UP-TO-DATE
+> Task :studiokit:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :studiokit:processDebugJavaRes NO-SOURCE
+
+> Task :joybrush-android:testDebugUnitTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 1m 14s
+53 actionable tasks: 5 executed, 48 up-to-date
+Configuration cache entry stored.

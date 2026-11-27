@@ -138,6 +138,8 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                val saveLevel: Int? = null,
                /** `jb_save_paint_mb`: how much paint state a save keeps as paint (JbCanvasView.savePaintBudgetBytes). */
                val savePaintMb: Int? = null,
+               /** `jb_stream_saves`: JBX-36 on for this run: streamed saves (S1, S2) and the interrupted move finished (S4). */
+               val streamSaves: Boolean = false,
                /** `jb_sheet_wave`: how uneven a quick wash is laid on the wet sheet (WetSheet.wave): 0 even, 0.12 the default, 0.35 the menu's Wavy. */
                val sheetWave: Double? = null,
                /**
@@ -237,6 +239,11 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.debugPlain = spec.sheetPlain
         cc.joycreator.joybrush.androidkit.gl.media.WetSheet.cutOnMove = spec.sheetCut ?: true
         spec.saveLevel?.let { cc.joycreator.joybrush.androidkit.io.ArchiveMediaDeflate.level = it.coerceIn(0, 9) }
+        if (spec.streamSaves) {
+            cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.streamTiles = true
+            cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.finishInterruptedMove = true
+            Log.i(TAG, "JBX-36: streamed saves on for this run")
+        }
         spec.savePaintMb?.let { canvas.savePaintBudgetBytes = it.toLong() shl 20 }
         spec.sheetLong?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.longCells = it; Log.i(TAG, "wet sheet: $it cells along the screen") }
         spec.sheetGrain?.let { cc.joycreator.joybrush.androidkit.gl.media.WetSheet.grainPrint = it; Log.i(TAG, "wet sheet grain: $it") }
@@ -370,6 +377,10 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
             // readback of the same drawing: every tile not read must be the tile the whole readback holds, and the file
             // written from the sparse one must open as the whole one. printcheck: the chip's fingerprints against the CPU's.
             "savesparse" -> benchSaveSparse()
+            // savestream [undo]: JBX-36 S2 (needs jb_stream_saves). The drawing's checksums first, then the changed-tiles
+            // save streamed from the graphics chip; with "undo" the drawing is changed while the save is still reading it.
+            // The file must be the drawing as it was when the save began: EXACT. Logs the heap's peak during the save.
+            "savestream" -> benchSaveStream(arg)
             "printcheck" -> canvas.benchFingerprintCheck { line -> Log.i(TAG, "then: printcheck: $line") }
             "forgetseen" -> canvas.benchForgetSeenTiles()
             // Between two "savefile" steps of one run: the paint a save keeps (MB), the deflate level of its store tiles.
@@ -561,6 +572,50 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
     }
 
     private fun benchHeapMb(): Long = Runtime.getRuntime().let { (it.totalMemory() - it.freeMemory()) shr 20 }
+
+    private var benchStreamMemo: cc.joycreator.joybrush.androidkit.io.JbArchive.SaveMemo? = null
+
+    private fun benchSaveStream(change: String) {
+        val file = java.io.File(canvas.context.cacheDir, "bench-savestream.joybrush")
+        if (benchStreamMemo == null) { file.delete(); java.io.File(file.path + ".bak").delete() }
+        // The truth, read the old way and kept as checksums only; the streamed snapshot is asked for right behind it on the
+        // graphics thread, so nothing can change between the two.
+        canvas.snapshot({ a ->
+            val want = SaveSums(a)
+            val t0 = android.os.SystemClock.elapsedRealtime()
+            canvas.snapshotSparse({ s ->
+                val t1 = android.os.SystemClock.elapsedRealtime()
+                val report = canvas.lastSparseReport
+                if (!s.streamed) Log.w(TAG, "then: savestream: NOT STREAMED (switch off, no fingerprints, or nothing changed): $report")
+                if (change == "undo") canvas.undo()
+                val memoBefore = benchStreamMemo
+                Thread({
+                    System.gc()
+                    val h0 = benchHeapMb()
+                    var peak = h0
+                    val sampling = java.util.concurrent.atomic.AtomicBoolean(true)
+                    val sampler = Thread({ while (sampling.get()) { peak = maxOf(peak, benchHeapMb()); Thread.sleep(20) } }, "bench-heap").apply { start() }
+                    val t2 = android.os.SystemClock.elapsedRealtime()
+                    val outcome = try {
+                        val memo = cc.joycreator.joybrush.androidkit.io.JbArchive.saveCarrying(file, s, memoBefore)
+                        benchStreamMemo = memo
+                        "written ${android.os.SystemClock.elapsedRealtime() - t2} ms, ${memo.carried} carried and ${memo.fresh} compressed, ${file.length() shr 10} KB"
+                    } catch (x: Throwable) { "SAVE REFUSED: ${x.javaClass.simpleName}: ${x.message}" }
+                    sampling.set(false); sampler.join()
+                    val back = try { SaveSums(cc.joycreator.joybrush.androidkit.io.JbArchive.open(file)) } catch (x: Throwable) { null }
+                    val verdict = when {
+                        back == null -> "THE FILE COULD NOT BE READ"
+                        want.storesDiffering(back) == 0 && want.looksDiffering(back) == 0 -> "EXACT"
+                        else -> "WRONG: ${want.looksDiffering(back)} of ${want.looks.size} picture tiles and ${want.storesDiffering(back)} of ${want.stores.size} paint store tiles differ"
+                    }
+                    ui.post {
+                        Log.i(TAG, "then: savestream${if (change.isNotEmpty()) " $change" else ""}: $verdict; streamed ${s.streamed}; the pen waited ${t1 - t0} ms ($report); " +
+                            "$outcome; heap ${h0} MB before, peak ${peak} MB during the save")
+                    }
+                }, "bench-savestream").start()
+            }, { why -> Log.w(TAG, "then: savestream: snapshot failed: $why") })
+        }, { why -> Log.w(TAG, "then: savestream: truth snapshot failed: $why") })
+    }
 
     /** What a snapshot held, small enough to keep: a checksum a tile, the counts and the stores' raw size. */
     private class SaveSums(c: cc.joycreator.joybrush.androidkit.io.JbContents) {
@@ -1199,6 +1254,7 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec,
                 sheetCut = if (intent.hasExtra("jb_sheet_cut")) intent.getBooleanExtra("jb_sheet_cut", true) else null,
                 saveLevel = intent.getIntExtra("jb_save_level", -1).takeIf { it >= 0 },
                 savePaintMb = intent.getIntExtra("jb_save_paint_mb", -1).takeIf { it > 0 },
+                streamSaves = intent.getBooleanExtra("jb_stream_saves", false),
                 sheetWave = intent.getStringExtra("jb_sheet_wave")?.toDoubleOrNull()?.coerceIn(0.0, 4.0),
                 under = intent.getStringExtra("jb_bench_under")?.takeIf { it.isNotBlank() },
                 then = intent.getStringExtra("jb_bench_then")?.split(';')?.map { it.trim() }?.filter { it.isNotEmpty() }.orEmpty(),

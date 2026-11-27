@@ -21,6 +21,7 @@ import java.util.Map;
  *   "undoSteps": 1,                          undo steps the request made (0 when nothing changed)
  *   "ok": true,                              the agent's own verdict
  *   "reply": {"asks": true, "mentions": ["0:20"]},
+ *   "toolLinesContain": ["…"],               some tool answer must contain these words
  *   "noLateRequests": true,                  after Stop, the stopped request never calls the service again
  *   "secondDone": true                       the request sent after Stop finished normally
  * }
@@ -97,9 +98,11 @@ final class Expect {
         List<String> allow = new ArrayList<>();
         if (ex.has("allow")) for (JsonElement e : ex.getAsJsonArray("allow")) allow.add(e.getAsString());
         if (ex.has("require")) for (JsonElement e : ex.getAsJsonArray("require")) {
-            JsonObject r = e.getAsJsonObject();
-            if (!r.has("absent")) allow.add(r.get("path").getAsString());
-            else allow.add(r.get("path").getAsString());
+            allow.add(e.getAsJsonObject().get("path").getAsString());
+        }
+        // "anyOf": several right answers (a fade handle OR opacity keyframes); one must hold in full.
+        if (ex.has("anyOf")) for (JsonElement way : ex.getAsJsonArray("anyOf")) {
+            for (JsonElement e : way.getAsJsonArray()) allow.add(e.getAsJsonObject().get("path").getAsString());
         }
         boolean unchangedWanted = ex.has("unchanged") && ex.get("unchanged").getAsBoolean();
         List<String> allowNew = new ArrayList<>();
@@ -116,6 +119,20 @@ final class Expect {
             String why = require(e.getAsJsonObject(), before, after);
             if (why != null) fails.add(why);
         }
+        if (ex.has("anyOf")) {
+            String firstWhy = null;
+            boolean held = false;
+            for (JsonElement way : ex.getAsJsonArray("anyOf")) {
+                String why = null;
+                for (JsonElement e : way.getAsJsonArray()) {
+                    why = require(e.getAsJsonObject(), before, after);
+                    if (why != null) break;
+                }
+                if (why == null) { held = true; break; }
+                if (firstWhy == null) firstWhy = why;
+            }
+            if (!held) fails.add(firstWhy);
+        }
 
         // ── undo, verdict, reply ──
         if (ex.has("undoSteps") && ex.get("undoSteps").getAsInt() != undoSteps) {
@@ -124,7 +141,8 @@ final class Expect {
         if (ex.has("ok") && o.ok != null && ex.get("ok").getAsBoolean() != o.ok) {
             fails.add("Joybot reported " + (o.ok ? "success" : "failure") + ", expected " + (ex.get("ok").getAsBoolean() ? "success" : "failure"));
         }
-        if (falseClaim(reply, changed)) fails.add("said it made a change when nothing changed: \"" + clip(reply) + "\"");
+        // Joybot's own "that didn't work" (ok false) is never a false claim, whatever its words.
+        if (!Boolean.FALSE.equals(o.ok) && falseClaim(reply, changed)) fails.add("said it made a change when nothing changed: \"" + clip(reply) + "\"");
         JsonObject rx = ex.has("reply") ? ex.getAsJsonObject("reply") : new JsonObject();
         if (rx.has("asks") && rx.get("asks").getAsBoolean() && (reply == null || !reply.contains("?"))) {
             fails.add("should have asked which one; replied \"" + clip(reply) + "\"");
@@ -133,6 +151,13 @@ final class Expect {
             if (reply == null || !reply.toLowerCase(Locale.ROOT).contains(m.getAsString().toLowerCase(Locale.ROOT))) {
                 fails.add("reply should mention \"" + m.getAsString() + "\"; replied \"" + clip(reply) + "\"");
             }
+        }
+
+        if (ex.has("toolLinesContain")) for (JsonElement w : ex.getAsJsonArray("toolLinesContain")) {
+            boolean seen = false;
+            for (String l : o.toolLines) if (l.contains(w.getAsString())) seen = true;
+            if (!seen) fails.add("no tool answer said \"" + w.getAsString() + "\" (tools said: "
+                    + clip(String.join(" | ", o.toolLines)) + ")");
         }
 
         // ── Stop then Send (fake service only) ──
@@ -145,6 +170,11 @@ final class Expect {
         }
 
         JsonObject res = new JsonObject();
+        // The free tier's "busy / limit" stopped the request: the model never got to finish.
+        if (reply != null && (reply.startsWith("The AI service is busy") || reply.contains("ResourceExhausted")
+                || reply.contains("rate limit") || reply.startsWith("API error 429"))) {
+            res.addProperty("rateLimited", true);
+        }
         res.addProperty("success", fails.isEmpty());
         res.add("failures", strings(fails));
         res.add("unintended", strings(unintended));

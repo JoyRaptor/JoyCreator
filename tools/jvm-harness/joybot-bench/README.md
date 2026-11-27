@@ -61,7 +61,8 @@ A reference turn can also carry `rawArgs` (broken JSON), `finish` (`stop|tool_ca
 Paths name array items by their `id` (`textOverlays[t-title]`), others by position; `*` matches within one
 part, `**` anything. `expect` keys: `unchanged`, `require` (ops `eq` — `#RRGGBB` compares with colour ints —
 `contains`, `gt`, `lt`, `moreThanBefore`, `lessThanBefore`, `changed`, `absent`, `exists`, `count`; `any`),
-`allow`, `allowNew` (new items in these lists), `undoSteps`, `ok`, `reply.asks`, `reply.mentions`,
+`allow`, `allowNew` (new items in these lists), `anyOf` (several right answers), `undoSteps`, `ok`,
+`reply.asks`, `reply.mentions`, `toolLinesContain`,
 `noLateRequests`, `secondDone`. Every run is also checked for honesty: when nothing changed, the reply
 must not say it did. Any change not required or allowed is reported as "changed things nobody asked for".
 

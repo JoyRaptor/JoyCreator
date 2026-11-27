@@ -99,6 +99,13 @@ public final class StudioActions {
     @NonNull
     public static String execute(@NonNull Context app, @NonNull ProjectStorage storage,
                                  @NonNull String projectId, @NonNull String tool, @NonNull JSONObject args) {
+        // From VisLab or the lobby there is no project: say so, so the model picks the right tools
+        // (it read "Error: null" and gave up on "remove the sparks", benchmark 10-27).
+        //noinspection ConstantConditions
+        if (projectId == null) {
+            return "Error: no Studio project is open here, so " + tool + " can't run. In VisLab use the vislab_"
+                    + " tools; to work on a video, open the project first (open_library_item).";
+        }
         FaditorProject proj = storage.load(projectId);
         if (proj == null) return "Error: the project couldn't be read just now (the editor may be busy). Try again.";
         // Markers are not in project.json: they live in the bookmarks.json sidecar. Load them so

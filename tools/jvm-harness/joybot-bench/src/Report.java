@@ -15,7 +15,7 @@ final class Report {
 
     static String line(JsonObject r) {
         return String.format(Locale.US, "%s %-34s %-28s steps %-3s %6d ms  %s",
-                r.get("success").getAsBoolean() ? "PASS" : "FAIL", str(r, "task"), shortModel(str(r, "model")),
+                r.get("success").getAsBoolean() ? "PASS" : limited(r) ? "BUSY" : "FAIL", str(r, "task"), shortModel(str(r, "model")),
                 num(r, "steps"), (long) num(r, "latencyMs"), r.get("success").getAsBoolean() ? "" : firstFailure(r));
     }
 
@@ -38,12 +38,13 @@ final class Report {
         sb.append("|---|---|---|---|---|---|---|---|\n");
         for (Map.Entry<String, List<JsonObject>> e : byModel(rs).entrySet()) {
             List<JsonObject> l = e.getValue();
-            int ok = 0, unintended = 0, lies = 0;
+            int ok = 0, unintended = 0, lies = 0, busy = 0;
             double steps = 0, tokens = 0;
             int tokenRuns = 0;
             List<Long> lat = new ArrayList<>();
             for (JsonObject r : l) {
                 if (r.get("success").getAsBoolean()) ok++;
+                else if (limited(r)) busy++;
                 if (r.has("unintended") && r.getAsJsonArray("unintended").size() > 0) unintended++;
                 if (firstFailure(r).startsWith("said it made a change") || r.toString().contains("said it made a change")) lies++;
                 steps += Math.max(0, num(r, "steps"));
@@ -51,8 +52,9 @@ final class Report {
                 lat.add((long) num(r, "latencyMs"));
             }
             Collections.sort(lat);
-            sb.append(String.format(Locale.US, "| %s | %d | %d (%d%%) | %d | %d | %.1f | %s | %.1f s |%n",
-                    e.getKey(), l.size(), ok, Math.round(100.0 * ok / Math.max(1, l.size())), unintended, lies,
+            sb.append(String.format(Locale.US, "| %s | %d | %d (%d%%) | %d | %d/%d (%d%%) | %d | %d | %.1f | %s | %.1f s |%n",
+                    e.getKey(), l.size(), ok, Math.round(100.0 * ok / Math.max(1, l.size())), busy,
+                    ok, l.size() - busy, Math.round(100.0 * ok / Math.max(1, l.size() - busy)), unintended, lies,
                     steps / Math.max(1, l.size()), tokenRuns == 0 ? "—" : String.valueOf(Math.round(tokens / tokenRuns)),
                     lat.isEmpty() ? 0 : lat.get(lat.size() / 2) / 1000.0));
         }
@@ -79,12 +81,19 @@ final class Report {
                     if (r.get("success").getAsBoolean()) ok++;
                     else if (why.isEmpty()) why = firstFailure(r);
                 }
-                String mark = ok == runs.size() ? "✅" : ok == 0 ? "❌" : "🟡 " + ok + "/" + runs.size();
+                boolean busy = false;
+                for (JsonObject r : runs) if (!r.get("success").getAsBoolean() && limited(r)) busy = true;
+                String mark = ok == runs.size() ? "✅" : ok == 0 ? (busy ? "⏳" : "❌") : "🟡 " + ok + "/" + runs.size();
                 sb.append(mark).append(why.isEmpty() ? "" : " " + cell(why)).append(" | ");
             }
             sb.append('\n');
         }
         return sb.toString();
+    }
+
+    /** Stopped by the service's free-tier limit before it could finish: inconclusive, not a failure. */
+    static boolean limited(JsonObject r) {
+        return r.has("rateLimited") && r.get("rateLimited").getAsBoolean();
     }
 
     static Map<String, List<JsonObject>> byModel(List<JsonObject> rs) {

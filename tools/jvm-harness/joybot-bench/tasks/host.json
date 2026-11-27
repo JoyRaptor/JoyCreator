@@ -218,6 +218,25 @@
     }
   },
   {
+    "id": "host-studio-tool-in-vislab",
+    "title": "In VisLab the model reaches for a Studio tool (list_items); the error must say why and point to the vislab tools",
+    "live": false,
+    "room": "vislab", "look": "neon-bars",
+    "words": "get rid of the sparks",
+    "reference": [
+      {"calls": [{"name": "list_items", "args": {}}]},
+      {"calls": [{"name": "get_project_state", "args": {}}]},
+      {"calls": [{"name": "vislab_change", "args": {"remove_layers": ["Tip sparks"]}}]},
+      {"text": "The sparks are gone."}
+    ],
+    "expect": {
+      "require": [{"path": "looks.neon-bars.layers[1]", "absent": true}],
+      "allow": ["looks.neon-bars.layers[1]"],
+      "toolLinesContain": ["no Studio project is open"],
+      "undoSteps": 1, "ok": true
+    }
+  },
+  {
     "id": "host-whole-body-reply",
     "title": "A service that refuses streaming (HTTP 400) is asked again without it, and the reply still works",
     "live": false,

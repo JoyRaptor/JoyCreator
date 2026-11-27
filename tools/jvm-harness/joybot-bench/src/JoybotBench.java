@@ -47,6 +47,13 @@ public final class JoybotBench {
             System.out.println("fixtures written to " + new File(HOME, "fixtures"));
             System.exit(0);
         }
+        if (a.containsKey("grade")) {
+            // Re-grade a phone run's raw results with the current checks (no phone needed).
+            // Several files (comma-separated, oldest first): a later run of a task replaces the earlier one.
+            String[] files = a.get("grade").split(",");
+            Phone.report(Phone.grade(files), new File(files[files.length - 1]).getParentFile(), a, java.util.Collections.emptyList());
+            System.exit(0);
+        }
         if (a.containsKey("phone")) {
             Phone.run(a);
             System.exit(0);

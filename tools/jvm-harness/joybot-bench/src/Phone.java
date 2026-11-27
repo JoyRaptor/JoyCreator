@@ -89,9 +89,13 @@ final class Phone {
         adb("pull", DIR + "/results.jsonl", raw.getPath());
         Files.write(new File(runs, "temperatures.txt").toPath(), String.join("\n", temps).getBytes(StandardCharsets.UTF_8));
 
-        List<JsonObject> results = grade(raw);
+        report(grade(raw), runs, a, temps);
+    }
+
+    /** Writes results.json and the Markdown tables beside the raw results, and prints the summary. */
+    static void report(List<JsonObject> results, File runs, Map<String, String> a, List<String> temps) throws Exception {
         Files.write(new File(runs, "results.json").toPath(), JoybotBench.GSON.toJson(results).getBytes(StandardCharsets.UTF_8));
-        String md = Report.markdown(results, true, results.size(), stamp)
+        String md = Report.markdown(results, true, results.size(), runs.getName())
                 + "\nPhone temperature (battery): " + (temps.isEmpty() ? "—" : temps.get(0) + " … " + temps.get(temps.size() - 1)) + "\n";
         File out = a.containsKey("out") && !a.get("out").isEmpty() ? new File(a.get("out")) : new File(runs, "report.md");
         Files.write(out.toPath(), md.getBytes(StandardCharsets.UTF_8));

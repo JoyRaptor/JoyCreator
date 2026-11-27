@@ -196,7 +196,12 @@
       {"text": "The title fades in over a second now."}
     ],
     "expect": {
-      "require": [{"path": "timeline.textOverlays[t-title].*ade*n*", "eq": 1000, "any": true}],
+      "anyOf": [
+        [{"path": "timeline.textOverlays[t-title].*ade*n*", "eq": 1000, "any": true}],
+        [{"path": "timeline.textOverlays[t-title].keyframes.opacity[0].v", "eq": 0},
+         {"path": "timeline.textOverlays[t-title].keyframes.opacity[1].t", "eq": 1000},
+         {"path": "timeline.textOverlays[t-title].keyframes.opacity[1].v", "eq": 1}]
+      ],
       "allow": ["timeline.textOverlays[t-title].**"],
       "undoSteps": 1, "ok": true
     }

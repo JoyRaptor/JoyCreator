@@ -167,6 +167,11 @@ public class AIToolExecutor {
             }
         } catch (Exception e) {
             FLog.e(TAG, "Tool execution failed: " + toolName, e);
+            // No project open (VisLab, the lobby): "Error: null" left the model nothing to act on.
+            if (projectId == null) {
+                return "Error: no Studio project is open here, so " + toolName + " can't run. In VisLab use the"
+                        + " vislab_ tools; to work on a video, open the project first (open_library_item).";
+            }
             return "Error: " + e.getMessage();
         }
     }

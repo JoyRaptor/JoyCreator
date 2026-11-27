@@ -224,6 +224,10 @@ public class JoybotBenchActivity extends Activity {
             raw.put("ended", ended);
         } finally {
             JoybotAgent.detach(l);
+            // The chat takes a room change (open_room) when the request ends; nothing here goes
+            // anywhere, so drop it, or every later task "leaves" after its first tool (10-27).
+            String room = com.fadcam.ui.faditor.ai.actions.AppActions.takePendingRoute();
+            if (room != null) raw.put("openedRoom", room);
         }
         raw.put("latencyMs", (System.nanoTime() - t0) / 1_000_000L);
         JoybotAgent.Finished f = got[0];

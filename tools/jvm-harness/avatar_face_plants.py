@@ -19,6 +19,7 @@ I = "app/src/main/java/cc/joycreator/avatar/perform/Inputs.java"
 MC = "app/src/main/java/cc/joycreator/avatar/face/MirrorChip.java"
 FM = "app/src/main/java/com/fadcam/ui/faditor/avatar/face/FaceMapper.java"
 TR = "app/src/main/java/cc/joycreator/avatar/perform/TakeRecorder.java"
+DP = "app/src/main/java/cc/joycreator/avatar/face/DirectionPrompts.java"
 M = "app/src/main/java/cc/joycreator/avatar/ui/SignalMap.java"
 
 PLANTS = [
@@ -61,6 +62,8 @@ PLANTS = [
     ("the Puff button puffs nothing", [(D, "if (puff && n.equals(\"cheekPuff\")) v = 1;", "")]),
     ("holding Puff does not own its lane", [(I, "        if (faceDrive.puffing()) o.add(\"puff\");\n", "")]),
     ("the puff lane belongs to the face pins again (a pass with Puff held records nothing)", [(TR, "        if (name.equals(\"face.cheekPuff\")) return \"puff\";", "")]),
+    ("Check directions asks for the first move every time", [(DP, "face.check(STEPS[at]);", "face.check(STEPS[0]);")]),
+    ("Check directions does not count a move made", [(DP, "        if (ok) answered++;\n", "")]),
     ("the camera starts but the face does not drive", [(I, "if (on && faceDrive.mode() == cc.joycreator.avatar.face.FaceDrive.Mode.OFF) faceDrive.setMode(cc.joycreator.avatar.face.FaceDrive.Mode.ALWAYS);", "")]),
 ]
 

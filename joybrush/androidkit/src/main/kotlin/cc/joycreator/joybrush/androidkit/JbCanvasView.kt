@@ -66,6 +66,7 @@ import cc.joycreator.joybrush.core.layers.LayerBudget
 import cc.joycreator.joybrush.core.layers.LayerStack
 import cc.joycreator.joybrush.core.layers.LayerState
 import cc.joycreator.joybrush.core.render.LayerMask
+import cc.joycreator.joybrush.core.input.AxisMapping
 import cc.joycreator.joybrush.core.input.DirectionTracker
 import cc.joycreator.joybrush.core.input.PenSample
 import cc.joycreator.joybrush.core.input.StrokeSmoother
@@ -1531,7 +1532,8 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
 
     /**
      * What the pen reads right now, for the brush settings' pen dot (owner, 2026-09-30): pressure 0..1, tilt in radians
-     * from upright, and the direction it leans on the SCREEN (radians, 0 = up, as Android's AXIS_ORIENTATION). Hovering
+     * from upright, and the direction the barrel leans on the SCREEN (radians, 0 = up, Android's AXIS_ORIENTATION
+     * convention, already turned by [AxisMapping.stylusBarrelOrientation] so it agrees with the strokes). Hovering
      * reports pressure 0. UI thread.
      */
     var onPenReading: ((pressure: Float, tilt: Float, orientation: Float) -> Unit)? = null
@@ -1542,7 +1544,7 @@ class JbCanvasView(context: Context) : GLSurfaceView(context) {
         val hovering = ev.actionMasked == MotionEvent.ACTION_HOVER_MOVE || ev.actionMasked == MotionEvent.ACTION_HOVER_ENTER
         val up = ev.actionMasked == MotionEvent.ACTION_UP || ev.actionMasked == MotionEvent.ACTION_HOVER_EXIT
         l(if (hovering || up) 0f else ev.getPressure(0), ev.getAxisValue(MotionEvent.AXIS_TILT, 0),
-            ev.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0))
+            AxisMapping.stylusBarrelOrientation(ev.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0)))
     }
 
     /** R9: a tuft stroke's footprints to the GL thread, beginning the stroke there with the first of them. */

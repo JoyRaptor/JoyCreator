@@ -113,7 +113,10 @@ class PenDiagnosticsView(context: Context) : View(context) {
         pressure = ev.getPressure(0)
         tilt = ev.getAxisValue(MotionEvent.AXIS_TILT, 0)
         orientation = ev.getAxisValue(MotionEvent.AXIS_ORIENTATION, 0)
-        azimuth = AxisMapping.androidOrientationToAzimuth(orientation, 0f)
+        // The azimuth the strokes use: for a pen, the barrel's lean (the S Pen reports it reversed, AxisMapping.STYLUS_FLIP).
+        // Lean the pen's top toward the right edge and this reads about 0°; toward you (the bottom edge), about 90°.
+        val penTool = ev.getToolType(0).let { it == MotionEvent.TOOL_TYPE_STYLUS || it == MotionEvent.TOOL_TYPE_ERASER }
+        azimuth = if (penTool) AxisMapping.stylusAzimuth(orientation) else AxisMapping.androidOrientationToAzimuth(orientation, 0f)
         distance = ev.getAxisValue(MotionEvent.AXIS_DISTANCE, 0)
         val type = ev.getToolType(0)
         if (type == MotionEvent.TOOL_TYPE_STYLUS || type == MotionEvent.TOOL_TYPE_ERASER) {

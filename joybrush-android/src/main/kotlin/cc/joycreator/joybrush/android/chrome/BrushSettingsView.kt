@@ -46,7 +46,8 @@ class BrushSettingsView(
 
     /**
      * What the pen reads now, from the drawing or the preview: the pen dot, and the markers on the two curves. [tilt] in
-     * radians from upright, [orientation] as Android's AXIS_ORIENTATION.
+     * radians from upright, [orientation] the way the barrel leans, in Android's AXIS_ORIENTATION convention
+     * (JbCanvasView already turns the S Pen's reversed report, AxisMapping.stylusBarrelOrientation).
      */
     fun showReading(pressure: Float, tilt: Float, orientation: Float) {
         penDot.show(pressure, tilt, orientation)

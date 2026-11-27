@@ -16,9 +16,9 @@ merged plan's.
 - **Active step:** C6 in-file hard-cut fence. C5 physical parity and C7 release gates remain open.
 - **Candidate:** `codex/stu7-finish-20261125` at `ea236f311`.
 - **Last landed:** C4 `3c0179278` and gated C7 Help and Joybot `51b838070`.
-- **Next action:** Run the pinned `dfef8d1f7` Android fixture on the exact boxing swap and three blur-loss controls once a test device is available.
+- **Next action:** Capture `boxing-original` and `boxing-changed` on pinned Android APK `dfef8d1f7` and compare the raw High frame at 1,200,000 µs.
 - **Owner asks:** Look #1 and final defaults approval are open.
-- [Branch register](../motionblur/BRANCHES.md) · [Current proof](../motionblur/C6_SNAPDRAGON_EXPORT_REPORT.md) · [Channel](../motionblur/CHANNEL.md).
+- [Branch register](../motionblur/BRANCHES.md) · [Claude handoff](../motionblur/C6_CUT_HANDOFF.md) · [Channel](../motionblur/CHANNEL.md).
 
 ### No-loss rules (binding while Codex runs the job)
 1. **Landmark = commit + push + a channel entry + this block updated**, in that order, every time.

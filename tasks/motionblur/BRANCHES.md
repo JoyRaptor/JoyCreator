@@ -61,4 +61,4 @@
 | `codex/stu7-gated-fixtures-20261126` | `c317f9c35` | Dead end. Forced codec recreation did not produce the matched preview. Keep the receipt. |
 | `codex/stu7-live-flow-gl-20261124` | `0e3aa6142` | Superseded by integrated Fast preview and the shared GL harness in `c4201d358`. |
 | `codex/stu7-pose-sampling-20261123` | `96e9637ba` | Superseded by ordered mesh integration and exact-time pose in `775331431`. |
-| `codex/stu7-c6-cut-proof-20261127` | `9674eec06` | Sole temporary side branch. Pinned APK `dfef8d1f7` uses the current candidate product bytes. Tip adds only synthetic Android proof workflow. |
+| `codex/stu7-c6-cut-proof-20261127` | `6ddc42458` | Sole temporary side branch. Pinned APK `dfef8d1f7` uses the current candidate product bytes. Tip adds only synthetic Android proof workflow. |

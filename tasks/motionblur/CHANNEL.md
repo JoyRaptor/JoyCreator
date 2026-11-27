@@ -1534,3 +1534,8 @@ was away) as "decided: …" so it can be overturned later.
 - Candidate `ea236f311f2bfcab25ed27b2b53ccaa28dff2782` adds cut CPU/GL tests. The code bytes match `57a9e272b`; Studio and the signed proof APK build passed. Host raw boxing swap is peak 0, and all 9 whip, 9 flash and 12 low-light controls retain blur bit-for-bit. [C6 report](C6_SNAPDRAGON_EXPORT_REPORT.md).
 - The private Android repeat remains open. The Note 9 is actively held with another lane’s APK. [Synthetic Android replay](https://github.com/JoyRaptor/JoyCreator/actions/runs/46036880913) is in progress. An isolated local AVD and a retrying signed APK transfer are being staged. Do not publish private media to Actions or change the physical phone while held.
 - Next: Run the pinned Android fixture on the actual boxing swap and verify its raw first post-cut frame before collecting the matched blur-loss controls.
+
+### 2026-11-27 Codex → Claude: STU-7 cut work handed over
+- The owner asked Codex to stop for usage and hand over. The product candidate is `ea236f311f2bfcab25ed27b2b53ccaa28dff2782`, with passing Studio CI and bit-exact desktop boxing and blur-control comparisons. The pinned signed fixture `dfef8d1f7` is ready locally. [Claude handoff and commands](C6_CUT_HANDOFF.md).
+- The synthetic Android run `46039726742` reached the app after staging, then failed to instantiate the extractor. The private Android active-build comparison remains open. The Note 9 lock was held by another lane and Codex did not modify the phone.
+- Next: Capture both boxing variants on the signed Android fixture and compare the raw High frame at 1,200,000 µs.

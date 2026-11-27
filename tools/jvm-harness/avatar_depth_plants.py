@@ -1,6 +1,6 @@
 """Walking toward the camera and away: prove AvatarDepthWalkTest catches what it claims to.
 
-Each plant copies Walker.java or DepthWalk.java into a scratch folder (run-avatar-depth.sh compiles it instead), breaks it the way
+Each plant copies Walker.java, DepthWalk.java or WalkerLegs.java into a scratch folder (run-avatar-depth.sh compiles it instead), breaks it the way
 a real regression would, and expects at least one FAIL. A plant whose text is not found (the code moved on) is reported.
 
 Usage:  python -B tools/jvm-harness/avatar_depth_plants.py      (or run-avatar-depth.sh --proof)
@@ -14,6 +14,7 @@ import tempfile
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 P = "app/src/main/java/cc/joycreator/avatar/perform/"
 W, D = P + "Walker.java", P + "DepthWalk.java"
+L = "app/src/main/java/cc/joycreator/avatar/face/WalkerLegs.java"
 
 PLANTS = [
     ("the ground line never walks in depth", [(W, "            baseY += dz;\n", "")]),
@@ -26,6 +27,8 @@ PLANTS = [
     ("the camera's angle is ignored", [(D, "return Math.sin(Math.toRadians(clamp(deg, 0, 89))) / Math.sin(Math.toRadians(ANGLE));", "return 1;")]),
     ("the depth model is never let go", [(D, "        if (!want && !still) {", "        if (false) {")]),
     ("no front drawing found", [(D, "            if (d <= bd) {", "            if (false) {")]),
+    ("the room's walker never walks in depth for the face", [(L, "return w.z != null && w.canWalk();", "return false;")]),
+    ("the face's depth goes to the wrong limit", [(L, "new double[]{w.z.lim[0], w.z.lim[1]}", "new double[]{w.z.lim[1], w.z.lim[0]}")]),
 ]
 
 

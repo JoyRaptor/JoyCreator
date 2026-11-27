@@ -27,7 +27,8 @@ if [ -n "$PLANT" ]; then SP="$PLANT${SEP}$SP"; fi
   printf -- '-sourcepath "%s"\n' "$SP"; } > "$ARGS"
 printf -- '-cp "%s%s%s"\n' "$OUT" "$SEP" "$GSON" > "$RUNARGS"
 
-javac @"$ARGS" tools/jvm-harness/AvatarFaceTest.java || exit 2
+# (the room's hands, Inputs, read character settings: the fuller org.json shim, named so it wins over the stubs' small one)
+javac @"$ARGS" $(find tools/jvm-harness/joybot-bench/shim/org/json -name '*.java') tools/jvm-harness/AvatarFaceTest.java || exit 2
 [ -f "$OUT/AvatarFaceTest.class" ] || { echo "no class file: the compile did not run"; exit 2; }
 # the room's face stays harness-runnable: no Android in its pure files
 if grep -lE "^import android\." app/src/main/java/cc/joycreator/avatar/face/Face{Drive,Walk}.java; then

@@ -16,7 +16,8 @@ import com.fadcam.ui.faditor.Studio;
 /**
  * Walk with your face, in Perform (the pilot's drawer in {@code al-face-walk.js}): a chip under Walking opens three tick
  * boxes. Left and right, and Closer and further, are the room's (kept on this phone); Up close belongs to the character in
- * hand (not kept). The two depth boxes are shown only on a walker that walks toward the camera (no dead controls: the lead, 11-27).
+ * hand (not kept). The two depth boxes are shown only on a walker that walks toward the camera (no dead controls: the lead, 11-27);
+ * the room shows the drawer only for a character that walks, as the pilot's Walking row.
  */
 public final class FaceWalkDrawer extends LinearLayout {
     private static final String PREFS = "avatar_room", LR = "faceWalk.lr", DEPTH = "faceWalk.depth";
@@ -93,7 +94,7 @@ public final class FaceWalkDrawer extends LinearLayout {
         paintTick(upBox, walk.upClose());
         ((View) depthBox.getParent()).setVisibility(deep ? VISIBLE : GONE);      // only where it can walk toward the camera
         ((View) upBox.getParent()).setVisibility(deep ? VISIBLE : GONE);
-        String n = (walk.leftRight() || (deep && walk.closer())) && !host.faceCameraOn() ? getContext().getString(R.string.avatar_face_walk_needs_face) : "";
+        String n = !host.faceCameraOn() ? getContext().getString(R.string.avatar_face_walk_needs_face) : "";   // (as the pilot: while the camera is off)
         note.setText(n);
         note.setVisibility(n.isEmpty() ? GONE : VISIBLE);
     }

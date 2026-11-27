@@ -1,3 +1,5 @@
+import cc.joycreator.avatar.face.FaceWalk;
+import cc.joycreator.avatar.face.WalkerLegs;
 import cc.joycreator.avatar.file.CharacterFile;
 import cc.joycreator.avatar.perform.DepthWalk;
 import cc.joycreator.avatar.perform.Walker;
@@ -177,6 +179,33 @@ public class AvatarDepthWalkTest {
             turned = Math.max(turned, S.turnX);
         }
         ok(wf.z != null && wf.z.front != null && Math.abs(wf.z.front - 0.2) < 1e-9 && turned > 0.1, "coming toward the camera it turns to its front drawing (" + turned + ")");
+
+        // walking with your face in depth, as the room does it (DepthWalk.prep, then FaceWalk through WalkerLegs, then the walker)
+        Walker wu = new Walker(doc, hands);
+        CharacterSolver su = new CharacterSolver(doc, pics);
+        wu.reset();
+        FaceWalk fw = new FaceWalk();
+        WalkerLegs legs = new WalkerLegs(wu);
+        Map<String, double[]> au = new HashMap<>(), tu = new HashMap<>();
+        double grown = 0, back = 9;
+        fw.setUpClose(true);
+        for (int i = 0; i < 320; i++) {
+            if (i == 120) fw.setUpClose(false);
+            DepthWalk.prep(wu, fw.closer() || fw.upClose(), doc, rb);
+            fw.step(dt, null, legs, rb[3] - rb[1], 0.7 * (rb[2] - rb[0]), false);
+            Signals S = new Signals();
+            wu.step(dt, S, au, tu);
+            CharacterSolver.Opt opt = new CharacterSolver.Opt();
+            opt.live = true;
+            opt.dt = dt;
+            su.eval(S, opt);
+            au = new HashMap<>(S.anchor);
+            tu = new HashMap<>(S.tips);
+            if (i < 120) grown = Math.max(grown, S.rootScale);
+            else back = S.rootScale;
+        }
+        ok(grown > 1.4 && Math.abs(back - 1) < 1e-6 && wu.z == null && wu.tz == null && Math.abs(wu.baseY) < 0.05,     // (home: within the pilot's own 0.05)
+                "Up close (walk with your face) walks him up to the camera through the room's walker; unticked he walks back and the stage is plain again (" + grown + ", " + back + ", z " + (wu.z != null) + ", tz " + wu.tz + ", base " + wu.baseY + ")");
 
         // the depth model's own rules
         ok(Math.abs(DepthWalk.k(45) - 1) < 1e-9 && Math.abs(DepthWalk.k(0)) < 1e-9 && DepthWalk.k(75) > 1.3, "the camera's angle: 45 degrees is the start, overhead no change of size, lower more");

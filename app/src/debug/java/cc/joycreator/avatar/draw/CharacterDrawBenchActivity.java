@@ -71,11 +71,15 @@ public class CharacterDrawBenchActivity extends Activity {
                 CharacterDoc doc = CharacterAssets.load(this, asset);
                 BitmapPics pics = new BitmapPics(doc.json, null);
                 String who = doc.name.toLowerCase();
-                for (String p : new String[] {"rest", "turn", "talk", "reach"}) {
+                for (String p : new String[] {"rest", "turn", "talk", "reach", "colour"}) {
                     CharacterSolver sv = new CharacterSolver(doc.json, pics);
                     CharacterSolver.Opt opt = new CharacterSolver.Opt();
                     opt.live = true; opt.dt = 1 / 30.0;
                     Signals S = pose(p);
+                    if ("colour".equals(p)) {                  // every colour set fully in: the second program, compiled on this GPU
+                        org.json.JSONArray pal = doc.json.optJSONArray("palettes");
+                        if (pal != null) for (int k = 0; k < pal.length(); k++) S.tone.put(pal.optJSONObject(k).optString("id"), 1.0);
+                    }
                     SolveOut out = null;
                     long t0 = System.nanoTime();
                     for (int i = 0; i < 8; i++) { S.t = i / 30.0; out = sv.eval(S, opt); }

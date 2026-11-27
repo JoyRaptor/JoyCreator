@@ -41,6 +41,9 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
          */
         default void onBlankClipSelected() { }
 
+        /** Avatar build, Studio reuse item 6: a Solid colour clip (a key colour behind a character, a backdrop). */
+        default void onSolidColourSelected() { }
+
         /** Called when the user selects audio. */
         void onAudioSelected();
 
@@ -173,6 +176,12 @@ public class AddAssetBottomSheet extends BottomSheetDialogFragment {
         root.addView(createOptionRow(
                 getString(R.string.studio_sheet_add_black_clip), "crop_din",
                 () -> { if (callback != null) callback.onBlankClipSelected(); }));
+
+        // Solid colour -- the same kind of spine still in any colour (a key colour to remove later, a backdrop).
+        root.addView(createOptionRow(
+                getString(R.string.ava_studio_solid_row), "palette",
+                () -> { if (callback != null) callback.onSolidColourSelected(); },
+                getString(R.string.ava_studio_solid_row_hover)));
 
         // Overlay video (PiP) row — feature-flagged with M-COMP-2.
         if (com.fadcam.ui.faditor.compositor.OverlayVideoPreviewView.LIVE_PIP) {

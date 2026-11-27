@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Avatar Studio inside Video Studio (slice 2 and 2b of the Avatar build), and the Solid colour clip. -->
+<resources>
+    <!-- Solid colour clip (Add sheet) -->
+    <string name="ava_studio_solid_row">Solid colour (key colour / backdrop)</string>
+    <string name="ava_studio_solid_row_hover">A clip of one colour: green or blue to key out later, or any backdrop</string>
+    <string name="ava_studio_solid_title">Solid colour</string>
+    <string name="ava_studio_solid_length">How long?</string>
+    <string name="ava_studio_solid_added">Solid colour added (%1$s)</string>
+    <string name="ava_studio_solid_undo">Add solid colour</string>
+    <string name="ava_studio_solid_failed">Could not make the colour clip. Try again.</string>
+</resources>

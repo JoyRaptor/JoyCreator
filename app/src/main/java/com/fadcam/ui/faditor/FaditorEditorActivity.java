@@ -17991,18 +17991,58 @@ public class FaditorEditorActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.studio_toast_could_not_create_the_black_clip, Toast.LENGTH_SHORT).show();
             return;
         }
+        insertStillClipAfterSelected(blackUri, USER_BLANK_NAME, dur, "insertBlank",
+                getString(R.string.studio_label_add_black_clip));
+        Toast.makeText(this, getString(R.string.faditor_blank_clip_added,
+                TimeFormatter.formatAuto(dur)), Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * Avatar build, Studio reuse item 6: a Solid colour clip, made exactly as the Black clip is (a generated still
+     * on the spine after the selected clip, one undo step), in any colour; the still is shaped like the frame so the
+     * colour fills it edge to edge. Its first use is a key colour behind a character.
+     */
+    private void insertSolidColourClipAfterSelected(int argb, long durationMs) {
+        if (project == null) return;
+        long dur = Math.max(100L, durationMs);
+        float aspect;
+        try { aspect = resolveCanvasAspect(); } catch (Exception e) { aspect = 0f; }
+        Uri uri = com.fadcam.ui.faditor.model.SolidColourFile.ensure(this, argb, aspect);
+        if (uri == null) {
+            Toast.makeText(this, R.string.ava_studio_solid_failed, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        insertStillClipAfterSelected(uri, com.fadcam.ui.faditor.model.SolidColour.displayName(argb), dur,
+                "insertSolidColour", getString(R.string.ava_studio_solid_undo));
+        Toast.makeText(this, getString(R.string.ava_studio_solid_added,
+                TimeFormatter.formatAuto(dur)), Toast.LENGTH_SHORT).show();
+    }
+
+    /** Add sheet → Solid colour: the colour (key green first), then the length, then the clip. */
+    private void pickSolidColourClip() {
+        com.fadcam.ui.faditor.tools.ColorPickerDialog.show(this, getString(R.string.ava_studio_solid_title),
+                com.fadcam.ui.faditor.model.SolidColour.KEY_GREEN, false, c -> {
+                    if (c == null) return;
+                    promptForTimeMs(R.string.ava_studio_solid_length, IMAGE_CLIP_DURATION_MS,
+                            ms -> insertSolidColourClipAfterSelected(c, ms));
+                });
+    }
+
+    /** A still (black or solid colour) on the spine after the selected clip, muted, named, one undo step. */
+    private void insertStillClipAfterSelected(@NonNull Uri uri, @NonNull String name, long dur,
+                                              @NonNull String editTag, @NonNull String undoLabel) {
         Timeline timeline = project.getTimeline();
         final int at = Math.min(timeline.getClipCount(), Math.max(0, selectedClipIndex + 1));
-        final Clip blank = newImageClip(blackUri, dur);
+        final Clip blank = newImageClip(uri, dur);
         blank.setAudioMuted(true);
-        blank.setDisplayName(USER_BLANK_NAME);
+        blank.setDisplayName(name);
 
         java.util.Map<String, Long> anchors = beginStructuralEdit();
         timeline.addClip(at, blank);
         timeline.shiftTransitionsAfterInsert(at);
-        endStructuralEdit(anchors, "insertBlank");
+        endStructuralEdit(anchors, editTag);
 
-        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_label_add_black_clip), // TODO(strings)
+        undoManager.recordAction(new EditActions.LambdaAction(undoLabel,
                 () -> { timeline.addClip(at, blank); refreshAfterLaneChange(); },
                 () -> { timeline.removeClip(at); refreshAfterLaneChange(); }));
 
@@ -18013,8 +18053,6 @@ public class FaditorEditorActivity extends AppCompatActivity {
         refreshTotalTimeDisplay();
         resyncGaplessAfterStructuralEdit(blank.getId(), 0L, false);
         saveProjectNow();
-        Toast.makeText(this, getString(R.string.faditor_blank_clip_added,
-                TimeFormatter.formatAuto(dur)), Toast.LENGTH_SHORT).show();
     }
 
     /**
@@ -49198,6 +49236,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             public void onBlankClipSelected() {
                 promptForTimeMs(R.string.faditor_blank_clip_length, IMAGE_CLIP_DURATION_MS,
                         ms -> insertBlankClipAfterSelected(ms));
+            }
+
+            @Override
+            public void onSolidColourSelected() {
+                pickSolidColourClip();
             }
 
             @Override

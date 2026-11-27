@@ -1963,6 +1963,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         getString(R.string.studio_project_opening));
                 continueLoadFromSavedProject();
                 FLog.d(TAG, "Editor opened saved project: " + projectId);
+                dropCharacterFromIntent();
                 return;
             }
             FLog.w(TAG, "Could not load saved project: " + projectId + ", falling back");
@@ -1972,6 +1973,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // content door (the Add sheet) opens so the first thing on screen is how to add audio.
         if (getIntent().getBooleanExtra(EXTRA_START_BLANK_AUDIO, false)) {
             startBlankAudioProject();
+            return;
+        }
+
+        // Avatar Studio's Send to Studio / Video: a new project made for the character
+        if (getIntent().getStringExtra(cc.joycreator.avatar.studio.RoomExportSheet.EXTRA_DROP_CHARACTER) != null) {
+            initViews();
+            project = StudioLayerOrder.newProject(this, new ProjectStorage(this).uniqueName(getString(R.string.ava_studio_new_project)));
+            wireBookmarks();
+            saveProjectNow();
+            continueLoadFromSavedProject();
+            syncTimelineOverlays();
+            dropCharacterFromIntent();
             return;
         }
 
@@ -45187,6 +45200,37 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         dropStudioCharacter(choices.get(which).ref);
                     })
                     .show();
+        });
+    }
+
+    /**
+     * Avatar Studio sent a character (its export sheet's Send to Studio or Video): drop it at the start (or the
+     * playhead of an open project), on a colour clip as long as its take when the project has no picture yet, and
+     * open Studio's export sheet when asked. The colour and the character are one undo step.
+     */
+    private void dropCharacterFromIntent() {
+        final String ref = getIntent().getStringExtra(cc.joycreator.avatar.studio.RoomExportSheet.EXTRA_DROP_CHARACTER);
+        if (ref == null || project == null) return;
+        final int key = getIntent().getIntExtra(cc.joycreator.avatar.studio.RoomExportSheet.EXTRA_DROP_KEY_COLOUR, 0);
+        final boolean export = getIntent().getBooleanExtra(cc.joycreator.avatar.studio.RoomExportSheet.EXTRA_OPEN_EXPORT, false);
+        getIntent().removeExtra(cc.joycreator.avatar.studio.RoomExportSheet.EXTRA_DROP_CHARACTER);   // once, not on every rebuild
+        java.io.File assetsDir = new java.io.File(projectStorage.projectDir(project.getId()), "assets");
+        final boolean empty = project.getTimeline().getClipCount() == 0;
+        final long at = empty ? 0 : Math.max(0, lastPlayheadAbsoluteMs);
+        cc.joycreator.avatar.studio.StudioCharacter.prepare(this, ref, assetsDir, p -> {
+            if (isFinishing() || project == null) return;
+            if (p == null) {
+                Toast.makeText(this, R.string.ava_studio_character_failed, Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (empty) {
+                int steps = undoManager.getUndoCount();
+                if (key != 0) insertSolidColourClipAfterSelected(key, p.lengthMs);
+                else insertBlankClipAfterSelected(p.lengthMs);
+                if (undoManager.getUndoCount() > steps) undoManager.mergeNextIntoTop();
+            }
+            insertStudioCharacter(p, at);
+            if (export) showExportConfirmation();
         });
     }
 

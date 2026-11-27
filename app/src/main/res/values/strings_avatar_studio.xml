@@ -18,6 +18,7 @@
     <string name="ava_studio_character_failed">That character could not be opened. Try another, or open it in Avatar Studio first.</string>
     <string name="ava_studio_character_undo">Add %1$s</string>
     <string name="ava_studio_character_added">%1$s added at the playhead</string>
+    <string name="ava_studio_new_project">Character video</string>
     <string name="ava_studio_character_voice">%1$s\'s voice</string>
 
     <!-- Act from a video (the character layer's drawer) -->
@@ -74,4 +75,32 @@
     <string name="ava_perform_settings_in_room">Change the character\'s habits in Avatar Studio.</string>
     <string name="ava_perform_pass_undo">Perform pass</string>
     <string name="ava_perform_pass_done">Pass recorded</string>
+
+    <!-- Avatar Studio's export sheet (built from Studio's sheet parts) -->
+    <string name="ava_export_title">Export the character</string>
+    <string name="ava_export_what">What to make</string>
+    <string name="ava_export_file">Joy Creator file</string>
+    <string name="ava_export_file_hover">The character\'s own file, to send or keep; it opens in Avatar Studio and the pilot</string>
+    <string name="ava_export_frame">One frame</string>
+    <string name="ava_export_frame_hover">A picture of the character as it stands now</string>
+    <string name="ava_export_video">Video</string>
+    <string name="ava_export_video_hover">A video of the character\'s performance, made by Video Studio\'s exporter</string>
+    <string name="ava_export_send">Send to Studio</string>
+    <string name="ava_export_send_hover">Put the character, its performance and its voice into a Video Studio project</string>
+    <string name="ava_export_see_through">See-through</string>
+    <string name="ava_export_see_through_desc">Off: a white background.</string>
+    <string name="ava_export_key">Colour behind the character</string>
+    <string name="ava_export_key_green">Green</string>
+    <string name="ava_export_key_blue">Blue</string>
+    <string name="ava_export_key_other">Any colour</string>
+    <string name="ava_export_key_none">Black</string>
+    <string name="ava_export_key_green_hover">Broadcast green behind the character, to key out in a video editor</string>
+    <string name="ava_export_key_blue_hover">Broadcast blue behind the character, to key out in a video editor</string>
+    <string name="ava_export_key_other_hover">Pick any colour to put behind the character</string>
+    <string name="ava_export_key_none_hover">Plain black behind the character</string>
+    <string name="ava_export_video_note">Opens a new Video Studio project with the character on its colour, and Studio\'s export sheet (size, quality, progress, Stop).</string>
+    <string name="ava_export_go">Make it</string>
+    <string name="ava_export_failed">That could not be made just now. Try again.</string>
+    <string name="ava_export_send_title">Send to which project?</string>
+    <string name="ava_export_send_new">A new project</string>
 </resources>

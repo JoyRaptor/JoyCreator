@@ -3722,6 +3722,7 @@ class JoyBrushActivity : Activity() {
 
     /** Each strip tool's lines-or-pixels mark, from the brush that slot holds (owner, 11-27: always know). */
     private fun showStripModeMarks(library: List<cc.joycreator.joybrush.core.brush.BrushPreset>) {
+        if (!::strip.isInitialized) return   // the switch can be set before the chrome is built; applyTool marks it then
         val linePrefs = BrushLinePreferences(prefs)
         strip.setMakesLines(tools.slots.mapValues { (_, state) ->
             library.firstOrNull { it.id == state.brushId }?.let { linePrefs.enabled(it) }

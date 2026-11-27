@@ -1,0 +1,21 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:compileKotlinJvm UP-TO-DATE
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmMainClasses UP-TO-DATE
+> Task :core:jvmJar UP-TO-DATE
+> Task :core:compileTestKotlinJvm UP-TO-DATE
+> Task :core:compileJvmTestJava NO-SOURCE
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :core:jvmTestClasses UP-TO-DATE
+
+> Task :core:jvmTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 25s
+4 actionable tasks: 1 executed, 3 up-to-date

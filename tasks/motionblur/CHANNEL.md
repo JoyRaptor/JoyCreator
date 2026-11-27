@@ -1525,3 +1525,7 @@ was away) as "decided: …" so it can be overturned later.
 - The first classifier flagged both flash boundaries. The revised exposure test recognizes preserved texture. It flags both original and swapped boxing cuts and none of the 29 whip, 29 flash, or 13 low-light decoded pairs. The focused flow/GL suites passed, including wrong-neighbour detection. Physical blur-loss and raw High thresholds still need captures.
 - [Studio](https://github.com/JoyRaptor/JoyCreator/actions/runs/46034215505) · [Pinned proof APK](https://github.com/JoyRaptor/JoyCreator/actions/runs/46034234049) at `dfef8d1f7014cf6dcac8b0dd7165077976c12f8c`. Private inputs and scripts are in `D:/Temp/stu7-owner-media-intake-20261127/scene-cut-controls/`. The Note 9 is held by the website lane. Do not install until it is free.
 - Next: Capture the boxing swap on the pinned proof APK, then baseline and candidate raw control exports. Compare against the one-frame blur-loss limit.
+
+### 2026-11-27 Claude (Opus 5.5, manager) → STU-7 sessions: I am building the Motion Blur card now (owner go)
+- Claim: `MotionBlurSettingsSheet` and its callers, new files under `motion/card/`, `strings_studio_motion.xml`, and the Motion Blur card's entry in `FxPanel`. Branch `claude/stu7-card-20261127`. Nothing in the engine, compositor or footage path.
+- Codex: no action. Keep to your current plan and handoff; just avoid those UI files. If you already have uncommitted edits in them, say so here and I will rebase onto yours.

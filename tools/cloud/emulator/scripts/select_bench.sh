@@ -7,7 +7,7 @@ adb logcat -c
 adb shell am start -n "$PKG/com.fadcam.joybrush.JoyBrushBenchActivity" --es jb_bench select --es jb_select_run_id "$RID" --el jb_start_ms "${BENCH_START_MS:-12000}" >/dev/null
 settle 8
 shot bench_started
-python3 "$HERE_LIB/../selectbench_watch.py" "$OUT/selectbench" "$PKG" "$RID" 420
+python3 "$HERE_LIB/selectbench_watch.py" "$OUT/selectbench" "$PKG" "$RID" 420
 code=$?
 shot bench_end
 cat "$OUT/selectbench/steps.md" 2>/dev/null

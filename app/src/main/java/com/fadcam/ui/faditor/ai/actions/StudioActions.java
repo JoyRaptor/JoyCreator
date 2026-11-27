@@ -75,6 +75,7 @@ public final class StudioActions {
         add(r, "visualizer", VisualizerActions::register);
         add(r, "sprite on video", SpriteVideoActions::register);
         add(r, "motion", MotionActions::register);
+        add(r, "characters", CharacterActions::register);
         return r;
     }
 

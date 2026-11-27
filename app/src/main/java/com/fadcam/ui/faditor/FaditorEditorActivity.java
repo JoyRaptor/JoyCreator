@@ -45386,13 +45386,18 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Toast.makeText(this, main ? R.string.ava_act_main_stays : R.string.ava_act_baked, Toast.LENGTH_LONG).show();
     }
 
-    /** Keep as driver: after an edit, a driver video that moved or was trimmed is read again (folded into that edit). */
+    /**
+     * Keep as driver: after an edit, a driver video that moved or was trimmed is read again (folded into that edit);
+     * a plan Joybot set and nobody read yet is read the same way.
+     */
     private void rereadMovedActingDrivers() {
         if (project == null || actingRun != null) return;
         for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem it : project.getTimeline().getSpriteOverlays()) {
             if (!it.isCharacter() || it.getCharacterActing() == null) continue;
             cc.joycreator.avatar.studio.Acting.Plan plan = cc.joycreator.avatar.studio.ActFromVideoSheet.planOf(it);
-            if (plan.keepAsDriver && cc.joycreator.avatar.studio.ActingRun.stale(project.getTimeline(), plan)) {
+            boolean unread = false;   // Joybot's character_act_from sets a plan and leaves the reading to the editor
+            for (cc.joycreator.avatar.studio.Acting.Source src : plan.sources) if (src.readAt.isEmpty()) unread = true;
+            if ((plan.keepAsDriver || unread) && cc.joycreator.avatar.studio.ActingRun.stale(project.getTimeline(), plan)) {
                 readCharacterActing(it, plan, false);
                 return;   // one at a time; the next edit picks up the rest
             }

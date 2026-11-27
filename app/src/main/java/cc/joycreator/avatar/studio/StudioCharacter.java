@@ -74,19 +74,25 @@ public final class StudioCharacter {
         }
     }
 
+    /** The shelf, on this thread (off the main thread). */
+    public static List<Choice> shelfNow(Context c) {
+        List<Choice> out = new ArrayList<>();
+        out.add(new Choice("Topps", CharacterLoader.assetRef(CharacterAssets.TOPPS)));
+        out.add(new Choice("Pip", CharacterLoader.assetRef(CharacterAssets.PIP)));
+        try {
+            for (CharacterStore.Entry e : CharacterStore.list(c.getApplicationContext())) out.add(new Choice(e.name, e.path));
+        } catch (RuntimeException ignored) {
+            // the folder could not be reached: the built-in ones are still there
+        }
+        return out;
+    }
+
     /** The shelf, on the main thread: Topps and Pip first, then the folder's characters, the newest first. */
     public static void shelf(Context c, Consumer<List<Choice>> done) {
         final Context app = c.getApplicationContext();
         final Handler main = new Handler(Looper.getMainLooper());
         JoyFolderHome.io().execute(() -> {
-            List<Choice> out = new ArrayList<>();
-            out.add(new Choice("Topps", CharacterLoader.assetRef(CharacterAssets.TOPPS)));
-            out.add(new Choice("Pip", CharacterLoader.assetRef(CharacterAssets.PIP)));
-            try {
-                for (CharacterStore.Entry e : CharacterStore.list(app)) out.add(new Choice(e.name, e.path));
-            } catch (RuntimeException ignored) {
-                // the folder could not be reached: the built-in ones are still there
-            }
+            List<Choice> out = shelfNow(app);
             main.post(() -> done.accept(out));
         });
     }
@@ -110,7 +116,8 @@ public final class StudioCharacter {
         });
     }
 
-    static Prepared prepareNow(Context c, String ref, File assetsDir) throws Exception {
+    /** {@link #prepare} on this thread (Joybot's tools run off the main thread already). */
+    public static Prepared prepareNow(Context c, String ref, File assetsDir) throws Exception {
         CharacterLoader.forget(ref);   // the room may have changed it since
         CharacterLoader.Loaded l = CharacterLoader.load(c, ref);
         if (l == null || l.doc.w <= 0 || l.doc.h <= 0) return null;

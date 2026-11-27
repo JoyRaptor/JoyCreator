@@ -14,6 +14,7 @@ import java.util.Arrays;
 /** Bidirectional neighbouring-frame reconstruction for High footage exposure (GLES2). */
 public final class HighFootageGatherGl {
     public static final int MAX_TAPS = 12;
+    private static final int FIRST_FLOW_UNIT = 3;
 
     /** Packed, confidence-bearing fields for one increasing decoded PTS pair. */
     public record Pair(int forwardTexture, int backwardTexture, long fromPtsUs, long toPtsUs) {
@@ -113,10 +114,10 @@ public final class HighFootageGatherGl {
             program.setSamplerTexIdUniform("uPrevious", before == null ? frame.currentTexture() : frame.previousTexture(), 0);
             program.setSamplerTexIdUniform("uCurrent", frame.currentTexture(), 1);
             program.setSamplerTexIdUniform("uNext", after == null ? frame.currentTexture() : frame.nextTexture(), 2);
-            program.setSamplerTexIdUniform("uBeforeForward", beforeTexture.forwardTexture(), 3);
-            program.setSamplerTexIdUniform("uBeforeBackward", beforeTexture.backwardTexture(), 4);
-            program.setSamplerTexIdUniform("uAfterForward", afterTexture.forwardTexture(), 5);
-            program.setSamplerTexIdUniform("uAfterBackward", afterTexture.backwardTexture(), 6);
+            program.setSamplerTexIdUniform("uBeforeForward", beforeTexture.forwardTexture(), FIRST_FLOW_UNIT);
+            program.setSamplerTexIdUniform("uBeforeBackward", beforeTexture.backwardTexture(), FIRST_FLOW_UNIT + 1);
+            program.setSamplerTexIdUniform("uAfterForward", afterTexture.forwardTexture(), FIRST_FLOW_UNIT + 2);
+            program.setSamplerTexIdUniform("uAfterBackward", afterTexture.backwardTexture(), FIRST_FLOW_UNIT + 3);
             program.setFloatsUniform("uRegion", region);
             program.setFloatsUniform("uStageSize", stageSize);
             program.setFloatsUniform("uFlowSize", flowSize);
@@ -129,6 +130,12 @@ public final class HighFootageGatherGl {
             program.setFloatsUniform("uWeightsB", weightsB);
             program.setFloatsUniform("uWeightsC", weightsC);
             program.bindAttributesAndUniforms();
+            // Media3 rebinds samplers with linear filtering. Packed vector bytes must be read intact.
+            for (int unit = FIRST_FLOW_UNIT; unit < FIRST_FLOW_UNIT + 4; unit++) {
+                GLES20.glActiveTexture(GLES20.GL_TEXTURE0 + unit);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+                GLES20.glTexParameteri(GLES20.GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+            }
             GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
             GlUtil.checkGlError();
             return true;

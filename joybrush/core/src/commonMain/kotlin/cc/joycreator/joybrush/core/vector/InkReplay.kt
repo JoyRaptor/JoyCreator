@@ -141,6 +141,44 @@ object InkReplay {
     }
 
     /**
+     * Replay an unshaped stamp/WC recipe, admitting each final width-scaled/scattered dab BEFORE
+     * retaining it in the result. Stamp admission runs during segment resampling/placement, so a
+     * throwing sink can refuse a huge segment before its remaining points/dabs are allocated.
+     * A refusal returns no partial replay and propagates the original exception unchanged.
+     * This does not bound retained smoother history or work for arbitrary long in-place strokes.
+     * WC keeps its existing finite replay budget and its no-truncation refusal contract.
+     */
+    fun replayAdmitted(record: StrokeRecord, brush: BrushPreset?, admit: (Dab) -> Unit): Replayed {
+        refusal(record, brush)?.let { throw InkReplayException(it) }
+        val preset = brush!!
+        if (preset.line != null || (preset.engine != "stamp" && preset.engine != cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR)) {
+            throw InkReplayException("stroke \"${record.id}\" needs an unshaped stamp or watercolor recipe for admitted replay")
+        }
+        val out = ArrayList<Dab>()
+        fun retain(dab: Dab) {
+            admit(dab)
+            out.add(dab)
+        }
+        if (preset.engine == cc.joycreator.joybrush.core.brush.ENGINE_WATERCOLOUR) {
+            val replayed = replay(record, preset)
+            for (dab in replayed.dabs) retain(dab)
+            return Replayed(out, replayed.strokeHardness, replayed.strokeOpacity, replayed.strokeGrain)
+        }
+        val dabber = BrushDabber(preset, record.seed)
+        val placer = DabPlacer(spacing = dabber.spacing, look = dabber::look)
+        val smoother = StrokeSmoother(record.smoothing, record.screenPerDoc)
+        val scatter = SplitMix(record.seed xor Scatter.SALT)
+        val scale = widthScaleOf(record.widthScale)
+        val placed: (Dab) -> Unit = { dab ->
+            Scatter.expandTo(dab, preset.scatter, scatter, ::dabInputsOf) { retain(rescaledDab(it, scale)) }
+        }
+        val smoothed: (PenSample) -> Unit = { placer.addTo(it, placed) }
+        for (sample in record.samples) smoother.addTo(preset.response.apply(sample), smoothed)
+        smoother.finishTo(smoothed)
+        return Replayed(out, dabber.strokeHardness, dabber.strokeOpacity, dabber.strokeGrain)
+    }
+
+    /**
      * Every problem that stops [record] from being drawn, in words. Empty = it draws.
      *
      * The same sentence [dabs] throws, without the throw, for a UI that wants to grey a stroke out
@@ -236,12 +274,15 @@ object InkReplay {
     private fun rescaled(dabs: List<Dab>, scale: Float): List<Dab> {
         if (scale == 1f) return dabs
         val out = ArrayList<Dab>(dabs.size)
-        for (d in dabs) {
-            val wanted = (if (d.radius.isFinite()) d.radius else 0f) * scale
-            val radius = if (wanted.isFinite()) wanted.coerceIn(0f, DabPlacer.MAX_RADIUS_PX) else 0f
-            out.add(if (radius == d.radius) d else d.copy(radius = radius))
-        }
+        for (d in dabs) out.add(rescaledDab(d, scale))
         return out
+    }
+
+    private fun rescaledDab(dab: Dab, scale: Float): Dab {
+        if (scale == 1f) return dab
+        val wanted = (if (dab.radius.isFinite()) dab.radius else 0f) * scale
+        val radius = if (wanted.isFinite()) wanted.coerceIn(0f, DabPlacer.MAX_RADIUS_PX) else 0f
+        return if (radius == dab.radius) dab else dab.copy(radius = radius)
     }
 
     /**

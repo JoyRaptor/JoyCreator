@@ -77,18 +77,19 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
         val promotionProbe = case == "recordedPromotionProbe" || case == "recordedPromotionRegionProbe" ||
             case == "recordedPromotionColdProbe" || case == "recordedColdPayloadProbe" || case == "recordedColdFailureProbe"
         val capturedCopy = case == "recordedCapturedCopyProbe"
-        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy) {
-            val probePreset = if (jointProbe || promotionProbe || capturedCopy) preset.copy(
+        val capturedJoint = case == "recordedCapturedJointProbe"
+        if (case == "recordedProbe" || bakeOperator != null || jointProbe || promotionProbe || capturedCopy || capturedJoint) {
+            val probePreset = if (jointProbe || promotionProbe || capturedCopy || capturedJoint) preset.copy(
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = "normal")
             else if (bakeOperator == null) preset else preset.copy(
                 version = if (bakeOperator == "multiply" || bakeOperator == "screen") maxOf(9, preset.version) else preset.version,
                 opacity = cc.joycreator.joybrush.core.brush.Param(0.55f), blend = bakeOperator)
             val record = cc.joycreator.joybrush.core.stroke.StrokeRecord("recorded-probe", preset.id, 19L,
                 0.2f, 1f, (0 until 24).map { i -> cc.joycreator.joybrush.core.input.PenSample(
-                    if (bakeOperator == null && !jointProbe && !promotionProbe && !capturedCopy) 64f + i * 4f else 232f + i * 6f,
-                    if (bakeOperator == null && !jointProbe && !promotionProbe && !capturedCopy) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
+                    if (bakeOperator == null && !jointProbe && !promotionProbe && !capturedCopy && !capturedJoint) 64f + i * 4f else 232f + i * 6f,
+                    if (bakeOperator == null && !jointProbe && !promotionProbe && !capturedCopy && !capturedJoint) 96f + (i % 6) * 2f else 240f + (i % 6) * 5f, i * 16.0,
                     pressure = 0.7f, tilt = 0.4f, azimuth = 0.3f) }, colorArgb = 0xFF205CA9.toInt(), seq = 1,
-                capturedPhysicalSource = if (capturedCopy) cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource(
+                capturedPhysicalSource = if (capturedCopy || capturedJoint) cc.joycreator.joybrush.core.stroke.CapturedPhysicalSource(
                     cc.joycreator.joybrush.core.stroke.CaptureDomain(
                         cc.joycreator.joybrush.core.stroke.CaptureRect(0,0,512,512),
                         listOf(cc.joycreator.joybrush.core.stroke.CaptureRect(256,256,200,40))),
@@ -97,13 +98,15 @@ class BenchRunner(private val canvas: JbCanvasView, private val spec: Spec, priv
                 openCold = case == "recordedSavedProbe" || case == "recordedJointColdProbe", joint = jointProbe,
                 promotion = promotionProbe, regional = case == "recordedPromotionRegionProbe",
                 coldLoad = case == "recordedPromotionColdProbe", capturedCopy = capturedCopy,
-                coldPayload = case == "recordedColdPayloadProbe", coldFailures = case == "recordedColdFailureProbe") { result ->
+                coldPayload = case == "recordedColdPayloadProbe", coldFailures = case == "recordedColdFailureProbe",
+                capturedJoint = capturedJoint) { result ->
                 val report = org.json.JSONObject(result).put("brush", preset.id).put("case", case).put("run", run)
                     .put("fixtureOpacity", probePreset.opacity.base)
                     .put("fixtureBrushVersion", probePreset.version)
                     .put("fixtureBrushSize", probePreset.size.base)
                     .put("fixtureWatercolourSize", probePreset.watercolour?.size ?: org.json.JSONObject.NULL)
-                    .put("proofScope", if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
+                    .put("proofScope", if (capturedJoint) "Bound captured source Scene, native siblings, exact integer movement and public joint undo/redo; debug throwaway only, no live View/Select/save/recovery or quality claim"
+                        else if (capturedCopy) "Disposable complete recipe pooling then captured-domain integer texel copy; no source Scene, live capture, Select, save/recovery, quality or performance claim"
                         else if (promotionProbe) "Actual native-base transfer, physical display and raw/legacy history; no live capture, Select, save/recovery, quality or performance claim"
                         else if (jointProbe) "Actual joint engine root/public undo/redo and canonical GPU sources/looks; no live recording, Select, save, quality or performance claim"
                         else if (bakeOperator == null) "Android replay adapter and ordered arithmetic; no live wiring or physical quality claim"

@@ -143,6 +143,26 @@ class StrokeSmoother(amount: Float, screenPerDoc: Float = 1f) {
         return release(xs.size - 1 - lookahead)
     }
 
+    /**
+     * Emits final points while this sample's segment is resampled, so a throwing admission sink
+     * can stop a huge segment before its remaining resamples are allocated. Values/order match
+     * [add]; this still retains the smoother's history. A throwing sink aborts this use: do not
+     * resume the same smoother after refusal or reenter it from the sink.
+     */
+    fun addTo(sample: PenSample, emit: (PenSample) -> Unit) {
+        check(!finished) { "stroke already finished" }
+        if (sample.predicted) return
+        if (!sample.isPlaceable) {
+            droppedSamples++
+            return
+        }
+        if (lastRaw == null) tool = sample.tool
+        lastRaw = sample
+        feedPath(sample.x.toDouble() * zoom, sample.y.toDouble() * zoom, sample) {
+            if (!holdRelease) releaseTo(xs.size - 1 - lookahead, emit)
+        }
+    }
+
     /** Pen lifted: finishes the line to where the pen really was and returns every remaining point. */
     fun finish(): List<PenSample> {
         if (finished) return emptyList()
@@ -156,13 +176,26 @@ class StrokeSmoother(amount: Float, screenPerDoc: Float = 1f) {
         return release(xs.size - 1)
     }
 
+    /** Streaming terminal catch-up, with the same endpoint and idempotence as [finish]. */
+    fun finishTo(emit: (PenSample) -> Unit) {
+        if (finished) return
+        finished = true
+        val raw = lastRaw ?: return
+        val n = xs.size
+        if (n > 0 && hypot(xs[n - 1] - prevX, ys[n - 1] - prevY) > 1e-9) {
+            push(prevX, prevY, raw, raw, 1.0)
+        }
+        releaseTo(xs.size - 1, emit)
+    }
+
     // ── resampling ────────────────────────────────────────────────────────────
 
-    private fun feedPath(fx: Double, fy: Double, s: PenSample) {
+    private fun feedPath(fx: Double, fy: Double, s: PenSample, afterPush: (() -> Unit)? = null) {
         if (!hasPrev) {
             hasPrev = true
             prevX = fx; prevY = fy; prevSample = s
             push(fx, fy, s, s, 1.0)
+            afterPush?.invoke()
             untilNext = STEP
             return
         }
@@ -172,6 +205,7 @@ class StrokeSmoother(amount: Float, screenPerDoc: Float = 1f) {
         while (along <= segLen) {
             val f = along / segLen
             push(prevX + (fx - prevX) * f, prevY + (fy - prevY) * f, a, s, f)
+            afterPush?.invoke()
             along += STEP
         }
         untilNext = along - segLen
@@ -199,6 +233,14 @@ class StrokeSmoother(amount: Float, screenPerDoc: Float = 1f) {
         for (i in released..upTo) out.add(smoothedAt(i))
         released = upTo + 1
         return out
+    }
+
+    private fun releaseTo(upTo: Int, emit: (PenSample) -> Unit) {
+        if (upTo < released) return
+        for (i in released..upTo) {
+            emit(smoothedAt(i))
+            released = i + 1
+        }
     }
 
     private fun smoothedAt(i: Int): PenSample {

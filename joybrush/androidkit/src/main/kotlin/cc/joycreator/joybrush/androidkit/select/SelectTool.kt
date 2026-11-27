@@ -398,7 +398,7 @@ class SelectTool(
         val s = state.current as? SelectionState.Lines ?: return false
         if (!selectionSourcesAvailable(s.ids)) return false
         val ok = host.bakeLines(s.ids)
-        end()
+        if (ok) end()
         return ok
     }
 

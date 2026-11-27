@@ -96,7 +96,19 @@ object Scatter {
         if (dabs.isEmpty()) return emptyList()
 
         val out = ArrayList<Dab>(dabs.size)
-        for (dab in dabs) {
+        expandTo(dabs, spec, rng, inputsOf) { out.add(it) }
+        return out
+    }
+
+    /** Same copies and random draws as [expand], emitted without a scattered-dab list. */
+    fun expandTo(dabs: List<Dab>, spec: ScatterSpec, rng: SplitMix,
+                 inputsOf: (Dab) -> DabInputs, emit: (Dab) -> Unit) {
+        for (dab in dabs) expandTo(dab, spec, rng, inputsOf, emit)
+    }
+
+    /** One placed dab. Keep the same RNG for every dab; refusal aborts this scatter stream. */
+    fun expandTo(dab: Dab, spec: ScatterSpec, rng: SplitMix,
+                 inputsOf: (Dab) -> DabInputs, emit: (Dab) -> Unit) {
             // Decision 1: the count draw is FIRST and is taken whether or not countJitter is set.
             val c = rng.nextFloat()
             val raw = spec.count * (1f - spec.countJitter * c)
@@ -134,10 +146,8 @@ object Scatter {
                 // turned a quarter turn: (-sinA, cosA), and the tangent is (cosA, sinA).
                 val dx = (across * -sinA + along * cosA) * scale
                 val dy = (across * cosA + along * sinA) * scale
-                out.add(shifted(dab, dx, dy))
+                emit(shifted(dab, dx, dy))
             }
-        }
-        return out
     }
 
     /**

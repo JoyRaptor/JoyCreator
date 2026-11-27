@@ -55,14 +55,23 @@ class DabPlacer(
 
     fun add(samples: List<PenSample>): List<Dab> {
         val out = ArrayList<Dab>()
-        for (s in samples) addOne(s, out)
+        addTo(samples) { out.add(it) }
         return out
     }
 
-    private fun addOne(s: PenSample, out: MutableList<Dab>) {
+    /** Same state/arithmetic as [add], without an intermediate placed-dab list. A throwing sink
+     * aborts the placement; do not resume or reenter this placer after admission refusal. */
+    fun addTo(samples: List<PenSample>, emit: (Dab) -> Unit) {
+        for (sample in samples) addOne(sample, emit)
+    }
+
+    /** One final smoothed point, with no one-element collection allocation. */
+    fun addTo(sample: PenSample, emit: (Dab) -> Unit) = addOne(sample, emit)
+
+    private fun addOne(s: PenSample, emitDab: (Dab) -> Unit) {
         val p = prev
         if (p == null) {
-            untilNext = emit(s, 0f, out)
+            untilNext = emit(s, 0f, emitDab)
             prev = s
             return
         }
@@ -70,7 +79,7 @@ class DabPlacer(
         if (len <= 0f) { prev = s; return }
         var along = untilNext
         while (along <= len) {
-            along += emit(lerp(p, s, along / len), travelled + along, out)
+            along += emit(lerp(p, s, along / len), travelled + along, emitDab)
         }
         untilNext = along - len
         travelled += len
@@ -78,13 +87,13 @@ class DabPlacer(
     }
 
     /** Emits one dab and returns the distance to the next one. */
-    private fun emit(s: PenSample, distance: Float, out: MutableList<Dab>): Float {
+    private fun emit(s: PenSample, distance: Float, emitDab: (Dab) -> Unit): Float {
         val l = look(s, distance, index++)
         travel.update(s.x, s.y)
         // A brush file can only reach here after validation, but the placer must never hang or
         // explode on a bad number (review JB-0.03 F1: size 1e999 = Infinity froze the stroke).
         val radius = if (l.radius.isFinite()) l.radius.coerceIn(0f, MAX_RADIUS_PX) else 0f
-        out.add(Dab(x = s.x, y = s.y, radius = radius, angle = if (l.angle.isFinite()) l.angle else 0f,
+        emitDab(Dab(x = s.x, y = s.y, radius = radius, angle = if (l.angle.isFinite()) l.angle else 0f,
             flow = if (l.flow.isFinite()) l.flow.coerceIn(0f, 1f) else 0f,
             cap = if (l.cap.isNaN()) cap else l.cap.coerceIn(0f, 1f), pressure = s.pressure,
             tilt = s.tilt, azimuth = s.azimuth, travelX = travel.x, travelY = travel.y, travelKnown = true,

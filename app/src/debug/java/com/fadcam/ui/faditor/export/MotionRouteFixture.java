@@ -449,6 +449,28 @@ final class MotionRouteFixture {
         return project;
     }
 
+    static FaditorProject createAuthoredReference(Context context, String scene, boolean white,
+                                                  boolean enabled, boolean masterOff) throws IOException {
+        var sheetId = "authored-reference";
+        var sprite = AuthoredMotionReplay.sprite(scene, sheetId, enabled);
+        var storage = new ProjectStorage(context);
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 reference " + scene));
+        project.setMotionBlurEnabled(enabled && !masterOff);
+        project.setTrueLayerOrder(true);
+        var media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create authored reference media directory");
+        String background = white ? "white-96x80-25fps.mp4" : "black-96x80-25fps.mp4";
+        File source = copyAssetPath(context, media, "motion-reference", background);
+        File art = copyAssetPath(context, media, "motion-reference", "reference-sprite.png");
+        project.getTimeline().addClip(clip(source, 1_000L, 1_000L));
+        var sheet = new SpriteSheet(sheetId, "Authored reference sprite", Uri.fromFile(art).toString());
+        sheet.setGrid(1, 1);
+        project.getSpriteSheets().add(sheet);
+        project.getTimeline().addSpriteOverlay(sprite);
+        if (!storage.save(project)) throw new IOException("Could not save the authored reference fixture");
+        return project;
+    }
+
     static FaditorProject createTitle(Context context, boolean enabled) throws IOException {
         ProjectStorage storage = new ProjectStorage(context);
         String variant = enabled ? "blur" : "sharp";
@@ -589,8 +611,13 @@ final class MotionRouteFixture {
     }
 
     private static File copyAsset(Context context, File directory, String name) throws IOException {
+        return copyAssetPath(context, directory, "demo", name);
+    }
+
+    private static File copyAssetPath(Context context, File directory, String assetDirectory,
+                                      String name) throws IOException {
         File file = new File(directory, name);
-        try (var in = context.getAssets().open("demo/" + name);
+        try (var in = context.getAssets().open(assetDirectory + "/" + name);
              var out = new FileOutputStream(file)) {
             byte[] bytes = new byte[8_192];
             for (int length = in.read(bytes); length >= 0; length = in.read(bytes)) {

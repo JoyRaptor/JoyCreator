@@ -1,6 +1,7 @@
 import com.fadcam.ui.faditor.keyframe.Easing;
 import com.fadcam.ui.faditor.keyframe.KeyframeTrack;
 import com.fadcam.ui.faditor.keyframe.KeyframeSet;
+import com.fadcam.ui.faditor.export.AuthoredMotionReplay;
 import com.fadcam.ui.faditor.motion.ItemMotionSampler;
 import com.fadcam.ui.faditor.motion.MotionItemAdapters;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
@@ -54,8 +55,8 @@ public final class MotionReferenceFixtureTest {
         check(wide.spreadX() > thin.spreadX() + 3, "fast slide spreads farther");
         check(Math.abs(wide.mass() - thin.mass()) < 1.1, "slide preserves integrated coverage");
 
-        var zoom = metrics(fixture(output, "zoom", at -> Transform.pose(48, 40,
-                mutant.equals("zoom") ? 1 : 2 + delta(at), 0), NO_BREAKS));
+        Sampler zoomPose = at -> Transform.pose(48, 40, mutant.equals("zoom") ? 1 : 2 + delta(at), 0);
+        var zoom = metrics(fixture(output, "zoom", zoomPose, NO_BREAKS));
         check(zoom.mass() > thin.mass() * 3.5 && zoom.mass() < thin.mass() * 5.3,
                 "zoom must grow coverage about its pivot");
         check(Math.abs(zoom.centerX() - 48) < 2, "zoom stays near the pivot");
@@ -68,8 +69,9 @@ public final class MotionReferenceFixtureTest {
                 timeUs -> fromUnitQuad(spriteZoom.at(timeUs)), NO_BREAKS));
         check(Math.abs(studioZoom.mass() - zoom.mass()) < 0.1, "Studio zoom matches reference coverage");
 
-        var spin = metrics(fixture(output, "spin", at -> Transform.pose(48, 40, 1,
-                mutant.equals("spin") ? 0 : delta(at) * Math.PI / 2), NO_BREAKS));
+        Sampler spinPose = at -> Transform.pose(48, 40, 1,
+                mutant.equals("spin") ? 0 : delta(at) * Math.PI / 2);
+        var spin = metrics(fixture(output, "spin", spinPose, NO_BREAKS));
         check(spin.spreadY() > thin.spreadY() + 1, "spin sweeps the narrow axis");
 
         var linked = metrics(fixture(output, "parent-child", at -> {
@@ -93,7 +95,28 @@ public final class MotionReferenceFixtureTest {
         var stillImage = fixture(output, "still", still, NO_BREAKS);
         var sharp = render(at -> Transform.pose(48, 40, 1, 0), NO_BREAKS, 1);
         check(pixelExact(stillImage, sharp), "still image is bit exact");
-        System.out.println("MotionReferenceFixtureTest: 8 images, 128/256 convergence and motion assertions passed");
+        checkReplay("slide-slow", slow);
+        checkReplay("slide-fast", fast);
+        checkReplay("zoom", zoomPose);
+        checkReplay("spin", spinPose);
+        checkReplay("teleport", teleport);
+        checkReplay("still", still);
+        System.out.println("MotionReferenceFixtureTest: 8 images, 128/256 convergence and 6 authored replays passed");
+    }
+
+    private static void checkReplay(String scene, Sampler oracle) {
+        var sprite = AuthoredMotionReplay.sprite(scene, "host-fixture", true);
+        var placement = MotionItemAdapters.sprite(sprite, WIDTH, HEIGHT, 2.5f);
+        long replayOffsetUs = AuthoredMotionReplay.CENTER_MS * 1000L - CENTER_US;
+        long[] sampleTimes = {90_000, 91_357, 96_123, 99_999, 100_000, 103_491, 110_000};
+        for (long timeUs : sampleTimes) {
+            Transform expected = oracle.at(timeUs);
+            Transform actual = fromUnitQuad(placement.at(timeUs + replayOffsetUs));
+            check(Math.abs(expected.a - actual.a) < 1e-5 && Math.abs(expected.b - actual.b) < 1e-5
+                    && Math.abs(expected.c - actual.c) < 1e-5 && Math.abs(expected.d - actual.d) < 1e-5
+                    && Math.abs(expected.x - actual.x) < 1e-5 && Math.abs(expected.y - actual.y) < 1e-5,
+                    scene + " replay pose differs at " + timeUs + " us: " + actual + " vs " + expected);
+        }
     }
 
     private static Transform fromUnitQuad(ItemMotionSampler.Affine a) {

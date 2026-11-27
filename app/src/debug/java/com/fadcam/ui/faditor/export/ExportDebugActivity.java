@@ -128,6 +128,24 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 sprite fixture enabled=" + enabled);
         }
+        String referenceScene = in.getStringExtra("motion_authored_reference");
+        if (referenceScene != null) {
+            FaditorProject fixture = MotionRouteFixture.createAuthoredReference(this, referenceScene,
+                    in.getBooleanExtra("motion_reference_white", false),
+                    in.getBooleanExtra("motion_enabled", true),
+                    in.getBooleanExtra("motion_master_off", false));
+            long centerUs = AuthoredMotionReplay.CENTER_MS * 1000L;
+            in.putExtra("project_id", fixture.getId());
+            in.putExtra("motion_lane_project_order", true);
+            if (!in.hasExtra("motion_lane_sample_us")) {
+                in.putExtra("motion_lane_sample_us", new long[]{centerUs});
+            }
+            if (!in.hasExtra("motion_preview_readback_us")) {
+                in.putExtra("motion_preview_readback_us", centerUs);
+            }
+            FLog.i(TAG, "C7 authored reference fixture scene=" + referenceScene
+                    + " project_id=" + fixture.getId());
+        }
         if (in.getBooleanExtra("motion_title_fixture", false)) {
             boolean enabled = in.getBooleanExtra("motion_enabled", true);
             FaditorProject fixture = MotionRouteFixture.createTitle(this, enabled);

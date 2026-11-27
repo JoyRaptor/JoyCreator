@@ -21,7 +21,7 @@ RUNARGS=$(mktemp)
 trap 'rm -f "$ARGS" "$RUNARGS"' EXIT
 { printf '%s\n' '-nowarn' '-encoding UTF-8' "-d $OUT";
   printf -- '-cp "%s"\n' "$CP";
-  echo '-sourcepath "tools/jvm-harness/stubs;tools/jvm-harness/motion;app/src/main/java;studiokit/src/main/java"';
+  echo '-sourcepath "tools/jvm-harness/stubs;tools/jvm-harness/motion;app/src/main/java;app/src/debug/java;studiokit/src/main/java"';
 } > "$ARGS"
 printf -- '-cp "%s;%s"\n' "$OUT" "$CP" > "$RUNARGS"
 

@@ -50,15 +50,21 @@ public final class PerformPanel extends ScrollView {
         void clearTake();
 
         /** Face: take the face now as neutral (look at the screen, relaxed). */
-        void recentreFace();
+        default void recentreFace() {
+        }
 
-        boolean faceMirror();
+        default boolean faceMirror() {
+            return false;
+        }
 
         /** Face: on = move like your reflection; off = like someone facing you. */
-        void setFaceMirror(boolean on);
+        default void setFaceMirror(boolean on) {
+        }
 
         /** The small private preview of the face (never kept): the view to give the camera, or null. */
-        View facePreview();
+        default View facePreview() {
+            return null;
+        }
 
         /** The part in hand (a node of the character), or null; Motion shows how it moves. */
         CharacterDoc.Node inHandNode();

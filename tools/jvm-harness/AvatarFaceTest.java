@@ -56,7 +56,7 @@ public class AvatarFaceTest {
         public double base() { return base; }
     }
 
-    public static void main(String[] a) {
+    public static void main(String[] a) throws Exception {
         // ── the Face chip ──
         FaceDrive d = new FaceDrive();
         String seq = d.mode() + ">" + d.next() + ">" + d.next() + ">" + d.next();
@@ -303,6 +303,33 @@ public class AvatarFaceTest {
         check(Math.signum(plain) > 0 && Math.signum(unfixed) < 0 && Math.signum(fixedUp) == Math.signum(plain),
                 "Check directions: on a mirrored camera his right turn ran the wrong way (" + r(unfixed) + "); after the five moves it runs as on a normal phone (" + r(fixedUp) + " vs " + r(plain) + ")");
         check(dirsAnswered == 4, "a move not made within eight seconds keeps its old direction, the rest are set (" + dirsAnswered + " of 5)");
+
+        // ── the face mask's drive (FACE-2, the pilot's al-mask.js drive and al-mask-poses.js weights) ──
+        org.json.JSONObject mset = new org.json.JSONObject("{\"type\":\"set\",\"marks\":{\"\":{\"pts\":[{\"n\":1,\"face\":[17]},{\"n\":2,\"face\":[61]},{\"n\":3,\"face\":[291]}],\"at\":{}}},"
+                + "\"face\":{\"poses\":[{\"id\":\"open\",\"face\":{\"1\":[0,0.2]}},{\"id\":\"wide\",\"face\":{\"2\":[-0.1,0],\"3\":[0.1,0]}}]}}");
+        double u = 0.75;                                                                // (mask units per point unit with no neutral points)
+        Map<String, Double> mpin = new HashMap<>(), mo = new HashMap<>();
+        mpin.put("pt.17.x", 0.05 / u); mpin.put("pt.17.y", 0.12 / u); mpin.put("pt.61.x", -0.03 / u); mpin.put("pt.61.y", 0.0); mpin.put("pt.291.x", 0.03 / u); mpin.put("pt.291.y", 0.0);
+        cc.joycreator.avatar.face.MaskDrive.drive(mset, mpin, false, null, mo);
+        check(Math.abs(mo.get("mp.open") - 0.6) < 0.01 && Math.abs(mo.get("mp.wide") - 0.3) < 0.01 && Math.abs(mo.get("mk.1.x") - 0.05) < 1e-6 && Math.abs(mo.get("mk.1.y")) < 0.01,
+                "the mask: how much of each pose your face holds (0.6 open, 0.3 wide), and what they do not explain follows directly (" + r(mo.get("mp.open")) + ", " + r(mo.get("mp.wide")) + ")");
+        mpin.put("pt.17.y", -0.12 / u);
+        cc.joycreator.avatar.face.MaskDrive.drive(mset, mpin, false, null, mo);
+        double neg = mo.get("mp.open"), negRest = mo.get("mk.1.y");
+        mpin.put("pt.17.y", 0.6 / u);
+        cc.joycreator.avatar.face.MaskDrive.drive(mset, mpin, false, null, mo);
+        check(neg == 0 && Math.abs(negRest + 0.12) < 1e-6 && Math.abs(mo.get("mp.open") - 1.5) < 1e-9 && Math.abs(mo.get("mk.1.y") - 0.3) < 1e-6,
+                "a pose is never held backwards (0) nor past 1.5; what is left over follows directly");
+        org.json.JSONObject noPoses = new org.json.JSONObject(mset.toString());
+        noPoses.getJSONObject("face").remove("poses");
+        Map<String, Double> m0 = new HashMap<>(), m1 = new HashMap<>();
+        cc.joycreator.avatar.face.MaskDrive.drive(noPoses, mpin, false, null, m0);
+        cc.joycreator.avatar.face.MaskDrive.drive(noPoses, mpin, true, null, m1);
+        check(Math.abs(m0.get("mk.2.x") + 0.03) < 1e-6 && Math.abs(m1.get("mk.2.x") - 0.03) < 1e-6,
+                "Mirror on: the mask's right side follows your left (" + r(m0.get("mk.2.x")) + " -> " + r(m1.get("mk.2.x")) + ")");
+        int[] wch = cc.joycreator.avatar.face.MaskDrive.watch(mset);
+        check(wch.length == 3 && java.util.Arrays.stream(wch).boxed().collect(java.util.stream.Collectors.toSet()).containsAll(java.util.Arrays.asList(17, 61, 291)),
+                "the camera watches the mask's face points, both sides of each");
 
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);

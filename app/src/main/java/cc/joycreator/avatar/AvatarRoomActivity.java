@@ -109,6 +109,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private final cc.joycreator.avatar.face.FaceWalk faceWalk = new cc.joycreator.avatar.face.FaceWalk();
     private cc.joycreator.avatar.face.FaceWalkDrawer faceWalkDrawer;
     private double[] bodyBox;                                   // the character's drawing at rest [x0, y0, x1, y1]
+    private org.json.JSONObject maskSet;                        // the turning head (it may wear the face mask, FACE-2)
     private cc.joycreator.avatar.face.WalkerLegs legs;
     private cc.joycreator.avatar.perform.Walker legsOf;
     private final Inputs inputs = new Inputs();
@@ -1048,6 +1049,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         } else walker.refresh();
         stickSize();
         bodyBox = null;                                         // (walking with your face measures the drawing again)
+        maskSet = cc.joycreator.avatar.solve.MaskBend.headSet(d.json.optJSONObject("root"));   // FACE-2: the head that may wear the mask
         if (inputs.faceOn()) watchFacePins();
         stage.setSelected(inHand);
         layers.show(d, inHand);
@@ -1213,6 +1215,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             org.json.JSONObject p = fp.optJSONObject(i);
             if (p != null && p.has("point")) pts.add(p.optInt("point"));
         }
+        for (int v : cc.joycreator.avatar.face.MaskDrive.watch(maskSet)) pts.add(v);   // FACE-2: the face mask's points too
         int[] a = new int[pts.size()];
         int j = 0;
         for (int v : pts) a[j++] = v;
@@ -1467,7 +1470,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             int cls = mic.currentVisemeClassIndex();
             inputs.micHeard(Float.isNaN(db) ? 0 : Math.max(0, Math.min(1, (db + 50) / 40)), cls >= 0 && cls < MIC_SHAPES.length ? MIC_SHAPES[cls] : "Neutral");
         }
-        if (inputs.faceOn() && faceCapture != null) inputs.faceSaw(faceCapture.sample(System.nanoTime()));
+        if (inputs.faceOn() && faceCapture != null) {
+            inputs.faceSaw(faceCapture.sample(System.nanoTime()));
+            inputs.faceDrive().mask(maskSet, faceMirror(), faceCapture.restPoints());   // FACE-2: the mask, as Mirror and your neutral are now
+        }
         java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
         lastSignals = sig;
         stage.setSignals(sig);

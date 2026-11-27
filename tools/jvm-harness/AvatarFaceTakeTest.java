@@ -114,6 +114,11 @@ public class AvatarFaceTakeTest {
     }
 
     static Run run(List<Frame> frames, boolean mirrorChip, double fps) throws Exception {
+        return run(frames, mirrorChip, fps, null);
+    }
+
+    /** {@code maskSet}: a head wearing the face mask, or null. */
+    static Run run(List<Frame> frames, boolean mirrorChip, double fps, org.json.JSONObject maskSet) throws Exception {
         FaceStage st = new FaceStage();
         FaceTuning tu = new FaceTuning();
         MirrorChip.set(tu, mirrorChip);
@@ -129,6 +134,10 @@ public class AvatarFaceTakeTest {
         double dt = 1 / fps;
         long now = 0;
         for (Frame f : frames) {
+            if (maskSet != null) {
+                st.setWatchedPoints(cc.joycreator.avatar.face.MaskDrive.watch(maskSet));
+                in.faceDrive().mask(maskSet, mirrorChip, st.calibration().restPoints());
+            }
             Map<String, Float> face = st.process(f.raw, f.xyz, f.t);
             in.faceSaw(face);
             Map<String, Object> m = in.frame(dt, now += Math.round(dt * 1000));
@@ -139,6 +148,16 @@ public class AvatarFaceTakeTest {
             r.tz.add(legs.tz == null ? 0 : legs.tz);
         }
         return r;
+    }
+
+    static org.json.JSONObject byId(org.json.JSONObject n, String id) throws Exception {
+        if (id.equals(n.optString("id"))) return n;
+        org.json.JSONArray k = n.optJSONArray("kids");
+        for (int i = 0; k != null && i < k.length(); i++) {
+            org.json.JSONObject r = byId(k.getJSONObject(i), id);
+            if (r != null) return r;
+        }
+        return null;
     }
 
     static String n2(double v) {
@@ -186,6 +205,16 @@ public class AvatarFaceTakeTest {
         check(r.max("mouth", 15.5, 16.0) > 0.9 && aa, "he opens his mouth: Topps's mouth opens (Aa)");
         check(r.max("face.pucker", 15.0, 16.3) > 0.8, "he puckers: the pucker lane a part can follow rises (" + n2(r.max("face.pucker", 15.0, 16.3)) + ")");
         check(r.max("face.smile", 21.9, 22.4) > 0.6, "he smiles: the smile lane rises (" + n2(r.max("face.smile", 21.9, 22.4)) + ")");
+
+        // the face mask (FACE-2) on his face: Topps wearing the pilot's mask; its lower lip follows his mouth opening
+        org.json.JSONObject topps = new org.json.JSONObject(new String(Files.readAllBytes(Paths.get("tools/avatarlab/characters/topps.character.json")), StandardCharsets.UTF_8));
+        org.json.JSONObject patch = new org.json.JSONObject(new String(Files.readAllBytes(Paths.get("tasks/avatar/golden/topps-mask.patch.json")), StandardCharsets.UTF_8));
+        org.json.JSONObject head = byId(topps.getJSONObject("root"), patch.getString("head"));
+        head.put("marks", new org.json.JSONObject().put("", patch.getJSONObject("marks")));
+        head.put("face", patch.getJSONObject("face"));
+        Run mk = run(frames, true, fps, head);
+        double lipOpen = mk.max("mk.7.y", 15.5, 16.0), lipRest = Math.max(Math.abs(mk.max("mk.7.y", 0.2, 0.6)), Math.abs(mk.min("mk.7.y", 0.2, 0.6)));
+        check(lipOpen > 0.05 && lipRest < 0.02, "the face mask on his face: its lower lip drops as he opens his mouth (" + n2(lipOpen) + "), and keeps still at rest (" + n2(lipRest) + ")");
 
         Run off = run(frames, false, fps);                 // Mirror off: like someone facing you
         check(off.max("turnX", 2.0, 3.1) < 0.2 && off.min("turnX", 2.0, 3.1) < -0.8 && off.max("blinkR", 3.9, 4.7) >= 0.9,

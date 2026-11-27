@@ -162,8 +162,8 @@ public class AvatarFaceReplayTest {
             }
             long took = SystemClock.uptimeMillis() - t0;
             check(field(a, "dirPrompts") == null && dp.answered() == 5, "Check directions with his own five moves: all read as he made them (" + dp.answered() + " of 5, " + took / 1000 + " s)");
-            Trace after = play(a, replay, 1.8, 3.6, new String[][]{{"2.6", "17-turn-right-after-directions"}}, out);
-            check(after.max("turnX", 2.0, 3.6) > 0.6, "...and afterwards his right turn still turns Topps to the screen's right (" + f(after.max("turnX", 2.0, 3.6)) + ")");
+            Trace turnAfter = play(a, replay, 1.8, 3.6, new String[][]{{"2.6", "17-turn-right-after-directions"}}, out);
+            check(turnAfter.max("turnX", 2.0, 3.6) > 0.6, "...and afterwards his right turn still turns Topps to the screen's right (" + f(turnAfter.max("turnX", 2.0, 3.6)) + ")");
             Trace leanAfter = play(a, replay, 11.5, 13.9, new String[0][], out);
             check(leanAfter.walked(11.5, 12.6) < -30 && leanAfter.walked(12.6, 13.9) > 30, "...and his leans still walk him the right way (" + f(leanAfter.walked(11.5, 12.6)) + ", " + f(leanAfter.walked(12.6, 13.9)) + ")");
 

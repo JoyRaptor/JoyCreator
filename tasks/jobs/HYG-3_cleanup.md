@@ -131,3 +131,83 @@ All 64 pushed to origin under `backup/<branch-name>` with `git push origin refs/
 **2026-11-24 specs (website lane):** 59 spec-named files sat in the `tasks/` root. Checked each by name against the whole repo (cards, STATE, roadmap, handoffs, source): 11 were named nowhere, and were moved with `git mv` to `tasks/archive/specs/` with an [INDEX](../archive/specs/INDEX.md) (one line each; the index says they may describe code that was built, so check before building from one). The other 48 are linked from something and stay. Nothing deleted. `check_joybrush_docs.py`: ok.
 
 **2026-11-24 root files (website lane):** the same name check over every other `.md` in the `tasks/` root (224 entries, 20 named by nothing): 18 older reports, plans, prompts and handoffs (all dated 10-28 or earlier) moved with `git mv` to `tasks/archive/` (`ADVERSARIAL_20260829_CAPTIONS_GL`, `AUDIT_20260913_ZA_ZB_ZC`, `AUTONOMOUS_RUN_PROMPT`, `BUILDATHON_HANDOFF`, `DRAWER_INVENTORY_20260929`, `FINDING_20260818_ZORDER`, `HANDTEST_20260804`, `PLAN_CARRY_V1`, `PLAN_transitions_overhaul`, `PLAN_waveform_visualizer_SYNTHESIZED`, `PROMPT_asset_layers`, `REVIEW_FIXES_20260829_WORD_SYNC`, `SPEC_20260825_PREVIEW_MATCHES_EXPORT`, `TRANSCRIPT_REVIEW_20260728`, `VERIFY_PREVIEW_PERF_PREVIEW_VS_EXPORT`, the glm-5.3 audit report, `no-overlays-export-fix`, `playback-regression-guard`). Left in place on purpose: `ORCHESTRATOR_HANDOFF_20261114` (the orchestrator's restart note) and `preview_perf_15s_fixture.json` (a test fixture that code may load by a built-up path). Nothing deleted; `check_joybrush_docs.py` ok.
+
+## 2026-11-27 worktree backup (website lane, for JoyBrush Command): nothing deleted
+Each worktree below had uncommitted files or commits only on this PC. Commits were pushed to `backup/<branch>` (never forced, never overwriting); uncommitted files (staged, modified and untracked, not ignored) were committed on a new branch `backup-wip/<name>-20261127` built WITHOUT checking anything out, so no worktree's branch or files changed, and pushed. 72 worktrees; 0 missing.
+
+| Worktree | Branch | Unpushed commits saved | Uncommitted files saved |
+|---|---|---|---|
+| `anim-labs-20261113-136711` | `claude/anim-labs-20261113-136711` | 128 commit(s) -> `origin/backup/claude/anim-labs-20261113-136711` | 1 changed/untracked file(s) -> `origin/backup-wip/anim-labs-20261113-136711-20261127` |
+| `avatarlab-video-voice-d2d4e9` | `claude/avatarlab-video-voice-d2d4e9` | - | 1 changed/untracked file(s) -> `origin/backup-wip/avatarlab-video-voice-d2d4e9-20261127` |
+| `avatarlab-walk-stage-8c89bc` | `claude/avatarlab-walk-stage-8c89bc` | - | 1 changed/untracked file(s) -> `origin/backup-wip/avatarlab-walk-stage-8c89bc-20261127` |
+| `determined-lovelace-7fb58c` | `claude/studio-text-20261114` | - | 1 changed/untracked file(s) -> `origin/backup-wip/determined-lovelace-7fb58c-20261127` |
+| `jolly-jepsen-a5fabe` | `claude/jolly-jepsen-a5fabe` | - | 2 changed/untracked file(s) -> `origin/backup-wip/jolly-jepsen-a5fabe-20261127` |
+| `joybot-20261113-d3a666` | `claude/avatarlab-scene-room-ac08ad` | - | 1 changed/untracked file(s) -> `origin/backup-wip/joybot-20261113-d3a666-20261127` |
+| `launch-docs-20261113-042476` | `claude/mediapipe-detector-20261113` | 109 commit(s) -> `origin/backup/claude/mediapipe-detector-20261113` | 1 changed/untracked file(s) -> `origin/backup-wip/launch-docs-20261113-042476-20261127` |
+| `sizzle-prep-20261115-7d8ab2` | `claude/joybot-trick-20261116` | 6 commit(s) -> `origin/backup/claude/joybot-trick-20261116` | - |
+| `tab1-sizes-20261114-7011d5` | `claude/codex-r4-land-a5606e` | 6 commit(s) -> `origin/backup/claude/codex-r4-land-a5606e` | - |
+| `r4-combined-check` | detached | - | 38 changed/untracked file(s) -> `origin/backup-wip/r4-combined-check-20261127b` |
+| `studio-voice-src` | `codex/note9-studio-voice-20261119` | - | 1 changed/untracked file(s) -> `origin/backup-wip/studio-voice-src-20261127` |
+| `claude-door2-20261104` | detached | - | 30 changed/untracked file(s) -> `origin/backup-wip/claude-door2-20261104-20261127` |
+| `helper-main` | detached | - | 1 changed/untracked file(s) -> `origin/backup-wip/helper-main-20261127` |
+| `helper-room` | `helper1/atlas-room` | - | 1 changed/untracked file(s) -> `origin/backup-wip/helper-room-20261127` |
+| `jb-520a` | `lead/jb-5.20a` | - | 7 changed/untracked file(s) -> `origin/backup-wip/jb-520a-20261127` |
+| `jb-520a-recovery` | `lead/jb-5.20a-recovery` | - | 34 changed/untracked file(s) -> `origin/backup-wip/jb-520a-recovery-20261127` |
+| `jb-capture-current` | `lead/jb-capture-current` | - | 2 changed/untracked file(s) -> `origin/backup-wip/jb-capture-current-20261127` |
+| `jb-captured-domains` | detached | - | 5 changed/untracked file(s) -> `origin/backup-wip/jb-captured-domains-20261127` |
+| `jb-captured-engine` | detached | - | 30 changed/untracked file(s) -> `origin/backup-wip/jb-captured-engine-20261127` |
+| `jb-captured-scene` | detached | - | 2 changed/untracked file(s) -> `origin/backup-wip/jb-captured-scene-20261127` |
+| `jb-captured-source` | `lead/jb-captured-source` | - | 20 changed/untracked file(s) -> `origin/backup-wip/jb-captured-source-20261127` |
+| `jb-claude-main` | `lead/claude-lines2` | - | 6 changed/untracked file(s) -> `origin/backup-wip/jb-claude-main-20261127` |
+| `jb-cold-faults` | detached | 2 commit(s) -> `origin/backup/detached-jb-cold-faults` | 2 changed/untracked file(s) -> `origin/backup-wip/jb-cold-faults-20261127` |
+| `jb-doc-maintenance-20261026` | `lead/doc-maintenance-20261026` | - | 1 changed/untracked file(s) -> `origin/backup-wip/jb-doc-maintenance-20261026-20261127` |
+| `jb-justworks` | `lead/just-works` | - | 2 changed/untracked file(s) -> `origin/backup-wip/jb-justworks-20261127` |
+| `jb-media` | `media/jb-2.40` | - | 23 changed/untracked file(s) -> `origin/backup-wip/jb-media-20261127` |
+| `jb-merge` | detached | 1 commit(s) -> `origin/backup/detached-jb-merge` | - |
+| `jb-opencode-media-snapshot` | detached | - | 25 changed/untracked file(s) -> `origin/backup-wip/jb-opencode-media-snapshot-20261127` |
+| `jb-opencode-shader-verification` | detached | - | 3 changed/untracked file(s) -> `origin/backup-wip/jb-opencode-shader-verification-20261127` |
+| `jb-opencode-test-verification` | detached | - | 4 changed/untracked file(s) -> `origin/backup-wip/jb-opencode-test-verification-20261127` |
+| `jb-opencode-verify-09-18` | detached | - | 20 changed/untracked file(s) -> `origin/backup-wip/jb-opencode-verify-09-18-20261127` |
+| `jb-promotion-inventory` | `lead/jb-promotion-inventory` | - | 6 changed/untracked file(s) -> `origin/backup-wip/jb-promotion-inventory-20261127` |
+| `jb-region-routing` | `codex/region-routing` | - | 3 changed/untracked file(s) -> `origin/backup-wip/jb-region-routing-20261127` |
+| `jb-root-media-integration` | `codex/jb-root-media-integration` | - | 29 changed/untracked file(s) -> `origin/backup-wip/jb-root-media-integration-20261127` |
+| `jb-symmetry-f2` | `lead/symmetry-f2` | - | 2 changed/untracked file(s) -> `origin/backup-wip/jb-symmetry-f2-20261127` |
+| `jb-symmetry-f3` | `lead/symmetry-f3` | - | 4 changed/untracked file(s) -> `origin/backup-wip/jb-symmetry-f3-20261127` |
+| `jb-unibrush-baseline` | detached | - | 1 changed/untracked file(s) -> `origin/backup-wip/jb-unibrush-baseline-20261127` |
+| `jb-v6` | detached | - | 30 changed/untracked file(s) -> `origin/backup-wip/jb-v6-20261127` |
+| `jb-vector-tilt` | `vector/tilt-flip` | - | 6 changed/untracked file(s) -> `origin/backup-wip/jb-vector-tilt-20261127` |
+| `jb-worker2-board-strip` | `codex/worker2-board-strip` | - | 1 changed/untracked file(s) -> `origin/backup-wip/jb-worker2-board-strip-20261127` |
+| `jb-worker2-composer` | `codex/worker2-composer` | - | 1 changed/untracked file(s) -> `origin/backup-wip/jb-worker2-composer-20261127` |
+| `joybench-dev` | `bench/joybot-phone` | - | 10 changed/untracked file(s) -> `origin/backup-wip/joybench-dev-20261127` |
+| `lead-atlas-exp` | `lead/atlas-exp` | - | 4 changed/untracked file(s) -> `origin/backup-wip/lead-atlas-exp-20261127` |
+| `lead-symcheck` | `lead/symmetry-check` | - | 3 changed/untracked file(s) -> `origin/backup-wip/lead-symcheck-20261127` |
+| `play-candidate-20261114` | `claude/play-candidate-20261114` | - | 4 changed/untracked file(s) -> `origin/backup-wip/play-candidate-20261114-20261127` |
+| `textlab-20261111` | `claude/textlab-20261111` | - | 1 changed/untracked file(s) -> `origin/backup-wip/textlab-20261111-20261127` |
+| `textlab-phone-20261112` | `claude/textlab-phone-20261112` | - | 5 changed/untracked file(s) -> `origin/backup-wip/textlab-phone-20261112-20261127` |
+| `jb-8.04fix` | `bunny/JB-8.04-real-file-fix` | - | 3 changed/untracked file(s) -> `origin/backup-wip/jb-8.04fix-20261127` |
+| `jb-9.03` | `codex/jb-9.03` | - | 3 changed/untracked file(s) -> `origin/backup-wip/jb-9.03-20261127` |
+| `jb-9.03b` | `codex/jb-9.03b` | - | 17 changed/untracked file(s) -> `origin/backup-wip/jb-9.03b-20261127` |
+| `jb-9.06` | `codex/jb-9.06` | - | 9 changed/untracked file(s) -> `origin/backup-wip/jb-9.06-20261127` |
+| `jb-9.06b` | `codex/jb-9.06b` | - | 1 changed/untracked file(s) -> `origin/backup-wip/jb-9.06b-20261127` |
+| `jb-9.06c` | `codex/jb-9.06c` | - | 6 changed/untracked file(s) -> `origin/backup-wip/jb-9.06c-20261127` |
+| `jb-9.07` | `codex/jb-9.07` | - | 10 changed/untracked file(s) -> `origin/backup-wip/jb-9.07-20261127` |
+| `jb-9.08` | `codex/jb-9.08` | - | 9 changed/untracked file(s) -> `origin/backup-wip/jb-9.08-20261127` |
+| `jb-9.10` | `codex/jb-9.10` | - | 24 changed/untracked file(s) -> `origin/backup-wip/jb-9.10-20261127`; `mutation-library.xml` (>20 MB) left out |
+| `jb-board-chrome` | `codex/jb-board-chrome` | - | 4 changed/untracked file(s) -> `origin/backup-wip/jb-board-chrome-20261127` |
+| `jb-brush-specialist` | `codex/brush-contact` | - | 6 changed/untracked file(s) -> `origin/backup-wip/jb-brush-specialist-20261127` |
+| `jb-d02a` | detached | - | 1 changed/untracked file(s) -> `origin/backup-wip/jb-d02a-20261127` |
+| `jb-JB-0.10` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-0.10` | - |
+| `jb-JB-1.07` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-1.07` | - |
+| `jb-JB-2.02c` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-2.02c` | - |
+| `jb-JB-2.11` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-2.11` | - |
+| `jb-JB-3.02` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-3.02` | - |
+| `jb-JB-3.05` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-3.05` | - |
+| `jb-JB-5.01` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-5.01` | - |
+| `jb-JB-5.03` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-5.03` | - |
+| `jb-JB-5.11` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-5.11` | - |
+| `jb-JB-8.04` | detached | 1 commit(s) -> `origin/backup/detached-jb-JB-8.04` | - |
+| `jb-pencil-quality` | `opencode/pencil-quality` | - | 22 changed/untracked file(s) -> `origin/backup-wip/jb-pencil-quality-20261127` |
+| `jbclean` | detached | - | 9 changed/untracked file(s) -> `origin/backup-wip/jbclean-20261127` |
+| `jbroad` | detached | - | 1 changed/untracked file(s) -> `origin/backup-wip/jbroad-20261127` |
+
+**Not saved:** the main folder, this session's worktree, `hover-labels-8c53af` and `tickbox-palette-fc3dc7` (live sessions); `face-capture-scout-b847e5`, `gracious-mendel-3513fb`, `priceless-yalow-249f46`, `avatarlab-20261118`, `stu7-finish-20261125` (touched in the last 48 h); `D:/stu7-avatar-base-sampling-probe-20261127` and `D:/Temp/stu7-c6-exact-flow-sampling-20261127` (git refuses them as "dubious ownership"; needs `safe.directory`, a global setting I did not change). `r4-combined-check` also has an older, incomplete `backup-wip/r4-combined-check-20261127` (only the base tree) on origin; the `...b` one is the full copy. Removing a worktree afterwards leaves the backup branches on origin.

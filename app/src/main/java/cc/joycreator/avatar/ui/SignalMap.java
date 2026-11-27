@@ -39,6 +39,8 @@ final class SignalMap {
         for (Map.Entry<String, Object> e : m.entrySet()) {
             String k = e.getKey();
             if (k.startsWith("g:") && e.getValue() instanceof Number && ((Number) e.getValue()).doubleValue() > 0.5) s.trig.put(k.substring(2), true);
+            else if (k.startsWith("pose:") && e.getValue() instanceof Number) s.pose.put(k.substring(5), ((Number) e.getValue()).doubleValue());
+            else if (k.startsWith("tone:") && e.getValue() instanceof Number) s.tone.put(k.substring(5), ((Number) e.getValue()).doubleValue());
         }
         return s;
     }

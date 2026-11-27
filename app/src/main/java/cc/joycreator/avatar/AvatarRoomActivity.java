@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host, cc.joycreator.avatar.ui.MotionSections.Host, cc.joycreator.avatar.ui.StanceCard.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -415,13 +415,45 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         return o;
     }
 
+    /** Sets {@code path} (dotted; a number picks an item of a list, "links.0.amt") to a value. */
+    private static void setPath(org.json.JSONObject root, String path, Object value) throws org.json.JSONException {
+        String[] parts = path.split("\\.");
+        Object cur = root;
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (cur instanceof org.json.JSONArray) cur = ((org.json.JSONArray) cur).get(Integer.parseInt(parts[i]));
+            else {
+                org.json.JSONObject o = (org.json.JSONObject) cur;
+                Object next = o.opt(parts[i]);
+                if (next == null) {
+                    next = new org.json.JSONObject();
+                    o.put(parts[i], next);
+                }
+                cur = next;
+            }
+        }
+        String last = parts[parts.length - 1];
+        if (cur instanceof org.json.JSONArray) ((org.json.JSONArray) cur).put(Integer.parseInt(last), value);
+        else ((org.json.JSONObject) cur).put(last, value);
+    }
+
+    @Override
+    public void roundHead(String nodeId, String action, String stepName) {
+        edit.apply(stepName, d -> {
+            org.json.JSONObject hd = d.find(nodeId).json;
+            if (action.equals("off")) {
+                if (hd.optJSONObject("ball") != null) hd.getJSONObject("ball").put("on", false);
+            } else if (action.equals("on") && hd.optJSONObject("ball") != null) {
+                hd.getJSONObject("ball").put("on", true);
+            } else if (!cc.joycreator.avatar.file.Ball.guess(d.json, hd, stanceBounds2(d))) {
+                throw new org.json.JSONException("no head drawing to make round");
+            } else hd.getJSONObject("ball").put("on", true);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
     @Override
     public void setValue(String nodeId, String path, Object value, String stepName) {
-        edit.apply(stepName, d -> {
-            org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;
-            String[] parts = path.split("\\.");
-            walkTo(root, parts, parts.length - 1).put(parts[parts.length - 1], value);
-        });
+        edit.apply(stepName, d -> setPath(nodeId == null ? d.json : d.find(nodeId).json, path, value));
         if (stageIndex == 2) performPanel.bind(character, false);
     }
 
@@ -437,9 +469,54 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     // ── Arrange: the box on the part in hand ──────────────────────────────────────────────────────
 
+    /** The stance being worked on (its id), or null: standing. */
+    private String poseEdit;
+    private double poseAmt = 1;
+
+    private org.json.JSONObject poseJson() {
+        return poseEdit == null || character == null ? null : cc.joycreator.avatar.file.Stances.find(character.json, poseEdit);
+    }
+
     @Override
     public void redraw() {
         stage.invalidate();
+        if (character != null) glStage.setCharacter(character, true);        // the picture follows the finger
+    }
+
+    @Override
+    public double[] numbers(String nodeId) {
+        CharacterDoc.Node n = character.find(nodeId);
+        org.json.JSONObject p = poseJson();
+        if (p != null) {
+            org.json.JSONObject d = p.optJSONObject("d"), e = d == null ? null : d.optJSONObject(nodeId);
+            return e == null ? new double[]{0, 0, 0, 1} : new double[]{e.optDouble("x", 0), e.optDouble("y", 0), e.optDouble("rot", 0), e.has("sc") ? e.optDouble("sc", 1) : 1};
+        }
+        org.json.JSONObject j = n == null ? new org.json.JSONObject() : n.json;
+        return new double[]{j.optDouble("dx", 0), j.optDouble("dy", 0), j.optDouble("rot", 0), j.has("sc") ? j.optDouble("sc", 1) : 1};
+    }
+
+    /** Writes a part's four numbers where they live now: on the part, or in the stance being worked on. */
+    private void writeNumbers(CharacterDoc d, String nodeId, double dx, double dy, double rot, double sc) throws org.json.JSONException {
+        org.json.JSONObject p = d.json.optJSONArray("poses") == null || poseEdit == null ? null : cc.joycreator.avatar.file.Stances.find(d.json, poseEdit);
+        if (p == null) {
+            cc.joycreator.avatar.ui.BoxLayer.put(d.find(nodeId).json, dx, dy, rot, sc);
+            return;
+        }
+        org.json.JSONObject e = cc.joycreator.avatar.file.Stances.entry(p, nodeId);
+        e.put("x", dx);
+        e.put("y", dy);
+        e.put("rot", rot);
+        if (sc != 1) e.put("sc", sc);
+        else e.remove("sc");
+    }
+
+    @Override
+    public void live(String nodeId, double dx, double dy, double rot, double sc) {
+        try {
+            writeNumbers(character, nodeId, dx, dy, rot, sc);
+        } catch (org.json.JSONException e) {
+            Log.w(TAG, "live numbers refused", e);
+        }
     }
 
     @Override
@@ -447,17 +524,217 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         CharacterDoc.Node n = character.find(nodeId);
         if (n == null) return;
         final String label = n.name.isEmpty() ? n.id : n.name;
-        double rot0 = n.json.optDouble("rot", 0), sc0 = n.json.optDouble("sc", 1);
-        int word = Math.abs(rot - rot0) > 1e-6 ? R.string.avatar_step_box_turn : Math.abs(sc - sc0) > 1e-6 ? R.string.avatar_step_box_size : R.string.avatar_step_box_move;
-        edit.apply(getString(word, label), d -> cc.joycreator.avatar.ui.BoxLayer.put(d.find(nodeId).json, dx, dy, rot, sc));
+        double[] before = numbers(nodeId);
+        int word = Math.abs(rot - before[2]) > 1e-6 ? R.string.avatar_step_box_turn : Math.abs(sc - before[3]) > 1e-6 ? R.string.avatar_step_box_size : R.string.avatar_step_box_move;
+        edit.apply(getString(word, label), d -> writeNumbers(d, nodeId, dx, dy, rot, sc));
     }
 
     @Override
     public void putBack(String id) {
         CharacterDoc.Node n = character.find(id);
         if (n == null) return;
-        if (!(n.json.has("dx") || n.json.has("dy") || n.json.has("rot") || n.json.has("sc"))) return;
-        edit.apply(getString(R.string.avatar_step_put_back, n.name.isEmpty() ? n.id : n.name), d -> cc.joycreator.avatar.ui.BoxLayer.put(d.find(id).json, 0, 0, 0, 1));
+        double[] cur = numbers(id);
+        if (cur[0] == 0 && cur[1] == 0 && cur[2] == 0 && cur[3] == 1) return;
+        edit.apply(getString(R.string.avatar_step_put_back, n.name.isEmpty() ? n.id : n.name), d -> {
+            org.json.JSONObject p = poseEdit == null ? null : cc.joycreator.avatar.file.Stances.find(d.json, poseEdit);
+            org.json.JSONObject e = p == null || p.optJSONObject("d") == null ? null : p.getJSONObject("d").optJSONObject(id);
+            if (p != null && e != null && e.optBoolean("auto", false)) {            // worked out: back to how it was worked out
+                e.put("x", e.optDouble("autoX", 0));
+                e.put("y", e.optDouble("autoY", 0));
+                e.put("rot", e.optDouble("autoRot", 0));
+                e.remove("sc");
+            } else writeNumbers(d, id, 0, 0, 0, 1);
+        });
+    }
+
+    // ── Arrange: stances ──────────────────────────────────────────────────────────────────────────
+
+    private cc.joycreator.avatar.file.Stances.Bounds stanceBounds() {
+        return n -> {
+            CharacterDoc.Node k = character.find(n.optString("id"));
+            cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
+            return k == null || r == null ? null : r.restBounds(k);
+        };
+    }
+
+    private void pushPoses() {
+        java.util.Map<String, Double> m = new java.util.HashMap<>();
+        if (poseEdit != null && poseJson() != null) m.put(poseEdit, poseAmt);
+        glStage.setPoses(m);
+    }
+
+    @Override
+    public cc.joycreator.avatar.ui.StanceCard.Host stances() {
+        return this;
+    }
+
+    @Override
+    public String poseEditing() {
+        return poseJson() == null ? null : poseEdit;
+    }
+
+    @Override
+    public void editStance(String idOrNull) {
+        poseEdit = idOrNull;
+        poseAmt = 1;
+        pushPoses();
+        parts.show(character, inHand, stageIndex);
+        refreshPins();
+        stage.invalidate();
+    }
+
+    private void promptText(String title, String initial, java.util.function.Consumer<String> then) {
+        final android.widget.EditText box = new android.widget.EditText(this);
+        box.setText(initial);
+        box.setSelectAllOnFocus(true);
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(title)
+                .setView(box)
+                .setPositiveButton(android.R.string.ok, (dl, w) -> {
+                    String v = box.getText().toString().trim();
+                    if (!v.isEmpty()) then.accept(v);
+                })
+                .setNegativeButton(android.R.string.cancel, null)
+                .show();
+    }
+
+    @Override
+    public void addStance() {
+        promptText(getString(R.string.avatar_name_stance), getString(R.string.avatar_name_stance_default), name -> {
+            final String[] made = {null};
+            edit.apply(getString(R.string.avatar_step_add_stance), d -> made[0] = cc.joycreator.avatar.file.Stances.add(d.json, name).getString("id"));
+            if (made[0] != null) editStance(made[0]);
+        });
+    }
+
+    @Override
+    public void stanceAction(String action) {
+        final org.json.JSONObject p = poseJson();
+        switch (action) {
+            case "fours": {
+                final String[] made = {null};
+                edit.apply(getString(R.string.avatar_step_make_fours), d -> {
+                    org.json.JSONObject f = cc.joycreator.avatar.file.Stances.makeFours(d.json, null, stanceBounds2(d));
+                    if (f != null) made[0] = f.getString("id");
+                });
+                if (made[0] != null) editStance(made[0]);
+                else Toast.makeText(this, R.string.avatar_no_fours, Toast.LENGTH_LONG).show();
+                return;
+            }
+            case "again": {
+                if (p == null) return;
+                final String id = p.optString("id");
+                edit.apply(getString(R.string.avatar_step_work_out_again), d -> {
+                    org.json.JSONObject q = cc.joycreator.avatar.file.Stances.find(d.json, id);
+                    cc.joycreator.avatar.file.Stances.clearHand(q);
+                    if (q.optJSONObject("fours") != null) cc.joycreator.avatar.file.Stances.makeFours(d.json, q.getJSONObject("fours").optDouble("angle"), stanceBounds2(d));
+                });
+                return;
+            }
+            case "copy": {
+                if (p == null) return;
+                final String id = p.optString("id");
+                final String[] made = {null};
+                edit.apply(getString(R.string.avatar_step_copy_stance), d -> made[0] = cc.joycreator.avatar.file.Stances.copy(d.json, cc.joycreator.avatar.file.Stances.find(d.json, id)).getString("id"));
+                if (made[0] != null) editStance(made[0]);
+                return;
+            }
+            case "rename": {
+                if (p == null) return;
+                final String id = p.optString("id");
+                promptText(getString(R.string.avatar_name_stance), p.optString("name"), name -> edit.apply(getString(R.string.avatar_step_rename_stance),
+                        d -> cc.joycreator.avatar.file.Stances.rename(d.json, cc.joycreator.avatar.file.Stances.find(d.json, id), name)));
+                return;
+            }
+            case "remove": {
+                if (p == null) return;
+                final String id = p.optString("id");
+                edit.apply(getString(R.string.avatar_step_remove_stance), d -> cc.joycreator.avatar.file.Stances.remove(d.json, cc.joycreator.avatar.file.Stances.find(d.json, id)));
+                editStance(null);
+                return;
+            }
+            default:
+        }
+    }
+
+    /** Bounds for stance work done on the document inside a step (the nodes are the step's own JSON). */
+    private cc.joycreator.avatar.file.Stances.Bounds stanceBounds2(CharacterDoc d) {
+        return n -> {
+            CharacterDoc.Node k = d.find(n.optString("id"));
+            cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
+            return k == null || r == null ? null : r.restBounds(k);
+        };
+    }
+
+    @Override
+    public void setStanceValue(String path, Object value, String stepName) {
+        final org.json.JSONObject p = poseJson();
+        if (p == null) return;
+        final String id = p.optString("id");
+        edit.apply(stepName, d -> {
+            org.json.JSONObject q = cc.joycreator.avatar.file.Stances.find(d.json, id);
+            if (path.equals("fours.angle")) {
+                cc.joycreator.avatar.file.Stances.makeFours(d.json, ((Number) value).doubleValue(), stanceBounds2(d));
+            } else if (path.equals("fours.drop")) {
+                q.getJSONObject("fours").put("drop", value);
+            } else if (path.startsWith("walk.")) {
+                walkTo(d.json.getJSONObject("settings"), new String[]{"walk"}, 1).put(path.substring(5), value);
+            } else q.put(path, value);
+        });
+        parts.show(character, inHand, stageIndex);
+    }
+
+    @Override
+    public double poseAmount() {
+        return poseAmt;
+    }
+
+    @Override
+    public void setPoseAmount(double v) {
+        poseAmt = v;
+        pushPoses();
+    }
+
+    @Override
+    public boolean canFours() {
+        return character != null && cc.joycreator.avatar.file.Stances.canFours(character.json, stanceBounds());
+    }
+
+    @Override
+    public void guessPins(String nodeId, String kind) {
+        final cc.joycreator.avatar.ui.PoseRenderer r = stage.renderer();
+        if (r == null || character == null) return;
+        final cc.joycreator.avatar.solve.Pics pics = r.pics();
+        CharacterDoc.Node n = character.find(nodeId);
+        if (n == null) return;
+        final String label = n.name.isEmpty() ? n.id : n.name;
+        // the torso's middle says which end of a limb is the shoulder, when the drawings do not overlap enough to tell
+        final double[][] tc = {null};
+        character.walk((k, d, p) -> {
+            if (tc[0] == null && ("torso".equals(k.role) || "body".equals(k.role))) {
+                double[] b = r.restBounds(k);
+                if (b != null) tc[0] = new double[]{(b[0] + b[2]) / 2, (b[1] + b[3]) / 2};
+            }
+        });
+        edit.apply(getString(R.string.avatar_step_guess_pins, label), d -> {
+            org.json.JSONObject j = d.find(nodeId).json;
+            if (kind.equals("fan")) cc.joycreator.avatar.file.PinGuess.guessFan(j, pics, tc[0], false);
+            else if (kind.equals("swing")) cc.joycreator.avatar.file.PinGuess.guessSwing(j, pics, tc[0], null);
+            else {
+                org.json.JSONObject art = j;
+                if ("set".equals(j.optString("type"))) {
+                    String rest = j.optJSONObject("pick") == null ? "" : j.getJSONObject("pick").optString("rest", "");
+                    org.json.JSONArray ks = j.optJSONArray("kids");
+                    for (int i = 0; ks != null && i < ks.length(); i++) if (ks.getJSONObject(i).optString("id").equals(rest)) art = ks.getJSONObject(i);
+                }
+                double[][] nose = {null}, face = {null};
+                d.walk((k, dd, p) -> {
+                    if (nose[0] == null && "nose".equals(k.role)) nose[0] = r.restBounds(k);
+                    if (face[0] == null && "face".equals(k.role)) face[0] = r.restBounds(k);
+                });
+                cc.joycreator.avatar.file.PinGuess.guessMouth(art, pics, nose[0], face[0]);
+            }
+        });
     }
 
     @Override
@@ -552,6 +829,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         glStage.setCharacter(d, pics == glPictures);
         glPictures = pics;
         inputs.setSettings(d.json.optJSONObject("settings"));
+        inputs.setStances(d.json);
         stage.setSelected(inHand);
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);

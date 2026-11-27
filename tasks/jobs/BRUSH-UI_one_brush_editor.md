@@ -234,3 +234,42 @@ Picked from `tasks/design/UI-Brush-editor-options.html`, told in words to the or
 - **Only height-proportional sizes differed:** the paint brushes' list was capped at 55% of the screen height (465 dp on the Note 9, ~503 dp on 20:9) and Unibrush's sheet at 70% (592 dp vs ~640 dp), so a taller phone got a longer sheet and less drawing showing. Now both stop at the Note 9's dp (`BrushSettingsView.MAX_SHEET_DP` 465, Unibrush 592); shorter screens still get the percentage. Cloud debug build 46014052685 on `claude/preview1-build`: green.
 - **Not found in code, so unproven as the cause:** his "previews all over the place" may also be an older build (stale cached previews before `TestStroke.VERSION` 10, or the pre-Stage layout) or a Note 20 density different from the Note 9. Owed: Note 9 shot of both sheets and the same on the Note 20 with the new build; the phone lane can take the Note 9 ones. The tablet is unaffected by the new caps (it only gets the lower of the two numbers).
 - **11-27, what is left of section K and why I stopped (website lane):** (a) *Unibrush on the shared stage* (Clear / Test, the 180 dp stage and his scribble): Unibrush's picture is a cached bitmap drawn through the host's preview cache and PNG-resource lane (`UnibrushHostController.redrawPreview`, 84 dp), not the live `JbCanvasView` stage; moving it needs a second live canvas that can hold frozen PNG tips, which is paint-engine-adjacent, so it is left for the brush/engine lane. (b) *Media brushes' dab ends*: waits on the brush lane wiring the part into the media preview. Note 9 shots of the editor asked of the phone lane (hover-labels) for `tasks/screens/brush-editor-20261127/`; BRUSH-UI is not "done" until they are looked at.
+
+## §L Owner's review and mockup, 11-27: one editor for every brush
+Pictures: [before, Unibrush](../design/brush-editor-20261127/before_unibrush_calligraphy.png) ·
+[before, paint](../design/brush-editor-20261127/before_paint_round.png) ·
+[**owner's mockup**](../design/brush-editor-20261127/owner_mockup.png).
+
+The paint (watercolour) editor and the Unibrush (calligraphy) editor look like two different apps: different
+darkness, buttons and order. Make them **one editor**, with Unibrush adding its A/B shape parts inside it.
+1. **One look and one order** for every brush: same background, same tab buttons, same sections in the same order.
+2. **Test stroke:** never dark on dark. Show paper under the stroke in the brush's colour (as watercolour does). If a
+   stroke has no paper behind it on the dark pane, draw it white, like the footprint samples.
+3. **Pressure and tilt:** remove Unibrush's big "Pressure → Tilt ↓" box. Use paint's two separate boxes, a
+   **Pressure** curve and a **Tilt** curve with Bézier handles, at a smaller size. New: pressing fills the area under
+   the curve to show the shape it makes. Afterwards a plain **grey ball and stick** (no fill, not white or cyan) marks
+   where the last stroke ended.
+4. **Pen monitor = shape editor.** Drop the separate tip-shape widget and its unexplained rectangle. The pen monitor
+   (slightly larger) is shared by all brushes: a ball that grows with pressure moves on the circle, with a **cyan
+   triangle** from the centre to the ball's edges so the tilt reads at a glance, and a readout under it ("85% · 4°").
+   For Unibrush, the **A and B shapes sit inside the monitor**. Tap A or B to select it and see its handles to reshape
+   it. A **rotation caret** on the ring drags to turn A and B, with a live preview.
+5. **A/B drop-down:** under the selected shape, a box with an arrow pointing to it holds that shape's own options
+   (Corners, Thinness, Morph A→B, the rest of its properties). Selecting the other shape moves the arrow and box.
+6. Beside the monitor sit the **0° / 35° / 70°** angle footprints. To their right are the Pressure and Tilt boxes.
+7. **Section links:** keep the jump links. Drop the separate Pressure link, since shape and pressure are now one section.
+8. **One close button:** Done or ×, never both. (Recommendation: keep ×, and let Done-style behaviour be the default
+   on close, because changes already apply live.)
+All other brush properties follow below, as now. Owner's design: build to the mockup; ask before changing it.
+**Owner additions, 11-27 (later the same day):**
+- **Pen monitor size:** the same size as paint's today. It only needs to grow compared with Unibrush's current small one.
+  The two must look like one thing.
+- **Expand button:** a small, discreet grey button in the monitor's corner toggles it large, taking over the space
+  where the Pressure and Tilt boxes sit. Toggling back returns it to its normal size and the boxes reappear. This is
+  for anyone who wants it bigger (eyesight, fine shape work).
+- **Unibrush on the shared stage:** the owner doesn't expect this to need the paint engine. Unibrush can draw its own
+  test stroke with its own renderer into the same stage frame, on the same paper. Only call it engine work if that is
+  proven impossible.
+- **The drawer is a real drawer on the phone:** no rounded bottom corners and no enclosed pop-up look. It slides up
+  from the bottom edge and uses those 10–15 px for content.
+- **Test stroke area:** round its hard corners a little.

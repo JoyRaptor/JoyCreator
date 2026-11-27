@@ -57,10 +57,60 @@ public final class Inputs {
     private double micOpen;
     private String micVis = "Neutral";
     private long moodUntil, windUntil, blinkUntil;
+    // stance and colour-set levels: buttons ease them in and out (a spring for stances, a steady sweep for colour sets)
+    private final List<String[]> stances = new ArrayList<>(), palettes = new ArrayList<>();   // {id, trig, time, bounce}
+    private final Map<String, double[]> poseLevel = new LinkedHashMap<>();                    // id -> {level, velocity}
+    private final Map<String, Double> toneLevel = new LinkedHashMap<>();
     private double babbleAt, babbleHold;
     private int babbleI;
 
     /** The buttons this character has (ids), so their lanes exist in a take. */
+    /** The character's stances and colour sets (each with its button), so their levels follow the buttons. */
+    public void setStances(org.json.JSONObject doc) {
+        stances.clear();
+        palettes.clear();
+        org.json.JSONArray ps = doc.optJSONArray("poses"), cs = doc.optJSONArray("palettes");
+        for (int i = 0; ps != null && i < ps.length(); i++) {
+            org.json.JSONObject p = ps.optJSONObject(i);
+            if (p != null) stances.add(new String[]{p.optString("id"), p.optString("trig"), String.valueOf(p.optDouble("time", 0.6)), String.valueOf(p.optBoolean("bounce", false))});
+        }
+        for (int i = 0; cs != null && i < cs.length(); i++) {
+            org.json.JSONObject p = cs.optJSONObject(i);
+            if (p != null) palettes.add(new String[]{p.optString("id"), p.optString("trig"), String.valueOf(p.optDouble("time", 0.9)), "false"});
+        }
+    }
+
+    /** Stance levels ease in and out on a spring that starts gently and settles without a bump (or a small one when it is bouncy). */
+    private void easeLevels(double dt, Map<String, Object> out) {
+        for (String[] p : stances) {
+            boolean on = !p[1].isEmpty() && out.get("g:" + p[1]) instanceof Number && ((Number) out.get("g:" + p[1])).doubleValue() > 0.5;
+            double[] st = poseLevel.get(p[0]);
+            if (st == null) {
+                st = new double[2];
+                poseLevel.put(p[0], st);
+            }
+            double tgt = on ? 1 : 0, x = st[0], v = st[1], om = 5.4 / Math.max(0.08, Double.parseDouble(p[2])), z = Boolean.parseBoolean(p[3]) ? 0.6 : 1, h = dt / 3;
+            for (int i = 0; i < 3; i++) {
+                v += (om * om * (tgt - x) - 2 * z * om * v) * h;
+                x += v * h;
+            }
+            if (Math.abs(tgt - x) < 0.0006 && Math.abs(v) < 0.004) {
+                x = tgt;
+                v = 0;
+            }
+            st[0] = x;
+            st[1] = v;
+            out.put("pose:" + p[0], x);
+        }
+        for (String[] p : palettes) {
+            boolean on = !p[1].isEmpty() && out.get("g:" + p[1]) instanceof Number && ((Number) out.get("g:" + p[1])).doubleValue() > 0.5;
+            double tgt = on ? 1 : 0, x = toneLevel.containsKey(p[0]) ? toneLevel.get(p[0]) : 0, step = dt / Math.max(0.05, Double.parseDouble(p[2]));
+            x = x < tgt ? Math.min(tgt, x + step) : Math.max(tgt, x - step);
+            toneLevel.put(p[0], x);
+            out.put("tone:" + p[0], x);
+        }
+    }
+
     /** The character's settings (blinkAuto, blinkEvery, breathe, breathRate, idle, eyesLead); with them the character is alive by itself. */
     public void setSettings(org.json.JSONObject s) {
         settings = s == null ? new org.json.JSONObject() : s;
@@ -342,6 +392,7 @@ public final class Inputs {
         Map<String, Object> played = recorder.step(dt, live, channels(), owners(nowMs));
         Map<String, Object> out = new LinkedHashMap<>(live);
         out.putAll(played);
+        easeLevels(dt, out);
         return out;
     }
 

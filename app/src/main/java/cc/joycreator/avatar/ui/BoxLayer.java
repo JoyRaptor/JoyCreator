@@ -33,6 +33,12 @@ public final class BoxLayer implements StageView.LandmarkLayer {
         void commitBox(String nodeId, double dx, double dy, double rot, double sc);
 
         void redraw();
+
+        /** The part's move, turn and size right now (in the stance being worked on, if any): {dx, dy, rot, sc}. */
+        double[] numbers(String nodeId);
+
+        /** Shows the numbers while a finger is down, without making a step. */
+        void live(String nodeId, double dx, double dy, double rot, double sc);
     }
 
     private final Host host;
@@ -64,7 +70,8 @@ public final class BoxLayer implements StageView.LandmarkLayer {
     /** A point of the untransformed drawing, moved by the part's numbers. */
     private float[] apply(CharacterDoc.Node n, RectF b, float x, float y) {
         float[] pv = pivot(n, b);
-        double dx = num(n.json, "dx", 0), dy = num(n.json, "dy", 0), rot = Math.toRadians(num(n.json, "rot", 0)), sc = num(n.json, "sc", 1);
+        double[] nu = host.numbers(n.id);
+        double dx = nu[0], dy = nu[1], rot = Math.toRadians(nu[2]), sc = nu[3];
         double rx = (x - pv[0]) * sc, ry = (y - pv[1]) * sc;
         return new float[]{(float) (pv[0] + dx + rx * Math.cos(rot) - ry * Math.sin(rot)), (float) (pv[1] + dy + rx * Math.sin(rot) + ry * Math.cos(rot))};
     }
@@ -136,10 +143,11 @@ public final class BoxLayer implements StageView.LandmarkLayer {
     }
 
     private void remember(CharacterDoc.Node n) {
-        dx0 = num(n.json, "dx", 0);
-        dy0 = num(n.json, "dy", 0);
-        rot0 = num(n.json, "rot", 0);
-        sc0 = num(n.json, "sc", 1);
+        double[] nu = host.numbers(n.id);
+        dx0 = nu[0];
+        dy0 = nu[1];
+        rot0 = nu[2];
+        sc0 = nu[3];
     }
 
     @Override
@@ -194,17 +202,13 @@ public final class BoxLayer implements StageView.LandmarkLayer {
         dy = Math.round(dy * 10) / 10.0;
         rot = Math.round(rot * 10) / 10.0;
         sc = Math.round(sc * 1000) / 1000.0;
-        try {
-            if (last) {
-                put(n.json, dx0, dy0, rot0, sc0);                 // put the live numbers back, so the step records the true "before"
-                mode = -1;
-                host.commitBox(n.id, dx, dy, rot, sc);
-            } else {
-                put(n.json, dx, dy, rot, sc);
-                host.redraw();
-            }
-        } catch (JSONException e) {
-            // the numbers stay as they were
+        if (last) {
+            host.live(n.id, dx0, dy0, rot0, sc0);                 // put the live numbers back, so the step records the true "before"
+            mode = -1;
+            host.commitBox(n.id, dx, dy, rot, sc);
+        } else {
+            host.live(n.id, dx, dy, rot, sc);
+            host.redraw();
         }
     }
 

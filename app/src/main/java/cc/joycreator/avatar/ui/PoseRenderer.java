@@ -36,6 +36,12 @@ public interface PoseRenderer {
     /** The part and every piece of it that is drawn right now (a set shows one drawing), outermost first. */
     java.util.List<CharacterDoc.Node> shown(CharacterDoc.Node n);
 
+    /** Where a part is when everything under it is drawn (every drawing of every set, as laid out): [x0, y0, x1, y1], or null. */
+    double[] restBounds(CharacterDoc.Node n);
+
+    /** The character's pictures as the solver's {@code Pics} (size and alpha), for guessing pins from the pixels. */
+    cc.joycreator.avatar.solve.Pics pics();
+
     /** The drawing under a point (character pixels), topmost first, ignoring see-through pixels; null when there is none. */
     CharacterDoc.Node hit(float x, float y);
 

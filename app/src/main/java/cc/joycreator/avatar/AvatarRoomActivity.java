@@ -80,6 +80,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private LinearLayout root;
     private StageView stage;
     private LinearLayout panel;
+    private LinearLayout bottomRow;                      // holds the panel (and, on a tablet held upright, the rail beside it)
+    private cc.joycreator.avatar.ui.LayersView rail;     // the tablet's rail: the layers, always there (spec A14)
     private TextView pathName;
     private PartsView parts;
     private PerformPanel performPanel;
@@ -204,7 +206,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         body.addView(performPanel, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         body.addView(layers, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         panel.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        root.addView(panel);
+        rail = new cc.joycreator.avatar.ui.LayersView(this, this);
+        rail.setBackgroundColor(0xFF0D0D10);
+        bottomRow = new LinearLayout(this);
+        bottomRow.addView(panel, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
+        root.addView(bottomRow);
 
         setContentView(root);
         applyOrientation(getResources().getConfiguration());
@@ -213,17 +219,24 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** Portrait: stage above, panel below (never less than 44% to the stage). Landscape: panel on the right, 340 dp. */
     private void applyOrientation(Configuration cfg) {
         boolean land = cfg.orientation == Configuration.ORIENTATION_LANDSCAPE;
+        boolean tablet = cfg.smallestScreenWidthDp >= 600;
         root.setOrientation(land ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
-        View left = root.getChildAt(0);
+        View left = null;
+        for (int i = 0; i < root.getChildCount() && left == null; i++) if (root.getChildAt(i) != bottomRow && root.getChildAt(i) != rail) left = root.getChildAt(i);
+        if (rail.getParent() instanceof ViewGroup) ((ViewGroup) rail.getParent()).removeView(rail);
+        rail.setVisibility(tablet ? View.VISIBLE : View.GONE);
+        // the rail (layers, always there, 200 dp held upright and 220 dp sideways): beside the card below the stage, or at the far left; dp stay as drawn
+        if (tablet && land) root.addView(rail, 0, new LinearLayout.LayoutParams(px(220), ViewGroup.LayoutParams.MATCH_PARENT));
+        else if (tablet) bottomRow.addView(rail, 0, new LinearLayout.LayoutParams(px(200), ViewGroup.LayoutParams.MATCH_PARENT));
         if (land) {
             left.setLayoutParams(new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
             // a tablet gets a wider card (more columns, never bigger buttons: dp stay as drawn)
-            panel.setLayoutParams(new LinearLayout.LayoutParams(px(cfg.smallestScreenWidthDp >= 600 ? 480 : 340), ViewGroup.LayoutParams.MATCH_PARENT));
+            bottomRow.setLayoutParams(new LinearLayout.LayoutParams(px(tablet ? 480 : 340), ViewGroup.LayoutParams.MATCH_PARENT));
         } else {
-            boolean tablet = cfg.smallestScreenWidthDp >= 600;
             left.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.6f : 0.52f));
-            panel.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.4f : 0.48f));
+            bottomRow.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, tablet ? 0.4f : 0.48f));
         }
+        if (character != null) rail.show(character, inHand);
     }
 
     @Override
@@ -1014,6 +1027,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         if (inputs.faceOn()) watchFacePins();
         stage.setSelected(inHand);
         layers.show(d, inHand);
+        rail.show(d, inHand);
         parts.show(d, inHand, stageIndex);
         paintUndo();
         if (landmarks != null) landmarks.refresh(d);
@@ -1404,6 +1418,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         inHand = id.equals(inHand) ? null : id;
         stage.setSelected(inHand);
         layers.show(character, inHand);
+        rail.show(character, inHand);
         parts.show(character, inHand, stageIndex);
         refreshPins();
         if (stageIndex == 2) performPanel.bind(character, false);
@@ -1517,6 +1532,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         inHand = n.id;
         stage.setSelected(inHand);
         layers.show(character, inHand);
+        rail.show(character, inHand);
         parts.show(character, inHand, stageIndex);
         return true;
     }

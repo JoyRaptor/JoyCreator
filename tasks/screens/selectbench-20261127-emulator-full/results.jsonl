@@ -1,0 +1,25 @@
+{"brushInHand": true, "brushId": "joybrush.ink", "selectBench": "setup", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 0}
+{"lines": 5, "undoDepth": 5, "selectBench": "draw", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 1}
+{"selectBench": "chooseSelect", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 2}
+{"selected": 1, "rowClearOfChrome": true, "isL4": true, "rowShown": true, "rowAboveBox": true, "boxShown": true, "selectBench": "tapPick", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 3}
+{"first": 1, "second": 1, "changed": true, "countShown": true, "selectBench": "cycle", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 4}
+{"selectBench": "tapEmptyEnds", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 5}
+{"selected": 2, "barShown": true, "barClearOfChrome": true, "selectBench": "lasso", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 6}
+{"moved": true, "steps": 1, "selectBench": "dragMove", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 7}
+{"linesBack": true, "selectionKeptD20": true, "selectBench": "undoMove", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 8}
+{"turnedDeg": 90.00001, "knobBelowBox": true, "steps": 1, "selectBench": "rotate", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 9}
+{"scale": 1.499285, "steps": 1, "selectBench": "pinchAnywhere", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 10}
+{"before": 5, "after": 4, "steps": 1, "selectBench": "delete", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 11}
+{"before": 5, "after": 6, "steps": 1, "selectBench": "duplicate", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 12}
+{"before": 5, "after": 5, "steps": 1, "selectBench": "flipH", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 13}
+{"drawerShown": true, "footer": true, "selectBench": "swapList", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 14}
+{"added": 1, "copySteps": 0, "pasteSteps": 1, "selectBench": "copyPaste", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 15}
+{"cutSteps": 1, "gone": true, "undoBack": true, "undoReselects": true, "redoGone": true, "selectBench": "cutUndoRedo", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 16}
+{"ended": true, "steps": 0, "selectBench": "doneEnds", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 17}
+{"selected": 5, "steps": 1, "selectBench": "group", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 18}
+{"locked": true, "steps": 1, "selectBench": "lock", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 19}
+{"dots": 1, "selectBench": "tipDots", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 20}
+{"nudging": true, "bent": true, "selectBench": "nudge", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 21}
+{"panPx": 283.49997, "drew": false, "brushInHand": true, "selectBench": "fingerPansWithBrush", "pass": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 22}
+{"selectBench": "summary", "passed": 23, "failed": 0, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 23}
+{"selectBenchDone": true, "runId": "f2a5b9b8ccb34db2b73d00d4014fca69", "event": 24}

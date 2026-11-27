@@ -120,6 +120,39 @@ public class StancesTest {
         Stances.clearHand(Stances.fours(mine));
         ok(Stances.handMoves(Stances.fours(mine)) == 0, "Work it out again forgets every hand move");
 
+        // a round head: fitted to the face drawing as the pilot fits it (run in the pilot, 11-27: cx 254, cy 197.5, rx 63, ry 85.5; 54 parts painted on, 8 stick out)
+        JSONObject head = null;
+        {
+            java.util.ArrayDeque<JSONObject> q = new java.util.ArrayDeque<>();
+            q.add(mine.getJSONObject("root"));
+            while (!q.isEmpty() && head == null) {
+                JSONObject n = q.poll();
+                if ("head".equals(n.optString("role"))) head = n;
+                JSONArray ks = n.optJSONArray("kids");
+                for (int i = 0; ks != null && i < ks.length(); i++) q.add(ks.getJSONObject(i));
+            }
+        }
+        final JSONObject mineF = mine;
+        boolean fitted = cc.joycreator.avatar.file.Ball.guess(mine, head, n -> {
+            double[] bb = {1e9, 1e9, -1e9, -1e9};
+            grow(n, mineF.optJSONObject("pictures"), bb);
+            return bb[0] > bb[2] ? null : bb;
+        });
+        JSONObject ball = head.optJSONObject("ball");
+        ok(fitted && ball.getDouble("cx") == 254 && ball.getDouble("cy") == 197.5 && ball.getDouble("rx") == 63 && ball.getDouble("ry") == 85.5, "the ball is fitted to the face drawing exactly as the pilot fits it");
+        int on = 0, out = 0;
+        java.util.ArrayDeque<JSONObject> q2 = new java.util.ArrayDeque<>();
+        q2.add(head);
+        while (!q2.isEmpty()) {
+            JSONObject n = q2.poll();
+            if ("on".equals(n.optString("wrap"))) on++;
+            if ("out".equals(n.optString("wrap"))) out++;
+            JSONArray ks = n.optJSONArray("kids");
+            for (int i = 0; ks != null && i < ks.length(); i++) q2.add(ks.getJSONObject(i));
+        }
+        ok(on == 54 && out == 8 && ball.getDouble("yaw") == 55 && ball.getDouble("pitch") == 32, "54 parts are painted on and 8 stick out, as in the pilot (" + on + "/" + out + ")");
+        ok(FormatCheck.check(mine).isEmpty(), "a character with a round head still follows the rules");
+
         // ordinary stances
         JSONObject sit = Stances.add(mine, "Sitting");
         ok(sit.has("trig") && FormatCheck.check(mine).isEmpty(), "a new stance has its own button and the file is fine");

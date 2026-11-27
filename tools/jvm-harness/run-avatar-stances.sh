@@ -13,6 +13,7 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/cc/joycreator/avatar/file/CharacterFile.java \
   app/src/main/java/cc/joycreator/avatar/file/FormatCheck.java \
   app/src/main/java/cc/joycreator/avatar/file/Stances.java \
+  app/src/main/java/cc/joycreator/avatar/file/Ball.java \
   app/src/main/java/cc/joycreator/avatar/intake/RoleGuess.java \
   app/src/main/java/cc/joycreator/avatar/intake/PsdReader.java \
   app/src/main/java/cc/joycreator/avatar/intake/PsdDoor.java \

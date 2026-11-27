@@ -33,6 +33,9 @@ public final class MotionSections {
         /** Sets one value as a named undo step: {@code nodeId} null for the character itself; {@code path} like "swing.damp". */
         void setValue(String nodeId, String path, Object value, String stepName);
 
+        /** The round head: "on" (fit it if it has no ball yet), "off", or "guess" (fit it again), as one named undo step. */
+        void roundHead(String nodeId, String action, String stepName);
+
         /** Removes one key (e.g. "swing") as a named undo step. */
         void remove(String nodeId, String path, String stepName);
     }
@@ -47,6 +50,7 @@ public final class MotionSections {
             swinger = k;
             break;
         }
+        if (inHand != null && "head".equals(inHand.role)) head(c, col, inHand, host, dp);
         if (swinger != null) swing(c, col, swinger, host, dp);
         else col.addView(note(c, inHand == null ? "Take a part in hand to see how it moves by itself." : "This part does not swing. Hair, feathers, a tail or a chain can.", dp));
 
@@ -76,6 +80,47 @@ public final class MotionSections {
                         v -> host.setValue(null, "settings.flipTuck", v, "Turn tuck"), dp));
             }
         }
+    }
+
+    // ── the head: how it moves, and a round head ──────────────────────────────────────────────────
+
+    private static void head(Context c, LinearLayout col, CharacterDoc.Node n, Host host, float dp) {
+        final String id = n.id;
+        JSONObject pick = n.json.optJSONObject("pick");
+        col.addView(label(c, "How the head moves", dp));
+        if ("set".equals(n.type) && pick != null) {
+            col.addView(slider(c, "Depth", 0, 30, 1, pick.optDouble("depth", 12), v -> (int) v + " px", "How far the nose, eyes and frill slide between two angles. More depth feels rounder",
+                    v -> host.setValue(id, "pick.depth", (int) v, "Head depth"), dp));
+            col.addView(slider(c, "Cross-fade", 0, 300, 10, pick.optDouble("fade", 110), v -> v == 0 ? "cut" : (int) v + " ms", "How softly one angle gives way to the next",
+                    v -> host.setValue(id, "pick.fade", (int) v, "Head cross-fade"), dp));
+        }
+        org.json.JSONArray links = n.json.optJSONArray("links");
+        for (int i = 0; links != null && i < links.length(); i++) {
+            JSONObject l = links.optJSONObject(i);
+            if (l == null || !"roll".equals(l.optString("sig"))) continue;
+            final int at = i;
+            col.addView(slider(c, "Tilt", 0, 40, 1, l.optDouble("amt", 16), v -> (int) v + "\u00b0", "How far the head can tip from the neck pin",
+                    v -> host.setValue(id, "links." + at + ".amt", (int) v, "Head tilt"), dp));
+            break;
+        }
+        if (n.kids.isEmpty()) return;
+        JSONObject ball = n.json.optJSONObject("ball");
+        boolean on = ball != null && ball.optBoolean("on", true);
+        col.addView(label(c, "Round head", dp));
+        LinearLayout tick = new LinearLayout(c);
+        tick.addView(chip(c, "Turn it like a ball", on, "The eyes, nose and mouth slide over a round head as it turns and squash toward its edge; ears and hair swing round behind. One drawing turns like many", dp,
+                v -> host.roundHead(id, on ? "off" : "on", on ? "Round head off" : "Round head on")));
+        col.addView(scroll(c, tick));
+        if (!on) return;
+        col.addView(slider(c, "Turns", 0, 85, 1, ball.optDouble("yaw", 55), v -> (int) v + "\u00b0", "How far round the head goes when it looks fully left or right",
+                v -> host.setValue(id, "ball.yaw", (int) v, "Head turns"), dp));
+        col.addView(slider(c, "Nods", 0, 60, 1, ball.optDouble("pitch", 32), v -> (int) v + "\u00b0", "How far it tips when it looks fully up or down",
+                v -> host.setValue(id, "ball.pitch", (int) v, "Head nods"), dp));
+        LinearLayout again = new LinearLayout(c);
+        again.addView(chip(c, "Guess the parts again", false, "Fit the ball to the face drawing again and decide again which parts are painted on and which stick out", dp,
+                v -> host.roundHead(id, "guess", "Fit the round head")));
+        col.addView(scroll(c, again));
+        col.addView(note(c, "Each face part is painted on the head, sticks out of it, or stays put; the guess is made from where it sits.", dp));
     }
 
     // ── swinging ──────────────────────────────────────────────────────────────────────────────────

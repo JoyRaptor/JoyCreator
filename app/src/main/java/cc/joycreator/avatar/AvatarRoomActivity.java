@@ -415,13 +415,45 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         return o;
     }
 
+    /** Sets {@code path} (dotted; a number picks an item of a list, "links.0.amt") to a value. */
+    private static void setPath(org.json.JSONObject root, String path, Object value) throws org.json.JSONException {
+        String[] parts = path.split("\\.");
+        Object cur = root;
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (cur instanceof org.json.JSONArray) cur = ((org.json.JSONArray) cur).get(Integer.parseInt(parts[i]));
+            else {
+                org.json.JSONObject o = (org.json.JSONObject) cur;
+                Object next = o.opt(parts[i]);
+                if (next == null) {
+                    next = new org.json.JSONObject();
+                    o.put(parts[i], next);
+                }
+                cur = next;
+            }
+        }
+        String last = parts[parts.length - 1];
+        if (cur instanceof org.json.JSONArray) ((org.json.JSONArray) cur).put(Integer.parseInt(last), value);
+        else ((org.json.JSONObject) cur).put(last, value);
+    }
+
+    @Override
+    public void roundHead(String nodeId, String action, String stepName) {
+        edit.apply(stepName, d -> {
+            org.json.JSONObject hd = d.find(nodeId).json;
+            if (action.equals("off")) {
+                if (hd.optJSONObject("ball") != null) hd.getJSONObject("ball").put("on", false);
+            } else if (action.equals("on") && hd.optJSONObject("ball") != null) {
+                hd.getJSONObject("ball").put("on", true);
+            } else if (!cc.joycreator.avatar.file.Ball.guess(d.json, hd, stanceBounds2(d))) {
+                throw new org.json.JSONException("no head drawing to make round");
+            } else hd.getJSONObject("ball").put("on", true);
+        });
+        if (stageIndex == 2) performPanel.bind(character, false);
+    }
+
     @Override
     public void setValue(String nodeId, String path, Object value, String stepName) {
-        edit.apply(stepName, d -> {
-            org.json.JSONObject root = nodeId == null ? d.json : d.find(nodeId).json;
-            String[] parts = path.split("\\.");
-            walkTo(root, parts, parts.length - 1).put(parts[parts.length - 1], value);
-        });
+        edit.apply(stepName, d -> setPath(nodeId == null ? d.json : d.find(nodeId).json, path, value));
         if (stageIndex == 2) performPanel.bind(character, false);
     }
 

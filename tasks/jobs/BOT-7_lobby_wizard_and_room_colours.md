@@ -122,3 +122,11 @@ Joybot also answered "I want to make something" with the bubbles in the person's
   | Video, Titles | ⏳ not seen: the script's sideways swipes never reached these bubbles | script to fix |
   | Character | ⏳ not valid: the app was still on the Library when the script tapped it (shot `12_Character_asks`); needs a clean start | script to fix |
   Not yet run: Audio project, Sprite load-and-edit (needs a sprite file on the emulator). Lesson for the scripts: the emulator uses `tools/cloud/emulator/scripts` from `joy-creator`, not from the built branch, and a reused APK run does not change that.
+- **11-27 third emulator batch (run 46068634845, each bubble from a clean start):**
+  | Bubble | Result | Evidence |
+  |---|---|---|
+  | Titles | ✅ PASS | TextLab opens on "Dark Steel" with a TITAN preview (`bot7_titles_lands_textlab.jpg`) |
+  | Character | ✅ PASS | Avatar Studio's library opens ("+ New avatar from image...") (`bot7_character_lands_avatar.jpg`) |
+  | Video (16:9) | 🟡 partial | Joybot says "Making a new 16:9 (wide) Studio project." (`bot7_video_message.jpg`); the shot was taken 6 s later with the chat still up, so the Studio room itself is not seen: re-run with a longer wait |
+  | Audio project | ⏳ bubble not found by that name; the real label needs reading from the bubble row |
+  So of the twelve bubbles: Drawing, Perspective, Hand animation, Tile, Sprite, Find, Music visuals, Titles, Character pass; Video half-seen; Audio and Sprite load-and-edit not run.

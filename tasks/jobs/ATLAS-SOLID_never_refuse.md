@@ -16,7 +16,7 @@ or "areas", lose a stroke, or see a black square. Pencil, watercolour and oil mu
 - [~] The cause of the 10-31 lost tiles and the failed tile copy is reproduced, or shown gone by a long stress run. 11-13:
       the likely cause was already fixed on 11-01 (see below), a starvation bench finds nothing, and any failure is now
       kept in a file on the phone. Not reproduced, so not proven gone.
-- [ ] Saves stream to disk so the room can grow past 315 MB (then old paint sets far later).
+- [ ] Saves stream to disk so the room can grow past 315 MB (then old paint sets far later). **11-27 verdict:** half built (carry, changed-only readback, open as read); a save still holds every byte it writes at once, so the caps stay. Plan S1-S5: [JBX36 verdict](../joybrush/reviews/JBX36_STREAMING_SAVES_VERDICT_20261127.md).
 - [~] Symmetry works with pencil, watercolour and oil in the atlas. Built 11-11 for pencil and oil (2a23c082e, every copy its own lane, no pin) and the wet sheet carries watercolour; not yet used by the owner (checked 11-13).
 - [x] STATE.md rows (5.6 and section 9).
 

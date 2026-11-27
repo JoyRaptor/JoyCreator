@@ -289,22 +289,33 @@ diff --git a/libraries/effect/src/main/java/androidx/media3/effect/ExternalTextu
 diff --git a/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java b/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
 --- a/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
 +++ b/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java
-@@ -1666,9 +1666,14 @@
-   @Override
-   protected void onOutputFormatChanged(Format format, @Nullable MediaFormat mediaFormat) {
-     @Nullable MediaCodecAdapter codec = getCodec();
--    if (codec != null) {
-+    boolean avatarFixture = format.width == 960 && format.height == 540;
-+    if (codec != null && !avatarFixture) {
-       // Must be applied each time the output format changes.
-       codec.setVideoScalingMode(scalingMode);
-+    }
-+    if (avatarFixture) {
-+      android.util.Log.i("AvatarParity", "previewCodec uses decoder-default scaling; format="
-+          + mediaFormat);
-     }
-     int width;
-     int height;
+@@ -1200,7 +1200,15 @@
+       if (codec != null && videoSink == null) {
+         MediaCodecInfo codecInfo = checkNotNull(getCodecInfo());
+         boolean canUpdateSurface = hasSurfaceForCodec(codecInfo);
+-        if (SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround) {
++        @Nullable Format fixtureFormat = getCodecInputFormat();
++        boolean fixtureReinitialize = displaySurface != null && fixtureFormat != null
++            && fixtureFormat.width == 960 && fixtureFormat.height == 540
++            && android.os.Build.MODEL.equals("SM-N960U");
++        if (fixtureReinitialize) {
++          android.util.Log.i("AvatarParity", "Reinitializing bundled fixture decoder on routed surface");
++        }
++        if (SDK_INT >= 23 && canUpdateSurface && !codecNeedsSetOutputSurfaceWorkaround
++            && !fixtureReinitialize) {
+           setOutputSurface(codec, getSurfaceForCodec(codecInfo));
+         } else {
+           releaseCodec();
+@@ -1679,6 +1687,9 @@
+       height = format.height;
+     } else {
+       checkNotNull(mediaFormat);
++      if (format.width == 960 && format.height == 540) {
++        android.util.Log.i("AvatarParity", "previewCodec format=" + mediaFormat);
++      }
+       boolean hasCrop =
+           mediaFormat.containsKey(KEY_CROP_RIGHT)
+               && mediaFormat.containsKey(KEY_CROP_LEFT)
 diff --git a/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java b/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java
 --- a/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java
 +++ b/libraries/transformer/src/main/java/androidx/media3/transformer/DefaultCodec.java

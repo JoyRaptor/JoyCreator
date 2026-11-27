@@ -21,7 +21,17 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
 
     private var catcher: View? = null
     private var card: View? = null
+    private var sheet: View? = null
     private var onClosed: (() -> Unit)? = null
+
+    /**
+     * Told when a bottom sheet opens, changes height or closes (11-27): the tool strip moves up so it ends above the
+     * sheet. The sheet is see-through, so a strip left behind a tall one shows through it and reads as on top.
+     */
+    var onSheetMoved: (() -> Unit)? = null
+
+    /** The open bottom sheet's top edge in the host (px), or null with none open or not laid out yet. */
+    fun sheetTopPx(): Int? = sheet?.takeIf { it.isLaidOut }?.top
 
     val isOpen: Boolean get() = card != null
 
@@ -97,6 +107,8 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
         }
         host.addView(frame, lp)
         card = frame
+        sheet = frame
+        frame.addOnLayoutChangeListener { _, _, top, _, _, _, oldTop, _, _ -> if (top != oldTop) onSheetMoved?.invoke() }
         grow(frame, 0.5f, 1f)
     }
 
@@ -106,6 +118,7 @@ class Popovers(private val kit: ChromeKit, private val host: FrameLayout) {
         card?.let { host.removeView(it) }
         catcher = null
         card = null
+        if (sheet != null) { sheet = null; onSheetMoved?.invoke() }
         if (had) {
             val done = onClosed
             onClosed = null

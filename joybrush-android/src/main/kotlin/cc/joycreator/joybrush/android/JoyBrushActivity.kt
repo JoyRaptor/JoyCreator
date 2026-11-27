@@ -897,7 +897,10 @@ class JoyBrushActivity : Activity() {
 
     private fun buildOverlays(): FrameLayout {
         val overlays = FrameLayout(this)
-        popovers = Popovers(kit, overlays).apply { topInsetPx = kit.dpi(TOP_RESERVE_DP) - kit.dpi(6f) }
+        popovers = Popovers(kit, overlays).apply {
+            topInsetPx = kit.dpi(TOP_RESERVE_DP) - kit.dpi(6f)
+            onSheetMoved = { overlays.post { placeStrip() } }
+        }
         ring = EyedropperRingView(this)
 
         // The drag readout sits under everything else, in the middle of the screen.
@@ -1083,7 +1086,14 @@ class JoyBrushActivity : Activity() {
         if (!::strip.isInitialized || strip.height == 0) return
         val lp = strip.layoutParams as FrameLayout.LayoutParams
         val g = Gravity.TOP or (if (placement.edge == StripPlacement.Edge.LEFT) Gravity.START else Gravity.END)
-        val top = (kit.dp(TOP_RESERVE_DP) + placement.topPx(freeHeight(), strip.height.toFloat())).toInt()
+        var top = (kit.dp(TOP_RESERVE_DP) + placement.topPx(freeHeight(), strip.height.toFloat())).toInt()
+        // An open bottom sheet (a brush's settings) is see-through: a strip it covers shows through and reads as lying on
+        // it. The strip moves up to end above the sheet, as far as the top bar allows, and goes back when it closes.
+        popovers.sheetTopPx()?.let { sheetTop ->
+            val highest = kit.dpi(TOP_RESERVE_DP)
+            val room = sheetTop - kit.dpi(6f) - strip.height
+            if (top > room) top = maxOf(highest, room)
+        }
         // A strip on the right steps aside for the open layer column rather than sit on it.
         val end = if (placement.edge == StripPlacement.Edge.RIGHT && columnOpen) column.widthPx else 0
         if (lp.gravity != g || lp.topMargin != top || lp.marginEnd != end) {
@@ -1609,6 +1619,13 @@ class JoyBrushActivity : Activity() {
         }
         // The sheet's groups named under them (pressure, tilt, speed, turn): views over the preview's surface.
         val framed = FrameLayout(this@JoyBrushActivity).apply {
+            // Under the surface, the drawing's paper with the same round corners: until the surface's first frame (or where
+            // it never draws, as on the emulator's software GPU) the stage is paper, never the drawer's grey with the caps
+            // doubling it into dark corner marks. Once the surface draws, it covers this.
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(canvas.paperArgb or 0xFF000000.toInt())
+                cornerRadius = kit.dp(cc.joycreator.joybrush.android.chrome.UnibrushHostController.STAGE_CORNER_DP)
+            }
             addView(preview, FrameLayout.LayoutParams(MATCH, MATCH))
             for (c in BrushPreviewStrokes.captions) addView(drawerText(c.text, 10f).apply {
                 // On the preview's paper, not the drawer: dark on light paper, light on dark.

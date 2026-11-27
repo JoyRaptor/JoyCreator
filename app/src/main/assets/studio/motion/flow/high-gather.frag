@@ -41,8 +41,7 @@ bool inPicture(vec2 uv) {
     return all(greaterThanEqual(uv, uRegion.xy)) && all(lessThan(uv, uRegion.xy + uRegion.zw));
 }
 
-bool consistent(sampler2D field, sampler2D inverse, vec2 point) {
-    vec2 velocity = unpackVelocity(texture2D(field, point));
+bool consistent(sampler2D inverse, vec2 point, vec2 velocity) {
     vec2 landing = point + velocity / uFlowSize;
     if (any(lessThan(landing, vec2(0.0))) || any(greaterThan(landing, vec2(1.0)))) return false;
     vec2 reverse = unpackVelocity(texture2D(inverse, landing));
@@ -67,8 +66,11 @@ void donor(sampler2D color, sampler2D field, sampler2D inverse,
     vec2 inset = 0.5 / (uStageSize * uRegion.zw);
     if (any(lessThan(point, inset)) || any(greaterThan(point, 1.0 - inset))) return;
     vec4 encodedFlow = texture2D(field, point);
-    if (!consistent(field, inverse, point)) return;
     vec2 velocity = unpackVelocity(encodedFlow);
+    // A discontinuous field can bounce between cells without solving the inverse warp.
+    vec2 warpError = ((point - outputPoint) * uFlowSize + fraction * velocity)
+            * uSourcePerFlowPixel;
+    if (dot(warpError, warpError) > 0.25 || !consistent(inverse, point, velocity)) return;
     vec2 neighbour = unpackVelocity(texture2D(field, point + vec2(1.0) / uFlowSize));
     vec2 difference = (velocity - neighbour) * uSourcePerFlowPixel;
     velocity *= uSourcePerFlowPixel;

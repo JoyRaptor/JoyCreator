@@ -1,0 +1,119 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :testapp:preBuild UP-TO-DATE
+> Task :testapp:preDebugBuild UP-TO-DATE
+> Task :testapp:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :joybrush-android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush-android:preBuild UP-TO-DATE
+> Task :joybrush-android:preDebugBuild UP-TO-DATE
+> Task :joybrush-android:generateDebugResValues
+> Task :joybrush-android:generateDebugResources
+> Task :joybrush-android:packageDebugResources
+> Task :joybrush-android:processDebugNavigationResources
+> Task :joybrush-android:parseDebugLocalResources
+> Task :joybrush-android:generateDebugRFile
+> Task :studiokit:preBuild UP-TO-DATE
+> Task :studiokit:preDebugBuild UP-TO-DATE
+> Task :studiokit:generateDebugResValues
+> Task :studiokit:generateDebugResources
+> Task :studiokit:packageDebugResources
+> Task :studiokit:processDebugNavigationResources
+> Task :joybrush:core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :studiokit:parseDebugLocalResources
+> Task :studiokit:generateDebugRFile
+> Task :studiokit:javaPreCompileDebug
+
+> Task :studiokit:compileDebugJavaWithJavac
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+
+> Task :joybrush:core:compileKotlinJvm UP-TO-DATE
+> Task :joybrush:core:compileJvmMainJava NO-SOURCE
+> Task :joybrush:core:jvmProcessResources NO-SOURCE
+> Task :joybrush:core:processJvmMainResources SKIPPED
+> Task :joybrush:core:jvmMainClasses UP-TO-DATE
+> Task :joybrush:core:jvmJar
+> Task :joybrush:androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :studiokit:bundleLibCompileToJarDebug
+> Task :joybrush:androidkit:compileKotlin UP-TO-DATE
+> Task :joybrush:androidkit:compileJava NO-SOURCE
+> Task :joybrush:androidkit:processResources
+> Task :joybrush:androidkit:classes
+> Task :joybrush:androidkit:jar
+> Task :joybrush-android:javaPreCompileDebug
+> Task :joybrush-android:compileDebugKotlin
+> Task :joybrush-android:compileDebugJavaWithJavac NO-SOURCE
+> Task :joybrush-android:bundleLibCompileToJarDebug
+> Task :testapp:javaPreCompileDebug
+> Task :joybrush-android:compileDebugLibraryResources
+> Task :studiokit:compileDebugLibraryResources
+> Task :joybrush-android:writeDebugAarMetadata
+> Task :studiokit:writeDebugAarMetadata
+> Task :testapp:checkDebugAarMetadata
+> Task :testapp:processDebugNavigationResources
+> Task :testapp:compileDebugNavigationResources
+> Task :testapp:generateDebugResValues
+> Task :testapp:mapDebugSourceSetPaths
+> Task :testapp:generateDebugResources
+> Task :testapp:mergeDebugResources
+> Task :testapp:packageDebugResources
+> Task :testapp:parseDebugLocalResources
+> Task :testapp:createDebugCompatibleScreenManifests
+> Task :joybrush-android:extractDeepLinksDebug
+> Task :joybrush-android:processDebugManifest
+> Task :studiokit:extractDeepLinksDebug
+> Task :studiokit:processDebugManifest
+> Task :testapp:extractDeepLinksDebug
+> Task :testapp:processDebugMainManifest
+> Task :testapp:processDebugManifest
+> Task :testapp:processDebugManifestForPackage
+> Task :testapp:processDebugResources
+> Task :testapp:compileDebugJavaWithJavac NO-SOURCE
+> Task :joybrush-android:mergeDebugShaders
+> Task :joybrush-android:compileDebugShaders NO-SOURCE
+> Task :joybrush-android:generateDebugAssets UP-TO-DATE
+> Task :joybrush-android:mergeDebugAssets
+> Task :studiokit:mergeDebugShaders
+> Task :studiokit:compileDebugShaders NO-SOURCE
+> Task :studiokit:generateDebugAssets UP-TO-DATE
+> Task :studiokit:mergeDebugAssets
+> Task :testapp:mergeDebugShaders
+> Task :testapp:compileDebugShaders NO-SOURCE
+> Task :testapp:generateDebugAssets UP-TO-DATE
+> Task :testapp:mergeDebugAssets
+> Task :testapp:compressDebugAssets
+> Task :joybrush-android:processDebugJavaRes
+> Task :studiokit:processDebugJavaRes NO-SOURCE
+> Task :testapp:processDebugJavaRes NO-SOURCE
+> Task :testapp:mergeDebugJavaResource
+> Task :testapp:checkDebugDuplicateClasses
+> Task :testapp:desugarDebugFileDependencies
+> Task :testapp:mergeExtDexDebug
+> Task :joybrush-android:bundleLibRuntimeToDirDebug
+> Task :studiokit:bundleLibRuntimeToDirDebug
+> Task :testapp:mergeLibDexDebug
+> Task :testapp:dexBuilderDebug
+> Task :testapp:mergeProjectDexDebug
+> Task :joybrush-android:mergeDebugJniLibFolders
+> Task :joybrush-android:mergeDebugNativeLibs NO-SOURCE
+> Task :joybrush-android:copyDebugJniLibsProjectOnly
+> Task :studiokit:mergeDebugJniLibFolders
+> Task :studiokit:mergeDebugNativeLibs NO-SOURCE
+> Task :studiokit:copyDebugJniLibsProjectOnly
+> Task :testapp:mergeDebugJniLibFolders
+> Task :testapp:mergeDebugNativeLibs NO-SOURCE
+> Task :testapp:stripDebugDebugSymbols NO-SOURCE
+> Task :testapp:validateSigningDebug
+> Task :testapp:writeDebugAppMetadata
+> Task :testapp:writeDebugSigningConfigVersions
+> Task :testapp:packageDebug
+> Task :testapp:createDebugApkListingFileRedirect
+> Task :testapp:assembleDebug
+
+BUILD SUCCESSFUL in 2m 42s
+74 actionable tasks: 72 executed, 2 up-to-date

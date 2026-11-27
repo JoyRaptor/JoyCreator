@@ -1,0 +1,36 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.13/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+> Task :core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :core:jvmProcessResources NO-SOURCE
+> Task :core:processJvmMainResources SKIPPED
+> Task :core:jvmTestProcessResources NO-SOURCE
+> Task :core:processJvmTestResources SKIPPED
+> Task :androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :androidkit:processResources UP-TO-DATE
+> Task :androidkit:processTestResources NO-SOURCE
+> Task :core:compileKotlinJvm
+> Task :core:compileJvmMainJava NO-SOURCE
+> Task :core:jvmMainClasses
+> Task :core:jvmJar
+> Task :androidkit:compileKotlin
+> Task :androidkit:compileJava NO-SOURCE
+> Task :androidkit:classes UP-TO-DATE
+> Task :androidkit:jar UP-TO-DATE
+> Task :androidkit:compileTestKotlin
+> Task :androidkit:compileTestJava NO-SOURCE
+> Task :androidkit:testClasses UP-TO-DATE
+
+> Task :androidkit:test
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+> Task :core:compileTestKotlinJvm
+> Task :core:compileJvmTestJava NO-SOURCE
+> Task :core:jvmTestClasses
+
+> Task :core:jvmTest
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+w: Detected multiple Kotlin daemon sessions at 
+
+BUILD SUCCESSFUL in 3m 19s
+9 actionable tasks: 7 executed, 2 up-to-date

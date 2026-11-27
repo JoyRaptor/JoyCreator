@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "avatarlab-scene-room",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/+Projects/JoyCreator/.claude/worktrees/joybot-20261113-d3a666/tools/avatarlab/serve.mjs",
+        "8796"
+      ],
+      "port": 8796
+    }
+  ]
+}

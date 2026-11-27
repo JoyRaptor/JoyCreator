@@ -25,13 +25,18 @@ for variant in a b; do
 done
 cmp <(tail -30 a.frames) <(tail -30 b.frames)
 
+# The app must create its scoped external directory before adb can stage the clip.
+adb shell am start -W -n "$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity" \
+    --ez motion_footage_fixture true --ez motion_private_reference true \
+    --ez motion_enabled false > external-storage-bootstrap.log
+adb shell test -d "/sdcard/Android/data/$pkg/files"
+
 capture() {
     local variant=$1 enabled=$2 folder="$1-$2"
     local pid complete=false
     mkdir -p "$folder"
     adb shell am force-stop "$pkg"
     adb shell run-as "$pkg" rm -f cache/lane_frame_1160000.rgba cache/lane_frame_1200000.rgba
-    adb shell mkdir -p "/sdcard/Android/data/$pkg/files"
     adb push "$variant.mp4" "$private"
     adb logcat -c
     adb shell am start -W -n "$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity" \

@@ -11,6 +11,7 @@ mkdir -p "$out"
 
 capture() {
     local scene=$1 white=$2 enabled=$3 folder=$4
+    local export_pid complete=false
     mkdir -p "$folder"
     adb shell am force-stop "$pkg"
     adb shell run-as "$pkg" rm -f "cache/lane_frame_$center.rgba"
@@ -25,10 +26,18 @@ capture() {
             cat "$folder/export.log"
             return 1
         fi
-        if grep -q 'ExportService: Export completed' "$folder/export.log"; then break; fi
+        export_pid=$(awk -v frame="frame=lane_frame_$center.rgba" '$7 == frame {print $3; exit}' "$folder/export.log")
+        if [[ -n "$export_pid" ]] && awk -v pid="$export_pid" \
+            '$3 == pid && /ExportService: Export completed/ {found=1} END {exit !found}' "$folder/export.log"; then
+            complete=true
+            break
+        fi
         sleep 1
     done
-    grep 'ExportService: Export completed' "$folder/export.log"
+    if [[ "$complete" != true ]]; then
+        cat "$folder/export.log"
+        return 1
+    fi
     grep "C7 authored reference fixture scene=$scene " "$folder/export.log"
     grep 'LANE_EXPORT 96x80 .*SPRITE:' "$folder/export.log"
     grep "frame=lane_frame_$center.rgba editorUs=$center size=96x80" "$folder/export.log"

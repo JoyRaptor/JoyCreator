@@ -33,14 +33,12 @@ landing() {
     settle 3; shot "${name}_asks"
     dump "${name}_asks"; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -25
     for answer in "$@"; do tap_text "$answer" >/dev/null 2>&1 && { echo "answered $answer"; settle 3; }; done
-    settle 6; shot "${name}_lands"
+    settle 14; shot "${name}_lands"
     echo "RESULT $name: lands in $(top)"
     key KEYCODE_BACK; settle 2; key KEYCODE_BACK; settle 2
     adb shell am start -n "$PKG/com.fadcam.SplashActivity" >/dev/null; settle 6
     tap_text "Joybot" >/dev/null 2>&1 || tap 1020 105; settle 3
 }
 landing "Video" "16:9" "Use this"
-landing "Audio"
-landing "Titles"
-landing "Character"
+landing "Audio project"
 echo "script done"

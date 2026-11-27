@@ -14,9 +14,9 @@ merged plan's.
 ## Resume here
 
 - **Active step:** C6 in-file hard-cut fence. C5 physical parity and C7 release gates remain open.
-- **Candidate:** `codex/stu7-finish-20261125` at `bc7f2b642`.
+- **Candidate:** `codex/stu7-finish-20261125` at `57a9e272b`.
 - **Last landed:** C4 `3c0179278` and gated C7 Help and Joybot `51b838070`.
-- **Next action:** Fence decoded motion at the in-file boxing cut. Rerun the exact 1,200,000 µs preceding-shot swap and the three false-positive controls.
+- **Next action:** Run `dfef8d1f7` on the Note 9 once the current lock holder releases it. Compare the exact boxing swap and the matched whip, flash and low-light controls.
 - **Owner asks:** Look #1 and final defaults approval are open.
 - [Branch register](../motionblur/BRANCHES.md) · [Current proof](../motionblur/C6_SNAPDRAGON_EXPORT_REPORT.md) · [Channel](../motionblur/CHANNEL.md).
 

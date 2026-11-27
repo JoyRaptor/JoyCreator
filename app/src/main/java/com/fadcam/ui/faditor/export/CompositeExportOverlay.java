@@ -544,9 +544,6 @@ public class CompositeExportOverlay extends BitmapOverlay {
         return null;
     }
 
-    /** Lazy replay puppet per performing avatar item (mirrors the preview's
-     *  SpriteOverlayView cache; null cached = missing rig, no per-frame retry). */
-    @Nullable
     /** A new-format character's puppet (Avatar Studio); null = its standing picture, the plain sprite path. */
     @Nullable
     private cc.joycreator.avatar.studio.ItemPuppet characterPuppetFor(
@@ -563,6 +560,9 @@ public class CompositeExportOverlay extends BitmapOverlay {
     private final java.util.Map<String, cc.joycreator.avatar.studio.ItemPuppet> characterPuppets =
             new java.util.HashMap<>();
 
+    /** Lazy replay puppet per performing avatar item (mirrors the preview's
+     *  SpriteOverlayView cache; null cached = missing rig, no per-frame retry). */
+    @Nullable
     private com.fadcam.ui.faditor.avatar.AvatarItemPuppet puppetFor(
             @NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem o) {
         if (!o.hasAvatarPerformance()) return null;

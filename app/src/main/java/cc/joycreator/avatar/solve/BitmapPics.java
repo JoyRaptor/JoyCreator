@@ -27,7 +27,7 @@ public final class BitmapPics implements Pics {
     private final Map<String, Integer> ver = new HashMap<>();
 
     public BitmapPics(JSONObject character, File dir) {
-        this(character, (id, src) -> decode(src, dir));
+        this((id, src) -> decode(src, dir), character);
     }
 
     /** Reads one picture: its id and its source as the file names it ({@code data:...} or a path beside the file). */
@@ -36,7 +36,11 @@ public final class BitmapPics implements Pics {
     }
 
     /** Pictures read by the caller (Studio reads them beside a character kept in the person's folder). */
-    public BitmapPics(JSONObject character, Reader reader) {
+    public static BitmapPics read(JSONObject character, Reader reader) {
+        return new BitmapPics(reader, character);
+    }
+
+    private BitmapPics(Reader reader, JSONObject character) {
         JSONObject pics = character.optJSONObject("pictures"), fine = character.optJSONObject("fine");
         if (pics == null) return;
         for (Iterator<String> it = pics.keys(); it.hasNext(); ) {

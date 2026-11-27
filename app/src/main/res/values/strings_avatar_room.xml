@@ -197,5 +197,13 @@
     <string name="avatar_hover_guess_swing">Find the root and tip of this swinging part again from the pixels</string>
     <string name="avatar_step_guess_pins">Guess the pins of %1$s</string>
     <string name="avatar_hover_export">Export: keep it as a Joy Creator file, a picture or a video</string>
+    <string name="avatar_joystick">Joystick</string>
+    <string name="avatar_hover_joystick">Joystick: a pad for your other thumb that walks the body</string>
+    <string name="avatar_hover_stick_pad">Push toward an edge and the body goes that way, faster the further out. Let go and it stops. A quick tap or flick is a gesture.</string>
+    <string name="avatar_hover_stick_gestures">Choose what each tap and flick does</string>
+    <string name="avatar_stick_sheet_title">Joystick gestures</string>
+    <string name="avatar_done">Done</string>
+    <string name="avatar_stick_step">Gesture: %1$s, %2$s</string>
+    <string name="avatar_stick_note">These belong to %1$s: each character keeps its own. A quick flick or tap on the pad is a gesture; a press you hold and steer is the joystick. Its own stances and buttons are here too.</string>
 </resources>
 

@@ -65,14 +65,60 @@ class UnibrushSettingsView(
         ViewCompat.setAccessibilityLiveRegion(this, ViewCompat.ACCESSIBILITY_LIVE_REGION_POLITE)
         kit.label(this, "Settings could not be applied. The previous valid brush is kept")
     }
-    private val pen = PenReadingView(kit)
-    /** The tip seen edge-on, beside the pen pad (BRUSH-UI item 4). */
-    private val tipSection = TipSectionView(kit)
+    /** §L 4 (owner, 11-27): the pen monitor holds the tip's A and B shapes; tap one to reshape it, turn them on the ring. */
+    private val shapeHost = object : ShapeMonitorView.Host {
+        override fun shapeA(): QuadShapeSpec? = model.tip.quad?.a
+        override fun shapeB(): QuadShapeSpec? = model.tip.quad?.b
+        override fun angleDegrees(): Float = model.tip.angle.base
+        override fun bSelected(): Boolean = endpointB && model.tip.quad?.b != null
+        override fun select(b: Boolean) {
+            finishEditing()
+            if (b && model.tip.quad?.b == null &&
+                !edit(true) { p -> p.copy(tip = p.tip.copy(quad = p.tip.quad!!.copy(b = p.tip.quad!!.a))) }) return
+            if (endpointB == b) return
+            endpointB = b; rebuild()
+        }
+        override fun shapeMoved(b: Boolean, shape: QuadShapeSpec, done: Boolean) {
+            edit(done) { p ->
+                val q = p.tip.quad ?: return@edit p
+                p.copy(tip = p.tip.copy(quad = if (b) q.copy(b = shape) else q.copy(a = shape)))
+            }
+            pen.invalidate()
+        }
+        override fun angleMoved(degrees: Float, done: Boolean) {
+            edit(done) { p -> p.copy(tip = p.tip.copy(angle = p.tip.angle.copy(base = degrees))) }
+            pen.invalidate()
+        }
+    }
+    private val pen: ShapeMonitorView = ShapeMonitorView(kit, shapeHost)
+    /** §L 5: the chosen shape's own options, in a box under the row whose arrow points at A or B. */
+    private val shapeBox = ShapeOptionsBox(kit) {
+        if (model.tip.quad == null) null else {
+            val at = IntArray(2); val me = IntArray(2)
+            pen.getLocationInWindow(at); getBoxLocation(me)
+            at[0] - me[0] + pen.dotX(shapeHost.bSelected())
+        }
+    }
+    private fun getBoxLocation(out: IntArray) { shapeBox.getLocationInWindow(out) }
     /** BRUSH-UI section K.4: the mark it leaves from above; tapping it opens the tip's shape editor. */
     private val footprint = FootprintView(kit) { openShapeEditor() }
     /** Where "Tip" starts in the list (the shape editor, or the switch that turns it on). */
     private var tipStart: View? = null
-    private val input = LinearLayout(context).apply { orientation = HORIZONTAL }
+    /**
+     * §L 3 (owner, 11-27): the brush's Pressure and Tilt response as the two small curve boxes every brush has, in place
+     * of the big "Pressure → Tilt" pad; they were also two big boxes down in Dynamics, now gone from there.
+     */
+    private val pressureCurve = CurveEditorView(kit, "Pressure", initial.response.pressure) { h, done ->
+        if (!edit(done) { it.copy(response = it.response.copy(pressure = h)) }) setCurve(true)
+    }
+    private val tiltCurve = CurveEditorView(kit, "Tilt", initial.response.tilt) { h, done ->
+        if (!edit(done) { it.copy(response = it.response.copy(tilt = h)) }) setCurve(false)
+    }
+    private fun setCurve(pressure: Boolean) {
+        if (pressure) pressureCurve.setHandles(model.response.pressure) else tiltCurve.setHandles(model.response.tilt)
+    }
+    /** The pen row every brush editor shares (§L 4-6). */
+    private val input = PenHearingRow(kit, pen, footprint, pressureCurve, tiltCurve)
     private val scroll = ScrollView(context)
 
     init {
@@ -91,16 +137,6 @@ class UnibrushSettingsView(
         addView(preview, LayoutParams(MATCH, kit.dpi(BrushSettingsView.PREVIEW_DP)).apply {
             setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(2f))
         })
-        input.addView(pen, LayoutParams(kit.dpi(64f), kit.dpi(92f)))
-        input.addView(UnibrushPreviewPad(kit) { pressure, tilt ->
-            pen.show(pressure, tilt, 0f)
-            try { onPreviewInput(pressure, tilt) } catch (e: Exception) { showError(e.message ?: "The preview could not be updated") }
-        }, LayoutParams(0, kit.dpi(92f), 1f).apply { marginStart = kit.dpi(8f) })
-        // The tip from the side over its footprint from above, stacked to keep the row narrow.
-        val tipColumn = LinearLayout(context).apply { orientation = VERTICAL }
-        tipColumn.addView(tipSection, LayoutParams(MATCH, kit.dpi(40f)))
-        tipColumn.addView(footprint, LayoutParams(MATCH, kit.dpi(48f)).apply { topMargin = kit.dpi(4f) })
-        input.addView(tipColumn, LayoutParams(kit.dpi(96f), kit.dpi(92f)).apply { marginStart = kit.dpi(8f) })
         addView(error, LayoutParams(MATCH, WRAP))
         scroll.addView(body, ViewGroup.LayoutParams(MATCH, WRAP))
         addView(scroll, LayoutParams(MATCH, 0, 1f))
@@ -127,6 +163,9 @@ class UnibrushSettingsView(
     fun showReading(pressure: Float, tiltRadians: Float, orientationRadians: Float) {
         pen.show(pressure, tiltRadians, orientationRadians)
         footprint.showTilt(tiltRadians)
+        // §L 3: the curves fill while the pen presses, and keep a grey marker where the last stroke ended.
+        pressureCurve.showReading(if (pressure > 0f) pressure else Float.NaN, pressure > 0f)
+        tiltCurve.showReading(cc.joycreator.joybrush.core.chrome.BrushKnobs.tiltCurveInput(model, tiltRadians), pressure > 0f)
     }
 
     /** Tapping the footprint: the list goes to the tip's shape editor (or the switch that turns it on), and it blinks. */
@@ -173,13 +212,25 @@ class UnibrushSettingsView(
         val oldScroll = if (resetScroll) 0 else scroll.scrollY
         body.removeAllViews(); rows.clear(); editors.clear(); curves.clear(); refreshers.clear(); groupStarts.clear(); tipStart = null
         endRows.clear()
-        body.addView(input, LayoutParams(MATCH, kit.dpi(92f)))
+        (input.parent as? ViewGroup)?.removeView(input)
+        body.addView(input, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(6f)) })
+        setCurve(true); setCurve(false)
+        pen.invalidate()
         if (!initialValid) { info("The brush has not changed. Close this sheet and choose a valid Unibrush mode."); return }
-        quick(); shapeControls(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
+        // §L 5: the chosen shape's options go in the box right under the row, built as before and moved into it.
+        val boxStart = body.childCount
+        shapeControls()
+        shapeBox.removeAllViews()
+        val moved = (boxStart until body.childCount).map { body.getChildAt(it) }
+        moved.forEach { body.removeView(it); shapeBox.addView(it) }
+        (shapeBox.parent as? ViewGroup)?.removeView(shapeBox)
+        body.addView(shapeBox, LayoutParams(MATCH, WRAP).apply { setMargins(kit.dpi(4f), 0, kit.dpi(4f), kit.dpi(8f)) })
+        tipStart = shapeBox
+        shapeBox.invalidate()
+        quick(); profileControls("Main tip profile", { it.tip.profile }, { p, s -> p.copy(tip = p.tip.copy(profile = s)) })
         // In the top bar's order: shape, pressure & tilt, colour, paper, stroke ends, feel.
         fadeControls(); sampledControls(); dualControls(); behaviors(); dynamics(); colorControls()
         grainControls(tip = true); grainControls(tip = false); endsControls(); stabilizerControls()
-        tipSection.show(model.tip.profile, model.tip.hardness.base)
         footprint.show(model)
         scroll.post { if (!closed) scroll.scrollTo(0, oldScroll) }
     }
@@ -225,7 +276,7 @@ class UnibrushSettingsView(
     private fun refreshEnds() { for (r in endRows.toList()) askEnds(r) }
 
     private fun refreshControls(forceThumb: Boolean = false) {
-        tipSection.show(model.tip.profile, model.tip.hardness.base)
+        setCurve(true); setCurve(false)
         footprint.show(model)
         refreshers.toList().forEach { it() }; rows.toList().forEach { it.refresh(forceThumb) }
     }
@@ -351,21 +402,12 @@ class UnibrushSettingsView(
         } }
         val quad = model.tip.quad
         if (quad == null) { info("The saved tip stays unchanged. Turn on four points to start shaping it."); return }
-        choices("Shape endpoint", listOf(false, true), { if (it) "B" else "A" }, { endpointB }) { b ->
-            finishEditing()
-            if (b && model.tip.quad?.b == null && !edit(true) { p -> p.copy(tip = p.tip.copy(quad = p.tip.quad!!.copy(b = p.tip.quad!!.a))) }) return@choices
-            endpointB = b; rebuild()
-        }
-        body.addView(chip("Remove B", "Remove the second shape and keep shape A") {
+        // Which shape these options belong to; A and B are chosen, reshaped and turned in the pen monitor above (§L 4).
+        body.addView(label("Shape ${if (endpointB && quad.b != null) "B" else "A"}", 13f), LayoutParams(MATCH, WRAP))
+        if (quad.b != null) body.addView(chip("Remove B", "Remove the second shape and keep shape A") {
             finishEditing(); endpointB = false; structural { p -> p.copy(tip = p.tip.copy(quad = p.tip.quad!!.copy(b = null))) }
         })
-        lateinit var editor: QuadShapeEditorView
-        editor = QuadShapeEditorView(kit, shapeOf(model), model.tip.angle.base) { shape, angle, done ->
-            if (!edit(done) { p -> putShape(p, shape).let { q -> q.copy(tip = q.tip.copy(angle = q.tip.angle.copy(base = angle))) } })
-                editor.setShape(shapeOf(model), model.tip.angle.base)
-        }
-        editors += editor; body.addView(editor, LayoutParams(MATCH, WRAP))
-        refreshers += { editor.setShape(shapeOf(model), model.tip.angle.base) }
+        refreshers += { pen.invalidate(); shapeBox.invalidate() }
         number("Corner rounding", 0f, 1f, { shapeOf(it).roundness }, { p, v -> putShape(p, shapeOf(p).copy(roundness = v)) }, format = ::percent)
         number("Shape thinness", -1f, 1f, { shapeOf(it).aspect ?: it.tip.aspect }, { p, v -> putShape(p, shapeOf(p).copy(aspect = v)) })
         body.addView(chip("Inherit thinness", "Use the main tip's thinness for this shape") { edit(true) { p -> putShape(p, shapeOf(p).copy(aspect = null)) } })
@@ -435,13 +477,7 @@ class UnibrushSettingsView(
         number("Scatter copies", 1f, 16f, { it.scatter.count.toFloat() }, { p, v -> p.copy(scatter = p.scatter.copy(count = v.toInt())) }, integer = true)
         number("Copy jitter", 0f, 1f, { it.scatter.countJitter }, { p, v -> p.copy(scatter = p.scatter.copy(countJitter = v)) }, format = ::percent)
         toggle("Scatter both axes", { model.scatter.bothAxes }) { value -> edit(true) { it.copy(scatter = it.scatter.copy(bothAxes = value)) } }
-        responseCurve("Pressure response", { it.response.pressure }, { p, h -> p.copy(response = p.response.copy(pressure = h)) })
-        responseCurve("Tilt response", { it.response.tilt }, { p, h -> p.copy(response = p.response.copy(tilt = h)) })
-    }
-    private fun responseCurve(title: String, read: (BrushPreset) -> List<Float>, write: (BrushPreset, List<Float>) -> BrushPreset) {
-        lateinit var curve: UnibrushBezierEditorView
-        curve = UnibrushBezierEditorView(kit, title, read(model)) { h, done, _ -> if (!edit(done) { write(it, h) }) curve.setHandles(read(model)) }
-        curves += curve; body.addView(curve, LayoutParams(MATCH, WRAP))
+        // The Pressure and Tilt response curves sit in the pen row at the top now (§L 3).
     }
 
     private fun secondaryColourControl() {

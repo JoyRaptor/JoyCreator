@@ -1034,6 +1034,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (objectDrawer != null) objectDrawer.showTabTitled(getString(R.string.drawer_tab_effects));
     }
 
+    private boolean motionBlurOn(@NonNull String id) {
+        MotionBlurItem item = findMotionBlurItem(id);
+        return item != null && project != null && item.isRigidMotionBlurEnabled()
+                && project.isMotionBlurEnabled() && !motionBlurHidden(this);
+    }
+
     /** Motion Blur stays out of sight until STU-7 ships (assets/launch/hidden_features.json). */
     private static boolean motionBlurHidden(@NonNull Context ctx) {
         return com.fadcam.launch.LaunchGate.hidden(ctx, "studio_motion_blur");
@@ -1041,6 +1047,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     /** The object's Motion Blur card, filled in place; empty while the blur is off. */
     @Nullable private android.widget.LinearLayout motionSlot;
+    @Nullable private View motionEffectsView;
     @Nullable private String motionSlotId;
 
     /**
@@ -1054,9 +1061,13 @@ public class FaditorEditorActivity extends AppCompatActivity {
         col.setOrientation(android.widget.LinearLayout.VERTICAL);
         android.widget.LinearLayout slot = new android.widget.LinearLayout(ctx);
         slot.setOrientation(android.widget.LinearLayout.VERTICAL);
+        // The effect panel's own 12dp side margin, so the card lines up with the effect cards.
+        int side = Math.round(12 * ctx.getResources().getDisplayMetrics().density);
+        slot.setPadding(side, 0, side, 0);
         col.addView(slot);
         motionSlot = slot;
         motionSlotId = id;
+        motionEffectsView = effects;
         fillMotionSlot(ctx, effects == null);
         if (effects != null) col.addView(effects);
         return col;
@@ -1089,11 +1100,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // Hidden until STU-7 is approved, exactly like the tool button (launch key below).
         if (motionBlurHidden(ctx) || findMotionBlurItem(id) == null) return null;
         return com.fadcam.ui.faditor.motion.card.MotionBlurCard.pickerTile(ctx, () -> {
-            close.run();
             MotionBlurItem item = findMotionBlurItem(id);
-            if (item == null || project == null
-                    || (item.isRigidMotionBlurEnabled() && project.isMotionBlurEnabled())) return;
-            addMotionBlur(ctx, id, false);
+            if (item != null && project != null
+                    && !(item.isRigidMotionBlurEnabled() && project.isMotionBlurEnabled())) {
+                addMotionBlur(ctx, id, false);
+            }
+            close.run();
         });
     }
 
@@ -1117,7 +1129,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         if (item == null) return;
         project.setMotionBlurEnabled(projectOn);
         item.setRigidMotionBlurEnabled(itemOn);
-        if (id.equals(motionSlotId)) fillMotionSlot(ctx, withTile);
+        if (id.equals(motionSlotId)) {
+            fillMotionSlot(ctx, withTile);
+            // The panel's "changes nothing yet" note follows whether the blur is on.
+            com.fadcam.ui.faditor.tools.FxPanel.rebuild(motionEffectsView);
+        }
         refreshMotionPreview();
         scheduleAutoSave();
     }
@@ -1234,7 +1250,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 return com.fadcam.ui.faditor.compositor.RigidPipMotion.supports(clip)
                         ? 0 : R.string.studio_motion_why_pip;
             }
-            return clip.hasSpineTransform() ? 0 : R.string.studio_motion_why_clip;
+            return clip.isImageClip() && !clip.hasSpineTransform() ? R.string.studio_motion_why_clip : 0;
         }
         return 0;
     }
@@ -31995,6 +32011,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ctx, clipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
                             @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, c.getId(), close); }
+            @Override public boolean hasObjectEffect() { return motionBlurOn(c.getId()); }
                             @Override public void editGradientInPreview(
                                     @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
                                     @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
@@ -33356,6 +33373,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         ctx, pipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
             @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, c.getId(), close); }
+            @Override public boolean hasObjectEffect() { return motionBlurOn(c.getId()); }
             // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(
@@ -35354,6 +35372,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
             }
             @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, item.getId(), close); }
+            @Override public boolean hasObjectEffect() { return motionBlurOn(item.getId()); }
         };
 
         return withMotionBlurCard(ctx, item.getId(), com.fadcam.ui.faditor.tools.FxPanel.build(
@@ -37360,6 +37379,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.fx.FxStack fx) {
         return new com.fadcam.ui.faditor.tools.FxPanel.Host() {
             @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, item.getId(), close); }
+            @Override public boolean hasObjectEffect() { return motionBlurOn(item.getId()); }
             // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(

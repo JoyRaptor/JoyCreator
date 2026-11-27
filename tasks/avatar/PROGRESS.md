@@ -32,9 +32,9 @@ Updated 11-27 by the lead.
 | Takes and voice engines | 3 | ✅ landed (81dfbc6f1) | slice 1 |
 | Studio's Undo names the step | 1 | ✅ landed (81dfbc6f1) | slice 1 |
 | Topps and Pip built in | 1 | ✅ landed | slice 1 |
-| Perform panel: head pad, Hold to talk, Blink, moods, buttons, Breeze, take bar, Mic, Face | 5 | 🟡 built, not landed | slice 1 |
-| Landmarks screen on the phone | 3 | 🟡 built, not landed | slice 1 |
-| Landscape and tablet layouts | 3 | 🟡 tablet proportions built | slice 1 |
+| Perform panel: head pad, Hold to talk, Blink, moods, buttons, Breeze, take bar, Mic, Face | 5 | ✅ landed (cloud tests green); crude stage until X2; not tried on a phone | slice 1 |
+| Landmarks screen on the phone | 3 | ✅ landed (whole head only; one piece on its own, preview slider owed) | slice 1 |
+| Landscape and tablet layouts | 3 | 🟡 landscape split and tablet proportions landed; the two-column tablet layouts owed | slice 1 |
 | X2 the movement engine (the pilot's solver), matched to the pilot within half a pixel | 13 | ⬜ in progress | spec session (Opus) |
 | X3 drawing on the GPU: masks, colour sets | 8 | ⬜ after X2 | spec session (Opus) |
 | Set up card: pins, magnifier, pin wizard | 5 | ⬜ | slice 1 |

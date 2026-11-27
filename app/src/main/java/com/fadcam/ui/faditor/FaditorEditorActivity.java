@@ -36534,6 +36534,19 @@ public class FaditorEditorActivity extends AppCompatActivity {
         }
         puppetHelper.setX(at[0]);
         puppetHelper.setY(at[1]);
+        // TEMP-WEBSITE-LANE: remove after the puppet strip placement is proven.
+        {
+            int[] dl2 = new int[2], pl2 = new int[2], sl2 = new int[2];
+            if (objectDrawer != null) objectDrawer.getLocationOnScreen(dl2);
+            pc.getLocationOnScreen(pl2);
+            puppetHelper.getLocationOnScreen(sl2);
+            android.util.Log.i("PuppetStrip", "corner=" + puppetHelper.corner() + " parent=" + pc.getWidth() + "x" + pc.getHeight()
+                    + " at=" + at[0] + "," + at[1] + " left=" + puppetHelper.getLeft() + " x=" + puppetHelper.getX()
+                    + " screen=" + sl2[0] + "," + sl2[1] + " w=" + puppetHelper.getWidth() + " h=" + puppetHelper.getHeight()
+                    + " drawerShowing=" + (objectDrawer != null && objectDrawer.isShowing())
+                    + " drawerTop=" + dl2[1] + " drawerH=" + (objectDrawer == null ? -1 : objectDrawer.getHeight())
+                    + " parentTop=" + pl2[1] + " gravity=" + (puppetHelper.getLayoutParams() instanceof android.widget.FrameLayout.LayoutParams ? ((android.widget.FrameLayout.LayoutParams) puppetHelper.getLayoutParams()).gravity : -9));
+        }
     }
 
     /** Place a pin dragged out of the strip, in the OVERLAY's pixels. */

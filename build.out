@@ -1,0 +1,383 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+Reusing configuration cache.
+> Task :app:preBuild UP-TO-DATE
+> Task :media3-patched:lib-effect:preBuild UP-TO-DATE
+> Task :media3-patched:lib-decoder:preBuild UP-TO-DATE
+> Task :media3-patched:lib-extractor:preBuild UP-TO-DATE
+> Task :media3-patched:lib-datasource:preBuild UP-TO-DATE
+> Task :media3-patched:lib-container:preBuild UP-TO-DATE
+> Task :media3-patched:lib-database:preBuild UP-TO-DATE
+> Task :joybrush-android:preBuild UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:preBuild UP-TO-DATE
+> Task :media3-patched:lib-muxer:preBuild UP-TO-DATE
+> Task :media3-patched:lib-common:preBuild UP-TO-DATE
+> Task :media3-patched:lib-transformer:preBuild UP-TO-DATE
+> Task :media3-patched:lib-effect:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-container:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-muxer:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-database:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-datasource:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-extractor:preDebugBuild UP-TO-DATE
+> Task :app:preDefaultDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-decoder:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-transformer:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-common:preDebugBuild UP-TO-DATE
+> Task :joybrush:core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :media3-patched:lib-muxer:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-effect:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-transformer:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-extractor:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-datasource:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-database:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-decoder:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-transformer:mergeDebugJniLibFolders UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-common:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-database:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-decoder:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-effect:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-datasource:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-container:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-muxer:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-extractor:writeDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-transformer:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-database:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-effect:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-datasource:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-database:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-common:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-extractor:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-decoder:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-decoder:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-common:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-effect:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-datasource:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-datasource:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-container:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-effect:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-database:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-decoder:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-common:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-extractor:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-transformer:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugNavigationResources UP-TO-DATE
+> Task :media3-patched:lib-datasource:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-database:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-effect:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-datasource:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-transformer:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-muxer:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-exoplayer:mergeDebugNativeLibs NO-SOURCE
+> Task :media3-patched:lib-effect:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-decoder:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-database:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-transformer:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-muxer:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-decoder:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-extractor:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-transformer:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-extractor:generateDebugResources UP-TO-DATE
+> Task :media3-patched:lib-common:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-database:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-decoder:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-datasource:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-container:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-effect:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-extractor:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-extractor:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:extractDeepLinksDebug UP-TO-DATE
+> Task :media3-patched:lib-datasource:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-extractor:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-decoder:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-transformer:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-effect:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-effect:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-decoder:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-datasource:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-database:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-common:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-database:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-extractor:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-transformer:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-transformer:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-database:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-decoder:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-datasource:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-effect:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-extractor:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-datasource:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-common:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-database:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-container:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-effect:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-muxer:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-database:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-decoder:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-extractor:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-effect:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-datasource:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-decoder:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-common:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:packageDebugResources UP-TO-DATE
+> Task :media3-patched:lib-container:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-extractor:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:javaPreCompileDebug UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-database:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-datasource:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-effect:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-container:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-datasource:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-effect:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-extractor:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-database:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-datasource:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-effect:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-exoplayer:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-common:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-database:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-effect:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-datasource:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-database:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-common:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-muxer:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-decoder:mergeDebugShaders UP-TO-DATE
+> Task :media3-patched:lib-common:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-decoder:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-extractor:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-transformer:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-container:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-transformer:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-database:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-exoplayer:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-datasource:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-effect:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-decoder:compileDebugShaders NO-SOURCE
+> Task :media3-patched:lib-transformer:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-common:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-decoder:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-extractor:generateDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-extractor:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-extractor:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-container:processDebugJavaRes NO-SOURCE
+> Task :joybrush-android:preDebugBuild UP-TO-DATE
+> Task :media3-patched:lib-decoder:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-muxer:processDebugJavaRes NO-SOURCE
+> Task :media3-patched:lib-container:mergeDebugAssets UP-TO-DATE
+> Task :studiokit:preBuild UP-TO-DATE
+> Task :studiokit:preDebugBuild UP-TO-DATE
+> Task :app:mergeDefaultDebugJniLibFolders UP-TO-DATE
+> Task :joybrush-android:mergeDebugJniLibFolders UP-TO-DATE
+> Task :studiokit:mergeDebugJniLibFolders UP-TO-DATE
+> Task :joybrush-android:writeDebugAarMetadata UP-TO-DATE
+> Task :studiokit:mergeDebugNativeLibs NO-SOURCE
+> Task :joybrush-android:mergeDebugNativeLibs NO-SOURCE
+> Task :studiokit:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :joybrush-android:copyDebugJniLibsProjectOnly UP-TO-DATE
+> Task :studiokit:writeDebugAarMetadata UP-TO-DATE
+> Task :app:generateDefaultDebugBuildConfig UP-TO-DATE
+> Task :media3-patched:lib-transformer:mergeDebugAssets UP-TO-DATE
+> Task :media3-patched:lib-container:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-decoder:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-database:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-muxer:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-extractor:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-datasource:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-effect:generateDebugRFile UP-TO-DATE
+> Task :joybrush-android:processDebugNavigationResources UP-TO-DATE
+> Task :studiokit:processDebugNavigationResources UP-TO-DATE
+> Task :joybrush-android:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:compileDebugJavaWithJavac UP-TO-DATE
+> Task :app:javaPreCompileDefaultDebug UP-TO-DATE
+> Task :app:generateDefaultDebugResValues UP-TO-DATE
+> Task :studiokit:generateDebugResValues UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-decoder:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-decoder:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-database:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-database:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-common:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-decoder:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-datasource:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:parseDebugLocalResources UP-TO-DATE
+> Task :media3-patched:lib-datasource:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:compileDebugLibraryResources UP-TO-DATE
+> Task :media3-patched:lib-effect:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-transformer:generateDebugRFile UP-TO-DATE
+> Task :media3-patched:lib-datasource:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:checkDefaultDebugAarMetadata UP-TO-DATE
+> Task :media3-patched:lib-database:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-container:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-datasource:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-effect:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :joybrush-android:processDebugManifest UP-TO-DATE
+> Task :media3-patched:lib-decoder:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-database:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-effect:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-effect:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :app:createDefaultDebugCompatibleScreenManifests UP-TO-DATE
+> Task :joybrush-android:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :media3-patched:lib-extractor:compileDebugJavaWithJavac UP-TO-DATE
+> Task :joybrush:core:jvmProcessResources NO-SOURCE
+> Task :joybrush:androidkit:processResources UP-TO-DATE
+> Task :media3-patched:lib-extractor:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-extractor:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :joybrush:core:processJvmMainResources SKIPPED
+> Task :media3-patched:lib-extractor:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-muxer:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-muxer:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-exoplayer:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:compileDebugJavaWithJavac UP-TO-DATE
+> Task :media3-patched:lib-transformer:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :media3-patched:lib-transformer:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :studiokit:generateDebugResources UP-TO-DATE
+> Task :joybrush-android:generateDebugResources UP-TO-DATE
+> Task :studiokit:processDebugManifest UP-TO-DATE
+> Task :joybrush-android:extractDeepLinksDebug UP-TO-DATE
+> Task :studiokit:extractDeepLinksDebug UP-TO-DATE
+> Task :joybrush-android:javaPreCompileDebug UP-TO-DATE
+> Task :studiokit:javaPreCompileDebug UP-TO-DATE
+> Task :joybrush-android:mergeDebugShaders UP-TO-DATE
+> Task :app:mergeDefaultDebugShaders UP-TO-DATE
+> Task :studiokit:mergeDebugShaders UP-TO-DATE
+> Task :app:extractDeepLinksDefaultDebug UP-TO-DATE
+> Task :studiokit:packageDebugResources UP-TO-DATE
+> Task :joybrush-android:compileDebugShaders NO-SOURCE
+> Task :studiokit:compileDebugShaders NO-SOURCE
+> Task :app:compileDefaultDebugShaders NO-SOURCE
+> Task :joybrush-android:generateDebugAssets UP-TO-DATE
+> Task :app:generateDefaultDebugAssets UP-TO-DATE
+> Task :studiokit:generateDebugAssets UP-TO-DATE
+> Task :studiokit:processDebugJavaRes NO-SOURCE
+> Task :joybrush-android:packageDebugResources UP-TO-DATE
+> Task :app:checkDefaultDebugDuplicateClasses UP-TO-DATE
+> Task :studiokit:compileDebugLibraryResources UP-TO-DATE
+> Task :studiokit:mergeDebugAssets UP-TO-DATE
+> Task :studiokit:parseDebugLocalResources UP-TO-DATE
+> Task :app:validateSigningDefaultDebug UP-TO-DATE
+> Task :app:writeDefaultDebugSigningConfigVersions UP-TO-DATE
+> Task :joybrush-android:mergeDebugAssets UP-TO-DATE
+> Task :app:writeDefaultDebugAppMetadata UP-TO-DATE
+> Task :app:desugarDefaultDebugFileDependencies UP-TO-DATE
+> Task :app:processDefaultDebugMainManifest UP-TO-DATE
+> Task :app:generateDefaultDebugResources
+> Task :joybrush:core:compileKotlinJvm UP-TO-DATE
+> Task :joybrush:core:compileJvmMainJava NO-SOURCE
+> Task :joybrush:core:jvmMainClasses UP-TO-DATE
+> Task :app:processDefaultDebugNavigationResources
+> Task :joybrush-android:parseDebugLocalResources UP-TO-DATE
+> Task :joybrush-android:compileDebugLibraryResources UP-TO-DATE
+> Task :studiokit:generateDebugRFile UP-TO-DATE
+> Task :app:processDefaultDebugManifest UP-TO-DATE
+> Task :joybrush:core:jvmJar UP-TO-DATE
+> Task :app:mergeExtDexDefaultDebug UP-TO-DATE
+> Task :app:mapDefaultDebugSourceSetPaths
+> Task :app:compileDefaultDebugNavigationResources UP-TO-DATE
+> Task :app:processDefaultDebugManifestForPackage UP-TO-DATE
+> Task :joybrush-android:generateDebugRFile UP-TO-DATE
+> Task :studiokit:compileDebugJavaWithJavac UP-TO-DATE
+> Task :studiokit:bundleLibCompileToJarDebug UP-TO-DATE
+> Task :studiokit:bundleLibRuntimeToJarDebug UP-TO-DATE
+> Task :studiokit:bundleLibRuntimeToDirDebug UP-TO-DATE
+> Task :joybrush:androidkit:compileKotlin UP-TO-DATE
+> Task :joybrush:androidkit:compileJava NO-SOURCE
+> Task :joybrush:androidkit:classes UP-TO-DATE
+> Task :joybrush:androidkit:jar UP-TO-DATE
+> Task :app:configureCMakeDebug[arm64-v8a]
+> Task :app:mergeDefaultDebugAssets
+> Task :app:compressDefaultDebugAssets
+> Task :app:buildCMakeDebug[arm64-v8a]
+> Task :app:mergeDefaultDebugNativeLibs UP-TO-DATE
+> Task :app:stripDefaultDebugDebugSymbols UP-TO-DATE
+> Task :app:extractDefaultDebugNativeDebugMetadata UP-TO-DATE
+> Task :app:mergeDefaultDebugNativeDebugMetadata UP-TO-DATE
+> Task :app:packageDefaultDebugResources
+> Task :app:parseDefaultDebugLocalResources
+> Task :app:mergeDefaultDebugResources
+
+> Task :joybrush-android:compileDebugKotlin
+w: file:///C:/+Projects/JoyCreator/.claude/worktrees/determined-lovelace-7fb58c/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/SymmetryWidgetView.kt:291:62 'static fun obtain(p0: Int, p1: Float, p2: Float, p3: Float): AccessibilityNodeInfo.RangeInfo!' is deprecated. Deprecated in Java.
+w: file:///C:/+Projects/JoyCreator/.claude/worktrees/determined-lovelace-7fb58c/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/UnibrushHostController.kt:145:30 The corresponding parameter in the supertype 'PreviewSource' is named 'preset'. This may cause problems when calling this function with named arguments.
+w: file:///C:/+Projects/JoyCreator/.claude/worktrees/determined-lovelace-7fb58c/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/UnibrushHostController.kt:145:44 The corresponding parameter in the supertype 'PreviewSource' is named 'width'. This may cause problems when calling this function with named arguments.
+w: file:///C:/+Projects/JoyCreator/.claude/worktrees/determined-lovelace-7fb58c/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/UnibrushHostController.kt:145:50 The corresponding parameter in the supertype 'PreviewSource' is named 'height'. This may cause problems when calling this function with named arguments.
+w: file:///C:/+Projects/JoyCreator/.claude/worktrees/determined-lovelace-7fb58c/joybrush-android/src/main/kotlin/cc/joycreator/joybrush/android/chrome/UnibrushSettingsView.kt:57:20 'static fun setAccessibilityLiveRegion(p0: @NonNull() View, p1: Int): Unit' is deprecated. Deprecated in Java.
+
+> Task :joybrush-android:compileDebugJavaWithJavac NO-SOURCE
+> Task :joybrush-android:processDebugJavaRes UP-TO-DATE
+> Task :joybrush-android:bundleLibCompileToJarDebug
+> Task :joybrush-android:bundleLibRuntimeToJarDebug
+> Task :joybrush-android:bundleLibRuntimeToDirDebug
+> Task :app:processDefaultDebugResources
+> Task :app:mergeLibDexDefaultDebug
+
+> Task :app:compileDefaultDebugJavaWithJavac
+Note: Some input files use or override a deprecated API.
+Note: Recompile with -Xlint:deprecation for details.
+Note: C:\+Projects\JoyCreator\.claude\worktrees\determined-lovelace-7fb58c\app\src\main\java\com\fadcam\ui\faditor\FaditorEditorActivity.java uses unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+
+> Task :app:processDefaultDebugJavaRes UP-TO-DATE
+> Task :app:mergeDefaultDebugJavaResource UP-TO-DATE
+> Task :app:dexBuilderDefaultDebug
+> Task :app:mergeDefaultDebugGlobalSynthetics UP-TO-DATE
+> Task :app:mergeProjectDexDefaultDebug
+> Task :app:packageDefaultDebug
+> Task :app:assembleDefaultDebug
+> Task :app:createDefaultDebugApkListingFileRedirect
+
+[Incubating] Problems report is available at: file:///C:/+Projects/JoyCreator/.claude/worktrees/determined-lovelace-7fb58c/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 2m 28s
+276 actionable tasks: 21 executed, 255 up-to-date
+Configuration cache entry reused.

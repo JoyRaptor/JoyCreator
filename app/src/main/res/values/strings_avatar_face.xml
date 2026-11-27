@@ -33,7 +33,7 @@
     <string name="avatar_facepins_all">All pins</string>
     <string name="avatar_hover_facepins_all">Every face pin at once: 1 = as set</string>
     <string name="avatar_facepins_one_piece">Make one piece (%1$d on slices)</string>
-    <string name="avatar_hover_facepins_one_piece">Move the face pins that bend a single slice onto the head's whole drawing, so it bends as one piece</string>
+    <string name="avatar_hover_facepins_one_piece">Move the face pins that bend a single slice onto the head\'s whole drawing, so it bends as one piece</string>
     <string name="avatar_facepins_pick_first">Pick a point of your face first, then tap the character.</string>
     <string name="avatar_facepins_tap_character">Tap on the character itself.</string>
     <string name="avatar_facepins_not_limbs">Arms and legs follow the hands and feet. Try the head, the mouth, the brows or the cheeks.</string>

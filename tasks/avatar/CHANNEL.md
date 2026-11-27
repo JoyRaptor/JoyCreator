@@ -43,6 +43,7 @@ a slice needs it (Claude claims it here first, so Codex can see it is taken).
 |---|---|---|---|---|
 | Claude, "Avatar Studio slice 1: the room" session (Opus) | Slice 1 items 4 to 8: the room's screens, doors, Perform and recording, undo, Joybot tools | its own worktree branch | new `avatar/room/**` classes; it claims X1 to X3 here before touching them if Codex has not | 11-23 |
 | Claude, "Avatar Studio slice 1: the room" session (Opus) | **X1 (all of it, the lead's go 11-23)**: `CharacterFile` + `FormatCheck` + `Js` + `CharacterDoc` + `CharacterAssets` in `avatar/file/`, test `tools/jvm-harness/CharacterFormatTest.java` + `run-avatar-format.sh` | same branch | `app/src/main/java/cc/joycreator/avatar/file/**`, `tools/jvm-harness/CharacterFormatTest.java`, `run-avatar-format.sh`, one word in `run-studio-all.sh`. **Codex: X1 is taken (see Landings); take X4 or X6.** | 11-23 |
+| Claude, "Avatar Studio phone spec" session (Opus) | **X2**: `CharacterSolver`, the pilot's `al-solve.js` ported, proven against `tasks/avatar/golden/` (then X3 if it lands cleanly) | its own worktree branch | new `app/src/main/java/cc/joycreator/avatar/solve/**`, `tools/jvm-harness/CharacterSolverTest.java` + `run-avatar-solve.sh`, one word in `run-studio-all.sh`, `tasks/avatar/golden/**`, `tools/avatarlab/al-golden.js` (reads X1's `avatar/file/**`, does not change it) | 11-27 |
 
 ## Landings
 

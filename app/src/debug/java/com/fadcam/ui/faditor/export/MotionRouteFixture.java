@@ -29,6 +29,8 @@ import com.fadcam.ui.faditor.project.ProjectStorage;
 import com.fadcam.ui.faditor.sprite.FrameTrack;
 import com.fadcam.ui.faditor.sprite.SpriteOverlayItem;
 import com.fadcam.ui.faditor.sprite.SpriteSheet;
+import com.fadcam.ui.faditor.transform.mesh.MeshWarpSpec;
+import com.fadcam.ui.faditor.transform.mesh.PuppetTopology;
 import com.fadcam.ui.faditor.transcript.NamedTranscript;
 import com.fadcam.ui.faditor.transcript.Transcript;
 import com.fadcam.ui.faditor.transcript.TranscriptWord;
@@ -447,6 +449,76 @@ final class MotionRouteFixture {
         project.getTimeline().addSpriteOverlay(sprite);
         if (!storage.save(project)) throw new IOException("Could not save the sprite fixture");
         return project;
+    }
+
+    static FaditorProject createPuppetMesh(Context context, boolean enabled, boolean masterOff)
+            throws IOException {
+        ProjectStorage storage = new ProjectStorage(context);
+        String variant = masterOff ? "master off" : enabled ? "blur" : "sharp";
+        var project = new FaditorProject(storage.uniqueName("TEST STU-7 C5 puppet mesh " + variant));
+        project.setMotionBlurEnabled(!masterOff);
+        project.setTrueLayerOrder(true);
+        File media = new File(context.getFilesDir(), "motion-route/" + project.getId());
+        if (!media.mkdirs()) throw new IOException("Cannot create puppet mesh fixture directory");
+        File source = copyAsset(context, media, "card2.mp4");
+        long duration = durationMs(source);
+        if (duration < 1_000L) throw new IOException("Puppet mesh fixture is shorter than 1 second");
+        var timeline = project.getTimeline();
+        timeline.addClip(clip(source, duration, 1_000L));
+
+        var sheet = new SpriteSheet("c5-puppet-limb", "C5 puppet limb", Uri.fromFile(writePuppetAtlas(media)).toString());
+        sheet.setGrid(2, 1);
+        project.getSpriteSheets().add(sheet);
+        var sprite = SpriteOverlayItem.create(sheet.getId());
+        sprite.setCenter(0.5f, 0.54f);
+        sprite.setSizeFraction(0.75f);
+        sprite.setTimeRange(0L, 899L);
+        sprite.setRigidMotionBlurEnabled(enabled);
+        sprite.setRigidMotionShutter(new MotionShutter.Controls(540, MotionShutter.Timing.CENTERED, 0, 100));
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(0L, 0));
+        sprite.getFrameTrack().put(FrameTrack.Key.ofCell(367L, 1));
+
+        // One triangulated arm, with the shoulder fixed and independent elbow/wrist offsets.
+        var topology = new PuppetTopology(
+                new float[]{0.125f, 0.3125f, 0.875f, 0.3125f, 0.875f, 0.6875f, 0.125f, 0.6875f},
+                5, new float[]{0.20f, 0.50f, 0.48f, 0.50f, 0.79f, 0.50f});
+        var mesh = new MeshWarpSpec(topology);
+        float[] lifted = {0f, 0f, 0f, -0.055f, -0.06f, -0.22f};
+        float[] lowered = {0f, 0f, 0f, 0.065f, -0.06f, 0.20f};
+        var bends = mesh.ensureTrack();
+        bends.put(0L, mesh.handles(), Easing.LINEAR.name());
+        bends.put(120L, mesh.handles(), Easing.LINEAR.name());
+        bends.put(333L, lifted, Easing.LINEAR.name());
+        bends.put(620L, lowered, Easing.LINEAR.name());
+        bends.put(790L, mesh.handles(), Easing.LINEAR.name());
+        sprite.setMesh(mesh);
+        timeline.addSpriteOverlay(sprite);
+        if (!storage.save(project)) throw new IOException("Could not save the puppet mesh fixture");
+        return project;
+    }
+
+    private static File writePuppetAtlas(File media) throws IOException {
+        File art = new File(media, "puppet-limb-cells.png");
+        Bitmap bitmap = Bitmap.createBitmap(256, 128, Bitmap.Config.ARGB_8888);
+        try (FileOutputStream out = new FileOutputStream(art)) {
+            Canvas canvas = new Canvas(bitmap);
+            Paint paint = new Paint();
+            for (int cell = 0; cell < 2; cell++) {
+                int left = cell * 128;
+                paint.setColor(cell == 0 ? 0xFFFF7020 : 0xFF20D7FF);
+                canvas.drawRect(left + 16, 44, left + 80, 84, paint);
+                paint.setColor(cell == 0 ? 0xFFFFD960 : 0xFF7FFF70);
+                canvas.drawRect(left + 54, 48, left + 94, 80, paint);
+                paint.setColor(cell == 0 ? 0xA0FFA000 : 0xA000F0BC);
+                canvas.drawRect(left + 94, 40, left + 112, 88, paint);
+            }
+            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) {
+                throw new IOException("Could not write puppet limb atlas");
+            }
+        } finally {
+            bitmap.recycle();
+        }
+        return art;
     }
 
     static FaditorProject createTitle(Context context, boolean enabled) throws IOException {

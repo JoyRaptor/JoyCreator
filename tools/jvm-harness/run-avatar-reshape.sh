@@ -14,7 +14,8 @@ javac -nowarn -encoding UTF-8 -d "$OUT" \
   app/src/main/java/cc/joycreator/avatar/file/CharacterFile.java \
   app/src/main/java/cc/joycreator/avatar/file/Stances.java \
   app/src/main/java/cc/joycreator/avatar/file/Reshape.java \
-  app/src/main/java/cc/joycreator/avatar/perform/DepthWalk.java \n  app/src/main/java/cc/joycreator/avatar/perform/Walker.java \
+  app/src/main/java/cc/joycreator/avatar/perform/DepthWalk.java \
+  app/src/main/java/cc/joycreator/avatar/perform/Walker.java \
   tools/jvm-harness/WalkerTest.java \
   tools/jvm-harness/ReshapeTest.java || exit 1
 java -Djava.awt.headless=true -cp "$OUT" ReshapeTest

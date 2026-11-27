@@ -98,6 +98,7 @@ public class AvatarDrawParityTest {
                     SolveOut so = null;
                     for (int i = 0; i < 8; i++) { S.t = i / 30.0; so = sv.eval(S, opt); }
                     if ("shift".equals(Emu.fault())) plantShift(so);
+                    Log.i(Emu.TAG, "drawing " + who + " " + p + ": " + so.items.size() + " pieces");
                     gl.draw(so, pics, new CharacterGl.View(1, 0, 0), null, 0, W, H);
                     GLES20.glFinish();
                     assertEquals("GL error drawing " + who + " " + p, GLES20.GL_NO_ERROR, GLES20.glGetError());

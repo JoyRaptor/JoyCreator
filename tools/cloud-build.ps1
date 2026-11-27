@@ -154,7 +154,7 @@ function Start-Build([string] $ref, [string] $variant, [string] $suites = "", [h
         $run = $runs.workflow_runs | Where-Object { "$($_.display_title)".Contains("[$rid]") } | Select-Object -First 1
         if ($run) {
             Save-State ([ordered]@{ run_id = $run.id; ref = $ref; variant = $variant; request_id = $rid; url = $run.html_url; started = (Get-Date).ToString("s") })
-            Write-Host "started run $($run.id): $variant @ $ref"
+            Write-Host "started run $($run.id): $(if ($null -ne $extra) { "$Workflow $(($extra.GetEnumerator() | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ' ')" } else { $variant }) @ $ref"
             Write-Host "  $($run.html_url)"
             return $run.id
         }

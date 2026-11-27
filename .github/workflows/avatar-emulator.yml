@@ -181,7 +181,7 @@ jobs:
           TESTS: ${{ inputs.tests || 'all' }}
           FAULT: ${{ inputs.fault || 'none' }}
         run: |
-          set -uo pipefail
+          set +e -uo pipefail   # (Actions runs bash -e: a lost device must still leave its logs)
           case "$TESTS" in
             draw) CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest ;;
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
@@ -191,7 +191,10 @@ jobs:
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")
           mkdir -p emu-out
           adb -e logcat -c
+          adb -e logcat -v time > emu-out/logcat-live.txt 2>&1 &   # kept even if the emulator dies mid-test
           timeout 1500 adb -e shell am instrument -w -r "${ARGS[@]}" "$PKG.test/$RUNNER_CLASS" | tee emu-out/instrument.txt
+          echo "instrument exit: ${PIPESTATUS[0]}; device: $(adb -e get-state 2>&1)" | tee emu-out/device.txt
+          cp "$RUNNER_TEMP/emulator.log" emu-out/ 2>/dev/null || true
           adb -e logcat -d > emu-out/logcat.txt || true
           adb -e logcat -d -s AvatarEmu:V TestRunner:V AndroidRuntime:E > emu-out/avatar-log.txt || true
           # the pictures the tests saved in the app's own files
@@ -205,9 +208,12 @@ jobs:
             grep -E '^(OK|FAILURES|Tests run|INSTRUMENTATION_|Error)' emu-out/instrument.txt | head -20
             sed -n '/draw parity/,/^$/p;/room smoke/,/^$/p' emu-out/avatar-log.txt | sed 's/^[^:]*: //' | head -60
             echo '```'
-            [ "$result" = fail ] && { echo 'Failure:'; echo '```'; grep -A12 -E '^(INSTRUMENTATION_STATUS: stack=|There w)' emu-out/instrument.txt | head -40; echo '```'; }
+            if [ "$result" = fail ]; then
+              echo 'Failure:'; echo '```'; cat emu-out/device.txt
+              grep -A12 -E '^(INSTRUMENTATION_STATUS: stack=|INSTRUMENTATION_RESULT|There w)' emu-out/instrument.txt | head -40
+              echo '--- emulator log, last lines'; tail -25 emu-out/emulator.log; echo '```'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
-          cp "$RUNNER_TEMP/emulator.log" emu-out/ 2>/dev/null || true
           git rev-parse HEAD > emu-out/COMMIT.txt
           { echo "result=$result"; echo "tests=$TESTS"; echo "fault=$FAULT"; } > emu-out/RESULT.txt
 

@@ -49,8 +49,8 @@ final class TitleTransferFixture {
         var title = new TextOverlayItem("JOY TITLE", Color.WHITE, 0.30f, 0.40f, 0.10f, 0f);
         title.setTimeRange(0, 3_999);
         title.setTextLook(cc.joycreator.textlab.TitleLook.of("asset:magma", "Magma", look));
-        title.getFx().add("glow");
-        title.getFx().add("hue");
+        title.getOrCreateFx().add("glow");
+        title.getOrCreateFx().add("hue");
         title.setCornerPin(new float[]{0.06f, 0.02f, -0.04f, 0.08f, 0.02f, -0.05f, -0.06f, 0.00f});
         var x = title.getKeyframes().getOrCreate(KeyframeSet.X);
         x.put(0, 0.30f, Easing.LINEAR);

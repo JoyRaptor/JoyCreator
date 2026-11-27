@@ -1319,3 +1319,6 @@ When the owner asks to conserve review credits, keep concurrency small, checkpoi
 
 ## 2026-11-26: pin the requested phone transport (STU-7)
 - When the owner connects the Note 9 over Wi-Fi, confirm the model and TCP connection in the Android device list before driving it. Pin the same Wi-Fi target for the lock, capture, and recovery checks, and recheck the target after a reconnect.
+
+## 2026-11-27: align the device matrix with the owner’s Android target (STU-7)
+- Keep the supported platform and the physical performance floor distinct. The available Snapdragon Note 9 anchors timing checks. Use the existing Android test fleet to broaden coverage, and report evidence by device and OS. A device the owner has explicitly ruled out is recorded as untested outside the required matrix.

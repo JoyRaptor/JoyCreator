@@ -50,8 +50,7 @@ row (post-launch unless he moves it).
 | Note 9 driver: program size is the cost; uniform-switched code still costs | memory `note9-driver-skips-slider-branches` | Small programs compiled per option combination [A] |
 | No GPU timer on Studio FX passes | (VisLab has `GpuTimer`) | Step 0 builds MotionBench [A+B] |
 
-The Note 9 is a Snapdragon 845 / Adreno 630 (SM-N960U) or an Exynos 9810 / Mali-G72 (SM-N960F).
-**Both** are release gates. [B]
+Motion Blur targets Android broadly. The available Snapdragon 845 / Adreno 630 Note 9 (SM-N960U) is the physical performance floor for this release. The owner removed the Exynos Note 9 release requirement on 2026-11-27 because that model is unavailable. Use available Android devices and emulators to broaden compatibility coverage, and record observed coverage by device and OS.
 
 ---
 
@@ -234,7 +233,7 @@ interval.
   - The preview switches to analysed data as each range becomes ready.
 - **Estimator bake-off** (B's idea; cheap because OpenCV is already in the app):
   - Candidates: `GpuPyramidFlow` (fragment) against OpenCV `DISOpticalFlow` (CPU, low-res luma).
-  - Run them on the same clips on both Note 9s, comparing throughput (including the GPU→CPU copy)
+  - Run them on the same clips on the available physical Android test hardware, comparing throughput (including the GPU→CPU copy)
     and quality against the high-speed references (§8). The winner ships, and the other stays as a
     test oracle.
 - **Unsure motion:**
@@ -328,10 +327,10 @@ masking, variable speed, PTS gaps, loops, hold keys, plus the existing FX and ti
 **Device tests** [B]: play/scrub parity, preview High vs export at the same resolution and clock,
 low storage, cancellation, GL context recreation.
 
-**Note 9 gates** [B], on **both** SM-N960U and SM-N960F, release or profileable builds, with OS and
-driver versions recorded. Development and interim proofs run on the Snapdragon (the Note 9 here).
-"Full Note 9 support" (in STATE, help or marketing) is claimed only once **both** variants pass.
-Until then the STATE row says "Snapdragon Note 9 proven; Exynos owed". (Codex review 11-22.)
+**Android performance gates** [B]. Run the quantitative gates on the available physical Snapdragon
+SM-N960U using a release or profileable build and record the OS and driver versions. Add functional
+compatibility checks on the existing Android test fleet where available. Report physical and emulator
+results by model and OS. The SM-N960F is untested and is outside the required release matrix. (Owner, 11-27.)
 
 | Gate | Target |
 |---|---|
@@ -372,12 +371,11 @@ the size of the streak cap if memory is short, or reports the limit. [B]
    motion only, Auto skipping producers that already blur, and Exact per-sample scope export. [A+B]
 4. **Puppets and avatars** [A+B]: mesh velocity, protected parts, sampleable pose contract, the live
    trailing chip, recorded centred exposure.
-5. **Footage** [A+B]: high-speed reference shoot; LiveFlow; estimator bake-off on both Note 9s;
+5. **Footage** [A+B]: high-speed reference shoot; LiveFlow; estimator bake-off on available Android hardware;
    FlowAnalyzer + FlowCache; footage through the clip and the effect layer. **The full premium
    rollout needs this step to pass.**
 6. **Finish** [A+B]: curved paths, highlight streaks, Camera move only, Show motion; the 20-shot
-   A/B; help topic, Joybot tip and tool, STATE.md row. **Owner look #2** on his own clips (Note 9
-   and Note 20).
+   A/B; help topic, Joybot tip and tool, STATE.md row. **Owner look #2** on his own clips using available Android devices.
 7. **Later** [B]: anchored sprite smears (only after visual comparison proves they keep the art),
    matte and guide tools after measuring automatic failures, SpriteLab and Avatar Studio preview
    reuse, vector import, HDR.

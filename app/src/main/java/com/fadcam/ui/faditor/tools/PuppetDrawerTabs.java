@@ -260,6 +260,10 @@ public final class PuppetDrawerTabs {
         root.addView(scopeRow(ctx, host, d));
         gap(ctx, root, d, 7);
 
+        // The helper strip (58 dp wide) lies over the drawer's right edge on a short picture; the Recording rows are the
+        // ones it used to hide (Record on touch, the slider values), so they stop short of it.
+        if (host.scope() == Scope.RECORDING) root.setPadding(pad(d, 10), pad(d, 8), pad(d, 10 + 66), pad(d, 10));
+
         // 4+ · the scope's own rows.
         switch (host.scope()) {
             case CHARACTER: characterRows(ctx, host, root, d); break;

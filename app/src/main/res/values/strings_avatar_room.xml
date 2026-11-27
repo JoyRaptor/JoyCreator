@@ -102,5 +102,21 @@
     <string name="avatar_clear_ask">Throw this take away?</string>
     <string name="avatar_clear_yes">Throw away</string>
     <string name="avatar_clear_no">Keep it</string>
+    <string name="avatar_alive">Alive by itself</string>
+    <string name="avatar_blinks">Blinks</string>
+    <string name="avatar_breathes">Breathes</string>
+    <string name="avatar_never_still">Never still</string>
+    <string name="avatar_turns_around">Turns around</string>
+    <string name="avatar_hover_blinks">Blinks now and then by itself</string>
+    <string name="avatar_hover_breathes">Breathes: the chest and head rise and fall</string>
+    <string name="avatar_hover_never_still">Never still: small movements even when nobody is touching it</string>
+    <string name="avatar_hover_turns_around">Flip the whole character when the head turns the other way</string>
+    <string name="avatar_step_on">%1$s on</string>
+    <string name="avatar_step_off">%1$s off</string>
+    <string name="avatar_mic">Mic</string>
+    <string name="avatar_hover_mic">Talk into the phone: the mouth follows your voice</string>
+    <string name="avatar_face">Face</string>
+    <string name="avatar_hover_face">Your face drives the character</string>
+    <string name="avatar_face_failed">The face camera could not start just now.</string>
 </resources>
 

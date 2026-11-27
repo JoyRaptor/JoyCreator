@@ -73,6 +73,32 @@ public class InputsTest {
         f = tick(in);
         ok(((Number) f.get("mouth")).doubleValue() == 0.0 && "Neutral".equals(f.get("vis")), "letting go shuts it");
 
+        // the microphone: the mouth follows the voice, and is the mic's while it is on
+        Inputs m = new Inputs();
+        m.mic(true);
+        m.micHeard(0.6, "Oh");
+        Map<String, Object> mf = m.frame(DT, now += 33);
+        ok(((Number) mf.get("mouth")).doubleValue() == 0.6 && "Oh".equals(mf.get("vis")) && m.owners(now).contains("mouth"), "the microphone drives the mouth");
+        m.mic(false);
+        mf = m.frame(DT, now += 33);
+        ok(((Number) mf.get("mouth")).doubleValue() == 0.0 && !m.owners(now).contains("mouth"), "and lets go when it is switched off");
+
+        // the face camera: head, mouth, brows and blinks are the face's while it is on
+        Inputs fc = new Inputs();
+        fc.face(true);
+        Map<String, Float> seen = new java.util.HashMap<>();
+        seen.put("turnX", 0.4f);
+        seen.put("mouth", 0.7f);
+        seen.put("vis", 1f);
+        seen.put("blinkL", 1f);
+        fc.faceSaw(seen);
+        Map<String, Object> ff = fc.frame(DT, now += 33);
+        ok(((Number) ff.get("turnX")).doubleValue() > 0.39 && ((Number) ff.get("mouth")).doubleValue() > 0.69 && "Aa".equals(ff.get("vis")) && ((Number) ff.get("blinkL")).doubleValue() == 1.0, "the face drives head, mouth and blinks");
+        ok(fc.owners(now).containsAll(Arrays.asList("head", "mouth", "mood", "blink")), "and owns them while it is on");
+        fc.face(false);
+        ff = fc.frame(DT, now += 33);
+        ok(((Number) ff.get("turnX")).doubleValue() == 0.0 && !fc.owners(now).contains("head"), "switching it off lets go");
+
         // a pass: the first records everything; the second, talking only, leaves the head's lane alone
         Inputs p = new Inputs();
         p.setButtons(Arrays.asList("t1"));

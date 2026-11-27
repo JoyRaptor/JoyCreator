@@ -80,6 +80,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private TextView pathName;
     private PartsView parts;
     private PerformPanel performPanel;
+    private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
+    private static final int REQ_MIC = 44;
+    private static final int REQ_CAMERA = 45;
+    private com.fadcam.ui.faditor.avatar.face.FaceCapture faceCapture;
     private final Inputs inputs = new Inputs();
     private boolean wasRecording;
     private boolean looping;
@@ -283,6 +287,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** Chosen = solid cyan with the label punched out to the ground colour; the rest grey (rule: ON = solid cyan). */
     private void selectStage(int idx) {
         if (inputs.recorder.recording() && idx < 2) endRecord();     // a pass belongs to Motion and Perform
+        if (idx < 2 && inputs.micOn()) micOff();                     // the microphone listens only in Motion and Perform
+        if (idx < 2 && inputs.faceOn()) faceOff();                   // and so does the camera
         stageIndex = idx;
         for (int i = 0; i < 4; i++) {
             boolean on = i == idx;
@@ -334,6 +340,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         parts.show(d, inHand, stageIndex);
         paintUndo();
         syncTake(d);
+        performPanel.refreshSettings(d);
         if (fromEdit) {
             unsaved = true;
             paintSaveDot();
@@ -372,6 +379,91 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         Take have = inputs.recorder.take(), want = takeOf(d);
         boolean same = have == null ? want == null : have.sameAs(want);
         if (!same) inputs.recorder.setTake(want);
+    }
+
+    @Override
+    public void toggleMic() {
+        if (inputs.micOn()) {
+            micOff();
+            return;
+        }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.RECORD_AUDIO}, REQ_MIC);
+            return;
+        }
+        micOn();
+    }
+
+    private void micOn() {
+        if (mic == null) mic = new com.fadcam.ui.faditor.avatar.MicVisemeSource();
+        mic.start(this);
+        inputs.mic(true);
+        performPanel.tick();
+    }
+
+    /** Lets go of the microphone at once (leaving the room, or the chip tapped off). */
+    private void micOff() {
+        if (mic != null) mic.stop();
+        inputs.mic(false);
+        performPanel.tick();
+    }
+
+    @Override
+    public void toggleFace() {
+        if (inputs.faceOn()) {
+            faceOff();
+            return;
+        }
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{android.Manifest.permission.CAMERA}, REQ_CAMERA);
+            return;
+        }
+        faceOn();
+    }
+
+    private void faceOn() {
+        try {
+            if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCapture.start();
+            inputs.face(true);
+        } catch (RuntimeException e) {
+            Log.w(TAG, "face camera did not start", e);
+            Toast.makeText(this, R.string.avatar_face_failed, Toast.LENGTH_LONG).show();
+        }
+        performPanel.tick();
+    }
+
+    /** Lets go of the camera at once (leaving the room, or the chip tapped off). */
+    private void faceOff() {
+        if (faceCapture != null) faceCapture.stop();
+        inputs.face(false);
+        performPanel.tick();
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(req, perms, results);
+        if (req == REQ_CAMERA && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED && !isFinishing()
+                && stageIndex >= 2) faceOn();
+        if (req == REQ_MIC && results.length > 0 && results[0] == android.content.pm.PackageManager.PERMISSION_GRANTED && !isFinishing()
+                && stageIndex >= 2) micOn();            // a permission granted late never starts capture outside Perform
+    }
+
+    /** The microphone's shape names as the character's mouth shapes. */
+    private static final String[] MIC_SHAPES = {"Neutral", "Aa", "Ee", "W-Oo", "M", "S"};
+
+    @Override
+    public void setSetting(String key, boolean on, String stepName) {
+        edit.apply(stepName, doc -> {
+            org.json.JSONObject st = doc.json.optJSONObject("settings");
+            if (st == null) {
+                st = new org.json.JSONObject();
+                doc.json.put("settings", st);
+            }
+            st.put(key, on);
+        });
     }
 
     @Override
@@ -451,6 +543,12 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
             stage.setSignals(null);
             return;
         }
+        if (inputs.micOn() && mic != null) {
+            float db = mic.currentAudioDb();
+            int cls = mic.currentVisemeClassIndex();
+            inputs.micHeard(Float.isNaN(db) ? 0 : Math.max(0, Math.min(1, (db + 50) / 40)), cls >= 0 && cls < MIC_SHAPES.length ? MIC_SHAPES[cls] : "Neutral");
+        }
+        if (inputs.faceOn() && faceCapture != null) inputs.faceSaw(faceCapture.sample(System.nanoTime()));
         java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
         stage.setSignals(sig);
         Object tx = sig.get("turnX"), ty = sig.get("turnY");
@@ -639,6 +737,8 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     protected void onPause() {
         super.onPause();
         looping = false;
+        micOff();                                               // the microphone's light goes out with the room
+        faceOff();                                              // and so does the camera's
         if (inputs.recorder.recording()) endRecord();          // leaving the room ends a pass; nothing keeps listening
         main.removeCallbacks(autosave);
         if (unsaved && character != null) saveQuietly();

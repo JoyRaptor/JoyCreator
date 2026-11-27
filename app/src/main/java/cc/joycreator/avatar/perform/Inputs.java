@@ -47,7 +47,11 @@ public final class Inputs {
     private double turnX, turnY, roll, mouth, wind;
     private String vis = "Neutral", mood = "Neutral";
     private double[] moodNow = MOODS.get("Neutral");
-    private boolean headHeld, talking, blinkHold;
+    private boolean headHeld, talking, blinkHold, micOn, faceOn;
+    private Map<String, Float> face;
+    private static final String[] SHAPES = {"Neutral", "Aa", "Ee", "Oh", "W-Oo", "M", "F", "L", "S", "D", "R", "Uh", "Smile", "Surprised"};
+    private double micOpen;
+    private String micVis = "Neutral";
     private long moodUntil, windUntil, blinkUntil;
     private double babbleAt, babbleHold;
     private int babbleI;
@@ -78,6 +82,40 @@ public final class Inputs {
             mouth = 0;
             vis = "Neutral";
         }
+    }
+
+    /** The microphone is listening: the mouth follows the voice (its openness 0..1 and mouth shape) and is yours while it is on. */
+    public void mic(boolean on) {
+        micOn = on;
+        if (!on) {
+            micOpen = 0;
+            micVis = "Neutral";
+        }
+    }
+
+    public boolean micOn() {
+        return micOn;
+    }
+
+    /** The face camera is driving: head, eyes, brows and mouth are the face's while it is on. */
+    public void face(boolean on) {
+        faceOn = on;
+        if (!on) face = null;
+    }
+
+    public boolean faceOn() {
+        return faceOn;
+    }
+
+    /** What the face camera saw this frame (the take's own lane names; null or empty when no face is seen). */
+    public void faceSaw(Map<String, Float> signals) {
+        face = signals;
+    }
+
+    /** What the microphone heard this frame. */
+    public void micHeard(double open, String shape) {
+        micOpen = Math.max(0, Math.min(1, open));
+        micVis = shape == null ? "Neutral" : shape;
     }
 
     public void blinkHold(boolean on) {
@@ -145,7 +183,13 @@ public final class Inputs {
     public Set<String> owners(long nowMs) {
         Set<String> o = new HashSet<>();
         if (headHeld) o.add("head");
-        if (talking) o.add("mouth");
+        if (talking || micOn) o.add("mouth");
+        if (faceOn) {
+            o.add("head");
+            o.add("mouth");
+            o.add("mood");
+            o.add("blink");
+        }
         if (nowMs < moodUntil) o.add("mood");
         if (blinkHold || nowMs < blinkUntil) o.add("blink");
         if (nowMs < windUntil) o.add("wind");
@@ -172,8 +216,9 @@ public final class Inputs {
         m.put("roll", roll);
         m.put("lookX", 0.0);
         m.put("lookY", 0.0);
-        m.put("mouth", mouth);
-        m.put("vis", vis);
+        boolean followMic = micOn && !talking;
+        m.put("mouth", followMic ? micOpen : mouth);
+        m.put("vis", followMic ? micVis : vis);
         m.put("browL", moodNow[3]);
         m.put("browR", moodNow[3]);
         m.put("blinkL", blink ? 1.0 : 0.0);
@@ -183,6 +228,16 @@ public final class Inputs {
         m.put("lidLow", moodNow[2]);
         m.put("wind", wind);
         for (String id : buttonIds) m.put("g:" + id, isOn(id) ? 1.0 : 0.0);
+        if (faceOn && face != null) {
+            for (Map.Entry<String, Float> e : face.entrySet()) {
+                String k = e.getKey();
+                if (e.getValue() == null || !m.containsKey(k)) continue;
+                if (k.equals("vis")) {
+                    int i = Math.round(e.getValue());
+                    m.put(k, i >= 0 && i < SHAPES.length ? SHAPES[i] : "Neutral");
+                } else if (!k.startsWith("g:")) m.put(k, (double) e.getValue());
+            }
+        }
         return m;
     }
 

@@ -48,6 +48,15 @@ public final class PerformPanel extends ScrollView {
         void takeBack();
 
         void clearTake();
+
+        /** The Mic chip: lip-sync to the microphone (asks for the permission the first time). */
+        void toggleMic();
+
+        /** The Face chip: the face camera drives head, eyes, brows and mouth (asks for the camera the first time). */
+        void toggleFace();
+
+        /** A character setting (blinks, breathing ...) as one named undo step. */
+        void setSetting(String key, boolean on, String stepName);
     }
 
     private final Host host;
@@ -60,6 +69,9 @@ public final class PerformPanel extends ScrollView {
     private final List<String> buttonIds = new ArrayList<>();
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
+    private TextView micChip, faceChip;
+    private final List<TextView> tickBoxes = new ArrayList<>();
+    private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
 
     public PerformPanel(Context c, Host host) {
         super(c);
@@ -80,6 +92,8 @@ public final class PerformPanel extends ScrollView {
         column.removeAllViews();
         buttonChips.clear();
         buttonIds.clear();
+        tickBoxes.clear();
+        tickKeys.clear();
         moodChips.clear();
         moodNames.clear();
         Inputs in = host.inputs();
@@ -134,6 +148,12 @@ public final class PerformPanel extends ScrollView {
                 in.blinkHold(false);
             }
         }), bl);
+        micChip = chip(c, c.getString(R.string.avatar_mic), c.getString(R.string.avatar_hover_mic), v -> host.toggleMic());
+        LinearLayout.LayoutParams ml = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, px(36));
+        ml.topMargin = px(8);
+        side.addView(micChip, ml);
+        faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face), v -> host.toggleFace());
+        side.addView(faceChip, ml);
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         column.addView(row);
 
@@ -205,7 +225,62 @@ public final class PerformPanel extends ScrollView {
             sb.setContentDescription(c.getString(R.string.avatar_hover_breeze));
             column.addView(sb);
         }
+        // alive by itself: the character's own habits (tick boxes: on or off, never two equals)
+        column.addView(label(c.getString(R.string.avatar_alive)));
+        column.addView(tickRow(c, "blinkAuto", true, R.string.avatar_blinks, R.string.avatar_hover_blinks));
+        column.addView(tickRow(c, "breathe", true, R.string.avatar_breathes, R.string.avatar_hover_breathes));
+        column.addView(tickRow(c, "idle", true, R.string.avatar_never_still, R.string.avatar_hover_never_still));
+        if (!"front".equals(doc.json.optJSONObject("settings") == null ? "front" : doc.json.optJSONObject("settings").optString("facing", "front")))
+            column.addView(tickRow(c, "autoFlip", false, R.string.avatar_turns_around, R.string.avatar_hover_turns_around));
+        refreshSettings(doc);
         paintChips();
+    }
+
+    /** Reads the habits' tick boxes from the character (after an undo or redo changed them). */
+    public void refreshSettings(CharacterDoc doc) {
+        JSONObject st = doc.json.optJSONObject("settings");
+        for (int i = 0; i < tickBoxes.size(); i++) {
+            String key = tickKeys.get(i)[0];
+            boolean def = "t".equals(tickKeys.get(i)[1]);
+            boolean on = st == null || !st.has(key) ? def : st.optBoolean(key, def);
+            paintTick(tickBoxes.get(i), on);
+        }
+    }
+
+    private View tickRow(Context c, String key, boolean defaultOn, int label, int hover) {
+        LinearLayout row = new LinearLayout(c);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(px(40));
+        TextView box = new TextView(c);
+        box.setGravity(Gravity.CENTER);
+        box.setTextSize(14);
+        row.addView(box, new LinearLayout.LayoutParams(px(24), px(24)));
+        TextView t = new TextView(c);
+        t.setText(label);
+        t.setTextSize(13);
+        t.setTextColor(0xFFD4D4D8);
+        t.setPadding(px(10), 0, 0, 0);
+        row.addView(t);
+        tickBoxes.add(box);
+        tickKeys.add(new String[]{key, defaultOn ? "t" : "f"});
+        row.setOnClickListener(v -> {
+            boolean now = !"\u2713".contentEquals(box.getText());
+            host.setSetting(key, now, c.getString(now ? R.string.avatar_step_on : R.string.avatar_step_off, c.getString(label)));
+        });
+        TooltipCompat.setTooltipText(row, c.getString(hover));
+        row.setContentDescription(c.getString(hover));
+        return row;
+    }
+
+    /** A tick box: ON = solid cyan with the tick cut out of it; off = a grey outline. */
+    private void paintTick(TextView box, boolean on) {
+        GradientDrawable g = new GradientDrawable();
+        g.setCornerRadius(px(6));
+        if (on) g.setColor(Studio.ARMED);
+        else g.setStroke(Math.max(1, px(1.5f)), 0xFF52525B);
+        box.setBackground(g);
+        box.setText(on ? "\u2713" : "");
+        box.setTextColor(Studio.GROUND);
     }
 
     // ── per frame ─────────────────────────────────────────────────────────────────────────────────
@@ -227,6 +302,8 @@ public final class PerformPanel extends ScrollView {
         Inputs in = host.inputs();
         for (int i = 0; i < buttonChips.size(); i++) paintChip(buttonChips.get(i), in.isOn(buttonIds.get(i)));
         for (int i = 0; i < moodChips.size(); i++) paintChip(moodChips.get(i), moodNames.get(i).equals(in.moodName()));
+        if (micChip != null) paintChip(micChip, in.micOn());
+        if (faceChip != null) paintChip(faceChip, in.faceOn());
     }
 
     // ── the take bar ──────────────────────────────────────────────────────────────────────────────

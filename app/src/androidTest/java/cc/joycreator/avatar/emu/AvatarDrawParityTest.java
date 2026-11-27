@@ -52,8 +52,9 @@ public class AvatarDrawParityTest {
     private static final int W = 512, H = 512;
     /** A difference above this many levels (of 255, premultiplied) counts. */
     private static final int BAD = 32;
-    /** At most this share of the drawn pixels may differ by more than BAD away from an outline. */
-    private static final double MAX_OFF_EDGE = 0.001;
+    /** At most this share of the drawn pixels may differ by more than BAD away from an outline (honest runs on the emulator:
+     * 0 for every pose; the planted 2 px shift: 13 on Pip, 69 to 164 on Topps). */
+    private static final double MAX_OFF_EDGE = 0.0001;
     /** At most this share of the drawn pixels may differ by more than 8 levels at all (outlines included). */
     private static final double MAX_OVER_8 = 0.04;
 

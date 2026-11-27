@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The phone room's face (cc.joycreator.avatar.face): the Face chip's modes and Walk with your face. Words as the web pilot's. -->
+<resources>
+    <string name="avatar_face_talk">Face while talking</string>
+    <string name="avatar_hover_face_cycle">Your face drives the character. Tap again: only while Hold to talk is held. Again: off</string>
+    <string name="avatar_face_walk">Walk with your face</string>
+    <string name="avatar_hover_face_walk">Walk with your face: lean to a side to walk that way, come closer to walk toward the camera. And Up close.</string>
+    <string name="avatar_face_walk_lr">Left and right with your face</string>
+    <string name="avatar_face_walk_lr_sub">Your face to one side of where it rests walks it that way</string>
+    <string name="avatar_hover_face_walk_lr">On: put your face to the left or right of where it rests and the character walks that way, faster the further over. Back to the middle and it stops. Turning your head still turns its head.</string>
+    <string name="avatar_face_walk_depth">Closer and further with your face</string>
+    <string name="avatar_face_walk_depth_sub">Come closer and it walks toward you; sit back and it steps away</string>
+    <string name="avatar_hover_face_walk_depth">On: lean in toward the camera and the character walks toward you, growing as it comes; sit back and it takes a few steps away. Where your face rests, it stands at its place.</string>
+    <string name="avatar_face_walk_up">Up close</string>
+    <string name="avatar_face_walk_up_sub">It walks up to the camera; untick and it walks back</string>
+    <string name="avatar_hover_face_walk_up">On: the character walks up to the camera and stays there. Off: it walks back to its place. No face needed.</string>
+    <string name="avatar_face_walk_wait_depth">Closer and further and Up close wait for walking toward the camera, coming to the phone.</string>
+    <string name="avatar_face_walk_needs_face">Turn on Face above: these follow your face.</string>
+</resources>

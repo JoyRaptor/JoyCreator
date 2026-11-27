@@ -70,7 +70,7 @@ import com.fadcam.ui.faditor.export.ExportService;
 import com.fadcam.ui.faditor.model.AudioClip;
 import com.fadcam.ui.faditor.model.Clip;
 import com.fadcam.ui.faditor.motion.MotionBlurItem;
-import com.fadcam.ui.faditor.motion.MotionBlurSettingsSheet;
+import com.fadcam.ui.faditor.motion.MotionShutter;
 import com.fadcam.ui.faditor.motion.MotionFrameInspector;
 import com.fadcam.ui.faditor.export.ComposedFrame;
 import com.fadcam.ui.faditor.model.FaditorProject;
@@ -1007,6 +1007,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return getSelectedClip();
     }
 
+    // ── STU-7 §K: the Motion Blur card ─────────────────────────────────────────────────────
+    // Owner pick A1: Motion Blur is a card in each object's Effects tab, added from the same
+    // "Add effect" picker. The tool button is now only a shortcut to that tab. The card edits
+    // the object's own shutter (MotionBlurItem), which preview and export already read.
+
+    /** The Motion Blur tool: open the selected object's Effects tab, where the card lives. */
     private void showMotionBlurForSelection() {
         if (project == null) return;
         String layerId = editorTimeline == null ? null : editorTimeline.getSelectedLayerItemId();
@@ -1016,32 +1022,189 @@ public class FaditorEditorActivity extends AppCompatActivity {
             return;
         }
         if (askedAboutLockedSelection(this::showMotionBlurForSelection)) return;
-        String id = item.getId();
-        String projectId = project.getId();
-        var before = new MotionBlurSettingsSheet.State(
-                project.isMotionBlurEnabled(), item.isRigidMotionBlurEnabled(), item.getRigidMotionShutter());
-        MotionBlurSettingsSheet.show(this, before, motionBlurCoverage(item), after -> {
-            if (after.equals(before) || project == null || !projectId.equals(project.getId())
-                    || findMotionBlurItem(id) == null) return;
-            applyMotionBlurSettings(project, id, after);
-            undoManager.recordAction(new EditActions.LambdaAction(
-                    getString(R.string.studio_motion_blur), () -> applyMotionBlurSettings(project, id, after),
-                    () -> applyMotionBlurSettings(project, id, before)));
-            scheduleAutoSave();
-        }, state -> inspectMotionFrame(projectId, id, state));
+        if (item instanceof SpriteOverlayItem sprite) {
+            showSpriteDrawer(sprite, false);
+        } else if (item instanceof TextOverlayItem overlay) {
+            if (overlay.isImage()) showImageOverlayDrawer(overlay);
+            else { showTextFxDrawer(overlay); return; }
+        } else if (item instanceof Clip clip) {
+            if (clip.isOverlayClip()) showPipDrawerForObject(clip);
+            else showMasterFxDrawer(clip);
+        }
+        if (objectDrawer != null) objectDrawer.showTabTitled(getString(R.string.drawer_tab_effects));
     }
 
+    /** The object's Motion Blur card, filled in place; empty while the blur is off. */
+    @Nullable private android.widget.LinearLayout motionSlot;
+    @Nullable private String motionSlotId;
+
+    /**
+     * An Effects tab with the Motion Blur card on top: {@code effects} is the object's own
+     * effect panel, or {@code null} for an object that has none (a sprite), which then gets the
+     * picker tile directly.
+     */
+    @NonNull
+    private View withMotionBlurCard(@NonNull Context ctx, @NonNull String id, @Nullable View effects) {
+        android.widget.LinearLayout col = new android.widget.LinearLayout(ctx);
+        col.setOrientation(android.widget.LinearLayout.VERTICAL);
+        android.widget.LinearLayout slot = new android.widget.LinearLayout(ctx);
+        slot.setOrientation(android.widget.LinearLayout.VERTICAL);
+        col.addView(slot);
+        motionSlot = slot;
+        motionSlotId = id;
+        fillMotionSlot(ctx, effects == null);
+        if (effects != null) col.addView(effects);
+        return col;
+    }
+
+    private void fillMotionSlot(@NonNull Context ctx, boolean withTile) {
+        android.widget.LinearLayout slot = motionSlot;
+        String id = motionSlotId;
+        if (slot == null || id == null || project == null) return;
+        slot.removeAllViews();
+        MotionBlurItem item = findMotionBlurItem(id);
+        if (item == null) return;
+        if (item.isRigidMotionBlurEnabled() && project.isMotionBlurEnabled()) {
+            slot.addView(com.fadcam.ui.faditor.motion.card.MotionBlurCard.build(
+                    ctx, id, motionCardHost(ctx, id, withTile)));
+        } else if (withTile) {
+            slot.addView(com.fadcam.ui.faditor.tools.ObjectDrawer.Kit.sectionLabel(ctx,
+                    getString(R.string.studio_motion_family)));
+            slot.addView(com.fadcam.ui.faditor.motion.card.MotionBlurCard.pickerTile(
+                    ctx, () -> addMotionBlur(ctx, id, true)));
+        }
+    }
+
+    /**
+     * The picker tile for an FxPanel host. Always listed (the panel is built once, and the blur
+     * can be removed and added again while it stays open); a tap while it is on just closes.
+     */
+    @Nullable
+    private View motionBlurTile(@NonNull Context ctx, @NonNull String id, @NonNull Runnable close) {
+        if (findMotionBlurItem(id) == null) return null;
+        return com.fadcam.ui.faditor.motion.card.MotionBlurCard.pickerTile(ctx, () -> {
+            close.run();
+            MotionBlurItem item = findMotionBlurItem(id);
+            if (item == null || project == null
+                    || (item.isRigidMotionBlurEnabled() && project.isMotionBlurEnabled())) return;
+            addMotionBlur(ctx, id, false);
+        });
+    }
+
+    private void addMotionBlur(@NonNull Context ctx, @NonNull String id, boolean withTile) {
+        if (project == null) return;
+        MotionBlurItem item = findMotionBlurItem(id);
+        if (item == null) return;
+        boolean projectWas = project.isMotionBlurEnabled();
+        boolean itemWas = item.isRigidMotionBlurEnabled();
+        Runnable on = () -> setMotionBlurOn(id, true, true, ctx, withTile);
+        on.run();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.studio_motion_undo),
+                on, () -> setMotionBlurOn(id, projectWas, itemWas, ctx, withTile)));
+    }
+
+    private void setMotionBlurOn(@NonNull String id, boolean projectOn, boolean itemOn,
+                                 @NonNull Context ctx, boolean withTile) {
+        // The undo step is recorded by the callers: addMotionBlur and the card's remove().
+        if (project == null) return;
+        MotionBlurItem item = findMotionBlurItem(id);
+        if (item == null) return;
+        project.setMotionBlurEnabled(projectOn);
+        item.setRigidMotionBlurEnabled(itemOn);
+        if (id.equals(motionSlotId)) fillMotionSlot(ctx, withTile);
+        refreshMotionPreview();
+        scheduleAutoSave();
+    }
+
+    @NonNull
+    private com.fadcam.ui.faditor.motion.card.MotionBlurCard.Host motionCardHost(
+            @NonNull Context ctx, @NonNull String id, boolean withTile) {
+        final String projectId = project == null ? "" : project.getId();
+        return new com.fadcam.ui.faditor.motion.card.MotionBlurCard.Host() {
+            @NonNull @Override public MotionShutter.Controls controls() {
+                MotionBlurItem item = findMotionBlurItem(id);
+                return item == null ? MotionShutter.Controls.NATURAL : item.getRigidMotionShutter();
+            }
+            @Override public void preview(@NonNull MotionShutter.Controls draft) {
+                setMotionShutter(id, draft);
+            }
+            @Override public void commit(@NonNull MotionShutter.Controls before,
+                                         @NonNull MotionShutter.Controls after) {
+                setMotionShutter(id, after);
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        getString(R.string.studio_motion_undo),
+                        () -> { setMotionShutter(id, after); fillMotionSlot(ctx, withTile); },
+                        () -> { setMotionShutter(id, before); fillMotionSlot(ctx, withTile); }));
+                scheduleAutoSave();
+            }
+            @Override public void remove() {
+                MotionBlurItem item = findMotionBlurItem(id);
+                if (item == null || project == null) return;
+                boolean projectWas = project.isMotionBlurEnabled();
+                Runnable off = () -> setMotionBlurOn(id, projectWas, false, ctx, withTile);
+                off.run();
+                undoManager.recordAction(new EditActions.LambdaAction(
+                        getString(R.string.studio_motion_remove), off,
+                        () -> setMotionBlurOn(id, projectWas, true, ctx, withTile)));
+            }
+            @Override public void showExactFrame() {
+                inspectMotionFrame(projectId, id, controls());
+            }
+            @Override public void compare(boolean sharp) {
+                MotionBlurItem item = findMotionBlurItem(id);
+                if (item == null) return;
+                // Only for as long as the finger is down; released (or cancelled) puts it back.
+                // A save already queued could land mid-hold with the blur off, so the release
+                // queues one more save of the restored state.
+                item.setRigidMotionBlurEnabled(!sharp);
+                refreshMotionPreview();
+                if (!sharp) scheduleAutoSave();
+            }
+            @Override public int cannotBlurReason() {
+                MotionBlurItem item = findMotionBlurItem(id);
+                return item == null ? 0 : motionBlurCannotReason(item);
+            }
+        };
+    }
+
+    private void setMotionShutter(@NonNull String id, @NonNull MotionShutter.Controls c) {
+        MotionBlurItem item = findMotionBlurItem(id);
+        if (item == null) return;
+        item.setRigidMotionShutter(c);
+        refreshMotionPreview();
+    }
+
+    /** Re-render the paused frame: the rigid shutter is read when a frame is drawn. */
+    private void refreshMotionPreview() {
+        syncAdjustmentPreview(Math.max(0, lastPlayheadAbsoluteMs));
+        refreshOverlayPreview();
+        refreshSpritePreviewData();
+        if (editorTimeline != null) editorTimeline.invalidate();
+    }
+
+    /** §K D1: the one plain line saying why this object stays sharp, or 0 when it blurs. */
     @androidx.annotation.StringRes
-    private static int motionBlurCoverage(MotionBlurItem item) {
+    private static int motionBlurCannotReason(@NonNull MotionBlurItem item) {
+        if (item instanceof SpriteOverlayItem sprite) {
+            return com.fadcam.ui.faditor.compositor.RigidSpriteMotion.supports(sprite)
+                    ? 0 : R.string.studio_motion_why_sprite;
+        }
+        if (item instanceof TextOverlayItem overlay) {
+            if (overlay.isImage()) {
+                return com.fadcam.ui.faditor.compositor.RigidPictureMotion.supports(overlay)
+                        ? 0 : R.string.studio_motion_why_picture;
+            }
+            return com.fadcam.ui.faditor.compositor.RigidTitleRaster.supports(overlay)
+                    ? 0 : R.string.studio_motion_why_title;
+        }
         if (item instanceof Clip clip) {
-            if (clip.isOverlayClip()) return R.string.studio_motion_scope_pip;
-            return R.string.studio_motion_scope_clip;
+            if (clip.isOverlayClip()) {
+                return com.fadcam.ui.faditor.compositor.RigidPipMotion.supports(clip)
+                        ? 0 : R.string.studio_motion_why_pip;
+            }
+            return clip.hasSpineTransform() ? 0 : R.string.studio_motion_why_clip;
         }
-        if (item instanceof SpriteOverlayItem) return R.string.studio_motion_scope_sprite;
-        if (item instanceof TextOverlayItem overlay && overlay.isImage()) {
-            return R.string.studio_motion_scope_picture;
-        }
-        return R.string.studio_motion_scope_title;
+        return 0;
     }
 
     @Nullable
@@ -1058,19 +1221,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
         return null;
     }
 
-    private static void applyMotionBlurSettings(@Nullable FaditorProject project, @NonNull String id,
-                                                @NonNull MotionBlurSettingsSheet.State state) {
-        if (project == null) return;
-        MotionBlurItem item = findMotionBlurItem(project.getTimeline(), id);
-        if (item == null) return;
-        project.setMotionBlurEnabled(state.projectEnabled());
-        item.setRigidMotionBlurEnabled(state.enabled());
-        item.setRigidMotionShutter(state.controls());
-    }
-
     @Nullable private androidx.appcompat.app.AlertDialog motionFrameDialog;
 
-    private void inspectMotionFrame(String projectId, String itemId, MotionBlurSettingsSheet.State draft) {
+    private void inspectMotionFrame(String projectId, String itemId, MotionShutter.Controls draft) {
         if (project == null || !projectId.equals(project.getId()) || findMotionBlurItem(itemId) == null
                 || (motionFrameDialog != null && motionFrameDialog.isShowing())) return;
         if (playerManager != null) playerManager.pause();
@@ -1084,7 +1237,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         motionFrameDialog = MotionFrameInspector.show(this, () -> {
             FaditorProject copy = new ProjectStorage(app).fromJson(snapshot);
             if (copy == null || Thread.currentThread().isInterrupted()) return null;
-            applyMotionBlurSettings(copy, itemId, draft);
+            MotionBlurItem item = findMotionBlurItem(copy.getTimeline(), itemId);
+            if (item == null) return null;
+            copy.setMotionBlurEnabled(true);
+            item.setRigidMotionBlurEnabled(true);
+            item.setRigidMotionShutter(draft);
             return ComposedFrame.render(app, copy, frameMs);
         });
     }
@@ -30795,6 +30952,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 title, getString(R.string.drawer_tab_transform), R.drawable.ic_transform_24,
                 ctx -> buildSpriteTransformTab(s, host)));
+        // STU-7 §K: sprites have no shader stack, so their Effects tab holds the Motion Blur
+        // card alone (or its tile while it is off).
+        tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
+                title, getString(R.string.drawer_tab_effects), R.drawable.ic_fx_24,
+                ctx -> withMotionBlurCard(ctx, s.getId(), null)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 title, getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
                 ctx -> buildLanesTab(com.fadcam.ui.faditor.layers.TimedItem.ofSprite(s))));
@@ -31791,9 +31953,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // Hoisted for the same reason the PiP tab hoists it: setFx(getFx())
                     // detaches an emptied stack, and the panel would go on holding the orphan.
                     final com.fadcam.ui.faditor.fx.FxStack clipFx = c.getOrCreateFx();
-                    return com.fadcam.ui.faditor.tools.FxPanel.build(
+                    return withMotionBlurCard(ctx, c.getId(), com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, clipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+                            @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, c.getId(), close); }
                             @Override public void editGradientInPreview(
                                     @Nullable com.fadcam.ui.faditor.fx.FxStack curveStack,
                                     @Nullable com.fadcam.ui.faditor.fx.FxInstance curveCard,
@@ -31826,7 +31989,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                                 if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
                             }
                         },
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER);
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.LAYER));
                 }));
         // The drawer wears the OBJECT's colour, so its own controls say what you
         // are editing without a row spent announcing it.
@@ -33151,9 +33314,10 @@ public class FaditorEditorActivity extends AppCompatActivity {
                     // an undo refilled an object the clip no longer pointed at. The card came
                     // back on screen and the effect stayed gone, which is worse than no undo.
                     final com.fadcam.ui.faditor.fx.FxStack pipFx = c.getOrCreateFx();
-                    return com.fadcam.ui.faditor.tools.FxPanel.build(
+                    return withMotionBlurCard(ctx, c.getId(), com.fadcam.ui.faditor.tools.FxPanel.build(
                         ctx, pipFx,
                         new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, c.getId(), close); }
             // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(
@@ -33197,7 +33361,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         // OBJECT, so a blur is badged "layer only" rather than silently skipped:
                         // a per-object stack is spliced into the compositing shader and has no
                         // finished image for a sampler to read.
-                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT);
+                        com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT));
                 }));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
@@ -35151,10 +35315,11 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @Override public void seekTo(long ms) {
                 if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
             }
+            @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, item.getId(), close); }
         };
 
-        return com.fadcam.ui.faditor.tools.FxPanel.build(
-                ctx, textFx, host, com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT);
+        return withMotionBlurCard(ctx, item.getId(), com.fadcam.ui.faditor.tools.FxPanel.build(
+                ctx, textFx, host, com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT));
     }
 
     // ── IMAGE-OVERLAY DRAWER ─────────────────────────────────────────────────────────────
@@ -37062,9 +37227,9 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 // thing that IS still true, that a sampler card (blur and friends) needs its own
                 // pass and is skipped on both sides.
                 ctx -> com.fadcam.ui.faditor.tools.PipDrawerTabs.withInertNote(ctx,
-                        com.fadcam.ui.faditor.tools.FxPanel.build(
+                        withMotionBlurCard(ctx, o.getId(), com.fadcam.ui.faditor.tools.FxPanel.build(
                                 ctx, imageFx, textOverlayFxHost(o, imageFx),
-                                com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT),
+                                com.fadcam.ui.faditor.fx.FxPreviewTier.Subject.OBJECT)),
                         R.string.faditor_image_fx_export_note)));
         tabs.add(new com.fadcam.ui.faditor.tools.ObjectDrawer.Tab(
                 getString(R.string.drawer_tab_lanes), R.drawable.ic_lanes_24,
@@ -37156,6 +37321,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull com.fadcam.ui.faditor.model.TextOverlayItem item,
             @NonNull com.fadcam.ui.faditor.fx.FxStack fx) {
         return new com.fadcam.ui.faditor.tools.FxPanel.Host() {
+            @Override public View objectEffectTile(@NonNull android.content.Context tc, @NonNull Runnable close) { return motionBlurTile(tc, item.getId(), close); }
             // Curve gradients are placed in the PREVIEW, not on sliders — see
             // setGradientPreviewEdit.
             @Override public void editGradientInPreview(

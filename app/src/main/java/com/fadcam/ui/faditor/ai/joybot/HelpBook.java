@@ -57,13 +57,14 @@ public final class HelpBook {
     private static final String STRIP = "the Studio's tool strip (tap “more” at its end to see every tool)";
 
     public static final List<Topic> TOPICS = Collections.unmodifiableList(java.util.Arrays.asList(
-            new Topic("studio_motion_blur", "motion blur|shutter angle|shutter timing|inspect frame",
+            new Topic("studio_motion_blur", "motion blur|shutter angle|shutter timing|inspect frame|show exact frame|streak",
                     "In Studio, move the playhead to a part where your clip, picture, title or sprite moves. "
-                            + "Select it and open Motion Blur in the tool strip. Tick Enable motion blur for this project "
-                            + "and Blur this item’s transform. Start with Natural. Adjust Shutter angle for the length "
-                            + "of the streak, Shutter timing for where it falls around the playhead, and Mix for how much "
-                            + "blur you see. Tap Inspect Frame to see the current frame with your draft settings, "
-                            + "then Apply to keep them. The sheet tells you what can stay sharp during live preview.",
+                            + "Open its Effects tab (or tap Motion Blur in the tool strip) and add Motion Blur from "
+                            + "Add effect. Start with Natural. On the shutter strip, pull an end of the bright bar to "
+                            + "make the streak longer or shorter, and drag its middle to move it earlier or later "
+                            + "around this frame. Mix sets how much blur you see. Hold the card’s little picture to "
+                            + "see the frame sharp, and tap Show exact frame to see it as the export will. If "
+                            + "something can’t be blurred yet, the card says why.",
                     "studio", null, "motion_blur"),
             new Topic("transcribe", "transcri|subtitle|speech to text|words of",
                     "Select a clip in the Studio and tap Transcript in " + STRIP + ". It runs on the phone, "

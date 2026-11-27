@@ -118,6 +118,15 @@ public final class FxPanel {
          *  preview — so the chip can read as a toggle instead of a one-way trip. */
         default boolean isEditingGradientInPreview(@Nullable FxInstance card,
                                                 @Nullable FxParam param) { return false; }
+
+        /**
+         * STU-7 §K (owner pick A1): an effect that is not a shader card but is added from the
+         * same picker, today Motion Blur, which lives on the object itself. The host returns its
+         * tile, or {@code null} when it has none here (or it is already on). {@code close} folds
+         * the picker away once it is added.
+         */
+        @Nullable
+        default View objectEffectTile(@NonNull Context ctx, @NonNull Runnable close) { return null; }
     }
 
     /**
@@ -1837,6 +1846,14 @@ public final class FxPanel {
         add.setOnClickListener(v -> picker.setVisibility(
                 picker.getVisibility() == View.GONE ? View.VISIBLE : View.GONE));
         wrap.addView(add);
+
+        // STU-7 §K: Motion Blur is listed with the others, under Studio's own heading.
+        View objectTile = host.objectEffectTile(ctx, () -> picker.setVisibility(View.GONE));
+        if (objectTile != null) {
+            picker.addView(TextOverlayDrawer.Kit.sectionLabel(ctx,
+                    ctx.getString(com.fadcam.R.string.studio_motion_family)));
+            picker.addView(objectTile);
+        }
 
         for (FxEffectDef.Family family : FxEffectDef.Family.values()) {
             List<FxEffectDef> defs = FxRegistry.byFamily(family);

@@ -2,34 +2,42 @@
 <resources>
     <string name="studio_true_layer_order">True layer order</string>
     <string name="studio_motion_blur">Motion Blur</string>
-    <string name="studio_motion_enable_project">Enable motion blur for this project</string>
-    <string name="studio_motion_enable_item">Blur this item’s transform</string>
-    <string name="studio_motion_scope_clip">Position, scale, and rotation keyframes blur the clip’s placement. Loops, jump cuts, transitions, and still-image clips can show a sharp preview. Filmed-video motion analysis is planned separately.</string>
-    <string name="studio_motion_scope_pip">Live preview supports a single video overlay at normal speed with Normal blend. Masks, chroma key, track mattes, and clip effects can leave it sharp.</string>
-    <string name="studio_motion_scope_picture">Preview supports ordinary animated pictures. Linked pictures, corner pins, custom pivots, and effect or transition treatments can leave the picture sharp.</string>
-    <string name="studio_motion_scope_title">Preview supports plain animated titles. Linked, styled, warped, and preset-animated titles can remain sharp.</string>
-    <string name="studio_motion_scope_sprite">Preview supports a single ordinary animated sprite with directly keyed cells. Avatar rigs, preset sequences, and mixed overlay stacks can remain sharp.</string>
-    <string name="studio_motion_apply">Apply</string>
     <string name="studio_motion_inspect">Inspect Frame</string>
     <string name="studio_motion_inspect_working">Rendering the export frame…</string>
     <string name="studio_motion_inspect_failed">Couldn’t render this frame.</string>
     <string name="studio_motion_select_item">Select a clip, picture, title, or sprite to set motion blur.</string>
-    <string name="studio_motion_preset">Preset</string>
-    <string name="studio_motion_timing">Shutter timing</string>
-    <string name="studio_motion_angle_value">Shutter angle  %1$d°</string>
-    <string name="studio_motion_phase_value">Shutter phase  %1$d°</string>
-    <string name="studio_motion_mix_value">Mix  %1$d%%</string>
-    <string-array name="studio_motion_presets">
-        <item>Natural</item>
-        <item>Crisp</item>
-        <item>Heavy</item>
-        <item>Trailing</item>
-        <item>Custom</item>
-    </string-array>
-    <string-array name="studio_motion_timings">
-        <item>Centered</item>
-        <item>Trailing</item>
-        <item>Leading</item>
-        <item>Custom phase</item>
-    </string-array>
+
+    <!-- STU-7 spec §K: the Motion Blur card -->
+    <string name="studio_motion_add">Motion Blur</string>
+    <string name="studio_motion_family">Motion</string>
+    <string name="studio_motion_add_hint">Smear fast moves the way a real camera sees them</string>
+    <string name="studio_motion_remove">Remove motion blur</string>
+    <string name="studio_motion_hold_compare">Hold to see this frame without the blur</string>
+    <string name="studio_motion_preset_natural">Natural</string>
+    <string name="studio_motion_preset_crisp">Crisp</string>
+    <string name="studio_motion_preset_heavy">Heavy</string>
+    <string name="studio_motion_preset_trailing">Trailing</string>
+    <string name="studio_motion_shutter">Shutter</string>
+    <string name="studio_motion_shutter_value">%1$d° · %2$s</string>
+    <string name="studio_motion_timing_centred">centred</string>
+    <string name="studio_motion_timing_behind">behind</string>
+    <string name="studio_motion_timing_ahead">ahead</string>
+    <string name="studio_motion_timing_custom">custom</string>
+    <string name="studio_motion_mix">Mix</string>
+    <string name="studio_motion_percent">%1$d%%</string>
+    <string name="studio_motion_show_exact">Show exact frame</string>
+    <string name="studio_motion_show_exact_hint">Render this paused frame exactly as the export will</string>
+    <string name="studio_motion_strip_last">last frame</string>
+    <string name="studio_motion_strip_next">next frame</string>
+    <string name="studio_motion_strip_now">this frame</string>
+    <string name="studio_motion_strip_back">%1$d frames back</string>
+    <string name="studio_motion_strip_ahead">%1$d frames ahead</string>
+    <string name="studio_motion_undo">Motion Blur</string>
+
+    <!-- §K D1: one plain line, why this stays sharp and what to do instead -->
+    <string name="studio_motion_why_clip">Nothing moves yet: give the clip position, scale or rotation keys to blur it.</string>
+    <string name="studio_motion_why_pip">Stays sharp: masks, keys, mattes, clip effects and blend modes can’t be blurred yet.</string>
+    <string name="studio_motion_why_picture">Stays sharp: linked pictures, corner pins and custom pivots can’t be blurred yet.</string>
+    <string name="studio_motion_why_title">Stays sharp: linked, styled, warped and preset-animated titles can’t be blurred yet.</string>
+    <string name="studio_motion_why_sprite">Stays sharp: avatar rigs, preset sequences and mixed stacks can’t be blurred yet.</string>
 </resources>

@@ -58,6 +58,29 @@ final class RestPose implements PoseRenderer {
 
     private void drawNode(Canvas c, CharacterDoc.Node n) {
         if (n.hidden) return;
+        org.json.JSONObject j = n.json;
+        if (j.has("dx") || j.has("dy") || j.has("rot") || j.has("sc")) {
+            // a part nudged by hand (the transform box): moved, turned and resized about its pivot
+            RectF b = bounds(n);
+            if (b != null) {
+                org.json.JSONObject pv = j.optJSONObject("pivot");
+                float px = pv != null && pv.has("x") ? (float) pv.optDouble("x") : b.centerX();
+                float py = pv != null && pv.has("y") ? (float) pv.optDouble("y") : b.centerY();
+                int save = c.save();
+                c.translate(px + (float) j.optDouble("dx", 0), py + (float) j.optDouble("dy", 0));
+                c.rotate((float) j.optDouble("rot", 0));
+                float sc = (float) j.optDouble("sc", 1);
+                c.scale(sc, sc);
+                c.translate(-px, -py);
+                drawBody(c, n);
+                c.restoreToCount(save);
+                return;
+            }
+        }
+        drawBody(c, n);
+    }
+
+    private void drawBody(Canvas c, CharacterDoc.Node n) {
         switch (n.type) {
             case "art": {
                 if (blinkHides(n)) break;

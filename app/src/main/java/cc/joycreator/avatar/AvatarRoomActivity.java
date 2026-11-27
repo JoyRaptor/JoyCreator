@@ -50,7 +50,7 @@ import java.util.List;
  * Perform and recording are filled in by the later steps of slice 1; a control appears only when it works (a dead knob
  * is worse than a missing one).</p>
  */
-public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host {
+public final class AvatarRoomActivity extends Activity implements RoomMenu.Host, LayersView.Host, PartsView.Host, PerformPanel.Host, cc.joycreator.avatar.ui.LandmarksScreen.Host, cc.joycreator.avatar.ui.PinsLayer.Host, cc.joycreator.avatar.ui.BoxLayer.Host {
     private static final String TAG = "AvatarRoom";
     private static final int REQ_OPEN = 41;
     private static final int REQ_PICTURES = 42;
@@ -82,6 +82,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private PerformPanel performPanel;
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private final cc.joycreator.avatar.ui.PinsLayer pins = new cc.joycreator.avatar.ui.PinsLayer(this);
+    private final cc.joycreator.avatar.ui.BoxLayer box = new cc.joycreator.avatar.ui.BoxLayer(this);
     private android.widget.FrameLayout panelBody;
     private com.fadcam.ui.faditor.avatar.MicVisemeSource mic;
     private static final int REQ_MIC = 44;
@@ -327,7 +328,33 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     /** Pins show on Set up for the part in hand, unless the landmarks screen has the stage. */
     private void refreshPins() {
         if (stage == null || (landmarks != null && landmarks.isOpen())) return;
-        stage.setLandmarks(stageIndex == 0 && inHand != null && !showLayers ? pins : null);
+        boolean on = inHand != null && !showLayers;
+        stage.setLandmarks(on && stageIndex == 0 ? pins : on && stageIndex == 1 ? box : null);
+    }
+
+    // ── Arrange: the box on the part in hand ──────────────────────────────────────────────────────
+
+    @Override
+    public void redraw() {
+        stage.invalidate();
+    }
+
+    @Override
+    public void commitBox(String nodeId, double dx, double dy, double rot, double sc) {
+        CharacterDoc.Node n = character.find(nodeId);
+        if (n == null) return;
+        final String label = n.name.isEmpty() ? n.id : n.name;
+        double rot0 = n.json.optDouble("rot", 0), sc0 = n.json.optDouble("sc", 1);
+        int word = Math.abs(rot - rot0) > 1e-6 ? R.string.avatar_step_box_turn : Math.abs(sc - sc0) > 1e-6 ? R.string.avatar_step_box_size : R.string.avatar_step_box_move;
+        edit.apply(getString(word, label), d -> cc.joycreator.avatar.ui.BoxLayer.put(d.find(nodeId).json, dx, dy, rot, sc));
+    }
+
+    @Override
+    public void putBack(String id) {
+        CharacterDoc.Node n = character.find(id);
+        if (n == null) return;
+        if (!(n.json.has("dx") || n.json.has("dy") || n.json.has("rot") || n.json.has("sc"))) return;
+        edit.apply(getString(R.string.avatar_step_put_back, n.name.isEmpty() ? n.id : n.name), d -> cc.joycreator.avatar.ui.BoxLayer.put(d.find(id).json, 0, 0, 0, 1));
     }
 
     @Override

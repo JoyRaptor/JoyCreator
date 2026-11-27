@@ -88,6 +88,15 @@ public final class StageView extends View {
 
         int ghostTint();
 
+        /** A finger went down on empty picture inside the thing being moved (the box): true to take the drag. */
+        default boolean beginMove(float x, float y) {
+            return false;
+        }
+
+        /** The finger that {@link #beginMove} took has moved ({@code last}: lifted). */
+        default void moveBy(float x, float y, boolean last) {
+        }
+
         /** True while dragging should show the loupe (pins). */
         default boolean loupe() {
             return false;
@@ -106,6 +115,7 @@ public final class StageView extends View {
 
     private LandmarkLayer marks;
     private Dot dragging;
+    private boolean moving;
     private float dragX, dragY, fitS = 1, fitX, fitY;
     private final Paint dotPaint = new Paint(Paint.ANTI_ALIAS_FLAG), dotText = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -208,18 +218,27 @@ public final class StageView extends View {
                 dragging = hit(cx, cy);
                 dragX = cx;
                 dragY = cy;
+                moving = false;
                 if (dragging != null) marks.picked(dragging);
+                else moving = marks.beginMove(cx, cy);
                 invalidate();
                 return true;
             case android.view.MotionEvent.ACTION_MOVE:
                 if (dragging != null) {
                     dragX = cx;
                     dragY = cy;
+                    marks.moved(dragging, cx, cy, false);
+                    invalidate();
+                } else if (moving) {
+                    marks.moveBy(cx, cy, false);
                     invalidate();
                 }
                 return true;
             case android.view.MotionEvent.ACTION_UP:
-                if (dragging != null) {
+                if (moving) {
+                    moving = false;
+                    marks.moveBy(cx, cy, true);
+                } else if (dragging != null) {
                     boolean moved = Math.hypot(dragX - dragging.x, dragY - dragging.y) > 2 / fitS;
                     Dot d = dragging;
                     dragging = null;

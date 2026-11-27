@@ -5533,8 +5533,11 @@ public class ExportManager {
                 && eligibleHighFootage(clip) && !project.getTimeline().hasTransitions()) {
             var config = mediaItem.localConfiguration;
             if (config != null) {
+                boolean captureHighInputs = com.fadcam.BuildConfig.DEBUG && debugLaneSamples != null
+                        && clipInMs == 0 && "studio-stu7-reference.mp4".equals(config.uri.getLastPathSegment());
                 videoEffects.add(0, new HighFootageExportEffect(config.uri, clipInMs * 1000L,
-                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter()));
+                        (clipInMs + sourceDurationMs) * 1000L, speed, clip.getRigidMotionShutter(),
+                        captureHighInputs));
             }
         }
 

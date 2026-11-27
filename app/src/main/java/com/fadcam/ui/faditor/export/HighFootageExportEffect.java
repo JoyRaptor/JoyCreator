@@ -32,7 +32,7 @@ import java.util.concurrent.Executors;
 
 /** Source-space High gather, before timeline retiming, crop, grade and compositing. */
 record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
-                               MotionShutter.Controls shutter) implements GlEffect {
+                               MotionShutter.Controls shutter, boolean captureNativeInputs) implements GlEffect {
     private static final String TAG = "HighFootageExport";
 
     @Override public GlShaderProgram toGlShaderProgram(Context context, boolean hdr) {
@@ -166,6 +166,16 @@ record HighFootageExportEffect(Uri uri, long startUs, long endUs, double speed,
                     next == null ? 0 : next.texture().texId, before, after, speed, 0, 0, 1, 1);
             boolean drawn = gather.draw(frame, destination.fboId, width, height,
                     dimensions.width, dimensions.height, editorUs, taps);
+            if (com.fadcam.BuildConfig.DEBUG && captureNativeInputs && drawn && editorUs == 100_000L
+                    && before != null && after != null) {
+                try {
+                    HighFootageInputReadback.capture(context.getCacheDir(), frame, destination,
+                            dimensions.width, dimensions.height, editorUs, taps);
+                    FLog.i(TAG, "HIGH_FOOTAGE_NATIVE_INPUTS editorUs=" + editorUs);
+                } catch (IOException | GlUtil.GlException | RuntimeException error) {
+                    FLog.w(TAG, "Could not capture native High inputs", error);
+                }
+            }
             if (drawn && !reportedGather) {
                 reportedGather = true;
                 FLog.i(TAG, "HIGH_FOOTAGE_EXPORT ptsUs=" + current.sourceUs());

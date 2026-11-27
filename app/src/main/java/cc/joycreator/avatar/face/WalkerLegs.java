@@ -2,7 +2,7 @@ package cc.joycreator.avatar.face;
 
 import cc.joycreator.avatar.perform.Walker;
 
-/** The phone's walker as {@link FaceWalk} needs it: left and right only, until walking toward the camera is ported. */
+/** The phone's walker as {@link FaceWalk} needs it: left and right, and toward the camera and away (its {@code DepthWalk}). */
 public final class WalkerLegs implements FaceWalk.Legs {
     private final Walker w;
 
@@ -28,5 +28,31 @@ public final class WalkerLegs implements FaceWalk.Legs {
     @Override
     public void setTx(double v) {
         w.tx = v;
+    }
+
+    /** It walks in depth while it has a depth model (the room makes one while depth is in use: DepthWalk.prep). */
+    @Override
+    public boolean depth() {
+        return w.z != null && w.canWalk();
+    }
+
+    @Override
+    public double[] depthLimits() {
+        return w.z == null ? new double[]{0, 0} : new double[]{w.z.lim[0], w.z.lim[1]};
+    }
+
+    @Override
+    public Double tz() {
+        return w.tz;
+    }
+
+    @Override
+    public void setTz(double v) {
+        w.tz = v;
+    }
+
+    @Override
+    public double base() {
+        return w.baseY;
     }
 }

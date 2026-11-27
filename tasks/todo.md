@@ -511,3 +511,11 @@ Review: core1706/backend312/native105; zero failures/errors, four optional corpu
 - [ ] JB-5.13 fill tracing with holes and growth.
 - [ ] JB-5.14 measurements; JB-5.20b pure composer.
 - [ ] Review media slices; post-2.40 integration only after landing.
+
+## Worker 2 — JB-5.20b pure composer
+- [x] Read D1/D2/D3/D8/D12 and R51; isolated worktree at 3ee462534.
+- [x] Propose immutable reference API and report multiply-line bake inconsistency to Codex Lead.
+- [ ] Resolve blend-preserving bake representation with Lead before implementing.
+- [ ] Implement composer operations and atomic whole-line consumption.
+- [ ] Integrate landed InkTiles API; verify hand-worked pixels and preservation tests under shared Gradle lock.
+- [ ] Send scoped source/test commit to Codex Lead; no shared branch push.

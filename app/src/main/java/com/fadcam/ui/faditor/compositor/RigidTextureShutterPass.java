@@ -15,7 +15,7 @@ public final class RigidTextureShutterPass {
     private static final int SAMPLE_COUNT = 6;
 
     /** A camera tap gap past this many canvas pixels would show as separate copies. */
-    static final double CAMERA_STEP_PX = 6.0;
+    static final double CAMERA_STEP_PX = 3.0;
 
     public static final String VERTEX_SHADER =
             "#version 100\n"

@@ -3621,7 +3621,7 @@ class GlPaintEngine(
         // picture each written line needs, the same bytes under ids it knows, inside the saved-drawing budget: refused before
         // anything changes, as a new line's pictures are (lineAssetRefusal).
         val assets = when (edit) { is LineEdit.Replace -> edit.assets; is LineEdit.Add -> edit.assets; else -> emptyMap() }
-        val written = when (edit) { is LineEdit.Replace -> edit.after.map { it.record }; is LineEdit.Add -> edit.records.map { it.record }; else -> emptyList() }
+        val written = when (edit) { is LineEdit.Replace -> edit.after.map { it.record }; is LineEdit.Add -> edit.records.map { it.record }; is LineEdit.Split -> edit.after.map { it.record }; else -> emptyList() }
         for ((id, pngs) in assets) {
             require(id in brushes || nativeLines.brush(id) != null) { "Brush pictures name no brush" }
             require(nativeLines.asset(id)?.sameBytes(pngs) != false) { "These brush pictures differ from the ones this drawing keeps" }
@@ -3663,6 +3663,8 @@ class GlPaintEngine(
                 require(l.removeAll { it.id == a.recordId }) { "That line is gone (undone or deleted)" }
             }
             is LineEdit.Bake -> error("Rasterize Down is handled above")
+            // 11-27 (orchestrator-approved, the one change here): shortened lines in place, erased lines out, one step.
+            is LineEdit.Split -> cc.joycreator.joybrush.androidkit.lines.LineSplitApply.apply(edit) { list(planeOf(it)) }
         }
         if (brushes.isNotEmpty() || assets.isNotEmpty()) nativeLines.addBrushes(brushes, assets)
         val tileChanges = ArrayList<UndoLog.TileChange<Int>>()

@@ -33,17 +33,30 @@ final class TitleTransferFixture {
 
     private TitleTransferFixture() {}
 
-    static FaditorProject create(Context context) throws Exception {
+    /**
+     * [cut] true: the 4 s are two 2 s clips with the title running over the cut. Each clip is its own export item with
+     * its own effect, so the second starts the title cold at 2.0 s, mid-animation and as it starts to grow: a seek
+     * (the range export would be the natural one, but it needs a sound track, which the demo cards lack).
+     */
+    static FaditorProject create(Context context, boolean cut) throws Exception {
         ProjectStorage storage = new ProjectStorage(context);
-        var project = new FaditorProject(storage.uniqueName("TEST TXT-TRANSFER title"));
+        var project = new FaditorProject(storage.uniqueName(cut ? "TEST TXT-TRANSFER cut" : "TEST TXT-TRANSFER title"));
         File media = new File(context.getFilesDir(), "txt-transfer/" + project.getId());
         if (!media.mkdirs()) throw new IOException("Cannot create the title fixture's media folder");
         File source = copyAsset(context, media, "card2.mp4");
         long duration = durationMs(source);
-        var clip = new Clip(Uri.fromFile(source), duration);
-        clip.setOutPointMs(Math.min(duration, 4_000L));
         var timeline = project.getTimeline();
-        timeline.addClip(clip);
+        if (cut) {
+            for (int i = 0; i < 2; i++) {
+                var part = new Clip(Uri.fromFile(source), duration);
+                part.setOutPointMs(2_000L);
+                timeline.addClip(part);
+            }
+        } else {
+            var clip = new Clip(Uri.fromFile(source), duration);
+            clip.setOutPointMs(Math.min(duration, 4_000L));
+            timeline.addClip(clip);
+        }
 
         String look = readAsset(context, "textlab/looks/magma.text.json");
         var title = new TextOverlayItem("JOY TITLE", Color.WHITE, 0.30f, 0.40f, 0.10f, 0f);

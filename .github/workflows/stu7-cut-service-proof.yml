@@ -18,6 +18,10 @@ jobs:
       SOURCE_COMMIT: 'dfef8d1f7014cf6dcac8b0dd7165077976c12f8c'
     steps:
       - uses: actions/checkout@v4
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
       - name: Boot disposable API 30 emulator
         run: |
           set -euo pipefail

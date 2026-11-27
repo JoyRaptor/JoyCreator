@@ -69,3 +69,17 @@ Each step lands alone, with all JoyBrush suites green in the cloud and the old p
 11-13, "when streaming saves start: I will say so here first"). That claim must be released or handed over first. The
 orchestrator also has to say whether the leave-screen rule in S3 (refuse and keep the last good file, never a half
 file) is acceptable, because it is the one place the artist could lose the newest few seconds of work.
+
+## Progress
+
+- **11-27, S1 landed (switch `ArchiveCarrying.streamTiles`, off):** the archive checks a drawing by tile lengths and
+  takes each tile's bytes only when it writes them (`io/TileStream.kt`); a streamed drawing is held one tile at a time
+  and the file has the same entries and bytes. `DeferredMedia` is a stream, so a just-opened drawing saves from its file
+  tile by tile. Failing first: `JbArchiveStreamTest` (4 tests, all 120 tiles held at once before).
+- **11-27, S4 landed (switch `ArchiveCarrying.finishInterruptedMove`, off):** a kill between the save's two moves (file
+  moved to `.bak`, `.tmp` whole and synced, last move never ran) now opens the newest save from `.tmp` and finishes the
+  move; before, it opened the save before it from `.bak`. A `.tmp` that does not open is never moved into place.
+  `KillMidSaveTest`: that case failed first; a kill while writing and a half `.tmp` already kept the last save (guards).
+  Still owed for S4: `am kill` during a big save on the Note 9, once S2 streams real saves.
+- **S2** (the GPU freeze and batched readback) is next, with a brief for a fresh session. **S3** follows (owner 11-27:
+  about 3 s of lost work at leaving is acceptable). **S5** waits for Note 9 measurements of S1-S4.

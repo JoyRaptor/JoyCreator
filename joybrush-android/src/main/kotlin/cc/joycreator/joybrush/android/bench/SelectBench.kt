@@ -100,11 +100,19 @@ class SelectBench(private val canvas: JbCanvasView, private val runId: String, p
                 // L5 is an S: its ends sit on the box's sides, not its corners (where the corner handles hide tip dots).
                 listOf(0.55f to 0.66f, 0.62f to 0.62f, 0.70f to 0.78f, 0.80f to 0.74f).map { (x, y) -> SelectGestures.P(x * w, y * h) })
             fun draw(i: Int) {
-                if (i == lines.size) { ui.postDelayed({
-                    val got = activeLines()
-                    ids = got.map { it.address }
-                    undoDepth { d -> report("draw", got.size == 5, JSONObject().put("lines", got.size).put("undoDepth", d)); shot("01_drawn"); hold(next) }
-                }, 600); return }
+                if (i == lines.size) {
+                    // The committed lines reach the list a little after the last stroke ends: on a slow device (the cloud
+                    // emulator) that is well over the old fixed 600 ms, so wait for all five, up to 10 s, then judge.
+                    val started = android.os.SystemClock.uptimeMillis()
+                    fun settle() {
+                        if (!active) return
+                        val got = activeLines()
+                        if (got.size < 5 && android.os.SystemClock.uptimeMillis() - started < 10_000L) { ui.postDelayed({ settle() }, 250); return }
+                        ids = got.map { it.address }
+                        undoDepth { d -> report("draw", got.size == 5, JSONObject().put("lines", got.size).put("undoDepth", d)); shot("01_drawn"); hold(next) }
+                    }
+                    ui.postDelayed({ settle() }, 600); return
+                }
                 g.stroke(lines[i], 420, pen = true, settleMs = 250) { draw(i + 1) }
             }
             draw(0)

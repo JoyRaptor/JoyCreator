@@ -56,7 +56,7 @@ public final class RigidPictureMotion {
     @Nullable
     public RigidTextureShutterPass.Exposure exposure(long timeUs, long periodUs) {
         if (periodUs <= 0 || timeUs < pieceStartUs || timeUs >= pieceEndUs) return null;
-        var plan = RigidTextureShutterPass.plan(item.getRigidMotionShutter(), sampler,
+        var plan = RigidTextureShutterPass.plan(item.rigidMotionShutterAt(timeUs / 1000L), sampler,
                 timeUs, periodUs, fences, width, height);
         if (plan == null) return null;
         return new RigidTextureShutterPass.Exposure(plan, Math.max(0f, Math.min(1f, item.animatedOpacity(timeUs / 1000L))));

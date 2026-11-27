@@ -122,7 +122,7 @@ public final class AuthoredSpriteMeshExposure {
         if (cell == null || centerUs < pieceStartUs || centerUs >= pieceEndUs
                 || centerUs < cell.startUs() || centerUs >= cell.endUs() || periodUs <= 0 || periodUs > Integer.MAX_VALUE
                 || maxTaps < 2 || maxTaps > MeshExposureGlPolicy.MAX_TAPS) return null;
-        MotionShutter.Controls controls = sprite.getRigidMotionShutter();
+        MotionShutter.Controls controls = sprite.rigidMotionShutterAt(Math.floorDiv(centerUs, 1000L));
         if (controls.angle() == 0 || controls.mixPercent() == 0) return null;
         if (!sprite.isVisibleAt(Math.floorDiv(centerUs, 1000L))) return null;
         MotionBreaks frameFences = new MotionBreaks.Builder().add(pieceStartUs).add(pieceEndUs)

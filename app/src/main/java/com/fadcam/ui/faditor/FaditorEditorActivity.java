@@ -1121,15 +1121,26 @@ public class FaditorEditorActivity extends AppCompatActivity {
             @NonNull Context ctx, @NonNull String id, boolean withTile) {
         final String projectId = project == null ? "" : project.getId();
         return new com.fadcam.ui.faditor.motion.card.MotionBlurCard.Host() {
-            @NonNull @Override public MotionShutter.Controls controls() {
+            @NonNull @Override public com.fadcam.ui.faditor.motion.card.MotionBlurCard.State state() {
                 MotionBlurItem item = findMotionBlurItem(id);
-                return item == null ? MotionShutter.Controls.NATURAL : item.getRigidMotionShutter();
+                return item == null
+                        ? new com.fadcam.ui.faditor.motion.card.MotionBlurCard.State(
+                                MotionShutter.Controls.NATURAL,
+                                com.fadcam.ui.faditor.motion.ShutterKeys.EMPTY)
+                        : new com.fadcam.ui.faditor.motion.card.MotionBlurCard.State(
+                                item.getRigidMotionShutter(), item.getRigidMotionShutterKeys());
             }
-            @Override public void preview(@NonNull MotionShutter.Controls draft) {
+            @Override public void preview(
+                    @NonNull com.fadcam.ui.faditor.motion.card.MotionBlurCard.State draft) {
                 setMotionShutter(id, draft);
             }
-            @Override public void commit(@NonNull MotionShutter.Controls before,
-                                         @NonNull MotionShutter.Controls after) {
+            @Override public long playheadMs() { return Math.max(0, lastPlayheadAbsoluteMs); }
+            @Override public void seekTo(long ms) {
+                if (editorTimeline != null) editorTimeline.seekToTimelineMs(ms);
+            }
+            @Override public void commit(
+                    @NonNull com.fadcam.ui.faditor.motion.card.MotionBlurCard.State before,
+                    @NonNull com.fadcam.ui.faditor.motion.card.MotionBlurCard.State after) {
                 setMotionShutter(id, after);
                 undoManager.recordAction(new EditActions.LambdaAction(
                         getString(R.string.studio_motion_undo),
@@ -1148,7 +1159,7 @@ public class FaditorEditorActivity extends AppCompatActivity {
                         () -> setMotionBlurOn(id, projectWas, true, ctx, withTile)));
             }
             @Override public void showExactFrame() {
-                inspectMotionFrame(projectId, id, controls());
+                inspectMotionFrame(projectId, id, state());
             }
             @Override public void compare(boolean sharp) {
                 MotionBlurItem item = findMotionBlurItem(id);
@@ -1167,10 +1178,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
         };
     }
 
-    private void setMotionShutter(@NonNull String id, @NonNull MotionShutter.Controls c) {
+    private void setMotionShutter(@NonNull String id,
+                                  @NonNull com.fadcam.ui.faditor.motion.card.MotionBlurCard.State s) {
         MotionBlurItem item = findMotionBlurItem(id);
         if (item == null) return;
-        item.setRigidMotionShutter(c);
+        item.setRigidMotionShutter(s.base());
+        item.setRigidMotionShutterKeys(s.keys());
         refreshMotionPreview();
     }
 
@@ -1223,7 +1236,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
 
     @Nullable private androidx.appcompat.app.AlertDialog motionFrameDialog;
 
-    private void inspectMotionFrame(String projectId, String itemId, MotionShutter.Controls draft) {
+    private void inspectMotionFrame(String projectId, String itemId,
+                                    com.fadcam.ui.faditor.motion.card.MotionBlurCard.State draft) {
         if (project == null || !projectId.equals(project.getId()) || findMotionBlurItem(itemId) == null
                 || (motionFrameDialog != null && motionFrameDialog.isShowing())) return;
         if (playerManager != null) playerManager.pause();
@@ -1241,7 +1255,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
             if (item == null) return null;
             copy.setMotionBlurEnabled(true);
             item.setRigidMotionBlurEnabled(true);
-            item.setRigidMotionShutter(draft);
+            item.setRigidMotionShutter(draft.base());
+            item.setRigidMotionShutterKeys(draft.keys());
             return ComposedFrame.render(app, copy, frameMs);
         });
     }
@@ -11938,6 +11953,8 @@ public class FaditorEditorActivity extends AppCompatActivity {
         // same currentTabContent() root is walked for an FxPanel RefreshState tag.
         if (objectDrawer != null && objectDrawer.isShowing()) {
             com.fadcam.ui.faditor.tools.FxPanel.refreshRows(
+                    objectDrawer.currentTabContent(), absoluteMs);
+            com.fadcam.ui.faditor.motion.card.MotionBlurCard.refresh(
                     objectDrawer.currentTabContent(), absoluteMs);
         }
         // G3: the keyframe ribbon's diamond tracks the scrub too.

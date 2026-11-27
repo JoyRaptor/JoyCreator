@@ -34,13 +34,14 @@ public final class RecordedAvatarMotion {
     public static boolean supports(SpriteOverlayItem item) {
         var take = item.getAvatarTrack();
         var controls = item.getRigidMotionShutter();
+        boolean blurs = item.getRigidMotionShutterKeys().everBlurs(controls);
         return item.hasAvatarPerformance() && take != null && take.size() >= 2
                 && take.timeMsAt(0) >= 0 && item.getStartMs() >= 0
                 && item.getStartMs() <= Long.MAX_VALUE / 1000L
                 && take.durationMs() <= Long.MAX_VALUE / 1000L - item.getStartMs()
                 && !item.isHidden() && !item.isLinked() && !item.wantsGl()
                 && item.getFadeInMs() == 0 && item.getFadeOutMs() == 0
-                && controls.angle() > 0 && controls.mixPercent() > 0;
+                && blurs;
     }
 
     public static boolean supportsRig(@Nullable AvatarRig rig) {
@@ -163,6 +164,7 @@ public final class RecordedAvatarMotion {
         copy.setFlipH(item.isFlipH());
         copy.setFlipV(item.isFlipV());
         copy.setRigidMotionShutter(item.getRigidMotionShutter());
+        copy.setRigidMotionShutterKeys(item.getRigidMotionShutterKeys());
         copy.getKeyframes().copyFrom(item.getKeyframes());
         return copy;
     }
@@ -170,7 +172,7 @@ public final class RecordedAvatarMotion {
     @Nullable
     public static MotionShutter.Schedule plan(SpriteOverlayItem item, long editorUs, long periodUs,
                                                long pieceStartUs, long pieceEndUs, MotionBreaks fences) {
-        return AvatarShutterSchedule.plan(item.getRigidMotionShutter(), editorUs, periodUs,
+        return AvatarShutterSchedule.plan(item.rigidMotionShutterAt(editorUs / 1000L), editorUs, periodUs,
                 item.getStartMs() * 1000L, itemEndUs(item), pieceStartUs, pieceEndUs, fences);
     }
 

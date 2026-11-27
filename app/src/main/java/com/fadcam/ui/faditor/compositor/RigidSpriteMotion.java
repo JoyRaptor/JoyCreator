@@ -65,7 +65,7 @@ public final class RigidSpriteMotion {
     public static RigidShutterPlan plan(SpriteOverlayItem item, SpriteSheet sheet,
                                         ItemMotionSampler sampler, MotionBreaks fences,
                                         long timeUs, long periodUs, int width, int height) {
-        var controls = item.getRigidMotionShutter();
+        var controls = item.rigidMotionShutterAt(timeUs / 1000L);
         var cellBreaks = new MotionBreaks.Builder();
         long lookBackUs = (long) Math.floor(Math.min(0.0, controls.openOffsetUs(periodUs)));
         long lookAheadUs = (long) Math.ceil(Math.max(0.0, controls.closeOffsetUs(periodUs)));

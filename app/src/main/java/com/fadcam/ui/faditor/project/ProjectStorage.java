@@ -1992,6 +1992,7 @@ public class ProjectStorage {
         }
         if (clip.isRigidMotionBlurEnabled()) clipJson.addProperty("rigidMotionBlur", true);
         writeRigidMotionShutter(clipJson, clip.getRigidMotionShutter());
+        writeRigidMotionShutterKeys(clipJson, clip.getRigidMotionShutterKeys());
         return clipJson;
     }
 
@@ -2033,6 +2034,63 @@ public class ProjectStorage {
         shutter.addProperty("phase", controls.customPhase());
         shutter.addProperty("mix", controls.mixPercent());
         item.add("rigidMotionShutter", shutter);
+    }
+
+    /** STU-7 §K: Shutter and Mix keyframes, absolute timeline ms. Absent = no keys. */
+    private static void writeRigidMotionShutterKeys(JsonObject item,
+            com.fadcam.ui.faditor.motion.ShutterKeys keys) {
+        if (keys == null || keys.isEmpty()) return;
+        JsonObject out = new JsonObject();
+        com.google.gson.JsonArray shutter = new com.google.gson.JsonArray();
+        for (int i = 0; i < keys.shutterCount(); i++) {
+            com.google.gson.JsonArray k = new com.google.gson.JsonArray();
+            k.add(keys.shutterTimeMs(i));
+            k.add(keys.shutterAngle(i));
+            k.add(keys.shutterOpen(i));
+            shutter.add(k);
+        }
+        com.google.gson.JsonArray mix = new com.google.gson.JsonArray();
+        for (int i = 0; i < keys.mixCount(); i++) {
+            com.google.gson.JsonArray k = new com.google.gson.JsonArray();
+            k.add(keys.mixTimeMs(i));
+            k.add(keys.mixValue(i));
+            mix.add(k);
+        }
+        if (shutter.size() > 0) out.add("shutter", shutter);
+        if (mix.size() > 0) out.add("mix", mix);
+        item.add("rigidMotionShutterKeys", out);
+    }
+
+    private static com.fadcam.ui.faditor.motion.ShutterKeys readRigidMotionShutterKeys(JsonObject item) {
+        JsonElement entry = item.get("rigidMotionShutterKeys");
+        if (entry == null || !entry.isJsonObject()) return com.fadcam.ui.faditor.motion.ShutterKeys.EMPTY;
+        JsonObject o = entry.getAsJsonObject();
+        java.util.List<double[]> s = keyRows(o.get("shutter"), 3);
+        java.util.List<double[]> m = keyRows(o.get("mix"), 2);
+        long[] st = new long[s.size()]; double[] sa = new double[s.size()]; double[] so = new double[s.size()];
+        for (int i = 0; i < s.size(); i++) { st[i] = (long) s.get(i)[0]; sa[i] = s.get(i)[1]; so[i] = s.get(i)[2]; }
+        long[] mt = new long[m.size()]; double[] mv = new double[m.size()];
+        for (int i = 0; i < m.size(); i++) { mt[i] = (long) m.get(i)[0]; mv[i] = m.get(i)[1]; }
+        return com.fadcam.ui.faditor.motion.ShutterKeys.of(st, sa, so, mt, mv);
+    }
+
+    /** Rows of {@code width} numbers; a malformed row is skipped, never fatal. */
+    private static java.util.List<double[]> keyRows(JsonElement e, int width) {
+        java.util.List<double[]> rows = new java.util.ArrayList<>();
+        if (e == null || !e.isJsonArray()) return rows;
+        for (JsonElement r : e.getAsJsonArray()) {
+            if (!r.isJsonArray() || r.getAsJsonArray().size() < width) continue;
+            double[] row = new double[width];
+            boolean ok = true;
+            for (int i = 0; i < width; i++) {
+                JsonElement v = r.getAsJsonArray().get(i);
+                if (!v.isJsonPrimitive() || !v.getAsJsonPrimitive().isNumber()) { ok = false; break; }
+                row[i] = v.getAsDouble();
+                if (!Double.isFinite(row[i])) { ok = false; break; }
+            }
+            if (ok) rows.add(row);
+        }
+        return rows;
     }
 
     private static MotionShutter.Controls readRigidMotionShutter(JsonObject item) {
@@ -2427,6 +2485,7 @@ public class ProjectStorage {
             clip.setRigidMotionBlurEnabled(rigidMotionBlur.getAsBoolean());
         }
         clip.setRigidMotionShutter(readRigidMotionShutter(clipObj));
+        clip.setRigidMotionShutterKeys(readRigidMotionShutterKeys(clipObj));
         // §4.5 per-object eye/lock (tolerant: absent = false).
         if (hasValue(clipObj, "objHidden")) clip.setHiddenObject(clipObj.get("objHidden").getAsBoolean());
         if (hasValue(clipObj, "objLocked")) clip.setLockedObject(clipObj.get("objLocked").getAsBoolean());
@@ -2958,6 +3017,7 @@ public class ProjectStorage {
                 if (o.isPassThrough()) oJson.addProperty("passThrough", true);
                 if (o.isRigidMotionBlurEnabled()) oJson.addProperty("rigidMotionBlur", true);
                 writeRigidMotionShutter(oJson, o.getRigidMotionShutter());
+                writeRigidMotionShutterKeys(oJson, o.getRigidMotionShutterKeys());
                 if (!o.isScaleLinked()) oJson.addProperty("scaleLinked", false);
                 // SPEC B rotation pivot — sparse like the rest: a centre pivot (every overlay
                 // in every project written before this) writes nothing and stays
@@ -3317,6 +3377,7 @@ public class ProjectStorage {
                     if (so.isLocked()) sj.addProperty("objLocked", true);
                     if (so.isRigidMotionBlurEnabled()) sj.addProperty("rigidMotionBlur", true);
                     writeRigidMotionShutter(sj, so.getRigidMotionShutter());
+                    writeRigidMotionShutterKeys(sj, so.getRigidMotionShutterKeys());
                     spArray.add(sj);
                 }
                 timelineJson.add("spriteOverlays", spArray);
@@ -3957,6 +4018,7 @@ public class ProjectStorage {
                             o.setRigidMotionBlurEnabled(oObj.get("rigidMotionBlur").getAsBoolean());
                         }
                         o.setRigidMotionShutter(readRigidMotionShutter(oObj));
+                        o.setRigidMotionShutterKeys(readRigidMotionShutterKeys(oObj));
                         if (hasValue(oObj, "scaleLinked")) o.setScaleLinked(oObj.get("scaleLinked").getAsBoolean());
                         // SPEC B rotation pivot — TOLERANT: absent keys are the centre pivot,
                         // so a project written before this loads and renders exactly as it
@@ -4480,6 +4542,7 @@ public class ProjectStorage {
                                 so.setRigidMotionBlurEnabled(sj.get("rigidMotionBlur").getAsBoolean());
                             }
                             so.setRigidMotionShutter(readRigidMotionShutter(sj));
+                            so.setRigidMotionShutterKeys(readRigidMotionShutterKeys(sj));
                             project.getTimeline().addSpriteOverlay(so);
                         } catch (Exception ignored) { }
                     }

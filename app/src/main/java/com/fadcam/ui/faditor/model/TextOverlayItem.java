@@ -385,6 +385,16 @@ public class TextOverlayItem implements LinkFollower, MotionBlurItem {
     private boolean passThrough;
     private boolean rigidMotionBlur;
     private MotionShutter.Controls rigidMotionShutter = MotionShutter.Controls.NATURAL;
+    private com.fadcam.ui.faditor.motion.ShutterKeys rigidMotionShutterKeys =
+            com.fadcam.ui.faditor.motion.ShutterKeys.EMPTY;
+
+    @NonNull public com.fadcam.ui.faditor.motion.ShutterKeys getRigidMotionShutterKeys() {
+        return rigidMotionShutterKeys;
+    }
+
+    public void setRigidMotionShutterKeys(@NonNull com.fadcam.ui.faditor.motion.ShutterKeys keys) {
+        rigidMotionShutterKeys = java.util.Objects.requireNonNull(keys);
+    }
 
     @NonNull public MotionShutter.Controls getRigidMotionShutter() { return rigidMotionShutter; }
 
@@ -767,6 +777,7 @@ public class TextOverlayItem implements LinkFollower, MotionBlurItem {
         c.passThrough = passThrough;
         c.rigidMotionBlur = rigidMotionBlur;
         c.rigidMotionShutter = rigidMotionShutter;
+        c.rigidMotionShutterKeys = rigidMotionShutterKeys;
         c.compositing = compositing == null ? null : compositing.copy();
         // SPEC E: a duplicate is the object's twin — its bend rides along (deep copy, never
         // shared; two items fed by one spec would bend together). Null stays null: every

@@ -253,7 +253,7 @@ final class GlPipFrameOverlay {
             sampledSourceW = sourceW;
             sampledSourceH = sourceH;
         }
-        var plan = RigidTextureShutterPass.plan(clip.getRigidMotionShutter(),
+        var plan = RigidTextureShutterPass.plan(clip.rigidMotionShutterAt(editorUs / 1000L),
                 motionSampler, editorUs, periodUs, shutterBreaks, frameW, frameH);
         if (plan == null) return false;
 

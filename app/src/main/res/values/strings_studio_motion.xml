@@ -33,6 +33,9 @@
     <string name="studio_motion_strip_back">%1$d frames back</string>
     <string name="studio_motion_strip_ahead">%1$d frames ahead</string>
     <string name="studio_motion_undo">Motion Blur</string>
+    <string name="studio_motion_key_prev">%1$s: go to the previous key</string>
+    <string name="studio_motion_key_next">%1$s: go to the next key</string>
+    <string name="studio_motion_key_toggle">%1$s: add or remove a key at the playhead</string>
 
     <!-- §K D1: one plain line, why this stays sharp and what to do instead -->
     <string name="studio_motion_why_clip">Nothing moves yet: give the clip position, scale or rotation keys to blur it.</string>

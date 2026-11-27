@@ -194,15 +194,69 @@ public final class Acting {
      * opening and shape for each frame, over the whole item.
      */
     public static Take writeLips(Take base, int n, float[] open, String[] vis) {
+        return writeLips(base, n, 0, open, vis);
+    }
+
+    /** As above, from frame {@code from} of the take on (the frames before it keep what they had). */
+    public static Take writeLips(Take base, int n, int from, float[] open, String[] vis) {
         Take t = grown(base, n);
+        List<Object> oldMo = t.ch.get("mouth"), oldVi = t.ch.get("vis");
         List<Object> mo = new ArrayList<>(n), vi = new ArrayList<>(n);
         for (int f = 0; f < n; f++) {
-            mo.add(f < open.length ? (Object) (double) open[f] : 0.0);
-            vi.add(f < vis.length && vis[f] != null ? vis[f] : "Neutral");
+            int k = f - from;
+            if (k < 0) {
+                Object om = TakeClock.valueAt(oldMo, f), ov = TakeClock.valueAt(oldVi, f);
+                mo.add(om != null ? om : 0.0);
+                vi.add(ov != null ? ov : "Neutral");
+                continue;
+            }
+            mo.add(k < open.length ? (Object) (double) open[k] : 0.0);
+            vi.add(k < vis.length && vis[k] != null ? vis[k] : "Neutral");
         }
         t.ch.put("mouth", mo);
         t.ch.put("vis", vi);
         return t;
+    }
+
+    /**
+     * What a video gave at its own sampling times, on the take's frames: frame {@code f} at {@code f / fps} seconds gets
+     * the signals between the two samples round it, each number blended by time; the mouth shape ({@code vis}) is never
+     * blended (the one before it holds). A frame with no face on either side gets null (a lost face); a frame past the
+     * last sample holds it.
+     *
+     * @param times   each sample's time in item seconds, rising
+     * @param samples the signals there (null: no face in that frame)
+     */
+    public static List<Map<String, Float>> resample(double[] times, List<Map<String, Float>> samples, int fps, int n) {
+        List<Map<String, Float>> out = new ArrayList<>(n);
+        int j = 0;
+        for (int f = 0; f < n; f++) {
+            double t = f / (double) fps;
+            while (j + 1 < times.length && times[j + 1] <= t + 1e-9) j++;
+            if (times.length == 0 || t < times[0] - 1e-9) {
+                out.add(null);
+                continue;
+            }
+            Map<String, Float> a = samples.get(j);
+            Map<String, Float> b = j + 1 < times.length ? samples.get(j + 1) : null;
+            if (a == null) {
+                out.add(null);
+                continue;
+            }
+            if (b == null || times[j + 1] - times[j] <= 0) {
+                out.add(a);
+                continue;
+            }
+            float k = (float) ((t - times[j]) / (times[j + 1] - times[j]));
+            Map<String, Float> m = new LinkedHashMap<>();
+            for (Map.Entry<String, Float> e : a.entrySet()) {
+                Float bv = b.get(e.getKey());
+                Float av = e.getValue();
+                m.put(e.getKey(), "vis".equals(e.getKey()) || bv == null || av == null ? av : av + (bv - av) * k);
+            }
+            out.add(m);
+        }
+        return out;
     }
 
     private static Take grown(Take base, int n) {

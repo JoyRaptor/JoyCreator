@@ -148,6 +148,8 @@ public class AvatarStudioTest {
         Take lips = Acting.writeLips(base, 12, new float[]{0f, 0.5f}, new String[]{"Neutral", "Aa"});
         check(lips.ch.get("mouth").size() == 12 && "Aa".equals(lips.ch.get("vis").get(1)), "lips from a sound");
         check(lips.ch.get("turnX").equals(base.ch.get("turnX")), "lips from a sound changed the head");
+        Take late2 = Acting.writeLips(base, 12, 2, new float[]{0.9f}, new String[]{"Oh"});
+        check("Aa".equals(late2.ch.get("vis").get(1)) && "Oh".equals(late2.ch.get("vis").get(2)), "lips from frame 2 on: " + late2.ch.get("vis"));
 
         Acting.Plan p = new Acting.Plan();
         p.tick("videoA", Acting.Listen.HEAD, true);
@@ -169,7 +171,24 @@ public class AvatarStudioTest {
         check(!Acting.fingerprint(1000, 0, 5000, 1f, 0).equals(Acting.fingerprint(1000, 0, 5000, 1f, 100)), "a nudge is not seen");
     }
 
+    static void resample() {
+        double[] times = {0, 0.1, 0.2, 0.3};
+        List<Map<String, Float>> sm = new ArrayList<>();
+        sm.add(face(0f, 0f, 1, 0f)); sm.add(face(1f, 0f, 2, 0f)); sm.add(null); sm.add(face(0.5f, 0f, 3, 0f));
+        List<Map<String, Float>> fr = Acting.resample(times, sm, 30, 12);
+        check(fr.size() == 12, "resampled frames " + fr.size());
+        check(Math.abs(fr.get(1).get("turnX") - 1 / 3f) < 1e-4, "frame 1 (1/30 s) turnX " + fr.get(1).get("turnX"));
+        check(fr.get(1).get("vis") == 1f && fr.get(2).get("vis") == 1f, "the mouth shape was blended");
+        check(fr.get(3).get("turnX") == 1f, "frame 3 is not the 0.1 s sample");
+        check(fr.get(4).get("turnX") == 1f, "into a lost face the last face is not held");
+        check(fr.get(6) == null, "a frame at a lost face is not lost");
+        check(fr.get(11).get("turnX") == 0.5f, "after the last sample it does not hold");
+        check(Acting.resample(new double[]{0.2}, java.util.Collections.singletonList(face(1f, 0f, 0, 0f)), 30, 10).get(0) == null,
+                "a frame before the first sample has a face");
+    }
+
     public static void main(String[] a) {
+        resample();
         clock();
         voice();
         acting();

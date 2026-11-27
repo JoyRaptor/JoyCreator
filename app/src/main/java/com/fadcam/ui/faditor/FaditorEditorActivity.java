@@ -26823,6 +26823,16 @@ public class FaditorEditorActivity extends AppCompatActivity {
                 sweepPerformanceFromVideo(item);
             }
 
+            @Override
+            public void onActFromVideo(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                openActFromVideo(item);
+            }
+
+            @Override
+            public void onPerformCharacter(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+                openCharacterPerform(item);
+            }
+
             // ── Dope sheet (SPEC_IMAGE_SEQUENCE §5) ──────────────────────
 
             @Override
@@ -45249,6 +45259,218 @@ public class FaditorEditorActivity extends AppCompatActivity {
         Toast.makeText(this, getString(R.string.ava_studio_character_added, p.name), Toast.LENGTH_SHORT).show();
     }
 
+    // ── Slice 2b: acting from a video, and the performing pop-up ──
+
+    @Nullable private cc.joycreator.avatar.studio.ActingRun actingRun;
+
+    private void openActFromVideo(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        if (project == null) return;
+        cc.joycreator.avatar.studio.ActFromVideoSheet.show(this, item,
+                cc.joycreator.avatar.studio.ActingRun.choices(project.getTimeline(), getString(R.string.ava_act_main_video)),
+                new cc.joycreator.avatar.studio.ActFromVideoSheet.Host() {
+                    @Override public void readActing(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it,
+                                                     @NonNull cc.joycreator.avatar.studio.Acting.Plan plan) {
+                        readCharacterActing(it, plan, true);
+                    }
+
+                    @Override public void bakeActing(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it,
+                                                     @NonNull cc.joycreator.avatar.studio.Acting.Plan plan) {
+                        bakeCharacterActing(it, plan);
+                    }
+                });
+    }
+
+    /**
+     * Reads the plan into the item's take, with a progress dialog; then one undo step sets the take and the plan (and,
+     * for Keep as driver, hides and silences the picture-in-picture videos). {@code shown} false: a quiet re-read after
+     * a driver video moved, folded into the edit that moved it.
+     */
+    private void readCharacterActing(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                                     @NonNull cc.joycreator.avatar.studio.Acting.Plan plan, boolean shown) {
+        if (project == null || actingRun != null) return;
+        if (!com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.isModelPresent(this)) {
+            Toast.makeText(this, R.string.ava_act_could_not, Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (playerManager != null && playerManager.isPlaying()) playerManager.pause();
+        final android.widget.ProgressBar bar = new android.widget.ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        bar.setMax(1000);
+        final androidx.appcompat.app.AlertDialog dialog;
+        if (shown) {
+            android.widget.FrameLayout wrap = new android.widget.FrameLayout(this);
+            int padPx = SheetKit.dp(this, 24);
+            wrap.setPadding(padPx, padPx, padPx, 0);
+            wrap.addView(bar);
+            dialog = StudioDialog.builder(this)
+                    .setTitle(R.string.ava_act_reading)
+                    .setView(wrap)
+                    .setCancelable(false)
+                    .setNegativeButton(R.string.studio_ui_cancel, (d, w) -> { if (actingRun != null) actingRun.stop(); })
+                    .create();
+            dialog.show();
+        } else {
+            dialog = null;
+        }
+        final String beforeTake = item.getCharacterTake(), beforePlan = item.getCharacterActing();
+        final cc.joycreator.avatar.studio.Acting.Plan work = plan.copy();
+        actingRun = cc.joycreator.avatar.studio.ActingRun.start(this, project.getTimeline(), item, work,
+                (f, name) -> bar.setProgress(Math.round(f * 1000)),
+                takeJson -> {
+                    actingRun = null;
+                    if (dialog != null) dialog.dismiss();
+                    if (takeJson == null) {
+                        if (shown) Toast.makeText(this, R.string.ava_act_could_not, Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    final String afterPlan = work.toJson().toString();
+                    final java.util.List<Clip> hide = new java.util.ArrayList<>();
+                    if (work.keepAsDriver) for (cc.joycreator.avatar.studio.Acting.Source src : work.sources) {
+                        for (Clip k : project.getTimeline().getOverlayClips()) {
+                            if (k.getId().equals(src.clipId) && !(k.isHiddenObject() && k.isAudioMuted())) hide.add(k);
+                        }
+                    }
+                    final boolean[] wasHidden = new boolean[hide.size()], wasMuted = new boolean[hide.size()];
+                    for (int i = 0; i < hide.size(); i++) {
+                        wasHidden[i] = hide.get(i).isHiddenObject();
+                        wasMuted[i] = hide.get(i).isAudioMuted();
+                    }
+                    Runnable redo = () -> {
+                        item.setCharacterTake(takeJson);
+                        item.setCharacterActing(afterPlan);
+                        for (Clip k : hide) { k.setHiddenObject(true); k.setAudioMuted(true); }
+                        refreshAfterCharacterEdit();
+                    };
+                    Runnable undo = () -> {
+                        item.setCharacterTake(beforeTake);
+                        item.setCharacterActing(beforePlan);
+                        for (int i = 0; i < hide.size(); i++) {
+                            hide.get(i).setHiddenObject(wasHidden[i]);
+                            hide.get(i).setAudioMuted(wasMuted[i]);
+                        }
+                        refreshAfterCharacterEdit();
+                    };
+                    redo.run();
+                    com.fadcam.ui.faditor.undo.EditActions.LambdaAction step = new EditActions.LambdaAction(
+                            getString(R.string.ava_act_undo), redo, undo);
+                    if (shown || !undoManager.amendTopAction(step)) undoManager.recordAction(step);
+                    scheduleAutoSave();
+                    if (shown) Toast.makeText(this, R.string.ava_act_done, Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    /** Bake: the keyframes stay, the plan goes, and its picture-in-picture videos leave the timeline. One undo step. */
+    private void bakeCharacterActing(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item,
+                                     @NonNull cc.joycreator.avatar.studio.Acting.Plan plan) {
+        if (project == null) return;
+        final Timeline tl = project.getTimeline();
+        final String beforePlan = item.getCharacterActing();
+        final java.util.List<Clip> gone = new java.util.ArrayList<>();
+        boolean main = false;
+        for (cc.joycreator.avatar.studio.Acting.Source src : plan.sources) {
+            if (cc.joycreator.avatar.studio.ActingRun.MAIN.equals(src.clipId)) main = true;
+            for (Clip k : tl.getOverlayClips()) if (k.getId().equals(src.clipId)) gone.add(k);
+        }
+        Runnable redo = () -> {
+            item.setCharacterActing(null);
+            for (Clip k : gone) tl.removeOverlayClip(k);
+            refreshAfterCharacterEdit();
+        };
+        Runnable undo = () -> {
+            item.setCharacterActing(beforePlan);
+            for (Clip k : gone) if (!tl.getOverlayClips().contains(k)) tl.addOverlayClip(k);
+            refreshAfterCharacterEdit();
+        };
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.ava_act_bake_undo), redo, undo));
+        scheduleAutoSave();
+        Toast.makeText(this, main ? R.string.ava_act_main_stays : R.string.ava_act_baked, Toast.LENGTH_LONG).show();
+    }
+
+    /** Keep as driver: after an edit, a driver video that moved or was trimmed is read again (folded into that edit). */
+    private void rereadMovedActingDrivers() {
+        if (project == null || actingRun != null) return;
+        for (com.fadcam.ui.faditor.sprite.SpriteOverlayItem it : project.getTimeline().getSpriteOverlays()) {
+            if (!it.isCharacter() || it.getCharacterActing() == null) continue;
+            cc.joycreator.avatar.studio.Acting.Plan plan = cc.joycreator.avatar.studio.ActFromVideoSheet.planOf(it);
+            if (plan.keepAsDriver && cc.joycreator.avatar.studio.ActingRun.stale(project.getTimeline(), plan)) {
+                readCharacterActing(it, plan, false);
+                return;   // one at a time; the next edit picks up the rest
+            }
+        }
+    }
+
+    private void openCharacterPerform(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item) {
+        cc.joycreator.avatar.studio.PerformPopup.show(this, item, new cc.joycreator.avatar.studio.PerformPopup.Host() {
+            @Override public long playheadInTakeMs(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it) {
+                return Math.max(0, lastPlayheadAbsoluteMs - it.getStartMs()) + it.getCharacterTakeOffsetMs();
+            }
+
+            @Override public long playheadMs() {
+                return Math.max(0, lastPlayheadAbsoluteMs);
+            }
+
+            @Override public void play() {
+                if (playerManager != null && !playerManager.isPlaying()) btnPlayPause.performClick();
+            }
+
+            @Override public void pause() {
+                if (playerManager != null && playerManager.isPlaying()) btnPlayPause.performClick();
+            }
+
+            @Override public void passDone(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem it, @NonNull String takeJson,
+                                           @Nullable java.io.File voice, long voiceAtMs) {
+                recordCharacterPass(it, takeJson, voice, voiceAtMs);
+            }
+        });
+    }
+
+    /** One pass from the performing pop-up: the new take (the item grows to it) and the voice heard, one undo step. */
+    private void recordCharacterPass(@NonNull com.fadcam.ui.faditor.sprite.SpriteOverlayItem item, @NonNull String takeJson,
+                                     @Nullable java.io.File voice, long voiceAtMs) {
+        if (project == null) return;
+        final Timeline tl = project.getTimeline();
+        final String before = item.getCharacterTake();
+        final long beforeEnd = item.getEndMs();
+        cc.joycreator.avatar.perform.Take t;
+        try {
+            t = cc.joycreator.avatar.perform.Take.fromJson(new org.json.JSONObject(takeJson));
+        } catch (Exception e) {
+            return;
+        }
+        long len = cc.joycreator.avatar.studio.TakeClock.lengthMs(t) - item.getCharacterTakeOffsetMs();
+        final long afterEnd = beforeEnd == Long.MAX_VALUE ? beforeEnd : Math.max(beforeEnd, item.getStartMs() + Math.max(1, len));
+        final com.fadcam.ui.faditor.model.AudioClip ac;
+        if (voice != null) {
+            long ms = Math.max(100, voiceLengthMs(voice));
+            ac = new com.fadcam.ui.faditor.model.AudioClip(android.net.Uri.fromFile(voice), ms);
+            ac.setLabel(getString(R.string.ava_studio_character_voice, item.getName() == null ? "" : item.getName()));
+            ac.setOffsetMs(voiceAtMs);
+        } else {
+            ac = null;
+        }
+        Runnable redo = () -> {
+            item.setCharacterTake(takeJson);
+            item.setTimeRange(item.getStartMs(), afterEnd);
+            if (ac != null && !tl.getAudioClips().contains(ac)) tl.addAudioClip(ac);
+            refreshAfterCharacterEdit();
+        };
+        Runnable undo = () -> {
+            item.setCharacterTake(before);
+            item.setTimeRange(item.getStartMs(), beforeEnd);
+            if (ac != null) tl.removeAudioClip(ac);
+            refreshAfterCharacterEdit();
+        };
+        redo.run();
+        undoManager.recordAction(new EditActions.LambdaAction(getString(R.string.ava_perform_pass_undo), redo, undo));
+        scheduleAutoSave();
+        Toast.makeText(this, R.string.ava_perform_pass_done, Toast.LENGTH_SHORT).show();
+    }
+
+    private long voiceLengthMs(@NonNull java.io.File f) {
+        // 16-bit mono at the recorder's rate after a 44-byte header (VoiceoverRecorder's own WAV)
+        return Math.max(0, (f.length() - 44) * 1000L / (2L * com.fadcam.ui.faditor.audio.VoiceoverRecorder.sampleRate()));
+    }
+
     /** After a character's item or voice changed: the lanes, the audio players and the picture. */
     private void refreshAfterCharacterEdit() {
         syncTimelineOverlays();
@@ -48107,7 +48329,12 @@ public class FaditorEditorActivity extends AppCompatActivity {
     private void scheduleAutoSave() {
         autoSaveHandler.removeCallbacks(autoSaveRunnable);
         autoSaveHandler.postDelayed(autoSaveRunnable, AUTO_SAVE_DELAY_MS);
+        // Avatar slice 2b: a "Keep as driver" video that was just moved or trimmed is read again (cheap when none is)
+        autoSaveHandler.removeCallbacks(actingDriverCheck);
+        autoSaveHandler.postDelayed(actingDriverCheck, 400);
     }
+
+    private final Runnable actingDriverCheck = this::rereadMovedActingDrivers;
 
     /**
      * Save project immediately (blocking on current thread, fast for small JSON).

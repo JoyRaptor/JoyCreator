@@ -19,4 +19,59 @@
     <string name="ava_studio_character_undo">Add %1$s</string>
     <string name="ava_studio_character_added">%1$s added at the playhead</string>
     <string name="ava_studio_character_voice">%1$s\'s voice</string>
+
+    <!-- Act from a video (the character layer's drawer) -->
+    <string name="ava_act_chip">Act from a video</string>
+    <string name="ava_act_title">Act from a video</string>
+    <string name="ava_act_intro">Tick what the character follows from each video. It acts in step with where the video sits on the timeline; slide it earlier or later if it needs it.</string>
+    <string name="ava_act_none">This project has no video or sound to act from yet. Add one, line it up under the character, and come back.</string>
+    <string name="ava_act_lips">Lips</string>
+    <string name="ava_act_head">Head (turn, nod, tilt)</string>
+    <string name="ava_act_eyes">Eyes and blinks</string>
+    <string name="ava_act_brows">Brows</string>
+    <string name="ava_act_shoulders">Shoulders (shrugs)</string>
+    <string name="ava_act_leaning">Leaning</string>
+    <string name="ava_act_lips_hover">Talking shapes: from the video\'s own sound when it has some, else from the mouth</string>
+    <string name="ava_act_lips_sound_hover">Talking shapes from this sound</string>
+    <string name="ava_act_head_hover">The head turns, nods and tilts as the face in the video does</string>
+    <string name="ava_act_eyes_hover">Where the eyes look, and the blinks</string>
+    <string name="ava_act_brows_hover">The brows go up and down with the face\'s</string>
+    <string name="ava_act_shoulders_hover">Needs the body tracker, which is not in this build yet</string>
+    <string name="ava_act_leaning_hover">The body leans as the person leans</string>
+    <string name="ava_act_earlier">Earlier</string>
+    <string name="ava_act_later">Later</string>
+    <string name="ava_act_earlier_hover">Act a tenth of a second earlier than the video</string>
+    <string name="ava_act_later_hover">Act a tenth of a second later than the video</string>
+    <string name="ava_act_in_step">In step</string>
+    <string name="ava_act_keep">Keep as driver</string>
+    <string name="ava_act_keep_hover">The video stays on the timeline, hidden and silent, and is read again when you trim or move it</string>
+    <string name="ava_act_keep_note">Off: the video is just read. Bake later to keep the keyframes and let the video go.</string>
+    <string name="ava_act_read">Read</string>
+    <string name="ava_act_read_hover">Read the ticked videos into the character\'s keyframes</string>
+    <string name="ava_act_bake">Bake</string>
+    <string name="ava_act_bake_hover">Keep the keyframes and let the videos go</string>
+    <string name="ava_act_tick_something">Tick something for the character to follow first.</string>
+    <string name="ava_act_reading">Reading the video</string>
+    <string name="ava_act_could_not">Nothing could be read from that video. Is there a face in it?</string>
+    <string name="ava_act_done">The character acts from the video now</string>
+    <string name="ava_act_undo">Act from a video</string>
+    <string name="ava_act_bake_undo">Bake the acting</string>
+    <string name="ava_act_baked">Baked: the keyframes stay</string>
+    <string name="ava_act_main_video">The main video</string>
+    <string name="ava_act_main_stays">The main video stays in the project; delete it yourself if you want it gone.</string>
+
+    <!-- The performing pop-up on a character layer -->
+    <string name="ava_perform_chip">Perform</string>
+    <string name="ava_perform_chip_hover">Perform this character over the timeline: record a pass from the playhead</string>
+    <string name="ava_perform_record">Record a pass</string>
+    <string name="ava_perform_record_hover">Records what you do into the character from the playhead while Studio plays; what you do not touch stays as it was</string>
+    <string name="ava_perform_stop">Stop</string>
+    <string name="ava_perform_hint">Only what you drive is recorded.</string>
+    <string name="ava_perform_close">Done</string>
+    <string name="ava_perform_close_hover">Close the pop-up (the camera and microphone let go)</string>
+    <string name="ava_perform_allow_then_tap">Allow it, then tap again.</string>
+    <string name="ava_perform_mic_failed">The microphone did not start. Try again.</string>
+    <string name="ava_perform_settings_in_room">Change the character\'s habits in Avatar Studio.</string>
+    <string name="ava_perform_pass_undo">Perform pass</string>
+    <string name="ava_perform_pass_done">Pass recorded</string>
 </resources>

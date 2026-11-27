@@ -88,6 +88,12 @@ public class SpritePalettePanel extends FrameLayout {
          *  VIDEO-mode face tracking into its performance track. */
         default void onSweepFromVideo(@NonNull SpriteOverlayItem item) {}
 
+        /** A new-format character (Avatar build, slice 2b): Act from a video. */
+        default void onActFromVideo(@NonNull SpriteOverlayItem item) {}
+
+        /** A new-format character: the performing pop-up (record a pass from the playhead). */
+        default void onPerformCharacter(@NonNull SpriteOverlayItem item) {}
+
         /** Plain-sprite dope-sheet preset (fast-follow A): stamp a WHOLE
          *  {@link FrameTrack} — cycle-all / ping-pong / hold-current — anchored
          *  at the playhead, swapped in ONE undo step (whole-track before/after).
@@ -727,6 +733,18 @@ public class SpritePalettePanel extends FrameLayout {
                 describe(sweep, R.string.lane_a_sprite_sweep);
                 sweep.setOnClickListener(v -> callback.onSweepFromVideo(selected));
                 toggles.addView(sweep, chipLp());
+            }
+            if (selected.isCharacter()) {
+                TextView perf = ichip("record", SpriteTheme.DIM);
+                describe(perf, R.string.ava_perform_chip_hover);
+                tint(perf, SpriteTheme.LIVE);
+                perf.setOnClickListener(v -> callback.onPerformCharacter(selected));
+                toggles.addView(perf, chipLp());
+                TextView act = ichip("film", SpriteTheme.DIM);
+                describe(act, R.string.ava_act_chip);
+                if (selected.getCharacterActing() != null) tint(act, SpriteTheme.ACCENT_OUT);
+                act.setOnClickListener(v -> callback.onActFromVideo(selected));
+                toggles.addView(act, chipLp());
             }
 
             // Overflow. The whole-track stampers used to sit on this row as three words;

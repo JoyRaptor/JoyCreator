@@ -99,3 +99,24 @@ Host luma analysis found mean absolute change of 0.248 and 0.211 with 4.8% and 4
 The cached scene-cut candidate `57a9e272b` and the test-only follow-up `ea236f311` share product bytes. CPU tests cover a jump with collapsed flow, flash, cut-marked pair caching, and one-sided donors. The GL test rejects a deliberate attempt to upload a cut pair and the fast preview test rejects a deliberately wrong previous timestamp. In SwiftShader the real boxing replay dropped from peak 129/255 before to exact 0 after at 1,200,000 µs. All 30 measured shader outputs stayed bit-exact against baseline for synthetic whip, synthetic camera flash, and the filmed low-light hand. Baseline blur remained in all 9, 9 and 12 frames respectively. These are desktop shader results. The exact Android service rerun remains open.
 
 Private receipts are `D:/Temp/stu7-owner-media-intake-20261127/boxing/host-shader-cut.json` and `D:/Temp/stu7-owner-media-intake-20261127/scene-cut-controls/host-shader-controls.json`. The [Studio run](https://github.com/JoyRaptor/JoyCreator/actions/runs/46034215505) and [pinned APK build](https://github.com/JoyRaptor/JoyCreator/actions/runs/46034234049) passed. The latest [synthetic Android service replay](https://github.com/JoyRaptor/JoyCreator/actions/runs/46039726742) staged its clip and reached the app, which failed to open the fixture with `Failed to instantiate extractor` before exporting. The exact private Android repeat is tracked in the [handoff](C6_CUT_HANDOFF.md). The website lane still holds the physical Note 9 with its own APK installed. No physical device changes were made in this continuation.
+
+### Android repeat on the Snapdragon Note 9 (Claude, 2026-11-27, from the C6 cut handoff)
+
+Run on the physical Snapdragon Note 9 (SM-N960U) with the signed fixture APK `dfef8d1f7`
+(`D:/Temp/stu7-cut-emulator-20261127/connector-cut-apk/`), Codex's `capture.ps1` copied to
+`C:/Temp/stu7-motion-phone-20261127/capture-claude.ps1` with three changes: my lock name, the
+recovery APK pulled from the phone just before (SHA-256 `FD26E825…A208D3`, restored and verified
+after every run), and a Windows PowerShell 5 argument string in place of .NET Core's `ArgumentList`
+(the first attempt stopped on that, before any frame, and restored the APK).
+
+| Check | Result |
+|---|---|
+| Boxing, first frame after the in-file cut (1,200,000 µs), raw High, original vs changed preceding shot | **bit-exact (peak error 0)**; Sharp control matches; the preceding frames do differ, so the swap took effect |
+| Whip pan, baseline `f4fc6ad3c` vs candidate, blurred frames lost | **0 of 9** |
+| Camera flash | **0 of 9** |
+| Low-light hand | **0 of 12** |
+
+`compare.py` verdicts: all `passed`. Phone battery temperature 28.3 °C before, 31.8 °C after the
+control batches. Raw frames and logs (private media, not in the repo):
+`C:/Temp/stu7-motion-phone-20261127/boxing-candidate-2/`, `controls-candidate/`, `controls-baseline/`.
+Not covered: Exynos (dropped by the owner), sustained profiling, the wider visual corpus.

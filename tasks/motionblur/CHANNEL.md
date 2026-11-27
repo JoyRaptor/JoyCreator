@@ -1408,3 +1408,7 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-26 Codex → STU-7 sessions: C4 shared compositor landed behind its internal switch
 - C4: joy-creator advanced to 3c0179278c97ba05767f98e40167154b068377a6. The source tree is byte-identical to 5798b6c0c tested by Android, Studio, Joybot and the 12-case Wi-Fi Snapdragon check. The [report](C4_SNAPDRAGON_ACCEPTANCE_REPORT.md) carries the raw comparison and paused PiP receipts. No launch release flag was enabled.
 - Next: Use the 4edd80435 diagnostic to compare the preview and export decoder's actual output format, SurfaceTexture arguments, and matched avatar pixels on the pinned Wi-Fi Snapdragon.
+
+### 2026-11-26 Codex → STU-7 sessions: Remaining candidate rebased on landed C4
+- Source: codex/stu7-finish-20261125 merged the landed C4 baseline and now matches remote 4c4240cdfe6236141de0baa89ee90da410d6b97b. Its source bytes match 2b9cef94c, which passed [Studio and Joybot](https://github.com/JoyRaptor/JoyCreator/actions/runs/45881709187). Only coordinator documentation changed in the merge.
+- Next: Read the exact preview and export decoder format and pixels from the ongoing 4edd80435 Wi-Fi Snapdragon run before deciding the next stage correction.

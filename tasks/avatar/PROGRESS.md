@@ -56,7 +56,7 @@ Updated 11-27 by the lead.
 | Act from a video: pick layers, what it follows, read into keyframes, Bake / Keep as driver, lips from a sound layer | 8 | ✅ landed (cloud-compiled; engine 50 checks); no phone run | slice 2 (cloud) |
 | The performing pop-up on the timeline | 5 | ✅ landed (room's PerformPanel + Mic via X4); no joystick yet (the room has none) | slice 2 (cloud) |
 | **Slice 3: scenes** | | | |
-| Scene file and clock, the camera lane | 3 | ⬜ | after slice 1 |
+| Scene file and clock, the camera lane | 3 | 🟡 built, landing now: `avatar/scene/` (`Scene` + undo, `SceneGeometry`, `SceneClock` with passes, shots, camera lane; `SceneFile` read / write with takes, carried characters, pictures); `run-avatar-scene.sh` 53 checks, 6 planted faults caught, numbers matched to the pilot (depth, frames, Topps placement, camera clamp) | slice 3 |
 | Path tabs, the chair, the frame, the strip | 5 | ⬜ | after slice 1 |
 | The scene on the four stages; the empty scene | 3 | ⬜ | after slice 1 |
 | Several characters, shots, walking on and off, the joystick in a scene | 8 | ⬜ | after slice 1 |

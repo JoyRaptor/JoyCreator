@@ -56,6 +56,11 @@ class SelectController(
         fun newLineId(): String
         /** Copy selected lines and their frozen brushes into the in-app session clipboard. */
         fun copySelection(selection: SelectionState.Selection)
+        /**
+         * Cut: copy the selected lines, then delete them as ONE undo step (owner rule: one press, one step; before
+         * 11-27 it took Copy then Delete, two presses to undo). The copy itself writes no step.
+         */
+        fun cutSelection(selection: SelectionState.Selection) {}
         /** K8/K22: strip width, colour and brush affect selected lines; pulse their selection rings briefly on entry. */
         fun restyleRing(on: Boolean, pulse: Boolean)
         /** K18/Q2: the shelf choice, persisted by the host. */
@@ -448,6 +453,7 @@ class SelectController(
             kit.label(t, label)
             list.addView(t)
         }
+        if (s is SelectionState.Lines) item(JbIcon.CUT, "Cut", "Cut: copy the selected lines and take them away, ready to paste") { app.cutSelection(s) }
         if (s is SelectionState.Lines) item(JbIcon.PAPERCLIP, "Copy", "Copy the selected lines for pasting in this drawing or another") { app.copySelection(s) }
         if (LineSelectionClipboard.hasLines) item(JbIcon.PAPERCLIP, "Paste", "Paste the copied editable lines onto this layer") { pasteLines() }
         if (host.canAdjustColour) item(JbIcon.ADJUST, "Adjust colour", "Adjust colour: hue, saturation and brightness") { showAdjust(anchor) }
@@ -606,6 +612,7 @@ class SelectController(
         override fun add(on: Boolean) { tool.addArmed = on; refresh() }
         override fun ringSize(dp: Float) { tool.nudgeRadiusDp = dp; overlay.invalidate() }
         override fun backToBox() { tool.nudging = false; refresh() }
+        override fun done() { tool.end() }
     }
 
     private companion object {

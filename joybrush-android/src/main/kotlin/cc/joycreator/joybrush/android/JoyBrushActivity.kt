@@ -246,6 +246,8 @@ private const val WHEEL_DP = 176
 
 /** The brush size slider runs 0..SIZE_STEPS on a log scale from the smallest brush to the largest. */
 private const val SIZE_STEPS = 1000
+/** No brush reads a paint selection as a clip yet (SELECT_PIXELS P2+): a stroke then ends it, so the ants never lie. */
+private const val PAINT_CLIP_WIRED = false
 
 /** What "Open…" accepts: a Joy Brush drawing, and the two types a provider gives one it does not know. */
 private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "application/octet-stream")
@@ -3657,8 +3659,15 @@ class JoyBrushActivity : Activity() {
 
         override fun newLineId(): String = host.newLineId()
 
-        override fun copySelection(selection: SelectionState.Selection) {
-            val lines = selection as? SelectionState.Lines ?: run { selectUi.say("Paint selections can't be copied yet."); return }
+        override fun copySelection(selection: SelectionState.Selection) = copyLines(selection, cut = false)
+
+        override fun cutSelection(selection: SelectionState.Selection) = copyLines(selection, cut = true)
+
+        /** Copy (and for [cut], then delete the same lines as one step, only once the copy is safely held). */
+        private fun copyLines(selection: SelectionState.Selection, cut: Boolean) {
+            val lines = selection as? SelectionState.Lines ?: run {
+                selectUi.say(if (cut) "Paint selections can't be cut yet." else "Paint selections can't be copied yet."); return
+            }
             val selected = host.visibleLines().filter { it.address in lines.ids }
             if (selected.size != lines.ids.size) { selectUi.say("Those lines changed. Tap again to choose."); return }
             val sourceCanvas = canvas
@@ -3673,9 +3682,17 @@ class JoyBrushActivity : Activity() {
                     return@requestLineCopy
                 when (result) {
                     is cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Ready -> {
-                        if (LineSelectionClipboard.accept(result.payload))
+                        if (!LineSelectionClipboard.accept(result.payload)) {
+                            selectUi.say(if (cut) "Those lines couldn't be cut. Nothing was taken away." else "Those lines couldn't be copied.")
+                        } else if (!cut) {
                             selectUi.say("Lines copied. Tap Paste in Select settings or More.")
-                        else selectUi.say("Those lines couldn't be copied.")
+                        } else {
+                            // Delete only the lines that were copied, and only if they are still the selection.
+                            if (cc.joycreator.joybrush.android.select.SelectionSync.cutAfterCopy(
+                                    this@JoyBrushActivity.selection?.tool, lines.ids))
+                                selectUi.say("Lines cut. Tap Paste in Select settings or More.")
+                            else selectUi.say("Lines copied, but they changed, so nothing was taken away.")
+                        }
                     }
                     is cc.joycreator.joybrush.androidkit.lines.LineCopyResult.Refused -> selectUi.say(result.message)
                 }
@@ -3714,9 +3731,14 @@ class JoyBrushActivity : Activity() {
         selection?.tool?.end()
     }
 
-    /** A pen stroke ends a LINE selection (D12); a paint selection stays, for the paint clip. */
+    /**
+     * A pen stroke ends a LINE selection (D12). The spec keeps a PAINT selection so the brush paints only inside it,
+     * but no brush reads that clip yet (SELECT_PIXELS P2+, engine work), so the ants stayed while the stroke went
+     * straight through them: a promise the canvas did not keep. Until the clip is wired, a stroke ends a paint
+     * selection too (11-27). When it is wired, end only [SelectionState.Lines] here again.
+     */
     private fun endLineSelection() {
-        selection?.tool?.let { if (it.selection is SelectionState.Lines) it.end() }
+        selection?.tool?.let { if (it.selection is SelectionState.Lines || !PAINT_CLIP_WIRED) it.end() }
     }
 
     private fun recolourSelection(argb: Int) {

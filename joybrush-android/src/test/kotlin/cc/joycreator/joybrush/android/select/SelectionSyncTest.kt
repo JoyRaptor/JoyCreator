@@ -301,6 +301,42 @@ class SelectionSyncTest {
         assertNotNull(b.tool.boxDoc)
     }
 
+    @Test fun cutDeletesTheCopiedLinesAsOneStepOnlyWhileTheyAreStillTheSelection() {
+        val b = Bench()
+        b.select("a")
+        val copied = (b.tool.selection as SelectionState.Lines).ids
+        assertTrue(SelectionSync.cutAfterCopy(b.tool, copied))
+        val edits = b.rig.canvas.submitted
+        assertEquals("Cut is ONE edit (one undo step)", 1, edits.size)
+        assertNull(b.tool.selection)
+
+        val c = Bench()
+        c.select("a")
+        val stale = (c.tool.selection as SelectionState.Lines).ids
+        c.tool.end(); c.select("b")
+        assertFalse("a cut whose selection changed while copying takes nothing away", SelectionSync.cutAfterCopy(c.tool, stale))
+        assertTrue(c.rig.canvas.submitted.isEmpty())
+        assertEquals(setOf("b"), c.selectedIds())
+        assertFalse(SelectionSync.cutAfterCopy(null, stale))
+    }
+
+    @Test fun aTouchAfterDeleteStillLetsUndoBringTheSelectionBack() {
+        val b = Bench()
+        b.select("a")
+        assertTrue(b.tool.deleteSelection())
+        b.rig.publish(mapOf(planeP to listOf(lineRecord("b", 2, y = 30f)), planeQ to listOf(lineRecord("c", 1, y = 50f))))
+        b.rig.canvas.answer(0, LineEditResult(true))
+        SelectionSync.afterLinesChanged(b.tool, b.rig.host)
+        // A finger lands and lifts on empty paper (a pan starting, say) before Undo is pressed.
+        val t = android.os.SystemClock.uptimeMillis()
+        val down = android.view.MotionEvent.obtain(t, t, android.view.MotionEvent.ACTION_DOWN, 400f, 400f, 0)
+        b.tool.down(down, 0, cc.joycreator.joybrush.core.view.ViewTransform())
+        down.recycle()
+        b.rig.publish(mapOf(planeP to listOf(lineRecord("a", 1), lineRecord("b", 2, y = 30f)), planeQ to listOf(lineRecord("c", 1, y = 50f))))
+        SelectionSync.afterLinesChanged(b.tool, b.rig.host)
+        assertEquals("Undo after a touch still brings the deleted lines back selected (D20)", setOf("a"), b.selectedIds())
+    }
+
     @Test fun anotherDrawingCannotReviveADeletedSelectionEvenWhenAnIdIsReused() {
         val b = Bench()
         b.select("a"); assertTrue(b.tool.deleteSelection())

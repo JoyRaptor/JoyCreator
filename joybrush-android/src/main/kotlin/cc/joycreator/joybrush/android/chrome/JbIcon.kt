@@ -83,7 +83,13 @@ enum class JbIcon(val path: String, private val evenOdd: Boolean = false) {
     /** Paper: a sheet with grain. */
     GROUP_PAPER("M4 4H20V20H4ZM7 7V9.2H9.2V7ZM12 10V12.2H14.2V10ZM15.8 6.5V8.7H18V6.5ZM7.5 14V16.2H9.7V14ZM14.5 15V17.2H16.7V15Z", evenOdd = true),
     /** Feel: a smoothed line. */
-    GROUP_FEEL("M2.5 16.5C7.5 16.5 7.5 7 12.5 7S17.5 11.5 21.5 11.5V14C16.5 14 16.5 9.5 12.5 9.5S9 19 2.5 19Z");
+    GROUP_FEEL("M2.5 16.5C7.5 16.5 7.5 7 12.5 7S17.5 11.5 21.5 11.5V14C16.5 14 16.5 9.5 12.5 9.5S9 19 2.5 19Z"),
+    /** Select's Done: a solid tick (ends the selection). */
+    DONE("M3.4 13.1L5.2 11.3 9.4 15.5 18.8 6.1 20.6 7.9 9.4 19.1Z"),
+    /** Cut: two finger rings (holes by winding) and two crossed blades, all one fill direction. */
+    CUT("M6 14.5A3.5 3.5 0 1 1 6 21.5A3.5 3.5 0 1 1 6 14.5ZM6 16.2A1.8 1.8 0 1 0 6 19.8A1.8 1.8 0 1 0 6 16.2Z" +
+        "M18 14.5A3.5 3.5 0 1 1 18 21.5A3.5 3.5 0 1 1 18 14.5ZM18 16.2A1.8 1.8 0 1 0 18 19.8A1.8 1.8 0 1 0 18 16.2Z" +
+        "M7.6 15.2L16.2 2.8 17.6 3.8 9.2 16.2ZM14.8 16.2L6.4 3.8 7.8 2.8 16.4 15.2Z");
 
     private var parsed: Path? = null
 

@@ -63,4 +63,5 @@ Updated 11-27 by the lead.
 | Exporting a scene; Send to Studio not flattened | 5 | ⬜ | after slice 1 |
 | **Finishing** | | | |
 | Second audit (Codex) and its fixes | 5 | ⬜ | Codex + lead |
+| Android emulator tests on GitHub (`cloud-build.ps1 avatar-emu`: draw parity against the pilot, room smoke with real taps) | 3 | ✅ landed 11-27 | Claude (X2/X3 session) |
 | The phone run: everything on the Note 9, then the owner's look | 5 | ⬜ | lead |

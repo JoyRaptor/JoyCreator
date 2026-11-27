@@ -5,8 +5,10 @@ out=$1
 python=$2
 pkg=com.fadcam.beta
 activity="$pkg/com.fadcam.ui.faditor.export.ExportDebugActivity"
-times=(1233333 1366667 2566667)
+wanted=(1233333 1366666 2566666)
+times=()
 variants=(blur sharp master-off)
+adb() { timeout --kill-after=5s 30s adb "$@"; }
 test "$(adb -e shell getprop ro.kernel.qemu | tr -d '\r')" = 1
 mkdir -p "$out"
 
@@ -15,12 +17,13 @@ launch() {
     shift
     adb -e shell am force-stop "$pkg"
     adb -e logcat -c
-    adb -e shell am start -W -n "$activity" "$@" | tee "$log"
-    grep -q '^Status: ok' "$log"
+    adb -e shell am start -n "$activity" "$@" 2>&1 | tee "$log"
+    grep -q '^Starting: Intent' "$log"
+    if grep -q '^Error' "$log"; then return 1; fi
 }
 
 play() {
-    local coords x y
+    local coords x y attempt
     for attempt in {1..15}; do
         if coords=$(adb -e shell uiautomator dump /sdcard/stu7-window.xml >/dev/null &&
             adb -e exec-out cat /sdcard/stu7-window.xml | "$python" -c '
@@ -44,7 +47,7 @@ sys.exit(1)'); then
 }
 
 await_log() {
-    local log=$1 pattern=$2 attempts=$3
+    local log=$1 pattern=$2 attempts=$3 attempt
     for ((attempt = 0; attempt < attempts; attempt++)); do
         adb -e logcat -d -s ExportDebug MotionPreviewReadback LaneReadback PuppetMeshParity \
             FxLivePreview FxPreviewGl SpriteBlend ExportManager ExportService AndroidRuntime > "$log"
@@ -66,7 +69,8 @@ for variant in "${variants[@]}"; do
     master_off=false
     if [[ "$variant" == sharp ]]; then enabled=false; fi
     if [[ "$variant" == master-off ]]; then master_off=true; fi
-    for pts in "${times[@]}"; do
+    for index in "${!wanted[@]}"; do
+        if [[ "$variant" == blur ]]; then pts=${wanted[index]}; else pts=${times[index]}; fi
         matched=false
         for attempt in {1..5}; do
             prefix="$folder/preview-$pts-$attempt"
@@ -75,18 +79,28 @@ for variant in "${variants[@]}"; do
                 --ez open_preview true --el motion_preview_readback_us "$pts"
             play
             if await_log "$prefix.log" 'frame=motion_preview_[0-9]+\.png' 10 &&
-                grep -q "frame=motion_preview_$pts.png editorUs=$pts " "$prefix.log" &&
                 grep -q 'LANE_PREVIEW ordered' "$prefix.log"; then
-                if [[ "$variant" == blur ]] && ! grep -q "PuppetMeshParity: preview editorUs=$pts " "$prefix.log"; then
+                actual=$(sed -nE 's/.*frame=motion_preview_[0-9]+\.png editorUs=([0-9]+) .*/\1/p' "$prefix.log" | tail -1)
+                if [[ ! "$actual" =~ ^[0-9]+$ ]]; then continue; fi
+                # Select the Android decoder's real microsecond timestamp once, then match it
+                # exactly in both controls and every export. Allow floor or nearest rounding
+                # only while selecting the nominal 30fps frame.
+                if [[ "$variant" == blur ]]; then
+                    if (( actual < pts || actual > pts + 1 )) ||
+                        ! grep -q "PuppetMeshParity: preview editorUs=$actual " "$prefix.log"; then
+                        continue
+                    fi
+                    times+=("$actual")
+                elif [[ "$actual" != "$pts" ]]; then
                     continue
                 fi
                 if [[ "$variant" != blur ]] && grep -q 'PuppetMeshParity: preview' "$prefix.log"; then
                     echo "$variant unexpectedly ran the authored shutter in preview"
                     exit 1
                 fi
-                cp "$prefix.log" "$folder/preview-$pts.log"
-                adb -e exec-out run-as "$pkg" cat "cache/motion_preview_$pts.png" > "$folder/preview-$pts.png"
-                test -s "$folder/preview-$pts.png"
+                cp "$prefix.log" "$folder/preview-$actual.log"
+                adb -e exec-out run-as "$pkg" cat "cache/motion_preview_$actual.png" > "$folder/preview-$actual.png"
+                test -s "$folder/preview-$actual.png"
                 matched=true
                 break
             fi

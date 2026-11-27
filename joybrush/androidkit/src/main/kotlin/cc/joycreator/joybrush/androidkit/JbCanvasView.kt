@@ -3760,7 +3760,20 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
     /** Bench: forget what the canvas remembers of its tiles (the next [snapshotSparse] reads everything). */
     fun benchForgetSeenTiles() = onGl { seenTiles.clear() }
 
-    private fun readContentsSparse(w: Int, h: Int, sparse: Int): cc.joycreator.joybrush.androidkit.io.SparseContents {
+    // ── JBX-36 S2: the changed-tiles autosave, streamed ──
+    private val streamZeros = HashMap<Int, ByteArray>()
+    private val streamMarks = HashMap<Int, ByteArray>()
+    /** A tile of [n] bytes that is all zero (blank), and one that is not: what the snapshot is given for a frozen tile. */
+    private fun zeroStandIn(n: Int) = streamZeros.getOrPut(n) { ByteArray(n) }
+    private fun markStandIn(n: Int) = streamMarks.getOrPut(n) { ByteArray(n).also { it[0] = 1 } }
+    private val blankPicturePrint by lazy { cc.joycreator.joybrush.core.paint.TileFingerprint.ofBytes(ByteArray(TILE_BYTES)) }
+    private val blankStorePrints = HashMap<Int, cc.joycreator.joybrush.core.paint.TileFingerprint.Print>()
+    private fun blankStorePrint(n: Int) = blankStorePrints.getOrPut(n) { cc.joycreator.joybrush.core.paint.TileFingerprint.ofHalves(ByteArray(n)) }
+
+    /** Bench: the batch size of a streamed save (about this many bytes of tiles read back per GL task). */
+    @Volatile var streamBatchBytes: Long = 16L shl 20
+
+    private fun readContentsSparse(w: Int, h: Int, sparse: Int, mayStream: Boolean = true): cc.joycreator.joybrush.androidkit.io.SparseContents {
         if (engine.hasJointPaintPublication) throw JbArchiveException(
             "This recorded drawing needs its physical-source save connection; your previous save is kept")
         val readBegan = android.os.SystemClock.elapsedRealtime()
@@ -3803,6 +3816,14 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 seenTiles.keys.retainAll(prints.keys)
                 printMs=android.os.SystemClock.elapsedRealtime()-began
             }
+            // JBX-36 S2: the changed-tiles autosave, with the switch on, copies the tiles it must read on the graphics chip
+            // and reads the copies back a batch at a time while the save writes them; blank or not is told by the tile's
+            // fingerprint (a blank tile's is the fingerprint of zeros), so the document is settled here without the bytes.
+            val stream=mayStream && sparse == 1 && cc.joycreator.joybrush.androidkit.io.ArchiveCarrying.streamTiles && prints.isNotEmpty()
+            val freezeAsks=ArrayList<GlPaintEngine.TileAsk>()
+            val freezeKeys=ArrayList<Any>()
+            var frozenCount=0
+            fun name(key: Long)=DocOps.key(Tiles.tx(key),Tiles.ty(key))
             var readBack=0
             fun note(id: Any,bytes: ByteArray?): ByteArray? {
                 readBack++
@@ -3816,17 +3837,64 @@ class JbCanvasView(context: Context) : GLSurfaceView(context), UnibrushCanvasPor
                 val was=seenTiles[id] ?: return null
                 return if(was.print==print) BoardSnapshot.Seen(was.blank,cc.joycreator.joybrush.androidkit.io.Unread(was.size,print)) else null
             }
+            /** A tile the streamed save will freeze: its stand-in now, its bytes later. Null print: read now, as before. */
+            fun frozen(id: Any,final: Any,size: Int,blank: cc.joycreator.joybrush.core.paint.TileFingerprint.Print,alwaysListed: Boolean,
+                       ask: ()->GlPaintEngine.TileAsk,readNow: ()->ByteArray?): ByteArray? {
+                val print=prints[id] ?: return note(id,readNow())
+                val isBlank=print==blank
+                seenTiles[id]=SeenTile(print,size,isBlank)
+                if(isBlank && !alwaysListed) return zeroStandIn(size)
+                freezeAsks.add(ask()); freezeKeys.add(final); frozenCount++
+                return if(isBlank) zeroStandIn(size) else markStandIn(size)
+            }
             val made=BoardSnapshot.captureSparse(current,
                 mediaKeys=mediaKeys,
-                mediaRead={layer,cel,store,key->note(MediaTileKey(layer,cel,key.toString(),store),engine.readMediaTile(layer,store,key,engine.mediaPlaneOfCel(layer,cel)))},
+                mediaRead={layer,cel,store,key->
+                    val plane=engine.mediaPlaneOfCel(layer,cel)
+                    val id=MediaTileKey(layer,cel,key.toString(),store)
+                    if(!stream) note(id,engine.readMediaTile(layer,store,key,plane)) else {
+                        val n=MediaStores.tileBytes(cc.joycreator.joybrush.core.doc.TILE_SIZE,store)
+                        frozen(id,MediaTileKey(layer,cel,name(key),store),n,if(store==MediaStores.GROUND) blankPicturePrint else blankStorePrint(n),false,
+                            { GlPaintEngine.TileAsk.media(layer,store,key,plane) }) { engine.readMediaTile(layer,store,key,plane) }
+                    }
+                },
                 keys=keys, read={layer,cel,key->
                     val mask=current.layers.first{it.id==layer}.mask
-                    note(Triple(layer,cel,key),if(mask?.id==cel)engine.readTile(maskStoreId(layer),key) else engine.readCelTile(layer,cel,key))
+                    val isMask=mask?.id==cel
+                    val id=Triple(layer,cel,key)
+                    if(!stream) note(id,if(isMask)engine.readTile(maskStoreId(layer),key) else engine.readCelTile(layer,cel,key))
+                    // A mask tile is listed blank or not (a zero mask hides its area), so it is always frozen.
+                    else frozen(id,Triple(layer,cel,name(key)),TILE_BYTES,blankPicturePrint,isMask,
+                        { if(isMask) GlPaintEngine.TileAsk.store(maskStoreId(layer),key) else GlPaintEngine.TileAsk.cel(layer,cel,key) }) {
+                        if(isMask)engine.readTile(maskStoreId(layer),key) else engine.readCelTile(layer,cel,key) }
                 },paper=documentPaperState,
                 seen={layer,cel,key->known(Triple(layer,cel,key))},
                 mediaSeen={layer,cel,store,key->known(MediaTileKey(layer,cel,key.toString(),store))},
                 print={layer,cel,key->prints[Triple(layer,cel,key)]},
                 mediaPrint={layer,cel,store,key->prints[MediaTileKey(layer,cel,key.toString(),store)]})
+            if(stream && freezeAsks.isNotEmpty()) {
+                val freezeBegan=android.os.SystemClock.elapsedRealtime()
+                // No graphics memory for the copies: read the old way, in this same task.
+                val ice=engine.freezeTiles(freezeAsks) ?: return readContentsSparse(w,h,sparse,mayStream=false)
+                val index=HashMap<Any,Int>(freezeKeys.size*2).apply { freezeKeys.forEachIndexed { i,k -> put(k,i) } }
+                val held=HashMap<Any,ByteArray>()
+                val sizes=HashMap<Any,Int>(freezeKeys.size*2)
+                for((k,v) in made.contents.tiles) if(k in index) sizes[k]=v.size else held[k]=v
+                for((k,v) in made.contents.mediaTiles) if(k in index) sizes[k]=v.size else held[k]=v
+                val order=ArrayList<Any>(made.contents.tiles.size+made.contents.mediaTiles.size)
+                made.contents.tiles.keys.sortedWith(JbArchive.TILE_ORDER).forEach { order.add(it) }
+                made.contents.mediaTiles.keys.sortedWith(JbArchive.MEDIA_ORDER).forEach { order.add(it) }
+                val source=cc.joycreator.joybrush.androidkit.io.BatchedTileSource(order,sizes,held,streamBatchBytes,
+                    post={ work -> onGl(allowLost=true){ work() } },
+                    read={ k -> ice.take(index.getValue(k)) },
+                    drop={ ice.dropAll() },
+                    alive={ !closing && !viewPaused && !surfaceGone })
+                lastSparseReport="${prints.size} tiles asked, $readBack read back now, $frozenCount frozen for a streamed save in ${android.os.SystemClock.elapsedRealtime()-freezeBegan} ms, " +
+                    "${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, the lost-tile check $repairMs ms, " +
+                    "${android.os.SystemClock.elapsedRealtime()-readBegan} ms in all on the graphics thread"
+                return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents.copy(tiles=source.pictures,mediaTiles=source.media)),
+                    made.tiles,made.mediaTiles,made.tilePrints,made.mediaPrints,streamed=true)
+            }
             if(sparse == 1 || sparse == 2) lastSparseReport="${prints.size} tiles asked, $readBack read back, ${made.tiles.size+made.mediaTiles.size} taken as they were, fingerprints $printMs ms, " +
                 "the lost-tile check $repairMs ms, ${android.os.SystemClock.elapsedRealtime()-readBegan} ms in all on the graphics thread"
             return cc.joycreator.joybrush.androidkit.io.SparseContents(withLines(made.contents),made.tiles,made.mediaTiles,made.tilePrints,made.mediaPrints)

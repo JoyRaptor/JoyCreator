@@ -115,6 +115,11 @@ class SparseContents(
     val mediaTiles: Map<MediaTileKey, Unread> = emptyMap(),
     val tilePrints: Map<Triple<String, String, String>, cc.joycreator.joybrush.core.paint.TileFingerprint.Print> = emptyMap(),
     val mediaPrints: Map<MediaTileKey, cc.joycreator.joybrush.core.paint.TileFingerprint.Print> = emptyMap(),
+    /**
+     * The tiles with bytes are a stream read back while the save writes them (JBX-36 S2): they can be taken once, by the
+     * save, and are gone after it. Nothing else (a thumbnail) may read [contents]' tiles.
+     */
+    val streamed: Boolean = false,
 ) {
     /** Every tile has its bytes: [contents] is the whole drawing. */
     val whole: Boolean get() = tiles.isEmpty() && mediaTiles.isEmpty()
@@ -228,10 +233,10 @@ object JbArchive {
     private const val MAX_TOTAL_BYTES = 1024L * 1024 * 1024
     private const val CHUNK = 8 * 1024
 
-    private val TILE_ORDER = compareBy<Triple<String, String, String>>({ it.first }, { it.second }, { it.third })
+    internal val TILE_ORDER = compareBy<Triple<String, String, String>>({ it.first }, { it.second }, { it.third })
     private val CEL_ORDER = compareBy<Pair<String, String>>({ it.first }, { it.second })
     private val SLAB_ORDER = compareBy<SlabKey>({ it.layerId }, { it.celId }, { it.key }, { it.seq })
-    private val MEDIA_ORDER = compareBy<MediaTileKey>({ it.layerId }, { it.celId }, { it.key }, { it.store })
+    internal val MEDIA_ORDER = compareBy<MediaTileKey>({ it.layerId }, { it.celId }, { it.key }, { it.store })
     private val MEDIA_TILE_BYTES = MediaStores.tileBytes(TILE_SIZE)
     /** A ground tile's name ends `.g.rgba`: checked before the paint tile's `.rgba`, which it also ends with. */
     private val GROUND_SUFFIX = ".${MediaStores.GROUND}${MediaStores.GROUND_EXT}"
@@ -244,11 +249,17 @@ object JbArchive {
      * old file or the new one — and if the last rename fails, the old one is put back and the
      * message says where it went.
      */
-    fun save(file: File, contents: JbContents) = atomicWrite(file) { write(it, contents) }
+    fun save(file: File, contents: JbContents) = ended(contents) { atomicWrite(file) { write(it, contents) } }
 
     /** Optional full PNG decode admission, supplied by the platform/runtime resource boundary. */
     fun save(file: File, contents: JbContents, pngVerifier: FrozenBrushAssets.PngVerifier) =
-        atomicWrite(file) { write(it, contents, pngVerifier) }
+        ended(contents) { atomicWrite(file) { write(it, contents, pngVerifier) } }
+
+    /** Runs a save of [contents] and then tells its streamed tile maps ([TileStream.finished]) that it ended, whichever way. */
+    private inline fun <T> ended(contents: JbContents, save: () -> T): T = try { save() } finally {
+        (contents.tiles as? TileStream<*>)?.finished()
+        (contents.mediaTiles as? TileStream<*>)?.finished()
+    }
 
     /** Already validated/saved source, copied without inflating or recompressing its paint tiles. */
     internal fun copySaved(source: File, file: File) = atomicWrite(file) { out ->
@@ -632,7 +643,7 @@ object JbArchive {
      */
     fun saveCarrying(file: File, contents: JbContents, memo: SaveMemo?): SaveMemo {
         var made: SaveMemo? = null
-        atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo, emptyMap(), emptyMap()) }
+        ended(contents) { atomicWrite(file) { out -> made = writeCarrying(out, contents, file, memo, emptyMap(), emptyMap()) } }
         val m = made ?: throw JbArchiveException("could not save ${file.name}")
         return SaveMemo(file.path, file.length(), file.lastModified(), m.raw, m.packed, m.carried, m.fresh)
     }
@@ -699,7 +710,9 @@ object JbArchive {
      * file stays, and the caller saves the whole drawing. The fingerprints given for tiles that came with bytes are
      * remembered in the memo returned.
      */
-    fun saveCarrying(file: File, sparse: SparseContents, memo: SaveMemo?): SaveMemo {
+    fun saveCarrying(file: File, sparse: SparseContents, memo: SaveMemo?): SaveMemo = ended(sparse.contents) { saveSparse(file, sparse, memo) }
+
+    private fun saveSparse(file: File, sparse: SparseContents, memo: SaveMemo?): SaveMemo {
         if (!sparse.whole && memo == null) throw JbArchiveNeedsBytes("no earlier save of ${file.name} is remembered")
         val unread = HashMap<String, Unread>(sparse.tiles.size + sparse.mediaTiles.size)
         // Stand-ins of the right size so the document is checked against every tile as always. They are never written:

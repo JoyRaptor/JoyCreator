@@ -9,14 +9,13 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Which {@link CharacterPoser} Studio draws characters with: {@link RestPoser} until the solver port installs the real
- * one, once, at start-up. The solver session gives the room's {@code StageView.setRendererFactory} and Studio the same
- * {@link PoseRenderer} factory ({@link #install(Function)}), so one drawing serves the room, Studio's preview and its
- * export.
+ * Which {@link CharacterPoser} Studio draws characters with: {@link SolverPoser}, the room's own solver and GPU drawing
+ * (X2 + X3, 11-27), falling back to the standing {@link RestPoser} where the GPU cannot draw off screen. A test or a
+ * later engine can still {@link #install} another.
  */
 public final class CharacterPosers {
-    private static volatile CharacterPoser.Factory factory = RestPoser::new;
-    private static volatile boolean real;
+    private static volatile CharacterPoser.Factory factory = SolverPoser::new;
+    private static volatile boolean real = true;
 
     private CharacterPosers() {}
 

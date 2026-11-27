@@ -20,11 +20,11 @@ on:
         required: true
         default: joy-creator
       tests:
-        description: "all, draw (AvatarDrawParityTest) or room (AvatarRoomSmokeTest)"
+        description: "all, draw (AvatarDrawParityTest), room (AvatarRoomSmokeTest) or face (AvatarFaceReplayTest: his face take in the room)"
         required: false
         default: all
       fault:
-        description: "Planted fault to prove the tests can fail: none, or shift (one piece drawn 2 px off)"
+        description: "Planted fault to prove the tests can fail: none, shift (one piece drawn 2 px off), or flip (the face test plays his head turns the other way round)"
         required: false
         default: none
       device:
@@ -197,7 +197,8 @@ jobs:
           case "$TESTS" in
             draw) CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest ;;
             room) CLASSES=cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
-            *)    CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest ;;
+            face) CLASSES=cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
+            *)    CLASSES=cc.joycreator.avatar.emu.AvatarDrawParityTest,cc.joycreator.avatar.emu.AvatarRoomSmokeTest,cc.joycreator.avatar.emu.AvatarFaceReplayTest ;;
           esac
           ARGS=(-e class "$CLASSES" -e msaa "$MSAA")
           [ "$FAULT" != none ] && ARGS+=(-e fault "$FAULT")

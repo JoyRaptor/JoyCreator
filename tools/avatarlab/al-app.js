@@ -660,6 +660,7 @@
   app.refreshPanel = function (keepScroll) {
     var pb = $('panelbody'), sc = pb.scrollTop;
     if (app.fpMode && AL.facepins && AL.facepins.panel) { AL.facepins.panel(app); if (keepScroll) pb.scrollTop = sc; return; }   // FACE-1: the Face pins screen
+    if (app.maskMode && AL.maskScreen) { AL.maskScreen.panel(app); if (keepScroll) pb.scrollTop = sc; return; }   // FACE-2: the face mask screen
     app.pinProvider = null; app.padDraw = null; app.padDraws = [];
     if (AL.stages) AL.stages.before(app);
     if (app.mode === 'perform') AL.perform.render(app); else AL.cards.render(app);

@@ -140,6 +140,11 @@ public class ExportDebugActivity extends Activity {
             in.putExtra("project_id", fixture.getId());
             FLog.i(TAG, "C2 pip fixture enabled=" + enabled);
         }
+        if (in.getBooleanExtra("txt_transfer_fixture", false)) {
+            FaditorProject fixture = TitleTransferFixture.create(this);
+            in.putExtra("project_id", fixture.getId());
+            FLog.i(TAG, "TXT-TRANSFER title fixture project_id=" + fixture.getId());
+        }
         if (in.getBooleanExtra("motion_route_fixture", false)) {
             FaditorProject fixture = MotionRouteFixture.create(this);
             in.putExtra("project_id", fixture.getId());

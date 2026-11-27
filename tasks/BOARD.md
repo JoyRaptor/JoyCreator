@@ -282,3 +282,5 @@ disk; the owner knows which is which.
 "JoyBot specialist" sessions → BOT-1 · "Fix stale slide preview after snapshot undo" → STU-2 ·
 "Studio undo history drops steps after export" → STU-1 · "Background and canvas paper textures" and
 "Realistic brush engines" → JoyBrush roadmap.
+
+- 11-26 STU-7 → Joybot lane: preparing a C7-only integration check for the existing 0c995b4a9 Motion Blur help and tip behind its launch key. The isolated branch is codex/stu7-c7-gated-help-20261126. No Joybot worktree or existing claim is changed. The new entries remain hidden while release checks are open.

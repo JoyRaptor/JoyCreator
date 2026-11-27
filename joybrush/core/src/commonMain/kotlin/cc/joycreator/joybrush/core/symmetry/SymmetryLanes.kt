@@ -294,7 +294,9 @@ object SymmetryLanes {
      * and paste and cannot be run twice on the same sample. The engine makes the lane's own
      * spline and its own wet, dry or paste builder from them.
      *
-     * Every lane shares ONE seed: the copies are the same brush (the owner).
+     * The seeds follow the guide's `symmetric`, exactly as the stamp lanes' do
+     * ([seedFor]): with it on every lane keeps the SAME seed (the copies are the same brush);
+     * with it off every lane gets its own, so each copy's texture and jitter are its own.
      */
     fun buildMedia(guide: Guide.Symmetry, family: SymmetryFamily, seed: Long): MediaLaneSet {
         val copies = SymmetryMath.copies(guide)
@@ -302,8 +304,8 @@ object SymmetryLanes {
         val limit = copyCapFor(family)
         val kept = copies.take(limit)
         val lanes = ArrayList<MediaLane>(kept.size + 1)
-        lanes.add(MediaLane(null, seed, guide.symmetric))
-        for (copy in kept) lanes.add(MediaLane(copy, seed, guide.symmetric))
+        lanes.add(MediaLane(null, seedFor(guide, 0, seed), guide.symmetric))
+        for ((i, copy) in kept.withIndex()) lanes.add(MediaLane(copy, seedFor(guide, i + 1, seed), guide.symmetric))
         return MediaLaneSet(lanes, requested, family, limit)
     }
 

@@ -48,6 +48,9 @@ object MediaSafety {
     /** The refusal, in the owner's words (2026-10-19). */
     const val REFUSAL = "This is the largest area your device can safely paint with this brush."
 
+    /** The media eraser's refusal while a symmetry guide is active: it copies nothing, so it is refused. */
+    const val ERASER_REFUSAL = "Symmetry is not available for the media eraser."
+
     /** The pinned window's top-left tile for a symmetry centre at ([cx], [cy]). */
     fun pinnedTile(cx: Double, cy: Double): Pair<Int, Int> = MediaWindowMath.placeForRounded(cx, cy)
 
@@ -103,5 +106,38 @@ object MediaSafety {
         if (!x.isFinite() || !y.isFinite()) return false
         if (!cx.isFinite() || !cy.isFinite()) return false
         return hypot(x - cx, y - cy) <= radius
+    }
+}
+
+/**
+ * The safe zone as ONE media stroke lives it: the circle about the symmetry centre, and the ONE
+ * sentence a sample dropped outside it gets.
+ *
+ * A sample outside the zone is not refused for the whole stroke: it is DROPPED (with all its
+ * copies) and the stroke goes on, so the inside parts keep painting. The sentence is said once per
+ * stroke - [refusal] returns it the first time only - and it never latches: [admits] answers each
+ * sample on its own.
+ */
+class MediaZoneGate(
+    /** The symmetry centre, in document px. */
+    val cx: Double,
+    /** The symmetry centre, in document px. */
+    val cy: Double,
+    /** The safe radius of [MediaSafety.safeRadius], in document px. */
+    val radius: Double,
+) {
+    private var said = false
+
+    /** True when ([x], [y]) is inside the zone: the sample (and every copy of it) may be painted. */
+    fun admits(x: Double, y: Double): Boolean = MediaSafety.insideZone(cx, cy, radius, x, y)
+
+    /**
+     * The sentence for a dropped sample: [MediaSafety.REFUSAL] the first time, null afterwards. A
+     * second sample outside the same stroke is dropped in silence; the person has already heard it.
+     */
+    fun refusal(): String? {
+        if (said) return null
+        said = true
+        return MediaSafety.REFUSAL
     }
 }

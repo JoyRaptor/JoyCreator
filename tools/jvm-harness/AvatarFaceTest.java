@@ -297,11 +297,53 @@ public class AvatarFaceTest {
                         && "puff".equals(FaceDrive.ownerOf("face.cheekPuff")) && wrote.contains("puff") && !wrote.contains("facepins"),
                 "a pass with Puff held records the puff and nothing else of the face (" + wrote + ")");
 
+        // ── Check directions (the pilot's five moves): on a camera that hands the picture over mirrored, the moves come in
+        //    reversed; once checked, his right turn turns the head the same way as on a normal phone ──
+        double plain = dirsRun(false, false), fixedUp = dirsRun(true, true), unfixed = dirsRun(true, false);
+        check(Math.signum(plain) > 0 && Math.signum(unfixed) < 0 && Math.signum(fixedUp) == Math.signum(plain),
+                "Check directions: on a mirrored camera his right turn ran the wrong way (" + r(unfixed) + "); after the five moves it runs as on a normal phone (" + r(fixedUp) + " vs " + r(plain) + ")");
+        check(dirsAnswered == 4, "a move not made within eight seconds keeps its old direction, the rest are set (" + dirsAnswered + " of 5)");
+
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);
     }
 
     /** A lane's value; a missing lane is NaN, so every comparison with it fails. */
+    static int dirsAnswered;
+
+    /** A face stage on a camera that may hand the picture over mirrored; optionally the five moves first (the fourth, lean,
+     *  never made); then a right turn: the head's turnX. */
+    static double dirsRun(boolean mirroredCamera, boolean check) {
+        FaceStage st = new FaceStage();
+        float m = mirroredCamera ? -1f : 1f;
+        double t = 0;
+        for (int i = 0; i < 20; i++, t += 1 / 15.0) st.process(raw(0, 0), t);          // the neutral
+        if (check) {
+            cc.joycreator.avatar.face.DirectionPrompts dp = new cc.joycreator.avatar.face.DirectionPrompts(new cc.joycreator.avatar.face.DirectionPrompts.Face() {
+                public void check(String what) { st.startDirectionCheck(what); }
+                public FaceCalibration.DirectionCheck last() { return st.lastDirectionCheck(); }
+            });
+            long now = 0;
+            dp.start(now);
+            for (int i = 0; i < 15 * 60 && dp.running(); i++, t += 1 / 15.0, now += 66_666_667L) {
+                Map<String, Float> f = raw(0, 0);
+                String what = cc.joycreator.avatar.face.DirectionPrompts.STEPS[dp.prompt()];
+                if (what.equals(FaceCalibration.HEAD_YAW)) f.put(FaceCalibration.HEAD_YAW, 3f + 20f * m);        // turning to his right
+                if (what.equals(FaceCalibration.HEAD_PITCH)) f.put(FaceCalibration.HEAD_PITCH, 8f + 20f);       // looking down
+                if (what.equals(FaceCalibration.HEAD_ROLL)) f.put(FaceCalibration.HEAD_ROLL, 20f * m);          // tilting to his right
+                if (what.equals("eye")) { f.put(mirroredCamera ? "eyeBlinkRight" : "eyeBlinkLeft", 0.9f); }   // his right eye shut
+                st.process(f, t);
+                dp.step(now);                                                              // (lean: not made, times out)
+            }
+            dirsAnswered = dp.answered();
+        }
+        Map<String, Float> out = null;
+        Map<String, Float> turn = raw(0, 0);
+        turn.put(FaceCalibration.HEAD_YAW, 3f + 25f * m);                                  // he turns to his right
+        for (int i = 0; i < 20; i++, t += 1 / 15.0) out = st.process(turn, t);
+        return out.get("turnX");
+    }
+
     static double gl(Map<String, Double> m, String k) {
         Double v = m == null ? null : m.get(k);
         return v == null ? Double.NaN : v;

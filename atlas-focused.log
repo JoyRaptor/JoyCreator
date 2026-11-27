@@ -1,0 +1,31 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+Calculating task graph as no cached configuration is available for tasks: :joybrush:androidkit:test --tests cc.joycreator.joybrush.androidkit.io.*
+> Task :joybrush:androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:compileKotlinJvm UP-TO-DATE
+> Task :joybrush:core:compileJvmMainJava NO-SOURCE
+> Task :joybrush:core:jvmProcessResources NO-SOURCE
+> Task :joybrush:core:processJvmMainResources SKIPPED
+> Task :joybrush:core:jvmMainClasses UP-TO-DATE
+> Task :joybrush:core:jvmJar UP-TO-DATE
+> Task :joybrush:androidkit:compileKotlin
+w: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt:329:60 Condition is always 'true'.
+w: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/JbArchive.kt:580:37 Condition is always 'true'.
+
+> Task :joybrush:androidkit:compileJava NO-SOURCE
+> Task :joybrush:androidkit:processResources UP-TO-DATE
+> Task :joybrush:androidkit:classes UP-TO-DATE
+> Task :joybrush:androidkit:jar
+> Task :joybrush:androidkit:compileTestKotlin
+w: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlJointPaintHistoryTest.kt:292:57 Unchecked cast of 'Any!' to 'HashMap<Long, Int>'.
+
+> Task :joybrush:androidkit:compileTestJava NO-SOURCE
+> Task :joybrush:androidkit:processTestResources NO-SOURCE
+> Task :joybrush:androidkit:testClasses UP-TO-DATE
+
+> Task :joybrush:androidkit:test
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+BUILD SUCCESSFUL in 4m 32s
+7 actionable tasks: 4 executed, 3 up-to-date
+Configuration cache entry stored.

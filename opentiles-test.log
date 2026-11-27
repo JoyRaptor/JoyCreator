@@ -1,0 +1,50 @@
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+Calculating task graph as configuration cache cannot be reused because file 'settings.gradle.kts' has changed.
+> Task :joybrush:androidkit:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :joybrush:core:compileKotlinJvm
+> Task :joybrush:core:compileJvmMainJava NO-SOURCE
+> Task :joybrush:core:jvmProcessResources NO-SOURCE
+> Task :joybrush:core:processJvmMainResources SKIPPED
+> Task :joybrush:core:jvmMainClasses
+> Task :joybrush:core:jvmJar
+> Task :joybrush:androidkit:compileKotlin
+w: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/JbCanvasView.kt:331:60 Condition is always 'true'.
+w: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/src/main/kotlin/cc/joycreator/joybrush/androidkit/io/JbArchive.kt:759:37 Condition is always 'true'.
+
+> Task :joybrush:androidkit:compileJava NO-SOURCE
+> Task :joybrush:androidkit:processResources
+> Task :joybrush:androidkit:classes
+> Task :joybrush:androidkit:jar
+> Task :joybrush:androidkit:compileTestKotlin
+w: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/src/test/kotlin/cc/joycreator/joybrush/androidkit/gl/GlJointPaintHistoryTest.kt:292:57 Unchecked cast of 'Any!' to 'HashMap<Long, Int>'.
+
+> Task :joybrush:androidkit:compileTestJava NO-SOURCE
+> Task :joybrush:androidkit:processTestResources NO-SOURCE
+> Task :joybrush:androidkit:testClasses UP-TO-DATE
+
+> Task :joybrush:androidkit:test
+Picked up JAVA_TOOL_OPTIONS:  -Djdk.net.unixdomain.tmpdir=C:/Temp
+
+ExportCapabilityTest > frozenBrushOnlyDrawingIsAdmittedByStagedReadAndRecovery FAILED
+    cc.joycreator.joybrush.androidkit.io.JbArchiveException at ExportCapabilityTest.kt:161
+
+LineLifecycleTest > stagedReadRefusesSlabbedDrawingsWithoutChangingOrDeletingStagedBytes FAILED
+    java.lang.AssertionError at LineLifecycleTest.kt:52
+
+1370 tests completed, 2 failed
+
+> Task :joybrush:androidkit:test FAILED
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':joybrush:androidkit:test'.
+> There were failing tests. See the report at: file:///C:/Temp/claude-door2-20261104/joybrush/androidkit/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights.
+
+BUILD FAILED in 6m 2s
+7 actionable tasks: 7 executed
+Configuration cache entry stored.

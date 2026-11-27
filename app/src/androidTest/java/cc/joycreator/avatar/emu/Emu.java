@@ -95,4 +95,112 @@ final class Emu {
     }
 
     static void sleep(long ms) { SystemClock.sleep(ms); }
+
+    /** One touch event at a screen point, through the input system. */
+    static void touch(long downAt, long at, int action, float x, float y) {
+        MotionEvent e = MotionEvent.obtain(downAt, at, action, x, y, 0);
+        e.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        ins().getUiAutomation().injectInputEvent(e, true);
+        e.recycle();
+    }
+
+    /**
+     * A finger put down at (x0, y0), moved to (x1, y1) over {@code moveMs}, kept there {@code holdMs}, then lifted: a
+     * real drag (the head pad, a hand), in screen pixels.
+     */
+    static void drag(float x0, float y0, float x1, float y1, long moveMs, long holdMs) {
+        long t0 = SystemClock.uptimeMillis();
+        touch(t0, t0, MotionEvent.ACTION_DOWN, x0, y0);
+        int steps = Math.max(2, (int) (moveMs / 16));
+        for (int i = 1; i <= steps; i++) {
+            float k = i / (float) steps;
+            SystemClock.sleep(moveMs / steps);
+            touch(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x0 + (x1 - x0) * k, y0 + (y1 - y0) * k);
+        }
+        long end = SystemClock.uptimeMillis() + holdMs;
+        while (SystemClock.uptimeMillis() < end) {     // a held finger keeps reporting where it is
+            SystemClock.sleep(50);
+            touch(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_MOVE, x1, y1);
+        }
+        touch(t0, SystemClock.uptimeMillis(), MotionEvent.ACTION_UP, x1, y1);
+    }
+
+    /**
+     * The first thing on screen, in any window (dialogs and the system's folder picker included), whose words or label
+     * start with {@code text} (any case); waits up to {@code timeoutMs}. Null when nothing showed up.
+     */
+    static android.view.accessibility.AccessibilityNodeInfo find(String text, long timeoutMs) {
+        android.app.UiAutomation ui = ins().getUiAutomation();
+        android.accessibilityservice.AccessibilityServiceInfo info = ui.getServiceInfo();
+        if (info != null && (info.flags & android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS) == 0) {
+            info.flags |= android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS;
+            ui.setServiceInfo(info);
+        }
+        String want = text.toLowerCase(java.util.Locale.ROOT);
+        long end = SystemClock.uptimeMillis() + timeoutMs;
+        do {
+            java.util.List<android.view.accessibility.AccessibilityNodeInfo> roots = new java.util.ArrayList<>();
+            try {
+                for (android.view.accessibility.AccessibilityWindowInfo w : ui.getWindows()) {
+                    if (w.getRoot() != null) roots.add(w.getRoot());
+                }
+            } catch (RuntimeException ignored) {
+            }
+            if (roots.isEmpty() && ui.getRootInActiveWindow() != null) roots.add(ui.getRootInActiveWindow());
+            for (android.view.accessibility.AccessibilityNodeInfo r : roots) {
+                android.view.accessibility.AccessibilityNodeInfo hit = search(r, want);
+                if (hit != null) return hit;
+            }
+            SystemClock.sleep(250);
+        } while (SystemClock.uptimeMillis() < end);
+        return null;
+    }
+
+    private static android.view.accessibility.AccessibilityNodeInfo search(android.view.accessibility.AccessibilityNodeInfo n, String want) {
+        if (n == null) return null;
+        CharSequence t = n.getText(), d = n.getContentDescription();
+        if ((t != null && t.toString().toLowerCase(java.util.Locale.ROOT).startsWith(want))
+                || (d != null && d.toString().toLowerCase(java.util.Locale.ROOT).startsWith(want))) {
+            android.graphics.Rect b = new android.graphics.Rect();
+            n.getBoundsInScreen(b);
+            if (b.width() > 0 && b.height() > 0) return n;
+        }
+        for (int i = 0; i < n.getChildCount(); i++) {
+            android.view.accessibility.AccessibilityNodeInfo hit = search(n.getChild(i), want);
+            if (hit != null) return hit;
+        }
+        return null;
+    }
+
+    /** Taps the thing labelled {@code text} (see {@link #find}); fails the test, naming it, when it never shows. */
+    static void tapText(String text, long timeoutMs) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);
+        if (n == null) throw new AssertionError("nothing on screen says \"" + text + "\"");
+        android.graphics.Rect b = new android.graphics.Rect();
+        n.getBoundsInScreen(b);
+        long t = SystemClock.uptimeMillis();
+        touch(t, t, MotionEvent.ACTION_DOWN, b.exactCenterX(), b.exactCenterY());
+        touch(t, t + 60, MotionEvent.ACTION_UP, b.exactCenterX(), b.exactCenterY());
+        Log.i(TAG, "tapped \"" + text + "\" at " + b.toShortString());
+    }
+
+    /** Where the thing labelled {@code text} is on screen (its middle), or null. */
+    static float[] centreOf(String text, long timeoutMs) {
+        android.view.accessibility.AccessibilityNodeInfo n = find(text, timeoutMs);
+        if (n == null) return null;
+        android.graphics.Rect b = new android.graphics.Rect();
+        n.getBoundsInScreen(b);
+        return new float[] {b.exactCenterX(), b.exactCenterY(), b.width(), b.height()};
+    }
+
+    /** The activity on screen now (resumed), or null. */
+    static android.app.Activity resumed() {
+        android.app.Activity[] a = new android.app.Activity[1];
+        ins().runOnMainSync(() -> {
+            java.util.Collection<android.app.Activity> r = androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance()
+                .getActivitiesInStage(androidx.test.runner.lifecycle.Stage.RESUMED);
+            if (!r.isEmpty()) a[0] = r.iterator().next();
+        });
+        return a[0];
+    }
 }

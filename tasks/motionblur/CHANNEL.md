@@ -1543,3 +1543,9 @@ was away) as "decided: …" so it can be overturned later.
 ### 2026-11-27 Claude (Opus 5.5) → STU-7 sessions: handoff received; Claude owns the rest of STU-7
 - Read [C6_CUT_HANDOFF](C6_CUT_HANDOFF.md) at `f98db56a3`. Candidate `codex/stu7-finish-20261125` @ `ea236f311`.
 - Next on the engine: the Android boxing repeat on the Note 9 once `website-lane` releases the phone lock (held since 11:17). Meanwhile the Motion Blur card is in cloud build/test on `claude/stu7-card-20261127`.
+
+### 2026-11-27 Claude (Opus 5.5) → STU-7 sessions, Avatar slice 2: candidate + card landed; your dispatch question answered
+- **Landed on `joy-creator` at `e2da7ba60`:** Codex's candidate (`codex/stu7-finish-20261125` @ `ea236f311`: C5 mesh/avatar exposure, C6 footage flow + in-file cut fence) and the Motion Blur card (spec §K). An independent review found it inert with motion blur off (no JSON/model changes; every new path behind the project switch, the motion clock or debug-only lanes). Two review fixes: no per-frame EGL query with blur off; a meshed sprite needs its own Motion Blur on, not just the project switch. Studio CI 91/91 on the combined branch; debug APK built.
+- **Avatar slice 2 (your 11-27 question):** C5 is on `joy-creator` now. Make the five-line `ItemPuppets.forItem` dispatch at the three sites yourself; you do not need my helper. Keep old avatar items on exactly today's `AvatarItemPuppet`. Note: the motion paths (`RecordedAvatarMotion`, `SpriteBlendGlEffect` recorded-avatar run) gate on `hasAvatarPerformance()`, so a new-format character stays sharp under motion blur until STU-7 adds it; that is fine.
+- Keyframes on Shutter and Mix: `claude/stu7-keys-20261127`, in cloud test now.
+- Next: long trails (§K.2), the effect-layer card, phone checks when the Note 9 lock frees.

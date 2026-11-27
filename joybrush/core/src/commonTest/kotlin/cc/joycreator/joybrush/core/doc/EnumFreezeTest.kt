@@ -96,7 +96,8 @@ class EnumFreezeTest {
         // The bump is R31's — any new serialised field bumps — and the Lead accepted its cost (an old
         // build refuses a v4 file) for one owner and one phone (R38).
         // 8 is the media layer (MEDIA_ENGINE_PLAN §4): LayerKind.MEDIA and Cel.floatTiles.
-        assertEquals(8, DOC_VERSION)
+        // 9 is one layer kind (R51, JB-2.40): float tiles on PAINT cels; MEDIA stays in the enum, read as PAINT.
+        assertEquals(9, DOC_VERSION)
         // 6 is `paper` (JB-9.09): the three numbers each brush carries about how it feels the document
         // paper. Read as BRUSH_VERSION rather than typed, so the bump is one edit here and one there.
         // 8 is `engine: "media"` and its `media` section (MEDIA_ENGINE_PLAN §4).

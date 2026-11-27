@@ -40,7 +40,8 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
     // handed over by the UI thread
     private volatile JSONObject pendingCharacter;
     private volatile boolean pendingNewPictures;
-    private volatile Map<String, Object> signals = new HashMap<>();
+    private volatile Signals signals = new Signals();
+    private volatile Map<String, double[]> lastAnchor = new HashMap<>(), lastTips = new HashMap<>();
     private volatile Map<String, String> force = new HashMap<>();
     private volatile Map<String, Double> poses = new HashMap<>();
     private volatile boolean live;
@@ -95,12 +96,19 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
         return s;
     }
 
+    /** Where each limb grows from and where each hand is, from the last frame solved (what the walker needs). */
+    public Map<String, double[]> anchors() {
+        return lastAnchor;
+    }
+
+    public Map<String, double[]> tips() {
+        return lastTips;
+    }
+
     /** One frame's worth of everything the drawing needs. */
-    public void frame(Map<String, Object> sig, boolean moving, double seconds, double breathing, double dtSeconds, float scale, float ox, float oy) {
-        signals = sig == null ? new HashMap<>() : sig;
+    public void frame(Signals sig, boolean moving, double dtSeconds, float scale, float ox, float oy) {
+        signals = sig == null ? new Signals() : sig;
         live = moving;
-        clock = seconds;
-        breath = breathing;
         dt = dtSeconds;
         viewS = scale;
         viewX = ox;
@@ -150,7 +158,7 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
                 solver = new CharacterSolver(next, pics);
             }
             if (solver == null) return;
-            Signals s = SignalMap.toSignals(signals, clock, breath);
+            Signals s = signals;
             CharacterSolver.Opt opt = new CharacterSolver.Opt();
             opt.live = live;
             opt.dt = dt;
@@ -159,6 +167,8 @@ public final class SolverStage extends GLSurfaceView implements GLSurfaceView.Re
             Map<String, Double> ps = poses;
             if (!ps.isEmpty()) opt.poses = ps;
             SolveOut out = solver.eval(s, opt);
+            lastAnchor = new HashMap<>(s.anchor);
+            lastTips = new HashMap<>(s.tips);
             gl.draw(out, pics, new CharacterGl.View(viewS, viewX, viewY), null, 0, width, height);
         } catch (RuntimeException e) {
             Log.w(TAG, "the GPU drawing stopped", e);

@@ -196,5 +196,6 @@
     <string name="avatar_hover_guess_mouth">Find the hinge or squash of the mouth again from the pixels</string>
     <string name="avatar_hover_guess_swing">Find the root and tip of this swinging part again from the pixels</string>
     <string name="avatar_step_guess_pins">Guess the pins of %1$s</string>
+    <string name="avatar_hover_export">Export: keep it as a Joy Creator file, a picture or a video</string>
 </resources>
 

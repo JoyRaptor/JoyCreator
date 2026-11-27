@@ -244,8 +244,55 @@ public final class StageView extends View {
         return best;
     }
 
+    /** A finger on the body while performing: it takes the character with it (walking). Coordinates are the character's own. */
+    public interface BodyDrag {
+        /** Does a finger going down here take the body? (Only when the character can travel.) */
+        boolean grab(float x, float y);
+
+        void drag(float x, float y);
+
+        void release();
+    }
+
+    private BodyDrag body;
+    private boolean bodyHeld;
+
+    public void setBodyDrag(BodyDrag b) {
+        body = b;
+        bodyHeld = false;
+    }
+
     @Override
     public boolean onTouchEvent(android.view.MotionEvent e) {
+        if (body != null && marks == null && !picking && e.getPointerCount() == 1) {
+            float bx = (e.getX() - fitX) / fitS, by = (e.getY() - fitY) / fitS;
+            switch (e.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    bodyHeld = body.grab(bx, by);
+                    if (bodyHeld) return true;
+                    break;
+                case android.view.MotionEvent.ACTION_MOVE:
+                    if (bodyHeld) {
+                        body.drag(bx, by);
+                        return true;
+                    }
+                    break;
+                case android.view.MotionEvent.ACTION_UP:
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    if (bodyHeld) {
+                        bodyHeld = false;
+                        body.release();
+                        return true;
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        if (bodyHeld) {                                                  // a second finger came down: let go of the body
+            bodyHeld = false;
+            body.release();
+        }
         scale.onTouchEvent(e);
         if (scale.isInProgress() || e.getPointerCount() > 1) {          // two fingers: zoom and pan, never a drag of a dot
             dragging = null;

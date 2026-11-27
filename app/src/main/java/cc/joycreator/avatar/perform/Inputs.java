@@ -16,7 +16,7 @@ import java.util.Set;
  * <p>Signal names are the take's own lanes (turnX, turnY, roll, mouth, vis, browL, browR, blinkL, blinkR, lidUp, lidLow,
  * lidTilt, wind, and {@code g:<button id>}), so whatever the solver reads from a take it reads from here.</p>
  */
-public final class Inputs {
+public final class Inputs implements Walker.Body {
     /** A mood is three numbers for the lids and one for the brows: {upper lid, tilt, lower lid, brow}. */
     public static final Map<String, double[]> MOODS = new LinkedHashMap<>();
 
@@ -61,10 +61,56 @@ public final class Inputs {
     private final List<String[]> stances = new ArrayList<>(), palettes = new ArrayList<>();   // {id, trig, time, bounce}
     private final Map<String, double[]> poseLevel = new LinkedHashMap<>();                    // id -> {level, velocity}
     private final Map<String, Double> toneLevel = new LinkedHashMap<>();
+    private boolean flipped;                                                                  // the character is turned round (walking the other way)
+    private final Map<String, Double> poseBefore = new LinkedHashMap<>();                     // the stance levels as they were at the start of this frame
     private double babbleAt, babbleHold;
     private int babbleI;
 
     /** The buttons this character has (ids), so their lanes exist in a take. */
+    // ── what the walker asks of the hands ──────────────────────────────────────────────────────────
+
+    @Override
+    public boolean flip() {
+        return flipped;
+    }
+
+    @Override
+    public void setFlip(boolean f) {
+        flipped = f;
+    }
+
+    @Override
+    public void reverseTurn() {
+        turnX = -turnX;
+    }
+
+    @Override
+    public boolean heldHead() {
+        return headHeld;
+    }
+
+    @Override
+    public double[] placed(String held) {
+        return null;                       // a finger on a foot or hand: not wired yet
+    }
+
+    /** A stance's level as it stood at the start of this frame (the walker reads last frame's, as the pilot does). */
+    @Override
+    public double stanceLevel(String poseId) {
+        Double v = poseBefore.get(poseId);
+        return v == null ? 0 : v;
+    }
+
+    @Override
+    public boolean trigOn(String trigId) {
+        return isOn(trigId);
+    }
+
+    @Override
+    public void setTrig(String trigId, boolean on) {
+        setButton(trigId, on);
+    }
+
     /** The character's stances and colour sets (each with its button), so their levels follow the buttons. */
     public void setStances(org.json.JSONObject doc) {
         stances.clear();
@@ -82,6 +128,7 @@ public final class Inputs {
 
     /** Stance levels ease in and out on a spring that starts gently and settles without a bump (or a small one when it is bouncy). */
     private void easeLevels(double dt, Map<String, Object> out) {
+        for (Map.Entry<String, double[]> e : poseLevel.entrySet()) poseBefore.put(e.getKey(), e.getValue()[0]);
         for (String[] p : stances) {
             boolean on = !p[1].isEmpty() && out.get("g:" + p[1]) instanceof Number && ((Number) out.get("g:" + p[1])).doubleValue() > 0.5;
             double[] st = poseLevel.get(p[0]);
@@ -354,6 +401,7 @@ public final class Inputs {
         m.put("turnX", tx);
         m.put("turnY", ty);
         m.put("roll", ro);
+        m.put("flip", flipped ? 1.0 : 0.0);
         m.put("sway", sway);
         m.put("bounce", bounce);
         m.put("lookX", lookX);

@@ -81,6 +81,9 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private TextView pathName;
     private PartsView parts;
     private PerformPanel performPanel;
+    private volatile java.util.Map<String, Object> lastSignals;
+    private cc.joycreator.avatar.perform.Walker walker;
+    private org.json.JSONObject walkerDoc;
     private cc.joycreator.avatar.ui.LandmarksScreen landmarks;
     private cc.joycreator.avatar.ui.SolverStage glStage;
     private boolean glWorks = true;
@@ -153,6 +156,24 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         stageBox.addView(glStage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stageBox.addView(stage, new android.widget.FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         stage.setGlBacked(true);
+        stage.setBodyDrag(new cc.joycreator.avatar.ui.StageView.BodyDrag() {
+            @Override
+            public boolean grab(float x, float y) {
+                if (stageIndex != 3 || walker == null || !walker.travels()) return false;
+                walker.grab(x, y);
+                return true;
+            }
+
+            @Override
+            public void drag(float x, float y) {
+                if (walker != null) walker.drag(x, y);
+            }
+
+            @Override
+            public void release() {
+                if (walker != null) walker.release();
+            }
+        });
         stageBox.addView(buildStageTools(), new android.widget.FrameLayout.LayoutParams(px(44), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.END | Gravity.TOP));
         left.addView(stageBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         root.addView(left, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f));
@@ -220,7 +241,18 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         dot.leftMargin = px(10);
         bar.addView(saveDot, dot);
         paintSaveDot();
-        // Export and Joybot join the bar as each one works.
+        // the export mark: Studio's own vector in the Avatar gradient, at the bar's right end (spec A2)
+        View gap = new View(this);
+        bar.addView(gap, new LinearLayout.LayoutParams(0, 1, 1f));
+        android.widget.ImageView export = new android.widget.ImageView(this);
+        export.setImageResource(R.drawable.ic_export_studio);
+        export.setColorFilter(Studio.ROOM_AVATAR);
+        export.setPadding(px(6), px(6), px(6), px(6));
+        TooltipCompat.setTooltipText(export, getString(R.string.avatar_hover_export));
+        export.setContentDescription(getString(R.string.avatar_hover_export));
+        export.setOnClickListener(v -> openExport());
+        bar.addView(export, new LinearLayout.LayoutParams(px(40), px(40)));
+        // Joybot joins the bar when his orb is wired to this room.
         return bar;
     }
 
@@ -263,6 +295,28 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         g.setColor(on ? Studio.ARMED : 0xFF27272A);
         pickTool.setBackground(g);
         pickTool.setTextColor(on ? Studio.GROUND : 0xFFFAFAFA);
+    }
+
+    /** The export sheet (slice 2's RoomExportSheet): the character is saved first, so the file it works from is current. */
+    private void openExport() {
+        final CharacterDoc d = character;
+        if (d == null) return;
+        final String path = characterPath;
+        final java.util.Map<String, Object> sig = lastSignals;
+        JoyFolderHome.io().execute(() -> {
+            String rel = CharacterStore.save(this, d, path);
+            main.post(() -> {
+                if (isFinishing()) return;
+                if (rel == null) {
+                    Toast.makeText(this, R.string.avatar_cannot_save, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                characterPath = rel;
+                unsaved = false;
+                paintSaveDot();
+                cc.joycreator.avatar.studio.RoomExportSheet.show(this, rel, characterName(), sig);
+            });
+        });
     }
 
     private void paintSaveDot() {
@@ -830,6 +884,10 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         glPictures = pics;
         inputs.setSettings(d.json.optJSONObject("settings"));
         inputs.setStances(d.json);
+        if (walker == null || walkerDoc != d.json) {
+            walker = new cc.joycreator.avatar.perform.Walker(d.json, inputs);
+            walkerDoc = d.json;
+        } else walker.refresh();
         stage.setSelected(inHand);
         layers.show(d, inHand);
         parts.show(d, inHand, stageIndex);
@@ -1068,7 +1126,7 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
     private void frame(double dt) {
         if (stageIndex < 2) {                                   // building: the still pose, nothing moving
             stage.setSignals(null);
-            glStage.frame(null, false, inputs.time(), 0, dt, stage.viewScale(), stage.viewX(), stage.viewY());
+            glStage.frame(null, false, dt, stage.viewScale(), stage.viewX(), stage.viewY());
             return;
         }
         if (inputs.micOn() && mic != null) {
@@ -1078,8 +1136,14 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         }
         if (inputs.faceOn() && faceCapture != null) inputs.faceSaw(faceCapture.sample(System.nanoTime()));
         java.util.Map<String, Object> sig = inputs.frame(dt, System.currentTimeMillis());
+        lastSignals = sig;
         stage.setSignals(sig);
-        glStage.frame(sig, true, inputs.time(), inputs.breath(), dt, stage.viewScale(), stage.viewX(), stage.viewY());
+        cc.joycreator.avatar.solve.Signals S = cc.joycreator.avatar.ui.SignalMap.toSignals(sig, inputs.time(), inputs.breath());
+        if (walker != null && (walker.canWalk() || walker.travels())) {
+            walker.step(dt, S, glStage.anchors(), glStage.tips());
+            S.flip = inputs.flip();
+        }
+        glStage.frame(S, true, dt, stage.viewScale(), stage.viewX(), stage.viewY());
         Object tx = sig.get("turnX"), ty = sig.get("turnY");
         if (tx instanceof Number && ty instanceof Number) performPanel.showHead(((Number) tx).doubleValue(), ((Number) ty).doubleValue());
         performPanel.tick();

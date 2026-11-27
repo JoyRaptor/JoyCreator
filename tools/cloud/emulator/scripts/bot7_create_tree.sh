@@ -22,7 +22,7 @@ landing() {
     echo "=== landing $name"
     adb shell am force-stop "$PKG"; settle 2; launch_app; settle 8      # always from a clean start
     tap_text "Joybot" >/dev/null 2>&1 || tap 1020 105; settle 3
-    tap_text "Create something" >/dev/null 2>&1; settle 2
+    wait_for "Create something" 25 >/dev/null; tap_text "Create something" >/dev/null 2>&1; settle 3
     local found=0 k
     for k in 0 1 2 3 4 5 6 7 8 9 10 11; do
         if tap_text "$name" >/dev/null 2>&1; then found=1; break; fi
@@ -33,7 +33,9 @@ landing() {
     settle 3; shot "${name}_asks"
     dump "${name}_asks"; python3 "$HERE_LIB/uia.py" list /tmp/ui.xml | head -25
     for answer in "$@"; do tap_text "$answer" >/dev/null 2>&1 && { echo "answered $answer"; settle 3; }; done
-    settle 14; shot "${name}_lands"
+    # a room that opens for the first time on the emulator is verified and compiled first (a minute or more): wait for the chat to go
+    for k in $(seq 1 45); do dump; python3 "$HERE_LIB/uia.py" count /tmp/ui.xml "Ask anything" | grep -q '^0$' && break; sleep 2; done
+    settle 4; shot "${name}_lands"
     echo "RESULT $name: lands in $(top)"
     key KEYCODE_BACK; settle 2; key KEYCODE_BACK; settle 2
     adb shell am start -n "$PKG/com.fadcam.SplashActivity" >/dev/null; settle 6

@@ -9,9 +9,9 @@ the phone until the final phone run. Every session ticks its own rows here when 
 
 | | Points |
 |---|---|
-| Earned | **119 of 180 (66%)** (11-27 night; the face session added its two rows, lead to re-check) |
-| Landed | 102 |
-| Built or partly landed (half) | 17 |
+| Earned | **130.5 of 183 (71%)** (11-27 night, lead re-checked every row) |
+| Landed | 120 |
+| Built or partly landed (half) | 10.5 |
 
 Updated 11-27 by the lead.
 

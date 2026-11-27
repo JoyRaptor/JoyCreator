@@ -331,6 +331,30 @@ public class AvatarFaceTest {
         check(wch.length == 3 && java.util.Arrays.stream(wch).boxed().collect(java.util.stream.Collectors.toSet()).containsAll(java.util.Arrays.asList(17, 61, 291)),
                 "the camera watches the mask's face points, both sides of each");
 
+        // ── face pins (the model half of the pilot's al-facepins.js): bind, strength, the All pins dial, unbind, one piece ──
+        org.json.JSONObject fch = new org.json.JSONObject("{\"root\":{\"id\":\"r\",\"type\":\"group\",\"kids\":[{\"id\":\"hd\",\"type\":\"set\",\"role\":\"head\",\"pick\":{\"by\":\"turn\"},\"kids\":["
+                + "{\"id\":\"front\",\"type\":\"group\",\"at\":[0,0],\"kids\":[{\"id\":\"cheek\",\"type\":\"art\"}]}]}]}}");
+        org.json.JSONObject frontN = cc.joycreator.avatar.face.FacePins.node(fch.getJSONObject("root"), "front"), cheekN = cc.joycreator.avatar.face.FacePins.node(fch.getJSONObject("root"), "cheek");
+        org.json.JSONObject sheet = cc.joycreator.avatar.face.FacePins.sheetOf(fch, cheekN);
+        cc.joycreator.avatar.face.FacePins.sheetMesh(sheet);
+        sheet.getJSONObject("mesh").getJSONArray("pins").put(new org.json.JSONObject().put("id", "p1").put("x", 100).put("y", 120));
+        String fid = cc.joycreator.avatar.face.FacePins.bind(fch, sheet, "p1", 61, true, 60);
+        org.json.JSONArray fsh = sheet.getJSONArray("shapes");
+        check(sheet == frontN && sheet.getJSONObject("mesh").optBoolean("last") && fsh.length() == 2 && "pt.61.x".equals(fsh.getJSONObject(0).getString("sig")) && "pt.61.y".equals(fsh.getJSONObject(1).getString("sig"))
+                        && fsh.getJSONObject(0).getJSONObject("d").getJSONArray("p1").getDouble(0) == 60 && fsh.getJSONObject(1).getJSONObject("d").getJSONArray("p1").getDouble(1) == 60
+                        && "your right mouth corner".equals(cc.joycreator.avatar.face.FacePins.nameOf(61)) && fsh.getJSONObject(0).getString("name").contains("your right mouth corner")
+                        && java.util.Arrays.equals(cc.joycreator.avatar.face.FacePins.points(fch), new int[]{61}),
+                "a face pin on a slice goes on the head's whole drawing (one piece, bent last), two Shapes follow the point, named in his words");
+        cc.joycreator.avatar.face.FacePins.strength(fch, fid, 0.5);
+        cc.joycreator.avatar.face.FacePins.setGain(fch, fch.getJSONObject("root"), 2);
+        check(Math.abs(fsh.getJSONObject(0).getDouble("amt") - 1.0) < 1e-9 && Math.abs(cc.joycreator.avatar.face.FacePins.gain(fch) - 2) < 1e-9,
+                "a pin's strength times the All pins dial (0.5 x 2)");
+        cc.joycreator.avatar.face.FacePins.unbind(fch, fid);
+        check(!fch.has("facePins") && sheet.getJSONArray("shapes").length() == 0 && sheet.getJSONObject("mesh").getJSONArray("pins").length() == 0,
+                "taking a face pin off takes its Shapes, and the pin made for it");
+        fch.put("settings", new org.json.JSONObject().put("faceSheet", false));
+        check(cc.joycreator.avatar.face.FacePins.sheetOf(fch, cheekN) == cheekN, "one piece off: the slice itself");
+
         System.out.println(fails == 0 ? "PASSED" : "FAILED " + fails);
         System.exit(fails == 0 ? 0 : 1);
     }

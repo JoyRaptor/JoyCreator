@@ -74,6 +74,11 @@ public final class PartsView extends ScrollView {
 
         /** Match the angles of this head (the landmarks screen). */
         void openLandmarks(String setId);
+
+        /** Face pins for the part in hand (the face session's section), or null where they do not belong. */
+        default android.view.View facePinsSection(CharacterDoc.Node node) {
+            return null;
+        }
     }
 
     private final Host host;
@@ -149,6 +154,8 @@ public final class PartsView extends ScrollView {
         if (node.json.optJSONObject("swing") != null)
             guess.addView(chip(getContext().getString(R.string.avatar_guess_pins), false, v -> host.guessPins(node.id, "swing"), getContext().getString(R.string.avatar_hover_guess_swing)));
         if (guess.getChildCount() > 0) column.addView(guess);
+        android.view.View facePins = host.facePinsSection(node);                    // (a point of your face pulls a pin: FACE-1)
+        if (facePins != null) column.addView(facePins);
         if (!"set".equals(node.type) || node.kids.isEmpty()) {
             column.addView(body(getContext().getString(R.string.avatar_ask_stage_1)));
             return;

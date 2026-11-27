@@ -235,5 +235,19 @@
     <string name="avatar_step_reshape_pin">Reshape: move a pin</string>
     <string name="avatar_step_reshape_remove">Remove a pin</string>
     <string name="avatar_step_reshape_again">Clear the reshape</string>
+    <string name="avatar_new_whole">Pin one whole drawing</string>
+    <string name="avatar_hover_new_whole">A finished drawing in one piece: tap its head, hands and feet and it bends</string>
+    <string name="avatar_wizard_title">Pin “%1$s”</string>
+    <string name="avatar_wizard_tap">Tap %1$s.</string>
+    <string name="avatar_wizard_enough">%1$d pins. That is enough to puppeteer it. Add more any time.</string>
+    <string name="avatar_wizard_cancel">Cancel</string>
+    <string name="avatar_hover_wizard_cancel">Leave without making a character</string>
+    <string name="avatar_wizard_back">Back</string>
+    <string name="avatar_hover_wizard_back">Take back the last step</string>
+    <string name="avatar_wizard_skip">Skip %1$s</string>
+    <string name="avatar_hover_wizard_skip">This one is not on the drawing</string>
+    <string name="avatar_hover_wizard_done">Use these pins</string>
+    <string name="avatar_hover_wizard_two">Place at least two pins</string>
+    <string name="avatar_wizard_pinned">Pinned. Drag any pin to move it in Set up.</string>
 </resources>
 

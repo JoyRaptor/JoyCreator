@@ -163,9 +163,13 @@ public final class RigidTextureShutterPass {
         scale[1] = (float) trail.copyScale();
         scale[2] = (float) trail.sharp();
         p.setFloatsUniform("uScale", scale);
-        feather[0] = (float) trail.featherU();
-        feather[1] = (float) trail.featherV();
-        p.setFloatsUniform("uFeather", feather);
+        // Copies never smears, so its program has no uFeather (the compiler drops it, and
+        // setting a uniform that is not there throws).
+        if (trail.look() != MotionShutter.Look.COPIES) {
+            feather[0] = (float) trail.featherU();
+            feather[1] = (float) trail.featherV();
+            p.setFloatsUniform("uFeather", feather);
+        }
         p.bindAttributesAndUniforms();
         GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP, 0, 4);
         GlUtil.checkGlError();

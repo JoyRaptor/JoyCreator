@@ -49,6 +49,17 @@ public final class PerformPanel extends ScrollView {
 
         void clearTake();
 
+        /** Face: take the face now as neutral (look at the screen, relaxed). */
+        void recentreFace();
+
+        boolean faceMirror();
+
+        /** Face: on = move like your reflection; off = like someone facing you. */
+        void setFaceMirror(boolean on);
+
+        /** The small private preview of the face (never kept): the view to give the camera, or null. */
+        View facePreview();
+
         /** The part in hand (a node of the character), or null; Motion shows how it moves. */
         CharacterDoc.Node inHandNode();
 
@@ -76,7 +87,8 @@ public final class PerformPanel extends ScrollView {
     private final List<String> buttonIds = new ArrayList<>();
     private final List<TextView> moodChips = new ArrayList<>();
     private final List<String> moodNames = new ArrayList<>();
-    private TextView micChip, faceChip;
+    private TextView micChip, faceChip, recentreChip, mirrorChip;
+    private LinearLayout faceRow;
     private final List<TextView> tickBoxes = new ArrayList<>();
     private final List<String[]> tickKeys = new ArrayList<>();   // {settings key, "t" when a missing key means on}
 
@@ -162,6 +174,29 @@ public final class PerformPanel extends ScrollView {
         side.addView(micChip, ml);
         faceChip = chip(c, c.getString(R.string.avatar_face), c.getString(R.string.avatar_hover_face), v -> host.toggleFace());
         side.addView(faceChip, ml);
+        // the face's own controls, there only while the camera is on: a private preview, Re-centre, Mirror
+        faceRow = new LinearLayout(c);
+        faceRow.setGravity(Gravity.CENTER_VERTICAL);
+        faceRow.setVisibility(View.GONE);
+        View preview = host.facePreview();
+        if (preview != null) {
+            if (preview.getParent() instanceof ViewGroup) ((ViewGroup) preview.getParent()).removeView(preview);
+            faceRow.addView(preview, new LinearLayout.LayoutParams(px(72), px(54)));
+        }
+        recentreChip = chip(c, c.getString(R.string.avatar_recentre), c.getString(R.string.avatar_hover_recentre), v -> host.recentreFace());
+        mirrorChip = chip(c, c.getString(R.string.avatar_mirror), c.getString(R.string.avatar_hover_mirror), v -> {
+            host.setFaceMirror(!host.faceMirror());
+            paintChips();
+        });
+        LinearLayout faceChips = new LinearLayout(c);
+        faceChips.setOrientation(LinearLayout.VERTICAL);
+        faceChips.setPadding(px(8), 0, 0, 0);
+        faceChips.addView(recentreChip);
+        faceChips.addView(mirrorChip);
+        faceRow.addView(faceChips);
+        LinearLayout.LayoutParams fl = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        fl.topMargin = px(6);
+        side.addView(faceRow, fl);
         row.addView(side, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
         column.addView(row);
 
@@ -312,6 +347,8 @@ public final class PerformPanel extends ScrollView {
         for (int i = 0; i < moodChips.size(); i++) paintChip(moodChips.get(i), moodNames.get(i).equals(in.moodName()));
         if (micChip != null) paintChip(micChip, in.micOn());
         if (faceChip != null) paintChip(faceChip, in.faceOn());
+        if (faceRow != null) faceRow.setVisibility(in.faceOn() ? View.VISIBLE : View.GONE);
+        if (mirrorChip != null) paintChip(mirrorChip, host.faceMirror());
     }
 
     // ── the take bar ──────────────────────────────────────────────────────────────────────────────

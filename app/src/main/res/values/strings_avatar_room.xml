@@ -173,5 +173,9 @@
         <item>Corners</item>
         <item>Wash</item>
     </string-array>
+    <string name="avatar_recentre">Re-centre</string>
+    <string name="avatar_hover_recentre">Take your face now as neutral: look at the screen, relaxed</string>
+    <string name="avatar_mirror">Mirror</string>
+    <string name="avatar_hover_mirror">On: the character moves like your reflection. Off: like someone facing you</string>
 </resources>
 

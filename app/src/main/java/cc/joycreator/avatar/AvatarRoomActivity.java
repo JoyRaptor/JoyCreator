@@ -614,9 +614,36 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
         faceOn();
     }
 
+    private com.fadcam.ui.faditor.avatar.face.FacePreviewView facePreview;
+
+    @Override
+    public void recentreFace() {
+        if (faceCapture != null) faceCapture.setNeutral();
+    }
+
+    @Override
+    public boolean faceMirror() {
+        return faceCapture != null && faceCapture.tuning().mirror;
+    }
+
+    @Override
+    public void setFaceMirror(boolean on) {
+        if (faceCapture == null) return;
+        com.fadcam.ui.faditor.avatar.face.FaceTuning t = faceCapture.tuning();
+        t.mirror = on;
+        faceCapture.setTuning(t);
+    }
+
+    @Override
+    public View facePreview() {
+        if (facePreview == null) facePreview = new com.fadcam.ui.faditor.avatar.face.FacePreviewView(this);
+        return facePreview;
+    }
+
     private void faceOn() {
         try {
             if (faceCapture == null) faceCapture = new com.fadcam.ui.faditor.avatar.face.FaceCapture(this);
+            faceCapture.setPreview(facePreview instanceof com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink ? (com.fadcam.ui.faditor.avatar.MediaPipeTrackingSource.PreviewSink) facePreview : null, false);
             faceCapture.start();
             inputs.face(true);
         } catch (RuntimeException e) {
@@ -628,7 +655,11 @@ public final class AvatarRoomActivity extends Activity implements RoomMenu.Host,
 
     /** Lets go of the camera at once (leaving the room, or the chip tapped off). */
     private void faceOff() {
-        if (faceCapture != null) faceCapture.stop();
+        if (faceCapture != null) {
+            faceCapture.stop();
+            faceCapture.setPreview(null, false);
+        }
+        if (facePreview != null) facePreview.setCameraOn(false);
         inputs.face(false);
         performPanel.tick();
     }

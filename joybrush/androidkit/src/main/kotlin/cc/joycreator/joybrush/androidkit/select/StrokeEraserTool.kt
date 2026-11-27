@@ -29,7 +29,17 @@ class StrokeEraserTool(
     private val fingersErase: () -> Boolean = { false },
     /** Said once when a stroke finds no lines to erase on this layer. */
     private val say: (String) -> Unit = {},
+    /**
+     * What a stroke takes (11-27): the whole line it touches, the line out to where it crosses others (Trim to crossing,
+     * Concepts' slice), or just the part under the eraser (Part of a line). The last two shorten lines in place.
+     */
+    private val mode: () -> cc.joycreator.joybrush.core.vector.InkEraseMode = { cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE },
 ) : CanvasTool {
+    private val pathX = ArrayList<Double>()
+    private val pathY = ArrayList<Double>()
+    private var radius = 0.0
+    private var toldMiddle = false
+    private val whole get() = mode() == cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE
 
     private var owning = false
     private var delegated: CanvasTool? = null
@@ -57,6 +67,7 @@ class StrokeEraserTool(
         }
         owning = true
         hit.clear()
+        pathX.clear(); pathY.clear()
         pointerId = ev.getPointerId(pointerIndex)
         val (x, y) = view.screenToDoc(ev.getX(pointerIndex), ev.getY(pointerIndex))
         lastX = x.toDouble(); lastY = y.toDouble()
@@ -93,6 +104,11 @@ class StrokeEraserTool(
         val zoom = if (view.zoom.isFinite() && view.zoom > 0f) view.zoom.toDouble() else 1.0
         // Never thinner than a few screen px, so a tiny eraser zoomed out still catches what it visibly crosses.
         val r = maxOf(radiusDoc().toDouble().takeIf { it.isFinite() } ?: 0.0, MIN_REACH_SCREEN_PX / zoom)
+        if (!whole) {
+            // Trim and Part erase on lift, from the whole path: the cut needs every crossing it passed.
+            pathX.add(x); pathY.add(y); radius = r; lastX = x; lastY = y
+            return
+        }
         val candidates = lines.filter { it.address !in hit }
         val touched = StrokeEraseHit.touched(candidates.map { it.geometry }, lastX, lastY, x, y, r)
         lastX = x; lastY = y
@@ -110,6 +126,7 @@ class StrokeEraserTool(
     }
 
     private fun finish() {
+        if (!whole) { finishParts(); return }
         owning = false
         val gone = hit.toSet()
         hit.clear()
@@ -117,6 +134,47 @@ class StrokeEraserTool(
         if (gone.isNotEmpty()) host()?.deleteLines(gone)
         lift?.release(); lift = null
         lines = emptyList()
+    }
+
+    /**
+     * Trim to crossing / Part of a line: the lines this path cut, as core's eraser cuts them (InkErase: the surviving piece
+     * is the line's own samples, so it stays an editable line). A line left with one piece is shortened in place, a line
+     * with none is erased, and both go as ONE step. A line cut in its middle would be two lines, which a cel's one seq per
+     * line cannot hold yet: it is left as it was, and that is said once.
+     */
+    private fun finishParts() {
+        owning = false
+        val h = host()
+        val touchable = lines
+        lines = emptyList()
+        if (h == null || touchable.isEmpty() || pathX.isEmpty()) return
+        val byPlane = touchable.groupBy { cc.joycreator.joybrush.androidkit.lines.LinePlane(it.layerId, it.celId) }
+        val shortened = ArrayList<cc.joycreator.joybrush.core.stroke.AddressedStroke>()
+        val removed = LinkedHashSet<LineAddress>()
+        var middle = false
+        val path = cc.joycreator.joybrush.core.vector.EraserPath(pathX.toDoubleArray(), pathY.toDoubleArray(), radius)
+        for ((plane, planeLines) in byPlane) {
+            val outcome = try {
+                cc.joycreator.joybrush.core.vector.InkErase.run(plane.celId ?: plane.layerId, planeLines.map { it.record }, path, mode()) { r ->
+                    h.brushPreset(r.brushId)
+                }
+            } catch (e: Exception) { continue }
+            val erased = outcome as? cc.joycreator.joybrush.core.vector.InkEraseOutcome.Erased ?: continue
+            for (id in erased.before.keys) {
+                val pieces = erased.records.filter { it.id == id || it.id.startsWith("$id~") }
+                val address = plane.address(id)
+                when {
+                    pieces.isEmpty() -> removed += address
+                    pieces.size == 1 && pieces[0].id == id -> shortened += cc.joycreator.joybrush.core.stroke.AddressedStroke(address, pieces[0])
+                    else -> middle = true
+                }
+            }
+        }
+        if (middle && !toldMiddle) {
+            toldMiddle = true
+            say("Cutting a line in two isn't possible yet, so a line erased in its middle was left whole. Its ends can be trimmed.")
+        }
+        if (shortened.isNotEmpty() || removed.isNotEmpty()) h.eraseParts(shortened, removed)
     }
 
     override fun cancel() {

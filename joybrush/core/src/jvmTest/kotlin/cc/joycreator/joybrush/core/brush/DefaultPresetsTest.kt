@@ -111,7 +111,7 @@ class DefaultPresetsTest {
             "joybrush.ink", "joybrush.pencil", "joybrush.marker",
             "joybrush.softair", "joybrush.eraser", "fill",
             // 11-27: the whole-line eraser (Concepts' stroke eraser); its strokes are handled by StrokeEraserTool.
-            "joybrush.eraser.lines",
+            "joybrush.eraser.lines", "joybrush.eraser.trim", "joybrush.eraser.part",
             // R9: the owner's sable ink brush, the tuft engine's first brush.
             "joybrush.sable", "joybrush.bristle", "joybrush.flatpaint",
             "joybrush.watercolour",

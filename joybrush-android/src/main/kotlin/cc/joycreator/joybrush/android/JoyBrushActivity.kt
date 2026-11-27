@@ -248,8 +248,15 @@ private const val WHEEL_DP = 176
 private const val SIZE_STEPS = 1000
 /** No brush reads a paint selection as a clip yet (SELECT_PIXELS P2+): a stroke then ends it, so the ants never lie. */
 private const val PAINT_CLIP_WIRED = false
-/** The shipped "Whole lines" eraser (brushes/lineeraser): with it in the hand, StrokeEraserTool takes the stroke. */
-private const val LINE_ERASER_ID = "joybrush.eraser.lines"
+/**
+ * The shipped line erasers, with what each takes: Whole lines (brushes/lineeraser), Trim to crossing (brushes/trimeraser,
+ * Concepts' slice) and Part of a line (brushes/parteraser). With one in the hand, StrokeEraserTool takes the stroke.
+ */
+private val LINE_ERASERS = mapOf(
+    "joybrush.eraser.lines" to cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE,
+    "joybrush.eraser.trim" to cc.joycreator.joybrush.core.vector.InkEraseMode.TO_INTERSECTION,
+    "joybrush.eraser.part" to cc.joycreator.joybrush.core.vector.InkEraseMode.PARTIAL,
+)
 
 /** What "Open…" accepts: a Joy Brush drawing, and the two types a provider gives one it does not know. */
 private val OPENABLE_TYPES = arrayOf(JB_MIMETYPE, "application/zip", "application/octet-stream")
@@ -3674,13 +3681,14 @@ class JoyBrushActivity : Activity() {
             next = { selection?.tool },
             fingersErase = { canvas.fingersDraw },
             say = { selectUi.say(it) },
+            mode = { LINE_ERASERS[tools.current?.brushId] ?: cc.joycreator.joybrush.core.vector.InkEraseMode.WHOLE_STROKE },
         )
         strip.showSelect(shown = true, chosen = false)
     }
 
     /** The "Whole lines" eraser is the tool in the hand: a stroke takes away whole editable lines, as one step. */
     private fun lineEraserInHand(): Boolean =
-        !selectInHand && tools.active == ToolSlot.ERASER && tools.current?.brushId == LINE_ERASER_ID
+        !selectInHand && tools.active == ToolSlot.ERASER && tools.current?.brushId in LINE_ERASERS
 
     /** What the host needs of this screen. */
     private val selectUi = object : HostUi {

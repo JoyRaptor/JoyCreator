@@ -58,6 +58,7 @@ sealed class LineEdit {
         is Add -> records.map { it.address }
         is Delete -> ids
         is Bake -> ids
+        is Split -> after.map { it.address } + removed
     }
 
     /** The layers this edit touches (v1.2 H9: a locked or hidden one refuses it). */
@@ -74,6 +75,12 @@ sealed class LineEdit {
     data class Add(val records: List<AddressedStroke>, val brushes: Map<String, BrushPreset> = emptyMap(),
                    val assets: Map<String, cc.joycreator.joybrush.core.brush.FrozenBrushPngs> = emptyMap()) : LineEdit()
     data class Delete(val ids: Set<LineAddress>) : LineEdit()
+    /**
+     * Erasing part of lines (the slice and partial erasers, 11-27): [after] are lines shortened IN PLACE (same address,
+     * same seq), [removed] are lines erased whole, together as ONE undo step. A line erased in its middle would leave two
+     * pieces, and a cel's seqs are one each (LineRules D1), so that case is not an edit yet.
+     */
+    data class Split(val after: List<AddressedStroke>, val removed: Set<LineAddress>) : LineEdit()
     /** Rasterize Down (v1.2 H3): each line becomes a pixel slab at its own seq and its record goes; the pixels stay. */
     data class Bake(val ids: Set<LineAddress>) : LineEdit()
 }

@@ -113,3 +113,12 @@ Script `tools/cloud/emulator/scripts/bot7_create_tree.sh`; runs 46051722601 and 
 | Tile | ⏳ asks "How big should the tile be?" with 256 / 512 / 1024 px, Type your own, Never mind (`bot7_tile_asks_size.jpg`); the script answered with a wrong word, so the landing itself is not yet seen. Script fixed to answer "256 px"; re-run owed |
 | Hand animation, Video, Audio, Music visuals, Titles, Character, Sprite load-and-edit | not run yet (the sprite load needs a sprite file on the emulator) |
 Joybot also answered "I want to make something" with the bubbles in the person's own order, and the "Opening JoyBrush with a square board." line shows before the room opens. Pen, paint and camera checks are not part of this: the phone lane's.
+- **11-27 second emulator batch (run 46062765741, script on `joy-creator` 6952db5db):**
+  | Bubble | Result | Evidence |
+  |---|---|---|
+  | Tile (256 px) | ✅ PASS | JoyBrush with a square tile board, tiling toggle lit, locked (`tasks/screens/emulator-20261127/bot7_tile_lands.jpg`) |
+  | Hand animation (16:9, 12 fps) | ✅ PASS | JoyBrush Animation board 756 x 425, one frame on the strip, "When it ends: Loop / Ping-pong / Hold / Blank" (`bot7_handanimation_lands.jpg`) |
+  | Music visuals | ✅ PASS | VisLab opens and plays "Sound City" on the demo song (`bot7_musicvisuals_lands.jpg`) |
+  | Video, Titles | ⏳ not seen: the script's sideways swipes never reached these bubbles | script to fix |
+  | Character | ⏳ not valid: the app was still on the Library when the script tapped it (shot `12_Character_asks`); needs a clean start | script to fix |
+  Not yet run: Audio project, Sprite load-and-edit (needs a sprite file on the emulator). Lesson for the scripts: the emulator uses `tools/cloud/emulator/scripts` from `joy-creator`, not from the built branch, and a reused APK run does not change that.

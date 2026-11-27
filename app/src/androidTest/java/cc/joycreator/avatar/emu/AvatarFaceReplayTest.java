@@ -194,9 +194,12 @@ public class AvatarFaceReplayTest {
             View puff = find(a, a.getString(R.string.avatar_puff));
             assertNotNull("the Puff button is there once a part follows the cheek puff", puff);
             Bitmap before = Emu.screen();
+            String headSet = null;
+            for (CharacterDoc.Node k : nodes((CharacterDoc) field(a, "character"))) if ("head".equals(k.role)) { headSet = k.id; break; }
+            double y0 = headY(a, headSet);
             down(puff);
             Emu.sleep(900);
-            double held = sig(a, "face.cheekPuff");
+            double held = sig(a, "face.cheekPuff"), y1 = headY(a, headSet);
             boolean owned = in.owners(System.currentTimeMillis()).contains("puff");
             Bitmap during = Emu.screen();
             Emu.save(during, new File(out, "15-puff-held.png"));
@@ -205,7 +208,7 @@ public class AvatarFaceReplayTest {
             double after = sig(a, "face.cheekPuff");
             double moved = changed(before, during, (View) field(a, "glStage"));
             check(held > 0.9 && owned, "held, Puff puffs: the cheek puff lane " + f(held) + ", the puff's own owner");
-            check(moved > 0.002, "...and the part that follows it moves on the stage (" + f(moved * 100) + "% of the stage changed)");
+            check(y1 - y0 > 20, "...and the head that follows it is drawn lower by the Link (" + f(y1 - y0) + " px of 40; " + f(moved * 100) + "% of the stage changed)");
             check(after < 0.1, "let go, it settles (" + f(after) + ")");
             // face pins in Set up, by real taps: the head in hand, Face pins, his right mouth corner, a tap on Topps's mouth
             Emu.tap(tabs[0]);
@@ -496,6 +499,16 @@ public class AvatarFaceReplayTest {
         List<CharacterDoc.Node> out = new ArrayList<>();
         d.walk((n, depth, parent) -> out.add(n));
         return out;
+    }
+
+    /** Where a part is drawn now (its matrix's y offset, character pixels), from the room's GPU stage. */
+    private static double headY(AvatarRoomActivity a, String id) throws Exception {
+        Object gl = field(a, "glStage");
+        double[][] m = new double[1][];
+        Emu.ins().runOnMainSync(() -> {
+            try { m[0] = (double[]) gl.getClass().getMethod("matrix", String.class).invoke(gl, id); } catch (Exception e) { throw new RuntimeException(e); }
+        });
+        return m[0] == null ? Double.NaN : m[0][5];
     }
 
     private static void down(View v) { touch(v, MotionEvent.ACTION_DOWN); }

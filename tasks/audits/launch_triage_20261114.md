@@ -354,7 +354,7 @@ Each row was read against today's code, git log and STATE. "Fixed" cites the com
 | TX-17 | fixed 11-24 | STATE TextLab intro no longer says nothing is in the app; the five help topics are named |
 | L26, L33 | need the owner / JoyBrush lead | |
 | L29 | already fixed | `fefb19bae` (shot list, store shots, storyboard); real recordings are asset work |
-| JBX-08 | hover outline now has a STATE row (11-24); looking at it on the Note 9 is owed | |
+| JBX-08 | hover outline now has a STATE row (11-24); **11-27 (hover-1 lane): adb cannot fake a hover on the Note 9** (Android 10: `input` has no hover event, and the injected-event route the bench uses is for touch and synthetic pen strokes only), so the look and the lean direction need the owner with the S Pen in hand. OWNER item, not an agent one | |
 | JBX-12 | partly fixed 11-24 (hover-outline row); the line clipboard row still missing | |
 | JBX-49 | partly fixed (`908008fd2`: import, guides, fibres); the paper Tint/Bite wording not added: needs the exact owner words | |
 | JBX-04 | open, needs the JoyBrush lane (guide edits are not in Undo) | |
